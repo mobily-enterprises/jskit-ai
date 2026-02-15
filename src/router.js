@@ -1,11 +1,16 @@
-import { createBrowserHistory, createRootRoute, createRoute, createRouter, redirect } from "@tanstack/vue-router";
+import {
+  createBrowserHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  lazyRouteComponent,
+  redirect
+} from "@tanstack/vue-router";
 import App from "./App.vue";
 
-/* v8 ignore start */
-const LoginView = () => import("./views/LoginView.vue");
-const CalculatorView = () => import("./views/CalculatorView.vue");
-const ResetPasswordView = () => import("./views/ResetPasswordView.vue");
-/* v8 ignore stop */
+const LoginView = lazyRouteComponent(() => import("./views/LoginView.vue"));
+const CalculatorView = lazyRouteComponent(() => import("./views/CalculatorView.vue"));
+const ResetPasswordView = lazyRouteComponent(() => import("./views/ResetPasswordView.vue"));
 
 async function resolveAuthState(authStore) {
   let authenticated = authStore.isAuthenticated;

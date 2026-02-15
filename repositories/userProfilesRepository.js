@@ -1,18 +1,30 @@
 import { db } from "../db/knex.js";
 import { toIsoString } from "../lib/dateUtils.js";
 
-function isMysqlDuplicateEmailError(error) {
+function isMysqlDuplicateEntryError(error) {
   if (!error) {
     return false;
   }
 
   const code = String(error.code || "");
-  if (code !== "ER_DUP_ENTRY") {
+  return code === "ER_DUP_ENTRY";
+}
+
+function duplicateEntryTargetsField(error, fieldName) {
+  if (!isMysqlDuplicateEntryError(error)) {
     return false;
   }
 
   const message = String(error.sqlMessage || error.message || "").toLowerCase();
-  return message.includes("email");
+  return message.includes(String(fieldName || "").toLowerCase());
+}
+
+function isMysqlDuplicateEmailError(error) {
+  return duplicateEntryTargetsField(error, "email");
+}
+
+function isMysqlDuplicateSupabaseUserIdError(error) {
+  return duplicateEntryTargetsField(error, "supabase_user_id");
 }
 
 function createDuplicateEmailConflictError() {
@@ -52,6 +64,8 @@ async function upsert(profile) {
   return db.transaction(async (trx) => {
     const existing = await trx("user_profiles").where({ supabase_user_id: profile.supabaseUserId }).first();
 
+    let duplicateSupabaseUserIdObserved = false;
+
     try {
       if (existing) {
         await trx("user_profiles").where({ id: existing.id }).update({
@@ -69,11 +83,43 @@ async function upsert(profile) {
       if (isMysqlDuplicateEmailError(error)) {
         throw createDuplicateEmailConflictError();
       }
-      throw error;
+      if (isMysqlDuplicateSupabaseUserIdError(error)) {
+        duplicateSupabaseUserIdObserved = true;
+      } else {
+        throw error;
+      }
     }
 
-    const row = await trx("user_profiles").where({ supabase_user_id: profile.supabaseUserId }).first();
-    return mapProfileRowRequired(row);
+    if (duplicateSupabaseUserIdObserved) {
+      // Another transaction inserted the same Supabase user first.
+      // Re-read and continue as update path.
+      const racedRow = await trx("user_profiles").where({ supabase_user_id: profile.supabaseUserId }).first();
+      if (!racedRow) {
+        throw new Error("Duplicate supabase_user_id detected but row could not be reloaded.");
+      }
+
+      try {
+        await trx("user_profiles").where({ id: racedRow.id }).update({
+          email: profile.email,
+          display_name: profile.displayName
+        });
+      } catch (error) {
+        if (isMysqlDuplicateEmailError(error)) {
+          throw createDuplicateEmailConflictError();
+        }
+        throw error;
+      }
+    }
+
+    try {
+      const row = await trx("user_profiles").where({ supabase_user_id: profile.supabaseUserId }).first();
+      return mapProfileRowRequired(row);
+    } catch (error) {
+      if (isMysqlDuplicateEmailError(error)) {
+        throw createDuplicateEmailConflictError();
+      }
+      throw error;
+    }
   });
 }
 

@@ -9,6 +9,8 @@
   "reporter": ["text-summary", "lcov"],
   "exclude": [
     "coverage/**",
+    "coverage-client/**",
+    "coverage-vue/**",
     "dist/**",
     "node_modules/**",
     "tests/**",
@@ -16,6 +18,7 @@
     "seeds/**",
     "knexfile.cjs",
     "vite.config.mjs",
+    "vitest.vue.config.mjs",
     "playwright.config.mjs",
     "eslint.config.mjs"
   ]

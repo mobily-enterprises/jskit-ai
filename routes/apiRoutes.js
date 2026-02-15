@@ -152,6 +152,87 @@ const sessionErrorResponseSchema = Type.Object(
   }
 );
 
+const fieldErrorsSchema = Type.Record(Type.String(), Type.String());
+
+const apiErrorDetailsSchema = Type.Object(
+  {
+    fieldErrors: Type.Optional(fieldErrorsSchema)
+  },
+  {
+    additionalProperties: true
+  }
+);
+
+const apiErrorResponseSchema = Type.Object(
+  {
+    error: Type.String({ minLength: 1 }),
+    details: Type.Optional(apiErrorDetailsSchema),
+    fieldErrors: Type.Optional(fieldErrorsSchema)
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const apiValidationErrorResponseSchema = Type.Object(
+  {
+    error: Type.String({ minLength: 1 }),
+    fieldErrors: fieldErrorsSchema,
+    details: Type.Object(
+      {
+        fieldErrors: fieldErrorsSchema
+      },
+      {
+        additionalProperties: true
+      }
+    )
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const fastifyDefaultErrorResponseSchema = Type.Object(
+  {
+    statusCode: Type.Integer({ minimum: 400, maximum: 599 }),
+    error: Type.String({ minLength: 1 }),
+    message: Type.String({ minLength: 1 }),
+    code: Type.Optional(Type.String({ minLength: 1 })),
+    details: Type.Optional(Type.Unknown()),
+    fieldErrors: Type.Optional(fieldErrorsSchema)
+  },
+  {
+    additionalProperties: true
+  }
+);
+
+const STANDARD_ERROR_STATUS_CODES = [400, 401, 403, 404, 409, 422, 429, 500, 503];
+
+function withStandardErrorResponses(successResponses, { includeValidation400 = false } = {}) {
+  const responses = {
+    ...successResponses
+  };
+
+  for (const statusCode of STANDARD_ERROR_STATUS_CODES) {
+    if (responses[statusCode]) {
+      continue;
+    }
+
+    if (statusCode === 400 && includeValidation400) {
+      responses[statusCode] = Type.Union([
+        apiValidationErrorResponseSchema,
+        apiErrorResponseSchema,
+        fastifyDefaultErrorResponseSchema
+      ]);
+      continue;
+    }
+
+    responses[statusCode] = Type.Union([apiErrorResponseSchema, fastifyDefaultErrorResponseSchema]);
+  }
+
+  return responses;
+}
+
 const annuityAssumptionsSchema = Type.Object(
   {
     rateConversion: Type.String({ minLength: 1 }),
@@ -243,9 +324,12 @@ function buildDefaultRoutes(controllers) {
         tags: ["auth"],
         summary: "Register a new user",
         body: registerCredentialsSchema,
-        response: {
-          201: registerResponseSchema
-        }
+        response: withStandardErrorResponses(
+          {
+            201: registerResponseSchema
+          },
+          { includeValidation400: true }
+        )
       },
       rateLimit: {
         max: 10,
@@ -261,9 +345,12 @@ function buildDefaultRoutes(controllers) {
         tags: ["auth"],
         summary: "Log in with Supabase credentials",
         body: loginCredentialsSchema,
-        response: {
-          200: loginResponseSchema
-        }
+        response: withStandardErrorResponses(
+          {
+            200: loginResponseSchema
+          },
+          { includeValidation400: true }
+        )
       },
       rateLimit: {
         max: 10,
@@ -279,9 +366,12 @@ function buildDefaultRoutes(controllers) {
         tags: ["auth"],
         summary: "Request a password reset email",
         body: emailOnlySchema,
-        response: {
-          200: okMessageResponseSchema
-        }
+        response: withStandardErrorResponses(
+          {
+            200: okMessageResponseSchema
+          },
+          { includeValidation400: true }
+        )
       },
       rateLimit: {
         max: 5,
@@ -297,9 +387,12 @@ function buildDefaultRoutes(controllers) {
         tags: ["auth"],
         summary: "Complete password recovery link exchange",
         body: passwordRecoverySchema,
-        response: {
-          200: okResponseSchema
-        }
+        response: withStandardErrorResponses(
+          {
+            200: okResponseSchema
+          },
+          { includeValidation400: true }
+        )
       },
       rateLimit: {
         max: 20,
@@ -315,9 +408,12 @@ function buildDefaultRoutes(controllers) {
         tags: ["auth"],
         summary: "Set a new password for authenticated recovery session",
         body: passwordOnlySchema,
-        response: {
-          200: okMessageResponseSchema
-        }
+        response: withStandardErrorResponses(
+          {
+            200: okMessageResponseSchema
+          },
+          { includeValidation400: true }
+        )
       },
       rateLimit: {
         max: 20,
@@ -332,9 +428,9 @@ function buildDefaultRoutes(controllers) {
       schema: {
         tags: ["auth"],
         summary: "Log out and clear session cookies",
-        response: {
+        response: withStandardErrorResponses({
           200: logoutResponseSchema
-        }
+        })
       },
       handler: controllers.auth.logout
     },
@@ -345,10 +441,10 @@ function buildDefaultRoutes(controllers) {
       schema: {
         tags: ["auth"],
         summary: "Get current session status and CSRF token",
-        response: {
+        response: withStandardErrorResponses({
           200: sessionResponseSchema,
           503: sessionErrorResponseSchema
-        }
+        })
       },
       handler: controllers.auth.session
     },
@@ -360,9 +456,12 @@ function buildDefaultRoutes(controllers) {
         tags: ["history"],
         summary: "List authenticated user's calculation history",
         querystring: historyQuerySchema,
-        response: {
-          200: historyListResponseSchema
-        }
+        response: withStandardErrorResponses(
+          {
+            200: historyListResponseSchema
+          },
+          { includeValidation400: true }
+        )
       },
       handler: controllers.history.list
     },
@@ -374,9 +473,12 @@ function buildDefaultRoutes(controllers) {
         tags: ["annuity"],
         summary: "Calculate annuity value and append history",
         body: annuityBodySchema,
-        response: {
-          200: annuityResponseSchema
-        }
+        response: withStandardErrorResponses(
+          {
+            200: annuityResponseSchema
+          },
+          { includeValidation400: true }
+        )
       },
       handler: controllers.annuity.calculate
     }

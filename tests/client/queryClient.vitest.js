@@ -13,13 +13,12 @@ describe("queryClient retry policy", () => {
     expect(__testables.shouldRetryRequest(2, { status: 500 })).toBe(false);
   });
 
-  it("uses retry policy for both queries and mutations", () => {
+  it("uses retry policy for queries and disables mutation retries by default", () => {
     const queryRetry = queryClient.getDefaultOptions().queries.retry;
     const mutationRetry = queryClient.getDefaultOptions().mutations.retry;
 
     expect(typeof queryRetry).toBe("function");
-    expect(typeof mutationRetry).toBe("function");
+    expect(mutationRetry).toBe(false);
     expect(queryRetry(0, { status: 503 })).toBe(true);
-    expect(mutationRetry(0, { status: 404 })).toBe(false);
   });
 });

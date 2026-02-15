@@ -23,8 +23,8 @@ export const queryClient = new QueryClient({
       refetchOnWindowFocus: false
     },
     mutations: {
-      retry: shouldRetryRequest,
-      retryDelay: 500
+      // Opt-in per mutation when operation is idempotent.
+      retry: false
     }
   }
 });

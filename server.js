@@ -25,7 +25,17 @@ import { safePathnameFromRequest } from "./lib/requestUrl.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const NODE_ENV = env.NODE_ENV === "production" ? "production" : "development";
+function resolveRuntimeEnv(nodeEnv) {
+  if (nodeEnv === "production") {
+    return "production";
+  }
+  if (nodeEnv === "test") {
+    return "test";
+  }
+  return "development";
+}
+
+const NODE_ENV = resolveRuntimeEnv(env.NODE_ENV);
 const PORT = Number(env.PORT) || 3000;
 const PUBLIC_DIR = path.join(__dirname, "dist");
 const INDEX_FILE_NAME = "index.html";
@@ -238,7 +248,7 @@ function registerPageGuardHook(app) {
   });
 }
 
-async function buildServer({ frontendBuildAvailable }) {
+export async function buildServer({ frontendBuildAvailable }) {
   const app = Fastify({
     logger: NODE_ENV !== "test"
   });
@@ -341,51 +351,88 @@ async function buildServer({ frontendBuildAvailable }) {
 
 let appInstance = null;
 let isShuttingDown = false;
+let signalHandlersRegistered = false;
 
-async function shutdown(signal) {
+export async function createServerApp({ frontendBuildAvailable } = {}) {
+  const resolvedFrontendBuildAvailable =
+    typeof frontendBuildAvailable === "boolean" ? frontendBuildAvailable : await hasFrontendBuild();
+
+  return buildServer({ frontendBuildAvailable: resolvedFrontendBuildAvailable });
+}
+
+export async function startServer({ port = PORT, host = "0.0.0.0", frontendBuildAvailable } = {}) {
+  validateRuntimeConfig();
+  const resolvedFrontendBuildAvailable =
+    typeof frontendBuildAvailable === "boolean" ? frontendBuildAvailable : await hasFrontendBuild();
+
+  if (NODE_ENV === "production" && !resolvedFrontendBuildAvailable) {
+    throw new Error("Frontend build not found. Run `npm run build` before starting the server.");
+  }
+
+  await initDatabase();
+
+  try {
+    appInstance = await buildServer({ frontendBuildAvailable: resolvedFrontendBuildAvailable });
+    await appInstance.listen({ port, host });
+    console.log(`Annuity app listening on http://localhost:${port}`);
+    return appInstance;
+  } catch (error) {
+    if (appInstance) {
+      try {
+        await appInstance.close();
+      } catch {
+        // Ignore close errors during startup failure.
+      }
+      appInstance = null;
+    }
+
+    await closeDatabase();
+    throw error;
+  }
+}
+
+export async function shutdownServer({ signal = "", exitProcess = false, exitCode = 0 } = {}) {
   if (isShuttingDown) {
     return;
   }
   isShuttingDown = true;
 
-  console.log(`Received ${signal}. Shutting down.`);
+  if (signal) {
+    console.log(`Received ${signal}. Shutting down.`);
+  }
 
   try {
     if (appInstance) {
       await appInstance.close();
+      appInstance = null;
     }
     await closeDatabase();
   } catch (error) {
     console.error("Failed to close server cleanly:", error);
-  } finally {
-    process.exit(0);
-  }
-}
-
-async function startServer() {
-  try {
-    validateRuntimeConfig();
-    const frontendBuildAvailable = await hasFrontendBuild();
-    if (NODE_ENV === "production" && !frontendBuildAvailable) {
-      throw new Error("Frontend build not found. Run `npm run build` before starting the server.");
+    if (exitProcess) {
+      process.exit(1);
     }
-    await initDatabase();
+    throw error;
+  } finally {
+    isShuttingDown = false;
+  }
 
-    appInstance = await buildServer({ frontendBuildAvailable });
-    await appInstance.listen({ port: PORT, host: "0.0.0.0" });
-    console.log(`Annuity app listening on http://localhost:${PORT}`);
-  } catch (error) {
-    console.error("Failed to initialize server:", error);
-    process.exit(1);
+  if (exitProcess) {
+    process.exit(exitCode);
   }
 }
 
-process.on("SIGINT", () => {
-  shutdown("SIGINT");
-});
+export function registerSignalHandlers() {
+  if (signalHandlersRegistered) {
+    return;
+  }
+  signalHandlersRegistered = true;
 
-process.on("SIGTERM", () => {
-  shutdown("SIGTERM");
-});
+  process.on("SIGINT", () => {
+    void shutdownServer({ signal: "SIGINT", exitProcess: true, exitCode: 0 });
+  });
 
-startServer();
+  process.on("SIGTERM", () => {
+    void shutdownServer({ signal: "SIGTERM", exitProcess: true, exitCode: 0 });
+  });
+}

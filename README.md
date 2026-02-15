@@ -38,6 +38,7 @@ npm install
 export DB_HOST="127.0.0.1"
 export DB_PORT="3306"
 export DB_NAME="material-app"
+export DB_TEST_NAME="material-app_test"
 export DB_USER="annuity_app"
 export DB_PASSWORD="replace-with-a-strong-password"
 
@@ -56,6 +57,7 @@ Notes:
 - Do not use MySQL `root` for production app traffic.
 - Keep secrets in environment variables only.
 - Runtime/application code is ESM. Knex CLI files stay as `.cjs` by design.
+- Backend tests run with `NODE_ENV=test` and use `DB_TEST_NAME` (default: `${DB_NAME}_test`) to isolate test data from development data.
 
 ## Database setup
 

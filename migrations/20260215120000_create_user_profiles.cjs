@@ -4,7 +4,7 @@ exports.up = async function up(knex) {
     table.string("supabase_user_id", 36).notNullable().unique();
     table.string("email", 320).notNullable().unique();
     table.string("display_name", 120).notNullable();
-    table.dateTime("created_at", { precision: 3 }).notNullable().defaultTo(knex.fn.now(3));
+    table.dateTime("created_at", { precision: 3 }).notNullable().defaultTo(knex.raw("UTC_TIMESTAMP(3)"));
   });
 };
 
