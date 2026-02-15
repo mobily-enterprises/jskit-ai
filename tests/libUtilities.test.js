@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { AppError, isAppError } from "../lib/errors.js";
 import { safePathnameFromRequest, safeRequestUrl } from "../lib/requestUrl.js";
-import { toIsoString } from "../lib/dateUtils.js";
+import { toIsoString, toMysqlDateTimeUtc } from "../lib/dateUtils.js";
 import { registerTypeBoxFormats, __testables as formatTestables } from "../lib/schemas/registerTypeBoxFormats.js";
 
 test("AppError and isAppError cover true/false branches", () => {
@@ -56,6 +56,12 @@ test("toIsoString accepts Date objects and throws on invalid values", () => {
   const date = new Date("2024-01-01T00:00:00.000Z");
   assert.equal(toIsoString(date), "2024-01-01T00:00:00.000Z");
   assert.throws(() => toIsoString("not-a-date"), /Invalid date value/);
+});
+
+test("toMysqlDateTimeUtc formats UTC timestamp for MySQL DATETIME(3)", () => {
+  assert.equal(toMysqlDateTimeUtc("2024-01-01T00:00:00.000Z"), "2024-01-01 00:00:00.000");
+  assert.equal(toMysqlDateTimeUtc(new Date("2024-01-01T01:02:03.045Z")), "2024-01-01 01:02:03.045");
+  assert.throws(() => toMysqlDateTimeUtc("not-a-date"), /Invalid date value/);
 });
 
 test("registerTypeBoxFormats and strict format helpers validate inputs", () => {

@@ -97,6 +97,7 @@ test("calculation logs repository factory insert/count/list and mapper branches"
 
   assert.equal(state.inserted.user_id, 5);
   assert.equal(state.inserted.id, "entry-1");
+  assert.equal(state.inserted.created_at, "2024-01-01 00:00:00.000");
 
   const total = await repo.countForUser(5);
   assert.equal(total, 3);

@@ -1,5 +1,5 @@
 import { db } from "../db/knex.js";
-import { toIsoString } from "../lib/dateUtils.js";
+import { toIsoString, toMysqlDateTimeUtc } from "../lib/dateUtils.js";
 
 function normalizeCount(row) {
   const values = Object.values(row || {});
@@ -39,7 +39,7 @@ function createCalculationLogsRepository(dbClient) {
     await dbClient("calculation_logs").insert({
       id: entry.id,
       user_id: userId,
-      created_at: entry.createdAt,
+      created_at: toMysqlDateTimeUtc(entry.createdAt),
       mode: entry.mode,
       timing: entry.timing,
       payment: entry.payment,
