@@ -30,6 +30,7 @@ const PORT = Number(env.PORT) || 3000;
 const PUBLIC_DIR = path.join(__dirname, "dist");
 const INDEX_FILE_NAME = "index.html";
 const SUPABASE_PUBLISHABLE_KEY = String(env.SUPABASE_PUBLISHABLE_KEY || "");
+const SCRIPT_SRC_POLICY = NODE_ENV === "production" ? ["'self'"] : ["'self'", "'unsafe-inline'"];
 
 const authService = createAuthService({
   supabaseUrl: env.SUPABASE_URL,
@@ -253,7 +254,7 @@ async function buildServer({ frontendBuildAvailable }) {
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
         formAction: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: SCRIPT_SRC_POLICY,
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:"],
         fontSrc: ["'self'", "data:"],

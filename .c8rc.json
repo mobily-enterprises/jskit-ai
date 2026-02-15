@@ -1,0 +1,22 @@
+{
+  "all": true,
+  "check-coverage": true,
+  "per-file": true,
+  "branches": 100,
+  "functions": 100,
+  "lines": 100,
+  "statements": 100,
+  "reporter": ["text-summary", "lcov"],
+  "exclude": [
+    "coverage/**",
+    "dist/**",
+    "node_modules/**",
+    "tests/**",
+    "src/**",
+    "seeds/**",
+    "knexfile.cjs",
+    "vite.config.mjs",
+    "playwright.config.mjs",
+    "eslint.config.mjs"
+  ]
+}

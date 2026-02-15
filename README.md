@@ -148,6 +148,47 @@ Run Playwright tests:
 npm run test:e2e
 ```
 
+Run backend tests:
+
+```bash
+npm test
+```
+
+Run frontend tests:
+
+```bash
+npm run test:client
+```
+
+Run strict backend coverage checks (c8):
+
+```bash
+npm run test:coverage
+```
+
+Run strict frontend coverage checks (Vitest + V8):
+
+```bash
+npm run test:client:coverage
+```
+
+Run both strict coverage checks:
+
+```bash
+npm run test:coverage:full
+```
+
+Coverage policy is split:
+
+- `.c8rc.json` controls backend coverage scope (includes an explicit `src/**` exclusion)
+- `vite.config.mjs` test coverage controls frontend `src/**/*.js` scope
+
+Run informational coverage summary without failing thresholds:
+
+```bash
+npm run test:coverage:all
+```
+
 ## Lint and format
 
 ```bash

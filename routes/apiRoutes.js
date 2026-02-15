@@ -1,5 +1,6 @@
-import { Type } from "@sinclair/typebox";
+import { Type } from "@fastify/type-provider-typebox";
 import { HistoryEntrySchema } from "../lib/schemas/historyEntrySchema.js";
+import { createPaginationQuerySchema } from "../lib/schemas/paginationQuerySchema.js";
 import { safeRequestUrl } from "../lib/requestUrl.js";
 
 const emailPattern = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$";
@@ -164,15 +165,11 @@ const annuityResponseSchema = Type.Object(
   }
 );
 
-const historyQuerySchema = Type.Object(
-  {
-    page: Type.Optional(Type.Integer({ minimum: 1, default: 1 })),
-    pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 10 }))
-  },
-  {
-    additionalProperties: false
-  }
-);
+const historyQuerySchema = createPaginationQuerySchema({
+  defaultPage: 1,
+  defaultPageSize: 10,
+  maxPageSize: 100
+});
 
 const annuityBodySchema = Type.Object(
   {

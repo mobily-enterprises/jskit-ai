@@ -28,3 +28,7 @@ export const queryClient = new QueryClient({
     }
   }
 });
+
+export const __testables = {
+  shouldRetryRequest
+};

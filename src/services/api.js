@@ -121,6 +121,11 @@ function clearCsrfTokenCache() {
   csrfTokenCache = "";
 }
 
+function resetApiStateForTests() {
+  csrfTokenCache = "";
+  csrfFetchPromise = null;
+}
+
 export const api = {
   session() {
     return request("/api/session");
@@ -154,4 +159,13 @@ export const api = {
     return request(`/api/history?${params.toString()}`);
   },
   clearCsrfTokenCache
+};
+
+export const __testables = {
+  request,
+  ensureCsrfToken,
+  fetchSessionForCsrf,
+  updateCsrfTokenFromPayload,
+  createHttpError,
+  resetApiStateForTests
 };

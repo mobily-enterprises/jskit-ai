@@ -26,6 +26,26 @@ async function resolveAuthState(authStore) {
   };
 }
 
+async function beforeLoadLogin(authStore) {
+  const state = await resolveAuthState(authStore);
+  if (state.sessionUnavailable) {
+    return;
+  }
+  if (state.authenticated) {
+    throw redirect({ to: "/" });
+  }
+}
+
+async function beforeLoadCalculator(authStore) {
+  const state = await resolveAuthState(authStore);
+  if (state.sessionUnavailable) {
+    return;
+  }
+  if (!state.authenticated) {
+    throw redirect({ to: "/login" });
+  }
+}
+
 export function createAppRouter(authStore) {
   const rootRoute = createRootRoute({
     component: App
@@ -35,30 +55,14 @@ export function createAppRouter(authStore) {
     getParentRoute: () => rootRoute,
     path: "/login",
     component: LoginView,
-    beforeLoad: async () => {
-      const state = await resolveAuthState(authStore);
-      if (state.sessionUnavailable) {
-        return;
-      }
-      if (state.authenticated) {
-        throw redirect({ to: "/" });
-      }
-    }
+    beforeLoad: beforeLoadLogin.bind(null, authStore)
   });
 
   const calculatorRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/",
     component: CalculatorView,
-    beforeLoad: async () => {
-      const state = await resolveAuthState(authStore);
-      if (state.sessionUnavailable) {
-        return;
-      }
-      if (!state.authenticated) {
-        throw redirect({ to: "/login" });
-      }
-    }
+    beforeLoad: beforeLoadCalculator.bind(null, authStore)
   });
 
   const resetPasswordRoute = createRoute({
@@ -75,3 +79,9 @@ export function createAppRouter(authStore) {
     defaultPreload: "intent"
   });
 }
+
+export const __testables = {
+  resolveAuthState,
+  beforeLoadLogin,
+  beforeLoadCalculator
+};

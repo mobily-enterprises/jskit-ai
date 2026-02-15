@@ -45,6 +45,7 @@ function toFiniteNumber(value) {
 function powDecimal(base, exponent) {
   try {
     return Decimal.pow(base, exponent);
+    /* c8 ignore start */
   } catch {
     const fallback = Math.pow(base.toNumber(), exponent.toNumber());
     if (!Number.isFinite(fallback)) {
@@ -52,6 +53,7 @@ function powDecimal(base, exponent) {
     }
     return new Decimal(fallback);
   }
+  /* c8 ignore stop */
 }
 
 export function validateAndNormalizeInput(payload) {
@@ -126,6 +128,7 @@ export function validateAndNormalizeInput(payload) {
     new Decimal(1).div(paymentsPerYearDecimal)
   ).minus(1);
 
+  /* c8 ignore next 3 */
   if (!periodicRateDecimal.isFinite() || !periodicGrowthRateDecimal.isFinite()) {
     throw new AppError(422, "Rate conversion produced an invalid value. Check your inputs.");
   }
