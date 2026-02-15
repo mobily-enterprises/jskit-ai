@@ -1,6 +1,26 @@
 import { db } from "../db/knex.js";
 import { toIsoString } from "../lib/dateUtils.js";
 
+function isMysqlDuplicateEmailError(error) {
+  if (!error) {
+    return false;
+  }
+
+  const code = String(error.code || "");
+  if (code !== "ER_DUP_ENTRY") {
+    return false;
+  }
+
+  const message = String(error.sqlMessage || error.message || "").toLowerCase();
+  return message.includes("email");
+}
+
+function createDuplicateEmailConflictError() {
+  const error = new Error("Email is already linked to a different profile.");
+  error.code = "USER_PROFILE_EMAIL_CONFLICT";
+  return error;
+}
+
 function mapProfileRowRequired(row) {
   if (!row) {
     throw new TypeError("mapProfileRowRequired expected a row object.");
@@ -29,21 +49,32 @@ async function findBySupabaseUserId(supabaseUserId) {
 }
 
 async function upsert(profile) {
-  await db("user_profiles")
-    .insert({
-      supabase_user_id: profile.supabaseUserId,
-      email: profile.email,
-      display_name: profile.displayName
-    })
-    .onConflict("supabase_user_id")
-    // MySQL may trigger duplicate-key updates on email uniqueness too.
-    .merge({
-      supabase_user_id: profile.supabaseUserId,
-      email: profile.email,
-      display_name: profile.displayName
-    });
+  return db.transaction(async (trx) => {
+    const existing = await trx("user_profiles").where({ supabase_user_id: profile.supabaseUserId }).first();
 
-  return findBySupabaseUserId(profile.supabaseUserId);
+    try {
+      if (existing) {
+        await trx("user_profiles").where({ id: existing.id }).update({
+          email: profile.email,
+          display_name: profile.displayName
+        });
+      } else {
+        await trx("user_profiles").insert({
+          supabase_user_id: profile.supabaseUserId,
+          email: profile.email,
+          display_name: profile.displayName
+        });
+      }
+    } catch (error) {
+      if (isMysqlDuplicateEmailError(error)) {
+        throw createDuplicateEmailConflictError();
+      }
+      throw error;
+    }
+
+    const row = await trx("user_profiles").where({ supabase_user_id: profile.supabaseUserId }).first();
+    return mapProfileRowRequired(row);
+  });
 }
 
 const __testables = {

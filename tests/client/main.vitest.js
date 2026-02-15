@@ -18,8 +18,8 @@ const mocks = vi.hoisted(() => {
     queryClient: { id: "query-client" },
     VueQueryPlugin: { id: "vue-query-plugin" },
     RouterProvider: { id: "router-provider" },
-    components: { VBtn: {} },
-    directives: { Ripple: {} }
+    mdiAliases: { eye: "mdi-eye" },
+    mdiSet: { component: {} }
   };
 });
 
@@ -44,10 +44,11 @@ vi.mock("vuetify", () => ({
   createVuetify: mocks.createVuetify
 }));
 
-vi.mock("vuetify/components", () => mocks.components);
-vi.mock("vuetify/directives", () => mocks.directives);
+vi.mock("vuetify/iconsets/mdi-svg", () => ({
+  aliases: mocks.mdiAliases,
+  mdi: mocks.mdiSet
+}));
 vi.mock("vuetify/styles", () => ({}));
-vi.mock("@mdi/font/css/materialdesignicons.css", () => ({}));
 
 vi.mock("../../src/queryClient.js", () => ({
   queryClient: mocks.queryClient
@@ -84,6 +85,17 @@ describe("main bootstrap", () => {
     expect(mocks.createAppRouter).toHaveBeenCalledWith({ authenticated: false });
 
     expect(mocks.createVuetify).toHaveBeenCalledTimes(1);
+    expect(mocks.createVuetify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        icons: {
+          defaultSet: "mdi",
+          aliases: mocks.mdiAliases,
+          sets: {
+            mdi: mocks.mdiSet
+          }
+        }
+      })
+    );
     expect(mocks.createApp).toHaveBeenCalledTimes(1);
 
     const rootComponent = mocks.createApp.mock.calls[0][0];

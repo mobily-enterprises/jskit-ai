@@ -1,16 +1,30 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { HistoryEntrySchema } from "../lib/schemas/historyEntrySchema.js";
 import { createPaginationQuerySchema } from "../lib/schemas/paginationQuerySchema.js";
+import {
+  AUTH_ACCESS_TOKEN_MAX_LENGTH,
+  AUTH_EMAIL_MAX_LENGTH,
+  AUTH_EMAIL_MIN_LENGTH,
+  AUTH_EMAIL_PATTERN,
+  AUTH_LOGIN_PASSWORD_MAX_LENGTH,
+  AUTH_PASSWORD_MAX_LENGTH,
+  AUTH_PASSWORD_MIN_LENGTH,
+  AUTH_RECOVERY_TOKEN_MAX_LENGTH,
+  AUTH_REFRESH_TOKEN_MAX_LENGTH
+} from "../lib/validation/authConstraints.js";
 import { safeRequestUrl } from "../lib/requestUrl.js";
 
-const emailPattern = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$";
 const decimalStringPattern = "^-?\\d+(?:\\.\\d+)?$";
 const nonNegativeDecimalStringPattern = "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$";
 
 const registerCredentialsSchema = Type.Object(
   {
-    email: Type.String({ minLength: 3, maxLength: 320, pattern: emailPattern }),
-    password: Type.String({ minLength: 8, maxLength: 128 })
+    email: Type.String({
+      minLength: AUTH_EMAIL_MIN_LENGTH,
+      maxLength: AUTH_EMAIL_MAX_LENGTH,
+      pattern: AUTH_EMAIL_PATTERN
+    }),
+    password: Type.String({ minLength: AUTH_PASSWORD_MIN_LENGTH, maxLength: AUTH_PASSWORD_MAX_LENGTH })
   },
   {
     additionalProperties: false
@@ -19,8 +33,12 @@ const registerCredentialsSchema = Type.Object(
 
 const loginCredentialsSchema = Type.Object(
   {
-    email: Type.String({ minLength: 3, maxLength: 320, pattern: emailPattern }),
-    password: Type.String({ minLength: 1, maxLength: 1024 })
+    email: Type.String({
+      minLength: AUTH_EMAIL_MIN_LENGTH,
+      maxLength: AUTH_EMAIL_MAX_LENGTH,
+      pattern: AUTH_EMAIL_PATTERN
+    }),
+    password: Type.String({ minLength: 1, maxLength: AUTH_LOGIN_PASSWORD_MAX_LENGTH })
   },
   {
     additionalProperties: false
@@ -29,7 +47,11 @@ const loginCredentialsSchema = Type.Object(
 
 const emailOnlySchema = Type.Object(
   {
-    email: Type.String({ minLength: 3, maxLength: 320, pattern: emailPattern })
+    email: Type.String({
+      minLength: AUTH_EMAIL_MIN_LENGTH,
+      maxLength: AUTH_EMAIL_MAX_LENGTH,
+      pattern: AUTH_EMAIL_PATTERN
+    })
   },
   {
     additionalProperties: false
@@ -38,7 +60,7 @@ const emailOnlySchema = Type.Object(
 
 const passwordOnlySchema = Type.Object(
   {
-    password: Type.String({ minLength: 8, maxLength: 128 })
+    password: Type.String({ minLength: AUTH_PASSWORD_MIN_LENGTH, maxLength: AUTH_PASSWORD_MAX_LENGTH })
   },
   {
     additionalProperties: false
@@ -47,10 +69,10 @@ const passwordOnlySchema = Type.Object(
 
 const passwordRecoverySchema = Type.Object(
   {
-    code: Type.Optional(Type.String({ minLength: 1, maxLength: 4096 })),
-    tokenHash: Type.Optional(Type.String({ minLength: 1, maxLength: 4096 })),
-    accessToken: Type.Optional(Type.String({ minLength: 1, maxLength: 8192 })),
-    refreshToken: Type.Optional(Type.String({ minLength: 1, maxLength: 8192 })),
+    code: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_RECOVERY_TOKEN_MAX_LENGTH })),
+    tokenHash: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_RECOVERY_TOKEN_MAX_LENGTH })),
+    accessToken: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_ACCESS_TOKEN_MAX_LENGTH })),
+    refreshToken: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_REFRESH_TOKEN_MAX_LENGTH })),
     type: Type.Optional(Type.Literal("recovery"))
   },
   {

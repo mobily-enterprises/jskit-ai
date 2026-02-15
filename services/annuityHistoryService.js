@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { Value } from "@sinclair/typebox/value";
+import { Value } from "typebox/value";
 import { AppError } from "../lib/errors.js";
 import { HistoryEntrySchema } from "../lib/schemas/historyEntrySchema.js";
 
@@ -7,10 +7,8 @@ function mapSchemaErrorsToFieldErrors(schemaErrors) {
   const fieldErrors = {};
 
   for (const issue of schemaErrors) {
-    const field =
-      String(issue.path || "")
-        .replace(/^\//, "")
-        .replace(/\//g, ".") || "historyEntry";
+    const issuePath = String(issue.path ?? issue.instancePath ?? "");
+    const field = issuePath.replace(/^\//, "").replace(/\//g, ".") || "historyEntry";
 
     if (!fieldErrors[field]) {
       fieldErrors[field] = issue.message || "Invalid value.";

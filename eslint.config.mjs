@@ -4,7 +4,15 @@ import globals from "globals";
 
 export default [
   {
-    ignores: ["dist/**", "node_modules/**", "playwright-report/**", "test-results/**", "coverage/**"]
+    ignores: [
+      "dist/**",
+      "node_modules/**",
+      "playwright-report/**",
+      "test-results/**",
+      "coverage/**",
+      "coverage-client/**",
+      "coverage-vue/**"
+    ]
   },
   js.configs.recommended,
   ...vue.configs["flat/recommended"],

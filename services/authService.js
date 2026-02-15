@@ -1,14 +1,20 @@
 import { createClient } from "@supabase/supabase-js";
 import { AppError } from "../lib/errors.js";
+import {
+  AUTH_ACCESS_TOKEN_MAX_LENGTH,
+  AUTH_EMAIL_MAX_LENGTH,
+  AUTH_EMAIL_REGEX,
+  AUTH_LOGIN_PASSWORD_MAX_LENGTH,
+  AUTH_PASSWORD_MAX_LENGTH,
+  AUTH_PASSWORD_MIN_LENGTH,
+  AUTH_RECOVERY_TOKEN_MAX_LENGTH,
+  AUTH_REFRESH_TOKEN_MAX_LENGTH
+} from "../lib/validation/authConstraints.js";
 
 const ACCESS_TOKEN_COOKIE = "sb_access_token";
 const REFRESH_TOKEN_COOKIE = "sb_refresh_token";
 const DEFAULT_AUDIENCE = "authenticated";
 const PASSWORD_RESET_PATH = "reset-password";
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PASSWORD_MIN_LENGTH = 8;
-const PASSWORD_MAX_LENGTH = 128;
-const LOGIN_PASSWORD_MAX_LENGTH = 1024;
 
 const INVALID_JWT_ERROR_CODES = new Set([
   "ERR_JWS_SIGNATURE_VERIFICATION_FAILED",
@@ -45,13 +51,13 @@ function validateRegisterCredentials(rawEmail, rawPassword) {
 
   if (!email) {
     fieldErrors.email = "Email is required.";
-  } else if (email.length > 320 || !EMAIL_PATTERN.test(email)) {
+  } else if (email.length > AUTH_EMAIL_MAX_LENGTH || !AUTH_EMAIL_REGEX.test(email)) {
     fieldErrors.email = "Provide a valid email address.";
   }
 
   if (!password) {
     fieldErrors.password = "Password is required.";
-  } else if (password.length < PASSWORD_MIN_LENGTH || password.length > PASSWORD_MAX_LENGTH) {
+  } else if (password.length < AUTH_PASSWORD_MIN_LENGTH || password.length > AUTH_PASSWORD_MAX_LENGTH) {
     fieldErrors.password = "Password must be between 8 and 128 characters.";
   }
 
@@ -69,14 +75,14 @@ function validateLoginCredentials(rawEmail, rawPassword) {
 
   if (!email) {
     fieldErrors.email = "Email is required.";
-  } else if (email.length > 320 || !EMAIL_PATTERN.test(email)) {
+  } else if (email.length > AUTH_EMAIL_MAX_LENGTH || !AUTH_EMAIL_REGEX.test(email)) {
     fieldErrors.email = "Provide a valid email address.";
   }
 
   if (!password) {
     fieldErrors.password = "Password is required.";
-  } else if (password.length > LOGIN_PASSWORD_MAX_LENGTH) {
-    fieldErrors.password = `Password must be at most ${LOGIN_PASSWORD_MAX_LENGTH} characters.`;
+  } else if (password.length > AUTH_LOGIN_PASSWORD_MAX_LENGTH) {
+    fieldErrors.password = `Password must be at most ${AUTH_LOGIN_PASSWORD_MAX_LENGTH} characters.`;
   }
 
   return {
@@ -92,7 +98,7 @@ function validateEmailOnly(rawEmail) {
 
   if (!email) {
     fieldErrors.email = "Email is required.";
-  } else if (email.length > 320 || !EMAIL_PATTERN.test(email)) {
+  } else if (email.length > AUTH_EMAIL_MAX_LENGTH || !AUTH_EMAIL_REGEX.test(email)) {
     fieldErrors.email = "Provide a valid email address.";
   }
 
@@ -108,7 +114,7 @@ function validatePasswordOnly(rawPassword) {
 
   if (!password) {
     fieldErrors.password = "Password is required.";
-  } else if (password.length < PASSWORD_MIN_LENGTH || password.length > PASSWORD_MAX_LENGTH) {
+  } else if (password.length < AUTH_PASSWORD_MIN_LENGTH || password.length > AUTH_PASSWORD_MAX_LENGTH) {
     fieldErrors.password = "Password must be between 8 and 128 characters.";
   }
 
@@ -133,19 +139,19 @@ function validatePasswordRecoveryPayload(payload) {
     fieldErrors.type = "Only recovery password reset links are supported.";
   }
 
-  if (code.length > 4096) {
+  if (code.length > AUTH_RECOVERY_TOKEN_MAX_LENGTH) {
     fieldErrors.code = "Recovery code is too long.";
   }
 
-  if (tokenHash.length > 4096) {
+  if (tokenHash.length > AUTH_RECOVERY_TOKEN_MAX_LENGTH) {
     fieldErrors.tokenHash = "Recovery token is too long.";
   }
 
-  if (accessToken.length > 8192) {
+  if (accessToken.length > AUTH_ACCESS_TOKEN_MAX_LENGTH) {
     fieldErrors.accessToken = "Access token is too long.";
   }
 
-  if (refreshToken.length > 8192) {
+  if (refreshToken.length > AUTH_REFRESH_TOKEN_MAX_LENGTH) {
     fieldErrors.refreshToken = "Refresh token is too long.";
   }
 
@@ -387,6 +393,7 @@ function createAuthService(options) {
   const passwordResetRedirectUrl = buildPasswordResetRedirectUrl({
     appPublicUrl: options.appPublicUrl
   });
+  let supabaseClient = null;
 
   const issuerUrl = supabaseUrl ? new URL("/auth/v1", supabaseUrl).toString().replace(/\/$/, "") : "";
   const jwksUrl = issuerUrl ? `${issuerUrl}/.well-known/jwks.json` : "";
@@ -399,13 +406,20 @@ function createAuthService(options) {
     }
   }
 
-  function buildClient() {
-    return createClient(supabaseUrl, supabasePublishableKey, {
+  function getSupabaseClient() {
+    ensureConfigured();
+    if (supabaseClient) {
+      return supabaseClient;
+    }
+
+    supabaseClient = createClient(supabaseUrl, supabasePublishableKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false
       }
     });
+
+    return supabaseClient;
   }
 
   async function getJwksResolver() {
@@ -441,7 +455,7 @@ function createAuthService(options) {
   }
 
   async function verifyAccessTokenViaSupabase(accessToken) {
-    const supabase = buildClient();
+    const supabase = getSupabaseClient();
 
     try {
       const response = await supabase.auth.getUser(accessToken);
@@ -508,13 +522,21 @@ function createAuthService(options) {
   }
 
   async function syncProfileMirror(nextProfile) {
-    const existing = await userProfilesRepository.findBySupabaseUserId(nextProfile.supabaseUserId);
-    if (!profileNeedsUpdate(existing, nextProfile)) {
-      return requireSynchronizedProfile(existing);
-    }
+    try {
+      const existing = await userProfilesRepository.findBySupabaseUserId(nextProfile.supabaseUserId);
+      if (!profileNeedsUpdate(existing, nextProfile)) {
+        return requireSynchronizedProfile(existing);
+      }
 
-    const upserted = await userProfilesRepository.upsert(nextProfile);
-    return requireSynchronizedProfile(upserted);
+      const upserted = await userProfilesRepository.upsert(nextProfile);
+      return requireSynchronizedProfile(upserted);
+    } catch (error) {
+      if (String(error?.code || "") === "USER_PROFILE_EMAIL_CONFLICT") {
+        throw new AppError(409, "Email is already linked to another account.");
+      }
+
+      throw error;
+    }
   }
 
   async function syncProfileFromSupabaseUser(supabaseUser, fallbackEmail) {
@@ -563,7 +585,7 @@ function createAuthService(options) {
       throw validationError(parsed.fieldErrors);
     }
 
-    const supabase = buildClient();
+    const supabase = getSupabaseClient();
     const response = await supabase.auth.signUp({
       email: parsed.email,
       password: parsed.password,
@@ -608,7 +630,7 @@ function createAuthService(options) {
       throw validationError(parsed.fieldErrors);
     }
 
-    const supabase = buildClient();
+    const supabase = getSupabaseClient();
     const response = await supabase.auth.signInWithPassword({
       email: parsed.email,
       password: parsed.password
@@ -634,7 +656,7 @@ function createAuthService(options) {
       throw validationError(parsed.fieldErrors);
     }
 
-    const supabase = buildClient();
+    const supabase = getSupabaseClient();
     const options = passwordResetRedirectUrl ? { redirectTo: passwordResetRedirectUrl } : undefined;
     let response;
     try {
@@ -661,7 +683,7 @@ function createAuthService(options) {
       throw validationError(parsed.fieldErrors);
     }
 
-    const supabase = buildClient();
+    const supabase = getSupabaseClient();
     let response;
     try {
       if (parsed.hasCode) {
@@ -713,7 +735,7 @@ function createAuthService(options) {
       throw new AppError(401, "Authentication required.");
     }
 
-    const supabase = buildClient();
+    const supabase = getSupabaseClient();
     let sessionResponse;
     try {
       sessionResponse = await supabase.auth.setSession({
@@ -824,7 +846,7 @@ function createAuthService(options) {
       };
     }
 
-    const supabase = buildClient();
+    const supabase = getSupabaseClient();
     let refreshResponse;
     try {
       refreshResponse = await supabase.auth.refreshSession({ refresh_token: refreshToken });
