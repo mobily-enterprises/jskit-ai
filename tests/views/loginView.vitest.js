@@ -116,4 +116,26 @@ describe("LoginView", () => {
     });
     expect(wrapper.vm.infoMessage).toContain("password reset link has been sent");
   });
+
+  it("submits register flow that requires email confirmation", async () => {
+    mocks.api.register.mockResolvedValue({
+      requiresEmailConfirmation: true
+    });
+
+    const wrapper = mountView();
+    wrapper.vm.switchMode("register");
+    wrapper.vm.email = "new-user@example.com";
+    wrapper.vm.password = "password123";
+    wrapper.vm.confirmPassword = "password123";
+
+    await wrapper.vm.submitAuth();
+
+    expect(mocks.api.register).toHaveBeenCalledWith({
+      email: "new-user@example.com",
+      password: "password123"
+    });
+    expect(mocks.authStore.refreshSession).not.toHaveBeenCalled();
+    expect(mocks.navigate).not.toHaveBeenCalled();
+    expect(wrapper.vm.infoMessage).toContain("Confirm your email");
+  });
 });

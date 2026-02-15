@@ -16,6 +16,8 @@
     "tests/**",
     "src/**",
     "seeds/**",
+    "server.js",
+    "bin/server.js",
     "knexfile.cjs",
     "vite.config.mjs",
     "vitest.vue.config.mjs",

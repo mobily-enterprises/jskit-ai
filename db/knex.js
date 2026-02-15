@@ -14,19 +14,42 @@ function resolveRuntimeEnv(nodeEnv) {
   return "development";
 }
 
-const NODE_ENV = resolveRuntimeEnv(env.NODE_ENV);
-const knexConfig = knexEnvironments[NODE_ENV];
+function resolveKnexConfig(nodeEnv, environments) {
+  const runtimeEnv = resolveRuntimeEnv(nodeEnv);
+  const config = environments[runtimeEnv];
+  if (!config) {
+    throw new Error(`Missing knex configuration for environment "${runtimeEnv}".`);
+  }
 
-if (!knexConfig) {
-  throw new Error(`Missing knex configuration for environment "${NODE_ENV}".`);
+  return {
+    runtimeEnv,
+    config
+  };
 }
+
+const { runtimeEnv: NODE_ENV, config: knexConfig } = resolveKnexConfig(env.NODE_ENV, knexEnvironments);
 
 export const db = knex(knexConfig);
 
 export async function initDatabase() {
-  await db.raw("select 1 as ok");
+  await initDatabaseWithClient(db);
 }
 
 export async function closeDatabase() {
-  await db.destroy();
+  await closeDatabaseWithClient(db);
 }
+
+async function initDatabaseWithClient(knexClient) {
+  await knexClient.raw("select 1 as ok");
+}
+
+async function closeDatabaseWithClient(knexClient) {
+  await knexClient.destroy();
+}
+
+export const __testables = {
+  resolveRuntimeEnv,
+  resolveKnexConfig,
+  initDatabaseWithClient,
+  closeDatabaseWithClient
+};

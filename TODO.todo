@@ -1,5 +1,5 @@
+X Add client-server shared code
 - Harmonise schema
-- Add client-server shared code
 - User screen and user configuration
 - Config/multihoming: App configuration, loaded at boot time AND Multihoming, app configuration becomes workspace configuration
 - Add a backend interface, explain how to make it work, what code to share

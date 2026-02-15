@@ -190,3 +190,23 @@ test("mapSchemaErrorsToFieldErrors handles empty paths and missing messages", ()
   assert.equal(mapped.historyEntry, "Invalid value.");
   assert.equal(mapped.mode, "Expected 'pv' or 'fv'");
 });
+
+test("mapSchemaErrorsToFieldErrors supports instancePath fallback", () => {
+  const mapped = __testables.mapSchemaErrorsToFieldErrors([
+    {
+      instancePath: "/payment",
+      message: "must be number"
+    },
+    {
+      message: "fallback"
+    },
+    {
+      path: null,
+      instancePath: null,
+      message: ""
+    }
+  ]);
+
+  assert.equal(mapped.payment, "must be number");
+  assert.equal(mapped.historyEntry, "fallback");
+});

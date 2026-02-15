@@ -8,9 +8,13 @@ import {
 } from "@tanstack/vue-router";
 import App from "./App.vue";
 
+/* c8 ignore start -- lazy Vue SFC loaders require full Vite CSS handling and are exercised in browser/E2E paths. */
+/* v8 ignore start -- lazy Vue SFC loaders require full Vite CSS handling and are exercised in browser/E2E paths. */
 const LoginView = lazyRouteComponent(() => import("./views/LoginView.vue"));
 const CalculatorView = lazyRouteComponent(() => import("./views/CalculatorView.vue"));
 const ResetPasswordView = lazyRouteComponent(() => import("./views/ResetPasswordView.vue"));
+/* v8 ignore stop */
+/* c8 ignore stop */
 
 async function resolveAuthState(authStore) {
   let authenticated = authStore.isAuthenticated;
