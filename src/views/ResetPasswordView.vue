@@ -1,0 +1,322 @@
+<template>
+  <v-app>
+    <v-main class="reset-main">
+      <v-container class="fill-height d-flex align-center justify-center py-8">
+        <v-card class="reset-card" rounded="xl" elevation="12">
+          <v-card-text class="pa-8 pa-sm-10">
+            <p class="reset-kicker">Account security</p>
+            <h1 class="reset-title">Reset your password</h1>
+            <p class="text-medium-emphasis mb-6">
+              Choose a new password for your account. For security, you will need to sign in again after update.
+            </p>
+
+            <div v-if="initializing" class="loading-block">
+              <v-progress-circular indeterminate color="primary" size="28" width="3" class="mr-3" />
+              <span>Validating recovery link...</span>
+            </div>
+
+            <template v-else>
+              <v-alert v-if="recoveryError" type="error" variant="tonal" class="mb-4">
+                {{ recoveryError }}
+              </v-alert>
+
+              <v-alert v-if="formError" type="error" variant="tonal" class="mb-4">
+                {{ formError }}
+              </v-alert>
+
+              <v-alert v-if="formSuccess" type="success" variant="tonal" class="mb-4">
+                {{ formSuccess }}
+              </v-alert>
+
+              <v-form v-if="readyForPasswordUpdate && !formSuccess" @submit.prevent="submitPasswordReset" novalidate>
+                <v-text-field
+                  v-model="password"
+                  label="New password"
+                  :type="showPassword ? 'text' : 'password'"
+                  variant="outlined"
+                  density="comfortable"
+                  autocomplete="new-password"
+                  :error-messages="passwordErrorMessages"
+                  :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                  @click:append-inner="showPassword = !showPassword"
+                  @blur="passwordTouched = true"
+                  class="mb-3"
+                />
+
+                <v-text-field
+                  v-model="confirmPassword"
+                  label="Confirm new password"
+                  :type="showConfirmPassword ? 'text' : 'password'"
+                  variant="outlined"
+                  density="comfortable"
+                  autocomplete="new-password"
+                  :error-messages="confirmPasswordErrorMessages"
+                  :append-inner-icon="showConfirmPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                  @click:append-inner="showConfirmPassword = !showConfirmPassword"
+                  @blur="confirmPasswordTouched = true"
+                  class="mb-4"
+                />
+
+                <v-btn block color="primary" size="large" :loading="loading" :disabled="!canSubmit" type="submit">
+                  Update password
+                </v-btn>
+              </v-form>
+
+              <div class="actions-row">
+                <v-btn v-if="!readyForPasswordUpdate || formSuccess" variant="flat" color="primary" @click="goToLogin">
+                  Back to sign in
+                </v-btn>
+                <v-btn v-else variant="text" color="secondary" @click="goToLogin">Cancel</v-btn>
+              </div>
+            </template>
+          </v-card-text>
+        </v-card>
+      </v-container>
+    </v-main>
+  </v-app>
+</template>
+
+<script setup>
+import { computed, onMounted, ref } from "vue";
+import { useNavigate } from "@tanstack/vue-router";
+import { useMutation } from "@tanstack/vue-query";
+import { api } from "../services/api";
+import { useAuthStore } from "../stores/authStore";
+
+const navigate = useNavigate();
+const authStore = useAuthStore();
+
+const password = ref("");
+const confirmPassword = ref("");
+const showPassword = ref(false);
+const showConfirmPassword = ref(false);
+const passwordTouched = ref(false);
+const confirmPasswordTouched = ref(false);
+const submitAttempted = ref(false);
+const initializing = ref(true);
+const readyForPasswordUpdate = ref(false);
+const recoveryError = ref("");
+const formError = ref("");
+const formSuccess = ref("");
+
+const completeRecoveryMutation = useMutation({
+  mutationFn: (payload) => api.completePasswordRecovery(payload)
+});
+
+const resetPasswordMutation = useMutation({
+  mutationFn: (payload) => api.resetPassword(payload)
+});
+
+const loading = computed(() => completeRecoveryMutation.isPending.value || resetPasswordMutation.isPending.value);
+
+function toSingleMessage(error, fallback) {
+  if (error?.fieldErrors && typeof error.fieldErrors === "object") {
+    const details = Object.values(error.fieldErrors).filter(Boolean);
+    if (details.length > 0) {
+      return details.join(" ");
+    }
+  }
+
+  return String(error?.message || fallback);
+}
+
+function clearRecoveryParamsFromUrl() {
+  if (typeof window === "undefined" || !window.history?.replaceState) {
+    return;
+  }
+
+  window.history.replaceState({}, "", "/reset-password");
+}
+
+function parseRecoveryPayloadFromLocation() {
+  if (typeof window === "undefined") {
+    return { payload: null, linkError: "Recovery link is unavailable in this environment." };
+  }
+
+  const search = new URLSearchParams(window.location.search || "");
+  const hash = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
+
+  const linkErrorDescription = search.get("error_description") || hash.get("error_description") || "";
+  if (linkErrorDescription) {
+    return { payload: null, linkError: linkErrorDescription };
+  }
+
+  const code = search.get("code") || "";
+  const tokenHash = search.get("token_hash") || hash.get("token_hash") || "";
+  const accessToken = hash.get("access_token") || search.get("access_token") || "";
+  const refreshToken = hash.get("refresh_token") || search.get("refresh_token") || "";
+
+  const payload = {};
+  if (code) {
+    payload.code = code;
+  }
+  if (tokenHash) {
+    payload.tokenHash = tokenHash;
+    payload.type = "recovery";
+  }
+  if (accessToken && refreshToken) {
+    payload.accessToken = accessToken;
+    payload.refreshToken = refreshToken;
+    payload.type = "recovery";
+  }
+
+  return {
+    payload: Object.keys(payload).length > 0 ? payload : null,
+    linkError: ""
+  };
+}
+
+async function initializeRecovery() {
+  initializing.value = true;
+  recoveryError.value = "";
+  formError.value = "";
+
+  const parsed = parseRecoveryPayloadFromLocation();
+  if (parsed.linkError) {
+    recoveryError.value = parsed.linkError;
+    initializing.value = false;
+    return;
+  }
+
+  try {
+    if (parsed.payload) {
+      await completeRecoveryMutation.mutateAsync(parsed.payload);
+      clearRecoveryParamsFromUrl();
+      const session = await authStore.refreshSession();
+      if (!session?.authenticated) {
+        throw new Error("Unable to establish a recovery session. Request a new reset link.");
+      }
+      readyForPasswordUpdate.value = true;
+      initializing.value = false;
+      return;
+    }
+
+    const session = await authStore.ensureSession({ force: true });
+    if (session?.authenticated) {
+      readyForPasswordUpdate.value = true;
+    } else {
+      recoveryError.value = "Recovery link is missing or expired. Request a new password reset email.";
+    }
+  } catch (error) {
+    recoveryError.value = toSingleMessage(error, "Recovery link is invalid or expired. Request a new one.");
+  }
+
+  initializing.value = false;
+}
+
+const passwordError = computed(() => {
+  const value = String(password.value || "");
+  if (!value) {
+    return "Password is required.";
+  }
+  if (value.length < 8 || value.length > 128) {
+    return "Password must be between 8 and 128 characters.";
+  }
+  return "";
+});
+
+const confirmPasswordError = computed(() => {
+  if (!confirmPassword.value) {
+    return "Confirm your password.";
+  }
+  if (password.value !== confirmPassword.value) {
+    return "Passwords do not match.";
+  }
+  return "";
+});
+
+const passwordErrorMessages = computed(() => {
+  if (!submitAttempted.value && !passwordTouched.value) {
+    return [];
+  }
+  return passwordError.value ? [passwordError.value] : [];
+});
+
+const confirmPasswordErrorMessages = computed(() => {
+  if (!submitAttempted.value && !confirmPasswordTouched.value) {
+    return [];
+  }
+  return confirmPasswordError.value ? [confirmPasswordError.value] : [];
+});
+
+const canSubmit = computed(() => {
+  if (loading.value || !readyForPasswordUpdate.value) {
+    return false;
+  }
+
+  return !passwordError.value && !confirmPasswordError.value;
+});
+
+async function submitPasswordReset() {
+  submitAttempted.value = true;
+  formError.value = "";
+  formSuccess.value = "";
+
+  if (!canSubmit.value) {
+    return;
+  }
+
+  try {
+    const response = await resetPasswordMutation.mutateAsync({
+      password: password.value
+    });
+
+    authStore.setSignedOut();
+    await authStore.invalidateSession();
+    formSuccess.value = String(response?.message || "Password updated. Sign in with your new password.");
+    readyForPasswordUpdate.value = false;
+  } catch (error) {
+    formError.value = toSingleMessage(error, "Unable to reset password. Please retry.");
+  }
+}
+
+async function goToLogin() {
+  await navigate({ to: "/login", replace: true });
+}
+
+onMounted(() => {
+  initializeRecovery();
+});
+</script>
+
+<style scoped>
+.reset-main {
+  background:
+    radial-gradient(circle at 8% 8%, rgba(0, 104, 74, 0.2), transparent 45%),
+    radial-gradient(circle at 92% 92%, rgba(220, 156, 34, 0.18), transparent 38%),
+    linear-gradient(150deg, #edf1e8 0%, #f8faf7 100%);
+}
+
+.reset-card {
+  width: min(560px, 100%);
+}
+
+.reset-kicker {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #355347;
+}
+
+.reset-title {
+  margin: 8px 0 10px;
+  font-size: clamp(28px, 4vw, 34px);
+  line-height: 1.2;
+  color: #1d2c24;
+}
+
+.loading-block {
+  display: flex;
+  align-items: center;
+  color: #2f473d;
+  margin-bottom: 14px;
+}
+
+.actions-row {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+</style>

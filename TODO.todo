@@ -1,0 +1,15 @@
+- Harmonise schema
+- Add client-server shared code
+- User screen and user configuration
+- App configuration, loaded at boot time AND Multihoming, app configuration becomes workspace configuration
+- Add a backend interface, explain how to make it work, what code to share
+- Log server errors and client errors
+- More permissions
+- Add socket infrastructure
+
+Extra:
+- Operational hygiene (structured logging, tracing, health checks, alerts)
+- Security controls (rate limits, audit trails, rotation, dependency scans, pentests)
+- Data handling (validation, encryption, retention/purge policies, backups)
+- Testing & automation (CI, regression/e2e coverage, performance benchmarks)
+- Observability (business metrics, uptime, capacity signals)
