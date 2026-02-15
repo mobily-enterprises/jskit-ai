@@ -82,6 +82,7 @@ import { useNavigate } from "@tanstack/vue-router";
 import { useMutation } from "@tanstack/vue-query";
 import { api } from "../services/api";
 import { useAuthStore } from "../stores/authStore";
+import { validators } from "../../shared/auth/validators.js";
 
 const navigate = useNavigate();
 const authStore = useAuthStore();
@@ -205,24 +206,14 @@ async function initializeRecovery() {
 }
 
 const passwordError = computed(() => {
-  const value = String(password.value || "");
-  if (!value) {
-    return "Password is required.";
-  }
-  if (value.length < 8 || value.length > 128) {
-    return "Password must be between 8 and 128 characters.";
-  }
-  return "";
+  return validators.resetPassword(password.value);
 });
 
 const confirmPasswordError = computed(() => {
-  if (!confirmPassword.value) {
-    return "Confirm your password.";
-  }
-  if (password.value !== confirmPassword.value) {
-    return "Passwords do not match.";
-  }
-  return "";
+  return validators.confirmPassword({
+    password: password.value,
+    confirmPassword: confirmPassword.value
+  });
 });
 
 const passwordErrorMessages = computed(() => {

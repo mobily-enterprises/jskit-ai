@@ -2,14 +2,11 @@ import { createClient } from "@supabase/supabase-js";
 import { AppError } from "../lib/errors.js";
 import {
   AUTH_ACCESS_TOKEN_MAX_LENGTH,
-  AUTH_EMAIL_MAX_LENGTH,
-  AUTH_EMAIL_REGEX,
-  AUTH_LOGIN_PASSWORD_MAX_LENGTH,
-  AUTH_PASSWORD_MAX_LENGTH,
-  AUTH_PASSWORD_MIN_LENGTH,
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,
   AUTH_REFRESH_TOKEN_MAX_LENGTH
-} from "../lib/validation/authConstraints.js";
+} from "../shared/auth/authConstraints.js";
+import { normalizeEmail } from "../shared/auth/utils.js";
+import { validators } from "../shared/auth/validators.js";
 
 const ACCESS_TOKEN_COOKIE = "sb_access_token";
 const REFRESH_TOKEN_COOKIE = "sb_refresh_token";
@@ -37,92 +34,6 @@ const TRANSIENT_AUTH_MESSAGE_PARTS = [
   "socket",
   "temporar"
 ];
-
-function normalizeEmail(rawEmail) {
-  return String(rawEmail || "")
-    .trim()
-    .toLowerCase();
-}
-
-function validateRegisterCredentials(rawEmail, rawPassword) {
-  const email = normalizeEmail(rawEmail);
-  const password = String(rawPassword || "");
-  const fieldErrors = {};
-
-  if (!email) {
-    fieldErrors.email = "Email is required.";
-  } else if (email.length > AUTH_EMAIL_MAX_LENGTH || !AUTH_EMAIL_REGEX.test(email)) {
-    fieldErrors.email = "Provide a valid email address.";
-  }
-
-  if (!password) {
-    fieldErrors.password = "Password is required.";
-  } else if (password.length < AUTH_PASSWORD_MIN_LENGTH || password.length > AUTH_PASSWORD_MAX_LENGTH) {
-    fieldErrors.password = "Password must be between 8 and 128 characters.";
-  }
-
-  return {
-    email,
-    password,
-    fieldErrors
-  };
-}
-
-function validateLoginCredentials(rawEmail, rawPassword) {
-  const email = normalizeEmail(rawEmail);
-  const password = String(rawPassword || "");
-  const fieldErrors = {};
-
-  if (!email) {
-    fieldErrors.email = "Email is required.";
-  } else if (email.length > AUTH_EMAIL_MAX_LENGTH || !AUTH_EMAIL_REGEX.test(email)) {
-    fieldErrors.email = "Provide a valid email address.";
-  }
-
-  if (!password) {
-    fieldErrors.password = "Password is required.";
-  } else if (password.length > AUTH_LOGIN_PASSWORD_MAX_LENGTH) {
-    fieldErrors.password = `Password must be at most ${AUTH_LOGIN_PASSWORD_MAX_LENGTH} characters.`;
-  }
-
-  return {
-    email,
-    password,
-    fieldErrors
-  };
-}
-
-function validateEmailOnly(rawEmail) {
-  const email = normalizeEmail(rawEmail);
-  const fieldErrors = {};
-
-  if (!email) {
-    fieldErrors.email = "Email is required.";
-  } else if (email.length > AUTH_EMAIL_MAX_LENGTH || !AUTH_EMAIL_REGEX.test(email)) {
-    fieldErrors.email = "Provide a valid email address.";
-  }
-
-  return {
-    email,
-    fieldErrors
-  };
-}
-
-function validatePasswordOnly(rawPassword) {
-  const password = String(rawPassword || "");
-  const fieldErrors = {};
-
-  if (!password) {
-    fieldErrors.password = "Password is required.";
-  } else if (password.length < AUTH_PASSWORD_MIN_LENGTH || password.length > AUTH_PASSWORD_MAX_LENGTH) {
-    fieldErrors.password = "Password must be between 8 and 128 characters.";
-  }
-
-  return {
-    password,
-    fieldErrors
-  };
-}
 
 function validatePasswordRecoveryPayload(payload) {
   const code = String(payload?.code || "").trim();
@@ -580,7 +491,7 @@ function createAuthService(options) {
   async function register(payload) {
     ensureConfigured();
 
-    const parsed = validateRegisterCredentials(payload.email, payload.password);
+    const parsed = validators.registerInput(payload);
     if (Object.keys(parsed.fieldErrors).length > 0) {
       throw validationError(parsed.fieldErrors);
     }
@@ -625,7 +536,7 @@ function createAuthService(options) {
   async function login(payload) {
     ensureConfigured();
 
-    const parsed = validateLoginCredentials(payload.email, payload.password);
+    const parsed = validators.loginInput(payload);
     if (Object.keys(parsed.fieldErrors).length > 0) {
       throw validationError(parsed.fieldErrors);
     }
@@ -651,7 +562,7 @@ function createAuthService(options) {
   async function requestPasswordReset(payload) {
     ensureConfigured();
 
-    const parsed = validateEmailOnly(payload.email);
+    const parsed = validators.forgotPasswordInput(payload);
     if (Object.keys(parsed.fieldErrors).length > 0) {
       throw validationError(parsed.fieldErrors);
     }
@@ -722,7 +633,7 @@ function createAuthService(options) {
   async function resetPassword(request, payload) {
     ensureConfigured();
 
-    const parsed = validatePasswordOnly(payload.password);
+    const parsed = validators.resetPasswordInput(payload);
     if (Object.keys(parsed.fieldErrors).length > 0) {
       throw validationError(parsed.fieldErrors);
     }

@@ -11,7 +11,7 @@ import {
   AUTH_PASSWORD_MIN_LENGTH,
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,
   AUTH_REFRESH_TOKEN_MAX_LENGTH
-} from "../lib/validation/authConstraints.js";
+} from "../shared/auth/authConstraints.js";
 import { safeRequestUrl } from "../lib/requestUrl.js";
 
 const decimalStringPattern = "^-?\\d+(?:\\.\\d+)?$";

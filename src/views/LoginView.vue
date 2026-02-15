@@ -116,6 +116,8 @@ import { useNavigate } from "@tanstack/vue-router";
 import { useMutation } from "@tanstack/vue-query";
 import { api } from "../services/api";
 import { useAuthStore } from "../stores/authStore";
+import { validators } from "../../shared/auth/validators.js";
+import { normalizeEmail } from "../../shared/auth/utils.js";
 
 const navigate = useNavigate();
 const authStore = useAuthStore();
@@ -193,14 +195,6 @@ const submitLabel = computed(() => {
   return "Sign in";
 });
 
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function normalizeEmail(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
-
 function hasRecoveryLinkPayload() {
   if (typeof window === "undefined") {
     return false;
@@ -259,14 +253,7 @@ function toErrorMessage(error, fallback) {
 }
 
 const emailError = computed(() => {
-  const value = normalizeEmail(email.value);
-  if (!value) {
-    return "Email is required.";
-  }
-  if (value.length > 320 || !emailPattern.test(value)) {
-    return "Provide a valid email address.";
-  }
-  return "";
+  return validators.email(email.value);
 });
 
 const passwordError = computed(() => {
@@ -274,15 +261,11 @@ const passwordError = computed(() => {
     return "";
   }
 
-  const value = String(password.value || "");
-  if (!value) {
-    return "Password is required.";
+  if (isRegister.value) {
+    return validators.registerPassword(password.value);
   }
 
-  if (isRegister.value && (value.length < 8 || value.length > 128)) {
-    return "Password must be between 8 and 128 characters.";
-  }
-  return "";
+  return validators.loginPassword(password.value);
 });
 
 const confirmPasswordError = computed(() => {
@@ -290,13 +273,10 @@ const confirmPasswordError = computed(() => {
     return "";
   }
 
-  if (!confirmPassword.value) {
-    return "Confirm your password.";
-  }
-  if (password.value !== confirmPassword.value) {
-    return "Passwords do not match.";
-  }
-  return "";
+  return validators.confirmPassword({
+    password: password.value,
+    confirmPassword: confirmPassword.value
+  });
 });
 
 const emailErrorMessages = computed(() => {
