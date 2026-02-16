@@ -201,8 +201,8 @@ describe("SettingsView", () => {
       )
     ).toContain("Locale is invalid.");
 
-    expect(wrapper.vm.handleAuthError({ status: 500, message: "No auth" })).toBe(false);
-    expect(wrapper.vm.handleAuthError({ status: 401, message: "Auth required" })).toBe(true);
+    await expect(wrapper.vm.handleAuthError({ status: 500, message: "No auth" })).resolves.toBe(false);
+    await expect(wrapper.vm.handleAuthError({ status: 401, message: "Auth required" })).resolves.toBe(true);
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
     expect(mocks.navigate).toHaveBeenCalledWith({ to: "/login", replace: true });
   });

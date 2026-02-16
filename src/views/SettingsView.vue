@@ -358,6 +358,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useTheme } from "vuetify";
 import { api } from "../services/api";
 import { useAuthStore } from "../stores/authStore";
+import { useAuthGuard } from "../composables/useAuthGuard";
 
 const SETTINGS_QUERY_KEY = ["settings"];
 const VALID_TABS = new Set(["security", "profile", "preferences", "notifications"]);
@@ -411,6 +412,7 @@ const navigate = useNavigate();
 const authStore = useAuthStore();
 const queryClient = useQueryClient();
 const vuetifyTheme = useTheme();
+const { handleUnauthorizedError } = useAuthGuard();
 
 const routerSearch = useRouterState({
   select: (state) => state.location.search
@@ -592,29 +594,19 @@ function applySettingsData(data) {
   applyThemePreference(preferencesForm.theme);
 }
 
-async function redirectToLogin() {
-  await navigate({ to: "/login", replace: true });
-}
-
-function handleAuthError(error) {
-  if (Number(error?.status) === 401) {
-    authStore.setSignedOut();
-    redirectToLogin();
-    return true;
-  }
-
-  return false;
+async function handleAuthError(error) {
+  return handleUnauthorizedError(error);
 }
 
 watch(
   () => settingsQuery.error.value,
-  (error) => {
+  async (error) => {
     if (!error) {
       loadError.value = "";
       return;
     }
 
-    if (handleAuthError(error)) {
+    if (await handleAuthError(error)) {
       return;
     }
 
@@ -672,7 +664,7 @@ async function submitProfile() {
     profileMessageType.value = "success";
     profileMessage.value = "Profile updated.";
   } catch (error) {
-    if (handleAuthError(error)) {
+    if (await handleAuthError(error)) {
       return;
     }
 
@@ -708,7 +700,7 @@ async function submitPreferences() {
     preferencesMessageType.value = "success";
     preferencesMessage.value = "Preferences updated.";
   } catch (error) {
-    if (handleAuthError(error)) {
+    if (await handleAuthError(error)) {
       return;
     }
 
@@ -740,7 +732,7 @@ async function submitNotifications() {
     notificationsMessageType.value = "success";
     notificationsMessage.value = "Notification settings updated.";
   } catch (error) {
-    if (handleAuthError(error)) {
+    if (await handleAuthError(error)) {
       return;
     }
 
@@ -766,7 +758,7 @@ async function submitPasswordChange() {
     securityMessageType.value = "success";
     securityMessage.value = String(response?.message || "Password changed.");
   } catch (error) {
-    if (handleAuthError(error)) {
+    if (await handleAuthError(error)) {
       return;
     }
 
@@ -791,7 +783,7 @@ async function submitLogoutOthers() {
     sessionsMessageType.value = "success";
     sessionsMessage.value = String(response?.message || "Signed out from other active sessions.");
   } catch (error) {
-    if (handleAuthError(error)) {
+    if (await handleAuthError(error)) {
       return;
     }
 

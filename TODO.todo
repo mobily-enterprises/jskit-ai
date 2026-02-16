@@ -1,9 +1,12 @@
 X Add client-server shared code
 X User screen and user configuration
+- Major tidying up, avoid repeated code, best way to write tests 
 - Harmonise/understand schema
-- Gravatar, + Profile picture upload and S3 integration
-- Load user settings on app load IF that is best practice and doesn't happen already
+- Gravatar, + Profile picture upload and S3 integration/filesystem?
+
 - Config/multihoming: App configuration, loaded at boot time AND Multihoming, app configuration becomes workspace configuration
+- Load user settings on app load IF that is best practice and doesn't happen already
+
 - More permissions (multihoming)
 - Add email system (SMTP?, Amazon?)
 - Add a backend interface, explain how to make it work, what code to share

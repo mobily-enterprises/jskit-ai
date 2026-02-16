@@ -6,7 +6,7 @@ vi.mock("../../src/App.vue", () => ({
   }
 }));
 
-import { createAppRouter, __testables } from "../../src/router";
+import { createAppRouter, __testables } from "../../src/router.js";
 
 describe("router auth guards", () => {
   it("resolveAuthState returns authenticated session", async () => {
