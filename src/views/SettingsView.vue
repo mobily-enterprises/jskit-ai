@@ -25,56 +25,150 @@
               <v-col cols="12" md="7">
                 <v-card rounded="lg" elevation="0" border>
                   <v-card-item>
-                    <v-card-title class="text-subtitle-1">Change password</v-card-title>
+                    <v-card-title class="text-subtitle-1">Authentication methods</v-card-title>
+                    <v-card-subtitle>Enable, disable, and manage how this account signs in.</v-card-subtitle>
                   </v-card-item>
                   <v-divider />
                   <v-card-text>
-                    <v-form @submit.prevent="submitPasswordChange" novalidate>
-                      <v-text-field
-                        v-model="securityForm.currentPassword"
-                        label="Current password"
-                        :type="showCurrentPassword ? 'text' : 'password'"
-                        :append-inner-icon="showCurrentPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                        @click:append-inner="showCurrentPassword = !showCurrentPassword"
-                        variant="outlined"
-                        density="comfortable"
-                        autocomplete="current-password"
-                        :error-messages="securityFieldErrors.currentPassword ? [securityFieldErrors.currentPassword] : []"
-                        class="mb-3"
-                      />
+                    <div v-if="authMethodItems.length > 0" class="d-flex flex-column ga-3">
+                      <div
+                        v-for="method in authMethodItems"
+                        :key="method.id"
+                        class="d-flex flex-wrap align-center justify-space-between ga-3"
+                      >
+                        <div>
+                          <div class="text-body-2 font-weight-medium">{{ method.label }}</div>
+                          <div class="text-caption text-medium-emphasis">
+                            {{ authMethodStatusText(method) }}
+                          </div>
+                        </div>
 
-                      <v-text-field
-                        v-model="securityForm.newPassword"
-                        label="New password"
-                        :type="showNewPassword ? 'text' : 'password'"
-                        :append-inner-icon="showNewPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                        @click:append-inner="showNewPassword = !showNewPassword"
-                        variant="outlined"
-                        density="comfortable"
-                        autocomplete="new-password"
-                        :error-messages="securityFieldErrors.newPassword ? [securityFieldErrors.newPassword] : []"
-                        class="mb-3"
-                      />
+                        <div class="d-flex flex-wrap justify-end ga-2">
+                          <template v-if="method.kind === AUTH_METHOD_KIND_PASSWORD">
+                            <v-btn variant="text" color="secondary" @click="openPasswordForm">
+                              {{ passwordManageLabel }}
+                            </v-btn>
+                            <v-btn
+                              v-if="method.enabled"
+                              variant="text"
+                              color="error"
+                              :disabled="!method.canDisable"
+                              :loading="
+                                methodActionLoadingId === method.id && setPasswordMethodEnabledMutation.isPending.value
+                              "
+                              @click="submitPasswordMethodToggle(false)"
+                            >
+                              Disable
+                            </v-btn>
+                            <v-btn
+                              v-else-if="method.configured"
+                              variant="tonal"
+                              color="secondary"
+                              :loading="
+                                methodActionLoadingId === method.id && setPasswordMethodEnabledMutation.isPending.value
+                              "
+                              @click="submitPasswordMethodToggle(true)"
+                            >
+                              Enable
+                            </v-btn>
+                          </template>
 
-                      <v-text-field
-                        v-model="securityForm.confirmPassword"
-                        label="Confirm new password"
-                        :type="showConfirmPassword ? 'text' : 'password'"
-                        :append-inner-icon="showConfirmPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                        @click:append-inner="showConfirmPassword = !showConfirmPassword"
-                        variant="outlined"
-                        density="comfortable"
-                        autocomplete="new-password"
-                        :error-messages="securityFieldErrors.confirmPassword ? [securityFieldErrors.confirmPassword] : []"
-                        class="mb-3"
-                      />
+                          <template v-else-if="method.kind === AUTH_METHOD_KIND_OAUTH">
+                            <v-btn
+                              v-if="method.enabled"
+                              variant="text"
+                              color="error"
+                              :disabled="!method.canDisable"
+                              :loading="methodActionLoadingId === method.id && unlinkProviderMutation.isPending.value"
+                              @click="submitProviderUnlink(method.provider)"
+                            >
+                              Unlink
+                            </v-btn>
+                            <v-btn
+                              v-else
+                              variant="tonal"
+                              color="secondary"
+                              :disabled="providerLinkStartInFlight"
+                              @click="startProviderLink(method.provider)"
+                            >
+                              Link
+                            </v-btn>
+                          </template>
 
-                      <v-alert v-if="securityMessage" :type="securityMessageType" variant="tonal" class="mb-3">
-                        {{ securityMessage }}
-                      </v-alert>
+                          <template v-else-if="method.kind === AUTH_METHOD_KIND_OTP">
+                            <v-chip size="small" label color="secondary">Required</v-chip>
+                          </template>
+                        </div>
+                      </div>
+                    </div>
+                    <p v-else class="text-body-2 text-medium-emphasis mb-0">
+                      No user-managed sign-in methods are available yet.
+                    </p>
 
-                      <v-btn type="submit" color="primary" :loading="passwordMutation.isPending.value">Update password</v-btn>
-                    </v-form>
+                    <p class="text-caption text-medium-emphasis mt-3 mb-0">{{ securityMethodsHint }}</p>
+
+                    <v-alert v-if="providerMessage" :type="providerMessageType" variant="tonal" class="mt-3 mb-0">
+                      {{ providerMessage }}
+                    </v-alert>
+
+                    <v-expand-transition>
+                      <div v-if="showPasswordForm" class="mt-4">
+                        <v-divider class="mb-4" />
+
+                        <v-form @submit.prevent="submitPasswordChange" novalidate>
+                          <v-text-field
+                            v-if="requiresCurrentPassword"
+                            v-model="securityForm.currentPassword"
+                            label="Current password"
+                            :type="showCurrentPassword ? 'text' : 'password'"
+                            :append-inner-icon="showCurrentPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                            @click:append-inner="showCurrentPassword = !showCurrentPassword"
+                            variant="outlined"
+                            density="comfortable"
+                            autocomplete="current-password"
+                            :error-messages="securityFieldErrors.currentPassword ? [securityFieldErrors.currentPassword] : []"
+                            class="mb-3"
+                          />
+
+                          <v-text-field
+                            v-model="securityForm.newPassword"
+                            label="New password"
+                            :type="showNewPassword ? 'text' : 'password'"
+                            :append-inner-icon="showNewPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                            @click:append-inner="showNewPassword = !showNewPassword"
+                            variant="outlined"
+                            density="comfortable"
+                            autocomplete="new-password"
+                            :error-messages="securityFieldErrors.newPassword ? [securityFieldErrors.newPassword] : []"
+                            class="mb-3"
+                          />
+
+                          <v-text-field
+                            v-model="securityForm.confirmPassword"
+                            label="Confirm new password"
+                            :type="showConfirmPassword ? 'text' : 'password'"
+                            :append-inner-icon="showConfirmPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                            @click:append-inner="showConfirmPassword = !showConfirmPassword"
+                            variant="outlined"
+                            density="comfortable"
+                            autocomplete="new-password"
+                            :error-messages="securityFieldErrors.confirmPassword ? [securityFieldErrors.confirmPassword] : []"
+                            class="mb-3"
+                          />
+
+                          <v-alert v-if="securityMessage" :type="securityMessageType" variant="tonal" class="mb-3">
+                            {{ securityMessage }}
+                          </v-alert>
+
+                          <div class="d-flex flex-wrap ga-2">
+                            <v-btn type="submit" color="primary" :loading="passwordMutation.isPending.value">
+                              {{ passwordSubmitLabel }}
+                            </v-btn>
+                            <v-btn variant="text" color="secondary" @click="closePasswordForm">Cancel</v-btn>
+                          </div>
+                        </v-form>
+                      </div>
+                    </v-expand-transition>
                   </v-card-text>
                 </v-card>
               </v-col>
@@ -415,6 +509,22 @@ import {
   AVATAR_MAX_UPLOAD_BYTES,
   AVATAR_SIZE_OPTIONS
 } from "../../shared/avatar/index.js";
+import {
+  AUTH_METHOD_DEFINITIONS,
+  AUTH_METHOD_KIND_OAUTH,
+  AUTH_METHOD_KIND_OTP,
+  AUTH_METHOD_KIND_PASSWORD,
+  AUTH_METHOD_PASSWORD_ID,
+  buildOAuthMethodId
+} from "../../shared/auth/authMethods.js";
+import { AUTH_OAUTH_PROVIDER_METADATA, normalizeOAuthProvider } from "../../shared/auth/oauthProviders.js";
+import {
+  clearPendingOAuthContext,
+  readOAuthCallbackStateFromLocation,
+  readPendingOAuthContext,
+  stripOAuthCallbackParamsFromLocation,
+  writePendingOAuthContext
+} from "../utils/oauthCallback.js";
 
 const SETTINGS_QUERY_KEY = ["settings"];
 const VALID_TABS = new Set(["security", "profile", "preferences", "notifications"]);
@@ -556,6 +666,11 @@ const securityMessage = ref("");
 const securityMessageType = ref("success");
 const sessionsMessage = ref("");
 const sessionsMessageType = ref("success");
+const providerMessage = ref("");
+const providerMessageType = ref("success");
+const providerLinkStartInFlight = ref(false);
+const methodActionLoadingId = ref("");
+const showPasswordForm = ref(false);
 
 const showCurrentPassword = ref(false);
 const showNewPassword = ref(false);
@@ -569,10 +684,6 @@ const settingsQuery = useQuery({
 
 const profileMutation = useMutation({
   mutationFn: (payload) => api.updateProfileSettings(payload)
-});
-
-const avatarUploadMutation = useMutation({
-  mutationFn: (payload) => api.uploadProfileAvatar(payload)
 });
 
 const avatarDeleteMutation = useMutation({
@@ -591,11 +702,119 @@ const passwordMutation = useMutation({
   mutationFn: (payload) => api.changePassword(payload)
 });
 
+const setPasswordMethodEnabledMutation = useMutation({
+  mutationFn: (payload) => api.setPasswordMethodEnabled(payload)
+});
+
 const logoutOthersMutation = useMutation({
   mutationFn: () => api.logoutOtherSessions()
 });
 
+const unlinkProviderMutation = useMutation({
+  mutationFn: (providerId) => api.unlinkSettingsOAuthProvider(providerId)
+});
+
 const mfaStatus = computed(() => String(settingsQuery.data.value?.security?.mfa?.status || "not_enabled"));
+const securityStatus = computed(() => {
+  const security = settingsQuery.data.value?.security;
+  return security && typeof security === "object" ? security : {};
+});
+
+function createFallbackAuthMethods() {
+  return AUTH_METHOD_DEFINITIONS.map((definition) => {
+    const alwaysAvailable = definition.kind === AUTH_METHOD_KIND_OTP;
+    return {
+      id: definition.id,
+      kind: definition.kind,
+      provider: definition.provider || null,
+      label: definition.label,
+      configured: alwaysAvailable,
+      enabled: alwaysAvailable,
+      canEnable: false,
+      canDisable: false,
+      supportsSecretUpdate: Boolean(definition.supportsSecretUpdate),
+      requiresCurrentPassword: false
+    };
+  });
+}
+
+function normalizeAuthMethod(rawMethod) {
+  const method = rawMethod && typeof rawMethod === "object" ? rawMethod : {};
+  const id = String(method.id || "");
+  const kind = String(method.kind || "");
+
+  return {
+    id,
+    kind,
+    provider: method.provider == null ? null : String(method.provider || ""),
+    label: String(method.label || id || "Method"),
+    configured: Boolean(method.configured),
+    enabled: Boolean(method.enabled),
+    canEnable: Boolean(method.canEnable),
+    canDisable: Boolean(method.canDisable),
+    supportsSecretUpdate: Boolean(method.supportsSecretUpdate),
+    requiresCurrentPassword: Boolean(method.requiresCurrentPassword)
+  };
+}
+
+const securityAuthPolicy = computed(() => {
+  const authPolicy = securityStatus.value?.authPolicy;
+  if (!authPolicy || typeof authPolicy !== "object") {
+    return {
+      minimumEnabledMethods: 1,
+      enabledMethodsCount: 0
+    };
+  }
+
+  return {
+    minimumEnabledMethods: Number.isInteger(Number(authPolicy.minimumEnabledMethods))
+      ? Math.max(1, Number(authPolicy.minimumEnabledMethods))
+      : 1,
+    enabledMethodsCount: Number.isInteger(Number(authPolicy.enabledMethodsCount))
+      ? Math.max(0, Number(authPolicy.enabledMethodsCount))
+      : 0
+  };
+});
+
+const securityAuthMethods = computed(() => {
+  const methods = securityStatus.value?.authMethods;
+  if (!Array.isArray(methods) || methods.length === 0) {
+    return createFallbackAuthMethods();
+  }
+
+  return methods.map(normalizeAuthMethod).filter((method) => method.id);
+});
+
+const passwordMethod = computed(
+  () =>
+    securityAuthMethods.value.find((method) => String(method.id || "") === AUTH_METHOD_PASSWORD_ID) || {
+      id: AUTH_METHOD_PASSWORD_ID,
+      kind: AUTH_METHOD_KIND_PASSWORD,
+      provider: "email",
+      label: "Password",
+      configured: false,
+      enabled: false,
+      canEnable: false,
+      canDisable: false,
+      supportsSecretUpdate: true,
+      requiresCurrentPassword: false
+    }
+);
+
+const requiresCurrentPassword = computed(() => Boolean(passwordMethod.value.requiresCurrentPassword));
+const passwordSubmitLabel = computed(() => (passwordMethod.value.enabled ? "Update password" : "Set password"));
+const passwordManageLabel = computed(() => (passwordMethod.value.enabled ? "Change password" : "Set password"));
+const authMethodItems = computed(() =>
+  securityAuthMethods.value.filter((method) => method.kind !== AUTH_METHOD_KIND_OTP)
+);
+const securityMethodsHint = computed(() => {
+  const minimum = securityAuthPolicy.value.minimumEnabledMethods;
+  if (minimum <= 1) {
+    return "At least one sign-in method must remain enabled.";
+  }
+
+  return `At least ${minimum} sign-in methods must remain enabled.`;
+});
 const mfaLabel = computed(() => {
   if (mfaStatus.value === "enabled") {
     return "MFA enabled";
@@ -635,6 +854,82 @@ function toErrorMessage(error, fallback) {
   }
 
   return String(error?.message || fallback);
+}
+
+function providerLabel(providerId) {
+  const normalized = normalizeOAuthProvider(providerId, { fallback: null });
+  if (!normalized) {
+    return String(providerId || "Provider");
+  }
+
+  return String(AUTH_OAUTH_PROVIDER_METADATA[normalized]?.label || normalized);
+}
+
+function authMethodStatusText(method) {
+  const normalized = method && typeof method === "object" ? method : {};
+  if (normalized.kind === AUTH_METHOD_KIND_OTP) {
+    return "Always available";
+  }
+  if (normalized.kind === AUTH_METHOD_KIND_OAUTH) {
+    return normalized.enabled ? "Linked" : "Not linked";
+  }
+
+  if (normalized.enabled) {
+    return "Enabled";
+  }
+  if (normalized.configured) {
+    return "Configured but disabled";
+  }
+
+  return "Not configured";
+}
+
+async function handleOAuthCallbackIfPresent() {
+  const pendingOAuthContext = readPendingOAuthContext();
+  const callbackState = readOAuthCallbackStateFromLocation({
+    pendingContext: pendingOAuthContext,
+    defaultIntent: "link",
+    defaultReturnTo: "/settings?tab=security"
+  });
+
+  if (!callbackState) {
+    return;
+  }
+
+  providerMessage.value = "";
+  providerLinkStartInFlight.value = true;
+
+  try {
+    await api.oauthComplete(callbackState.payload);
+    const session = await authStore.refreshSession();
+    if (!session?.authenticated) {
+      throw new Error("Provider link succeeded but the active session is unavailable. Please retry.");
+    }
+
+    stripOAuthCallbackParamsFromLocation({
+      preserveSearchKeys: ["tab"]
+    });
+    await queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY });
+
+    providerMessageType.value = "success";
+    providerMessage.value =
+      callbackState.intent === "link"
+        ? `${providerLabel(callbackState.provider)} linked.`
+        : "Sign-in completed.";
+  } catch (error) {
+    if (await handleAuthError(error)) {
+      return;
+    }
+
+    providerMessageType.value = "error";
+    providerMessage.value = toErrorMessage(error, "Unable to complete provider link.");
+    stripOAuthCallbackParamsFromLocation({
+      preserveSearchKeys: ["tab"]
+    });
+  } finally {
+    clearPendingOAuthContext();
+    providerLinkStartInFlight.value = false;
+  }
 }
 
 function applyAvatarData(avatar) {
@@ -955,45 +1250,6 @@ async function openAvatarEditor() {
   }
 }
 
-async function submitAvatarUpload() {
-  avatarMessage.value = "";
-
-  const uppy = avatarUppy.value;
-  if (!uppy) {
-    avatarMessageType.value = "error";
-    avatarMessage.value = "Avatar editor is unavailable in this environment.";
-    return;
-  }
-
-  const files = uppy.getFiles();
-  const selected = files[0];
-  if (!selected?.data) {
-    avatarMessageType.value = "error";
-    avatarMessage.value = "Select an avatar image first.";
-    return;
-  }
-
-  const formData = new FormData();
-  formData.append("avatar", selected.data, selected.name || "avatar");
-
-  try {
-    const data = await avatarUploadMutation.mutateAsync(formData);
-    queryClient.setQueryData(SETTINGS_QUERY_KEY, data);
-    applySettingsData(data);
-    avatarMessageType.value = "success";
-    avatarMessage.value = "Avatar uploaded.";
-    selectedAvatarFileName.value = "";
-    uppy.clear();
-  } catch (error) {
-    if (await handleAuthError(error)) {
-      return;
-    }
-
-    avatarMessageType.value = "error";
-    avatarMessage.value = toErrorMessage(error, "Unable to upload avatar.");
-  }
-}
-
 async function submitAvatarDelete() {
   avatarMessage.value = "";
 
@@ -1084,7 +1340,7 @@ async function submitPasswordChange() {
 
   try {
     const response = await passwordMutation.mutateAsync({
-      currentPassword: securityForm.currentPassword,
+      currentPassword: requiresCurrentPassword.value ? securityForm.currentPassword : undefined,
       newPassword: securityForm.newPassword,
       confirmPassword: securityForm.confirmPassword
     });
@@ -1093,7 +1349,9 @@ async function submitPasswordChange() {
     securityForm.newPassword = "";
     securityForm.confirmPassword = "";
     securityMessageType.value = "success";
-    securityMessage.value = String(response?.message || "Password changed.");
+    securityMessage.value = String(response?.message || "Password updated.");
+    showPasswordForm.value = false;
+    await queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY });
   } catch (error) {
     if (await handleAuthError(error)) {
       return;
@@ -1108,7 +1366,100 @@ async function submitPasswordChange() {
     }
 
     securityMessageType.value = "error";
-    securityMessage.value = toErrorMessage(error, "Unable to change password.");
+    securityMessage.value = toErrorMessage(error, "Unable to update password.");
+  }
+}
+
+function openPasswordForm() {
+  showPasswordForm.value = true;
+  clearFieldErrors(securityFieldErrors);
+  securityMessage.value = "";
+}
+
+function closePasswordForm() {
+  showPasswordForm.value = false;
+  securityForm.currentPassword = "";
+  securityForm.newPassword = "";
+  securityForm.confirmPassword = "";
+  clearFieldErrors(securityFieldErrors);
+  securityMessage.value = "";
+}
+
+async function submitPasswordMethodToggle(enabled) {
+  providerMessage.value = "";
+  methodActionLoadingId.value = AUTH_METHOD_PASSWORD_ID;
+
+  try {
+    const data = await setPasswordMethodEnabledMutation.mutateAsync({
+      enabled
+    });
+    queryClient.setQueryData(SETTINGS_QUERY_KEY, data);
+    applySettingsData(data);
+    providerMessageType.value = "success";
+    providerMessage.value = enabled ? "Password sign-in enabled." : "Password sign-in disabled.";
+  } catch (error) {
+    if (await handleAuthError(error)) {
+      return;
+    }
+
+    providerMessageType.value = "error";
+    providerMessage.value = toErrorMessage(error, "Unable to update password sign-in method.");
+  } finally {
+    methodActionLoadingId.value = "";
+  }
+}
+
+async function startProviderLink(providerId) {
+  const provider = normalizeOAuthProvider(providerId, { fallback: null });
+  if (!provider) {
+    providerMessageType.value = "error";
+    providerMessage.value = "OAuth provider is not supported.";
+    return;
+  }
+
+  providerMessage.value = "";
+  providerLinkStartInFlight.value = true;
+  const returnTo = "/settings?tab=security";
+  writePendingOAuthContext({
+    provider,
+    intent: "link",
+    returnTo
+  });
+
+  if (typeof window !== "undefined") {
+    window.location.assign(api.settingsOAuthLinkStartUrl(provider, { returnTo }));
+    return;
+  }
+
+  providerLinkStartInFlight.value = false;
+}
+
+async function submitProviderUnlink(providerId) {
+  const provider = normalizeOAuthProvider(providerId, { fallback: null });
+  if (!provider) {
+    providerMessageType.value = "error";
+    providerMessage.value = "OAuth provider is not supported.";
+    return;
+  }
+
+  providerMessage.value = "";
+  methodActionLoadingId.value = buildOAuthMethodId(provider) || provider;
+
+  try {
+    const data = await unlinkProviderMutation.mutateAsync(provider);
+    queryClient.setQueryData(SETTINGS_QUERY_KEY, data);
+    applySettingsData(data);
+    providerMessageType.value = "success";
+    providerMessage.value = `${providerLabel(provider)} unlinked.`;
+  } catch (error) {
+    if (await handleAuthError(error)) {
+      return;
+    }
+
+    providerMessageType.value = "error";
+    providerMessage.value = toErrorMessage(error, "Unable to unlink provider.");
+  } finally {
+    methodActionLoadingId.value = "";
   }
 }
 
@@ -1129,8 +1480,9 @@ async function submitLogoutOthers() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   setupAvatarUploader();
+  await handleOAuthCallbackIfPresent();
   settingsEnabled.value = true;
 });
 

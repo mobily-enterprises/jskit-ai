@@ -240,16 +240,19 @@ function parseNotificationsInput(payload = {}) {
   };
 }
 
-function parseChangePasswordInput(payload = {}) {
+function parseChangePasswordInput(payload = {}, options = {}) {
   const fieldErrors = {};
+  const requireCurrentPassword = options.requireCurrentPassword !== false;
 
   const currentPassword = String(payload.currentPassword || "");
   const newPassword = String(payload.newPassword || "");
   const confirmPassword = String(payload.confirmPassword || "");
 
-  const currentPasswordError = authValidators.loginPassword(currentPassword);
-  if (currentPasswordError) {
-    fieldErrors.currentPassword = currentPasswordError;
+  if (requireCurrentPassword) {
+    const currentPasswordError = authValidators.loginPassword(currentPassword);
+    if (currentPasswordError) {
+      fieldErrors.currentPassword = currentPasswordError;
+    }
   }
 
   const newPasswordError = authValidators.registerPassword(newPassword);
@@ -265,7 +268,7 @@ function parseChangePasswordInput(payload = {}) {
     fieldErrors.confirmPassword = confirmPasswordError;
   }
 
-  if (!fieldErrors.newPassword && !fieldErrors.currentPassword && currentPassword === newPassword) {
+  if (requireCurrentPassword && !fieldErrors.newPassword && !fieldErrors.currentPassword && currentPassword === newPassword) {
     fieldErrors.newPassword = "New password must be different from current password.";
   }
 
@@ -279,6 +282,33 @@ function parseChangePasswordInput(payload = {}) {
 
 function normalizeSecurityStatus(securityStatus) {
   const mfa = securityStatus && typeof securityStatus === "object" ? securityStatus.mfa || {} : {};
+  const authPolicy = securityStatus && typeof securityStatus === "object" ? securityStatus.authPolicy || {} : {};
+  const rawAuthMethods =
+    securityStatus && typeof securityStatus === "object" && Array.isArray(securityStatus.authMethods)
+      ? securityStatus.authMethods
+      : [];
+
+  const minimumEnabledMethods = Number.isInteger(Number(authPolicy.minimumEnabledMethods))
+    ? Math.max(1, Number(authPolicy.minimumEnabledMethods))
+    : 1;
+
+  const authMethods = rawAuthMethods.map((method) => {
+    const normalized = method && typeof method === "object" ? method : {};
+    return {
+      id: String(normalized.id || ""),
+      kind: String(normalized.kind || ""),
+      provider: normalized.provider == null ? null : String(normalized.provider || ""),
+      label: String(normalized.label || normalized.id || ""),
+      configured: Boolean(normalized.configured),
+      enabled: Boolean(normalized.enabled),
+      canEnable: Boolean(normalized.canEnable),
+      canDisable: Boolean(normalized.canDisable),
+      supportsSecretUpdate: Boolean(normalized.supportsSecretUpdate),
+      requiresCurrentPassword: Boolean(normalized.requiresCurrentPassword)
+    };
+  });
+
+  const enabledMethodsCount = authMethods.reduce((count, method) => (method.enabled ? count + 1 : count), 0);
 
   return {
     mfa: {
@@ -289,10 +319,17 @@ function normalizeSecurityStatus(securityStatus) {
     sessions: {
       canSignOutOtherDevices: true
     },
-    password: {
-      canChange: true
-    }
+    authPolicy: {
+      minimumEnabledMethods,
+      enabledMethodsCount
+    },
+    authMethods
   };
+}
+
+function findPasswordAuthMethod(securityStatus) {
+  const methods = Array.isArray(securityStatus?.authMethods) ? securityStatus.authMethods : [];
+  return methods.find((method) => String(method?.id || "") === "password") || null;
 }
 
 function buildSettingsResponse(userProfile, settings, securityStatus, avatar) {
@@ -402,21 +439,57 @@ function createUserSettingsService({ userSettingsRepository, userProfilesReposit
   }
 
   async function changePassword(request, payload) {
-    const parsed = parseChangePasswordInput(payload);
-    if (Object.keys(parsed.fieldErrors).length > 0) {
-      throw validationError(parsed.fieldErrors);
+    const securityStatus = await authService.getSecurityStatus(request);
+    const passwordMethod = findPasswordAuthMethod(securityStatus);
+    const requireCurrentPassword = Boolean(passwordMethod?.requiresCurrentPassword);
+    const parsedWithPolicy = parseChangePasswordInput(payload, { requireCurrentPassword });
+    if (Object.keys(parsedWithPolicy.fieldErrors).length > 0) {
+      throw validationError(parsedWithPolicy.fieldErrors);
     }
 
     const result = await authService.changePassword(request, {
-      currentPassword: parsed.currentPassword,
-      newPassword: parsed.newPassword
+      currentPassword: parsedWithPolicy.currentPassword,
+      newPassword: parsedWithPolicy.newPassword,
+      requireCurrentPassword
     });
 
     return {
       ok: true,
-      message: "Password changed.",
+      message: Boolean(passwordMethod?.enabled) ? "Password changed." : "Password set.",
       session: result?.session || null
     };
+  }
+
+  async function setPasswordMethodEnabled(request, user, payload) {
+    await userSettingsRepository.ensureForUserId(user.id);
+    await authService.setPasswordSignInEnabled(request, payload);
+
+    const maybeLatestProfile = user.supabaseUserId
+      ? await userProfilesRepository.findBySupabaseUserId(user.supabaseUserId)
+      : null;
+    const profile = maybeLatestProfile || user;
+    const settings = await userSettingsRepository.ensureForUserId(user.id);
+    const securityStatus = await authService.getSecurityStatus(request);
+
+    return buildSettingsResponse(profile, settings, securityStatus, resolveAvatar(profile, settings));
+  }
+
+  async function startOAuthProviderLink(request, user, payload) {
+    await userSettingsRepository.ensureForUserId(user.id);
+    return authService.startProviderLink(request, payload);
+  }
+
+  async function unlinkOAuthProvider(request, user, payload) {
+    await authService.unlinkProvider(request, payload);
+
+    const maybeLatestProfile = user.supabaseUserId
+      ? await userProfilesRepository.findBySupabaseUserId(user.supabaseUserId)
+      : null;
+    const profile = maybeLatestProfile || user;
+    const settings = await userSettingsRepository.ensureForUserId(user.id);
+    const securityStatus = await authService.getSecurityStatus(request);
+
+    return buildSettingsResponse(profile, settings, securityStatus, resolveAvatar(profile, settings));
   }
 
   async function logoutOtherSessions(request) {
@@ -436,6 +509,9 @@ function createUserSettingsService({ userSettingsRepository, userProfilesReposit
     uploadAvatar,
     deleteAvatar,
     changePassword,
+    setPasswordMethodEnabled,
+    startOAuthProviderLink,
+    unlinkOAuthProvider,
     logoutOtherSessions
   };
 }

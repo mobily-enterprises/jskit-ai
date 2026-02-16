@@ -12,7 +12,7 @@
             <v-chip color="primary" size="small" label>Secure</v-chip>
           </div>
 
-          <div v-if="!isForgot" class="mode-switch mb-5">
+          <div v-if="!isForgot && !isOtp" class="mode-switch mb-5">
             <v-btn
               class="text-none"
               :variant="isLogin ? 'flat' : 'text'"
@@ -57,7 +57,7 @@
             />
 
             <v-text-field
-              v-if="!isForgot"
+              v-if="!isForgot && !isOtp"
               v-model="password"
               label="Password"
               :type="showPassword ? 'text' : 'password'"
@@ -86,12 +86,25 @@
               class="mb-3"
             />
 
+            <v-text-field
+              v-if="isOtp"
+              v-model="otpCode"
+              label="One-time code"
+              variant="outlined"
+              density="comfortable"
+              autocomplete="one-time-code"
+              :error-messages="otpCodeErrorMessages"
+              @blur="otpCodeTouched = true"
+              class="mb-3"
+            />
+
             <div v-if="isLogin" class="aux-links mb-4">
               <v-btn variant="text" color="secondary" @click="switchMode('forgot')">Forgot password?</v-btn>
+              <v-btn variant="text" color="secondary" @click="switchMode('otp')">Use one-time code</v-btn>
             </div>
 
             <v-checkbox
-              v-if="isLogin"
+              v-if="isLogin || isOtp"
               v-model="rememberAccountOnDevice"
               label="Remember this account on this device"
               density="compact"
@@ -99,7 +112,19 @@
               class="mb-4"
             />
 
-            <div v-if="isLogin" class="oauth-actions mb-4">
+            <div v-if="isOtp" class="aux-links mb-4">
+              <v-btn
+                type="button"
+                variant="tonal"
+                color="secondary"
+                :loading="otpRequestMutation.isPending.value"
+                @click="requestOtpCode"
+              >
+                Send one-time code
+              </v-btn>
+            </div>
+
+            <div v-if="isLogin || isRegister" class="oauth-actions mb-4">
               <v-btn
                 v-for="provider in oauthProviders"
                 :key="provider.id"
@@ -136,6 +161,11 @@
               <span class="text-medium-emphasis">Remembered your password?</span>
               <v-btn variant="text" color="secondary" @click="switchMode('login')">Back to sign in</v-btn>
             </div>
+
+            <div v-else-if="isOtp" class="switch-row">
+              <span class="text-medium-emphasis">Want to use another method?</span>
+              <v-btn variant="text" color="secondary" @click="switchMode('login')">Back to sign in</v-btn>
+            </div>
           </v-form>
         </v-card-text>
       </v-card>
@@ -150,16 +180,21 @@ import { useMutation } from "@tanstack/vue-query";
 import { api } from "../services/api";
 import { useAuthStore } from "../stores/authStore";
 import {
-  AUTH_OAUTH_DEFAULT_PROVIDER,
   AUTH_OAUTH_PROVIDER_METADATA,
   AUTH_OAUTH_PROVIDERS,
   normalizeOAuthProvider
 } from "../../shared/auth/oauthProviders.js";
 import { validators } from "../../shared/auth/validators.js";
 import { normalizeEmail } from "../../shared/auth/utils.js";
+import {
+  clearPendingOAuthContext,
+  readOAuthCallbackStateFromLocation,
+  readPendingOAuthContext,
+  stripOAuthCallbackParamsFromLocation,
+  writePendingOAuthContext
+} from "../utils/oauthCallback.js";
 
 const REMEMBERED_ACCOUNT_STORAGE_KEY = "auth.rememberedAccount";
-const PENDING_OAUTH_PROVIDER_STORAGE_KEY = "auth.oauth.pendingProvider";
 
 const navigate = useNavigate();
 const authStore = useAuthStore();
@@ -168,11 +203,13 @@ const mode = ref("login");
 const email = ref("");
 const password = ref("");
 const confirmPassword = ref("");
+const otpCode = ref("");
 const showPassword = ref(false);
 const showConfirmPassword = ref(false);
 const emailTouched = ref(false);
 const passwordTouched = ref(false);
 const confirmPasswordTouched = ref(false);
+const otpCodeTouched = ref(false);
 const submitAttempted = ref(false);
 const errorMessage = ref("");
 const infoMessage = ref("");
@@ -184,7 +221,10 @@ const oauthCallbackInFlight = ref(false);
 const isLogin = computed(() => mode.value === "login");
 const isRegister = computed(() => mode.value === "register");
 const isForgot = computed(() => mode.value === "forgot");
-const showRememberedAccount = computed(() => isLogin.value && useRememberedAccount.value && Boolean(rememberedAccount.value));
+const isOtp = computed(() => mode.value === "otp");
+const showRememberedAccount = computed(
+  () => (isLogin.value || isOtp.value) && useRememberedAccount.value && Boolean(rememberedAccount.value)
+);
 const rememberedAccountDisplayName = computed(() => String(rememberedAccount.value?.displayName || "your account"));
 const rememberedAccountMaskedEmail = computed(() => String(rememberedAccount.value?.maskedEmail || ""));
 const rememberedAccountSwitchLabel = computed(() => {
@@ -205,11 +245,21 @@ const forgotPasswordMutation = useMutation({
   mutationFn: (payload) => api.requestPasswordReset(payload)
 });
 
+const otpRequestMutation = useMutation({
+  mutationFn: (payload) => api.requestOtpLogin(payload)
+});
+
+const otpVerifyMutation = useMutation({
+  mutationFn: (payload) => api.verifyOtpLogin(payload)
+});
+
 const loading = computed(
   () =>
     registerMutation.isPending.value ||
     loginMutation.isPending.value ||
     forgotPasswordMutation.isPending.value ||
+    otpRequestMutation.isPending.value ||
+    otpVerifyMutation.isPending.value ||
     oauthCallbackInFlight.value
 );
 
@@ -219,6 +269,9 @@ const authTitle = computed(() => {
   }
   if (isForgot.value) {
     return "Reset your password";
+  }
+  if (isOtp.value) {
+    return "Sign in with one-time code";
   }
   return "Sign in";
 });
@@ -230,6 +283,9 @@ const authSubtitle = computed(() => {
   if (isForgot.value) {
     return "Enter your email and we will send you a secure password reset link.";
   }
+  if (isOtp.value) {
+    return "Send a one-time login code to your email, then enter it here.";
+  }
   return "";
 });
 
@@ -239,6 +295,9 @@ const submitLabel = computed(() => {
   }
   if (isForgot.value) {
     return "Send reset link";
+  }
+  if (isOtp.value) {
+    return "Verify code";
   }
   return "Sign in";
 });
@@ -269,10 +328,59 @@ function redirectRecoveryLinkToResetPage() {
   return true;
 }
 
+function readOtpLoginCallbackStateFromLocation() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const search = new URLSearchParams(window.location.search || "");
+  const hash = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
+  const tokenHash = String(search.get("token_hash") || hash.get("token_hash") || "").trim();
+  const type = String(search.get("type") || hash.get("type") || "")
+    .trim()
+    .toLowerCase();
+  const errorCode = String(search.get("error") || hash.get("error") || "").trim();
+  const errorDescription = String(search.get("error_description") || hash.get("error_description") || "").trim();
+  const hasOtpHint = Boolean(tokenHash) || type === "email";
+
+  if (!hasOtpHint || (!tokenHash && !errorCode)) {
+    return null;
+  }
+
+  return {
+    tokenHash,
+    type: type || "email",
+    errorCode,
+    errorDescription
+  };
+}
+
+function stripOtpLoginCallbackParamsFromLocation() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  const search = new URLSearchParams(url.search);
+  const hash = new URLSearchParams((url.hash || "").replace(/^#/, ""));
+
+  const keysToStrip = ["token_hash", "type", "error", "error_description", "expires_at", "expires_in", "token"];
+  for (const key of keysToStrip) {
+    search.delete(key);
+    hash.delete(key);
+  }
+
+  const nextSearch = search.toString();
+  const nextHash = hash.toString();
+  const nextPath = `${url.pathname}${nextSearch ? `?${nextSearch}` : ""}${nextHash ? `#${nextHash}` : ""}`;
+  window.history.replaceState({}, "", nextPath || "/");
+}
+
 function resetValidationState() {
   emailTouched.value = false;
   passwordTouched.value = false;
   confirmPasswordTouched.value = false;
+  otpCodeTouched.value = false;
   submitAttempted.value = false;
 }
 
@@ -285,21 +393,6 @@ function isLocalStorageAvailable() {
     const key = "__auth_hint_probe__";
     window.localStorage.setItem(key, "1");
     window.localStorage.removeItem(key);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function isSessionStorageAvailable() {
-  if (typeof window === "undefined" || !window.sessionStorage) {
-    return false;
-  }
-
-  try {
-    const key = "__auth_oauth_probe__";
-    window.sessionStorage.setItem(key, "1");
-    window.sessionStorage.removeItem(key);
     return true;
   } catch {
     return false;
@@ -385,43 +478,6 @@ function clearRememberedAccountHint() {
   }
 }
 
-function readPendingOAuthProvider() {
-  if (!isSessionStorageAvailable()) {
-    return null;
-  }
-
-  try {
-    const value = window.sessionStorage.getItem(PENDING_OAUTH_PROVIDER_STORAGE_KEY);
-    return normalizeOAuthProvider(value, { fallback: null });
-  } catch {
-    return null;
-  }
-}
-
-function writePendingOAuthProvider(provider) {
-  if (!isSessionStorageAvailable()) {
-    return;
-  }
-
-  try {
-    window.sessionStorage.setItem(PENDING_OAUTH_PROVIDER_STORAGE_KEY, provider);
-  } catch {
-    // best effort only
-  }
-}
-
-function clearPendingOAuthProvider() {
-  if (!isSessionStorageAvailable()) {
-    return;
-  }
-
-  try {
-    window.sessionStorage.removeItem(PENDING_OAUTH_PROVIDER_STORAGE_KEY);
-  } catch {
-    // best effort only
-  }
-}
-
 function applyRememberedAccountHint(hint) {
   if (!hint) {
     rememberedAccount.value = null;
@@ -435,6 +491,24 @@ function applyRememberedAccountHint(hint) {
   email.value = hint.email;
 }
 
+function applyRememberedAccountPreference({ email: accountEmail, displayName, shouldRemember }) {
+  const rememberedHint = createRememberedAccountHint({
+    email: accountEmail,
+    displayName,
+    lastUsedAt: new Date().toISOString()
+  });
+
+  if (shouldRemember && rememberedHint) {
+    writeRememberedAccountHint(rememberedHint);
+    applyRememberedAccountHint(rememberedHint);
+    return;
+  }
+
+  clearRememberedAccountHint();
+  rememberedAccount.value = null;
+  useRememberedAccount.value = false;
+}
+
 function switchAccount() {
   clearRememberedAccountHint();
   rememberedAccount.value = null;
@@ -442,6 +516,7 @@ function switchAccount() {
   email.value = "";
   password.value = "";
   confirmPassword.value = "";
+  otpCode.value = "";
   errorMessage.value = "";
   infoMessage.value = "";
   resetValidationState();
@@ -455,13 +530,14 @@ function switchMode(nextMode) {
   mode.value = nextMode;
   password.value = "";
   confirmPassword.value = "";
+  otpCode.value = "";
   showPassword.value = false;
   showConfirmPassword.value = false;
   errorMessage.value = "";
   infoMessage.value = "";
   resetValidationState();
 
-  if (nextMode !== "login") {
+  if (nextMode !== "login" && nextMode !== "otp") {
     useRememberedAccount.value = false;
     return;
   }
@@ -474,6 +550,10 @@ function switchMode(nextMode) {
 
 function oauthProviderButtonLabel(provider) {
   const providerLabel = String(provider?.label || "OAuth provider");
+  if (isRegister.value) {
+    return `Register with ${providerLabel}`;
+  }
+
   if (showRememberedAccount.value) {
     const displayName = rememberedAccountDisplayName.value;
     return `Continue with ${providerLabel} as ${displayName}`;
@@ -484,95 +564,10 @@ function oauthProviderButtonLabel(provider) {
 
 function oauthProviderIcon(provider) {
   if (provider?.id === "google") {
-    return "oauthGoogle";
+    return "$oauthGoogle";
   }
 
   return undefined;
-}
-
-function readOAuthCallbackPayloadFromLocation() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const search = new URLSearchParams(window.location.search || "");
-  const hash = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
-  const code = String(search.get("code") || hash.get("code") || "").trim();
-  const accessToken = String(search.get("access_token") || hash.get("access_token") || "").trim();
-  const refreshToken = String(search.get("refresh_token") || hash.get("refresh_token") || "").trim();
-  const errorCode = String(search.get("error") || hash.get("error") || "").trim();
-  const errorDescription = String(search.get("error_description") || hash.get("error_description") || "").trim();
-  const hasTokenPair = Boolean(accessToken && refreshToken);
-
-  if (!code && !errorCode && !hasTokenPair) {
-    return null;
-  }
-
-  const providerFromQuery = normalizeOAuthProvider(search.get("oauthProvider"), { fallback: null });
-  const providerFromStorage = readPendingOAuthProvider();
-  const provider = normalizeOAuthProvider(providerFromQuery || providerFromStorage || AUTH_OAUTH_DEFAULT_PROVIDER, {
-    fallback: AUTH_OAUTH_DEFAULT_PROVIDER
-  });
-
-  const payload = {
-    provider
-  };
-
-  if (code) {
-    payload.code = code;
-  }
-  if (accessToken) {
-    payload.accessToken = accessToken;
-  }
-  if (refreshToken) {
-    payload.refreshToken = refreshToken;
-  }
-  if (errorCode) {
-    payload.error = errorCode;
-  }
-  if (errorDescription) {
-    payload.errorDescription = errorDescription;
-  }
-
-  return payload;
-}
-
-function stripOAuthCallbackParamsFromLocation() {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  const url = new URL(window.location.href);
-  url.searchParams.delete("code");
-  url.searchParams.delete("error");
-  url.searchParams.delete("error_description");
-  url.searchParams.delete("state");
-  url.searchParams.delete("oauthProvider");
-  url.searchParams.delete("access_token");
-  url.searchParams.delete("refresh_token");
-  url.searchParams.delete("provider_token");
-  url.searchParams.delete("expires_at");
-  url.searchParams.delete("expires_in");
-  url.searchParams.delete("token_type");
-
-  const hash = new URLSearchParams((url.hash || "").replace(/^#/, ""));
-  hash.delete("code");
-  hash.delete("error");
-  hash.delete("error_description");
-  hash.delete("state");
-  hash.delete("access_token");
-  hash.delete("refresh_token");
-  hash.delete("provider_token");
-  hash.delete("expires_at");
-  hash.delete("expires_in");
-  hash.delete("token_type");
-  hash.delete("type");
-  hash.delete("sb");
-  const nextHash = hash.toString();
-  url.hash = nextHash ? `#${nextHash}` : "";
-
-  const nextPath = `${url.pathname}${url.search || ""}${url.hash || ""}`;
-  window.history.replaceState({}, "", nextPath || "/login");
 }
 
 async function startOAuthSignIn(providerId) {
@@ -584,16 +579,21 @@ async function startOAuthSignIn(providerId) {
 
   errorMessage.value = "";
   infoMessage.value = "";
-  writePendingOAuthProvider(provider);
+  writePendingOAuthContext({
+    provider,
+    intent: "login",
+    returnTo: "/",
+    rememberAccountOnDevice: rememberAccountOnDevice.value
+  });
 
   if (typeof window !== "undefined") {
-    window.location.assign(api.oauthStartUrl(provider));
+    window.location.assign(api.oauthStartUrl(provider, { returnTo: "/" }));
   }
 }
 
-async function handleOAuthCallbackIfPresent() {
-  const callbackPayload = readOAuthCallbackPayloadFromLocation();
-  if (!callbackPayload) {
+async function handleOtpLoginCallbackIfPresent() {
+  const callbackState = readOtpLoginCallbackStateFromLocation();
+  if (!callbackState) {
     return;
   }
 
@@ -602,33 +602,79 @@ async function handleOAuthCallbackIfPresent() {
   infoMessage.value = "";
 
   try {
-    const response = await api.oauthComplete(callbackPayload);
+    if (callbackState.errorCode) {
+      const detail = callbackState.errorDescription || callbackState.errorCode;
+      throw new Error(`Email login failed: ${detail}`);
+    }
+
+    if (!callbackState.tokenHash) {
+      throw new Error("Email login callback is missing token information.");
+    }
+
+    const response = await otpVerifyMutation.mutateAsync({
+      tokenHash: callbackState.tokenHash,
+      type: callbackState.type
+    });
+    const session = await authStore.refreshSession();
+    if (!session?.authenticated) {
+      throw new Error("Email login succeeded but the session is not active yet. Please retry.");
+    }
+
+    applyRememberedAccountPreference({
+      email: response?.email || "",
+      displayName: response?.username || session?.username || "User",
+      shouldRemember: true
+    });
+
+    stripOtpLoginCallbackParamsFromLocation();
+    await navigate({ to: "/", replace: true });
+  } catch (error) {
+    errorMessage.value = toErrorMessage(error, "Unable to complete email one-time login.");
+    stripOtpLoginCallbackParamsFromLocation();
+  } finally {
+    oauthCallbackInFlight.value = false;
+  }
+}
+
+async function handleOAuthCallbackIfPresent() {
+  const pendingOAuthContext = readPendingOAuthContext();
+  const callbackState = readOAuthCallbackStateFromLocation({
+    pendingContext: pendingOAuthContext,
+    defaultIntent: "login",
+    defaultReturnTo: "/"
+  });
+
+  if (!callbackState) {
+    return;
+  }
+
+  oauthCallbackInFlight.value = true;
+  errorMessage.value = "";
+  infoMessage.value = "";
+
+  try {
+    const response = await api.oauthComplete(callbackState.payload);
     const session = await authStore.refreshSession();
     if (!session?.authenticated) {
       throw new Error("OAuth login succeeded but the session is not active yet. Please retry.");
     }
 
-    const rememberedHint = createRememberedAccountHint({
-      email: response?.email || "",
-      displayName: response?.username || session?.username || "User",
-      lastUsedAt: new Date().toISOString()
-    });
-    if (rememberAccountOnDevice.value && rememberedHint) {
-      writeRememberedAccountHint(rememberedHint);
-      applyRememberedAccountHint(rememberedHint);
-    } else {
-      clearRememberedAccountHint();
-      rememberedAccount.value = null;
-      useRememberedAccount.value = false;
+    if (callbackState.intent !== "link") {
+      const shouldRememberAccount = pendingOAuthContext?.rememberAccountOnDevice !== false;
+      applyRememberedAccountPreference({
+        email: response?.email || "",
+        displayName: response?.username || session?.username || "User",
+        shouldRemember: shouldRememberAccount
+      });
     }
 
     stripOAuthCallbackParamsFromLocation();
-    await navigate({ to: "/", replace: true });
+    await navigate({ to: callbackState.returnTo || "/", replace: true });
   } catch (error) {
     errorMessage.value = toErrorMessage(error, "Unable to complete OAuth sign-in.");
     stripOAuthCallbackParamsFromLocation();
   } finally {
-    clearPendingOAuthProvider();
+    clearPendingOAuthContext();
     oauthCallbackInFlight.value = false;
   }
 }
@@ -649,7 +695,7 @@ const emailError = computed(() => {
 });
 
 const passwordError = computed(() => {
-  if (isForgot.value) {
+  if (isForgot.value || isOtp.value) {
     return "";
   }
 
@@ -671,6 +717,22 @@ const confirmPasswordError = computed(() => {
   });
 });
 
+const otpCodeError = computed(() => {
+  if (!isOtp.value) {
+    return "";
+  }
+
+  const token = String(otpCode.value || "").trim();
+  if (!token) {
+    return "One-time code is required.";
+  }
+  if (token.length > 2048) {
+    return "One-time code is too long.";
+  }
+
+  return "";
+});
+
 const emailErrorMessages = computed(() => {
   if (!submitAttempted.value && !emailTouched.value) {
     return [];
@@ -679,7 +741,7 @@ const emailErrorMessages = computed(() => {
 });
 
 const passwordErrorMessages = computed(() => {
-  if (isForgot.value || (!submitAttempted.value && !passwordTouched.value)) {
+  if (isForgot.value || isOtp.value || (!submitAttempted.value && !passwordTouched.value)) {
     return [];
   }
   return passwordError.value ? [passwordError.value] : [];
@@ -692,6 +754,13 @@ const confirmPasswordErrorMessages = computed(() => {
   return confirmPasswordError.value ? [confirmPasswordError.value] : [];
 });
 
+const otpCodeErrorMessages = computed(() => {
+  if (!isOtp.value || (!submitAttempted.value && !otpCodeTouched.value)) {
+    return [];
+  }
+  return otpCodeError.value ? [otpCodeError.value] : [];
+});
+
 const canSubmit = computed(() => {
   if (loading.value) {
     return false;
@@ -701,7 +770,7 @@ const canSubmit = computed(() => {
     return false;
   }
 
-  if (!isForgot.value && passwordError.value) {
+  if (!isForgot.value && !isOtp.value && passwordError.value) {
     return false;
   }
 
@@ -709,8 +778,34 @@ const canSubmit = computed(() => {
     return false;
   }
 
+  if (isOtp.value && otpCodeError.value) {
+    return false;
+  }
+
   return true;
 });
+
+async function requestOtpCode() {
+  submitAttempted.value = true;
+  errorMessage.value = "";
+  infoMessage.value = "";
+
+  const cleanEmail = normalizeEmail(email.value);
+  if (validators.email(cleanEmail)) {
+    return;
+  }
+
+  try {
+    const response = await otpRequestMutation.mutateAsync({
+      email: cleanEmail
+    });
+    infoMessage.value = String(
+      response?.message || "If an account exists for that email, a one-time code has been sent."
+    );
+  } catch (error) {
+    errorMessage.value = toErrorMessage(error, "Unable to send one-time code.");
+  }
+}
 
 async function submitAuth() {
   submitAttempted.value = true;
@@ -743,6 +838,11 @@ async function submitAuth() {
         infoMessage.value = "Registration accepted. Confirm your email, then sign in.";
         return;
       }
+    } else if (isOtp.value) {
+      await otpVerifyMutation.mutateAsync({
+        email: cleanEmail,
+        token: String(otpCode.value || "").trim()
+      });
     } else {
       await loginMutation.mutateAsync({ email: cleanEmail, password: password.value });
     }
@@ -752,19 +852,11 @@ async function submitAuth() {
       throw new Error("Login succeeded but the session is not active yet. Please retry.");
     }
 
-    const rememberedHint = createRememberedAccountHint({
+    applyRememberedAccountPreference({
       email: cleanEmail,
       displayName: session?.username || cleanEmail.split("@")[0] || "User",
-      lastUsedAt: new Date().toISOString()
+      shouldRemember: rememberAccountOnDevice.value
     });
-    if (rememberAccountOnDevice.value && rememberedHint) {
-      writeRememberedAccountHint(rememberedHint);
-      applyRememberedAccountHint(rememberedHint);
-    } else {
-      clearRememberedAccountHint();
-      rememberedAccount.value = null;
-      useRememberedAccount.value = false;
-    }
 
     await navigate({ to: "/", replace: true });
   } catch (error) {
@@ -778,6 +870,7 @@ onMounted(async () => {
   }
 
   applyRememberedAccountHint(readRememberedAccountHint());
+  await handleOtpLoginCallbackIfPresent();
   await handleOAuthCallbackIfPresent();
 });
 </script>

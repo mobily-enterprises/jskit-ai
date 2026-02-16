@@ -1,10 +1,23 @@
 import { createClient } from "@supabase/supabase-js";
+import { randomBytes } from "node:crypto";
 import { AppError } from "../lib/errors.js";
 import {
   AUTH_ACCESS_TOKEN_MAX_LENGTH,
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,
   AUTH_REFRESH_TOKEN_MAX_LENGTH
 } from "../shared/auth/authConstraints.js";
+import {
+  AUTH_METHOD_DEFINITIONS,
+  AUTH_METHOD_EMAIL_OTP_ID,
+  AUTH_METHOD_EMAIL_OTP_PROVIDER,
+  AUTH_METHOD_KIND_OAUTH,
+  AUTH_METHOD_KIND_OTP,
+  AUTH_METHOD_KIND_PASSWORD,
+  AUTH_METHOD_MINIMUM_ENABLED,
+  AUTH_METHOD_PASSWORD_ID,
+  AUTH_METHOD_PASSWORD_PROVIDER,
+  buildOAuthMethodId
+} from "../shared/auth/authMethods.js";
 import {
   AUTH_OAUTH_DEFAULT_PROVIDER,
   AUTH_OAUTH_PROVIDERS,
@@ -18,6 +31,10 @@ const REFRESH_TOKEN_COOKIE = "sb_refresh_token";
 const DEFAULT_AUDIENCE = "authenticated";
 const PASSWORD_RESET_PATH = "reset-password";
 const OAUTH_LOGIN_PATH = "login";
+const OAUTH_SETTINGS_PATH = "settings?tab=security";
+const OAUTH_LOGIN_INTENT = "login";
+const OAUTH_LINK_INTENT = "link";
+const OTP_VERIFY_TYPE = "email";
 
 const INVALID_JWT_ERROR_CODES = new Set([
   "ERR_JWS_SIGNATURE_VERIFICATION_FAILED",
@@ -143,12 +160,23 @@ function isTransientSupabaseError(error) {
   return isTransientAuthMessage(error.message);
 }
 
+function sanitizeAuthMessage(message, fallback = "Authentication request could not be processed.") {
+  const normalized = String(message || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) {
+    return fallback;
+  }
+
+  return normalized.slice(0, 320);
+}
+
 function mapAuthError(error, fallbackStatus) {
   if (isTransientSupabaseError(error)) {
     return new AppError(503, "Authentication service temporarily unavailable. Please retry.");
   }
 
-  const message = String(error?.message || "Authentication failed.");
+  const message = sanitizeAuthMessage(error?.message, "Authentication failed.");
   const lower = message.toLowerCase();
 
   if (lower.includes("already registered") || lower.includes("already been registered")) {
@@ -163,12 +191,42 @@ function mapAuthError(error, fallbackStatus) {
     return new AppError(401, "Invalid email or password.");
   }
 
+  if (
+    lower.includes("already linked") ||
+    lower.includes("identity is already linked") ||
+    (lower.includes("identity") && lower.includes("already exists"))
+  ) {
+    return new AppError(409, "This sign-in method is already linked.");
+  }
+
+  if (lower.includes("manual linking is disabled")) {
+    return new AppError(
+      409,
+      "Provider linking is disabled in Supabase. Enable Manual Linking in Supabase Auth settings to link or unlink providers."
+    );
+  }
+
+  if (
+    lower.includes("last identity") ||
+    lower.includes("only identity") ||
+    (lower.includes("at least one") && lower.includes("identity"))
+  ) {
+    return new AppError(409, "At least one linked sign-in method must remain available.");
+  }
+
+  if (lower.includes("identity") && lower.includes("not found")) {
+    return new AppError(409, "This sign-in method is not currently linked.");
+  }
+
   const status = Number.isInteger(Number(fallbackStatus)) ? Number(fallbackStatus) : 400;
   if (status >= 500) {
     return new AppError(503, "Authentication service temporarily unavailable. Please retry.");
   }
   if (status === 401) {
     return new AppError(401, "Invalid email or password.");
+  }
+  if (status >= 400 && status < 500 && message && message !== "Authentication failed.") {
+    return new AppError(status, message);
   }
 
   return new AppError(status, "Authentication request could not be processed.");
@@ -180,6 +238,17 @@ function validationError(fieldErrors) {
       fieldErrors
     }
   });
+}
+
+function isUserNotFoundLikeAuthError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    message.includes("user not found") ||
+    message.includes("no user") ||
+    message.includes("email not found") ||
+    message.includes("signup is disabled") ||
+    message.includes("signups not allowed")
+  );
 }
 
 function mapRecoveryError(error) {
@@ -210,6 +279,14 @@ function mapPasswordUpdateError(error) {
   return validationError({
     password: "Unable to update password with the provided value."
   });
+}
+
+function mapOtpVerifyError(error) {
+  if (isTransientSupabaseError(error)) {
+    return new AppError(503, "Authentication service temporarily unavailable. Please retry.");
+  }
+
+  return new AppError(401, "One-time code is invalid or expired.");
 }
 
 function mapProfileUpdateError(error) {
@@ -270,9 +347,57 @@ function buildPasswordResetRedirectUrl(options) {
   return new URL(PASSWORD_RESET_PATH, baseUrl).toString();
 }
 
-function buildOAuthLoginRedirectUrl(options) {
+function buildOtpLoginRedirectUrl(options) {
+  const appPublicUrl = String(options.appPublicUrl || "").trim();
+
+  if (!appPublicUrl) {
+    throw new Error("APP_PUBLIC_URL is required to build OTP login redirects.");
+  }
+
+  const baseUrl = parseHttpUrl(appPublicUrl, "APP_PUBLIC_URL");
+  if (!baseUrl.pathname.endsWith("/")) {
+    baseUrl.pathname = `${baseUrl.pathname}/`;
+  }
+  baseUrl.search = "";
+  baseUrl.hash = "";
+  return new URL(OAUTH_LOGIN_PATH, baseUrl).toString();
+}
+
+function normalizeOAuthIntent(value, { fallback = OAUTH_LOGIN_INTENT } = {}) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+
+  if (normalized === OAUTH_LOGIN_INTENT || normalized === OAUTH_LINK_INTENT) {
+    return normalized;
+  }
+
+  return fallback || OAUTH_LOGIN_INTENT;
+}
+
+function normalizeReturnToPath(value, { fallback = "/" } = {}) {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    return fallback;
+  }
+
+  if (!normalized.startsWith("/") || normalized.startsWith("//")) {
+    return fallback;
+  }
+
+  return normalized;
+}
+
+function buildOAuthRedirectUrl(options) {
   const appPublicUrl = String(options.appPublicUrl || "").trim();
   const provider = normalizeSupportedOAuthProvider(options.provider, { fallback: null });
+  const intent = normalizeOAuthIntent(options.intent, { fallback: OAUTH_LOGIN_INTENT });
+  const callbackPath = String(
+    options.callbackPath || (intent === OAUTH_LINK_INTENT ? OAUTH_SETTINGS_PATH : OAUTH_LOGIN_PATH)
+  ).trim();
+  const returnTo = normalizeReturnToPath(options.returnTo, {
+    fallback: intent === OAUTH_LINK_INTENT ? "/settings?tab=security" : "/"
+  });
 
   if (!appPublicUrl) {
     throw new Error("APP_PUBLIC_URL is required to build OAuth login redirects.");
@@ -282,6 +407,10 @@ function buildOAuthLoginRedirectUrl(options) {
     throw new Error(`OAuth provider must be one of: ${AUTH_OAUTH_PROVIDERS.join(", ")}.`);
   }
 
+  if (!callbackPath) {
+    throw new Error("OAuth callback path is required.");
+  }
+
   const baseUrl = parseHttpUrl(appPublicUrl, "APP_PUBLIC_URL");
   if (!baseUrl.pathname.endsWith("/")) {
     baseUrl.pathname = `${baseUrl.pathname}/`;
@@ -289,9 +418,29 @@ function buildOAuthLoginRedirectUrl(options) {
   baseUrl.search = "";
   baseUrl.hash = "";
 
-  const redirectUrl = new URL(OAUTH_LOGIN_PATH, baseUrl);
+  const redirectUrl = new URL(callbackPath, baseUrl);
   redirectUrl.searchParams.set("oauthProvider", provider);
+  redirectUrl.searchParams.set("oauthIntent", intent);
+  if (returnTo) {
+    redirectUrl.searchParams.set("oauthReturnTo", returnTo);
+  }
   return redirectUrl.toString();
+}
+
+function buildOAuthLoginRedirectUrl(options) {
+  return buildOAuthRedirectUrl({
+    ...options,
+    intent: OAUTH_LOGIN_INTENT,
+    callbackPath: OAUTH_LOGIN_PATH
+  });
+}
+
+function buildOAuthLinkRedirectUrl(options) {
+  return buildOAuthRedirectUrl({
+    ...options,
+    intent: OAUTH_LINK_INTENT,
+    callbackPath: OAUTH_SETTINGS_PATH
+  });
 }
 
 function normalizeOAuthProviderInput(value) {
@@ -360,6 +509,48 @@ function parseOAuthCompletePayload(payload = {}) {
   };
 }
 
+function parseOtpLoginVerifyPayload(payload = {}) {
+  const parsedEmail = validators.forgotPasswordInput(payload);
+  const token = String(payload?.token || "").trim();
+  const tokenHash = String(payload?.tokenHash || payload?.token_hash || "").trim();
+  const type = String(payload?.type || OTP_VERIFY_TYPE)
+    .trim()
+    .toLowerCase();
+  const fieldErrors = {
+    ...parsedEmail.fieldErrors
+  };
+
+  if (type !== OTP_VERIFY_TYPE) {
+    fieldErrors.type = "Only email OTP verification is supported.";
+  }
+
+  if (!token && !tokenHash) {
+    fieldErrors.token = "One-time code is required.";
+  }
+
+  if (token && token.length > AUTH_RECOVERY_TOKEN_MAX_LENGTH) {
+    fieldErrors.token = "One-time code is too long.";
+  }
+
+  if (tokenHash && tokenHash.length > AUTH_RECOVERY_TOKEN_MAX_LENGTH) {
+    fieldErrors.tokenHash = "One-time token hash is too long.";
+  }
+
+  if (token && parsedEmail.fieldErrors.email) {
+    fieldErrors.email = parsedEmail.fieldErrors.email;
+  } else if (tokenHash) {
+    delete fieldErrors.email;
+  }
+
+  return {
+    email: parsedEmail.email,
+    token,
+    tokenHash,
+    type,
+    fieldErrors
+  };
+}
+
 function mapOAuthCallbackError(errorCode, errorDescription) {
   const normalizedCode = String(errorCode || "")
     .trim()
@@ -375,6 +566,207 @@ function mapOAuthCallbackError(errorCode, errorDescription) {
   }
 
   return new AppError(401, "OAuth sign-in failed.");
+}
+
+function normalizeIdentityProviderId(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function collectProviderIdsFromSupabaseUser(user) {
+  const providerIds = new Set();
+
+  const appProvider = normalizeIdentityProviderId(user?.app_metadata?.provider);
+  if (appProvider) {
+    providerIds.add(appProvider);
+  }
+
+  const appProviders = Array.isArray(user?.app_metadata?.providers) ? user.app_metadata.providers : [];
+  for (const provider of appProviders) {
+    const normalized = normalizeIdentityProviderId(provider);
+    if (normalized) {
+      providerIds.add(normalized);
+    }
+  }
+
+  const identities = Array.isArray(user?.identities) ? user.identities : [];
+  for (const identity of identities) {
+    const normalized = normalizeIdentityProviderId(identity?.provider);
+    if (normalized) {
+      providerIds.add(normalized);
+    }
+  }
+
+  return [...providerIds];
+}
+
+function buildAuthMethodsStatusFromProviderIds(providerIds, options = {}) {
+  const normalizedProviders = Array.isArray(providerIds) ? providerIds.map(normalizeIdentityProviderId).filter(Boolean) : [];
+  const uniqueProviders = new Set(normalizedProviders);
+  const passwordSignInEnabled = options.passwordSignInEnabled !== false;
+  const methods = [];
+
+  for (const definition of AUTH_METHOD_DEFINITIONS) {
+    if (definition.kind === AUTH_METHOD_KIND_PASSWORD) {
+      const configured = uniqueProviders.has(AUTH_METHOD_PASSWORD_PROVIDER);
+      const enabled = configured && passwordSignInEnabled;
+      methods.push({
+        id: AUTH_METHOD_PASSWORD_ID,
+        kind: AUTH_METHOD_KIND_PASSWORD,
+        provider: AUTH_METHOD_PASSWORD_PROVIDER,
+        label: definition.label,
+        configured,
+        enabled,
+        canEnable: configured && !enabled,
+        canDisable: false,
+        supportsSecretUpdate: true,
+        requiresCurrentPassword: enabled
+      });
+      continue;
+    }
+
+    if (definition.kind === AUTH_METHOD_KIND_OTP) {
+      methods.push({
+        id: AUTH_METHOD_EMAIL_OTP_ID,
+        kind: AUTH_METHOD_KIND_OTP,
+        provider: AUTH_METHOD_EMAIL_OTP_PROVIDER,
+        label: definition.label,
+        configured: true,
+        enabled: true,
+        canEnable: false,
+        canDisable: false,
+        supportsSecretUpdate: false,
+        requiresCurrentPassword: false
+      });
+      continue;
+    }
+
+    if (definition.kind === AUTH_METHOD_KIND_OAUTH) {
+      const provider = normalizeIdentityProviderId(definition.provider);
+      const configured = uniqueProviders.has(provider);
+      methods.push({
+        id: buildOAuthMethodId(provider),
+        kind: AUTH_METHOD_KIND_OAUTH,
+        provider,
+        label: definition.label,
+        configured,
+        enabled: configured,
+        canEnable: !configured,
+        canDisable: false,
+        supportsSecretUpdate: false,
+        requiresCurrentPassword: false
+      });
+    }
+  }
+
+  const enabledMethodsCount = methods.reduce((count, method) => (method.enabled ? count + 1 : count), 0);
+  const minimumEnabledMethods = AUTH_METHOD_MINIMUM_ENABLED;
+  const canDisableAny = enabledMethodsCount > minimumEnabledMethods;
+  const configuredIdentityMethodCount = methods.reduce((count, method) => {
+    if (method.kind === AUTH_METHOD_KIND_OAUTH && method.configured) {
+      return count + 1;
+    }
+    if (method.kind === AUTH_METHOD_KIND_PASSWORD && method.configured) {
+      return count + 1;
+    }
+    return count;
+  }, 0);
+
+  for (const method of methods) {
+    if (method.kind === AUTH_METHOD_KIND_OAUTH) {
+      method.canDisable = method.enabled && configuredIdentityMethodCount > 1;
+      continue;
+    }
+
+    method.canDisable = method.enabled && canDisableAny;
+  }
+
+  return {
+    methods,
+    enabledMethodsCount,
+    minimumEnabledMethods,
+    canDisableAny
+  };
+}
+
+function buildAuthMethodsStatusFromSupabaseUser(user, options = {}) {
+  return buildAuthMethodsStatusFromProviderIds(collectProviderIdsFromSupabaseUser(user), options);
+}
+
+function buildSignInMethodsStatusFromProviderIds(providerIds, options = {}) {
+  const authMethodsStatus = buildAuthMethodsStatusFromProviderIds(providerIds, options);
+  const hasPassword = Boolean(findAuthMethodById(authMethodsStatus, AUTH_METHOD_PASSWORD_ID)?.configured);
+  const linkedOAuthProviders = authMethodsStatus.methods
+    .filter((method) => method.kind === AUTH_METHOD_KIND_OAUTH && method.configured)
+    .map((method) => method.provider);
+  const legacyMethodCount = (hasPassword ? 1 : 0) + linkedOAuthProviders.length;
+
+  return {
+    hasPassword,
+    linkedOAuthProviders,
+    availableOAuthProviders: [...AUTH_OAUTH_PROVIDERS],
+    methodCount: legacyMethodCount,
+    minimumMethodsRequired: authMethodsStatus.minimumEnabledMethods,
+    canSetPassword: !hasPassword,
+    canChangePassword: hasPassword,
+    canUnlinkProviders: authMethodsStatus.canDisableAny
+  };
+}
+
+function buildSignInMethodsStatusFromSupabaseUser(user, options = {}) {
+  return buildSignInMethodsStatusFromProviderIds(collectProviderIdsFromSupabaseUser(user), options);
+}
+
+function buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus) {
+  const minimumEnabledMethods = Number(authMethodsStatus?.minimumEnabledMethods || AUTH_METHOD_MINIMUM_ENABLED);
+  const enabledMethodsCount = Number.isFinite(Number(authMethodsStatus?.enabledMethodsCount))
+    ? Number(authMethodsStatus.enabledMethodsCount)
+    : Array.isArray(authMethodsStatus?.methods)
+      ? authMethodsStatus.methods.reduce((count, method) => (method?.enabled ? count + 1 : count), 0)
+      : 0;
+
+  return {
+    mfa: {
+      status: "not_enabled",
+      enrolled: false,
+      methods: []
+    },
+    authPolicy: {
+      minimumEnabledMethods,
+      enabledMethodsCount
+    },
+    authMethods: Array.isArray(authMethodsStatus?.methods) ? authMethodsStatus.methods : []
+  };
+}
+
+function findAuthMethodById(authMethodsStatus, methodId) {
+  const normalizedMethodId = String(methodId || "")
+    .trim()
+    .toLowerCase();
+  if (!normalizedMethodId || !Array.isArray(authMethodsStatus?.methods)) {
+    return null;
+  }
+
+  return authMethodsStatus.methods.find(
+    (method) =>
+      String(method?.id || "")
+        .trim()
+        .toLowerCase() === normalizedMethodId
+  );
+}
+
+function findLinkedIdentityByProvider(user, provider) {
+  const normalizedProvider = normalizeIdentityProviderId(provider);
+  const identities = Array.isArray(user?.identities) ? user.identities : [];
+
+  for (const identity of identities) {
+    if (normalizeIdentityProviderId(identity?.provider) === normalizedProvider) {
+      return identity;
+    }
+  }
+
+  return null;
 }
 
 function safeRequestCookies(request) {
@@ -439,9 +831,13 @@ function createAuthService(options) {
   const supabaseUrl = String(options.supabaseUrl || "");
   const supabasePublishableKey = String(options.supabasePublishableKey || "");
   const userProfilesRepository = options.userProfilesRepository;
+  const userSettingsRepository = options.userSettingsRepository || null;
   const isProduction = options.nodeEnv === "production";
   const jwtAudience = String(options.jwtAudience || DEFAULT_AUDIENCE);
   const passwordResetRedirectUrl = buildPasswordResetRedirectUrl({
+    appPublicUrl: options.appPublicUrl
+  });
+  const otpLoginRedirectUrl = buildOtpLoginRedirectUrl({
     appPublicUrl: options.appPublicUrl
   });
   const appPublicUrl = String(options.appPublicUrl || "");
@@ -584,6 +980,77 @@ function createAuthService(options) {
     };
   }
 
+  async function resolveCurrentSupabaseUser(request) {
+    const supabase = getSupabaseClient();
+    const cookies = safeRequestCookies(request);
+    const accessToken = String(cookies[ACCESS_TOKEN_COOKIE] || "").trim();
+    let user = null;
+    let session = null;
+
+    if (accessToken) {
+      try {
+        const userResponse = await supabase.auth.getUser(accessToken);
+        if (!userResponse.error && userResponse.data?.user) {
+          user = userResponse.data.user;
+        } else if (userResponse.error && isTransientSupabaseError(userResponse.error)) {
+          throw mapAuthError(userResponse.error, 503);
+        }
+      } catch (error) {
+        if (isTransientSupabaseError(error)) {
+          throw mapAuthError(error, 503);
+        }
+      }
+    }
+
+    if (!user) {
+      const sessionResponse = await setSessionFromRequestCookies(request);
+      user = sessionResponse.data.user || null;
+      session = sessionResponse.data.session || null;
+    }
+
+    if (typeof supabase.auth.getUser === "function") {
+      try {
+        const userResponse = await supabase.auth.getUser();
+        if (!userResponse.error && userResponse.data?.user) {
+          user = userResponse.data.user;
+        } else if (userResponse.error && isTransientSupabaseError(userResponse.error)) {
+          throw mapAuthError(userResponse.error, 503);
+        }
+      } catch (error) {
+        if (isTransientSupabaseError(error)) {
+          throw mapAuthError(error, 503);
+        }
+      }
+    }
+
+    if (typeof supabase.auth.getUserIdentities === "function") {
+      try {
+        const identitiesResponse = await supabase.auth.getUserIdentities();
+        if (!identitiesResponse.error && Array.isArray(identitiesResponse.data?.identities)) {
+          user = {
+            ...(user || {}),
+            identities: identitiesResponse.data.identities
+          };
+        } else if (identitiesResponse.error && isTransientSupabaseError(identitiesResponse.error)) {
+          throw mapAuthError(identitiesResponse.error, 503);
+        }
+      } catch (error) {
+        if (isTransientSupabaseError(error)) {
+          throw mapAuthError(error, 503);
+        }
+      }
+    }
+
+    if (!user) {
+      throw new AppError(401, "Authentication required.");
+    }
+
+    return {
+      session,
+      user
+    };
+  }
+
   function writeSessionCookies(reply, session) {
     const accessToken = String(session?.access_token || "");
     const refreshToken = String(session?.refresh_token || "");
@@ -631,7 +1098,10 @@ function createAuthService(options) {
       return requireSynchronizedProfile(upserted);
     } catch (error) {
       if (String(error?.code || "") === "USER_PROFILE_EMAIL_CONFLICT") {
-        throw new AppError(409, "Email is already linked to another account.");
+        throw new AppError(
+          409,
+          "This email is already registered with another sign-in method. Sign in with that method, then link this provider in Settings > Security."
+        );
       }
 
       throw error;
@@ -674,6 +1144,40 @@ function createAuthService(options) {
       email: emailFromToken,
       displayName: resolveDisplayNameFromClaims(claims, emailFromToken)
     });
+  }
+
+  async function resolvePasswordSignInEnabledForUserId(userId) {
+    if (!userSettingsRepository || typeof userSettingsRepository.ensureForUserId !== "function") {
+      return true;
+    }
+
+    const settings = await userSettingsRepository.ensureForUserId(userId);
+    return settings?.passwordSignInEnabled !== false;
+  }
+
+  async function setPasswordSignInEnabledForUserId(userId, enabled) {
+    if (!userSettingsRepository || typeof userSettingsRepository.updatePasswordSignInEnabled !== "function") {
+      throw new AppError(500, "Password sign-in settings repository is not configured.");
+    }
+
+    const updated = await userSettingsRepository.updatePasswordSignInEnabled(userId, enabled);
+    return updated.passwordSignInEnabled !== false;
+  }
+
+  async function resolveCurrentAuthContext(request) {
+    const current = await resolveCurrentSupabaseUser(request);
+    const profile = await syncProfileFromSupabaseUser(current.user, current.user?.email || "");
+    const passwordSignInEnabled = await resolvePasswordSignInEnabledForUserId(profile.id);
+    const authMethodsStatus = buildAuthMethodsStatusFromSupabaseUser(current.user, {
+      passwordSignInEnabled
+    });
+
+    return {
+      ...current,
+      profile,
+      passwordSignInEnabled,
+      authMethodsStatus
+    };
   }
 
   async function register(payload) {
@@ -740,6 +1244,99 @@ function createAuthService(options) {
     }
 
     const profile = await syncProfileFromSupabaseUser(response.data.user, parsed.email);
+    const passwordSignInEnabled = await resolvePasswordSignInEnabledForUserId(profile.id);
+    if (!passwordSignInEnabled) {
+      throw new AppError(403, "Password sign-in is disabled for this account. Use another sign-in method.");
+    }
+
+    return {
+      profile,
+      session: response.data.session
+    };
+  }
+
+  async function requestOtpLogin(payload) {
+    ensureConfigured();
+
+    const parsed = validators.forgotPasswordInput(payload);
+    if (Object.keys(parsed.fieldErrors).length > 0) {
+      throw validationError(parsed.fieldErrors);
+    }
+
+    const supabase = getSupabaseClient();
+    let response;
+    try {
+      response = await supabase.auth.signInWithOtp({
+        email: parsed.email,
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: otpLoginRedirectUrl
+        }
+      });
+    } catch (error) {
+      if (isTransientSupabaseError(error)) {
+        throw mapAuthError(error, 503);
+      }
+
+      return {
+        ok: true,
+        message: "If an account exists for that email, a one-time code has been sent."
+      };
+    }
+
+    if (response.error) {
+      if (isTransientSupabaseError(response.error)) {
+        throw mapAuthError(response.error, 503);
+      }
+
+      if (isUserNotFoundLikeAuthError(response.error)) {
+        return {
+          ok: true,
+          message: "If an account exists for that email, a one-time code has been sent."
+        };
+      }
+
+      throw mapAuthError(response.error, Number(response.error?.status || 400));
+    }
+
+    return {
+      ok: true,
+      message: "If an account exists for that email, a one-time code has been sent."
+    };
+  }
+
+  async function verifyOtpLogin(payload) {
+    ensureConfigured();
+
+    const parsed = parseOtpLoginVerifyPayload(payload);
+    if (Object.keys(parsed.fieldErrors).length > 0) {
+      throw validationError(parsed.fieldErrors);
+    }
+
+    const supabase = getSupabaseClient();
+    let response;
+    try {
+      if (parsed.tokenHash) {
+        response = await supabase.auth.verifyOtp({
+          token_hash: parsed.tokenHash,
+          type: parsed.type
+        });
+      } else {
+        response = await supabase.auth.verifyOtp({
+          email: parsed.email,
+          token: parsed.token,
+          type: parsed.type
+        });
+      }
+    } catch (error) {
+      throw mapOtpVerifyError(error);
+    }
+
+    if (response.error || !response.data?.session || !response.data?.user) {
+      throw mapOtpVerifyError(response.error);
+    }
+
+    const profile = await syncProfileFromSupabaseUser(response.data.user, response.data.user.email || parsed.email);
 
     return {
       profile,
@@ -751,9 +1348,11 @@ function createAuthService(options) {
     ensureConfigured();
 
     const provider = normalizeOAuthProviderInput(payload.provider || AUTH_OAUTH_DEFAULT_PROVIDER);
+    const returnTo = normalizeReturnToPath(payload.returnTo, { fallback: "/" });
     const redirectTo = buildOAuthLoginRedirectUrl({
       appPublicUrl,
-      provider
+      provider,
+      returnTo
     });
 
     const supabase = getSupabaseClient();
@@ -776,6 +1375,49 @@ function createAuthService(options) {
 
     return {
       provider,
+      returnTo,
+      url: String(response.data.url)
+    };
+  }
+
+  async function startProviderLink(request, payload = {}) {
+    ensureConfigured();
+
+    const provider = normalizeOAuthProviderInput(payload.provider || AUTH_OAUTH_DEFAULT_PROVIDER);
+    const returnTo = normalizeReturnToPath(payload.returnTo, { fallback: "/settings?tab=security" });
+    await setSessionFromRequestCookies(request);
+
+    const supabase = getSupabaseClient();
+    if (typeof supabase.auth.linkIdentity !== "function") {
+      throw new AppError(500, "Supabase client does not support identity linking in this environment.");
+    }
+
+    const redirectTo = buildOAuthLinkRedirectUrl({
+      appPublicUrl,
+      provider,
+      returnTo
+    });
+
+    let response;
+    try {
+      response = await supabase.auth.linkIdentity({
+        provider,
+        options: {
+          redirectTo,
+          queryParams: provider === "google" ? { prompt: "select_account" } : undefined
+        }
+      });
+    } catch (error) {
+      throw mapAuthError(error, 500);
+    }
+
+    if (response.error || !response.data?.url) {
+      throw mapAuthError(response.error, 400);
+    }
+
+    return {
+      provider,
+      returnTo,
       url: String(response.data.url)
     };
   }
@@ -963,6 +1605,7 @@ function createAuthService(options) {
 
     const currentPassword = String(payload?.currentPassword || "");
     const newPassword = String(payload?.newPassword || "");
+    const requireCurrentPassword = payload?.requireCurrentPassword !== false;
     const supabase = getSupabaseClient();
     const sessionResponse = await setSessionFromRequestCookies(request);
 
@@ -971,19 +1614,21 @@ function createAuthService(options) {
       throw new AppError(500, "Authenticated user email could not be resolved.");
     }
 
-    const verificationClient = createStatelessSupabaseClient();
-    let verifyResponse;
-    try {
-      verifyResponse = await verificationClient.auth.signInWithPassword({
-        email,
-        password: currentPassword
-      });
-    } catch (error) {
-      throw mapCurrentPasswordError(error);
-    }
+    if (requireCurrentPassword) {
+      const verificationClient = createStatelessSupabaseClient();
+      let verifyResponse;
+      try {
+        verifyResponse = await verificationClient.auth.signInWithPassword({
+          email,
+          password: currentPassword
+        });
+      } catch (error) {
+        throw mapCurrentPasswordError(error);
+      }
 
-    if (verifyResponse.error || !verifyResponse.data?.session) {
-      throw mapCurrentPasswordError(verifyResponse.error);
+      if (verifyResponse.error || !verifyResponse.data?.session) {
+        throw mapCurrentPasswordError(verifyResponse.error);
+      }
     }
 
     let updateResponse;
@@ -1007,6 +1652,106 @@ function createAuthService(options) {
     };
   }
 
+  async function unlinkProvider(request, payload = {}) {
+    ensureConfigured();
+
+    const provider = normalizeOAuthProviderInput(payload.provider);
+    const supabase = getSupabaseClient();
+    if (typeof supabase.auth.unlinkIdentity !== "function") {
+      throw new AppError(500, "Supabase client does not support identity unlinking in this environment.");
+    }
+
+    await setSessionFromRequestCookies(request);
+    const current = await resolveCurrentAuthContext(request);
+    const methodId = buildOAuthMethodId(provider);
+    const providerMethod = findAuthMethodById(current.authMethodsStatus, methodId);
+    if (!providerMethod || !providerMethod.configured) {
+      throw validationError({
+        provider: `${provider} is not linked to this account.`
+      });
+    }
+
+    if (!providerMethod.canDisable) {
+      throw new AppError(409, "At least one sign-in method must remain enabled.");
+    }
+
+    const identity = findLinkedIdentityByProvider(current.user, provider);
+    if (!identity) {
+      throw new AppError(409, "Linked identity details could not be resolved for this provider.");
+    }
+
+    let response;
+    try {
+      response = await supabase.auth.unlinkIdentity(identity);
+    } catch (error) {
+      throw mapAuthError(error, 500);
+    }
+
+    if (response.error) {
+      throw mapAuthError(response.error, Number(response.error?.status || 400));
+    }
+
+    const refreshed = await resolveCurrentAuthContext(request);
+    return {
+      securityStatus: buildSecurityStatusFromAuthMethodsStatus(refreshed.authMethodsStatus)
+    };
+  }
+
+  async function setPasswordSignInEnabled(request, payload = {}) {
+    ensureConfigured();
+
+    if (typeof payload?.enabled !== "boolean") {
+      throw validationError({
+        enabled: "Enabled must be a boolean."
+      });
+    }
+
+    await setSessionFromRequestCookies(request);
+    const current = await resolveCurrentAuthContext(request);
+    const passwordMethod = findAuthMethodById(current.authMethodsStatus, AUTH_METHOD_PASSWORD_ID);
+
+    if (!passwordMethod) {
+      throw new AppError(500, "Password method configuration could not be resolved.");
+    }
+
+    if (payload.enabled && !passwordMethod.configured) {
+      throw validationError({
+        enabled: "Set a password before enabling password sign-in."
+      });
+    }
+
+    if (!payload.enabled && !passwordMethod.canDisable) {
+      throw new AppError(409, "At least one sign-in method must remain enabled.");
+    }
+
+    if (!payload.enabled && passwordMethod.configured) {
+      let updateResponse;
+      try {
+        updateResponse = await supabase.auth.updateUser({
+          // Supabase does not support null password removal; rotate to high-entropy unknown secret.
+          password: `disabled:${randomBytes(48).toString("base64url")}`
+        });
+      } catch (error) {
+        throw mapPasswordUpdateError(error);
+      }
+
+      if (updateResponse.error || !updateResponse.data?.user) {
+        throw mapPasswordUpdateError(updateResponse.error);
+      }
+
+      await syncProfileFromSupabaseUser(updateResponse.data.user, updateResponse.data.user.email);
+    }
+
+    const passwordSignInEnabled = await setPasswordSignInEnabledForUserId(current.profile.id, payload.enabled);
+    const nextAuthMethodsStatus = buildAuthMethodsStatusFromSupabaseUser(current.user, {
+      passwordSignInEnabled
+    });
+
+    return {
+      securityStatus: buildSecurityStatusFromAuthMethodsStatus(nextAuthMethodsStatus)
+    };
+  }
+
   async function signOutOtherSessions(request) {
     ensureConfigured();
     const supabase = getSupabaseClient();
@@ -1020,14 +1765,16 @@ function createAuthService(options) {
     }
   }
 
-  async function getSecurityStatus() {
-    return {
-      mfa: {
-        status: "not_enabled",
-        enrolled: false,
-        methods: []
-      }
-    };
+  async function getSecurityStatus(request) {
+    if (!request) {
+      const authMethodsStatus = buildAuthMethodsStatusFromProviderIds([AUTH_METHOD_PASSWORD_PROVIDER], {
+        passwordSignInEnabled: true
+      });
+      return buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus);
+    }
+
+    const current = await resolveCurrentAuthContext(request);
+    return buildSecurityStatusFromAuthMethodsStatus(current.authMethodsStatus);
   }
 
   async function authenticateRequest(request) {
@@ -1168,13 +1915,18 @@ function createAuthService(options) {
   return {
     register,
     login,
+    requestOtpLogin,
+    verifyOtpLogin,
     oauthStart,
     oauthComplete,
+    startProviderLink,
     requestPasswordReset,
     completePasswordRecovery,
     resetPassword,
     updateDisplayName,
     changePassword,
+    setPasswordSignInEnabled,
+    unlinkProvider,
     signOutOtherSessions,
     getSecurityStatus,
     authenticateRequest,
@@ -1193,16 +1945,33 @@ const __testables = {
   isTransientSupabaseError,
   mapAuthError,
   validationError,
+  isUserNotFoundLikeAuthError,
   mapRecoveryError,
   mapPasswordUpdateError,
+  mapOtpVerifyError,
   mapProfileUpdateError,
   mapCurrentPasswordError,
   parseHttpUrl,
   buildPasswordResetRedirectUrl,
+  buildOtpLoginRedirectUrl,
+  normalizeOAuthIntent,
+  normalizeReturnToPath,
+  buildOAuthRedirectUrl,
   buildOAuthLoginRedirectUrl,
+  buildOAuthLinkRedirectUrl,
   normalizeOAuthProviderInput,
   parseOAuthCompletePayload,
+  parseOtpLoginVerifyPayload,
   mapOAuthCallbackError,
+  normalizeIdentityProviderId,
+  collectProviderIdsFromSupabaseUser,
+  buildAuthMethodsStatusFromProviderIds,
+  buildAuthMethodsStatusFromSupabaseUser,
+  buildSecurityStatusFromAuthMethodsStatus,
+  findAuthMethodById,
+  buildSignInMethodsStatusFromProviderIds,
+  buildSignInMethodsStatusFromSupabaseUser,
+  findLinkedIdentityByProvider,
   safeRequestCookies,
   cookieOptions,
   isExpiredJwtError,

@@ -55,6 +55,7 @@ const authService = createAuthService({
   appPublicUrl: env.APP_PUBLIC_URL,
   jwtAudience: env.SUPABASE_JWT_AUDIENCE,
   userProfilesRepository,
+  userSettingsRepository,
   nodeEnv: NODE_ENV
 });
 

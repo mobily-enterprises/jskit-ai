@@ -27,6 +27,7 @@ function mapUserSettingsRowRequired(row) {
     defaultPaymentsPerYear: Number(row.default_payments_per_year),
     defaultHistoryPageSize: Number(row.default_history_page_size),
     avatarSize: Number(row.avatar_size ?? 64),
+    passwordSignInEnabled: row.password_sign_in_enabled == null ? true : Boolean(row.password_sign_in_enabled),
     productUpdates: Boolean(row.notify_product_updates),
     accountActivity: Boolean(row.notify_account_activity),
     securityAlerts: Boolean(row.notify_security_alerts),
@@ -162,11 +163,27 @@ function createUserSettingsRepository(dbClient) {
     return mapUserSettingsRowRequired(row);
   }
 
+  async function repoUpdatePasswordSignInEnabled(userId, enabled) {
+    await repoEnsureForUserId(userId);
+
+    await dbClient("user_settings")
+      .where({ user_id: userId })
+      .update(
+        withUpdatedAt({
+          password_sign_in_enabled: Boolean(enabled)
+        })
+      );
+
+    const row = await dbClient("user_settings").where({ user_id: userId }).first();
+    return mapUserSettingsRowRequired(row);
+  }
+
   return {
     findByUserId: repoFindByUserId,
     ensureForUserId: repoEnsureForUserId,
     updatePreferences: repoUpdatePreferences,
-    updateNotifications: repoUpdateNotifications
+    updateNotifications: repoUpdateNotifications,
+    updatePasswordSignInEnabled: repoUpdatePasswordSignInEnabled
   };
 }
 
@@ -182,5 +199,6 @@ const __testables = {
   createUserSettingsRepository
 };
 
-export const { findByUserId, ensureForUserId, updatePreferences, updateNotifications } = repository;
+export const { findByUserId, ensureForUserId, updatePreferences, updateNotifications, updatePasswordSignInEnabled } =
+  repository;
 export { __testables };

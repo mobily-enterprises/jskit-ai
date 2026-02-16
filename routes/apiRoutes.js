@@ -14,6 +14,11 @@ import {
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,
   AUTH_REFRESH_TOKEN_MAX_LENGTH
 } from "../shared/auth/authConstraints.js";
+import {
+  AUTH_METHOD_IDS,
+  AUTH_METHOD_KINDS,
+  AUTH_METHOD_PASSWORD_PROVIDER
+} from "../shared/auth/authMethods.js";
 import { AUTH_OAUTH_PROVIDERS } from "../shared/auth/oauthProviders.js";
 import {
   SETTINGS_CURRENCY_CODE_PATTERN,
@@ -62,11 +67,46 @@ const loginCredentialsSchema = Type.Object(
   }
 );
 
+const otpLoginVerifyBodySchema = Type.Object(
+  {
+    email: Type.Optional(
+      Type.String({
+        minLength: AUTH_EMAIL_MIN_LENGTH,
+        maxLength: AUTH_EMAIL_MAX_LENGTH,
+        pattern: AUTH_EMAIL_PATTERN
+      })
+    ),
+    token: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_RECOVERY_TOKEN_MAX_LENGTH })),
+    tokenHash: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_RECOVERY_TOKEN_MAX_LENGTH })),
+    type: Type.Optional(Type.Literal("email"))
+  },
+  {
+    additionalProperties: false,
+    minProperties: 1
+  }
+);
+
 const oauthProviderEnumSchema = enumSchema(AUTH_OAUTH_PROVIDERS);
+const authMethodIdEnumSchema = enumSchema(AUTH_METHOD_IDS);
+const authMethodKindEnumSchema = enumSchema(AUTH_METHOD_KINDS);
+const oauthReturnToSchema = Type.String({
+  minLength: 1,
+  maxLength: 1024,
+  pattern: "^/(?!/).*$"
+});
 
 const oauthStartParamsSchema = Type.Object(
   {
     provider: oauthProviderEnumSchema
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const oauthStartQuerySchema = Type.Object(
+  {
+    returnTo: Type.Optional(oauthReturnToSchema)
   },
   {
     additionalProperties: false
@@ -103,6 +143,15 @@ const emailOnlySchema = Type.Object(
 const passwordOnlySchema = Type.Object(
   {
     password: Type.String({ minLength: AUTH_PASSWORD_MIN_LENGTH, maxLength: AUTH_PASSWORD_MAX_LENGTH })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const passwordMethodToggleBodySchema = Type.Object(
+  {
+    enabled: Type.Boolean()
   },
   {
     additionalProperties: false
@@ -158,6 +207,21 @@ const loginResponseSchema = Type.Object(
   {
     ok: Type.Boolean(),
     username: Type.String({ minLength: 1, maxLength: 120 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const otpLoginVerifyResponseSchema = Type.Object(
+  {
+    ok: Type.Boolean(),
+    username: Type.String({ minLength: 1, maxLength: 120 }),
+    email: Type.String({
+      minLength: AUTH_EMAIL_MIN_LENGTH,
+      maxLength: AUTH_EMAIL_MAX_LENGTH,
+      pattern: AUTH_EMAIL_PATTERN
+    })
   },
   {
     additionalProperties: false
@@ -355,6 +419,11 @@ const settingsProfileSchema = Type.Object(
   }
 );
 
+const authMethodProviderSchema = Type.Union([
+  Type.Literal(AUTH_METHOD_PASSWORD_PROVIDER),
+  ...AUTH_OAUTH_PROVIDERS.map((provider) => Type.Literal(provider))
+]);
+
 const settingsSecuritySchema = Type.Object(
   {
     mfa: Type.Object(
@@ -371,11 +440,29 @@ const settingsSecuritySchema = Type.Object(
       },
       { additionalProperties: false }
     ),
-    password: Type.Object(
+    authPolicy: Type.Object(
       {
-        canChange: Type.Boolean()
+        minimumEnabledMethods: Type.Integer({ minimum: 1 }),
+        enabledMethodsCount: Type.Integer({ minimum: 0 })
       },
       { additionalProperties: false }
+    ),
+    authMethods: Type.Array(
+      Type.Object(
+        {
+          id: authMethodIdEnumSchema,
+          kind: authMethodKindEnumSchema,
+          provider: Type.Union([authMethodProviderSchema, Type.Null()]),
+          label: Type.String({ minLength: 1 }),
+          configured: Type.Boolean(),
+          enabled: Type.Boolean(),
+          canEnable: Type.Boolean(),
+          canDisable: Type.Boolean(),
+          supportsSecretUpdate: Type.Boolean(),
+          requiresCurrentPassword: Type.Boolean()
+        },
+        { additionalProperties: false }
+      )
     )
   },
   {
@@ -468,7 +555,7 @@ const settingsNotificationsUpdateBodySchema = Type.Object(
 
 const changePasswordBodySchema = Type.Object(
   {
-    currentPassword: Type.String({ minLength: 1, maxLength: AUTH_LOGIN_PASSWORD_MAX_LENGTH }),
+    currentPassword: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_LOGIN_PASSWORD_MAX_LENGTH })),
     newPassword: Type.String({ minLength: AUTH_PASSWORD_MIN_LENGTH, maxLength: AUTH_PASSWORD_MAX_LENGTH }),
     confirmPassword: Type.String({ minLength: 1, maxLength: AUTH_PASSWORD_MAX_LENGTH })
   },
@@ -522,6 +609,48 @@ function buildDefaultRoutes(controllers) {
       handler: controllers.auth.login
     },
     {
+      path: "/api/login/otp/request",
+      method: "POST",
+      auth: "public",
+      schema: {
+        tags: ["auth"],
+        summary: "Request one-time email login code",
+        body: emailOnlySchema,
+        response: withStandardErrorResponses(
+          {
+            200: okMessageResponseSchema
+          },
+          { includeValidation400: true }
+        )
+      },
+      rateLimit: {
+        max: 10,
+        timeWindow: "1 minute"
+      },
+      handler: controllers.auth.requestOtpLogin
+    },
+    {
+      path: "/api/login/otp/verify",
+      method: "POST",
+      auth: "public",
+      schema: {
+        tags: ["auth"],
+        summary: "Verify one-time email login code and create session",
+        body: otpLoginVerifyBodySchema,
+        response: withStandardErrorResponses(
+          {
+            200: otpLoginVerifyResponseSchema
+          },
+          { includeValidation400: true }
+        )
+      },
+      rateLimit: {
+        max: 10,
+        timeWindow: "1 minute"
+      },
+      handler: controllers.auth.verifyOtpLogin
+    },
+    {
       path: "/api/oauth/:provider/start",
       method: "GET",
       auth: "public",
@@ -530,9 +659,13 @@ function buildDefaultRoutes(controllers) {
         tags: ["auth"],
         summary: "Start OAuth login with Supabase provider",
         params: oauthStartParamsSchema,
-        response: withStandardErrorResponses({
-          302: Type.Unknown()
-        })
+        querystring: oauthStartQuerySchema,
+        response: withStandardErrorResponses(
+          {
+            302: Type.Unknown()
+          },
+          { includeValidation400: true }
+        )
       },
       rateLimit: {
         max: 20,
@@ -756,7 +889,7 @@ function buildDefaultRoutes(controllers) {
       auth: "required",
       schema: {
         tags: ["settings"],
-        summary: "Change authenticated user's password",
+        summary: "Set or change authenticated user's password",
         body: changePasswordBodySchema,
         response: withStandardErrorResponses(
           {
@@ -770,6 +903,71 @@ function buildDefaultRoutes(controllers) {
         timeWindow: "1 minute"
       },
       handler: controllers.settings.changePassword
+    },
+    {
+      path: "/api/settings/security/methods/password",
+      method: "PATCH",
+      auth: "required",
+      schema: {
+        tags: ["settings"],
+        summary: "Enable or disable password sign-in method",
+        body: passwordMethodToggleBodySchema,
+        response: withStandardErrorResponses(
+          {
+            200: settingsResponseSchema
+          },
+          { includeValidation400: true }
+        )
+      },
+      rateLimit: {
+        max: 20,
+        timeWindow: "1 minute"
+      },
+      handler: controllers.settings.setPasswordMethodEnabled
+    },
+    {
+      path: "/api/settings/security/oauth/:provider/start",
+      method: "GET",
+      auth: "required",
+      csrfProtection: false,
+      schema: {
+        tags: ["settings"],
+        summary: "Start linking an OAuth provider for authenticated user",
+        params: oauthStartParamsSchema,
+        querystring: oauthStartQuerySchema,
+        response: withStandardErrorResponses(
+          {
+            302: Type.Unknown()
+          },
+          { includeValidation400: true }
+        )
+      },
+      rateLimit: {
+        max: 20,
+        timeWindow: "1 minute"
+      },
+      handler: controllers.settings.startOAuthProviderLink
+    },
+    {
+      path: "/api/settings/security/oauth/:provider",
+      method: "DELETE",
+      auth: "required",
+      schema: {
+        tags: ["settings"],
+        summary: "Unlink an OAuth provider from authenticated account",
+        params: oauthStartParamsSchema,
+        response: withStandardErrorResponses(
+          {
+            200: settingsResponseSchema
+          },
+          { includeValidation400: true }
+        )
+      },
+      rateLimit: {
+        max: 20,
+        timeWindow: "1 minute"
+      },
+      handler: controllers.settings.unlinkOAuthProvider
     },
     {
       path: "/api/settings/security/logout-others",

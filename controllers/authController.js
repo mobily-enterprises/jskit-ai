@@ -33,9 +33,27 @@ function createAuthController({ authService }) {
     });
   }
 
+  async function requestOtpLogin(request, reply) {
+    const payload = request.body || {};
+    const result = await authService.requestOtpLogin(payload);
+    reply.code(200).send(result);
+  }
+
+  async function verifyOtpLogin(request, reply) {
+    const payload = request.body || {};
+    const result = await authService.verifyOtpLogin(payload);
+    authService.writeSessionCookies(reply, result.session);
+    reply.code(200).send({
+      ok: true,
+      username: result.profile.displayName,
+      email: result.profile.email
+    });
+  }
+
   async function oauthStart(request, reply) {
     const provider = request.params?.provider;
-    const result = await authService.oauthStart({ provider });
+    const returnTo = request.query?.returnTo;
+    const result = await authService.oauthStart({ provider, returnTo });
     reply.redirect(result.url);
   }
 
@@ -118,6 +136,8 @@ function createAuthController({ authService }) {
   return {
     register,
     login,
+    requestOtpLogin,
+    verifyOtpLogin,
     oauthStart,
     oauthComplete,
     logout,

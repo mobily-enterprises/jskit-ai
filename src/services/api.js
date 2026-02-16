@@ -136,9 +136,23 @@ export const api = {
   login(payload) {
     return request("/api/login", { method: "POST", body: payload });
   },
-  oauthStartUrl(provider) {
+  requestOtpLogin(payload) {
+    return request("/api/login/otp/request", { method: "POST", body: payload });
+  },
+  verifyOtpLogin(payload) {
+    return request("/api/login/otp/verify", { method: "POST", body: payload });
+  },
+  oauthStartUrl(provider, options = {}) {
     const encodedProvider = encodeURIComponent(String(provider || "").trim().toLowerCase());
-    return `/api/oauth/${encodedProvider}/start`;
+    const returnTo = String(options.returnTo || "").trim();
+    if (!returnTo) {
+      return `/api/oauth/${encodedProvider}/start`;
+    }
+
+    const params = new URLSearchParams({
+      returnTo
+    });
+    return `/api/oauth/${encodedProvider}/start?${params.toString()}`;
   },
   oauthComplete(payload) {
     return request("/api/oauth/complete", { method: "POST", body: payload });
@@ -175,6 +189,25 @@ export const api = {
   },
   changePassword(payload) {
     return request("/api/settings/security/change-password", { method: "POST", body: payload });
+  },
+  setPasswordMethodEnabled(payload) {
+    return request("/api/settings/security/methods/password", { method: "PATCH", body: payload });
+  },
+  settingsOAuthLinkStartUrl(provider, options = {}) {
+    const encodedProvider = encodeURIComponent(String(provider || "").trim().toLowerCase());
+    const returnTo = String(options.returnTo || "").trim();
+    if (!returnTo) {
+      return `/api/settings/security/oauth/${encodedProvider}/start`;
+    }
+
+    const params = new URLSearchParams({
+      returnTo
+    });
+    return `/api/settings/security/oauth/${encodedProvider}/start?${params.toString()}`;
+  },
+  unlinkSettingsOAuthProvider(provider) {
+    const encodedProvider = encodeURIComponent(String(provider || "").trim().toLowerCase());
+    return request(`/api/settings/security/oauth/${encodedProvider}`, { method: "DELETE" });
   },
   logoutOtherSessions() {
     return request("/api/settings/security/logout-others", { method: "POST" });

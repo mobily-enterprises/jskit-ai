@@ -71,6 +71,30 @@ function createSettingsController({ userSettingsService, authService }) {
     });
   }
 
+  async function setPasswordMethodEnabled(request, reply) {
+    const payload = request.body || {};
+    const response = await userSettingsService.setPasswordMethodEnabled(request, request.user, payload);
+    reply.code(200).send(response);
+  }
+
+  async function startOAuthProviderLink(request, reply) {
+    const provider = request.params?.provider;
+    const returnTo = request.query?.returnTo;
+    const result = await userSettingsService.startOAuthProviderLink(request, request.user, {
+      provider,
+      returnTo
+    });
+    reply.redirect(result.url);
+  }
+
+  async function unlinkOAuthProvider(request, reply) {
+    const provider = request.params?.provider;
+    const response = await userSettingsService.unlinkOAuthProvider(request, request.user, {
+      provider
+    });
+    reply.code(200).send(response);
+  }
+
   async function logoutOtherSessions(request, reply) {
     const response = await userSettingsService.logoutOtherSessions(request);
     reply.code(200).send(response);
@@ -84,6 +108,9 @@ function createSettingsController({ userSettingsService, authService }) {
     uploadAvatar,
     deleteAvatar,
     changePassword,
+    setPasswordMethodEnabled,
+    startOAuthProviderLink,
+    unlinkOAuthProvider,
     logoutOtherSessions
   };
 }
