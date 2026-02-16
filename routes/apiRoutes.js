@@ -14,6 +14,7 @@ import {
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,
   AUTH_REFRESH_TOKEN_MAX_LENGTH
 } from "../shared/auth/authConstraints.js";
+import { AUTH_OAUTH_PROVIDERS } from "../shared/auth/oauthProviders.js";
 import {
   SETTINGS_CURRENCY_CODE_PATTERN,
   SETTINGS_DATE_FORMAT_OPTIONS,
@@ -55,6 +56,31 @@ const loginCredentialsSchema = Type.Object(
       pattern: AUTH_EMAIL_PATTERN
     }),
     password: Type.String({ minLength: 1, maxLength: AUTH_LOGIN_PASSWORD_MAX_LENGTH })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const oauthProviderEnumSchema = enumSchema(AUTH_OAUTH_PROVIDERS);
+
+const oauthStartParamsSchema = Type.Object(
+  {
+    provider: oauthProviderEnumSchema
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const oauthCompleteBodySchema = Type.Object(
+  {
+    provider: oauthProviderEnumSchema,
+    code: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_RECOVERY_TOKEN_MAX_LENGTH })),
+    accessToken: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_ACCESS_TOKEN_MAX_LENGTH })),
+    refreshToken: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_REFRESH_TOKEN_MAX_LENGTH })),
+    error: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+    errorDescription: Type.Optional(Type.String({ minLength: 1, maxLength: 1024 }))
   },
   {
     additionalProperties: false
@@ -132,6 +158,22 @@ const loginResponseSchema = Type.Object(
   {
     ok: Type.Boolean(),
     username: Type.String({ minLength: 1, maxLength: 120 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const oauthCompleteResponseSchema = Type.Object(
+  {
+    ok: Type.Boolean(),
+    provider: oauthProviderEnumSchema,
+    username: Type.String({ minLength: 1, maxLength: 120 }),
+    email: Type.String({
+      minLength: AUTH_EMAIL_MIN_LENGTH,
+      maxLength: AUTH_EMAIL_MAX_LENGTH,
+      pattern: AUTH_EMAIL_PATTERN
+    })
   },
   {
     additionalProperties: false
@@ -478,6 +520,46 @@ function buildDefaultRoutes(controllers) {
         timeWindow: "1 minute"
       },
       handler: controllers.auth.login
+    },
+    {
+      path: "/api/oauth/:provider/start",
+      method: "GET",
+      auth: "public",
+      csrfProtection: false,
+      schema: {
+        tags: ["auth"],
+        summary: "Start OAuth login with Supabase provider",
+        params: oauthStartParamsSchema,
+        response: withStandardErrorResponses({
+          302: Type.Unknown()
+        })
+      },
+      rateLimit: {
+        max: 20,
+        timeWindow: "1 minute"
+      },
+      handler: controllers.auth.oauthStart
+    },
+    {
+      path: "/api/oauth/complete",
+      method: "POST",
+      auth: "public",
+      schema: {
+        tags: ["auth"],
+        summary: "Complete OAuth code exchange and set session cookies",
+        body: oauthCompleteBodySchema,
+        response: withStandardErrorResponses(
+          {
+            200: oauthCompleteResponseSchema
+          },
+          { includeValidation400: true }
+        )
+      },
+      rateLimit: {
+        max: 20,
+        timeWindow: "1 minute"
+      },
+      handler: controllers.auth.oauthComplete
     },
     {
       path: "/api/password/forgot",

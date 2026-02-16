@@ -7,7 +7,7 @@
             <div>
               <p class="auth-kicker">Annuity Workspace</p>
               <h1 class="auth-title">{{ authTitle }}</h1>
-              <p class="text-medium-emphasis mb-0">{{ authSubtitle }}</p>
+              <p v-if="authSubtitle" class="text-medium-emphasis mb-0">{{ authSubtitle }}</p>
             </div>
             <v-chip color="primary" size="small" label>Secure</v-chip>
           </div>
@@ -99,6 +99,22 @@
               class="mb-4"
             />
 
+            <div v-if="isLogin" class="oauth-actions mb-4">
+              <v-btn
+                v-for="provider in oauthProviders"
+                :key="provider.id"
+                block
+                variant="outlined"
+                color="secondary"
+                :disabled="loading"
+                :prepend-icon="oauthProviderIcon(provider)"
+                class="text-none oauth-provider-button"
+                @click="startOAuthSignIn(provider.id)"
+              >
+                {{ oauthProviderButtonLabel(provider) }}
+              </v-btn>
+            </div>
+
             <v-alert v-if="errorMessage" type="error" variant="tonal" class="mb-4">
               {{ errorMessage }}
             </v-alert>
@@ -133,10 +149,17 @@ import { useNavigate } from "@tanstack/vue-router";
 import { useMutation } from "@tanstack/vue-query";
 import { api } from "../services/api";
 import { useAuthStore } from "../stores/authStore";
+import {
+  AUTH_OAUTH_DEFAULT_PROVIDER,
+  AUTH_OAUTH_PROVIDER_METADATA,
+  AUTH_OAUTH_PROVIDERS,
+  normalizeOAuthProvider
+} from "../../shared/auth/oauthProviders.js";
 import { validators } from "../../shared/auth/validators.js";
 import { normalizeEmail } from "../../shared/auth/utils.js";
 
 const REMEMBERED_ACCOUNT_STORAGE_KEY = "auth.rememberedAccount";
+const PENDING_OAUTH_PROVIDER_STORAGE_KEY = "auth.oauth.pendingProvider";
 
 const navigate = useNavigate();
 const authStore = useAuthStore();
@@ -156,6 +179,7 @@ const infoMessage = ref("");
 const rememberAccountOnDevice = ref(true);
 const rememberedAccount = ref(null);
 const useRememberedAccount = ref(false);
+const oauthCallbackInFlight = ref(false);
 
 const isLogin = computed(() => mode.value === "login");
 const isRegister = computed(() => mode.value === "register");
@@ -167,6 +191,7 @@ const rememberedAccountSwitchLabel = computed(() => {
   const shortName = String(rememberedAccount.value?.displayName || "").trim();
   return shortName ? `Not ${shortName}?` : "Use another account";
 });
+const oauthProviders = AUTH_OAUTH_PROVIDERS.map((providerId) => AUTH_OAUTH_PROVIDER_METADATA[providerId]).filter(Boolean);
 
 const registerMutation = useMutation({
   mutationFn: (payload) => api.register(payload)
@@ -181,7 +206,11 @@ const forgotPasswordMutation = useMutation({
 });
 
 const loading = computed(
-  () => registerMutation.isPending.value || loginMutation.isPending.value || forgotPasswordMutation.isPending.value
+  () =>
+    registerMutation.isPending.value ||
+    loginMutation.isPending.value ||
+    forgotPasswordMutation.isPending.value ||
+    oauthCallbackInFlight.value
 );
 
 const authTitle = computed(() => {
@@ -191,7 +220,7 @@ const authTitle = computed(() => {
   if (isForgot.value) {
     return "Reset your password";
   }
-  return "Sign in to continue";
+  return "Sign in";
 });
 
 const authSubtitle = computed(() => {
@@ -201,7 +230,7 @@ const authSubtitle = computed(() => {
   if (isForgot.value) {
     return "Enter your email and we will send you a secure password reset link.";
   }
-  return "Use your account credentials.";
+  return "";
 });
 
 const submitLabel = computed(() => {
@@ -228,14 +257,16 @@ function hasRecoveryLinkPayload() {
   return type === "recovery";
 }
 
-async function redirectRecoveryLinkToResetPage() {
+function redirectRecoveryLinkToResetPage() {
   if (!hasRecoveryLinkPayload()) {
-    return;
+    return false;
   }
 
   if (typeof window !== "undefined") {
     window.location.replace(`/reset-password${window.location.search || ""}${window.location.hash || ""}`);
   }
+
+  return true;
 }
 
 function resetValidationState() {
@@ -254,6 +285,21 @@ function isLocalStorageAvailable() {
     const key = "__auth_hint_probe__";
     window.localStorage.setItem(key, "1");
     window.localStorage.removeItem(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isSessionStorageAvailable() {
+  if (typeof window === "undefined" || !window.sessionStorage) {
+    return false;
+  }
+
+  try {
+    const key = "__auth_oauth_probe__";
+    window.sessionStorage.setItem(key, "1");
+    window.sessionStorage.removeItem(key);
     return true;
   } catch {
     return false;
@@ -339,6 +385,43 @@ function clearRememberedAccountHint() {
   }
 }
 
+function readPendingOAuthProvider() {
+  if (!isSessionStorageAvailable()) {
+    return null;
+  }
+
+  try {
+    const value = window.sessionStorage.getItem(PENDING_OAUTH_PROVIDER_STORAGE_KEY);
+    return normalizeOAuthProvider(value, { fallback: null });
+  } catch {
+    return null;
+  }
+}
+
+function writePendingOAuthProvider(provider) {
+  if (!isSessionStorageAvailable()) {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(PENDING_OAUTH_PROVIDER_STORAGE_KEY, provider);
+  } catch {
+    // best effort only
+  }
+}
+
+function clearPendingOAuthProvider() {
+  if (!isSessionStorageAvailable()) {
+    return;
+  }
+
+  try {
+    window.sessionStorage.removeItem(PENDING_OAUTH_PROVIDER_STORAGE_KEY);
+  } catch {
+    // best effort only
+  }
+}
+
 function applyRememberedAccountHint(hint) {
   if (!hint) {
     rememberedAccount.value = null;
@@ -386,6 +469,167 @@ function switchMode(nextMode) {
   if (rememberedAccount.value) {
     useRememberedAccount.value = true;
     email.value = rememberedAccount.value.email;
+  }
+}
+
+function oauthProviderButtonLabel(provider) {
+  const providerLabel = String(provider?.label || "OAuth provider");
+  if (showRememberedAccount.value) {
+    const displayName = rememberedAccountDisplayName.value;
+    return `Continue with ${providerLabel} as ${displayName}`;
+  }
+
+  return `Continue with ${providerLabel}`;
+}
+
+function oauthProviderIcon(provider) {
+  if (provider?.id === "google") {
+    return "oauthGoogle";
+  }
+
+  return undefined;
+}
+
+function readOAuthCallbackPayloadFromLocation() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const search = new URLSearchParams(window.location.search || "");
+  const hash = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
+  const code = String(search.get("code") || hash.get("code") || "").trim();
+  const accessToken = String(search.get("access_token") || hash.get("access_token") || "").trim();
+  const refreshToken = String(search.get("refresh_token") || hash.get("refresh_token") || "").trim();
+  const errorCode = String(search.get("error") || hash.get("error") || "").trim();
+  const errorDescription = String(search.get("error_description") || hash.get("error_description") || "").trim();
+  const hasTokenPair = Boolean(accessToken && refreshToken);
+
+  if (!code && !errorCode && !hasTokenPair) {
+    return null;
+  }
+
+  const providerFromQuery = normalizeOAuthProvider(search.get("oauthProvider"), { fallback: null });
+  const providerFromStorage = readPendingOAuthProvider();
+  const provider = normalizeOAuthProvider(providerFromQuery || providerFromStorage || AUTH_OAUTH_DEFAULT_PROVIDER, {
+    fallback: AUTH_OAUTH_DEFAULT_PROVIDER
+  });
+
+  const payload = {
+    provider
+  };
+
+  if (code) {
+    payload.code = code;
+  }
+  if (accessToken) {
+    payload.accessToken = accessToken;
+  }
+  if (refreshToken) {
+    payload.refreshToken = refreshToken;
+  }
+  if (errorCode) {
+    payload.error = errorCode;
+  }
+  if (errorDescription) {
+    payload.errorDescription = errorDescription;
+  }
+
+  return payload;
+}
+
+function stripOAuthCallbackParamsFromLocation() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.delete("code");
+  url.searchParams.delete("error");
+  url.searchParams.delete("error_description");
+  url.searchParams.delete("state");
+  url.searchParams.delete("oauthProvider");
+  url.searchParams.delete("access_token");
+  url.searchParams.delete("refresh_token");
+  url.searchParams.delete("provider_token");
+  url.searchParams.delete("expires_at");
+  url.searchParams.delete("expires_in");
+  url.searchParams.delete("token_type");
+
+  const hash = new URLSearchParams((url.hash || "").replace(/^#/, ""));
+  hash.delete("code");
+  hash.delete("error");
+  hash.delete("error_description");
+  hash.delete("state");
+  hash.delete("access_token");
+  hash.delete("refresh_token");
+  hash.delete("provider_token");
+  hash.delete("expires_at");
+  hash.delete("expires_in");
+  hash.delete("token_type");
+  hash.delete("type");
+  hash.delete("sb");
+  const nextHash = hash.toString();
+  url.hash = nextHash ? `#${nextHash}` : "";
+
+  const nextPath = `${url.pathname}${url.search || ""}${url.hash || ""}`;
+  window.history.replaceState({}, "", nextPath || "/login");
+}
+
+async function startOAuthSignIn(providerId) {
+  const provider = normalizeOAuthProvider(providerId, { fallback: null });
+  if (!provider) {
+    errorMessage.value = "OAuth provider is not supported.";
+    return;
+  }
+
+  errorMessage.value = "";
+  infoMessage.value = "";
+  writePendingOAuthProvider(provider);
+
+  if (typeof window !== "undefined") {
+    window.location.assign(api.oauthStartUrl(provider));
+  }
+}
+
+async function handleOAuthCallbackIfPresent() {
+  const callbackPayload = readOAuthCallbackPayloadFromLocation();
+  if (!callbackPayload) {
+    return;
+  }
+
+  oauthCallbackInFlight.value = true;
+  errorMessage.value = "";
+  infoMessage.value = "";
+
+  try {
+    const response = await api.oauthComplete(callbackPayload);
+    const session = await authStore.refreshSession();
+    if (!session?.authenticated) {
+      throw new Error("OAuth login succeeded but the session is not active yet. Please retry.");
+    }
+
+    const rememberedHint = createRememberedAccountHint({
+      email: response?.email || "",
+      displayName: response?.username || session?.username || "User",
+      lastUsedAt: new Date().toISOString()
+    });
+    if (rememberAccountOnDevice.value && rememberedHint) {
+      writeRememberedAccountHint(rememberedHint);
+      applyRememberedAccountHint(rememberedHint);
+    } else {
+      clearRememberedAccountHint();
+      rememberedAccount.value = null;
+      useRememberedAccount.value = false;
+    }
+
+    stripOAuthCallbackParamsFromLocation();
+    await navigate({ to: "/", replace: true });
+  } catch (error) {
+    errorMessage.value = toErrorMessage(error, "Unable to complete OAuth sign-in.");
+    stripOAuthCallbackParamsFromLocation();
+  } finally {
+    clearPendingOAuthProvider();
+    oauthCallbackInFlight.value = false;
   }
 }
 
@@ -528,9 +772,13 @@ async function submitAuth() {
   }
 }
 
-onMounted(() => {
-  redirectRecoveryLinkToResetPage();
+onMounted(async () => {
+  if (redirectRecoveryLinkToResetPage()) {
+    return;
+  }
+
   applyRememberedAccountHint(readRememberedAccountHint());
+  await handleOAuthCallbackIfPresent();
 });
 </script>
 
@@ -619,6 +867,15 @@ onMounted(() => {
   margin: 2px 0 0;
   font-size: 12px;
   color: rgba(29, 44, 36, 0.72);
+}
+
+.oauth-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.oauth-provider-button {
+  justify-content: center;
 }
 
 @media (max-width: 959px) {

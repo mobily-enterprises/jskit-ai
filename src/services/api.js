@@ -136,6 +136,13 @@ export const api = {
   login(payload) {
     return request("/api/login", { method: "POST", body: payload });
   },
+  oauthStartUrl(provider) {
+    const encodedProvider = encodeURIComponent(String(provider || "").trim().toLowerCase());
+    return `/api/oauth/${encodedProvider}/start`;
+  },
+  oauthComplete(payload) {
+    return request("/api/oauth/complete", { method: "POST", body: payload });
+  },
   requestPasswordReset(payload) {
     return request("/api/password/forgot", { method: "POST", body: payload });
   },

@@ -9,6 +9,7 @@ function createReplyDouble() {
   return {
     statusCode: null,
     payload: null,
+    redirectUrl: null,
     cookies: [],
     csrfToken: "csrf-token",
     code(status) {
@@ -17,6 +18,11 @@ function createReplyDouble() {
     },
     send(payload) {
       this.payload = payload;
+      return this;
+    },
+    redirect(url) {
+      this.statusCode = 302;
+      this.redirectUrl = String(url || "");
       return this;
     },
     async generateCsrf() {
@@ -155,6 +161,24 @@ test("auth controller covers register/login/logout/session/password flows", asyn
         session: { access_token: "la", refresh_token: "lb", expires_in: 3600 }
       };
     },
+    async oauthStart(payload) {
+      calls.push(["oauthStart", payload]);
+      return {
+        provider: "google",
+        url: "https://accounts.google.com/o/oauth2/v2/auth"
+      };
+    },
+    async oauthComplete(payload) {
+      calls.push(["oauthComplete", payload]);
+      return {
+        provider: "google",
+        profile: {
+          displayName: "oauth-user",
+          email: "oauth@example.com"
+        },
+        session: { access_token: "oa", refresh_token: "ob", expires_in: 3600 }
+      };
+    },
     async authenticateRequest(request) {
       calls.push(["authenticateRequest", request.tokenState]);
       if (request.tokenState === "transient") {
@@ -211,6 +235,22 @@ test("auth controller covers register/login/logout/session/password flows", asyn
   assert.equal(loginReply.statusCode, 200);
   assert.equal(loginReply.payload.username, "logged-user");
 
+  const oauthStartReply = createReplyDouble();
+  await controller.oauthStart({ params: { provider: "google" } }, oauthStartReply);
+  assert.equal(oauthStartReply.statusCode, 302);
+  assert.equal(oauthStartReply.redirectUrl, "https://accounts.google.com/o/oauth2/v2/auth");
+
+  const oauthCompleteReply = createReplyDouble();
+  await controller.oauthComplete({ body: { provider: "google", code: "oauth-code" } }, oauthCompleteReply);
+  assert.equal(oauthCompleteReply.statusCode, 200);
+  assert.deepEqual(oauthCompleteReply.payload, {
+    ok: true,
+    provider: "google",
+    username: "oauth-user",
+    email: "oauth@example.com"
+  });
+  assert.equal(oauthCompleteReply.cookies[0][0], "write");
+
   const sessionTransientReply = createReplyDouble();
   await controller.session({ tokenState: "transient" }, sessionTransientReply);
   assert.equal(sessionTransientReply.statusCode, 503);
@@ -258,6 +298,14 @@ test("auth controller covers register/login/logout/session/password flows", asyn
   const fallbackLoginReply = createReplyDouble();
   await controller.login({}, fallbackLoginReply);
   assert.equal(fallbackLoginReply.statusCode, 200);
+
+  const fallbackOauthStartReply = createReplyDouble();
+  await controller.oauthStart({}, fallbackOauthStartReply);
+  assert.equal(fallbackOauthStartReply.statusCode, 302);
+
+  const fallbackOauthCompleteReply = createReplyDouble();
+  await controller.oauthComplete({}, fallbackOauthCompleteReply);
+  assert.equal(fallbackOauthCompleteReply.statusCode, 200);
 
   const fallbackForgotReply = createReplyDouble();
   await controller.requestPasswordReset({}, fallbackForgotReply);

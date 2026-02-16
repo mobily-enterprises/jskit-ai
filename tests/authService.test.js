@@ -231,6 +231,51 @@ test("authService helpers cover validation, mapping, URL parsing, and jwt classi
     "http://localhost:5173/app/reset-password"
   );
   assert.throws(() => __testables.buildPasswordResetRedirectUrl({ appPublicUrl: "" }), /APP_PUBLIC_URL is required/);
+  assert.equal(
+    __testables.buildOAuthLoginRedirectUrl({ appPublicUrl: "http://localhost:5173/app", provider: "google" }),
+    "http://localhost:5173/app/login?oauthProvider=google"
+  );
+  assert.throws(() => __testables.buildOAuthLoginRedirectUrl({ appPublicUrl: "", provider: "google" }), /required/);
+  assert.throws(() => __testables.buildOAuthLoginRedirectUrl({ appPublicUrl: "http://localhost:5173", provider: "x" }), /one of/);
+
+  const parsedOAuthCode = __testables.parseOAuthCompletePayload({
+    provider: "google",
+    code: "oauth-code"
+  });
+  assert.equal(parsedOAuthCode.provider, "google");
+  assert.equal(parsedOAuthCode.code, "oauth-code");
+  assert.equal(parsedOAuthCode.hasSessionPair, false);
+  assert.equal(Object.keys(parsedOAuthCode.fieldErrors).length, 0);
+
+  const parsedOAuthPair = __testables.parseOAuthCompletePayload({
+    provider: "google",
+    accessToken: "oauth-access",
+    refreshToken: "oauth-refresh"
+  });
+  assert.equal(parsedOAuthPair.hasSessionPair, true);
+  assert.equal(parsedOAuthPair.accessToken, "oauth-access");
+  assert.equal(parsedOAuthPair.refreshToken, "oauth-refresh");
+  assert.equal(Object.keys(parsedOAuthPair.fieldErrors).length, 0);
+
+  const parsedOAuthPairMissing = __testables.parseOAuthCompletePayload({
+    provider: "google",
+    accessToken: "oauth-access"
+  });
+  assert.equal(
+    parsedOAuthPairMissing.fieldErrors.refreshToken,
+    "Refresh token is required when an access token is provided."
+  );
+
+  const parsedOAuthMissing = __testables.parseOAuthCompletePayload({
+    provider: "google"
+  });
+  assert.equal(
+    parsedOAuthMissing.fieldErrors.code,
+    "OAuth code is required when access/refresh tokens are not provided."
+  );
+
+  assert.equal(__testables.mapOAuthCallbackError("access_denied").status, 401);
+  assert.equal(__testables.mapOAuthCallbackError("server_error", "bad gateway").message, "OAuth sign-in failed: bad gateway");
 
   assert.deepEqual(__testables.safeRequestCookies({ cookies: { a: 1 } }), { a: 1 });
   assert.deepEqual(__testables.safeRequestCookies({ cookies: null }), {});

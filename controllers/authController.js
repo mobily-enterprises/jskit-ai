@@ -33,6 +33,25 @@ function createAuthController({ authService }) {
     });
   }
 
+  async function oauthStart(request, reply) {
+    const provider = request.params?.provider;
+    const result = await authService.oauthStart({ provider });
+    reply.redirect(result.url);
+  }
+
+  async function oauthComplete(request, reply) {
+    const payload = request.body || {};
+    const result = await authService.oauthComplete(payload);
+    authService.writeSessionCookies(reply, result.session);
+
+    reply.code(200).send({
+      ok: true,
+      provider: result.provider,
+      username: result.profile.displayName,
+      email: result.profile.email
+    });
+  }
+
   async function logout(_request, reply) {
     authService.clearSessionCookies(reply);
     reply.code(200).send({ ok: true });
@@ -99,6 +118,8 @@ function createAuthController({ authService }) {
   return {
     register,
     login,
+    oauthStart,
+    oauthComplete,
     logout,
     session,
     requestPasswordReset,

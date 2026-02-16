@@ -5,6 +5,11 @@ import {
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,
   AUTH_REFRESH_TOKEN_MAX_LENGTH
 } from "../shared/auth/authConstraints.js";
+import {
+  AUTH_OAUTH_DEFAULT_PROVIDER,
+  AUTH_OAUTH_PROVIDERS,
+  normalizeOAuthProvider as normalizeSupportedOAuthProvider
+} from "../shared/auth/oauthProviders.js";
 import { normalizeEmail } from "../shared/auth/utils.js";
 import { validators } from "../shared/auth/validators.js";
 
@@ -12,6 +17,7 @@ const ACCESS_TOKEN_COOKIE = "sb_access_token";
 const REFRESH_TOKEN_COOKIE = "sb_refresh_token";
 const DEFAULT_AUDIENCE = "authenticated";
 const PASSWORD_RESET_PATH = "reset-password";
+const OAUTH_LOGIN_PATH = "login";
 
 const INVALID_JWT_ERROR_CODES = new Set([
   "ERR_JWS_SIGNATURE_VERIFICATION_FAILED",
@@ -264,6 +270,113 @@ function buildPasswordResetRedirectUrl(options) {
   return new URL(PASSWORD_RESET_PATH, baseUrl).toString();
 }
 
+function buildOAuthLoginRedirectUrl(options) {
+  const appPublicUrl = String(options.appPublicUrl || "").trim();
+  const provider = normalizeSupportedOAuthProvider(options.provider, { fallback: null });
+
+  if (!appPublicUrl) {
+    throw new Error("APP_PUBLIC_URL is required to build OAuth login redirects.");
+  }
+
+  if (!provider) {
+    throw new Error(`OAuth provider must be one of: ${AUTH_OAUTH_PROVIDERS.join(", ")}.`);
+  }
+
+  const baseUrl = parseHttpUrl(appPublicUrl, "APP_PUBLIC_URL");
+  if (!baseUrl.pathname.endsWith("/")) {
+    baseUrl.pathname = `${baseUrl.pathname}/`;
+  }
+  baseUrl.search = "";
+  baseUrl.hash = "";
+
+  const redirectUrl = new URL(OAUTH_LOGIN_PATH, baseUrl);
+  redirectUrl.searchParams.set("oauthProvider", provider);
+  return redirectUrl.toString();
+}
+
+function normalizeOAuthProviderInput(value) {
+  const provider = normalizeSupportedOAuthProvider(value, { fallback: null });
+  if (provider) {
+    return provider;
+  }
+
+  throw validationError({
+    provider: `OAuth provider must be one of: ${AUTH_OAUTH_PROVIDERS.join(", ")}.`
+  });
+}
+
+function parseOAuthCompletePayload(payload = {}) {
+  const provider = normalizeOAuthProviderInput(payload.provider || AUTH_OAUTH_DEFAULT_PROVIDER);
+  const code = String(payload.code || "").trim();
+  const accessToken = String(payload.accessToken || payload.access_token || "").trim();
+  const refreshToken = String(payload.refreshToken || payload.refresh_token || "").trim();
+  const errorCode = String(payload.error || "").trim();
+  const errorDescription = String(payload.errorDescription || payload.error_description || "").trim();
+  const fieldErrors = {};
+
+  if (code.length > AUTH_RECOVERY_TOKEN_MAX_LENGTH) {
+    fieldErrors.code = "OAuth code is too long.";
+  }
+
+  if (accessToken.length > AUTH_ACCESS_TOKEN_MAX_LENGTH) {
+    fieldErrors.accessToken = "Access token is too long.";
+  }
+
+  if (refreshToken.length > AUTH_REFRESH_TOKEN_MAX_LENGTH) {
+    fieldErrors.refreshToken = "Refresh token is too long.";
+  }
+
+  if (errorCode.length > 128) {
+    fieldErrors.error = "OAuth error code is too long.";
+  }
+
+  if (errorDescription.length > 1024) {
+    fieldErrors.errorDescription = "OAuth error description is too long.";
+  }
+
+  const hasSessionPair = Boolean(accessToken && refreshToken);
+  if ((accessToken && !refreshToken) || (!accessToken && refreshToken)) {
+    if (!accessToken) {
+      fieldErrors.accessToken = "Access token is required when a refresh token is provided.";
+    }
+    if (!refreshToken) {
+      fieldErrors.refreshToken = "Refresh token is required when an access token is provided.";
+    }
+  }
+
+  if (!code && !errorCode && !hasSessionPair) {
+    fieldErrors.code = "OAuth code is required when access/refresh tokens are not provided.";
+  }
+
+  return {
+    provider,
+    code,
+    accessToken,
+    refreshToken,
+    hasSessionPair,
+    errorCode,
+    errorDescription,
+    fieldErrors
+  };
+}
+
+function mapOAuthCallbackError(errorCode, errorDescription) {
+  const normalizedCode = String(errorCode || "")
+    .trim()
+    .toLowerCase();
+
+  if (normalizedCode === "access_denied") {
+    return new AppError(401, "OAuth sign-in was cancelled.");
+  }
+
+  const description = String(errorDescription || "").trim();
+  if (description) {
+    return new AppError(401, `OAuth sign-in failed: ${description}`);
+  }
+
+  return new AppError(401, "OAuth sign-in failed.");
+}
+
 function safeRequestCookies(request) {
   if (request?.cookies && typeof request.cookies === "object") {
     return request.cookies;
@@ -331,6 +444,7 @@ function createAuthService(options) {
   const passwordResetRedirectUrl = buildPasswordResetRedirectUrl({
     appPublicUrl: options.appPublicUrl
   });
+  const appPublicUrl = String(options.appPublicUrl || "");
   let supabaseClient = null;
 
   const issuerUrl = supabaseUrl ? new URL("/auth/v1", supabaseUrl).toString().replace(/\/$/, "") : "";
@@ -628,6 +742,79 @@ function createAuthService(options) {
     const profile = await syncProfileFromSupabaseUser(response.data.user, parsed.email);
 
     return {
+      profile,
+      session: response.data.session
+    };
+  }
+
+  async function oauthStart(payload = {}) {
+    ensureConfigured();
+
+    const provider = normalizeOAuthProviderInput(payload.provider || AUTH_OAUTH_DEFAULT_PROVIDER);
+    const redirectTo = buildOAuthLoginRedirectUrl({
+      appPublicUrl,
+      provider
+    });
+
+    const supabase = getSupabaseClient();
+    let response;
+    try {
+      response = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo,
+          queryParams: provider === "google" ? { prompt: "select_account" } : undefined
+        }
+      });
+    } catch (error) {
+      throw mapAuthError(error, 500);
+    }
+
+    if (response.error || !response.data?.url) {
+      throw mapAuthError(response.error, 400);
+    }
+
+    return {
+      provider,
+      url: String(response.data.url)
+    };
+  }
+
+  async function oauthComplete(payload = {}) {
+    ensureConfigured();
+
+    const parsed = parseOAuthCompletePayload(payload);
+    if (Object.keys(parsed.fieldErrors).length > 0) {
+      throw validationError(parsed.fieldErrors);
+    }
+
+    if (parsed.errorCode) {
+      throw mapOAuthCallbackError(parsed.errorCode, parsed.errorDescription);
+    }
+
+    const supabase = getSupabaseClient();
+    let response;
+    try {
+      if (parsed.hasSessionPair) {
+        response = await supabase.auth.setSession({
+          access_token: parsed.accessToken,
+          refresh_token: parsed.refreshToken
+        });
+      } else {
+        response = await supabase.auth.exchangeCodeForSession(parsed.code);
+      }
+    } catch (error) {
+      throw mapRecoveryError(error);
+    }
+
+    if (response.error || !response.data?.session || !response.data?.user) {
+      throw mapRecoveryError(response.error);
+    }
+
+    const profile = await syncProfileFromSupabaseUser(response.data.user, response.data.user.email);
+
+    return {
+      provider: parsed.provider,
       profile,
       session: response.data.session
     };
@@ -981,6 +1168,8 @@ function createAuthService(options) {
   return {
     register,
     login,
+    oauthStart,
+    oauthComplete,
     requestPasswordReset,
     completePasswordRecovery,
     resetPassword,
@@ -1010,6 +1199,10 @@ const __testables = {
   mapCurrentPasswordError,
   parseHttpUrl,
   buildPasswordResetRedirectUrl,
+  buildOAuthLoginRedirectUrl,
+  normalizeOAuthProviderInput,
+  parseOAuthCompletePayload,
+  mapOAuthCallbackError,
   safeRequestCookies,
   cookieOptions,
   isExpiredJwtError,

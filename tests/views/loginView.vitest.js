@@ -7,7 +7,9 @@ const mocks = vi.hoisted(() => ({
   api: {
     register: vi.fn(),
     login: vi.fn(),
-    requestPasswordReset: vi.fn()
+    requestPasswordReset: vi.fn(),
+    oauthComplete: vi.fn(),
+    oauthStartUrl: vi.fn((provider) => `/api/oauth/${provider}/start`)
   },
   authStore: {
     refreshSession: vi.fn(),
@@ -65,17 +67,20 @@ describe("LoginView", () => {
     mocks.api.register.mockReset();
     mocks.api.login.mockReset();
     mocks.api.requestPasswordReset.mockReset();
+    mocks.api.oauthComplete.mockReset();
+    mocks.api.oauthStartUrl.mockClear();
     mocks.authStore.refreshSession.mockReset();
     mocks.authStore.setSignedOut.mockReset();
     mocks.authStore.invalidateSession.mockReset();
     window.history.replaceState({}, "", "/login");
     window.localStorage.clear();
+    window.sessionStorage.clear();
   });
 
   it("switches modes and updates headings", async () => {
     const wrapper = mountView();
 
-    expect(wrapper.vm.authTitle).toBe("Sign in to continue");
+    expect(wrapper.vm.authTitle).toBe("Sign in");
     wrapper.vm.switchMode("register");
     await nextTick();
     expect(wrapper.vm.authTitle).toBe("Register to continue");
@@ -188,5 +193,40 @@ describe("LoginView", () => {
     expect(mocks.authStore.refreshSession).not.toHaveBeenCalled();
     expect(mocks.navigate).not.toHaveBeenCalled();
     expect(wrapper.vm.infoMessage).toContain("Confirm your email");
+  });
+
+  it("completes OAuth callback when Supabase returns hash access tokens", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/login?oauthProvider=google#access_token=access-token&refresh_token=refresh-token&token_type=bearer"
+    );
+    mocks.api.oauthComplete.mockResolvedValue({
+      ok: true,
+      provider: "google",
+      username: "tony",
+      email: "tony@example.com"
+    });
+    mocks.authStore.refreshSession.mockResolvedValue({
+      authenticated: true,
+      username: "tony"
+    });
+
+    mountView();
+    await nextTick();
+    await Promise.resolve();
+    await nextTick();
+
+    expect(mocks.api.oauthComplete).toHaveBeenCalledWith({
+      provider: "google",
+      accessToken: "access-token",
+      refreshToken: "refresh-token"
+    });
+    expect(mocks.navigate).toHaveBeenCalledWith({ to: "/", replace: true });
+
+    const remembered = JSON.parse(window.localStorage.getItem("auth.rememberedAccount"));
+    expect(remembered.email).toBe("tony@example.com");
+    expect(window.location.search).toBe("");
+    expect(window.location.hash).toBe("");
   });
 });

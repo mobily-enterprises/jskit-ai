@@ -7,6 +7,7 @@ import { aliases as mdiAliases, mdi } from "vuetify/iconsets/mdi-svg";
 import {
   mdiAccountOutline,
   mdiCogOutline,
+  mdiGoogle,
   mdiHelpCircleOutline,
   mdiLogout,
   mdiShapeOutline,
@@ -27,7 +28,8 @@ const iconAliases = {
   menuProfile: mdiAccountOutline,
   menuSettings: mdiCogOutline,
   menuHelp: mdiHelpCircleOutline,
-  menuLogout: mdiLogout
+  menuLogout: mdiLogout,
+  oauthGoogle: mdiGoogle
 };
 
 const vuetify = createVuetify({
