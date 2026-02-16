@@ -164,11 +164,6 @@
                           Remove avatar
                         </v-btn>
                       </div>
-                      <div class="text-caption text-medium-emphasis mb-2">
-                        Step 1: Choose / edit avatar. Step 2: click <strong>Use selected image</strong>. Step 3: click
-                        <strong>Upload avatar</strong>.
-                      </div>
-
                       <div v-if="selectedAvatarFileName" class="text-caption text-medium-emphasis mb-2">
                         Selected file: {{ selectedAvatarFileName }}
                       </div>
@@ -409,29 +404,11 @@
       </v-card-text>
     </v-card>
 
-    <v-dialog v-model="avatarPickerDialogOpen" max-width="960">
-      <v-card rounded="lg">
-        <v-card-item>
-          <v-card-title class="text-subtitle-1">Select avatar image</v-card-title>
-          <v-card-subtitle>Crop, rotate, or compress, then confirm your selection.</v-card-subtitle>
-        </v-card-item>
-        <v-divider />
-        <v-card-text>
-          <div ref="avatarDashboardTarget" class="avatar-dashboard-target" />
-        </v-card-text>
-        <v-divider />
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="avatarPickerDialogOpen = false">Cancel</v-btn>
-          <v-btn color="primary" @click="confirmAvatarSelection">Use selected image</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
   </section>
 </template>
 
 <script setup>
-import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from "vue";
+import { computed, markRaw, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useTheme } from "vuetify";
@@ -539,8 +516,6 @@ const profileForm = reactive({
 const profileAvatar = reactive(createDefaultAvatar());
 const avatarUploadDimension = ref(AVATAR_DEFAULT_UPLOAD_DIMENSION);
 const selectedAvatarFileName = ref("");
-const avatarPickerDialogOpen = ref(false);
-const avatarDashboardTarget = ref(null);
 const avatarUppy = shallowRef(null);
 
 const preferencesForm = reactive({
@@ -706,10 +681,6 @@ function setupAvatarUploader() {
     return;
   }
 
-  if (!avatarDashboardTarget.value) {
-    return;
-  }
-
   const uppy = new Uppy({
     autoProceed: false,
     restrictions: {
@@ -720,8 +691,7 @@ function setupAvatarUploader() {
   });
 
   uppy.use(Dashboard, {
-    inline: true,
-    target: avatarDashboardTarget.value,
+    inline: false,
     closeAfterFinish: false,
     showProgressDetails: true,
     proudlyDisplayPoweredByUppy: false,
@@ -738,14 +708,28 @@ function setupAvatarUploader() {
 
   uppy.on("file-added", (file) => {
     selectedAvatarFileName.value = String(file?.name || "");
-    avatarMessageType.value = "success";
-    avatarMessage.value = "Image selected. Click \"Use selected image\", then click \"Upload avatar\".";
   });
   uppy.on("file-removed", () => {
     selectedAvatarFileName.value = "";
   });
   uppy.on("file-editor:complete", (file) => {
     selectedAvatarFileName.value = String(file?.name || selectedAvatarFileName.value || "");
+    const imageEditor = uppy.getPlugin("ImageEditor");
+    if (imageEditor && typeof imageEditor.stop === "function") {
+      imageEditor.stop();
+    }
+  });
+  uppy.on("file-editor:cancel", () => {
+    const imageEditor = uppy.getPlugin("ImageEditor");
+    if (imageEditor && typeof imageEditor.stop === "function") {
+      imageEditor.stop();
+    }
+  });
+  uppy.on("dashboard:modal-closed", () => {
+    const imageEditor = uppy.getPlugin("ImageEditor");
+    if (imageEditor && typeof imageEditor.stop === "function") {
+      imageEditor.stop();
+    }
   });
   uppy.on("restriction-failed", (_file, error) => {
     avatarMessageType.value = "error";
@@ -887,38 +871,18 @@ async function submitProfile() {
 
 async function openAvatarEditor() {
   avatarMessage.value = "";
-  avatarPickerDialogOpen.value = true;
-  await nextTick();
   setupAvatarUploader();
   const uppy = avatarUppy.value;
   if (!uppy) {
     avatarMessageType.value = "error";
     avatarMessage.value = "Avatar editor is unavailable in this environment.";
-    avatarPickerDialogOpen.value = false;
-    return;
-  }
-}
-
-function confirmAvatarSelection() {
-  const uppy = avatarUppy.value;
-  if (!uppy) {
-    avatarMessageType.value = "error";
-    avatarMessage.value = "Avatar editor is unavailable in this environment.";
     return;
   }
 
-  const files = uppy.getFiles();
-  const selected = files[0];
-  if (!selected?.data) {
-    avatarMessageType.value = "error";
-    avatarMessage.value = "Select an avatar image first.";
-    return;
+  const dashboard = uppy.getPlugin("Dashboard");
+  if (dashboard && typeof dashboard.openModal === "function") {
+    dashboard.openModal();
   }
-
-  selectedAvatarFileName.value = String(selected.name || "avatar");
-  avatarPickerDialogOpen.value = false;
-  avatarMessageType.value = "success";
-  avatarMessage.value = "Image selected. Click \"Upload avatar\" to apply it.";
 }
 
 async function submitAvatarUpload() {
@@ -947,7 +911,6 @@ async function submitAvatarUpload() {
     const data = await avatarUploadMutation.mutateAsync(formData);
     queryClient.setQueryData(SETTINGS_QUERY_KEY, data);
     applySettingsData(data);
-    avatarPickerDialogOpen.value = false;
     avatarMessageType.value = "success";
     avatarMessage.value = "Avatar uploaded.";
     selectedAvatarFileName.value = "";
@@ -1119,9 +1082,5 @@ onBeforeUnmount(() => {
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-}
-
-.avatar-dashboard-target {
-  min-height: 420px;
 }
 </style>
