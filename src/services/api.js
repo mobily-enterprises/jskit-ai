@@ -166,8 +166,8 @@ export const api = {
   logoutOtherSessions() {
     return request("/api/settings/security/logout-others", { method: "POST" });
   },
-  calculate(payload) {
-    return request("/api/annuity", { method: "POST", body: payload });
+  calculateAnnuity(payload) {
+    return request("/api/annuityCalculator", { method: "POST", body: payload });
   },
   history(page, pageSize) {
     const params = new URLSearchParams({

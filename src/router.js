@@ -11,7 +11,7 @@ import App from "./App.vue";
 /* c8 ignore start -- lazy Vue SFC loaders require full Vite CSS handling and are exercised in browser/E2E paths. */
 /* v8 ignore start -- lazy Vue SFC loaders require full Vite CSS handling and are exercised in browser/E2E paths. */
 const LoginView = lazyRouteComponent(() => import("./views/LoginView.vue"));
-const CalculatorView = lazyRouteComponent(() => import("./views/CalculatorView.vue"));
+const AnnuityCalculatorView = lazyRouteComponent(() => import("./views/AnnuityCalculatorView.vue"));
 const ChoiceTwoView = lazyRouteComponent(() => import("./views/ChoiceTwoView.vue"));
 const ResetPasswordView = lazyRouteComponent(() => import("./views/ResetPasswordView.vue"));
 const SettingsView = lazyRouteComponent(() => import("./views/SettingsView.vue"));
@@ -75,7 +75,7 @@ export function createAppRouter(authStore) {
   const calculatorRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/",
-    component: CalculatorView,
+    component: AnnuityCalculatorView,
     beforeLoad: beforeLoadCalculator.bind(null, authStore)
   });
 

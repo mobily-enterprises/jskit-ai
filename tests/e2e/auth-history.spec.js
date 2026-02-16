@@ -91,7 +91,7 @@ test("calculate appends history and includes CSRF header", async ({ page }) => {
     });
   });
 
-  await page.route("**/api/annuity", async (route) => {
+  await page.route("**/api/annuityCalculator", async (route) => {
     annuityRequestCount += 1;
     annuityCsrfHeader = route.request().headers()["csrf-token"] || null;
 
@@ -168,7 +168,7 @@ test("calculate retries transient API failure and then succeeds", async ({ page 
     });
   });
 
-  await page.route("**/api/annuity", async (route) => {
+  await page.route("**/api/annuityCalculator", async (route) => {
     annuityRequestCount += 1;
 
     if (annuityRequestCount === 1) {

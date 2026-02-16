@@ -208,7 +208,7 @@ npm run format:check
 - `POST /api/password/recovery`
 - `POST /api/password/reset`
 - `GET /api/history`
-- `POST /api/annuity`
+- `POST /api/annuityCalculator`
 
 Auth/security behavior:
 
@@ -225,7 +225,7 @@ CSRF notes:
 - Unsafe requests must send `csrf-token` header.
 - The shipped frontend handles this automatically.
 
-`/api/annuity` supports finite and perpetual PV calculations:
+`/api/annuityCalculator` supports finite and perpetual PV calculations:
 
 ```json
 {

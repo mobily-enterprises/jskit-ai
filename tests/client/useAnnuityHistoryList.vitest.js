@@ -56,14 +56,17 @@ vi.mock("../../src/composables/useAuthGuard.js", () => ({
   })
 }));
 
-import { HISTORY_QUERY_KEY_PREFIX, useAnnuityHistory } from "../../src/composables/useAnnuityHistory.js";
+import {
+  HISTORY_QUERY_KEY_PREFIX,
+  useAnnuityHistoryList
+} from "../../src/components/annuity-history-list/useAnnuityHistoryList.js";
 
 function mountHarness(options) {
   const Harness = defineComponent({
-    name: "UseAnnuityHistoryHarness",
+    name: "UseAnnuityHistoryListHarness",
     setup() {
       return {
-        history: useAnnuityHistory(options)
+        history: useAnnuityHistoryList(options)
       };
     },
     template: "<div />"
@@ -77,7 +80,7 @@ async function flush() {
   await nextTick();
 }
 
-describe("useAnnuityHistory", () => {
+describe("useAnnuityHistoryList", () => {
   beforeEach(() => {
     mocks.api.history.mockReset();
     mocks.api.history.mockResolvedValue({

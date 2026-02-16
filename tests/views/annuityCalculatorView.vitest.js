@@ -20,11 +20,11 @@ const mocks = vi.hoisted(() => ({
   }
 }));
 
-vi.mock("../../src/composables/useAnnuityHistory.js", () => ({
-  useAnnuityHistory: () => mocks.history
+vi.mock("../../src/components/annuity-history-list/useAnnuityHistoryList.js", () => ({
+  useAnnuityHistoryList: () => mocks.history
 }));
 
-import CalculatorView from "../../src/views/CalculatorView.vue";
+import AnnuityCalculatorView from "../../src/views/AnnuityCalculatorView.vue";
 
 const CalculatorPanelStub = defineComponent({
   name: "AnnuityCalculatorForm",
@@ -32,8 +32,8 @@ const CalculatorPanelStub = defineComponent({
   template: "<div data-test='calculator-panel' />"
 });
 
-const HistoryPanelStub = defineComponent({
-  name: "AnnuityHistoryPanel",
+const HistoryListStub = defineComponent({
+  name: "AnnuityHistoryList",
   props: {
     pageSizeOptions: { type: Array, required: true },
     error: { type: String, required: true },
@@ -53,17 +53,17 @@ const HistoryPanelStub = defineComponent({
 });
 
 function mountView() {
-  return mount(CalculatorView, {
+  return mount(AnnuityCalculatorView, {
     global: {
       stubs: {
         AnnuityCalculatorForm: CalculatorPanelStub,
-        AnnuityHistoryPanel: HistoryPanelStub
+        AnnuityHistoryList: HistoryListStub
       }
     }
   });
 }
 
-describe("CalculatorView", () => {
+describe("AnnuityCalculatorView", () => {
   beforeEach(() => {
     mocks.history.load.mockReset();
     mocks.history.goPrevious.mockReset();
@@ -89,7 +89,7 @@ describe("CalculatorView", () => {
     mocks.history.pageSize = 25;
 
     const wrapper = mountView();
-    const panel = wrapper.findComponent(HistoryPanelStub);
+    const panel = wrapper.findComponent(HistoryListStub);
 
     expect(panel.props("pageSizeOptions")).toEqual([10, 25, 50]);
     expect(panel.props("error")).toBe("History unavailable.");
@@ -107,7 +107,7 @@ describe("CalculatorView", () => {
 
   it("forwards history panel events to history handlers", async () => {
     const wrapper = mountView();
-    const panel = wrapper.findComponent(HistoryPanelStub);
+    const panel = wrapper.findComponent(HistoryListStub);
 
     await panel.vm.$emit("refresh");
     await panel.vm.$emit("previous-page");

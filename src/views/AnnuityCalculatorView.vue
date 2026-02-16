@@ -2,7 +2,7 @@
   <section class="calculator-view py-2 py-md-4">
     <AnnuityCalculatorForm @calculated="history.onCalculationCreated" />
 
-    <AnnuityHistoryPanel
+    <AnnuityHistoryList
       class="mt-6"
       :page-size-options="history.pageSizeOptions"
       :error="history.error"
@@ -25,10 +25,10 @@
 </template>
 
 <script setup>
-import { useAnnuityHistory } from "../composables/useAnnuityHistory";
+import { useAnnuityHistoryList } from "../components/annuity-history-list/useAnnuityHistoryList";
 import { formatCurrency, formatDate, inputSummary, typeLabel } from "../features/annuity/presentation";
 import AnnuityCalculatorForm from "../components/annuity-calculator-form/AnnuityCalculatorForm.vue";
-import AnnuityHistoryPanel from "../components/AnnuityHistoryPanel.vue";
+import AnnuityHistoryList from "../components/annuity-history-list/AnnuityHistoryList.vue";
 
-const history = useAnnuityHistory();
+const history = useAnnuityHistoryList();
 </script>

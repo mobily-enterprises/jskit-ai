@@ -16,7 +16,7 @@ export function useAnnuityCalculatorForm({ onCalculated } = {}) {
   const result = ref(null);
 
   const calculateMutation = useMutation({
-    mutationFn: (payload) => api.calculate(payload)
+    mutationFn: (payload) => api.calculateAnnuity(payload)
   });
 
   const calculating = computed(() => calculateMutation.isPending.value);

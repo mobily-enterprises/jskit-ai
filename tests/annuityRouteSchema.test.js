@@ -139,7 +139,7 @@ test("annuity route schema accepts perpetual payload when years is 0", async () 
 
   const response = await app.inject({
     method: "POST",
-    url: "/api/annuity",
+    url: "/api/annuityCalculator",
     payload: {
       mode: "pv",
       timing: "ordinary",
@@ -162,7 +162,7 @@ test("annuity route does not crash on malformed host header", async () => {
 
   const response = await app.inject({
     method: "POST",
-    url: "/api/annuity",
+    url: "/api/annuityCalculator",
     headers: {
       host: "%zz"
     },

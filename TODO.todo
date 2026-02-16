@@ -1,7 +1,7 @@
 X Add client-server shared code
 X User screen and user configuration
-- Major tidying up, avoid repeated code, best way to write tests 
-- Harmonise/understand schema
+X Major tidying up, avoid repeated code, best way to write tests 
+X Harmonise/understand schema
 - Gravatar, + Profile picture upload and S3 integration/filesystem?
 
 - Config/multihoming: App configuration, loaded at boot time AND Multihoming, app configuration becomes workspace configuration

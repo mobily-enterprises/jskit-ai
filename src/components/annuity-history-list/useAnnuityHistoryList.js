@@ -1,25 +1,30 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
-import { api } from "../services/api";
-import { useAuthGuard } from "./useAuthGuard";
-import { mapHistoryError } from "../features/annuity/errors";
-import { pageSizeOptions } from "../features/annuity/formModel";
-import { getFirstPage, getNextPage, getPreviousPage, normalizePage, normalizePageSize } from "../utils/pagination";
+import { api } from "../../services/api";
+import { useAuthGuard } from "../../composables/useAuthGuard";
+import { useListPagination } from "../../composables/useListPagination";
+import { mapHistoryError } from "../../features/annuity/errors";
+import { pageSizeOptions } from "../../features/annuity/formModel";
+import { normalizePage } from "../../utils/pagination";
 
 export const HISTORY_QUERY_KEY_PREFIX = ["history"];
 
-export function useAnnuityHistory({ initialPageSize = pageSizeOptions[0] } = {}) {
+export function useAnnuityHistoryList({ initialPageSize = pageSizeOptions[0] } = {}) {
   const queryClient = useQueryClient();
   const { handleUnauthorizedError } = useAuthGuard();
+  const pagination = useListPagination({
+    initialPageSize,
+    defaultPageSize: pageSizeOptions[0],
+    getIsLoading: () => historyLoading.value,
+    getTotalPages: () => historyTotalPages.value
+  });
 
   const historyError = ref("");
-  const historyPage = ref(getFirstPage());
-  const historyPageSize = ref(normalizePageSize(initialPageSize, pageSizeOptions[0]));
   const historyEnabled = ref(false);
 
   const historyQuery = useQuery({
-    queryKey: computed(() => [...HISTORY_QUERY_KEY_PREFIX, historyPage.value, historyPageSize.value]),
-    queryFn: () => api.history(historyPage.value, historyPageSize.value),
+    queryKey: computed(() => [...HISTORY_QUERY_KEY_PREFIX, pagination.page.value, pagination.pageSize.value]),
+    queryFn: () => api.history(pagination.page.value, pagination.pageSize.value),
     enabled: historyEnabled,
     placeholderData: (previous) => previous
   });
@@ -53,31 +58,8 @@ export function useAnnuityHistory({ initialPageSize = pageSizeOptions[0] } = {})
     await historyQuery.refetch();
   }
 
-  function goPrevious() {
-    historyPage.value = getPreviousPage({
-      page: historyPage.value,
-      isLoading: historyLoading.value
-    });
-  }
-
-  function goNext() {
-    historyPage.value = getNextPage({
-      page: historyPage.value,
-      totalPages: historyTotalPages.value,
-      isLoading: historyLoading.value
-    });
-  }
-
-  function onPageSizeChange(nextPageSize) {
-    if (nextPageSize !== undefined) {
-      historyPageSize.value = normalizePageSize(nextPageSize, historyPageSize.value);
-    }
-
-    historyPage.value = getFirstPage();
-  }
-
   async function onCalculationCreated() {
-    historyPage.value = getFirstPage();
+    pagination.resetToFirstPage();
     await queryClient.invalidateQueries({ queryKey: HISTORY_QUERY_KEY_PREFIX });
   }
 
@@ -88,17 +70,17 @@ export function useAnnuityHistory({ initialPageSize = pageSizeOptions[0] } = {})
   return reactive({
     pageSizeOptions,
     error: historyError,
-    page: historyPage,
-    pageSize: historyPageSize,
+    page: pagination.page,
+    pageSize: pagination.pageSize,
     enabled: historyEnabled,
     entries: historyEntries,
     total: historyTotal,
     totalPages: historyTotalPages,
     loading: historyLoading,
     load,
-    goPrevious,
-    goNext,
-    onPageSizeChange,
+    goPrevious: pagination.goPrevious,
+    goNext: pagination.goNext,
+    onPageSizeChange: pagination.onPageSizeChange,
     onCalculationCreated
   });
 }

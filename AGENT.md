@@ -2,6 +2,15 @@
 
 These instructions govern all commits in this repository.
 
+## Mandatory read first
+
+- Read and follow `RAILS.md` before making changes.
+- `RAILS.md` is the source of truth for:
+  - naming conventions
+  - file placement
+  - layer boundaries
+- If this file and `RAILS.md` conflict, follow `RAILS.md`.
+
 ## Architecture rules
 
 - Respect strict layer separation:
@@ -74,6 +83,6 @@ export { findById, list };
 - Keep API contracts stable (versions) for:
   - `GET /api/session`
   - `GET /api/history`
-  - `POST /api/annuity`
+  - `POST /api/annuityCalculator`
 - If an API contract changes, bump a versioned path/field and document it.
 - Add or refresh tests covering repository behavior and service regressions when touching those layers.

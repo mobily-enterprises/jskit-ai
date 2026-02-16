@@ -1,6 +1,8 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { HistoryEntrySchema } from "../lib/schemas/historyEntrySchema.js";
 import { createPaginationQuerySchema } from "../lib/schemas/paginationQuerySchema.js";
+import { annuityCalculatorRequestBodySchema } from "../lib/schemas/annuityCalculator.request.js";
+import { annuityCalculatorResponseSchema } from "../lib/schemas/annuityCalculator.response.js";
 import {
   AUTH_ACCESS_TOKEN_MAX_LENGTH,
   AUTH_EMAIL_MAX_LENGTH,
@@ -22,9 +24,6 @@ import {
   SETTINGS_TIMING_OPTIONS
 } from "../shared/settings/index.js";
 import { safeRequestUrl } from "../lib/requestUrl.js";
-
-const decimalStringPattern = "^-?\\d+(?:\\.\\d+)?$";
-const nonNegativeDecimalStringPattern = "^(?:0|[1-9]\\d*)(?:\\.\\d+)?$";
 
 const registerCredentialsSchema = Type.Object(
   {
@@ -246,63 +245,11 @@ function enumSchema(values) {
   return Type.Union(values.map((value) => Type.Literal(value)));
 }
 
-const annuityAssumptionsSchema = Type.Object(
-  {
-    rateConversion: Type.String({ minLength: 1 }),
-    timing: Type.String({ minLength: 1 }),
-    growingAnnuity: Type.String({ minLength: 1 }),
-    perpetuity: Type.String({ minLength: 1 })
-  },
-  {
-    additionalProperties: false
-  }
-);
-
-const annuityResponseSchema = Type.Object(
-  {
-    historyId: Type.String({ format: "uuid" }),
-    mode: Type.Union([Type.Literal("fv"), Type.Literal("pv")]),
-    timing: Type.Union([Type.Literal("ordinary"), Type.Literal("due")]),
-    payment: Type.String({ pattern: decimalStringPattern }),
-    annualRate: Type.String({ pattern: decimalStringPattern }),
-    annualGrowthRate: Type.String({ pattern: decimalStringPattern }),
-    years: Type.Union([Type.String({ pattern: nonNegativeDecimalStringPattern }), Type.Null()]),
-    paymentsPerYear: Type.Integer({ minimum: 1, maximum: 365 }),
-    periodicRate: Type.String({ pattern: decimalStringPattern }),
-    periodicGrowthRate: Type.String({ pattern: decimalStringPattern }),
-    totalPeriods: Type.Union([Type.String({ pattern: nonNegativeDecimalStringPattern }), Type.Null()]),
-    isPerpetual: Type.Boolean(),
-    value: Type.String({ pattern: decimalStringPattern }),
-    warnings: Type.Array(Type.String({ minLength: 1 })),
-    assumptions: annuityAssumptionsSchema
-  },
-  {
-    additionalProperties: false
-  }
-);
-
 const historyQuerySchema = createPaginationQuerySchema({
   defaultPage: 1,
   defaultPageSize: 10,
   maxPageSize: 100
 });
-
-const annuityBodySchema = Type.Object(
-  {
-    mode: Type.Union([Type.Literal("fv"), Type.Literal("pv")]),
-    timing: Type.Union([Type.Literal("ordinary"), Type.Literal("due")]),
-    payment: Type.Number({ exclusiveMinimum: 0 }),
-    annualRate: Type.Number({ exclusiveMinimum: -100 }),
-    annualGrowthRate: Type.Optional(Type.Number({ exclusiveMinimum: -100, default: 0 })),
-    years: Type.Optional(Type.Number({ minimum: 0 })),
-    paymentsPerYear: Type.Integer({ minimum: 1, maximum: 365 }),
-    isPerpetual: Type.Optional(Type.Boolean({ default: false })),
-    perpetual: Type.Optional(Type.Boolean())
-  },
-  {
-    additionalProperties: false
-  }
-);
 
 const historyEntryWithUsernameSchema = Type.Object(
   {
@@ -717,16 +664,16 @@ function buildDefaultRoutes(controllers) {
       handler: controllers.history.list
     },
     {
-      path: "/api/annuity",
+      path: "/api/annuityCalculator",
       method: "POST",
       auth: "required",
       schema: {
-        tags: ["annuity"],
+        tags: ["annuityCalculator"],
         summary: "Calculate annuity value and append history",
-        body: annuityBodySchema,
+        body: annuityCalculatorRequestBodySchema,
         response: withStandardErrorResponses(
           {
-            200: annuityResponseSchema
+            200: annuityCalculatorResponseSchema
           },
           { includeValidation400: true }
         )

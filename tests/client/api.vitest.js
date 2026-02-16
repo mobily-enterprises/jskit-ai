@@ -74,7 +74,7 @@ describe("client api transport", () => {
       .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-a" } }))
       .mockResolvedValueOnce(mockResponse({ data: { ok: true } }));
 
-    const result = await api.calculate({ payment: 500 });
+    const result = await api.calculateAnnuity({ payment: 500 });
 
     expect(result).toEqual({ ok: true });
     expect(global.fetch).toHaveBeenNthCalledWith(1, "/api/session", {
@@ -83,7 +83,7 @@ describe("client api transport", () => {
     });
 
     const secondCall = global.fetch.mock.calls[1];
-    expect(secondCall[0]).toBe("/api/annuity");
+    expect(secondCall[0]).toBe("/api/annuityCalculator");
     expect(secondCall[1].headers["Content-Type"]).toBe("application/json");
     expect(secondCall[1].headers["csrf-token"]).toBe("csrf-a");
     expect(secondCall[1].body).toBe(JSON.stringify({ payment: 500 }));
@@ -116,7 +116,7 @@ describe("client api transport", () => {
     const formData = new FormData();
     formData.append("file", "data");
 
-    const result = await api.calculate(formData);
+    const result = await api.calculateAnnuity(formData);
     const requestCall = global.fetch.mock.calls[1];
 
     expect(result).toEqual({ ok: true });
