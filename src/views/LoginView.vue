@@ -22,6 +22,7 @@
               Sign in
             </v-btn>
             <v-btn
+              v-if="!showRememberedAccount"
               class="text-none"
               :variant="isRegister ? 'flat' : 'text'"
               :color="isRegister ? 'primary' : undefined"
@@ -32,7 +33,18 @@
           </div>
 
           <v-form @submit.prevent="submitAuth" novalidate>
+            <div v-if="showRememberedAccount" class="remembered-account mb-4">
+              <div class="remembered-copy">
+                <p class="remembered-title">Welcome back, {{ rememberedAccountDisplayName }}</p>
+                <p class="remembered-email">{{ rememberedAccountMaskedEmail }}</p>
+              </div>
+              <v-btn variant="text" color="secondary" class="text-none" @click="switchAccount">
+                {{ rememberedAccountSwitchLabel }}
+              </v-btn>
+            </div>
+
             <v-text-field
+              v-if="!showRememberedAccount"
               v-model="email"
               label="Email"
               variant="outlined"
@@ -78,6 +90,15 @@
               <v-btn variant="text" color="secondary" @click="switchMode('forgot')">Forgot password?</v-btn>
             </div>
 
+            <v-checkbox
+              v-if="isLogin"
+              v-model="rememberAccountOnDevice"
+              label="Remember this account on this device"
+              density="compact"
+              hide-details
+              class="mb-4"
+            />
+
             <v-alert v-if="errorMessage" type="error" variant="tonal" class="mb-4">
               {{ errorMessage }}
             </v-alert>
@@ -115,6 +136,8 @@ import { useAuthStore } from "../stores/authStore";
 import { validators } from "../../shared/auth/validators.js";
 import { normalizeEmail } from "../../shared/auth/utils.js";
 
+const REMEMBERED_ACCOUNT_STORAGE_KEY = "auth.rememberedAccount";
+
 const navigate = useNavigate();
 const authStore = useAuthStore();
 
@@ -130,10 +153,20 @@ const confirmPasswordTouched = ref(false);
 const submitAttempted = ref(false);
 const errorMessage = ref("");
 const infoMessage = ref("");
+const rememberAccountOnDevice = ref(true);
+const rememberedAccount = ref(null);
+const useRememberedAccount = ref(false);
 
 const isLogin = computed(() => mode.value === "login");
 const isRegister = computed(() => mode.value === "register");
 const isForgot = computed(() => mode.value === "forgot");
+const showRememberedAccount = computed(() => isLogin.value && useRememberedAccount.value && Boolean(rememberedAccount.value));
+const rememberedAccountDisplayName = computed(() => String(rememberedAccount.value?.displayName || "your account"));
+const rememberedAccountMaskedEmail = computed(() => String(rememberedAccount.value?.maskedEmail || ""));
+const rememberedAccountSwitchLabel = computed(() => {
+  const shortName = String(rememberedAccount.value?.displayName || "").trim();
+  return shortName ? `Not ${shortName}?` : "Use another account";
+});
 
 const registerMutation = useMutation({
   mutationFn: (payload) => api.register(payload)
@@ -212,6 +245,125 @@ function resetValidationState() {
   submitAttempted.value = false;
 }
 
+function isLocalStorageAvailable() {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return false;
+  }
+
+  try {
+    const key = "__auth_hint_probe__";
+    window.localStorage.setItem(key, "1");
+    window.localStorage.removeItem(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function maskEmail(emailAddress) {
+  const normalized = normalizeEmail(emailAddress);
+  const separatorIndex = normalized.indexOf("@");
+  if (separatorIndex <= 0) {
+    return normalized;
+  }
+
+  const localPart = normalized.slice(0, separatorIndex);
+  const domainPart = normalized.slice(separatorIndex + 1);
+  const visiblePrefix = localPart.slice(0, 1);
+  return `${visiblePrefix}***@${domainPart}`;
+}
+
+function createRememberedAccountHint({ email: accountEmail, displayName, lastUsedAt }) {
+  const normalizedEmail = normalizeEmail(accountEmail);
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const normalizedDisplayName = String(displayName || "").trim() || normalizedEmail.split("@")[0] || "User";
+  const normalizedLastUsedAt = String(lastUsedAt || new Date().toISOString());
+
+  return {
+    email: normalizedEmail,
+    displayName: normalizedDisplayName,
+    maskedEmail: maskEmail(normalizedEmail),
+    lastUsedAt: normalizedLastUsedAt
+  };
+}
+
+function readRememberedAccountHint() {
+  if (!isLocalStorageAvailable()) {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(REMEMBERED_ACCOUNT_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    return createRememberedAccountHint(parsed);
+  } catch {
+    return null;
+  }
+}
+
+function writeRememberedAccountHint(hint) {
+  if (!isLocalStorageAvailable()) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      REMEMBERED_ACCOUNT_STORAGE_KEY,
+      JSON.stringify({
+        email: hint.email,
+        displayName: hint.displayName,
+        lastUsedAt: hint.lastUsedAt
+      })
+    );
+  } catch {
+    // best effort only
+  }
+}
+
+function clearRememberedAccountHint() {
+  if (!isLocalStorageAvailable()) {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(REMEMBERED_ACCOUNT_STORAGE_KEY);
+  } catch {
+    // best effort only
+  }
+}
+
+function applyRememberedAccountHint(hint) {
+  if (!hint) {
+    rememberedAccount.value = null;
+    useRememberedAccount.value = false;
+    return;
+  }
+
+  rememberedAccount.value = hint;
+  useRememberedAccount.value = true;
+  rememberAccountOnDevice.value = true;
+  email.value = hint.email;
+}
+
+function switchAccount() {
+  clearRememberedAccountHint();
+  rememberedAccount.value = null;
+  useRememberedAccount.value = false;
+  email.value = "";
+  password.value = "";
+  confirmPassword.value = "";
+  errorMessage.value = "";
+  infoMessage.value = "";
+  resetValidationState();
+}
+
 function switchMode(nextMode) {
   if (nextMode === mode.value) {
     return;
@@ -225,6 +377,16 @@ function switchMode(nextMode) {
   errorMessage.value = "";
   infoMessage.value = "";
   resetValidationState();
+
+  if (nextMode !== "login") {
+    useRememberedAccount.value = false;
+    return;
+  }
+
+  if (rememberedAccount.value) {
+    useRememberedAccount.value = true;
+    email.value = rememberedAccount.value.email;
+  }
 }
 
 function toErrorMessage(error, fallback) {
@@ -346,6 +508,20 @@ async function submitAuth() {
       throw new Error("Login succeeded but the session is not active yet. Please retry.");
     }
 
+    const rememberedHint = createRememberedAccountHint({
+      email: cleanEmail,
+      displayName: session?.username || cleanEmail.split("@")[0] || "User",
+      lastUsedAt: new Date().toISOString()
+    });
+    if (rememberAccountOnDevice.value && rememberedHint) {
+      writeRememberedAccountHint(rememberedHint);
+      applyRememberedAccountHint(rememberedHint);
+    } else {
+      clearRememberedAccountHint();
+      rememberedAccount.value = null;
+      useRememberedAccount.value = false;
+    }
+
     await navigate({ to: "/", replace: true });
   } catch (error) {
     errorMessage.value = toErrorMessage(error, "Unable to complete authentication.");
@@ -354,6 +530,7 @@ async function submitAuth() {
 
 onMounted(() => {
   redirectRecoveryLinkToResetPage();
+  applyRememberedAccountHint(readRememberedAccountHint());
 });
 </script>
 
@@ -414,6 +591,34 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.remembered-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(57, 84, 71, 0.2);
+  background: rgba(57, 84, 71, 0.07);
+  padding: 12px 14px;
+}
+
+.remembered-copy {
+  min-width: 0;
+}
+
+.remembered-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d2c24;
+}
+
+.remembered-email {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: rgba(29, 44, 36, 0.72);
 }
 
 @media (max-width: 959px) {

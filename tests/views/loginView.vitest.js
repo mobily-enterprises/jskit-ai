@@ -50,6 +50,7 @@ function mountView() {
         "v-card-text": true,
         "v-form": true,
         "v-text-field": true,
+        "v-checkbox": true,
         "v-btn": true,
         "v-alert": true,
         "v-chip": true
@@ -68,6 +69,7 @@ describe("LoginView", () => {
     mocks.authStore.setSignedOut.mockReset();
     mocks.authStore.invalidateSession.mockReset();
     window.history.replaceState({}, "", "/login");
+    window.localStorage.clear();
   });
 
   it("switches modes and updates headings", async () => {
@@ -99,6 +101,54 @@ describe("LoginView", () => {
     });
     expect(mocks.authStore.refreshSession).toHaveBeenCalledTimes(1);
     expect(mocks.navigate).toHaveBeenCalledWith({ to: "/", replace: true });
+  });
+
+  it("loads remembered account hint and lets user switch accounts", async () => {
+    window.localStorage.setItem(
+      "auth.rememberedAccount",
+      JSON.stringify({
+        email: "tony@example.com",
+        displayName: "Tony",
+        lastUsedAt: "2026-02-16T00:00:00.000Z"
+      })
+    );
+
+    const wrapper = mountView();
+    await nextTick();
+
+    expect(wrapper.vm.showRememberedAccount).toBe(true);
+    expect(wrapper.vm.email).toBe("tony@example.com");
+    expect(wrapper.vm.rememberedAccountSwitchLabel).toBe("Not Tony?");
+
+    wrapper.vm.switchAccount();
+    await nextTick();
+
+    expect(wrapper.vm.showRememberedAccount).toBe(false);
+    expect(wrapper.vm.email).toBe("");
+    expect(window.localStorage.getItem("auth.rememberedAccount")).toBe(null);
+  });
+
+  it("stores remembered account on successful login and clears it when remember is disabled", async () => {
+    mocks.api.login.mockResolvedValue({ ok: true, username: "tony" });
+    mocks.authStore.refreshSession.mockResolvedValue({ authenticated: true, username: "tony" });
+
+    const wrapper = mountView();
+    wrapper.vm.email = "tony@example.com";
+    wrapper.vm.password = "password123";
+    wrapper.vm.rememberAccountOnDevice = true;
+
+    await wrapper.vm.submitAuth();
+
+    const remembered = JSON.parse(window.localStorage.getItem("auth.rememberedAccount"));
+    expect(remembered.email).toBe("tony@example.com");
+    expect(remembered.displayName).toBe("tony");
+
+    wrapper.vm.rememberAccountOnDevice = false;
+    wrapper.vm.email = "tony@example.com";
+    wrapper.vm.password = "password123";
+    await wrapper.vm.submitAuth();
+
+    expect(window.localStorage.getItem("auth.rememberedAccount")).toBe(null);
   });
 
   it("submits forgot-password flow and shows returned info message", async () => {
