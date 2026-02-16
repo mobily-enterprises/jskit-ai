@@ -129,6 +129,56 @@
               <v-divider />
               <v-card-text>
                 <v-form @submit.prevent="submitProfile" novalidate>
+                  <v-row class="mb-2">
+                    <v-col cols="12" md="4" class="d-flex flex-column align-center justify-center">
+                      <v-avatar :size="preferencesForm.avatarSize" color="surface-variant" rounded="circle" class="mb-3">
+                        <v-img v-if="profileAvatar.effectiveUrl" :src="profileAvatar.effectiveUrl" cover />
+                        <span v-else class="text-h6">{{ profileInitials }}</span>
+                      </v-avatar>
+                      <div class="text-caption text-medium-emphasis">Preview size: {{ preferencesForm.avatarSize }} px</div>
+                    </v-col>
+                    <v-col cols="12" md="8">
+                      <v-select
+                        v-model.number="avatarUploadDimension"
+                        label="Upload resolution"
+                        :items="avatarUploadDimensionOptions"
+                        variant="outlined"
+                        density="comfortable"
+                        hint="Higher values preserve detail; 256 is a good default."
+                        persistent-hint
+                        class="mb-3"
+                      />
+
+                      <div class="d-flex flex-wrap ga-2 mb-2">
+                        <v-btn variant="tonal" color="secondary" @click="openAvatarEditor">Choose / edit avatar</v-btn>
+                        <v-btn color="primary" :loading="avatarUploadMutation.isPending.value" @click="submitAvatarUpload">
+                          Upload avatar
+                        </v-btn>
+                        <v-btn
+                          v-if="profileAvatar.hasUploadedAvatar"
+                          variant="text"
+                          color="error"
+                          :loading="avatarDeleteMutation.isPending.value"
+                          @click="submitAvatarDelete"
+                        >
+                          Remove avatar
+                        </v-btn>
+                      </div>
+                      <div class="text-caption text-medium-emphasis mb-2">
+                        Step 1: Choose / edit avatar. Step 2: click <strong>Use selected image</strong>. Step 3: click
+                        <strong>Upload avatar</strong>.
+                      </div>
+
+                      <div v-if="selectedAvatarFileName" class="text-caption text-medium-emphasis mb-2">
+                        Selected file: {{ selectedAvatarFileName }}
+                      </div>
+
+                      <v-alert v-if="avatarMessage" :type="avatarMessageType" variant="tonal" class="mb-0">
+                        {{ avatarMessage }}
+                      </v-alert>
+                    </v-col>
+                  </v-row>
+
                   <v-row>
                     <v-col cols="12" md="6">
                       <v-text-field
@@ -291,6 +341,16 @@
                         "
                       />
                     </v-col>
+                    <v-col cols="12" md="3">
+                      <v-select
+                        v-model.number="preferencesForm.avatarSize"
+                        label="Avatar size"
+                        :items="avatarSizeOptions"
+                        variant="outlined"
+                        density="comfortable"
+                        :error-messages="preferencesFieldErrors.avatarSize ? [preferencesFieldErrors.avatarSize] : []"
+                      />
+                    </v-col>
                   </v-row>
 
                   <v-alert v-if="preferencesMessage" :type="preferencesMessageType" variant="tonal" class="mb-3">
@@ -348,17 +408,51 @@
         </v-window>
       </v-card-text>
     </v-card>
+
+    <v-dialog v-model="avatarPickerDialogOpen" max-width="960">
+      <v-card rounded="lg">
+        <v-card-item>
+          <v-card-title class="text-subtitle-1">Select avatar image</v-card-title>
+          <v-card-subtitle>Crop, rotate, or compress, then confirm your selection.</v-card-subtitle>
+        </v-card-item>
+        <v-divider />
+        <v-card-text>
+          <div ref="avatarDashboardTarget" class="avatar-dashboard-target" />
+        </v-card-text>
+        <v-divider />
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="avatarPickerDialogOpen = false">Cancel</v-btn>
+          <v-btn color="primary" @click="confirmAvatarSelection">Use selected image</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </section>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useTheme } from "vuetify";
+import Uppy from "@uppy/core";
+import Dashboard from "@uppy/dashboard";
+import ImageEditor from "@uppy/image-editor";
+import Compressor from "@uppy/compressor";
+import "@uppy/core/css/style.min.css";
+import "@uppy/dashboard/css/style.min.css";
+import "@uppy/image-editor/css/style.min.css";
 import { api } from "../services/api";
 import { useAuthStore } from "../stores/authStore";
 import { useAuthGuard } from "../composables/useAuthGuard";
+import {
+  AVATAR_ALLOWED_MIME_TYPES,
+  AVATAR_DEFAULT_SIZE,
+  AVATAR_DEFAULT_UPLOAD_DIMENSION,
+  AVATAR_MAX_UPLOAD_BYTES,
+  AVATAR_SIZE_OPTIONS,
+  AVATAR_UPLOAD_DIMENSION_OPTIONS
+} from "../../shared/avatar/index.js";
 
 const SETTINGS_QUERY_KEY = ["settings"];
 const VALID_TABS = new Set(["security", "profile", "preferences", "notifications"]);
@@ -407,6 +501,22 @@ const timeZoneOptions = [
   "Australia/Sydney"
 ];
 const historyPageSizeOptions = [10, 25, 50, 100];
+const avatarSizeOptions = [...AVATAR_SIZE_OPTIONS];
+const avatarUploadDimensionOptions = AVATAR_UPLOAD_DIMENSION_OPTIONS.map((value) => ({
+  title: `${value} px`,
+  value
+}));
+
+function createDefaultAvatar() {
+  return {
+    uploadedUrl: null,
+    gravatarUrl: "",
+    effectiveUrl: "",
+    hasUploadedAvatar: false,
+    size: AVATAR_DEFAULT_SIZE,
+    version: null
+  };
+}
 
 const navigate = useNavigate();
 const authStore = useAuthStore();
@@ -426,6 +536,12 @@ const profileForm = reactive({
   displayName: "",
   email: ""
 });
+const profileAvatar = reactive(createDefaultAvatar());
+const avatarUploadDimension = ref(AVATAR_DEFAULT_UPLOAD_DIMENSION);
+const selectedAvatarFileName = ref("");
+const avatarPickerDialogOpen = ref(false);
+const avatarDashboardTarget = ref(null);
+const avatarUppy = shallowRef(null);
 
 const preferencesForm = reactive({
   theme: "system",
@@ -437,7 +553,8 @@ const preferencesForm = reactive({
   defaultMode: "fv",
   defaultTiming: "ordinary",
   defaultPaymentsPerYear: 12,
-  defaultHistoryPageSize: 10
+  defaultHistoryPageSize: 10,
+  avatarSize: AVATAR_DEFAULT_SIZE
 });
 
 const notificationsForm = reactive({
@@ -463,7 +580,8 @@ const preferencesFieldErrors = reactive({
   numberFormat: "",
   currencyCode: "",
   defaultPaymentsPerYear: "",
-  defaultHistoryPageSize: ""
+  defaultHistoryPageSize: "",
+  avatarSize: ""
 });
 const securityFieldErrors = reactive({
   currentPassword: "",
@@ -473,6 +591,8 @@ const securityFieldErrors = reactive({
 
 const profileMessage = ref("");
 const profileMessageType = ref("success");
+const avatarMessage = ref("");
+const avatarMessageType = ref("success");
 const preferencesMessage = ref("");
 const preferencesMessageType = ref("success");
 const notificationsMessage = ref("");
@@ -494,6 +614,14 @@ const settingsQuery = useQuery({
 
 const profileMutation = useMutation({
   mutationFn: (payload) => api.updateProfileSettings(payload)
+});
+
+const avatarUploadMutation = useMutation({
+  mutationFn: (payload) => api.uploadProfileAvatar(payload)
+});
+
+const avatarDeleteMutation = useMutation({
+  mutationFn: () => api.deleteProfileAvatar()
 });
 
 const preferencesMutation = useMutation({
@@ -525,6 +653,10 @@ const mfaChipColor = computed(() => {
   }
   return "secondary";
 });
+const profileInitials = computed(() => {
+  const source = String(profileForm.displayName || authStore.username || "U").trim();
+  return source.slice(0, 2).toUpperCase();
+});
 
 function resolveTabFromSearch(search) {
   const tab = String(search?.tab || "").trim().toLowerCase();
@@ -548,6 +680,79 @@ function toErrorMessage(error, fallback) {
   }
 
   return String(error?.message || fallback);
+}
+
+function applyAvatarData(avatar) {
+  const nextAvatar = avatar && typeof avatar === "object" ? avatar : {};
+
+  profileAvatar.uploadedUrl = nextAvatar.uploadedUrl ? String(nextAvatar.uploadedUrl) : null;
+  profileAvatar.gravatarUrl = String(nextAvatar.gravatarUrl || "");
+  profileAvatar.effectiveUrl = String(nextAvatar.effectiveUrl || profileAvatar.gravatarUrl || "");
+  profileAvatar.hasUploadedAvatar = Boolean(nextAvatar.hasUploadedAvatar);
+  profileAvatar.size = Number(nextAvatar.size || preferencesForm.avatarSize || AVATAR_DEFAULT_SIZE);
+  profileAvatar.version = nextAvatar.version == null ? null : String(nextAvatar.version);
+}
+
+function setupAvatarUploader() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (import.meta.env.MODE === "test") {
+    return;
+  }
+
+  if (avatarUppy.value) {
+    return;
+  }
+
+  if (!avatarDashboardTarget.value) {
+    return;
+  }
+
+  const uppy = new Uppy({
+    autoProceed: false,
+    restrictions: {
+      maxNumberOfFiles: 1,
+      allowedFileTypes: [...AVATAR_ALLOWED_MIME_TYPES],
+      maxFileSize: AVATAR_MAX_UPLOAD_BYTES
+    }
+  });
+
+  uppy.use(Dashboard, {
+    inline: true,
+    target: avatarDashboardTarget.value,
+    closeAfterFinish: false,
+    showProgressDetails: true,
+    proudlyDisplayPoweredByUppy: false,
+    hideUploadButton: true,
+    note: `Accepted: ${AVATAR_ALLOWED_MIME_TYPES.join(", ")}, max ${Math.floor(AVATAR_MAX_UPLOAD_BYTES / (1024 * 1024))}MB`
+  });
+  uppy.use(ImageEditor, {
+    quality: 0.9
+  });
+  uppy.use(Compressor, {
+    quality: 0.84,
+    limit: 1
+  });
+
+  uppy.on("file-added", (file) => {
+    selectedAvatarFileName.value = String(file?.name || "");
+    avatarMessageType.value = "success";
+    avatarMessage.value = "Image selected. Click \"Use selected image\", then click \"Upload avatar\".";
+  });
+  uppy.on("file-removed", () => {
+    selectedAvatarFileName.value = "";
+  });
+  uppy.on("file-editor:complete", (file) => {
+    selectedAvatarFileName.value = String(file?.name || selectedAvatarFileName.value || "");
+  });
+  uppy.on("restriction-failed", (_file, error) => {
+    avatarMessageType.value = "error";
+    avatarMessage.value = String(error?.message || "Selected avatar file does not meet upload restrictions.");
+  });
+
+  avatarUppy.value = markRaw(uppy);
 }
 
 function applyThemePreference(themePreference) {
@@ -575,6 +780,7 @@ function applySettingsData(data) {
 
   profileForm.displayName = String(data.profile?.displayName || "");
   profileForm.email = String(data.profile?.email || "");
+  applyAvatarData(data.profile?.avatar);
 
   preferencesForm.theme = String(data.preferences?.theme || "system");
   preferencesForm.locale = String(data.preferences?.locale || "en-US");
@@ -586,6 +792,8 @@ function applySettingsData(data) {
   preferencesForm.defaultTiming = String(data.preferences?.defaultTiming || "ordinary");
   preferencesForm.defaultPaymentsPerYear = Number(data.preferences?.defaultPaymentsPerYear || 12);
   preferencesForm.defaultHistoryPageSize = Number(data.preferences?.defaultHistoryPageSize || 10);
+  preferencesForm.avatarSize = Number(data.preferences?.avatarSize || AVATAR_DEFAULT_SIZE);
+  profileAvatar.size = preferencesForm.avatarSize;
 
   notificationsForm.productUpdates = Boolean(data.notifications?.productUpdates);
   notificationsForm.accountActivity = Boolean(data.notifications?.accountActivity);
@@ -677,6 +885,102 @@ async function submitProfile() {
   }
 }
 
+async function openAvatarEditor() {
+  avatarMessage.value = "";
+  avatarPickerDialogOpen.value = true;
+  await nextTick();
+  setupAvatarUploader();
+  const uppy = avatarUppy.value;
+  if (!uppy) {
+    avatarMessageType.value = "error";
+    avatarMessage.value = "Avatar editor is unavailable in this environment.";
+    avatarPickerDialogOpen.value = false;
+    return;
+  }
+}
+
+function confirmAvatarSelection() {
+  const uppy = avatarUppy.value;
+  if (!uppy) {
+    avatarMessageType.value = "error";
+    avatarMessage.value = "Avatar editor is unavailable in this environment.";
+    return;
+  }
+
+  const files = uppy.getFiles();
+  const selected = files[0];
+  if (!selected?.data) {
+    avatarMessageType.value = "error";
+    avatarMessage.value = "Select an avatar image first.";
+    return;
+  }
+
+  selectedAvatarFileName.value = String(selected.name || "avatar");
+  avatarPickerDialogOpen.value = false;
+  avatarMessageType.value = "success";
+  avatarMessage.value = "Image selected. Click \"Upload avatar\" to apply it.";
+}
+
+async function submitAvatarUpload() {
+  avatarMessage.value = "";
+
+  const uppy = avatarUppy.value;
+  if (!uppy) {
+    avatarMessageType.value = "error";
+    avatarMessage.value = "Avatar editor is unavailable in this environment.";
+    return;
+  }
+
+  const files = uppy.getFiles();
+  const selected = files[0];
+  if (!selected?.data) {
+    avatarMessageType.value = "error";
+    avatarMessage.value = "Select an avatar image first.";
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("avatar", selected.data, selected.name || "avatar");
+  formData.append("uploadDimension", String(avatarUploadDimension.value));
+
+  try {
+    const data = await avatarUploadMutation.mutateAsync(formData);
+    queryClient.setQueryData(SETTINGS_QUERY_KEY, data);
+    applySettingsData(data);
+    avatarPickerDialogOpen.value = false;
+    avatarMessageType.value = "success";
+    avatarMessage.value = "Avatar uploaded.";
+    selectedAvatarFileName.value = "";
+    uppy.clear();
+  } catch (error) {
+    if (await handleAuthError(error)) {
+      return;
+    }
+
+    avatarMessageType.value = "error";
+    avatarMessage.value = toErrorMessage(error, "Unable to upload avatar.");
+  }
+}
+
+async function submitAvatarDelete() {
+  avatarMessage.value = "";
+
+  try {
+    const data = await avatarDeleteMutation.mutateAsync();
+    queryClient.setQueryData(SETTINGS_QUERY_KEY, data);
+    applySettingsData(data);
+    avatarMessageType.value = "success";
+    avatarMessage.value = "Avatar removed.";
+  } catch (error) {
+    if (await handleAuthError(error)) {
+      return;
+    }
+
+    avatarMessageType.value = "error";
+    avatarMessage.value = toErrorMessage(error, "Unable to remove avatar.");
+  }
+}
+
 async function submitPreferences() {
   clearFieldErrors(preferencesFieldErrors);
   preferencesMessage.value = "";
@@ -692,7 +996,8 @@ async function submitPreferences() {
       defaultMode: preferencesForm.defaultMode,
       defaultTiming: preferencesForm.defaultTiming,
       defaultPaymentsPerYear: Number(preferencesForm.defaultPaymentsPerYear),
-      defaultHistoryPageSize: Number(preferencesForm.defaultHistoryPageSize)
+      defaultHistoryPageSize: Number(preferencesForm.defaultHistoryPageSize),
+      avatarSize: Number(preferencesForm.avatarSize)
     });
 
     queryClient.setQueryData(SETTINGS_QUERY_KEY, data);
@@ -793,7 +1098,15 @@ async function submitLogoutOthers() {
 }
 
 onMounted(() => {
+  setupAvatarUploader();
   settingsEnabled.value = true;
+});
+
+onBeforeUnmount(() => {
+  if (avatarUppy.value) {
+    avatarUppy.value.destroy();
+    avatarUppy.value = null;
+  }
 });
 </script>
 
@@ -806,5 +1119,9 @@ onMounted(() => {
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: 0.01em;
+}
+
+.avatar-dashboard-target {
+  min-height: 420px;
 }
 </style>

@@ -23,6 +23,14 @@ import {
   SETTINGS_THEME_OPTIONS,
   SETTINGS_TIMING_OPTIONS
 } from "../shared/settings/index.js";
+import {
+  AVATAR_ALLOWED_MIME_TYPES,
+  AVATAR_DEFAULT_UPLOAD_DIMENSION,
+  AVATAR_MAX_SIZE,
+  AVATAR_MAX_UPLOAD_BYTES,
+  AVATAR_MIN_SIZE,
+  AVATAR_UPLOAD_DIMENSION_OPTIONS
+} from "../shared/avatar/index.js";
 import { safeRequestUrl } from "../lib/requestUrl.js";
 
 const registerCredentialsSchema = Type.Object(
@@ -274,6 +282,20 @@ const historyListResponseSchema = Type.Object(
   }
 );
 
+const settingsAvatarSchema = Type.Object(
+  {
+    uploadedUrl: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+    gravatarUrl: Type.String({ minLength: 1 }),
+    effectiveUrl: Type.String({ minLength: 1 }),
+    hasUploadedAvatar: Type.Boolean(),
+    size: Type.Integer({ minimum: AVATAR_MIN_SIZE, maximum: AVATAR_MAX_SIZE }),
+    version: Type.Union([Type.String({ minLength: 1 }), Type.Null()])
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const settingsProfileSchema = Type.Object(
   {
     displayName: Type.String({ minLength: 1, maxLength: 120 }),
@@ -283,7 +305,8 @@ const settingsProfileSchema = Type.Object(
       pattern: AUTH_EMAIL_PATTERN
     }),
     emailManagedBy: Type.Literal("supabase"),
-    emailChangeFlow: Type.Literal("supabase")
+    emailChangeFlow: Type.Literal("supabase"),
+    avatar: settingsAvatarSchema
   },
   {
     additionalProperties: false
@@ -329,7 +352,8 @@ const settingsPreferencesSchema = Type.Object(
     defaultMode: enumSchema(SETTINGS_MODE_OPTIONS),
     defaultTiming: enumSchema(SETTINGS_TIMING_OPTIONS),
     defaultPaymentsPerYear: Type.Integer({ minimum: 1, maximum: 365 }),
-    defaultHistoryPageSize: Type.Integer({ minimum: 1, maximum: 100 })
+    defaultHistoryPageSize: Type.Integer({ minimum: 1, maximum: 100 }),
+    avatarSize: Type.Integer({ minimum: AVATAR_MIN_SIZE, maximum: AVATAR_MAX_SIZE })
   },
   {
     additionalProperties: false
@@ -379,7 +403,8 @@ const settingsPreferencesUpdateBodySchema = Type.Object(
     defaultMode: Type.Optional(enumSchema(SETTINGS_MODE_OPTIONS)),
     defaultTiming: Type.Optional(enumSchema(SETTINGS_TIMING_OPTIONS)),
     defaultPaymentsPerYear: Type.Optional(Type.Integer({ minimum: 1, maximum: 365 })),
-    defaultHistoryPageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
+    defaultHistoryPageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+    avatarSize: Type.Optional(Type.Integer({ minimum: AVATAR_MIN_SIZE, maximum: AVATAR_MAX_SIZE }))
   },
   {
     additionalProperties: false,
@@ -573,6 +598,41 @@ function buildDefaultRoutes(controllers) {
         )
       },
       handler: controllers.settings.updateProfile
+    },
+    {
+      path: "/api/settings/profile/avatar",
+      method: "POST",
+      auth: "required",
+      schema: {
+        tags: ["settings"],
+        summary: "Upload profile avatar",
+        description: `Multipart upload. Allowed mime types: ${AVATAR_ALLOWED_MIME_TYPES.join(
+          ", "
+        )}. Max bytes: ${AVATAR_MAX_UPLOAD_BYTES}. Optional uploadDimension: ${AVATAR_UPLOAD_DIMENSION_OPTIONS.join(
+          ", "
+        )} (default ${AVATAR_DEFAULT_UPLOAD_DIMENSION}).`,
+        consumes: ["multipart/form-data"],
+        response: withStandardErrorResponses(
+          {
+            200: settingsResponseSchema
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.settings.uploadAvatar
+    },
+    {
+      path: "/api/settings/profile/avatar",
+      method: "DELETE",
+      auth: "required",
+      schema: {
+        tags: ["settings"],
+        summary: "Delete profile avatar and fallback to gravatar",
+        response: withStandardErrorResponses({
+          200: settingsResponseSchema
+        })
+      },
+      handler: controllers.settings.deleteAvatar
     },
     {
       path: "/api/settings/preferences",

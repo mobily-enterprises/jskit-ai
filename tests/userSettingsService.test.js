@@ -16,6 +16,7 @@ function buildSettings(overrides = {}) {
     defaultTiming: "ordinary",
     defaultPaymentsPerYear: 12,
     defaultHistoryPageSize: 10,
+    avatarSize: 64,
     productUpdates: true,
     accountActivity: true,
     securityAlerts: true,
@@ -80,6 +81,12 @@ test("user settings service helper validators cover success and failure branches
 
   const preferencesUnsupportedCurrency = __testables.parsePreferencesInput({ currencyCode: "ZZZ" });
   assert.equal(preferencesUnsupportedCurrency.fieldErrors.currencyCode, "Currency code is not supported.");
+
+  const preferencesInvalidAvatarSize = __testables.parsePreferencesInput({ avatarSize: 20 });
+  assert.equal(preferencesInvalidAvatarSize.fieldErrors.avatarSize, "Avatar size must be an integer from 32 to 128.");
+
+  const preferencesValidAvatarSize = __testables.parsePreferencesInput({ avatarSize: 96 });
+  assert.equal(preferencesValidAvatarSize.patch.avatarSize, 96);
 
   const originalSupportedValuesOf = Intl.supportedValuesOf;
   try {
@@ -149,6 +156,14 @@ test("user settings service helper validators cover success and failure branches
         enrolled: true,
         methods: ["totp"]
       }
+    },
+    {
+      uploadedUrl: null,
+      gravatarUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+      effectiveUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+      hasUploadedAvatar: false,
+      size: 64,
+      version: null
     }
   );
   assert.equal(response.security.mfa.status, "enabled");
@@ -183,8 +198,32 @@ test("user settings service orchestrates repositories and auth service", async (
           supabaseUserId: "supabase-7",
           email: "user@example.com",
           displayName,
+          avatarStorageKey: null,
+          avatarVersion: null,
+          avatarUpdatedAt: null,
           createdAt: "2024-01-01T00:00:00.000Z"
         };
+      }
+    },
+    userAvatarService: {
+      buildAvatarResponse(profile, { avatarSize }) {
+        calls.push(["buildAvatarResponse", profile.id, avatarSize]);
+        return {
+          uploadedUrl: profile.avatarStorageKey ? `/uploads/${profile.avatarStorageKey}` : null,
+          gravatarUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+          effectiveUrl: profile.avatarStorageKey
+            ? `/uploads/${profile.avatarStorageKey}`
+            : "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+          hasUploadedAvatar: Boolean(profile.avatarStorageKey),
+          size: Number(avatarSize || 64),
+          version: profile.avatarVersion || null
+        };
+      },
+      async uploadForUser() {
+        throw new Error("not used");
+      },
+      async clearForUser() {
+        throw new Error("not used");
       }
     },
     authService: {
@@ -206,6 +245,9 @@ test("user settings service orchestrates repositories and auth service", async (
             supabaseUserId: "supabase-7",
             email: "user@example.com",
             displayName,
+            avatarStorageKey: null,
+            avatarVersion: null,
+            avatarUpdatedAt: null,
             createdAt: "2024-01-01T00:00:00.000Z"
           },
           session: null
@@ -298,8 +340,29 @@ test("user settings service falls back when auth service omits profile/session",
           supabaseUserId: "supabase-fallback",
           email: "fallback@example.com",
           displayName,
+          avatarStorageKey: null,
+          avatarVersion: null,
+          avatarUpdatedAt: null,
           createdAt: "2024-01-01T00:00:00.000Z"
         };
+      }
+    },
+    userAvatarService: {
+      buildAvatarResponse(_profile, { avatarSize }) {
+        return {
+          uploadedUrl: null,
+          gravatarUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+          effectiveUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+          hasUploadedAvatar: false,
+          size: Number(avatarSize || 64),
+          version: null
+        };
+      },
+      async uploadForUser() {
+        throw new Error("not used");
+      },
+      async clearForUser() {
+        throw new Error("not used");
       }
     },
     authService: {
@@ -341,6 +404,99 @@ test("user settings service falls back when auth service omits profile/session",
   assert.equal(changedPassword.session, null);
 });
 
+test("user settings service handles avatar upload and delete flows", async () => {
+  const calls = [];
+  const service = createUserSettingsService({
+    userSettingsRepository: {
+      async ensureForUserId(userId) {
+        calls.push(["ensureForUserId", userId]);
+        return buildSettings({ userId, avatarSize: 80 });
+      },
+      async updatePreferences() {
+        return buildSettings();
+      },
+      async updateNotifications() {
+        return buildSettings();
+      }
+    },
+    userProfilesRepository: {
+      async updateDisplayNameById() {
+        throw new Error("not used");
+      }
+    },
+    userAvatarService: {
+      buildAvatarResponse(profile, { avatarSize }) {
+        calls.push(["buildAvatarResponse", profile.id, avatarSize]);
+        const uploadedUrl = profile.avatarStorageKey ? `/uploads/${profile.avatarStorageKey}` : null;
+        return {
+          uploadedUrl,
+          gravatarUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=80",
+          effectiveUrl: uploadedUrl || "https://www.gravatar.com/avatar/hash?d=mp&s=80",
+          hasUploadedAvatar: Boolean(uploadedUrl),
+          size: Number(avatarSize || 80),
+          version: profile.avatarVersion || null
+        };
+      },
+      async uploadForUser(user, payload) {
+        calls.push(["uploadForUser", user.id, payload.mimeType]);
+        return {
+          profile: {
+            ...user,
+            avatarStorageKey: "avatars/users/7/avatar.webp",
+            avatarVersion: "123"
+          },
+          image: {
+            mimeType: "image/webp",
+            bytes: 100,
+            width: 256,
+            height: 256
+          }
+        };
+      },
+      async clearForUser(user) {
+        calls.push(["clearForUser", user.id]);
+        return {
+          ...user,
+          avatarStorageKey: null,
+          avatarVersion: null
+        };
+      }
+    },
+    authService: {
+      async getSecurityStatus() {
+        return { mfa: { status: "not_enabled", enrolled: false, methods: [] } };
+      },
+      async updateDisplayName() {
+        return { profile: null, session: null };
+      },
+      async changePassword() {
+        return { session: null };
+      },
+      async signOutOtherSessions() {}
+    }
+  });
+
+  const user = {
+    id: 7,
+    supabaseUserId: "supabase-7",
+    email: "user@example.com",
+    displayName: "user"
+  };
+
+  const uploaded = await service.uploadAvatar({}, user, {
+    stream: {},
+    mimeType: "image/png",
+    uploadDimension: 256
+  });
+  assert.equal(uploaded.profile.avatar.hasUploadedAvatar, true);
+  assert.equal(uploaded.profile.avatar.version, "123");
+
+  const cleared = await service.deleteAvatar({}, user);
+  assert.equal(cleared.profile.avatar.hasUploadedAvatar, false);
+  assert.ok(calls.some((entry) => entry[0] === "uploadForUser"));
+  assert.ok(calls.some((entry) => entry[0] === "clearForUser"));
+});
+
 test("user settings service throws validation errors for invalid payloads", async () => {
   const service = createUserSettingsService({
     userSettingsRepository: {
@@ -357,6 +513,24 @@ test("user settings service throws validation errors for invalid payloads", asyn
     userProfilesRepository: {
       async updateDisplayNameById() {
         return null;
+      }
+    },
+    userAvatarService: {
+      buildAvatarResponse(_profile, { avatarSize }) {
+        return {
+          uploadedUrl: null,
+          gravatarUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+          effectiveUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+          hasUploadedAvatar: false,
+          size: Number(avatarSize || 64),
+          version: null
+        };
+      },
+      async uploadForUser() {
+        throw new Error("not used");
+      },
+      async clearForUser() {
+        throw new Error("not used");
       }
     },
     authService: {

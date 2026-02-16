@@ -1,3 +1,5 @@
+import { AVATAR_DEFAULT_SIZE } from "../avatar/index.js";
+
 export const SETTINGS_THEME_OPTIONS = ["system", "light", "dark"];
 export const SETTINGS_DATE_FORMAT_OPTIONS = ["system", "mdy", "dmy", "ymd"];
 export const SETTINGS_NUMBER_FORMAT_OPTIONS = ["system", "comma-dot", "dot-comma", "space-comma"];
@@ -18,6 +20,7 @@ export const SETTINGS_DEFAULTS = {
   defaultTiming: "ordinary",
   defaultPaymentsPerYear: 12,
   defaultHistoryPageSize: 10,
+  avatarSize: AVATAR_DEFAULT_SIZE,
   productUpdates: true,
   accountActivity: true,
   securityAlerts: true

@@ -9,4 +9,5 @@ test-results/
 coverage/
 coverage-client/
 coverage-vue/
+data/
 *.swp

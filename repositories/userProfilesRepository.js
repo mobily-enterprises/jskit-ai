@@ -1,5 +1,5 @@
 import { db } from "../db/knex.js";
-import { toIsoString } from "../lib/dateUtils.js";
+import { toIsoString, toMysqlDateTimeUtc } from "../lib/dateUtils.js";
 
 function isMysqlDuplicateEntryError(error) {
   if (!error) {
@@ -43,6 +43,9 @@ function mapProfileRowRequired(row) {
     supabaseUserId: row.supabase_user_id,
     email: row.email,
     displayName: row.display_name,
+    avatarStorageKey: row.avatar_storage_key || null,
+    avatarVersion: row.avatar_version == null ? null : String(row.avatar_version),
+    avatarUpdatedAt: row.avatar_updated_at == null ? null : toIsoString(row.avatar_updated_at),
     createdAt: toIsoString(row.created_at)
   };
 }
@@ -65,6 +68,32 @@ function createUserProfilesRepository(dbClient) {
     await dbClient("user_profiles").where({ id: userId }).update({
       display_name: displayName
     });
+
+    const row = await dbClient("user_profiles").where({ id: userId }).first();
+    return mapProfileRowRequired(row);
+  }
+
+  async function repoUpdateAvatarById(userId, avatar) {
+    await dbClient("user_profiles")
+      .where({ id: userId })
+      .update({
+        avatar_storage_key: avatar.avatarStorageKey,
+        avatar_version: avatar.avatarVersion,
+        avatar_updated_at: toMysqlDateTimeUtc(avatar.avatarUpdatedAt)
+      });
+
+    const row = await dbClient("user_profiles").where({ id: userId }).first();
+    return mapProfileRowRequired(row);
+  }
+
+  async function repoClearAvatarById(userId) {
+    await dbClient("user_profiles")
+      .where({ id: userId })
+      .update({
+        avatar_storage_key: null,
+        avatar_version: null,
+        avatar_updated_at: null
+      });
 
     const row = await dbClient("user_profiles").where({ id: userId }).first();
     return mapProfileRowRequired(row);
@@ -134,6 +163,8 @@ function createUserProfilesRepository(dbClient) {
   return {
     findBySupabaseUserId: repoFindBySupabaseUserId,
     updateDisplayNameById: repoUpdateDisplayNameById,
+    updateAvatarById: repoUpdateAvatarById,
+    clearAvatarById: repoClearAvatarById,
     upsert: repoUpsert
   };
 }
@@ -151,5 +182,5 @@ const __testables = {
   createUserProfilesRepository
 };
 
-export const { findBySupabaseUserId, updateDisplayNameById, upsert } = repository;
+export const { findBySupabaseUserId, updateDisplayNameById, updateAvatarById, clearAvatarById, upsert } = repository;
 export { __testables };

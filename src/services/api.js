@@ -154,6 +154,12 @@ export const api = {
   updateProfileSettings(payload) {
     return request("/api/settings/profile", { method: "PATCH", body: payload });
   },
+  uploadProfileAvatar(payload) {
+    return request("/api/settings/profile/avatar", { method: "POST", body: payload });
+  },
+  deleteProfileAvatar() {
+    return request("/api/settings/profile/avatar", { method: "DELETE" });
+  },
   updatePreferencesSettings(payload) {
     return request("/api/settings/preferences", { method: "PATCH", body: payload });
   },

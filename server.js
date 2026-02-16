@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import Fastify from "fastify";
 import fastifyHelmet from "@fastify/helmet";
+import fastifyMultipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
@@ -24,6 +25,9 @@ import * as calculationLogsRepository from "./repositories/calculationLogsReposi
 import * as userSettingsRepository from "./repositories/userSettingsRepository.js";
 import { safePathnameFromRequest } from "./lib/requestUrl.js";
 import { createUserSettingsService } from "./services/userSettingsService.js";
+import { createAvatarStorageService } from "./services/avatarStorageService.js";
+import { createUserAvatarService } from "./services/userAvatarService.js";
+import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -58,10 +62,23 @@ const annuityHistoryService = createAnnuityHistoryService({
   calculationLogsRepository
 });
 
+const avatarStorageService = createAvatarStorageService({
+  driver: env.AVATAR_STORAGE_DRIVER,
+  fsBasePath: env.AVATAR_STORAGE_FS_BASE_PATH,
+  publicBasePath: env.AVATAR_PUBLIC_BASE_PATH,
+  rootDir: __dirname
+});
+
+const userAvatarService = createUserAvatarService({
+  userProfilesRepository,
+  avatarStorageService
+});
+
 const userSettingsService = createUserSettingsService({
   userSettingsRepository,
   userProfilesRepository,
-  authService
+  authService,
+  userAvatarService
 });
 
 const controllers = {
@@ -276,7 +293,7 @@ export async function buildServer({ frontendBuildAvailable }) {
         formAction: ["'self'"],
         scriptSrc: SCRIPT_SRC_POLICY,
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:"],
+        imgSrc: ["'self'", "data:", "https://www.gravatar.com", "https://secure.gravatar.com"],
         fontSrc: ["'self'", "data:"],
         connectSrc: ["'self'"]
       }
@@ -313,6 +330,20 @@ export async function buildServer({ frontendBuildAvailable }) {
   }
 
   await app.register(authPlugin, { authService, nodeEnv: NODE_ENV });
+  await app.register(fastifyMultipart, {
+    limits: {
+      fileSize: AVATAR_MAX_UPLOAD_BYTES,
+      files: 1,
+      fields: 8
+    }
+  });
+
+  await avatarStorageService.init();
+  await app.register(fastifyStatic, {
+    root: avatarStorageService.fsBasePath,
+    prefix: `${avatarStorageService.publicBasePath}/`,
+    decorateReply: false
+  });
 
   if (frontendBuildAvailable) {
     await app.register(fastifyStatic, {

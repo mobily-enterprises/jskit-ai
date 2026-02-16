@@ -1,5 +1,6 @@
 import { AppError } from "../lib/errors.js";
 import { validators as authValidators } from "../shared/auth/validators.js";
+import { AVATAR_MAX_SIZE, AVATAR_MIN_SIZE } from "../shared/avatar/index.js";
 import {
   SETTINGS_CURRENCY_CODE_PATTERN,
   SETTINGS_DATE_FORMAT_OPTIONS,
@@ -182,6 +183,15 @@ function parsePreferencesInput(payload = {}) {
     }
   }
 
+  if (hasOwn(payload, "avatarSize")) {
+    const value = Number(payload.avatarSize);
+    if (!Number.isInteger(value) || value < AVATAR_MIN_SIZE || value > AVATAR_MAX_SIZE) {
+      fieldErrors.avatarSize = `Avatar size must be an integer from ${AVATAR_MIN_SIZE} to ${AVATAR_MAX_SIZE}.`;
+    } else {
+      patch.avatarSize = value;
+    }
+  }
+
   if (!Object.keys(patch).length && !Object.keys(fieldErrors).length) {
     fieldErrors.preferences = "At least one preference field is required.";
   }
@@ -285,13 +295,14 @@ function normalizeSecurityStatus(securityStatus) {
   };
 }
 
-function buildSettingsResponse(userProfile, settings, securityStatus) {
+function buildSettingsResponse(userProfile, settings, securityStatus, avatar) {
   return {
     profile: {
       displayName: userProfile.displayName,
       email: userProfile.email,
       emailManagedBy: "supabase",
-      emailChangeFlow: "supabase"
+      emailChangeFlow: "supabase",
+      avatar
     },
     security: normalizeSecurityStatus(securityStatus),
     preferences: {
@@ -304,7 +315,8 @@ function buildSettingsResponse(userProfile, settings, securityStatus) {
       defaultMode: settings.defaultMode,
       defaultTiming: settings.defaultTiming,
       defaultPaymentsPerYear: settings.defaultPaymentsPerYear,
-      defaultHistoryPageSize: settings.defaultHistoryPageSize
+      defaultHistoryPageSize: settings.defaultHistoryPageSize,
+      avatarSize: settings.avatarSize
     },
     notifications: {
       productUpdates: settings.productUpdates,
@@ -314,11 +326,19 @@ function buildSettingsResponse(userProfile, settings, securityStatus) {
   };
 }
 
-function createUserSettingsService({ userSettingsRepository, userProfilesRepository, authService }) {
+function createUserSettingsService({ userSettingsRepository, userProfilesRepository, authService, userAvatarService }) {
+  if (!userAvatarService || typeof userAvatarService.buildAvatarResponse !== "function") {
+    throw new Error("userAvatarService is required.");
+  }
+
+  function resolveAvatar(profile, settings) {
+    return userAvatarService.buildAvatarResponse(profile, { avatarSize: settings.avatarSize });
+  }
+
   async function getForUser(request, user) {
     const settings = await userSettingsRepository.ensureForUserId(user.id);
     const securityStatus = await authService.getSecurityStatus(request);
-    return buildSettingsResponse(user, settings, securityStatus);
+    return buildSettingsResponse(user, settings, securityStatus, resolveAvatar(user, settings));
   }
 
   async function updateProfile(request, user, payload) {
@@ -333,7 +353,7 @@ function createUserSettingsService({ userSettingsRepository, userProfilesReposit
     const securityStatus = await authService.getSecurityStatus(request);
 
     return {
-      settings: buildSettingsResponse(profile, settings, securityStatus),
+      settings: buildSettingsResponse(profile, settings, securityStatus, resolveAvatar(profile, settings)),
       session: updated.session || null
     };
   }
@@ -346,7 +366,7 @@ function createUserSettingsService({ userSettingsRepository, userProfilesReposit
 
     const settings = await userSettingsRepository.updatePreferences(user.id, parsed.patch);
     const securityStatus = await authService.getSecurityStatus(request);
-    return buildSettingsResponse(user, settings, securityStatus);
+    return buildSettingsResponse(user, settings, securityStatus, resolveAvatar(user, settings));
   }
 
   async function updateNotifications(request, user, payload) {
@@ -357,7 +377,28 @@ function createUserSettingsService({ userSettingsRepository, userProfilesReposit
 
     const settings = await userSettingsRepository.updateNotifications(user.id, parsed.patch);
     const securityStatus = await authService.getSecurityStatus(request);
-    return buildSettingsResponse(user, settings, securityStatus);
+    return buildSettingsResponse(user, settings, securityStatus, resolveAvatar(user, settings));
+  }
+
+  async function uploadAvatar(request, user, payload) {
+    const upload = await userAvatarService.uploadForUser(user, payload);
+    const settings = await userSettingsRepository.ensureForUserId(user.id);
+    const securityStatus = await authService.getSecurityStatus(request);
+
+    return buildSettingsResponse(
+      upload.profile,
+      settings,
+      securityStatus,
+      resolveAvatar(upload.profile, settings)
+    );
+  }
+
+  async function deleteAvatar(request, user) {
+    const profile = await userAvatarService.clearForUser(user);
+    const settings = await userSettingsRepository.ensureForUserId(user.id);
+    const securityStatus = await authService.getSecurityStatus(request);
+
+    return buildSettingsResponse(profile, settings, securityStatus, resolveAvatar(profile, settings));
   }
 
   async function changePassword(request, payload) {
@@ -392,6 +433,8 @@ function createUserSettingsService({ userSettingsRepository, userProfilesReposit
     updateProfile,
     updatePreferences,
     updateNotifications,
+    uploadAvatar,
+    deleteAvatar,
     changePassword,
     logoutOtherSessions
   };

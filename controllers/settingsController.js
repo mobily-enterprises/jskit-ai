@@ -1,3 +1,5 @@
+import { AppError } from "../lib/errors.js";
+
 function createSettingsController({ userSettingsService, authService }) {
   async function get(request, reply) {
     const response = await userSettingsService.getForUser(request, request.user);
@@ -27,6 +29,34 @@ function createSettingsController({ userSettingsService, authService }) {
     reply.code(200).send(response);
   }
 
+  async function uploadAvatar(request, reply) {
+    const filePart = await request.file();
+    if (!filePart) {
+      throw new AppError(400, "Validation failed.", {
+        details: {
+          fieldErrors: {
+            avatar: "Avatar file is required."
+          }
+        }
+      });
+    }
+
+    const uploadDimension = filePart.fields?.uploadDimension?.value;
+
+    const response = await userSettingsService.uploadAvatar(request, request.user, {
+      stream: filePart.file,
+      mimeType: filePart.mimetype,
+      fileName: filePart.filename,
+      uploadDimension
+    });
+    reply.code(200).send(response);
+  }
+
+  async function deleteAvatar(request, reply) {
+    const response = await userSettingsService.deleteAvatar(request, request.user);
+    reply.code(200).send(response);
+  }
+
   async function changePassword(request, reply) {
     const payload = request.body || {};
     const result = await userSettingsService.changePassword(request, payload);
@@ -51,6 +81,8 @@ function createSettingsController({ userSettingsService, authService }) {
     updateProfile,
     updatePreferences,
     updateNotifications,
+    uploadAvatar,
+    deleteAvatar,
     changePassword,
     logoutOtherSessions
   };

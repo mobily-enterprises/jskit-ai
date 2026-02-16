@@ -302,6 +302,14 @@ test("settings controller covers get/update/security flows", async () => {
       calls.push(["updateNotifications", request.marker, user.id, payload]);
       return { notifications: { productUpdates: true } };
     },
+    async uploadAvatar(request, user, payload) {
+      calls.push(["uploadAvatar", request.marker, user.id, payload.mimeType, payload.uploadDimension]);
+      return { profile: { avatar: { hasUploadedAvatar: true } } };
+    },
+    async deleteAvatar(request, user) {
+      calls.push(["deleteAvatar", request.marker, user.id]);
+      return { profile: { avatar: { hasUploadedAvatar: false } } };
+    },
     async changePassword(request, payload) {
       calls.push(["changePassword", request.marker, payload]);
       return {
@@ -346,6 +354,32 @@ test("settings controller covers get/update/security flows", async () => {
   assert.equal(notificationsReply.statusCode, 200);
   assert.equal(notificationsReply.payload.notifications.productUpdates, true);
 
+  const uploadAvatarReply = createReplyDouble();
+  await controller.uploadAvatar(
+    {
+      marker: "avatar-upload",
+      user,
+      async file() {
+        return {
+          file: {},
+          mimetype: "image/png",
+          filename: "avatar.png",
+          fields: {
+            uploadDimension: { value: "256" }
+          }
+        };
+      }
+    },
+    uploadAvatarReply
+  );
+  assert.equal(uploadAvatarReply.statusCode, 200);
+  assert.equal(uploadAvatarReply.payload.profile.avatar.hasUploadedAvatar, true);
+
+  const deleteAvatarReply = createReplyDouble();
+  await controller.deleteAvatar({ marker: "avatar-delete", user }, deleteAvatarReply);
+  assert.equal(deleteAvatarReply.statusCode, 200);
+  assert.equal(deleteAvatarReply.payload.profile.avatar.hasUploadedAvatar, false);
+
   const passwordReply = createReplyDouble();
   await controller.changePassword(
     {
@@ -375,6 +409,9 @@ test("settings controller covers get/update/security flows", async () => {
   const fallbackNotificationsReply = createReplyDouble();
   await controller.updateNotifications({ marker: "fallback-notifications", user }, fallbackNotificationsReply);
   assert.equal(fallbackNotificationsReply.statusCode, 200);
+
+  const missingAvatarReply = createReplyDouble();
+  await assert.rejects(() => controller.uploadAvatar({ marker: "missing-avatar", user, file: async () => null }, missingAvatarReply));
 
   const fallbackPasswordReply = createReplyDouble();
   await controller.changePassword({ marker: "fallback-password", user }, fallbackPasswordReply);

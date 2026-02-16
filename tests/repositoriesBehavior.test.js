@@ -605,6 +605,7 @@ function createUserSettingsDbStub({ row, insertErrorOnce = null } = {}) {
       default_timing: "ordinary",
       default_payments_per_year: 12,
       default_history_page_size: 10,
+      avatar_size: 64,
       created_at: "2024-01-01T00:00:00.000Z",
       updated_at: "2024-01-01T00:00:00.000Z"
     };
@@ -669,10 +670,12 @@ test("user settings repository helpers and CRUD branches", async () => {
     defaultMode: "pv",
     defaultTiming: "due",
     defaultPaymentsPerYear: 4,
-    defaultHistoryPageSize: 25
+    defaultHistoryPageSize: 25,
+    avatarSize: 96
   });
   assert.equal(preferencesPatch.time_zone, "Europe/London");
   assert.equal(preferencesPatch.default_mode, "pv");
+  assert.equal(preferencesPatch.avatar_size, 96);
 
   const notificationsPatch = settingsTestables.buildNotificationsUpdatePatch({
     productUpdates: false,
@@ -787,4 +790,60 @@ test("user profiles repository updateDisplayNameById maps updated row", async ()
   assert.equal(updated.id, 12);
   assert.equal(updated.displayName, "new-name");
   assert.ok(calls.some((entry) => entry[0] === "update"));
+});
+
+test("user profiles repository avatar update and clear methods map avatar fields", async () => {
+  const responses = [
+    {
+      id: 15,
+      supabase_user_id: "supabase-15",
+      email: "user15@example.com",
+      display_name: "user15",
+      avatar_storage_key: "avatars/users/15/avatar.webp",
+      avatar_version: "123",
+      avatar_updated_at: "2024-01-02T00:00:00.000Z",
+      created_at: "2024-01-01T00:00:00.000Z"
+    },
+    {
+      id: 15,
+      supabase_user_id: "supabase-15",
+      email: "user15@example.com",
+      display_name: "user15",
+      avatar_storage_key: null,
+      avatar_version: null,
+      avatar_updated_at: null,
+      created_at: "2024-01-01T00:00:00.000Z"
+    }
+  ];
+  const updates = [];
+
+  const dbClient = () => ({
+    where() {
+      return this;
+    },
+    async update(payload) {
+      updates.push(payload);
+    },
+    async first() {
+      return responses.shift();
+    }
+  });
+  dbClient.transaction = async () => {
+    throw new Error("not used");
+  };
+
+  const repo = profilesTestables.createUserProfilesRepository(dbClient);
+  const uploaded = await repo.updateAvatarById(15, {
+    avatarStorageKey: "avatars/users/15/avatar.webp",
+    avatarVersion: "123",
+    avatarUpdatedAt: new Date("2024-01-02T00:00:00.000Z")
+  });
+  assert.equal(uploaded.avatarStorageKey, "avatars/users/15/avatar.webp");
+  assert.equal(uploaded.avatarVersion, "123");
+
+  const cleared = await repo.clearAvatarById(15);
+  assert.equal(cleared.avatarStorageKey, null);
+  assert.equal(cleared.avatarVersion, null);
+  assert.equal(cleared.avatarUpdatedAt, null);
+  assert.equal(updates.length, 2);
 });

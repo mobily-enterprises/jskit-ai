@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   api: {
     settings: vi.fn(),
     updateProfileSettings: vi.fn(),
+    uploadProfileAvatar: vi.fn(),
+    deleteProfileAvatar: vi.fn(),
     updatePreferencesSettings: vi.fn(),
     updateNotificationSettings: vi.fn(),
     changePassword: vi.fn(),
@@ -77,7 +79,15 @@ function buildSettingsPayload(overrides = {}) {
       displayName: "demo-user",
       email: "demo@example.com",
       emailManagedBy: "supabase",
-      emailChangeFlow: "supabase"
+      emailChangeFlow: "supabase",
+      avatar: {
+        uploadedUrl: null,
+        gravatarUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+        effectiveUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+        hasUploadedAvatar: false,
+        size: 64,
+        version: null
+      }
     },
     security: {
       mfa: {
@@ -102,7 +112,8 @@ function buildSettingsPayload(overrides = {}) {
       defaultMode: "fv",
       defaultTiming: "ordinary",
       defaultPaymentsPerYear: 12,
-      defaultHistoryPageSize: 10
+      defaultHistoryPageSize: 10,
+      avatarSize: 64
     },
     notifications: {
       productUpdates: true,
@@ -137,7 +148,12 @@ function mountView() {
         "v-btn": true,
         "v-switch": true,
         "v-chip": true,
-        "v-select": true
+        "v-select": true,
+        "v-avatar": true,
+        "v-img": true,
+        "v-dialog": true,
+        "v-card-actions": true,
+        "v-spacer": true
       }
     }
   });
@@ -153,6 +169,8 @@ describe("SettingsView", () => {
     mocks.queryPending.value = false;
     mocks.api.settings.mockReset();
     mocks.api.updateProfileSettings.mockReset();
+    mocks.api.uploadProfileAvatar.mockReset();
+    mocks.api.deleteProfileAvatar.mockReset();
     mocks.api.updatePreferencesSettings.mockReset();
     mocks.api.updateNotificationSettings.mockReset();
     mocks.api.changePassword.mockReset();
@@ -328,6 +346,61 @@ describe("SettingsView", () => {
     mocks.api.logoutOtherSessions.mockRejectedValue({ status: 401, message: "Authentication required." });
     await wrapper.vm.submitLogoutOthers();
 
+    expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
+    expect(mocks.navigate).toHaveBeenCalledWith({ to: "/login", replace: true });
+  });
+
+  it("handles avatar upload success and missing-selection error", async () => {
+    const payload = buildSettingsPayload({
+      profile: {
+        displayName: "demo-user",
+        email: "demo@example.com",
+        emailManagedBy: "supabase",
+        emailChangeFlow: "supabase",
+        avatar: {
+          uploadedUrl: "/uploads/avatars/users/7/avatar.webp?v=1",
+          gravatarUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+          effectiveUrl: "/uploads/avatars/users/7/avatar.webp?v=1",
+          hasUploadedAvatar: true,
+          size: 64,
+          version: "1"
+        }
+      }
+    });
+    mocks.api.uploadProfileAvatar.mockResolvedValue(payload);
+
+    const wrapper = mountView();
+    const clear = vi.fn();
+    wrapper.vm.avatarUppy = {
+      getFiles: () => [{ data: new Blob(["abc"], { type: "image/png" }), name: "avatar.png" }],
+      clear
+    };
+    wrapper.vm.avatarUploadDimension = 256;
+
+    await wrapper.vm.submitAvatarUpload();
+    expect(mocks.api.uploadProfileAvatar).toHaveBeenCalledTimes(1);
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(wrapper.vm.avatarMessageType).toBe("success");
+
+    wrapper.vm.avatarUppy = {
+      getFiles: () => [],
+      clear: vi.fn()
+    };
+    await wrapper.vm.submitAvatarUpload();
+    expect(wrapper.vm.avatarMessageType).toBe("error");
+    expect(wrapper.vm.avatarMessage).toContain("Select an avatar image first");
+  });
+
+  it("handles avatar delete success and auth failure", async () => {
+    mocks.api.deleteProfileAvatar.mockResolvedValue(buildSettingsPayload());
+    const wrapper = mountView();
+
+    await wrapper.vm.submitAvatarDelete();
+    expect(mocks.api.deleteProfileAvatar).toHaveBeenCalledTimes(1);
+    expect(wrapper.vm.avatarMessageType).toBe("success");
+
+    mocks.api.deleteProfileAvatar.mockRejectedValue({ status: 401, message: "Authentication required." });
+    await wrapper.vm.submitAvatarDelete();
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
     expect(mocks.navigate).toHaveBeenCalledWith({ to: "/login", replace: true });
   });

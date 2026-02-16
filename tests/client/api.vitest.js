@@ -304,11 +304,15 @@ describe("client api transport", () => {
       .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {} } }))
       .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {} } }))
       .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {} } }))
+      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {} } }))
+      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {} } }))
       .mockResolvedValueOnce(mockResponse({ data: { ok: true, message: "Password changed." } }))
       .mockResolvedValueOnce(mockResponse({ data: { ok: true, message: "Signed out from other active sessions." } }));
 
     await api.settings();
     await api.updateProfileSettings({ displayName: "new-name" });
+    await api.uploadProfileAvatar(new FormData());
+    await api.deleteProfileAvatar();
     await api.updatePreferencesSettings({ theme: "dark" });
     await api.updateNotificationSettings({ productUpdates: false, accountActivity: true, securityAlerts: true });
     await api.changePassword({
@@ -322,6 +326,8 @@ describe("client api transport", () => {
       "/api/settings",
       "/api/session",
       "/api/settings/profile",
+      "/api/settings/profile/avatar",
+      "/api/settings/profile/avatar",
       "/api/settings/preferences",
       "/api/settings/notifications",
       "/api/settings/security/change-password",

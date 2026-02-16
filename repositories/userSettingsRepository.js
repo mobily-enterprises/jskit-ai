@@ -26,6 +26,7 @@ function mapUserSettingsRowRequired(row) {
     defaultTiming: row.default_timing,
     defaultPaymentsPerYear: Number(row.default_payments_per_year),
     defaultHistoryPageSize: Number(row.default_history_page_size),
+    avatarSize: Number(row.avatar_size ?? 64),
     productUpdates: Boolean(row.notify_product_updates),
     accountActivity: Boolean(row.notify_account_activity),
     securityAlerts: Boolean(row.notify_security_alerts),
@@ -74,6 +75,9 @@ function buildPreferencesUpdatePatch(patch) {
   }
   if (Object.prototype.hasOwnProperty.call(patch, "defaultHistoryPageSize")) {
     dbPatch.default_history_page_size = patch.defaultHistoryPageSize;
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "avatarSize")) {
+    dbPatch.avatar_size = patch.avatarSize;
   }
 
   return dbPatch;

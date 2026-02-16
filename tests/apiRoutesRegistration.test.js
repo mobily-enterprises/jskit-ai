@@ -9,7 +9,15 @@ function noopControllers() {
       displayName: "u",
       email: "u@example.com",
       emailManagedBy: "supabase",
-      emailChangeFlow: "supabase"
+      emailChangeFlow: "supabase",
+      avatar: {
+        uploadedUrl: null,
+        gravatarUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+        effectiveUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+        hasUploadedAvatar: false,
+        size: 64,
+        version: null
+      }
     },
     security: {
       mfa: {
@@ -34,7 +42,8 @@ function noopControllers() {
       defaultMode: "fv",
       defaultTiming: "ordinary",
       defaultPaymentsPerYear: 12,
-      defaultHistoryPageSize: 10
+      defaultHistoryPageSize: 10,
+      avatarSize: 64
     },
     notifications: {
       productUpdates: true,
@@ -72,6 +81,12 @@ function noopControllers() {
         reply.code(200).send(settingsPayload);
       },
       async updateProfile(_request, reply) {
+        reply.code(200).send(settingsPayload);
+      },
+      async uploadAvatar(_request, reply) {
+        reply.code(200).send(settingsPayload);
+      },
+      async deleteAvatar(_request, reply) {
         reply.code(200).send(settingsPayload);
       },
       async updatePreferences(_request, reply) {

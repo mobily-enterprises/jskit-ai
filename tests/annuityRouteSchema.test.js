@@ -10,7 +10,15 @@ function buildStubControllers() {
         displayName: "demo-user",
         email: "demo@example.com",
         emailManagedBy: "supabase",
-        emailChangeFlow: "supabase"
+        emailChangeFlow: "supabase",
+        avatar: {
+          uploadedUrl: null,
+          gravatarUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+          effectiveUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+          hasUploadedAvatar: false,
+          size: 64,
+          version: null
+        }
       },
       security: {
         mfa: {
@@ -35,7 +43,8 @@ function buildStubControllers() {
         defaultMode: "fv",
         defaultTiming: "ordinary",
         defaultPaymentsPerYear: 12,
-        defaultHistoryPageSize: 10
+        defaultHistoryPageSize: 10,
+        avatarSize: 64
       },
       notifications: {
         productUpdates: true,
@@ -99,6 +108,12 @@ function buildStubControllers() {
         reply.code(200).send(buildSettingsPayload());
       },
       async updateProfile(_request, reply) {
+        reply.code(200).send(buildSettingsPayload());
+      },
+      async uploadAvatar(_request, reply) {
+        reply.code(200).send(buildSettingsPayload());
+      },
+      async deleteAvatar(_request, reply) {
         reply.code(200).send(buildSettingsPayload());
       },
       async updatePreferences(_request, reply) {
