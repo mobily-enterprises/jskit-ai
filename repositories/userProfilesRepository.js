@@ -61,6 +61,15 @@ function createUserProfilesRepository(dbClient) {
     return mapProfileRowNullable(row);
   }
 
+  async function repoUpdateDisplayNameById(userId, displayName) {
+    await dbClient("user_profiles").where({ id: userId }).update({
+      display_name: displayName
+    });
+
+    const row = await dbClient("user_profiles").where({ id: userId }).first();
+    return mapProfileRowRequired(row);
+  }
+
   async function repoUpsert(profile) {
     return dbClient.transaction(async (trx) => {
       const existing = await trx("user_profiles").where({ supabase_user_id: profile.supabaseUserId }).first();
@@ -124,6 +133,7 @@ function createUserProfilesRepository(dbClient) {
 
   return {
     findBySupabaseUserId: repoFindBySupabaseUserId,
+    updateDisplayNameById: repoUpdateDisplayNameById,
     upsert: repoUpsert
   };
 }
@@ -141,5 +151,5 @@ const __testables = {
   createUserProfilesRepository
 };
 
-export const { findBySupabaseUserId, upsert } = repository;
+export const { findBySupabaseUserId, updateDisplayNameById, upsert } = repository;
 export { __testables };

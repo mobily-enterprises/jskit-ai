@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { __testables as calcTestables } from "../repositories/calculationLogsRepository.js";
 import { __testables as profilesTestables } from "../repositories/userProfilesRepository.js";
+import { __testables as settingsTestables } from "../repositories/userSettingsRepository.js";
 
 function createCalculationDbStub(options = {}) {
   const state = {
@@ -576,4 +577,186 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
       finalReadNonDuplicateErrorRepo.upsert({ supabaseUserId: "u10", email: "u10@example.com", displayName: "u10" }),
     /final read failed/
   );
+});
+
+function createUserSettingsDbStub({ row, insertErrorOnce = null } = {}) {
+  const state = {
+    row: row || null,
+    inserts: [],
+    updates: [],
+    whereArgs: []
+  };
+  let insertFailed = false;
+  let whereCondition = {};
+
+  function ensureRow(userId) {
+    return {
+      user_id: Number(userId),
+      theme: "system",
+      locale: "en-US",
+      time_zone: "UTC",
+      date_format: "system",
+      number_format: "system",
+      currency_code: "USD",
+      notify_product_updates: 1,
+      notify_account_activity: 1,
+      notify_security_alerts: 1,
+      default_mode: "fv",
+      default_timing: "ordinary",
+      default_payments_per_year: 12,
+      default_history_page_size: 10,
+      created_at: "2024-01-01T00:00:00.000Z",
+      updated_at: "2024-01-01T00:00:00.000Z"
+    };
+  }
+
+  function chain() {
+    return {
+      where(condition) {
+        whereCondition = condition;
+        state.whereArgs.push(condition);
+        return this;
+      },
+      async first() {
+        if (!state.row) {
+          return undefined;
+        }
+        if (whereCondition.user_id != null && Number(whereCondition.user_id) !== Number(state.row.user_id)) {
+          return undefined;
+        }
+        return state.row;
+      },
+      async insert(payload) {
+        state.inserts.push(payload);
+        if (insertErrorOnce && !insertFailed) {
+          insertFailed = true;
+          state.row = ensureRow(payload.user_id);
+          throw insertErrorOnce;
+        }
+        state.row = ensureRow(payload.user_id);
+      },
+      async update(payload) {
+        state.updates.push(payload);
+        state.row = {
+          ...state.row,
+          ...payload
+        };
+      }
+    };
+  }
+
+  function dbClient() {
+    return chain();
+  }
+
+  return { dbClient, state, ensureRow };
+}
+
+test("user settings repository helpers and CRUD branches", async () => {
+  assert.equal(settingsTestables.isMysqlDuplicateEntryError(null), false);
+  assert.equal(settingsTestables.isMysqlDuplicateEntryError({ code: "ER_DUP_ENTRY" }), true);
+  assert.equal(settingsTestables.mapUserSettingsRowNullable(null), null);
+  assert.throws(() => settingsTestables.mapUserSettingsRowRequired(null), /expected a row object/);
+
+  const preferencesPatch = settingsTestables.buildPreferencesUpdatePatch({
+    theme: "dark",
+    locale: "en-GB",
+    timeZone: "Europe/London",
+    dateFormat: "dmy",
+    numberFormat: "dot-comma",
+    currencyCode: "EUR",
+    defaultMode: "pv",
+    defaultTiming: "due",
+    defaultPaymentsPerYear: 4,
+    defaultHistoryPageSize: 25
+  });
+  assert.equal(preferencesPatch.time_zone, "Europe/London");
+  assert.equal(preferencesPatch.default_mode, "pv");
+
+  const notificationsPatch = settingsTestables.buildNotificationsUpdatePatch({
+    productUpdates: false,
+    accountActivity: true,
+    securityAlerts: true
+  });
+  assert.equal(notificationsPatch.notify_product_updates, false);
+  assert.equal(notificationsPatch.notify_security_alerts, true);
+
+  const updatedPatch = settingsTestables.withUpdatedAt({ theme: "dark" }, new Date("2024-01-01T00:00:00.000Z"));
+  assert.equal(updatedPatch.updated_at, "2024-01-01 00:00:00.000");
+
+  const duplicateInsertError = duplicateErrorFor("PRIMARY");
+  const { dbClient, state } = createUserSettingsDbStub({
+    insertErrorOnce: duplicateInsertError
+  });
+  const repo = settingsTestables.createUserSettingsRepository(dbClient);
+
+  state.row = {
+    ...createUserSettingsDbStub().ensureRow(9),
+    user_id: 9
+  };
+  const existing = await repo.findByUserId(9);
+  assert.equal(existing.userId, 9);
+
+  state.row = null;
+  const ensured = await repo.ensureForUserId(10);
+  assert.equal(ensured.userId, 10);
+  assert.equal(state.inserts.length, 1);
+
+  const preferencesUpdated = await repo.updatePreferences(10, {
+    theme: "dark",
+    defaultHistoryPageSize: 25
+  });
+  assert.equal(preferencesUpdated.theme, "dark");
+  assert.equal(preferencesUpdated.defaultHistoryPageSize, 25);
+  assert.equal(state.updates.length, 1);
+
+  const unchangedPreferences = await repo.updatePreferences(10, {});
+  assert.equal(unchangedPreferences.theme, "dark");
+  assert.equal(state.updates.length, 1);
+
+  const notificationsUpdated = await repo.updateNotifications(10, {
+    productUpdates: false,
+    accountActivity: false,
+    securityAlerts: true
+  });
+  assert.equal(notificationsUpdated.productUpdates, false);
+  assert.equal(notificationsUpdated.accountActivity, false);
+  assert.equal(notificationsUpdated.securityAlerts, true);
+  assert.equal(state.updates.length, 2);
+
+  const unchangedNotifications = await repo.updateNotifications(10, {});
+  assert.equal(unchangedNotifications.securityAlerts, true);
+  assert.equal(state.updates.length, 2);
+});
+
+test("user profiles repository updateDisplayNameById maps updated row", async () => {
+  const calls = [];
+  const dbClient = () => ({
+    where(condition) {
+      calls.push(["where", condition]);
+      return this;
+    },
+    async update(payload) {
+      calls.push(["update", payload]);
+    },
+    async first() {
+      return {
+        id: 12,
+        supabase_user_id: "supabase-12",
+        email: "user12@example.com",
+        display_name: "new-name",
+        created_at: "2024-01-01T00:00:00.000Z"
+      };
+    }
+  });
+  dbClient.transaction = async () => {
+    throw new Error("not used");
+  };
+
+  const repo = profilesTestables.createUserProfilesRepository(dbClient);
+  const updated = await repo.updateDisplayNameById(12, "new-name");
+
+  assert.equal(updated.id, 12);
+  assert.equal(updated.displayName, "new-name");
+  assert.ok(calls.some((entry) => entry[0] === "update"));
 });

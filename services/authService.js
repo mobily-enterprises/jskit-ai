@@ -206,6 +206,33 @@ function mapPasswordUpdateError(error) {
   });
 }
 
+function mapProfileUpdateError(error) {
+  if (isTransientSupabaseError(error)) {
+    return new AppError(503, "Authentication service temporarily unavailable. Please retry.");
+  }
+
+  return validationError({
+    displayName: "Unable to update profile details."
+  });
+}
+
+function mapCurrentPasswordError(error) {
+  if (isTransientSupabaseError(error)) {
+    return new AppError(503, "Authentication service temporarily unavailable. Please retry.");
+  }
+
+  const status = Number(error?.status || error?.statusCode);
+  if (status === 400 || status === 401 || status === 403) {
+    return validationError({
+      currentPassword: "Current password is incorrect."
+    });
+  }
+
+  return validationError({
+    currentPassword: "Unable to verify current password."
+  });
+}
+
 function parseHttpUrl(rawValue, variableName) {
   let parsedUrl;
   try {
@@ -333,6 +360,16 @@ function createAuthService(options) {
     return supabaseClient;
   }
 
+  function createStatelessSupabaseClient() {
+    ensureConfigured();
+    return createClient(supabaseUrl, supabasePublishableKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
+  }
+
   async function getJwksResolver() {
     if (jwksResolver) {
       return jwksResolver;
@@ -394,6 +431,43 @@ function createAuthService(options) {
 
       return { status: "invalid" };
     }
+  }
+
+  async function setSessionFromRequestCookies(request) {
+    const cookies = safeRequestCookies(request);
+    const accessToken = String(cookies[ACCESS_TOKEN_COOKIE] || "").trim();
+    const refreshToken = String(cookies[REFRESH_TOKEN_COOKIE] || "").trim();
+
+    if (!accessToken || !refreshToken) {
+      throw new AppError(401, "Authentication required.");
+    }
+
+    const supabase = getSupabaseClient();
+    let sessionResponse;
+    try {
+      sessionResponse = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken
+      });
+    } catch (error) {
+      throw mapRecoveryError(error);
+    }
+
+    const session = sessionResponse.data?.session || null;
+    const user = sessionResponse.data?.user || session?.user || null;
+
+    if (sessionResponse.error || !session || !user) {
+      throw mapRecoveryError(sessionResponse.error);
+    }
+
+    return {
+      ...sessionResponse,
+      data: {
+        ...sessionResponse.data,
+        session,
+        user
+      }
+    };
   }
 
   function writeSessionCookies(reply, session) {
@@ -642,29 +716,8 @@ function createAuthService(options) {
       throw validationError(parsed.fieldErrors);
     }
 
-    const cookies = safeRequestCookies(request);
-    const accessToken = String(cookies[ACCESS_TOKEN_COOKIE] || "").trim();
-    const refreshToken = String(cookies[REFRESH_TOKEN_COOKIE] || "").trim();
-
-    if (!accessToken || !refreshToken) {
-      throw new AppError(401, "Authentication required.");
-    }
-
     const supabase = getSupabaseClient();
-    let sessionResponse;
-    try {
-      sessionResponse = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken
-      });
-      /* c8 ignore next 3 -- defensive: SDK typically reports auth issues via sessionResponse.error. */
-    } catch (error) {
-      throw mapRecoveryError(error);
-    }
-
-    if (sessionResponse.error || !sessionResponse.data?.session || !sessionResponse.data?.user) {
-      throw mapRecoveryError(sessionResponse.error);
-    }
+    await setSessionFromRequestCookies(request);
 
     let updateResponse;
     try {
@@ -680,6 +733,120 @@ function createAuthService(options) {
     }
 
     await syncProfileFromSupabaseUser(updateResponse.data.user, updateResponse.data.user.email);
+  }
+
+  async function updateDisplayName(request, displayName) {
+    ensureConfigured();
+
+    const normalizedDisplayName = String(displayName || "").trim();
+    if (!normalizedDisplayName) {
+      throw validationError({
+        displayName: "Display name is required."
+      });
+    }
+
+    const supabase = getSupabaseClient();
+    const sessionResponse = await setSessionFromRequestCookies(request);
+
+    let updateResponse;
+    try {
+      updateResponse = await supabase.auth.updateUser({
+        data: {
+          display_name: normalizedDisplayName
+        }
+      });
+    } catch (error) {
+      throw mapProfileUpdateError(error);
+    }
+
+    if (updateResponse.error || !updateResponse.data?.user) {
+      throw mapProfileUpdateError(updateResponse.error);
+    }
+
+    const profile = await syncProfileFromSupabaseUser(updateResponse.data.user, updateResponse.data.user.email);
+
+    return {
+      profile,
+      session: updateResponse.data.session || sessionResponse.data.session || null
+    };
+  }
+
+  async function changePassword(request, payload) {
+    ensureConfigured();
+
+    const currentPassword = String(payload?.currentPassword || "");
+    const newPassword = String(payload?.newPassword || "");
+    const supabase = getSupabaseClient();
+    const sessionResponse = await setSessionFromRequestCookies(request);
+
+    const email = normalizeEmail(sessionResponse.data.user?.email || "");
+    if (!email) {
+      throw new AppError(500, "Authenticated user email could not be resolved.");
+    }
+
+    const verificationClient = createStatelessSupabaseClient();
+    let verifyResponse;
+    try {
+      verifyResponse = await verificationClient.auth.signInWithPassword({
+        email,
+        password: currentPassword
+      });
+    } catch (error) {
+      throw mapCurrentPasswordError(error);
+    }
+
+    if (verifyResponse.error || !verifyResponse.data?.session) {
+      throw mapCurrentPasswordError(verifyResponse.error);
+    }
+
+    let updateResponse;
+    try {
+      updateResponse = await supabase.auth.updateUser({
+        password: newPassword
+      });
+    } catch (error) {
+      throw mapPasswordUpdateError(error);
+    }
+
+    if (updateResponse.error || !updateResponse.data?.user) {
+      throw mapPasswordUpdateError(updateResponse.error);
+    }
+
+    const profile = await syncProfileFromSupabaseUser(updateResponse.data.user, updateResponse.data.user.email);
+
+    return {
+      profile,
+      session: updateResponse.data.session || sessionResponse.data.session || null
+    };
+  }
+
+  async function signOutOtherSessions(request) {
+    ensureConfigured();
+    const supabase = getSupabaseClient();
+    await setSessionFromRequestCookies(request);
+
+    let response;
+    try {
+      response = await supabase.auth.signOut({
+        scope: "others"
+      });
+    } catch (error) {
+      throw mapAuthError(error, 500);
+    }
+
+    if (response.error) {
+      throw mapAuthError(response.error, Number(response.error?.status || 400));
+    }
+  }
+
+  async function getSecurityStatus() {
+    return {
+      mfa: {
+        status: "not_enabled",
+        enrolled: false,
+        methods: []
+      }
+    };
   }
 
   async function authenticateRequest(request) {
@@ -699,7 +866,6 @@ function createAuthService(options) {
     }
 
     const verification = await verifyAccessToken(accessToken);
-    let shouldTryRefresh = verification.status === "expired";
 
     if (verification.status === "valid") {
       const profile = await syncProfileFromJwtClaims(verification.payload);
@@ -741,7 +907,6 @@ function createAuthService(options) {
           transientFailure: true
         };
       }
-      shouldTryRefresh = true;
     }
 
     if (!refreshToken) {
@@ -825,6 +990,10 @@ function createAuthService(options) {
     requestPasswordReset,
     completePasswordRecovery,
     resetPassword,
+    updateDisplayName,
+    changePassword,
+    signOutOtherSessions,
+    getSecurityStatus,
     authenticateRequest,
     hasAccessTokenCookie,
     writeSessionCookies,
@@ -843,6 +1012,8 @@ const __testables = {
   validationError,
   mapRecoveryError,
   mapPasswordUpdateError,
+  mapProfileUpdateError,
+  mapCurrentPasswordError,
   parseHttpUrl,
   buildPasswordResetRedirectUrl,
   safeRequestCookies,

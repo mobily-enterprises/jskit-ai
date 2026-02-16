@@ -297,6 +297,38 @@ describe("client api transport", () => {
     ]);
   });
 
+  it("calls settings endpoints through wrapper methods", async () => {
+    global.fetch
+      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {} } }))
+      .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "settings-token" } }))
+      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {} } }))
+      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {} } }))
+      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {} } }))
+      .mockResolvedValueOnce(mockResponse({ data: { ok: true, message: "Password changed." } }))
+      .mockResolvedValueOnce(mockResponse({ data: { ok: true, message: "Signed out from other active sessions." } }));
+
+    await api.settings();
+    await api.updateProfileSettings({ displayName: "new-name" });
+    await api.updatePreferencesSettings({ theme: "dark" });
+    await api.updateNotificationSettings({ productUpdates: false, accountActivity: true, securityAlerts: true });
+    await api.changePassword({
+      currentPassword: "old-password",
+      newPassword: "new-password-123",
+      confirmPassword: "new-password-123"
+    });
+    await api.logoutOtherSessions();
+
+    expect(global.fetch.mock.calls.map(([url]) => url)).toEqual([
+      "/api/settings",
+      "/api/session",
+      "/api/settings/profile",
+      "/api/settings/preferences",
+      "/api/settings/notifications",
+      "/api/settings/security/change-password",
+      "/api/settings/security/logout-others"
+    ]);
+  });
+
   it("builds history query parameters and can clear csrf cache explicitly", async () => {
     global.fetch
       .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "cached-token" } }))

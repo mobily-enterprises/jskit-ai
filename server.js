@@ -18,9 +18,12 @@ import { createAnnuityHistoryService } from "./services/annuityHistoryService.js
 import { createAuthController } from "./controllers/authController.js";
 import { createHistoryController } from "./controllers/historyController.js";
 import { createAnnuityController } from "./controllers/annuityController.js";
+import { createSettingsController } from "./controllers/settingsController.js";
 import * as userProfilesRepository from "./repositories/userProfilesRepository.js";
 import * as calculationLogsRepository from "./repositories/calculationLogsRepository.js";
+import * as userSettingsRepository from "./repositories/userSettingsRepository.js";
 import { safePathnameFromRequest } from "./lib/requestUrl.js";
+import { createUserSettingsService } from "./services/userSettingsService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,10 +58,17 @@ const annuityHistoryService = createAnnuityHistoryService({
   calculationLogsRepository
 });
 
+const userSettingsService = createUserSettingsService({
+  userSettingsRepository,
+  userProfilesRepository,
+  authService
+});
+
 const controllers = {
   auth: createAuthController({ authService }),
   history: createHistoryController({ annuityHistoryService }),
-  annuity: createAnnuityController({ annuityService, annuityHistoryService })
+  annuity: createAnnuityController({ annuityService, annuityHistoryService }),
+  settings: createSettingsController({ userSettingsService, authService })
 };
 
 function validateRuntimeConfig() {

@@ -55,6 +55,9 @@ export const useAuthStore = defineStore("auth", {
       this.username = null;
       this.initialized = true;
       queryClient.setQueryData(SESSION_QUERY_KEY, { authenticated: false });
+    },
+    setUsername(username) {
+      this.username = username ? String(username) : null;
     }
   }
 });

@@ -148,6 +148,24 @@ export const api = {
   logout() {
     return request("/api/logout", { method: "POST" });
   },
+  settings() {
+    return request("/api/settings");
+  },
+  updateProfileSettings(payload) {
+    return request("/api/settings/profile", { method: "PATCH", body: payload });
+  },
+  updatePreferencesSettings(payload) {
+    return request("/api/settings/preferences", { method: "PATCH", body: payload });
+  },
+  updateNotificationSettings(payload) {
+    return request("/api/settings/notifications", { method: "PATCH", body: payload });
+  },
+  changePassword(payload) {
+    return request("/api/settings/security/change-password", { method: "POST", body: payload });
+  },
+  logoutOtherSessions() {
+    return request("/api/settings/security/logout-others", { method: "POST" });
+  },
   calculate(payload) {
     return request("/api/annuity", { method: "POST", body: payload });
   },

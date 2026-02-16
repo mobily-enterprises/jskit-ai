@@ -208,6 +208,10 @@ test("authService helpers cover validation, mapping, URL parsing, and jwt classi
   assert.equal(__testables.mapPasswordUpdateError({ message: "other" }).status, 400);
   assert.equal(__testables.mapPasswordUpdateError(null).status, 400);
   assert.equal(__testables.mapPasswordUpdateError({ status: 503 }).status, 503);
+  assert.equal(__testables.mapProfileUpdateError({ status: 503 }).status, 503);
+  assert.equal(__testables.mapProfileUpdateError({ status: 400 }).status, 400);
+  assert.equal(__testables.mapCurrentPasswordError({ status: 401 }).status, 400);
+  assert.equal(__testables.mapCurrentPasswordError({ status: 503 }).status, 503);
 
   assert.throws(() => __testables.parseHttpUrl("not-a-url", "APP_PUBLIC_URL"), /valid absolute URL/);
   assert.throws(() => __testables.parseHttpUrl("ftp://localhost", "APP_PUBLIC_URL"), /must start with http/);
@@ -1158,7 +1162,24 @@ test("authService ensureConfigured guard applies to methods", async () => {
     () => service.resetPassword({ cookies: { sb_access_token: "a", sb_refresh_token: "b" } }, { password: "Password123" }),
     /not configured/
   );
+  await assert.rejects(
+    () => service.updateDisplayName({ cookies: { sb_access_token: "a", sb_refresh_token: "b" } }, "name"),
+    /not configured/
+  );
+  await assert.rejects(
+    () =>
+      service.changePassword(
+        { cookies: { sb_access_token: "a", sb_refresh_token: "b" } },
+        { currentPassword: "old-password", newPassword: "new-password-123" }
+      ),
+    /not configured/
+  );
+  await assert.rejects(
+    () => service.signOutOtherSessions({ cookies: { sb_access_token: "a", sb_refresh_token: "b" } }),
+    /not configured/
+  );
   await assert.rejects(() => service.authenticateRequest({ cookies: { sb_access_token: "a" } }), /not configured/);
+  await assert.doesNotReject(() => service.getSecurityStatus({}));
 });
 
 test("completePasswordRecovery maps thrown exchange errors to transient auth errors", async () => {
@@ -1219,6 +1240,232 @@ test("authenticateRequest returns transient failure when jwks fetch is transient
       session: null,
       transientFailure: true
     });
+  } finally {
+    fetchMock.mock.restore();
+  }
+});
+
+test("authService supports profile update, password change, and sign-out-other-sessions flows", async () => {
+  const upsertedProfiles = [];
+  const service = createAuthServiceForTest({
+    userProfilesRepository: createProfilesRepository({
+      async upsert(profile) {
+        upsertedProfiles.push(profile);
+        return {
+          id: 7,
+          ...profile,
+          createdAt: "2024-01-01T00:00:00.000Z"
+        };
+      }
+    })
+  });
+
+  const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt({
+          sub: "supabase-user-1",
+          email: "user@example.com"
+        }),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com",
+          user_metadata: {
+            display_name: "seed-user"
+          }
+        }
+      });
+    }
+
+    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
+      if (request.body?.data?.display_name) {
+        return jsonResponse(200, {
+          user: {
+            id: "supabase-user-1",
+            email: "user@example.com",
+            user_metadata: {
+              display_name: request.body.data.display_name
+            }
+          }
+        });
+      }
+
+      if (request.body?.password) {
+        return jsonResponse(200, {
+          user: {
+            id: "supabase-user-1",
+            email: "user@example.com",
+            user_metadata: {
+              display_name: "updated-user"
+            }
+          }
+        });
+      }
+    }
+
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-user-1",
+        email: "user@example.com",
+        user_metadata: {
+          display_name: "seed-user"
+        }
+      });
+    }
+
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "password") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt({
+          sub: "supabase-user-1",
+          email: "user@example.com"
+        }),
+        refresh_token: "verified-refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com",
+          user_metadata: {
+            display_name: "updated-user"
+          }
+        }
+      });
+    }
+
+    if (request.url.pathname === "/auth/v1/logout") {
+      return jsonResponse(200, {});
+    }
+
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+
+  try {
+    const profileResult = await service.updateDisplayName(
+      {
+        cookies: {
+          sb_access_token: createUnsignedJwt({
+            sub: "supabase-user-1",
+            email: "user@example.com"
+          }),
+          sb_refresh_token: "rt"
+        }
+      },
+      "new-display-name"
+    );
+
+    assert.equal(profileResult.profile.displayName, "new-display-name");
+
+    const passwordResult = await service.changePassword(
+      {
+        cookies: {
+          sb_access_token: createUnsignedJwt({
+            sub: "supabase-user-1",
+            email: "user@example.com"
+          }),
+          sb_refresh_token: "rt"
+        }
+      },
+      {
+        currentPassword: "old-password",
+        newPassword: "new-password-123"
+      }
+    );
+    assert.equal(passwordResult.profile.email, "user@example.com");
+
+    await assert.doesNotReject(() =>
+      service.signOutOtherSessions({
+        cookies: {
+          sb_access_token: createUnsignedJwt({
+            sub: "supabase-user-1",
+            email: "user@example.com"
+          }),
+          sb_refresh_token: "rt"
+        }
+      })
+    );
+
+    const security = await service.getSecurityStatus();
+    assert.equal(security.mfa.status, "not_enabled");
+    assert.ok(upsertedProfiles.length >= 2);
+  } finally {
+    fetchMock.mock.restore();
+  }
+});
+
+test("authService maps profile/password/session-management errors", async () => {
+  const service = createAuthServiceForTest({
+    userProfilesRepository: createProfilesRepository()
+  });
+
+  const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(401, {
+        error: "invalid_grant",
+        error_description: "Invalid refresh token"
+      });
+    }
+
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+
+  try {
+    await assert.rejects(
+      () =>
+        service.updateDisplayName(
+          {
+            cookies: {
+              sb_access_token: "at",
+              sb_refresh_token: "rt"
+            }
+          },
+          "name"
+        ),
+      (error) => {
+        assert.equal(error.status, 401);
+        return true;
+      }
+    );
+
+    await assert.rejects(
+      () =>
+        service.changePassword(
+          {
+            cookies: {
+              sb_access_token: "at",
+              sb_refresh_token: "rt"
+            }
+          },
+          {
+            currentPassword: "old-password",
+            newPassword: "new-password-123"
+          }
+        ),
+      (error) => {
+        assert.equal(error.status, 401);
+        return true;
+      }
+    );
+
+    await assert.rejects(
+      () =>
+        service.signOutOtherSessions({
+          cookies: {
+            sb_access_token: "at",
+            sb_refresh_token: "rt"
+          }
+        }),
+      (error) => {
+        assert.equal(error.status, 401);
+        return true;
+      }
+    );
   } finally {
     fetchMock.mock.restore();
   }

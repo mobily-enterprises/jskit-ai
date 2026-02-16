@@ -3,6 +3,7 @@ import test from "node:test";
 import { createAnnuityController } from "../controllers/annuityController.js";
 import { createAuthController } from "../controllers/authController.js";
 import { createHistoryController } from "../controllers/historyController.js";
+import { createSettingsController } from "../controllers/settingsController.js";
 
 function createReplyDouble() {
   return {
@@ -271,4 +272,113 @@ test("auth controller covers register/login/logout/session/password flows", asyn
   assert.equal(fallbackResetReply.statusCode, 200);
 
   assert.ok(calls.length > 0);
+});
+
+test("settings controller covers get/update/security flows", async () => {
+  const calls = [];
+  const authService = {
+    writeSessionCookies(reply, session) {
+      reply.cookies.push(["write", session.access_token]);
+    }
+  };
+
+  const userSettingsService = {
+    async getForUser(request, user) {
+      calls.push(["getForUser", request.marker, user.id]);
+      return { profile: { displayName: "user", email: "user@example.com" } };
+    },
+    async updateProfile(request, user, payload) {
+      calls.push(["updateProfile", request.marker, user.id, payload]);
+      return {
+        settings: { profile: { displayName: "updated", email: "user@example.com" } },
+        session: { access_token: "profile-at", refresh_token: "rt", expires_in: 3600 }
+      };
+    },
+    async updatePreferences(request, user, payload) {
+      calls.push(["updatePreferences", request.marker, user.id, payload]);
+      return { preferences: { theme: "dark" } };
+    },
+    async updateNotifications(request, user, payload) {
+      calls.push(["updateNotifications", request.marker, user.id, payload]);
+      return { notifications: { productUpdates: true } };
+    },
+    async changePassword(request, payload) {
+      calls.push(["changePassword", request.marker, payload]);
+      return {
+        ok: true,
+        message: "Password changed.",
+        session: { access_token: "password-at", refresh_token: "rt", expires_in: 3600 }
+      };
+    },
+    async logoutOtherSessions(request) {
+      calls.push(["logoutOtherSessions", request.marker]);
+      return {
+        ok: true,
+        message: "Signed out from other active sessions."
+      };
+    }
+  };
+
+  const controller = createSettingsController({ userSettingsService, authService });
+  const user = { id: 7 };
+
+  const getReply = createReplyDouble();
+  await controller.get({ marker: "get", user }, getReply);
+  assert.equal(getReply.statusCode, 200);
+  assert.equal(getReply.payload.profile.displayName, "user");
+
+  const profileReply = createReplyDouble();
+  await controller.updateProfile({ marker: "profile", user, body: { displayName: "updated" } }, profileReply);
+  assert.equal(profileReply.statusCode, 200);
+  assert.equal(profileReply.payload.profile.displayName, "updated");
+  assert.equal(profileReply.cookies[0][1], "profile-at");
+
+  const preferencesReply = createReplyDouble();
+  await controller.updatePreferences({ marker: "preferences", user, body: { theme: "dark" } }, preferencesReply);
+  assert.equal(preferencesReply.statusCode, 200);
+  assert.equal(preferencesReply.payload.preferences.theme, "dark");
+
+  const notificationsReply = createReplyDouble();
+  await controller.updateNotifications(
+    { marker: "notifications", user, body: { productUpdates: true } },
+    notificationsReply
+  );
+  assert.equal(notificationsReply.statusCode, 200);
+  assert.equal(notificationsReply.payload.notifications.productUpdates, true);
+
+  const passwordReply = createReplyDouble();
+  await controller.changePassword(
+    {
+      marker: "password",
+      user,
+      body: { currentPassword: "old", newPassword: "new-password-123", confirmPassword: "new-password-123" }
+    },
+    passwordReply
+  );
+  assert.equal(passwordReply.statusCode, 200);
+  assert.equal(passwordReply.payload.ok, true);
+  assert.equal(passwordReply.cookies[0][1], "password-at");
+
+  const logoutOthersReply = createReplyDouble();
+  await controller.logoutOtherSessions({ marker: "logout-others", user }, logoutOthersReply);
+  assert.equal(logoutOthersReply.statusCode, 200);
+  assert.equal(logoutOthersReply.payload.ok, true);
+
+  const fallbackProfileReply = createReplyDouble();
+  await controller.updateProfile({ marker: "fallback-profile", user }, fallbackProfileReply);
+  assert.equal(fallbackProfileReply.statusCode, 200);
+
+  const fallbackPreferencesReply = createReplyDouble();
+  await controller.updatePreferences({ marker: "fallback-preferences", user }, fallbackPreferencesReply);
+  assert.equal(fallbackPreferencesReply.statusCode, 200);
+
+  const fallbackNotificationsReply = createReplyDouble();
+  await controller.updateNotifications({ marker: "fallback-notifications", user }, fallbackNotificationsReply);
+  assert.equal(fallbackNotificationsReply.statusCode, 200);
+
+  const fallbackPasswordReply = createReplyDouble();
+  await controller.changePassword({ marker: "fallback-password", user }, fallbackPasswordReply);
+  assert.equal(fallbackPasswordReply.statusCode, 200);
+
+  assert.ok(calls.length >= 10);
 });

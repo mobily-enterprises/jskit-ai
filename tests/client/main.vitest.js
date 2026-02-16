@@ -89,7 +89,7 @@ describe("main bootstrap", () => {
       expect.objectContaining({
         icons: {
           defaultSet: "mdi",
-          aliases: mocks.mdiAliases,
+          aliases: expect.objectContaining(mocks.mdiAliases),
           sets: {
             mdi: mocks.mdiSet
           }

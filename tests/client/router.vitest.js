@@ -1,4 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("../../src/App.vue", () => ({
+  default: {
+    name: "AppShellMock"
+  }
+}));
+
 import { createAppRouter, __testables } from "../../src/router";
 
 describe("router auth guards", () => {

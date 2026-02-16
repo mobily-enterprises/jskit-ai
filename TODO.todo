@@ -1,10 +1,13 @@
 X Add client-server shared code
-- Harmonise schema
-- User screen and user configuration
+X User screen and user configuration
+- Harmonise/understand schema
+- Load user settings on app load IF that is best practice and doesn't happen already
+- Profile picture upload and S3 
 - Config/multihoming: App configuration, loaded at boot time AND Multihoming, app configuration becomes workspace configuration
+- More permissions (multihoming)
 - Add a backend interface, explain how to make it work, what code to share
 - Log server errors and client errors
-- More permissions
+- AI integration
 - Add socket infrastructure
 
 Extra:

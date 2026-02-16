@@ -12,6 +12,15 @@ import {
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,
   AUTH_REFRESH_TOKEN_MAX_LENGTH
 } from "../shared/auth/authConstraints.js";
+import {
+  SETTINGS_CURRENCY_CODE_PATTERN,
+  SETTINGS_DATE_FORMAT_OPTIONS,
+  SETTINGS_LOCALE_PATTERN,
+  SETTINGS_MODE_OPTIONS,
+  SETTINGS_NUMBER_FORMAT_OPTIONS,
+  SETTINGS_THEME_OPTIONS,
+  SETTINGS_TIMING_OPTIONS
+} from "../shared/settings/index.js";
 import { safeRequestUrl } from "../lib/requestUrl.js";
 
 const decimalStringPattern = "^-?\\d+(?:\\.\\d+)?$";
@@ -233,6 +242,10 @@ function withStandardErrorResponses(successResponses, { includeValidation400 = f
   return responses;
 }
 
+function enumSchema(values) {
+  return Type.Union(values.map((value) => Type.Literal(value)));
+}
+
 const annuityAssumptionsSchema = Type.Object(
   {
     rateConversion: Type.String({ minLength: 1 }),
@@ -308,6 +321,142 @@ const historyListResponseSchema = Type.Object(
     pageSize: Type.Integer({ minimum: 1, maximum: 100 }),
     total: Type.Integer({ minimum: 0 }),
     totalPages: Type.Integer({ minimum: 1 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const settingsProfileSchema = Type.Object(
+  {
+    displayName: Type.String({ minLength: 1, maxLength: 120 }),
+    email: Type.String({
+      minLength: AUTH_EMAIL_MIN_LENGTH,
+      maxLength: AUTH_EMAIL_MAX_LENGTH,
+      pattern: AUTH_EMAIL_PATTERN
+    }),
+    emailManagedBy: Type.Literal("supabase"),
+    emailChangeFlow: Type.Literal("supabase")
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const settingsSecuritySchema = Type.Object(
+  {
+    mfa: Type.Object(
+      {
+        status: Type.String({ minLength: 1, maxLength: 64 }),
+        enrolled: Type.Boolean(),
+        methods: Type.Array(Type.String({ minLength: 1, maxLength: 64 }))
+      },
+      { additionalProperties: false }
+    ),
+    sessions: Type.Object(
+      {
+        canSignOutOtherDevices: Type.Boolean()
+      },
+      { additionalProperties: false }
+    ),
+    password: Type.Object(
+      {
+        canChange: Type.Boolean()
+      },
+      { additionalProperties: false }
+    )
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const settingsPreferencesSchema = Type.Object(
+  {
+    theme: enumSchema(SETTINGS_THEME_OPTIONS),
+    locale: Type.String({ minLength: 2, maxLength: 24, pattern: SETTINGS_LOCALE_PATTERN }),
+    timeZone: Type.String({ minLength: 1, maxLength: 64 }),
+    dateFormat: enumSchema(SETTINGS_DATE_FORMAT_OPTIONS),
+    numberFormat: enumSchema(SETTINGS_NUMBER_FORMAT_OPTIONS),
+    currencyCode: Type.String({ pattern: SETTINGS_CURRENCY_CODE_PATTERN }),
+    defaultMode: enumSchema(SETTINGS_MODE_OPTIONS),
+    defaultTiming: enumSchema(SETTINGS_TIMING_OPTIONS),
+    defaultPaymentsPerYear: Type.Integer({ minimum: 1, maximum: 365 }),
+    defaultHistoryPageSize: Type.Integer({ minimum: 1, maximum: 100 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const settingsNotificationsSchema = Type.Object(
+  {
+    productUpdates: Type.Boolean(),
+    accountActivity: Type.Boolean(),
+    securityAlerts: Type.Boolean()
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const settingsResponseSchema = Type.Object(
+  {
+    profile: settingsProfileSchema,
+    security: settingsSecuritySchema,
+    preferences: settingsPreferencesSchema,
+    notifications: settingsNotificationsSchema
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const settingsProfileUpdateBodySchema = Type.Object(
+  {
+    displayName: Type.String({ minLength: 1, maxLength: 120 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const settingsPreferencesUpdateBodySchema = Type.Object(
+  {
+    theme: Type.Optional(enumSchema(SETTINGS_THEME_OPTIONS)),
+    locale: Type.Optional(Type.String({ minLength: 2, maxLength: 24, pattern: SETTINGS_LOCALE_PATTERN })),
+    timeZone: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+    dateFormat: Type.Optional(enumSchema(SETTINGS_DATE_FORMAT_OPTIONS)),
+    numberFormat: Type.Optional(enumSchema(SETTINGS_NUMBER_FORMAT_OPTIONS)),
+    currencyCode: Type.Optional(Type.String({ pattern: SETTINGS_CURRENCY_CODE_PATTERN })),
+    defaultMode: Type.Optional(enumSchema(SETTINGS_MODE_OPTIONS)),
+    defaultTiming: Type.Optional(enumSchema(SETTINGS_TIMING_OPTIONS)),
+    defaultPaymentsPerYear: Type.Optional(Type.Integer({ minimum: 1, maximum: 365 })),
+    defaultHistoryPageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
+  },
+  {
+    additionalProperties: false,
+    minProperties: 1
+  }
+);
+
+const settingsNotificationsUpdateBodySchema = Type.Object(
+  {
+    productUpdates: Type.Optional(Type.Boolean()),
+    accountActivity: Type.Optional(Type.Boolean()),
+    securityAlerts: Type.Optional(Type.Boolean())
+  },
+  {
+    additionalProperties: false,
+    minProperties: 1
+  }
+);
+
+const changePasswordBodySchema = Type.Object(
+  {
+    currentPassword: Type.String({ minLength: 1, maxLength: AUTH_LOGIN_PASSWORD_MAX_LENGTH }),
+    newPassword: Type.String({ minLength: AUTH_PASSWORD_MIN_LENGTH, maxLength: AUTH_PASSWORD_MAX_LENGTH }),
+    confirmPassword: Type.String({ minLength: 1, maxLength: AUTH_PASSWORD_MAX_LENGTH })
   },
   {
     additionalProperties: false
@@ -447,6 +596,108 @@ function buildDefaultRoutes(controllers) {
         })
       },
       handler: controllers.auth.session
+    },
+    {
+      path: "/api/settings",
+      method: "GET",
+      auth: "required",
+      schema: {
+        tags: ["settings"],
+        summary: "Get authenticated user's settings",
+        response: withStandardErrorResponses({
+          200: settingsResponseSchema
+        })
+      },
+      handler: controllers.settings.get
+    },
+    {
+      path: "/api/settings/profile",
+      method: "PATCH",
+      auth: "required",
+      schema: {
+        tags: ["settings"],
+        summary: "Update profile settings",
+        body: settingsProfileUpdateBodySchema,
+        response: withStandardErrorResponses(
+          {
+            200: settingsResponseSchema
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.settings.updateProfile
+    },
+    {
+      path: "/api/settings/preferences",
+      method: "PATCH",
+      auth: "required",
+      schema: {
+        tags: ["settings"],
+        summary: "Update user preferences",
+        body: settingsPreferencesUpdateBodySchema,
+        response: withStandardErrorResponses(
+          {
+            200: settingsResponseSchema
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.settings.updatePreferences
+    },
+    {
+      path: "/api/settings/notifications",
+      method: "PATCH",
+      auth: "required",
+      schema: {
+        tags: ["settings"],
+        summary: "Update notification settings",
+        body: settingsNotificationsUpdateBodySchema,
+        response: withStandardErrorResponses(
+          {
+            200: settingsResponseSchema
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.settings.updateNotifications
+    },
+    {
+      path: "/api/settings/security/change-password",
+      method: "POST",
+      auth: "required",
+      schema: {
+        tags: ["settings"],
+        summary: "Change authenticated user's password",
+        body: changePasswordBodySchema,
+        response: withStandardErrorResponses(
+          {
+            200: okMessageResponseSchema
+          },
+          { includeValidation400: true }
+        )
+      },
+      rateLimit: {
+        max: 10,
+        timeWindow: "1 minute"
+      },
+      handler: controllers.settings.changePassword
+    },
+    {
+      path: "/api/settings/security/logout-others",
+      method: "POST",
+      auth: "required",
+      schema: {
+        tags: ["settings"],
+        summary: "Sign out from other active sessions",
+        response: withStandardErrorResponses({
+          200: okMessageResponseSchema
+        })
+      },
+      rateLimit: {
+        max: 20,
+        timeWindow: "1 minute"
+      },
+      handler: controllers.settings.logoutOtherSessions
     },
     {
       path: "/api/history",

@@ -6,6 +6,7 @@ const require = createRequire(import.meta.url);
 
 const userProfilesMigration = require("../migrations/20260215120000_create_user_profiles.cjs");
 const calculationLogsMigration = require("../migrations/20260215120100_create_calculation_logs.cjs");
+const userSettingsMigration = require("../migrations/20260216110000_create_user_settings.cjs");
 
 function createSchemaStub() {
   const calls = [];
@@ -28,6 +29,10 @@ function createSchemaStub() {
           return {
             notNullable() {
               tableCalls.push(["notNullable", column]);
+              return this;
+            },
+            defaultTo(value) {
+              tableCalls.push(["defaultTo", column, value]);
               return this;
             },
             unique() {
@@ -59,6 +64,10 @@ function createSchemaStub() {
             notNullable() {
               tableCalls.push(["notNullable", column]);
               return this;
+            },
+            defaultTo(value) {
+              tableCalls.push(["defaultTo", column, value]);
+              return this;
             }
           };
         },
@@ -85,6 +94,10 @@ function createSchemaStub() {
             notNullable() {
               tableCalls.push(["notNullable", column]);
               return this;
+            },
+            defaultTo(value) {
+              tableCalls.push(["defaultTo", column, value]);
+              return this;
             }
           };
         },
@@ -97,6 +110,10 @@ function createSchemaStub() {
             },
             notNullable() {
               tableCalls.push(["notNullable", column]);
+              return this;
+            },
+            primary() {
+              tableCalls.push(["primary", column]);
               return this;
             }
           };
@@ -178,4 +195,16 @@ test("calculation logs migration creates and drops expected table", async () => 
   assert.equal(calls[0][1], "calculation_logs");
   assert.ok(calls.some((entry) => entry[0] === "raw" && entry[1] === "UTC_TIMESTAMP(3)"));
   assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "calculation_logs"]);
+});
+
+test("user settings migration creates and drops expected table", async () => {
+  const { knex, calls } = createSchemaStub();
+
+  await userSettingsMigration.up(knex);
+  await userSettingsMigration.down(knex);
+
+  assert.equal(calls[0][0], "createTable");
+  assert.equal(calls[0][1], "user_settings");
+  assert.ok(calls.some((entry) => entry[0] === "raw" && entry[1] === "UTC_TIMESTAMP(3)"));
+  assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "user_settings"]);
 });

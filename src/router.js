@@ -12,7 +12,9 @@ import App from "./App.vue";
 /* v8 ignore start -- lazy Vue SFC loaders require full Vite CSS handling and are exercised in browser/E2E paths. */
 const LoginView = lazyRouteComponent(() => import("./views/LoginView.vue"));
 const CalculatorView = lazyRouteComponent(() => import("./views/CalculatorView.vue"));
+const ChoiceTwoView = lazyRouteComponent(() => import("./views/ChoiceTwoView.vue"));
 const ResetPasswordView = lazyRouteComponent(() => import("./views/ResetPasswordView.vue"));
+const SettingsView = lazyRouteComponent(() => import("./views/SettingsView.vue"));
 /* v8 ignore stop */
 /* c8 ignore stop */
 
@@ -77,13 +79,27 @@ export function createAppRouter(authStore) {
     beforeLoad: beforeLoadCalculator.bind(null, authStore)
   });
 
+  const choiceTwoRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/choice-2",
+    component: ChoiceTwoView,
+    beforeLoad: beforeLoadCalculator.bind(null, authStore)
+  });
+
   const resetPasswordRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/reset-password",
     component: ResetPasswordView
   });
 
-  const routeTree = rootRoute.addChildren([calculatorRoute, loginRoute, resetPasswordRoute]);
+  const settingsRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/settings",
+    component: SettingsView,
+    beforeLoad: beforeLoadCalculator.bind(null, authStore)
+  });
+
+  const routeTree = rootRoute.addChildren([calculatorRoute, choiceTwoRoute, settingsRoute, loginRoute, resetPasswordRoute]);
 
   return createRouter({
     routeTree,

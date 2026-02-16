@@ -4,6 +4,45 @@ import Fastify from "fastify";
 import { registerApiRoutes } from "../routes/apiRoutes.js";
 
 function noopControllers() {
+  const settingsPayload = {
+    profile: {
+      displayName: "u",
+      email: "u@example.com",
+      emailManagedBy: "supabase",
+      emailChangeFlow: "supabase"
+    },
+    security: {
+      mfa: {
+        status: "not_enabled",
+        enrolled: false,
+        methods: []
+      },
+      sessions: {
+        canSignOutOtherDevices: true
+      },
+      password: {
+        canChange: true
+      }
+    },
+    preferences: {
+      theme: "system",
+      locale: "en-US",
+      timeZone: "UTC",
+      dateFormat: "system",
+      numberFormat: "system",
+      currencyCode: "USD",
+      defaultMode: "fv",
+      defaultTiming: "ordinary",
+      defaultPaymentsPerYear: 12,
+      defaultHistoryPageSize: 10
+    },
+    notifications: {
+      productUpdates: true,
+      accountActivity: true,
+      securityAlerts: true
+    }
+  };
+
   return {
     auth: {
       async register(_request, reply) {
@@ -26,6 +65,26 @@ function noopControllers() {
       },
       async session(_request, reply) {
         reply.code(200).send({ authenticated: false, csrfToken: "csrf" });
+      }
+    },
+    settings: {
+      async get(_request, reply) {
+        reply.code(200).send(settingsPayload);
+      },
+      async updateProfile(_request, reply) {
+        reply.code(200).send(settingsPayload);
+      },
+      async updatePreferences(_request, reply) {
+        reply.code(200).send(settingsPayload);
+      },
+      async updateNotifications(_request, reply) {
+        reply.code(200).send(settingsPayload);
+      },
+      async changePassword(_request, reply) {
+        reply.code(200).send({ ok: true, message: "ok" });
+      },
+      async logoutOtherSessions(_request, reply) {
+        reply.code(200).send({ ok: true, message: "ok" });
       }
     },
     history: {

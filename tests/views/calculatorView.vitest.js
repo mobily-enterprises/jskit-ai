@@ -6,13 +6,10 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   api: {
     calculate: vi.fn(),
-    history: vi.fn(),
-    logout: vi.fn(),
-    clearCsrfTokenCache: vi.fn()
+    history: vi.fn()
   },
   authStore: {
-    setSignedOut: vi.fn(),
-    invalidateSession: vi.fn()
+    setSignedOut: vi.fn()
   },
   historyData: null,
   historyError: null,
@@ -89,13 +86,19 @@ function mountView() {
         "v-row": true,
         "v-col": true,
         "v-card": true,
+        "v-card-item": true,
         "v-card-title": true,
+        "v-card-subtitle": true,
         "v-card-text": true,
         "v-divider": true,
         "v-form": true,
         "v-select": true,
         "v-text-field": true,
         "v-checkbox": true,
+        "v-expansion-panels": true,
+        "v-expansion-panel": true,
+        "v-expansion-panel-title": true,
+        "v-expansion-panel-text": true,
         "v-alert": true,
         "v-btn": true,
         "v-chip": true,
@@ -112,10 +115,7 @@ describe("CalculatorView", () => {
     mocks.navigate.mockReset();
     mocks.api.calculate.mockReset();
     mocks.api.history.mockReset();
-    mocks.api.logout.mockReset();
-    mocks.api.clearCsrfTokenCache.mockReset();
     mocks.authStore.setSignedOut.mockReset();
-    mocks.authStore.invalidateSession.mockReset();
     mocks.historyData = ref({
       entries: [],
       page: 1,
@@ -156,16 +156,15 @@ describe("CalculatorView", () => {
     wrapper.unmount();
   });
 
-  it("logs out and clears client session state", async () => {
-    mocks.api.logout.mockResolvedValue({ ok: true });
-
+  it("changes history page with next/previous helpers", async () => {
     const wrapper = mountView();
-    await wrapper.vm.logout();
+    mocks.historyData.value.totalPages = 3;
+    await nextTick();
 
-    expect(mocks.api.logout).toHaveBeenCalledTimes(1);
-    expect(mocks.api.clearCsrfTokenCache).toHaveBeenCalledTimes(1);
-    expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
-    expect(mocks.authStore.invalidateSession).toHaveBeenCalledTimes(1);
-    expect(mocks.navigate).toHaveBeenCalledWith({ to: "/login", replace: true });
+    expect(wrapper.vm.historyPage).toBe(1);
+    wrapper.vm.goToNextPage();
+    expect(wrapper.vm.historyPage).toBe(2);
+    wrapper.vm.goToPreviousPage();
+    expect(wrapper.vm.historyPage).toBe(1);
   });
 });

@@ -1,113 +1,109 @@
 <template>
-  <v-app>
-    <v-main class="login-main">
-      <v-container class="fill-height d-flex align-center justify-center py-8">
-        <div class="auth-shell">
-          <v-row class="auth-layout" align="stretch">
-            <v-col cols="12" md="6" class="pa-0">
-              <section class="brand-panel">
-                <p class="eyebrow">Financial Workspace</p>
-                <h1 class="brand-title">Annuity Calculator</h1>
-                <p class="brand-copy">
-                  Secure sign-in for professional annuity analysis with server-side calculations and saved history.
-                </p>
-                <ul class="brand-points">
-                  <li>Server-calculated present and future values</li>
-                  <li>Login-protected calculation history</li>
-                  <li>Clear validation and auditable assumptions</li>
-                </ul>
-              </section>
-            </v-col>
+  <v-main class="login-main">
+    <v-container class="fill-height d-flex align-center justify-center py-8">
+      <v-card class="auth-card" rounded="lg" elevation="1" border>
+        <v-card-text class="auth-content">
+          <div class="auth-header">
+            <div>
+              <p class="auth-kicker">Annuity Workspace</p>
+              <h1 class="auth-title">{{ authTitle }}</h1>
+              <p class="text-medium-emphasis mb-0">{{ authSubtitle }}</p>
+            </div>
+            <v-chip color="primary" size="small" label>Secure</v-chip>
+          </div>
 
-            <v-col cols="12" md="6" class="pa-0">
-              <v-card class="auth-card" rounded="xl" elevation="12">
-                <v-card-text class="auth-content">
-                  <p class="auth-kicker">{{ authKicker }}</p>
-                  <h2 class="auth-title">{{ authTitle }}</h2>
-                  <p class="text-medium-emphasis mb-6">{{ authSubtitle }}</p>
+          <div v-if="!isForgot" class="mode-switch mb-5">
+            <v-btn
+              class="text-none"
+              :variant="isLogin ? 'flat' : 'text'"
+              :color="isLogin ? 'primary' : undefined"
+              @click="switchMode('login')"
+            >
+              Sign in
+            </v-btn>
+            <v-btn
+              class="text-none"
+              :variant="isRegister ? 'flat' : 'text'"
+              :color="isRegister ? 'primary' : undefined"
+              @click="switchMode('register')"
+            >
+              Register
+            </v-btn>
+          </div>
 
-                  <v-form @submit.prevent="submitAuth" novalidate>
-                    <v-text-field
-                      v-model="email"
-                      label="Email"
-                      variant="outlined"
-                      density="comfortable"
-                      type="email"
-                      autocomplete="email"
-                      :error-messages="emailErrorMessages"
-                      @blur="emailTouched = true"
-                      class="mb-3"
-                    />
+          <v-form @submit.prevent="submitAuth" novalidate>
+            <v-text-field
+              v-model="email"
+              label="Email"
+              variant="outlined"
+              density="comfortable"
+              type="email"
+              autocomplete="email"
+              :error-messages="emailErrorMessages"
+              @blur="emailTouched = true"
+              class="mb-3"
+            />
 
-                    <v-text-field
-                      v-if="!isForgot"
-                      v-model="password"
-                      label="Password"
-                      :type="showPassword ? 'text' : 'password'"
-                      variant="outlined"
-                      density="comfortable"
-                      :autocomplete="isRegister ? 'new-password' : 'current-password'"
-                      :error-messages="passwordErrorMessages"
-                      :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                      @click:append-inner="showPassword = !showPassword"
-                      @blur="passwordTouched = true"
-                      class="mb-3"
-                    />
+            <v-text-field
+              v-if="!isForgot"
+              v-model="password"
+              label="Password"
+              :type="showPassword ? 'text' : 'password'"
+              variant="outlined"
+              density="comfortable"
+              :autocomplete="isRegister ? 'new-password' : 'current-password'"
+              :error-messages="passwordErrorMessages"
+              :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
+              @click:append-inner="showPassword = !showPassword"
+              @blur="passwordTouched = true"
+              class="mb-3"
+            />
 
-                    <v-text-field
-                      v-if="isRegister"
-                      v-model="confirmPassword"
-                      label="Confirm password"
-                      :type="showConfirmPassword ? 'text' : 'password'"
-                      variant="outlined"
-                      density="comfortable"
-                      autocomplete="new-password"
-                      :error-messages="confirmPasswordErrorMessages"
-                      :append-inner-icon="showConfirmPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                      @click:append-inner="showConfirmPassword = !showConfirmPassword"
-                      @blur="confirmPasswordTouched = true"
-                      class="mb-3"
-                    />
+            <v-text-field
+              v-if="isRegister"
+              v-model="confirmPassword"
+              label="Confirm password"
+              :type="showConfirmPassword ? 'text' : 'password'"
+              variant="outlined"
+              density="comfortable"
+              autocomplete="new-password"
+              :error-messages="confirmPasswordErrorMessages"
+              :append-inner-icon="showConfirmPassword ? 'mdi-eye-off' : 'mdi-eye'"
+              @click:append-inner="showConfirmPassword = !showConfirmPassword"
+              @blur="confirmPasswordTouched = true"
+              class="mb-3"
+            />
 
-                    <div v-if="isLogin" class="aux-links mb-4">
-                      <v-btn variant="text" color="secondary" @click="switchMode('forgot')">Forgot password?</v-btn>
-                    </div>
+            <div v-if="isLogin" class="aux-links mb-4">
+              <v-btn variant="text" color="secondary" @click="switchMode('forgot')">Forgot password?</v-btn>
+            </div>
 
-                    <v-alert v-if="errorMessage" type="error" variant="tonal" class="mb-4">
-                      {{ errorMessage }}
-                    </v-alert>
+            <v-alert v-if="errorMessage" type="error" variant="tonal" class="mb-4">
+              {{ errorMessage }}
+            </v-alert>
 
-                    <v-alert v-if="infoMessage" type="info" variant="tonal" class="mb-4">
-                      {{ infoMessage }}
-                    </v-alert>
+            <v-alert v-if="infoMessage" type="info" variant="tonal" class="mb-4">
+              {{ infoMessage }}
+            </v-alert>
 
-                    <v-btn block color="primary" size="large" :loading="loading" :disabled="!canSubmit" type="submit">
-                      {{ submitLabel }}
-                    </v-btn>
+            <v-btn block color="primary" size="large" :loading="loading" :disabled="!canSubmit" type="submit">
+              {{ submitLabel }}
+            </v-btn>
 
-                    <div v-if="isLogin" class="switch-row">
-                      <span class="text-medium-emphasis">Need an account?</span>
-                      <v-btn variant="text" color="secondary" @click="switchMode('register')">Create account</v-btn>
-                    </div>
+            <div v-if="isRegister" class="switch-row">
+              <span class="text-medium-emphasis">Already have an account?</span>
+              <v-btn variant="text" color="secondary" @click="switchMode('login')">Back to sign in</v-btn>
+            </div>
 
-                    <div v-else-if="isRegister" class="switch-row">
-                      <span class="text-medium-emphasis">Already have an account?</span>
-                      <v-btn variant="text" color="secondary" @click="switchMode('login')">Back to sign in</v-btn>
-                    </div>
-
-                    <div v-else class="switch-row">
-                      <span class="text-medium-emphasis">Remembered your password?</span>
-                      <v-btn variant="text" color="secondary" @click="switchMode('login')">Back to sign in</v-btn>
-                    </div>
-                  </v-form>
-                </v-card-text>
-              </v-card>
-            </v-col>
-          </v-row>
-        </div>
-      </v-container>
-    </v-main>
-  </v-app>
+            <div v-else-if="isForgot" class="switch-row">
+              <span class="text-medium-emphasis">Remembered your password?</span>
+              <v-btn variant="text" color="secondary" @click="switchMode('login')">Back to sign in</v-btn>
+            </div>
+          </v-form>
+        </v-card-text>
+      </v-card>
+    </v-container>
+  </v-main>
 </template>
 
 <script setup>
@@ -154,16 +150,6 @@ const forgotPasswordMutation = useMutation({
 const loading = computed(
   () => registerMutation.isPending.value || loginMutation.isPending.value || forgotPasswordMutation.isPending.value
 );
-
-const authKicker = computed(() => {
-  if (isRegister.value) {
-    return "Create account";
-  }
-  if (isForgot.value) {
-    return "Recover access";
-  }
-  return "Welcome back";
-});
 
 const authTitle = computed(() => {
   if (isRegister.value) {
@@ -373,80 +359,48 @@ onMounted(() => {
 
 <style scoped>
 .login-main {
-  background:
-    radial-gradient(circle at 12% 10%, rgba(0, 104, 74, 0.24), transparent 45%),
-    radial-gradient(circle at 92% 92%, rgba(220, 156, 34, 0.2), transparent 40%),
-    linear-gradient(160deg, #eef2ea 0%, #f8faf7 100%);
-}
-
-.auth-shell {
-  width: min(980px, 100%);
-}
-
-.auth-layout {
-  overflow: hidden;
-  border-radius: 24px;
-}
-
-.brand-panel {
-  height: 100%;
-  padding: 48px 40px;
-  color: #f7fdf8;
-  background:
-    radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.15), transparent 40%),
-    linear-gradient(145deg, #0b4f3b, #1f6b50);
-}
-
-.eyebrow {
-  margin: 0 0 14px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  opacity: 0.86;
-}
-
-.brand-title {
-  margin: 0 0 14px;
-  font-size: clamp(28px, 4vw, 40px);
-  line-height: 1.1;
-}
-
-.brand-copy {
-  margin: 0 0 18px;
-  font-size: 16px;
-  line-height: 1.5;
-  opacity: 0.92;
-}
-
-.brand-points {
-  margin: 0;
-  padding-left: 18px;
-  line-height: 1.65;
+  background-color: rgb(var(--v-theme-background));
+  background-image: radial-gradient(circle at 15% 12%, rgba(0, 107, 83, 0.12), transparent 32%);
 }
 
 .auth-card {
-  height: 100%;
+  width: min(520px, 100%);
 }
 
 .auth-content {
-  padding: 40px;
+  padding: 28px;
+}
+
+.auth-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .auth-kicker {
-  margin: 0;
+  margin: 0 0 8px;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: #355347;
+  color: #395447;
 }
 
 .auth-title {
-  margin: 6px 0 8px;
-  font-size: 30px;
+  margin: 0 0 8px;
+  font-size: clamp(28px, 3vw, 32px);
   line-height: 1.2;
   color: #1d2c24;
+}
+
+.mode-switch {
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 12px;
+  background-color: rgba(57, 84, 71, 0.08);
 }
 
 .aux-links {
@@ -463,12 +417,8 @@ onMounted(() => {
 }
 
 @media (max-width: 959px) {
-  .brand-panel {
-    padding: 28px 24px;
-  }
-
   .auth-content {
-    padding: 28px 24px;
+    padding: 24px 20px;
   }
 
   .auth-title {

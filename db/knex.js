@@ -27,7 +27,7 @@ function resolveKnexConfig(nodeEnv, environments) {
   };
 }
 
-const { runtimeEnv: NODE_ENV, config: knexConfig } = resolveKnexConfig(env.NODE_ENV, knexEnvironments);
+const { config: knexConfig } = resolveKnexConfig(env.NODE_ENV, knexEnvironments);
 
 export const db = knex(knexConfig);
 

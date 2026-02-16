@@ -4,6 +4,47 @@ import Fastify from "fastify";
 import { registerApiRoutes } from "../routes/apiRoutes.js";
 
 function buildStubControllers({ onHistoryList } = {}) {
+  function buildSettingsPayload() {
+    return {
+      profile: {
+        displayName: "demo-user",
+        email: "demo@example.com",
+        emailManagedBy: "supabase",
+        emailChangeFlow: "supabase"
+      },
+      security: {
+        mfa: {
+          status: "not_enabled",
+          enrolled: false,
+          methods: []
+        },
+        sessions: {
+          canSignOutOtherDevices: true
+        },
+        password: {
+          canChange: true
+        }
+      },
+      preferences: {
+        theme: "system",
+        locale: "en-US",
+        timeZone: "UTC",
+        dateFormat: "system",
+        numberFormat: "system",
+        currencyCode: "USD",
+        defaultMode: "fv",
+        defaultTiming: "ordinary",
+        defaultPaymentsPerYear: 12,
+        defaultHistoryPageSize: 10
+      },
+      notifications: {
+        productUpdates: true,
+        accountActivity: true,
+        securityAlerts: true
+      }
+    };
+  }
+
   return {
     auth: {
       async register(_request, reply) {
@@ -26,6 +67,26 @@ function buildStubControllers({ onHistoryList } = {}) {
       },
       async session(_request, reply) {
         reply.code(200).send({ authenticated: true, username: "demo-user", csrfToken: "test-csrf-token" });
+      }
+    },
+    settings: {
+      async get(_request, reply) {
+        reply.code(200).send(buildSettingsPayload());
+      },
+      async updateProfile(_request, reply) {
+        reply.code(200).send(buildSettingsPayload());
+      },
+      async updatePreferences(_request, reply) {
+        reply.code(200).send(buildSettingsPayload());
+      },
+      async updateNotifications(_request, reply) {
+        reply.code(200).send(buildSettingsPayload());
+      },
+      async changePassword(_request, reply) {
+        reply.code(200).send({ ok: true, message: "ok" });
+      },
+      async logoutOtherSessions(_request, reply) {
+        reply.code(200).send({ ok: true, message: "ok" });
       }
     },
     history: {

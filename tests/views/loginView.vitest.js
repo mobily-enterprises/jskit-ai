@@ -51,7 +51,8 @@ function mountView() {
         "v-form": true,
         "v-text-field": true,
         "v-btn": true,
-        "v-alert": true
+        "v-alert": true,
+        "v-chip": true
       }
     }
   });
