@@ -31,7 +31,7 @@ vi.mock("../../src/composables/useAuthGuard.js", () => ({
   })
 }));
 
-import { useAnnuityCalculatorForm } from "../../src/composables/useAnnuityCalculatorForm.js";
+import { useAnnuityCalculatorForm } from "../../src/components/annuity-calculator-form/useAnnuityCalculatorForm.js";
 
 const TestHarness = defineComponent({
   name: "UseAnnuityFormHarness",

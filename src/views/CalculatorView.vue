@@ -27,7 +27,7 @@
 <script setup>
 import { useAnnuityHistory } from "../composables/useAnnuityHistory";
 import { formatCurrency, formatDate, inputSummary, typeLabel } from "../features/annuity/presentation";
-import AnnuityCalculatorForm from "../components/AnnuityCalculatorForm.vue";
+import AnnuityCalculatorForm from "../components/annuity-calculator-form/AnnuityCalculatorForm.vue";
 import AnnuityHistoryPanel from "../components/AnnuityHistoryPanel.vue";
 
 const history = useAnnuityHistory();

@@ -173,7 +173,7 @@
 </template>
 
 <script setup>
-import { useAnnuityCalculatorForm } from "../composables/useAnnuityCalculatorForm";
+import { useAnnuityCalculatorForm } from "./useAnnuityCalculatorForm";
 
 const emit = defineEmits(["calculated"]);
 
