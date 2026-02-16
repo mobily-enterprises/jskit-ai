@@ -138,22 +138,8 @@
                       <div class="text-caption text-medium-emphasis">Preview size: {{ preferencesForm.avatarSize }} px</div>
                     </v-col>
                     <v-col cols="12" md="8">
-                      <v-select
-                        v-model.number="avatarUploadDimension"
-                        label="Upload resolution"
-                        :items="avatarUploadDimensionOptions"
-                        variant="outlined"
-                        density="comfortable"
-                        hint="Higher values preserve detail; 256 is a good default."
-                        persistent-hint
-                        class="mb-3"
-                      />
-
                       <div class="d-flex flex-wrap ga-2 mb-2">
-                        <v-btn variant="tonal" color="secondary" @click="openAvatarEditor">Choose / edit avatar</v-btn>
-                        <v-btn color="primary" :loading="avatarUploadMutation.isPending.value" @click="submitAvatarUpload">
-                          Upload avatar
-                        </v-btn>
+                        <v-btn variant="tonal" color="secondary" @click="openAvatarEditor">Replace avatar</v-btn>
                         <v-btn
                           v-if="profileAvatar.hasUploadedAvatar"
                           variant="text"
@@ -416,6 +402,7 @@ import Uppy from "@uppy/core";
 import Dashboard from "@uppy/dashboard";
 import ImageEditor from "@uppy/image-editor";
 import Compressor from "@uppy/compressor";
+import XHRUpload from "@uppy/xhr-upload";
 import "@uppy/core/css/style.min.css";
 import "@uppy/dashboard/css/style.min.css";
 import "@uppy/image-editor/css/style.min.css";
@@ -425,10 +412,8 @@ import { useAuthGuard } from "../composables/useAuthGuard";
 import {
   AVATAR_ALLOWED_MIME_TYPES,
   AVATAR_DEFAULT_SIZE,
-  AVATAR_DEFAULT_UPLOAD_DIMENSION,
   AVATAR_MAX_UPLOAD_BYTES,
-  AVATAR_SIZE_OPTIONS,
-  AVATAR_UPLOAD_DIMENSION_OPTIONS
+  AVATAR_SIZE_OPTIONS
 } from "../../shared/avatar/index.js";
 
 const SETTINGS_QUERY_KEY = ["settings"];
@@ -479,10 +464,6 @@ const timeZoneOptions = [
 ];
 const historyPageSizeOptions = [10, 25, 50, 100];
 const avatarSizeOptions = [...AVATAR_SIZE_OPTIONS];
-const avatarUploadDimensionOptions = AVATAR_UPLOAD_DIMENSION_OPTIONS.map((value) => ({
-  title: `${value} px`,
-  value
-}));
 
 function createDefaultAvatar() {
   return {
@@ -514,7 +495,6 @@ const profileForm = reactive({
   email: ""
 });
 const profileAvatar = reactive(createDefaultAvatar());
-const avatarUploadDimension = ref(AVATAR_DEFAULT_UPLOAD_DIMENSION);
 const selectedAvatarFileName = ref("");
 const avatarUppy = shallowRef(null);
 
@@ -695,7 +675,13 @@ function setupAvatarUploader() {
     closeAfterFinish: false,
     showProgressDetails: true,
     proudlyDisplayPoweredByUppy: false,
-    hideUploadButton: true,
+    hideUploadButton: false,
+    doneButtonHandler: () => {
+      const dashboard = uppy.getPlugin("Dashboard");
+      if (dashboard && typeof dashboard.closeModal === "function") {
+        dashboard.closeModal();
+      }
+    },
     note: `Accepted: ${AVATAR_ALLOWED_MIME_TYPES.join(", ")}, max ${Math.floor(AVATAR_MAX_UPLOAD_BYTES / (1024 * 1024))}MB`
   });
   uppy.use(ImageEditor, {
@@ -704,6 +690,32 @@ function setupAvatarUploader() {
   uppy.use(Compressor, {
     quality: 0.84,
     limit: 1
+  });
+  uppy.use(XHRUpload, {
+    endpoint: "/api/settings/profile/avatar",
+    method: "POST",
+    formData: true,
+    fieldName: "avatar",
+    withCredentials: true,
+    onBeforeRequest: async (xhr) => {
+      const session = await api.session();
+      const csrfToken = String(session?.csrfToken || "");
+      if (!csrfToken) {
+        throw new Error("Unable to prepare secure avatar upload request.");
+      }
+      xhr.setRequestHeader("csrf-token", csrfToken);
+    },
+    getResponseData: (xhr) => {
+      if (!xhr.responseText) {
+        return {};
+      }
+
+      try {
+        return JSON.parse(xhr.responseText);
+      } catch {
+        return {};
+      }
+    }
   });
 
   uppy.on("file-added", (file) => {
@@ -731,9 +743,67 @@ function setupAvatarUploader() {
       imageEditor.stop();
     }
   });
+  uppy.on("upload-success", (_file, response) => {
+    const data = response?.body;
+    if (!data || typeof data !== "object") {
+      avatarMessageType.value = "error";
+      avatarMessage.value = "Avatar uploaded, but the response payload was invalid.";
+      return;
+    }
+
+    queryClient.setQueryData(SETTINGS_QUERY_KEY, data);
+    applySettingsData(data);
+
+    const dashboard = uppy.getPlugin("Dashboard");
+    if (dashboard && typeof dashboard.closeModal === "function") {
+      dashboard.closeModal();
+    }
+
+    avatarMessageType.value = "success";
+    avatarMessage.value = "Avatar uploaded.";
+    selectedAvatarFileName.value = "";
+  });
+  uppy.on("upload-error", (_file, error, response) => {
+    const status = Number(response?.status || 0);
+    const body = response?.body && typeof response.body === "object" ? response.body : {};
+    const fieldErrors =
+      body?.fieldErrors && typeof body.fieldErrors === "object"
+        ? body.fieldErrors
+        : body?.details?.fieldErrors && typeof body.details.fieldErrors === "object"
+          ? body.details.fieldErrors
+          : {};
+
+    if (status === 401) {
+      void handleAuthError({
+        status,
+        message: String(body?.error || error?.message || "Authentication required.")
+      });
+      return;
+    }
+
+    avatarMessageType.value = "error";
+    avatarMessage.value = String(
+      fieldErrors.avatar ||
+        body?.error ||
+        error?.message ||
+        "Unable to upload avatar."
+    );
+  });
   uppy.on("restriction-failed", (_file, error) => {
     avatarMessageType.value = "error";
     avatarMessage.value = String(error?.message || "Selected avatar file does not meet upload restrictions.");
+  });
+  uppy.on("complete", (result) => {
+    const successfulCount = Array.isArray(result?.successful) ? result.successful.length : 0;
+    if (successfulCount <= 0) {
+      return;
+    }
+
+    try {
+      uppy.clear();
+    } catch {
+      // Ignore non-critical clear timing issues; upload already succeeded.
+    }
   });
 
   avatarUppy.value = markRaw(uppy);
@@ -905,7 +975,6 @@ async function submitAvatarUpload() {
 
   const formData = new FormData();
   formData.append("avatar", selected.data, selected.name || "avatar");
-  formData.append("uploadDimension", String(avatarUploadDimension.value));
 
   try {
     const data = await avatarUploadMutation.mutateAsync(formData);
