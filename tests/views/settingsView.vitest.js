@@ -174,6 +174,39 @@ describe("SettingsView", () => {
     expect(wrapper.vm.mfaLabel).toContain("not enabled");
   });
 
+  it("handles invalid tab fallback and helper error branches", async () => {
+    mocks.routerSearch = { tab: "not-a-tab" };
+    mocks.queryData.value = null;
+    mocks.queryError.value = {
+      status: 500,
+      message: "Load failed."
+    };
+
+    const wrapper = mountView();
+    await nextTick();
+
+    expect(wrapper.vm.activeTab).toBe("preferences");
+    expect(wrapper.vm.resolveTabFromSearch({ tab: "security" }).toLowerCase()).toBe("security");
+    expect(wrapper.vm.resolveTabFromSearch({ tab: "invalid-tab" })).toBe("preferences");
+
+    expect(
+      wrapper.vm.toErrorMessage(
+        {
+          fieldErrors: {
+            locale: "Locale is invalid.",
+            timeZone: "Time zone is invalid."
+          }
+        },
+        "fallback"
+      )
+    ).toContain("Locale is invalid.");
+
+    expect(wrapper.vm.handleAuthError({ status: 500, message: "No auth" })).toBe(false);
+    expect(wrapper.vm.handleAuthError({ status: 401, message: "Auth required" })).toBe(true);
+    expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
+    expect(mocks.navigate).toHaveBeenCalledWith({ to: "/login", replace: true });
+  });
+
   it("submits profile updates and updates username", async () => {
     const payload = buildSettingsPayload({
       profile: {
@@ -212,6 +245,33 @@ describe("SettingsView", () => {
     expect(wrapper.vm.preferencesMessageType).toBe("error");
   });
 
+  it("submits preferences successfully and applies theme preference", async () => {
+    const payload = buildSettingsPayload({
+      preferences: {
+        theme: "dark",
+        locale: "en-GB",
+        timeZone: "Europe/London",
+        dateFormat: "dmy",
+        numberFormat: "dot-comma",
+        currencyCode: "EUR",
+        defaultMode: "pv",
+        defaultTiming: "due",
+        defaultPaymentsPerYear: 4,
+        defaultHistoryPageSize: 25
+      }
+    });
+    mocks.api.updatePreferencesSettings.mockResolvedValue(payload);
+
+    const wrapper = mountView();
+    await wrapper.vm.submitPreferences();
+
+    expect(mocks.api.updatePreferencesSettings).toHaveBeenCalledTimes(1);
+    expect(mocks.setQueryData).toHaveBeenCalledTimes(1);
+    expect(wrapper.vm.preferencesMessageType).toBe("success");
+    expect(mocks.themeName.value).toBe("dark");
+    expect(wrapper.vm.preferencesForm.defaultHistoryPageSize).toBe(25);
+  });
+
   it("submits password change and clears password fields", async () => {
     mocks.api.changePassword.mockResolvedValue({ ok: true, message: "Password changed." });
 
@@ -231,6 +291,29 @@ describe("SettingsView", () => {
     expect(wrapper.vm.securityMessageType).toBe("success");
   });
 
+  it("handles password and notifications non-auth error branches", async () => {
+    const wrapper = mountView();
+
+    mocks.api.changePassword.mockRejectedValue({
+      status: 400,
+      message: "Validation failed.",
+      fieldErrors: {
+        newPassword: "Password too weak."
+      }
+    });
+    await wrapper.vm.submitPasswordChange();
+    expect(wrapper.vm.securityFieldErrors.newPassword).toContain("weak");
+    expect(wrapper.vm.securityMessageType).toBe("error");
+
+    mocks.api.updateNotificationSettings.mockRejectedValue({
+      status: 500,
+      message: "Notification save failed."
+    });
+    await wrapper.vm.submitNotifications();
+    expect(wrapper.vm.notificationsMessageType).toBe("error");
+    expect(wrapper.vm.notificationsMessage).toContain("Notification save failed");
+  });
+
   it("submits sign-out-others and handles auth failures", async () => {
     mocks.api.logoutOtherSessions.mockResolvedValue({
       ok: true,
@@ -247,5 +330,27 @@ describe("SettingsView", () => {
 
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
     expect(mocks.navigate).toHaveBeenCalledWith({ to: "/login", replace: true });
+  });
+
+  it("covers system theme resolution and logout-others generic error", async () => {
+    const matchMediaMock = vi.fn().mockReturnValue({ matches: true });
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = matchMediaMock;
+
+    try {
+      const wrapper = mountView();
+      wrapper.vm.applyThemePreference("system");
+      expect(mocks.themeName.value).toBe("dark");
+
+      mocks.api.logoutOtherSessions.mockRejectedValue({
+        status: 500,
+        message: "Unable to revoke sessions."
+      });
+      await wrapper.vm.submitLogoutOthers();
+      expect(wrapper.vm.sessionsMessageType).toBe("error");
+      expect(wrapper.vm.sessionsMessage).toContain("Unable to revoke sessions");
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
   });
 });

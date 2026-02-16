@@ -655,6 +655,7 @@ function createUserSettingsDbStub({ row, insertErrorOnce = null } = {}) {
 test("user settings repository helpers and CRUD branches", async () => {
   assert.equal(settingsTestables.isMysqlDuplicateEntryError(null), false);
   assert.equal(settingsTestables.isMysqlDuplicateEntryError({ code: "ER_DUP_ENTRY" }), true);
+  assert.equal(settingsTestables.isMysqlDuplicateEntryError({ code: "ER_PARSE_ERROR" }), false);
   assert.equal(settingsTestables.mapUserSettingsRowNullable(null), null);
   assert.throws(() => settingsTestables.mapUserSettingsRowRequired(null), /expected a row object/);
 
@@ -727,6 +728,33 @@ test("user settings repository helpers and CRUD branches", async () => {
   const unchangedNotifications = await repo.updateNotifications(10, {});
   assert.equal(unchangedNotifications.securityAlerts, true);
   assert.equal(state.updates.length, 2);
+
+  const successInsertRepo = settingsTestables.createUserSettingsRepository(createUserSettingsDbStub().dbClient);
+  const successInserted = await successInsertRepo.ensureForUserId(77);
+  assert.equal(successInserted.userId, 77);
+
+  const insertFailure = new Error("insert failed");
+  const failingRepo = settingsTestables.createUserSettingsRepository(
+    createUserSettingsDbStub({
+      insertErrorOnce: insertFailure
+    }).dbClient
+  );
+  await assert.rejects(() => failingRepo.ensureForUserId(99), /insert failed/);
+
+  const syncThrowDb = () => ({
+    where() {
+      return this;
+    },
+    async first() {
+      return undefined;
+    },
+    insert() {
+      throw new Error("sync insert failure");
+    },
+    async update() {}
+  });
+  const syncThrowRepo = settingsTestables.createUserSettingsRepository(syncThrowDb);
+  await assert.rejects(() => syncThrowRepo.ensureForUserId(55), /sync insert failure/);
 });
 
 test("user profiles repository updateDisplayNameById maps updated row", async () => {

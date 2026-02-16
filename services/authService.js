@@ -454,7 +454,7 @@ function createAuthService(options) {
     }
 
     const session = sessionResponse.data?.session || null;
-    const user = sessionResponse.data?.user || session?.user || null;
+    const user = sessionResponse.data?.user || null;
 
     if (sessionResponse.error || !session || !user) {
       throw mapRecoveryError(sessionResponse.error);
@@ -767,7 +767,7 @@ function createAuthService(options) {
 
     return {
       profile,
-      session: updateResponse.data.session || sessionResponse.data.session || null
+      session: sessionResponse.data.session
     };
   }
 
@@ -816,7 +816,7 @@ function createAuthService(options) {
 
     return {
       profile,
-      session: updateResponse.data.session || sessionResponse.data.session || null
+      session: sessionResponse.data.session
     };
   }
 
@@ -824,15 +824,9 @@ function createAuthService(options) {
     ensureConfigured();
     const supabase = getSupabaseClient();
     await setSessionFromRequestCookies(request);
-
-    let response;
-    try {
-      response = await supabase.auth.signOut({
-        scope: "others"
-      });
-    } catch (error) {
-      throw mapAuthError(error, 500);
-    }
+    const response = await supabase.auth.signOut({
+      scope: "others"
+    });
 
     if (response.error) {
       throw mapAuthError(response.error, Number(response.error?.status || 400));

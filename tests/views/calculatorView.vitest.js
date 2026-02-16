@@ -167,4 +167,115 @@ describe("CalculatorView", () => {
     wrapper.vm.goToPreviousPage();
     expect(wrapper.vm.historyPage).toBe(1);
   });
+
+  it("blocks perpetual non-PV mode and surfaces validation field errors", async () => {
+    const wrapper = mountView();
+
+    wrapper.vm.form.isPerpetual = true;
+    wrapper.vm.form.mode = "fv";
+    await wrapper.vm.calculate();
+    expect(wrapper.vm.calcError).toContain("Perpetual calculations are only supported");
+    expect(mocks.api.calculate).not.toHaveBeenCalled();
+
+    wrapper.vm.form.mode = "pv";
+    mocks.api.calculate.mockRejectedValue({
+      status: 400,
+      message: "Validation failed.",
+      fieldErrors: {
+        years: "Years must be greater than zero.",
+        paymentsPerYear: "Payments/year must be integer."
+      }
+    });
+    await wrapper.vm.calculate();
+    expect(wrapper.vm.calcError).toContain("Years must be greater than zero.");
+    expect(wrapper.vm.calcError).toContain("Payments/year must be integer.");
+  });
+
+  it("handles unauthorized and generic calculation failures", async () => {
+    const wrapper = mountView();
+
+    mocks.api.calculate.mockRejectedValueOnce({
+      status: 401,
+      message: "Authentication required."
+    });
+    await wrapper.vm.calculate();
+    expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
+    expect(mocks.navigate).toHaveBeenCalledWith({ to: "/login", replace: true });
+
+    mocks.api.calculate.mockRejectedValueOnce({
+      status: 500,
+      message: "Server unavailable."
+    });
+    await wrapper.vm.calculate();
+    expect(wrapper.vm.calcError).toBe("Server unavailable.");
+  });
+
+  it("covers format and summary helper branches", () => {
+    const wrapper = mountView();
+
+    expect(wrapper.vm.formatDate("not-a-date")).toBe("Unknown");
+    expect(
+      wrapper.vm.typeLabel({
+        mode: "pv",
+        timing: "due",
+        isPerpetual: true,
+        annualGrowthRate: "0"
+      })
+    ).toContain("Perpetual");
+    expect(
+      wrapper.vm.typeLabel({
+        mode: "fv",
+        timing: "ordinary",
+        isPerpetual: false,
+        annualGrowthRate: "0.5"
+      })
+    ).toContain("growth");
+    expect(
+      wrapper.vm.inputSummary({
+        isPerpetual: false,
+        years: "20",
+        payment: "500",
+        annualRate: "6",
+        paymentsPerYear: 12
+      })
+    ).toContain("20 years");
+
+    expect(wrapper.vm.resultSummary).toBe("");
+    expect(wrapper.vm.resultWarnings).toEqual([]);
+    wrapper.vm.result = buildAnnuityResponse({
+      isPerpetual: true,
+      warnings: ["Large value"]
+    });
+    expect(wrapper.vm.resultSummary).toContain("perpetual horizon");
+    expect(wrapper.vm.resultWarnings).toEqual(["Large value"]);
+  });
+
+  it("covers history watcher non-auth branch and paging guards", async () => {
+    const wrapper = mountView();
+    expect(wrapper.vm.historyEnabled).toBe(true);
+
+    mocks.historyError.value = {
+      status: 500,
+      message: "History unavailable."
+    };
+    await nextTick();
+    expect(wrapper.vm.historyError).toBe("History unavailable.");
+
+    mocks.historyError.value = null;
+    await nextTick();
+    expect(wrapper.vm.historyError).toBe("");
+
+    wrapper.vm.historyPage = 1;
+    mocks.historyPending.value = true;
+    wrapper.vm.goToPreviousPage();
+    wrapper.vm.goToNextPage();
+    expect(wrapper.vm.historyPage).toBe(1);
+
+    mocks.historyPending.value = false;
+    mocks.historyData.value.totalPages = 2;
+    wrapper.vm.goToNextPage();
+    expect(wrapper.vm.historyPage).toBe(2);
+    wrapper.vm.onPageSizeChange();
+    expect(wrapper.vm.historyPage).toBe(1);
+  });
 });

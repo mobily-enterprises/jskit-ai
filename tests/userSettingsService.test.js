@@ -32,9 +32,14 @@ test("user settings service helper validators cover success and failure branches
   assert.equal(__testables.isValidTimeZone("Mars/Phobos"), false);
   assert.equal(__testables.isValidCurrencyCode("USD"), true);
   assert.equal(__testables.isValidCurrencyCode("US"), false);
+  assert.equal(__testables.isValidCurrencyCode(""), false);
 
   const profileInvalid = __testables.parseProfileInput({ displayName: "" });
   assert.equal(profileInvalid.fieldErrors.displayName, "Display name is required.");
+  const profileNull = __testables.parseProfileInput({ displayName: null });
+  assert.equal(profileNull.fieldErrors.displayName, "Display name is required.");
+  const profileTooLong = __testables.parseProfileInput({ displayName: "x".repeat(121) });
+  assert.equal(profileTooLong.fieldErrors.displayName, "Display name must be at most 120 characters.");
 
   const profileValid = __testables.parseProfileInput({ displayName: " Jane " });
   assert.equal(profileValid.displayName, "Jane");
@@ -67,11 +72,39 @@ test("user settings service helper validators cover success and failure branches
   });
   assert.equal(preferencesValid.patch.defaultMode, "pv");
 
+  const preferencesInvalidLocale = __testables.parsePreferencesInput({ locale: "bad-@@" });
+  assert.equal(preferencesInvalidLocale.fieldErrors.locale, "Locale must be a valid BCP 47 locale tag.");
+
+  const preferencesMissingTimeZone = __testables.parsePreferencesInput({ timeZone: "" });
+  assert.equal(preferencesMissingTimeZone.fieldErrors.timeZone, "Time zone is required.");
+
+  const preferencesUnsupportedCurrency = __testables.parsePreferencesInput({ currencyCode: "ZZZ" });
+  assert.equal(preferencesUnsupportedCurrency.fieldErrors.currencyCode, "Currency code is not supported.");
+
+  const originalSupportedValuesOf = Intl.supportedValuesOf;
+  try {
+    Intl.supportedValuesOf = undefined;
+    assert.equal(__testables.isValidCurrencyCode("USD"), true);
+    assert.equal(__testables.isValidCurrencyCode("1AA"), false);
+  } finally {
+    Intl.supportedValuesOf = originalSupportedValuesOf;
+  }
+
   const notificationsInvalid = __testables.parseNotificationsInput({ securityAlerts: false });
   assert.equal(notificationsInvalid.fieldErrors.securityAlerts, "Security alerts must stay enabled.");
 
+  const notificationsInvalidBooleanTypes = __testables.parseNotificationsInput({
+    productUpdates: "yes",
+    accountActivity: 1
+  });
+  assert.equal(notificationsInvalidBooleanTypes.fieldErrors.productUpdates, "Product updates setting must be boolean.");
+  assert.equal(notificationsInvalidBooleanTypes.fieldErrors.accountActivity, "Account activity setting must be boolean.");
+
   const notificationsValid = __testables.parseNotificationsInput({ productUpdates: false, accountActivity: true });
   assert.equal(notificationsValid.patch.productUpdates, false);
+
+  const notificationsEmpty = __testables.parseNotificationsInput({});
+  assert.equal(notificationsEmpty.fieldErrors.notifications, "At least one notification setting is required.");
 
   const passwordInvalid = __testables.parseChangePasswordInput({
     currentPassword: "",
@@ -96,9 +129,16 @@ test("user settings service helper validators cover success and failure branches
   });
   assert.equal(passwordValid.fieldErrors.newPassword, undefined);
 
+  const passwordDefaults = __testables.parseChangePasswordInput();
+  assert.equal(passwordDefaults.currentPassword, "");
+  assert.equal(passwordDefaults.newPassword, "");
+  assert.equal(passwordDefaults.confirmPassword, "");
+
   const security = __testables.normalizeSecurityStatus(null);
   assert.equal(security.mfa.status, "not_enabled");
   assert.deepEqual(security.mfa.methods, []);
+  const securityMissingMfa = __testables.normalizeSecurityStatus({});
+  assert.equal(securityMissingMfa.mfa.status, "not_enabled");
 
   const response = __testables.buildSettingsResponse(
     { displayName: "user", email: "user@example.com" },
@@ -236,6 +276,69 @@ test("user settings service orchestrates repositories and auth service", async (
   assert.equal(logoutOthers.ok, true);
 
   assert.ok(calls.length >= 10);
+});
+
+test("user settings service falls back when auth service omits profile/session", async () => {
+  const service = createUserSettingsService({
+    userSettingsRepository: {
+      async ensureForUserId(userId) {
+        return buildSettings({ userId });
+      },
+      async updatePreferences() {
+        return buildSettings();
+      },
+      async updateNotifications() {
+        return buildSettings();
+      }
+    },
+    userProfilesRepository: {
+      async updateDisplayNameById(userId, displayName) {
+        return {
+          id: userId,
+          supabaseUserId: "supabase-fallback",
+          email: "fallback@example.com",
+          displayName,
+          createdAt: "2024-01-01T00:00:00.000Z"
+        };
+      }
+    },
+    authService: {
+      async getSecurityStatus() {
+        return {};
+      },
+      async updateDisplayName() {
+        return {
+          profile: null,
+          session: null
+        };
+      },
+      async changePassword() {
+        return {};
+      },
+      async signOutOtherSessions() {}
+    }
+  });
+
+  const user = {
+    id: 7,
+    supabaseUserId: "supabase-7",
+    email: "user@example.com",
+    displayName: "user"
+  };
+
+  const profileUpdated = await service.updateProfile({ marker: "fallback-profile" }, user, { displayName: "fallback-name" });
+  assert.equal(profileUpdated.settings.profile.displayName, "fallback-name");
+  assert.equal(profileUpdated.session, null);
+
+  const changedPassword = await service.changePassword(
+    { marker: "fallback-password" },
+    {
+      currentPassword: "old-password",
+      newPassword: "new-password-123",
+      confirmPassword: "new-password-123"
+    }
+  );
+  assert.equal(changedPassword.session, null);
 });
 
 test("user settings service throws validation errors for invalid payloads", async () => {

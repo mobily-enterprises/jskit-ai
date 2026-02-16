@@ -46,10 +46,19 @@ function isValidTimeZone(value) {
 }
 
 function isValidCurrencyCode(value) {
+  const normalized = normalizeText(value).toUpperCase();
+  if (!normalized) {
+    return false;
+  }
+
+  if (typeof Intl.supportedValuesOf === "function") {
+    return Intl.supportedValuesOf("currency").includes(normalized);
+  }
+
   try {
     new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: value
+      currency: normalized
     });
     return true;
   } catch {

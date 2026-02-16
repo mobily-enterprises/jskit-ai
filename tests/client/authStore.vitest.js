@@ -139,4 +139,14 @@ describe("authStore", () => {
     expect(store.initialized).toBe(true);
     expect(mocks.setQueryData).toHaveBeenCalledWith(SESSION_QUERY_KEY, { authenticated: false });
   });
+
+  it("setUsername normalizes nullable values", () => {
+    const store = useAuthStore();
+
+    store.setUsername("alice");
+    expect(store.username).toBe("alice");
+
+    store.setUsername(0);
+    expect(store.username).toBeNull();
+  });
 });

@@ -65,6 +65,16 @@ function createAuthServiceForTest(options = {}) {
   });
 }
 
+function createSessionCookies({ sub = "supabase-user-1", email = "user@example.com" } = {}) {
+  return {
+    sb_access_token: createUnsignedJwt({
+      sub,
+      email
+    }),
+    sb_refresh_token: "rt"
+  };
+}
+
 function jsonResponse(status, payload) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -212,6 +222,7 @@ test("authService helpers cover validation, mapping, URL parsing, and jwt classi
   assert.equal(__testables.mapProfileUpdateError({ status: 400 }).status, 400);
   assert.equal(__testables.mapCurrentPasswordError({ status: 401 }).status, 400);
   assert.equal(__testables.mapCurrentPasswordError({ status: 503 }).status, 503);
+  assert.equal(__testables.mapCurrentPasswordError({ status: 418 }).details.fieldErrors.currentPassword, "Unable to verify current password.");
 
   assert.throws(() => __testables.parseHttpUrl("not-a-url", "APP_PUBLIC_URL"), /valid absolute URL/);
   assert.throws(() => __testables.parseHttpUrl("ftp://localhost", "APP_PUBLIC_URL"), /must start with http/);
@@ -1468,5 +1479,660 @@ test("authService maps profile/password/session-management errors", async () => 
     );
   } finally {
     fetchMock.mock.restore();
+  }
+});
+
+test("authService updateDisplayName covers validation, session, and update error branches", async () => {
+  const service = createAuthServiceForTest({
+    userProfilesRepository: createProfilesRepository()
+  });
+
+  await assert.rejects(() => service.updateDisplayName({ cookies: {} }, " "), (error) => {
+    assert.equal(error.status, 400);
+    assert.equal(error.details.fieldErrors.displayName, "Display name is required.");
+    return true;
+  });
+  await assert.rejects(() => service.updateDisplayName({ cookies: {} }, undefined), (error) => {
+    assert.equal(error.status, 400);
+    assert.equal(error.details.fieldErrors.displayName, "Display name is required.");
+    return true;
+  });
+
+  const setSessionThrowFetch = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt(),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com",
+          user_metadata: {
+            display_name: "seed-user"
+          }
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, null);
+    }
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+  try {
+    await assert.rejects(
+      () => service.updateDisplayName({ cookies: createSessionCookies() }, "display-name"),
+      (error) => {
+        assert.equal(error.status, 401);
+        return true;
+      }
+    );
+  } finally {
+    setSessionThrowFetch.mock.restore();
+  }
+
+  const setSessionUserFetch = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt(),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com",
+          user_metadata: {
+            display_name: "seed-user"
+          }
+        }
+      });
+    }
+
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(500, {
+        message: "fetch user failed"
+      });
+    }
+
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+  try {
+    await assert.rejects(
+      () => service.updateDisplayName({ cookies: createSessionCookies() }, "display-name"),
+      (error) => {
+        assert.equal(error.status, 503);
+        return true;
+      }
+    );
+  } finally {
+    setSessionUserFetch.mock.restore();
+  }
+
+  const updateThrowFetch = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt(),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com",
+          user_metadata: {
+            display_name: "seed-user"
+          }
+        }
+      });
+    }
+
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-user-1",
+        email: "user@example.com",
+        user_metadata: {
+          display_name: "seed-user"
+        }
+      });
+    }
+
+    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
+      return jsonResponse(200, null);
+    }
+
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+  try {
+    await assert.rejects(
+      () => service.updateDisplayName({ cookies: createSessionCookies() }, "display-name"),
+      (error) => {
+        assert.equal(error.status, 400);
+        assert.equal(error.details.fieldErrors.displayName, "Unable to update profile details.");
+        return true;
+      }
+    );
+  } finally {
+    updateThrowFetch.mock.restore();
+  }
+
+  const updateErrorFetch = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt(),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com",
+          user_metadata: {
+            display_name: "seed-user"
+          }
+        }
+      });
+    }
+
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-user-1",
+        email: "user@example.com",
+        user_metadata: {
+          display_name: "seed-user"
+        }
+      });
+    }
+
+    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
+      return jsonResponse(400, {
+        message: "failed to update profile"
+      });
+    }
+
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+  try {
+    await assert.rejects(
+      () => service.updateDisplayName({ cookies: createSessionCookies() }, "display-name"),
+      (error) => {
+        assert.equal(error.status, 400);
+        assert.equal(error.details.fieldErrors.displayName, "Unable to update profile details.");
+        return true;
+      }
+    );
+  } finally {
+    updateErrorFetch.mock.restore();
+  }
+
+  const updateWithSessionFetch = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt(),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com",
+          user_metadata: {
+            display_name: "seed-user"
+          }
+        }
+      });
+    }
+
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-user-1",
+        email: "user@example.com",
+        user_metadata: {
+          display_name: "seed-user"
+        }
+      });
+    }
+
+    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
+      return jsonResponse(200, {
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com",
+          user_metadata: {
+            display_name: "updated-name"
+          }
+        },
+        session: {
+          access_token: "updated-access",
+          refresh_token: "updated-refresh",
+          expires_in: 3600,
+          token_type: "bearer"
+        }
+      });
+    }
+
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+  try {
+    const result = await service.updateDisplayName({ cookies: createSessionCookies() }, "updated-name");
+    assert.equal(result.profile.displayName, "updated-name");
+    assert.ok(result.session?.access_token);
+  } finally {
+    updateWithSessionFetch.mock.restore();
+  }
+});
+
+test("authService changePassword covers verification, update, and session fallback branches", async () => {
+  const service = createAuthServiceForTest({
+    userProfilesRepository: createProfilesRepository()
+  });
+
+  const missingEmailFetch = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt(),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-user-1",
+        user_metadata: {
+          display_name: "seed-user"
+        }
+      });
+    }
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+  try {
+    await assert.rejects(
+      () => service.changePassword({ cookies: createSessionCookies() }, undefined),
+      /Authenticated user email could not be resolved/
+    );
+  } finally {
+    missingEmailFetch.mock.restore();
+  }
+
+  const verifyThrowFetch = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt(),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-user-1",
+        email: "user@example.com",
+        user_metadata: {
+          display_name: "seed-user"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "password") {
+      return jsonResponse(200, null);
+    }
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+  try {
+    await assert.rejects(
+      () =>
+        service.changePassword(
+          { cookies: createSessionCookies() },
+          {
+            currentPassword: "old-password",
+            newPassword: "new-password-123"
+          }
+        ),
+      (error) => {
+        assert.equal(error.status, 400);
+        assert.equal(error.details.fieldErrors.currentPassword, "Unable to verify current password.");
+        return true;
+      }
+    );
+  } finally {
+    verifyThrowFetch.mock.restore();
+  }
+
+  const verifyErrorFetch = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt(),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-user-1",
+        email: "user@example.com",
+        user_metadata: {
+          display_name: "seed-user"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "password") {
+      return jsonResponse(401, {
+        message: "Invalid current password"
+      });
+    }
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+  try {
+    await assert.rejects(
+      () =>
+        service.changePassword(
+          { cookies: createSessionCookies() },
+          {
+            currentPassword: "old-password",
+            newPassword: "new-password-123"
+          }
+        ),
+      (error) => {
+        assert.equal(error.status, 400);
+        assert.equal(error.details.fieldErrors.currentPassword, "Current password is incorrect.");
+        return true;
+      }
+    );
+  } finally {
+    verifyErrorFetch.mock.restore();
+  }
+
+  const updateThrowFetch = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt(),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-user-1",
+        email: "user@example.com",
+        user_metadata: {
+          display_name: "seed-user"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "password") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt(),
+        refresh_token: "verify-refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
+      return jsonResponse(200, null);
+    }
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+  try {
+    await assert.rejects(
+      () =>
+        service.changePassword(
+          { cookies: createSessionCookies() },
+          {
+            currentPassword: "old-password",
+            newPassword: "new-password-123"
+          }
+        ),
+      (error) => {
+        assert.equal(error.status, 400);
+        assert.equal(error.details.fieldErrors.password, "Unable to update password with the provided value.");
+        return true;
+      }
+    );
+  } finally {
+    updateThrowFetch.mock.restore();
+  }
+
+  const updateErrorFetch = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt(),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-user-1",
+        email: "user@example.com",
+        user_metadata: {
+          display_name: "seed-user"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "password") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt(),
+        refresh_token: "verify-refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
+      return jsonResponse(400, {
+        message: "update failed"
+      });
+    }
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+  try {
+    await assert.rejects(
+      () =>
+        service.changePassword(
+          { cookies: createSessionCookies() },
+          {
+            currentPassword: "old-password",
+            newPassword: "new-password-123"
+          }
+        ),
+      (error) => {
+        assert.equal(error.status, 400);
+        assert.equal(error.details.fieldErrors.password, "Unable to update password with the provided value.");
+        return true;
+      }
+    );
+  } finally {
+    updateErrorFetch.mock.restore();
+  }
+
+  const updateSuccessFetch = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt(),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-user-1",
+        email: "user@example.com",
+        user_metadata: {
+          display_name: "seed-user"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "password") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt(),
+        refresh_token: "verify-refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
+      return jsonResponse(200, {
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com",
+          user_metadata: {
+            display_name: "updated-user"
+          }
+        },
+        session: {
+          access_token: "updated-password-access",
+          refresh_token: "updated-password-refresh",
+          expires_in: 3600,
+          token_type: "bearer"
+        }
+      });
+    }
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+  try {
+    const result = await service.changePassword(
+      { cookies: createSessionCookies() },
+      {
+        currentPassword: "old-password",
+        newPassword: "new-password-123"
+      }
+    );
+    assert.equal(result.profile.email, "user@example.com");
+    assert.ok(result.session?.access_token);
+  } finally {
+    updateSuccessFetch.mock.restore();
+  }
+});
+
+test("authService signOutOtherSessions covers thrown and response error branches", async () => {
+  const service = createAuthServiceForTest({
+    userProfilesRepository: createProfilesRepository()
+  });
+
+  const signOutThrowFetch = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt(),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-user-1",
+        email: "user@example.com",
+        user_metadata: {
+          display_name: "seed-user"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/logout") {
+      throw new Error("logout exploded");
+    }
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+  try {
+    await assert.rejects(
+      () => service.signOutOtherSessions({ cookies: createSessionCookies() }),
+      (error) => {
+        assert.equal(error.status, 400);
+        return true;
+      }
+    );
+  } finally {
+    signOutThrowFetch.mock.restore();
+  }
+
+  const signOutErrorFetch = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt(),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-user-1",
+        email: "user@example.com",
+        user_metadata: {
+          display_name: "seed-user"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/logout") {
+      return jsonResponse(500, {
+        message: "session invalid"
+      });
+    }
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+  try {
+    await assert.rejects(
+      () => service.signOutOtherSessions({ cookies: createSessionCookies() }),
+      (error) => {
+        assert.equal(error.status, 503);
+        return true;
+      }
+    );
+  } finally {
+    signOutErrorFetch.mock.restore();
   }
 });

@@ -81,6 +81,7 @@ describe("App shell", () => {
   beforeEach(() => {
     mocks.pathname = "/";
     mocks.isMobile = false;
+    mocks.authStore.username = "tony";
     mocks.navigate.mockReset();
     mocks.authStore.setSignedOut.mockReset();
     mocks.authStore.invalidateSession.mockReset();
@@ -100,6 +101,21 @@ describe("App shell", () => {
     const wrapper = mountApp();
     expect(wrapper.vm.showApplicationShell).toBe(true);
     expect(wrapper.vm.drawerModel).toBe(true);
+    expect(wrapper.vm.destinationTitle).toBe("Calculator");
+  });
+
+  it("computes destination titles and user initials", () => {
+    mocks.pathname = "/choice-2";
+    mocks.authStore.username = "alice";
+    const wrapper = mountApp();
+    expect(wrapper.vm.destinationTitle).toBe("Choice 2");
+    expect(wrapper.vm.userInitials).toBe("AL");
+
+    mocks.pathname = "/settings";
+    mocks.authStore.username = null;
+    const settingsWrapper = mountApp();
+    expect(settingsWrapper.vm.destinationTitle).toBe("Settings");
+    expect(settingsWrapper.vm.userInitials).toBe("A");
   });
 
   it("disables drawer by default on mobile", () => {
@@ -118,6 +134,43 @@ describe("App shell", () => {
 
     await wrapper.vm.signOut();
     expect(mocks.api.logout).toHaveBeenCalledTimes(1);
+    expect(mocks.api.clearCsrfTokenCache).toHaveBeenCalledTimes(1);
+    expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
+    expect(mocks.authStore.invalidateSession).toHaveBeenCalledTimes(1);
+    expect(mocks.navigate).toHaveBeenCalledWith({ to: "/login", replace: true });
+  });
+
+  it("handles drawer toggle and navigation across mobile/desktop branches", async () => {
+    mocks.pathname = "/";
+    mocks.isMobile = true;
+    const wrapper = mountApp();
+
+    expect(wrapper.vm.drawerModel).toBe(false);
+    wrapper.vm.toggleDrawer();
+    expect(wrapper.vm.drawerModel).toBe(true);
+
+    await wrapper.vm.goTo("/");
+    expect(mocks.navigate).not.toHaveBeenCalled();
+    expect(wrapper.vm.drawerModel).toBe(false);
+
+    wrapper.vm.drawerModel = true;
+    await wrapper.vm.goTo("/choice-2");
+    expect(mocks.navigate).toHaveBeenCalledWith({ to: "/choice-2" });
+    expect(wrapper.vm.drawerModel).toBe(false);
+    expect(wrapper.vm.isCurrentPath("/")).toBe(true);
+
+    await wrapper.vm.goToSettingsTab("profile");
+    expect(mocks.navigate).toHaveBeenCalledWith({
+      to: "/settings",
+      search: { tab: "profile" }
+    });
+  });
+
+  it("keeps cleanup guarantees even when logout fails", async () => {
+    mocks.api.logout.mockRejectedValue(new Error("logout failed"));
+    const wrapper = mountApp();
+
+    await expect(wrapper.vm.signOut()).rejects.toThrow("logout failed");
     expect(mocks.api.clearCsrfTokenCache).toHaveBeenCalledTimes(1);
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
     expect(mocks.authStore.invalidateSession).toHaveBeenCalledTimes(1);
