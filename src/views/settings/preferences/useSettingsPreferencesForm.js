@@ -4,6 +4,7 @@ import { api } from "../../../services/api";
 import { AVATAR_DEFAULT_SIZE } from "../../../../shared/avatar/index.js";
 import { SETTINGS_QUERY_KEY } from "../lib/useSettingsPageConfig";
 import { useSettingsContext } from "../lib/useSettingsContext";
+import { useSettingsPreferencesLogic } from "./lib/useSettingsPreferencesLogic";
 import {
   avatarSizeOptions,
   currencyOptions,
@@ -12,8 +13,7 @@ import {
   numberFormatOptions,
   themeOptions,
   timeZoneOptions
-} from "./settingsPreferencesOptions";
-import { useSettingsPreferencesLogic } from "./useSettingsPreferencesLogic";
+} from "./lib/settingsPreferencesOptions";
 
 export function useSettingsPreferencesForm(options) {
   if (!options) {

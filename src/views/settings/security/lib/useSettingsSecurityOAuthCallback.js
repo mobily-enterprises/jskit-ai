@@ -1,11 +1,11 @@
-import { api } from "../../../services/api";
+import { api } from "../../../../services/api";
 import {
   clearPendingOAuthContext,
   readOAuthCallbackStateFromLocation,
   readPendingOAuthContext,
   stripOAuthCallbackParamsFromLocation
-} from "../../../utils/oauthCallback.js";
-import { SETTINGS_QUERY_KEY, SETTINGS_SECTION_QUERY_KEY } from "../lib/useSettingsPageConfig";
+} from "../../../../utils/oauthCallback.js";
+import { SETTINGS_QUERY_KEY, SETTINGS_SECTION_QUERY_KEY } from "../../lib/useSettingsPageConfig";
 
 export function useSettingsSecurityOAuthCallback({
   authStore,

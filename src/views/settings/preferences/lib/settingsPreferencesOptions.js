@@ -1,4 +1,4 @@
-import { AVATAR_SIZE_OPTIONS } from "../../../../shared/avatar/index.js";
+import { AVATAR_SIZE_OPTIONS } from "../../../../../shared/avatar/index.js";
 
 export const themeOptions = [
   { title: "System", value: "system" },

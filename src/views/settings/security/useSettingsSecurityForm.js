@@ -7,9 +7,9 @@ import { useAuthGuard } from "../../../composables/useAuthGuard";
 import { SETTINGS_QUERY_KEY, SETTINGS_SECTION_QUERY_KEY } from "../lib/useSettingsPageConfig";
 import { useSettingsContext } from "../lib/useSettingsContext";
 import { clearFieldErrors, toErrorMessage } from "../lib/useSettingsSharedHelpers";
-import { PASSWORD_FORM_MODE_ENABLE, PASSWORD_FORM_MODE_MANAGE } from "./settingsSecurityConfig";
-import { useSettingsSecurityLogic } from "./useSettingsSecurityLogic";
-import { useSettingsSecurityOAuthCallback } from "./useSettingsSecurityOAuthCallback";
+import { PASSWORD_FORM_MODE_ENABLE, PASSWORD_FORM_MODE_MANAGE } from "./lib/settingsSecurityConfig";
+import { useSettingsSecurityLogic } from "./lib/useSettingsSecurityLogic";
+import { useSettingsSecurityOAuthCallback } from "./lib/useSettingsSecurityOAuthCallback";
 import {
   AUTH_METHOD_KIND_OAUTH,
   AUTH_METHOD_KIND_OTP,

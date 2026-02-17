@@ -4,8 +4,8 @@ import { api } from "../../../services/api";
 import { AVATAR_DEFAULT_SIZE } from "../../../../shared/avatar/index.js";
 import { SETTINGS_QUERY_KEY } from "../lib/useSettingsPageConfig";
 import { useSettingsContext } from "../lib/useSettingsContext";
-import { createDefaultAvatar } from "./settingsProfileDefaults";
-import { useSettingsProfileLogic } from "./useSettingsProfileLogic";
+import { createDefaultAvatar } from "./lib/settingsProfileDefaults";
+import { useSettingsProfileLogic } from "./lib/useSettingsProfileLogic";
 
 export function useSettingsProfileForm(options) {
   if (!options) {

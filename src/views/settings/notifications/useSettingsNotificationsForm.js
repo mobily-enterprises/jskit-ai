@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/vue-query";
 import { api } from "../../../services/api";
 import { SETTINGS_QUERY_KEY } from "../lib/useSettingsPageConfig";
 import { useSettingsContext } from "../lib/useSettingsContext";
-import { useSettingsNotificationsLogic } from "./useSettingsNotificationsLogic";
+import { useSettingsNotificationsLogic } from "./lib/useSettingsNotificationsLogic";
 
 export function useSettingsNotificationsForm(options) {
   if (!options) {

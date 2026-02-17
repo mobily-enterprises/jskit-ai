@@ -1,4 +1,4 @@
-import { AVATAR_DEFAULT_SIZE } from "../../../../shared/avatar/index.js";
+import { AVATAR_DEFAULT_SIZE } from "../../../../../shared/avatar/index.js";
 
 export function createDefaultAvatar() {
   return {
