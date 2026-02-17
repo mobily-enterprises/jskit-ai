@@ -165,8 +165,14 @@ function createOauthFixture(overrides = {}) {
       calls.mapAuthError.push({ error, statusCode });
       return new AppError(statusCode, `mapped auth error (${statusCode})`);
     },
-    async setSessionFromRequestCookies(request) {
-      calls.setSessionFromRequestCookies.push(request);
+    async setSessionFromRequestCookies(request, options = {}) {
+      calls.setSessionFromRequestCookies.push({
+        request,
+        options
+      });
+      if (!options.supabaseClient) {
+        throw new Error("Expected per-request supabase client.");
+      }
       return {
         data: {
           session: {
@@ -215,8 +221,11 @@ function createOauthFixture(overrides = {}) {
         email: String(email || "")
       };
     },
-    async resolveCurrentAuthContext(request) {
-      calls.resolveCurrentAuthContext.push(request);
+    async resolveCurrentAuthContext(request, options = {}) {
+      calls.resolveCurrentAuthContext.push({
+        request,
+        options
+      });
       if (authContextQueue.length > 1) {
         return authContextQueue.shift();
       }
@@ -365,6 +374,7 @@ test("startProviderLink enforces capability and maps link errors", async () => {
   assert.equal(linked.provider, "google");
   assert.equal(linked.url, "https://oauth.example/link");
   assert.equal(successFixture.calls.setSessionFromRequestCookies.length, 1);
+  assert.equal(successFixture.calls.setSessionFromRequestCookies[0].options.supabaseClient, successFixture.supabase);
   assert.deepEqual(successFixture.calls.linkIdentity[0].options.queryParams, {
     prompt: "select_account"
   });
@@ -705,6 +715,9 @@ test("unlinkProvider maps supabase unlink failures and returns refreshed securit
   );
   assert.equal(successFixture.calls.setSessionFromRequestCookies.length, 1);
   assert.equal(successFixture.calls.resolveCurrentAuthContext.length, 2);
+  assert.equal(successFixture.calls.setSessionFromRequestCookies[0].options.supabaseClient, successFixture.supabase);
+  assert.equal(successFixture.calls.resolveCurrentAuthContext[0].options.supabaseClient, successFixture.supabase);
+  assert.equal(successFixture.calls.resolveCurrentAuthContext[1].options.supabaseClient, successFixture.supabase);
   assert.equal(successFixture.calls.buildSecurityStatusFromAuthMethodsStatus.length, 1);
   assert.deepEqual(unlinked.securityStatus, {
     methods: [],

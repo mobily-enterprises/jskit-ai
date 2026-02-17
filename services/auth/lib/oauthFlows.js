@@ -63,11 +63,13 @@ function createOauthFlows(deps) {
   async function startProviderLink(request, payload = {}) {
     ensureConfigured();
 
+    const supabase = getSupabaseClient();
     const provider = normalizeOAuthProviderInput(payload.provider || authOAuthDefaultProvider);
     const returnTo = normalizeReturnToPath(payload.returnTo, { fallback: "/" });
-    await setSessionFromRequestCookies(request);
+    await setSessionFromRequestCookies(request, {
+      supabaseClient: supabase
+    });
 
-    const supabase = getSupabaseClient();
     if (typeof supabase.auth.linkIdentity !== "function") {
       throw new AppError(500, "Supabase client does not support identity linking in this environment.");
     }
@@ -151,8 +153,12 @@ function createOauthFlows(deps) {
       throw new AppError(500, "Supabase client does not support identity unlinking in this environment.");
     }
 
-    await setSessionFromRequestCookies(request);
-    const current = await resolveCurrentAuthContext(request);
+    await setSessionFromRequestCookies(request, {
+      supabaseClient: supabase
+    });
+    const current = await resolveCurrentAuthContext(request, {
+      supabaseClient: supabase
+    });
     const methodId = buildOAuthMethodId(provider);
     const providerMethod = findAuthMethodById(current.authMethodsStatus, methodId);
     if (!providerMethod || !providerMethod.configured) {
@@ -181,7 +187,9 @@ function createOauthFlows(deps) {
       throw mapAuthError(response.error, Number(response.error?.status || 400));
     }
 
-    const refreshed = await resolveCurrentAuthContext(request);
+    const refreshed = await resolveCurrentAuthContext(request, {
+      supabaseClient: supabase
+    });
     return {
       securityStatus: buildSecurityStatusFromAuthMethodsStatus(refreshed.authMethodsStatus)
     };

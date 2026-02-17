@@ -113,7 +113,9 @@ function createPasswordSecurityFlows(deps) {
     }
 
     const supabase = getSupabaseClient();
-    const sessionResponse = await setSessionFromRequestCookies(request);
+    const sessionResponse = await setSessionFromRequestCookies(request, {
+      supabaseClient: supabase
+    });
     const profile = await syncProfileFromSupabaseUser(
       sessionResponse.data.user,
       sessionResponse.data.user?.email || ""
@@ -147,7 +149,9 @@ function createPasswordSecurityFlows(deps) {
     const newPassword = String(payload?.newPassword || "");
     const requireCurrentPassword = payload?.requireCurrentPassword !== false;
     const supabase = getSupabaseClient();
-    const sessionResponse = await setSessionFromRequestCookies(request);
+    const sessionResponse = await setSessionFromRequestCookies(request, {
+      supabaseClient: supabase
+    });
 
     const email = normalizeEmail(sessionResponse.data.user?.email || "");
     if (!email) {
@@ -203,8 +207,12 @@ function createPasswordSecurityFlows(deps) {
     }
 
     const supabase = getSupabaseClient();
-    await setSessionFromRequestCookies(request);
-    const current = await resolveCurrentAuthContext(request);
+    await setSessionFromRequestCookies(request, {
+      supabaseClient: supabase
+    });
+    const current = await resolveCurrentAuthContext(request, {
+      supabaseClient: supabase
+    });
     const passwordMethod = findAuthMethodById(current.authMethodsStatus, authMethodPasswordId);
 
     if (!passwordMethod) {
@@ -259,7 +267,9 @@ function createPasswordSecurityFlows(deps) {
   async function signOutOtherSessions(request) {
     ensureConfigured();
     const supabase = getSupabaseClient();
-    await setSessionFromRequestCookies(request);
+    await setSessionFromRequestCookies(request, {
+      supabaseClient: supabase
+    });
     const response = await supabase.auth.signOut({
       scope: "others"
     });

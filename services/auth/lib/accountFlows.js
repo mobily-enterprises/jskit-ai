@@ -194,7 +194,9 @@ function createAccountFlows(deps) {
     }
 
     const supabase = getSupabaseClient();
-    const sessionResponse = await setSessionFromRequestCookies(request);
+    const sessionResponse = await setSessionFromRequestCookies(request, {
+      supabaseClient: supabase
+    });
 
     let updateResponse;
     try {

@@ -70,7 +70,6 @@ function createAuthService(options) {
     appPublicUrl: options.appPublicUrl
   });
   const appPublicUrl = String(options.appPublicUrl || "");
-  let supabaseClient = null;
 
   const issuerUrl = supabaseUrl ? new URL("/auth/v1", supabaseUrl).toString().replace(/\/$/, "") : "";
   const jwksUrl = issuerUrl ? `${issuerUrl}/.well-known/jwks.json` : "";
@@ -83,23 +82,7 @@ function createAuthService(options) {
     }
   }
 
-  function getSupabaseClient() {
-    ensureConfigured();
-    if (supabaseClient) {
-      return supabaseClient;
-    }
-
-    supabaseClient = createClient(supabaseUrl, supabasePublishableKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    });
-
-    return supabaseClient;
-  }
-
-  function createStatelessSupabaseClient() {
+  function createSupabaseClient() {
     ensureConfigured();
     return createClient(supabaseUrl, supabasePublishableKey, {
       auth: {
@@ -107,6 +90,14 @@ function createAuthService(options) {
         persistSession: false
       }
     });
+  }
+
+  function getSupabaseClient() {
+    return createSupabaseClient();
+  }
+
+  function createStatelessSupabaseClient() {
+    return createSupabaseClient();
   }
 
   async function getJwksResolver() {
@@ -172,7 +163,7 @@ function createAuthService(options) {
     }
   }
 
-  async function setSessionFromRequestCookies(request) {
+  async function setSessionFromRequestCookies(request, options = {}) {
     const cookies = safeRequestCookies(request);
     const accessToken = String(cookies[ACCESS_TOKEN_COOKIE] || "").trim();
     const refreshToken = String(cookies[REFRESH_TOKEN_COOKIE] || "").trim();
@@ -181,7 +172,7 @@ function createAuthService(options) {
       throw new AppError(401, "Authentication required.");
     }
 
-    const supabase = getSupabaseClient();
+    const supabase = options.supabaseClient || getSupabaseClient();
     let sessionResponse;
     try {
       sessionResponse = await supabase.auth.setSession({
@@ -209,19 +200,25 @@ function createAuthService(options) {
     };
   }
 
-  async function resolveCurrentSupabaseUser(request) {
-    const supabase = getSupabaseClient();
+  async function resolveCurrentSupabaseUser(request, options = {}) {
+    const supabase = options.supabaseClient || getSupabaseClient();
     const cookies = safeRequestCookies(request);
     const accessToken = String(cookies[ACCESS_TOKEN_COOKIE] || "").trim();
     let user = null;
     let session = null;
 
-    if (accessToken) {
+    async function getUserByAccessToken(token) {
+      if (!token) {
+        return null;
+      }
+
       try {
-        const userResponse = await supabase.auth.getUser(accessToken);
+        const userResponse = await supabase.auth.getUser(token);
         if (!userResponse.error && userResponse.data?.user) {
-          user = userResponse.data.user;
-        } else if (userResponse.error && isTransientSupabaseError(userResponse.error)) {
+          return userResponse.data.user;
+        }
+
+        if (userResponse.error && isTransientSupabaseError(userResponse.error)) {
           throw mapAuthError(userResponse.error, 503);
         }
       } catch (error) {
@@ -229,45 +226,26 @@ function createAuthService(options) {
           throw mapAuthError(error, 503);
         }
       }
+
+      return null;
+    }
+
+    if (accessToken) {
+      user = await getUserByAccessToken(accessToken);
     }
 
     if (!user) {
-      const sessionResponse = await setSessionFromRequestCookies(request);
+      const sessionResponse = await setSessionFromRequestCookies(request, {
+        supabaseClient: supabase
+      });
       user = sessionResponse.data.user || null;
       session = sessionResponse.data.session || null;
     }
 
-    if (typeof supabase.auth.getUser === "function") {
-      try {
-        const userResponse = await supabase.auth.getUser();
-        if (!userResponse.error && userResponse.data?.user) {
-          user = userResponse.data.user;
-        } else if (userResponse.error && isTransientSupabaseError(userResponse.error)) {
-          throw mapAuthError(userResponse.error, 503);
-        }
-      } catch (error) {
-        if (isTransientSupabaseError(error)) {
-          throw mapAuthError(error, 503);
-        }
-      }
-    }
-
-    if (typeof supabase.auth.getUserIdentities === "function") {
-      try {
-        const identitiesResponse = await supabase.auth.getUserIdentities();
-        if (!identitiesResponse.error && Array.isArray(identitiesResponse.data?.identities)) {
-          user = {
-            ...(user || {}),
-            identities: identitiesResponse.data.identities
-          };
-        } else if (identitiesResponse.error && isTransientSupabaseError(identitiesResponse.error)) {
-          throw mapAuthError(identitiesResponse.error, 503);
-        }
-      } catch (error) {
-        if (isTransientSupabaseError(error)) {
-          throw mapAuthError(error, 503);
-        }
-      }
+    const currentAccessToken = String(session?.access_token || accessToken || "").trim();
+    const explicitUser = await getUserByAccessToken(currentAccessToken);
+    if (explicitUser) {
+      user = explicitUser;
     }
 
     if (!user) {
@@ -410,8 +388,8 @@ function createAuthService(options) {
     await userSettingsRepository.updatePasswordSetupRequired(userId, required);
   }
 
-  async function resolveCurrentAuthContext(request) {
-    const current = await resolveCurrentSupabaseUser(request);
+  async function resolveCurrentAuthContext(request, options = {}) {
+    const current = await resolveCurrentSupabaseUser(request, options);
     const profile = await syncProfileFromSupabaseUser(current.user, current.user?.email || "");
     const passwordSignInPolicy = await resolvePasswordSignInPolicyForUserId(profile.id);
     const authMethodsStatus = buildAuthMethodsStatusFromSupabaseUser(current.user, passwordSignInPolicy);
