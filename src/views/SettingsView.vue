@@ -2,8 +2,11 @@
   <section class="settings-view py-2 py-md-4">
     <v-card class="panel-card" rounded="lg" elevation="1" border>
       <v-card-item>
-        <v-card-title class="panel-title">User settings</v-card-title>
-        <v-card-subtitle>Account security, profile, preferences, and notification controls.</v-card-subtitle>
+        <v-card-title class="panel-title">Account settings</v-card-title>
+        <v-card-subtitle>Global security, profile, preferences, and notification controls.</v-card-subtitle>
+        <template #append>
+          <v-btn variant="text" color="secondary" @click="goBack">Back</v-btn>
+        </template>
       </v-card-item>
       <v-divider />
 
@@ -376,56 +379,6 @@
                         :error-messages="preferencesFieldErrors.currencyCode ? [preferencesFieldErrors.currencyCode] : []"
                       />
                     </v-col>
-
-                    <v-col cols="12" md="3">
-                      <v-select
-                        v-model="preferencesForm.defaultMode"
-                        label="Default mode"
-                        :items="modeOptions"
-                        item-title="title"
-                        item-value="value"
-                        variant="outlined"
-                        density="comfortable"
-                      />
-                    </v-col>
-                    <v-col cols="12" md="3">
-                      <v-select
-                        v-model="preferencesForm.defaultTiming"
-                        label="Default timing"
-                        :items="timingOptions"
-                        item-title="title"
-                        item-value="value"
-                        variant="outlined"
-                        density="comfortable"
-                      />
-                    </v-col>
-                    <v-col cols="12" md="3">
-                      <v-text-field
-                        v-model.number="preferencesForm.defaultPaymentsPerYear"
-                        label="Default payments/year"
-                        type="number"
-                        min="1"
-                        max="365"
-                        step="1"
-                        variant="outlined"
-                        density="comfortable"
-                        :error-messages="
-                          preferencesFieldErrors.defaultPaymentsPerYear ? [preferencesFieldErrors.defaultPaymentsPerYear] : []
-                        "
-                      />
-                    </v-col>
-                    <v-col cols="12" md="3">
-                      <v-select
-                        v-model.number="preferencesForm.defaultHistoryPageSize"
-                        label="Default history rows"
-                        :items="historyPageSizeOptions"
-                        variant="outlined"
-                        density="comfortable"
-                        :error-messages="
-                          preferencesFieldErrors.defaultHistoryPageSize ? [preferencesFieldErrors.defaultHistoryPageSize] : []
-                        "
-                      />
-                    </v-col>
                     <v-col cols="12" md="3">
                       <v-select
                         v-model.number="preferencesForm.avatarSize"
@@ -493,7 +446,6 @@
         </v-window>
       </v-card-text>
     </v-card>
-
   </section>
 </template>
 
@@ -512,6 +464,7 @@ import "@uppy/dashboard/css/style.min.css";
 import "@uppy/image-editor/css/style.min.css";
 import { api } from "../services/api";
 import { useAuthStore } from "../stores/authStore";
+import { useWorkspaceStore } from "../stores/workspaceStore";
 import { useAuthGuard } from "../composables/useAuthGuard";
 import {
   AVATAR_ALLOWED_MIME_TYPES,
@@ -565,14 +518,6 @@ const numberFormatOptions = [
   { title: "1 234,56", value: "space-comma" }
 ];
 const currencyOptions = ["USD", "EUR", "GBP", "AUD", "JPY"];
-const modeOptions = [
-  { title: "Future value", value: "fv" },
-  { title: "Present value", value: "pv" }
-];
-const timingOptions = [
-  { title: "Ordinary", value: "ordinary" },
-  { title: "Due", value: "due" }
-];
 const timeZoneOptions = [
   "UTC",
   "America/New_York",
@@ -584,7 +529,6 @@ const timeZoneOptions = [
   "Asia/Tokyo",
   "Australia/Sydney"
 ];
-const historyPageSizeOptions = [10, 25, 50, 100];
 const avatarSizeOptions = [...AVATAR_SIZE_OPTIONS];
 
 function createDefaultAvatar() {
@@ -600,6 +544,7 @@ function createDefaultAvatar() {
 
 const navigate = useNavigate();
 const authStore = useAuthStore();
+const workspaceStore = useWorkspaceStore();
 const queryClient = useQueryClient();
 const vuetifyTheme = useTheme();
 const { handleUnauthorizedError } = useAuthGuard();
@@ -631,10 +576,6 @@ const preferencesForm = reactive({
   dateFormat: "system",
   numberFormat: "system",
   currencyCode: "USD",
-  defaultMode: "fv",
-  defaultTiming: "ordinary",
-  defaultPaymentsPerYear: 12,
-  defaultHistoryPageSize: 10,
   avatarSize: AVATAR_DEFAULT_SIZE
 });
 
@@ -660,8 +601,6 @@ const preferencesFieldErrors = reactive({
   dateFormat: "",
   numberFormat: "",
   currencyCode: "",
-  defaultPaymentsPerYear: "",
-  defaultHistoryPageSize: "",
   avatarSize: ""
 });
 const securityFieldErrors = reactive({
@@ -874,12 +813,44 @@ function resolveTabFromSearch(search) {
 
 function isSettingsRoutePath(pathname) {
   const path = String(pathname || "");
-  return /^\/w\/[^/]+\/settings$/.test(path);
+  return path === "/account/settings";
 }
 
 function resolveCurrentSettingsPath() {
   return isSettingsRoutePath(routerPath.value) ? String(routerPath.value) : "";
 }
+
+function resolveSettingsSearchWithTab(tab) {
+  const search = {
+    tab
+  };
+
+  const returnTo = String(routerSearch.value?.returnTo || "").trim();
+  if (returnTo) {
+    search.returnTo = returnTo;
+  }
+
+  return search;
+}
+
+function buildSettingsPathWithTab(tab) {
+  const settingsPath = resolveCurrentSettingsPath() || "/account/settings";
+  const params = new URLSearchParams(resolveSettingsSearchWithTab(tab));
+  return `${settingsPath}?${params.toString()}`;
+}
+
+const backTarget = computed(() => {
+  const rawReturnTo = String(routerSearch.value?.returnTo || "").trim();
+  if (/^\/(?!\/)/.test(rawReturnTo) && rawReturnTo !== "/account/settings") {
+    return rawReturnTo;
+  }
+
+  if (workspaceStore.hasActiveWorkspace) {
+    return workspaceStore.workspacePath("/");
+  }
+
+  return "/workspaces";
+});
 
 function clearFieldErrors(target) {
   for (const key of Object.keys(target)) {
@@ -937,7 +908,7 @@ async function handleOAuthCallbackIfPresent() {
   const callbackState = readOAuthCallbackStateFromLocation({
     pendingContext: pendingOAuthContext,
     defaultIntent: "link",
-    defaultReturnTo: `${resolveCurrentSettingsPath() || "/"}?tab=security`
+    defaultReturnTo: buildSettingsPathWithTab("security")
   });
 
   if (!callbackState) {
@@ -955,7 +926,7 @@ async function handleOAuthCallbackIfPresent() {
     }
 
     stripOAuthCallbackParamsFromLocation({
-      preserveSearchKeys: ["tab"]
+      preserveSearchKeys: ["tab", "returnTo"]
     });
     await queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY });
 
@@ -972,7 +943,7 @@ async function handleOAuthCallbackIfPresent() {
     providerMessageType.value = "error";
     providerMessage.value = toErrorMessage(error, "Unable to complete provider link.");
     stripOAuthCallbackParamsFromLocation({
-      preserveSearchKeys: ["tab"]
+      preserveSearchKeys: ["tab", "returnTo"]
     });
   } finally {
     clearPendingOAuthContext();
@@ -1186,10 +1157,6 @@ function applySettingsData(data) {
   preferencesForm.dateFormat = String(data.preferences?.dateFormat || "system");
   preferencesForm.numberFormat = String(data.preferences?.numberFormat || "system");
   preferencesForm.currencyCode = String(data.preferences?.currencyCode || "USD");
-  preferencesForm.defaultMode = String(data.preferences?.defaultMode || "fv");
-  preferencesForm.defaultTiming = String(data.preferences?.defaultTiming || "ordinary");
-  preferencesForm.defaultPaymentsPerYear = Number(data.preferences?.defaultPaymentsPerYear || 12);
-  preferencesForm.defaultHistoryPageSize = Number(data.preferences?.defaultHistoryPageSize || 10);
   preferencesForm.avatarSize = Number(data.preferences?.avatarSize || AVATAR_DEFAULT_SIZE);
   profileAvatar.size = preferencesForm.avatarSize;
 
@@ -1282,12 +1249,16 @@ watch(activeTab, async (nextTab) => {
 
   await navigate({
     to: routerPath.value,
-    search: {
-      tab: nextTab
-    },
+    search: resolveSettingsSearchWithTab(nextTab),
     replace: true
   });
 });
+
+async function goBack() {
+  await navigate({
+    to: backTarget.value
+  });
+}
 
 async function submitProfile() {
   clearFieldErrors(profileFieldErrors);
@@ -1364,10 +1335,6 @@ async function submitPreferences() {
       dateFormat: preferencesForm.dateFormat,
       numberFormat: preferencesForm.numberFormat,
       currencyCode: preferencesForm.currencyCode,
-      defaultMode: preferencesForm.defaultMode,
-      defaultTiming: preferencesForm.defaultTiming,
-      defaultPaymentsPerYear: Number(preferencesForm.defaultPaymentsPerYear),
-      defaultHistoryPageSize: Number(preferencesForm.defaultHistoryPageSize),
       avatarSize: Number(preferencesForm.avatarSize)
     });
 
@@ -1576,7 +1543,7 @@ async function startProviderLink(providerId) {
     providerLinkStartInFlight.value = false;
     return;
   }
-  const returnTo = `${settingsPath}?tab=security`;
+  const returnTo = buildSettingsPathWithTab("security");
   writePendingOAuthContext({
     provider,
     intent: "link",

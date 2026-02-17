@@ -1,5 +1,6 @@
 import { AppError } from "../lib/errors.js";
 import { OWNER_ROLE_ID, resolveRolePermissions } from "../lib/rbacManifest.js";
+import { resolveWorkspaceDefaults } from "./workspaceAdminService.js";
 
 function toSlugPart(value) {
   return String(value || "")
@@ -39,12 +40,19 @@ function buildWorkspaceBaseSlug(userProfile) {
   return `user-${Number(userProfile?.id) || "workspace"}`;
 }
 
+function normalizeEmail(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
 function mapWorkspaceSummary(workspaceRow) {
   return {
-    id: workspaceRow.id,
-    slug: workspaceRow.slug,
-    name: workspaceRow.name,
-    roleId: workspaceRow.roleId
+    id: Number(workspaceRow.id),
+    slug: String(workspaceRow.slug || ""),
+    name: String(workspaceRow.name || ""),
+    avatarUrl: workspaceRow.avatarUrl ? String(workspaceRow.avatarUrl) : "",
+    roleId: String(workspaceRow.roleId || "")
   };
 }
 
@@ -56,9 +64,13 @@ function mapWorkspaceSettingsPublic(workspaceSettings, options = {}) {
   const workspaceInvitesEnabled = Boolean(workspaceSettings.invitesEnabled);
   const appInvitesEnabled = Boolean(options.appInvitesEnabled);
   const collaborationEnabled = Boolean(options.collaborationEnabled);
+  const defaults = resolveWorkspaceDefaults(workspaceSettings.policy);
 
   return {
-    invitesEnabled: appInvitesEnabled && collaborationEnabled && workspaceInvitesEnabled
+    invitesEnabled: workspaceInvitesEnabled,
+    invitesAvailable: appInvitesEnabled && collaborationEnabled,
+    invitesEffective: appInvitesEnabled && collaborationEnabled && workspaceInvitesEnabled,
+    ...defaults
   };
 }
 
@@ -70,10 +82,6 @@ function mapUserSettingsPublic(userSettings) {
     dateFormat: userSettings?.dateFormat || "system",
     numberFormat: userSettings?.numberFormat || "system",
     currencyCode: userSettings?.currencyCode || "USD",
-    defaultMode: userSettings?.defaultMode || "fv",
-    defaultTiming: userSettings?.defaultTiming || "ordinary",
-    defaultPaymentsPerYear: Number(userSettings?.defaultPaymentsPerYear || 12),
-    defaultHistoryPageSize: Number(userSettings?.defaultHistoryPageSize || 10),
     avatarSize: Number(userSettings?.avatarSize || 64),
     lastActiveWorkspaceId: userSettings?.lastActiveWorkspaceId == null ? null : Number(userSettings.lastActiveWorkspaceId)
   };
@@ -98,12 +106,28 @@ function resolveRequestedWorkspaceSlug(request) {
   return "";
 }
 
+function mapPendingInviteSummary(invite) {
+  return {
+    id: Number(invite.id),
+    workspaceId: Number(invite.workspaceId),
+    workspaceSlug: String(invite.workspace?.slug || ""),
+    workspaceName: String(invite.workspace?.name || ""),
+    workspaceAvatarUrl: invite.workspace?.avatarUrl ? String(invite.workspace.avatarUrl) : "",
+    roleId: String(invite.roleId || ""),
+    status: String(invite.status || "pending"),
+    expiresAt: invite.expiresAt,
+    invitedByDisplayName: String(invite.invitedBy?.displayName || ""),
+    invitedByEmail: String(invite.invitedBy?.email || "")
+  };
+}
+
 function createWorkspaceService({
   appConfig,
   rbacManifest,
   workspacesRepository,
   workspaceMembershipsRepository,
   workspaceSettingsRepository,
+  workspaceInvitesRepository,
   userSettingsRepository,
   userAvatarService
 }) {
@@ -115,8 +139,6 @@ function createWorkspaceService({
     let candidate = toSlugPart(baseSlug) || "workspace";
     let suffix = 1;
 
-    // Small bounded loop to avoid unbounded collisions in case of bad data.
-    // In practice this exits very quickly.
     while (suffix < 10000) {
       const existing = await workspacesRepository.findBySlug(candidate);
       if (!existing) {
@@ -142,14 +164,20 @@ function createWorkspaceService({
         slug: await ensureUniqueWorkspaceSlug(buildWorkspaceBaseSlug(userProfile)),
         name: buildWorkspaceName(userProfile),
         ownerUserId: userId,
-        isPersonal: true
+        isPersonal: true,
+        avatarUrl: ""
       }));
 
     await workspaceMembershipsRepository.ensureOwnerMembership(workspace.id, userId);
     await workspaceSettingsRepository.ensureForWorkspaceId(workspace.id, {
       invitesEnabled: false,
       features: {},
-      policy: {}
+      policy: {
+        defaultMode: "fv",
+        defaultTiming: "ordinary",
+        defaultPaymentsPerYear: 12,
+        defaultHistoryPageSize: 10
+      }
     });
 
     const userSettings = await userSettingsRepository.ensureForUserId(userId);
@@ -174,6 +202,37 @@ function createWorkspaceService({
     }
 
     return resolveRolePermissions(rbacManifest, normalizedRoleId);
+  }
+
+  async function listPendingInvitesForUser(userProfile) {
+    if (!workspaceInvitesRepository || typeof workspaceInvitesRepository.listPendingByEmail !== "function") {
+      return [];
+    }
+
+    const email = normalizeEmail(userProfile?.email);
+    const userId = Number(userProfile?.id);
+    if (!email || !Number.isInteger(userId) || userId < 1) {
+      return [];
+    }
+
+    if (typeof workspaceInvitesRepository.markExpiredPendingInvites === "function") {
+      await workspaceInvitesRepository.markExpiredPendingInvites();
+    }
+
+    const rawInvites = await workspaceInvitesRepository.listPendingByEmail(email);
+    if (!Array.isArray(rawInvites) || rawInvites.length < 1) {
+      return [];
+    }
+
+    const filtered = [];
+    for (const invite of rawInvites) {
+      const existingMembership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(invite.workspaceId, userId);
+      if (!existingMembership || existingMembership.status !== "active") {
+        filtered.push(invite);
+      }
+    }
+
+    return filtered.map(mapPendingInviteSummary);
   }
 
   async function resolveWorkspaceSelection({ userId, requestedWorkspaceSlug }) {
@@ -244,16 +303,22 @@ function createWorkspaceService({
       workspaceSettings = await workspaceSettingsRepository.ensureForWorkspaceId(selection.selected.id, {
         invitesEnabled: Boolean(appConfig.features.workspaceInvites),
         features: {},
-        policy: {}
+        policy: {
+          defaultMode: "fv",
+          defaultTiming: "ordinary",
+          defaultPaymentsPerYear: 12,
+          defaultHistoryPageSize: 10
+        }
       });
     }
 
     return {
       workspace: selection.selected
         ? {
-            id: selection.selected.id,
-            slug: selection.selected.slug,
-            name: selection.selected.name,
+            id: Number(selection.selected.id),
+            slug: String(selection.selected.slug || ""),
+            name: String(selection.selected.name || ""),
+            avatarUrl: selection.selected.avatarUrl ? String(selection.selected.avatarUrl) : "",
             settings: mapWorkspaceSettingsPublic(workspaceSettings, {
               appInvitesEnabled: appConfig.features.workspaceInvites,
               collaborationEnabled: rbacManifest.collaborationEnabled
@@ -262,8 +327,8 @@ function createWorkspaceService({
         : null,
       membership: selection.selected
         ? {
-            roleId: selection.selected.roleId,
-            status: selection.selected.membershipStatus
+            roleId: String(selection.selected.roleId || ""),
+            status: String(selection.selected.membershipStatus || "active")
           }
         : null,
       permissions: selection.selected ? resolvePermissions(selection.selected.roleId) : [],
@@ -282,10 +347,13 @@ function createWorkspaceService({
         app: {
           tenancyMode: appConfig.tenancyMode,
           features: {
-            workspaceSwitching: Boolean(appConfig.features.workspaceSwitching)
+            workspaceSwitching: Boolean(appConfig.features.workspaceSwitching),
+            workspaceInvites: Boolean(appConfig.features.workspaceInvites),
+            workspaceCreateEnabled: Boolean(appConfig.features.workspaceCreateEnabled)
           }
         },
         workspaces: [],
+        pendingInvites: [],
         activeWorkspace: null,
         membership: null,
         permissions: [],
@@ -305,6 +373,8 @@ function createWorkspaceService({
       userAvatarService && typeof userAvatarService.buildAvatarResponse === "function"
         ? userAvatarService.buildAvatarResponse(user, { avatarSize })
         : null;
+
+    const pendingInvites = await listPendingInvitesForUser(user);
 
     return {
       session: {
@@ -329,15 +399,19 @@ function createWorkspaceService({
       app: {
         tenancyMode: appConfig.tenancyMode,
         features: {
-          workspaceSwitching: Boolean(appConfig.features.workspaceSwitching)
+          workspaceSwitching: Boolean(appConfig.features.workspaceSwitching),
+          workspaceInvites: Boolean(appConfig.features.workspaceInvites),
+          workspaceCreateEnabled: Boolean(appConfig.features.workspaceCreateEnabled)
         }
       },
       workspaces: context.workspaces,
+      pendingInvites,
       activeWorkspace: context.workspace
         ? {
             id: context.workspace.id,
             slug: context.workspace.slug,
-            name: context.workspace.name
+            name: context.workspace.name,
+            avatarUrl: context.workspace.avatarUrl
           }
         : null,
       membership: context.membership,
@@ -371,18 +445,24 @@ function createWorkspaceService({
     const workspaceSettings = await workspaceSettingsRepository.ensureForWorkspaceId(selected.id, {
       invitesEnabled: Boolean(appConfig.features.workspaceInvites),
       features: {},
-      policy: {}
+      policy: {
+        defaultMode: "fv",
+        defaultTiming: "ordinary",
+        defaultPaymentsPerYear: 12,
+        defaultHistoryPageSize: 10
+      }
     });
 
     return {
       workspace: {
-        id: selected.id,
-        slug: selected.slug,
-        name: selected.name
+        id: Number(selected.id),
+        slug: String(selected.slug || ""),
+        name: String(selected.name || ""),
+        avatarUrl: selected.avatarUrl ? String(selected.avatarUrl) : ""
       },
       membership: {
-        roleId: selected.roleId,
-        status: selected.membershipStatus
+        roleId: String(selected.roleId || ""),
+        status: String(selected.membershipStatus || "active")
       },
       permissions: resolvePermissions(selected.roleId),
       workspaceSettings: mapWorkspaceSettingsPublic(workspaceSettings, {
@@ -411,8 +491,9 @@ function createWorkspaceService({
     buildBootstrapPayload,
     selectWorkspaceForUser,
     listWorkspacesForUser,
+    listPendingInvitesForUser,
     resolvePermissions
   };
 }
 
-export { createWorkspaceService, mapUserSettingsPublic, mapWorkspaceSettingsPublic };
+export { createWorkspaceService, mapUserSettingsPublic, mapWorkspaceSettingsPublic, mapPendingInviteSummary };

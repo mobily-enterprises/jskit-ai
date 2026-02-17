@@ -10,6 +10,7 @@ function mapWorkspaceRowRequired(row) {
     id: Number(row.id),
     slug: row.slug,
     name: row.name,
+    avatarUrl: row.avatar_url ? String(row.avatar_url) : "",
     ownerUserId: Number(row.owner_user_id),
     isPersonal: Boolean(row.is_personal),
     createdAt: toIsoString(row.created_at),
@@ -52,6 +53,7 @@ function createWorkspacesRepository(dbClient) {
     const [id] = await dbClient("workspaces").insert({
       slug: workspace.slug,
       name: workspace.name,
+      avatar_url: workspace.avatarUrl || null,
       owner_user_id: workspace.ownerUserId,
       is_personal: Boolean(workspace.isPersonal),
       created_at: toMysqlDateTimeUtc(workspace.createdAt ? new Date(workspace.createdAt) : now),
@@ -62,6 +64,28 @@ function createWorkspacesRepository(dbClient) {
     return mapWorkspaceRowRequired(row);
   }
 
+  async function repoUpdateById(id, patch = {}) {
+    const dbPatch = {};
+
+    if (Object.prototype.hasOwnProperty.call(patch, "slug")) {
+      dbPatch.slug = patch.slug;
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "name")) {
+      dbPatch.name = patch.name;
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "avatarUrl")) {
+      dbPatch.avatar_url = patch.avatarUrl ? String(patch.avatarUrl) : null;
+    }
+
+    if (Object.keys(dbPatch).length > 0) {
+      dbPatch.updated_at = toMysqlDateTimeUtc(new Date());
+      await dbClient("workspaces").where({ id }).update(dbPatch);
+    }
+
+    const row = await dbClient("workspaces").where({ id }).first();
+    return mapWorkspaceRowNullable(row);
+  }
+
   async function repoListByUserId(userId) {
     const rows = await dbClient("workspaces as w")
       .innerJoin("workspace_memberships as wm", "wm.workspace_id", "w.id")
@@ -69,6 +93,7 @@ function createWorkspacesRepository(dbClient) {
         "w.id",
         "w.slug",
         "w.name",
+        "w.avatar_url",
         "w.owner_user_id",
         "w.is_personal",
         "w.created_at",
@@ -95,6 +120,7 @@ function createWorkspacesRepository(dbClient) {
     findBySlug: repoFindBySlug,
     findPersonalByOwnerUserId: repoFindPersonalByOwnerUserId,
     insert: repoInsert,
+    updateById: repoUpdateById,
     listByUserId: repoListByUserId
   };
 }
@@ -107,5 +133,5 @@ const __testables = {
   createWorkspacesRepository
 };
 
-export const { findById, findBySlug, findPersonalByOwnerUserId, insert, listByUserId } = repository;
+export const { findById, findBySlug, findPersonalByOwnerUserId, insert, updateById, listByUserId } = repository;
 export { __testables };

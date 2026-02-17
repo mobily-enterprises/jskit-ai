@@ -15,7 +15,8 @@ const LoginView = lazyRouteComponent(() => import("./views/LoginView.vue"));
 const AnnuityCalculatorView = lazyRouteComponent(() => import("./views/AnnuityCalculatorView.vue"));
 const ChoiceTwoView = lazyRouteComponent(() => import("./views/ChoiceTwoView.vue"));
 const ResetPasswordView = lazyRouteComponent(() => import("./views/ResetPasswordView.vue"));
-const SettingsView = lazyRouteComponent(() => import("./views/SettingsView.vue"));
+const AccountSettingsView = lazyRouteComponent(() => import("./views/SettingsView.vue"));
+const WorkspaceSettingsView = lazyRouteComponent(() => import("./views/WorkspaceSettingsView.vue"));
 const WorkspacesView = lazyRouteComponent(() => import("./views/WorkspacesView.vue"));
 /* v8 ignore stop */
 /* c8 ignore stop */
@@ -104,6 +105,17 @@ async function beforeLoadAuthenticatedNoWorkspace(stores) {
   }
 }
 
+async function beforeLoadAuthenticated(stores) {
+  const state = await resolveRuntimeState(stores);
+  if (state.sessionUnavailable) {
+    return;
+  }
+
+  if (!state.authenticated) {
+    throw redirect({ to: "/login" });
+  }
+}
+
 async function beforeLoadWorkspaceRequired(stores, context) {
   const state = await resolveRuntimeState(stores);
   if (state.sessionUnavailable) {
@@ -179,8 +191,15 @@ export function createAppRouter({ authStore, workspaceStore }) {
 
   const settingsRoute = createRoute({
     getParentRoute: () => rootRoute,
+    path: "/account/settings",
+    component: AccountSettingsView,
+    beforeLoad: beforeLoadAuthenticated.bind(null, stores)
+  });
+
+  const workspaceSettingsRoute = createRoute({
+    getParentRoute: () => rootRoute,
     path: "/w/$workspaceSlug/settings",
-    component: SettingsView,
+    component: WorkspaceSettingsView,
     beforeLoad: beforeLoadWorkspaceRequired.bind(null, stores)
   });
 
@@ -188,6 +207,7 @@ export function createAppRouter({ authStore, workspaceStore }) {
     rootRedirectRoute,
     calculatorRoute,
     choiceTwoRoute,
+    workspaceSettingsRoute,
     settingsRoute,
     workspacesRoute,
     loginRoute,
@@ -206,5 +226,6 @@ export const __testables = {
   beforeLoadRoot,
   beforeLoadPublic,
   beforeLoadAuthenticatedNoWorkspace,
+  beforeLoadAuthenticated,
   beforeLoadWorkspaceRequired
 };

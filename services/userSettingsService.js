@@ -4,10 +4,8 @@ import { AVATAR_MAX_SIZE, AVATAR_MIN_SIZE } from "../shared/avatar/index.js";
 import {
   SETTINGS_CURRENCY_CODE_PATTERN,
   SETTINGS_DATE_FORMAT_OPTIONS,
-  SETTINGS_MODE_OPTIONS,
   SETTINGS_NUMBER_FORMAT_OPTIONS,
-  SETTINGS_THEME_OPTIONS,
-  SETTINGS_TIMING_OPTIONS
+  SETTINGS_THEME_OPTIONS
 } from "../shared/settings/index.js";
 
 const CURRENCY_CODE_REGEX = new RegExp(SETTINGS_CURRENCY_CODE_PATTERN);
@@ -144,42 +142,6 @@ function parsePreferencesInput(payload = {}) {
       fieldErrors.currencyCode = "Currency code is not supported.";
     } else {
       patch.currencyCode = currencyCode;
-    }
-  }
-
-  if (hasOwn(payload, "defaultMode")) {
-    const defaultMode = normalizeText(payload.defaultMode).toLowerCase();
-    if (!SETTINGS_MODE_OPTIONS.includes(defaultMode)) {
-      fieldErrors.defaultMode = "Default mode must be fv or pv.";
-    } else {
-      patch.defaultMode = defaultMode;
-    }
-  }
-
-  if (hasOwn(payload, "defaultTiming")) {
-    const defaultTiming = normalizeText(payload.defaultTiming).toLowerCase();
-    if (!SETTINGS_TIMING_OPTIONS.includes(defaultTiming)) {
-      fieldErrors.defaultTiming = "Default timing must be ordinary or due.";
-    } else {
-      patch.defaultTiming = defaultTiming;
-    }
-  }
-
-  if (hasOwn(payload, "defaultPaymentsPerYear")) {
-    const value = Number(payload.defaultPaymentsPerYear);
-    if (!Number.isInteger(value) || value < 1 || value > 365) {
-      fieldErrors.defaultPaymentsPerYear = "Default payments per year must be an integer from 1 to 365.";
-    } else {
-      patch.defaultPaymentsPerYear = value;
-    }
-  }
-
-  if (hasOwn(payload, "defaultHistoryPageSize")) {
-    const value = Number(payload.defaultHistoryPageSize);
-    if (!Number.isInteger(value) || value < 1 || value > 100) {
-      fieldErrors.defaultHistoryPageSize = "Default history page size must be an integer from 1 to 100.";
-    } else {
-      patch.defaultHistoryPageSize = value;
     }
   }
 
@@ -349,10 +311,6 @@ function buildSettingsResponse(userProfile, settings, securityStatus, avatar) {
       dateFormat: settings.dateFormat,
       numberFormat: settings.numberFormat,
       currencyCode: settings.currencyCode,
-      defaultMode: settings.defaultMode,
-      defaultTiming: settings.defaultTiming,
-      defaultPaymentsPerYear: settings.defaultPaymentsPerYear,
-      defaultHistoryPageSize: settings.defaultHistoryPageSize,
       avatarSize: settings.avatarSize
     },
     notifications: {

@@ -64,6 +64,20 @@ function createUserProfilesRepository(dbClient) {
     return mapProfileRowNullable(row);
   }
 
+  async function repoFindByEmail(email) {
+    const normalized = String(email || "")
+      .trim()
+      .toLowerCase();
+    if (!normalized) {
+      return null;
+    }
+
+    const row = await dbClient("user_profiles")
+      .whereRaw("LOWER(email) = ?", [normalized])
+      .first();
+    return mapProfileRowNullable(row);
+  }
+
   async function repoFindBySupabaseUserId(supabaseUserId) {
     const row = await dbClient("user_profiles").where({ supabase_user_id: supabaseUserId }).first();
     return mapProfileRowNullable(row);
@@ -167,6 +181,7 @@ function createUserProfilesRepository(dbClient) {
 
   return {
     findById: repoFindById,
+    findByEmail: repoFindByEmail,
     findBySupabaseUserId: repoFindBySupabaseUserId,
     updateDisplayNameById: repoUpdateDisplayNameById,
     updateAvatarById: repoUpdateAvatarById,
@@ -188,6 +203,13 @@ const __testables = {
   createUserProfilesRepository
 };
 
-export const { findById, findBySupabaseUserId, updateDisplayNameById, updateAvatarById, clearAvatarById, upsert } =
-  repository;
+export const {
+  findById,
+  findByEmail,
+  findBySupabaseUserId,
+  updateDisplayNameById,
+  updateAvatarById,
+  clearAvatarById,
+  upsert
+} = repository;
 export { __testables };

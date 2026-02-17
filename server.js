@@ -29,11 +29,13 @@ import * as userSettingsRepository from "./repositories/userSettingsRepository.j
 import * as workspacesRepository from "./repositories/workspacesRepository.js";
 import * as workspaceMembershipsRepository from "./repositories/workspaceMembershipsRepository.js";
 import * as workspaceSettingsRepository from "./repositories/workspaceSettingsRepository.js";
+import * as workspaceInvitesRepository from "./repositories/workspaceInvitesRepository.js";
 import { safePathnameFromRequest } from "./lib/requestUrl.js";
 import { createUserSettingsService } from "./services/userSettingsService.js";
 import { createAvatarStorageService } from "./services/avatarStorageService.js";
 import { createUserAvatarService } from "./services/userAvatarService.js";
 import { createWorkspaceService } from "./services/workspaceService.js";
+import { createWorkspaceAdminService } from "./services/workspaceAdminService.js";
 import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -98,8 +100,20 @@ const workspaceService = createWorkspaceService({
   workspacesRepository,
   workspaceMembershipsRepository,
   workspaceSettingsRepository,
+  workspaceInvitesRepository,
   userSettingsRepository,
   userAvatarService
+});
+
+const workspaceAdminService = createWorkspaceAdminService({
+  appConfig: APP_CONFIG,
+  rbacManifest: RBAC_MANIFEST,
+  workspacesRepository,
+  workspaceSettingsRepository,
+  workspaceMembershipsRepository,
+  workspaceInvitesRepository,
+  userProfilesRepository,
+  userSettingsRepository
 });
 
 const controllers = {
@@ -107,7 +121,7 @@ const controllers = {
   history: createHistoryController({ annuityHistoryService }),
   annuity: createAnnuityController({ annuityService, annuityHistoryService }),
   settings: createSettingsController({ userSettingsService, authService }),
-  workspace: createWorkspaceController({ authService, workspaceService })
+  workspace: createWorkspaceController({ authService, workspaceService, workspaceAdminService })
 };
 
 function validateRuntimeConfig() {
@@ -162,6 +176,10 @@ function isPublicAuthPage(pathnameValue) {
 
 function isWorkspaceChooserPage(pathnameValue) {
   return pathnameValue === "/workspaces";
+}
+
+function isGlobalAccountSettingsPage(pathnameValue) {
+  return pathnameValue === "/account/settings";
 }
 
 function extractWorkspaceSlugFromPath(pathnameValue) {
@@ -234,7 +252,12 @@ async function guardPageRoute(request, reply) {
         workspacePolicy
       });
 
-      if (!resolvedContext.workspace && !isWorkspaceChooserPage(pathnameValue) && !isPublicAuthPage(pathnameValue)) {
+      if (
+        !resolvedContext.workspace &&
+        !isWorkspaceChooserPage(pathnameValue) &&
+        !isGlobalAccountSettingsPage(pathnameValue) &&
+        !isPublicAuthPage(pathnameValue)
+      ) {
         reply.redirect("/workspaces");
         return false;
       }

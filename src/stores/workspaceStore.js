@@ -51,6 +51,7 @@ function normalizeWorkspace(workspace) {
     id,
     slug,
     name: String(workspace.name || slug),
+    avatarUrl: workspace.avatarUrl ? String(workspace.avatarUrl) : "",
     roleId: workspace.roleId ? String(workspace.roleId) : null
   };
 }
@@ -72,6 +73,52 @@ function normalizeMembership(membership) {
   };
 }
 
+function normalizeWorkspaceSettings(workspaceSettings) {
+  if (!workspaceSettings || typeof workspaceSettings !== "object") {
+    return null;
+  }
+
+  return {
+    invitesEnabled: Boolean(workspaceSettings.invitesEnabled),
+    invitesAvailable: Boolean(workspaceSettings.invitesAvailable),
+    invitesEffective: Boolean(workspaceSettings.invitesEffective),
+    defaultMode: String(workspaceSettings.defaultMode || "fv"),
+    defaultTiming: String(workspaceSettings.defaultTiming || "ordinary"),
+    defaultPaymentsPerYear: Number(workspaceSettings.defaultPaymentsPerYear || 12),
+    defaultHistoryPageSize: Number(workspaceSettings.defaultHistoryPageSize || 10)
+  };
+}
+
+function normalizePendingInvite(invite) {
+  if (!invite || typeof invite !== "object") {
+    return null;
+  }
+
+  const id = Number(invite.id);
+  const workspaceId = Number(invite.workspaceId);
+  if (!Number.isInteger(id) || id < 1 || !Number.isInteger(workspaceId) || workspaceId < 1) {
+    return null;
+  }
+
+  const workspaceSlug = String(invite.workspaceSlug || "").trim();
+  if (!workspaceSlug) {
+    return null;
+  }
+
+  return {
+    id,
+    workspaceId,
+    workspaceSlug,
+    workspaceName: String(invite.workspaceName || workspaceSlug),
+    workspaceAvatarUrl: invite.workspaceAvatarUrl ? String(invite.workspaceAvatarUrl) : "",
+    roleId: String(invite.roleId || "member"),
+    status: String(invite.status || "pending"),
+    expiresAt: String(invite.expiresAt || ""),
+    invitedByDisplayName: String(invite.invitedByDisplayName || ""),
+    invitedByEmail: String(invite.invitedByEmail || "")
+  };
+}
+
 export const useWorkspaceStore = defineStore("workspace", {
   state: () => ({
     initialized: false,
@@ -79,10 +126,13 @@ export const useWorkspaceStore = defineStore("workspace", {
     app: {
       tenancyMode: "personal",
       features: {
-        workspaceSwitching: false
+        workspaceSwitching: false,
+        workspaceInvites: false,
+        workspaceCreateEnabled: false
       }
     },
     workspaces: [],
+    pendingInvites: [],
     activeWorkspace: null,
     membership: null,
     permissions: [],
@@ -102,6 +152,9 @@ export const useWorkspaceStore = defineStore("workspace", {
     },
     profileDisplayName(state) {
       return String(state.profile?.displayName || "").trim();
+    },
+    pendingInvitesCount(state) {
+      return normalizeArray(state.pendingInvites).length;
     }
   },
   actions: {
@@ -112,28 +165,28 @@ export const useWorkspaceStore = defineStore("workspace", {
       this.app = {
         tenancyMode: String(app.tenancyMode || "personal"),
         features: {
-          workspaceSwitching: Boolean(app.features?.workspaceSwitching)
+          workspaceSwitching: Boolean(app.features?.workspaceSwitching),
+          workspaceInvites: Boolean(app.features?.workspaceInvites),
+          workspaceCreateEnabled: Boolean(app.features?.workspaceCreateEnabled)
         }
       };
 
       this.workspaces = normalizeArray(payload.workspaces).map(normalizeWorkspace).filter(Boolean);
+      this.pendingInvites = normalizeArray(payload.pendingInvites).map(normalizePendingInvite).filter(Boolean);
       this.activeWorkspace = normalizeWorkspace(payload.activeWorkspace);
       this.membership = normalizeMembership(payload.membership);
-      this.permissions = normalizeArray(payload.permissions).map((permission) => String(permission || "").trim()).filter(Boolean);
-      this.workspaceSettings =
-        payload.workspaceSettings && typeof payload.workspaceSettings === "object"
-          ? {
-              invitesEnabled: Boolean(payload.workspaceSettings.invitesEnabled)
-            }
-          : null;
-      this.userSettings =
-        payload.userSettings && typeof payload.userSettings === "object" ? { ...payload.userSettings } : null;
+      this.permissions = normalizeArray(payload.permissions)
+        .map((permission) => String(permission || "").trim())
+        .filter(Boolean);
+      this.workspaceSettings = normalizeWorkspaceSettings(payload.workspaceSettings);
+      this.userSettings = payload.userSettings && typeof payload.userSettings === "object" ? { ...payload.userSettings } : null;
 
       if (!this.activeWorkspace && this.workspaces.length === 1) {
         this.activeWorkspace = {
           id: this.workspaces[0].id,
           slug: this.workspaces[0].slug,
           name: this.workspaces[0].name,
+          avatarUrl: this.workspaces[0].avatarUrl,
           roleId: this.workspaces[0].roleId
         };
       }
@@ -144,13 +197,10 @@ export const useWorkspaceStore = defineStore("workspace", {
     applyWorkspaceSelection(payload = {}) {
       this.activeWorkspace = normalizeWorkspace(payload.workspace);
       this.membership = normalizeMembership(payload.membership);
-      this.permissions = normalizeArray(payload.permissions).map((permission) => String(permission || "").trim()).filter(Boolean);
-      this.workspaceSettings =
-        payload.workspaceSettings && typeof payload.workspaceSettings === "object"
-          ? {
-              invitesEnabled: Boolean(payload.workspaceSettings.invitesEnabled)
-            }
-          : null;
+      this.permissions = normalizeArray(payload.permissions)
+        .map((permission) => String(permission || "").trim())
+        .filter(Boolean);
+      this.workspaceSettings = normalizeWorkspaceSettings(payload.workspaceSettings);
 
       if (this.activeWorkspace) {
         const existingIndex = this.workspaces.findIndex((workspace) => workspace.id === this.activeWorkspace.id);
@@ -175,6 +225,17 @@ export const useWorkspaceStore = defineStore("workspace", {
         avatar: normalized.avatar
       };
     },
+    setPendingInvites(pendingInvites) {
+      this.pendingInvites = normalizeArray(pendingInvites).map(normalizePendingInvite).filter(Boolean);
+    },
+    removePendingInvite(inviteId) {
+      const numericInviteId = Number(inviteId);
+      if (!Number.isInteger(numericInviteId) || numericInviteId < 1) {
+        return;
+      }
+
+      this.pendingInvites = this.pendingInvites.filter((invite) => Number(invite.id) !== numericInviteId);
+    },
     can(permission) {
       const normalized = String(permission || "").trim();
       if (!normalized) {
@@ -186,12 +247,34 @@ export const useWorkspaceStore = defineStore("workspace", {
       const payload = await api.bootstrap();
       return this.applyBootstrap(payload);
     },
+    async refreshPendingInvites() {
+      const payload = await api.pendingWorkspaceInvites();
+      this.setPendingInvites(payload.pendingInvites || []);
+      return this.pendingInvites;
+    },
     async selectWorkspace(workspaceSlug) {
       const payload = await api.selectWorkspace({
         workspaceSlug: String(workspaceSlug || "").trim()
       });
       this.applyWorkspaceSelection(payload);
       return payload;
+    },
+    async respondToPendingInvite(inviteId, decision) {
+      const response = await api.respondWorkspaceInvite(inviteId, {
+        decision: String(decision || "").trim().toLowerCase()
+      });
+
+      this.removePendingInvite(response?.inviteId || inviteId);
+
+      if (String(response?.decision || "") === "accepted" && response?.workspace?.slug) {
+        const selection = await this.selectWorkspace(response.workspace.slug);
+        return {
+          ...response,
+          selection
+        };
+      }
+
+      return response;
     },
     workspacePath(pathname = "/") {
       const slug = this.activeWorkspaceSlug;
@@ -209,6 +292,7 @@ export const useWorkspaceStore = defineStore("workspace", {
       this.initialized = false;
       this.profile = null;
       this.workspaces = [];
+      this.pendingInvites = [];
       this.activeWorkspace = null;
       this.membership = null;
       this.permissions = [];

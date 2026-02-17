@@ -279,6 +279,7 @@ const workspaceSummarySchema = Type.Object(
     id: Type.Integer({ minimum: 1 }),
     slug: Type.String({ minLength: 1, maxLength: 120 }),
     name: Type.String({ minLength: 1, maxLength: 160 }),
+    avatarUrl: Type.String(),
     roleId: Type.String({ minLength: 1, maxLength: 64 })
   },
   {
@@ -290,7 +291,8 @@ const activeWorkspaceSchema = Type.Object(
   {
     id: Type.Integer({ minimum: 1 }),
     slug: Type.String({ minLength: 1, maxLength: 120 }),
-    name: Type.String({ minLength: 1, maxLength: 160 })
+    name: Type.String({ minLength: 1, maxLength: 160 }),
+    avatarUrl: Type.String()
   },
   {
     additionalProperties: false
@@ -301,6 +303,256 @@ const membershipSummarySchema = Type.Object(
   {
     roleId: Type.String({ minLength: 1, maxLength: 64 }),
     status: Type.String({ minLength: 1, maxLength: 32 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const workspaceSettingsSummarySchema = Type.Object(
+  {
+    invitesEnabled: Type.Boolean(),
+    invitesAvailable: Type.Boolean(),
+    invitesEffective: Type.Boolean(),
+    defaultMode: enumSchema(SETTINGS_MODE_OPTIONS),
+    defaultTiming: enumSchema(SETTINGS_TIMING_OPTIONS),
+    defaultPaymentsPerYear: Type.Integer({ minimum: 1, maximum: 365 }),
+    defaultHistoryPageSize: Type.Integer({ minimum: 1, maximum: 100 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const pendingInviteSummarySchema = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    workspaceId: Type.Integer({ minimum: 1 }),
+    workspaceSlug: Type.String({ minLength: 1, maxLength: 120 }),
+    workspaceName: Type.String({ minLength: 1, maxLength: 160 }),
+    workspaceAvatarUrl: Type.String(),
+    roleId: Type.String({ minLength: 1, maxLength: 64 }),
+    status: Type.String({ minLength: 1, maxLength: 32 }),
+    expiresAt: Type.String({ minLength: 1 }),
+    invitedByDisplayName: Type.String(),
+    invitedByEmail: Type.String()
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const roleDescriptorSchema = Type.Object(
+  {
+    id: Type.String({ minLength: 1, maxLength: 64 }),
+    assignable: Type.Boolean(),
+    permissions: Type.Array(Type.String({ minLength: 1 }))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const roleCatalogSchema = Type.Object(
+  {
+    collaborationEnabled: Type.Boolean(),
+    defaultInviteRole: Type.Union([Type.String({ minLength: 1, maxLength: 64 }), Type.Null()]),
+    roles: Type.Array(roleDescriptorSchema),
+    assignableRoleIds: Type.Array(Type.String({ minLength: 1, maxLength: 64 }))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const workspaceSettingsResponseSchema = Type.Object(
+  {
+    workspace: Type.Object(
+      {
+        id: Type.Integer({ minimum: 1 }),
+        slug: Type.String({ minLength: 1, maxLength: 120 }),
+        name: Type.String({ minLength: 1, maxLength: 160 }),
+        avatarUrl: Type.String(),
+        ownerUserId: Type.Integer({ minimum: 1 }),
+        isPersonal: Type.Boolean()
+      },
+      {
+        additionalProperties: false
+      }
+    ),
+    settings: workspaceSettingsSummarySchema,
+    roleCatalog: roleCatalogSchema
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const workspaceSettingsUpdateBodySchema = Type.Object(
+  {
+    name: Type.Optional(Type.String({ minLength: 1, maxLength: 160 })),
+    avatarUrl: Type.Optional(Type.String()),
+    invitesEnabled: Type.Optional(Type.Boolean()),
+    defaultMode: Type.Optional(enumSchema(SETTINGS_MODE_OPTIONS)),
+    defaultTiming: Type.Optional(enumSchema(SETTINGS_TIMING_OPTIONS)),
+    defaultPaymentsPerYear: Type.Optional(Type.Integer({ minimum: 1, maximum: 365 })),
+    defaultHistoryPageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
+  },
+  {
+    additionalProperties: false,
+    minProperties: 1
+  }
+);
+
+const workspaceMemberSchema = Type.Object(
+  {
+    userId: Type.Integer({ minimum: 1 }),
+    email: Type.String({ minLength: AUTH_EMAIL_MIN_LENGTH, maxLength: AUTH_EMAIL_MAX_LENGTH }),
+    displayName: Type.String(),
+    roleId: Type.String({ minLength: 1, maxLength: 64 }),
+    status: Type.String({ minLength: 1, maxLength: 32 }),
+    isOwner: Type.Boolean()
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const workspaceMembersResponseSchema = Type.Object(
+  {
+    workspace: Type.Object(
+      {
+        id: Type.Integer({ minimum: 1 }),
+        slug: Type.String({ minLength: 1, maxLength: 120 }),
+        name: Type.String({ minLength: 1, maxLength: 160 }),
+        avatarUrl: Type.String(),
+        ownerUserId: Type.Integer({ minimum: 1 }),
+        isPersonal: Type.Boolean()
+      },
+      {
+        additionalProperties: false
+      }
+    ),
+    members: Type.Array(workspaceMemberSchema),
+    roleCatalog: roleCatalogSchema
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const workspaceMemberRoleUpdateBodySchema = Type.Object(
+  {
+    roleId: Type.String({ minLength: 1, maxLength: 64 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const workspaceInviteSchema = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    workspaceId: Type.Integer({ minimum: 1 }),
+    email: Type.String({ minLength: AUTH_EMAIL_MIN_LENGTH, maxLength: AUTH_EMAIL_MAX_LENGTH }),
+    roleId: Type.String({ minLength: 1, maxLength: 64 }),
+    status: Type.String({ minLength: 1, maxLength: 32 }),
+    expiresAt: Type.String({ minLength: 1 }),
+    invitedByUserId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    invitedByDisplayName: Type.String(),
+    invitedByEmail: Type.String(),
+    workspace: Type.Union(
+      [
+        Type.Object(
+          {
+            id: Type.Integer({ minimum: 1 }),
+            slug: Type.String({ minLength: 1, maxLength: 120 }),
+            name: Type.String({ minLength: 1, maxLength: 160 }),
+            avatarUrl: Type.String()
+          },
+          {
+            additionalProperties: false
+          }
+        ),
+        Type.Null()
+      ]
+    )
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const workspaceInvitesResponseSchema = Type.Object(
+  {
+    workspace: Type.Object(
+      {
+        id: Type.Integer({ minimum: 1 }),
+        slug: Type.String({ minLength: 1, maxLength: 120 }),
+        name: Type.String({ minLength: 1, maxLength: 160 }),
+        avatarUrl: Type.String(),
+        ownerUserId: Type.Integer({ minimum: 1 }),
+        isPersonal: Type.Boolean()
+      },
+      {
+        additionalProperties: false
+      }
+    ),
+    invites: Type.Array(workspaceInviteSchema),
+    roleCatalog: roleCatalogSchema
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const workspaceCreateInviteBodySchema = Type.Object(
+  {
+    email: Type.String({
+      minLength: AUTH_EMAIL_MIN_LENGTH,
+      maxLength: AUTH_EMAIL_MAX_LENGTH,
+      pattern: AUTH_EMAIL_PATTERN
+    }),
+    roleId: Type.Optional(Type.String({ minLength: 1, maxLength: 64 }))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const workspaceRolesResponseSchema = Type.Object(
+  {
+    roleCatalog: roleCatalogSchema
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const pendingInvitesResponseSchema = Type.Object(
+  {
+    pendingInvites: Type.Array(pendingInviteSummarySchema)
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const respondToPendingInviteBodySchema = Type.Object(
+  {
+    decision: enumSchema(["accept", "refuse"])
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const respondToPendingInviteResponseSchema = Type.Object(
+  {
+    ok: Type.Boolean(),
+    decision: enumSchema(["accepted", "refused"]),
+    inviteId: Type.Integer({ minimum: 1 }),
+    workspace: Type.Union([activeWorkspaceSchema, Type.Null()])
   },
   {
     additionalProperties: false
@@ -360,7 +612,9 @@ const bootstrapResponseSchema = Type.Object(
         tenancyMode: Type.String({ minLength: 1, maxLength: 32 }),
         features: Type.Object(
           {
-            workspaceSwitching: Type.Boolean()
+            workspaceSwitching: Type.Boolean(),
+            workspaceInvites: Type.Boolean(),
+            workspaceCreateEnabled: Type.Boolean()
           },
           {
             additionalProperties: false
@@ -372,22 +626,11 @@ const bootstrapResponseSchema = Type.Object(
       }
     ),
     workspaces: Type.Array(workspaceSummarySchema),
+    pendingInvites: Type.Array(pendingInviteSummarySchema),
     activeWorkspace: Type.Union([activeWorkspaceSchema, Type.Null()]),
     membership: Type.Union([membershipSummarySchema, Type.Null()]),
     permissions: Type.Array(Type.String({ minLength: 1 })),
-    workspaceSettings: Type.Union(
-      [
-        Type.Object(
-          {
-            invitesEnabled: Type.Boolean()
-          },
-          {
-            additionalProperties: false
-          }
-        ),
-        Type.Null()
-      ]
-    ),
+    workspaceSettings: Type.Union([workspaceSettingsSummarySchema, Type.Null()]),
     userSettings: Type.Union(
       [
         Type.Object(
@@ -398,10 +641,6 @@ const bootstrapResponseSchema = Type.Object(
             dateFormat: enumSchema(SETTINGS_DATE_FORMAT_OPTIONS),
             numberFormat: enumSchema(SETTINGS_NUMBER_FORMAT_OPTIONS),
             currencyCode: Type.String({ pattern: SETTINGS_CURRENCY_CODE_PATTERN }),
-            defaultMode: enumSchema(SETTINGS_MODE_OPTIONS),
-            defaultTiming: enumSchema(SETTINGS_TIMING_OPTIONS),
-            defaultPaymentsPerYear: Type.Integer({ minimum: 1, maximum: 365 }),
-            defaultHistoryPageSize: Type.Integer({ minimum: 1, maximum: 100 }),
             avatarSize: Type.Integer({ minimum: AVATAR_MIN_SIZE, maximum: AVATAR_MAX_SIZE }),
             lastActiveWorkspaceId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()])
           },
@@ -442,14 +681,25 @@ const selectWorkspaceResponseSchema = Type.Object(
     workspace: activeWorkspaceSchema,
     membership: membershipSummarySchema,
     permissions: Type.Array(Type.String({ minLength: 1 })),
-    workspaceSettings: Type.Object(
-      {
-        invitesEnabled: Type.Boolean()
-      },
-      {
-        additionalProperties: false
-      }
-    )
+    workspaceSettings: workspaceSettingsSummarySchema
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const inviteIdParamsSchema = Type.Object(
+  {
+    inviteId: Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const memberUserIdParamsSchema = Type.Object(
+  {
+    memberUserId: Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" })
   },
   {
     additionalProperties: false
@@ -660,10 +910,6 @@ const settingsPreferencesSchema = Type.Object(
     dateFormat: enumSchema(SETTINGS_DATE_FORMAT_OPTIONS),
     numberFormat: enumSchema(SETTINGS_NUMBER_FORMAT_OPTIONS),
     currencyCode: Type.String({ pattern: SETTINGS_CURRENCY_CODE_PATTERN }),
-    defaultMode: enumSchema(SETTINGS_MODE_OPTIONS),
-    defaultTiming: enumSchema(SETTINGS_TIMING_OPTIONS),
-    defaultPaymentsPerYear: Type.Integer({ minimum: 1, maximum: 365 }),
-    defaultHistoryPageSize: Type.Integer({ minimum: 1, maximum: 100 }),
     avatarSize: Type.Integer({ minimum: AVATAR_MIN_SIZE, maximum: AVATAR_MAX_SIZE })
   },
   {
@@ -711,10 +957,6 @@ const settingsPreferencesUpdateBodySchema = Type.Object(
     dateFormat: Type.Optional(enumSchema(SETTINGS_DATE_FORMAT_OPTIONS)),
     numberFormat: Type.Optional(enumSchema(SETTINGS_NUMBER_FORMAT_OPTIONS)),
     currencyCode: Type.Optional(Type.String({ pattern: SETTINGS_CURRENCY_CODE_PATTERN })),
-    defaultMode: Type.Optional(enumSchema(SETTINGS_MODE_OPTIONS)),
-    defaultTiming: Type.Optional(enumSchema(SETTINGS_TIMING_OPTIONS)),
-    defaultPaymentsPerYear: Type.Optional(Type.Integer({ minimum: 1, maximum: 365 })),
-    defaultHistoryPageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
     avatarSize: Type.Optional(Type.Integer({ minimum: AVATAR_MIN_SIZE, maximum: AVATAR_MAX_SIZE }))
   },
   {
@@ -1016,6 +1258,176 @@ function buildDefaultRoutes(controllers) {
         )
       },
       handler: controllers.workspace?.selectWorkspace || missingHandler
+    },
+    {
+      path: "/api/workspace/invitations/pending",
+      method: "GET",
+      auth: "required",
+      allowNoWorkspace: true,
+      schema: {
+        tags: ["workspace"],
+        summary: "List pending workspace invitations for authenticated user",
+        response: withStandardErrorResponses({
+          200: pendingInvitesResponseSchema
+        })
+      },
+      handler: controllers.workspace?.listPendingInvites || missingHandler
+    },
+    {
+      path: "/api/workspace/invitations/:inviteId/respond",
+      method: "POST",
+      auth: "required",
+      allowNoWorkspace: true,
+      schema: {
+        tags: ["workspace"],
+        summary: "Accept or refuse a pending workspace invitation",
+        params: inviteIdParamsSchema,
+        body: respondToPendingInviteBodySchema,
+        response: withStandardErrorResponses(
+          {
+            200: respondToPendingInviteResponseSchema
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.workspace?.respondToPendingInvite || missingHandler
+    },
+    {
+      path: "/api/workspace/settings",
+      method: "GET",
+      auth: "required",
+      workspacePolicy: "required",
+      schema: {
+        tags: ["workspace"],
+        summary: "Get active workspace settings and role catalog",
+        response: withStandardErrorResponses({
+          200: workspaceSettingsResponseSchema
+        })
+      },
+      handler: controllers.workspace?.getWorkspaceSettings || missingHandler
+    },
+    {
+      path: "/api/workspace/settings",
+      method: "PATCH",
+      auth: "required",
+      workspacePolicy: "required",
+      permission: "workspace.settings.update",
+      schema: {
+        tags: ["workspace"],
+        summary: "Update active workspace settings",
+        body: workspaceSettingsUpdateBodySchema,
+        response: withStandardErrorResponses(
+          {
+            200: workspaceSettingsResponseSchema
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.workspace?.updateWorkspaceSettings || missingHandler
+    },
+    {
+      path: "/api/workspace/roles",
+      method: "GET",
+      auth: "required",
+      workspacePolicy: "required",
+      permission: "workspace.roles.view",
+      schema: {
+        tags: ["workspace"],
+        summary: "Get workspace role catalog",
+        response: withStandardErrorResponses({
+          200: workspaceRolesResponseSchema
+        })
+      },
+      handler: controllers.workspace?.listWorkspaceRoles || missingHandler
+    },
+    {
+      path: "/api/workspace/members",
+      method: "GET",
+      auth: "required",
+      workspacePolicy: "required",
+      permission: "workspace.members.view",
+      schema: {
+        tags: ["workspace"],
+        summary: "List active members for active workspace",
+        response: withStandardErrorResponses({
+          200: workspaceMembersResponseSchema
+        })
+      },
+      handler: controllers.workspace?.listWorkspaceMembers || missingHandler
+    },
+    {
+      path: "/api/workspace/members/:memberUserId/role",
+      method: "PATCH",
+      auth: "required",
+      workspacePolicy: "required",
+      permission: "workspace.members.manage",
+      schema: {
+        tags: ["workspace"],
+        summary: "Update member role in active workspace",
+        params: memberUserIdParamsSchema,
+        body: workspaceMemberRoleUpdateBodySchema,
+        response: withStandardErrorResponses(
+          {
+            200: workspaceMembersResponseSchema
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.workspace?.updateWorkspaceMemberRole || missingHandler
+    },
+    {
+      path: "/api/workspace/invites",
+      method: "GET",
+      auth: "required",
+      workspacePolicy: "required",
+      permission: "workspace.members.view",
+      schema: {
+        tags: ["workspace"],
+        summary: "List pending invites for active workspace",
+        response: withStandardErrorResponses({
+          200: workspaceInvitesResponseSchema
+        })
+      },
+      handler: controllers.workspace?.listWorkspaceInvites || missingHandler
+    },
+    {
+      path: "/api/workspace/invites",
+      method: "POST",
+      auth: "required",
+      workspacePolicy: "required",
+      permission: "workspace.members.invite",
+      schema: {
+        tags: ["workspace"],
+        summary: "Create invite for active workspace",
+        body: workspaceCreateInviteBodySchema,
+        response: withStandardErrorResponses(
+          {
+            200: workspaceInvitesResponseSchema
+          },
+          { includeValidation400: true }
+        )
+      },
+      rateLimit: {
+        max: 20,
+        timeWindow: "1 minute"
+      },
+      handler: controllers.workspace?.createWorkspaceInvite || missingHandler
+    },
+    {
+      path: "/api/workspace/invites/:inviteId",
+      method: "DELETE",
+      auth: "required",
+      workspacePolicy: "required",
+      permission: "workspace.invites.revoke",
+      schema: {
+        tags: ["workspace"],
+        summary: "Revoke pending invite in active workspace",
+        params: inviteIdParamsSchema,
+        response: withStandardErrorResponses({
+          200: workspaceInvitesResponseSchema
+        })
+      },
+      handler: controllers.workspace?.revokeWorkspaceInvite || missingHandler
     },
     {
       path: "/api/settings",

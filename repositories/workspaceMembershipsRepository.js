@@ -1,6 +1,21 @@
 import { db } from "../db/knex.js";
 import { toIsoString, toMysqlDateTimeUtc } from "../lib/dateUtils.js";
 
+function mapMembershipWithUserRowRequired(row) {
+  if (!row) {
+    throw new TypeError("mapMembershipWithUserRowRequired expected a row object.");
+  }
+
+  return {
+    ...mapMembershipRowRequired(row),
+    user: {
+      id: Number(row.user_id),
+      email: String(row.user_email || ""),
+      displayName: String(row.user_display_name || "")
+    }
+  };
+}
+
 function mapMembershipRowRequired(row) {
   if (!row) {
     throw new TypeError("mapMembershipRowRequired expected a row object.");
@@ -74,11 +89,78 @@ function createWorkspaceMembershipsRepository(dbClient) {
     return rows.map(mapMembershipRowRequired);
   }
 
+  async function repoListActiveByWorkspaceId(workspaceId) {
+    const rows = await dbClient("workspace_memberships as wm")
+      .innerJoin("user_profiles as up", "up.id", "wm.user_id")
+      .select(
+        "wm.id",
+        "wm.workspace_id",
+        "wm.user_id",
+        "wm.role_id",
+        "wm.status",
+        "wm.created_at",
+        "wm.updated_at",
+        "up.email as user_email",
+        "up.display_name as user_display_name"
+      )
+      .where({
+        "wm.workspace_id": workspaceId,
+        "wm.status": "active"
+      })
+      .orderBy("up.display_name", "asc")
+      .orderBy("up.email", "asc")
+      .orderBy("wm.id", "asc");
+
+    return rows.map(mapMembershipWithUserRowRequired);
+  }
+
+  async function repoUpdateRoleByWorkspaceIdAndUserId(workspaceId, userId, roleId) {
+    await dbClient("workspace_memberships")
+      .where({
+        workspace_id: workspaceId,
+        user_id: userId
+      })
+      .update({
+        role_id: roleId,
+        updated_at: toMysqlDateTimeUtc(new Date())
+      });
+
+    return repoFindByWorkspaceIdAndUserId(workspaceId, userId);
+  }
+
+  async function repoEnsureActiveByWorkspaceIdAndUserId(workspaceId, userId, roleId) {
+    const existing = await repoFindByWorkspaceIdAndUserId(workspaceId, userId);
+    if (!existing) {
+      return repoInsert({
+        workspaceId,
+        userId,
+        roleId,
+        status: "active"
+      });
+    }
+
+    await dbClient("workspace_memberships")
+      .where({
+        workspace_id: workspaceId,
+        user_id: userId
+      })
+      .update({
+        role_id: roleId,
+        status: "active",
+        updated_at: toMysqlDateTimeUtc(new Date())
+      });
+
+    return repoFindByWorkspaceIdAndUserId(workspaceId, userId);
+  }
+
   return {
     findByWorkspaceIdAndUserId: repoFindByWorkspaceIdAndUserId,
     insert: repoInsert,
     ensureOwnerMembership: repoEnsureOwnerMembership,
-    listByUserId: repoListByUserId
+    listByUserId: repoListByUserId,
+    listActiveByWorkspaceId: repoListActiveByWorkspaceId,
+    updateRoleByWorkspaceIdAndUserId: repoUpdateRoleByWorkspaceIdAndUserId,
+    ensureActiveByWorkspaceIdAndUserId: repoEnsureActiveByWorkspaceIdAndUserId
   };
 }
 
@@ -90,5 +172,13 @@ const __testables = {
   createWorkspaceMembershipsRepository
 };
 
-export const { findByWorkspaceIdAndUserId, insert, ensureOwnerMembership, listByUserId } = repository;
+export const {
+  findByWorkspaceIdAndUserId,
+  insert,
+  ensureOwnerMembership,
+  listByUserId,
+  listActiveByWorkspaceId,
+  updateRoleByWorkspaceIdAndUserId,
+  ensureActiveByWorkspaceIdAndUserId
+} = repository;
 export { __testables };
