@@ -43,6 +43,13 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@tanstack/vue-query", () => ({
   useQuery: (options = {}) => {
     const key = Array.isArray(options.queryKey) ? options.queryKey[0] : "";
+    const enabled =
+      options.enabled && typeof options.enabled === "object" && "value" in options.enabled
+        ? Boolean(options.enabled.value)
+        : Boolean(options.enabled ?? true);
+    if (enabled && typeof options.queryFn === "function") {
+      void options.queryFn();
+    }
 
     if (key === "workspace-settings") {
       return {
@@ -257,6 +264,7 @@ describe("useWorkspaceSettingsView", () => {
     expect(mocks.membersRefetch).toHaveBeenCalledTimes(1);
     expect(mocks.invitesRefetch).toHaveBeenCalledTimes(1);
     expect(wrapper.vm.vm.options.formatDateTime("not-a-date")).toBe("unknown");
+    expect(wrapper.vm.vm.options.formatDateTime("2026-01-01T00:00:00.000Z")).not.toBe("unknown");
   });
 
   it("maps workspace query errors and clears them when resolved", async () => {
@@ -314,6 +322,22 @@ describe("useWorkspaceSettingsView", () => {
     expect(wrapper.vm.vm.feedback.workspaceMessageType).toBe("success");
     expect(wrapper.vm.vm.feedback.workspaceMessage).toBe("Workspace settings updated.");
     expect(wrapper.vm.vm.forms.workspace.name).toBe("Acme Prime");
+  });
+
+  it("handles null deny list, workspace update error, and unauthorized error short-circuit", async () => {
+    const wrapper = mountHarness();
+    await flush();
+
+    wrapper.vm.vm.forms.workspace.appDenyEmailsText = null;
+    mocks.api.updateWorkspaceSettings.mockRejectedValueOnce(new Error("Unable to update workspace settings."));
+    await wrapper.vm.vm.actions.submitWorkspaceSettings();
+    expect(wrapper.vm.vm.feedback.workspaceMessageType).toBe("error");
+    expect(wrapper.vm.vm.feedback.workspaceMessage).toBe("Unable to update workspace settings.");
+
+    mocks.handleUnauthorizedError.mockResolvedValueOnce(true);
+    mocks.api.updateWorkspaceSettings.mockRejectedValueOnce(new Error("Auth required"));
+    await wrapper.vm.vm.actions.submitWorkspaceSettings();
+    expect(mocks.handleUnauthorizedError).toHaveBeenCalled();
   });
 
   it("creates invites and handles invite error branch", async () => {
@@ -417,5 +441,30 @@ describe("useWorkspaceSettingsView", () => {
     expect(wrapperWithManage.vm.vm.feedback.teamMessageType).toBe("error");
     expect(wrapperWithManage.vm.vm.feedback.teamMessage).toBe("Unable to update member role.");
     expect(mocks.membersRefetch).toHaveBeenCalled();
+  });
+
+  it("covers empty role-catalog options, invalid query payloads, and mount refetch error handling", async () => {
+    mocks.settingsData = ref("invalid-payload");
+    mocks.membersData = ref(null);
+    mocks.invitesData = ref(null);
+    mocks.membersRefetch.mockRejectedValueOnce(new Error("Unauthorized"));
+    mocks.handleUnauthorizedError.mockResolvedValueOnce(true);
+
+    const wrapper = mountHarness();
+    await flush();
+
+    expect(wrapper.vm.vm.options.inviteRoles.value).toEqual([{ title: "member", value: "member" }]);
+    expect(wrapper.vm.vm.options.memberRoles.value).toEqual([{ title: "member", value: "member" }]);
+    expect(wrapper.vm.vm.forms.workspace.name).toBe("");
+
+    mocks.settingsData.value = buildSettingsPayload({
+      roleCatalog: buildRoleCatalog({
+        defaultInviteRole: "admin",
+        assignableRoleIds: ["admin"]
+      })
+    });
+    wrapper.vm.vm.forms.invite.roleId = "member";
+    await flush();
+    expect(wrapper.vm.vm.forms.invite.roleId).toBe("admin");
   });
 });

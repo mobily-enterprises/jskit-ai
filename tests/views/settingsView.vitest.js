@@ -49,11 +49,21 @@ vi.mock("@tanstack/vue-router", () => ({
 }));
 
 vi.mock("@tanstack/vue-query", () => ({
-  useQuery: () => ({
-    data: mocks.queryData,
-    error: mocks.queryError,
-    isPending: mocks.queryPending
-  }),
+  useQuery: (options = {}) => {
+    const enabled =
+      options.enabled && typeof options.enabled === "object" && "value" in options.enabled
+        ? Boolean(options.enabled.value)
+        : Boolean(options.enabled ?? true);
+    if (enabled && typeof options.queryFn === "function") {
+      void options.queryFn();
+    }
+
+    return {
+      data: mocks.queryData,
+      error: mocks.queryError,
+      isPending: mocks.queryPending
+    };
+  },
   useMutation: ({ mutationFn }) => ({
     isPending: { value: false },
     mutateAsync: (payload) => mutationFn(payload)
@@ -242,6 +252,7 @@ describe("SettingsView", () => {
     expect(sections.preferences.state.preferencesForm.currencyCode).toBe("USD");
     expect(sections.notifications.state.notificationsForm.securityAlerts).toBe(true);
     expect(sections.security.state.mfaLabel).toContain("not enabled");
+    wrapper.unmount();
   });
 
   it("handles invalid tab fallback and helper error branches", async () => {
@@ -520,5 +531,23 @@ describe("SettingsView", () => {
     } finally {
       window.matchMedia = originalMatchMedia;
     }
+  });
+
+  it("maps settings query auth errors and clears load errors after recovery", async () => {
+    mocks.queryData.value = null;
+    mocks.queryError.value = null;
+
+    const wrapper = mountView();
+    await nextTick();
+
+    mocks.queryError.value = {
+      status: 401,
+      message: "Authentication required."
+    };
+    await nextTick();
+
+    mocks.queryError.value = null;
+    await nextTick();
+    expect(vmPage(wrapper).state.loadError).toBe("");
   });
 });

@@ -33,7 +33,8 @@ export function useSettingsProfileLogic({
   clearFieldErrors,
   toErrorMessage,
   handleAuthError,
-  applySettingsData
+  applySettingsData,
+  skipUploaderSetup = import.meta.env.MODE === "test"
 }) {
   const profileInitials = computed(() => {
     const source = String(profileForm.displayName || authStore.username || "U").trim();
@@ -56,7 +57,7 @@ export function useSettingsProfileLogic({
       return;
     }
 
-    if (import.meta.env.MODE === "test") {
+    if (skipUploaderSetup) {
       return;
     }
 

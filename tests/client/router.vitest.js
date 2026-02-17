@@ -22,7 +22,7 @@ vi.mock("../../src/services/api.js", () => ({
   api: mocks.api
 }));
 
-import { createAppRouter, __testables } from "../../src/router.js";
+import { createAppRouter, createRouterForCurrentPath, createRouterForSurface, __testables } from "../../src/router.js";
 
 function buildStores({
   authInitialized = false,
@@ -278,4 +278,37 @@ describe("router auth guards", () => {
     expect(router).toBeTruthy();
     expect(typeof router.navigate).toBe("function");
   });
+
+  it("falls back to app router for unknown surfaces", () => {
+    const stores = buildStores({
+      authInitialized: true,
+      workspaceInitialized: true
+    });
+
+    const router = createRouterForSurface({
+      ...stores,
+      surface: "unsupported-surface"
+    });
+
+    expect(router).toBeTruthy();
+    expect(typeof router.navigate).toBe("function");
+  });
+
+  it("resolves current path from explicit pathname and window fallback", () => {
+    const stores = buildStores({
+      authInitialized: true,
+      workspaceInitialized: true
+    });
+
+    const explicitRouter = createRouterForCurrentPath({
+      ...stores,
+      pathname: "/admin/login"
+    });
+    expect(explicitRouter).toBeTruthy();
+
+    window.history.replaceState({}, "", "/admin/w/acme");
+    const implicitRouter = createRouterForCurrentPath(stores);
+    expect(implicitRouter).toBeTruthy();
+  });
+
 });

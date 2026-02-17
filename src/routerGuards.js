@@ -107,7 +107,9 @@ function createSurfaceRouteGuards(stores, options) {
   async function beforeLoadWorkspaceRequired(context) {
     const state = await resolveRuntimeState(stores);
     if (state.sessionUnavailable) {
-      return;
+      return {
+        sessionUnavailable: true
+      };
     }
 
     if (!state.authenticated) {
@@ -143,7 +145,10 @@ function createSurfaceRouteGuards(stores, options) {
   }
 
   async function beforeLoadWorkspacePermissionsRequired(context, requiredPermissions) {
-    await beforeLoadWorkspaceRequired(context);
+    const workspaceGuardResult = await beforeLoadWorkspaceRequired(context);
+    if (workspaceGuardResult?.sessionUnavailable) {
+      return;
+    }
 
     if (hasAnyWorkspacePermission(requiredPermissions)) {
       return;

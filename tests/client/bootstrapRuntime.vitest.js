@@ -245,4 +245,23 @@ describe("bootstrapRuntime", () => {
     const vuetifyInstance = mocks.createVuetify.mock.results[0].value;
     expect(vuetifyInstance.theme.global.name.value).toBe("dark");
   });
+
+  it("uses system fallback with light preference when matchMedia is unavailable", async () => {
+    const createRouter = vi.fn(() => ({ id: "router-4" }));
+    mocks.bootstrapApi.mockResolvedValue({
+      session: {
+        authenticated: true,
+        username: "sam"
+      },
+      userSettings: {
+        theme: ""
+      }
+    });
+
+    window.matchMedia = undefined;
+    await mountSurfaceApplication({ createRouter });
+
+    const vuetifyInstance = mocks.createVuetify.mock.results[0].value;
+    expect(vuetifyInstance.theme.global.name.value).toBe("light");
+  });
 });

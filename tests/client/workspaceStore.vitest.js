@@ -162,6 +162,41 @@ describe("workspaceStore", () => {
     expect(store.can("workspace.members.manage")).toBe(false);
   });
 
+  it("filters invalid workspace/membership/invite payloads across normalization guards", () => {
+    const store = useWorkspaceStore();
+
+    store.applyBootstrap({
+      workspaces: [
+        null,
+        { id: 1, slug: "", name: "Missing slug" },
+        { id: "x", slug: "bad-id" },
+        { id: 2, slug: "valid", name: "Valid" }
+      ],
+      membership: {
+        roleId: "",
+        status: ""
+      },
+      pendingInvites: [
+        null,
+        { id: 4, workspaceId: 2, workspaceSlug: "" },
+        { id: "x", workspaceId: 2, workspaceSlug: "invalid-id" },
+        { id: 5, workspaceId: 2, workspaceSlug: "valid" }
+      ],
+      activeWorkspace: {
+        id: 99,
+        slug: "",
+        name: "Missing slug"
+      }
+    });
+
+    expect(store.workspaces).toHaveLength(1);
+    expect(store.workspaces[0].slug).toBe("valid");
+    expect(store.membership).toBeNull();
+    expect(store.pendingInvites).toHaveLength(1);
+    expect(store.pendingInvites[0].workspaceSlug).toBe("valid");
+    expect(store.activeWorkspaceSlug).toBe("valid");
+  });
+
   it("applies workspace selection and updates existing workspace entry", () => {
     const store = useWorkspaceStore();
 
@@ -266,6 +301,99 @@ describe("workspaceStore", () => {
 
     store.permissions = ["*"];
     expect(store.can("workspace.members.manage")).toBe(true);
+  });
+
+  it("covers selection/update fallbacks in actions and refresh helpers", async () => {
+    const store = useWorkspaceStore();
+
+    store.applyBootstrap({
+      workspaces: [
+        {
+          id: 1,
+          slug: "acme",
+          name: "",
+          color: "#112233",
+          roleId: "member",
+          isAccessible: true
+        }
+      ],
+      profile: {
+        displayName: "",
+        email: "",
+        avatar: {
+          effectiveUrl: "",
+          gravatarUrl: "",
+          version: null
+        }
+      },
+      permissions: [null, "workspace.read"],
+      pendingInvites: [
+        {
+          id: 4,
+          workspaceId: 1,
+          workspaceSlug: "acme",
+          workspaceAvatarUrl: "https://example.com/workspace.png"
+        }
+      ]
+    });
+
+    expect(store.workspaces[0].name).toBe("acme");
+    expect(store.profileDisplayName).toBe("");
+    expect(store.profileAvatarUrl).toBe("");
+    expect(store.pendingInvites[0].workspaceAvatarUrl).toBe("https://example.com/workspace.png");
+    expect(store.permissions).toEqual(["workspace.read"]);
+
+    store.applyWorkspaceSelection({
+      workspace: null,
+      membership: null,
+      permissions: [null, "workspace.settings.view"],
+      workspaceSettings: null
+    });
+    expect(store.activeWorkspace).toBeNull();
+    expect(store.permissions).toEqual(["workspace.settings.view"]);
+
+    store.applyWorkspaceSelection({
+      workspace: {
+        id: 1,
+        slug: "acme",
+        name: "Acme"
+      },
+      membership: null,
+      permissions: ["workspace.settings.view"],
+      workspaceSettings: null
+    });
+    expect(store.workspaces[0].roleId).toBe("member");
+
+    mocks.pendingWorkspaceInvitesApi.mockResolvedValueOnce({});
+    const pending = await store.refreshPendingInvites();
+    expect(pending).toEqual([]);
+
+    mocks.selectWorkspaceApi.mockResolvedValueOnce({
+      workspace: {
+        id: 1,
+        slug: "acme",
+        name: "Acme"
+      },
+      membership: {
+        roleId: "admin",
+        status: "active"
+      },
+      permissions: ["workspace.settings.view"],
+      workspaceSettings: null
+    });
+    await store.selectWorkspace();
+    expect(mocks.selectWorkspaceApi).toHaveBeenLastCalledWith({
+      workspaceSlug: ""
+    });
+
+    mocks.respondWorkspaceInviteApi.mockResolvedValueOnce({
+      decision: "ignored"
+    });
+    const response = await store.respondToPendingInvite(77, undefined);
+    expect(mocks.respondWorkspaceInviteApi).toHaveBeenLastCalledWith(77, {
+      decision: ""
+    });
+    expect(response.decision).toBe("ignored");
   });
 
   it("handles async refresh/select/respond flows", async () => {
@@ -386,5 +514,41 @@ describe("workspaceStore", () => {
     expect(store.workspaces).toEqual([]);
     expect(store.pendingInvites).toEqual([]);
     expect(store.permissions).toEqual([]);
+    expect(store.profileDisplayName).toBe("");
+    expect(store.profileAvatarUrl).toBe("");
+  });
+
+  it("falls back to default surface id when window is unavailable", () => {
+    const store = useWorkspaceStore();
+    store.applyBootstrap({
+      activeWorkspace: {
+        id: 3,
+        slug: "acme",
+        name: "Acme"
+      }
+    });
+
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
+    if (!descriptor?.configurable) {
+      expect(store.workspacePath("/", { surface: "" })).toBe("/w/acme");
+      return;
+    }
+
+    const originalWindow = globalThis.window;
+    Object.defineProperty(globalThis, "window", {
+      value: undefined,
+      configurable: true,
+      writable: true
+    });
+
+    try {
+      expect(store.workspacePath("/", { surface: "" })).toBe("/w/acme");
+    } finally {
+      Object.defineProperty(globalThis, "window", {
+        value: originalWindow,
+        configurable: true,
+        writable: true
+      });
+    }
   });
 });

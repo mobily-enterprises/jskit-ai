@@ -55,6 +55,11 @@ describe("useListPagination", () => {
     wrapper.vm.page = 3;
     wrapper.vm.goNext({ totalPages: 3 });
     expect(wrapper.vm.page).toBe(3);
+
+    wrapper.vm.page = 1;
+    totalPages = null;
+    wrapper.vm.goNext();
+    expect(wrapper.vm.page).toBe(1);
   });
 
   it("updates page size and resets to first page", () => {

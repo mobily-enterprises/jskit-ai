@@ -353,4 +353,145 @@ describe("client api transport", () => {
     expect(history).toEqual({ entries: [], page: 2, pageSize: 25, total: 0, totalPages: 1 });
     expect(global.fetch.mock.calls[4][0]).toBe("/api/history?page=2&pageSize=25");
   });
+
+  it("calls workspace and security wrapper endpoints and encodes identifiers", async () => {
+    global.fetch.mockImplementation(async (url) => {
+      if (url === "/api/session") {
+        return mockResponse({
+          data: { csrfToken: "workspace-token" }
+        });
+      }
+
+      return mockResponse({
+        data: { ok: true, url }
+      });
+    });
+
+    await api.bootstrap();
+    await api.requestOtpLogin({ email: "a@example.com" });
+    await api.verifyOtpLogin({ email: "a@example.com", token: "123456" });
+    await api.oauthComplete({ code: "oauth-code" });
+    await api.workspaces();
+    await api.selectWorkspace({ workspaceSlug: "acme" });
+    await api.pendingWorkspaceInvites();
+    await api.respondWorkspaceInvite("invite id/1", { decision: "accept" });
+    await api.workspaceSettings();
+    await api.updateWorkspaceSettings({ name: "Acme" });
+    await api.workspaceRoles();
+    await api.workspaceMembers();
+    await api.updateWorkspaceMemberRole("user/id", { roleId: "admin" });
+    await api.workspaceInvites();
+    await api.createWorkspaceInvite({ email: "member@example.com", roleId: "member" });
+    await api.revokeWorkspaceInvite("invite id/2");
+    await api.setPasswordMethodEnabled({ enabled: true });
+    await api.unlinkSettingsOAuthProvider("Google ");
+
+    const urls = global.fetch.mock.calls.map(([url]) => url);
+    expect(urls).toContain("/api/bootstrap");
+    expect(urls).toContain("/api/login/otp/request");
+    expect(urls).toContain("/api/login/otp/verify");
+    expect(urls).toContain("/api/oauth/complete");
+    expect(urls).toContain("/api/workspaces");
+    expect(urls).toContain("/api/workspaces/select");
+    expect(urls).toContain("/api/workspace/invitations/pending");
+    expect(urls).toContain("/api/workspace/invitations/invite%20id%2F1/respond");
+    expect(urls).toContain("/api/workspace/settings");
+    expect(urls).toContain("/api/workspace/roles");
+    expect(urls).toContain("/api/workspace/members");
+    expect(urls).toContain("/api/workspace/members/user%2Fid/role");
+    expect(urls).toContain("/api/workspace/invites");
+    expect(urls).toContain("/api/workspace/invites/invite%20id%2F2");
+    expect(urls).toContain("/api/settings/security/methods/password");
+    expect(urls).toContain("/api/settings/security/oauth/google");
+  });
+
+  it("builds oauth URL helpers with and without returnTo", () => {
+    expect(api.oauthStartUrl("Google")).toBe("/api/oauth/google/start");
+    expect(api.oauthStartUrl("Google", { returnTo: "/w/acme" })).toBe("/api/oauth/google/start?returnTo=%2Fw%2Facme");
+
+    expect(api.settingsOAuthLinkStartUrl("Google")).toBe("/api/settings/security/oauth/google/start");
+    expect(api.settingsOAuthLinkStartUrl("Google", { returnTo: "/account/settings" })).toBe(
+      "/api/settings/security/oauth/google/start?returnTo=%2Faccount%2Fsettings"
+    );
+  });
+
+  it("applies surface/workspace headers only for api requests and handles url edge cases", async () => {
+    window.history.replaceState({}, "", "/admin/w/acme/settings");
+    global.fetch.mockResolvedValue(mockResponse({ data: { ok: true } }));
+
+    await __testables.request("/api/session");
+    const apiCall = global.fetch.mock.calls[0];
+    expect(apiCall[1].headers["x-surface-id"]).toBe("admin");
+    expect(apiCall[1].headers["x-workspace-slug"]).toBe("acme");
+
+    await __testables.request("/external/path");
+    const nonApiCall = global.fetch.mock.calls[1];
+    expect(nonApiCall[1].headers["x-surface-id"]).toBeUndefined();
+    expect(nonApiCall[1].headers["x-workspace-slug"]).toBeUndefined();
+
+    await __testables.request("https://example.com/api/session");
+    const absoluteApiCall = global.fetch.mock.calls[2];
+    expect(absoluteApiCall[1].headers["x-surface-id"]).toBe("admin");
+    expect(absoluteApiCall[1].headers["x-workspace-slug"]).toBe("acme");
+
+    await __testables.request("http://[::1");
+    const invalidUrlCall = global.fetch.mock.calls[3];
+    expect(invalidUrlCall[1].headers["x-surface-id"]).toBeUndefined();
+
+    await __testables.request(" ");
+    const blankUrlCall = global.fetch.mock.calls[4];
+    expect(blankUrlCall[1].headers["x-surface-id"]).toBeUndefined();
+  });
+
+  it("skips absolute-url surface header resolution when window is unavailable", async () => {
+    global.fetch.mockResolvedValue(mockResponse({ data: { ok: true } }));
+
+    const originalWindow = globalThis.window;
+    vi.stubGlobal("window", undefined);
+    try {
+      await __testables.request("https://example.com/api/session");
+      const call = global.fetch.mock.calls[0];
+      expect(call[1].headers["x-surface-id"]).toBeUndefined();
+      expect(call[1].headers["x-workspace-slug"]).toBeUndefined();
+    } finally {
+      vi.stubGlobal("window", originalWindow);
+    }
+  });
+
+  it("handles empty-ish wrapper inputs and location/pathname edge cases", async () => {
+    global.fetch.mockResolvedValue(mockResponse({ data: { ok: true } }));
+
+    const originalWindow = globalThis.window;
+    const nextWindow = {
+      ...originalWindow,
+      location: {
+        ...(originalWindow?.location || {}),
+        pathname: ""
+      }
+    };
+    vi.stubGlobal("window", nextWindow);
+
+    try {
+      await __testables.request("/api/session");
+      const firstCall = global.fetch.mock.calls[0];
+      expect(firstCall[1].headers["x-surface-id"]).toBe("app");
+      expect(firstCall[1].headers["x-workspace-slug"]).toBeUndefined();
+    } finally {
+      vi.stubGlobal("window", originalWindow);
+    }
+
+    expect(api.oauthStartUrl()).toBe("/api/oauth//start");
+    expect(api.settingsOAuthLinkStartUrl()).toBe("/api/settings/security/oauth//start");
+
+    await api.respondWorkspaceInvite(undefined, { decision: "accept" });
+    await api.updateWorkspaceMemberRole(undefined, { roleId: "member" });
+    await api.revokeWorkspaceInvite(undefined);
+    await api.unlinkSettingsOAuthProvider(undefined);
+
+    const urls = global.fetch.mock.calls.map(([url]) => url);
+    expect(urls).toContain("/api/workspace/invitations//respond");
+    expect(urls).toContain("/api/workspace/members//role");
+    expect(urls).toContain("/api/workspace/invites/");
+    expect(urls).toContain("/api/settings/security/oauth/");
+  });
 });
