@@ -26,4 +26,5 @@ Extra:
 - Security controls (rate limits, audit trails, rotation, dependency scans, pentests)
 - Data handling (validation, encryption, retention/purge policies, backups)
 - Testing & automation (CI, regression/e2e coverage, performance benchmarks)
+- CI policy gate: fail build when any `workspaceSurface: "admin"` route lacks `permission` (explicit allowlist for exceptions)
 - Observability (business metrics, uptime, capacity signals)
