@@ -174,8 +174,9 @@
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
-import { useNavigate } from "@tanstack/vue-router";
+import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useMutation } from "@tanstack/vue-query";
+import { resolveSurfacePaths } from "../../shared/routing/surfacePaths.js";
 import { api } from "../services/api";
 import { useAuthStore } from "../stores/authStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
@@ -197,6 +198,10 @@ import {
 const REMEMBERED_ACCOUNT_STORAGE_KEY = "auth.rememberedAccount";
 
 const navigate = useNavigate();
+const routerPath = useRouterState({
+  select: (state) => state.location.pathname
+});
+const surfacePaths = computed(() => resolveSurfacePaths(routerPath.value));
 const authStore = useAuthStore();
 const workspaceStore = useWorkspaceStore();
 
@@ -323,7 +328,9 @@ function redirectRecoveryLinkToResetPage() {
   }
 
   if (typeof window !== "undefined") {
-    window.location.replace(`/reset-password${window.location.search || ""}${window.location.hash || ""}`);
+    window.location.replace(
+      `${surfacePaths.value.resetPasswordPath}${window.location.search || ""}${window.location.hash || ""}`
+    );
   }
 
   return true;
@@ -584,12 +591,12 @@ async function startOAuthSignIn(providerId) {
   writePendingOAuthContext({
     provider,
     intent: "login",
-    returnTo: "/",
+    returnTo: surfacePaths.value.rootPath,
     rememberAccountOnDevice: rememberAccountOnDevice.value
   });
 
   if (typeof window !== "undefined") {
-    window.location.assign(api.oauthStartUrl(provider, { returnTo: "/" }));
+    window.location.assign(api.oauthStartUrl(provider, { returnTo: surfacePaths.value.rootPath }));
   }
 }
 
@@ -626,7 +633,7 @@ async function handleOtpLoginCallbackIfPresent() {
     });
 
     stripOtpLoginCallbackParamsFromLocation();
-    await navigate({ to: "/", replace: true });
+    await navigate({ to: surfacePaths.value.rootPath, replace: true });
   } catch (error) {
     errorMessage.value = toErrorMessage(error, "Unable to complete email one-time login.");
     stripOtpLoginCallbackParamsFromLocation();
@@ -640,7 +647,7 @@ async function handleOAuthCallbackIfPresent() {
   const callbackState = readOAuthCallbackStateFromLocation({
     pendingContext: pendingOAuthContext,
     defaultIntent: "login",
-    defaultReturnTo: "/"
+    defaultReturnTo: surfacePaths.value.rootPath
   });
 
   if (!callbackState) {
@@ -665,7 +672,7 @@ async function handleOAuthCallbackIfPresent() {
     }
 
     stripOAuthCallbackParamsFromLocation();
-    await navigate({ to: callbackState.returnTo || "/", replace: true });
+    await navigate({ to: callbackState.returnTo || surfacePaths.value.rootPath, replace: true });
   } catch (error) {
     errorMessage.value = toErrorMessage(error, "Unable to complete OAuth sign-in.");
     stripOAuthCallbackParamsFromLocation();
@@ -857,7 +864,7 @@ async function submitAuth() {
       shouldRemember: rememberAccountOnDevice.value
     });
 
-    await navigate({ to: "/", replace: true });
+    await navigate({ to: surfacePaths.value.rootPath, replace: true });
   } catch (error) {
     errorMessage.value = toErrorMessage(error, "Unable to complete authentication.");
   }

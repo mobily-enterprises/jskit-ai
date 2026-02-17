@@ -1,4 +1,6 @@
-import { useNavigate } from "@tanstack/vue-router";
+import { computed } from "vue";
+import { useNavigate, useRouterState } from "@tanstack/vue-router";
+import { resolveSurfacePaths } from "../../shared/routing/surfacePaths.js";
 import { useAuthStore } from "../stores/authStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 
@@ -8,13 +10,17 @@ export function isUnauthorizedError(error) {
 
 export function useAuthGuard() {
   const navigate = useNavigate();
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname
+  });
+  const loginPath = computed(() => resolveSurfacePaths(pathname.value).loginPath);
   const authStore = useAuthStore();
   const workspaceStore = useWorkspaceStore();
 
   async function signOutAndRedirectToLogin() {
     authStore.setSignedOut();
     workspaceStore.clearWorkspaceState();
-    await navigate({ to: "/login", replace: true });
+    await navigate({ to: loginPath.value, replace: true });
   }
 
   async function handleUnauthorizedError(error) {

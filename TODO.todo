@@ -5,11 +5,15 @@ X Harmonise/understand schema
 X Gravatar, + Profile picture upload and S3 integration/filesystem?
 X Finish login/user management properly
 
-- Config/multihoming: App configuration, loaded at boot time AND Multihoming, app configuration becomes workspace configuration
-- Load user settings on app load IF that is best practice and doesn't happen already
-- More permissions (multihoming)
+X Config/multihoming: App configuration, loaded at boot time AND Multihoming, app configuration becomes workspace configuration
+X Load user settings on app load IF that is best practice and doesn't happen already
+X More permissions (multihoming)
+X Add a backend interface, explain how to make it work, what code to share
 
-- Add a backend interface, explain how to make it work, what code to share
+- Check functionality of the multiple surfaces/workspaces
+- Make sure each screen is short
+- Get full test coverage
+
 - Log server errors and client errors
 - One (or more) of the "extra" stuff in the admin interface
 

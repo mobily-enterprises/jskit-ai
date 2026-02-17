@@ -1,10 +1,22 @@
 import { db } from "../db/knex.js";
 import { toIsoString, toMysqlDateTimeUtc } from "../lib/dateUtils.js";
 
+const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
+const WORKSPACE_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+
 function normalizeEmail(value) {
   return String(value || "")
     .trim()
     .toLowerCase();
+}
+
+function normalizeWorkspaceColor(value) {
+  const normalized = String(value || "").trim();
+  if (WORKSPACE_COLOR_PATTERN.test(normalized)) {
+    return normalized.toUpperCase();
+  }
+
+  return DEFAULT_WORKSPACE_COLOR;
 }
 
 function mapWorkspaceInviteRowRequired(row) {
@@ -13,7 +25,7 @@ function mapWorkspaceInviteRowRequired(row) {
   }
 
   const workspaceDataPresent =
-    row.workspace_slug != null || row.workspace_name != null || row.workspace_avatar_url != null;
+    row.workspace_slug != null || row.workspace_name != null || row.workspace_avatar_url != null || row.workspace_color != null;
   const inviterDataPresent = row.invited_by_display_name != null || row.invited_by_email != null;
 
   return {
@@ -38,6 +50,7 @@ function mapWorkspaceInviteRowRequired(row) {
           id: Number(row.workspace_id),
           slug: String(row.workspace_slug || ""),
           name: String(row.workspace_name || ""),
+          color: normalizeWorkspaceColor(row.workspace_color),
           avatarUrl: row.workspace_avatar_url ? String(row.workspace_avatar_url) : ""
         }
       : null
@@ -73,7 +86,12 @@ function createInviteBaseQuery(dbClient, withWorkspace = false) {
   if (withWorkspace) {
     query
       .innerJoin("workspaces as w", "w.id", "wi.workspace_id")
-      .select("w.slug as workspace_slug", "w.name as workspace_name", "w.avatar_url as workspace_avatar_url");
+      .select(
+        "w.slug as workspace_slug",
+        "w.name as workspace_name",
+        "w.color as workspace_color",
+        "w.avatar_url as workspace_avatar_url"
+      );
   }
 
   return query;

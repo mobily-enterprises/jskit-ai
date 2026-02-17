@@ -13,7 +13,7 @@
 
         <v-form @submit.prevent="submitWorkspaceSettings" novalidate>
           <v-row>
-            <v-col cols="12" md="6">
+            <v-col cols="12" md="5">
               <v-text-field
                 v-model="workspaceForm.name"
                 label="Workspace name"
@@ -22,7 +22,17 @@
                 :readonly="!canManageWorkspaceSettings"
               />
             </v-col>
-            <v-col cols="12" md="6">
+            <v-col cols="12" md="2">
+              <v-text-field
+                v-model="workspaceForm.color"
+                label="Workspace color"
+                type="color"
+                variant="outlined"
+                density="comfortable"
+                :disabled="!canManageWorkspaceSettings"
+              />
+            </v-col>
+            <v-col cols="12" md="5">
               <v-text-field
                 v-model="workspaceForm.avatarUrl"
                 label="Workspace avatar URL"
@@ -91,6 +101,19 @@
                 hide-details
                 label="Enable invites"
                 :disabled="!canManageWorkspaceSettings || !workspaceForm.invitesAvailable"
+              />
+            </v-col>
+            <v-col cols="12">
+              <v-textarea
+                v-model="workspaceForm.appDenyEmailsText"
+                label="App surface deny list (emails)"
+                variant="outlined"
+                density="comfortable"
+                :readonly="!canManageWorkspaceSettings"
+                hint="Optional. One email per line. Denied users cannot access this workspace on the app surface."
+                persistent-hint
+                rows="4"
+                auto-grow
               />
             </v-col>
             <v-col cols="12" md="6" class="d-flex align-center justify-end">
@@ -275,9 +298,11 @@ const { handleUnauthorizedError } = useAuthGuard();
 
 const workspaceForm = reactive({
   name: "",
+  color: "#0F6B54",
   avatarUrl: "",
   invitesEnabled: false,
   invitesAvailable: false,
+  appDenyEmailsText: "",
   defaultMode: "fv",
   defaultTiming: "ordinary",
   defaultPaymentsPerYear: 12,
@@ -370,9 +395,16 @@ function applyWorkspaceSettingsData(data) {
   }
 
   workspaceForm.name = String(data.workspace?.name || "");
+  workspaceForm.color = String(data.workspace?.color || "#0F6B54");
   workspaceForm.avatarUrl = String(data.workspace?.avatarUrl || "");
   workspaceForm.invitesEnabled = Boolean(data.settings?.invitesEnabled);
   workspaceForm.invitesAvailable = Boolean(data.settings?.invitesAvailable);
+  workspaceForm.appDenyEmailsText = Array.isArray(data.settings?.appDenyEmails)
+    ? data.settings.appDenyEmails
+        .map((email) => String(email || "").trim().toLowerCase())
+        .filter(Boolean)
+        .join("\n")
+    : "";
   workspaceForm.defaultMode = String(data.settings?.defaultMode || "fv");
   workspaceForm.defaultTiming = String(data.settings?.defaultTiming || "ordinary");
   workspaceForm.defaultPaymentsPerYear = Number(data.settings?.defaultPaymentsPerYear || 12);
@@ -425,6 +457,21 @@ function formatDateTime(value) {
   }
 
   return date.toLocaleString();
+}
+
+function parseDenyEmailsInput(value) {
+  if (value == null) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      String(value || "")
+        .split(/[\n,;]+/)
+        .map((email) => String(email || "").trim().toLowerCase())
+        .filter(Boolean)
+    )
+  );
 }
 
 async function handleError(error, fallback, target = "workspace") {
@@ -506,8 +553,10 @@ async function submitWorkspaceSettings() {
   try {
     const data = await updateWorkspaceSettingsMutation.mutateAsync({
       name: workspaceForm.name,
+      color: workspaceForm.color,
       avatarUrl: workspaceForm.avatarUrl,
       invitesEnabled: workspaceForm.invitesEnabled,
+      appDenyEmails: parseDenyEmailsInput(workspaceForm.appDenyEmailsText),
       defaultMode: workspaceForm.defaultMode,
       defaultTiming: workspaceForm.defaultTiming,
       defaultPaymentsPerYear: Number(workspaceForm.defaultPaymentsPerYear),

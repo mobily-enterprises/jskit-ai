@@ -37,6 +37,7 @@ import { createUserAvatarService } from "./services/userAvatarService.js";
 import { createWorkspaceService } from "./services/workspaceService.js";
 import { createWorkspaceAdminService } from "./services/workspaceAdminService.js";
 import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar/index.js";
+import { resolveSurfacePaths } from "./shared/routing/surfacePaths.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -170,33 +171,20 @@ function hasPathExtension(pathnameValue) {
   return path.extname(pathnameValue) !== "";
 }
 
-function isPublicAuthPage(pathnameValue) {
-  return pathnameValue === "/login" || pathnameValue === "/reset-password";
-}
-
-function isWorkspaceChooserPage(pathnameValue) {
-  return pathnameValue === "/workspaces";
-}
-
-function isGlobalAccountSettingsPage(pathnameValue) {
-  return pathnameValue === "/account/settings";
-}
-
-function extractWorkspaceSlugFromPath(pathnameValue) {
-  const match = String(pathnameValue || "").match(/^\/w\/([^/]+)/);
-  return match ? String(match[1] || "").trim() : "";
-}
-
 async function guardPageRoute(request, reply) {
   const pathnameValue = safePathnameFromRequest(request);
+  const surfacePaths = resolveSurfacePaths(pathnameValue);
   if (hasPathExtension(pathnameValue)) {
     return true;
   }
 
-  const hasCookieHint = authService.hasAccessTokenCookie(request);
+  const hasCookieHint =
+    typeof authService.hasSessionCookie === "function"
+      ? authService.hasSessionCookie(request)
+      : authService.hasAccessTokenCookie(request);
   if (!hasCookieHint) {
-    if (!isPublicAuthPage(pathnameValue)) {
-      reply.redirect("/login");
+    if (!surfacePaths.isPublicAuthPath(pathnameValue)) {
+      reply.redirect(surfacePaths.loginPath);
       return false;
     }
 
@@ -216,12 +204,12 @@ async function guardPageRoute(request, reply) {
       return true;
     }
 
-    if (!isPublicAuthPage(pathnameValue) && !authResult.authenticated) {
-      reply.redirect("/login");
+    if (!surfacePaths.isPublicAuthPath(pathnameValue) && !authResult.authenticated) {
+      reply.redirect(surfacePaths.loginPath);
       return false;
     }
 
-    if (pathnameValue === "/login" && authResult.authenticated) {
+    if (surfacePaths.isLoginPath(pathnameValue) && authResult.authenticated) {
       const resolvedContext = await workspaceService.resolveRequestContext({
         user: authResult.profile,
         request,
@@ -229,15 +217,15 @@ async function guardPageRoute(request, reply) {
       });
 
       if (resolvedContext.workspace) {
-        reply.redirect(`/w/${resolvedContext.workspace.slug}`);
+        reply.redirect(surfacePaths.workspaceHomePath(resolvedContext.workspace.slug));
       } else {
-        reply.redirect("/workspaces");
+        reply.redirect(surfacePaths.workspacesPath);
       }
       return false;
     }
 
     if (authResult.authenticated) {
-      const workspaceSlug = extractWorkspaceSlugFromPath(pathnameValue);
+      const workspaceSlug = surfacePaths.extractWorkspaceSlug(pathnameValue);
       const requestWithWorkspaceHint = {
         ...request,
         params: {
@@ -254,16 +242,20 @@ async function guardPageRoute(request, reply) {
 
       if (
         !resolvedContext.workspace &&
-        !isWorkspaceChooserPage(pathnameValue) &&
-        !isGlobalAccountSettingsPage(pathnameValue) &&
-        !isPublicAuthPage(pathnameValue)
+        !surfacePaths.isWorkspacesPath(pathnameValue) &&
+        !surfacePaths.isAccountSettingsPath(pathnameValue) &&
+        !surfacePaths.isPublicAuthPath(pathnameValue)
       ) {
-        reply.redirect("/workspaces");
+        reply.redirect(surfacePaths.workspacesPath);
         return false;
       }
 
-      if (resolvedContext.workspace && isWorkspaceChooserPage(pathnameValue) && APP_CONFIG.tenancyMode === "personal") {
-        reply.redirect(`/w/${resolvedContext.workspace.slug}`);
+      if (
+        resolvedContext.workspace &&
+        surfacePaths.isWorkspacesPath(pathnameValue) &&
+        APP_CONFIG.tenancyMode === "personal"
+      ) {
+        reply.redirect(surfacePaths.workspaceHomePath(resolvedContext.workspace.slug));
         return false;
       }
     }
@@ -271,12 +263,12 @@ async function guardPageRoute(request, reply) {
     return true;
   } catch (error) {
     const statusCode = Number(error?.status || error?.statusCode);
-    if (!isPublicAuthPage(pathnameValue)) {
+    if (!surfacePaths.isPublicAuthPath(pathnameValue)) {
       if (statusCode === 403 || statusCode === 409) {
-        reply.redirect("/workspaces");
+        reply.redirect(surfacePaths.workspacesPath);
         return false;
       }
-      reply.redirect("/login");
+      reply.redirect(surfacePaths.loginPath);
       return false;
     }
 

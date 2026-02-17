@@ -2,8 +2,12 @@ import crypto from "node:crypto";
 import { AppError } from "../lib/errors.js";
 import { OWNER_ROLE_ID } from "../lib/rbacManifest.js";
 import { SETTINGS_MODE_OPTIONS, SETTINGS_TIMING_OPTIONS } from "../shared/settings/index.js";
+import { extractAppSurfacePolicy } from "../surfaces/appSurface.js";
 
 const INVITE_EXPIRY_DAYS = 7;
+const BASIC_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
+const WORKSPACE_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 
 function normalizeEmail(value) {
   return String(value || "")
@@ -54,6 +58,30 @@ function normalizeWorkspaceAvatarUrl(value) {
   }
 
   return parsed.toString();
+}
+
+function coerceWorkspaceColor(value) {
+  const normalized = String(value || "").trim();
+  if (WORKSPACE_COLOR_PATTERN.test(normalized)) {
+    return normalized.toUpperCase();
+  }
+
+  return DEFAULT_WORKSPACE_COLOR;
+}
+
+function normalizeWorkspaceColor(value) {
+  const normalized = String(value || "").trim();
+  if (WORKSPACE_COLOR_PATTERN.test(normalized)) {
+    return normalized.toUpperCase();
+  }
+
+  throw new AppError(400, "Validation failed.", {
+    details: {
+      fieldErrors: {
+        color: "Workspace color must be a hex color like #0F6B54."
+      }
+    }
+  });
 }
 
 function toRoleDescriptor(roleId, role) {
@@ -124,6 +152,58 @@ function resolveWorkspaceDefaults(policy) {
   };
 }
 
+function normalizeDenyUserIds(rawUserIds) {
+  if (!Array.isArray(rawUserIds)) {
+    return {
+      value: null,
+      valid: false
+    };
+  }
+
+  const normalized = [];
+  for (const rawUserId of rawUserIds) {
+    const numericUserId = Number(rawUserId);
+    if (!Number.isInteger(numericUserId) || numericUserId < 1) {
+      return {
+        value: null,
+        valid: false
+      };
+    }
+    normalized.push(numericUserId);
+  }
+
+  return {
+    value: Array.from(new Set(normalized)),
+    valid: true
+  };
+}
+
+function normalizeDenyEmails(rawEmails) {
+  if (!Array.isArray(rawEmails)) {
+    return {
+      value: null,
+      valid: false
+    };
+  }
+
+  const normalized = [];
+  for (const rawEmail of rawEmails) {
+    const email = normalizeEmail(rawEmail);
+    if (!email || !BASIC_EMAIL_PATTERN.test(email)) {
+      return {
+        value: null,
+        valid: false
+      };
+    }
+    normalized.push(email);
+  }
+
+  return {
+    value: Array.from(new Set(normalized)),
+    valid: true
+  };
+}
+
 function parseWorkspaceSettingsPatch(payload) {
   const body = payload && typeof payload === "object" ? payload : {};
   const fieldErrors = {};
@@ -150,6 +230,18 @@ function parseWorkspaceSettingsPatch(payload) {
         fieldErrors.avatarUrl = String(error.details.fieldErrors.avatarUrl);
       } else {
         fieldErrors.avatarUrl = "Workspace avatar URL is invalid.";
+      }
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "color")) {
+    try {
+      workspacePatch.color = normalizeWorkspaceColor(body.color);
+    } catch (error) {
+      if (error instanceof AppError && error.details?.fieldErrors?.color) {
+        fieldErrors.color = String(error.details.fieldErrors.color);
+      } else {
+        fieldErrors.color = "Workspace color is invalid.";
       }
     }
   }
@@ -202,6 +294,36 @@ function parseWorkspaceSettingsPatch(payload) {
     settingsPatch.defaults = defaultsPatch;
   }
 
+  let appSurfaceAccessPatch = null;
+
+  if (Object.prototype.hasOwnProperty.call(body, "appDenyEmails")) {
+    const parsedDenyEmails = normalizeDenyEmails(body.appDenyEmails);
+    if (!parsedDenyEmails.valid) {
+      fieldErrors.appDenyEmails = "App deny emails must be an array of valid email addresses.";
+    } else {
+      appSurfaceAccessPatch = {
+        ...(appSurfaceAccessPatch || {}),
+        denyEmails: parsedDenyEmails.value
+      };
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "appDenyUserIds")) {
+    const parsedDenyUserIds = normalizeDenyUserIds(body.appDenyUserIds);
+    if (!parsedDenyUserIds.valid) {
+      fieldErrors.appDenyUserIds = "App deny user ids must be an array of positive integers.";
+    } else {
+      appSurfaceAccessPatch = {
+        ...(appSurfaceAccessPatch || {}),
+        denyUserIds: parsedDenyUserIds.value
+      };
+    }
+  }
+
+  if (appSurfaceAccessPatch) {
+    settingsPatch.appSurfaceAccess = appSurfaceAccessPatch;
+  }
+
   return {
     workspacePatch,
     settingsPatch,
@@ -214,6 +336,7 @@ function mapWorkspaceSummary(workspace) {
     id: Number(workspace.id),
     slug: String(workspace.slug || ""),
     name: String(workspace.name || ""),
+    color: coerceWorkspaceColor(workspace.color),
     avatarUrl: workspace.avatarUrl ? String(workspace.avatarUrl) : "",
     ownerUserId: Number(workspace.ownerUserId),
     isPersonal: Boolean(workspace.isPersonal)
@@ -297,6 +420,7 @@ function createWorkspaceAdminService({
 
   function mapWorkspaceSettingsResponse(workspace, workspaceSettings) {
     const defaults = resolveWorkspaceDefaults(workspaceSettings?.policy);
+    const appSurfacePolicy = extractAppSurfacePolicy(workspaceSettings);
     const invitesAvailable = Boolean(appConfig.features.workspaceInvites && rbacManifest.collaborationEnabled);
     const invitesEnabled = Boolean(workspaceSettings?.invitesEnabled);
 
@@ -306,7 +430,9 @@ function createWorkspaceAdminService({
         invitesEnabled,
         invitesAvailable,
         invitesEffective: invitesAvailable && invitesEnabled,
-        ...defaults
+        ...defaults,
+        appDenyEmails: appSurfacePolicy.denyEmails,
+        appDenyUserIds: appSurfacePolicy.denyUserIds
       }
     };
   }
@@ -338,6 +464,7 @@ function createWorkspaceAdminService({
             id: Number(invite.workspace.id),
             slug: String(invite.workspace.slug || ""),
             name: String(invite.workspace.name || ""),
+            color: coerceWorkspaceColor(invite.workspace.color),
             avatarUrl: invite.workspace.avatarUrl ? String(invite.workspace.avatarUrl) : ""
           }
         : null
@@ -397,6 +524,26 @@ function createWorkspaceAdminService({
       settingsPatch.policy = {
         ...(currentSettings?.policy && typeof currentSettings.policy === "object" ? currentSettings.policy : {}),
         ...parsed.settingsPatch.defaults
+      };
+    }
+
+    if (parsed.settingsPatch.appSurfaceAccess) {
+      const currentFeatures =
+        currentSettings?.features && typeof currentSettings.features === "object" ? currentSettings.features : {};
+      const currentSurfaceAccess =
+        currentFeatures.surfaceAccess && typeof currentFeatures.surfaceAccess === "object" ? currentFeatures.surfaceAccess : {};
+      const currentAppSurfaceAccess =
+        currentSurfaceAccess.app && typeof currentSurfaceAccess.app === "object" ? currentSurfaceAccess.app : {};
+
+      settingsPatch.features = {
+        ...currentFeatures,
+        surfaceAccess: {
+          ...currentSurfaceAccess,
+          app: {
+            ...currentAppSurfaceAccess,
+            ...parsed.settingsPatch.appSurfaceAccess
+          }
+        }
       };
     }
 
@@ -603,14 +750,15 @@ function createWorkspaceAdminService({
         ok: true,
         decision: "refused",
         inviteId: Number(invite.id),
-        workspace: invite.workspace
-          ? {
-              id: Number(invite.workspace.id),
-              slug: String(invite.workspace.slug || ""),
-              name: String(invite.workspace.name || ""),
-              avatarUrl: invite.workspace.avatarUrl ? String(invite.workspace.avatarUrl) : ""
-            }
-          : null
+      workspace: invite.workspace
+        ? {
+            id: Number(invite.workspace.id),
+            slug: String(invite.workspace.slug || ""),
+            name: String(invite.workspace.name || ""),
+            color: coerceWorkspaceColor(invite.workspace.color),
+            avatarUrl: invite.workspace.avatarUrl ? String(invite.workspace.avatarUrl) : ""
+          }
+        : null
       };
     }
 
@@ -633,6 +781,7 @@ function createWorkspaceAdminService({
             id: Number(workspace.id),
             slug: String(workspace.slug || ""),
             name: String(workspace.name || ""),
+            color: coerceWorkspaceColor(workspace.color),
             avatarUrl: workspace.avatarUrl ? String(workspace.avatarUrl) : ""
           }
         : null

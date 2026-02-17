@@ -28,7 +28,9 @@ function createWorkspaceController({ authService, workspaceService, workspaceAdm
   }
 
   async function listWorkspaces(request, reply) {
-    const workspaces = await workspaceService.listWorkspacesForUser(request.user);
+    const workspaces = await workspaceService.listWorkspacesForUser(request.user, {
+      request
+    });
     reply.code(200).send({
       workspaces
     });
@@ -37,7 +39,9 @@ function createWorkspaceController({ authService, workspaceService, workspaceAdm
   async function selectWorkspace(request, reply) {
     const payload = request.body || {};
     const workspaceSlug = payload.workspaceSlug || payload.slug || payload.workspaceId;
-    const context = await workspaceService.selectWorkspaceForUser(request.user, workspaceSlug);
+    const context = await workspaceService.selectWorkspaceForUser(request.user, workspaceSlug, {
+      request
+    });
     reply.code(200).send({
       ok: true,
       ...context

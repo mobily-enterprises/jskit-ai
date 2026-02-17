@@ -29,11 +29,15 @@
                     v-for="workspace in workspaceItems"
                     :key="workspace.id"
                     :title="workspace.name"
-                    :subtitle="`/${workspace.slug} • role: ${workspace.roleId || 'member'}`"
+                    :subtitle="
+                      workspace.isAccessible
+                        ? `/${workspace.slug} • role: ${workspace.roleId || 'member'}`
+                        : `/${workspace.slug} • unavailable on this surface`
+                    "
                     class="px-0"
                   >
                     <template #prepend>
-                      <v-avatar color="surface-variant" size="28">
+                      <v-avatar :style="workspaceAvatarStyle(workspace)" size="28">
                         <v-img v-if="workspace.avatarUrl" :src="workspace.avatarUrl" cover />
                         <span v-else class="text-caption">{{ workspaceInitials(workspace) }}</span>
                       </v-avatar>
@@ -43,10 +47,11 @@
                         color="primary"
                         size="small"
                         variant="tonal"
+                        :disabled="!workspace.isAccessible"
                         :loading="selectingWorkspaceSlug === workspace.slug"
                         @click="openWorkspace(workspace.slug)"
                       >
-                        Open
+                        {{ workspace.isAccessible ? "Open" : "Unavailable" }}
                       </v-btn>
                     </template>
                   </v-list-item>
@@ -109,11 +114,18 @@
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
-import { useNavigate } from "@tanstack/vue-router";
+import { useNavigate, useRouterState } from "@tanstack/vue-router";
+import { resolveSurfacePaths } from "../../shared/routing/surfacePaths.js";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 
 const navigate = useNavigate();
+const routerPath = useRouterState({
+  select: (state) => state.location.pathname
+});
+const surfacePaths = computed(() => resolveSurfacePaths(routerPath.value));
 const workspaceStore = useWorkspaceStore();
+const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
+const WORKSPACE_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 
 const message = ref("");
 const messageType = ref("error");
@@ -131,6 +143,21 @@ function workspaceInitials(workspace) {
   return source.slice(0, 2).toUpperCase();
 }
 
+function normalizeWorkspaceColor(value) {
+  const normalized = String(value || "").trim();
+  if (WORKSPACE_COLOR_PATTERN.test(normalized)) {
+    return normalized.toUpperCase();
+  }
+
+  return DEFAULT_WORKSPACE_COLOR;
+}
+
+function workspaceAvatarStyle(workspace) {
+  return {
+    backgroundColor: normalizeWorkspaceColor(workspace?.color)
+  };
+}
+
 async function openWorkspace(workspaceSlug) {
   selectingWorkspaceSlug.value = String(workspaceSlug || "");
   message.value = "";
@@ -139,7 +166,7 @@ async function openWorkspace(workspaceSlug) {
     const result = await workspaceStore.selectWorkspace(workspaceSlug);
     const slug = String(result?.workspace?.slug || workspaceSlug || "");
     await navigate({
-      to: `/w/${slug}`,
+      to: surfacePaths.value.workspaceHomePath(slug),
       replace: true
     });
   } catch (error) {
@@ -161,7 +188,7 @@ async function acceptInvite(invite) {
     const response = await workspaceStore.respondToPendingInvite(invite.id, "accept");
     const slug = String(response?.workspace?.slug || invite.workspaceSlug || "");
     await navigate({
-      to: `/w/${slug}`,
+      to: surfacePaths.value.workspaceHomePath(slug),
       replace: true
     });
   } catch (error) {
@@ -208,7 +235,7 @@ onMounted(async () => {
 
   if (workspaceStore.hasActiveWorkspace && workspaceStore.activeWorkspaceSlug) {
     await navigate({
-      to: `/w/${workspaceStore.activeWorkspaceSlug}`,
+      to: surfacePaths.value.workspaceHomePath(workspaceStore.activeWorkspaceSlug),
       replace: true
     });
     return;

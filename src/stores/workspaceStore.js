@@ -1,8 +1,21 @@
 import { defineStore } from "pinia";
+import { createSurfacePaths } from "../../shared/routing/surfacePaths.js";
 import { api } from "../services/api";
+
+const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
+const WORKSPACE_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 
 function normalizeArray(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function normalizeWorkspaceColor(value) {
+  const normalized = String(value || "").trim();
+  if (WORKSPACE_COLOR_PATTERN.test(normalized)) {
+    return normalized.toUpperCase();
+  }
+
+  return DEFAULT_WORKSPACE_COLOR;
 }
 
 function normalizeProfileAvatar(avatar) {
@@ -51,8 +64,10 @@ function normalizeWorkspace(workspace) {
     id,
     slug,
     name: String(workspace.name || slug),
+    color: normalizeWorkspaceColor(workspace.color),
     avatarUrl: workspace.avatarUrl ? String(workspace.avatarUrl) : "",
-    roleId: workspace.roleId ? String(workspace.roleId) : null
+    roleId: workspace.roleId ? String(workspace.roleId) : null,
+    isAccessible: Boolean(workspace.isAccessible)
   };
 }
 
@@ -155,6 +170,9 @@ export const useWorkspaceStore = defineStore("workspace", {
     },
     pendingInvitesCount(state) {
       return normalizeArray(state.pendingInvites).length;
+    },
+    accessibleWorkspaces(state) {
+      return normalizeArray(state.workspaces).filter((workspace) => Boolean(workspace?.isAccessible));
     }
   },
   actions: {
@@ -181,13 +199,23 @@ export const useWorkspaceStore = defineStore("workspace", {
       this.workspaceSettings = normalizeWorkspaceSettings(payload.workspaceSettings);
       this.userSettings = payload.userSettings && typeof payload.userSettings === "object" ? { ...payload.userSettings } : null;
 
+      if (this.activeWorkspace) {
+        const matchingWorkspace = this.workspaces.find((workspace) => workspace.id === this.activeWorkspace.id);
+        this.activeWorkspace = {
+          ...this.activeWorkspace,
+          isAccessible: matchingWorkspace ? Boolean(matchingWorkspace.isAccessible) : true
+        };
+      }
+
       if (!this.activeWorkspace && this.workspaces.length === 1) {
         this.activeWorkspace = {
           id: this.workspaces[0].id,
           slug: this.workspaces[0].slug,
           name: this.workspaces[0].name,
+          color: this.workspaces[0].color,
           avatarUrl: this.workspaces[0].avatarUrl,
-          roleId: this.workspaces[0].roleId
+          roleId: this.workspaces[0].roleId,
+          isAccessible: this.workspaces[0].isAccessible
         };
       }
 
@@ -203,12 +231,20 @@ export const useWorkspaceStore = defineStore("workspace", {
       this.workspaceSettings = normalizeWorkspaceSettings(payload.workspaceSettings);
 
       if (this.activeWorkspace) {
+        this.activeWorkspace = {
+          ...this.activeWorkspace,
+          isAccessible: true
+        };
+      }
+
+      if (this.activeWorkspace) {
         const existingIndex = this.workspaces.findIndex((workspace) => workspace.id === this.activeWorkspace.id);
         if (existingIndex >= 0) {
           this.workspaces.splice(existingIndex, 1, {
             ...this.workspaces[existingIndex],
             ...this.activeWorkspace,
-            roleId: this.membership?.roleId || this.workspaces[existingIndex].roleId
+            roleId: this.membership?.roleId || this.workspaces[existingIndex].roleId,
+            isAccessible: true
           });
         }
       }
@@ -276,17 +312,10 @@ export const useWorkspaceStore = defineStore("workspace", {
 
       return response;
     },
-    workspacePath(pathname = "/") {
-      const slug = this.activeWorkspaceSlug;
-      if (!slug) {
-        return "/workspaces";
-      }
-
-      const suffix = String(pathname || "/");
-      if (suffix === "/") {
-        return `/w/${slug}`;
-      }
-      return `/w/${slug}${suffix.startsWith("/") ? suffix : `/${suffix}`}`;
+    workspacePath(pathname = "/", options = {}) {
+      const surface = String(options?.surface || "admin").trim() || "admin";
+      const surfacePaths = createSurfacePaths(surface);
+      return surfacePaths.workspacePath(this.activeWorkspaceSlug, pathname);
     },
     clearWorkspaceState() {
       this.initialized = false;

@@ -1,4 +1,7 @@
+import { createSurfacePaths, resolveSurfaceFromPathname } from "../../shared/routing/surfacePaths.js";
+
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const API_PATH_PREFIX = "/api/";
 
 let csrfTokenCache = "";
 let csrfFetchPromise = null;
@@ -7,6 +10,46 @@ function updateCsrfTokenFromPayload(data) {
   const token = String(data?.csrfToken || "");
   if (token) {
     csrfTokenCache = token;
+  }
+}
+
+function isApiRequestUrl(url) {
+  const rawUrl = String(url || "").trim();
+  if (!rawUrl) {
+    return false;
+  }
+
+  if (rawUrl.startsWith("/")) {
+    return rawUrl.startsWith(API_PATH_PREFIX);
+  }
+
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(rawUrl, window.location.origin);
+    return parsed.pathname.startsWith(API_PATH_PREFIX);
+  } catch {
+    return false;
+  }
+}
+
+function applySurfaceContextHeaders(url, headers) {
+  if (typeof window === "undefined" || !isApiRequestUrl(url)) {
+    return;
+  }
+
+  const pathname = String(window.location?.pathname || "/");
+  const surfaceId = resolveSurfaceFromPathname(pathname);
+  const workspaceSlug = createSurfacePaths(surfaceId).extractWorkspaceSlug(pathname);
+
+  if (!headers["x-surface-id"]) {
+    headers["x-surface-id"] = surfaceId;
+  }
+
+  if (workspaceSlug && !headers["x-workspace-slug"]) {
+    headers["x-workspace-slug"] = workspaceSlug;
   }
 }
 
@@ -66,6 +109,7 @@ async function request(url, options = {}, state = { csrfRetried: false }) {
   const headers = {
     ...(options.headers || {})
   };
+  applySurfaceContextHeaders(url, headers);
 
   const config = {
     credentials: "same-origin",

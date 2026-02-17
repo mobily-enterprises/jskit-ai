@@ -1,6 +1,18 @@
 import { db } from "../db/knex.js";
 import { toIsoString, toMysqlDateTimeUtc } from "../lib/dateUtils.js";
 
+const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
+const WORKSPACE_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+
+function normalizeWorkspaceColor(value) {
+  const normalized = String(value || "").trim();
+  if (WORKSPACE_COLOR_PATTERN.test(normalized)) {
+    return normalized.toUpperCase();
+  }
+
+  return DEFAULT_WORKSPACE_COLOR;
+}
+
 function mapWorkspaceRowRequired(row) {
   if (!row) {
     throw new TypeError("mapWorkspaceRowRequired expected a row object.");
@@ -10,6 +22,7 @@ function mapWorkspaceRowRequired(row) {
     id: Number(row.id),
     slug: row.slug,
     name: row.name,
+    color: normalizeWorkspaceColor(row.color),
     avatarUrl: row.avatar_url ? String(row.avatar_url) : "",
     ownerUserId: Number(row.owner_user_id),
     isPersonal: Boolean(row.is_personal),
@@ -53,6 +66,7 @@ function createWorkspacesRepository(dbClient) {
     const [id] = await dbClient("workspaces").insert({
       slug: workspace.slug,
       name: workspace.name,
+      color: normalizeWorkspaceColor(workspace.color),
       avatar_url: workspace.avatarUrl || null,
       owner_user_id: workspace.ownerUserId,
       is_personal: Boolean(workspace.isPersonal),
@@ -72,6 +86,9 @@ function createWorkspacesRepository(dbClient) {
     }
     if (Object.prototype.hasOwnProperty.call(patch, "name")) {
       dbPatch.name = patch.name;
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "color")) {
+      dbPatch.color = normalizeWorkspaceColor(patch.color);
     }
     if (Object.prototype.hasOwnProperty.call(patch, "avatarUrl")) {
       dbPatch.avatar_url = patch.avatarUrl ? String(patch.avatarUrl) : null;
@@ -93,6 +110,7 @@ function createWorkspacesRepository(dbClient) {
         "w.id",
         "w.slug",
         "w.name",
+        "w.color",
         "w.avatar_url",
         "w.owner_user_id",
         "w.is_personal",

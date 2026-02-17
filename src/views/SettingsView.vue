@@ -462,6 +462,7 @@ import XHRUpload from "@uppy/xhr-upload";
 import "@uppy/core/css/style.min.css";
 import "@uppy/dashboard/css/style.min.css";
 import "@uppy/image-editor/css/style.min.css";
+import { resolveSurfacePaths } from "../../shared/routing/surfacePaths.js";
 import { api } from "../services/api";
 import { useAuthStore } from "../stores/authStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
@@ -555,6 +556,7 @@ const routerSearch = useRouterState({
 const routerPath = useRouterState({
   select: (state) => state.location.pathname
 });
+const surfacePaths = computed(() => resolveSurfacePaths(routerPath.value));
 
 const activeTab = ref("preferences");
 const syncingTabFromUrl = ref(false);
@@ -812,8 +814,7 @@ function resolveTabFromSearch(search) {
 }
 
 function isSettingsRoutePath(pathname) {
-  const path = String(pathname || "");
-  return path === "/account/settings";
+  return surfacePaths.value.isAccountSettingsPath(pathname);
 }
 
 function resolveCurrentSettingsPath() {
@@ -834,22 +835,27 @@ function resolveSettingsSearchWithTab(tab) {
 }
 
 function buildSettingsPathWithTab(tab) {
-  const settingsPath = resolveCurrentSettingsPath() || "/account/settings";
+  const settingsPath = resolveCurrentSettingsPath() || surfacePaths.value.accountSettingsPath;
   const params = new URLSearchParams(resolveSettingsSearchWithTab(tab));
   return `${settingsPath}?${params.toString()}`;
 }
 
 const backTarget = computed(() => {
+  const currentSurfacePaths = surfacePaths.value;
   const rawReturnTo = String(routerSearch.value?.returnTo || "").trim();
-  if (/^\/(?!\/)/.test(rawReturnTo) && rawReturnTo !== "/account/settings") {
+  if (
+    /^\/(?!\/)/.test(rawReturnTo) &&
+    rawReturnTo !== currentSurfacePaths.accountSettingsPath &&
+    !currentSurfacePaths.isAccountSettingsPath(rawReturnTo)
+  ) {
     return rawReturnTo;
   }
 
   if (workspaceStore.hasActiveWorkspace) {
-    return workspaceStore.workspacePath("/");
+    return workspaceStore.workspacePath("/", { surface: currentSurfacePaths.surface });
   }
 
-  return "/workspaces";
+  return currentSurfacePaths.workspacesPath;
 });
 
 function clearFieldErrors(target) {
@@ -1150,6 +1156,11 @@ function applySettingsData(data) {
   profileForm.email = String(data.profile?.email || "");
   applyAvatarData(data.profile?.avatar);
   authStore.setUsername(profileForm.displayName || null);
+  workspaceStore.applyProfile({
+    displayName: profileForm.displayName,
+    email: profileForm.email,
+    avatar: { ...profileAvatar }
+  });
 
   preferencesForm.theme = String(data.preferences?.theme || "system");
   preferencesForm.locale = String(data.preferences?.locale || "en-US");

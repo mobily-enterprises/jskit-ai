@@ -1,5 +1,5 @@
 <template>
-  <v-app class="app-root">
+  <v-app class="app-root" :style="workspaceThemeStyle">
     <template v-if="showApplicationShell">
       <v-app-bar border density="comfortable" elevation="0" class="app-bar">
         <v-app-bar-nav-icon
@@ -11,7 +11,7 @@
         <v-menu location="bottom start" offset="8">
           <template #activator="{ props }">
             <v-btn v-bind="props" variant="text" class="workspace-switcher-button">
-              <v-avatar color="surface-variant" size="28" class="mr-2">
+              <v-avatar :style="workspaceAvatarStyle(workspaceStore.activeWorkspace)" size="28" class="mr-2">
                 <v-img v-if="activeWorkspaceAvatarUrl" :src="activeWorkspaceAvatarUrl" cover />
                 <span v-else class="text-caption font-weight-bold">{{ activeWorkspaceInitials }}</span>
               </v-avatar>
@@ -33,7 +33,7 @@
               @click="selectWorkspaceFromShell(workspace.slug)"
             >
               <template #prepend>
-                <v-avatar color="surface-variant" size="26">
+                <v-avatar :style="workspaceAvatarStyle(workspace)" size="26">
                   <v-img v-if="workspace.avatarUrl" :src="workspace.avatarUrl" cover />
                   <span v-else class="text-caption">{{ workspaceInitials(workspace) }}</span>
                 </v-avatar>
@@ -64,7 +64,7 @@
         </v-menu>
 
         <v-toolbar-title class="app-destination-title">
-          <span class="accent-pill" />
+          <span class="accent-pill" :style="{ backgroundColor: activeWorkspaceColor }" />
           {{ destinationTitle }}
         </v-toolbar-title>
         <v-spacer />
@@ -82,6 +82,7 @@
           <v-list density="comfortable" min-width="240">
             <v-list-item prepend-icon="$menuProfile" title="Profile" @click="goToAccountTab('profile')" />
             <v-list-item prepend-icon="$menuSettings" title="Settings" @click="goToAccountTab('preferences')" />
+            <v-list-item title="Back to App" @click="goToAppSurface" />
             <v-list-item
               prepend-icon="$menuHelp"
               title="Help & feedback"
@@ -110,7 +111,7 @@
             :prepend-icon="item.icon"
             :active="isCurrentPath(item.to)"
             rounded="lg"
-            @click="goTo(item.to)"
+            @click="goToNavigationItem(item)"
           />
         </v-list>
       </v-navigation-drawer>
@@ -160,8 +161,8 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import { Outlet, useNavigate, useRouterState } from "@tanstack/vue-router";
-import { useQuery } from "@tanstack/vue-query";
 import { useDisplay } from "vuetify";
+import { createSurfacePaths, resolveSurfacePaths } from "../shared/routing/surfacePaths.js";
 import { api } from "./services/api";
 import { useAuthStore } from "./stores/authStore";
 import { useWorkspaceStore } from "./stores/workspaceStore";
@@ -171,9 +172,6 @@ const DESKTOP_DRAWER_BEHAVIOR = (() => {
   return rawMode === "permanent" ? "permanent" : "collapsible";
 })();
 
-const APPLICATION_LAYOUT_EXCLUDE_PATHS = new Set(["/login", "/reset-password", "/workspaces", "/account/settings"]);
-const SETTINGS_QUERY_KEY = ["settings"];
-
 const authStore = useAuthStore();
 const workspaceStore = useWorkspaceStore();
 const navigate = useNavigate();
@@ -181,6 +179,10 @@ const display = useDisplay();
 const currentPath = useRouterState({
   select: (state) => state.location.pathname
 });
+const surfacePaths = computed(() => resolveSurfacePaths(currentPath.value));
+const appSurfacePaths = createSurfacePaths("app");
+const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
+const WORKSPACE_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 
 const menuNoticeVisible = ref(false);
 const menuNoticeMessage = ref("");
@@ -193,13 +195,31 @@ const inviteDecisionBusy = ref(false);
 const isMobile = computed(() => display.smAndDown.value);
 const isDesktopPermanentDrawer = computed(() => DESKTOP_DRAWER_BEHAVIOR === "permanent");
 const isDesktopCollapsible = computed(() => !isMobile.value && !isDesktopPermanentDrawer.value);
-const showApplicationShell = computed(() => !APPLICATION_LAYOUT_EXCLUDE_PATHS.has(currentPath.value));
+const showApplicationShell = computed(() => {
+  const paths = surfacePaths.value;
+  return !(
+    currentPath.value === paths.loginPath ||
+    currentPath.value === paths.resetPasswordPath ||
+    currentPath.value === paths.workspacesPath ||
+    currentPath.value === paths.accountSettingsPath
+  );
+});
 const workspacePath = (suffix = "/") => workspaceStore.workspacePath(suffix);
+
+const appSurfaceTargetPath = computed(() => {
+  const activeWorkspaceSlug = String(workspaceStore.activeWorkspaceSlug || "").trim();
+  if (activeWorkspaceSlug) {
+    return appSurfacePaths.workspaceHomePath(activeWorkspaceSlug);
+  }
+
+  return appSurfacePaths.workspacesPath;
+});
 
 const navigationItems = computed(() => [
   { title: "Choice 1", to: workspacePath("/"), icon: "$navChoice1" },
   { title: "Choice 2", to: workspacePath("/choice-2"), icon: "$navChoice2" },
-  { title: "Workspace", to: workspacePath("/settings"), icon: "$menuSettings" }
+  { title: "Workspace", to: workspacePath("/settings"), icon: "$menuSettings" },
+  { title: "Back to App", to: appSurfaceTargetPath.value, icon: "$menuProfile", forceReload: true }
 ]);
 
 const destinationTitle = computed(() => {
@@ -231,6 +251,16 @@ const activeWorkspaceAvatarUrl = computed(() => {
 const activeWorkspaceInitials = computed(() => {
   const source = String(workspaceStore.activeWorkspace?.name || workspaceStore.activeWorkspace?.slug || "W").trim();
   return source.slice(0, 2).toUpperCase();
+});
+const activeWorkspaceColor = computed(() => normalizeWorkspaceColor(workspaceStore.activeWorkspace?.color));
+const workspaceThemeStyle = computed(() => {
+  const [red, green, blue] = workspaceColorToRgb(activeWorkspaceColor.value);
+  return {
+    "--v-theme-primary": `${red}, ${green}, ${blue}`,
+    "--workspace-color": activeWorkspaceColor.value,
+    "--workspace-color-soft": `rgba(${red}, ${green}, ${blue}, 0.12)`,
+    "--workspace-color-strong": `rgba(${red}, ${green}, ${blue}, 0.24)`
+  };
 });
 
 const drawerModel = computed({
@@ -268,12 +298,6 @@ const userInitials = computed(() => {
 });
 const userAvatarUrl = computed(() => workspaceStore.profileAvatarUrl || "");
 
-const settingsProfileQuery = useQuery({
-  queryKey: SETTINGS_QUERY_KEY,
-  queryFn: () => api.settings(),
-  enabled: false
-});
-
 watch([showApplicationShell, isMobile, isDesktopPermanentDrawer], ([isShellVisible, mobile, permanentDesktop]) => {
   if (!isShellVisible || mobile) {
     mobileDrawerOpen.value = false;
@@ -285,23 +309,6 @@ watch([showApplicationShell, isMobile, isDesktopPermanentDrawer], ([isShellVisib
     desktopDrawerOpen.value = false;
   }
 });
-
-watch(
-  () => settingsProfileQuery.data.value,
-  (settingsData) => {
-    if (!settingsData || typeof settingsData !== "object") {
-      return;
-    }
-
-    const profile = settingsData.profile && typeof settingsData.profile === "object" ? settingsData.profile : null;
-    if (!profile) {
-      return;
-    }
-
-    workspaceStore.applyProfile(profile);
-    authStore.setUsername(profile.displayName || null);
-  }
-);
 
 watch(
   [showApplicationShell, isMobile],
@@ -335,6 +342,29 @@ function workspaceInitials(workspace) {
   return source.slice(0, 2).toUpperCase();
 }
 
+function normalizeWorkspaceColor(value) {
+  const normalized = String(value || "").trim();
+  if (WORKSPACE_COLOR_PATTERN.test(normalized)) {
+    return normalized.toUpperCase();
+  }
+
+  return DEFAULT_WORKSPACE_COLOR;
+}
+
+function workspaceAvatarStyle(workspace) {
+  return {
+    backgroundColor: normalizeWorkspaceColor(workspace?.color)
+  };
+}
+
+function workspaceColorToRgb(color) {
+  const normalized = normalizeWorkspaceColor(color).replace(/^#/, "");
+  const red = Number.parseInt(normalized.slice(0, 2), 16);
+  const green = Number.parseInt(normalized.slice(2, 4), 16);
+  const blue = Number.parseInt(normalized.slice(4, 6), 16);
+  return [red, green, blue];
+}
+
 function formatDateTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -366,17 +396,45 @@ function isCurrentPath(path) {
 }
 
 async function goTo(path) {
-  if (currentPath.value === path) {
+  const targetPath = String(path || "").trim();
+  if (!targetPath) {
+    return;
+  }
+
+  if (currentPath.value === targetPath) {
     if (isMobile.value) {
       drawerModel.value = false;
     }
     return;
   }
 
-  await navigate({ to: path });
+  await navigate({ to: targetPath });
   if (isMobile.value) {
     drawerModel.value = false;
   }
+}
+
+async function hardNavigate(path) {
+  const targetPath = String(path || "").trim();
+  if (!targetPath) {
+    return;
+  }
+
+  if (typeof window !== "undefined") {
+    window.location.assign(targetPath);
+    return;
+  }
+
+  await navigate({ to: targetPath });
+}
+
+async function goToNavigationItem(item) {
+  if (item?.forceReload) {
+    await hardNavigate(item.to);
+    return;
+  }
+
+  await goTo(item?.to);
 }
 
 function handleMenuNotice(label) {
@@ -385,13 +443,18 @@ function handleMenuNotice(label) {
 }
 
 async function goToAccountTab(tab) {
+  const paths = surfacePaths.value;
   await navigate({
-    to: "/account/settings",
+    to: paths.accountSettingsPath,
     search: {
       tab,
       returnTo: currentPath.value
     }
   });
+}
+
+async function goToAppSurface() {
+  await hardNavigate(appSurfaceTargetPath.value);
 }
 
 async function selectWorkspaceFromShell(workspaceSlug) {
@@ -407,7 +470,7 @@ async function selectWorkspaceFromShell(workspaceSlug) {
   try {
     await workspaceStore.selectWorkspace(slug);
     await navigate({
-      to: `/w/${slug}`
+      to: surfacePaths.value.workspaceHomePath(slug)
     });
   } catch (error) {
     menuNoticeMessage.value = String(error?.message || "Unable to switch workspace.");
@@ -432,7 +495,7 @@ async function respondToInvite(decision) {
 
     if (result?.decision === "accepted" && result?.workspace?.slug) {
       await navigate({
-        to: `/w/${result.workspace.slug}`
+        to: surfacePaths.value.workspaceHomePath(result.workspace.slug)
       });
       menuNoticeMessage.value = `Joined ${result.workspace.name || result.workspace.slug}.`;
       menuNoticeVisible.value = true;
@@ -454,6 +517,7 @@ async function respondToInvite(decision) {
 }
 
 async function signOut() {
+  const paths = surfacePaths.value;
   try {
     await api.logout();
   } finally {
@@ -461,7 +525,7 @@ async function signOut() {
     authStore.setSignedOut();
     workspaceStore.clearWorkspaceState();
     await authStore.invalidateSession();
-    await navigate({ to: "/login", replace: true });
+    await navigate({ to: paths.loginPath, replace: true });
   }
 }
 </script>
@@ -473,6 +537,7 @@ async function signOut() {
 
 .app-bar {
   background-color: rgb(var(--v-theme-surface));
+  border-bottom: 2px solid var(--workspace-color);
 }
 
 .app-drawer {
@@ -482,6 +547,7 @@ async function signOut() {
 .workspace-switcher-button {
   text-transform: none;
   max-width: 320px;
+  border: 1px solid var(--workspace-color-soft);
 }
 
 .workspace-switcher-label {
@@ -505,11 +571,11 @@ async function signOut() {
   width: 18px;
   height: 6px;
   border-radius: 999px;
-  background-color: rgb(var(--v-theme-primary));
+  background-color: var(--workspace-color);
 }
 
 .app-main-shell {
-  background: linear-gradient(180deg, rgba(15, 107, 84, 0.06), rgba(15, 107, 84, 0) 240px),
+  background: linear-gradient(180deg, var(--workspace-color-soft), rgba(15, 107, 84, 0) 240px),
     rgb(var(--v-theme-background));
 }
 
@@ -527,6 +593,6 @@ async function signOut() {
 }
 
 :deep(.v-navigation-drawer .v-list-item--active) {
-  background-color: rgba(0, 104, 74, 0.12);
+  background-color: var(--workspace-color-strong);
 }
 </style>

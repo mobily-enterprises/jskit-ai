@@ -274,13 +274,17 @@ const sessionErrorResponseSchema = Type.Object(
   }
 );
 
+const WORKSPACE_COLOR_PATTERN = "^#[0-9A-Fa-f]{6}$";
+
 const workspaceSummarySchema = Type.Object(
   {
     id: Type.Integer({ minimum: 1 }),
     slug: Type.String({ minLength: 1, maxLength: 120 }),
     name: Type.String({ minLength: 1, maxLength: 160 }),
+    color: Type.String({ minLength: 7, maxLength: 7, pattern: WORKSPACE_COLOR_PATTERN }),
     avatarUrl: Type.String(),
-    roleId: Type.String({ minLength: 1, maxLength: 64 })
+    roleId: Type.String({ minLength: 1, maxLength: 64 }),
+    isAccessible: Type.Boolean()
   },
   {
     additionalProperties: false
@@ -292,6 +296,7 @@ const activeWorkspaceSchema = Type.Object(
     id: Type.Integer({ minimum: 1 }),
     slug: Type.String({ minLength: 1, maxLength: 120 }),
     name: Type.String({ minLength: 1, maxLength: 160 }),
+    color: Type.String({ minLength: 7, maxLength: 7, pattern: WORKSPACE_COLOR_PATTERN }),
     avatarUrl: Type.String()
   },
   {
@@ -317,7 +322,17 @@ const workspaceSettingsSummarySchema = Type.Object(
     defaultMode: enumSchema(SETTINGS_MODE_OPTIONS),
     defaultTiming: enumSchema(SETTINGS_TIMING_OPTIONS),
     defaultPaymentsPerYear: Type.Integer({ minimum: 1, maximum: 365 }),
-    defaultHistoryPageSize: Type.Integer({ minimum: 1, maximum: 100 })
+    defaultHistoryPageSize: Type.Integer({ minimum: 1, maximum: 100 }),
+    appDenyEmails: Type.Optional(
+      Type.Array(
+        Type.String({
+          minLength: AUTH_EMAIL_MIN_LENGTH,
+          maxLength: AUTH_EMAIL_MAX_LENGTH,
+          pattern: AUTH_EMAIL_PATTERN
+        })
+      )
+    ),
+    appDenyUserIds: Type.Optional(Type.Array(Type.Integer({ minimum: 1 })))
   },
   {
     additionalProperties: false
@@ -372,6 +387,7 @@ const workspaceSettingsResponseSchema = Type.Object(
         id: Type.Integer({ minimum: 1 }),
         slug: Type.String({ minLength: 1, maxLength: 120 }),
         name: Type.String({ minLength: 1, maxLength: 160 }),
+        color: Type.String({ minLength: 7, maxLength: 7, pattern: WORKSPACE_COLOR_PATTERN }),
         avatarUrl: Type.String(),
         ownerUserId: Type.Integer({ minimum: 1 }),
         isPersonal: Type.Boolean()
@@ -391,12 +407,23 @@ const workspaceSettingsResponseSchema = Type.Object(
 const workspaceSettingsUpdateBodySchema = Type.Object(
   {
     name: Type.Optional(Type.String({ minLength: 1, maxLength: 160 })),
+    color: Type.Optional(Type.String({ minLength: 7, maxLength: 7, pattern: WORKSPACE_COLOR_PATTERN })),
     avatarUrl: Type.Optional(Type.String()),
     invitesEnabled: Type.Optional(Type.Boolean()),
     defaultMode: Type.Optional(enumSchema(SETTINGS_MODE_OPTIONS)),
     defaultTiming: Type.Optional(enumSchema(SETTINGS_TIMING_OPTIONS)),
     defaultPaymentsPerYear: Type.Optional(Type.Integer({ minimum: 1, maximum: 365 })),
-    defaultHistoryPageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
+    defaultHistoryPageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+    appDenyEmails: Type.Optional(
+      Type.Array(
+        Type.String({
+          minLength: AUTH_EMAIL_MIN_LENGTH,
+          maxLength: AUTH_EMAIL_MAX_LENGTH,
+          pattern: AUTH_EMAIL_PATTERN
+        })
+      )
+    ),
+    appDenyUserIds: Type.Optional(Type.Array(Type.Integer({ minimum: 1 })))
   },
   {
     additionalProperties: false,
@@ -679,7 +706,7 @@ const selectWorkspaceResponseSchema = Type.Object(
   {
     ok: Type.Boolean(),
     workspace: activeWorkspaceSchema,
-    membership: membershipSummarySchema,
+    membership: Type.Union([membershipSummarySchema, Type.Null()]),
     permissions: Type.Array(Type.String({ minLength: 1 })),
     workspaceSettings: workspaceSettingsSummarySchema
   },
@@ -1297,6 +1324,7 @@ function buildDefaultRoutes(controllers) {
       method: "GET",
       auth: "required",
       workspacePolicy: "required",
+      workspaceSurface: "admin",
       schema: {
         tags: ["workspace"],
         summary: "Get active workspace settings and role catalog",
@@ -1311,6 +1339,7 @@ function buildDefaultRoutes(controllers) {
       method: "PATCH",
       auth: "required",
       workspacePolicy: "required",
+      workspaceSurface: "admin",
       permission: "workspace.settings.update",
       schema: {
         tags: ["workspace"],
@@ -1330,6 +1359,7 @@ function buildDefaultRoutes(controllers) {
       method: "GET",
       auth: "required",
       workspacePolicy: "required",
+      workspaceSurface: "admin",
       permission: "workspace.roles.view",
       schema: {
         tags: ["workspace"],
@@ -1345,6 +1375,7 @@ function buildDefaultRoutes(controllers) {
       method: "GET",
       auth: "required",
       workspacePolicy: "required",
+      workspaceSurface: "admin",
       permission: "workspace.members.view",
       schema: {
         tags: ["workspace"],
@@ -1360,6 +1391,7 @@ function buildDefaultRoutes(controllers) {
       method: "PATCH",
       auth: "required",
       workspacePolicy: "required",
+      workspaceSurface: "admin",
       permission: "workspace.members.manage",
       schema: {
         tags: ["workspace"],
@@ -1380,6 +1412,7 @@ function buildDefaultRoutes(controllers) {
       method: "GET",
       auth: "required",
       workspacePolicy: "required",
+      workspaceSurface: "admin",
       permission: "workspace.members.view",
       schema: {
         tags: ["workspace"],
@@ -1395,6 +1428,7 @@ function buildDefaultRoutes(controllers) {
       method: "POST",
       auth: "required",
       workspacePolicy: "required",
+      workspaceSurface: "admin",
       permission: "workspace.members.invite",
       schema: {
         tags: ["workspace"],
@@ -1418,6 +1452,7 @@ function buildDefaultRoutes(controllers) {
       method: "DELETE",
       auth: "required",
       workspacePolicy: "required",
+      workspaceSurface: "admin",
       permission: "workspace.invites.revoke",
       schema: {
         tags: ["workspace"],
@@ -1636,6 +1671,7 @@ function buildDefaultRoutes(controllers) {
       method: "GET",
       auth: "required",
       workspacePolicy: "required",
+      workspaceSurface: "app",
       permission: "history.read",
       schema: {
         tags: ["history"],
@@ -1655,6 +1691,7 @@ function buildDefaultRoutes(controllers) {
       method: "POST",
       auth: "required",
       workspacePolicy: "required",
+      workspaceSurface: "app",
       permission: "history.write",
       schema: {
         tags: ["annuityCalculator"],
@@ -1683,6 +1720,7 @@ function registerApiRoutes(fastify, { controllers, routes }) {
       config: {
         authPolicy: route.auth || "public",
         workspacePolicy: route.workspacePolicy || "none",
+        workspaceSurface: route.workspaceSurface || "",
         permission: route.permission || "",
         allowNoWorkspace: route.allowNoWorkspace === true,
         ownerParam: route.ownerParam || null,

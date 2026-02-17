@@ -1923,6 +1923,11 @@ function createAuthService(options) {
     return Boolean(cookies[ACCESS_TOKEN_COOKIE]);
   }
 
+  function hasSessionCookie(request) {
+    const cookies = safeRequestCookies(request);
+    return Boolean(cookies[ACCESS_TOKEN_COOKIE] || cookies[REFRESH_TOKEN_COOKIE]);
+  }
+
   return {
     register,
     login,
@@ -1942,6 +1947,7 @@ function createAuthService(options) {
     getSecurityStatus,
     authenticateRequest,
     hasAccessTokenCookie,
+    hasSessionCookie,
     writeSessionCookies,
     clearSessionCookies
   };

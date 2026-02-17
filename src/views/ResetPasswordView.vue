@@ -76,13 +76,18 @@
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
-import { useNavigate } from "@tanstack/vue-router";
+import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useMutation } from "@tanstack/vue-query";
+import { resolveSurfacePaths } from "../../shared/routing/surfacePaths.js";
 import { api } from "../services/api";
 import { useAuthStore } from "../stores/authStore";
 import { validators } from "../../shared/auth/validators.js";
 
 const navigate = useNavigate();
+const routerPath = useRouterState({
+  select: (state) => state.location.pathname
+});
+const surfacePaths = computed(() => resolveSurfacePaths(routerPath.value));
 const authStore = useAuthStore();
 
 const password = ref("");
@@ -124,7 +129,7 @@ function clearRecoveryParamsFromUrl() {
     return;
   }
 
-  window.history.replaceState({}, "", "/reset-password");
+  window.history.replaceState({}, "", surfacePaths.value.resetPasswordPath);
 }
 
 function parseRecoveryPayloadFromLocation() {
@@ -260,7 +265,7 @@ async function submitPasswordReset() {
 }
 
 async function goToLogin() {
-  await navigate({ to: "/login", replace: true });
+  await navigate({ to: surfacePaths.value.loginPath, replace: true });
 }
 
 onMounted(() => {
