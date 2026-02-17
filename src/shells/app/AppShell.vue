@@ -84,10 +84,11 @@ export default {
     Outlet
   },
   setup() {
-    const { meta, state, actions } = useAppShell();
+    const { layout, user, navigation, actions } = useAppShell();
     return {
-      ...meta,
-      ...state,
+      ...layout,
+      ...user,
+      ...navigation,
       ...actions
     };
   }

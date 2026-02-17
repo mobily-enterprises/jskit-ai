@@ -10,5 +10,3 @@ export function createAdminRouter({ authStore, workspaceStore }) {
     includeWorkspaceSettings: true
   });
 }
-
-export const createAppRouter = createAdminRouter;

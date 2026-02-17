@@ -131,8 +131,7 @@ export function useAppShell() {
   }
 
   return {
-    meta: {},
-    state: {
+    layout: {
       workspaceThemeStyle,
       showApplicationShell,
       isDesktopPermanentDrawer,
@@ -140,11 +139,15 @@ export function useAppShell() {
       isDesktopCollapsible,
       activeWorkspaceColor,
       destinationTitle,
+      drawerModel
+    },
+    user: {
       userAvatarUrl,
       userDisplayName,
       userInitials,
-      canOpenAdminSurface,
-      drawerModel,
+      canOpenAdminSurface
+    },
+    navigation: {
       navigationItems
     },
     actions: {

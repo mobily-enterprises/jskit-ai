@@ -168,10 +168,15 @@ export default {
     Outlet
   },
   setup() {
-    const { meta, state, actions } = useAdminShell();
+    const { formatters, layout, workspace, user, navigation, dialogs, feedback, actions } = useAdminShell();
     return {
-      ...meta,
-      ...state,
+      ...formatters,
+      ...layout,
+      ...workspace,
+      ...user,
+      ...navigation,
+      ...dialogs,
+      ...feedback,
       ...actions
     };
   }

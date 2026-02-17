@@ -21,6 +21,6 @@
 import { useChoiceTwoView } from "./useChoiceTwoView";
 
 const {
-  meta: { title, subtitle, body }
+  content: { title, subtitle, body }
 } = useChoiceTwoView();
 </script>

@@ -196,19 +196,23 @@ export function useResetPasswordView() {
   });
 
   return {
-    state: reactive({
+    form: reactive({
       password,
       confirmPassword,
       showPassword,
       showConfirmPassword,
       passwordTouched,
-      confirmPasswordTouched,
+      confirmPasswordTouched
+    }),
+    status: reactive({
       initializing,
       readyForPasswordUpdate,
       recoveryError,
       formError,
       formSuccess,
-      loading,
+      loading
+    }),
+    validation: reactive({
       passwordErrorMessages,
       confirmPasswordErrorMessages,
       canSubmit

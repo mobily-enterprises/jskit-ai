@@ -2,7 +2,7 @@
   <section class="calculator-view py-2 py-md-4">
     <AnnuityCalculatorForm @calculated="handleCalculated" />
 
-    <AnnuityHistoryList class="mt-6" :refresh-token="historyRefreshToken" />
+    <AnnuityHistoryList class="mt-6" :refresh-token="refreshToken" />
   </section>
 </template>
 
@@ -12,7 +12,7 @@ import AnnuityCalculatorForm from "../../components/annuity-calculator-form/Annu
 import AnnuityHistoryList from "../../components/annuity-history-list/AnnuityHistoryList.vue";
 import { useAnnuityCalculatorView } from "./useAnnuityCalculatorView";
 
-const { state, actions } = useAnnuityCalculatorView();
-const { historyRefreshToken } = toRefs(state);
+const { history, actions } = useAnnuityCalculatorView();
+const { refreshToken } = toRefs(history);
 const { handleCalculated } = actions;
 </script>

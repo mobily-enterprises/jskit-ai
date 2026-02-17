@@ -148,6 +148,9 @@ export function useWorkspaceSettingsView() {
   const updateMemberRoleMutation = useMutation({
     mutationFn: ({ memberUserId, roleId }) => api.updateWorkspaceMemberRole(memberUserId, { roleId })
   });
+  const isSavingWorkspaceSettings = computed(() => updateWorkspaceSettingsMutation.isPending.value);
+  const isCreatingInvite = computed(() => createInviteMutation.isPending.value);
+  const isRevokingInvite = computed(() => revokeInviteMutation.isPending.value);
 
   function applyWorkspaceSettingsData(data) {
     if (!data || typeof data !== "object") {
@@ -374,14 +377,18 @@ export function useWorkspaceSettingsView() {
   });
 
   return {
-    meta: {
-      modeOptions,
-      timingOptions,
+    forms: {
+      workspace: workspaceForm,
+      invite: inviteForm
+    },
+    options: {
+      mode: modeOptions,
+      timing: timingOptions,
+      inviteRoles: inviteRoleOptions,
+      memberRoles: memberRoleOptions,
       formatDateTime
     },
-    state: reactive({
-      workspaceForm,
-      inviteForm,
+    feedback: reactive({
       workspaceError,
       workspaceMessage,
       workspaceMessageType,
@@ -389,20 +396,24 @@ export function useWorkspaceSettingsView() {
       inviteMessageType,
       teamMessage,
       teamMessageType,
-      revokeInviteId,
-      members,
-      invites,
+      revokeInviteId
+    }),
+    members: reactive({
+      list: members,
+      invites
+    }),
+    permissions: reactive({
       canViewWorkspaceSettings,
       canManageWorkspaceSettings,
       canViewMembers,
       canInviteMembers,
       canManageMembers,
-      canRevokeInvites,
-      inviteRoleOptions,
-      memberRoleOptions,
-      updateWorkspaceSettingsMutation,
-      createInviteMutation,
-      revokeInviteMutation
+      canRevokeInvites
+    }),
+    status: reactive({
+      isSavingWorkspaceSettings,
+      isCreatingInvite,
+      isRevokingInvite
     }),
     actions: {
       submitWorkspaceSettings,

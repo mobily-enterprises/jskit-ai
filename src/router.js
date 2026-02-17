@@ -1,6 +1,6 @@
 import { resolveSurfaceFromPathname } from "../shared/routing/surfacePaths.js";
 import { DEFAULT_SURFACE_ID, normalizeSurfaceId } from "../shared/routing/surfaceRegistry.js";
-import { createAdminRouter, createAppRouter } from "./router.admin";
+import { createAdminRouter } from "./router.admin";
 import { createCustomerRouter } from "./router.app";
 import { createSurfaceRouteGuards, resolveRuntimeState } from "./routerGuards";
 
@@ -27,6 +27,14 @@ function createRouterForCurrentPath({ authStore, workspaceStore, pathname }) {
     authStore,
     workspaceStore,
     surface: resolveSurfaceFromPathname(resolvedPathname)
+  });
+}
+
+function createAppRouter({ authStore, workspaceStore, pathname }) {
+  return createRouterForCurrentPath({
+    authStore,
+    workspaceStore,
+    pathname
   });
 }
 

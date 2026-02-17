@@ -78,24 +78,28 @@
 import { toRefs } from "vue";
 import { useResetPasswordView } from "./useResetPasswordView";
 
-const { state, actions } = useResetPasswordView();
+const { form, status, validation, actions } = useResetPasswordView();
 const {
   password,
   confirmPassword,
   showPassword,
   showConfirmPassword,
   passwordTouched,
-  confirmPasswordTouched,
+  confirmPasswordTouched
+} = toRefs(form);
+const {
   initializing,
   readyForPasswordUpdate,
   recoveryError,
   formError,
   formSuccess,
-  loading,
+  loading
+} = toRefs(status);
+const {
   passwordErrorMessages,
   confirmPasswordErrorMessages,
   canSubmit
-} = toRefs(state);
+} = toRefs(validation);
 const { submitPasswordReset, goToLogin } = actions;
 </script>
 

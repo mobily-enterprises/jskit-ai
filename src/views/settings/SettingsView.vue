@@ -71,7 +71,6 @@
 </template>
 
 <script setup>
-import { reactive } from "vue";
 import { useSettingsView } from "./useSettingsView";
 import SettingsSecuritySection from "./security/SettingsSecuritySection.vue";
 import SettingsProfileSection from "./profile/SettingsProfileSection.vue";
@@ -82,14 +81,8 @@ import { useSettingsProfileSection } from "./profile/useSettingsProfileSection";
 import { useSettingsPreferencesSection } from "./preferences/useSettingsPreferencesSection";
 import { useSettingsNotificationsSection } from "./notifications/useSettingsNotificationsSection";
 
-const { meta, state: rawState, actions } = useSettingsView();
-const state = reactive(rawState);
-
-const settingsView = {
-  meta,
-  state,
-  actions
-};
+const settingsView = useSettingsView();
+const { meta, state, actions } = settingsView;
 
 const security = useSettingsSecuritySection(settingsView);
 const profile = useSettingsProfileSection(settingsView);
@@ -97,6 +90,7 @@ const preferences = useSettingsPreferencesSection(settingsView);
 const notifications = useSettingsNotificationsSection(settingsView);
 
 defineExpose({
+  settingsView,
   meta,
   state,
   actions

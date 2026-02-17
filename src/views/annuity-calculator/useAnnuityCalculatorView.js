@@ -8,8 +8,8 @@ export function useAnnuityCalculatorView() {
   }
 
   return {
-    state: reactive({
-      historyRefreshToken
+    history: reactive({
+      refreshToken: historyRefreshToken
     }),
     actions: {
       handleCalculated

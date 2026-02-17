@@ -116,7 +116,7 @@
                 type="button"
                 variant="tonal"
                 color="secondary"
-                :loading="otpRequestMutation.isPending.value"
+                :loading="otpRequestPending"
                 @click="requestOtpCode"
               >
                 Send one-time code
@@ -176,10 +176,9 @@
 import { toRefs } from "vue";
 import { useLoginView } from "./useLoginView";
 
-const { meta, state, actions } = useLoginView();
+const { content, mode, form, validation, feedback, oauth, actions } = useLoginView();
+const { authTitle, authSubtitle, submitLabel } = content;
 const {
-  authTitle,
-  authSubtitle,
   isLogin,
   isRegister,
   isForgot,
@@ -187,7 +186,9 @@ const {
   showRememberedAccount,
   rememberedAccountDisplayName,
   rememberedAccountMaskedEmail,
-  rememberedAccountSwitchLabel,
+  rememberedAccountSwitchLabel
+} = toRefs(mode);
+const {
   email,
   password,
   confirmPassword,
@@ -198,21 +199,27 @@ const {
   passwordTouched,
   confirmPasswordTouched,
   otpCodeTouched,
-  rememberAccountOnDevice,
+  rememberAccountOnDevice
+} = toRefs(form);
+const {
   emailErrorMessages,
   passwordErrorMessages,
   confirmPasswordErrorMessages,
   otpCodeErrorMessages,
-  otpRequestMutation,
+  canSubmit
+} = toRefs(validation);
+const {
   loading,
+  otpRequestPending,
   errorMessage,
-  infoMessage,
-  canSubmit,
-  submitLabel
-} = toRefs(state);
-const { oauthProviders } = meta;
-const { switchMode, switchAccount, requestOtpCode, startOAuthSignIn, oauthProviderButtonLabel, oauthProviderIcon, submitAuth } =
-  actions;
+  infoMessage
+} = toRefs(feedback);
+const {
+  providers: oauthProviders,
+  providerButtonLabel: oauthProviderButtonLabel,
+  providerIcon: oauthProviderIcon
+} = oauth;
+const { switchMode, switchAccount, requestOtpCode, startOAuthSignIn, submitAuth } = actions;
 </script>
 
 <style scoped>

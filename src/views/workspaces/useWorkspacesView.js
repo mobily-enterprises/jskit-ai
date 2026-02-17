@@ -134,15 +134,19 @@ export function useWorkspacesView() {
   });
 
   return {
-    meta: {
+    presentation: {
       workspaceInitials,
       workspaceAvatarStyle
     },
-    state: reactive({
+    feedback: reactive({
       message,
-      messageType,
+      messageType
+    }),
+    selection: reactive({
       selectingWorkspaceSlug,
-      inviteAction,
+      inviteAction
+    }),
+    collections: reactive({
       workspaceItems,
       pendingInvites
     }),

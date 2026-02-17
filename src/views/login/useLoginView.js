@@ -172,6 +172,7 @@ export function useLoginView() {
       otpVerifyMutation.isPending.value ||
       oauthCallbackInFlight.value
   );
+  const otpRequestPending = computed(() => otpRequestMutation.isPending.value);
 
   const authTitle = computed(() => {
     if (isRegister.value) {
@@ -722,12 +723,12 @@ export function useLoginView() {
   });
 
   return {
-    meta: {
-      oauthProviders
-    },
-    state: reactive({
+    content: {
       authTitle,
       authSubtitle,
+      submitLabel
+    },
+    mode: reactive({
       isLogin,
       isRegister,
       isForgot,
@@ -735,7 +736,9 @@ export function useLoginView() {
       showRememberedAccount,
       rememberedAccountDisplayName,
       rememberedAccountMaskedEmail,
-      rememberedAccountSwitchLabel,
+      rememberedAccountSwitchLabel
+    }),
+    form: reactive({
       email,
       password,
       confirmPassword,
@@ -746,25 +749,31 @@ export function useLoginView() {
       passwordTouched,
       confirmPasswordTouched,
       otpCodeTouched,
-      rememberAccountOnDevice,
+      rememberAccountOnDevice
+    }),
+    validation: reactive({
       emailErrorMessages,
       passwordErrorMessages,
       confirmPasswordErrorMessages,
       otpCodeErrorMessages,
-      otpRequestMutation,
-      loading,
-      errorMessage,
-      infoMessage,
-      canSubmit,
-      submitLabel
+      canSubmit
     }),
+    feedback: reactive({
+      loading,
+      otpRequestPending,
+      errorMessage,
+      infoMessage
+    }),
+    oauth: {
+      providers: oauthProviders,
+      providerButtonLabel: oauthProviderButtonLabel,
+      providerIcon: oauthProviderIcon
+    },
     actions: {
       switchMode,
       switchAccount,
       requestOtpCode,
       startOAuthSignIn,
-      oauthProviderButtonLabel,
-      oauthProviderIcon,
       submitAuth
     }
   };

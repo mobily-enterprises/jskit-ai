@@ -67,12 +67,23 @@ export function useAdminShell() {
     return appSurfacePaths.workspacesPath;
   });
 
-  const navigationItems = computed(() => [
-    { title: "Choice 1", to: workspacePath("/"), icon: "$navChoice1" },
-    { title: "Choice 2", to: workspacePath("/choice-2"), icon: "$navChoice2" },
-    { title: "Workspace", to: workspacePath("/settings"), icon: "$menuSettings" },
-    { title: "Back to App", to: appSurfaceTargetPath.value, icon: "$menuBackToApp", forceReload: true }
-  ]);
+  const canViewWorkspaceSettings = computed(
+    () => workspaceStore.can("workspace.settings.view") || workspaceStore.can("workspace.settings.update")
+  );
+
+  const navigationItems = computed(() => {
+    const items = [
+      { title: "Choice 1", to: workspacePath("/"), icon: "$navChoice1" },
+      { title: "Choice 2", to: workspacePath("/choice-2"), icon: "$navChoice2" }
+    ];
+
+    if (canViewWorkspaceSettings.value) {
+      items.push({ title: "Workspace settings", to: workspacePath("/settings"), icon: "$menuSettings" });
+    }
+
+    items.push({ title: "Back to App", to: appSurfaceTargetPath.value, icon: "$menuBackToApp", forceReload: true });
+    return items;
+  });
 
   const destinationTitle = computed(() => {
     if (currentPath.value.endsWith("/choice-2")) {
@@ -227,39 +238,49 @@ export function useAdminShell() {
   }
 
   return {
-    meta: {
+    formatters: {
       workspaceInitials,
       formatDateTime
     },
-    state: {
-      workspaceStore,
+    layout: {
       showApplicationShell,
       isDesktopPermanentDrawer,
       isDesktopCollapsible,
       isMobile,
+      destinationTitle,
+      activeWorkspaceColor,
+      drawerModel,
+      workspaceThemeStyle
+    },
+    workspace: {
+      workspaceStore,
       activeWorkspaceAvatarUrl,
       activeWorkspaceInitials,
       activeWorkspaceName,
       pendingInvitesCount,
       workspaceItems,
-      pendingInvites,
-      destinationTitle,
-      activeWorkspaceColor,
+      pendingInvites
+    },
+    user: {
       userAvatarUrl,
       userDisplayName,
-      userInitials,
-      drawerModel,
+      userInitials
+    },
+    navigation: {
       navigationItems,
+      workspaceAvatarStyle
+    },
+    dialogs: {
       inviteDialogVisible,
       inviteDialogInvite,
-      inviteDecisionBusy,
+      inviteDecisionBusy
+    },
+    feedback: {
       menuNoticeVisible,
-      menuNoticeMessage,
-      workspaceThemeStyle
+      menuNoticeMessage
     },
     actions: {
       toggleDrawer,
-      workspaceAvatarStyle,
       selectWorkspaceFromShell,
       openInviteDialog,
       goToAccountSettings,

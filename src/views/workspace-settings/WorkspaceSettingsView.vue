@@ -121,7 +121,7 @@
                 v-if="canManageWorkspaceSettings"
                 type="submit"
                 color="primary"
-                :loading="updateWorkspaceSettingsMutation.isPending.value"
+                :loading="isSavingWorkspaceSettings"
               >
                 Save workspace settings
               </v-btn>
@@ -178,7 +178,7 @@
                   density="comfortable"
                   class="mb-3"
                 />
-                <v-btn type="submit" color="primary" :loading="createInviteMutation.isPending.value">Send invite</v-btn>
+                <v-btn type="submit" color="primary" :loading="isCreatingInvite">Send invite</v-btn>
               </v-form>
             </template>
 
@@ -204,7 +204,7 @@
             <template v-else>
               <div class="text-caption text-medium-emphasis mb-2">Members</div>
               <v-list density="comfortable" class="pa-0 mb-3">
-                <v-list-item v-for="member in members" :key="member.userId" class="px-0">
+                <v-list-item v-for="member in membersList" :key="member.userId" class="px-0">
                   <template #title>
                     <div class="d-flex align-center ga-2">
                       <span>{{ member.displayName || member.email }}</span>
@@ -250,7 +250,7 @@
                       v-if="canRevokeInvites"
                       variant="text"
                       color="error"
-                      :loading="revokeInviteId === invite.id && revokeInviteMutation.isPending.value"
+                      :loading="revokeInviteId === invite.id && isRevokingInvite"
                       @click="submitRevokeInvite(invite.id)"
                     >
                       Revoke
@@ -275,10 +275,9 @@
 import { toRefs } from "vue";
 import { useWorkspaceSettingsView } from "./useWorkspaceSettingsView";
 
-const { meta, state, actions } = useWorkspaceSettingsView();
+const { forms, options, feedback, members, permissions, status, actions } = useWorkspaceSettingsView();
+const { workspace: workspaceForm, invite: inviteForm } = forms;
 const {
-  workspaceForm,
-  inviteForm,
   workspaceError,
   workspaceMessage,
   workspaceMessageType,
@@ -286,21 +285,31 @@ const {
   inviteMessageType,
   teamMessage,
   teamMessageType,
-  revokeInviteId,
-  members,
-  invites,
+  revokeInviteId
+} = toRefs(feedback);
+const {
+  list: membersList,
+  invites
+} = toRefs(members);
+const {
   canManageWorkspaceSettings,
   canViewMembers,
   canInviteMembers,
   canManageMembers,
-  canRevokeInvites,
-  inviteRoleOptions,
-  memberRoleOptions,
-  updateWorkspaceSettingsMutation,
-  createInviteMutation,
-  revokeInviteMutation
-} = toRefs(state);
-const { modeOptions, timingOptions, formatDateTime } = meta;
+  canRevokeInvites
+} = toRefs(permissions);
+const {
+  isSavingWorkspaceSettings,
+  isCreatingInvite,
+  isRevokingInvite
+} = toRefs(status);
+const {
+  mode: modeOptions,
+  timing: timingOptions,
+  inviteRoles: inviteRoleOptions,
+  memberRoles: memberRoleOptions,
+  formatDateTime
+} = options;
 const { submitWorkspaceSettings, submitInvite, submitRevokeInvite, submitMemberRoleUpdate } = actions;
 </script>
 
