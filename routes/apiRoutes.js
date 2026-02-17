@@ -1685,6 +1685,10 @@ function buildDefaultRoutes(controllers) {
           { includeValidation400: true }
         )
       },
+      rateLimit: {
+        max: 60,
+        timeWindow: "1 minute"
+      },
       handler: controllers.history.list
     },
     {
@@ -1704,6 +1708,10 @@ function buildDefaultRoutes(controllers) {
           },
           { includeValidation400: true }
         )
+      },
+      rateLimit: {
+        max: 30,
+        timeWindow: "1 minute"
       },
       handler: controllers.annuity.calculate
     }
