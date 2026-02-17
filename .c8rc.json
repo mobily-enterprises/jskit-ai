@@ -15,6 +15,7 @@
     "node_modules/**",
     "tests/**",
     "src/**",
+    "migrations/**",
     "seeds/**",
     "server.js",
     "bin/server.js",
