@@ -101,7 +101,11 @@ function createSurfaceRouter({ authStore, workspaceStore, surface, shellComponen
         getParentRoute: () => rootRoute,
         path: `${workspaceRoutePrefix}/settings`,
         component: WorkspaceSettingsView,
-        beforeLoad: guards.beforeLoadWorkspaceRequired
+        beforeLoad: (context) =>
+          guards.beforeLoadWorkspacePermissionsRequired(context, [
+            "workspace.settings.view",
+            "workspace.settings.update"
+          ])
       })
     );
   }

@@ -129,12 +129,40 @@ function createSurfaceRouteGuards(stores, options) {
     }
   }
 
+  function hasAnyWorkspacePermission(requiredPermissions) {
+    const permissions = Array.isArray(requiredPermissions) ? requiredPermissions : [requiredPermissions];
+    const normalized = permissions
+      .map((permission) => String(permission || "").trim())
+      .filter(Boolean);
+
+    if (normalized.length < 1) {
+      return true;
+    }
+
+    return normalized.some((permission) => stores.workspaceStore.can(permission));
+  }
+
+  async function beforeLoadWorkspacePermissionsRequired(context, requiredPermissions) {
+    await beforeLoadWorkspaceRequired(context);
+
+    if (hasAnyWorkspacePermission(requiredPermissions)) {
+      return;
+    }
+
+    if (stores.workspaceStore.hasActiveWorkspace) {
+      throw redirect({ to: workspaceHomePath(stores.workspaceStore.activeWorkspaceSlug) });
+    }
+
+    throw redirect({ to: workspacesPath });
+  }
+
   return {
     beforeLoadRoot,
     beforeLoadPublic,
     beforeLoadAuthenticatedNoWorkspace,
     beforeLoadAuthenticated,
-    beforeLoadWorkspaceRequired
+    beforeLoadWorkspaceRequired,
+    beforeLoadWorkspacePermissionsRequired
   };
 }
 

@@ -66,7 +66,10 @@ export function useAppShell() {
   const activeWorkspaceHasMembership = computed(
     () => Boolean(workspaceStore.activeWorkspaceSlug) && Boolean(workspaceStore.membership?.roleId)
   );
-  const canOpenAdminSurface = computed(() => activeWorkspaceHasMembership.value);
+  const canViewWorkspaceAdminSettings = computed(
+    () => workspaceStore.can("workspace.settings.view") || workspaceStore.can("workspace.settings.update")
+  );
+  const canOpenAdminSurface = computed(() => activeWorkspaceHasMembership.value && canViewWorkspaceAdminSettings.value);
   const activeWorkspaceColor = computed(() => normalizeWorkspaceColor(workspaceStore.activeWorkspace?.color));
   const workspaceThemeStyle = computed(() => {
     const [red, green, blue] = workspaceColorToRgb(activeWorkspaceColor.value);
@@ -80,7 +83,7 @@ export function useAppShell() {
   const adminSurfaceTargetPath = computed(() => {
     const activeWorkspaceSlug = String(workspaceStore.activeWorkspaceSlug || "").trim();
 
-    if (activeWorkspaceSlug && activeWorkspaceHasMembership.value) {
+    if (activeWorkspaceSlug && canOpenAdminSurface.value) {
       return adminSurfacePaths.workspacePath(activeWorkspaceSlug, "/settings");
     }
 

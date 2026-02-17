@@ -88,6 +88,9 @@ export function useWorkspaceSettingsView() {
   const invites = ref([]);
   const roleCatalog = ref(normalizeRoleCatalog({}));
 
+  const canViewWorkspaceSettings = computed(
+    () => workspaceStore.can("workspace.settings.view") || workspaceStore.can("workspace.settings.update")
+  );
   const canManageWorkspaceSettings = computed(() => workspaceStore.can("workspace.settings.update"));
   const canViewMembers = computed(() => workspaceStore.can("workspace.members.view"));
   const canInviteMembers = computed(() => workspaceStore.can("workspace.members.invite"));
@@ -114,7 +117,8 @@ export function useWorkspaceSettingsView() {
 
   const workspaceSettingsQuery = useQuery({
     queryKey: WORKSPACE_SETTINGS_QUERY_KEY,
-    queryFn: () => api.workspaceSettings()
+    queryFn: () => api.workspaceSettings(),
+    enabled: canViewWorkspaceSettings
   });
 
   const membersQuery = useQuery({
@@ -388,6 +392,7 @@ export function useWorkspaceSettingsView() {
       revokeInviteId,
       members,
       invites,
+      canViewWorkspaceSettings,
       canManageWorkspaceSettings,
       canViewMembers,
       canInviteMembers,

@@ -1,3 +1,5 @@
+import { hasPermission } from "../lib/rbacManifest.js";
+
 function createWorkspaceController({ authService, workspaceService, workspaceAdminService }) {
   if (!authService || !workspaceService || !workspaceAdminService) {
     throw new Error("authService, workspaceService, and workspaceAdminService are required.");
@@ -49,7 +51,9 @@ function createWorkspaceController({ authService, workspaceService, workspaceAdm
   }
 
   async function getWorkspaceSettings(request, reply) {
-    const response = await workspaceAdminService.getWorkspaceSettings(request.workspace);
+    const response = await workspaceAdminService.getWorkspaceSettings(request.workspace, {
+      includeAppSurfaceDenyLists: hasPermission(request.permissions, "workspace.settings.update")
+    });
     reply.code(200).send(response);
   }
 

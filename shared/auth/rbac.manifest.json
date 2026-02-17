@@ -13,6 +13,7 @@
         "workspace.members.view",
         "workspace.members.manage",
         "workspace.invites.revoke",
+        "workspace.settings.view",
         "workspace.settings.update",
         "workspace.roles.view",
         "history.read",

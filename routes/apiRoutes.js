@@ -1325,6 +1325,7 @@ function buildDefaultRoutes(controllers) {
       auth: "required",
       workspacePolicy: "required",
       workspaceSurface: "admin",
+      permission: "workspace.settings.view",
       schema: {
         tags: ["workspace"],
         summary: "Get active workspace settings and role catalog",

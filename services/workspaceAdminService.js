@@ -418,22 +418,28 @@ function createWorkspaceAdminService({
     });
   }
 
-  function mapWorkspaceSettingsResponse(workspace, workspaceSettings) {
+  function mapWorkspaceSettingsResponse(workspace, workspaceSettings, options = {}) {
     const defaults = resolveWorkspaceDefaults(workspaceSettings?.policy);
     const appSurfacePolicy = extractAppSurfacePolicy(workspaceSettings);
     const invitesAvailable = Boolean(appConfig.features.workspaceInvites && rbacManifest.collaborationEnabled);
     const invitesEnabled = Boolean(workspaceSettings?.invitesEnabled);
+    const includeAppSurfaceDenyLists = options.includeAppSurfaceDenyLists === true;
+
+    const settings = {
+      invitesEnabled,
+      invitesAvailable,
+      invitesEffective: invitesAvailable && invitesEnabled,
+      ...defaults
+    };
+
+    if (includeAppSurfaceDenyLists) {
+      settings.appDenyEmails = appSurfacePolicy.denyEmails;
+      settings.appDenyUserIds = appSurfacePolicy.denyUserIds;
+    }
 
     return {
       workspace: mapWorkspaceSummary(workspace),
-      settings: {
-        invitesEnabled,
-        invitesAvailable,
-        invitesEffective: invitesAvailable && invitesEnabled,
-        ...defaults,
-        appDenyEmails: appSurfacePolicy.denyEmails,
-        appDenyUserIds: appSurfacePolicy.denyUserIds
-      }
+      settings
     };
   }
 
@@ -482,12 +488,13 @@ function createWorkspaceAdminService({
     return date.toISOString();
   }
 
-  async function getWorkspaceSettings(workspaceContext) {
+  async function getWorkspaceSettings(workspaceContext, options = {}) {
     const workspace = await requireWorkspace(workspaceContext);
     const workspaceSettings = await ensureWorkspaceSettings(workspace.id);
+    const includeAppSurfaceDenyLists = options.includeAppSurfaceDenyLists === true;
 
     return {
-      ...mapWorkspaceSettingsResponse(workspace, workspaceSettings),
+      ...mapWorkspaceSettingsResponse(workspace, workspaceSettings, { includeAppSurfaceDenyLists }),
       roleCatalog: {
         collaborationEnabled: Boolean(rbacManifest.collaborationEnabled),
         defaultInviteRole: rbacManifest.defaultInviteRole,
@@ -555,7 +562,7 @@ function createWorkspaceAdminService({
     const updatedSettings = await ensureWorkspaceSettings(workspace.id);
 
     return {
-      ...mapWorkspaceSettingsResponse(updatedWorkspace, updatedSettings),
+      ...mapWorkspaceSettingsResponse(updatedWorkspace, updatedSettings, { includeAppSurfaceDenyLists: true }),
       roleCatalog: {
         collaborationEnabled: Boolean(rbacManifest.collaborationEnabled),
         defaultInviteRole: rbacManifest.defaultInviteRole,
