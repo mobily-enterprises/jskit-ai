@@ -78,8 +78,10 @@ test("calculation logs repository factory insert/count/list and mapper branches"
     countRow: { total: "3" }
   });
   const repo = calcTestables.createCalculationLogsRepository(dbClient);
+  const workspaceId = 8;
+  const userId = 5;
 
-  await repo.insert(5, {
+  await repo.insert(workspaceId, userId, {
     id: "entry-1",
     createdAt: "2024-01-01T00:00:00.000Z",
     mode: "pv",
@@ -96,17 +98,22 @@ test("calculation logs repository factory insert/count/list and mapper branches"
     value: "100000.000000000000"
   });
 
-  assert.equal(state.inserted.user_id, 5);
+  assert.equal(state.inserted.workspace_id, workspaceId);
+  assert.equal(state.inserted.user_id, userId);
   assert.equal(state.inserted.id, "entry-1");
   assert.equal(state.inserted.created_at, "2024-01-01 00:00:00.000");
 
-  const total = await repo.countForUser(5);
+  const total = await repo.countForWorkspaceUser(workspaceId, userId);
   assert.equal(total, 3);
 
-  const entries = await repo.listForUser(5, 2, 10);
+  const entries = await repo.listForWorkspaceUser(workspaceId, userId, 2, 10);
   assert.equal(entries.length, 1);
   assert.equal(entries[0].isPerpetual, true);
   assert.equal(state.offsetArgs[0], 10);
+  assert.deepEqual(state.whereArgs, [
+    { workspace_id: workspaceId, user_id: userId },
+    { workspace_id: workspaceId, user_id: userId }
+  ]);
 
   assert.equal(calcTestables.normalizeCount({}), 0);
   assert.equal(calcTestables.normalizeCount(undefined), 0);

@@ -245,9 +245,9 @@ describe("SettingsView", () => {
     const wrapper = mountView();
     await nextTick();
 
-    expect(wrapper.vm.state.activeTab).toBe("preferences");
+    expect(wrapper.vm.state.activeTab).toBe("profile");
     expect(wrapper.vm.actions.resolveTabFromSearch({ section: "security" }).toLowerCase()).toBe("security");
-    expect(wrapper.vm.actions.resolveTabFromSearch({ section: "invalid-tab" })).toBe("preferences");
+    expect(wrapper.vm.actions.resolveTabFromSearch({ section: "invalid-tab" })).toBe("profile");
 
     expect(
       wrapper.vm.actions.toErrorMessage(

@@ -10,13 +10,13 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text-summary", "lcov"],
       all: true,
-      include: ["src/views/**/*.vue", "src/App.vue"],
+      include: ["src/shells/**/*.js", "src/views/**/*.js"],
       reportsDirectory: "./coverage-vue",
       thresholds: {
-        lines: 45,
-        statements: 45,
-        branches: 20,
-        functions: 20
+        lines: 62,
+        statements: 62,
+        branches: 41,
+        functions: 70
       }
     }
   }

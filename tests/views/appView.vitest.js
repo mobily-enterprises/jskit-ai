@@ -175,17 +175,17 @@ describe("App shell", () => {
     wrapper.vm.toggleDrawer();
     expect(wrapper.vm.drawerModel).toBe(true);
 
-    await wrapper.vm.goTo("/w/acme");
+    await wrapper.vm.goToNavigationItem({ to: "/w/acme" });
     expect(mocks.navigate).not.toHaveBeenCalled();
     expect(wrapper.vm.drawerModel).toBe(false);
 
     wrapper.vm.drawerModel = true;
-    await wrapper.vm.goTo("/w/acme/choice-2");
+    await wrapper.vm.goToNavigationItem({ to: "/w/acme/choice-2" });
     expect(mocks.navigate).toHaveBeenCalledWith({ to: "/w/acme/choice-2" });
     expect(wrapper.vm.drawerModel).toBe(false);
     expect(wrapper.vm.isCurrentPath("/w/acme")).toBe(true);
 
-    await wrapper.vm.goToSettingsTab("profile");
+    await wrapper.vm.goToAccountSettings();
     expect(mocks.navigate).toHaveBeenCalledWith({
       to: "/account/settings",
       search: { section: "profile", returnTo: "/w/acme" }

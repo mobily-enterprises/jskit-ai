@@ -231,7 +231,6 @@ const profileLogic = useSettingsProfileLogic({
   settingsQueryKey: SETTINGS_QUERY_KEY,
   queryClient,
   authStore,
-  workspaceStore,
   clearFieldErrors,
   toErrorMessage,
   handleAuthError,

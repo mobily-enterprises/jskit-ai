@@ -57,7 +57,18 @@ test("user settings service helper validators cover success and failure branches
     defaultPaymentsPerYear: 0,
     defaultHistoryPageSize: 101
   });
-  assert.equal(Object.keys(preferencesInvalid.fieldErrors).length, 10);
+  assert.deepEqual(Object.keys(preferencesInvalid.fieldErrors).sort(), [
+    "currencyCode",
+    "dateFormat",
+    "locale",
+    "numberFormat",
+    "theme",
+    "timeZone"
+  ]);
+  assert.equal(preferencesInvalid.fieldErrors.defaultMode, undefined);
+  assert.equal(preferencesInvalid.fieldErrors.defaultTiming, undefined);
+  assert.equal(preferencesInvalid.fieldErrors.defaultPaymentsPerYear, undefined);
+  assert.equal(preferencesInvalid.fieldErrors.defaultHistoryPageSize, undefined);
 
   const preferencesValid = __testables.parsePreferencesInput({
     theme: "dark",
@@ -71,7 +82,16 @@ test("user settings service helper validators cover success and failure branches
     defaultPaymentsPerYear: 4,
     defaultHistoryPageSize: 25
   });
-  assert.equal(preferencesValid.patch.defaultMode, "pv");
+  assert.equal(preferencesValid.patch.theme, "dark");
+  assert.equal(preferencesValid.patch.locale, "en-GB");
+  assert.equal(preferencesValid.patch.timeZone, "Europe/London");
+  assert.equal(preferencesValid.patch.dateFormat, "dmy");
+  assert.equal(preferencesValid.patch.numberFormat, "dot-comma");
+  assert.equal(preferencesValid.patch.currencyCode, "EUR");
+  assert.equal(preferencesValid.patch.defaultMode, undefined);
+  assert.equal(preferencesValid.patch.defaultTiming, undefined);
+  assert.equal(preferencesValid.patch.defaultPaymentsPerYear, undefined);
+  assert.equal(preferencesValid.patch.defaultHistoryPageSize, undefined);
 
   const preferencesInvalidLocale = __testables.parsePreferencesInput({ locale: "bad-@@" });
   assert.equal(preferencesInvalidLocale.fieldErrors.locale, "Locale must be a valid BCP 47 locale tag.");

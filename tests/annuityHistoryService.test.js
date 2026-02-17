@@ -22,18 +22,21 @@ function makeResult(overrides = {}) {
 
 test("appendCalculation persists schema-valid history entry", async () => {
   const inserts = [];
+  const workspaceId = 12;
+  const userId = 77;
   const service = createAnnuityHistoryService({
     calculationLogsRepository: {
-      async insert(userId, entry) {
-        inserts.push({ userId, entry });
+      async insert(nextWorkspaceId, nextUserId, entry) {
+        inserts.push({ workspaceId: nextWorkspaceId, userId: nextUserId, entry });
       }
     }
   });
 
-  const historyEntry = await service.appendCalculation(77, makeResult());
+  const historyEntry = await service.appendCalculation(workspaceId, userId, makeResult());
 
   assert.equal(inserts.length, 1);
-  assert.equal(inserts[0].userId, 77);
+  assert.equal(inserts[0].workspaceId, workspaceId);
+  assert.equal(inserts[0].userId, userId);
   assert.deepEqual(inserts[0].entry, historyEntry);
   assert.match(historyEntry.id, /^[0-9a-f-]{36}$/);
   assert.equal(historyEntry.mode, "pv");
@@ -52,6 +55,7 @@ test("appendCalculation throws if generated history entry violates schema", asyn
   await assert.rejects(
     () =>
       service.appendCalculation(
+        12,
         77,
         makeResult({
           mode: "invalid-mode"
@@ -86,13 +90,16 @@ test("history entry validation rejects malformed createdAt and uuid", () => {
 });
 
 test("listForUser returns mapped entries with username and clamps page to totalPages", async () => {
+  const workspaceId = 19;
   const service = createAnnuityHistoryService({
     calculationLogsRepository: {
-      async countForUser(userId) {
+      async countForWorkspaceUser(nextWorkspaceId, userId) {
+        assert.equal(nextWorkspaceId, workspaceId);
         assert.equal(userId, 15);
         return 25;
       },
-      async listForUser(userId, page, pageSize) {
+      async listForWorkspaceUser(nextWorkspaceId, userId, page, pageSize) {
+        assert.equal(nextWorkspaceId, workspaceId);
         assert.equal(userId, 15);
         assert.equal(page, 3);
         assert.equal(pageSize, 10);
@@ -119,6 +126,7 @@ test("listForUser returns mapped entries with username and clamps page to totalP
   });
 
   const result = await service.listForUser(
+    workspaceId,
     { id: 15, displayName: "seed.user1" },
     {
       page: 99,
@@ -134,12 +142,17 @@ test("listForUser returns mapped entries with username and clamps page to totalP
 });
 
 test("listForUser handles empty history with minimum one page", async () => {
+  const workspaceId = 7;
   const service = createAnnuityHistoryService({
     calculationLogsRepository: {
-      async countForUser() {
+      async countForWorkspaceUser(nextWorkspaceId, userId) {
+        assert.equal(nextWorkspaceId, workspaceId);
+        assert.equal(userId, 21);
         return 0;
       },
-      async listForUser(_userId, page, pageSize) {
+      async listForWorkspaceUser(nextWorkspaceId, userId, page, pageSize) {
+        assert.equal(nextWorkspaceId, workspaceId);
+        assert.equal(userId, 21);
         assert.equal(page, 1);
         assert.equal(pageSize, 10);
         return [];
@@ -148,6 +161,7 @@ test("listForUser handles empty history with minimum one page", async () => {
   });
 
   const result = await service.listForUser(
+    workspaceId,
     { id: 21, displayName: "seed.user2" },
     {
       page: 5,

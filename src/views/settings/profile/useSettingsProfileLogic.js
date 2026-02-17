@@ -30,7 +30,6 @@ export function useSettingsProfileLogic({
   settingsQueryKey,
   queryClient,
   authStore,
-  workspaceStore,
   clearFieldErrors,
   toErrorMessage,
   handleAuthError,

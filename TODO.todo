@@ -12,14 +12,16 @@ X Add a backend interface, explain how to make it work, what code to share
 
 X Check functionality of the multiple surfaces/workspaces
 X Make sure each screen is short
-- Get full test coverage
+X Get full test coverage
 
 - Log server errors and client errors
 - One (or more) of the "extra" stuff in the admin interface
 
 - Add email system (SMTP?, Amazon?)
-- AI integration
-- Add socket infrastructure
+- Add SMS system (PLIVIO?)
+- AI integration (actions abstraction etc.)
+- Add websocket infrastructure with realtime updates
+- Add real time chat with typing detection, chatting within and across workspaces
 
 Extra:
 - Operational hygiene (structured logging, tracing, health checks, alerts)

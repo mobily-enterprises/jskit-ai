@@ -33,6 +33,7 @@ function createReplyDouble() {
 
 test("annuity controller validates, calculates, appends history, and returns combined payload", async () => {
   const receivedPayloads = [];
+  const appendCalls = [];
   const annuityController = createAnnuityController({
     annuityService: {
       validateAndNormalizeInput(payload) {
@@ -47,7 +48,9 @@ test("annuity controller validates, calculates, appends history, and returns com
       }
     },
     annuityHistoryService: {
-      async appendCalculation(userId, result) {
+      async appendCalculation(workspaceId, userId, result) {
+        appendCalls.push({ workspaceId, userId, result });
+        assert.equal(workspaceId, 42);
         assert.equal(userId, 7);
         assert.equal(result.value, "123.000000000000");
         return { id: "history-1" };
@@ -59,6 +62,7 @@ test("annuity controller validates, calculates, appends history, and returns com
   await annuityController.calculate(
     {
       user: { id: 7 },
+      workspace: { id: 42 },
       body: { payment: 500 }
     },
     reply
@@ -75,20 +79,26 @@ test("annuity controller validates, calculates, appends history, and returns com
   const fallbackReply = createReplyDouble();
   await annuityController.calculate(
     {
-      user: { id: 7 }
+      user: { id: 7 },
+      workspace: { id: 42 }
     },
     fallbackReply
   );
   assert.equal(fallbackReply.statusCode, 200);
   assert.deepEqual(receivedPayloads[1], {});
+  assert.equal(appendCalls.length, 2);
+  assert.deepEqual(appendCalls.map((call) => [call.workspaceId, call.userId]), [
+    [42, 7],
+    [42, 7]
+  ]);
 });
 
 test("history controller maps pagination query and returns service response", async () => {
   const calls = [];
   const historyController = createHistoryController({
     annuityHistoryService: {
-      async listForUser(user, pagination) {
-        calls.push({ user, pagination });
+      async listForUser(workspaceId, user, pagination) {
+        calls.push({ workspaceId, user, pagination });
         return {
           entries: [],
           page: pagination.page,
@@ -103,6 +113,7 @@ test("history controller maps pagination query and returns service response", as
   const reply = createReplyDouble();
   await historyController.list(
     {
+      workspace: { id: 99 },
       user: { id: 11, displayName: "alex" },
       query: { page: "2", pageSize: "25" }
     },
@@ -115,6 +126,7 @@ test("history controller maps pagination query and returns service response", as
   const defaultReply = createReplyDouble();
   await historyController.list(
     {
+      workspace: { id: 99 },
       user: { id: 11, displayName: "alex" }
     },
     defaultReply
@@ -124,10 +136,12 @@ test("history controller maps pagination query and returns service response", as
 
   assert.deepEqual(calls, [
     {
+      workspaceId: 99,
       user: { id: 11, displayName: "alex" },
       pagination: { page: 2, pageSize: 25 }
     },
     {
+      workspaceId: 99,
       user: { id: 11, displayName: "alex" },
       pagination: { page: 1, pageSize: 10 }
     }

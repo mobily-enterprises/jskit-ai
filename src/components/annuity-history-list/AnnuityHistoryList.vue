@@ -65,7 +65,7 @@ import { useAnnuityHistoryList } from "./useAnnuityHistoryList";
 
 const props = defineProps({
   refreshToken: { type: Number, default: 0 },
-  initialPageSize: Number
+  initialPageSize: { type: Number, default: undefined }
 });
 
 const { meta, state, actions } = useAnnuityHistoryList({

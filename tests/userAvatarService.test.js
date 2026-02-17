@@ -36,11 +36,18 @@ test("user avatar helpers cover normalization and gravatar url construction", as
   const buffer = await __testables.readAvatarBuffer(Readable.from([Buffer.from("ok")]), { maxBytes: 8 });
   assert.equal(buffer.toString(), "ok");
 
-  await assert.rejects(
-    () => __testables.readAvatarBuffer(Readable.from([Buffer.alloc(9)]), { maxBytes: 8 }),
-    /Maximum allowed size/
-  );
-  await assert.rejects(() => __testables.readAvatarBuffer(Readable.from([]), { maxBytes: 8 }), /Avatar file is empty/);
+  await assert.rejects(() => __testables.readAvatarBuffer(Readable.from([Buffer.alloc(9)]), { maxBytes: 8 }), (error) => {
+    assert.equal(error.status, 400);
+    assert.equal(error.message, "Validation failed.");
+    assert.equal(Boolean(error.details?.fieldErrors?.avatar?.includes("Maximum allowed size")), true);
+    return true;
+  });
+  await assert.rejects(() => __testables.readAvatarBuffer(Readable.from([]), { maxBytes: 8 }), (error) => {
+    assert.equal(error.status, 400);
+    assert.equal(error.message, "Validation failed.");
+    assert.equal(error.details?.fieldErrors?.avatar, "Avatar file is empty.");
+    return true;
+  });
 });
 
 test("user avatar service uploads and clears avatars", async () => {
