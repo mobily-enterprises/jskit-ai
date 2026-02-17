@@ -1,4 +1,4 @@
-import AppApp from "./AppApp.vue";
+import AppShell from "./shells/app/AppShell.vue";
 import { createSurfaceRouter } from "./routerFactory";
 
 export function createCustomerRouter({ authStore, workspaceStore }) {
@@ -6,7 +6,7 @@ export function createCustomerRouter({ authStore, workspaceStore }) {
     authStore,
     workspaceStore,
     surface: "app",
-    shellComponent: AppApp,
+    shellComponent: AppShell,
     includeWorkspaceSettings: false
   });
 }

@@ -84,7 +84,7 @@ vi.mock("../../src/stores/workspaceStore.js", () => ({
   useWorkspaceStore: () => mocks.workspaceStore
 }));
 
-import SettingsView from "../../src/views/SettingsView.vue";
+import SettingsView from "../../src/views/settings/SettingsView.vue";
 
 function buildSettingsPayload(overrides = {}) {
   return {

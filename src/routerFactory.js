@@ -10,13 +10,13 @@ import { createSurfaceRouteGuards } from "./routerGuards";
 
 /* c8 ignore start -- lazy Vue SFC loaders require full Vite CSS handling and are exercised in browser/E2E paths. */
 /* v8 ignore start -- lazy Vue SFC loaders require full Vite CSS handling and are exercised in browser/E2E paths. */
-const LoginView = lazyRouteComponent(() => import("./views/LoginView.vue"));
-const AnnuityCalculatorView = lazyRouteComponent(() => import("./views/AnnuityCalculatorView.vue"));
-const ChoiceTwoView = lazyRouteComponent(() => import("./views/ChoiceTwoView.vue"));
-const ResetPasswordView = lazyRouteComponent(() => import("./views/ResetPasswordView.vue"));
-const AccountSettingsView = lazyRouteComponent(() => import("./views/SettingsView.vue"));
-const WorkspaceSettingsView = lazyRouteComponent(() => import("./views/WorkspaceSettingsView.vue"));
-const WorkspacesView = lazyRouteComponent(() => import("./views/WorkspacesView.vue"));
+const LoginView = lazyRouteComponent(() => import("./views/login/LoginView.vue"));
+const AnnuityCalculatorView = lazyRouteComponent(() => import("./views/annuity-calculator/AnnuityCalculatorView.vue"));
+const ChoiceTwoView = lazyRouteComponent(() => import("./views/choice-two/ChoiceTwoView.vue"));
+const ResetPasswordView = lazyRouteComponent(() => import("./views/reset-password/ResetPasswordView.vue"));
+const AccountSettingsView = lazyRouteComponent(() => import("./views/settings/SettingsView.vue"));
+const WorkspaceSettingsView = lazyRouteComponent(() => import("./views/workspace-settings/WorkspaceSettingsView.vue"));
+const WorkspacesView = lazyRouteComponent(() => import("./views/workspaces/WorkspacesView.vue"));
 /* v8 ignore stop */
 /* c8 ignore stop */
 

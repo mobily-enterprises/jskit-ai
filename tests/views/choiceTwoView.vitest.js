@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { defineComponent } from "vue";
 import { describe, expect, it } from "vitest";
-import ChoiceTwoView from "../../src/views/ChoiceTwoView.vue";
+import ChoiceTwoView from "../../src/views/choice-two/ChoiceTwoView.vue";
 
 const passthroughStub = defineComponent({
   template: "<div><slot /></div>"

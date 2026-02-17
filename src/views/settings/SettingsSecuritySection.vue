@@ -1,0 +1,211 @@
+<template>
+  <v-row>
+    <v-col cols="12" md="7">
+      <v-card rounded="lg" elevation="0" border>
+        <v-card-item>
+          <v-card-title class="text-subtitle-1">Authentication methods</v-card-title>
+          <v-card-subtitle>Enable, disable, and manage how this account signs in.</v-card-subtitle>
+        </v-card-item>
+        <v-divider />
+        <v-card-text>
+          <div v-if="vm.authMethodItems.length > 0" class="d-flex flex-column ga-3">
+            <div
+              v-for="method in vm.authMethodItems"
+              :key="method.id"
+              class="d-flex flex-wrap align-center justify-space-between ga-3"
+            >
+              <div>
+                <div class="text-body-2 font-weight-medium">{{ method.label }}</div>
+                <div class="text-caption text-medium-emphasis">
+                  {{ vm.authMethodStatusText(method) }}
+                </div>
+              </div>
+
+              <div class="d-flex flex-wrap justify-end ga-2">
+                <template v-if="method.kind === vm.AUTH_METHOD_KIND_PASSWORD">
+                  <v-btn
+                    v-if="method.enabled || !method.configured"
+                    variant="text"
+                    color="secondary"
+                    @click="vm.openPasswordForm"
+                  >
+                    {{ vm.passwordManageLabel }}
+                  </v-btn>
+                  <v-btn
+                    v-if="method.enabled"
+                    variant="text"
+                    color="error"
+                    :disabled="!method.canDisable"
+                    :loading="vm.methodActionLoadingId === method.id && vm.setPasswordMethodEnabledMutation.isPending.value"
+                    @click="vm.submitPasswordMethodToggle(false)"
+                  >
+                    Disable
+                  </v-btn>
+                  <v-btn
+                    v-else-if="method.configured"
+                    variant="tonal"
+                    color="secondary"
+                    :disabled="!method.canEnable"
+                    @click="vm.openPasswordEnableSetup"
+                  >
+                    Enable
+                  </v-btn>
+                </template>
+
+                <template v-else-if="method.kind === vm.AUTH_METHOD_KIND_OAUTH">
+                  <v-btn
+                    v-if="method.enabled"
+                    variant="text"
+                    color="error"
+                    :disabled="!method.canDisable"
+                    :loading="vm.methodActionLoadingId === method.id && vm.unlinkProviderMutation.isPending.value"
+                    @click="vm.submitProviderUnlink(method.provider)"
+                  >
+                    Unlink
+                  </v-btn>
+                  <v-btn
+                    v-else
+                    variant="tonal"
+                    color="secondary"
+                    :disabled="vm.providerLinkStartInFlight"
+                    @click="vm.startProviderLink(method.provider)"
+                  >
+                    Link
+                  </v-btn>
+                </template>
+
+                <template v-else-if="method.kind === vm.AUTH_METHOD_KIND_OTP">
+                  <v-chip size="small" label color="secondary">Required</v-chip>
+                </template>
+              </div>
+            </div>
+          </div>
+          <p v-else class="text-body-2 text-medium-emphasis mb-0">
+            No user-managed sign-in methods are available yet.
+          </p>
+
+          <p class="text-caption text-medium-emphasis mt-3 mb-0">{{ vm.securityMethodsHint }}</p>
+
+          <v-alert v-if="vm.providerMessage" :type="vm.providerMessageType" variant="tonal" class="mt-3 mb-0">
+            {{ vm.providerMessage }}
+          </v-alert>
+
+          <v-dialog v-model="vm.showPasswordForm" max-width="560">
+            <v-card rounded="lg" border>
+              <v-card-item>
+                <v-card-title class="text-subtitle-1">{{ vm.passwordDialogTitle }}</v-card-title>
+                <v-card-subtitle v-if="vm.isPasswordEnableSetupMode">
+                  Set a new password, then click Enable to turn password sign-in on.
+                </v-card-subtitle>
+              </v-card-item>
+              <v-divider />
+              <v-card-text>
+                <v-form @submit.prevent="vm.submitPasswordChange" novalidate>
+                  <v-text-field
+                    v-if="vm.requiresCurrentPassword"
+                    v-model="vm.securityForm.currentPassword"
+                    label="Current password"
+                    :type="vm.showCurrentPassword ? 'text' : 'password'"
+                    :append-inner-icon="vm.showCurrentPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                    @click:append-inner="vm.showCurrentPassword = !vm.showCurrentPassword"
+                    variant="outlined"
+                    density="comfortable"
+                    autocomplete="current-password"
+                    :error-messages="vm.securityFieldErrors.currentPassword ? [vm.securityFieldErrors.currentPassword] : []"
+                    class="mb-3"
+                  />
+
+                  <v-text-field
+                    v-model="vm.securityForm.newPassword"
+                    label="New password"
+                    :type="vm.showNewPassword ? 'text' : 'password'"
+                    :append-inner-icon="vm.showNewPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                    @click:append-inner="vm.showNewPassword = !vm.showNewPassword"
+                    variant="outlined"
+                    density="comfortable"
+                    autocomplete="new-password"
+                    :error-messages="vm.securityFieldErrors.newPassword ? [vm.securityFieldErrors.newPassword] : []"
+                    class="mb-3"
+                  />
+
+                  <v-text-field
+                    v-model="vm.securityForm.confirmPassword"
+                    label="Confirm new password"
+                    :type="vm.showConfirmPassword ? 'text' : 'password'"
+                    :append-inner-icon="vm.showConfirmPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                    @click:append-inner="vm.showConfirmPassword = !vm.showConfirmPassword"
+                    variant="outlined"
+                    density="comfortable"
+                    autocomplete="new-password"
+                    :error-messages="vm.securityFieldErrors.confirmPassword ? [vm.securityFieldErrors.confirmPassword] : []"
+                    class="mb-3"
+                  />
+
+                  <v-alert v-if="vm.securityMessage" :type="vm.securityMessageType" variant="tonal" class="mb-3">
+                    {{ vm.securityMessage }}
+                  </v-alert>
+
+                  <div class="d-flex flex-wrap ga-2">
+                    <v-btn type="submit" color="primary" :loading="vm.passwordFormSubmitPending">
+                      {{ vm.passwordFormSubmitLabel }}
+                    </v-btn>
+                    <v-btn variant="text" color="secondary" @click="vm.closePasswordForm">Cancel</v-btn>
+                  </div>
+                </v-form>
+              </v-card-text>
+            </v-card>
+          </v-dialog>
+        </v-card-text>
+      </v-card>
+    </v-col>
+
+    <v-col cols="12" md="5">
+      <v-card rounded="lg" elevation="0" border class="mb-4">
+        <v-card-item>
+          <v-card-title class="text-subtitle-1">Active sessions</v-card-title>
+        </v-card-item>
+        <v-divider />
+        <v-card-text>
+          <p class="text-body-2 text-medium-emphasis mb-3">
+            Sign out all other devices while keeping this session active.
+          </p>
+
+          <v-btn
+            color="secondary"
+            variant="outlined"
+            :loading="vm.logoutOthersMutation.isPending.value"
+            @click="vm.submitLogoutOthers"
+          >
+            Sign out other devices
+          </v-btn>
+
+          <v-alert v-if="vm.sessionsMessage" :type="vm.sessionsMessageType" variant="tonal" class="mt-3 mb-0">
+            {{ vm.sessionsMessage }}
+          </v-alert>
+        </v-card-text>
+      </v-card>
+
+      <v-card rounded="lg" elevation="0" border>
+        <v-card-item>
+          <v-card-title class="text-subtitle-1">MFA status</v-card-title>
+        </v-card-item>
+        <v-divider />
+        <v-card-text>
+          <v-chip :color="vm.mfaChipColor" label>{{ vm.mfaLabel }}</v-chip>
+          <p class="text-body-2 text-medium-emphasis mt-3 mb-0">
+            Multi-factor enrollment UI is scaffolded as read-only in this version.
+          </p>
+        </v-card-text>
+      </v-card>
+    </v-col>
+  </v-row>
+</template>
+
+<script setup>
+defineProps({
+  vm: {
+    type: Object,
+    required: true
+  }
+});
+</script>

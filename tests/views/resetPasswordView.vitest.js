@@ -35,7 +35,7 @@ vi.mock("../../src/stores/authStore.js", () => ({
   useAuthStore: () => mocks.authStore
 }));
 
-import ResetPasswordView from "../../src/views/ResetPasswordView.vue";
+import ResetPasswordView from "../../src/views/reset-password/ResetPasswordView.vue";
 
 function mountView() {
   return mount(ResetPasswordView, {

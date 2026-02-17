@@ -6,9 +6,15 @@ const mocks = vi.hoisted(() => ({
   }
 }));
 
-vi.mock("../../src/App.vue", () => ({
+vi.mock("../../src/shells/admin/AdminShell.vue", () => ({
   default: {
     name: "AppShellMock"
+  }
+}));
+
+vi.mock("../../src/shells/app/AppShell.vue", () => ({
+  default: {
+    name: "CustomerShellMock"
   }
 }));
 

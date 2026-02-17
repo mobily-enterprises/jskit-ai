@@ -63,7 +63,7 @@ vi.mock("../../src/services/api.js", () => ({
   api: mocks.api
 }));
 
-import App from "../../src/App.vue";
+import App from "../../src/shells/admin/AdminShell.vue";
 
 function mountApp() {
   return mount(App, {
@@ -77,10 +77,19 @@ function mountApp() {
         "v-menu": true,
         "v-btn": true,
         "v-avatar": true,
+        "v-img": true,
+        "v-chip": true,
         "v-icon": true,
         "v-list": true,
         "v-list-item": true,
         "v-divider": true,
+        "v-card": true,
+        "v-card-item": true,
+        "v-card-title": true,
+        "v-card-subtitle": true,
+        "v-card-text": true,
+        "v-card-actions": true,
+        "v-dialog": true,
         "v-navigation-drawer": true,
         "v-list-subheader": true,
         "v-main": true,

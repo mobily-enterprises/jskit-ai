@@ -1,465 +1,3 @@
-<template>
-  <section class="settings-view py-2 py-md-4">
-    <v-card class="panel-card" rounded="lg" elevation="1" border>
-      <v-card-item>
-        <v-card-title class="panel-title">Account settings</v-card-title>
-        <v-card-subtitle>Global security, profile, preferences, and notification controls.</v-card-subtitle>
-        <template #append>
-          <v-btn variant="text" color="secondary" @click="goBack">Back</v-btn>
-        </template>
-      </v-card-item>
-      <v-divider />
-
-      <v-card-text class="pt-4">
-        <v-alert v-if="loadError" type="error" variant="tonal" class="mb-4">
-          {{ loadError }}
-        </v-alert>
-
-        <v-row class="settings-layout" no-gutters>
-          <v-col cols="12" md="3" lg="2" class="pr-md-4 mb-4 mb-md-0">
-            <v-list nav density="comfortable" class="settings-section-list rounded-lg">
-              <v-list-item
-                v-for="section in settingsSections"
-                :key="section.value"
-                :title="section.title"
-                :active="activeTab === section.value"
-                rounded="lg"
-                @click="selectSettingsSection(section.value)"
-              />
-            </v-list>
-          </v-col>
-
-          <v-col cols="12" md="9" lg="10">
-            <v-window v-model="activeTab" :touch="false" class="settings-sections-window">
-              <v-window-item value="security">
-            <v-row>
-              <v-col cols="12" md="7">
-                <v-card rounded="lg" elevation="0" border>
-                  <v-card-item>
-                    <v-card-title class="text-subtitle-1">Authentication methods</v-card-title>
-                    <v-card-subtitle>Enable, disable, and manage how this account signs in.</v-card-subtitle>
-                  </v-card-item>
-                  <v-divider />
-                  <v-card-text>
-                    <div v-if="authMethodItems.length > 0" class="d-flex flex-column ga-3">
-                      <div
-                        v-for="method in authMethodItems"
-                        :key="method.id"
-                        class="d-flex flex-wrap align-center justify-space-between ga-3"
-                      >
-                        <div>
-                          <div class="text-body-2 font-weight-medium">{{ method.label }}</div>
-                          <div class="text-caption text-medium-emphasis">
-                            {{ authMethodStatusText(method) }}
-                          </div>
-                        </div>
-
-                        <div class="d-flex flex-wrap justify-end ga-2">
-                          <template v-if="method.kind === AUTH_METHOD_KIND_PASSWORD">
-                            <v-btn
-                              v-if="method.enabled || !method.configured"
-                              variant="text"
-                              color="secondary"
-                              @click="openPasswordForm"
-                            >
-                              {{ passwordManageLabel }}
-                            </v-btn>
-                            <v-btn
-                              v-if="method.enabled"
-                              variant="text"
-                              color="error"
-                              :disabled="!method.canDisable"
-                              :loading="
-                                methodActionLoadingId === method.id && setPasswordMethodEnabledMutation.isPending.value
-                              "
-                              @click="submitPasswordMethodToggle(false)"
-                            >
-                              Disable
-                            </v-btn>
-                            <v-btn
-                              v-else-if="method.configured"
-                              variant="tonal"
-                              color="secondary"
-                              :disabled="!method.canEnable"
-                              @click="openPasswordEnableSetup"
-                            >
-                              Enable
-                            </v-btn>
-                          </template>
-
-                          <template v-else-if="method.kind === AUTH_METHOD_KIND_OAUTH">
-                            <v-btn
-                              v-if="method.enabled"
-                              variant="text"
-                              color="error"
-                              :disabled="!method.canDisable"
-                              :loading="methodActionLoadingId === method.id && unlinkProviderMutation.isPending.value"
-                              @click="submitProviderUnlink(method.provider)"
-                            >
-                              Unlink
-                            </v-btn>
-                            <v-btn
-                              v-else
-                              variant="tonal"
-                              color="secondary"
-                              :disabled="providerLinkStartInFlight"
-                              @click="startProviderLink(method.provider)"
-                            >
-                              Link
-                            </v-btn>
-                          </template>
-
-                          <template v-else-if="method.kind === AUTH_METHOD_KIND_OTP">
-                            <v-chip size="small" label color="secondary">Required</v-chip>
-                          </template>
-                        </div>
-                      </div>
-                    </div>
-                    <p v-else class="text-body-2 text-medium-emphasis mb-0">
-                      No user-managed sign-in methods are available yet.
-                    </p>
-
-                    <p class="text-caption text-medium-emphasis mt-3 mb-0">{{ securityMethodsHint }}</p>
-
-                    <v-alert v-if="providerMessage" :type="providerMessageType" variant="tonal" class="mt-3 mb-0">
-                      {{ providerMessage }}
-                    </v-alert>
-
-                    <v-dialog v-model="showPasswordForm" max-width="560">
-                      <v-card rounded="lg" border>
-                        <v-card-item>
-                          <v-card-title class="text-subtitle-1">{{ passwordDialogTitle }}</v-card-title>
-                          <v-card-subtitle v-if="isPasswordEnableSetupMode">
-                            Set a new password, then click Enable to turn password sign-in on.
-                          </v-card-subtitle>
-                        </v-card-item>
-                        <v-divider />
-                        <v-card-text>
-                          <v-form @submit.prevent="submitPasswordChange" novalidate>
-                            <v-text-field
-                              v-if="requiresCurrentPassword"
-                              v-model="securityForm.currentPassword"
-                              label="Current password"
-                              :type="showCurrentPassword ? 'text' : 'password'"
-                              :append-inner-icon="showCurrentPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                              @click:append-inner="showCurrentPassword = !showCurrentPassword"
-                              variant="outlined"
-                              density="comfortable"
-                              autocomplete="current-password"
-                              :error-messages="securityFieldErrors.currentPassword ? [securityFieldErrors.currentPassword] : []"
-                              class="mb-3"
-                            />
-
-                            <v-text-field
-                              v-model="securityForm.newPassword"
-                              label="New password"
-                              :type="showNewPassword ? 'text' : 'password'"
-                              :append-inner-icon="showNewPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                              @click:append-inner="showNewPassword = !showNewPassword"
-                              variant="outlined"
-                              density="comfortable"
-                              autocomplete="new-password"
-                              :error-messages="securityFieldErrors.newPassword ? [securityFieldErrors.newPassword] : []"
-                              class="mb-3"
-                            />
-
-                            <v-text-field
-                              v-model="securityForm.confirmPassword"
-                              label="Confirm new password"
-                              :type="showConfirmPassword ? 'text' : 'password'"
-                              :append-inner-icon="showConfirmPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                              @click:append-inner="showConfirmPassword = !showConfirmPassword"
-                              variant="outlined"
-                              density="comfortable"
-                              autocomplete="new-password"
-                              :error-messages="securityFieldErrors.confirmPassword ? [securityFieldErrors.confirmPassword] : []"
-                              class="mb-3"
-                            />
-
-                            <v-alert v-if="securityMessage" :type="securityMessageType" variant="tonal" class="mb-3">
-                              {{ securityMessage }}
-                            </v-alert>
-
-                            <div class="d-flex flex-wrap ga-2">
-                              <v-btn type="submit" color="primary" :loading="passwordFormSubmitPending">
-                                {{ passwordFormSubmitLabel }}
-                              </v-btn>
-                              <v-btn variant="text" color="secondary" @click="closePasswordForm">Cancel</v-btn>
-                            </div>
-                          </v-form>
-                        </v-card-text>
-                      </v-card>
-                    </v-dialog>
-                  </v-card-text>
-                </v-card>
-              </v-col>
-
-              <v-col cols="12" md="5">
-                <v-card rounded="lg" elevation="0" border class="mb-4">
-                  <v-card-item>
-                    <v-card-title class="text-subtitle-1">Active sessions</v-card-title>
-                  </v-card-item>
-                  <v-divider />
-                  <v-card-text>
-                    <p class="text-body-2 text-medium-emphasis mb-3">
-                      Sign out all other devices while keeping this session active.
-                    </p>
-
-                    <v-btn
-                      color="secondary"
-                      variant="outlined"
-                      :loading="logoutOthersMutation.isPending.value"
-                      @click="submitLogoutOthers"
-                    >
-                      Sign out other devices
-                    </v-btn>
-
-                    <v-alert v-if="sessionsMessage" :type="sessionsMessageType" variant="tonal" class="mt-3 mb-0">
-                      {{ sessionsMessage }}
-                    </v-alert>
-                  </v-card-text>
-                </v-card>
-
-                <v-card rounded="lg" elevation="0" border>
-                  <v-card-item>
-                    <v-card-title class="text-subtitle-1">MFA status</v-card-title>
-                  </v-card-item>
-                  <v-divider />
-                  <v-card-text>
-                    <v-chip :color="mfaChipColor" label>{{ mfaLabel }}</v-chip>
-                    <p class="text-body-2 text-medium-emphasis mt-3 mb-0">
-                      Multi-factor enrollment UI is scaffolded as read-only in this version.
-                    </p>
-                  </v-card-text>
-                </v-card>
-              </v-col>
-            </v-row>
-          </v-window-item>
-
-              <v-window-item value="profile">
-            <v-card rounded="lg" elevation="0" border>
-              <v-card-item>
-                <v-card-title class="text-subtitle-1">Profile</v-card-title>
-              </v-card-item>
-              <v-divider />
-              <v-card-text>
-                <v-form @submit.prevent="submitProfile" novalidate>
-                  <v-row class="mb-2">
-                    <v-col cols="12" md="4" class="d-flex flex-column align-center justify-center">
-                      <v-avatar :size="preferencesForm.avatarSize" color="surface-variant" rounded="circle" class="mb-3">
-                        <v-img v-if="profileAvatar.effectiveUrl" :src="profileAvatar.effectiveUrl" cover />
-                        <span v-else class="text-h6">{{ profileInitials }}</span>
-                      </v-avatar>
-                      <div class="text-caption text-medium-emphasis">Preview size: {{ preferencesForm.avatarSize }} px</div>
-                    </v-col>
-                    <v-col cols="12" md="8">
-                      <div class="d-flex flex-wrap ga-2 mb-2">
-                        <v-btn variant="tonal" color="secondary" @click="openAvatarEditor">Replace avatar</v-btn>
-                        <v-btn
-                          v-if="profileAvatar.hasUploadedAvatar"
-                          variant="text"
-                          color="error"
-                          :loading="avatarDeleteMutation.isPending.value"
-                          @click="submitAvatarDelete"
-                        >
-                          Remove avatar
-                        </v-btn>
-                      </div>
-                      <div v-if="selectedAvatarFileName" class="text-caption text-medium-emphasis mb-2">
-                        Selected file: {{ selectedAvatarFileName }}
-                      </div>
-
-                      <v-alert v-if="avatarMessage" :type="avatarMessageType" variant="tonal" class="mb-0">
-                        {{ avatarMessage }}
-                      </v-alert>
-                    </v-col>
-                  </v-row>
-
-                  <v-row>
-                    <v-col cols="12" md="6">
-                      <v-text-field
-                        v-model="profileForm.displayName"
-                        label="Display name"
-                        variant="outlined"
-                        density="comfortable"
-                        autocomplete="nickname"
-                        :error-messages="profileFieldErrors.displayName ? [profileFieldErrors.displayName] : []"
-                      />
-                    </v-col>
-                    <v-col cols="12" md="6">
-                      <v-text-field
-                        v-model="profileForm.email"
-                        label="Email"
-                        variant="outlined"
-                        density="comfortable"
-                        readonly
-                        hint="Managed by Supabase Auth"
-                        persistent-hint
-                      />
-                    </v-col>
-                  </v-row>
-
-                  <v-alert v-if="profileMessage" :type="profileMessageType" variant="tonal" class="mb-3">
-                    {{ profileMessage }}
-                  </v-alert>
-
-                  <v-btn type="submit" color="primary" :loading="profileMutation.isPending.value">Save profile</v-btn>
-                </v-form>
-              </v-card-text>
-            </v-card>
-          </v-window-item>
-
-              <v-window-item value="preferences">
-            <v-card rounded="lg" elevation="0" border>
-              <v-card-item>
-                <v-card-title class="text-subtitle-1">Preferences</v-card-title>
-              </v-card-item>
-              <v-divider />
-              <v-card-text>
-                <v-form @submit.prevent="submitPreferences" novalidate>
-                  <v-row>
-                    <v-col cols="12" md="4">
-                      <v-select
-                        v-model="preferencesForm.theme"
-                        label="Theme"
-                        :items="themeOptions"
-                        item-title="title"
-                        item-value="value"
-                        variant="outlined"
-                        density="comfortable"
-                        :error-messages="preferencesFieldErrors.theme ? [preferencesFieldErrors.theme] : []"
-                      />
-                    </v-col>
-                    <v-col cols="12" md="4">
-                      <v-select
-                        v-model="preferencesForm.locale"
-                        label="Language / locale"
-                        :items="localeOptions"
-                        item-title="title"
-                        item-value="value"
-                        variant="outlined"
-                        density="comfortable"
-                        :error-messages="preferencesFieldErrors.locale ? [preferencesFieldErrors.locale] : []"
-                      />
-                    </v-col>
-                    <v-col cols="12" md="4">
-                      <v-select
-                        v-model="preferencesForm.timeZone"
-                        label="Time zone"
-                        :items="timeZoneOptions"
-                        variant="outlined"
-                        density="comfortable"
-                        :error-messages="preferencesFieldErrors.timeZone ? [preferencesFieldErrors.timeZone] : []"
-                      />
-                    </v-col>
-
-                    <v-col cols="12" md="4">
-                      <v-select
-                        v-model="preferencesForm.dateFormat"
-                        label="Date format"
-                        :items="dateFormatOptions"
-                        item-title="title"
-                        item-value="value"
-                        variant="outlined"
-                        density="comfortable"
-                        :error-messages="preferencesFieldErrors.dateFormat ? [preferencesFieldErrors.dateFormat] : []"
-                      />
-                    </v-col>
-                    <v-col cols="12" md="4">
-                      <v-select
-                        v-model="preferencesForm.numberFormat"
-                        label="Number format"
-                        :items="numberFormatOptions"
-                        item-title="title"
-                        item-value="value"
-                        variant="outlined"
-                        density="comfortable"
-                        :error-messages="preferencesFieldErrors.numberFormat ? [preferencesFieldErrors.numberFormat] : []"
-                      />
-                    </v-col>
-                    <v-col cols="12" md="4">
-                      <v-select
-                        v-model="preferencesForm.currencyCode"
-                        label="Currency"
-                        :items="currencyOptions"
-                        variant="outlined"
-                        density="comfortable"
-                        :error-messages="preferencesFieldErrors.currencyCode ? [preferencesFieldErrors.currencyCode] : []"
-                      />
-                    </v-col>
-                    <v-col cols="12" md="3">
-                      <v-select
-                        v-model.number="preferencesForm.avatarSize"
-                        label="Avatar size"
-                        :items="avatarSizeOptions"
-                        variant="outlined"
-                        density="comfortable"
-                        :error-messages="preferencesFieldErrors.avatarSize ? [preferencesFieldErrors.avatarSize] : []"
-                      />
-                    </v-col>
-                  </v-row>
-
-                  <v-alert v-if="preferencesMessage" :type="preferencesMessageType" variant="tonal" class="mb-3">
-                    {{ preferencesMessage }}
-                  </v-alert>
-
-                  <v-btn type="submit" color="primary" :loading="preferencesMutation.isPending.value">Save preferences</v-btn>
-                </v-form>
-              </v-card-text>
-            </v-card>
-          </v-window-item>
-
-              <v-window-item value="notifications">
-            <v-card rounded="lg" elevation="0" border>
-              <v-card-item>
-                <v-card-title class="text-subtitle-1">Notifications</v-card-title>
-              </v-card-item>
-              <v-divider />
-              <v-card-text>
-                <v-form @submit.prevent="submitNotifications" novalidate>
-                  <v-switch
-                    v-model="notificationsForm.productUpdates"
-                    label="Product updates"
-                    color="primary"
-                    hide-details
-                    class="mb-2"
-                  />
-                  <v-switch
-                    v-model="notificationsForm.accountActivity"
-                    label="Account activity alerts"
-                    color="primary"
-                    hide-details
-                    class="mb-2"
-                  />
-                  <v-switch
-                    v-model="notificationsForm.securityAlerts"
-                    label="Security alerts (required)"
-                    color="primary"
-                    hide-details
-                    disabled
-                    class="mb-4"
-                  />
-
-                  <v-alert v-if="notificationsMessage" :type="notificationsMessageType" variant="tonal" class="mb-3">
-                    {{ notificationsMessage }}
-                  </v-alert>
-
-                  <v-btn type="submit" color="primary" :loading="notificationsMutation.isPending.value">
-                    Save notification settings
-                  </v-btn>
-                </v-form>
-              </v-card-text>
-            </v-card>
-          </v-window-item>
-            </v-window>
-          </v-col>
-        </v-row>
-      </v-card-text>
-    </v-card>
-  </section>
-</template>
-
-<script setup>
 import { computed, markRaw, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
@@ -472,17 +10,17 @@ import XHRUpload from "@uppy/xhr-upload";
 import "@uppy/core/css/style.min.css";
 import "@uppy/dashboard/css/style.min.css";
 import "@uppy/image-editor/css/style.min.css";
-import { resolveSurfacePaths } from "../../shared/routing/surfacePaths.js";
-import { api } from "../services/api";
-import { useAuthStore } from "../stores/authStore";
-import { useWorkspaceStore } from "../stores/workspaceStore";
-import { useAuthGuard } from "../composables/useAuthGuard";
+import { resolveSurfacePaths } from "../../../shared/routing/surfacePaths.js";
+import { api } from "../../services/api";
+import { useAuthStore } from "../../stores/authStore";
+import { useWorkspaceStore } from "../../stores/workspaceStore";
+import { useAuthGuard } from "../../composables/useAuthGuard";
 import {
   AVATAR_ALLOWED_MIME_TYPES,
   AVATAR_DEFAULT_SIZE,
   AVATAR_MAX_UPLOAD_BYTES,
   AVATAR_SIZE_OPTIONS
-} from "../../shared/avatar/index.js";
+} from "../../../shared/avatar/index.js";
 import {
   AUTH_METHOD_DEFINITIONS,
   AUTH_METHOD_KIND_OAUTH,
@@ -490,16 +28,18 @@ import {
   AUTH_METHOD_KIND_PASSWORD,
   AUTH_METHOD_PASSWORD_ID,
   buildOAuthMethodId
-} from "../../shared/auth/authMethods.js";
-import { AUTH_OAUTH_PROVIDER_METADATA, normalizeOAuthProvider } from "../../shared/auth/oauthProviders.js";
+} from "../../../shared/auth/authMethods.js";
+import { AUTH_OAUTH_PROVIDER_METADATA, normalizeOAuthProvider } from "../../../shared/auth/oauthProviders.js";
 import {
   clearPendingOAuthContext,
   readOAuthCallbackStateFromLocation,
   readPendingOAuthContext,
   stripOAuthCallbackParamsFromLocation,
   writePendingOAuthContext
-} from "../utils/oauthCallback.js";
+} from "../../utils/oauthCallback.js";
 
+
+export function useSettingsView() {
 const SETTINGS_QUERY_KEY = ["settings"];
 const SETTINGS_SECTION_QUERY_KEY = "section";
 const VALID_TABS = new Set(["security", "profile", "preferences", "notifications"]);
@@ -1656,31 +1196,136 @@ onBeforeUnmount(() => {
     avatarUppy.value = null;
   }
 });
-</script>
 
-<style scoped>
-.panel-card {
-  background-color: rgb(var(--v-theme-surface));
+  return {
+    meta: {
+      AUTH_METHOD_KIND_PASSWORD,
+      AUTH_METHOD_KIND_OAUTH,
+      AUTH_METHOD_KIND_OTP,
+      SETTINGS_QUERY_KEY,
+      SETTINGS_SECTION_QUERY_KEY,
+      VALID_TABS,
+      PASSWORD_FORM_MODE_MANAGE,
+      PASSWORD_FORM_MODE_ENABLE,
+      settingsSections,
+      themeOptions,
+      localeOptions,
+      dateFormatOptions,
+      numberFormatOptions,
+      currencyOptions,
+      timeZoneOptions,
+      avatarSizeOptions,
+      createDefaultAvatar
+    },
+    state: {
+      navigate,
+      authStore,
+      workspaceStore,
+      queryClient,
+      vuetifyTheme,
+      routerSearch,
+      routerPath,
+      surfacePaths,
+      activeTab,
+      syncingTabFromUrl,
+      settingsEnabled,
+      loadError,
+      profileForm,
+      profileAvatar,
+      selectedAvatarFileName,
+      avatarUppy,
+      preferencesForm,
+      notificationsForm,
+      securityForm,
+      profileFieldErrors,
+      preferencesFieldErrors,
+      securityFieldErrors,
+      profileMessage,
+      profileMessageType,
+      avatarMessage,
+      avatarMessageType,
+      preferencesMessage,
+      preferencesMessageType,
+      notificationsMessage,
+      notificationsMessageType,
+      securityMessage,
+      securityMessageType,
+      sessionsMessage,
+      sessionsMessageType,
+      providerMessage,
+      providerMessageType,
+      providerLinkStartInFlight,
+      methodActionLoadingId,
+      showPasswordForm,
+      passwordFormMode,
+      showCurrentPassword,
+      showNewPassword,
+      showConfirmPassword,
+      settingsQuery,
+      profileMutation,
+      avatarDeleteMutation,
+      preferencesMutation,
+      notificationsMutation,
+      passwordMutation,
+      setPasswordMethodEnabledMutation,
+      logoutOthersMutation,
+      unlinkProviderMutation,
+      mfaStatus,
+      securityStatus,
+      securityAuthPolicy,
+      securityAuthMethods,
+      passwordMethod,
+      isPasswordEnableSetupMode,
+      requiresCurrentPassword,
+      canOpenPasswordManageForm,
+      canOpenPasswordEnableSetup,
+      canSubmitPasswordForm,
+      passwordRequiresExistingSecret,
+      passwordSubmitLabel,
+      passwordManageLabel,
+      passwordDialogTitle,
+      passwordFormSubmitLabel,
+      passwordFormSubmitPending,
+      authMethodItems,
+      securityMethodsHint,
+      mfaLabel,
+      mfaChipColor,
+      profileInitials,
+      backTarget
+    },
+    actions: {
+      createFallbackAuthMethods,
+      normalizeAuthMethod,
+      resolveTabFromSearch,
+      isSettingsRoutePath,
+      resolveCurrentSettingsPath,
+      resolveSettingsSearchWithTab,
+      selectSettingsSection,
+      buildSettingsPathWithTab,
+      clearFieldErrors,
+      toErrorMessage,
+      providerLabel,
+      authMethodStatusText,
+      handleOAuthCallbackIfPresent,
+      applyAvatarData,
+      setupAvatarUploader,
+      applyThemePreference,
+      applySettingsData,
+      handleAuthError,
+      goBack,
+      submitProfile,
+      openAvatarEditor,
+      submitAvatarDelete,
+      submitPreferences,
+      submitNotifications,
+      submitPasswordChange,
+      openPasswordForm,
+      openPasswordEnableSetup,
+      closePasswordForm,
+      submitPasswordMethodToggle,
+      startProviderLink,
+      submitProviderUnlink,
+      submitLogoutOthers
+    }
+  };
 }
-
-.panel-title {
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.settings-section-list {
-  border: 1px solid rgba(var(--v-theme-outline), 0.35);
-}
-
-:deep(.settings-section-list .v-list-item--active) {
-  background-color: rgba(var(--v-theme-primary), 0.14);
-}
-
-:deep(.settings-sections-window .v-window-x-transition-enter-active),
-:deep(.settings-sections-window .v-window-x-transition-leave-active),
-:deep(.settings-sections-window .v-window-x-reverse-transition-enter-active),
-:deep(.settings-sections-window .v-window-x-reverse-transition-leave-active) {
-  transition: none !important;
-}
-</style>

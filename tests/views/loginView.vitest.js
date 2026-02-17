@@ -46,7 +46,7 @@ vi.mock("../../src/stores/workspaceStore.js", () => ({
   useWorkspaceStore: () => mocks.workspaceStore
 }));
 
-import LoginView from "../../src/views/LoginView.vue";
+import LoginView from "../../src/views/login/LoginView.vue";
 
 function mountView() {
   return mount(LoginView, {

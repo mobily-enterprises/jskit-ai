@@ -11,7 +11,7 @@ X More permissions (multihoming)
 X Add a backend interface, explain how to make it work, what code to share
 
 X Check functionality of the multiple surfaces/workspaces
-- Make sure each screen is short
+X Make sure each screen is short
 - Get full test coverage
 
 - Log server errors and client errors

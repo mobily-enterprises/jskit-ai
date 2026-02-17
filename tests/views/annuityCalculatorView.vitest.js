@@ -1,7 +1,7 @@
 import { defineComponent, nextTick } from "vue";
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
-import AnnuityCalculatorView from "../../src/views/AnnuityCalculatorView.vue";
+import AnnuityCalculatorView from "../../src/views/annuity-calculator/AnnuityCalculatorView.vue";
 
 const CalculatorPanelStub = defineComponent({
   name: "AnnuityCalculatorForm",

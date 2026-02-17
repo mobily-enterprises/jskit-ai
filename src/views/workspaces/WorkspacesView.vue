@@ -113,136 +113,18 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
-import { useNavigate, useRouterState } from "@tanstack/vue-router";
-import { resolveSurfacePaths } from "../../shared/routing/surfacePaths.js";
-import { useWorkspaceStore } from "../stores/workspaceStore";
+import { toRefs } from "vue";
+import { useWorkspacesView } from "./useWorkspacesView";
 
-const navigate = useNavigate();
-const routerPath = useRouterState({
-  select: (state) => state.location.pathname
-});
-const surfacePaths = computed(() => resolveSurfacePaths(routerPath.value));
-const workspaceStore = useWorkspaceStore();
-const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
-const WORKSPACE_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
-
-const message = ref("");
-const messageType = ref("error");
-const selectingWorkspaceSlug = ref("");
-const inviteAction = ref({
-  id: 0,
-  decision: ""
-});
-
-const workspaceItems = computed(() => (Array.isArray(workspaceStore.workspaces) ? workspaceStore.workspaces : []));
-const pendingInvites = computed(() => (Array.isArray(workspaceStore.pendingInvites) ? workspaceStore.pendingInvites : []));
-
-function workspaceInitials(workspace) {
-  const source = String(workspace?.name || workspace?.slug || "W").trim();
-  return source.slice(0, 2).toUpperCase();
-}
-
-function normalizeWorkspaceColor(value) {
-  const normalized = String(value || "").trim();
-  if (WORKSPACE_COLOR_PATTERN.test(normalized)) {
-    return normalized.toUpperCase();
-  }
-
-  return DEFAULT_WORKSPACE_COLOR;
-}
-
-function workspaceAvatarStyle(workspace) {
-  return {
-    backgroundColor: normalizeWorkspaceColor(workspace?.color)
-  };
-}
-
-async function openWorkspace(workspaceSlug) {
-  selectingWorkspaceSlug.value = String(workspaceSlug || "");
-  message.value = "";
-
-  try {
-    const result = await workspaceStore.selectWorkspace(workspaceSlug);
-    const slug = String(result?.workspace?.slug || workspaceSlug || "");
-    await navigate({
-      to: surfacePaths.value.workspaceHomePath(slug),
-      replace: true
-    });
-  } catch (error) {
-    messageType.value = "error";
-    message.value = String(error?.message || "Unable to open workspace.");
-  } finally {
-    selectingWorkspaceSlug.value = "";
-  }
-}
-
-async function acceptInvite(invite) {
-  inviteAction.value = {
-    id: Number(invite?.id || 0),
-    decision: "accept"
-  };
-  message.value = "";
-
-  try {
-    const response = await workspaceStore.respondToPendingInvite(invite.id, "accept");
-    const slug = String(response?.workspace?.slug || invite.workspaceSlug || "");
-    await navigate({
-      to: surfacePaths.value.workspaceHomePath(slug),
-      replace: true
-    });
-  } catch (error) {
-    messageType.value = "error";
-    message.value = String(error?.message || "Unable to accept invite.");
-  } finally {
-    inviteAction.value = {
-      id: 0,
-      decision: ""
-    };
-  }
-}
-
-async function refuseInvite(invite) {
-  inviteAction.value = {
-    id: Number(invite?.id || 0),
-    decision: "refuse"
-  };
-  message.value = "";
-
-  try {
-    await workspaceStore.respondToPendingInvite(invite.id, "refuse");
-    messageType.value = "success";
-    message.value = "Invitation refused.";
-  } catch (error) {
-    messageType.value = "error";
-    message.value = String(error?.message || "Unable to refuse invite.");
-  } finally {
-    inviteAction.value = {
-      id: 0,
-      decision: ""
-    };
-  }
-}
-
-onMounted(async () => {
-  try {
-    await workspaceStore.refreshBootstrap();
-  } catch (error) {
-    messageType.value = "error";
-    message.value = String(error?.message || "Unable to load workspaces.");
-    return;
-  }
-
-  if (workspaceStore.hasActiveWorkspace && workspaceStore.activeWorkspaceSlug) {
-    await navigate({
-      to: surfacePaths.value.workspaceHomePath(workspaceStore.activeWorkspaceSlug),
-      replace: true
-    });
-    return;
-  }
-
-  if (workspaceItems.value.length === 1 && pendingInvites.value.length < 1) {
-    await openWorkspace(workspaceItems.value[0].slug);
-  }
-});
+const { meta, state, actions } = useWorkspacesView();
+const {
+  message,
+  messageType,
+  selectingWorkspaceSlug,
+  inviteAction,
+  workspaceItems,
+  pendingInvites
+} = toRefs(state);
+const { workspaceInitials, workspaceAvatarStyle } = meta;
+const { openWorkspace, acceptInvite, refuseInvite } = actions;
 </script>

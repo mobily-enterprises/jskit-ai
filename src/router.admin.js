@@ -1,4 +1,4 @@
-import App from "./App.vue";
+import AdminShell from "./shells/admin/AdminShell.vue";
 import { createSurfaceRouter } from "./routerFactory";
 
 export function createAdminRouter({ authStore, workspaceStore }) {
@@ -6,7 +6,7 @@ export function createAdminRouter({ authStore, workspaceStore }) {
     authStore,
     workspaceStore,
     surface: "admin",
-    shellComponent: App,
+    shellComponent: AdminShell,
     includeWorkspaceSettings: true
   });
 }

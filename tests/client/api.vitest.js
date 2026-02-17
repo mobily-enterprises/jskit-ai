@@ -39,7 +39,9 @@ describe("client api transport", () => {
     expect(global.fetch).toHaveBeenCalledWith("/api/session", {
       credentials: "same-origin",
       method: "GET",
-      headers: {}
+      headers: {
+        "x-surface-id": "app"
+      }
     });
   });
 
