@@ -28,13 +28,13 @@ import { useSettingsNotificationsLogic } from "./notifications/useSettingsNotifi
 export function useSettingsView() {
 const SETTINGS_QUERY_KEY = ["settings"];
 const SETTINGS_SECTION_QUERY_KEY = "section";
-const VALID_TABS = new Set(["security", "profile", "preferences", "notifications"]);
+const VALID_TABS = new Set(["profile", "preferences", "security", "notifications"]);
 const PASSWORD_FORM_MODE_MANAGE = "manage";
 const PASSWORD_FORM_MODE_ENABLE = "enable";
 const settingsSections = [
-  { title: "Security", value: "security" },
   { title: "Profile", value: "profile" },
   { title: "Preferences", value: "preferences" },
+  { title: "Security", value: "security" },
   { title: "Notifications", value: "notifications" }
 ];
 
@@ -101,7 +101,7 @@ const routerPath = useRouterState({
 });
 const surfacePaths = computed(() => resolveSurfacePaths(routerPath.value));
 
-const activeTab = ref("preferences");
+const activeTab = ref("profile");
 const syncingTabFromUrl = ref(false);
 const settingsEnabled = ref(false);
 const loadError = ref("");
@@ -344,7 +344,7 @@ const {
 
 function resolveTabFromSearch(search) {
   const tab = String(search?.[SETTINGS_SECTION_QUERY_KEY] || "").trim().toLowerCase();
-  return VALID_TABS.has(tab) ? tab : "preferences";
+  return VALID_TABS.has(tab) ? tab : "profile";
 }
 
 function isSettingsRoutePath(pathname) {
@@ -432,7 +432,7 @@ async function handleOAuthCallbackIfPresent() {
   const callbackState = readOAuthCallbackStateFromLocation({
     pendingContext: pendingOAuthContext,
     defaultIntent: "link",
-    defaultReturnTo: buildSettingsPathWithTab("security")
+    defaultReturnTo: buildSettingsPathWithTab("profile")
   });
 
   if (!callbackState) {

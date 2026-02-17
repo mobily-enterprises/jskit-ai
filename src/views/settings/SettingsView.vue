@@ -3,7 +3,7 @@
     <v-card class="panel-card" rounded="lg" elevation="1" border>
       <v-card-item>
         <v-card-title class="panel-title">Account settings</v-card-title>
-        <v-card-subtitle>Global security, profile, preferences, and notification controls.</v-card-subtitle>
+        <v-card-subtitle>Global profile, preferences, security, and notification controls.</v-card-subtitle>
         <template #append>
           <v-btn variant="text" color="secondary" @click="actions.goBack">Back</v-btn>
         </template>
@@ -31,19 +31,19 @@
 
           <v-col cols="12" md="9" lg="10">
             <v-window v-model="state.activeTab" :touch="false" class="settings-sections-window">
-              <v-window-item value="security">
-                <SettingsSecuritySection
-                  :meta="security.meta"
-                  :state="security.state"
-                  :actions="security.actions"
-                />
-              </v-window-item>
-
               <v-window-item value="profile">
                 <SettingsProfileSection
                   :meta="profile.meta"
                   :state="profile.state"
                   :actions="profile.actions"
+                />
+              </v-window-item>
+
+              <v-window-item value="security">
+                <SettingsSecuritySection
+                  :meta="security.meta"
+                  :state="security.state"
+                  :actions="security.actions"
                 />
               </v-window-item>
 

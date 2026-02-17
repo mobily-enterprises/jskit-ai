@@ -144,6 +144,7 @@ export function useAdminShell() {
     await navigate({
       to: paths.accountSettingsPath,
       search: {
+        section: "profile",
         returnTo: currentPath.value
       }
     });
