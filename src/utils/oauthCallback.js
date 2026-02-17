@@ -159,13 +159,10 @@ function readOAuthCallbackStateFromLocation(options = {}) {
   const hash = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
 
   const code = String(search.get("code") || hash.get("code") || "").trim();
-  const accessToken = String(search.get("access_token") || hash.get("access_token") || "").trim();
-  const refreshToken = String(search.get("refresh_token") || hash.get("refresh_token") || "").trim();
   const errorCode = String(search.get("error") || hash.get("error") || "").trim();
   const errorDescription = String(search.get("error_description") || hash.get("error_description") || "").trim();
-  const hasTokenPair = Boolean(accessToken && refreshToken);
 
-  if (!code && !errorCode && !hasTokenPair) {
+  if (!code && !errorCode) {
     return null;
   }
 
@@ -191,12 +188,6 @@ function readOAuthCallbackStateFromLocation(options = {}) {
   };
   if (code) {
     payload.code = code;
-  }
-  if (accessToken) {
-    payload.accessToken = accessToken;
-  }
-  if (refreshToken) {
-    payload.refreshToken = refreshToken;
   }
   if (errorCode) {
     payload.error = errorCode;

@@ -45,7 +45,12 @@
 
                         <div class="d-flex flex-wrap justify-end ga-2">
                           <template v-if="method.kind === AUTH_METHOD_KIND_PASSWORD">
-                            <v-btn variant="text" color="secondary" @click="openPasswordForm">
+                            <v-btn
+                              v-if="method.enabled || !method.configured"
+                              variant="text"
+                              color="secondary"
+                              @click="openPasswordForm"
+                            >
                               {{ passwordManageLabel }}
                             </v-btn>
                             <v-btn
@@ -595,8 +600,12 @@ const { handleUnauthorizedError } = useAuthGuard();
 const routerSearch = useRouterState({
   select: (state) => state.location.search
 });
+const routerPath = useRouterState({
+  select: (state) => state.location.pathname
+});
 
 const activeTab = ref("preferences");
+const syncingTabFromUrl = ref(false);
 const settingsEnabled = ref(false);
 const loadError = ref("");
 
@@ -802,8 +811,12 @@ const passwordMethod = computed(
 );
 
 const requiresCurrentPassword = computed(() => Boolean(passwordMethod.value.requiresCurrentPassword));
-const passwordSubmitLabel = computed(() => (passwordMethod.value.enabled ? "Update password" : "Set password"));
-const passwordManageLabel = computed(() => (passwordMethod.value.enabled ? "Change password" : "Set password"));
+const canManagePasswordMethod = computed(() => Boolean(passwordMethod.value.enabled || !passwordMethod.value.configured));
+const passwordRequiresExistingSecret = computed(
+  () => Boolean(passwordMethod.value.enabled && passwordMethod.value.requiresCurrentPassword)
+);
+const passwordSubmitLabel = computed(() => (passwordRequiresExistingSecret.value ? "Update password" : "Set password"));
+const passwordManageLabel = computed(() => (passwordRequiresExistingSecret.value ? "Change password" : "Set password"));
 const authMethodItems = computed(() =>
   securityAuthMethods.value.filter((method) => method.kind !== AUTH_METHOD_KIND_OTP)
 );
@@ -845,9 +858,13 @@ function clearFieldErrors(target) {
 
 function toErrorMessage(error, fallback) {
   if (error?.fieldErrors && typeof error.fieldErrors === "object") {
-    const details = Object.values(error.fieldErrors)
-      .map((value) => String(value || "").trim())
-      .filter(Boolean);
+    const details = Array.from(
+      new Set(
+        Object.values(error.fieldErrors)
+          .map((value) => String(value || "").trim())
+          .filter(Boolean)
+      )
+    );
     if (details.length > 0) {
       return details.join(" ");
     }
@@ -1185,15 +1202,44 @@ watch(
 );
 
 watch(
+  () => [passwordMethod.value.configured, passwordMethod.value.enabled],
+  () => {
+    if (!canManagePasswordMethod.value && showPasswordForm.value) {
+      closePasswordForm();
+    }
+  }
+);
+
+watch(
   () => routerSearch.value,
   (search) => {
-    activeTab.value = resolveTabFromSearch(search);
+    if (routerPath.value !== "/settings") {
+      return;
+    }
+
+    const nextTab = resolveTabFromSearch(search);
+    if (activeTab.value === nextTab) {
+      return;
+    }
+
+    syncingTabFromUrl.value = true;
+    activeTab.value = nextTab;
+    syncingTabFromUrl.value = false;
   },
   { immediate: true }
 );
 
 watch(activeTab, async (nextTab) => {
   if (!VALID_TABS.has(nextTab)) {
+    return;
+  }
+  if (routerPath.value !== "/settings") {
+    return;
+  }
+  if (syncingTabFromUrl.value) {
+    return;
+  }
+  if (resolveTabFromSearch(routerSearch.value) === nextTab) {
     return;
   }
 
@@ -1335,6 +1381,12 @@ async function submitNotifications() {
 }
 
 async function submitPasswordChange() {
+  if (!canManagePasswordMethod.value) {
+    securityMessageType.value = "error";
+    securityMessage.value = "Enable password sign-in before setting or changing password.";
+    return;
+  }
+
   clearFieldErrors(securityFieldErrors);
   securityMessage.value = "";
 
@@ -1371,6 +1423,12 @@ async function submitPasswordChange() {
 }
 
 function openPasswordForm() {
+  if (!canManagePasswordMethod.value) {
+    securityMessageType.value = "error";
+    securityMessage.value = "Enable password sign-in before setting or changing password.";
+    return;
+  }
+
   showPasswordForm.value = true;
   clearFieldErrors(securityFieldErrors);
   securityMessage.value = "";

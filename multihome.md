@@ -879,6 +879,10 @@
   2. Add /workspaces authenticated/no-workspace view.
   3. Acceptance: auth/no-workspace/workspace-required route states behave
      correctly.
+  4. Acceptance: user theme is applied before first meaningful app render (not
+     only after visiting Settings).
+  5. Acceptance: top-right app-shell avatar is hydrated from bootstrap profile
+     data and appears without visiting Settings first.
 
   ## Phase 6: Collaboration APIs and UI gates
 
@@ -1239,15 +1243,29 @@
        - hydrate workspace store
        - apply user theme immediately
      - Mount app only after bootstrap resolution (with graceful fallback).
+  5. `src/App.vue` (app-shell user menu / avatar section)
+     - Bind top-right avatar to hydrated profile avatar URL from bootstrap/store.
+     - Keep initials fallback when no avatar is available.
+     - Do not require a Settings page fetch to show avatar.
 
   Supporting file:
 
   1. `src/stores/workspaceStore.js` (new)
 
+  Known UX issues closed by this commit series:
+
+  1. Top-right avatar missing until later navigation:
+     fixed by hydrating profile/avatar at startup and wiring app shell to that
+     state.
+  2. Theme only applying after opening Settings:
+     fixed by applying user theme directly from bootstrap during app init.
+
   Commit done when:
 
   1. First render has settings/workspace context loaded.
   2. No dependency on Settings page for initial theme application.
+  3. Top-right user avatar appears immediately after login/session restore when
+     an avatar exists.
 
   ### Commit 09: Router Split - Public vs Auth-No-Workspace vs Workspace-Required
 
@@ -1487,6 +1505,12 @@
   1. `1-19`: import workspace store/bootstrap utilities.
   2. `21-24`: instantiate workspace store.
   3. `72-78`: convert mount flow into async bootstrap then mount.
+
+  #### `src/App.vue` (supporting file for hydration outcomes)
+
+  1. User menu/avatar block: consume hydrated avatar URL from store/bootstrap.
+  2. Keep initials fallback logic.
+  3. Ensure avatar no longer depends on Settings view lifecycle.
 
   #### `src/views/SettingsView.vue`
 

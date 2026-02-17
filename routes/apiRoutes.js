@@ -117,8 +117,6 @@ const oauthCompleteBodySchema = Type.Object(
   {
     provider: oauthProviderEnumSchema,
     code: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_RECOVERY_TOKEN_MAX_LENGTH })),
-    accessToken: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_ACCESS_TOKEN_MAX_LENGTH })),
-    refreshToken: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_REFRESH_TOKEN_MAX_LENGTH })),
     error: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
     errorDescription: Type.Optional(Type.String({ minLength: 1, maxLength: 1024 }))
   },

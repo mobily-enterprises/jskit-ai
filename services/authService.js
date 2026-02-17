@@ -467,14 +467,6 @@ function parseOAuthCompletePayload(payload = {}) {
     fieldErrors.code = "OAuth code is too long.";
   }
 
-  if (accessToken.length > AUTH_ACCESS_TOKEN_MAX_LENGTH) {
-    fieldErrors.accessToken = "Access token is too long.";
-  }
-
-  if (refreshToken.length > AUTH_REFRESH_TOKEN_MAX_LENGTH) {
-    fieldErrors.refreshToken = "Refresh token is too long.";
-  }
-
   if (errorCode.length > 128) {
     fieldErrors.error = "OAuth error code is too long.";
   }
@@ -483,26 +475,21 @@ function parseOAuthCompletePayload(payload = {}) {
     fieldErrors.errorDescription = "OAuth error description is too long.";
   }
 
-  const hasSessionPair = Boolean(accessToken && refreshToken);
-  if ((accessToken && !refreshToken) || (!accessToken && refreshToken)) {
-    if (!accessToken) {
-      fieldErrors.accessToken = "Access token is required when a refresh token is provided.";
-    }
-    if (!refreshToken) {
-      fieldErrors.refreshToken = "Refresh token is required when an access token is provided.";
-    }
+  if (accessToken) {
+    fieldErrors.accessToken = "OAuth completion requires an authorization code.";
   }
 
-  if (!code && !errorCode && !hasSessionPair) {
-    fieldErrors.code = "OAuth code is required when access/refresh tokens are not provided.";
+  if (refreshToken) {
+    fieldErrors.refreshToken = "OAuth completion requires an authorization code.";
+  }
+
+  if (!code && !errorCode) {
+    fieldErrors.code = "OAuth code is required.";
   }
 
   return {
     provider,
     code,
-    accessToken,
-    refreshToken,
-    hasSessionPair,
     errorCode,
     errorDescription,
     fieldErrors
@@ -605,6 +592,7 @@ function buildAuthMethodsStatusFromProviderIds(providerIds, options = {}) {
   const normalizedProviders = Array.isArray(providerIds) ? providerIds.map(normalizeIdentityProviderId).filter(Boolean) : [];
   const uniqueProviders = new Set(normalizedProviders);
   const passwordSignInEnabled = options.passwordSignInEnabled !== false;
+  const passwordSetupRequired = options.passwordSetupRequired === true;
   const methods = [];
 
   for (const definition of AUTH_METHOD_DEFINITIONS) {
@@ -621,7 +609,7 @@ function buildAuthMethodsStatusFromProviderIds(providerIds, options = {}) {
         canEnable: configured && !enabled,
         canDisable: false,
         supportsSecretUpdate: true,
-        requiresCurrentPassword: enabled
+        requiresCurrentPassword: enabled && !passwordSetupRequired
       });
       continue;
     }
@@ -1146,36 +1134,52 @@ function createAuthService(options) {
     });
   }
 
-  async function resolvePasswordSignInEnabledForUserId(userId) {
+  async function resolvePasswordSignInPolicyForUserId(userId) {
     if (!userSettingsRepository || typeof userSettingsRepository.ensureForUserId !== "function") {
-      return true;
+      return {
+        passwordSignInEnabled: true,
+        passwordSetupRequired: false
+      };
     }
 
     const settings = await userSettingsRepository.ensureForUserId(userId);
-    return settings?.passwordSignInEnabled !== false;
+    return {
+      passwordSignInEnabled: settings?.passwordSignInEnabled !== false,
+      passwordSetupRequired: settings?.passwordSetupRequired === true
+    };
   }
 
-  async function setPasswordSignInEnabledForUserId(userId, enabled) {
+  async function setPasswordSignInEnabledForUserId(userId, enabled, options = {}) {
     if (!userSettingsRepository || typeof userSettingsRepository.updatePasswordSignInEnabled !== "function") {
       throw new AppError(500, "Password sign-in settings repository is not configured.");
     }
 
-    const updated = await userSettingsRepository.updatePasswordSignInEnabled(userId, enabled);
-    return updated.passwordSignInEnabled !== false;
+    const updated = await userSettingsRepository.updatePasswordSignInEnabled(userId, enabled, options);
+    return {
+      passwordSignInEnabled: updated.passwordSignInEnabled !== false,
+      passwordSetupRequired: updated.passwordSetupRequired === true
+    };
+  }
+
+  async function setPasswordSetupRequiredForUserId(userId, required) {
+    if (!userSettingsRepository || typeof userSettingsRepository.updatePasswordSetupRequired !== "function") {
+      return;
+    }
+
+    await userSettingsRepository.updatePasswordSetupRequired(userId, required);
   }
 
   async function resolveCurrentAuthContext(request) {
     const current = await resolveCurrentSupabaseUser(request);
     const profile = await syncProfileFromSupabaseUser(current.user, current.user?.email || "");
-    const passwordSignInEnabled = await resolvePasswordSignInEnabledForUserId(profile.id);
-    const authMethodsStatus = buildAuthMethodsStatusFromSupabaseUser(current.user, {
-      passwordSignInEnabled
-    });
+    const passwordSignInPolicy = await resolvePasswordSignInPolicyForUserId(profile.id);
+    const authMethodsStatus = buildAuthMethodsStatusFromSupabaseUser(current.user, passwordSignInPolicy);
 
     return {
       ...current,
       profile,
-      passwordSignInEnabled,
+      passwordSignInEnabled: passwordSignInPolicy.passwordSignInEnabled,
+      passwordSetupRequired: passwordSignInPolicy.passwordSetupRequired,
       authMethodsStatus
     };
   }
@@ -1244,9 +1248,9 @@ function createAuthService(options) {
     }
 
     const profile = await syncProfileFromSupabaseUser(response.data.user, parsed.email);
-    const passwordSignInEnabled = await resolvePasswordSignInEnabledForUserId(profile.id);
-    if (!passwordSignInEnabled) {
-      throw new AppError(403, "Password sign-in is disabled for this account. Use another sign-in method.");
+    const passwordSignInPolicy = await resolvePasswordSignInPolicyForUserId(profile.id);
+    if (!passwordSignInPolicy.passwordSignInEnabled) {
+      throw new AppError(401, "Invalid email or password.");
     }
 
     return {
@@ -1437,14 +1441,7 @@ function createAuthService(options) {
     const supabase = getSupabaseClient();
     let response;
     try {
-      if (parsed.hasSessionPair) {
-        response = await supabase.auth.setSession({
-          access_token: parsed.accessToken,
-          refresh_token: parsed.refreshToken
-        });
-      } else {
-        response = await supabase.auth.exchangeCodeForSession(parsed.code);
-      }
+      response = await supabase.auth.exchangeCodeForSession(parsed.code);
     } catch (error) {
       throw mapRecoveryError(error);
     }
@@ -1546,7 +1543,12 @@ function createAuthService(options) {
     }
 
     const supabase = getSupabaseClient();
-    await setSessionFromRequestCookies(request);
+    const sessionResponse = await setSessionFromRequestCookies(request);
+    const profile = await syncProfileFromSupabaseUser(sessionResponse.data.user, sessionResponse.data.user?.email || "");
+    const passwordSignInPolicy = await resolvePasswordSignInPolicyForUserId(profile.id);
+    if (!passwordSignInPolicy.passwordSignInEnabled) {
+      throw new AppError(409, "Password sign-in is disabled for this account.");
+    }
 
     let updateResponse;
     try {
@@ -1561,7 +1563,8 @@ function createAuthService(options) {
       throw mapPasswordUpdateError(updateResponse.error);
     }
 
-    await syncProfileFromSupabaseUser(updateResponse.data.user, updateResponse.data.user.email);
+    const updatedProfile = await syncProfileFromSupabaseUser(updateResponse.data.user, updateResponse.data.user.email);
+    await setPasswordSetupRequiredForUserId(updatedProfile.id, false);
   }
 
   async function updateDisplayName(request, displayName) {
@@ -1645,6 +1648,7 @@ function createAuthService(options) {
     }
 
     const profile = await syncProfileFromSupabaseUser(updateResponse.data.user, updateResponse.data.user.email);
+    await setPasswordSetupRequiredForUserId(profile.id, false);
 
     return {
       profile,
@@ -1706,6 +1710,7 @@ function createAuthService(options) {
       });
     }
 
+    const supabase = getSupabaseClient();
     await setSessionFromRequestCookies(request);
     const current = await resolveCurrentAuthContext(request);
     const passwordMethod = findAuthMethodById(current.authMethodsStatus, AUTH_METHOD_PASSWORD_ID);
@@ -1742,10 +1747,13 @@ function createAuthService(options) {
       await syncProfileFromSupabaseUser(updateResponse.data.user, updateResponse.data.user.email);
     }
 
-    const passwordSignInEnabled = await setPasswordSignInEnabledForUserId(current.profile.id, payload.enabled);
-    const nextAuthMethodsStatus = buildAuthMethodsStatusFromSupabaseUser(current.user, {
-      passwordSignInEnabled
-    });
+    const passwordSignInOptions = !payload.enabled && passwordMethod.configured ? { passwordSetupRequired: true } : {};
+    const nextPasswordSignInPolicy = await setPasswordSignInEnabledForUserId(
+      current.profile.id,
+      payload.enabled,
+      passwordSignInOptions
+    );
+    const nextAuthMethodsStatus = buildAuthMethodsStatusFromSupabaseUser(current.user, nextPasswordSignInPolicy);
 
     return {
       securityStatus: buildSecurityStatusFromAuthMethodsStatus(nextAuthMethodsStatus)
@@ -1768,7 +1776,8 @@ function createAuthService(options) {
   async function getSecurityStatus(request) {
     if (!request) {
       const authMethodsStatus = buildAuthMethodsStatusFromProviderIds([AUTH_METHOD_PASSWORD_PROVIDER], {
-        passwordSignInEnabled: true
+        passwordSignInEnabled: true,
+        passwordSetupRequired: false
       });
       return buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus);
     }

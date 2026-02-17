@@ -44,7 +44,6 @@
             </div>
 
             <v-text-field
-              v-if="!showRememberedAccount"
               v-model="email"
               label="Email"
               variant="outlined"
@@ -412,19 +411,22 @@ function maskEmail(emailAddress) {
   return `${visiblePrefix}***@${domainPart}`;
 }
 
-function createRememberedAccountHint({ email: accountEmail, displayName, lastUsedAt }) {
+function createRememberedAccountHint({ email: accountEmail, displayName, maskedEmail: accountMaskedEmail, lastUsedAt }) {
   const normalizedEmail = normalizeEmail(accountEmail);
-  if (!normalizedEmail) {
+  const normalizedDisplayName = String(displayName || "").trim() || normalizedEmail.split("@")[0] || "User";
+  if (!normalizedDisplayName) {
     return null;
   }
 
-  const normalizedDisplayName = String(displayName || "").trim() || normalizedEmail.split("@")[0] || "User";
   const normalizedLastUsedAt = String(lastUsedAt || new Date().toISOString());
+  const maskedEmail =
+    typeof accountEmail === "string" && accountEmail.includes("@")
+      ? maskEmail(accountEmail)
+      : String(accountMaskedEmail || "").trim();
 
   return {
-    email: normalizedEmail,
     displayName: normalizedDisplayName,
-    maskedEmail: maskEmail(normalizedEmail),
+    maskedEmail,
     lastUsedAt: normalizedLastUsedAt
   };
 }
@@ -456,8 +458,8 @@ function writeRememberedAccountHint(hint) {
     window.localStorage.setItem(
       REMEMBERED_ACCOUNT_STORAGE_KEY,
       JSON.stringify({
-        email: hint.email,
         displayName: hint.displayName,
+        maskedEmail: hint.maskedEmail,
         lastUsedAt: hint.lastUsedAt
       })
     );
@@ -488,7 +490,6 @@ function applyRememberedAccountHint(hint) {
   rememberedAccount.value = hint;
   useRememberedAccount.value = true;
   rememberAccountOnDevice.value = true;
-  email.value = hint.email;
 }
 
 function applyRememberedAccountPreference({ email: accountEmail, displayName, shouldRemember }) {
@@ -544,7 +545,6 @@ function switchMode(nextMode) {
 
   if (rememberedAccount.value) {
     useRememberedAccount.value = true;
-    email.value = rememberedAccount.value.email;
   }
 }
 
@@ -681,7 +681,13 @@ async function handleOAuthCallbackIfPresent() {
 
 function toErrorMessage(error, fallback) {
   if (error?.fieldErrors && typeof error.fieldErrors === "object") {
-    const details = Object.values(error.fieldErrors).filter(Boolean);
+    const details = Array.from(
+      new Set(
+        Object.values(error.fieldErrors)
+          .map((value) => String(value || "").trim())
+          .filter(Boolean)
+      )
+    );
     if (details.length > 0) {
       return details.join(" ");
     }
