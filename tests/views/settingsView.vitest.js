@@ -195,6 +195,14 @@ function mountView() {
   });
 }
 
+function vmSections(wrapper) {
+  return wrapper.vm.sections;
+}
+
+function vmPage(wrapper) {
+  return wrapper.vm.page;
+}
+
 describe("SettingsView", () => {
   beforeEach(() => {
     mocks.navigate.mockReset();
@@ -226,12 +234,14 @@ describe("SettingsView", () => {
     mocks.routerSearch = { section: "profile" };
     const wrapper = mountView();
     await nextTick();
+    const page = vmPage(wrapper);
+    const sections = vmSections(wrapper);
 
-    expect(wrapper.vm.state.activeTab).toBe("profile");
-    expect(wrapper.vm.state.profileForm.displayName).toBe("demo-user");
-    expect(wrapper.vm.state.preferencesForm.currencyCode).toBe("USD");
-    expect(wrapper.vm.state.notificationsForm.securityAlerts).toBe(true);
-    expect(wrapper.vm.state.mfaLabel).toContain("not enabled");
+    expect(page.state.activeTab).toBe("profile");
+    expect(sections.profile.state.profileForm.displayName).toBe("demo-user");
+    expect(sections.preferences.state.preferencesForm.currencyCode).toBe("USD");
+    expect(sections.notifications.state.notificationsForm.securityAlerts).toBe(true);
+    expect(sections.security.state.mfaLabel).toContain("not enabled");
   });
 
   it("handles invalid tab fallback and helper error branches", async () => {
@@ -244,13 +254,14 @@ describe("SettingsView", () => {
 
     const wrapper = mountView();
     await nextTick();
+    const page = vmPage(wrapper);
 
-    expect(wrapper.vm.state.activeTab).toBe("profile");
-    expect(wrapper.vm.actions.resolveTabFromSearch({ section: "security" }).toLowerCase()).toBe("security");
-    expect(wrapper.vm.actions.resolveTabFromSearch({ section: "invalid-tab" })).toBe("profile");
+    expect(page.state.activeTab).toBe("profile");
+    expect(page.actions.resolveTabFromSearch({ section: "security" }).toLowerCase()).toBe("security");
+    expect(page.actions.resolveTabFromSearch({ section: "invalid-tab" })).toBe("profile");
 
     expect(
-      wrapper.vm.actions.toErrorMessage(
+      page.actions.toErrorMessage(
         {
           fieldErrors: {
             locale: "Locale is invalid.",
@@ -261,8 +272,8 @@ describe("SettingsView", () => {
       )
     ).toContain("Locale is invalid.");
 
-    await expect(wrapper.vm.actions.handleAuthError({ status: 500, message: "No auth" })).resolves.toBe(false);
-    await expect(wrapper.vm.actions.handleAuthError({ status: 401, message: "Auth required" })).resolves.toBe(true);
+    await expect(page.actions.handleAuthError({ status: 500, message: "No auth" })).resolves.toBe(false);
+    await expect(page.actions.handleAuthError({ status: 401, message: "Auth required" })).resolves.toBe(true);
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
     expect(mocks.navigate).toHaveBeenCalledWith({ to: "/login", replace: true });
   });
@@ -279,13 +290,14 @@ describe("SettingsView", () => {
     mocks.api.updateProfileSettings.mockResolvedValue(payload);
 
     const wrapper = mountView();
-    wrapper.vm.state.profileForm.displayName = "new-name";
+    const profile = vmSections(wrapper).profile;
+    profile.state.profileForm.displayName = "new-name";
 
-    await wrapper.vm.actions.submitProfile();
+    await profile.actions.submitProfile();
 
     expect(mocks.api.updateProfileSettings).toHaveBeenCalledWith({ displayName: "new-name" });
     expect(mocks.authStore.setUsername).toHaveBeenCalledWith("new-name");
-    expect(wrapper.vm.state.profileMessageType).toBe("success");
+    expect(profile.state.profileMessageType).toBe("success");
   });
 
   it("submits preferences and surfaces field validation errors", async () => {
@@ -298,11 +310,12 @@ describe("SettingsView", () => {
     });
 
     const wrapper = mountView();
-    await wrapper.vm.actions.submitPreferences();
+    const preferences = vmSections(wrapper).preferences;
+    await preferences.actions.submitPreferences();
 
     expect(mocks.api.updatePreferencesSettings).toHaveBeenCalledTimes(1);
-    expect(wrapper.vm.state.preferencesFieldErrors.timeZone).toContain("IANA time zone");
-    expect(wrapper.vm.state.preferencesMessageType).toBe("error");
+    expect(preferences.state.preferencesFieldErrors.timeZone).toContain("IANA time zone");
+    expect(preferences.state.preferencesMessageType).toBe("error");
   });
 
   it("submits preferences successfully and applies theme preference", async () => {
@@ -320,32 +333,34 @@ describe("SettingsView", () => {
     mocks.api.updatePreferencesSettings.mockResolvedValue(payload);
 
     const wrapper = mountView();
-    await wrapper.vm.actions.submitPreferences();
+    const preferences = vmSections(wrapper).preferences;
+    await preferences.actions.submitPreferences();
 
     expect(mocks.api.updatePreferencesSettings).toHaveBeenCalledTimes(1);
     expect(mocks.setQueryData).toHaveBeenCalledTimes(1);
-    expect(wrapper.vm.state.preferencesMessageType).toBe("success");
+    expect(preferences.state.preferencesMessageType).toBe("success");
     expect(mocks.themeName.value).toBe("dark");
-    expect(wrapper.vm.state.preferencesForm.avatarSize).toBe(96);
+    expect(preferences.state.preferencesForm.avatarSize).toBe(96);
   });
 
   it("submits password change and clears password fields", async () => {
     mocks.api.changePassword.mockResolvedValue({ ok: true, message: "Password changed." });
 
     const wrapper = mountView();
-    wrapper.vm.state.securityForm.currentPassword = "old-password";
-    wrapper.vm.state.securityForm.newPassword = "new-password-123";
-    wrapper.vm.state.securityForm.confirmPassword = "new-password-123";
+    const security = vmSections(wrapper).security;
+    security.state.securityForm.currentPassword = "old-password";
+    security.state.securityForm.newPassword = "new-password-123";
+    security.state.securityForm.confirmPassword = "new-password-123";
 
-    await wrapper.vm.actions.submitPasswordChange();
+    await security.actions.submitPasswordChange();
 
     expect(mocks.api.changePassword).toHaveBeenCalledWith({
       currentPassword: "old-password",
       newPassword: "new-password-123",
       confirmPassword: "new-password-123"
     });
-    expect(wrapper.vm.state.securityForm.currentPassword).toBe("");
-    expect(wrapper.vm.state.securityMessageType).toBe("success");
+    expect(security.state.securityForm.currentPassword).toBe("");
+    expect(security.state.securityMessageType).toBe("success");
   });
 
   it("runs password setup + enable flow from disabled password method", async () => {
@@ -397,14 +412,15 @@ describe("SettingsView", () => {
     mocks.api.setPasswordMethodEnabled.mockResolvedValue(enabledPasswordPayload);
 
     const wrapper = mountView();
-    wrapper.vm.actions.openPasswordEnableSetup();
-    wrapper.vm.state.securityForm.currentPassword = "will-be-ignored";
-    wrapper.vm.state.securityForm.newPassword = "new-password-123";
-    wrapper.vm.state.securityForm.confirmPassword = "new-password-123";
+    const security = vmSections(wrapper).security;
+    security.actions.openPasswordEnableSetup();
+    security.state.securityForm.currentPassword = "will-be-ignored";
+    security.state.securityForm.newPassword = "new-password-123";
+    security.state.securityForm.confirmPassword = "new-password-123";
 
-    await wrapper.vm.actions.submitPasswordChange();
+    await security.actions.submitPasswordChange();
 
-    expect(wrapper.vm.state.isPasswordEnableSetupMode).toBe(false);
+    expect(security.state.isPasswordEnableSetupMode).toBe(false);
     expect(mocks.api.changePassword).toHaveBeenCalledWith({
       currentPassword: undefined,
       newPassword: "new-password-123",
@@ -413,12 +429,13 @@ describe("SettingsView", () => {
     expect(mocks.api.setPasswordMethodEnabled).toHaveBeenCalledWith({
       enabled: true
     });
-    expect(wrapper.vm.state.providerMessageType).toBe("success");
-    expect(wrapper.vm.state.providerMessage).toContain("enabled");
+    expect(security.state.providerMessageType).toBe("success");
+    expect(security.state.providerMessage).toContain("enabled");
   });
 
   it("handles password and notifications non-auth error branches", async () => {
     const wrapper = mountView();
+    const sections = vmSections(wrapper);
 
     mocks.api.changePassword.mockRejectedValue({
       status: 400,
@@ -427,17 +444,17 @@ describe("SettingsView", () => {
         newPassword: "Password too weak."
       }
     });
-    await wrapper.vm.actions.submitPasswordChange();
-    expect(wrapper.vm.state.securityFieldErrors.newPassword).toContain("weak");
-    expect(wrapper.vm.state.securityMessageType).toBe("error");
+    await sections.security.actions.submitPasswordChange();
+    expect(sections.security.state.securityFieldErrors.newPassword).toContain("weak");
+    expect(sections.security.state.securityMessageType).toBe("error");
 
     mocks.api.updateNotificationSettings.mockRejectedValue({
       status: 500,
       message: "Notification save failed."
     });
-    await wrapper.vm.actions.submitNotifications();
-    expect(wrapper.vm.state.notificationsMessageType).toBe("error");
-    expect(wrapper.vm.state.notificationsMessage).toContain("Notification save failed");
+    await sections.notifications.actions.submitNotifications();
+    expect(sections.notifications.state.notificationsMessageType).toBe("error");
+    expect(sections.notifications.state.notificationsMessage).toContain("Notification save failed");
   });
 
   it("submits sign-out-others and handles auth failures", async () => {
@@ -447,12 +464,13 @@ describe("SettingsView", () => {
     });
 
     const wrapper = mountView();
-    await wrapper.vm.actions.submitLogoutOthers();
+    const security = vmSections(wrapper).security;
+    await security.actions.submitLogoutOthers();
 
-    expect(wrapper.vm.state.sessionsMessageType).toBe("success");
+    expect(security.state.sessionsMessageType).toBe("success");
 
     mocks.api.logoutOtherSessions.mockRejectedValue({ status: 401, message: "Authentication required." });
-    await wrapper.vm.actions.submitLogoutOthers();
+    await security.actions.submitLogoutOthers();
 
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
     expect(mocks.navigate).toHaveBeenCalledWith({ to: "/login", replace: true });
@@ -460,21 +478,23 @@ describe("SettingsView", () => {
 
   it("handles avatar editor unavailable branch", async () => {
     const wrapper = mountView();
-    await wrapper.vm.actions.openAvatarEditor();
-    expect(wrapper.vm.state.avatarMessageType).toBe("error");
-    expect(wrapper.vm.state.avatarMessage).toContain("unavailable");
+    const profile = vmSections(wrapper).profile;
+    await profile.actions.openAvatarEditor();
+    expect(profile.state.avatarMessageType).toBe("error");
+    expect(profile.state.avatarMessage).toContain("unavailable");
   });
 
   it("handles avatar delete success and auth failure", async () => {
     mocks.api.deleteProfileAvatar.mockResolvedValue(buildSettingsPayload());
     const wrapper = mountView();
+    const profile = vmSections(wrapper).profile;
 
-    await wrapper.vm.actions.submitAvatarDelete();
+    await profile.actions.submitAvatarDelete();
     expect(mocks.api.deleteProfileAvatar).toHaveBeenCalledTimes(1);
-    expect(wrapper.vm.state.avatarMessageType).toBe("success");
+    expect(profile.state.avatarMessageType).toBe("success");
 
     mocks.api.deleteProfileAvatar.mockRejectedValue({ status: 401, message: "Authentication required." });
-    await wrapper.vm.actions.submitAvatarDelete();
+    await profile.actions.submitAvatarDelete();
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
     expect(mocks.navigate).toHaveBeenCalledWith({ to: "/login", replace: true });
   });
@@ -486,16 +506,17 @@ describe("SettingsView", () => {
 
     try {
       const wrapper = mountView();
-      wrapper.vm.actions.applyThemePreference("system");
+      const sections = vmSections(wrapper);
+      sections.preferences.actions.applyThemePreference("system");
       expect(mocks.themeName.value).toBe("dark");
 
       mocks.api.logoutOtherSessions.mockRejectedValue({
         status: 500,
         message: "Unable to revoke sessions."
       });
-      await wrapper.vm.actions.submitLogoutOthers();
-      expect(wrapper.vm.state.sessionsMessageType).toBe("error");
-      expect(wrapper.vm.state.sessionsMessage).toContain("Unable to revoke sessions");
+      await sections.security.actions.submitLogoutOthers();
+      expect(sections.security.state.sessionsMessageType).toBe("error");
+      expect(sections.security.state.sessionsMessage).toContain("Unable to revoke sessions");
     } finally {
       window.matchMedia = originalMatchMedia;
     }

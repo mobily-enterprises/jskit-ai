@@ -72,21 +72,7 @@
 </template>
 
 <script setup>
-const props = defineProps({
-  meta: {
-    type: Object,
-    required: true
-  },
-  state: {
-    type: Object,
-    required: true
-  },
-  actions: {
-    type: Object,
-    required: true
-  }
-});
+import { useSettingsProfileSectionView } from "./useSettingsProfileSectionView";
 
-const state = props.state;
-const actions = props.actions;
+const { state, actions } = useSettingsProfileSectionView();
 </script>

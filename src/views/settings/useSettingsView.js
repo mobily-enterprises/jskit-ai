@@ -307,20 +307,10 @@ const securityLogic = useSettingsSecurityLogic({
   PASSWORD_FORM_MODE_ENABLE
 });
 const {
-  createFallbackAuthMethods,
-  normalizeAuthMethod,
-  mfaStatus,
-  securityStatus,
-  securityAuthPolicy,
-  securityAuthMethods,
   passwordMethod,
   isPasswordEnableSetupMode,
   requiresCurrentPassword,
-  canOpenPasswordManageForm,
-  canOpenPasswordEnableSetup,
   canSubmitPasswordForm,
-  passwordRequiresExistingSecret,
-  passwordSubmitLabel,
   passwordManageLabel,
   passwordDialogTitle,
   passwordFormSubmitLabel,
@@ -612,134 +602,124 @@ onBeforeUnmount(() => {
 });
 
   return {
-    meta: {
-      AUTH_METHOD_KIND_PASSWORD,
-      AUTH_METHOD_KIND_OAUTH,
-      AUTH_METHOD_KIND_OTP,
-      SETTINGS_QUERY_KEY,
-      SETTINGS_SECTION_QUERY_KEY,
-      VALID_TABS,
-      PASSWORD_FORM_MODE_MANAGE,
-      PASSWORD_FORM_MODE_ENABLE,
-      settingsSections,
-      themeOptions,
-      localeOptions,
-      dateFormatOptions,
-      numberFormatOptions,
-      currencyOptions,
-      timeZoneOptions,
-      avatarSizeOptions,
-      createDefaultAvatar
+    page: {
+      meta: {
+        settingsSections
+      },
+      state: reactive({
+        activeTab,
+        loadError
+      }),
+      actions: {
+        selectSettingsSection,
+        goBack,
+        resolveTabFromSearch,
+        toErrorMessage,
+        handleAuthError
+      }
     },
-    state: reactive({
-      navigate,
-      authStore,
-      workspaceStore,
-      queryClient,
-      vuetifyTheme,
-      routerSearch,
-      routerPath,
-      surfacePaths,
-      activeTab,
-      syncingTabFromUrl,
-      settingsEnabled,
-      loadError,
-      profileForm,
-      profileAvatar,
-      selectedAvatarFileName,
-      avatarUppy,
-      preferencesForm,
-      notificationsForm,
-      securityForm,
-      profileFieldErrors,
-      preferencesFieldErrors,
-      securityFieldErrors,
-      profileMessage,
-      profileMessageType,
-      avatarMessage,
-      avatarMessageType,
-      preferencesMessage,
-      preferencesMessageType,
-      notificationsMessage,
-      notificationsMessageType,
-      securityMessage,
-      securityMessageType,
-      sessionsMessage,
-      sessionsMessageType,
-      providerMessage,
-      providerMessageType,
-      providerLinkStartInFlight,
-      methodActionLoadingId,
-      showPasswordForm,
-      passwordFormMode,
-      showCurrentPassword,
-      showNewPassword,
-      showConfirmPassword,
-      settingsQuery,
-      profileMutation,
-      avatarDeleteMutation,
-      preferencesMutation,
-      notificationsMutation,
-      passwordMutation,
-      setPasswordMethodEnabledMutation,
-      logoutOthersMutation,
-      unlinkProviderMutation,
-      mfaStatus,
-      securityStatus,
-      securityAuthPolicy,
-      securityAuthMethods,
-      passwordMethod,
-      isPasswordEnableSetupMode,
-      requiresCurrentPassword,
-      canOpenPasswordManageForm,
-      canOpenPasswordEnableSetup,
-      canSubmitPasswordForm,
-      passwordRequiresExistingSecret,
-      passwordSubmitLabel,
-      passwordManageLabel,
-      passwordDialogTitle,
-      passwordFormSubmitLabel,
-      passwordFormSubmitPending,
-      authMethodItems,
-      securityMethodsHint,
-      mfaLabel,
-      mfaChipColor,
-      profileInitials,
-      backTarget
-    }),
-    actions: {
-      createFallbackAuthMethods,
-      normalizeAuthMethod,
-      resolveTabFromSearch,
-      isSettingsRoutePath,
-      resolveCurrentSettingsPath,
-      resolveSettingsSearchWithTab,
-      selectSettingsSection,
-      buildSettingsPathWithTab,
-      clearFieldErrors,
-      toErrorMessage,
-      providerLabel,
-      authMethodStatusText,
-      handleOAuthCallbackIfPresent,
-      applyAvatarData,
-      setupAvatarUploader,
-      applyThemePreference,
-      applySettingsData,
-      handleAuthError,
-      goBack,
-      submitProfile,
-      openAvatarEditor,
-      submitAvatarDelete,
-      submitPreferences,
-      submitNotifications,
-      submitPasswordChange,
-      openPasswordForm,
-      openPasswordEnableSetup,
-      closePasswordForm,
-      submitPasswordMethodToggle,
-      startProviderLink,
-      submitProviderUnlink,
-      submitLogoutOthers
+    sections: {
+      profile: {
+        state: reactive({
+          preferencesForm,
+          profileAvatar,
+          profileInitials,
+          selectedAvatarFileName,
+          avatarMessage,
+          avatarMessageType,
+          profileForm,
+          profileFieldErrors,
+          profileMessage,
+          profileMessageType,
+          avatarDeleteMutation,
+          profileMutation
+        }),
+        actions: {
+          submitProfile,
+          openAvatarEditor,
+          submitAvatarDelete
+        }
+      },
+      preferences: {
+        meta: {
+          themeOptions,
+          localeOptions,
+          timeZoneOptions,
+          dateFormatOptions,
+          numberFormatOptions,
+          currencyOptions,
+          avatarSizeOptions
+        },
+        state: reactive({
+          preferencesForm,
+          preferencesFieldErrors,
+          preferencesMessage,
+          preferencesMessageType,
+          preferencesMutation
+        }),
+        actions: {
+          submitPreferences,
+          applyThemePreference
+        }
+      },
+      security: {
+        meta: {
+          AUTH_METHOD_KIND_PASSWORD,
+          AUTH_METHOD_KIND_OAUTH,
+          AUTH_METHOD_KIND_OTP
+        },
+        state: reactive({
+          authMethodItems,
+          passwordManageLabel,
+          methodActionLoadingId,
+          setPasswordMethodEnabledMutation,
+          unlinkProviderMutation,
+          providerLinkStartInFlight,
+          providerMessage,
+          providerMessageType,
+          showPasswordForm,
+          passwordDialogTitle,
+          isPasswordEnableSetupMode,
+          requiresCurrentPassword,
+          securityForm,
+          showCurrentPassword,
+          showNewPassword,
+          showConfirmPassword,
+          securityFieldErrors,
+          securityMessage,
+          securityMessageType,
+          passwordFormSubmitPending,
+          passwordFormSubmitLabel,
+          sessionsMessage,
+          sessionsMessageType,
+          logoutOthersMutation,
+          mfaChipColor,
+          mfaLabel,
+          securityMethodsHint
+        }),
+        actions: {
+          authMethodStatusText,
+          openPasswordForm,
+          submitPasswordMethodToggle,
+          openPasswordEnableSetup,
+          submitProviderUnlink,
+          startProviderLink,
+          submitPasswordChange,
+          closePasswordForm,
+          submitLogoutOthers
+        }
+      },
+      notifications: {
+        state: reactive({
+          notificationsForm,
+          notificationsMessage,
+          notificationsMessageType,
+          notificationsMutation
+        }),
+        actions: {
+          submitNotifications
+        }
+      }
     }
   };
 }
