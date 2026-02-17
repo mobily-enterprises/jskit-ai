@@ -266,5 +266,4 @@ describe("useResetPasswordView", () => {
       replace: true
     });
   });
-
 });

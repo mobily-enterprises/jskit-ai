@@ -21,10 +21,7 @@ export default defineConfig({
         "src/stores/**/*.js",
         "src/utils/**/*.js"
       ],
-      exclude: [
-        "src/main.admin.js",
-        "src/main.app.js"
-      ],
+      exclude: ["src/main.admin.js", "src/main.app.js"],
       reportsDirectory: "./coverage-client",
       thresholds: {
         lines: 85,

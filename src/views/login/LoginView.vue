@@ -201,19 +201,9 @@ const {
   otpCodeTouched,
   rememberAccountOnDevice
 } = toRefs(form);
-const {
-  emailErrorMessages,
-  passwordErrorMessages,
-  confirmPasswordErrorMessages,
-  otpCodeErrorMessages,
-  canSubmit
-} = toRefs(validation);
-const {
-  loading,
-  otpRequestPending,
-  errorMessage,
-  infoMessage
-} = toRefs(feedback);
+const { emailErrorMessages, passwordErrorMessages, confirmPasswordErrorMessages, otpCodeErrorMessages, canSubmit } =
+  toRefs(validation);
+const { loading, otpRequestPending, errorMessage, infoMessage } = toRefs(feedback);
 const {
   providers: oauthProviders,
   providerButtonLabel: oauthProviderButtonLabel,

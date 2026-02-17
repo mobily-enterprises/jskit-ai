@@ -29,25 +29,35 @@ test("user avatar helpers cover normalization and gravatar url construction", as
   assert.equal(__testables.normalizeAvatarSize("bad"), 64);
 
   assert.equal(__testables.normalizeEmailForHash(" User@Example.com "), "user@example.com");
+  assert.equal(__testables.normalizeEmailForHash(""), "");
   const gravatarUrl = __testables.createGravatarUrl("user@example.com", 80);
   assert.ok(gravatarUrl.startsWith("https://www.gravatar.com/avatar/"));
   assert.ok(gravatarUrl.endsWith("d=mp&s=80"));
 
   const buffer = await __testables.readAvatarBuffer(Readable.from([Buffer.from("ok")]), { maxBytes: 8 });
   assert.equal(buffer.toString(), "ok");
+  const fromStringChunk = await __testables.readAvatarBuffer(Readable.from(["ok"]), { maxBytes: 8 });
+  assert.equal(Buffer.isBuffer(fromStringChunk), true);
 
-  await assert.rejects(() => __testables.readAvatarBuffer(Readable.from([Buffer.alloc(9)]), { maxBytes: 8 }), (error) => {
-    assert.equal(error.status, 400);
-    assert.equal(error.message, "Validation failed.");
-    assert.equal(Boolean(error.details?.fieldErrors?.avatar?.includes("Maximum allowed size")), true);
-    return true;
-  });
-  await assert.rejects(() => __testables.readAvatarBuffer(Readable.from([]), { maxBytes: 8 }), (error) => {
-    assert.equal(error.status, 400);
-    assert.equal(error.message, "Validation failed.");
-    assert.equal(error.details?.fieldErrors?.avatar, "Avatar file is empty.");
-    return true;
-  });
+  await assert.rejects(
+    () => __testables.readAvatarBuffer(Readable.from([Buffer.alloc(9)]), { maxBytes: 8 }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.message, "Validation failed.");
+      assert.equal(Boolean(error.details?.fieldErrors?.avatar?.includes("Maximum allowed size")), true);
+      return true;
+    }
+  );
+  await assert.rejects(
+    () => __testables.readAvatarBuffer(Readable.from([]), { maxBytes: 8 }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.message, "Validation failed.");
+      assert.equal(error.details?.fieldErrors?.avatar, "Avatar file is empty.");
+      return true;
+    }
+  );
+  await assert.rejects(() => __testables.readAvatarBuffer(null, { maxBytes: 8 }), /Avatar upload stream is required/);
 });
 
 test("user avatar service uploads and clears avatars", async () => {
@@ -171,6 +181,38 @@ test("user avatar service maps validation and not-found branches", async () => {
     (error) => {
       assert.equal(error.status, 400);
       assert.equal(error.details.fieldErrors.avatar.includes("must be one of"), true);
+      return true;
+    }
+  );
+
+  await assert.rejects(
+    () =>
+      service.uploadForUser(
+        { id: 7, supabaseUserId: "supabase-7", email: "user@example.com" },
+        {
+          stream: Readable.from([Buffer.from("abc")])
+        }
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.details.fieldErrors.avatar.includes("must be one of"), true);
+      return true;
+    }
+  );
+
+  await assert.rejects(
+    () =>
+      service.uploadForUser(
+        { id: 7, supabaseUserId: "supabase-7", email: "user@example.com" },
+        {
+          stream: Readable.from([Buffer.from("not-an-image")]),
+          mimeType: "image/png",
+          uploadDimension: 128
+        }
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.details.fieldErrors.avatar.includes("could not be processed"), true);
       return true;
     }
   );

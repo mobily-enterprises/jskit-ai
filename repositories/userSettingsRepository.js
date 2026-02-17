@@ -141,9 +141,7 @@ function createUserSettingsRepository(dbClient) {
       return ensured;
     }
 
-    await dbClient("user_settings")
-      .where({ user_id: userId })
-      .update(withUpdatedAt(dbPatch));
+    await dbClient("user_settings").where({ user_id: userId }).update(withUpdatedAt(dbPatch));
 
     const row = await dbClient("user_settings").where({ user_id: userId }).first();
     return mapUserSettingsRowRequired(row);
@@ -157,9 +155,7 @@ function createUserSettingsRepository(dbClient) {
       return ensured;
     }
 
-    await dbClient("user_settings")
-      .where({ user_id: userId })
-      .update(withUpdatedAt(dbPatch));
+    await dbClient("user_settings").where({ user_id: userId }).update(withUpdatedAt(dbPatch));
 
     const row = await dbClient("user_settings").where({ user_id: userId }).first();
     return mapUserSettingsRowRequired(row);
@@ -174,9 +170,7 @@ function createUserSettingsRepository(dbClient) {
       dbPatch.password_setup_required = Boolean(options.passwordSetupRequired);
     }
 
-    await dbClient("user_settings")
-      .where({ user_id: userId })
-      .update(withUpdatedAt(dbPatch));
+    await dbClient("user_settings").where({ user_id: userId }).update(withUpdatedAt(dbPatch));
 
     const row = await dbClient("user_settings").where({ user_id: userId }).first();
     return mapUserSettingsRowRequired(row);

@@ -52,11 +52,7 @@ function chooseUniqueSlug(baseSlug, usedSlugs) {
 
 exports.up = async function up(knex) {
   const existingSlugsRows = await knex("workspaces").select("slug");
-  const usedSlugs = new Set(
-    existingSlugsRows
-      .map((row) => toSlugPart(row.slug))
-      .filter(Boolean)
-  );
+  const usedSlugs = new Set(existingSlugsRows.map((row) => toSlugPart(row.slug)).filter(Boolean));
 
   const userWorkspaceMap = new Map();
   const users = await knex("user_profiles").select("id", "display_name", "email").orderBy("id", "asc");
@@ -112,10 +108,12 @@ exports.up = async function up(knex) {
           last_active_workspace_id: workspace.id
         });
       } else if (!existingUserSettings.last_active_workspace_id) {
-        await trx("user_settings").where({ user_id: user.id }).update({
-          last_active_workspace_id: workspace.id,
-          updated_at: knex.raw("UTC_TIMESTAMP(3)")
-        });
+        await trx("user_settings")
+          .where({ user_id: user.id })
+          .update({
+            last_active_workspace_id: workspace.id,
+            updated_at: knex.raw("UTC_TIMESTAMP(3)")
+          });
       }
 
       userWorkspaceMap.set(Number(user.id), Number(workspace.id));

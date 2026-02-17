@@ -313,7 +313,10 @@ test("required auth policy propagates session cookie operations and transient fa
     }
   });
   assert.equal(transientResponse.statusCode, 503);
-  assert.equal(JSON.parse(transientResponse.payload).error, "Authentication service temporarily unavailable. Please retry.");
+  assert.equal(
+    JSON.parse(transientResponse.payload).error,
+    "Authentication service temporarily unavailable. Please retry."
+  );
   await app.close();
 });
 

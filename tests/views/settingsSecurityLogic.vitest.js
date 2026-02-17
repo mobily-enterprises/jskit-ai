@@ -10,7 +10,9 @@ import {
 
 const mocks = vi.hoisted(() => ({
   api: {
-    settingsOAuthLinkStartUrl: vi.fn((provider, { returnTo }) => `/api/settings/oauth/${provider}/start?returnTo=${returnTo}`)
+    settingsOAuthLinkStartUrl: vi.fn(
+      (provider, { returnTo }) => `/api/settings/oauth/${provider}/start?returnTo=${returnTo}`
+    )
   },
   writePendingOAuthContext: vi.fn()
 }));
@@ -597,7 +599,9 @@ describe("useSettingsSecurityLogic", () => {
       expect(mocks.api.settingsOAuthLinkStartUrl).toHaveBeenCalledWith("google", {
         returnTo: "/account/settings?section=security"
       });
-      expect(assign).toHaveBeenCalledWith("/api/settings/oauth/google/start?returnTo=/account/settings?section=security");
+      expect(assign).toHaveBeenCalledWith(
+        "/api/settings/oauth/google/start?returnTo=/account/settings?section=security"
+      );
       expect(harness.providerLinkStartInFlight.value).toBe(true);
     } finally {
       window.location = originalLocation;

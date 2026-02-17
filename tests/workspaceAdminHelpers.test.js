@@ -45,9 +45,28 @@ test("workspace admin role helpers build descriptors and assignable ids", () => 
   assert.equal(descriptors.find((descriptor) => descriptor.id === "member").assignable, true);
   assert.deepEqual(descriptors.find((descriptor) => descriptor.id === "member").permissions, ["history.read"]);
 
-  assert.deepEqual(resolveAssignableRoleIds({ roles: { owner: { assignable: false }, member: { assignable: true } } }), [
-    "member"
-  ]);
+  assert.deepEqual(
+    resolveAssignableRoleIds({ roles: { owner: { assignable: false }, member: { assignable: true } } }),
+    ["member"]
+  );
+
+  const descriptorsFromInvalidManifest = listRoleDescriptors(null);
+  assert.deepEqual(descriptorsFromInvalidManifest, []);
+
+  const descriptorsWithNullRole = listRoleDescriptors({
+    roles: {
+      "": {
+        assignable: true,
+        permissions: [null, "history.read", "history.read"]
+      },
+      member: null,
+      owner: {
+        assignable: false,
+        permissions: ["*"]
+      }
+    }
+  });
+  assert.equal(descriptorsWithNullRole.find((descriptor) => descriptor.id === "member").assignable, false);
 });
 
 test("resolveWorkspaceDefaults validates policy ranges and fallback values", () => {
@@ -72,6 +91,10 @@ test("resolveWorkspaceDefaults validates policy ranges and fallback values", () 
   assert.equal(fallbackDefaults.defaultTiming, "ordinary");
   assert.equal(fallbackDefaults.defaultPaymentsPerYear, 12);
   assert.equal(fallbackDefaults.defaultHistoryPageSize, 10);
+
+  const nullPolicyDefaults = resolveWorkspaceDefaults(null);
+  assert.equal(nullPolicyDefaults.defaultMode, "fv");
+  assert.equal(nullPolicyDefaults.defaultTiming, "ordinary");
 });
 
 test("parseWorkspaceSettingsPatch parses valid fields and reports field-level errors", () => {
@@ -135,6 +158,58 @@ test("parseWorkspaceSettingsPatch parses valid fields and reports field-level er
     name: "x".repeat(161)
   });
   assert.equal(oversizedName.fieldErrors.name.includes("at most 160"), true);
+
+  const nullPayload = parseWorkspaceSettingsPatch(null);
+  assert.deepEqual(nullPayload, {
+    workspacePatch: {},
+    settingsPatch: {},
+    fieldErrors: {}
+  });
+
+  const avatarUrlNull = parseWorkspaceSettingsPatch({
+    avatarUrl: null
+  });
+  assert.equal(avatarUrlNull.workspacePatch.avatarUrl, "");
+
+  const appDenyUserIdsOnly = parseWorkspaceSettingsPatch({
+    appDenyUserIds: [5, 5]
+  });
+  assert.deepEqual(appDenyUserIdsOnly.settingsPatch.appSurfaceAccess, {
+    denyUserIds: [5]
+  });
+
+  const nonArrayDenyLists = parseWorkspaceSettingsPatch({
+    appDenyEmails: "not-an-array",
+    appDenyUserIds: "not-an-array"
+  });
+  assert.equal(nonArrayDenyLists.fieldErrors.appDenyEmails.includes("array"), true);
+  assert.equal(nonArrayDenyLists.fieldErrors.appDenyUserIds.includes("array"), true);
+
+  const emptyColorAndDefaults = parseWorkspaceSettingsPatch({
+    avatarUrl: "   ",
+    color: "",
+    defaultMode: null,
+    defaultTiming: null
+  });
+  assert.equal(emptyColorAndDefaults.workspacePatch.avatarUrl, "");
+  assert.equal(emptyColorAndDefaults.fieldErrors.color.includes("hex color"), true);
+  assert.equal(emptyColorAndDefaults.fieldErrors.defaultMode.includes("fv or pv"), true);
+  assert.equal(emptyColorAndDefaults.fieldErrors.defaultTiming.includes("ordinary or due"), true);
+
+  const throwingStringValues = parseWorkspaceSettingsPatch({
+    avatarUrl: {
+      toString() {
+        throw new Error("boom-avatar");
+      }
+    },
+    color: {
+      toString() {
+        throw new Error("boom-color");
+      }
+    }
+  });
+  assert.equal(throwingStringValues.fieldErrors.avatarUrl, "Workspace avatar URL is invalid.");
+  assert.equal(throwingStringValues.fieldErrors.color, "Workspace color is invalid.");
 });
 
 test("mapWorkspaceSummary coerces workspace output shape", () => {
@@ -157,6 +232,18 @@ test("mapWorkspaceSummary coerces workspace output shape", () => {
     ownerUserId: 5,
     isPersonal: false
   });
+
+  const minimalSummary = mapWorkspaceSummary({
+    id: 1,
+    slug: null,
+    name: null,
+    color: null,
+    avatarUrl: null,
+    ownerUserId: null,
+    isPersonal: null
+  });
+  assert.equal(minimalSummary.slug, "");
+  assert.equal(minimalSummary.name, "");
 });
 
 test("parseWorkspaceSettingsPatch handles avatar URL validation error classes", () => {

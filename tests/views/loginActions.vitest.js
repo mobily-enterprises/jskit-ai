@@ -71,7 +71,8 @@ function createHarness({ initialMode = "login", canSubmitInitial = true } = {}) 
   const isForgot = computed(() => mode.value === "forgot");
   const isOtp = computed(() => mode.value === "otp");
   const showRememberedAccount = computed(
-    () => (mode.value === "login" || mode.value === "otp") && useRememberedAccount.value && Boolean(rememberedAccount.value)
+    () =>
+      (mode.value === "login" || mode.value === "otp") && useRememberedAccount.value && Boolean(rememberedAccount.value)
   );
   const rememberedAccountDisplayName = computed(() => String(rememberedAccount.value?.displayName || "your account"));
 
@@ -187,7 +188,9 @@ describe("useLoginActions", () => {
     mocks.api.bootstrap.mockReset();
     mocks.api.oauthComplete.mockReset();
     mocks.api.oauthStartUrl.mockReset();
-    mocks.api.oauthStartUrl.mockImplementation((provider, { returnTo }) => `/api/oauth/${provider}/start?returnTo=${returnTo}`);
+    mocks.api.oauthStartUrl.mockImplementation(
+      (provider, { returnTo }) => `/api/oauth/${provider}/start?returnTo=${returnTo}`
+    );
 
     mocks.oauthUtils.clearPendingOAuthContext.mockReset();
     mocks.oauthUtils.readOAuthCallbackStateFromLocation.mockReset();

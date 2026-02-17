@@ -30,7 +30,12 @@ function createWorkspaceService({
   userSettingsRepository,
   userAvatarService
 }) {
-  if (!workspacesRepository || !workspaceMembershipsRepository || !workspaceSettingsRepository || !userSettingsRepository) {
+  if (
+    !workspacesRepository ||
+    !workspaceMembershipsRepository ||
+    !workspaceSettingsRepository ||
+    !userSettingsRepository
+  ) {
     throw new Error("workspace service repositories are required.");
   }
 
@@ -90,7 +95,9 @@ function createWorkspaceService({
   }
 
   function resolvePermissions(roleId) {
-    const normalizedRoleId = String(roleId || "").trim().toLowerCase();
+    const normalizedRoleId = String(roleId || "")
+      .trim()
+      .toLowerCase();
     if (!normalizedRoleId) {
       return [];
     }
@@ -237,7 +244,10 @@ function createWorkspaceService({
 
     const filtered = [];
     for (const invite of rawInvites) {
-      const existingMembership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(invite.workspaceId, userId);
+      const existingMembership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(
+        invite.workspaceId,
+        userId
+      );
       if (!existingMembership || existingMembership.status !== "active") {
         filtered.push(invite);
       }

@@ -360,6 +360,8 @@ describe("useAdminShell", () => {
     );
     const wrapper = mountHarness();
     await nextTick();
-    expect(wrapper.vm.shell.navigation.navigationItems.value.some((item) => item.title === "Workspace settings")).toBe(false);
+    expect(wrapper.vm.shell.navigation.navigationItems.value.some((item) => item.title === "Workspace settings")).toBe(
+      false
+    );
   });
 });

@@ -32,8 +32,14 @@ test("surface registry normalizes ids, prefixes, and definitions", () => {
   assert.equal(resolveSurfacePrefixFromRegistry("unknown"), "");
 
   const definitions = listSurfaceDefinitions();
-  assert.equal(definitions.some((entry) => entry.id === "app"), true);
-  assert.equal(definitions.some((entry) => entry.id === "admin"), true);
+  assert.equal(
+    definitions.some((entry) => entry.id === "app"),
+    true
+  );
+  assert.equal(
+    definitions.some((entry) => entry.id === "admin"),
+    true
+  );
 });
 
 test("surface path helpers normalize paths and resolve surface by prefix", () => {

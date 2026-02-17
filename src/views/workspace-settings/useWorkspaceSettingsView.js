@@ -46,7 +46,11 @@ function parseDenyEmailsInput(value) {
     new Set(
       String(value || "")
         .split(/[\n,;]+/)
-        .map((email) => String(email || "").trim().toLowerCase())
+        .map((email) =>
+          String(email || "")
+            .trim()
+            .toLowerCase()
+        )
         .filter(Boolean)
     )
   );
@@ -164,7 +168,11 @@ export function useWorkspaceSettingsView() {
     workspaceForm.invitesAvailable = Boolean(data.settings?.invitesAvailable);
     workspaceForm.appDenyEmailsText = Array.isArray(data.settings?.appDenyEmails)
       ? data.settings.appDenyEmails
-          .map((email) => String(email || "").trim().toLowerCase())
+          .map((email) =>
+            String(email || "")
+              .trim()
+              .toLowerCase()
+          )
           .filter(Boolean)
           .join("\n")
       : "";

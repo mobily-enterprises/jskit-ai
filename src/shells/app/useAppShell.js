@@ -96,7 +96,9 @@ export function useAppShell() {
   });
 
   const userAvatarUrl = computed(() => workspaceStore.profileAvatarUrl || "");
-  const userDisplayName = computed(() => String(workspaceStore.profileDisplayName || authStore.username || "Account").trim());
+  const userDisplayName = computed(() =>
+    String(workspaceStore.profileDisplayName || authStore.username || "Account").trim()
+  );
 
   async function goToAccountSettings() {
     const paths = surfacePaths.value;

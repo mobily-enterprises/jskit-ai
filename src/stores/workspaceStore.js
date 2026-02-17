@@ -211,7 +211,8 @@ export const useWorkspaceStore = defineStore("workspace", {
         .map((permission) => String(permission || "").trim())
         .filter(Boolean);
       this.workspaceSettings = normalizeWorkspaceSettings(payload.workspaceSettings);
-      this.userSettings = payload.userSettings && typeof payload.userSettings === "object" ? { ...payload.userSettings } : null;
+      this.userSettings =
+        payload.userSettings && typeof payload.userSettings === "object" ? { ...payload.userSettings } : null;
 
       if (this.activeWorkspace) {
         const matchingWorkspace = this.workspaces.find((workspace) => workspace.id === this.activeWorkspace.id);
@@ -311,7 +312,9 @@ export const useWorkspaceStore = defineStore("workspace", {
     },
     async respondToPendingInvite(inviteId, decision) {
       const response = await api.respondWorkspaceInvite(inviteId, {
-        decision: String(decision || "").trim().toLowerCase()
+        decision: String(decision || "")
+          .trim()
+          .toLowerCase()
       });
 
       this.removePendingInvite(response?.inviteId || inviteId);

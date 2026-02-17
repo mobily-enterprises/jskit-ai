@@ -49,34 +49,28 @@ export function useSettingsProfileForm(options) {
     mutationFn: () => api.deleteProfileAvatar()
   });
 
-  const {
-    profileInitials,
-    applyAvatarData,
-    setupAvatarUploader,
-    submitProfile,
-    openAvatarEditor,
-    submitAvatarDelete
-  } = useSettingsProfileLogic({
-    profileForm,
-    preferencesForm,
-    profileAvatar,
-    selectedAvatarFileName,
-    avatarUppy,
-    profileFieldErrors,
-    profileMessage,
-    profileMessageType,
-    avatarMessage,
-    avatarMessageType,
-    profileMutation,
-    avatarDeleteMutation,
-    settingsQueryKey: SETTINGS_QUERY_KEY,
-    queryClient,
-    authStore,
-    clearFieldErrors,
-    toErrorMessage,
-    handleAuthError,
-    applySettingsData
-  });
+  const { profileInitials, applyAvatarData, setupAvatarUploader, submitProfile, openAvatarEditor, submitAvatarDelete } =
+    useSettingsProfileLogic({
+      profileForm,
+      preferencesForm,
+      profileAvatar,
+      selectedAvatarFileName,
+      avatarUppy,
+      profileFieldErrors,
+      profileMessage,
+      profileMessageType,
+      avatarMessage,
+      avatarMessageType,
+      profileMutation,
+      avatarDeleteMutation,
+      settingsQueryKey: SETTINGS_QUERY_KEY,
+      queryClient,
+      authStore,
+      clearFieldErrors,
+      toErrorMessage,
+      handleAuthError,
+      applySettingsData
+    });
 
   watch(
     () => preferencesForm.avatarSize,

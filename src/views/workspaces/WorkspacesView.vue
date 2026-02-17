@@ -117,18 +117,9 @@ import { toRefs } from "vue";
 import { useWorkspacesView } from "./useWorkspacesView";
 
 const { presentation, feedback, selection, collections, actions } = useWorkspacesView();
-const {
-  message,
-  messageType
-} = toRefs(feedback);
-const {
-  selectingWorkspaceSlug,
-  inviteAction
-} = toRefs(selection);
-const {
-  workspaceItems,
-  pendingInvites
-} = toRefs(collections);
+const { message, messageType } = toRefs(feedback);
+const { selectingWorkspaceSlug, inviteAction } = toRefs(selection);
+const { workspaceItems, pendingInvites } = toRefs(collections);
 const { workspaceInitials, workspaceAvatarStyle } = presentation;
 const { openWorkspace, acceptInvite, refuseInvite } = actions;
 </script>

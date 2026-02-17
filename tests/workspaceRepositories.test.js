@@ -346,6 +346,59 @@ test("workspace invites repository handles mapping, find/list, and status transi
   assert.equal(mapped.invitedBy, null);
   assert.equal(mapped.workspace, null);
 
+  const mappedFallbacks = workspaceInvitesTestables.mapWorkspaceInviteRowRequired(
+    inviteRow({
+      email: "",
+      role_id: "",
+      token_hash: "",
+      invited_by_user_id: null,
+      status: "",
+      invited_by_display_name: null,
+      invited_by_email: "",
+      workspace_slug: null,
+      workspace_name: null,
+      workspace_color: "bad-color",
+      workspace_avatar_url: null
+    })
+  );
+  assert.equal(mappedFallbacks.email, "");
+  assert.equal(mappedFallbacks.roleId, "");
+  assert.equal(mappedFallbacks.tokenHash, "");
+  assert.equal(mappedFallbacks.invitedByUserId, null);
+  assert.equal(mappedFallbacks.status, "");
+  assert.deepEqual(mappedFallbacks.invitedBy, {
+    displayName: "",
+    email: ""
+  });
+  assert.deepEqual(mappedFallbacks.workspace, {
+    id: 11,
+    slug: "",
+    name: "",
+    color: "#0F6B54",
+    avatarUrl: ""
+  });
+
+  const mappedNullWorkspaceColor = workspaceInvitesTestables.mapWorkspaceInviteRowRequired(
+    inviteRow({
+      workspace_slug: "",
+      workspace_name: "",
+      workspace_color: null,
+      workspace_avatar_url: null
+    })
+  );
+  assert.equal(mappedNullWorkspaceColor.workspace.color, "#0F6B54");
+
+  const mappedEmptyInviterStrings = workspaceInvitesTestables.mapWorkspaceInviteRowRequired(
+    inviteRow({
+      invited_by_display_name: "",
+      invited_by_email: ""
+    })
+  );
+  assert.deepEqual(mappedEmptyInviterStrings.invitedBy, {
+    displayName: "",
+    email: ""
+  });
+
   const stub = createKnexStub({
     firstQueue: [
       inviteRow({ id: 1 }),
@@ -355,15 +408,13 @@ test("workspace invites repository handles mapping, find/list, and status transi
       inviteRow({ id: 5 }),
       inviteRow({ id: 6 }),
       inviteRow({ id: 7 }),
-      inviteRow({ id: 8 })
+      inviteRow({ id: 8 }),
+      inviteRow({ id: 9 }),
+      inviteRow({ id: 10 })
     ],
-    listQueue: [
-      [inviteRow({ id: 11 })],
-      [inviteRow({ id: 12 })],
-      [inviteRow({ id: 13 })]
-    ],
+    listQueue: [[inviteRow({ id: 11 })], [inviteRow({ id: 12 })], [inviteRow({ id: 13 })]],
     insertQueue: [41],
-    updateQueue: [1, 1, 1, 2]
+    updateQueue: [1, 1, 1, 1, 2]
   });
   const repo = workspaceInvitesTestables.createWorkspaceInvitesRepository(stub.dbClient);
 
@@ -410,6 +461,32 @@ test("workspace invites repository handles mapping, find/list, and status transi
   const accepted = await repo.markAcceptedById(8);
   assert.equal(accepted.id, 8);
 
+  const insertedDefaults = await repo.insert({
+    workspaceId: 11,
+    email: " Lower@Example.com ",
+    roleId: "",
+    tokenHash: "",
+    invitedByUserId: 0,
+    expiresAt: "2030-01-01T00:00:00.000Z",
+    status: ""
+  });
+  assert.equal(insertedDefaults.id, 9);
+  assert.equal(stub.state.inserts[1][1].role_id, "");
+  assert.equal(stub.state.inserts[1][1].token_hash, "");
+  assert.equal(stub.state.inserts[1][1].invited_by_user_id, null);
+  assert.equal(stub.state.inserts[1][1].status, "pending");
+
+  const updatedDefaultStatus = await repo.updateStatusById(10);
+  assert.equal(updatedDefaultStatus.id, 10);
+  assert.equal(stub.state.updates.at(-1)[1].status, "");
+
   const expiredCount = await repo.markExpiredPendingInvites();
   assert.equal(expiredCount, 2);
+
+  const zeroUpdateStub = createKnexStub({
+    updateQueue: [0]
+  });
+  const zeroUpdateRepo = workspaceInvitesTestables.createWorkspaceInvitesRepository(zeroUpdateStub.dbClient);
+  const zeroExpiredCount = await zeroUpdateRepo.markExpiredPendingInvites();
+  assert.equal(zeroExpiredCount, 0);
 });

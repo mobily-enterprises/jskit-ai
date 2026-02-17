@@ -36,7 +36,10 @@
                     variant="text"
                     color="error"
                     :disabled="!method.canDisable"
-                    :loading="state.methodActionLoadingId === method.id && state.setPasswordMethodEnabledMutation.isPending.value"
+                    :loading="
+                      state.methodActionLoadingId === method.id &&
+                      state.setPasswordMethodEnabledMutation.isPending.value
+                    "
                     @click="actions.submitPasswordMethodToggle(false)"
                   >
                     Disable
@@ -80,9 +83,7 @@
               </div>
             </div>
           </div>
-          <p v-else class="text-body-2 text-medium-emphasis mb-0">
-            No user-managed sign-in methods are available yet.
-          </p>
+          <p v-else class="text-body-2 text-medium-emphasis mb-0">No user-managed sign-in methods are available yet.</p>
 
           <p class="text-caption text-medium-emphasis mt-3 mb-0">{{ state.securityMethodsHint }}</p>
 
@@ -111,7 +112,9 @@
                     variant="outlined"
                     density="comfortable"
                     autocomplete="current-password"
-                    :error-messages="state.securityFieldErrors.currentPassword ? [state.securityFieldErrors.currentPassword] : []"
+                    :error-messages="
+                      state.securityFieldErrors.currentPassword ? [state.securityFieldErrors.currentPassword] : []
+                    "
                     class="mb-3"
                   />
 
@@ -124,7 +127,9 @@
                     variant="outlined"
                     density="comfortable"
                     autocomplete="new-password"
-                    :error-messages="state.securityFieldErrors.newPassword ? [state.securityFieldErrors.newPassword] : []"
+                    :error-messages="
+                      state.securityFieldErrors.newPassword ? [state.securityFieldErrors.newPassword] : []
+                    "
                     class="mb-3"
                   />
 
@@ -137,7 +142,9 @@
                     variant="outlined"
                     density="comfortable"
                     autocomplete="new-password"
-                    :error-messages="state.securityFieldErrors.confirmPassword ? [state.securityFieldErrors.confirmPassword] : []"
+                    :error-messages="
+                      state.securityFieldErrors.confirmPassword ? [state.securityFieldErrors.confirmPassword] : []
+                    "
                     class="mb-3"
                   />
 

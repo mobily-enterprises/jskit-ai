@@ -114,7 +114,10 @@ function createPasswordSecurityFlows(deps) {
 
     const supabase = getSupabaseClient();
     const sessionResponse = await setSessionFromRequestCookies(request);
-    const profile = await syncProfileFromSupabaseUser(sessionResponse.data.user, sessionResponse.data.user?.email || "");
+    const profile = await syncProfileFromSupabaseUser(
+      sessionResponse.data.user,
+      sessionResponse.data.user?.email || ""
+    );
     const passwordSignInPolicy = await resolvePasswordSignInPolicyForUserId(profile.id);
     if (!passwordSignInPolicy.passwordSignInEnabled) {
       throw new AppError(409, "Password sign-in is disabled for this account.");

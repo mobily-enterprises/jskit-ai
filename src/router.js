@@ -17,11 +17,7 @@ function createRouterForSurface({ authStore, workspaceStore, surface }) {
 
 function createRouterForCurrentPath({ authStore, workspaceStore, pathname }) {
   const resolvedPathname =
-    typeof pathname === "string"
-      ? pathname
-      : typeof window !== "undefined"
-        ? window.location.pathname
-        : "/";
+    typeof pathname === "string" ? pathname : typeof window !== "undefined" ? window.location.pathname : "/";
 
   return createRouterForSurface({
     authStore,

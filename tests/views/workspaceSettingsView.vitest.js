@@ -105,11 +105,7 @@ function buildRoleCatalog(overrides = {}) {
   return {
     collaborationEnabled: true,
     defaultInviteRole: "member",
-    roles: [
-      { id: "owner" },
-      { id: "admin" },
-      { id: "member" }
-    ],
+    roles: [{ id: "owner" }, { id: "admin" }, { id: "member" }],
     assignableRoleIds: ["admin", "member"],
     ...overrides
   };

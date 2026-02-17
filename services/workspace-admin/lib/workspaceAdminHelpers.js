@@ -85,9 +85,7 @@ function toRoleDescriptor(roleId, role) {
   const normalizedRole = role && typeof role === "object" ? role : {};
   const permissions = Array.isArray(normalizedRole.permissions)
     ? Array.from(
-        new Set(
-          normalizedRole.permissions.map((permission) => String(permission || "").trim()).filter(Boolean)
-        )
+        new Set(normalizedRole.permissions.map((permission) => String(permission || "").trim()).filter(Boolean))
       )
     : [];
 
@@ -126,8 +124,12 @@ function resolveAssignableRoleIds(rbacManifest) {
 function resolveWorkspaceDefaults(policy) {
   const normalizedPolicy = policy && typeof policy === "object" ? policy : {};
 
-  const defaultModeCandidate = String(normalizedPolicy.defaultMode || "").trim().toLowerCase();
-  const defaultTimingCandidate = String(normalizedPolicy.defaultTiming || "").trim().toLowerCase();
+  const defaultModeCandidate = String(normalizedPolicy.defaultMode || "")
+    .trim()
+    .toLowerCase();
+  const defaultTimingCandidate = String(normalizedPolicy.defaultTiming || "")
+    .trim()
+    .toLowerCase();
   const defaultPaymentsPerYearCandidate = Number(normalizedPolicy.defaultPaymentsPerYear);
   const defaultHistoryPageSizeCandidate = Number(normalizedPolicy.defaultHistoryPageSize);
 
@@ -252,7 +254,9 @@ function parseWorkspaceSettingsPatch(payload) {
   }
 
   if (Object.prototype.hasOwnProperty.call(body, "defaultMode")) {
-    const value = String(body.defaultMode || "").trim().toLowerCase();
+    const value = String(body.defaultMode || "")
+      .trim()
+      .toLowerCase();
     if (!SETTINGS_MODE_OPTIONS.includes(value)) {
       fieldErrors.defaultMode = "Default mode must be fv or pv.";
     } else {
@@ -261,7 +265,9 @@ function parseWorkspaceSettingsPatch(payload) {
   }
 
   if (Object.prototype.hasOwnProperty.call(body, "defaultTiming")) {
-    const value = String(body.defaultTiming || "").trim().toLowerCase();
+    const value = String(body.defaultTiming || "")
+      .trim()
+      .toLowerCase();
     if (!SETTINGS_TIMING_OPTIONS.includes(value)) {
       fieldErrors.defaultTiming = "Default timing must be ordinary or due.";
     } else {

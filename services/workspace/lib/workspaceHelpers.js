@@ -107,7 +107,8 @@ function mapUserSettingsPublic(userSettings) {
     numberFormat: userSettings?.numberFormat || "system",
     currencyCode: userSettings?.currencyCode || "USD",
     avatarSize: Number(userSettings?.avatarSize || 64),
-    lastActiveWorkspaceId: userSettings?.lastActiveWorkspaceId == null ? null : Number(userSettings.lastActiveWorkspaceId)
+    lastActiveWorkspaceId:
+      userSettings?.lastActiveWorkspaceId == null ? null : Number(userSettings.lastActiveWorkspaceId)
   };
 }
 
@@ -194,13 +195,7 @@ function normalizePermissions(value) {
     return [];
   }
 
-  return Array.from(
-    new Set(
-      value
-        .map((permission) => String(permission || "").trim())
-        .filter(Boolean)
-    )
-  );
+  return Array.from(new Set(value.map((permission) => String(permission || "").trim()).filter(Boolean)));
 }
 
 function createWorkspaceSettingsDefaults(invitesEnabled = false) {

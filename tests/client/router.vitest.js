@@ -140,7 +140,9 @@ describe("router auth guards", () => {
   it("beforeLoadRoot redirects according to auth/workspace state", async () => {
     mocks.api.bootstrap.mockReset();
 
-    await expect(__testables.beforeLoadRoot(buildStores({ authInitialized: true, workspaceInitialized: true }))).rejects.toMatchObject({
+    await expect(
+      __testables.beforeLoadRoot(buildStores({ authInitialized: true, workspaceInitialized: true }))
+    ).rejects.toMatchObject({
       options: { to: "/login" }
     });
 
@@ -310,5 +312,4 @@ describe("router auth guards", () => {
     const implicitRouter = createRouterForCurrentPath(stores);
     expect(implicitRouter).toBeTruthy();
   });
-
 });

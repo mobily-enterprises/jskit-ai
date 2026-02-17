@@ -4,6 +4,74 @@ const JSON_HEADERS = {
   "content-type": "application/json"
 };
 
+const WORKSPACE = {
+  id: 1,
+  slug: "acme",
+  name: "Acme",
+  color: "#0F6B54",
+  roleId: "owner",
+  isAccessible: true
+};
+
+function buildBootstrapResponse({ authenticated, csrfToken, username = "seed.user1" }) {
+  const app = {
+    tenancyMode: "workspace",
+    features: {
+      workspaceSwitching: true,
+      workspaceInvites: true,
+      workspaceCreateEnabled: true
+    }
+  };
+
+  if (!authenticated) {
+    return {
+      session: {
+        authenticated: false,
+        username: null,
+        csrfToken
+      },
+      app,
+      workspaces: [],
+      pendingInvites: [],
+      activeWorkspace: null,
+      membership: null,
+      permissions: [],
+      workspaceSettings: null
+    };
+  }
+
+  return {
+    session: {
+      authenticated: true,
+      username,
+      csrfToken
+    },
+    profile: {
+      displayName: username,
+      email: `${username}@example.com`,
+      avatar: null
+    },
+    app,
+    workspaces: [WORKSPACE],
+    pendingInvites: [],
+    activeWorkspace: WORKSPACE,
+    membership: {
+      roleId: "owner",
+      status: "active"
+    },
+    permissions: ["annuity.calculate", "annuity.history.read", "workspace.settings.view"],
+    workspaceSettings: {
+      invitesEnabled: true,
+      invitesAvailable: true,
+      invitesEffective: true,
+      defaultMode: "fv",
+      defaultTiming: "ordinary",
+      defaultPaymentsPerYear: 12,
+      defaultHistoryPageSize: 10
+    }
+  };
+}
+
 function buildHistoryResponse(entries) {
   return {
     entries,
@@ -19,10 +87,25 @@ test("login sends CSRF token and lands on calculator", async ({ page }) => {
   let loginRequestCount = 0;
   let loginCsrfHeader = null;
 
+  await page.route("**/api/bootstrap", async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: JSON_HEADERS,
+      body: JSON.stringify(
+        buildBootstrapResponse({
+          authenticated: loginCompleted,
+          csrfToken: "csrf-token-1"
+        })
+      )
+    });
+  });
+
   await page.route("**/api/session", async (route) => {
-    const payload = loginCompleted
-      ? { authenticated: true, username: "seed.user1", csrfToken: "csrf-token-1" }
-      : { authenticated: false, csrfToken: "csrf-token-1" };
+    const payload = {
+      authenticated: loginCompleted,
+      username: loginCompleted ? "seed.user1" : null,
+      csrfToken: "csrf-token-1"
+    };
 
     await route.fulfill({
       status: 200,
@@ -57,12 +140,12 @@ test("login sends CSRF token and lands on calculator", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("user@example.com");
   await page.getByRole("textbox", { name: "Password" }).fill("password123");
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.locator("form").getByRole("button", { name: "Sign in", exact: true }).click();
 
   await expect.poll(() => loginRequestCount).toBe(1);
   expect(loginCsrfHeader).toBe("csrf-token-1");
-  await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Annuity Value Calculator" })).toBeVisible();
+  await expect(page).toHaveURL(/\/w\/acme$/);
+  await expect(page.getByRole("button", { name: "Calculate" })).toBeVisible();
 });
 
 test("calculate appends history and includes CSRF header", async ({ page }) => {
@@ -70,6 +153,19 @@ test("calculate appends history and includes CSRF header", async ({ page }) => {
   let historyIndex = 1;
   let annuityRequestCount = 0;
   let annuityCsrfHeader = null;
+
+  await page.route("**/api/bootstrap", async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: JSON_HEADERS,
+      body: JSON.stringify(
+        buildBootstrapResponse({
+          authenticated: true,
+          csrfToken: "csrf-token-2"
+        })
+      )
+    });
+  });
 
   await page.route("**/api/session", async (route) => {
     await route.fulfill({
@@ -134,7 +230,8 @@ test("calculate appends history and includes CSRF header", async ({ page }) => {
   });
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Annuity Value Calculator" })).toBeVisible();
+  await expect(page).toHaveURL(/\/w\/acme$/);
+  await expect(page.getByRole("button", { name: "Calculate" })).toBeVisible();
 
   await page.getByRole("button", { name: "Calculate" }).click();
 
@@ -145,8 +242,21 @@ test("calculate appends history and includes CSRF header", async ({ page }) => {
   await expect(page.getByText("no payment growth")).toBeVisible();
 });
 
-test("calculate retries transient API failure and then succeeds", async ({ page }) => {
+test("calculate can be retried after transient API failure", async ({ page }) => {
   let annuityRequestCount = 0;
+
+  await page.route("**/api/bootstrap", async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: JSON_HEADERS,
+      body: JSON.stringify(
+        buildBootstrapResponse({
+          authenticated: true,
+          csrfToken: "csrf-token-retry"
+        })
+      )
+    });
+  });
 
   await page.route("**/api/session", async (route) => {
     await route.fulfill({
@@ -213,8 +323,14 @@ test("calculate retries transient API failure and then succeeds", async ({ page 
   });
 
   await page.goto("/");
+  await expect(page).toHaveURL(/\/w\/acme$/);
+  await expect(page.getByRole("button", { name: "Calculate" })).toBeVisible();
   await page.getByRole("button", { name: "Calculate" }).click();
 
+  await expect.poll(() => annuityRequestCount).toBe(1);
+  await expect(page.getByText("Temporary upstream failure.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Calculate" }).click();
   await expect.poll(() => annuityRequestCount).toBe(2);
   await expect(page.getByText("$230,581.36")).toBeVisible();
 });

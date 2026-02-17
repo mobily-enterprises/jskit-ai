@@ -25,7 +25,10 @@ function mapWorkspaceInviteRowRequired(row) {
   }
 
   const workspaceDataPresent =
-    row.workspace_slug != null || row.workspace_name != null || row.workspace_avatar_url != null || row.workspace_color != null;
+    row.workspace_slug != null ||
+    row.workspace_name != null ||
+    row.workspace_avatar_url != null ||
+    row.workspace_color != null;
   const inviterDataPresent = row.invited_by_display_name != null || row.invited_by_email != null;
 
   return {
@@ -219,7 +222,9 @@ function createWorkspaceInvitesRepository(dbClient) {
     await dbClient("workspace_invites")
       .where({ id })
       .update({
-        status: String(status || "").trim().toLowerCase(),
+        status: String(status || "")
+          .trim()
+          .toLowerCase(),
         updated_at: toMysqlDateTimeUtc(new Date())
       });
 

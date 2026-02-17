@@ -72,9 +72,7 @@ function createUserProfilesRepository(dbClient) {
       return null;
     }
 
-    const row = await dbClient("user_profiles")
-      .whereRaw("LOWER(email) = ?", [normalized])
-      .first();
+    const row = await dbClient("user_profiles").whereRaw("LOWER(email) = ?", [normalized]).first();
     return mapProfileRowNullable(row);
   }
 
@@ -106,13 +104,11 @@ function createUserProfilesRepository(dbClient) {
   }
 
   async function repoClearAvatarById(userId) {
-    await dbClient("user_profiles")
-      .where({ id: userId })
-      .update({
-        avatar_storage_key: null,
-        avatar_version: null,
-        avatar_updated_at: null
-      });
+    await dbClient("user_profiles").where({ id: userId }).update({
+      avatar_storage_key: null,
+      avatar_version: null,
+      avatar_updated_at: null
+    });
 
     const row = await dbClient("user_profiles").where({ id: userId }).first();
     return mapProfileRowRequired(row);

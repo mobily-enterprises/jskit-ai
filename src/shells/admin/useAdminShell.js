@@ -96,7 +96,9 @@ export function useAdminShell() {
   });
 
   const workspaceItems = computed(() => (Array.isArray(workspaceStore.workspaces) ? workspaceStore.workspaces : []));
-  const pendingInvites = computed(() => (Array.isArray(workspaceStore.pendingInvites) ? workspaceStore.pendingInvites : []));
+  const pendingInvites = computed(() =>
+    Array.isArray(workspaceStore.pendingInvites) ? workspaceStore.pendingInvites : []
+  );
   const pendingInvitesCount = computed(() => pendingInvites.value.length);
 
   const activeWorkspaceName = computed(() => {
@@ -123,7 +125,9 @@ export function useAdminShell() {
     return source.slice(0, 2).toUpperCase();
   });
   const userAvatarUrl = computed(() => workspaceStore.profileAvatarUrl || "");
-  const userDisplayName = computed(() => String(workspaceStore.profileDisplayName || authStore.username || "Account").trim());
+  const userDisplayName = computed(() =>
+    String(workspaceStore.profileDisplayName || authStore.username || "Account").trim()
+  );
 
   watch(
     () => pendingInvitesCount.value,

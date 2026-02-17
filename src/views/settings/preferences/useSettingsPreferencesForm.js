@@ -20,14 +20,7 @@ export function useSettingsPreferencesForm(options) {
     return useSettingsContext().sections.preferences;
   }
 
-  const {
-    vuetifyTheme,
-    queryClient,
-    clearFieldErrors,
-    toErrorMessage,
-    handleAuthError,
-    applySettingsData
-  } = options;
+  const { vuetifyTheme, queryClient, clearFieldErrors, toErrorMessage, handleAuthError, applySettingsData } = options;
 
   const preferencesForm = reactive({
     theme: "system",

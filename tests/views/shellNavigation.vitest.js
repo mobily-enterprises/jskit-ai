@@ -4,11 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useShellNavigation } from "../../src/shells/shared/useShellNavigation.js";
 
-function mountHarness({
-  initialPath = "/w/acme",
-  isMobile = false,
-  showShell = true
-} = {}) {
+function mountHarness({ initialPath = "/w/acme", isMobile = false, showShell = true } = {}) {
   const currentPath = ref(initialPath);
   const showApplicationShell = ref(showShell);
   const mobileRef = ref(isMobile);

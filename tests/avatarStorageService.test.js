@@ -40,7 +40,10 @@ test("avatar storage service saves, serves and deletes raw avatar content", asyn
 
   assert.equal(saved.storageKey, "avatars/users/7/avatar.webp");
   assert.equal(saved.publicUrl, "/uploads/avatars/users/7/avatar.webp?v=123");
-  assert.equal(service.toPublicUrl(saved.storageKey, saved.avatarVersion), "/uploads/avatars/users/7/avatar.webp?v=123");
+  assert.equal(
+    service.toPublicUrl(saved.storageKey, saved.avatarVersion),
+    "/uploads/avatars/users/7/avatar.webp?v=123"
+  );
 
   const savedPath = path.join(basePath, saved.storageKey);
   await fs.access(savedPath);
@@ -61,6 +64,9 @@ test("avatar storage service validates unsupported driver and buffer payload", a
   });
 
   await service.init();
-  await assert.rejects(() => service.saveAvatar({ userId: 3, buffer: "not-buffer", avatarVersion: 1 }), /Buffer instance/);
+  await assert.rejects(
+    () => service.saveAvatar({ userId: 3, buffer: "not-buffer", avatarVersion: 1 }),
+    /Buffer instance/
+  );
   await fs.rm(service.fsBasePath, { recursive: true, force: true });
 });

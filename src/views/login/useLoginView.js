@@ -36,7 +36,9 @@ export function useLoginView() {
   const useRememberedAccount = ref(false);
   const oauthCallbackInFlight = ref(false);
 
-  const oauthProviders = AUTH_OAUTH_PROVIDERS.map((providerId) => AUTH_OAUTH_PROVIDER_METADATA[providerId]).filter(Boolean);
+  const oauthProviders = AUTH_OAUTH_PROVIDERS.map((providerId) => AUTH_OAUTH_PROVIDER_METADATA[providerId]).filter(
+    Boolean
+  );
 
   const registerMutation = useMutation({
     mutationFn: (payload) => api.register(payload)

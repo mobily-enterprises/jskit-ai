@@ -87,10 +87,13 @@ test("annuity controller validates, calculates, appends history, and returns com
   assert.equal(fallbackReply.statusCode, 200);
   assert.deepEqual(receivedPayloads[1], {});
   assert.equal(appendCalls.length, 2);
-  assert.deepEqual(appendCalls.map((call) => [call.workspaceId, call.userId]), [
-    [42, 7],
-    [42, 7]
-  ]);
+  assert.deepEqual(
+    appendCalls.map((call) => [call.workspaceId, call.userId]),
+    [
+      [42, 7],
+      [42, 7]
+    ]
+  );
 });
 
 test("history controller maps pagination query and returns service response", async () => {
@@ -473,7 +476,9 @@ test("settings controller covers get/update/security flows", async () => {
   assert.equal(fallbackNotificationsReply.statusCode, 200);
 
   const missingAvatarReply = createReplyDouble();
-  await assert.rejects(() => controller.uploadAvatar({ marker: "missing-avatar", user, file: async () => null }, missingAvatarReply));
+  await assert.rejects(() =>
+    controller.uploadAvatar({ marker: "missing-avatar", user, file: async () => null }, missingAvatarReply)
+  );
 
   const fallbackPasswordReply = createReplyDouble();
   await controller.changePassword({ marker: "fallback-password", user }, fallbackPasswordReply);

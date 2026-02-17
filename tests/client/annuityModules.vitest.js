@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { createDefaultAnnuityForm, modeOptions, pageSizeOptions, timingOptions } from "../../src/features/annuity/formModel.js";
-import { buildAnnuityPayload, validateAnnuityForm, __testables as requestTestables } from "../../src/features/annuity/request.js";
-import { mapCalculationError, mapHistoryError, __testables as errorTestables } from "../../src/features/annuity/errors.js";
+import {
+  createDefaultAnnuityForm,
+  modeOptions,
+  pageSizeOptions,
+  timingOptions
+} from "../../src/features/annuity/formModel.js";
+import {
+  buildAnnuityPayload,
+  validateAnnuityForm,
+  __testables as requestTestables
+} from "../../src/features/annuity/request.js";
+import {
+  mapCalculationError,
+  mapHistoryError,
+  __testables as errorTestables
+} from "../../src/features/annuity/errors.js";
 import {
   formatCurrency,
   formatDate,

@@ -5,10 +5,7 @@ exports.up = async function up(knex) {
     table.string("locale", 24).notNullable().defaultTo("en-US");
     table.string("time_zone", 64).notNullable().defaultTo("UTC");
     table.enu("date_format", ["system", "mdy", "dmy", "ymd"]).notNullable().defaultTo("system");
-    table
-      .enu("number_format", ["system", "comma-dot", "dot-comma", "space-comma"])
-      .notNullable()
-      .defaultTo("system");
+    table.enu("number_format", ["system", "comma-dot", "dot-comma", "space-comma"]).notNullable().defaultTo("system");
     table.string("currency_code", 3).notNullable().defaultTo("USD");
 
     table.boolean("notify_product_updates").notNullable().defaultTo(true);

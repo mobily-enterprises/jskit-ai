@@ -125,7 +125,10 @@ test("user settings service helper validators cover success and failure branches
     accountActivity: 1
   });
   assert.equal(notificationsInvalidBooleanTypes.fieldErrors.productUpdates, "Product updates setting must be boolean.");
-  assert.equal(notificationsInvalidBooleanTypes.fieldErrors.accountActivity, "Account activity setting must be boolean.");
+  assert.equal(
+    notificationsInvalidBooleanTypes.fieldErrors.accountActivity,
+    "Account activity setting must be boolean."
+  );
 
   const notificationsValid = __testables.parseNotificationsInput({ productUpdates: false, accountActivity: true });
   assert.equal(notificationsValid.patch.productUpdates, false);
@@ -166,6 +169,33 @@ test("user settings service helper validators cover success and failure branches
   assert.deepEqual(security.mfa.methods, []);
   const securityMissingMfa = __testables.normalizeSecurityStatus({});
   assert.equal(securityMissingMfa.mfa.status, "not_enabled");
+
+  const securitySparseMethods = __testables.normalizeSecurityStatus({
+    authMethods: [
+      null,
+      {
+        id: null,
+        kind: null,
+        provider: "",
+        label: "",
+        configured: 0,
+        enabled: 0
+      },
+      {
+        id: "password",
+        kind: "password",
+        provider: null
+      }
+    ]
+  });
+  assert.equal(securitySparseMethods.authMethods[0].id, "");
+  assert.equal(securitySparseMethods.authMethods[0].kind, "");
+  assert.equal(securitySparseMethods.authMethods[0].provider, null);
+  assert.equal(securitySparseMethods.authMethods[0].label, "");
+  assert.equal(securitySparseMethods.authMethods[1].provider, "");
+  assert.equal(securitySparseMethods.authMethods[1].label, "");
+  assert.equal(securitySparseMethods.authMethods[2].provider, null);
+  assert.equal(securitySparseMethods.authMethods[2].label, "password");
 
   const response = __testables.buildSettingsResponse(
     { displayName: "user", email: "user@example.com" },
@@ -423,7 +453,9 @@ test("user settings service falls back when auth service omits profile/session",
     displayName: "user"
   };
 
-  const profileUpdated = await service.updateProfile({ marker: "fallback-profile" }, user, { displayName: "fallback-name" });
+  const profileUpdated = await service.updateProfile({ marker: "fallback-profile" }, user, {
+    displayName: "fallback-name"
+  });
   assert.equal(profileUpdated.settings.profile.displayName, "fallback-name");
   assert.equal(profileUpdated.session, null);
 
@@ -678,10 +710,7 @@ test("user settings service orchestrates password method toggle and oauth link/u
   assert.equal(
     calls.some(
       (entry) =>
-        entry[0] === "startProviderLink" &&
-        entry[1] === "start-link" &&
-        entry[2] &&
-        entry[2].provider === "google"
+        entry[0] === "startProviderLink" && entry[1] === "start-link" && entry[2] && entry[2].provider === "google"
     ),
     true
   );
@@ -693,10 +722,7 @@ test("user settings service orchestrates password method toggle and oauth link/u
   assert.equal(
     calls.some(
       (entry) =>
-        entry[0] === "unlinkProvider" &&
-        entry[1] === "unlink-provider" &&
-        entry[2] &&
-        entry[2].provider === "google"
+        entry[0] === "unlinkProvider" && entry[1] === "unlink-provider" && entry[2] && entry[2].provider === "google"
     ),
     true
   );
@@ -759,35 +785,158 @@ test("user settings service throws validation errors for invalid payloads", asyn
     displayName: "user"
   };
 
-  await assert.rejects(() => service.updateProfile({}, user, { displayName: "" }), (error) => {
-    assert.equal(error.status, 400);
-    assert.equal(error.details.fieldErrors.displayName, "Display name is required.");
-    return true;
-  });
+  await assert.rejects(
+    () => service.updateProfile({}, user, { displayName: "" }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.details.fieldErrors.displayName, "Display name is required.");
+      return true;
+    }
+  );
 
-  await assert.rejects(() => service.updatePreferences({}, user, {}), (error) => {
-    assert.equal(error.status, 400);
-    assert.equal(error.details.fieldErrors.preferences, "At least one preference field is required.");
-    return true;
-  });
+  await assert.rejects(
+    () => service.updatePreferences({}, user, {}),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.details.fieldErrors.preferences, "At least one preference field is required.");
+      return true;
+    }
+  );
 
-  await assert.rejects(() => service.updateNotifications({}, user, { securityAlerts: false }), (error) => {
-    assert.equal(error.status, 400);
-    assert.equal(error.details.fieldErrors.securityAlerts, "Security alerts must stay enabled.");
-    return true;
-  });
+  await assert.rejects(
+    () => service.updateNotifications({}, user, { securityAlerts: false }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.details.fieldErrors.securityAlerts, "Security alerts must stay enabled.");
+      return true;
+    }
+  );
 
   await assert.rejects(
     () =>
-      service.changePassword({}, {
-        currentPassword: "old-password",
-        newPassword: "new-password-123",
-        confirmPassword: "different"
-      }),
+      service.changePassword(
+        {},
+        {
+          currentPassword: "old-password",
+          newPassword: "new-password-123",
+          confirmPassword: "different"
+        }
+      ),
     (error) => {
       assert.equal(error.status, 400);
       assert.equal(error.details.fieldErrors.confirmPassword, "Passwords do not match.");
       return true;
     }
   );
+});
+
+test("user settings service supports password fallback mode and user-profile fallback branches", async () => {
+  assert.throws(
+    () =>
+      createUserSettingsService({
+        userSettingsRepository: {},
+        userProfilesRepository: {},
+        authService: {}
+      }),
+    /userAvatarService is required/
+  );
+
+  let profileLookupCalls = 0;
+  const service = createUserSettingsService({
+    userSettingsRepository: {
+      async ensureForUserId(userId) {
+        return buildSettings({ userId, avatarSize: 64 });
+      },
+      async updatePreferences() {
+        return buildSettings();
+      },
+      async updateNotifications() {
+        return buildSettings();
+      }
+    },
+    userProfilesRepository: {
+      async findBySupabaseUserId() {
+        profileLookupCalls += 1;
+        return null;
+      },
+      async updateDisplayNameById() {
+        throw new Error("not used");
+      }
+    },
+    userAvatarService: {
+      buildAvatarResponse(profile, { avatarSize }) {
+        return {
+          uploadedUrl: null,
+          gravatarUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+          effectiveUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+          hasUploadedAvatar: false,
+          size: Number(avatarSize || 64),
+          version: profile.avatarVersion || null
+        };
+      },
+      async uploadForUser() {
+        throw new Error("not used");
+      },
+      async clearForUser() {
+        throw new Error("not used");
+      }
+    },
+    authService: {
+      async getSecurityStatus() {
+        return {
+          authMethods: [
+            {},
+            {
+              id: "email_otp",
+              kind: "otp",
+              provider: "email",
+              enabled: true,
+              requiresCurrentPassword: false
+            }
+          ]
+        };
+      },
+      async changePassword() {
+        return {
+          session: null
+        };
+      },
+      async setPasswordSignInEnabled() {},
+      async startProviderLink() {
+        throw new Error("not used");
+      },
+      async unlinkProvider() {},
+      async updateDisplayName() {
+        throw new Error("not used");
+      },
+      async signOutOtherSessions() {}
+    }
+  });
+
+  const userWithoutSupabaseId = {
+    id: 11,
+    email: "fallback@example.com",
+    displayName: "fallback-user"
+  };
+
+  const changedPassword = await service.changePassword(
+    { marker: "no-password-method" },
+    {
+      newPassword: "new-password-123",
+      confirmPassword: "new-password-123"
+    }
+  );
+  assert.equal(changedPassword.message, "Password set.");
+
+  const toggled = await service.setPasswordMethodEnabled({ marker: "toggle-no-supabase" }, userWithoutSupabaseId, {
+    enabled: true
+  });
+  assert.equal(toggled.profile.email, "fallback@example.com");
+
+  const unlinked = await service.unlinkOAuthProvider({ marker: "unlink-no-supabase" }, userWithoutSupabaseId, {
+    provider: "google"
+  });
+  assert.equal(unlinked.profile.email, "fallback@example.com");
+
+  assert.equal(profileLookupCalls, 0);
 });

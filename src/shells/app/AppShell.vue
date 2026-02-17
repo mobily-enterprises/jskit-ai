@@ -126,8 +126,8 @@ export default {
 }
 
 .app-main-shell {
-  background: linear-gradient(180deg, var(--workspace-color-soft), rgba(15, 107, 84, 0) 240px),
-    rgb(var(--v-theme-background));
+  background:
+    linear-gradient(180deg, var(--workspace-color-soft), rgba(15, 107, 84, 0) 240px), rgb(var(--v-theme-background));
 }
 
 .app-content {

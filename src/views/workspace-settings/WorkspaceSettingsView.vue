@@ -145,12 +145,7 @@
           </v-card-item>
           <v-divider />
           <v-card-text>
-            <v-alert
-              v-if="!workspaceForm.invitesAvailable"
-              type="warning"
-              variant="tonal"
-              class="mb-3"
-            >
+            <v-alert v-if="!workspaceForm.invitesAvailable" type="warning" variant="tonal" class="mb-3">
               Invites are disabled by app policy or role manifest.
             </v-alert>
             <v-alert v-else-if="!workspaceForm.invitesEnabled" type="info" variant="tonal" class="mb-3">
@@ -287,22 +282,10 @@ const {
   teamMessageType,
   revokeInviteId
 } = toRefs(feedback);
-const {
-  list: membersList,
-  invites
-} = toRefs(members);
-const {
-  canManageWorkspaceSettings,
-  canViewMembers,
-  canInviteMembers,
-  canManageMembers,
-  canRevokeInvites
-} = toRefs(permissions);
-const {
-  isSavingWorkspaceSettings,
-  isCreatingInvite,
-  isRevokingInvite
-} = toRefs(status);
+const { list: membersList, invites } = toRefs(members);
+const { canManageWorkspaceSettings, canViewMembers, canInviteMembers, canManageMembers, canRevokeInvites } =
+  toRefs(permissions);
+const { isSavingWorkspaceSettings, isCreatingInvite, isRevokingInvite } = toRefs(status);
 const {
   mode: modeOptions,
   timing: timingOptions,

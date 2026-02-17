@@ -53,10 +53,7 @@ test("initDatabase and closeDatabase call knex client methods", async () => {
   await __testables.initDatabaseWithClient(fakeClient);
   await __testables.closeDatabaseWithClient(fakeClient);
 
-  assert.deepEqual(calls, [
-    ["raw", "select 1 as ok"],
-    ["destroy"]
-  ]);
+  assert.deepEqual(calls, [["raw", "select 1 as ok"], ["destroy"]]);
 });
 
 test("initDatabase and closeDatabase wrappers call db client", async () => {
@@ -77,8 +74,5 @@ test("initDatabase and closeDatabase wrappers call db client", async () => {
     destroyMock.mock.restore();
   }
 
-  assert.deepEqual(calls, [
-    ["raw", "select 1 as ok"],
-    ["destroy"]
-  ]);
+  assert.deepEqual(calls, [["raw", "select 1 as ok"], ["destroy"]]);
 });

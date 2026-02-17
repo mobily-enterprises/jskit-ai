@@ -63,7 +63,9 @@
               item-value="value"
               variant="outlined"
               density="comfortable"
-              :error-messages="state.preferencesFieldErrors.numberFormat ? [state.preferencesFieldErrors.numberFormat] : []"
+              :error-messages="
+                state.preferencesFieldErrors.numberFormat ? [state.preferencesFieldErrors.numberFormat] : []
+              "
             />
           </v-col>
           <v-col cols="12" md="4">
@@ -73,7 +75,9 @@
               :items="meta.currencyOptions"
               variant="outlined"
               density="comfortable"
-              :error-messages="state.preferencesFieldErrors.currencyCode ? [state.preferencesFieldErrors.currencyCode] : []"
+              :error-messages="
+                state.preferencesFieldErrors.currencyCode ? [state.preferencesFieldErrors.currencyCode] : []
+              "
             />
           </v-col>
           <v-col cols="12" md="3">
@@ -92,7 +96,9 @@
           {{ state.preferencesMessage }}
         </v-alert>
 
-        <v-btn type="submit" color="primary" :loading="state.preferencesMutation.isPending.value">Save preferences</v-btn>
+        <v-btn type="submit" color="primary" :loading="state.preferencesMutation.isPending.value"
+          >Save preferences</v-btn
+        >
       </v-form>
     </v-card-text>
   </v-card>

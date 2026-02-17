@@ -12,7 +12,9 @@ const SURFACE_REGISTRY = Object.freeze({
 const DEFAULT_SURFACE_ID = "app";
 
 function normalizeSurfaceId(value) {
-  const normalized = String(value || "").trim().toLowerCase();
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
   if (SURFACE_REGISTRY[normalized]) {
     return normalized;
   }

@@ -178,9 +178,12 @@ function readOAuthCallbackStateFromLocation(options = {}) {
   const intent = normalizeOAuthIntent(search.get(OAUTH_QUERY_PARAM_INTENT) || pendingContext?.intent || defaultIntent, {
     fallback: defaultIntent
   });
-  const returnTo = normalizeReturnToPath(search.get(OAUTH_QUERY_PARAM_RETURN_TO) || pendingContext?.returnTo || defaultReturnTo, {
-    fallback: defaultReturnTo
-  });
+  const returnTo = normalizeReturnToPath(
+    search.get(OAUTH_QUERY_PARAM_RETURN_TO) || pendingContext?.returnTo || defaultReturnTo,
+    {
+      fallback: defaultReturnTo
+    }
+  );
 
   const payload = {
     provider

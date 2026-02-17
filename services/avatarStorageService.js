@@ -43,7 +43,9 @@ function resolveFsBasePath(fsBasePath, { rootDir }) {
 }
 
 function createAvatarStorageService(options = {}) {
-  const driver = String(options.driver || "fs").trim().toLowerCase();
+  const driver = String(options.driver || "fs")
+    .trim()
+    .toLowerCase();
   if (driver !== "fs") {
     throw new Error(`Unsupported AVATAR_STORAGE_DRIVER "${driver}". Supported: fs.`);
   }

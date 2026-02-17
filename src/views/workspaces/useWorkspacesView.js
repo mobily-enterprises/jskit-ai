@@ -37,7 +37,9 @@ export function useWorkspacesView() {
   });
 
   const workspaceItems = computed(() => (Array.isArray(workspaceStore.workspaces) ? workspaceStore.workspaces : []));
-  const pendingInvites = computed(() => (Array.isArray(workspaceStore.pendingInvites) ? workspaceStore.pendingInvites : []));
+  const pendingInvites = computed(() =>
+    Array.isArray(workspaceStore.pendingInvites) ? workspaceStore.pendingInvites : []
+  );
 
   function workspaceAvatarStyle(workspace) {
     return {

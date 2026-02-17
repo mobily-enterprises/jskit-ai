@@ -636,3 +636,314 @@ test("workspace service pending invite listing handles unsupported repositories 
     []
   );
 });
+
+test("workspace service handles sparse workspace payloads and fallback branches", async () => {
+  const updateCalls = [];
+  const sparseWorkspace = {
+    id: 21,
+    slug: "",
+    name: null,
+    color: "bad-color",
+    avatarUrl: null,
+    roleId: "member",
+    membershipStatus: "active",
+    ownerUserId: 77,
+    isPersonal: false
+  };
+
+  const service = createWorkspaceService({
+    appConfig: {
+      tenancyMode: "multi-workspace",
+      features: {
+        workspaceInvites: true,
+        workspaceSwitching: true,
+        workspaceCreateEnabled: true
+      }
+    },
+    rbacManifest: {
+      defaultInviteRole: "member",
+      collaborationEnabled: true,
+      roles: {
+        owner: {
+          assignable: false,
+          permissions: ["*"]
+        },
+        member: {
+          assignable: true,
+          permissions: ["history.read"]
+        }
+      }
+    },
+    workspacesRepository: {
+      async listByUserId(userId) {
+        if (Number(userId) === 2) {
+          return [sparseWorkspace];
+        }
+        if (Number(userId) === 4) {
+          return [
+            {
+              ...sparseWorkspace,
+              id: 0,
+              slug: "invalid-id"
+            }
+          ];
+        }
+        return [];
+      },
+      async findBySlug() {
+        return null;
+      },
+      async findById(id) {
+        if (Number(id) === 21) {
+          return {
+            ...sparseWorkspace
+          };
+        }
+        return null;
+      },
+      async findPersonalByOwnerUserId() {
+        return null;
+      },
+      async insert() {
+        throw new Error("not used");
+      }
+    },
+    workspaceMembershipsRepository: {
+      async ensureOwnerMembership() {},
+      async findByWorkspaceIdAndUserId(workspaceId, userId) {
+        if (Number(workspaceId) === 21 && Number(userId) === 2) {
+          return {
+            workspaceId: 21,
+            userId: 2,
+            roleId: "member",
+            status: "active"
+          };
+        }
+        return null;
+      }
+    },
+    workspaceSettingsRepository: {
+      async ensureForWorkspaceId(workspaceId) {
+        if (Number(workspaceId) === 21) {
+          return {
+            invitesEnabled: true,
+            features: {},
+            policy: {}
+          };
+        }
+        return {
+          invitesEnabled: true,
+          features: {},
+          policy: {}
+        };
+      }
+    },
+    workspaceInvitesRepository: {
+      async markExpiredPendingInvites() {},
+      async listPendingByEmail() {
+        return [];
+      }
+    },
+    userSettingsRepository: {
+      async ensureForUserId(userId) {
+        if (Number(userId) === 2) {
+          return {
+            lastActiveWorkspaceId: 999
+          };
+        }
+        if (Number(userId) === 3) {
+          return {
+            avatarSize: 0,
+            lastActiveWorkspaceId: null
+          };
+        }
+        return {
+          lastActiveWorkspaceId: null
+        };
+      },
+      async updateLastActiveWorkspaceId(userId, workspaceId) {
+        updateCalls.push([Number(userId), Number(workspaceId)]);
+      }
+    },
+    userAvatarService: {
+      buildAvatarResponse() {
+        return {
+          uploadedUrl: null,
+          gravatarUrl: "https://www.gravatar.com/avatar/edge",
+          effectiveUrl: "https://www.gravatar.com/avatar/edge",
+          hasUploadedAvatar: false,
+          size: 0,
+          version: null
+        };
+      }
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      service.resolveRequestContext({
+        user: {
+          id: 2,
+          email: "sparse@example.com"
+        },
+        request: {
+          headers: {
+            "x-surface-id": "app",
+            "x-workspace-slug": "missing"
+          }
+        },
+        workspacePolicy: "optional"
+      }),
+    (error) => error instanceof AppError && error.statusCode === 403
+  );
+
+  const context = await service.resolveRequestContext({
+    user: {
+      id: 2,
+      email: "sparse@example.com"
+    },
+    request: {
+      headers: {
+        "x-surface-id": "app"
+      }
+    },
+    workspacePolicy: "optional"
+  });
+  assert.equal(context.workspace.slug, "");
+  assert.equal(context.workspace.name, "");
+  assert.equal(context.workspace.avatarUrl, "");
+  assert.equal(context.userSettings.lastActiveWorkspaceId, 999);
+  assert.equal(
+    updateCalls.some(([userId, workspaceId]) => userId === 2 && workspaceId === 21),
+    true
+  );
+
+  sparseWorkspace.avatarUrl = "https://example.com/avatar.png";
+  const contextWithAvatar = await service.resolveRequestContext({
+    user: {
+      id: 2,
+      email: "sparse@example.com"
+    },
+    request: {
+      headers: {
+        "x-surface-id": "app"
+      }
+    },
+    workspacePolicy: "optional"
+  });
+  assert.equal(contextWithAvatar.workspace.avatarUrl, "https://example.com/avatar.png");
+
+  const selected = await service.selectWorkspaceForUser(
+    {
+      id: 2,
+      email: "sparse@example.com"
+    },
+    "21",
+    {
+      request: {
+        headers: {
+          "x-surface-id": "app"
+        }
+      }
+    }
+  );
+  assert.equal(selected.workspace.slug, "");
+  assert.equal(selected.workspace.name, "");
+  assert.equal(selected.workspace.avatarUrl, "https://example.com/avatar.png");
+
+  const listedInvalidWorkspaceId = await service.listWorkspacesForUser(
+    {
+      id: 4,
+      email: "invalid-id@example.com"
+    },
+    {
+      request: {
+        headers: {
+          "x-surface-id": "app"
+        }
+      }
+    }
+  );
+  assert.equal(listedInvalidWorkspaceId.length, 1);
+  assert.equal(listedInvalidWorkspaceId[0].isAccessible, false);
+
+  assert.deepEqual(
+    await service.listPendingInvitesForUser({
+      id: 0,
+      email: ""
+    }),
+    []
+  );
+  assert.deepEqual(
+    await service.listPendingInvitesForUser({
+      id: 2,
+      email: "none@example.com"
+    }),
+    []
+  );
+
+  const bootstrapWithoutWorkspace = await service.buildBootstrapPayload({
+    request: {
+      headers: {
+        "x-surface-id": "app"
+      }
+    },
+    user: {
+      id: 3
+    }
+  });
+  assert.equal(bootstrapWithoutWorkspace.session.username, null);
+  assert.equal(bootstrapWithoutWorkspace.profile.displayName, "");
+  assert.equal(bootstrapWithoutWorkspace.profile.email, "");
+  assert.equal(bootstrapWithoutWorkspace.profile.avatar.size, 64);
+  assert.equal(bootstrapWithoutWorkspace.activeWorkspace, null);
+  assert.equal(bootstrapWithoutWorkspace.workspaceSettings, null);
+  assert.equal(bootstrapWithoutWorkspace.userSettings.avatarSize, 64);
+
+  const personalFixture = createWorkspaceServiceFixture({
+    appConfig: {
+      tenancyMode: "personal"
+    }
+  });
+  const personalContext = await personalFixture.service.resolveRequestContext({
+    user: {
+      id: 5,
+      email: "user@example.com"
+    },
+    request: {
+      headers: {
+        "x-surface-id": "app"
+      }
+    },
+    workspacePolicy: "optional"
+  });
+  assert.equal(Array.isArray(personalContext.workspaces), true);
+  await personalFixture.service.selectWorkspaceForUser(
+    {
+      id: 5,
+      email: "user@example.com"
+    },
+    "acme",
+    {
+      request: {
+        headers: {
+          "x-surface-id": "app"
+        }
+      }
+    }
+  );
+  const personalListed = await personalFixture.service.listWorkspacesForUser(
+    {
+      id: 5,
+      email: "user@example.com"
+    },
+    {
+      request: {
+        headers: {
+          "x-surface-id": "app"
+        }
+      }
+    }
+  );
+  assert.equal(Array.isArray(personalListed), true);
+});

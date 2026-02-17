@@ -12,11 +12,7 @@ import {
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,
   AUTH_REFRESH_TOKEN_MAX_LENGTH
 } from "../../shared/auth/authConstraints.js";
-import {
-  AUTH_METHOD_IDS,
-  AUTH_METHOD_KINDS,
-  AUTH_METHOD_PASSWORD_PROVIDER
-} from "../../shared/auth/authMethods.js";
+import { AUTH_METHOD_IDS, AUTH_METHOD_KINDS, AUTH_METHOD_PASSWORD_PROVIDER } from "../../shared/auth/authMethods.js";
 import { AUTH_OAUTH_PROVIDERS } from "../../shared/auth/oauthProviders.js";
 import {
   SETTINGS_CURRENCY_CODE_PATTERN,
@@ -27,10 +23,7 @@ import {
   SETTINGS_THEME_OPTIONS,
   SETTINGS_TIMING_OPTIONS
 } from "../../shared/settings/index.js";
-import {
-  AVATAR_MAX_SIZE,
-  AVATAR_MIN_SIZE
-} from "../../shared/avatar/index.js";
+import { AVATAR_MAX_SIZE, AVATAR_MIN_SIZE } from "../../shared/avatar/index.js";
 
 const registerCredentialsSchema = Type.Object(
   {
@@ -481,22 +474,20 @@ const workspaceInviteSchema = Type.Object(
     invitedByUserId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
     invitedByDisplayName: Type.String(),
     invitedByEmail: Type.String(),
-    workspace: Type.Union(
-      [
-        Type.Object(
-          {
-            id: Type.Integer({ minimum: 1 }),
-            slug: Type.String({ minLength: 1, maxLength: 120 }),
-            name: Type.String({ minLength: 1, maxLength: 160 }),
-            avatarUrl: Type.String()
-          },
-          {
-            additionalProperties: false
-          }
-        ),
-        Type.Null()
-      ]
-    )
+    workspace: Type.Union([
+      Type.Object(
+        {
+          id: Type.Integer({ minimum: 1 }),
+          slug: Type.String({ minLength: 1, maxLength: 120 }),
+          name: Type.String({ minLength: 1, maxLength: 160 }),
+          avatarUrl: Type.String()
+        },
+        {
+          additionalProperties: false
+        }
+      ),
+      Type.Null()
+    ])
   },
   {
     additionalProperties: false
@@ -591,42 +582,38 @@ const bootstrapResponseSchema = Type.Object(
         additionalProperties: false
       }
     ),
-    profile: Type.Union(
-      [
-        Type.Object(
-          {
-            displayName: Type.String({ minLength: 1, maxLength: 120 }),
-            email: Type.String({
-              minLength: AUTH_EMAIL_MIN_LENGTH,
-              maxLength: AUTH_EMAIL_MAX_LENGTH,
-              pattern: AUTH_EMAIL_PATTERN
-            }),
-            avatar: Type.Union(
-              [
-                Type.Object(
-                  {
-                    uploadedUrl: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
-                    gravatarUrl: Type.String({ minLength: 1 }),
-                    effectiveUrl: Type.String({ minLength: 1 }),
-                    hasUploadedAvatar: Type.Boolean(),
-                    size: Type.Integer({ minimum: AVATAR_MIN_SIZE, maximum: AVATAR_MAX_SIZE }),
-                    version: Type.Union([Type.String({ minLength: 1 }), Type.Null()])
-                  },
-                  {
-                    additionalProperties: false
-                  }
-                ),
-                Type.Null()
-              ]
-            )
-          },
-          {
-            additionalProperties: false
-          }
-        ),
-        Type.Null()
-      ]
-    ),
+    profile: Type.Union([
+      Type.Object(
+        {
+          displayName: Type.String({ minLength: 1, maxLength: 120 }),
+          email: Type.String({
+            minLength: AUTH_EMAIL_MIN_LENGTH,
+            maxLength: AUTH_EMAIL_MAX_LENGTH,
+            pattern: AUTH_EMAIL_PATTERN
+          }),
+          avatar: Type.Union([
+            Type.Object(
+              {
+                uploadedUrl: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+                gravatarUrl: Type.String({ minLength: 1 }),
+                effectiveUrl: Type.String({ minLength: 1 }),
+                hasUploadedAvatar: Type.Boolean(),
+                size: Type.Integer({ minimum: AVATAR_MIN_SIZE, maximum: AVATAR_MAX_SIZE }),
+                version: Type.Union([Type.String({ minLength: 1 }), Type.Null()])
+              },
+              {
+                additionalProperties: false
+              }
+            ),
+            Type.Null()
+          ])
+        },
+        {
+          additionalProperties: false
+        }
+      ),
+      Type.Null()
+    ]),
     app: Type.Object(
       {
         tenancyMode: Type.String({ minLength: 1, maxLength: 32 }),
@@ -651,26 +638,24 @@ const bootstrapResponseSchema = Type.Object(
     membership: Type.Union([membershipSummarySchema, Type.Null()]),
     permissions: Type.Array(Type.String({ minLength: 1 })),
     workspaceSettings: Type.Union([workspaceSettingsSummarySchema, Type.Null()]),
-    userSettings: Type.Union(
-      [
-        Type.Object(
-          {
-            theme: enumSchema(SETTINGS_THEME_OPTIONS),
-            locale: Type.String({ minLength: 2, maxLength: 24, pattern: SETTINGS_LOCALE_PATTERN }),
-            timeZone: Type.String({ minLength: 1, maxLength: 64 }),
-            dateFormat: enumSchema(SETTINGS_DATE_FORMAT_OPTIONS),
-            numberFormat: enumSchema(SETTINGS_NUMBER_FORMAT_OPTIONS),
-            currencyCode: Type.String({ pattern: SETTINGS_CURRENCY_CODE_PATTERN }),
-            avatarSize: Type.Integer({ minimum: AVATAR_MIN_SIZE, maximum: AVATAR_MAX_SIZE }),
-            lastActiveWorkspaceId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()])
-          },
-          {
-            additionalProperties: false
-          }
-        ),
-        Type.Null()
-      ]
-    )
+    userSettings: Type.Union([
+      Type.Object(
+        {
+          theme: enumSchema(SETTINGS_THEME_OPTIONS),
+          locale: Type.String({ minLength: 2, maxLength: 24, pattern: SETTINGS_LOCALE_PATTERN }),
+          timeZone: Type.String({ minLength: 1, maxLength: 64 }),
+          dateFormat: enumSchema(SETTINGS_DATE_FORMAT_OPTIONS),
+          numberFormat: enumSchema(SETTINGS_NUMBER_FORMAT_OPTIONS),
+          currencyCode: Type.String({ pattern: SETTINGS_CURRENCY_CODE_PATTERN }),
+          avatarSize: Type.Integer({ minimum: AVATAR_MIN_SIZE, maximum: AVATAR_MAX_SIZE }),
+          lastActiveWorkspaceId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()])
+        },
+        {
+          additionalProperties: false
+        }
+      ),
+      Type.Null()
+    ])
   },
   {
     additionalProperties: false
@@ -1007,7 +992,6 @@ const changePasswordBodySchema = Type.Object(
     additionalProperties: false
   }
 );
-
 
 export {
   registerCredentialsSchema,

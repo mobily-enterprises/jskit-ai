@@ -190,7 +190,11 @@ export const api = {
     return request("/api/login/otp/verify", { method: "POST", body: payload });
   },
   oauthStartUrl(provider, options = {}) {
-    const encodedProvider = encodeURIComponent(String(provider || "").trim().toLowerCase());
+    const encodedProvider = encodeURIComponent(
+      String(provider || "")
+        .trim()
+        .toLowerCase()
+    );
     const returnTo = String(options.returnTo || "").trim();
     if (!returnTo) {
       return `/api/oauth/${encodedProvider}/start`;
@@ -280,7 +284,11 @@ export const api = {
     return request("/api/settings/security/methods/password", { method: "PATCH", body: payload });
   },
   settingsOAuthLinkStartUrl(provider, options = {}) {
-    const encodedProvider = encodeURIComponent(String(provider || "").trim().toLowerCase());
+    const encodedProvider = encodeURIComponent(
+      String(provider || "")
+        .trim()
+        .toLowerCase()
+    );
     const returnTo = String(options.returnTo || "").trim();
     if (!returnTo) {
       return `/api/settings/security/oauth/${encodedProvider}/start`;
@@ -292,7 +300,11 @@ export const api = {
     return `/api/settings/security/oauth/${encodedProvider}/start?${params.toString()}`;
   },
   unlinkSettingsOAuthProvider(provider) {
-    const encodedProvider = encodeURIComponent(String(provider || "").trim().toLowerCase());
+    const encodedProvider = encodeURIComponent(
+      String(provider || "")
+        .trim()
+        .toLowerCase()
+    );
     return request(`/api/settings/security/oauth/${encodedProvider}`, { method: "DELETE" });
   },
   logoutOtherSessions() {

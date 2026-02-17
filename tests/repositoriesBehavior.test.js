@@ -163,10 +163,7 @@ test("user profiles helpers and mapper branches", () => {
   assert.equal(profilesTestables.isMysqlDuplicateEntryError(null), false);
   assert.equal(profilesTestables.isMysqlDuplicateEntryError({ code: "ER_DUP_ENTRY" }), true);
   assert.equal(profilesTestables.duplicateEntryTargetsField(duplicateErrorFor("email"), "email"), true);
-  assert.equal(
-    profilesTestables.duplicateEntryTargetsField(duplicateErrorFor("supabase_user_id"), "email"),
-    false
-  );
+  assert.equal(profilesTestables.duplicateEntryTargetsField(duplicateErrorFor("supabase_user_id"), "email"), false);
   assert.equal(
     profilesTestables.duplicateEntryTargetsField(
       Object.assign(new Error("duplicate entry for key email"), { code: "ER_DUP_ENTRY" }),
@@ -300,10 +297,13 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
     })
   );
 
-  await assert.rejects(() => duplicateEmailRepo.upsert({ supabaseUserId: "u3", email: "dup@example.com", displayName: "dup" }), (error) => {
-    assert.equal(error.code, "USER_PROFILE_EMAIL_CONFLICT");
-    return true;
-  });
+  await assert.rejects(
+    () => duplicateEmailRepo.upsert({ supabaseUserId: "u3", email: "dup@example.com", displayName: "dup" }),
+    (error) => {
+      assert.equal(error.code, "USER_PROFILE_EMAIL_CONFLICT");
+      return true;
+    }
+  );
 
   const directFindCalls = [];
   const findDb = (table) => ({

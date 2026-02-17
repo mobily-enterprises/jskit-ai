@@ -98,7 +98,10 @@ test("workspace controller bootstrap handles transient, cookie management, and p
   assert.equal(signedInReply.payload.session.authenticated, true);
   assert.equal(signedInReply.written, true);
 
-  assert.equal(calls.some((entry) => entry[0] === "buildBootstrapPayload"), true);
+  assert.equal(
+    calls.some((entry) => entry[0] === "buildBootstrapPayload"),
+    true
+  );
 });
 
 test("workspace controller delegates workspace and admin routes to services", async () => {
@@ -364,6 +367,12 @@ test("workspace controller delegates workspace and admin routes to services", as
   );
   assert.equal(respondFallbackReply.statusCode, 200);
 
-  assert.equal(calls.some((entry) => entry[0] === "listWorkspacesForUser"), true);
-  assert.equal(calls.some((entry) => entry[0] === "respondToPendingInvite"), true);
+  assert.equal(
+    calls.some((entry) => entry[0] === "listWorkspacesForUser"),
+    true
+  );
+  assert.equal(
+    calls.some((entry) => entry[0] === "respondToPendingInvite"),
+    true
+  );
 });

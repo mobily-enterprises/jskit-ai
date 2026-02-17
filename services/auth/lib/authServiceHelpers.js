@@ -599,7 +599,9 @@ function collectProviderIdsFromSupabaseUser(user) {
 }
 
 function buildAuthMethodsStatusFromProviderIds(providerIds, options = {}) {
-  const normalizedProviders = Array.isArray(providerIds) ? providerIds.map(normalizeIdentityProviderId).filter(Boolean) : [];
+  const normalizedProviders = Array.isArray(providerIds)
+    ? providerIds.map(normalizeIdentityProviderId).filter(Boolean)
+    : [];
   const uniqueProviders = new Set(normalizedProviders);
   const passwordSignInEnabled = options.passwordSignInEnabled !== false;
   const passwordSetupRequired = options.passwordSetupRequired === true;
@@ -800,7 +802,6 @@ function classifyJwtVerifyError(error) {
 
   return "invalid";
 }
-
 
 export {
   validatePasswordRecoveryPayload,

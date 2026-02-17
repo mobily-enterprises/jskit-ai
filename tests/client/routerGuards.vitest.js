@@ -220,7 +220,9 @@ describe("routerGuards", () => {
         workspaceHomePath: (slug) => `/w/${slug}`
       }
     );
-    await expect(unauthenticated.beforeLoadWorkspaceRequired({ params: { workspaceSlug: "acme" } })).rejects.toMatchObject({
+    await expect(
+      unauthenticated.beforeLoadWorkspaceRequired({ params: { workspaceSlug: "acme" } })
+    ).rejects.toMatchObject({
       options: { to: "/login" }
     });
 
@@ -330,7 +332,10 @@ describe("routerGuards", () => {
       workspaceHomePath: (slug) => `/w/${slug}`
     });
     await expect(
-      noWorkspaceGuards.beforeLoadWorkspacePermissionsRequired({ params: { workspaceSlug: "x" } }, "workspace.members.manage")
+      noWorkspaceGuards.beforeLoadWorkspacePermissionsRequired(
+        { params: { workspaceSlug: "x" } },
+        "workspace.members.manage"
+      )
     ).rejects.toMatchObject({
       options: { to: "/workspaces" }
     });

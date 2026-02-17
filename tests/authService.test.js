@@ -101,10 +101,7 @@ function parseFetchInput(input, init) {
   };
 }
 
-async function createJwtFixture({
-  issuer = `${SUPABASE_URL}/auth/v1`,
-  audience = "authenticated"
-} = {}) {
+async function createJwtFixture({ issuer = `${SUPABASE_URL}/auth/v1`, audience = "authenticated" } = {}) {
   const { publicKey, privateKey } = await generateKeyPair("ES256");
   const jwk = await exportJWK(publicKey);
   jwk.kid = "kid-1";
@@ -175,7 +172,10 @@ test("authService helpers cover validation, mapping, URL parsing, and jwt classi
   const parsedMissingAccess = __testables.validatePasswordRecoveryPayload({
     refreshToken: "refresh-only"
   });
-  assert.equal(parsedMissingAccess.fieldErrors.accessToken, "Access token is required when a refresh token is provided.");
+  assert.equal(
+    parsedMissingAccess.fieldErrors.accessToken,
+    "Access token is required when a refresh token is provided."
+  );
 
   const noRecoveryToken = __testables.validatePasswordRecoveryPayload({});
   assert.equal(noRecoveryToken.fieldErrors.recovery, "Recovery token is required.");
@@ -223,7 +223,10 @@ test("authService helpers cover validation, mapping, URL parsing, and jwt classi
   assert.equal(__testables.mapProfileUpdateError({ status: 400 }).status, 400);
   assert.equal(__testables.mapCurrentPasswordError({ status: 401 }).status, 400);
   assert.equal(__testables.mapCurrentPasswordError({ status: 503 }).status, 503);
-  assert.equal(__testables.mapCurrentPasswordError({ status: 418 }).details.fieldErrors.currentPassword, "Unable to verify current password.");
+  assert.equal(
+    __testables.mapCurrentPasswordError({ status: 418 }).details.fieldErrors.currentPassword,
+    "Unable to verify current password."
+  );
 
   assert.throws(() => __testables.parseHttpUrl("not-a-url", "APP_PUBLIC_URL"), /valid absolute URL/);
   assert.throws(() => __testables.parseHttpUrl("ftp://localhost", "APP_PUBLIC_URL"), /must start with http/);
@@ -237,7 +240,10 @@ test("authService helpers cover validation, mapping, URL parsing, and jwt classi
     "http://localhost:5173/app/login?oauthProvider=google&oauthIntent=login&oauthReturnTo=%2F"
   );
   assert.throws(() => __testables.buildOAuthLoginRedirectUrl({ appPublicUrl: "", provider: "google" }), /required/);
-  assert.throws(() => __testables.buildOAuthLoginRedirectUrl({ appPublicUrl: "http://localhost:5173", provider: "x" }), /one of/);
+  assert.throws(
+    () => __testables.buildOAuthLoginRedirectUrl({ appPublicUrl: "http://localhost:5173", provider: "x" }),
+    /one of/
+  );
 
   const parsedOAuthCode = __testables.parseOAuthCompletePayload({
     provider: "google",
@@ -310,7 +316,10 @@ test("authService helpers cover validation, mapping, URL parsing, and jwt classi
   assert.equal(parsedOtpVerifyInvalid.fieldErrors.token, "One-time code is required.");
 
   assert.equal(__testables.mapOAuthCallbackError("access_denied").status, 401);
-  assert.equal(__testables.mapOAuthCallbackError("server_error", "bad gateway").message, "OAuth sign-in failed: bad gateway");
+  assert.equal(
+    __testables.mapOAuthCallbackError("server_error", "bad gateway").message,
+    "OAuth sign-in failed: bad gateway"
+  );
   assert.equal(__testables.mapOAuthCallbackError("server_error").message, "OAuth sign-in failed.");
 
   const collectedProviderIds = __testables.collectProviderIdsFromSupabaseUser({
@@ -318,10 +327,7 @@ test("authService helpers cover validation, mapping, URL parsing, and jwt classi
       provider: "email",
       providers: ["google", "email", ""]
     },
-    identities: [
-      { provider: "github" },
-      { provider: "google" }
-    ]
+    identities: [{ provider: "github" }, { provider: "google" }]
   });
   assert.deepEqual([...collectedProviderIds].sort(), ["email", "github", "google"]);
 
@@ -624,10 +630,13 @@ test("authService register/login/reset/recovery flows and error mapping", async 
   try {
     await assert.rejects(() => service.register({ email: "", password: "" }), /Validation failed/);
 
-    await assert.rejects(() => service.register({ email: "already@example.com", password: "Password123" }), (error) => {
-      assert.equal(error.status, 409);
-      return true;
-    });
+    await assert.rejects(
+      () => service.register({ email: "already@example.com", password: "Password123" }),
+      (error) => {
+        assert.equal(error.status, 409);
+        return true;
+      }
+    );
 
     await assert.rejects(
       () => service.register({ email: "nouser@example.com", password: "Password123" }),
@@ -650,7 +659,10 @@ test("authService register/login/reset/recovery flows and error mapping", async 
       /profile synchronization failed/
     );
 
-    const fallbackEmailRegister = await service.register({ email: "fallbackemail@example.com", password: "Password123" });
+    const fallbackEmailRegister = await service.register({
+      email: "fallbackemail@example.com",
+      password: "Password123"
+    });
     assert.equal(fallbackEmailRegister.profile.email, "fallbackemail@example.com");
     const confirm = await service.register({ email: "confirm@example.com", password: "Password123" });
     assert.equal(confirm.requiresEmailConfirmation, true);
@@ -668,33 +680,45 @@ test("authService register/login/reset/recovery flows and error mapping", async 
     assert.ok(registered.session.access_token);
 
     await assert.rejects(() => service.login({ email: "", password: "" }), /Validation failed/);
-    await assert.rejects(() => service.login({ email: "invalid@example.com", password: "Password123" }), (error) => {
-      assert.equal(error.status, 401);
-      return true;
-    });
+    await assert.rejects(
+      () => service.login({ email: "invalid@example.com", password: "Password123" }),
+      (error) => {
+        assert.equal(error.status, 401);
+        return true;
+      }
+    );
 
     const login = await service.login({ email: "login@example.com", password: "Password123" });
     assert.equal(login.profile.email, "login@example.com");
     assert.ok(login.session.access_token);
 
     await assert.rejects(() => service.requestPasswordReset({ email: "" }), /Validation failed/);
-    await assert.rejects(() => service.requestPasswordReset({ email: "transient@example.com" }), (error) => {
-      assert.equal(error.status, 503);
-      return true;
-    });
+    await assert.rejects(
+      () => service.requestPasswordReset({ email: "transient@example.com" }),
+      (error) => {
+        assert.equal(error.status, 503);
+        return true;
+      }
+    );
 
     const forgot = await service.requestPasswordReset({ email: "forgot@example.com" });
     assert.equal(forgot.ok, true);
-    await assert.rejects(() => service.requestPasswordReset({ email: "throw@example.com" }), (error) => {
-      assert.equal(error.status, 503);
-      return true;
-    });
+    await assert.rejects(
+      () => service.requestPasswordReset({ email: "throw@example.com" }),
+      (error) => {
+        assert.equal(error.status, 503);
+        return true;
+      }
+    );
 
     await assert.rejects(() => service.completePasswordRecovery({}), /Validation failed/);
-    await assert.rejects(() => service.completePasswordRecovery({ code: "badcode" }), (error) => {
-      assert.equal(error.status, 401);
-      return true;
-    });
+    await assert.rejects(
+      () => service.completePasswordRecovery({ code: "badcode" }),
+      (error) => {
+        assert.equal(error.status, 401);
+        return true;
+      }
+    );
     await assert.rejects(
       () =>
         createAuthServiceForTest({
@@ -705,10 +729,13 @@ test("authService register/login/reset/recovery flows and error mapping", async 
         return true;
       }
     );
-    await assert.rejects(() => service.completePasswordRecovery({ tokenHash: "bad-hash" }), (error) => {
-      assert.equal(error.status, 429);
-      return true;
-    });
+    await assert.rejects(
+      () => service.completePasswordRecovery({ tokenHash: "bad-hash" }),
+      (error) => {
+        assert.equal(error.status, 429);
+        return true;
+      }
+    );
 
     const byCode = await service.completePasswordRecovery({ code: "goodcode" });
     assert.equal(byCode.profile.email, "recover@example.com");
@@ -725,10 +752,7 @@ test("authService register/login/reset/recovery flows and error mapping", async 
     assert.equal(byPair.profile.email, "reset@example.com");
     assert.ok(byPair.session.access_token);
 
-    await assert.rejects(
-      () => service.resetPassword({}, { password: "Password123" }),
-      /Authentication required/
-    );
+    await assert.rejects(() => service.resetPassword({}, { password: "Password123" }), /Authentication required/);
     await assert.rejects(
       () =>
         service.resetPassword(
@@ -1304,7 +1328,8 @@ test("authService ensureConfigured guard applies to methods", async () => {
   await assert.rejects(() => service.requestPasswordReset({ email: "a@example.com" }), /not configured/);
   await assert.rejects(() => service.completePasswordRecovery({ code: "abc" }), /not configured/);
   await assert.rejects(
-    () => service.resetPassword({ cookies: { sb_access_token: "a", sb_refresh_token: "b" } }, { password: "Password123" }),
+    () =>
+      service.resetPassword({ cookies: { sb_access_token: "a", sb_refresh_token: "b" } }, { password: "Password123" }),
     /not configured/
   );
   await assert.rejects(
@@ -1343,10 +1368,13 @@ test("completePasswordRecovery maps thrown exchange errors to transient auth err
   });
 
   try {
-    await assert.rejects(() => service.completePasswordRecovery({ code: "throwcode" }), (error) => {
-      assert.equal(error.status, 503);
-      return true;
-    });
+    await assert.rejects(
+      () => service.completePasswordRecovery({ code: "throwcode" }),
+      (error) => {
+        assert.equal(error.status, 503);
+        return true;
+      }
+    );
   } finally {
     fetchMock.mock.restore();
   }
@@ -1622,16 +1650,22 @@ test("authService updateDisplayName covers validation, session, and update error
     userProfilesRepository: createProfilesRepository()
   });
 
-  await assert.rejects(() => service.updateDisplayName({ cookies: {} }, " "), (error) => {
-    assert.equal(error.status, 400);
-    assert.equal(error.details.fieldErrors.displayName, "Display name is required.");
-    return true;
-  });
-  await assert.rejects(() => service.updateDisplayName({ cookies: {} }, undefined), (error) => {
-    assert.equal(error.status, 400);
-    assert.equal(error.details.fieldErrors.displayName, "Display name is required.");
-    return true;
-  });
+  await assert.rejects(
+    () => service.updateDisplayName({ cookies: {} }, " "),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.details.fieldErrors.displayName, "Display name is required.");
+      return true;
+    }
+  );
+  await assert.rejects(
+    () => service.updateDisplayName({ cookies: {} }, undefined),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.details.fieldErrors.displayName, "Display name is required.");
+      return true;
+    }
+  );
 
   const setSessionThrowFetch = mock.method(globalThis, "fetch", async (input, init) => {
     const request = parseFetchInput(input, init);
@@ -2694,7 +2728,9 @@ test("authService setPasswordSignInEnabled syncs profile when password secret ro
     );
     assert.ok(upsertCalls.length >= 2);
     assert.equal(
-      upsertCalls.some((profile) => profile.supabaseUserId === "supabase-user-sync" && profile.displayName === "rotated-user"),
+      upsertCalls.some(
+        (profile) => profile.supabaseUserId === "supabase-user-sync" && profile.displayName === "rotated-user"
+      ),
       true
     );
     const passwordMethod = result.securityStatus.authMethods.find((method) => method.id === "password");

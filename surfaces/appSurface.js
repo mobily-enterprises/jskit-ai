@@ -10,11 +10,7 @@ function normalizeDenyUserIds(rawUserIds) {
   }
 
   return Array.from(
-    new Set(
-      rawUserIds
-        .map((value) => Number(value))
-        .filter((value) => Number.isInteger(value) && value > 0)
-    )
+    new Set(rawUserIds.map((value) => Number(value)).filter((value) => Number.isInteger(value) && value > 0))
   );
 }
 
@@ -23,17 +19,12 @@ function normalizeDenyEmails(rawEmails) {
     return [];
   }
 
-  return Array.from(
-    new Set(
-      rawEmails
-        .map((value) => normalizeEmail(value))
-        .filter(Boolean)
-    )
-  );
+  return Array.from(new Set(rawEmails.map((value) => normalizeEmail(value)).filter(Boolean)));
 }
 
 function extractAppSurfacePolicy(workspaceSettings) {
-  const features = workspaceSettings?.features && typeof workspaceSettings.features === "object" ? workspaceSettings.features : {};
+  const features =
+    workspaceSettings?.features && typeof workspaceSettings.features === "object" ? workspaceSettings.features : {};
   const surfaceAccess =
     features.surfaceAccess && typeof features.surfaceAccess === "object" ? features.surfaceAccess : {};
   const appPolicy = surfaceAccess.app && typeof surfaceAccess.app === "object" ? surfaceAccess.app : {};
@@ -86,9 +77,7 @@ function canAccessWorkspace(context = {}) {
   }
 
   const rolePermissions =
-    typeof context.resolvePermissions === "function"
-      ? context.resolvePermissions(membershipRoleId)
-      : [];
+    typeof context.resolvePermissions === "function" ? context.resolvePermissions(membershipRoleId) : [];
 
   return {
     allowed: true,

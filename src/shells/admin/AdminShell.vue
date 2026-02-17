@@ -146,7 +146,9 @@
         </v-card-text>
         <v-divider />
         <v-card-actions class="justify-end pa-4">
-          <v-btn variant="text" color="error" :loading="inviteDecisionBusy" @click="respondToInvite('refuse')">Refuse</v-btn>
+          <v-btn variant="text" color="error" :loading="inviteDecisionBusy" @click="respondToInvite('refuse')"
+            >Refuse</v-btn
+          >
           <v-btn color="primary" :loading="inviteDecisionBusy" @click="respondToInvite('accept')">Join</v-btn>
         </v-card-actions>
       </v-card>
@@ -228,8 +230,8 @@ export default {
 }
 
 .app-main-shell {
-  background: linear-gradient(180deg, var(--workspace-color-soft), rgba(15, 107, 84, 0) 240px),
-    rgb(var(--v-theme-background));
+  background:
+    linear-gradient(180deg, var(--workspace-color-soft), rgba(15, 107, 84, 0) 240px), rgb(var(--v-theme-background));
 }
 
 .app-content {

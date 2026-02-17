@@ -99,46 +99,48 @@ function createOauthFixture(overrides = {}) {
     auth
   };
 
-  const authContextQueue = Array.isArray(overrides.authContextQueue) && overrides.authContextQueue.length > 0
-    ? [...overrides.authContextQueue]
-    : [
-        {
-          user: {
-            id: "supabase-user-1",
-            email: "user@example.com",
-            identities: [{ provider: "google", id: "identity-google" }]
+  const authContextQueue =
+    Array.isArray(overrides.authContextQueue) && overrides.authContextQueue.length > 0
+      ? [...overrides.authContextQueue]
+      : [
+          {
+            user: {
+              id: "supabase-user-1",
+              email: "user@example.com",
+              identities: [{ provider: "google", id: "identity-google" }]
+            },
+            authMethodsStatus: {
+              methods: [
+                {
+                  id: "oauth:google",
+                  provider: "google",
+                  configured: true,
+                  canDisable: true
+                }
+              ]
+            }
           },
-          authMethodsStatus: {
-            methods: [
-              {
-                id: "oauth:google",
-                provider: "google",
-                configured: true,
-                canDisable: true
-              }
-            ]
+          {
+            user: {
+              id: "supabase-user-1",
+              email: "user@example.com",
+              identities: []
+            },
+            authMethodsStatus: {
+              methods: []
+            }
           }
-        },
-        {
-          user: {
-            id: "supabase-user-1",
-            email: "user@example.com",
-            identities: []
-          },
-          authMethodsStatus: {
-            methods: []
-          }
-        }
-      ];
+        ];
 
   const deps = {
     ensureConfigured() {
       calls.ensureConfigured += 1;
     },
     normalizeOAuthProviderInput(provider) {
-      const normalized = String(provider || "")
-        .trim()
-        .toLowerCase() || "google";
+      const normalized =
+        String(provider || "")
+          .trim()
+          .toLowerCase() || "google";
       calls.normalizeOAuthProviderInput.push(normalized);
       return normalized;
     },
@@ -310,9 +312,12 @@ test("oauthStart handles success and maps start errors", async () => {
       }
     }
   });
-  await assert.rejects(() => throwFixture.flows.oauthStart({ provider: "google" }), (error) => {
-    return error instanceof AppError && error.statusCode === 500;
-  });
+  await assert.rejects(
+    () => throwFixture.flows.oauthStart({ provider: "google" }),
+    (error) => {
+      return error instanceof AppError && error.statusCode === 500;
+    }
+  );
   assert.equal(throwFixture.calls.mapAuthError[0].statusCode, 500);
 
   const responseErrorFixture = createOauthFixture({
@@ -327,9 +332,12 @@ test("oauthStart handles success and maps start errors", async () => {
       }
     }
   });
-  await assert.rejects(() => responseErrorFixture.flows.oauthStart({ provider: "google" }), (error) => {
-    return error instanceof AppError && error.statusCode === 400;
-  });
+  await assert.rejects(
+    () => responseErrorFixture.flows.oauthStart({ provider: "google" }),
+    (error) => {
+      return error instanceof AppError && error.statusCode === 400;
+    }
+  );
   assert.equal(responseErrorFixture.calls.mapAuthError[0].statusCode, 400);
 });
 
@@ -337,9 +345,12 @@ test("startProviderLink enforces capability and maps link errors", async () => {
   const unsupportedFixture = createOauthFixture({
     removeSupabaseAuthMethods: ["linkIdentity"]
   });
-  await assert.rejects(() => unsupportedFixture.flows.startProviderLink({}, { provider: "google" }), (error) => {
-    return error instanceof AppError && error.statusCode === 500;
-  });
+  await assert.rejects(
+    () => unsupportedFixture.flows.startProviderLink({}, { provider: "google" }),
+    (error) => {
+      return error instanceof AppError && error.statusCode === 500;
+    }
+  );
 
   const successFixture = createOauthFixture();
   const linked = await successFixture.flows.startProviderLink(
@@ -365,9 +376,12 @@ test("startProviderLink enforces capability and maps link errors", async () => {
       }
     }
   });
-  await assert.rejects(() => throwFixture.flows.startProviderLink({}, { provider: "google" }), (error) => {
-    return error instanceof AppError && error.statusCode === 500;
-  });
+  await assert.rejects(
+    () => throwFixture.flows.startProviderLink({}, { provider: "google" }),
+    (error) => {
+      return error instanceof AppError && error.statusCode === 500;
+    }
+  );
   assert.equal(throwFixture.calls.mapAuthError[0].statusCode, 500);
 
   const responseErrorFixture = createOauthFixture({
@@ -383,9 +397,12 @@ test("startProviderLink enforces capability and maps link errors", async () => {
       }
     }
   });
-  await assert.rejects(() => responseErrorFixture.flows.startProviderLink({}, { provider: "google" }), (error) => {
-    return error instanceof AppError && error.statusCode === 400;
-  });
+  await assert.rejects(
+    () => responseErrorFixture.flows.startProviderLink({}, { provider: "google" }),
+    (error) => {
+      return error instanceof AppError && error.statusCode === 400;
+    }
+  );
   assert.equal(responseErrorFixture.calls.mapAuthError[0].statusCode, 400);
 });
 
@@ -404,9 +421,12 @@ test("oauthComplete validates callback payload and supports both session recover
       refreshToken: ""
     }
   });
-  await assert.rejects(() => invalidPayloadFixture.flows.oauthComplete({}), (error) => {
-    return error instanceof AppError && error.statusCode === 400;
-  });
+  await assert.rejects(
+    () => invalidPayloadFixture.flows.oauthComplete({}),
+    (error) => {
+      return error instanceof AppError && error.statusCode === 400;
+    }
+  );
 
   const callbackErrorFixture = createOauthFixture({
     parsedOAuthPayload: {
@@ -420,9 +440,12 @@ test("oauthComplete validates callback payload and supports both session recover
       refreshToken: ""
     }
   });
-  await assert.rejects(() => callbackErrorFixture.flows.oauthComplete({}), (error) => {
-    return error instanceof AppError && error.statusCode === 401;
-  });
+  await assert.rejects(
+    () => callbackErrorFixture.flows.oauthComplete({}),
+    (error) => {
+      return error instanceof AppError && error.statusCode === 401;
+    }
+  );
   assert.equal(callbackErrorFixture.calls.mapOAuthCallbackError.length, 1);
 
   const setSessionFixture = createOauthFixture({
@@ -476,9 +499,12 @@ test("oauthComplete validates callback payload and supports both session recover
       }
     }
   });
-  await assert.rejects(() => thrownRecoveryFixture.flows.oauthComplete({}), (error) => {
-    return error instanceof AppError && error.statusCode === 401;
-  });
+  await assert.rejects(
+    () => thrownRecoveryFixture.flows.oauthComplete({}),
+    (error) => {
+      return error instanceof AppError && error.statusCode === 401;
+    }
+  );
   assert.equal(thrownRecoveryFixture.calls.mapRecoveryError.length, 1);
 
   const invalidRecoveryFixture = createOauthFixture({
@@ -504,9 +530,12 @@ test("oauthComplete validates callback payload and supports both session recover
       }
     }
   });
-  await assert.rejects(() => invalidRecoveryFixture.flows.oauthComplete({}), (error) => {
-    return error instanceof AppError && error.statusCode === 401;
-  });
+  await assert.rejects(
+    () => invalidRecoveryFixture.flows.oauthComplete({}),
+    (error) => {
+      return error instanceof AppError && error.statusCode === 401;
+    }
+  );
   assert.equal(invalidRecoveryFixture.calls.mapRecoveryError.length, 1);
 });
 
@@ -514,9 +543,12 @@ test("unlinkProvider validates provider state before unlinking", async () => {
   const unsupportedFixture = createOauthFixture({
     removeSupabaseAuthMethods: ["unlinkIdentity"]
   });
-  await assert.rejects(() => unsupportedFixture.flows.unlinkProvider({}, { provider: "google" }), (error) => {
-    return error instanceof AppError && error.statusCode === 500;
-  });
+  await assert.rejects(
+    () => unsupportedFixture.flows.unlinkProvider({}, { provider: "google" }),
+    (error) => {
+      return error instanceof AppError && error.statusCode === 500;
+    }
+  );
 
   const notLinkedFixture = createOauthFixture({
     authContextQueue: [
@@ -532,9 +564,12 @@ test("unlinkProvider validates provider state before unlinking", async () => {
       }
     ]
   });
-  await assert.rejects(() => notLinkedFixture.flows.unlinkProvider({}, { provider: "google" }), (error) => {
-    return error instanceof AppError && error.statusCode === 400;
-  });
+  await assert.rejects(
+    () => notLinkedFixture.flows.unlinkProvider({}, { provider: "google" }),
+    (error) => {
+      return error instanceof AppError && error.statusCode === 400;
+    }
+  );
 
   const cannotDisableFixture = createOauthFixture({
     authContextQueue: [
@@ -557,9 +592,12 @@ test("unlinkProvider validates provider state before unlinking", async () => {
       }
     ]
   });
-  await assert.rejects(() => cannotDisableFixture.flows.unlinkProvider({}, { provider: "google" }), (error) => {
-    return error instanceof AppError && error.statusCode === 409;
-  });
+  await assert.rejects(
+    () => cannotDisableFixture.flows.unlinkProvider({}, { provider: "google" }),
+    (error) => {
+      return error instanceof AppError && error.statusCode === 409;
+    }
+  );
 
   const missingIdentityFixture = createOauthFixture({
     authContextQueue: [
@@ -582,9 +620,12 @@ test("unlinkProvider validates provider state before unlinking", async () => {
       }
     ]
   });
-  await assert.rejects(() => missingIdentityFixture.flows.unlinkProvider({}, { provider: "google" }), (error) => {
-    return error instanceof AppError && error.statusCode === 409;
-  });
+  await assert.rejects(
+    () => missingIdentityFixture.flows.unlinkProvider({}, { provider: "google" }),
+    (error) => {
+      return error instanceof AppError && error.statusCode === 409;
+    }
+  );
 });
 
 test("unlinkProvider maps supabase unlink failures and returns refreshed security status", async () => {
@@ -595,9 +636,12 @@ test("unlinkProvider maps supabase unlink failures and returns refreshed securit
       }
     }
   });
-  await assert.rejects(() => thrownFixture.flows.unlinkProvider({}, { provider: "google" }), (error) => {
-    return error instanceof AppError && error.statusCode === 500;
-  });
+  await assert.rejects(
+    () => thrownFixture.flows.unlinkProvider({}, { provider: "google" }),
+    (error) => {
+      return error instanceof AppError && error.statusCode === 500;
+    }
+  );
   assert.equal(thrownFixture.calls.mapAuthError[0].statusCode, 500);
 
   const responseErrorFixture = createOauthFixture({
@@ -612,9 +656,12 @@ test("unlinkProvider maps supabase unlink failures and returns refreshed securit
       }
     }
   });
-  await assert.rejects(() => responseErrorFixture.flows.unlinkProvider({}, { provider: "google" }), (error) => {
-    return error instanceof AppError && error.statusCode === 422;
-  });
+  await assert.rejects(
+    () => responseErrorFixture.flows.unlinkProvider({}, { provider: "google" }),
+    (error) => {
+      return error instanceof AppError && error.statusCode === 422;
+    }
+  );
   assert.equal(responseErrorFixture.calls.mapAuthError[0].statusCode, 422);
 
   const successFixture = createOauthFixture({

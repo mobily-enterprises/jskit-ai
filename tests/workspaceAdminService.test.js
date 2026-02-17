@@ -203,7 +203,9 @@ function createWorkspaceAdminFixture(overrides = {}) {
   const workspaceMembershipsRepository = {
     async listActiveByWorkspaceId(workspaceId) {
       return state.memberships
-        .filter((membership) => Number(membership.workspaceId) === Number(workspaceId) && membership.status === "active")
+        .filter(
+          (membership) => Number(membership.workspaceId) === Number(workspaceId) && membership.status === "active"
+        )
         .map((membership) => ({
           ...membership,
           user: {
@@ -213,7 +215,8 @@ function createWorkspaceAdminFixture(overrides = {}) {
     },
     async findByWorkspaceIdAndUserId(workspaceId, userId) {
       const found = state.memberships.find(
-        (membership) => Number(membership.workspaceId) === Number(workspaceId) && Number(membership.userId) === Number(userId)
+        (membership) =>
+          Number(membership.workspaceId) === Number(workspaceId) && Number(membership.userId) === Number(userId)
       );
       return found
         ? {
@@ -226,7 +229,8 @@ function createWorkspaceAdminFixture(overrides = {}) {
     },
     async updateRoleByWorkspaceIdAndUserId(workspaceId, userId, roleId) {
       const index = state.memberships.findIndex(
-        (membership) => Number(membership.workspaceId) === Number(workspaceId) && Number(membership.userId) === Number(userId)
+        (membership) =>
+          Number(membership.workspaceId) === Number(workspaceId) && Number(membership.userId) === Number(userId)
       );
       if (index >= 0) {
         state.memberships[index] = {
@@ -238,7 +242,8 @@ function createWorkspaceAdminFixture(overrides = {}) {
     },
     async ensureActiveByWorkspaceIdAndUserId(workspaceId, userId, roleId) {
       const index = state.memberships.findIndex(
-        (membership) => Number(membership.workspaceId) === Number(workspaceId) && Number(membership.userId) === Number(userId)
+        (membership) =>
+          Number(membership.workspaceId) === Number(workspaceId) && Number(membership.userId) === Number(userId)
       );
       if (index >= 0) {
         state.memberships[index] = {
@@ -321,13 +326,17 @@ function createWorkspaceAdminFixture(overrides = {}) {
       return index >= 0 ? toInviteWithWorkspace(state.invites[index]) : null;
     },
     async listPendingByEmail(email) {
-      const normalizedEmail = String(email || "").trim().toLowerCase();
+      const normalizedEmail = String(email || "")
+        .trim()
+        .toLowerCase();
       return state.invites
         .filter((invite) => invite.status === "pending" && String(invite.email || "").toLowerCase() === normalizedEmail)
         .map((invite) => toInviteWithWorkspace(invite));
     },
     async findPendingByIdAndEmail(inviteId, email) {
-      const normalizedEmail = String(email || "").trim().toLowerCase();
+      const normalizedEmail = String(email || "")
+        .trim()
+        .toLowerCase();
       const found = state.invites.find(
         (invite) =>
           Number(invite.id) === Number(inviteId) &&
@@ -548,9 +557,16 @@ test("workspace admin service manages members, invites, and pending invite respo
     (error) => error instanceof AppError && error.statusCode === 409
   );
 
-  const createdInviteResponse = await service.createInvite({ id: 11 }, { id: 5 }, { email: "new@example.com", roleId: "member" });
+  const createdInviteResponse = await service.createInvite(
+    { id: 11 },
+    { id: 5 },
+    { email: "new@example.com", roleId: "member" }
+  );
   assert.equal(counters.inviteInserts, 1);
-  assert.equal(createdInviteResponse.invites.some((invite) => invite.email === "new@example.com"), true);
+  assert.equal(
+    createdInviteResponse.invites.some((invite) => invite.email === "new@example.com"),
+    true
+  );
 
   await assert.rejects(
     () => service.revokeInvite({ id: 11 }, "invalid"),
@@ -562,7 +578,10 @@ test("workspace admin service manages members, invites, and pending invite respo
   );
 
   const revokedResponse = await service.revokeInvite({ id: 11 }, 100);
-  assert.equal(revokedResponse.invites.some((invite) => invite.id === 100), false);
+  assert.equal(
+    revokedResponse.invites.some((invite) => invite.id === 100),
+    false
+  );
 
   assert.deepEqual(await service.listPendingInvitesForUser({ email: "", id: 5 }), []);
 
@@ -583,7 +602,8 @@ test("workspace admin service manages members, invites, and pending invite respo
     (error) => error instanceof AppError && error.statusCode === 401
   );
   await assert.rejects(
-    () => service.respondToPendingInvite({ user: { id: 5, email: "owner@example.com" }, inviteId: 100, decision: "bad" }),
+    () =>
+      service.respondToPendingInvite({ user: { id: 5, email: "owner@example.com" }, inviteId: 100, decision: "bad" }),
     (error) => error instanceof AppError && error.statusCode === 400
   );
   await assert.rejects(
@@ -647,5 +667,388 @@ test("workspace admin service manages members, invites, and pending invite respo
   assert.equal(accepted.decision, "accepted");
   assert.equal(accepted.workspace.slug, "acme");
   assert.equal(state.updatedLastActiveWorkspaceByUserId.get(41), 11);
-  assert.equal(state.memberships.some((membership) => membership.userId === 41 && membership.status === "active"), true);
+  assert.equal(
+    state.memberships.some((membership) => membership.userId === 41 && membership.status === "active"),
+    true
+  );
+});
+
+test("workspace admin service normalizes sparse member/invite data and fallback branches", async () => {
+  const state = {
+    workspace: {
+      id: 11,
+      slug: "",
+      name: null,
+      color: "bad-color",
+      avatarUrl: null,
+      ownerUserId: 5,
+      isPersonal: false
+    },
+    settings: {
+      workspaceId: 11,
+      invitesEnabled: true,
+      features: null,
+      policy: null
+    },
+    insertedInvite: null
+  };
+
+  const workspacesRepository = {
+    async findById(id) {
+      if (Number(id) !== 11) {
+        return null;
+      }
+      return { ...state.workspace };
+    },
+    async updateById(_id, patch) {
+      state.workspace = {
+        ...state.workspace,
+        ...patch
+      };
+      return { ...state.workspace };
+    }
+  };
+
+  const workspaceSettingsRepository = {
+    async ensureForWorkspaceId(workspaceId) {
+      if (Number(workspaceId) !== 11) {
+        return null;
+      }
+      return {
+        ...state.settings,
+        features: state.settings.features,
+        policy: state.settings.policy
+      };
+    },
+    async updateByWorkspaceId(_workspaceId, patch) {
+      state.settings = {
+        ...state.settings,
+        ...patch
+      };
+      return {
+        ...state.settings
+      };
+    }
+  };
+
+  const workspaceMembershipsRepository = {
+    async listActiveByWorkspaceId() {
+      return [
+        {
+          userId: 42,
+          user: null,
+          roleId: "",
+          status: undefined
+        },
+        {
+          userId: 88,
+          user: {},
+          roleId: "owner",
+          status: "active"
+        }
+      ];
+    },
+    async findByWorkspaceIdAndUserId(_workspaceId, userId) {
+      if (Number(userId) === 9) {
+        return {
+          userId: 9,
+          roleId: "member",
+          status: "active"
+        };
+      }
+      if (Number(userId) === 88) {
+        return {
+          userId: 88,
+          roleId: "owner",
+          status: "active"
+        };
+      }
+      return null;
+    },
+    async updateRoleByWorkspaceIdAndUserId() {},
+    async ensureActiveByWorkspaceIdAndUserId() {}
+  };
+
+  const inviteBase = {
+    workspaceId: 11,
+    email: "",
+    roleId: "",
+    status: "",
+    expiresAt: "2030-01-01T00:00:00.000Z",
+    invitedByUserId: null,
+    invitedBy: {
+      displayName: "",
+      email: ""
+    }
+  };
+
+  const workspaceInvitesRepository = {
+    async markExpiredPendingInvites() {},
+    async listPendingByWorkspaceIdWithWorkspace() {
+      return [
+        {
+          id: 500,
+          ...inviteBase,
+          workspace: {
+            id: 11,
+            slug: null,
+            name: null,
+            color: "bad-color",
+            avatarUrl: null
+          }
+        },
+        {
+          id: 501,
+          ...inviteBase,
+          workspace: null
+        }
+      ];
+    },
+    async findPendingByWorkspaceIdAndEmail() {
+      return null;
+    },
+    async insert(payload) {
+      state.insertedInvite = {
+        ...payload
+      };
+    },
+    async findPendingByIdForWorkspace() {
+      return {
+        id: 500,
+        ...inviteBase,
+        workspace: {
+          id: 11,
+          slug: "",
+          name: "",
+          color: "bad-color",
+          avatarUrl: ""
+        }
+      };
+    },
+    async revokeById() {},
+    async listPendingByEmail(email) {
+      if (String(email) === "pending@example.com") {
+        return [
+          {
+            id: 600,
+            ...inviteBase,
+            workspace: {
+              id: 11,
+              slug: "",
+              name: "",
+              color: "bad-color",
+              avatarUrl: ""
+            }
+          }
+        ];
+      }
+      return [];
+    },
+    async findPendingByIdAndEmail(inviteId) {
+      if (Number(inviteId) === 700) {
+        return {
+          id: 700,
+          ...inviteBase,
+          workspace: null
+        };
+      }
+      if (Number(inviteId) === 701) {
+        return {
+          id: 701,
+          ...inviteBase,
+          workspace: {
+            id: 11,
+            slug: "",
+            name: "",
+            color: "bad-color",
+            avatarUrl: ""
+          }
+        };
+      }
+      if (Number(inviteId) === 702) {
+        return {
+          id: 702,
+          ...inviteBase,
+          roleId: "member",
+          workspace: {
+            id: 11,
+            slug: null,
+            name: null,
+            color: "bad-color",
+            avatarUrl: null
+          }
+        };
+      }
+      if (Number(inviteId) === 703) {
+        return {
+          id: 703,
+          ...inviteBase,
+          workspace: null
+        };
+      }
+      return null;
+    },
+    async markAcceptedById() {}
+  };
+
+  const service = createWorkspaceAdminService({
+    appConfig: {
+      features: {
+        workspaceInvites: true
+      }
+    },
+    rbacManifest: {
+      defaultInviteRole: "member",
+      collaborationEnabled: true,
+      roles: {
+        owner: {
+          assignable: false,
+          permissions: ["*"]
+        },
+        admin: {
+          assignable: true,
+          permissions: ["workspace.members.manage"]
+        },
+        member: {
+          assignable: true,
+          permissions: ["history.read"]
+        }
+      }
+    },
+    workspacesRepository,
+    workspaceSettingsRepository,
+    workspaceMembershipsRepository,
+    workspaceInvitesRepository,
+    userProfilesRepository: {
+      async findByEmail() {
+        return null;
+      }
+    },
+    userSettingsRepository: {
+      async updateLastActiveWorkspaceId() {}
+    }
+  });
+
+  const members = await service.listMembers({ id: 11 });
+  assert.equal(members.members[0].email, "");
+  assert.equal(members.members[0].displayName, "");
+  assert.equal(members.members[0].status, "active");
+  assert.equal(members.members[1].isOwner, true);
+
+  await assert.rejects(
+    () => service.updateMemberRole({ id: 11 }, { memberUserId: 9, roleId: "" }),
+    (error) => error instanceof AppError && error.statusCode === 400
+  );
+  await assert.rejects(
+    () => service.updateMemberRole({ id: 11 }, { memberUserId: 88, roleId: "admin" }),
+    (error) => error instanceof AppError && error.statusCode === 409
+  );
+
+  const listedInvites = await service.listInvites({ id: 11 });
+  assert.equal(listedInvites.invites.length, 2);
+  assert.equal(listedInvites.invites[0].workspace.slug, "");
+  assert.equal(listedInvites.invites[0].workspace.name, "");
+  assert.equal(listedInvites.invites[0].workspace.avatarUrl, "");
+  assert.equal(listedInvites.invites[1].workspace, null);
+
+  await service.createInvite({ id: 11 }, {}, { email: "new@example.com" });
+  assert.equal(state.insertedInvite.roleId, "member");
+  assert.equal(state.insertedInvite.invitedByUserId, null);
+
+  await service.updateWorkspaceSettings(
+    { id: 11 },
+    {
+      defaultMode: "pv",
+      defaultTiming: "due",
+      defaultPaymentsPerYear: 4,
+      defaultHistoryPageSize: 25,
+      appDenyEmails: ["one@example.com"],
+      appDenyUserIds: [2]
+    }
+  );
+  assert.deepEqual(state.settings.policy, {
+    defaultMode: "pv",
+    defaultTiming: "due",
+    defaultPaymentsPerYear: 4,
+    defaultHistoryPageSize: 25
+  });
+  assert.deepEqual(state.settings.features.surfaceAccess.app, {
+    denyEmails: ["one@example.com"],
+    denyUserIds: [2]
+  });
+
+  const pendingNone = await service.listPendingInvitesForUser({
+    id: 99,
+    email: "none@example.com"
+  });
+  assert.deepEqual(pendingNone, []);
+  const pendingSome = await service.listPendingInvitesForUser({
+    id: 99,
+    email: "pending@example.com"
+  });
+  assert.equal(pendingSome.length, 1);
+
+  await assert.rejects(
+    () =>
+      service.respondToPendingInvite({
+        user: {
+          id: 99,
+          email: "pending@example.com"
+        },
+        inviteId: 700
+      }),
+    (error) => error instanceof AppError && error.statusCode === 400
+  );
+
+  const refusedNullWorkspace = await service.respondToPendingInvite({
+    user: {
+      id: 99,
+      email: "pending@example.com"
+    },
+    inviteId: 700,
+    decision: "refuse"
+  });
+  assert.equal(refusedNullWorkspace.workspace, null);
+
+  const refusedWithSparseWorkspace = await service.respondToPendingInvite({
+    user: {
+      id: 99,
+      email: "pending@example.com"
+    },
+    inviteId: 702,
+    decision: "refuse"
+  });
+  assert.deepEqual(refusedWithSparseWorkspace.workspace, {
+    id: 11,
+    slug: "",
+    name: "",
+    color: "#0F6B54",
+    avatarUrl: ""
+  });
+
+  const acceptedWithSparseWorkspace = await service.respondToPendingInvite({
+    user: {
+      id: 100,
+      email: "pending@example.com"
+    },
+    inviteId: 701,
+    decision: "accept"
+  });
+  assert.deepEqual(acceptedWithSparseWorkspace.workspace, {
+    id: 11,
+    slug: "",
+    name: "",
+    color: "#0F6B54",
+    avatarUrl: ""
+  });
+
+  const acceptedNullWorkspace = await service.respondToPendingInvite({
+    user: {
+      id: 100,
+      email: "pending@example.com"
+    },
+    inviteId: 703,
+    decision: "accept"
+  });
+  assert.equal(acceptedNullWorkspace.workspace, null);
 });

@@ -133,8 +133,8 @@ describe("useAppShell", () => {
     mocks.workspaceStore.profileDisplayName = "Tony";
     mocks.workspaceStore.profileAvatarUrl = "";
     mocks.workspaceStore.can.mockReset();
-    mocks.workspaceStore.can.mockImplementation((permission) =>
-      permission === "workspace.settings.view" || permission === "workspace.settings.update"
+    mocks.workspaceStore.can.mockImplementation(
+      (permission) => permission === "workspace.settings.view" || permission === "workspace.settings.update"
     );
     mocks.workspaceStore.clearWorkspaceState.mockReset();
 

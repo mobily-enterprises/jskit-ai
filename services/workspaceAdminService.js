@@ -209,7 +209,9 @@ function createWorkspaceAdminService({
       const currentFeatures =
         currentSettings?.features && typeof currentSettings.features === "object" ? currentSettings.features : {};
       const currentSurfaceAccess =
-        currentFeatures.surfaceAccess && typeof currentFeatures.surfaceAccess === "object" ? currentFeatures.surfaceAccess : {};
+        currentFeatures.surfaceAccess && typeof currentFeatures.surfaceAccess === "object"
+          ? currentFeatures.surfaceAccess
+          : {};
       const currentAppSurfaceAccess =
         currentSurfaceAccess.app && typeof currentSurfaceAccess.app === "object" ? currentSurfaceAccess.app : {};
 
@@ -274,12 +276,18 @@ function createWorkspaceAdminService({
 
     const roleId = normalizeRoleForAssignment(payload?.roleId);
 
-    const existingMembership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(workspace.id, memberUserId);
+    const existingMembership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(
+      workspace.id,
+      memberUserId
+    );
     if (!existingMembership || existingMembership.status !== "active") {
       throw new AppError(404, "Member not found.");
     }
 
-    if (Number(memberUserId) === Number(workspace.ownerUserId) || String(existingMembership.roleId || "") === OWNER_ROLE_ID) {
+    if (
+      Number(memberUserId) === Number(workspace.ownerUserId) ||
+      String(existingMembership.roleId || "") === OWNER_ROLE_ID
+    ) {
       throw new AppError(409, "Cannot change workspace owner role.");
     }
 
@@ -327,7 +335,10 @@ function createWorkspaceAdminService({
     const roleId = normalizeRoleForAssignment(payload?.roleId || rbacManifest.defaultInviteRole);
     const existingMembership = await userProfilesRepository.findByEmail(email);
     if (existingMembership) {
-      const memberInWorkspace = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(workspace.id, existingMembership.id);
+      const memberInWorkspace = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(
+        workspace.id,
+        existingMembership.id
+      );
       if (memberInWorkspace && memberInWorkspace.status === "active") {
         throw new AppError(409, "User is already a workspace member.");
       }
@@ -405,7 +416,9 @@ function createWorkspaceAdminService({
       throw new AppError(401, "Authentication required.");
     }
 
-    const normalizedDecision = String(decision || "").trim().toLowerCase();
+    const normalizedDecision = String(decision || "")
+      .trim()
+      .toLowerCase();
     if (normalizedDecision !== "accept" && normalizedDecision !== "refuse") {
       throw new AppError(400, "Validation failed.", {
         details: {
@@ -428,15 +441,15 @@ function createWorkspaceAdminService({
         ok: true,
         decision: "refused",
         inviteId: Number(invite.id),
-      workspace: invite.workspace
-        ? {
-            id: Number(invite.workspace.id),
-            slug: String(invite.workspace.slug || ""),
-            name: String(invite.workspace.name || ""),
-            color: coerceWorkspaceColor(invite.workspace.color),
-            avatarUrl: invite.workspace.avatarUrl ? String(invite.workspace.avatarUrl) : ""
-          }
-        : null
+        workspace: invite.workspace
+          ? {
+              id: Number(invite.workspace.id),
+              slug: String(invite.workspace.slug || ""),
+              name: String(invite.workspace.name || ""),
+              color: coerceWorkspaceColor(invite.workspace.color),
+              avatarUrl: invite.workspace.avatarUrl ? String(invite.workspace.avatarUrl) : ""
+            }
+          : null
       };
     }
 

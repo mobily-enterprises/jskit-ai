@@ -230,7 +230,12 @@ function parseChangePasswordInput(payload = {}, options = {}) {
     fieldErrors.confirmPassword = confirmPasswordError;
   }
 
-  if (requireCurrentPassword && !fieldErrors.newPassword && !fieldErrors.currentPassword && currentPassword === newPassword) {
+  if (
+    requireCurrentPassword &&
+    !fieldErrors.newPassword &&
+    !fieldErrors.currentPassword &&
+    currentPassword === newPassword
+  ) {
     fieldErrors.newPassword = "New password must be different from current password.";
   }
 
@@ -343,7 +348,8 @@ function createUserSettingsService({ userSettingsRepository, userProfilesReposit
     }
 
     const updated = await authService.updateDisplayName(request, parsed.displayName);
-    const profile = updated.profile || (await userProfilesRepository.updateDisplayNameById(user.id, parsed.displayName));
+    const profile =
+      updated.profile || (await userProfilesRepository.updateDisplayNameById(user.id, parsed.displayName));
     const settings = await userSettingsRepository.ensureForUserId(profile.id);
     const securityStatus = await authService.getSecurityStatus(request);
 
@@ -380,12 +386,7 @@ function createUserSettingsService({ userSettingsRepository, userProfilesReposit
     const settings = await userSettingsRepository.ensureForUserId(user.id);
     const securityStatus = await authService.getSecurityStatus(request);
 
-    return buildSettingsResponse(
-      upload.profile,
-      settings,
-      securityStatus,
-      resolveAvatar(upload.profile, settings)
-    );
+    return buildSettingsResponse(upload.profile, settings, securityStatus, resolveAvatar(upload.profile, settings));
   }
 
   async function deleteAvatar(request, user) {

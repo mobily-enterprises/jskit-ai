@@ -225,3 +225,48 @@ test("request helpers resolve surface and workspace slug from headers/query/para
 
   assert.equal(resolveRequestedWorkspaceSlug({}), "");
 });
+
+test("workspace helper fallbacks normalize empty/minimal shapes safely", () => {
+  assert.equal(normalizeEmail(null), "");
+  assert.equal(buildWorkspaceName({}), "Workspace");
+  assert.equal(buildWorkspaceBaseSlug({}), "user-workspace");
+  assert.equal(normalizeWorkspaceColor(undefined), "#0F6B54");
+
+  const minimalWorkspace = mapWorkspaceSummary(
+    {
+      id: "9",
+      slug: "",
+      name: null,
+      color: null,
+      avatarUrl: null,
+      roleId: null
+    },
+    {}
+  );
+  assert.deepEqual(minimalWorkspace, {
+    id: 9,
+    slug: "",
+    name: "",
+    color: "#0F6B54",
+    avatarUrl: "",
+    roleId: "",
+    isAccessible: true
+  });
+
+  const minimalInvite = mapPendingInviteSummary({
+    id: "7",
+    workspaceId: "4",
+    expiresAt: "2030-01-01T00:00:00.000Z",
+    workspace: {},
+    invitedBy: {}
+  });
+  assert.equal(minimalInvite.workspaceSlug, "");
+  assert.equal(minimalInvite.workspaceName, "");
+  assert.equal(minimalInvite.workspaceAvatarUrl, "");
+  assert.equal(minimalInvite.roleId, "");
+  assert.equal(minimalInvite.status, "pending");
+  assert.equal(minimalInvite.invitedByDisplayName, "");
+  assert.equal(minimalInvite.invitedByEmail, "");
+
+  assert.equal(resolveMembershipStatus({ status: "   ", membershipStatus: "" }), "active");
+});

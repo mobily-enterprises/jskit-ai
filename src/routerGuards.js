@@ -8,7 +8,8 @@ async function resolveRuntimeState({ authStore, workspaceStore }) {
   try {
     if (!workspaceStore.initialized || !authStore.initialized) {
       const bootstrapPayload = await api.bootstrap();
-      const session = bootstrapPayload?.session && typeof bootstrapPayload.session === "object" ? bootstrapPayload.session : {};
+      const session =
+        bootstrapPayload?.session && typeof bootstrapPayload.session === "object" ? bootstrapPayload.session : {};
       authStore.applySession({
         authenticated: Boolean(session.authenticated),
         username: session.username || null
@@ -133,9 +134,7 @@ function createSurfaceRouteGuards(stores, options) {
 
   function hasAnyWorkspacePermission(requiredPermissions) {
     const permissions = Array.isArray(requiredPermissions) ? requiredPermissions : [requiredPermissions];
-    const normalized = permissions
-      .map((permission) => String(permission || "").trim())
-      .filter(Boolean);
+    const normalized = permissions.map((permission) => String(permission || "").trim()).filter(Boolean);
 
     if (normalized.length < 1) {
       return true;

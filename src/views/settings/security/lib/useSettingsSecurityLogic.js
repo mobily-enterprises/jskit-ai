@@ -130,15 +130,17 @@ export function useSettingsSecurityLogic({
 
   const isPasswordEnableSetupMode = computed(() => passwordFormMode.value === PASSWORD_FORM_MODE_ENABLE);
   const requiresCurrentPassword = computed(() => Boolean(passwordMethod.value.requiresCurrentPassword));
-  const canOpenPasswordManageForm = computed(() => Boolean(passwordMethod.value.enabled || !passwordMethod.value.configured));
-  const canOpenPasswordEnableSetup = computed(
-    () => Boolean(passwordMethod.value.configured && !passwordMethod.value.enabled && passwordMethod.value.canEnable)
+  const canOpenPasswordManageForm = computed(() =>
+    Boolean(passwordMethod.value.enabled || !passwordMethod.value.configured)
+  );
+  const canOpenPasswordEnableSetup = computed(() =>
+    Boolean(passwordMethod.value.configured && !passwordMethod.value.enabled && passwordMethod.value.canEnable)
   );
   const canSubmitPasswordForm = computed(() =>
     isPasswordEnableSetupMode.value ? canOpenPasswordEnableSetup.value : canOpenPasswordManageForm.value
   );
-  const passwordRequiresExistingSecret = computed(
-    () => Boolean(passwordMethod.value.enabled && passwordMethod.value.requiresCurrentPassword)
+  const passwordRequiresExistingSecret = computed(() =>
+    Boolean(passwordMethod.value.enabled && passwordMethod.value.requiresCurrentPassword)
   );
   const passwordSubmitLabel = computed(() =>
     passwordRequiresExistingSecret.value ? "Update password" : "Set password"
