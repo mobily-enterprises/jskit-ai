@@ -14,13 +14,13 @@ import {
   readRememberedAccountHint,
   createRememberedAccountHint,
   writeRememberedAccountHint
-} from "../remembered-account/loginRememberedAccountStorage";
-import { hasRecoveryLinkPayload } from "../recovery/loginRecoveryLink";
+} from "./loginRememberedAccountStorage";
+import { hasRecoveryLinkPayload } from "./loginRecoveryLink";
 import {
   readOtpLoginCallbackStateFromLocation,
   stripOtpLoginCallbackParamsFromLocation
-} from "../otp/loginOtpCallbackState";
-import { toErrorMessage } from "../shared/loginErrorMessage";
+} from "./loginOtpCallbackState";
+import { toErrorMessage } from "./loginErrorMessage";
 
 export function useLoginActions({
   mode,

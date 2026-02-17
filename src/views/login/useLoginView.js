@@ -6,8 +6,8 @@ import { AUTH_OAUTH_PROVIDER_METADATA, AUTH_OAUTH_PROVIDERS } from "../../../sha
 import { api } from "../../services/api";
 import { useAuthStore } from "../../stores/authStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
-import { useLoginActions } from "./actions/useLoginActions";
-import { useLoginDerivedState } from "./state/useLoginDerivedState";
+import { useLoginActions } from "./lib/useLoginActions";
+import { useLoginDerivedState } from "./lib/useLoginDerivedState";
 
 export function useLoginView() {
   const navigate = useNavigate();
