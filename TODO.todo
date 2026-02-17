@@ -12,6 +12,7 @@ X Add a backend interface, explain how to make it work, what code to share
 
 X Check functionality of the multiple surfaces/workspaces
 X Make sure each screen is short
+X Major reorganise of files
 X Get full test coverage
 
 - Log server errors and client errors
