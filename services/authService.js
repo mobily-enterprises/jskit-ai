@@ -281,6 +281,12 @@ function mapPasswordUpdateError(error) {
   });
 }
 
+function buildDisabledPasswordSecret() {
+  const randomSegment = randomBytes(24).toString("base64url");
+  // Keep rotation secret <= 72 chars for Supabase password-update compatibility.
+  return `disabled-A1!-${randomSegment}`;
+}
+
 function mapOtpVerifyError(error) {
   if (isTransientSupabaseError(error)) {
     return new AppError(503, "Authentication service temporarily unavailable. Please retry.");
@@ -475,21 +481,35 @@ function parseOAuthCompletePayload(payload = {}) {
     fieldErrors.errorDescription = "OAuth error description is too long.";
   }
 
-  if (accessToken) {
-    fieldErrors.accessToken = "OAuth completion requires an authorization code.";
+  if (accessToken.length > AUTH_ACCESS_TOKEN_MAX_LENGTH) {
+    fieldErrors.accessToken = "Access token is too long.";
   }
 
-  if (refreshToken) {
-    fieldErrors.refreshToken = "OAuth completion requires an authorization code.";
+  if (refreshToken.length > AUTH_REFRESH_TOKEN_MAX_LENGTH) {
+    fieldErrors.refreshToken = "Refresh token is too long.";
   }
 
-  if (!code && !errorCode) {
-    fieldErrors.code = "OAuth code is required.";
+  if ((accessToken && !refreshToken) || (!accessToken && refreshToken)) {
+    if (!accessToken) {
+      fieldErrors.accessToken = "Access token is required when a refresh token is provided.";
+    }
+    if (!refreshToken) {
+      fieldErrors.refreshToken = "Refresh token is required when an access token is provided.";
+    }
+  }
+
+  const hasSessionPair = Boolean(accessToken && refreshToken);
+
+  if (!code && !errorCode && !hasSessionPair) {
+    fieldErrors.code = "OAuth code is required when access/refresh tokens are not provided.";
   }
 
   return {
     provider,
     code,
+    accessToken,
+    refreshToken,
+    hasSessionPair,
     errorCode,
     errorDescription,
     fieldErrors
@@ -1441,7 +1461,14 @@ function createAuthService(options) {
     const supabase = getSupabaseClient();
     let response;
     try {
-      response = await supabase.auth.exchangeCodeForSession(parsed.code);
+      if (parsed.hasSessionPair) {
+        response = await supabase.auth.setSession({
+          access_token: parsed.accessToken,
+          refresh_token: parsed.refreshToken
+        });
+      } else {
+        response = await supabase.auth.exchangeCodeForSession(parsed.code);
+      }
     } catch (error) {
       throw mapRecoveryError(error);
     }
@@ -1730,21 +1757,25 @@ function createAuthService(options) {
     }
 
     if (!payload.enabled && passwordMethod.configured) {
-      let updateResponse;
+      let updateResponse = null;
       try {
         updateResponse = await supabase.auth.updateUser({
           // Supabase does not support null password removal; rotate to high-entropy unknown secret.
-          password: `disabled:${randomBytes(48).toString("base64url")}`
+          password: buildDisabledPasswordSecret()
         });
-      } catch (error) {
-        throw mapPasswordUpdateError(error);
+      } catch {
+        // Some Supabase projects require re-authenticated password updates.
+        // Treat secret rotation as best-effort and still disable app-level password sign-in.
+        updateResponse = null;
       }
 
-      if (updateResponse.error || !updateResponse.data?.user) {
-        throw mapPasswordUpdateError(updateResponse.error);
+      if (!updateResponse || updateResponse.error || !updateResponse.data?.user) {
+        updateResponse = null;
       }
 
-      await syncProfileFromSupabaseUser(updateResponse.data.user, updateResponse.data.user.email);
+      if (updateResponse?.data?.user) {
+        await syncProfileFromSupabaseUser(updateResponse.data.user, updateResponse.data.user.email);
+      }
     }
 
     const passwordSignInOptions = !payload.enabled && passwordMethod.configured ? { passwordSetupRequired: true } : {};

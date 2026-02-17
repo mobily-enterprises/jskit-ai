@@ -441,10 +441,6 @@ function createUserSettingsService({ userSettingsRepository, userProfilesReposit
   async function changePassword(request, payload) {
     const securityStatus = await authService.getSecurityStatus(request);
     const passwordMethod = findPasswordAuthMethod(securityStatus);
-    if (passwordMethod?.configured && !passwordMethod?.enabled) {
-      throw new AppError(409, "Enable password sign-in before setting or changing password.");
-    }
-
     const requireCurrentPassword = Boolean(passwordMethod?.requiresCurrentPassword);
     const parsedWithPolicy = parseChangePasswordInput(payload, { requireCurrentPassword });
     if (Object.keys(parsedWithPolicy.fieldErrors).length > 0) {

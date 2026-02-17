@@ -1539,3 +1539,271 @@
   12. Commit 12 Repository final cleanup and alias removal (if safe).
   13. Commit 13 Workspace chooser integration end-to-end.
   14. Commit 14 Subdomain readiness hooks (no infra switch).
+
+  ———
+
+  ## 32) Locked Architecture Decision: Two Full Surfaces per Workspace (`admin` + `app`)
+
+  This is now a locked design direction and should be treated as a major
+  (program-level) refactor, not a small incremental tweak.
+
+  ### 32.1 Decision summary
+
+  1. Each workspace (`tenant`) has at least two full app surfaces:
+     - `admin` surface for owners/staff (workspace management, invites, roles,
+       configuration, slots).
+     - `app` surface for end customers/consumers (booking journey).
+  2. `book` is a future rename/alias of `app` if an adopter prefers that label.
+  3. Surfaces are first-class and generic; more may be added later (`kiosk`,
+     `portal`, etc.), but `admin` + `app` are the scaffold defaults.
+
+  ### 32.2 URL and routing model
+
+  1. Preferred subdomain pattern:
+     - `admin.{workspace}.example.com`
+     - `app.{workspace}.example.com`
+  2. Path fallback pattern:
+     - `example.com/{workspace}/admin/...`
+     - `example.com/{workspace}/app/...`
+  3. Keep both resolvers abstracted in backend so either pattern can be enabled
+     by environment/infra policy.
+
+  ### 32.3 Deployment and entrypoints
+
+  1. `admin` and `app` must have separate frontend entrypoints (`index.html`
+     + `main.js`) and separate bundles.
+  2. They can share the same monorepo/codebase and shared libraries.
+  3. They may be deployed on separate servers/load balancers/CDNs.
+  4. Backend domain logic can still be shared; physical backend split is
+     optional and can be phased later.
+
+  ### 32.4 Security and auth boundary requirements
+
+  1. No shared session between `admin` and `app` surfaces.
+  2. Separate auth audiences/cookie namespaces/token claims for each surface.
+  3. Separate API namespaces and policy walls:
+     - `/api/admin/*`
+     - `/api/app/*`
+  4. Customer (`app`) surface must never expose staff/invite/role operations.
+  5. Staff RBAC model remains only for `admin` surface.
+  6. Customer authz exists even without role UI (for example: own bookings only).
+
+  ### 32.5 Multi-home semantics with two surfaces
+
+  1. Workspace remains the tenancy boundary (`workspace_id` on domain data).
+  2. `admin` users are workspace staff members with roles/permissions.
+  3. `app` users are customer actors; do not model them as staff memberships.
+  4. Customer can still belong to multiple workspaces:
+     - direct deep links enter a specific workspace surface.
+     - optional global customer hub may list all available workspace contexts.
+
+  ### 32.6 Why this is a HUGE MEGA refactor
+
+  1. Frontend build system changes from one SPA entrypoint to multi-entry
+     surfaces.
+  2. Routing model changes from single app routes to surface + workspace aware
+     routes.
+  3. API surface splits into two policy domains (`admin` and `app`).
+  4. Auth/session model splits by surface and audience.
+  5. Bootstrapping and config hydration become surface-specific.
+  6. Operational deployment model needs explicit surface rollout strategy.
+
+  ### 32.7 Additional commit track required (after Commit 14)
+
+  #### Commit 15: Multi-entry frontend scaffolding (`admin` + `app`)
+
+  Use:
+
+  1. `src/main.admin.js`
+  2. `src/main.app.js`
+
+  Same architecture, less nesting.
+
+  1. Add separate HTML entry files:
+     - `apps/admin/index.html`
+     - `apps/app/index.html`
+  2. Add separate mains:
+     - `src/main.admin.js`
+     - `src/main.app.js`
+  3. Keep these files thin composition roots only (router/bootstrap/auth
+     context); do not duplicate shared feature/domain/UI modules.
+  4. Move current `src/main.js` logic into `admin` surface bootstrap, then
+     create `app` surface bootstrap with customer context flow.
+  5. Update Vite config/build outputs for multi-entry bundles.
+
+  #### Commit 16: Surface-specific routers
+
+  1. Add surface routers:
+     - `src/router.admin.js`
+     - `src/router.app.js`
+  2. Keep `admin` routes workspace+permission aware.
+  3. Keep `app` routes customer-flow only (no staff pages or staff tabs).
+
+  #### Commit 17: API namespace split with shared core service
+
+  1. Add namespace route registration:
+     - `routes/adminApiRoutes.js`
+     - `routes/appApiRoutes.js`
+  2. Keep shared business logic in services/repositories.
+  3. Register namespaces from `server.js` with explicit surface policy config.
+
+  #### Commit 18: Surface-aware auth middleware
+
+  1. Extend `plugins/auth.js` (or split plugin) so each namespace enforces the
+     correct auth audience and session cookie names.
+  2. Enforce admin-only permissions on `/api/admin/*`.
+  3. Enforce customer actor policy on `/api/app/*`.
+
+  #### Commit 19: Surface-aware bootstrap contracts
+
+  1. `/api/admin/bootstrap` returns staff+workspace context.
+  2. `/api/app/bootstrap` returns customer+workspace context.
+  3. Keep shared config semantics but return only surface-relevant capabilities.
+
+  #### Commit 20: URL resolution and host mapping
+
+  1. Extend workspace resolver to parse both `surface` and `workspace` from:
+     - host style (`admin.{workspace}.example.com`)
+     - path style (`/{workspace}/admin/...`)
+  2. Add strict invalid-surface handling (404, no fallback to staff routes).
+
+  #### Commit 21: Admin/App UX hard separation
+
+  1. Ensure app shell (`src/App.vue` or split shells) does not leak staff menu
+     items to `app` surface.
+  2. Ensure `app` surface has no invites/roles/settings-admin affordances.
+  3. Keep customer-facing booking-only affordances.
+
+  #### Commit 22: Deployment profile and docs
+
+  1. Document single-backend and split-backend deployment options.
+  2. Document cookie/CORS/CSP requirements per surface.
+  3. Document DNS/TLS mapping for:
+     - `admin.{workspace}.example.com`
+     - `app.{workspace}.example.com`
+
+  ### 32.8 File-level impact addendum (critical)
+
+  1. `server.js`:
+     - Register surface-specific route trees and host/path surface resolver.
+  2. `routes/apiRoutes.js`:
+     - Either split into `adminApiRoutes.js` and `appApiRoutes.js`, or preserve
+       this file as shared schema module plus two registrars.
+  3. `plugins/auth.js`:
+     - Add surface/audience/session discrimination.
+  4. `src/main.admin.js` + `src/main.app.js` (or `src/main.js` thin delegator):
+     - Hold surface-specific bootstrap with shared runtime setup.
+  5. `src/router.js`:
+     - Split into per-surface routers or becomes admin router only.
+  6. `src/views/SettingsView.vue`:
+     - Admin surface only; never mounted in `app` surface.
+
+  ### 32.9 Non-negotiable acceptance criteria for two-surface model
+
+  1. `admin` and `app` build artifacts are separate.
+  2. `admin` and `app` auth contexts are separate.
+  3. `app` surface cannot invoke or access staff endpoints.
+  4. Workspace resolution works with surface + tenant in both host and path
+     modes.
+  5. Shared business logic remains single-source to avoid rule drift.
+
+  ---
+
+  ## 33) Workspace-Scoped Login and Shared Identity Clarification
+
+  This section captures the final clarification from the latest discussion.
+
+  ### 33.1 Core rule: login is authentication, not authorization
+
+  1. There is one identity login concept (user authenticates once as a person).
+  2. `admin` vs `app` access is authorization, derived after login from
+     memberships/roles/capabilities in the target workspace and surface.
+  3. A user can be:
+     - staff/admin in workspace A (`admin` surface access),
+     - customer-only in workspace B (`app` surface access),
+     - both in different workspaces without account duplication.
+
+  ### 33.2 Workspace-aware login entry is required
+
+  1. Login must work both globally and in-workspace:
+     - global: `example.com/login`
+     - workspace+surface: `admin.{workspace}.example.com/login`,
+       `app.{workspace}.example.com/login`,
+       `example.com/{workspace}/admin/login`,
+       `example.com/{workspace}/app/login`
+  2. If login starts from workspace+surface URL, preserve intended destination
+     (`surface`, `workspaceSlug`, optional `next`) through auth flow.
+  3. On success, redirect directly back into that exact workspace+surface when
+     authorized.
+
+  ### 33.3 Post-login resolution behavior
+
+  1. If target workspace+surface was explicit:
+     - allowed -> redirect there directly.
+     - not allowed -> show surface-safe access denied/alternate flow (never
+       silent elevation).
+  2. If login was global (no explicit workspace target):
+     - 0 accessible contexts -> show authenticated no-context page.
+     - 1 accessible context -> auto-redirect to that context.
+     - N contexts -> show chooser page.
+  3. Chooser must be surface-aware: selecting an `admin` context is distinct
+     from selecting an `app` context.
+
+  ### 33.4 Interaction with single-workspace mode
+
+  1. Single-workspace mode remains a policy preset, not a different architecture.
+  2. For staff/admin scenario:
+     - auto-provision one workspace where relevant.
+     - auto-select it and skip chooser unless ambiguity exists.
+  3. For customer scenario:
+     - customer still resolves to workspace context for all domain data.
+     - if exactly one customer context exists, direct-redirect is valid.
+
+  ### 33.5 Security requirements for login flow
+
+  1. Preserve strict separation of `admin` and `app` sessions/cookies/audiences.
+  2. Never grant `admin` capabilities because user is authenticated.
+  3. Always evaluate authorization against `workspace_id` and surface policy.
+  4. Keep explicit denial paths and auditable logs for unauthorized surface
+     attempts.
+
+  ### 33.6 Concrete file-level task addendum (next-session checklist)
+
+  1. `server.js`
+     - Ensure login route handling preserves optional target context
+       (`surface`, `workspaceSlug`, `next`) for SPA bootstrap consumption.
+     - Ensure surface+workspace resolver runs before authz checks.
+  2. `routes/apiRoutes.js`
+     - Extend auth/bootstrap contracts to include requested context and resolved
+       accessible contexts.
+     - Ensure login response (or follow-up bootstrap) provides deterministic
+       redirect decision inputs.
+  3. `plugins/auth.js`
+     - Authenticate identity first, then compute per-surface/workspace authz
+       context.
+     - Attach resolved context to request for downstream policy checks.
+  4. `repositories/*`
+     - Add/confirm queries for user memberships by workspace and by surface
+       capability.
+     - Add helper queries for "all accessible contexts for user".
+  5. `src/router.js`
+     - Support workspace-scoped login route variants and post-login destination
+       restoration.
+     - Keep guards split between auth-required and workspace+surface-required.
+  6. `src/main.js`
+     - Read preserved login target context before initial redirect decisions.
+     - Use bootstrap context to route: direct target, chooser, or no-context
+       page.
+  7. `src/views/SettingsView.vue`
+     - Keep as admin-surface only.
+     - Do not expose in customer `app` route graph.
+
+  ### 33.7 Acceptance criteria (login clarification)
+
+  1. Visiting `admin.{workspace}.example.com/login` and authenticating as
+     authorized staff lands directly in that workspace admin surface.
+  2. Visiting `app.{workspace}.example.com/login` and authenticating as customer
+     lands directly in that workspace app surface.
+  3. Authenticated users without access to requested surface never receive
+     elevated access; they see explicit fallback/denied flow.
+  4. Global login still supports 0/1/N context outcomes deterministically.

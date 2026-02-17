@@ -69,10 +69,8 @@
                               v-else-if="method.configured"
                               variant="tonal"
                               color="secondary"
-                              :loading="
-                                methodActionLoadingId === method.id && setPasswordMethodEnabledMutation.isPending.value
-                              "
-                              @click="submitPasswordMethodToggle(true)"
+                              :disabled="!method.canEnable"
+                              @click="openPasswordEnableSetup"
                             >
                               Enable
                             </v-btn>
@@ -116,64 +114,71 @@
                       {{ providerMessage }}
                     </v-alert>
 
-                    <v-expand-transition>
-                      <div v-if="showPasswordForm" class="mt-4">
-                        <v-divider class="mb-4" />
+                    <v-dialog v-model="showPasswordForm" max-width="560">
+                      <v-card rounded="lg" border>
+                        <v-card-item>
+                          <v-card-title class="text-subtitle-1">{{ passwordDialogTitle }}</v-card-title>
+                          <v-card-subtitle v-if="isPasswordEnableSetupMode">
+                            Set a new password, then click Enable to turn password sign-in on.
+                          </v-card-subtitle>
+                        </v-card-item>
+                        <v-divider />
+                        <v-card-text>
+                          <v-form @submit.prevent="submitPasswordChange" novalidate>
+                            <v-text-field
+                              v-if="requiresCurrentPassword"
+                              v-model="securityForm.currentPassword"
+                              label="Current password"
+                              :type="showCurrentPassword ? 'text' : 'password'"
+                              :append-inner-icon="showCurrentPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                              @click:append-inner="showCurrentPassword = !showCurrentPassword"
+                              variant="outlined"
+                              density="comfortable"
+                              autocomplete="current-password"
+                              :error-messages="securityFieldErrors.currentPassword ? [securityFieldErrors.currentPassword] : []"
+                              class="mb-3"
+                            />
 
-                        <v-form @submit.prevent="submitPasswordChange" novalidate>
-                          <v-text-field
-                            v-if="requiresCurrentPassword"
-                            v-model="securityForm.currentPassword"
-                            label="Current password"
-                            :type="showCurrentPassword ? 'text' : 'password'"
-                            :append-inner-icon="showCurrentPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                            @click:append-inner="showCurrentPassword = !showCurrentPassword"
-                            variant="outlined"
-                            density="comfortable"
-                            autocomplete="current-password"
-                            :error-messages="securityFieldErrors.currentPassword ? [securityFieldErrors.currentPassword] : []"
-                            class="mb-3"
-                          />
+                            <v-text-field
+                              v-model="securityForm.newPassword"
+                              label="New password"
+                              :type="showNewPassword ? 'text' : 'password'"
+                              :append-inner-icon="showNewPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                              @click:append-inner="showNewPassword = !showNewPassword"
+                              variant="outlined"
+                              density="comfortable"
+                              autocomplete="new-password"
+                              :error-messages="securityFieldErrors.newPassword ? [securityFieldErrors.newPassword] : []"
+                              class="mb-3"
+                            />
 
-                          <v-text-field
-                            v-model="securityForm.newPassword"
-                            label="New password"
-                            :type="showNewPassword ? 'text' : 'password'"
-                            :append-inner-icon="showNewPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                            @click:append-inner="showNewPassword = !showNewPassword"
-                            variant="outlined"
-                            density="comfortable"
-                            autocomplete="new-password"
-                            :error-messages="securityFieldErrors.newPassword ? [securityFieldErrors.newPassword] : []"
-                            class="mb-3"
-                          />
+                            <v-text-field
+                              v-model="securityForm.confirmPassword"
+                              label="Confirm new password"
+                              :type="showConfirmPassword ? 'text' : 'password'"
+                              :append-inner-icon="showConfirmPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                              @click:append-inner="showConfirmPassword = !showConfirmPassword"
+                              variant="outlined"
+                              density="comfortable"
+                              autocomplete="new-password"
+                              :error-messages="securityFieldErrors.confirmPassword ? [securityFieldErrors.confirmPassword] : []"
+                              class="mb-3"
+                            />
 
-                          <v-text-field
-                            v-model="securityForm.confirmPassword"
-                            label="Confirm new password"
-                            :type="showConfirmPassword ? 'text' : 'password'"
-                            :append-inner-icon="showConfirmPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                            @click:append-inner="showConfirmPassword = !showConfirmPassword"
-                            variant="outlined"
-                            density="comfortable"
-                            autocomplete="new-password"
-                            :error-messages="securityFieldErrors.confirmPassword ? [securityFieldErrors.confirmPassword] : []"
-                            class="mb-3"
-                          />
+                            <v-alert v-if="securityMessage" :type="securityMessageType" variant="tonal" class="mb-3">
+                              {{ securityMessage }}
+                            </v-alert>
 
-                          <v-alert v-if="securityMessage" :type="securityMessageType" variant="tonal" class="mb-3">
-                            {{ securityMessage }}
-                          </v-alert>
-
-                          <div class="d-flex flex-wrap ga-2">
-                            <v-btn type="submit" color="primary" :loading="passwordMutation.isPending.value">
-                              {{ passwordSubmitLabel }}
-                            </v-btn>
-                            <v-btn variant="text" color="secondary" @click="closePasswordForm">Cancel</v-btn>
-                          </div>
-                        </v-form>
-                      </div>
-                    </v-expand-transition>
+                            <div class="d-flex flex-wrap ga-2">
+                              <v-btn type="submit" color="primary" :loading="passwordFormSubmitPending">
+                                {{ passwordFormSubmitLabel }}
+                              </v-btn>
+                              <v-btn variant="text" color="secondary" @click="closePasswordForm">Cancel</v-btn>
+                            </div>
+                          </v-form>
+                        </v-card-text>
+                      </v-card>
+                    </v-dialog>
                   </v-card-text>
                 </v-card>
               </v-col>
@@ -533,6 +538,8 @@ import {
 
 const SETTINGS_QUERY_KEY = ["settings"];
 const VALID_TABS = new Set(["security", "profile", "preferences", "notifications"]);
+const PASSWORD_FORM_MODE_MANAGE = "manage";
+const PASSWORD_FORM_MODE_ENABLE = "enable";
 
 const themeOptions = [
   { title: "System", value: "system" },
@@ -680,6 +687,7 @@ const providerMessageType = ref("success");
 const providerLinkStartInFlight = ref(false);
 const methodActionLoadingId = ref("");
 const showPasswordForm = ref(false);
+const passwordFormMode = ref(PASSWORD_FORM_MODE_MANAGE);
 
 const showCurrentPassword = ref(false);
 const showNewPassword = ref(false);
@@ -810,13 +818,27 @@ const passwordMethod = computed(
     }
 );
 
+const isPasswordEnableSetupMode = computed(() => passwordFormMode.value === PASSWORD_FORM_MODE_ENABLE);
 const requiresCurrentPassword = computed(() => Boolean(passwordMethod.value.requiresCurrentPassword));
-const canManagePasswordMethod = computed(() => Boolean(passwordMethod.value.enabled || !passwordMethod.value.configured));
+const canOpenPasswordManageForm = computed(() => Boolean(passwordMethod.value.enabled || !passwordMethod.value.configured));
+const canOpenPasswordEnableSetup = computed(
+  () => Boolean(passwordMethod.value.configured && !passwordMethod.value.enabled && passwordMethod.value.canEnable)
+);
+const canSubmitPasswordForm = computed(() =>
+  isPasswordEnableSetupMode.value ? canOpenPasswordEnableSetup.value : canOpenPasswordManageForm.value
+);
 const passwordRequiresExistingSecret = computed(
   () => Boolean(passwordMethod.value.enabled && passwordMethod.value.requiresCurrentPassword)
 );
 const passwordSubmitLabel = computed(() => (passwordRequiresExistingSecret.value ? "Update password" : "Set password"));
 const passwordManageLabel = computed(() => (passwordRequiresExistingSecret.value ? "Change password" : "Set password"));
+const passwordDialogTitle = computed(() =>
+  isPasswordEnableSetupMode.value ? "Enable password sign-in" : passwordManageLabel.value
+);
+const passwordFormSubmitLabel = computed(() => (isPasswordEnableSetupMode.value ? "Enable" : passwordSubmitLabel.value));
+const passwordFormSubmitPending = computed(
+  () => passwordMutation.isPending.value || setPasswordMethodEnabledMutation.isPending.value
+);
 const authMethodItems = computed(() =>
   securityAuthMethods.value.filter((method) => method.kind !== AUTH_METHOD_KIND_OTP)
 );
@@ -1202,9 +1224,14 @@ watch(
 );
 
 watch(
-  () => [passwordMethod.value.configured, passwordMethod.value.enabled],
+  () => [
+    passwordMethod.value.configured,
+    passwordMethod.value.enabled,
+    passwordMethod.value.canEnable,
+    passwordFormMode.value
+  ],
   () => {
-    if (!canManagePasswordMethod.value && showPasswordForm.value) {
+    if (!canSubmitPasswordForm.value && showPasswordForm.value) {
       closePasswordForm();
     }
   }
@@ -1381,14 +1408,20 @@ async function submitNotifications() {
 }
 
 async function submitPasswordChange() {
-  if (!canManagePasswordMethod.value) {
+  if (!canSubmitPasswordForm.value) {
     securityMessageType.value = "error";
-    securityMessage.value = "Enable password sign-in before setting or changing password.";
+    securityMessage.value = isPasswordEnableSetupMode.value
+      ? "Password sign-in cannot be enabled right now."
+      : "Enable password sign-in before setting or changing password.";
     return;
   }
 
   clearFieldErrors(securityFieldErrors);
   securityMessage.value = "";
+  const enableAfterPasswordSetup = isPasswordEnableSetupMode.value;
+  if (enableAfterPasswordSetup) {
+    methodActionLoadingId.value = AUTH_METHOD_PASSWORD_ID;
+  }
 
   try {
     const response = await passwordMutation.mutateAsync({
@@ -1397,12 +1430,22 @@ async function submitPasswordChange() {
       confirmPassword: securityForm.confirmPassword
     });
 
-    securityForm.currentPassword = "";
-    securityForm.newPassword = "";
-    securityForm.confirmPassword = "";
-    securityMessageType.value = "success";
-    securityMessage.value = String(response?.message || "Password updated.");
-    showPasswordForm.value = false;
+    if (enableAfterPasswordSetup) {
+      const data = await setPasswordMethodEnabledMutation.mutateAsync({
+        enabled: true
+      });
+      queryClient.setQueryData(SETTINGS_QUERY_KEY, data);
+      applySettingsData(data);
+      providerMessageType.value = "success";
+      providerMessage.value = "Password sign-in enabled.";
+      securityMessageType.value = "success";
+      securityMessage.value = "Password sign-in enabled.";
+    } else {
+      securityMessageType.value = "success";
+      securityMessage.value = String(response?.message || "Password updated.");
+    }
+
+    closePasswordForm();
     await queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY });
   } catch (error) {
     if (await handleAuthError(error)) {
@@ -1418,27 +1461,66 @@ async function submitPasswordChange() {
     }
 
     securityMessageType.value = "error";
-    securityMessage.value = toErrorMessage(error, "Unable to update password.");
+    securityMessage.value = toErrorMessage(
+      error,
+      enableAfterPasswordSetup ? "Unable to enable password sign-in." : "Unable to update password."
+    );
+  } finally {
+    if (enableAfterPasswordSetup) {
+      methodActionLoadingId.value = "";
+    }
   }
 }
 
 function openPasswordForm() {
-  if (!canManagePasswordMethod.value) {
+  if (!canOpenPasswordManageForm.value) {
     securityMessageType.value = "error";
     securityMessage.value = "Enable password sign-in before setting or changing password.";
     return;
   }
 
-  showPasswordForm.value = true;
+  providerMessage.value = "";
+  passwordFormMode.value = PASSWORD_FORM_MODE_MANAGE;
+  securityForm.currentPassword = "";
+  securityForm.newPassword = "";
+  securityForm.confirmPassword = "";
+  showCurrentPassword.value = false;
+  showNewPassword.value = false;
+  showConfirmPassword.value = false;
   clearFieldErrors(securityFieldErrors);
   securityMessage.value = "";
+  showPasswordForm.value = true;
+}
+
+function openPasswordEnableSetup() {
+  if (!canOpenPasswordEnableSetup.value) {
+    providerMessageType.value = "error";
+    providerMessage.value = "Password sign-in cannot be enabled right now.";
+    return;
+  }
+
+  providerMessage.value = "";
+  passwordFormMode.value = PASSWORD_FORM_MODE_ENABLE;
+  securityForm.currentPassword = "";
+  securityForm.newPassword = "";
+  securityForm.confirmPassword = "";
+  showCurrentPassword.value = false;
+  showNewPassword.value = false;
+  showConfirmPassword.value = false;
+  clearFieldErrors(securityFieldErrors);
+  securityMessage.value = "";
+  showPasswordForm.value = true;
 }
 
 function closePasswordForm() {
   showPasswordForm.value = false;
+  passwordFormMode.value = PASSWORD_FORM_MODE_MANAGE;
   securityForm.currentPassword = "";
   securityForm.newPassword = "";
   securityForm.confirmPassword = "";
+  showCurrentPassword.value = false;
+  showNewPassword.value = false;
+  showConfirmPassword.value = false;
   clearFieldErrors(securityFieldErrors);
   securityMessage.value = "";
 }
