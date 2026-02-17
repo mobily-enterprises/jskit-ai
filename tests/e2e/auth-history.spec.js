@@ -82,37 +82,59 @@ function buildHistoryResponse(entries) {
   };
 }
 
-test("login sends CSRF token and lands on calculator", async ({ page }) => {
-  let loginCompleted = false;
-  let loginRequestCount = 0;
-  let loginCsrfHeader = null;
+async function mockBootstrap(page, payloadFactory) {
+  let requestCount = 0;
 
   await page.route("**/api/bootstrap", async (route) => {
-    await route.fulfill({
-      status: 200,
-      headers: JSON_HEADERS,
-      body: JSON.stringify(
-        buildBootstrapResponse({
-          authenticated: loginCompleted,
-          csrfToken: "csrf-token-1"
-        })
-      )
-    });
-  });
-
-  await page.route("**/api/session", async (route) => {
-    const payload = {
-      authenticated: loginCompleted,
-      username: loginCompleted ? "seed.user1" : null,
-      csrfToken: "csrf-token-1"
-    };
-
+    requestCount += 1;
+    const payload = typeof payloadFactory === "function" ? payloadFactory() : payloadFactory;
     await route.fulfill({
       status: 200,
       headers: JSON_HEADERS,
       body: JSON.stringify(payload)
     });
   });
+
+  return {
+    requestCount: () => requestCount
+  };
+}
+
+async function mockSession(page, payloadFactory) {
+  let requestCount = 0;
+
+  await page.route("**/api/session", async (route) => {
+    requestCount += 1;
+    const payload = typeof payloadFactory === "function" ? payloadFactory(route) : payloadFactory;
+    await route.fulfill({
+      status: 200,
+      headers: JSON_HEADERS,
+      body: JSON.stringify(payload)
+    });
+  });
+
+  return {
+    requestCount: () => requestCount
+  };
+}
+
+test("login sends CSRF token and lands on calculator", async ({ page }) => {
+  let loginCompleted = false;
+  let loginRequestCount = 0;
+  let loginCsrfHeader = null;
+
+  const bootstrap = await mockBootstrap(page, () =>
+    buildBootstrapResponse({
+      authenticated: loginCompleted,
+      csrfToken: "csrf-token-1"
+    })
+  );
+
+  await mockSession(page, () => ({
+    authenticated: loginCompleted,
+    username: loginCompleted ? "seed.user1" : null,
+    csrfToken: "csrf-token-1"
+  }));
 
   await page.route("**/api/history**", async (route) => {
     await route.fulfill({
@@ -143,6 +165,7 @@ test("login sends CSRF token and lands on calculator", async ({ page }) => {
   await page.getByTestId("auth-submit").click();
 
   await expect.poll(() => loginRequestCount).toBe(1);
+  await expect.poll(() => bootstrap.requestCount()).toBeGreaterThan(0);
   expect(loginCsrfHeader).toBe("csrf-token-1");
   await expect(page).toHaveURL(/\/w\/acme$/);
   await expect(page.getByRole("button", { name: "Calculate" })).toBeVisible();
@@ -154,30 +177,18 @@ test("calculate appends history and includes CSRF header", async ({ page }) => {
   let annuityRequestCount = 0;
   let annuityCsrfHeader = null;
 
-  await page.route("**/api/bootstrap", async (route) => {
-    await route.fulfill({
-      status: 200,
-      headers: JSON_HEADERS,
-      body: JSON.stringify(
-        buildBootstrapResponse({
-          authenticated: true,
-          csrfToken: "csrf-token-2"
-        })
-      )
-    });
-  });
+  const bootstrap = await mockBootstrap(page, () =>
+    buildBootstrapResponse({
+      authenticated: true,
+      csrfToken: "csrf-token-2"
+    })
+  );
 
-  await page.route("**/api/session", async (route) => {
-    await route.fulfill({
-      status: 200,
-      headers: JSON_HEADERS,
-      body: JSON.stringify({
-        authenticated: true,
-        username: "seed.user1",
-        csrfToken: "csrf-token-2"
-      })
-    });
-  });
+  await mockSession(page, () => ({
+    authenticated: true,
+    username: "seed.user1",
+    csrfToken: "csrf-token-2"
+  }));
 
   await page.route("**/api/history**", async (route) => {
     await route.fulfill({
@@ -236,6 +247,7 @@ test("calculate appends history and includes CSRF header", async ({ page }) => {
   await page.getByRole("button", { name: "Calculate" }).click();
 
   await expect.poll(() => annuityRequestCount).toBe(1);
+  await expect.poll(() => bootstrap.requestCount()).toBeGreaterThan(0);
   expect(annuityCsrfHeader).toBe("csrf-token-2");
   await expect(page.getByText("Page 1 of 1 (1 total)")).toBeVisible();
   await expect(page.getByRole("cell", { name: "$230,581.36" })).toBeVisible();
@@ -245,30 +257,18 @@ test("calculate appends history and includes CSRF header", async ({ page }) => {
 test("calculate can be retried after transient API failure", async ({ page }) => {
   let annuityRequestCount = 0;
 
-  await page.route("**/api/bootstrap", async (route) => {
-    await route.fulfill({
-      status: 200,
-      headers: JSON_HEADERS,
-      body: JSON.stringify(
-        buildBootstrapResponse({
-          authenticated: true,
-          csrfToken: "csrf-token-retry"
-        })
-      )
-    });
-  });
+  const bootstrap = await mockBootstrap(page, () =>
+    buildBootstrapResponse({
+      authenticated: true,
+      csrfToken: "csrf-token-retry"
+    })
+  );
 
-  await page.route("**/api/session", async (route) => {
-    await route.fulfill({
-      status: 200,
-      headers: JSON_HEADERS,
-      body: JSON.stringify({
-        authenticated: true,
-        username: "seed.user1",
-        csrfToken: "csrf-token-retry"
-      })
-    });
-  });
+  await mockSession(page, () => ({
+    authenticated: true,
+    username: "seed.user1",
+    csrfToken: "csrf-token-retry"
+  }));
 
   await page.route("**/api/history**", async (route) => {
     await route.fulfill({
@@ -332,5 +332,6 @@ test("calculate can be retried after transient API failure", async ({ page }) =>
 
   await page.getByRole("button", { name: "Calculate" }).click();
   await expect.poll(() => annuityRequestCount).toBe(2);
+  await expect.poll(() => bootstrap.requestCount()).toBeGreaterThan(0);
   await expect(page.getByText("$230,581.36")).toBeVisible();
 });
