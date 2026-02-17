@@ -10,10 +10,6 @@ export function useSettingsRouting({ navigate, routerPath, routerSearch, surface
     return surfacePaths.value.isAccountSettingsPath(pathname);
   }
 
-  function resolveCurrentSettingsPath() {
-    return isSettingsRoutePath(routerPath.value) ? String(routerPath.value) : "";
-  }
-
   function resolveSettingsSearchWithTab(tab) {
     const search = {
       [SETTINGS_SECTION_QUERY_KEY]: tab
@@ -33,12 +29,6 @@ export function useSettingsRouting({ navigate, routerPath, routerSearch, surface
     }
 
     activeTab.value = nextTab;
-  }
-
-  function buildSettingsPathWithTab(tab) {
-    const settingsPath = resolveCurrentSettingsPath() || surfacePaths.value.accountSettingsPath;
-    const params = new URLSearchParams(resolveSettingsSearchWithTab(tab));
-    return `${settingsPath}?${params.toString()}`;
   }
 
   const backTarget = computed(() => {
@@ -108,9 +98,6 @@ export function useSettingsRouting({ navigate, routerPath, routerSearch, surface
 
   return {
     activeTab,
-    resolveTabFromSearch,
-    resolveCurrentSettingsPath,
-    buildSettingsPathWithTab,
     selectSettingsSection,
     goBack
   };
