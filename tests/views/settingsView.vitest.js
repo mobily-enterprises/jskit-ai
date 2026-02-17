@@ -4,8 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
-  routerPathname: "/w/acme/settings",
-  routerSearch: { tab: "preferences" },
+  routerPathname: "/account/settings",
+  routerSearch: { section: "preferences" },
   themeName: { value: "light" },
   queryData: { value: null },
   queryError: { value: null },
@@ -26,7 +26,8 @@ const mocks = vi.hoisted(() => ({
   },
   workspaceStore: {
     clearWorkspaceState: vi.fn(),
-    applyBootstrap: vi.fn()
+    applyBootstrap: vi.fn(),
+    applyProfile: vi.fn()
   },
   setQueryData: vi.fn(),
   invalidateQueries: vi.fn()
@@ -148,10 +149,6 @@ function buildSettingsPayload(overrides = {}) {
       dateFormat: "system",
       numberFormat: "system",
       currencyCode: "USD",
-      defaultMode: "fv",
-      defaultTiming: "ordinary",
-      defaultPaymentsPerYear: 12,
-      defaultHistoryPageSize: 10,
       avatarSize: 64
     },
     notifications: {
@@ -176,8 +173,8 @@ function mountView() {
         "v-divider": true,
         "v-card-text": true,
         "v-alert": true,
-        "v-tabs": true,
-        "v-tab": true,
+        "v-list": true,
+        "v-list-item": true,
         "v-window": true,
         "v-window-item": true,
         "v-row": true,
@@ -201,8 +198,8 @@ function mountView() {
 describe("SettingsView", () => {
   beforeEach(() => {
     mocks.navigate.mockReset();
-    mocks.routerPathname = "/w/acme/settings";
-    mocks.routerSearch = { tab: "preferences" };
+    mocks.routerPathname = "/account/settings";
+    mocks.routerSearch = { section: "preferences" };
     mocks.themeName.value = "light";
     mocks.queryData.value = buildSettingsPayload();
     mocks.queryError.value = null;
@@ -219,13 +216,14 @@ describe("SettingsView", () => {
     mocks.authStore.setUsername.mockReset();
     mocks.workspaceStore.clearWorkspaceState.mockReset();
     mocks.workspaceStore.applyBootstrap.mockReset();
+    mocks.workspaceStore.applyProfile.mockReset();
     mocks.setQueryData.mockReset();
     mocks.invalidateQueries.mockReset();
     mocks.invalidateQueries.mockResolvedValue(undefined);
   });
 
   it("loads settings payload and hydrates forms", async () => {
-    mocks.routerSearch = { tab: "profile" };
+    mocks.routerSearch = { section: "profile" };
     const wrapper = mountView();
     await nextTick();
 
@@ -237,7 +235,7 @@ describe("SettingsView", () => {
   });
 
   it("handles invalid tab fallback and helper error branches", async () => {
-    mocks.routerSearch = { tab: "not-a-tab" };
+    mocks.routerSearch = { section: "not-a-tab" };
     mocks.queryData.value = null;
     mocks.queryError.value = {
       status: 500,
@@ -248,8 +246,8 @@ describe("SettingsView", () => {
     await nextTick();
 
     expect(wrapper.vm.activeTab).toBe("preferences");
-    expect(wrapper.vm.resolveTabFromSearch({ tab: "security" }).toLowerCase()).toBe("security");
-    expect(wrapper.vm.resolveTabFromSearch({ tab: "invalid-tab" })).toBe("preferences");
+    expect(wrapper.vm.resolveTabFromSearch({ section: "security" }).toLowerCase()).toBe("security");
+    expect(wrapper.vm.resolveTabFromSearch({ section: "invalid-tab" })).toBe("preferences");
 
     expect(
       wrapper.vm.toErrorMessage(
@@ -316,10 +314,7 @@ describe("SettingsView", () => {
         dateFormat: "dmy",
         numberFormat: "dot-comma",
         currencyCode: "EUR",
-        defaultMode: "pv",
-        defaultTiming: "due",
-        defaultPaymentsPerYear: 4,
-        defaultHistoryPageSize: 25
+        avatarSize: 96
       }
     });
     mocks.api.updatePreferencesSettings.mockResolvedValue(payload);
@@ -331,7 +326,7 @@ describe("SettingsView", () => {
     expect(mocks.setQueryData).toHaveBeenCalledTimes(1);
     expect(wrapper.vm.preferencesMessageType).toBe("success");
     expect(mocks.themeName.value).toBe("dark");
-    expect(wrapper.vm.preferencesForm.defaultHistoryPageSize).toBe(25);
+    expect(wrapper.vm.preferencesForm.avatarSize).toBe(96);
   });
 
   it("submits password change and clears password fields", async () => {

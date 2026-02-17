@@ -447,10 +447,14 @@ async function goToAccountTab(tab) {
   await navigate({
     to: paths.accountSettingsPath,
     search: {
-      tab,
+      section: tab,
       returnTo: currentPath.value
     }
   });
+}
+
+async function goToSettingsTab(section) {
+  await goToAccountTab(section);
 }
 
 async function goToAppSurface() {

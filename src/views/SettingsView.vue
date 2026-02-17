@@ -15,15 +15,23 @@
           {{ loadError }}
         </v-alert>
 
-        <v-tabs v-model="activeTab" color="primary" density="comfortable" class="mb-4">
-          <v-tab value="security">Security</v-tab>
-          <v-tab value="profile">Profile</v-tab>
-          <v-tab value="preferences">Preferences</v-tab>
-          <v-tab value="notifications">Notifications</v-tab>
-        </v-tabs>
+        <v-row class="settings-layout" no-gutters>
+          <v-col cols="12" md="3" lg="2" class="pr-md-4 mb-4 mb-md-0">
+            <v-list nav density="comfortable" class="settings-section-list rounded-lg">
+              <v-list-item
+                v-for="section in settingsSections"
+                :key="section.value"
+                :title="section.title"
+                :active="activeTab === section.value"
+                rounded="lg"
+                @click="selectSettingsSection(section.value)"
+              />
+            </v-list>
+          </v-col>
 
-        <v-window v-model="activeTab">
-          <v-window-item value="security">
+          <v-col cols="12" md="9" lg="10">
+            <v-window v-model="activeTab" :touch="false" class="settings-sections-window">
+              <v-window-item value="security">
             <v-row>
               <v-col cols="12" md="7">
                 <v-card rounded="lg" elevation="0" border>
@@ -228,7 +236,7 @@
             </v-row>
           </v-window-item>
 
-          <v-window-item value="profile">
+              <v-window-item value="profile">
             <v-card rounded="lg" elevation="0" border>
               <v-card-item>
                 <v-card-title class="text-subtitle-1">Profile</v-card-title>
@@ -301,7 +309,7 @@
             </v-card>
           </v-window-item>
 
-          <v-window-item value="preferences">
+              <v-window-item value="preferences">
             <v-card rounded="lg" elevation="0" border>
               <v-card-item>
                 <v-card-title class="text-subtitle-1">Preferences</v-card-title>
@@ -401,7 +409,7 @@
             </v-card>
           </v-window-item>
 
-          <v-window-item value="notifications">
+              <v-window-item value="notifications">
             <v-card rounded="lg" elevation="0" border>
               <v-card-item>
                 <v-card-title class="text-subtitle-1">Notifications</v-card-title>
@@ -443,7 +451,9 @@
               </v-card-text>
             </v-card>
           </v-window-item>
-        </v-window>
+            </v-window>
+          </v-col>
+        </v-row>
       </v-card-text>
     </v-card>
   </section>
@@ -491,9 +501,16 @@ import {
 } from "../utils/oauthCallback.js";
 
 const SETTINGS_QUERY_KEY = ["settings"];
+const SETTINGS_SECTION_QUERY_KEY = "section";
 const VALID_TABS = new Set(["security", "profile", "preferences", "notifications"]);
 const PASSWORD_FORM_MODE_MANAGE = "manage";
 const PASSWORD_FORM_MODE_ENABLE = "enable";
+const settingsSections = [
+  { title: "Security", value: "security" },
+  { title: "Profile", value: "profile" },
+  { title: "Preferences", value: "preferences" },
+  { title: "Notifications", value: "notifications" }
+];
 
 const themeOptions = [
   { title: "System", value: "system" },
@@ -809,7 +826,7 @@ const profileInitials = computed(() => {
 });
 
 function resolveTabFromSearch(search) {
-  const tab = String(search?.tab || "").trim().toLowerCase();
+  const tab = String(search?.[SETTINGS_SECTION_QUERY_KEY] || "").trim().toLowerCase();
   return VALID_TABS.has(tab) ? tab : "preferences";
 }
 
@@ -823,7 +840,7 @@ function resolveCurrentSettingsPath() {
 
 function resolveSettingsSearchWithTab(tab) {
   const search = {
-    tab
+    [SETTINGS_SECTION_QUERY_KEY]: tab
   };
 
   const returnTo = String(routerSearch.value?.returnTo || "").trim();
@@ -832,6 +849,18 @@ function resolveSettingsSearchWithTab(tab) {
   }
 
   return search;
+}
+
+function selectSettingsSection(nextTab) {
+  if (!VALID_TABS.has(nextTab)) {
+    return;
+  }
+
+  if (activeTab.value === nextTab) {
+    return;
+  }
+
+  activeTab.value = nextTab;
 }
 
 function buildSettingsPathWithTab(tab) {
@@ -932,7 +961,7 @@ async function handleOAuthCallbackIfPresent() {
     }
 
     stripOAuthCallbackParamsFromLocation({
-      preserveSearchKeys: ["tab", "returnTo"]
+      preserveSearchKeys: [SETTINGS_SECTION_QUERY_KEY, "returnTo"]
     });
     await queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY });
 
@@ -949,7 +978,7 @@ async function handleOAuthCallbackIfPresent() {
     providerMessageType.value = "error";
     providerMessage.value = toErrorMessage(error, "Unable to complete provider link.");
     stripOAuthCallbackParamsFromLocation({
-      preserveSearchKeys: ["tab", "returnTo"]
+      preserveSearchKeys: [SETTINGS_SECTION_QUERY_KEY, "returnTo"]
     });
   } finally {
     clearPendingOAuthContext();
@@ -1638,5 +1667,20 @@ onBeforeUnmount(() => {
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: 0.01em;
+}
+
+.settings-section-list {
+  border: 1px solid rgba(var(--v-theme-outline), 0.35);
+}
+
+:deep(.settings-section-list .v-list-item--active) {
+  background-color: rgba(var(--v-theme-primary), 0.14);
+}
+
+:deep(.settings-sections-window .v-window-x-transition-enter-active),
+:deep(.settings-sections-window .v-window-x-transition-leave-active),
+:deep(.settings-sections-window .v-window-x-reverse-transition-enter-active),
+:deep(.settings-sections-window .v-window-x-reverse-transition-leave-active) {
+  transition: none !important;
 }
 </style>

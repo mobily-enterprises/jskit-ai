@@ -315,7 +315,7 @@ async function goToAccountTab(tab) {
   await navigate({
     to: paths.accountSettingsPath,
     search: {
-      tab,
+      section: tab,
       returnTo: currentPath.value
     }
   });

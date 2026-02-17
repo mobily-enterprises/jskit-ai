@@ -178,8 +178,8 @@ describe("App shell", () => {
 
     await wrapper.vm.goToSettingsTab("profile");
     expect(mocks.navigate).toHaveBeenCalledWith({
-      to: "/w/acme/settings",
-      search: { tab: "profile" }
+      to: "/account/settings",
+      search: { section: "profile", returnTo: "/w/acme" }
     });
   });
 
