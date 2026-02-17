@@ -118,7 +118,9 @@ function createWorkspaceAdminFixture(overrides = {}) {
   const counters = {
     workspaceUpdates: 0,
     settingsUpdates: 0,
-    inviteInserts: 0
+    inviteInserts: 0,
+    inviteTargetedExpirations: 0,
+    inviteTransactions: 0
   };
 
   function cloneWorkspace() {
@@ -271,10 +273,31 @@ function createWorkspaceAdminFixture(overrides = {}) {
   };
 
   const workspaceInvitesRepository = {
+    async transaction(callback) {
+      counters.inviteTransactions += 1;
+      return callback({});
+    },
     async markExpiredPendingInvites() {
       const nowIso = new Date().toISOString();
       for (const invite of state.invites) {
         if (invite.status === "pending" && invite.expiresAt <= nowIso) {
+          invite.status = "expired";
+        }
+      }
+    },
+    async expirePendingByWorkspaceIdAndEmail(workspaceId, email) {
+      counters.inviteTargetedExpirations += 1;
+      const nowIso = new Date().toISOString();
+      const normalizedEmail = String(email || "")
+        .trim()
+        .toLowerCase();
+      for (const invite of state.invites) {
+        if (
+          Number(invite.workspaceId) === Number(workspaceId) &&
+          invite.status === "pending" &&
+          String(invite.email || "").toLowerCase() === normalizedEmail &&
+          invite.expiresAt <= nowIso
+        ) {
           invite.status = "expired";
         }
       }
@@ -295,6 +318,21 @@ function createWorkspaceAdminFixture(overrides = {}) {
       );
     },
     async insert(payload) {
+      const normalizedEmail = String(payload.email || "")
+        .trim()
+        .toLowerCase();
+      const duplicatePendingInvite = state.invites.find(
+        (invite) =>
+          Number(invite.workspaceId) === Number(payload.workspaceId) &&
+          invite.status === "pending" &&
+          String(invite.email || "").toLowerCase() === normalizedEmail
+      );
+      if (duplicatePendingInvite) {
+        const error = new Error("duplicate pending invite");
+        error.code = "ER_DUP_ENTRY";
+        throw error;
+      }
+
       counters.inviteInserts += 1;
       state.invites.push({
         id: nextInviteId++,
@@ -563,8 +601,20 @@ test("workspace admin service manages members, invites, and pending invite respo
     { email: "new@example.com", roleId: "member" }
   );
   assert.equal(counters.inviteInserts, 1);
+  assert.equal(counters.inviteTransactions >= 1, true);
+  assert.equal(counters.inviteTargetedExpirations >= 1, true);
   assert.equal(
     createdInviteResponse.invites.some((invite) => invite.email === "new@example.com"),
+    true
+  );
+
+  const recreatedExpiredInviteResponse = await service.createInvite(
+    { id: 11 },
+    { id: 5 },
+    { email: "expired@example.com", roleId: "member" }
+  );
+  assert.equal(
+    recreatedExpiredInviteResponse.invites.some((invite) => invite.email === "expired@example.com"),
     true
   );
 
@@ -784,6 +834,7 @@ test("workspace admin service normalizes sparse member/invite data and fallback 
 
   const workspaceInvitesRepository = {
     async markExpiredPendingInvites() {},
+    async expirePendingByWorkspaceIdAndEmail() {},
     async listPendingByWorkspaceIdWithWorkspace() {
       return [
         {

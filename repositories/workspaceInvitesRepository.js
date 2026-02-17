@@ -4,6 +4,14 @@ import { toIsoString, toMysqlDateTimeUtc } from "../lib/dateUtils.js";
 const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
 const WORKSPACE_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 
+function isMysqlDuplicateEntryError(error) {
+  if (!error) {
+    return false;
+  }
+
+  return String(error.code || "") === "ER_DUP_ENTRY";
+}
+
 function normalizeEmail(value) {
   return String(value || "")
     .trim()
@@ -101,9 +109,15 @@ function createInviteBaseQuery(dbClient, withWorkspace = false) {
 }
 
 function createWorkspaceInvitesRepository(dbClient) {
-  async function repoInsert(invite) {
+  function resolveClient(options = {}) {
+    const trx = options && typeof options === "object" ? options.trx || null : null;
+    return trx || dbClient;
+  }
+
+  async function repoInsert(invite, options = {}) {
+    const client = resolveClient(options);
     const now = new Date();
-    const [id] = await dbClient("workspace_invites").insert({
+    const [id] = await client("workspace_invites").insert({
       workspace_id: invite.workspaceId,
       email: normalizeEmail(invite.email),
       role_id: String(invite.roleId || "").trim(),
@@ -115,12 +129,13 @@ function createWorkspaceInvitesRepository(dbClient) {
       updated_at: toMysqlDateTimeUtc(now)
     });
 
-    const row = await dbClient("workspace_invites").where({ id }).first();
+    const row = await client("workspace_invites").where({ id }).first();
     return mapWorkspaceInviteRowRequired(row);
   }
 
-  async function repoListPendingByWorkspaceId(workspaceId) {
-    const rows = await createInviteBaseQuery(dbClient)
+  async function repoListPendingByWorkspaceId(workspaceId, options = {}) {
+    const client = resolveClient(options);
+    const rows = await createInviteBaseQuery(client)
       .where({
         "wi.workspace_id": workspaceId,
         "wi.status": "pending"
@@ -132,8 +147,9 @@ function createWorkspaceInvitesRepository(dbClient) {
     return rows.map(mapWorkspaceInviteRowRequired);
   }
 
-  async function repoListPendingByWorkspaceIdWithWorkspace(workspaceId) {
-    const rows = await createInviteBaseQuery(dbClient, true)
+  async function repoListPendingByWorkspaceIdWithWorkspace(workspaceId, options = {}) {
+    const client = resolveClient(options);
+    const rows = await createInviteBaseQuery(client, true)
       .where({
         "wi.workspace_id": workspaceId,
         "wi.status": "pending"
@@ -145,13 +161,14 @@ function createWorkspaceInvitesRepository(dbClient) {
     return rows.map(mapWorkspaceInviteRowRequired);
   }
 
-  async function repoListPendingByEmail(email) {
+  async function repoListPendingByEmail(email, options = {}) {
     const normalizedEmail = normalizeEmail(email);
     if (!normalizedEmail) {
       return [];
     }
 
-    const rows = await createInviteBaseQuery(dbClient, true)
+    const client = resolveClient(options);
+    const rows = await createInviteBaseQuery(client, true)
       .where({
         "wi.status": "pending",
         "wi.email": normalizedEmail
@@ -163,18 +180,20 @@ function createWorkspaceInvitesRepository(dbClient) {
     return rows.map(mapWorkspaceInviteRowRequired);
   }
 
-  async function repoFindById(id) {
-    const row = await dbClient("workspace_invites").where({ id }).first();
+  async function repoFindById(id, options = {}) {
+    const client = resolveClient(options);
+    const row = await client("workspace_invites").where({ id }).first();
     return mapWorkspaceInviteRowNullable(row);
   }
 
-  async function repoFindPendingByWorkspaceIdAndEmail(workspaceId, email) {
+  async function repoFindPendingByWorkspaceIdAndEmail(workspaceId, email, options = {}) {
     const normalizedEmail = normalizeEmail(email);
     if (!normalizedEmail) {
       return null;
     }
 
-    const row = await createInviteBaseQuery(dbClient)
+    const client = resolveClient(options);
+    const row = await createInviteBaseQuery(client)
       .where({
         "wi.workspace_id": workspaceId,
         "wi.email": normalizedEmail,
@@ -187,8 +206,9 @@ function createWorkspaceInvitesRepository(dbClient) {
     return mapWorkspaceInviteRowNullable(row);
   }
 
-  async function repoFindPendingByIdForWorkspace(inviteId, workspaceId) {
-    const row = await createInviteBaseQuery(dbClient)
+  async function repoFindPendingByIdForWorkspace(inviteId, workspaceId, options = {}) {
+    const client = resolveClient(options);
+    const row = await createInviteBaseQuery(client)
       .where({
         "wi.id": inviteId,
         "wi.workspace_id": workspaceId,
@@ -200,13 +220,14 @@ function createWorkspaceInvitesRepository(dbClient) {
     return mapWorkspaceInviteRowNullable(row);
   }
 
-  async function repoFindPendingByIdAndEmail(inviteId, email) {
+  async function repoFindPendingByIdAndEmail(inviteId, email, options = {}) {
     const normalizedEmail = normalizeEmail(email);
     if (!normalizedEmail) {
       return null;
     }
 
-    const row = await createInviteBaseQuery(dbClient, true)
+    const client = resolveClient(options);
+    const row = await createInviteBaseQuery(client, true)
       .where({
         "wi.id": inviteId,
         "wi.email": normalizedEmail,
@@ -218,8 +239,9 @@ function createWorkspaceInvitesRepository(dbClient) {
     return mapWorkspaceInviteRowNullable(row);
   }
 
-  async function repoUpdateStatusById(id, status) {
-    await dbClient("workspace_invites")
+  async function repoUpdateStatusById(id, status, options = {}) {
+    const client = resolveClient(options);
+    await client("workspace_invites")
       .where({ id })
       .update({
         status: String(status || "")
@@ -228,20 +250,21 @@ function createWorkspaceInvitesRepository(dbClient) {
         updated_at: toMysqlDateTimeUtc(new Date())
       });
 
-    return repoFindById(id);
+    return repoFindById(id, options);
   }
 
-  async function repoRevokeById(id) {
-    return repoUpdateStatusById(id, "revoked");
+  async function repoRevokeById(id, options = {}) {
+    return repoUpdateStatusById(id, "revoked", options);
   }
 
-  async function repoMarkAcceptedById(id) {
-    return repoUpdateStatusById(id, "accepted");
+  async function repoMarkAcceptedById(id, options = {}) {
+    return repoUpdateStatusById(id, "accepted", options);
   }
 
-  async function repoMarkExpiredPendingInvites() {
+  async function repoMarkExpiredPendingInvites(options = {}) {
+    const client = resolveClient(options);
     const now = toMysqlDateTimeUtc(new Date());
-    const affectedRows = await dbClient("workspace_invites")
+    const affectedRows = await client("workspace_invites")
       .where({ status: "pending" })
       .andWhere("expires_at", "<=", now)
       .update({
@@ -250,6 +273,37 @@ function createWorkspaceInvitesRepository(dbClient) {
       });
 
     return Number(affectedRows || 0);
+  }
+
+  async function repoExpirePendingByWorkspaceIdAndEmail(workspaceId, email, options = {}) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+      return 0;
+    }
+
+    const client = resolveClient(options);
+    const now = toMysqlDateTimeUtc(new Date());
+    const affectedRows = await client("workspace_invites")
+      .where({
+        workspace_id: workspaceId,
+        email: normalizedEmail,
+        status: "pending"
+      })
+      .andWhere("expires_at", "<=", now)
+      .update({
+        status: "expired",
+        updated_at: now
+      });
+
+    return Number(affectedRows || 0);
+  }
+
+  async function repoTransaction(callback) {
+    if (typeof dbClient.transaction === "function") {
+      return dbClient.transaction(callback);
+    }
+
+    return callback(dbClient);
   }
 
   return {
@@ -264,13 +318,16 @@ function createWorkspaceInvitesRepository(dbClient) {
     updateStatusById: repoUpdateStatusById,
     revokeById: repoRevokeById,
     markAcceptedById: repoMarkAcceptedById,
-    markExpiredPendingInvites: repoMarkExpiredPendingInvites
+    markExpiredPendingInvites: repoMarkExpiredPendingInvites,
+    expirePendingByWorkspaceIdAndEmail: repoExpirePendingByWorkspaceIdAndEmail,
+    transaction: repoTransaction
   };
 }
 
 const repository = createWorkspaceInvitesRepository(db);
 
 const __testables = {
+  isMysqlDuplicateEntryError,
   normalizeEmail,
   mapWorkspaceInviteRowRequired,
   mapWorkspaceInviteRowNullable,
@@ -289,6 +346,7 @@ export const {
   updateStatusById,
   revokeById,
   markAcceptedById,
-  markExpiredPendingInvites
+  markExpiredPendingInvites,
+  expirePendingByWorkspaceIdAndEmail
 } = repository;
 export { __testables };

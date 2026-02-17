@@ -14,6 +14,7 @@
 
           <div v-if="!isForgot && !isOtp" class="mode-switch mb-5">
             <v-btn
+              data-testid="auth-mode-sign-in"
               class="text-none"
               :variant="isLogin ? 'flat' : 'text'"
               :color="isLogin ? 'primary' : undefined"
@@ -23,6 +24,7 @@
             </v-btn>
             <v-btn
               v-if="!showRememberedAccount"
+              data-testid="auth-mode-register"
               class="text-none"
               :variant="isRegister ? 'flat' : 'text'"
               :color="isRegister ? 'primary' : undefined"
@@ -147,7 +149,15 @@
               {{ infoMessage }}
             </v-alert>
 
-            <v-btn block color="primary" size="large" :loading="loading" :disabled="!canSubmit" type="submit">
+            <v-btn
+              data-testid="auth-submit"
+              block
+              color="primary"
+              size="large"
+              :loading="loading"
+              :disabled="!canSubmit"
+              type="submit"
+            >
               {{ submitLabel }}
             </v-btn>
 

@@ -338,6 +338,8 @@ test("workspace invites repository handles mapping, find/list, and status transi
   assert.throws(() => workspaceInvitesTestables.mapWorkspaceInviteRowRequired(null), /expected a row object/);
   assert.equal(workspaceInvitesTestables.mapWorkspaceInviteRowNullable(null), null);
   assert.equal(workspaceInvitesTestables.normalizeEmail(" User@Example.com "), "user@example.com");
+  assert.equal(workspaceInvitesTestables.isMysqlDuplicateEntryError({ code: "ER_DUP_ENTRY" }), true);
+  assert.equal(workspaceInvitesTestables.isMysqlDuplicateEntryError({ code: "OTHER" }), false);
 
   const mapped = workspaceInvitesTestables.mapWorkspaceInviteRowRequired(
     inviteRow({
@@ -420,7 +422,7 @@ test("workspace invites repository handles mapping, find/list, and status transi
     ],
     listQueue: [[inviteRow({ id: 11 })], [inviteRow({ id: 12 })], [inviteRow({ id: 13 })]],
     insertQueue: [41],
-    updateQueue: [1, 1, 1, 1, 2]
+    updateQueue: [1, 1, 1, 1, 3, 2]
   });
   const repo = workspaceInvitesTestables.createWorkspaceInvitesRepository(stub.dbClient);
 
@@ -486,8 +488,18 @@ test("workspace invites repository handles mapping, find/list, and status transi
   assert.equal(updatedDefaultStatus.id, 10);
   assert.equal(stub.state.updates.at(-1)[1].status, "");
 
+  assert.equal(await repo.expirePendingByWorkspaceIdAndEmail(11, ""), 0);
+  const expiredForWorkspaceAndEmail = await repo.expirePendingByWorkspaceIdAndEmail(11, " INVITEE@EXAMPLE.COM ");
+  assert.equal(expiredForWorkspaceAndEmail, 3);
+
   const expiredCount = await repo.markExpiredPendingInvites();
   assert.equal(expiredCount, 2);
+
+  const txResult = await repo.transaction(async (trxClient) => {
+    assert.equal(typeof trxClient, "function");
+    return "ok";
+  });
+  assert.equal(txResult, "ok");
 
   const zeroUpdateStub = createKnexStub({
     updateQueue: [0]

@@ -14,6 +14,15 @@ import {
 } from "./workspace-admin/lib/workspaceAdminHelpers.js";
 
 const INVITE_EXPIRY_DAYS = 7;
+
+function isMysqlDuplicateEntryError(error) {
+  if (!error) {
+    return false;
+  }
+
+  return String(error.code || "") === "ER_DUP_ENTRY";
+}
+
 function createWorkspaceAdminService({
   appConfig,
   rbacManifest,
@@ -157,6 +166,14 @@ function createWorkspaceAdminService({
     const date = new Date();
     date.setUTCDate(date.getUTCDate() + INVITE_EXPIRY_DAYS);
     return date.toISOString();
+  }
+
+  async function runInInviteTransaction(work) {
+    if (typeof workspaceInvitesRepository.transaction === "function") {
+      return workspaceInvitesRepository.transaction(work);
+    }
+
+    return work(null);
   }
 
   async function getWorkspaceSettings(workspaceContext, options = {}) {
@@ -344,19 +361,31 @@ function createWorkspaceAdminService({
       }
     }
 
-    const pendingExisting = await workspaceInvitesRepository.findPendingByWorkspaceIdAndEmail(workspace.id, email);
-    if (pendingExisting) {
-      throw new AppError(409, "A pending invite for this email already exists.");
-    }
+    await runInInviteTransaction(async (trx) => {
+      const options = trx ? { trx } : {};
 
-    await workspaceInvitesRepository.insert({
-      workspaceId: workspace.id,
-      email,
-      roleId,
-      tokenHash: buildInviteTokenHash(),
-      invitedByUserId: Number(actorUser?.id) || null,
-      expiresAt: resolveInviteExpiresAt(),
-      status: "pending"
+      await workspaceInvitesRepository.expirePendingByWorkspaceIdAndEmail(workspace.id, email, options);
+
+      try {
+        await workspaceInvitesRepository.insert(
+          {
+            workspaceId: workspace.id,
+            email,
+            roleId,
+            tokenHash: buildInviteTokenHash(),
+            invitedByUserId: Number(actorUser?.id) || null,
+            expiresAt: resolveInviteExpiresAt(),
+            status: "pending"
+          },
+          options
+        );
+      } catch (error) {
+        if (isMysqlDuplicateEntryError(error)) {
+          throw new AppError(409, "A pending invite for this email already exists.");
+        }
+
+        throw error;
+      }
     });
 
     return listInvites(workspace);

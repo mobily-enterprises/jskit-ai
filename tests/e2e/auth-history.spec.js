@@ -140,7 +140,7 @@ test("login sends CSRF token and lands on calculator", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("user@example.com");
   await page.getByRole("textbox", { name: "Password" }).fill("password123");
-  await page.locator("form").getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.getByTestId("auth-submit").click();
 
   await expect.poll(() => loginRequestCount).toBe(1);
   expect(loginCsrfHeader).toBe("csrf-token-1");
