@@ -4,21 +4,21 @@
       <span class="panel-title">History</span>
       <v-spacer />
       <v-select
-        :model-value="pageSize"
-        :items="pageSizeOptions"
+        :model-value="state.pageSize"
+        :items="meta.pageSizeOptions"
         label="Rows"
         density="compact"
         variant="outlined"
         hide-details
         style="max-width: 120px"
-        @update:model-value="(value) => emit('page-size-change', value)"
+        @update:model-value="actions.onPageSizeChange"
       />
-      <v-btn variant="outlined" :loading="loading" @click="emit('refresh')">Refresh</v-btn>
+      <v-btn variant="outlined" :loading="state.loading" @click="actions.load">Refresh</v-btn>
     </v-card-title>
     <v-divider />
     <v-card-text>
-      <v-alert v-if="error" type="error" variant="tonal" class="mb-3">
-        {{ error }}
+      <v-alert v-if="state.error" type="error" variant="tonal" class="mb-3">
+        {{ state.error }}
       </v-alert>
 
       <div class="history-table-wrap">
@@ -32,10 +32,10 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-if="!entries.length">
+            <tr v-if="!state.entries.length">
               <td colspan="4" class="text-center text-medium-emphasis py-6">No calculations yet.</td>
             </tr>
-            <tr v-for="entry in entries" :key="entry.id">
+            <tr v-for="entry in state.entries" :key="entry.id">
               <td>{{ formatDate(entry.createdAt) }}</td>
               <td>{{ typeLabel(entry) }}</td>
               <td>{{ inputSummary(entry) }}</td>
@@ -46,10 +46,12 @@
       </div>
 
       <div class="d-flex align-center justify-end ga-4 mt-4">
-        <p class="text-body-2 text-medium-emphasis mb-0">Page {{ page }} of {{ totalPages }} ({{ total }} total)</p>
+        <p class="text-body-2 text-medium-emphasis mb-0">
+          Page {{ state.page }} of {{ state.totalPages }} ({{ state.total }} total)
+        </p>
         <v-btn-group variant="outlined">
-          <v-btn :disabled="page <= 1 || loading" @click="emit('previous-page')">Previous</v-btn>
-          <v-btn :disabled="page >= totalPages || loading" @click="emit('next-page')">Next</v-btn>
+          <v-btn :disabled="state.page <= 1 || state.loading" @click="actions.goPrevious">Previous</v-btn>
+          <v-btn :disabled="state.page >= state.totalPages || state.loading" @click="actions.goNext">Next</v-btn>
         </v-btn-group>
       </div>
     </v-card-text>
@@ -57,58 +59,20 @@
 </template>
 
 <script setup>
-defineProps({
-  pageSizeOptions: {
-    type: Array,
-    required: true
-  },
-  error: {
-    type: String,
-    default: ""
-  },
-  loading: {
-    type: Boolean,
-    default: false
-  },
-  entries: {
-    type: Array,
-    default: () => []
-  },
-  page: {
-    type: Number,
-    required: true
-  },
-  totalPages: {
-    type: Number,
-    required: true
-  },
-  total: {
-    type: Number,
-    required: true
-  },
-  pageSize: {
-    type: Number,
-    required: true
-  },
-  formatDate: {
-    type: Function,
-    required: true
-  },
-  typeLabel: {
-    type: Function,
-    required: true
-  },
-  inputSummary: {
-    type: Function,
-    required: true
-  },
-  formatCurrency: {
-    type: Function,
-    required: true
-  }
+import { watch } from "vue";
+import { formatCurrency, formatDate, inputSummary, typeLabel } from "../../features/annuity/presentation";
+import { useAnnuityHistoryList } from "./useAnnuityHistoryList";
+
+const props = defineProps({
+  refreshToken: { type: Number, default: 0 },
+  initialPageSize: Number
 });
 
-const emit = defineEmits(["refresh", "previous-page", "next-page", "page-size-change"]);
+const { meta, state, actions } = useAnnuityHistoryList({
+  initialPageSize: props.initialPageSize
+});
+
+watch(() => props.refreshToken, actions.onCalculationCreated);
 </script>
 
 <style scoped>

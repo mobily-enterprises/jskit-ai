@@ -1,30 +1,32 @@
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, reactive } from "vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { api } from "../../services/api";
 import { useAuthGuard } from "../../composables/useAuthGuard";
-import { useListPagination } from "../../composables/useListPagination";
+import { useListQueryState } from "../../composables/useListQueryState";
+import { useUrlListPagination } from "../../composables/useUrlListPagination";
+import { useQueryErrorMessage } from "../../composables/useQueryErrorMessage";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { mapHistoryError } from "../../features/annuity/errors";
 import { pageSizeOptions } from "../../features/annuity/formModel";
-import { normalizePage } from "../../utils/pagination";
 
 export const HISTORY_QUERY_KEY_PREFIX = ["history"];
+export const HISTORY_PAGE_QUERY_KEY = "historyPage";
+export const HISTORY_PAGE_SIZE_QUERY_KEY = "historyPageSize";
 
 export function useAnnuityHistoryList({ initialPageSize = pageSizeOptions[0] } = {}) {
   const queryClient = useQueryClient();
   const { handleUnauthorizedError } = useAuthGuard();
   const workspaceStore = useWorkspaceStore();
-  const pagination = useListPagination({
+  const enabled = computed(() => Boolean(workspaceStore.initialized && workspaceStore.activeWorkspaceSlug));
+  const pagination = useUrlListPagination({
+    pageKey: HISTORY_PAGE_QUERY_KEY,
+    pageSizeKey: HISTORY_PAGE_SIZE_QUERY_KEY,
     initialPageSize,
     defaultPageSize: pageSizeOptions[0],
-    getIsLoading: () => historyLoading.value,
-    getTotalPages: () => historyTotalPages.value
+    pageSizeOptions
   });
 
-  const historyError = ref("");
-  const historyEnabled = ref(false);
-
-  const historyQuery = useQuery({
+  const query = useQuery({
     queryKey: computed(() => [
       ...HISTORY_QUERY_KEY_PREFIX,
       workspaceStore.activeWorkspaceSlug || "none",
@@ -32,38 +34,22 @@ export function useAnnuityHistoryList({ initialPageSize = pageSizeOptions[0] } =
       pagination.pageSize.value
     ]),
     queryFn: () => api.history(pagination.page.value, pagination.pageSize.value),
-    enabled: historyEnabled,
+    enabled,
     placeholderData: (previous) => previous
   });
 
-  const historyEntries = computed(() => {
-    const entries = historyQuery.data.value?.entries;
-    return Array.isArray(entries) ? entries : [];
+  const entries = computed(() => {
+    const resultEntries = query.data.value?.entries;
+    return Array.isArray(resultEntries) ? resultEntries : [];
   });
 
-  const historyTotal = computed(() => Number(historyQuery.data.value?.total) || 0);
-  const historyTotalPages = computed(() => normalizePage(historyQuery.data.value?.totalPages, 1));
-  const historyLoading = computed(() => historyQuery.isPending.value || historyQuery.isFetching.value);
+  const { total, totalPages, loading } = useListQueryState(query);
 
-  watch(
-    () => historyQuery.error.value,
-    async (error) => {
-      if (!error) {
-        historyError.value = "";
-        return;
-      }
-
-      if (await handleUnauthorizedError(error)) {
-        return;
-      }
-
-      historyError.value = mapHistoryError(error).message;
-    }
-  );
-
-  async function load() {
-    await historyQuery.refetch();
-  }
+  const error = useQueryErrorMessage({
+    query,
+    handleUnauthorizedError,
+    mapError: mapHistoryError
+  });
 
   async function onCalculationCreated() {
     pagination.resetToFirstPage();
@@ -72,24 +58,26 @@ export function useAnnuityHistoryList({ initialPageSize = pageSizeOptions[0] } =
     });
   }
 
-  onMounted(() => {
-    historyEnabled.value = true;
-  });
-
-  return reactive({
-    pageSizeOptions,
-    error: historyError,
-    page: pagination.page,
-    pageSize: pagination.pageSize,
-    enabled: historyEnabled,
-    entries: historyEntries,
-    total: historyTotal,
-    totalPages: historyTotalPages,
-    loading: historyLoading,
-    load,
-    goPrevious: pagination.goPrevious,
-    goNext: pagination.goNext,
-    onPageSizeChange: pagination.onPageSizeChange,
-    onCalculationCreated
-  });
+  return {
+    meta: {
+      pageSizeOptions
+    },
+    state: reactive({
+      error,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      enabled,
+      entries,
+      total,
+      totalPages,
+      loading
+    }),
+    actions: {
+      load: () => query.refetch(),
+      goPrevious: () => pagination.goPrevious({ isLoading: loading.value }),
+      goNext: () => pagination.goNext({ totalPages: totalPages.value, isLoading: loading.value }),
+      onPageSizeChange: pagination.onPageSizeChange,
+      onCalculationCreated
+    }
+  };
 }

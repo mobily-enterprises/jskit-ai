@@ -1,34 +1,19 @@
 <template>
   <section class="calculator-view py-2 py-md-4">
-    <AnnuityCalculatorForm @calculated="history.onCalculationCreated" />
+    <AnnuityCalculatorForm @calculated="handleCalculated" />
 
-    <AnnuityHistoryList
-      class="mt-6"
-      :page-size-options="history.pageSizeOptions"
-      :error="history.error"
-      :loading="history.loading"
-      :entries="history.entries"
-      :page="history.page"
-      :total-pages="history.totalPages"
-      :total="history.total"
-      :page-size="history.pageSize"
-      :format-date="formatDate"
-      :type-label="typeLabel"
-      :input-summary="inputSummary"
-      :format-currency="formatCurrency"
-      @refresh="history.load"
-      @previous-page="history.goPrevious"
-      @next-page="history.goNext"
-      @page-size-change="history.onPageSizeChange"
-    />
+    <AnnuityHistoryList class="mt-6" :refresh-token="historyRefreshToken" />
   </section>
 </template>
 
 <script setup>
-import { useAnnuityHistoryList } from "../components/annuity-history-list/useAnnuityHistoryList";
-import { formatCurrency, formatDate, inputSummary, typeLabel } from "../features/annuity/presentation";
+import { ref } from "vue";
 import AnnuityCalculatorForm from "../components/annuity-calculator-form/AnnuityCalculatorForm.vue";
 import AnnuityHistoryList from "../components/annuity-history-list/AnnuityHistoryList.vue";
 
-const history = useAnnuityHistoryList();
+const historyRefreshToken = ref(0);
+
+function handleCalculated() {
+  historyRefreshToken.value += 1;
+}
 </script>

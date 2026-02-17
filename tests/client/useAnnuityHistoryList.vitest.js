@@ -3,8 +3,15 @@ import { defineComponent, nextTick, ref } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  navigate: vi.fn(async () => undefined),
+  routerPathname: "/w/acme",
+  routerSearch: {},
   api: {
     history: vi.fn()
+  },
+  workspaceStore: {
+    initialized: true,
+    activeWorkspaceSlug: ""
   },
   handleUnauthorizedError: vi.fn(async () => false),
   queryData: null,
@@ -13,6 +20,22 @@ const mocks = vi.hoisted(() => ({
   queryFetching: null,
   queryRefetch: vi.fn(async () => undefined),
   invalidateQueries: vi.fn(async () => undefined)
+}));
+
+vi.mock("@tanstack/vue-router", () => ({
+  useNavigate: () => mocks.navigate,
+  useRouterState: (options) => {
+    const state = {
+      location: {
+        pathname: mocks.routerPathname,
+        search: mocks.routerSearch
+      }
+    };
+
+    return {
+      value: options?.select ? options.select(state) : state
+    };
+  }
 }));
 
 vi.mock("@tanstack/vue-query", () => ({
@@ -56,6 +79,10 @@ vi.mock("../../src/composables/useAuthGuard.js", () => ({
   })
 }));
 
+vi.mock("../../src/stores/workspaceStore.js", () => ({
+  useWorkspaceStore: () => mocks.workspaceStore
+}));
+
 import {
   HISTORY_QUERY_KEY_PREFIX,
   useAnnuityHistoryList
@@ -82,6 +109,9 @@ async function flush() {
 
 describe("useAnnuityHistoryList", () => {
   beforeEach(() => {
+    mocks.navigate.mockReset();
+    mocks.routerPathname = "/w/acme";
+    mocks.routerSearch = {};
     mocks.api.history.mockReset();
     mocks.api.history.mockResolvedValue({
       entries: [],
@@ -102,17 +132,19 @@ describe("useAnnuityHistoryList", () => {
     mocks.queryRefetch.mockResolvedValue(undefined);
     mocks.invalidateQueries.mockReset();
     mocks.invalidateQueries.mockResolvedValue(undefined);
+    mocks.workspaceStore.initialized = true;
+    mocks.workspaceStore.activeWorkspaceSlug = "acme";
   });
 
   it("initializes state, normalizes inputs, and exposes reactive data", async () => {
     const wrapper = mountHarness({ initialPageSize: 0 });
     await flush();
 
-    expect(wrapper.vm.history.pageSizeOptions).toEqual([10, 25, 50]);
-    expect(wrapper.vm.history.enabled).toBe(true);
-    expect(wrapper.vm.history.page).toBe(1);
-    expect(wrapper.vm.history.pageSize).toBe(1);
-    expect(mocks.api.history).toHaveBeenCalledWith(1, 1);
+    expect(wrapper.vm.history.meta.pageSizeOptions).toEqual([10, 25, 50]);
+    expect(wrapper.vm.history.state.enabled).toBe(true);
+    expect(wrapper.vm.history.state.page).toBe(1);
+    expect(wrapper.vm.history.state.pageSize).toBe(10);
+    expect(mocks.api.history).toHaveBeenCalledWith(1, 10);
 
     mocks.queryData.value = {
       entries: [{ id: "e1" }],
@@ -120,9 +152,9 @@ describe("useAnnuityHistoryList", () => {
       totalPages: 3
     };
     await flush();
-    expect(wrapper.vm.history.entries).toEqual([{ id: "e1" }]);
-    expect(wrapper.vm.history.total).toBe(11);
-    expect(wrapper.vm.history.totalPages).toBe(3);
+    expect(wrapper.vm.history.state.entries).toEqual([{ id: "e1" }]);
+    expect(wrapper.vm.history.state.total).toBe(11);
+    expect(wrapper.vm.history.state.totalPages).toBe(3);
 
     mocks.queryData.value = {
       entries: null,
@@ -130,15 +162,15 @@ describe("useAnnuityHistoryList", () => {
       totalPages: 0
     };
     await flush();
-    expect(wrapper.vm.history.entries).toEqual([]);
-    expect(wrapper.vm.history.total).toBe(9);
-    expect(wrapper.vm.history.totalPages).toBe(1);
+    expect(wrapper.vm.history.state.entries).toEqual([]);
+    expect(wrapper.vm.history.state.total).toBe(9);
+    expect(wrapper.vm.history.state.totalPages).toBe(1);
 
     mocks.queryData.value = null;
     await flush();
-    expect(wrapper.vm.history.entries).toEqual([]);
-    expect(wrapper.vm.history.total).toBe(0);
-    expect(wrapper.vm.history.totalPages).toBe(1);
+    expect(wrapper.vm.history.state.entries).toEqual([]);
+    expect(wrapper.vm.history.state.total).toBe(0);
+    expect(wrapper.vm.history.state.totalPages).toBe(1);
   });
 
   it("handles history errors for unauthorized and non-unauthorized branches", async () => {
@@ -151,11 +183,11 @@ describe("useAnnuityHistoryList", () => {
     };
     await flush();
     expect(mocks.handleUnauthorizedError).toHaveBeenCalledTimes(1);
-    expect(wrapper.vm.history.error).toBe("History unavailable.");
+    expect(wrapper.vm.history.state.error).toBe("History unavailable.");
 
     mocks.queryError.value = null;
     await flush();
-    expect(wrapper.vm.history.error).toBe("");
+    expect(wrapper.vm.history.state.error).toBe("");
 
     mocks.handleUnauthorizedError.mockResolvedValueOnce(true);
     mocks.queryError.value = {
@@ -164,7 +196,7 @@ describe("useAnnuityHistoryList", () => {
     };
     await flush();
     expect(mocks.handleUnauthorizedError).toHaveBeenCalledTimes(2);
-    expect(wrapper.vm.history.error).toBe("");
+    expect(wrapper.vm.history.state.error).toBe("");
   });
 
   it("supports paging actions and page size changes", async () => {
@@ -178,44 +210,54 @@ describe("useAnnuityHistoryList", () => {
     };
     await flush();
 
-    wrapper.vm.history.goPrevious();
-    expect(wrapper.vm.history.page).toBe(1);
+    wrapper.vm.history.actions.goPrevious();
+    expect(wrapper.vm.history.state.page).toBe(1);
 
-    wrapper.vm.history.goNext();
-    expect(wrapper.vm.history.page).toBe(2);
+    wrapper.vm.history.actions.goNext();
+    expect(wrapper.vm.history.state.page).toBe(2);
 
     mocks.queryPending.value = true;
-    wrapper.vm.history.goNext();
-    expect(wrapper.vm.history.page).toBe(2);
+    wrapper.vm.history.actions.goNext();
+    expect(wrapper.vm.history.state.page).toBe(2);
 
     mocks.queryPending.value = false;
-    wrapper.vm.history.page = 3;
-    wrapper.vm.history.goNext();
-    expect(wrapper.vm.history.page).toBe(3);
+    wrapper.vm.history.state.page = 3;
+    wrapper.vm.history.actions.goNext();
+    expect(wrapper.vm.history.state.page).toBe(3);
 
-    wrapper.vm.history.page = 2;
-    wrapper.vm.history.onPageSizeChange(undefined);
-    expect(wrapper.vm.history.page).toBe(1);
-    expect(wrapper.vm.history.pageSize).toBe(10);
+    wrapper.vm.history.state.page = 2;
+    wrapper.vm.history.actions.onPageSizeChange(undefined);
+    expect(wrapper.vm.history.state.page).toBe(1);
+    expect(wrapper.vm.history.state.pageSize).toBe(10);
 
-    wrapper.vm.history.page = 2;
-    wrapper.vm.history.onPageSizeChange(25);
-    expect(wrapper.vm.history.page).toBe(1);
-    expect(wrapper.vm.history.pageSize).toBe(25);
+    wrapper.vm.history.state.page = 2;
+    wrapper.vm.history.actions.onPageSizeChange(25);
+    expect(wrapper.vm.history.state.page).toBe(1);
+    expect(wrapper.vm.history.state.pageSize).toBe(25);
   });
 
   it("refreshes data and invalidates history after calculation", async () => {
     const wrapper = mountHarness();
     await flush();
 
-    await wrapper.vm.history.load();
+    await wrapper.vm.history.actions.load();
     expect(mocks.queryRefetch).toHaveBeenCalledTimes(1);
 
-    wrapper.vm.history.page = 2;
-    await wrapper.vm.history.onCalculationCreated();
-    expect(wrapper.vm.history.page).toBe(1);
+    wrapper.vm.history.state.page = 2;
+    await wrapper.vm.history.actions.onCalculationCreated();
+    expect(wrapper.vm.history.state.page).toBe(1);
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: HISTORY_QUERY_KEY_PREFIX
+      queryKey: [...HISTORY_QUERY_KEY_PREFIX, "acme"]
     });
+  });
+
+  it("exposes disabled state when workspace context is not ready", async () => {
+    mocks.workspaceStore.initialized = false;
+    mocks.workspaceStore.activeWorkspaceSlug = "";
+
+    const wrapper = mountHarness();
+    await flush();
+
+    expect(wrapper.vm.history.state.enabled).toBe(false);
   });
 });

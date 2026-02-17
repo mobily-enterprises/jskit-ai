@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { getFirstPage, getNextPage, getPreviousPage, normalizePageSize } from "../utils/pagination";
+import { getFirstPage, getNextPage, getPreviousPage, normalizePage, normalizePageSize } from "../utils/pagination";
 
 function resolveValue(valueOrGetter, fallback) {
   if (typeof valueOrGetter === "function") {
@@ -11,12 +11,13 @@ function resolveValue(valueOrGetter, fallback) {
 }
 
 export function useListPagination({
+  initialPage,
   initialPageSize,
   defaultPageSize,
   getIsLoading = false,
   getTotalPages = 1
 }) {
-  const page = ref(getFirstPage());
+  const page = ref(normalizePage(initialPage, getFirstPage()));
   const pageSize = ref(normalizePageSize(initialPageSize, defaultPageSize));
 
   function resetToFirstPage() {
