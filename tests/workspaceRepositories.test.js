@@ -209,6 +209,12 @@ test("workspaces repository maps rows and executes find/insert/update/list flows
   assert.equal(listed.length, 1);
   assert.equal(listed[0].roleId, "admin");
   assert.equal(listed[0].membershipStatus, "active");
+
+  const txResult = await repo.transaction(async (trxClient) => {
+    assert.equal(typeof trxClient, "function");
+    return "ok";
+  });
+  assert.equal(txResult, "ok");
 });
 
 test("workspace settings repository parses JSON and supports find/ensure/update branches", async () => {

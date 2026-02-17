@@ -38,32 +38,61 @@ function mapWorkspaceRowNullable(row) {
   return mapWorkspaceRowRequired(row);
 }
 
+function resolveQueryOptions(options = {}) {
+  if (!options || typeof options !== "object") {
+    return {
+      trx: null,
+      forUpdate: false
+    };
+  }
+
+  return {
+    trx: options.trx || null,
+    forUpdate: options.forUpdate === true
+  };
+}
+
 function createWorkspacesRepository(dbClient) {
-  async function repoFindById(id) {
-    const row = await dbClient("workspaces").where({ id }).first();
+  function resolveClient(options = {}) {
+    const { trx } = resolveQueryOptions(options);
+    return trx || dbClient;
+  }
+
+  async function repoFindById(id, options = {}) {
+    const client = resolveClient(options);
+    const row = await client("workspaces").where({ id }).first();
     return mapWorkspaceRowNullable(row);
   }
 
-  async function repoFindBySlug(slug) {
-    const row = await dbClient("workspaces").where({ slug }).first();
+  async function repoFindBySlug(slug, options = {}) {
+    const client = resolveClient(options);
+    const row = await client("workspaces").where({ slug }).first();
     return mapWorkspaceRowNullable(row);
   }
 
-  async function repoFindPersonalByOwnerUserId(ownerUserId) {
-    const row = await dbClient("workspaces")
+  async function repoFindPersonalByOwnerUserId(ownerUserId, options = {}) {
+    const { forUpdate } = resolveQueryOptions(options);
+    const client = resolveClient(options);
+    let query = client("workspaces")
       .where({
         owner_user_id: ownerUserId,
         is_personal: true
       })
-      .orderBy("id", "asc")
-      .first();
+      .orderBy("id", "asc");
+
+    if (forUpdate && typeof query.forUpdate === "function") {
+      query = query.forUpdate();
+    }
+
+    const row = await query.first();
 
     return mapWorkspaceRowNullable(row);
   }
 
-  async function repoInsert(workspace) {
+  async function repoInsert(workspace, options = {}) {
+    const client = resolveClient(options);
     const now = workspace.updatedAt ? new Date(workspace.updatedAt) : new Date();
-    const [id] = await dbClient("workspaces").insert({
+    const [id] = await client("workspaces").insert({
       slug: workspace.slug,
       name: workspace.name,
       color: normalizeWorkspaceColor(workspace.color),
@@ -74,11 +103,12 @@ function createWorkspacesRepository(dbClient) {
       updated_at: toMysqlDateTimeUtc(now)
     });
 
-    const row = await dbClient("workspaces").where({ id }).first();
+    const row = await client("workspaces").where({ id }).first();
     return mapWorkspaceRowRequired(row);
   }
 
-  async function repoUpdateById(id, patch = {}) {
+  async function repoUpdateById(id, patch = {}, options = {}) {
+    const client = resolveClient(options);
     const dbPatch = {};
 
     if (Object.prototype.hasOwnProperty.call(patch, "slug")) {
@@ -96,15 +126,16 @@ function createWorkspacesRepository(dbClient) {
 
     if (Object.keys(dbPatch).length > 0) {
       dbPatch.updated_at = toMysqlDateTimeUtc(new Date());
-      await dbClient("workspaces").where({ id }).update(dbPatch);
+      await client("workspaces").where({ id }).update(dbPatch);
     }
 
-    const row = await dbClient("workspaces").where({ id }).first();
+    const row = await client("workspaces").where({ id }).first();
     return mapWorkspaceRowNullable(row);
   }
 
-  async function repoListByUserId(userId) {
-    const rows = await dbClient("workspaces as w")
+  async function repoListByUserId(userId, options = {}) {
+    const client = resolveClient(options);
+    const rows = await client("workspaces as w")
       .innerJoin("workspace_memberships as wm", "wm.workspace_id", "w.id")
       .select(
         "w.id",
@@ -133,13 +164,22 @@ function createWorkspacesRepository(dbClient) {
     }));
   }
 
+  async function repoTransaction(callback) {
+    if (typeof dbClient.transaction === "function") {
+      return dbClient.transaction(callback);
+    }
+
+    return callback(dbClient);
+  }
+
   return {
     findById: repoFindById,
     findBySlug: repoFindBySlug,
     findPersonalByOwnerUserId: repoFindPersonalByOwnerUserId,
     insert: repoInsert,
     updateById: repoUpdateById,
-    listByUserId: repoListByUserId
+    listByUserId: repoListByUserId,
+    transaction: repoTransaction
   };
 }
 

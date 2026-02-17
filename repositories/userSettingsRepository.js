@@ -110,26 +110,33 @@ function withUpdatedAt(patch, now = new Date()) {
 }
 
 function createUserSettingsRepository(dbClient) {
-  async function repoFindByUserId(userId) {
-    const row = await dbClient("user_settings").where({ user_id: userId }).first();
+  function resolveClient(options = {}) {
+    const trx = options && typeof options === "object" ? options.trx || null : null;
+    return trx || dbClient;
+  }
+
+  async function repoFindByUserId(userId, options = {}) {
+    const client = resolveClient(options);
+    const row = await client("user_settings").where({ user_id: userId }).first();
     return mapUserSettingsRowNullable(row);
   }
 
-  async function repoEnsureForUserId(userId) {
-    const existing = await repoFindByUserId(userId);
+  async function repoEnsureForUserId(userId, options = {}) {
+    const client = resolveClient(options);
+    const existing = await repoFindByUserId(userId, options);
     if (existing) {
       return existing;
     }
 
     try {
-      await dbClient("user_settings").insert({ user_id: userId });
+      await client("user_settings").insert({ user_id: userId });
     } catch (error) {
       if (!isMysqlDuplicateEntryError(error)) {
         throw error;
       }
     }
 
-    const row = await dbClient("user_settings").where({ user_id: userId }).first();
+    const row = await client("user_settings").where({ user_id: userId }).first();
     return mapUserSettingsRowRequired(row);
   }
 
@@ -197,10 +204,11 @@ function createUserSettingsRepository(dbClient) {
     return mapUserSettingsRowNullable(row);
   }
 
-  async function repoUpdateLastActiveWorkspaceId(userId, workspaceId) {
-    await repoEnsureForUserId(userId);
+  async function repoUpdateLastActiveWorkspaceId(userId, workspaceId, options = {}) {
+    const client = resolveClient(options);
+    await repoEnsureForUserId(userId, options);
 
-    await dbClient("user_settings")
+    await client("user_settings")
       .where({ user_id: userId })
       .update(
         withUpdatedAt({
@@ -208,7 +216,7 @@ function createUserSettingsRepository(dbClient) {
         })
       );
 
-    const row = await dbClient("user_settings").where({ user_id: userId }).first();
+    const row = await client("user_settings").where({ user_id: userId }).first();
     return mapUserSettingsRowRequired(row);
   }
 

@@ -324,6 +324,151 @@ test("workspace service ensures personal workspace and handles slug collisions",
   );
 });
 
+test("workspace service ensures personal workspace transactionally and recovers from duplicate insert races", async () => {
+  const existingWorkspace = {
+    id: 501,
+    slug: "tony",
+    name: "Tony Workspace",
+    color: "#0F6B54",
+    avatarUrl: "",
+    ownerUserId: 77,
+    isPersonal: true
+  };
+
+  const calls = {
+    transaction: 0,
+    findBySlug: [],
+    findPersonal: [],
+    insert: [],
+    ensureOwnerMembership: [],
+    ensureWorkspaceSettings: [],
+    ensureForUserId: [],
+    updateLastActiveWorkspaceId: []
+  };
+
+  let personalLookupCount = 0;
+  const workspacesRepository = {
+    async transaction(work) {
+      calls.transaction += 1;
+      return work({ marker: "trx-object" });
+    },
+    async findBySlug(slug, options = {}) {
+      calls.findBySlug.push({ slug, options });
+      return null;
+    },
+    async findById() {
+      return null;
+    },
+    async findPersonalByOwnerUserId(ownerUserId, options = {}) {
+      personalLookupCount += 1;
+      calls.findPersonal.push({ ownerUserId, options, personalLookupCount });
+      if (personalLookupCount < 2) {
+        return null;
+      }
+      return existingWorkspace;
+    },
+    async insert(payload, options = {}) {
+      calls.insert.push({ payload, options });
+      const error = new Error("duplicate personal workspace");
+      error.code = "ER_DUP_ENTRY";
+      throw error;
+    },
+    async listByUserId() {
+      return [];
+    }
+  };
+
+  const workspaceMembershipsRepository = {
+    async ensureOwnerMembership(workspaceId, userId, options = {}) {
+      calls.ensureOwnerMembership.push({ workspaceId, userId, options });
+      return {
+        workspaceId,
+        userId,
+        roleId: "owner",
+        status: "active"
+      };
+    },
+    async findByWorkspaceIdAndUserId() {
+      return null;
+    }
+  };
+
+  const workspaceSettingsRepository = {
+    async ensureForWorkspaceId(workspaceId, defaults = {}, options = {}) {
+      calls.ensureWorkspaceSettings.push({ workspaceId, defaults, options });
+      return {
+        workspaceId,
+        invitesEnabled: Boolean(defaults.invitesEnabled),
+        features: defaults.features || {},
+        policy: defaults.policy || {}
+      };
+    }
+  };
+
+  const userSettingsRepository = {
+    async ensureForUserId(userId, options = {}) {
+      calls.ensureForUserId.push({ userId, options });
+      return {
+        userId,
+        lastActiveWorkspaceId: null
+      };
+    },
+    async updateLastActiveWorkspaceId(userId, workspaceId, options = {}) {
+      calls.updateLastActiveWorkspaceId.push({ userId, workspaceId, options });
+      return {
+        userId,
+        lastActiveWorkspaceId: workspaceId
+      };
+    }
+  };
+
+  const service = createWorkspaceService({
+    appConfig: {
+      tenancyMode: "multi-workspace",
+      features: {
+        workspaceInvites: true,
+        workspaceSwitching: true,
+        workspaceCreateEnabled: true
+      }
+    },
+    rbacManifest: {
+      collaborationEnabled: true,
+      roles: {
+        owner: { assignable: false, permissions: ["*"] },
+        member: { assignable: true, permissions: [] }
+      }
+    },
+    workspacesRepository,
+    workspaceMembershipsRepository,
+    workspaceSettingsRepository,
+    workspaceInvitesRepository: {
+      async listPendingByEmail() {
+        return [];
+      }
+    },
+    userSettingsRepository,
+    userAvatarService: null
+  });
+
+  const workspace = await service.ensurePersonalWorkspaceForUser({
+    id: 77,
+    displayName: "Tony",
+    email: "tony@example.com"
+  });
+
+  assert.equal(workspace.id, existingWorkspace.id);
+  assert.equal(calls.transaction, 1);
+  assert.equal(calls.insert.length, 1);
+  assert.equal(calls.ensureOwnerMembership.length, 1);
+  assert.equal(calls.ensureWorkspaceSettings.length, 1);
+  assert.equal(calls.ensureForUserId.length, 1);
+  assert.equal(calls.updateLastActiveWorkspaceId.length, 1);
+  assert.equal(calls.ensureOwnerMembership[0].options.trx.marker, "trx-object");
+  assert.equal(calls.ensureWorkspaceSettings[0].options.trx.marker, "trx-object");
+  assert.equal(calls.ensureForUserId[0].options.trx.marker, "trx-object");
+  assert.equal(calls.updateLastActiveWorkspaceId[0].options.trx.marker, "trx-object");
+});
+
 test("workspace service list/select methods enforce auth, access rules, and workspace selector resolution", async () => {
   const { service, state } = createWorkspaceServiceFixture();
 

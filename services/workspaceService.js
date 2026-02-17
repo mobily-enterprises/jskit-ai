@@ -20,6 +20,14 @@ import {
   createMembershipIndexes
 } from "./workspace/lib/workspaceHelpers.js";
 
+function isMysqlDuplicateEntryError(error) {
+  if (!error) {
+    return false;
+  }
+
+  return String(error.code || "") === "ER_DUP_ENTRY";
+}
+
 function createWorkspaceService({
   appConfig,
   rbacManifest,
@@ -39,12 +47,12 @@ function createWorkspaceService({
     throw new Error("workspace service repositories are required.");
   }
 
-  async function ensureUniqueWorkspaceSlug(baseSlug) {
+  async function ensureUniqueWorkspaceSlug(baseSlug, options = {}) {
     let candidate = toSlugPart(baseSlug) || "workspace";
     let suffix = 1;
 
     while (suffix < 10000) {
-      const existing = await workspacesRepository.findBySlug(candidate);
+      const existing = await workspacesRepository.findBySlug(candidate, options);
       if (!existing) {
         return candidate;
       }
@@ -55,11 +63,54 @@ function createWorkspaceService({
     throw new AppError(500, "Unable to generate a unique workspace slug.");
   }
 
-  async function ensureWorkspaceSettingsForWorkspace(workspaceId) {
+  async function ensureWorkspaceSettingsForWorkspace(workspaceId, options = {}) {
     return workspaceSettingsRepository.ensureForWorkspaceId(
       workspaceId,
-      createWorkspaceSettingsDefaults(Boolean(appConfig.features.workspaceInvites))
+      createWorkspaceSettingsDefaults(Boolean(appConfig.features.workspaceInvites)),
+      options
     );
+  }
+
+  async function runInTransaction(work) {
+    if (typeof workspacesRepository.transaction === "function") {
+      return workspacesRepository.transaction(work);
+    }
+
+    return work(null);
+  }
+
+  async function createPersonalWorkspaceWithRetry(userProfile, userId, options = {}) {
+    const maxAttempts = 10;
+    const baseSlug = buildWorkspaceBaseSlug(userProfile);
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await workspacesRepository.insert(
+          {
+            slug: await ensureUniqueWorkspaceSlug(baseSlug, options),
+            name: buildWorkspaceName(userProfile),
+            ownerUserId: userId,
+            isPersonal: true,
+            avatarUrl: ""
+          },
+          options
+        );
+      } catch (error) {
+        if (!isMysqlDuplicateEntryError(error)) {
+          throw error;
+        }
+
+        const existingWorkspace = await workspacesRepository.findPersonalByOwnerUserId(userId, {
+          ...options,
+          forUpdate: true
+        });
+        if (existingWorkspace) {
+          return existingWorkspace;
+        }
+      }
+    }
+
+    throw new AppError(500, "Unable to provision personal workspace. Please retry.");
   }
 
   async function ensurePersonalWorkspaceForUser(userProfile) {
@@ -68,26 +119,25 @@ function createWorkspaceService({
       throw new AppError(400, "Cannot ensure personal workspace without a valid user id.");
     }
 
-    const existingWorkspace = await workspacesRepository.findPersonalByOwnerUserId(userId);
-    const workspace =
-      existingWorkspace ||
-      (await workspacesRepository.insert({
-        slug: await ensureUniqueWorkspaceSlug(buildWorkspaceBaseSlug(userProfile)),
-        name: buildWorkspaceName(userProfile),
-        ownerUserId: userId,
-        isPersonal: true,
-        avatarUrl: ""
-      }));
+    return runInTransaction(async (trx) => {
+      const transactionOptions = trx ? { trx } : {};
+      const existingWorkspace = await workspacesRepository.findPersonalByOwnerUserId(userId, {
+        ...transactionOptions,
+        forUpdate: true
+      });
+      const workspace =
+        existingWorkspace || (await createPersonalWorkspaceWithRetry(userProfile, userId, transactionOptions));
 
-    await workspaceMembershipsRepository.ensureOwnerMembership(workspace.id, userId);
-    await ensureWorkspaceSettingsForWorkspace(workspace.id);
+      await workspaceMembershipsRepository.ensureOwnerMembership(workspace.id, userId, transactionOptions);
+      await ensureWorkspaceSettingsForWorkspace(workspace.id, transactionOptions);
 
-    const userSettings = await userSettingsRepository.ensureForUserId(userId);
-    if (!userSettings.lastActiveWorkspaceId) {
-      await userSettingsRepository.updateLastActiveWorkspaceId(userId, workspace.id);
-    }
+      const userSettings = await userSettingsRepository.ensureForUserId(userId, transactionOptions);
+      if (!userSettings.lastActiveWorkspaceId) {
+        await userSettingsRepository.updateLastActiveWorkspaceId(userId, workspace.id, transactionOptions);
+      }
 
-    return workspace;
+      return workspace;
+    });
   }
 
   async function listMembershipWorkspacesForUser(userId) {

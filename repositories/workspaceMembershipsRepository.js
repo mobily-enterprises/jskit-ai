@@ -1,6 +1,14 @@
 import { db } from "../db/knex.js";
 import { toIsoString, toMysqlDateTimeUtc } from "../lib/dateUtils.js";
 
+function isMysqlDuplicateEntryError(error) {
+  if (!error) {
+    return false;
+  }
+
+  return String(error.code || "") === "ER_DUP_ENTRY";
+}
+
 function mapMembershipWithUserRowRequired(row) {
   if (!row) {
     throw new TypeError("mapMembershipWithUserRowRequired expected a row object.");
@@ -40,8 +48,14 @@ function mapMembershipRowNullable(row) {
 }
 
 function createWorkspaceMembershipsRepository(dbClient) {
-  async function repoFindByWorkspaceIdAndUserId(workspaceId, userId) {
-    const row = await dbClient("workspace_memberships")
+  function resolveClient(options = {}) {
+    const trx = options && typeof options === "object" ? options.trx || null : null;
+    return trx || dbClient;
+  }
+
+  async function repoFindByWorkspaceIdAndUserId(workspaceId, userId, options = {}) {
+    const client = resolveClient(options);
+    const row = await client("workspace_memberships")
       .where({
         workspace_id: workspaceId,
         user_id: userId
@@ -51,9 +65,10 @@ function createWorkspaceMembershipsRepository(dbClient) {
     return mapMembershipRowNullable(row);
   }
 
-  async function repoInsert(membership) {
+  async function repoInsert(membership, options = {}) {
+    const client = resolveClient(options);
     const now = new Date();
-    const [id] = await dbClient("workspace_memberships").insert({
+    const [id] = await client("workspace_memberships").insert({
       workspace_id: membership.workspaceId,
       user_id: membership.userId,
       role_id: membership.roleId,
@@ -62,26 +77,46 @@ function createWorkspaceMembershipsRepository(dbClient) {
       updated_at: toMysqlDateTimeUtc(now)
     });
 
-    const row = await dbClient("workspace_memberships").where({ id }).first();
+    const row = await client("workspace_memberships").where({ id }).first();
     return mapMembershipRowRequired(row);
   }
 
-  async function repoEnsureOwnerMembership(workspaceId, userId) {
-    const existing = await repoFindByWorkspaceIdAndUserId(workspaceId, userId);
+  async function repoEnsureOwnerMembership(workspaceId, userId, options = {}) {
+    const client = resolveClient(options);
+    const existing = await repoFindByWorkspaceIdAndUserId(workspaceId, userId, options);
     if (existing) {
       return existing;
     }
 
-    return repoInsert({
-      workspaceId,
-      userId,
-      roleId: "owner",
-      status: "active"
-    });
+    try {
+      const now = toMysqlDateTimeUtc(new Date());
+      await client("workspace_memberships").insert({
+        workspace_id: workspaceId,
+        user_id: userId,
+        role_id: "owner",
+        status: "active",
+        created_at: now,
+        updated_at: now
+      });
+    } catch (error) {
+      if (!isMysqlDuplicateEntryError(error)) {
+        throw error;
+      }
+    }
+
+    const row = await client("workspace_memberships")
+      .where({
+        workspace_id: workspaceId,
+        user_id: userId
+      })
+      .first();
+
+    return mapMembershipRowRequired(row);
   }
 
-  async function repoListByUserId(userId) {
-    const rows = await dbClient("workspace_memberships")
+  async function repoListByUserId(userId, options = {}) {
+    const client = resolveClient(options);
+    const rows = await client("workspace_memberships")
       .where({ user_id: userId, status: "active" })
       .orderBy("workspace_id", "asc")
       .orderBy("id", "asc");
@@ -89,8 +124,9 @@ function createWorkspaceMembershipsRepository(dbClient) {
     return rows.map(mapMembershipRowRequired);
   }
 
-  async function repoListActiveByWorkspaceId(workspaceId) {
-    const rows = await dbClient("workspace_memberships as wm")
+  async function repoListActiveByWorkspaceId(workspaceId, options = {}) {
+    const client = resolveClient(options);
+    const rows = await client("workspace_memberships as wm")
       .innerJoin("user_profiles as up", "up.id", "wm.user_id")
       .select(
         "wm.id",
@@ -114,8 +150,9 @@ function createWorkspaceMembershipsRepository(dbClient) {
     return rows.map(mapMembershipWithUserRowRequired);
   }
 
-  async function repoUpdateRoleByWorkspaceIdAndUserId(workspaceId, userId, roleId) {
-    await dbClient("workspace_memberships")
+  async function repoUpdateRoleByWorkspaceIdAndUserId(workspaceId, userId, roleId, options = {}) {
+    const client = resolveClient(options);
+    await client("workspace_memberships")
       .where({
         workspace_id: workspaceId,
         user_id: userId
@@ -125,21 +162,25 @@ function createWorkspaceMembershipsRepository(dbClient) {
         updated_at: toMysqlDateTimeUtc(new Date())
       });
 
-    return repoFindByWorkspaceIdAndUserId(workspaceId, userId);
+    return repoFindByWorkspaceIdAndUserId(workspaceId, userId, options);
   }
 
-  async function repoEnsureActiveByWorkspaceIdAndUserId(workspaceId, userId, roleId) {
-    const existing = await repoFindByWorkspaceIdAndUserId(workspaceId, userId);
+  async function repoEnsureActiveByWorkspaceIdAndUserId(workspaceId, userId, roleId, options = {}) {
+    const client = resolveClient(options);
+    const existing = await repoFindByWorkspaceIdAndUserId(workspaceId, userId, options);
     if (!existing) {
-      return repoInsert({
-        workspaceId,
-        userId,
-        roleId,
-        status: "active"
-      });
+      return repoInsert(
+        {
+          workspaceId,
+          userId,
+          roleId,
+          status: "active"
+        },
+        options
+      );
     }
 
-    await dbClient("workspace_memberships")
+    await client("workspace_memberships")
       .where({
         workspace_id: workspaceId,
         user_id: userId
@@ -150,7 +191,7 @@ function createWorkspaceMembershipsRepository(dbClient) {
         updated_at: toMysqlDateTimeUtc(new Date())
       });
 
-    return repoFindByWorkspaceIdAndUserId(workspaceId, userId);
+    return repoFindByWorkspaceIdAndUserId(workspaceId, userId, options);
   }
 
   return {
@@ -167,6 +208,7 @@ function createWorkspaceMembershipsRepository(dbClient) {
 const repository = createWorkspaceMembershipsRepository(db);
 
 const __testables = {
+  isMysqlDuplicateEntryError,
   mapMembershipRowRequired,
   mapMembershipRowNullable,
   createWorkspaceMembershipsRepository

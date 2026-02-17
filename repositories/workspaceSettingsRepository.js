@@ -1,6 +1,14 @@
 import { db } from "../db/knex.js";
 import { toIsoString, toMysqlDateTimeUtc } from "../lib/dateUtils.js";
 
+function isMysqlDuplicateEntryError(error) {
+  if (!error) {
+    return false;
+  }
+
+  return String(error.code || "") === "ER_DUP_ENTRY";
+}
+
 function parseJsonValue(value, fallback = {}) {
   if (!value) {
     return fallback;
@@ -49,32 +57,46 @@ function toDbJson(value) {
 }
 
 function createWorkspaceSettingsRepository(dbClient) {
-  async function repoFindByWorkspaceId(workspaceId) {
-    const row = await dbClient("workspace_settings").where({ workspace_id: workspaceId }).first();
+  function resolveClient(options = {}) {
+    const trx = options && typeof options === "object" ? options.trx || null : null;
+    return trx || dbClient;
+  }
+
+  async function repoFindByWorkspaceId(workspaceId, options = {}) {
+    const client = resolveClient(options);
+    const row = await client("workspace_settings").where({ workspace_id: workspaceId }).first();
     return mapWorkspaceSettingsRowNullable(row);
   }
 
-  async function repoEnsureForWorkspaceId(workspaceId, defaults = {}) {
-    const existing = await repoFindByWorkspaceId(workspaceId);
+  async function repoEnsureForWorkspaceId(workspaceId, defaults = {}, options = {}) {
+    const client = resolveClient(options);
+    const existing = await repoFindByWorkspaceId(workspaceId, options);
     if (existing) {
       return existing;
     }
 
     const now = new Date();
-    await dbClient("workspace_settings").insert({
-      workspace_id: workspaceId,
-      invites_enabled: Boolean(defaults.invitesEnabled),
-      features_json: toDbJson(defaults.features || {}),
-      policy_json: toDbJson(defaults.policy || {}),
-      created_at: toMysqlDateTimeUtc(now),
-      updated_at: toMysqlDateTimeUtc(now)
-    });
+    try {
+      await client("workspace_settings").insert({
+        workspace_id: workspaceId,
+        invites_enabled: Boolean(defaults.invitesEnabled),
+        features_json: toDbJson(defaults.features || {}),
+        policy_json: toDbJson(defaults.policy || {}),
+        created_at: toMysqlDateTimeUtc(now),
+        updated_at: toMysqlDateTimeUtc(now)
+      });
+    } catch (error) {
+      if (!isMysqlDuplicateEntryError(error)) {
+        throw error;
+      }
+    }
 
-    const row = await dbClient("workspace_settings").where({ workspace_id: workspaceId }).first();
+    const row = await client("workspace_settings").where({ workspace_id: workspaceId }).first();
     return mapWorkspaceSettingsRowRequired(row);
   }
 
-  async function repoUpdateByWorkspaceId(workspaceId, patch = {}) {
+  async function repoUpdateByWorkspaceId(workspaceId, patch = {}, options = {}) {
+    const client = resolveClient(options);
     const dbPatch = {};
     if (Object.prototype.hasOwnProperty.call(patch, "invitesEnabled")) {
       dbPatch.invites_enabled = Boolean(patch.invitesEnabled);
@@ -88,10 +110,10 @@ function createWorkspaceSettingsRepository(dbClient) {
 
     if (Object.keys(dbPatch).length > 0) {
       dbPatch.updated_at = toMysqlDateTimeUtc(new Date());
-      await dbClient("workspace_settings").where({ workspace_id: workspaceId }).update(dbPatch);
+      await client("workspace_settings").where({ workspace_id: workspaceId }).update(dbPatch);
     }
 
-    const row = await dbClient("workspace_settings").where({ workspace_id: workspaceId }).first();
+    const row = await client("workspace_settings").where({ workspace_id: workspaceId }).first();
     return mapWorkspaceSettingsRowRequired(row);
   }
 
@@ -105,6 +127,7 @@ function createWorkspaceSettingsRepository(dbClient) {
 const repository = createWorkspaceSettingsRepository(db);
 
 const __testables = {
+  isMysqlDuplicateEntryError,
   mapWorkspaceSettingsRowRequired,
   mapWorkspaceSettingsRowNullable,
   parseJsonValue,
