@@ -5,23 +5,23 @@
     </v-card-item>
     <v-divider />
     <v-card-text>
-      <v-form @submit.prevent="vm.submitNotifications" novalidate>
+      <v-form @submit.prevent="actions.submitNotifications" novalidate>
         <v-switch
-          v-model="vm.notificationsForm.productUpdates"
+          v-model="state.notificationsForm.productUpdates"
           label="Product updates"
           color="primary"
           hide-details
           class="mb-2"
         />
         <v-switch
-          v-model="vm.notificationsForm.accountActivity"
+          v-model="state.notificationsForm.accountActivity"
           label="Account activity alerts"
           color="primary"
           hide-details
           class="mb-2"
         />
         <v-switch
-          v-model="vm.notificationsForm.securityAlerts"
+          v-model="state.notificationsForm.securityAlerts"
           label="Security alerts (required)"
           color="primary"
           hide-details
@@ -29,11 +29,11 @@
           class="mb-4"
         />
 
-        <v-alert v-if="vm.notificationsMessage" :type="vm.notificationsMessageType" variant="tonal" class="mb-3">
-          {{ vm.notificationsMessage }}
+        <v-alert v-if="state.notificationsMessage" :type="state.notificationsMessageType" variant="tonal" class="mb-3">
+          {{ state.notificationsMessage }}
         </v-alert>
 
-        <v-btn type="submit" color="primary" :loading="vm.notificationsMutation.isPending.value">
+        <v-btn type="submit" color="primary" :loading="state.notificationsMutation.isPending.value">
           Save notification settings
         </v-btn>
       </v-form>
@@ -42,10 +42,21 @@
 </template>
 
 <script setup>
-defineProps({
-  vm: {
+const props = defineProps({
+  meta: {
+    type: Object,
+    required: true
+  },
+  state: {
+    type: Object,
+    required: true
+  },
+  actions: {
     type: Object,
     required: true
   }
 });
+
+const state = props.state;
+const actions = props.actions;
 </script>

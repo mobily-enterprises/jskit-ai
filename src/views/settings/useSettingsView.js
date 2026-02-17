@@ -1217,7 +1217,7 @@ onBeforeUnmount(() => {
       avatarSizeOptions,
       createDefaultAvatar
     },
-    state: {
+    state: reactive({
       navigate,
       authStore,
       workspaceStore,
@@ -1292,7 +1292,7 @@ onBeforeUnmount(() => {
       mfaChipColor,
       profileInitials,
       backTarget
-    },
+    }),
     actions: {
       createFallbackAuthMethods,
       normalizeAuthMethod,

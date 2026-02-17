@@ -5,46 +5,62 @@
         <v-card-title class="panel-title">Account settings</v-card-title>
         <v-card-subtitle>Global security, profile, preferences, and notification controls.</v-card-subtitle>
         <template #append>
-          <v-btn variant="text" color="secondary" @click="vm.goBack">Back</v-btn>
+          <v-btn variant="text" color="secondary" @click="actions.goBack">Back</v-btn>
         </template>
       </v-card-item>
       <v-divider />
 
       <v-card-text class="pt-4">
-        <v-alert v-if="vm.loadError" type="error" variant="tonal" class="mb-4">
-          {{ vm.loadError }}
+        <v-alert v-if="state.loadError" type="error" variant="tonal" class="mb-4">
+          {{ state.loadError }}
         </v-alert>
 
         <v-row class="settings-layout" no-gutters>
           <v-col cols="12" md="3" lg="2" class="pr-md-4 mb-4 mb-md-0">
             <v-list nav density="comfortable" class="settings-section-list rounded-lg">
               <v-list-item
-                v-for="section in vm.settingsSections"
+                v-for="section in meta.settingsSections"
                 :key="section.value"
                 :title="section.title"
-                :active="vm.activeTab === section.value"
+                :active="state.activeTab === section.value"
                 rounded="lg"
-                @click="vm.selectSettingsSection(section.value)"
+                @click="actions.selectSettingsSection(section.value)"
               />
             </v-list>
           </v-col>
 
           <v-col cols="12" md="9" lg="10">
-            <v-window v-model="vm.activeTab" :touch="false" class="settings-sections-window">
+            <v-window v-model="state.activeTab" :touch="false" class="settings-sections-window">
               <v-window-item value="security">
-                <SettingsSecuritySection :vm="vm" />
+                <SettingsSecuritySection
+                  :meta="security.meta"
+                  :state="security.state"
+                  :actions="security.actions"
+                />
               </v-window-item>
 
               <v-window-item value="profile">
-                <SettingsProfileSection :vm="vm" />
+                <SettingsProfileSection
+                  :meta="profile.meta"
+                  :state="profile.state"
+                  :actions="profile.actions"
+                />
               </v-window-item>
 
               <v-window-item value="preferences">
-                <SettingsPreferencesSection :vm="vm" />
+                <SettingsPreferencesSection
+                  :meta="preferences.meta"
+                  :state="preferences.state"
+                  :actions="preferences.actions"
+                />
               </v-window-item>
 
               <v-window-item value="notifications">
-                <SettingsNotificationsSection :vm="vm" />
+                <SettingsNotificationsSection
+                  :meta="notifications.meta"
+                  :state="notifications.state"
+                  :actions="notifications.actions"
+                />
               </v-window-item>
             </v-window>
           </v-col>
@@ -57,19 +73,34 @@
 <script setup>
 import { reactive } from "vue";
 import { useSettingsView } from "./useSettingsView";
-import SettingsSecuritySection from "./SettingsSecuritySection.vue";
-import SettingsProfileSection from "./SettingsProfileSection.vue";
-import SettingsPreferencesSection from "./SettingsPreferencesSection.vue";
-import SettingsNotificationsSection from "./SettingsNotificationsSection.vue";
+import SettingsSecuritySection from "./security/SettingsSecuritySection.vue";
+import SettingsProfileSection from "./profile/SettingsProfileSection.vue";
+import SettingsPreferencesSection from "./preferences/SettingsPreferencesSection.vue";
+import SettingsNotificationsSection from "./notifications/SettingsNotificationsSection.vue";
+import { useSettingsSecuritySection } from "./security/useSettingsSecuritySection";
+import { useSettingsProfileSection } from "./profile/useSettingsProfileSection";
+import { useSettingsPreferencesSection } from "./preferences/useSettingsPreferencesSection";
+import { useSettingsNotificationsSection } from "./notifications/useSettingsNotificationsSection";
 
-const { meta, state, actions } = useSettingsView();
-const vm = reactive({
-  ...meta,
-  ...state,
-  ...actions
+const { meta, state: rawState, actions } = useSettingsView();
+const state = reactive(rawState);
+
+const settingsView = {
+  meta,
+  state,
+  actions
+};
+
+const security = useSettingsSecuritySection(settingsView);
+const profile = useSettingsProfileSection(settingsView);
+const preferences = useSettingsPreferencesSection(settingsView);
+const notifications = useSettingsNotificationsSection(settingsView);
+
+defineExpose({
+  meta,
+  state,
+  actions
 });
-
-defineExpose(vm);
 </script>
 
 <style scoped>

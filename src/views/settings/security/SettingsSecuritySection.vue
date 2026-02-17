@@ -8,36 +8,36 @@
         </v-card-item>
         <v-divider />
         <v-card-text>
-          <div v-if="vm.authMethodItems.length > 0" class="d-flex flex-column ga-3">
+          <div v-if="state.authMethodItems.length > 0" class="d-flex flex-column ga-3">
             <div
-              v-for="method in vm.authMethodItems"
+              v-for="method in state.authMethodItems"
               :key="method.id"
               class="d-flex flex-wrap align-center justify-space-between ga-3"
             >
               <div>
                 <div class="text-body-2 font-weight-medium">{{ method.label }}</div>
                 <div class="text-caption text-medium-emphasis">
-                  {{ vm.authMethodStatusText(method) }}
+                  {{ actions.authMethodStatusText(method) }}
                 </div>
               </div>
 
               <div class="d-flex flex-wrap justify-end ga-2">
-                <template v-if="method.kind === vm.AUTH_METHOD_KIND_PASSWORD">
+                <template v-if="method.kind === meta.AUTH_METHOD_KIND_PASSWORD">
                   <v-btn
                     v-if="method.enabled || !method.configured"
                     variant="text"
                     color="secondary"
-                    @click="vm.openPasswordForm"
+                    @click="actions.openPasswordForm"
                   >
-                    {{ vm.passwordManageLabel }}
+                    {{ state.passwordManageLabel }}
                   </v-btn>
                   <v-btn
                     v-if="method.enabled"
                     variant="text"
                     color="error"
                     :disabled="!method.canDisable"
-                    :loading="vm.methodActionLoadingId === method.id && vm.setPasswordMethodEnabledMutation.isPending.value"
-                    @click="vm.submitPasswordMethodToggle(false)"
+                    :loading="state.methodActionLoadingId === method.id && state.setPasswordMethodEnabledMutation.isPending.value"
+                    @click="actions.submitPasswordMethodToggle(false)"
                   >
                     Disable
                   </v-btn>
@@ -46,20 +46,20 @@
                     variant="tonal"
                     color="secondary"
                     :disabled="!method.canEnable"
-                    @click="vm.openPasswordEnableSetup"
+                    @click="actions.openPasswordEnableSetup"
                   >
                     Enable
                   </v-btn>
                 </template>
 
-                <template v-else-if="method.kind === vm.AUTH_METHOD_KIND_OAUTH">
+                <template v-else-if="method.kind === meta.AUTH_METHOD_KIND_OAUTH">
                   <v-btn
                     v-if="method.enabled"
                     variant="text"
                     color="error"
                     :disabled="!method.canDisable"
-                    :loading="vm.methodActionLoadingId === method.id && vm.unlinkProviderMutation.isPending.value"
-                    @click="vm.submitProviderUnlink(method.provider)"
+                    :loading="state.methodActionLoadingId === method.id && state.unlinkProviderMutation.isPending.value"
+                    @click="actions.submitProviderUnlink(method.provider)"
                   >
                     Unlink
                   </v-btn>
@@ -67,14 +67,14 @@
                     v-else
                     variant="tonal"
                     color="secondary"
-                    :disabled="vm.providerLinkStartInFlight"
-                    @click="vm.startProviderLink(method.provider)"
+                    :disabled="state.providerLinkStartInFlight"
+                    @click="actions.startProviderLink(method.provider)"
                   >
                     Link
                   </v-btn>
                 </template>
 
-                <template v-else-if="method.kind === vm.AUTH_METHOD_KIND_OTP">
+                <template v-else-if="method.kind === meta.AUTH_METHOD_KIND_OTP">
                   <v-chip size="small" label color="secondary">Required</v-chip>
                 </template>
               </div>
@@ -84,72 +84,72 @@
             No user-managed sign-in methods are available yet.
           </p>
 
-          <p class="text-caption text-medium-emphasis mt-3 mb-0">{{ vm.securityMethodsHint }}</p>
+          <p class="text-caption text-medium-emphasis mt-3 mb-0">{{ state.securityMethodsHint }}</p>
 
-          <v-alert v-if="vm.providerMessage" :type="vm.providerMessageType" variant="tonal" class="mt-3 mb-0">
-            {{ vm.providerMessage }}
+          <v-alert v-if="state.providerMessage" :type="state.providerMessageType" variant="tonal" class="mt-3 mb-0">
+            {{ state.providerMessage }}
           </v-alert>
 
-          <v-dialog v-model="vm.showPasswordForm" max-width="560">
+          <v-dialog v-model="state.showPasswordForm" max-width="560">
             <v-card rounded="lg" border>
               <v-card-item>
-                <v-card-title class="text-subtitle-1">{{ vm.passwordDialogTitle }}</v-card-title>
-                <v-card-subtitle v-if="vm.isPasswordEnableSetupMode">
+                <v-card-title class="text-subtitle-1">{{ state.passwordDialogTitle }}</v-card-title>
+                <v-card-subtitle v-if="state.isPasswordEnableSetupMode">
                   Set a new password, then click Enable to turn password sign-in on.
                 </v-card-subtitle>
               </v-card-item>
               <v-divider />
               <v-card-text>
-                <v-form @submit.prevent="vm.submitPasswordChange" novalidate>
+                <v-form @submit.prevent="actions.submitPasswordChange" novalidate>
                   <v-text-field
-                    v-if="vm.requiresCurrentPassword"
-                    v-model="vm.securityForm.currentPassword"
+                    v-if="state.requiresCurrentPassword"
+                    v-model="state.securityForm.currentPassword"
                     label="Current password"
-                    :type="vm.showCurrentPassword ? 'text' : 'password'"
-                    :append-inner-icon="vm.showCurrentPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                    @click:append-inner="vm.showCurrentPassword = !vm.showCurrentPassword"
+                    :type="state.showCurrentPassword ? 'text' : 'password'"
+                    :append-inner-icon="state.showCurrentPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                    @click:append-inner="state.showCurrentPassword = !state.showCurrentPassword"
                     variant="outlined"
                     density="comfortable"
                     autocomplete="current-password"
-                    :error-messages="vm.securityFieldErrors.currentPassword ? [vm.securityFieldErrors.currentPassword] : []"
+                    :error-messages="state.securityFieldErrors.currentPassword ? [state.securityFieldErrors.currentPassword] : []"
                     class="mb-3"
                   />
 
                   <v-text-field
-                    v-model="vm.securityForm.newPassword"
+                    v-model="state.securityForm.newPassword"
                     label="New password"
-                    :type="vm.showNewPassword ? 'text' : 'password'"
-                    :append-inner-icon="vm.showNewPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                    @click:append-inner="vm.showNewPassword = !vm.showNewPassword"
+                    :type="state.showNewPassword ? 'text' : 'password'"
+                    :append-inner-icon="state.showNewPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                    @click:append-inner="state.showNewPassword = !state.showNewPassword"
                     variant="outlined"
                     density="comfortable"
                     autocomplete="new-password"
-                    :error-messages="vm.securityFieldErrors.newPassword ? [vm.securityFieldErrors.newPassword] : []"
+                    :error-messages="state.securityFieldErrors.newPassword ? [state.securityFieldErrors.newPassword] : []"
                     class="mb-3"
                   />
 
                   <v-text-field
-                    v-model="vm.securityForm.confirmPassword"
+                    v-model="state.securityForm.confirmPassword"
                     label="Confirm new password"
-                    :type="vm.showConfirmPassword ? 'text' : 'password'"
-                    :append-inner-icon="vm.showConfirmPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                    @click:append-inner="vm.showConfirmPassword = !vm.showConfirmPassword"
+                    :type="state.showConfirmPassword ? 'text' : 'password'"
+                    :append-inner-icon="state.showConfirmPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                    @click:append-inner="state.showConfirmPassword = !state.showConfirmPassword"
                     variant="outlined"
                     density="comfortable"
                     autocomplete="new-password"
-                    :error-messages="vm.securityFieldErrors.confirmPassword ? [vm.securityFieldErrors.confirmPassword] : []"
+                    :error-messages="state.securityFieldErrors.confirmPassword ? [state.securityFieldErrors.confirmPassword] : []"
                     class="mb-3"
                   />
 
-                  <v-alert v-if="vm.securityMessage" :type="vm.securityMessageType" variant="tonal" class="mb-3">
-                    {{ vm.securityMessage }}
+                  <v-alert v-if="state.securityMessage" :type="state.securityMessageType" variant="tonal" class="mb-3">
+                    {{ state.securityMessage }}
                   </v-alert>
 
                   <div class="d-flex flex-wrap ga-2">
-                    <v-btn type="submit" color="primary" :loading="vm.passwordFormSubmitPending">
-                      {{ vm.passwordFormSubmitLabel }}
+                    <v-btn type="submit" color="primary" :loading="state.passwordFormSubmitPending">
+                      {{ state.passwordFormSubmitLabel }}
                     </v-btn>
-                    <v-btn variant="text" color="secondary" @click="vm.closePasswordForm">Cancel</v-btn>
+                    <v-btn variant="text" color="secondary" @click="actions.closePasswordForm">Cancel</v-btn>
                   </div>
                 </v-form>
               </v-card-text>
@@ -173,14 +173,14 @@
           <v-btn
             color="secondary"
             variant="outlined"
-            :loading="vm.logoutOthersMutation.isPending.value"
-            @click="vm.submitLogoutOthers"
+            :loading="state.logoutOthersMutation.isPending.value"
+            @click="actions.submitLogoutOthers"
           >
             Sign out other devices
           </v-btn>
 
-          <v-alert v-if="vm.sessionsMessage" :type="vm.sessionsMessageType" variant="tonal" class="mt-3 mb-0">
-            {{ vm.sessionsMessage }}
+          <v-alert v-if="state.sessionsMessage" :type="state.sessionsMessageType" variant="tonal" class="mt-3 mb-0">
+            {{ state.sessionsMessage }}
           </v-alert>
         </v-card-text>
       </v-card>
@@ -191,7 +191,7 @@
         </v-card-item>
         <v-divider />
         <v-card-text>
-          <v-chip :color="vm.mfaChipColor" label>{{ vm.mfaLabel }}</v-chip>
+          <v-chip :color="state.mfaChipColor" label>{{ state.mfaLabel }}</v-chip>
           <p class="text-body-2 text-medium-emphasis mt-3 mb-0">
             Multi-factor enrollment UI is scaffolded as read-only in this version.
           </p>
@@ -202,10 +202,22 @@
 </template>
 
 <script setup>
-defineProps({
-  vm: {
+const props = defineProps({
+  meta: {
+    type: Object,
+    required: true
+  },
+  state: {
+    type: Object,
+    required: true
+  },
+  actions: {
     type: Object,
     required: true
   }
 });
+
+const meta = props.meta;
+const state = props.state;
+const actions = props.actions;
 </script>
