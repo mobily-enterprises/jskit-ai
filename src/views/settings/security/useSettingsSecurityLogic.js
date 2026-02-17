@@ -37,8 +37,6 @@ export function useSettingsSecurityLogic({
   clearFieldErrors,
   toErrorMessage,
   handleAuthError,
-  applySettingsData,
-  resolveCurrentSettingsPath,
   buildSettingsPathWithTab,
   PASSWORD_FORM_MODE_MANAGE,
   PASSWORD_FORM_MODE_ENABLE
@@ -237,7 +235,6 @@ export function useSettingsSecurityLogic({
           enabled: true
         });
         queryClient.setQueryData(settingsQueryKey, data);
-        applySettingsData(data);
         providerMessageType.value = "success";
         providerMessage.value = "Password sign-in enabled.";
         securityMessageType.value = "success";
@@ -336,7 +333,6 @@ export function useSettingsSecurityLogic({
         enabled
       });
       queryClient.setQueryData(settingsQueryKey, data);
-      applySettingsData(data);
       providerMessageType.value = "success";
       providerMessage.value = enabled ? "Password sign-in enabled." : "Password sign-in disabled.";
     } catch (error) {
@@ -361,13 +357,6 @@ export function useSettingsSecurityLogic({
 
     providerMessage.value = "";
     providerLinkStartInFlight.value = true;
-    const settingsPath = resolveCurrentSettingsPath();
-    if (!settingsPath) {
-      providerMessageType.value = "error";
-      providerMessage.value = "Unable to resolve settings route for provider link.";
-      providerLinkStartInFlight.value = false;
-      return;
-    }
     const returnTo = buildSettingsPathWithTab("security");
     writePendingOAuthContext({
       provider,
@@ -397,7 +386,6 @@ export function useSettingsSecurityLogic({
     try {
       const data = await unlinkProviderMutation.mutateAsync(provider);
       queryClient.setQueryData(settingsQueryKey, data);
-      applySettingsData(data);
       providerMessageType.value = "success";
       providerMessage.value = `${providerLabel(provider)} unlinked.`;
     } catch (error) {

@@ -99,7 +99,7 @@
 </template>
 
 <script setup>
-import { useSettingsPreferencesSectionView } from "./useSettingsPreferencesSectionView";
+import { useSettingsPreferencesForm } from "./useSettingsPreferencesForm";
 
-const { meta, state, actions } = useSettingsPreferencesSectionView();
+const { meta, state, actions } = useSettingsPreferencesForm();
 </script>

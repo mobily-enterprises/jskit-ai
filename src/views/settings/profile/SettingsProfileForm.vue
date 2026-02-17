@@ -72,7 +72,7 @@
 </template>
 
 <script setup>
-import { useSettingsProfileSectionView } from "./useSettingsProfileSectionView";
+import { useSettingsProfileForm } from "./useSettingsProfileForm";
 
-const { state, actions } = useSettingsProfileSectionView();
+const { state, actions } = useSettingsProfileForm();
 </script>

@@ -42,7 +42,7 @@
 </template>
 
 <script setup>
-import { useSettingsNotificationsSectionView } from "./useSettingsNotificationsSectionView";
+import { useSettingsNotificationsForm } from "./useSettingsNotificationsForm";
 
-const { state, actions } = useSettingsNotificationsSectionView();
+const { state, actions } = useSettingsNotificationsForm();
 </script>

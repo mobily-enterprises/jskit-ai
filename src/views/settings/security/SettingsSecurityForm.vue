@@ -202,7 +202,7 @@
 </template>
 
 <script setup>
-import { useSettingsSecuritySectionView } from "./useSettingsSecuritySectionView";
+import { useSettingsSecurityForm } from "./useSettingsSecurityForm";
 
-const { meta, state, actions } = useSettingsSecuritySectionView();
+const { meta, state, actions } = useSettingsSecurityForm();
 </script>

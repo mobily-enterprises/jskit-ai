@@ -32,19 +32,19 @@
           <v-col cols="12" md="9" lg="10">
             <v-window v-model="page.state.activeTab" :touch="false" class="settings-sections-window">
               <v-window-item value="profile">
-                <SettingsProfileSection />
+                <SettingsProfileForm />
               </v-window-item>
 
               <v-window-item value="security">
-                <SettingsSecuritySection />
+                <SettingsSecurityForm />
               </v-window-item>
 
               <v-window-item value="preferences">
-                <SettingsPreferencesSection />
+                <SettingsPreferencesForm />
               </v-window-item>
 
               <v-window-item value="notifications">
-                <SettingsNotificationsSection />
+                <SettingsNotificationsForm />
               </v-window-item>
             </v-window>
           </v-col>
@@ -56,11 +56,11 @@
 
 <script setup>
 import { useSettingsView } from "./useSettingsView";
-import { provideSettingsContext } from "./useSettingsContext";
-import SettingsSecuritySection from "./security/SettingsSecuritySection.vue";
-import SettingsProfileSection from "./profile/SettingsProfileSection.vue";
-import SettingsPreferencesSection from "./preferences/SettingsPreferencesSection.vue";
-import SettingsNotificationsSection from "./notifications/SettingsNotificationsSection.vue";
+import { provideSettingsContext } from "./lib/useSettingsContext";
+import SettingsSecurityForm from "./security/SettingsSecurityForm.vue";
+import SettingsProfileForm from "./profile/SettingsProfileForm.vue";
+import SettingsPreferencesForm from "./preferences/SettingsPreferencesForm.vue";
+import SettingsNotificationsForm from "./notifications/SettingsNotificationsForm.vue";
 
 const { page, sections } = useSettingsView();
 provideSettingsContext({
