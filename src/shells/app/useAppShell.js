@@ -35,7 +35,7 @@ export function useAppShell() {
     display
   });
   const { isMobile, isDesktopPermanentDrawer, isDesktopCollapsible, drawerModel } = shellState;
-  const { toggleDrawer, isCurrentPath, goTo, hardNavigate, goToNavigationItem } = shellActions;
+  const { toggleDrawer, isCurrentPath, hardNavigate, goToNavigationItem } = shellActions;
 
   function workspacePath(pathname = "/") {
     return surfacePaths.value.workspacePath(workspaceStore.activeWorkspaceSlug, pathname);
@@ -75,7 +75,7 @@ export function useAppShell() {
       items.push({
         title: "Go to Admin",
         to: adminSurfaceTargetPath.value,
-        icon: "$menuSettings",
+        icon: "$menuGoToAdmin",
         forceReload: true
       });
     }
@@ -96,13 +96,13 @@ export function useAppShell() {
   });
 
   const userAvatarUrl = computed(() => workspaceStore.profileAvatarUrl || "");
+  const userDisplayName = computed(() => String(workspaceStore.profileDisplayName || authStore.username || "Account").trim());
 
-  async function goToAccountTab(tab) {
+  async function goToAccountSettings() {
     const paths = surfacePaths.value;
     await navigate({
       to: paths.accountSettingsPath,
       search: {
-        section: tab,
         returnTo: currentPath.value
       }
     });
@@ -140,6 +140,7 @@ export function useAppShell() {
       activeWorkspaceColor,
       destinationTitle,
       userAvatarUrl,
+      userDisplayName,
       userInitials,
       canOpenAdminSurface,
       drawerModel,
@@ -147,7 +148,7 @@ export function useAppShell() {
     },
     actions: {
       toggleDrawer,
-      goToAccountTab,
+      goToAccountSettings,
       goToAdminSurface,
       signOut,
       isCurrentPath,

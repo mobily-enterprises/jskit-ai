@@ -1,24 +1,34 @@
 import { canAccessWorkspace as canAccessAppWorkspace } from "./appSurface.js";
 import { canAccessWorkspace as canAccessAdminWorkspace } from "./adminSurface.js";
+import { DEFAULT_SURFACE_ID, SURFACE_REGISTRY, normalizeSurfaceId } from "../shared/routing/surfaceRegistry.js";
 
-const SURFACES = {
-  app: {
-    id: "app",
-    canAccessWorkspace: canAccessAppWorkspace
-  },
-  admin: {
-    id: "admin",
-    canAccessWorkspace: canAccessAdminWorkspace
-  }
-};
-
-function normalizeSurfaceId(value) {
-  const normalized = String(value || "").trim().toLowerCase();
-  return normalized === "admin" ? "admin" : "app";
+function denyWorkspaceAccess() {
+  return {
+    allowed: false,
+    reason: "surface_not_supported",
+    permissions: []
+  };
 }
 
+const SURFACE_ACCESS_RULES = {
+  app: canAccessAppWorkspace,
+  admin: canAccessAdminWorkspace
+};
+
+const SURFACES = Object.freeze(
+  Object.fromEntries(
+    Object.keys(SURFACE_REGISTRY).map((surfaceId) => [
+      surfaceId,
+      Object.freeze({
+        id: surfaceId,
+        canAccessWorkspace: SURFACE_ACCESS_RULES[surfaceId] || denyWorkspaceAccess
+      })
+    ])
+  )
+);
+
 function resolveSurfaceById(surfaceId) {
-  return SURFACES[normalizeSurfaceId(surfaceId)] || SURFACES.app;
+  return SURFACES[normalizeSurfaceId(surfaceId)] || SURFACES[DEFAULT_SURFACE_ID];
 }
 
 export { SURFACES, normalizeSurfaceId, resolveSurfaceById };

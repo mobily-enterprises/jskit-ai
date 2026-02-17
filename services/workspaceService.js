@@ -462,6 +462,24 @@ function createWorkspaceService({
     return filtered.map(mapPendingInviteSummary);
   }
 
+  async function mapAccessibleMembershipWorkspaces({ user, surfaceId, memberships, workspaceSettingsCache }) {
+    return Promise.all(
+      memberships.map(async (membershipWorkspace) => {
+        const access = await evaluateWorkspaceAccess({
+          user,
+          surfaceId,
+          workspace: membershipWorkspace,
+          membership: membershipWorkspace,
+          workspaceSettingsCache
+        });
+
+        return mapWorkspaceSummary(membershipWorkspace, {
+          isAccessible: access.allowed
+        });
+      })
+    );
+  }
+
   async function resolveWorkspaceSelection({ user, userId, requestedWorkspaceSlug, surfaceId }) {
     const memberships = await listMembershipWorkspacesForUser(userId);
     const membershipIndex = createMembershipIndexes(memberships);
@@ -537,27 +555,12 @@ function createWorkspaceService({
       await userSettingsRepository.updateLastActiveWorkspaceId(userId, selected.workspace.id);
     }
 
-    const workspaces = await Promise.all(
-      memberships.map(async (membershipWorkspace) => {
-        if (surfaceId !== "app") {
-          return mapWorkspaceSummary(membershipWorkspace, {
-            isAccessible: true
-          });
-        }
-
-        const access = await evaluateWorkspaceAccess({
-          user,
-          surfaceId,
-          workspace: membershipWorkspace,
-          membership: membershipWorkspace,
-          workspaceSettingsCache
-        });
-
-        return mapWorkspaceSummary(membershipWorkspace, {
-          isAccessible: access.allowed
-        });
-      })
-    );
+    const workspaces = await mapAccessibleMembershipWorkspaces({
+      user,
+      surfaceId,
+      memberships,
+      workspaceSettingsCache
+    });
 
     return {
       workspaces,
@@ -779,31 +782,13 @@ function createWorkspaceService({
 
     const surfaceId = resolveRequestSurfaceId(options.request);
     const memberships = await listMembershipWorkspacesForUser(userId);
-
-    if (surfaceId !== "app") {
-      return memberships.map((membershipWorkspace) =>
-        mapWorkspaceSummary(membershipWorkspace, {
-          isAccessible: true
-        })
-      );
-    }
-
     const workspaceSettingsCache = new Map();
-    return Promise.all(
-      memberships.map(async (membershipWorkspace) => {
-        const access = await evaluateWorkspaceAccess({
-          user,
-          surfaceId,
-          workspace: membershipWorkspace,
-          membership: membershipWorkspace,
-          workspaceSettingsCache
-        });
-
-        return mapWorkspaceSummary(membershipWorkspace, {
-          isAccessible: access.allowed
-        });
-      })
-    );
+    return mapAccessibleMembershipWorkspaces({
+      user,
+      surfaceId,
+      memberships,
+      workspaceSettingsCache
+    });
   }
 
   return {

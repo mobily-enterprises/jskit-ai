@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
-import { createSurfacePaths } from "../../shared/routing/surfacePaths.js";
+import { createSurfacePaths, resolveSurfaceFromPathname } from "../../shared/routing/surfacePaths.js";
+import { DEFAULT_SURFACE_ID, normalizeSurfaceId } from "../../shared/routing/surfaceRegistry.js";
 import { api } from "../services/api";
 
 const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
@@ -132,6 +133,19 @@ function normalizePendingInvite(invite) {
     invitedByDisplayName: String(invite.invitedByDisplayName || ""),
     invitedByEmail: String(invite.invitedByEmail || "")
   };
+}
+
+function resolveWorkspacePathSurfaceId(preferredSurface) {
+  const preferred = String(preferredSurface || "").trim();
+  if (preferred) {
+    return normalizeSurfaceId(preferred);
+  }
+
+  if (typeof window !== "undefined" && window?.location?.pathname) {
+    return resolveSurfaceFromPathname(String(window.location.pathname));
+  }
+
+  return DEFAULT_SURFACE_ID;
 }
 
 export const useWorkspaceStore = defineStore("workspace", {
@@ -313,7 +327,7 @@ export const useWorkspaceStore = defineStore("workspace", {
       return response;
     },
     workspacePath(pathname = "/", options = {}) {
-      const surface = String(options?.surface || "admin").trim() || "admin";
+      const surface = resolveWorkspacePathSurfaceId(options?.surface);
       const surfacePaths = createSurfacePaths(surface);
       return surfacePaths.workspacePath(this.activeWorkspaceSlug, pathname);
     },

@@ -1,5 +1,3 @@
-const DEFAULT_APP_SURFACE_PERMISSIONS = ["history.read", "history.write"];
-
 function normalizeEmail(value) {
   return String(value || "")
     .trim()
@@ -42,8 +40,7 @@ function extractAppSurfacePolicy(workspaceSettings) {
 
   return {
     denyUserIds: normalizeDenyUserIds(appPolicy.denyUserIds),
-    denyEmails: normalizeDenyEmails(appPolicy.denyEmails),
-    permissions: [...DEFAULT_APP_SURFACE_PERMISSIONS]
+    denyEmails: normalizeDenyEmails(appPolicy.denyEmails)
   };
 }
 
@@ -53,6 +50,17 @@ function canAccessWorkspace(context = {}) {
     return {
       allowed: false,
       reason: "authentication_required",
+      permissions: []
+    };
+  }
+
+  const membership = context.membership && typeof context.membership === "object" ? context.membership : null;
+  const membershipRoleId = String(membership?.roleId || "").trim();
+  const membershipStatus = String(membership?.status || "active").trim() || "active";
+  if (!membershipRoleId || membershipStatus !== "active") {
+    return {
+      allowed: false,
+      reason: "membership_required",
       permissions: []
     };
   }
@@ -77,16 +85,21 @@ function canAccessWorkspace(context = {}) {
     };
   }
 
-  const membership = context.membership && typeof context.membership === "object" ? context.membership : null;
   const rolePermissions =
-    membership && typeof context.resolvePermissions === "function"
-      ? context.resolvePermissions(membership.roleId)
+    typeof context.resolvePermissions === "function"
+      ? context.resolvePermissions(membershipRoleId)
       : [];
 
   return {
     allowed: true,
     reason: "allowed",
-    permissions: Array.from(new Set([...policy.permissions, ...rolePermissions]))
+    permissions: Array.from(
+      new Set(
+        (Array.isArray(rolePermissions) ? rolePermissions : [])
+          .map((permission) => String(permission || "").trim())
+          .filter(Boolean)
+      )
+    )
   };
 }
 

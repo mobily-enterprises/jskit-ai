@@ -16,18 +16,23 @@
 
         <v-menu location="bottom end" offset="8">
           <template #activator="{ props }">
-            <v-btn v-bind="props" variant="text" icon class="user-menu-button" aria-label="Open user menu">
-              <v-avatar color="primary" size="32">
+            <v-btn v-bind="props" variant="text" class="user-menu-button px-2" aria-label="Open user menu">
+              <v-avatar color="primary" size="32" class="mr-2">
                 <v-img v-if="userAvatarUrl" :src="userAvatarUrl" cover />
                 <span v-else class="text-caption font-weight-bold">{{ userInitials }}</span>
               </v-avatar>
+              <span class="user-menu-name">{{ userDisplayName }}</span>
             </v-btn>
           </template>
 
           <v-list density="comfortable" min-width="240">
-            <v-list-item prepend-icon="$menuProfile" title="Profile" @click="goToAccountTab('profile')" />
-            <v-list-item prepend-icon="$menuSettings" title="Settings" @click="goToAccountTab('preferences')" />
-            <v-list-item v-if="canOpenAdminSurface" title="Go to Admin" @click="goToAdminSurface" />
+            <v-list-item prepend-icon="$menuSettings" title="Account settings" @click="goToAccountSettings" />
+            <v-list-item
+              v-if="canOpenAdminSurface"
+              prepend-icon="$menuGoToAdmin"
+              title="Go to Admin"
+              @click="goToAdminSurface"
+            />
             <v-divider class="my-1" />
             <v-list-item prepend-icon="$menuLogout" title="Sign out" @click="signOut" />
           </v-list>
@@ -130,7 +135,24 @@ export default {
 }
 
 .user-menu-button {
-  min-width: 0;
+  min-width: 42px;
+  text-transform: none;
+}
+
+.user-menu-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+@media (max-width: 760px) {
+  .user-menu-name {
+    display: none;
+  }
 }
 
 :deep(.v-navigation-drawer .v-list-item) {

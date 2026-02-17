@@ -5,11 +5,13 @@ import { RouterProvider } from "@tanstack/vue-router";
 import { createVuetify } from "vuetify";
 import { aliases as mdiAliases, mdi } from "vuetify/iconsets/mdi-svg";
 import {
+  mdiArrowLeftTopBold,
   mdiAccountOutline,
   mdiCogOutline,
   mdiGoogle,
   mdiHelpCircleOutline,
   mdiLogout,
+  mdiShieldCrownOutline,
   mdiShapeOutline,
   mdiViewDashboardOutline
 } from "@mdi/js";
@@ -25,6 +27,8 @@ const iconAliases = {
   navChoice2: mdiShapeOutline,
   menuProfile: mdiAccountOutline,
   menuSettings: mdiCogOutline,
+  menuGoToAdmin: mdiShieldCrownOutline,
+  menuBackToApp: mdiArrowLeftTopBold,
   menuHelp: mdiHelpCircleOutline,
   menuLogout: mdiLogout,
   oauthGoogle: mdiGoogle

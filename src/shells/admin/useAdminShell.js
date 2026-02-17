@@ -55,8 +55,8 @@ export function useAdminShell() {
     display
   });
   const { isMobile, isDesktopPermanentDrawer, isDesktopCollapsible, drawerModel } = shellState;
-  const { toggleDrawer, isCurrentPath, goTo, hardNavigate, goToNavigationItem } = shellActions;
-  const workspacePath = (suffix = "/") => workspaceStore.workspacePath(suffix);
+  const { toggleDrawer, isCurrentPath, hardNavigate, goToNavigationItem } = shellActions;
+  const workspacePath = (suffix = "/") => workspaceStore.workspacePath(suffix, { surface: surfacePaths.value.surface });
 
   const appSurfaceTargetPath = computed(() => {
     const activeWorkspaceSlug = String(workspaceStore.activeWorkspaceSlug || "").trim();
@@ -71,7 +71,7 @@ export function useAdminShell() {
     { title: "Choice 1", to: workspacePath("/"), icon: "$navChoice1" },
     { title: "Choice 2", to: workspacePath("/choice-2"), icon: "$navChoice2" },
     { title: "Workspace", to: workspacePath("/settings"), icon: "$menuSettings" },
-    { title: "Back to App", to: appSurfaceTargetPath.value, icon: "$menuProfile", forceReload: true }
+    { title: "Back to App", to: appSurfaceTargetPath.value, icon: "$menuBackToApp", forceReload: true }
   ]);
 
   const destinationTitle = computed(() => {
@@ -112,6 +112,7 @@ export function useAdminShell() {
     return source.slice(0, 2).toUpperCase();
   });
   const userAvatarUrl = computed(() => workspaceStore.profileAvatarUrl || "");
+  const userDisplayName = computed(() => String(workspaceStore.profileDisplayName || authStore.username || "Account").trim());
 
   watch(
     () => pendingInvitesCount.value,
@@ -138,19 +139,14 @@ export function useAdminShell() {
     menuNoticeVisible.value = true;
   }
 
-  async function goToAccountTab(tab) {
+  async function goToAccountSettings() {
     const paths = surfacePaths.value;
     await navigate({
       to: paths.accountSettingsPath,
       search: {
-        section: tab,
         returnTo: currentPath.value
       }
     });
-  }
-
-  async function goToSettingsTab(section) {
-    await goToAccountTab(section);
   }
 
   async function goToAppSurface() {
@@ -249,6 +245,7 @@ export function useAdminShell() {
       destinationTitle,
       activeWorkspaceColor,
       userAvatarUrl,
+      userDisplayName,
       userInitials,
       drawerModel,
       navigationItems,
@@ -264,15 +261,13 @@ export function useAdminShell() {
       workspaceAvatarStyle,
       selectWorkspaceFromShell,
       openInviteDialog,
-      goToAccountTab,
+      goToAccountSettings,
       goToAppSurface,
       handleMenuNotice,
       signOut,
       isCurrentPath,
       goToNavigationItem,
-      respondToInvite,
-      goTo,
-      goToSettingsTab
+      respondToInvite
     }
   };
 }

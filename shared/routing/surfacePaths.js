@@ -1,6 +1,13 @@
-const SURFACE_ADMIN = "admin";
+import {
+  DEFAULT_SURFACE_ID,
+  listSurfaceDefinitions,
+  normalizeSurfaceId,
+  resolveSurfacePrefix as resolveSurfacePrefixFromRegistry
+} from "./surfaceRegistry.js";
+
 const SURFACE_APP = "app";
-const ADMIN_SURFACE_PREFIX = "/admin";
+const SURFACE_ADMIN = "admin";
+const ADMIN_SURFACE_PREFIX = resolveSurfacePrefixFromRegistry(SURFACE_ADMIN);
 
 function normalizePathname(pathname) {
   const rawValue = String(pathname || "/").trim();
@@ -19,23 +26,30 @@ function normalizePathname(pathname) {
 }
 
 function normalizeSurface(surface) {
-  return String(surface || "").trim() === SURFACE_APP ? SURFACE_APP : SURFACE_ADMIN;
+  return normalizeSurfaceId(surface);
 }
 
 function resolveSurfaceFromPathname(pathname) {
   const normalizedPathname = normalizePathname(pathname);
-  if (
-    normalizedPathname === ADMIN_SURFACE_PREFIX ||
-    normalizedPathname.startsWith(`${ADMIN_SURFACE_PREFIX}/`)
-  ) {
-    return SURFACE_ADMIN;
+  const prefixedSurfaceDefinitions = listSurfaceDefinitions()
+    .filter((surface) => String(surface?.prefix || "").trim())
+    .sort((left, right) => String(right.prefix).length - String(left.prefix).length);
+
+  for (const surface of prefixedSurfaceDefinitions) {
+    const prefix = String(surface.prefix).trim();
+    if (!prefix) {
+      continue;
+    }
+    if (normalizedPathname === prefix || normalizedPathname.startsWith(`${prefix}/`)) {
+      return surface.id;
+    }
   }
 
-  return SURFACE_APP;
+  return DEFAULT_SURFACE_ID;
 }
 
 function resolveSurfacePrefix(surface) {
-  return normalizeSurface(surface) === SURFACE_ADMIN ? ADMIN_SURFACE_PREFIX : "";
+  return resolveSurfacePrefixFromRegistry(surface);
 }
 
 function withSurfacePrefix(surface, path) {
@@ -58,6 +72,10 @@ function normalizeWorkspaceSuffix(suffix) {
   return withLeadingSlash;
 }
 
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function createSurfacePaths(surface) {
   const normalizedSurface = normalizeSurface(surface);
   const prefix = resolveSurfacePrefix(normalizedSurface);
@@ -68,8 +86,8 @@ function createSurfacePaths(surface) {
   const workspacesPath = withSurfacePrefix(normalizedSurface, "/workspaces");
   const accountSettingsPath = withSurfacePrefix(normalizedSurface, "/account/settings");
   const publicAuthPaths = new Set([loginPath, resetPasswordPath]);
-  const workspaceMatcher =
-    normalizedSurface === SURFACE_ADMIN ? /^\/admin\/w\/([^/]+)/ : /^\/w\/([^/]+)/;
+  const prefixPattern = prefix ? escapeRegExp(prefix) : "";
+  const workspaceMatcher = new RegExp(`^${prefixPattern}/w/([^/]+)`);
 
   function workspacePath(workspaceSlug, suffix = "/") {
     const slug = String(workspaceSlug || "").trim();
