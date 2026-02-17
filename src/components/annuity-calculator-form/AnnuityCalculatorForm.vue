@@ -8,13 +8,13 @@
         </v-card-item>
         <v-divider />
         <v-card-text class="pt-5">
-          <v-form @submit.prevent="calculate">
+          <v-form @submit.prevent="actions.calculate">
             <v-row>
               <v-col cols="12" sm="6">
                 <v-select
-                  v-model="form.mode"
+                  v-model="state.form.mode"
                   label="Calculate"
-                  :items="modeOptions"
+                  :items="meta.modeOptions"
                   item-title="title"
                   item-value="value"
                   variant="outlined"
@@ -24,9 +24,9 @@
 
               <v-col cols="12" sm="6">
                 <v-select
-                  v-model="form.timing"
+                  v-model="state.form.timing"
                   label="Payment timing"
-                  :items="timingOptions"
+                  :items="meta.timingOptions"
                   item-title="title"
                   item-value="value"
                   variant="outlined"
@@ -36,7 +36,7 @@
 
               <v-col cols="12" sm="6">
                 <v-text-field
-                  v-model.number="form.payment"
+                  v-model.number="state.form.payment"
                   label="Payment each period"
                   type="number"
                   min="0"
@@ -48,7 +48,7 @@
 
               <v-col cols="12" sm="6">
                 <v-text-field
-                  v-model.number="form.annualRate"
+                  v-model.number="state.form.annualRate"
                   label="Annual interest rate (%)"
                   type="number"
                   step="0.01"
@@ -58,12 +58,17 @@
               </v-col>
 
               <v-col cols="12">
-                <v-checkbox v-model="form.isPerpetual" label="Perpetual horizon (PV only)" color="primary" hide-details />
+                <v-checkbox
+                  v-model="state.form.isPerpetual"
+                  label="Perpetual horizon (PV only)"
+                  color="primary"
+                  hide-details
+                />
               </v-col>
 
-              <v-col v-if="!form.isPerpetual" cols="12" sm="6">
+              <v-col v-if="!state.form.isPerpetual" cols="12" sm="6">
                 <v-text-field
-                  v-model.number="form.years"
+                  v-model.number="state.form.years"
                   label="Number of years"
                   type="number"
                   min="0"
@@ -75,7 +80,7 @@
 
               <v-col cols="12" sm="6">
                 <v-text-field
-                  v-model.number="form.paymentsPerYear"
+                  v-model.number="state.form.paymentsPerYear"
                   label="Payments per year"
                   type="number"
                   min="1"
@@ -86,12 +91,12 @@
               </v-col>
 
               <v-col cols="12">
-                <v-checkbox v-model="form.useGrowth" label="Use growing annuity" color="primary" hide-details />
+                <v-checkbox v-model="state.form.useGrowth" label="Use growing annuity" color="primary" hide-details />
               </v-col>
 
-              <v-col v-if="form.useGrowth" cols="12" sm="6">
+              <v-col v-if="state.form.useGrowth" cols="12" sm="6">
                 <v-text-field
-                  v-model.number="form.annualGrowthRate"
+                  v-model.number="state.form.annualGrowthRate"
                   label="Annual payment growth rate (%)"
                   type="number"
                   step="0.01"
@@ -103,13 +108,13 @@
               </v-col>
             </v-row>
 
-            <v-alert v-if="calcError" type="error" variant="tonal" class="mb-3">
-              {{ calcError }}
+            <v-alert v-if="state.error" type="error" variant="tonal" class="mb-3">
+              {{ state.error }}
             </v-alert>
 
-            <v-alert v-if="calcWarnings.length" type="warning" variant="tonal" class="mb-3">
+            <v-alert v-if="state.warnings.length" type="warning" variant="tonal" class="mb-3">
               <ul class="pl-4 mb-0">
-                <li v-for="warning in calcWarnings" :key="warning">
+                <li v-for="warning in state.warnings" :key="warning">
                   {{ warning }}
                 </li>
               </ul>
@@ -130,8 +135,8 @@
             </v-expansion-panels>
 
             <div class="d-flex flex-wrap ga-3">
-              <v-btn color="primary" type="submit" :loading="calculating">Calculate</v-btn>
-              <v-btn variant="text" @click="resetForm">Reset</v-btn>
+              <v-btn color="primary" type="submit" :loading="state.calculating">Calculate</v-btn>
+              <v-btn variant="text" @click="actions.resetForm">Reset</v-btn>
             </div>
           </v-form>
         </v-card-text>
@@ -145,18 +150,18 @@
         </v-card-item>
         <v-divider />
         <v-card-text>
-          <template v-if="result">
+          <template v-if="state.result">
             <v-chip color="primary" label class="mb-4">
-              {{ result.mode === "fv" ? "Future Value" : "Present Value" }}
+              {{ state.result.mode === "fv" ? "Future Value" : "Present Value" }}
             </v-chip>
-            <p class="text-h4 text-primary font-weight-bold mb-2">{{ formatCurrency(result.value) }}</p>
+            <p class="text-h4 text-primary font-weight-bold mb-2">{{ formatCurrency(state.result.value) }}</p>
             <p class="text-body-2 text-medium-emphasis mb-0">
-              {{ resultSummary }}
+              {{ state.resultSummary }}
             </p>
 
-            <v-alert v-if="resultWarnings.length" type="warning" variant="tonal" class="mt-4 mb-0">
+            <v-alert v-if="state.resultWarnings.length" type="warning" variant="tonal" class="mt-4 mb-0">
               <ul class="pl-4 mb-0">
-                <li v-for="warning in resultWarnings" :key="warning">
+                <li v-for="warning in state.resultWarnings" :key="warning">
                   {{ warning }}
                 </li>
               </ul>
@@ -174,23 +179,11 @@
 
 <script setup>
 import { useAnnuityCalculatorForm } from "./useAnnuityCalculatorForm";
+import { formatCurrency } from "../../features/annuity/presentation";
 
 const emit = defineEmits(["calculated"]);
 
-const {
-  modeOptions,
-  timingOptions,
-  form,
-  calcError,
-  calcWarnings,
-  result,
-  calculating,
-  calculate,
-  resetForm,
-  formatCurrency,
-  resultSummary,
-  resultWarnings
-} = useAnnuityCalculatorForm({
+const { meta, state, actions } = useAnnuityCalculatorForm({
   onCalculated: async (data) => {
     emit("calculated", data);
   }

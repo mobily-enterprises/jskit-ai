@@ -5,74 +5,73 @@ import { useAuthGuard } from "../../composables/useAuthGuard";
 import { createDefaultAnnuityForm, modeOptions, timingOptions } from "../../features/annuity/formModel";
 import { buildAnnuityPayload, validateAnnuityForm } from "../../features/annuity/request";
 import { mapCalculationError } from "../../features/annuity/errors";
-import { formatCurrency, formatDate, inputSummary, resultSummary, resultWarnings, typeLabel } from "../../features/annuity/presentation";
+import { resultSummary, resultWarnings } from "../../features/annuity/presentation";
 
 export function useAnnuityCalculatorForm({ onCalculated } = {}) {
   const { handleUnauthorizedError } = useAuthGuard();
 
   const form = reactive(createDefaultAnnuityForm());
-  const calcError = ref("");
-  const calcWarnings = ref([]);
+  const error = ref("");
+  const warnings = ref([]);
   const result = ref(null);
 
-  const calculateMutation = useMutation({
+  const mutation = useMutation({
     mutationFn: (payload) => api.calculateAnnuity(payload)
   });
 
-  const calculating = computed(() => calculateMutation.isPending.value);
+  const calculating = computed(() => mutation.isPending.value);
 
   async function calculate() {
-    calcError.value = "";
-    calcWarnings.value = [];
+    error.value = "";
+    warnings.value = [];
 
     const validation = validateAnnuityForm(form);
     if (!validation.ok) {
-      calcError.value = validation.message;
+      error.value = validation.message;
       return;
     }
 
     try {
-      const data = await calculateMutation.mutateAsync(buildAnnuityPayload(form));
+      const data = await mutation.mutateAsync(buildAnnuityPayload(form));
       result.value = data;
-      calcWarnings.value = Array.isArray(data.warnings) ? data.warnings : [];
+      warnings.value = Array.isArray(data.warnings) ? data.warnings : [];
 
       if (typeof onCalculated === "function") {
         await onCalculated(data);
       }
-    } catch (error) {
-      if (await handleUnauthorizedError(error)) {
+    } catch (nextError) {
+      if (await handleUnauthorizedError(nextError)) {
         return;
       }
 
-      calcError.value = mapCalculationError(error).message;
+      error.value = mapCalculationError(nextError).message;
     }
   }
 
   function resetForm() {
     Object.assign(form, createDefaultAnnuityForm());
-    calcError.value = "";
-    calcWarnings.value = [];
+    error.value = "";
+    warnings.value = [];
     result.value = null;
   }
 
-  const computedResultSummary = computed(() => resultSummary(result.value));
-  const computedResultWarnings = computed(() => resultWarnings(result.value));
-
   return {
-    modeOptions,
-    timingOptions,
-    form,
-    calcError,
-    calcWarnings,
-    result,
-    calculating,
-    calculate,
-    resetForm,
-    formatCurrency,
-    formatDate,
-    typeLabel,
-    inputSummary,
-    resultSummary: computedResultSummary,
-    resultWarnings: computedResultWarnings
+    meta: {
+      modeOptions,
+      timingOptions
+    },
+    state: reactive({
+      form,
+      error,
+      warnings,
+      result,
+      calculating,
+      resultSummary: computed(() => resultSummary(result.value)),
+      resultWarnings: computed(() => resultWarnings(result.value))
+    }),
+    actions: {
+      calculate,
+      resetForm
+    }
   };
 }

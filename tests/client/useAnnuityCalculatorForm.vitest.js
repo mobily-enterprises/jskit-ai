@@ -54,15 +54,15 @@ describe("useAnnuityCalculatorForm", () => {
   it("validates perpetuity mode and performs successful calculations", async () => {
     const wrapper = mount(TestHarness);
 
-    wrapper.vm.form.isPerpetual = true;
-    wrapper.vm.form.mode = "fv";
-    await wrapper.vm.calculate();
+    wrapper.vm.state.form.isPerpetual = true;
+    wrapper.vm.state.form.mode = "fv";
+    await wrapper.vm.actions.calculate();
 
-    expect(wrapper.vm.calcError).toContain("Perpetual calculations are only supported");
+    expect(wrapper.vm.state.error).toContain("Perpetual calculations are only supported");
     expect(mocks.api.calculateAnnuity).not.toHaveBeenCalled();
 
-    wrapper.vm.form.mode = "pv";
-    wrapper.vm.form.isPerpetual = false;
+    wrapper.vm.state.form.mode = "pv";
+    wrapper.vm.state.form.isPerpetual = false;
     mocks.api.calculateAnnuity.mockResolvedValueOnce({
       value: "10",
       warnings: ["warn-1"],
@@ -75,13 +75,15 @@ describe("useAnnuityCalculatorForm", () => {
       annualRate: "6"
     });
 
-    await wrapper.vm.calculate();
+    await wrapper.vm.actions.calculate();
 
-    expect(wrapper.vm.result.value).toBe("10");
-    expect(wrapper.vm.calcWarnings).toEqual(["warn-1"]);
-    expect(wrapper.vm.resultSummary).toContain("1 years");
-    expect(wrapper.vm.resultWarnings).toEqual(["warn-1"]);
+    expect(wrapper.vm.state.result.value).toBe("10");
+    expect(wrapper.vm.state.warnings).toEqual(["warn-1"]);
+    expect(wrapper.vm.state.resultSummary).toContain("1 years");
+    expect(wrapper.vm.state.resultWarnings).toEqual(["warn-1"]);
     expect(mocks.onCalculated).toHaveBeenCalledTimes(1);
+    expect(wrapper.vm.meta.modeOptions.length).toBeGreaterThan(0);
+    expect(wrapper.vm.meta.timingOptions.length).toBeGreaterThan(0);
 
     mocks.api.calculateAnnuity.mockResolvedValueOnce({
       value: "11",
@@ -94,9 +96,9 @@ describe("useAnnuityCalculatorForm", () => {
       paymentsPerYear: 12,
       annualRate: "6"
     });
-    await wrapper.vm.calculate();
+    await wrapper.vm.actions.calculate();
 
-    expect(wrapper.vm.calcWarnings).toEqual([]);
+    expect(wrapper.vm.state.warnings).toEqual([]);
   });
 
   it("maps unauthorized and non-unauthorized errors", async () => {
@@ -108,8 +110,8 @@ describe("useAnnuityCalculatorForm", () => {
     });
     mocks.handleUnauthorizedError.mockResolvedValueOnce(true);
 
-    await wrapper.vm.calculate();
-    expect(wrapper.vm.calcError).toBe("");
+    await wrapper.vm.actions.calculate();
+    expect(wrapper.vm.state.error).toBe("");
 
     mocks.api.calculateAnnuity.mockRejectedValueOnce({
       status: 400,
@@ -121,9 +123,9 @@ describe("useAnnuityCalculatorForm", () => {
     });
     mocks.handleUnauthorizedError.mockResolvedValueOnce(false);
 
-    await wrapper.vm.calculate();
-    expect(wrapper.vm.calcError).toContain("Payment must be positive.");
-    expect(wrapper.vm.calcError).toContain("Years must be positive.");
+    await wrapper.vm.actions.calculate();
+    expect(wrapper.vm.state.error).toContain("Payment must be positive.");
+    expect(wrapper.vm.state.error).toContain("Years must be positive.");
 
     mocks.api.calculateAnnuity.mockRejectedValueOnce({
       status: 500,
@@ -131,46 +133,26 @@ describe("useAnnuityCalculatorForm", () => {
     });
     mocks.handleUnauthorizedError.mockResolvedValueOnce(false);
 
-    await wrapper.vm.calculate();
-    expect(wrapper.vm.calcError).toBe("Server unavailable.");
+    await wrapper.vm.actions.calculate();
+    expect(wrapper.vm.state.error).toBe("Server unavailable.");
   });
 
-  it("resets form state and exposes display helpers", () => {
+  it("resets form state", () => {
     const wrapper = mount(TestHarness);
 
-    wrapper.vm.form.payment = 999;
-    wrapper.vm.form.useGrowth = true;
-    wrapper.vm.calcError = "x";
-    wrapper.vm.calcWarnings = ["x"];
-    wrapper.vm.result = { value: "100", warnings: ["w"] };
+    wrapper.vm.state.form.payment = 999;
+    wrapper.vm.state.form.useGrowth = true;
+    wrapper.vm.state.error = "x";
+    wrapper.vm.state.warnings = ["x"];
+    wrapper.vm.state.result = { value: "100", warnings: ["w"] };
 
-    wrapper.vm.resetForm();
+    wrapper.vm.actions.resetForm();
 
-    expect(wrapper.vm.form.payment).toBe(500);
-    expect(wrapper.vm.form.useGrowth).toBe(false);
-    expect(wrapper.vm.calcError).toBe("");
-    expect(wrapper.vm.calcWarnings).toEqual([]);
-    expect(wrapper.vm.result).toBeNull();
-
-    expect(wrapper.vm.formatDate("not-a-date")).toBe("Unknown");
-    expect(wrapper.vm.formatCurrency("500")).toBe("$500.00");
-    expect(
-      wrapper.vm.typeLabel({
-        mode: "pv",
-        timing: "due",
-        isPerpetual: true,
-        annualGrowthRate: "0"
-      })
-    ).toContain("Perpetual");
-    expect(
-      wrapper.vm.inputSummary({
-        payment: "500",
-        annualRate: "6",
-        isPerpetual: false,
-        years: "20",
-        paymentsPerYear: 12
-      })
-    ).toContain("20 years");
+    expect(wrapper.vm.state.form.payment).toBe(500);
+    expect(wrapper.vm.state.form.useGrowth).toBe(false);
+    expect(wrapper.vm.state.error).toBe("");
+    expect(wrapper.vm.state.warnings).toEqual([]);
+    expect(wrapper.vm.state.result).toBeNull();
   });
 
   it("reports pending mutation state", async () => {
@@ -178,6 +160,6 @@ describe("useAnnuityCalculatorForm", () => {
     mocks.mutationPending = ref(true);
     const wrapper = mount(TestHarness);
 
-    expect(wrapper.vm.calculating).toBe(true);
+    expect(wrapper.vm.state.calculating).toBe(true);
   });
 });
