@@ -360,14 +360,14 @@ test("validation parses boolean strings for perpetual toggle", () => {
   assert.equal(normalizedUnknown.years, "10.0000");
 });
 
-test("validation applies default growth and legacy perpetual fallback", () => {
+test("validation applies default growth when perpetual mode is enabled", () => {
   const normalized = validateAndNormalizeInput({
     mode: "pv",
     timing: "ordinary",
     payment: 100,
     annualRate: 6,
     paymentsPerYear: 12,
-    perpetual: true
+    isPerpetual: true
   });
 
   assert.equal(normalized.isPerpetual, true);

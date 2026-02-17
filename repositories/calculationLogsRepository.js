@@ -35,9 +35,10 @@ function mapCalculationRowRequired(row) {
 }
 
 function createCalculationLogsRepository(dbClient) {
-  async function repoInsert(userId, entry) {
+  async function repoInsert(workspaceId, userId, entry) {
     await dbClient("calculation_logs").insert({
       id: entry.id,
+      workspace_id: workspaceId,
       user_id: userId,
       created_at: toMysqlDateTimeUtc(entry.createdAt),
       mode: entry.mode,
@@ -55,16 +56,36 @@ function createCalculationLogsRepository(dbClient) {
     });
   }
 
-  async function repoCountForUser(userId) {
-    const row = await dbClient("calculation_logs").where({ user_id: userId }).count({ total: "*" }).first();
+  async function repoCountForWorkspaceUser(workspaceId, userId) {
+    const row = await dbClient("calculation_logs")
+      .where({ workspace_id: workspaceId, user_id: userId })
+      .count({ total: "*" })
+      .first();
     return normalizeCount(row);
   }
 
-  async function repoListForUser(userId, page, pageSize) {
+  async function repoListForWorkspaceUser(workspaceId, userId, page, pageSize) {
     const offset = (page - 1) * pageSize;
 
     const rows = await dbClient("calculation_logs")
-      .where({ user_id: userId })
+      .where({ workspace_id: workspaceId, user_id: userId })
+      .orderBy("created_at", "desc")
+      .limit(pageSize)
+      .offset(offset);
+
+    return rows.map(mapCalculationRowRequired);
+  }
+
+  async function repoCountForWorkspace(workspaceId) {
+    const row = await dbClient("calculation_logs").where({ workspace_id: workspaceId }).count({ total: "*" }).first();
+    return normalizeCount(row);
+  }
+
+  async function repoListForWorkspace(workspaceId, page, pageSize) {
+    const offset = (page - 1) * pageSize;
+
+    const rows = await dbClient("calculation_logs")
+      .where({ workspace_id: workspaceId })
       .orderBy("created_at", "desc")
       .limit(pageSize)
       .offset(offset);
@@ -74,8 +95,10 @@ function createCalculationLogsRepository(dbClient) {
 
   return {
     insert: repoInsert,
-    countForUser: repoCountForUser,
-    listForUser: repoListForUser
+    countForWorkspaceUser: repoCountForWorkspaceUser,
+    listForWorkspaceUser: repoListForWorkspaceUser,
+    countForWorkspace: repoCountForWorkspace,
+    listForWorkspace: repoListForWorkspace
   };
 }
 
@@ -87,5 +110,5 @@ const __testables = {
   createCalculationLogsRepository
 };
 
-export const { insert, countForUser, listForUser } = repository;
+export const { insert, countForWorkspaceUser, listForWorkspaceUser, countForWorkspace, listForWorkspace } = repository;
 export { __testables };

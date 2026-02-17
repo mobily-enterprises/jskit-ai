@@ -16,6 +16,7 @@ function mapUserSettingsRowRequired(row) {
 
   return {
     userId: Number(row.user_id),
+    lastActiveWorkspaceId: row.last_active_workspace_id == null ? null : Number(row.last_active_workspace_id),
     theme: row.theme,
     locale: row.locale,
     timeZone: row.time_zone,
@@ -196,13 +197,36 @@ function createUserSettingsRepository(dbClient) {
     return mapUserSettingsRowRequired(row);
   }
 
+  async function repoFindByUserIdForUpdate(userId, trx = null) {
+    const client = trx || dbClient;
+    const row = await client("user_settings").where({ user_id: userId }).forUpdate().first();
+    return mapUserSettingsRowNullable(row);
+  }
+
+  async function repoUpdateLastActiveWorkspaceId(userId, workspaceId) {
+    await repoEnsureForUserId(userId);
+
+    await dbClient("user_settings")
+      .where({ user_id: userId })
+      .update(
+        withUpdatedAt({
+          last_active_workspace_id: workspaceId == null ? null : Number(workspaceId)
+        })
+      );
+
+    const row = await dbClient("user_settings").where({ user_id: userId }).first();
+    return mapUserSettingsRowRequired(row);
+  }
+
   return {
     findByUserId: repoFindByUserId,
     ensureForUserId: repoEnsureForUserId,
     updatePreferences: repoUpdatePreferences,
     updateNotifications: repoUpdateNotifications,
     updatePasswordSignInEnabled: repoUpdatePasswordSignInEnabled,
-    updatePasswordSetupRequired: repoUpdatePasswordSetupRequired
+    updatePasswordSetupRequired: repoUpdatePasswordSetupRequired,
+    findByUserIdForUpdate: repoFindByUserIdForUpdate,
+    updateLastActiveWorkspaceId: repoUpdateLastActiveWorkspaceId
   };
 }
 
@@ -224,6 +248,8 @@ export const {
   updatePreferences,
   updateNotifications,
   updatePasswordSignInEnabled,
-  updatePasswordSetupRequired
+  updatePasswordSetupRequired,
+  findByUserIdForUpdate,
+  updateLastActiveWorkspaceId
 } = repository;
 export { __testables };

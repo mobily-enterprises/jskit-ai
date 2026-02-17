@@ -1,123 +1,275 @@
 import { describe, expect, it, vi } from "vitest";
 
+const mocks = vi.hoisted(() => ({
+  api: {
+    bootstrap: vi.fn()
+  }
+}));
+
 vi.mock("../../src/App.vue", () => ({
   default: {
     name: "AppShellMock"
   }
 }));
 
+vi.mock("../../src/services/api.js", () => ({
+  api: mocks.api
+}));
+
 import { createAppRouter, __testables } from "../../src/router.js";
 
+function buildStores({
+  authInitialized = false,
+  workspaceInitialized = false,
+  authenticated = false,
+  hasWorkspace = false,
+  workspaceSlug = null
+} = {}) {
+  const authStore = {
+    initialized: authInitialized,
+    isAuthenticated: authenticated,
+    username: null,
+    applySession: vi.fn(({ authenticated: nextAuthenticated, username }) => {
+      authStore.initialized = true;
+      authStore.isAuthenticated = Boolean(nextAuthenticated);
+      authStore.username = username || null;
+    }),
+    setSignedOut: vi.fn(() => {
+      authStore.initialized = true;
+      authStore.isAuthenticated = false;
+      authStore.username = null;
+    })
+  };
+
+  const workspaceStore = {
+    initialized: workspaceInitialized,
+    hasActiveWorkspace: hasWorkspace,
+    activeWorkspaceSlug: workspaceSlug,
+    applyBootstrap: vi.fn((payload) => {
+      workspaceStore.initialized = true;
+      const workspace = payload?.workspace && typeof payload.workspace === "object" ? payload.workspace : null;
+      workspaceStore.hasActiveWorkspace = Boolean(workspace?.slug);
+      workspaceStore.activeWorkspaceSlug = workspace?.slug || null;
+    }),
+    clearWorkspaceState: vi.fn(() => {
+      workspaceStore.initialized = true;
+      workspaceStore.hasActiveWorkspace = false;
+      workspaceStore.activeWorkspaceSlug = null;
+    }),
+    selectWorkspace: vi.fn(async (slug) => {
+      workspaceStore.hasActiveWorkspace = true;
+      workspaceStore.activeWorkspaceSlug = slug;
+    })
+  };
+
+  return {
+    authStore,
+    workspaceStore
+  };
+}
+
 describe("router auth guards", () => {
-  it("resolveAuthState returns authenticated session", async () => {
-    const authStore = {
-      isAuthenticated: false,
-      ensureSession: vi.fn(async () => ({ authenticated: true })),
-      setSignedOut: vi.fn()
-    };
-
-    const state = await __testables.resolveAuthState(authStore);
-    expect(state).toEqual({ authenticated: true, sessionUnavailable: false });
-    expect(authStore.setSignedOut).not.toHaveBeenCalled();
-  });
-
-  it("resolveAuthState marks session unavailable on 503", async () => {
-    const authStore = {
-      isAuthenticated: true,
-      ensureSession: vi.fn(async () => {
-        const error = new Error("down");
-        error.status = 503;
-        throw error;
-      }),
-      setSignedOut: vi.fn()
-    };
-
-    const state = await __testables.resolveAuthState(authStore);
-    expect(state).toEqual({ authenticated: true, sessionUnavailable: true });
-    expect(authStore.setSignedOut).not.toHaveBeenCalled();
-  });
-
-  it("resolveAuthState signs out on non-503 error", async () => {
-    const authStore = {
-      isAuthenticated: true,
-      ensureSession: vi.fn(async () => {
-        const error = new Error("bad");
-        error.status = 401;
-        throw error;
-      }),
-      setSignedOut: vi.fn()
-    };
-
-    const state = await __testables.resolveAuthState(authStore);
-    expect(state).toEqual({ authenticated: false, sessionUnavailable: false });
-    expect(authStore.setSignedOut).toHaveBeenCalledTimes(1);
-  });
-
-  it("login guard redirects to calculator when already authenticated", async () => {
-    const authStore = {
-      isAuthenticated: false,
-      ensureSession: vi.fn(async () => ({ authenticated: true })),
-      setSignedOut: vi.fn()
-    };
-
-    await expect(__testables.beforeLoadLogin(authStore)).rejects.toMatchObject({
-      options: { to: "/" }
+  it("resolveRuntimeState bootstraps and returns authenticated workspace state", async () => {
+    const stores = buildStores();
+    mocks.api.bootstrap.mockResolvedValue({
+      session: {
+        authenticated: true,
+        username: "alice"
+      },
+      workspace: {
+        slug: "acme"
+      }
     });
+
+    const state = await __testables.resolveRuntimeState(stores);
+    expect(state).toEqual({
+      authenticated: true,
+      hasActiveWorkspace: true,
+      activeWorkspaceSlug: "acme",
+      sessionUnavailable: false
+    });
+    expect(stores.authStore.applySession).toHaveBeenCalledWith({
+      authenticated: true,
+      username: "alice"
+    });
+    expect(stores.workspaceStore.applyBootstrap).toHaveBeenCalledTimes(1);
   });
 
-  it("calculator guard redirects to login when unauthenticated", async () => {
-    const authStore = {
-      isAuthenticated: false,
-      ensureSession: vi.fn(async () => ({ authenticated: false })),
-      setSignedOut: vi.fn()
-    };
+  it("resolveRuntimeState marks session unavailable on transient bootstrap errors", async () => {
+    const stores = buildStores({
+      authenticated: true
+    });
+    const error = new Error("temporarily unavailable");
+    error.status = 503;
+    mocks.api.bootstrap.mockRejectedValue(error);
 
-    await expect(__testables.beforeLoadCalculator(authStore)).rejects.toMatchObject({
+    const state = await __testables.resolveRuntimeState(stores);
+    expect(state.sessionUnavailable).toBe(true);
+    expect(state.authenticated).toBe(true);
+    expect(stores.authStore.setSignedOut).not.toHaveBeenCalled();
+    expect(stores.workspaceStore.clearWorkspaceState).not.toHaveBeenCalled();
+  });
+
+  it("resolveRuntimeState signs out and clears workspace on non-transient errors", async () => {
+    const stores = buildStores({
+      authenticated: true,
+      hasWorkspace: true,
+      workspaceSlug: "acme"
+    });
+    const error = new Error("invalid session");
+    error.status = 401;
+    mocks.api.bootstrap.mockRejectedValue(error);
+
+    const state = await __testables.resolveRuntimeState(stores);
+    expect(state).toEqual({
+      authenticated: false,
+      hasActiveWorkspace: false,
+      activeWorkspaceSlug: null,
+      sessionUnavailable: false
+    });
+    expect(stores.authStore.setSignedOut).toHaveBeenCalledTimes(1);
+    expect(stores.workspaceStore.clearWorkspaceState).toHaveBeenCalledTimes(1);
+  });
+
+  it("beforeLoadRoot redirects according to auth/workspace state", async () => {
+    mocks.api.bootstrap.mockReset();
+
+    await expect(__testables.beforeLoadRoot(buildStores({ authInitialized: true, workspaceInitialized: true }))).rejects.toMatchObject({
       options: { to: "/login" }
     });
+
+    await expect(
+      __testables.beforeLoadRoot(
+        buildStores({
+          authInitialized: true,
+          workspaceInitialized: true,
+          authenticated: true
+        })
+      )
+    ).rejects.toMatchObject({
+      options: { to: "/workspaces" }
+    });
+
+    await expect(
+      __testables.beforeLoadRoot(
+        buildStores({
+          authInitialized: true,
+          workspaceInitialized: true,
+          authenticated: true,
+          hasWorkspace: true,
+          workspaceSlug: "acme"
+        })
+      )
+    ).rejects.toMatchObject({
+      options: { to: "/w/acme" }
+    });
   });
 
-  it("login and calculator guards allow authenticated/unauthenticated happy paths", async () => {
-    const loginStore = {
-      isAuthenticated: false,
-      ensureSession: vi.fn(async () => ({ authenticated: false })),
-      setSignedOut: vi.fn()
-    };
-    await expect(__testables.beforeLoadLogin(loginStore)).resolves.toBeUndefined();
+  it("beforeLoadPublic allows unauthenticated and redirects authenticated sessions", async () => {
+    mocks.api.bootstrap.mockReset();
 
-    const calculatorStore = {
-      isAuthenticated: false,
-      ensureSession: vi.fn(async () => ({ authenticated: true })),
-      setSignedOut: vi.fn()
-    };
-    await expect(__testables.beforeLoadCalculator(calculatorStore)).resolves.toBeUndefined();
+    await expect(
+      __testables.beforeLoadPublic(
+        buildStores({
+          authInitialized: true,
+          workspaceInitialized: true
+        })
+      )
+    ).resolves.toBeUndefined();
+
+    await expect(
+      __testables.beforeLoadPublic(
+        buildStores({
+          authInitialized: true,
+          workspaceInitialized: true,
+          authenticated: true
+        })
+      )
+    ).rejects.toMatchObject({
+      options: { to: "/workspaces" }
+    });
+
+    await expect(
+      __testables.beforeLoadPublic(
+        buildStores({
+          authInitialized: true,
+          workspaceInitialized: true,
+          authenticated: true,
+          hasWorkspace: true,
+          workspaceSlug: "acme"
+        })
+      )
+    ).rejects.toMatchObject({
+      options: { to: "/w/acme" }
+    });
   });
 
-  it("guards allow navigation when session is unavailable", async () => {
-    const authStore = {
-      isAuthenticated: false,
-      ensureSession: vi.fn(async () => {
-        const error = new Error("temporarily unavailable");
-        error.status = 503;
-        throw error;
-      }),
-      setSignedOut: vi.fn()
-    };
+  it("beforeLoadWorkspaceRequired validates auth/workspace and switches workspaces by slug", async () => {
+    mocks.api.bootstrap.mockReset();
 
-    await expect(__testables.beforeLoadLogin(authStore)).resolves.toBeUndefined();
-    await expect(__testables.beforeLoadCalculator(authStore)).resolves.toBeUndefined();
+    await expect(
+      __testables.beforeLoadWorkspaceRequired(
+        buildStores({
+          authInitialized: true,
+          workspaceInitialized: true
+        }),
+        { params: { workspaceSlug: "acme" } }
+      )
+    ).rejects.toMatchObject({
+      options: { to: "/login" }
+    });
+
+    await expect(
+      __testables.beforeLoadWorkspaceRequired(
+        buildStores({
+          authInitialized: true,
+          workspaceInitialized: true,
+          authenticated: true
+        }),
+        { params: { workspaceSlug: "acme" } }
+      )
+    ).rejects.toMatchObject({
+      options: { to: "/workspaces" }
+    });
+
+    const switchingStores = buildStores({
+      authInitialized: true,
+      workspaceInitialized: true,
+      authenticated: true,
+      hasWorkspace: true,
+      workspaceSlug: "old"
+    });
+    await expect(
+      __testables.beforeLoadWorkspaceRequired(switchingStores, { params: { workspaceSlug: "new-workspace" } })
+    ).resolves.toBeUndefined();
+    expect(switchingStores.workspaceStore.selectWorkspace).toHaveBeenCalledWith("new-workspace");
+  });
+
+  it("beforeLoadWorkspaceRequired redirects to workspace list if workspace switching fails", async () => {
+    const stores = buildStores({
+      authInitialized: true,
+      workspaceInitialized: true,
+      authenticated: true,
+      hasWorkspace: true,
+      workspaceSlug: "old"
+    });
+    stores.workspaceStore.selectWorkspace.mockRejectedValue(new Error("missing workspace"));
+
+    await expect(
+      __testables.beforeLoadWorkspaceRequired(stores, { params: { workspaceSlug: "missing" } })
+    ).rejects.toMatchObject({
+      options: { to: "/workspaces" }
+    });
   });
 
   it("creates router instance with configured routes", () => {
-    const authStore = {
-      isAuthenticated: false,
-      ensureSession: vi.fn(async () => ({ authenticated: false })),
-      setSignedOut: vi.fn()
-    };
+    const stores = buildStores({
+      authInitialized: true,
+      workspaceInitialized: true
+    });
 
-    const router = createAppRouter(authStore);
+    const router = createAppRouter(stores);
     expect(router).toBeTruthy();
     expect(typeof router.navigate).toBe("function");
   });
-
 });

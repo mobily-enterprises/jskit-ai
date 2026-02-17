@@ -127,6 +127,9 @@ function resetApiStateForTests() {
 }
 
 export const api = {
+  bootstrap() {
+    return request("/api/bootstrap");
+  },
   session() {
     return request("/api/session");
   },
@@ -168,6 +171,12 @@ export const api = {
   },
   logout() {
     return request("/api/logout", { method: "POST" });
+  },
+  workspaces() {
+    return request("/api/workspaces");
+  },
+  selectWorkspace(payload) {
+    return request("/api/workspaces/select", { method: "POST", body: payload });
   },
   settings() {
     return request("/api/settings");

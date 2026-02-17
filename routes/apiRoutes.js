@@ -118,12 +118,9 @@ const oauthCompleteBodySchema = Type.Object(
     provider: oauthProviderEnumSchema,
     code: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_RECOVERY_TOKEN_MAX_LENGTH })),
     accessToken: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_ACCESS_TOKEN_MAX_LENGTH })),
-    access_token: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_ACCESS_TOKEN_MAX_LENGTH })),
     refreshToken: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_REFRESH_TOKEN_MAX_LENGTH })),
-    refresh_token: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_REFRESH_TOKEN_MAX_LENGTH })),
     error: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
-    errorDescription: Type.Optional(Type.String({ minLength: 1, maxLength: 1024 })),
-    error_description: Type.Optional(Type.String({ minLength: 1, maxLength: 1024 }))
+    errorDescription: Type.Optional(Type.String({ minLength: 1, maxLength: 1024 }))
   },
   {
     additionalProperties: false
@@ -271,6 +268,188 @@ const sessionErrorResponseSchema = Type.Object(
   {
     error: Type.String({ minLength: 1 }),
     csrfToken: Type.String({ minLength: 1 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const workspaceSummarySchema = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    slug: Type.String({ minLength: 1, maxLength: 120 }),
+    name: Type.String({ minLength: 1, maxLength: 160 }),
+    roleId: Type.String({ minLength: 1, maxLength: 64 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const activeWorkspaceSchema = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    slug: Type.String({ minLength: 1, maxLength: 120 }),
+    name: Type.String({ minLength: 1, maxLength: 160 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const membershipSummarySchema = Type.Object(
+  {
+    roleId: Type.String({ minLength: 1, maxLength: 64 }),
+    status: Type.String({ minLength: 1, maxLength: 32 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const bootstrapResponseSchema = Type.Object(
+  {
+    session: Type.Object(
+      {
+        authenticated: Type.Boolean(),
+        userId: Type.Optional(Type.Integer({ minimum: 1 })),
+        username: Type.Optional(Type.Union([Type.String({ minLength: 1, maxLength: 120 }), Type.Null()]))
+      },
+      {
+        additionalProperties: false
+      }
+    ),
+    profile: Type.Union(
+      [
+        Type.Object(
+          {
+            displayName: Type.String({ minLength: 1, maxLength: 120 }),
+            email: Type.String({
+              minLength: AUTH_EMAIL_MIN_LENGTH,
+              maxLength: AUTH_EMAIL_MAX_LENGTH,
+              pattern: AUTH_EMAIL_PATTERN
+            }),
+            avatar: Type.Union(
+              [
+                Type.Object(
+                  {
+                    uploadedUrl: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+                    gravatarUrl: Type.String({ minLength: 1 }),
+                    effectiveUrl: Type.String({ minLength: 1 }),
+                    hasUploadedAvatar: Type.Boolean(),
+                    size: Type.Integer({ minimum: AVATAR_MIN_SIZE, maximum: AVATAR_MAX_SIZE }),
+                    version: Type.Union([Type.String({ minLength: 1 }), Type.Null()])
+                  },
+                  {
+                    additionalProperties: false
+                  }
+                ),
+                Type.Null()
+              ]
+            )
+          },
+          {
+            additionalProperties: false
+          }
+        ),
+        Type.Null()
+      ]
+    ),
+    app: Type.Object(
+      {
+        tenancyMode: Type.String({ minLength: 1, maxLength: 32 }),
+        features: Type.Object(
+          {
+            workspaceSwitching: Type.Boolean()
+          },
+          {
+            additionalProperties: false
+          }
+        )
+      },
+      {
+        additionalProperties: false
+      }
+    ),
+    workspaces: Type.Array(workspaceSummarySchema),
+    activeWorkspace: Type.Union([activeWorkspaceSchema, Type.Null()]),
+    membership: Type.Union([membershipSummarySchema, Type.Null()]),
+    permissions: Type.Array(Type.String({ minLength: 1 })),
+    workspaceSettings: Type.Union(
+      [
+        Type.Object(
+          {
+            invitesEnabled: Type.Boolean()
+          },
+          {
+            additionalProperties: false
+          }
+        ),
+        Type.Null()
+      ]
+    ),
+    userSettings: Type.Union(
+      [
+        Type.Object(
+          {
+            theme: enumSchema(SETTINGS_THEME_OPTIONS),
+            locale: Type.String({ minLength: 2, maxLength: 24, pattern: SETTINGS_LOCALE_PATTERN }),
+            timeZone: Type.String({ minLength: 1, maxLength: 64 }),
+            dateFormat: enumSchema(SETTINGS_DATE_FORMAT_OPTIONS),
+            numberFormat: enumSchema(SETTINGS_NUMBER_FORMAT_OPTIONS),
+            currencyCode: Type.String({ pattern: SETTINGS_CURRENCY_CODE_PATTERN }),
+            defaultMode: enumSchema(SETTINGS_MODE_OPTIONS),
+            defaultTiming: enumSchema(SETTINGS_TIMING_OPTIONS),
+            defaultPaymentsPerYear: Type.Integer({ minimum: 1, maximum: 365 }),
+            defaultHistoryPageSize: Type.Integer({ minimum: 1, maximum: 100 }),
+            avatarSize: Type.Integer({ minimum: AVATAR_MIN_SIZE, maximum: AVATAR_MAX_SIZE }),
+            lastActiveWorkspaceId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()])
+          },
+          {
+            additionalProperties: false
+          }
+        ),
+        Type.Null()
+      ]
+    )
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const workspacesListResponseSchema = Type.Object(
+  {
+    workspaces: Type.Array(workspaceSummarySchema)
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const selectWorkspaceBodySchema = Type.Object(
+  {
+    workspaceSlug: Type.String({ minLength: 1, maxLength: 160 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const selectWorkspaceResponseSchema = Type.Object(
+  {
+    ok: Type.Boolean(),
+    workspace: activeWorkspaceSchema,
+    membership: membershipSummarySchema,
+    permissions: Type.Array(Type.String({ minLength: 1 })),
+    workspaceSettings: Type.Object(
+      {
+        invitesEnabled: Type.Boolean()
+      },
+      {
+        additionalProperties: false
+      }
+    )
   },
   {
     additionalProperties: false
@@ -568,6 +747,12 @@ const changePasswordBodySchema = Type.Object(
 );
 
 function buildDefaultRoutes(controllers) {
+  const missingHandler = async (_request, reply) => {
+    reply.code(501).send({
+      error: "Endpoint is not available in this server wiring."
+    });
+  };
+
   return [
     {
       path: "/api/register",
@@ -788,6 +973,51 @@ function buildDefaultRoutes(controllers) {
       handler: controllers.auth.session
     },
     {
+      path: "/api/bootstrap",
+      method: "GET",
+      auth: "public",
+      schema: {
+        tags: ["workspace"],
+        summary: "Get startup bootstrap payload with session, app, workspace, and settings context",
+        response: withStandardErrorResponses({
+          200: bootstrapResponseSchema
+        })
+      },
+      handler: controllers.workspace?.bootstrap || missingHandler
+    },
+    {
+      path: "/api/workspaces",
+      method: "GET",
+      auth: "required",
+      allowNoWorkspace: true,
+      schema: {
+        tags: ["workspace"],
+        summary: "List workspaces visible to authenticated user",
+        response: withStandardErrorResponses({
+          200: workspacesListResponseSchema
+        })
+      },
+      handler: controllers.workspace?.listWorkspaces || missingHandler
+    },
+    {
+      path: "/api/workspaces/select",
+      method: "POST",
+      auth: "required",
+      allowNoWorkspace: true,
+      schema: {
+        tags: ["workspace"],
+        summary: "Select active workspace by slug or id",
+        body: selectWorkspaceBodySchema,
+        response: withStandardErrorResponses(
+          {
+            200: selectWorkspaceResponseSchema
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.workspace?.selectWorkspace || missingHandler
+    },
+    {
       path: "/api/settings",
       method: "GET",
       auth: "required",
@@ -993,6 +1223,8 @@ function buildDefaultRoutes(controllers) {
       path: "/api/history",
       method: "GET",
       auth: "required",
+      workspacePolicy: "required",
+      permission: "history.read",
       schema: {
         tags: ["history"],
         summary: "List authenticated user's calculation history",
@@ -1010,6 +1242,8 @@ function buildDefaultRoutes(controllers) {
       path: "/api/annuityCalculator",
       method: "POST",
       auth: "required",
+      workspacePolicy: "required",
+      permission: "history.write",
       schema: {
         tags: ["annuityCalculator"],
         summary: "Calculate annuity value and append history",
@@ -1036,6 +1270,9 @@ function registerApiRoutes(fastify, { controllers, routes }) {
       ...(route.schema ? { schema: route.schema } : {}),
       config: {
         authPolicy: route.auth || "public",
+        workspacePolicy: route.workspacePolicy || "none",
+        permission: route.permission || "",
+        allowNoWorkspace: route.allowNoWorkspace === true,
         ownerParam: route.ownerParam || null,
         userField: route.userField || "id",
         ownerResolver: typeof route.ownerResolver === "function" ? route.ownerResolver : null,

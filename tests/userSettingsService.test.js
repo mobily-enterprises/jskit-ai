@@ -234,7 +234,21 @@ test("user settings service orchestrates repositories and auth service", async (
             status: "not_enabled",
             enrolled: false,
             methods: []
-          }
+          },
+          authMethods: [
+            {
+              id: "password",
+              kind: "password",
+              provider: "email",
+              label: "Password",
+              configured: true,
+              enabled: true,
+              canEnable: false,
+              canDisable: true,
+              supportsSecretUpdate: true,
+              requiresCurrentPassword: true
+            }
+          ]
         };
       },
       async updateDisplayName(request, displayName) {
@@ -495,6 +509,177 @@ test("user settings service handles avatar upload and delete flows", async () =>
   assert.equal(cleared.profile.avatar.hasUploadedAvatar, false);
   assert.ok(calls.some((entry) => entry[0] === "uploadForUser"));
   assert.ok(calls.some((entry) => entry[0] === "clearForUser"));
+});
+
+test("user settings service orchestrates password method toggle and oauth link/unlink flows", async () => {
+  const calls = [];
+  const securityStatus = {
+    mfa: {
+      status: "not_enabled",
+      enrolled: false,
+      methods: []
+    },
+    authPolicy: {
+      minimumEnabledMethods: 1,
+      enabledMethodsCount: 2
+    },
+    authMethods: [
+      {
+        id: "password",
+        kind: "password",
+        provider: "email",
+        label: "Password",
+        configured: true,
+        enabled: false,
+        canEnable: true,
+        canDisable: false,
+        supportsSecretUpdate: true,
+        requiresCurrentPassword: false
+      },
+      {
+        id: "oauth-google",
+        kind: "oauth",
+        provider: "google",
+        label: "Google",
+        configured: true,
+        enabled: true,
+        canEnable: false,
+        canDisable: true,
+        supportsSecretUpdate: false,
+        requiresCurrentPassword: false
+      }
+    ]
+  };
+
+  const service = createUserSettingsService({
+    userSettingsRepository: {
+      async ensureForUserId(userId) {
+        calls.push(["ensureForUserId", userId]);
+        return buildSettings({ userId, avatarSize: 72 });
+      },
+      async updatePreferences() {
+        return buildSettings();
+      },
+      async updateNotifications() {
+        return buildSettings();
+      }
+    },
+    userProfilesRepository: {
+      async findBySupabaseUserId(supabaseUserId) {
+        calls.push(["findBySupabaseUserId", supabaseUserId]);
+        return {
+          id: 7,
+          supabaseUserId,
+          email: "fresh@example.com",
+          displayName: "fresh-user",
+          avatarStorageKey: null,
+          avatarVersion: null,
+          avatarUpdatedAt: null,
+          createdAt: "2024-01-01T00:00:00.000Z"
+        };
+      },
+      async updateDisplayNameById() {
+        throw new Error("not used");
+      }
+    },
+    userAvatarService: {
+      buildAvatarResponse(profile, { avatarSize }) {
+        calls.push(["buildAvatarResponse", profile.id, avatarSize]);
+        return {
+          uploadedUrl: null,
+          gravatarUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=72",
+          effectiveUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=72",
+          hasUploadedAvatar: false,
+          size: Number(avatarSize || 72),
+          version: null
+        };
+      },
+      async uploadForUser() {
+        throw new Error("not used");
+      },
+      async clearForUser() {
+        throw new Error("not used");
+      }
+    },
+    authService: {
+      async getSecurityStatus(request) {
+        calls.push(["getSecurityStatus", request.marker]);
+        return securityStatus;
+      },
+      async setPasswordSignInEnabled(request, payload) {
+        calls.push(["setPasswordSignInEnabled", request.marker, payload]);
+      },
+      async startProviderLink(request, payload) {
+        calls.push(["startProviderLink", request.marker, payload]);
+        return {
+          authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth"
+        };
+      },
+      async unlinkProvider(request, payload) {
+        calls.push(["unlinkProvider", request.marker, payload]);
+      },
+      async updateDisplayName() {
+        return { profile: null, session: null };
+      },
+      async changePassword() {
+        return { session: null };
+      },
+      async signOutOtherSessions() {}
+    }
+  });
+
+  const user = {
+    id: 7,
+    supabaseUserId: "supabase-7",
+    email: "user@example.com",
+    displayName: "user"
+  };
+
+  const methodResult = await service.setPasswordMethodEnabled({ marker: "toggle-password" }, user, {
+    enabled: true
+  });
+  assert.equal(methodResult.profile.email, "fresh@example.com");
+  assert.equal(methodResult.security.authMethods.find((method) => method.id === "password")?.enabled, false);
+  assert.equal(
+    calls.some(
+      (entry) =>
+        entry[0] === "setPasswordSignInEnabled" &&
+        entry[1] === "toggle-password" &&
+        entry[2] &&
+        entry[2].enabled === true
+    ),
+    true
+  );
+
+  const linkResult = await service.startOAuthProviderLink({ marker: "start-link" }, user, {
+    provider: "google"
+  });
+  assert.equal(linkResult.authorizationUrl.includes("accounts.google.com"), true);
+  assert.equal(
+    calls.some(
+      (entry) =>
+        entry[0] === "startProviderLink" &&
+        entry[1] === "start-link" &&
+        entry[2] &&
+        entry[2].provider === "google"
+    ),
+    true
+  );
+
+  const unlinkResult = await service.unlinkOAuthProvider({ marker: "unlink-provider" }, user, {
+    provider: "google"
+  });
+  assert.equal(unlinkResult.profile.email, "fresh@example.com");
+  assert.equal(
+    calls.some(
+      (entry) =>
+        entry[0] === "unlinkProvider" &&
+        entry[1] === "unlink-provider" &&
+        entry[2] &&
+        entry[2].provider === "google"
+    ),
+    true
+  );
 });
 
 test("user settings service throws validation errors for invalid payloads", async () => {

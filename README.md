@@ -75,9 +75,6 @@ npm run db:migrate
 
 Migrations are intentionally not executed at app boot; run them explicitly during deployment/startup.
 
-This scaffold assumes a fresh install. If an old local `knex_migrations` table references legacy migration filenames,
-reset that local database before running `npm run db:migrate`.
-
 Optional seed data:
 
 ```bash
@@ -204,6 +201,9 @@ npm run format:check
 - `POST /api/login`
 - `POST /api/logout`
 - `GET /api/session`
+- `GET /api/bootstrap`
+- `GET /api/workspaces`
+- `POST /api/workspaces/select`
 - `POST /api/password/forgot`
 - `POST /api/password/recovery`
 - `POST /api/password/reset`

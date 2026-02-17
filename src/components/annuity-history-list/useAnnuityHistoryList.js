@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { api } from "../../services/api";
 import { useAuthGuard } from "../../composables/useAuthGuard";
 import { useListPagination } from "../../composables/useListPagination";
+import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { mapHistoryError } from "../../features/annuity/errors";
 import { pageSizeOptions } from "../../features/annuity/formModel";
 import { normalizePage } from "../../utils/pagination";
@@ -12,6 +13,7 @@ export const HISTORY_QUERY_KEY_PREFIX = ["history"];
 export function useAnnuityHistoryList({ initialPageSize = pageSizeOptions[0] } = {}) {
   const queryClient = useQueryClient();
   const { handleUnauthorizedError } = useAuthGuard();
+  const workspaceStore = useWorkspaceStore();
   const pagination = useListPagination({
     initialPageSize,
     defaultPageSize: pageSizeOptions[0],
@@ -23,7 +25,12 @@ export function useAnnuityHistoryList({ initialPageSize = pageSizeOptions[0] } =
   const historyEnabled = ref(false);
 
   const historyQuery = useQuery({
-    queryKey: computed(() => [...HISTORY_QUERY_KEY_PREFIX, pagination.page.value, pagination.pageSize.value]),
+    queryKey: computed(() => [
+      ...HISTORY_QUERY_KEY_PREFIX,
+      workspaceStore.activeWorkspaceSlug || "none",
+      pagination.page.value,
+      pagination.pageSize.value
+    ]),
     queryFn: () => api.history(pagination.page.value, pagination.pageSize.value),
     enabled: historyEnabled,
     placeholderData: (previous) => previous
@@ -60,7 +67,9 @@ export function useAnnuityHistoryList({ initialPageSize = pageSizeOptions[0] } =
 
   async function onCalculationCreated() {
     pagination.resetToFirstPage();
-    await queryClient.invalidateQueries({ queryKey: HISTORY_QUERY_KEY_PREFIX });
+    await queryClient.invalidateQueries({
+      queryKey: [...HISTORY_QUERY_KEY_PREFIX, workspaceStore.activeWorkspaceSlug || "none"]
+    });
   }
 
   onMounted(() => {

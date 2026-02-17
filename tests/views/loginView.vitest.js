@@ -8,13 +8,18 @@ const mocks = vi.hoisted(() => ({
     register: vi.fn(),
     login: vi.fn(),
     requestPasswordReset: vi.fn(),
+    requestOtpLogin: vi.fn(),
+    verifyOtpLogin: vi.fn(),
     oauthComplete: vi.fn(),
+    bootstrap: vi.fn(),
     oauthStartUrl: vi.fn((provider) => `/api/oauth/${provider}/start`)
   },
   authStore: {
-    refreshSession: vi.fn(),
-    setSignedOut: vi.fn(),
-    invalidateSession: vi.fn()
+    applySession: vi.fn()
+  },
+  workspaceStore: {
+    applyBootstrap: vi.fn(),
+    clearWorkspaceState: vi.fn()
   }
 }));
 
@@ -35,6 +40,10 @@ vi.mock("../../src/services/api.js", () => ({
 
 vi.mock("../../src/stores/authStore.js", () => ({
   useAuthStore: () => mocks.authStore
+}));
+
+vi.mock("../../src/stores/workspaceStore.js", () => ({
+  useWorkspaceStore: () => mocks.workspaceStore
 }));
 
 import LoginView from "../../src/views/LoginView.vue";
@@ -67,11 +76,14 @@ describe("LoginView", () => {
     mocks.api.register.mockReset();
     mocks.api.login.mockReset();
     mocks.api.requestPasswordReset.mockReset();
+    mocks.api.requestOtpLogin.mockReset();
+    mocks.api.verifyOtpLogin.mockReset();
     mocks.api.oauthComplete.mockReset();
+    mocks.api.bootstrap.mockReset();
     mocks.api.oauthStartUrl.mockClear();
-    mocks.authStore.refreshSession.mockReset();
-    mocks.authStore.setSignedOut.mockReset();
-    mocks.authStore.invalidateSession.mockReset();
+    mocks.authStore.applySession.mockReset();
+    mocks.workspaceStore.applyBootstrap.mockReset();
+    mocks.workspaceStore.clearWorkspaceState.mockReset();
     window.history.replaceState({}, "", "/login");
     window.localStorage.clear();
     window.sessionStorage.clear();
@@ -92,7 +104,12 @@ describe("LoginView", () => {
 
   it("submits login and navigates to calculator when session becomes authenticated", async () => {
     mocks.api.login.mockResolvedValue({ ok: true, username: "demo-user" });
-    mocks.authStore.refreshSession.mockResolvedValue({ authenticated: true });
+    mocks.api.bootstrap.mockResolvedValue({
+      session: {
+        authenticated: true,
+        username: "demo-user"
+      }
+    });
 
     const wrapper = mountView();
     wrapper.vm.email = "User@Example.com";
@@ -104,7 +121,11 @@ describe("LoginView", () => {
       email: "user@example.com",
       password: "password123"
     });
-    expect(mocks.authStore.refreshSession).toHaveBeenCalledTimes(1);
+    expect(mocks.authStore.applySession).toHaveBeenCalledWith({
+      authenticated: true,
+      username: "demo-user"
+    });
+    expect(mocks.workspaceStore.applyBootstrap).toHaveBeenCalledTimes(1);
     expect(mocks.navigate).toHaveBeenCalledWith({ to: "/", replace: true });
   });
 
@@ -122,7 +143,8 @@ describe("LoginView", () => {
     await nextTick();
 
     expect(wrapper.vm.showRememberedAccount).toBe(true);
-    expect(wrapper.vm.email).toBe("tony@example.com");
+    expect(wrapper.vm.email).toBe("");
+    expect(wrapper.vm.rememberedAccountMaskedEmail).toBe("t***@example.com");
     expect(wrapper.vm.rememberedAccountSwitchLabel).toBe("Not Tony?");
 
     wrapper.vm.switchAccount();
@@ -135,7 +157,12 @@ describe("LoginView", () => {
 
   it("stores remembered account on successful login and clears it when remember is disabled", async () => {
     mocks.api.login.mockResolvedValue({ ok: true, username: "tony" });
-    mocks.authStore.refreshSession.mockResolvedValue({ authenticated: true, username: "tony" });
+    mocks.api.bootstrap.mockResolvedValue({
+      session: {
+        authenticated: true,
+        username: "tony"
+      }
+    });
 
     const wrapper = mountView();
     wrapper.vm.email = "tony@example.com";
@@ -145,7 +172,8 @@ describe("LoginView", () => {
     await wrapper.vm.submitAuth();
 
     const remembered = JSON.parse(window.localStorage.getItem("auth.rememberedAccount"));
-    expect(remembered.email).toBe("tony@example.com");
+    expect(remembered.email).toBe(undefined);
+    expect(remembered.maskedEmail).toBe("t***@example.com");
     expect(remembered.displayName).toBe("tony");
 
     wrapper.vm.rememberAccountOnDevice = false;
@@ -190,7 +218,7 @@ describe("LoginView", () => {
       email: "new-user@example.com",
       password: "password123"
     });
-    expect(mocks.authStore.refreshSession).not.toHaveBeenCalled();
+    expect(mocks.api.bootstrap).not.toHaveBeenCalled();
     expect(mocks.navigate).not.toHaveBeenCalled();
     expect(wrapper.vm.infoMessage).toContain("Confirm your email");
   });
@@ -207,25 +235,29 @@ describe("LoginView", () => {
       username: "tony",
       email: "tony@example.com"
     });
-    mocks.authStore.refreshSession.mockResolvedValue({
-      authenticated: true,
-      username: "tony"
+    mocks.api.bootstrap.mockResolvedValue({
+      session: {
+        authenticated: true,
+        username: "tony"
+      }
     });
 
     mountView();
-    await nextTick();
-    await Promise.resolve();
-    await nextTick();
+    await vi.waitFor(() => {
+      expect(mocks.api.oauthComplete).toHaveBeenCalledTimes(1);
+    });
+    await vi.waitFor(() => {
+      expect(mocks.navigate).toHaveBeenCalledWith({ to: "/", replace: true });
+    });
 
     expect(mocks.api.oauthComplete).toHaveBeenCalledWith({
       provider: "google",
       accessToken: "access-token",
       refreshToken: "refresh-token"
     });
-    expect(mocks.navigate).toHaveBeenCalledWith({ to: "/", replace: true });
 
     const remembered = JSON.parse(window.localStorage.getItem("auth.rememberedAccount"));
-    expect(remembered.email).toBe("tony@example.com");
+    expect(remembered.maskedEmail).toBe("t***@example.com");
     expect(window.location.search).toBe("");
     expect(window.location.hash).toBe("");
   });

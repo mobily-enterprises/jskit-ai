@@ -31,7 +31,6 @@ const REFRESH_TOKEN_COOKIE = "sb_refresh_token";
 const DEFAULT_AUDIENCE = "authenticated";
 const PASSWORD_RESET_PATH = "reset-password";
 const OAUTH_LOGIN_PATH = "login";
-const OAUTH_SETTINGS_PATH = "settings?tab=security";
 const OAUTH_LOGIN_INTENT = "login";
 const OAUTH_LINK_INTENT = "link";
 const OTP_VERIFY_TYPE = "email";
@@ -60,12 +59,12 @@ const TRANSIENT_AUTH_MESSAGE_PARTS = [
 
 function validatePasswordRecoveryPayload(payload) {
   const code = String(payload?.code || "").trim();
-  const tokenHash = String(payload?.tokenHash || payload?.token_hash || "").trim();
+  const tokenHash = String(payload?.tokenHash || "").trim();
   const type = String(payload?.type || "recovery")
     .trim()
     .toLowerCase();
-  const accessToken = String(payload?.accessToken || payload?.access_token || "").trim();
-  const refreshToken = String(payload?.refreshToken || payload?.refresh_token || "").trim();
+  const accessToken = String(payload?.accessToken || "").trim();
+  const refreshToken = String(payload?.refreshToken || "").trim();
 
   const fieldErrors = {};
 
@@ -283,7 +282,7 @@ function mapPasswordUpdateError(error) {
 
 function buildDisabledPasswordSecret() {
   const randomSegment = randomBytes(24).toString("base64url");
-  // Keep rotation secret <= 72 chars for Supabase password-update compatibility.
+  // Supabase password updates follow bcrypt's 72-byte input limit.
   return `disabled-A1!-${randomSegment}`;
 }
 
@@ -398,12 +397,8 @@ function buildOAuthRedirectUrl(options) {
   const appPublicUrl = String(options.appPublicUrl || "").trim();
   const provider = normalizeSupportedOAuthProvider(options.provider, { fallback: null });
   const intent = normalizeOAuthIntent(options.intent, { fallback: OAUTH_LOGIN_INTENT });
-  const callbackPath = String(
-    options.callbackPath || (intent === OAUTH_LINK_INTENT ? OAUTH_SETTINGS_PATH : OAUTH_LOGIN_PATH)
-  ).trim();
-  const returnTo = normalizeReturnToPath(options.returnTo, {
-    fallback: intent === OAUTH_LINK_INTENT ? "/settings?tab=security" : "/"
-  });
+  const callbackPath = String(options.callbackPath || OAUTH_LOGIN_PATH).trim();
+  const returnTo = normalizeReturnToPath(options.returnTo, { fallback: "/" });
 
   if (!appPublicUrl) {
     throw new Error("APP_PUBLIC_URL is required to build OAuth login redirects.");
@@ -445,7 +440,7 @@ function buildOAuthLinkRedirectUrl(options) {
   return buildOAuthRedirectUrl({
     ...options,
     intent: OAUTH_LINK_INTENT,
-    callbackPath: OAUTH_SETTINGS_PATH
+    callbackPath: OAUTH_LOGIN_PATH
   });
 }
 
@@ -463,10 +458,10 @@ function normalizeOAuthProviderInput(value) {
 function parseOAuthCompletePayload(payload = {}) {
   const provider = normalizeOAuthProviderInput(payload.provider || AUTH_OAUTH_DEFAULT_PROVIDER);
   const code = String(payload.code || "").trim();
-  const accessToken = String(payload.accessToken || payload.access_token || "").trim();
-  const refreshToken = String(payload.refreshToken || payload.refresh_token || "").trim();
+  const accessToken = String(payload.accessToken || "").trim();
+  const refreshToken = String(payload.refreshToken || "").trim();
   const errorCode = String(payload.error || "").trim();
-  const errorDescription = String(payload.errorDescription || payload.error_description || "").trim();
+  const errorDescription = String(payload.errorDescription || "").trim();
   const fieldErrors = {};
 
   if (code.length > AUTH_RECOVERY_TOKEN_MAX_LENGTH) {
@@ -519,7 +514,7 @@ function parseOAuthCompletePayload(payload = {}) {
 function parseOtpLoginVerifyPayload(payload = {}) {
   const parsedEmail = validators.forgotPasswordInput(payload);
   const token = String(payload?.token || "").trim();
-  const tokenHash = String(payload?.tokenHash || payload?.token_hash || "").trim();
+  const tokenHash = String(payload?.tokenHash || "").trim();
   const type = String(payload?.type || OTP_VERIFY_TYPE)
     .trim()
     .toLowerCase();
@@ -700,30 +695,6 @@ function buildAuthMethodsStatusFromProviderIds(providerIds, options = {}) {
 
 function buildAuthMethodsStatusFromSupabaseUser(user, options = {}) {
   return buildAuthMethodsStatusFromProviderIds(collectProviderIdsFromSupabaseUser(user), options);
-}
-
-function buildSignInMethodsStatusFromProviderIds(providerIds, options = {}) {
-  const authMethodsStatus = buildAuthMethodsStatusFromProviderIds(providerIds, options);
-  const hasPassword = Boolean(findAuthMethodById(authMethodsStatus, AUTH_METHOD_PASSWORD_ID)?.configured);
-  const linkedOAuthProviders = authMethodsStatus.methods
-    .filter((method) => method.kind === AUTH_METHOD_KIND_OAUTH && method.configured)
-    .map((method) => method.provider);
-  const legacyMethodCount = (hasPassword ? 1 : 0) + linkedOAuthProviders.length;
-
-  return {
-    hasPassword,
-    linkedOAuthProviders,
-    availableOAuthProviders: [...AUTH_OAUTH_PROVIDERS],
-    methodCount: legacyMethodCount,
-    minimumMethodsRequired: authMethodsStatus.minimumEnabledMethods,
-    canSetPassword: !hasPassword,
-    canChangePassword: hasPassword,
-    canUnlinkProviders: authMethodsStatus.canDisableAny
-  };
-}
-
-function buildSignInMethodsStatusFromSupabaseUser(user, options = {}) {
-  return buildSignInMethodsStatusFromProviderIds(collectProviderIdsFromSupabaseUser(user), options);
 }
 
 function buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus) {
@@ -1408,7 +1379,7 @@ function createAuthService(options) {
     ensureConfigured();
 
     const provider = normalizeOAuthProviderInput(payload.provider || AUTH_OAUTH_DEFAULT_PROVIDER);
-    const returnTo = normalizeReturnToPath(payload.returnTo, { fallback: "/settings?tab=security" });
+    const returnTo = normalizeReturnToPath(payload.returnTo, { fallback: "/" });
     await setSessionFromRequestCookies(request);
 
     const supabase = getSupabaseClient();
@@ -2009,8 +1980,6 @@ const __testables = {
   buildAuthMethodsStatusFromSupabaseUser,
   buildSecurityStatusFromAuthMethodsStatus,
   findAuthMethodById,
-  buildSignInMethodsStatusFromProviderIds,
-  buildSignInMethodsStatusFromSupabaseUser,
   findLinkedIdentityByProvider,
   safeRequestCookies,
   cookieOptions,

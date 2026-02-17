@@ -3,6 +3,7 @@ import fastifyCookie from "@fastify/cookie";
 import fastifyCsrfProtection from "@fastify/csrf-protection";
 import fastifyRateLimit from "@fastify/rate-limit";
 import { AppError } from "../lib/errors.js";
+import { hasPermission } from "../lib/rbacManifest.js";
 import { safeRequestUrl } from "../lib/requestUrl.js";
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -27,6 +28,7 @@ function resolveOwnerValue(routeConfig, request) {
 
 async function authPlugin(fastify, options) {
   const authService = options.authService;
+  const workspaceService = options.workspaceService || null;
   if (!authService) {
     throw new Error("authService is required.");
   }
@@ -50,6 +52,9 @@ async function authPlugin(fastify, options) {
   });
 
   fastify.decorateRequest("user", null);
+  fastify.decorateRequest("workspace", null);
+  fastify.decorateRequest("membership", null);
+  fastify.decorateRequest("permissions", null);
 
   function enforceCsrfProtection(request, reply) {
     return new Promise((resolve, reject) => {
@@ -71,6 +76,9 @@ async function authPlugin(fastify, options) {
 
     const routeConfig = request.routeOptions && request.routeOptions.config ? request.routeOptions.config : {};
     const authPolicy = routeConfig.authPolicy || "public";
+    const workspacePolicy = routeConfig.workspacePolicy || "none";
+    const permission = String(routeConfig.permission || "").trim();
+    const allowNoWorkspace = routeConfig.allowNoWorkspace === true;
     const csrfProtectionEnabled = routeConfig.csrfProtection !== false;
 
     if (csrfProtectionEnabled && UNSAFE_METHODS.has(request.method)) {
@@ -98,10 +106,9 @@ async function authPlugin(fastify, options) {
     }
 
     request.user = authResult.profile;
-
-    if (authPolicy === "required") {
-      return;
-    }
+    request.workspace = null;
+    request.membership = null;
+    request.permissions = [];
 
     if (authPolicy === "own") {
       const ownerValue = await resolveOwnerValue(routeConfig, request);
@@ -115,10 +122,25 @@ async function authPlugin(fastify, options) {
       if (String(ownerValue) !== String(userValue)) {
         throw new AppError(403, "Forbidden.");
       }
-      return;
+    } else if (authPolicy !== "required") {
+      throw new AppError(500, "Invalid route auth policy configuration.");
     }
 
-    throw new AppError(500, "Invalid route auth policy configuration.");
+    if (workspaceService && (workspacePolicy !== "none" || permission)) {
+      const context = await workspaceService.resolveRequestContext({
+        user: request.user,
+        request,
+        workspacePolicy: allowNoWorkspace ? "optional" : workspacePolicy
+      });
+
+      request.workspace = context.workspace;
+      request.membership = context.membership;
+      request.permissions = Array.isArray(context.permissions) ? context.permissions : [];
+    }
+
+    if (permission && !hasPermission(request.permissions, permission)) {
+      throw new AppError(403, "Forbidden.");
+    }
   });
 }
 

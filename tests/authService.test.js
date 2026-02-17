@@ -61,6 +61,7 @@ function createAuthServiceForTest(options = {}) {
     appPublicUrl: options.appPublicUrl ?? APP_PUBLIC_URL,
     jwtAudience: options.jwtAudience ?? "authenticated",
     userProfilesRepository: options.userProfilesRepository ?? createProfilesRepository(),
+    userSettingsRepository: options.userSettingsRepository ?? null,
     nodeEnv: options.nodeEnv ?? "test"
   });
 }
@@ -233,7 +234,7 @@ test("authService helpers cover validation, mapping, URL parsing, and jwt classi
   assert.throws(() => __testables.buildPasswordResetRedirectUrl({ appPublicUrl: "" }), /APP_PUBLIC_URL is required/);
   assert.equal(
     __testables.buildOAuthLoginRedirectUrl({ appPublicUrl: "http://localhost:5173/app", provider: "google" }),
-    "http://localhost:5173/app/login?oauthProvider=google"
+    "http://localhost:5173/app/login?oauthProvider=google&oauthIntent=login&oauthReturnTo=%2F"
   );
   assert.throws(() => __testables.buildOAuthLoginRedirectUrl({ appPublicUrl: "", provider: "google" }), /required/);
   assert.throws(() => __testables.buildOAuthLoginRedirectUrl({ appPublicUrl: "http://localhost:5173", provider: "x" }), /one of/);
@@ -274,8 +275,96 @@ test("authService helpers cover validation, mapping, URL parsing, and jwt classi
     "OAuth code is required when access/refresh tokens are not provided."
   );
 
+  const parsedOAuthSnakeCase = __testables.parseOAuthCompletePayload({
+    provider: "google",
+    access_token: "oauth-access",
+    refresh_token: "oauth-refresh",
+    error_description: "oauth-description"
+  });
+  assert.equal(parsedOAuthSnakeCase.hasSessionPair, false);
+  assert.equal(parsedOAuthSnakeCase.errorDescription, "");
+  assert.equal(
+    parsedOAuthSnakeCase.fieldErrors.code,
+    "OAuth code is required when access/refresh tokens are not provided."
+  );
+
+  const parsedOtpVerify = __testables.parseOtpLoginVerifyPayload({
+    email: "otp@example.com",
+    token: "123456",
+    type: "email"
+  });
+  assert.equal(Object.keys(parsedOtpVerify.fieldErrors).length, 0);
+
+  const parsedOtpVerifyHash = __testables.parseOtpLoginVerifyPayload({
+    email: "bad-email",
+    tokenHash: "token-hash",
+    type: "email"
+  });
+  assert.equal(parsedOtpVerifyHash.fieldErrors.email, undefined);
+
+  const parsedOtpVerifyInvalid = __testables.parseOtpLoginVerifyPayload({
+    email: "bad-email",
+    type: "sms"
+  });
+  assert.equal(parsedOtpVerifyInvalid.fieldErrors.type, "Only email OTP verification is supported.");
+  assert.equal(parsedOtpVerifyInvalid.fieldErrors.token, "One-time code is required.");
+
   assert.equal(__testables.mapOAuthCallbackError("access_denied").status, 401);
   assert.equal(__testables.mapOAuthCallbackError("server_error", "bad gateway").message, "OAuth sign-in failed: bad gateway");
+  assert.equal(__testables.mapOAuthCallbackError("server_error").message, "OAuth sign-in failed.");
+
+  const collectedProviderIds = __testables.collectProviderIdsFromSupabaseUser({
+    app_metadata: {
+      provider: "email",
+      providers: ["google", "email", ""]
+    },
+    identities: [
+      { provider: "github" },
+      { provider: "google" }
+    ]
+  });
+  assert.deepEqual([...collectedProviderIds].sort(), ["email", "github", "google"]);
+
+  const authMethodsStatus = __testables.buildAuthMethodsStatusFromProviderIds(["email", "google"], {
+    passwordSignInEnabled: false,
+    passwordSetupRequired: true
+  });
+  const passwordMethodFromStatus = __testables.findAuthMethodById(authMethodsStatus, "password");
+  assert.equal(passwordMethodFromStatus?.configured, true);
+  assert.equal(passwordMethodFromStatus?.enabled, false);
+  assert.equal(passwordMethodFromStatus?.canEnable, true);
+  assert.equal(passwordMethodFromStatus?.requiresCurrentPassword, false);
+  assert.equal(__testables.findAuthMethodById(authMethodsStatus, ""), null);
+
+  const googleMethodFromStatus = authMethodsStatus.methods.find((method) => method.provider === "google");
+  assert.equal(googleMethodFromStatus?.configured, true);
+  assert.equal(googleMethodFromStatus?.canDisable, true);
+
+  const securityFallback = __testables.buildSecurityStatusFromAuthMethodsStatus({
+    methods: [{ enabled: true }, { enabled: false }]
+  });
+  assert.equal(securityFallback.authPolicy.minimumEnabledMethods, 1);
+  assert.equal(securityFallback.authPolicy.enabledMethodsCount, 1);
+
+  const securityExplicit = __testables.buildSecurityStatusFromAuthMethodsStatus({
+    minimumEnabledMethods: 2,
+    enabledMethodsCount: 4,
+    methods: []
+  });
+  assert.equal(securityExplicit.authPolicy.minimumEnabledMethods, 2);
+  assert.equal(securityExplicit.authPolicy.enabledMethodsCount, 4);
+
+  const linkedIdentity = __testables.findLinkedIdentityByProvider(
+    {
+      identities: [
+        { provider: "google", id: "id-google" },
+        { provider: "github", id: "id-github" }
+      ]
+    },
+    "google"
+  );
+  assert.equal(linkedIdentity?.id, "id-google");
+  assert.equal(__testables.findLinkedIdentityByProvider({ identities: [] }, "google"), null);
 
   assert.deepEqual(__testables.safeRequestCookies({ cookies: { a: 1 } }), { a: 1 });
   assert.deepEqual(__testables.safeRequestCookies({ cookies: null }), {});
@@ -570,7 +659,7 @@ test("authService register/login/reset/recovery flows and error mapping", async 
 
     await assert.rejects(
       () => service.register({ email: "conflict@example.com", password: "Password123" }),
-      /Email is already linked to another account/
+      /already registered with another sign-in method/
     );
 
     const registered = await service.register({ email: "ok@example.com", password: "Password123" });
@@ -1235,7 +1324,8 @@ test("authService ensureConfigured guard applies to methods", async () => {
     /not configured/
   );
   await assert.rejects(() => service.authenticateRequest({ cookies: { sb_access_token: "a" } }), /not configured/);
-  await assert.doesNotReject(() => service.getSecurityStatus({}));
+  await assert.rejects(() => service.getSecurityStatus({}), /not configured/);
+  await assert.doesNotReject(() => service.getSecurityStatus());
 });
 
 test("completePasswordRecovery maps thrown exchange errors to transient auth errors", async () => {
@@ -2179,5 +2269,588 @@ test("authService signOutOtherSessions covers thrown and response error branches
     );
   } finally {
     signOutErrorFetch.mock.restore();
+  }
+});
+
+test("authService oauthComplete accepts OAuth hash token pairs", async () => {
+  const service = createAuthServiceForTest({
+    userProfilesRepository: createProfilesRepository()
+  });
+
+  const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt({ sub: "supabase-oauth", email: "oauth@example.com" }),
+        refresh_token: "oauth-refresh-next",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-oauth",
+          email: "oauth@example.com"
+        }
+      });
+    }
+
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-oauth",
+        email: "oauth@example.com",
+        user_metadata: {
+          display_name: "oauth-user"
+        }
+      });
+    }
+
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+
+  try {
+    const result = await service.oauthComplete({
+      provider: "google",
+      accessToken: createUnsignedJwt({ sub: "supabase-oauth", email: "oauth@example.com" }),
+      refreshToken: "oauth-refresh"
+    });
+    assert.equal(result.provider, "google");
+    assert.equal(result.profile.email, "oauth@example.com");
+    assert.ok(result.session?.access_token);
+  } finally {
+    fetchMock.mock.restore();
+  }
+});
+
+test("authService setPasswordSignInEnabled disables even when password rotation is rejected", async () => {
+  const updateCalls = [];
+  const service = createAuthServiceForTest({
+    userProfilesRepository: createProfilesRepository(),
+    userSettingsRepository: {
+      async ensureForUserId() {
+        return {
+          passwordSignInEnabled: true,
+          passwordSetupRequired: false
+        };
+      },
+      async updatePasswordSignInEnabled(userId, enabled, options = {}) {
+        updateCalls.push([userId, enabled, options]);
+        return {
+          passwordSignInEnabled: enabled,
+          passwordSetupRequired: options.passwordSetupRequired === true
+        };
+      }
+    }
+  });
+
+  const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt({
+          sub: "supabase-user-1",
+          email: "user@example.com",
+          app_metadata: {
+            provider: "email",
+            providers: ["email", "google"]
+          }
+        }),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-1",
+          email: "user@example.com",
+          app_metadata: {
+            provider: "email",
+            providers: ["email", "google"]
+          }
+        }
+      });
+    }
+
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-user-1",
+        email: "user@example.com",
+        app_metadata: {
+          provider: "email",
+          providers: ["email", "google"]
+        },
+        user_metadata: {
+          display_name: "seed-user"
+        }
+      });
+    }
+
+    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
+      return jsonResponse(400, {
+        message: "Requires recent reauthentication"
+      });
+    }
+
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+
+  try {
+    const result = await service.setPasswordSignInEnabled(
+      { cookies: createSessionCookies() },
+      {
+        enabled: false
+      }
+    );
+
+    assert.equal(updateCalls.length, 1);
+    assert.equal(updateCalls[0][1], false);
+    assert.equal(updateCalls[0][2].passwordSetupRequired, true);
+    const passwordMethod = result.securityStatus.authMethods.find((method) => method.id === "password");
+    assert.equal(passwordMethod?.configured, true);
+    assert.equal(passwordMethod?.enabled, false);
+  } finally {
+    fetchMock.mock.restore();
+  }
+});
+
+test("authService setPasswordSignInEnabled validates payload and requires configured password", async () => {
+  const updateCalls = [];
+  const service = createAuthServiceForTest({
+    userProfilesRepository: createProfilesRepository(),
+    userSettingsRepository: {
+      async ensureForUserId() {
+        return {
+          passwordSignInEnabled: true,
+          passwordSetupRequired: false
+        };
+      },
+      async updatePasswordSignInEnabled(userId, enabled, options = {}) {
+        updateCalls.push([userId, enabled, options]);
+        return {
+          passwordSignInEnabled: enabled,
+          passwordSetupRequired: options.passwordSetupRequired === true
+        };
+      }
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      service.setPasswordSignInEnabled(
+        { cookies: createSessionCookies() },
+        {
+          enabled: "yes"
+        }
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.details?.fieldErrors?.enabled, "Enabled must be a boolean.");
+      return true;
+    }
+  );
+
+  const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt({
+          sub: "supabase-oauth-only",
+          email: "oauth-only@example.com",
+          app_metadata: {
+            provider: "google",
+            providers: ["google"]
+          }
+        }),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-oauth-only",
+          email: "oauth-only@example.com",
+          app_metadata: {
+            provider: "google",
+            providers: ["google"]
+          }
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-oauth-only",
+        email: "oauth-only@example.com",
+        app_metadata: {
+          provider: "google",
+          providers: ["google"]
+        },
+        user_metadata: {
+          display_name: "oauth-only"
+        }
+      });
+    }
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+
+  try {
+    await assert.rejects(
+      () =>
+        service.setPasswordSignInEnabled(
+          {
+            cookies: createSessionCookies({
+              sub: "supabase-oauth-only",
+              email: "oauth-only@example.com"
+            })
+          },
+          { enabled: true }
+        ),
+      (error) => {
+        assert.equal(error.status, 400);
+        assert.equal(error.details?.fieldErrors?.enabled, "Set a password before enabling password sign-in.");
+        return true;
+      }
+    );
+    assert.equal(updateCalls.length, 0);
+  } finally {
+    fetchMock.mock.restore();
+  }
+});
+
+test("authService setPasswordSignInEnabled continues when password secret rotation throws", async () => {
+  const updateCalls = [];
+  const service = createAuthServiceForTest({
+    userProfilesRepository: createProfilesRepository(),
+    userSettingsRepository: {
+      async ensureForUserId() {
+        return {
+          passwordSignInEnabled: true,
+          passwordSetupRequired: false
+        };
+      },
+      async updatePasswordSignInEnabled(userId, enabled, options = {}) {
+        updateCalls.push([userId, enabled, options]);
+        return {
+          passwordSignInEnabled: enabled,
+          passwordSetupRequired: options.passwordSetupRequired === true
+        };
+      }
+    }
+  });
+
+  const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt({
+          sub: "supabase-user-throw",
+          email: "throw@example.com",
+          app_metadata: {
+            provider: "email",
+            providers: ["email", "google"]
+          }
+        }),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-throw",
+          email: "throw@example.com",
+          app_metadata: {
+            provider: "email",
+            providers: ["email", "google"]
+          }
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-user-throw",
+        email: "throw@example.com",
+        app_metadata: {
+          provider: "email",
+          providers: ["email", "google"]
+        },
+        user_metadata: {
+          display_name: "throw-user"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
+      throw new Error("Requires recent reauthentication");
+    }
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+
+  try {
+    const result = await service.setPasswordSignInEnabled(
+      {
+        cookies: createSessionCookies({
+          sub: "supabase-user-throw",
+          email: "throw@example.com"
+        })
+      },
+      { enabled: false }
+    );
+    assert.equal(updateCalls.length, 1);
+    assert.equal(updateCalls[0][1], false);
+    assert.equal(updateCalls[0][2].passwordSetupRequired, true);
+    const passwordMethod = result.securityStatus.authMethods.find((method) => method.id === "password");
+    assert.equal(passwordMethod?.configured, true);
+    assert.equal(passwordMethod?.enabled, false);
+  } finally {
+    fetchMock.mock.restore();
+  }
+});
+
+test("authService setPasswordSignInEnabled syncs profile when password secret rotation succeeds", async () => {
+  const upsertCalls = [];
+  const service = createAuthServiceForTest({
+    userProfilesRepository: createProfilesRepository({
+      upsert: async (profile) => {
+        upsertCalls.push(profile);
+        return {
+          id: 1,
+          ...profile,
+          createdAt: "2024-01-01T00:00:00.000Z"
+        };
+      }
+    }),
+    userSettingsRepository: {
+      async ensureForUserId() {
+        return {
+          passwordSignInEnabled: true,
+          passwordSetupRequired: false
+        };
+      },
+      async updatePasswordSignInEnabled(_userId, enabled, options = {}) {
+        return {
+          passwordSignInEnabled: enabled,
+          passwordSetupRequired: options.passwordSetupRequired === true
+        };
+      }
+    }
+  });
+
+  const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt({
+          sub: "supabase-user-sync",
+          email: "sync@example.com",
+          app_metadata: {
+            provider: "email",
+            providers: ["email", "google"]
+          }
+        }),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-user-sync",
+          email: "sync@example.com",
+          app_metadata: {
+            provider: "email",
+            providers: ["email", "google"]
+          },
+          user_metadata: {
+            display_name: "sync-user"
+          }
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-user-sync",
+        email: "sync@example.com",
+        app_metadata: {
+          provider: "email",
+          providers: ["email", "google"]
+        },
+        user_metadata: {
+          display_name: "sync-user"
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
+      return jsonResponse(200, {
+        id: "supabase-user-sync",
+        email: "sync@example.com",
+        app_metadata: {
+          provider: "email",
+          providers: ["email", "google"]
+        },
+        user_metadata: {
+          display_name: "rotated-user"
+        }
+      });
+    }
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+
+  try {
+    const result = await service.setPasswordSignInEnabled(
+      {
+        cookies: createSessionCookies({
+          sub: "supabase-user-sync",
+          email: "sync@example.com"
+        })
+      },
+      { enabled: false }
+    );
+    assert.ok(upsertCalls.length >= 2);
+    assert.equal(
+      upsertCalls.some((profile) => profile.supabaseUserId === "supabase-user-sync" && profile.displayName === "rotated-user"),
+      true
+    );
+    const passwordMethod = result.securityStatus.authMethods.find((method) => method.id === "password");
+    assert.equal(passwordMethod?.enabled, false);
+  } finally {
+    fetchMock.mock.restore();
+  }
+});
+
+test("authService getSecurityStatus resolves auth methods from current request context", async () => {
+  const service = createAuthServiceForTest({
+    userProfilesRepository: createProfilesRepository(),
+    userSettingsRepository: {
+      async ensureForUserId() {
+        return {
+          passwordSignInEnabled: false,
+          passwordSetupRequired: true
+        };
+      }
+    }
+  });
+
+  const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt({
+          sub: "supabase-security-status",
+          email: "security@example.com",
+          app_metadata: {
+            provider: "email",
+            providers: ["email"]
+          }
+        }),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-security-status",
+          email: "security@example.com",
+          app_metadata: {
+            provider: "email",
+            providers: ["email"]
+          }
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-security-status",
+        email: "security@example.com",
+        app_metadata: {
+          provider: "email",
+          providers: ["email"]
+        },
+        user_metadata: {
+          display_name: "security-user"
+        }
+      });
+    }
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+
+  try {
+    const result = await service.getSecurityStatus({
+      cookies: createSessionCookies({
+        sub: "supabase-security-status",
+        email: "security@example.com"
+      })
+    });
+
+    const passwordMethod = result.authMethods.find((method) => method.id === "password");
+    assert.equal(passwordMethod?.configured, true);
+    assert.equal(passwordMethod?.enabled, false);
+    assert.equal(passwordMethod?.requiresCurrentPassword, false);
+  } finally {
+    fetchMock.mock.restore();
+  }
+});
+
+test("authService setPasswordSignInEnabled rejects disabling when password sign-in is already disabled", async () => {
+  const service = createAuthServiceForTest({
+    userProfilesRepository: createProfilesRepository(),
+    userSettingsRepository: {
+      async ensureForUserId() {
+        return {
+          passwordSignInEnabled: false,
+          passwordSetupRequired: true
+        };
+      },
+      async updatePasswordSignInEnabled() {
+        throw new Error("not expected");
+      }
+    }
+  });
+
+  const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
+    const request = parseFetchInput(input, init);
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      return jsonResponse(200, {
+        access_token: createUnsignedJwt({
+          sub: "supabase-password-disabled",
+          email: "disabled@example.com",
+          app_metadata: {
+            provider: "email",
+            providers: ["email"]
+          }
+        }),
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: {
+          id: "supabase-password-disabled",
+          email: "disabled@example.com",
+          app_metadata: {
+            provider: "email",
+            providers: ["email"]
+          }
+        }
+      });
+    }
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      return jsonResponse(200, {
+        id: "supabase-password-disabled",
+        email: "disabled@example.com",
+        app_metadata: {
+          provider: "email",
+          providers: ["email"]
+        },
+        user_metadata: {
+          display_name: "disabled-user"
+        }
+      });
+    }
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  });
+
+  try {
+    await assert.rejects(
+      () =>
+        service.setPasswordSignInEnabled(
+          {
+            cookies: createSessionCookies({
+              sub: "supabase-password-disabled",
+              email: "disabled@example.com"
+            })
+          },
+          { enabled: false }
+        ),
+      (error) => {
+        assert.equal(error.status, 409);
+        assert.equal(error.message, "At least one sign-in method must remain enabled.");
+        return true;
+      }
+    );
+  } finally {
+    fetchMock.mock.restore();
   }
 });

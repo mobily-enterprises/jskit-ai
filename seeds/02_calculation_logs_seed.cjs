@@ -14,9 +14,23 @@ exports.seed = async function seed(knex) {
     throw new Error("Seed users are missing. Run users seed before calculation logs seed.");
   }
 
+  const workspaces = await knex("workspaces")
+    .select("id", "owner_user_id")
+    .whereIn("owner_user_id", [bySupabaseId.get(USER_1_SUPABASE_ID), bySupabaseId.get(USER_2_SUPABASE_ID)])
+    .andWhere({ is_personal: true });
+
+  const workspaceByOwnerId = new Map(workspaces.map((row) => [Number(row.owner_user_id), Number(row.id)]));
+  const user1WorkspaceId = workspaceByOwnerId.get(Number(bySupabaseId.get(USER_1_SUPABASE_ID)));
+  const user2WorkspaceId = workspaceByOwnerId.get(Number(bySupabaseId.get(USER_2_SUPABASE_ID)));
+
+  if (!user1WorkspaceId || !user2WorkspaceId) {
+    throw new Error("Personal workspaces are missing. Run migrations before calculation logs seed.");
+  }
+
   await knex("calculation_logs").insert([
     {
       id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      workspace_id: user1WorkspaceId,
       user_id: bySupabaseId.get(USER_1_SUPABASE_ID),
       mode: "pv",
       timing: "ordinary",
@@ -33,6 +47,7 @@ exports.seed = async function seed(knex) {
     },
     {
       id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      workspace_id: user2WorkspaceId,
       user_id: bySupabaseId.get(USER_2_SUPABASE_ID),
       mode: "pv",
       timing: "due",

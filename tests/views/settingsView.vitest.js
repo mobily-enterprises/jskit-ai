@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
+  routerPathname: "/w/acme/settings",
   routerSearch: { tab: "preferences" },
   themeName: { value: "light" },
   queryData: { value: null },
@@ -12,18 +13,23 @@ const mocks = vi.hoisted(() => ({
   api: {
     settings: vi.fn(),
     updateProfileSettings: vi.fn(),
-    uploadProfileAvatar: vi.fn(),
     deleteProfileAvatar: vi.fn(),
     updatePreferencesSettings: vi.fn(),
     updateNotificationSettings: vi.fn(),
     changePassword: vi.fn(),
+    setPasswordMethodEnabled: vi.fn(),
     logoutOtherSessions: vi.fn()
   },
   authStore: {
     setSignedOut: vi.fn(),
     setUsername: vi.fn()
   },
-  setQueryData: vi.fn()
+  workspaceStore: {
+    clearWorkspaceState: vi.fn(),
+    applyBootstrap: vi.fn()
+  },
+  setQueryData: vi.fn(),
+  invalidateQueries: vi.fn()
 }));
 
 vi.mock("@tanstack/vue-router", () => ({
@@ -31,7 +37,8 @@ vi.mock("@tanstack/vue-router", () => ({
   useRouterState: (options) => {
     const state = {
       location: {
-        search: mocks.routerSearch
+        search: mocks.routerSearch,
+        pathname: mocks.routerPathname
       }
     };
     return {
@@ -51,7 +58,8 @@ vi.mock("@tanstack/vue-query", () => ({
     mutateAsync: (payload) => mutationFn(payload)
   }),
   useQueryClient: () => ({
-    setQueryData: mocks.setQueryData
+    setQueryData: mocks.setQueryData,
+    invalidateQueries: mocks.invalidateQueries
   })
 }));
 
@@ -69,6 +77,10 @@ vi.mock("../../src/services/api.js", () => ({
 
 vi.mock("../../src/stores/authStore.js", () => ({
   useAuthStore: () => mocks.authStore
+}));
+
+vi.mock("../../src/stores/workspaceStore.js", () => ({
+  useWorkspaceStore: () => mocks.workspaceStore
 }));
 
 import SettingsView from "../../src/views/SettingsView.vue";
@@ -98,9 +110,36 @@ function buildSettingsPayload(overrides = {}) {
       sessions: {
         canSignOutOtherDevices: true
       },
-      password: {
-        canChange: true
-      }
+      authPolicy: {
+        minimumEnabledMethods: 1,
+        enabledMethodsCount: 2
+      },
+      authMethods: [
+        {
+          id: "password",
+          kind: "password",
+          provider: "email",
+          label: "Password",
+          configured: true,
+          enabled: true,
+          canEnable: false,
+          canDisable: true,
+          supportsSecretUpdate: true,
+          requiresCurrentPassword: true
+        },
+        {
+          id: "email_otp",
+          kind: "otp",
+          provider: "email",
+          label: "Email one-time code",
+          configured: true,
+          enabled: true,
+          canEnable: false,
+          canDisable: false,
+          supportsSecretUpdate: false,
+          requiresCurrentPassword: false
+        }
+      ]
     },
     preferences: {
       theme: "system",
@@ -162,6 +201,7 @@ function mountView() {
 describe("SettingsView", () => {
   beforeEach(() => {
     mocks.navigate.mockReset();
+    mocks.routerPathname = "/w/acme/settings";
     mocks.routerSearch = { tab: "preferences" };
     mocks.themeName.value = "light";
     mocks.queryData.value = buildSettingsPayload();
@@ -169,15 +209,19 @@ describe("SettingsView", () => {
     mocks.queryPending.value = false;
     mocks.api.settings.mockReset();
     mocks.api.updateProfileSettings.mockReset();
-    mocks.api.uploadProfileAvatar.mockReset();
     mocks.api.deleteProfileAvatar.mockReset();
     mocks.api.updatePreferencesSettings.mockReset();
     mocks.api.updateNotificationSettings.mockReset();
     mocks.api.changePassword.mockReset();
+    mocks.api.setPasswordMethodEnabled.mockReset();
     mocks.api.logoutOtherSessions.mockReset();
     mocks.authStore.setSignedOut.mockReset();
     mocks.authStore.setUsername.mockReset();
+    mocks.workspaceStore.clearWorkspaceState.mockReset();
+    mocks.workspaceStore.applyBootstrap.mockReset();
     mocks.setQueryData.mockReset();
+    mocks.invalidateQueries.mockReset();
+    mocks.invalidateQueries.mockResolvedValue(undefined);
   });
 
   it("loads settings payload and hydrates forms", async () => {
@@ -309,6 +353,75 @@ describe("SettingsView", () => {
     expect(wrapper.vm.securityMessageType).toBe("success");
   });
 
+  it("runs password setup + enable flow from disabled password method", async () => {
+    const disabledPasswordPayload = buildSettingsPayload({
+      security: {
+        mfa: {
+          status: "not_enabled",
+          enrolled: false,
+          methods: []
+        },
+        sessions: {
+          canSignOutOtherDevices: true
+        },
+        authPolicy: {
+          minimumEnabledMethods: 1,
+          enabledMethodsCount: 1
+        },
+        authMethods: [
+          {
+            id: "password",
+            kind: "password",
+            provider: "email",
+            label: "Password",
+            configured: true,
+            enabled: false,
+            canEnable: true,
+            canDisable: false,
+            supportsSecretUpdate: true,
+            requiresCurrentPassword: false
+          },
+          {
+            id: "email_otp",
+            kind: "otp",
+            provider: "email",
+            label: "Email one-time code",
+            configured: true,
+            enabled: true,
+            canEnable: false,
+            canDisable: false,
+            supportsSecretUpdate: false,
+            requiresCurrentPassword: false
+          }
+        ]
+      }
+    });
+    const enabledPasswordPayload = buildSettingsPayload();
+    mocks.queryData.value = disabledPasswordPayload;
+    mocks.api.changePassword.mockResolvedValue({ ok: true, message: "Password set." });
+    mocks.api.setPasswordMethodEnabled.mockResolvedValue(enabledPasswordPayload);
+
+    const wrapper = mountView();
+    wrapper.vm.openPasswordEnableSetup();
+    wrapper.vm.securityForm.currentPassword = "will-be-ignored";
+    wrapper.vm.securityForm.newPassword = "new-password-123";
+    wrapper.vm.securityForm.confirmPassword = "new-password-123";
+
+    await wrapper.vm.submitPasswordChange();
+
+    expect(wrapper.vm.isPasswordEnableSetupMode).toBe(false);
+    expect(mocks.api.changePassword).toHaveBeenCalledWith({
+      currentPassword: undefined,
+      newPassword: "new-password-123",
+      confirmPassword: "new-password-123"
+    });
+    expect(mocks.api.setPasswordMethodEnabled).toHaveBeenCalledWith({
+      enabled: true
+    });
+    expect(wrapper.vm.providerMessageType).toBe("success");
+    expect(wrapper.vm.providerMessage).toContain("enabled");
+  });
+
   it("handles password and notifications non-auth error branches", async () => {
     const wrapper = mountView();
 
@@ -350,45 +463,11 @@ describe("SettingsView", () => {
     expect(mocks.navigate).toHaveBeenCalledWith({ to: "/login", replace: true });
   });
 
-  it("handles avatar upload success and missing-selection error", async () => {
-    const payload = buildSettingsPayload({
-      profile: {
-        displayName: "demo-user",
-        email: "demo@example.com",
-        emailManagedBy: "supabase",
-        emailChangeFlow: "supabase",
-        avatar: {
-          uploadedUrl: "/uploads/avatars/users/7/avatar.webp?v=1",
-          gravatarUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
-          effectiveUrl: "/uploads/avatars/users/7/avatar.webp?v=1",
-          hasUploadedAvatar: true,
-          size: 64,
-          version: "1"
-        }
-      }
-    });
-    mocks.api.uploadProfileAvatar.mockResolvedValue(payload);
-
+  it("handles avatar editor unavailable branch", async () => {
     const wrapper = mountView();
-    const clear = vi.fn();
-    wrapper.vm.avatarUppy = {
-      getFiles: () => [{ data: new Blob(["abc"], { type: "image/png" }), name: "avatar.png" }],
-      clear
-    };
-    wrapper.vm.avatarUploadDimension = 256;
-
-    await wrapper.vm.submitAvatarUpload();
-    expect(mocks.api.uploadProfileAvatar).toHaveBeenCalledTimes(1);
-    expect(clear).toHaveBeenCalledTimes(1);
-    expect(wrapper.vm.avatarMessageType).toBe("success");
-
-    wrapper.vm.avatarUppy = {
-      getFiles: () => [],
-      clear: vi.fn()
-    };
-    await wrapper.vm.submitAvatarUpload();
+    await wrapper.vm.openAvatarEditor();
     expect(wrapper.vm.avatarMessageType).toBe("error");
-    expect(wrapper.vm.avatarMessage).toContain("Select an avatar image first");
+    expect(wrapper.vm.avatarMessage).toContain("unavailable");
   });
 
   it("handles avatar delete success and auth failure", async () => {

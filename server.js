@@ -9,6 +9,8 @@ import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
 import { TypeBoxValidatorCompiler } from "@fastify/type-provider-typebox";
 import { env } from "./lib/env.js";
+import { resolveAppConfig, toPublicAppConfig } from "./lib/appConfig.js";
+import { loadRbacManifest } from "./lib/rbacManifest.js";
 import { initDatabase, closeDatabase } from "./db/knex.js";
 import { isAppError } from "./lib/errors.js";
 import { registerApiRoutes } from "./routes/apiRoutes.js";
@@ -20,17 +22,25 @@ import { createAuthController } from "./controllers/authController.js";
 import { createHistoryController } from "./controllers/historyController.js";
 import { createAnnuityController } from "./controllers/annuityController.js";
 import { createSettingsController } from "./controllers/settingsController.js";
+import { createWorkspaceController } from "./controllers/workspaceController.js";
 import * as userProfilesRepository from "./repositories/userProfilesRepository.js";
 import * as calculationLogsRepository from "./repositories/calculationLogsRepository.js";
 import * as userSettingsRepository from "./repositories/userSettingsRepository.js";
+import * as workspacesRepository from "./repositories/workspacesRepository.js";
+import * as workspaceMembershipsRepository from "./repositories/workspaceMembershipsRepository.js";
+import * as workspaceSettingsRepository from "./repositories/workspaceSettingsRepository.js";
 import { safePathnameFromRequest } from "./lib/requestUrl.js";
 import { createUserSettingsService } from "./services/userSettingsService.js";
 import { createAvatarStorageService } from "./services/avatarStorageService.js";
 import { createUserAvatarService } from "./services/userAvatarService.js";
+import { createWorkspaceService } from "./services/workspaceService.js";
 import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const APP_CONFIG = resolveAppConfig(env, { rootDir: __dirname });
+const APP_CONFIG_PUBLIC = toPublicAppConfig(APP_CONFIG);
+const RBAC_MANIFEST = await loadRbacManifest(APP_CONFIG.rbacManifestPath);
 
 function resolveRuntimeEnv(nodeEnv) {
   if (nodeEnv === "production") {
@@ -82,14 +92,34 @@ const userSettingsService = createUserSettingsService({
   userAvatarService
 });
 
+const workspaceService = createWorkspaceService({
+  appConfig: APP_CONFIG,
+  rbacManifest: RBAC_MANIFEST,
+  workspacesRepository,
+  workspaceMembershipsRepository,
+  workspaceSettingsRepository,
+  userSettingsRepository,
+  userAvatarService
+});
+
 const controllers = {
   auth: createAuthController({ authService }),
   history: createHistoryController({ annuityHistoryService }),
   annuity: createAnnuityController({ annuityService, annuityHistoryService }),
-  settings: createSettingsController({ userSettingsService, authService })
+  settings: createSettingsController({ userSettingsService, authService }),
+  workspace: createWorkspaceController({ authService, workspaceService })
 };
 
 function validateRuntimeConfig() {
+  const tenancyMode = String(APP_CONFIG.tenancyMode || "").trim();
+  if (!tenancyMode) {
+    throw new Error("TENANCY_MODE must be configured.");
+  }
+
+  if (!APP_CONFIG.rbacManifestPath) {
+    throw new Error("RBAC_MANIFEST_PATH must resolve to a readable manifest path.");
+  }
+
   if (NODE_ENV !== "test") {
     const appPublicUrl = String(env.APP_PUBLIC_URL || "").trim();
     if (!appPublicUrl) {
@@ -130,6 +160,15 @@ function isPublicAuthPage(pathnameValue) {
   return pathnameValue === "/login" || pathnameValue === "/reset-password";
 }
 
+function isWorkspaceChooserPage(pathnameValue) {
+  return pathnameValue === "/workspaces";
+}
+
+function extractWorkspaceSlugFromPath(pathnameValue) {
+  const match = String(pathnameValue || "").match(/^\/w\/([^/]+)/);
+  return match ? String(match[1] || "").trim() : "";
+}
+
 async function guardPageRoute(request, reply) {
   const pathnameValue = safePathnameFromRequest(request);
   if (hasPathExtension(pathnameValue)) {
@@ -159,19 +198,61 @@ async function guardPageRoute(request, reply) {
       return true;
     }
 
-    if (pathnameValue === "/login" && authResult.authenticated) {
-      reply.redirect("/");
-      return false;
-    }
-
     if (!isPublicAuthPage(pathnameValue) && !authResult.authenticated) {
       reply.redirect("/login");
       return false;
     }
 
+    if (pathnameValue === "/login" && authResult.authenticated) {
+      const resolvedContext = await workspaceService.resolveRequestContext({
+        user: authResult.profile,
+        request,
+        workspacePolicy: "optional"
+      });
+
+      if (resolvedContext.workspace) {
+        reply.redirect(`/w/${resolvedContext.workspace.slug}`);
+      } else {
+        reply.redirect("/workspaces");
+      }
+      return false;
+    }
+
+    if (authResult.authenticated) {
+      const workspaceSlug = extractWorkspaceSlugFromPath(pathnameValue);
+      const requestWithWorkspaceHint = {
+        ...request,
+        params: {
+          ...(request.params || {}),
+          ...(workspaceSlug ? { workspaceSlug } : {})
+        }
+      };
+      const workspacePolicy = workspaceSlug ? "required" : "optional";
+      const resolvedContext = await workspaceService.resolveRequestContext({
+        user: authResult.profile,
+        request: requestWithWorkspaceHint,
+        workspacePolicy
+      });
+
+      if (!resolvedContext.workspace && !isWorkspaceChooserPage(pathnameValue) && !isPublicAuthPage(pathnameValue)) {
+        reply.redirect("/workspaces");
+        return false;
+      }
+
+      if (resolvedContext.workspace && isWorkspaceChooserPage(pathnameValue) && APP_CONFIG.tenancyMode === "personal") {
+        reply.redirect(`/w/${resolvedContext.workspace.slug}`);
+        return false;
+      }
+    }
+
     return true;
-  } catch {
+  } catch (error) {
+    const statusCode = Number(error?.status || error?.statusCode);
     if (!isPublicAuthPage(pathnameValue)) {
+      if (statusCode === 403 || statusCode === 409) {
+        reply.redirect("/workspaces");
+        return false;
+      }
       reply.redirect("/login");
       return false;
     }
@@ -281,6 +362,9 @@ export async function buildServer({ frontendBuildAvailable }) {
     logger: NODE_ENV !== "test"
   });
 
+  app.decorate("appConfig", APP_CONFIG_PUBLIC);
+  app.decorate("rbacManifest", RBAC_MANIFEST);
+
   registerErrorHandler(app);
   app.setValidatorCompiler(TypeBoxValidatorCompiler);
 
@@ -330,7 +414,7 @@ export async function buildServer({ frontendBuildAvailable }) {
     });
   }
 
-  await app.register(authPlugin, { authService, nodeEnv: NODE_ENV });
+  await app.register(authPlugin, { authService, workspaceService, nodeEnv: NODE_ENV });
   await app.register(fastifyMultipart, {
     limits: {
       fileSize: AVATAR_MAX_UPLOAD_BYTES,

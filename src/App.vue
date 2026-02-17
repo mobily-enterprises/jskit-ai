@@ -18,7 +18,8 @@
           <template #activator="{ props }">
             <v-btn v-bind="props" variant="text" icon class="user-menu-button" aria-label="Open user menu">
               <v-avatar color="primary" size="32">
-                <span class="text-caption font-weight-bold">{{ userInitials }}</span>
+                <v-img v-if="userAvatarUrl" :src="userAvatarUrl" cover />
+                <span v-else class="text-caption font-weight-bold">{{ userInitials }}</span>
               </v-avatar>
             </v-btn>
           </template>
@@ -79,23 +80,22 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import { Outlet, useNavigate, useRouterState } from "@tanstack/vue-router";
+import { useQuery } from "@tanstack/vue-query";
 import { useDisplay } from "vuetify";
 import { api } from "./services/api";
 import { useAuthStore } from "./stores/authStore";
+import { useWorkspaceStore } from "./stores/workspaceStore";
 
 const DESKTOP_DRAWER_BEHAVIOR = (() => {
   const rawMode = String(import.meta.env.VITE_DESKTOP_DRAWER_BEHAVIOR || "collapsible").toLowerCase();
   return rawMode === "permanent" ? "permanent" : "collapsible";
 })();
 
-const APPLICATION_LAYOUT_EXCLUDE_PATHS = new Set(["/login", "/reset-password"]);
-
-const navigationItems = [
-  { title: "Choice 1", to: "/", icon: "$navChoice1" },
-  { title: "Choice 2", to: "/choice-2", icon: "$navChoice2" }
-];
+const APPLICATION_LAYOUT_EXCLUDE_PATHS = new Set(["/login", "/reset-password", "/workspaces"]);
+const SETTINGS_QUERY_KEY = ["settings"];
 
 const authStore = useAuthStore();
+const workspaceStore = useWorkspaceStore();
 const navigate = useNavigate();
 const display = useDisplay();
 const currentPath = useRouterState({
@@ -111,11 +111,16 @@ const isMobile = computed(() => display.smAndDown.value);
 const isDesktopPermanentDrawer = computed(() => DESKTOP_DRAWER_BEHAVIOR === "permanent");
 const isDesktopCollapsible = computed(() => !isMobile.value && !isDesktopPermanentDrawer.value);
 const showApplicationShell = computed(() => !APPLICATION_LAYOUT_EXCLUDE_PATHS.has(currentPath.value));
+const workspacePath = (suffix = "/") => workspaceStore.workspacePath(suffix);
+const navigationItems = computed(() => [
+  { title: "Choice 1", to: workspacePath("/"), icon: "$navChoice1" },
+  { title: "Choice 2", to: workspacePath("/choice-2"), icon: "$navChoice2" }
+]);
 const destinationTitle = computed(() => {
-  if (currentPath.value === "/choice-2") {
+  if (currentPath.value.endsWith("/choice-2")) {
     return "Choice 2";
   }
-  if (currentPath.value === "/settings") {
+  if (currentPath.value.endsWith("/settings")) {
     return "Settings";
   }
   return "Calculator";
@@ -151,8 +156,15 @@ const drawerModel = computed({
 });
 
 const userInitials = computed(() => {
-  const source = String(authStore.username || "A").trim();
+  const source = String(workspaceStore.profileDisplayName || authStore.username || "A").trim();
   return source.slice(0, 2).toUpperCase();
+});
+const userAvatarUrl = computed(() => workspaceStore.profileAvatarUrl || "");
+
+const settingsProfileQuery = useQuery({
+  queryKey: SETTINGS_QUERY_KEY,
+  queryFn: () => api.settings(),
+  enabled: false
 });
 
 watch([showApplicationShell, isMobile, isDesktopPermanentDrawer], ([isShellVisible, mobile, permanentDesktop]) => {
@@ -166,6 +178,23 @@ watch([showApplicationShell, isMobile, isDesktopPermanentDrawer], ([isShellVisib
     desktopDrawerOpen.value = false;
   }
 });
+
+watch(
+  () => settingsProfileQuery.data.value,
+  (settingsData) => {
+    if (!settingsData || typeof settingsData !== "object") {
+      return;
+    }
+
+    const profile = settingsData.profile && typeof settingsData.profile === "object" ? settingsData.profile : null;
+    if (!profile) {
+      return;
+    }
+
+    workspaceStore.applyProfile(profile);
+    authStore.setUsername(profile.displayName || null);
+  }
+);
 
 watch(
   [showApplicationShell, isMobile],
@@ -222,7 +251,7 @@ function handleMenuNotice(label) {
 
 async function goToSettingsTab(tab) {
   await navigate({
-    to: "/settings",
+    to: workspacePath("/settings"),
     search: {
       tab
     }
@@ -235,6 +264,7 @@ async function signOut() {
   } finally {
     api.clearCsrfTokenCache();
     authStore.setSignedOut();
+    workspaceStore.clearWorkspaceState();
     await authStore.invalidateSession();
     await navigate({ to: "/login", replace: true });
   }

@@ -2,13 +2,23 @@ import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  pathname: "/",
+  pathname: "/w/acme",
   isMobile: false,
   navigate: vi.fn(),
   authStore: {
     username: "tony",
     setSignedOut: vi.fn(),
     invalidateSession: vi.fn(async () => undefined)
+  },
+  workspaceStore: {
+    clearWorkspaceState: vi.fn(),
+    workspacePath: vi.fn((suffix = "/") => {
+      const normalized = String(suffix || "/");
+      if (normalized === "/") {
+        return "/w/acme";
+      }
+      return `/w/acme${normalized.startsWith("/") ? normalized : `/${normalized}`}`;
+    })
   },
   api: {
     logout: vi.fn(async () => ({ ok: true })),
@@ -45,6 +55,10 @@ vi.mock("../../src/stores/authStore.js", () => ({
   useAuthStore: () => mocks.authStore
 }));
 
+vi.mock("../../src/stores/workspaceStore.js", () => ({
+  useWorkspaceStore: () => mocks.workspaceStore
+}));
+
 vi.mock("../../src/services/api.js", () => ({
   api: mocks.api
 }));
@@ -79,12 +93,14 @@ function mountApp() {
 
 describe("App shell", () => {
   beforeEach(() => {
-    mocks.pathname = "/";
+    mocks.pathname = "/w/acme";
     mocks.isMobile = false;
     mocks.authStore.username = "tony";
     mocks.navigate.mockReset();
     mocks.authStore.setSignedOut.mockReset();
     mocks.authStore.invalidateSession.mockReset();
+    mocks.workspaceStore.clearWorkspaceState.mockReset();
+    mocks.workspaceStore.workspacePath.mockClear();
     mocks.api.logout.mockReset();
     mocks.api.clearCsrfTokenCache.mockReset();
   });
@@ -96,7 +112,7 @@ describe("App shell", () => {
   });
 
   it("shows shell and keeps drawer open by default on desktop", () => {
-    mocks.pathname = "/";
+    mocks.pathname = "/w/acme";
     mocks.isMobile = false;
     const wrapper = mountApp();
     expect(wrapper.vm.showApplicationShell).toBe(true);
@@ -105,13 +121,13 @@ describe("App shell", () => {
   });
 
   it("computes destination titles and user initials", () => {
-    mocks.pathname = "/choice-2";
+    mocks.pathname = "/w/acme/choice-2";
     mocks.authStore.username = "alice";
     const wrapper = mountApp();
     expect(wrapper.vm.destinationTitle).toBe("Choice 2");
     expect(wrapper.vm.userInitials).toBe("AL");
 
-    mocks.pathname = "/settings";
+    mocks.pathname = "/w/acme/settings";
     mocks.authStore.username = null;
     const settingsWrapper = mountApp();
     expect(settingsWrapper.vm.destinationTitle).toBe("Settings");
@@ -119,7 +135,7 @@ describe("App shell", () => {
   });
 
   it("disables drawer by default on mobile", () => {
-    mocks.pathname = "/";
+    mocks.pathname = "/w/acme";
     mocks.isMobile = true;
     const wrapper = mountApp();
     expect(wrapper.vm.drawerModel).toBe(false);
@@ -136,12 +152,13 @@ describe("App shell", () => {
     expect(mocks.api.logout).toHaveBeenCalledTimes(1);
     expect(mocks.api.clearCsrfTokenCache).toHaveBeenCalledTimes(1);
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
+    expect(mocks.workspaceStore.clearWorkspaceState).toHaveBeenCalledTimes(1);
     expect(mocks.authStore.invalidateSession).toHaveBeenCalledTimes(1);
     expect(mocks.navigate).toHaveBeenCalledWith({ to: "/login", replace: true });
   });
 
   it("handles drawer toggle and navigation across mobile/desktop branches", async () => {
-    mocks.pathname = "/";
+    mocks.pathname = "/w/acme";
     mocks.isMobile = true;
     const wrapper = mountApp();
 
@@ -149,19 +166,19 @@ describe("App shell", () => {
     wrapper.vm.toggleDrawer();
     expect(wrapper.vm.drawerModel).toBe(true);
 
-    await wrapper.vm.goTo("/");
+    await wrapper.vm.goTo("/w/acme");
     expect(mocks.navigate).not.toHaveBeenCalled();
     expect(wrapper.vm.drawerModel).toBe(false);
 
     wrapper.vm.drawerModel = true;
-    await wrapper.vm.goTo("/choice-2");
-    expect(mocks.navigate).toHaveBeenCalledWith({ to: "/choice-2" });
+    await wrapper.vm.goTo("/w/acme/choice-2");
+    expect(mocks.navigate).toHaveBeenCalledWith({ to: "/w/acme/choice-2" });
     expect(wrapper.vm.drawerModel).toBe(false);
-    expect(wrapper.vm.isCurrentPath("/")).toBe(true);
+    expect(wrapper.vm.isCurrentPath("/w/acme")).toBe(true);
 
     await wrapper.vm.goToSettingsTab("profile");
     expect(mocks.navigate).toHaveBeenCalledWith({
-      to: "/settings",
+      to: "/w/acme/settings",
       search: { tab: "profile" }
     });
   });
@@ -173,6 +190,7 @@ describe("App shell", () => {
     await expect(wrapper.vm.signOut()).rejects.toThrow("logout failed");
     expect(mocks.api.clearCsrfTokenCache).toHaveBeenCalledTimes(1);
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
+    expect(mocks.workspaceStore.clearWorkspaceState).toHaveBeenCalledTimes(1);
     expect(mocks.authStore.invalidateSession).toHaveBeenCalledTimes(1);
     expect(mocks.navigate).toHaveBeenCalledWith({ to: "/login", replace: true });
   });

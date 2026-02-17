@@ -178,6 +178,7 @@ import { useNavigate } from "@tanstack/vue-router";
 import { useMutation } from "@tanstack/vue-query";
 import { api } from "../services/api";
 import { useAuthStore } from "../stores/authStore";
+import { useWorkspaceStore } from "../stores/workspaceStore";
 import {
   AUTH_OAUTH_PROVIDER_METADATA,
   AUTH_OAUTH_PROVIDERS,
@@ -197,6 +198,7 @@ const REMEMBERED_ACCOUNT_STORAGE_KEY = "auth.rememberedAccount";
 
 const navigate = useNavigate();
 const authStore = useAuthStore();
+const workspaceStore = useWorkspaceStore();
 
 const mode = ref("login");
 const email = ref("");
@@ -615,10 +617,7 @@ async function handleOtpLoginCallbackIfPresent() {
       tokenHash: callbackState.tokenHash,
       type: callbackState.type
     });
-    const session = await authStore.refreshSession();
-    if (!session?.authenticated) {
-      throw new Error("Email login succeeded but the session is not active yet. Please retry.");
-    }
+    const session = await refreshPostAuthContext();
 
     applyRememberedAccountPreference({
       email: response?.email || "",
@@ -654,10 +653,7 @@ async function handleOAuthCallbackIfPresent() {
 
   try {
     const response = await api.oauthComplete(callbackState.payload);
-    const session = await authStore.refreshSession();
-    if (!session?.authenticated) {
-      throw new Error("OAuth login succeeded but the session is not active yet. Please retry.");
-    }
+    const session = await refreshPostAuthContext();
 
     if (callbackState.intent !== "link") {
       const shouldRememberAccount = pendingOAuthContext?.rememberAccountOnDevice !== false;
@@ -853,10 +849,7 @@ async function submitAuth() {
       await loginMutation.mutateAsync({ email: cleanEmail, password: password.value });
     }
 
-    const session = await authStore.refreshSession();
-    if (!session?.authenticated) {
-      throw new Error("Login succeeded but the session is not active yet. Please retry.");
-    }
+    const session = await refreshPostAuthContext();
 
     applyRememberedAccountPreference({
       email: cleanEmail,
@@ -879,6 +872,22 @@ onMounted(async () => {
   await handleOtpLoginCallbackIfPresent();
   await handleOAuthCallbackIfPresent();
 });
+
+async function refreshPostAuthContext() {
+  const bootstrapPayload = await api.bootstrap();
+  const session =
+    bootstrapPayload?.session && typeof bootstrapPayload.session === "object" ? bootstrapPayload.session : null;
+  if (!session?.authenticated) {
+    throw new Error("Login succeeded but the session is not active yet. Please retry.");
+  }
+
+  authStore.applySession({
+    authenticated: true,
+    username: session.username || null
+  });
+  workspaceStore.applyBootstrap(bootstrapPayload);
+  return session;
+}
 </script>
 
 <style scoped>

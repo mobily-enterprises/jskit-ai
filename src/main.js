@@ -15,12 +15,14 @@ import {
 } from "@mdi/js";
 import "vuetify/styles";
 import { queryClient } from "./queryClient";
+import { api } from "./services/api";
 import { useAuthStore } from "./stores/authStore";
+import { useWorkspaceStore } from "./stores/workspaceStore";
 import { createAppRouter } from "./router";
 
 const pinia = createPinia();
 const authStore = useAuthStore(pinia);
-const router = createAppRouter(authStore);
+const workspaceStore = useWorkspaceStore(pinia);
 const iconAliases = {
   ...mdiAliases,
   navChoice1: mdiViewDashboardOutline,
@@ -69,10 +71,53 @@ const vuetify = createVuetify({
   }
 });
 
-createApp({
-  render: () => h(RouterProvider, { router })
-})
-  .use(pinia)
-  .use(VueQueryPlugin, { queryClient })
-  .use(vuetify)
-  .mount("#app");
+function applyThemePreference(vuetifyInstance, themePreference) {
+  const preference = String(themePreference || "system").toLowerCase();
+  if (preference === "dark") {
+    vuetifyInstance.theme.global.name.value = "dark";
+    return;
+  }
+  if (preference === "light") {
+    vuetifyInstance.theme.global.name.value = "light";
+    return;
+  }
+
+  const prefersDark =
+    typeof window !== "undefined" && typeof window.matchMedia === "function"
+      ? window.matchMedia("(prefers-color-scheme: dark)").matches
+      : false;
+  vuetifyInstance.theme.global.name.value = prefersDark ? "dark" : "light";
+}
+
+async function bootstrapRuntime() {
+  try {
+    const bootstrapPayload = await api.bootstrap();
+    const session = bootstrapPayload?.session && typeof bootstrapPayload.session === "object" ? bootstrapPayload.session : {};
+    authStore.applySession({
+      authenticated: Boolean(session.authenticated),
+      username: session.username || null
+    });
+    workspaceStore.applyBootstrap(bootstrapPayload);
+
+    applyThemePreference(vuetify, workspaceStore.userSettings?.theme);
+  } catch {
+    authStore.setSignedOut();
+    workspaceStore.clearWorkspaceState();
+    applyThemePreference(vuetify, "system");
+  }
+}
+
+async function mountApp() {
+  await bootstrapRuntime();
+  const router = createAppRouter({ authStore, workspaceStore });
+
+  createApp({
+    render: () => h(RouterProvider, { router })
+  })
+    .use(pinia)
+    .use(VueQueryPlugin, { queryClient })
+    .use(vuetify)
+    .mount("#app");
+}
+
+void mountApp();

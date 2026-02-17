@@ -872,6 +872,15 @@ function resolveTabFromSearch(search) {
   return VALID_TABS.has(tab) ? tab : "preferences";
 }
 
+function isSettingsRoutePath(pathname) {
+  const path = String(pathname || "");
+  return /^\/w\/[^/]+\/settings$/.test(path);
+}
+
+function resolveCurrentSettingsPath() {
+  return isSettingsRoutePath(routerPath.value) ? String(routerPath.value) : "";
+}
+
 function clearFieldErrors(target) {
   for (const key of Object.keys(target)) {
     target[key] = "";
@@ -928,7 +937,7 @@ async function handleOAuthCallbackIfPresent() {
   const callbackState = readOAuthCallbackStateFromLocation({
     pendingContext: pendingOAuthContext,
     defaultIntent: "link",
-    defaultReturnTo: "/settings?tab=security"
+    defaultReturnTo: `${resolveCurrentSettingsPath() || "/"}?tab=security`
   });
 
   if (!callbackState) {
@@ -1169,6 +1178,7 @@ function applySettingsData(data) {
   profileForm.displayName = String(data.profile?.displayName || "");
   profileForm.email = String(data.profile?.email || "");
   applyAvatarData(data.profile?.avatar);
+  authStore.setUsername(profileForm.displayName || null);
 
   preferencesForm.theme = String(data.preferences?.theme || "system");
   preferencesForm.locale = String(data.preferences?.locale || "en-US");
@@ -1240,7 +1250,7 @@ watch(
 watch(
   () => routerSearch.value,
   (search) => {
-    if (routerPath.value !== "/settings") {
+    if (!isSettingsRoutePath(routerPath.value)) {
       return;
     }
 
@@ -1260,7 +1270,7 @@ watch(activeTab, async (nextTab) => {
   if (!VALID_TABS.has(nextTab)) {
     return;
   }
-  if (routerPath.value !== "/settings") {
+  if (!isSettingsRoutePath(routerPath.value)) {
     return;
   }
   if (syncingTabFromUrl.value) {
@@ -1271,7 +1281,7 @@ watch(activeTab, async (nextTab) => {
   }
 
   await navigate({
-    to: "/settings",
+    to: routerPath.value,
     search: {
       tab: nextTab
     },
@@ -1559,7 +1569,14 @@ async function startProviderLink(providerId) {
 
   providerMessage.value = "";
   providerLinkStartInFlight.value = true;
-  const returnTo = "/settings?tab=security";
+  const settingsPath = resolveCurrentSettingsPath();
+  if (!settingsPath) {
+    providerMessageType.value = "error";
+    providerMessage.value = "Unable to resolve settings route for provider link.";
+    providerLinkStartInFlight.value = false;
+    return;
+  }
+  const returnTo = `${settingsPath}?tab=security`;
   writePendingOAuthContext({
     provider,
     intent: "link",

@@ -68,7 +68,7 @@ export function validateAndNormalizeInput(payload) {
   const annualGrowthRate = toFiniteNumber(payload.annualGrowthRate ?? 0);
   const years = toFiniteNumber(payload.years);
   const paymentsPerYear = Number(payload.paymentsPerYear);
-  const isPerpetual = parseBoolean(payload.isPerpetual ?? payload.perpetual);
+  const isPerpetual = parseBoolean(payload.isPerpetual);
 
   const fieldErrors = {};
 

@@ -53,25 +53,25 @@ function assertValidHistoryEntry(historyEntry) {
 function createAnnuityHistoryService(options) {
   const calculationLogsRepository = options.calculationLogsRepository;
 
-  async function appendCalculation(userId, result) {
+  async function appendCalculation(workspaceId, userId, result) {
     const historyEntry = buildHistoryEntryFromResult(result);
     assertValidHistoryEntry(historyEntry);
 
-    await calculationLogsRepository.insert(userId, historyEntry);
+    await calculationLogsRepository.insert(workspaceId, userId, historyEntry);
     return historyEntry;
   }
 
-  async function listForUser(user, pagination) {
-    const total = await calculationLogsRepository.countForUser(user.id);
+  async function listForUser(workspaceId, user, pagination) {
+    const total = await calculationLogsRepository.countForWorkspaceUser(workspaceId, user.id);
     const totalPages = Math.max(1, Math.ceil(total / pagination.pageSize));
     const safePage = Math.min(pagination.page, totalPages);
 
-    const entries = (await calculationLogsRepository.listForUser(user.id, safePage, pagination.pageSize)).map(
-      (entry) => ({
-        ...entry,
-        username: user.displayName
-      })
-    );
+    const entries = (
+      await calculationLogsRepository.listForWorkspaceUser(workspaceId, user.id, safePage, pagination.pageSize)
+    ).map((entry) => ({
+      ...entry,
+      username: user.displayName
+    }));
 
     return {
       entries,

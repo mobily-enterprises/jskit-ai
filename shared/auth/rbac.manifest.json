@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "defaultInviteRole": "member",
+  "roles": {
+    "owner": {
+      "assignable": false,
+      "permissions": ["*"]
+    },
+    "admin": {
+      "assignable": true,
+      "permissions": [
+        "workspace.members.invite",
+        "workspace.members.view",
+        "workspace.members.manage",
+        "workspace.invites.revoke",
+        "workspace.settings.update",
+        "workspace.roles.view",
+        "history.read",
+        "history.write"
+      ]
+    },
+    "member": {
+      "assignable": true,
+      "permissions": ["history.read", "history.write"]
+    },
+    "viewer": {
+      "assignable": true,
+      "permissions": ["history.read"]
+    }
+  }
+}

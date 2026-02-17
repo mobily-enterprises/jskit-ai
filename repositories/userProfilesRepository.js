@@ -59,6 +59,11 @@ function mapProfileRowNullable(row) {
 }
 
 function createUserProfilesRepository(dbClient) {
+  async function repoFindById(userId) {
+    const row = await dbClient("user_profiles").where({ id: userId }).first();
+    return mapProfileRowNullable(row);
+  }
+
   async function repoFindBySupabaseUserId(supabaseUserId) {
     const row = await dbClient("user_profiles").where({ supabase_user_id: supabaseUserId }).first();
     return mapProfileRowNullable(row);
@@ -161,6 +166,7 @@ function createUserProfilesRepository(dbClient) {
   }
 
   return {
+    findById: repoFindById,
     findBySupabaseUserId: repoFindBySupabaseUserId,
     updateDisplayNameById: repoUpdateDisplayNameById,
     updateAvatarById: repoUpdateAvatarById,
@@ -182,5 +188,6 @@ const __testables = {
   createUserProfilesRepository
 };
 
-export const { findBySupabaseUserId, updateDisplayNameById, updateAvatarById, clearAvatarById, upsert } = repository;
+export const { findById, findBySupabaseUserId, updateDisplayNameById, updateAvatarById, clearAvatarById, upsert } =
+  repository;
 export { __testables };

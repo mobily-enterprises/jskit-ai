@@ -90,9 +90,7 @@ function writePendingOAuthContext(context) {
   const payload = {
     provider,
     intent: normalizeOAuthIntent(context?.intent, { fallback: "login" }),
-    returnTo: normalizeReturnToPath(context?.returnTo, {
-      fallback: context?.intent === "link" ? "/settings?tab=security" : "/"
-    }),
+    returnTo: normalizeReturnToPath(context?.returnTo, { fallback: "/" }),
     rememberAccountOnDevice: context?.rememberAccountOnDevice !== false
   };
 
@@ -123,9 +121,7 @@ function readPendingOAuthContext() {
     return {
       provider,
       intent: normalizeOAuthIntent(parsed?.intent, { fallback: "login" }),
-      returnTo: normalizeReturnToPath(parsed?.returnTo, {
-        fallback: parsed?.intent === "link" ? "/settings?tab=security" : "/"
-      }),
+      returnTo: normalizeReturnToPath(parsed?.returnTo, { fallback: "/" }),
       rememberAccountOnDevice: parsed?.rememberAccountOnDevice !== false
     };
   } catch {
@@ -183,7 +179,7 @@ function readOAuthCallbackStateFromLocation(options = {}) {
     fallback: defaultIntent
   });
   const returnTo = normalizeReturnToPath(search.get(OAUTH_QUERY_PARAM_RETURN_TO) || pendingContext?.returnTo || defaultReturnTo, {
-    fallback: intent === "link" ? "/settings?tab=security" : defaultReturnTo
+    fallback: defaultReturnTo
   });
 
   const payload = {

@@ -28,9 +28,36 @@ function buildSettingsPayload() {
       sessions: {
         canSignOutOtherDevices: true
       },
-      password: {
-        canChange: true
-      }
+      authPolicy: {
+        minimumEnabledMethods: 1,
+        enabledMethodsCount: 2
+      },
+      authMethods: [
+        {
+          id: "password",
+          kind: "password",
+          provider: "email",
+          label: "Password",
+          configured: true,
+          enabled: true,
+          canEnable: false,
+          canDisable: true,
+          supportsSecretUpdate: true,
+          requiresCurrentPassword: true
+        },
+        {
+          id: "email_otp",
+          kind: "otp",
+          provider: "email",
+          label: "Email one-time code",
+          configured: true,
+          enabled: true,
+          canEnable: false,
+          canDisable: false,
+          supportsSecretUpdate: false,
+          requiresCurrentPassword: false
+        }
+      ]
     },
     preferences: {
       theme: "system",
@@ -64,6 +91,26 @@ function buildStubControllers() {
       },
       async requestPasswordReset(_request, reply) {
         reply.code(200).send({ ok: true, message: "ok" });
+      },
+      async oauthStart(_request, reply) {
+        reply.code(302).send();
+      },
+      async oauthComplete(request, reply) {
+        const code = String(request?.body?.code || "").trim();
+        const accessToken = String(request?.body?.accessToken || "").trim();
+        const refreshToken = String(request?.body?.refreshToken || "").trim();
+        const hasSessionPair = Boolean(accessToken && refreshToken);
+        if (!code && !hasSessionPair) {
+          reply.code(400).send({ ok: false, message: "missing token material" });
+          return;
+        }
+
+        reply.code(200).send({
+          ok: true,
+          provider: "google",
+          username: "demo-user",
+          email: "demo@example.com"
+        });
       },
       async completePasswordRecovery(_request, reply) {
         reply.code(200).send({ ok: true });
@@ -214,6 +261,35 @@ test("settings security routes validate password payload and allow logout-others
     url: "/api/settings/security/logout-others"
   });
   assert.equal(logoutOthers.statusCode, 200);
+
+  await app.close();
+});
+
+test("oauth complete route accepts strict camelCase payload shape only", async () => {
+  const app = Fastify();
+  registerApiRoutes(app, { controllers: buildStubControllers() });
+
+  const valid = await app.inject({
+    method: "POST",
+    url: "/api/oauth/complete",
+    payload: {
+      provider: "google",
+      accessToken: "access-token",
+      refreshToken: "refresh-token"
+    }
+  });
+  assert.equal(valid.statusCode, 200);
+
+  const invalidSnakeCase = await app.inject({
+    method: "POST",
+    url: "/api/oauth/complete",
+    payload: {
+      provider: "google",
+      access_token: "access-token",
+      refresh_token: "refresh-token"
+    }
+  });
+  assert.equal(invalidSnakeCase.statusCode, 400);
 
   await app.close();
 });

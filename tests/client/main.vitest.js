@@ -6,14 +6,45 @@ const mocks = vi.hoisted(() => {
     mount: vi.fn()
   };
   appInstance.use.mockReturnValue(appInstance);
+  const vuetifyInstance = {
+    vuetify: true,
+    theme: {
+      global: {
+        name: {
+          value: "light"
+        }
+      }
+    }
+  };
+  const authStoreInstance = {
+    initialized: false,
+    isAuthenticated: false,
+    applySession: vi.fn(),
+    setSignedOut: vi.fn()
+  };
+  const workspaceStoreInstance = {
+    initialized: false,
+    userSettings: {
+      theme: "system"
+    },
+    applyBootstrap: vi.fn(),
+    clearWorkspaceState: vi.fn()
+  };
 
   return {
     appInstance,
     createApp: vi.fn(() => appInstance),
     h: vi.fn(() => ({ vnode: true })),
     createPinia: vi.fn(() => ({ pinia: true })),
-    createVuetify: vi.fn(() => ({ vuetify: true })),
-    useAuthStore: vi.fn(() => ({ authenticated: false })),
+    vuetifyInstance,
+    createVuetify: vi.fn(() => vuetifyInstance),
+    authStoreInstance,
+    workspaceStoreInstance,
+    useAuthStore: vi.fn(() => authStoreInstance),
+    useWorkspaceStore: vi.fn(() => workspaceStoreInstance),
+    api: {
+      bootstrap: vi.fn(async () => ({ session: { authenticated: false, username: null } }))
+    },
     createAppRouter: vi.fn(() => ({ router: true })),
     queryClient: { id: "query-client" },
     VueQueryPlugin: { id: "vue-query-plugin" },
@@ -58,6 +89,14 @@ vi.mock("../../src/stores/authStore.js", () => ({
   useAuthStore: mocks.useAuthStore
 }));
 
+vi.mock("../../src/stores/workspaceStore.js", () => ({
+  useWorkspaceStore: mocks.useWorkspaceStore
+}));
+
+vi.mock("../../src/services/api.js", () => ({
+  api: mocks.api
+}));
+
 vi.mock("../../src/router.js", () => ({
   createAppRouter: mocks.createAppRouter
 }));
@@ -72,6 +111,16 @@ describe("main bootstrap", () => {
     mocks.createPinia.mockClear();
     mocks.createVuetify.mockClear();
     mocks.useAuthStore.mockClear();
+    mocks.useWorkspaceStore.mockClear();
+    mocks.api.bootstrap.mockClear();
+    mocks.authStoreInstance.applySession.mockClear();
+    mocks.authStoreInstance.setSignedOut.mockClear();
+    mocks.workspaceStoreInstance.applyBootstrap.mockClear();
+    mocks.workspaceStoreInstance.clearWorkspaceState.mockClear();
+    mocks.workspaceStoreInstance.userSettings = {
+      theme: "system"
+    };
+    mocks.vuetifyInstance.theme.global.name.value = "light";
     mocks.createAppRouter.mockClear();
     document.body.innerHTML = '<div id="app"></div>';
   });
@@ -82,7 +131,17 @@ describe("main bootstrap", () => {
     expect(mocks.createPinia).toHaveBeenCalledTimes(1);
     const pinia = mocks.createPinia.mock.results[0].value;
     expect(mocks.useAuthStore).toHaveBeenCalledWith(pinia);
-    expect(mocks.createAppRouter).toHaveBeenCalledWith({ authenticated: false });
+    expect(mocks.useWorkspaceStore).toHaveBeenCalledWith(pinia);
+    expect(mocks.api.bootstrap).toHaveBeenCalledTimes(1);
+    expect(mocks.authStoreInstance.applySession).toHaveBeenCalledWith({
+      authenticated: false,
+      username: null
+    });
+    expect(mocks.workspaceStoreInstance.applyBootstrap).toHaveBeenCalledTimes(1);
+    expect(mocks.createAppRouter).toHaveBeenCalledWith({
+      authStore: mocks.authStoreInstance,
+      workspaceStore: mocks.workspaceStoreInstance
+    });
 
     expect(mocks.createVuetify).toHaveBeenCalledTimes(1);
     expect(mocks.createVuetify).toHaveBeenCalledWith(
@@ -109,7 +168,7 @@ describe("main bootstrap", () => {
     expect(mocks.appInstance.use).toHaveBeenNthCalledWith(2, mocks.VueQueryPlugin, {
       queryClient: mocks.queryClient
     });
-    expect(mocks.appInstance.use).toHaveBeenNthCalledWith(3, { vuetify: true });
+    expect(mocks.appInstance.use).toHaveBeenNthCalledWith(3, mocks.vuetifyInstance);
     expect(mocks.appInstance.mount).toHaveBeenCalledWith("#app");
   });
 });
