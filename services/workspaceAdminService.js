@@ -46,13 +46,13 @@ function createWorkspaceAdminService({
   const roleDescriptors = listRoleDescriptors(rbacManifest);
   const assignableRoleIds = resolveAssignableRoleIds(rbacManifest);
 
-  async function requireWorkspace(workspaceContext) {
+  async function requireWorkspace(workspaceContext, options = {}) {
     const workspaceId = parsePositiveInteger(workspaceContext?.id);
     if (!workspaceId) {
       throw new AppError(409, "Workspace selection required.");
     }
 
-    const workspace = await workspacesRepository.findById(workspaceId);
+    const workspace = await workspacesRepository.findById(workspaceId, options);
     if (!workspace) {
       throw new AppError(404, "Workspace not found.");
     }
@@ -85,7 +85,7 @@ function createWorkspaceAdminService({
     return normalized;
   }
 
-  async function ensureWorkspaceSettings(workspaceId) {
+  async function ensureWorkspaceSettings(workspaceId, options = {}) {
     return workspaceSettingsRepository.ensureForWorkspaceId(workspaceId, {
       invitesEnabled: Boolean(appConfig.features.workspaceInvites),
       features: {},
@@ -95,7 +95,18 @@ function createWorkspaceAdminService({
         defaultPaymentsPerYear: 12,
         defaultHistoryPageSize: 10
       }
-    });
+    }, options);
+  }
+
+  async function runInAdminTransaction(work) {
+    if (typeof workspaceInvitesRepository.transaction === "function") {
+      return workspaceInvitesRepository.transaction(work);
+    }
+    if (typeof workspacesRepository.transaction === "function") {
+      return workspacesRepository.transaction(work);
+    }
+
+    return work(null);
   }
 
   function mapWorkspaceSettingsResponse(workspace, workspaceSettings, options = {}) {
@@ -193,7 +204,6 @@ function createWorkspaceAdminService({
   }
 
   async function updateWorkspaceSettings(workspaceContext, payload) {
-    const workspace = await requireWorkspace(workspaceContext);
     const parsed = parseWorkspaceSettingsPatch(payload);
 
     if (Object.keys(parsed.fieldErrors).length > 0) {
@@ -204,52 +214,58 @@ function createWorkspaceAdminService({
       });
     }
 
-    if (Object.keys(parsed.workspacePatch).length > 0) {
-      await workspacesRepository.updateById(workspace.id, parsed.workspacePatch);
-    }
+    const workspaceId = parsePositiveInteger(workspaceContext?.id);
+    await runInAdminTransaction(async (trx) => {
+      const options = trx ? { trx } : {};
+      const workspace = await requireWorkspace(workspaceContext, options);
 
-    const currentSettings = await ensureWorkspaceSettings(workspace.id);
-    const settingsPatch = {};
+      if (Object.keys(parsed.workspacePatch).length > 0) {
+        await workspacesRepository.updateById(workspace.id, parsed.workspacePatch, options);
+      }
 
-    if (Object.prototype.hasOwnProperty.call(parsed.settingsPatch, "invitesEnabled")) {
-      settingsPatch.invitesEnabled = parsed.settingsPatch.invitesEnabled;
-    }
+      const currentSettings = await ensureWorkspaceSettings(workspace.id, options);
+      const settingsPatch = {};
 
-    if (parsed.settingsPatch.defaults) {
-      settingsPatch.policy = {
-        ...(currentSettings?.policy && typeof currentSettings.policy === "object" ? currentSettings.policy : {}),
-        ...parsed.settingsPatch.defaults
-      };
-    }
+      if (Object.prototype.hasOwnProperty.call(parsed.settingsPatch, "invitesEnabled")) {
+        settingsPatch.invitesEnabled = parsed.settingsPatch.invitesEnabled;
+      }
 
-    if (parsed.settingsPatch.appSurfaceAccess) {
-      const currentFeatures =
-        currentSettings?.features && typeof currentSettings.features === "object" ? currentSettings.features : {};
-      const currentSurfaceAccess =
-        currentFeatures.surfaceAccess && typeof currentFeatures.surfaceAccess === "object"
-          ? currentFeatures.surfaceAccess
-          : {};
-      const currentAppSurfaceAccess =
-        currentSurfaceAccess.app && typeof currentSurfaceAccess.app === "object" ? currentSurfaceAccess.app : {};
+      if (parsed.settingsPatch.defaults) {
+        settingsPatch.policy = {
+          ...(currentSettings?.policy && typeof currentSettings.policy === "object" ? currentSettings.policy : {}),
+          ...parsed.settingsPatch.defaults
+        };
+      }
 
-      settingsPatch.features = {
-        ...currentFeatures,
-        surfaceAccess: {
-          ...currentSurfaceAccess,
-          app: {
-            ...currentAppSurfaceAccess,
-            ...parsed.settingsPatch.appSurfaceAccess
+      if (parsed.settingsPatch.appSurfaceAccess) {
+        const currentFeatures =
+          currentSettings?.features && typeof currentSettings.features === "object" ? currentSettings.features : {};
+        const currentSurfaceAccess =
+          currentFeatures.surfaceAccess && typeof currentFeatures.surfaceAccess === "object"
+            ? currentFeatures.surfaceAccess
+            : {};
+        const currentAppSurfaceAccess =
+          currentSurfaceAccess.app && typeof currentSurfaceAccess.app === "object" ? currentSurfaceAccess.app : {};
+
+        settingsPatch.features = {
+          ...currentFeatures,
+          surfaceAccess: {
+            ...currentSurfaceAccess,
+            app: {
+              ...currentAppSurfaceAccess,
+              ...parsed.settingsPatch.appSurfaceAccess
+            }
           }
-        }
-      };
-    }
+        };
+      }
 
-    if (Object.keys(settingsPatch).length > 0) {
-      await workspaceSettingsRepository.updateByWorkspaceId(workspace.id, settingsPatch);
-    }
+      if (Object.keys(settingsPatch).length > 0) {
+        await workspaceSettingsRepository.updateByWorkspaceId(workspace.id, settingsPatch, options);
+      }
+    });
 
-    const updatedWorkspace = await workspacesRepository.findById(workspace.id);
-    const updatedSettings = await ensureWorkspaceSettings(workspace.id);
+    const updatedWorkspace = await workspacesRepository.findById(workspaceId);
+    const updatedSettings = await ensureWorkspaceSettings(workspaceId);
 
     return {
       ...mapWorkspaceSettingsResponse(updatedWorkspace, updatedSettings, { includeAppSurfaceDenyLists: true }),
@@ -458,54 +474,58 @@ function createWorkspaceAdminService({
       });
     }
 
-    await workspaceInvitesRepository.markExpiredPendingInvites();
-    const invite = await workspaceInvitesRepository.findPendingByIdAndEmail(inviteId, email);
-    if (!invite) {
-      throw new AppError(404, "Invite not found.");
-    }
+    return runInAdminTransaction(async (trx) => {
+      const options = trx ? { trx } : {};
 
-    if (normalizedDecision === "refuse") {
-      await workspaceInvitesRepository.revokeById(invite.id);
+      await workspaceInvitesRepository.markExpiredPendingInvites(options);
+      const invite = await workspaceInvitesRepository.findPendingByIdAndEmail(inviteId, email, options);
+      if (!invite) {
+        throw new AppError(404, "Invite not found.");
+      }
+
+      if (normalizedDecision === "refuse") {
+        await workspaceInvitesRepository.revokeById(invite.id, options);
+        return {
+          ok: true,
+          decision: "refused",
+          inviteId: Number(invite.id),
+          workspace: invite.workspace
+            ? {
+                id: Number(invite.workspace.id),
+                slug: String(invite.workspace.slug || ""),
+                name: String(invite.workspace.name || ""),
+                color: coerceWorkspaceColor(invite.workspace.color),
+                avatarUrl: invite.workspace.avatarUrl ? String(invite.workspace.avatarUrl) : ""
+              }
+            : null
+        };
+      }
+
+      const roleId = normalizeRoleForAssignment(invite.roleId || rbacManifest.defaultInviteRole);
+      await workspaceMembershipsRepository.ensureActiveByWorkspaceIdAndUserId(invite.workspaceId, userId, roleId, options);
+      await workspaceInvitesRepository.markAcceptedById(invite.id, options);
+
+      if (userSettingsRepository && typeof userSettingsRepository.updateLastActiveWorkspaceId === "function") {
+        await userSettingsRepository.updateLastActiveWorkspaceId(userId, invite.workspaceId, options);
+      }
+
+      const workspace = invite.workspace ? await workspacesRepository.findById(invite.workspace.id, options) : null;
+
       return {
         ok: true,
-        decision: "refused",
+        decision: "accepted",
         inviteId: Number(invite.id),
-        workspace: invite.workspace
+        workspace: workspace
           ? {
-              id: Number(invite.workspace.id),
-              slug: String(invite.workspace.slug || ""),
-              name: String(invite.workspace.name || ""),
-              color: coerceWorkspaceColor(invite.workspace.color),
-              avatarUrl: invite.workspace.avatarUrl ? String(invite.workspace.avatarUrl) : ""
+              id: Number(workspace.id),
+              slug: String(workspace.slug || ""),
+              name: String(workspace.name || ""),
+              color: coerceWorkspaceColor(workspace.color),
+              avatarUrl: workspace.avatarUrl ? String(workspace.avatarUrl) : ""
             }
           : null
       };
-    }
-
-    const roleId = normalizeRoleForAssignment(invite.roleId || rbacManifest.defaultInviteRole);
-    await workspaceMembershipsRepository.ensureActiveByWorkspaceIdAndUserId(invite.workspaceId, userId, roleId);
-    await workspaceInvitesRepository.markAcceptedById(invite.id);
-
-    if (userSettingsRepository && typeof userSettingsRepository.updateLastActiveWorkspaceId === "function") {
-      await userSettingsRepository.updateLastActiveWorkspaceId(userId, invite.workspaceId);
-    }
-
-    const workspace = invite.workspace ? await workspacesRepository.findById(invite.workspace.id) : null;
-
-    return {
-      ok: true,
-      decision: "accepted",
-      inviteId: Number(invite.id),
-      workspace: workspace
-        ? {
-            id: Number(workspace.id),
-            slug: String(workspace.slug || ""),
-            name: String(workspace.name || ""),
-            color: coerceWorkspaceColor(workspace.color),
-            avatarUrl: workspace.avatarUrl ? String(workspace.avatarUrl) : ""
-          }
-        : null
-    };
+    });
   }
 
   function getRoleCatalog() {

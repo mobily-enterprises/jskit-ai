@@ -723,6 +723,287 @@ test("workspace admin service manages members, invites, and pending invite respo
   );
 });
 
+test("workspace admin service rolls back workspace update when settings write fails", async () => {
+  const state = {
+    workspace: {
+      id: 11,
+      slug: "acme",
+      name: "Acme",
+      color: "#0F6B54",
+      avatarUrl: "",
+      ownerUserId: 5,
+      isPersonal: false
+    },
+    settings: {
+      workspaceId: 11,
+      invitesEnabled: true,
+      features: {},
+      policy: {
+        defaultMode: "fv",
+        defaultTiming: "ordinary",
+        defaultPaymentsPerYear: 12,
+        defaultHistoryPageSize: 10
+      }
+    }
+  };
+
+  const workspacesRepository = {
+    async findById(id) {
+      if (Number(id) !== 11) {
+        return null;
+      }
+      return { ...state.workspace };
+    },
+    async updateById(_id, patch) {
+      state.workspace = {
+        ...state.workspace,
+        ...patch
+      };
+      return { ...state.workspace };
+    }
+  };
+
+  const workspaceSettingsRepository = {
+    async ensureForWorkspaceId(workspaceId) {
+      if (Number(workspaceId) !== 11) {
+        return null;
+      }
+
+      return {
+        ...state.settings,
+        features: JSON.parse(JSON.stringify(state.settings.features || {})),
+        policy: JSON.parse(JSON.stringify(state.settings.policy || {}))
+      };
+    },
+    async updateByWorkspaceId() {
+      throw new Error("settings write failed");
+    }
+  };
+
+  const workspaceInvitesRepository = {
+    async transaction(callback) {
+      const snapshot = structuredClone(state);
+      try {
+        return await callback({ marker: "trx-object" });
+      } catch (error) {
+        state.workspace = snapshot.workspace;
+        state.settings = snapshot.settings;
+        throw error;
+      }
+    }
+  };
+
+  const service = createWorkspaceAdminService({
+    appConfig: {
+      features: {
+        workspaceInvites: true
+      }
+    },
+    rbacManifest: {
+      defaultInviteRole: "member",
+      collaborationEnabled: true,
+      roles: {
+        owner: { assignable: false, permissions: ["*"] },
+        admin: { assignable: true, permissions: ["workspace.settings.update"] },
+        member: { assignable: true, permissions: ["history.read"] }
+      }
+    },
+    workspacesRepository,
+    workspaceSettingsRepository,
+    workspaceMembershipsRepository: {
+      async listActiveByWorkspaceId() {
+        return [];
+      },
+      async findByWorkspaceIdAndUserId() {
+        return null;
+      },
+      async updateRoleByWorkspaceIdAndUserId() {},
+      async ensureActiveByWorkspaceIdAndUserId() {}
+    },
+    workspaceInvitesRepository,
+    userProfilesRepository: {
+      async findByEmail() {
+        return null;
+      }
+    },
+    userSettingsRepository: null
+  });
+
+  await assert.rejects(
+    () =>
+      service.updateWorkspaceSettings(
+        { id: 11 },
+        {
+          name: "Acme Prime",
+          invitesEnabled: false
+        }
+      ),
+    /settings write failed/
+  );
+
+  assert.equal(state.workspace.name, "Acme");
+  assert.equal(state.settings.invitesEnabled, true);
+});
+
+test("workspace admin service rolls back invite acceptance when downstream write fails", async () => {
+  const state = {
+    workspace: {
+      id: 11,
+      slug: "acme",
+      name: "Acme",
+      color: "#0F6B54",
+      avatarUrl: "",
+      ownerUserId: 5,
+      isPersonal: false
+    },
+    invite: {
+      id: 301,
+      workspaceId: 11,
+      email: "accept@example.com",
+      roleId: "admin",
+      status: "pending",
+      invitedByUserId: 5,
+      expiresAt: "2030-01-01T00:00:00.000Z",
+      workspace: {
+        id: 11,
+        slug: "acme",
+        name: "Acme",
+        color: "#0F6B54",
+        avatarUrl: ""
+      }
+    },
+    memberships: [],
+    lastActiveWorkspaceId: null
+  };
+
+  const workspaceInvitesRepository = {
+    async transaction(callback) {
+      const snapshot = structuredClone(state);
+      try {
+        return await callback({ marker: "trx-object" });
+      } catch (error) {
+        state.invite = snapshot.invite;
+        state.memberships = snapshot.memberships;
+        state.lastActiveWorkspaceId = snapshot.lastActiveWorkspaceId;
+        throw error;
+      }
+    },
+    async markExpiredPendingInvites() {},
+    async findPendingByIdAndEmail(inviteId, email) {
+      if (
+        Number(inviteId) === Number(state.invite.id) &&
+        String(email || "").toLowerCase() === String(state.invite.email || "").toLowerCase() &&
+        state.invite.status === "pending"
+      ) {
+        return {
+          ...state.invite,
+          workspace: {
+            ...state.invite.workspace
+          }
+        };
+      }
+
+      return null;
+    },
+    async markAcceptedById() {
+      throw new Error("accept write failed");
+    },
+    async revokeById() {
+      return null;
+    }
+  };
+
+  const service = createWorkspaceAdminService({
+    appConfig: {
+      features: {
+        workspaceInvites: true
+      }
+    },
+    rbacManifest: {
+      defaultInviteRole: "member",
+      collaborationEnabled: true,
+      roles: {
+        owner: { assignable: false, permissions: ["*"] },
+        admin: { assignable: true, permissions: ["workspace.members.manage"] },
+        member: { assignable: true, permissions: ["history.read"] }
+      }
+    },
+    workspacesRepository: {
+      async findById(id) {
+        if (Number(id) !== 11) {
+          return null;
+        }
+        return {
+          ...state.workspace
+        };
+      }
+    },
+    workspaceSettingsRepository: {
+      async ensureForWorkspaceId(workspaceId, defaults = {}) {
+        if (Number(workspaceId) !== 11) {
+          return null;
+        }
+        return {
+          workspaceId: 11,
+          invitesEnabled: Boolean(defaults.invitesEnabled),
+          features: {},
+          policy: defaults.policy || {}
+        };
+      }
+    },
+    workspaceMembershipsRepository: {
+      async listActiveByWorkspaceId() {
+        return [];
+      },
+      async findByWorkspaceIdAndUserId() {
+        return null;
+      },
+      async updateRoleByWorkspaceIdAndUserId() {
+        return null;
+      },
+      async ensureActiveByWorkspaceIdAndUserId(workspaceId, userId, roleId) {
+        const membership = {
+          id: state.memberships.length + 1,
+          workspaceId: Number(workspaceId),
+          userId: Number(userId),
+          roleId: String(roleId || ""),
+          status: "active"
+        };
+        state.memberships.push(membership);
+        return membership;
+      }
+    },
+    workspaceInvitesRepository,
+    userProfilesRepository: {
+      async findByEmail() {
+        return null;
+      }
+    },
+    userSettingsRepository: {
+      async updateLastActiveWorkspaceId(_userId, workspaceId) {
+        state.lastActiveWorkspaceId = Number(workspaceId);
+      }
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      service.respondToPendingInvite({
+        user: {
+          id: 41,
+          email: "accept@example.com"
+        },
+        inviteId: 301,
+        decision: "accept"
+      }),
+    /accept write failed/
+  );
+
+  assert.equal(state.memberships.length, 0);
+  assert.equal(state.invite.status, "pending");
+  assert.equal(state.lastActiveWorkspaceId, null);
+});
+
 test("workspace admin service normalizes sparse member/invite data and fallback branches", async () => {
   const state = {
     workspace: {
