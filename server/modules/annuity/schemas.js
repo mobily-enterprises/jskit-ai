@@ -1,5 +1,5 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { registerTypeBoxFormats } from "../api/schema/formats.js";
+import { registerTypeBoxFormats } from "../api/schema/formats.schema.js";
 
 registerTypeBoxFormats();
 

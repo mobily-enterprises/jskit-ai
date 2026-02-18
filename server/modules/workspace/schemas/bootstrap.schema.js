@@ -13,7 +13,7 @@ import {
 } from "../../../../shared/settings/index.js";
 import { AVATAR_MAX_SIZE, AVATAR_MIN_SIZE } from "../../../../shared/avatar/index.js";
 import { enumSchema } from "../../api/schemas.js";
-import { schema as sharedSchema } from "./shared.schemas.js";
+import { schema as sharedSchema } from "./shared.schema.js";
 
 const bootstrap = Type.Object(
   {

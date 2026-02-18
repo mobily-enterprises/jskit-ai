@@ -1,6 +1,6 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { createPaginationQuerySchema } from "../api/schema/paginationQuery.js";
-import { registerTypeBoxFormats } from "../api/schema/formats.js";
+import { createPaginationQuerySchema } from "../api/schema/paginationQuery.schema.js";
+import { registerTypeBoxFormats } from "../api/schema/formats.schema.js";
 
 registerTypeBoxFormats();
 

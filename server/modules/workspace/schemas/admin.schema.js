@@ -6,7 +6,7 @@ import {
 } from "../../../../shared/auth/authConstraints.js";
 import { SETTINGS_MODE_OPTIONS, SETTINGS_TIMING_OPTIONS } from "../../../../shared/settings/index.js";
 import { enumSchema } from "../../api/schemas.js";
-import { schema as sharedSchema } from "./shared.schemas.js";
+import { schema as sharedSchema } from "./shared.schema.js";
 
 const settings = Type.Object(
   {

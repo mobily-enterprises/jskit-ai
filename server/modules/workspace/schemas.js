@@ -1,7 +1,7 @@
-import { schema as sharedSchema } from "./schemas/shared.schemas.js";
-import { schema as bootstrapSchema } from "./schemas/bootstrap.schemas.js";
-import { schema as selfServiceSchema } from "./schemas/selfService.schemas.js";
-import { schema as adminSchema } from "./schemas/admin.schemas.js";
+import { schema as sharedSchema } from "./schemas/shared.schema.js";
+import { schema as bootstrapSchema } from "./schemas/bootstrap.schema.js";
+import { schema as selfServiceSchema } from "./schemas/selfService.schema.js";
+import { schema as adminSchema } from "./schemas/admin.schema.js";
 
 const schema = {
   ...sharedSchema,

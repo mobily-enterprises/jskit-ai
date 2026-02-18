@@ -1,6 +1,6 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { enumSchema } from "../../api/schemas.js";
-import { schema as sharedSchema } from "./shared.schemas.js";
+import { schema as sharedSchema } from "./shared.schema.js";
 
 const pendingInvites = Type.Object(
   {
