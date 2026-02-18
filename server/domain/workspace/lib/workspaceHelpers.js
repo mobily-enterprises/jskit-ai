@@ -2,7 +2,7 @@ import { safePathnameFromRequest } from "../../../lib/requestUrl.js";
 import { normalizeEmail } from "../../../../shared/auth/utils.js";
 import { resolveSurfaceFromPathname } from "../../../../shared/routing/surfacePaths.js";
 import { coerceWorkspaceColor } from "../../../../shared/workspace/colors.js";
-import { normalizeSurfaceId } from "../../../../surfaces/index.js";
+import { normalizeSurfaceId } from "../../../surfaces/index.js";
 import { resolveWorkspaceDefaults } from "../admin.service.js";
 const DEFAULT_WORKSPACE_SETTINGS = {
   invitesEnabled: false,

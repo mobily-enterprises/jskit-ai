@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canAccessWorkspace, extractAppSurfacePolicy } from "../surfaces/appSurface.js";
+import { canAccessWorkspace, extractAppSurfacePolicy } from "../server/surfaces/appSurface.js";
 
 test("app surface denies unauthenticated access", () => {
   const result = canAccessWorkspace();

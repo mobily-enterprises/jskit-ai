@@ -1,4 +1,4 @@
-import { normalizeEmail } from "../shared/auth/utils.js";
+import { normalizeEmail } from "../../shared/auth/utils.js";
 
 function normalizeDenyUserIds(rawUserIds) {
   if (!Array.isArray(rawUserIds)) {

@@ -19,8 +19,8 @@ import {
   resolveSurfacePrefix as resolveSurfacePrefixFromRegistry,
   SURFACE_REGISTRY
 } from "../shared/routing/surfaceRegistry.js";
-import { resolveSurfaceById, SURFACES } from "../surfaces/index.js";
-import { canAccessWorkspace as canAccessAdminWorkspace } from "../surfaces/adminSurface.js";
+import { resolveSurfaceById, SURFACES } from "../server/surfaces/index.js";
+import { canAccessWorkspace as canAccessAdminWorkspace } from "../server/surfaces/adminSurface.js";
 
 test("surface registry normalizes ids, prefixes, and definitions", () => {
   assert.equal(DEFAULT_SURFACE_ID, "app");

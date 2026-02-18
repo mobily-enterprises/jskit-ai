@@ -60,10 +60,10 @@ test("server services expose createService contract", async () => {
     "../server/modules/history/service.js",
     "../server/modules/projects/service.js",
     "../server/modules/settings/service.js",
-    "../server/modules/workspace/service.js",
-    "../server/modules/workspace/admin.service.js",
-    "../server/modules/users/avatar.service.js",
-    "../server/modules/users/avatarStorage.service.js"
+    "../server/domain/workspace/workspace.service.js",
+    "../server/domain/workspace/admin.service.js",
+    "../server/domain/users/avatar.service.js",
+    "../server/domain/users/avatarStorage.service.js"
   ];
 
   for (const modulePath of modules) {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { __testables as calcTestables } from "../server/modules/history/repository.js";
-import { __testables as profilesTestables } from "../server/modules/users/profile.repository.js";
+import { __testables as profilesTestables } from "../server/domain/users/profile.repository.js";
 import { __testables as settingsTestables } from "../server/modules/settings/repository.js";
 
 function createCalculationDbStub(options = {}) {

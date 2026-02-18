@@ -25,7 +25,7 @@ These instructions govern all commits in this repository.
 
 - Surface IDs and URL prefixes are defined in `shared/routing/surfaceRegistry.js`.
 - Route/path helpers read from that registry in `shared/routing/surfacePaths.js`.
-- Workspace access policies per surface live in `surfaces/` and are registered in `surfaces/index.js`.
+- Workspace access policies per surface live in `server/surfaces/` and are registered in `server/surfaces/index.js`.
 - Client runtime dispatch is map-based (not if/else):
   - app bootstrap dispatch: `src/main.js`
   - router factory dispatch: `src/router.js`
@@ -33,8 +33,8 @@ These instructions govern all commits in this repository.
 ### Adding a new surface
 
 1. Add surface id + prefix in `shared/routing/surfaceRegistry.js`.
-2. Add workspace access policy in `surfaces/<newSurface>Surface.js`.
-3. Register that policy in `surfaces/index.js` (`SURFACE_ACCESS_RULES`).
+2. Add workspace access policy in `server/surfaces/<newSurface>Surface.js`.
+3. Register that policy in `server/surfaces/index.js` (`SURFACE_ACCESS_RULES`).
 4. Add router for the new surface (usually `src/router.<newSurface>.js`).
 5. Add mount entrypoint if needed (usually `src/main.<newSurface>.js`).
 6. Register router in `src/router.js` (`ROUTER_BY_SURFACE`).

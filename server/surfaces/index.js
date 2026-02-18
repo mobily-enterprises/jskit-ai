@@ -1,6 +1,6 @@
 import { canAccessWorkspace as canAccessAppWorkspace } from "./appSurface.js";
 import { canAccessWorkspace as canAccessAdminWorkspace } from "./adminSurface.js";
-import { DEFAULT_SURFACE_ID, SURFACE_REGISTRY, normalizeSurfaceId } from "../shared/routing/surfaceRegistry.js";
+import { DEFAULT_SURFACE_ID, SURFACE_REGISTRY, normalizeSurfaceId } from "../../shared/routing/surfaceRegistry.js";
 
 function denyWorkspaceAccess() {
   return {

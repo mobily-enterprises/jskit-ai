@@ -11,7 +11,7 @@ import {
   parseWorkspaceSettingsPatch,
   resolveAssignableRoleIds,
   resolveWorkspaceDefaults
-} from "../server/modules/workspace/lib/workspaceAdminHelpers.js";
+} from "../server/domain/workspace/lib/workspaceAdminHelpers.js";
 
 test("workspace admin helper primitives normalize values", () => {
   assert.equal(normalizeEmail(" User@Example.com "), "user@example.com");

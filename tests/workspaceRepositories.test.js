@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { __testables as workspacesTestables } from "../server/modules/workspace/workspaces.repository.js";
-import { __testables as workspaceSettingsTestables } from "../server/modules/workspace/settings.repository.js";
-import { __testables as workspaceMembershipsTestables } from "../server/modules/workspace/memberships.repository.js";
-import { __testables as workspaceInvitesTestables } from "../server/modules/workspace/invites.repository.js";
+import { __testables as workspacesTestables } from "../server/domain/workspace/workspaces.repository.js";
+import { __testables as workspaceSettingsTestables } from "../server/domain/workspace/settings.repository.js";
+import { __testables as workspaceMembershipsTestables } from "../server/domain/workspace/memberships.repository.js";
+import { __testables as workspaceInvitesTestables } from "../server/domain/workspace/invites.repository.js";
 
 function createKnexStub(options = {}) {
   const firstQueue = Array.isArray(options.firstQueue) ? [...options.firstQueue] : [];

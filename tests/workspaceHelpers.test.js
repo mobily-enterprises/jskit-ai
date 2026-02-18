@@ -20,7 +20,7 @@ import {
   resolveRequestedWorkspaceSlug,
   resolveRequestSurfaceId,
   toSlugPart
-} from "../server/modules/workspace/lib/workspaceHelpers.js";
+} from "../server/domain/workspace/lib/workspaceHelpers.js";
 
 test("workspace helper primitives normalize text and slug/name fallback behavior", () => {
   assert.equal(toSlugPart("  Chiara Mobily  "), "chiara-mobily");

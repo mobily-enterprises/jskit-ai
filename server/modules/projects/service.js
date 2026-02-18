@@ -1,5 +1,5 @@
 import { AppError } from "../../lib/errors.js";
-import { parsePositiveInteger } from "../workspace/lib/workspaceAdminHelpers.js";
+import { parsePositiveInteger } from "../../domain/workspace/lib/workspaceAdminHelpers.js";
 
 const PROJECT_STATUS_SET = new Set(["draft", "active", "archived"]);
 
