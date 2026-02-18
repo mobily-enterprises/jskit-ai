@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { AppError } from "../../../lib/errors.js";
+import { AppError } from "../../lib/errors.js";
 import {
   AUTH_METHOD_PASSWORD_ID,
   AUTH_METHOD_PASSWORD_PROVIDER,

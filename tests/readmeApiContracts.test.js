@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 
-import { updateReadmeApiContracts } from "../lib/readmeApiContracts.js";
+import { updateReadmeApiContracts } from "../server/lib/readmeApiContracts.js";
 
 test("README API contracts inventory matches route surface", () => {
   const readmePath = new URL("../README.md", import.meta.url);

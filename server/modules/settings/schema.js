@@ -17,8 +17,8 @@ import {
   SETTINGS_THEME_OPTIONS
 } from "../../../shared/settings/index.js";
 import { AVATAR_MAX_SIZE, AVATAR_MIN_SIZE } from "../../../shared/avatar/index.js";
-import { schema as authSchema } from "../auth/schemas.js";
-import { enumSchema } from "../api/schemas.js";
+import { schema as authSchema } from "../auth/schema.js";
+import { enumSchema } from "../api/schema.js";
 
 const avatar = Type.Object(
   {

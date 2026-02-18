@@ -1,5 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
-import { updateReadmeApiContracts } from "../lib/readmeApiContracts.js";
+import { updateReadmeApiContracts } from "../server/lib/readmeApiContracts.js";
 
 const README_PATH = new URL("../README.md", import.meta.url);
 

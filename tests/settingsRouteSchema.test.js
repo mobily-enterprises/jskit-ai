@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import Fastify from "fastify";
-import { registerApiRoutes } from "../routes/api/index.js";
+import { registerApiRoutes } from "../server/fastify/registerApiRoutes.js";
 
 function buildSettingsPayload() {
   return {

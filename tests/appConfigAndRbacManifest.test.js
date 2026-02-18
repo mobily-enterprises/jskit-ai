@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-import { resolveAppConfig, toPublicAppConfig } from "../lib/appConfig.js";
+import { resolveAppConfig, toPublicAppConfig } from "../server/lib/appConfig.js";
 import {
   OWNER_ROLE_ID,
   createOwnerOnlyManifest,
@@ -11,7 +11,7 @@ import {
   loadRbacManifest,
   normalizeManifest,
   resolveRolePermissions
-} from "../lib/rbacManifest.js";
+} from "../server/lib/rbacManifest.js";
 
 test("resolveAppConfig normalizes tenancy, booleans, limits, and manifest path", () => {
   const personal = resolveAppConfig(

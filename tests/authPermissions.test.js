@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import Fastify from "fastify";
-import authPlugin from "../plugins/auth.js";
+import authPlugin from "../server/fastify/auth.plugin.js";
 
 function installTestErrorHandler(app) {
   app.setErrorHandler((error, _request, reply) => {

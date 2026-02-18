@@ -1,5 +1,5 @@
-import { AppError } from "../../../lib/errors.js";
-import { OWNER_ROLE_ID } from "../../../lib/rbacManifest.js";
+import { AppError } from "../../lib/errors.js";
+import { OWNER_ROLE_ID } from "../../lib/rbacManifest.js";
 import { extractAppSurfacePolicy } from "../../../surfaces/appSurface.js";
 import {
   buildInviteToken,

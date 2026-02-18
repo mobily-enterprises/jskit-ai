@@ -1,5 +1,5 @@
-import { AppError } from "../../../lib/errors.js";
-import { OWNER_ROLE_ID, resolveRolePermissions } from "../../../lib/rbacManifest.js";
+import { AppError } from "../../lib/errors.js";
+import { OWNER_ROLE_ID, resolveRolePermissions } from "../../lib/rbacManifest.js";
 import { normalizeSurfaceId, resolveSurfaceById } from "../../../surfaces/index.js";
 import {
   toSlugPart,

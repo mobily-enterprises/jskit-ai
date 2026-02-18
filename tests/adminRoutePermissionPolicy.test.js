@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildDefaultRoutes } from "../routes/api/index.js";
+import { buildDefaultRoutes } from "../server/modules/api/routes.js";
 
 const ADMIN_SURFACE_PERMISSION_ALLOWLIST = new Set([
   // Add explicit exceptions in "METHOD /path" format.

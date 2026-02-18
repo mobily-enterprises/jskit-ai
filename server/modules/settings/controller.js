@@ -1,4 +1,4 @@
-import { AppError } from "../../../lib/errors.js";
+import { AppError } from "../../lib/errors.js";
 
 function createController({ userSettingsService, authService }) {
   async function get(request, reply) {

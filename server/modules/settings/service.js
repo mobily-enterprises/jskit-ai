@@ -1,4 +1,4 @@
-import { AppError } from "../../../lib/errors.js";
+import { AppError } from "../../lib/errors.js";
 import { validators as authValidators } from "../../../shared/auth/validators.js";
 import { AVATAR_MAX_SIZE, AVATAR_MIN_SIZE } from "../../../shared/avatar/index.js";
 import {

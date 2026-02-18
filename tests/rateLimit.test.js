@@ -5,7 +5,7 @@ import {
   createRateLimitPluginOptions,
   resolveRateLimitStartupWarning,
   __testables as rateLimitTestables
-} from "../lib/rateLimit.js";
+} from "../server/lib/rateLimit.js";
 
 test("rate-limit helper normalizes modes and resolves key material", () => {
   assert.equal(rateLimitTestables.normalizeRateLimitMode(""), "memory");

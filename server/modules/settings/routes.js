@@ -5,9 +5,9 @@ import {
   AVATAR_MAX_UPLOAD_BYTES,
   AVATAR_UPLOAD_DIMENSION_OPTIONS
 } from "../../../shared/avatar/index.js";
-import { schema as authSchema } from "../auth/schemas.js";
-import { schema } from "./schemas.js";
-import { withStandardErrorResponses } from "../api/schemas.js";
+import { schema as authSchema } from "../auth/schema.js";
+import { schema } from "./schema.js";
+import { withStandardErrorResponses } from "../api/schema.js";
 
 function buildRoutes(controllers) {
   return [

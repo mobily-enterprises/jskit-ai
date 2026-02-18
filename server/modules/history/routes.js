@@ -1,5 +1,5 @@
-import { schema } from "./schemas.js";
-import { withStandardErrorResponses } from "../api/schemas.js";
+import { schema } from "./schema.js";
+import { withStandardErrorResponses } from "../api/schema.js";
 
 function buildRoutes(controllers) {
   return [

@@ -1,4 +1,4 @@
-import { safePathnameFromRequest } from "../../../../lib/requestUrl.js";
+import { safePathnameFromRequest } from "../../../lib/requestUrl.js";
 import { normalizeEmail } from "../../../../shared/auth/utils.js";
 import { resolveSurfaceFromPathname } from "../../../../shared/routing/surfacePaths.js";
 import { coerceWorkspaceColor } from "../../../../shared/workspace/colors.js";

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AppError, isAppError } from "../lib/errors.js";
-import { safePathnameFromRequest, safeRequestUrl } from "../lib/requestUrl.js";
-import { toIsoString, toMysqlDateTimeUtc } from "../lib/dateUtils.js";
+import { AppError, isAppError } from "../server/lib/errors.js";
+import { safePathnameFromRequest, safeRequestUrl } from "../server/lib/requestUrl.js";
+import { toIsoString, toMysqlDateTimeUtc } from "../server/lib/dateUtils.js";
 import { registerTypeBoxFormats, __testables as formatTestables } from "../server/modules/api/schema/formats.schema.js";
 
 test("AppError and isAppError cover true/false branches", () => {

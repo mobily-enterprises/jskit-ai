@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { AppError } from "../../../../lib/errors.js";
+import { AppError } from "../../../lib/errors.js";
 import {
   AUTH_ACCESS_TOKEN_MAX_LENGTH,
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,

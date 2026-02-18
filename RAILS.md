@@ -29,7 +29,8 @@ Rules:
 
 ## 3) Backend naming and placement
 
-- `routes/*.js`: route registration and schema.
+- `server/modules/*/routes.js`: route definitions and schema wiring per domain.
+- `server/fastify/registerApiRoutes.js`: Fastify route registration/wiring.
 - `controllers/*Controller.js`: HTTP handlers only.
 - `services/*Service.js`: business/use-case logic.
 - `repositories/*Repository.js`: DB access only.
@@ -43,7 +44,7 @@ Repository mapper pattern:
 
 API schema naming:
 
-- Feature-specific API schemas live in `server/modules/<feature>/schemas.js`.
+- Feature-specific API schemas live in `server/modules/<feature>/schema.js`.
 - Shared backend API schema helpers live in `server/modules/api/schema/`.
 - Module schema files should export a `schema` object.
 - Group route contracts under explicit keys (`query`, `params`, `body`, `response`).

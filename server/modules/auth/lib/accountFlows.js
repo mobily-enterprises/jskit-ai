@@ -1,4 +1,4 @@
-import { AppError } from "../../../../lib/errors.js";
+import { AppError } from "../../../lib/errors.js";
 
 function createAccountFlows(deps) {
   const {

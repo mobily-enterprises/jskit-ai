@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AppError } from "../lib/errors.js";
+import { AppError } from "../server/lib/errors.js";
 import {
   buildAuthMethodsStatusFromProviderIds,
   buildOAuthLinkRedirectUrl,

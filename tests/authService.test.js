@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test, { afterEach, beforeEach, mock } from "node:test";
 import { SignJWT, exportJWK, generateKeyPair } from "jose";
-import { AppError } from "../lib/errors.js";
+import { AppError } from "../server/lib/errors.js";
 import { __testables, createService as createAuthService } from "../server/modules/auth/service.js";
 
 const SUPABASE_URL = "http://supabase.local";

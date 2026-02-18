@@ -1,5 +1,5 @@
-import { AppError } from "../../../../lib/errors.js";
-import { OWNER_ROLE_ID } from "../../../../lib/rbacManifest.js";
+import { AppError } from "../../../lib/errors.js";
+import { OWNER_ROLE_ID } from "../../../lib/rbacManifest.js";
 import { normalizeEmail } from "../../../../shared/auth/utils.js";
 import { SETTINGS_MODE_OPTIONS, SETTINGS_TIMING_OPTIONS } from "../../../../shared/settings/index.js";
 import { coerceWorkspaceColor, isWorkspaceColor } from "../../../../shared/workspace/colors.js";

@@ -1,4 +1,4 @@
-import { hasPermission } from "../../../lib/rbacManifest.js";
+import { hasPermission } from "../../lib/rbacManifest.js";
 
 function createController({ authService, workspaceService, workspaceAdminService }) {
   if (!authService || !workspaceService || !workspaceAdminService) {

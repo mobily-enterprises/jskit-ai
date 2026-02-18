@@ -5,8 +5,9 @@ Client/server annuity calculator with Supabase authentication and MySQL persiste
 ## Architecture
 
 - `server.js`: Fastify bootstrap + static file serving
-- `routes/`: URL to controller mapping
-- `plugins/auth.js`: auth policy + CSRF + rate-limit wiring
+- `server/modules/api/routes.js`: API route composition (domain route packs)
+- `server/fastify/registerApiRoutes.js`: Fastify route registration/wiring
+- `server/fastify/auth.plugin.js`: auth policy + CSRF + rate-limit wiring
 - `controllers/`: HTTP concerns (status codes, request/response)
 - `services/`: business logic (auth, annuity math, history)
 - `repositories/`: DB queries only
@@ -203,7 +204,7 @@ npm run format:check
 
 ## API contracts (v1)
 
-This endpoint inventory is generated from `routes/api/index.js`.
+This endpoint inventory is generated from `server/modules/api/routes.js` + `server/fastify/registerApiRoutes.js`.
 
 ```bash
 npm run docs:api-contracts

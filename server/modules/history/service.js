@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { Value } from "typebox/value";
-import { AppError } from "../../../lib/errors.js";
-import { schema } from "./schemas.js";
+import { AppError } from "../../lib/errors.js";
+import { schema } from "./schema.js";
 
 function mapSchemaErrorsToFieldErrors(schemaErrors) {
   const fieldErrors = {};

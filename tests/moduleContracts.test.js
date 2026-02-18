@@ -94,12 +94,12 @@ test("server routes expose buildRoutes contract", async () => {
 
 test("server schemas expose schema object contract", async () => {
   const modules = [
-    "../server/modules/annuity/schemas.js",
-    "../server/modules/auth/schemas.js",
-    "../server/modules/history/schemas.js",
-    "../server/modules/projects/schemas.js",
-    "../server/modules/settings/schemas.js",
-    "../server/modules/workspace/schemas.js"
+    "../server/modules/annuity/schema.js",
+    "../server/modules/auth/schema.js",
+    "../server/modules/history/schema.js",
+    "../server/modules/projects/schema.js",
+    "../server/modules/settings/schema.js",
+    "../server/modules/workspace/schema.js"
   ];
 
   for (const modulePath of modules) {
@@ -111,7 +111,7 @@ test("server schemas expose schema object contract", async () => {
 });
 
 test("projects schema uses strict CRUD contract", async () => {
-  const mod = await loadExports("../server/modules/projects/schemas.js");
+  const mod = await loadExports("../server/modules/projects/schema.js");
   const { schema } = mod;
 
   assert.deepEqual(Object.keys(schema).sort(), ["body", "params", "query", "response"]);

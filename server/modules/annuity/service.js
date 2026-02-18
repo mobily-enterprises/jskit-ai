@@ -1,5 +1,5 @@
 import DecimalBase from "decimal.js";
-import { AppError } from "../../../lib/errors.js";
+import { AppError } from "../../lib/errors.js";
 
 const Decimal = DecimalBase.clone({
   precision: 50,

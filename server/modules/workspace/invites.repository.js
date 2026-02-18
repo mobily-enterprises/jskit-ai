@@ -1,5 +1,5 @@
 import { db } from "../../../db/knex.js";
-import { toIsoString, toMysqlDateTimeUtc } from "../../../lib/dateUtils.js";
+import { toIsoString, toMysqlDateTimeUtc } from "../../lib/dateUtils.js";
 import { normalizeEmail } from "../../../shared/auth/utils.js";
 import { coerceWorkspaceColor } from "../../../shared/workspace/colors.js";
 

@@ -1,6 +1,6 @@
 import { Type } from "@fastify/type-provider-typebox";
 import { createPaginationQuerySchema } from "../api/schema/paginationQuery.schema.js";
-import { enumSchema } from "../api/schemas.js";
+import { enumSchema } from "../api/schema.js";
 
 const query = createPaginationQuerySchema({
   defaultPage: 1,

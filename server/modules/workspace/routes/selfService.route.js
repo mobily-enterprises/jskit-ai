@@ -1,4 +1,4 @@
-import { withStandardErrorResponses } from "../../api/schemas.js";
+import { withStandardErrorResponses } from "../../api/schema.js";
 
 function buildRoutes(controllers, { missingHandler, schema }) {
   return [

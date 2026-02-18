@@ -1,6 +1,6 @@
 import knex from "knex";
 import knexEnvironments from "../knexfile.cjs";
-import { env } from "../lib/env.js";
+import { env } from "../server/lib/env.js";
 
 function resolveRuntimeEnv(nodeEnv) {
   if (nodeEnv === "production") {

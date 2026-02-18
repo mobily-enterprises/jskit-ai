@@ -12,7 +12,7 @@ import {
 } from "../../../shared/auth/authConstraints.js";
 import { AUTH_METHOD_IDS, AUTH_METHOD_KINDS } from "../../../shared/auth/authMethods.js";
 import { AUTH_OAUTH_PROVIDERS } from "../../../shared/auth/oauthProviders.js";
-import { enumSchema } from "../api/schemas.js";
+import { enumSchema } from "../api/schema.js";
 
 const registerCredentials = Type.Object(
   {

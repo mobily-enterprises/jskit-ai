@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AppError } from "../lib/errors.js";
+import { AppError } from "../server/lib/errors.js";
 import { createAccountFlows } from "../server/modules/auth/lib/accountFlows.js";
 import { createPasswordSecurityFlows } from "../server/modules/auth/lib/passwordSecurityFlows.js";
 

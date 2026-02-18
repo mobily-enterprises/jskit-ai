@@ -1,4 +1,4 @@
-import { buildDefaultRoutes } from "../routes/api/index.js";
+import { buildDefaultRoutes } from "../modules/api/routes.js";
 
 const API_CONTRACTS_START_MARKER = "<!-- API_CONTRACTS_START -->";
 const API_CONTRACTS_END_MARKER = "<!-- API_CONTRACTS_END -->";

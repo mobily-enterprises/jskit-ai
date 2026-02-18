@@ -5,7 +5,7 @@ import {
   AUTH_EMAIL_PATTERN
 } from "../../../../shared/auth/authConstraints.js";
 import { SETTINGS_MODE_OPTIONS, SETTINGS_TIMING_OPTIONS } from "../../../../shared/settings/index.js";
-import { enumSchema } from "../../api/schemas.js";
+import { enumSchema } from "../../api/schema.js";
 
 const colorPattern = "^#[0-9A-Fa-f]{6}$";
 
