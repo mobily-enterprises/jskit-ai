@@ -65,6 +65,22 @@ function createService(options = {}) {
     await mkdir(fsBasePath, { recursive: true });
   }
 
+  async function registerDelivery(app, { fastifyStatic, decorateReply = false } = {}) {
+    if (!app || typeof app.register !== "function") {
+      throw new TypeError("Avatar delivery registration requires a Fastify app instance.");
+    }
+
+    if (typeof fastifyStatic !== "function") {
+      throw new TypeError("Avatar delivery registration requires fastifyStatic plugin.");
+    }
+
+    await app.register(fastifyStatic, {
+      root: fsBasePath,
+      prefix: `${publicBasePath}/`,
+      decorateReply
+    });
+  }
+
   function toPublicUrl(storageKey, avatarVersion) {
     if (!storageKey) {
       return null;
@@ -108,6 +124,7 @@ function createService(options = {}) {
     fsBasePath,
     publicBasePath,
     init,
+    registerDelivery,
     toPublicUrl,
     saveAvatar,
     deleteAvatar

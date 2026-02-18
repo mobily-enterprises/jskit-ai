@@ -397,11 +397,7 @@ export async function buildServer({ frontendBuildAvailable }) {
   });
 
   await avatarStorageService.init();
-  await app.register(fastifyStatic, {
-    root: avatarStorageService.fsBasePath,
-    prefix: `${avatarStorageService.publicBasePath}/`,
-    decorateReply: false
-  });
+  await avatarStorageService.registerDelivery(app, { fastifyStatic });
 
   if (frontendBuildAvailable) {
     await app.register(fastifyStatic, {
