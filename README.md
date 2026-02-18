@@ -225,7 +225,7 @@ npm run docs:api-contracts
 - `GET /api/workspaces`
 - `POST /api/workspaces/select`
 - `GET /api/workspace/invitations/pending`
-- `POST /api/workspace/invitations/:inviteId/respond`
+- `POST /api/workspace/invitations/redeem`
 - `GET /api/workspace/settings`
 - `PATCH /api/workspace/settings`
 - `GET /api/workspace/roles`

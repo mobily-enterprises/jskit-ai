@@ -85,7 +85,7 @@
                           size="small"
                           variant="text"
                           color="error"
-                          :loading="inviteAction.id === invite.id && inviteAction.decision === 'refuse'"
+                          :loading="inviteAction.token === invite.token && inviteAction.decision === 'refuse'"
                           @click="refuseInvite(invite)"
                         >
                           Refuse
@@ -94,7 +94,7 @@
                           size="small"
                           variant="tonal"
                           color="primary"
-                          :loading="inviteAction.id === invite.id && inviteAction.decision === 'accept'"
+                          :loading="inviteAction.token === invite.token && inviteAction.decision === 'accept'"
                           @click="acceptInvite(invite)"
                         >
                           Join

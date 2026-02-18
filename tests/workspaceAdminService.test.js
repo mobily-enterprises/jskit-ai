@@ -4,6 +4,14 @@ import test from "node:test";
 import { AppError } from "../lib/errors.js";
 import { createWorkspaceAdminService } from "../services/workspaceAdminService.js";
 
+function hexHash(character) {
+  return String(character || "0").repeat(64);
+}
+
+function opaqueInviteToken(tokenHash) {
+  return `inviteh_${String(tokenHash || "").toLowerCase()}`;
+}
+
 function createWorkspaceAdminFixture(overrides = {}) {
   const now = new Date();
   const futureIso = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
@@ -78,7 +86,7 @@ function createWorkspaceAdminFixture(overrides = {}) {
         workspaceId: 11,
         email: "invitee@example.com",
         roleId: "member",
-        tokenHash: "token-100",
+        tokenHash: hexHash("1"),
         invitedByUserId: 5,
         expiresAt: futureIso,
         status: "pending",
@@ -93,7 +101,7 @@ function createWorkspaceAdminFixture(overrides = {}) {
         workspaceId: 11,
         email: "expired@example.com",
         roleId: "member",
-        tokenHash: "token-101",
+        tokenHash: hexHash("2"),
         invitedByUserId: 5,
         expiresAt: pastIso,
         status: "pending",
@@ -404,18 +412,6 @@ function createWorkspaceAdminFixture(overrides = {}) {
         )
         .map((invite) => toInviteWithWorkspace(invite));
     },
-    async findPendingByIdAndEmail(inviteId, email) {
-      const normalizedEmail = String(email || "")
-        .trim()
-        .toLowerCase();
-      const found = state.invites.find(
-        (invite) =>
-          Number(invite.id) === Number(inviteId) &&
-          isInvitePendingAndUnexpired(invite) &&
-          String(invite.email || "").toLowerCase() === normalizedEmail
-      );
-      return found ? toInviteWithWorkspace(found) : null;
-    },
     async findPendingByTokenHash(tokenHash) {
       const normalizedTokenHash = String(tokenHash || "")
         .trim()
@@ -696,6 +692,8 @@ test("workspace admin service manages members, invites, and pending invite respo
     id: null
   });
   assert.equal(pendingForEmailOnly.length, 1);
+  assert.equal(typeof pendingForEmailOnly[0].token, "string");
+  assert.equal(pendingForEmailOnly[0].token.length > 0, true);
 
   const pendingFilteredByMembership = await service.listPendingInvitesForUser({
     email: "member@example.com",
@@ -704,19 +702,28 @@ test("workspace admin service manages members, invites, and pending invite respo
   assert.equal(pendingFilteredByMembership.length, 0);
 
   await assert.rejects(
-    () => service.respondToPendingInvite({ user: { id: 0, email: "" }, inviteId: 100, decision: "accept" }),
+    () =>
+      service.respondToPendingInviteByToken({
+        user: { id: 0, email: "" },
+        inviteToken: tokenInviteResponse.createdInvite.token,
+        decision: "accept"
+      }),
     (error) => error instanceof AppError && error.statusCode === 401
   );
   await assert.rejects(
     () =>
-      service.respondToPendingInvite({ user: { id: 5, email: "owner@example.com" }, inviteId: 100, decision: "bad" }),
+      service.respondToPendingInviteByToken({
+        user: { id: 5, email: "owner@example.com" },
+        inviteToken: tokenInviteResponse.createdInvite.token,
+        decision: "bad"
+      }),
     (error) => error instanceof AppError && error.statusCode === 400
   );
   await assert.rejects(
     () =>
-      service.respondToPendingInvite({
+      service.respondToPendingInviteByToken({
         user: { id: 5, email: "owner@example.com" },
-        inviteId: 9999,
+        inviteToken: "missing-token",
         decision: "accept"
       }),
     (error) => error instanceof AppError && error.statusCode === 404
@@ -775,7 +782,7 @@ test("workspace admin service manages members, invites, and pending invite respo
     workspaceId: 11,
     email: "refuse@example.com",
     roleId: "member",
-    tokenHash: "token-300",
+    tokenHash: hexHash("3"),
     invitedByUserId: 5,
     expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
     status: "pending",
@@ -785,12 +792,12 @@ test("workspace admin service manages members, invites, and pending invite respo
     },
     workspace: null
   });
-  const refused = await service.respondToPendingInvite({
+  const refused = await service.respondToPendingInviteByToken({
     user: {
       id: 40,
       email: "refuse@example.com"
     },
-    inviteId: 300,
+    inviteToken: opaqueInviteToken(hexHash("3")),
     decision: "refuse"
   });
   assert.equal(refused.decision, "refused");
@@ -800,7 +807,7 @@ test("workspace admin service manages members, invites, and pending invite respo
     workspaceId: 11,
     email: "accept@example.com",
     roleId: "admin",
-    tokenHash: "token-301",
+    tokenHash: hexHash("4"),
     invitedByUserId: 5,
     expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
     status: "pending",
@@ -810,12 +817,12 @@ test("workspace admin service manages members, invites, and pending invite respo
     },
     workspace: null
   });
-  const accepted = await service.respondToPendingInvite({
+  const accepted = await service.respondToPendingInviteByToken({
     user: {
       id: 41,
       email: "accept@example.com"
     },
-    inviteId: 301,
+    inviteToken: opaqueInviteToken(hexHash("4")),
     decision: "accept"
   });
   assert.equal(accepted.decision, "accepted");
@@ -838,7 +845,7 @@ test("workspace admin service pending invite listing uses O(1) membership lookup
       workspaceId: 2000 + index,
       email,
       roleId: "member",
-      tokenHash: `token-${9000 + index}`,
+      tokenHash: String(9000 + index).padStart(64, "0"),
       invitedByUserId: 5,
       expiresAt: futureIso,
       status: "pending",
@@ -1010,6 +1017,7 @@ test("workspace admin service rolls back invite acceptance when downstream write
       workspaceId: 11,
       email: "accept@example.com",
       roleId: "admin",
+      tokenHash: hexHash("6"),
       status: "pending",
       invitedByUserId: 5,
       expiresAt: "2030-01-01T00:00:00.000Z",
@@ -1038,12 +1046,8 @@ test("workspace admin service rolls back invite acceptance when downstream write
       }
     },
     async markExpiredPendingInvites() {},
-    async findPendingByIdAndEmail(inviteId, email) {
-      if (
-        Number(inviteId) === Number(state.invite.id) &&
-        String(email || "").toLowerCase() === String(state.invite.email || "").toLowerCase() &&
-        state.invite.status === "pending"
-      ) {
+    async findPendingByTokenHash(tokenHash) {
+      if (String(tokenHash || "").toLowerCase() === String(state.invite.tokenHash || "").toLowerCase()) {
         return {
           ...state.invite,
           workspace: {
@@ -1137,12 +1141,12 @@ test("workspace admin service rolls back invite acceptance when downstream write
 
   await assert.rejects(
     () =>
-      service.respondToPendingInvite({
+      service.respondToPendingInviteByToken({
         user: {
           id: 41,
           email: "accept@example.com"
         },
-        inviteId: 301,
+        inviteToken: opaqueInviteToken(state.invite.tokenHash),
         decision: "accept"
       }),
     /accept write failed/
@@ -1251,8 +1255,9 @@ test("workspace admin service normalizes sparse member/invite data and fallback 
 
   const inviteBase = {
     workspaceId: 11,
-    email: "",
+    email: "pending@example.com",
     roleId: "",
+    tokenHash: hexHash("a"),
     status: "",
     expiresAt: "2030-01-01T00:00:00.000Z",
     invitedByUserId: null,
@@ -1260,6 +1265,13 @@ test("workspace admin service normalizes sparse member/invite data and fallback 
       displayName: "",
       email: ""
     }
+  };
+  const tokenHashByInviteId = {
+    600: hexHash("a"),
+    700: hexHash("b"),
+    701: hexHash("c"),
+    702: hexHash("d"),
+    703: hexHash("e")
   };
 
   const workspaceInvitesRepository = {
@@ -1313,6 +1325,7 @@ test("workspace admin service normalizes sparse member/invite data and fallback 
           {
             id: 600,
             ...inviteBase,
+            tokenHash: tokenHashByInviteId[600],
             workspace: {
               id: 11,
               slug: "",
@@ -1325,18 +1338,20 @@ test("workspace admin service normalizes sparse member/invite data and fallback 
       }
       return [];
     },
-    async findPendingByIdAndEmail(inviteId) {
-      if (Number(inviteId) === 700) {
+    async findPendingByTokenHash(tokenHash) {
+      if (String(tokenHash || "") === tokenHashByInviteId[700]) {
         return {
           id: 700,
           ...inviteBase,
+          tokenHash: tokenHashByInviteId[700],
           workspace: null
         };
       }
-      if (Number(inviteId) === 701) {
+      if (String(tokenHash || "") === tokenHashByInviteId[701]) {
         return {
           id: 701,
           ...inviteBase,
+          tokenHash: tokenHashByInviteId[701],
           workspace: {
             id: 11,
             slug: "",
@@ -1346,10 +1361,11 @@ test("workspace admin service normalizes sparse member/invite data and fallback 
           }
         };
       }
-      if (Number(inviteId) === 702) {
+      if (String(tokenHash || "") === tokenHashByInviteId[702]) {
         return {
           id: 702,
           ...inviteBase,
+          tokenHash: tokenHashByInviteId[702],
           roleId: "member",
           workspace: {
             id: 11,
@@ -1360,10 +1376,11 @@ test("workspace admin service normalizes sparse member/invite data and fallback 
           }
         };
       }
-      if (Number(inviteId) === 703) {
+      if (String(tokenHash || "") === tokenHashByInviteId[703]) {
         return {
           id: 703,
           ...inviteBase,
+          tokenHash: tokenHashByInviteId[703],
           workspace: null
         };
       }
@@ -1468,35 +1485,37 @@ test("workspace admin service normalizes sparse member/invite data and fallback 
     email: "pending@example.com"
   });
   assert.equal(pendingSome.length, 1);
+  assert.equal(typeof pendingSome[0].token, "string");
+  assert.equal(pendingSome[0].token.length > 0, true);
 
   await assert.rejects(
     () =>
-      service.respondToPendingInvite({
+      service.respondToPendingInviteByToken({
         user: {
           id: 99,
           email: "pending@example.com"
         },
-        inviteId: 700
+        inviteToken: opaqueInviteToken(tokenHashByInviteId[700])
       }),
     (error) => error instanceof AppError && error.statusCode === 400
   );
 
-  const refusedNullWorkspace = await service.respondToPendingInvite({
+  const refusedNullWorkspace = await service.respondToPendingInviteByToken({
     user: {
       id: 99,
       email: "pending@example.com"
     },
-    inviteId: 700,
+    inviteToken: opaqueInviteToken(tokenHashByInviteId[700]),
     decision: "refuse"
   });
   assert.equal(refusedNullWorkspace.workspace, null);
 
-  const refusedWithSparseWorkspace = await service.respondToPendingInvite({
+  const refusedWithSparseWorkspace = await service.respondToPendingInviteByToken({
     user: {
       id: 99,
       email: "pending@example.com"
     },
-    inviteId: 702,
+    inviteToken: opaqueInviteToken(tokenHashByInviteId[702]),
     decision: "refuse"
   });
   assert.deepEqual(refusedWithSparseWorkspace.workspace, {
@@ -1507,12 +1526,12 @@ test("workspace admin service normalizes sparse member/invite data and fallback 
     avatarUrl: ""
   });
 
-  const acceptedWithSparseWorkspace = await service.respondToPendingInvite({
+  const acceptedWithSparseWorkspace = await service.respondToPendingInviteByToken({
     user: {
       id: 100,
       email: "pending@example.com"
     },
-    inviteId: 701,
+    inviteToken: opaqueInviteToken(tokenHashByInviteId[701]),
     decision: "accept"
   });
   assert.deepEqual(acceptedWithSparseWorkspace.workspace, {
@@ -1523,12 +1542,12 @@ test("workspace admin service normalizes sparse member/invite data and fallback 
     avatarUrl: ""
   });
 
-  const acceptedNullWorkspace = await service.respondToPendingInvite({
+  const acceptedNullWorkspace = await service.respondToPendingInviteByToken({
     user: {
       id: 100,
       email: "pending@example.com"
     },
-    inviteId: 703,
+    inviteToken: opaqueInviteToken(tokenHashByInviteId[703]),
     decision: "accept"
   });
   assert.equal(acceptedNullWorkspace.workspace, null);

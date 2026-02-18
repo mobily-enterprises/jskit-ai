@@ -21,7 +21,7 @@ export function useWorkspacesView() {
   const messageType = ref("error");
   const selectingWorkspaceSlug = ref("");
   const inviteAction = ref({
-    id: 0,
+    token: "",
     decision: ""
   });
 
@@ -57,13 +57,13 @@ export function useWorkspacesView() {
 
   async function acceptInvite(invite) {
     inviteAction.value = {
-      id: Number(invite?.id || 0),
+      token: String(invite?.token || ""),
       decision: "accept"
     };
     message.value = "";
 
     try {
-      const response = await workspaceStore.respondToPendingInvite(invite.id, "accept");
+      const response = await workspaceStore.respondToPendingInvite(invite.token, "accept");
       const slug = String(response?.workspace?.slug || invite.workspaceSlug || "");
       await navigate({
         to: surfacePaths.value.workspaceHomePath(slug),
@@ -74,7 +74,7 @@ export function useWorkspacesView() {
       message.value = String(error?.message || "Unable to accept invite.");
     } finally {
       inviteAction.value = {
-        id: 0,
+        token: "",
         decision: ""
       };
     }
@@ -82,13 +82,13 @@ export function useWorkspacesView() {
 
   async function refuseInvite(invite) {
     inviteAction.value = {
-      id: Number(invite?.id || 0),
+      token: String(invite?.token || ""),
       decision: "refuse"
     };
     message.value = "";
 
     try {
-      await workspaceStore.respondToPendingInvite(invite.id, "refuse");
+      await workspaceStore.respondToPendingInvite(invite.token, "refuse");
       messageType.value = "success";
       message.value = "Invitation refused.";
     } catch (error) {
@@ -96,7 +96,7 @@ export function useWorkspacesView() {
       message.value = String(error?.message || "Unable to refuse invite.");
     } finally {
       inviteAction.value = {
-        id: 0,
+        token: "",
         decision: ""
       };
     }

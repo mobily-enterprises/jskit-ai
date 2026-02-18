@@ -204,25 +204,6 @@ function createWorkspaceInvitesRepository(dbClient) {
     return mapWorkspaceInviteRowNullable(row);
   }
 
-  async function repoFindPendingByIdAndEmail(inviteId, email, options = {}) {
-    const normalizedEmail = normalizeEmail(email);
-    if (!normalizedEmail) {
-      return null;
-    }
-
-    const client = resolveClient(options);
-    const row = await createInviteBaseQuery(client, true)
-      .where({
-        "wi.id": inviteId,
-        "wi.email": normalizedEmail,
-        "wi.status": "pending"
-      })
-      .andWhere("wi.expires_at", ">", toMysqlDateTimeUtc(new Date()))
-      .first();
-
-    return mapWorkspaceInviteRowNullable(row);
-  }
-
   async function repoFindPendingByTokenHash(tokenHash, options = {}) {
     const normalizedTokenHash = String(tokenHash || "")
       .trim()
@@ -318,7 +299,6 @@ function createWorkspaceInvitesRepository(dbClient) {
     findById: repoFindById,
     findPendingByWorkspaceIdAndEmail: repoFindPendingByWorkspaceIdAndEmail,
     findPendingByIdForWorkspace: repoFindPendingByIdForWorkspace,
-    findPendingByIdAndEmail: repoFindPendingByIdAndEmail,
     findPendingByTokenHash: repoFindPendingByTokenHash,
     updateStatusById: repoUpdateStatusById,
     revokeById: repoRevokeById,
@@ -347,7 +327,6 @@ export const {
   findById,
   findPendingByWorkspaceIdAndEmail,
   findPendingByIdForWorkspace,
-  findPendingByIdAndEmail,
   findPendingByTokenHash,
   updateStatusById,
   revokeById,

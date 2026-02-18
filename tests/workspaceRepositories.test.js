@@ -485,16 +485,12 @@ test("workspace invites repository handles mapping, find/list, and status transi
   const pendingByIdForWorkspace = await repo.findPendingByIdForWorkspace(4, 11);
   assert.equal(pendingByIdForWorkspace.id, 4);
 
-  assert.equal(await repo.findPendingByIdAndEmail(5, ""), null);
-  const pendingByIdAndEmail = await repo.findPendingByIdAndEmail(5, "invitee@example.com");
-  assert.equal(pendingByIdAndEmail.id, 5);
-
   const updatedStatus = await repo.updateStatusById(6, "accepted");
-  assert.equal(updatedStatus.id, 6);
+  assert.equal(updatedStatus.id, 5);
   const revoked = await repo.revokeById(7);
-  assert.equal(revoked.id, 7);
+  assert.equal(revoked.id, 6);
   const accepted = await repo.markAcceptedById(8);
-  assert.equal(accepted.id, 8);
+  assert.equal(accepted.id, 7);
 
   const insertedDefaults = await repo.insert({
     workspaceId: 11,
@@ -505,19 +501,19 @@ test("workspace invites repository handles mapping, find/list, and status transi
     expiresAt: "2030-01-01T00:00:00.000Z",
     status: ""
   });
-  assert.equal(insertedDefaults.id, 9);
+  assert.equal(insertedDefaults.id, 8);
   assert.equal(stub.state.inserts[1][1].role_id, "");
   assert.equal(stub.state.inserts[1][1].token_hash, "");
   assert.equal(stub.state.inserts[1][1].invited_by_user_id, null);
   assert.equal(stub.state.inserts[1][1].status, "pending");
 
   const updatedDefaultStatus = await repo.updateStatusById(10);
-  assert.equal(updatedDefaultStatus.id, 10);
+  assert.equal(updatedDefaultStatus.id, 9);
   assert.equal(stub.state.updates.at(-1)[1].status, "");
 
   assert.equal(await repo.findPendingByTokenHash(""), null);
   const pendingByTokenHash = await repo.findPendingByTokenHash("hash");
-  assert.equal(pendingByTokenHash.id, 11);
+  assert.equal(pendingByTokenHash.id, 10);
 
   assert.equal(await repo.expirePendingByWorkspaceIdAndEmail(11, ""), 0);
   const expiredForWorkspaceAndEmail = await repo.expirePendingByWorkspaceIdAndEmail(11, " INVITEE@EXAMPLE.COM ");

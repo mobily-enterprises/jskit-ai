@@ -102,6 +102,7 @@ function createWorkspaceServiceFixture(options = {}) {
           {
             id: 201,
             workspaceId: 11,
+            tokenHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             roleId: "member",
             status: "pending",
             expiresAt: "2030-01-01T00:00:00.000Z",
@@ -779,6 +780,8 @@ test("workspace service pending invite listing handles unsupported repositories 
   });
   assert.equal(pending.length, 1);
   assert.equal(pending[0].workspaceSlug, "acme");
+  assert.equal(typeof pending[0].token, "string");
+  assert.equal(pending[0].token.length > 0, true);
 
   fixture.state.membershipsLookup.set("11:5", {
     workspaceId: 11,
@@ -873,6 +876,7 @@ test("workspace service pending invite listing uses O(1) membership lookups for 
     invites.push({
       id: 3000 + index,
       workspaceId,
+      tokenHash: String(3000 + index).padStart(64, "0"),
       roleId: "member",
       status: "pending",
       expiresAt: "2030-01-01T00:00:00.000Z",

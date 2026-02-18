@@ -109,10 +109,15 @@ function normalizePendingInvite(invite) {
   if (!workspaceSlug) {
     return null;
   }
+  const token = String(invite.token || "").trim();
+  if (!token) {
+    return null;
+  }
 
   return {
     id,
     workspaceId,
+    token,
     workspaceSlug,
     workspaceName: String(invite.workspaceName || workspaceSlug),
     workspaceAvatarUrl: invite.workspaceAvatarUrl ? String(invite.workspaceAvatarUrl) : "",
@@ -268,13 +273,13 @@ export const useWorkspaceStore = defineStore("workspace", {
     setPendingInvites(pendingInvites) {
       this.pendingInvites = normalizeArray(pendingInvites).map(normalizePendingInvite).filter(Boolean);
     },
-    removePendingInvite(inviteId) {
-      const numericInviteId = Number(inviteId);
-      if (!Number.isInteger(numericInviteId) || numericInviteId < 1) {
+    removePendingInvite(inviteToken) {
+      const normalizedInviteToken = String(inviteToken || "").trim();
+      if (!normalizedInviteToken) {
         return;
       }
 
-      this.pendingInvites = this.pendingInvites.filter((invite) => Number(invite.id) !== numericInviteId);
+      this.pendingInvites = this.pendingInvites.filter((invite) => String(invite.token || "") !== normalizedInviteToken);
     },
     can(permission) {
       const normalized = String(permission || "").trim();
@@ -299,14 +304,16 @@ export const useWorkspaceStore = defineStore("workspace", {
       this.applyWorkspaceSelection(payload);
       return payload;
     },
-    async respondToPendingInvite(inviteId, decision) {
-      const response = await api.respondWorkspaceInvite(inviteId, {
+    async respondToPendingInvite(inviteToken, decision) {
+      const normalizedInviteToken = String(inviteToken || "").trim();
+      const response = await api.redeemWorkspaceInvite({
+        token: normalizedInviteToken,
         decision: String(decision || "")
           .trim()
           .toLowerCase()
       });
 
-      this.removePendingInvite(response?.inviteId || inviteId);
+      this.removePendingInvite(normalizedInviteToken);
 
       if (String(response?.decision || "") === "accepted" && response?.workspace?.slug) {
         const selection = await this.selectWorkspace(response.workspace.slug);

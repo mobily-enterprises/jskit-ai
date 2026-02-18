@@ -1,7 +1,13 @@
-import crypto from "node:crypto";
 import { AppError } from "../lib/errors.js";
 import { OWNER_ROLE_ID } from "../lib/rbacManifest.js";
 import { extractAppSurfacePolicy } from "../surfaces/appSurface.js";
+import {
+  buildInviteToken,
+  encodeInviteTokenHash,
+  hashInviteToken,
+  normalizeInviteToken,
+  resolveInviteTokenHash
+} from "./workspace/lib/inviteTokens.js";
 import {
   normalizeEmail,
   parsePositiveInteger,
@@ -178,14 +184,6 @@ function createWorkspaceAdminService({
           avatarUrl: workspace.avatarUrl ? String(workspace.avatarUrl) : ""
         }
       : null;
-  }
-
-  function buildInviteToken() {
-    return crypto.randomBytes(24).toString("hex");
-  }
-
-  function hashInviteToken(token) {
-    return crypto.createHash("sha256").update(String(token || "")).digest("hex");
   }
 
   function resolveInviteExpiresAt() {
@@ -541,7 +539,12 @@ function createWorkspaceAdminService({
     const userId = parsePositiveInteger(user?.id);
 
     if (!userId) {
-      return pending.map(mapInvite);
+      return pending
+        .map((invite) => ({
+          ...mapInvite(invite),
+          token: encodeInviteTokenHash(invite?.tokenHash)
+        }))
+        .filter((invite) => Boolean(invite.token));
     }
 
     const membershipByWorkspaceId = await listInviteMembershipsByWorkspaceId(userId, pending);
@@ -551,44 +554,12 @@ function createWorkspaceAdminService({
       return !membership || membership.status !== "active";
     });
 
-    return filtered.map(mapInvite);
-  }
-
-  async function respondToPendingInvite({ user, inviteId, decision }) {
-    const userId = parsePositiveInteger(user?.id);
-    const email = normalizeEmail(user?.email);
-    if (!userId || !email) {
-      throw new AppError(401, "Authentication required.");
-    }
-
-    const normalizedDecision = String(decision || "")
-      .trim()
-      .toLowerCase();
-    if (normalizedDecision !== "accept" && normalizedDecision !== "refuse") {
-      throw new AppError(400, "Validation failed.", {
-        details: {
-          fieldErrors: {
-            decision: "decision must be accept or refuse."
-          }
-        }
-      });
-    }
-
-    return runInAdminTransaction(async (trx) => {
-      const options = trx ? { trx } : {};
-
-      const invite = await workspaceInvitesRepository.findPendingByIdAndEmail(inviteId, email, options);
-      if (!invite) {
-        throw new AppError(404, "Invite not found.");
-      }
-
-      return resolveInviteResponse({
-        invite,
-        normalizedDecision,
-        userId,
-        transactionOptions: options
-      });
-    });
+    return filtered
+      .map((invite) => ({
+        ...mapInvite(invite),
+        token: encodeInviteTokenHash(invite?.tokenHash)
+      }))
+      .filter((invite) => Boolean(invite.token));
   }
 
   async function respondToPendingInviteByToken({ user, inviteToken, decision }) {
@@ -611,7 +582,7 @@ function createWorkspaceAdminService({
       });
     }
 
-    const normalizedInviteToken = String(inviteToken || "").trim();
+    const normalizedInviteToken = normalizeInviteToken(inviteToken);
     if (!normalizedInviteToken) {
       throw new AppError(400, "Validation failed.", {
         details: {
@@ -621,10 +592,20 @@ function createWorkspaceAdminService({
         }
       });
     }
+    const inviteTokenHash = resolveInviteTokenHash(normalizedInviteToken);
+    if (!inviteTokenHash) {
+      throw new AppError(400, "Validation failed.", {
+        details: {
+          fieldErrors: {
+            token: "token is invalid."
+          }
+        }
+      });
+    }
 
     return runInAdminTransaction(async (trx) => {
       const options = trx ? { trx } : {};
-      const invite = await workspaceInvitesRepository.findPendingByTokenHash(hashInviteToken(normalizedInviteToken), options);
+      const invite = await workspaceInvitesRepository.findPendingByTokenHash(inviteTokenHash, options);
       if (!invite) {
         throw new AppError(404, "Invite not found.");
       }
@@ -660,7 +641,6 @@ function createWorkspaceAdminService({
     createInvite,
     revokeInvite,
     listPendingInvitesForUser,
-    respondToPendingInvite,
     respondToPendingInviteByToken
   };
 }

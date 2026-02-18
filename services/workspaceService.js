@@ -19,6 +19,7 @@ import {
   createWorkspaceSettingsDefaults,
   createMembershipIndexes
 } from "./workspace/lib/workspaceHelpers.js";
+import { encodeInviteTokenHash } from "./workspace/lib/inviteTokens.js";
 
 function isMysqlDuplicateEntryError(error) {
   if (!error) {
@@ -371,7 +372,14 @@ function createWorkspaceService({
       return !existingMembership || existingMembership.status !== "active";
     });
 
-    return filtered.map(mapPendingInviteSummary);
+    return filtered
+      .map((invite) =>
+        mapPendingInviteSummary({
+          ...invite,
+          token: encodeInviteTokenHash(invite?.tokenHash)
+        })
+      )
+      .filter((invite) => Boolean(invite.token));
   }
 
   async function mapAccessibleMembershipWorkspaces({ user, surfaceId, memberships, workspaceSettingsCache }) {

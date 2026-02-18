@@ -137,7 +137,21 @@ test("workspace controller delegates workspace and admin routes to services", as
     },
     async listPendingInvitesForUser(user) {
       calls.push(["listPendingInvitesForUser", user.id]);
-      return [{ id: 15 }];
+      return [
+        {
+          id: 15,
+          workspaceId: 11,
+          token: "inviteh_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          workspaceSlug: "acme",
+          workspaceName: "Acme",
+          workspaceAvatarUrl: "",
+          roleId: "member",
+          status: "pending",
+          expiresAt: "2030-01-01T00:00:00.000Z",
+          invitedByDisplayName: "Owner",
+          invitedByEmail: "owner@example.com"
+        }
+      ];
     }
   };
   const workspaceAdminService = {
@@ -172,10 +186,6 @@ test("workspace controller delegates workspace and admin routes to services", as
     async revokeInvite(workspace, inviteId) {
       calls.push(["revokeInvite", workspace.id, inviteId]);
       return { invites: [] };
-    },
-    async respondToPendingInvite({ user, inviteId, decision }) {
-      calls.push(["respondToPendingInvite", user.id, inviteId, decision]);
-      return { ok: true, decision };
     },
     async respondToPendingInviteByToken({ user, inviteToken, decision }) {
       calls.push(["respondToPendingInviteByToken", user.id, inviteToken, decision]);
@@ -343,33 +353,22 @@ test("workspace controller delegates workspace and admin routes to services", as
   await controller.listPendingInvites({ user }, pendingReply);
   assert.equal(pendingReply.statusCode, 200);
   assert.deepEqual(pendingReply.payload, {
-    pendingInvites: [{ id: 15 }]
-  });
-
-  const respondReply = createReplyDouble();
-  await controller.respondToPendingInvite(
-    {
-      user,
-      params: {
-        inviteId: "90"
-      },
-      body: {
-        decision: "accept"
+    pendingInvites: [
+      {
+        id: 15,
+        workspaceId: 11,
+        token: "inviteh_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        workspaceSlug: "acme",
+        workspaceName: "Acme",
+        workspaceAvatarUrl: "",
+        roleId: "member",
+        status: "pending",
+        expiresAt: "2030-01-01T00:00:00.000Z",
+        invitedByDisplayName: "Owner",
+        invitedByEmail: "owner@example.com"
       }
-    },
-    respondReply
-  );
-  assert.equal(respondReply.statusCode, 200);
-  assert.equal(respondReply.payload.ok, true);
-
-  const respondFallbackReply = createReplyDouble();
-  await controller.respondToPendingInvite(
-    {
-      user
-    },
-    respondFallbackReply
-  );
-  assert.equal(respondFallbackReply.statusCode, 200);
+    ]
+  });
 
   const respondByTokenReply = createReplyDouble();
   await controller.respondToPendingInviteByToken(
@@ -387,10 +386,6 @@ test("workspace controller delegates workspace and admin routes to services", as
 
   assert.equal(
     calls.some((entry) => entry[0] === "listWorkspacesForUser"),
-    true
-  );
-  assert.equal(
-    calls.some((entry) => entry[0] === "respondToPendingInvite"),
     true
   );
   assert.equal(

@@ -104,16 +104,6 @@ function createWorkspaceController({ authService, workspaceService, workspaceAdm
     });
   }
 
-  async function respondToPendingInvite(request, reply) {
-    const payload = request.body || {};
-    const response = await workspaceAdminService.respondToPendingInvite({
-      user: request.user,
-      inviteId: request.params?.inviteId,
-      decision: payload.decision
-    });
-    reply.code(200).send(response);
-  }
-
   async function respondToPendingInviteByToken(request, reply) {
     const payload = request.body || {};
     const response = await workspaceAdminService.respondToPendingInviteByToken({
@@ -137,7 +127,6 @@ function createWorkspaceController({ authService, workspaceService, workspaceAdm
     createWorkspaceInvite,
     revokeWorkspaceInvite,
     listPendingInvites,
-    respondToPendingInvite,
     respondToPendingInviteByToken
   };
 }

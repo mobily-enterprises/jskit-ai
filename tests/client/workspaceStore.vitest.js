@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   bootstrapApi: vi.fn(),
   pendingWorkspaceInvitesApi: vi.fn(),
   selectWorkspaceApi: vi.fn(),
-  respondWorkspaceInviteApi: vi.fn()
+  redeemWorkspaceInviteApi: vi.fn()
 }));
 
 vi.mock("../../src/services/api", () => ({
@@ -13,7 +13,7 @@ vi.mock("../../src/services/api", () => ({
     bootstrap: mocks.bootstrapApi,
     pendingWorkspaceInvites: mocks.pendingWorkspaceInvitesApi,
     selectWorkspace: mocks.selectWorkspaceApi,
-    respondWorkspaceInvite: mocks.respondWorkspaceInviteApi
+    redeemWorkspaceInvite: mocks.redeemWorkspaceInviteApi
   }
 }));
 
@@ -25,7 +25,7 @@ describe("workspaceStore", () => {
     mocks.bootstrapApi.mockReset();
     mocks.pendingWorkspaceInvitesApi.mockReset();
     mocks.selectWorkspaceApi.mockReset();
-    mocks.respondWorkspaceInviteApi.mockReset();
+    mocks.redeemWorkspaceInviteApi.mockReset();
     window.history.replaceState({}, "", "/w/acme");
   });
 
@@ -72,6 +72,7 @@ describe("workspaceStore", () => {
         {
           id: 7,
           workspaceId: 1,
+          token: "inviteh_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           workspaceSlug: "acme",
           workspaceName: "Acme",
           roleId: "member",
@@ -201,7 +202,12 @@ describe("workspaceStore", () => {
         null,
         { id: 4, workspaceId: 2, workspaceSlug: "" },
         { id: "x", workspaceId: 2, workspaceSlug: "invalid-id" },
-        { id: 5, workspaceId: 2, workspaceSlug: "valid" }
+        {
+          id: 5,
+          workspaceId: 2,
+          token: "inviteh_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          workspaceSlug: "valid"
+        }
       ],
       activeWorkspace: {
         id: 99,
@@ -301,6 +307,7 @@ describe("workspaceStore", () => {
       {
         id: 11,
         workspaceId: 3,
+        token: "inviteh_cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         workspaceSlug: "alpha"
       },
       {
@@ -312,7 +319,7 @@ describe("workspaceStore", () => {
     store.removePendingInvite("oops");
     expect(store.pendingInvitesCount).toBe(1);
 
-    store.removePendingInvite(11);
+    store.removePendingInvite("inviteh_cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
     expect(store.pendingInvitesCount).toBe(0);
 
     store.permissions = ["workspace.members.view"];
@@ -352,6 +359,7 @@ describe("workspaceStore", () => {
         {
           id: 4,
           workspaceId: 1,
+          token: "inviteh_dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
           workspaceSlug: "acme",
           workspaceAvatarUrl: "https://example.com/workspace.png"
         }
@@ -407,11 +415,15 @@ describe("workspaceStore", () => {
       workspaceSlug: ""
     });
 
-    mocks.respondWorkspaceInviteApi.mockResolvedValueOnce({
+    mocks.redeemWorkspaceInviteApi.mockResolvedValueOnce({
       decision: "ignored"
     });
-    const response = await store.respondToPendingInvite(77, undefined);
-    expect(mocks.respondWorkspaceInviteApi).toHaveBeenLastCalledWith(77, {
+    const response = await store.respondToPendingInvite(
+      "inviteh_7777777777777777777777777777777777777777777777777777777777777777",
+      undefined
+    );
+    expect(mocks.redeemWorkspaceInviteApi).toHaveBeenLastCalledWith({
+      token: "inviteh_7777777777777777777777777777777777777777777777777777777777777777",
       decision: ""
     });
     expect(response.decision).toBe("ignored");
@@ -429,6 +441,7 @@ describe("workspaceStore", () => {
         {
           id: 17,
           workspaceId: 8,
+          token: "inviteh_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
           workspaceSlug: "beta"
         }
       ]
@@ -469,11 +482,12 @@ describe("workspaceStore", () => {
       {
         id: 9,
         workspaceId: 9,
+        token: "inviteh_ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
         workspaceSlug: "acme"
       }
     ]);
 
-    mocks.respondWorkspaceInviteApi.mockResolvedValueOnce({
+    mocks.redeemWorkspaceInviteApi.mockResolvedValueOnce({
       inviteId: 9,
       decision: "accepted",
       workspace: {
@@ -481,9 +495,13 @@ describe("workspaceStore", () => {
       }
     });
 
-    const accepted = await store.respondToPendingInvite(9, "ACCEPT");
+    const accepted = await store.respondToPendingInvite(
+      "inviteh_ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "ACCEPT"
+    );
 
-    expect(mocks.respondWorkspaceInviteApi).toHaveBeenCalledWith(9, {
+    expect(mocks.redeemWorkspaceInviteApi).toHaveBeenCalledWith({
+      token: "inviteh_ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
       decision: "accept"
     });
     expect(accepted.selection.workspace.slug).toBe("acme");
@@ -493,15 +511,19 @@ describe("workspaceStore", () => {
       {
         id: 10,
         workspaceId: 9,
+        token: "inviteh_9999999999999999999999999999999999999999999999999999999999999999",
         workspaceSlug: "acme"
       }
     ]);
-    mocks.respondWorkspaceInviteApi.mockResolvedValueOnce({
+    mocks.redeemWorkspaceInviteApi.mockResolvedValueOnce({
       inviteId: 10,
       decision: "refused"
     });
 
-    const refused = await store.respondToPendingInvite(10, "refuse");
+    const refused = await store.respondToPendingInvite(
+      "inviteh_9999999999999999999999999999999999999999999999999999999999999999",
+      "refuse"
+    );
     expect(refused.decision).toBe("refused");
     expect(store.pendingInvitesCount).toBe(0);
   });

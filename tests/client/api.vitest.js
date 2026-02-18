@@ -429,7 +429,6 @@ describe("client api transport", () => {
     await api.workspaces();
     await api.selectWorkspace({ workspaceSlug: "acme" });
     await api.pendingWorkspaceInvites();
-    await api.respondWorkspaceInvite("invite id/1", { decision: "accept" });
     await api.redeemWorkspaceInvite({ token: "invite-token", decision: "accept" });
     await api.workspaceSettings();
     await api.updateWorkspaceSettings({ name: "Acme" });
@@ -450,7 +449,6 @@ describe("client api transport", () => {
     expect(urls).toContain("/api/workspaces");
     expect(urls).toContain("/api/workspaces/select");
     expect(urls).toContain("/api/workspace/invitations/pending");
-    expect(urls).toContain("/api/workspace/invitations/invite%20id%2F1/respond");
     expect(urls).toContain("/api/workspace/invitations/redeem");
     expect(urls).toContain("/api/workspace/settings");
     expect(urls).toContain("/api/workspace/roles");
@@ -540,14 +538,12 @@ describe("client api transport", () => {
     expect(api.oauthStartUrl()).toBe("/api/oauth//start");
     expect(api.settingsOAuthLinkStartUrl()).toBe("/api/settings/security/oauth//start");
 
-    await api.respondWorkspaceInvite(undefined, { decision: "accept" });
     await api.redeemWorkspaceInvite({ token: "", decision: "accept" });
     await api.updateWorkspaceMemberRole(undefined, { roleId: "member" });
     await api.revokeWorkspaceInvite(undefined);
     await api.unlinkSettingsOAuthProvider(undefined);
 
     const urls = global.fetch.mock.calls.map(([url]) => url);
-    expect(urls).toContain("/api/workspace/invitations//respond");
     expect(urls).toContain("/api/workspace/invitations/redeem");
     expect(urls).toContain("/api/workspace/members//role");
     expect(urls).toContain("/api/workspace/invites/");

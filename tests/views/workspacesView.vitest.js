@@ -143,6 +143,7 @@ describe("useWorkspacesView", () => {
 
     const invite = {
       id: 9,
+      token: "inviteh_9999999999999999999999999999999999999999999999999999999999999999",
       workspaceSlug: "team-nine",
       workspaceName: "Team Nine",
       roleId: "member"
@@ -156,12 +157,15 @@ describe("useWorkspacesView", () => {
     });
 
     await wrapper.vm.vm.actions.acceptInvite(invite);
-    expect(mocks.workspaceStore.respondToPendingInvite).toHaveBeenCalledWith(9, "accept");
+    expect(mocks.workspaceStore.respondToPendingInvite).toHaveBeenCalledWith(
+      "inviteh_9999999999999999999999999999999999999999999999999999999999999999",
+      "accept"
+    );
     expect(mocks.navigate).toHaveBeenCalledWith({
       to: "/w/joined",
       replace: true
     });
-    expect(wrapper.vm.vm.selection.inviteAction).toEqual({ id: 0, decision: "" });
+    expect(wrapper.vm.vm.selection.inviteAction).toEqual({ token: "", decision: "" });
 
     mocks.workspaceStore.respondToPendingInvite.mockResolvedValueOnce({
       decision: "refused"

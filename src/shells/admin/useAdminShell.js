@@ -197,13 +197,13 @@ export function useAdminShell() {
 
   async function respondToInvite(decision) {
     const invite = inviteDialogInvite.value;
-    if (!invite?.id) {
+    if (!invite?.token) {
       return;
     }
 
     inviteDecisionBusy.value = true;
     try {
-      const result = await workspaceStore.respondToPendingInvite(invite.id, decision);
+      const result = await workspaceStore.respondToPendingInvite(invite.token, decision);
 
       if (result?.decision === "accepted" && result?.workspace?.slug) {
         await navigate({

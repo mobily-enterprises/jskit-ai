@@ -329,6 +329,7 @@ const pendingInviteSummarySchema = Type.Object(
   {
     id: Type.Integer({ minimum: 1 }),
     workspaceId: Type.Integer({ minimum: 1 }),
+    token: Type.String({ minLength: 16, maxLength: 256 }),
     workspaceSlug: Type.String({ minLength: 1, maxLength: 120 }),
     workspaceName: Type.String({ minLength: 1, maxLength: 160 }),
     workspaceAvatarUrl: Type.String(),
@@ -555,15 +556,6 @@ const workspaceRolesResponseSchema = Type.Object(
 const pendingInvitesResponseSchema = Type.Object(
   {
     pendingInvites: Type.Array(pendingInviteSummarySchema)
-  },
-  {
-    additionalProperties: false
-  }
-);
-
-const respondToPendingInviteBodySchema = Type.Object(
-  {
-    decision: enumSchema(["accept", "refuse"])
   },
   {
     additionalProperties: false
@@ -1057,7 +1049,6 @@ export {
   workspaceCreateInviteBodySchema,
   workspaceRolesResponseSchema,
   pendingInvitesResponseSchema,
-  respondToPendingInviteBodySchema,
   redeemPendingInviteBodySchema,
   respondToPendingInviteResponseSchema,
   bootstrapResponseSchema,

@@ -303,6 +303,7 @@ describe("useAdminShell", () => {
 
     wrapper.vm.shell.actions.openInviteDialog({
       id: "invite-1",
+      token: "inviteh_1111111111111111111111111111111111111111111111111111111111111111",
       email: "member@example.com"
     });
     expect(wrapper.vm.shell.dialogs.inviteDialogVisible.value).toBe(true);
@@ -321,14 +322,20 @@ describe("useAdminShell", () => {
     expect(wrapper.vm.shell.feedback.menuNoticeMessage.value).toContain("Joined Bravo");
     expect(wrapper.vm.shell.dialogs.inviteDialogVisible.value).toBe(false);
 
-    wrapper.vm.shell.actions.openInviteDialog({ id: "invite-2" });
+    wrapper.vm.shell.actions.openInviteDialog({
+      id: "invite-2",
+      token: "inviteh_2222222222222222222222222222222222222222222222222222222222222222"
+    });
     mocks.workspaceStore.respondToPendingInvite.mockResolvedValueOnce({
       decision: "refused"
     });
     await wrapper.vm.shell.actions.respondToInvite("refused");
     expect(wrapper.vm.shell.feedback.menuNoticeMessage.value).toBe("Invitation refused.");
 
-    wrapper.vm.shell.actions.openInviteDialog({ id: "invite-3" });
+    wrapper.vm.shell.actions.openInviteDialog({
+      id: "invite-3",
+      token: "inviteh_3333333333333333333333333333333333333333333333333333333333333333"
+    });
     mocks.workspaceStore.respondToPendingInvite.mockRejectedValueOnce(new Error("Unable to process invitation."));
     await wrapper.vm.shell.actions.respondToInvite("accepted");
     expect(wrapper.vm.shell.feedback.menuNoticeMessage.value).toContain("Unable to process invitation");

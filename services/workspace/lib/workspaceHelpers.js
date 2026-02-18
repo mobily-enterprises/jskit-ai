@@ -136,6 +136,7 @@ function mapPendingInviteSummary(invite) {
   return {
     id: Number(invite.id),
     workspaceId: Number(invite.workspaceId),
+    token: String(invite.token || ""),
     workspaceSlug: String(invite.workspace?.slug || ""),
     workspaceName: String(invite.workspace?.name || ""),
     workspaceAvatarUrl: invite.workspace?.avatarUrl ? String(invite.workspace.avatarUrl) : "",

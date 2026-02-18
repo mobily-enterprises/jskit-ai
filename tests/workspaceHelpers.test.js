@@ -104,6 +104,7 @@ test("workspace helper mappers normalize color, summary, settings and invite pay
   const pendingInvite = mapPendingInviteSummary({
     id: 15,
     workspaceId: 9,
+    token: "inviteh_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     roleId: "member",
     status: "pending",
     expiresAt: "2026-02-20T00:00:00.000Z",
@@ -119,6 +120,10 @@ test("workspace helper mappers normalize color, summary, settings and invite pay
   });
   assert.equal(pendingInvite.workspaceSlug, "acme");
   assert.equal(pendingInvite.invitedByEmail, "tony@example.com");
+  assert.equal(
+    pendingInvite.token,
+    "inviteh_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  );
 });
 
 test("membership and permissions helpers normalize role/status and index structures", () => {
@@ -263,6 +268,7 @@ test("workspace helper fallbacks normalize empty/minimal shapes safely", () => {
   assert.equal(minimalInvite.workspaceSlug, "");
   assert.equal(minimalInvite.workspaceName, "");
   assert.equal(minimalInvite.workspaceAvatarUrl, "");
+  assert.equal(minimalInvite.token, "");
   assert.equal(minimalInvite.roleId, "");
   assert.equal(minimalInvite.status, "pending");
   assert.equal(minimalInvite.invitedByDisplayName, "");
