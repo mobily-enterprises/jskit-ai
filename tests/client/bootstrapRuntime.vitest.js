@@ -35,7 +35,14 @@ const mocks = vi.hoisted(() => ({
   },
   authStore: {
     applySession: vi.fn(),
-    setSignedOut: vi.fn()
+    setSignedOut: vi.fn(),
+    isAuthenticated: false
+  },
+  godStoreFactory: vi.fn(),
+  godStore: {
+    refreshBootstrap: vi.fn(),
+    clearGodState: vi.fn(),
+    setForbidden: vi.fn()
   },
   workspaceStore: {
     userSettings: null,
@@ -104,6 +111,10 @@ vi.mock("../../src/stores/workspaceStore", () => ({
   useWorkspaceStore: (pinia) => mocks.workspaceStoreFactory(pinia)
 }));
 
+vi.mock("../../src/stores/godStore", () => ({
+  useGodStore: (pinia) => mocks.godStoreFactory(pinia)
+}));
+
 import { mountSurfaceApplication } from "../../src/bootstrapRuntime.js";
 
 describe("bootstrapRuntime", () => {
@@ -122,6 +133,16 @@ describe("bootstrapRuntime", () => {
 
     mocks.authStore.applySession.mockReset();
     mocks.authStore.setSignedOut.mockReset();
+    mocks.authStore.isAuthenticated = false;
+    mocks.authStore.applySession.mockImplementation(({ authenticated }) => {
+      mocks.authStore.isAuthenticated = Boolean(authenticated);
+    });
+
+    mocks.godStoreFactory.mockReset();
+    mocks.godStore.refreshBootstrap.mockReset();
+    mocks.godStore.clearGodState.mockReset();
+    mocks.godStore.setForbidden.mockReset();
+    mocks.godStoreFactory.mockReturnValue(mocks.godStore);
 
     mocks.workspaceStore.userSettings = null;
     mocks.workspaceStore.applyBootstrap.mockReset();
@@ -173,6 +194,7 @@ describe("bootstrapRuntime", () => {
 
     expect(mocks.createPinia).toHaveBeenCalledTimes(1);
     expect(mocks.authStoreFactory).toHaveBeenCalledWith(mocks.createdPinia);
+    expect(mocks.godStoreFactory).toHaveBeenCalledWith(mocks.createdPinia);
     expect(mocks.workspaceStoreFactory).toHaveBeenCalledWith(mocks.createdPinia);
     expect(mocks.authStore.applySession).toHaveBeenCalledWith({
       authenticated: true,
@@ -185,7 +207,8 @@ describe("bootstrapRuntime", () => {
 
     expect(createRouter).toHaveBeenCalledWith({
       authStore: mocks.authStore,
-      workspaceStore: mocks.workspaceStore
+      workspaceStore: mocks.workspaceStore,
+      godStore: mocks.godStore
     });
 
     expect(mocks.createApp).toHaveBeenCalledTimes(1);
@@ -243,6 +266,7 @@ describe("bootstrapRuntime", () => {
 
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
     expect(mocks.workspaceStore.clearWorkspaceState).toHaveBeenCalledTimes(1);
+    expect(mocks.godStore.clearGodState).toHaveBeenCalledTimes(1);
 
     const vuetifyInstance = mocks.createVuetify.mock.results[0].value;
     expect(vuetifyInstance.theme.global.name.value).toBe("dark");
@@ -265,5 +289,23 @@ describe("bootstrapRuntime", () => {
 
     const vuetifyInstance = mocks.createVuetify.mock.results[0].value;
     expect(vuetifyInstance.theme.global.name.value).toBe("light");
+  });
+
+  it("refreshes god bootstrap when mounting god surface with authenticated session", async () => {
+    const createRouter = vi.fn(() => ({ id: "router-5" }));
+    mocks.bootstrapApi.mockResolvedValue({
+      session: {
+        authenticated: true,
+        username: "zeus"
+      },
+      userSettings: {
+        theme: "dark"
+      }
+    });
+
+    await mountSurfaceApplication({ createRouter, surface: "god" });
+
+    expect(mocks.godStore.refreshBootstrap).toHaveBeenCalledTimes(1);
+    expect(mocks.godStore.clearGodState).not.toHaveBeenCalled();
   });
 });

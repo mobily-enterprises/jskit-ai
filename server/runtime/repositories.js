@@ -5,6 +5,8 @@ import * as workspacesRepository from "../domain/workspace/repositories/workspac
 import * as workspaceMembershipsRepository from "../domain/workspace/repositories/memberships.repository.js";
 import * as workspaceSettingsRepository from "../domain/workspace/repositories/settings.repository.js";
 import * as workspaceInvitesRepository from "../domain/workspace/repositories/invites.repository.js";
+import * as godMembershipsRepository from "../domain/god/repositories/memberships.repository.js";
+import * as godInvitesRepository from "../domain/god/repositories/invites.repository.js";
 import * as projectsRepository from "../modules/projects/repository.js";
 
 function createRepositories() {
@@ -16,6 +18,8 @@ function createRepositories() {
     workspaceMembershipsRepository,
     workspaceSettingsRepository,
     workspaceInvitesRepository,
+    godMembershipsRepository,
+    godInvitesRepository,
     projectsRepository
   };
 }

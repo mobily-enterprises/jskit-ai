@@ -4,6 +4,8 @@
       <v-app-bar border density="comfortable" elevation="0" class="god-bar">
         <v-toolbar-title class="god-title">God Console</v-toolbar-title>
         <v-spacer />
+        <v-btn variant="text" class="mr-1" @click="goToGodHome">Home</v-btn>
+        <v-btn v-if="canViewMembers" variant="text" class="mr-1" @click="goToGodMembers">Members</v-btn>
         <v-btn variant="text" class="mr-1" @click="goToAccountSettings">Account settings</v-btn>
         <v-btn variant="text" @click="signOut">Sign out</v-btn>
       </v-app-bar>
@@ -31,9 +33,10 @@ export default {
     Outlet
   },
   setup() {
-    const { layout, actions } = useGodShell();
+    const { layout, permissions, actions } = useGodShell();
     return {
       ...layout,
+      ...permissions,
       ...actions
     };
   }

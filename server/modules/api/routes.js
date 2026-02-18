@@ -1,5 +1,6 @@
 import { buildRoutes as buildAuthRoutes } from "../auth/routes.js";
 import { buildRoutes as buildWorkspaceRoutes } from "../workspace/routes.js";
+import { buildRoutes as buildGodRoutes } from "../god/routes.js";
 import { buildRoutes as buildProjectsRoutes } from "../projects/routes.js";
 import { buildRoutes as buildSettingsRoutes } from "../settings/routes.js";
 import { buildRoutes as buildHistoryRoutes } from "../history/routes.js";
@@ -19,6 +20,7 @@ function buildDefaultRoutes(controllers) {
   return [
     ...buildAuthRoutes(controllers),
     ...buildWorkspaceRoutes(controllers, { missingHandler }),
+    ...buildGodRoutes(controllers, { missingHandler }),
     ...buildProjectsRoutes(controllers, { missingHandler }),
     ...buildSettingsRoutes(controllers),
     ...buildHistoryRoutes(controllers),

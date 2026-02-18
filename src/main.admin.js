@@ -3,7 +3,8 @@ import { createAdminRouter } from "./router.admin.js";
 
 function mountAdminApplication() {
   return mountSurfaceApplication({
-    createRouter: createAdminRouter
+    createRouter: createAdminRouter,
+    surface: "admin"
   });
 }
 

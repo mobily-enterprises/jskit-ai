@@ -19,6 +19,7 @@ import "vuetify/styles";
 import { queryClient } from "./queryClient.js";
 import { api } from "./services/api/index.js";
 import { useAuthStore } from "./stores/authStore.js";
+import { useGodStore } from "./stores/godStore.js";
 import { useWorkspaceStore } from "./stores/workspaceStore.js";
 
 const iconAliases = {
@@ -91,7 +92,7 @@ function applyThemePreference(vuetifyInstance, themePreference) {
   vuetifyInstance.theme.global.name.value = prefersDark ? "dark" : "light";
 }
 
-async function bootstrapRuntime({ authStore, workspaceStore, vuetify }) {
+async function bootstrapRuntime({ authStore, workspaceStore, godStore, vuetify, surface }) {
   try {
     const bootstrapPayload = await api.workspace.bootstrap();
     const session =
@@ -103,21 +104,41 @@ async function bootstrapRuntime({ authStore, workspaceStore, vuetify }) {
     workspaceStore.applyBootstrap(bootstrapPayload);
 
     applyThemePreference(vuetify, workspaceStore.userSettings?.theme);
+
+    if (String(surface || "").trim() === "god" && authStore.isAuthenticated) {
+      try {
+        await godStore.refreshBootstrap();
+      } catch (error) {
+        if (Number(error?.status) === 403) {
+          godStore.setForbidden();
+        } else if (Number(error?.status) === 401) {
+          authStore.setSignedOut();
+          workspaceStore.clearWorkspaceState();
+          godStore.clearGodState();
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      godStore.clearGodState();
+    }
   } catch {
     authStore.setSignedOut();
     workspaceStore.clearWorkspaceState();
+    godStore.clearGodState();
     applyThemePreference(vuetify, "system");
   }
 }
 
-async function mountSurfaceApplication({ createRouter }) {
+async function mountSurfaceApplication({ createRouter, surface }) {
   const pinia = createPinia();
   const authStore = useAuthStore(pinia);
+  const godStore = useGodStore(pinia);
   const workspaceStore = useWorkspaceStore(pinia);
   const vuetify = createVuetifyInstance();
 
-  await bootstrapRuntime({ authStore, workspaceStore, vuetify });
-  const router = createRouter({ authStore, workspaceStore });
+  await bootstrapRuntime({ authStore, workspaceStore, godStore, vuetify, surface });
+  const router = createRouter({ authStore, workspaceStore, godStore });
 
   createApp({
     render: () => h(RouterProvider, { router })

@@ -16,7 +16,19 @@ Frontend surfaces:
 
 - `app` at `/` (workspace-bound)
 - `admin` at `/admin` (workspace-bound)
-- `god` at `/god` (authenticated scaffold only for now; no god APIs/logs/moderation/invites yet)
+- `god` at `/god` (global surface with auth, role assignment, and invite management)
+
+Current god capabilities:
+
+- bootstrap/auth gating without workspace dependence
+- role catalog: `god`, `devop`, `moderator`
+- member listing and role reassignment
+- invite create/revoke + pending invite accept/refuse flow
+
+Future god capabilities (not yet implemented):
+
+- browser/server crash log ingestion + viewing
+- moderation tools and policy workflows
 
 ## Stack
 
@@ -241,6 +253,15 @@ npm run docs:api-contracts
 - `GET /api/workspace/invites`
 - `POST /api/workspace/invites`
 - `DELETE /api/workspace/invites/:inviteId`
+- `GET /api/god/bootstrap`
+- `GET /api/god/roles`
+- `GET /api/god/members`
+- `PATCH /api/god/members/:memberUserId/role`
+- `GET /api/god/invites`
+- `POST /api/god/invites`
+- `DELETE /api/god/invites/:inviteId`
+- `GET /api/god/invitations/pending`
+- `POST /api/god/invitations/redeem`
 - `GET /api/workspace/projects`
 - `GET /api/workspace/projects/:projectId`
 - `POST /api/workspace/projects`

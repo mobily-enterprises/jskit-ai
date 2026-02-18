@@ -1,29 +1,17 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const mocks = vi.hoisted(() => ({
-  api: {
-    workspace: {
-      bootstrap: vi.fn()
-    }
-  }
-}));
-
-vi.mock("../../src/services/api/index.js", () => ({
-  api: mocks.api
-}));
+import { describe, expect, it, vi } from "vitest";
 
 import { createGodRouteGuards } from "../../src/routerGuards.god.js";
 
 function buildStores({
   authInitialized = true,
-  workspaceInitialized = true,
   authenticated = false,
-  hasWorkspace = false,
-  workspaceSlug = ""
+  hasGodAccess = false,
+  hasPendingInvites = false
 } = {}) {
   const authStore = {
     initialized: authInitialized,
     isAuthenticated: authenticated,
+    ensureSession: vi.fn(async () => undefined),
     applySession: vi.fn(({ authenticated: nextAuthenticated }) => {
       authStore.initialized = true;
       authStore.isAuthenticated = Boolean(nextAuthenticated);
@@ -35,33 +23,29 @@ function buildStores({
   };
 
   const workspaceStore = {
-    initialized: workspaceInitialized,
-    hasActiveWorkspace: hasWorkspace,
-    activeWorkspaceSlug: workspaceSlug,
-    applyBootstrap: vi.fn((payload) => {
-      workspaceStore.initialized = true;
-      const workspace = payload?.workspace || null;
-      workspaceStore.hasActiveWorkspace = Boolean(workspace?.slug);
-      workspaceStore.activeWorkspaceSlug = workspace?.slug || "";
-    }),
     clearWorkspaceState: vi.fn(() => {
-      workspaceStore.initialized = true;
-      workspaceStore.hasActiveWorkspace = false;
-      workspaceStore.activeWorkspaceSlug = "";
+      workspaceStore.cleared = true;
     })
+  };
+
+  const godStore = {
+    initialized: true,
+    hasAccess: hasGodAccess,
+    hasPendingInvites,
+    refreshBootstrap: vi.fn(async () => undefined),
+    clearGodState: vi.fn(),
+    setForbidden: vi.fn(),
+    can: vi.fn(() => false)
   };
 
   return {
     authStore,
-    workspaceStore
+    workspaceStore,
+    godStore
   };
 }
 
 describe("routerGuards.god", () => {
-  beforeEach(() => {
-    mocks.api.workspace.bootstrap.mockReset();
-  });
-
   it("redirects unauthenticated access to /god/login", async () => {
     const guards = createGodRouteGuards(buildStores({ authenticated: false }), {
       loginPath: "/god/login",
@@ -80,7 +64,7 @@ describe("routerGuards.god", () => {
     const guards = createGodRouteGuards(
       buildStores({
         authenticated: true,
-        hasWorkspace: false
+        hasGodAccess: true
       }),
       {
         loginPath: "/god/login",
@@ -96,13 +80,12 @@ describe("routerGuards.god", () => {
   it("does not require workspace for authenticated god routes", async () => {
     const stores = buildStores({
       authInitialized: false,
-      workspaceInitialized: false
+      authenticated: false,
+      hasGodAccess: true
     });
-    mocks.api.workspace.bootstrap.mockResolvedValue({
-      session: {
-        authenticated: true
-      },
-      workspace: null
+    stores.authStore.ensureSession.mockImplementation(async () => {
+      stores.authStore.initialized = true;
+      stores.authStore.isAuthenticated = true;
     });
 
     const guards = createGodRouteGuards(stores, {
@@ -111,11 +94,28 @@ describe("routerGuards.god", () => {
     });
 
     await expect(guards.beforeLoadRoot()).resolves.toBeUndefined();
-    expect(mocks.api.workspace.bootstrap).toHaveBeenCalledTimes(1);
-    expect(stores.authStore.applySession).toHaveBeenCalledWith({
-      authenticated: true,
-      username: null
+    expect(stores.authStore.ensureSession).toHaveBeenCalledTimes(1);
+    expect(stores.godStore.refreshBootstrap).not.toHaveBeenCalled();
+    expect(stores.workspaceStore.clearWorkspaceState).not.toHaveBeenCalled();
+  });
+
+  it("routes authenticated users without god membership to invitations when pending", async () => {
+    const guards = createGodRouteGuards(
+      buildStores({
+        authenticated: true,
+        hasGodAccess: false,
+        hasPendingInvites: true
+      }),
+      {
+        loginPath: "/god/login",
+        rootPath: "/god",
+        invitationsPath: "/god/invitations",
+        fallbackPath: "/"
+      }
+    );
+
+    await expect(guards.beforeLoadRoot()).rejects.toMatchObject({
+      options: { to: "/god/invitations" }
     });
-    expect(stores.workspaceStore.applyBootstrap).toHaveBeenCalledTimes(1);
   });
 });

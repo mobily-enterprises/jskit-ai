@@ -11,27 +11,29 @@ const ROUTER_BY_SURFACE = {
   god: createGodRouter
 };
 
-function createRouterForSurface({ authStore, workspaceStore, surface }) {
+function createRouterForSurface({ authStore, workspaceStore, godStore, surface }) {
   const normalizedSurface = normalizeSurfaceId(surface);
   const createRouter = ROUTER_BY_SURFACE[normalizedSurface] || ROUTER_BY_SURFACE[DEFAULT_SURFACE_ID];
-  return createRouter({ authStore, workspaceStore });
+  return createRouter({ authStore, workspaceStore, godStore });
 }
 
-function createRouterForCurrentPath({ authStore, workspaceStore, pathname }) {
+function createRouterForCurrentPath({ authStore, workspaceStore, godStore, pathname }) {
   const resolvedPathname =
     typeof pathname === "string" ? pathname : typeof window !== "undefined" ? window.location.pathname : "/";
 
   return createRouterForSurface({
     authStore,
     workspaceStore,
+    godStore,
     surface: resolveSurfaceFromPathname(resolvedPathname)
   });
 }
 
-function createAppRouter({ authStore, workspaceStore, pathname }) {
+function createAppRouter({ authStore, workspaceStore, godStore, pathname }) {
   return createRouterForCurrentPath({
     authStore,
     workspaceStore,
+    godStore,
     pathname
   });
 }

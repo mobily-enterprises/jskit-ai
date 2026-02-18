@@ -3,7 +3,8 @@ import { createGodRouter } from "./router.god.js";
 
 function mountGodApplication() {
   return mountSurfaceApplication({
-    createRouter: createGodRouter
+    createRouter: createGodRouter,
+    surface: "god"
   });
 }
 

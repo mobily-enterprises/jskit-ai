@@ -6,6 +6,7 @@ import { createService as createAvatarStorageService } from "../domain/users/ava
 import { createService as createUserAvatarService } from "../domain/users/avatar.service.js";
 import { createService as createWorkspaceService } from "../domain/workspace/services/workspace.service.js";
 import { createService as createWorkspaceAdminService } from "../domain/workspace/services/admin.service.js";
+import { createService as createGodService } from "../domain/god/services/god.service.js";
 import { createService as createProjectsService } from "../modules/projects/service.js";
 
 function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, rootDir, supabasePublishableKey }) {
@@ -17,6 +18,8 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     workspaceMembershipsRepository,
     workspaceSettingsRepository,
     workspaceInvitesRepository,
+    godMembershipsRepository,
+    godInvitesRepository,
     projectsRepository
   } = repositories;
 
@@ -76,6 +79,12 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     userSettingsRepository
   });
 
+  const godService = createGodService({
+    godMembershipsRepository,
+    godInvitesRepository,
+    userProfilesRepository
+  });
+
   const projectsService = createProjectsService({
     projectsRepository
   });
@@ -89,6 +98,7 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     userSettingsService,
     workspaceService,
     workspaceAdminService,
+    godService,
     projectsService
   };
 }

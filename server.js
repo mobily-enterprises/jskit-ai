@@ -17,7 +17,7 @@ import { registerApiRoutes } from "./server/fastify/registerApiRoutes.js";
 import authPlugin from "./server/fastify/auth.plugin.js";
 import { safePathnameFromRequest } from "./server/lib/primitives/requestUrl.js";
 import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar/index.js";
-import { resolveSurfacePaths } from "./shared/routing/surfacePaths.js";
+import { createSurfacePaths, resolveSurfacePaths } from "./shared/routing/surfacePaths.js";
 import { surfaceRequiresWorkspace } from "./shared/routing/surfaceRegistry.js";
 import { createRateLimitPluginOptions, resolveRateLimitStartupWarning } from "./server/lib/rateLimit.js";
 import { createServerRuntime } from "./server/runtime/index.js";
@@ -47,7 +47,7 @@ const SCRIPT_SRC_POLICY = NODE_ENV === "production" ? ["'self'"] : ["'self'", "'
 
 const {
   controllers,
-  runtimeServices: { authService, workspaceService, avatarStorageService }
+  runtimeServices: { authService, workspaceService, godService, avatarStorageService }
 } = createServerRuntime({
   env,
   nodeEnv: NODE_ENV,
@@ -106,6 +106,7 @@ function hasPathExtension(pathnameValue) {
 async function guardPageRoute(request, reply) {
   const pathnameValue = safePathnameFromRequest(request);
   const surfacePaths = resolveSurfacePaths(pathnameValue);
+  const appSurfacePaths = createSurfacePaths("app");
   const requiresWorkspace = surfaceRequiresWorkspace(surfacePaths.surface);
   if (hasPathExtension(pathnameValue)) {
     return true;
@@ -144,7 +145,25 @@ async function guardPageRoute(request, reply) {
 
     if (surfacePaths.isLoginPath(pathnameValue) && authResult.authenticated) {
       if (!requiresWorkspace) {
-        reply.redirect(surfacePaths.rootPath);
+        if (surfacePaths.surface === "god") {
+          const godBootstrapPayload = await godService.buildBootstrapPayload({
+            user: authResult.profile
+          });
+          const hasGodAccess = Boolean(godBootstrapPayload?.isGod);
+          const hasPendingGodInvites = Array.isArray(godBootstrapPayload?.pendingInvites)
+            ? godBootstrapPayload.pendingInvites.length > 0
+            : false;
+
+          if (hasGodAccess) {
+            reply.redirect(surfacePaths.rootPath);
+          } else if (hasPendingGodInvites) {
+            reply.redirect(surfacePaths.invitationsPath);
+          } else {
+            reply.redirect(appSurfacePaths.rootPath);
+          }
+        } else {
+          reply.redirect(surfacePaths.rootPath);
+        }
         return false;
       }
 
@@ -197,6 +216,41 @@ async function guardPageRoute(request, reply) {
           reply.redirect(surfacePaths.workspaceHomePath(resolvedContext.workspace.slug));
           return false;
         }
+      } else if (surfacePaths.surface === "god") {
+        const godBootstrapPayload = await godService.buildBootstrapPayload({
+          user: authResult.profile
+        });
+        const hasGodAccess = Boolean(godBootstrapPayload?.isGod);
+        const hasPendingGodInvites = Array.isArray(godBootstrapPayload?.pendingInvites)
+          ? godBootstrapPayload.pendingInvites.length > 0
+          : false;
+
+        if (surfacePaths.isInvitationsPath(pathnameValue)) {
+          if (hasGodAccess) {
+            reply.redirect(surfacePaths.rootPath);
+            return false;
+          }
+
+          if (!hasPendingGodInvites) {
+            reply.redirect(appSurfacePaths.rootPath);
+            return false;
+          }
+
+          return true;
+        }
+
+        if (
+          !surfacePaths.isPublicAuthPath(pathnameValue) &&
+          !surfacePaths.isAccountSettingsPath(pathnameValue) &&
+          !hasGodAccess
+        ) {
+          if (hasPendingGodInvites) {
+            reply.redirect(surfacePaths.invitationsPath);
+          } else {
+            reply.redirect(appSurfacePaths.rootPath);
+          }
+          return false;
+        }
       }
     }
 
@@ -204,6 +258,10 @@ async function guardPageRoute(request, reply) {
   } catch (error) {
     const statusCode = Number(error?.status || error?.statusCode);
     if (!surfacePaths.isPublicAuthPath(pathnameValue)) {
+      if (surfacePaths.surface === "god") {
+        reply.redirect(appSurfacePaths.rootPath);
+        return false;
+      }
       if (requiresWorkspace && (statusCode === 403 || statusCode === 409)) {
         reply.redirect(surfacePaths.workspacesPath);
         return false;

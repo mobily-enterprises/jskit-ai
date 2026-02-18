@@ -4,6 +4,7 @@ import { useDisplay } from "vuetify";
 import { createSurfacePaths, resolveSurfacePaths } from "../../../shared/routing/surfacePaths.js";
 import { api } from "../../services/api/index.js";
 import { useAuthStore } from "../../stores/authStore.js";
+import { useGodStore } from "../../stores/godStore.js";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 import { useShellNavigation } from "../shared/useShellNavigation.js";
 import { buildWorkspaceThemeStyle, normalizeWorkspaceColor } from "../shared/workspaceTheme.js";
@@ -24,6 +25,7 @@ function formatDateTime(value) {
 
 export function useAdminShell() {
   const authStore = useAuthStore();
+  const godStore = useGodStore();
   const workspaceStore = useWorkspaceStore();
   const navigate = useNavigate();
   const display = useDisplay();
@@ -248,6 +250,7 @@ export function useAdminShell() {
       api.clearCsrfTokenCache();
       authStore.setSignedOut();
       workspaceStore.clearWorkspaceState();
+      godStore.clearGodState();
       await authStore.invalidateSession();
       await navigate({ to: paths.loginPath, replace: true });
     }

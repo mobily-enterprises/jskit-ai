@@ -1,8 +1,8 @@
 import { hasPermission } from "../../lib/rbacManifest.js";
 
-function createController({ authService, workspaceService, workspaceAdminService }) {
-  if (!authService || !workspaceService || !workspaceAdminService) {
-    throw new Error("authService, workspaceService, and workspaceAdminService are required.");
+function createController({ authService, workspaceService, workspaceAdminService, godService }) {
+  if (!authService || !workspaceService || !workspaceAdminService || !godService) {
+    throw new Error("authService, workspaceService, workspaceAdminService, and godService are required.");
   }
 
   async function bootstrap(request, reply) {
@@ -19,6 +19,10 @@ function createController({ authService, workspaceService, workspaceAdminService
         error: "Authentication service temporarily unavailable. Please retry."
       });
       return;
+    }
+
+    if (authResult.authenticated && authResult.profile?.id != null) {
+      await godService.ensureInitialGodMember(authResult.profile.id);
     }
 
     const payload = await workspaceService.buildBootstrapPayload({

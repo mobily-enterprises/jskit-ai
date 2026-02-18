@@ -3,7 +3,8 @@ import { createCustomerRouter } from "./router.app.js";
 
 function mountAppApplication() {
   return mountSurfaceApplication({
-    createRouter: createCustomerRouter
+    createRouter: createCustomerRouter,
+    surface: "app"
   });
 }
 

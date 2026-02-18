@@ -43,6 +43,7 @@ test("server controllers expose createController contract", async () => {
     "../server/modules/history/controller.js",
     "../server/modules/projects/controller.js",
     "../server/modules/settings/controller.js",
+    "../server/modules/god/controller.js",
     "../server/modules/workspace/controller.js"
   ];
 
@@ -61,6 +62,7 @@ test("server services expose createService contract", async () => {
     "../server/modules/history/service.js",
     "../server/modules/projects/service.js",
     "../server/modules/settings/service.js",
+    "../server/domain/god/services/god.service.js",
     "../server/domain/workspace/services/workspace.service.js",
     "../server/domain/workspace/services/admin.service.js",
     "../server/domain/users/avatar.service.js",
@@ -82,6 +84,7 @@ test("server routes expose buildRoutes contract", async () => {
     "../server/modules/history/routes.js",
     "../server/modules/projects/routes.js",
     "../server/modules/settings/routes.js",
+    "../server/modules/god/routes.js",
     "../server/modules/workspace/routes.js"
   ];
 
@@ -100,6 +103,7 @@ test("server schemas expose schema object contract", async () => {
     "../server/modules/history/schema.js",
     "../server/modules/projects/schema.js",
     "../server/modules/settings/schema.js",
+    "../server/modules/god/schema.js",
     "../server/modules/workspace/schema.js"
   ];
 
@@ -125,6 +129,7 @@ test("client API modules expose createApi contract", async () => {
   const modules = [
     "../src/services/api/authApi.js",
     "../src/services/api/workspaceApi.js",
+    "../src/services/api/godApi.js",
     "../src/services/api/projectsApi.js",
     "../src/services/api/settingsApi.js",
     "../src/services/api/annuityApi.js",

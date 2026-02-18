@@ -8,6 +8,8 @@ const userProfilesMigration = require("../migrations/20260215120000_create_user_
 const calculationLogsMigration = require("../migrations/20260215120100_create_calculation_logs.cjs");
 const userSettingsMigration = require("../migrations/20260216110000_create_user_settings.cjs");
 const userAvatarColumnsMigration = require("../migrations/20260216230000_add_user_avatar_columns.cjs");
+const godMembershipsMigration = require("../migrations/20260220090000_create_god_memberships.cjs");
+const godInvitesMigration = require("../migrations/20260220090100_create_god_invites.cjs");
 
 function createSchemaStub() {
   const calls = [];
@@ -167,6 +169,9 @@ function createSchemaStub() {
       index(columns, name) {
         tableCalls.push(["index", columns, name]);
       },
+      unique(columns, name) {
+        tableCalls.push(["unique", columns, name]);
+      },
       dropColumn(column) {
         tableCalls.push(["dropColumn", column]);
       }
@@ -253,4 +258,28 @@ test("user avatar columns migration alters expected tables", async () => {
   assert.ok(
     calls.some((entry) => entry[0] === "tableCalls" && entry[1].some((tableCall) => tableCall[0] === "dropColumn"))
   );
+});
+
+test("god memberships migration creates expected table, singleton guard, and drop behavior", async () => {
+  const { knex, calls } = createSchemaStub();
+
+  await godMembershipsMigration.up(knex);
+  await godMembershipsMigration.down(knex);
+
+  assert.equal(calls[0][0], "createTable");
+  assert.equal(calls[0][1], "god_memberships");
+  assert.ok(calls.some((entry) => entry[0] === "raw" && String(entry[1]).includes("ALTER TABLE god_memberships")));
+  assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "god_memberships"]);
+});
+
+test("god invites migration creates expected table, pending-email guard, and drop behavior", async () => {
+  const { knex, calls } = createSchemaStub();
+
+  await godInvitesMigration.up(knex);
+  await godInvitesMigration.down(knex);
+
+  assert.equal(calls[0][0], "createTable");
+  assert.equal(calls[0][1], "god_invites");
+  assert.ok(calls.some((entry) => entry[0] === "raw" && String(entry[1]).includes("ALTER TABLE god_invites")));
+  assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "god_invites"]);
 });

@@ -8,8 +8,7 @@
             This authenticated surface is intentionally empty in this phase.
           </p>
           <p class="text-caption text-medium-emphasis mb-0">
-            TODO: add god-specific access model and roles (`god`, `devop` for browser/server error visibility,
-            `moderator`) in a future phase.
+            TODO: add god-specific logs, moderation consoles, and broader operations tooling in a future phase.
           </p>
         </v-sheet>
       </v-col>

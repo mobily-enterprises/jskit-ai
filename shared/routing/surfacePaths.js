@@ -87,6 +87,7 @@ function createSurfacePaths(surface) {
   const resetPasswordPath = withSurfacePrefix(normalizedSurface, "/reset-password");
   const workspacesPath = withSurfacePrefix(normalizedSurface, "/workspaces");
   const accountSettingsPath = withSurfacePrefix(normalizedSurface, "/account/settings");
+  const invitationsPath = withSurfacePrefix(normalizedSurface, "/invitations");
   const publicAuthPaths = new Set([loginPath, resetPasswordPath]);
   const prefixPattern = prefix ? escapeRegExp(prefix) : "";
   const workspaceMatcher = new RegExp(`^${prefixPattern}/w/([^/]+)`);
@@ -126,6 +127,10 @@ function createSurfacePaths(surface) {
     return normalizePathname(pathname) === accountSettingsPath;
   }
 
+  function isInvitationsPath(pathname) {
+    return normalizePathname(pathname) === invitationsPath;
+  }
+
   function extractWorkspaceSlug(pathname) {
     const match = normalizePathname(pathname).match(workspaceMatcher);
     return match ? String(match[1] || "").trim() : "";
@@ -139,6 +144,7 @@ function createSurfacePaths(surface) {
     resetPasswordPath,
     workspacesPath,
     accountSettingsPath,
+    invitationsPath,
     workspacePath,
     workspaceHomePath,
     isPublicAuthPath,
@@ -146,6 +152,7 @@ function createSurfacePaths(surface) {
     isResetPasswordPath,
     isWorkspacesPath,
     isAccountSettingsPath,
+    isInvitationsPath,
     extractWorkspaceSlug
   };
 }
