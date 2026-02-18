@@ -1,23 +1,12 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { resolveSurfacePaths } from "../../../shared/routing/surfacePaths.js";
+import { coerceWorkspaceColor } from "../../../shared/workspace/colors.js";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
-
-const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
-const WORKSPACE_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 
 function workspaceInitials(workspace) {
   const source = String(workspace?.name || workspace?.slug || "W").trim();
   return source.slice(0, 2).toUpperCase();
-}
-
-function normalizeWorkspaceColor(value) {
-  const normalized = String(value || "").trim();
-  if (WORKSPACE_COLOR_PATTERN.test(normalized)) {
-    return normalized.toUpperCase();
-  }
-
-  return DEFAULT_WORKSPACE_COLOR;
 }
 
 export function useWorkspacesView() {
@@ -43,7 +32,7 @@ export function useWorkspacesView() {
 
   function workspaceAvatarStyle(workspace) {
     return {
-      backgroundColor: normalizeWorkspaceColor(workspace?.color)
+      backgroundColor: coerceWorkspaceColor(workspace?.color)
     };
   }
 

@@ -1,4 +1,5 @@
 import { AUTH_OAUTH_DEFAULT_PROVIDER, normalizeOAuthProvider } from "../../shared/auth/oauthProviders.js";
+import { normalizeOAuthIntent, normalizeReturnToPath } from "../../shared/auth/utils.js";
 
 const OAUTH_PENDING_CONTEXT_STORAGE_KEY = "auth.oauth.pendingContext";
 const OAUTH_QUERY_PARAM_PROVIDER = "oauthProvider";
@@ -50,31 +51,6 @@ function isSessionStorageAvailable() {
   } catch {
     return false;
   }
-}
-
-function normalizeOAuthIntent(value, { fallback = "login" } = {}) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
-
-  if (normalized === "login" || normalized === "link") {
-    return normalized;
-  }
-
-  return fallback;
-}
-
-function normalizeReturnToPath(value, { fallback = "/" } = {}) {
-  const normalized = String(value || "").trim();
-  if (!normalized) {
-    return fallback;
-  }
-
-  if (!normalized.startsWith("/") || normalized.startsWith("//")) {
-    return fallback;
-  }
-
-  return normalized;
 }
 
 function writePendingOAuthContext(context) {

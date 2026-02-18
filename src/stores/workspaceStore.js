@@ -1,22 +1,11 @@
 import { defineStore } from "pinia";
 import { createSurfacePaths, resolveSurfaceFromPathname } from "../../shared/routing/surfacePaths.js";
 import { DEFAULT_SURFACE_ID, normalizeSurfaceId } from "../../shared/routing/surfaceRegistry.js";
+import { coerceWorkspaceColor } from "../../shared/workspace/colors.js";
 import { api } from "../services/api";
-
-const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
-const WORKSPACE_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 
 function normalizeArray(value) {
   return Array.isArray(value) ? value : [];
-}
-
-function normalizeWorkspaceColor(value) {
-  const normalized = String(value || "").trim();
-  if (WORKSPACE_COLOR_PATTERN.test(normalized)) {
-    return normalized.toUpperCase();
-  }
-
-  return DEFAULT_WORKSPACE_COLOR;
 }
 
 function normalizeProfileAvatar(avatar) {
@@ -65,7 +54,7 @@ function normalizeWorkspace(workspace) {
     id,
     slug,
     name: String(workspace.name || slug),
-    color: normalizeWorkspaceColor(workspace.color),
+    color: coerceWorkspaceColor(workspace.color),
     avatarUrl: workspace.avatarUrl ? String(workspace.avatarUrl) : "",
     roleId: workspace.roleId ? String(workspace.roleId) : null,
     isAccessible: Boolean(workspace.isAccessible)

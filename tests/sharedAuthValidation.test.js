@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { constraints, normalizeEmail, validators } from "../shared/auth/index.js";
+import {
+  constraints,
+  normalizeEmail,
+  normalizeOAuthIntent,
+  normalizeReturnToPath,
+  validators
+} from "../shared/auth/index.js";
 
 test("shared auth constraints expose expected defaults", () => {
   assert.equal(constraints.AUTH_EMAIL_MIN_LENGTH, 3);
@@ -15,6 +21,16 @@ test("normalizeEmail trims and lowercases email values", () => {
   assert.equal(normalizeEmail("  USER@Example.COM "), "user@example.com");
   assert.equal(normalizeEmail(""), "");
   assert.equal(normalizeEmail(null), "");
+});
+
+test("shared auth path helpers normalize oauth intent and returnTo", () => {
+  assert.equal(normalizeOAuthIntent(" LINK "), "link");
+  assert.equal(normalizeOAuthIntent("unknown"), "login");
+  assert.equal(normalizeOAuthIntent("unknown", { fallback: "link" }), "link");
+
+  assert.equal(normalizeReturnToPath("/w/acme?tab=security"), "/w/acme?tab=security");
+  assert.equal(normalizeReturnToPath("https://example.com", { fallback: "/" }), "/");
+  assert.equal(normalizeReturnToPath("//example.com/path", { fallback: "/fallback" }), "/fallback");
 });
 
 test("validators.email returns expected validation messages", () => {

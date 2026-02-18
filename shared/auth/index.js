@@ -1,5 +1,5 @@
 import * as constraints from "./authConstraints.js";
-import { normalizeEmail } from "./utils.js";
+import { normalizeEmail, normalizeOAuthIntent, normalizeReturnToPath } from "./utils.js";
 import { validators } from "./validators.js";
 
-export { constraints, normalizeEmail, validators };
+export { constraints, normalizeEmail, normalizeOAuthIntent, normalizeReturnToPath, validators };

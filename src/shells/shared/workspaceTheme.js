@@ -1,14 +1,4 @@
-const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
-const WORKSPACE_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
-
-function normalizeWorkspaceColor(value) {
-  const normalized = String(value || "").trim();
-  if (WORKSPACE_COLOR_PATTERN.test(normalized)) {
-    return normalized.toUpperCase();
-  }
-
-  return DEFAULT_WORKSPACE_COLOR;
-}
+import { coerceWorkspaceColor as normalizeWorkspaceColor } from "../../../shared/workspace/colors.js";
 
 function workspaceColorToRgb(color) {
   const normalized = normalizeWorkspaceColor(color).replace(/^#/, "");

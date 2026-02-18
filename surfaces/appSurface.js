@@ -1,8 +1,4 @@
-function normalizeEmail(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
+import { normalizeEmail } from "../shared/auth/utils.js";
 
 function normalizeDenyUserIds(rawUserIds) {
   if (!Array.isArray(rawUserIds)) {

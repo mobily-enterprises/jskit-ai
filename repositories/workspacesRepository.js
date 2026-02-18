@@ -1,17 +1,6 @@
 import { db } from "../db/knex.js";
 import { toIsoString, toMysqlDateTimeUtc } from "../lib/dateUtils.js";
-
-const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
-const WORKSPACE_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
-
-function normalizeWorkspaceColor(value) {
-  const normalized = String(value || "").trim();
-  if (WORKSPACE_COLOR_PATTERN.test(normalized)) {
-    return normalized.toUpperCase();
-  }
-
-  return DEFAULT_WORKSPACE_COLOR;
-}
+import { coerceWorkspaceColor } from "../shared/workspace/colors.js";
 
 function mapWorkspaceRowRequired(row) {
   if (!row) {
@@ -22,7 +11,7 @@ function mapWorkspaceRowRequired(row) {
     id: Number(row.id),
     slug: row.slug,
     name: row.name,
-    color: normalizeWorkspaceColor(row.color),
+    color: coerceWorkspaceColor(row.color),
     avatarUrl: row.avatar_url ? String(row.avatar_url) : "",
     ownerUserId: Number(row.owner_user_id),
     isPersonal: Boolean(row.is_personal),
@@ -95,7 +84,7 @@ function createWorkspacesRepository(dbClient) {
     const [id] = await client("workspaces").insert({
       slug: workspace.slug,
       name: workspace.name,
-      color: normalizeWorkspaceColor(workspace.color),
+      color: coerceWorkspaceColor(workspace.color),
       avatar_url: workspace.avatarUrl || null,
       owner_user_id: workspace.ownerUserId,
       is_personal: Boolean(workspace.isPersonal),
@@ -118,7 +107,7 @@ function createWorkspacesRepository(dbClient) {
       dbPatch.name = patch.name;
     }
     if (Object.prototype.hasOwnProperty.call(patch, "color")) {
-      dbPatch.color = normalizeWorkspaceColor(patch.color);
+      dbPatch.color = coerceWorkspaceColor(patch.color);
     }
     if (Object.prototype.hasOwnProperty.call(patch, "avatarUrl")) {
       dbPatch.avatar_url = patch.avatarUrl ? String(patch.avatarUrl) : null;

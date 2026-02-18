@@ -1,16 +1,10 @@
 import { AppError } from "../../../lib/errors.js";
 import { OWNER_ROLE_ID } from "../../../lib/rbacManifest.js";
+import { normalizeEmail } from "../../../shared/auth/utils.js";
 import { SETTINGS_MODE_OPTIONS, SETTINGS_TIMING_OPTIONS } from "../../../shared/settings/index.js";
+import { coerceWorkspaceColor, isWorkspaceColor } from "../../../shared/workspace/colors.js";
 
 const BASIC_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
-const WORKSPACE_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
-
-function normalizeEmail(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
 
 function parsePositiveInteger(value) {
   const numeric = Number(value);
@@ -57,18 +51,9 @@ function normalizeWorkspaceAvatarUrl(value) {
   return parsed.toString();
 }
 
-function coerceWorkspaceColor(value) {
-  const normalized = String(value || "").trim();
-  if (WORKSPACE_COLOR_PATTERN.test(normalized)) {
-    return normalized.toUpperCase();
-  }
-
-  return DEFAULT_WORKSPACE_COLOR;
-}
-
 function normalizeWorkspaceColor(value) {
   const normalized = String(value || "").trim();
-  if (WORKSPACE_COLOR_PATTERN.test(normalized)) {
+  if (isWorkspaceColor(normalized)) {
     return normalized.toUpperCase();
   }
 

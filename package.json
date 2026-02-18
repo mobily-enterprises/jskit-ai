@@ -24,8 +24,9 @@
     "test:client:coverage": "vitest run --coverage",
     "test:client:views": "vitest run --config vitest.vue.config.mjs",
     "test:client:views:coverage": "vitest run --config vitest.vue.config.mjs --coverage",
-    "test:coverage": "NODE_ENV=test c8 node --test",
+    "test:coverage": "NODE_ENV=test c8 --config .c8rc.json node --test",
     "test:coverage:all": "NODE_ENV=test c8 --config .c8rc.json --check-coverage false --per-file false --reporter text-summary node --test",
+    "test:coverage:aspirational": "NODE_ENV=test c8 --config .c8rc.aspirational.json --check-coverage false --per-file false --reporter text-summary node --test",
     "test:coverage:full": "npm run test:coverage && npm run test:client:coverage && npm run test:client:views:coverage",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium"

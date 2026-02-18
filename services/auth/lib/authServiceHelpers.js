@@ -22,6 +22,7 @@ import {
   AUTH_OAUTH_PROVIDERS,
   normalizeOAuthProvider as normalizeSupportedOAuthProvider
 } from "../../../shared/auth/oauthProviders.js";
+import { normalizeOAuthIntent, normalizeReturnToPath } from "../../../shared/auth/utils.js";
 import { validators } from "../../../shared/auth/validators.js";
 
 const PASSWORD_RESET_PATH = "reset-password";
@@ -361,31 +362,6 @@ function buildOtpLoginRedirectUrl(options) {
   baseUrl.search = "";
   baseUrl.hash = "";
   return new URL(OAUTH_LOGIN_PATH, baseUrl).toString();
-}
-
-function normalizeOAuthIntent(value, { fallback = OAUTH_LOGIN_INTENT } = {}) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
-
-  if (normalized === OAUTH_LOGIN_INTENT || normalized === OAUTH_LINK_INTENT) {
-    return normalized;
-  }
-
-  return fallback || OAUTH_LOGIN_INTENT;
-}
-
-function normalizeReturnToPath(value, { fallback = "/" } = {}) {
-  const normalized = String(value || "").trim();
-  if (!normalized) {
-    return fallback;
-  }
-
-  if (!normalized.startsWith("/") || normalized.startsWith("//")) {
-    return fallback;
-  }
-
-  return normalized;
 }
 
 function buildOAuthRedirectUrl(options) {

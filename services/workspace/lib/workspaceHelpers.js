@@ -1,5 +1,7 @@
 import { safePathnameFromRequest } from "../../../lib/requestUrl.js";
+import { normalizeEmail } from "../../../shared/auth/utils.js";
 import { resolveSurfaceFromPathname } from "../../../shared/routing/surfacePaths.js";
+import { coerceWorkspaceColor } from "../../../shared/workspace/colors.js";
 import { normalizeSurfaceId } from "../../../surfaces/index.js";
 import { resolveWorkspaceDefaults } from "../../workspaceAdminService.js";
 const DEFAULT_WORKSPACE_SETTINGS = {
@@ -12,8 +14,7 @@ const DEFAULT_WORKSPACE_SETTINGS = {
     defaultHistoryPageSize: 10
   }
 };
-const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
-const WORKSPACE_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+const normalizeWorkspaceColor = coerceWorkspaceColor;
 
 function toSlugPart(value) {
   return String(value || "")
@@ -53,12 +54,6 @@ function buildWorkspaceBaseSlug(userProfile) {
   return `user-${Number(userProfile?.id) || "workspace"}`;
 }
 
-function normalizeEmail(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
-
 function mapWorkspaceSummary(workspaceRow, options = {}) {
   return {
     id: Number(workspaceRow.id),
@@ -69,15 +64,6 @@ function mapWorkspaceSummary(workspaceRow, options = {}) {
     roleId: String(workspaceRow.roleId || ""),
     isAccessible: options.isAccessible !== false
   };
-}
-
-function normalizeWorkspaceColor(value) {
-  const normalized = String(value || "").trim();
-  if (WORKSPACE_COLOR_PATTERN.test(normalized)) {
-    return normalized.toUpperCase();
-  }
-
-  return DEFAULT_WORKSPACE_COLOR;
 }
 
 function mapWorkspaceSettingsPublic(workspaceSettings, options = {}) {

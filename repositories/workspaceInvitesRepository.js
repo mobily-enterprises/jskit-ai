@@ -1,8 +1,7 @@
 import { db } from "../db/knex.js";
 import { toIsoString, toMysqlDateTimeUtc } from "../lib/dateUtils.js";
-
-const DEFAULT_WORKSPACE_COLOR = "#0F6B54";
-const WORKSPACE_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+import { normalizeEmail } from "../shared/auth/utils.js";
+import { coerceWorkspaceColor } from "../shared/workspace/colors.js";
 
 function isMysqlDuplicateEntryError(error) {
   if (!error) {
@@ -10,21 +9,6 @@ function isMysqlDuplicateEntryError(error) {
   }
 
   return String(error.code || "") === "ER_DUP_ENTRY";
-}
-
-function normalizeEmail(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
-
-function normalizeWorkspaceColor(value) {
-  const normalized = String(value || "").trim();
-  if (WORKSPACE_COLOR_PATTERN.test(normalized)) {
-    return normalized.toUpperCase();
-  }
-
-  return DEFAULT_WORKSPACE_COLOR;
 }
 
 function mapWorkspaceInviteRowRequired(row) {
@@ -61,7 +45,7 @@ function mapWorkspaceInviteRowRequired(row) {
           id: Number(row.workspace_id),
           slug: String(row.workspace_slug || ""),
           name: String(row.workspace_name || ""),
-          color: normalizeWorkspaceColor(row.workspace_color),
+          color: coerceWorkspaceColor(row.workspace_color),
           avatarUrl: row.workspace_avatar_url ? String(row.workspace_avatar_url) : ""
         }
       : null
