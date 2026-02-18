@@ -1,15 +1,7 @@
-import {
-  querySchema,
-  paramsSchema,
-  listResponseSchema,
-  singleResponseSchema,
-  createBodySchema,
-  updateBodySchema,
-  replaceBodySchema
-} from "./schemas.js";
+import { schema } from "./schemas.js";
 import { withStandardErrorResponses } from "../api/schemas.js";
 
-function buildProjectsRoutes(controllers, { missingHandler }) {
+function buildRoutes(controllers, { missingHandler }) {
   return [
     {
       path: "/api/workspace/projects",
@@ -21,10 +13,10 @@ function buildProjectsRoutes(controllers, { missingHandler }) {
       schema: {
         tags: ["projects"],
         summary: "List projects for active workspace",
-        querystring: querySchema,
+        querystring: schema.query,
         response: withStandardErrorResponses(
           {
-            200: listResponseSchema
+            200: schema.response.list
           },
           { includeValidation400: true }
         )
@@ -41,9 +33,9 @@ function buildProjectsRoutes(controllers, { missingHandler }) {
       schema: {
         tags: ["projects"],
         summary: "Get project by id for active workspace",
-        params: paramsSchema,
+        params: schema.params,
         response: withStandardErrorResponses({
-          200: singleResponseSchema
+          200: schema.response.single
         })
       },
       handler: controllers.projects?.get || missingHandler
@@ -58,10 +50,10 @@ function buildProjectsRoutes(controllers, { missingHandler }) {
       schema: {
         tags: ["projects"],
         summary: "Create project for active workspace",
-        body: createBodySchema,
+        body: schema.body.create,
         response: withStandardErrorResponses(
           {
-            200: singleResponseSchema
+            200: schema.response.single
           },
           { includeValidation400: true }
         )
@@ -78,11 +70,11 @@ function buildProjectsRoutes(controllers, { missingHandler }) {
       schema: {
         tags: ["projects"],
         summary: "Update project for active workspace",
-        params: paramsSchema,
-        body: updateBodySchema,
+        params: schema.params,
+        body: schema.body.update,
         response: withStandardErrorResponses(
           {
-            200: singleResponseSchema
+            200: schema.response.single
           },
           { includeValidation400: true }
         )
@@ -99,11 +91,11 @@ function buildProjectsRoutes(controllers, { missingHandler }) {
       schema: {
         tags: ["projects"],
         summary: "Replace project for active workspace",
-        params: paramsSchema,
-        body: replaceBodySchema,
+        params: schema.params,
+        body: schema.body.replace,
         response: withStandardErrorResponses(
           {
-            200: singleResponseSchema
+            200: schema.response.single
           },
           { includeValidation400: true }
         )
@@ -113,4 +105,4 @@ function buildProjectsRoutes(controllers, { missingHandler }) {
   ];
 }
 
-export { buildProjectsRoutes };
+export { buildRoutes };

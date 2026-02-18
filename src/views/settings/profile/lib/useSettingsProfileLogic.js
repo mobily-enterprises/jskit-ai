@@ -102,7 +102,7 @@ export function useSettingsProfileLogic({
       fieldName: "avatar",
       withCredentials: true,
       onBeforeRequest: async (xhr) => {
-        const session = await api.session();
+        const session = await api.auth.session();
         const csrfToken = String(session?.csrfToken || "");
         if (!csrfToken) {
           throw new Error("Unable to prepare secure avatar upload request.");

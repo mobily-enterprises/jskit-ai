@@ -3,7 +3,7 @@ import test from "node:test";
 import { AppError, isAppError } from "../lib/errors.js";
 import { safePathnameFromRequest, safeRequestUrl } from "../lib/requestUrl.js";
 import { toIsoString, toMysqlDateTimeUtc } from "../lib/dateUtils.js";
-import { registerTypeBoxFormats, __testables as formatTestables } from "../lib/schemas/registerTypeBoxFormats.js";
+import { registerTypeBoxFormats, __testables as formatTestables } from "../server/modules/api/schema/formats.js";
 
 test("AppError and isAppError cover true/false branches", () => {
   const error = new AppError(422, "Validation failed.", {

@@ -1,24 +1,24 @@
-function createProjectsApi({ request }) {
+function createApi({ request }) {
   return {
-    workspaceProjects(page, pageSize) {
+    list(page, pageSize) {
       const params = new URLSearchParams({
         page: String(page),
         pageSize: String(pageSize)
       });
       return request(`/api/workspace/projects?${params.toString()}`);
     },
-    workspaceProject(projectId) {
+    get(projectId) {
       const encodedProjectId = encodeURIComponent(String(projectId || "").trim());
       return request(`/api/workspace/projects/${encodedProjectId}`);
     },
-    createWorkspaceProject(payload) {
+    create(payload) {
       return request("/api/workspace/projects", { method: "POST", body: payload });
     },
-    updateWorkspaceProject(projectId, payload) {
+    update(projectId, payload) {
       const encodedProjectId = encodeURIComponent(String(projectId || "").trim());
       return request(`/api/workspace/projects/${encodedProjectId}`, { method: "PATCH", body: payload });
     }
   };
 }
 
-export { createProjectsApi };
+export { createApi };

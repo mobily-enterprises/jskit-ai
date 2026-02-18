@@ -19,7 +19,7 @@ export function useProjectsAdd() {
   const message = ref("");
 
   const mutation = useMutation({
-    mutationFn: (payload) => api.createWorkspaceProject(payload)
+    mutationFn: (payload) => api.projects.create(payload)
   });
 
   const saving = computed(() => mutation.isPending.value);

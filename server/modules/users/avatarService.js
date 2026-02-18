@@ -102,7 +102,7 @@ function buildAvatarResponse(profile, { avatarStorageService, avatarSize }) {
   };
 }
 
-function createUserAvatarService({ userProfilesRepository, avatarStorageService }) {
+function createService({ userProfilesRepository, avatarStorageService }) {
   function serviceBuildAvatarResponse(profile, { avatarSize }) {
     return buildAvatarResponse(profile, {
       avatarStorageService,
@@ -199,4 +199,4 @@ const __testables = {
   buildAvatarResponse
 };
 
-export { createUserAvatarService, __testables };
+export { createService, __testables };

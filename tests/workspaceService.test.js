@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "../lib/errors.js";
-import { createWorkspaceService } from "../server/modules/workspace/service.js";
+import { createService as createWorkspaceService } from "../server/modules/workspace/service.js";
 
 function createWorkspaceServiceFixture(options = {}) {
   const workspace11 = {

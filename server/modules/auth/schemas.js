@@ -14,7 +14,7 @@ import { AUTH_METHOD_IDS, AUTH_METHOD_KINDS } from "../../../shared/auth/authMet
 import { AUTH_OAUTH_PROVIDERS } from "../../../shared/auth/oauthProviders.js";
 import { enumSchema } from "../api/schemas.js";
 
-const registerCredentialsSchema = Type.Object(
+const registerCredentials = Type.Object(
   {
     email: Type.String({
       minLength: AUTH_EMAIL_MIN_LENGTH,
@@ -28,7 +28,7 @@ const registerCredentialsSchema = Type.Object(
   }
 );
 
-const loginCredentialsSchema = Type.Object(
+const loginCredentials = Type.Object(
   {
     email: Type.String({
       minLength: AUTH_EMAIL_MIN_LENGTH,
@@ -42,7 +42,7 @@ const loginCredentialsSchema = Type.Object(
   }
 );
 
-const otpLoginVerifyBodySchema = Type.Object(
+const otpVerifyBody = Type.Object(
   {
     email: Type.Optional(
       Type.String({
@@ -61,36 +61,36 @@ const otpLoginVerifyBodySchema = Type.Object(
   }
 );
 
-const oauthProviderEnumSchema = enumSchema(AUTH_OAUTH_PROVIDERS);
-const authMethodIdEnumSchema = enumSchema(AUTH_METHOD_IDS);
-const authMethodKindEnumSchema = enumSchema(AUTH_METHOD_KINDS);
-const oauthReturnToSchema = Type.String({
+const oauthProvider = enumSchema(AUTH_OAUTH_PROVIDERS);
+const authMethodId = enumSchema(AUTH_METHOD_IDS);
+const authMethodKind = enumSchema(AUTH_METHOD_KINDS);
+const oauthReturnTo = Type.String({
   minLength: 1,
   maxLength: 1024,
   pattern: "^/(?!/).*$"
 });
 
-const oauthStartParamsSchema = Type.Object(
+const oauthStartParams = Type.Object(
   {
-    provider: oauthProviderEnumSchema
+    provider: oauthProvider
   },
   {
     additionalProperties: false
   }
 );
 
-const oauthStartQuerySchema = Type.Object(
+const oauthStartQuery = Type.Object(
   {
-    returnTo: Type.Optional(oauthReturnToSchema)
+    returnTo: Type.Optional(oauthReturnTo)
   },
   {
     additionalProperties: false
   }
 );
 
-const oauthCompleteBodySchema = Type.Object(
+const oauthCompleteBody = Type.Object(
   {
-    provider: oauthProviderEnumSchema,
+    provider: oauthProvider,
     code: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_RECOVERY_TOKEN_MAX_LENGTH })),
     accessToken: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_ACCESS_TOKEN_MAX_LENGTH })),
     refreshToken: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_REFRESH_TOKEN_MAX_LENGTH })),
@@ -102,7 +102,7 @@ const oauthCompleteBodySchema = Type.Object(
   }
 );
 
-const emailOnlySchema = Type.Object(
+const emailOnly = Type.Object(
   {
     email: Type.String({
       minLength: AUTH_EMAIL_MIN_LENGTH,
@@ -115,7 +115,7 @@ const emailOnlySchema = Type.Object(
   }
 );
 
-const passwordOnlySchema = Type.Object(
+const passwordOnly = Type.Object(
   {
     password: Type.String({ minLength: AUTH_PASSWORD_MIN_LENGTH, maxLength: AUTH_PASSWORD_MAX_LENGTH })
   },
@@ -124,7 +124,7 @@ const passwordOnlySchema = Type.Object(
   }
 );
 
-const passwordMethodToggleBodySchema = Type.Object(
+const passwordMethodToggleBody = Type.Object(
   {
     enabled: Type.Boolean()
   },
@@ -133,7 +133,7 @@ const passwordMethodToggleBodySchema = Type.Object(
   }
 );
 
-const passwordRecoverySchema = Type.Object(
+const passwordRecovery = Type.Object(
   {
     code: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_RECOVERY_TOKEN_MAX_LENGTH })),
     tokenHash: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_RECOVERY_TOKEN_MAX_LENGTH })),
@@ -147,7 +147,7 @@ const passwordRecoverySchema = Type.Object(
   }
 );
 
-const okResponseSchema = Type.Object(
+const okResponse = Type.Object(
   {
     ok: Type.Boolean()
   },
@@ -156,7 +156,7 @@ const okResponseSchema = Type.Object(
   }
 );
 
-const okMessageResponseSchema = Type.Object(
+const okMessageResponse = Type.Object(
   {
     ok: Type.Boolean(),
     message: Type.String({ minLength: 1 })
@@ -166,7 +166,7 @@ const okMessageResponseSchema = Type.Object(
   }
 );
 
-const registerResponseSchema = Type.Object(
+const registerResponse = Type.Object(
   {
     ok: Type.Boolean(),
     requiresEmailConfirmation: Type.Boolean(),
@@ -178,7 +178,7 @@ const registerResponseSchema = Type.Object(
   }
 );
 
-const loginResponseSchema = Type.Object(
+const loginResponse = Type.Object(
   {
     ok: Type.Boolean(),
     username: Type.String({ minLength: 1, maxLength: 120 })
@@ -188,7 +188,7 @@ const loginResponseSchema = Type.Object(
   }
 );
 
-const otpLoginVerifyResponseSchema = Type.Object(
+const otpVerifyResponse = Type.Object(
   {
     ok: Type.Boolean(),
     username: Type.String({ minLength: 1, maxLength: 120 }),
@@ -203,10 +203,10 @@ const otpLoginVerifyResponseSchema = Type.Object(
   }
 );
 
-const oauthCompleteResponseSchema = Type.Object(
+const oauthCompleteResponse = Type.Object(
   {
     ok: Type.Boolean(),
-    provider: oauthProviderEnumSchema,
+    provider: oauthProvider,
     username: Type.String({ minLength: 1, maxLength: 120 }),
     email: Type.String({
       minLength: AUTH_EMAIL_MIN_LENGTH,
@@ -219,7 +219,7 @@ const oauthCompleteResponseSchema = Type.Object(
   }
 );
 
-const logoutResponseSchema = Type.Object(
+const logoutResponse = Type.Object(
   {
     ok: Type.Boolean()
   },
@@ -228,7 +228,7 @@ const logoutResponseSchema = Type.Object(
   }
 );
 
-const sessionResponseSchema = Type.Object(
+const sessionResponse = Type.Object(
   {
     authenticated: Type.Boolean(),
     username: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
@@ -239,7 +239,7 @@ const sessionResponseSchema = Type.Object(
   }
 );
 
-const sessionErrorResponseSchema = Type.Object(
+const sessionErrorResponse = Type.Object(
   {
     error: Type.String({ minLength: 1 }),
     csrfToken: Type.String({ minLength: 1 })
@@ -249,28 +249,60 @@ const sessionErrorResponseSchema = Type.Object(
   }
 );
 
-export {
-  registerCredentialsSchema,
-  loginCredentialsSchema,
-  otpLoginVerifyBodySchema,
-  oauthProviderEnumSchema,
-  authMethodIdEnumSchema,
-  authMethodKindEnumSchema,
-  oauthReturnToSchema,
-  oauthStartParamsSchema,
-  oauthStartQuerySchema,
-  oauthCompleteBodySchema,
-  emailOnlySchema,
-  passwordOnlySchema,
-  passwordMethodToggleBodySchema,
-  passwordRecoverySchema,
-  okResponseSchema,
-  okMessageResponseSchema,
-  registerResponseSchema,
-  loginResponseSchema,
-  otpLoginVerifyResponseSchema,
-  oauthCompleteResponseSchema,
-  logoutResponseSchema,
-  sessionResponseSchema,
-  sessionErrorResponseSchema
+const schema = {
+  fields: {
+    oauthProvider,
+    authMethodId,
+    authMethodKind,
+    oauthReturnTo
+  },
+  register: {
+    body: registerCredentials,
+    response: registerResponse
+  },
+  login: {
+    body: loginCredentials,
+    response: loginResponse
+  },
+  otpRequest: {
+    body: emailOnly,
+    response: okMessageResponse
+  },
+  otpVerify: {
+    body: otpVerifyBody,
+    response: otpVerifyResponse
+  },
+  oauthStart: {
+    params: oauthStartParams,
+    query: oauthStartQuery
+  },
+  oauthComplete: {
+    body: oauthCompleteBody,
+    response: oauthCompleteResponse
+  },
+  passwordForgot: {
+    body: emailOnly,
+    response: okMessageResponse
+  },
+  passwordRecovery: {
+    body: passwordRecovery,
+    response: okResponse
+  },
+  passwordReset: {
+    body: passwordOnly,
+    response: okMessageResponse
+  },
+  passwordMethodToggle: {
+    body: passwordMethodToggleBody,
+    response: okMessageResponse
+  },
+  logout: {
+    response: logoutResponse
+  },
+  session: {
+    response: sessionResponse,
+    unavailable: sessionErrorResponse
+  }
 };
+
+export { schema };

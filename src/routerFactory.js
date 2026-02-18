@@ -1,9 +1,9 @@
 import { createBrowserHistory, createRootRoute, createRouter } from "@tanstack/vue-router";
 import { createSurfacePaths } from "../shared/routing/surfacePaths.js";
 import { createSurfaceRouteGuards } from "./routerGuards.js";
-import { createCoreRoutes } from "./routes/coreRoutes.js";
-import { createWorkspaceRoutes } from "./routes/workspaceRoutes.js";
-import { createProjectsRoutes } from "./routes/projectsRoutes.js";
+import { createRoutes as createCoreRoutes } from "./routes/coreRoutes.js";
+import { createRoutes as createWorkspaceRoutes } from "./routes/workspaceRoutes.js";
+import { createRoutes as createProjectsRoutes } from "./routes/projectsRoutes.js";
 
 function createSurfaceRouter({ authStore, workspaceStore, surface, shellComponent, includeWorkspaceSettings = false }) {
   const stores = { authStore, workspaceStore };

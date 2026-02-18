@@ -44,7 +44,7 @@ export function useSettingsView() {
 
   const settingsQuery = useQuery({
     queryKey: SETTINGS_QUERY_KEY,
-    queryFn: () => api.settings(),
+    queryFn: () => api.settings.get(),
     enabled: settingsEnabled
   });
 

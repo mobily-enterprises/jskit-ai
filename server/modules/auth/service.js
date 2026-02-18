@@ -56,7 +56,7 @@ import { createPasswordSecurityFlows } from "./lib/passwordSecurityFlows.js";
 const ACCESS_TOKEN_COOKIE = "sb_access_token";
 const REFRESH_TOKEN_COOKIE = "sb_refresh_token";
 const DEFAULT_AUDIENCE = "authenticated";
-function createAuthService(options) {
+function createService(options) {
   const supabaseUrl = String(options.supabaseUrl || "");
   const supabasePublishableKey = String(options.supabasePublishableKey || "");
   const userProfilesRepository = options.userProfilesRepository;
@@ -685,4 +685,4 @@ const __testables = {
   classifyJwtVerifyError
 };
 
-export { createAuthService, __testables };
+export { createService, __testables };

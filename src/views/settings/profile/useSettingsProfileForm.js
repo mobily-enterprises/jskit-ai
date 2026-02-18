@@ -42,11 +42,11 @@ export function useSettingsProfileForm(options) {
   const avatarMessageType = ref("success");
 
   const profileMutation = useMutation({
-    mutationFn: (payload) => api.updateProfileSettings(payload)
+    mutationFn: (payload) => api.settings.updateProfile(payload)
   });
 
   const avatarDeleteMutation = useMutation({
-    mutationFn: () => api.deleteProfileAvatar()
+    mutationFn: () => api.settings.deleteAvatar()
   });
 
   const { profileInitials, applyAvatarData, setupAvatarUploader, submitProfile, openAvatarEditor, submitAvatarDelete } =

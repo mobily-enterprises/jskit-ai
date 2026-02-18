@@ -1,4 +1,4 @@
-function createProjectsController({ projectsService }) {
+function createController({ projectsService }) {
   if (!projectsService) {
     throw new Error("projectsService is required.");
   }
@@ -49,4 +49,4 @@ function createProjectsController({ projectsService }) {
   };
 }
 
-export { createProjectsController };
+export { createController };

@@ -326,7 +326,7 @@ function buildSettingsResponse(userProfile, settings, securityStatus, avatar) {
   };
 }
 
-function createUserSettingsService({ userSettingsRepository, userProfilesRepository, authService, userAvatarService }) {
+function createService({ userSettingsRepository, userProfilesRepository, authService, userAvatarService }) {
   if (!userAvatarService || typeof userAvatarService.buildAvatarResponse !== "function") {
     throw new Error("userAvatarService is required.");
   }
@@ -488,4 +488,4 @@ const __testables = {
   isValidCurrencyCode
 };
 
-export { createUserSettingsService, __testables };
+export { createService, __testables };

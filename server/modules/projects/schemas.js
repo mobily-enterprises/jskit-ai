@@ -1,31 +1,31 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { createPaginationQuerySchema } from "../../../lib/schemas/paginationQuerySchema.js";
+import { createPaginationQuerySchema } from "../api/schema/paginationQuery.js";
 import { enumSchema } from "../api/schemas.js";
 
-const querySchema = createPaginationQuerySchema({
+const query = createPaginationQuerySchema({
   defaultPage: 1,
   defaultPageSize: 10,
   maxPageSize: 100
 });
 
-const statusFieldSchema = enumSchema(["draft", "active", "archived"]);
-const projectIdFieldSchema = Type.Integer({ minimum: 1 });
+const status = enumSchema(["draft", "active", "archived"]);
+const projectId = Type.Integer({ minimum: 1 });
 
-const paramsSchema = Type.Object(
+const params = Type.Object(
   {
-    projectId: projectIdFieldSchema
+    projectId
   },
   {
     additionalProperties: false
   }
 );
 
-const entitySchema = Type.Object(
+const entity = Type.Object(
   {
     id: Type.Integer({ minimum: 1 }),
     workspaceId: Type.Integer({ minimum: 1 }),
     name: Type.String({ minLength: 1, maxLength: 160 }),
-    status: statusFieldSchema,
+    status,
     owner: Type.String({ maxLength: 120 }),
     notes: Type.String({ maxLength: 5000 }),
     createdAt: Type.String({ format: "iso-utc-date-time" }),
@@ -36,9 +36,9 @@ const entitySchema = Type.Object(
   }
 );
 
-const listResponseSchema = Type.Object(
+const list = Type.Object(
   {
-    entries: Type.Array(entitySchema),
+    entries: Type.Array(entity),
     page: Type.Integer({ minimum: 1 }),
     pageSize: Type.Integer({ minimum: 1, maximum: 100 }),
     total: Type.Integer({ minimum: 0 }),
@@ -49,19 +49,19 @@ const listResponseSchema = Type.Object(
   }
 );
 
-const singleResponseSchema = Type.Object(
+const single = Type.Object(
   {
-    project: entitySchema
+    project: entity
   },
   {
     additionalProperties: false
   }
 );
 
-const createBodySchema = Type.Object(
+const create = Type.Object(
   {
     name: Type.String({ minLength: 1, maxLength: 160 }),
-    status: Type.Optional(statusFieldSchema),
+    status: Type.Optional(status),
     owner: Type.Optional(Type.String({ maxLength: 120 })),
     notes: Type.Optional(Type.String({ maxLength: 5000 }))
   },
@@ -70,12 +70,12 @@ const createBodySchema = Type.Object(
   }
 );
 
-const replaceBodySchema = createBodySchema;
+const replace = create;
 
-const updateBodySchema = Type.Object(
+const update = Type.Object(
   {
     name: Type.Optional(Type.String({ minLength: 1, maxLength: 160 })),
-    status: Type.Optional(statusFieldSchema),
+    status: Type.Optional(status),
     owner: Type.Optional(Type.String({ maxLength: 120 })),
     notes: Type.Optional(Type.String({ maxLength: 5000 }))
   },
@@ -85,15 +85,18 @@ const updateBodySchema = Type.Object(
   }
 );
 
-export {
-  querySchema,
-  paramsSchema,
-  statusFieldSchema,
-  projectIdFieldSchema,
-  entitySchema,
-  listResponseSchema,
-  singleResponseSchema,
-  createBodySchema,
-  replaceBodySchema,
-  updateBodySchema
+const schema = {
+  query,
+  params,
+  response: {
+    list,
+    single
+  },
+  body: {
+    create,
+    replace,
+    update
+  }
 };
+
+export { schema };

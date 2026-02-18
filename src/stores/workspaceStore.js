@@ -289,16 +289,16 @@ export const useWorkspaceStore = defineStore("workspace", {
       return this.permissions.includes("*") || this.permissions.includes(normalized);
     },
     async refreshBootstrap() {
-      const payload = await api.bootstrap();
+      const payload = await api.workspace.bootstrap();
       return this.applyBootstrap(payload);
     },
     async refreshPendingInvites() {
-      const payload = await api.pendingWorkspaceInvites();
+      const payload = await api.workspace.listPendingInvites();
       this.setPendingInvites(payload.pendingInvites || []);
       return this.pendingInvites;
     },
     async selectWorkspace(workspaceSlug) {
-      const payload = await api.selectWorkspace({
+      const payload = await api.workspace.select({
         workspaceSlug: String(workspaceSlug || "").trim()
       });
       this.applyWorkspaceSelection(payload);
@@ -306,7 +306,7 @@ export const useWorkspaceStore = defineStore("workspace", {
     },
     async respondToPendingInvite(inviteToken, decision) {
       const normalizedInviteToken = String(inviteToken || "").trim();
-      const response = await api.redeemWorkspaceInvite({
+      const response = await api.workspace.redeemInvite({
         token: normalizedInviteToken,
         decision: String(decision || "")
           .trim()

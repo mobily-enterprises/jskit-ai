@@ -1,10 +1,10 @@
 import { safeRequestUrl } from "../../lib/requestUrl.js";
-import { buildAuthRoutes } from "../../server/modules/auth/routes.js";
-import { buildWorkspaceRoutes } from "../../server/modules/workspace/routes.js";
-import { buildProjectsRoutes } from "../../server/modules/projects/routes.js";
-import { buildSettingsRoutes } from "../../server/modules/settings/routes.js";
-import { buildHistoryRoutes } from "../../server/modules/history/routes.js";
-import { buildAnnuityRoutes } from "../../server/modules/annuity/routes.js";
+import { buildRoutes as buildAuthRoutes } from "../../server/modules/auth/routes.js";
+import { buildRoutes as buildWorkspaceRoutes } from "../../server/modules/workspace/routes.js";
+import { buildRoutes as buildProjectsRoutes } from "../../server/modules/projects/routes.js";
+import { buildRoutes as buildSettingsRoutes } from "../../server/modules/settings/routes.js";
+import { buildRoutes as buildHistoryRoutes } from "../../server/modules/history/routes.js";
+import { buildRoutes as buildAnnuityRoutes } from "../../server/modules/annuity/routes.js";
 
 function createMissingHandler() {
   return async (_request, reply) => {

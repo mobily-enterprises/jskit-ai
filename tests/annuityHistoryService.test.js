@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { __testables, createAnnuityHistoryService } from "../server/modules/history/service.js";
+import { __testables, createService as createAnnuityHistoryService } from "../server/modules/history/service.js";
 
 function makeResult(overrides = {}) {
   return {

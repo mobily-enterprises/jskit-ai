@@ -46,7 +46,7 @@ export function useSettingsPreferencesForm(options) {
   const preferencesMessageType = ref("success");
 
   const preferencesMutation = useMutation({
-    mutationFn: (payload) => api.updatePreferencesSettings(payload)
+    mutationFn: (payload) => api.settings.updatePreferences(payload)
   });
 
   const { applyThemePreference, submitPreferences } = useSettingsPreferencesLogic({

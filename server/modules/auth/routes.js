@@ -1,27 +1,8 @@
 import { Type } from "@fastify/type-provider-typebox";
-import {
-  registerCredentialsSchema,
-  loginCredentialsSchema,
-  otpLoginVerifyBodySchema,
-  oauthStartParamsSchema,
-  oauthStartQuerySchema,
-  oauthCompleteBodySchema,
-  emailOnlySchema,
-  passwordOnlySchema,
-  passwordRecoverySchema,
-  okResponseSchema,
-  okMessageResponseSchema,
-  registerResponseSchema,
-  loginResponseSchema,
-  otpLoginVerifyResponseSchema,
-  oauthCompleteResponseSchema,
-  logoutResponseSchema,
-  sessionResponseSchema,
-  sessionErrorResponseSchema
-} from "./schemas.js";
+import { schema } from "./schemas.js";
 import { withStandardErrorResponses } from "../api/schemas.js";
 
-function buildAuthRoutes(controllers) {
+function buildRoutes(controllers) {
   return [
     {
       path: "/api/register",
@@ -30,10 +11,10 @@ function buildAuthRoutes(controllers) {
       schema: {
         tags: ["auth"],
         summary: "Register a new user",
-        body: registerCredentialsSchema,
+        body: schema.register.body,
         response: withStandardErrorResponses(
           {
-            201: registerResponseSchema
+            201: schema.register.response
           },
           { includeValidation400: true }
         )
@@ -51,10 +32,10 @@ function buildAuthRoutes(controllers) {
       schema: {
         tags: ["auth"],
         summary: "Log in with Supabase credentials",
-        body: loginCredentialsSchema,
+        body: schema.login.body,
         response: withStandardErrorResponses(
           {
-            200: loginResponseSchema
+            200: schema.login.response
           },
           { includeValidation400: true }
         )
@@ -72,10 +53,10 @@ function buildAuthRoutes(controllers) {
       schema: {
         tags: ["auth"],
         summary: "Request one-time email login code",
-        body: emailOnlySchema,
+        body: schema.otpRequest.body,
         response: withStandardErrorResponses(
           {
-            200: okMessageResponseSchema
+            200: schema.otpRequest.response
           },
           { includeValidation400: true }
         )
@@ -93,10 +74,10 @@ function buildAuthRoutes(controllers) {
       schema: {
         tags: ["auth"],
         summary: "Verify one-time email login code and create session",
-        body: otpLoginVerifyBodySchema,
+        body: schema.otpVerify.body,
         response: withStandardErrorResponses(
           {
-            200: otpLoginVerifyResponseSchema
+            200: schema.otpVerify.response
           },
           { includeValidation400: true }
         )
@@ -115,8 +96,8 @@ function buildAuthRoutes(controllers) {
       schema: {
         tags: ["auth"],
         summary: "Start OAuth login with Supabase provider",
-        params: oauthStartParamsSchema,
-        querystring: oauthStartQuerySchema,
+        params: schema.oauthStart.params,
+        querystring: schema.oauthStart.query,
         response: withStandardErrorResponses(
           {
             302: Type.Unknown()
@@ -137,10 +118,10 @@ function buildAuthRoutes(controllers) {
       schema: {
         tags: ["auth"],
         summary: "Complete OAuth code exchange and set session cookies",
-        body: oauthCompleteBodySchema,
+        body: schema.oauthComplete.body,
         response: withStandardErrorResponses(
           {
-            200: oauthCompleteResponseSchema
+            200: schema.oauthComplete.response
           },
           { includeValidation400: true }
         )
@@ -158,10 +139,10 @@ function buildAuthRoutes(controllers) {
       schema: {
         tags: ["auth"],
         summary: "Request a password reset email",
-        body: emailOnlySchema,
+        body: schema.passwordForgot.body,
         response: withStandardErrorResponses(
           {
-            200: okMessageResponseSchema
+            200: schema.passwordForgot.response
           },
           { includeValidation400: true }
         )
@@ -179,10 +160,10 @@ function buildAuthRoutes(controllers) {
       schema: {
         tags: ["auth"],
         summary: "Complete password recovery link exchange",
-        body: passwordRecoverySchema,
+        body: schema.passwordRecovery.body,
         response: withStandardErrorResponses(
           {
-            200: okResponseSchema
+            200: schema.passwordRecovery.response
           },
           { includeValidation400: true }
         )
@@ -200,10 +181,10 @@ function buildAuthRoutes(controllers) {
       schema: {
         tags: ["auth"],
         summary: "Set a new password for authenticated recovery session",
-        body: passwordOnlySchema,
+        body: schema.passwordReset.body,
         response: withStandardErrorResponses(
           {
-            200: okMessageResponseSchema
+            200: schema.passwordReset.response
           },
           { includeValidation400: true }
         )
@@ -222,7 +203,7 @@ function buildAuthRoutes(controllers) {
         tags: ["auth"],
         summary: "Log out and clear session cookies",
         response: withStandardErrorResponses({
-          200: logoutResponseSchema
+          200: schema.logout.response
         })
       },
       handler: controllers.auth.logout
@@ -235,8 +216,8 @@ function buildAuthRoutes(controllers) {
         tags: ["auth"],
         summary: "Get current session status and CSRF token",
         response: withStandardErrorResponses({
-          200: sessionResponseSchema,
-          503: sessionErrorResponseSchema
+          200: schema.session.response,
+          503: schema.session.unavailable
         })
       },
       handler: controllers.auth.session
@@ -244,4 +225,4 @@ function buildAuthRoutes(controllers) {
   ];
 }
 
-export { buildAuthRoutes };
+export { buildRoutes };

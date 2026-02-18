@@ -42,7 +42,7 @@ function resolveFsBasePath(fsBasePath, { rootDir }) {
   return path.resolve(rootDir, "data", "storage");
 }
 
-function createAvatarStorageService(options = {}) {
+function createService(options = {}) {
   const driver = String(options.driver || "fs")
     .trim()
     .toLowerCase();
@@ -121,4 +121,4 @@ const __testables = {
   resolveFsBasePath
 };
 
-export { createAvatarStorageService, __testables };
+export { createService, __testables };

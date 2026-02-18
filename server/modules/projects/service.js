@@ -116,7 +116,7 @@ function normalizeNotes(value, { required } = { required: false }) {
   return normalized;
 }
 
-function createProjectsService({ projectsRepository }) {
+function createService({ projectsRepository }) {
   if (!projectsRepository) {
     throw new Error("projectsRepository is required.");
   }
@@ -242,4 +242,4 @@ function createProjectsService({ projectsRepository }) {
   };
 }
 
-export { createProjectsService };
+export { createService };

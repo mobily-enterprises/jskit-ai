@@ -138,36 +138,36 @@ export function useWorkspaceSettingsView() {
 
   const workspaceSettingsQuery = useQuery({
     queryKey: workspaceSettingsQueryKey,
-    queryFn: () => api.workspaceSettings(),
+    queryFn: () => api.workspace.getSettings(),
     enabled: canViewWorkspaceSettings
   });
 
   const membersQuery = useQuery({
     queryKey: workspaceMembersQueryKey,
-    queryFn: () => api.workspaceMembers(),
+    queryFn: () => api.workspace.listMembers(),
     enabled: canViewMembers
   });
 
   const invitesQuery = useQuery({
     queryKey: workspaceInvitesQueryKey,
-    queryFn: () => api.workspaceInvites(),
+    queryFn: () => api.workspace.listInvites(),
     enabled: canViewMembers
   });
 
   const updateWorkspaceSettingsMutation = useMutation({
-    mutationFn: (payload) => api.updateWorkspaceSettings(payload)
+    mutationFn: (payload) => api.workspace.updateSettings(payload)
   });
 
   const createInviteMutation = useMutation({
-    mutationFn: (payload) => api.createWorkspaceInvite(payload)
+    mutationFn: (payload) => api.workspace.createInvite(payload)
   });
 
   const revokeInviteMutation = useMutation({
-    mutationFn: (inviteId) => api.revokeWorkspaceInvite(inviteId)
+    mutationFn: (inviteId) => api.workspace.revokeInvite(inviteId)
   });
 
   const updateMemberRoleMutation = useMutation({
-    mutationFn: ({ memberUserId, roleId }) => api.updateWorkspaceMemberRole(memberUserId, { roleId })
+    mutationFn: ({ memberUserId, roleId }) => api.workspace.updateMemberRole(memberUserId, { roleId })
   });
   const isSavingWorkspaceSettings = computed(() => updateWorkspaceSettingsMutation.isPending.value);
   const isCreatingInvite = computed(() => createInviteMutation.isPending.value);

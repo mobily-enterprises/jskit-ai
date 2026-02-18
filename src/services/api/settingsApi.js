@@ -1,21 +1,21 @@
-function createSettingsApi({ request }) {
+function createApi({ request }) {
   return {
-    settings() {
+    get() {
       return request("/api/settings");
     },
-    updateProfileSettings(payload) {
+    updateProfile(payload) {
       return request("/api/settings/profile", { method: "PATCH", body: payload });
     },
-    uploadProfileAvatar(payload) {
+    uploadAvatar(payload) {
       return request("/api/settings/profile/avatar", { method: "POST", body: payload });
     },
-    deleteProfileAvatar() {
+    deleteAvatar() {
       return request("/api/settings/profile/avatar", { method: "DELETE" });
     },
-    updatePreferencesSettings(payload) {
+    updatePreferences(payload) {
       return request("/api/settings/preferences", { method: "PATCH", body: payload });
     },
-    updateNotificationSettings(payload) {
+    updateNotifications(payload) {
       return request("/api/settings/notifications", { method: "PATCH", body: payload });
     },
     changePassword(payload) {
@@ -24,7 +24,7 @@ function createSettingsApi({ request }) {
     setPasswordMethodEnabled(payload) {
       return request("/api/settings/security/methods/password", { method: "PATCH", body: payload });
     },
-    settingsOAuthLinkStartUrl(provider, options = {}) {
+    oauthLinkStartUrl(provider, options = {}) {
       const encodedProvider = encodeURIComponent(
         String(provider || "")
           .trim()
@@ -40,7 +40,7 @@ function createSettingsApi({ request }) {
       });
       return `/api/settings/security/oauth/${encodedProvider}/start?${params.toString()}`;
     },
-    unlinkSettingsOAuthProvider(provider) {
+    unlinkOAuthProvider(provider) {
       const encodedProvider = encodeURIComponent(
         String(provider || "")
           .trim()
@@ -54,4 +54,4 @@ function createSettingsApi({ request }) {
   };
 }
 
-export { createSettingsApi };
+export { createApi };

@@ -1,4 +1,4 @@
-function createAuthController({ authService }) {
+function createController({ authService }) {
   async function register(request, reply) {
     const payload = request.body || {};
     const result = await authService.register(payload);
@@ -148,4 +148,4 @@ function createAuthController({ authService }) {
   };
 }
 
-export { createAuthController };
+export { createController };

@@ -6,7 +6,7 @@ const WorkspaceSettingsView = lazyRouteComponent(() => import("../views/workspac
 /* v8 ignore stop */
 /* c8 ignore stop */
 
-function createWorkspaceRoutes({ rootRoute, workspaceRoutePrefix, guards }) {
+function createRoutes({ rootRoute, workspaceRoutePrefix, guards }) {
   return [
     createRoute({
       getParentRoute: () => rootRoute,
@@ -18,4 +18,4 @@ function createWorkspaceRoutes({ rootRoute, workspaceRoutePrefix, guards }) {
   ];
 }
 
-export { createWorkspaceRoutes };
+export { createRoutes };

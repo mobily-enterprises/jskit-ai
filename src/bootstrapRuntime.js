@@ -93,7 +93,7 @@ function applyThemePreference(vuetifyInstance, themePreference) {
 
 async function bootstrapRuntime({ authStore, workspaceStore, vuetify }) {
   try {
-    const bootstrapPayload = await api.bootstrap();
+    const bootstrapPayload = await api.workspace.bootstrap();
     const session =
       bootstrapPayload?.session && typeof bootstrapPayload.session === "object" ? bootstrapPayload.session : {};
     authStore.applySession({

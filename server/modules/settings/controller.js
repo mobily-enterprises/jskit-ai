@@ -1,6 +1,6 @@
 import { AppError } from "../../../lib/errors.js";
 
-function createSettingsController({ userSettingsService, authService }) {
+function createController({ userSettingsService, authService }) {
   async function get(request, reply) {
     const response = await userSettingsService.getForUser(request, request.user);
     reply.code(200).send(response);
@@ -115,4 +115,4 @@ function createSettingsController({ userSettingsService, authService }) {
   };
 }
 
-export { createSettingsController };
+export { createController };

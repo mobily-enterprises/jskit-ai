@@ -1,12 +1,12 @@
-import { createAuthService } from "../modules/auth/service.js";
+import { createService as createAuthService } from "../modules/auth/service.js";
 import * as annuityService from "../modules/annuity/service.js";
-import { createAnnuityHistoryService } from "../modules/history/service.js";
-import { createUserSettingsService } from "../modules/settings/service.js";
-import { createAvatarStorageService } from "../modules/users/avatarStorageService.js";
-import { createUserAvatarService } from "../modules/users/avatarService.js";
-import { createWorkspaceService } from "../modules/workspace/service.js";
-import { createWorkspaceAdminService } from "../modules/workspace/adminService.js";
-import { createProjectsService } from "../modules/projects/service.js";
+import { createService as createAnnuityHistoryService } from "../modules/history/service.js";
+import { createService as createUserSettingsService } from "../modules/settings/service.js";
+import { createService as createAvatarStorageService } from "../modules/users/avatarStorageService.js";
+import { createService as createUserAvatarService } from "../modules/users/avatarService.js";
+import { createService as createWorkspaceService } from "../modules/workspace/service.js";
+import { createService as createWorkspaceAdminService } from "../modules/workspace/adminService.js";
+import { createService as createProjectsService } from "../modules/projects/service.js";
 
 function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, rootDir, supabasePublishableKey }) {
   const {

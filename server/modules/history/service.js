@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { Value } from "typebox/value";
 import { AppError } from "../../../lib/errors.js";
-import { HistoryEntrySchema } from "../../../lib/schemas/historyEntrySchema.js";
+import { schema } from "./schemas.js";
 
 function mapSchemaErrorsToFieldErrors(schemaErrors) {
   const fieldErrors = {};
@@ -38,11 +38,11 @@ function buildHistoryEntryFromResult(result) {
 }
 
 function assertValidHistoryEntry(historyEntry) {
-  if (Value.Check(HistoryEntrySchema, historyEntry)) {
+  if (Value.Check(schema.entry, historyEntry)) {
     return;
   }
 
-  const fieldErrors = mapSchemaErrorsToFieldErrors(Value.Errors(HistoryEntrySchema, historyEntry));
+  const fieldErrors = mapSchemaErrorsToFieldErrors(Value.Errors(schema.entry, historyEntry));
   throw new AppError(500, "Internal history entry validation failed.", {
     details: {
       fieldErrors
@@ -50,7 +50,7 @@ function assertValidHistoryEntry(historyEntry) {
   });
 }
 
-function createAnnuityHistoryService(options) {
+function createService(options) {
   const calculationLogsRepository = options.calculationLogsRepository;
 
   async function appendCalculation(workspaceId, userId, result) {
@@ -94,4 +94,4 @@ const __testables = {
   mapSchemaErrorsToFieldErrors
 };
 
-export { createAnnuityHistoryService, __testables };
+export { createService, __testables };

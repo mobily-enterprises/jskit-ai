@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
 
-import { createAuthService } from "../server/modules/auth/service.js";
+import { createService as createAuthService } from "../server/modules/auth/service.js";
 
 const SUPABASE_URL = "http://supabase.local";
 const SUPABASE_PUBLISHABLE_KEY = "pk_test_123";

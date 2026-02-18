@@ -38,11 +38,11 @@ export function useResetPasswordView() {
   const formSuccess = ref("");
 
   const completeRecoveryMutation = useMutation({
-    mutationFn: (payload) => api.completePasswordRecovery(payload)
+    mutationFn: (payload) => api.auth.completePasswordRecovery(payload)
   });
 
   const resetPasswordMutation = useMutation({
-    mutationFn: (payload) => api.resetPassword(payload)
+    mutationFn: (payload) => api.auth.resetPassword(payload)
   });
 
   const loading = computed(() => completeRecoveryMutation.isPending.value || resetPasswordMutation.isPending.value);

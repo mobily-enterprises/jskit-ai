@@ -1,47 +1,47 @@
-function createWorkspaceApi({ request }) {
+function createApi({ request }) {
   return {
     bootstrap() {
       return request("/api/bootstrap");
     },
-    workspaces() {
+    list() {
       return request("/api/workspaces");
     },
-    selectWorkspace(payload) {
+    select(payload) {
       return request("/api/workspaces/select", { method: "POST", body: payload });
     },
-    pendingWorkspaceInvites() {
+    listPendingInvites() {
       return request("/api/workspace/invitations/pending");
     },
-    redeemWorkspaceInvite(payload) {
+    redeemInvite(payload) {
       return request("/api/workspace/invitations/redeem", { method: "POST", body: payload });
     },
-    workspaceSettings() {
+    getSettings() {
       return request("/api/workspace/settings");
     },
-    updateWorkspaceSettings(payload) {
+    updateSettings(payload) {
       return request("/api/workspace/settings", { method: "PATCH", body: payload });
     },
-    workspaceRoles() {
+    listRoles() {
       return request("/api/workspace/roles");
     },
-    workspaceMembers() {
+    listMembers() {
       return request("/api/workspace/members");
     },
-    updateWorkspaceMemberRole(memberUserId, payload) {
+    updateMemberRole(memberUserId, payload) {
       const encodedUserId = encodeURIComponent(String(memberUserId || "").trim());
       return request(`/api/workspace/members/${encodedUserId}/role`, { method: "PATCH", body: payload });
     },
-    workspaceInvites() {
+    listInvites() {
       return request("/api/workspace/invites");
     },
-    createWorkspaceInvite(payload) {
+    createInvite(payload) {
       return request("/api/workspace/invites", { method: "POST", body: payload });
     },
-    revokeWorkspaceInvite(inviteId) {
+    revokeInvite(inviteId) {
       const encodedInviteId = encodeURIComponent(String(inviteId || "").trim());
       return request(`/api/workspace/invites/${encodedInviteId}`, { method: "DELETE" });
     }
   };
 }
 
-export { createWorkspaceApi };
+export { createApi };

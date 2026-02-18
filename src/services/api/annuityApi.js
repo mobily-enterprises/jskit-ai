@@ -1,9 +1,9 @@
-function createAnnuityApi({ request }) {
+function createApi({ request }) {
   return {
-    calculateAnnuity(payload) {
+    calculate(payload) {
       return request("/api/annuityCalculator", { method: "POST", body: payload });
     }
   };
 }
 
-export { createAnnuityApi };
+export { createApi };

@@ -367,7 +367,7 @@ export function useSettingsSecurityLogic({
     });
 
     if (typeof window !== "undefined") {
-      window.location.assign(api.settingsOAuthLinkStartUrl(provider, { returnTo }));
+      window.location.assign(api.settings.oauthLinkStartUrl(provider, { returnTo }));
       return;
     }
 

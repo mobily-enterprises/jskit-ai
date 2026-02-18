@@ -1,6 +1,6 @@
-function createHistoryApi({ request }) {
+function createApi({ request }) {
   return {
-    history(page, pageSize) {
+    list(page, pageSize) {
       const params = new URLSearchParams({
         page: String(page),
         pageSize: String(pageSize)
@@ -10,4 +10,4 @@ function createHistoryApi({ request }) {
   };
 }
 
-export { createHistoryApi };
+export { createApi };

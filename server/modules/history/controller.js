@@ -1,4 +1,4 @@
-function createHistoryController({ annuityHistoryService }) {
+function createController({ annuityHistoryService }) {
   async function list(request, reply) {
     const user = request.user;
     const workspaceId = request.workspace?.id;
@@ -16,4 +16,4 @@ function createHistoryController({ annuityHistoryService }) {
   };
 }
 
-export { createHistoryController };
+export { createController };

@@ -1,4 +1,4 @@
-function createAnnuityController({ annuityService, annuityHistoryService }) {
+function createController({ annuityService, annuityHistoryService }) {
   async function calculate(request, reply) {
     const user = request.user;
     const workspaceId = request.workspace?.id;
@@ -18,4 +18,4 @@ function createAnnuityController({ annuityService, annuityHistoryService }) {
   };
 }
 
-export { createAnnuityController };
+export { createController };

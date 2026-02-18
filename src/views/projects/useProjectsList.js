@@ -40,7 +40,7 @@ export function useProjectsList({ initialPageSize = projectPageSizeOptions[0] } 
       pagination.page.value,
       pagination.pageSize.value
     ]),
-    queryFn: () => api.workspaceProjects(pagination.page.value, pagination.pageSize.value),
+    queryFn: () => api.projects.list(pagination.page.value, pagination.pageSize.value),
     enabled,
     placeholderData: (previous) => previous
   });

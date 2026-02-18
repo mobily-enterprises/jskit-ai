@@ -9,7 +9,7 @@ const ProjectsEditView = lazyRouteComponent(() => import("../views/projects/Proj
 /* v8 ignore stop */
 /* c8 ignore stop */
 
-function createProjectsRoutes({ rootRoute, workspaceRoutePrefix, guards }) {
+function createRoutes({ rootRoute, workspaceRoutePrefix, guards }) {
   return [
     createRoute({
       getParentRoute: () => rootRoute,
@@ -38,4 +38,4 @@ function createProjectsRoutes({ rootRoute, workspaceRoutePrefix, guards }) {
   ];
 }
 
-export { createProjectsRoutes };
+export { createRoutes };

@@ -11,7 +11,7 @@ const WorkspacesView = lazyRouteComponent(() => import("../views/workspaces/Work
 /* v8 ignore stop */
 /* c8 ignore stop */
 
-function createCoreRoutes({ rootRoute, surfacePaths, workspaceRoutePrefix, guards }) {
+function createRoutes({ rootRoute, surfacePaths, workspaceRoutePrefix, guards }) {
   const rootRedirectRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: surfacePaths.rootPath,
@@ -71,4 +71,4 @@ function createCoreRoutes({ rootRoute, surfacePaths, workspaceRoutePrefix, guard
   ];
 }
 
-export { createCoreRoutes };
+export { createRoutes };

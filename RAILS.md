@@ -43,23 +43,12 @@ Repository mapper pattern:
 
 API schema naming:
 
-- Schema files live in `lib/schemas/`.
-- Use endpoint-centric file names:
-  - `<endpoint>.request.js`
-  - `<endpoint>.response.js`
-- Example:
-  - `annuityCalculator.request.js`
-  - `annuityCalculator.response.js`
-- Export names are surface-specific:
-  - `<endpoint>RequestBodySchema` for request `body`.
-  - `<endpoint>RequestQuerySchema` for request `querystring`.
-  - `<endpoint>RequestParamsSchema` for request `params`.
-  - `<endpoint>RequestHeadersSchema` for request `headers`.
-  - `<endpoint>ResponseSchema` for primary success response.
-- Params schemas are mandatory only for routes that include path params (example: `/users/:userId`).
-- Keep params/query/body/header schemas in the same `<endpoint>.request.js` by default.
-- If a route needs status-specific response schemas, use:
-  - `<endpoint>Response<StatusCode>Schema` (example: `sessionResponse503Schema`).
+- Feature-specific API schemas live in `server/modules/<feature>/schemas.js`.
+- Shared backend API schema helpers live in `server/modules/api/schema/`.
+- Module schema files should export a `schema` object.
+- Group route contracts under explicit keys (`query`, `params`, `body`, `response`).
+- Include reusable module-level entities/fields only when actually shared by multiple route contracts.
+- Params schemas are required only for routes that include path params (example: `/users/:userId`).
 - Define only schema surfaces a route actually uses.
 - Shared error response schemas must live in a dedicated shared schema module (for example `commonErrors.response.js`) and be reused by routes.
 

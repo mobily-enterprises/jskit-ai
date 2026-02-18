@@ -75,16 +75,16 @@ export function useSettingsSecurityForm(options) {
   const showConfirmPassword = ref(false);
 
   const passwordMutation = useMutation({
-    mutationFn: (payload) => api.changePassword(payload)
+    mutationFn: (payload) => api.settings.changePassword(payload)
   });
   const setPasswordMethodEnabledMutation = useMutation({
-    mutationFn: (payload) => api.setPasswordMethodEnabled(payload)
+    mutationFn: (payload) => api.settings.setPasswordMethodEnabled(payload)
   });
   const logoutOthersMutation = useMutation({
-    mutationFn: () => api.logoutOtherSessions()
+    mutationFn: () => api.settings.logoutOtherSessions()
   });
   const unlinkProviderMutation = useMutation({
-    mutationFn: (providerId) => api.unlinkSettingsOAuthProvider(providerId)
+    mutationFn: (providerId) => api.settings.unlinkOAuthProvider(providerId)
   });
 
   const {

@@ -5,22 +5,11 @@ import {
   AVATAR_MAX_UPLOAD_BYTES,
   AVATAR_UPLOAD_DIMENSION_OPTIONS
 } from "../../../shared/avatar/index.js";
-import {
-  oauthStartParamsSchema,
-  oauthStartQuerySchema,
-  passwordMethodToggleBodySchema,
-  okMessageResponseSchema
-} from "../auth/schemas.js";
-import {
-  settingsResponseSchema,
-  settingsProfileUpdateBodySchema,
-  settingsPreferencesUpdateBodySchema,
-  settingsNotificationsUpdateBodySchema,
-  changePasswordBodySchema
-} from "./schemas.js";
+import { schema as authSchema } from "../auth/schemas.js";
+import { schema } from "./schemas.js";
 import { withStandardErrorResponses } from "../api/schemas.js";
 
-function buildSettingsRoutes(controllers) {
+function buildRoutes(controllers) {
   return [
     {
       path: "/api/settings",
@@ -30,7 +19,7 @@ function buildSettingsRoutes(controllers) {
         tags: ["settings"],
         summary: "Get authenticated user's settings",
         response: withStandardErrorResponses({
-          200: settingsResponseSchema
+          200: schema.response
         })
       },
       handler: controllers.settings.get
@@ -42,10 +31,10 @@ function buildSettingsRoutes(controllers) {
       schema: {
         tags: ["settings"],
         summary: "Update profile settings",
-        body: settingsProfileUpdateBodySchema,
+        body: schema.body.profile,
         response: withStandardErrorResponses(
           {
-            200: settingsResponseSchema
+            200: schema.response
           },
           { includeValidation400: true }
         )
@@ -67,7 +56,7 @@ function buildSettingsRoutes(controllers) {
         consumes: ["multipart/form-data"],
         response: withStandardErrorResponses(
           {
-            200: settingsResponseSchema
+            200: schema.response
           },
           { includeValidation400: true }
         )
@@ -82,7 +71,7 @@ function buildSettingsRoutes(controllers) {
         tags: ["settings"],
         summary: "Delete profile avatar and fallback to gravatar",
         response: withStandardErrorResponses({
-          200: settingsResponseSchema
+          200: schema.response
         })
       },
       handler: controllers.settings.deleteAvatar
@@ -94,10 +83,10 @@ function buildSettingsRoutes(controllers) {
       schema: {
         tags: ["settings"],
         summary: "Update user preferences",
-        body: settingsPreferencesUpdateBodySchema,
+        body: schema.body.preferences,
         response: withStandardErrorResponses(
           {
-            200: settingsResponseSchema
+            200: schema.response
           },
           { includeValidation400: true }
         )
@@ -111,10 +100,10 @@ function buildSettingsRoutes(controllers) {
       schema: {
         tags: ["settings"],
         summary: "Update notification settings",
-        body: settingsNotificationsUpdateBodySchema,
+        body: schema.body.notifications,
         response: withStandardErrorResponses(
           {
-            200: settingsResponseSchema
+            200: schema.response
           },
           { includeValidation400: true }
         )
@@ -128,10 +117,10 @@ function buildSettingsRoutes(controllers) {
       schema: {
         tags: ["settings"],
         summary: "Set or change authenticated user's password",
-        body: changePasswordBodySchema,
+        body: schema.body.changePassword,
         response: withStandardErrorResponses(
           {
-            200: okMessageResponseSchema
+            200: authSchema.passwordMethodToggle.response
           },
           { includeValidation400: true }
         )
@@ -149,10 +138,10 @@ function buildSettingsRoutes(controllers) {
       schema: {
         tags: ["settings"],
         summary: "Enable or disable password sign-in method",
-        body: passwordMethodToggleBodySchema,
+        body: authSchema.passwordMethodToggle.body,
         response: withStandardErrorResponses(
           {
-            200: settingsResponseSchema
+            200: schema.response
           },
           { includeValidation400: true }
         )
@@ -171,8 +160,8 @@ function buildSettingsRoutes(controllers) {
       schema: {
         tags: ["settings"],
         summary: "Start linking an OAuth provider for authenticated user",
-        params: oauthStartParamsSchema,
-        querystring: oauthStartQuerySchema,
+        params: authSchema.oauthStart.params,
+        querystring: authSchema.oauthStart.query,
         response: withStandardErrorResponses(
           {
             302: Type.Unknown()
@@ -193,10 +182,10 @@ function buildSettingsRoutes(controllers) {
       schema: {
         tags: ["settings"],
         summary: "Unlink an OAuth provider from authenticated account",
-        params: oauthStartParamsSchema,
+        params: authSchema.oauthStart.params,
         response: withStandardErrorResponses(
           {
-            200: settingsResponseSchema
+            200: schema.response
           },
           { includeValidation400: true }
         )
@@ -215,7 +204,7 @@ function buildSettingsRoutes(controllers) {
         tags: ["settings"],
         summary: "Sign out from other active sessions",
         response: withStandardErrorResponses({
-          200: okMessageResponseSchema
+          200: authSchema.passwordMethodToggle.response
         })
       },
       rateLimit: {
@@ -227,4 +216,4 @@ function buildSettingsRoutes(controllers) {
   ];
 }
 
-export { buildSettingsRoutes };
+export { buildRoutes };

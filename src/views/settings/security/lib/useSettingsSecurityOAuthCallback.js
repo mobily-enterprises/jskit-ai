@@ -34,7 +34,7 @@ export function useSettingsSecurityOAuthCallback({
     providerLinkStartInFlight.value = true;
 
     try {
-      await api.oauthComplete(callbackState.payload);
+      await api.auth.oauthComplete(callbackState.payload);
       const session = await authStore.refreshSession();
       if (!session?.authenticated) {
         throw new Error("Provider link succeeded but the active session is unavailable. Please retry.");

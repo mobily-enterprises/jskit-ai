@@ -122,7 +122,7 @@ export function useAppShell() {
   async function signOut() {
     const paths = surfacePaths.value;
     try {
-      await api.logout();
+      await api.auth.logout();
     } finally {
       api.clearCsrfTokenCache();
       authStore.setSignedOut();

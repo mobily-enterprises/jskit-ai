@@ -7,7 +7,7 @@ async function resolveRuntimeState({ authStore, workspaceStore }) {
 
   try {
     if (!workspaceStore.initialized || !authStore.initialized) {
-      const bootstrapPayload = await api.bootstrap();
+      const bootstrapPayload = await api.workspace.bootstrap();
       const session =
         bootstrapPayload?.session && typeof bootstrapPayload.session === "object" ? bootstrapPayload.session : {};
       authStore.applySession({

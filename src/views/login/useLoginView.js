@@ -41,19 +41,19 @@ export function useLoginView() {
   );
 
   const registerMutation = useMutation({
-    mutationFn: (payload) => api.register(payload)
+    mutationFn: (payload) => api.auth.register(payload)
   });
   const loginMutation = useMutation({
-    mutationFn: (payload) => api.login(payload)
+    mutationFn: (payload) => api.auth.login(payload)
   });
   const forgotPasswordMutation = useMutation({
-    mutationFn: (payload) => api.requestPasswordReset(payload)
+    mutationFn: (payload) => api.auth.requestPasswordReset(payload)
   });
   const otpRequestMutation = useMutation({
-    mutationFn: (payload) => api.requestOtpLogin(payload)
+    mutationFn: (payload) => api.auth.requestOtp(payload)
   });
   const otpVerifyMutation = useMutation({
-    mutationFn: (payload) => api.verifyOtpLogin(payload)
+    mutationFn: (payload) => api.auth.verifyOtp(payload)
   });
 
   const loading = computed(

@@ -32,7 +32,7 @@ export function useProjectsView() {
 
   const query = useQuery({
     queryKey: computed(() => [...PROJECT_QUERY_KEY_PREFIX, workspaceScope.value, projectId.value || "none"]),
-    queryFn: () => api.workspaceProject(projectId.value),
+    queryFn: () => api.projects.get(projectId.value),
     enabled
   });
 

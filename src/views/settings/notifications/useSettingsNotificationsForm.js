@@ -22,7 +22,7 @@ export function useSettingsNotificationsForm(options) {
   const notificationsMessageType = ref("success");
 
   const notificationsMutation = useMutation({
-    mutationFn: (payload) => api.updateNotificationSettings(payload)
+    mutationFn: (payload) => api.settings.updateNotifications(payload)
   });
 
   const { submitNotifications } = useSettingsNotificationsLogic({

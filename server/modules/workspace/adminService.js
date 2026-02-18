@@ -29,7 +29,7 @@ function isMysqlDuplicateEntryError(error) {
   return String(error.code || "") === "ER_DUP_ENTRY";
 }
 
-function createWorkspaceAdminService({
+function createService({
   appConfig,
   rbacManifest,
   workspacesRepository,
@@ -646,7 +646,7 @@ function createWorkspaceAdminService({
 }
 
 export {
-  createWorkspaceAdminService,
+  createService,
   normalizeEmail,
   parseWorkspaceSettingsPatch,
   listRoleDescriptors,

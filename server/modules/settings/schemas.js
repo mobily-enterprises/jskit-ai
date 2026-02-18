@@ -17,10 +17,10 @@ import {
   SETTINGS_THEME_OPTIONS
 } from "../../../shared/settings/index.js";
 import { AVATAR_MAX_SIZE, AVATAR_MIN_SIZE } from "../../../shared/avatar/index.js";
-import { authMethodIdEnumSchema, authMethodKindEnumSchema } from "../auth/schemas.js";
+import { schema as authSchema } from "../auth/schemas.js";
 import { enumSchema } from "../api/schemas.js";
 
-const settingsAvatarSchema = Type.Object(
+const avatar = Type.Object(
   {
     uploadedUrl: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
     gravatarUrl: Type.String({ minLength: 1 }),
@@ -34,7 +34,7 @@ const settingsAvatarSchema = Type.Object(
   }
 );
 
-const settingsProfileSchema = Type.Object(
+const profile = Type.Object(
   {
     displayName: Type.String({ minLength: 1, maxLength: 120 }),
     email: Type.String({
@@ -44,19 +44,19 @@ const settingsProfileSchema = Type.Object(
     }),
     emailManagedBy: Type.Literal("supabase"),
     emailChangeFlow: Type.Literal("supabase"),
-    avatar: settingsAvatarSchema
+    avatar
   },
   {
     additionalProperties: false
   }
 );
 
-const authMethodProviderSchema = Type.Union([
+const authMethodProvider = Type.Union([
   Type.Literal(AUTH_METHOD_PASSWORD_PROVIDER),
   ...AUTH_OAUTH_PROVIDERS.map((provider) => Type.Literal(provider))
 ]);
 
-const settingsSecuritySchema = Type.Object(
+const security = Type.Object(
   {
     mfa: Type.Object(
       {
@@ -82,9 +82,9 @@ const settingsSecuritySchema = Type.Object(
     authMethods: Type.Array(
       Type.Object(
         {
-          id: authMethodIdEnumSchema,
-          kind: authMethodKindEnumSchema,
-          provider: Type.Union([authMethodProviderSchema, Type.Null()]),
+          id: authSchema.fields.authMethodId,
+          kind: authSchema.fields.authMethodKind,
+          provider: Type.Union([authMethodProvider, Type.Null()]),
           label: Type.String({ minLength: 1 }),
           configured: Type.Boolean(),
           enabled: Type.Boolean(),
@@ -102,7 +102,7 @@ const settingsSecuritySchema = Type.Object(
   }
 );
 
-const settingsPreferencesSchema = Type.Object(
+const preferences = Type.Object(
   {
     theme: enumSchema(SETTINGS_THEME_OPTIONS),
     locale: Type.String({ minLength: 2, maxLength: 24, pattern: SETTINGS_LOCALE_PATTERN }),
@@ -117,7 +117,7 @@ const settingsPreferencesSchema = Type.Object(
   }
 );
 
-const settingsNotificationsSchema = Type.Object(
+const notifications = Type.Object(
   {
     productUpdates: Type.Boolean(),
     accountActivity: Type.Boolean(),
@@ -128,19 +128,19 @@ const settingsNotificationsSchema = Type.Object(
   }
 );
 
-const settingsResponseSchema = Type.Object(
+const response = Type.Object(
   {
-    profile: settingsProfileSchema,
-    security: settingsSecuritySchema,
-    preferences: settingsPreferencesSchema,
-    notifications: settingsNotificationsSchema
+    profile,
+    security,
+    preferences,
+    notifications
   },
   {
     additionalProperties: false
   }
 );
 
-const settingsProfileUpdateBodySchema = Type.Object(
+const profileUpdate = Type.Object(
   {
     displayName: Type.String({ minLength: 1, maxLength: 120 })
   },
@@ -149,7 +149,7 @@ const settingsProfileUpdateBodySchema = Type.Object(
   }
 );
 
-const settingsPreferencesUpdateBodySchema = Type.Object(
+const preferencesUpdate = Type.Object(
   {
     theme: Type.Optional(enumSchema(SETTINGS_THEME_OPTIONS)),
     locale: Type.Optional(Type.String({ minLength: 2, maxLength: 24, pattern: SETTINGS_LOCALE_PATTERN })),
@@ -165,7 +165,7 @@ const settingsPreferencesUpdateBodySchema = Type.Object(
   }
 );
 
-const settingsNotificationsUpdateBodySchema = Type.Object(
+const notificationsUpdate = Type.Object(
   {
     productUpdates: Type.Optional(Type.Boolean()),
     accountActivity: Type.Optional(Type.Boolean()),
@@ -177,7 +177,7 @@ const settingsNotificationsUpdateBodySchema = Type.Object(
   }
 );
 
-const changePasswordBodySchema = Type.Object(
+const changePassword = Type.Object(
   {
     currentPassword: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_LOGIN_PASSWORD_MAX_LENGTH })),
     newPassword: Type.String({ minLength: AUTH_PASSWORD_MIN_LENGTH, maxLength: AUTH_PASSWORD_MAX_LENGTH }),
@@ -188,16 +188,20 @@ const changePasswordBodySchema = Type.Object(
   }
 );
 
-export {
-  settingsAvatarSchema,
-  settingsProfileSchema,
-  authMethodProviderSchema,
-  settingsSecuritySchema,
-  settingsPreferencesSchema,
-  settingsNotificationsSchema,
-  settingsResponseSchema,
-  settingsProfileUpdateBodySchema,
-  settingsPreferencesUpdateBodySchema,
-  settingsNotificationsUpdateBodySchema,
-  changePasswordBodySchema
+const schema = {
+  avatar,
+  profile,
+  authMethodProvider,
+  security,
+  preferences,
+  notifications,
+  response,
+  body: {
+    profile: profileUpdate,
+    preferences: preferencesUpdate,
+    notifications: notificationsUpdate,
+    changePassword
+  }
 };
+
+export { schema };

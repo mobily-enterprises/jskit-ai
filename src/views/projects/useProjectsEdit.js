@@ -38,7 +38,7 @@ export function useProjectsEdit() {
 
   const query = useQuery({
     queryKey: projectQueryKey,
-    queryFn: () => api.workspaceProject(projectId.value),
+    queryFn: () => api.projects.get(projectId.value),
     enabled
   });
 
@@ -63,7 +63,7 @@ export function useProjectsEdit() {
   );
 
   const mutation = useMutation({
-    mutationFn: (payload) => api.updateWorkspaceProject(projectId.value, payload)
+    mutationFn: (payload) => api.projects.update(projectId.value, payload)
   });
 
   const loading = computed(() => Boolean(query.isPending.value || query.isFetching.value));

@@ -1,8 +1,7 @@
-import { annuityCalculatorRequestBodySchema } from "../../../lib/schemas/annuityCalculator.request.js";
-import { annuityCalculatorResponseSchema } from "../../../lib/schemas/annuityCalculator.response.js";
+import { schema } from "./schemas.js";
 import { withStandardErrorResponses } from "../api/schemas.js";
 
-function buildAnnuityRoutes(controllers) {
+function buildRoutes(controllers) {
   return [
     {
       path: "/api/annuityCalculator",
@@ -14,10 +13,10 @@ function buildAnnuityRoutes(controllers) {
       schema: {
         tags: ["annuityCalculator"],
         summary: "Calculate annuity value and append history",
-        body: annuityCalculatorRequestBodySchema,
+        body: schema.body,
         response: withStandardErrorResponses(
           {
-            200: annuityCalculatorResponseSchema
+            200: schema.response
           },
           { includeValidation400: true }
         )
@@ -31,4 +30,4 @@ function buildAnnuityRoutes(controllers) {
   ];
 }
 
-export { buildAnnuityRoutes };
+export { buildRoutes };

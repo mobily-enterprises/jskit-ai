@@ -1,29 +1,39 @@
-import { createAuthController } from "../modules/auth/controller.js";
-import { createHistoryController } from "../modules/history/controller.js";
-import { createAnnuityController } from "../modules/annuity/controller.js";
-import { createSettingsController } from "../modules/settings/controller.js";
-import { createWorkspaceController } from "../modules/workspace/controller.js";
-import { createProjectsController } from "../modules/projects/controller.js";
+import { createController as createAuthController } from "../modules/auth/controller.js";
+import { createController as createHistoryController } from "../modules/history/controller.js";
+import { createController as createAnnuityController } from "../modules/annuity/controller.js";
+import { createController as createSettingsController } from "../modules/settings/controller.js";
+import { createController as createWorkspaceController } from "../modules/workspace/controller.js";
+import { createController as createProjectsController } from "../modules/projects/controller.js";
 
 function createControllers({ services }) {
+  const {
+    authService,
+    annuityHistoryService,
+    annuityService,
+    userSettingsService,
+    projectsService,
+    workspaceService,
+    workspaceAdminService
+  } = services;
+
   return {
-    auth: createAuthController({ authService: services.authService }),
-    history: createHistoryController({ annuityHistoryService: services.annuityHistoryService }),
+    auth: createAuthController({ authService }),
+    history: createHistoryController({ annuityHistoryService }),
     annuity: createAnnuityController({
-      annuityService: services.annuityService,
-      annuityHistoryService: services.annuityHistoryService
+      annuityService,
+      annuityHistoryService
     }),
     settings: createSettingsController({
-      userSettingsService: services.userSettingsService,
-      authService: services.authService
+      userSettingsService,
+      authService
     }),
     projects: createProjectsController({
-      projectsService: services.projectsService
+      projectsService
     }),
     workspace: createWorkspaceController({
-      authService: services.authService,
-      workspaceService: services.workspaceService,
-      workspaceAdminService: services.workspaceAdminService
+      authService,
+      workspaceService,
+      workspaceAdminService
     })
   };
 }

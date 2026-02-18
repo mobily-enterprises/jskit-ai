@@ -1,7 +1,7 @@
-import { historyQuerySchema, historyListResponseSchema } from "./schemas.js";
+import { schema } from "./schemas.js";
 import { withStandardErrorResponses } from "../api/schemas.js";
 
-function buildHistoryRoutes(controllers) {
+function buildRoutes(controllers) {
   return [
     {
       path: "/api/history",
@@ -13,10 +13,10 @@ function buildHistoryRoutes(controllers) {
       schema: {
         tags: ["history"],
         summary: "List authenticated user's calculation history",
-        querystring: historyQuerySchema,
+        querystring: schema.query,
         response: withStandardErrorResponses(
           {
-            200: historyListResponseSchema
+            200: schema.response.list
           },
           { includeValidation400: true }
         )
@@ -30,4 +30,4 @@ function buildHistoryRoutes(controllers) {
   ];
 }
 
-export { buildHistoryRoutes };
+export { buildRoutes };

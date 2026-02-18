@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { createAvatarStorageService, __testables } from "../server/modules/users/avatarStorageService.js";
+import { createService as createAvatarStorageService, __testables } from "../server/modules/users/avatarStorageService.js";
 
 test("avatar storage helpers normalize config and keys", () => {
   assert.equal(__testables.normalizePublicBasePath(""), "/uploads");

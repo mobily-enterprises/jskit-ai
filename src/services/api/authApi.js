@@ -1,4 +1,4 @@
-function createAuthApi({ request }) {
+function createApi({ request }) {
   return {
     session() {
       return request("/api/session");
@@ -9,10 +9,10 @@ function createAuthApi({ request }) {
     login(payload) {
       return request("/api/login", { method: "POST", body: payload });
     },
-    requestOtpLogin(payload) {
+    requestOtp(payload) {
       return request("/api/login/otp/request", { method: "POST", body: payload });
     },
-    verifyOtpLogin(payload) {
+    verifyOtp(payload) {
       return request("/api/login/otp/verify", { method: "POST", body: payload });
     },
     oauthStartUrl(provider, options = {}) {
@@ -49,4 +49,4 @@ function createAuthApi({ request }) {
   };
 }
 
-export { createAuthApi };
+export { createApi };

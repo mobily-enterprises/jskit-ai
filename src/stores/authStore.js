@@ -25,12 +25,12 @@ export const useAuthStore = defineStore("auth", {
     async ensureSession({ force = false } = {}) {
       const queryOptions = {
         queryKey: SESSION_QUERY_KEY,
-        queryFn: () => api.session(),
+        queryFn: () => api.auth.session(),
         staleTime: 60000
       };
 
       if (force) {
-        const session = await api.session();
+        const session = await api.auth.session();
         queryClient.setQueryData(SESSION_QUERY_KEY, session);
         return this.applySession(session);
       }

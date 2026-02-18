@@ -170,7 +170,7 @@ export function useLoginActions({
   }
 
   async function refreshPostAuthContext() {
-    const bootstrapPayload = await api.bootstrap();
+    const bootstrapPayload = await api.workspace.bootstrap();
     const session =
       bootstrapPayload?.session && typeof bootstrapPayload.session === "object" ? bootstrapPayload.session : null;
     if (!session?.authenticated) {
@@ -202,7 +202,7 @@ export function useLoginActions({
     });
 
     if (typeof window !== "undefined") {
-      window.location.assign(api.oauthStartUrl(provider, { returnTo: surfacePaths.value.rootPath }));
+      window.location.assign(api.auth.oauthStartUrl(provider, { returnTo: surfacePaths.value.rootPath }));
     }
   }
 
@@ -265,7 +265,7 @@ export function useLoginActions({
     infoMessage.value = "";
 
     try {
-      const response = await api.oauthComplete(callbackState.payload);
+      const response = await api.auth.oauthComplete(callbackState.payload);
       const session = await refreshPostAuthContext();
 
       if (callbackState.intent !== "link") {
