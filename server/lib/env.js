@@ -46,6 +46,7 @@ export const env = cleanEnv(
     WORKSPACE_CREATE_ENABLED: bool({ default: false }),
     MAX_WORKSPACES_PER_USER: num({ default: 1 }),
     RBAC_MANIFEST_PATH: str({ default: "./shared/auth/rbac.manifest.json" }),
+    FRONTEND_DIST_DIR: str({ default: "dist" }),
     AVATAR_STORAGE_DRIVER: str({ default: "fs" }),
     AVATAR_STORAGE_FS_BASE_PATH: str({ default: "" }),
     AVATAR_PUBLIC_BASE_PATH: str({ default: "/uploads" })

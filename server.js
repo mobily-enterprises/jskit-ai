@@ -40,7 +40,8 @@ function resolveRuntimeEnv(nodeEnv) {
 
 const NODE_ENV = resolveRuntimeEnv(env.NODE_ENV);
 const PORT = Number(env.PORT) || 3000;
-const PUBLIC_DIR = path.join(__dirname, "dist");
+const FRONTEND_DIST_DIR = String(env.FRONTEND_DIST_DIR || "dist").trim() || "dist";
+const PUBLIC_DIR = path.resolve(__dirname, FRONTEND_DIST_DIR);
 const INDEX_FILE_NAME = "index.html";
 const SUPABASE_PUBLISHABLE_KEY = String(env.SUPABASE_PUBLISHABLE_KEY || "");
 const SCRIPT_SRC_POLICY = NODE_ENV === "production" ? ["'self'"] : ["'self'", "'unsafe-inline'"];
@@ -494,7 +495,7 @@ export async function buildServer({ frontendBuildAvailable }) {
 
     if (!frontendBuildAvailable) {
       reply.code(404).send({
-        error: "Frontend build is not available. Run `npm run dev` for development or `npm run build` for production."
+        error: `Frontend build is not available in "${FRONTEND_DIST_DIR}". Run \`npm run dev\` for development, or build the client and set FRONTEND_DIST_DIR to the output directory.`
       });
       return;
     }
@@ -528,7 +529,9 @@ export async function startServer({ port = PORT, host = "0.0.0.0", frontendBuild
     typeof frontendBuildAvailable === "boolean" ? frontendBuildAvailable : await hasFrontendBuild();
 
   if (NODE_ENV === "production" && !resolvedFrontendBuildAvailable) {
-    throw new Error("Frontend build not found. Run `npm run build` before starting the server.");
+    throw new Error(
+      `Frontend build not found in "${FRONTEND_DIST_DIR}". Build the client and set FRONTEND_DIST_DIR to the output directory before starting the server.`
+    );
   }
 
   await initDatabase();

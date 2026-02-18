@@ -139,8 +139,8 @@ Open `http://localhost:5173`.
 
 Notes:
 
-- In development, backend can run without a built `dist/` folder.
-- If `dist/` is missing, backend serves API only; Vite serves the frontend.
+- In development, backend can run without a built frontend folder.
+- If the configured frontend folder is missing (`FRONTEND_DIST_DIR`, default `dist`), backend serves API only; Vite serves the frontend.
 
 ## Production-style run
 
@@ -169,7 +169,18 @@ npm run build:client:public
 ```
 
 `index.html` uses `%VITE_CLIENT_ENTRY%`, and scripts set the entry value per target.
-Both commands emit `dist/index.html`, so `server.js` static serving continues to work unchanged.
+Outputs:
+
+- `build:client:internal` -> `dist-internal/`
+- `build:client:public` -> `dist-public/`
+
+Server static hosting target is controlled by `FRONTEND_DIST_DIR` (default `dist`).
+Examples:
+
+```bash
+FRONTEND_DIST_DIR=dist-internal npm start
+FRONTEND_DIST_DIR=dist-public npm start
+```
 
 ## Release process
 
