@@ -9,10 +9,6 @@ import { AUTH_OAUTH_DEFAULT_PROVIDER } from "../../../shared/auth/oauthProviders
 import { normalizeEmail } from "../../../shared/auth/utils.js";
 import { validators } from "../../../shared/auth/validators.js";
 import {
-  validatePasswordRecoveryPayload,
-  displayNameFromEmail,
-  resolveDisplayName,
-  resolveDisplayNameFromClaims,
   isTransientAuthMessage,
   isTransientSupabaseError,
   mapAuthError,
@@ -20,10 +16,19 @@ import {
   isUserNotFoundLikeAuthError,
   mapRecoveryError,
   mapPasswordUpdateError,
-  buildDisabledPasswordSecret,
   mapOtpVerifyError,
   mapProfileUpdateError,
-  mapCurrentPasswordError,
+  mapCurrentPasswordError
+} from "./lib/authErrorMappers.js";
+import { displayNameFromEmail, resolveDisplayName, resolveDisplayNameFromClaims } from "./lib/authProfileNames.js";
+import {
+  normalizeOAuthProviderInput,
+  validatePasswordRecoveryPayload,
+  parseOAuthCompletePayload,
+  parseOtpLoginVerifyPayload,
+  mapOAuthCallbackError
+} from "./lib/authInputParsers.js";
+import {
   parseHttpUrl,
   buildPasswordResetRedirectUrl,
   buildOtpLoginRedirectUrl,
@@ -31,24 +36,20 @@ import {
   normalizeReturnToPath,
   buildOAuthRedirectUrl,
   buildOAuthLoginRedirectUrl,
-  buildOAuthLinkRedirectUrl,
-  normalizeOAuthProviderInput,
-  parseOAuthCompletePayload,
-  parseOtpLoginVerifyPayload,
-  mapOAuthCallbackError,
+  buildOAuthLinkRedirectUrl
+} from "./lib/authRedirectUrls.js";
+import {
   normalizeIdentityProviderId,
   collectProviderIdsFromSupabaseUser,
   buildAuthMethodsStatusFromProviderIds,
   buildAuthMethodsStatusFromSupabaseUser,
   buildSecurityStatusFromAuthMethodsStatus,
   findAuthMethodById,
-  findLinkedIdentityByProvider,
-  safeRequestCookies,
-  cookieOptions,
-  loadJose,
-  isExpiredJwtError,
-  classifyJwtVerifyError
-} from "./lib/authServiceHelpers.js";
+  findLinkedIdentityByProvider
+} from "./lib/authMethodStatus.js";
+import { safeRequestCookies, cookieOptions } from "./lib/authCookies.js";
+import { loadJose, isExpiredJwtError, classifyJwtVerifyError } from "./lib/authJwt.js";
+import { buildDisabledPasswordSecret } from "./lib/authSecrets.js";
 import { createAccountFlows } from "./lib/accountFlows.js";
 import { createOauthFlows } from "./lib/oauthFlows.js";
 import { createPasswordSecurityFlows } from "./lib/passwordSecurityFlows.js";

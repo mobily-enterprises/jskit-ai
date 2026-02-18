@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import Decimal from "decimal.js";
-import { calculateAnnuity, validateAndNormalizeInput } from "../server/modules/annuity/service.js";
+import { calculateAnnuity, validateAndNormalizeInput } from "../server/domain/annuity/calculator.service.js";
 
 function approximatelyEqual(actual, expected, tolerance = 1e-6) {
   return Math.abs(actual - expected) <= tolerance;

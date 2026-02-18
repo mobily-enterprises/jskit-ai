@@ -1,5 +1,5 @@
 import { createService as createAuthService } from "../modules/auth/service.js";
-import * as annuityService from "../modules/annuity/service.js";
+import { createService as createAnnuityService } from "../domain/annuity/calculator.service.js";
 import { createService as createAnnuityHistoryService } from "../modules/history/service.js";
 import { createService as createUserSettingsService } from "../modules/settings/service.js";
 import { createService as createAvatarStorageService } from "../domain/users/avatarStorage.service.js";
@@ -33,6 +33,7 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
   const annuityHistoryService = createAnnuityHistoryService({
     calculationLogsRepository
   });
+  const annuityService = createAnnuityService();
 
   const avatarStorageService = createAvatarStorageService({
     driver: env.AVATAR_STORAGE_DRIVER,

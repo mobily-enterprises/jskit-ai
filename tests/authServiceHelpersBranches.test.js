@@ -2,24 +2,28 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "../server/lib/errors.js";
+import { mapAuthError } from "../server/modules/auth/lib/authErrorMappers.js";
+import {
+  buildOtpLoginRedirectUrl,
+  normalizeOAuthIntent,
+  normalizeReturnToPath,
+  buildOAuthRedirectUrl,
+  buildOAuthLoginRedirectUrl,
+  buildOAuthLinkRedirectUrl
+} from "../server/modules/auth/lib/authRedirectUrls.js";
+import {
+  normalizeOAuthProviderInput,
+  parseOAuthCompletePayload,
+  parseOtpLoginVerifyPayload,
+  mapOAuthCallbackError
+} from "../server/modules/auth/lib/authInputParsers.js";
 import {
   buildAuthMethodsStatusFromProviderIds,
-  buildOAuthLinkRedirectUrl,
-  buildOAuthLoginRedirectUrl,
-  buildOtpLoginRedirectUrl,
-  buildOAuthRedirectUrl,
   collectProviderIdsFromSupabaseUser,
   findAuthMethodById,
   findLinkedIdentityByProvider,
-  mapAuthError,
-  mapOAuthCallbackError,
-  normalizeOAuthIntent,
-  normalizeOAuthProviderInput,
-  normalizeReturnToPath,
-  parseOAuthCompletePayload,
-  parseOtpLoginVerifyPayload,
   buildSecurityStatusFromAuthMethodsStatus
-} from "../server/modules/auth/lib/authServiceHelpers.js";
+} from "../server/modules/auth/lib/authMethodStatus.js";
 import {
   AUTH_ACCESS_TOKEN_MAX_LENGTH,
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,

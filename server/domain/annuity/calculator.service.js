@@ -56,7 +56,7 @@ function powDecimal(base, exponent) {
   /* c8 ignore stop */
 }
 
-export function validateAndNormalizeInput(payload) {
+function validateAndNormalizeInput(payload) {
   const mode = String(payload.mode || "")
     .trim()
     .toLowerCase();
@@ -165,7 +165,7 @@ export function validateAndNormalizeInput(payload) {
   };
 }
 
-export function calculateAnnuity(input) {
+function calculateAnnuity(input) {
   const warnings = [];
   const rateDiff = input.periodicRateDecimal.minus(input.periodicGrowthRateDecimal).abs();
 
@@ -256,4 +256,11 @@ export function calculateAnnuity(input) {
   };
 }
 
-export { ASSUMPTIONS };
+function createService() {
+  return {
+    validateAndNormalizeInput,
+    calculateAnnuity
+  };
+}
+
+export { createService, validateAndNormalizeInput, calculateAnnuity, ASSUMPTIONS };

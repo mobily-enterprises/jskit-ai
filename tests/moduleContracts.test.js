@@ -56,6 +56,7 @@ test("server controllers expose createController contract", async () => {
 
 test("server services expose createService contract", async () => {
   const modules = [
+    "../server/domain/annuity/calculator.service.js",
     "../server/modules/auth/service.js",
     "../server/modules/history/service.js",
     "../server/modules/projects/service.js",
