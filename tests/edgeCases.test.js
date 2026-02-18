@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { toIsoString } from "../server/lib/dateUtils.js";
+import { toIsoString } from "../server/lib/primitives/dateUtils.js";
 import { __testables as profileTestables } from "../server/domain/users/profile.repository.js";
 import { __testables as calcTestables } from "../server/modules/history/repository.js";
 

@@ -4,7 +4,7 @@ import fastifyCsrfProtection from "@fastify/csrf-protection";
 import fastifyRateLimit from "@fastify/rate-limit";
 import { AppError } from "../lib/errors.js";
 import { hasPermission } from "../lib/rbacManifest.js";
-import { safeRequestUrl } from "../lib/requestUrl.js";
+import { safeRequestUrl } from "../lib/primitives/requestUrl.js";
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 

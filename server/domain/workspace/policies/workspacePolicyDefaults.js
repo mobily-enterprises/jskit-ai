@@ -1,4 +1,4 @@
-import { SETTINGS_MODE_OPTIONS, SETTINGS_TIMING_OPTIONS } from "../../../shared/settings/index.js";
+import { SETTINGS_MODE_OPTIONS, SETTINGS_TIMING_OPTIONS } from "../../../../shared/settings/index.js";
 
 const DEFAULT_WORKSPACE_POLICY = {
   defaultMode: "fv",

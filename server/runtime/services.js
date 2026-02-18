@@ -4,8 +4,8 @@ import { createService as createAnnuityHistoryService } from "../modules/history
 import { createService as createUserSettingsService } from "../modules/settings/service.js";
 import { createService as createAvatarStorageService } from "../domain/users/avatarStorage.service.js";
 import { createService as createUserAvatarService } from "../domain/users/avatar.service.js";
-import { createService as createWorkspaceService } from "../domain/workspace/workspace.service.js";
-import { createService as createWorkspaceAdminService } from "../domain/workspace/admin.service.js";
+import { createService as createWorkspaceService } from "../domain/workspace/services/workspace.service.js";
+import { createService as createWorkspaceAdminService } from "../domain/workspace/services/admin.service.js";
 import { createService as createProjectsService } from "../modules/projects/service.js";
 
 function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, rootDir, supabasePublishableKey }) {

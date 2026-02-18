@@ -42,5 +42,18 @@ export default [
         ...globals.node
       }
     }
+  },
+  {
+    files: ["server/**/*.service.js"],
+    rules: {
+      "max-lines": [
+        "error",
+        {
+          max: 750,
+          skipBlankLines: true,
+          skipComments: true
+        }
+      ]
+    }
   }
 ];

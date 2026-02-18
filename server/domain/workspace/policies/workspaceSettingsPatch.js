@@ -1,7 +1,7 @@
-import { AppError } from "../../lib/errors.js";
-import { normalizeEmail } from "../../../shared/auth/utils.js";
-import { SETTINGS_MODE_OPTIONS, SETTINGS_TIMING_OPTIONS } from "../../../shared/settings/index.js";
-import { isWorkspaceColor } from "../../../shared/workspace/colors.js";
+import { AppError } from "../../../lib/errors.js";
+import { normalizeEmail } from "../../../../shared/auth/utils.js";
+import { SETTINGS_MODE_OPTIONS, SETTINGS_TIMING_OPTIONS } from "../../../../shared/settings/index.js";
+import { isWorkspaceColor } from "../../../../shared/workspace/colors.js";
 
 const BASIC_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

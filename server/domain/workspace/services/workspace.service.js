@@ -1,36 +1,30 @@
-import { AppError } from "../../lib/errors.js";
-import { OWNER_ROLE_ID, resolveRolePermissions } from "../../lib/rbacManifest.js";
-import { normalizeSurfaceId, resolveSurfaceById } from "../../surfaces/index.js";
-import { normalizeEmail } from "../../../shared/auth/utils.js";
+import { AppError } from "../../../lib/errors.js";
+import { OWNER_ROLE_ID, resolveRolePermissions } from "../../../lib/rbacManifest.js";
+import { normalizeSurfaceId, resolveSurfaceById } from "../../../surfaces/index.js";
+import { normalizeEmail } from "../../../../shared/auth/utils.js";
+import { isMysqlDuplicateEntryError } from "../../../lib/primitives/mysqlErrors.js";
 import {
   toSlugPart,
   buildWorkspaceName,
   buildWorkspaceBaseSlug
-} from "./workspaceNaming.js";
+} from "../policies/workspaceNaming.js";
 import {
   normalizeWorkspaceColor,
   mapWorkspaceMembershipSummary,
   mapWorkspaceSettingsPublic,
   mapUserSettingsPublic,
   mapPendingInviteSummary
-} from "./workspaceMappers.js";
-import { resolveRequestSurfaceId, resolveRequestedWorkspaceSlug } from "./workspaceRequestContext.js";
+} from "../mappers/workspaceMappers.js";
+import { resolveRequestSurfaceId, resolveRequestedWorkspaceSlug } from "../lookups/workspaceRequestContext.js";
 import {
   normalizeMembershipForAccess,
   mapMembershipSummary,
   normalizePermissions,
   createMembershipIndexes
-} from "./workspaceAccess.js";
-import { createWorkspaceSettingsDefaults } from "./workspacePolicyDefaults.js";
-import { encodeInviteTokenHash } from "./inviteTokens.js";
-
-function isMysqlDuplicateEntryError(error) {
-  if (!error) {
-    return false;
-  }
-
-  return String(error.code || "") === "ER_DUP_ENTRY";
-}
+} from "../policies/workspaceAccess.js";
+import { createWorkspaceSettingsDefaults } from "../policies/workspacePolicyDefaults.js";
+import { encodeInviteTokenHash } from "../policies/inviteTokens.js";
+import { listInviteMembershipsByWorkspaceId } from "../lookups/workspaceMembershipLookup.js";
 
 function createService({
   appConfig,
@@ -314,44 +308,6 @@ function createService({
     });
   }
 
-  async function listInviteMembershipsByWorkspaceId(userId, invites) {
-    const workspaceIds = Array.from(
-      new Set(
-        invites
-          .map((invite) => Number(invite?.workspaceId))
-          .filter((workspaceId) => Number.isInteger(workspaceId) && workspaceId > 0)
-      )
-    );
-
-    if (workspaceIds.length < 1) {
-      return new Map();
-    }
-
-    if (typeof workspaceMembershipsRepository.listByUserIdAndWorkspaceIds === "function") {
-      const memberships = await workspaceMembershipsRepository.listByUserIdAndWorkspaceIds(userId, workspaceIds);
-      const membershipByWorkspaceId = new Map();
-
-      for (const membership of memberships) {
-        const workspaceId = Number(membership?.workspaceId);
-        if (Number.isInteger(workspaceId) && workspaceId > 0 && !membershipByWorkspaceId.has(workspaceId)) {
-          membershipByWorkspaceId.set(workspaceId, membership);
-        }
-      }
-
-      return membershipByWorkspaceId;
-    }
-
-    const membershipByWorkspaceId = new Map();
-    for (const workspaceId of workspaceIds) {
-      const membership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(workspaceId, userId);
-      if (membership) {
-        membershipByWorkspaceId.set(workspaceId, membership);
-      }
-    }
-
-    return membershipByWorkspaceId;
-  }
-
   async function listPendingInvitesForUser(userProfile) {
     if (!workspaceInvitesRepository || typeof workspaceInvitesRepository.listPendingByEmail !== "function") {
       return [];
@@ -368,7 +324,11 @@ function createService({
       return [];
     }
 
-    const membershipByWorkspaceId = await listInviteMembershipsByWorkspaceId(userId, rawInvites);
+    const membershipByWorkspaceId = await listInviteMembershipsByWorkspaceId({
+      workspaceMembershipsRepository,
+      userId,
+      invites: rawInvites
+    });
     const filtered = rawInvites.filter((invite) => {
       const workspaceId = Number(invite?.workspaceId);
       const existingMembership = membershipByWorkspaceId.get(workspaceId);

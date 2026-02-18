@@ -1,30 +1,27 @@
-import { AppError } from "../../lib/errors.js";
-import { OWNER_ROLE_ID } from "../../lib/rbacManifest.js";
-import { extractAppSurfacePolicy } from "../../surfaces/appSurface.js";
-import { normalizeEmail } from "../../../shared/auth/utils.js";
-import { coerceWorkspaceColor } from "../../../shared/workspace/colors.js";
-import { parsePositiveInteger } from "../common/integers.js";
+import { AppError } from "../../../lib/errors.js";
+import { OWNER_ROLE_ID } from "../../../lib/rbacManifest.js";
+import { normalizeEmail } from "../../../../shared/auth/utils.js";
+import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
+import { isMysqlDuplicateEntryError } from "../../../lib/primitives/mysqlErrors.js";
 import {
   buildInviteToken,
   encodeInviteTokenHash,
   hashInviteToken,
   normalizeInviteToken,
   resolveInviteTokenHash
-} from "./inviteTokens.js";
-import { listRoleDescriptors, resolveAssignableRoleIds } from "./workspaceRoleCatalog.js";
-import { resolveWorkspaceDefaults, createWorkspaceSettingsDefaults } from "./workspacePolicyDefaults.js";
-import { parseWorkspaceSettingsPatch } from "./workspaceSettingsPatch.js";
-import { mapWorkspaceAdminSummary } from "./workspaceMappers.js";
-
-const INVITE_EXPIRY_DAYS = 7;
-
-function isMysqlDuplicateEntryError(error) {
-  if (!error) {
-    return false;
-  }
-
-  return String(error.code || "") === "ER_DUP_ENTRY";
-}
+} from "../policies/inviteTokens.js";
+import { listRoleDescriptors, resolveAssignableRoleIds } from "../policies/workspaceRoleCatalog.js";
+import { createWorkspaceSettingsDefaults } from "../policies/workspacePolicyDefaults.js";
+import { parseWorkspaceSettingsPatch } from "../policies/workspaceSettingsPatch.js";
+import { mapWorkspaceAdminSummary } from "../mappers/workspaceMappers.js";
+import {
+  mapWorkspaceSettingsResponse,
+  mapWorkspaceMemberSummary,
+  mapWorkspaceInviteSummary,
+  mapWorkspacePayloadSummary
+} from "../mappers/workspaceAdminMappers.js";
+import { resolveInviteExpiresAt } from "../policies/workspaceInvitePolicy.js";
+import { listInviteMembershipsByWorkspaceId } from "../lookups/workspaceMembershipLookup.js";
 
 function createService({
   appConfig,
@@ -107,83 +104,6 @@ function createService({
     return work(null);
   }
 
-  function mapWorkspaceSettingsResponse(workspace, workspaceSettings, options = {}) {
-    const defaults = resolveWorkspaceDefaults(workspaceSettings?.policy);
-    const appSurfacePolicy = extractAppSurfacePolicy(workspaceSettings);
-    const invitesAvailable = Boolean(appConfig.features.workspaceInvites && rbacManifest.collaborationEnabled);
-    const invitesEnabled = Boolean(workspaceSettings?.invitesEnabled);
-    const includeAppSurfaceDenyLists = options.includeAppSurfaceDenyLists === true;
-
-    const settings = {
-      invitesEnabled,
-      invitesAvailable,
-      invitesEffective: invitesAvailable && invitesEnabled,
-      ...defaults
-    };
-
-    if (includeAppSurfaceDenyLists) {
-      settings.appDenyEmails = appSurfacePolicy.denyEmails;
-      settings.appDenyUserIds = appSurfacePolicy.denyUserIds;
-    }
-
-    return {
-      workspace: mapWorkspaceAdminSummary(workspace),
-      settings
-    };
-  }
-
-  function mapMember(member, workspace) {
-    return {
-      userId: Number(member.userId),
-      email: String(member.user?.email || ""),
-      displayName: String(member.user?.displayName || ""),
-      roleId: String(member.roleId || ""),
-      status: String(member.status || "active"),
-      isOwner: Number(member.userId) === Number(workspace.ownerUserId) || String(member.roleId || "") === OWNER_ROLE_ID
-    };
-  }
-
-  function mapInvite(invite) {
-    return {
-      id: Number(invite.id),
-      workspaceId: Number(invite.workspaceId),
-      email: String(invite.email || ""),
-      roleId: String(invite.roleId || ""),
-      status: String(invite.status || "pending"),
-      expiresAt: invite.expiresAt,
-      invitedByUserId: invite.invitedByUserId == null ? null : Number(invite.invitedByUserId),
-      invitedByDisplayName: invite.invitedBy?.displayName || "",
-      invitedByEmail: invite.invitedBy?.email || "",
-      workspace: invite.workspace
-        ? {
-            id: Number(invite.workspace.id),
-            slug: String(invite.workspace.slug || ""),
-            name: String(invite.workspace.name || ""),
-            color: coerceWorkspaceColor(invite.workspace.color),
-            avatarUrl: invite.workspace.avatarUrl ? String(invite.workspace.avatarUrl) : ""
-          }
-        : null
-    };
-  }
-
-  function mapWorkspacePayload(workspace) {
-    return workspace
-      ? {
-          id: Number(workspace.id),
-          slug: String(workspace.slug || ""),
-          name: String(workspace.name || ""),
-          color: coerceWorkspaceColor(workspace.color),
-          avatarUrl: workspace.avatarUrl ? String(workspace.avatarUrl) : ""
-        }
-      : null;
-  }
-
-  function resolveInviteExpiresAt() {
-    const date = new Date();
-    date.setUTCDate(date.getUTCDate() + INVITE_EXPIRY_DAYS);
-    return date.toISOString();
-  }
-
   async function runInInviteTransaction(work) {
     if (typeof workspaceInvitesRepository.transaction === "function") {
       return workspaceInvitesRepository.transaction(work);
@@ -198,7 +118,11 @@ function createService({
     const includeAppSurfaceDenyLists = options.includeAppSurfaceDenyLists === true;
 
     return {
-      ...mapWorkspaceSettingsResponse(workspace, workspaceSettings, { includeAppSurfaceDenyLists }),
+      ...mapWorkspaceSettingsResponse(workspace, workspaceSettings, {
+        appInvitesEnabled: appConfig.features.workspaceInvites,
+        collaborationEnabled: rbacManifest.collaborationEnabled,
+        includeAppSurfaceDenyLists
+      }),
       roleCatalog: {
         collaborationEnabled: Boolean(rbacManifest.collaborationEnabled),
         defaultInviteRole: rbacManifest.defaultInviteRole,
@@ -273,7 +197,11 @@ function createService({
     const updatedSettings = await ensureWorkspaceSettings(workspaceId);
 
     return {
-      ...mapWorkspaceSettingsResponse(updatedWorkspace, updatedSettings, { includeAppSurfaceDenyLists: true }),
+      ...mapWorkspaceSettingsResponse(updatedWorkspace, updatedSettings, {
+        appInvitesEnabled: appConfig.features.workspaceInvites,
+        collaborationEnabled: rbacManifest.collaborationEnabled,
+        includeAppSurfaceDenyLists: true
+      }),
       roleCatalog: {
         collaborationEnabled: Boolean(rbacManifest.collaborationEnabled),
         defaultInviteRole: rbacManifest.defaultInviteRole,
@@ -289,7 +217,7 @@ function createService({
 
     return {
       workspace: mapWorkspaceAdminSummary(workspace),
-      members: members.map((member) => mapMember(member, workspace)),
+      members: members.map((member) => mapWorkspaceMemberSummary(member, workspace)),
       roleCatalog: {
         collaborationEnabled: Boolean(rbacManifest.collaborationEnabled),
         defaultInviteRole: rbacManifest.defaultInviteRole,
@@ -339,7 +267,7 @@ function createService({
 
     return {
       workspace: mapWorkspaceAdminSummary(workspace),
-      invites: invites.map(mapInvite),
+      invites: invites.map(mapWorkspaceInviteSummary),
       roleCatalog: {
         collaborationEnabled: Boolean(rbacManifest.collaborationEnabled),
         defaultInviteRole: rbacManifest.defaultInviteRole,
@@ -434,7 +362,7 @@ function createService({
         ok: true,
         decision: "refused",
         inviteId: Number(invite.id),
-        workspace: mapWorkspacePayload(invite.workspace)
+        workspace: mapWorkspacePayloadSummary(invite.workspace)
       };
     }
 
@@ -457,7 +385,7 @@ function createService({
       ok: true,
       decision: "accepted",
       inviteId: Number(invite.id),
-      workspace: mapWorkspacePayload(workspace)
+      workspace: mapWorkspacePayloadSummary(workspace)
     };
   }
 
@@ -483,44 +411,6 @@ function createService({
     return listInvites(workspace);
   }
 
-  async function listInviteMembershipsByWorkspaceId(userId, invites) {
-    const workspaceIds = Array.from(
-      new Set(
-        invites
-          .map((invite) => Number(invite?.workspaceId))
-          .filter((workspaceId) => Number.isInteger(workspaceId) && workspaceId > 0)
-      )
-    );
-
-    if (workspaceIds.length < 1) {
-      return new Map();
-    }
-
-    if (typeof workspaceMembershipsRepository.listByUserIdAndWorkspaceIds === "function") {
-      const memberships = await workspaceMembershipsRepository.listByUserIdAndWorkspaceIds(userId, workspaceIds);
-      const membershipByWorkspaceId = new Map();
-
-      for (const membership of memberships) {
-        const workspaceId = Number(membership?.workspaceId);
-        if (Number.isInteger(workspaceId) && workspaceId > 0 && !membershipByWorkspaceId.has(workspaceId)) {
-          membershipByWorkspaceId.set(workspaceId, membership);
-        }
-      }
-
-      return membershipByWorkspaceId;
-    }
-
-    const membershipByWorkspaceId = new Map();
-    for (const workspaceId of workspaceIds) {
-      const membership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(workspaceId, userId);
-      if (membership) {
-        membershipByWorkspaceId.set(workspaceId, membership);
-      }
-    }
-
-    return membershipByWorkspaceId;
-  }
-
   async function listPendingInvitesForUser(user) {
     const email = normalizeEmail(user?.email);
     if (!email) {
@@ -533,13 +423,17 @@ function createService({
     if (!userId) {
       return pending
         .map((invite) => ({
-          ...mapInvite(invite),
+          ...mapWorkspaceInviteSummary(invite),
           token: encodeInviteTokenHash(invite?.tokenHash)
         }))
         .filter((invite) => Boolean(invite.token));
     }
 
-    const membershipByWorkspaceId = await listInviteMembershipsByWorkspaceId(userId, pending);
+    const membershipByWorkspaceId = await listInviteMembershipsByWorkspaceId({
+      workspaceMembershipsRepository,
+      userId,
+      invites: pending
+    });
     const filtered = pending.filter((invite) => {
       const workspaceId = Number(invite?.workspaceId);
       const membership = membershipByWorkspaceId.get(workspaceId);
@@ -548,7 +442,7 @@ function createService({
 
     return filtered
       .map((invite) => ({
-        ...mapInvite(invite),
+        ...mapWorkspaceInviteSummary(invite),
         token: encodeInviteTokenHash(invite?.tokenHash)
       }))
       .filter((invite) => Boolean(invite.token));

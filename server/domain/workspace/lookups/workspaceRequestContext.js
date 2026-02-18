@@ -1,6 +1,6 @@
-import { safePathnameFromRequest } from "../../lib/requestUrl.js";
-import { normalizeSurfaceId } from "../../surfaces/index.js";
-import { resolveSurfaceFromPathname } from "../../../shared/routing/surfacePaths.js";
+import { safePathnameFromRequest } from "../../../lib/primitives/requestUrl.js";
+import { normalizeSurfaceId } from "../../../surfaces/index.js";
+import { resolveSurfaceFromPathname } from "../../../../shared/routing/surfacePaths.js";
 
 function resolveRequestSurfaceId(request, preferredSurfaceId = "") {
   const preferred = String(preferredSurfaceId || "").trim();

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeEmail } from "../shared/auth/utils.js";
-import { buildWorkspaceBaseSlug, buildWorkspaceName, toSlugPart } from "../server/domain/workspace/workspaceNaming.js";
+import { buildWorkspaceBaseSlug, buildWorkspaceName, toSlugPart } from "../server/domain/workspace/policies/workspaceNaming.js";
 import {
   createMembershipIndexes,
   mapMembershipSummary,
@@ -9,16 +9,16 @@ import {
   normalizePermissions,
   resolveMembershipRoleId,
   resolveMembershipStatus
-} from "../server/domain/workspace/workspaceAccess.js";
-import { createWorkspaceSettingsDefaults } from "../server/domain/workspace/workspacePolicyDefaults.js";
+} from "../server/domain/workspace/policies/workspaceAccess.js";
+import { createWorkspaceSettingsDefaults } from "../server/domain/workspace/policies/workspacePolicyDefaults.js";
 import {
   mapPendingInviteSummary,
   mapUserSettingsPublic,
   mapWorkspaceSettingsPublic,
   mapWorkspaceMembershipSummary,
   normalizeWorkspaceColor
-} from "../server/domain/workspace/workspaceMappers.js";
-import { resolveRequestedWorkspaceSlug, resolveRequestSurfaceId } from "../server/domain/workspace/workspaceRequestContext.js";
+} from "../server/domain/workspace/mappers/workspaceMappers.js";
+import { resolveRequestedWorkspaceSlug, resolveRequestSurfaceId } from "../server/domain/workspace/lookups/workspaceRequestContext.js";
 
 
 test("workspace naming primitives normalize text and slug/name fallback behavior", () => {

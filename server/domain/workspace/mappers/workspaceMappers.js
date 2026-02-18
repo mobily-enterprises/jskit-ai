@@ -1,5 +1,5 @@
-import { coerceWorkspaceColor } from "../../../shared/workspace/colors.js";
-import { resolveWorkspaceDefaults } from "./workspacePolicyDefaults.js";
+import { coerceWorkspaceColor } from "../../../../shared/workspace/colors.js";
+import { resolveWorkspaceDefaults } from "../policies/workspacePolicyDefaults.js";
 
 function normalizeWorkspaceColor(value) {
   return coerceWorkspaceColor(value);

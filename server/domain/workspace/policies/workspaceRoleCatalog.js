@@ -1,4 +1,4 @@
-import { OWNER_ROLE_ID } from "../../lib/rbacManifest.js";
+import { OWNER_ROLE_ID } from "../../../lib/rbacManifest.js";
 
 function toRoleDescriptor(roleId, role) {
   const normalizedRole = role && typeof role === "object" ? role : {};

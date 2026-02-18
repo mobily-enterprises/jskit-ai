@@ -1,5 +1,5 @@
 import { db } from "../../../db/knex.js";
-import { toIsoString, toMysqlDateTimeUtc } from "../../lib/dateUtils.js";
+import { toIsoString, toMysqlDateTimeUtc } from "../../lib/primitives/dateUtils.js";
 
 function isMysqlDuplicateEntryError(error) {
   if (!error) {

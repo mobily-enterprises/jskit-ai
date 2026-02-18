@@ -1,5 +1,5 @@
 import { AppError } from "../../lib/errors.js";
-import { parsePositiveInteger } from "../../domain/common/integers.js";
+import { parsePositiveInteger } from "../../lib/primitives/integers.js";
 
 const PROJECT_STATUS_SET = new Set(["draft", "active", "archived"]);
 

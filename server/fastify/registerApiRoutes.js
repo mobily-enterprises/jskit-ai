@@ -1,4 +1,4 @@
-import { safeRequestUrl } from "../lib/requestUrl.js";
+import { safeRequestUrl } from "../lib/primitives/requestUrl.js";
 import { buildDefaultRoutes } from "../modules/api/routes.js";
 
 function registerApiRoutes(fastify, { controllers, routes }) {
