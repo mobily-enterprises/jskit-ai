@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createProjectsController } from "../controllers/workspace/projectsController.js";
+import { createProjectsController } from "../controllers/workspace/projects.js";
 
 function createReplyDouble() {
   return {
@@ -22,11 +22,11 @@ test("projects controller requires projects service", () => {
   assert.throws(() => createProjectsController({}), /required/);
 });
 
-test("projects controller delegates list/get/create/update to projects service", async () => {
+test("projects controller delegates list/get/create/update/replace to projects service", async () => {
   const calls = [];
   const projectsService = {
-    async listProjects(workspaceContext, pagination) {
-      calls.push(["listProjects", workspaceContext.id, pagination.page, pagination.pageSize]);
+    async list(workspaceContext, pagination) {
+      calls.push(["list", workspaceContext.id, pagination.page, pagination.pageSize]);
       return {
         entries: [],
         page: pagination.page,
@@ -35,24 +35,32 @@ test("projects controller delegates list/get/create/update to projects service",
         totalPages: 1
       };
     },
-    async getProject(workspaceContext, projectId) {
-      calls.push(["getProject", workspaceContext.id, projectId]);
+    async get(workspaceContext, projectId) {
+      calls.push(["get", workspaceContext.id, projectId]);
       return {
         project: {
           id: Number(projectId)
         }
       };
     },
-    async createProject(workspaceContext, payload) {
-      calls.push(["createProject", workspaceContext.id, payload.name]);
+    async create(workspaceContext, payload) {
+      calls.push(["create", workspaceContext.id, payload.name]);
       return {
         project: {
           id: 101
         }
       };
     },
-    async updateProject(workspaceContext, projectId, payload) {
-      calls.push(["updateProject", workspaceContext.id, projectId, payload.name]);
+    async update(workspaceContext, projectId, payload) {
+      calls.push(["update", workspaceContext.id, projectId, payload.name]);
+      return {
+        project: {
+          id: Number(projectId)
+        }
+      };
+    },
+    async replace(workspaceContext, projectId, payload) {
+      calls.push(["replace", workspaceContext.id, projectId, payload.name]);
       return {
         project: {
           id: Number(projectId)
@@ -65,7 +73,7 @@ test("projects controller delegates list/get/create/update to projects service",
   const workspace = { id: 11, slug: "acme" };
 
   const listReply = createReplyDouble();
-  await controller.listWorkspaceProjects(
+  await controller.list(
     {
       workspace,
       query: {
@@ -80,7 +88,7 @@ test("projects controller delegates list/get/create/update to projects service",
   assert.equal(listReply.payload.pageSize, 25);
 
   const getReply = createReplyDouble();
-  await controller.getWorkspaceProject(
+  await controller.get(
     {
       workspace,
       params: {
@@ -93,7 +101,7 @@ test("projects controller delegates list/get/create/update to projects service",
   assert.equal(getReply.payload.project.id, 99);
 
   const createReply = createReplyDouble();
-  await controller.createWorkspaceProject(
+  await controller.create(
     {
       workspace,
       body: {
@@ -106,7 +114,7 @@ test("projects controller delegates list/get/create/update to projects service",
   assert.equal(createReply.payload.project.id, 101);
 
   const updateReply = createReplyDouble();
-  await controller.updateWorkspaceProject(
+  await controller.update(
     {
       workspace,
       params: {
@@ -121,12 +129,28 @@ test("projects controller delegates list/get/create/update to projects service",
   assert.equal(updateReply.statusCode, 200);
   assert.equal(updateReply.payload.project.id, 99);
 
+  const replaceReply = createReplyDouble();
+  await controller.replace(
+    {
+      workspace,
+      params: {
+        projectId: "99"
+      },
+      body: {
+        name: "Replacement project"
+      }
+    },
+    replaceReply
+  );
+  assert.equal(replaceReply.statusCode, 200);
+  assert.equal(replaceReply.payload.project.id, 99);
+
   assert.equal(
-    calls.some((entry) => entry[0] === "listProjects"),
+    calls.some((entry) => entry[0] === "list"),
     true
   );
   assert.equal(
-    calls.some((entry) => entry[0] === "updateProject"),
+    calls.some((entry) => entry[0] === "update"),
     true
   );
 });

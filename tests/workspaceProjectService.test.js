@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createProjectsService } from "../services/workspace/projectsService.js";
+import { createProjectsService } from "../services/workspace/projects.js";
 
 function createWorkspaceContext(id = 11) {
   return {
@@ -23,7 +23,7 @@ test("projects service lists projects with safe pagination", async () => {
     }
   });
 
-  const result = await service.listProjects(createWorkspaceContext(), {
+  const result = await service.list(createWorkspaceContext(), {
     page: 99,
     pageSize: 10
   });
@@ -87,7 +87,7 @@ test("projects service creates, fetches, and updates projects", async () => {
     }
   });
 
-  const created = await service.createProject(createWorkspaceContext(), {
+  const created = await service.create(createWorkspaceContext(), {
     name: "Alpha",
     status: "active",
     owner: "Nora",
@@ -96,10 +96,10 @@ test("projects service creates, fetches, and updates projects", async () => {
   assert.equal(created.project.id, 5);
   assert.equal(created.project.status, "active");
 
-  const fetched = await service.getProject(createWorkspaceContext(), "5");
+  const fetched = await service.get(createWorkspaceContext(), "5");
   assert.equal(fetched.project.id, 5);
 
-  const updated = await service.updateProject(createWorkspaceContext(), "5", {
+  const updated = await service.update(createWorkspaceContext(), "5", {
     name: "Alpha 2",
     notes: "Revised"
   });
@@ -109,6 +109,15 @@ test("projects service creates, fetches, and updates projects", async () => {
   assert.equal(calls.some((entry) => entry[0] === "insert"), true);
   assert.equal(calls.some((entry) => entry[0] === "findByIdForWorkspace"), true);
   assert.equal(calls.some((entry) => entry[0] === "updateByIdForWorkspace"), true);
+
+  const replaced = await service.replace(createWorkspaceContext(), "5", {
+    name: "Alpha Replace",
+    status: "archived",
+    owner: "Nora 2",
+    notes: "Replaced"
+  });
+  assert.equal(replaced.project.id, 5);
+  assert.equal(replaced.project.status, "archived");
 });
 
 test("projects service enforces validation and not found behavior", async () => {
@@ -133,7 +142,7 @@ test("projects service enforces validation and not found behavior", async () => 
   });
 
   await assert.rejects(
-    () => service.createProject(createWorkspaceContext(), { name: "", status: "draft" }),
+    () => service.create(createWorkspaceContext(), { name: "", status: "draft" }),
     (error) => {
       assert.equal(error.status, 400);
       return true;
@@ -141,7 +150,7 @@ test("projects service enforces validation and not found behavior", async () => 
   );
 
   await assert.rejects(
-    () => service.getProject(createWorkspaceContext(), "1"),
+    () => service.get(createWorkspaceContext(), "1"),
     (error) => {
       assert.equal(error.status, 404);
       return true;
@@ -149,7 +158,7 @@ test("projects service enforces validation and not found behavior", async () => 
   );
 
   await assert.rejects(
-    () => service.updateProject(createWorkspaceContext(), "1", { name: "   " }),
+    () => service.update(createWorkspaceContext(), "1", { name: "   " }),
     (error) => {
       assert.equal(error.status, 400);
       return true;
@@ -157,7 +166,15 @@ test("projects service enforces validation and not found behavior", async () => 
   );
 
   await assert.rejects(
-    () => service.updateProject(createWorkspaceContext(), "1", { owner: "ok" }),
+    () => service.update(createWorkspaceContext(), "1", { owner: "ok" }),
+    (error) => {
+      assert.equal(error.status, 404);
+      return true;
+    }
+  );
+
+  await assert.rejects(
+    () => service.replace(createWorkspaceContext(), "1", { name: "x", status: "draft" }),
     (error) => {
       assert.equal(error.status, 404);
       return true;

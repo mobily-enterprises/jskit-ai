@@ -121,7 +121,7 @@ function createProjectsService({ projectsRepository }) {
     throw new Error("projectsRepository is required.");
   }
 
-  async function listProjects(workspaceContext, pagination) {
+  async function list(workspaceContext, pagination) {
     const workspaceId = normalizeWorkspaceId(workspaceContext);
     const page = Math.max(1, Number(pagination?.page) || 1);
     const pageSize = Math.max(1, Math.min(100, Number(pagination?.pageSize) || 10));
@@ -140,7 +140,7 @@ function createProjectsService({ projectsRepository }) {
     };
   }
 
-  async function getProject(workspaceContext, projectIdLike) {
+  async function get(workspaceContext, projectIdLike) {
     const workspaceId = normalizeWorkspaceId(workspaceContext);
     const projectId = normalizeProjectId(projectIdLike);
     const project = await projectsRepository.findByIdForWorkspace(workspaceId, projectId);
@@ -154,7 +154,7 @@ function createProjectsService({ projectsRepository }) {
     };
   }
 
-  async function createProject(workspaceContext, payload) {
+  async function create(workspaceContext, payload) {
     const workspaceId = normalizeWorkspaceId(workspaceContext);
     const body = payload && typeof payload === "object" ? payload : {};
 
@@ -170,7 +170,7 @@ function createProjectsService({ projectsRepository }) {
     };
   }
 
-  async function updateProject(workspaceContext, projectIdLike, payload) {
+  async function update(workspaceContext, projectIdLike, payload) {
     const workspaceId = normalizeWorkspaceId(workspaceContext);
     const projectId = normalizeProjectId(projectIdLike);
     const body = payload && typeof payload === "object" ? payload : {};
@@ -212,11 +212,33 @@ function createProjectsService({ projectsRepository }) {
     };
   }
 
+  async function replace(workspaceContext, projectIdLike, payload) {
+    const workspaceId = normalizeWorkspaceId(workspaceContext);
+    const projectId = normalizeProjectId(projectIdLike);
+    const body = payload && typeof payload === "object" ? payload : {};
+    const replacement = {
+      name: normalizeName(body.name, { required: true }),
+      status: normalizeStatus(body.status || "draft", { required: true }),
+      owner: normalizeOwner(body.owner),
+      notes: normalizeNotes(body.notes)
+    };
+
+    const project = await projectsRepository.updateByIdForWorkspace(workspaceId, projectId, replacement);
+    if (!project) {
+      throw new AppError(404, "Project not found.");
+    }
+
+    return {
+      project
+    };
+  }
+
   return {
-    listProjects,
-    getProject,
-    createProject,
-    updateProject
+    list,
+    get,
+    create,
+    update,
+    replace
   };
 }
 

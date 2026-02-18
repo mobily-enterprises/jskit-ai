@@ -15,33 +15,11 @@ import { initDatabase, closeDatabase } from "./db/knex.js";
 import { isAppError } from "./lib/errors.js";
 import { registerApiRoutes } from "./routes/api/index.js";
 import authPlugin from "./plugins/auth.js";
-import { createAuthService } from "./services/authService.js";
-import * as annuityService from "./services/annuityService.js";
-import { createAnnuityHistoryService } from "./services/annuityHistoryService.js";
-import { createAuthController } from "./controllers/authController.js";
-import { createHistoryController } from "./controllers/historyController.js";
-import { createAnnuityController } from "./controllers/annuityController.js";
-import { createSettingsController } from "./controllers/settingsController.js";
-import { createWorkspaceController } from "./controllers/workspaceController.js";
-import { createProjectsController } from "./controllers/workspace/projectsController.js";
-import * as userProfilesRepository from "./repositories/userProfilesRepository.js";
-import * as calculationLogsRepository from "./repositories/calculationLogsRepository.js";
-import * as userSettingsRepository from "./repositories/userSettingsRepository.js";
-import * as workspacesRepository from "./repositories/workspacesRepository.js";
-import * as workspaceMembershipsRepository from "./repositories/workspaceMembershipsRepository.js";
-import * as workspaceSettingsRepository from "./repositories/workspaceSettingsRepository.js";
-import * as workspaceInvitesRepository from "./repositories/workspaceInvitesRepository.js";
-import * as projectsRepository from "./repositories/workspace/projectsRepository.js";
 import { safePathnameFromRequest } from "./lib/requestUrl.js";
-import { createUserSettingsService } from "./services/userSettingsService.js";
-import { createAvatarStorageService } from "./services/avatarStorageService.js";
-import { createUserAvatarService } from "./services/userAvatarService.js";
-import { createWorkspaceService } from "./services/workspaceService.js";
-import { createWorkspaceAdminService } from "./services/workspaceAdminService.js";
-import { createProjectsService } from "./services/workspace/projectsService.js";
 import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar/index.js";
 import { resolveSurfacePaths } from "./shared/routing/surfacePaths.js";
 import { createRateLimitPluginOptions, resolveRateLimitStartupWarning } from "./lib/rateLimit.js";
+import { createServerRuntime } from "./server/runtime/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -66,79 +44,17 @@ const INDEX_FILE_NAME = "index.html";
 const SUPABASE_PUBLISHABLE_KEY = String(env.SUPABASE_PUBLISHABLE_KEY || "");
 const SCRIPT_SRC_POLICY = NODE_ENV === "production" ? ["'self'"] : ["'self'", "'unsafe-inline'"];
 
-const authService = createAuthService({
-  supabaseUrl: env.SUPABASE_URL,
-  supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY,
-  appPublicUrl: env.APP_PUBLIC_URL,
-  jwtAudience: env.SUPABASE_JWT_AUDIENCE,
-  userProfilesRepository,
-  userSettingsRepository,
-  nodeEnv: NODE_ENV
-});
-
-const annuityHistoryService = createAnnuityHistoryService({
-  calculationLogsRepository
-});
-
-const avatarStorageService = createAvatarStorageService({
-  driver: env.AVATAR_STORAGE_DRIVER,
-  fsBasePath: env.AVATAR_STORAGE_FS_BASE_PATH,
-  publicBasePath: env.AVATAR_PUBLIC_BASE_PATH,
-  rootDir: __dirname
-});
-
-const userAvatarService = createUserAvatarService({
-  userProfilesRepository,
-  avatarStorageService
-});
-
-const userSettingsService = createUserSettingsService({
-  userSettingsRepository,
-  userProfilesRepository,
-  authService,
-  userAvatarService
-});
-
-const workspaceService = createWorkspaceService({
+const {
+  controllers,
+  runtimeServices: { authService, workspaceService, avatarStorageService }
+} = createServerRuntime({
+  env,
+  nodeEnv: NODE_ENV,
   appConfig: APP_CONFIG,
   rbacManifest: RBAC_MANIFEST,
-  workspacesRepository,
-  workspaceMembershipsRepository,
-  workspaceSettingsRepository,
-  workspaceInvitesRepository,
-  userSettingsRepository,
-  userAvatarService
+  rootDir: __dirname,
+  supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY
 });
-
-const workspaceAdminService = createWorkspaceAdminService({
-  appConfig: APP_CONFIG,
-  rbacManifest: RBAC_MANIFEST,
-  workspacesRepository,
-  workspaceSettingsRepository,
-  workspaceMembershipsRepository,
-  workspaceInvitesRepository,
-  userProfilesRepository,
-  userSettingsRepository
-});
-
-const projectsService = createProjectsService({
-  projectsRepository
-});
-
-const controllers = {
-  auth: createAuthController({ authService }),
-  history: createHistoryController({ annuityHistoryService }),
-  annuity: createAnnuityController({ annuityService, annuityHistoryService }),
-  settings: createSettingsController({ userSettingsService, authService }),
-  projects: createProjectsController({
-    projectsService
-  }),
-  workspace: createWorkspaceController({
-    authService,
-    workspaceService,
-    workspaceAdminService
-  })
-};
 
 function validateRuntimeConfig() {
   const tenancyMode = String(APP_CONFIG.tenancyMode || "").trim();

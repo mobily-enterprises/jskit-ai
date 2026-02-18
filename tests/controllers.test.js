@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createAnnuityController } from "../controllers/annuityController.js";
-import { createAuthController } from "../controllers/authController.js";
-import { createHistoryController } from "../controllers/historyController.js";
-import { createSettingsController } from "../controllers/settingsController.js";
+import { createAnnuityController } from "../controllers/annuity.js";
+import { createAuthController } from "../controllers/auth.js";
+import { createHistoryController } from "../controllers/history.js";
+import { createSettingsController } from "../controllers/settings.js";
 
 function createReplyDouble() {
   return {

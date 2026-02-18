@@ -37,7 +37,6 @@ function buildWorkspaceRoutes(controllers, { missingHandler }) {
       path: "/api/workspaces",
       method: "GET",
       auth: "required",
-      allowNoWorkspace: true,
       schema: {
         tags: ["workspace"],
         summary: "List workspaces visible to authenticated user",
@@ -51,7 +50,6 @@ function buildWorkspaceRoutes(controllers, { missingHandler }) {
       path: "/api/workspaces/select",
       method: "POST",
       auth: "required",
-      allowNoWorkspace: true,
       schema: {
         tags: ["workspace"],
         summary: "Select active workspace by slug or id",
@@ -69,7 +67,6 @@ function buildWorkspaceRoutes(controllers, { missingHandler }) {
       path: "/api/workspace/invitations/pending",
       method: "GET",
       auth: "required",
-      allowNoWorkspace: true,
       schema: {
         tags: ["workspace"],
         summary: "List pending workspace invitations for authenticated user",
@@ -83,7 +80,6 @@ function buildWorkspaceRoutes(controllers, { missingHandler }) {
       path: "/api/workspace/invitations/redeem",
       method: "POST",
       auth: "required",
-      allowNoWorkspace: true,
       schema: {
         tags: ["workspace"],
         summary: "Accept or refuse a workspace invitation using an invite token",

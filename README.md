@@ -238,6 +238,7 @@ npm run docs:api-contracts
 - `GET /api/workspace/projects/:projectId`
 - `POST /api/workspace/projects`
 - `PATCH /api/workspace/projects/:projectId`
+- `PUT /api/workspace/projects/:projectId`
 - `GET /api/settings`
 - `PATCH /api/settings/profile`
 - `POST /api/settings/profile/avatar`

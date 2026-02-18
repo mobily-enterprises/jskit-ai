@@ -83,7 +83,6 @@ async function authPlugin(fastify, options) {
     const workspacePolicy = routeConfig.workspacePolicy || "none";
     const workspaceSurface = String(routeConfig.workspaceSurface || "").trim();
     const permission = String(routeConfig.permission || "").trim();
-    const allowNoWorkspace = routeConfig.allowNoWorkspace === true;
     const csrfProtectionEnabled = routeConfig.csrfProtection !== false;
 
     if (csrfProtectionEnabled && UNSAFE_METHODS.has(request.method)) {
@@ -135,7 +134,7 @@ async function authPlugin(fastify, options) {
       const context = await workspaceService.resolveRequestContext({
         user: request.user,
         request,
-        workspacePolicy: allowNoWorkspace ? "optional" : workspacePolicy,
+        workspacePolicy,
         workspaceSurface
       });
 

@@ -55,7 +55,7 @@ function buildControllers({ onListProjects } = {}) {
     },
     workspace: {},
     projects: {
-      async listWorkspaceProjects(request, reply) {
+      async list(request, reply) {
         if (typeof onListProjects === "function") {
           await onListProjects(request);
         }
@@ -68,7 +68,7 @@ function buildControllers({ onListProjects } = {}) {
           totalPages: 1
         });
       },
-      async getWorkspaceProject(_request, reply) {
+      async get(_request, reply) {
         reply.code(200).send({
           project: {
             id: 1,
@@ -82,7 +82,7 @@ function buildControllers({ onListProjects } = {}) {
           }
         });
       },
-      async createWorkspaceProject(_request, reply) {
+      async create(_request, reply) {
         reply.code(200).send({
           project: {
             id: 1,
@@ -96,12 +96,26 @@ function buildControllers({ onListProjects } = {}) {
           }
         });
       },
-      async updateWorkspaceProject(_request, reply) {
+      async update(_request, reply) {
         reply.code(200).send({
           project: {
             id: 1,
             workspaceId: 1,
             name: "Project",
+            status: "active",
+            owner: "",
+            notes: "",
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z"
+          }
+        });
+      },
+      async replace(_request, reply) {
+        reply.code(200).send({
+          project: {
+            id: 1,
+            workspaceId: 1,
+            name: "Project replace",
             status: "active",
             owner: "",
             notes: "",
@@ -152,5 +166,24 @@ test("workspace projects route rejects invalid create payload", async () => {
   });
 
   assert.equal(response.statusCode, 400);
+  await app.close();
+});
+
+test("workspace projects route supports put replace payload", async () => {
+  const app = Fastify();
+  registerApiRoutes(app, {
+    controllers: buildControllers()
+  });
+
+  const response = await app.inject({
+    method: "PUT",
+    url: "/api/workspace/projects/1",
+    payload: {
+      name: "Demo",
+      status: "draft"
+    }
+  });
+
+  assert.equal(response.statusCode, 200);
   await app.close();
 });

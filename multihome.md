@@ -1103,7 +1103,6 @@ Files and line anchors:
    - Read new route config fields:
      - `workspacePolicy` (`none|required|optional`)
      - `permission`
-     - `allowNoWorkspace`
 3. `plugins/auth.js:84-101`
    - After auth succeeds, call `workspaceService.resolveRequestContext(...)`.
    - Set `request.workspace`, `request.membership`, `request.permissions`.
@@ -1158,7 +1157,6 @@ Files and line anchors:
    - Extend route config payload:
      - `workspacePolicy`
      - `permission`
-     - `allowNoWorkspace`
 6. `routes/api/index.js:1042-1044`
    - Keep handler invocation shape intact.
 

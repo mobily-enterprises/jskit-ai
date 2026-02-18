@@ -70,6 +70,8 @@ const createBodySchema = Type.Object(
   }
 );
 
+const replaceBodySchema = createBodySchema;
+
 const updateBodySchema = Type.Object(
   {
     name: Type.Optional(Type.String({ minLength: 1, maxLength: 160 })),
@@ -92,5 +94,6 @@ export {
   listResponseSchema,
   singleResponseSchema,
   createBodySchema,
+  replaceBodySchema,
   updateBodySchema
 };

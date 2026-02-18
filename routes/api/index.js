@@ -40,7 +40,6 @@ function registerApiRoutes(fastify, { controllers, routes }) {
         workspacePolicy: route.workspacePolicy || "none",
         workspaceSurface: route.workspaceSurface || "",
         permission: route.permission || "",
-        allowNoWorkspace: route.allowNoWorkspace === true,
         ownerParam: route.ownerParam || null,
         userField: route.userField || "id",
         ownerResolver: typeof route.ownerResolver === "function" ? route.ownerResolver : null,
