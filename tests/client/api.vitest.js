@@ -33,7 +33,7 @@ describe("client api transport", () => {
   it("performs a basic session request and handles non-json payloads", async () => {
     global.fetch.mockResolvedValueOnce(mockResponse({ contentType: "text/plain" }));
 
-    const payload = await api.session();
+    const payload = await api.auth.session();
 
     expect(payload).toEqual({});
     expect(global.fetch).toHaveBeenCalledWith("/api/session", {
@@ -76,7 +76,7 @@ describe("client api transport", () => {
       .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-a" } }))
       .mockResolvedValueOnce(mockResponse({ data: { ok: true } }));
 
-    const result = await api.calculateAnnuity({ payment: 500 });
+    const result = await api.annuity.calculate({ payment: 500 });
 
     expect(result).toEqual({ ok: true });
     expect(global.fetch).toHaveBeenNthCalledWith(1, "/api/session", {
@@ -118,7 +118,7 @@ describe("client api transport", () => {
     const formData = new FormData();
     formData.append("file", "data");
 
-    const result = await api.calculateAnnuity(formData);
+    const result = await api.annuity.calculate(formData);
     const requestCall = global.fetch.mock.calls[1];
 
     expect(result).toEqual({ ok: true });
@@ -144,7 +144,7 @@ describe("client api transport", () => {
       .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-2" } }))
       .mockResolvedValueOnce(mockResponse({ data: { ok: true, csrfToken: "csrf-3" } }));
 
-    const result = await api.logout();
+    const result = await api.auth.logout();
 
     expect(result).toEqual({ ok: true, csrfToken: "csrf-3" });
     expect(global.fetch).toHaveBeenCalledTimes(4);
@@ -167,7 +167,7 @@ describe("client api transport", () => {
         })
       );
 
-    await expect(api.logout()).rejects.toMatchObject({
+    await expect(api.auth.logout()).rejects.toMatchObject({
       status: 403,
       message: "forbidden",
       details: {
@@ -204,7 +204,7 @@ describe("client api transport", () => {
         })
       );
 
-    await expect(api.logout()).rejects.toMatchObject({
+    await expect(api.auth.logout()).rejects.toMatchObject({
       status: 403,
       message: "Request failed with status 403.",
       fieldErrors: { request: "blocked" }
@@ -227,7 +227,7 @@ describe("client api transport", () => {
       })
     );
 
-    await expect(api.history(1, 10)).rejects.toMatchObject({
+    await expect(api.history.list(1, 10)).rejects.toMatchObject({
       status: 400,
       message: "Validation failed.",
       fieldErrors: {
@@ -254,7 +254,7 @@ describe("client api transport", () => {
   it("handles network failures from csrf bootstrap and normal requests", async () => {
     const networkError = new Error("offline");
     global.fetch.mockRejectedValueOnce(networkError);
-    await expect(api.logout()).rejects.toMatchObject({
+    await expect(api.auth.logout()).rejects.toMatchObject({
       status: 0,
       message: "Network request failed.",
       cause: networkError
@@ -262,7 +262,7 @@ describe("client api transport", () => {
 
     __testables.resetApiStateForTests();
     global.fetch.mockRejectedValueOnce(networkError);
-    await expect(api.session()).rejects.toMatchObject({
+    await expect(api.auth.session()).rejects.toMatchObject({
       status: 0,
       message: "Network request failed.",
       cause: networkError
@@ -277,7 +277,7 @@ describe("client api transport", () => {
       })
     );
 
-    const payload = await api.session();
+    const payload = await api.auth.session();
     expect(payload).toEqual({});
   });
 
@@ -286,7 +286,7 @@ describe("client api transport", () => {
       .mockResolvedValueOnce(mockResponse({ contentType: "application/json", jsonReject: true }))
       .mockResolvedValueOnce(mockResponse({ data: { ok: true } }));
 
-    const result = await api.logout();
+    const result = await api.auth.logout();
 
     expect(result).toEqual({ ok: true });
     expect(global.fetch.mock.calls[1][1].headers["csrf-token"]).toBeUndefined();
@@ -338,11 +338,11 @@ describe("client api transport", () => {
       .mockResolvedValueOnce(mockResponse({ data: { ok: true } }))
       .mockResolvedValueOnce(mockResponse({ data: { ok: true } }));
 
-    await api.register({ email: "a@example.com", password: "password123" });
-    await api.login({ email: "a@example.com", password: "password123" });
-    await api.requestPasswordReset({ email: "a@example.com" });
-    await api.completePasswordRecovery({ code: "abc" });
-    await api.resetPassword({ password: "nextpassword123" });
+    await api.auth.register({ email: "a@example.com", password: "password123" });
+    await api.auth.login({ email: "a@example.com", password: "password123" });
+    await api.auth.requestPasswordReset({ email: "a@example.com" });
+    await api.auth.completePasswordRecovery({ code: "abc" });
+    await api.auth.resetPassword({ password: "nextpassword123" });
 
     expect(global.fetch.mock.calls.map(([url]) => url)).toEqual([
       "/api/session",
@@ -366,18 +366,18 @@ describe("client api transport", () => {
       .mockResolvedValueOnce(mockResponse({ data: { ok: true, message: "Password changed." } }))
       .mockResolvedValueOnce(mockResponse({ data: { ok: true, message: "Signed out from other active sessions." } }));
 
-    await api.settings();
-    await api.updateProfileSettings({ displayName: "new-name" });
-    await api.uploadProfileAvatar(new FormData());
-    await api.deleteProfileAvatar();
-    await api.updatePreferencesSettings({ theme: "dark" });
-    await api.updateNotificationSettings({ productUpdates: false, accountActivity: true, securityAlerts: true });
-    await api.changePassword({
+    await api.settings.get();
+    await api.settings.updateProfile({ displayName: "new-name" });
+    await api.settings.uploadAvatar(new FormData());
+    await api.settings.deleteAvatar();
+    await api.settings.updatePreferences({ theme: "dark" });
+    await api.settings.updateNotifications({ productUpdates: false, accountActivity: true, securityAlerts: true });
+    await api.settings.changePassword({
       currentPassword: "old-password",
       newPassword: "new-password-123",
       confirmPassword: "new-password-123"
     });
-    await api.logoutOtherSessions();
+    await api.settings.logoutOtherSessions();
 
     expect(global.fetch.mock.calls.map(([url]) => url)).toEqual([
       "/api/settings",
@@ -400,10 +400,10 @@ describe("client api transport", () => {
       .mockResolvedValueOnce(mockResponse({ data: { ok: true } }))
       .mockResolvedValueOnce(mockResponse({ data: { entries: [], page: 2, pageSize: 25, total: 0, totalPages: 1 } }));
 
-    await api.logout();
+    await api.auth.logout();
     api.clearCsrfTokenCache();
-    await api.logout();
-    const history = await api.history(2, 25);
+    await api.auth.logout();
+    const history = await api.history.list(2, 25);
 
     expect(history).toEqual({ entries: [], page: 2, pageSize: 25, total: 0, totalPages: 1 });
     expect(global.fetch.mock.calls[4][0]).toBe("/api/history?page=2&pageSize=25");
@@ -422,28 +422,28 @@ describe("client api transport", () => {
       });
     });
 
-    await api.bootstrap();
-    await api.requestOtpLogin({ email: "a@example.com" });
-    await api.verifyOtpLogin({ email: "a@example.com", token: "123456" });
-    await api.oauthComplete({ code: "oauth-code" });
-    await api.workspaces();
-    await api.selectWorkspace({ workspaceSlug: "acme" });
-    await api.pendingWorkspaceInvites();
-    await api.redeemWorkspaceInvite({ token: "invite-token", decision: "accept" });
-    await api.workspaceSettings();
-    await api.updateWorkspaceSettings({ name: "Acme" });
-    await api.workspaceRoles();
-    await api.workspaceMembers();
-    await api.updateWorkspaceMemberRole("user/id", { roleId: "admin" });
-    await api.workspaceInvites();
-    await api.createWorkspaceInvite({ email: "member@example.com", roleId: "member" });
-    await api.revokeWorkspaceInvite("invite id/2");
-    await api.workspaceProjects(2, 25);
-    await api.workspaceProject("project/id");
-    await api.createWorkspaceProject({ name: "Project A", status: "draft" });
-    await api.updateWorkspaceProject("project/id", { status: "active" });
-    await api.setPasswordMethodEnabled({ enabled: true });
-    await api.unlinkSettingsOAuthProvider("Google ");
+    await api.workspace.bootstrap();
+    await api.auth.requestOtp({ email: "a@example.com" });
+    await api.auth.verifyOtp({ email: "a@example.com", token: "123456" });
+    await api.auth.oauthComplete({ code: "oauth-code" });
+    await api.workspace.list();
+    await api.workspace.select({ workspaceSlug: "acme" });
+    await api.workspace.listPendingInvites();
+    await api.workspace.redeemInvite({ token: "invite-token", decision: "accept" });
+    await api.workspace.getSettings();
+    await api.workspace.updateSettings({ name: "Acme" });
+    await api.workspace.listRoles();
+    await api.workspace.listMembers();
+    await api.workspace.updateMemberRole("user/id", { roleId: "admin" });
+    await api.workspace.listInvites();
+    await api.workspace.createInvite({ email: "member@example.com", roleId: "member" });
+    await api.workspace.revokeInvite("invite id/2");
+    await api.projects.list(2, 25);
+    await api.projects.get("project/id");
+    await api.projects.create({ name: "Project A", status: "draft" });
+    await api.projects.update("project/id", { status: "active" });
+    await api.settings.setPasswordMethodEnabled({ enabled: true });
+    await api.settings.unlinkOAuthProvider("Google ");
 
     const urls = global.fetch.mock.calls.map(([url]) => url);
     expect(urls).toContain("/api/bootstrap");
@@ -468,11 +468,11 @@ describe("client api transport", () => {
   });
 
   it("builds oauth URL helpers with and without returnTo", () => {
-    expect(api.oauthStartUrl("Google")).toBe("/api/oauth/google/start");
-    expect(api.oauthStartUrl("Google", { returnTo: "/w/acme" })).toBe("/api/oauth/google/start?returnTo=%2Fw%2Facme");
+    expect(api.auth.oauthStartUrl("Google")).toBe("/api/oauth/google/start");
+    expect(api.auth.oauthStartUrl("Google", { returnTo: "/w/acme" })).toBe("/api/oauth/google/start?returnTo=%2Fw%2Facme");
 
-    expect(api.settingsOAuthLinkStartUrl("Google")).toBe("/api/settings/security/oauth/google/start");
-    expect(api.settingsOAuthLinkStartUrl("Google", { returnTo: "/account/settings" })).toBe(
+    expect(api.settings.oauthLinkStartUrl("Google")).toBe("/api/settings/security/oauth/google/start");
+    expect(api.settings.oauthLinkStartUrl("Google", { returnTo: "/account/settings" })).toBe(
       "/api/settings/security/oauth/google/start?returnTo=%2Faccount%2Fsettings"
     );
   });
@@ -542,16 +542,16 @@ describe("client api transport", () => {
       vi.stubGlobal("window", originalWindow);
     }
 
-    expect(api.oauthStartUrl()).toBe("/api/oauth//start");
-    expect(api.settingsOAuthLinkStartUrl()).toBe("/api/settings/security/oauth//start");
+    expect(api.auth.oauthStartUrl()).toBe("/api/oauth//start");
+    expect(api.settings.oauthLinkStartUrl()).toBe("/api/settings/security/oauth//start");
 
-    await api.redeemWorkspaceInvite({ token: "", decision: "accept" });
-    await api.updateWorkspaceMemberRole(undefined, { roleId: "member" });
-    await api.revokeWorkspaceInvite(undefined);
-    await api.workspaceProjects(1, 10);
-    await api.workspaceProject(undefined);
-    await api.updateWorkspaceProject(undefined, { status: "archived" });
-    await api.unlinkSettingsOAuthProvider(undefined);
+    await api.workspace.redeemInvite({ token: "", decision: "accept" });
+    await api.workspace.updateMemberRole(undefined, { roleId: "member" });
+    await api.workspace.revokeInvite(undefined);
+    await api.projects.list(1, 10);
+    await api.projects.get(undefined);
+    await api.projects.update(undefined, { status: "archived" });
+    await api.settings.unlinkOAuthProvider(undefined);
 
     const urls = global.fetch.mock.calls.map(([url]) => url);
     expect(urls).toContain("/api/workspace/invitations/redeem");

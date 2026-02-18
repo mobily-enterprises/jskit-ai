@@ -7,7 +7,9 @@ const mocks = vi.hoisted(() => ({
   routerPathname: "/w/acme",
   routerSearch: {},
   api: {
-    history: vi.fn()
+    history: {
+      list: vi.fn()
+    }
   },
   workspaceStore: {
     initialized: true,
@@ -112,8 +114,8 @@ describe("useAnnuityHistoryList", () => {
     mocks.navigate.mockReset();
     mocks.routerPathname = "/w/acme";
     mocks.routerSearch = {};
-    mocks.api.history.mockReset();
-    mocks.api.history.mockResolvedValue({
+    mocks.api.history.list.mockReset();
+    mocks.api.history.list.mockResolvedValue({
       entries: [],
       total: 0,
       totalPages: 1
@@ -144,7 +146,7 @@ describe("useAnnuityHistoryList", () => {
     expect(wrapper.vm.history.state.enabled).toBe(true);
     expect(wrapper.vm.history.state.page).toBe(1);
     expect(wrapper.vm.history.state.pageSize).toBe(10);
-    expect(mocks.api.history).toHaveBeenCalledWith(1, 10);
+    expect(mocks.api.history.list).toHaveBeenCalledWith(1, 10);
 
     mocks.queryData.value = {
       entries: [{ id: "e1" }],

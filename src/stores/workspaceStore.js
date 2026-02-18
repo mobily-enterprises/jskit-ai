@@ -142,28 +142,6 @@ function resolveWorkspacePathSurfaceId(preferredSurface) {
   return DEFAULT_SURFACE_ID;
 }
 
-function workspaceApiCompat() {
-  const namespace = api.workspace && typeof api.workspace === "object" ? api.workspace : null;
-  return {
-    bootstrap:
-      typeof namespace?.bootstrap === "function"
-        ? () => namespace.bootstrap()
-        : () => api.bootstrap(),
-    listPendingInvites:
-      typeof namespace?.listPendingInvites === "function"
-        ? () => namespace.listPendingInvites()
-        : () => api.pendingWorkspaceInvites(),
-    select:
-      typeof namespace?.select === "function"
-        ? (payload) => namespace.select(payload)
-        : (payload) => api.selectWorkspace(payload),
-    redeemInvite:
-      typeof namespace?.redeemInvite === "function"
-        ? (payload) => namespace.redeemInvite(payload)
-        : (payload) => api.redeemWorkspaceInvite(payload)
-  };
-}
-
 export const useWorkspaceStore = defineStore("workspace", {
   state: () => ({
     initialized: false,
@@ -311,16 +289,16 @@ export const useWorkspaceStore = defineStore("workspace", {
       return this.permissions.includes("*") || this.permissions.includes(normalized);
     },
     async refreshBootstrap() {
-      const payload = await workspaceApiCompat().bootstrap();
+      const payload = await api.workspace.bootstrap();
       return this.applyBootstrap(payload);
     },
     async refreshPendingInvites() {
-      const payload = await workspaceApiCompat().listPendingInvites();
+      const payload = await api.workspace.listPendingInvites();
       this.setPendingInvites(payload.pendingInvites || []);
       return this.pendingInvites;
     },
     async selectWorkspace(workspaceSlug) {
-      const payload = await workspaceApiCompat().select({
+      const payload = await api.workspace.select({
         workspaceSlug: String(workspaceSlug || "").trim()
       });
       this.applyWorkspaceSelection(payload);
@@ -328,7 +306,7 @@ export const useWorkspaceStore = defineStore("workspace", {
     },
     async respondToPendingInvite(inviteToken, decision) {
       const normalizedInviteToken = String(inviteToken || "").trim();
-      const response = await workspaceApiCompat().redeemInvite({
+      const response = await api.workspace.redeemInvite({
         token: normalizedInviteToken,
         decision: String(decision || "")
           .trim()

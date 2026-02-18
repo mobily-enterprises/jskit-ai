@@ -90,7 +90,9 @@ vi.mock("../../src/queryClient", () => ({
 
 vi.mock("../../src/services/api/index.js", () => ({
   api: {
-    bootstrap: mocks.bootstrapApi
+    workspace: {
+      bootstrap: mocks.bootstrapApi
+    }
   }
 }));
 

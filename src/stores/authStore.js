@@ -23,16 +23,14 @@ export const useAuthStore = defineStore("auth", {
       return session;
     },
     async ensureSession({ force = false } = {}) {
-      const requestSession =
-        typeof api?.auth?.session === "function" ? () => api.auth.session() : () => api.session();
       const queryOptions = {
         queryKey: SESSION_QUERY_KEY,
-        queryFn: requestSession,
+        queryFn: () => api.auth.session(),
         staleTime: 60000
       };
 
       if (force) {
-        const session = await requestSession();
+        const session = await api.auth.session();
         queryClient.setQueryData(SESSION_QUERY_KEY, session);
         return this.applySession(session);
       }

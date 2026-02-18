@@ -4,7 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   api: {
-    calculateAnnuity: vi.fn()
+    annuity: {
+      calculate: vi.fn()
+    }
   },
   handleUnauthorizedError: vi.fn(async () => false),
   mutationPending: null,
@@ -43,7 +45,7 @@ const TestHarness = defineComponent({
 
 describe("useAnnuityCalculatorForm", () => {
   beforeEach(() => {
-    mocks.api.calculateAnnuity.mockReset();
+    mocks.api.annuity.calculate.mockReset();
     mocks.handleUnauthorizedError.mockReset();
     mocks.handleUnauthorizedError.mockResolvedValue(false);
     mocks.onCalculated.mockReset();
@@ -59,11 +61,11 @@ describe("useAnnuityCalculatorForm", () => {
     await wrapper.vm.actions.calculate();
 
     expect(wrapper.vm.state.error).toContain("Perpetual calculations are only supported");
-    expect(mocks.api.calculateAnnuity).not.toHaveBeenCalled();
+    expect(mocks.api.annuity.calculate).not.toHaveBeenCalled();
 
     wrapper.vm.state.form.mode = "pv";
     wrapper.vm.state.form.isPerpetual = false;
-    mocks.api.calculateAnnuity.mockResolvedValueOnce({
+    mocks.api.annuity.calculate.mockResolvedValueOnce({
       value: "10",
       warnings: ["warn-1"],
       annualGrowthRate: "0",
@@ -85,7 +87,7 @@ describe("useAnnuityCalculatorForm", () => {
     expect(wrapper.vm.meta.modeOptions.length).toBeGreaterThan(0);
     expect(wrapper.vm.meta.timingOptions.length).toBeGreaterThan(0);
 
-    mocks.api.calculateAnnuity.mockResolvedValueOnce({
+    mocks.api.annuity.calculate.mockResolvedValueOnce({
       value: "11",
       warnings: null,
       annualGrowthRate: "0",
@@ -104,7 +106,7 @@ describe("useAnnuityCalculatorForm", () => {
   it("maps unauthorized and non-unauthorized errors", async () => {
     const wrapper = mount(TestHarness);
 
-    mocks.api.calculateAnnuity.mockRejectedValueOnce({
+    mocks.api.annuity.calculate.mockRejectedValueOnce({
       status: 401,
       message: "Authentication required."
     });
@@ -113,7 +115,7 @@ describe("useAnnuityCalculatorForm", () => {
     await wrapper.vm.actions.calculate();
     expect(wrapper.vm.state.error).toBe("");
 
-    mocks.api.calculateAnnuity.mockRejectedValueOnce({
+    mocks.api.annuity.calculate.mockRejectedValueOnce({
       status: 400,
       message: "Validation failed.",
       fieldErrors: {
@@ -127,7 +129,7 @@ describe("useAnnuityCalculatorForm", () => {
     expect(wrapper.vm.state.error).toContain("Payment must be positive.");
     expect(wrapper.vm.state.error).toContain("Years must be positive.");
 
-    mocks.api.calculateAnnuity.mockRejectedValueOnce({
+    mocks.api.annuity.calculate.mockRejectedValueOnce({
       status: 500,
       message: "Server unavailable."
     });

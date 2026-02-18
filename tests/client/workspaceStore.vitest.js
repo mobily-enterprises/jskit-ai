@@ -10,10 +10,12 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("../../src/services/api/index.js", () => ({
   api: {
-    bootstrap: mocks.bootstrapApi,
-    pendingWorkspaceInvites: mocks.pendingWorkspaceInvitesApi,
-    selectWorkspace: mocks.selectWorkspaceApi,
-    redeemWorkspaceInvite: mocks.redeemWorkspaceInviteApi
+    workspace: {
+      bootstrap: mocks.bootstrapApi,
+      listPendingInvites: mocks.pendingWorkspaceInvitesApi,
+      select: mocks.selectWorkspaceApi,
+      redeemInvite: mocks.redeemWorkspaceInviteApi
+    }
   }
 }));
 
