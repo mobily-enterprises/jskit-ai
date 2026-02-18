@@ -1,11 +1,11 @@
 {
   "all": true,
   "check-coverage": true,
-  "per-file": false,
-  "branches": 93,
-  "functions": 93,
-  "lines": 95,
-  "statements": 95,
+  "per-file": true,
+  "branches": 100,
+  "functions": 100,
+  "lines": 100,
+  "statements": 100,
   "reporter": ["text-summary", "lcov"],
   "exclude": [
     "coverage/**",
