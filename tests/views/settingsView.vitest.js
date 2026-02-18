@@ -11,14 +11,16 @@ const mocks = vi.hoisted(() => ({
   queryError: { value: null },
   queryPending: { value: false },
   api: {
-    settings: vi.fn(),
-    updateProfileSettings: vi.fn(),
-    deleteProfileAvatar: vi.fn(),
-    updatePreferencesSettings: vi.fn(),
-    updateNotificationSettings: vi.fn(),
-    changePassword: vi.fn(),
-    setPasswordMethodEnabled: vi.fn(),
-    logoutOtherSessions: vi.fn()
+    settings: {
+      get: vi.fn(),
+      updateProfile: vi.fn(),
+      deleteAvatar: vi.fn(),
+      updatePreferences: vi.fn(),
+      updateNotifications: vi.fn(),
+      changePassword: vi.fn(),
+      setPasswordMethodEnabled: vi.fn(),
+      logoutOtherSessions: vi.fn()
+    }
   },
   authStore: {
     setSignedOut: vi.fn(),
@@ -222,14 +224,14 @@ describe("SettingsView", () => {
     mocks.queryData.value = buildSettingsPayload();
     mocks.queryError.value = null;
     mocks.queryPending.value = false;
-    mocks.api.settings.mockReset();
-    mocks.api.updateProfileSettings.mockReset();
-    mocks.api.deleteProfileAvatar.mockReset();
-    mocks.api.updatePreferencesSettings.mockReset();
-    mocks.api.updateNotificationSettings.mockReset();
-    mocks.api.changePassword.mockReset();
-    mocks.api.setPasswordMethodEnabled.mockReset();
-    mocks.api.logoutOtherSessions.mockReset();
+    mocks.api.settings.get.mockReset();
+    mocks.api.settings.updateProfile.mockReset();
+    mocks.api.settings.deleteAvatar.mockReset();
+    mocks.api.settings.updatePreferences.mockReset();
+    mocks.api.settings.updateNotifications.mockReset();
+    mocks.api.settings.changePassword.mockReset();
+    mocks.api.settings.setPasswordMethodEnabled.mockReset();
+    mocks.api.settings.logoutOtherSessions.mockReset();
     mocks.authStore.setSignedOut.mockReset();
     mocks.authStore.setUsername.mockReset();
     mocks.workspaceStore.clearWorkspaceState.mockReset();
@@ -298,7 +300,7 @@ describe("SettingsView", () => {
         emailChangeFlow: "supabase"
       }
     });
-    mocks.api.updateProfileSettings.mockResolvedValue(payload);
+    mocks.api.settings.updateProfile.mockResolvedValue(payload);
 
     const wrapper = mountView();
     const profile = vmSections(wrapper).profile;
@@ -306,13 +308,13 @@ describe("SettingsView", () => {
 
     await profile.actions.submitProfile();
 
-    expect(mocks.api.updateProfileSettings).toHaveBeenCalledWith({ displayName: "new-name" });
+    expect(mocks.api.settings.updateProfile).toHaveBeenCalledWith({ displayName: "new-name" });
     expect(mocks.authStore.setUsername).toHaveBeenCalledWith("new-name");
     expect(profile.state.profileMessageType).toBe("success");
   });
 
   it("submits preferences and surfaces field validation errors", async () => {
-    mocks.api.updatePreferencesSettings.mockRejectedValue({
+    mocks.api.settings.updatePreferences.mockRejectedValue({
       status: 400,
       message: "Validation failed.",
       fieldErrors: {
@@ -324,7 +326,7 @@ describe("SettingsView", () => {
     const preferences = vmSections(wrapper).preferences;
     await preferences.actions.submitPreferences();
 
-    expect(mocks.api.updatePreferencesSettings).toHaveBeenCalledTimes(1);
+    expect(mocks.api.settings.updatePreferences).toHaveBeenCalledTimes(1);
     expect(preferences.state.preferencesFieldErrors.timeZone).toContain("IANA time zone");
     expect(preferences.state.preferencesMessageType).toBe("error");
   });
@@ -341,13 +343,13 @@ describe("SettingsView", () => {
         avatarSize: 96
       }
     });
-    mocks.api.updatePreferencesSettings.mockResolvedValue(payload);
+    mocks.api.settings.updatePreferences.mockResolvedValue(payload);
 
     const wrapper = mountView();
     const preferences = vmSections(wrapper).preferences;
     await preferences.actions.submitPreferences();
 
-    expect(mocks.api.updatePreferencesSettings).toHaveBeenCalledTimes(1);
+    expect(mocks.api.settings.updatePreferences).toHaveBeenCalledTimes(1);
     expect(mocks.setQueryData).toHaveBeenCalledTimes(1);
     expect(preferences.state.preferencesMessageType).toBe("success");
     expect(mocks.themeName.value).toBe("dark");
@@ -355,7 +357,7 @@ describe("SettingsView", () => {
   });
 
   it("submits password change and clears password fields", async () => {
-    mocks.api.changePassword.mockResolvedValue({ ok: true, message: "Password changed." });
+    mocks.api.settings.changePassword.mockResolvedValue({ ok: true, message: "Password changed." });
 
     const wrapper = mountView();
     const security = vmSections(wrapper).security;
@@ -365,7 +367,7 @@ describe("SettingsView", () => {
 
     await security.actions.submitPasswordChange();
 
-    expect(mocks.api.changePassword).toHaveBeenCalledWith({
+    expect(mocks.api.settings.changePassword).toHaveBeenCalledWith({
       currentPassword: "old-password",
       newPassword: "new-password-123",
       confirmPassword: "new-password-123"
@@ -419,8 +421,8 @@ describe("SettingsView", () => {
     });
     const enabledPasswordPayload = buildSettingsPayload();
     mocks.queryData.value = disabledPasswordPayload;
-    mocks.api.changePassword.mockResolvedValue({ ok: true, message: "Password set." });
-    mocks.api.setPasswordMethodEnabled.mockResolvedValue(enabledPasswordPayload);
+    mocks.api.settings.changePassword.mockResolvedValue({ ok: true, message: "Password set." });
+    mocks.api.settings.setPasswordMethodEnabled.mockResolvedValue(enabledPasswordPayload);
 
     const wrapper = mountView();
     const security = vmSections(wrapper).security;
@@ -432,12 +434,12 @@ describe("SettingsView", () => {
     await security.actions.submitPasswordChange();
 
     expect(security.state.isPasswordEnableSetupMode).toBe(false);
-    expect(mocks.api.changePassword).toHaveBeenCalledWith({
+    expect(mocks.api.settings.changePassword).toHaveBeenCalledWith({
       currentPassword: undefined,
       newPassword: "new-password-123",
       confirmPassword: "new-password-123"
     });
-    expect(mocks.api.setPasswordMethodEnabled).toHaveBeenCalledWith({
+    expect(mocks.api.settings.setPasswordMethodEnabled).toHaveBeenCalledWith({
       enabled: true
     });
     expect(security.state.providerMessageType).toBe("success");
@@ -448,7 +450,7 @@ describe("SettingsView", () => {
     const wrapper = mountView();
     const sections = vmSections(wrapper);
 
-    mocks.api.changePassword.mockRejectedValue({
+    mocks.api.settings.changePassword.mockRejectedValue({
       status: 400,
       message: "Validation failed.",
       fieldErrors: {
@@ -459,7 +461,7 @@ describe("SettingsView", () => {
     expect(sections.security.state.securityFieldErrors.newPassword).toContain("weak");
     expect(sections.security.state.securityMessageType).toBe("error");
 
-    mocks.api.updateNotificationSettings.mockRejectedValue({
+    mocks.api.settings.updateNotifications.mockRejectedValue({
       status: 500,
       message: "Notification save failed."
     });
@@ -469,7 +471,7 @@ describe("SettingsView", () => {
   });
 
   it("submits sign-out-others and handles auth failures", async () => {
-    mocks.api.logoutOtherSessions.mockResolvedValue({
+    mocks.api.settings.logoutOtherSessions.mockResolvedValue({
       ok: true,
       message: "Signed out from other active sessions."
     });
@@ -480,7 +482,7 @@ describe("SettingsView", () => {
 
     expect(security.state.sessionsMessageType).toBe("success");
 
-    mocks.api.logoutOtherSessions.mockRejectedValue({ status: 401, message: "Authentication required." });
+    mocks.api.settings.logoutOtherSessions.mockRejectedValue({ status: 401, message: "Authentication required." });
     await security.actions.submitLogoutOthers();
 
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
@@ -496,15 +498,15 @@ describe("SettingsView", () => {
   });
 
   it("handles avatar delete success and auth failure", async () => {
-    mocks.api.deleteProfileAvatar.mockResolvedValue(buildSettingsPayload());
+    mocks.api.settings.deleteAvatar.mockResolvedValue(buildSettingsPayload());
     const wrapper = mountView();
     const profile = vmSections(wrapper).profile;
 
     await profile.actions.submitAvatarDelete();
-    expect(mocks.api.deleteProfileAvatar).toHaveBeenCalledTimes(1);
+    expect(mocks.api.settings.deleteAvatar).toHaveBeenCalledTimes(1);
     expect(profile.state.avatarMessageType).toBe("success");
 
-    mocks.api.deleteProfileAvatar.mockRejectedValue({ status: 401, message: "Authentication required." });
+    mocks.api.settings.deleteAvatar.mockRejectedValue({ status: 401, message: "Authentication required." });
     await profile.actions.submitAvatarDelete();
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
     expect(mocks.navigate).toHaveBeenCalledWith({ to: "/login", replace: true });
@@ -521,7 +523,7 @@ describe("SettingsView", () => {
       sections.preferences.actions.applyThemePreference("system");
       expect(mocks.themeName.value).toBe("dark");
 
-      mocks.api.logoutOtherSessions.mockRejectedValue({
+      mocks.api.settings.logoutOtherSessions.mockRejectedValue({
         status: 500,
         message: "Unable to revoke sessions."
       });

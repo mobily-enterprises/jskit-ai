@@ -61,7 +61,9 @@ const mocks = vi.hoisted(() => {
     Compressor,
     XHRUpload,
     api: {
-      session: vi.fn()
+      auth: {
+        session: vi.fn()
+      }
     }
   };
 });
@@ -182,8 +184,8 @@ function createHarness({ skipUploaderSetup = true } = {}) {
 
 describe("useSettingsProfileLogic", () => {
   beforeEach(() => {
-    mocks.api.session.mockReset();
-    mocks.api.session.mockResolvedValue({
+    mocks.api.auth.session.mockReset();
+    mocks.api.auth.session.mockResolvedValue({
       csrfToken: "csrf-token"
     });
   });
@@ -340,7 +342,7 @@ describe("useSettingsProfileLogic", () => {
     const uppy = harness.avatarUppy.value;
     const xhrOptions = uppy.pluginOptions.XHRUpload;
 
-    mocks.api.session.mockResolvedValueOnce({
+    mocks.api.auth.session.mockResolvedValueOnce({
       csrfToken: ""
     });
     await expect(xhrOptions.onBeforeRequest({ setRequestHeader: vi.fn() })).rejects.toThrow(

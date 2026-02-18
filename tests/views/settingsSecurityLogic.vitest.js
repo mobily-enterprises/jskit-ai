@@ -10,9 +10,11 @@ import {
 
 const mocks = vi.hoisted(() => ({
   api: {
-    settingsOAuthLinkStartUrl: vi.fn(
-      (provider, { returnTo }) => `/api/settings/oauth/${provider}/start?returnTo=${returnTo}`
-    )
+    settings: {
+      oauthLinkStartUrl: vi.fn(
+        (provider, { returnTo }) => `/api/settings/oauth/${provider}/start?returnTo=${returnTo}`
+      )
+    }
   },
   writePendingOAuthContext: vi.fn()
 }));
@@ -204,8 +206,8 @@ function createHarness({ securityData = buildSecurityPayload(), mode = PASSWORD_
 
 describe("useSettingsSecurityLogic", () => {
   beforeEach(() => {
-    mocks.api.settingsOAuthLinkStartUrl.mockReset();
-    mocks.api.settingsOAuthLinkStartUrl.mockImplementation(
+    mocks.api.settings.oauthLinkStartUrl.mockReset();
+    mocks.api.settings.oauthLinkStartUrl.mockImplementation(
       (provider, { returnTo }) => `/api/settings/oauth/${provider}/start?returnTo=${returnTo}`
     );
     mocks.writePendingOAuthContext.mockReset();
@@ -596,7 +598,7 @@ describe("useSettingsSecurityLogic", () => {
 
     try {
       await harness.logic.startProviderLink("google");
-      expect(mocks.api.settingsOAuthLinkStartUrl).toHaveBeenCalledWith("google", {
+      expect(mocks.api.settings.oauthLinkStartUrl).toHaveBeenCalledWith("google", {
         returnTo: "/account/settings?section=security"
       });
       expect(assign).toHaveBeenCalledWith(

@@ -5,14 +5,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   api: {
-    register: vi.fn(),
-    login: vi.fn(),
-    requestPasswordReset: vi.fn(),
-    requestOtpLogin: vi.fn(),
-    verifyOtpLogin: vi.fn(),
-    oauthComplete: vi.fn(),
-    bootstrap: vi.fn(),
-    oauthStartUrl: vi.fn((provider) => `/api/oauth/${provider}/start`)
+    auth: {
+      register: vi.fn(),
+      login: vi.fn(),
+      requestPasswordReset: vi.fn(),
+      requestOtp: vi.fn(),
+      verifyOtp: vi.fn(),
+      oauthComplete: vi.fn(),
+      oauthStartUrl: vi.fn((provider) => `/api/oauth/${provider}/start`)
+    },
+    workspace: {
+      bootstrap: vi.fn()
+    }
   },
   authStore: {
     applySession: vi.fn()
@@ -73,14 +77,14 @@ function mountView() {
 describe("LoginView", () => {
   beforeEach(() => {
     mocks.navigate.mockReset();
-    mocks.api.register.mockReset();
-    mocks.api.login.mockReset();
-    mocks.api.requestPasswordReset.mockReset();
-    mocks.api.requestOtpLogin.mockReset();
-    mocks.api.verifyOtpLogin.mockReset();
-    mocks.api.oauthComplete.mockReset();
-    mocks.api.bootstrap.mockReset();
-    mocks.api.oauthStartUrl.mockClear();
+    mocks.api.auth.register.mockReset();
+    mocks.api.auth.login.mockReset();
+    mocks.api.auth.requestPasswordReset.mockReset();
+    mocks.api.auth.requestOtp.mockReset();
+    mocks.api.auth.verifyOtp.mockReset();
+    mocks.api.auth.oauthComplete.mockReset();
+    mocks.api.workspace.bootstrap.mockReset();
+    mocks.api.auth.oauthStartUrl.mockClear();
     mocks.authStore.applySession.mockReset();
     mocks.workspaceStore.applyBootstrap.mockReset();
     mocks.workspaceStore.clearWorkspaceState.mockReset();
@@ -103,8 +107,8 @@ describe("LoginView", () => {
   });
 
   it("submits login and navigates to calculator when session becomes authenticated", async () => {
-    mocks.api.login.mockResolvedValue({ ok: true, username: "demo-user" });
-    mocks.api.bootstrap.mockResolvedValue({
+    mocks.api.auth.login.mockResolvedValue({ ok: true, username: "demo-user" });
+    mocks.api.workspace.bootstrap.mockResolvedValue({
       session: {
         authenticated: true,
         username: "demo-user"
@@ -117,7 +121,7 @@ describe("LoginView", () => {
 
     await wrapper.vm.submitAuth();
 
-    expect(mocks.api.login).toHaveBeenCalledWith({
+    expect(mocks.api.auth.login).toHaveBeenCalledWith({
       email: "user@example.com",
       password: "password123"
     });
@@ -156,8 +160,8 @@ describe("LoginView", () => {
   });
 
   it("stores remembered account on successful login and clears it when remember is disabled", async () => {
-    mocks.api.login.mockResolvedValue({ ok: true, username: "tony" });
-    mocks.api.bootstrap.mockResolvedValue({
+    mocks.api.auth.login.mockResolvedValue({ ok: true, username: "tony" });
+    mocks.api.workspace.bootstrap.mockResolvedValue({
       session: {
         authenticated: true,
         username: "tony"
@@ -185,7 +189,7 @@ describe("LoginView", () => {
   });
 
   it("submits forgot-password flow and shows returned info message", async () => {
-    mocks.api.requestPasswordReset.mockResolvedValue({
+    mocks.api.auth.requestPasswordReset.mockResolvedValue({
       message: "If an account exists for that email, a password reset link has been sent."
     });
 
@@ -195,14 +199,14 @@ describe("LoginView", () => {
 
     await wrapper.vm.submitAuth();
 
-    expect(mocks.api.requestPasswordReset).toHaveBeenCalledWith({
+    expect(mocks.api.auth.requestPasswordReset).toHaveBeenCalledWith({
       email: "forgot@example.com"
     });
     expect(wrapper.vm.infoMessage).toContain("password reset link has been sent");
   });
 
   it("submits register flow that requires email confirmation", async () => {
-    mocks.api.register.mockResolvedValue({
+    mocks.api.auth.register.mockResolvedValue({
       requiresEmailConfirmation: true
     });
 
@@ -214,11 +218,11 @@ describe("LoginView", () => {
 
     await wrapper.vm.submitAuth();
 
-    expect(mocks.api.register).toHaveBeenCalledWith({
+    expect(mocks.api.auth.register).toHaveBeenCalledWith({
       email: "new-user@example.com",
       password: "password123"
     });
-    expect(mocks.api.bootstrap).not.toHaveBeenCalled();
+    expect(mocks.api.workspace.bootstrap).not.toHaveBeenCalled();
     expect(mocks.navigate).not.toHaveBeenCalled();
     expect(wrapper.vm.infoMessage).toContain("Confirm your email");
   });
@@ -229,13 +233,13 @@ describe("LoginView", () => {
       "",
       "/login?oauthProvider=google#access_token=access-token&refresh_token=refresh-token&token_type=bearer"
     );
-    mocks.api.oauthComplete.mockResolvedValue({
+    mocks.api.auth.oauthComplete.mockResolvedValue({
       ok: true,
       provider: "google",
       username: "tony",
       email: "tony@example.com"
     });
-    mocks.api.bootstrap.mockResolvedValue({
+    mocks.api.workspace.bootstrap.mockResolvedValue({
       session: {
         authenticated: true,
         username: "tony"
@@ -244,13 +248,13 @@ describe("LoginView", () => {
 
     mountView();
     await vi.waitFor(() => {
-      expect(mocks.api.oauthComplete).toHaveBeenCalledTimes(1);
+      expect(mocks.api.auth.oauthComplete).toHaveBeenCalledTimes(1);
     });
     await vi.waitFor(() => {
       expect(mocks.navigate).toHaveBeenCalledWith({ to: "/", replace: true });
     });
 
-    expect(mocks.api.oauthComplete).toHaveBeenCalledWith({
+    expect(mocks.api.auth.oauthComplete).toHaveBeenCalledWith({
       provider: "google",
       accessToken: "access-token",
       refreshToken: "refresh-token"

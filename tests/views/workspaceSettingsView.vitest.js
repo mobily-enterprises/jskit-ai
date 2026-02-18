@@ -30,13 +30,15 @@ const mocks = vi.hoisted(() => ({
   handleUnauthorizedError: vi.fn(async () => false),
   setQueryData: vi.fn(),
   api: {
-    workspaceSettings: vi.fn(),
-    workspaceMembers: vi.fn(),
-    workspaceInvites: vi.fn(),
-    updateWorkspaceSettings: vi.fn(),
-    createWorkspaceInvite: vi.fn(),
-    revokeWorkspaceInvite: vi.fn(),
-    updateWorkspaceMemberRole: vi.fn()
+    workspace: {
+      getSettings: vi.fn(),
+      listMembers: vi.fn(),
+      listInvites: vi.fn(),
+      updateSettings: vi.fn(),
+      createInvite: vi.fn(),
+      revokeInvite: vi.fn(),
+      updateMemberRole: vi.fn()
+    }
   },
   settingsData: null,
   settingsDataByScope: new Map(),
@@ -235,13 +237,13 @@ describe("useWorkspaceSettingsView", () => {
 
     mocks.setQueryData.mockReset();
 
-    mocks.api.workspaceSettings.mockReset();
-    mocks.api.workspaceMembers.mockReset();
-    mocks.api.workspaceInvites.mockReset();
-    mocks.api.updateWorkspaceSettings.mockReset();
-    mocks.api.createWorkspaceInvite.mockReset();
-    mocks.api.revokeWorkspaceInvite.mockReset();
-    mocks.api.updateWorkspaceMemberRole.mockReset();
+    mocks.api.workspace.getSettings.mockReset();
+    mocks.api.workspace.listMembers.mockReset();
+    mocks.api.workspace.listInvites.mockReset();
+    mocks.api.workspace.updateSettings.mockReset();
+    mocks.api.workspace.createInvite.mockReset();
+    mocks.api.workspace.revokeInvite.mockReset();
+    mocks.api.workspace.updateMemberRole.mockReset();
 
     mocks.settingsData = ref(buildSettingsPayload());
     mocks.settingsDataByScope = new Map([["id:11", mocks.settingsData]]);
@@ -370,11 +372,11 @@ describe("useWorkspaceSettingsView", () => {
       }
     });
 
-    mocks.api.updateWorkspaceSettings.mockResolvedValue(updatedPayload);
+    mocks.api.workspace.updateSettings.mockResolvedValue(updatedPayload);
 
     await wrapper.vm.vm.actions.submitWorkspaceSettings();
 
-    expect(mocks.api.updateWorkspaceSettings).toHaveBeenCalledWith(
+    expect(mocks.api.workspace.updateSettings).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "Acme Prime",
         appDenyEmails: ["alpha@example.com", "beta@example.com"]
@@ -392,13 +394,13 @@ describe("useWorkspaceSettingsView", () => {
     await flush();
 
     wrapper.vm.vm.forms.workspace.appDenyEmailsText = null;
-    mocks.api.updateWorkspaceSettings.mockRejectedValueOnce(new Error("Unable to update workspace settings."));
+    mocks.api.workspace.updateSettings.mockRejectedValueOnce(new Error("Unable to update workspace settings."));
     await wrapper.vm.vm.actions.submitWorkspaceSettings();
     expect(wrapper.vm.vm.feedback.workspaceMessageType).toBe("error");
     expect(wrapper.vm.vm.feedback.workspaceMessage).toBe("Unable to update workspace settings.");
 
     mocks.handleUnauthorizedError.mockResolvedValueOnce(true);
-    mocks.api.updateWorkspaceSettings.mockRejectedValueOnce(new Error("Auth required"));
+    mocks.api.workspace.updateSettings.mockRejectedValueOnce(new Error("Auth required"));
     await wrapper.vm.vm.actions.submitWorkspaceSettings();
     expect(mocks.handleUnauthorizedError).toHaveBeenCalled();
   });
@@ -422,10 +424,10 @@ describe("useWorkspaceSettingsView", () => {
       roleCatalog: buildRoleCatalog()
     };
 
-    mocks.api.createWorkspaceInvite.mockResolvedValueOnce(invitesPayload);
+    mocks.api.workspace.createInvite.mockResolvedValueOnce(invitesPayload);
     await wrapper.vm.vm.actions.submitInvite();
 
-    expect(mocks.api.createWorkspaceInvite).toHaveBeenCalledWith({
+    expect(mocks.api.workspace.createInvite).toHaveBeenCalledWith({
       email: "new-user@example.com",
       roleId: "admin"
     });
@@ -434,7 +436,7 @@ describe("useWorkspaceSettingsView", () => {
     expect(wrapper.vm.vm.feedback.inviteMessageType).toBe("success");
     expect(wrapper.vm.vm.feedback.inviteMessage).toBe("Invite sent.");
 
-    mocks.api.createWorkspaceInvite.mockRejectedValueOnce(new Error("Unable to create invite."));
+    mocks.api.workspace.createInvite.mockRejectedValueOnce(new Error("Unable to create invite."));
     await wrapper.vm.vm.actions.submitInvite();
     expect(wrapper.vm.vm.feedback.inviteMessageType).toBe("error");
     expect(wrapper.vm.vm.feedback.inviteMessage).toBe("Unable to create invite.");
@@ -444,7 +446,7 @@ describe("useWorkspaceSettingsView", () => {
     const wrapper = mountHarness();
     await flush();
 
-    mocks.api.revokeWorkspaceInvite.mockRejectedValueOnce(new Error("Unable to revoke invite."));
+    mocks.api.workspace.revokeInvite.mockRejectedValueOnce(new Error("Unable to revoke invite."));
     await wrapper.vm.vm.actions.submitRevokeInvite(15);
     expect(wrapper.vm.vm.feedback.teamMessageType).toBe("error");
     expect(wrapper.vm.vm.feedback.teamMessage).toBe("Unable to revoke invite.");
@@ -454,7 +456,7 @@ describe("useWorkspaceSettingsView", () => {
       invites: [],
       roleCatalog: buildRoleCatalog()
     };
-    mocks.api.revokeWorkspaceInvite.mockResolvedValueOnce(revokedPayload);
+    mocks.api.workspace.revokeInvite.mockResolvedValueOnce(revokedPayload);
     await wrapper.vm.vm.actions.submitRevokeInvite(15);
     expect(mocks.setQueryData).toHaveBeenCalledWith(["workspace-invites", "id:11"], revokedPayload);
     expect(wrapper.vm.vm.feedback.teamMessageType).toBe("success");
@@ -465,7 +467,7 @@ describe("useWorkspaceSettingsView", () => {
       isOwner: true
     };
     await wrapper.vm.vm.actions.submitMemberRoleUpdate(owner, "admin");
-    expect(mocks.api.updateWorkspaceMemberRole).not.toHaveBeenCalled();
+    expect(mocks.api.workspace.updateMemberRole).not.toHaveBeenCalled();
 
     mocks.permissions.delete("workspace.members.manage");
     const member = {
@@ -473,7 +475,7 @@ describe("useWorkspaceSettingsView", () => {
       isOwner: false
     };
     await wrapper.vm.vm.actions.submitMemberRoleUpdate(member, "admin");
-    expect(mocks.api.updateWorkspaceMemberRole).not.toHaveBeenCalled();
+    expect(mocks.api.workspace.updateMemberRole).not.toHaveBeenCalled();
 
     mocks.permissions.add("workspace.members.manage");
     const wrapperWithManage = mountHarness();
@@ -490,16 +492,16 @@ describe("useWorkspaceSettingsView", () => {
       ],
       roleCatalog: buildRoleCatalog()
     };
-    mocks.api.updateWorkspaceMemberRole.mockResolvedValueOnce(membersPayload);
+    mocks.api.workspace.updateMemberRole.mockResolvedValueOnce(membersPayload);
 
     await wrapperWithManage.vm.vm.actions.submitMemberRoleUpdate(member, "admin");
-    expect(mocks.api.updateWorkspaceMemberRole).toHaveBeenCalledWith(2, { roleId: "admin" });
+    expect(mocks.api.workspace.updateMemberRole).toHaveBeenCalledWith(2, { roleId: "admin" });
     expect(mocks.setQueryData).toHaveBeenCalledWith(["workspace-members", "id:11"], membersPayload);
     expect(mocks.workspaceStore.refreshBootstrap).toHaveBeenCalledTimes(1);
     expect(wrapperWithManage.vm.vm.feedback.teamMessageType).toBe("success");
     expect(wrapperWithManage.vm.vm.feedback.teamMessage).toBe("Member role updated.");
 
-    mocks.api.updateWorkspaceMemberRole.mockRejectedValueOnce(new Error("Unable to update member role."));
+    mocks.api.workspace.updateMemberRole.mockRejectedValueOnce(new Error("Unable to update member role."));
     await wrapperWithManage.vm.vm.actions.submitMemberRoleUpdate(member, "member");
     expect(wrapperWithManage.vm.vm.feedback.teamMessageType).toBe("error");
     expect(wrapperWithManage.vm.vm.feedback.teamMessage).toBe("Unable to update member role.");

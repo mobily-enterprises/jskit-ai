@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   api: {
-    oauthComplete: vi.fn()
+    auth: {
+      oauthComplete: vi.fn()
+    }
   },
   readPendingOAuthContext: vi.fn(),
   readOAuthCallbackStateFromLocation: vi.fn(),
@@ -28,7 +30,7 @@ import { useSettingsSecurityOAuthCallback } from "../../src/views/settings/secur
 
 describe("useSettingsSecurityOAuthCallback", () => {
   beforeEach(() => {
-    mocks.api.oauthComplete.mockReset();
+    mocks.api.auth.oauthComplete.mockReset();
     mocks.readPendingOAuthContext.mockReset();
     mocks.readOAuthCallbackStateFromLocation.mockReset();
     mocks.stripOAuthCallbackParamsFromLocation.mockReset();
@@ -65,7 +67,7 @@ describe("useSettingsSecurityOAuthCallback", () => {
 
     await vm.handleOAuthCallbackIfPresent();
 
-    expect(mocks.api.oauthComplete).not.toHaveBeenCalled();
+    expect(mocks.api.auth.oauthComplete).not.toHaveBeenCalled();
     expect(providerLinkStartInFlight.value).toBe(false);
   });
 
@@ -78,7 +80,7 @@ describe("useSettingsSecurityOAuthCallback", () => {
         code: "abc"
       }
     });
-    mocks.api.oauthComplete.mockResolvedValue({ ok: true });
+    mocks.api.auth.oauthComplete.mockResolvedValue({ ok: true });
 
     const providerMessage = ref("");
     const providerMessageType = ref("success");
@@ -102,7 +104,7 @@ describe("useSettingsSecurityOAuthCallback", () => {
 
     await vm.handleOAuthCallbackIfPresent();
 
-    expect(mocks.api.oauthComplete).toHaveBeenCalledWith({ code: "abc" });
+    expect(mocks.api.auth.oauthComplete).toHaveBeenCalledWith({ code: "abc" });
     expect(mocks.refreshSession).toHaveBeenCalledTimes(1);
     expect(mocks.stripOAuthCallbackParamsFromLocation).toHaveBeenCalledWith({
       preserveSearchKeys: ["section", "returnTo"]
@@ -131,7 +133,7 @@ describe("useSettingsSecurityOAuthCallback", () => {
     const providerLinkStartInFlight = ref(false);
 
     const handledError = new Error("unauthorized");
-    mocks.api.oauthComplete.mockRejectedValueOnce(handledError);
+    mocks.api.auth.oauthComplete.mockRejectedValueOnce(handledError);
 
     const vm = useSettingsSecurityOAuthCallback({
       authStore: {
@@ -152,7 +154,7 @@ describe("useSettingsSecurityOAuthCallback", () => {
     await vm.handleOAuthCallbackIfPresent();
     expect(providerMessage.value).toBe("");
 
-    mocks.api.oauthComplete.mockResolvedValueOnce({ ok: true });
+    mocks.api.auth.oauthComplete.mockResolvedValueOnce({ ok: true });
     mocks.refreshSession.mockResolvedValueOnce({ authenticated: false });
     const vmWithSessionFailure = useSettingsSecurityOAuthCallback({
       authStore: {

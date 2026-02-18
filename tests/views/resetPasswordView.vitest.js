@@ -5,8 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   api: {
-    completePasswordRecovery: vi.fn(),
-    resetPassword: vi.fn()
+    auth: {
+      completePasswordRecovery: vi.fn(),
+      resetPassword: vi.fn()
+    }
   },
   authStore: {
     refreshSession: vi.fn(),
@@ -64,8 +66,8 @@ async function flushTicks() {
 describe("ResetPasswordView", () => {
   beforeEach(() => {
     mocks.navigate.mockReset();
-    mocks.api.completePasswordRecovery.mockReset();
-    mocks.api.resetPassword.mockReset();
+    mocks.api.auth.completePasswordRecovery.mockReset();
+    mocks.api.auth.resetPassword.mockReset();
     mocks.authStore.refreshSession.mockReset();
     mocks.authStore.ensureSession.mockReset();
     mocks.authStore.setSignedOut.mockReset();
@@ -90,16 +92,16 @@ describe("ResetPasswordView", () => {
       "",
       "/reset-password#access_token=access-token&refresh_token=refresh-token&type=recovery"
     );
-    mocks.api.completePasswordRecovery.mockResolvedValue({ ok: true });
+    mocks.api.auth.completePasswordRecovery.mockResolvedValue({ ok: true });
     mocks.authStore.refreshSession.mockResolvedValue({ authenticated: true });
-    mocks.api.resetPassword.mockResolvedValue({ message: "Password updated." });
+    mocks.api.auth.resetPassword.mockResolvedValue({ message: "Password updated." });
     mocks.authStore.invalidateSession.mockResolvedValue(undefined);
 
     const wrapper = mountView();
     await flushTicks();
     await flushTicks();
 
-    expect(mocks.api.completePasswordRecovery).toHaveBeenCalledWith({
+    expect(mocks.api.auth.completePasswordRecovery).toHaveBeenCalledWith({
       accessToken: "access-token",
       refreshToken: "refresh-token",
       type: "recovery"
@@ -110,7 +112,7 @@ describe("ResetPasswordView", () => {
 
     await wrapper.vm.submitPasswordReset();
 
-    expect(mocks.api.resetPassword).toHaveBeenCalledWith({
+    expect(mocks.api.auth.resetPassword).toHaveBeenCalledWith({
       password: "newpassword123"
     });
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);

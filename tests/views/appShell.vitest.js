@@ -42,7 +42,9 @@ const mocks = vi.hoisted(() => ({
     clearWorkspaceState: vi.fn()
   },
   api: {
-    logout: vi.fn(async () => undefined),
+    auth: {
+      logout: vi.fn(async () => undefined)
+    },
     clearCsrfTokenCache: vi.fn()
   }
 }));
@@ -138,8 +140,8 @@ describe("useAppShell", () => {
     );
     mocks.workspaceStore.clearWorkspaceState.mockReset();
 
-    mocks.api.logout.mockReset();
-    mocks.api.logout.mockResolvedValue(undefined);
+    mocks.api.auth.logout.mockReset();
+    mocks.api.auth.logout.mockResolvedValue(undefined);
     mocks.api.clearCsrfTokenCache.mockReset();
   });
 
@@ -200,7 +202,7 @@ describe("useAppShell", () => {
     expect(mocks.shellActions.hardNavigate).toHaveBeenCalledWith("/admin/w/acme/settings");
 
     await wrapper.vm.shell.actions.signOut();
-    expect(mocks.api.logout).toHaveBeenCalledTimes(1);
+    expect(mocks.api.auth.logout).toHaveBeenCalledTimes(1);
     expect(mocks.api.clearCsrfTokenCache).toHaveBeenCalledTimes(1);
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
     expect(mocks.workspaceStore.clearWorkspaceState).toHaveBeenCalledTimes(1);
@@ -212,7 +214,7 @@ describe("useAppShell", () => {
   });
 
   it("keeps cleanup behavior when logout fails", async () => {
-    mocks.api.logout.mockRejectedValueOnce(new Error("logout failed"));
+    mocks.api.auth.logout.mockRejectedValueOnce(new Error("logout failed"));
     const wrapper = mountHarness();
 
     await expect(wrapper.vm.shell.actions.signOut()).rejects.toThrow("logout failed");

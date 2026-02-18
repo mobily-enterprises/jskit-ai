@@ -3,9 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   api: {
-    bootstrap: vi.fn(),
-    oauthComplete: vi.fn(),
-    oauthStartUrl: vi.fn((provider, { returnTo }) => `/api/oauth/${provider}/start?returnTo=${returnTo}`)
+    auth: {
+      oauthComplete: vi.fn(),
+      oauthStartUrl: vi.fn((provider, { returnTo }) => `/api/oauth/${provider}/start?returnTo=${returnTo}`)
+    },
+    workspace: {
+      bootstrap: vi.fn()
+    }
   },
   oauthUtils: {
     clearPendingOAuthContext: vi.fn(),
@@ -185,10 +189,10 @@ function createHarness({ initialMode = "login", canSubmitInitial = true } = {}) 
 
 describe("useLoginActions", () => {
   beforeEach(() => {
-    mocks.api.bootstrap.mockReset();
-    mocks.api.oauthComplete.mockReset();
-    mocks.api.oauthStartUrl.mockReset();
-    mocks.api.oauthStartUrl.mockImplementation(
+    mocks.api.workspace.bootstrap.mockReset();
+    mocks.api.auth.oauthComplete.mockReset();
+    mocks.api.auth.oauthStartUrl.mockReset();
+    mocks.api.auth.oauthStartUrl.mockImplementation(
       (provider, { returnTo }) => `/api/oauth/${provider}/start?returnTo=${returnTo}`
     );
 
@@ -347,7 +351,7 @@ describe("useLoginActions", () => {
     harness.registerMutation.mutateAsync.mockResolvedValue({
       requiresEmailConfirmation: false
     });
-    mocks.api.bootstrap.mockResolvedValue({
+    mocks.api.workspace.bootstrap.mockResolvedValue({
       session: {
         authenticated: true,
         username: "Chiara"
@@ -370,7 +374,7 @@ describe("useLoginActions", () => {
     otpHarness.otpVerifyMutation.mutateAsync.mockResolvedValue({
       ok: true
     });
-    mocks.api.bootstrap.mockResolvedValue({
+    mocks.api.workspace.bootstrap.mockResolvedValue({
       session: {
         authenticated: true,
         username: "Tony"
@@ -388,7 +392,7 @@ describe("useLoginActions", () => {
     loginHarness.loginMutation.mutateAsync.mockResolvedValue({
       ok: true
     });
-    mocks.api.bootstrap.mockResolvedValue({
+    mocks.api.workspace.bootstrap.mockResolvedValue({
       session: {
         authenticated: true,
         username: "Tony"
@@ -450,7 +454,7 @@ describe("useLoginActions", () => {
       email: "user@example.com",
       username: "Tony"
     });
-    mocks.api.bootstrap.mockResolvedValue({
+    mocks.api.workspace.bootstrap.mockResolvedValue({
       session: {
         authenticated: true,
         username: "Tony"
@@ -492,18 +496,18 @@ describe("useLoginActions", () => {
       intent: "login",
       returnTo: "/w/acme"
     });
-    mocks.api.oauthComplete.mockResolvedValue({
+    mocks.api.auth.oauthComplete.mockResolvedValue({
       email: "user@example.com",
       username: "Tony"
     });
-    mocks.api.bootstrap.mockResolvedValue({
+    mocks.api.workspace.bootstrap.mockResolvedValue({
       session: {
         authenticated: true,
         username: "Tony"
       }
     });
     await successHarness.actions.initializeLoginView();
-    expect(mocks.api.oauthComplete).toHaveBeenCalled();
+    expect(mocks.api.auth.oauthComplete).toHaveBeenCalled();
     expect(mocks.oauthUtils.stripOAuthCallbackParamsFromLocation).toHaveBeenCalled();
     expect(mocks.oauthUtils.clearPendingOAuthContext).toHaveBeenCalled();
     expect(successHarness.navigate).toHaveBeenCalledWith({ to: "/w/acme", replace: true });
@@ -517,7 +521,7 @@ describe("useLoginActions", () => {
       intent: "login",
       returnTo: "/"
     });
-    mocks.api.oauthComplete.mockRejectedValue(new Error("oauth failed"));
+    mocks.api.auth.oauthComplete.mockRejectedValue(new Error("oauth failed"));
     await failingHarness.actions.initializeLoginView();
     expect(failingHarness.errorMessage.value).toBe("oauth failed");
     expect(mocks.oauthUtils.stripOAuthCallbackParamsFromLocation).toHaveBeenCalled();
@@ -534,7 +538,7 @@ describe("useLoginActions", () => {
       email: "user@example.com",
       username: "Tony"
     });
-    mocks.api.bootstrap.mockResolvedValue({
+    mocks.api.workspace.bootstrap.mockResolvedValue({
       session: {
         authenticated: false
       }

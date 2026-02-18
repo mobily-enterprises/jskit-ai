@@ -5,8 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(async () => undefined),
   api: {
-    completePasswordRecovery: vi.fn(),
-    resetPassword: vi.fn()
+    auth: {
+      completePasswordRecovery: vi.fn(),
+      resetPassword: vi.fn()
+    }
   },
   authStore: {
     refreshSession: vi.fn(),
@@ -62,8 +64,8 @@ describe("useResetPasswordView", () => {
   beforeEach(() => {
     mocks.navigate.mockReset();
 
-    mocks.api.completePasswordRecovery.mockReset();
-    mocks.api.resetPassword.mockReset();
+    mocks.api.auth.completePasswordRecovery.mockReset();
+    mocks.api.auth.resetPassword.mockReset();
 
     mocks.authStore.refreshSession.mockReset();
     mocks.authStore.ensureSession.mockReset();
@@ -105,14 +107,14 @@ describe("useResetPasswordView", () => {
     const wrapper = mountHarness();
     await flushAll();
 
-    expect(mocks.api.completePasswordRecovery).not.toHaveBeenCalled();
+    expect(mocks.api.auth.completePasswordRecovery).not.toHaveBeenCalled();
     expect(wrapper.vm.vm.status.recoveryError).toBe("Recovery expired");
     expect(wrapper.vm.vm.status.initializing).toBe(false);
   });
 
   it("completes recovery using auth code payload", async () => {
     window.history.replaceState({}, "", "/reset-password?code=abc123");
-    mocks.api.completePasswordRecovery.mockResolvedValue({ ok: true });
+    mocks.api.auth.completePasswordRecovery.mockResolvedValue({ ok: true });
     mocks.authStore.refreshSession.mockResolvedValue({
       authenticated: true
     });
@@ -120,7 +122,7 @@ describe("useResetPasswordView", () => {
     const wrapper = mountHarness();
     await flushAll();
 
-    expect(mocks.api.completePasswordRecovery).toHaveBeenCalledWith({
+    expect(mocks.api.auth.completePasswordRecovery).toHaveBeenCalledWith({
       code: "abc123"
     });
     expect(wrapper.vm.vm.status.readyForPasswordUpdate).toBe(true);
@@ -130,7 +132,7 @@ describe("useResetPasswordView", () => {
 
   it("completes recovery using token hash payload", async () => {
     window.history.replaceState({}, "", "/reset-password#token_hash=hash-token");
-    mocks.api.completePasswordRecovery.mockResolvedValue({ ok: true });
+    mocks.api.auth.completePasswordRecovery.mockResolvedValue({ ok: true });
     mocks.authStore.refreshSession.mockResolvedValue({
       authenticated: true
     });
@@ -138,7 +140,7 @@ describe("useResetPasswordView", () => {
     mountHarness();
     await flushAll();
 
-    expect(mocks.api.completePasswordRecovery).toHaveBeenCalledWith({
+    expect(mocks.api.auth.completePasswordRecovery).toHaveBeenCalledWith({
       tokenHash: "hash-token",
       type: "recovery"
     });
@@ -150,7 +152,7 @@ describe("useResetPasswordView", () => {
       "",
       "/reset-password#access_token=access-token&refresh_token=refresh-token&token_type=bearer"
     );
-    mocks.api.completePasswordRecovery.mockResolvedValue({ ok: true });
+    mocks.api.auth.completePasswordRecovery.mockResolvedValue({ ok: true });
     mocks.authStore.refreshSession.mockResolvedValue({
       authenticated: true
     });
@@ -158,7 +160,7 @@ describe("useResetPasswordView", () => {
     mountHarness();
     await flushAll();
 
-    expect(mocks.api.completePasswordRecovery).toHaveBeenCalledWith({
+    expect(mocks.api.auth.completePasswordRecovery).toHaveBeenCalledWith({
       accessToken: "access-token",
       refreshToken: "refresh-token",
       type: "recovery"
@@ -167,7 +169,7 @@ describe("useResetPasswordView", () => {
 
   it("maps recovery endpoint failures and inactive refreshed sessions", async () => {
     window.history.replaceState({}, "", "/reset-password?code=abc123");
-    mocks.api.completePasswordRecovery.mockResolvedValue({ ok: true });
+    mocks.api.auth.completePasswordRecovery.mockResolvedValue({ ok: true });
     mocks.authStore.refreshSession.mockResolvedValue({
       authenticated: false
     });
@@ -178,7 +180,7 @@ describe("useResetPasswordView", () => {
     expect(wrapper.vm.vm.status.recoveryError).toContain("Unable to establish a recovery session");
 
     window.history.replaceState({}, "", "/reset-password?code=abc123");
-    mocks.api.completePasswordRecovery.mockRejectedValueOnce({
+    mocks.api.auth.completePasswordRecovery.mockRejectedValueOnce({
       fieldErrors: {
         code: "Code is invalid.",
         token: "Token is expired."
@@ -193,7 +195,7 @@ describe("useResetPasswordView", () => {
     mocks.authStore.ensureSession.mockResolvedValue({
       authenticated: true
     });
-    mocks.api.resetPassword.mockResolvedValue({
+    mocks.api.auth.resetPassword.mockResolvedValue({
       message: "Password updated."
     });
 
@@ -203,13 +205,13 @@ describe("useResetPasswordView", () => {
     wrapper.vm.vm.form.password = "";
     wrapper.vm.vm.form.confirmPassword = "";
     await wrapper.vm.vm.actions.submitPasswordReset();
-    expect(mocks.api.resetPassword).not.toHaveBeenCalled();
+    expect(mocks.api.auth.resetPassword).not.toHaveBeenCalled();
 
     wrapper.vm.vm.form.password = "new-password-123";
     wrapper.vm.vm.form.confirmPassword = "new-password-123";
     await wrapper.vm.vm.actions.submitPasswordReset();
 
-    expect(mocks.api.resetPassword).toHaveBeenCalledWith({
+    expect(mocks.api.auth.resetPassword).toHaveBeenCalledWith({
       password: "new-password-123"
     });
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
@@ -251,7 +253,7 @@ describe("useResetPasswordView", () => {
     wrapper.vm.vm.form.password = "new-password-123";
     wrapper.vm.vm.form.confirmPassword = "new-password-123";
 
-    mocks.api.resetPassword.mockRejectedValue({
+    mocks.api.auth.resetPassword.mockRejectedValue({
       fieldErrors: {
         password: "Password is too weak."
       }
