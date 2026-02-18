@@ -1,13 +1,6 @@
 import { db } from "../../../../db/knex.js";
 import { toIsoString, toMysqlDateTimeUtc } from "../../../lib/primitives/dateUtils.js";
-
-function isMysqlDuplicateEntryError(error) {
-  if (!error) {
-    return false;
-  }
-
-  return String(error.code || "") === "ER_DUP_ENTRY";
-}
+import { isMysqlDuplicateEntryError } from "../../../lib/primitives/mysqlErrors.js";
 
 function parseJsonValue(value, fallback = {}) {
   if (!value) {

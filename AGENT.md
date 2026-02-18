@@ -14,10 +14,10 @@ These instructions govern all commits in this repository.
 ## Architecture rules
 
 - Respect strict layer separation:
-  - `server.js` + `routes/`: transport wiring, routing, schema registration.
-  - `controllers/`: HTTP concerns only (parsing, status codes, response shaping).
-  - `services/`: business rules, validation, aggregation.
-  - `repositories/`: database access (Knex queries, row mapping).
+  - `server.js` + `server/fastify/*` + `server/modules/*/routes.js`: transport wiring, routing, schema registration.
+  - `server/modules/*/controller.js`: HTTP concerns only (parsing, status codes, response shaping).
+  - `server/modules/*/service.js` and `server/domain/**/services/*.service.js`: business rules, validation, aggregation.
+  - `server/modules/*/repository.js` and `server/domain/**/repositories/*.repository.js`: database access (Knex queries, row mapping).
 - Never leak SQL/Knex calls into controllers or services.
 - Keep business rules out of repositories; they should only return mapped data.
 
@@ -43,10 +43,10 @@ These instructions govern all commits in this repository.
 
 ## Repository pattern guide
 
-1. **File naming**: use `<entity>Repository.js` (e.g. `paymentsRepository.js`).
+1. **File naming**: use `<entity>.repository.js` (e.g. `payments.repository.js`).
 2. **Dependencies**:
    - Import `db` from `db/knex.js`.
-   - Reuse shared helpers (e.g. `toIsoString` from `lib/dateUtils.js`).
+   - Reuse shared helpers (e.g. `toIsoString` from `server/lib/primitives/dateUtils.js`).
 3. **Mappers**:
    - Provide one strict mapper (`map<Entity>RowRequired` that throws when `row` is falsy).
    - Provide a nullable helper (`map<Entity>RowNullable` that returns `null` or delegates to the strict mapper).
@@ -65,7 +65,7 @@ These instructions govern all commits in this repository.
 
 ```js
 import { db } from "../db/knex.js";
-import { toIsoString } from "../lib/dateUtils.js";
+import { toIsoString } from "../server/lib/primitives/dateUtils.js";
 
 function mapThingRowRequired(row) {
   if (!row) {

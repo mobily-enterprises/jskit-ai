@@ -1,14 +1,6 @@
 import { db } from "../../../db/knex.js";
 import { toIsoString, toMysqlDateTimeUtc } from "../../lib/primitives/dateUtils.js";
-
-function isMysqlDuplicateEntryError(error) {
-  if (!error) {
-    return false;
-  }
-
-  const code = String(error.code || "");
-  return code === "ER_DUP_ENTRY";
-}
+import { isMysqlDuplicateEntryError } from "../../lib/primitives/mysqlErrors.js";
 
 function duplicateEntryTargetsField(error, fieldName) {
   if (!isMysqlDuplicateEntryError(error)) {

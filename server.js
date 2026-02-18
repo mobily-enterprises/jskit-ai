@@ -15,7 +15,7 @@ import { initDatabase, closeDatabase } from "./db/knex.js";
 import { isAppError } from "./server/lib/errors.js";
 import { registerApiRoutes } from "./server/fastify/registerApiRoutes.js";
 import authPlugin from "./server/fastify/auth.plugin.js";
-import { safePathnameFromRequest } from "./server/lib/requestUrl.js";
+import { safePathnameFromRequest } from "./server/lib/primitives/requestUrl.js";
 import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar/index.js";
 import { resolveSurfacePaths } from "./shared/routing/surfacePaths.js";
 import { createRateLimitPluginOptions, resolveRateLimitStartupWarning } from "./server/lib/rateLimit.js";

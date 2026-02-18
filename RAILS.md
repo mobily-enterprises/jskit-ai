@@ -29,11 +29,14 @@ Rules:
 
 ## 3) Backend naming and placement
 
-- `server/modules/*/routes.js`: route definitions and schema wiring per domain.
+- `server/modules/*/routes.js`: route definitions and schema wiring per feature.
+- `server/modules/*/controller.js`: HTTP handlers only.
+- `server/modules/*/service.js`: module-level business/use-case orchestration.
+- `server/modules/*/repository.js`: module-level DB access where persistence is module-owned.
+- `server/domain/**/services/*.service.js`: domain business/use-case orchestration.
+- `server/domain/**/repositories/*.repository.js`: domain persistence access.
 - `server/fastify/registerApiRoutes.js`: Fastify route registration/wiring.
-- `controllers/*Controller.js`: HTTP handlers only.
-- `services/*Service.js`: business/use-case logic.
-- `repositories/*Repository.js`: DB access only.
+- `server/runtime/{repositories,services,controllers}.js`: composition/wiring only.
 - `migrations/*.cjs`: schema changes.
 - `seeds/*.cjs`: initial/sample data only.
 
@@ -57,7 +60,8 @@ API schema naming:
 
 View-level components:
 
-- `src/views/*View.vue` for route screens only.
+- Route screens live under `src/views/<feature>/`.
+- Primary screens may use `*View.vue`; CRUD/detail screens may use explicit names like `*List.vue`, `*Add.vue`, `*Edit.vue`, `*View.vue`.
 
 UI component types:
 
