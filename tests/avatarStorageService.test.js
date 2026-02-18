@@ -32,6 +32,23 @@ test("avatar storage service saves, serves and deletes raw avatar content", asyn
 
   await service.init();
 
+  const registrations = [];
+  const fakeFastifyStatic = () => {};
+  const fakeApp = {
+    async register(plugin, options) {
+      registrations.push({ plugin, options });
+    }
+  };
+
+  await service.registerDelivery(fakeApp, {
+    fastifyStatic: fakeFastifyStatic
+  });
+  assert.equal(registrations.length, 1);
+  assert.equal(registrations[0].plugin, fakeFastifyStatic);
+  assert.equal(registrations[0].options.root, basePath);
+  assert.equal(registrations[0].options.prefix, "/uploads/");
+  assert.equal(registrations[0].options.decorateReply, false);
+
   const saved = await service.saveAvatar({
     userId: 7,
     buffer: Buffer.from("avatar-bytes"),
@@ -67,6 +84,14 @@ test("avatar storage service validates unsupported driver and buffer payload", a
   await assert.rejects(
     () => service.saveAvatar({ userId: 3, buffer: "not-buffer", avatarVersion: 1 }),
     /Buffer instance/
+  );
+  await assert.rejects(
+    () => service.registerDelivery(null, {}),
+    /requires a Fastify app instance/
+  );
+  await assert.rejects(
+    () => service.registerDelivery({ register: async () => {} }, {}),
+    /requires fastifyStatic plugin/
   );
   await fs.rm(service.fsBasePath, { recursive: true, force: true });
 });
