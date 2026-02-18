@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createProjectsController } from "../controllers/projectsController.js";
+import { createProjectsController } from "../controllers/workspace/projectsController.js";
 
 function createReplyDouble() {
   return {
@@ -18,13 +18,13 @@ function createReplyDouble() {
   };
 }
 
-test("projects controller requires workspace project service", () => {
+test("projects controller requires projects service", () => {
   assert.throws(() => createProjectsController({}), /required/);
 });
 
-test("projects controller delegates list/get/create/update to workspace project service", async () => {
+test("projects controller delegates list/get/create/update to projects service", async () => {
   const calls = [];
-  const workspaceProjectService = {
+  const projectsService = {
     async listProjects(workspaceContext, pagination) {
       calls.push(["listProjects", workspaceContext.id, pagination.page, pagination.pageSize]);
       return {
@@ -61,7 +61,7 @@ test("projects controller delegates list/get/create/update to workspace project 
     }
   };
 
-  const controller = createProjectsController({ workspaceProjectService });
+  const controller = createProjectsController({ projectsService });
   const workspace = { id: 11, slug: "acme" };
 
   const listReply = createReplyDouble();

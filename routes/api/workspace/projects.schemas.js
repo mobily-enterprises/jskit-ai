@@ -1,30 +1,31 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { createPaginationQuerySchema } from "../../lib/schemas/paginationQuerySchema.js";
-import { enumSchema } from "./common.schemas.js";
+import { createPaginationQuerySchema } from "../../../lib/schemas/paginationQuerySchema.js";
+import { enumSchema } from "../common.schemas.js";
 
-const workspaceProjectsQuerySchema = createPaginationQuerySchema({
+const querySchema = createPaginationQuerySchema({
   defaultPage: 1,
   defaultPageSize: 10,
   maxPageSize: 100
 });
 
-const workspaceProjectStatusSchema = enumSchema(["draft", "active", "archived"]);
+const statusFieldSchema = enumSchema(["draft", "active", "archived"]);
+const projectIdFieldSchema = Type.Integer({ minimum: 1 });
 
-const projectIdParamsSchema = Type.Object(
+const paramsSchema = Type.Object(
   {
-    projectId: Type.Integer({ minimum: 1 })
+    projectId: projectIdFieldSchema
   },
   {
     additionalProperties: false
   }
 );
 
-const workspaceProjectSchema = Type.Object(
+const entitySchema = Type.Object(
   {
     id: Type.Integer({ minimum: 1 }),
     workspaceId: Type.Integer({ minimum: 1 }),
     name: Type.String({ minLength: 1, maxLength: 160 }),
-    status: workspaceProjectStatusSchema,
+    status: statusFieldSchema,
     owner: Type.String({ maxLength: 120 }),
     notes: Type.String({ maxLength: 5000 }),
     createdAt: Type.String({ format: "iso-utc-date-time" }),
@@ -35,9 +36,9 @@ const workspaceProjectSchema = Type.Object(
   }
 );
 
-const workspaceProjectsListResponseSchema = Type.Object(
+const listResponseSchema = Type.Object(
   {
-    entries: Type.Array(workspaceProjectSchema),
+    entries: Type.Array(entitySchema),
     page: Type.Integer({ minimum: 1 }),
     pageSize: Type.Integer({ minimum: 1, maximum: 100 }),
     total: Type.Integer({ minimum: 0 }),
@@ -48,19 +49,19 @@ const workspaceProjectsListResponseSchema = Type.Object(
   }
 );
 
-const workspaceProjectResponseSchema = Type.Object(
+const singleResponseSchema = Type.Object(
   {
-    project: workspaceProjectSchema
+    project: entitySchema
   },
   {
     additionalProperties: false
   }
 );
 
-const workspaceProjectCreateBodySchema = Type.Object(
+const createBodySchema = Type.Object(
   {
     name: Type.String({ minLength: 1, maxLength: 160 }),
-    status: Type.Optional(workspaceProjectStatusSchema),
+    status: Type.Optional(statusFieldSchema),
     owner: Type.Optional(Type.String({ maxLength: 120 })),
     notes: Type.Optional(Type.String({ maxLength: 5000 }))
   },
@@ -69,10 +70,10 @@ const workspaceProjectCreateBodySchema = Type.Object(
   }
 );
 
-const workspaceProjectUpdateBodySchema = Type.Object(
+const updateBodySchema = Type.Object(
   {
     name: Type.Optional(Type.String({ minLength: 1, maxLength: 160 })),
-    status: Type.Optional(workspaceProjectStatusSchema),
+    status: Type.Optional(statusFieldSchema),
     owner: Type.Optional(Type.String({ maxLength: 120 })),
     notes: Type.Optional(Type.String({ maxLength: 5000 }))
   },
@@ -83,11 +84,13 @@ const workspaceProjectUpdateBodySchema = Type.Object(
 );
 
 export {
-  workspaceProjectsQuerySchema,
-  projectIdParamsSchema,
-  workspaceProjectSchema,
-  workspaceProjectsListResponseSchema,
-  workspaceProjectResponseSchema,
-  workspaceProjectCreateBodySchema,
-  workspaceProjectUpdateBodySchema
+  querySchema,
+  paramsSchema,
+  statusFieldSchema,
+  projectIdFieldSchema,
+  entitySchema,
+  listResponseSchema,
+  singleResponseSchema,
+  createBodySchema,
+  updateBodySchema
 };

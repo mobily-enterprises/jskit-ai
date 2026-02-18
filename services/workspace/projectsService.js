@@ -1,5 +1,5 @@
-import { AppError } from "../lib/errors.js";
-import { parsePositiveInteger } from "./workspace-admin/lib/workspaceAdminHelpers.js";
+import { AppError } from "../../lib/errors.js";
+import { parsePositiveInteger } from "../workspace-admin/lib/workspaceAdminHelpers.js";
 
 const PROJECT_STATUS_SET = new Set(["draft", "active", "archived"]);
 
@@ -116,9 +116,9 @@ function normalizeNotes(value, { required } = { required: false }) {
   return normalized;
 }
 
-function createWorkspaceProjectService({ workspaceProjectsRepository }) {
-  if (!workspaceProjectsRepository) {
-    throw new Error("workspaceProjectsRepository is required.");
+function createProjectsService({ projectsRepository }) {
+  if (!projectsRepository) {
+    throw new Error("projectsRepository is required.");
   }
 
   async function listProjects(workspaceContext, pagination) {
@@ -126,10 +126,10 @@ function createWorkspaceProjectService({ workspaceProjectsRepository }) {
     const page = Math.max(1, Number(pagination?.page) || 1);
     const pageSize = Math.max(1, Math.min(100, Number(pagination?.pageSize) || 10));
 
-    const total = await workspaceProjectsRepository.countForWorkspace(workspaceId);
+    const total = await projectsRepository.countForWorkspace(workspaceId);
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const safePage = Math.min(page, totalPages);
-    const entries = await workspaceProjectsRepository.listForWorkspace(workspaceId, safePage, pageSize);
+    const entries = await projectsRepository.listForWorkspace(workspaceId, safePage, pageSize);
 
     return {
       entries,
@@ -143,7 +143,7 @@ function createWorkspaceProjectService({ workspaceProjectsRepository }) {
   async function getProject(workspaceContext, projectIdLike) {
     const workspaceId = normalizeWorkspaceId(workspaceContext);
     const projectId = normalizeProjectId(projectIdLike);
-    const project = await workspaceProjectsRepository.findByIdForWorkspace(workspaceId, projectId);
+    const project = await projectsRepository.findByIdForWorkspace(workspaceId, projectId);
 
     if (!project) {
       throw new AppError(404, "Project not found.");
@@ -158,7 +158,7 @@ function createWorkspaceProjectService({ workspaceProjectsRepository }) {
     const workspaceId = normalizeWorkspaceId(workspaceContext);
     const body = payload && typeof payload === "object" ? payload : {};
 
-    const project = await workspaceProjectsRepository.insert(workspaceId, {
+    const project = await projectsRepository.insert(workspaceId, {
       name: normalizeName(body.name, { required: true }),
       status: normalizeStatus(body.status || "draft", { required: true }),
       owner: normalizeOwner(body.owner),
@@ -202,7 +202,7 @@ function createWorkspaceProjectService({ workspaceProjectsRepository }) {
       });
     }
 
-    const project = await workspaceProjectsRepository.updateByIdForWorkspace(workspaceId, projectId, patch);
+    const project = await projectsRepository.updateByIdForWorkspace(workspaceId, projectId, patch);
     if (!project) {
       throw new AppError(404, "Project not found.");
     }
@@ -220,4 +220,4 @@ function createWorkspaceProjectService({ workspaceProjectsRepository }) {
   };
 }
 
-export { createWorkspaceProjectService };
+export { createProjectsService };

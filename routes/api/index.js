@@ -1,7 +1,7 @@
 import { safeRequestUrl } from "../../lib/requestUrl.js";
 import { buildAuthRoutes } from "./auth.routes.js";
 import { buildWorkspaceRoutes } from "./workspace.routes.js";
-import { buildProjectsRoutes } from "./projects.routes.js";
+import { buildProjectsRoutes } from "./workspace/projects.routes.js";
 import { buildSettingsRoutes } from "./settings.routes.js";
 import { buildHistoryRoutes } from "./history.routes.js";
 import { buildAnnuityRoutes } from "./annuity.routes.js";

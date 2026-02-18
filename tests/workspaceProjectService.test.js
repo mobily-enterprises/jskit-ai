@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createWorkspaceProjectService } from "../services/workspaceProjectService.js";
+import { createProjectsService } from "../services/workspace/projectsService.js";
 
 function createWorkspaceContext(id = 11) {
   return {
@@ -8,10 +8,10 @@ function createWorkspaceContext(id = 11) {
   };
 }
 
-test("workspace project service lists projects with safe pagination", async () => {
+test("projects service lists projects with safe pagination", async () => {
   const calls = [];
-  const service = createWorkspaceProjectService({
-    workspaceProjectsRepository: {
+  const service = createProjectsService({
+    projectsRepository: {
       async countForWorkspace(workspaceId) {
         calls.push(["countForWorkspace", workspaceId]);
         return 21;
@@ -38,10 +38,10 @@ test("workspace project service lists projects with safe pagination", async () =
   ]);
 });
 
-test("workspace project service creates, fetches, and updates projects", async () => {
+test("projects service creates, fetches, and updates projects", async () => {
   const calls = [];
-  const service = createWorkspaceProjectService({
-    workspaceProjectsRepository: {
+  const service = createProjectsService({
+    projectsRepository: {
       async countForWorkspace() {
         return 0;
       },
@@ -111,9 +111,9 @@ test("workspace project service creates, fetches, and updates projects", async (
   assert.equal(calls.some((entry) => entry[0] === "updateByIdForWorkspace"), true);
 });
 
-test("workspace project service enforces validation and not found behavior", async () => {
-  const service = createWorkspaceProjectService({
-    workspaceProjectsRepository: {
+test("projects service enforces validation and not found behavior", async () => {
+  const service = createProjectsService({
+    projectsRepository: {
       async countForWorkspace() {
         return 0;
       },

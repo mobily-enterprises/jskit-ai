@@ -1,5 +1,5 @@
-import { db } from "../db/knex.js";
-import { toIsoString, toMysqlDateTimeUtc } from "../lib/dateUtils.js";
+import { db } from "../../db/knex.js";
+import { toIsoString, toMysqlDateTimeUtc } from "../../lib/dateUtils.js";
 
 const PROJECT_STATUS_SET = new Set(["draft", "active", "archived"]);
 
@@ -10,9 +10,9 @@ function normalizeStatus(value) {
   return PROJECT_STATUS_SET.has(normalized) ? normalized : "draft";
 }
 
-function mapWorkspaceProjectRowRequired(row) {
+function mapProjectRowRequired(row) {
   if (!row) {
-    throw new TypeError("mapWorkspaceProjectRowRequired expected a row object.");
+    throw new TypeError("mapProjectRowRequired expected a row object.");
   }
 
   return {
@@ -27,12 +27,12 @@ function mapWorkspaceProjectRowRequired(row) {
   };
 }
 
-function mapWorkspaceProjectRowNullable(row) {
+function mapProjectRowNullable(row) {
   if (!row) {
     return null;
   }
 
-  return mapWorkspaceProjectRowRequired(row);
+  return mapProjectRowRequired(row);
 }
 
 function normalizeCount(row) {
@@ -57,7 +57,7 @@ function resolveQueryOptions(options = {}) {
   };
 }
 
-function createWorkspaceProjectsRepository(dbClient) {
+function createProjectsRepository(dbClient) {
   function resolveClient(options = {}) {
     const { trx } = resolveQueryOptions(options);
     return trx || dbClient;
@@ -77,7 +77,7 @@ function createWorkspaceProjectsRepository(dbClient) {
     });
 
     const row = await client("workspace_projects").where({ id, workspace_id: workspaceId }).first();
-    return mapWorkspaceProjectRowRequired(row);
+    return mapProjectRowRequired(row);
   }
 
   async function repoFindByIdForWorkspace(workspaceId, projectId, options = {}) {
@@ -86,7 +86,7 @@ function createWorkspaceProjectsRepository(dbClient) {
       .where({ id: projectId, workspace_id: workspaceId })
       .first();
 
-    return mapWorkspaceProjectRowNullable(row);
+    return mapProjectRowNullable(row);
   }
 
   async function repoCountForWorkspace(workspaceId, options = {}) {
@@ -110,7 +110,7 @@ function createWorkspaceProjectsRepository(dbClient) {
       .limit(pageSize)
       .offset(offset);
 
-    return rows.map(mapWorkspaceProjectRowRequired);
+    return rows.map(mapProjectRowRequired);
   }
 
   async function repoUpdateByIdForWorkspace(workspaceId, projectId, patch = {}, options = {}) {
@@ -144,7 +144,7 @@ function createWorkspaceProjectsRepository(dbClient) {
       .where({ id: projectId, workspace_id: workspaceId })
       .first();
 
-    return mapWorkspaceProjectRowNullable(row);
+    return mapProjectRowNullable(row);
   }
 
   async function repoTransaction(callback) {
@@ -165,14 +165,14 @@ function createWorkspaceProjectsRepository(dbClient) {
   };
 }
 
-const repository = createWorkspaceProjectsRepository(db);
+const repository = createProjectsRepository(db);
 
 const __testables = {
   normalizeStatus,
-  mapWorkspaceProjectRowRequired,
-  mapWorkspaceProjectRowNullable,
+  mapProjectRowRequired,
+  mapProjectRowNullable,
   normalizeCount,
-  createWorkspaceProjectsRepository
+  createProjectsRepository
 };
 
 export const { insert, findByIdForWorkspace, countForWorkspace, listForWorkspace, updateByIdForWorkspace, transaction } =
