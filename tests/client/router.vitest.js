@@ -18,7 +18,7 @@ vi.mock("../../src/shells/app/AppShell.vue", () => ({
   }
 }));
 
-vi.mock("../../src/services/api.js", () => ({
+vi.mock("../../src/services/api/index.js", () => ({
   api: mocks.api
 }));
 

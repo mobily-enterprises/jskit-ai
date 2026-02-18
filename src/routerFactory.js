@@ -1,24 +1,9 @@
-import {
-  createBrowserHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-  lazyRouteComponent
-} from "@tanstack/vue-router";
+import { createBrowserHistory, createRootRoute, createRouter } from "@tanstack/vue-router";
 import { createSurfacePaths } from "../shared/routing/surfacePaths.js";
-import { createSurfaceRouteGuards } from "./routerGuards";
-
-/* c8 ignore start -- lazy Vue SFC loaders require full Vite CSS handling and are exercised in browser/E2E paths. */
-/* v8 ignore start -- lazy Vue SFC loaders require full Vite CSS handling and are exercised in browser/E2E paths. */
-const LoginView = lazyRouteComponent(() => import("./views/login/LoginView.vue"));
-const AnnuityCalculatorView = lazyRouteComponent(() => import("./views/annuity-calculator/AnnuityCalculatorView.vue"));
-const ChoiceTwoView = lazyRouteComponent(() => import("./views/choice-two/ChoiceTwoView.vue"));
-const ResetPasswordView = lazyRouteComponent(() => import("./views/reset-password/ResetPasswordView.vue"));
-const AccountSettingsView = lazyRouteComponent(() => import("./views/settings/SettingsView.vue"));
-const WorkspaceSettingsView = lazyRouteComponent(() => import("./views/workspace-settings/WorkspaceSettingsView.vue"));
-const WorkspacesView = lazyRouteComponent(() => import("./views/workspaces/WorkspacesView.vue"));
-/* v8 ignore stop */
-/* c8 ignore stop */
+import { createSurfaceRouteGuards } from "./routerGuards.js";
+import { createCoreRoutes } from "./routes/coreRoutes.js";
+import { createWorkspaceRoutes } from "./routes/workspaceRoutes.js";
+import { createProjectsRoutes } from "./routes/projectsRoutes.js";
 
 function createSurfaceRouter({ authStore, workspaceStore, surface, shellComponent, includeWorkspaceSettings = false }) {
   const stores = { authStore, workspaceStore };
@@ -35,77 +20,26 @@ function createSurfaceRouter({ authStore, workspaceStore, surface, shellComponen
 
   const workspaceRoutePrefix = `${surfacePaths.prefix}/w/$workspaceSlug`;
 
-  const rootRedirectRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: surfacePaths.rootPath,
-    component: AnnuityCalculatorView,
-    beforeLoad: guards.beforeLoadRoot
+  const routes = createCoreRoutes({
+    rootRoute,
+    surfacePaths,
+    workspaceRoutePrefix,
+    guards
   });
-
-  const loginRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: surfacePaths.loginPath,
-    component: LoginView,
-    beforeLoad: guards.beforeLoadPublic
-  });
-
-  const resetPasswordRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: surfacePaths.resetPasswordPath,
-    component: ResetPasswordView
-  });
-
-  const workspacesRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: surfacePaths.workspacesPath,
-    component: WorkspacesView,
-    beforeLoad: guards.beforeLoadAuthenticatedNoWorkspace
-  });
-
-  const calculatorRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: workspaceRoutePrefix,
-    component: AnnuityCalculatorView,
-    beforeLoad: guards.beforeLoadWorkspaceRequired
-  });
-
-  const choiceTwoRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: `${workspaceRoutePrefix}/choice-2`,
-    component: ChoiceTwoView,
-    beforeLoad: guards.beforeLoadWorkspaceRequired
-  });
-
-  const accountSettingsRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: surfacePaths.accountSettingsPath,
-    component: AccountSettingsView,
-    beforeLoad: guards.beforeLoadAuthenticated
-  });
-
-  const routes = [
-    rootRedirectRoute,
-    calculatorRoute,
-    choiceTwoRoute,
-    accountSettingsRoute,
-    workspacesRoute,
-    loginRoute,
-    resetPasswordRoute
-  ];
 
   if (includeWorkspaceSettings) {
     routes.splice(
       3,
       0,
-      createRoute({
-        getParentRoute: () => rootRoute,
-        path: `${workspaceRoutePrefix}/settings`,
-        component: WorkspaceSettingsView,
-        beforeLoad: (context) =>
-          guards.beforeLoadWorkspacePermissionsRequired(context, [
-            "workspace.settings.view",
-            "workspace.settings.update"
-          ])
+      ...createWorkspaceRoutes({
+        rootRoute,
+        workspaceRoutePrefix,
+        guards
+      }),
+      ...createProjectsRoutes({
+        rootRoute,
+        workspaceRoutePrefix,
+        guards
       })
     );
   }

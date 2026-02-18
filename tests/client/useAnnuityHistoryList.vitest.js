@@ -69,7 +69,7 @@ vi.mock("@tanstack/vue-query", () => ({
   })
 }));
 
-vi.mock("../../src/services/api.js", () => ({
+vi.mock("../../src/services/api/index.js", () => ({
   api: mocks.api
 }));
 

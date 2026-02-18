@@ -14,8 +14,12 @@ X Check functionality of the multiple surfaces/workspaces
 X Make sure each screen is short
 X Major reorganise of files
 X Get full test coverage
+- IMPORTANT: Diminish boilerplate as much as possible for new CRUDs
+- IMPORTANT: Make AI scaffolding so that adding things is always the same, reusing things
 - Log server errors and client errors
-- One (or more) of the "extra" stuff in the admin interface
+- Final check to the code, still from a distance
+- Final check-over in terms of usability and bugs
+- Add rails, practices, post checks
 
 - Add email system (SMTP?, Amazon?)
 - Add SMS system (PLIVIO?)
@@ -23,6 +27,7 @@ X Get full test coverage
 - Add real time chat with typing detection, chatting within and across workspaces
 - AI integration (actions abstraction etc.)
 - CI policy gate: fail build when any `workspaceSurface: "admin"` route lacks `permission` (explicit allowlist for exceptions)
+- One (or more) of the "extra" stuff in the admin interface
 
 Extra:
 - Operational hygiene (structured logging, tracing, health checks, alerts)

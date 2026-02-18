@@ -1,5 +1,5 @@
 import { redirect } from "@tanstack/vue-router";
-import { api } from "./services/api";
+import { api } from "./services/api/index.js";
 
 async function resolveRuntimeState({ authStore, workspaceStore }) {
   let authenticated = authStore.isAuthenticated;

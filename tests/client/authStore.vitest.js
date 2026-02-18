@@ -16,7 +16,7 @@ vi.mock("../../src/queryClient", () => ({
   }
 }));
 
-vi.mock("../../src/services/api", () => ({
+vi.mock("../../src/services/api/index.js", () => ({
   api: {
     session: mocks.sessionApi
   }

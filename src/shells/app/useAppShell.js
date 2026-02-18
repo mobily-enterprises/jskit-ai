@@ -2,7 +2,7 @@ import { computed } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useDisplay } from "vuetify";
 import { createSurfacePaths, resolveSurfacePaths } from "../../../shared/routing/surfacePaths.js";
-import { api } from "../../services/api";
+import { api } from "../../services/api/index.js";
 import { useAuthStore } from "../../stores/authStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useShellNavigation } from "../shared/useShellNavigation.js";

@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
   writePendingOAuthContext: vi.fn()
 }));
 
-vi.mock("../../src/services/api.js", () => ({
+vi.mock("../../src/services/api/index.js", () => ({
   api: mocks.api
 }));
 

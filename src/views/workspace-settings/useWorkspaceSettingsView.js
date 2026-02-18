@@ -2,7 +2,7 @@ import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useAuthGuard } from "../../composables/useAuthGuard";
-import { api } from "../../services/api";
+import { api } from "../../services/api/index.js";
 
 const WORKSPACE_SETTINGS_QUERY_KEY = "workspace-settings";
 const WORKSPACE_MEMBERS_QUERY_KEY = "workspace-members";

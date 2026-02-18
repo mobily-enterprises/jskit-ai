@@ -192,7 +192,6 @@ test("workspace controller delegates workspace and admin routes to services", as
       return { ok: true, decision };
     }
   };
-
   const controller = createWorkspaceController({
     authService,
     workspaceService,

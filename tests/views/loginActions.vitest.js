@@ -32,7 +32,7 @@ const mocks = vi.hoisted(() => ({
   }
 }));
 
-vi.mock("../../src/services/api.js", () => ({
+vi.mock("../../src/services/api/index.js", () => ({
   api: mocks.api
 }));
 vi.mock("../../src/utils/oauthCallback.js", () => mocks.oauthUtils);

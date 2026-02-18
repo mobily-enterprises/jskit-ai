@@ -1,6 +1,6 @@
 import { computed, reactive, ref } from "vue";
 import { useMutation } from "@tanstack/vue-query";
-import { api } from "../../services/api";
+import { api } from "../../services/api/index.js";
 import { useAuthGuard } from "../../composables/useAuthGuard";
 import { createDefaultAnnuityForm, modeOptions, timingOptions } from "../../features/annuity/formModel";
 import { buildAnnuityPayload, validateAnnuityForm } from "../../features/annuity/request";

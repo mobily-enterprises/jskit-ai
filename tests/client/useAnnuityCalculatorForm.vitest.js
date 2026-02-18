@@ -21,7 +21,7 @@ vi.mock("@tanstack/vue-query", async () => {
   };
 });
 
-vi.mock("../../src/services/api.js", () => ({
+vi.mock("../../src/services/api/index.js", () => ({
   api: mocks.api
 }));
 

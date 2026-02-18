@@ -88,7 +88,7 @@ vi.mock("../../src/queryClient", () => ({
   queryClient: mocks.queryClient
 }));
 
-vi.mock("../../src/services/api", () => ({
+vi.mock("../../src/services/api/index.js", () => ({
   api: {
     bootstrap: mocks.bootstrapApi
   }

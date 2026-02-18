@@ -17,16 +17,18 @@
         "workspace.settings.update",
         "workspace.roles.view",
         "history.read",
-        "history.write"
+        "history.write",
+        "projects.read",
+        "projects.write"
       ]
     },
     "member": {
       "assignable": true,
-      "permissions": ["history.read", "history.write"]
+      "permissions": ["history.read", "history.write", "projects.read", "projects.write"]
     },
     "viewer": {
       "assignable": true,
-      "permissions": ["history.read"]
+      "permissions": ["history.read", "projects.read"]
     }
   }
 }

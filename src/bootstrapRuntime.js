@@ -17,7 +17,7 @@ import {
 } from "@mdi/js";
 import "vuetify/styles";
 import { queryClient } from "./queryClient";
-import { api } from "./services/api";
+import { api } from "./services/api/index.js";
 import { useAuthStore } from "./stores/authStore";
 import { useWorkspaceStore } from "./stores/workspaceStore";
 

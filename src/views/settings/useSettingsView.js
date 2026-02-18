@@ -3,7 +3,7 @@ import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useTheme } from "vuetify";
 import { resolveSurfacePaths } from "../../../shared/routing/surfacePaths.js";
-import { api } from "../../services/api";
+import { api } from "../../services/api/index.js";
 import { useAuthStore } from "../../stores/authStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useAuthGuard } from "../../composables/useAuthGuard";

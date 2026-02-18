@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   }
 }));
 
-vi.mock("../../src/services/api.js", () => ({
+vi.mock("../../src/services/api/index.js", () => ({
   api: mocks.api
 }));
 

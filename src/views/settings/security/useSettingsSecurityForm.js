@@ -1,7 +1,7 @@
 import { reactive, ref, watch } from "vue";
 import { useRouterState } from "@tanstack/vue-router";
 import { useMutation, useQueryClient } from "@tanstack/vue-query";
-import { api } from "../../../services/api";
+import { api } from "../../../services/api/index.js";
 import { useAuthStore } from "../../../stores/authStore";
 import { useAuthGuard } from "../../../composables/useAuthGuard";
 import { SETTINGS_QUERY_KEY, SETTINGS_SECTION_QUERY_KEY } from "../lib/useSettingsPageConfig";

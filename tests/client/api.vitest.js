@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api, __testables } from "../../src/services/api";
+import { api, __testables } from "../../src/services/api/index.js";
 
 function mockResponse({
   status = 200,
@@ -438,6 +438,10 @@ describe("client api transport", () => {
     await api.workspaceInvites();
     await api.createWorkspaceInvite({ email: "member@example.com", roleId: "member" });
     await api.revokeWorkspaceInvite("invite id/2");
+    await api.workspaceProjects(2, 25);
+    await api.workspaceProject("project/id");
+    await api.createWorkspaceProject({ name: "Project A", status: "draft" });
+    await api.updateWorkspaceProject("project/id", { status: "active" });
     await api.setPasswordMethodEnabled({ enabled: true });
     await api.unlinkSettingsOAuthProvider("Google ");
 
@@ -456,6 +460,9 @@ describe("client api transport", () => {
     expect(urls).toContain("/api/workspace/members/user%2Fid/role");
     expect(urls).toContain("/api/workspace/invites");
     expect(urls).toContain("/api/workspace/invites/invite%20id%2F2");
+    expect(urls).toContain("/api/workspace/projects?page=2&pageSize=25");
+    expect(urls).toContain("/api/workspace/projects/project%2Fid");
+    expect(urls).toContain("/api/workspace/projects");
     expect(urls).toContain("/api/settings/security/methods/password");
     expect(urls).toContain("/api/settings/security/oauth/google");
   });
@@ -541,12 +548,17 @@ describe("client api transport", () => {
     await api.redeemWorkspaceInvite({ token: "", decision: "accept" });
     await api.updateWorkspaceMemberRole(undefined, { roleId: "member" });
     await api.revokeWorkspaceInvite(undefined);
+    await api.workspaceProjects(1, 10);
+    await api.workspaceProject(undefined);
+    await api.updateWorkspaceProject(undefined, { status: "archived" });
     await api.unlinkSettingsOAuthProvider(undefined);
 
     const urls = global.fetch.mock.calls.map(([url]) => url);
     expect(urls).toContain("/api/workspace/invitations/redeem");
     expect(urls).toContain("/api/workspace/members//role");
     expect(urls).toContain("/api/workspace/invites/");
+    expect(urls).toContain("/api/workspace/projects?page=1&pageSize=10");
+    expect(urls).toContain("/api/workspace/projects/");
     expect(urls).toContain("/api/settings/security/oauth/");
   });
 });

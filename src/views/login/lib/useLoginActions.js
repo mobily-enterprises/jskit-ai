@@ -1,7 +1,7 @@
 import { normalizeOAuthProvider } from "../../../../shared/auth/oauthProviders.js";
 import { validators } from "../../../../shared/auth/validators.js";
 import { normalizeEmail } from "../../../../shared/auth/utils.js";
-import { api } from "../../../services/api";
+import { api } from "../../../services/api/index.js";
 import {
   clearPendingOAuthContext,
   readOAuthCallbackStateFromLocation,

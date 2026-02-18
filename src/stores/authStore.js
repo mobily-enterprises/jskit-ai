@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { queryClient } from "../queryClient";
-import { api } from "../services/api";
+import { api } from "../services/api/index.js";
 
 export const SESSION_QUERY_KEY = ["session"];
 

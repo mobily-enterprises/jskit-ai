@@ -13,7 +13,7 @@ import { resolveAppConfig, toPublicAppConfig } from "./lib/appConfig.js";
 import { loadRbacManifest } from "./lib/rbacManifest.js";
 import { initDatabase, closeDatabase } from "./db/knex.js";
 import { isAppError } from "./lib/errors.js";
-import { registerApiRoutes } from "./routes/apiRoutes.js";
+import { registerApiRoutes } from "./routes/api/index.js";
 import authPlugin from "./plugins/auth.js";
 import { createAuthService } from "./services/authService.js";
 import * as annuityService from "./services/annuityService.js";
@@ -23,6 +23,7 @@ import { createHistoryController } from "./controllers/historyController.js";
 import { createAnnuityController } from "./controllers/annuityController.js";
 import { createSettingsController } from "./controllers/settingsController.js";
 import { createWorkspaceController } from "./controllers/workspaceController.js";
+import { createProjectsController } from "./controllers/projectsController.js";
 import * as userProfilesRepository from "./repositories/userProfilesRepository.js";
 import * as calculationLogsRepository from "./repositories/calculationLogsRepository.js";
 import * as userSettingsRepository from "./repositories/userSettingsRepository.js";
@@ -30,12 +31,14 @@ import * as workspacesRepository from "./repositories/workspacesRepository.js";
 import * as workspaceMembershipsRepository from "./repositories/workspaceMembershipsRepository.js";
 import * as workspaceSettingsRepository from "./repositories/workspaceSettingsRepository.js";
 import * as workspaceInvitesRepository from "./repositories/workspaceInvitesRepository.js";
+import * as workspaceProjectsRepository from "./repositories/workspaceProjectsRepository.js";
 import { safePathnameFromRequest } from "./lib/requestUrl.js";
 import { createUserSettingsService } from "./services/userSettingsService.js";
 import { createAvatarStorageService } from "./services/avatarStorageService.js";
 import { createUserAvatarService } from "./services/userAvatarService.js";
 import { createWorkspaceService } from "./services/workspaceService.js";
 import { createWorkspaceAdminService } from "./services/workspaceAdminService.js";
+import { createWorkspaceProjectService } from "./services/workspaceProjectService.js";
 import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar/index.js";
 import { resolveSurfacePaths } from "./shared/routing/surfacePaths.js";
 import { createRateLimitPluginOptions, resolveRateLimitStartupWarning } from "./lib/rateLimit.js";
@@ -118,12 +121,23 @@ const workspaceAdminService = createWorkspaceAdminService({
   userSettingsRepository
 });
 
+const workspaceProjectService = createWorkspaceProjectService({
+  workspaceProjectsRepository
+});
+
 const controllers = {
   auth: createAuthController({ authService }),
   history: createHistoryController({ annuityHistoryService }),
   annuity: createAnnuityController({ annuityService, annuityHistoryService }),
   settings: createSettingsController({ userSettingsService, authService }),
-  workspace: createWorkspaceController({ authService, workspaceService, workspaceAdminService })
+  projects: createProjectsController({
+    workspaceProjectService
+  }),
+  workspace: createWorkspaceController({
+    authService,
+    workspaceService,
+    workspaceAdminService
+  })
 };
 
 function validateRuntimeConfig() {

@@ -203,7 +203,7 @@ npm run format:check
 
 ## API contracts (v1)
 
-This endpoint inventory is generated from `routes/apiRoutes.js`.
+This endpoint inventory is generated from `routes/api/index.js`.
 
 ```bash
 npm run docs:api-contracts
@@ -234,6 +234,10 @@ npm run docs:api-contracts
 - `GET /api/workspace/invites`
 - `POST /api/workspace/invites`
 - `DELETE /api/workspace/invites/:inviteId`
+- `GET /api/workspace/projects`
+- `GET /api/workspace/projects/:projectId`
+- `POST /api/workspace/projects`
+- `PATCH /api/workspace/projects/:projectId`
 - `GET /api/settings`
 - `PATCH /api/settings/profile`
 - `POST /api/settings/profile/avatar`

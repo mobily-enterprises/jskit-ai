@@ -174,7 +174,7 @@ Backend Integration Points
 
 1. Extend plugins/auth.js or add plugins/workspaceContext.js for active
    workspace + permissions.
-2. Extend routes/apiRoutes.js route metadata with permission requirements.
+2. Extend routes/api/index.js route metadata with permission requirements.
 3. Update repositories to scope tenant queries by workspace_id.
 4. Keep auth/session service in services/authService.js and add workspace-
    aware helpers.
@@ -249,7 +249,7 @@ Critical Decisions to Lock Before Implementation
    session.
 
 If you want, next step is I can convert this into an execution backlog mapped
-to your current files (server.js, routes/apiRoutes.js, plugins/auth.js,
+to your current files (server.js, routes/api/index.js, plugins/auth.js,
 repositories, and frontend stores/views) with exact migration filenames and
 endpoint contracts.
 
@@ -650,7 +650,7 @@ Mode Default
 
 1. server.js to initialize app config and RBAC loader.
 2. plugins/auth.js and/or new workspace plugin registration order.
-3. routes/apiRoutes.js to add workspace and permission route metadata.
+3. routes/api/index.js to add workspace and permission route metadata.
 4. controllers/\* to consume workspace-aware service methods.
 5. services/userSettingsService.js to include lastActiveWorkspaceId.
 6. services/authService.js to call workspace auto-provision hooks after user
@@ -816,7 +816,7 @@ Mode Default
 
 1. Current working tree has ongoing changes in auth/settings/routes/UI.
 2. Existing modified files include controllers/authController.js, controllers/
-   settingsController.js, routes/apiRoutes.js, services/authService.js,
+   settingsController.js, routes/api/index.js, services/authService.js,
    services/userSettingsService.js, repositories/userSettingsRepository.js,
    src/services/api.js, src/views/LoginView.vue, src/views/SettingsView.vue.
 3. New untracked files already present include src/utils/oauthCallback.js,
@@ -1133,33 +1133,33 @@ workspace policy metadata.
 
 Files and line anchors:
 
-1. `routes/apiRoutes.js:256-275`
+1. `routes/api/index.js:256-275`
    - Add bootstrap response schema (`session`, `app`, `workspaces`,
      `activeWorkspace`, `permissions`, `userSettings`, `workspaceSettings`).
-2. `routes/apiRoutes.js:391-513`
+2. `routes/api/index.js:391-513`
    - Add workspace schema objects:
      - workspace summary
      - membership summary
      - workspace settings
-3. `routes/apiRoutes.js:567-787`
+3. `routes/api/index.js:567-787`
    - Insert new routes before `/api/settings`:
      - `GET /api/bootstrap`
      - `GET /api/workspaces`
      - `POST /api/workspaces/select`
      - `POST /api/workspaces` (optional profile-dependent)
-4. `routes/apiRoutes.js:788-1022`
+4. `routes/api/index.js:788-1022`
    - Add `workspacePolicy` + `permission` to existing workspace-owned routes:
      - `/api/history` -> `workspacePolicy: "required"`, permission
        `history.read`
      - `/api/annuityCalculator` -> `workspacePolicy: "required"`, permission
        `history.write`
      - workspace settings routes -> appropriate `workspace.settings.*` perms
-5. `routes/apiRoutes.js:1026-1041`
+5. `routes/api/index.js:1026-1041`
    - Extend route config payload:
      - `workspacePolicy`
      - `permission`
      - `allowNoWorkspace`
-6. `routes/apiRoutes.js:1042-1044`
+6. `routes/api/index.js:1042-1044`
    - Keep handler invocation shape intact.
 
 Commit done when:
@@ -1365,7 +1365,7 @@ introduced.
 
 Files and line anchors:
 
-1. `routes/apiRoutes.js:990-1022`
+1. `routes/api/index.js:990-1022`
    - Keep `/api/history` and `/api/annuityCalculator` stable.
    - Resolve workspace from context internally, not request body.
 2. `plugins/auth.js:66-122`
@@ -1433,7 +1433,7 @@ Files and line anchors:
    - Route config and request context include resolver source metadata.
 2. `server.js:125-181`
    - Use resolver abstraction in page guard.
-3. `routes/apiRoutes.js:1026-1041`
+3. `routes/api/index.js:1026-1041`
    - Add optional route flag to allow host/path workspace selection behavior
      where needed.
 4. `src/router.js`
@@ -1459,7 +1459,7 @@ Commit done when:
 8. `125-181`, `260-277`: page guard logic for `/workspaces` and
    authenticated/no-workspace redirect.
 
-#### `routes/apiRoutes.js`
+#### `routes/api/index.js`
 
 1. `256-275`: add bootstrap response schemas.
 2. `391-513`: add workspace/membership/settings schemas.
@@ -1683,7 +1683,7 @@ Same architecture, less nesting.
 
 1. `server.js`:
    - Register surface-specific route trees and host/path surface resolver.
-2. `routes/apiRoutes.js`:
+2. `routes/api/index.js`:
    - Either split into `adminApiRoutes.js` and `appApiRoutes.js`, or preserve
      this file as shared schema module plus two registrars.
 3. `plugins/auth.js`:
@@ -1770,7 +1770,7 @@ This section captures the final clarification from the latest discussion.
    - Ensure login route handling preserves optional target context
      (`surface`, `workspaceSlug`, `next`) for SPA bootstrap consumption.
    - Ensure surface+workspace resolver runs before authz checks.
-2. `routes/apiRoutes.js`
+2. `routes/api/index.js`
    - Extend auth/bootstrap contracts to include requested context and resolved
      accessible contexts.
    - Ensure login response (or follow-up bootstrap) provides deterministic

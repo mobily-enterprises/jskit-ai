@@ -68,7 +68,7 @@ vi.mock("../../src/stores/workspaceStore.js", () => ({
   useWorkspaceStore: () => mocks.workspaceStore
 }));
 
-vi.mock("../../src/services/api.js", () => ({
+vi.mock("../../src/services/api/index.js", () => ({
   api: mocks.api
 }));
 
@@ -174,7 +174,7 @@ describe("useAdminShell", () => {
 
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
       { title: "Choice 1", to: "/admin/w/acme", icon: "$navChoice1" },
-      { title: "Choice 2", to: "/admin/w/acme/choice-2", icon: "$navChoice2" },
+      { title: "Projects", to: "/admin/w/acme/projects", icon: "$navChoice2" },
       { title: "Workspace settings", to: "/admin/w/acme/settings", icon: "$menuSettings" },
       { title: "Back to App", to: "/w/acme", icon: "$menuBackToApp", forceReload: true }
     ]);
@@ -209,6 +209,22 @@ describe("useAdminShell", () => {
       icon: "$menuBackToApp",
       forceReload: true
     });
+  });
+
+  it("maps projects destination titles for list, detail, add, and edit paths", async () => {
+    for (const [path, expectedTitle] of [
+      ["/admin/w/acme/projects", "Projects"],
+      ["/admin/w/acme/projects/add", "Add Project"],
+      ["/admin/w/acme/projects/42", "Project"],
+      ["/admin/w/acme/projects/42/edit", "Edit Project"]
+    ]) {
+      mocks.routerPathname = path;
+      window.history.replaceState({}, "", path);
+      const wrapper = mountHarness();
+      await nextTick();
+      expect(wrapper.vm.shell.layout.destinationTitle.value).toBe(expectedTitle);
+      wrapper.unmount();
+    }
   });
 
   it("maps active workspace avatar URL and avoids invite notices when shell is hidden", async () => {

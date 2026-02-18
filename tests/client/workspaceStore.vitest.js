@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   redeemWorkspaceInviteApi: vi.fn()
 }));
 
-vi.mock("../../src/services/api", () => ({
+vi.mock("../../src/services/api/index.js", () => ({
   api: {
     bootstrap: mocks.bootstrapApi,
     pendingWorkspaceInvites: mocks.pendingWorkspaceInvitesApi,

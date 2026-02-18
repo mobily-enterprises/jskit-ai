@@ -1,6 +1,6 @@
 import { reactive, ref } from "vue";
 import { useMutation } from "@tanstack/vue-query";
-import { api } from "../../../services/api";
+import { api } from "../../../services/api/index.js";
 import { AVATAR_DEFAULT_SIZE } from "../../../../shared/avatar/index.js";
 import { SETTINGS_QUERY_KEY } from "../lib/useSettingsPageConfig";
 import { useSettingsContext } from "../lib/useSettingsContext";

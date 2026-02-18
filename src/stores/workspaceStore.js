@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { createSurfacePaths, resolveSurfaceFromPathname } from "../../shared/routing/surfacePaths.js";
 import { DEFAULT_SURFACE_ID, normalizeSurfaceId } from "../../shared/routing/surfaceRegistry.js";
 import { coerceWorkspaceColor } from "../../shared/workspace/colors.js";
-import { api } from "../services/api";
+import { api } from "../services/api/index.js";
 
 function normalizeArray(value) {
   return Array.isArray(value) ? value : [];

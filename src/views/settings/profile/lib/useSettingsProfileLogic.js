@@ -12,7 +12,7 @@ import {
   AVATAR_DEFAULT_SIZE,
   AVATAR_MAX_UPLOAD_BYTES
 } from "../../../../../shared/avatar/index.js";
-import { api } from "../../../../services/api";
+import { api } from "../../../../services/api/index.js";
 
 export function useSettingsProfileLogic({
   profileForm,

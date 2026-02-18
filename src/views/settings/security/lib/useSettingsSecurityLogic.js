@@ -1,5 +1,5 @@
 import { computed } from "vue";
-import { api } from "../../../../services/api";
+import { api } from "../../../../services/api/index.js";
 import {
   AUTH_METHOD_DEFINITIONS,
   AUTH_METHOD_KIND_OAUTH,

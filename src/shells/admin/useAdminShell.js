@@ -2,7 +2,7 @@ import { computed, ref, watch } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useDisplay } from "vuetify";
 import { createSurfacePaths, resolveSurfacePaths } from "../../../shared/routing/surfacePaths.js";
-import { api } from "../../services/api";
+import { api } from "../../services/api/index.js";
 import { useAuthStore } from "../../stores/authStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useShellNavigation } from "../shared/useShellNavigation.js";
@@ -74,7 +74,7 @@ export function useAdminShell() {
   const navigationItems = computed(() => {
     const items = [
       { title: "Choice 1", to: workspacePath("/"), icon: "$navChoice1" },
-      { title: "Choice 2", to: workspacePath("/choice-2"), icon: "$navChoice2" }
+      { title: "Projects", to: workspacePath("/projects"), icon: "$navChoice2" }
     ];
 
     if (canViewWorkspaceSettings.value) {
@@ -86,6 +86,18 @@ export function useAdminShell() {
   });
 
   const destinationTitle = computed(() => {
+    if (currentPath.value.endsWith("/projects")) {
+      return "Projects";
+    }
+    if (currentPath.value.endsWith("/projects/add")) {
+      return "Add Project";
+    }
+    if (currentPath.value.endsWith("/edit") && currentPath.value.includes("/projects/")) {
+      return "Edit Project";
+    }
+    if (currentPath.value.includes("/projects/")) {
+      return "Project";
+    }
     if (currentPath.value.endsWith("/choice-2")) {
       return "Choice 2";
     }

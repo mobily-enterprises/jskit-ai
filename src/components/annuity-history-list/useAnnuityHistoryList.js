@@ -1,6 +1,6 @@
 import { computed, reactive } from "vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
-import { api } from "../../services/api";
+import { api } from "../../services/api/index.js";
 import { useAuthGuard } from "../../composables/useAuthGuard";
 import { useListQueryState } from "../../composables/useListQueryState";
 import { useUrlListPagination } from "../../composables/useUrlListPagination";

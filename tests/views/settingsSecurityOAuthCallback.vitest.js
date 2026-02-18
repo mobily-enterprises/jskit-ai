@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   refreshSession: vi.fn(async () => ({ authenticated: true }))
 }));
 
-vi.mock("../../src/services/api.js", () => ({
+vi.mock("../../src/services/api/index.js", () => ({
   api: mocks.api
 }));
 
