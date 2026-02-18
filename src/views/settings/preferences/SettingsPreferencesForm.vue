@@ -96,9 +96,9 @@
           {{ state.preferencesMessage }}
         </v-alert>
 
-        <v-btn type="submit" color="primary" :loading="state.preferencesMutation.isPending.value"
-          >Save preferences</v-btn
-        >
+        <v-btn type="submit" color="primary" :loading="state.preferencesMutation.isPending.value">
+          Save preferences
+        </v-btn>
       </v-form>
     </v-card-text>
   </v-card>

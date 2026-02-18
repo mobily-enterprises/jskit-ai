@@ -38,7 +38,7 @@
                     :disabled="!method.canDisable"
                     :loading="
                       state.methodActionLoadingId === method.id &&
-                      state.setPasswordMethodEnabledMutation.isPending.value
+                        state.setPasswordMethodEnabledMutation.isPending.value
                     "
                     @click="actions.submitPasswordMethodToggle(false)"
                   >
