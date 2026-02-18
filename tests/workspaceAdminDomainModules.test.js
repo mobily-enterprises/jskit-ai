@@ -2,28 +2,26 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "../server/lib/errors.js";
+import { normalizeEmail } from "../shared/auth/utils.js";
+import { parsePositiveInteger } from "../server/domain/common/integers.js";
+import { normalizeWorkspaceColor, mapWorkspaceAdminSummary } from "../server/domain/workspace/workspaceMappers.js";
+import { listRoleDescriptors, resolveAssignableRoleIds } from "../server/domain/workspace/workspaceRoleCatalog.js";
+import { resolveWorkspaceDefaults } from "../server/domain/workspace/workspacePolicyDefaults.js";
 import {
-  coerceWorkspaceColor,
-  listRoleDescriptors,
-  mapWorkspaceSummary,
-  normalizeEmail,
-  parsePositiveInteger,
-  parseWorkspaceSettingsPatch,
-  resolveAssignableRoleIds,
-  resolveWorkspaceDefaults
-} from "../server/domain/workspace/lib/workspaceAdminHelpers.js";
+  parseWorkspaceSettingsPatch
+} from "../server/domain/workspace/workspaceSettingsPatch.js";
 
-test("workspace admin helper primitives normalize values", () => {
+test("workspace admin primitives normalize values", () => {
   assert.equal(normalizeEmail(" User@Example.com "), "user@example.com");
   assert.equal(parsePositiveInteger("42"), 42);
   assert.equal(parsePositiveInteger(0), null);
   assert.equal(parsePositiveInteger("1.5"), null);
 
-  assert.equal(coerceWorkspaceColor("#0f6b54"), "#0F6B54");
-  assert.equal(coerceWorkspaceColor("bad-color"), "#0F6B54");
+  assert.equal(normalizeWorkspaceColor("#0f6b54"), "#0F6B54");
+  assert.equal(normalizeWorkspaceColor("bad-color"), "#0F6B54");
 });
 
-test("workspace admin role helpers build descriptors and assignable ids", () => {
+test("workspace role catalog builds descriptors and assignable ids", () => {
   const descriptors = listRoleDescriptors({
     roles: {
       owner: {
@@ -212,8 +210,8 @@ test("parseWorkspaceSettingsPatch parses valid fields and reports field-level er
   assert.equal(throwingStringValues.fieldErrors.color, "Workspace color is invalid.");
 });
 
-test("mapWorkspaceSummary coerces workspace output shape", () => {
-  const summary = mapWorkspaceSummary({
+test("mapWorkspaceAdminSummary coerces workspace output shape", () => {
+  const summary = mapWorkspaceAdminSummary({
     id: "11",
     slug: "acme",
     name: "Acme",
@@ -233,7 +231,7 @@ test("mapWorkspaceSummary coerces workspace output shape", () => {
     isPersonal: false
   });
 
-  const minimalSummary = mapWorkspaceSummary({
+  const minimalSummary = mapWorkspaceAdminSummary({
     id: 1,
     slug: null,
     name: null,

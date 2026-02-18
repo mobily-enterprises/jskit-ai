@@ -1,23 +1,20 @@
 import { AppError } from "../../lib/errors.js";
 import { OWNER_ROLE_ID } from "../../lib/rbacManifest.js";
 import { extractAppSurfacePolicy } from "../../surfaces/appSurface.js";
+import { normalizeEmail } from "../../../shared/auth/utils.js";
+import { coerceWorkspaceColor } from "../../../shared/workspace/colors.js";
+import { parsePositiveInteger } from "../common/integers.js";
 import {
   buildInviteToken,
   encodeInviteTokenHash,
   hashInviteToken,
   normalizeInviteToken,
   resolveInviteTokenHash
-} from "./lib/inviteTokens.js";
-import {
-  normalizeEmail,
-  parsePositiveInteger,
-  coerceWorkspaceColor,
-  listRoleDescriptors,
-  resolveAssignableRoleIds,
-  resolveWorkspaceDefaults,
-  parseWorkspaceSettingsPatch,
-  mapWorkspaceSummary
-} from "./lib/workspaceAdminHelpers.js";
+} from "./inviteTokens.js";
+import { listRoleDescriptors, resolveAssignableRoleIds } from "./workspaceRoleCatalog.js";
+import { resolveWorkspaceDefaults, createWorkspaceSettingsDefaults } from "./workspacePolicyDefaults.js";
+import { parseWorkspaceSettingsPatch } from "./workspaceSettingsPatch.js";
+import { mapWorkspaceAdminSummary } from "./workspaceMappers.js";
 
 const INVITE_EXPIRY_DAYS = 7;
 
@@ -92,16 +89,11 @@ function createService({
   }
 
   async function ensureWorkspaceSettings(workspaceId, options = {}) {
-    return workspaceSettingsRepository.ensureForWorkspaceId(workspaceId, {
-      invitesEnabled: Boolean(appConfig.features.workspaceInvites),
-      features: {},
-      policy: {
-        defaultMode: "fv",
-        defaultTiming: "ordinary",
-        defaultPaymentsPerYear: 12,
-        defaultHistoryPageSize: 10
-      }
-    }, options);
+    return workspaceSettingsRepository.ensureForWorkspaceId(
+      workspaceId,
+      createWorkspaceSettingsDefaults(Boolean(appConfig.features.workspaceInvites)),
+      options
+    );
   }
 
   async function runInAdminTransaction(work) {
@@ -135,7 +127,7 @@ function createService({
     }
 
     return {
-      workspace: mapWorkspaceSummary(workspace),
+      workspace: mapWorkspaceAdminSummary(workspace),
       settings
     };
   }
@@ -296,7 +288,7 @@ function createService({
     const members = await workspaceMembershipsRepository.listActiveByWorkspaceId(workspace.id);
 
     return {
-      workspace: mapWorkspaceSummary(workspace),
+      workspace: mapWorkspaceAdminSummary(workspace),
       members: members.map((member) => mapMember(member, workspace)),
       roleCatalog: {
         collaborationEnabled: Boolean(rbacManifest.collaborationEnabled),
@@ -346,7 +338,7 @@ function createService({
     const invites = await workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace(workspace.id);
 
     return {
-      workspace: mapWorkspaceSummary(workspace),
+      workspace: mapWorkspaceAdminSummary(workspace),
       invites: invites.map(mapInvite),
       roleCatalog: {
         collaborationEnabled: Boolean(rbacManifest.collaborationEnabled),
@@ -645,11 +637,4 @@ function createService({
   };
 }
 
-export {
-  createService,
-  normalizeEmail,
-  parseWorkspaceSettingsPatch,
-  listRoleDescriptors,
-  resolveAssignableRoleIds,
-  resolveWorkspaceDefaults
-};
+export { createService };

@@ -1,19 +1,9 @@
-import { AppError } from "../../../lib/errors.js";
-import { OWNER_ROLE_ID } from "../../../lib/rbacManifest.js";
-import { normalizeEmail } from "../../../../shared/auth/utils.js";
-import { SETTINGS_MODE_OPTIONS, SETTINGS_TIMING_OPTIONS } from "../../../../shared/settings/index.js";
-import { coerceWorkspaceColor, isWorkspaceColor } from "../../../../shared/workspace/colors.js";
+import { AppError } from "../../lib/errors.js";
+import { normalizeEmail } from "../../../shared/auth/utils.js";
+import { SETTINGS_MODE_OPTIONS, SETTINGS_TIMING_OPTIONS } from "../../../shared/settings/index.js";
+import { isWorkspaceColor } from "../../../shared/workspace/colors.js";
 
 const BASIC_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function parsePositiveInteger(value) {
-  const numeric = Number(value);
-  if (!Number.isInteger(numeric) || numeric < 1) {
-    return null;
-  }
-
-  return numeric;
-}
 
 function normalizeWorkspaceAvatarUrl(value) {
   if (value == null) {
@@ -66,76 +56,6 @@ function normalizeWorkspaceColor(value) {
   });
 }
 
-function toRoleDescriptor(roleId, role) {
-  const normalizedRole = role && typeof role === "object" ? role : {};
-  const permissions = Array.isArray(normalizedRole.permissions)
-    ? Array.from(
-        new Set(normalizedRole.permissions.map((permission) => String(permission || "").trim()).filter(Boolean))
-      )
-    : [];
-
-  return {
-    id: String(roleId || ""),
-    assignable: Boolean(normalizedRole.assignable),
-    permissions
-  };
-}
-
-function listRoleDescriptors(rbacManifest) {
-  const roles = rbacManifest && typeof rbacManifest.roles === "object" ? rbacManifest.roles : {};
-  const descriptors = Object.entries(roles)
-    .map(([roleId, role]) => toRoleDescriptor(roleId, role))
-    .filter((role) => role.id)
-    .sort((left, right) => {
-      if (left.id === OWNER_ROLE_ID) {
-        return -1;
-      }
-      if (right.id === OWNER_ROLE_ID) {
-        return 1;
-      }
-
-      return left.id.localeCompare(right.id);
-    });
-
-  return descriptors;
-}
-
-function resolveAssignableRoleIds(rbacManifest) {
-  return listRoleDescriptors(rbacManifest)
-    .filter((role) => role.id !== OWNER_ROLE_ID && role.assignable)
-    .map((role) => role.id);
-}
-
-function resolveWorkspaceDefaults(policy) {
-  const normalizedPolicy = policy && typeof policy === "object" ? policy : {};
-
-  const defaultModeCandidate = String(normalizedPolicy.defaultMode || "")
-    .trim()
-    .toLowerCase();
-  const defaultTimingCandidate = String(normalizedPolicy.defaultTiming || "")
-    .trim()
-    .toLowerCase();
-  const defaultPaymentsPerYearCandidate = Number(normalizedPolicy.defaultPaymentsPerYear);
-  const defaultHistoryPageSizeCandidate = Number(normalizedPolicy.defaultHistoryPageSize);
-
-  return {
-    defaultMode: SETTINGS_MODE_OPTIONS.includes(defaultModeCandidate) ? defaultModeCandidate : "fv",
-    defaultTiming: SETTINGS_TIMING_OPTIONS.includes(defaultTimingCandidate) ? defaultTimingCandidate : "ordinary",
-    defaultPaymentsPerYear:
-      Number.isInteger(defaultPaymentsPerYearCandidate) &&
-      defaultPaymentsPerYearCandidate >= 1 &&
-      defaultPaymentsPerYearCandidate <= 365
-        ? defaultPaymentsPerYearCandidate
-        : 12,
-    defaultHistoryPageSize:
-      Number.isInteger(defaultHistoryPageSizeCandidate) &&
-      defaultHistoryPageSizeCandidate >= 1 &&
-      defaultHistoryPageSizeCandidate <= 100
-        ? defaultHistoryPageSizeCandidate
-        : 10
-  };
-}
-
 function normalizeDenyUserIds(rawUserIds) {
   if (!Array.isArray(rawUserIds)) {
     return {
@@ -153,6 +73,7 @@ function normalizeDenyUserIds(rawUserIds) {
         valid: false
       };
     }
+
     normalized.push(numericUserId);
   }
 
@@ -179,6 +100,7 @@ function normalizeDenyEmails(rawEmails) {
         valid: false
       };
     }
+
     normalized.push(email);
   }
 
@@ -319,25 +241,4 @@ function parseWorkspaceSettingsPatch(payload) {
   };
 }
 
-function mapWorkspaceSummary(workspace) {
-  return {
-    id: Number(workspace.id),
-    slug: String(workspace.slug || ""),
-    name: String(workspace.name || ""),
-    color: coerceWorkspaceColor(workspace.color),
-    avatarUrl: workspace.avatarUrl ? String(workspace.avatarUrl) : "",
-    ownerUserId: Number(workspace.ownerUserId),
-    isPersonal: Boolean(workspace.isPersonal)
-  };
-}
-
-export {
-  normalizeEmail,
-  parsePositiveInteger,
-  coerceWorkspaceColor,
-  listRoleDescriptors,
-  resolveAssignableRoleIds,
-  resolveWorkspaceDefaults,
-  parseWorkspaceSettingsPatch,
-  mapWorkspaceSummary
-};
+export { parseWorkspaceSettingsPatch };

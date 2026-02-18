@@ -1,25 +1,28 @@
 import { AppError } from "../../lib/errors.js";
 import { OWNER_ROLE_ID, resolveRolePermissions } from "../../lib/rbacManifest.js";
 import { normalizeSurfaceId, resolveSurfaceById } from "../../surfaces/index.js";
+import { normalizeEmail } from "../../../shared/auth/utils.js";
 import {
   toSlugPart,
   buildWorkspaceName,
-  buildWorkspaceBaseSlug,
-  normalizeEmail,
-  mapWorkspaceSummary,
+  buildWorkspaceBaseSlug
+} from "./workspaceNaming.js";
+import {
   normalizeWorkspaceColor,
+  mapWorkspaceMembershipSummary,
   mapWorkspaceSettingsPublic,
   mapUserSettingsPublic,
-  resolveRequestSurfaceId,
-  resolveRequestedWorkspaceSlug,
-  mapPendingInviteSummary,
+  mapPendingInviteSummary
+} from "./workspaceMappers.js";
+import { resolveRequestSurfaceId, resolveRequestedWorkspaceSlug } from "./workspaceRequestContext.js";
+import {
   normalizeMembershipForAccess,
   mapMembershipSummary,
   normalizePermissions,
-  createWorkspaceSettingsDefaults,
   createMembershipIndexes
-} from "./lib/workspaceHelpers.js";
-import { encodeInviteTokenHash } from "./lib/inviteTokens.js";
+} from "./workspaceAccess.js";
+import { createWorkspaceSettingsDefaults } from "./workspacePolicyDefaults.js";
+import { encodeInviteTokenHash } from "./inviteTokens.js";
 
 function isMysqlDuplicateEntryError(error) {
   if (!error) {
@@ -393,7 +396,7 @@ function createService({
           workspaceSettingsCache
         });
 
-        return mapWorkspaceSummary(membershipWorkspace, {
+        return mapWorkspaceMembershipSummary(membershipWorkspace, {
           isAccessible: access.allowed
         });
       })
@@ -730,4 +733,4 @@ function createService({
   };
 }
 
-export { createService, mapUserSettingsPublic, mapWorkspaceSettingsPublic, mapPendingInviteSummary };
+export { createService };

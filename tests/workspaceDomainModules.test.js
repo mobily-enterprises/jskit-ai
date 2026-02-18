@@ -1,28 +1,27 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-
+import { normalizeEmail } from "../shared/auth/utils.js";
+import { buildWorkspaceBaseSlug, buildWorkspaceName, toSlugPart } from "../server/domain/workspace/workspaceNaming.js";
 import {
-  buildWorkspaceBaseSlug,
-  buildWorkspaceName,
   createMembershipIndexes,
-  createWorkspaceSettingsDefaults,
   mapMembershipSummary,
+  normalizeMembershipForAccess,
+  normalizePermissions,
+  resolveMembershipRoleId,
+  resolveMembershipStatus
+} from "../server/domain/workspace/workspaceAccess.js";
+import { createWorkspaceSettingsDefaults } from "../server/domain/workspace/workspacePolicyDefaults.js";
+import {
   mapPendingInviteSummary,
   mapUserSettingsPublic,
   mapWorkspaceSettingsPublic,
-  mapWorkspaceSummary,
-  normalizeEmail,
-  normalizeMembershipForAccess,
-  normalizePermissions,
-  normalizeWorkspaceColor,
-  resolveMembershipRoleId,
-  resolveMembershipStatus,
-  resolveRequestedWorkspaceSlug,
-  resolveRequestSurfaceId,
-  toSlugPart
-} from "../server/domain/workspace/lib/workspaceHelpers.js";
+  mapWorkspaceMembershipSummary,
+  normalizeWorkspaceColor
+} from "../server/domain/workspace/workspaceMappers.js";
+import { resolveRequestedWorkspaceSlug, resolveRequestSurfaceId } from "../server/domain/workspace/workspaceRequestContext.js";
 
-test("workspace helper primitives normalize text and slug/name fallback behavior", () => {
+
+test("workspace naming primitives normalize text and slug/name fallback behavior", () => {
   assert.equal(toSlugPart("  Chiara Mobily  "), "chiara-mobily");
   assert.equal(toSlugPart("###"), "");
   assert.equal(normalizeEmail("  User@Example.com "), "user@example.com");
@@ -36,11 +35,11 @@ test("workspace helper primitives normalize text and slug/name fallback behavior
   assert.equal(buildWorkspaceBaseSlug({ displayName: "", email: "", id: 7 }), "user-7");
 });
 
-test("workspace helper mappers normalize color, summary, settings and invite payloads", () => {
+test("workspace mappers normalize color, summary, settings and invite payloads", () => {
   assert.equal(normalizeWorkspaceColor("#0f6b54"), "#0F6B54");
   assert.equal(normalizeWorkspaceColor("bad-color"), "#0F6B54");
 
-  const workspaceSummary = mapWorkspaceSummary(
+  const workspaceSummary = mapWorkspaceMembershipSummary(
     {
       id: 11,
       slug: "acme",
@@ -126,7 +125,7 @@ test("workspace helper mappers normalize color, summary, settings and invite pay
   );
 });
 
-test("membership and permissions helpers normalize role/status and index structures", () => {
+test("workspace access primitives normalize role/status and index structures", () => {
   assert.equal(resolveMembershipRoleId({ roleId: "admin" }), "admin");
   assert.equal(resolveMembershipRoleId({}), "");
   assert.equal(resolveMembershipStatus({ status: "pending" }), "pending");
@@ -160,7 +159,7 @@ test("membership and permissions helpers normalize role/status and index structu
   assert.equal(indexes.bySlug.get("bravo").id, 2);
 });
 
-test("request helpers resolve surface and workspace slug from headers/query/params/path", () => {
+test("workspace request context resolves surface and slug from headers/query/params/path", () => {
   assert.equal(
     resolveRequestSurfaceId(
       {
@@ -231,13 +230,13 @@ test("request helpers resolve surface and workspace slug from headers/query/para
   assert.equal(resolveRequestedWorkspaceSlug({}), "");
 });
 
-test("workspace helper fallbacks normalize empty/minimal shapes safely", () => {
+test("workspace module fallbacks normalize empty/minimal shapes safely", () => {
   assert.equal(normalizeEmail(null), "");
   assert.equal(buildWorkspaceName({}), "Workspace");
   assert.equal(buildWorkspaceBaseSlug({}), "user-workspace");
   assert.equal(normalizeWorkspaceColor(undefined), "#0F6B54");
 
-  const minimalWorkspace = mapWorkspaceSummary(
+  const minimalWorkspace = mapWorkspaceMembershipSummary(
     {
       id: "9",
       slug: "",
