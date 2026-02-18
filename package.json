@@ -7,8 +7,10 @@
   "scripts": {
     "server": "node bin/server.js",
     "start": "node bin/server.js",
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "VITE_CLIENT_ENTRY=main.js vite",
+    "build": "VITE_CLIENT_ENTRY=main.js vite build --mode internal",
+    "build:client:internal": "VITE_CLIENT_ENTRY=main.js vite build --mode internal",
+    "build:client:public": "VITE_CLIENT_ENTRY=main.public.js vite build --mode public",
     "preview": "vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

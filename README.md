@@ -154,6 +154,23 @@ Open `http://localhost:3000`.
 
 Swagger UI is available at `http://localhost:3000/api/docs` in non-production mode.
 
+## Client build profiles
+
+The project supports two client build targets selected by `VITE_CLIENT_ENTRY`:
+
+- Internal/full client: `src/main.js`
+- Public client (no god UI screens): `src/main.public.js`
+
+Build commands:
+
+```bash
+npm run build:client:internal
+npm run build:client:public
+```
+
+`index.html` uses `%VITE_CLIENT_ENTRY%`, and scripts set the entry value per target.
+Both commands emit `dist/index.html`, so `server.js` static serving continues to work unchanged.
+
 ## Release process
 
 Use `docs/release-checklist.md` before shipping.
