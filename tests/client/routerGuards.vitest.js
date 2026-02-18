@@ -3,7 +3,9 @@ import { createPinia, setActivePinia } from "pinia";
 
 const mocks = vi.hoisted(() => ({
   api: {
-    bootstrap: vi.fn()
+    workspace: {
+      bootstrap: vi.fn()
+    }
   }
 }));
 
@@ -65,7 +67,7 @@ function buildStores({
 
 describe("routerGuards", () => {
   beforeEach(() => {
-    mocks.api.bootstrap.mockReset();
+    mocks.api.workspace.bootstrap.mockReset();
   });
 
   it("resolveRuntimeState uses existing initialized store state", async () => {
@@ -85,7 +87,7 @@ describe("routerGuards", () => {
       activeWorkspaceSlug: "acme",
       sessionUnavailable: false
     });
-    expect(mocks.api.bootstrap).not.toHaveBeenCalled();
+    expect(mocks.api.workspace.bootstrap).not.toHaveBeenCalled();
   });
 
   it("resolveRuntimeState bootstraps and maps auth/workspace state", async () => {
@@ -93,7 +95,7 @@ describe("routerGuards", () => {
       authInitialized: false,
       workspaceInitialized: false
     });
-    mocks.api.bootstrap.mockResolvedValue({
+    mocks.api.workspace.bootstrap.mockResolvedValue({
       session: {
         authenticated: true
       },
@@ -104,7 +106,7 @@ describe("routerGuards", () => {
 
     const state = await resolveRuntimeState(stores);
 
-    expect(mocks.api.bootstrap).toHaveBeenCalledTimes(1);
+    expect(mocks.api.workspace.bootstrap).toHaveBeenCalledTimes(1);
     expect(stores.authStore.applySession).toHaveBeenCalledWith({
       authenticated: true,
       username: null
@@ -132,7 +134,7 @@ describe("routerGuards", () => {
     };
     const stores = { authStore, workspaceStore };
 
-    mocks.api.bootstrap.mockResolvedValue({
+    mocks.api.workspace.bootstrap.mockResolvedValue({
       session: {
         authenticated: true
       },
@@ -171,7 +173,7 @@ describe("routerGuards", () => {
     });
     const transientError = new Error("temporarily unavailable");
     transientError.status = 503;
-    mocks.api.bootstrap.mockRejectedValueOnce(transientError);
+    mocks.api.workspace.bootstrap.mockRejectedValueOnce(transientError);
 
     const transientState = await resolveRuntimeState(transientStores);
     expect(transientState.sessionUnavailable).toBe(true);
@@ -187,7 +189,7 @@ describe("routerGuards", () => {
     });
     const invalidError = new Error("session invalid");
     invalidError.status = 401;
-    mocks.api.bootstrap.mockRejectedValueOnce(invalidError);
+    mocks.api.workspace.bootstrap.mockRejectedValueOnce(invalidError);
 
     const invalidState = await resolveRuntimeState(invalidStores);
     expect(invalidState.authenticated).toBe(false);
@@ -203,7 +205,7 @@ describe("routerGuards", () => {
     });
     const transientError = new Error("busy");
     transientError.status = 503;
-    mocks.api.bootstrap.mockRejectedValue(transientError);
+    mocks.api.workspace.bootstrap.mockRejectedValue(transientError);
 
     const guards = createSurfaceRouteGuards(stores);
 

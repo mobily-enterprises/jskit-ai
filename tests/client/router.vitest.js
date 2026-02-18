@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   api: {
-    bootstrap: vi.fn()
+    workspace: {
+      bootstrap: vi.fn()
+    }
   }
 }));
 
@@ -15,6 +17,12 @@ vi.mock("../../src/shells/admin/AdminShell.vue", () => ({
 vi.mock("../../src/shells/app/AppShell.vue", () => ({
   default: {
     name: "CustomerShellMock"
+  }
+}));
+
+vi.mock("../../src/shells/god/GodShell.vue", () => ({
+  default: {
+    name: "GodShellMock"
   }
 }));
 
@@ -77,7 +85,7 @@ function buildStores({
 describe("router auth guards", () => {
   it("resolveRuntimeState bootstraps and returns authenticated workspace state", async () => {
     const stores = buildStores();
-    mocks.api.bootstrap.mockResolvedValue({
+    mocks.api.workspace.bootstrap.mockResolvedValue({
       session: {
         authenticated: true,
         username: "alice"
@@ -107,7 +115,7 @@ describe("router auth guards", () => {
     });
     const error = new Error("temporarily unavailable");
     error.status = 503;
-    mocks.api.bootstrap.mockRejectedValue(error);
+    mocks.api.workspace.bootstrap.mockRejectedValue(error);
 
     const state = await __testables.resolveRuntimeState(stores);
     expect(state.sessionUnavailable).toBe(true);
@@ -124,7 +132,7 @@ describe("router auth guards", () => {
     });
     const error = new Error("invalid session");
     error.status = 401;
-    mocks.api.bootstrap.mockRejectedValue(error);
+    mocks.api.workspace.bootstrap.mockRejectedValue(error);
 
     const state = await __testables.resolveRuntimeState(stores);
     expect(state).toEqual({
@@ -138,7 +146,7 @@ describe("router auth guards", () => {
   });
 
   it("beforeLoadRoot redirects according to auth/workspace state", async () => {
-    mocks.api.bootstrap.mockReset();
+    mocks.api.workspace.bootstrap.mockReset();
 
     await expect(
       __testables.beforeLoadRoot(buildStores({ authInitialized: true, workspaceInitialized: true }))
@@ -174,7 +182,7 @@ describe("router auth guards", () => {
   });
 
   it("beforeLoadPublic allows unauthenticated and redirects authenticated sessions", async () => {
-    mocks.api.bootstrap.mockReset();
+    mocks.api.workspace.bootstrap.mockReset();
 
     await expect(
       __testables.beforeLoadPublic(
@@ -213,7 +221,7 @@ describe("router auth guards", () => {
   });
 
   it("beforeLoadWorkspaceRequired validates auth/workspace and switches workspaces by slug", async () => {
-    mocks.api.bootstrap.mockReset();
+    mocks.api.workspace.bootstrap.mockReset();
 
     await expect(
       __testables.beforeLoadWorkspaceRequired(
@@ -307,6 +315,12 @@ describe("router auth guards", () => {
       pathname: "/admin/login"
     });
     expect(explicitRouter).toBeTruthy();
+
+    const godRouter = createRouterForCurrentPath({
+      ...stores,
+      pathname: "/god/login"
+    });
+    expect(godRouter).toBeTruthy();
 
     window.history.replaceState({}, "", "/admin/w/acme");
     const implicitRouter = createRouterForCurrentPath(stores);

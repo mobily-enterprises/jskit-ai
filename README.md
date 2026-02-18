@@ -12,6 +12,12 @@ Client/server annuity calculator with Supabase authentication and MySQL persiste
 - `services/`: business logic (auth, annuity math, history)
 - `repositories/`: DB queries only
 
+Frontend surfaces:
+
+- `app` at `/` (workspace-bound)
+- `admin` at `/admin` (workspace-bound)
+- `god` at `/god` (authenticated scaffold only for now; no god APIs/logs/moderation/invites yet)
+
 ## Stack
 
 - Backend: Fastify

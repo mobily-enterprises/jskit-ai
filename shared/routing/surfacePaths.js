@@ -7,7 +7,9 @@ import {
 
 const SURFACE_APP = "app";
 const SURFACE_ADMIN = "admin";
+const SURFACE_GOD = "god";
 const ADMIN_SURFACE_PREFIX = resolveSurfacePrefixFromRegistry(SURFACE_ADMIN);
+const GOD_SURFACE_PREFIX = resolveSurfacePrefixFromRegistry(SURFACE_GOD);
 
 function normalizePathname(pathname) {
   const rawValue = String(pathname || "/").trim();
@@ -158,7 +160,9 @@ function resolveSurfacePaths(pathname) {
 export {
   SURFACE_ADMIN,
   SURFACE_APP,
+  SURFACE_GOD,
   ADMIN_SURFACE_PREFIX,
+  GOD_SURFACE_PREFIX,
   normalizePathname,
   resolveSurfaceFromPathname,
   resolveSurfacePrefix,

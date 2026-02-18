@@ -18,6 +18,7 @@ import authPlugin from "./server/fastify/auth.plugin.js";
 import { safePathnameFromRequest } from "./server/lib/primitives/requestUrl.js";
 import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar/index.js";
 import { resolveSurfacePaths } from "./shared/routing/surfacePaths.js";
+import { surfaceRequiresWorkspace } from "./shared/routing/surfaceRegistry.js";
 import { createRateLimitPluginOptions, resolveRateLimitStartupWarning } from "./server/lib/rateLimit.js";
 import { createServerRuntime } from "./server/runtime/index.js";
 
@@ -105,6 +106,7 @@ function hasPathExtension(pathnameValue) {
 async function guardPageRoute(request, reply) {
   const pathnameValue = safePathnameFromRequest(request);
   const surfacePaths = resolveSurfacePaths(pathnameValue);
+  const requiresWorkspace = surfaceRequiresWorkspace(surfacePaths.surface);
   if (hasPathExtension(pathnameValue)) {
     return true;
   }
@@ -141,6 +143,11 @@ async function guardPageRoute(request, reply) {
     }
 
     if (surfacePaths.isLoginPath(pathnameValue) && authResult.authenticated) {
+      if (!requiresWorkspace) {
+        reply.redirect(surfacePaths.rootPath);
+        return false;
+      }
+
       const resolvedContext = await workspaceService.resolveRequestContext({
         user: authResult.profile,
         request,
@@ -156,38 +163,40 @@ async function guardPageRoute(request, reply) {
     }
 
     if (authResult.authenticated) {
-      const workspaceSlug = surfacePaths.extractWorkspaceSlug(pathnameValue);
-      const requestWithWorkspaceHint = {
-        ...request,
-        params: {
-          ...(request.params || {}),
-          ...(workspaceSlug ? { workspaceSlug } : {})
+      if (requiresWorkspace) {
+        const workspaceSlug = surfacePaths.extractWorkspaceSlug(pathnameValue);
+        const requestWithWorkspaceHint = {
+          ...request,
+          params: {
+            ...(request.params || {}),
+            ...(workspaceSlug ? { workspaceSlug } : {})
+          }
+        };
+        const workspacePolicy = workspaceSlug ? "required" : "optional";
+        const resolvedContext = await workspaceService.resolveRequestContext({
+          user: authResult.profile,
+          request: requestWithWorkspaceHint,
+          workspacePolicy
+        });
+
+        if (
+          !resolvedContext.workspace &&
+          !surfacePaths.isWorkspacesPath(pathnameValue) &&
+          !surfacePaths.isAccountSettingsPath(pathnameValue) &&
+          !surfacePaths.isPublicAuthPath(pathnameValue)
+        ) {
+          reply.redirect(surfacePaths.workspacesPath);
+          return false;
         }
-      };
-      const workspacePolicy = workspaceSlug ? "required" : "optional";
-      const resolvedContext = await workspaceService.resolveRequestContext({
-        user: authResult.profile,
-        request: requestWithWorkspaceHint,
-        workspacePolicy
-      });
 
-      if (
-        !resolvedContext.workspace &&
-        !surfacePaths.isWorkspacesPath(pathnameValue) &&
-        !surfacePaths.isAccountSettingsPath(pathnameValue) &&
-        !surfacePaths.isPublicAuthPath(pathnameValue)
-      ) {
-        reply.redirect(surfacePaths.workspacesPath);
-        return false;
-      }
-
-      if (
-        resolvedContext.workspace &&
-        surfacePaths.isWorkspacesPath(pathnameValue) &&
-        APP_CONFIG.tenancyMode === "personal"
-      ) {
-        reply.redirect(surfacePaths.workspaceHomePath(resolvedContext.workspace.slug));
-        return false;
+        if (
+          resolvedContext.workspace &&
+          surfacePaths.isWorkspacesPath(pathnameValue) &&
+          APP_CONFIG.tenancyMode === "personal"
+        ) {
+          reply.redirect(surfacePaths.workspaceHomePath(resolvedContext.workspace.slug));
+          return false;
+        }
       }
     }
 
@@ -195,7 +204,7 @@ async function guardPageRoute(request, reply) {
   } catch (error) {
     const statusCode = Number(error?.status || error?.statusCode);
     if (!surfacePaths.isPublicAuthPath(pathnameValue)) {
-      if (statusCode === 403 || statusCode === 409) {
+      if (requiresWorkspace && (statusCode === 403 || statusCode === 409)) {
         reply.redirect(surfacePaths.workspacesPath);
         return false;
       }

@@ -9,6 +9,7 @@ function createRoutingHarness({
   hasActiveWorkspace = true,
   workspacePath = "/w/acme",
   workspacesPath = "/workspaces",
+  rootPath = "/",
   surface = "app"
 } = {}) {
   const navigate = vi.fn(async () => undefined);
@@ -16,6 +17,7 @@ function createRoutingHarness({
   const routerSearchRef = ref(routerSearch);
   const surfacePaths = ref({
     surface,
+    rootPath,
     accountSettingsPath: "/account/settings",
     workspacesPath,
     isAccountSettingsPath: (pathname) => String(pathname || "") === "/account/settings"
@@ -93,6 +95,18 @@ describe("useSettingsRouting", () => {
     await withWorkspacesFallback.vm.goBack();
     expect(withWorkspacesFallback.navigate).toHaveBeenCalledWith({
       to: "/admin/workspaces"
+    });
+
+    const nonWorkspaceSurfaceFallback = createRoutingHarness({
+      routerSearch: { section: "profile", returnTo: "" },
+      hasActiveWorkspace: false,
+      surface: "god",
+      rootPath: "/god",
+      workspacesPath: "/god/workspaces"
+    });
+    await nonWorkspaceSurfaceFallback.vm.goBack();
+    expect(nonWorkspaceSurfaceFallback.navigate).toHaveBeenCalledWith({
+      to: "/god"
     });
   });
 

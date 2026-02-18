@@ -25,6 +25,8 @@ export function useAnnuityHistoryList({ initialPageSize = pageSizeOptions[0] } =
     defaultPageSize: pageSizeOptions[0],
     pageSizeOptions
   });
+  const listHistory = (page, pageSize) =>
+    typeof api?.history?.list === "function" ? api.history.list(page, pageSize) : api.history(page, pageSize);
 
   const query = useQuery({
     queryKey: computed(() => [
@@ -33,7 +35,7 @@ export function useAnnuityHistoryList({ initialPageSize = pageSizeOptions[0] } =
       pagination.page.value,
       pagination.pageSize.value
     ]),
-    queryFn: () => api.history.list(pagination.page.value, pagination.pageSize.value),
+    queryFn: () => listHistory(pagination.page.value, pagination.pageSize.value),
     enabled,
     placeholderData: (previous) => previous
   });

@@ -1,4 +1,5 @@
 import { computed, ref, watch } from "vue";
+import { surfaceRequiresWorkspace } from "../../../../shared/routing/surfaceRegistry.js";
 import { SETTINGS_SECTION_QUERY_KEY, VALID_SETTINGS_TABS } from "./useSettingsPageConfig.js";
 import { resolveTabFromSearch } from "./useSettingsSharedHelpers.js";
 
@@ -45,6 +46,10 @@ export function useSettingsRouting({ navigate, routerPath, routerSearch, surface
 
     if (workspaceStore.hasActiveWorkspace) {
       return workspaceStore.workspacePath("/", { surface: currentSurfacePaths.surface });
+    }
+
+    if (!surfaceRequiresWorkspace(currentSurfacePaths.surface)) {
+      return currentSurfacePaths.rootPath;
     }
 
     return currentSurfacePaths.workspacesPath;
