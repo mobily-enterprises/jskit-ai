@@ -168,9 +168,24 @@ function createWorkspaceAdminService({
     };
   }
 
-  function buildInviteTokenHash() {
-    const token = crypto.randomBytes(24).toString("hex");
-    return crypto.createHash("sha256").update(token).digest("hex");
+  function mapWorkspacePayload(workspace) {
+    return workspace
+      ? {
+          id: Number(workspace.id),
+          slug: String(workspace.slug || ""),
+          name: String(workspace.name || ""),
+          color: coerceWorkspaceColor(workspace.color),
+          avatarUrl: workspace.avatarUrl ? String(workspace.avatarUrl) : ""
+        }
+      : null;
+  }
+
+  function buildInviteToken() {
+    return crypto.randomBytes(24).toString("hex");
+  }
+
+  function hashInviteToken(token) {
+    return crypto.createHash("sha256").update(String(token || "")).digest("hex");
   }
 
   function resolveInviteExpiresAt() {
@@ -376,18 +391,21 @@ function createWorkspaceAdminService({
       }
     }
 
+    const inviteToken = buildInviteToken();
+    let createdInvite = null;
+
     await runInInviteTransaction(async (trx) => {
       const options = trx ? { trx } : {};
 
       await workspaceInvitesRepository.expirePendingByWorkspaceIdAndEmail(workspace.id, email, options);
 
       try {
-        await workspaceInvitesRepository.insert(
+        createdInvite = await workspaceInvitesRepository.insert(
           {
             workspaceId: workspace.id,
             email,
             roleId,
-            tokenHash: buildInviteTokenHash(),
+            tokenHash: hashInviteToken(inviteToken),
             invitedByUserId: Number(actorUser?.id) || null,
             expiresAt: resolveInviteExpiresAt(),
             status: "pending"
@@ -403,7 +421,54 @@ function createWorkspaceAdminService({
       }
     });
 
-    return listInvites(workspace);
+    const response = await listInvites(workspace);
+    return {
+      ...response,
+      createdInvite: {
+        inviteId: Number(createdInvite?.id),
+        email,
+        token: inviteToken
+      }
+    };
+  }
+
+  async function resolveInviteResponse({
+    invite,
+    normalizedDecision,
+    userId,
+    transactionOptions
+  }) {
+    if (normalizedDecision === "refuse") {
+      await workspaceInvitesRepository.revokeById(invite.id, transactionOptions);
+      return {
+        ok: true,
+        decision: "refused",
+        inviteId: Number(invite.id),
+        workspace: mapWorkspacePayload(invite.workspace)
+      };
+    }
+
+    const roleId = normalizeRoleForAssignment(invite.roleId || rbacManifest.defaultInviteRole);
+    await workspaceMembershipsRepository.ensureActiveByWorkspaceIdAndUserId(
+      invite.workspaceId,
+      userId,
+      roleId,
+      transactionOptions
+    );
+    await workspaceInvitesRepository.markAcceptedById(invite.id, transactionOptions);
+
+    if (userSettingsRepository && typeof userSettingsRepository.updateLastActiveWorkspaceId === "function") {
+      await userSettingsRepository.updateLastActiveWorkspaceId(userId, invite.workspaceId, transactionOptions);
+    }
+
+    const workspace = invite.workspace ? await workspacesRepository.findById(invite.workspace.id, transactionOptions) : null;
+
+    return {
+      ok: true,
+      decision: "accepted",
+      inviteId: Number(invite.id),
+      workspace: mapWorkspacePayload(workspace)
+    };
   }
 
   async function revokeInvite(workspaceContext, inviteId) {
@@ -517,48 +582,62 @@ function createWorkspaceAdminService({
         throw new AppError(404, "Invite not found.");
       }
 
-      if (normalizedDecision === "refuse") {
-        await workspaceInvitesRepository.revokeById(invite.id, options);
-        return {
-          ok: true,
-          decision: "refused",
-          inviteId: Number(invite.id),
-          workspace: invite.workspace
-            ? {
-                id: Number(invite.workspace.id),
-                slug: String(invite.workspace.slug || ""),
-                name: String(invite.workspace.name || ""),
-                color: coerceWorkspaceColor(invite.workspace.color),
-                avatarUrl: invite.workspace.avatarUrl ? String(invite.workspace.avatarUrl) : ""
-              }
-            : null
-        };
+      return resolveInviteResponse({
+        invite,
+        normalizedDecision,
+        userId,
+        transactionOptions: options
+      });
+    });
+  }
+
+  async function respondToPendingInviteByToken({ user, inviteToken, decision }) {
+    const userId = parsePositiveInteger(user?.id);
+    const email = normalizeEmail(user?.email);
+    if (!userId || !email) {
+      throw new AppError(401, "Authentication required.");
+    }
+
+    const normalizedDecision = String(decision || "")
+      .trim()
+      .toLowerCase();
+    if (normalizedDecision !== "accept" && normalizedDecision !== "refuse") {
+      throw new AppError(400, "Validation failed.", {
+        details: {
+          fieldErrors: {
+            decision: "decision must be accept or refuse."
+          }
+        }
+      });
+    }
+
+    const normalizedInviteToken = String(inviteToken || "").trim();
+    if (!normalizedInviteToken) {
+      throw new AppError(400, "Validation failed.", {
+        details: {
+          fieldErrors: {
+            token: "token is required."
+          }
+        }
+      });
+    }
+
+    return runInAdminTransaction(async (trx) => {
+      const options = trx ? { trx } : {};
+      const invite = await workspaceInvitesRepository.findPendingByTokenHash(hashInviteToken(normalizedInviteToken), options);
+      if (!invite) {
+        throw new AppError(404, "Invite not found.");
+      }
+      if (normalizeEmail(invite.email) !== email) {
+        throw new AppError(403, "Forbidden.");
       }
 
-      const roleId = normalizeRoleForAssignment(invite.roleId || rbacManifest.defaultInviteRole);
-      await workspaceMembershipsRepository.ensureActiveByWorkspaceIdAndUserId(invite.workspaceId, userId, roleId, options);
-      await workspaceInvitesRepository.markAcceptedById(invite.id, options);
-
-      if (userSettingsRepository && typeof userSettingsRepository.updateLastActiveWorkspaceId === "function") {
-        await userSettingsRepository.updateLastActiveWorkspaceId(userId, invite.workspaceId, options);
-      }
-
-      const workspace = invite.workspace ? await workspacesRepository.findById(invite.workspace.id, options) : null;
-
-      return {
-        ok: true,
-        decision: "accepted",
-        inviteId: Number(invite.id),
-        workspace: workspace
-          ? {
-              id: Number(workspace.id),
-              slug: String(workspace.slug || ""),
-              name: String(workspace.name || ""),
-              color: coerceWorkspaceColor(workspace.color),
-              avatarUrl: workspace.avatarUrl ? String(workspace.avatarUrl) : ""
-            }
-          : null
-      };
+      return resolveInviteResponse({
+        invite,
+        normalizedDecision,
+        userId,
+        transactionOptions: options
+      });
     });
   }
 
@@ -581,7 +660,8 @@ function createWorkspaceAdminService({
     createInvite,
     revokeInvite,
     listPendingInvitesForUser,
-    respondToPendingInvite
+    respondToPendingInvite,
+    respondToPendingInviteByToken
   };
 }
 

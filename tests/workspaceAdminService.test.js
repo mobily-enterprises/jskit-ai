@@ -416,6 +416,19 @@ function createWorkspaceAdminFixture(overrides = {}) {
       );
       return found ? toInviteWithWorkspace(found) : null;
     },
+    async findPendingByTokenHash(tokenHash) {
+      const normalizedTokenHash = String(tokenHash || "")
+        .trim()
+        .toLowerCase();
+      if (!normalizedTokenHash) {
+        return null;
+      }
+
+      const found = state.invites.find(
+        (invite) => isInvitePendingAndUnexpired(invite) && String(invite.tokenHash || "").toLowerCase() === normalizedTokenHash
+      );
+      return found ? toInviteWithWorkspace(found) : null;
+    },
     async markAcceptedById(inviteId) {
       const index = state.invites.findIndex((invite) => Number(invite.id) === Number(inviteId));
       if (index >= 0) {
@@ -640,6 +653,8 @@ test("workspace admin service manages members, invites, and pending invite respo
     createdInviteResponse.invites.some((invite) => invite.email === "new@example.com"),
     true
   );
+  assert.equal(typeof createdInviteResponse.createdInvite?.token, "string");
+  assert.equal(createdInviteResponse.createdInvite.token.length > 0, true);
 
   const recreatedExpiredInviteResponse = await service.createInvite(
     { id: 11 },
@@ -650,6 +665,14 @@ test("workspace admin service manages members, invites, and pending invite respo
     recreatedExpiredInviteResponse.invites.some((invite) => invite.email === "expired@example.com"),
     true
   );
+
+  const tokenInviteResponse = await service.createInvite(
+    { id: 11 },
+    { id: 5 },
+    { email: "token@example.com", roleId: "member" }
+  );
+  assert.equal(typeof tokenInviteResponse.createdInvite?.token, "string");
+  assert.equal(tokenInviteResponse.createdInvite.token.length > 0, true);
 
   await assert.rejects(
     () => service.revokeInvite({ id: 11 }, "invalid"),
@@ -698,6 +721,54 @@ test("workspace admin service manages members, invites, and pending invite respo
       }),
     (error) => error instanceof AppError && error.statusCode === 404
   );
+  await assert.rejects(
+    () =>
+      service.respondToPendingInviteByToken({
+        user: { id: 0, email: "" },
+        inviteToken: tokenInviteResponse.createdInvite.token,
+        decision: "accept"
+      }),
+    (error) => error instanceof AppError && error.statusCode === 401
+  );
+  await assert.rejects(
+    () =>
+      service.respondToPendingInviteByToken({
+        user: { id: 55, email: "token@example.com" },
+        inviteToken: "",
+        decision: "accept"
+      }),
+    (error) => error instanceof AppError && error.statusCode === 400
+  );
+  await assert.rejects(
+    () =>
+      service.respondToPendingInviteByToken({
+        user: { id: 55, email: "another@example.com" },
+        inviteToken: tokenInviteResponse.createdInvite.token,
+        decision: "accept"
+      }),
+    (error) => error instanceof AppError && error.statusCode === 403
+  );
+  await assert.rejects(
+    () =>
+      service.respondToPendingInviteByToken({
+        user: { id: 55, email: "token@example.com" },
+        inviteToken: "missing-token",
+        decision: "accept"
+      }),
+    (error) => error instanceof AppError && error.statusCode === 404
+  );
+
+  const acceptedByToken = await service.respondToPendingInviteByToken({
+    user: {
+      id: 55,
+      email: "token@example.com"
+    },
+    inviteToken: tokenInviteResponse.createdInvite.token,
+    decision: "accept"
+  });
+  assert.equal(acceptedByToken.decision, "accepted");
+  assert.equal(acceptedByToken.workspace.slug, "acme");
+  assert.equal(state.updatedLastActiveWorkspaceByUserId.get(55), 11);
 
   state.invites.push({
     id: 300,

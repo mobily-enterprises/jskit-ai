@@ -39,6 +39,7 @@ const {
   workspaceRolesResponseSchema,
   pendingInvitesResponseSchema,
   respondToPendingInviteBodySchema,
+  redeemPendingInviteBodySchema,
   respondToPendingInviteResponseSchema,
   bootstrapResponseSchema,
   workspacesListResponseSchema,
@@ -340,6 +341,24 @@ function buildDefaultRoutes(controllers) {
         })
       },
       handler: controllers.workspace?.listPendingInvites || missingHandler
+    },
+    {
+      path: "/api/workspace/invitations/redeem",
+      method: "POST",
+      auth: "required",
+      allowNoWorkspace: true,
+      schema: {
+        tags: ["workspace"],
+        summary: "Accept or refuse a workspace invitation using an invite token",
+        body: redeemPendingInviteBodySchema,
+        response: withStandardErrorResponses(
+          {
+            200: respondToPendingInviteResponseSchema
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.workspace?.respondToPendingInviteByToken || missingHandler
     },
     {
       path: "/api/workspace/invitations/:inviteId/respond",

@@ -245,6 +245,9 @@ export const api = {
     const encodedInviteId = encodeURIComponent(String(inviteId || "").trim());
     return request(`/api/workspace/invitations/${encodedInviteId}/respond`, { method: "POST", body: payload });
   },
+  redeemWorkspaceInvite(payload) {
+    return request("/api/workspace/invitations/redeem", { method: "POST", body: payload });
+  },
   workspaceSettings() {
     return request("/api/workspace/settings");
   },

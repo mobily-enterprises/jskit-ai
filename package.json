@@ -27,9 +27,11 @@
     "test:coverage": "NODE_ENV=test c8 --config .c8rc.json node --test",
     "test:coverage:all": "NODE_ENV=test c8 --config .c8rc.json --check-coverage false --per-file false --reporter text-summary node --test",
     "test:coverage:aspirational": "NODE_ENV=test c8 --config .c8rc.aspirational.json --check-coverage false --per-file false --reporter text-summary node --test",
-    "test:coverage:full": "npm run test:coverage && npm run test:client:coverage && npm run test:client:views:coverage",
+    "test:coverage:full": "npm run docs:api-contracts:check && npm run test:coverage && npm run test:client:coverage && npm run test:client:views:coverage",
     "test:e2e": "playwright test",
-    "test:e2e:install": "playwright install chromium"
+    "test:e2e:install": "playwright install chromium",
+    "docs:api-contracts": "node bin/syncApiContractsReadme.js",
+    "docs:api-contracts:check": "node bin/syncApiContractsReadme.js --check"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

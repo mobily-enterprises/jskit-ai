@@ -29,14 +29,18 @@ function resolveOwnerValue(routeConfig, request) {
 async function authPlugin(fastify, options) {
   const authService = options.authService;
   const workspaceService = options.workspaceService || null;
+  const rateLimitPluginOptions =
+    options.rateLimitPluginOptions && typeof options.rateLimitPluginOptions === "object"
+      ? options.rateLimitPluginOptions
+      : {
+          global: false
+        };
   if (!authService) {
     throw new Error("authService is required.");
   }
 
   await fastify.register(fastifyCookie);
-  await fastify.register(fastifyRateLimit, {
-    global: false
-  });
+  await fastify.register(fastifyRateLimit, rateLimitPluginOptions);
   await fastify.register(fastifyCsrfProtection, {
     getToken(request) {
       return (

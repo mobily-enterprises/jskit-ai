@@ -176,6 +176,10 @@ test("workspace controller delegates workspace and admin routes to services", as
     async respondToPendingInvite({ user, inviteId, decision }) {
       calls.push(["respondToPendingInvite", user.id, inviteId, decision]);
       return { ok: true, decision };
+    },
+    async respondToPendingInviteByToken({ user, inviteToken, decision }) {
+      calls.push(["respondToPendingInviteByToken", user.id, inviteToken, decision]);
+      return { ok: true, decision };
     }
   };
 
@@ -367,12 +371,30 @@ test("workspace controller delegates workspace and admin routes to services", as
   );
   assert.equal(respondFallbackReply.statusCode, 200);
 
+  const respondByTokenReply = createReplyDouble();
+  await controller.respondToPendingInviteByToken(
+    {
+      user,
+      body: {
+        token: "invite-token",
+        decision: "accept"
+      }
+    },
+    respondByTokenReply
+  );
+  assert.equal(respondByTokenReply.statusCode, 200);
+  assert.equal(respondByTokenReply.payload.ok, true);
+
   assert.equal(
     calls.some((entry) => entry[0] === "listWorkspacesForUser"),
     true
   );
   assert.equal(
     calls.some((entry) => entry[0] === "respondToPendingInvite"),
+    true
+  );
+  assert.equal(
+    calls.some((entry) => entry[0] === "respondToPendingInviteByToken"),
     true
   );
 });

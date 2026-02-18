@@ -48,6 +48,12 @@ export SUPABASE_PUBLISHABLE_KEY="YOUR_SUPABASE_PUBLISHABLE_KEY"
 export SUPABASE_JWT_AUDIENCE="authenticated"
 # optional but recommended; reset links use: APP_PUBLIC_URL + /reset-password
 export APP_PUBLIC_URL="http://localhost:5173"
+# rate-limit backend mode (memory by default)
+export RATE_LIMIT_MODE="memory"
+# required when RATE_LIMIT_MODE=redis
+export REDIS_URL=""
+# set true behind a trusted reverse proxy / load balancer
+export TRUST_PROXY="false"
 ```
 
 The server loads `.env` (and `.env.local`) via `dotenv`, so you can place the same key/value pairs in that file instead of exporting them manually before each command.
@@ -197,24 +203,59 @@ npm run format:check
 
 ## API contracts (v1)
 
+This endpoint inventory is generated from `routes/apiRoutes.js`.
+
+```bash
+npm run docs:api-contracts
+```
+
+<!-- API_CONTRACTS_START -->
 - `POST /api/register`
 - `POST /api/login`
+- `POST /api/login/otp/request`
+- `POST /api/login/otp/verify`
+- `GET /api/oauth/:provider/start`
+- `POST /api/oauth/complete`
+- `POST /api/password/forgot`
+- `POST /api/password/recovery`
+- `POST /api/password/reset`
 - `POST /api/logout`
 - `GET /api/session`
 - `GET /api/bootstrap`
 - `GET /api/workspaces`
 - `POST /api/workspaces/select`
-- `POST /api/password/forgot`
-- `POST /api/password/recovery`
-- `POST /api/password/reset`
+- `GET /api/workspace/invitations/pending`
+- `POST /api/workspace/invitations/:inviteId/respond`
+- `GET /api/workspace/settings`
+- `PATCH /api/workspace/settings`
+- `GET /api/workspace/roles`
+- `GET /api/workspace/members`
+- `PATCH /api/workspace/members/:memberUserId/role`
+- `GET /api/workspace/invites`
+- `POST /api/workspace/invites`
+- `DELETE /api/workspace/invites/:inviteId`
+- `GET /api/settings`
+- `PATCH /api/settings/profile`
+- `POST /api/settings/profile/avatar`
+- `DELETE /api/settings/profile/avatar`
+- `PATCH /api/settings/preferences`
+- `PATCH /api/settings/notifications`
+- `POST /api/settings/security/change-password`
+- `PATCH /api/settings/security/methods/password`
+- `GET /api/settings/security/oauth/:provider/start`
+- `DELETE /api/settings/security/oauth/:provider`
+- `POST /api/settings/security/logout-others`
 - `GET /api/history`
 - `POST /api/annuityCalculator`
+<!-- API_CONTRACTS_END -->
 
 Auth/security behavior:
 
 - API routes declare `authPolicy` as `public`, `required`, or `own`.
 - Login/register routes are rate-limited.
 - Password reset routes are rate-limited and return generic forgot-password responses.
+- Rate-limit mode defaults to in-memory (`RATE_LIMIT_MODE=memory`). For multi-instance deployments, use a shared store mode (`RATE_LIMIT_MODE=redis`) once the Redis adapter is wired.
+- Set `TRUST_PROXY=true` when deploying behind a trusted reverse proxy/load balancer so client IP resolution is correct.
 - All unsafe API methods (`POST/PUT/PATCH/DELETE`) enforce CSRF token checks.
 - Access tokens are verified locally against Supabase JWKS; refresh is only attempted when access token is expired.
 - Transient JWKS/network failures return temporary auth errors without clearing valid sessions.

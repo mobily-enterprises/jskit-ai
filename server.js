@@ -38,6 +38,7 @@ import { createWorkspaceService } from "./services/workspaceService.js";
 import { createWorkspaceAdminService } from "./services/workspaceAdminService.js";
 import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar/index.js";
 import { resolveSurfacePaths } from "./shared/routing/surfacePaths.js";
+import { createRateLimitPluginOptions, resolveRateLimitStartupWarning } from "./lib/rateLimit.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -381,9 +382,23 @@ function registerPageGuardHook(app) {
 }
 
 export async function buildServer({ frontendBuildAvailable }) {
-  const app = Fastify({
-    logger: NODE_ENV !== "test"
+  const rateLimitPluginOptions = createRateLimitPluginOptions({
+    mode: env.RATE_LIMIT_MODE,
+    redisUrl: env.REDIS_URL
   });
+
+  const app = Fastify({
+    logger: NODE_ENV !== "test",
+    trustProxy: Boolean(env.TRUST_PROXY)
+  });
+
+  const rateLimitStartupWarning = resolveRateLimitStartupWarning({
+    mode: env.RATE_LIMIT_MODE,
+    nodeEnv: NODE_ENV
+  });
+  if (rateLimitStartupWarning) {
+    app.log.warn(rateLimitStartupWarning);
+  }
 
   app.decorate("appConfig", APP_CONFIG_PUBLIC);
   app.decorate("rbacManifest", RBAC_MANIFEST);
@@ -437,7 +452,12 @@ export async function buildServer({ frontendBuildAvailable }) {
     });
   }
 
-  await app.register(authPlugin, { authService, workspaceService, nodeEnv: NODE_ENV });
+  await app.register(authPlugin, {
+    authService,
+    workspaceService,
+    nodeEnv: NODE_ENV,
+    rateLimitPluginOptions
+  });
   await app.register(fastifyMultipart, {
     limits: {
       fileSize: AVATAR_MAX_UPLOAD_BYTES,

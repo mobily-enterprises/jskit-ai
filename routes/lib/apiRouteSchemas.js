@@ -510,7 +510,19 @@ const workspaceInvitesResponseSchema = Type.Object(
       }
     ),
     invites: Type.Array(workspaceInviteSchema),
-    roleCatalog: roleCatalogSchema
+    roleCatalog: roleCatalogSchema,
+    createdInvite: Type.Optional(
+      Type.Object(
+        {
+          inviteId: Type.Integer({ minimum: 1 }),
+          email: Type.String({ minLength: AUTH_EMAIL_MIN_LENGTH, maxLength: AUTH_EMAIL_MAX_LENGTH }),
+          token: Type.String({ minLength: 16, maxLength: 256 })
+        },
+        {
+          additionalProperties: false
+        }
+      )
+    )
   },
   {
     additionalProperties: false
@@ -551,6 +563,16 @@ const pendingInvitesResponseSchema = Type.Object(
 
 const respondToPendingInviteBodySchema = Type.Object(
   {
+    decision: enumSchema(["accept", "refuse"])
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const redeemPendingInviteBodySchema = Type.Object(
+  {
+    token: Type.String({ minLength: 16, maxLength: 256 }),
     decision: enumSchema(["accept", "refuse"])
   },
   {
@@ -1036,6 +1058,7 @@ export {
   workspaceRolesResponseSchema,
   pendingInvitesResponseSchema,
   respondToPendingInviteBodySchema,
+  redeemPendingInviteBodySchema,
   respondToPendingInviteResponseSchema,
   bootstrapResponseSchema,
   workspacesListResponseSchema,

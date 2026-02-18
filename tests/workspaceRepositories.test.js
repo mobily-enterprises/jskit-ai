@@ -444,7 +444,8 @@ test("workspace invites repository handles mapping, find/list, and status transi
       inviteRow({ id: 7 }),
       inviteRow({ id: 8 }),
       inviteRow({ id: 9 }),
-      inviteRow({ id: 10 })
+      inviteRow({ id: 10 }),
+      inviteRow({ id: 11 })
     ],
     listQueue: [[inviteRow({ id: 11 })], [inviteRow({ id: 12 })], [inviteRow({ id: 13 })]],
     insertQueue: [41],
@@ -513,6 +514,10 @@ test("workspace invites repository handles mapping, find/list, and status transi
   const updatedDefaultStatus = await repo.updateStatusById(10);
   assert.equal(updatedDefaultStatus.id, 10);
   assert.equal(stub.state.updates.at(-1)[1].status, "");
+
+  assert.equal(await repo.findPendingByTokenHash(""), null);
+  const pendingByTokenHash = await repo.findPendingByTokenHash("hash");
+  assert.equal(pendingByTokenHash.id, 11);
 
   assert.equal(await repo.expirePendingByWorkspaceIdAndEmail(11, ""), 0);
   const expiredForWorkspaceAndEmail = await repo.expirePendingByWorkspaceIdAndEmail(11, " INVITEE@EXAMPLE.COM ");

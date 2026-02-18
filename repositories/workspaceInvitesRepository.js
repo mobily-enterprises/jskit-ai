@@ -223,6 +223,26 @@ function createWorkspaceInvitesRepository(dbClient) {
     return mapWorkspaceInviteRowNullable(row);
   }
 
+  async function repoFindPendingByTokenHash(tokenHash, options = {}) {
+    const normalizedTokenHash = String(tokenHash || "")
+      .trim()
+      .toLowerCase();
+    if (!normalizedTokenHash) {
+      return null;
+    }
+
+    const client = resolveClient(options);
+    const row = await createInviteBaseQuery(client, true)
+      .where({
+        "wi.token_hash": normalizedTokenHash,
+        "wi.status": "pending"
+      })
+      .andWhere("wi.expires_at", ">", toMysqlDateTimeUtc(new Date()))
+      .first();
+
+    return mapWorkspaceInviteRowNullable(row);
+  }
+
   async function repoUpdateStatusById(id, status, options = {}) {
     const client = resolveClient(options);
     await client("workspace_invites")
@@ -299,6 +319,7 @@ function createWorkspaceInvitesRepository(dbClient) {
     findPendingByWorkspaceIdAndEmail: repoFindPendingByWorkspaceIdAndEmail,
     findPendingByIdForWorkspace: repoFindPendingByIdForWorkspace,
     findPendingByIdAndEmail: repoFindPendingByIdAndEmail,
+    findPendingByTokenHash: repoFindPendingByTokenHash,
     updateStatusById: repoUpdateStatusById,
     revokeById: repoRevokeById,
     markAcceptedById: repoMarkAcceptedById,
@@ -327,6 +348,7 @@ export const {
   findPendingByWorkspaceIdAndEmail,
   findPendingByIdForWorkspace,
   findPendingByIdAndEmail,
+  findPendingByTokenHash,
   updateStatusById,
   revokeById,
   markAcceptedById,
