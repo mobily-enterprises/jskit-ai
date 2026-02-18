@@ -2,6 +2,7 @@ import { createSurfacePaths, resolveSurfaceFromPathname } from "../../shared/rou
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const API_PATH_PREFIX = "/api/";
+const RETRYABLE_CSRF_ERROR_CODES = new Set(["FST_CSRF_INVALID_TOKEN", "FST_CSRF_MISSING_SECRET"]);
 
 let csrfTokenCache = "";
 let csrfFetchPromise = null;
@@ -59,6 +60,17 @@ function createHttpError(response, data) {
   error.fieldErrors = data.fieldErrors || data.details?.fieldErrors || null;
   error.details = data.details || null;
   return error;
+}
+
+function shouldRetryForCsrfFailure(response, method, state, data) {
+  if (response.status !== 403 || !UNSAFE_METHODS.has(method) || state.csrfRetried) {
+    return false;
+  }
+
+  const code = String(data?.details?.code || "")
+    .trim()
+    .toUpperCase();
+  return RETRYABLE_CSRF_ERROR_CODES.has(code);
 }
 
 async function fetchSessionForCsrf() {
@@ -149,7 +161,7 @@ async function request(url, options = {}, state = { csrfRetried: false }) {
   updateCsrfTokenFromPayload(data);
 
   if (!response.ok) {
-    if (response.status === 403 && UNSAFE_METHODS.has(method) && !state.csrfRetried) {
+    if (shouldRetryForCsrfFailure(response, method, state, data)) {
       csrfTokenCache = "";
       await ensureCsrfToken(true);
       return request(url, options, { csrfRetried: true });

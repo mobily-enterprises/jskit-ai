@@ -22,6 +22,11 @@ import {
   AUTH_OAUTH_PROVIDERS,
   normalizeOAuthProvider as normalizeSupportedOAuthProvider
 } from "../../../shared/auth/oauthProviders.js";
+import {
+  OAUTH_QUERY_PARAM_INTENT,
+  OAUTH_QUERY_PARAM_PROVIDER,
+  OAUTH_QUERY_PARAM_RETURN_TO
+} from "../../../shared/auth/oauthCallbackParams.js";
 import { normalizeOAuthIntent, normalizeReturnToPath } from "../../../shared/auth/utils.js";
 import { validators } from "../../../shared/auth/validators.js";
 
@@ -391,10 +396,10 @@ function buildOAuthRedirectUrl(options) {
   baseUrl.hash = "";
 
   const redirectUrl = new URL(callbackPath, baseUrl);
-  redirectUrl.searchParams.set("oauthProvider", provider);
-  redirectUrl.searchParams.set("oauthIntent", intent);
+  redirectUrl.searchParams.set(OAUTH_QUERY_PARAM_PROVIDER, provider);
+  redirectUrl.searchParams.set(OAUTH_QUERY_PARAM_INTENT, intent);
   if (returnTo) {
-    redirectUrl.searchParams.set("oauthReturnTo", returnTo);
+    redirectUrl.searchParams.set(OAUTH_QUERY_PARAM_RETURN_TO, returnTo);
   }
   return redirectUrl.toString();
 }

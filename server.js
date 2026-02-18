@@ -288,6 +288,8 @@ async function hasFrontendBuild() {
 
 function registerErrorHandler(app) {
   app.setErrorHandler((error, _request, reply) => {
+    const normalizedErrorCode = String(error?.code || "").trim();
+    const isCsrfErrorCode = normalizedErrorCode.startsWith("FST_CSRF_");
     const statusFromError = Number(error?.statusCode || error?.status);
     const statusCode =
       Number.isInteger(statusFromError) && statusFromError >= 400 && statusFromError <= 599 ? statusFromError : 500;
@@ -349,7 +351,13 @@ function registerErrorHandler(app) {
     app.log.error({ err: error }, "Unhandled error");
 
     const message = statusCode >= 500 ? "Internal server error." : String(error?.message || "Request failed.");
-    reply.code(statusCode).send({ error: message });
+    const payload = { error: message };
+    if (isCsrfErrorCode) {
+      payload.details = {
+        code: normalizedErrorCode
+      };
+    }
+    reply.code(statusCode).send(payload);
   });
 }
 

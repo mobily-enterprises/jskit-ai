@@ -159,7 +159,7 @@ export const useWorkspaceStore = defineStore("workspace", {
   }),
   getters: {
     hasActiveWorkspace(state) {
-      return Boolean(state.activeWorkspace && state.activeWorkspace.id);
+      return Boolean(state.activeWorkspace && state.activeWorkspace.id && state.activeWorkspace.isAccessible);
     },
     activeWorkspaceSlug(state) {
       return state.activeWorkspace?.slug || "";
@@ -211,7 +211,7 @@ export const useWorkspaceStore = defineStore("workspace", {
         };
       }
 
-      if (!this.activeWorkspace && this.workspaces.length === 1) {
+      if (!this.activeWorkspace && this.workspaces.length === 1 && this.workspaces[0].isAccessible) {
         this.activeWorkspace = {
           id: this.workspaces[0].id,
           slug: this.workspaces[0].slug,

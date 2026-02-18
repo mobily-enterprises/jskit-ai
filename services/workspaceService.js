@@ -144,6 +144,44 @@ function createWorkspaceService({
     return workspacesRepository.listByUserId(userId);
   }
 
+  async function preloadWorkspaceSettingsForWorkspaceIds(workspaceIds, workspaceSettingsCache) {
+    const unresolvedWorkspaceIds = Array.from(
+      new Set(
+        (Array.isArray(workspaceIds) ? workspaceIds : [])
+          .map((workspaceId) => Number(workspaceId))
+          .filter(
+            (workspaceId) =>
+              Number.isInteger(workspaceId) && workspaceId > 0 && !workspaceSettingsCache.has(workspaceId)
+          )
+      )
+    );
+    if (unresolvedWorkspaceIds.length < 1) {
+      return;
+    }
+
+    if (typeof workspaceSettingsRepository.findByWorkspaceIds === "function") {
+      const existingSettings = await workspaceSettingsRepository.findByWorkspaceIds(unresolvedWorkspaceIds);
+      for (const workspaceSettings of Array.isArray(existingSettings) ? existingSettings : []) {
+        const workspaceId = Number(workspaceSettings?.workspaceId);
+        if (Number.isInteger(workspaceId) && workspaceId > 0) {
+          workspaceSettingsCache.set(workspaceId, workspaceSettings);
+        }
+      }
+    }
+
+    const missingWorkspaceIds = unresolvedWorkspaceIds.filter((workspaceId) => !workspaceSettingsCache.has(workspaceId));
+    if (missingWorkspaceIds.length < 1) {
+      return;
+    }
+
+    await Promise.all(
+      missingWorkspaceIds.map(async (workspaceId) => {
+        const workspaceSettings = await ensureWorkspaceSettingsForWorkspace(workspaceId);
+        workspaceSettingsCache.set(workspaceId, workspaceSettings);
+      })
+    );
+  }
+
   function resolvePermissions(roleId) {
     const normalizedRoleId = String(roleId || "")
       .trim()
@@ -272,6 +310,44 @@ function createWorkspaceService({
     });
   }
 
+  async function listInviteMembershipsByWorkspaceId(userId, invites) {
+    const workspaceIds = Array.from(
+      new Set(
+        invites
+          .map((invite) => Number(invite?.workspaceId))
+          .filter((workspaceId) => Number.isInteger(workspaceId) && workspaceId > 0)
+      )
+    );
+
+    if (workspaceIds.length < 1) {
+      return new Map();
+    }
+
+    if (typeof workspaceMembershipsRepository.listByUserIdAndWorkspaceIds === "function") {
+      const memberships = await workspaceMembershipsRepository.listByUserIdAndWorkspaceIds(userId, workspaceIds);
+      const membershipByWorkspaceId = new Map();
+
+      for (const membership of memberships) {
+        const workspaceId = Number(membership?.workspaceId);
+        if (Number.isInteger(workspaceId) && workspaceId > 0 && !membershipByWorkspaceId.has(workspaceId)) {
+          membershipByWorkspaceId.set(workspaceId, membership);
+        }
+      }
+
+      return membershipByWorkspaceId;
+    }
+
+    const membershipByWorkspaceId = new Map();
+    for (const workspaceId of workspaceIds) {
+      const membership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(workspaceId, userId);
+      if (membership) {
+        membershipByWorkspaceId.set(workspaceId, membership);
+      }
+    }
+
+    return membershipByWorkspaceId;
+  }
+
   async function listPendingInvitesForUser(userProfile) {
     if (!workspaceInvitesRepository || typeof workspaceInvitesRepository.listPendingByEmail !== "function") {
       return [];
@@ -283,25 +359,17 @@ function createWorkspaceService({
       return [];
     }
 
-    if (typeof workspaceInvitesRepository.markExpiredPendingInvites === "function") {
-      await workspaceInvitesRepository.markExpiredPendingInvites();
-    }
-
     const rawInvites = await workspaceInvitesRepository.listPendingByEmail(email);
     if (!Array.isArray(rawInvites) || rawInvites.length < 1) {
       return [];
     }
 
-    const filtered = [];
-    for (const invite of rawInvites) {
-      const existingMembership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(
-        invite.workspaceId,
-        userId
-      );
-      if (!existingMembership || existingMembership.status !== "active") {
-        filtered.push(invite);
-      }
-    }
+    const membershipByWorkspaceId = await listInviteMembershipsByWorkspaceId(userId, rawInvites);
+    const filtered = rawInvites.filter((invite) => {
+      const workspaceId = Number(invite?.workspaceId);
+      const existingMembership = membershipByWorkspaceId.get(workspaceId);
+      return !existingMembership || existingMembership.status !== "active";
+    });
 
     return filtered.map(mapPendingInviteSummary);
   }
@@ -329,6 +397,10 @@ function createWorkspaceService({
     const membershipIndex = createMembershipIndexes(memberships);
     const userSettings = await userSettingsRepository.ensureForUserId(userId);
     const workspaceSettingsCache = new Map();
+    await preloadWorkspaceSettingsForWorkspaceIds(
+      memberships.map((membershipWorkspace) => membershipWorkspace.id),
+      workspaceSettingsCache
+    );
     let selected = null;
     let requestedSlugRejected = false;
 
@@ -627,6 +699,10 @@ function createWorkspaceService({
     const surfaceId = resolveRequestSurfaceId(options.request);
     const memberships = await listMembershipWorkspacesForUser(userId);
     const workspaceSettingsCache = new Map();
+    await preloadWorkspaceSettingsForWorkspaceIds(
+      memberships.map((membershipWorkspace) => membershipWorkspace.id),
+      workspaceSettingsCache
+    );
     return mapAccessibleMembershipWorkspaces({
       user,
       surfaceId,

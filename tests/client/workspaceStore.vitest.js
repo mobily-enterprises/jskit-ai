@@ -162,6 +162,27 @@ describe("workspaceStore", () => {
     expect(store.can("workspace.members.manage")).toBe(false);
   });
 
+  it("does not auto-select inaccessible single workspace fallback", () => {
+    const store = useWorkspaceStore();
+
+    store.applyBootstrap({
+      workspaces: [
+        {
+          id: 2,
+          slug: "solo",
+          name: "Solo",
+          color: "not-a-color",
+          roleId: "member",
+          isAccessible: false
+        }
+      ]
+    });
+
+    expect(store.activeWorkspace).toBeNull();
+    expect(store.activeWorkspaceSlug).toBe("");
+    expect(store.hasActiveWorkspace).toBe(false);
+  });
+
   it("filters invalid workspace/membership/invite payloads across normalization guards", () => {
     const store = useWorkspaceStore();
 
@@ -170,7 +191,7 @@ describe("workspaceStore", () => {
         null,
         { id: 1, slug: "", name: "Missing slug" },
         { id: "x", slug: "bad-id" },
-        { id: 2, slug: "valid", name: "Valid" }
+        { id: 2, slug: "valid", name: "Valid", isAccessible: true }
       ],
       membership: {
         roleId: "",

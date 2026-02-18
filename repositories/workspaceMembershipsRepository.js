@@ -65,6 +65,34 @@ function createWorkspaceMembershipsRepository(dbClient) {
     return mapMembershipRowNullable(row);
   }
 
+  async function repoListByUserIdAndWorkspaceIds(userId, workspaceIds, options = {}) {
+    const numericUserId = Number(userId);
+    const normalizedWorkspaceIds = Array.isArray(workspaceIds)
+      ? Array.from(
+          new Set(
+            workspaceIds
+              .map((workspaceId) => Number(workspaceId))
+              .filter((workspaceId) => Number.isInteger(workspaceId) && workspaceId > 0)
+          )
+        )
+      : [];
+
+    if (!Number.isInteger(numericUserId) || numericUserId < 1 || normalizedWorkspaceIds.length < 1) {
+      return [];
+    }
+
+    const client = resolveClient(options);
+    const rows = await client("workspace_memberships")
+      .where({
+        user_id: numericUserId
+      })
+      .whereIn("workspace_id", normalizedWorkspaceIds)
+      .orderBy("workspace_id", "asc")
+      .orderBy("id", "asc");
+
+    return rows.map(mapMembershipRowRequired);
+  }
+
   async function repoInsert(membership, options = {}) {
     const client = resolveClient(options);
     const now = new Date();
@@ -196,6 +224,7 @@ function createWorkspaceMembershipsRepository(dbClient) {
 
   return {
     findByWorkspaceIdAndUserId: repoFindByWorkspaceIdAndUserId,
+    listByUserIdAndWorkspaceIds: repoListByUserIdAndWorkspaceIds,
     insert: repoInsert,
     ensureOwnerMembership: repoEnsureOwnerMembership,
     listByUserId: repoListByUserId,
@@ -216,6 +245,7 @@ const __testables = {
 
 export const {
   findByWorkspaceIdAndUserId,
+  listByUserIdAndWorkspaceIds,
   insert,
   ensureOwnerMembership,
   listByUserId,

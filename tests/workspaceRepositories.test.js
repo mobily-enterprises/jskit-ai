@@ -16,6 +16,7 @@ function createKnexStub(options = {}) {
     tableCalls: [],
     wheres: [],
     andWheres: [],
+    whereIns: [],
     joins: [],
     selects: [],
     orderBys: [],
@@ -35,6 +36,10 @@ function createKnexStub(options = {}) {
       },
       andWhere(...args) {
         state.andWheres.push([table, ...args]);
+        return query;
+      },
+      whereIn(...args) {
+        state.whereIns.push([table, ...args]);
         return query;
       },
       innerJoin(...args) {
@@ -268,6 +273,18 @@ test("workspace settings repository parses JSON and supports find/ensure/update 
 
   const unchanged = await createRepo.updateByWorkspaceId(2, {});
   assert.equal(unchanged.workspaceId, 2);
+
+  const batchStub = createKnexStub({
+    listQueue: [[workspaceSettingsRow({ workspace_id: 7 }), workspaceSettingsRow({ workspace_id: 8 })]]
+  });
+  const batchRepo = workspaceSettingsTestables.createWorkspaceSettingsRepository(batchStub.dbClient);
+  const batched = await batchRepo.findByWorkspaceIds([7, 8, 7, null, -1]);
+  assert.equal(batched.length, 2);
+  assert.deepEqual(batchStub.state.whereIns[0], ["workspace_settings", "workspace_id", [7, 8]]);
+
+  const emptyBatch = await batchRepo.findByWorkspaceIds([]);
+  assert.deepEqual(emptyBatch, []);
+  assert.equal(batchStub.state.whereIns.length, 1);
 });
 
 test("workspace memberships repository supports mapping and membership lifecycle operations", async () => {
@@ -291,6 +308,7 @@ test("workspace memberships repository supports mapping and membership lifecycle
     ],
     listQueue: [
       [membershipRow({ id: 11 })],
+      [membershipRow({ id: 13, workspace_id: 12, status: "pending" })],
       [
         {
           ...membershipRow({ id: 12 }),
@@ -319,6 +337,14 @@ test("workspace memberships repository supports mapping and membership lifecycle
 
   const byUser = await repo.listByUserId(5);
   assert.equal(byUser.length, 1);
+
+  const byUserAndWorkspaceIds = await repo.listByUserIdAndWorkspaceIds(5, [11, 12, 11, "invalid"]);
+  assert.equal(byUserAndWorkspaceIds.length, 1);
+  assert.equal(byUserAndWorkspaceIds[0].id, 13);
+  assert.deepEqual(stub.state.whereIns[0], ["workspace_memberships", "workspace_id", [11, 12]]);
+
+  const noWorkspaceIds = await repo.listByUserIdAndWorkspaceIds(5, []);
+  assert.deepEqual(noWorkspaceIds, []);
 
   const activeByWorkspace = await repo.listActiveByWorkspaceId(11);
   assert.equal(activeByWorkspace.length, 1);

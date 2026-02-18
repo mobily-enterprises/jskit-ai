@@ -120,7 +120,9 @@ function createWorkspaceAdminFixture(overrides = {}) {
     settingsUpdates: 0,
     inviteInserts: 0,
     inviteTargetedExpirations: 0,
-    inviteTransactions: 0
+    inviteTransactions: 0,
+    findByWorkspaceIdAndUserId: 0,
+    listByUserIdAndWorkspaceIds: 0
   };
 
   function cloneWorkspace() {
@@ -148,6 +150,10 @@ function createWorkspaceAdminFixture(overrides = {}) {
         avatarUrl: state.workspace.avatarUrl
       }
     };
+  }
+
+  function isInvitePendingAndUnexpired(invite) {
+    return invite.status === "pending" && String(invite.expiresAt || "") > new Date().toISOString();
   }
 
   const workspacesRepository = {
@@ -216,6 +222,7 @@ function createWorkspaceAdminFixture(overrides = {}) {
         }));
     },
     async findByWorkspaceIdAndUserId(workspaceId, userId) {
+      counters.findByWorkspaceIdAndUserId += 1;
       const found = state.memberships.find(
         (membership) =>
           Number(membership.workspaceId) === Number(workspaceId) && Number(membership.userId) === Number(userId)
@@ -228,6 +235,28 @@ function createWorkspaceAdminFixture(overrides = {}) {
             }
           }
         : null;
+    },
+    async listByUserIdAndWorkspaceIds(userId, workspaceIds) {
+      counters.listByUserIdAndWorkspaceIds += 1;
+      const normalizedWorkspaceIds = Array.from(
+        new Set(
+          (Array.isArray(workspaceIds) ? workspaceIds : [])
+            .map((workspaceId) => Number(workspaceId))
+            .filter((workspaceId) => Number.isInteger(workspaceId) && workspaceId > 0)
+        )
+      );
+
+      return state.memberships
+        .filter(
+          (membership) =>
+            Number(membership.userId) === Number(userId) && normalizedWorkspaceIds.includes(Number(membership.workspaceId))
+        )
+        .map((membership) => ({
+          ...membership,
+          user: {
+            ...membership.user
+          }
+        }));
     },
     async updateRoleByWorkspaceIdAndUserId(workspaceId, userId, roleId) {
       const index = state.memberships.findIndex(
@@ -304,7 +333,9 @@ function createWorkspaceAdminFixture(overrides = {}) {
     },
     async listPendingByWorkspaceIdWithWorkspace(workspaceId) {
       return state.invites
-        .filter((invite) => Number(invite.workspaceId) === Number(workspaceId) && invite.status === "pending")
+        .filter(
+          (invite) => Number(invite.workspaceId) === Number(workspaceId) && isInvitePendingAndUnexpired(invite)
+        )
         .map((invite) => toInviteWithWorkspace(invite));
     },
     async findPendingByWorkspaceIdAndEmail(workspaceId, email) {
@@ -312,7 +343,7 @@ function createWorkspaceAdminFixture(overrides = {}) {
         state.invites.find(
           (invite) =>
             Number(invite.workspaceId) === Number(workspaceId) &&
-            invite.status === "pending" &&
+            isInvitePendingAndUnexpired(invite) &&
             String(invite.email || "").toLowerCase() === String(email || "").toLowerCase()
         ) || null
       );
@@ -349,7 +380,7 @@ function createWorkspaceAdminFixture(overrides = {}) {
         (invite) =>
           Number(invite.id) === Number(inviteId) &&
           Number(invite.workspaceId) === Number(workspaceId) &&
-          invite.status === "pending"
+          isInvitePendingAndUnexpired(invite)
       );
       return found ? toInviteWithWorkspace(found) : null;
     },
@@ -368,7 +399,9 @@ function createWorkspaceAdminFixture(overrides = {}) {
         .trim()
         .toLowerCase();
       return state.invites
-        .filter((invite) => invite.status === "pending" && String(invite.email || "").toLowerCase() === normalizedEmail)
+        .filter(
+          (invite) => isInvitePendingAndUnexpired(invite) && String(invite.email || "").toLowerCase() === normalizedEmail
+        )
         .map((invite) => toInviteWithWorkspace(invite));
     },
     async findPendingByIdAndEmail(inviteId, email) {
@@ -378,7 +411,7 @@ function createWorkspaceAdminFixture(overrides = {}) {
       const found = state.invites.find(
         (invite) =>
           Number(invite.id) === Number(inviteId) &&
-          invite.status === "pending" &&
+          isInvitePendingAndUnexpired(invite) &&
           String(invite.email || "").toLowerCase() === normalizedEmail
       );
       return found ? toInviteWithWorkspace(found) : null;
@@ -721,6 +754,51 @@ test("workspace admin service manages members, invites, and pending invite respo
     state.memberships.some((membership) => membership.userId === 41 && membership.status === "active"),
     true
   );
+});
+
+test("workspace admin service pending invite listing uses O(1) membership lookups for large invite sets", async () => {
+  const { service, state, counters } = createWorkspaceAdminFixture();
+  const email = "bulk@example.com";
+  const futureIso = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+  for (let index = 0; index < 100; index += 1) {
+    state.invites.push({
+      id: 9000 + index,
+      workspaceId: 2000 + index,
+      email,
+      roleId: "member",
+      tokenHash: `token-${9000 + index}`,
+      invitedByUserId: 5,
+      expiresAt: futureIso,
+      status: "pending",
+      invitedBy: {
+        displayName: "Owner",
+        email: "owner@example.com"
+      },
+      workspace: null
+    });
+  }
+
+  state.memberships.push({
+    id: 999,
+    workspaceId: 2005,
+    userId: 77,
+    roleId: "member",
+    status: "active",
+    user: {
+      email: "bulk@example.com",
+      displayName: "Bulk User"
+    }
+  });
+
+  const pending = await service.listPendingInvitesForUser({
+    email,
+    id: 77
+  });
+
+  assert.equal(pending.length, 99);
+  assert.equal(counters.listByUserIdAndWorkspaceIds, 1);
+  assert.equal(counters.findByWorkspaceIdAndUserId, 0);
 });
 
 test("workspace admin service rolls back workspace update when settings write fails", async () => {

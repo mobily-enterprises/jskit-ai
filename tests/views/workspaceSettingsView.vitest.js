@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils";
-import { defineComponent, nextTick, ref } from "vue";
+import { computed, defineComponent, nextTick, ref } from "vue";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -13,8 +13,20 @@ const mocks = vi.hoisted(() => ({
   ]),
   workspaceStore: {
     can: vi.fn(),
-    refreshBootstrap: vi.fn(async () => undefined)
+    refreshBootstrap: vi.fn(async () => undefined),
+    get activeWorkspace() {
+      return mocks.activeWorkspaceRef?.value || null;
+    },
+    set activeWorkspace(value) {
+      if (mocks.activeWorkspaceRef) {
+        mocks.activeWorkspaceRef.value = value;
+      }
+    },
+    get activeWorkspaceSlug() {
+      return String(mocks.activeWorkspaceRef?.value?.slug || "");
+    }
   },
+  activeWorkspaceRef: null,
   handleUnauthorizedError: vi.fn(async () => false),
   setQueryData: vi.fn(),
   api: {
@@ -27,22 +39,48 @@ const mocks = vi.hoisted(() => ({
     updateWorkspaceMemberRole: vi.fn()
   },
   settingsData: null,
+  settingsDataByScope: new Map(),
   settingsError: null,
   settingsPending: null,
   settingsRefetch: vi.fn(async () => undefined),
   membersData: null,
+  membersDataByScope: new Map(),
   membersError: null,
   membersPending: null,
   membersRefetch: vi.fn(async () => undefined),
   invitesData: null,
+  invitesDataByScope: new Map(),
   invitesError: null,
   invitesPending: null,
   invitesRefetch: vi.fn(async () => undefined)
 }));
 
+function resolveQueryKey(queryKey) {
+  if (queryKey && typeof queryKey === "object" && "value" in queryKey) {
+    return queryKey.value;
+  }
+
+  return queryKey;
+}
+
+function resolveScopedRef(scopedMap, scope, fallback) {
+  if (scopedMap instanceof Map && scopedMap.has(scope)) {
+    return scopedMap.get(scope);
+  }
+
+  return fallback;
+}
+
 vi.mock("@tanstack/vue-query", () => ({
   useQuery: (options = {}) => {
-    const key = Array.isArray(options.queryKey) ? options.queryKey[0] : "";
+    const key = computed(() => {
+      const resolved = resolveQueryKey(options.queryKey);
+      return Array.isArray(resolved) ? String(resolved[0] || "") : "";
+    });
+    const scope = computed(() => {
+      const resolved = resolveQueryKey(options.queryKey);
+      return Array.isArray(resolved) ? String(resolved[1] || "none") : "none";
+    });
     const enabled =
       options.enabled && typeof options.enabled === "object" && "value" in options.enabled
         ? Boolean(options.enabled.value)
@@ -51,29 +89,51 @@ vi.mock("@tanstack/vue-query", () => ({
       void options.queryFn();
     }
 
-    if (key === "workspace-settings") {
-      return {
-        data: mocks.settingsData,
-        error: mocks.settingsError,
-        isPending: mocks.settingsPending,
-        refetch: mocks.settingsRefetch
-      };
-    }
-
-    if (key === "workspace-members") {
-      return {
-        data: mocks.membersData,
-        error: mocks.membersError,
-        isPending: mocks.membersPending,
-        refetch: mocks.membersRefetch
-      };
-    }
-
     return {
-      data: mocks.invitesData,
-      error: mocks.invitesError,
-      isPending: mocks.invitesPending,
-      refetch: mocks.invitesRefetch
+      data: computed(() => {
+        if (key.value === "workspace-settings") {
+          return resolveScopedRef(mocks.settingsDataByScope, scope.value, mocks.settingsData)?.value;
+        }
+
+        if (key.value === "workspace-members") {
+          return resolveScopedRef(mocks.membersDataByScope, scope.value, mocks.membersData)?.value;
+        }
+
+        return resolveScopedRef(mocks.invitesDataByScope, scope.value, mocks.invitesData)?.value;
+      }),
+      error: computed(() => {
+        if (key.value === "workspace-settings") {
+          return mocks.settingsError.value;
+        }
+
+        if (key.value === "workspace-members") {
+          return mocks.membersError.value;
+        }
+
+        return mocks.invitesError.value;
+      }),
+      isPending: computed(() => {
+        if (key.value === "workspace-settings") {
+          return mocks.settingsPending.value;
+        }
+
+        if (key.value === "workspace-members") {
+          return mocks.membersPending.value;
+        }
+
+        return mocks.invitesPending.value;
+      }),
+      refetch: () => {
+        if (key.value === "workspace-settings") {
+          return mocks.settingsRefetch();
+        }
+
+        if (key.value === "workspace-members") {
+          return mocks.membersRefetch();
+        }
+
+        return mocks.invitesRefetch();
+      }
     };
   },
   useMutation: ({ mutationFn }) => ({
@@ -165,6 +225,10 @@ describe("useWorkspaceSettingsView", () => {
     mocks.workspaceStore.can.mockImplementation((permission) => mocks.permissions.has(permission));
     mocks.workspaceStore.refreshBootstrap.mockReset();
     mocks.workspaceStore.refreshBootstrap.mockResolvedValue(undefined);
+    mocks.activeWorkspaceRef = ref({
+      id: 11,
+      slug: "acme"
+    });
 
     mocks.handleUnauthorizedError.mockReset();
     mocks.handleUnauthorizedError.mockResolvedValue(false);
@@ -180,6 +244,7 @@ describe("useWorkspaceSettingsView", () => {
     mocks.api.updateWorkspaceMemberRole.mockReset();
 
     mocks.settingsData = ref(buildSettingsPayload());
+    mocks.settingsDataByScope = new Map([["id:11", mocks.settingsData]]);
     mocks.settingsError = ref(null);
     mocks.settingsPending = ref(false);
     mocks.settingsRefetch.mockReset();
@@ -204,6 +269,7 @@ describe("useWorkspaceSettingsView", () => {
       ],
       roleCatalog: buildRoleCatalog()
     });
+    mocks.membersDataByScope = new Map([["id:11", mocks.membersData]]);
     mocks.membersError = ref(null);
     mocks.membersPending = ref(false);
     mocks.membersRefetch.mockReset();
@@ -220,6 +286,7 @@ describe("useWorkspaceSettingsView", () => {
       ],
       roleCatalog: buildRoleCatalog()
     });
+    mocks.invitesDataByScope = new Map([["id:11", mocks.invitesData]]);
     mocks.invitesError = ref(null);
     mocks.invitesPending = ref(false);
     mocks.invitesRefetch.mockReset();
@@ -313,7 +380,7 @@ describe("useWorkspaceSettingsView", () => {
         appDenyEmails: ["alpha@example.com", "beta@example.com"]
       })
     );
-    expect(mocks.setQueryData).toHaveBeenCalledWith(["workspace-settings"], updatedPayload);
+    expect(mocks.setQueryData).toHaveBeenCalledWith(["workspace-settings", "id:11"], updatedPayload);
     expect(mocks.workspaceStore.refreshBootstrap).toHaveBeenCalledTimes(1);
     expect(wrapper.vm.vm.feedback.workspaceMessageType).toBe("success");
     expect(wrapper.vm.vm.feedback.workspaceMessage).toBe("Workspace settings updated.");
@@ -362,7 +429,7 @@ describe("useWorkspaceSettingsView", () => {
       email: "new-user@example.com",
       roleId: "admin"
     });
-    expect(mocks.setQueryData).toHaveBeenCalledWith(["workspace-invites"], invitesPayload);
+    expect(mocks.setQueryData).toHaveBeenCalledWith(["workspace-invites", "id:11"], invitesPayload);
     expect(wrapper.vm.vm.forms.invite.email).toBe("");
     expect(wrapper.vm.vm.feedback.inviteMessageType).toBe("success");
     expect(wrapper.vm.vm.feedback.inviteMessage).toBe("Invite sent.");
@@ -389,7 +456,7 @@ describe("useWorkspaceSettingsView", () => {
     };
     mocks.api.revokeWorkspaceInvite.mockResolvedValueOnce(revokedPayload);
     await wrapper.vm.vm.actions.submitRevokeInvite(15);
-    expect(mocks.setQueryData).toHaveBeenCalledWith(["workspace-invites"], revokedPayload);
+    expect(mocks.setQueryData).toHaveBeenCalledWith(["workspace-invites", "id:11"], revokedPayload);
     expect(wrapper.vm.vm.feedback.teamMessageType).toBe("success");
     expect(wrapper.vm.vm.feedback.teamMessage).toBe("Invite revoked.");
 
@@ -427,7 +494,7 @@ describe("useWorkspaceSettingsView", () => {
 
     await wrapperWithManage.vm.vm.actions.submitMemberRoleUpdate(member, "admin");
     expect(mocks.api.updateWorkspaceMemberRole).toHaveBeenCalledWith(2, { roleId: "admin" });
-    expect(mocks.setQueryData).toHaveBeenCalledWith(["workspace-members"], membersPayload);
+    expect(mocks.setQueryData).toHaveBeenCalledWith(["workspace-members", "id:11"], membersPayload);
     expect(mocks.workspaceStore.refreshBootstrap).toHaveBeenCalledTimes(1);
     expect(wrapperWithManage.vm.vm.feedback.teamMessageType).toBe("success");
     expect(wrapperWithManage.vm.vm.feedback.teamMessage).toBe("Member role updated.");
@@ -439,10 +506,91 @@ describe("useWorkspaceSettingsView", () => {
     expect(mocks.membersRefetch).toHaveBeenCalled();
   });
 
+  it("clears scoped workspace-admin state on workspace switch and avoids stale cross-workspace data", async () => {
+    const wrapper = mountHarness();
+    await flush();
+    expect(wrapper.vm.vm.forms.workspace.name).toBe("Acme");
+    expect(wrapper.vm.vm.members.list).toHaveLength(2);
+    expect(wrapper.vm.vm.members.invites).toHaveLength(1);
+
+    const betaSettingsRef = ref(null);
+    const betaMembersRef = ref(null);
+    const betaInvitesRef = ref(null);
+    mocks.settingsDataByScope.set("id:22", betaSettingsRef);
+    mocks.membersDataByScope.set("id:22", betaMembersRef);
+    mocks.invitesDataByScope.set("id:22", betaInvitesRef);
+
+    mocks.workspaceStore.activeWorkspace = {
+      id: 22,
+      slug: "beta"
+    };
+    await flush();
+
+    expect(wrapper.vm.vm.forms.workspace.name).toBe("");
+    expect(wrapper.vm.vm.members.list).toHaveLength(0);
+    expect(wrapper.vm.vm.members.invites).toHaveLength(0);
+
+    betaSettingsRef.value = buildSettingsPayload({
+      workspace: {
+        name: "Beta",
+        color: "#654321",
+        avatarUrl: "https://example.com/beta.png"
+      }
+    });
+    betaMembersRef.value = {
+      members: [
+        {
+          userId: 90,
+          displayName: "Beta Owner",
+          email: "beta-owner@example.com",
+          roleId: "owner",
+          isOwner: true
+        }
+      ],
+      roleCatalog: buildRoleCatalog()
+    };
+    betaInvitesRef.value = {
+      invites: [
+        {
+          id: 201,
+          email: "beta-invite@example.com",
+          roleId: "member",
+          expiresAt: "2026-09-01T12:00:00Z"
+        }
+      ],
+      roleCatalog: buildRoleCatalog()
+    };
+    await flush();
+
+    expect(wrapper.vm.vm.forms.workspace.name).toBe("Beta");
+    expect(wrapper.vm.vm.forms.workspace.color).toBe("#654321");
+    expect(wrapper.vm.vm.members.list).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          displayName: "Beta Owner",
+          email: "beta-owner@example.com"
+        })
+      ])
+    );
+    expect(wrapper.vm.vm.members.invites).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          email: "beta-invite@example.com"
+        })
+      ])
+    );
+  });
+
   it("covers empty role-catalog options, invalid query payloads, and mount refetch error handling", async () => {
-    mocks.settingsData = ref("invalid-payload");
-    mocks.membersData = ref(null);
-    mocks.invitesData = ref(null);
+    const settingsRef = ref("invalid-payload");
+    const membersRef = ref(null);
+    const invitesRef = ref(null);
+    mocks.settingsData = settingsRef;
+    mocks.membersData = membersRef;
+    mocks.invitesData = invitesRef;
+    mocks.settingsDataByScope.set("id:11", settingsRef);
+    mocks.membersDataByScope.set("id:11", membersRef);
+    mocks.invitesDataByScope.set("id:11", invitesRef);
     mocks.membersRefetch.mockRejectedValueOnce(new Error("Unauthorized"));
     mocks.handleUnauthorizedError.mockResolvedValueOnce(true);
 
@@ -453,7 +601,7 @@ describe("useWorkspaceSettingsView", () => {
     expect(wrapper.vm.vm.options.memberRoles.value).toEqual([{ title: "member", value: "member" }]);
     expect(wrapper.vm.vm.forms.workspace.name).toBe("");
 
-    mocks.settingsData.value = buildSettingsPayload({
+    settingsRef.value = buildSettingsPayload({
       roleCatalog: buildRoleCatalog({
         defaultInviteRole: "admin",
         assignableRoleIds: ["admin"]

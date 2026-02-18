@@ -330,7 +330,6 @@ function createWorkspaceAdminService({
 
   async function listInvites(workspaceContext) {
     const workspace = await requireWorkspace(workspaceContext);
-    await workspaceInvitesRepository.markExpiredPendingInvites();
     const invites = await workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace(workspace.id);
 
     return {
@@ -429,13 +428,50 @@ function createWorkspaceAdminService({
     return listInvites(workspace);
   }
 
+  async function listInviteMembershipsByWorkspaceId(userId, invites) {
+    const workspaceIds = Array.from(
+      new Set(
+        invites
+          .map((invite) => Number(invite?.workspaceId))
+          .filter((workspaceId) => Number.isInteger(workspaceId) && workspaceId > 0)
+      )
+    );
+
+    if (workspaceIds.length < 1) {
+      return new Map();
+    }
+
+    if (typeof workspaceMembershipsRepository.listByUserIdAndWorkspaceIds === "function") {
+      const memberships = await workspaceMembershipsRepository.listByUserIdAndWorkspaceIds(userId, workspaceIds);
+      const membershipByWorkspaceId = new Map();
+
+      for (const membership of memberships) {
+        const workspaceId = Number(membership?.workspaceId);
+        if (Number.isInteger(workspaceId) && workspaceId > 0 && !membershipByWorkspaceId.has(workspaceId)) {
+          membershipByWorkspaceId.set(workspaceId, membership);
+        }
+      }
+
+      return membershipByWorkspaceId;
+    }
+
+    const membershipByWorkspaceId = new Map();
+    for (const workspaceId of workspaceIds) {
+      const membership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(workspaceId, userId);
+      if (membership) {
+        membershipByWorkspaceId.set(workspaceId, membership);
+      }
+    }
+
+    return membershipByWorkspaceId;
+  }
+
   async function listPendingInvitesForUser(user) {
     const email = normalizeEmail(user?.email);
     if (!email) {
       return [];
     }
 
-    await workspaceInvitesRepository.markExpiredPendingInvites();
     const pending = await workspaceInvitesRepository.listPendingByEmail(email);
     const userId = parsePositiveInteger(user?.id);
 
@@ -443,13 +479,12 @@ function createWorkspaceAdminService({
       return pending.map(mapInvite);
     }
 
-    const filtered = [];
-    for (const invite of pending) {
-      const membership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(invite.workspaceId, userId);
-      if (!membership || membership.status !== "active") {
-        filtered.push(invite);
-      }
-    }
+    const membershipByWorkspaceId = await listInviteMembershipsByWorkspaceId(userId, pending);
+    const filtered = pending.filter((invite) => {
+      const workspaceId = Number(invite?.workspaceId);
+      const membership = membershipByWorkspaceId.get(workspaceId);
+      return !membership || membership.status !== "active";
+    });
 
     return filtered.map(mapInvite);
   }
@@ -477,7 +512,6 @@ function createWorkspaceAdminService({
     return runInAdminTransaction(async (trx) => {
       const options = trx ? { trx } : {};
 
-      await workspaceInvitesRepository.markExpiredPendingInvites(options);
       const invite = await workspaceInvitesRepository.findPendingByIdAndEmail(inviteId, email, options);
       if (!invite) {
         throw new AppError(404, "Invite not found.");

@@ -123,8 +123,11 @@ function createWorkspaceServiceFixture(options = {}) {
     calls: {
       ensureOwnerMembership: 0,
       ensureWorkspaceSettings: 0,
+      findWorkspaceSettingsByWorkspaceIds: 0,
       updateLastActiveWorkspaceId: 0,
-      markExpiredPendingInvites: 0
+      markExpiredPendingInvites: 0,
+      findByWorkspaceIdAndUserId: 0,
+      listByUserIdAndWorkspaceIds: 0
     }
   };
 
@@ -168,11 +171,36 @@ function createWorkspaceServiceFixture(options = {}) {
       });
     },
     async findByWorkspaceIdAndUserId(workspaceId, userId) {
+      state.calls.findByWorkspaceIdAndUserId += 1;
       return state.membershipsLookup.get(`${Number(workspaceId)}:${Number(userId)}`) || null;
+    },
+    async listByUserIdAndWorkspaceIds(userId, workspaceIds) {
+      state.calls.listByUserIdAndWorkspaceIds += 1;
+      return Array.from(
+        new Set(
+          (Array.isArray(workspaceIds) ? workspaceIds : [])
+            .map((workspaceId) => Number(workspaceId))
+            .filter((workspaceId) => Number.isInteger(workspaceId) && workspaceId > 0)
+        )
+      )
+        .map((workspaceId) => state.membershipsLookup.get(`${workspaceId}:${Number(userId)}`) || null)
+        .filter(Boolean);
     }
   };
 
   const workspaceSettingsRepository = {
+    async findByWorkspaceIds(workspaceIds) {
+      state.calls.findWorkspaceSettingsByWorkspaceIds += 1;
+      return Array.from(
+        new Set(
+          (Array.isArray(workspaceIds) ? workspaceIds : [])
+            .map((workspaceId) => Number(workspaceId))
+            .filter((workspaceId) => Number.isInteger(workspaceId) && workspaceId > 0)
+        )
+      )
+        .map((workspaceId) => state.workspaceSettingsById.get(workspaceId) || null)
+        .filter(Boolean);
+    },
     async ensureForWorkspaceId(workspaceId, defaults = {}) {
       state.calls.ensureWorkspaceSettings += 1;
       const numericWorkspaceId = Number(workspaceId);
@@ -193,7 +221,10 @@ function createWorkspaceServiceFixture(options = {}) {
       state.calls.markExpiredPendingInvites += 1;
     },
     async listPendingByEmail(email) {
-      return [...(state.pendingInvitesByEmail.get(String(email || "").toLowerCase()) || [])];
+      const nowIso = new Date().toISOString();
+      return [...(state.pendingInvitesByEmail.get(String(email || "").toLowerCase()) || [])].filter(
+        (invite) => String(invite?.status || "") === "pending" && String(invite?.expiresAt || "") > nowIso
+      );
     }
   };
 
@@ -631,6 +662,56 @@ test("workspace service resolves request context and workspace policy branches",
   );
 });
 
+test("workspace service preloads workspace settings in batch for workspace mapping", async () => {
+  const { service, state } = createWorkspaceServiceFixture();
+  state.calls.findWorkspaceSettingsByWorkspaceIds = 0;
+  state.calls.ensureWorkspaceSettings = 0;
+
+  const listed = await service.listWorkspacesForUser(
+    {
+      id: 5,
+      email: "user@example.com"
+    },
+    {
+      request: {
+        headers: {
+          "x-surface-id": "app"
+        }
+      }
+    }
+  );
+
+  assert.equal(listed.length, 2);
+  assert.equal(state.calls.findWorkspaceSettingsByWorkspaceIds, 1);
+  assert.equal(state.calls.ensureWorkspaceSettings, 0);
+});
+
+test("workspace service ensures settings only for ids missing from batch preload", async () => {
+  const { service, state } = createWorkspaceServiceFixture();
+  state.workspaceSettingsById.delete(12);
+  state.calls.findWorkspaceSettingsByWorkspaceIds = 0;
+  state.calls.ensureWorkspaceSettings = 0;
+
+  const listed = await service.listWorkspacesForUser(
+    {
+      id: 5,
+      email: "user@example.com"
+    },
+    {
+      request: {
+        headers: {
+          "x-surface-id": "app"
+        }
+      }
+    }
+  );
+
+  assert.equal(listed.length, 2);
+  assert.equal(state.calls.findWorkspaceSettingsByWorkspaceIds, 1);
+  assert.equal(state.calls.ensureWorkspaceSettings, 1);
+  assert.equal(state.workspaceSettingsById.has(12), true);
+});
+
 test("workspace service builds bootstrap payload for authenticated and unauthenticated sessions", async () => {
   const { service, state } = createWorkspaceServiceFixture();
 
@@ -660,7 +741,7 @@ test("workspace service builds bootstrap payload for authenticated and unauthent
   assert.equal(signedIn.profile.displayName, "Tony");
   assert.equal(signedIn.profile.avatar.size, 64);
   assert.equal(Array.isArray(signedIn.pendingInvites), true);
-  assert.equal(state.calls.markExpiredPendingInvites > 0, true);
+  assert.equal(state.calls.markExpiredPendingInvites, 0);
   assert.equal(signedIn.activeWorkspace.slug, "acme");
   assert.equal(signedIn.workspaceSettings.defaultMode, "pv");
   assert.equal(signedIn.userSettings.theme, "system");
@@ -780,6 +861,51 @@ test("workspace service pending invite listing handles unsupported repositories 
     }),
     []
   );
+});
+
+test("workspace service pending invite listing uses O(1) membership lookups for large invite sets", async () => {
+  const fixture = createWorkspaceServiceFixture();
+  const email = "bulk@example.com";
+  const invites = [];
+
+  for (let index = 0; index < 100; index += 1) {
+    const workspaceId = 1000 + index;
+    invites.push({
+      id: 3000 + index,
+      workspaceId,
+      roleId: "member",
+      status: "pending",
+      expiresAt: "2030-01-01T00:00:00.000Z",
+      invitedBy: {
+        displayName: "Owner",
+        email: "owner@example.com"
+      },
+      workspace: {
+        id: workspaceId,
+        slug: `workspace-${workspaceId}`,
+        name: `Workspace ${workspaceId}`,
+        color: "#0F6B54",
+        avatarUrl: ""
+      }
+    });
+  }
+
+  fixture.state.pendingInvitesByEmail.set(email, invites);
+  fixture.state.membershipsLookup.set("1005:5", {
+    workspaceId: 1005,
+    userId: 5,
+    roleId: "member",
+    status: "active"
+  });
+
+  const pending = await fixture.service.listPendingInvitesForUser({
+    id: 5,
+    email
+  });
+
+  assert.equal(pending.length, 99);
+  assert.equal(fixture.state.calls.listByUserIdAndWorkspaceIds, 1);
+  assert.equal(fixture.state.calls.findByWorkspaceIdAndUserId, 0);
 });
 
 test("workspace service handles sparse workspace payloads and fallback branches", async () => {

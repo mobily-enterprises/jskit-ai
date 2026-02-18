@@ -130,7 +130,17 @@ describe("client api transport", () => {
   it("retries once after csrf failure and then succeeds", async () => {
     global.fetch
       .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-1" } }))
-      .mockResolvedValueOnce(mockResponse({ status: 403, data: { error: "forbidden" } }))
+      .mockResolvedValueOnce(
+        mockResponse({
+          status: 403,
+          data: {
+            error: "forbidden",
+            details: {
+              code: "FST_CSRF_INVALID_TOKEN"
+            }
+          }
+        })
+      )
       .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-2" } }))
       .mockResolvedValueOnce(mockResponse({ data: { ok: true, csrfToken: "csrf-3" } }));
 
@@ -142,12 +152,57 @@ describe("client api transport", () => {
     expect(global.fetch.mock.calls[3][1].headers["csrf-token"]).toBe("csrf-2");
   });
 
+  it("does not retry unsafe requests for non-csrf 403 responses", async () => {
+    global.fetch
+      .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-1" } }))
+      .mockResolvedValueOnce(
+        mockResponse({
+          status: 403,
+          data: {
+            error: "forbidden",
+            details: {
+              code: "FORBIDDEN"
+            }
+          }
+        })
+      );
+
+    await expect(api.logout()).rejects.toMatchObject({
+      status: 403,
+      message: "forbidden",
+      details: {
+        code: "FORBIDDEN"
+      }
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
   it("throws http error after csrf retry is exhausted", async () => {
     global.fetch
       .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-1" } }))
-      .mockResolvedValueOnce(mockResponse({ status: 403, data: { error: "first fail" } }))
+      .mockResolvedValueOnce(
+        mockResponse({
+          status: 403,
+          data: {
+            error: "first fail",
+            details: {
+              code: "FST_CSRF_INVALID_TOKEN"
+            }
+          }
+        })
+      )
       .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-2" } }))
-      .mockResolvedValueOnce(mockResponse({ status: 403, data: { fieldErrors: { request: "blocked" } } }));
+      .mockResolvedValueOnce(
+        mockResponse({
+          status: 403,
+          data: {
+            fieldErrors: { request: "blocked" },
+            details: {
+              code: "FST_CSRF_INVALID_TOKEN"
+            }
+          }
+        })
+      );
 
     await expect(api.logout()).rejects.toMatchObject({
       status: 403,

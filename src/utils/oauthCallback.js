@@ -1,10 +1,12 @@
 import { AUTH_OAUTH_DEFAULT_PROVIDER, normalizeOAuthProvider } from "../../shared/auth/oauthProviders.js";
+import {
+  OAUTH_QUERY_PARAM_INTENT,
+  OAUTH_QUERY_PARAM_PROVIDER,
+  OAUTH_QUERY_PARAM_RETURN_TO
+} from "../../shared/auth/oauthCallbackParams.js";
 import { normalizeOAuthIntent, normalizeReturnToPath } from "../../shared/auth/utils.js";
 
 const OAUTH_PENDING_CONTEXT_STORAGE_KEY = "auth.oauth.pendingContext";
-const OAUTH_QUERY_PARAM_PROVIDER = "oauthProvider";
-const OAUTH_QUERY_PARAM_INTENT = "oauthIntent";
-const OAUTH_QUERY_PARAM_RETURN_TO = "oauthReturnTo";
 
 const OAUTH_KNOWN_SEARCH_PARAMS = new Set([
   "code",

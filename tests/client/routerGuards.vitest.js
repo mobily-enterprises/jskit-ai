@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createPinia, setActivePinia } from "pinia";
 
 const mocks = vi.hoisted(() => ({
   api: {
@@ -11,6 +12,7 @@ vi.mock("../../src/services/api.js", () => ({
 }));
 
 import { createSurfaceRouteGuards, resolveRuntimeState } from "../../src/routerGuards.js";
+import { useWorkspaceStore } from "../../src/stores/workspaceStore.js";
 
 function buildStores({
   authInitialized = true,
@@ -111,6 +113,52 @@ describe("routerGuards", () => {
     expect(state.authenticated).toBe(true);
     expect(state.hasActiveWorkspace).toBe(true);
     expect(state.activeWorkspaceSlug).toBe("team");
+  });
+
+  it("redirects to workspace list when bootstrap has one inaccessible workspace and no selection", async () => {
+    setActivePinia(createPinia());
+    const workspaceStore = useWorkspaceStore();
+    const authStore = {
+      initialized: false,
+      isAuthenticated: false,
+      applySession: vi.fn(({ authenticated: nextAuthenticated }) => {
+        authStore.initialized = true;
+        authStore.isAuthenticated = Boolean(nextAuthenticated);
+      }),
+      setSignedOut: vi.fn(() => {
+        authStore.initialized = true;
+        authStore.isAuthenticated = false;
+      })
+    };
+    const stores = { authStore, workspaceStore };
+
+    mocks.api.bootstrap.mockResolvedValue({
+      session: {
+        authenticated: true
+      },
+      workspaces: [
+        {
+          id: 9,
+          slug: "blocked",
+          name: "Blocked",
+          isAccessible: false
+        }
+      ],
+      activeWorkspace: null
+    });
+
+    const guards = createSurfaceRouteGuards(stores, {
+      loginPath: "/login",
+      workspacesPath: "/workspaces",
+      workspaceHomePath: (slug) => `/w/${slug}`
+    });
+
+    await expect(guards.beforeLoadRoot()).rejects.toMatchObject({
+      options: { to: "/workspaces" }
+    });
+    expect(workspaceStore.hasActiveWorkspace).toBe(false);
+    expect(workspaceStore.activeWorkspaceSlug).toBe("");
+    expect(workspaceStore.activeWorkspace).toBeNull();
   });
 
   it("resolveRuntimeState handles transient and non-transient bootstrap failures", async () => {

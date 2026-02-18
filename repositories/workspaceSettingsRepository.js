@@ -68,6 +68,23 @@ function createWorkspaceSettingsRepository(dbClient) {
     return mapWorkspaceSettingsRowNullable(row);
   }
 
+  async function repoFindByWorkspaceIds(workspaceIds, options = {}) {
+    const normalizedWorkspaceIds = Array.from(
+      new Set(
+        (Array.isArray(workspaceIds) ? workspaceIds : [])
+          .map((workspaceId) => Number(workspaceId))
+          .filter((workspaceId) => Number.isInteger(workspaceId) && workspaceId > 0)
+      )
+    );
+    if (normalizedWorkspaceIds.length < 1) {
+      return [];
+    }
+
+    const client = resolveClient(options);
+    const rows = await client("workspace_settings").whereIn("workspace_id", normalizedWorkspaceIds);
+    return (Array.isArray(rows) ? rows : []).map(mapWorkspaceSettingsRowRequired);
+  }
+
   async function repoEnsureForWorkspaceId(workspaceId, defaults = {}, options = {}) {
     const client = resolveClient(options);
     const existing = await repoFindByWorkspaceId(workspaceId, options);
@@ -119,6 +136,7 @@ function createWorkspaceSettingsRepository(dbClient) {
 
   return {
     findByWorkspaceId: repoFindByWorkspaceId,
+    findByWorkspaceIds: repoFindByWorkspaceIds,
     ensureForWorkspaceId: repoEnsureForWorkspaceId,
     updateByWorkspaceId: repoUpdateByWorkspaceId
   };
@@ -134,5 +152,5 @@ const __testables = {
   createWorkspaceSettingsRepository
 };
 
-export const { findByWorkspaceId, ensureForWorkspaceId, updateByWorkspaceId } = repository;
+export const { findByWorkspaceId, findByWorkspaceIds, ensureForWorkspaceId, updateByWorkspaceId } = repository;
 export { __testables };

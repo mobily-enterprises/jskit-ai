@@ -4,9 +4,9 @@ import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useAuthGuard } from "../../composables/useAuthGuard";
 import { api } from "../../services/api";
 
-const WORKSPACE_SETTINGS_QUERY_KEY = ["workspace-settings"];
-const WORKSPACE_MEMBERS_QUERY_KEY = ["workspace-members"];
-const WORKSPACE_INVITES_QUERY_KEY = ["workspace-invites"];
+const WORKSPACE_SETTINGS_QUERY_KEY = "workspace-settings";
+const WORKSPACE_MEMBERS_QUERY_KEY = "workspace-members";
+const WORKSPACE_INVITES_QUERY_KEY = "workspace-invites";
 
 const modeOptions = [
   { title: "Future value", value: "fv" },
@@ -92,6 +92,23 @@ export function useWorkspaceSettingsView() {
   const invites = ref([]);
   const roleCatalog = ref(normalizeRoleCatalog({}));
 
+  const workspaceScope = computed(() => {
+    const workspaceId = Number(workspaceStore.activeWorkspace?.id);
+    if (Number.isInteger(workspaceId) && workspaceId > 0) {
+      return `id:${workspaceId}`;
+    }
+
+    const workspaceSlug = String(workspaceStore.activeWorkspace?.slug || workspaceStore.activeWorkspaceSlug || "").trim();
+    if (workspaceSlug) {
+      return `slug:${workspaceSlug}`;
+    }
+
+    return "none";
+  });
+  const workspaceSettingsQueryKey = computed(() => [WORKSPACE_SETTINGS_QUERY_KEY, workspaceScope.value]);
+  const workspaceMembersQueryKey = computed(() => [WORKSPACE_MEMBERS_QUERY_KEY, workspaceScope.value]);
+  const workspaceInvitesQueryKey = computed(() => [WORKSPACE_INVITES_QUERY_KEY, workspaceScope.value]);
+
   const canViewWorkspaceSettings = computed(
     () => workspaceStore.can("workspace.settings.view") || workspaceStore.can("workspace.settings.update")
   );
@@ -120,19 +137,19 @@ export function useWorkspaceSettingsView() {
   });
 
   const workspaceSettingsQuery = useQuery({
-    queryKey: WORKSPACE_SETTINGS_QUERY_KEY,
+    queryKey: workspaceSettingsQueryKey,
     queryFn: () => api.workspaceSettings(),
     enabled: canViewWorkspaceSettings
   });
 
   const membersQuery = useQuery({
-    queryKey: WORKSPACE_MEMBERS_QUERY_KEY,
+    queryKey: workspaceMembersQueryKey,
     queryFn: () => api.workspaceMembers(),
     enabled: canViewMembers
   });
 
   const invitesQuery = useQuery({
-    queryKey: WORKSPACE_INVITES_QUERY_KEY,
+    queryKey: workspaceInvitesQueryKey,
     queryFn: () => api.workspaceInvites(),
     enabled: canViewMembers
   });
@@ -206,6 +223,32 @@ export function useWorkspaceSettingsView() {
     }
   }
 
+  function resetWorkspaceScopedState() {
+    workspaceError.value = "";
+    workspaceMessage.value = "";
+    inviteMessage.value = "";
+    teamMessage.value = "";
+    revokeInviteId.value = 0;
+
+    workspaceForm.name = "";
+    workspaceForm.color = "#0F6B54";
+    workspaceForm.avatarUrl = "";
+    workspaceForm.invitesEnabled = false;
+    workspaceForm.invitesAvailable = false;
+    workspaceForm.appDenyEmailsText = "";
+    workspaceForm.defaultMode = "fv";
+    workspaceForm.defaultTiming = "ordinary";
+    workspaceForm.defaultPaymentsPerYear = 12;
+    workspaceForm.defaultHistoryPageSize = 10;
+
+    inviteForm.email = "";
+    inviteForm.roleId = "member";
+
+    members.value = [];
+    invites.value = [];
+    roleCatalog.value = normalizeRoleCatalog({});
+  }
+
   async function handleError(error, fallback, target = "workspace") {
     if (await handleUnauthorizedError(error)) {
       return true;
@@ -240,6 +283,14 @@ export function useWorkspaceSettingsView() {
 
       workspaceError.value = String(error?.message || "Unable to load workspace settings.");
     }
+  );
+
+  watch(
+    () => workspaceScope.value,
+    () => {
+      resetWorkspaceScopedState();
+    },
+    { immediate: true }
   );
 
   watch(
@@ -283,6 +334,7 @@ export function useWorkspaceSettingsView() {
     workspaceMessage.value = "";
 
     try {
+      const settingsQueryKey = [...workspaceSettingsQueryKey.value];
       const data = await updateWorkspaceSettingsMutation.mutateAsync({
         name: workspaceForm.name,
         color: workspaceForm.color,
@@ -295,7 +347,7 @@ export function useWorkspaceSettingsView() {
         defaultHistoryPageSize: Number(workspaceForm.defaultHistoryPageSize)
       });
 
-      queryClient.setQueryData(WORKSPACE_SETTINGS_QUERY_KEY, data);
+      queryClient.setQueryData(settingsQueryKey, data);
       applyWorkspaceSettingsData(data);
 
       await workspaceStore.refreshBootstrap();
@@ -311,12 +363,13 @@ export function useWorkspaceSettingsView() {
     inviteMessage.value = "";
 
     try {
+      const invitesQueryKey = [...workspaceInvitesQueryKey.value];
       const data = await createInviteMutation.mutateAsync({
         email: inviteForm.email,
         roleId: inviteForm.roleId
       });
 
-      queryClient.setQueryData(WORKSPACE_INVITES_QUERY_KEY, data);
+      queryClient.setQueryData(invitesQueryKey, data);
       applyInvitesData(data);
 
       inviteForm.email = "";
@@ -332,8 +385,9 @@ export function useWorkspaceSettingsView() {
     revokeInviteId.value = Number(inviteId);
 
     try {
+      const invitesQueryKey = [...workspaceInvitesQueryKey.value];
       const data = await revokeInviteMutation.mutateAsync(inviteId);
-      queryClient.setQueryData(WORKSPACE_INVITES_QUERY_KEY, data);
+      queryClient.setQueryData(invitesQueryKey, data);
       applyInvitesData(data);
       teamMessageType.value = "success";
       teamMessage.value = "Invite revoked.";
@@ -352,12 +406,13 @@ export function useWorkspaceSettingsView() {
     teamMessage.value = "";
 
     try {
+      const membersQueryKey = [...workspaceMembersQueryKey.value];
       const data = await updateMemberRoleMutation.mutateAsync({
         memberUserId: member.userId,
         roleId
       });
 
-      queryClient.setQueryData(WORKSPACE_MEMBERS_QUERY_KEY, data);
+      queryClient.setQueryData(membersQueryKey, data);
       applyMembersData(data);
 
       await workspaceStore.refreshBootstrap();
