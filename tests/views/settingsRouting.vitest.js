@@ -100,13 +100,13 @@ describe("useSettingsRouting", () => {
     const nonWorkspaceSurfaceFallback = createRoutingHarness({
       routerSearch: { section: "profile", returnTo: "" },
       hasActiveWorkspace: false,
-      surface: "god",
-      rootPath: "/god",
-      workspacesPath: "/god/workspaces"
+      surface: "console",
+      rootPath: "/console",
+      workspacesPath: "/console/workspaces"
     });
     await nonWorkspaceSurfaceFallback.vm.goBack();
     expect(nonWorkspaceSurfaceFallback.navigate).toHaveBeenCalledWith({
-      to: "/god"
+      to: "/console"
     });
   });
 

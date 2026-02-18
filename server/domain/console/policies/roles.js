@@ -1,0 +1,105 @@
+const CONSOLE_ROLE_ID = "console";
+const DEVOP_ROLE_ID = "devop";
+const MODERATOR_ROLE_ID = "moderator";
+
+const CONSOLE_ROLE_DEFINITIONS = Object.freeze({
+  [CONSOLE_ROLE_ID]: Object.freeze({
+    assignable: false,
+    permissions: Object.freeze(["*"])
+  }),
+  [DEVOP_ROLE_ID]: Object.freeze({
+    assignable: true,
+    permissions: Object.freeze(["console.errors.browser.read", "console.errors.server.read"])
+  }),
+  [MODERATOR_ROLE_ID]: Object.freeze({
+    assignable: true,
+    permissions: Object.freeze(["console.content.moderate"])
+  })
+});
+
+const CONSOLE_MANAGEMENT_PERMISSIONS = Object.freeze({
+  MEMBERS_VIEW: "console.members.view",
+  MEMBERS_INVITE: "console.members.invite",
+  MEMBERS_MANAGE: "console.members.manage",
+  INVITES_REVOKE: "console.invites.revoke",
+  ROLES_VIEW: "console.roles.view"
+});
+
+function toUniqueStringArray(values) {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      values
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+function normalizeRoleId(roleId) {
+  return String(roleId || "")
+    .trim()
+    .toLowerCase();
+}
+
+function listRoleDescriptors() {
+  return Object.entries(CONSOLE_ROLE_DEFINITIONS).map(([roleId, role]) => ({
+    id: roleId,
+    assignable: role.assignable === true,
+    permissions: toUniqueStringArray(role.permissions)
+  }));
+}
+
+function resolveAssignableRoleIds() {
+  return listRoleDescriptors()
+    .filter((role) => role.assignable)
+    .map((role) => role.id);
+}
+
+function resolveRolePermissions(roleId) {
+  const normalizedRoleId = normalizeRoleId(roleId);
+  if (!normalizedRoleId) {
+    return [];
+  }
+
+  const role = CONSOLE_ROLE_DEFINITIONS[normalizedRoleId];
+  if (!role) {
+    return [];
+  }
+
+  return toUniqueStringArray(role.permissions);
+}
+
+function hasPermission(permissionSet, permission) {
+  const required = String(permission || "").trim();
+  if (!required) {
+    return true;
+  }
+
+  const permissions = toUniqueStringArray(permissionSet);
+  return permissions.includes("*") || permissions.includes(required);
+}
+
+function getRoleCatalog() {
+  return {
+    defaultInviteRole: MODERATOR_ROLE_ID,
+    roles: listRoleDescriptors(),
+    assignableRoleIds: resolveAssignableRoleIds()
+  };
+}
+
+export {
+  CONSOLE_ROLE_ID,
+  DEVOP_ROLE_ID,
+  MODERATOR_ROLE_ID,
+  CONSOLE_ROLE_DEFINITIONS,
+  CONSOLE_MANAGEMENT_PERMISSIONS,
+  normalizeRoleId,
+  resolveRolePermissions,
+  resolveAssignableRoleIds,
+  hasPermission,
+  getRoleCatalog
+};

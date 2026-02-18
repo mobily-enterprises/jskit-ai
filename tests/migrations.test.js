@@ -8,8 +8,8 @@ const userProfilesMigration = require("../migrations/20260215120000_create_user_
 const calculationLogsMigration = require("../migrations/20260215120100_create_calculation_logs.cjs");
 const userSettingsMigration = require("../migrations/20260216110000_create_user_settings.cjs");
 const userAvatarColumnsMigration = require("../migrations/20260216230000_add_user_avatar_columns.cjs");
-const godMembershipsMigration = require("../migrations/20260220090000_create_god_memberships.cjs");
-const godInvitesMigration = require("../migrations/20260220090100_create_god_invites.cjs");
+const consoleMembershipsMigration = require("../migrations/20260220090000_create_console_memberships.cjs");
+const consoleInvitesMigration = require("../migrations/20260220090100_create_console_invites.cjs");
 
 function createSchemaStub() {
   const calls = [];
@@ -260,26 +260,26 @@ test("user avatar columns migration alters expected tables", async () => {
   );
 });
 
-test("god memberships migration creates expected table, singleton guard, and drop behavior", async () => {
+test("console memberships migration creates expected table, singleton guard, and drop behavior", async () => {
   const { knex, calls } = createSchemaStub();
 
-  await godMembershipsMigration.up(knex);
-  await godMembershipsMigration.down(knex);
+  await consoleMembershipsMigration.up(knex);
+  await consoleMembershipsMigration.down(knex);
 
   assert.equal(calls[0][0], "createTable");
-  assert.equal(calls[0][1], "god_memberships");
-  assert.ok(calls.some((entry) => entry[0] === "raw" && String(entry[1]).includes("ALTER TABLE god_memberships")));
-  assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "god_memberships"]);
+  assert.equal(calls[0][1], "console_memberships");
+  assert.ok(calls.some((entry) => entry[0] === "raw" && String(entry[1]).includes("ALTER TABLE console_memberships")));
+  assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "console_memberships"]);
 });
 
-test("god invites migration creates expected table, pending-email guard, and drop behavior", async () => {
+test("console invites migration creates expected table, pending-email guard, and drop behavior", async () => {
   const { knex, calls } = createSchemaStub();
 
-  await godInvitesMigration.up(knex);
-  await godInvitesMigration.down(knex);
+  await consoleInvitesMigration.up(knex);
+  await consoleInvitesMigration.down(knex);
 
   assert.equal(calls[0][0], "createTable");
-  assert.equal(calls[0][1], "god_invites");
-  assert.ok(calls.some((entry) => entry[0] === "raw" && String(entry[1]).includes("ALTER TABLE god_invites")));
-  assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "god_invites"]);
+  assert.equal(calls[0][1], "console_invites");
+  assert.ok(calls.some((entry) => entry[0] === "raw" && String(entry[1]).includes("ALTER TABLE console_invites")));
+  assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "console_invites"]);
 });

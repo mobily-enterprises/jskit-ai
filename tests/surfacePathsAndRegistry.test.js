@@ -3,10 +3,10 @@ import test from "node:test";
 
 import {
   ADMIN_SURFACE_PREFIX,
-  GOD_SURFACE_PREFIX,
+  CONSOLE_SURFACE_PREFIX,
   SURFACE_ADMIN,
   SURFACE_APP,
-  SURFACE_GOD,
+  SURFACE_CONSOLE,
   createSurfacePaths,
   normalizePathname,
   resolveSurfaceFromPathname,
@@ -27,17 +27,17 @@ import { canAccessWorkspace as canAccessAdminWorkspace } from "../server/surface
 
 test("surface registry normalizes ids, prefixes, and definitions", () => {
   assert.equal(DEFAULT_SURFACE_ID, "app");
-  assert.deepEqual(Object.keys(SURFACE_REGISTRY).sort(), ["admin", "app", "god"]);
+  assert.deepEqual(Object.keys(SURFACE_REGISTRY).sort(), ["admin", "app", "console"]);
   assert.equal(normalizeSurfaceId("ADMIN"), "admin");
-  assert.equal(normalizeSurfaceId("GOD"), "god");
+  assert.equal(normalizeSurfaceId("CONSOLE"), "console");
   assert.equal(normalizeSurfaceId("unknown"), "app");
   assert.equal(resolveSurfacePrefixFromRegistry("admin"), "/admin");
   assert.equal(resolveSurfacePrefixFromRegistry("app"), "");
-  assert.equal(resolveSurfacePrefixFromRegistry("god"), "/god");
+  assert.equal(resolveSurfacePrefixFromRegistry("console"), "/console");
   assert.equal(resolveSurfacePrefixFromRegistry("unknown"), "");
   assert.equal(surfaceRequiresWorkspace("app"), true);
   assert.equal(surfaceRequiresWorkspace("admin"), true);
-  assert.equal(surfaceRequiresWorkspace("god"), false);
+  assert.equal(surfaceRequiresWorkspace("console"), false);
   assert.equal(surfaceRequiresWorkspace("unknown"), true);
 
   const definitions = listSurfaceDefinitions();
@@ -50,17 +50,17 @@ test("surface registry normalizes ids, prefixes, and definitions", () => {
     true
   );
   assert.equal(
-    definitions.some((entry) => entry.id === "god"),
+    definitions.some((entry) => entry.id === "console"),
     true
   );
 });
 
 test("surface path helpers normalize paths and resolve surface by prefix", () => {
   assert.equal(ADMIN_SURFACE_PREFIX, "/admin");
-  assert.equal(GOD_SURFACE_PREFIX, "/god");
+  assert.equal(CONSOLE_SURFACE_PREFIX, "/console");
   assert.equal(SURFACE_APP, "app");
   assert.equal(SURFACE_ADMIN, "admin");
-  assert.equal(SURFACE_GOD, "god");
+  assert.equal(SURFACE_CONSOLE, "console");
 
   assert.equal(normalizePathname(""), "/");
   assert.equal(normalizePathname("   "), "/");
@@ -70,21 +70,21 @@ test("surface path helpers normalize paths and resolve surface by prefix", () =>
 
   assert.equal(resolveSurfaceFromPathname("/admin"), "admin");
   assert.equal(resolveSurfaceFromPathname("/admin/w/acme"), "admin");
-  assert.equal(resolveSurfaceFromPathname("/god"), "god");
-  assert.equal(resolveSurfaceFromPathname("/god/login"), "god");
+  assert.equal(resolveSurfaceFromPathname("/console"), "console");
+  assert.equal(resolveSurfaceFromPathname("/console/login"), "console");
   assert.equal(resolveSurfaceFromPathname("/w/acme"), "app");
   assert.equal(resolveSurfacePrefix("admin"), "/admin");
   assert.equal(resolveSurfacePrefix("app"), "");
-  assert.equal(resolveSurfacePrefix("god"), "/god");
+  assert.equal(resolveSurfacePrefix("console"), "/console");
   assert.equal(withSurfacePrefix("admin", "/w/acme"), "/admin/w/acme");
-  assert.equal(withSurfacePrefix("god", "/login"), "/god/login");
+  assert.equal(withSurfacePrefix("console", "/login"), "/console/login");
   assert.equal(withSurfacePrefix("app", "/w/acme"), "/w/acme");
   assert.equal(withSurfacePrefix("admin", "/"), "/admin");
-  assert.equal(withSurfacePrefix("god", "/"), "/god");
+  assert.equal(withSurfacePrefix("console", "/"), "/console");
   assert.equal(withSurfacePrefix("app", "/"), "/");
 });
 
-test("createSurfacePaths builds route helpers for app, admin, and god surfaces", () => {
+test("createSurfacePaths builds route helpers for app, admin, and console surfaces", () => {
   const appPaths = createSurfacePaths("app");
   assert.equal(appPaths.surface, "app");
   assert.equal(appPaths.prefix, "");
@@ -116,16 +116,16 @@ test("createSurfacePaths builds route helpers for app, admin, and god surfaces",
   assert.equal(adminPaths.workspacePath("acme", "/settings"), "/admin/w/acme/settings");
   assert.equal(adminPaths.extractWorkspaceSlug("/admin/w/acme"), "acme");
 
-  const godPaths = createSurfacePaths("god");
-  assert.equal(godPaths.surface, "god");
-  assert.equal(godPaths.prefix, "/god");
-  assert.equal(godPaths.rootPath, "/god");
-  assert.equal(godPaths.loginPath, "/god/login");
-  assert.equal(godPaths.resetPasswordPath, "/god/reset-password");
-  assert.equal(godPaths.accountSettingsPath, "/god/account/settings");
-  assert.equal(godPaths.isPublicAuthPath("/god/login"), true);
-  assert.equal(godPaths.isPublicAuthPath("/god"), false);
-  assert.equal(godPaths.extractWorkspaceSlug("/god/w/acme"), "acme");
+  const consolePaths = createSurfacePaths("console");
+  assert.equal(consolePaths.surface, "console");
+  assert.equal(consolePaths.prefix, "/console");
+  assert.equal(consolePaths.rootPath, "/console");
+  assert.equal(consolePaths.loginPath, "/console/login");
+  assert.equal(consolePaths.resetPasswordPath, "/console/reset-password");
+  assert.equal(consolePaths.accountSettingsPath, "/console/account/settings");
+  assert.equal(consolePaths.isPublicAuthPath("/console/login"), true);
+  assert.equal(consolePaths.isPublicAuthPath("/console"), false);
+  assert.equal(consolePaths.extractWorkspaceSlug("/console/w/acme"), "acme");
 });
 
 test("resolveSurfacePaths prefers browser pathname when available", () => {
@@ -151,13 +151,13 @@ test("resolveSurfacePaths prefers browser pathname when available", () => {
 test("surface resolver and admin surface access rules cover supported and fallback behavior", () => {
   assert.equal(typeof SURFACES.app.canAccessWorkspace, "function");
   assert.equal(typeof SURFACES.admin.canAccessWorkspace, "function");
-  assert.equal(typeof SURFACES.god.canAccessWorkspace, "function");
+  assert.equal(typeof SURFACES.console.canAccessWorkspace, "function");
   assert.equal(resolveSurfaceById("unknown").id, "app");
   assert.equal(resolveSurfaceById("admin").id, "admin");
-  assert.equal(resolveSurfaceById("god").id, "god");
+  assert.equal(resolveSurfaceById("console").id, "console");
 
-  const godWorkspaceAccess = SURFACES.god.canAccessWorkspace({});
-  assert.deepEqual(godWorkspaceAccess, {
+  const consoleWorkspaceAccess = SURFACES.console.canAccessWorkspace({});
+  assert.deepEqual(consoleWorkspaceAccess, {
     allowed: false,
     reason: "surface_not_supported",
     permissions: []

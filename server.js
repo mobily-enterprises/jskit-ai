@@ -48,7 +48,7 @@ const SCRIPT_SRC_POLICY = NODE_ENV === "production" ? ["'self'"] : ["'self'", "'
 
 const {
   controllers,
-  runtimeServices: { authService, workspaceService, godService, avatarStorageService }
+  runtimeServices: { authService, workspaceService, consoleService, avatarStorageService }
 } = createServerRuntime({
   env,
   nodeEnv: NODE_ENV,
@@ -146,18 +146,18 @@ async function guardPageRoute(request, reply) {
 
     if (surfacePaths.isLoginPath(pathnameValue) && authResult.authenticated) {
       if (!requiresWorkspace) {
-        if (surfacePaths.surface === "god") {
-          const godBootstrapPayload = await godService.buildBootstrapPayload({
+        if (surfacePaths.surface === "console") {
+          const consoleBootstrapPayload = await consoleService.buildBootstrapPayload({
             user: authResult.profile
           });
-          const hasGodAccess = Boolean(godBootstrapPayload?.isGod);
-          const hasPendingGodInvites = Array.isArray(godBootstrapPayload?.pendingInvites)
-            ? godBootstrapPayload.pendingInvites.length > 0
+          const hasConsoleAccess = Boolean(consoleBootstrapPayload?.isConsole);
+          const hasPendingConsoleInvites = Array.isArray(consoleBootstrapPayload?.pendingInvites)
+            ? consoleBootstrapPayload.pendingInvites.length > 0
             : false;
 
-          if (hasGodAccess) {
+          if (hasConsoleAccess) {
             reply.redirect(surfacePaths.rootPath);
-          } else if (hasPendingGodInvites) {
+          } else if (hasPendingConsoleInvites) {
             reply.redirect(surfacePaths.invitationsPath);
           } else {
             reply.redirect(appSurfacePaths.rootPath);
@@ -217,22 +217,22 @@ async function guardPageRoute(request, reply) {
           reply.redirect(surfacePaths.workspaceHomePath(resolvedContext.workspace.slug));
           return false;
         }
-      } else if (surfacePaths.surface === "god") {
-        const godBootstrapPayload = await godService.buildBootstrapPayload({
+      } else if (surfacePaths.surface === "console") {
+        const consoleBootstrapPayload = await consoleService.buildBootstrapPayload({
           user: authResult.profile
         });
-        const hasGodAccess = Boolean(godBootstrapPayload?.isGod);
-        const hasPendingGodInvites = Array.isArray(godBootstrapPayload?.pendingInvites)
-          ? godBootstrapPayload.pendingInvites.length > 0
+        const hasConsoleAccess = Boolean(consoleBootstrapPayload?.isConsole);
+        const hasPendingConsoleInvites = Array.isArray(consoleBootstrapPayload?.pendingInvites)
+          ? consoleBootstrapPayload.pendingInvites.length > 0
           : false;
 
         if (surfacePaths.isInvitationsPath(pathnameValue)) {
-          if (hasGodAccess) {
+          if (hasConsoleAccess) {
             reply.redirect(surfacePaths.rootPath);
             return false;
           }
 
-          if (!hasPendingGodInvites) {
+          if (!hasPendingConsoleInvites) {
             reply.redirect(appSurfacePaths.rootPath);
             return false;
           }
@@ -243,9 +243,9 @@ async function guardPageRoute(request, reply) {
         if (
           !surfacePaths.isPublicAuthPath(pathnameValue) &&
           !surfacePaths.isAccountSettingsPath(pathnameValue) &&
-          !hasGodAccess
+          !hasConsoleAccess
         ) {
-          if (hasPendingGodInvites) {
+          if (hasPendingConsoleInvites) {
             reply.redirect(surfacePaths.invitationsPath);
           } else {
             reply.redirect(appSurfacePaths.rootPath);
@@ -259,7 +259,7 @@ async function guardPageRoute(request, reply) {
   } catch (error) {
     const statusCode = Number(error?.status || error?.statusCode);
     if (!surfacePaths.isPublicAuthPath(pathnameValue)) {
-      if (surfacePaths.surface === "god") {
+      if (surfacePaths.surface === "console") {
         reply.redirect(appSurfacePaths.rootPath);
         return false;
       }

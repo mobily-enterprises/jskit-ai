@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   mountAdminApplication: vi.fn(),
   mountAppApplication: vi.fn(),
-  mountGodApplication: vi.fn()
+  mountConsoleApplication: vi.fn()
 }));
 
 vi.mock("../../src/main.admin", () => ({
@@ -14,8 +14,8 @@ vi.mock("../../src/main.app", () => ({
   mountAppApplication: mocks.mountAppApplication
 }));
 
-vi.mock("../../src/main.god", () => ({
-  mountGodApplication: mocks.mountGodApplication
+vi.mock("../../src/main.console", () => ({
+  mountConsoleApplication: mocks.mountConsoleApplication
 }));
 
 describe("main bootstrap", () => {
@@ -23,7 +23,7 @@ describe("main bootstrap", () => {
     vi.resetModules();
     mocks.mountAdminApplication.mockReset();
     mocks.mountAppApplication.mockReset();
-    mocks.mountGodApplication.mockReset();
+    mocks.mountConsoleApplication.mockReset();
     window.history.replaceState({}, "", "/login");
   });
 
@@ -43,12 +43,12 @@ describe("main bootstrap", () => {
     expect(mocks.mountAppApplication).not.toHaveBeenCalled();
   });
 
-  it("boots god surface for /god paths", async () => {
-    window.history.replaceState({}, "", "/god/login");
+  it("boots console surface for /console paths", async () => {
+    window.history.replaceState({}, "", "/console/login");
 
     await import("../../src/main.js");
 
-    expect(mocks.mountGodApplication).toHaveBeenCalledTimes(1);
+    expect(mocks.mountConsoleApplication).toHaveBeenCalledTimes(1);
     expect(mocks.mountAppApplication).not.toHaveBeenCalled();
     expect(mocks.mountAdminApplication).not.toHaveBeenCalled();
   });

@@ -16,16 +16,16 @@ Frontend surfaces:
 
 - `app` at `/` (workspace-bound)
 - `admin` at `/admin` (workspace-bound)
-- `god` at `/god` (global surface with auth, role assignment, and invite management)
+- `console` at `/console` (global surface with auth, role assignment, and invite management)
 
-Current god capabilities:
+Current console capabilities:
 
 - bootstrap/auth gating without workspace dependence
-- role catalog: `god`, `devop`, `moderator`
+- role catalog: `console`, `devop`, `moderator`
 - member listing and role reassignment
 - invite create/revoke + pending invite accept/refuse flow
 
-Future god capabilities (not yet implemented):
+Future console capabilities (not yet implemented):
 
 - browser/server crash log ingestion + viewing
 - moderation tools and policy workflows
@@ -159,7 +159,7 @@ Swagger UI is available at `http://localhost:3000/api/docs` in non-production mo
 The project supports two client build targets selected by `VITE_CLIENT_ENTRY`:
 
 - Internal/full client: `src/main.js`
-- Public client (no god UI screens): `src/main.public.js`
+- Public client (no console UI screens): `src/main.public.js`
 
 Build commands:
 
@@ -281,15 +281,15 @@ npm run docs:api-contracts
 - `GET /api/workspace/invites`
 - `POST /api/workspace/invites`
 - `DELETE /api/workspace/invites/:inviteId`
-- `GET /api/god/bootstrap`
-- `GET /api/god/roles`
-- `GET /api/god/members`
-- `PATCH /api/god/members/:memberUserId/role`
-- `GET /api/god/invites`
-- `POST /api/god/invites`
-- `DELETE /api/god/invites/:inviteId`
-- `GET /api/god/invitations/pending`
-- `POST /api/god/invitations/redeem`
+- `GET /api/console/bootstrap`
+- `GET /api/console/roles`
+- `GET /api/console/members`
+- `PATCH /api/console/members/:memberUserId/role`
+- `GET /api/console/invites`
+- `POST /api/console/invites`
+- `DELETE /api/console/invites/:inviteId`
+- `GET /api/console/invitations/pending`
+- `POST /api/console/invitations/redeem`
 - `GET /api/workspace/projects`
 - `GET /api/workspace/projects/:projectId`
 - `POST /api/workspace/projects`

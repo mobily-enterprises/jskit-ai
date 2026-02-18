@@ -19,7 +19,7 @@ import "vuetify/styles";
 import { queryClient } from "./queryClient.js";
 import { api } from "./services/api/index.js";
 import { useAuthStore } from "./stores/authStore.js";
-import { useGodStore } from "./stores/godStore.js";
+import { useConsoleStore } from "./stores/consoleStore.js";
 import { useWorkspaceStore } from "./stores/workspaceStore.js";
 
 const iconAliases = {
@@ -92,7 +92,7 @@ function applyThemePreference(vuetifyInstance, themePreference) {
   vuetifyInstance.theme.global.name.value = prefersDark ? "dark" : "light";
 }
 
-async function bootstrapRuntime({ authStore, workspaceStore, godStore, vuetify, surface }) {
+async function bootstrapRuntime({ authStore, workspaceStore, consoleStore, vuetify, surface }) {
   try {
     const bootstrapPayload = await api.workspace.bootstrap();
     const session =
@@ -105,27 +105,27 @@ async function bootstrapRuntime({ authStore, workspaceStore, godStore, vuetify, 
 
     applyThemePreference(vuetify, workspaceStore.userSettings?.theme);
 
-    if (String(surface || "").trim() === "god" && authStore.isAuthenticated) {
+    if (String(surface || "").trim() === "console" && authStore.isAuthenticated) {
       try {
-        await godStore.refreshBootstrap();
+        await consoleStore.refreshBootstrap();
       } catch (error) {
         if (Number(error?.status) === 403) {
-          godStore.setForbidden();
+          consoleStore.setForbidden();
         } else if (Number(error?.status) === 401) {
           authStore.setSignedOut();
           workspaceStore.clearWorkspaceState();
-          godStore.clearGodState();
+          consoleStore.clearConsoleState();
         } else {
           throw error;
         }
       }
     } else {
-      godStore.clearGodState();
+      consoleStore.clearConsoleState();
     }
   } catch {
     authStore.setSignedOut();
     workspaceStore.clearWorkspaceState();
-    godStore.clearGodState();
+    consoleStore.clearConsoleState();
     applyThemePreference(vuetify, "system");
   }
 }
@@ -133,12 +133,12 @@ async function bootstrapRuntime({ authStore, workspaceStore, godStore, vuetify, 
 async function mountSurfaceApplication({ createRouter, surface }) {
   const pinia = createPinia();
   const authStore = useAuthStore(pinia);
-  const godStore = useGodStore(pinia);
+  const consoleStore = useConsoleStore(pinia);
   const workspaceStore = useWorkspaceStore(pinia);
   const vuetify = createVuetifyInstance();
 
-  await bootstrapRuntime({ authStore, workspaceStore, godStore, vuetify, surface });
-  const router = createRouter({ authStore, workspaceStore, godStore });
+  await bootstrapRuntime({ authStore, workspaceStore, consoleStore, vuetify, surface });
+  const router = createRouter({ authStore, workspaceStore, consoleStore });
 
   createApp({
     render: () => h(RouterProvider, { router })

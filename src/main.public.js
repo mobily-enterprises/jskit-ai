@@ -10,7 +10,7 @@ const SURFACE_BOOTSTRAP = {
 const pathname = typeof window !== "undefined" ? window.location.pathname : "/";
 const activeSurface = resolveSurfaceFromPathname(pathname);
 
-if (activeSurface === "god") {
+if (activeSurface === "console") {
   if (typeof window !== "undefined") {
     window.history.replaceState({}, "", "/login");
   }

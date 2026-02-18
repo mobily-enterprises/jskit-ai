@@ -20,9 +20,9 @@ vi.mock("../../src/shells/app/AppShell.vue", () => ({
   }
 }));
 
-vi.mock("../../src/shells/god/GodShell.vue", () => ({
+vi.mock("../../src/shells/console/ConsoleShell.vue", () => ({
   default: {
-    name: "GodShellMock"
+    name: "ConsoleShellMock"
   }
 }));
 
@@ -316,11 +316,11 @@ describe("router auth guards", () => {
     });
     expect(explicitRouter).toBeTruthy();
 
-    const godRouter = createRouterForCurrentPath({
+    const consoleRouter = createRouterForCurrentPath({
       ...stores,
-      pathname: "/god/login"
+      pathname: "/console/login"
     });
-    expect(godRouter).toBeTruthy();
+    expect(consoleRouter).toBeTruthy();
 
     window.history.replaceState({}, "", "/admin/w/acme");
     const implicitRouter = createRouterForCurrentPath(stores);

@@ -9,9 +9,9 @@ const SURFACE_REGISTRY = Object.freeze({
     prefix: "/admin",
     requiresWorkspace: true
   }),
-  god: Object.freeze({
-    id: "god",
-    prefix: "/god",
+  console: Object.freeze({
+    id: "console",
+    prefix: "/console",
     requiresWorkspace: false
   })
 });

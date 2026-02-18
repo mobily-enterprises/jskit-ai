@@ -74,9 +74,9 @@ test("workspace controller bootstrap handles transient, cookie management, and p
     }
   };
   const workspaceAdminService = {};
-  const godService = {
-    async ensureInitialGodMember(userId) {
-      calls.push(["ensureInitialGodMember", Number(userId)]);
+  const consoleService = {
+    async ensureInitialConsoleMember(userId) {
+      calls.push(["ensureInitialConsoleMember", Number(userId)]);
       return null;
     }
   };
@@ -85,7 +85,7 @@ test("workspace controller bootstrap handles transient, cookie management, and p
     authService,
     workspaceService,
     workspaceAdminService,
-    godService
+    consoleService
   });
 
   const transientReply = createReplyDouble();
@@ -110,7 +110,7 @@ test("workspace controller bootstrap handles transient, cookie management, and p
     true
   );
   assert.equal(
-    calls.some((entry) => entry[0] === "ensureInitialGodMember" && entry[1] === 9),
+    calls.some((entry) => entry[0] === "ensureInitialConsoleMember" && entry[1] === 9),
     true
   );
 });
@@ -203,8 +203,8 @@ test("workspace controller delegates workspace and admin routes to services", as
       return { ok: true, decision };
     }
   };
-  const godService = {
-    async ensureInitialGodMember() {
+  const consoleService = {
+    async ensureInitialConsoleMember() {
       return null;
     }
   };
@@ -212,7 +212,7 @@ test("workspace controller delegates workspace and admin routes to services", as
     authService,
     workspaceService,
     workspaceAdminService,
-    godService
+    consoleService
   });
 
   const user = { id: 7, email: "user@example.com" };

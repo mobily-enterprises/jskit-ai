@@ -37,8 +37,8 @@ describe("main public bootstrap", () => {
     expect(mocks.mountAppApplication).not.toHaveBeenCalled();
   });
 
-  it("routes /god paths to app login flow", async () => {
-    window.history.replaceState({}, "", "/god/login");
+  it("routes /console paths to app login flow", async () => {
+    window.history.replaceState({}, "", "/console/login");
 
     await import("../../src/main.public.js");
 

@@ -1,8 +1,8 @@
 import { hasPermission } from "../../lib/rbacManifest.js";
 
-function createController({ authService, workspaceService, workspaceAdminService, godService }) {
-  if (!authService || !workspaceService || !workspaceAdminService || !godService) {
-    throw new Error("authService, workspaceService, workspaceAdminService, and godService are required.");
+function createController({ authService, workspaceService, workspaceAdminService, consoleService }) {
+  if (!authService || !workspaceService || !workspaceAdminService || !consoleService) {
+    throw new Error("authService, workspaceService, workspaceAdminService, and consoleService are required.");
   }
 
   async function bootstrap(request, reply) {
@@ -22,7 +22,7 @@ function createController({ authService, workspaceService, workspaceAdminService
     }
 
     if (authResult.authenticated && authResult.profile?.id != null) {
-      await godService.ensureInitialGodMember(authResult.profile.id);
+      await consoleService.ensureInitialConsoleMember(authResult.profile.id);
     }
 
     const payload = await workspaceService.buildBootstrapPayload({

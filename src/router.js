@@ -2,38 +2,38 @@ import { resolveSurfaceFromPathname } from "../shared/routing/surfacePaths.js";
 import { DEFAULT_SURFACE_ID, normalizeSurfaceId } from "../shared/routing/surfaceRegistry.js";
 import { createAdminRouter } from "./router.admin.js";
 import { createCustomerRouter } from "./router.app.js";
-import { createGodRouter } from "./router.god.js";
+import { createConsoleRouter } from "./router.console.js";
 import { createSurfaceRouteGuards, resolveRuntimeState } from "./routerGuards.js";
 
 const ROUTER_BY_SURFACE = {
   app: createCustomerRouter,
   admin: createAdminRouter,
-  god: createGodRouter
+  console: createConsoleRouter
 };
 
-function createRouterForSurface({ authStore, workspaceStore, godStore, surface }) {
+function createRouterForSurface({ authStore, workspaceStore, consoleStore, surface }) {
   const normalizedSurface = normalizeSurfaceId(surface);
   const createRouter = ROUTER_BY_SURFACE[normalizedSurface] || ROUTER_BY_SURFACE[DEFAULT_SURFACE_ID];
-  return createRouter({ authStore, workspaceStore, godStore });
+  return createRouter({ authStore, workspaceStore, consoleStore });
 }
 
-function createRouterForCurrentPath({ authStore, workspaceStore, godStore, pathname }) {
+function createRouterForCurrentPath({ authStore, workspaceStore, consoleStore, pathname }) {
   const resolvedPathname =
     typeof pathname === "string" ? pathname : typeof window !== "undefined" ? window.location.pathname : "/";
 
   return createRouterForSurface({
     authStore,
     workspaceStore,
-    godStore,
+    consoleStore,
     surface: resolveSurfaceFromPathname(resolvedPathname)
   });
 }
 
-function createAppRouter({ authStore, workspaceStore, godStore, pathname }) {
+function createAppRouter({ authStore, workspaceStore, consoleStore, pathname }) {
   return createRouterForCurrentPath({
     authStore,
     workspaceStore,
-    godStore,
+    consoleStore,
     pathname
   });
 }
@@ -42,7 +42,7 @@ export {
   createAdminRouter,
   createAppRouter,
   createCustomerRouter,
-  createGodRouter,
+  createConsoleRouter,
   createRouterForSurface,
   createRouterForCurrentPath
 };

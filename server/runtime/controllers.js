@@ -3,7 +3,7 @@ import { createController as createHistoryController } from "../modules/history/
 import { createController as createAnnuityController } from "../modules/annuity/controller.js";
 import { createController as createSettingsController } from "../modules/settings/controller.js";
 import { createController as createWorkspaceController } from "../modules/workspace/controller.js";
-import { createController as createGodController } from "../modules/god/controller.js";
+import { createController as createConsoleController } from "../modules/console/controller.js";
 import { createController as createProjectsController } from "../modules/projects/controller.js";
 
 function createControllers({ services }) {
@@ -15,7 +15,7 @@ function createControllers({ services }) {
     projectsService,
     workspaceService,
     workspaceAdminService,
-    godService
+    consoleService
   } = services;
 
   return {
@@ -36,10 +36,10 @@ function createControllers({ services }) {
       authService,
       workspaceService,
       workspaceAdminService,
-      godService
+      consoleService
     }),
-    god: createGodController({
-      godService
+    console: createConsoleController({
+      consoleService
     })
   };
 }

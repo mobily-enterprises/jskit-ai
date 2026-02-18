@@ -5,8 +5,8 @@ const mocks = vi.hoisted(() => ({
   authStore: {
     setSignedOut: vi.fn()
   },
-  godStore: {
-    clearGodState: vi.fn()
+  consoleStore: {
+    clearConsoleState: vi.fn()
   },
   workspaceStore: {
     clearWorkspaceState: vi.fn()
@@ -31,8 +31,8 @@ vi.mock("../../src/stores/workspaceStore.js", () => ({
   useWorkspaceStore: () => mocks.workspaceStore
 }));
 
-vi.mock("../../src/stores/godStore.js", () => ({
-  useGodStore: () => mocks.godStore
+vi.mock("../../src/stores/consoleStore.js", () => ({
+  useConsoleStore: () => mocks.consoleStore
 }));
 
 import { isUnauthorizedError, useAuthGuard } from "../../src/composables/useAuthGuard.js";
@@ -41,7 +41,7 @@ describe("useAuthGuard", () => {
   beforeEach(() => {
     mocks.navigate.mockReset();
     mocks.authStore.setSignedOut.mockReset();
-    mocks.godStore.clearGodState.mockReset();
+    mocks.consoleStore.clearConsoleState.mockReset();
     mocks.workspaceStore.clearWorkspaceState.mockReset();
   });
 
@@ -57,13 +57,13 @@ describe("useAuthGuard", () => {
 
     await expect(guard.handleUnauthorizedError({ status: 500 })).resolves.toBe(false);
     expect(mocks.authStore.setSignedOut).not.toHaveBeenCalled();
-    expect(mocks.godStore.clearGodState).not.toHaveBeenCalled();
+    expect(mocks.consoleStore.clearConsoleState).not.toHaveBeenCalled();
     expect(mocks.workspaceStore.clearWorkspaceState).not.toHaveBeenCalled();
     expect(mocks.navigate).not.toHaveBeenCalled();
 
     await expect(guard.handleUnauthorizedError({ status: 401 })).resolves.toBe(true);
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
-    expect(mocks.godStore.clearGodState).toHaveBeenCalledTimes(1);
+    expect(mocks.consoleStore.clearConsoleState).toHaveBeenCalledTimes(1);
     expect(mocks.workspaceStore.clearWorkspaceState).toHaveBeenCalledTimes(1);
     expect(mocks.navigate).toHaveBeenCalledWith({ to: "/login", replace: true });
   });
