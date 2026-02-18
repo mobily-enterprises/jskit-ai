@@ -1,5 +1,5 @@
 import { computed } from "vue";
-import { normalizePage } from "../utils/pagination";
+import { normalizePage } from "../utils/pagination.js";
 
 export function useListQueryState(query, { resolveTotalPages } = {}) {
   const total = computed(() => Number(query?.data?.value?.total) || 0);

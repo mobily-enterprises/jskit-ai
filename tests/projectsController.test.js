@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createProjectsController } from "../controllers/workspace/projects.js";
+import { createProjectsController } from "../server/modules/projects/controller.js";
 
 function createReplyDouble() {
   return {

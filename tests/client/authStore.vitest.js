@@ -22,7 +22,7 @@ vi.mock("../../src/services/api/index.js", () => ({
   }
 }));
 
-import { SESSION_QUERY_KEY, useAuthStore } from "../../src/stores/authStore";
+import { SESSION_QUERY_KEY, useAuthStore } from "../../src/stores/authStore.js";
 
 describe("authStore", () => {
   beforeEach(() => {

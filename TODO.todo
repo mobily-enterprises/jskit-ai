@@ -14,11 +14,11 @@ X Check functionality of the multiple surfaces/workspaces
 X Make sure each screen is short
 X Major reorganise of files
 X Get full test coverage
+X Final check to the code, still from a distance
 - IMPORTANT: Diminish boilerplate as much as possible for new CRUDs
 - IMPORTANT: Make AI scaffolding so that adding things is always the same, reusing things
 - Decide what to do for "server health" app, which stands outside of it all. Maybe new surface point?
   - Log server errors and client errors
-- Final check to the code, still from a distance
 - Final check: app usability and bugs
 - Add final rails, practices, post checks
 

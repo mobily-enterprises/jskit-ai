@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createWorkspaceService } from "../services/workspaceService.js";
+import { createWorkspaceService } from "../server/modules/workspace/service.js";
 
 function sleep(ms) {
   return new Promise((resolve) => {

@@ -2,11 +2,11 @@ import { computed, reactive, ref } from "vue";
 import { useNavigate } from "@tanstack/vue-router";
 import { useMutation, useQueryClient } from "@tanstack/vue-query";
 import { api } from "../../services/api/index.js";
-import { useAuthGuard } from "../../composables/useAuthGuard";
-import { useWorkspaceStore } from "../../stores/workspaceStore";
-import { mapProjectsError } from "../../features/projects/errors";
-import { createDefaultProjectForm, projectStatusOptions } from "../../features/projects/formModel";
-import { PROJECTS_QUERY_KEY_PREFIX } from "./queryKeys";
+import { useAuthGuard } from "../../composables/useAuthGuard.js";
+import { useWorkspaceStore } from "../../stores/workspaceStore.js";
+import { mapProjectsError } from "../../features/projects/errors.js";
+import { createDefaultProjectForm, projectStatusOptions } from "../../features/projects/formModel.js";
+import { PROJECTS_QUERY_KEY_PREFIX } from "./queryKeys.js";
 
 export function useProjectsAdd() {
   const navigate = useNavigate();

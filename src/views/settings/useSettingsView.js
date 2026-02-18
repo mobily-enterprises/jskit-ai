@@ -4,16 +4,16 @@ import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useTheme } from "vuetify";
 import { resolveSurfacePaths } from "../../../shared/routing/surfacePaths.js";
 import { api } from "../../services/api/index.js";
-import { useAuthStore } from "../../stores/authStore";
-import { useWorkspaceStore } from "../../stores/workspaceStore";
-import { useAuthGuard } from "../../composables/useAuthGuard";
-import { SETTINGS_QUERY_KEY, settingsSections } from "./lib/useSettingsPageConfig";
-import { clearFieldErrors, resolveTabFromSearch, toErrorMessage } from "./lib/useSettingsSharedHelpers";
-import { useSettingsRouting } from "./lib/useSettingsRouting";
-import { useSettingsProfileForm } from "./profile/useSettingsProfileForm";
-import { useSettingsPreferencesForm } from "./preferences/useSettingsPreferencesForm";
-import { useSettingsSecurityForm } from "./security/useSettingsSecurityForm";
-import { useSettingsNotificationsForm } from "./notifications/useSettingsNotificationsForm";
+import { useAuthStore } from "../../stores/authStore.js";
+import { useWorkspaceStore } from "../../stores/workspaceStore.js";
+import { useAuthGuard } from "../../composables/useAuthGuard.js";
+import { SETTINGS_QUERY_KEY, settingsSections } from "./lib/useSettingsPageConfig.js";
+import { clearFieldErrors, resolveTabFromSearch, toErrorMessage } from "./lib/useSettingsSharedHelpers.js";
+import { useSettingsRouting } from "./lib/useSettingsRouting.js";
+import { useSettingsProfileForm } from "./profile/useSettingsProfileForm.js";
+import { useSettingsPreferencesForm } from "./preferences/useSettingsPreferencesForm.js";
+import { useSettingsSecurityForm } from "./security/useSettingsSecurityForm.js";
+import { useSettingsNotificationsForm } from "./notifications/useSettingsNotificationsForm.js";
 
 export function useSettingsView() {
   const navigate = useNavigate();

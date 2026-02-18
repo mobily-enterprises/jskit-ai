@@ -19,7 +19,7 @@ import {
   parseOAuthCompletePayload,
   parseOtpLoginVerifyPayload,
   buildSecurityStatusFromAuthMethodsStatus
-} from "../services/auth/lib/authServiceHelpers.js";
+} from "../server/modules/auth/lib/authServiceHelpers.js";
 import {
   AUTH_ACCESS_TOKEN_MAX_LENGTH,
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { queryClient, __testables } from "../../src/queryClient";
+import { queryClient, __testables } from "../../src/queryClient.js";
 
 describe("queryClient retry policy", () => {
   it("retries for network failures and selected server statuses", () => {

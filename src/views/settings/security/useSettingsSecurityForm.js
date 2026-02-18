@@ -2,14 +2,14 @@ import { reactive, ref, watch } from "vue";
 import { useRouterState } from "@tanstack/vue-router";
 import { useMutation, useQueryClient } from "@tanstack/vue-query";
 import { api } from "../../../services/api/index.js";
-import { useAuthStore } from "../../../stores/authStore";
-import { useAuthGuard } from "../../../composables/useAuthGuard";
-import { SETTINGS_QUERY_KEY, SETTINGS_SECTION_QUERY_KEY } from "../lib/useSettingsPageConfig";
-import { useSettingsContext } from "../lib/useSettingsContext";
-import { clearFieldErrors, toErrorMessage } from "../lib/useSettingsSharedHelpers";
-import { PASSWORD_FORM_MODE_ENABLE, PASSWORD_FORM_MODE_MANAGE } from "./lib/settingsSecurityConfig";
-import { useSettingsSecurityLogic } from "./lib/useSettingsSecurityLogic";
-import { useSettingsSecurityOAuthCallback } from "./lib/useSettingsSecurityOAuthCallback";
+import { useAuthStore } from "../../../stores/authStore.js";
+import { useAuthGuard } from "../../../composables/useAuthGuard.js";
+import { SETTINGS_QUERY_KEY, SETTINGS_SECTION_QUERY_KEY } from "../lib/useSettingsPageConfig.js";
+import { useSettingsContext } from "../lib/useSettingsContext.js";
+import { clearFieldErrors, toErrorMessage } from "../lib/useSettingsSharedHelpers.js";
+import { PASSWORD_FORM_MODE_ENABLE, PASSWORD_FORM_MODE_MANAGE } from "./lib/settingsSecurityConfig.js";
+import { useSettingsSecurityLogic } from "./lib/useSettingsSecurityLogic.js";
+import { useSettingsSecurityOAuthCallback } from "./lib/useSettingsSecurityOAuthCallback.js";
 import {
   AUTH_METHOD_KIND_OAUTH,
   AUTH_METHOD_KIND_OTP,

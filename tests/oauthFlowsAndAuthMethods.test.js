@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "../lib/errors.js";
-import { createOauthFlows } from "../services/auth/lib/oauthFlows.js";
+import { createOauthFlows } from "../server/modules/auth/lib/oauthFlows.js";
 import {
   AUTH_METHOD_DEFINITIONS,
   AUTH_METHOD_EMAIL_OTP_ID,

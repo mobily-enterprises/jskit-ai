@@ -1,9 +1,9 @@
 import { reactive, ref } from "vue";
 import { useMutation } from "@tanstack/vue-query";
 import { api } from "../../../services/api/index.js";
-import { SETTINGS_QUERY_KEY } from "../lib/useSettingsPageConfig";
-import { useSettingsContext } from "../lib/useSettingsContext";
-import { useSettingsNotificationsLogic } from "./lib/useSettingsNotificationsLogic";
+import { SETTINGS_QUERY_KEY } from "../lib/useSettingsPageConfig.js";
+import { useSettingsContext } from "../lib/useSettingsContext.js";
+import { useSettingsNotificationsLogic } from "./lib/useSettingsNotificationsLogic.js";
 
 export function useSettingsNotificationsForm(options) {
   if (!options) {

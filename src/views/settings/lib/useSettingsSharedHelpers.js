@@ -1,4 +1,4 @@
-import { SETTINGS_SECTION_QUERY_KEY, VALID_SETTINGS_TABS } from "./useSettingsPageConfig";
+import { SETTINGS_SECTION_QUERY_KEY, VALID_SETTINGS_TABS } from "./useSettingsPageConfig.js";
 
 export function clearFieldErrors(target) {
   for (const key of Object.keys(target)) {

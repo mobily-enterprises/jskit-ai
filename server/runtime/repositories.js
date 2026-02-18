@@ -1,11 +1,11 @@
-import * as userProfilesRepository from "../../repositories/userProfilesRepository.js";
-import * as calculationLogsRepository from "../../repositories/calculationLogsRepository.js";
-import * as userSettingsRepository from "../../repositories/userSettingsRepository.js";
-import * as workspacesRepository from "../../repositories/workspacesRepository.js";
-import * as workspaceMembershipsRepository from "../../repositories/workspaceMembershipsRepository.js";
-import * as workspaceSettingsRepository from "../../repositories/workspaceSettingsRepository.js";
-import * as workspaceInvitesRepository from "../../repositories/workspaceInvitesRepository.js";
-import * as projectsRepository from "../../repositories/workspace/projectsRepository.js";
+import * as userProfilesRepository from "../modules/users/profileRepository.js";
+import * as calculationLogsRepository from "../modules/history/repository.js";
+import * as userSettingsRepository from "../modules/settings/repository.js";
+import * as workspacesRepository from "../modules/workspace/workspacesRepository.js";
+import * as workspaceMembershipsRepository from "../modules/workspace/workspaceMembershipsRepository.js";
+import * as workspaceSettingsRepository from "../modules/workspace/workspaceSettingsRepository.js";
+import * as workspaceInvitesRepository from "../modules/workspace/workspaceInvitesRepository.js";
+import * as projectsRepository from "../modules/projects/repository.js";
 
 function createRepositories() {
   return {

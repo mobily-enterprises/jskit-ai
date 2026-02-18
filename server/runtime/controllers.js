@@ -1,9 +1,9 @@
-import { createAuthController } from "../../controllers/auth.js";
-import { createHistoryController } from "../../controllers/history.js";
-import { createAnnuityController } from "../../controllers/annuity.js";
-import { createSettingsController } from "../../controllers/settings.js";
-import { createWorkspaceController } from "../../controllers/workspace.js";
-import { createProjectsController } from "../../controllers/workspace/projects.js";
+import { createAuthController } from "../modules/auth/controller.js";
+import { createHistoryController } from "../modules/history/controller.js";
+import { createAnnuityController } from "../modules/annuity/controller.js";
+import { createSettingsController } from "../modules/settings/controller.js";
+import { createWorkspaceController } from "../modules/workspace/controller.js";
+import { createProjectsController } from "../modules/projects/controller.js";
 
 function createControllers({ services }) {
   return {

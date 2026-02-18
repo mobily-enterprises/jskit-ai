@@ -1,5 +1,5 @@
 import AppShell from "./shells/app/AppShell.vue";
-import { createSurfaceRouter } from "./routerFactory";
+import { createSurfaceRouter } from "./routerFactory.js";
 
 export function createCustomerRouter({ authStore, workspaceStore }) {
   return createSurfaceRouter({

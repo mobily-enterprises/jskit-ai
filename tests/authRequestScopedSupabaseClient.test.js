@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "../lib/errors.js";
-import { createAccountFlows } from "../services/auth/lib/accountFlows.js";
-import { createPasswordSecurityFlows } from "../services/auth/lib/passwordSecurityFlows.js";
+import { createAccountFlows } from "../server/modules/auth/lib/accountFlows.js";
+import { createPasswordSecurityFlows } from "../server/modules/auth/lib/passwordSecurityFlows.js";
 
 function createValidationError(fieldErrors) {
   return new AppError(400, "Validation failed.", {

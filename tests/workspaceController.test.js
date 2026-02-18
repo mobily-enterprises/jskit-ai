@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createWorkspaceController } from "../controllers/workspace.js";
+import { createWorkspaceController } from "../server/modules/workspace/controller.js";
 
 function createReplyDouble() {
   return {

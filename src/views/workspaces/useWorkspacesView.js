@@ -2,7 +2,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { resolveSurfacePaths } from "../../../shared/routing/surfacePaths.js";
 import { coerceWorkspaceColor } from "../../../shared/workspace/colors.js";
-import { useWorkspaceStore } from "../../stores/workspaceStore";
+import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 
 function workspaceInitials(workspace) {
   const source = String(workspace?.name || workspace?.slug || "W").trim();

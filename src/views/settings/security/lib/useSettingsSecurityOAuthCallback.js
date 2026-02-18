@@ -5,7 +5,7 @@ import {
   readPendingOAuthContext,
   stripOAuthCallbackParamsFromLocation
 } from "../../../../utils/oauthCallback.js";
-import { SETTINGS_QUERY_KEY, SETTINGS_SECTION_QUERY_KEY } from "../../lib/useSettingsPageConfig";
+import { SETTINGS_QUERY_KEY, SETTINGS_SECTION_QUERY_KEY } from "../../lib/useSettingsPageConfig.js";
 
 export function useSettingsSecurityOAuthCallback({
   authStore,

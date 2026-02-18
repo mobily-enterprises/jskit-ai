@@ -3,7 +3,7 @@ import test from "node:test";
 import { Readable } from "node:stream";
 import sharp from "sharp";
 import { AppError } from "../lib/errors.js";
-import { createUserAvatarService, __testables } from "../services/userAvatarService.js";
+import { createUserAvatarService, __testables } from "../server/modules/users/avatarService.js";
 
 function createProfile(overrides = {}) {
   return {

@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/vue-router";
 import { useMutation } from "@tanstack/vue-query";
 import { resolveSurfacePaths } from "../../../shared/routing/surfacePaths.js";
 import { api } from "../../services/api/index.js";
-import { useAuthStore } from "../../stores/authStore";
+import { useAuthStore } from "../../stores/authStore.js";
 import { validators } from "../../../shared/auth/validators.js";
 
 function toSingleMessage(error, fallback) {

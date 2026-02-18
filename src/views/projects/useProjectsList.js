@@ -2,18 +2,18 @@ import { computed, reactive } from "vue";
 import { useNavigate } from "@tanstack/vue-router";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { api } from "../../services/api/index.js";
-import { useAuthGuard } from "../../composables/useAuthGuard";
-import { useListQueryState } from "../../composables/useListQueryState";
-import { useUrlListPagination } from "../../composables/useUrlListPagination";
-import { useQueryErrorMessage } from "../../composables/useQueryErrorMessage";
-import { useWorkspaceStore } from "../../stores/workspaceStore";
-import { mapProjectsError } from "../../features/projects/errors";
-import { projectPageSizeOptions } from "../../features/projects/formModel";
+import { useAuthGuard } from "../../composables/useAuthGuard.js";
+import { useListQueryState } from "../../composables/useListQueryState.js";
+import { useUrlListPagination } from "../../composables/useUrlListPagination.js";
+import { useQueryErrorMessage } from "../../composables/useQueryErrorMessage.js";
+import { useWorkspaceStore } from "../../stores/workspaceStore.js";
+import { mapProjectsError } from "../../features/projects/errors.js";
+import { projectPageSizeOptions } from "../../features/projects/formModel.js";
 import {
   PROJECTS_QUERY_KEY_PREFIX,
   PROJECTS_PAGE_QUERY_KEY,
   PROJECTS_PAGE_SIZE_QUERY_KEY
-} from "./queryKeys";
+} from "./queryKeys.js";
 
 export function useProjectsList({ initialPageSize = projectPageSizeOptions[0] } = {}) {
   const navigate = useNavigate();

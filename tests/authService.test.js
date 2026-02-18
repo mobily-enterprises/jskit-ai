@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test, { afterEach, beforeEach, mock } from "node:test";
 import { SignJWT, exportJWK, generateKeyPair } from "jose";
 import { AppError } from "../lib/errors.js";
-import { __testables, createAuthService } from "../services/authService.js";
+import { __testables, createAuthService } from "../server/modules/auth/service.js";
 
 const SUPABASE_URL = "http://supabase.local";
 const SUPABASE_PUBLISHABLE_KEY = "pk_test_123";

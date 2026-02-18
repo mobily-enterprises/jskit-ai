@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "../lib/errors.js";
-import { createWorkspaceAdminService } from "../services/workspaceAdminService.js";
+import { createWorkspaceAdminService } from "../server/modules/workspace/adminService.js";
 
 function hexHash(character) {
   return String(character || "0").repeat(64);

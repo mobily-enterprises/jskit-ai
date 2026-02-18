@@ -2,10 +2,10 @@ import { reactive, ref, shallowRef, watch } from "vue";
 import { useMutation } from "@tanstack/vue-query";
 import { api } from "../../../services/api/index.js";
 import { AVATAR_DEFAULT_SIZE } from "../../../../shared/avatar/index.js";
-import { SETTINGS_QUERY_KEY } from "../lib/useSettingsPageConfig";
-import { useSettingsContext } from "../lib/useSettingsContext";
-import { createDefaultAvatar } from "./lib/settingsProfileDefaults";
-import { useSettingsProfileLogic } from "./lib/useSettingsProfileLogic";
+import { SETTINGS_QUERY_KEY } from "../lib/useSettingsPageConfig.js";
+import { useSettingsContext } from "../lib/useSettingsContext.js";
+import { createDefaultAvatar } from "./lib/settingsProfileDefaults.js";
+import { useSettingsProfileLogic } from "./lib/useSettingsProfileLogic.js";
 
 export function useSettingsProfileForm(options) {
   if (!options) {

@@ -1,8 +1,8 @@
 import { computed } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { resolveSurfacePaths } from "../../shared/routing/surfacePaths.js";
-import { useAuthStore } from "../stores/authStore";
-import { useWorkspaceStore } from "../stores/workspaceStore";
+import { useAuthStore } from "../stores/authStore.js";
+import { useWorkspaceStore } from "../stores/workspaceStore.js";
 
 export function isUnauthorizedError(error) {
   return Number(error?.status) === 401;

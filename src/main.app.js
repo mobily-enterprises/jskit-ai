@@ -1,5 +1,5 @@
-import { mountSurfaceApplication } from "./bootstrapRuntime";
-import { createCustomerRouter } from "./router.app";
+import { mountSurfaceApplication } from "./bootstrapRuntime.js";
+import { createCustomerRouter } from "./router.app.js";
 
 function mountAppApplication() {
   return mountSurfaceApplication({

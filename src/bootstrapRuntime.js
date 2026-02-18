@@ -16,10 +16,10 @@ import {
   mdiViewDashboardOutline
 } from "@mdi/js";
 import "vuetify/styles";
-import { queryClient } from "./queryClient";
+import { queryClient } from "./queryClient.js";
 import { api } from "./services/api/index.js";
-import { useAuthStore } from "./stores/authStore";
-import { useWorkspaceStore } from "./stores/workspaceStore";
+import { useAuthStore } from "./stores/authStore.js";
+import { useWorkspaceStore } from "./stores/workspaceStore.js";
 
 const iconAliases = {
   ...mdiAliases,

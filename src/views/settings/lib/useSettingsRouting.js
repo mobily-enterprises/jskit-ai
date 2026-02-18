@@ -1,6 +1,6 @@
 import { computed, ref, watch } from "vue";
-import { SETTINGS_SECTION_QUERY_KEY, VALID_SETTINGS_TABS } from "./useSettingsPageConfig";
-import { resolveTabFromSearch } from "./useSettingsSharedHelpers";
+import { SETTINGS_SECTION_QUERY_KEY, VALID_SETTINGS_TABS } from "./useSettingsPageConfig.js";
+import { resolveTabFromSearch } from "./useSettingsSharedHelpers.js";
 
 export function useSettingsRouting({ navigate, routerPath, routerSearch, surfacePaths, workspaceStore }) {
   const activeTab = ref("profile");

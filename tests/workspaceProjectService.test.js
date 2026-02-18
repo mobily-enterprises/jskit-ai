@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createProjectsService } from "../services/workspace/projects.js";
+import { createProjectsService } from "../server/modules/projects/service.js";
 
 function createWorkspaceContext(id = 11) {
   return {

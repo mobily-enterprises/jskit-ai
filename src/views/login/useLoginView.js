@@ -4,10 +4,10 @@ import { useMutation } from "@tanstack/vue-query";
 import { resolveSurfacePaths } from "../../../shared/routing/surfacePaths.js";
 import { AUTH_OAUTH_PROVIDER_METADATA, AUTH_OAUTH_PROVIDERS } from "../../../shared/auth/oauthProviders.js";
 import { api } from "../../services/api/index.js";
-import { useAuthStore } from "../../stores/authStore";
-import { useWorkspaceStore } from "../../stores/workspaceStore";
-import { useLoginActions } from "./lib/useLoginActions";
-import { useLoginDerivedState } from "./lib/useLoginDerivedState";
+import { useAuthStore } from "../../stores/authStore.js";
+import { useWorkspaceStore } from "../../stores/workspaceStore.js";
+import { useLoginActions } from "./lib/useLoginActions.js";
+import { useLoginDerivedState } from "./lib/useLoginDerivedState.js";
 
 export function useLoginView() {
   const navigate = useNavigate();

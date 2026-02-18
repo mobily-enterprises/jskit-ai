@@ -2,9 +2,9 @@ import { reactive, ref } from "vue";
 import { useMutation } from "@tanstack/vue-query";
 import { api } from "../../../services/api/index.js";
 import { AVATAR_DEFAULT_SIZE } from "../../../../shared/avatar/index.js";
-import { SETTINGS_QUERY_KEY } from "../lib/useSettingsPageConfig";
-import { useSettingsContext } from "../lib/useSettingsContext";
-import { useSettingsPreferencesLogic } from "./lib/useSettingsPreferencesLogic";
+import { SETTINGS_QUERY_KEY } from "../lib/useSettingsPageConfig.js";
+import { useSettingsContext } from "../lib/useSettingsContext.js";
+import { useSettingsPreferencesLogic } from "./lib/useSettingsPreferencesLogic.js";
 import {
   avatarSizeOptions,
   currencyOptions,
@@ -13,7 +13,7 @@ import {
   numberFormatOptions,
   themeOptions,
   timeZoneOptions
-} from "./lib/settingsPreferencesOptions";
+} from "./lib/settingsPreferencesOptions.js";
 
 export function useSettingsPreferencesForm(options) {
   if (!options) {

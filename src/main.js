@@ -1,7 +1,7 @@
 import { resolveSurfaceFromPathname } from "../shared/routing/surfacePaths.js";
 import { DEFAULT_SURFACE_ID } from "../shared/routing/surfaceRegistry.js";
-import { mountAdminApplication } from "./main.admin";
-import { mountAppApplication } from "./main.app";
+import { mountAdminApplication } from "./main.admin.js";
+import { mountAppApplication } from "./main.app.js";
 
 const SURFACE_BOOTSTRAP = {
   app: mountAppApplication,

@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { getFirstPage, getNextPage, getPreviousPage, normalizePage, normalizePageSize } from "../utils/pagination";
+import { getFirstPage, getNextPage, getPreviousPage, normalizePage, normalizePageSize } from "../utils/pagination.js";
 
 function resolveValue(valueOrGetter, fallback) {
   if (typeof valueOrGetter === "function") {

@@ -1,11 +1,11 @@
 import { computed, reactive, ref } from "vue";
 import { useMutation } from "@tanstack/vue-query";
 import { api } from "../../services/api/index.js";
-import { useAuthGuard } from "../../composables/useAuthGuard";
-import { createDefaultAnnuityForm, modeOptions, timingOptions } from "../../features/annuity/formModel";
-import { buildAnnuityPayload, validateAnnuityForm } from "../../features/annuity/request";
-import { mapCalculationError } from "../../features/annuity/errors";
-import { resultSummary, resultWarnings } from "../../features/annuity/presentation";
+import { useAuthGuard } from "../../composables/useAuthGuard.js";
+import { createDefaultAnnuityForm, modeOptions, timingOptions } from "../../features/annuity/formModel.js";
+import { buildAnnuityPayload, validateAnnuityForm } from "../../features/annuity/request.js";
+import { mapCalculationError } from "../../features/annuity/errors.js";
+import { resultSummary, resultWarnings } from "../../features/annuity/presentation.js";
 
 export function useAnnuityCalculatorForm({ onCalculated } = {}) {
   const { handleUnauthorizedError } = useAuthGuard();

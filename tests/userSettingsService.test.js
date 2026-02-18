@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { AppError } from "../lib/errors.js";
-import { createUserSettingsService, __testables } from "../services/userSettingsService.js";
+import { createUserSettingsService, __testables } from "../server/modules/settings/service.js";
 
 function buildSettings(overrides = {}) {
   return {

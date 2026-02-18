@@ -1,8 +1,8 @@
 import { resolveSurfaceFromPathname } from "../shared/routing/surfacePaths.js";
 import { DEFAULT_SURFACE_ID, normalizeSurfaceId } from "../shared/routing/surfaceRegistry.js";
-import { createAdminRouter } from "./router.admin";
-import { createCustomerRouter } from "./router.app";
-import { createSurfaceRouteGuards, resolveRuntimeState } from "./routerGuards";
+import { createAdminRouter } from "./router.admin.js";
+import { createCustomerRouter } from "./router.app.js";
+import { createSurfaceRouteGuards, resolveRuntimeState } from "./routerGuards.js";
 
 const ROUTER_BY_SURFACE = {
   app: createCustomerRouter,

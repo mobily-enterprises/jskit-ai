@@ -1,7 +1,7 @@
 import { ref, watch } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
-import { useListPagination } from "./useListPagination";
-import { getFirstPage, normalizePage, normalizePageSize } from "../utils/pagination";
+import { useListPagination } from "./useListPagination.js";
+import { getFirstPage, normalizePage, normalizePageSize } from "../utils/pagination.js";
 
 function toSearchObject(search) {
   return search && typeof search === "object" ? search : {};
