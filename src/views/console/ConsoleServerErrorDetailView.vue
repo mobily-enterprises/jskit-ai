@@ -1,11 +1,14 @@
 <template>
   <section class="console-error-detail-view py-2 py-md-4">
     <v-card rounded="lg" elevation="1" border>
-      <v-card-title class="d-flex flex-wrap align-center ga-3">
+      <v-card-title class="detail-title">
         <span class="text-subtitle-1 font-weight-bold">Server error details</span>
-        <v-spacer />
-        <v-btn variant="outlined" :loading="state.loading" @click="actions.refresh">Refresh</v-btn>
-        <v-btn variant="text" @click="actions.goBack">Back to server errors</v-btn>
+        <div class="detail-actions">
+          <v-btn variant="outlined" :loading="state.loading" class="detail-action-btn" @click="actions.refresh">
+            Refresh
+          </v-btn>
+          <v-btn variant="text" class="detail-action-btn" @click="actions.goBack">Back to server errors</v-btn>
+        </div>
       </v-card-title>
       <v-divider />
       <v-card-text>
@@ -63,6 +66,20 @@ const { meta, state, actions } = useConsoleServerErrorDetailView();
 </script>
 
 <style scoped>
+.detail-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .detail-grid {
   display: grid;
   grid-template-columns: minmax(120px, 160px) 1fr;
@@ -89,5 +106,26 @@ const { meta, state, actions } = useConsoleServerErrorDetailView();
   word-break: break-word;
   font-size: 0.82rem;
   line-height: 1.35;
+}
+
+@media (max-width: 700px) {
+  .detail-actions {
+    width: 100%;
+    display: grid;
+    gap: 8px;
+  }
+
+  .detail-action-btn {
+    width: 100%;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .detail-grid dt {
+    margin-top: 10px;
+  }
 }
 </style>
