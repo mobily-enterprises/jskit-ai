@@ -441,7 +441,7 @@ test("createAuthService validates APP_PUBLIC_URL and supports cookie helpers", (
   assert.equal(reply.setCalls.length, 4);
   assert.equal(reply.setCalls[0].name, "sb_access_token");
   assert.equal(reply.setCalls[1].name, "sb_refresh_token");
-  assert.equal(reply.setCalls[2].options.maxAge, 3600);
+  assert.equal(reply.setCalls[2].options.maxAge, 60 * 60 * 24 * 400);
 
   service.clearSessionCookies(reply);
   assert.equal(reply.clearCalls.length, 2);
@@ -1078,6 +1078,15 @@ test("authenticateRequest handles jwt verify, supabase fallback, and refresh bra
       session: null,
       transientFailure: false
     });
+
+    const refreshOnly = await service.authenticateRequest({
+      cookies: {
+        sb_refresh_token: "rt-success"
+      }
+    });
+    assert.equal(refreshOnly.authenticated, true);
+    assert.ok(refreshOnly.session);
+    assert.equal(refreshOnly.profile.email, "refresh@example.com");
 
     const valid = await service.authenticateRequest({
       cookies: {

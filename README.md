@@ -365,7 +365,8 @@ Auth/security behavior:
 - Console root identity is persisted once assigned; only root can modify root membership, and root profile deletion is DB-protected.
 - Set `TRUST_PROXY=true` when deploying behind a trusted reverse proxy/load balancer so client IP resolution is correct.
 - All unsafe API methods (`POST/PUT/PATCH/DELETE`) enforce CSRF token checks.
-- Access tokens are verified locally against Supabase JWKS; refresh is only attempted when access token is expired.
+- Access tokens are verified locally against Supabase JWKS; refresh is attempted when access token is expired or missing (if a refresh token cookie exists).
+- Auth cookies are persisted with long-lived max-age and are cleared on explicit logout or invalid refresh.
 - Transient JWKS/network failures return temporary auth errors without clearing valid sessions.
 
 CSRF notes:

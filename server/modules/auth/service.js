@@ -57,6 +57,7 @@ import { createPasswordSecurityFlows } from "./lib/passwordSecurityFlows.js";
 const ACCESS_TOKEN_COOKIE = "sb_access_token";
 const REFRESH_TOKEN_COOKIE = "sb_refresh_token";
 const DEFAULT_AUDIENCE = "authenticated";
+const PERSISTENT_SESSION_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 400;
 function createService(options) {
   const supabaseUrl = String(options.supabaseUrl || "");
   const supabasePublishableKey = String(options.supabasePublishableKey || "");
@@ -266,11 +267,11 @@ function createService(options) {
       return;
     }
 
-    const accessMaxAge = Number.isFinite(Number(session?.expires_in)) ? Number(session.expires_in) : 3600;
-    const refreshMaxAge = Math.max(accessMaxAge * 24, 86400);
+    const sessionAccessMaxAge = Number.isFinite(Number(session?.expires_in)) ? Number(session.expires_in) : 3600;
+    const persistentCookieMaxAge = Math.max(Math.floor(sessionAccessMaxAge), PERSISTENT_SESSION_COOKIE_MAX_AGE_SECONDS);
 
-    reply.setCookie(ACCESS_TOKEN_COOKIE, accessToken, cookieOptions(isProduction, accessMaxAge));
-    reply.setCookie(REFRESH_TOKEN_COOKIE, refreshToken, cookieOptions(isProduction, refreshMaxAge));
+    reply.setCookie(ACCESS_TOKEN_COOKIE, accessToken, cookieOptions(isProduction, persistentCookieMaxAge));
+    reply.setCookie(REFRESH_TOKEN_COOKIE, refreshToken, cookieOptions(isProduction, persistentCookieMaxAge));
   }
 
   function clearSessionCookies(reply) {
@@ -488,7 +489,7 @@ function createService(options) {
     const accessToken = String(cookies[ACCESS_TOKEN_COOKIE] || "");
     const refreshToken = String(cookies[REFRESH_TOKEN_COOKIE] || "");
 
-    if (!accessToken) {
+    if (!accessToken && !refreshToken) {
       return {
         authenticated: false,
         clearSession: false,
@@ -497,47 +498,49 @@ function createService(options) {
       };
     }
 
-    const verification = await verifyAccessToken(accessToken);
+    if (accessToken) {
+      const verification = await verifyAccessToken(accessToken);
 
-    if (verification.status === "valid") {
-      const profile = await syncProfileFromJwtClaims(verification.payload);
-      return {
-        authenticated: true,
-        profile,
-        clearSession: false,
-        session: null,
-        transientFailure: false
-      };
-    }
-
-    if (verification.status === "transient") {
-      return {
-        authenticated: false,
-        clearSession: false,
-        session: null,
-        transientFailure: true
-      };
-    }
-
-    if (verification.status === "invalid") {
-      const supabaseVerification = await verifyAccessTokenViaSupabase(accessToken);
-      if (supabaseVerification.status === "valid") {
+      if (verification.status === "valid") {
+        const profile = await syncProfileFromJwtClaims(verification.payload);
         return {
           authenticated: true,
-          profile: supabaseVerification.profile,
+          profile,
           clearSession: false,
           session: null,
           transientFailure: false
         };
       }
 
-      if (supabaseVerification.status === "transient") {
+      if (verification.status === "transient") {
         return {
           authenticated: false,
           clearSession: false,
           session: null,
           transientFailure: true
         };
+      }
+
+      if (verification.status === "invalid") {
+        const supabaseVerification = await verifyAccessTokenViaSupabase(accessToken);
+        if (supabaseVerification.status === "valid") {
+          return {
+            authenticated: true,
+            profile: supabaseVerification.profile,
+            clearSession: false,
+            session: null,
+            transientFailure: false
+          };
+        }
+
+        if (supabaseVerification.status === "transient") {
+          return {
+            authenticated: false,
+            clearSession: false,
+            session: null,
+            transientFailure: true
+          };
+        }
       }
     }
 
