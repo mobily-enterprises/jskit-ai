@@ -49,6 +49,10 @@ async function invalidateForWorkspaceAdminEvent(queryClient) {
   });
 }
 
+async function invalidateNoop() {
+  return undefined;
+}
+
 async function refreshWorkspaceBootstrap(workspaceStore) {
   if (!workspaceStore || typeof workspaceStore.refreshBootstrap !== "function") {
     return;
@@ -71,6 +75,12 @@ function resolveTopicStrategy(topic) {
   if (topic === REALTIME_TOPICS.WORKSPACE_SETTINGS) {
     return {
       invalidate: invalidateForWorkspaceAdminEvent,
+      refreshBootstrap: true
+    };
+  }
+  if (topic === REALTIME_TOPICS.WORKSPACE_META) {
+    return {
+      invalidate: invalidateNoop,
       refreshBootstrap: true
     };
   }

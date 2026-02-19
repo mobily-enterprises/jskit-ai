@@ -131,6 +131,18 @@ function createController({
         workspaceSlug: normalizeText(request.workspace?.slug)
       }
     });
+    publishWorkspaceEventSafely({
+      request,
+      topic: REALTIME_TOPICS.WORKSPACE_META,
+      eventType: REALTIME_EVENT_TYPES.WORKSPACE_META_UPDATED,
+      entityType: "workspace",
+      entityId: request.workspace?.id,
+      payload: {
+        operation: "updated",
+        workspaceId: parsePositiveInteger(request.workspace?.id),
+        workspaceSlug: normalizeText(request.workspace?.slug)
+      }
+    });
     reply.code(200).send(response);
   }
 

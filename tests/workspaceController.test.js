@@ -564,5 +564,9 @@ test("workspace controller publishes realtime events for workspace admin writes"
   );
   assert.equal(redeemReply.statusCode, 200);
 
-  assert.equal(publishCalls.length, 5);
+  assert.equal(publishCalls.length, 6);
+  assert.equal(
+    publishCalls.some((payload) => payload.topic === "workspace_meta" && payload.eventType === "workspace.meta.updated"),
+    true
+  );
 });

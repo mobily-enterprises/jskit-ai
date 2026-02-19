@@ -161,4 +161,29 @@ describe("realtimeEventHandlers", () => {
     });
     expect(workspaceStore.refreshBootstrap).toHaveBeenCalledTimes(1);
   });
+
+  it("refreshes bootstrap for workspace meta events without heavy invalidation", async () => {
+    const workspaceStore = {
+      refreshBootstrap: vi.fn().mockResolvedValue(undefined)
+    };
+    const handlers = createRealtimeEventHandlers({
+      queryClient,
+      commandTracker,
+      clientId: "cli-local",
+      workspaceStore
+    });
+
+    const event = {
+      eventId: "evt-workspace-meta",
+      topic: REALTIME_TOPICS.WORKSPACE_META,
+      workspaceSlug: "acme",
+      sourceClientId: "cli-remote",
+      entityId: "11"
+    };
+
+    const result = await handlers.processEvent(event);
+    expect(result.status).toBe("processed");
+    expect(queryClient.invalidateQueries).not.toHaveBeenCalled();
+    expect(workspaceStore.refreshBootstrap).toHaveBeenCalledTimes(1);
+  });
 });

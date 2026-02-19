@@ -124,6 +124,27 @@ describe("realtimeRuntime", () => {
     runtime.stop();
   });
 
+  it("connects on app surface for read-only workspace meta topic", () => {
+    const stores = createStores();
+    stores.workspaceStore.can = vi.fn(() => false);
+    const runtime = createRealtimeRuntime({
+      authStore: stores.authStore,
+      workspaceStore: stores.workspaceStore,
+      queryClient,
+      surface: "app"
+    });
+
+    runtime.start();
+    expect(FakeWebSocket.instances).toHaveLength(1);
+
+    const socket = FakeWebSocket.instances[0];
+    socket.open();
+    expect(socket.sent[0].type).toBe(REALTIME_MESSAGE_TYPES.SUBSCRIBE);
+    expect(socket.sent[0].topics).toEqual([REALTIME_TOPICS.WORKSPACE_META]);
+
+    runtime.stop();
+  });
+
   it("reconciles workspace topic subscriptions on subscribe acknowledgement", async () => {
     const stores = createStores();
     stores.workspaceStore.can = vi.fn((permission) => String(permission || "") === "workspace.settings.view");

@@ -1,5 +1,5 @@
 import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "../../../shared/realtime/protocolTypes.js";
-import { getTopicRule, listRealtimeTopics } from "../../../shared/realtime/topicRegistry.js";
+import { getTopicRule, listRealtimeTopicsForSurface } from "../../../shared/realtime/topicRegistry.js";
 import { projectsScopeQueryKey } from "../../features/projects/queryKeys.js";
 import { getClientId } from "./clientIdentity.js";
 import { commandTracker } from "./commandTracker.js";
@@ -42,8 +42,8 @@ function hasAnyTopicPermission({ workspaceStore, topic }) {
   return requiredPermissions.some((permission) => workspaceStore.can(permission));
 }
 
-function resolveEligibleTopics(workspaceStore) {
-  return listRealtimeTopics().filter((topic) => hasAnyTopicPermission({ workspaceStore, topic }));
+function resolveEligibleTopics(workspaceStore, surface) {
+  return listRealtimeTopicsForSurface(surface).filter((topic) => hasAnyTopicPermission({ workspaceStore, topic }));
 }
 
 function buildRealtimeUrl() {
@@ -120,16 +120,16 @@ function createRealtimeRuntime({ authStore, workspaceStore, queryClient, surface
   function getEligibility() {
     const workspaceSlug = String(workspaceStore?.activeWorkspaceSlug || "").trim();
     const authenticated = Boolean(authStore?.isAuthenticated);
-    const isAdminSurface = normalizeSurface(surface) === "admin";
-    const topics = resolveEligibleTopics(workspaceStore);
+    const normalizedSurface = normalizeSurface(surface);
+    const topics = resolveEligibleTopics(workspaceStore, normalizedSurface);
 
     return {
       authenticated,
       workspaceSlug,
       topics,
-      eligible: Boolean(authenticated && isAdminSurface && workspaceSlug && topics.length > 0),
+      eligible: Boolean(authenticated && workspaceSlug && topics.length > 0),
       fingerprint: resolveRuntimeFingerprint({
-        surface,
+        surface: normalizedSurface,
         authenticated,
         workspaceSlug,
         topics

@@ -84,6 +84,38 @@ test("subscribe returns forbidden without projects.read permission", async () =>
   await app.close();
 });
 
+test("subscribe allows read-only workspace_meta topic without elevated workspace permissions", async () => {
+  const { app, port } = await createRealtimeTestApp({
+    permissionsBySlug: {
+      acme: []
+    }
+  });
+  const url = `ws://127.0.0.1:${port}/api/realtime`;
+
+  const socket = await openRealtimeWebSocket(url, {
+    headers: {
+      cookie: "sid=ok"
+    }
+  });
+
+  socket.send(
+    JSON.stringify({
+      type: "subscribe",
+      requestId: "req-2b",
+      workspaceSlug: "acme",
+      topics: ["workspace_meta"]
+    })
+  );
+
+  const message = await waitForRealtimeMessage(socket);
+  assert.equal(message.type, "subscribed");
+  assert.equal(message.requestId, "req-2b");
+  assert.deepEqual(message.topics, ["workspace_meta"]);
+
+  socket.close();
+  await app.close();
+});
+
 test("payload limit is UTF-8 byte accurate and closes oversized frames", async () => {
   const { app, port } = await createRealtimeTestApp();
   const url = `ws://127.0.0.1:${port}/api/realtime`;
