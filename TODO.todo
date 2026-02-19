@@ -32,8 +32,36 @@ X Add SMS system (PLIVIO?)
 
 LATER:
 
-SMS/EMAIL:
-- Medium: invite-email failures are fully swallowed, so delivery/config issues are invisible in ops. (server/domain/workspace/services/admin.service.js:315)
-- Medium: SMS send permission is coupled to invite permission (workspace.members.invite), which is workable now but not ideal least-privilege for future comms features. (server/modules/communications/routes.js:12)
-- Low: SMS text is trim()'d before send, which mutates payload content (can matter for OTP formatting/messages with intentional whitespace). (server/domain/communications/services/sms.service.js:27)
-- Low: SMTP from currently requires a normalized bare email; common Display Name <email@...> formats would be treated as unconfigured. (server/domain/workspace/services/inviteEmail.service.js:42)
+- DB-level audit trail [1]
+- SMS/EMAIL
+  - Medium: invite-email failures are fully swallowed, so delivery/config issues are invisible in ops. (server/domain/workspace/services/admin.service.js:315)
+  - Medium: SMS send permission is coupled to invite permission (workspace.members.invite), which is workable now but not ideal least-privilege for future comms features. (server/modules/communications/routes.js:12)
+  - Low: SMS text is trim()'d before send, which mutates payload content (can matter for OTP formatting/messages with intentional whitespace). (server/domain/communications/services/sms.service.js:27)
+  - Low: SMTP from currently requires a normalized bare email; common Display Name <email@...> formats would be treated as unconfigured. (server/domain/workspace/services/inviteEmail.service.js:42)
+
+
+  Appendices:
+
+  [1]
+
+    Two variants:
+
+  1. Fully transparent to app code
+
+  - Use MySQL triggers (AFTER INSERT/UPDATE/DELETE) on target tables.
+  - Triggers write old/new row JSON into an audit table.
+  - You get DB-level truth, but “who” is only DB account (CURRENT_USER()), not
+    app user.
+
+  2. Mostly transparent, with real app user identity
+
+  - Keep the same triggers.
+  - Add one central Knex wrapper that sets session vars per request/transaction
+    (@audit_user_id, @audit_request_id, etc.).
+  - Triggers read those vars when writing audit rows.
+  - App changes are minimal if all writes already go through shared transaction
+    helpers.
+
+  So: yes, largely transparent, but if you need exact end-user attribution,
+  there must be at least a small central app hook to pass request context into
+  DB session variables.

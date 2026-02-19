@@ -80,12 +80,16 @@ test("workspace controller bootstrap handles transient, cookie management, and p
       return null;
     }
   };
+  const auditService = {
+    async recordSafe() {}
+  };
 
   const controller = createWorkspaceController({
     authService,
     workspaceService,
     workspaceAdminService,
-    consoleService
+    consoleService,
+    auditService
   });
 
   const transientReply = createReplyDouble();
@@ -208,11 +212,15 @@ test("workspace controller delegates workspace and admin routes to services", as
       return null;
     }
   };
+  const auditService = {
+    async recordSafe() {}
+  };
   const controller = createWorkspaceController({
     authService,
     workspaceService,
     workspaceAdminService,
-    consoleService
+    consoleService,
+    auditService
   });
 
   const user = { id: 7, email: "user@example.com" };

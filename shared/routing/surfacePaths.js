@@ -31,8 +31,35 @@ function normalizeSurface(surface) {
   return normalizeSurfaceId(surface);
 }
 
+function matchesPathPrefix(pathname, prefix) {
+  const normalizedPathname = normalizePathname(pathname);
+  const normalizedPrefix = normalizePathname(prefix);
+  return normalizedPathname === normalizedPrefix || normalizedPathname.startsWith(`${normalizedPrefix}/`);
+}
+
+function resolveSurfaceFromApiPathname(pathname) {
+  if (!matchesPathPrefix(pathname, "/api")) {
+    return "";
+  }
+
+  if (matchesPathPrefix(pathname, "/api/console")) {
+    return SURFACE_CONSOLE;
+  }
+
+  if (matchesPathPrefix(pathname, "/api/admin")) {
+    return SURFACE_ADMIN;
+  }
+
+  return SURFACE_APP;
+}
+
 function resolveSurfaceFromPathname(pathname) {
   const normalizedPathname = normalizePathname(pathname);
+  const apiSurface = resolveSurfaceFromApiPathname(normalizedPathname);
+  if (apiSurface) {
+    return apiSurface;
+  }
+
   const prefixedSurfaceDefinitions = listSurfaceDefinitions()
     .filter((surface) => String(surface?.prefix || "").trim())
     .sort((left, right) => String(right.prefix).length - String(left.prefix).length);
@@ -171,6 +198,8 @@ export {
   ADMIN_SURFACE_PREFIX,
   CONSOLE_SURFACE_PREFIX,
   normalizePathname,
+  matchesPathPrefix,
+  resolveSurfaceFromApiPathname,
   resolveSurfaceFromPathname,
   resolveSurfacePrefix,
   withSurfacePrefix,

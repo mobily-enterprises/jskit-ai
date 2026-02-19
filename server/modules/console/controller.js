@@ -1,6 +1,17 @@
-function createController({ consoleService }) {
-  if (!consoleService) {
-    throw new Error("consoleService is required.");
+import { parsePositiveInteger } from "../../lib/primitives/integers.js";
+import { withAuditEvent } from "../../lib/securityAudit.js";
+
+function normalizeText(value) {
+  return String(value || "").trim();
+}
+
+function normalizeDecision(value) {
+  return normalizeText(value).toLowerCase();
+}
+
+function createController({ consoleService, auditService }) {
+  if (!consoleService || !auditService || typeof auditService.recordSafe !== "function") {
+    throw new Error("consoleService and auditService.recordSafe are required.");
   }
 
   async function bootstrap(request, reply) {
@@ -21,10 +32,25 @@ function createController({ consoleService }) {
   }
 
   async function updateMemberRole(request, reply) {
-    const response = await consoleService.updateMemberRole(request.user, {
-      memberUserId: request.params?.memberUserId,
-      roleId: request.body?.roleId
+    const memberUserId = request.params?.memberUserId;
+    const roleId = request.body?.roleId;
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "console.member.role.updated",
+      execute: () =>
+        consoleService.updateMemberRole(request.user, {
+          memberUserId,
+          roleId
+        }),
+      shared: () => ({
+        targetUserId: parsePositiveInteger(memberUserId),
+      }),
+      metadata: () => ({
+        roleId: normalizeText(roleId)
+      })
     });
+
     reply.code(200).send(response);
   }
 
@@ -34,12 +60,38 @@ function createController({ consoleService }) {
   }
 
   async function createInvite(request, reply) {
-    const response = await consoleService.createInvite(request.user, request.body || {});
+    const payload = request.body || {};
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "console.invite.created",
+      execute: () => consoleService.createInvite(request.user, payload),
+      metadata: () => ({
+        email: normalizeText(payload.email).toLowerCase(),
+        roleId: normalizeText(payload.roleId)
+      }),
+      onSuccess: (context) => ({
+        metadata: {
+          inviteId: parsePositiveInteger(context?.result?.createdInvite?.inviteId)
+        }
+      })
+    });
+
     reply.code(200).send(response);
   }
 
   async function revokeInvite(request, reply) {
-    const response = await consoleService.revokeInvite(request.user, request.params?.inviteId);
+    const inviteId = request.params?.inviteId;
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "console.invite.revoked",
+      execute: () => consoleService.revokeInvite(request.user, inviteId),
+      metadata: () => ({
+        inviteId: parsePositiveInteger(inviteId)
+      })
+    });
+
     reply.code(200).send(response);
   }
 
@@ -52,11 +104,29 @@ function createController({ consoleService }) {
 
   async function respondToPendingInviteByToken(request, reply) {
     const payload = request.body || {};
-    const response = await consoleService.respondToPendingInviteByToken({
-      user: request.user,
-      inviteToken: payload.token,
-      decision: payload.decision
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "console.invite.redeemed",
+      execute: () =>
+        consoleService.respondToPendingInviteByToken({
+          user: request.user,
+          inviteToken: payload.token,
+          decision: payload.decision
+        }),
+      shared: () => ({
+        targetUserId: parsePositiveInteger(request.user?.id),
+      }),
+      metadata: () => ({
+        decision: normalizeDecision(payload.decision)
+      }),
+      onSuccess: (context) => ({
+        metadata: {
+          inviteId: parsePositiveInteger(context?.result?.inviteId)
+        }
+      })
     });
+
     reply.code(200).send(response);
   }
 

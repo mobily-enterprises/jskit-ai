@@ -11,6 +11,7 @@ import { createService as createWorkspaceAdminService } from "../domain/workspac
 import { createService as createWorkspaceInviteEmailService } from "../domain/workspace/services/inviteEmail.service.js";
 import { createService as createConsoleService } from "../domain/console/services/console.service.js";
 import { createService as createConsoleErrorsService } from "../domain/console/services/errors.service.js";
+import { createService as createAuditService } from "../domain/security/services/audit.service.js";
 import { createService as createProjectsService } from "../modules/projects/service.js";
 import { createService as createHealthService } from "../modules/health/service.js";
 
@@ -27,6 +28,7 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     consoleInvitesRepository,
     consoleRootRepository,
     consoleErrorLogsRepository,
+    auditEventsRepository,
     projectsRepository,
     healthRepository
   } = repositories;
@@ -121,6 +123,10 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     consoleErrorLogsRepository
   });
 
+  const auditService = createAuditService({
+    auditEventsRepository
+  });
+
   const projectsService = createProjectsService({
     projectsRepository
   });
@@ -143,6 +149,7 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     workspaceAdminService,
     consoleService,
     consoleErrorsService,
+    auditService,
     projectsService,
     healthService
   };

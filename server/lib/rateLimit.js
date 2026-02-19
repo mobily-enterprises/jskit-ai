@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { resolveClientIpAddress } from "./primitives/requestUrl.js";
 
 const RATE_LIMIT_MODE_MEMORY = "memory";
 const RATE_LIMIT_MODE_REDIS = "redis";
@@ -13,29 +14,6 @@ function normalizeRateLimitMode(value) {
     return RATE_LIMIT_MODE_REDIS;
   }
   return RATE_LIMIT_MODE_MEMORY;
-}
-
-function resolveClientIpAddress(request) {
-  const forwardedFor = String(request?.headers?.["x-forwarded-for"] || "").trim();
-  if (forwardedFor) {
-    const [firstHop] = forwardedFor.split(",");
-    const candidate = String(firstHop || "").trim();
-    if (candidate) {
-      return candidate;
-    }
-  }
-
-  const requestIp = String(request?.ip || "").trim();
-  if (requestIp) {
-    return requestIp;
-  }
-
-  const socketAddress = String(request?.socket?.remoteAddress || request?.raw?.socket?.remoteAddress || "").trim();
-  if (socketAddress) {
-    return socketAddress;
-  }
-
-  return "unknown";
 }
 
 function defaultRateLimitKeyGenerator(request) {

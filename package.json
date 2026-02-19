@@ -33,7 +33,9 @@
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
     "docs:api-contracts": "node bin/syncApiContractsReadme.js",
-    "docs:api-contracts:check": "node bin/syncApiContractsReadme.js --check"
+    "docs:api-contracts:check": "node bin/syncApiContractsReadme.js --check",
+    "ops:retention": "node bin/retentionSweep.js",
+    "ops:retention:dry-run": "node bin/retentionSweep.js --dry-run"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

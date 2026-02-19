@@ -346,6 +346,9 @@ test("settings controller covers get/update/security flows", async () => {
       reply.cookies.push(["write", session.access_token]);
     }
   };
+  const auditService = {
+    async recordSafe() {}
+  };
 
   const userSettingsService = {
     async getForUser(request, user) {
@@ -392,7 +395,7 @@ test("settings controller covers get/update/security flows", async () => {
     }
   };
 
-  const controller = createSettingsController({ userSettingsService, authService });
+  const controller = createSettingsController({ userSettingsService, authService, auditService });
   const user = { id: 7 };
 
   const getReply = createReplyDouble();

@@ -15,6 +15,9 @@ Use this checklist before shipping changes to production.
 ## 2. Database safety
 
 - [ ] Backup production DB (or snapshot) before migration.
+- [ ] Backup artifact is created and checksum verified.
+- [ ] Restore drill completed to a temporary DB from the backup artifact.
+- [ ] Restore verification SQL queries passed before release.
 - [ ] Run migrations: `npm run db:migrate`.
 - [ ] Verify new tables/columns/indexes exist as expected.
 - [ ] Do not run seed commands in production unless explicitly intended.
@@ -58,5 +61,6 @@ Use this checklist before shipping changes to production.
 
 - [ ] Tag release commit and record changelog.
 - [ ] Confirm monitoring/alerting is active.
+- [ ] Confirm `docs/backup-restore-runbook.md` is current for this release.
 - [ ] Confirm rollback procedure is documented and tested (previous image/artifact + DB plan).
 - [ ] Confirm on-call owner and release window are agreed.

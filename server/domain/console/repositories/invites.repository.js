@@ -1,5 +1,10 @@
 import { db } from "../../../../db/knex.js";
 import { toIsoString, toMysqlDateTimeUtc } from "../../../lib/primitives/dateUtils.js";
+import {
+  deleteRowsOlderThan,
+  normalizeBatchSize,
+  normalizeCutoffDateOrThrow
+} from "../../../lib/primitives/retention.js";
 import { normalizeEmail } from "../../../../shared/auth/utils.js";
 
 function mapInviteRowRequired(row) {
@@ -184,6 +189,17 @@ function createInvitesRepository(dbClient) {
     return Number(affectedRows || 0);
   }
 
+  async function repoDeleteArtifactsOlderThan(cutoffDate, batchSize = 1000, options = {}) {
+    return deleteRowsOlderThan({
+      client: resolveClient(options),
+      tableName: "console_invites",
+      dateColumn: "updated_at",
+      cutoffDate,
+      batchSize,
+      applyFilters: (query) => query.whereIn("status", ["accepted", "revoked", "expired"])
+    });
+  }
+
   async function repoTransaction(callback) {
     if (typeof dbClient.transaction === "function") {
       return dbClient.transaction(callback);
@@ -202,6 +218,7 @@ function createInvitesRepository(dbClient) {
     revokeById: repoRevokeById,
     markAcceptedById: repoMarkAcceptedById,
     expirePendingByEmail: repoExpirePendingByEmail,
+    deleteArtifactsOlderThan: repoDeleteArtifactsOlderThan,
     transaction: repoTransaction
   };
 }
@@ -212,6 +229,8 @@ const __testables = {
   normalizeEmail,
   mapInviteRowRequired,
   mapInviteRowNullable,
+  normalizeBatchSize,
+  normalizeCutoffDateOrThrow,
   createInvitesRepository
 };
 
@@ -224,6 +243,7 @@ export const {
   updateStatusById,
   revokeById,
   markAcceptedById,
-  expirePendingByEmail
+  expirePendingByEmail,
+  deleteArtifactsOlderThan
 } = repository;
 export { __testables };

@@ -1,6 +1,11 @@
 import { db } from "../../../../db/knex.js";
 import { toIsoString, toMysqlDateTimeUtc } from "../../../lib/primitives/dateUtils.js";
 import { isMysqlDuplicateEntryError } from "../../../lib/primitives/mysqlErrors.js";
+import {
+  deleteRowsOlderThan,
+  normalizeBatchSize,
+  normalizeCutoffDateOrThrow
+} from "../../../lib/primitives/retention.js";
 import { normalizeEmail } from "../../../../shared/auth/utils.js";
 import { coerceWorkspaceColor } from "../../../../shared/workspace/colors.js";
 
@@ -276,6 +281,17 @@ function createWorkspaceInvitesRepository(dbClient) {
     return Number(affectedRows || 0);
   }
 
+  async function repoDeleteArtifactsOlderThan(cutoffDate, batchSize = 1000, options = {}) {
+    return deleteRowsOlderThan({
+      client: resolveClient(options),
+      tableName: "workspace_invites",
+      dateColumn: "updated_at",
+      cutoffDate,
+      batchSize,
+      applyFilters: (query) => query.whereIn("status", ["accepted", "revoked", "expired"])
+    });
+  }
+
   async function repoTransaction(callback) {
     if (typeof dbClient.transaction === "function") {
       return dbClient.transaction(callback);
@@ -298,6 +314,7 @@ function createWorkspaceInvitesRepository(dbClient) {
     markAcceptedById: repoMarkAcceptedById,
     markExpiredPendingInvites: repoMarkExpiredPendingInvites,
     expirePendingByWorkspaceIdAndEmail: repoExpirePendingByWorkspaceIdAndEmail,
+    deleteArtifactsOlderThan: repoDeleteArtifactsOlderThan,
     transaction: repoTransaction
   };
 }
@@ -309,6 +326,8 @@ const __testables = {
   normalizeEmail,
   mapWorkspaceInviteRowRequired,
   mapWorkspaceInviteRowNullable,
+  normalizeBatchSize,
+  normalizeCutoffDateOrThrow,
   createWorkspaceInvitesRepository
 };
 
@@ -325,6 +344,7 @@ export const {
   revokeById,
   markAcceptedById,
   markExpiredPendingInvites,
-  expirePendingByWorkspaceIdAndEmail
+  expirePendingByWorkspaceIdAndEmail,
+  deleteArtifactsOlderThan
 } = repository;
 export { __testables };

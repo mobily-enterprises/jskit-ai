@@ -8,7 +8,9 @@ import {
   SURFACE_APP,
   SURFACE_CONSOLE,
   createSurfacePaths,
+  matchesPathPrefix,
   normalizePathname,
+  resolveSurfaceFromApiPathname,
   resolveSurfaceFromPathname,
   resolveSurfacePaths,
   resolveSurfacePrefix,
@@ -67,12 +69,21 @@ test("surface path helpers normalize paths and resolve surface by prefix", () =>
   assert.equal(normalizePathname("api/history"), "/api/history");
   assert.equal(normalizePathname("/api/history///"), "/api/history");
   assert.equal(normalizePathname("/admin/w/acme?x=1#y=2"), "/admin/w/acme");
+  assert.equal(matchesPathPrefix("/api/console/members", "/api/console"), true);
+  assert.equal(matchesPathPrefix("/api/consolex", "/api/console"), false);
+  assert.equal(resolveSurfaceFromApiPathname("/api/console/members"), "console");
+  assert.equal(resolveSurfaceFromApiPathname("/api/admin/w/acme"), "admin");
+  assert.equal(resolveSurfaceFromApiPathname("/api/workspace/acme"), "app");
+  assert.equal(resolveSurfaceFromApiPathname("/w/acme"), "");
 
   assert.equal(resolveSurfaceFromPathname("/admin"), "admin");
   assert.equal(resolveSurfaceFromPathname("/admin/w/acme"), "admin");
   assert.equal(resolveSurfaceFromPathname("/console"), "console");
   assert.equal(resolveSurfaceFromPathname("/console/login"), "console");
   assert.equal(resolveSurfaceFromPathname("/w/acme"), "app");
+  assert.equal(resolveSurfaceFromPathname("/api/console/members"), "console");
+  assert.equal(resolveSurfaceFromPathname("/api/admin/w/acme"), "admin");
+  assert.equal(resolveSurfaceFromPathname("/api/settings"), "app");
   assert.equal(resolveSurfacePrefix("admin"), "/admin");
   assert.equal(resolveSurfacePrefix("app"), "");
   assert.equal(resolveSurfacePrefix("console"), "/console");

@@ -1,6 +1,16 @@
 import { AppError } from "../../lib/errors.js";
+import { parsePositiveInteger } from "../../lib/primitives/integers.js";
+import { withAuditEvent } from "../../lib/securityAudit.js";
 
-function createController({ userSettingsService, authService }) {
+function normalizeText(value) {
+  return String(value || "").trim();
+}
+
+function createController({ userSettingsService, authService, auditService }) {
+  if (!userSettingsService || !authService || !auditService || typeof auditService.recordSafe !== "function") {
+    throw new Error("userSettingsService, authService, and auditService.recordSafe are required.");
+  }
+
   async function get(request, reply) {
     const response = await userSettingsService.getForUser(request, request.user);
     reply.code(200).send(response);
@@ -73,7 +83,19 @@ function createController({ userSettingsService, authService }) {
 
   async function setPasswordMethodEnabled(request, reply) {
     const payload = request.body || {};
-    const response = await userSettingsService.setPasswordMethodEnabled(request, request.user, payload);
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "auth.password_method.toggled",
+      execute: () => userSettingsService.setPasswordMethodEnabled(request, request.user, payload),
+      shared: () => ({
+        targetUserId: parsePositiveInteger(request.user?.id),
+      }),
+      metadata: () => ({
+        enabled: Boolean(payload.enabled)
+      })
+    });
+
     reply.code(200).send(response);
   }
 
@@ -89,9 +111,22 @@ function createController({ userSettingsService, authService }) {
 
   async function unlinkOAuthProvider(request, reply) {
     const provider = request.params?.provider;
-    const response = await userSettingsService.unlinkOAuthProvider(request, request.user, {
-      provider
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "auth.oauth_provider.unlinked",
+      execute: () =>
+        userSettingsService.unlinkOAuthProvider(request, request.user, {
+          provider
+        }),
+      shared: () => ({
+        targetUserId: parsePositiveInteger(request.user?.id),
+      }),
+      metadata: () => ({
+        provider: normalizeText(provider).toLowerCase()
+      })
     });
+
     reply.code(200).send(response);
   }
 

@@ -13,6 +13,7 @@ const consoleInvitesMigration = require("../migrations/20260220090100_create_con
 const consoleRootIdentityMigration = require("../migrations/20260220090200_create_console_root_identity.cjs");
 const consoleBrowserErrorsMigration = require("../migrations/20260220100000_create_console_browser_errors.cjs");
 const consoleServerErrorsMigration = require("../migrations/20260220100100_create_console_server_errors.cjs");
+const securityAuditEventsMigration = require("../migrations/20260220110000_create_security_audit_events.cjs");
 
 function createSchemaStub() {
   const calls = [];
@@ -338,4 +339,16 @@ test("console server errors migration creates expected table and drop behavior",
   assert.ok(createTableCall);
   assert.ok(calls.some((entry) => entry[0] === "raw" && entry[1] === "UTC_TIMESTAMP(3)"));
   assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "console_server_errors"]);
+});
+
+test("security audit events migration creates expected table and drop behavior", async () => {
+  const { knex, calls } = createSchemaStub();
+
+  await securityAuditEventsMigration.up(knex);
+  await securityAuditEventsMigration.down(knex);
+
+  const createTableCall = calls.find((entry) => entry[0] === "createTable" && entry[1] === "security_audit_events");
+  assert.ok(createTableCall);
+  assert.ok(calls.some((entry) => entry[0] === "raw" && entry[1] === "UTC_TIMESTAMP(3)"));
+  assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "security_audit_events"]);
 });

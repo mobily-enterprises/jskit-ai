@@ -1,8 +1,21 @@
 import { hasPermission } from "../../lib/rbacManifest.js";
+import { parsePositiveInteger } from "../../lib/primitives/integers.js";
+import { withAuditEvent } from "../../lib/securityAudit.js";
 
-function createController({ authService, workspaceService, workspaceAdminService, consoleService }) {
-  if (!authService || !workspaceService || !workspaceAdminService || !consoleService) {
-    throw new Error("authService, workspaceService, workspaceAdminService, and consoleService are required.");
+function normalizeText(value) {
+  return String(value || "").trim();
+}
+
+function normalizeDecision(value) {
+  return normalizeText(value).toLowerCase();
+}
+
+function createController({ authService, workspaceService, workspaceAdminService, consoleService, auditService }) {
+  if (!authService || !workspaceService || !workspaceAdminService || !consoleService || !auditService) {
+    throw new Error("authService, workspaceService, workspaceAdminService, consoleService, and auditService are required.");
+  }
+  if (typeof auditService.recordSafe !== "function") {
+    throw new Error("auditService.recordSafe is required.");
   }
 
   async function bootstrap(request, reply) {
@@ -79,10 +92,26 @@ function createController({ authService, workspaceService, workspaceAdminService
   }
 
   async function updateWorkspaceMemberRole(request, reply) {
-    const response = await workspaceAdminService.updateMemberRole(request.workspace, {
-      memberUserId: request.params?.memberUserId,
-      roleId: request.body?.roleId
+    const memberUserId = request.params?.memberUserId;
+    const roleId = request.body?.roleId;
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "workspace.member.role.updated",
+      execute: () =>
+        workspaceAdminService.updateMemberRole(request.workspace, {
+          memberUserId,
+          roleId
+        }),
+      shared: () => ({
+        workspaceId: parsePositiveInteger(request.workspace?.id),
+        targetUserId: parsePositiveInteger(memberUserId)
+      }),
+      metadata: () => ({
+        roleId: normalizeText(roleId)
+      })
     });
+
     reply.code(200).send(response);
   }
 
@@ -92,12 +121,44 @@ function createController({ authService, workspaceService, workspaceAdminService
   }
 
   async function createWorkspaceInvite(request, reply) {
-    const response = await workspaceAdminService.createInvite(request.workspace, request.user, request.body || {});
+    const payload = request.body || {};
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "workspace.invite.created",
+      execute: () => workspaceAdminService.createInvite(request.workspace, request.user, payload),
+      shared: () => ({
+        workspaceId: parsePositiveInteger(request.workspace?.id),
+      }),
+      metadata: () => ({
+        email: normalizeText(payload.email).toLowerCase(),
+        roleId: normalizeText(payload.roleId)
+      }),
+      onSuccess: (context) => ({
+        metadata: {
+          inviteId: parsePositiveInteger(context?.result?.createdInvite?.inviteId)
+        }
+      })
+    });
+
     reply.code(200).send(response);
   }
 
   async function revokeWorkspaceInvite(request, reply) {
-    const response = await workspaceAdminService.revokeInvite(request.workspace, request.params?.inviteId);
+    const inviteId = request.params?.inviteId;
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "workspace.invite.revoked",
+      execute: () => workspaceAdminService.revokeInvite(request.workspace, inviteId),
+      shared: () => ({
+        workspaceId: parsePositiveInteger(request.workspace?.id),
+      }),
+      metadata: () => ({
+        inviteId: parsePositiveInteger(inviteId)
+      }),
+    });
+
     reply.code(200).send(response);
   }
 
@@ -110,11 +171,30 @@ function createController({ authService, workspaceService, workspaceAdminService
 
   async function respondToPendingInviteByToken(request, reply) {
     const payload = request.body || {};
-    const response = await workspaceAdminService.respondToPendingInviteByToken({
-      user: request.user,
-      inviteToken: payload.token,
-      decision: payload.decision
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "workspace.invite.redeemed",
+      execute: () =>
+        workspaceAdminService.respondToPendingInviteByToken({
+          user: request.user,
+          inviteToken: payload.token,
+          decision: payload.decision
+        }),
+      shared: (context) => ({
+        workspaceId: parsePositiveInteger(context?.result?.workspace?.id) || parsePositiveInteger(request.workspace?.id),
+        targetUserId: parsePositiveInteger(request.user?.id)
+      }),
+      metadata: () => ({
+        decision: normalizeDecision(payload.decision)
+      }),
+      onSuccess: (context) => ({
+        metadata: {
+          inviteId: parsePositiveInteger(context?.result?.inviteId)
+        }
+      })
     });
+
     reply.code(200).send(response);
   }
 

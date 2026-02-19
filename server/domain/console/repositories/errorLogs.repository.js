@@ -1,5 +1,10 @@
 import { db } from "../../../../db/knex.js";
 import { toIsoString, toMysqlDateTimeUtc } from "../../../lib/primitives/dateUtils.js";
+import {
+  deleteRowsOlderThan,
+  normalizeBatchSize,
+  normalizeCutoffDateOrThrow
+} from "../../../lib/primitives/retention.js";
 
 function parseMetadata(value) {
   const source = String(value || "").trim();
@@ -142,6 +147,16 @@ function createErrorLogsRepository(dbClient) {
     return mapBrowserErrorRowRequired(row);
   }
 
+  async function repoDeleteBrowserErrorsOlderThan(cutoffDate, batchSize = 1000, options = {}) {
+    return deleteRowsOlderThan({
+      client: resolveClient(options),
+      tableName: "console_browser_errors",
+      dateColumn: "created_at",
+      cutoffDate,
+      batchSize
+    });
+  }
+
   async function repoInsertServerError(entry, options = {}) {
     const client = resolveClient(options);
     const now = new Date();
@@ -191,6 +206,16 @@ function createErrorLogsRepository(dbClient) {
     return mapServerErrorRowRequired(row);
   }
 
+  async function repoDeleteServerErrorsOlderThan(cutoffDate, batchSize = 1000, options = {}) {
+    return deleteRowsOlderThan({
+      client: resolveClient(options),
+      tableName: "console_server_errors",
+      dateColumn: "created_at",
+      cutoffDate,
+      batchSize
+    });
+  }
+
   async function repoTransaction(callback) {
     if (typeof dbClient.transaction === "function") {
       return dbClient.transaction(callback);
@@ -204,10 +229,12 @@ function createErrorLogsRepository(dbClient) {
     countBrowserErrors: repoCountBrowserErrors,
     listBrowserErrors: repoListBrowserErrors,
     getBrowserErrorById: repoGetBrowserErrorById,
+    deleteBrowserErrorsOlderThan: repoDeleteBrowserErrorsOlderThan,
     insertServerError: repoInsertServerError,
     countServerErrors: repoCountServerErrors,
     listServerErrors: repoListServerErrors,
     getServerErrorById: repoGetServerErrorById,
+    deleteServerErrorsOlderThan: repoDeleteServerErrorsOlderThan,
     transaction: repoTransaction
   };
 }
@@ -220,6 +247,8 @@ const __testables = {
   mapServerErrorRowRequired,
   normalizeCount,
   stringifyMetadata,
+  normalizeBatchSize,
+  normalizeCutoffDateOrThrow,
   createErrorLogsRepository
 };
 
@@ -228,10 +257,12 @@ export const {
   countBrowserErrors,
   listBrowserErrors,
   getBrowserErrorById,
+  deleteBrowserErrorsOlderThan,
   insertServerError,
   countServerErrors,
   listServerErrors,
   getServerErrorById,
+  deleteServerErrorsOlderThan,
   transaction
 } = repository;
 export { __testables };

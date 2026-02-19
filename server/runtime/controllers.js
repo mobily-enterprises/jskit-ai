@@ -21,7 +21,8 @@ function createControllers({ services }) {
     workspaceService,
     workspaceAdminService,
     consoleService,
-    consoleErrorsService
+    consoleErrorsService,
+    auditService
   } = services;
 
   return {
@@ -36,7 +37,8 @@ function createControllers({ services }) {
     }),
     settings: createSettingsController({
       userSettingsService,
-      authService
+      authService,
+      auditService
     }),
     health: createHealthController({
       healthService
@@ -48,10 +50,12 @@ function createControllers({ services }) {
       authService,
       workspaceService,
       workspaceAdminService,
-      consoleService
+      consoleService,
+      auditService
     }),
     console: createConsoleController({
-      consoleService
+      consoleService,
+      auditService
     }),
     consoleErrors: createConsoleErrorsController({
       consoleErrorsService

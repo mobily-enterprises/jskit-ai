@@ -9,6 +9,7 @@ import * as consoleMembershipsRepository from "../domain/console/repositories/me
 import * as consoleInvitesRepository from "../domain/console/repositories/invites.repository.js";
 import * as consoleRootRepository from "../domain/console/repositories/root.repository.js";
 import * as consoleErrorLogsRepository from "../domain/console/repositories/errorLogs.repository.js";
+import * as auditEventsRepository from "../domain/security/repositories/auditEvents.repository.js";
 import * as projectsRepository from "../modules/projects/repository.js";
 import * as healthRepository from "../modules/health/repository.js";
 
@@ -25,6 +26,7 @@ function createRepositories() {
     consoleInvitesRepository,
     consoleRootRepository,
     consoleErrorLogsRepository,
+    auditEventsRepository,
     projectsRepository,
     healthRepository
   };
