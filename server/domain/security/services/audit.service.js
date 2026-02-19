@@ -119,7 +119,19 @@ function normalizeEvent(event) {
   };
 }
 
-function createService({ auditEventsRepository }) {
+function recordAuditMetric(observabilityService, event) {
+  if (!observabilityService || typeof observabilityService.recordSecurityAuditEvent !== "function") {
+    return;
+  }
+
+  observabilityService.recordSecurityAuditEvent({
+    action: event?.action,
+    outcome: event?.outcome,
+    surface: event?.surface
+  });
+}
+
+function createService({ auditEventsRepository, observabilityService }) {
   if (!auditEventsRepository || typeof auditEventsRepository.insert !== "function") {
     throw new Error("auditEventsRepository is required.");
   }
@@ -130,7 +142,9 @@ function createService({ auditEventsRepository }) {
       throw new Error("Audit event action is required.");
     }
 
-    return auditEventsRepository.insert(normalized);
+    const result = await auditEventsRepository.insert(normalized);
+    recordAuditMetric(observabilityService, normalized);
+    return result;
   }
 
   async function recordSafe(event, logger) {

@@ -4,7 +4,8 @@ import fastifyCsrfProtection from "@fastify/csrf-protection";
 import fastifyRateLimit from "@fastify/rate-limit";
 import { AppError } from "../lib/errors.js";
 import { hasPermission } from "../lib/rbacManifest.js";
-import { safeRequestUrl } from "../lib/primitives/requestUrl.js";
+import { safeRequestUrl, safePathnameFromRequest } from "../lib/primitives/requestUrl.js";
+import { resolveSurfaceFromPathname } from "../../shared/routing/surfacePaths.js";
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -26,9 +27,26 @@ function resolveOwnerValue(routeConfig, request) {
   return null;
 }
 
+function resolveRequestSurface(request) {
+  const pathnameValue = safePathnameFromRequest(request);
+  return resolveSurfaceFromPathname(pathnameValue);
+}
+
+function recordAuthFailure(observabilityService, request, reason) {
+  if (!observabilityService || typeof observabilityService.recordAuthFailure !== "function") {
+    return;
+  }
+
+  observabilityService.recordAuthFailure({
+    reason,
+    surface: resolveRequestSurface(request)
+  });
+}
+
 async function authPlugin(fastify, options) {
   const authService = options.authService;
   const workspaceService = options.workspaceService || null;
+  const observabilityService = options.observabilityService || null;
   const rateLimitPluginOptions =
     options.rateLimitPluginOptions && typeof options.rateLimitPluginOptions === "object"
       ? options.rateLimitPluginOptions
@@ -102,10 +120,12 @@ async function authPlugin(fastify, options) {
     }
 
     if (authResult.transientFailure) {
+      recordAuthFailure(observabilityService, request, "auth_upstream_unavailable");
       throw new AppError(503, "Authentication service temporarily unavailable. Please retry.");
     }
 
     if (!authResult.authenticated) {
+      recordAuthFailure(observabilityService, request, "unauthenticated");
       throw new AppError(401, "Authentication required.");
     }
 
@@ -120,13 +140,16 @@ async function authPlugin(fastify, options) {
       const userValue = request.user ? request.user[userField] : null;
 
       if (ownerValue == null || userValue == null) {
+        recordAuthFailure(observabilityService, request, "owner_unresolved");
         throw new AppError(400, "Route owner could not be resolved.");
       }
 
       if (String(ownerValue) !== String(userValue)) {
+        recordAuthFailure(observabilityService, request, "forbidden_owner_mismatch");
         throw new AppError(403, "Forbidden.");
       }
     } else if (authPolicy !== "required") {
+      recordAuthFailure(observabilityService, request, "invalid_auth_policy");
       throw new AppError(500, "Invalid route auth policy configuration.");
     }
 
@@ -144,6 +167,7 @@ async function authPlugin(fastify, options) {
     }
 
     if (permission && !hasPermission(request.permissions, permission)) {
+      recordAuthFailure(observabilityService, request, "forbidden_permission");
       throw new AppError(403, "Forbidden.");
     }
   });

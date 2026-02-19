@@ -2,7 +2,7 @@ import { createRepositories } from "./repositories.js";
 import { createServices } from "./services.js";
 import { createControllers } from "./controllers.js";
 
-function createServerRuntime({ env, nodeEnv, appConfig, rbacManifest, rootDir, supabasePublishableKey }) {
+function createServerRuntime({ env, nodeEnv, appConfig, rbacManifest, rootDir, supabasePublishableKey, observabilityRegistry }) {
   const repositories = createRepositories();
   const services = createServices({
     repositories,
@@ -11,7 +11,8 @@ function createServerRuntime({ env, nodeEnv, appConfig, rbacManifest, rootDir, s
     appConfig,
     rbacManifest,
     rootDir,
-    supabasePublishableKey
+    supabasePublishableKey,
+    observabilityRegistry
   });
   const controllers = createControllers({ services });
 
@@ -22,6 +23,7 @@ function createServerRuntime({ env, nodeEnv, appConfig, rbacManifest, rootDir, s
       workspaceService: services.workspaceService,
       consoleService: services.consoleService,
       consoleErrorsService: services.consoleErrorsService,
+      observabilityService: services.observabilityService,
       avatarStorageService: services.avatarStorageService
     }
   };

@@ -525,3 +525,74 @@ test("csrf protection can be disabled per route", async () => {
   assert.equal(response.statusCode, 200);
   await app.close();
 });
+
+test("auth plugin emits auth failure observability events", async () => {
+  const authFailures = [];
+  const app = Fastify();
+  installTestErrorHandler(app);
+  await app.register(authPlugin, {
+    authService: {
+      async authenticateRequest(request) {
+        if (request.headers["x-mode"] === "transient") {
+          return {
+            authenticated: false,
+            clearSession: false,
+            session: null,
+            transientFailure: true
+          };
+        }
+
+        return {
+          authenticated: false,
+          clearSession: false,
+          session: null,
+          transientFailure: false
+        };
+      },
+      writeSessionCookies() {},
+      clearSessionCookies() {}
+    },
+    observabilityService: {
+      recordAuthFailure(event) {
+        authFailures.push(event);
+      }
+    },
+    nodeEnv: "test"
+  });
+
+  app.get(
+    "/api/protected",
+    {
+      config: { authPolicy: "required" }
+    },
+    async () => ({ ok: true })
+  );
+
+  const unauthenticated = await app.inject({
+    method: "GET",
+    url: "/api/protected"
+  });
+  assert.equal(unauthenticated.statusCode, 401);
+
+  const transient = await app.inject({
+    method: "GET",
+    url: "/api/protected",
+    headers: {
+      "x-mode": "transient"
+    }
+  });
+  assert.equal(transient.statusCode, 503);
+
+  assert.deepEqual(authFailures, [
+    {
+      reason: "unauthenticated",
+      surface: "app"
+    },
+    {
+      reason: "auth_upstream_unavailable",
+      surface: "app"
+    }
+  ]);
+
+  await app.close();
+});

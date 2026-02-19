@@ -61,6 +61,11 @@ Use this checklist before shipping changes to production.
 
 - [ ] Tag release commit and record changelog.
 - [ ] Confirm monitoring/alerting is active.
+- [ ] Confirm `GET /api/metrics` is scrapeable in production (auth header configured if token-protected).
+- [ ] Confirm uptime alert is enabled (`/api/ready` non-200 for sustained window).
+- [ ] Confirm error-rate alert is enabled (5xx ratio threshold over rolling window).
+- [ ] Confirm dashboard panels exist for p95 latency, error rate, auth failures, and invite redemption funnel.
+- [ ] Confirm `docs/observability.md` is current for this release.
 - [ ] Confirm `docs/backup-restore-runbook.md` is current for this release.
 - [ ] Confirm rollback procedure is documented and tested (previous image/artifact + DB plan).
 - [ ] Confirm on-call owner and release window are agreed.

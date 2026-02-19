@@ -173,7 +173,18 @@ function createSimulationId() {
   return `sim-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
 }
 
-function createService({ consoleMembershipsRepository, consoleErrorLogsRepository }) {
+function recordIngestionMetric(observabilityService, { source, outcome }) {
+  if (!observabilityService || typeof observabilityService.recordConsoleErrorIngestion !== "function") {
+    return;
+  }
+
+  observabilityService.recordConsoleErrorIngestion({
+    source,
+    outcome
+  });
+}
+
+function createService({ consoleMembershipsRepository, consoleErrorLogsRepository, observabilityService }) {
   if (!consoleMembershipsRepository || !consoleErrorLogsRepository) {
     throw new Error("console error service repositories are required.");
   }
@@ -261,12 +272,38 @@ function createService({ consoleMembershipsRepository, consoleErrorLogsRepositor
 
   async function recordBrowserError({ payload, user }) {
     const normalizedPayload = normalizeBrowserPayload(payload, user);
-    return consoleErrorLogsRepository.insertBrowserError(normalizedPayload);
+    try {
+      const result = await consoleErrorLogsRepository.insertBrowserError(normalizedPayload);
+      recordIngestionMetric(observabilityService, {
+        source: "browser",
+        outcome: "success"
+      });
+      return result;
+    } catch (error) {
+      recordIngestionMetric(observabilityService, {
+        source: "browser",
+        outcome: "failure"
+      });
+      throw error;
+    }
   }
 
   async function recordServerError(payload) {
     const normalizedPayload = normalizeServerPayload(payload);
-    return consoleErrorLogsRepository.insertServerError(normalizedPayload);
+    try {
+      const result = await consoleErrorLogsRepository.insertServerError(normalizedPayload);
+      recordIngestionMetric(observabilityService, {
+        source: "server",
+        outcome: "success"
+      });
+      return result;
+    } catch (error) {
+      recordIngestionMetric(observabilityService, {
+        source: "server",
+        outcome: "failure"
+      });
+      throw error;
+    }
   }
 
   async function simulateServerError({ user, payload }) {

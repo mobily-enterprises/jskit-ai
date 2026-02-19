@@ -12,10 +12,20 @@ import { createService as createWorkspaceInviteEmailService } from "../domain/wo
 import { createService as createConsoleService } from "../domain/console/services/console.service.js";
 import { createService as createConsoleErrorsService } from "../domain/console/services/errors.service.js";
 import { createService as createAuditService } from "../domain/security/services/audit.service.js";
+import { createService as createObservabilityService } from "../modules/observability/service.js";
 import { createService as createProjectsService } from "../modules/projects/service.js";
 import { createService as createHealthService } from "../modules/health/service.js";
 
-function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, rootDir, supabasePublishableKey }) {
+function createServices({
+  repositories,
+  env,
+  nodeEnv,
+  appConfig,
+  rbacManifest,
+  rootDir,
+  supabasePublishableKey,
+  observabilityRegistry
+}) {
   const {
     userProfilesRepository,
     calculationLogsRepository,
@@ -32,6 +42,12 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     projectsRepository,
     healthRepository
   } = repositories;
+
+  const observabilityService = createObservabilityService({
+    metricsRegistry: observabilityRegistry,
+    metricsEnabled: env.METRICS_ENABLED,
+    metricsBearerToken: env.METRICS_BEARER_TOKEN
+  });
 
   const authService = createAuthService({
     supabaseUrl: env.SUPABASE_URL,
@@ -120,11 +136,13 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
 
   const consoleErrorsService = createConsoleErrorsService({
     consoleMembershipsRepository,
-    consoleErrorLogsRepository
+    consoleErrorLogsRepository,
+    observabilityService
   });
 
   const auditService = createAuditService({
-    auditEventsRepository
+    auditEventsRepository,
+    observabilityService
   });
 
   const projectsService = createProjectsService({
@@ -149,6 +167,7 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     workspaceAdminService,
     consoleService,
     consoleErrorsService,
+    observabilityService,
     auditService,
     projectsService,
     healthService

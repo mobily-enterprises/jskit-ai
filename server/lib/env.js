@@ -68,6 +68,8 @@ export const env = cleanEnv(
     SMTP_USERNAME: str({ default: "" }),
     SMTP_PASSWORD: str({ default: "" }),
     SMTP_FROM: str({ default: "" }),
+    METRICS_ENABLED: bool({ default: true }),
+    METRICS_BEARER_TOKEN: str({ default: "" }),
     ERROR_LOG_RETENTION_DAYS: num({ default: 30 }),
     INVITE_ARTIFACT_RETENTION_DAYS: num({ default: 90 }),
     SECURITY_AUDIT_RETENTION_DAYS: num({ default: 365 }),

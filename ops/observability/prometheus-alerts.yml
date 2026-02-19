@@ -1,0 +1,31 @@
+groups:
+  - name: annuity-app-observability
+    rules:
+      # Uptime probe against the scrape target itself.
+      # If you use an HTTP uptime monitor on /api/ready, prefer that signal.
+      - alert: AnnuityAppScrapeDown
+        expr: up{job="annuity-app"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: annuity-app
+        annotations:
+          summary: "annuity-app is not scrapeable"
+          description: "Prometheus could not scrape annuity-app for 5m."
+
+      - alert: AnnuityAppHighErrorRate
+        expr: |
+          (
+            sum(rate(app_http_5xx_total[5m]))
+            /
+            clamp_min(sum(rate(app_http_requests_total[5m])), 1)
+          ) > 0.02
+          and
+          sum(rate(app_http_requests_total[5m])) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+          service: annuity-app
+        annotations:
+          summary: "annuity-app 5xx error rate is high"
+          description: "5xx ratio exceeded 2% for 10m with sustained traffic."

@@ -6,6 +6,7 @@ import { createController as createSettingsController } from "../modules/setting
 import { createController as createWorkspaceController } from "../modules/workspace/controller.js";
 import { createController as createConsoleController } from "../modules/console/controller.js";
 import { createController as createConsoleErrorsController } from "../modules/consoleErrors/controller.js";
+import { createController as createObservabilityController } from "../modules/observability/controller.js";
 import { createController as createProjectsController } from "../modules/projects/controller.js";
 import { createController as createHealthController } from "../modules/health/controller.js";
 
@@ -22,6 +23,7 @@ function createControllers({ services }) {
     workspaceAdminService,
     consoleService,
     consoleErrorsService,
+    observabilityService,
     auditService
   } = services;
 
@@ -59,6 +61,9 @@ function createControllers({ services }) {
     }),
     consoleErrors: createConsoleErrorsController({
       consoleErrorsService
+    }),
+    observability: createObservabilityController({
+      observabilityService
     })
   };
 }

@@ -114,3 +114,36 @@ test("security audit metadata helper redacts token-like keys deeply", () => {
   assert.equal(sanitized.level1.level2.secret, "[REDACTED]");
   assert.equal(sanitized.level1.level2.allowed, "ok");
 });
+
+test("security audit service emits observability metric when event is persisted", async () => {
+  const events = [];
+  const service = createAuditService({
+    auditEventsRepository: {
+      async insert(event) {
+        return {
+          id: 99,
+          ...event
+        };
+      }
+    },
+    observabilityService: {
+      recordSecurityAuditEvent(event) {
+        events.push(event);
+      }
+    }
+  });
+
+  await service.record({
+    action: "console.invite.redeemed",
+    outcome: "success",
+    surface: "console"
+  });
+
+  assert.deepEqual(events, [
+    {
+      action: "console.invite.redeemed",
+      outcome: "success",
+      surface: "console"
+    }
+  ]);
+});

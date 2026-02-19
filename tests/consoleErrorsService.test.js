@@ -330,3 +330,79 @@ test("console errors service rejects unsupported server simulation kinds", async
     }
   );
 });
+
+test("console errors service emits ingestion observability events for success and failure", async () => {
+  const events = [];
+  const service = createConsoleErrorsService({
+    consoleMembershipsRepository: {
+      async findByUserId() {
+        return {
+          userId: 4,
+          roleId: "devop",
+          status: "active"
+        };
+      }
+    },
+    consoleErrorLogsRepository: {
+      async countBrowserErrors() {
+        return 0;
+      },
+      async listBrowserErrors() {
+        return [];
+      },
+      async getBrowserErrorById() {
+        return null;
+      },
+      async countServerErrors() {
+        return 0;
+      },
+      async listServerErrors() {
+        return [];
+      },
+      async getServerErrorById() {
+        return null;
+      },
+      async insertBrowserError() {
+        throw new Error("insert failed");
+      },
+      async insertServerError(payload) {
+        return payload;
+      }
+    },
+    observabilityService: {
+      recordConsoleErrorIngestion(event) {
+        events.push(event);
+      }
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      service.recordBrowserError({
+        payload: {
+          message: "boom"
+        },
+        user: {
+          id: 7,
+          email: "u@example.com"
+        }
+      }),
+    /insert failed/
+  );
+
+  await service.recordServerError({
+    message: "server boom",
+    statusCode: 500
+  });
+
+  assert.deepEqual(events, [
+    {
+      source: "browser",
+      outcome: "failure"
+    },
+    {
+      source: "server",
+      outcome: "success"
+    }
+  ]);
+});

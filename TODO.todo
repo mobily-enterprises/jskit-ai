@@ -32,6 +32,7 @@ X Add SMS system (PLIVIO?)
 
 LATER:
 
+- Make db-agnostic (now MySql)
 - DB-level audit trail [1]
 - SMS/EMAIL
   - Medium: invite-email failures are fully swallowed, so delivery/config issues are invisible in ops. (server/domain/workspace/services/admin.service.js:315)

@@ -42,6 +42,7 @@ test("server controllers expose createController contract", async () => {
     "../server/modules/health/controller.js",
     "../server/modules/projects/controller.js",
     "../server/modules/settings/controller.js",
+    "../server/modules/observability/controller.js",
     "../server/modules/console/controller.js",
     "../server/modules/consoleErrors/controller.js",
     "../server/modules/workspace/controller.js"
@@ -65,6 +66,7 @@ test("server services expose createService contract", async () => {
     "../server/modules/health/service.js",
     "../server/modules/projects/service.js",
     "../server/modules/settings/service.js",
+    "../server/modules/observability/service.js",
     "../server/domain/console/services/console.service.js",
     "../server/domain/console/services/errors.service.js",
     "../server/domain/security/services/audit.service.js",
@@ -93,6 +95,7 @@ test("server routes expose buildRoutes contract", async () => {
     "../server/modules/health/routes.js",
     "../server/modules/projects/routes.js",
     "../server/modules/settings/routes.js",
+    "../server/modules/observability/routes.js",
     "../server/modules/console/routes.js",
     "../server/modules/consoleErrors/routes.js",
     "../server/modules/workspace/routes.js"
@@ -115,6 +118,7 @@ test("server schemas expose schema object contract", async () => {
     "../server/modules/health/schema.js",
     "../server/modules/projects/schema.js",
     "../server/modules/settings/schema.js",
+    "../server/modules/observability/schema.js",
     "../server/modules/console/schema.js",
     "../server/modules/consoleErrors/schema.js",
     "../server/modules/workspace/schema.js"

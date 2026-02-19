@@ -24,6 +24,7 @@ import {
   resolveRateLimitStartupError,
   resolveRateLimitStartupWarning
 } from "./server/lib/rateLimit.js";
+import { createMetricsRegistry } from "./server/lib/observability/metrics.js";
 import { createServerRuntime } from "./server/runtime/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -67,17 +68,26 @@ const LOG_REDACT_PATHS = [
   "*.access_token",
   "*.refresh_token"
 ];
+const OBSERVABILITY_REGISTRY = createMetricsRegistry();
 
 const {
   controllers,
-  runtimeServices: { authService, workspaceService, consoleService, consoleErrorsService, avatarStorageService }
+  runtimeServices: {
+    authService,
+    workspaceService,
+    consoleService,
+    consoleErrorsService,
+    avatarStorageService,
+    observabilityService
+  }
 } = createServerRuntime({
   env,
   nodeEnv: NODE_ENV,
   appConfig: APP_CONFIG,
   rbacManifest: RBAC_MANIFEST,
   rootDir: __dirname,
-  supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY
+  supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY,
+  observabilityRegistry: OBSERVABILITY_REGISTRY
 });
 
 function validateRuntimeConfig() {
@@ -152,7 +162,7 @@ function createFastifyLoggerOptions() {
   };
 }
 
-function registerRequestLoggingHooks(app) {
+function registerRequestLoggingHooks(app, { observabilityService: instrumentationService, enableRequestLogs = true } = {}) {
   app.addHook("onRequest", async (request) => {
     request[REQUEST_STARTED_AT_SYMBOL] = process.hrtime.bigint();
   });
@@ -179,7 +189,19 @@ function registerRequestLoggingHooks(app) {
       logPayload.userId = userId;
     }
 
-    request.log.info(logPayload, "request.completed");
+    if (instrumentationService && typeof instrumentationService.observeHttpRequest === "function") {
+      instrumentationService.observeHttpRequest({
+        method: logPayload.method,
+        route: routeUrl || pathnameValue,
+        surface,
+        statusCode: logPayload.statusCode,
+        durationMs
+      });
+    }
+
+    if (enableRequestLogs) {
+      request.log.info(logPayload, "request.completed");
+    }
   });
 }
 
@@ -364,7 +386,49 @@ async function hasFrontendBuild() {
   }
 }
 
-function registerErrorHandler(app) {
+function resolveDatabaseErrorCode(error) {
+  const errorCode = String(error?.code || "")
+    .trim()
+    .toUpperCase();
+  if (errorCode && (errorCode.startsWith("ER_") || errorCode.startsWith("SQLITE_") || errorCode.startsWith("PG"))) {
+    return errorCode;
+  }
+
+  const sqlState = String(error?.sqlState || error?.sqlstate || "")
+    .trim()
+    .toUpperCase();
+  if (sqlState) {
+    return `SQLSTATE_${sqlState}`;
+  }
+
+  const errno = Number(error?.errno);
+  if (Number.isInteger(errno)) {
+    return `ERRNO_${errno}`;
+  }
+
+  const message = String(error?.message || "").toLowerCase();
+  const name = String(error?.name || "").toLowerCase();
+  if (message.includes("mysql") || message.includes("sql") || message.includes("knex") || name.includes("mysql")) {
+    return "DB_UNKNOWN";
+  }
+
+  return "";
+}
+
+function recordDbErrorBestEffort(observabilityService, error) {
+  if (!observabilityService || typeof observabilityService.recordDbError !== "function") {
+    return;
+  }
+
+  const code = resolveDatabaseErrorCode(error);
+  if (!code) {
+    return;
+  }
+
+  observabilityService.recordDbError({ code });
+}
+
+function registerErrorHandler(app, { observabilityService: instrumentationService } = {}) {
   function recordServerErrorBestEffort(request, error, statusCode) {
     if (!consoleErrorsService || statusCode < 500) {
       return;
@@ -441,6 +505,7 @@ function registerErrorHandler(app) {
 
     if (isAppError(error)) {
       if (error.status >= 500) {
+        recordDbErrorBestEffort(instrumentationService, error);
         recordServerErrorBestEffort(request, error, error.status);
         app.log.error({ err: error }, "AppError 5xx");
       }
@@ -469,6 +534,9 @@ function registerErrorHandler(app) {
       });
     }
 
+    if (statusCode >= 500) {
+      recordDbErrorBestEffort(instrumentationService, error);
+    }
     recordServerErrorBestEffort(request, error, statusCode);
     app.log.error({ err: error }, "Unhandled error");
 
@@ -533,9 +601,10 @@ export async function buildServer({ frontendBuildAvailable }) {
     });
   }
 
-  if (NODE_ENV !== "test") {
-    registerRequestLoggingHooks(app);
-  }
+  registerRequestLoggingHooks(app, {
+    observabilityService,
+    enableRequestLogs: NODE_ENV !== "test"
+  });
 
   const rateLimitStartupWarning = resolveRateLimitStartupWarning({
     mode: env.RATE_LIMIT_MODE,
@@ -548,7 +617,7 @@ export async function buildServer({ frontendBuildAvailable }) {
   app.decorate("appConfig", APP_CONFIG_PUBLIC);
   app.decorate("rbacManifest", RBAC_MANIFEST);
 
-  registerErrorHandler(app);
+  registerErrorHandler(app, { observabilityService });
   app.setValidatorCompiler(TypeBoxValidatorCompiler);
 
   await app.register(fastifyHelmet, {
@@ -600,6 +669,7 @@ export async function buildServer({ frontendBuildAvailable }) {
   await app.register(authPlugin, {
     authService,
     workspaceService,
+    observabilityService,
     nodeEnv: NODE_ENV,
     rateLimitPluginOptions
   });

@@ -81,6 +81,10 @@ export RATE_LIMIT_MODE="memory"
 export REDIS_URL=""
 # set true behind a trusted reverse proxy / load balancer
 export TRUST_PROXY="false"
+# Prometheus metrics endpoint toggle
+export METRICS_ENABLED="true"
+# Optional bearer token required for GET /api/metrics
+export METRICS_BEARER_TOKEN=""
 # workspace invite email delivery (scaffold mode)
 export WORKSPACE_INVITE_EMAIL_DRIVER="none"
 # required when WORKSPACE_INVITE_EMAIL_DRIVER=smtp
@@ -205,6 +209,13 @@ FRONTEND_DIST_DIR=dist-public npm start
 
 Use `docs/release-checklist.md` before shipping.
 
+## Observability
+
+- Prometheus-style metrics endpoint: `GET /api/metrics`
+- Metrics can be disabled with `METRICS_ENABLED=false`
+- Protect endpoint with `METRICS_BEARER_TOKEN` in shared environments
+- Metrics/alerts/dashboard queries: `docs/observability.md`
+
 ## End-to-End Tests
 
 Install browser once:
@@ -278,6 +289,7 @@ npm run docs:api-contracts
 <!-- API_CONTRACTS_START -->
 - `GET /api/health`
 - `GET /api/ready`
+- `GET /api/metrics`
 - `POST /api/register`
 - `POST /api/login`
 - `POST /api/login/otp/request`
