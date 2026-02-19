@@ -7,6 +7,7 @@ import { createService as createUserAvatarService } from "../domain/users/avatar
 import { createService as createWorkspaceService } from "../domain/workspace/services/workspace.service.js";
 import { createService as createWorkspaceAdminService } from "../domain/workspace/services/admin.service.js";
 import { createService as createConsoleService } from "../domain/console/services/console.service.js";
+import { createService as createConsoleErrorsService } from "../domain/console/services/errors.service.js";
 import { createService as createProjectsService } from "../modules/projects/service.js";
 
 function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, rootDir, supabasePublishableKey }) {
@@ -21,6 +22,7 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     consoleMembershipsRepository,
     consoleInvitesRepository,
     consoleRootRepository,
+    consoleErrorLogsRepository,
     projectsRepository
   } = repositories;
 
@@ -87,6 +89,11 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     userProfilesRepository
   });
 
+  const consoleErrorsService = createConsoleErrorsService({
+    consoleMembershipsRepository,
+    consoleErrorLogsRepository
+  });
+
   const projectsService = createProjectsService({
     projectsRepository
   });
@@ -101,6 +108,7 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     workspaceService,
     workspaceAdminService,
     consoleService,
+    consoleErrorsService,
     projectsService
   };
 }

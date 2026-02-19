@@ -21,6 +21,7 @@ function createServerRuntime({ env, nodeEnv, appConfig, rbacManifest, rootDir, s
       authService: services.authService,
       workspaceService: services.workspaceService,
       consoleService: services.consoleService,
+      consoleErrorsService: services.consoleErrorsService,
       avatarStorageService: services.avatarStorageService
     }
   };

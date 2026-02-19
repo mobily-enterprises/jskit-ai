@@ -17,14 +17,13 @@ X Get full test coverage
 X Final check to the code, still from a distance
 X IMPORTANT: Diminish boilerplate as much as possible for new CRUDs
 X Decide what to do for "server health" app, which stands outside of it all. Maybe new surface point?
-- Log server errors and client errors
+X Log server errors and client errors
 - Final check: app usability and bugs
 - Add final rails, practices, post checks
 
 - Add email system (SMTP?, Amazon?)
 - Add SMS system (PLIVIO?)
 - Add websocket infrastructure with realtime updates
-- Add real time chat with typing detection, chatting within and across workspaces
 - AI integration (actions abstraction etc.)
 - CI policy gate: fail build when any `workspaceSurface: "admin"` route lacks `permission` (explicit allowlist for exceptions)
 - One (or more) of the "extra" stuff in the admin interface

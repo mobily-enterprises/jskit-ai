@@ -5,11 +5,11 @@ const mocks = vi.hoisted(() => ({
   mountAppApplication: vi.fn()
 }));
 
-vi.mock("../../src/main.admin", () => ({
+vi.mock("../../src/main.admin.public", () => ({
   mountAdminApplication: mocks.mountAdminApplication
 }));
 
-vi.mock("../../src/main.app", () => ({
+vi.mock("../../src/main.app.public", () => ({
   mountAppApplication: mocks.mountAppApplication
 }));
 

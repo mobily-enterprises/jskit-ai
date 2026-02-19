@@ -438,6 +438,9 @@ describe("client api transport", () => {
     await api.workspace.listInvites();
     await api.workspace.createInvite({ email: "member@example.com", roleId: "member" });
     await api.workspace.revokeInvite("invite id/2");
+    await api.console.listBrowserErrors(3, 25);
+    await api.console.listServerErrors(4, 20);
+    await api.console.reportBrowserError({ message: "boom" });
     await api.projects.list(2, 25);
     await api.projects.get("project/id");
     await api.projects.create({ name: "Project A", status: "draft" });
@@ -460,6 +463,9 @@ describe("client api transport", () => {
     expect(urls).toContain("/api/workspace/members/user%2Fid/role");
     expect(urls).toContain("/api/workspace/invites");
     expect(urls).toContain("/api/workspace/invites/invite%20id%2F2");
+    expect(urls).toContain("/api/console/errors/browser?page=3&pageSize=25");
+    expect(urls).toContain("/api/console/errors/server?page=4&pageSize=20");
+    expect(urls).toContain("/api/console/errors/browser");
     expect(urls).toContain("/api/workspace/projects?page=2&pageSize=25");
     expect(urls).toContain("/api/workspace/projects/project%2Fid");
     expect(urls).toContain("/api/workspace/projects");

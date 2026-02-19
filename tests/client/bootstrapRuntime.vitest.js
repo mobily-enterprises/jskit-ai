@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   createVuetify: vi.fn(),
   authStoreFactory: vi.fn(),
   workspaceStoreFactory: vi.fn(),
+  installBrowserErrorReporter: vi.fn(),
   bootstrapApi: vi.fn(),
   queryClient: {
     marker: "query-client"
@@ -78,12 +79,16 @@ vi.mock("vuetify/iconsets/mdi-svg", () => ({
 }));
 
 vi.mock("@mdi/js", () => ({
+  mdiAccountMultipleOutline: "mdi-account-multiple-outline",
+  mdiAlertCircleOutline: "mdi-alert-circle-outline",
   mdiArrowLeftTopBold: "mdi-arrow-left-top-bold",
   mdiAccountOutline: "mdi-account-outline",
   mdiCogOutline: "mdi-cog-outline",
   mdiGoogle: "mdi-google",
   mdiHelpCircleOutline: "mdi-help-circle-outline",
+  mdiHomeOutline: "mdi-home-outline",
   mdiLogout: "mdi-logout",
+  mdiServer: "mdi-server",
   mdiShieldCrownOutline: "mdi-shield-crown-outline",
   mdiShapeOutline: "mdi-shape-outline",
   mdiViewDashboardOutline: "mdi-view-dashboard-outline"
@@ -101,6 +106,10 @@ vi.mock("../../src/services/api/index.js", () => ({
       bootstrap: mocks.bootstrapApi
     }
   }
+}));
+
+vi.mock("../../src/services/browserErrorReporter.js", () => ({
+  installBrowserErrorReporter: mocks.installBrowserErrorReporter
 }));
 
 vi.mock("../../src/stores/authStore", () => ({
@@ -126,6 +135,7 @@ describe("bootstrapRuntime", () => {
     mocks.authStoreFactory.mockReset();
     mocks.workspaceStoreFactory.mockReset();
     mocks.bootstrapApi.mockReset();
+    mocks.installBrowserErrorReporter.mockReset();
 
     mocks.appInstance.use.mockReset();
     mocks.appInstance.mount.mockReset();
@@ -193,6 +203,7 @@ describe("bootstrapRuntime", () => {
     await mountSurfaceApplication({ createRouter });
 
     expect(mocks.createPinia).toHaveBeenCalledTimes(1);
+    expect(mocks.installBrowserErrorReporter).toHaveBeenCalledTimes(1);
     expect(mocks.authStoreFactory).toHaveBeenCalledWith(mocks.createdPinia);
     expect(mocks.consoleStoreFactory).toHaveBeenCalledWith(mocks.createdPinia);
     expect(mocks.workspaceStoreFactory).toHaveBeenCalledWith(mocks.createdPinia);

@@ -24,10 +24,11 @@ Current console capabilities:
 - role catalog: `console`, `devop`, `moderator`
 - member listing and role reassignment
 - invite create/revoke + pending invite accept/refuse flow
+- browser JavaScript error ingestion + paginated browser-error screen
+- server-side error ingestion + paginated server-error screen
 
 Future console capabilities (not yet implemented):
 
-- browser/server crash log ingestion + viewing
 - moderation tools and policy workflows
 
 ## Stack
@@ -290,6 +291,9 @@ npm run docs:api-contracts
 - `DELETE /api/console/invites/:inviteId`
 - `GET /api/console/invitations/pending`
 - `POST /api/console/invitations/redeem`
+- `GET /api/console/errors/browser`
+- `GET /api/console/errors/server`
+- `POST /api/console/errors/browser`
 - `GET /api/workspace/projects`
 - `GET /api/workspace/projects/:projectId`
 - `POST /api/workspace/projects`

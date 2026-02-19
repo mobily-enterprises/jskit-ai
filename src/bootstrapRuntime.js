@@ -5,12 +5,16 @@ import { RouterProvider } from "@tanstack/vue-router";
 import { createVuetify } from "vuetify";
 import { aliases as mdiAliases, mdi } from "vuetify/iconsets/mdi-svg";
 import {
+  mdiAccountMultipleOutline,
+  mdiAlertCircleOutline,
   mdiArrowLeftTopBold,
   mdiAccountOutline,
   mdiCogOutline,
   mdiGoogle,
   mdiHelpCircleOutline,
+  mdiHomeOutline,
   mdiLogout,
+  mdiServer,
   mdiShieldCrownOutline,
   mdiShapeOutline,
   mdiViewDashboardOutline
@@ -18,6 +22,7 @@ import {
 import "vuetify/styles";
 import { queryClient } from "./queryClient.js";
 import { api } from "./services/api/index.js";
+import { installBrowserErrorReporter } from "./services/browserErrorReporter.js";
 import { useAuthStore } from "./stores/authStore.js";
 import { useConsoleStore } from "./stores/consoleStore.js";
 import { useWorkspaceStore } from "./stores/workspaceStore.js";
@@ -32,7 +37,11 @@ const iconAliases = {
   menuBackToApp: mdiArrowLeftTopBold,
   menuHelp: mdiHelpCircleOutline,
   menuLogout: mdiLogout,
-  oauthGoogle: mdiGoogle
+  oauthGoogle: mdiGoogle,
+  consoleHome: mdiHomeOutline,
+  consoleBrowserErrors: mdiAlertCircleOutline,
+  consoleServerErrors: mdiServer,
+  consoleMembers: mdiAccountMultipleOutline
 };
 
 function createVuetifyInstance() {
@@ -131,6 +140,8 @@ async function bootstrapRuntime({ authStore, workspaceStore, consoleStore, vueti
 }
 
 async function mountSurfaceApplication({ createRouter, surface }) {
+  installBrowserErrorReporter();
+
   const pinia = createPinia();
   const authStore = useAuthStore(pinia);
   const consoleStore = useConsoleStore(pinia);

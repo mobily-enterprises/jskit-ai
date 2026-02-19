@@ -186,12 +186,60 @@ function createConsoleRouteGuards(stores, options) {
     }
   }
 
+  async function beforeLoadBrowserErrors() {
+    const state = await resolveConsoleRuntimeState(resolvedStores);
+    if (state.sessionUnavailable) {
+      return;
+    }
+
+    if (!state.authenticated) {
+      throw redirect({ to: loginPath });
+    }
+
+    if (!state.hasConsoleAccess) {
+      if (state.hasPendingInvites) {
+        throw redirect({ to: invitationsPath });
+      }
+
+      throw redirect({ to: fallbackPath });
+    }
+
+    if (!resolvedStores.consoleStore.can("console.errors.browser.read")) {
+      throw redirect({ to: rootPath });
+    }
+  }
+
+  async function beforeLoadServerErrors() {
+    const state = await resolveConsoleRuntimeState(resolvedStores);
+    if (state.sessionUnavailable) {
+      return;
+    }
+
+    if (!state.authenticated) {
+      throw redirect({ to: loginPath });
+    }
+
+    if (!state.hasConsoleAccess) {
+      if (state.hasPendingInvites) {
+        throw redirect({ to: invitationsPath });
+      }
+
+      throw redirect({ to: fallbackPath });
+    }
+
+    if (!resolvedStores.consoleStore.can("console.errors.server.read")) {
+      throw redirect({ to: rootPath });
+    }
+  }
+
   return {
     beforeLoadRoot,
     beforeLoadPublic,
     beforeLoadInvitations,
     beforeLoadAuthenticated,
-    beforeLoadMembers
+    beforeLoadMembers,
+    beforeLoadBrowserErrors,
+    beforeLoadServerErrors
   };
 }
 

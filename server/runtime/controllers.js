@@ -4,6 +4,7 @@ import { createController as createAnnuityController } from "../modules/annuity/
 import { createController as createSettingsController } from "../modules/settings/controller.js";
 import { createController as createWorkspaceController } from "../modules/workspace/controller.js";
 import { createController as createConsoleController } from "../modules/console/controller.js";
+import { createController as createConsoleErrorsController } from "../modules/consoleErrors/controller.js";
 import { createController as createProjectsController } from "../modules/projects/controller.js";
 
 function createControllers({ services }) {
@@ -15,7 +16,8 @@ function createControllers({ services }) {
     projectsService,
     workspaceService,
     workspaceAdminService,
-    consoleService
+    consoleService,
+    consoleErrorsService
   } = services;
 
   return {
@@ -40,6 +42,9 @@ function createControllers({ services }) {
     }),
     console: createConsoleController({
       consoleService
+    }),
+    consoleErrors: createConsoleErrorsController({
+      consoleErrorsService
     })
   };
 }

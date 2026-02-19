@@ -28,6 +28,23 @@ function createApi({ request }) {
     },
     redeemInvite(payload) {
       return request("/api/console/invitations/redeem", { method: "POST", body: payload });
+    },
+    listBrowserErrors(page, pageSize) {
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(pageSize)
+      });
+      return request(`/api/console/errors/browser?${params.toString()}`);
+    },
+    listServerErrors(page, pageSize) {
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(pageSize)
+      });
+      return request(`/api/console/errors/server?${params.toString()}`);
+    },
+    reportBrowserError(payload) {
+      return request("/api/console/errors/browser", { method: "POST", body: payload });
     }
   };
 }

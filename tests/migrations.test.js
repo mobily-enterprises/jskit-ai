@@ -11,6 +11,8 @@ const userAvatarColumnsMigration = require("../migrations/20260216230000_add_use
 const consoleMembershipsMigration = require("../migrations/20260220090000_create_console_memberships.cjs");
 const consoleInvitesMigration = require("../migrations/20260220090100_create_console_invites.cjs");
 const consoleRootIdentityMigration = require("../migrations/20260220090200_create_console_root_identity.cjs");
+const consoleBrowserErrorsMigration = require("../migrations/20260220100000_create_console_browser_errors.cjs");
+const consoleServerErrorsMigration = require("../migrations/20260220100100_create_console_server_errors.cjs");
 
 function createSchemaStub() {
   const calls = [];
@@ -42,6 +44,19 @@ function createSchemaStub() {
           },
           primary() {
             tableCalls.push(["primary", column]);
+            return this;
+          },
+          nullable() {
+            tableCalls.push(["nullable", column]);
+            return this;
+          }
+        };
+      },
+      text(column, textType) {
+        tableCalls.push(["text", column, textType]);
+        return {
+          notNullable() {
+            tableCalls.push(["notNullable", column]);
             return this;
           },
           nullable() {
@@ -180,6 +195,10 @@ function createSchemaStub() {
   }
 
   const schema = {
+    async hasTable(name) {
+      calls.push(["hasTable", name]);
+      return false;
+    },
     async createTable(name, callback) {
       calls.push(["createTable", name]);
       const tableCalls = [];
@@ -295,4 +314,28 @@ test("console root identity migration creates expected table and drop behavior",
   assert.equal(calls[0][1], "console_root_identity");
   assert.ok(calls.some((entry) => entry[0] === "raw" && entry[1] === "UTC_TIMESTAMP(3)"));
   assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "console_root_identity"]);
+});
+
+test("console browser errors migration creates expected table and drop behavior", async () => {
+  const { knex, calls } = createSchemaStub();
+
+  await consoleBrowserErrorsMigration.up(knex);
+  await consoleBrowserErrorsMigration.down(knex);
+
+  assert.equal(calls[0][0], "createTable");
+  assert.equal(calls[0][1], "console_browser_errors");
+  assert.ok(calls.some((entry) => entry[0] === "raw" && entry[1] === "UTC_TIMESTAMP(3)"));
+  assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "console_browser_errors"]);
+});
+
+test("console server errors migration creates expected table and drop behavior", async () => {
+  const { knex, calls } = createSchemaStub();
+
+  await consoleServerErrorsMigration.up(knex);
+  await consoleServerErrorsMigration.down(knex);
+
+  const createTableCall = calls.find((entry) => entry[0] === "createTable" && entry[1] === "console_server_errors");
+  assert.ok(createTableCall);
+  assert.ok(calls.some((entry) => entry[0] === "raw" && entry[1] === "UTC_TIMESTAMP(3)"));
+  assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "console_server_errors"]);
 });

@@ -6,7 +6,8 @@ function buildStores({
   authInitialized = true,
   authenticated = false,
   hasConsoleAccess = false,
-  hasPendingInvites = false
+  hasPendingInvites = false,
+  permissions = []
 } = {}) {
   const authStore = {
     initialized: authInitialized,
@@ -35,7 +36,10 @@ function buildStores({
     refreshBootstrap: vi.fn(async () => undefined),
     clearConsoleState: vi.fn(),
     setForbidden: vi.fn(),
-    can: vi.fn(() => false)
+    can: vi.fn((permission) => {
+      const normalized = String(permission || "").trim();
+      return permissions.includes("*") || permissions.includes(normalized);
+    })
   };
 
   return {
@@ -117,5 +121,41 @@ describe("routerGuards.console", () => {
     await expect(guards.beforeLoadRoot()).rejects.toMatchObject({
       options: { to: "/console/invitations" }
     });
+  });
+
+  it("enforces console error read permissions on browser/server routes", async () => {
+    const deniedGuards = createConsoleRouteGuards(
+      buildStores({
+        authenticated: true,
+        hasConsoleAccess: true,
+        permissions: []
+      }),
+      {
+        loginPath: "/console/login",
+        rootPath: "/console"
+      }
+    );
+
+    await expect(deniedGuards.beforeLoadBrowserErrors()).rejects.toMatchObject({
+      options: { to: "/console" }
+    });
+    await expect(deniedGuards.beforeLoadServerErrors()).rejects.toMatchObject({
+      options: { to: "/console" }
+    });
+
+    const allowedGuards = createConsoleRouteGuards(
+      buildStores({
+        authenticated: true,
+        hasConsoleAccess: true,
+        permissions: ["console.errors.browser.read", "console.errors.server.read"]
+      }),
+      {
+        loginPath: "/console/login",
+        rootPath: "/console"
+      }
+    );
+
+    await expect(allowedGuards.beforeLoadBrowserErrors()).resolves.toBeUndefined();
+    await expect(allowedGuards.beforeLoadServerErrors()).resolves.toBeUndefined();
   });
 });

@@ -17,7 +17,7 @@ import { registerApiRoutes } from "./server/fastify/registerApiRoutes.js";
 import authPlugin from "./server/fastify/auth.plugin.js";
 import { safePathnameFromRequest } from "./server/lib/primitives/requestUrl.js";
 import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar/index.js";
-import { createSurfacePaths, resolveSurfacePaths } from "./shared/routing/surfacePaths.js";
+import { createSurfacePaths, resolveSurfaceFromPathname, resolveSurfacePaths } from "./shared/routing/surfacePaths.js";
 import { surfaceRequiresWorkspace } from "./shared/routing/surfaceRegistry.js";
 import { createRateLimitPluginOptions, resolveRateLimitStartupWarning } from "./server/lib/rateLimit.js";
 import { createServerRuntime } from "./server/runtime/index.js";
@@ -48,7 +48,7 @@ const SCRIPT_SRC_POLICY = NODE_ENV === "production" ? ["'self'"] : ["'self'", "'
 
 const {
   controllers,
-  runtimeServices: { authService, workspaceService, consoleService, avatarStorageService }
+  runtimeServices: { authService, workspaceService, consoleService, consoleErrorsService, avatarStorageService }
 } = createServerRuntime({
   env,
   nodeEnv: NODE_ENV,
@@ -286,7 +286,47 @@ async function hasFrontendBuild() {
 }
 
 function registerErrorHandler(app) {
+  function recordServerErrorBestEffort(request, error, statusCode) {
+    if (!consoleErrorsService || statusCode < 500) {
+      return;
+    }
+
+    const pathnameValue = safePathnameFromRequest(request);
+    if (pathnameValue.startsWith("/api/console/errors/")) {
+      return;
+    }
+
+    const hintedSurface = String(request?.headers?.["x-surface-id"] || "").trim().toLowerCase();
+    const requestSurface = hintedSurface || resolveSurfaceFromPathname(pathnameValue);
+    const routeUrl = String(request?.routeOptions?.url || "").trim();
+    const userDisplayName = String(request?.user?.displayName || request?.user?.email || "").trim();
+    const errorCode = String(error?.code || "").trim();
+
+    void consoleErrorsService
+      .recordServerError({
+        requestId: String(request?.id || ""),
+        method: String(request?.method || ""),
+        path: pathnameValue,
+        statusCode,
+        errorName: String(error?.name || ""),
+        message: String(error?.message || ""),
+        stack: String(error?.stack || ""),
+        userId: request?.user?.id == null ? null : Number(request.user.id),
+        username: userDisplayName,
+        metadata: {
+          surface: requestSurface,
+          routeUrl,
+          code: errorCode,
+          validationIssues: Array.isArray(error?.validation) ? error.validation.length : 0
+        }
+      })
+      .catch((captureError) => {
+        app.log.warn({ err: captureError }, "Failed to record server error log");
+      });
+  }
+
   app.setErrorHandler((error, _request, reply) => {
+    const request = _request;
     const normalizedErrorCode = String(error?.code || "").trim();
     const isCsrfErrorCode = normalizedErrorCode.startsWith("FST_CSRF_");
     const statusFromError = Number(error?.statusCode || error?.status);
@@ -320,6 +360,7 @@ function registerErrorHandler(app) {
 
     if (isAppError(error)) {
       if (error.status >= 500) {
+        recordServerErrorBestEffort(request, error, error.status);
         app.log.error({ err: error }, "AppError 5xx");
       }
 
@@ -347,6 +388,7 @@ function registerErrorHandler(app) {
       });
     }
 
+    recordServerErrorBestEffort(request, error, statusCode);
     app.log.error({ err: error }, "Unhandled error");
 
     const message = statusCode >= 500 ? "Internal server error." : String(error?.message || "Request failed.");
