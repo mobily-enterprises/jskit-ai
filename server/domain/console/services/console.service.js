@@ -21,8 +21,8 @@ import {
   resolveRolePermissions
 } from "../policies/roles.js";
 
-function createService({ consoleMembershipsRepository, consoleInvitesRepository, userProfilesRepository }) {
-  if (!consoleMembershipsRepository || !consoleInvitesRepository || !userProfilesRepository) {
+function createService({ consoleMembershipsRepository, consoleInvitesRepository, consoleRootRepository, userProfilesRepository }) {
+  if (!consoleMembershipsRepository || !consoleInvitesRepository || !consoleRootRepository || !userProfilesRepository) {
     throw new Error("console service repositories are required.");
   }
 
@@ -70,6 +70,43 @@ function createService({ consoleMembershipsRepository, consoleInvitesRepository,
     return normalizedRole;
   }
 
+  async function resolveRootUserId(options = {}) {
+    const rootUserId = await consoleRootRepository.findRootUserId(options);
+    return parsePositiveInteger(rootUserId) || null;
+  }
+
+  async function bootstrapRootIdentity(options = {}) {
+    const existingRootUserId = await resolveRootUserId(options);
+    if (existingRootUserId) {
+      return existingRootUserId;
+    }
+
+    const activeConsoleMembership =
+      typeof consoleMembershipsRepository.findActiveByRoleId === "function"
+        ? await consoleMembershipsRepository.findActiveByRoleId(CONSOLE_ROLE_ID, options)
+        : null;
+    const activeConsoleUserId = parsePositiveInteger(activeConsoleMembership?.userId);
+    if (!activeConsoleUserId) {
+      return null;
+    }
+
+    await consoleRootRepository.assignRootUserIdIfUnset(activeConsoleUserId, options);
+    return resolveRootUserId(options);
+  }
+
+  async function ensureRootMutationAllowed(actorUser, targetUserId) {
+    const rootUserId = await resolveRootUserId();
+    const normalizedTargetUserId = parsePositiveInteger(targetUserId);
+    if (!rootUserId || !normalizedTargetUserId || normalizedTargetUserId !== rootUserId) {
+      return;
+    }
+
+    const actorUserId = parsePositiveInteger(actorUser?.id);
+    if (!actorUserId || actorUserId !== rootUserId) {
+      throw new AppError(403, "Only root can modify the root user.");
+    }
+  }
+
   async function ensureInitialConsoleMember(userId) {
     const numericUserId = parsePositiveInteger(userId);
     if (!numericUserId) {
@@ -78,8 +115,17 @@ function createService({ consoleMembershipsRepository, consoleInvitesRepository,
 
     return runInTransaction(async (trx) => {
       const transactionOptions = trx ? { trx } : {};
+      const rootUserId = await bootstrapRootIdentity(transactionOptions);
+
       const existingMembership = await consoleMembershipsRepository.findByUserId(numericUserId, transactionOptions);
       if (existingMembership) {
+        if (
+          !rootUserId &&
+          normalizeRoleId(existingMembership.roleId) === CONSOLE_ROLE_ID &&
+          String(existingMembership.status || "").trim().toLowerCase() === "active"
+        ) {
+          await consoleRootRepository.assignRootUserIdIfUnset(numericUserId, transactionOptions);
+        }
         return existingMembership;
       }
 
@@ -88,8 +134,12 @@ function createService({ consoleMembershipsRepository, consoleInvitesRepository,
         return null;
       }
 
+      if (rootUserId && rootUserId !== numericUserId) {
+        return null;
+      }
+
       try {
-        return await consoleMembershipsRepository.insert(
+        const membership = await consoleMembershipsRepository.insert(
           {
             userId: numericUserId,
             roleId: CONSOLE_ROLE_ID,
@@ -97,13 +147,24 @@ function createService({ consoleMembershipsRepository, consoleInvitesRepository,
           },
           transactionOptions
         );
+        await consoleRootRepository.assignRootUserIdIfUnset(numericUserId, transactionOptions);
+        return membership;
       } catch (error) {
         if (!isMysqlDuplicateEntryError(error)) {
           throw error;
         }
       }
 
-      return consoleMembershipsRepository.findByUserId(numericUserId, transactionOptions);
+      const membership = await consoleMembershipsRepository.findByUserId(numericUserId, transactionOptions);
+      if (
+        membership &&
+        normalizeRoleId(membership.roleId) === CONSOLE_ROLE_ID &&
+        String(membership.status || "").trim().toLowerCase() === "active"
+      ) {
+        await consoleRootRepository.assignRootUserIdIfUnset(numericUserId, transactionOptions);
+      }
+
+      return membership;
     });
   }
 
@@ -227,6 +288,8 @@ function createService({ consoleMembershipsRepository, consoleInvitesRepository,
         }
       });
     }
+
+    await ensureRootMutationAllowed(user, memberUserId);
 
     const roleId = normalizeRoleForAssignment(payload?.roleId);
     const existingMembership = await consoleMembershipsRepository.findByUserId(memberUserId);

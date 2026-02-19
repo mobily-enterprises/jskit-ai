@@ -45,6 +45,23 @@ function createMembershipsRepository(dbClient) {
     return mapMembershipRowNullable(row);
   }
 
+  async function repoFindActiveByRoleId(roleId, options = {}) {
+    const normalizedRoleId = String(roleId || "").trim().toLowerCase();
+    if (!normalizedRoleId) {
+      return null;
+    }
+
+    const client = resolveClient(options);
+    const row = await client("console_memberships")
+      .where({
+        role_id: normalizedRoleId,
+        status: "active"
+      })
+      .orderBy("id", "asc")
+      .first();
+    return mapMembershipRowNullable(row);
+  }
+
   async function repoListActive(options = {}) {
     const client = resolveClient(options);
     const rows = await client("console_memberships as gm")
@@ -143,6 +160,7 @@ function createMembershipsRepository(dbClient) {
 
   return {
     findByUserId: repoFindByUserId,
+    findActiveByRoleId: repoFindActiveByRoleId,
     listActive: repoListActive,
     countActiveMembers: repoCountActiveMembers,
     insert: repoInsert,
@@ -163,4 +181,5 @@ const __testables = {
 
 export const { findByUserId, listActive, countActiveMembers, insert, ensureActiveByUserId, updateRoleByUserId } =
   repository;
+export const { findActiveByRoleId } = repository;
 export { __testables };

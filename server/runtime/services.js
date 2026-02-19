@@ -20,6 +20,7 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     workspaceInvitesRepository,
     consoleMembershipsRepository,
     consoleInvitesRepository,
+    consoleRootRepository,
     projectsRepository
   } = repositories;
 
@@ -82,6 +83,7 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
   const consoleService = createConsoleService({
     consoleMembershipsRepository,
     consoleInvitesRepository,
+    consoleRootRepository,
     userProfilesRepository
   });
 

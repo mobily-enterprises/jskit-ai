@@ -10,6 +10,7 @@ const userSettingsMigration = require("../migrations/20260216110000_create_user_
 const userAvatarColumnsMigration = require("../migrations/20260216230000_add_user_avatar_columns.cjs");
 const consoleMembershipsMigration = require("../migrations/20260220090000_create_console_memberships.cjs");
 const consoleInvitesMigration = require("../migrations/20260220090100_create_console_invites.cjs");
+const consoleRootIdentityMigration = require("../migrations/20260220090200_create_console_root_identity.cjs");
 
 function createSchemaStub() {
   const calls = [];
@@ -282,4 +283,16 @@ test("console invites migration creates expected table, pending-email guard, and
   assert.equal(calls[0][1], "console_invites");
   assert.ok(calls.some((entry) => entry[0] === "raw" && String(entry[1]).includes("ALTER TABLE console_invites")));
   assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "console_invites"]);
+});
+
+test("console root identity migration creates expected table and drop behavior", async () => {
+  const { knex, calls } = createSchemaStub();
+
+  await consoleRootIdentityMigration.up(knex);
+  await consoleRootIdentityMigration.down(knex);
+
+  assert.equal(calls[0][0], "createTable");
+  assert.equal(calls[0][1], "console_root_identity");
+  assert.ok(calls.some((entry) => entry[0] === "raw" && entry[1] === "UTC_TIMESTAMP(3)"));
+  assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "console_root_identity"]);
 });

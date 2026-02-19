@@ -7,6 +7,7 @@ import * as workspaceSettingsRepository from "../domain/workspace/repositories/s
 import * as workspaceInvitesRepository from "../domain/workspace/repositories/invites.repository.js";
 import * as consoleMembershipsRepository from "../domain/console/repositories/memberships.repository.js";
 import * as consoleInvitesRepository from "../domain/console/repositories/invites.repository.js";
+import * as consoleRootRepository from "../domain/console/repositories/root.repository.js";
 import * as projectsRepository from "../modules/projects/repository.js";
 
 function createRepositories() {
@@ -20,6 +21,7 @@ function createRepositories() {
     workspaceInvitesRepository,
     consoleMembershipsRepository,
     consoleInvitesRepository,
+    consoleRootRepository,
     projectsRepository
   };
 }
