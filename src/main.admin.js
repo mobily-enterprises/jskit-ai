@@ -1,9 +1,15 @@
 import { mountSurfaceApplication } from "./bootstrapRuntime.js";
-import { createAdminRouter } from "./router.admin.js";
+import { createRouterForSurface } from "./router.js";
 
 function mountAdminApplication() {
   return mountSurfaceApplication({
-    createRouter: createAdminRouter,
+    createRouter: ({ authStore, workspaceStore, consoleStore }) =>
+      createRouterForSurface({
+        authStore,
+        workspaceStore,
+        consoleStore,
+        surface: "admin"
+      }),
     surface: "admin"
   });
 }

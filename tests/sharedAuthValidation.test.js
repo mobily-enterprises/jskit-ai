@@ -1,12 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  constraints,
-  normalizeEmail,
-  normalizeOAuthIntent,
-  normalizeReturnToPath,
-  validators
-} from "../shared/auth/index.js";
+import * as constraints from "../shared/auth/authConstraints.js";
+import { normalizeEmail, normalizeOAuthIntent, normalizeReturnToPath } from "../shared/auth/utils.js";
+import { validators } from "../shared/auth/validators.js";
 
 test("shared auth constraints expose expected defaults", () => {
   assert.equal(constraints.AUTH_EMAIL_MIN_LENGTH, 3);

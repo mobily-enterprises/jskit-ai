@@ -22,6 +22,9 @@ const mocks = vi.hoisted(() => ({
     setSignedOut: vi.fn(),
     invalidateSession: vi.fn(async () => undefined)
   },
+  consoleStore: {
+    clearConsoleState: vi.fn()
+  },
   workspaceStore: {
     activeWorkspaceSlug: "acme",
     activeWorkspace: {
@@ -88,6 +91,10 @@ vi.mock("../../src/stores/workspaceStore.js", () => ({
   useWorkspaceStore: () => mocks.workspaceStore
 }));
 
+vi.mock("../../src/stores/consoleStore.js", () => ({
+  useConsoleStore: () => mocks.consoleStore
+}));
+
 vi.mock("../../src/services/api/index.js", () => ({
   api: mocks.api
 }));
@@ -127,6 +134,7 @@ describe("useAppShell", () => {
     mocks.authStore.setSignedOut.mockReset();
     mocks.authStore.invalidateSession.mockReset();
     mocks.authStore.invalidateSession.mockResolvedValue(undefined);
+    mocks.consoleStore.clearConsoleState.mockReset();
 
     mocks.workspaceStore.activeWorkspaceSlug = "acme";
     mocks.workspaceStore.activeWorkspace = { color: "#336699" };
@@ -150,7 +158,7 @@ describe("useAppShell", () => {
     await nextTick();
 
     expect(wrapper.vm.shell.layout.showApplicationShell.value).toBe(true);
-    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Customer");
+    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("App");
     expect(wrapper.vm.shell.layout.activeWorkspaceColor.value).toBe("#336699");
     expect(wrapper.vm.shell.user.userInitials.value).toBe("TO");
     expect(wrapper.vm.shell.user.canOpenAdminSurface.value).toBe(true);
@@ -206,6 +214,7 @@ describe("useAppShell", () => {
     expect(mocks.api.clearCsrfTokenCache).toHaveBeenCalledTimes(1);
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
     expect(mocks.workspaceStore.clearWorkspaceState).toHaveBeenCalledTimes(1);
+    expect(mocks.consoleStore.clearConsoleState).toHaveBeenCalledTimes(1);
     expect(mocks.authStore.invalidateSession).toHaveBeenCalledTimes(1);
     expect(mocks.navigate).toHaveBeenCalledWith({
       to: "/login",
@@ -221,6 +230,7 @@ describe("useAppShell", () => {
     expect(mocks.api.clearCsrfTokenCache).toHaveBeenCalledTimes(1);
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
     expect(mocks.workspaceStore.clearWorkspaceState).toHaveBeenCalledTimes(1);
+    expect(mocks.consoleStore.clearConsoleState).toHaveBeenCalledTimes(1);
     expect(mocks.authStore.invalidateSession).toHaveBeenCalledTimes(1);
     expect(mocks.navigate).toHaveBeenCalledWith({
       to: "/login",

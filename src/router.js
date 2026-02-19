@@ -1,12 +1,12 @@
 import { resolveSurfaceFromPathname } from "../shared/routing/surfacePaths.js";
 import { DEFAULT_SURFACE_ID, normalizeSurfaceId } from "../shared/routing/surfaceRegistry.js";
 import { createAdminRouter } from "./router.admin.js";
-import { createCustomerRouter } from "./router.app.js";
+import { createAppRouter as createAppSurfaceRouter } from "./router.app.js";
 import { createConsoleRouter } from "./router.console.js";
 import { createSurfaceRouteGuards, resolveRuntimeState } from "./routerGuards.js";
 
 const ROUTER_BY_SURFACE = {
-  app: createCustomerRouter,
+  app: createAppSurfaceRouter,
   admin: createAdminRouter,
   console: createConsoleRouter
 };
@@ -39,10 +39,7 @@ function createAppRouter({ authStore, workspaceStore, consoleStore, pathname }) 
 }
 
 export {
-  createAdminRouter,
   createAppRouter,
-  createCustomerRouter,
-  createConsoleRouter,
   createRouterForSurface,
   createRouterForCurrentPath
 };

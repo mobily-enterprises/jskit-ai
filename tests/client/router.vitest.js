@@ -16,7 +16,7 @@ vi.mock("../../src/shells/admin/AdminShell.vue", () => ({
 
 vi.mock("../../src/shells/app/AppShell.vue", () => ({
   default: {
-    name: "CustomerShellMock"
+    name: "AppShellMock"
   }
 }));
 

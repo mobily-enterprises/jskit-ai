@@ -16,7 +16,7 @@ X Major reorganise of files
 X Get full test coverage
 X Final check to the code, still from a distance
 X IMPORTANT: Diminish boilerplate as much as possible for new CRUDs
-O Decide what to do for "server health" app, which stands outside of it all. Maybe new surface point?
+X Decide what to do for "server health" app, which stands outside of it all. Maybe new surface point?
 - Log server errors and client errors
 - Final check: app usability and bugs
 - Add final rails, practices, post checks

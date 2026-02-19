@@ -1,9 +1,15 @@
 import { mountSurfaceApplication } from "./bootstrapRuntime.js";
-import { createConsoleRouter } from "./router.console.js";
+import { createRouterForSurface } from "./router.js";
 
 function mountConsoleApplication() {
   return mountSurfaceApplication({
-    createRouter: createConsoleRouter,
+    createRouter: ({ authStore, workspaceStore, consoleStore }) =>
+      createRouterForSurface({
+        authStore,
+        workspaceStore,
+        consoleStore,
+        surface: "console"
+      }),
     surface: "console"
   });
 }

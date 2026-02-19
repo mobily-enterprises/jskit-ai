@@ -89,7 +89,7 @@ export function useAppShell() {
     if (currentPath.value.endsWith("/choice-2")) {
       return "Choice 2";
     }
-    return "Customer";
+    return "App";
   });
 
   const userInitials = computed(() => {
