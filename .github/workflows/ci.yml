@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  quality-and-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Format check (changed files)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+              BASE_SHA="$(git rev-parse HEAD^)"
+            else
+              echo "No parent commit available; skipping changed-file format check."
+              exit 0
+            fi
+          fi
+
+          CHANGED_FILES="$(git diff --name-only "${BASE_SHA}" HEAD | grep -E '\.(js|cjs|mjs|vue|json|yml|yaml)$' || true)"
+          if [[ -z "${CHANGED_FILES}" ]]; then
+            echo "No supported changed files to format-check."
+            exit 0
+          fi
+
+          echo "Running Prettier check on changed files:"
+          echo "${CHANGED_FILES}"
+          npx prettier --check ${CHANGED_FILES}
+
+      - name: Lint
+        run: npm run lint
+
+      - name: API contract docs check
+        run: npm run docs:api-contracts:check
+
+      - name: Backend tests
+        run: npm test
+
+      - name: Client tests
+        run: npm run test:client
+
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=critical

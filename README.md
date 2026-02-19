@@ -61,6 +61,7 @@ export DB_NAME="material-app"
 export DB_TEST_NAME="material-app_test"
 export DB_USER="annuity_app"
 export DB_PASSWORD="replace-with-a-strong-password"
+export LOG_LEVEL="info"
 
 export SUPABASE_URL="https://YOUR-PROJECT.supabase.co"
 export SUPABASE_PUBLISHABLE_KEY="YOUR_SUPABASE_PUBLISHABLE_KEY"
@@ -74,7 +75,7 @@ export SMS_DRIVER="none"
 export PLIVO_AUTH_ID=""
 export PLIVO_AUTH_TOKEN=""
 export PLIVO_SOURCE_NUMBER=""
-# rate-limit backend mode (memory by default)
+# rate-limit backend mode (memory by default; production requires redis)
 export RATE_LIMIT_MODE="memory"
 # required when RATE_LIMIT_MODE=redis
 export REDIS_URL=""
@@ -275,6 +276,8 @@ npm run docs:api-contracts
 ```
 
 <!-- API_CONTRACTS_START -->
+- `GET /api/health`
+- `GET /api/ready`
 - `POST /api/register`
 - `POST /api/login`
 - `POST /api/login/otp/request`
@@ -340,7 +343,8 @@ Auth/security behavior:
 - API routes declare `authPolicy` as `public`, `required`, or `own`.
 - Login/register routes are rate-limited.
 - Password reset routes are rate-limited and return generic forgot-password responses.
-- Rate-limit mode defaults to in-memory (`RATE_LIMIT_MODE=memory`). For multi-instance deployments, use a shared store mode (`RATE_LIMIT_MODE=redis`) once the Redis adapter is wired.
+- Rate-limit mode defaults to in-memory (`RATE_LIMIT_MODE=memory`) for local/dev.
+- Production startup requires shared Redis mode (`RATE_LIMIT_MODE=redis`) with `REDIS_URL`.
 - Console root identity is persisted once assigned; only root can modify root membership, and root profile deletion is DB-protected.
 - Set `TRUST_PROXY=true` when deploying behind a trusted reverse proxy/load balancer so client IP resolution is correct.
 - All unsafe API methods (`POST/PUT/PATCH/DELETE`) enforce CSRF token checks.

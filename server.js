@@ -19,7 +19,11 @@ import { safePathnameFromRequest } from "./server/lib/primitives/requestUrl.js";
 import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar/index.js";
 import { createSurfacePaths, resolveSurfaceFromPathname, resolveSurfacePaths } from "./shared/routing/surfacePaths.js";
 import { surfaceRequiresWorkspace } from "./shared/routing/surfaceRegistry.js";
-import { createRateLimitPluginOptions, resolveRateLimitStartupWarning } from "./server/lib/rateLimit.js";
+import {
+  createRateLimitPluginOptions,
+  resolveRateLimitStartupError,
+  resolveRateLimitStartupWarning
+} from "./server/lib/rateLimit.js";
 import { createServerRuntime } from "./server/runtime/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -45,6 +49,24 @@ const PUBLIC_DIR = path.resolve(__dirname, FRONTEND_DIST_DIR);
 const INDEX_FILE_NAME = "index.html";
 const SUPABASE_PUBLISHABLE_KEY = String(env.SUPABASE_PUBLISHABLE_KEY || "");
 const SCRIPT_SRC_POLICY = NODE_ENV === "production" ? ["'self'"] : ["'self'", "'unsafe-inline'"];
+const LOG_LEVEL = String(env.LOG_LEVEL || "")
+  .trim()
+  .toLowerCase();
+const REQUEST_STARTED_AT_SYMBOL = Symbol("request_started_at_ns");
+const ALLOWED_LOG_LEVELS = new Set(["fatal", "error", "warn", "info", "debug", "trace"]);
+const LOG_REDACT_PATHS = [
+  "req.headers.authorization",
+  "req.headers.cookie",
+  "req.headers.x-api-key",
+  "req.headers.x-auth-token",
+  'req.headers["set-cookie"]',
+  "res.headers.set-cookie",
+  'res.headers["set-cookie"]',
+  "*.password",
+  "*.token",
+  "*.access_token",
+  "*.refresh_token"
+];
 
 const {
   controllers,
@@ -87,6 +109,14 @@ function validateRuntimeConfig() {
   }
 
   if (NODE_ENV === "production") {
+    const rateLimitStartupError = resolveRateLimitStartupError({
+      mode: env.RATE_LIMIT_MODE,
+      nodeEnv: NODE_ENV
+    });
+    if (rateLimitStartupError) {
+      throw new Error(rateLimitStartupError);
+    }
+
     const dbUser = String(env.DB_USER || "")
       .trim()
       .toLowerCase();
@@ -102,6 +132,55 @@ function validateRuntimeConfig() {
 
 function hasPathExtension(pathnameValue) {
   return path.extname(pathnameValue) !== "";
+}
+
+function resolveLoggerLevel() {
+  if (ALLOWED_LOG_LEVELS.has(LOG_LEVEL)) {
+    return LOG_LEVEL;
+  }
+
+  return NODE_ENV === "production" ? "info" : "debug";
+}
+
+function createFastifyLoggerOptions() {
+  return {
+    level: resolveLoggerLevel(),
+    redact: {
+      paths: LOG_REDACT_PATHS,
+      censor: "[REDACTED]"
+    }
+  };
+}
+
+function registerRequestLoggingHooks(app) {
+  app.addHook("onRequest", async (request) => {
+    request[REQUEST_STARTED_AT_SYMBOL] = process.hrtime.bigint();
+  });
+
+  app.addHook("onResponse", async (request, reply) => {
+    const startedAt = request[REQUEST_STARTED_AT_SYMBOL];
+    const durationMs =
+      typeof startedAt === "bigint" ? Number(process.hrtime.bigint() - startedAt) / 1_000_000 : Number.NaN;
+    const pathnameValue = safePathnameFromRequest(request);
+    const routeUrl = String(request?.routeOptions?.url || "").trim();
+    const surface = resolveSurfaceFromPathname(pathnameValue);
+    const userId = Number(request?.user?.id);
+    const logPayload = {
+      requestId: String(request?.id || ""),
+      method: String(request?.method || ""),
+      path: pathnameValue,
+      routeUrl,
+      surface,
+      statusCode: Number(reply?.statusCode || 0),
+      durationMs: Number.isFinite(durationMs) ? Number(durationMs.toFixed(3)) : null
+    };
+
+    if (Number.isInteger(userId) && userId > 0) {
+      logPayload.userId = userId;
+    }
+
+    request.log.info(logPayload, "request.completed");
+  });
 }
 
 async function guardPageRoute(request, reply) {
@@ -296,7 +375,9 @@ function registerErrorHandler(app) {
       return;
     }
 
-    const hintedSurface = String(request?.headers?.["x-surface-id"] || "").trim().toLowerCase();
+    const hintedSurface = String(request?.headers?.["x-surface-id"] || "")
+      .trim()
+      .toLowerCase();
     const requestSurface = hintedSurface || resolveSurfaceFromPathname(pathnameValue);
     const routeUrl = String(request?.routeOptions?.url || "").trim();
     const userDisplayName = String(request?.user?.displayName || request?.user?.email || "").trim();
@@ -427,10 +508,34 @@ export async function buildServer({ frontendBuildAvailable }) {
     redisUrl: env.REDIS_URL
   });
 
+  const loggerOptions = NODE_ENV === "test" ? false : createFastifyLoggerOptions();
   const app = Fastify({
-    logger: NODE_ENV !== "test",
+    logger: loggerOptions,
+    disableRequestLogging: NODE_ENV !== "test",
     trustProxy: Boolean(env.TRUST_PROXY)
   });
+
+  if (rateLimitPluginOptions?.redis) {
+    app.addHook("onClose", async () => {
+      const redisClient = rateLimitPluginOptions.redis;
+      if (typeof redisClient.quit === "function") {
+        try {
+          await redisClient.quit();
+          return;
+        } catch {
+          // Fall through to disconnect below.
+        }
+      }
+
+      if (typeof redisClient.disconnect === "function") {
+        redisClient.disconnect();
+      }
+    });
+  }
+
+  if (NODE_ENV !== "test") {
+    registerRequestLoggingHooks(app);
+  }
 
   const rateLimitStartupWarning = resolveRateLimitStartupWarning({
     mode: env.RATE_LIMIT_MODE,

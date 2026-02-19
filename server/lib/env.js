@@ -19,6 +19,7 @@ export const env = cleanEnv(
       choices: ["development", "production", "test"],
       default: "development"
     }),
+    LOG_LEVEL: str({ default: "" }),
     PORT: port({ default: 3000 }),
     DB_HOST: str({ default: "127.0.0.1" }),
     DB_PORT: port({ default: 3306 }),

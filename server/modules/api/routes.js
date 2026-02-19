@@ -7,6 +7,7 @@ import { buildRoutes as buildProjectsRoutes } from "../projects/routes.js";
 import { buildRoutes as buildSettingsRoutes } from "../settings/routes.js";
 import { buildRoutes as buildHistoryRoutes } from "../history/routes.js";
 import { buildRoutes as buildAnnuityRoutes } from "../annuity/routes.js";
+import { buildRoutes as buildHealthRoutes } from "../health/routes.js";
 
 function createMissingHandler() {
   return async (_request, reply) => {
@@ -20,6 +21,7 @@ function buildDefaultRoutes(controllers) {
   const missingHandler = createMissingHandler();
 
   return [
+    ...buildHealthRoutes(controllers, { missingHandler }),
     ...buildAuthRoutes(controllers),
     ...buildWorkspaceRoutes(controllers, { missingHandler }),
     ...buildConsoleRoutes(controllers, { missingHandler }),

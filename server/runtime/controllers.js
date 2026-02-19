@@ -7,6 +7,7 @@ import { createController as createWorkspaceController } from "../modules/worksp
 import { createController as createConsoleController } from "../modules/console/controller.js";
 import { createController as createConsoleErrorsController } from "../modules/consoleErrors/controller.js";
 import { createController as createProjectsController } from "../modules/projects/controller.js";
+import { createController as createHealthController } from "../modules/health/controller.js";
 
 function createControllers({ services }) {
   const {
@@ -16,6 +17,7 @@ function createControllers({ services }) {
     communicationsService,
     userSettingsService,
     projectsService,
+    healthService,
     workspaceService,
     workspaceAdminService,
     consoleService,
@@ -35,6 +37,9 @@ function createControllers({ services }) {
     settings: createSettingsController({
       userSettingsService,
       authService
+    }),
+    health: createHealthController({
+      healthService
     }),
     projects: createProjectsController({
       projectsService

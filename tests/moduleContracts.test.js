@@ -18,10 +18,7 @@ function assertNoLegacyFactoryNames(exportKeys, allowed) {
 
 function isContractMap(value) {
   return (
-    value &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    !Object.prototype.hasOwnProperty.call(value, "type")
+    value && typeof value === "object" && !Array.isArray(value) && !Object.prototype.hasOwnProperty.call(value, "type")
   );
 }
 
@@ -42,6 +39,7 @@ test("server controllers expose createController contract", async () => {
     "../server/modules/auth/controller.js",
     "../server/modules/communications/controller.js",
     "../server/modules/history/controller.js",
+    "../server/modules/health/controller.js",
     "../server/modules/projects/controller.js",
     "../server/modules/settings/controller.js",
     "../server/modules/console/controller.js",
@@ -64,6 +62,7 @@ test("server services expose createService contract", async () => {
     "../server/modules/auth/service.js",
     "../server/modules/communications/service.js",
     "../server/modules/history/service.js",
+    "../server/modules/health/service.js",
     "../server/modules/projects/service.js",
     "../server/modules/settings/service.js",
     "../server/domain/console/services/console.service.js",
@@ -89,6 +88,7 @@ test("server routes expose buildRoutes contract", async () => {
     "../server/modules/auth/routes.js",
     "../server/modules/communications/routes.js",
     "../server/modules/history/routes.js",
+    "../server/modules/health/routes.js",
     "../server/modules/projects/routes.js",
     "../server/modules/settings/routes.js",
     "../server/modules/console/routes.js",
@@ -110,6 +110,7 @@ test("server schemas expose schema object contract", async () => {
     "../server/modules/auth/schema.js",
     "../server/modules/communications/schema.js",
     "../server/modules/history/schema.js",
+    "../server/modules/health/schema.js",
     "../server/modules/projects/schema.js",
     "../server/modules/settings/schema.js",
     "../server/modules/console/schema.js",

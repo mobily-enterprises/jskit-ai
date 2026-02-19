@@ -10,6 +10,7 @@ import * as consoleInvitesRepository from "../domain/console/repositories/invite
 import * as consoleRootRepository from "../domain/console/repositories/root.repository.js";
 import * as consoleErrorLogsRepository from "../domain/console/repositories/errorLogs.repository.js";
 import * as projectsRepository from "../modules/projects/repository.js";
+import * as healthRepository from "../modules/health/repository.js";
 
 function createRepositories() {
   return {
@@ -24,7 +25,8 @@ function createRepositories() {
     consoleInvitesRepository,
     consoleRootRepository,
     consoleErrorLogsRepository,
-    projectsRepository
+    projectsRepository,
+    healthRepository
   };
 }
 

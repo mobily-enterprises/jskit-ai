@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   createRateLimitPluginOptions,
+  resolveRateLimitStartupError,
   resolveRateLimitStartupWarning,
   __testables as rateLimitTestables
 } from "../server/lib/rateLimit.js";
@@ -53,13 +54,14 @@ test("rate-limit helper normalizes modes and resolves key material", () => {
   );
 });
 
-test("rate-limit plugin options support memory mode and fail fast for unimplemented redis mode", () => {
+test("rate-limit plugin options support memory and redis modes", () => {
   const memoryOptions = createRateLimitPluginOptions({
     mode: "memory",
     redisUrl: ""
   });
   assert.equal(memoryOptions.global, false);
   assert.equal(typeof memoryOptions.keyGenerator, "function");
+  assert.equal("redis" in memoryOptions, false);
 
   assert.throws(
     () =>
@@ -70,13 +72,60 @@ test("rate-limit plugin options support memory mode and fail fast for unimplemen
     /REDIS_URL is required/
   );
 
+  let redisFactoryCalls = 0;
+  const fakeRedisClient = {
+    quit() {}
+  };
+  const redisOptions = createRateLimitPluginOptions({
+    mode: "redis",
+    redisUrl: "redis://localhost:6379",
+    redisClientFactory({ redisUrl }) {
+      redisFactoryCalls += 1;
+      assert.equal(redisUrl, "redis://localhost:6379");
+      return fakeRedisClient;
+    }
+  });
+  assert.equal(redisFactoryCalls, 1);
+  assert.equal(redisOptions.global, false);
+  assert.equal(redisOptions.redis, fakeRedisClient);
+  assert.equal(redisOptions.nameSpace, rateLimitTestables.RATE_LIMIT_REDIS_NAMESPACE);
+
   assert.throws(
     () =>
       createRateLimitPluginOptions({
         mode: "redis",
-        redisUrl: "redis://localhost:6379"
+        redisUrl: "redis://localhost:6379",
+        redisClientFactory() {
+          return null;
+        }
       }),
-    /not wired yet/
+    /must return a Redis client/
+  );
+});
+
+test("rate-limit startup error enforces redis mode in production", () => {
+  assert.equal(
+    resolveRateLimitStartupError({
+      mode: "memory",
+      nodeEnv: "production"
+    }).includes("required in production"),
+    true
+  );
+
+  assert.equal(
+    resolveRateLimitStartupError({
+      mode: "memory",
+      nodeEnv: "development"
+    }),
+    ""
+  );
+
+  assert.equal(
+    resolveRateLimitStartupError({
+      mode: "redis",
+      nodeEnv: "production"
+    }),
+    ""
   );
 });
 

@@ -12,6 +12,7 @@ import { createService as createWorkspaceInviteEmailService } from "../domain/wo
 import { createService as createConsoleService } from "../domain/console/services/console.service.js";
 import { createService as createConsoleErrorsService } from "../domain/console/services/errors.service.js";
 import { createService as createProjectsService } from "../modules/projects/service.js";
+import { createService as createHealthService } from "../modules/health/service.js";
 
 function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, rootDir, supabasePublishableKey }) {
   const {
@@ -26,7 +27,8 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     consoleInvitesRepository,
     consoleRootRepository,
     consoleErrorLogsRepository,
-    projectsRepository
+    projectsRepository,
+    healthRepository
   } = repositories;
 
   const authService = createAuthService({
@@ -123,6 +125,10 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     projectsRepository
   });
 
+  const healthService = createHealthService({
+    healthRepository
+  });
+
   return {
     authService,
     annuityService,
@@ -137,7 +143,8 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     workspaceAdminService,
     consoleService,
     consoleErrorsService,
-    projectsService
+    projectsService,
+    healthService
   };
 }
 

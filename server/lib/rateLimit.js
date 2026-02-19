@@ -1,5 +1,9 @@
+import { createRequire } from "node:module";
+
 const RATE_LIMIT_MODE_MEMORY = "memory";
 const RATE_LIMIT_MODE_REDIS = "redis";
+const RATE_LIMIT_REDIS_NAMESPACE = "annuity-rate-limit-";
+const require = createRequire(import.meta.url);
 
 function normalizeRateLimitMode(value) {
   const normalized = String(value || "")
@@ -43,24 +47,82 @@ function defaultRateLimitKeyGenerator(request) {
   return `ip:${resolveClientIpAddress(request)}`;
 }
 
-function createRateLimitPluginOptions({ mode, redisUrl }) {
+function resolveRedisClientConstructor() {
+  let loadedModule;
+  try {
+    loadedModule = require("ioredis");
+  } catch {
+    throw new Error(
+      'RATE_LIMIT_MODE=redis requires the "ioredis" package. Install it with `npm install ioredis --save`.'
+    );
+  }
+
+  const resolved = loadedModule?.default || loadedModule;
+  if (typeof resolved !== "function") {
+    throw new Error('Could not resolve a Redis client constructor from the "ioredis" package.');
+  }
+
+  return resolved;
+}
+
+function createRedisRateLimitClient({ redisUrl, redisCtor } = {}) {
+  const Redis = typeof redisCtor === "function" ? redisCtor : resolveRedisClientConstructor();
+  return new Redis(redisUrl, {
+    connectTimeout: 10_000,
+    maxRetriesPerRequest: 1,
+    enableOfflineQueue: false,
+    lazyConnect: false
+  });
+}
+
+function createRateLimitPluginOptions({ mode, redisUrl, redisClientFactory } = {}) {
   const resolvedMode = normalizeRateLimitMode(mode);
+  const baseOptions = {
+    global: false,
+    keyGenerator: defaultRateLimitKeyGenerator
+  };
+
   if (resolvedMode === RATE_LIMIT_MODE_REDIS) {
     const normalizedRedisUrl = String(redisUrl || "").trim();
     if (!normalizedRedisUrl) {
       throw new Error("REDIS_URL is required when RATE_LIMIT_MODE=redis.");
     }
 
-    throw new Error(
-      "RATE_LIMIT_MODE=redis is configured, but a Redis rate-limit store is not wired yet. " +
-        "Implement the Redis store adapter in lib/rateLimit.js."
+    const buildRedisClient = typeof redisClientFactory === "function" ? redisClientFactory : createRedisRateLimitClient;
+    const redisClient = buildRedisClient({ redisUrl: normalizedRedisUrl });
+    if (!redisClient || typeof redisClient !== "object") {
+      throw new Error("redisClientFactory must return a Redis client instance.");
+    }
+
+    return {
+      ...baseOptions,
+      redis: redisClient,
+      nameSpace: RATE_LIMIT_REDIS_NAMESPACE,
+      skipOnError: false
+    };
+  }
+
+  return baseOptions;
+}
+
+function resolveRateLimitStartupError({ mode, nodeEnv }) {
+  const resolvedMode = normalizeRateLimitMode(mode);
+  const normalizedEnv = String(nodeEnv || "")
+    .trim()
+    .toLowerCase();
+
+  if (normalizedEnv !== "production") {
+    return "";
+  }
+
+  if (resolvedMode !== RATE_LIMIT_MODE_REDIS) {
+    return (
+      "RATE_LIMIT_MODE=redis is required in production. " +
+      "Configure REDIS_URL and run with a shared Redis-backed rate-limit store."
     );
   }
 
-  return {
-    global: false,
-    keyGenerator: defaultRateLimitKeyGenerator
-  };
+  return "";
 }
 
 function resolveRateLimitStartupWarning({ mode, nodeEnv }) {
@@ -81,15 +143,20 @@ function resolveRateLimitStartupWarning({ mode, nodeEnv }) {
 const __testables = {
   RATE_LIMIT_MODE_MEMORY,
   RATE_LIMIT_MODE_REDIS,
+  RATE_LIMIT_REDIS_NAMESPACE,
   normalizeRateLimitMode,
   resolveClientIpAddress,
-  defaultRateLimitKeyGenerator
+  defaultRateLimitKeyGenerator,
+  resolveRedisClientConstructor,
+  createRedisRateLimitClient
 };
 
 export {
   RATE_LIMIT_MODE_MEMORY,
   RATE_LIMIT_MODE_REDIS,
+  RATE_LIMIT_REDIS_NAMESPACE,
   createRateLimitPluginOptions,
+  resolveRateLimitStartupError,
   resolveRateLimitStartupWarning,
   __testables
 };

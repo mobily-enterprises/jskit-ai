@@ -26,19 +26,22 @@ Use this checklist before shipping changes to production.
 - [ ] Run lint: `npm run lint`.
 - [ ] Run unit/integration tests: `npm test`.
 - [ ] Run E2E auth/history tests: `npm run test:e2e`.
-- [ ] Run vulnerability audit: `npm audit --omit=dev`.
+- [ ] Run vulnerability audit: `npm audit --omit=dev --audit-level=critical`.
 
 ## 4. Build and runtime checks
 
 - [ ] Build frontend: `npm run build`.
 - [ ] Start app with production env: `npm start`.
 - [ ] Verify startup has no runtime errors.
+- [ ] Verify `GET /api/health` returns `200`.
+- [ ] Verify `GET /api/ready` returns `200` when dependencies are healthy.
 - [ ] Verify `/api/docs` availability policy matches environment expectations (disabled in production by default).
 
 ## 5. Security checks
 
 - [ ] Verify CSRF is enforced for all unsafe API methods.
 - [ ] Verify auth cookies are `HttpOnly`, `SameSite=Lax`, and `Secure` in production.
+- [ ] Verify `RATE_LIMIT_MODE=redis` is configured for production.
 - [ ] Verify public endpoints that mutate state remain rate-limited.
 - [ ] Verify transient auth upstream failures return retryable responses without clearing valid sessions.
 

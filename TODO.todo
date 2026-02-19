@@ -20,9 +20,9 @@ X Decide what to do for "server health" app, which stands outside of it all. May
 X Log server errors and client errors
 X Add email system (SMTP?, Amazon?)
 X Add SMS system (PLIVIO?)
-
 - Add websocket infrastructure with realtime updates
 - AI integration (actions abstraction etc.)
+
 - Final check: app usability and bugs, improvements
 
 - Is this done? CI policy gate: fail build when any `workspaceSurface: "admin"` route lacks `permission` (explicit allowlist for exceptions)
