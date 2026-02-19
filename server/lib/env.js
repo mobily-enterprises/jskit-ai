@@ -31,6 +31,13 @@ export const env = cleanEnv(
     SUPABASE_PUBLISHABLE_KEY: str({ default: "" }),
     SUPABASE_JWT_AUDIENCE: str({ default: "authenticated" }),
     APP_PUBLIC_URL: str({ default: "" }),
+    SMS_DRIVER: str({
+      choices: ["none", "plivo"],
+      default: "none"
+    }),
+    PLIVO_AUTH_ID: str({ default: "" }),
+    PLIVO_AUTH_TOKEN: str({ default: "" }),
+    PLIVO_SOURCE_NUMBER: str({ default: "" }),
     RATE_LIMIT_MODE: str({
       choices: ["memory", "redis"],
       default: "memory"
@@ -49,7 +56,17 @@ export const env = cleanEnv(
     FRONTEND_DIST_DIR: str({ default: "dist" }),
     AVATAR_STORAGE_DRIVER: str({ default: "fs" }),
     AVATAR_STORAGE_FS_BASE_PATH: str({ default: "" }),
-    AVATAR_PUBLIC_BASE_PATH: str({ default: "/uploads" })
+    AVATAR_PUBLIC_BASE_PATH: str({ default: "/uploads" }),
+    WORKSPACE_INVITE_EMAIL_DRIVER: str({
+      choices: ["none", "smtp"],
+      default: "none"
+    }),
+    SMTP_HOST: str({ default: "" }),
+    SMTP_PORT: port({ default: 587 }),
+    SMTP_SECURE: bool({ default: false }),
+    SMTP_USERNAME: str({ default: "" }),
+    SMTP_PASSWORD: str({ default: "" }),
+    SMTP_FROM: str({ default: "" })
   },
   {
     strict: true

@@ -2,6 +2,7 @@ import { buildRoutes as buildAuthRoutes } from "../auth/routes.js";
 import { buildRoutes as buildWorkspaceRoutes } from "../workspace/routes.js";
 import { buildRoutes as buildConsoleRoutes } from "../console/routes.js";
 import { buildRoutes as buildConsoleErrorsRoutes } from "../consoleErrors/routes.js";
+import { buildRoutes as buildCommunicationsRoutes } from "../communications/routes.js";
 import { buildRoutes as buildProjectsRoutes } from "../projects/routes.js";
 import { buildRoutes as buildSettingsRoutes } from "../settings/routes.js";
 import { buildRoutes as buildHistoryRoutes } from "../history/routes.js";
@@ -23,6 +24,7 @@ function buildDefaultRoutes(controllers) {
     ...buildWorkspaceRoutes(controllers, { missingHandler }),
     ...buildConsoleRoutes(controllers, { missingHandler }),
     ...buildConsoleErrorsRoutes(controllers, { missingHandler }),
+    ...buildCommunicationsRoutes(controllers, { missingHandler }),
     ...buildProjectsRoutes(controllers, { missingHandler }),
     ...buildSettingsRoutes(controllers),
     ...buildHistoryRoutes(controllers),

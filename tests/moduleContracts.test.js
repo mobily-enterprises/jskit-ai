@@ -40,6 +40,7 @@ test("server controllers expose createController contract", async () => {
   const modules = [
     "../server/modules/annuity/controller.js",
     "../server/modules/auth/controller.js",
+    "../server/modules/communications/controller.js",
     "../server/modules/history/controller.js",
     "../server/modules/projects/controller.js",
     "../server/modules/settings/controller.js",
@@ -59,7 +60,9 @@ test("server controllers expose createController contract", async () => {
 test("server services expose createService contract", async () => {
   const modules = [
     "../server/domain/annuity/calculator.service.js",
+    "../server/domain/communications/services/sms.service.js",
     "../server/modules/auth/service.js",
+    "../server/modules/communications/service.js",
     "../server/modules/history/service.js",
     "../server/modules/projects/service.js",
     "../server/modules/settings/service.js",
@@ -67,6 +70,7 @@ test("server services expose createService contract", async () => {
     "../server/domain/console/services/errors.service.js",
     "../server/domain/workspace/services/workspace.service.js",
     "../server/domain/workspace/services/admin.service.js",
+    "../server/domain/workspace/services/inviteEmail.service.js",
     "../server/domain/users/avatar.service.js",
     "../server/domain/users/avatarStorage.service.js"
   ];
@@ -83,6 +87,7 @@ test("server routes expose buildRoutes contract", async () => {
   const modules = [
     "../server/modules/annuity/routes.js",
     "../server/modules/auth/routes.js",
+    "../server/modules/communications/routes.js",
     "../server/modules/history/routes.js",
     "../server/modules/projects/routes.js",
     "../server/modules/settings/routes.js",
@@ -103,6 +108,7 @@ test("server schemas expose schema object contract", async () => {
   const modules = [
     "../server/modules/annuity/schema.js",
     "../server/modules/auth/schema.js",
+    "../server/modules/communications/schema.js",
     "../server/modules/history/schema.js",
     "../server/modules/projects/schema.js",
     "../server/modules/settings/schema.js",

@@ -68,12 +68,27 @@ export SUPABASE_PUBLISHABLE_KEY="YOUR_SUPABASE_PUBLISHABLE_KEY"
 export SUPABASE_JWT_AUDIENCE="authenticated"
 # optional but recommended; reset links use: APP_PUBLIC_URL + /reset-password
 export APP_PUBLIC_URL="http://localhost:5173"
+# SMS delivery mode (scaffold): none (default) or plivo
+export SMS_DRIVER="none"
+# required when SMS_DRIVER=plivo
+export PLIVO_AUTH_ID=""
+export PLIVO_AUTH_TOKEN=""
+export PLIVO_SOURCE_NUMBER=""
 # rate-limit backend mode (memory by default)
 export RATE_LIMIT_MODE="memory"
 # required when RATE_LIMIT_MODE=redis
 export REDIS_URL=""
 # set true behind a trusted reverse proxy / load balancer
 export TRUST_PROXY="false"
+# workspace invite email delivery (scaffold mode)
+export WORKSPACE_INVITE_EMAIL_DRIVER="none"
+# required when WORKSPACE_INVITE_EMAIL_DRIVER=smtp
+export SMTP_HOST=""
+export SMTP_PORT="587"
+export SMTP_SECURE="false"
+export SMTP_USERNAME=""
+export SMTP_PASSWORD=""
+export SMTP_FROM=""
 ```
 
 The server loads `.env` (and `.env.local`) via `dotenv`, so you can place the same key/value pairs in that file instead of exporting them manually before each command.
@@ -84,6 +99,8 @@ Notes:
 - Keep secrets in environment variables only.
 - Runtime/application code is ESM. Knex CLI files stay as `.cjs` by design.
 - Backend tests run with `NODE_ENV=test` and use `DB_TEST_NAME` (default: `${DB_NAME}_test`) to isolate test data from development data.
+- SMS delivery is scaffolded. With `SMS_DRIVER=plivo`, `/api/workspace/sms/send` returns a `not_implemented` provider result until transport wiring is added.
+- Workspace invite email delivery is scaffolded. With `WORKSPACE_INVITE_EMAIL_DRIVER=smtp`, invite calls will build a message payload and return a `not_implemented` delivery result until SMTP transport wiring is added.
 
 ## Database setup
 
@@ -297,6 +314,7 @@ npm run docs:api-contracts
 - `GET /api/console/errors/server/:errorId`
 - `POST /api/console/errors/browser`
 - `POST /api/console/simulate/server-error`
+- `POST /api/workspace/sms/send`
 - `GET /api/workspace/projects`
 - `GET /api/workspace/projects/:projectId`
 - `POST /api/workspace/projects`

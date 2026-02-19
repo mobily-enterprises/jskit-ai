@@ -1,11 +1,14 @@
 import { createService as createAuthService } from "../modules/auth/service.js";
 import { createService as createAnnuityService } from "../domain/annuity/calculator.service.js";
 import { createService as createAnnuityHistoryService } from "../modules/history/service.js";
+import { createService as createSmsService } from "../domain/communications/services/sms.service.js";
+import { createService as createCommunicationsService } from "../modules/communications/service.js";
 import { createService as createUserSettingsService } from "../modules/settings/service.js";
 import { createService as createAvatarStorageService } from "../domain/users/avatarStorage.service.js";
 import { createService as createUserAvatarService } from "../domain/users/avatar.service.js";
 import { createService as createWorkspaceService } from "../domain/workspace/services/workspace.service.js";
 import { createService as createWorkspaceAdminService } from "../domain/workspace/services/admin.service.js";
+import { createService as createWorkspaceInviteEmailService } from "../domain/workspace/services/inviteEmail.service.js";
 import { createService as createConsoleService } from "../domain/console/services/console.service.js";
 import { createService as createConsoleErrorsService } from "../domain/console/services/errors.service.js";
 import { createService as createProjectsService } from "../modules/projects/service.js";
@@ -40,6 +43,16 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     calculationLogsRepository
   });
   const annuityService = createAnnuityService();
+  const smsService = createSmsService({
+    driver: env.SMS_DRIVER,
+    plivoAuthId: env.PLIVO_AUTH_ID,
+    plivoAuthToken: env.PLIVO_AUTH_TOKEN,
+    plivoSourceNumber: env.PLIVO_SOURCE_NUMBER
+  });
+
+  const communicationsService = createCommunicationsService({
+    smsService
+  });
 
   const avatarStorageService = createAvatarStorageService({
     driver: env.AVATAR_STORAGE_DRIVER,
@@ -71,6 +84,17 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     userAvatarService
   });
 
+  const workspaceInviteEmailService = createWorkspaceInviteEmailService({
+    driver: env.WORKSPACE_INVITE_EMAIL_DRIVER,
+    appPublicUrl: env.APP_PUBLIC_URL,
+    smtpHost: env.SMTP_HOST,
+    smtpPort: env.SMTP_PORT,
+    smtpSecure: env.SMTP_SECURE,
+    smtpUsername: env.SMTP_USERNAME,
+    smtpPassword: env.SMTP_PASSWORD,
+    smtpFrom: env.SMTP_FROM
+  });
+
   const workspaceAdminService = createWorkspaceAdminService({
     appConfig,
     rbacManifest,
@@ -79,7 +103,8 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     workspaceMembershipsRepository,
     workspaceInvitesRepository,
     userProfilesRepository,
-    userSettingsRepository
+    userSettingsRepository,
+    workspaceInviteEmailService
   });
 
   const consoleService = createConsoleService({
@@ -102,10 +127,13 @@ function createServices({ repositories, env, nodeEnv, appConfig, rbacManifest, r
     authService,
     annuityService,
     annuityHistoryService,
+    smsService,
+    communicationsService,
     avatarStorageService,
     userAvatarService,
     userSettingsService,
     workspaceService,
+    workspaceInviteEmailService,
     workspaceAdminService,
     consoleService,
     consoleErrorsService,

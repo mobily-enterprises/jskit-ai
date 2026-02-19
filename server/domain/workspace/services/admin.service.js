@@ -31,7 +31,8 @@ function createService({
   workspaceMembershipsRepository,
   workspaceInvitesRepository,
   userProfilesRepository,
-  userSettingsRepository
+  userSettingsRepository,
+  workspaceInviteEmailService
 }) {
   if (
     !workspacesRepository ||
@@ -277,6 +278,45 @@ function createService({
     };
   }
 
+  async function invitedUserHasWorkspace(profile) {
+    const profileUserId = parsePositiveInteger(profile?.id);
+    if (!profileUserId || typeof workspacesRepository.listByUserId !== "function") {
+      return false;
+    }
+
+    try {
+      const workspaces = await workspacesRepository.listByUserId(profileUserId);
+      return Array.isArray(workspaces) && workspaces.length > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  async function sendInviteEmailBestEffort({ inviteeEmail, roleId, workspace, actorUser }) {
+    if (!workspaceInviteEmailService || typeof workspaceInviteEmailService.sendWorkspaceInviteEmail !== "function") {
+      return;
+    }
+
+    try {
+      await workspaceInviteEmailService.sendWorkspaceInviteEmail({
+        email: inviteeEmail,
+        roleId,
+        workspace: {
+          id: workspace?.id,
+          slug: workspace?.slug,
+          name: workspace?.name
+        },
+        invitedBy: {
+          userId: Number(actorUser?.id) || null,
+          displayName: actorUser?.displayName || actorUser?.email || "",
+          email: actorUser?.email || ""
+        }
+      });
+    } catch {
+      // Invite creation should not fail when notification delivery fails.
+    }
+  }
+
   async function createInvite(workspaceContext, actorUser, payload) {
     const workspace = await requireWorkspace(workspaceContext);
     const settings = await ensureWorkspaceSettings(workspace.id);
@@ -298,17 +338,18 @@ function createService({
     }
 
     const roleId = normalizeRoleForAssignment(payload?.roleId || rbacManifest.defaultInviteRole);
-    const existingMembership = await userProfilesRepository.findByEmail(email);
-    if (existingMembership) {
+    const existingProfile = await userProfilesRepository.findByEmail(email);
+    if (existingProfile) {
       const memberInWorkspace = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(
         workspace.id,
-        existingMembership.id
+        existingProfile.id
       );
       if (memberInWorkspace && memberInWorkspace.status === "active") {
         throw new AppError(409, "User is already a workspace member.");
       }
     }
 
+    const shouldSendInviteEmail = !existingProfile || !(await invitedUserHasWorkspace(existingProfile));
     const inviteToken = buildInviteToken();
     let createdInvite = null;
 
@@ -338,6 +379,15 @@ function createService({
         throw error;
       }
     });
+
+    if (shouldSendInviteEmail) {
+      await sendInviteEmailBestEffort({
+        inviteeEmail: email,
+        roleId,
+        workspace,
+        actorUser
+      });
+    }
 
     const response = await listInvites(workspace);
     return {

@@ -78,6 +78,17 @@ function createWorkspaceAdminFixture(overrides = {}) {
           email: "inactive@example.com",
           displayName: "Inactive"
         }
+      },
+      {
+        id: 4,
+        workspaceId: 77,
+        userId: 12,
+        roleId: "member",
+        status: "active",
+        user: {
+          email: "existing@example.com",
+          displayName: "Existing User"
+        }
       }
     ],
     invites: [
@@ -117,6 +128,11 @@ function createWorkspaceAdminFixture(overrides = {}) {
         id: 9,
         email: "member@example.com",
         displayName: "Member"
+      },
+      "existing@example.com": {
+        id: 12,
+        email: "existing@example.com",
+        displayName: "Existing User"
       }
     },
     updatedLastActiveWorkspaceByUserId: new Map()
@@ -130,7 +146,8 @@ function createWorkspaceAdminFixture(overrides = {}) {
     inviteTargetedExpirations: 0,
     inviteTransactions: 0,
     findByWorkspaceIdAndUserId: 0,
-    listByUserIdAndWorkspaceIds: 0
+    listByUserIdAndWorkspaceIds: 0,
+    inviteEmailDispatches: 0
   };
 
   function cloneWorkspace() {
@@ -181,6 +198,14 @@ function createWorkspaceAdminFixture(overrides = {}) {
         ...patch
       };
       return cloneWorkspace();
+    },
+    async listByUserId(userId) {
+      const memberships = state.memberships.filter(
+        (membership) => Number(membership.userId) === Number(userId) && membership.status === "active"
+      );
+      return memberships.map((membership) => ({
+        id: Number(membership.workspaceId)
+      }));
     }
   };
 
@@ -449,6 +474,18 @@ function createWorkspaceAdminFixture(overrides = {}) {
     }
   };
 
+  const workspaceInviteEmailService =
+    overrides.workspaceInviteEmailService ||
+    {
+      async sendWorkspaceInviteEmail() {
+        counters.inviteEmailDispatches += 1;
+        return {
+          delivered: false,
+          reason: "not_configured"
+        };
+      }
+    };
+
   const appConfig = {
     features: {
       workspaceInvites: true
@@ -483,7 +520,8 @@ function createWorkspaceAdminFixture(overrides = {}) {
     workspaceMembershipsRepository,
     workspaceInvitesRepository,
     userProfilesRepository,
-    userSettingsRepository
+    userSettingsRepository,
+    workspaceInviteEmailService
   });
 
   return {
@@ -651,6 +689,18 @@ test("workspace admin service manages members, invites, and pending invite respo
   );
   assert.equal(typeof createdInviteResponse.createdInvite?.token, "string");
   assert.equal(createdInviteResponse.createdInvite.token.length > 0, true);
+  assert.equal(counters.inviteEmailDispatches, 1);
+
+  const existingWorkspaceInviteResponse = await service.createInvite(
+    { id: 11 },
+    { id: 5 },
+    { email: "existing@example.com", roleId: "member" }
+  );
+  assert.equal(
+    existingWorkspaceInviteResponse.invites.some((invite) => invite.email === "existing@example.com"),
+    true
+  );
+  assert.equal(counters.inviteEmailDispatches, 1);
 
   const recreatedExpiredInviteResponse = await service.createInvite(
     { id: 11 },
@@ -832,6 +882,22 @@ test("workspace admin service manages members, invites, and pending invite respo
     state.memberships.some((membership) => membership.userId === 41 && membership.status === "active"),
     true
   );
+});
+
+test("workspace admin service invite creation tolerates invite-email delivery failures", async () => {
+  let sendAttempts = 0;
+  const { service } = createWorkspaceAdminFixture({
+    workspaceInviteEmailService: {
+      async sendWorkspaceInviteEmail() {
+        sendAttempts += 1;
+        throw new Error("SMTP unavailable");
+      }
+    }
+  });
+
+  const response = await service.createInvite({ id: 11 }, { id: 5 }, { email: "fresh@example.com", roleId: "member" });
+  assert.equal(sendAttempts, 1);
+  assert.equal(response.invites.some((invite) => invite.email === "fresh@example.com"), true);
 });
 
 test("workspace admin service pending invite listing uses O(1) membership lookups for large invite sets", async () => {

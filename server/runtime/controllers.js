@@ -1,6 +1,7 @@
 import { createController as createAuthController } from "../modules/auth/controller.js";
 import { createController as createHistoryController } from "../modules/history/controller.js";
 import { createController as createAnnuityController } from "../modules/annuity/controller.js";
+import { createController as createCommunicationsController } from "../modules/communications/controller.js";
 import { createController as createSettingsController } from "../modules/settings/controller.js";
 import { createController as createWorkspaceController } from "../modules/workspace/controller.js";
 import { createController as createConsoleController } from "../modules/console/controller.js";
@@ -12,6 +13,7 @@ function createControllers({ services }) {
     authService,
     annuityHistoryService,
     annuityService,
+    communicationsService,
     userSettingsService,
     projectsService,
     workspaceService,
@@ -26,6 +28,9 @@ function createControllers({ services }) {
     annuity: createAnnuityController({
       annuityService,
       annuityHistoryService
+    }),
+    communications: createCommunicationsController({
+      communicationsService
     }),
     settings: createSettingsController({
       userSettingsService,
