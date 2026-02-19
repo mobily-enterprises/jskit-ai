@@ -46,13 +46,17 @@ function resolveEligibleTopics(workspaceStore, surface) {
   return listRealtimeTopicsForSurface(surface).filter((topic) => hasAnyTopicPermission({ workspaceStore, topic }));
 }
 
-function buildRealtimeUrl() {
+function buildRealtimeUrl(surfaceIdValue = "") {
   if (typeof window === "undefined") {
     return "";
   }
 
   const protocol = window.location?.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.host}/api/realtime`;
+  const surface = String(surfaceIdValue || "")
+    .trim()
+    .toLowerCase();
+  const querySurface = surface || "app";
+  return `${protocol}//${window.location.host}/api/realtime?surface=${encodeURIComponent(querySurface)}`;
 }
 
 function buildRequestId() {
@@ -377,7 +381,7 @@ function createRealtimeRuntime({ authStore, workspaceStore, queryClient, surface
       closeSocket(1000, "resubscribe");
     }
 
-    const realtimeUrl = buildRealtimeUrl();
+    const realtimeUrl = buildRealtimeUrl(surface);
     if (!realtimeUrl || typeof WebSocket === "undefined") {
       return;
     }

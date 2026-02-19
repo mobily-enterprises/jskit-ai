@@ -20,7 +20,7 @@ test("realtime route requires websocket auth on handshake", async () => {
 
 test("subscribe succeeds for authorized topics and forces server-side context overrides", async () => {
   const { app, port, workspaceService } = await createRealtimeTestApp();
-  const url = `ws://127.0.0.1:${port}/api/realtime`;
+  const url = `ws://127.0.0.1:${port}/api/realtime?surface=admin`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {
@@ -47,6 +47,127 @@ test("subscribe succeeds for authorized topics and forces server-side context ov
   assert.equal(workspaceService.calls.length, 1);
   assert.equal(workspaceService.calls[0].headers["x-surface-id"], "admin");
   assert.equal(workspaceService.calls[0].headers["x-workspace-slug"], "acme");
+
+  socket.close();
+  await app.close();
+});
+
+test("realtime route rejects unsupported connection surface without resolving workspace context", async () => {
+  const { app, port, workspaceService } = await createRealtimeTestApp();
+  const url = `ws://127.0.0.1:${port}/api/realtime?surface=future`;
+
+  const socket = await openRealtimeWebSocket(url, {
+    headers: {
+      cookie: "sid=ok"
+    }
+  });
+
+  const closePromise = waitForRealtimeClose(socket);
+  const protocolError = await waitForOptionalRealtimeMessage(socket, 1200);
+  const closeCode = await closePromise;
+
+  assert.equal(closeCode, 1008);
+  if (protocolError) {
+    assert.equal(protocolError.type, "error");
+    assert.equal(protocolError.code, "unsupported_surface");
+  }
+  assert.equal(workspaceService.calls.length, 0);
+
+  await app.close();
+});
+
+test("app-surface subscribe rejects admin-only topics server-side", async () => {
+  const { app, port, workspaceService } = await createRealtimeTestApp();
+  const url = `ws://127.0.0.1:${port}/api/realtime?surface=app`;
+
+  const socket = await openRealtimeWebSocket(url, {
+    headers: {
+      cookie: "sid=ok"
+    }
+  });
+
+  socket.send(
+    JSON.stringify({
+      type: "subscribe",
+      requestId: "req-app-forbidden",
+      workspaceSlug: "acme",
+      topics: ["workspace_settings"]
+    })
+  );
+
+  const message = await waitForRealtimeMessage(socket);
+  assert.equal(message.type, "error");
+  assert.equal(message.requestId, "req-app-forbidden");
+  assert.equal(message.code, "forbidden");
+  assert.equal(workspaceService.calls.length, 0);
+
+  socket.close();
+  await app.close();
+});
+
+test("app-surface deny-list blocks realtime subscribe", async () => {
+  const { app, port, workspaceService } = await createRealtimeTestApp({
+    appDenyUserIdsBySlug: {
+      acme: [7]
+    }
+  });
+  const url = `ws://127.0.0.1:${port}/api/realtime?surface=app`;
+
+  const socket = await openRealtimeWebSocket(url, {
+    headers: {
+      cookie: "sid=ok"
+    }
+  });
+
+  socket.send(
+    JSON.stringify({
+      type: "subscribe",
+      requestId: "req-app-denied",
+      workspaceSlug: "acme",
+      topics: ["workspace_meta"]
+    })
+  );
+
+  const message = await waitForRealtimeMessage(socket);
+  assert.equal(message.type, "error");
+  assert.equal(message.requestId, "req-app-denied");
+  assert.equal(message.code, "forbidden");
+  assert.equal(workspaceService.calls.length, 1);
+  assert.equal(workspaceService.calls[0].surfaceId, "app");
+
+  socket.close();
+  await app.close();
+});
+
+test("admin surface is not blocked by app deny-list for the same user", async () => {
+  const { app, port, workspaceService } = await createRealtimeTestApp({
+    appDenyUserIdsBySlug: {
+      acme: [7]
+    }
+  });
+  const url = `ws://127.0.0.1:${port}/api/realtime?surface=admin`;
+
+  const socket = await openRealtimeWebSocket(url, {
+    headers: {
+      cookie: "sid=ok"
+    }
+  });
+
+  socket.send(
+    JSON.stringify({
+      type: "subscribe",
+      requestId: "req-admin-allowed",
+      workspaceSlug: "acme",
+      topics: ["workspace_settings"]
+    })
+  );
+
+  const message = await waitForRealtimeMessage(socket);
+  assert.equal(message.type, "subscribed");
+  assert.equal(message.requestId, "req-admin-allowed");
+  assert.deepEqual(message.topics, ["workspace_settings"]);
+  assert.equal(workspaceService.calls.length, 1);
+  assert.equal(workspaceService.calls[0].surfaceId, "admin");
 
   socket.close();
   await app.close();

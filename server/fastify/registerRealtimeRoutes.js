@@ -1,6 +1,10 @@
 import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "../../shared/realtime/protocolTypes.js";
-import { hasTopicPermission, isSupportedTopic } from "../../shared/realtime/topicRegistry.js";
-import { buildSubscribeContextRequest, normalizeWorkspaceSlug } from "./realtime/subscribeContext.js";
+import { hasTopicPermission, isSupportedTopic, isTopicAllowedForSurface } from "../../shared/realtime/topicRegistry.js";
+import {
+  buildSubscribeContextRequest,
+  normalizeConnectionSurface,
+  normalizeWorkspaceSlug
+} from "./realtime/subscribeContext.js";
 
 const MAX_INBOUND_MESSAGE_BYTES = 8192;
 const HEARTBEAT_INTERVAL_MS = 30_000;
@@ -120,6 +124,9 @@ function buildProtocolErrorMessage(code) {
   if (code === REALTIME_ERROR_CODES.UNSUPPORTED_TOPIC) {
     return "Unsupported topic.";
   }
+  if (code === REALTIME_ERROR_CODES.UNSUPPORTED_SURFACE) {
+    return "Unsupported surface.";
+  }
   if (code === REALTIME_ERROR_CODES.PAYLOAD_TOO_LARGE) {
     return "Payload too large.";
   }
@@ -196,6 +203,21 @@ function registerRealtimeRoutes(fastify, { realtimeEventsService, workspaceServi
     };
   }
 
+  function resolveConnectionSurface(request) {
+    const query = request?.query && typeof request.query === "object" ? request.query : {};
+    const hasSurfaceQuery = Object.prototype.hasOwnProperty.call(query, "surface");
+    const querySurface = hasSurfaceQuery ? query.surface : "";
+    if (hasSurfaceQuery) {
+      const normalizedQuerySurface = String(querySurface || "")
+        .trim()
+        .toLowerCase();
+      if (!normalizedQuerySurface) {
+        return "";
+      }
+    }
+    return normalizeConnectionSurface(querySurface || "");
+  }
+
   function validateTopicsOrError(connectionState, requestId, topics) {
     if (!Array.isArray(topics) || topics.length < 1) {
       sendProtocolError(connectionState, {
@@ -218,6 +240,20 @@ function registerRealtimeRoutes(fastify, { realtimeEventsService, workspaceServi
     return true;
   }
 
+  function validateTopicSurfacesOrError(connectionState, requestId, topics) {
+    for (const topic of topics) {
+      if (!isTopicAllowedForSurface(topic, connectionState.surface)) {
+        sendProtocolError(connectionState, {
+          requestId,
+          code: REALTIME_ERROR_CODES.FORBIDDEN
+        });
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   function validateTopicPermissionsOrError(connectionState, requestId, topics, permissions) {
     for (const topic of topics) {
       if (!hasTopicPermission(topic, permissions)) {
@@ -232,13 +268,13 @@ function registerRealtimeRoutes(fastify, { realtimeEventsService, workspaceServi
     return true;
   }
 
-  async function resolveSubscribeAuthorization(request, workspaceSlug) {
-    const subscribeRequest = buildSubscribeContextRequest(request, workspaceSlug);
+  async function resolveSubscribeAuthorization(request, workspaceSlug, surfaceId) {
+    const subscribeRequest = buildSubscribeContextRequest(request, workspaceSlug, surfaceId);
     const context = await workspaceService.resolveRequestContext({
       user: request.user,
       request: subscribeRequest,
       workspacePolicy: "required",
-      workspaceSurface: "admin"
+      workspaceSurface: surfaceId
     });
 
     if (!context?.workspace) {
@@ -263,10 +299,13 @@ function registerRealtimeRoutes(fastify, { realtimeEventsService, workspaceServi
     if (!validateTopicsOrError(connectionState, requestId, topics)) {
       return;
     }
+    if (!validateTopicSurfacesOrError(connectionState, requestId, topics)) {
+      return;
+    }
 
     let resolvedContext;
     try {
-      resolvedContext = await resolveSubscribeAuthorization(request, workspaceSlug);
+      resolvedContext = await resolveSubscribeAuthorization(request, workspaceSlug, connectionState.surface);
     } catch (error) {
       const statusCode = Number(error?.statusCode || error?.status);
       if (statusCode === 401) {
@@ -347,10 +386,13 @@ function registerRealtimeRoutes(fastify, { realtimeEventsService, workspaceServi
     if (!validateTopicsOrError(connectionState, requestId, topics)) {
       return;
     }
+    if (!validateTopicSurfacesOrError(connectionState, requestId, topics)) {
+      return;
+    }
 
     let resolvedContext;
     try {
-      resolvedContext = await resolveSubscribeAuthorization(request, workspaceSlug);
+      resolvedContext = await resolveSubscribeAuthorization(request, workspaceSlug, connectionState.surface);
     } catch (error) {
       const statusCode = Number(error?.statusCode || error?.status);
       if (statusCode === 401) {
@@ -546,9 +588,23 @@ function registerRealtimeRoutes(fastify, { realtimeEventsService, workspaceServi
       csrfProtection: false
     },
     handler(socket, request) {
+      const connectionSurface = resolveConnectionSurface(request);
+      if (!connectionSurface) {
+        sendJson(
+          socket,
+          createProtocolErrorPayload({
+            requestId: null,
+            code: REALTIME_ERROR_CODES.UNSUPPORTED_SURFACE,
+            message: buildProtocolErrorMessage(REALTIME_ERROR_CODES.UNSUPPORTED_SURFACE)
+          })
+        );
+        safeCloseSocket(socket, 1008, "Unsupported surface");
+        return;
+      }
       const connectionState = {
         socket,
         subscriptions: new Map(),
+        surface: connectionSurface,
         isAlive: true,
         closed: false
       };

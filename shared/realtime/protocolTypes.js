@@ -14,6 +14,7 @@ const REALTIME_ERROR_CODES = Object.freeze({
   UNAUTHORIZED: "unauthorized",
   FORBIDDEN: "forbidden",
   UNSUPPORTED_TOPIC: "unsupported_topic",
+  UNSUPPORTED_SURFACE: "unsupported_surface",
   WORKSPACE_REQUIRED: "workspace_required",
   PAYLOAD_TOO_LARGE: "payload_too_large",
   INTERNAL_ERROR: "internal_error"

@@ -39,7 +39,13 @@ function createRealtimeTestAuthService() {
   };
 }
 
-function createRealtimeTestWorkspaceService({ permissionsBySlug, onResolve } = {}) {
+function normalizeEmail(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function createRealtimeTestWorkspaceService({ permissionsBySlug, appDenyUserIdsBySlug, appDenyEmailsBySlug, onResolve } = {}) {
   const calls = [];
   const permissionsMap =
     permissionsBySlug && typeof permissionsBySlug === "object"
@@ -47,12 +53,20 @@ function createRealtimeTestWorkspaceService({ permissionsBySlug, onResolve } = {
       : {
           acme: ["projects.read", "workspace.settings.view", "workspace.members.view"]
         };
+  const denyUserIdsMap = appDenyUserIdsBySlug && typeof appDenyUserIdsBySlug === "object" ? appDenyUserIdsBySlug : {};
+  const denyEmailsMap = appDenyEmailsBySlug && typeof appDenyEmailsBySlug === "object" ? appDenyEmailsBySlug : {};
 
   return {
     calls,
     async resolveRequestContext({ user, request }) {
+      const surfaceId = String(request?.headers?.["x-surface-id"] || "")
+        .trim()
+        .toLowerCase();
+      const userId = Number(user?.id || 0);
+      const userEmail = normalizeEmail(user?.email);
       const callRecord = {
-        userId: Number(user?.id || 0),
+        userId,
+        surfaceId,
         headers: { ...(request?.headers || {}) },
         params: { ...(request?.params || {}) },
         query: { ...(request?.query || {}) }
@@ -64,7 +78,19 @@ function createRealtimeTestWorkspaceService({ permissionsBySlug, onResolve } = {
 
       const workspaceSlug = String(request?.headers?.["x-workspace-slug"] || "").trim();
       const permissions = Array.isArray(permissionsMap[workspaceSlug]) ? permissionsMap[workspaceSlug] : null;
+      const denyUserIds = Array.isArray(denyUserIdsMap[workspaceSlug]) ? denyUserIdsMap[workspaceSlug] : [];
+      const denyEmails = Array.isArray(denyEmailsMap[workspaceSlug]) ? denyEmailsMap[workspaceSlug].map(normalizeEmail) : [];
+      const appDenied = surfaceId === "app" && (denyUserIds.includes(userId) || (userEmail && denyEmails.includes(userEmail)));
       if (!permissions) {
+        return {
+          workspace: null,
+          membership: null,
+          permissions: [],
+          workspaces: [],
+          userSettings: null
+        };
+      }
+      if (appDenied) {
         return {
           workspace: null,
           membership: null,
@@ -90,11 +116,17 @@ function createRealtimeTestWorkspaceService({ permissionsBySlug, onResolve } = {
   };
 }
 
-async function createRealtimeTestApp({ permissionsBySlug, workspaceService } = {}) {
+async function createRealtimeTestApp({ permissionsBySlug, appDenyUserIdsBySlug, appDenyEmailsBySlug, workspaceService } = {}) {
   const app = Fastify();
   installRealtimeTestErrorHandler(app);
 
-  const effectiveWorkspaceService = workspaceService || createRealtimeTestWorkspaceService({ permissionsBySlug });
+  const effectiveWorkspaceService =
+    workspaceService ||
+    createRealtimeTestWorkspaceService({
+      permissionsBySlug,
+      appDenyUserIdsBySlug,
+      appDenyEmailsBySlug
+    });
 
   await app.register(authPlugin, {
     authService: createRealtimeTestAuthService(),

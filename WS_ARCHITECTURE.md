@@ -148,7 +148,8 @@ ACK/error responses are ignored when stale (epoch/fingerprint/slug/topics mismat
 ## WebSocket Security and Auth Model
 
 - WebSocket handshake auth is required (`authPolicy: "required"`).
-- Route is `GET /api/realtime`.
+- Route is `GET /api/realtime` with connection surface resolved from `?surface=<id>` (defaults to `app`).
+- If `surface` is explicitly provided but unsupported/blank, the connection is rejected (`unsupported_surface`).
 - WebSocket auth enforcement is validated by a real HTTP upgrade integration test:
   `tests/realtimeWsAuthUpgrade.test.js`.
 
@@ -159,17 +160,26 @@ ACK/error responses are ignored when stale (epoch/fingerprint/slug/topics mismat
 - Missing/blank slug returns `workspace_required`.
 - Missing/blank slug path must not call workspace resolver.
 - Subscribe context force-overrides:
-  - `x-surface-id = admin`
+  - `x-surface-id = <connection surface>`
   - `x-workspace-slug = <subscribe.workspaceSlug>`
-- Any client-provided surface hint is ignored.
+- Topic surface policy is enforced server-side (`subscribeSurfaces`) in addition to permission checks.
 - No fallback to last active workspace is allowed.
+
+### Surface Deny-List Policy
+
+- App-surface deny-list policy (`workspaceSettings.features.surfaceAccess.app`) applies only to the `app` surface.
+- `admin` and `console` surfaces are governed by membership + RBAC, not app-surface deny-list rules.
 
 ## Topic Authorization Matrix
 
 - `projects`:
-  - required surface: `admin`
+  - required surface: `app` or `admin`
   - workspace policy: required at subscribe-time
   - required permission: `projects.read`
+- `workspace_meta`:
+  - required surface: `app`
+  - workspace policy: required at subscribe-time
+  - required permission: none
 - `workspace_settings`:
   - required surface: `admin`
   - workspace policy: required at subscribe-time
