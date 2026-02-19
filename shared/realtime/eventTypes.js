@@ -1,0 +1,18 @@
+const REALTIME_TOPICS = Object.freeze({
+  PROJECTS: "projects",
+  WORKSPACE_SETTINGS: "workspace_settings",
+  WORKSPACE_MEMBERS: "workspace_members",
+  WORKSPACE_INVITES: "workspace_invites",
+  CHAT: "chat",
+  TYPING: "typing"
+});
+
+const REALTIME_EVENT_TYPES = Object.freeze({
+  WORKSPACE_PROJECT_CREATED: "workspace.project.created",
+  WORKSPACE_PROJECT_UPDATED: "workspace.project.updated",
+  WORKSPACE_SETTINGS_UPDATED: "workspace.settings.updated",
+  WORKSPACE_MEMBERS_UPDATED: "workspace.members.updated",
+  WORKSPACE_INVITES_UPDATED: "workspace.invites.updated"
+});
+
+export { REALTIME_TOPICS, REALTIME_EVENT_TYPES };

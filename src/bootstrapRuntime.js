@@ -23,6 +23,7 @@ import "vuetify/styles";
 import { queryClient } from "./queryClient.js";
 import { api } from "./services/api/index.js";
 import { installBrowserErrorReporter } from "./services/browserErrorReporter.js";
+import { createRealtimeRuntime } from "./services/realtime/realtimeRuntime.js";
 import { useAuthStore } from "./stores/authStore.js";
 import { useConsoleStore } from "./stores/consoleStore.js";
 import { useWorkspaceStore } from "./stores/workspaceStore.js";
@@ -82,6 +83,8 @@ function createVuetifyInstance() {
     }
   });
 }
+
+let realtimeRuntimeInstance = null;
 
 function applyThemePreference(vuetifyInstance, themePreference) {
   const preference = String(themePreference || "system").toLowerCase();
@@ -149,6 +152,16 @@ async function mountSurfaceApplication({ createRouter, surface }) {
   const vuetify = createVuetifyInstance();
 
   await bootstrapRuntime({ authStore, workspaceStore, consoleStore, vuetify, surface });
+  if (realtimeRuntimeInstance && typeof realtimeRuntimeInstance.stop === "function") {
+    realtimeRuntimeInstance.stop();
+  }
+  realtimeRuntimeInstance = createRealtimeRuntime({
+    authStore,
+    workspaceStore,
+    queryClient,
+    surface
+  });
+  realtimeRuntimeInstance.start();
   const router = createRouter({ authStore, workspaceStore, consoleStore });
 
   createApp({

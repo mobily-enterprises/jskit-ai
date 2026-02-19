@@ -448,6 +448,7 @@ describe("client api transport", () => {
     await api.projects.get("project/id");
     await api.projects.create({ name: "Project A", status: "draft" });
     await api.projects.update("project/id", { status: "active" });
+    await api.projects.replace("project/id", { status: "active" });
     await api.settings.setPasswordMethodEnabled({ enabled: true });
     await api.settings.unlinkOAuthProvider("Google ");
 
@@ -477,6 +478,146 @@ describe("client api transport", () => {
     expect(urls).toContain("/api/workspace/projects");
     expect(urls).toContain("/api/settings/security/methods/password");
     expect(urls).toContain("/api/settings/security/oauth/google");
+  });
+
+  it("applies command-correlation headers only to project write requests and keeps command id stable across csrf retries", async () => {
+    window.history.replaceState({}, "", "/admin/w/acme/projects");
+    global.fetch
+      .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-1" } }))
+      .mockResolvedValueOnce(
+        mockResponse({
+          status: 403,
+          data: {
+            error: "forbidden",
+            details: {
+              code: "FST_CSRF_INVALID_TOKEN"
+            }
+          }
+        })
+      )
+      .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-2" } }))
+      .mockResolvedValueOnce(
+        mockResponse({
+          data: {
+            project: {
+              id: 101
+            }
+          }
+        })
+      )
+      .mockResolvedValueOnce(mockResponse({ data: { ok: true } }));
+
+    await api.projects.update("project-1", { status: "active" });
+    await __testables.request("/api/workspace/invitations/redeem", {
+      method: "POST",
+      headers: {
+        "csrf-token": "provided-token"
+      },
+      body: {
+        token: "invite-token",
+        decision: "accept"
+      }
+    });
+
+    const firstWriteHeaders = global.fetch.mock.calls[1][1].headers;
+    const retryWriteHeaders = global.fetch.mock.calls[3][1].headers;
+    const nonProjectWriteHeaders = global.fetch.mock.calls[4][1].headers;
+
+    expect(firstWriteHeaders["x-command-id"]).toBeTruthy();
+    expect(firstWriteHeaders["x-client-id"]).toBeTruthy();
+    expect(retryWriteHeaders["x-command-id"]).toBe(firstWriteHeaders["x-command-id"]);
+    expect(retryWriteHeaders["x-client-id"]).toBe(firstWriteHeaders["x-client-id"]);
+    expect(nonProjectWriteHeaders["x-command-id"]).toBeUndefined();
+    expect(nonProjectWriteHeaders["x-client-id"]).toBeUndefined();
+  });
+
+  it("sends put replace requests through projects api", async () => {
+    global.fetch
+      .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-1" } }))
+      .mockResolvedValueOnce(
+        mockResponse({
+          data: {
+            project: {
+              id: 202
+            }
+          }
+        })
+      );
+
+    const response = await api.projects.replace("202", { name: "Replacement", status: "draft" });
+    expect(response.project.id).toBe(202);
+
+    const replaceCall = global.fetch.mock.calls[1];
+    expect(replaceCall[0]).toBe("/api/workspace/projects/202");
+    expect(replaceCall[1].method).toBe("PUT");
+    expect(replaceCall[1].headers["x-command-id"]).toBeTruthy();
+    expect(replaceCall[1].headers["x-client-id"]).toBeTruthy();
+  });
+
+  it("applies command-correlation headers to workspace admin write routes", async () => {
+    window.history.replaceState({}, "", "/admin/w/acme/settings");
+    global.fetch.mockResolvedValue(
+      mockResponse({
+        data: {
+          ok: true
+        }
+      })
+    );
+
+    await __testables.request("/api/workspace/settings", {
+      method: "PATCH",
+      headers: {
+        "csrf-token": "provided-token"
+      },
+      body: {
+        name: "Acme Prime"
+      }
+    });
+    await __testables.request("/api/workspace/members/19/role", {
+      method: "PATCH",
+      headers: {
+        "csrf-token": "provided-token"
+      },
+      body: {
+        roleId: "admin"
+      }
+    });
+    await __testables.request("/api/workspace/invites", {
+      method: "POST",
+      headers: {
+        "csrf-token": "provided-token"
+      },
+      body: {
+        email: "invitee@example.com"
+      }
+    });
+    await __testables.request("/api/workspace/invites/42", {
+      method: "DELETE",
+      headers: {
+        "csrf-token": "provided-token"
+      }
+    });
+    await __testables.request("/api/workspace/roles", {
+      method: "GET"
+    });
+
+    const settingsWriteHeaders = global.fetch.mock.calls[0][1].headers;
+    const memberRoleHeaders = global.fetch.mock.calls[1][1].headers;
+    const createInviteHeaders = global.fetch.mock.calls[2][1].headers;
+    const revokeInviteHeaders = global.fetch.mock.calls[3][1].headers;
+    const rolesReadHeaders = global.fetch.mock.calls[4][1].headers;
+
+    expect(settingsWriteHeaders["x-command-id"]).toBeTruthy();
+    expect(memberRoleHeaders["x-command-id"]).toBeTruthy();
+    expect(createInviteHeaders["x-command-id"]).toBeTruthy();
+    expect(revokeInviteHeaders["x-command-id"]).toBeTruthy();
+    expect(rolesReadHeaders["x-command-id"]).toBeUndefined();
+
+    expect(settingsWriteHeaders["x-client-id"]).toBeTruthy();
+    expect(memberRoleHeaders["x-client-id"]).toBeTruthy();
+    expect(createInviteHeaders["x-client-id"]).toBeTruthy();
+    expect(revokeInviteHeaders["x-client-id"]).toBeTruthy();
+    expect(rolesReadHeaders["x-client-id"]).toBeUndefined();
   });
 
   it("builds oauth URL helpers with and without returnTo", () => {

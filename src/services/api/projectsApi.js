@@ -17,6 +17,10 @@ function createApi({ request }) {
     update(projectId, payload) {
       const encodedProjectId = encodeURIComponent(String(projectId || "").trim());
       return request(`/api/workspace/projects/${encodedProjectId}`, { method: "PATCH", body: payload });
+    },
+    replace(projectId, payload) {
+      const encodedProjectId = encodeURIComponent(String(projectId || "").trim());
+      return request(`/api/workspace/projects/${encodedProjectId}`, { method: "PUT", body: payload });
     }
   };
 }

@@ -18,6 +18,7 @@ function createControllers({ services }) {
     communicationsService,
     userSettingsService,
     projectsService,
+    realtimeEventsService,
     healthService,
     workspaceService,
     workspaceAdminService,
@@ -46,14 +47,16 @@ function createControllers({ services }) {
       healthService
     }),
     projects: createProjectsController({
-      projectsService
+      projectsService,
+      realtimeEventsService
     }),
     workspace: createWorkspaceController({
       authService,
       workspaceService,
       workspaceAdminService,
       consoleService,
-      auditService
+      auditService,
+      realtimeEventsService
     }),
     console: createConsoleController({
       consoleService,

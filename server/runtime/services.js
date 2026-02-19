@@ -12,6 +12,7 @@ import { createService as createWorkspaceInviteEmailService } from "../domain/wo
 import { createService as createConsoleService } from "../domain/console/services/console.service.js";
 import { createService as createConsoleErrorsService } from "../domain/console/services/errors.service.js";
 import { createService as createAuditService } from "../domain/security/services/audit.service.js";
+import { createService as createRealtimeEventsService } from "../domain/realtime/services/events.service.js";
 import { createService as createObservabilityService } from "../modules/observability/service.js";
 import { createService as createProjectsService } from "../modules/projects/service.js";
 import { createService as createHealthService } from "../modules/health/service.js";
@@ -149,6 +150,8 @@ function createServices({
     projectsRepository
   });
 
+  const realtimeEventsService = createRealtimeEventsService();
+
   const healthService = createHealthService({
     healthRepository
   });
@@ -170,6 +173,7 @@ function createServices({
     observabilityService,
     auditService,
     projectsService,
+    realtimeEventsService,
     healthService
   };
 }

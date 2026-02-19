@@ -154,3 +154,211 @@ test("projects controller delegates list/get/create/update/replace to projects s
     true
   );
 });
+
+test("projects controller publishes realtime events for successful create/update/replace writes", async () => {
+  const publishCalls = [];
+  const projectsService = {
+    async create() {
+      return {
+        project: {
+          id: 201
+        }
+      };
+    },
+    async update(workspaceContext, projectId) {
+      void workspaceContext;
+      return {
+        project: {
+          id: Number(projectId)
+        }
+      };
+    },
+    async replace(workspaceContext, projectId) {
+      void workspaceContext;
+      return {
+        project: {
+          id: Number(projectId)
+        }
+      };
+    },
+    async list() {
+      return {
+        entries: [],
+        page: 1,
+        pageSize: 10,
+        total: 0,
+        totalPages: 1
+      };
+    },
+    async get(workspaceContext, projectId) {
+      void workspaceContext;
+      return {
+        project: {
+          id: Number(projectId)
+        }
+      };
+    }
+  };
+  const realtimeEventsService = {
+    publishProjectEvent(payload) {
+      publishCalls.push(payload);
+    }
+  };
+  const controller = createProjectsController({
+    projectsService,
+    realtimeEventsService
+  });
+
+  const workspace = {
+    id: 11,
+    slug: "acme"
+  };
+  const requestContext = {
+    workspace,
+    user: {
+      id: 7
+    },
+    headers: {
+      "x-command-id": "cmd_a",
+      "x-client-id": "cli_a"
+    }
+  };
+
+  const createReply = createReplyDouble();
+  await controller.create(
+    {
+      ...requestContext,
+      body: {
+        name: "Created"
+      }
+    },
+    createReply
+  );
+  assert.equal(createReply.statusCode, 200);
+
+  const updateReply = createReplyDouble();
+  await controller.update(
+    {
+      ...requestContext,
+      params: {
+        projectId: "202"
+      },
+      body: {
+        name: "Updated"
+      }
+    },
+    updateReply
+  );
+  assert.equal(updateReply.statusCode, 200);
+
+  const replaceReply = createReplyDouble();
+  await controller.replace(
+    {
+      ...requestContext,
+      params: {
+        projectId: "203"
+      },
+      body: {
+        name: "Replaced"
+      }
+    },
+    replaceReply
+  );
+  assert.equal(replaceReply.statusCode, 200);
+
+  const listReply = createReplyDouble();
+  await controller.list(
+    {
+      ...requestContext,
+      query: {
+        page: "1",
+        pageSize: "10"
+      }
+    },
+    listReply
+  );
+  assert.equal(listReply.statusCode, 200);
+
+  const getReply = createReplyDouble();
+  await controller.get(
+    {
+      ...requestContext,
+      params: {
+        projectId: "203"
+      }
+    },
+    getReply
+  );
+  assert.equal(getReply.statusCode, 200);
+
+  assert.equal(publishCalls.length, 3);
+  assert.deepEqual(
+    publishCalls.map((entry) => entry.operation),
+    ["created", "updated", "updated"]
+  );
+  assert.deepEqual(
+    publishCalls.map((entry) => entry.commandId),
+    ["cmd_a", "cmd_a", "cmd_a"]
+  );
+  assert.deepEqual(
+    publishCalls.map((entry) => entry.sourceClientId),
+    ["cli_a", "cli_a", "cli_a"]
+  );
+  assert.deepEqual(
+    publishCalls.map((entry) => entry.actorUserId),
+    [7, 7, 7]
+  );
+});
+
+test("projects controller keeps successful write responses when realtime publish fails", async () => {
+  const projectsService = {
+    async create() {
+      return {
+        project: {
+          id: 301
+        }
+      };
+    }
+  };
+  const warnings = [];
+  const realtimeEventsService = {
+    publishProjectEvent() {
+      throw new Error("publish failed");
+    }
+  };
+  const controller = createProjectsController({
+    projectsService,
+    realtimeEventsService
+  });
+
+  const reply = createReplyDouble();
+  await controller.create(
+    {
+      workspace: {
+        id: 11,
+        slug: "acme"
+      },
+      user: {
+        id: 7
+      },
+      headers: {
+        "x-command-id": "cmd_b",
+        "x-client-id": "cli_b"
+      },
+      body: {
+        name: "Created"
+      },
+      log: {
+        warn(payload, message) {
+          warnings.push({ payload, message });
+        }
+      }
+    },
+    reply
+  );
+
+  assert.equal(reply.statusCode, 200);
+  assert.equal(reply.payload.project.id, 301);
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0].message, "projects.realtime.publish_failed");
+});

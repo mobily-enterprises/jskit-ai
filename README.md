@@ -286,6 +286,11 @@ This endpoint inventory is generated from `server/modules/api/routes.js` + `serv
 npm run docs:api-contracts
 ```
 
+Realtime note:
+
+- `GET /api/realtime` is intentionally outside the generated API contracts inventory (`buildDefaultRoutes` path).
+- Realtime protocol, auth model, correlation, and limits are documented in `WS_ARCHITECTURE.md`.
+
 <!-- API_CONTRACTS_START -->
 - `GET /api/health`
 - `GET /api/ready`

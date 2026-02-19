@@ -6,7 +6,7 @@ import { useAuthGuard } from "../../composables/useAuthGuard.js";
 import { useQueryErrorMessage } from "../../composables/useQueryErrorMessage.js";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 import { mapProjectsError } from "../../features/projects/errors.js";
-import { PROJECT_QUERY_KEY_PREFIX } from "./queryKeys.js";
+import { projectDetailQueryKey } from "../../features/projects/queryKeys.js";
 
 function resolveProjectIdFromPath(pathname) {
   const match = String(pathname || "").match(/\/projects\/([^/]+)/i);
@@ -31,7 +31,7 @@ export function useProjectsView() {
   const enabled = computed(() => Boolean(workspaceStore.initialized && workspaceStore.activeWorkspaceSlug && projectId.value));
 
   const query = useQuery({
-    queryKey: computed(() => [...PROJECT_QUERY_KEY_PREFIX, workspaceScope.value, projectId.value || "none"]),
+    queryKey: computed(() => projectDetailQueryKey(workspaceScope.value, projectId.value || "none")),
     queryFn: () => api.projects.get(projectId.value),
     enabled
   });

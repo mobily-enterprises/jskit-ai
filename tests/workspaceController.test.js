@@ -417,3 +417,152 @@ test("workspace controller delegates workspace and admin routes to services", as
     true
   );
 });
+
+test("workspace controller publishes realtime events for workspace admin writes", async () => {
+  const publishCalls = [];
+  const controller = createWorkspaceController({
+    authService: {
+      async authenticateRequest() {
+        return {
+          authenticated: false,
+          clearSession: false,
+          session: null,
+          transientFailure: false
+        };
+      },
+      clearSessionCookies() {},
+      writeSessionCookies() {}
+    },
+    workspaceService: {
+      async buildBootstrapPayload() {
+        return { session: { authenticated: false } };
+      },
+      async listPendingInvitesForUser() {
+        return [];
+      },
+      async listWorkspacesForUser() {
+        return [];
+      },
+      async selectWorkspaceForUser() {
+        return {};
+      }
+    },
+    workspaceAdminService: {
+      async updateWorkspaceSettings(workspace) {
+        return {
+          workspace: { id: workspace.id },
+          settings: { name: "Acme Prime" }
+        };
+      },
+      async updateMemberRole(_workspace, payload) {
+        return {
+          members: [{ userId: Number(payload.memberUserId), roleId: payload.roleId }]
+        };
+      },
+      async createInvite() {
+        return { createdInvite: { inviteId: 42 }, invites: [{ id: 42 }] };
+      },
+      async revokeInvite() {
+        return { invites: [] };
+      },
+      async respondToPendingInviteByToken() {
+        return {
+          ok: true,
+          decision: "accepted",
+          inviteId: 42,
+          workspace: { id: 11 }
+        };
+      },
+      async getWorkspaceSettings() {
+        return {};
+      },
+      async listMembers() {
+        return { members: [] };
+      },
+      async listInvites() {
+        return { invites: [] };
+      },
+      getRoleCatalog() {
+        return { roles: [] };
+      }
+    },
+    consoleService: {
+      async ensureInitialConsoleMember() {
+        return null;
+      }
+    },
+    auditService: {
+      async recordSafe() {}
+    },
+    realtimeEventsService: {
+      publishWorkspaceEvent(payload) {
+        publishCalls.push(payload);
+      }
+    }
+  });
+
+  const requestBase = {
+    workspace: { id: 11, slug: "acme" },
+    user: { id: 7 },
+    headers: {
+      "x-command-id": "cmd_w_1",
+      "x-client-id": "cli_w_1"
+    }
+  };
+
+  const settingsReply = createReplyDouble();
+  await controller.updateWorkspaceSettings(
+    {
+      ...requestBase,
+      body: { name: "Acme Prime" }
+    },
+    settingsReply
+  );
+  assert.equal(settingsReply.statusCode, 200);
+
+  const roleReply = createReplyDouble();
+  await controller.updateWorkspaceMemberRole(
+    {
+      ...requestBase,
+      params: { memberUserId: "22" },
+      body: { roleId: "admin" }
+    },
+    roleReply
+  );
+  assert.equal(roleReply.statusCode, 200);
+
+  const inviteReply = createReplyDouble();
+  await controller.createWorkspaceInvite(
+    {
+      ...requestBase,
+      body: { email: "invitee@example.com" }
+    },
+    inviteReply
+  );
+  assert.equal(inviteReply.statusCode, 200);
+
+  const revokeReply = createReplyDouble();
+  await controller.revokeWorkspaceInvite(
+    {
+      ...requestBase,
+      params: { inviteId: "42" }
+    },
+    revokeReply
+  );
+  assert.equal(revokeReply.statusCode, 200);
+
+  const redeemReply = createReplyDouble();
+  await controller.respondToPendingInviteByToken(
+    {
+      ...requestBase,
+      body: {
+        token: "invite-token",
+        decision: "accept"
+      }
+    },
+    redeemReply
+  );
+  assert.equal(redeemReply.statusCode, 200);
+
+  assert.equal(publishCalls.length, 5);
+});

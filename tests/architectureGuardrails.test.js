@@ -228,3 +228,27 @@ test("architecture guardrail: server domain/modules import graph must be acyclic
   const cycleRelativePaths = cycle.map((absolutePath) => toPosixPath(path.relative(ROOT_DIR, absolutePath)));
   assert.fail(`Circular dependency detected: ${cycleRelativePaths.join(" -> ")}`);
 });
+
+test("architecture guardrail: realtime events service import hygiene forbids cross-feature services", () => {
+  const realtimeServicePath = path.join(ROOT_DIR, "server/domain/realtime/services/events.service.js");
+  const importSpecifiers = parseImportSpecifiers(realtimeServicePath);
+  const violations = [];
+
+  for (const importSpecifier of importSpecifiers) {
+    const resolvedImportPath = resolveRelativeImport(realtimeServicePath, importSpecifier);
+    if (!resolvedImportPath) {
+      continue;
+    }
+
+    const relativePath = toPosixPath(path.relative(ROOT_DIR, resolvedImportPath));
+    const importsModuleService = /^server\/modules\/.+\/service\.js$/.test(relativePath);
+    const importsOtherDomainService =
+      /^server\/domain\/(?!realtime\/).+\/services\/.+\.service\.js$/.test(relativePath);
+
+    if (importsModuleService || importsOtherDomainService) {
+      violations.push(relativePath);
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});

@@ -7,7 +7,7 @@ import { useQueryErrorMessage } from "../../composables/useQueryErrorMessage.js"
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 import { mapProjectsError } from "../../features/projects/errors.js";
 import { createDefaultProjectForm, projectStatusOptions } from "../../features/projects/formModel.js";
-import { PROJECT_QUERY_KEY_PREFIX, PROJECTS_QUERY_KEY_PREFIX } from "./queryKeys.js";
+import { projectDetailQueryKey, projectsScopeQueryKey } from "../../features/projects/queryKeys.js";
 
 function resolveProjectIdFromPath(pathname) {
   const match = String(pathname || "").match(/\/projects\/([^/]+)/i);
@@ -34,7 +34,7 @@ export function useProjectsEdit() {
   const enabled = computed(() => Boolean(workspaceStore.initialized && workspaceStore.activeWorkspaceSlug && projectId.value));
   const message = ref("");
 
-  const projectQueryKey = computed(() => [...PROJECT_QUERY_KEY_PREFIX, workspaceScope.value, projectId.value || "none"]);
+  const projectQueryKey = computed(() => projectDetailQueryKey(workspaceScope.value, projectId.value || "none"));
 
   const query = useQuery({
     queryKey: projectQueryKey,
@@ -95,7 +95,7 @@ export function useProjectsEdit() {
 
       queryClient.setQueryData(projectQueryKey.value, response);
       await queryClient.invalidateQueries({
-        queryKey: [...PROJECTS_QUERY_KEY_PREFIX, workspaceScope.value]
+        queryKey: projectsScopeQueryKey(workspaceScope.value)
       });
 
       message.value = "Project updated.";

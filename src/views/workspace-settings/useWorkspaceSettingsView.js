@@ -3,10 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 import { useAuthGuard } from "../../composables/useAuthGuard.js";
 import { api } from "../../services/api/index.js";
-
-const WORKSPACE_SETTINGS_QUERY_KEY = "workspace-settings";
-const WORKSPACE_MEMBERS_QUERY_KEY = "workspace-members";
-const WORKSPACE_INVITES_QUERY_KEY = "workspace-invites";
+import {
+  workspaceInvitesQueryKey,
+  workspaceMembersQueryKey,
+  workspaceSettingsQueryKey
+} from "../../features/workspaceAdmin/queryKeys.js";
 
 const modeOptions = [
   { title: "Future value", value: "fv" },
@@ -105,9 +106,9 @@ export function useWorkspaceSettingsView() {
 
     return "none";
   });
-  const workspaceSettingsQueryKey = computed(() => [WORKSPACE_SETTINGS_QUERY_KEY, workspaceScope.value]);
-  const workspaceMembersQueryKey = computed(() => [WORKSPACE_MEMBERS_QUERY_KEY, workspaceScope.value]);
-  const workspaceInvitesQueryKey = computed(() => [WORKSPACE_INVITES_QUERY_KEY, workspaceScope.value]);
+  const workspaceSettingsKey = computed(() => workspaceSettingsQueryKey(workspaceScope.value));
+  const workspaceMembersKey = computed(() => workspaceMembersQueryKey(workspaceScope.value));
+  const workspaceInvitesKey = computed(() => workspaceInvitesQueryKey(workspaceScope.value));
 
   const canViewWorkspaceSettings = computed(
     () => workspaceStore.can("workspace.settings.view") || workspaceStore.can("workspace.settings.update")
@@ -137,19 +138,19 @@ export function useWorkspaceSettingsView() {
   });
 
   const workspaceSettingsQuery = useQuery({
-    queryKey: workspaceSettingsQueryKey,
+    queryKey: workspaceSettingsKey,
     queryFn: () => api.workspace.getSettings(),
     enabled: canViewWorkspaceSettings
   });
 
   const membersQuery = useQuery({
-    queryKey: workspaceMembersQueryKey,
+    queryKey: workspaceMembersKey,
     queryFn: () => api.workspace.listMembers(),
     enabled: canViewMembers
   });
 
   const invitesQuery = useQuery({
-    queryKey: workspaceInvitesQueryKey,
+    queryKey: workspaceInvitesKey,
     queryFn: () => api.workspace.listInvites(),
     enabled: canViewMembers
   });
@@ -334,7 +335,7 @@ export function useWorkspaceSettingsView() {
     workspaceMessage.value = "";
 
     try {
-      const settingsQueryKey = [...workspaceSettingsQueryKey.value];
+      const settingsQueryKey = [...workspaceSettingsKey.value];
       const data = await updateWorkspaceSettingsMutation.mutateAsync({
         name: workspaceForm.name,
         color: workspaceForm.color,
@@ -363,7 +364,7 @@ export function useWorkspaceSettingsView() {
     inviteMessage.value = "";
 
     try {
-      const invitesQueryKey = [...workspaceInvitesQueryKey.value];
+      const invitesQueryKey = [...workspaceInvitesKey.value];
       const data = await createInviteMutation.mutateAsync({
         email: inviteForm.email,
         roleId: inviteForm.roleId
@@ -385,7 +386,7 @@ export function useWorkspaceSettingsView() {
     revokeInviteId.value = Number(inviteId);
 
     try {
-      const invitesQueryKey = [...workspaceInvitesQueryKey.value];
+      const invitesQueryKey = [...workspaceInvitesKey.value];
       const data = await revokeInviteMutation.mutateAsync(inviteId);
       queryClient.setQueryData(invitesQueryKey, data);
       applyInvitesData(data);
@@ -406,7 +407,7 @@ export function useWorkspaceSettingsView() {
     teamMessage.value = "";
 
     try {
-      const membersQueryKey = [...workspaceMembersQueryKey.value];
+      const membersQueryKey = [...workspaceMembersKey.value];
       const data = await updateMemberRoleMutation.mutateAsync({
         memberUserId: member.userId,
         roleId

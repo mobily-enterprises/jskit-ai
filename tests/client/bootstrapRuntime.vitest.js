@@ -8,6 +8,11 @@ const mocks = vi.hoisted(() => ({
   authStoreFactory: vi.fn(),
   workspaceStoreFactory: vi.fn(),
   installBrowserErrorReporter: vi.fn(),
+  createRealtimeRuntime: vi.fn(),
+  realtimeRuntime: {
+    start: vi.fn(),
+    stop: vi.fn()
+  },
   bootstrapApi: vi.fn(),
   queryClient: {
     marker: "query-client"
@@ -112,6 +117,10 @@ vi.mock("../../src/services/browserErrorReporter.js", () => ({
   installBrowserErrorReporter: mocks.installBrowserErrorReporter
 }));
 
+vi.mock("../../src/services/realtime/realtimeRuntime.js", () => ({
+  createRealtimeRuntime: (...args) => mocks.createRealtimeRuntime(...args)
+}));
+
 vi.mock("../../src/stores/authStore", () => ({
   useAuthStore: (pinia) => mocks.authStoreFactory(pinia)
 }));
@@ -136,6 +145,9 @@ describe("bootstrapRuntime", () => {
     mocks.workspaceStoreFactory.mockReset();
     mocks.bootstrapApi.mockReset();
     mocks.installBrowserErrorReporter.mockReset();
+    mocks.createRealtimeRuntime.mockReset();
+    mocks.realtimeRuntime.start.mockReset();
+    mocks.realtimeRuntime.stop.mockReset();
 
     mocks.appInstance.use.mockReset();
     mocks.appInstance.mount.mockReset();
@@ -175,6 +187,7 @@ describe("bootstrapRuntime", () => {
 
     mocks.authStoreFactory.mockReturnValue(mocks.authStore);
     mocks.workspaceStoreFactory.mockReturnValue(mocks.workspaceStore);
+    mocks.createRealtimeRuntime.mockReturnValue(mocks.realtimeRuntime);
 
     window.matchMedia = vi.fn(() => ({
       matches: false,
@@ -221,6 +234,13 @@ describe("bootstrapRuntime", () => {
       workspaceStore: mocks.workspaceStore,
       consoleStore: mocks.consoleStore
     });
+    expect(mocks.createRealtimeRuntime).toHaveBeenCalledWith({
+      authStore: mocks.authStore,
+      workspaceStore: mocks.workspaceStore,
+      queryClient: mocks.queryClient,
+      surface: undefined
+    });
+    expect(mocks.realtimeRuntime.start).toHaveBeenCalledTimes(1);
 
     expect(mocks.createApp).toHaveBeenCalledTimes(1);
     expect(mocks.appInstance.use).toHaveBeenNthCalledWith(1, mocks.createdPinia);

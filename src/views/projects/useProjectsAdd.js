@@ -6,7 +6,7 @@ import { useAuthGuard } from "../../composables/useAuthGuard.js";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 import { mapProjectsError } from "../../features/projects/errors.js";
 import { createDefaultProjectForm, projectStatusOptions } from "../../features/projects/formModel.js";
-import { PROJECTS_QUERY_KEY_PREFIX } from "./queryKeys.js";
+import { projectsScopeQueryKey } from "../../features/projects/queryKeys.js";
 
 export function useProjectsAdd() {
   const navigate = useNavigate();
@@ -45,7 +45,7 @@ export function useProjectsAdd() {
 
       const nextProjectId = String(response?.project?.id || "").trim();
       await queryClient.invalidateQueries({
-        queryKey: [...PROJECTS_QUERY_KEY_PREFIX, workspaceScope.value]
+        queryKey: projectsScopeQueryKey(workspaceScope.value)
       });
 
       if (nextProjectId) {

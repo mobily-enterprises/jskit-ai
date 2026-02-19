@@ -47,6 +47,7 @@
     "@fastify/swagger": "^9.7.0",
     "@fastify/swagger-ui": "^5.2.5",
     "@fastify/type-provider-typebox": "^6.1.0",
+    "@fastify/websocket": "^11.2.0",
     "@mdi/js": "^7.4.47",
     "@supabase/supabase-js": "^2.57.4",
     "@tanstack/vue-query": "^5.90.5",

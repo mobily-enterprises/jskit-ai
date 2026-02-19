@@ -10,10 +10,11 @@ import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 import { mapProjectsError } from "../../features/projects/errors.js";
 import { projectPageSizeOptions } from "../../features/projects/formModel.js";
 import {
-  PROJECTS_QUERY_KEY_PREFIX,
   PROJECTS_PAGE_QUERY_KEY,
-  PROJECTS_PAGE_SIZE_QUERY_KEY
-} from "./queryKeys.js";
+  PROJECTS_PAGE_SIZE_QUERY_KEY,
+  projectsListQueryKey,
+  projectsScopeQueryKey
+} from "../../features/projects/queryKeys.js";
 
 export function useProjectsList({ initialPageSize = projectPageSizeOptions[0] } = {}) {
   const navigate = useNavigate();
@@ -34,12 +35,7 @@ export function useProjectsList({ initialPageSize = projectPageSizeOptions[0] } 
   const workspaceScope = computed(() => workspaceStore.activeWorkspaceSlug || "none");
 
   const query = useQuery({
-    queryKey: computed(() => [
-      ...PROJECTS_QUERY_KEY_PREFIX,
-      workspaceScope.value,
-      pagination.page.value,
-      pagination.pageSize.value
-    ]),
+    queryKey: computed(() => projectsListQueryKey(workspaceScope.value, pagination.page.value, pagination.pageSize.value)),
     queryFn: () => api.projects.list(pagination.page.value, pagination.pageSize.value),
     enabled,
     placeholderData: (previous) => previous
@@ -66,7 +62,7 @@ export function useProjectsList({ initialPageSize = projectPageSizeOptions[0] } 
 
   async function onProjectSaved() {
     await queryClient.invalidateQueries({
-      queryKey: [...PROJECTS_QUERY_KEY_PREFIX, workspaceScope.value]
+      queryKey: projectsScopeQueryKey(workspaceScope.value)
     });
   }
 
