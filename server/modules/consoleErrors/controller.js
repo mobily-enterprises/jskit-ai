@@ -12,12 +12,24 @@ function createController({ consoleErrorsService }) {
     reply.code(200).send(response);
   }
 
+  async function getBrowserError(request, reply) {
+    const params = request.params || {};
+    const response = await consoleErrorsService.getBrowserError(request.user, params.errorId);
+    reply.code(200).send(response);
+  }
+
   async function listServerErrors(request, reply) {
     const query = request.query || {};
     const response = await consoleErrorsService.listServerErrors(request.user, {
       page: Number(query.page || 1),
       pageSize: Number(query.pageSize || 20)
     });
+    reply.code(200).send(response);
+  }
+
+  async function getServerError(request, reply) {
+    const params = request.params || {};
+    const response = await consoleErrorsService.getServerError(request.user, params.errorId);
     reply.code(200).send(response);
   }
 
@@ -32,10 +44,22 @@ function createController({ consoleErrorsService }) {
     });
   }
 
+  async function simulateServerError(request, reply) {
+    const payload = request.body || {};
+    const response = await consoleErrorsService.simulateServerError({
+      user: request.user,
+      payload
+    });
+    reply.code(200).send(response);
+  }
+
   return {
     listBrowserErrors,
+    getBrowserError,
     listServerErrors,
-    recordBrowserError
+    getServerError,
+    recordBrowserError,
+    simulateServerError
   };
 }
 

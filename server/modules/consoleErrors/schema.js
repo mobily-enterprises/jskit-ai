@@ -7,6 +7,15 @@ const query = createPaginationQuerySchema({
   maxPageSize: 100
 });
 
+const params = Type.Object(
+  {
+    errorId: Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const metadata = Type.Record(Type.String(), Type.Unknown());
 
 const browserErrorEntry = Type.Object(
@@ -66,6 +75,15 @@ const listBrowserErrors = Type.Object(
   }
 );
 
+const browserErrorSingle = Type.Object(
+  {
+    entry: browserErrorEntry
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const listServerErrors = Type.Object(
   {
     entries: Type.Array(serverErrorEntry),
@@ -73,6 +91,15 @@ const listServerErrors = Type.Object(
     pageSize: Type.Integer({ minimum: 1, maximum: 100 }),
     total: Type.Integer({ minimum: 0 }),
     totalPages: Type.Integer({ minimum: 1 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const serverErrorSingle = Type.Object(
+  {
+    entry: serverErrorEntry
   },
   {
     additionalProperties: false
@@ -112,15 +139,42 @@ const recordBrowserErrorResponse = Type.Object(
   }
 );
 
+const simulateServerErrorKindValues = ["app_error", "type_error", "range_error", "async_rejection", "auto"];
+
+const simulateServerError = Type.Object(
+  {
+    kind: Type.Optional(Type.Union(simulateServerErrorKindValues.map((value) => Type.Literal(value))))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const simulateServerErrorResponse = Type.Object(
+  {
+    ok: Type.Boolean(),
+    simulationId: Type.String({ minLength: 1 }),
+    kind: Type.String({ minLength: 1 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const schema = {
   query,
+  params,
   response: {
     listBrowserErrors,
+    browserErrorSingle,
     listServerErrors,
-    recordBrowserError: recordBrowserErrorResponse
+    serverErrorSingle,
+    recordBrowserError: recordBrowserErrorResponse,
+    simulateServerError: simulateServerErrorResponse
   },
   body: {
-    recordBrowserError
+    recordBrowserError,
+    simulateServerError
   }
 };
 

@@ -41,7 +41,7 @@
             :key="item.to"
             :title="item.title"
             :prepend-icon="item.icon"
-            :active="isCurrentPath(item.to)"
+            :active="isNavigationItemActive(item.to)"
             rounded="lg"
             @click="goToNavigationItem(item)"
           />

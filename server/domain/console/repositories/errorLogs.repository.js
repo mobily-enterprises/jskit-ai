@@ -132,6 +132,16 @@ function createErrorLogsRepository(dbClient) {
     return rows.map(mapBrowserErrorRowRequired);
   }
 
+  async function repoGetBrowserErrorById(errorId, options = {}) {
+    const client = resolveClient(options);
+    const row = await client("console_browser_errors").where({ id: Number(errorId) }).first();
+    if (!row) {
+      return null;
+    }
+
+    return mapBrowserErrorRowRequired(row);
+  }
+
   async function repoInsertServerError(entry, options = {}) {
     const client = resolveClient(options);
     const now = new Date();
@@ -171,6 +181,16 @@ function createErrorLogsRepository(dbClient) {
     return rows.map(mapServerErrorRowRequired);
   }
 
+  async function repoGetServerErrorById(errorId, options = {}) {
+    const client = resolveClient(options);
+    const row = await client("console_server_errors").where({ id: Number(errorId) }).first();
+    if (!row) {
+      return null;
+    }
+
+    return mapServerErrorRowRequired(row);
+  }
+
   async function repoTransaction(callback) {
     if (typeof dbClient.transaction === "function") {
       return dbClient.transaction(callback);
@@ -183,9 +203,11 @@ function createErrorLogsRepository(dbClient) {
     insertBrowserError: repoInsertBrowserError,
     countBrowserErrors: repoCountBrowserErrors,
     listBrowserErrors: repoListBrowserErrors,
+    getBrowserErrorById: repoGetBrowserErrorById,
     insertServerError: repoInsertServerError,
     countServerErrors: repoCountServerErrors,
     listServerErrors: repoListServerErrors,
+    getServerErrorById: repoGetServerErrorById,
     transaction: repoTransaction
   };
 }
@@ -205,9 +227,11 @@ export const {
   insertBrowserError,
   countBrowserErrors,
   listBrowserErrors,
+  getBrowserErrorById,
   insertServerError,
   countServerErrors,
   listServerErrors,
+  getServerErrorById,
   transaction
 } = repository;
 export { __testables };

@@ -4,10 +4,12 @@ import { hasPermission, resolveRolePermissions } from "../policies/roles.js";
 
 const BROWSER_ERRORS_READ_PERMISSION = "console.errors.browser.read";
 const SERVER_ERRORS_READ_PERMISSION = "console.errors.server.read";
+const SERVER_SIMULATION_KINDS = ["app_error", "type_error", "range_error", "async_rejection"];
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
+let simulationSequence = 0;
 
 function normalizeString(value, maxLength = 0) {
   const normalized = String(value || "").trim();
@@ -92,6 +94,21 @@ function normalizePagination(pagination) {
   };
 }
 
+function normalizeErrorEntryId(value) {
+  const errorId = parsePositiveInteger(value);
+  if (!errorId) {
+    throw new AppError(400, "Validation failed.", {
+      details: {
+        fieldErrors: {
+          errorId: "errorId must be a positive integer."
+        }
+      }
+    });
+  }
+
+  return errorId;
+}
+
 function normalizeBrowserPayload(payload, user) {
   const body = payload && typeof payload === "object" ? payload : {};
   const metadata = normalizeObject(body.metadata);
@@ -129,6 +146,31 @@ function normalizeServerPayload(payload) {
     username: normalizeString(body.username, 160),
     metadata: normalizeObject(body.metadata)
   };
+}
+
+function normalizeSimulationKind(value) {
+  const normalized = normalizeString(value, 64).toLowerCase();
+  if (!normalized || normalized === "auto") {
+    const index = simulationSequence % SERVER_SIMULATION_KINDS.length;
+    simulationSequence += 1;
+    return SERVER_SIMULATION_KINDS[index];
+  }
+
+  if (!SERVER_SIMULATION_KINDS.includes(normalized)) {
+    throw new AppError(400, "Validation failed.", {
+      details: {
+        fieldErrors: {
+          kind: `kind must be one of: ${SERVER_SIMULATION_KINDS.join(", ")}, auto`
+        }
+      }
+    });
+  }
+
+  return normalized;
+}
+
+function createSimulationId() {
+  return `sim-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
 }
 
 function createService({ consoleMembershipsRepository, consoleErrorLogsRepository }) {
@@ -177,6 +219,17 @@ function createService({ consoleMembershipsRepository, consoleErrorLogsRepositor
     };
   }
 
+  async function getBrowserError(user, errorIdValue) {
+    await requirePermission(user, BROWSER_ERRORS_READ_PERMISSION);
+    const errorId = normalizeErrorEntryId(errorIdValue);
+    const entry = await consoleErrorLogsRepository.getBrowserErrorById(errorId);
+    if (!entry) {
+      throw new AppError(404, "Browser error entry not found.");
+    }
+
+    return { entry };
+  }
+
   async function listServerErrors(user, pagination) {
     await requirePermission(user, SERVER_ERRORS_READ_PERMISSION);
     const { page, pageSize } = normalizePagination(pagination);
@@ -195,6 +248,17 @@ function createService({ consoleMembershipsRepository, consoleErrorLogsRepositor
     };
   }
 
+  async function getServerError(user, errorIdValue) {
+    await requirePermission(user, SERVER_ERRORS_READ_PERMISSION);
+    const errorId = normalizeErrorEntryId(errorIdValue);
+    const entry = await consoleErrorLogsRepository.getServerErrorById(errorId);
+    if (!entry) {
+      throw new AppError(404, "Server error entry not found.");
+    }
+
+    return { entry };
+  }
+
   async function recordBrowserError({ payload, user }) {
     const normalizedPayload = normalizeBrowserPayload(payload, user);
     return consoleErrorLogsRepository.insertBrowserError(normalizedPayload);
@@ -205,19 +269,53 @@ function createService({ consoleMembershipsRepository, consoleErrorLogsRepositor
     return consoleErrorLogsRepository.insertServerError(normalizedPayload);
   }
 
+  async function simulateServerError({ user, payload }) {
+    await requirePermission(user, SERVER_ERRORS_READ_PERMISSION);
+    const kind = normalizeSimulationKind(payload?.kind);
+    const simulationId = createSimulationId();
+    const marker = `[simulated-server-error:${simulationId}]`;
+
+    if (kind === "app_error") {
+      throw new AppError(500, `${marker} Simulated AppError failure.`, {
+        details: {
+          simulationId,
+          kind,
+          trigger: "console_server_errors_screen"
+        }
+      });
+    }
+
+    if (kind === "type_error") {
+      const nil = null;
+      nil.invoke();
+    }
+
+    if (kind === "range_error") {
+      throw new RangeError(`${marker} Simulated RangeError failure.`);
+    }
+
+    await Promise.reject(new Error(`${marker} Simulated async rejection failure.`));
+  }
+
   return {
     listBrowserErrors,
+    getBrowserError,
     listServerErrors,
+    getServerError,
     recordBrowserError,
-    recordServerError
+    recordServerError,
+    simulateServerError
   };
 }
 
 export {
   BROWSER_ERRORS_READ_PERMISSION,
   SERVER_ERRORS_READ_PERMISSION,
+  SERVER_SIMULATION_KINDS,
   normalizePagination,
+  normalizeErrorEntryId,
   normalizeBrowserPayload,
   normalizeServerPayload,
+  normalizeSimulationKind,
   createService
 };

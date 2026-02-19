@@ -21,6 +21,23 @@ function buildRoutes(controllers, { missingHandler }) {
       handler: controllers.consoleErrors?.listBrowserErrors || missingHandler
     },
     {
+      path: "/api/console/errors/browser/:errorId",
+      method: "GET",
+      auth: "required",
+      schema: {
+        tags: ["console-errors"],
+        summary: "Get browser error log entry by id",
+        params: schema.params,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.browserErrorSingle
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.consoleErrors?.getBrowserError || missingHandler
+    },
+    {
       path: "/api/console/errors/server",
       method: "GET",
       auth: "required",
@@ -36,6 +53,23 @@ function buildRoutes(controllers, { missingHandler }) {
         )
       },
       handler: controllers.consoleErrors?.listServerErrors || missingHandler
+    },
+    {
+      path: "/api/console/errors/server/:errorId",
+      method: "GET",
+      auth: "required",
+      schema: {
+        tags: ["console-errors"],
+        summary: "Get server error log entry by id",
+        params: schema.params,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.serverErrorSingle
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.consoleErrors?.getServerError || missingHandler
     },
     {
       path: "/api/console/errors/browser",
@@ -58,6 +92,27 @@ function buildRoutes(controllers, { missingHandler }) {
         timeWindow: "1 minute"
       },
       handler: controllers.consoleErrors?.recordBrowserError || missingHandler
+    },
+    {
+      path: "/api/console/simulate/server-error",
+      method: "POST",
+      auth: "required",
+      schema: {
+        tags: ["console-errors"],
+        summary: "Simulate a server error for diagnostics",
+        body: schema.body.simulateServerError,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.simulateServerError
+          },
+          { includeValidation400: true }
+        )
+      },
+      rateLimit: {
+        max: 30,
+        timeWindow: "1 minute"
+      },
+      handler: controllers.consoleErrors?.simulateServerError || missingHandler
     }
   ];
 }

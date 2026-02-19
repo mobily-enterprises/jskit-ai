@@ -139,7 +139,13 @@ describe("routerGuards.console", () => {
     await expect(deniedGuards.beforeLoadBrowserErrors()).rejects.toMatchObject({
       options: { to: "/console" }
     });
+    await expect(deniedGuards.beforeLoadBrowserErrorDetails()).rejects.toMatchObject({
+      options: { to: "/console" }
+    });
     await expect(deniedGuards.beforeLoadServerErrors()).rejects.toMatchObject({
+      options: { to: "/console" }
+    });
+    await expect(deniedGuards.beforeLoadServerErrorDetails()).rejects.toMatchObject({
       options: { to: "/console" }
     });
 
@@ -156,6 +162,8 @@ describe("routerGuards.console", () => {
     );
 
     await expect(allowedGuards.beforeLoadBrowserErrors()).resolves.toBeUndefined();
+    await expect(allowedGuards.beforeLoadBrowserErrorDetails()).resolves.toBeUndefined();
     await expect(allowedGuards.beforeLoadServerErrors()).resolves.toBeUndefined();
+    await expect(allowedGuards.beforeLoadServerErrorDetails()).resolves.toBeUndefined();
   });
 });

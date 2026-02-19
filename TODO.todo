@@ -18,18 +18,28 @@ X Final check to the code, still from a distance
 X IMPORTANT: Diminish boilerplate as much as possible for new CRUDs
 X Decide what to do for "server health" app, which stands outside of it all. Maybe new surface point?
 X Log server errors and client errors
-- Final check: app usability and bugs
-- Add final rails, practices, post checks
 
+STEP 1:
 - Add email system (SMTP?, Amazon?)
 - Add SMS system (PLIVIO?)
 - Add websocket infrastructure with realtime updates
+
+STEP 2:
+- Final check: app usability and bugs, improvements
+- Add final rails, practices, post checks
+
+STEP 3:
 - AI integration (actions abstraction etc.)
+
+STEP 4:
 - CI policy gate: fail build when any `workspaceSurface: "admin"` route lacks `permission` (explicit allowlist for exceptions)
-- One (or more) of the "extra" stuff in the admin interface
+- One (or zero, or more) of the "extra" stuff in the admin interface
+
+STEP 5:
 - FINAL CODE CHECK, write onboarding document, go through it carefully
 
-Extra:
+
+Extras list:
 - Operational hygiene (structured logging, tracing, health checks, alerts)
 - Security controls (rate limits, audit trails, rotation, dependency scans, pentests)
 - Data handling (validation, encryption, retention/purge policies, backups)

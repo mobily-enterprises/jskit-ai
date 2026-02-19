@@ -7,6 +7,8 @@ function createFixture({ membership } = {}) {
   const calls = {
     listBrowserErrors: [],
     listServerErrors: [],
+    getBrowserErrorById: [],
+    getServerErrorById: [],
     insertBrowserError: [],
     insertServerError: []
   };
@@ -32,6 +34,17 @@ function createFixture({ membership } = {}) {
           }
         ];
       },
+      async getBrowserErrorById(errorId) {
+        calls.getBrowserErrorById.push(errorId);
+        if (Number(errorId) === 9999) {
+          return null;
+        }
+
+        return {
+          id: Number(errorId),
+          message: "browser detail"
+        };
+      },
       async countServerErrors() {
         return 3;
       },
@@ -45,6 +58,17 @@ function createFixture({ membership } = {}) {
             message: "server"
           }
         ];
+      },
+      async getServerErrorById(errorId) {
+        calls.getServerErrorById.push(errorId);
+        if (Number(errorId) === 9999) {
+          return null;
+        }
+
+        return {
+          id: Number(errorId),
+          message: "server detail"
+        };
       },
       async insertBrowserError(payload) {
         calls.insertBrowserError.push(payload);
@@ -125,6 +149,69 @@ test("console errors service enforces role permissions for reads", async () => {
       return true;
     }
   );
+
+  await assert.rejects(
+    () => fixture.service.getBrowserError({ id: 11, email: "mod@example.com" }, 5),
+    (error) => {
+      assert.equal(error.status, 403);
+      return true;
+    }
+  );
+
+  await assert.rejects(
+    () => fixture.service.getServerError({ id: 11, email: "mod@example.com" }, 7),
+    (error) => {
+      assert.equal(error.status, 403);
+      return true;
+    }
+  );
+});
+
+test("console errors service gets browser and server entries by id", async () => {
+  const fixture = createFixture({
+    membership: {
+      userId: 17,
+      roleId: "devop",
+      status: "active"
+    }
+  });
+
+  const browser = await fixture.service.getBrowserError({ id: 17, email: "devop@example.com" }, "123");
+  assert.equal(browser.entry.id, 123);
+  assert.equal(browser.entry.message, "browser detail");
+
+  const server = await fixture.service.getServerError({ id: 17, email: "devop@example.com" }, "321");
+  assert.equal(server.entry.id, 321);
+  assert.equal(server.entry.message, "server detail");
+
+  assert.deepEqual(fixture.calls.getBrowserErrorById, [123]);
+  assert.deepEqual(fixture.calls.getServerErrorById, [321]);
+});
+
+test("console errors service returns validation and not-found errors for detail lookups", async () => {
+  const fixture = createFixture({
+    membership: {
+      userId: 18,
+      roleId: "devop",
+      status: "active"
+    }
+  });
+
+  await assert.rejects(
+    () => fixture.service.getBrowserError({ id: 18, email: "devop@example.com" }, "invalid"),
+    (error) => {
+      assert.equal(error.status, 400);
+      return true;
+    }
+  );
+
+  await assert.rejects(
+    () => fixture.service.getServerError({ id: 18, email: "devop@example.com" }, 9999),
+    (error) => {
+      assert.equal(error.status, 404);
+      return true;
+    }
+  );
 });
 
 test("console errors service records normalized browser and server payloads", async () => {
@@ -174,4 +261,72 @@ test("console errors service records normalized browser and server payloads", as
   assert.equal(fixture.calls.insertServerError.length, 1);
   assert.equal(fixture.calls.insertServerError[0].statusCode, 502);
   assert.equal(fixture.calls.insertServerError[0].path, "/api/demo");
+});
+
+test("console errors service simulates different server-side failure types", async () => {
+  const fixture = createFixture({
+    membership: {
+      userId: 2,
+      roleId: "devop",
+      status: "active"
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      fixture.service.simulateServerError({
+        user: { id: 2, email: "devop@example.com" },
+        payload: { kind: "app_error" }
+      }),
+    (error) => {
+      assert.equal(error.status, 500);
+      return true;
+    }
+  );
+
+  await assert.rejects(
+    () =>
+      fixture.service.simulateServerError({
+        user: { id: 2, email: "devop@example.com" },
+        payload: { kind: "type_error" }
+      }),
+    (error) => {
+      assert.equal(error instanceof TypeError, true);
+      return true;
+    }
+  );
+
+  await assert.rejects(
+    () =>
+      fixture.service.simulateServerError({
+        user: { id: 2, email: "devop@example.com" },
+        payload: { kind: "range_error" }
+      }),
+    (error) => {
+      assert.equal(error instanceof RangeError, true);
+      return true;
+    }
+  );
+});
+
+test("console errors service rejects unsupported server simulation kinds", async () => {
+  const fixture = createFixture({
+    membership: {
+      userId: 3,
+      roleId: "devop",
+      status: "active"
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      fixture.service.simulateServerError({
+        user: { id: 3, email: "devop@example.com" },
+        payload: { kind: "unknown_kind" }
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      return true;
+    }
+  );
 });

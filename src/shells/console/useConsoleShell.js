@@ -35,7 +35,7 @@ export function useConsoleShell() {
     display
   });
   const { isMobile, isDesktopPermanentDrawer, isDesktopCollapsible, drawerModel } = shellState;
-  const { toggleDrawer, isCurrentPath, goToNavigationItem } = shellActions;
+  const { toggleDrawer, goToNavigationItem } = shellActions;
 
   const canViewMembers = computed(() => consoleStore.can("console.members.view") && consoleStore.hasAccess);
   const canViewBrowserErrors = computed(
@@ -65,11 +65,17 @@ export function useConsoleShell() {
   });
 
   const destinationTitle = computed(() => {
-    if (currentPath.value.endsWith("/errors/browser")) {
+    if (
+      currentPath.value.endsWith("/errors/browser") ||
+      currentPath.value.includes("/errors/browser/")
+    ) {
       return "Browser errors";
     }
 
-    if (currentPath.value.endsWith("/errors/server")) {
+    if (
+      currentPath.value.endsWith("/errors/server") ||
+      currentPath.value.includes("/errors/server/")
+    ) {
       return "Server errors";
     }
 
@@ -79,6 +85,23 @@ export function useConsoleShell() {
 
     return "Console";
   });
+
+  function isNavigationItemActive(path) {
+    const targetPath = String(path || "").trim();
+    if (!targetPath) {
+      return false;
+    }
+
+    if (currentPath.value === targetPath) {
+      return true;
+    }
+
+    if (targetPath === surfacePaths.value.rootPath) {
+      return false;
+    }
+
+    return currentPath.value.startsWith(`${targetPath}/`);
+  }
 
   const userDisplayName = computed(() => String(authStore.username || "Account").trim());
 
@@ -129,7 +152,7 @@ export function useConsoleShell() {
     },
     actions: {
       toggleDrawer,
-      isCurrentPath,
+      isNavigationItemActive,
       goToNavigationItem,
       goToAccountSettings,
       signOut

@@ -292,8 +292,11 @@ npm run docs:api-contracts
 - `GET /api/console/invitations/pending`
 - `POST /api/console/invitations/redeem`
 - `GET /api/console/errors/browser`
+- `GET /api/console/errors/browser/:errorId`
 - `GET /api/console/errors/server`
+- `GET /api/console/errors/server/:errorId`
 - `POST /api/console/errors/browser`
+- `POST /api/console/simulate/server-error`
 - `GET /api/workspace/projects`
 - `GET /api/workspace/projects/:projectId`
 - `POST /api/workspace/projects`

@@ -9,7 +9,13 @@ const ConsoleHomeView = lazyRouteComponent(() => import("../views/console/Consol
 const ConsoleMembersView = lazyRouteComponent(() => import("../views/console/ConsoleMembersView.vue"));
 const ConsoleInvitationsView = lazyRouteComponent(() => import("../views/console/ConsoleInvitationsView.vue"));
 const ConsoleBrowserErrorsView = lazyRouteComponent(() => import("../views/console/ConsoleBrowserErrorsView.vue"));
+const ConsoleBrowserErrorDetailView = lazyRouteComponent(
+  () => import("../views/console/ConsoleBrowserErrorDetailView.vue")
+);
 const ConsoleServerErrorsView = lazyRouteComponent(() => import("../views/console/ConsoleServerErrorsView.vue"));
+const ConsoleServerErrorDetailView = lazyRouteComponent(
+  () => import("../views/console/ConsoleServerErrorDetailView.vue")
+);
 /* v8 ignore stop */
 /* c8 ignore stop */
 
@@ -41,9 +47,21 @@ function createRoutes({ rootRoute, surfacePaths, guards }) {
     }),
     createRoute({
       getParentRoute: () => rootRoute,
+      path: `${surfacePaths.prefix}/errors/browser/$errorId`,
+      component: ConsoleBrowserErrorDetailView,
+      beforeLoad: guards.beforeLoadBrowserErrorDetails
+    }),
+    createRoute({
+      getParentRoute: () => rootRoute,
       path: `${surfacePaths.prefix}/errors/server`,
       component: ConsoleServerErrorsView,
       beforeLoad: guards.beforeLoadServerErrors
+    }),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: `${surfacePaths.prefix}/errors/server/$errorId`,
+      component: ConsoleServerErrorDetailView,
+      beforeLoad: guards.beforeLoadServerErrorDetails
     }),
     createRoute({
       getParentRoute: () => rootRoute,

@@ -14,10 +14,16 @@
           style="max-width: 120px"
           @update:model-value="actions.onPageSizeChange"
         />
+        <v-btn color="error" variant="tonal" @click="actions.simulateClientError">
+          Simulate client error ({{ meta.nextSimulationLabel }})
+        </v-btn>
         <v-btn variant="outlined" :loading="state.loading" @click="actions.load">Refresh</v-btn>
       </v-card-title>
       <v-divider />
       <v-card-text>
+        <v-alert v-if="state.simulationMessage" :type="state.simulationMessageType" variant="tonal" class="mb-3">
+          {{ state.simulationMessage }}
+        </v-alert>
         <v-alert v-if="state.error" type="error" variant="tonal" class="mb-3">
           {{ state.error }}
         </v-alert>
@@ -32,11 +38,12 @@
                 <th>Message</th>
                 <th>Location</th>
                 <th>User</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="!state.entries.length">
-                <td colspan="6" class="text-center text-medium-emphasis py-6">No browser errors captured.</td>
+                <td colspan="7" class="text-center text-medium-emphasis py-6">No browser errors captured.</td>
               </tr>
               <tr v-for="entry in state.entries" :key="entry.id">
                 <td>{{ meta.formatDateTime(entry.createdAt) }}</td>
@@ -49,6 +56,9 @@
                 </td>
                 <td>{{ meta.formatLocation(entry) }}</td>
                 <td>{{ entry.username || (entry.userId ? `#${entry.userId}` : "anonymous") }}</td>
+                <td>
+                  <v-btn size="small" variant="text" @click="actions.viewEntry(entry)">View</v-btn>
+                </td>
               </tr>
             </tbody>
           </v-table>

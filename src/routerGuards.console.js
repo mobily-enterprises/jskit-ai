@@ -209,6 +209,10 @@ function createConsoleRouteGuards(stores, options) {
     }
   }
 
+  async function beforeLoadBrowserErrorDetails() {
+    return beforeLoadBrowserErrors();
+  }
+
   async function beforeLoadServerErrors() {
     const state = await resolveConsoleRuntimeState(resolvedStores);
     if (state.sessionUnavailable) {
@@ -232,6 +236,10 @@ function createConsoleRouteGuards(stores, options) {
     }
   }
 
+  async function beforeLoadServerErrorDetails() {
+    return beforeLoadServerErrors();
+  }
+
   return {
     beforeLoadRoot,
     beforeLoadPublic,
@@ -239,7 +247,9 @@ function createConsoleRouteGuards(stores, options) {
     beforeLoadAuthenticated,
     beforeLoadMembers,
     beforeLoadBrowserErrors,
-    beforeLoadServerErrors
+    beforeLoadBrowserErrorDetails,
+    beforeLoadServerErrors,
+    beforeLoadServerErrorDetails
   };
 }
 
