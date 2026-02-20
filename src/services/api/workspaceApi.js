@@ -58,6 +58,9 @@ function createApi({ request }) {
       if (query.status) {
         params.set("status", String(query.status));
       }
+      if (query.createdByUserId != null) {
+        params.set("createdByUserId", String(query.createdByUserId));
+      }
       const queryString = params.toString();
       return request(`/api/workspace/ai/transcripts${queryString ? `?${queryString}` : ""}`);
     },

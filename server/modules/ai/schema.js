@@ -161,6 +161,8 @@ function createSchema({ maxInputChars = DEFAULT_MAX_INPUT_CHARS, maxHistoryMessa
       workspaceSlug: Type.String(),
       workspaceName: Type.String(),
       createdByUserId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+      createdByUserDisplayName: Type.String({ maxLength: 120 }),
+      createdByUserEmail: Type.String({ maxLength: 320 }),
       status: transcriptStatus,
       transcriptMode,
       provider: Type.String({ maxLength: 64 }),

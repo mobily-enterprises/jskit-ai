@@ -36,6 +36,18 @@
                 class="filters-select"
                 @update:model-value="actions.setPageSize"
               />
+              <v-select
+                :model-value="state.memberUserFilter"
+                :items="state.memberFilterOptions"
+                item-title="title"
+                item-value="value"
+                label="User"
+                density="compact"
+                variant="outlined"
+                hide-details
+                class="filters-select"
+                @update:model-value="actions.setMemberFilter"
+              />
               <v-btn variant="outlined" :loading="state.loading" @click="actions.loadConversations">Refresh</v-btn>
             </div>
 
@@ -55,8 +67,8 @@
                 </template>
                 <template #subtitle>
                   <div class="text-caption text-medium-emphasis">
-                    {{ meta.formatDateTime(entry.startedAt) }} • {{ meta.formatTranscriptMode(entry.transcriptMode) }} •
-                    {{ entry.messageCount }} messages
+                    {{ meta.formatConversationActor(entry) }} • {{ meta.formatDateTime(entry.startedAt) }} •
+                    {{ meta.formatTranscriptMode(entry.transcriptMode) }} • {{ entry.messageCount }} messages
                   </div>
                 </template>
               </v-list-item>

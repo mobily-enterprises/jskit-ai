@@ -165,6 +165,8 @@ const aiTranscriptConversation = Type.Object(
     workspaceSlug: Type.String(),
     workspaceName: Type.String(),
     createdByUserId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    createdByUserDisplayName: Type.String({ maxLength: 120 }),
+    createdByUserEmail: Type.String({ maxLength: 320 }),
     status: transcriptStatus,
     transcriptMode,
     provider: Type.String({ maxLength: 64 }),
@@ -276,7 +278,8 @@ const aiTranscriptsQuery = Type.Object(
     pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 200, default: 20 })),
     from: Type.Optional(Type.String({ maxLength: 64 })),
     to: Type.Optional(Type.String({ maxLength: 64 })),
-    status: Type.Optional(transcriptStatus)
+    status: Type.Optional(transcriptStatus),
+    createdByUserId: Type.Optional(Type.Integer({ minimum: 1 }))
   },
   {
     additionalProperties: false

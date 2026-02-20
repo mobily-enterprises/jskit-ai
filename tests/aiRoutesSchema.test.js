@@ -41,6 +41,8 @@ test("ai route rejects malformed request body and accepts valid payload", async 
             workspaceSlug: "acme",
             workspaceName: "Acme",
             createdByUserId: 3,
+            createdByUserDisplayName: "Alex Admin",
+            createdByUserEmail: "alex@example.com",
             status: "completed",
             transcriptMode: "standard",
             provider: "openai",

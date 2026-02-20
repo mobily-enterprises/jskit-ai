@@ -21,22 +21,16 @@ X Log server errors and client errors
 X Add email system (SMTP?, Amazon?)
 X Add SMS system (PLIVIO?)
 X Add websocket infrastructure with realtime updates
-
-- AI integration (actions abstraction etc.)
-
+X AI integration (actions abstraction etc.)
 - Payments
-
 - User chats
-
-
 - Check why pending invites don't appear
 - Create an "alerts" system so that users can see their alerts
 
-- Final check: app usability and bugs, improvements
-
 - Is this done? CI policy gate: fail build when any `workspaceSurface: "admin"` route lacks `permission` (explicit allowlist for exceptions)
-- FINAL CODE CHECK, write onboarding document, go through it carefully
 - Add final rails, practices, post checks
+
+- FINAL CODE CHECK, write onboarding document, go through it carefully
 
 
 LATER:

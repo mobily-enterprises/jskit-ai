@@ -29,4 +29,12 @@ describe("AssistantView template", () => {
     expect(source.includes("selectConversationFromPicker")).toBe(true);
     expect(source.includes("startNewConversationFromPicker")).toBe(true);
   });
+
+  it("renders admin conversation lines with actor display-name metadata and autoscroll behavior", () => {
+    const source = readAssistantViewSource();
+
+    expect(source.includes("createdByUserDisplayName")).toBe(true);
+    expect(source.includes("messagesPanelRef")).toBe(true);
+    expect(source.includes("panel.scrollTop = panel.scrollHeight")).toBe(true);
+  });
 });

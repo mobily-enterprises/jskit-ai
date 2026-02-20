@@ -40,11 +40,44 @@ function summarizeContent(value) {
   return `${text.slice(0, 280)}...`;
 }
 
+function normalizeText(value) {
+  return String(value || "").trim();
+}
+
+function normalizePositiveInteger(value, fallback = null) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+function formatConversationActor(conversation) {
+  const displayName = normalizeText(conversation?.createdByUserDisplayName);
+  if (displayName) {
+    return displayName;
+  }
+
+  const email = normalizeText(conversation?.createdByUserEmail);
+  if (email) {
+    return email;
+  }
+
+  const userId = Number(conversation?.createdByUserId);
+  if (Number.isInteger(userId) && userId > 0) {
+    return `User #${userId}`;
+  }
+
+  return "Unknown user";
+}
+
 export function useWorkspaceTranscriptsView() {
   const workspaceStore = useWorkspaceStore();
   const page = ref(1);
   const pageSize = ref(20);
   const statusFilter = ref("");
+  const memberUserFilter = ref("");
   const selectedConversationId = ref(0);
   const messagesError = ref("");
   const exportBusy = ref(false);
@@ -53,19 +86,59 @@ export function useWorkspaceTranscriptsView() {
     return String(workspaceStore.activeWorkspace?.slug || workspaceStore.activeWorkspaceSlug || "").trim();
   });
 
+  const selectedMemberUserId = computed(() => normalizePositiveInteger(memberUserFilter.value));
+
+  const membersQuery = useQuery({
+    queryKey: computed(() => ["workspace-transcripts-members", workspaceSlug.value || "none"]),
+    queryFn: () => api.workspace.listMembers(),
+    enabled: computed(() => Boolean(workspaceSlug.value)),
+    retry: false
+  });
+
+  const memberFilterOptions = computed(() => {
+    const options = [{ title: "All users", value: "" }];
+    const members = Array.isArray(membersQuery.data.value?.members) ? membersQuery.data.value.members : [];
+    for (const member of members) {
+      const userId = normalizePositiveInteger(member?.userId);
+      if (!userId) {
+        continue;
+      }
+
+      const displayName = normalizeText(member?.displayName);
+      const email = normalizeText(member?.email);
+      const title = displayName ? (email ? `${displayName} (${email})` : displayName) : email || `User #${userId}`;
+      options.push({
+        title,
+        value: String(userId)
+      });
+    }
+
+    const selectedUserId = selectedMemberUserId.value;
+    if (selectedUserId && !options.some((option) => option.value === String(selectedUserId))) {
+      options.push({
+        title: `User #${selectedUserId}`,
+        value: String(selectedUserId)
+      });
+    }
+
+    return options;
+  });
+
   const conversationsQuery = useQuery({
     queryKey: computed(() =>
       workspaceAiTranscriptsListQueryKey(workspaceSlug.value, {
         page: page.value,
         pageSize: pageSize.value,
-        status: statusFilter.value
+        status: statusFilter.value,
+        createdByUserId: selectedMemberUserId.value
       })
     ),
     queryFn: () =>
       api.workspace.listAiTranscripts({
         page: page.value,
         pageSize: pageSize.value,
-        status: statusFilter.value || undefined
+        status: statusFilter.value || undefined,
+        createdByUserId: selectedMemberUserId.value || undefined
       }),
     enabled: computed(() => Boolean(workspaceSlug.value))
   });
@@ -78,6 +151,14 @@ export function useWorkspaceTranscriptsView() {
   const totalPages = computed(() => Math.max(1, Number(conversationsQuery.data.value?.totalPages || 1)));
   const loading = computed(() => conversationsQuery.isFetching.value);
   const error = computed(() => String(conversationsQuery.error.value?.message || ""));
+
+  watch(
+    workspaceSlug,
+    () => {
+      page.value = 1;
+      memberUserFilter.value = "";
+    }
+  );
 
   watch(
     () => conversationsQuery.data.value,
@@ -241,6 +322,12 @@ export function useWorkspaceTranscriptsView() {
     page.value = 1;
   }
 
+  async function setMemberFilter(nextUserId) {
+    const normalizedUserId = normalizePositiveInteger(nextUserId);
+    memberUserFilter.value = normalizedUserId ? String(normalizedUserId) : "";
+    page.value = 1;
+  }
+
   return {
     meta: {
       pageSizeOptions: [20, 50, 100],
@@ -253,7 +340,8 @@ export function useWorkspaceTranscriptsView() {
       ],
       formatDateTime,
       formatTranscriptMode,
-      summarizeContent
+      summarizeContent,
+      formatConversationActor
     },
     state: reactive({
       entries,
@@ -264,6 +352,8 @@ export function useWorkspaceTranscriptsView() {
       total,
       totalPages,
       statusFilter,
+      memberUserFilter,
+      memberFilterOptions,
       selectedConversation,
       messages,
       messagesLoading,
@@ -277,7 +367,8 @@ export function useWorkspaceTranscriptsView() {
       goPreviousPage,
       goNextPage,
       setPageSize,
-      setStatusFilter
+      setStatusFilter,
+      setMemberFilter
     }
   };
 }

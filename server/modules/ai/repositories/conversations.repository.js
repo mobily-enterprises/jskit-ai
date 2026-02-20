@@ -50,6 +50,8 @@ function mapConversationRowRequired(row) {
     workspaceSlug: String(row.workspace_slug || ""),
     workspaceName: String(row.workspace_name || ""),
     createdByUserId: row.created_by_user_id == null ? null : Number(row.created_by_user_id),
+    createdByUserDisplayName: String(row.created_by_user_display_name || ""),
+    createdByUserEmail: String(row.created_by_user_email || ""),
     status: String(row.status || ""),
     transcriptMode: String(row.transcript_mode || "standard"),
     provider: String(row.provider || ""),
@@ -134,10 +136,13 @@ function createConversationsRepository(dbClient) {
 
     const row = await client("ai_conversations as c")
       .leftJoin("workspaces as w", "w.id", "c.workspace_id")
+      .leftJoin("user_profiles as creator", "creator.id", "c.created_by_user_id")
       .select(
         "c.*",
         client.raw("COALESCE(w.slug, '') AS workspace_slug"),
-        client.raw("COALESCE(w.name, '') AS workspace_name")
+        client.raw("COALESCE(w.name, '') AS workspace_name"),
+        client.raw("COALESCE(creator.display_name, '') AS created_by_user_display_name"),
+        client.raw("COALESCE(creator.email, '') AS created_by_user_email")
       )
       .where("c.id", numericConversationId)
       .first();
@@ -155,10 +160,13 @@ function createConversationsRepository(dbClient) {
 
     const row = await client("ai_conversations as c")
       .leftJoin("workspaces as w", "w.id", "c.workspace_id")
+      .leftJoin("user_profiles as creator", "creator.id", "c.created_by_user_id")
       .select(
         "c.*",
         client.raw("COALESCE(w.slug, '') AS workspace_slug"),
-        client.raw("COALESCE(w.name, '') AS workspace_name")
+        client.raw("COALESCE(w.name, '') AS workspace_name"),
+        client.raw("COALESCE(creator.display_name, '') AS created_by_user_display_name"),
+        client.raw("COALESCE(creator.email, '') AS created_by_user_email")
       )
       .where("c.id", numericConversationId)
       .where("c.workspace_id", numericWorkspaceId)
@@ -178,10 +186,13 @@ function createConversationsRepository(dbClient) {
 
     const row = await client("ai_conversations as c")
       .leftJoin("workspaces as w", "w.id", "c.workspace_id")
+      .leftJoin("user_profiles as creator", "creator.id", "c.created_by_user_id")
       .select(
         "c.*",
         client.raw("COALESCE(w.slug, '') AS workspace_slug"),
-        client.raw("COALESCE(w.name, '') AS workspace_name")
+        client.raw("COALESCE(w.name, '') AS workspace_name"),
+        client.raw("COALESCE(creator.display_name, '') AS created_by_user_display_name"),
+        client.raw("COALESCE(creator.email, '') AS created_by_user_email")
       )
       .where("c.id", numericConversationId)
       .where("c.workspace_id", numericWorkspaceId)
@@ -258,10 +269,13 @@ function createConversationsRepository(dbClient) {
 
     let query = client("ai_conversations as c")
       .leftJoin("workspaces as w", "w.id", "c.workspace_id")
+      .leftJoin("user_profiles as creator", "creator.id", "c.created_by_user_id")
       .select(
         "c.*",
         client.raw("COALESCE(w.slug, '') AS workspace_slug"),
-        client.raw("COALESCE(w.name, '') AS workspace_name")
+        client.raw("COALESCE(w.name, '') AS workspace_name"),
+        client.raw("COALESCE(creator.display_name, '') AS created_by_user_display_name"),
+        client.raw("COALESCE(creator.email, '') AS created_by_user_email")
       );
 
     query = applyListFilters(query, filters)

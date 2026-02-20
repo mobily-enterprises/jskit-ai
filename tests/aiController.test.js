@@ -225,6 +225,9 @@ test("ai controller lists assistant conversations for current user", async () =>
       }
     },
     aiTranscriptsService: {
+      async listWorkspaceConversations() {
+        throw new Error("not used");
+      },
       async listWorkspaceConversationsForUser(workspace, user, query) {
         assert.equal(workspace.id, 11);
         assert.equal(user.id, 7);
@@ -236,6 +239,9 @@ test("ai controller lists assistant conversations for current user", async () =>
           total: 1,
           totalPages: 1
         };
+      },
+      async getWorkspaceConversationMessages() {
+        throw new Error("not used");
       },
       async getWorkspaceConversationMessagesForUser() {
         throw new Error("not used");
@@ -264,6 +270,63 @@ test("ai controller lists assistant conversations for current user", async () =>
   });
 });
 
+test("ai controller lists workspace-wide conversations in admin surface when transcript permission is present", async () => {
+  const controller = createAiController({
+    aiService: {
+      async streamChatTurn() {},
+      isEnabled() {
+        return true;
+      }
+    },
+    aiTranscriptsService: {
+      async listWorkspaceConversations(workspace, query) {
+        assert.equal(workspace.id, 11);
+        assert.equal(query.pageSize, "50");
+        return {
+          entries: [{ id: 99, createdByUserDisplayName: "Alex Admin" }],
+          page: 1,
+          pageSize: 50,
+          total: 1,
+          totalPages: 1
+        };
+      },
+      async listWorkspaceConversationsForUser() {
+        throw new Error("not used");
+      },
+      async getWorkspaceConversationMessages() {
+        throw new Error("not used");
+      },
+      async getWorkspaceConversationMessagesForUser() {
+        throw new Error("not used");
+      }
+    }
+  });
+
+  const request = createRequestDouble({
+    workspace: { id: 11 },
+    user: { id: 7 },
+    headers: {
+      "x-surface-id": "admin"
+    },
+    permissions: ["workspace.ai.transcripts.read"],
+    query: {
+      pageSize: "50"
+    }
+  });
+  const reply = createReplyDouble();
+
+  await controller.listConversations(request, reply);
+
+  assert.equal(reply.statusCode, 200);
+  assert.deepEqual(reply.payload, {
+    entries: [{ id: 99, createdByUserDisplayName: "Alex Admin" }],
+    page: 1,
+    pageSize: 50,
+    total: 1,
+    totalPages: 1
+  });
+});
+
 test("ai controller loads messages for one assistant conversation", async () => {
   const controller = createAiController({
     aiService: {
@@ -273,7 +336,13 @@ test("ai controller loads messages for one assistant conversation", async () => 
       }
     },
     aiTranscriptsService: {
+      async listWorkspaceConversations() {
+        throw new Error("not used");
+      },
       async listWorkspaceConversationsForUser() {
+        throw new Error("not used");
+      },
+      async getWorkspaceConversationMessages() {
         throw new Error("not used");
       },
       async getWorkspaceConversationMessagesForUser(workspace, user, conversationId, query) {
@@ -314,6 +383,69 @@ test("ai controller loads messages for one assistant conversation", async () => 
     page: 1,
     pageSize: 100,
     total: 0,
+    totalPages: 1
+  });
+});
+
+test("ai controller loads workspace-wide conversation messages in admin surface with transcript permission", async () => {
+  const controller = createAiController({
+    aiService: {
+      async streamChatTurn() {},
+      isEnabled() {
+        return true;
+      }
+    },
+    aiTranscriptsService: {
+      async listWorkspaceConversations() {
+        throw new Error("not used");
+      },
+      async listWorkspaceConversationsForUser() {
+        throw new Error("not used");
+      },
+      async getWorkspaceConversationMessages(workspace, conversationId, query) {
+        assert.equal(workspace.id, 11);
+        assert.equal(conversationId, "200");
+        assert.equal(query.page, "1");
+        return {
+          conversation: { id: 200 },
+          entries: [{ id: 1 }],
+          page: 1,
+          pageSize: 500,
+          total: 1,
+          totalPages: 1
+        };
+      },
+      async getWorkspaceConversationMessagesForUser() {
+        throw new Error("not used");
+      }
+    }
+  });
+
+  const request = createRequestDouble({
+    workspace: { id: 11 },
+    user: { id: 7 },
+    headers: {
+      "x-surface-id": "admin"
+    },
+    permissions: ["workspace.ai.transcripts.read"],
+    params: {
+      conversationId: "200"
+    },
+    query: {
+      page: "1"
+    }
+  });
+  const reply = createReplyDouble();
+
+  await controller.getConversationMessages(request, reply);
+
+  assert.equal(reply.statusCode, 200);
+  assert.deepEqual(reply.payload, {
+    conversation: { id: 200 },
+    entries: [{ id: 1 }],
+    page: 1,
+    pageSize: 500,
+    total: 1,
     totalPages: 1
   });
 });

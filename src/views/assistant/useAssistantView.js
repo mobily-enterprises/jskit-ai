@@ -2,6 +2,7 @@ import { computed, ref } from "vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { api } from "../../services/api/index.js";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
+import { resolveSurfaceFromPathname } from "../../../shared/routing/surfacePaths.js";
 import {
   assistantConversationMessagesQueryKey,
   assistantConversationsListQueryKey,
@@ -39,6 +40,14 @@ function normalizeDateTime(value) {
   }
 
   return date.toLocaleString();
+}
+
+function resolveCurrentSurfaceId() {
+  if (typeof window !== "undefined" && window?.location?.pathname) {
+    return resolveSurfaceFromPathname(String(window.location.pathname));
+  }
+
+  return "app";
 }
 
 function normalizeConversationStatus(value) {
@@ -240,6 +249,7 @@ export function useAssistantView() {
   const pendingToolEvents = ref([]);
   const abortController = ref(null);
   const conversationId = ref(null);
+  const currentSurfaceId = ref(resolveCurrentSurfaceId());
 
   const workspaceSlug = computed(() => {
     return String(workspaceStore.activeWorkspace?.slug || workspaceStore.activeWorkspaceSlug || "").trim();
@@ -280,6 +290,7 @@ export function useAssistantView() {
   const conversationHistoryLoading = computed(() => conversationHistoryQuery.isFetching.value);
   const conversationHistoryError = computed(() => String(conversationHistoryQuery.error.value?.message || ""));
   const activeConversationId = computed(() => normalizeText(conversationId.value));
+  const isAdminSurface = computed(() => currentSurfaceId.value === "admin");
   const canSend = computed(
     () => !isStreaming.value && !isRestoringConversation.value && normalizeText(input.value).length > 0
   );
@@ -647,6 +658,8 @@ export function useAssistantView() {
       conversationHistory,
       conversationHistoryLoading,
       conversationHistoryError,
+      currentSurfaceId,
+      isAdminSurface,
       canSend,
       canStartNewConversation
     },

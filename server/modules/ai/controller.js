@@ -1,4 +1,5 @@
 import { AppError } from "../../lib/errors.js";
+import { hasPermission } from "../../lib/rbacManifest.js";
 import { endNdjson, safeStreamError, setNdjsonHeaders, writeNdjson } from "./stream/ndjson.js";
 
 function buildPreStreamErrorPayload(error) {
@@ -56,9 +57,21 @@ function createController({ aiService, aiTranscriptsService = null }) {
   }
   if (
     aiTranscriptsService &&
+    typeof aiTranscriptsService.listWorkspaceConversations !== "function"
+  ) {
+    throw new Error("aiTranscriptsService.listWorkspaceConversations is required when provided.");
+  }
+  if (
+    aiTranscriptsService &&
     typeof aiTranscriptsService.listWorkspaceConversationsForUser !== "function"
   ) {
     throw new Error("aiTranscriptsService.listWorkspaceConversationsForUser is required when provided.");
+  }
+  if (
+    aiTranscriptsService &&
+    typeof aiTranscriptsService.getWorkspaceConversationMessages !== "function"
+  ) {
+    throw new Error("aiTranscriptsService.getWorkspaceConversationMessages is required when provided.");
   }
   if (
     aiTranscriptsService &&
@@ -71,6 +84,18 @@ function createController({ aiService, aiTranscriptsService = null }) {
     if (!aiTranscriptsService) {
       throw new AppError(501, "AI transcripts service is not available.");
     }
+  }
+
+  function isAdminWorkspaceTranscriptViewAllowed(request) {
+    const surfaceId = String(request?.headers?.["x-surface-id"] || "")
+      .trim()
+      .toLowerCase();
+    if (surfaceId !== "admin") {
+      return false;
+    }
+
+    const permissions = Array.isArray(request?.permissions) ? request.permissions : [];
+    return hasPermission(permissions, "workspace.ai.transcripts.read");
   }
 
   async function chatStream(request, reply) {
@@ -179,7 +204,9 @@ function createController({ aiService, aiTranscriptsService = null }) {
   async function listConversations(request, reply) {
     ensureAiTranscriptsService();
     const query = request.query || {};
-    const response = await aiTranscriptsService.listWorkspaceConversationsForUser(request.workspace, request.user, query);
+    const response = isAdminWorkspaceTranscriptViewAllowed(request)
+      ? await aiTranscriptsService.listWorkspaceConversations(request.workspace, query)
+      : await aiTranscriptsService.listWorkspaceConversationsForUser(request.workspace, request.user, query);
     reply.code(200).send(response);
   }
 
@@ -187,12 +214,14 @@ function createController({ aiService, aiTranscriptsService = null }) {
     ensureAiTranscriptsService();
     const query = request.query || {};
     const params = request.params || {};
-    const response = await aiTranscriptsService.getWorkspaceConversationMessagesForUser(
-      request.workspace,
-      request.user,
-      params.conversationId,
-      query
-    );
+    const response = isAdminWorkspaceTranscriptViewAllowed(request)
+      ? await aiTranscriptsService.getWorkspaceConversationMessages(request.workspace, params.conversationId, query)
+      : await aiTranscriptsService.getWorkspaceConversationMessagesForUser(
+          request.workspace,
+          request.user,
+          params.conversationId,
+          query
+        );
     reply.code(200).send(response);
   }
 

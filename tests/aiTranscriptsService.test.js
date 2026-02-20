@@ -197,6 +197,37 @@ test("ai transcripts service lists workspace conversations scoped to current own
   assert.equal(calls.listPagination[0].pageSize, 25);
 });
 
+test("ai transcripts service applies optional createdByUserId filter for workspace-wide transcript list", async () => {
+  const { service, calls } = createDependencies({
+    conversationsRepository: {
+      async count(filters) {
+        calls.countFilters.push(filters);
+        return 0;
+      },
+      async list(filters, pagination) {
+        calls.listFilters.push(filters);
+        calls.listPagination.push(pagination);
+        return [];
+      }
+    }
+  });
+
+  const response = await service.listWorkspaceConversations(
+    { id: 11 },
+    {
+      page: 1,
+      pageSize: 20,
+      createdByUserId: "42"
+    }
+  );
+
+  assert.equal(response.total, 0);
+  assert.equal(calls.countFilters[0].workspaceId, 11);
+  assert.equal(calls.countFilters[0].createdByUserId, 42);
+  assert.equal(calls.listFilters[0].workspaceId, 11);
+  assert.equal(calls.listFilters[0].createdByUserId, 42);
+});
+
 test("ai transcripts service rejects foreign conversation id for user-scoped messages endpoint", async () => {
   const { service, calls } = createDependencies({
     conversationsRepository: {

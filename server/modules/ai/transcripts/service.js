@@ -387,6 +387,7 @@ function createService({
     const pagination = normalizePagination(query);
     const filters = {
       workspaceId,
+      createdByUserId: parsePositiveInteger(query.createdByUserId),
       status: query.status,
       from: normalizeDateInput(query.from),
       to: normalizeDateInput(query.to)

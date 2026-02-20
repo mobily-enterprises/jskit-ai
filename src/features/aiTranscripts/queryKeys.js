@@ -20,6 +20,11 @@ function normalizeStatus(value) {
   return normalized || "all";
 }
 
+function normalizeActorUserFilter(value) {
+  const normalized = normalizePositiveInteger(value, 0);
+  return normalized > 0 ? String(normalized) : "all";
+}
+
 function normalizeConversationId(value) {
   return String(normalizePositiveInteger(value, 0) || "none");
 }
@@ -32,13 +37,17 @@ function workspaceAiTranscriptsScopeQueryKey(workspaceSlug) {
   return [...workspaceAiTranscriptsRootQueryKey(), normalizeWorkspaceSlug(workspaceSlug)];
 }
 
-function workspaceAiTranscriptsListQueryKey(workspaceSlug, { page = 1, pageSize = 20, status = "" } = {}) {
+function workspaceAiTranscriptsListQueryKey(
+  workspaceSlug,
+  { page = 1, pageSize = 20, status = "", createdByUserId = null } = {}
+) {
   return [
     ...workspaceAiTranscriptsScopeQueryKey(workspaceSlug),
     "list",
     normalizePositiveInteger(page, 1),
     normalizePositiveInteger(pageSize, 20),
-    normalizeStatus(status)
+    normalizeStatus(status),
+    normalizeActorUserFilter(createdByUserId)
   ];
 }
 

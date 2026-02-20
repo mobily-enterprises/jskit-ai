@@ -326,7 +326,8 @@ function createController({
         pageSize: parsePositiveInteger(query.pageSize) || 20,
         from: normalizeText(query.from),
         to: normalizeText(query.to),
-        status: normalizeText(query.status).toLowerCase()
+        status: normalizeText(query.status).toLowerCase(),
+        createdByUserId: parsePositiveInteger(query.createdByUserId) || null
       }),
       onSuccess: (context) => ({
         metadata: {
