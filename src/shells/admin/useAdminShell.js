@@ -83,10 +83,7 @@ export function useAdminShell() {
   );
 
   const navigationItems = computed(() => {
-    const items = [
-      { title: "Choice 1", to: workspacePath("/"), icon: "$navChoice1" },
-      { title: "Projects", to: workspacePath("/projects"), icon: "$navChoice2" }
-    ];
+    const items = [{ title: "Projects", to: workspacePath("/projects"), icon: "$navChoice2" }];
 
     if (canUseAssistant.value) {
       items.push({ title: "Assistant", to: workspacePath("/assistant"), icon: "$navChoice2" });

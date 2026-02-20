@@ -11,7 +11,7 @@ const WorkspacesView = lazyRouteComponent(() => import("../views/workspaces/Work
 /* v8 ignore stop */
 /* c8 ignore stop */
 
-function createRoutes({ rootRoute, surfacePaths, workspaceRoutePrefix, guards }) {
+function createRoutes({ rootRoute, surfacePaths, workspaceRoutePrefix, guards, includeChoiceTwoRoute = true }) {
   const rootRedirectRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: surfacePaths.rootPath,
@@ -46,12 +46,14 @@ function createRoutes({ rootRoute, surfacePaths, workspaceRoutePrefix, guards })
     beforeLoad: guards.beforeLoadWorkspaceRequired
   });
 
-  const choiceTwoRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: `${workspaceRoutePrefix}/choice-2`,
-    component: ChoiceTwoView,
-    beforeLoad: guards.beforeLoadWorkspaceRequired
-  });
+  const choiceTwoRoute = includeChoiceTwoRoute
+    ? createRoute({
+        getParentRoute: () => rootRoute,
+        path: `${workspaceRoutePrefix}/choice-2`,
+        component: ChoiceTwoView,
+        beforeLoad: guards.beforeLoadWorkspaceRequired
+      })
+    : null;
 
   const accountSettingsRoute = createRoute({
     getParentRoute: () => rootRoute,
@@ -63,7 +65,7 @@ function createRoutes({ rootRoute, surfacePaths, workspaceRoutePrefix, guards })
   return [
     rootRedirectRoute,
     calculatorRoute,
-    choiceTwoRoute,
+    ...(choiceTwoRoute ? [choiceTwoRoute] : []),
     accountSettingsRoute,
     workspacesRoute,
     loginRoute,

@@ -78,8 +78,7 @@ export function useAppShell() {
 
   const navigationItems = computed(() => {
     const items = [
-      { title: "Choice 1", to: workspacePath("/"), icon: "$navChoice1" },
-      { title: "Choice 2", to: workspacePath("/choice-2"), icon: "$navChoice2" }
+      { title: "Annuities", to: workspacePath("/"), icon: "$navChoice1" }
     ];
 
     if (canUseAssistant.value) {
@@ -102,11 +101,7 @@ export function useAppShell() {
     if (currentPath.value.endsWith("/assistant")) {
       return "Assistant";
     }
-
-    if (currentPath.value.endsWith("/choice-2")) {
-      return "Choice 2";
-    }
-    return "App";
+    return "Annuities";
   });
 
   const userInitials = computed(() => {

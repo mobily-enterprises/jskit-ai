@@ -12,7 +12,8 @@ function createSurfaceRouter({
   surface,
   shellComponent,
   includeWorkspaceSettings = false,
-  includeAssistantRoute = false
+  includeAssistantRoute = false,
+  includeChoiceTwoRoute = true
 }) {
   const stores = { authStore, workspaceStore };
   const surfacePaths = createSurfacePaths(surface);
@@ -32,7 +33,8 @@ function createSurfaceRouter({
     rootRoute,
     surfacePaths,
     workspaceRoutePrefix,
-    guards
+    guards,
+    includeChoiceTwoRoute
   });
 
   if (includeAssistantRoute) {

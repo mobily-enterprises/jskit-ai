@@ -173,14 +173,13 @@ describe("useAppShell", () => {
     await nextTick();
 
     expect(wrapper.vm.shell.layout.showApplicationShell.value).toBe(true);
-    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("App");
+    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Annuities");
     expect(wrapper.vm.shell.layout.activeWorkspaceColor.value).toBe("#336699");
     expect(wrapper.vm.shell.user.userInitials.value).toBe("TO");
     expect(wrapper.vm.shell.user.canOpenAdminSurface.value).toBe(true);
 
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
-      { title: "Choice 1", to: "/w/acme", icon: "$navChoice1" },
-      { title: "Choice 2", to: "/w/acme/choice-2", icon: "$navChoice2" },
+      { title: "Annuities", to: "/w/acme", icon: "$navChoice1" },
       { title: "Assistant", to: "/w/acme/assistant", icon: "$navChoice2" },
       {
         title: "Go to Admin",
@@ -201,8 +200,7 @@ describe("useAppShell", () => {
     expect(wrapper.vm.shell.layout.showApplicationShell.value).toBe(false);
     expect(wrapper.vm.shell.user.canOpenAdminSurface.value).toBe(false);
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
-      { title: "Choice 1", to: "/w/acme", icon: "$navChoice1" },
-      { title: "Choice 2", to: "/w/acme/choice-2", icon: "$navChoice2" }
+      { title: "Annuities", to: "/w/acme", icon: "$navChoice1" }
     ]);
 
     await wrapper.vm.shell.actions.goToAccountSettings();
@@ -225,8 +223,7 @@ describe("useAppShell", () => {
     await nextTick();
 
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
-      { title: "Choice 1", to: "/w/acme", icon: "$navChoice1" },
-      { title: "Choice 2", to: "/w/acme/choice-2", icon: "$navChoice2" },
+      { title: "Annuities", to: "/w/acme", icon: "$navChoice1" },
       {
         title: "Go to Admin",
         to: "/admin/w/acme/settings",
@@ -272,15 +269,15 @@ describe("useAppShell", () => {
     });
   });
 
-  it("derives choice-two title and user display fallback", async () => {
-    mocks.routerPathname = "/w/acme/choice-2";
+  it("derives annuities title and user display fallback", async () => {
+    mocks.routerPathname = "/w/acme";
     mocks.workspaceStore.profileDisplayName = "";
     mocks.authStore.username = "alex";
 
     const wrapper = mountHarness();
     await nextTick();
 
-    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Choice 2");
+    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Annuities");
     expect(wrapper.vm.shell.user.userDisplayName.value).toBe("alex");
     expect(wrapper.vm.shell.user.userInitials.value).toBe("AL");
   });
