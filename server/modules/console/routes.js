@@ -30,6 +30,36 @@ function buildRoutes(controllers, { missingHandler }) {
       handler: controllers.console?.listRoles || missingHandler
     },
     {
+      path: "/api/console/settings",
+      method: "GET",
+      auth: "required",
+      schema: {
+        tags: ["console"],
+        summary: "Get console assistant settings",
+        response: withStandardErrorResponses({
+          200: schema.response.assistantSettings
+        })
+      },
+      handler: controllers.console?.getAssistantSettings || missingHandler
+    },
+    {
+      path: "/api/console/settings",
+      method: "PATCH",
+      auth: "required",
+      schema: {
+        tags: ["console"],
+        summary: "Update console assistant settings",
+        body: schema.body.assistantSettingsUpdate,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.assistantSettings
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.updateAssistantSettings || missingHandler
+    },
+    {
       path: "/api/console/members",
       method: "GET",
       auth: "required",

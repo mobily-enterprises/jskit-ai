@@ -197,6 +197,32 @@ const redeemInvite = Type.Object(
   }
 );
 
+const assistantSettings = Type.Object(
+  {
+    settings: Type.Object(
+      {
+        assistantSystemPromptWorkspace: Type.String({ maxLength: 4000 })
+      },
+      {
+        additionalProperties: false
+      }
+    )
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const assistantSettingsUpdate = Type.Object(
+  {
+    assistantSystemPromptWorkspace: Type.String({ maxLength: 4000 })
+  },
+  {
+    additionalProperties: false,
+    minProperties: 1
+  }
+);
+
 const member = Type.Object(
   {
     memberUserId: Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" })
@@ -367,6 +393,7 @@ const schema = {
     members,
     invites,
     roles,
+    assistantSettings,
     pendingInvites,
     respondToInvite,
     aiTranscriptsList,
@@ -376,6 +403,7 @@ const schema = {
   body: {
     createInvite,
     memberRoleUpdate,
+    assistantSettingsUpdate,
     redeemInvite
   },
   query: {

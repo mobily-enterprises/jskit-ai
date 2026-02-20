@@ -50,6 +50,13 @@ test("console controller emits success security audit events for critical action
           }
         };
       },
+      async updateAssistantSettings() {
+        return {
+          settings: {
+            assistantSystemPromptWorkspace: "Use concise language."
+          }
+        };
+      },
       async revokeInvite() {
         return { invites: [] };
       },
@@ -91,6 +98,19 @@ test("console controller emits success security audit events for critical action
   );
   assert.equal(createReply.statusCode, 200);
 
+  const settingsReply = createReplyDouble();
+  await controller.updateAssistantSettings(
+    createBaseRequest({
+      method: "PATCH",
+      url: "/api/console/settings",
+      body: {
+        assistantSystemPromptWorkspace: "Use concise language."
+      }
+    }),
+    settingsReply
+  );
+  assert.equal(settingsReply.statusCode, 200);
+
   const revokeReply = createReplyDouble();
   await controller.revokeInvite(
     createBaseRequest({
@@ -118,14 +138,16 @@ test("console controller emits success security audit events for critical action
     [
       ["console.member.role.updated", "success"],
       ["console.invite.created", "success"],
+      ["console.assistant.settings.updated", "success"],
       ["console.invite.revoked", "success"],
       ["console.invite.redeemed", "success"]
     ]
   );
   assert.equal(auditEvents[0].targetUserId, 22);
   assert.equal(auditEvents[1].metadata.inviteId, 401);
-  assert.equal(auditEvents[3].metadata.decision, "accept");
-  assert.equal(Object.prototype.hasOwnProperty.call(auditEvents[3].metadata, "token"), false);
+  assert.equal(auditEvents[3].metadata.inviteId, 401);
+  assert.equal(auditEvents[4].metadata.decision, "accept");
+  assert.equal(Object.prototype.hasOwnProperty.call(auditEvents[4].metadata, "token"), false);
 });
 
 test("console controller emits failure security audit events and rethrows", async () => {

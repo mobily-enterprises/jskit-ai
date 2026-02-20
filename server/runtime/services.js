@@ -41,6 +41,7 @@ function createServices({
     consoleMembershipsRepository,
     consoleInvitesRepository,
     consoleRootRepository,
+    consoleSettingsRepository,
     consoleErrorLogsRepository,
     auditEventsRepository,
     aiTranscriptConversationsRepository,
@@ -137,6 +138,7 @@ function createServices({
     consoleMembershipsRepository,
     consoleInvitesRepository,
     consoleRootRepository,
+    consoleSettingsRepository,
     userProfilesRepository
   });
 
@@ -176,6 +178,8 @@ function createServices({
   const aiService = createAiService({
     providerClient: aiProviderClient,
     workspaceAdminService,
+    workspaceSettingsRepository,
+    consoleSettingsRepository,
     realtimeEventsService,
     aiTranscriptsService,
     auditService,

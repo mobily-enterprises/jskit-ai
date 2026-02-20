@@ -8,6 +8,7 @@ import * as workspaceInvitesRepository from "../domain/workspace/repositories/in
 import * as consoleMembershipsRepository from "../domain/console/repositories/memberships.repository.js";
 import * as consoleInvitesRepository from "../domain/console/repositories/invites.repository.js";
 import * as consoleRootRepository from "../domain/console/repositories/root.repository.js";
+import * as consoleSettingsRepository from "../domain/console/repositories/settings.repository.js";
 import * as consoleErrorLogsRepository from "../domain/console/repositories/errorLogs.repository.js";
 import * as auditEventsRepository from "../domain/security/repositories/auditEvents.repository.js";
 import * as aiTranscriptConversationsRepository from "../modules/ai/repositories/conversations.repository.js";
@@ -27,6 +28,7 @@ function createRepositories() {
     consoleMembershipsRepository,
     consoleInvitesRepository,
     consoleRootRepository,
+    consoleSettingsRepository,
     consoleErrorLogsRepository,
     auditEventsRepository,
     aiTranscriptConversationsRepository,

@@ -3,6 +3,7 @@ import { extractAppSurfacePolicy } from "../../../surfaces/appSurface.js";
 import { coerceWorkspaceColor } from "../../../../shared/workspace/colors.js";
 import { resolveWorkspaceDefaults } from "../policies/workspacePolicyDefaults.js";
 import { resolveTranscriptModeFromWorkspaceSettings } from "../../../lib/aiTranscriptMode.js";
+import { resolveAssistantSystemPromptsFromWorkspaceSettings } from "../../../lib/aiAssistantSystemPrompt.js";
 import { mapWorkspaceAdminSummary } from "./workspaceMappers.js";
 
 function mapWorkspaceSettingsResponse(workspace, workspaceSettings, options = {}) {
@@ -11,6 +12,7 @@ function mapWorkspaceSettingsResponse(workspace, workspaceSettings, options = {}
   const invitesAvailable = Boolean(options.appInvitesEnabled && options.collaborationEnabled);
   const invitesEnabled = Boolean(workspaceSettings?.invitesEnabled);
   const assistantTranscriptMode = resolveTranscriptModeFromWorkspaceSettings(workspaceSettings);
+  const assistantSystemPrompts = resolveAssistantSystemPromptsFromWorkspaceSettings(workspaceSettings);
   const includeAppSurfaceDenyLists = options.includeAppSurfaceDenyLists === true;
 
   const settings = {
@@ -18,6 +20,7 @@ function mapWorkspaceSettingsResponse(workspace, workspaceSettings, options = {}
     invitesAvailable,
     invitesEffective: invitesAvailable && invitesEnabled,
     assistantTranscriptMode,
+    assistantSystemPromptApp: assistantSystemPrompts.app,
     ...defaults
   };
 

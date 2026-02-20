@@ -23,6 +23,7 @@ import {
 import { resolveInviteExpiresAt } from "../policies/workspaceInvitePolicy.js";
 import { listInviteMembershipsByWorkspaceId } from "../lookups/workspaceMembershipLookup.js";
 import { applyTranscriptModeToWorkspaceFeatures } from "../../../lib/aiTranscriptMode.js";
+import { applyAssistantSystemPromptAppToWorkspaceFeatures } from "../../../lib/aiAssistantSystemPrompt.js";
 
 function createService({
   appConfig,
@@ -200,6 +201,19 @@ function createService({
         settingsPatch.features = applyTranscriptModeToWorkspaceFeatures(
           baseFeatures,
           parsed.settingsPatch.aiTranscriptMode
+        );
+      }
+
+      if (parsed.settingsPatch.assistantSystemPrompts) {
+        const baseFeatures =
+          settingsPatch.features && typeof settingsPatch.features === "object"
+            ? settingsPatch.features
+            : currentSettings?.features && typeof currentSettings.features === "object"
+              ? currentSettings.features
+              : {};
+        settingsPatch.features = applyAssistantSystemPromptAppToWorkspaceFeatures(
+          baseFeatures,
+          parsed.settingsPatch.assistantSystemPrompts.app
         );
       }
 

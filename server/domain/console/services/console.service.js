@@ -2,6 +2,11 @@ import { AppError } from "../../../lib/errors.js";
 import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
 import { isMysqlDuplicateEntryError } from "../../../lib/primitives/mysqlErrors.js";
 import { normalizeEmail } from "../../../../shared/auth/utils.js";
+import {
+  AI_ASSISTANT_SYSTEM_PROMPT_MAX_LENGTH,
+  applyAssistantSystemPromptWorkspaceToConsoleFeatures,
+  resolveAssistantSystemPromptWorkspaceFromConsoleSettings
+} from "../../../lib/aiAssistantSystemPrompt.js";
 import { mapInvite, mapMember, mapMembershipSummary, mapPendingInvite } from "../mappers/consoleMappers.js";
 import { resolveInviteExpiresAt } from "../policies/invitePolicy.js";
 import {
@@ -21,8 +26,20 @@ import {
   resolveRolePermissions
 } from "../policies/roles.js";
 
-function createService({ consoleMembershipsRepository, consoleInvitesRepository, consoleRootRepository, userProfilesRepository }) {
-  if (!consoleMembershipsRepository || !consoleInvitesRepository || !consoleRootRepository || !userProfilesRepository) {
+function createService({
+  consoleMembershipsRepository,
+  consoleInvitesRepository,
+  consoleRootRepository,
+  consoleSettingsRepository,
+  userProfilesRepository
+}) {
+  if (
+    !consoleMembershipsRepository ||
+    !consoleInvitesRepository ||
+    !consoleRootRepository ||
+    !consoleSettingsRepository ||
+    !userProfilesRepository
+  ) {
     throw new Error("console service repositories are required.");
   }
 
@@ -43,6 +60,41 @@ function createService({ consoleMembershipsRepository, consoleInvitesRepository,
     }
 
     return work(null);
+  }
+
+  async function ensureConsoleSettings(options = {}) {
+    if (typeof consoleSettingsRepository.ensure !== "function") {
+      throw new Error("consoleSettingsRepository.ensure is required.");
+    }
+
+    return consoleSettingsRepository.ensure(options);
+  }
+
+  function normalizeAssistantSystemPromptWorkspace(value) {
+    if (value == null) {
+      return "";
+    }
+
+    const normalized = String(value || "").trim();
+    if (normalized.length <= AI_ASSISTANT_SYSTEM_PROMPT_MAX_LENGTH) {
+      return normalized;
+    }
+
+    throw new AppError(400, "Validation failed.", {
+      details: {
+        fieldErrors: {
+          assistantSystemPromptWorkspace: `assistantSystemPromptWorkspace must be at most ${AI_ASSISTANT_SYSTEM_PROMPT_MAX_LENGTH} characters.`
+        }
+      }
+    });
+  }
+
+  function mapAssistantSettingsResponse(consoleSettings) {
+    return {
+      settings: {
+        assistantSystemPromptWorkspace: resolveAssistantSystemPromptWorkspaceFromConsoleSettings(consoleSettings)
+      }
+    };
   }
 
   function normalizeRoleForAssignment(roleId) {
@@ -484,6 +536,38 @@ function createService({ consoleMembershipsRepository, consoleInvitesRepository,
     };
   }
 
+  async function getAssistantSettings(user) {
+    await requireConsoleAccess(user);
+    const consoleSettings = await ensureConsoleSettings();
+    return mapAssistantSettingsResponse(consoleSettings);
+  }
+
+  async function updateAssistantSettings(user, payload) {
+    await requirePermission(user, CONSOLE_MANAGEMENT_PERMISSIONS.MEMBERS_MANAGE);
+    const body = payload && typeof payload === "object" ? payload : {};
+
+    if (!Object.prototype.hasOwnProperty.call(body, "assistantSystemPromptWorkspace")) {
+      throw new AppError(400, "Validation failed.", {
+        details: {
+          fieldErrors: {
+            assistantSystemPromptWorkspace: "assistantSystemPromptWorkspace is required."
+          }
+        }
+      });
+    }
+
+    const normalizedPrompt = normalizeAssistantSystemPromptWorkspace(body.assistantSystemPromptWorkspace);
+    const currentSettings = await ensureConsoleSettings();
+    const baseFeatures = currentSettings?.features && typeof currentSettings.features === "object" ? currentSettings.features : {};
+    const nextFeatures = applyAssistantSystemPromptWorkspaceToConsoleFeatures(baseFeatures, normalizedPrompt);
+
+    const updatedSettings = await consoleSettingsRepository.update({
+      features: nextFeatures
+    });
+
+    return mapAssistantSettingsResponse(updatedSettings);
+  }
+
   return {
     ensureInitialConsoleMember,
     resolveRequestContext,
@@ -495,7 +579,9 @@ function createService({ consoleMembershipsRepository, consoleInvitesRepository,
     createInvite,
     revokeInvite,
     respondToPendingInviteByToken,
-    listRoles
+    listRoles,
+    getAssistantSettings,
+    updateAssistantSettings
   };
 }
 

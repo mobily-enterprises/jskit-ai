@@ -119,6 +119,19 @@
             </v-col>
             <v-col cols="12">
               <v-textarea
+                v-model="workspaceForm.assistantSystemPromptApp"
+                label="Assistant system prompt (App surface)"
+                variant="outlined"
+                density="comfortable"
+                :readonly="!canManageWorkspaceSettings"
+                hint="Optional. Tone and rules for assistant responses in the app surface."
+                persistent-hint
+                rows="4"
+                auto-grow
+              />
+            </v-col>
+            <v-col cols="12">
+              <v-textarea
                 v-model="workspaceForm.appDenyEmailsText"
                 label="App surface deny list (emails)"
                 variant="outlined"

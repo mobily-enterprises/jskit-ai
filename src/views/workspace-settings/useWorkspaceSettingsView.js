@@ -75,6 +75,7 @@ export function useWorkspaceSettingsView() {
     invitesEnabled: false,
     invitesAvailable: false,
     assistantTranscriptMode: "standard",
+    assistantSystemPromptApp: "",
     appDenyEmailsText: "",
     defaultMode: "fv",
     defaultTiming: "ordinary",
@@ -192,6 +193,7 @@ export function useWorkspaceSettingsView() {
     workspaceForm.invitesEnabled = Boolean(data.settings?.invitesEnabled);
     workspaceForm.invitesAvailable = Boolean(data.settings?.invitesAvailable);
     workspaceForm.assistantTranscriptMode = String(data.settings?.assistantTranscriptMode || "standard");
+    workspaceForm.assistantSystemPromptApp = String(data.settings?.assistantSystemPromptApp || "");
     workspaceForm.appDenyEmailsText = Array.isArray(data.settings?.appDenyEmails)
       ? data.settings.appDenyEmails
           .map((email) =>
@@ -245,6 +247,7 @@ export function useWorkspaceSettingsView() {
     workspaceForm.invitesEnabled = false;
     workspaceForm.invitesAvailable = false;
     workspaceForm.assistantTranscriptMode = "standard";
+    workspaceForm.assistantSystemPromptApp = "";
     workspaceForm.appDenyEmailsText = "";
     workspaceForm.defaultMode = "fv";
     workspaceForm.defaultTiming = "ordinary";
@@ -351,6 +354,7 @@ export function useWorkspaceSettingsView() {
         avatarUrl: workspaceForm.avatarUrl,
         invitesEnabled: workspaceForm.invitesEnabled,
         assistantTranscriptMode: workspaceForm.assistantTranscriptMode,
+        assistantSystemPromptApp: workspaceForm.assistantSystemPromptApp,
         appDenyEmails: parseDenyEmailsInput(workspaceForm.appDenyEmailsText),
         defaultMode: workspaceForm.defaultMode,
         defaultTiming: workspaceForm.defaultTiming,

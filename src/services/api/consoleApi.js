@@ -6,6 +6,12 @@ function createApi({ request }) {
     listRoles() {
       return request("/api/console/roles");
     },
+    getSettings() {
+      return request("/api/console/settings");
+    },
+    updateSettings(payload) {
+      return request("/api/console/settings", { method: "PATCH", body: payload });
+    },
     listMembers() {
       return request("/api/console/members");
     },

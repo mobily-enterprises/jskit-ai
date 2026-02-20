@@ -96,6 +96,12 @@ function createRootIdentityDbStub(initialRow = null) {
 function createConsoleServiceFixture({ rootUserId = null, memberships = [] } = {}) {
   const state = {
     rootUserId: rootUserId == null ? null : Number(rootUserId),
+    consoleSettings: {
+      id: 1,
+      features: {},
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
     membershipsByUserId: new Map(
       memberships.map((membership, index) => [
         Number(membership.userId),
@@ -231,6 +237,28 @@ function createConsoleServiceFixture({ rootUserId = null, memberships = [] } = {
     }
   };
 
+  const consoleSettingsRepository = {
+    async ensure() {
+      return {
+        ...state.consoleSettings,
+        features: { ...(state.consoleSettings.features || {}) }
+      };
+    },
+    async update(patch = {}) {
+      state.consoleSettings = {
+        ...state.consoleSettings,
+        ...(patch && typeof patch === "object" ? patch : {}),
+        features:
+          patch && typeof patch.features === "object" ? { ...patch.features } : { ...(state.consoleSettings.features || {}) },
+        updatedAt: new Date().toISOString()
+      };
+      return {
+        ...state.consoleSettings,
+        features: { ...(state.consoleSettings.features || {}) }
+      };
+    }
+  };
+
   const userProfilesRepository = {
     async findByEmail() {
       return null;
@@ -243,6 +271,7 @@ function createConsoleServiceFixture({ rootUserId = null, memberships = [] } = {
       consoleMembershipsRepository,
       consoleInvitesRepository,
       consoleRootRepository,
+      consoleSettingsRepository,
       userProfilesRepository
     })
   };
@@ -375,4 +404,62 @@ test("console service allows root to manage non-root members and keeps root role
       return true;
     }
   );
+});
+
+test("console service exposes assistant settings to console members and restricts updates to managers", async () => {
+  const fixture = createConsoleServiceFixture({
+    rootUserId: 1,
+    memberships: [
+      {
+        userId: 1,
+        roleId: "console",
+        status: "active"
+      },
+      {
+        userId: 2,
+        roleId: "devop",
+        status: "active"
+      }
+    ]
+  });
+
+  const initialSettings = await fixture.service.getAssistantSettings({
+    id: 2,
+    email: "devop@example.com"
+  });
+  assert.equal(initialSettings.settings.assistantSystemPromptWorkspace, "");
+
+  await assert.rejects(
+    () =>
+      fixture.service.updateAssistantSettings(
+        {
+          id: 2,
+          email: "devop@example.com"
+        },
+        {
+          assistantSystemPromptWorkspace: "Use concise language."
+        }
+      ),
+    (error) => {
+      assert.equal(error.status, 403);
+      return true;
+    }
+  );
+
+  const updatedSettings = await fixture.service.updateAssistantSettings(
+    {
+      id: 1,
+      email: "console@example.com"
+    },
+    {
+      assistantSystemPromptWorkspace: "Use concise language."
+    }
+  );
+  assert.equal(updatedSettings.settings.assistantSystemPromptWorkspace, "Use concise language.");
+
+  const persistedSettings = await fixture.service.getAssistantSettings({
+    id: 1,
+    email: "console@example.com"
+  });
+  assert.equal(persistedSettings.settings.assistantSystemPromptWorkspace, "Use concise language.");
 });

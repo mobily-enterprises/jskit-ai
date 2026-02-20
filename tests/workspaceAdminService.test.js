@@ -564,6 +564,7 @@ test("workspace admin service reads and updates workspace settings with role cat
   );
   assert.deepEqual(responseWithDenyLists.settings.appDenyEmails, ["blocked@example.com"]);
   assert.deepEqual(responseWithDenyLists.settings.appDenyUserIds, [7]);
+  assert.equal(responseWithDenyLists.settings.assistantSystemPromptApp, "");
 
   await assert.rejects(
     () => service.getWorkspaceSettings({ id: 0 }),
@@ -603,6 +604,7 @@ test("workspace admin service reads and updates workspace settings with role cat
       defaultTiming: "ordinary",
       defaultPaymentsPerYear: 12,
       defaultHistoryPageSize: 10,
+      assistantSystemPromptApp: "Keep answers brief.",
       appDenyEmails: ["one@example.com"],
       appDenyUserIds: [2]
     }
@@ -614,8 +616,10 @@ test("workspace admin service reads and updates workspace settings with role cat
   assert.equal(state.workspace.color, "#112233");
   assert.equal(updated.workspace.name, "Acme Prime");
   assert.equal(updated.settings.invitesEnabled, false);
+  assert.equal(updated.settings.assistantSystemPromptApp, "Keep answers brief.");
   assert.deepEqual(updated.settings.appDenyEmails, ["one@example.com"]);
   assert.deepEqual(updated.settings.appDenyUserIds, [2]);
+  assert.equal(state.settings.features.ai.systemPrompts.app, "Keep answers brief.");
   assert.equal(updated.roleCatalog.assignableRoleIds.includes("admin"), true);
 });
 

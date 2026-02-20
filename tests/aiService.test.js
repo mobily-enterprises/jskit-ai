@@ -46,8 +46,10 @@ function createBaseRequest(overrides = {}) {
     url: "/api/workspace/ai/chat/stream",
     headers: {
       "x-command-id": "cmd-ai",
-      "x-client-id": "client-ai"
+      "x-client-id": "client-ai",
+      "x-surface-id": "admin"
     },
+    surface: "admin",
     workspace: {
       id: 22,
       slug: "acme",
@@ -124,6 +126,174 @@ test("ai service streams a plain assistant response without tools", async () => 
       ["ai.chat.completed", "success"]
     ]
   );
+});
+
+test("ai service uses workspace-admin configured prompt for app surface", async () => {
+  const events = [];
+  const providerCalls = [];
+
+  const service = createAiService({
+    providerClient: {
+      enabled: true,
+      provider: "openai",
+      async createChatCompletionStream(payload) {
+        providerCalls.push(payload);
+        return createStream([
+          {
+            choices: [
+              {
+                delta: {
+                  content: "App response"
+                }
+              }
+            ]
+          }
+        ]);
+      }
+    },
+    workspaceAdminService: {
+      async updateWorkspaceSettings() {
+        throw new Error("not used");
+      }
+    },
+    workspaceSettingsRepository: {
+      async ensureForWorkspaceId() {
+        return {
+          features: {
+            ai: {
+              systemPrompts: {
+                app: "App prompt instruction"
+              }
+            }
+          }
+        };
+      }
+    },
+    consoleSettingsRepository: {
+      async ensure() {
+        return {
+          features: {
+            ai: {
+              systemPrompts: {
+                workspace: "Workspace prompt instruction"
+              }
+            }
+          }
+        };
+      }
+    },
+    realtimeEventsService: {
+      publishWorkspaceEvent() {}
+    },
+    auditService: {
+      async recordSafe() {}
+    }
+  });
+
+  await service.streamChatTurn({
+    request: createBaseRequest({
+      surface: "app",
+      headers: {
+        "x-command-id": "cmd-ai",
+        "x-client-id": "client-ai",
+        "x-surface-id": "app"
+      }
+    }),
+    body: {
+      messageId: "msg_prompt_app",
+      input: "hello"
+    },
+    streamWriter: createWriter(events),
+    abortSignal: new AbortController().signal
+  });
+
+  const systemPrompt = String(providerCalls[0]?.messages?.[0]?.content || "");
+  assert.equal(systemPrompt.includes("Workspace-specific assistant instructions: App prompt instruction"), true);
+  assert.equal(systemPrompt.includes("Workspace prompt instruction"), false);
+});
+
+test("ai service uses console-configured prompt for admin surface", async () => {
+  const events = [];
+  const providerCalls = [];
+
+  const service = createAiService({
+    providerClient: {
+      enabled: true,
+      provider: "openai",
+      async createChatCompletionStream(payload) {
+        providerCalls.push(payload);
+        return createStream([
+          {
+            choices: [
+              {
+                delta: {
+                  content: "Admin response"
+                }
+              }
+            ]
+          }
+        ]);
+      }
+    },
+    workspaceAdminService: {
+      async updateWorkspaceSettings() {
+        throw new Error("not used");
+      }
+    },
+    workspaceSettingsRepository: {
+      async ensureForWorkspaceId() {
+        return {
+          features: {
+            ai: {
+              systemPrompts: {
+                app: "App prompt instruction"
+              }
+            }
+          }
+        };
+      }
+    },
+    consoleSettingsRepository: {
+      async ensure() {
+        return {
+          features: {
+            ai: {
+              systemPrompts: {
+                workspace: "Workspace prompt instruction"
+              }
+            }
+          }
+        };
+      }
+    },
+    realtimeEventsService: {
+      publishWorkspaceEvent() {}
+    },
+    auditService: {
+      async recordSafe() {}
+    }
+  });
+
+  await service.streamChatTurn({
+    request: createBaseRequest({
+      surface: "admin",
+      headers: {
+        "x-command-id": "cmd-ai",
+        "x-client-id": "client-ai",
+        "x-surface-id": "admin"
+      }
+    }),
+    body: {
+      messageId: "msg_prompt_admin",
+      input: "hello"
+    },
+    streamWriter: createWriter(events),
+    abortSignal: new AbortController().signal
+  });
+
+  const systemPrompt = String(providerCalls[0]?.messages?.[0]?.content || "");
+  assert.equal(systemPrompt.includes("Workspace-specific assistant instructions: Workspace prompt instruction"), true);
+  assert.equal(systemPrompt.includes("App prompt instruction"), false);
 });
 
 test("ai service records observability metrics for turns and tool calls", async () => {
@@ -213,7 +383,7 @@ test("ai service records observability metrics for turns and tool calls", async 
 
   assert.equal(aiTurnMetrics.length, 1);
   assert.equal(aiTurnMetrics[0].outcome, "success");
-  assert.equal(aiTurnMetrics[0].surface, "app");
+  assert.equal(aiTurnMetrics[0].surface, "admin");
   assert.equal(aiTurnMetrics[0].provider, "openai");
   assert.equal(typeof aiTurnMetrics[0].durationMs, "number");
   assert.equal(aiTurnMetrics[0].durationMs >= 0, true);
@@ -345,6 +515,100 @@ test("ai service executes workspace rename tool and continues to final response"
     audits.some((event) => event.action === "ai.tool.executed" && event.outcome === "success"),
     true
   );
+});
+
+test("ai service app-surface assistant does not expose admin tools", async () => {
+  const events = [];
+  const providerCalls = [];
+  let updateCount = 0;
+
+  const service = createAiService({
+    providerClient: {
+      enabled: true,
+      provider: "openai",
+      async createChatCompletionStream(payload) {
+        providerCalls.push(payload);
+        if (providerCalls.length === 1) {
+          return createStream([
+            {
+              choices: [
+                {
+                  delta: {
+                    tool_calls: [
+                      {
+                        index: 0,
+                        id: "call_app_forbidden",
+                        function: {
+                          name: "workspace_rename",
+                          arguments: '{"name":"Blocked in app"}'
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]);
+        }
+
+        return createStream([
+          {
+            choices: [
+              {
+                delta: {
+                  content: "I can only use app-surface capabilities here."
+                }
+              }
+            ]
+          }
+        ]);
+      }
+    },
+    workspaceAdminService: {
+      async updateWorkspaceSettings() {
+        updateCount += 1;
+        return {
+          workspace: {
+            id: 22,
+            slug: "acme",
+            name: "Blocked in app"
+          }
+        };
+      }
+    },
+    realtimeEventsService: {
+      publishWorkspaceEvent() {}
+    },
+    auditService: {
+      async recordSafe() {}
+    }
+  });
+
+  await service.streamChatTurn({
+    request: createBaseRequest({
+      surface: "app",
+      headers: {
+        "x-command-id": "cmd-ai",
+        "x-client-id": "client-ai",
+        "x-surface-id": "app"
+      }
+    }),
+    body: {
+      messageId: "msg_app_1",
+      input: "rename workspace"
+    },
+    streamWriter: createWriter(events),
+    abortSignal: new AbortController().signal
+  });
+
+  assert.equal(updateCount, 0);
+  assert.equal(providerCalls.length, 2);
+  assert.deepEqual(providerCalls[0].tools, []);
+  assert.equal(events.some((event) => event.type === "tool_call"), true);
+  assert.equal(events.some((event) => event.type === "tool_result"), true);
+  const toolResultEvent = events.find((event) => event.type === "tool_result");
+  assert.equal(toolResultEvent.ok, false);
+  assert.equal(toolResultEvent.error.code, "tool_unknown");
 });
 
 test("ai service enforces max input length and emits validation error event", async () => {

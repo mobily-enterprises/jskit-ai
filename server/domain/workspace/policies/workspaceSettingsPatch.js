@@ -3,6 +3,7 @@ import { normalizeEmail } from "../../../../shared/auth/utils.js";
 import { SETTINGS_MODE_OPTIONS, SETTINGS_TIMING_OPTIONS } from "../../../../shared/settings/index.js";
 import { isWorkspaceColor } from "../../../../shared/workspace/colors.js";
 import { TRANSCRIPT_MODE_VALUES } from "../../../lib/aiTranscriptMode.js";
+import { AI_ASSISTANT_SYSTEM_PROMPT_MAX_LENGTH } from "../../../lib/aiAssistantSystemPrompt.js";
 
 const BASIC_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -111,6 +112,25 @@ function normalizeDenyEmails(rawEmails) {
   };
 }
 
+function normalizeAssistantSystemPromptValue(value, fieldName) {
+  if (value == null) {
+    return "";
+  }
+
+  const normalized = String(value || "").trim();
+  if (normalized.length <= AI_ASSISTANT_SYSTEM_PROMPT_MAX_LENGTH) {
+    return normalized;
+  }
+
+  throw new AppError(400, "Validation failed.", {
+    details: {
+      fieldErrors: {
+        [fieldName]: `System prompt must be at most ${AI_ASSISTANT_SYSTEM_PROMPT_MAX_LENGTH} characters.`
+      }
+    }
+  });
+}
+
 function parseWorkspaceSettingsPatch(payload) {
   const body = payload && typeof payload === "object" ? payload : {};
   const fieldErrors = {};
@@ -209,6 +229,21 @@ function parseWorkspaceSettingsPatch(payload) {
       fieldErrors.assistantTranscriptMode = "assistantTranscriptMode must be one of: standard, restricted, disabled.";
     } else {
       settingsPatch.aiTranscriptMode = value;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "assistantSystemPromptApp")) {
+    try {
+      settingsPatch.assistantSystemPrompts = {
+        ...(settingsPatch.assistantSystemPrompts || {}),
+        app: normalizeAssistantSystemPromptValue(body.assistantSystemPromptApp, "assistantSystemPromptApp")
+      };
+    } catch (error) {
+      if (error instanceof AppError && error.details?.fieldErrors?.assistantSystemPromptApp) {
+        fieldErrors.assistantSystemPromptApp = String(error.details.fieldErrors.assistantSystemPromptApp);
+      } else {
+        fieldErrors.assistantSystemPromptApp = "assistantSystemPromptApp is invalid.";
+      }
     }
   }
 

@@ -1,10 +1,22 @@
 import { randomUUID } from "node:crypto";
 import { AppError } from "../../lib/errors.js";
 import { parsePositiveInteger } from "../../lib/primitives/integers.js";
+import { safePathnameFromRequest } from "../../lib/primitives/requestUrl.js";
 import { publishWorkspaceEventSafely, resolvePublishWorkspaceEvent } from "../../lib/realtimeEvents.js";
 import { buildAuditEventBase } from "../../lib/securityAudit.js";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/realtime/eventTypes.js";
+import { resolveSurfaceFromPathname } from "../../../shared/routing/surfacePaths.js";
+import { normalizeSurfaceId } from "../../../shared/routing/surfaceRegistry.js";
 import { buildAiToolRegistry, executeToolCall, listToolSchemas } from "./tools/registry.js";
+import {
+  resolveAssistantSystemPromptAppFromWorkspaceSettings,
+  resolveAssistantSystemPromptWorkspaceFromConsoleSettings
+} from "../../lib/aiAssistantSystemPrompt.js";
+
+const DEFAULT_ASSISTANT_TOOL_SURFACE_ALLOWLIST = Object.freeze({
+  app: Object.freeze([]),
+  admin: Object.freeze(["workspace_rename"])
+});
 
 function toPositiveInteger(value, fallback) {
   const parsed = Number(value);
@@ -151,7 +163,75 @@ function normalizeClientContext(value) {
   };
 }
 
-function buildSystemPrompt({ workspace, user, clientContext }) {
+function normalizeSurfaceToolAllowlist(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const normalized = {
+    app: [],
+    admin: []
+  };
+
+  for (const [rawSurfaceId, rawToolNames] of Object.entries(source)) {
+    const surfaceId = normalizeSurfaceId(rawSurfaceId);
+    const list = Array.isArray(rawToolNames) ? rawToolNames : [];
+    const toolNames = Array.from(
+      new Set(
+        list
+          .map((toolName) => normalizeText(toolName))
+          .filter(Boolean)
+      )
+    );
+
+    if (!normalized[surfaceId]) {
+      normalized[surfaceId] = [];
+    }
+    normalized[surfaceId] = toolNames;
+  }
+
+  return normalized;
+}
+
+function resolveAssistantSurfaceId(request) {
+  const explicitSurface = normalizeText(request?.surface);
+  if (explicitSurface) {
+    return normalizeSurfaceId(explicitSurface);
+  }
+
+  const headerSurface = normalizeText(request?.headers?.["x-surface-id"]);
+  if (headerSurface) {
+    return normalizeSurfaceId(headerSurface);
+  }
+
+  return normalizeSurfaceId(resolveSurfaceFromPathname(safePathnameFromRequest(request)));
+}
+
+function buildSurfaceCapabilityPrompt(surfaceId, toolNames = []) {
+  const normalizedSurfaceId = normalizeSurfaceId(surfaceId);
+  const availableTools = Array.isArray(toolNames) ? toolNames.map((name) => normalizeText(name)).filter(Boolean) : [];
+  const toolSegment = availableTools.length > 0 ? availableTools.join(", ") : "none";
+
+  if (normalizedSurfaceId === "admin") {
+    return [
+      "Surface scope: admin.",
+      "Use only tools explicitly provided for this admin surface.",
+      `Admin-surface tools available in this turn: ${toolSegment}.`
+    ].join(" ");
+  }
+
+  return [
+    "Surface scope: app.",
+    "Do not perform workspace admin operations (settings, members, invites, transcript export).",
+    `App-surface tools available in this turn: ${toolSegment}.`
+  ].join(" ");
+}
+
+function buildSystemPrompt({
+  workspace,
+  user,
+  clientContext,
+  assistantSurfaceId = "app",
+  allowedToolNames = [],
+  workspaceCustomPrompt = ""
+}) {
   const workspaceId = parsePositiveInteger(workspace?.id) || "unknown";
   const workspaceSlug = normalizeText(workspace?.slug) || "unknown";
   const workspaceName = normalizeText(workspace?.name) || "unknown";
@@ -165,10 +245,14 @@ function buildSystemPrompt({ workspace, user, clientContext }) {
     "Only claim actions are complete when a tool result confirms success.",
     "When permission is denied or validation fails, explain plainly and suggest a valid next step.",
     "Never invent tool execution results.",
+    buildSurfaceCapabilityPrompt(assistantSurfaceId, allowedToolNames),
+    workspaceCustomPrompt ? `Workspace-specific assistant instructions: ${workspaceCustomPrompt}` : "",
     `Workspace context: id=${workspaceId}, slug=${workspaceSlug}, name=${workspaceName}.`,
     `Actor context: userId=${actorUserId}, email=${actorEmail}.`,
     `Client context: locale=${locale}, timezone=${timezone}.`
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function extractDeltaText(content) {
@@ -472,6 +556,8 @@ async function consumeCompletionStream({ stream, streamWriter }) {
 function createService({
   providerClient,
   workspaceAdminService,
+  workspaceSettingsRepository = null,
+  consoleSettingsRepository = null,
   realtimeEventsService,
   aiTranscriptsService = null,
   auditService,
@@ -479,13 +565,23 @@ function createService({
   aiModel = "gpt-4.1-mini",
   aiMaxInputChars = 8000,
   aiMaxHistoryMessages = 20,
-  aiMaxToolCallsPerTurn = 4
+  aiMaxToolCallsPerTurn = 4,
+  assistantToolSurfaceAllowlist = DEFAULT_ASSISTANT_TOOL_SURFACE_ALLOWLIST
 } = {}) {
   if (!providerClient || typeof providerClient.createChatCompletionStream !== "function") {
     throw new Error("providerClient.createChatCompletionStream is required.");
   }
   if (!workspaceAdminService) {
     throw new Error("workspaceAdminService is required.");
+  }
+  if (
+    workspaceSettingsRepository &&
+    typeof workspaceSettingsRepository.ensureForWorkspaceId !== "function"
+  ) {
+    throw new Error("workspaceSettingsRepository.ensureForWorkspaceId must be a function when provided.");
+  }
+  if (consoleSettingsRepository && typeof consoleSettingsRepository.ensure !== "function") {
+    throw new Error("consoleSettingsRepository.ensure must be a function when provided.");
   }
   if (!auditService || typeof auditService.recordSafe !== "function") {
     throw new Error("auditService.recordSafe is required.");
@@ -504,13 +600,35 @@ function createService({
   const maxHistoryMessages = toPositiveInteger(aiMaxHistoryMessages, 20);
   const maxToolCallsPerTurn = toPositiveInteger(aiMaxToolCallsPerTurn, 4);
   const providerModel = normalizeText(aiModel) || "gpt-4.1-mini";
-  const toolRegistry = buildAiToolRegistry({
+  const allToolsRegistry = buildAiToolRegistry({
     workspaceAdminService,
     realtimeEventsService
   });
-  const knownToolNames = new Set(Object.keys(toolRegistry));
-  const providerTools = listToolSchemas(toolRegistry);
+  const knownToolNames = new Set(Object.keys(allToolsRegistry));
+  const surfaceToolAllowlist = normalizeSurfaceToolAllowlist(assistantToolSurfaceAllowlist);
   const publishWorkspaceEvent = resolvePublishWorkspaceEvent(realtimeEventsService);
+
+  function resolveToolsForSurface(surfaceId) {
+    const normalizedSurfaceId = normalizeSurfaceId(surfaceId);
+    const allowedToolNames = Array.isArray(surfaceToolAllowlist[normalizedSurfaceId])
+      ? surfaceToolAllowlist[normalizedSurfaceId]
+      : [];
+
+    const scopedRegistry = {};
+    for (const toolName of allowedToolNames) {
+      if (!allToolsRegistry[toolName]) {
+        continue;
+      }
+
+      scopedRegistry[toolName] = allToolsRegistry[toolName];
+    }
+
+    return {
+      toolRegistry: scopedRegistry,
+      providerTools: listToolSchemas(scopedRegistry),
+      allowedToolNames: Object.keys(scopedRegistry)
+    };
+  }
 
   function validateChatTurnInput({ body } = {}) {
     const payload = body && typeof body === "object" ? body : {};
@@ -725,6 +843,46 @@ function createService({
       const input = preparedInput.input;
       const history = preparedInput.history;
       const clientContext = preparedInput.clientContext;
+      const assistantSurfaceId = resolveAssistantSurfaceId(request);
+      const {
+        toolRegistry: scopedToolRegistry,
+        providerTools: scopedProviderTools,
+        allowedToolNames
+      } = resolveToolsForSurface(assistantSurfaceId);
+      let workspaceCustomPrompt = "";
+      if (assistantSurfaceId === "app" && workspaceSettingsRepository && workspaceId) {
+        try {
+          const workspaceSettings = await workspaceSettingsRepository.ensureForWorkspaceId(workspaceId);
+          workspaceCustomPrompt = resolveAssistantSystemPromptAppFromWorkspaceSettings(workspaceSettings);
+        } catch (settingsError) {
+          if (request?.log && typeof request.log.warn === "function") {
+            request.log.warn(
+              {
+                err: settingsError,
+                workspaceId,
+                assistantSurfaceId
+              },
+              "ai.workspace_settings_prompt_lookup_failed"
+            );
+          }
+        }
+      }
+      if (assistantSurfaceId === "admin" && consoleSettingsRepository) {
+        try {
+          const consoleSettings = await consoleSettingsRepository.ensure();
+          workspaceCustomPrompt = resolveAssistantSystemPromptWorkspaceFromConsoleSettings(consoleSettings);
+        } catch (settingsError) {
+          if (request?.log && typeof request.log.warn === "function") {
+            request.log.warn(
+              {
+                err: settingsError,
+                assistantSurfaceId
+              },
+              "ai.console_settings_prompt_lookup_failed"
+            );
+          }
+        }
+      }
 
       if (aiTranscriptsService) {
         const transcriptStart = await aiTranscriptsService.startConversationForTurn({
@@ -763,7 +921,10 @@ function createService({
       const systemPrompt = buildSystemPrompt({
         workspace: request.workspace,
         user: request.user,
-        clientContext
+        clientContext,
+        assistantSurfaceId,
+        allowedToolNames,
+        workspaceCustomPrompt
       });
 
       const conversation = [
@@ -810,7 +971,7 @@ function createService({
         const providerStream = await providerClient.createChatCompletionStream({
           model: providerModel,
           messages: conversation,
-          tools: disableToolsForNextCompletion ? [] : providerTools,
+          tools: disableToolsForNextCompletion ? [] : scopedProviderTools,
           signal: abortSignal,
           temperature: 0.2
         });
@@ -900,7 +1061,7 @@ function createService({
 
           try {
             const parsedArgs = parseToolArguments(toolCall.argumentsText);
-            const toolResult = await executeToolCall(toolRegistry, {
+            const toolResult = await executeToolCall(scopedToolRegistry, {
               name: toolName,
               args: parsedArgs,
               context: toolContext

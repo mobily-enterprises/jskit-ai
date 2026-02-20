@@ -27,6 +27,26 @@ function createController({ consoleService, aiTranscriptsService = null, auditSe
     reply.code(200).send(response);
   }
 
+  async function getAssistantSettings(request, reply) {
+    const response = await consoleService.getAssistantSettings(request.user);
+    reply.code(200).send(response);
+  }
+
+  async function updateAssistantSettings(request, reply) {
+    const payload = request.body || {};
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "console.assistant.settings.updated",
+      execute: () => consoleService.updateAssistantSettings(request.user, payload),
+      metadata: () => ({
+        assistantSystemPromptWorkspaceLength: String(payload.assistantSystemPromptWorkspace || "").trim().length
+      })
+    });
+
+    reply.code(200).send(response);
+  }
+
   async function listMembers(request, reply) {
     const response = await consoleService.listMembers(request.user);
     reply.code(200).send(response);
@@ -224,6 +244,8 @@ function createController({ consoleService, aiTranscriptsService = null, auditSe
   return {
     bootstrap,
     listRoles,
+    getAssistantSettings,
+    updateAssistantSettings,
     listMembers,
     updateMemberRole,
     listInvites,

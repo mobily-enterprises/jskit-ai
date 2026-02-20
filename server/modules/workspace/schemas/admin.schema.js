@@ -42,6 +42,7 @@ const settingsUpdate = Type.Object(
     avatarUrl: Type.Optional(Type.String()),
     invitesEnabled: Type.Optional(Type.Boolean()),
     assistantTranscriptMode: Type.Optional(enumSchema(["standard", "restricted", "disabled"])),
+    assistantSystemPromptApp: Type.Optional(Type.String({ maxLength: 4000 })),
     defaultMode: Type.Optional(enumSchema(SETTINGS_MODE_OPTIONS)),
     defaultTiming: Type.Optional(enumSchema(SETTINGS_TIMING_OPTIONS)),
     defaultPaymentsPerYear: Type.Optional(Type.Integer({ minimum: 1, maximum: 365 })),
