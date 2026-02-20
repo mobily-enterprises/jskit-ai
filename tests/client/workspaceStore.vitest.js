@@ -52,7 +52,9 @@ describe("workspaceStore", () => {
         features: {
           workspaceSwitching: true,
           workspaceInvites: true,
-          workspaceCreateEnabled: true
+          workspaceCreateEnabled: true,
+          assistantEnabled: true,
+          assistantRequiredPermission: "workspace.ai.use"
         }
       },
       workspaces: [
@@ -128,6 +130,13 @@ describe("workspaceStore", () => {
       }
     });
     expect(store.workspaces).toHaveLength(1);
+    expect(store.app.features).toEqual({
+      workspaceSwitching: true,
+      workspaceInvites: true,
+      workspaceCreateEnabled: true,
+      assistantEnabled: true,
+      assistantRequiredPermission: "workspace.ai.use"
+    });
     expect(store.workspaces[0].color).toBe("#AA11CC");
     expect(store.pendingInvitesCount).toBe(1);
     expect(store.activeWorkspace?.isAccessible).toBe(false);
@@ -559,6 +568,13 @@ describe("workspaceStore", () => {
     expect(store.workspaces).toEqual([]);
     expect(store.pendingInvites).toEqual([]);
     expect(store.permissions).toEqual([]);
+    expect(store.app.features).toEqual({
+      workspaceSwitching: false,
+      workspaceInvites: false,
+      workspaceCreateEnabled: false,
+      assistantEnabled: false,
+      assistantRequiredPermission: ""
+    });
     expect(store.profileDisplayName).toBe("");
     expect(store.profileAvatarUrl).toBe("");
   });

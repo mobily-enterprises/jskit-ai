@@ -11,7 +11,7 @@ import fastifyWebsocket from "@fastify/websocket";
 import { TypeBoxValidatorCompiler } from "@fastify/type-provider-typebox";
 import { env } from "./server/lib/env.js";
 import { resolveAppConfig, toPublicAppConfig } from "./server/lib/appConfig.js";
-import { loadRbacManifest } from "./server/lib/rbacManifest.js";
+import { listManifestPermissions, loadRbacManifest, manifestIncludesPermission } from "./server/lib/rbacManifest.js";
 import { initDatabase, closeDatabase } from "./db/knex.js";
 import { isAppError } from "./server/lib/errors.js";
 import { registerApiRoutes } from "./server/fastify/registerApiRoutes.js";
@@ -101,6 +101,20 @@ function validateRuntimeConfig() {
 
   if (!APP_CONFIG.rbacManifestPath) {
     throw new Error("RBAC_MANIFEST_PATH must resolve to a readable manifest path.");
+  }
+
+  const aiRequiredPermission = String(env.AI_REQUIRED_PERMISSION || "").trim();
+  if (aiRequiredPermission && !manifestIncludesPermission(RBAC_MANIFEST, aiRequiredPermission, { includeOwner: false })) {
+    const availablePermissions = listManifestPermissions(RBAC_MANIFEST, {
+      includeOwner: false
+    });
+    const knownPermissionsHint =
+      availablePermissions.length > 0
+        ? ` Known non-owner permissions: ${availablePermissions.join(", ")}`
+        : " No non-owner permissions are currently declared.";
+    throw new Error(
+      `AI_REQUIRED_PERMISSION="${aiRequiredPermission}" is not declared in RBAC manifest for non-owner roles.${knownPermissionsHint}`
+    );
   }
 
   if (NODE_ENV !== "test") {
@@ -704,7 +718,15 @@ export async function buildServer({ frontendBuildAvailable }) {
     });
   }
 
-  registerApiRoutes(app, { controllers });
+  registerApiRoutes(app, {
+    controllers,
+    routeConfig: {
+      aiEnabled: env.AI_ENABLED,
+      aiRequiredPermission: env.AI_REQUIRED_PERMISSION,
+      aiMaxInputChars: env.AI_MAX_INPUT_CHARS,
+      aiMaxHistoryMessages: env.AI_MAX_HISTORY_MESSAGES
+    }
+  });
   if (frontendBuildAvailable) {
     registerPageGuardHook(app);
   }

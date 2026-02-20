@@ -7,6 +7,7 @@ export function createAppRouter({ authStore, workspaceStore }) {
     workspaceStore,
     surface: "app",
     shellComponent: AppShell,
-    includeWorkspaceSettings: false
+    includeWorkspaceSettings: false,
+    includeAssistantRoute: true
   });
 }

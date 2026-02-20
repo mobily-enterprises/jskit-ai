@@ -136,11 +136,58 @@ function hasPermission(permissionSet, permission) {
   return permissionSet.includes("*") || permissionSet.includes(required);
 }
 
+function listManifestPermissions(manifest, { includeOwner = false } = {}) {
+  const roles = manifest?.roles && typeof manifest.roles === "object" ? manifest.roles : {};
+  const permissions = new Set();
+
+  for (const [roleId, role] of Object.entries(roles)) {
+    if (!includeOwner && String(roleId || "").trim().toLowerCase() === OWNER_ROLE_ID) {
+      continue;
+    }
+
+    for (const permission of toUniqueStringArray(role?.permissions)) {
+      if (permission === "*") {
+        continue;
+      }
+      permissions.add(permission);
+    }
+  }
+
+  return [...permissions].sort();
+}
+
+function manifestIncludesPermission(manifest, permission, { includeOwner = false } = {}) {
+  const required = String(permission || "").trim();
+  if (!required) {
+    return true;
+  }
+
+  const roles = manifest?.roles && typeof manifest.roles === "object" ? manifest.roles : {};
+  for (const [roleId, role] of Object.entries(roles)) {
+    if (!includeOwner && String(roleId || "").trim().toLowerCase() === OWNER_ROLE_ID) {
+      continue;
+    }
+
+    const permissions = toUniqueStringArray(role?.permissions);
+    if (permissions.includes(required)) {
+      return true;
+    }
+
+    if (permissions.includes("*")) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export {
   OWNER_ROLE_ID,
   createOwnerOnlyManifest,
   loadRbacManifest,
   normalizeManifest,
   resolveRolePermissions,
-  hasPermission
+  hasPermission,
+  listManifestPermissions,
+  manifestIncludesPermission
 };

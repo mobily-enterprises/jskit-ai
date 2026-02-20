@@ -1,8 +1,9 @@
 import { safeRequestUrl } from "../lib/primitives/requestUrl.js";
 import { buildDefaultRoutes } from "../modules/api/routes.js";
 
-function registerApiRoutes(fastify, { controllers, routes }) {
-  const routeList = Array.isArray(routes) && routes.length > 0 ? routes : buildDefaultRoutes(controllers);
+function registerApiRoutes(fastify, { controllers, routes, routeConfig } = {}) {
+  const routeList =
+    Array.isArray(routes) && routes.length > 0 ? routes : buildDefaultRoutes(controllers, routeConfig || {});
 
   for (const route of routeList) {
     fastify.route({

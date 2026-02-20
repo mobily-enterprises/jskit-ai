@@ -26,6 +26,12 @@ const mocks = vi.hoisted(() => ({
     clearConsoleState: vi.fn()
   },
   workspaceStore: {
+    app: {
+      features: {
+        assistantEnabled: true,
+        assistantRequiredPermission: "workspace.ai.use"
+      }
+    },
     activeWorkspaceSlug: "acme",
     activeWorkspace: {
       color: "#336699"
@@ -138,13 +144,22 @@ describe("useAppShell", () => {
 
     mocks.workspaceStore.activeWorkspaceSlug = "acme";
     mocks.workspaceStore.activeWorkspace = { color: "#336699" };
+    mocks.workspaceStore.app = {
+      features: {
+        assistantEnabled: true,
+        assistantRequiredPermission: "workspace.ai.use"
+      }
+    };
     mocks.workspaceStore.workspaces = [{ id: 1, slug: "acme" }];
     mocks.workspaceStore.membership = { roleId: "admin" };
     mocks.workspaceStore.profileDisplayName = "Tony";
     mocks.workspaceStore.profileAvatarUrl = "";
     mocks.workspaceStore.can.mockReset();
     mocks.workspaceStore.can.mockImplementation(
-      (permission) => permission === "workspace.settings.view" || permission === "workspace.settings.update"
+      (permission) =>
+        permission === "workspace.settings.view" ||
+        permission === "workspace.settings.update" ||
+        permission === "workspace.ai.use"
     );
     mocks.workspaceStore.clearWorkspaceState.mockReset();
 
@@ -166,6 +181,7 @@ describe("useAppShell", () => {
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
       { title: "Choice 1", to: "/w/acme", icon: "$navChoice1" },
       { title: "Choice 2", to: "/w/acme/choice-2", icon: "$navChoice2" },
+      { title: "Assistant", to: "/w/acme/assistant", icon: "$navChoice2" },
       {
         title: "Go to Admin",
         to: "/admin/w/acme/settings",
@@ -200,6 +216,24 @@ describe("useAppShell", () => {
 
     await wrapper.vm.shell.actions.goToAdminSurface();
     expect(mocks.shellActions.hardNavigate).not.toHaveBeenCalled();
+  });
+
+  it("hides assistant navigation when feature is disabled", async () => {
+    mocks.workspaceStore.app.features.assistantEnabled = false;
+
+    const wrapper = mountHarness();
+    await nextTick();
+
+    expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
+      { title: "Choice 1", to: "/w/acme", icon: "$navChoice1" },
+      { title: "Choice 2", to: "/w/acme/choice-2", icon: "$navChoice2" },
+      {
+        title: "Go to Admin",
+        to: "/admin/w/acme/settings",
+        icon: "$menuGoToAdmin",
+        forceReload: true
+      }
+    ]);
   });
 
   it("navigates to admin surface and signs out with cleanup", async () => {

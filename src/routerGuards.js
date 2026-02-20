@@ -160,13 +160,46 @@ function createSurfaceRouteGuards(stores, options) {
     throw redirect({ to: workspacesPath });
   }
 
+  function resolveAssistantAccessPolicy() {
+    const appFeatures =
+      stores.workspaceStore?.app && typeof stores.workspaceStore.app === "object"
+        ? stores.workspaceStore.app.features || {}
+        : {};
+
+    return {
+      assistantEnabled: Boolean(appFeatures.assistantEnabled),
+      assistantRequiredPermission: String(appFeatures.assistantRequiredPermission || "").trim()
+    };
+  }
+
+  async function beforeLoadAssistant(context) {
+    const workspaceGuardResult = await beforeLoadWorkspaceRequired(context);
+    if (workspaceGuardResult?.sessionUnavailable) {
+      return;
+    }
+
+    const { assistantEnabled, assistantRequiredPermission } = resolveAssistantAccessPolicy();
+    const hasAssistantPermission = !assistantRequiredPermission || stores.workspaceStore.can(assistantRequiredPermission);
+
+    if (assistantEnabled && hasAssistantPermission) {
+      return;
+    }
+
+    if (stores.workspaceStore.hasActiveWorkspace) {
+      throw redirect({ to: workspaceHomePath(stores.workspaceStore.activeWorkspaceSlug) });
+    }
+
+    throw redirect({ to: workspacesPath });
+  }
+
   return {
     beforeLoadRoot,
     beforeLoadPublic,
     beforeLoadAuthenticatedNoWorkspace,
     beforeLoadAuthenticated,
     beforeLoadWorkspaceRequired,
-    beforeLoadWorkspacePermissionsRequired
+    beforeLoadWorkspacePermissionsRequired,
+    beforeLoadAssistant
   };
 }
 

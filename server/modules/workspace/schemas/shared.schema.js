@@ -145,6 +145,7 @@ const invite = Type.Object(
           id: Type.Integer({ minimum: 1 }),
           slug: Type.String({ minLength: 1, maxLength: 120 }),
           name: Type.String({ minLength: 1, maxLength: 160 }),
+          color: Type.String({ minLength: 7, maxLength: 7, pattern: colorPattern }),
           avatarUrl: Type.String()
         },
         {

@@ -50,6 +50,15 @@ export function useAppShell() {
   const canViewWorkspaceAdminSettings = computed(
     () => workspaceStore.can("workspace.settings.view") || workspaceStore.can("workspace.settings.update")
   );
+  const assistantFeatureEnabled = computed(() => Boolean(workspaceStore.app?.features?.assistantEnabled));
+  const assistantRequiredPermission = computed(() =>
+    String(workspaceStore.app?.features?.assistantRequiredPermission || "").trim()
+  );
+  const canUseAssistant = computed(
+    () =>
+      assistantFeatureEnabled.value &&
+      (!assistantRequiredPermission.value || workspaceStore.can(assistantRequiredPermission.value))
+  );
   const canOpenAdminSurface = computed(() => activeWorkspaceHasMembership.value && canViewWorkspaceAdminSettings.value);
   const activeWorkspaceColor = computed(() => normalizeWorkspaceColor(workspaceStore.activeWorkspace?.color));
   const workspaceThemeStyle = computed(() => buildWorkspaceThemeStyle(activeWorkspaceColor.value));
@@ -73,6 +82,10 @@ export function useAppShell() {
       { title: "Choice 2", to: workspacePath("/choice-2"), icon: "$navChoice2" }
     ];
 
+    if (canUseAssistant.value) {
+      items.push({ title: "Assistant", to: workspacePath("/assistant"), icon: "$navChoice2" });
+    }
+
     if (canOpenAdminSurface.value) {
       items.push({
         title: "Go to Admin",
@@ -86,6 +99,10 @@ export function useAppShell() {
   });
 
   const destinationTitle = computed(() => {
+    if (currentPath.value.endsWith("/assistant")) {
+      return "Assistant";
+    }
+
     if (currentPath.value.endsWith("/choice-2")) {
       return "Choice 2";
     }

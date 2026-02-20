@@ -43,6 +43,16 @@ test("metrics registry records db, auth, ingestion, and audit event counters", (
     outcome: "failure",
     surface: "admin"
   });
+  registry.recordAiTurn({
+    surface: "app",
+    provider: "openai",
+    outcome: "timeout",
+    durationMs: 2100
+  });
+  registry.recordAiToolCall({
+    tool: "workspace_rename",
+    outcome: "forbidden"
+  });
 
   const output = registry.renderPrometheusMetrics();
   assert.match(output, /app_db_errors_total\{code="ER_DUP_ENTRY"\} 1/);
@@ -52,4 +62,10 @@ test("metrics registry records db, auth, ingestion, and audit event counters", (
     output,
     /app_security_audit_events_total\{action="workspace\.invite\.redeemed",outcome="failure",surface="admin"\} 1/
   );
+  assert.match(output, /app_ai_turns_total\{surface="app",provider="openai",outcome="timeout"\} 1/);
+  assert.match(
+    output,
+    /app_ai_turn_duration_seconds_sum\{surface="app",provider="openai",outcome="timeout"\} 2.1/
+  );
+  assert.match(output, /app_ai_tool_calls_total\{tool="workspace_rename",outcome="forbidden"\} 1/);
 });

@@ -72,12 +72,25 @@ export function useAdminShell() {
   const canViewWorkspaceSettings = computed(
     () => workspaceStore.can("workspace.settings.view") || workspaceStore.can("workspace.settings.update")
   );
+  const assistantFeatureEnabled = computed(() => Boolean(workspaceStore.app?.features?.assistantEnabled));
+  const assistantRequiredPermission = computed(() =>
+    String(workspaceStore.app?.features?.assistantRequiredPermission || "").trim()
+  );
+  const canUseAssistant = computed(
+    () =>
+      assistantFeatureEnabled.value &&
+      (!assistantRequiredPermission.value || workspaceStore.can(assistantRequiredPermission.value))
+  );
 
   const navigationItems = computed(() => {
     const items = [
       { title: "Choice 1", to: workspacePath("/"), icon: "$navChoice1" },
       { title: "Projects", to: workspacePath("/projects"), icon: "$navChoice2" }
     ];
+
+    if (canUseAssistant.value) {
+      items.push({ title: "Assistant", to: workspacePath("/assistant"), icon: "$navChoice2" });
+    }
 
     if (canViewWorkspaceSettings.value) {
       items.push({ title: "Workspace settings", to: workspacePath("/settings"), icon: "$menuSettings" });
@@ -88,6 +101,9 @@ export function useAdminShell() {
   });
 
   const destinationTitle = computed(() => {
+    if (currentPath.value.endsWith("/assistant")) {
+      return "Assistant";
+    }
     if (currentPath.value.endsWith("/projects")) {
       return "Projects";
     }

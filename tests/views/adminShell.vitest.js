@@ -22,6 +22,9 @@ const mocks = vi.hoisted(() => ({
     setSignedOut: vi.fn(),
     invalidateSession: vi.fn(async () => undefined)
   },
+  consoleStore: {
+    clearConsoleState: vi.fn()
+  },
   workspaceStore: null,
   api: {
     auth: {
@@ -70,6 +73,10 @@ vi.mock("../../src/stores/workspaceStore.js", () => ({
   useWorkspaceStore: () => mocks.workspaceStore
 }));
 
+vi.mock("../../src/stores/consoleStore.js", () => ({
+  useConsoleStore: () => mocks.consoleStore
+}));
+
 vi.mock("../../src/services/api/index.js", () => ({
   api: mocks.api
 }));
@@ -100,6 +107,12 @@ function createWorkspaceStore() {
       }
     ],
     pendingInvites: [],
+    app: {
+      features: {
+        assistantEnabled: true,
+        assistantRequiredPermission: "workspace.ai.use"
+      }
+    },
     profileDisplayName: "Tony",
     profileAvatarUrl: "",
     can: vi.fn(() => true),
@@ -149,6 +162,7 @@ describe("useAdminShell", () => {
     mocks.authStore.setSignedOut.mockReset();
     mocks.authStore.invalidateSession.mockReset();
     mocks.authStore.invalidateSession.mockResolvedValue(undefined);
+    mocks.consoleStore.clearConsoleState.mockReset();
 
     mocks.workspaceStore = createWorkspaceStore();
 
@@ -177,9 +191,19 @@ describe("useAdminShell", () => {
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
       { title: "Choice 1", to: "/admin/w/acme", icon: "$navChoice1" },
       { title: "Projects", to: "/admin/w/acme/projects", icon: "$navChoice2" },
+      { title: "Assistant", to: "/admin/w/acme/assistant", icon: "$navChoice2" },
       { title: "Workspace settings", to: "/admin/w/acme/settings", icon: "$menuSettings" },
       { title: "Back to App", to: "/w/acme", icon: "$menuBackToApp", forceReload: true }
     ]);
+  });
+
+  it("maps assistant destination title", async () => {
+    mocks.routerPathname = "/admin/w/acme/assistant";
+    window.history.replaceState({}, "", "/admin/w/acme/assistant");
+    const wrapper = mountHarness();
+    await nextTick();
+
+    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Assistant");
   });
 
   it("handles non-shell paths, title fallback, and app-surface target fallback", async () => {
@@ -369,6 +393,7 @@ describe("useAdminShell", () => {
     expect(mocks.api.clearCsrfTokenCache).toHaveBeenCalledTimes(1);
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(1);
     expect(mocks.workspaceStore.clearWorkspaceState).toHaveBeenCalledTimes(1);
+    expect(mocks.consoleStore.clearConsoleState).toHaveBeenCalledTimes(1);
     expect(mocks.authStore.invalidateSession).toHaveBeenCalledTimes(1);
     expect(mocks.navigate).toHaveBeenCalledWith({ to: "/admin/login", replace: true });
 
@@ -377,6 +402,7 @@ describe("useAdminShell", () => {
     expect(mocks.api.clearCsrfTokenCache).toHaveBeenCalledTimes(2);
     expect(mocks.authStore.setSignedOut).toHaveBeenCalledTimes(2);
     expect(mocks.workspaceStore.clearWorkspaceState).toHaveBeenCalledTimes(2);
+    expect(mocks.consoleStore.clearConsoleState).toHaveBeenCalledTimes(2);
   });
 
   it("hides workspace settings navigation when user lacks permission", async () => {
@@ -388,5 +414,12 @@ describe("useAdminShell", () => {
     expect(wrapper.vm.shell.navigation.navigationItems.value.some((item) => item.title === "Workspace settings")).toBe(
       false
     );
+  });
+
+  it("hides assistant navigation when feature is disabled", async () => {
+    mocks.workspaceStore.app.features.assistantEnabled = false;
+    const wrapper = mountHarness();
+    await nextTick();
+    expect(wrapper.vm.shell.navigation.navigationItems.value.some((item) => item.title === "Assistant")).toBe(false);
   });
 });

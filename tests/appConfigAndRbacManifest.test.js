@@ -8,7 +8,9 @@ import {
   OWNER_ROLE_ID,
   createOwnerOnlyManifest,
   hasPermission,
+  listManifestPermissions,
   loadRbacManifest,
+  manifestIncludesPermission,
   normalizeManifest,
   resolveRolePermissions
 } from "../server/lib/rbacManifest.js";
@@ -31,6 +33,8 @@ test("resolveAppConfig normalizes tenancy, booleans, limits, and manifest path",
   assert.equal(personal.features.workspaceSwitching, true);
   assert.equal(personal.features.workspaceInvites, false);
   assert.equal(personal.features.workspaceCreateEnabled, false);
+  assert.equal(personal.features.assistantEnabled, false);
+  assert.equal(personal.features.assistantRequiredPermission, "");
   assert.equal(personal.limits.maxWorkspacesPerUser, 1);
   assert.equal(personal.rbacManifestPath, path.resolve("/repo-root", "shared", "auth", "rbac.manifest.json"));
 
@@ -52,6 +56,8 @@ test("resolveAppConfig normalizes tenancy, booleans, limits, and manifest path",
   assert.equal(multiWorkspace.features.workspaceSwitching, true);
   assert.equal(multiWorkspace.features.workspaceInvites, false);
   assert.equal(multiWorkspace.features.workspaceCreateEnabled, false);
+  assert.equal(multiWorkspace.features.assistantEnabled, false);
+  assert.equal(multiWorkspace.features.assistantRequiredPermission, "");
   assert.equal(multiWorkspace.limits.maxWorkspacesPerUser, 33);
   assert.equal(multiWorkspace.rbacManifestPath, path.resolve("/repo-root", "config/rbac.json"));
 
@@ -74,7 +80,9 @@ test("toPublicAppConfig returns only public feature state", () => {
     features: {
       workspaceSwitching: 1,
       workspaceInvites: "",
-      workspaceCreateEnabled: true
+      workspaceCreateEnabled: true,
+      assistantEnabled: 1,
+      assistantRequiredPermission: " workspace.ai.use "
     }
   });
 
@@ -83,7 +91,9 @@ test("toPublicAppConfig returns only public feature state", () => {
     features: {
       workspaceSwitching: true,
       workspaceInvites: false,
-      workspaceCreateEnabled: true
+      workspaceCreateEnabled: true,
+      assistantEnabled: true,
+      assistantRequiredPermission: "workspace.ai.use"
     }
   });
 });
@@ -190,6 +200,11 @@ test("RBAC permission helpers resolve owner/wildcard/specific permissions", () =
   assert.equal(hasPermission(["history.read"], "history.read"), true);
   assert.equal(hasPermission(["history.read"], "history.write"), false);
   assert.equal(hasPermission(["*"], "history.write"), true);
+
+  assert.deepEqual(listManifestPermissions(manifest), ["history.read", "history.write"]);
+  assert.equal(manifestIncludesPermission(manifest, "history.write"), true);
+  assert.equal(manifestIncludesPermission(manifest, "workspace.ai.use"), false);
+  assert.equal(manifestIncludesPermission(manifest, "workspace.ai.use", { includeOwner: true }), true);
 });
 
 test("createOwnerOnlyManifest and loadRbacManifest cover file read and parse errors", async () => {

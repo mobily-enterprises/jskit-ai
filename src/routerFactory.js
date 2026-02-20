@@ -2,10 +2,18 @@ import { createBrowserHistory, createRootRoute, createRouter } from "@tanstack/v
 import { createSurfacePaths } from "../shared/routing/surfacePaths.js";
 import { createSurfaceRouteGuards } from "./routerGuards.js";
 import { createRoutes as createCoreRoutes } from "./routes/coreRoutes.js";
+import { createRoutes as createAssistantRoutes } from "./routes/assistantRoutes.js";
 import { createRoutes as createWorkspaceRoutes } from "./routes/workspaceRoutes.js";
 import { createRoutes as createProjectsRoutes } from "./routes/projectsRoutes.js";
 
-function createSurfaceRouter({ authStore, workspaceStore, surface, shellComponent, includeWorkspaceSettings = false }) {
+function createSurfaceRouter({
+  authStore,
+  workspaceStore,
+  surface,
+  shellComponent,
+  includeWorkspaceSettings = false,
+  includeAssistantRoute = false
+}) {
   const stores = { authStore, workspaceStore };
   const surfacePaths = createSurfacePaths(surface);
   const guards = createSurfaceRouteGuards(stores, {
@@ -27,9 +35,22 @@ function createSurfaceRouter({ authStore, workspaceStore, surface, shellComponen
     guards
   });
 
-  if (includeWorkspaceSettings) {
+  if (includeAssistantRoute) {
     routes.splice(
       3,
+      0,
+      ...createAssistantRoutes({
+        rootRoute,
+        workspaceRoutePrefix,
+        guards
+      })
+    );
+  }
+
+  if (includeWorkspaceSettings) {
+    const insertIndex = includeAssistantRoute ? 4 : 3;
+    routes.splice(
+      insertIndex,
       0,
       ...createWorkspaceRoutes({
         rootRoute,

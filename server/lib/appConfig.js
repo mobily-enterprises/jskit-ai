@@ -53,6 +53,8 @@ function resolveAppConfig(runtimeEnv, options = {}) {
     normalizedTenancyMode === "personal" ? false : toBoolean(runtimeEnv?.WORKSPACE_INVITES_DEFAULT, true);
   const workspaceCreateEnabled =
     normalizedTenancyMode === "personal" ? false : toBoolean(runtimeEnv?.WORKSPACE_CREATE_ENABLED, true);
+  const assistantEnabled = toBoolean(runtimeEnv?.AI_ENABLED, false);
+  const assistantRequiredPermission = String(runtimeEnv?.AI_REQUIRED_PERMISSION || "").trim();
 
   const rbacManifestPath = resolveManifestPath(runtimeEnv?.RBAC_MANIFEST_PATH, rootDir);
 
@@ -61,7 +63,9 @@ function resolveAppConfig(runtimeEnv, options = {}) {
     features: {
       workspaceSwitching: workspaceSwitchingDefault,
       workspaceInvites: workspaceInvitesDefault,
-      workspaceCreateEnabled
+      workspaceCreateEnabled,
+      assistantEnabled,
+      assistantRequiredPermission
     },
     limits: {
       maxWorkspacesPerUser
@@ -76,7 +80,9 @@ function toPublicAppConfig(appConfig) {
     features: {
       workspaceSwitching: Boolean(appConfig.features?.workspaceSwitching),
       workspaceInvites: Boolean(appConfig.features?.workspaceInvites),
-      workspaceCreateEnabled: Boolean(appConfig.features?.workspaceCreateEnabled)
+      workspaceCreateEnabled: Boolean(appConfig.features?.workspaceCreateEnabled),
+      assistantEnabled: Boolean(appConfig.features?.assistantEnabled),
+      assistantRequiredPermission: String(appConfig.features?.assistantRequiredPermission || "").trim()
     }
   };
 }

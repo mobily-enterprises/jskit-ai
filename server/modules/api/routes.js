@@ -9,6 +9,7 @@ import { buildRoutes as buildHistoryRoutes } from "../history/routes.js";
 import { buildRoutes as buildAnnuityRoutes } from "../annuity/routes.js";
 import { buildRoutes as buildHealthRoutes } from "../health/routes.js";
 import { buildRoutes as buildObservabilityRoutes } from "../observability/routes.js";
+import { buildRoutes as buildAiRoutes } from "../ai/routes.js";
 
 function createMissingHandler() {
   return async (_request, reply) => {
@@ -18,7 +19,7 @@ function createMissingHandler() {
   };
 }
 
-function buildDefaultRoutes(controllers) {
+function buildDefaultRoutes(controllers, routeConfig = {}) {
   const missingHandler = createMissingHandler();
 
   return [
@@ -30,6 +31,13 @@ function buildDefaultRoutes(controllers) {
     ...buildConsoleErrorsRoutes(controllers, { missingHandler }),
     ...buildCommunicationsRoutes(controllers, { missingHandler }),
     ...buildProjectsRoutes(controllers, { missingHandler }),
+    ...buildAiRoutes(controllers, {
+      missingHandler,
+      aiEnabled: routeConfig.aiEnabled,
+      aiRequiredPermission: routeConfig.aiRequiredPermission,
+      aiMaxInputChars: routeConfig.aiMaxInputChars,
+      aiMaxHistoryMessages: routeConfig.aiMaxHistoryMessages
+    }),
     ...buildSettingsRoutes(controllers),
     ...buildHistoryRoutes(controllers),
     ...buildAnnuityRoutes(controllers)

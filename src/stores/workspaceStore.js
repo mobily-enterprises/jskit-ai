@@ -151,7 +151,9 @@ export const useWorkspaceStore = defineStore("workspace", {
       features: {
         workspaceSwitching: false,
         workspaceInvites: false,
-        workspaceCreateEnabled: false
+        workspaceCreateEnabled: false,
+        assistantEnabled: false,
+        assistantRequiredPermission: ""
       }
     },
     workspaces: [],
@@ -193,7 +195,9 @@ export const useWorkspaceStore = defineStore("workspace", {
         features: {
           workspaceSwitching: Boolean(app.features?.workspaceSwitching),
           workspaceInvites: Boolean(app.features?.workspaceInvites),
-          workspaceCreateEnabled: Boolean(app.features?.workspaceCreateEnabled)
+          workspaceCreateEnabled: Boolean(app.features?.workspaceCreateEnabled),
+          assistantEnabled: Boolean(app.features?.assistantEnabled),
+          assistantRequiredPermission: String(app.features?.assistantRequiredPermission || "").trim()
         }
       };
 
@@ -333,6 +337,16 @@ export const useWorkspaceStore = defineStore("workspace", {
     clearWorkspaceState() {
       this.initialized = false;
       this.profile = null;
+      this.app = {
+        tenancyMode: "personal",
+        features: {
+          workspaceSwitching: false,
+          workspaceInvites: false,
+          workspaceCreateEnabled: false,
+          assistantEnabled: false,
+          assistantRequiredPermission: ""
+        }
+      };
       this.workspaces = [];
       this.pendingInvites = [];
       this.activeWorkspace = null;

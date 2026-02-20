@@ -27,6 +27,8 @@ function isMetricsRegistry(value) {
     typeof value.recordConsoleErrorIngestion === "function" &&
     typeof value.recordAuthFailure === "function" &&
     typeof value.recordSecurityAuditEvent === "function" &&
+    typeof value.recordAiTurn === "function" &&
+    typeof value.recordAiToolCall === "function" &&
     typeof value.renderPrometheusMetrics === "function"
   );
 }
@@ -80,6 +82,14 @@ function createService({ metricsRegistry, metricsEnabled = true, metricsBearerTo
     registry.recordSecurityAuditEvent(payload || {});
   }
 
+  function recordAiTurn(payload) {
+    registry.recordAiTurn(payload || {});
+  }
+
+  function recordAiToolCall(payload) {
+    registry.recordAiToolCall(payload || {});
+  }
+
   return {
     isEnabled() {
       return enabled;
@@ -89,7 +99,9 @@ function createService({ metricsRegistry, metricsEnabled = true, metricsBearerTo
     recordDbError,
     recordConsoleErrorIngestion,
     recordAuthFailure,
-    recordSecurityAuditEvent
+    recordSecurityAuditEvent,
+    recordAiTurn,
+    recordAiToolCall
   };
 }
 

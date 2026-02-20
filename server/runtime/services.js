@@ -16,6 +16,8 @@ import { createService as createRealtimeEventsService } from "../domain/realtime
 import { createService as createObservabilityService } from "../modules/observability/service.js";
 import { createService as createProjectsService } from "../modules/projects/service.js";
 import { createService as createHealthService } from "../modules/health/service.js";
+import { createService as createAiService } from "../modules/ai/service.js";
+import { createOpenAiClient } from "../modules/ai/provider/openaiClient.js";
 
 function createServices({
   repositories,
@@ -152,6 +154,26 @@ function createServices({
 
   const realtimeEventsService = createRealtimeEventsService();
 
+  const aiProviderClient = createOpenAiClient({
+    enabled: env.AI_ENABLED,
+    provider: env.AI_PROVIDER,
+    apiKey: env.AI_API_KEY,
+    baseUrl: env.AI_BASE_URL,
+    timeoutMs: env.AI_TIMEOUT_MS
+  });
+
+  const aiService = createAiService({
+    providerClient: aiProviderClient,
+    workspaceAdminService,
+    realtimeEventsService,
+    auditService,
+    observabilityService,
+    aiModel: env.AI_MODEL,
+    aiMaxInputChars: env.AI_MAX_INPUT_CHARS,
+    aiMaxHistoryMessages: env.AI_MAX_HISTORY_MESSAGES,
+    aiMaxToolCallsPerTurn: env.AI_MAX_TOOL_CALLS_PER_TURN
+  });
+
   const healthService = createHealthService({
     healthRepository
   });
@@ -174,6 +196,7 @@ function createServices({
     auditService,
     projectsService,
     realtimeEventsService,
+    aiService,
     healthService
   };
 }

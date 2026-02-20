@@ -41,6 +41,12 @@ function buildStores({
     initialized: workspaceInitialized,
     hasActiveWorkspace: hasWorkspace,
     activeWorkspaceSlug: workspaceSlug,
+    app: {
+      features: {
+        assistantEnabled: true,
+        assistantRequiredPermission: ""
+      }
+    },
     applyBootstrap: vi.fn((payload) => {
       workspaceStore.initialized = true;
       const workspace = payload?.workspace || null;
@@ -388,6 +394,36 @@ describe("routerGuards", () => {
       )
     ).rejects.toMatchObject({
       options: { to: "/workspaces" }
+    });
+  });
+
+  it("enforces assistant feature and permission route guard", async () => {
+    const allowedStores = buildStores({
+      authenticated: true,
+      hasWorkspace: true,
+      workspaceSlug: "acme",
+      canPermissions: ["workspace.ai.use"]
+    });
+    allowedStores.workspaceStore.app.features.assistantEnabled = true;
+    allowedStores.workspaceStore.app.features.assistantRequiredPermission = "workspace.ai.use";
+
+    const guards = createSurfaceRouteGuards(allowedStores, {
+      loginPath: "/login",
+      workspacesPath: "/workspaces",
+      workspaceHomePath: (slug) => `/w/${slug}`
+    });
+
+    await expect(guards.beforeLoadAssistant({ params: { workspaceSlug: "acme" } })).resolves.toBeUndefined();
+
+    allowedStores.workspaceStore.app.features.assistantEnabled = false;
+    await expect(guards.beforeLoadAssistant({ params: { workspaceSlug: "acme" } })).rejects.toMatchObject({
+      options: { to: "/w/acme" }
+    });
+
+    allowedStores.workspaceStore.app.features.assistantEnabled = true;
+    allowedStores.workspaceStore.can.mockReturnValue(false);
+    await expect(guards.beforeLoadAssistant({ params: { workspaceSlug: "acme" } })).rejects.toMatchObject({
+      options: { to: "/w/acme" }
     });
   });
 });

@@ -213,6 +213,15 @@ function normalizeSurfaceLabel(value) {
   }).toLowerCase();
 }
 
+function normalizeProviderLabel(value) {
+  const normalized = sanitizeLabelValue(value, {
+    fallback: "unknown",
+    maxLength: 32
+  }).toLowerCase();
+
+  return normalized.replace(/[^a-z0-9_.:-]/g, "_");
+}
+
 function normalizeOutcomeLabel(value) {
   const normalized = sanitizeLabelValue(value, {
     fallback: "unknown",
@@ -224,6 +233,41 @@ function normalizeOutcomeLabel(value) {
   }
 
   return "unknown";
+}
+
+function normalizeAiTurnOutcomeLabel(value) {
+  const normalized = sanitizeLabelValue(value, {
+    fallback: "failure",
+    maxLength: 24
+  }).toLowerCase();
+  const allowed = new Set(["success", "failure", "aborted", "forbidden", "validation", "timeout"]);
+  if (allowed.has(normalized)) {
+    return normalized;
+  }
+
+  return "failure";
+}
+
+function normalizeAiToolOutcomeLabel(value) {
+  const normalized = sanitizeLabelValue(value, {
+    fallback: "failure",
+    maxLength: 24
+  }).toLowerCase();
+  const allowed = new Set(["success", "failure", "forbidden", "invalid_args", "unknown"]);
+  if (allowed.has(normalized)) {
+    return normalized;
+  }
+
+  return "failure";
+}
+
+function normalizeToolMetricLabel(value) {
+  const normalized = sanitizeLabelValue(value, {
+    fallback: "unknown",
+    maxLength: 80
+  }).toLowerCase();
+
+  return normalized.replace(/[^a-z0-9_.:-]/g, "_");
 }
 
 function normalizeErrorCodeLabel(value) {
@@ -304,6 +348,22 @@ function createMetricsRegistry({ httpDurationBuckets = DEFAULT_HTTP_DURATION_BUC
       name: "app_security_audit_events_total",
       help: "Total persisted security audit events grouped by action, outcome, and surface.",
       labelNames: ["action", "outcome", "surface"]
+    }),
+    aiTurnsTotal: new CounterMetric({
+      name: "app_ai_turns_total",
+      help: "Total AI chat turns grouped by surface, provider, and outcome.",
+      labelNames: ["surface", "provider", "outcome"]
+    }),
+    aiTurnDurationSeconds: new HistogramMetric({
+      name: "app_ai_turn_duration_seconds",
+      help: "AI chat turn duration in seconds grouped by surface, provider, and outcome.",
+      labelNames: ["surface", "provider", "outcome"],
+      buckets: [0.25, 0.5, 1, 2, 5, 10, 20, 45, 90]
+    }),
+    aiToolCallsTotal: new CounterMetric({
+      name: "app_ai_tool_calls_total",
+      help: "Total AI tool calls grouped by tool name and outcome.",
+      labelNames: ["tool", "outcome"]
     })
   };
 
@@ -376,6 +436,28 @@ function createMetricsRegistry({ httpDurationBuckets = DEFAULT_HTTP_DURATION_BUC
     });
   }
 
+  function recordAiTurn({ surface, provider, outcome, durationMs }) {
+    const labels = {
+      surface: normalizeSurfaceLabel(surface),
+      provider: normalizeProviderLabel(provider),
+      outcome: normalizeAiTurnOutcomeLabel(outcome)
+    };
+
+    metrics.aiTurnsTotal.increment(labels);
+
+    const durationSeconds = normalizeDurationSeconds(durationMs);
+    if (durationSeconds != null) {
+      metrics.aiTurnDurationSeconds.observe(labels, durationSeconds);
+    }
+  }
+
+  function recordAiToolCall({ tool, outcome }) {
+    metrics.aiToolCallsTotal.increment({
+      tool: normalizeToolMetricLabel(tool),
+      outcome: normalizeAiToolOutcomeLabel(outcome)
+    });
+  }
+
   function renderPrometheusMetrics() {
     const blocks = [
       metrics.httpRequestsTotal.toLines(),
@@ -385,7 +467,10 @@ function createMetricsRegistry({ httpDurationBuckets = DEFAULT_HTTP_DURATION_BUC
       metrics.dbErrorsTotal.toLines(),
       metrics.consoleErrorIngestionTotal.toLines(),
       metrics.authFailuresTotal.toLines(),
-      metrics.securityAuditEventsTotal.toLines()
+      metrics.securityAuditEventsTotal.toLines(),
+      metrics.aiTurnsTotal.toLines(),
+      metrics.aiTurnDurationSeconds.toLines(),
+      metrics.aiToolCallsTotal.toLines()
     ];
 
     return `${blocks.flat().join("\n")}\n`;
@@ -398,6 +483,8 @@ function createMetricsRegistry({ httpDurationBuckets = DEFAULT_HTTP_DURATION_BUC
     recordConsoleErrorIngestion,
     recordAuthFailure,
     recordSecurityAuditEvent,
+    recordAiTurn,
+    recordAiToolCall,
     renderPrometheusMetrics
   };
 }
@@ -410,7 +497,11 @@ const __testables = {
   normalizeMethodLabel,
   normalizeRouteLabel,
   normalizeSurfaceLabel,
+  normalizeProviderLabel,
   normalizeOutcomeLabel,
+  normalizeAiTurnOutcomeLabel,
+  normalizeAiToolOutcomeLabel,
+  normalizeToolMetricLabel,
   normalizeErrorCodeLabel,
   normalizeActionLabel,
   normalizeReasonLabel,

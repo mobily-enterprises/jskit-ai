@@ -523,7 +523,9 @@ function createService({
           features: {
             workspaceSwitching: Boolean(appConfig.features.workspaceSwitching),
             workspaceInvites: Boolean(appConfig.features.workspaceInvites),
-            workspaceCreateEnabled: Boolean(appConfig.features.workspaceCreateEnabled)
+            workspaceCreateEnabled: Boolean(appConfig.features.workspaceCreateEnabled),
+            assistantEnabled: Boolean(appConfig.features.assistantEnabled),
+            assistantRequiredPermission: String(appConfig.features.assistantRequiredPermission || "").trim()
           }
         },
         workspaces: [],
@@ -575,7 +577,9 @@ function createService({
         features: {
           workspaceSwitching: Boolean(appConfig.features.workspaceSwitching),
           workspaceInvites: Boolean(appConfig.features.workspaceInvites),
-          workspaceCreateEnabled: Boolean(appConfig.features.workspaceCreateEnabled)
+          workspaceCreateEnabled: Boolean(appConfig.features.workspaceCreateEnabled),
+          assistantEnabled: Boolean(appConfig.features.assistantEnabled),
+          assistantRequiredPermission: String(appConfig.features.assistantRequiredPermission || "").trim()
         }
       },
       workspaces: context.workspaces,

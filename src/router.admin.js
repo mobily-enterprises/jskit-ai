@@ -7,6 +7,7 @@ export function createAdminRouter({ authStore, workspaceStore }) {
     workspaceStore,
     surface: "admin",
     shellComponent: AdminShell,
-    includeWorkspaceSettings: true
+    includeWorkspaceSettings: true,
+    includeAssistantRoute: true
   });
 }

@@ -66,7 +66,9 @@ const bootstrap = Type.Object(
           {
             workspaceSwitching: Type.Boolean(),
             workspaceInvites: Type.Boolean(),
-            workspaceCreateEnabled: Type.Boolean()
+            workspaceCreateEnabled: Type.Boolean(),
+            assistantEnabled: Type.Boolean(),
+            assistantRequiredPermission: Type.String({ maxLength: 120 })
           },
           {
             additionalProperties: false

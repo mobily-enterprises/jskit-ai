@@ -85,6 +85,28 @@ export TRUST_PROXY="false"
 export METRICS_ENABLED="true"
 # Optional bearer token required for GET /api/metrics
 export METRICS_BEARER_TOKEN=""
+# AI assistant feature toggle (when false, AI chat route behaves as not found)
+export AI_ENABLED="false"
+# AI provider id (current supported value: openai)
+export AI_PROVIDER="openai"
+# Required when AI_ENABLED=true
+export AI_API_KEY=""
+# Optional OpenAI-compatible base URL override
+export AI_BASE_URL=""
+# Chat model for workspace assistant
+export AI_MODEL="gpt-4.1-mini"
+# Provider timeout for each assistant turn (milliseconds)
+export AI_TIMEOUT_MS="45000"
+# Max chars accepted for one input message
+export AI_MAX_INPUT_CHARS="8000"
+# Max history messages from client included per turn
+export AI_MAX_HISTORY_MESSAGES="20"
+# Max tool-call iterations per assistant turn
+export AI_MAX_TOOL_CALLS_PER_TURN="4"
+# Optional permission required to access AI chat (blank = no extra permission gate).
+# Enforced in auth pre-handler; denied requests return 403 before stream starts.
+# Value must match a non-owner permission ID declared in RBAC manifest at startup.
+export AI_REQUIRED_PERMISSION=""
 # workspace invite email delivery (scaffold mode)
 export WORKSPACE_INVITE_EMAIL_DRIVER="none"
 # required when WORKSPACE_INVITE_EMAIL_DRIVER=smtp
@@ -340,6 +362,7 @@ Realtime note:
 - `POST /api/workspace/projects`
 - `PATCH /api/workspace/projects/:projectId`
 - `PUT /api/workspace/projects/:projectId`
+- `POST /api/workspace/ai/chat/stream`
 - `GET /api/settings`
 - `PATCH /api/settings/profile`
 - `POST /api/settings/profile/avatar`
@@ -374,6 +397,21 @@ CSRF notes:
 - `GET /api/session` returns `csrfToken`.
 - Unsafe requests must send `csrf-token` header.
 - The shipped frontend handles this automatically.
+
+AI stream contract (`POST /api/workspace/ai/chat/stream`):
+
+- Response content type is `application/x-ndjson`.
+- Each line is one JSON event with `type` in:
+  - `meta`
+  - `assistant_delta`
+  - `assistant_message`
+  - `tool_call`
+  - `tool_result`
+  - `error`
+  - `done`
+- Error semantics are split by stream lifecycle:
+  - Pre-stream failures (auth, permissions, validation, disabled route) return normal HTTP errors (`4xx/5xx`).
+  - In-stream failures (provider/tool/runtime after stream starts) emit NDJSON `type:"error"` events while HTTP status remains `200`.
 
 `/api/annuityCalculator` supports finite and perpetual PV calculations:
 

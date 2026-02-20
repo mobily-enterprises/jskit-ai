@@ -5,6 +5,11 @@ import { commandTracker } from "../realtime/commandTracker.js";
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const API_PATH_PREFIX = "/api/";
 const RETRYABLE_CSRF_ERROR_CODES = new Set(["FST_CSRF_INVALID_TOKEN", "FST_CSRF_MISSING_SECRET"]);
+const AI_STREAM_URL = "/api/workspace/ai/chat/stream";
+
+function isAiStreamRequest(url) {
+  return String(url || "").includes(AI_STREAM_URL);
+}
 
 const REALTIME_CORRELATED_WRITE_ROUTES = Object.freeze([
   {
@@ -95,6 +100,15 @@ function createHttpError(response, data) {
   return error;
 }
 
+function createNetworkError(cause) {
+  const error = new Error("Network request failed.");
+  error.status = 0;
+  error.fieldErrors = null;
+  error.details = null;
+  error.cause = cause;
+  return error;
+}
+
 function shouldRetryForCsrfFailure(response, method, state, data) {
   if (response.status !== 403 || !UNSAFE_METHODS.has(method) || state.csrfRetried) {
     return false;
@@ -114,12 +128,7 @@ async function fetchSessionForCsrf() {
       credentials: "same-origin"
     });
   } catch (cause) {
-    const error = new Error("Network request failed.");
-    error.status = 0;
-    error.fieldErrors = null;
-    error.details = null;
-    error.cause = cause;
-    throw error;
+    throw createNetworkError(cause);
   }
 
   const contentType = response.headers.get("content-type") || "";
@@ -246,6 +255,63 @@ function finalizeCommandFailure(commandContext, reason) {
   commandContext.finalized = true;
 }
 
+function emitNdjsonLine(line, handlers) {
+  const normalizedLine = String(line || "").trim();
+  if (!normalizedLine) {
+    return;
+  }
+
+  try {
+    const payload = JSON.parse(normalizedLine);
+    if (typeof handlers?.onEvent === "function") {
+      handlers.onEvent(payload);
+    }
+  } catch (error) {
+    if (typeof handlers?.onMalformedLine === "function") {
+      handlers.onMalformedLine(normalizedLine, error);
+    }
+  }
+}
+
+async function readNdjsonStream(response, handlers = {}) {
+  if (!response?.body || typeof response.body.getReader !== "function") {
+    if (typeof response?.text === "function") {
+      const rawText = await response.text().catch(() => "");
+      const lines = String(rawText || "").split(/\r?\n/g);
+      for (const line of lines) {
+        emitNdjsonLine(line, handlers);
+      }
+    }
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffered = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    buffered += decoder.decode(value, {
+      stream: true
+    });
+
+    const lines = buffered.split(/\r?\n/g);
+    buffered = lines.pop() || "";
+    for (const line of lines) {
+      emitNdjsonLine(line, handlers);
+    }
+  }
+
+  buffered += decoder.decode();
+  if (buffered) {
+    emitNdjsonLine(buffered, handlers);
+  }
+}
+
 async function request(url, options = {}, state = { csrfRetried: false, commandContext: null }) {
   const method = String(options.method || "GET").toUpperCase();
   const headers = {
@@ -279,13 +345,7 @@ async function request(url, options = {}, state = { csrfRetried: false, commandC
     response = await fetch(url, config);
   } catch (cause) {
     finalizeCommandFailure(commandContext, "network_error");
-
-    const error = new Error("Network request failed.");
-    error.status = 0;
-    error.fieldErrors = null;
-    error.details = null;
-    error.cause = cause;
-    throw error;
+    throw createNetworkError(cause);
   }
 
   const contentType = response.headers.get("content-type") || "";
@@ -312,6 +372,90 @@ async function request(url, options = {}, state = { csrfRetried: false, commandC
   return data;
 }
 
+async function requestStream(url, options = {}, handlers = {}, state = { csrfRetried: false, commandContext: null }) {
+  const method = String(options.method || "GET").toUpperCase();
+  const headers = {
+    ...(options.headers || {})
+  };
+  applySurfaceContextHeaders(url, headers);
+
+  const commandContext = buildCommandContext(url, method, headers, state.commandContext);
+
+  const config = {
+    credentials: "same-origin",
+    ...options,
+    method,
+    headers
+  };
+
+  if (config.body && typeof config.body === "object" && !(config.body instanceof FormData)) {
+    headers["Content-Type"] = headers["Content-Type"] || "application/json";
+    config.body = JSON.stringify(config.body);
+  }
+
+  if (UNSAFE_METHODS.has(method) && !headers["csrf-token"]) {
+    const token = await ensureCsrfToken();
+    if (token) {
+      headers["csrf-token"] = token;
+    }
+  }
+
+  let response;
+  try {
+    response = await fetch(url, config);
+  } catch (cause) {
+    const aborted = String(cause?.name || "") === "AbortError";
+    finalizeCommandFailure(commandContext, aborted ? "aborted" : "network_error");
+    if (aborted) {
+      throw cause;
+    }
+
+    throw createNetworkError(cause);
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  const isJson = contentType.includes("application/json");
+  const responseData = isJson ? await response.json().catch(() => ({})) : {};
+  const aiStreamRequest = isAiStreamRequest(url);
+  updateCsrfTokenFromPayload(responseData);
+
+  if (!response.ok) {
+    if (shouldRetryForCsrfFailure(response, method, state, responseData)) {
+      csrfTokenCache = "";
+      await ensureCsrfToken(true);
+      return requestStream(url, options, handlers, {
+        csrfRetried: true,
+        commandContext
+      });
+    }
+
+    finalizeCommandFailure(commandContext, `http_${response.status}`);
+    throw createHttpError(response, responseData);
+  }
+
+  try {
+    const shouldParseAsNdjsonStream =
+      contentType.includes("application/x-ndjson") ||
+      (aiStreamRequest && !isJson && response?.body && typeof response.body.getReader === "function");
+
+    if (shouldParseAsNdjsonStream) {
+      await readNdjsonStream(response, handlers);
+    } else if (typeof handlers?.onEvent === "function" && Object.keys(responseData).length > 0) {
+      handlers.onEvent(responseData);
+    } else if (typeof handlers?.onEvent === "function" && typeof response?.text === "function") {
+      const rawText = await response.text().catch(() => "");
+      for (const line of String(rawText || "").split(/\r?\n/g)) {
+        emitNdjsonLine(line, handlers);
+      }
+    }
+  } catch (error) {
+    finalizeCommandFailure(commandContext, "stream_error");
+    throw error;
+  }
+
+  finalizeCommandAck(commandContext);
+}
+
 function clearCsrfTokenCache() {
   csrfTokenCache = "";
 }
@@ -325,13 +469,15 @@ function resetApiStateForTests() {
 
 const __testables = {
   request,
+  requestStream,
   ensureCsrfToken,
   fetchSessionForCsrf,
   updateCsrfTokenFromPayload,
   createHttpError,
   isRealtimeCorrelatedCommandRequest,
   buildCommandContext,
+  readNdjsonStream,
   resetApiStateForTests
 };
 
-export { request, clearCsrfTokenCache, __testables };
+export { request, requestStream, clearCsrfTokenCache, __testables };

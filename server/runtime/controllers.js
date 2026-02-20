@@ -9,6 +9,7 @@ import { createController as createConsoleErrorsController } from "../modules/co
 import { createController as createObservabilityController } from "../modules/observability/controller.js";
 import { createController as createProjectsController } from "../modules/projects/controller.js";
 import { createController as createHealthController } from "../modules/health/controller.js";
+import { createController as createAiController } from "../modules/ai/controller.js";
 
 function createControllers({ services }) {
   const {
@@ -18,6 +19,7 @@ function createControllers({ services }) {
     communicationsService,
     userSettingsService,
     projectsService,
+    aiService,
     realtimeEventsService,
     healthService,
     workspaceService,
@@ -49,6 +51,9 @@ function createControllers({ services }) {
     projects: createProjectsController({
       projectsService,
       realtimeEventsService
+    }),
+    ai: createAiController({
+      aiService
     }),
     workspace: createWorkspaceController({
       authService,
