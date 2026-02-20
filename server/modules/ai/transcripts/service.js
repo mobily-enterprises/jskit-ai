@@ -96,6 +96,15 @@ function normalizeWorkspaceId(workspace) {
   return workspaceId;
 }
 
+function resolveActorUserId(user, { required = false } = {}) {
+  const actorUserId = parsePositiveInteger(user?.id);
+  if (!actorUserId && required) {
+    throw new AppError(401, "Authentication required.");
+  }
+
+  return actorUserId;
+}
+
 function normalizeConversationStatus(value) {
   const normalized = normalizeText(value).toLowerCase();
   if (!normalized) {
@@ -227,10 +236,27 @@ function createService({
     return resolveTranscriptModeFromWorkspaceSettings(workspaceSettings);
   }
 
+  async function findWorkspaceConversationForUser(workspaceId, actorUserId, conversationId) {
+    if (!actorUserId) {
+      return null;
+    }
+
+    if (typeof conversationsRepository.findByIdForWorkspaceAndUser === "function") {
+      return conversationsRepository.findByIdForWorkspaceAndUser(conversationId, workspaceId, actorUserId);
+    }
+
+    const conversation = await conversationsRepository.findByIdForWorkspace(conversationId, workspaceId);
+    if (!conversation) {
+      return null;
+    }
+
+    return parsePositiveInteger(conversation.createdByUserId) === actorUserId ? conversation : null;
+  }
+
   async function startConversationForTurn({ workspace, user, conversationId, messageId, provider, model } = {}) {
     const workspaceId = normalizeWorkspaceId(workspace);
     const transcriptMode = await resolveWorkspaceTranscriptMode(workspaceId);
-    const actorUserId = parsePositiveInteger(user?.id);
+    const actorUserId = resolveActorUserId(user);
 
     if (transcriptMode === TRANSCRIPT_MODE_DISABLED) {
       return {
@@ -241,7 +267,7 @@ function createService({
 
     const existingConversationId = parsePositiveInteger(conversationId);
     if (existingConversationId) {
-      const existingConversation = await conversationsRepository.findByIdForWorkspace(existingConversationId, workspaceId);
+      const existingConversation = await findWorkspaceConversationForUser(workspaceId, actorUserId, existingConversationId);
       if (!existingConversation) {
         throw new AppError(404, "Conversation not found.");
       }
@@ -383,10 +409,67 @@ function createService({
     };
   }
 
+  async function listWorkspaceConversationsForUser(workspace, user, query = {}) {
+    const workspaceId = normalizeWorkspaceId(workspace);
+    const actorUserId = resolveActorUserId(user, { required: true });
+    const pagination = normalizePagination(query);
+    const filters = {
+      workspaceId,
+      createdByUserId: actorUserId,
+      status: query.status,
+      from: normalizeDateInput(query.from),
+      to: normalizeDateInput(query.to)
+    };
+
+    const total = await conversationsRepository.count(filters);
+    const totalPages = Math.max(1, Math.ceil(total / pagination.pageSize));
+    const safePage = Math.min(pagination.page, totalPages);
+    const entries = await conversationsRepository.list(filters, {
+      page: safePage,
+      pageSize: pagination.pageSize
+    });
+
+    return {
+      entries,
+      page: safePage,
+      pageSize: pagination.pageSize,
+      total,
+      totalPages
+    };
+  }
+
   async function getWorkspaceConversationMessages(workspace, conversationIdValue, query = {}) {
     const workspaceId = normalizeWorkspaceId(workspace);
     const conversationId = normalizeConversationId(conversationIdValue);
     const conversation = await conversationsRepository.findByIdForWorkspace(conversationId, workspaceId);
+    if (!conversation) {
+      throw new AppError(404, "Conversation not found.");
+    }
+
+    const pagination = normalizePagination(query);
+    const total = await messagesRepository.countByConversationIdForWorkspace(conversationId, workspaceId);
+    const totalPages = Math.max(1, Math.ceil(total / pagination.pageSize));
+    const safePage = Math.min(pagination.page, totalPages);
+    const entries = await messagesRepository.listByConversationIdForWorkspace(conversationId, workspaceId, {
+      page: safePage,
+      pageSize: pagination.pageSize
+    });
+
+    return {
+      conversation,
+      entries,
+      page: safePage,
+      pageSize: pagination.pageSize,
+      total,
+      totalPages
+    };
+  }
+
+  async function getWorkspaceConversationMessagesForUser(workspace, user, conversationIdValue, query = {}) {
+    const workspaceId = normalizeWorkspaceId(workspace);
+    const actorUserId = resolveActorUserId(user, { required: true });
+    const conversationId = normalizeConversationId(conversationIdValue);
+    const conversation = await findWorkspaceConversationForUser(workspaceId, actorUserId, conversationId);
     if (!conversation) {
       throw new AppError(404, "Conversation not found.");
     }
@@ -556,7 +639,9 @@ function createService({
     appendMessage,
     completeConversation,
     listWorkspaceConversations,
+    listWorkspaceConversationsForUser,
     getWorkspaceConversationMessages,
+    getWorkspaceConversationMessagesForUser,
     exportWorkspaceConversation,
     listConsoleConversations,
     getConsoleConversationMessages,

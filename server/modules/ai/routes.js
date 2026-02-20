@@ -46,6 +46,45 @@ function buildRoutes(
         timeWindow: "1 minute"
       },
       handler: controllers.ai?.chatStream || missingHandler
+    },
+    {
+      path: "/api/workspace/ai/conversations",
+      method: "GET",
+      auth: "required",
+      workspacePolicy: "required",
+      ...(requiredPermission ? { permission: requiredPermission } : {}),
+      schema: {
+        tags: ["ai"],
+        summary: "List assistant conversations for current user in active workspace",
+        querystring: routeSchema.query.conversations,
+        response: withStandardErrorResponses(
+          {
+            200: routeSchema.response.conversations
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.ai?.listConversations || missingHandler
+    },
+    {
+      path: "/api/workspace/ai/conversations/:conversationId/messages",
+      method: "GET",
+      auth: "required",
+      workspacePolicy: "required",
+      ...(requiredPermission ? { permission: requiredPermission } : {}),
+      schema: {
+        tags: ["ai"],
+        summary: "List messages for one assistant conversation owned by current user",
+        params: routeSchema.params.conversation,
+        querystring: routeSchema.query.conversationMessages,
+        response: withStandardErrorResponses(
+          {
+            200: routeSchema.response.conversationMessages
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.ai?.getConversationMessages || missingHandler
     }
   ];
 }

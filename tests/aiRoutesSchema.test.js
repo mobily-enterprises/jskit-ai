@@ -23,6 +23,41 @@ test("ai route rejects malformed request body and accepts valid payload", async 
           type: "done",
           messageId: "message_1"
         });
+      },
+      async listConversations(_request, reply) {
+        reply.code(200).send({
+          entries: [],
+          page: 1,
+          pageSize: 20,
+          total: 0,
+          totalPages: 1
+        });
+      },
+      async getConversationMessages(_request, reply) {
+        reply.code(200).send({
+          conversation: {
+            id: 7,
+            workspaceId: 11,
+            workspaceSlug: "acme",
+            workspaceName: "Acme",
+            createdByUserId: 3,
+            status: "completed",
+            transcriptMode: "standard",
+            provider: "openai",
+            model: "gpt-4.1-mini",
+            startedAt: "2026-02-20T00:00:00.000Z",
+            endedAt: "2026-02-20T00:01:00.000Z",
+            messageCount: 2,
+            metadata: {},
+            createdAt: "2026-02-20T00:00:00.000Z",
+            updatedAt: "2026-02-20T00:01:00.000Z"
+          },
+          entries: [],
+          page: 1,
+          pageSize: 100,
+          total: 0,
+          totalPages: 1
+        });
       }
     }
   };
@@ -54,6 +89,41 @@ test("ai route rejects malformed request body and accepts valid payload", async 
   });
 
   assert.equal(valid.statusCode, 200);
+
+  const invalidConversationsQuery = await app.inject({
+    method: "GET",
+    url: "/api/workspace/ai/conversations?pageSize=201"
+  });
+
+  assert.equal(invalidConversationsQuery.statusCode, 400);
+
+  const validConversations = await app.inject({
+    method: "GET",
+    url: "/api/workspace/ai/conversations?page=1&pageSize=20"
+  });
+
+  assert.equal(validConversations.statusCode, 200);
+
+  const invalidMessagesParams = await app.inject({
+    method: "GET",
+    url: "/api/workspace/ai/conversations/not-a-number/messages"
+  });
+
+  assert.equal(invalidMessagesParams.statusCode, 400);
+
+  const invalidMessagesQuery = await app.inject({
+    method: "GET",
+    url: "/api/workspace/ai/conversations/7/messages?pageSize=999"
+  });
+
+  assert.equal(invalidMessagesQuery.statusCode, 400);
+
+  const validMessages = await app.inject({
+    method: "GET",
+    url: "/api/workspace/ai/conversations/7/messages?page=1&pageSize=100"
+  });
+
+  assert.equal(validMessages.statusCode, 200);
   await app.close();
 });
 

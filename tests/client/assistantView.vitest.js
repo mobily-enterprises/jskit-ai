@@ -1,17 +1,51 @@
-import { defineComponent } from "vue";
+import { defineComponent, ref } from "vue";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   api: {
     ai: {
-      streamChat: vi.fn()
+      streamChat: vi.fn(),
+      listConversations: vi.fn(async () => ({
+        entries: []
+      })),
+      getConversationMessages: vi.fn()
     }
+  },
+  workspaceStore: {
+    initialized: true,
+    activeWorkspace: {
+      id: 11,
+      slug: "acme"
+    },
+    activeWorkspaceSlug: "acme"
+  },
+  historyData: null,
+  historyError: null,
+  historyFetching: null,
+  historyRefetch: vi.fn(async () => undefined),
+  queryClient: {
+    fetchQuery: vi.fn(async ({ queryFn }) => queryFn()),
+    invalidateQueries: vi.fn(async () => undefined)
   }
+}));
+
+vi.mock("@tanstack/vue-query", () => ({
+  useQuery: () => ({
+    data: mocks.historyData,
+    error: mocks.historyError,
+    isFetching: mocks.historyFetching,
+    refetch: mocks.historyRefetch
+  }),
+  useQueryClient: () => mocks.queryClient
 }));
 
 vi.mock("../../src/services/api/index.js", () => ({
   api: mocks.api
+}));
+
+vi.mock("../../src/stores/workspaceStore.js", () => ({
+  useWorkspaceStore: () => mocks.workspaceStore
 }));
 
 import { useAssistantView, __testables as assistantViewTestables } from "../../src/views/assistant/useAssistantView.js";
@@ -28,6 +62,22 @@ describe("useAssistantView", () => {
   beforeEach(() => {
     vi.useRealTimers();
     mocks.api.ai.streamChat.mockReset();
+    mocks.api.ai.listConversations.mockReset();
+    mocks.api.ai.listConversations.mockResolvedValue({
+      entries: []
+    });
+    mocks.api.ai.getConversationMessages.mockReset();
+    mocks.historyData = ref({
+      entries: []
+    });
+    mocks.historyError = ref(null);
+    mocks.historyFetching = ref(false);
+    mocks.historyRefetch.mockReset();
+    mocks.historyRefetch.mockResolvedValue(undefined);
+    mocks.queryClient.fetchQuery.mockReset();
+    mocks.queryClient.fetchQuery.mockImplementation(async ({ queryFn }) => queryFn());
+    mocks.queryClient.invalidateQueries.mockReset();
+    mocks.queryClient.invalidateQueries.mockResolvedValue(undefined);
   });
 
   it("transitions from send to delta to done state", async () => {
@@ -290,5 +340,126 @@ describe("useAssistantView", () => {
     expect(event.preventDefault).not.toHaveBeenCalled();
     expect(mocks.api.ai.streamChat).not.toHaveBeenCalled();
     expect(wrapper.vm.state.messages.value).toEqual([]);
+  });
+
+  it("restores a conversation and sets active conversation id", async () => {
+    mocks.api.ai.getConversationMessages.mockResolvedValueOnce({
+      entries: [
+        {
+          id: 1,
+          role: "user",
+          kind: "chat",
+          contentText: "rename workspace",
+          metadata: {}
+        },
+        {
+          id: 2,
+          role: "assistant",
+          kind: "chat",
+          contentText: "Renaming now.",
+          metadata: {}
+        },
+        {
+          id: 3,
+          role: "assistant",
+          kind: "tool_call",
+          contentText: '{"name":"ACME"}',
+          metadata: {
+            toolCallId: "call_1",
+            tool: "workspace_rename"
+          }
+        },
+        {
+          id: 4,
+          role: "tool",
+          kind: "tool_result",
+          contentText: '{"ok":true,"result":{"name":"ACME"}}',
+          metadata: {
+            toolCallId: "call_1",
+            tool: "workspace_rename"
+          }
+        }
+      ]
+    });
+
+    const wrapper = mount(Harness);
+    await wrapper.vm.actions.selectConversationById(42);
+
+    expect(wrapper.vm.state.conversationId.value).toBe("42");
+    expect(wrapper.vm.state.messages.value.map((entry) => entry.text)).toEqual([
+      "rename workspace",
+      "Renaming now.",
+      "Tool call: workspace_rename",
+      "Tool result: workspace_rename completed"
+    ]);
+    expect(wrapper.vm.state.pendingToolEvents.value).toEqual([
+      {
+        id: "call_1",
+        name: "workspace_rename",
+        arguments: '{"name":"ACME"}',
+        status: "done",
+        result: {
+          name: "ACME"
+        },
+        error: null
+      }
+    ]);
+    expect(mocks.api.ai.getConversationMessages).toHaveBeenCalledWith(42, {
+      page: assistantViewTestables.RESTORE_MESSAGES_PAGE,
+      pageSize: assistantViewTestables.RESTORE_MESSAGES_PAGE_SIZE
+    });
+  });
+
+  it("start new conversation clears local state and resets conversation id", () => {
+    const wrapper = mount(Harness);
+    wrapper.vm.state.messages.value = [
+      {
+        id: "m1",
+        role: "user",
+        kind: "chat",
+        text: "hello",
+        status: "done"
+      }
+    ];
+    wrapper.vm.state.pendingToolEvents.value = [
+      {
+        id: "call_1",
+        name: "workspace_rename",
+        arguments: "{}",
+        status: "pending",
+        result: null,
+        error: null
+      }
+    ];
+    wrapper.vm.state.input.value = "draft";
+    wrapper.vm.state.error.value = "failed";
+    wrapper.vm.state.conversationId.value = "77";
+
+    wrapper.vm.actions.startNewConversation();
+
+    expect(wrapper.vm.state.messages.value).toEqual([]);
+    expect(wrapper.vm.state.pendingToolEvents.value).toEqual([]);
+    expect(wrapper.vm.state.input.value).toBe("");
+    expect(wrapper.vm.state.error.value).toBe("");
+    expect(wrapper.vm.state.conversationId.value).toBe(null);
+  });
+
+  it("invalidates and refetches conversation history after send", async () => {
+    mocks.api.ai.streamChat.mockImplementationOnce(async (_payload, handlers) => {
+      handlers.onEvent({ type: "meta", conversationId: "55" });
+      handlers.onEvent({ type: "assistant_message", text: "done" });
+      handlers.onEvent({ type: "done" });
+    });
+
+    const wrapper = mount(Harness);
+    wrapper.vm.state.input.value = "hello";
+
+    await wrapper.vm.actions.sendMessage();
+
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledTimes(1);
+    expect(mocks.queryClient.invalidateQueries.mock.calls[0][0]).toEqual({
+      queryKey: ["assistant", "id:11"]
+    });
+    expect(mocks.historyRefetch).toHaveBeenCalledTimes(1);
   });
 });

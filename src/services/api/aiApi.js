@@ -7,7 +7,20 @@ function buildStreamEventError(event) {
   return error;
 }
 
-function createApi({ requestStream }) {
+function appendQueryParam(params, key, value) {
+  if (value == null) {
+    return;
+  }
+
+  const normalized = String(value).trim();
+  if (!normalized) {
+    return;
+  }
+
+  params.set(key, normalized);
+}
+
+function createApi({ request, requestStream }) {
   return {
     async streamChat(payload, { signal, onEvent, onMalformedLine, rejectOnErrorEvent = true } = {}) {
       let streamEventError = null;
@@ -42,6 +55,26 @@ function createApi({ requestStream }) {
       if (streamEventError) {
         throw streamEventError;
       }
+    },
+    listConversations(query = {}) {
+      const params = new URLSearchParams();
+      appendQueryParam(params, "page", query.page);
+      appendQueryParam(params, "pageSize", query.pageSize);
+      appendQueryParam(params, "from", query.from);
+      appendQueryParam(params, "to", query.to);
+      appendQueryParam(params, "status", query.status);
+      const queryString = params.toString();
+      return request(`/api/workspace/ai/conversations${queryString ? `?${queryString}` : ""}`);
+    },
+    getConversationMessages(conversationId, query = {}) {
+      const encodedConversationId = encodeURIComponent(String(conversationId || "").trim());
+      const params = new URLSearchParams();
+      appendQueryParam(params, "page", query.page);
+      appendQueryParam(params, "pageSize", query.pageSize);
+      const queryString = params.toString();
+      return request(
+        `/api/workspace/ai/conversations/${encodedConversationId}/messages${queryString ? `?${queryString}` : ""}`
+      );
     }
   };
 }

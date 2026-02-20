@@ -9,7 +9,7 @@ import { createApi as createHistoryApi } from "./historyApi.js";
 import { request, requestStream, clearCsrfTokenCache, __testables } from "./transport.js";
 
 const api = {
-  ai: createAiApi({ requestStream }),
+  ai: createAiApi({ request, requestStream }),
   auth: createAuthApi({ request }),
   workspace: createWorkspaceApi({ request }),
   console: createConsoleApi({ request }),

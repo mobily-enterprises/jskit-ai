@@ -32,21 +32,71 @@
               rows="3"
               auto-grow
               hide-details="auto"
-              :disabled="isStreaming"
+              :disabled="isStreaming || isRestoringConversation"
               @keydown="handleInputKeydown"
             />
 
             <div class="assistant-actions mt-3">
               <v-checkbox v-model="sendOnEnter" label="Send on enter" hide-details density="compact" />
+              <v-btn
+                class="d-lg-none"
+                variant="tonal"
+                :disabled="isStreaming || isRestoringConversation"
+                @click="conversationPickerOpen = true"
+              >
+                Conversations
+              </v-btn>
               <v-btn color="primary" :loading="isStreaming" :disabled="!canSend" @click="sendMessage">Send</v-btn>
               <v-btn variant="outlined" :disabled="!isStreaming" @click="cancelStream">Cancel</v-btn>
-              <v-btn variant="text" :disabled="isStreaming && !abortController" @click="clearConversation">Clear</v-btn>
+              <v-btn variant="text" :disabled="!canStartNewConversation" @click="startNewConversation">Start New</v-btn>
             </div>
           </v-card-text>
         </v-card>
       </v-col>
 
       <v-col cols="12" lg="4">
+        <v-card rounded="lg" elevation="1" border class="d-none d-lg-block mb-3">
+          <v-card-item>
+            <v-card-title class="text-subtitle-2 font-weight-bold">Conversation History</v-card-title>
+            <template #append>
+              <v-btn
+                variant="text"
+                size="small"
+                :disabled="isStreaming || isRestoringConversation || conversationHistoryLoading"
+                @click="refreshConversationHistory"
+              >
+                Refresh
+              </v-btn>
+            </template>
+          </v-card-item>
+          <v-divider />
+          <v-card-text class="pt-2">
+            <v-btn
+              block
+              variant="outlined"
+              color="primary"
+              class="mb-2"
+              :disabled="!canStartNewConversation"
+              @click="startNewConversation"
+            >
+              Start new conversation
+            </v-btn>
+            <div v-if="conversationHistoryError" class="text-caption text-error mb-2">{{ conversationHistoryError }}</div>
+            <v-list density="compact">
+              <v-list-item v-if="conversationHistory.length < 1" title="No conversations yet." />
+              <v-list-item
+                v-for="conversation in conversationHistory"
+                :key="conversation.id"
+                :title="`Conversation #${conversation.id}`"
+                :subtitle="conversationSubtitle(conversation)"
+                :active="isActiveConversation(conversation)"
+                :disabled="isStreaming || isRestoringConversation"
+                @click="selectConversation(conversation)"
+              />
+            </v-list>
+          </v-card-text>
+        </v-card>
+
         <v-card rounded="lg" elevation="1" border>
           <v-card-item>
             <v-card-title class="text-subtitle-2 font-weight-bold">Tool Timeline</v-card-title>
@@ -64,16 +114,97 @@
         </v-card>
       </v-col>
     </v-row>
+
+    <v-bottom-sheet v-model="conversationPickerOpen">
+      <v-card rounded="t-lg" border>
+        <v-card-item>
+          <v-card-title class="text-subtitle-1 font-weight-bold">Conversations</v-card-title>
+        </v-card-item>
+        <v-divider />
+        <v-card-text class="pt-3">
+          <v-btn
+            block
+            variant="outlined"
+            color="primary"
+            class="mb-2"
+            :disabled="!canStartNewConversation"
+            @click="startNewConversationFromPicker"
+          >
+            Start new conversation
+          </v-btn>
+          <div v-if="conversationHistoryError" class="text-caption text-error mb-2">{{ conversationHistoryError }}</div>
+          <v-list density="compact">
+            <v-list-item v-if="conversationHistory.length < 1" title="No conversations yet." />
+            <v-list-item
+              v-for="conversation in conversationHistory"
+              :key="conversation.id"
+              :title="`Conversation #${conversation.id}`"
+              :subtitle="conversationSubtitle(conversation)"
+              :active="isActiveConversation(conversation)"
+              :disabled="isStreaming || isRestoringConversation"
+              @click="selectConversationFromPicker(conversation)"
+            />
+          </v-list>
+        </v-card-text>
+      </v-card>
+    </v-bottom-sheet>
   </section>
 </template>
 
 <script setup>
+import { ref } from "vue";
 import { useAssistantView } from "./useAssistantView.js";
 
 const {
-  state: { messages, input, sendOnEnter, isStreaming, error, pendingToolEvents, abortController, canSend },
-  actions: { sendMessage, handleInputKeydown, cancelStream, clearConversation }
+  meta: { formatConversationStartedAt, normalizeConversationStatus },
+  state: {
+    messages,
+    input,
+    sendOnEnter,
+    isStreaming,
+    isRestoringConversation,
+    error,
+    pendingToolEvents,
+    conversationId,
+    conversationHistory,
+    conversationHistoryLoading,
+    conversationHistoryError,
+    canSend,
+    canStartNewConversation
+  },
+  actions: {
+    sendMessage,
+    handleInputKeydown,
+    cancelStream,
+    startNewConversation,
+    selectConversation,
+    refreshConversationHistory
+  }
 } = useAssistantView();
+
+const conversationPickerOpen = ref(false);
+
+function conversationSubtitle(conversation) {
+  const id = Number(conversation?.id) || 0;
+  const status = normalizeConversationStatus(conversation?.status);
+  const startedAt = formatConversationStartedAt(conversation?.startedAt);
+  const messageCount = Number(conversation?.messageCount || 0);
+  return `#${id} • ${status} • ${startedAt} • ${messageCount} messages`;
+}
+
+function isActiveConversation(conversation) {
+  return String(conversation?.id || "") === String(conversationId.value || "");
+}
+
+async function selectConversationFromPicker(conversation) {
+  await selectConversation(conversation);
+  conversationPickerOpen.value = false;
+}
+
+function startNewConversationFromPicker() {
+  startNewConversation();
+  conversationPickerOpen.value = false;
+}
 </script>
 
 <style scoped>

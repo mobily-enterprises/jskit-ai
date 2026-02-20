@@ -167,6 +167,30 @@ function createConversationsRepository(dbClient) {
     return mapConversationRowNullable(row);
   }
 
+  async function repoFindByIdForWorkspaceAndUser(conversationId, workspaceId, userId, options = {}) {
+    const client = resolveClient(options);
+    const numericConversationId = parsePositiveInteger(conversationId);
+    const numericWorkspaceId = parsePositiveInteger(workspaceId);
+    const numericUserId = parsePositiveInteger(userId);
+    if (!numericConversationId || !numericWorkspaceId || !numericUserId) {
+      return null;
+    }
+
+    const row = await client("ai_conversations as c")
+      .leftJoin("workspaces as w", "w.id", "c.workspace_id")
+      .select(
+        "c.*",
+        client.raw("COALESCE(w.slug, '') AS workspace_slug"),
+        client.raw("COALESCE(w.name, '') AS workspace_name")
+      )
+      .where("c.id", numericConversationId)
+      .where("c.workspace_id", numericWorkspaceId)
+      .where("c.created_by_user_id", numericUserId)
+      .first();
+
+    return mapConversationRowNullable(row);
+  }
+
   async function repoUpdateById(conversationId, patch = {}, options = {}) {
     const client = resolveClient(options);
     const numericConversationId = parsePositiveInteger(conversationId);
@@ -297,6 +321,7 @@ function createConversationsRepository(dbClient) {
     insert: repoInsert,
     findById: repoFindById,
     findByIdForWorkspace: repoFindByIdForWorkspace,
+    findByIdForWorkspaceAndUser: repoFindByIdForWorkspaceAndUser,
     updateById: repoUpdateById,
     incrementMessageCount: repoIncrementMessageCount,
     list: repoList,
@@ -322,6 +347,7 @@ export const {
   insert,
   findById,
   findByIdForWorkspace,
+  findByIdForWorkspaceAndUser,
   updateById,
   incrementMessageCount,
   list,

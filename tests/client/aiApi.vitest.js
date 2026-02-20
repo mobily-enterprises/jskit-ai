@@ -37,7 +37,10 @@ describe("ai api stream client", () => {
 
   it("aiApi wrapper delegates to requestStream with expected route", async () => {
     const requestStream = vi.fn(async () => undefined);
-    const api = createApi({ requestStream });
+    const api = createApi({
+      request: vi.fn(),
+      requestStream
+    });
 
     await api.streamChat(
       {
@@ -80,7 +83,10 @@ describe("ai api stream client", () => {
         messageId: "msg_1"
       });
     });
-    const api = createApi({ requestStream });
+    const api = createApi({
+      request: vi.fn(),
+      requestStream
+    });
 
     await expect(
       api.streamChat({
@@ -103,7 +109,10 @@ describe("ai api stream client", () => {
         status: 502
       });
     });
-    const api = createApi({ requestStream });
+    const api = createApi({
+      request: vi.fn(),
+      requestStream
+    });
     const seen = [];
 
     await expect(
@@ -147,6 +156,41 @@ describe("ai api stream client", () => {
       message: "Forbidden.",
       status: 403
     });
+  });
+
+  it("lists assistant conversations with query params", async () => {
+    const request = vi.fn(async () => ({
+      entries: []
+    }));
+    const api = createApi({
+      request,
+      requestStream: vi.fn()
+    });
+
+    await api.listConversations({
+      page: 2,
+      pageSize: 25,
+      status: "completed"
+    });
+
+    expect(request).toHaveBeenCalledWith("/api/workspace/ai/conversations?page=2&pageSize=25&status=completed");
+  });
+
+  it("loads assistant conversation messages with encoded id and query params", async () => {
+    const request = vi.fn(async () => ({
+      entries: []
+    }));
+    const api = createApi({
+      request,
+      requestStream: vi.fn()
+    });
+
+    await api.getConversationMessages("42", {
+      page: 1,
+      pageSize: 500
+    });
+
+    expect(request).toHaveBeenCalledWith("/api/workspace/ai/conversations/42/messages?page=1&pageSize=500");
   });
 
   it("parses NDJSON events across chunk boundaries", async () => {

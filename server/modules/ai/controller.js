@@ -50,9 +50,27 @@ function buildStreamErrorPayload(error) {
   };
 }
 
-function createController({ aiService }) {
+function createController({ aiService, aiTranscriptsService = null }) {
   if (!aiService || typeof aiService.streamChatTurn !== "function") {
     throw new Error("aiService.streamChatTurn is required.");
+  }
+  if (
+    aiTranscriptsService &&
+    typeof aiTranscriptsService.listWorkspaceConversationsForUser !== "function"
+  ) {
+    throw new Error("aiTranscriptsService.listWorkspaceConversationsForUser is required when provided.");
+  }
+  if (
+    aiTranscriptsService &&
+    typeof aiTranscriptsService.getWorkspaceConversationMessagesForUser !== "function"
+  ) {
+    throw new Error("aiTranscriptsService.getWorkspaceConversationMessagesForUser is required when provided.");
+  }
+
+  function ensureAiTranscriptsService() {
+    if (!aiTranscriptsService) {
+      throw new AppError(501, "AI transcripts service is not available.");
+    }
   }
 
   async function chatStream(request, reply) {
@@ -158,8 +176,30 @@ function createController({ aiService }) {
     }
   }
 
+  async function listConversations(request, reply) {
+    ensureAiTranscriptsService();
+    const query = request.query || {};
+    const response = await aiTranscriptsService.listWorkspaceConversationsForUser(request.workspace, request.user, query);
+    reply.code(200).send(response);
+  }
+
+  async function getConversationMessages(request, reply) {
+    ensureAiTranscriptsService();
+    const query = request.query || {};
+    const params = request.params || {};
+    const response = await aiTranscriptsService.getWorkspaceConversationMessagesForUser(
+      request.workspace,
+      request.user,
+      params.conversationId,
+      query
+    );
+    reply.code(200).send(response);
+  }
+
   return {
-    chatStream
+    chatStream,
+    listConversations,
+    getConversationMessages
   };
 }
 

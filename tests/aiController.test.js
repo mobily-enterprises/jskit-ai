@@ -215,3 +215,125 @@ test("ai controller aborts active service call when request socket closes", asyn
   assert.equal(aborted, true);
   assert.equal(request.raw.listenerCount("close"), 0);
 });
+
+test("ai controller lists assistant conversations for current user", async () => {
+  const controller = createAiController({
+    aiService: {
+      async streamChatTurn() {},
+      isEnabled() {
+        return true;
+      }
+    },
+    aiTranscriptsService: {
+      async listWorkspaceConversationsForUser(workspace, user, query) {
+        assert.equal(workspace.id, 11);
+        assert.equal(user.id, 7);
+        assert.equal(query.page, "2");
+        return {
+          entries: [{ id: 42 }],
+          page: 2,
+          pageSize: 20,
+          total: 1,
+          totalPages: 1
+        };
+      },
+      async getWorkspaceConversationMessagesForUser() {
+        throw new Error("not used");
+      }
+    }
+  });
+
+  const request = createRequestDouble({
+    workspace: { id: 11 },
+    user: { id: 7 },
+    query: {
+      page: "2"
+    }
+  });
+  const reply = createReplyDouble();
+
+  await controller.listConversations(request, reply);
+
+  assert.equal(reply.statusCode, 200);
+  assert.deepEqual(reply.payload, {
+    entries: [{ id: 42 }],
+    page: 2,
+    pageSize: 20,
+    total: 1,
+    totalPages: 1
+  });
+});
+
+test("ai controller loads messages for one assistant conversation", async () => {
+  const controller = createAiController({
+    aiService: {
+      async streamChatTurn() {},
+      isEnabled() {
+        return true;
+      }
+    },
+    aiTranscriptsService: {
+      async listWorkspaceConversationsForUser() {
+        throw new Error("not used");
+      },
+      async getWorkspaceConversationMessagesForUser(workspace, user, conversationId, query) {
+        assert.equal(workspace.id, 11);
+        assert.equal(user.id, 7);
+        assert.equal(conversationId, "19");
+        assert.equal(query.pageSize, "100");
+        return {
+          conversation: { id: 19 },
+          entries: [],
+          page: 1,
+          pageSize: 100,
+          total: 0,
+          totalPages: 1
+        };
+      }
+    }
+  });
+
+  const request = createRequestDouble({
+    workspace: { id: 11 },
+    user: { id: 7 },
+    params: {
+      conversationId: "19"
+    },
+    query: {
+      pageSize: "100"
+    }
+  });
+  const reply = createReplyDouble();
+
+  await controller.getConversationMessages(request, reply);
+
+  assert.equal(reply.statusCode, 200);
+  assert.deepEqual(reply.payload, {
+    conversation: { id: 19 },
+    entries: [],
+    page: 1,
+    pageSize: 100,
+    total: 0,
+    totalPages: 1
+  });
+});
+
+test("ai controller returns 501 when transcripts service is not wired for list routes", async () => {
+  const controller = createAiController({
+    aiService: {
+      async streamChatTurn() {},
+      isEnabled() {
+        return true;
+      }
+    }
+  });
+
+  const request = createRequestDouble();
+  const reply = createReplyDouble();
+
+  await assert.rejects(() => controller.listConversations(request, reply), (error) => {
+    assert.equal(error.status, 501);
+    assert.equal(error.message, "AI transcripts service is not available.");
+    return true;
+  });
+});

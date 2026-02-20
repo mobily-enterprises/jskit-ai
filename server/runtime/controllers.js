@@ -54,7 +54,8 @@ function createControllers({ services }) {
       realtimeEventsService
     }),
     ai: createAiController({
-      aiService
+      aiService,
+      aiTranscriptsService
     }),
     workspace: createWorkspaceController({
       authService,

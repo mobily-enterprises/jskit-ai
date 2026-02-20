@@ -1,7 +1,19 @@
 import { computed, ref } from "vue";
+import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { api } from "../../services/api/index.js";
+import { useWorkspaceStore } from "../../stores/workspaceStore.js";
+import {
+  assistantConversationMessagesQueryKey,
+  assistantConversationsListQueryKey,
+  assistantWorkspaceScopeQueryKey
+} from "../../features/assistant/queryKeys.js";
 
 const ASSISTANT_STREAM_TIMEOUT_MS = 60_000;
+const HISTORY_PAGE = 1;
+const HISTORY_PAGE_SIZE = 50;
+const RESTORE_MESSAGES_PAGE = 1;
+const RESTORE_MESSAGES_PAGE_SIZE = 500;
+const REDACTED_CONTENT_PLACEHOLDER = "No content stored by policy.";
 
 function buildId(prefix = "id") {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -18,6 +30,46 @@ function normalizeText(value) {
 function normalizeToolName(value) {
   const normalized = normalizeText(value);
   return normalized || "tool";
+}
+
+function normalizeDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleString();
+}
+
+function normalizeConversationStatus(value) {
+  const status = normalizeText(value).toLowerCase();
+  if (!status) {
+    return "unknown";
+  }
+
+  return status;
+}
+
+function normalizeObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value;
+}
+
+function parseToolResultPayload(value) {
+  const source = String(value || "").trim();
+  if (!source) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(source);
+    return normalizeObject(parsed);
+  } catch {
+    return {};
+  }
 }
 
 function isConversationalMessage(message) {
@@ -42,11 +94,7 @@ function isHistoryEligibleMessage(message) {
     return false;
   }
 
-  if (message.role === "assistant") {
-    return normalizeText(message.status).toLowerCase() === "done";
-  }
-
-  return true;
+  return normalizeText(message.status).toLowerCase() === "done";
 }
 
 function buildHistory(messages) {
@@ -75,17 +123,167 @@ function buildToolResultSummary(event) {
   return `Tool result: ${name} completed`;
 }
 
+function mapTranscriptEntriesToAssistantState(entries) {
+  const transcriptEntries = Array.isArray(entries) ? entries : [];
+  const restoredMessages = [];
+  const toolEventsById = new Map();
+
+  function ensureToolEvent(toolCallId, name) {
+    const key = normalizeText(toolCallId) || buildId("tool_call");
+    const existing = toolEventsById.get(key);
+    if (existing) {
+      return existing;
+    }
+
+    const event = {
+      id: key,
+      name: normalizeToolName(name),
+      arguments: "",
+      status: "pending",
+      result: null,
+      error: null
+    };
+    toolEventsById.set(key, event);
+    return event;
+  }
+
+  for (const entry of transcriptEntries) {
+    const role = normalizeText(entry?.role).toLowerCase();
+    const kind = normalizeText(entry?.kind).toLowerCase();
+    const metadata = normalizeObject(entry?.metadata);
+    const transcriptMessageId = Number(entry?.id);
+    const messageId = Number.isInteger(transcriptMessageId) && transcriptMessageId > 0
+      ? `transcript_${transcriptMessageId}`
+      : buildId("transcript");
+
+    if (kind === "chat" && (role === "user" || role === "assistant")) {
+      const contentStored = entry?.contentText != null;
+      const messageText = contentStored ? String(entry?.contentText || "") : REDACTED_CONTENT_PLACEHOLDER;
+      restoredMessages.push({
+        id: messageId,
+        role,
+        kind: "chat",
+        text: messageText,
+        status: contentStored ? "done" : "restricted"
+      });
+      continue;
+    }
+
+    if (kind === "error") {
+      const errorText = entry?.contentText != null ? String(entry.contentText || "") : REDACTED_CONTENT_PLACEHOLDER;
+      restoredMessages.push({
+        id: messageId,
+        role: "assistant",
+        kind: "chat",
+        text: errorText,
+        status: "error"
+      });
+      continue;
+    }
+
+    if (kind === "tool_call") {
+      const toolCallId = normalizeText(metadata.toolCallId) || `tool_call_${messageId}`;
+      const toolName = normalizeToolName(metadata.tool);
+      const toolEvent = ensureToolEvent(toolCallId, toolName);
+      toolEvent.arguments = String(entry?.contentText || "");
+      toolEvent.status = "pending";
+      restoredMessages.push({
+        id: messageId,
+        role: "assistant",
+        kind: "tool_event",
+        text: buildToolCallSummary({
+          name: toolName
+        }),
+        status: "tool_call"
+      });
+      continue;
+    }
+
+    if (kind === "tool_result") {
+      const parsedPayload = parseToolResultPayload(entry?.contentText);
+      const toolCallId = normalizeText(metadata.toolCallId || parsedPayload.toolCallId) || `tool_result_${messageId}`;
+      const toolName = normalizeToolName(metadata.tool || parsedPayload.tool);
+      const toolEvent = ensureToolEvent(toolCallId, toolName);
+      const failed = parsedPayload.ok === false || metadata.ok === false;
+      toolEvent.status = failed ? "failed" : "done";
+      toolEvent.result = failed ? null : parsedPayload.result ?? null;
+      toolEvent.error = failed ? parsedPayload.error || metadata.error || null : null;
+      restoredMessages.push({
+        id: messageId,
+        role: "assistant",
+        kind: "tool_event",
+        text: buildToolResultSummary({
+          name: toolName,
+          ok: !failed,
+          error: toolEvent.error
+        }),
+        status: "tool_result"
+      });
+    }
+  }
+
+  return {
+    messages: restoredMessages,
+    pendingToolEvents: Array.from(toolEventsById.values())
+  };
+}
+
 export function useAssistantView() {
+  const workspaceStore = useWorkspaceStore();
+  const queryClient = useQueryClient();
   const messages = ref([]);
   const input = ref("");
   const sendOnEnter = ref(true);
   const isStreaming = ref(false);
+  const isRestoringConversation = ref(false);
   const error = ref("");
   const pendingToolEvents = ref([]);
   const abortController = ref(null);
   const conversationId = ref(null);
 
-  const canSend = computed(() => !isStreaming.value && normalizeText(input.value).length > 0);
+  const workspaceSlug = computed(() => {
+    return String(workspaceStore.activeWorkspace?.slug || workspaceStore.activeWorkspaceSlug || "").trim();
+  });
+
+  const workspaceId = computed(() => {
+    const parsed = Number(workspaceStore.activeWorkspace?.id);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
+  });
+
+  const workspaceScope = computed(() => ({
+    workspaceSlug: workspaceSlug.value,
+    workspaceId: workspaceId.value
+  }));
+
+  const hasWorkspaceScope = computed(() => workspaceId.value > 0 || Boolean(workspaceSlug.value));
+
+  const conversationHistoryQuery = useQuery({
+    queryKey: computed(() =>
+      assistantConversationsListQueryKey(workspaceScope.value, {
+        page: HISTORY_PAGE,
+        pageSize: HISTORY_PAGE_SIZE
+      })
+    ),
+    queryFn: () =>
+      api.ai.listConversations({
+        page: HISTORY_PAGE,
+        pageSize: HISTORY_PAGE_SIZE
+      }),
+    enabled: computed(() => hasWorkspaceScope.value),
+    refetchOnWindowFocus: false
+  });
+
+  const conversationHistory = computed(() => {
+    return Array.isArray(conversationHistoryQuery.data.value?.entries) ? conversationHistoryQuery.data.value.entries : [];
+  });
+
+  const conversationHistoryLoading = computed(() => conversationHistoryQuery.isFetching.value);
+  const conversationHistoryError = computed(() => String(conversationHistoryQuery.error.value?.message || ""));
+  const activeConversationId = computed(() => normalizeText(conversationId.value));
+  const canSend = computed(
+    () => !isStreaming.value && !isRestoringConversation.value && normalizeText(input.value).length > 0
+  );
+  const canStartNewConversation = computed(() => !isStreaming.value);
 
   function appendMessage(payload) {
     messages.value = [...messages.value, payload];
@@ -211,9 +409,88 @@ export function useAssistantView() {
     }
   }
 
+  async function refreshConversationHistory() {
+    if (!hasWorkspaceScope.value) {
+      return;
+    }
+
+    await conversationHistoryQuery.refetch();
+  }
+
+  async function invalidateConversationHistory() {
+    if (!hasWorkspaceScope.value) {
+      return;
+    }
+
+    await queryClient.invalidateQueries({
+      queryKey: assistantWorkspaceScopeQueryKey(workspaceScope.value)
+    });
+  }
+
+  async function selectConversationById(value) {
+    const normalizedConversationId = normalizeText(value);
+    if (!normalizedConversationId || isStreaming.value || isRestoringConversation.value || !hasWorkspaceScope.value) {
+      return;
+    }
+
+    const parsedConversationId = Number(normalizedConversationId);
+    if (!Number.isInteger(parsedConversationId) || parsedConversationId < 1) {
+      return;
+    }
+
+    const previousConversationId = conversationId.value;
+    conversationId.value = normalizedConversationId;
+    isRestoringConversation.value = true;
+    error.value = "";
+
+    try {
+      const response = await queryClient.fetchQuery({
+        queryKey: assistantConversationMessagesQueryKey(workspaceScope.value, parsedConversationId, {
+          page: RESTORE_MESSAGES_PAGE,
+          pageSize: RESTORE_MESSAGES_PAGE_SIZE
+        }),
+        queryFn: () =>
+          api.ai.getConversationMessages(parsedConversationId, {
+            page: RESTORE_MESSAGES_PAGE,
+            pageSize: RESTORE_MESSAGES_PAGE_SIZE
+          })
+      });
+
+      const restored = mapTranscriptEntriesToAssistantState(response?.entries);
+      messages.value = restored.messages;
+      pendingToolEvents.value = restored.pendingToolEvents;
+      input.value = "";
+      error.value = "";
+    } catch (loadError) {
+      conversationId.value = previousConversationId;
+      error.value = normalizeText(loadError?.message) || "Unable to load conversation.";
+    } finally {
+      isRestoringConversation.value = false;
+    }
+  }
+
+  async function selectConversation(conversation) {
+    await selectConversationById(conversation?.id);
+  }
+
+  function startNewConversation() {
+    if (isStreaming.value) {
+      cancelStream();
+    }
+
+    messages.value = [];
+    pendingToolEvents.value = [];
+    input.value = "";
+    error.value = "";
+    conversationId.value = null;
+    isStreaming.value = false;
+    abortController.value = null;
+    isRestoringConversation.value = false;
+  }
+
   async function sendMessage() {
     const normalizedInput = normalizeText(input.value);
-    if (!normalizedInput || isStreaming.value) {
+    if (!normalizedInput || isStreaming.value || isRestoringConversation.value) {
       return;
     }
 
@@ -342,46 +619,61 @@ export function useAssistantView() {
       }
       abortController.value = null;
       isStreaming.value = false;
+      await invalidateConversationHistory();
+      await refreshConversationHistory();
     }
   }
 
-  function clearConversation() {
-    cancelStream();
-    messages.value = [];
-    pendingToolEvents.value = [];
-    input.value = "";
-    error.value = "";
-    conversationId.value = null;
-    isStreaming.value = false;
-    abortController.value = null;
+  function formatConversationStartedAt(value) {
+    return normalizeDateTime(value) || "unknown";
   }
 
   return {
+    meta: {
+      formatConversationStartedAt,
+      normalizeConversationStatus
+    },
     state: {
       messages,
       input,
       sendOnEnter,
       isStreaming,
+      isRestoringConversation,
       error,
       pendingToolEvents,
       abortController,
       conversationId,
-      canSend
+      activeConversationId,
+      conversationHistory,
+      conversationHistoryLoading,
+      conversationHistoryError,
+      canSend,
+      canStartNewConversation
     },
     actions: {
       sendMessage,
       handleInputKeydown,
       cancelStream,
-      clearConversation
+      clearConversation: startNewConversation,
+      startNewConversation,
+      selectConversation,
+      selectConversationById,
+      refreshConversationHistory
     }
   };
 }
 
 export const __testables = {
   ASSISTANT_STREAM_TIMEOUT_MS,
+  HISTORY_PAGE,
+  HISTORY_PAGE_SIZE,
+  RESTORE_MESSAGES_PAGE,
+  RESTORE_MESSAGES_PAGE_SIZE,
+  REDACTED_CONTENT_PLACEHOLDER,
   buildHistory,
   buildId,
   normalizeToolName,
   buildToolCallSummary,
-  buildToolResultSummary
+  buildToolResultSummary,
+  mapTranscriptEntriesToAssistantState
 };
