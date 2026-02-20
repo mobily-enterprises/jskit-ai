@@ -1,5 +1,6 @@
 import { parsePositiveInteger } from "../../lib/primitives/integers.js";
 import { withAuditEvent } from "../../lib/securityAudit.js";
+import { AppError } from "../../lib/errors.js";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -9,7 +10,7 @@ function normalizeDecision(value) {
   return normalizeText(value).toLowerCase();
 }
 
-function createController({ consoleService, auditService }) {
+function createController({ consoleService, aiTranscriptsService = null, auditService }) {
   if (!consoleService || !auditService || typeof auditService.recordSafe !== "function") {
     throw new Error("consoleService and auditService.recordSafe are required.");
   }
@@ -130,6 +131,96 @@ function createController({ consoleService, auditService }) {
     reply.code(200).send(response);
   }
 
+  function ensureAiTranscriptsService() {
+    if (!aiTranscriptsService) {
+      throw new AppError(501, "AI transcripts service is not available.");
+    }
+  }
+
+  async function listAiTranscripts(request, reply) {
+    ensureAiTranscriptsService();
+    const query = request.query || {};
+
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "ai.transcripts.list.viewed",
+      execute: () => aiTranscriptsService.listConsoleConversations(request.user, query),
+      metadata: () => ({
+        scope: "console",
+        workspaceId: parsePositiveInteger(query.workspaceId),
+        page: parsePositiveInteger(query.page) || 1,
+        pageSize: parsePositiveInteger(query.pageSize) || 20,
+        from: normalizeText(query.from),
+        to: normalizeText(query.to),
+        status: normalizeText(query.status).toLowerCase()
+      }),
+      onSuccess: (context) => ({
+        metadata: {
+          returnedCount: Array.isArray(context?.result?.entries) ? context.result.entries.length : 0,
+          total: Number(context?.result?.total || 0)
+        }
+      })
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function getAiTranscriptMessages(request, reply) {
+    ensureAiTranscriptsService();
+    const query = request.query || {};
+    const conversationId = request.params?.conversationId;
+
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "ai.transcripts.messages.viewed",
+      execute: () => aiTranscriptsService.getConsoleConversationMessages(request.user, conversationId, query),
+      metadata: () => ({
+        scope: "console",
+        conversationId: parsePositiveInteger(conversationId),
+        page: parsePositiveInteger(query.page) || 1,
+        pageSize: parsePositiveInteger(query.pageSize) || 100
+      }),
+      onSuccess: (context) => ({
+        metadata: {
+          returnedCount: Array.isArray(context?.result?.entries) ? context.result.entries.length : 0,
+          total: Number(context?.result?.total || 0)
+        }
+      })
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function exportAiTranscripts(request, reply) {
+    ensureAiTranscriptsService();
+    const query = request.query || {};
+
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "ai.transcripts.exported",
+      execute: () => aiTranscriptsService.exportConsoleMessages(request.user, query),
+      metadata: () => ({
+        scope: "console",
+        workspaceId: parsePositiveInteger(query.workspaceId),
+        conversationId: parsePositiveInteger(query.conversationId),
+        format: normalizeText(query.format).toLowerCase() || "json",
+        limit: parsePositiveInteger(query.limit) || null,
+        from: normalizeText(query.from),
+        to: normalizeText(query.to)
+      }),
+      onSuccess: (context) => ({
+        metadata: {
+          exportedCount: Array.isArray(context?.result?.entries) ? context.result.entries.length : 0
+        }
+      })
+    });
+
+    reply.code(200).send(response);
+  }
+
   return {
     bootstrap,
     listRoles,
@@ -139,7 +230,10 @@ function createController({ consoleService, auditService }) {
     createInvite,
     revokeInvite,
     listPendingInvites,
-    respondToPendingInviteByToken
+    respondToPendingInviteByToken,
+    listAiTranscripts,
+    getAiTranscriptMessages,
+    exportAiTranscripts
   };
 }
 

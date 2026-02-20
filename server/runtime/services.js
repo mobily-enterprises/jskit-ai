@@ -17,6 +17,7 @@ import { createService as createObservabilityService } from "../modules/observab
 import { createService as createProjectsService } from "../modules/projects/service.js";
 import { createService as createHealthService } from "../modules/health/service.js";
 import { createService as createAiService } from "../modules/ai/service.js";
+import { createService as createAiTranscriptsService } from "../modules/ai/transcripts/service.js";
 import { createOpenAiClient } from "../modules/ai/provider/openaiClient.js";
 
 function createServices({
@@ -42,6 +43,8 @@ function createServices({
     consoleRootRepository,
     consoleErrorLogsRepository,
     auditEventsRepository,
+    aiTranscriptConversationsRepository,
+    aiTranscriptMessagesRepository,
     projectsRepository,
     healthRepository
   } = repositories;
@@ -162,10 +165,19 @@ function createServices({
     timeoutMs: env.AI_TIMEOUT_MS
   });
 
+  const aiTranscriptsService = createAiTranscriptsService({
+    conversationsRepository: aiTranscriptConversationsRepository,
+    messagesRepository: aiTranscriptMessagesRepository,
+    workspaceSettingsRepository,
+    consoleMembershipsRepository,
+    observabilityService
+  });
+
   const aiService = createAiService({
     providerClient: aiProviderClient,
     workspaceAdminService,
     realtimeEventsService,
+    aiTranscriptsService,
     auditService,
     observabilityService,
     aiModel: env.AI_MODEL,
@@ -196,6 +208,7 @@ function createServices({
     auditService,
     projectsService,
     realtimeEventsService,
+    aiTranscriptsService,
     aiService,
     healthService
   };

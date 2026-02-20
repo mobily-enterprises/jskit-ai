@@ -1,4 +1,5 @@
 import { SETTINGS_MODE_OPTIONS, SETTINGS_TIMING_OPTIONS } from "../../../../shared/settings/index.js";
+import { TRANSCRIPT_MODE_STANDARD } from "../../../lib/aiTranscriptMode.js";
 
 const DEFAULT_WORKSPACE_POLICY = {
   defaultMode: "fv",
@@ -44,7 +45,11 @@ function resolveWorkspaceDefaults(policy) {
 function createWorkspaceSettingsDefaults(invitesEnabled = false) {
   return {
     invitesEnabled: Boolean(invitesEnabled),
-    features: {},
+    features: {
+      ai: {
+        transcriptMode: TRANSCRIPT_MODE_STANDARD
+      }
+    },
     policy: { ...DEFAULT_WORKSPACE_POLICY }
   };
 }

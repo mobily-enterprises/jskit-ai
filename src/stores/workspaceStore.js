@@ -87,6 +87,7 @@ function normalizeWorkspaceSettings(workspaceSettings) {
     invitesEnabled: Boolean(workspaceSettings.invitesEnabled),
     invitesAvailable: Boolean(workspaceSettings.invitesAvailable),
     invitesEffective: Boolean(workspaceSettings.invitesEffective),
+    assistantTranscriptMode: String(workspaceSettings.assistantTranscriptMode || "standard"),
     defaultMode: String(workspaceSettings.defaultMode || "fv"),
     defaultTiming: String(workspaceSettings.defaultTiming || "ordinary"),
     defaultPaymentsPerYear: Number(workspaceSettings.defaultPaymentsPerYear || 12),

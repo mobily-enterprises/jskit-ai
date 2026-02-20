@@ -22,6 +22,7 @@ import {
 } from "../mappers/workspaceAdminMappers.js";
 import { resolveInviteExpiresAt } from "../policies/workspaceInvitePolicy.js";
 import { listInviteMembershipsByWorkspaceId } from "../lookups/workspaceMembershipLookup.js";
+import { applyTranscriptModeToWorkspaceFeatures } from "../../../lib/aiTranscriptMode.js";
 
 function createService({
   appConfig,
@@ -187,6 +188,19 @@ function createService({
             }
           }
         };
+      }
+
+      if (Object.prototype.hasOwnProperty.call(parsed.settingsPatch, "aiTranscriptMode")) {
+        const baseFeatures =
+          settingsPatch.features && typeof settingsPatch.features === "object"
+            ? settingsPatch.features
+            : currentSettings?.features && typeof currentSettings.features === "object"
+              ? currentSettings.features
+              : {};
+        settingsPatch.features = applyTranscriptModeToWorkspaceFeatures(
+          baseFeatures,
+          parsed.settingsPatch.aiTranscriptMode
+        );
       }
 
       if (Object.keys(settingsPatch).length > 0) {

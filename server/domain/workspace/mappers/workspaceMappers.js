@@ -1,5 +1,6 @@
 import { coerceWorkspaceColor } from "../../../../shared/workspace/colors.js";
 import { resolveWorkspaceDefaults } from "../policies/workspacePolicyDefaults.js";
+import { resolveTranscriptModeFromWorkspaceSettings } from "../../../lib/aiTranscriptMode.js";
 
 function normalizeWorkspaceColor(value) {
   return coerceWorkspaceColor(value);
@@ -38,11 +39,13 @@ function mapWorkspaceSettingsPublic(workspaceSettings, options = {}) {
   const appInvitesEnabled = Boolean(options.appInvitesEnabled);
   const collaborationEnabled = Boolean(options.collaborationEnabled);
   const defaults = resolveWorkspaceDefaults(workspaceSettings.policy);
+  const assistantTranscriptMode = resolveTranscriptModeFromWorkspaceSettings(workspaceSettings);
 
   return {
     invitesEnabled: workspaceInvitesEnabled,
     invitesAvailable: appInvitesEnabled && collaborationEnabled,
     invitesEffective: appInvitesEnabled && collaborationEnabled && workspaceInvitesEnabled,
+    assistantTranscriptMode,
     ...defaults
   };
 }

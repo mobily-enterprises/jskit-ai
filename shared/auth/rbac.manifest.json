@@ -16,6 +16,8 @@
         "workspace.settings.view",
         "workspace.settings.update",
         "workspace.roles.view",
+        "workspace.ai.transcripts.read",
+        "workspace.ai.transcripts.export",
         "history.read",
         "history.write",
         "projects.read",

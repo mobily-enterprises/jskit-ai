@@ -5,6 +5,7 @@ import {
   AUTH_EMAIL_PATTERN
 } from "../../../shared/auth/authConstraints.js";
 import { enumSchema } from "../api/schema.js";
+import { createPaginationQuerySchema } from "../api/schema/paginationQuery.schema.js";
 
 const roleDescriptor = Type.Object(
   {
@@ -214,6 +215,152 @@ const invite = Type.Object(
   }
 );
 
+const conversation = Type.Object(
+  {
+    conversationId: Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const transcriptMode = enumSchema(["standard", "restricted", "disabled"]);
+const transcriptStatus = enumSchema(["active", "completed", "failed", "aborted"]);
+const transcriptExportFormat = enumSchema(["json", "ndjson"]);
+const transcriptMetadata = Type.Record(Type.String(), Type.Unknown());
+
+const aiTranscriptConversation = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    workspaceId: Type.Integer({ minimum: 1 }),
+    workspaceSlug: Type.String(),
+    workspaceName: Type.String(),
+    createdByUserId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    status: transcriptStatus,
+    transcriptMode,
+    provider: Type.String({ maxLength: 64 }),
+    model: Type.String({ maxLength: 128 }),
+    startedAt: Type.String({ minLength: 1 }),
+    endedAt: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+    messageCount: Type.Integer({ minimum: 0 }),
+    metadata: transcriptMetadata,
+    createdAt: Type.String({ minLength: 1 }),
+    updatedAt: Type.String({ minLength: 1 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const aiTranscriptMessage = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    conversationId: Type.Integer({ minimum: 1 }),
+    workspaceId: Type.Integer({ minimum: 1 }),
+    workspaceSlug: Type.String(),
+    workspaceName: Type.String(),
+    seq: Type.Integer({ minimum: 1 }),
+    role: Type.String({ minLength: 1, maxLength: 32 }),
+    kind: Type.String({ minLength: 1, maxLength: 32 }),
+    clientMessageId: Type.String({ maxLength: 128 }),
+    actorUserId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    contentText: Type.Union([Type.String(), Type.Null()]),
+    contentRedacted: Type.Boolean(),
+    redactionHits: transcriptMetadata,
+    metadata: transcriptMetadata,
+    createdAt: Type.String({ minLength: 1 }),
+    conversation: Type.Optional(
+      Type.Object(
+        {
+          status: transcriptStatus,
+          transcriptMode,
+          provider: Type.String({ maxLength: 64 }),
+          model: Type.String({ maxLength: 128 }),
+          startedAt: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+          endedAt: Type.Union([Type.String({ minLength: 1 }), Type.Null()])
+        },
+        { additionalProperties: false }
+      )
+    )
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const aiTranscriptsList = Type.Object(
+  {
+    entries: Type.Array(aiTranscriptConversation),
+    page: Type.Integer({ minimum: 1 }),
+    pageSize: Type.Integer({ minimum: 1, maximum: 200 }),
+    total: Type.Integer({ minimum: 0 }),
+    totalPages: Type.Integer({ minimum: 1 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const aiTranscriptMessages = Type.Object(
+  {
+    conversation: aiTranscriptConversation,
+    entries: Type.Array(aiTranscriptMessage),
+    page: Type.Integer({ minimum: 1 }),
+    pageSize: Type.Integer({ minimum: 1, maximum: 500 }),
+    total: Type.Integer({ minimum: 0 }),
+    totalPages: Type.Integer({ minimum: 1 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const aiTranscriptExport = Type.Object(
+  {
+    format: transcriptExportFormat,
+    entries: Type.Array(aiTranscriptMessage),
+    exportedAt: Type.String({ minLength: 1 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const aiTranscriptsQuery = Type.Object(
+  {
+    page: Type.Optional(Type.Integer({ minimum: 1, default: 1 })),
+    pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 200, default: 20 })),
+    workspaceId: Type.Optional(Type.Integer({ minimum: 1 })),
+    from: Type.Optional(Type.String({ maxLength: 64 })),
+    to: Type.Optional(Type.String({ maxLength: 64 })),
+    status: Type.Optional(transcriptStatus)
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const aiTranscriptMessagesQuery = createPaginationQuerySchema({
+  defaultPage: 1,
+  defaultPageSize: 100,
+  maxPageSize: 500
+});
+
+const aiTranscriptExportQuery = Type.Object(
+  {
+    workspaceId: Type.Optional(Type.Integer({ minimum: 1 })),
+    conversationId: Type.Optional(Type.Integer({ minimum: 1 })),
+    role: Type.Optional(Type.String({ maxLength: 32 })),
+    from: Type.Optional(Type.String({ maxLength: 64 })),
+    to: Type.Optional(Type.String({ maxLength: 64 })),
+    limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 10000 })),
+    format: Type.Optional(transcriptExportFormat)
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const schema = {
   response: {
     bootstrap,
@@ -221,16 +368,25 @@ const schema = {
     invites,
     roles,
     pendingInvites,
-    respondToInvite
+    respondToInvite,
+    aiTranscriptsList,
+    aiTranscriptMessages,
+    aiTranscriptExport
   },
   body: {
     createInvite,
     memberRoleUpdate,
     redeemInvite
   },
+  query: {
+    aiTranscripts: aiTranscriptsQuery,
+    aiTranscriptMessages: aiTranscriptMessagesQuery,
+    aiTranscriptExport: aiTranscriptExportQuery
+  },
   params: {
     member,
-    invite
+    invite,
+    conversation
   }
 };
 

@@ -55,6 +55,68 @@ function buildRoutes(controllers, { missingHandler, schema }) {
       handler: controllers.workspace?.listWorkspaceRoles || missingHandler
     },
     {
+      path: "/api/workspace/ai/transcripts",
+      method: "GET",
+      auth: "required",
+      workspacePolicy: "required",
+      workspaceSurface: "admin",
+      permission: "workspace.ai.transcripts.read",
+      schema: {
+        tags: ["workspace-ai-transcripts"],
+        summary: "List AI transcript conversations for the active workspace",
+        querystring: schema.query.aiTranscripts,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.aiTranscriptsList
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.workspace?.listWorkspaceAiTranscripts || missingHandler
+    },
+    {
+      path: "/api/workspace/ai/transcripts/:conversationId/messages",
+      method: "GET",
+      auth: "required",
+      workspacePolicy: "required",
+      workspaceSurface: "admin",
+      permission: "workspace.ai.transcripts.read",
+      schema: {
+        tags: ["workspace-ai-transcripts"],
+        summary: "List messages for one AI transcript conversation in the active workspace",
+        params: schema.params.conversation,
+        querystring: schema.query.aiTranscriptMessages,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.aiTranscriptMessages
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.workspace?.getWorkspaceAiTranscriptMessages || missingHandler
+    },
+    {
+      path: "/api/workspace/ai/transcripts/:conversationId/export",
+      method: "GET",
+      auth: "required",
+      workspacePolicy: "required",
+      workspaceSurface: "admin",
+      permission: "workspace.ai.transcripts.export",
+      schema: {
+        tags: ["workspace-ai-transcripts"],
+        summary: "Export one AI transcript conversation for the active workspace",
+        params: schema.params.conversation,
+        querystring: schema.query.aiTranscriptExport,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.aiTranscriptExport
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.workspace?.exportWorkspaceAiTranscript || missingHandler
+    },
+    {
       path: "/api/workspace/members",
       method: "GET",
       auth: "required",

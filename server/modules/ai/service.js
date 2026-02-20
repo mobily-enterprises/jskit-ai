@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { AppError } from "../../lib/errors.js";
 import { parsePositiveInteger } from "../../lib/primitives/integers.js";
+import { publishWorkspaceEventSafely, resolvePublishWorkspaceEvent } from "../../lib/realtimeEvents.js";
 import { buildAuditEventBase } from "../../lib/securityAudit.js";
+import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/realtime/eventTypes.js";
 import { buildAiToolRegistry, executeToolCall, listToolSchemas } from "./tools/registry.js";
 
 function toPositiveInteger(value, fallback) {
@@ -49,6 +51,40 @@ function normalizeMessageId(value) {
   }
 
   return messageId;
+}
+
+function normalizeConversationId(value) {
+  if (value == null) {
+    return null;
+  }
+
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    return null;
+  }
+
+  if (!/^[0-9]+$/.test(normalized)) {
+    throw new AppError(400, "Validation failed.", {
+      details: {
+        fieldErrors: {
+          conversationId: "conversationId must be a positive integer."
+        }
+      }
+    });
+  }
+
+  const conversationId = parsePositiveInteger(normalized);
+  if (!conversationId) {
+    throw new AppError(400, "Validation failed.", {
+      details: {
+        fieldErrors: {
+          conversationId: "conversationId must be a positive integer."
+        }
+      }
+    });
+  }
+
+  return conversationId;
 }
 
 function normalizeInput(value, maxInputChars) {
@@ -437,6 +473,7 @@ function createService({
   providerClient,
   workspaceAdminService,
   realtimeEventsService,
+  aiTranscriptsService = null,
   auditService,
   observabilityService = null,
   aiModel = "gpt-4.1-mini",
@@ -453,6 +490,15 @@ function createService({
   if (!auditService || typeof auditService.recordSafe !== "function") {
     throw new Error("auditService.recordSafe is required.");
   }
+  if (aiTranscriptsService && typeof aiTranscriptsService.startConversationForTurn !== "function") {
+    throw new Error("aiTranscriptsService.startConversationForTurn must be a function when provided.");
+  }
+  if (aiTranscriptsService && typeof aiTranscriptsService.appendMessage !== "function") {
+    throw new Error("aiTranscriptsService.appendMessage must be a function when provided.");
+  }
+  if (aiTranscriptsService && typeof aiTranscriptsService.completeConversation !== "function") {
+    throw new Error("aiTranscriptsService.completeConversation must be a function when provided.");
+  }
 
   const maxInputChars = toPositiveInteger(aiMaxInputChars, 8000);
   const maxHistoryMessages = toPositiveInteger(aiMaxHistoryMessages, 20);
@@ -464,12 +510,14 @@ function createService({
   });
   const knownToolNames = new Set(Object.keys(toolRegistry));
   const providerTools = listToolSchemas(toolRegistry);
+  const publishWorkspaceEvent = resolvePublishWorkspaceEvent(realtimeEventsService);
 
   function validateChatTurnInput({ body } = {}) {
     const payload = body && typeof body === "object" ? body : {};
 
     return {
       messageId: normalizeMessageId(payload.messageId),
+      conversationId: normalizeConversationId(payload.conversationId),
       input: normalizeInput(payload.input, maxInputChars),
       history: normalizeHistory(payload.history, {
         maxHistoryMessages,
@@ -494,6 +542,9 @@ function createService({
     const fallbackMessageId = normalizeText(validatedInput?.messageId || body?.messageId).slice(0, 128) || "unknown";
     const turnStartedAt = process.hrtime.bigint();
     let turnMetricRecorded = false;
+    let transcriptConversation = null;
+    let transcriptConversationId = null;
+    let transcriptMode = "";
 
     let messageId = fallbackMessageId;
 
@@ -536,6 +587,8 @@ function createService({
           workspaceId,
           metadata: {
             messageId,
+            conversationId: transcriptConversationId,
+            transcriptMode,
             workspaceId,
             workspaceSlug,
             model: providerModel,
@@ -547,6 +600,119 @@ function createService({
       );
     }
 
+    function publishTranscriptEventSafely({ operation, message = null } = {}) {
+      if (!publishWorkspaceEvent) {
+        return;
+      }
+
+      if (!transcriptConversationId) {
+        return;
+      }
+
+      const normalizedOperation = normalizeText(operation).toLowerCase() || "updated";
+      const messageIdValue = parsePositiveInteger(message?.id);
+      const messageKindValue = normalizeText(message?.kind).toLowerCase();
+
+      publishWorkspaceEventSafely({
+        publishWorkspaceEvent,
+        request,
+        workspace: request?.workspace,
+        topic: REALTIME_TOPICS.WORKSPACE_AI_TRANSCRIPTS,
+        eventType: REALTIME_EVENT_TYPES.WORKSPACE_AI_TRANSCRIPTS_UPDATED,
+        entityType: "ai_transcript_conversation",
+        entityId: transcriptConversationId,
+        payload: {
+          operation: normalizedOperation,
+          conversationId: transcriptConversationId,
+          workspaceId: parsePositiveInteger(request.workspace?.id),
+          workspaceSlug: normalizeText(request.workspace?.slug),
+          status: normalizeText(transcriptConversation?.status).toLowerCase(),
+          transcriptMode: normalizeText(transcriptMode).toLowerCase(),
+          ...(messageIdValue ? { messageId: messageIdValue } : {}),
+          ...(messageKindValue ? { messageKind: messageKindValue } : {})
+        },
+        logCode: "ai.transcript.realtime_publish_failed",
+        logContext: {
+          messageId,
+          conversationId: transcriptConversationId,
+          operation: normalizedOperation
+        }
+      });
+    }
+
+    async function appendTranscriptMessage(payload = {}) {
+      if (!transcriptConversation || !aiTranscriptsService) {
+        return null;
+      }
+
+      try {
+        const persistedMessage = await aiTranscriptsService.appendMessage({
+          conversation: transcriptConversation,
+          ...payload
+        });
+
+        if (persistedMessage) {
+          publishTranscriptEventSafely({
+            operation: "message_appended",
+            message: persistedMessage
+          });
+        }
+
+        return persistedMessage;
+      } catch (error) {
+        if (request?.log && typeof request.log.warn === "function") {
+          request.log.warn(
+            {
+              err: error,
+              messageId,
+              conversationId: transcriptConversationId,
+              kind: normalizeText(payload?.kind)
+            },
+            "ai.transcript.append_failed"
+          );
+        }
+
+        return null;
+      }
+    }
+
+    async function finalizeTranscriptConversation(status, metadata = {}) {
+      if (!transcriptConversation || !aiTranscriptsService) {
+        return null;
+      }
+
+      try {
+        const updatedConversation = await aiTranscriptsService.completeConversation(transcriptConversation, {
+          status,
+          metadata
+        });
+        if (updatedConversation) {
+          transcriptConversation = updatedConversation;
+          transcriptConversationId = parsePositiveInteger(updatedConversation.id) || transcriptConversationId;
+          transcriptMode = normalizeText(updatedConversation.transcriptMode) || transcriptMode;
+          publishTranscriptEventSafely({
+            operation: "conversation_status_updated"
+          });
+        }
+
+        return updatedConversation;
+      } catch (error) {
+        if (request?.log && typeof request.log.warn === "function") {
+          request.log.warn(
+            {
+              err: error,
+              messageId,
+              conversationId: transcriptConversationId,
+              status
+            },
+            "ai.transcript.finalize_failed"
+          );
+        }
+
+        return null;
+      }
+    }
+
     try {
       const preparedInput =
         validatedInput && typeof validatedInput === "object"
@@ -555,17 +721,41 @@ function createService({
               body
             });
       messageId = preparedInput.messageId;
+      const requestedConversationId = preparedInput.conversationId;
       const input = preparedInput.input;
       const history = preparedInput.history;
       const clientContext = preparedInput.clientContext;
 
+      if (aiTranscriptsService) {
+        const transcriptStart = await aiTranscriptsService.startConversationForTurn({
+          workspace: request.workspace,
+          user: request.user,
+          conversationId: requestedConversationId,
+          messageId,
+          provider: String(providerClient.provider || "openai"),
+          model: providerModel
+        });
+
+        transcriptConversation = transcriptStart?.conversation || null;
+        transcriptConversationId = parsePositiveInteger(transcriptConversation?.id) || null;
+        transcriptMode = normalizeText(transcriptStart?.transcriptMode || transcriptConversation?.transcriptMode);
+
+        if (transcriptConversationId) {
+          publishTranscriptEventSafely({
+            operation: "conversation_started"
+          });
+        }
+      }
+
       await recordAudit("ai.chat.requested", "success", {
         inputChars: input.length,
-        historyCount: history.length
+        historyCount: history.length,
+        conversationId: transcriptConversationId
       });
 
       streamWriter.sendMeta({
         messageId,
+        conversationId: transcriptConversationId ? String(transcriptConversationId) : null,
         model: providerModel,
         provider: String(providerClient.provider || "openai")
       });
@@ -587,6 +777,17 @@ function createService({
           content: input
         }
       ];
+
+      await appendTranscriptMessage({
+        role: "user",
+        kind: "chat",
+        clientMessageId: messageId,
+        actorUserId: request.user?.id,
+        content: input,
+        metadata: {
+          historyCount: history.length
+        }
+      });
 
       const toolContext = {
         request,
@@ -636,9 +837,22 @@ function createService({
               code: "AI_EMPTY_OUTPUT"
             });
           }
+
+          await appendTranscriptMessage({
+            role: "assistant",
+            kind: "chat",
+            content: assistantMessage,
+            metadata: {
+              source: "provider"
+            }
+          });
           streamWriter.sendAssistantMessage(assistantMessage);
           streamWriter.sendDone({
             messageId
+          });
+
+          await finalizeTranscriptConversation("completed", {
+            toolCalls: totalToolCalls
           });
 
           await recordAudit("ai.chat.completed", "success", {
@@ -672,6 +886,16 @@ function createService({
             arguments: String(toolCall.argumentsText || "")
           });
 
+          await appendTranscriptMessage({
+            role: "assistant",
+            kind: "tool_call",
+            content: String(toolCall.argumentsText || ""),
+            metadata: {
+              toolCallId,
+              tool: toolName
+            }
+          });
+
           let toolMessagePayload;
 
           try {
@@ -692,6 +916,17 @@ function createService({
               name: toolName,
               ok: true,
               result: toolResult
+            });
+
+            await appendTranscriptMessage({
+              role: "tool",
+              kind: "tool_result",
+              content: JSON.stringify(toolMessagePayload),
+              metadata: {
+                toolCallId,
+                tool: toolName,
+                ok: true
+              }
             });
 
             await recordAudit("ai.tool.executed", "success", {
@@ -721,6 +956,19 @@ function createService({
               error: toolMessagePayload.error
             });
 
+            await appendTranscriptMessage({
+              role: "tool",
+              kind: "tool_result",
+              content: JSON.stringify(toolMessagePayload),
+              metadata: {
+                toolCallId,
+                tool: toolName,
+                ok: false,
+                code: mappedToolError.code,
+                status: mappedToolError.status
+              }
+            });
+
             await recordAudit("ai.tool.failed", "failure", {
               tool: toolName,
               code: mappedToolError.code,
@@ -747,6 +995,22 @@ function createService({
       });
       recordTurnMetric(mapErrorEventToTurnOutcome(mappedError));
 
+      await appendTranscriptMessage({
+        role: "assistant",
+        kind: "error",
+        content: mappedError.message,
+        metadata: {
+          code: mappedError.code,
+          status: mappedError.status,
+          stage: mappedError.stage
+        }
+      });
+
+      await finalizeTranscriptConversation(mappedError.code === "stream_aborted" ? "aborted" : "failed", {
+        code: mappedError.code,
+        status: mappedError.status
+      });
+
       streamWriter.sendError({
         messageId,
         code: mappedError.code,
@@ -772,6 +1036,7 @@ function createService({
 
 const __testables = {
   normalizeMessageId,
+  normalizeConversationId,
   normalizeInput,
   normalizeHistory,
   normalizeClientContext,

@@ -74,6 +74,58 @@ function buildRoutes(controllers, { missingHandler }) {
       handler: controllers.console?.listInvites || missingHandler
     },
     {
+      path: "/api/console/ai/transcripts",
+      method: "GET",
+      auth: "required",
+      schema: {
+        tags: ["console-ai-transcripts"],
+        summary: "List AI transcript conversations across workspaces",
+        querystring: schema.query.aiTranscripts,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.aiTranscriptsList
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.listAiTranscripts || missingHandler
+    },
+    {
+      path: "/api/console/ai/transcripts/:conversationId/messages",
+      method: "GET",
+      auth: "required",
+      schema: {
+        tags: ["console-ai-transcripts"],
+        summary: "List messages for one AI transcript conversation",
+        params: schema.params.conversation,
+        querystring: schema.query.aiTranscriptMessages,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.aiTranscriptMessages
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.getAiTranscriptMessages || missingHandler
+    },
+    {
+      path: "/api/console/ai/transcripts/export",
+      method: "GET",
+      auth: "required",
+      schema: {
+        tags: ["console-ai-transcripts"],
+        summary: "Export AI transcript messages across workspaces",
+        querystring: schema.query.aiTranscriptExport,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.aiTranscriptExport
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.exportAiTranscripts || missingHandler
+    },
+    {
       path: "/api/console/invites",
       method: "POST",
       auth: "required",

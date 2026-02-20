@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { REALTIME_TOPICS } from "../../shared/realtime/eventTypes.js";
+import {
+  workspaceAiTranscriptsRootQueryKey,
+  workspaceAiTranscriptsScopeQueryKey
+} from "../../src/features/aiTranscripts/queryKeys.js";
 import { projectDetailQueryKey, projectsScopeQueryKey } from "../../src/features/projects/queryKeys.js";
 import { workspaceAdminRootQueryKey } from "../../src/features/workspaceAdmin/queryKeys.js";
 import { commandTracker, __testables as trackerTestables } from "../../src/services/realtime/commandTracker.js";
@@ -185,5 +189,49 @@ describe("realtimeEventHandlers", () => {
     expect(result.status).toBe("processed");
     expect(queryClient.invalidateQueries).not.toHaveBeenCalled();
     expect(workspaceStore.refreshBootstrap).toHaveBeenCalledTimes(1);
+  });
+
+  it("invalidates workspace transcript scope when transcript topic has workspace slug", async () => {
+    const handlers = createRealtimeEventHandlers({
+      queryClient,
+      commandTracker,
+      clientId: "cli-local"
+    });
+
+    const event = {
+      eventId: "evt-transcripts-scope",
+      topic: REALTIME_TOPICS.WORKSPACE_AI_TRANSCRIPTS,
+      workspaceSlug: "acme",
+      sourceClientId: "cli-remote",
+      entityId: "99"
+    };
+
+    const result = await handlers.processEvent(event);
+    expect(result.status).toBe("processed");
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: workspaceAiTranscriptsScopeQueryKey("acme")
+    });
+  });
+
+  it("invalidates transcript root when transcript topic omits workspace slug", async () => {
+    const handlers = createRealtimeEventHandlers({
+      queryClient,
+      commandTracker,
+      clientId: "cli-local"
+    });
+
+    const event = {
+      eventId: "evt-transcripts-root",
+      topic: REALTIME_TOPICS.WORKSPACE_AI_TRANSCRIPTS,
+      workspaceSlug: "",
+      sourceClientId: "cli-remote",
+      entityId: "99"
+    };
+
+    const result = await handlers.processEvent(event);
+    expect(result.status).toBe("processed");
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: workspaceAiTranscriptsRootQueryKey()
+    });
   });
 });

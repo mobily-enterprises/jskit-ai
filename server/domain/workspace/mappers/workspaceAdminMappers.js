@@ -2,6 +2,7 @@ import { OWNER_ROLE_ID } from "../../../lib/rbacManifest.js";
 import { extractAppSurfacePolicy } from "../../../surfaces/appSurface.js";
 import { coerceWorkspaceColor } from "../../../../shared/workspace/colors.js";
 import { resolveWorkspaceDefaults } from "../policies/workspacePolicyDefaults.js";
+import { resolveTranscriptModeFromWorkspaceSettings } from "../../../lib/aiTranscriptMode.js";
 import { mapWorkspaceAdminSummary } from "./workspaceMappers.js";
 
 function mapWorkspaceSettingsResponse(workspace, workspaceSettings, options = {}) {
@@ -9,12 +10,14 @@ function mapWorkspaceSettingsResponse(workspace, workspaceSettings, options = {}
   const appSurfacePolicy = extractAppSurfacePolicy(workspaceSettings);
   const invitesAvailable = Boolean(options.appInvitesEnabled && options.collaborationEnabled);
   const invitesEnabled = Boolean(workspaceSettings?.invitesEnabled);
+  const assistantTranscriptMode = resolveTranscriptModeFromWorkspaceSettings(workspaceSettings);
   const includeAppSurfaceDenyLists = options.includeAppSurfaceDenyLists === true;
 
   const settings = {
     invitesEnabled,
     invitesAvailable,
     invitesEffective: invitesAvailable && invitesEnabled,
+    assistantTranscriptMode,
     ...defaults
   };
 

@@ -42,6 +42,7 @@ function createSchema({ maxInputChars = DEFAULT_MAX_INPUT_CHARS, maxHistoryMessa
     {
       type: Type.Literal("meta"),
       messageId: Type.String({ minLength: 1, maxLength: 128 }),
+      conversationId: Type.Optional(Type.Union([Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" }), Type.Null()])),
       model: Type.String({ minLength: 1, maxLength: 128 }),
       provider: Type.String({ minLength: 1, maxLength: 64 })
     },
@@ -155,6 +156,7 @@ function createSchema({ maxInputChars = DEFAULT_MAX_INPUT_CHARS, maxHistoryMessa
       chatStream: Type.Object(
         {
           messageId: Type.String({ minLength: 1, maxLength: 128 }),
+          conversationId: Type.Optional(Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" })),
           input: Type.String({ minLength: 1, maxLength: inputLimit }),
           history: Type.Optional(Type.Array(historyMessage, { maxItems: historyLimit })),
           clientContext: Type.Optional(clientContext)

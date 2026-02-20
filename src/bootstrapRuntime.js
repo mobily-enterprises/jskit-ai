@@ -14,6 +14,7 @@ import {
   mdiHelpCircleOutline,
   mdiHomeOutline,
   mdiLogout,
+  mdiMessageTextOutline,
   mdiServer,
   mdiShieldCrownOutline,
   mdiShapeOutline,
@@ -42,6 +43,7 @@ const iconAliases = {
   consoleHome: mdiHomeOutline,
   consoleBrowserErrors: mdiAlertCircleOutline,
   consoleServerErrors: mdiServer,
+  consoleTranscripts: mdiMessageTextOutline,
   consoleMembers: mdiAccountMultipleOutline
 };
 

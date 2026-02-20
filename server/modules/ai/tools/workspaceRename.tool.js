@@ -1,11 +1,7 @@
 import { AppError } from "../../../lib/errors.js";
 import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
+import { publishWorkspaceEventSafely, resolvePublishWorkspaceEvent } from "../../../lib/realtimeEvents.js";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../../shared/realtime/eventTypes.js";
-
-function normalizeHeaderValue(value) {
-  const normalized = String(value || "").trim();
-  return normalized || null;
-}
 
 function normalizeWorkspaceName(value) {
   const normalized = String(value || "").trim();
@@ -37,34 +33,20 @@ function createWorkspaceRenameTool({ workspaceAdminService, realtimeEventsServic
     throw new Error("workspaceAdminService.updateWorkspaceSettings is required.");
   }
 
-  const publishWorkspaceEvent =
-    realtimeEventsService && typeof realtimeEventsService.publishWorkspaceEvent === "function"
-      ? realtimeEventsService.publishWorkspaceEvent
-      : null;
+  const publishWorkspaceEvent = resolvePublishWorkspaceEvent(realtimeEventsService);
 
-  function publishWorkspaceEventSafely({ request, workspace, topic, eventType, payload }) {
-    if (!publishWorkspaceEvent) {
-      return;
-    }
-
-    try {
-      publishWorkspaceEvent({
-        eventType,
-        topic,
-        workspace,
-        entityType: "workspace",
-        entityId: workspace?.id,
-        commandId: normalizeHeaderValue(request?.headers?.["x-command-id"]),
-        sourceClientId: normalizeHeaderValue(request?.headers?.["x-client-id"]),
-        actorUserId: request?.user?.id,
-        payload
-      });
-    } catch (error) {
-      const warnLogger = request?.log && typeof request.log.warn === "function" ? request.log.warn.bind(request.log) : null;
-      if (warnLogger) {
-        warnLogger({ err: error }, "ai.workspace_rename.realtime_publish_failed");
-      }
-    }
+  function publishWorkspaceEventForRequest({ request, workspace, topic, eventType, payload }) {
+    publishWorkspaceEventSafely({
+      publishWorkspaceEvent,
+      request,
+      workspace,
+      topic,
+      eventType,
+      entityType: "workspace",
+      entityId: workspace?.id,
+      payload,
+      logCode: "ai.workspace_rename.realtime_publish_failed"
+    });
   }
 
   return {
@@ -105,7 +87,7 @@ function createWorkspaceRenameTool({ workspaceAdminService, realtimeEventsServic
         workspaceSlug
       };
 
-      publishWorkspaceEventSafely({
+      publishWorkspaceEventForRequest({
         request: context?.request,
         workspace,
         topic: REALTIME_TOPICS.WORKSPACE_SETTINGS,
@@ -113,7 +95,7 @@ function createWorkspaceRenameTool({ workspaceAdminService, realtimeEventsServic
         payload: eventPayload
       });
 
-      publishWorkspaceEventSafely({
+      publishWorkspaceEventForRequest({
         request: context?.request,
         workspace,
         topic: REALTIME_TOPICS.WORKSPACE_META,

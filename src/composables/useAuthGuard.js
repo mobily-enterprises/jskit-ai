@@ -16,13 +16,23 @@ export function useAuthGuard() {
   });
   const loginPath = computed(() => resolveSurfacePaths(pathname.value).loginPath);
   const authStore = useAuthStore();
-  const consoleStore = useConsoleStore();
   const workspaceStore = useWorkspaceStore();
+
+  function clearConsoleState() {
+    try {
+      const consoleStore = useConsoleStore();
+      if (consoleStore && typeof consoleStore.clearConsoleState === "function") {
+        consoleStore.clearConsoleState();
+      }
+    } catch {
+      // Store access can throw in isolated tests without an active Pinia instance.
+    }
+  }
 
   async function signOutAndRedirectToLogin() {
     authStore.setSignedOut();
     workspaceStore.clearWorkspaceState();
-    consoleStore.clearConsoleState();
+    clearConsoleState();
     await navigate({ to: loginPath.value, replace: true });
   }
 

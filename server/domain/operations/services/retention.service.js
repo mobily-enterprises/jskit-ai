@@ -4,6 +4,7 @@ import { normalizeBatchSize as normalizeRetentionBatchSize } from "../../../lib/
 const DEFAULT_ERROR_LOG_RETENTION_DAYS = 30;
 const DEFAULT_INVITE_ARTIFACT_RETENTION_DAYS = 90;
 const DEFAULT_SECURITY_AUDIT_RETENTION_DAYS = 365;
+const DEFAULT_AI_TRANSCRIPTS_RETENTION_DAYS = 60;
 const DEFAULT_RETENTION_BATCH_SIZE = 1000;
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 const MAX_BATCH_ITERATIONS = 50_000;
@@ -48,6 +49,10 @@ function resolveRetentionConfig(config = {}) {
       config.securityAuditRetentionDays,
       DEFAULT_SECURITY_AUDIT_RETENTION_DAYS
     ),
+    aiTranscriptsRetentionDays: normalizeRetentionDays(
+      config.aiTranscriptsRetentionDays,
+      DEFAULT_AI_TRANSCRIPTS_RETENTION_DAYS
+    ),
     batchSize: normalizeBatchSize(config.batchSize)
   };
 }
@@ -81,10 +86,19 @@ function createService({
   workspaceInvitesRepository,
   consoleInvitesRepository,
   auditEventsRepository,
+  aiTranscriptConversationsRepository,
+  aiTranscriptMessagesRepository,
   retentionConfig,
   now = () => new Date()
 }) {
-  if (!consoleErrorLogsRepository || !workspaceInvitesRepository || !consoleInvitesRepository || !auditEventsRepository) {
+  if (
+    !consoleErrorLogsRepository ||
+    !workspaceInvitesRepository ||
+    !consoleInvitesRepository ||
+    !auditEventsRepository ||
+    !aiTranscriptConversationsRepository ||
+    !aiTranscriptMessagesRepository
+  ) {
     throw new Error("retention repositories are required.");
   }
   if (
@@ -101,6 +115,12 @@ function createService({
   }
   if (typeof auditEventsRepository.deleteOlderThan !== "function") {
     throw new Error("auditEventsRepository.deleteOlderThan is required.");
+  }
+  if (typeof aiTranscriptConversationsRepository.deleteWithoutMessagesOlderThan !== "function") {
+    throw new Error("aiTranscriptConversationsRepository.deleteWithoutMessagesOlderThan is required.");
+  }
+  if (typeof aiTranscriptMessagesRepository.deleteOlderThan !== "function") {
+    throw new Error("aiTranscriptMessagesRepository.deleteOlderThan is required.");
   }
 
   const config = resolveRetentionConfig(retentionConfig);
@@ -134,6 +154,17 @@ function createService({
         key: "security_audit_events",
         retentionDays: config.securityAuditRetentionDays,
         deleteBatch: (cutoffDate, batchSize) => auditEventsRepository.deleteOlderThan(cutoffDate, batchSize)
+      },
+      {
+        key: "ai_messages",
+        retentionDays: config.aiTranscriptsRetentionDays,
+        deleteBatch: (cutoffDate, batchSize) => aiTranscriptMessagesRepository.deleteOlderThan(cutoffDate, batchSize)
+      },
+      {
+        key: "ai_conversations",
+        retentionDays: config.aiTranscriptsRetentionDays,
+        deleteBatch: (cutoffDate, batchSize) =>
+          aiTranscriptConversationsRepository.deleteWithoutMessagesOlderThan(cutoffDate, batchSize)
       }
     ];
 
@@ -192,6 +223,7 @@ const __testables = {
   DEFAULT_ERROR_LOG_RETENTION_DAYS,
   DEFAULT_INVITE_ARTIFACT_RETENTION_DAYS,
   DEFAULT_SECURITY_AUDIT_RETENTION_DAYS,
+  DEFAULT_AI_TRANSCRIPTS_RETENTION_DAYS,
   DEFAULT_RETENTION_BATCH_SIZE,
   DAY_IN_MILLISECONDS,
   normalizeRetentionDays,

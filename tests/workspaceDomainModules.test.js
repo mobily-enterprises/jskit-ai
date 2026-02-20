@@ -147,7 +147,11 @@ test("workspace access primitives normalize role/status and index structures", (
 
   const defaults = createWorkspaceSettingsDefaults(true);
   assert.equal(defaults.invitesEnabled, true);
-  assert.deepEqual(defaults.features, {});
+  assert.deepEqual(defaults.features, {
+    ai: {
+      transcriptMode: "standard"
+    }
+  });
   assert.equal(defaults.policy.defaultMode, "fv");
 
   const indexes = createMembershipIndexes([

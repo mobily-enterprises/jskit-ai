@@ -10,6 +10,8 @@ import * as consoleInvitesRepository from "../domain/console/repositories/invite
 import * as consoleRootRepository from "../domain/console/repositories/root.repository.js";
 import * as consoleErrorLogsRepository from "../domain/console/repositories/errorLogs.repository.js";
 import * as auditEventsRepository from "../domain/security/repositories/auditEvents.repository.js";
+import * as aiTranscriptConversationsRepository from "../modules/ai/repositories/conversations.repository.js";
+import * as aiTranscriptMessagesRepository from "../modules/ai/repositories/messages.repository.js";
 import * as projectsRepository from "../modules/projects/repository.js";
 import * as healthRepository from "../modules/health/repository.js";
 
@@ -27,6 +29,8 @@ function createRepositories() {
     consoleRootRepository,
     consoleErrorLogsRepository,
     auditEventsRepository,
+    aiTranscriptConversationsRepository,
+    aiTranscriptMessagesRepository,
     projectsRepository,
     healthRepository
   };

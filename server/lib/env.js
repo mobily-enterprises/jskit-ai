@@ -86,6 +86,7 @@ export const env = cleanEnv(
     ERROR_LOG_RETENTION_DAYS: num({ default: 30 }),
     INVITE_ARTIFACT_RETENTION_DAYS: num({ default: 90 }),
     SECURITY_AUDIT_RETENTION_DAYS: num({ default: 365 }),
+    AI_TRANSCRIPTS_RETENTION_DAYS: num({ default: 60 }),
     RETENTION_BATCH_SIZE: num({ default: 1000 })
   },
   {

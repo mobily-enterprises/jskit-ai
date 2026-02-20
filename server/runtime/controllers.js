@@ -20,6 +20,7 @@ function createControllers({ services }) {
     userSettingsService,
     projectsService,
     aiService,
+    aiTranscriptsService,
     realtimeEventsService,
     healthService,
     workspaceService,
@@ -59,12 +60,14 @@ function createControllers({ services }) {
       authService,
       workspaceService,
       workspaceAdminService,
+      aiTranscriptsService,
       consoleService,
       auditService,
       realtimeEventsService
     }),
     console: createConsoleController({
       consoleService,
+      aiTranscriptsService,
       auditService
     }),
     consoleErrors: createConsoleErrorsController({

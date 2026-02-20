@@ -19,6 +19,12 @@ const timingOptions = [
   { title: "Due", value: "due" }
 ];
 
+const transcriptModeOptions = [
+  { title: "Standard logging", value: "standard" },
+  { title: "Restricted logging", value: "restricted" },
+  { title: "Disabled logging", value: "disabled" }
+];
+
 function normalizeRoleCatalog(roleCatalog) {
   const nextCatalog = roleCatalog && typeof roleCatalog === "object" ? roleCatalog : {};
   return {
@@ -68,6 +74,7 @@ export function useWorkspaceSettingsView() {
     avatarUrl: "",
     invitesEnabled: false,
     invitesAvailable: false,
+    assistantTranscriptMode: "standard",
     appDenyEmailsText: "",
     defaultMode: "fv",
     defaultTiming: "ordinary",
@@ -184,6 +191,7 @@ export function useWorkspaceSettingsView() {
     workspaceForm.avatarUrl = String(data.workspace?.avatarUrl || "");
     workspaceForm.invitesEnabled = Boolean(data.settings?.invitesEnabled);
     workspaceForm.invitesAvailable = Boolean(data.settings?.invitesAvailable);
+    workspaceForm.assistantTranscriptMode = String(data.settings?.assistantTranscriptMode || "standard");
     workspaceForm.appDenyEmailsText = Array.isArray(data.settings?.appDenyEmails)
       ? data.settings.appDenyEmails
           .map((email) =>
@@ -236,6 +244,7 @@ export function useWorkspaceSettingsView() {
     workspaceForm.avatarUrl = "";
     workspaceForm.invitesEnabled = false;
     workspaceForm.invitesAvailable = false;
+    workspaceForm.assistantTranscriptMode = "standard";
     workspaceForm.appDenyEmailsText = "";
     workspaceForm.defaultMode = "fv";
     workspaceForm.defaultTiming = "ordinary";
@@ -341,6 +350,7 @@ export function useWorkspaceSettingsView() {
         color: workspaceForm.color,
         avatarUrl: workspaceForm.avatarUrl,
         invitesEnabled: workspaceForm.invitesEnabled,
+        assistantTranscriptMode: workspaceForm.assistantTranscriptMode,
         appDenyEmails: parseDenyEmailsInput(workspaceForm.appDenyEmailsText),
         defaultMode: workspaceForm.defaultMode,
         defaultTiming: workspaceForm.defaultTiming,
@@ -448,6 +458,7 @@ export function useWorkspaceSettingsView() {
     options: {
       mode: modeOptions,
       timing: timingOptions,
+      transcriptModes: transcriptModeOptions,
       inviteRoles: inviteRoleOptions,
       memberRoles: memberRoleOptions,
       formatDateTime

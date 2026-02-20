@@ -336,6 +336,9 @@ Realtime note:
 - `GET /api/workspace/settings`
 - `PATCH /api/workspace/settings`
 - `GET /api/workspace/roles`
+- `GET /api/workspace/ai/transcripts`
+- `GET /api/workspace/ai/transcripts/:conversationId/messages`
+- `GET /api/workspace/ai/transcripts/:conversationId/export`
 - `GET /api/workspace/members`
 - `PATCH /api/workspace/members/:memberUserId/role`
 - `GET /api/workspace/invites`
@@ -346,6 +349,9 @@ Realtime note:
 - `GET /api/console/members`
 - `PATCH /api/console/members/:memberUserId/role`
 - `GET /api/console/invites`
+- `GET /api/console/ai/transcripts`
+- `GET /api/console/ai/transcripts/:conversationId/messages`
+- `GET /api/console/ai/transcripts/export`
 - `POST /api/console/invites`
 - `DELETE /api/console/invites/:inviteId`
 - `GET /api/console/invitations/pending`

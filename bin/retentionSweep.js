@@ -20,10 +20,13 @@ async function main() {
     workspaceInvitesRepository: repositories.workspaceInvitesRepository,
     consoleInvitesRepository: repositories.consoleInvitesRepository,
     auditEventsRepository: repositories.auditEventsRepository,
+    aiTranscriptConversationsRepository: repositories.aiTranscriptConversationsRepository,
+    aiTranscriptMessagesRepository: repositories.aiTranscriptMessagesRepository,
     retentionConfig: {
       errorLogRetentionDays: env.ERROR_LOG_RETENTION_DAYS,
       inviteArtifactRetentionDays: env.INVITE_ARTIFACT_RETENTION_DAYS,
       securityAuditRetentionDays: env.SECURITY_AUDIT_RETENTION_DAYS,
+      aiTranscriptsRetentionDays: env.AI_TRANSCRIPTS_RETENTION_DAYS,
       batchSize: env.RETENTION_BATCH_SIZE
     }
   });

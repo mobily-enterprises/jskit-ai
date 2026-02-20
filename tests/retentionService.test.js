@@ -19,13 +19,17 @@ test("retention service runs batched retention sweep across all tables", async (
     server: [],
     workspaceInvites: [],
     consoleInvites: [],
-    auditEvents: []
+    auditEvents: [],
+    aiMessages: [],
+    aiConversations: []
   };
   const browserDeletes = createDeque([1000, 5]);
   const serverDeletes = createDeque([0]);
   const workspaceDeletes = createDeque([1000, 1000, 1]);
   const consoleDeletes = createDeque([2]);
   const auditDeletes = createDeque([0]);
+  const aiMessageDeletes = createDeque([700, 25]);
+  const aiConversationDeletes = createDeque([8, 0]);
 
   const service = createRetentionService({
     consoleErrorLogsRepository: {
@@ -56,10 +60,23 @@ test("retention service runs batched retention sweep across all tables", async (
         return auditDeletes();
       }
     },
+    aiTranscriptMessagesRepository: {
+      async deleteOlderThan(cutoffDate, batchSize) {
+        calls.aiMessages.push({ cutoffDate, batchSize });
+        return aiMessageDeletes();
+      }
+    },
+    aiTranscriptConversationsRepository: {
+      async deleteWithoutMessagesOlderThan(cutoffDate, batchSize) {
+        calls.aiConversations.push({ cutoffDate, batchSize });
+        return aiConversationDeletes();
+      }
+    },
     retentionConfig: {
       errorLogRetentionDays: 30,
       inviteArtifactRetentionDays: 90,
       securityAuditRetentionDays: 365,
+      aiTranscriptsRetentionDays: 60,
       batchSize: 1000
     },
     now: () => new Date("2026-02-19T00:00:00.000Z")
@@ -69,14 +86,18 @@ test("retention service runs batched retention sweep across all tables", async (
 
   assert.equal(summary.dryRun, false);
   assert.equal(summary.batchSize, 1000);
-  assert.equal(summary.rules.length, 5);
-  assert.equal(summary.totalDeletedRows, 3008);
+  assert.equal(summary.rules.length, 7);
+  assert.equal(summary.totalDeletedRows, 3716);
   assert.equal(calls.browser.length, 2);
   assert.equal(calls.server.length, 1);
   assert.equal(calls.workspaceInvites.length, 3);
   assert.equal(calls.consoleInvites.length, 1);
   assert.equal(calls.auditEvents.length, 1);
+  assert.equal(calls.aiMessages.length, 1);
+  assert.equal(calls.aiConversations.length, 1);
   assert.equal(summary.rules.find((entry) => entry.table === "workspace_invites").deletedRows, 2001);
+  assert.equal(summary.rules.find((entry) => entry.table === "ai_messages").deletedRows, 700);
+  assert.equal(summary.rules.find((entry) => entry.table === "ai_conversations").deletedRows, 8);
 });
 
 test("retention service dry run does not delete rows", async () => {
@@ -110,6 +131,18 @@ test("retention service dry run does not delete rows", async () => {
         return 0;
       }
     },
+    aiTranscriptMessagesRepository: {
+      async deleteOlderThan() {
+        deleteCalls += 1;
+        return 0;
+      }
+    },
+    aiTranscriptConversationsRepository: {
+      async deleteWithoutMessagesOlderThan() {
+        deleteCalls += 1;
+        return 0;
+      }
+    },
     now: () => new Date("2026-02-19T00:00:00.000Z")
   });
 
@@ -125,11 +158,13 @@ test("retention service config helpers normalize values", () => {
     errorLogRetentionDays: "0",
     inviteArtifactRetentionDays: "180",
     securityAuditRetentionDays: null,
+    aiTranscriptsRetentionDays: "120",
     batchSize: "99999"
   });
 
   assert.equal(config.errorLogRetentionDays, 30);
   assert.equal(config.inviteArtifactRetentionDays, 180);
   assert.equal(config.securityAuditRetentionDays, 365);
+  assert.equal(config.aiTranscriptsRetentionDays, 120);
   assert.equal(config.batchSize, 10_000);
 });

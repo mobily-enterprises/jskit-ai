@@ -4,6 +4,7 @@ const REALTIME_TOPICS = Object.freeze({
   WORKSPACE_SETTINGS: "workspace_settings",
   WORKSPACE_MEMBERS: "workspace_members",
   WORKSPACE_INVITES: "workspace_invites",
+  WORKSPACE_AI_TRANSCRIPTS: "workspace_ai_transcripts",
   CHAT: "chat",
   TYPING: "typing"
 });
@@ -14,7 +15,8 @@ const REALTIME_EVENT_TYPES = Object.freeze({
   WORKSPACE_META_UPDATED: "workspace.meta.updated",
   WORKSPACE_SETTINGS_UPDATED: "workspace.settings.updated",
   WORKSPACE_MEMBERS_UPDATED: "workspace.members.updated",
-  WORKSPACE_INVITES_UPDATED: "workspace.invites.updated"
+  WORKSPACE_INVITES_UPDATED: "workspace.invites.updated",
+  WORKSPACE_AI_TRANSCRIPTS_UPDATED: "workspace.ai.transcripts.updated"
 });
 
 export { REALTIME_TOPICS, REALTIME_EVENT_TYPES };

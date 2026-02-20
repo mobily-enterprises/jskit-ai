@@ -83,6 +83,7 @@ export function useAssistantView() {
   const error = ref("");
   const pendingToolEvents = ref([]);
   const abortController = ref(null);
+  const conversationId = ref(null);
 
   const canSend = computed(() => !isStreaming.value && normalizeText(input.value).length > 0);
 
@@ -256,6 +257,7 @@ export function useAssistantView() {
       await api.ai.streamChat(
         {
           messageId,
+          conversationId: conversationId.value || undefined,
           input: normalizedInput,
           history
         },
@@ -264,6 +266,11 @@ export function useAssistantView() {
           onEvent(event) {
             streamEventCount += 1;
             const eventType = normalizeText(event?.type).toLowerCase();
+
+            if (eventType === "meta" && Object.prototype.hasOwnProperty.call(event || {}, "conversationId")) {
+              conversationId.value = event?.conversationId ? String(event.conversationId) : null;
+              return;
+            }
 
             if (eventType === "assistant_delta") {
               appendAssistantDelta(assistantMessageId, event?.delta);
@@ -344,6 +351,7 @@ export function useAssistantView() {
     pendingToolEvents.value = [];
     input.value = "";
     error.value = "";
+    conversationId.value = null;
     isStreaming.value = false;
     abortController.value = null;
   }
@@ -357,6 +365,7 @@ export function useAssistantView() {
       error,
       pendingToolEvents,
       abortController,
+      conversationId,
       canSend
     },
     actions: {

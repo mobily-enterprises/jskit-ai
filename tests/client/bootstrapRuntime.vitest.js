@@ -93,6 +93,7 @@ vi.mock("@mdi/js", () => ({
   mdiHelpCircleOutline: "mdi-help-circle-outline",
   mdiHomeOutline: "mdi-home-outline",
   mdiLogout: "mdi-logout",
+  mdiMessageTextOutline: "mdi-message-text-outline",
   mdiServer: "mdi-server",
   mdiShieldCrownOutline: "mdi-shield-crown-outline",
   mdiShapeOutline: "mdi-shape-outline",

@@ -25,7 +25,6 @@ function formatDateTime(value) {
 
 export function useAdminShell() {
   const authStore = useAuthStore();
-  const consoleStore = useConsoleStore();
   const workspaceStore = useWorkspaceStore();
   const navigate = useNavigate();
   const display = useDisplay();
@@ -72,6 +71,7 @@ export function useAdminShell() {
   const canViewWorkspaceSettings = computed(
     () => workspaceStore.can("workspace.settings.view") || workspaceStore.can("workspace.settings.update")
   );
+  const canViewAiTranscripts = computed(() => workspaceStore.can("workspace.ai.transcripts.read"));
   const assistantFeatureEnabled = computed(() => Boolean(workspaceStore.app?.features?.assistantEnabled));
   const assistantRequiredPermission = computed(() =>
     String(workspaceStore.app?.features?.assistantRequiredPermission || "").trim()
@@ -90,6 +90,10 @@ export function useAdminShell() {
 
     if (canUseAssistant.value) {
       items.push({ title: "Assistant", to: workspacePath("/assistant"), icon: "$navChoice2" });
+    }
+
+    if (canViewAiTranscripts.value) {
+      items.push({ title: "AI transcripts", to: workspacePath("/transcripts"), icon: "$navChoice2" });
     }
 
     if (canViewWorkspaceSettings.value) {
@@ -121,6 +125,9 @@ export function useAdminShell() {
     }
     if (currentPath.value.endsWith("/settings")) {
       return "Settings";
+    }
+    if (currentPath.value.endsWith("/transcripts")) {
+      return "AI transcripts";
     }
     return "Calculator";
   });
@@ -266,7 +273,14 @@ export function useAdminShell() {
       api.clearCsrfTokenCache();
       authStore.setSignedOut();
       workspaceStore.clearWorkspaceState();
-      consoleStore.clearConsoleState();
+      try {
+        const consoleStore = useConsoleStore();
+        if (consoleStore && typeof consoleStore.clearConsoleState === "function") {
+          consoleStore.clearConsoleState();
+        }
+      } catch {
+        // Store access can throw in isolated tests without an active Pinia instance.
+      }
       await authStore.invalidateSession();
       await navigate({ to: paths.loginPath, replace: true });
     }

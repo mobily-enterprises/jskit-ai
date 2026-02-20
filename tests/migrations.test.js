@@ -14,6 +14,7 @@ const consoleRootIdentityMigration = require("../migrations/20260220090200_creat
 const consoleBrowserErrorsMigration = require("../migrations/20260220100000_create_console_browser_errors.cjs");
 const consoleServerErrorsMigration = require("../migrations/20260220100100_create_console_server_errors.cjs");
 const securityAuditEventsMigration = require("../migrations/20260220110000_create_security_audit_events.cjs");
+const aiTranscriptsMigration = require("../migrations/20260220130000_create_ai_transcripts.cjs");
 
 function createSchemaStub() {
   const calls = [];
@@ -351,4 +352,20 @@ test("security audit events migration creates expected table and drop behavior",
   assert.ok(createTableCall);
   assert.ok(calls.some((entry) => entry[0] === "raw" && entry[1] === "UTC_TIMESTAMP(3)"));
   assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "security_audit_events"]);
+});
+
+test("ai transcripts migration creates expected tables and drop behavior", async () => {
+  const { knex, calls } = createSchemaStub();
+
+  await aiTranscriptsMigration.up(knex);
+  await aiTranscriptsMigration.down(knex);
+
+  const createConversationTableCall = calls.find((entry) => entry[0] === "createTable" && entry[1] === "ai_conversations");
+  const createMessageTableCall = calls.find((entry) => entry[0] === "createTable" && entry[1] === "ai_messages");
+  assert.ok(createConversationTableCall);
+  assert.ok(createMessageTableCall);
+  assert.ok(calls.some((entry) => entry[0] === "raw" && entry[1] === "UTC_TIMESTAMP(3)"));
+
+  assert.deepEqual(calls[calls.length - 2], ["dropTableIfExists", "ai_messages"]);
+  assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "ai_conversations"]);
 });

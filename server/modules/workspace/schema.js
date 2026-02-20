@@ -14,6 +14,9 @@ const schema = {
     ...adminSchema.body,
     ...selfServiceSchema.body
   },
+  query: {
+    ...(adminSchema.query || {})
+  },
   params: {
     ...adminSchema.params
   }

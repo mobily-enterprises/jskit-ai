@@ -52,6 +52,7 @@ const settingsSummary = Type.Object(
     invitesEnabled: Type.Boolean(),
     invitesAvailable: Type.Boolean(),
     invitesEffective: Type.Boolean(),
+    assistantTranscriptMode: enumSchema(["standard", "restricted", "disabled"]),
     defaultMode: enumSchema(SETTINGS_MODE_OPTIONS),
     defaultTiming: enumSchema(SETTINGS_TIMING_OPTIONS),
     defaultPaymentsPerYear: Type.Integer({ minimum: 1, maximum: 365 }),

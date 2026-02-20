@@ -1,6 +1,10 @@
 const CONSOLE_ROLE_ID = "console";
 const DEVOP_ROLE_ID = "devop";
 const MODERATOR_ROLE_ID = "moderator";
+const CONSOLE_AI_TRANSCRIPTS_PERMISSIONS = Object.freeze({
+  READ_ALL: "console.ai.transcripts.read_all",
+  EXPORT_ALL: "console.ai.transcripts.export_all"
+});
 
 const CONSOLE_ROLE_DEFINITIONS = Object.freeze({
   [CONSOLE_ROLE_ID]: Object.freeze({
@@ -9,7 +13,12 @@ const CONSOLE_ROLE_DEFINITIONS = Object.freeze({
   }),
   [DEVOP_ROLE_ID]: Object.freeze({
     assignable: true,
-    permissions: Object.freeze(["console.errors.browser.read", "console.errors.server.read"])
+    permissions: Object.freeze([
+      "console.errors.browser.read",
+      "console.errors.server.read",
+      CONSOLE_AI_TRANSCRIPTS_PERMISSIONS.READ_ALL,
+      CONSOLE_AI_TRANSCRIPTS_PERMISSIONS.EXPORT_ALL
+    ])
   }),
   [MODERATOR_ROLE_ID]: Object.freeze({
     assignable: true,
@@ -95,6 +104,7 @@ export {
   CONSOLE_ROLE_ID,
   DEVOP_ROLE_ID,
   MODERATOR_ROLE_ID,
+  CONSOLE_AI_TRANSCRIPTS_PERMISSIONS,
   CONSOLE_ROLE_DEFINITIONS,
   CONSOLE_MANAGEMENT_PERMISSIONS,
   normalizeRoleId,

@@ -20,6 +20,10 @@ const REALTIME_TOPIC_REGISTRY = Object.freeze({
   [REALTIME_TOPICS.WORKSPACE_INVITES]: Object.freeze({
     subscribeSurfaces: Object.freeze(["admin"]),
     requiredAnyPermission: Object.freeze(["workspace.members.view"])
+  }),
+  [REALTIME_TOPICS.WORKSPACE_AI_TRANSCRIPTS]: Object.freeze({
+    subscribeSurfaces: Object.freeze(["admin"]),
+    requiredAnyPermission: Object.freeze(["workspace.ai.transcripts.read"])
   })
 });
 

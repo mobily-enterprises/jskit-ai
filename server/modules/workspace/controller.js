@@ -1,6 +1,8 @@
 import { hasPermission } from "../../lib/rbacManifest.js";
 import { parsePositiveInteger } from "../../lib/primitives/integers.js";
 import { withAuditEvent } from "../../lib/securityAudit.js";
+import { AppError } from "../../lib/errors.js";
+import { publishWorkspaceEventSafely, resolvePublishWorkspaceEvent } from "../../lib/realtimeEvents.js";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/realtime/eventTypes.js";
 
 function normalizeText(value) {
@@ -11,15 +13,11 @@ function normalizeDecision(value) {
   return normalizeText(value).toLowerCase();
 }
 
-function normalizeHeaderValue(value) {
-  const normalized = String(value || "").trim();
-  return normalized || null;
-}
-
 function createController({
   authService,
   workspaceService,
   workspaceAdminService,
+  aiTranscriptsService = null,
   consoleService,
   auditService,
   realtimeEventsService = null
@@ -31,34 +29,20 @@ function createController({
     throw new Error("auditService.recordSafe is required.");
   }
 
-  const publishWorkspaceEvent =
-    realtimeEventsService && typeof realtimeEventsService.publishWorkspaceEvent === "function"
-      ? realtimeEventsService.publishWorkspaceEvent
-      : null;
+  const publishWorkspaceEvent = resolvePublishWorkspaceEvent(realtimeEventsService);
 
-  function publishWorkspaceEventSafely({ request, topic, eventType, entityType, entityId, payload }) {
-    if (!publishWorkspaceEvent) {
-      return;
-    }
-
-    try {
-      publishWorkspaceEvent({
-        eventType,
-        topic,
-        workspace: request.workspace,
-        entityType,
-        entityId,
-        commandId: normalizeHeaderValue(request?.headers?.["x-command-id"]),
-        sourceClientId: normalizeHeaderValue(request?.headers?.["x-client-id"]),
-        actorUserId: request?.user?.id,
-        payload
-      });
-    } catch (error) {
-      const warnLogger = request?.log && typeof request.log.warn === "function" ? request.log.warn.bind(request.log) : null;
-      if (warnLogger) {
-        warnLogger({ err: error }, "workspace.realtime.publish_failed");
-      }
-    }
+  function publishWorkspaceEventForRequest({ request, topic, eventType, entityType, entityId, payload }) {
+    publishWorkspaceEventSafely({
+      publishWorkspaceEvent,
+      request,
+      workspace: request?.workspace,
+      topic,
+      eventType,
+      entityType,
+      entityId,
+      payload,
+      logCode: "workspace.realtime.publish_failed"
+    });
   }
 
   async function bootstrap(request, reply) {
@@ -119,7 +103,7 @@ function createController({
 
   async function updateWorkspaceSettings(request, reply) {
     const response = await workspaceAdminService.updateWorkspaceSettings(request.workspace, request.body || {});
-    publishWorkspaceEventSafely({
+    publishWorkspaceEventForRequest({
       request,
       topic: REALTIME_TOPICS.WORKSPACE_SETTINGS,
       eventType: REALTIME_EVENT_TYPES.WORKSPACE_SETTINGS_UPDATED,
@@ -131,7 +115,7 @@ function createController({
         workspaceSlug: normalizeText(request.workspace?.slug)
       }
     });
-    publishWorkspaceEventSafely({
+    publishWorkspaceEventForRequest({
       request,
       topic: REALTIME_TOPICS.WORKSPACE_META,
       eventType: REALTIME_EVENT_TYPES.WORKSPACE_META_UPDATED,
@@ -179,7 +163,7 @@ function createController({
       })
     });
 
-    publishWorkspaceEventSafely({
+    publishWorkspaceEventForRequest({
       request,
       topic: REALTIME_TOPICS.WORKSPACE_MEMBERS,
       eventType: REALTIME_EVENT_TYPES.WORKSPACE_MEMBERS_UPDATED,
@@ -222,7 +206,7 @@ function createController({
       })
     });
 
-    publishWorkspaceEventSafely({
+    publishWorkspaceEventForRequest({
       request,
       topic: REALTIME_TOPICS.WORKSPACE_INVITES,
       eventType: REALTIME_EVENT_TYPES.WORKSPACE_INVITES_UPDATED,
@@ -253,7 +237,7 @@ function createController({
       }),
     });
 
-    publishWorkspaceEventSafely({
+    publishWorkspaceEventForRequest({
       request,
       topic: REALTIME_TOPICS.WORKSPACE_INVITES,
       eventType: REALTIME_EVENT_TYPES.WORKSPACE_INVITES_UPDATED,
@@ -302,7 +286,7 @@ function createController({
       })
     });
 
-    publishWorkspaceEventSafely({
+    publishWorkspaceEventForRequest({
       request,
       topic: REALTIME_TOPICS.WORKSPACE_INVITES,
       eventType: REALTIME_EVENT_TYPES.WORKSPACE_INVITES_UPDATED,
@@ -314,6 +298,101 @@ function createController({
         inviteId: parsePositiveInteger(response?.inviteId),
         decision: normalizeDecision(payload.decision)
       }
+    });
+
+    reply.code(200).send(response);
+  }
+
+  function ensureAiTranscriptsService() {
+    if (!aiTranscriptsService) {
+      throw new AppError(501, "AI transcripts service is not available.");
+    }
+  }
+
+  async function listWorkspaceAiTranscripts(request, reply) {
+    ensureAiTranscriptsService();
+    const query = request.query || {};
+
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "ai.transcripts.list.viewed",
+      execute: () => aiTranscriptsService.listWorkspaceConversations(request.workspace, query),
+      shared: () => ({
+        workspaceId: parsePositiveInteger(request.workspace?.id)
+      }),
+      metadata: () => ({
+        page: parsePositiveInteger(query.page) || 1,
+        pageSize: parsePositiveInteger(query.pageSize) || 20,
+        from: normalizeText(query.from),
+        to: normalizeText(query.to),
+        status: normalizeText(query.status).toLowerCase()
+      }),
+      onSuccess: (context) => ({
+        metadata: {
+          returnedCount: Array.isArray(context?.result?.entries) ? context.result.entries.length : 0,
+          total: Number(context?.result?.total || 0)
+        }
+      })
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function getWorkspaceAiTranscriptMessages(request, reply) {
+    ensureAiTranscriptsService();
+    const params = request.params || {};
+    const query = request.query || {};
+    const conversationId = params.conversationId;
+
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "ai.transcripts.messages.viewed",
+      execute: () => aiTranscriptsService.getWorkspaceConversationMessages(request.workspace, conversationId, query),
+      shared: () => ({
+        workspaceId: parsePositiveInteger(request.workspace?.id)
+      }),
+      metadata: () => ({
+        conversationId: parsePositiveInteger(conversationId),
+        page: parsePositiveInteger(query.page) || 1,
+        pageSize: parsePositiveInteger(query.pageSize) || 100
+      }),
+      onSuccess: (context) => ({
+        metadata: {
+          returnedCount: Array.isArray(context?.result?.entries) ? context.result.entries.length : 0,
+          total: Number(context?.result?.total || 0)
+        }
+      })
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function exportWorkspaceAiTranscript(request, reply) {
+    ensureAiTranscriptsService();
+    const params = request.params || {};
+    const query = request.query || {};
+    const conversationId = params.conversationId;
+
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "ai.transcripts.exported",
+      execute: () => aiTranscriptsService.exportWorkspaceConversation(request.workspace, conversationId, query),
+      shared: () => ({
+        workspaceId: parsePositiveInteger(request.workspace?.id)
+      }),
+      metadata: () => ({
+        conversationId: parsePositiveInteger(conversationId),
+        format: normalizeText(query.format).toLowerCase() || "json",
+        limit: parsePositiveInteger(query.limit) || null
+      }),
+      onSuccess: (context) => ({
+        metadata: {
+          exportedCount: Array.isArray(context?.result?.entries) ? context.result.entries.length : 0
+        }
+      })
     });
 
     reply.code(200).send(response);
@@ -332,7 +411,10 @@ function createController({
     createWorkspaceInvite,
     revokeWorkspaceInvite,
     listPendingInvites,
-    respondToPendingInviteByToken
+    respondToPendingInviteByToken,
+    listWorkspaceAiTranscripts,
+    getWorkspaceAiTranscriptMessages,
+    exportWorkspaceAiTranscript
   };
 }
 

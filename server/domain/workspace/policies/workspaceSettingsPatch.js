@@ -2,6 +2,7 @@ import { AppError } from "../../../lib/errors.js";
 import { normalizeEmail } from "../../../../shared/auth/utils.js";
 import { SETTINGS_MODE_OPTIONS, SETTINGS_TIMING_OPTIONS } from "../../../../shared/settings/index.js";
 import { isWorkspaceColor } from "../../../../shared/workspace/colors.js";
+import { TRANSCRIPT_MODE_VALUES } from "../../../lib/aiTranscriptMode.js";
 
 const BASIC_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -197,6 +198,17 @@ function parseWorkspaceSettingsPatch(payload) {
       fieldErrors.defaultHistoryPageSize = "Default history page size must be an integer from 1 to 100.";
     } else {
       defaultsPatch.defaultHistoryPageSize = value;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "assistantTranscriptMode")) {
+    const value = String(body.assistantTranscriptMode || "")
+      .trim()
+      .toLowerCase();
+    if (!TRANSCRIPT_MODE_VALUES.includes(value)) {
+      fieldErrors.assistantTranscriptMode = "assistantTranscriptMode must be one of: standard, restricted, disabled.";
+    } else {
+      settingsPatch.aiTranscriptMode = value;
     }
   }
 

@@ -16,6 +16,7 @@ const ConsoleServerErrorsView = lazyRouteComponent(() => import("../views/consol
 const ConsoleServerErrorDetailView = lazyRouteComponent(
   () => import("../views/console/ConsoleServerErrorDetailView.vue")
 );
+const ConsoleAiTranscriptsView = lazyRouteComponent(() => import("../views/console/ConsoleAiTranscriptsView.vue"));
 /* v8 ignore stop */
 /* c8 ignore stop */
 
@@ -62,6 +63,12 @@ function createRoutes({ rootRoute, surfacePaths, guards }) {
       path: `${surfacePaths.prefix}/errors/server/$errorId`,
       component: ConsoleServerErrorDetailView,
       beforeLoad: guards.beforeLoadServerErrorDetails
+    }),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: `${surfacePaths.prefix}/transcripts`,
+      component: ConsoleAiTranscriptsView,
+      beforeLoad: guards.beforeLoadAiTranscripts
     }),
     createRoute({
       getParentRoute: () => rootRoute,

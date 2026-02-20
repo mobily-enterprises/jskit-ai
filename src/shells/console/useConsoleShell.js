@@ -44,6 +44,9 @@ export function useConsoleShell() {
   const canViewServerErrors = computed(
     () => consoleStore.can("console.errors.server.read") && consoleStore.hasAccess
   );
+  const canViewAiTranscripts = computed(
+    () => consoleStore.can("console.ai.transcripts.read_all") && consoleStore.hasAccess
+  );
 
   const navigationItems = computed(() => {
     const paths = surfacePaths.value;
@@ -55,6 +58,10 @@ export function useConsoleShell() {
 
     if (canViewServerErrors.value) {
       items.push({ title: "Server errors", to: `${paths.prefix}/errors/server`, icon: "$consoleServerErrors" });
+    }
+
+    if (canViewAiTranscripts.value) {
+      items.push({ title: "AI transcripts", to: `${paths.prefix}/transcripts`, icon: "$consoleTranscripts" });
     }
 
     if (canViewMembers.value) {
@@ -81,6 +88,10 @@ export function useConsoleShell() {
 
     if (currentPath.value.endsWith("/members")) {
       return "Members";
+    }
+
+    if (currentPath.value.endsWith("/transcripts")) {
+      return "AI transcripts";
     }
 
     return "Console";
@@ -145,7 +156,8 @@ export function useConsoleShell() {
     permissions: {
       canViewMembers,
       canViewBrowserErrors,
-      canViewServerErrors
+      canViewServerErrors,
+      canViewAiTranscripts
     },
     navigation: {
       navigationItems

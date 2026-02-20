@@ -75,13 +75,41 @@ function resolveScopedRef(scopedMap, scope, fallback) {
 
 vi.mock("@tanstack/vue-query", () => ({
   useQuery: (options = {}) => {
-    const key = computed(() => {
+    const kind = computed(() => {
       const resolved = resolveQueryKey(options.queryKey);
-      return Array.isArray(resolved) ? String(resolved[0] || "") : "";
+      if (!Array.isArray(resolved)) {
+        return "";
+      }
+
+      const root = String(resolved[0] || "");
+      if (root === "workspace-admin") {
+        return String(resolved[2] || "");
+      }
+
+      if (root === "workspace-settings") {
+        return "settings";
+      }
+      if (root === "workspace-members") {
+        return "members";
+      }
+      if (root === "workspace-invites") {
+        return "invites";
+      }
+
+      return "";
     });
     const scope = computed(() => {
       const resolved = resolveQueryKey(options.queryKey);
-      return Array.isArray(resolved) ? String(resolved[1] || "none") : "none";
+      if (!Array.isArray(resolved)) {
+        return "none";
+      }
+
+      const root = String(resolved[0] || "");
+      if (root === "workspace-admin") {
+        return String(resolved[1] || "none");
+      }
+
+      return String(resolved[1] || "none");
     });
     const enabled =
       options.enabled && typeof options.enabled === "object" && "value" in options.enabled
@@ -93,44 +121,44 @@ vi.mock("@tanstack/vue-query", () => ({
 
     return {
       data: computed(() => {
-        if (key.value === "workspace-settings") {
+        if (kind.value === "settings") {
           return resolveScopedRef(mocks.settingsDataByScope, scope.value, mocks.settingsData)?.value;
         }
 
-        if (key.value === "workspace-members") {
+        if (kind.value === "members") {
           return resolveScopedRef(mocks.membersDataByScope, scope.value, mocks.membersData)?.value;
         }
 
         return resolveScopedRef(mocks.invitesDataByScope, scope.value, mocks.invitesData)?.value;
       }),
       error: computed(() => {
-        if (key.value === "workspace-settings") {
+        if (kind.value === "settings") {
           return mocks.settingsError.value;
         }
 
-        if (key.value === "workspace-members") {
+        if (kind.value === "members") {
           return mocks.membersError.value;
         }
 
         return mocks.invitesError.value;
       }),
       isPending: computed(() => {
-        if (key.value === "workspace-settings") {
+        if (kind.value === "settings") {
           return mocks.settingsPending.value;
         }
 
-        if (key.value === "workspace-members") {
+        if (kind.value === "members") {
           return mocks.membersPending.value;
         }
 
         return mocks.invitesPending.value;
       }),
       refetch: () => {
-        if (key.value === "workspace-settings") {
+        if (kind.value === "settings") {
           return mocks.settingsRefetch();
         }
 
-        if (key.value === "workspace-members") {
+        if (kind.value === "members") {
           return mocks.membersRefetch();
         }
 
@@ -382,7 +410,7 @@ describe("useWorkspaceSettingsView", () => {
         appDenyEmails: ["alpha@example.com", "beta@example.com"]
       })
     );
-    expect(mocks.setQueryData).toHaveBeenCalledWith(["workspace-settings", "id:11"], updatedPayload);
+    expect(mocks.setQueryData).toHaveBeenCalledWith(["workspace-admin", "id:11", "settings"], updatedPayload);
     expect(mocks.workspaceStore.refreshBootstrap).toHaveBeenCalledTimes(1);
     expect(wrapper.vm.vm.feedback.workspaceMessageType).toBe("success");
     expect(wrapper.vm.vm.feedback.workspaceMessage).toBe("Workspace settings updated.");
@@ -431,7 +459,7 @@ describe("useWorkspaceSettingsView", () => {
       email: "new-user@example.com",
       roleId: "admin"
     });
-    expect(mocks.setQueryData).toHaveBeenCalledWith(["workspace-invites", "id:11"], invitesPayload);
+    expect(mocks.setQueryData).toHaveBeenCalledWith(["workspace-admin", "id:11", "invites"], invitesPayload);
     expect(wrapper.vm.vm.forms.invite.email).toBe("");
     expect(wrapper.vm.vm.feedback.inviteMessageType).toBe("success");
     expect(wrapper.vm.vm.feedback.inviteMessage).toBe("Invite sent.");
@@ -458,7 +486,7 @@ describe("useWorkspaceSettingsView", () => {
     };
     mocks.api.workspace.revokeInvite.mockResolvedValueOnce(revokedPayload);
     await wrapper.vm.vm.actions.submitRevokeInvite(15);
-    expect(mocks.setQueryData).toHaveBeenCalledWith(["workspace-invites", "id:11"], revokedPayload);
+    expect(mocks.setQueryData).toHaveBeenCalledWith(["workspace-admin", "id:11", "invites"], revokedPayload);
     expect(wrapper.vm.vm.feedback.teamMessageType).toBe("success");
     expect(wrapper.vm.vm.feedback.teamMessage).toBe("Invite revoked.");
 
@@ -496,7 +524,7 @@ describe("useWorkspaceSettingsView", () => {
 
     await wrapperWithManage.vm.vm.actions.submitMemberRoleUpdate(member, "admin");
     expect(mocks.api.workspace.updateMemberRole).toHaveBeenCalledWith(2, { roleId: "admin" });
-    expect(mocks.setQueryData).toHaveBeenCalledWith(["workspace-members", "id:11"], membersPayload);
+    expect(mocks.setQueryData).toHaveBeenCalledWith(["workspace-admin", "id:11", "members"], membersPayload);
     expect(mocks.workspaceStore.refreshBootstrap).toHaveBeenCalledTimes(1);
     expect(wrapperWithManage.vm.vm.feedback.teamMessageType).toBe("success");
     expect(wrapperWithManage.vm.vm.feedback.teamMessage).toBe("Member role updated.");

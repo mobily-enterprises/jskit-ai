@@ -1,4 +1,8 @@
 import { REALTIME_TOPICS } from "../../../shared/realtime/eventTypes.js";
+import {
+  workspaceAiTranscriptsRootQueryKey,
+  workspaceAiTranscriptsScopeQueryKey
+} from "../../features/aiTranscripts/queryKeys.js";
 import { projectDetailQueryKey, projectsScopeQueryKey } from "../../features/projects/queryKeys.js";
 import { workspaceAdminRootQueryKey } from "../../features/workspaceAdmin/queryKeys.js";
 
@@ -24,8 +28,37 @@ function normalizeTopics(topics) {
   return [...new Set(source.map((topic) => String(topic || "").trim()).filter(Boolean))];
 }
 
+function normalizeWorkspaceSlugFromEvent(eventEnvelope) {
+  return String(eventEnvelope?.workspaceSlug || "").trim();
+}
+
+function createStaticQueryInvalidator({ queryKey }) {
+  return async function invalidateByStaticQuery(queryClient) {
+    const resolvedQueryKey = typeof queryKey === "function" ? queryKey() : queryKey;
+    await queryClient.invalidateQueries({
+      queryKey: resolvedQueryKey
+    });
+  };
+}
+
+function createWorkspaceScopeInvalidator({ rootQueryKey, scopeQueryKey }) {
+  return async function invalidateByWorkspaceScope(queryClient, eventEnvelope) {
+    const workspaceSlug = normalizeWorkspaceSlugFromEvent(eventEnvelope);
+    let resolvedQueryKey = rootQueryKey;
+    if (workspaceSlug) {
+      resolvedQueryKey = scopeQueryKey(workspaceSlug);
+    } else if (typeof rootQueryKey === "function") {
+      resolvedQueryKey = rootQueryKey();
+    }
+
+    await queryClient.invalidateQueries({
+      queryKey: resolvedQueryKey
+    });
+  };
+}
+
 async function invalidateForProjectEvent(queryClient, eventEnvelope) {
-  const workspaceSlug = String(eventEnvelope.workspaceSlug || "").trim();
+  const workspaceSlug = normalizeWorkspaceSlugFromEvent(eventEnvelope);
   await queryClient.invalidateQueries({
     queryKey: projectsScopeQueryKey(workspaceSlug)
   });
@@ -43,15 +76,46 @@ async function invalidateForProjectEvent(queryClient, eventEnvelope) {
   });
 }
 
-async function invalidateForWorkspaceAdminEvent(queryClient) {
-  await queryClient.invalidateQueries({
-    queryKey: workspaceAdminRootQueryKey()
-  });
-}
+const invalidateForWorkspaceAdminEvent = createStaticQueryInvalidator({
+  queryKey: workspaceAdminRootQueryKey
+});
+
+const invalidateForWorkspaceAiTranscriptsEvent = createWorkspaceScopeInvalidator({
+  rootQueryKey: workspaceAiTranscriptsRootQueryKey,
+  scopeQueryKey: workspaceAiTranscriptsScopeQueryKey
+});
 
 async function invalidateNoop() {
   return undefined;
 }
+
+// New topics are typically one strategy entry plus a query-key invalidator helper.
+const TOPIC_STRATEGY_REGISTRY = Object.freeze({
+  [REALTIME_TOPICS.PROJECTS]: Object.freeze({
+    invalidate: invalidateForProjectEvent,
+    refreshBootstrap: false
+  }),
+  [REALTIME_TOPICS.WORKSPACE_SETTINGS]: Object.freeze({
+    invalidate: invalidateForWorkspaceAdminEvent,
+    refreshBootstrap: true
+  }),
+  [REALTIME_TOPICS.WORKSPACE_META]: Object.freeze({
+    invalidate: invalidateNoop,
+    refreshBootstrap: true
+  }),
+  [REALTIME_TOPICS.WORKSPACE_MEMBERS]: Object.freeze({
+    invalidate: invalidateForWorkspaceAdminEvent,
+    refreshBootstrap: true
+  }),
+  [REALTIME_TOPICS.WORKSPACE_INVITES]: Object.freeze({
+    invalidate: invalidateForWorkspaceAdminEvent,
+    refreshBootstrap: false
+  }),
+  [REALTIME_TOPICS.WORKSPACE_AI_TRANSCRIPTS]: Object.freeze({
+    invalidate: invalidateForWorkspaceAiTranscriptsEvent,
+    refreshBootstrap: false
+  })
+});
 
 async function refreshWorkspaceBootstrap(workspaceStore) {
   if (!workspaceStore || typeof workspaceStore.refreshBootstrap !== "function") {
@@ -66,38 +130,12 @@ async function refreshWorkspaceBootstrap(workspaceStore) {
 }
 
 function resolveTopicStrategy(topic) {
-  if (topic === REALTIME_TOPICS.PROJECTS) {
-    return {
-      invalidate: invalidateForProjectEvent,
-      refreshBootstrap: false
-    };
-  }
-  if (topic === REALTIME_TOPICS.WORKSPACE_SETTINGS) {
-    return {
-      invalidate: invalidateForWorkspaceAdminEvent,
-      refreshBootstrap: true
-    };
-  }
-  if (topic === REALTIME_TOPICS.WORKSPACE_META) {
-    return {
-      invalidate: invalidateNoop,
-      refreshBootstrap: true
-    };
-  }
-  if (topic === REALTIME_TOPICS.WORKSPACE_MEMBERS) {
-    return {
-      invalidate: invalidateForWorkspaceAdminEvent,
-      refreshBootstrap: true
-    };
-  }
-  if (topic === REALTIME_TOPICS.WORKSPACE_INVITES) {
-    return {
-      invalidate: invalidateForWorkspaceAdminEvent,
-      refreshBootstrap: false
-    };
+  const normalizedTopic = String(topic || "").trim();
+  if (!normalizedTopic) {
+    return null;
   }
 
-  return null;
+  return TOPIC_STRATEGY_REGISTRY[normalizedTopic] || null;
 }
 
 function createRealtimeEventHandlers({ queryClient, commandTracker, clientId, workspaceStore = null }) {

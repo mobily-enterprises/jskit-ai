@@ -103,6 +103,20 @@
                 :disabled="!canManageWorkspaceSettings || !workspaceForm.invitesAvailable"
               />
             </v-col>
+            <v-col cols="12" md="6">
+              <v-select
+                v-model="workspaceForm.assistantTranscriptMode"
+                label="Assistant transcript mode"
+                :items="transcriptModeOptions"
+                item-title="title"
+                item-value="value"
+                variant="outlined"
+                density="comfortable"
+                :readonly="!canManageWorkspaceSettings"
+                hint="Standard stores redacted content, restricted stores metadata only, disabled skips storage."
+                persistent-hint
+              />
+            </v-col>
             <v-col cols="12">
               <v-textarea
                 v-model="workspaceForm.appDenyEmailsText"
@@ -289,6 +303,7 @@ const { isSavingWorkspaceSettings, isCreatingInvite, isRevokingInvite } = toRefs
 const {
   mode: modeOptions,
   timing: timingOptions,
+  transcriptModes: transcriptModeOptions,
   inviteRoles: inviteRoleOptions,
   memberRoles: memberRoleOptions,
   formatDateTime
