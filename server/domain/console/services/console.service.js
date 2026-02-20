@@ -17,6 +17,7 @@ import {
   resolveInviteTokenHash
 } from "../policies/inviteTokens.js";
 import {
+  CONSOLE_ASSISTANT_SETTINGS_PERMISSIONS,
   CONSOLE_MANAGEMENT_PERMISSIONS,
   CONSOLE_ROLE_ID,
   getRoleCatalog,
@@ -543,7 +544,7 @@ function createService({
   }
 
   async function updateAssistantSettings(user, payload) {
-    await requirePermission(user, CONSOLE_MANAGEMENT_PERMISSIONS.MEMBERS_MANAGE);
+    await requirePermission(user, CONSOLE_ASSISTANT_SETTINGS_PERMISSIONS.MANAGE);
     const body = payload && typeof payload === "object" ? payload : {};
 
     if (!Object.prototype.hasOwnProperty.call(body, "assistantSystemPromptWorkspace")) {

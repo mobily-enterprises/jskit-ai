@@ -17,6 +17,39 @@ const DEFAULT_ASSISTANT_TOOL_SURFACE_ALLOWLIST = Object.freeze({
   app: Object.freeze([]),
   admin: Object.freeze(["workspace_rename"])
 });
+const DEFAULT_CONVERSATION_TITLE = "New conversation";
+const MAX_CONVERSATION_TITLE_LENGTH = 160;
+const MAX_GENERATED_CONVERSATION_TITLE_LENGTH = 80;
+const CONVERSATION_TITLE_SETTLE_TIMEOUT_MS = 1200;
+const NON_SUBSTANTIVE_TITLE_PATTERN =
+  /^(?:hi+|hello+|hey+|yo+|ciao+|hola+|sup+|ok+|okay+|thanks+|thank you|ping|test)(?:\s+(?:there|assistant))?$/;
+const TITLE_STOPWORDS = new Set([
+  "a",
+  "an",
+  "the",
+  "hi",
+  "hello",
+  "hey",
+  "yo",
+  "ciao",
+  "hola",
+  "sup",
+  "ok",
+  "okay",
+  "thanks",
+  "thank",
+  "you",
+  "there",
+  "assistant",
+  "good",
+  "morning",
+  "afternoon",
+  "evening",
+  "night",
+  "please",
+  "test",
+  "ping"
+]);
 
 function toPositiveInteger(value, fallback) {
   const parsed = Number(value);
@@ -253,6 +286,113 @@ function buildSystemPrompt({
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function normalizeConversationTitle(value) {
+  const compact = normalizeText(value).replace(/\s+/g, " ");
+  const unquoted = compact.replace(/^["'`]+|["'`]+$/g, "");
+  const trimmedEnding = unquoted.replace(/[.!?]+$/g, "").trim();
+  if (!trimmedEnding) {
+    return DEFAULT_CONVERSATION_TITLE;
+  }
+
+  const bounded = trimmedEnding.slice(0, MAX_CONVERSATION_TITLE_LENGTH).trim();
+  return bounded || DEFAULT_CONVERSATION_TITLE;
+}
+
+function normalizeTitleCandidateText(value) {
+  return normalizeText(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isSubstantiveConversationInput(value) {
+  const normalized = normalizeTitleCandidateText(value);
+  if (!normalized) {
+    return false;
+  }
+  if (NON_SUBSTANTIVE_TITLE_PATTERN.test(normalized)) {
+    return false;
+  }
+  if (normalized.length < 8) {
+    return false;
+  }
+
+  const words = normalized.split(" ").filter(Boolean);
+  const meaningfulWords = words.filter((word) => word.length > 2 && !TITLE_STOPWORDS.has(word));
+  if (meaningfulWords.length < 1) {
+    return false;
+  }
+
+  return meaningfulWords.join("").length >= 5;
+}
+
+function extractCompletionMessageText(content) {
+  if (typeof content === "string") {
+    return content;
+  }
+
+  if (!Array.isArray(content)) {
+    return "";
+  }
+
+  let text = "";
+  for (const entry of content) {
+    if (typeof entry === "string") {
+      text += entry;
+      continue;
+    }
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+
+    if (typeof entry.text === "string") {
+      text += entry.text;
+    }
+  }
+
+  return text;
+}
+
+function buildConversationTitleGenerationPrompt({ assistantSurfaceId, userInput }) {
+  const surfaceId = normalizeSurfaceId(assistantSurfaceId);
+  const normalizedUserInput = normalizeText(userInput);
+
+  return [
+    {
+      role: "system",
+      content: [
+        "You create concise conversation titles for an AI assistant transcript list.",
+        "Return only the title text.",
+        `Keep it under ${MAX_GENERATED_CONVERSATION_TITLE_LENGTH} characters.`,
+        "Do not use quotes, markdown, prefixes, numbering, or trailing punctuation."
+      ].join(" ")
+    },
+    {
+      role: "user",
+      content: [`Surface: ${surfaceId}.`, `First user message: ${normalizedUserInput}`].join("\n")
+    }
+  ];
+}
+
+function withTimeout(promise, timeoutMs) {
+  const timeout = toPositiveInteger(timeoutMs, CONVERSATION_TITLE_SETTLE_TIMEOUT_MS);
+  if (!(promise instanceof Promise)) {
+    return Promise.resolve(promise);
+  }
+
+  let timer = null;
+  const timeoutPromise = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(null), timeout);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer != null) {
+      clearTimeout(timer);
+    }
+  });
 }
 
 function extractDeltaText(content) {
@@ -645,6 +785,37 @@ function createService({
     };
   }
 
+  async function generateConversationTitleFromInput({ userInput, assistantSurfaceId, requestLog }) {
+    if (typeof providerClient.createChatCompletion !== "function") {
+      return "";
+    }
+
+    try {
+      const completion = await providerClient.createChatCompletion({
+        model: providerModel,
+        messages: buildConversationTitleGenerationPrompt({
+          assistantSurfaceId,
+          userInput
+        }),
+        temperature: 0
+      });
+      const completionText = extractCompletionMessageText(completion?.choices?.[0]?.message?.content);
+      return normalizeConversationTitle(completionText);
+    } catch (error) {
+      if (requestLog && typeof requestLog.warn === "function") {
+        requestLog.warn(
+          {
+            err: error,
+            assistantSurfaceId
+          },
+          "ai.conversation_title_generation_failed"
+        );
+      }
+
+      return "";
+    }
+  }
+
   async function streamChatTurn({ request, body, streamWriter, abortSignal, validatedInput } = {}) {
     if (!request || !streamWriter) {
       throw new Error("request and streamWriter are required.");
@@ -663,6 +834,7 @@ function createService({
     let transcriptConversation = null;
     let transcriptConversationId = null;
     let transcriptMode = "";
+    let conversationTitlePromise = null;
 
     let messageId = fallbackMessageId;
 
@@ -950,6 +1122,59 @@ function createService({
         }
       });
 
+      const conversationHasDefaultTitle =
+        normalizeConversationTitle(transcriptConversation?.title) === DEFAULT_CONVERSATION_TITLE;
+      const shouldGenerateConversationTitle =
+        isSubstantiveConversationInput(input) &&
+        conversationHasDefaultTitle &&
+        transcriptConversation &&
+        aiTranscriptsService &&
+        typeof aiTranscriptsService.updateConversationTitle === "function";
+
+      if (shouldGenerateConversationTitle) {
+        conversationTitlePromise = generateConversationTitleFromInput({
+          userInput: input,
+          assistantSurfaceId,
+          requestLog: request?.log
+        })
+          .then(async (generatedTitle) => {
+            const normalizedGeneratedTitle = normalizeConversationTitle(generatedTitle);
+            if (
+              !normalizedGeneratedTitle ||
+              normalizedGeneratedTitle === DEFAULT_CONVERSATION_TITLE
+            ) {
+              return null;
+            }
+
+            const updatedConversation = await aiTranscriptsService.updateConversationTitle(
+              transcriptConversation,
+              normalizedGeneratedTitle
+            );
+
+            if (updatedConversation) {
+              transcriptConversation = updatedConversation;
+              transcriptConversationId = parsePositiveInteger(updatedConversation.id) || transcriptConversationId;
+              publishTranscriptEventSafely({
+                operation: "conversation_title_updated"
+              });
+            }
+
+            return updatedConversation;
+          })
+          .catch((error) => {
+            if (request?.log && typeof request.log.warn === "function") {
+              request.log.warn(
+                {
+                  err: error,
+                  conversationId: transcriptConversationId
+                },
+                "ai.conversation_title_update_failed"
+              );
+            }
+            return null;
+          });
+      }
+
       const toolContext = {
         request,
         workspace: request.workspace,
@@ -1015,6 +1240,10 @@ function createService({
           await finalizeTranscriptConversation("completed", {
             toolCalls: totalToolCalls
           });
+
+          if (conversationTitlePromise) {
+            await withTimeout(conversationTitlePromise, CONVERSATION_TITLE_SETTLE_TIMEOUT_MS);
+          }
 
           await recordAudit("ai.chat.completed", "success", {
             toolCalls: totalToolCalls
@@ -1196,11 +1425,20 @@ function createService({
 }
 
 const __testables = {
+  DEFAULT_CONVERSATION_TITLE,
+  MAX_CONVERSATION_TITLE_LENGTH,
+  MAX_GENERATED_CONVERSATION_TITLE_LENGTH,
   normalizeMessageId,
   normalizeConversationId,
   normalizeInput,
   normalizeHistory,
   normalizeClientContext,
+  normalizeConversationTitle,
+  normalizeTitleCandidateText,
+  isSubstantiveConversationInput,
+  extractCompletionMessageText,
+  buildConversationTitleGenerationPrompt,
+  withTimeout,
   buildSystemPrompt,
   toPositiveInteger,
   extractDeltaText,

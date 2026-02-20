@@ -261,6 +261,7 @@ const aiTranscriptConversation = Type.Object(
     workspaceId: Type.Integer({ minimum: 1 }),
     workspaceSlug: Type.String(),
     workspaceName: Type.String(),
+    title: Type.Optional(Type.String({ maxLength: 160 })),
     createdByUserId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
     status: transcriptStatus,
     transcriptMode,

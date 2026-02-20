@@ -102,7 +102,7 @@
               <v-list-item
                 v-for="conversation in conversationHistory"
                 :key="conversation.id"
-                :title="`Conversation #${conversation.id}`"
+                :title="conversationDisplayTitle(conversation)"
                 :subtitle="conversationSubtitle(conversation)"
                 :active="isActiveConversation(conversation)"
                 :disabled="isStreaming || isRestoringConversation"
@@ -153,7 +153,7 @@
             <v-list-item
               v-for="conversation in conversationHistory"
               :key="conversation.id"
-              :title="`Conversation #${conversation.id}`"
+              :title="conversationDisplayTitle(conversation)"
               :subtitle="conversationSubtitle(conversation)"
               :active="isActiveConversation(conversation)"
               :disabled="isStreaming || isRestoringConversation"
@@ -273,6 +273,15 @@ function conversationSubtitle(conversation) {
   const messageCount = Number(conversation?.messageCount || 0);
   const actorSegment = isAdminSurface.value ? ` • ${resolveConversationActorLabel(conversation)}` : "";
   return `#${id} • ${status} • ${startedAt} • ${messageCount} messages${actorSegment}`;
+}
+
+function conversationDisplayTitle(conversation) {
+  const explicitTitle = normalizeText(conversation?.title);
+  if (explicitTitle) {
+    return explicitTitle;
+  }
+
+  return "New conversation";
 }
 
 function isActiveConversation(conversation) {

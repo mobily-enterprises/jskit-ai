@@ -406,7 +406,7 @@ test("console service allows root to manage non-root members and keeps root role
   );
 });
 
-test("console service exposes assistant settings to console members and restricts updates to managers", async () => {
+test("console service exposes assistant settings to console members and restricts updates to assistant-settings managers", async () => {
   const fixture = createConsoleServiceFixture({
     rootUserId: 1,
     memberships: [
@@ -419,6 +419,11 @@ test("console service exposes assistant settings to console members and restrict
         userId: 2,
         roleId: "devop",
         status: "active"
+      },
+      {
+        userId: 3,
+        roleId: "moderator",
+        status: "active"
       }
     ]
   });
@@ -429,15 +434,26 @@ test("console service exposes assistant settings to console members and restrict
   });
   assert.equal(initialSettings.settings.assistantSystemPromptWorkspace, "");
 
+  const updatedSettings = await fixture.service.updateAssistantSettings(
+    {
+      id: 2,
+      email: "devop@example.com"
+    },
+    {
+      assistantSystemPromptWorkspace: "Use concise language."
+    }
+  );
+  assert.equal(updatedSettings.settings.assistantSystemPromptWorkspace, "Use concise language.");
+
   await assert.rejects(
     () =>
       fixture.service.updateAssistantSettings(
         {
-          id: 2,
-          email: "devop@example.com"
+          id: 3,
+          email: "moderator@example.com"
         },
         {
-          assistantSystemPromptWorkspace: "Use concise language."
+          assistantSystemPromptWorkspace: "Try and update from moderator."
         }
       ),
     (error) => {
@@ -445,17 +461,6 @@ test("console service exposes assistant settings to console members and restrict
       return true;
     }
   );
-
-  const updatedSettings = await fixture.service.updateAssistantSettings(
-    {
-      id: 1,
-      email: "console@example.com"
-    },
-    {
-      assistantSystemPromptWorkspace: "Use concise language."
-    }
-  );
-  assert.equal(updatedSettings.settings.assistantSystemPromptWorkspace, "Use concise language.");
 
   const persistedSettings = await fixture.service.getAssistantSettings({
     id: 1,

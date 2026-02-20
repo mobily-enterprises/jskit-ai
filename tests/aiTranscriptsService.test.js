@@ -147,6 +147,60 @@ test("ai transcripts service cannot resume another user's conversation id", asyn
   );
 });
 
+test("ai transcripts service creates new conversation with default title and supports title updates", async () => {
+  const insertedPayloads = [];
+  const updatedPayloads = [];
+  const { service } = createDependencies({
+    conversationsRepository: {
+      async insert(payload) {
+        insertedPayloads.push(payload);
+        return {
+          id: 91,
+          workspaceId: payload.workspaceId,
+          createdByUserId: payload.createdByUserId,
+          title: payload.title,
+          status: payload.status || "active",
+          transcriptMode: payload.transcriptMode || "standard",
+          metadata: payload.metadata || {}
+        };
+      },
+      async updateById(conversationId, patch) {
+        updatedPayloads.push({
+          conversationId,
+          patch
+        });
+        return {
+          id: conversationId,
+          workspaceId: 11,
+          createdByUserId: 7,
+          title: patch.title,
+          status: "active",
+          transcriptMode: "standard",
+          metadata: {}
+        };
+      }
+    }
+  });
+
+  const started = await service.startConversationForTurn({
+    workspace: { id: 11 },
+    user: { id: 7 },
+    messageId: "msg_1",
+    provider: "openai",
+    model: "gpt-4.1-mini"
+  });
+
+  assert.equal(insertedPayloads.length, 1);
+  assert.equal(insertedPayloads[0].title, "New conversation");
+  assert.equal(started.conversation?.title, "New conversation");
+
+  const updated = await service.updateConversationTitle(started.conversation, "Rename workspace");
+  assert.equal(updatedPayloads.length, 1);
+  assert.equal(updatedPayloads[0].conversationId, 91);
+  assert.equal(updatedPayloads[0].patch.title, "Rename workspace");
+  assert.equal(updated?.title, "Rename workspace");
+});
+
 test("ai transcripts service lists workspace conversations scoped to current owner", async () => {
   const { service, calls } = createDependencies({
     conversationsRepository: {

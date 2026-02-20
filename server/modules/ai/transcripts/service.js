@@ -19,6 +19,8 @@ const DEFAULT_PAGE_SIZE = 20;
 const DEFAULT_EXPORT_LIMIT = 2_000;
 const MAX_PAGE_SIZE = 200;
 const MAX_EXPORT_LIMIT = 10_000;
+const DEFAULT_CONVERSATION_TITLE = "New conversation";
+const MAX_CONVERSATION_TITLE_LENGTH = 160;
 const DEFAULT_CONSOLE_READ_PERMISSION = CONSOLE_AI_TRANSCRIPTS_PERMISSIONS.READ_ALL;
 const DEFAULT_CONSOLE_EXPORT_PERMISSION = CONSOLE_AI_TRANSCRIPTS_PERMISSIONS.EXPORT_ALL;
 
@@ -125,6 +127,15 @@ function normalizeConversationStatus(value) {
   return normalized;
 }
 
+function normalizeConversationTitle(value) {
+  const normalized = normalizeText(value) || DEFAULT_CONVERSATION_TITLE;
+  if (normalized.length <= MAX_CONVERSATION_TITLE_LENGTH) {
+    return normalized;
+  }
+
+  return normalized.slice(0, MAX_CONVERSATION_TITLE_LENGTH);
+}
+
 function normalizeExportFormat(value) {
   const normalized = normalizeText(value).toLowerCase();
   if (!normalized || normalized === "json") {
@@ -217,7 +228,11 @@ function createService({
   if (!conversationsRepository || !messagesRepository || !workspaceSettingsRepository || !consoleMembershipsRepository) {
     throw new Error("transcript repositories are required.");
   }
-  if (typeof conversationsRepository.insert !== "function" || typeof conversationsRepository.findById !== "function") {
+  if (
+    typeof conversationsRepository.insert !== "function" ||
+    typeof conversationsRepository.findById !== "function" ||
+    typeof conversationsRepository.updateById !== "function"
+  ) {
     throw new Error("conversationsRepository methods are required.");
   }
   if (typeof messagesRepository.insert !== "function" || typeof messagesRepository.listByConversationId !== "function") {
@@ -293,6 +308,7 @@ function createService({
     const createdConversation = await conversationsRepository.insert({
       workspaceId,
       createdByUserId: actorUserId,
+      title: DEFAULT_CONVERSATION_TITLE,
       status: "active",
       transcriptMode,
       provider: normalizeText(provider),
@@ -306,6 +322,17 @@ function createService({
       conversation: createdConversation,
       transcriptMode
     };
+  }
+
+  async function updateConversationTitle(conversation, title) {
+    const conversationId = parsePositiveInteger(conversation?.id);
+    if (!conversationId) {
+      return null;
+    }
+
+    return conversationsRepository.updateById(conversationId, {
+      title: normalizeConversationTitle(title)
+    });
   }
 
   async function appendMessage({
@@ -637,6 +664,7 @@ function createService({
   return {
     resolveWorkspaceTranscriptMode,
     startConversationForTurn,
+    updateConversationTitle,
     appendMessage,
     completeConversation,
     listWorkspaceConversations,
@@ -656,8 +684,11 @@ const __testables = {
   DEFAULT_EXPORT_LIMIT,
   MAX_PAGE_SIZE,
   MAX_EXPORT_LIMIT,
+  DEFAULT_CONVERSATION_TITLE,
+  MAX_CONVERSATION_TITLE_LENGTH,
   normalizeObject,
   normalizeText,
+  normalizeConversationTitle,
   normalizePagination,
   normalizeExportLimit,
   normalizeDateInput,

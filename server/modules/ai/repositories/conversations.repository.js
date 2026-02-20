@@ -49,6 +49,7 @@ function mapConversationRowRequired(row) {
     workspaceId: Number(row.workspace_id),
     workspaceSlug: String(row.workspace_slug || ""),
     workspaceName: String(row.workspace_name || ""),
+    title: String(row.title || "New conversation"),
     createdByUserId: row.created_by_user_id == null ? null : Number(row.created_by_user_id),
     createdByUserDisplayName: String(row.created_by_user_display_name || ""),
     createdByUserEmail: String(row.created_by_user_email || ""),
@@ -112,6 +113,7 @@ function createConversationsRepository(dbClient) {
     const [id] = await client("ai_conversations").insert({
       workspace_id: parsePositiveInteger(payload?.workspaceId),
       created_by_user_id: parsePositiveInteger(payload?.createdByUserId),
+      title: String(payload?.title || "New conversation").trim() || "New conversation",
       status: String(payload?.status || "active").trim().toLowerCase() || "active",
       transcript_mode: String(payload?.transcriptMode || "standard").trim().toLowerCase() || "standard",
       provider: String(payload?.provider || "").trim(),
@@ -210,6 +212,9 @@ function createConversationsRepository(dbClient) {
     }
 
     const dbPatch = {};
+    if (Object.prototype.hasOwnProperty.call(patch, "title")) {
+      dbPatch.title = String(patch.title || "").trim() || "New conversation";
+    }
     if (Object.prototype.hasOwnProperty.call(patch, "status")) {
       dbPatch.status = String(patch.status || "").trim().toLowerCase() || "active";
     }

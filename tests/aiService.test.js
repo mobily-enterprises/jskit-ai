@@ -128,6 +128,240 @@ test("ai service streams a plain assistant response without tools", async () => 
   );
 });
 
+test("ai service generates and persists conversation title after first user turn", async () => {
+  const events = [];
+  const titleGenerationCalls = [];
+  const updatedTitles = [];
+
+  const service = createAiService({
+    providerClient: {
+      enabled: true,
+      provider: "openai",
+      async createChatCompletion(payload) {
+        titleGenerationCalls.push(payload);
+        return {
+          choices: [
+            {
+              message: {
+                content: "\"Rename workspace settings.\""
+              }
+            }
+          ]
+        };
+      },
+      async createChatCompletionStream() {
+        return createStream([
+          {
+            choices: [
+              {
+                delta: {
+                  content: "Done."
+                }
+              }
+            ]
+          }
+        ]);
+      }
+    },
+    workspaceAdminService: {
+      async updateWorkspaceSettings() {
+        throw new Error("not used");
+      }
+    },
+    aiTranscriptsService: {
+      async startConversationForTurn() {
+        return {
+          transcriptMode: "standard",
+          conversation: {
+            id: 71,
+            workspaceId: 22,
+            status: "active",
+            transcriptMode: "standard",
+            title: "New conversation",
+            metadata: {}
+          }
+        };
+      },
+      async appendMessage() {
+        return {
+          id: 1,
+          kind: "chat"
+        };
+      },
+      async completeConversation(conversation, patch = {}) {
+        return {
+          ...conversation,
+          status: patch.status || conversation.status
+        };
+      },
+      async updateConversationTitle(_conversation, title) {
+        updatedTitles.push(title);
+        return {
+          id: 71,
+          workspaceId: 22,
+          status: "active",
+          transcriptMode: "standard",
+          title
+        };
+      }
+    },
+    realtimeEventsService: {
+      publishWorkspaceEvent() {}
+    },
+    auditService: {
+      async recordSafe() {}
+    }
+  });
+
+  await service.streamChatTurn({
+    request: createBaseRequest({
+      surface: "app",
+      headers: {
+        "x-command-id": "cmd-ai",
+        "x-client-id": "client-ai",
+        "x-surface-id": "app"
+      }
+    }),
+    body: {
+      messageId: "msg_title_1",
+      input: "Please rename workspace settings"
+    },
+    streamWriter: createWriter(events),
+    abortSignal: new AbortController().signal
+  });
+
+  assert.equal(titleGenerationCalls.length, 1);
+  assert.equal(
+    String(titleGenerationCalls[0]?.messages?.[1]?.content || "").includes("Please rename workspace settings"),
+    true
+  );
+  assert.deepEqual(updatedTitles, ["Rename workspace settings"]);
+});
+
+test("ai service skips title generation for greeting-only input and generates title later when message is substantive", async () => {
+  const events = [];
+  const titleGenerationCalls = [];
+  const updatedTitles = [];
+  let currentConversationTitle = "New conversation";
+
+  const service = createAiService({
+    providerClient: {
+      enabled: true,
+      provider: "openai",
+      async createChatCompletion(payload) {
+        titleGenerationCalls.push(payload);
+        return {
+          choices: [
+            {
+              message: {
+                content: "\"Admin panel login issue.\""
+              }
+            }
+          ]
+        };
+      },
+      async createChatCompletionStream() {
+        return createStream([
+          {
+            choices: [
+              {
+                delta: {
+                  content: "Done."
+                }
+              }
+            ]
+          }
+        ]);
+      }
+    },
+    workspaceAdminService: {
+      async updateWorkspaceSettings() {
+        throw new Error("not used");
+      }
+    },
+    aiTranscriptsService: {
+      async startConversationForTurn() {
+        return {
+          transcriptMode: "standard",
+          conversation: {
+            id: 71,
+            workspaceId: 22,
+            status: "active",
+            transcriptMode: "standard",
+            title: currentConversationTitle,
+            metadata: {}
+          }
+        };
+      },
+      async appendMessage() {
+        return {
+          id: 1,
+          kind: "chat"
+        };
+      },
+      async completeConversation(conversation, patch = {}) {
+        return {
+          ...conversation,
+          status: patch.status || conversation.status
+        };
+      },
+      async updateConversationTitle(_conversation, title) {
+        currentConversationTitle = title;
+        updatedTitles.push(title);
+        return {
+          id: 71,
+          workspaceId: 22,
+          status: "active",
+          transcriptMode: "standard",
+          title
+        };
+      }
+    },
+    realtimeEventsService: {
+      publishWorkspaceEvent() {}
+    },
+    auditService: {
+      async recordSafe() {}
+    }
+  });
+
+  const request = createBaseRequest({
+    surface: "app",
+    headers: {
+      "x-command-id": "cmd-ai",
+      "x-client-id": "client-ai",
+      "x-surface-id": "app"
+    }
+  });
+
+  await service.streamChatTurn({
+    request,
+    body: {
+      messageId: "msg_title_greeting_1",
+      input: "Hello"
+    },
+    streamWriter: createWriter(events),
+    abortSignal: new AbortController().signal
+  });
+
+  assert.equal(titleGenerationCalls.length, 0);
+  assert.deepEqual(updatedTitles, []);
+
+  await service.streamChatTurn({
+    request,
+    body: {
+      messageId: "msg_title_greeting_2",
+      conversationId: "71",
+      input: "I cannot login to the admin panel"
+    },
+    streamWriter: createWriter(events),
+    abortSignal: new AbortController().signal
+  });
+
+  assert.equal(titleGenerationCalls.length, 1);
+  assert.deepEqual(updatedTitles, ["Admin panel login issue"]);
+});
+
 test("ai service uses workspace-admin configured prompt for app surface", async () => {
   const events = [];
   const providerCalls = [];

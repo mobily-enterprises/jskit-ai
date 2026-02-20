@@ -5,6 +5,9 @@ function createDisabledProvider() {
   return {
     enabled: false,
     provider: "openai",
+    async createChatCompletion() {
+      throw new AppError(404, "Not found.");
+    },
     async createChatCompletionStream() {
       throw new AppError(404, "Not found.");
     }
@@ -45,6 +48,14 @@ function createOpenAiClient({
   return {
     enabled: true,
     provider: normalizedProvider,
+    async createChatCompletion({ model, messages, temperature = 0 }) {
+      return client.chat.completions.create({
+        model,
+        messages,
+        temperature,
+        stream: false
+      });
+    },
     async createChatCompletionStream({ model, messages, tools, signal, temperature = 0.2 }) {
       return client.chat.completions.create(
         {

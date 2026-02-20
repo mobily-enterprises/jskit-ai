@@ -18,7 +18,7 @@ export function useConsoleHomeView() {
   const message = ref("");
   const messageType = ref("success");
 
-  const canManageSettings = computed(() => consoleStore.can("console.members.manage"));
+  const canManageSettings = computed(() => consoleStore.can("console.assistant.settings.manage"));
 
   const settingsQuery = useQuery({
     queryKey: CONSOLE_SETTINGS_QUERY_KEY,
