@@ -9,6 +9,7 @@ import {
 import { toCanonicalJson, toSha256Hex } from "./canonicalJson.js";
 import { normalizeBillingPath, normalizePortalPath } from "./pathPolicy.js";
 import { assertEntitlementValueOrThrow } from "./entitlementSchemaRegistry.js";
+import { resolveCapabilityLimitConfig } from "./appCapabilityLimits.js";
 
 function mapFailureCodeToError(failureCode, fallbackMessage) {
   const code = String(failureCode || "").trim() || BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR;
@@ -194,6 +195,8 @@ function isIndeterminateProviderOutcome(error) {
 }
 
 const LIFETIME_WINDOW_END = new Date("9999-12-31T23:59:59.999Z");
+const BILLING_LIMIT_EXCEEDED_ERROR_CODE = "BILLING_LIMIT_EXCEEDED";
+const BILLING_LIMIT_NOT_CONFIGURED_ERROR_CODE = "BILLING_LIMIT_NOT_CONFIGURED";
 
 function toNonEmptyString(value) {
   const normalized = String(value || "").trim();
@@ -399,6 +402,50 @@ function buildWorkspaceTimelineEntry(activityEvent) {
   };
 }
 
+function normalizeLimitBehavior(value, fallback = "allow") {
+  const normalized = toNonEmptyString(value).toLowerCase();
+  if (normalized === "allow" || normalized === "deny") {
+    return normalized;
+  }
+  return fallback;
+}
+
+function buildLimitExceededError({
+  limitationCode,
+  billableEntityId,
+  requestedAmount = null,
+  limit = null,
+  used = null,
+  remaining = null,
+  interval = null,
+  enforcement = null,
+  windowEndAt = null,
+  reason = "limit_exceeded"
+}) {
+  const normalizedWindowEndAt = windowEndAt instanceof Date && Number.isFinite(windowEndAt.getTime()) ? windowEndAt : null;
+  const retryAfterSeconds = normalizedWindowEndAt
+    ? Math.max(0, Math.ceil((normalizedWindowEndAt.getTime() - Date.now()) / 1000))
+    : null;
+
+  throw new AppError(429, "Billing limit exceeded.", {
+    code: BILLING_LIMIT_EXCEEDED_ERROR_CODE,
+    details: {
+      code: BILLING_LIMIT_EXCEEDED_ERROR_CODE,
+      limitationCode: toNonEmptyString(limitationCode),
+      billableEntityId: toPositiveInteger(billableEntityId),
+      reason: toNonEmptyString(reason) || "limit_exceeded",
+      requestedAmount: requestedAmount == null ? null : Number(requestedAmount),
+      limit: limit == null ? null : Number(limit),
+      used: used == null ? null : Number(used),
+      remaining: remaining == null ? null : Number(remaining),
+      interval: toNonEmptyString(interval) || null,
+      enforcement: toNonEmptyString(enforcement) || null,
+      windowEndAt: normalizedWindowEndAt ? normalizedWindowEndAt.toISOString() : null,
+      retryAfterSeconds
+    }
+  });
+}
+
 function createService({
   billingRepository,
   billingPolicyService,
@@ -541,6 +588,202 @@ function createService({
       currentSubscription,
       entitlements: validatedEntitlements
     };
+  }
+
+  async function enforceLimitAndRecordUsage({
+    request,
+    user,
+    capability = "",
+    limitationCode = "",
+    amount = null,
+    usageEventKey = "",
+    metadataJson = null,
+    now = new Date(),
+    access = "write",
+    missingSubscriptionBehavior = "allow",
+    missingLimitationBehavior = "allow",
+    action
+  } = {}) {
+    if (typeof action !== "function") {
+      throw new Error("enforceLimitAndRecordUsage requires an action function.");
+    }
+
+    const normalizedAccess = toNonEmptyString(access).toLowerCase() === "read" ? "read" : "write";
+    const resolution =
+      normalizedAccess === "read"
+        ? await billingPolicyService.resolveBillableEntityForReadRequest({ request, user })
+        : await billingPolicyService.resolveBillableEntityForWriteRequest({ request, user });
+    const billableEntity = resolution?.billableEntity;
+    const billableEntityId = toPositiveInteger(billableEntity?.id);
+    if (!billableEntityId) {
+      throw new AppError(409, "Billable entity resolution failed.");
+    }
+
+    const capabilityConfig = resolveCapabilityLimitConfig(capability);
+    const resolvedLimitationCode = toNonEmptyString(limitationCode || capabilityConfig?.limitationCode);
+    const requestedAmount = amount == null ? capabilityConfig?.usageAmount ?? 1 : amount;
+    const normalizedAmount = normalizeUsageAmount(requestedAmount);
+    if (!normalizedAmount) {
+      throw new AppError(400, "Usage amount must be a positive integer.");
+    }
+
+    if (!resolvedLimitationCode) {
+      return action({
+        billableEntity,
+        limitationCode: null,
+        capability: toNonEmptyString(capability),
+        now
+      });
+    }
+
+    const { currentSubscription, entitlements } = await resolveCurrentSubscriptionEntitlements({
+      billableEntityId
+    });
+
+    const subscriptionBehavior = normalizeLimitBehavior(missingSubscriptionBehavior, "allow");
+    if (!currentSubscription) {
+      if (subscriptionBehavior === "deny") {
+        buildLimitExceededError({
+          limitationCode: resolvedLimitationCode,
+          billableEntityId,
+          requestedAmount: normalizedAmount,
+          reason: "subscription_required"
+        });
+      }
+
+      return action({
+        billableEntity,
+        limitationCode: resolvedLimitationCode,
+        capability: toNonEmptyString(capability),
+        now
+      });
+    }
+
+    const limitation = entitlements.find((entry) => entry.code === resolvedLimitationCode) || null;
+    const limitationBehavior = normalizeLimitBehavior(missingLimitationBehavior, "allow");
+    if (!limitation) {
+      if (limitationBehavior === "deny") {
+        throw new AppError(409, "Billing limitation is not configured.", {
+          code: BILLING_LIMIT_NOT_CONFIGURED_ERROR_CODE,
+          details: {
+            code: BILLING_LIMIT_NOT_CONFIGURED_ERROR_CODE,
+            limitationCode: resolvedLimitationCode,
+            billableEntityId
+          }
+        });
+      }
+
+      return action({
+        billableEntity,
+        limitationCode: resolvedLimitationCode,
+        capability: toNonEmptyString(capability),
+        now
+      });
+    }
+
+    const limitationType = classifyEntitlementType(limitation.schemaVersion);
+    if (limitationType === "boolean") {
+      if (!limitation?.valueJson?.enabled) {
+        buildLimitExceededError({
+          limitationCode: resolvedLimitationCode,
+          billableEntityId,
+          requestedAmount: normalizedAmount,
+          reason: "feature_disabled"
+        });
+      }
+
+      return action({
+        billableEntity,
+        limitationCode: resolvedLimitationCode,
+        capability: toNonEmptyString(capability),
+        limitation,
+        now
+      });
+    }
+
+    if (limitationType !== "quota") {
+      throw new AppError(409, "Billing limitation does not support usage accounting.", {
+        code: BILLING_LIMIT_NOT_CONFIGURED_ERROR_CODE,
+        details: {
+          code: BILLING_LIMIT_NOT_CONFIGURED_ERROR_CODE,
+          limitationCode: resolvedLimitationCode,
+          billableEntityId
+        }
+      });
+    }
+
+    if (typeof billingRepository.incrementUsageCounter !== "function") {
+      throw new AppError(500, "Billing usage counter storage is unavailable.");
+    }
+
+    const interval = toNonEmptyString(limitation?.valueJson?.interval).toLowerCase() || "month";
+    const enforcement = toNonEmptyString(limitation?.valueJson?.enforcement).toLowerCase() || "hard";
+    const window = resolveUsageWindow(interval, now);
+    const usageCounter =
+      typeof billingRepository.findUsageCounter === "function"
+        ? await billingRepository.findUsageCounter({
+            billableEntityId,
+            entitlementCode: resolvedLimitationCode,
+            windowStartAt: window.windowStartAt,
+            windowEndAt: window.windowEndAt
+          })
+        : null;
+
+    const limit = Math.max(0, Number(limitation?.valueJson?.limit) || 0);
+    const used = Math.max(0, Number(usageCounter?.usageCount || 0));
+    const projectedUsed = used + normalizedAmount;
+    const remaining = Math.max(0, limit - used);
+
+    if (enforcement === "hard" && projectedUsed > limit) {
+      buildLimitExceededError({
+        limitationCode: resolvedLimitationCode,
+        billableEntityId,
+        requestedAmount: normalizedAmount,
+        limit,
+        used,
+        remaining,
+        interval: window.interval,
+        enforcement,
+        windowEndAt: window.windowEndAt,
+        reason: "quota_exceeded"
+      });
+    }
+
+    const actionResult = await action({
+      billableEntity,
+      limitationCode: resolvedLimitationCode,
+      capability: toNonEmptyString(capability),
+      limitation,
+      now
+    });
+
+    const normalizedUsageEventKey = toNonEmptyString(usageEventKey);
+    if (normalizedUsageEventKey && typeof billingRepository.claimUsageEvent === "function") {
+      const claim = await billingRepository.claimUsageEvent({
+        billableEntityId,
+        entitlementCode: resolvedLimitationCode,
+        usageEventKey: normalizedUsageEventKey,
+        windowStartAt: window.windowStartAt,
+        windowEndAt: window.windowEndAt,
+        amount: normalizedAmount,
+        metadataJson
+      });
+
+      if (claim?.claimed === false) {
+        return actionResult;
+      }
+    }
+
+    await billingRepository.incrementUsageCounter({
+      billableEntityId,
+      entitlementCode: resolvedLimitationCode,
+      windowStartAt: window.windowStartAt,
+      windowEndAt: window.windowEndAt,
+      amount: normalizedAmount,
+      metadataJson
+    });
+
+    return actionResult;
   }
 
   async function listPaymentMethods(requestContext = {}) {
@@ -1763,6 +2006,7 @@ function createService({
     getLimitations,
     listTimeline,
     recordUsage,
+    enforceLimitAndRecordUsage,
     createPortalSession,
     createPaymentLink,
     startCheckout

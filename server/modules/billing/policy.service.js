@@ -87,16 +87,23 @@ function mapWorkspaceSelection(workspace) {
 }
 
 function createService({ workspacesRepository, billingRepository, resolvePermissions }) {
-  if (!workspacesRepository || typeof workspacesRepository.listByUserId !== "function") {
-    throw new Error("workspacesRepository.listByUserId is required.");
+  if (!billingRepository) {
+    throw new Error("billingRepository is required.");
   }
-  if (!billingRepository || typeof billingRepository.ensureBillableEntity !== "function") {
-    throw new Error("billingRepository.ensureBillableEntity is required.");
+  if (
+    typeof billingRepository.ensureBillableEntity !== "function" &&
+    typeof billingRepository.ensureBillableEntityByScope !== "function"
+  ) {
+    throw new Error("billingRepository.ensureBillableEntity or billingRepository.ensureBillableEntityByScope is required.");
   }
   if (typeof billingRepository.findBillableEntityById !== "function") {
     throw new Error("billingRepository.findBillableEntityById is required.");
   }
 
+  const listWorkspacesByUserId =
+    workspacesRepository && typeof workspacesRepository.listByUserId === "function"
+      ? workspacesRepository.listByUserId.bind(workspacesRepository)
+      : async () => [];
   const resolveRolePermissions =
     typeof resolvePermissions === "function" ? resolvePermissions : () => [];
 
@@ -106,7 +113,7 @@ function createService({ workspacesRepository, billingRepository, resolvePermiss
       throw new AppError(401, "Authentication required.");
     }
 
-    const workspaces = await workspacesRepository.listByUserId(userId);
+    const workspaces = await listWorkspacesByUserId(userId);
     if (!Array.isArray(workspaces)) {
       return [];
     }
@@ -185,6 +192,27 @@ function createService({ workspacesRepository, billingRepository, resolvePermiss
     }
 
     return billingRepository.ensureBillableEntity({ workspaceId, ownerUserId });
+  }
+
+  async function ensureBillableEntityForUser(user) {
+    const userId = parsePositiveInteger(user?.id);
+    if (!userId) {
+      throw new AppError(401, "Authentication required.");
+    }
+
+    if (typeof billingRepository.ensureBillableEntityByScope === "function") {
+      return billingRepository.ensureBillableEntityByScope({
+        entityType: BILLABLE_ENTITY_TYPE_USER,
+        entityRef: `user:${userId}`,
+        ownerUserId: userId
+      });
+    }
+
+    throw new AppError(500, "Billing user entity resolution is unavailable.");
+  }
+
+  function hasWorkspaceSelector(request) {
+    return Boolean(normalizeWorkspaceSelector(request));
   }
 
   function ensureUserScopedEntityAccess(user, billableEntity) {
@@ -271,17 +299,26 @@ function createService({ workspacesRepository, billingRepository, resolvePermiss
       return selectedBillableEntity;
     }
 
-    const workspace = await resolveWorkspaceSelection({
-      request,
-      user,
-      strictSelector: false
-    });
-    const billableEntity = await ensureBillableEntityForWorkspace(workspace);
+    if (hasWorkspaceSelector(request)) {
+      const workspace = await resolveWorkspaceSelection({
+        request,
+        user,
+        strictSelector: false
+      });
+      const billableEntity = await ensureBillableEntityForWorkspace(workspace);
 
+      return {
+        workspace,
+        billableEntity,
+        permissions: resolveRolePermissions(workspace.roleId)
+      };
+    }
+
+    const billableEntity = await ensureBillableEntityForUser(user);
     return {
-      workspace,
+      workspace: null,
       billableEntity,
-      permissions: resolveRolePermissions(workspace.roleId)
+      permissions: []
     };
   }
 
@@ -297,19 +334,28 @@ function createService({ workspacesRepository, billingRepository, resolvePermiss
       return selectedBillableEntity;
     }
 
-    const workspace = await resolveWorkspaceSelection({
-      request,
-      user,
-      strictSelector: true
-    });
+    if (hasWorkspaceSelector(request)) {
+      const workspace = await resolveWorkspaceSelection({
+        request,
+        user,
+        strictSelector: true
+      });
 
-    const permissions = assertBillingWritePermission(workspace);
-    const billableEntity = await ensureBillableEntityForWorkspace(workspace);
+      const permissions = assertBillingWritePermission(workspace);
+      const billableEntity = await ensureBillableEntityForWorkspace(workspace);
 
+      return {
+        workspace,
+        billableEntity,
+        permissions
+      };
+    }
+
+    const billableEntity = await ensureBillableEntityForUser(user);
     return {
-      workspace,
+      workspace: null,
       billableEntity,
-      permissions
+      permissions: []
     };
   }
 

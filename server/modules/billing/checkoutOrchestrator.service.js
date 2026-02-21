@@ -121,6 +121,80 @@ function normalizeOneOffPayload(oneOffPayload, { defaultCurrency }) {
   };
 }
 
+function normalizeCheckoutComponents(value) {
+  if (value == null) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw new AppError(400, "Validation failed.", {
+      details: {
+        fieldErrors: {
+          components: "components must be an array."
+        }
+      }
+    });
+  }
+
+  if (value.length > 20) {
+    throw new AppError(400, "Validation failed.", {
+      details: {
+        fieldErrors: {
+          components: "components must contain at most 20 entries."
+        }
+      }
+    });
+  }
+
+  const normalized = [];
+  const seenProviderPriceIds = new Set();
+  for (let index = 0; index < value.length; index += 1) {
+    const entry = value[index] && typeof value[index] === "object" ? value[index] : null;
+    const fieldPrefix = `components[${index}]`;
+    const providerPriceId = String(entry?.providerPriceId || entry?.priceId || "").trim();
+    if (!providerPriceId) {
+      throw new AppError(400, "Validation failed.", {
+        details: {
+          fieldErrors: {
+            [`${fieldPrefix}.providerPriceId`]: `${fieldPrefix}.providerPriceId is required.`
+          }
+        }
+      });
+    }
+
+    const quantityCandidate = entry?.quantity == null ? 1 : Number(entry.quantity);
+    if (!Number.isInteger(quantityCandidate) || quantityCandidate < 1 || quantityCandidate > 10000) {
+      throw new AppError(400, "Validation failed.", {
+        details: {
+          fieldErrors: {
+            [`${fieldPrefix}.quantity`]: `${fieldPrefix}.quantity must be an integer between 1 and 10,000.`
+          }
+        }
+      });
+    }
+
+    const dedupeKey = providerPriceId.toLowerCase();
+    if (seenProviderPriceIds.has(dedupeKey)) {
+      throw new AppError(400, "Validation failed.", {
+        details: {
+          fieldErrors: {
+            [`${fieldPrefix}.providerPriceId`]: `${fieldPrefix}.providerPriceId must be unique within components.`
+          }
+        }
+      });
+    }
+    seenProviderPriceIds.add(dedupeKey);
+
+    normalized.push({
+      providerPriceId,
+      quantity: quantityCandidate
+    });
+  }
+
+  normalized.sort((left, right) => left.providerPriceId.localeCompare(right.providerPriceId));
+  return normalized;
+}
+
 function buildApiFailure(failureCode, message = "Billing checkout failed.", details = {}) {
   const code = String(failureCode || "").trim();
   return new AppError(statusFromFailureCode(failureCode), message, {
@@ -272,6 +346,8 @@ function createService({
 
   function buildNormalizedCheckoutRequest({ billableEntityId, payload, action }) {
     const checkoutType = normalizeCheckoutType(payload.checkoutType);
+    const normalizedComponents =
+      checkoutType === CHECKOUT_KIND_SUBSCRIPTION && Array.isArray(payload.components) ? payload.components : [];
     const normalizedRequest = {
       action,
       billableEntityId: Number(billableEntityId),
@@ -284,6 +360,9 @@ function createService({
     }
     if (checkoutType === CHECKOUT_KIND_ONE_OFF) {
       normalizedRequest.oneOff = payload.oneOff;
+    }
+    if (normalizedComponents.length > 0) {
+      normalizedRequest.components = normalizedComponents;
     }
 
     return normalizedRequest;
@@ -345,11 +424,13 @@ function createService({
     };
   }
 
-  async function resolveSubscriptionPriceSelection({ plan, provider }) {
+  async function resolveSubscriptionPriceSelection({ plan, provider, selectedComponents = [] }) {
+    const normalizedSelectedComponents = Array.isArray(selectedComponents) ? selectedComponents : [];
     if (typeof billingPricingService.resolveSubscriptionCheckoutPrices === "function") {
       const resolved = await billingPricingService.resolveSubscriptionCheckoutPrices({
         plan,
-        provider
+        provider,
+        selectedComponents: normalizedSelectedComponents
       });
 
       if (resolved && Array.isArray(resolved.lineItemPrices) && resolved.lineItemPrices.length > 0) {
@@ -366,6 +447,13 @@ function createService({
           lineItemPrices: [resolved.basePrice, ...meteredComponentPrices]
         };
       }
+    }
+
+    if (normalizedSelectedComponents.length > 0) {
+      throw buildApiFailure(
+        BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+        "Billing pricing configuration is invalid."
+      );
     }
 
     const basePrice = await billingPricingService.resolvePhase1SellablePrice({
@@ -1028,6 +1116,8 @@ function createService({
             defaultCurrency: deploymentCurrency
           })
         : null;
+    const normalizedComponents =
+      checkoutType === CHECKOUT_KIND_SUBSCRIPTION ? normalizeCheckoutComponents(payload?.components) : [];
     const normalizedPayload = {
       ...(payload || {}),
       ...normalizedPaths
@@ -1037,6 +1127,9 @@ function createService({
     }
     if (normalizedOneOff) {
       normalizedPayload.oneOff = normalizedOneOff;
+    }
+    if (normalizedComponents.length > 0) {
+      normalizedPayload.components = normalizedComponents;
     }
 
     const normalizedRequest = buildNormalizedCheckoutRequest({
@@ -1178,7 +1271,8 @@ function createService({
 
             priceSelection = await resolveSubscriptionPriceSelection({
               plan,
-              provider: BILLING_PROVIDER_STRIPE
+              provider: BILLING_PROVIDER_STRIPE,
+              selectedComponents: normalizedComponents
             });
           }
 
@@ -1394,6 +1488,7 @@ const __testables = {
   normalizePlanCode,
   normalizeCheckoutType,
   normalizeOneOffPayload,
+  normalizeCheckoutComponents,
   isDeterministicProviderRejection,
   isIndeterminateProviderOutcome,
   providerSessionStateToLocalStatus,

@@ -155,6 +155,60 @@ test("projects controller delegates list/get/create/update/replace to projects s
   );
 });
 
+test("projects controller routes create through billing limit enforcement when available", async () => {
+  const calls = [];
+  const controller = createProjectsController({
+    projectsService: {
+      async create(workspaceContext, payload) {
+        calls.push(["create", workspaceContext.id, payload.name]);
+        return {
+          project: {
+            id: 777
+          }
+        };
+      }
+    },
+    billingService: {
+      async enforceLimitAndRecordUsage(payload) {
+        calls.push([
+          "enforce",
+          payload.capability,
+          payload.usageEventKey,
+          Number(payload?.metadataJson?.workspaceId || 0)
+        ]);
+        return payload.action();
+      }
+    }
+  });
+
+  const reply = createReplyDouble();
+  await controller.create(
+    {
+      workspace: {
+        id: 11,
+        slug: "acme"
+      },
+      user: {
+        id: 7
+      },
+      headers: {
+        "idempotency-key": "idem_project_create_1"
+      },
+      body: {
+        name: "Created via enforcement"
+      }
+    },
+    reply
+  );
+
+  assert.equal(reply.statusCode, 200);
+  assert.equal(reply.payload.project.id, 777);
+  assert.deepEqual(calls, [
+    ["enforce", "projects.create", "idem_project_create_1", 11],
+    ["create", 11, "Created via enforcement"]
+  ]);
+});
+
 test("projects controller publishes realtime events for successful create/update/replace writes", async () => {
   const publishCalls = [];
   const projectsService = {

@@ -58,7 +58,8 @@ function createControllers({ services }) {
     }),
     projects: createProjectsController({
       projectsService,
-      realtimeEventsService
+      realtimeEventsService,
+      billingService
     }),
     ai: createAiController({
       aiService,

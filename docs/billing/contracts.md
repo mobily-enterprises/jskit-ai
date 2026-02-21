@@ -40,9 +40,8 @@ If no billable-entity selector is provided, workspace selector precedence is:
   - `user` entity type: caller `user.id` must equal entity `ownerUserId`.
   - `organization` or `external` entity types: currently forbidden.
 - If selector is absent:
-  - single accessible workspace: auto-selected.
-  - multiple accessible workspaces: `409` (`BILLING_WORKSPACE_SELECTION_REQUIRED`).
-  - no accessible workspaces: `403` (`BILLING_WORKSPACE_FORBIDDEN`).
+  - with explicit workspace selector (`x-workspace-slug`/param/query): resolve workspace-scoped entity.
+  - without workspace selector: resolve owner-scoped user entity (`entityType=user`, `entityRef=user:{id}`).
 
 ### Write resolution (`resolveBillableEntityForWriteRequest`)
 
@@ -51,8 +50,8 @@ If no billable-entity selector is provided, workspace selector precedence is:
   - `user` entity type: owner-only (no workspace role check).
   - `organization` or `external` entity types: currently forbidden.
 - If selector is absent:
-  - explicit workspace selection is required when user can access more than one workspace.
-  - workspace write permission is mandatory (`workspace.billing.manage`).
+  - with explicit workspace selector (`x-workspace-slug`/param/query): resolve workspace-scoped entity and enforce `workspace.billing.manage`.
+  - without workspace selector: resolve owner-scoped user entity (`entityType=user`, `entityRef=user:{id}`).
 
 ## 2. Limitations API Contract
 
@@ -111,7 +110,59 @@ Quota window rules:
 - windows are UTC-based
 - allowed quota enforcement values: `hard`, `soft`
 
+Runtime enforcement kernel contract (`billingService.enforceLimitAndRecordUsage`):
+
+- Inputs:
+  - request context (`request`, `user`) for billable-entity resolution.
+  - `capability` and/or explicit `limitationCode`.
+  - `amount` (usage increment amount, default from capability config or `1`).
+  - `usageEventKey` (optional dedupe key for retry-safe counter increments).
+  - `action` callback (the business operation to execute).
+- Capability mapping source:
+  - `server/modules/billing/appCapabilityLimits.js`
+- Behavior:
+  - resolves billable entity through billing policy (`read`/`write` access mode).
+  - loads active subscription entitlements for that entity.
+  - for quota entitlements, enforces hard limits before executing `action`.
+  - increments usage only after successful `action`.
+  - if `usageEventKey` is supplied, dedupes counter increments through `billing_usage_events`.
+
+Deterministic limit-exceeded error contract:
+
+- HTTP status: `429`
+- code: `BILLING_LIMIT_EXCEEDED`
+- details fields:
+  - `limitationCode`
+  - `billableEntityId`
+  - `reason`
+  - `requestedAmount`, `limit`, `used`, `remaining`
+  - `interval`, `enforcement`
+  - `windowEndAt`, `retryAfterSeconds`
+
 ## 3. Idempotency and Error-Code Contract
+
+Checkout request contract (subscription flow):
+
+```json
+{
+  "checkoutType": "subscription",
+  "planCode": "pro_monthly",
+  "components": [
+    {
+      "providerPriceId": "price_addon_support",
+      "quantity": 3
+    }
+  ],
+  "successPath": "/billing?checkout=success",
+  "cancelPath": "/billing?checkout=cancel"
+}
+```
+
+Notes:
+
+- `components` is optional.
+- each component is keyed by `providerPriceId` with quantity range `1..10000`.
+- components are normalized deterministically before idempotency fingerprinting.
 
 Routes requiring `Idempotency-Key` request header:
 

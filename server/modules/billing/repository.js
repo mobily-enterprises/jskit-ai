@@ -332,6 +332,25 @@ function mapUsageCounterRowNullable(row) {
   };
 }
 
+function mapUsageEventRowNullable(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: Number(row.id),
+    billableEntityId: Number(row.billable_entity_id),
+    entitlementCode: String(row.entitlement_code || ""),
+    usageEventKey: String(row.usage_event_key || ""),
+    windowStartAt: toIsoString(row.window_start_at),
+    windowEndAt: toIsoString(row.window_end_at),
+    amount: Number(row.amount || 0),
+    metadataJson: parseJsonValue(row.metadata_json, {}),
+    createdAt: toIsoString(row.created_at),
+    updatedAt: toIsoString(row.updated_at)
+  };
+}
+
 function mapBillingActivityRowNullable(row) {
   if (!row) {
     return null;
@@ -1454,6 +1473,58 @@ function createBillingRepository(dbClient) {
       .first();
 
     return mapUsageCounterRowNullable(row);
+  }
+
+  async function claimUsageEvent(payload, options = {}) {
+    const client = resolveClient(options);
+    const now = new Date();
+    const amount = Number(payload.amount);
+    const normalizedAmount = Number.isFinite(amount) && amount > 0 ? Math.floor(amount) : 1;
+    const billableEntityId = Number(payload.billableEntityId);
+    const entitlementCode = String(payload.entitlementCode || "").trim();
+    const usageEventKey = String(payload.usageEventKey || "").trim();
+    const windowStartAt = toInsertDateTime(payload.windowStartAt, payload.windowStartAt);
+    const windowEndAt = toInsertDateTime(payload.windowEndAt, payload.windowEndAt);
+
+    if (!Number.isInteger(billableEntityId) || billableEntityId < 1 || !entitlementCode || !usageEventKey) {
+      throw new Error("claimUsageEvent requires billableEntityId, entitlementCode, and usageEventKey.");
+    }
+
+    let claimed = false;
+    try {
+      const [id] = await client("billing_usage_events").insert({
+        billable_entity_id: billableEntityId,
+        entitlement_code: entitlementCode,
+        usage_event_key: usageEventKey,
+        window_start_at: windowStartAt,
+        window_end_at: windowEndAt,
+        amount: normalizedAmount,
+        metadata_json: payload.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
+        created_at: toInsertDateTime(payload.createdAt, now),
+        updated_at: toInsertDateTime(payload.updatedAt, now)
+      });
+
+      claimed = Number.isInteger(Number(id)) && Number(id) > 0;
+    } catch (error) {
+      if (!isMysqlDuplicateEntryError(error)) {
+        throw error;
+      }
+    }
+
+    const row = await client("billing_usage_events")
+      .where({
+        billable_entity_id: billableEntityId,
+        entitlement_code: entitlementCode,
+        usage_event_key: usageEventKey,
+        window_start_at: windowStartAt,
+        window_end_at: windowEndAt
+      })
+      .first();
+
+    return {
+      claimed,
+      event: mapUsageEventRowNullable(row)
+    };
   }
 
   async function listUsageCountersForEntity({ billableEntityId, entitlementCode = null, limit = 200 }, options = {}) {
@@ -2975,6 +3046,7 @@ function createBillingRepository(dbClient) {
     incrementUsageCounter,
     listUsageCountersForEntity,
     deleteUsageCountersOlderThan,
+    claimUsageEvent,
     listBillingActivityEvents,
     findIdempotencyByEntityActionClientKey,
     findIdempotencyById,
@@ -3026,6 +3098,7 @@ const __testables = {
   mapPaymentMethodRowNullable,
   mapPaymentMethodSyncEventRowNullable,
   mapUsageCounterRowNullable,
+  mapUsageEventRowNullable,
   mapBillingActivityRowNullable,
   mapIdempotencyRowNullable,
   mapCheckoutSessionRowNullable,
@@ -3082,6 +3155,7 @@ export const {
   incrementUsageCounter,
   listUsageCountersForEntity,
   deleteUsageCountersOlderThan,
+  claimUsageEvent,
   listBillingActivityEvents,
   findIdempotencyByEntityActionClientKey,
   findIdempotencyById,

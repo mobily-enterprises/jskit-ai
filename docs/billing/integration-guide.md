@@ -7,6 +7,7 @@ This guide defines how app features should integrate billing limitations and usa
 Primary references:
 
 - `server/modules/billing/service.js`
+- `server/modules/billing/appCapabilityLimits.js`
 - `src/services/api/billingApi.js`
 - `src/views/workspace-billing/useWorkspaceBillingView.js`
 - `STRIPE_PLAN.md`
@@ -34,12 +35,16 @@ Usage counters are server-side only. Do not trust client-side increments.
 Service API:
 
 - `billingService.recordUsage({ billableEntityId, entitlementCode, amount, now, metadataJson })`
+- `billingService.enforceLimitAndRecordUsage({ request, user, capability, limitationCode, amount, usageEventKey, action, ... })`
 
 Integration rules for feature services:
 
-1. Resolve billable entity in request context first.
-2. Execute the feature operation.
-3. Increment usage for each consumed quota entitlement.
+1. Prefer `enforceLimitAndRecordUsage` for billable actions:
+   - pre-checks limits
+   - executes action
+   - records usage on success
+2. Pass a stable `usageEventKey` when available to dedupe retry increments.
+3. Keep `recordUsage` for explicit/manual accounting paths.
 4. Return quota-aware response state or refetch limitations.
 
 Recommended placement:
@@ -47,6 +52,7 @@ Recommended placement:
 - increment in the same backend flow that persists the billable action.
 - for batch operations, pass the aggregate `amount`.
 - include metadata useful for audits (`metadataJson`).
+- use capability mapping as the source of truth (`server/modules/billing/appCapabilityLimits.js`).
 
 ## 3. Expected Fail-Closed Behavior
 
@@ -63,11 +69,15 @@ Required fail-closed outcomes:
 
 ## 4. Integration Checklist for New Features
 
-1. Map feature actions to entitlement codes.
+1. Map feature actions to entitlement codes in `server/modules/billing/appCapabilityLimits.js`.
 2. Add preflight `getLimitations` checks in client and backend guard points.
-3. Add server-side `recordUsage` on successful billable actions.
+3. Add server-side `enforceLimitAndRecordUsage` on successful billable actions.
 4. Wire fail-closed responses for unavailable/uncertain billing state.
 5. Add tests that lock this behavior.
+
+Current scaffold wiring example:
+
+- `projects.create` route uses `billingService.enforceLimitAndRecordUsage` in `server/modules/projects/controller.js`.
 
 ## 5. Contract-Lock Tests
 
@@ -77,3 +87,14 @@ Keep these tests passing and extend them when behavior changes:
 - `tests/billingPolicyServiceEntityScope.test.js`
 - `tests/billingIdempotencyService.test.js`
 - `tests/billingErrorCodeContract.test.js`
+- `tests/billingPricingService.test.js`
+- `tests/billingCheckoutOrchestratorBehavior.test.js`
+
+## 6. Purchase UX Contract (Scaffold Level)
+
+- Subscription checkout:
+  - call `api.billing.startCheckout` with `planCode`, paths, and optional `components[]` (`providerPriceId`, `quantity`).
+- One-off catalog checkout:
+  - call `api.billing.createPaymentLink` with `lineItems[]` (`priceId`, `quantity`).
+- One-off ad-hoc checkout:
+  - call `api.billing.createPaymentLink` with `oneOff` payload (`name`, `amountMinor`, `quantity`).

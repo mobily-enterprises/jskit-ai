@@ -33,6 +33,28 @@ function createPolicyService({ findBillableEntityById, listByUserId, resolvePerm
           status: "active"
         };
       },
+      async ensureBillableEntityByScope(payload) {
+        const entityType = String(payload?.entityType || "").toLowerCase();
+        if (entityType === "user") {
+          return {
+            id: 201,
+            entityType: "user",
+            entityRef: String(payload?.entityRef || ""),
+            workspaceId: null,
+            ownerUserId: Number(payload?.ownerUserId || 0),
+            status: "active"
+          };
+        }
+
+        return {
+          id: 200,
+          entityType: "workspace",
+          entityRef: null,
+          workspaceId: Number(payload?.workspaceId || 0),
+          ownerUserId: Number(payload?.ownerUserId || 0),
+          status: "active"
+        };
+      },
       async findBillableEntityById(id) {
         if (typeof findBillableEntityById === "function") {
           return findBillableEntityById(id);
@@ -181,7 +203,7 @@ test("billing policy service prefers header billable entity selector over params
   assert.deepEqual(seenEntityIds, [501]);
 });
 
-test("billing policy service requires explicit workspace selector for writes when multiple workspaces are accessible", async () => {
+test("billing policy service defaults to owner-scoped user entity for writes when no selector is provided", async () => {
   const service = createPolicyService({
     listByUserId() {
       return [
@@ -203,19 +225,20 @@ test("billing policy service requires explicit workspace selector for writes whe
     }
   });
 
-  await assert.rejects(
-    () =>
-      service.resolveBillableEntityForWriteRequest({
-        request: {
-          headers: {}
-        },
-        user: {
-          id: 1
-        }
-      }),
-    (error) =>
-      Number(error?.statusCode) === 409 && String(error?.code || "") === "BILLING_WORKSPACE_SELECTION_REQUIRED"
-  );
+  const resolved = await service.resolveBillableEntityForWriteRequest({
+    request: {
+      headers: {}
+    },
+    user: {
+      id: 1
+    }
+  });
+
+  assert.equal(resolved.workspace, null);
+  assert.equal(resolved.billableEntity.entityType, "user");
+  assert.equal(resolved.billableEntity.entityRef, "user:1");
+  assert.equal(resolved.billableEntity.ownerUserId, 1);
+  assert.deepEqual(resolved.permissions, []);
 });
 
 test("billing policy service enforces workspace billing manage permission for selected workspace entity writes", async () => {
@@ -292,4 +315,65 @@ test("billing policy service currently rejects organization and external billabl
       (error) => Number(error?.statusCode) === 403 && String(error?.code || "") === "BILLING_ENTITY_FORBIDDEN"
     );
   }
+});
+
+test("billing policy service defaults to owner-scoped user entity for reads when no selector is provided", async () => {
+  const service = createPolicyService({
+    listByUserId() {
+      return [];
+    }
+  });
+
+  const resolved = await service.resolveBillableEntityForReadRequest({
+    request: {
+      headers: {}
+    },
+    user: {
+      id: 1
+    }
+  });
+
+  assert.equal(resolved.workspace, null);
+  assert.equal(resolved.billableEntity.entityType, "user");
+  assert.equal(resolved.billableEntity.entityRef, "user:1");
+  assert.equal(resolved.billableEntity.ownerUserId, 1);
+  assert.deepEqual(resolved.permissions, []);
+});
+
+test("billing policy service still requires explicit workspace selector to access workspace-scoped billing", async () => {
+  const service = createPolicyService({
+    listByUserId() {
+      return [
+        {
+          id: 10,
+          slug: "alpha",
+          name: "Alpha",
+          ownerUserId: 1,
+          roleId: "admin"
+        },
+        {
+          id: 11,
+          slug: "beta",
+          name: "Beta",
+          ownerUserId: 1,
+          roleId: "admin"
+        }
+      ];
+    }
+  });
+
+  const resolved = await service.resolveBillableEntityForWriteRequest({
+    request: {
+      headers: {
+        "x-workspace-slug": "beta"
+      }
+    },
+    user: {
+      id: 1
+    }
+  });
+
+  assert.equal(resolved.workspace.id, 11);
+  assert.equal(resolved.billableEntity.entityType, "workspace");
+  assert.equal(resolved.billableEntity.workspaceId, 11);
 });

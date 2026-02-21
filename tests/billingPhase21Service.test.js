@@ -501,6 +501,180 @@ test("phase 2.1 recordUsage increments quota counter", async () => {
   assert.equal(response.windowEndAt, "2026-02-22T00:00:00.000Z");
 });
 
+test("phase 2.1 enforceLimitAndRecordUsage blocks hard quota overage with deterministic payload", async () => {
+  let actionCalls = 0;
+  const service = createPhase21Service({
+    billingRepository: {
+      async findCurrentSubscriptionForEntity() {
+        return {
+          id: 50,
+          planId: 300
+        };
+      },
+      async listPlanEntitlementsForPlan() {
+        return [
+          {
+            id: 1,
+            planId: 300,
+            code: "projects_created_monthly",
+            schemaVersion: "entitlement.quota.v1",
+            valueJson: {
+              limit: 2,
+              interval: "month",
+              enforcement: "hard"
+            }
+          }
+        ];
+      },
+      async findUsageCounter() {
+        return {
+          usageCount: 2
+        };
+      },
+      async incrementUsageCounter() {
+        throw new Error("incrementUsageCounter should not be called when quota check fails.");
+      }
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      service.enforceLimitAndRecordUsage({
+        request: { headers: {} },
+        user: { id: 12 },
+        capability: "projects.create",
+        action: async () => {
+          actionCalls += 1;
+          return {
+            ok: true
+          };
+        },
+        now: new Date("2026-02-21T15:00:00.000Z")
+      }),
+    (error) =>
+      Number(error?.statusCode) === 429 &&
+      String(error?.code || "") === "BILLING_LIMIT_EXCEEDED" &&
+      String(error?.details?.limitationCode || "") === "projects_created_monthly"
+  );
+
+  assert.equal(actionCalls, 0);
+});
+
+test("phase 2.1 enforceLimitAndRecordUsage increments usage on success and dedupes retries by usageEventKey", async () => {
+  let usageCount = 0;
+  const incrementCalls = [];
+  const usageEventClaims = [];
+  const service = createPhase21Service({
+    billingRepository: {
+      async findCurrentSubscriptionForEntity() {
+        return {
+          id: 50,
+          planId: 300
+        };
+      },
+      async listPlanEntitlementsForPlan() {
+        return [
+          {
+            id: 1,
+            planId: 300,
+            code: "projects_created_monthly",
+            schemaVersion: "entitlement.quota.v1",
+            valueJson: {
+              limit: 20,
+              interval: "month",
+              enforcement: "hard"
+            }
+          }
+        ];
+      },
+      async findUsageCounter() {
+        return {
+          usageCount
+        };
+      },
+      async claimUsageEvent(payload) {
+        usageEventClaims.push(payload.usageEventKey);
+        return {
+          claimed: usageEventClaims.length === 1
+        };
+      },
+      async incrementUsageCounter(payload) {
+        incrementCalls.push(payload);
+        usageCount += Number(payload.amount || 0);
+        return {
+          usageCount
+        };
+      }
+    }
+  });
+
+  const actionCalls = [];
+  const first = await service.enforceLimitAndRecordUsage({
+    request: { headers: {} },
+    user: { id: 12 },
+    capability: "projects.create",
+    usageEventKey: "usage_evt_1",
+    action: async () => {
+      actionCalls.push("first");
+      return {
+        ok: true,
+        marker: "first"
+      };
+    },
+    now: new Date("2026-02-21T15:10:00.000Z")
+  });
+  const second = await service.enforceLimitAndRecordUsage({
+    request: { headers: {} },
+    user: { id: 12 },
+    capability: "projects.create",
+    usageEventKey: "usage_evt_1",
+    action: async () => {
+      actionCalls.push("second");
+      return {
+        ok: true,
+        marker: "second"
+      };
+    },
+    now: new Date("2026-02-21T15:11:00.000Z")
+  });
+
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  assert.deepEqual(actionCalls, ["first", "second"]);
+  assert.deepEqual(usageEventClaims, ["usage_evt_1", "usage_evt_1"]);
+  assert.equal(incrementCalls.length, 1);
+  assert.equal(incrementCalls[0].entitlementCode, "projects_created_monthly");
+  assert.equal(usageCount, 1);
+});
+
+test("phase 2.1 enforceLimitAndRecordUsage allows action when limitation is not configured by default", async () => {
+  const service = createPhase21Service({
+    billingRepository: {
+      async findCurrentSubscriptionForEntity() {
+        return {
+          id: 50,
+          planId: 300
+        };
+      },
+      async listPlanEntitlementsForPlan() {
+        return [];
+      },
+      async incrementUsageCounter() {
+        throw new Error("incrementUsageCounter should not be called when limitation is missing and allow behavior is used.");
+      }
+    }
+  });
+
+  const response = await service.enforceLimitAndRecordUsage({
+    request: { headers: {} },
+    user: { id: 12 },
+    capability: "projects.create",
+    action: async () => ({ ok: true })
+  });
+
+  assert.deepEqual(response, { ok: true });
+});
+
 test("phase 2.2 listTimeline returns paged workspace-friendly activity entries", async () => {
   const repositoryCalls = [];
   const service = createPhase21Service({

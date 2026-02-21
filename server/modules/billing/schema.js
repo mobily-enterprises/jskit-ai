@@ -292,6 +292,20 @@ const checkoutBody = Type.Object(
   {
     checkoutType: Type.Optional(Type.String({ minLength: 1, maxLength: 32 })),
     planCode: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
+    components: Type.Optional(
+      Type.Array(
+        Type.Object(
+          {
+            providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
+            quantity: Type.Optional(Type.Integer({ minimum: 1, maximum: 10000 }))
+          },
+          {
+            additionalProperties: false
+          }
+        ),
+        { minItems: 1, maxItems: 20 }
+      )
+    ),
     oneOff: Type.Optional(
       Type.Object(
         {

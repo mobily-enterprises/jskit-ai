@@ -103,6 +103,12 @@ function createBillingDisabledServices() {
       getLimitations: throwBillingDisabled,
       listTimeline: throwBillingDisabled,
       recordUsage: throwBillingDisabled,
+      async enforceLimitAndRecordUsage({ action } = {}) {
+        if (typeof action !== "function") {
+          throw new AppError(500, "Billing enforcement action is unavailable.");
+        }
+        return action();
+      },
       createPortalSession: throwBillingDisabled,
       createPaymentLink: throwBillingDisabled,
       startCheckout: throwBillingDisabled

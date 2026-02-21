@@ -3,7 +3,9 @@ function normalizeHeaderValue(value) {
   return normalized || null;
 }
 
-function createController({ projectsService, realtimeEventsService = null }) {
+const PROJECTS_CREATE_CAPABILITY = "projects.create";
+
+function createController({ projectsService, realtimeEventsService = null, billingService = null }) {
   if (!projectsService) {
     throw new Error("projectsService is required.");
   }
@@ -11,6 +13,10 @@ function createController({ projectsService, realtimeEventsService = null }) {
   const publishProjectEvent =
     realtimeEventsService && typeof realtimeEventsService.publishProjectEvent === "function"
       ? realtimeEventsService.publishProjectEvent
+      : null;
+  const enforceLimitAndRecordUsage =
+    billingService && typeof billingService.enforceLimitAndRecordUsage === "function"
+      ? billingService.enforceLimitAndRecordUsage.bind(billingService)
       : null;
 
   function publishProjectEventSafely({ request, response, operation }) {
@@ -50,7 +56,23 @@ function createController({ projectsService, realtimeEventsService = null }) {
   }
 
   async function create(request, reply) {
-    const response = await projectsService.create(request.workspace, request.body || {});
+    const runCreate = () => projectsService.create(request.workspace, request.body || {});
+    const response = enforceLimitAndRecordUsage
+      ? await enforceLimitAndRecordUsage({
+          request,
+          user: request?.user,
+          capability: PROJECTS_CREATE_CAPABILITY,
+          usageEventKey:
+            normalizeHeaderValue(request?.headers?.["idempotency-key"]) ||
+            normalizeHeaderValue(request?.headers?.["x-command-id"]) ||
+            null,
+          metadataJson: {
+            capability: PROJECTS_CREATE_CAPABILITY,
+            workspaceId: request?.workspace?.id ? Number(request.workspace.id) : null
+          },
+          action: runCreate
+        })
+      : await runCreate();
     publishProjectEventSafely({ request, response, operation: "created" });
     reply.code(200).send(response);
   }

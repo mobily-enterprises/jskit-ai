@@ -627,3 +627,230 @@ test("checkout orchestrator supports one_off checkout without requiring plan loo
   assert.equal(response.checkoutType, "one_off");
   assert.equal(response.checkoutSession.providerCheckoutSessionId, "cs_one_off_1");
 });
+
+test("checkout orchestrator forwards optional licensed components into pricing and checkout params", async () => {
+  let capturedSelectedComponents = null;
+  let createCheckoutParams = null;
+
+  const service = createCheckoutOrchestratorService({
+    billingRepository: {
+      async transaction(work) {
+        return work({});
+      },
+      async findBillableEntityById() {
+        return {
+          id: 1
+        };
+      },
+      async lockSubscriptionsForEntity() {
+        return [];
+      },
+      async lockCheckoutSessionsForEntity() {
+        return [];
+      },
+      async findCurrentSubscriptionForEntity() {
+        return null;
+      },
+      async findIdempotencyById() {
+        return {
+          id: 701,
+          leaseVersion: 1,
+          status: "pending",
+          operationKey: "op_sub_components_701"
+        };
+      },
+      async findPlanByCode() {
+        return {
+          id: 88,
+          code: "pro_monthly",
+          version: 2,
+          isActive: true,
+          pricingModel: "flat"
+        };
+      },
+      async findCustomerByEntityProvider() {
+        return {
+          id: 11,
+          providerCustomerId: "cus_sub_1"
+        };
+      },
+      async updateIdempotencyById() {
+        return {
+          id: 701
+        };
+      }
+    },
+    billingPolicyService: {
+      async resolveBillableEntityForWriteRequest() {
+        return {
+          billableEntity: {
+            id: 1
+          }
+        };
+      }
+    },
+    billingPricingService: {
+      deploymentCurrency: "USD",
+      async resolvePhase1SellablePrice() {
+        throw new Error("phase1 price resolver should not be called when subscription resolver is available");
+      },
+      async resolveSubscriptionCheckoutPrices({ selectedComponents }) {
+        capturedSelectedComponents = selectedComponents;
+        return {
+          basePrice: {
+            providerPriceId: "price_base_1",
+            usageType: "licensed"
+          },
+          meteredComponentPrices: [],
+          lineItemPrices: [
+            {
+              providerPriceId: "price_base_1",
+              usageType: "licensed"
+            },
+            {
+              providerPriceId: "price_addon_support",
+              usageType: "licensed",
+              quantity: 3
+            }
+          ]
+        };
+      }
+    },
+    billingIdempotencyService: {
+      async claimOrReplay() {
+        return {
+          type: "claimed",
+          row: {
+            id: 701,
+            leaseVersion: 1,
+            operationKey: "op_sub_components_701",
+            providerIdempotencyKey: "prov_idem_sub_components_701"
+          }
+        };
+      },
+      async markFailed() {
+        return null;
+      },
+      async markSucceeded() {
+        return null;
+      }
+    },
+    billingCheckoutSessionService: {
+      async upsertBlockingCheckoutSession() {
+        return null;
+      },
+      async markCheckoutSessionExpiredOrAbandoned() {
+        return null;
+      },
+      async getBlockingCheckoutSession() {
+        return null;
+      },
+      async cleanupExpiredBlockingSessions() {
+        return null;
+      }
+    },
+    stripeSdkService: {
+      async getSdkProvenance() {
+        return {
+          providerSdkName: "stripe-node",
+          providerSdkVersion: "14.25.0",
+          providerApiVersion: "2024-06-20"
+        };
+      },
+      async createCheckoutSession({ params }) {
+        createCheckoutParams = params;
+        return {
+          id: "cs_sub_components_1",
+          status: "open",
+          url: "https://checkout.stripe.test/cs_sub_components_1",
+          expires_at: Math.floor(Date.now() / 1000) + 300,
+          customer: "cus_sub_1",
+          subscription: null,
+          metadata: params.metadata || {}
+        };
+      }
+    },
+    appPublicUrl: "https://app.example.test"
+  });
+
+  const response = await service.startCheckout({
+    request: {
+      headers: {}
+    },
+    user: {
+      id: 11
+    },
+    payload: {
+      planCode: "pro_monthly",
+      components: [
+        {
+          providerPriceId: "price_addon_support",
+          quantity: 3
+        }
+      ],
+      successPath: "/billing/success",
+      cancelPath: "/billing/cancel"
+    },
+    clientIdempotencyKey: "idem_sub_components_1",
+    now: new Date("2026-02-20T16:40:00.000Z")
+  });
+
+  assert.deepEqual(capturedSelectedComponents, [
+    {
+      providerPriceId: "price_addon_support",
+      quantity: 3
+    }
+  ]);
+  assert.ok(createCheckoutParams);
+  assert.equal(createCheckoutParams.mode, "subscription");
+  assert.deepEqual(createCheckoutParams.line_items, [
+    {
+      price: "price_base_1",
+      quantity: 1
+    },
+    {
+      price: "price_addon_support",
+      quantity: 3
+    }
+  ]);
+  assert.equal(response.checkoutType, "subscription");
+});
+
+test("checkout orchestrator validates optional component payload before idempotency claim", async () => {
+  const { service, callOrder } = createOrchestrator();
+
+  await assert.rejects(
+    () =>
+      service.startCheckout({
+        request: {
+          headers: {}
+        },
+        user: {
+          id: 11
+        },
+        payload: {
+          planCode: "pro_monthly",
+          components: [
+            {
+              providerPriceId: "price_addon_support",
+              quantity: 2
+            },
+            {
+              providerPriceId: "price_addon_support",
+              quantity: 1
+            }
+          ],
+          successPath: "/billing/success",
+          cancelPath: "/billing/cancel"
+        },
+        clientIdempotencyKey: "idem_components_duplicate",
+        now: new Date("2026-02-20T16:45:00.000Z")
+      }),
+    (error) =>
+      error instanceof AppError &&
+      Number(error.statusCode) === 400 &&
+      String(error?.details?.fieldErrors?.["components[1].providerPriceId"] || "").includes("unique")
+  );
+
+  assert.deepEqual(callOrder, []);
+});
