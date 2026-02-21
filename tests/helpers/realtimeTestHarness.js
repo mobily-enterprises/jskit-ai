@@ -1,10 +1,12 @@
 import Fastify from "fastify";
-import WebSocket from "ws";
-import fastifyWebsocket from "@fastify/websocket";
+import { io as createSocketIoClient } from "socket.io-client";
 
-import authPlugin from "../../server/fastify/auth.plugin.js";
 import { createService as createRealtimeEventsService } from "../../server/domain/realtime/services/events.service.js";
-import { registerRealtimeRoutes } from "../../server/fastify/registerRealtimeRoutes.js";
+import {
+  registerSocketIoRealtime,
+  SOCKET_IO_MESSAGE_EVENT,
+  SOCKET_IO_PATH
+} from "../../server/realtime/registerSocketIoRealtime.js";
 
 function installRealtimeTestErrorHandler(app) {
   app.setErrorHandler((error, _request, reply) => {
@@ -45,7 +47,12 @@ function normalizeEmail(value) {
     .toLowerCase();
 }
 
-function createRealtimeTestWorkspaceService({ permissionsBySlug, appDenyUserIdsBySlug, appDenyEmailsBySlug, onResolve } = {}) {
+function createRealtimeTestWorkspaceService({
+  permissionsBySlug,
+  appDenyUserIdsBySlug,
+  appDenyEmailsBySlug,
+  onResolve
+} = {}) {
   const calls = [];
   const permissionsMap =
     permissionsBySlug && typeof permissionsBySlug === "object"
@@ -79,18 +86,12 @@ function createRealtimeTestWorkspaceService({ permissionsBySlug, appDenyUserIdsB
       const workspaceSlug = String(request?.headers?.["x-workspace-slug"] || "").trim();
       const permissions = Array.isArray(permissionsMap[workspaceSlug]) ? permissionsMap[workspaceSlug] : null;
       const denyUserIds = Array.isArray(denyUserIdsMap[workspaceSlug]) ? denyUserIdsMap[workspaceSlug] : [];
-      const denyEmails = Array.isArray(denyEmailsMap[workspaceSlug]) ? denyEmailsMap[workspaceSlug].map(normalizeEmail) : [];
-      const appDenied = surfaceId === "app" && (denyUserIds.includes(userId) || (userEmail && denyEmails.includes(userEmail)));
-      if (!permissions) {
-        return {
-          workspace: null,
-          membership: null,
-          permissions: [],
-          workspaces: [],
-          userSettings: null
-        };
-      }
-      if (appDenied) {
+      const denyEmails = Array.isArray(denyEmailsMap[workspaceSlug])
+        ? denyEmailsMap[workspaceSlug].map(normalizeEmail)
+        : [];
+      const appDenied =
+        surfaceId === "app" && (denyUserIds.includes(userId) || (userEmail && denyEmails.includes(userEmail)));
+      if (!permissions || appDenied) {
         return {
           workspace: null,
           membership: null,
@@ -116,7 +117,13 @@ function createRealtimeTestWorkspaceService({ permissionsBySlug, appDenyUserIdsB
   };
 }
 
-async function createRealtimeTestApp({ permissionsBySlug, appDenyUserIdsBySlug, appDenyEmailsBySlug, workspaceService } = {}) {
+async function createRealtimeTestApp({
+  permissionsBySlug,
+  appDenyUserIdsBySlug,
+  appDenyEmailsBySlug,
+  workspaceService,
+  requireRedisAdapter = false
+} = {}) {
   const app = Fastify();
   installRealtimeTestErrorHandler(app);
 
@@ -127,21 +134,14 @@ async function createRealtimeTestApp({ permissionsBySlug, appDenyUserIdsBySlug, 
       appDenyUserIdsBySlug,
       appDenyEmailsBySlug
     });
+  const realtimeEventsService = createRealtimeEventsService();
 
-  await app.register(authPlugin, {
+  await registerSocketIoRealtime(app, {
     authService: createRealtimeTestAuthService(),
+    realtimeEventsService,
     workspaceService: effectiveWorkspaceService,
-    nodeEnv: "test"
-  });
-  await app.register(fastifyWebsocket, {
-    options: {
-      maxPayload: 8192
-    }
-  });
-
-  registerRealtimeRoutes(app, {
-    realtimeEventsService: createRealtimeEventsService(),
-    workspaceService: effectiveWorkspaceService
+    redisUrl: "",
+    requireRedisAdapter
   });
 
   await app.listen({ host: "127.0.0.1", port: 0 });
@@ -151,52 +151,122 @@ async function createRealtimeTestApp({ permissionsBySlug, appDenyUserIdsBySlug, 
   return {
     app,
     port,
-    workspaceService: effectiveWorkspaceService
+    workspaceService: effectiveWorkspaceService,
+    realtimeEventsService
+  };
+}
+
+function coerceHttpUrl(urlValue) {
+  const source = String(urlValue || "").trim();
+  if (!source) {
+    return "";
+  }
+
+  if (source.startsWith("ws://")) {
+    return `http://${source.slice(5)}`;
+  }
+  if (source.startsWith("wss://")) {
+    return `https://${source.slice(6)}`;
+  }
+
+  return source;
+}
+
+function resolveSocketConnectionOptions(url, options = {}) {
+  const parsedUrl = new URL(coerceHttpUrl(url));
+  const query = {};
+  for (const [key, value] of parsedUrl.searchParams.entries()) {
+    query[key] = value;
+  }
+
+  return {
+    baseUrl: `${parsedUrl.protocol}//${parsedUrl.host}`,
+    path: parsedUrl.pathname || SOCKET_IO_PATH,
+    query,
+    extraHeaders: options?.headers && typeof options.headers === "object" ? { ...options.headers } : undefined
   };
 }
 
 function openRealtimeWebSocket(url, options = {}) {
+  const connectionOptions = resolveSocketConnectionOptions(url, options);
+
   return new Promise((resolve, reject) => {
-    const socket = new WebSocket(url, options);
+    const socket = createSocketIoClient(connectionOptions.baseUrl, {
+      path: connectionOptions.path,
+      query: connectionOptions.query,
+      transports: ["websocket"],
+      reconnection: false,
+      timeout: 4000,
+      autoConnect: false,
+      extraHeaders: connectionOptions.extraHeaders
+    });
+
     const timeout = setTimeout(() => {
-      socket.terminate();
+      socket.disconnect();
       reject(new Error("Timed out waiting for websocket open."));
     }, 4000);
 
-    socket.once("open", () => {
+    const cleanup = () => {
       clearTimeout(timeout);
-      resolve(socket);
-    });
+      socket.off("connect", onConnect);
+      socket.off("connect_error", onError);
+    };
 
-    socket.once("error", (error) => {
-      clearTimeout(timeout);
+    const onConnect = () => {
+      cleanup();
+
+      // Provide a ws-like send adapter for existing tests.
+      socket.send = (payload) => {
+        let parsedPayload = payload;
+        if (typeof payload === "string") {
+          parsedPayload = JSON.parse(payload);
+        }
+        socket.emit(SOCKET_IO_MESSAGE_EVENT, parsedPayload);
+      };
+
+      resolve(socket);
+    };
+
+    const onError = (error) => {
+      cleanup();
       reject(error);
-    });
+    };
+
+    socket.on("connect", onConnect);
+    socket.on("connect_error", onError);
+    socket.connect();
   });
 }
 
 function waitForRealtimeMessage(socket) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
+      socket.off(SOCKET_IO_MESSAGE_EVENT, onMessage);
+      socket.off("connect_error", onError);
       reject(new Error("Timed out waiting for websocket message."));
     }, 4000);
 
-    socket.once("message", (data) => {
+    const onMessage = (payload) => {
       clearTimeout(timeout);
-      resolve(JSON.parse(String(data)));
-    });
+      socket.off("connect_error", onError);
+      resolve(payload);
+    };
 
-    socket.once("error", (error) => {
+    const onError = (error) => {
       clearTimeout(timeout);
+      socket.off(SOCKET_IO_MESSAGE_EVENT, onMessage);
       reject(error);
-    });
+    };
+
+    socket.once(SOCKET_IO_MESSAGE_EVENT, onMessage);
+    socket.once("connect_error", onError);
   });
 }
 
 function waitForRealtimeClose(socket) {
   return new Promise((resolve) => {
-    socket.once("close", (code) => {
-      resolve(code);
+    socket.once("disconnect", (reason) => {
+      resolve(String(reason || ""));
     });
   });
 }
@@ -206,8 +276,8 @@ function waitForOptionalRealtimeMessage(socket, timeoutMs = 600) {
     let settled = false;
 
     const cleanup = () => {
-      socket.off("message", onMessage);
-      socket.off("close", onClose);
+      socket.off(SOCKET_IO_MESSAGE_EVENT, onMessage);
+      socket.off("disconnect", onClose);
       clearTimeout(timeout);
     };
 
@@ -220,12 +290,8 @@ function waitForOptionalRealtimeMessage(socket, timeoutMs = 600) {
       resolve(value);
     };
 
-    const onMessage = (data) => {
-      try {
-        settle(JSON.parse(String(data)));
-      } catch {
-        settle(null);
-      }
+    const onMessage = (payload) => {
+      settle(payload);
     };
 
     const onClose = () => {
@@ -236,8 +302,8 @@ function waitForOptionalRealtimeMessage(socket, timeoutMs = 600) {
       settle(null);
     }, timeoutMs);
 
-    socket.on("message", onMessage);
-    socket.on("close", onClose);
+    socket.on(SOCKET_IO_MESSAGE_EVENT, onMessage);
+    socket.on("disconnect", onClose);
   });
 }
 

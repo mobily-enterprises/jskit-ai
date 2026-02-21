@@ -1,3 +1,5 @@
+import { createProjectEventPublisher } from "../../realtime/publishers/projectPublisher.js";
+
 function normalizeHeaderValue(value) {
   const normalized = String(value || "").trim();
   return normalized || null;
@@ -10,36 +12,14 @@ function createController({ projectsService, realtimeEventsService = null, billi
     throw new Error("projectsService is required.");
   }
 
-  const publishProjectEvent =
-    realtimeEventsService && typeof realtimeEventsService.publishProjectEvent === "function"
-      ? realtimeEventsService.publishProjectEvent
-      : null;
+  const publishProjectEventForRequest = createProjectEventPublisher({
+    realtimeEventsService,
+    logCode: "projects.realtime.publish_failed"
+  });
   const enforceLimitAndRecordUsage =
     billingService && typeof billingService.enforceLimitAndRecordUsage === "function"
       ? billingService.enforceLimitAndRecordUsage.bind(billingService)
       : null;
-
-  function publishProjectEventSafely({ request, response, operation }) {
-    if (!publishProjectEvent || !response?.project) {
-      return;
-    }
-
-    try {
-      publishProjectEvent({
-        operation,
-        workspace: request.workspace,
-        project: response.project,
-        commandId: normalizeHeaderValue(request?.headers?.["x-command-id"]),
-        sourceClientId: normalizeHeaderValue(request?.headers?.["x-client-id"]),
-        actorUserId: request?.user?.id
-      });
-    } catch (error) {
-      const warnLogger = request?.log && typeof request.log.warn === "function" ? request.log.warn.bind(request.log) : null;
-      if (warnLogger) {
-        warnLogger({ err: error }, "projects.realtime.publish_failed");
-      }
-    }
-  }
 
   async function list(request, reply) {
     const query = request.query || {};
@@ -73,7 +53,12 @@ function createController({ projectsService, realtimeEventsService = null, billi
           action: runCreate
         })
       : await runCreate();
-    publishProjectEventSafely({ request, response, operation: "created" });
+    publishProjectEventForRequest({
+      request,
+      workspace: request.workspace,
+      project: response?.project,
+      operation: "created"
+    });
     reply.code(200).send(response);
   }
 
@@ -83,7 +68,12 @@ function createController({ projectsService, realtimeEventsService = null, billi
       request.params?.projectId,
       request.body || {}
     );
-    publishProjectEventSafely({ request, response, operation: "updated" });
+    publishProjectEventForRequest({
+      request,
+      workspace: request.workspace,
+      project: response?.project,
+      operation: "updated"
+    });
     reply.code(200).send(response);
   }
 
@@ -93,7 +83,12 @@ function createController({ projectsService, realtimeEventsService = null, billi
       request.params?.projectId,
       request.body || {}
     );
-    publishProjectEventSafely({ request, response, operation: "updated" });
+    publishProjectEventForRequest({
+      request,
+      workspace: request.workspace,
+      project: response?.project,
+      operation: "updated"
+    });
     reply.code(200).send(response);
   }
 

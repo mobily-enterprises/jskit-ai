@@ -317,7 +317,7 @@ npm run docs:api-contracts
 
 Realtime note:
 
-- `GET /api/realtime` is intentionally outside the generated API contracts inventory (`buildDefaultRoutes` path).
+- `/api/realtime` is a Socket.IO websocket transport path (not a REST `GET` contract), so it is intentionally outside the generated API contracts inventory (`buildDefaultRoutes` path).
 - Realtime protocol, auth model, correlation, and limits are documented in `WS_ARCHITECTURE.md`.
 
 <!-- API_CONTRACTS_START -->

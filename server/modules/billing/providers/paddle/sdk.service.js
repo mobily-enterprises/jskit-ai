@@ -315,6 +315,8 @@ function normalizeInvoiceFromTransaction(transaction) {
   const totals = entry?.details?.totals && typeof entry.details.totals === "object" ? entry.details.totals : {};
   const totalMinorUnits = parseAmountToMinorUnits(totals.total || totals.grand_total || entry.amount);
   const isPaid = normalizeCheckoutStatus(entry.status) === "complete";
+  const amountPaidMinor = isPaid ? totalMinorUnits : 0;
+  const amountDueMinor = isPaid ? 0 : totalMinorUnits;
 
   return {
     id: toNullableString(entry.id),
@@ -323,8 +325,9 @@ function normalizeInvoiceFromTransaction(transaction) {
     status: isPaid ? "paid" : "open",
     currency: toNullableString(totals.currency_code || entry.currency_code || entry.currency),
     total: totalMinorUnits,
-    amount_paid: isPaid ? totalMinorUnits : 0,
-    amount_due: isPaid ? 0 : totalMinorUnits,
+    amount_paid: amountPaidMinor,
+    amount_due: amountDueMinor,
+    amount_remaining: Math.max(0, amountDueMinor - amountPaidMinor),
     attempt_count: Number(entry.attempt_count || 1),
     next_payment_attempt: toUnixEpochSeconds(entry.next_payment_attempt_at || entry.next_billed_at),
     customer_email: toNullableString(entry?.customer?.email),
@@ -463,16 +466,38 @@ function createService({
       throw new AppError(400, "Paddle checkout requires at least one purchasable item.");
     }
 
+    const metadata = normalizeMetadata(checkoutParams.metadata);
+    const customerId = toNullableString(checkoutParams.customer || checkoutParams.customer_id);
+    const successUrl = toNullableString(checkoutParams.success_url || checkoutParams.successUrl);
+    const cancelUrl = toNullableString(checkoutParams.cancel_url || checkoutParams.cancelUrl);
+    const checkoutUrl = successUrl || cancelUrl;
+    if (successUrl) {
+      metadata.checkout_success_url = successUrl;
+    }
+    if (cancelUrl) {
+      metadata.checkout_cancel_url = cancelUrl;
+    }
+
+    const requestBody = {
+      items,
+      custom_data: metadata,
+      collection_mode: "automatic"
+    };
+    if (customerId) {
+      requestBody.customer_id = customerId;
+    }
+    if (checkoutUrl) {
+      requestBody.checkout = {
+        url: checkoutUrl
+      };
+    }
+
     const transaction = await callPaddleApi({
       method: "POST",
       path: "/transactions",
       idempotencyKey,
       operation,
-      body: {
-        items,
-        custom_data: normalizeMetadata(checkoutParams.metadata),
-        collection_mode: "automatic"
-      }
+      body: requestBody
     });
 
     return normalizeCheckoutSessionFromTransaction(transaction);
@@ -506,21 +531,31 @@ function createService({
     };
   }
 
-  async function createBillingPortalSession({ params }) {
+  async function createBillingPortalSession({ params, idempotencyKey }) {
     const payload = params && typeof params === "object" ? params : {};
     const customerId = toNullableString(payload.customer || payload.customer_id);
     if (!customerId) {
       throw new AppError(400, "Paddle customer id is required.");
     }
 
+    const subscriptionIds = Array.isArray(payload.subscription_ids || payload.subscriptionIds)
+      ? (payload.subscription_ids || payload.subscriptionIds)
+          .map((entry) => toNullableString(entry))
+          .filter(Boolean)
+      : [];
+    const requestBody =
+      subscriptionIds.length > 0
+        ? {
+            subscription_ids: subscriptionIds
+          }
+        : null;
+
     const portalSession = await callPaddleApi({
       method: "POST",
-      path: "/customer-portal-sessions",
+      path: `/customers/${encodeURIComponent(customerId)}/portal-sessions`,
+      idempotencyKey,
       operation: "portal_create",
-      body: {
-        customer_id: customerId,
-        return_url: toNullableString(payload.return_url || payload.returnUrl)
-      }
+      body: requestBody
     });
 
     return {

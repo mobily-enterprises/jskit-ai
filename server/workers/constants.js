@@ -1,0 +1,13 @@
+const RETENTION_QUEUE_NAME = "ops.retention";
+const RETENTION_SWEEP_JOB_NAME = "retention.sweep";
+const RETENTION_DEAD_LETTER_QUEUE_NAME = "ops.retention.dlq";
+const RETENTION_DEAD_LETTER_JOB_NAME = "retention.sweep.failed";
+const RETENTION_SWEEP_LOCK_KEY = "lock:ops.retention.sweep";
+
+export {
+  RETENTION_QUEUE_NAME,
+  RETENTION_SWEEP_JOB_NAME,
+  RETENTION_DEAD_LETTER_QUEUE_NAME,
+  RETENTION_DEAD_LETTER_JOB_NAME,
+  RETENTION_SWEEP_LOCK_KEY
+};

@@ -76,3 +76,30 @@ test("billing webhook paddle translation normalizes transaction payload into inv
   assert.equal(canonical.data.object.amount_paid, 1234);
   assert.equal(canonical.data.object.metadata.operation_key, "op_txn_9");
 });
+
+test("billing webhook paddle translation carries amount_remaining for failed invoice projection", () => {
+  const canonical = normalizePaddleEventToCanonical({
+    id: "evt_failed_1",
+    type: "transaction.payment_failed",
+    created: 1761000000,
+    data: {
+      object: {
+        id: "txn_failed_1",
+        status: "failed",
+        customer_id: "ctm_11",
+        details: {
+          totals: {
+            total: "45.00",
+            currency_code: "USD"
+          }
+        }
+      }
+    }
+  });
+
+  assert.equal(canonical.type, "invoice.payment_failed");
+  assert.equal(canonical.data.object.total, 4500);
+  assert.equal(canonical.data.object.amount_due, 4500);
+  assert.equal(canonical.data.object.amount_paid, 0);
+  assert.equal(canonical.data.object.amount_remaining, 4500);
+});

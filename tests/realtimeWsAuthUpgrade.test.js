@@ -1,17 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  createRealtimeTestApp,
-  openRealtimeWebSocket,
-  waitForRealtimeMessage
-} from "./helpers/realtimeTestHarness.js";
+import { createRealtimeTestApp, openRealtimeWebSocket, waitForRealtimeMessage } from "./helpers/realtimeTestHarness.js";
 
 test("websocket auth is enforced on real upgrade path and authenticated subscribe carries auth context", async () => {
   const { app, port, workspaceService } = await createRealtimeTestApp();
   const url = `ws://127.0.0.1:${port}/api/realtime`;
 
-  await assert.rejects(() => openRealtimeWebSocket(url), /401/);
+  await assert.rejects(
+    () => openRealtimeWebSocket(url),
+    (error) => String(error?.data?.code || "") === "unauthorized"
+  );
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {

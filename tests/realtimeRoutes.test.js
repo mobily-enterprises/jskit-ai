@@ -9,11 +9,24 @@ import {
   waitForRealtimeMessage
 } from "./helpers/realtimeTestHarness.js";
 
+test("realtime registration can require Redis adapter", async () => {
+  await assert.rejects(
+    () =>
+      createRealtimeTestApp({
+        requireRedisAdapter: true
+      }),
+    /REDIS_URL is required/
+  );
+});
+
 test("realtime route requires websocket auth on handshake", async () => {
   const { app, port } = await createRealtimeTestApp();
   const url = `ws://127.0.0.1:${port}/api/realtime`;
 
-  await assert.rejects(() => openRealtimeWebSocket(url), /401/);
+  await assert.rejects(
+    () => openRealtimeWebSocket(url),
+    (error) => String(error?.data?.code || "") === "unauthorized"
+  );
 
   await app.close();
 });
@@ -52,9 +65,14 @@ test("subscribe succeeds for authorized topics and forces server-side context ov
   await app.close();
 });
 
-test("realtime route rejects unsupported connection surface without resolving workspace context", async () => {
-  const { app, port, workspaceService } = await createRealtimeTestApp();
-  const url = `ws://127.0.0.1:${port}/api/realtime?surface=future`;
+test("unsubscribe succeeds after permissions are revoked and removes existing subscription", async () => {
+  const permissionsBySlug = {
+    acme: ["projects.read"]
+  };
+  const { app, port, realtimeEventsService } = await createRealtimeTestApp({
+    permissionsBySlug
+  });
+  const url = `ws://127.0.0.1:${port}/api/realtime?surface=app`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {
@@ -62,15 +80,231 @@ test("realtime route rejects unsupported connection surface without resolving wo
     }
   });
 
-  const closePromise = waitForRealtimeClose(socket);
-  const protocolError = await waitForOptionalRealtimeMessage(socket, 1200);
-  const closeCode = await closePromise;
+  socket.send(
+    JSON.stringify({
+      type: "subscribe",
+      requestId: "req-subscribe",
+      workspaceSlug: "acme",
+      topics: ["projects"]
+    })
+  );
 
-  assert.equal(closeCode, 1008);
-  if (protocolError) {
-    assert.equal(protocolError.type, "error");
-    assert.equal(protocolError.code, "unsupported_surface");
-  }
+  const subscribed = await waitForRealtimeMessage(socket);
+  assert.equal(subscribed.type, "subscribed");
+
+  permissionsBySlug.acme = [];
+
+  socket.send(
+    JSON.stringify({
+      type: "unsubscribe",
+      requestId: "req-unsubscribe",
+      workspaceSlug: "acme",
+      topics: ["projects"]
+    })
+  );
+
+  const unsubscribed = await waitForRealtimeMessage(socket);
+  assert.equal(unsubscribed.type, "unsubscribed");
+  assert.equal(unsubscribed.requestId, "req-unsubscribe");
+  assert.deepEqual(unsubscribed.topics, ["projects"]);
+
+  realtimeEventsService.publishProjectEvent({
+    operation: "updated",
+    workspace: {
+      id: 11,
+      slug: "acme"
+    },
+    project: {
+      id: 42
+    },
+    actorUserId: 7
+  });
+
+  const postUnsubscribeMessage = await waitForOptionalRealtimeMessage(socket, 350);
+  assert.equal(postUnsubscribeMessage, null);
+
+  socket.close();
+  await app.close();
+});
+
+test("existing subscriptions are evicted when topic permissions are revoked", async () => {
+  const permissionsBySlug = {
+    acme: ["projects.read"]
+  };
+  const { app, port, realtimeEventsService } = await createRealtimeTestApp({
+    permissionsBySlug
+  });
+  const url = `ws://127.0.0.1:${port}/api/realtime?surface=app`;
+
+  const socket = await openRealtimeWebSocket(url, {
+    headers: {
+      cookie: "sid=ok"
+    }
+  });
+
+  socket.send(
+    JSON.stringify({
+      type: "subscribe",
+      requestId: "req-evict-subscribe",
+      workspaceSlug: "acme",
+      topics: ["projects"]
+    })
+  );
+
+  const subscribed = await waitForRealtimeMessage(socket);
+  assert.equal(subscribed.type, "subscribed");
+
+  realtimeEventsService.publishProjectEvent({
+    operation: "updated",
+    workspace: {
+      id: 11,
+      slug: "acme"
+    },
+    project: {
+      id: 7
+    },
+    actorUserId: 7
+  });
+
+  const initialEvent = await waitForRealtimeMessage(socket);
+  assert.equal(initialEvent.type, "event");
+  assert.equal(initialEvent.event.topic, "projects");
+
+  permissionsBySlug.acme = [];
+
+  realtimeEventsService.publishProjectEvent({
+    operation: "updated",
+    workspace: {
+      id: 11,
+      slug: "acme"
+    },
+    project: {
+      id: 8
+    },
+    actorUserId: 7
+  });
+
+  const postRevokeEvent = await waitForOptionalRealtimeMessage(socket, 500);
+  assert.equal(postRevokeEvent, null);
+
+  permissionsBySlug.acme = ["projects.read"];
+  realtimeEventsService.publishProjectEvent({
+    operation: "updated",
+    workspace: {
+      id: 11,
+      slug: "acme"
+    },
+    project: {
+      id: 9
+    },
+    actorUserId: 7
+  });
+
+  const postRestoreEvent = await waitForOptionalRealtimeMessage(socket, 500);
+  assert.equal(postRestoreEvent, null);
+
+  socket.close();
+  await app.close();
+});
+
+test("transient event authorization failures do not evict existing subscriptions", async () => {
+  let resolveCalls = 0;
+  const workspaceService = {
+    async resolveRequestContext() {
+      resolveCalls += 1;
+
+      if (resolveCalls === 2) {
+        throw new Error("Temporary authorization dependency failure.");
+      }
+
+      return {
+        workspace: {
+          id: 11,
+          slug: "acme"
+        },
+        membership: {
+          roleId: "member"
+        },
+        permissions: ["projects.read"],
+        workspaces: [],
+        userSettings: null
+      };
+    }
+  };
+
+  const { app, port, realtimeEventsService } = await createRealtimeTestApp({
+    workspaceService
+  });
+  const url = `ws://127.0.0.1:${port}/api/realtime?surface=app`;
+
+  const socket = await openRealtimeWebSocket(url, {
+    headers: {
+      cookie: "sid=ok"
+    }
+  });
+
+  socket.send(
+    JSON.stringify({
+      type: "subscribe",
+      requestId: "req-transient-subscribe",
+      workspaceSlug: "acme",
+      topics: ["projects"]
+    })
+  );
+
+  const subscribed = await waitForRealtimeMessage(socket);
+  assert.equal(subscribed.type, "subscribed");
+
+  realtimeEventsService.publishProjectEvent({
+    operation: "updated",
+    workspace: {
+      id: 11,
+      slug: "acme"
+    },
+    project: {
+      id: 101
+    },
+    actorUserId: 7
+  });
+
+  const skippedEvent = await waitForOptionalRealtimeMessage(socket, 700);
+  assert.equal(skippedEvent, null);
+
+  realtimeEventsService.publishProjectEvent({
+    operation: "updated",
+    workspace: {
+      id: 11,
+      slug: "acme"
+    },
+    project: {
+      id: 102
+    },
+    actorUserId: 7
+  });
+
+  const recoveredEvent = await waitForOptionalRealtimeMessage(socket, 700);
+  assert.ok(recoveredEvent);
+  assert.equal(recoveredEvent.type, "event");
+  assert.equal(recoveredEvent.event.topic, "projects");
+  assert.equal(Number(recoveredEvent.event.payload?.projectId), 102);
+
+  socket.close();
+  await app.close();
+});
+
+test("realtime route rejects unsupported connection surface without resolving workspace context", async () => {
+  const { app, port, workspaceService } = await createRealtimeTestApp();
+  const url = `ws://127.0.0.1:${port}/api/realtime?surface=future`;
+
+  await assert.rejects(
+    () =>
+      openRealtimeWebSocket(url, {
+        headers: {
+          cookie: "sid=ok"
+        }
+      }),
+    (error) => String(error?.data?.code || "") === "unsupported_surface"
+  );
   assert.equal(workspaceService.calls.length, 0);
 
   await app.close();
@@ -239,33 +473,35 @@ test("subscribe allows read-only workspace_meta topic without elevated workspace
 
 test("payload limit is UTF-8 byte accurate and closes oversized frames", async () => {
   const { app, port } = await createRealtimeTestApp();
-  const url = `ws://127.0.0.1:${port}/api/realtime`;
+  try {
+    const url = `ws://127.0.0.1:${port}/api/realtime`;
 
-  const socket = await openRealtimeWebSocket(url, {
-    headers: {
-      cookie: "sid=ok"
+    const socket = await openRealtimeWebSocket(url, {
+      headers: {
+        cookie: "sid=ok"
+      }
+    });
+
+    const closePromise = waitForRealtimeClose(socket);
+
+    const oversizedTs = "😀".repeat(2500);
+    socket.send(
+      JSON.stringify({
+        type: "ping",
+        requestId: "req-oversized",
+        ts: oversizedTs
+      })
+    );
+
+    const protocolError = await waitForOptionalRealtimeMessage(socket);
+    const closeReason = await closePromise;
+
+    if (protocolError) {
+      assert.equal(protocolError.type, "error");
+      assert.equal(protocolError.code, "payload_too_large");
     }
-  });
-
-  const closePromise = waitForRealtimeClose(socket);
-
-  const oversizedTs = "😀".repeat(2500);
-  socket.send(
-    JSON.stringify({
-      type: "ping",
-      requestId: "req-oversized",
-      ts: oversizedTs
-    })
-  );
-
-  const protocolError = await waitForOptionalRealtimeMessage(socket);
-  const closeCode = await closePromise;
-
-  if (protocolError) {
-    assert.equal(protocolError.type, "error");
-    assert.equal(protocolError.code, "payload_too_large");
+    assert.ok(closeReason === "transport close" || closeReason === "io server disconnect");
+  } finally {
+    await app.close();
   }
-  assert.equal(closeCode, 1009);
-
-  await app.close();
 });

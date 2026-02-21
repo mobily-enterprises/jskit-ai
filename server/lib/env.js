@@ -44,6 +44,9 @@ export const env = cleanEnv(
       default: "memory"
     }),
     REDIS_URL: str({ default: "" }),
+    WORKER_CONCURRENCY: num({ default: 2 }),
+    WORKER_LOCK_HELD_REQUEUE_MAX: num({ default: 3 }),
+    WORKER_RETENTION_LOCK_TTL_MS: num({ default: 1800000 }),
     TRUST_PROXY: bool({ default: false }),
     TENANCY_MODE: str({
       choices: ["personal", "team-single", "multi-workspace"],

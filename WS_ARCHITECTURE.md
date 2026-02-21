@@ -1,9 +1,9 @@
-# WebSocket Realtime Architecture
+# Socket.IO Realtime Architecture
 
-## Why HTTP Commands + WebSocket Events
+## Why HTTP Commands + Realtime Events
 
 Write commands stay on HTTP (`POST`/`PATCH`/`PUT`) for deterministic request/response behavior, CSRF handling, and existing auth semantics.  
-WebSocket is used only for post-commit fanout and reconciliation invalidation.
+Socket.IO (websocket transport) is used only for post-commit fanout and reconciliation invalidation.
 
 ## Protocol and Envelope
 
@@ -59,8 +59,8 @@ Standard error codes:
 Payload cap:
 
 - Inbound app-level realtime messages are capped at `8192` UTF-8 bytes.
-- Byte size is validated before JSON parse.
-- WebSocket transport also enforces `maxPayload: 8192` as defense in depth.
+- Socket.IO transport enforces `maxHttpBufferSize: 8192` (`Server` option).
+- Application-level byte size is validated from the decoded payload (`Buffer.byteLength(JSON.stringify(payload), "utf8")`) before message routing and handlers.
 
 ## clientId and commandId Semantics
 
@@ -145,18 +145,20 @@ Realtime runtime tracks outgoing control requests by `requestId` with:
 
 ACK/error responses are ignored when stale (epoch/fingerprint/slug/topics mismatch).
 
-## WebSocket Security and Auth Model
+## Socket.IO Security and Auth Model
 
-- WebSocket handshake auth is required (`authPolicy: "required"`).
-- Route is `GET /api/realtime` with connection surface resolved from `?surface=<id>` (defaults to `app`).
+- Socket.IO connection auth is required via middleware (`authService.authenticateRequest`).
+- Socket.IO transport path is `/api/realtime` with connection surface resolved from `?surface=<id>` (defaults to `app`).
 - If `surface` is explicitly provided but unsupported/blank, the connection is rejected (`unsupported_surface`).
-- WebSocket auth enforcement is validated by a real HTTP upgrade integration test:
+- Realtime auth enforcement is validated by a real HTTP upgrade integration test:
   `tests/realtimeWsAuthUpgrade.test.js`.
 
 ## Subscribe-Time Workspace Authorization Model
 
 - Workspace authorization happens at subscribe/unsubscribe time.
+- Event delivery re-validates workspace access + topic permissions per subscribed connection; revoked access is evicted server-side before fanout.
 - `workspaceSlug` is mandatory for subscribe and unsubscribe.
+- Unsubscribe removes only this connection's tracked subscriptions and does not require the caller to still hold topic permissions.
 - Missing/blank slug returns `workspace_required`.
 - Missing/blank slug path must not call workspace resolver.
 - Subscribe context force-overrides:
@@ -192,6 +194,10 @@ ACK/error responses are ignored when stale (epoch/fingerprint/slug/topics mismat
   - required surface: `admin`
   - workspace policy: required at subscribe-time
   - required permission: `workspace.members.view`
+- `workspace_ai_transcripts`:
+  - required surface: `admin`
+  - workspace policy: required at subscribe-time
+  - required permission: `workspace.ai.transcripts.read`
 
 Future `chat`/`typing` topic constants are placeholders only in this slice.
 
@@ -203,10 +209,14 @@ Future `chat`/`typing` topic constants are placeholders only in this slice.
 
 Current limitations:
 
-- in-memory fanout (single-node only)
+- single-node in-memory fanout when Redis adapter is not configured
 - no durable replay log
 - deferred self-event queues are in-memory
 - command headers remain optional server-side for backward compatibility
+
+Current multi-node behavior:
+
+- when `REDIS_URL` is configured, server fanout uses Socket.IO Redis Streams adapter for cross-node room delivery
 
 Scale-out direction:
 

@@ -7,7 +7,6 @@ import fastifyMultipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
-import fastifyWebsocket from "@fastify/websocket";
 import { TypeBoxValidatorCompiler } from "@fastify/type-provider-typebox";
 import { env } from "./server/lib/env.js";
 import { resolveAppConfig, toPublicAppConfig } from "./server/lib/appConfig.js";
@@ -17,7 +16,7 @@ import { isAppError } from "./server/lib/errors.js";
 import { registerApiRoutes } from "./server/fastify/registerApiRoutes.js";
 import authPlugin from "./server/fastify/auth.plugin.js";
 import billingWebhookRawBodyPlugin from "./server/fastify/billingWebhookRawBody.plugin.js";
-import { registerRealtimeRoutes, MAX_INBOUND_MESSAGE_BYTES } from "./server/fastify/registerRealtimeRoutes.js";
+import { registerSocketIoRealtime } from "./server/realtime/registerSocketIoRealtime.js";
 import { safePathnameFromRequest } from "./server/lib/primitives/requestUrl.js";
 import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar/index.js";
 import { createSurfacePaths, resolveSurfaceFromPathname, resolveSurfacePaths } from "./shared/routing/surfacePaths.js";
@@ -694,14 +693,13 @@ export async function buildServer({ frontendBuildAvailable }) {
     nodeEnv: NODE_ENV,
     rateLimitPluginOptions
   });
-  await app.register(fastifyWebsocket, {
-    options: {
-      maxPayload: MAX_INBOUND_MESSAGE_BYTES
-    }
-  });
-  registerRealtimeRoutes(app, {
+  await registerSocketIoRealtime(app, {
+    authService,
     realtimeEventsService,
-    workspaceService
+    workspaceService,
+    redisUrl: env.REDIS_URL,
+    requireRedisAdapter: NODE_ENV === "production",
+    logger: app.log
   });
   await app.register(fastifyMultipart, {
     limits: {

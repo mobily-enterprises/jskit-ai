@@ -6,5 +6,5 @@ try {
   await startServer();
 } catch (error) {
   console.error("Failed to initialize server:", error);
-  process.exit(1);
+  process.exitCode = 1;
 }

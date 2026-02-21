@@ -6,49 +6,98 @@ import { workspaceAdminRootQueryKey } from "../../src/features/workspaceAdmin/qu
 import { commandTracker, __testables as trackerTestables } from "../../src/services/realtime/commandTracker.js";
 import { createRealtimeRuntime } from "../../src/services/realtime/realtimeRuntime.js";
 
-class FakeWebSocket {
+const SOCKET_IO_MESSAGE_EVENT = "realtime:message";
+
+class FakeSocket {
   static instances = [];
-  static CONNECTING = 0;
-  static OPEN = 1;
-  static CLOSING = 2;
-  static CLOSED = 3;
 
-  constructor(url) {
+  constructor(url, options = {}) {
     this.url = url;
-    this.readyState = FakeWebSocket.CONNECTING;
+    this.options = options;
+    this.connected = false;
     this.sent = [];
-    this.closeArgs = null;
-    this.onopen = null;
-    this.onclose = null;
-    this.onerror = null;
-    this.onmessage = null;
-    FakeWebSocket.instances.push(this);
+    this.disconnectReason = null;
+    this.listeners = new Map();
+    FakeSocket.instances.push(this);
   }
 
-  send(payload) {
-    this.sent.push(JSON.parse(String(payload || "{}")));
+  on(eventName, handler) {
+    const handlers = this.listeners.get(eventName) || [];
+    handlers.push(handler);
+    this.listeners.set(eventName, handlers);
+    return this;
   }
 
-  open() {
-    this.readyState = FakeWebSocket.OPEN;
-    this.onopen?.();
+  once(eventName, handler) {
+    const wrapped = (...args) => {
+      this.off(eventName, wrapped);
+      handler(...args);
+    };
+    return this.on(eventName, wrapped);
+  }
+
+  off(eventName, handler) {
+    const handlers = this.listeners.get(eventName) || [];
+    this.listeners.set(
+      eventName,
+      handlers.filter((entry) => entry !== handler)
+    );
+    return this;
+  }
+
+  removeAllListeners() {
+    this.listeners.clear();
+    return this;
+  }
+
+  emit(eventName, payload) {
+    if (eventName === SOCKET_IO_MESSAGE_EVENT) {
+      this.sent.push(payload);
+      return this;
+    }
+
+    this.emitLocal(eventName, payload);
+    return this;
+  }
+
+  connect() {
+    this.connected = true;
+    this.emitLocal("connect");
+    return this;
   }
 
   receive(payload) {
-    this.onmessage?.({
-      data: JSON.stringify(payload)
-    });
+    this.emitLocal(SOCKET_IO_MESSAGE_EVENT, payload);
+    return this;
   }
 
-  close(code = 1000, reason = "") {
-    if (this.readyState === FakeWebSocket.CLOSED) {
-      return;
+  failConnect(error = new Error("connect failed")) {
+    this.connected = false;
+    this.emitLocal("connect_error", error);
+    return this;
+  }
+
+  disconnect(reason = "io client disconnect") {
+    if (!this.connected && this.disconnectReason) {
+      return this;
     }
 
-    this.readyState = FakeWebSocket.CLOSED;
-    this.closeArgs = [code, reason];
-    this.onclose?.({ code, reason });
+    this.connected = false;
+    this.disconnectReason = reason;
+    this.emitLocal("disconnect", reason);
+    return this;
   }
+
+  emitLocal(eventName, ...args) {
+    const handlers = [...(this.listeners.get(eventName) || [])];
+    for (const handler of handlers) {
+      handler(...args);
+    }
+  }
+}
+
+function createSocketFactory() {
+  return (url, options) => new FakeSocket(url, options);
 }
 
 function createStores() {
@@ -80,8 +129,13 @@ describe("realtimeRuntime", () => {
       invalidateQueries: vi.fn().mockResolvedValue(undefined)
     };
 
-    FakeWebSocket.instances = [];
-    vi.stubGlobal("WebSocket", FakeWebSocket);
+    FakeSocket.instances = [];
+    vi.stubGlobal("window", {
+      location: {
+        protocol: "http:",
+        host: "localhost:3000"
+      }
+    });
   });
 
   afterEach(() => {
@@ -96,14 +150,14 @@ describe("realtimeRuntime", () => {
       authStore: stores.authStore,
       workspaceStore: stores.workspaceStore,
       queryClient,
-      surface: "admin"
+      surface: "admin",
+      socketFactory: createSocketFactory()
     });
 
     runtime.start();
-    expect(FakeWebSocket.instances).toHaveLength(1);
+    expect(FakeSocket.instances).toHaveLength(1);
 
-    const socket = FakeWebSocket.instances[0];
-    socket.open();
+    const socket = FakeSocket.instances[0];
 
     expect(socket.sent[0].type).toBe(REALTIME_MESSAGE_TYPES.SUBSCRIBE);
     expect(socket.sent[0].workspaceSlug).toBe("acme");
@@ -131,14 +185,14 @@ describe("realtimeRuntime", () => {
       authStore: stores.authStore,
       workspaceStore: stores.workspaceStore,
       queryClient,
-      surface: "app"
+      surface: "app",
+      socketFactory: createSocketFactory()
     });
 
     runtime.start();
-    expect(FakeWebSocket.instances).toHaveLength(1);
+    expect(FakeSocket.instances).toHaveLength(1);
 
-    const socket = FakeWebSocket.instances[0];
-    socket.open();
+    const socket = FakeSocket.instances[0];
     expect(socket.sent[0].type).toBe(REALTIME_MESSAGE_TYPES.SUBSCRIBE);
     expect(socket.sent[0].topics).toEqual([REALTIME_TOPICS.WORKSPACE_META]);
 
@@ -152,14 +206,14 @@ describe("realtimeRuntime", () => {
       authStore: stores.authStore,
       workspaceStore: stores.workspaceStore,
       queryClient,
-      surface: "admin"
+      surface: "admin",
+      socketFactory: createSocketFactory()
     });
 
     runtime.start();
-    expect(FakeWebSocket.instances).toHaveLength(1);
+    expect(FakeSocket.instances).toHaveLength(1);
 
-    const socket = FakeWebSocket.instances[0];
-    socket.open();
+    const socket = FakeSocket.instances[0];
 
     expect(socket.sent[0].type).toBe(REALTIME_MESSAGE_TYPES.SUBSCRIBE);
     expect(socket.sent[0].topics).toEqual([REALTIME_TOPICS.WORKSPACE_SETTINGS]);
@@ -187,12 +241,12 @@ describe("realtimeRuntime", () => {
       authStore: stores.authStore,
       workspaceStore: stores.workspaceStore,
       queryClient,
-      surface: "admin"
+      surface: "admin",
+      socketFactory: createSocketFactory()
     });
 
     runtime.start();
-    const firstSocket = FakeWebSocket.instances[0];
-    firstSocket.open();
+    const firstSocket = FakeSocket.instances[0];
     firstSocket.receive({
       type: REALTIME_MESSAGE_TYPES.SUBSCRIBED,
       requestId: firstSocket.sent[0].requestId,
@@ -201,13 +255,12 @@ describe("realtimeRuntime", () => {
     });
     await flushMicrotasks();
 
-    firstSocket.close(1006, "abnormal");
+    firstSocket.disconnect("transport close");
     await vi.advanceTimersByTimeAsync(1000);
 
-    expect(FakeWebSocket.instances).toHaveLength(2);
+    expect(FakeSocket.instances).toHaveLength(2);
 
-    const secondSocket = FakeWebSocket.instances[1];
-    secondSocket.open();
+    const secondSocket = FakeSocket.instances[1];
     secondSocket.receive({
       type: REALTIME_MESSAGE_TYPES.SUBSCRIBED,
       requestId: secondSocket.sent[0].requestId,
@@ -226,12 +279,12 @@ describe("realtimeRuntime", () => {
       authStore: stores.authStore,
       workspaceStore: stores.workspaceStore,
       queryClient,
-      surface: "admin"
+      surface: "admin",
+      socketFactory: createSocketFactory()
     });
 
     runtime.start();
-    const socket = FakeWebSocket.instances[0];
-    socket.open();
+    const socket = FakeSocket.instances[0];
 
     socket.receive({
       type: REALTIME_MESSAGE_TYPES.ERROR,
@@ -242,12 +295,12 @@ describe("realtimeRuntime", () => {
     await flushMicrotasks();
 
     await vi.advanceTimersByTimeAsync(10_000);
-    expect(FakeWebSocket.instances).toHaveLength(1);
+    expect(FakeSocket.instances).toHaveLength(1);
 
     stores.workspaceStore.activeWorkspaceSlug = "beta";
     await vi.advanceTimersByTimeAsync(1200);
 
-    expect(FakeWebSocket.instances.length).toBeGreaterThan(1);
+    expect(FakeSocket.instances.length).toBeGreaterThan(1);
     runtime.stop();
   });
 
@@ -257,12 +310,12 @@ describe("realtimeRuntime", () => {
       authStore: stores.authStore,
       workspaceStore: stores.workspaceStore,
       queryClient,
-      surface: "admin"
+      surface: "admin",
+      socketFactory: createSocketFactory()
     });
 
     runtime.start();
-    const firstSocket = FakeWebSocket.instances[0];
-    firstSocket.open();
+    const firstSocket = FakeSocket.instances[0];
     firstSocket.receive({
       type: REALTIME_MESSAGE_TYPES.SUBSCRIBED,
       requestId: firstSocket.sent[0].requestId,
@@ -274,9 +327,8 @@ describe("realtimeRuntime", () => {
     stores.workspaceStore.activeWorkspaceSlug = "beta";
     await vi.advanceTimersByTimeAsync(1200);
 
-    expect(FakeWebSocket.instances).toHaveLength(2);
-    const secondSocket = FakeWebSocket.instances[1];
-    secondSocket.open();
+    expect(FakeSocket.instances).toHaveLength(2);
+    const secondSocket = FakeSocket.instances[1];
     expect(secondSocket.sent[0].workspaceSlug).toBe("beta");
 
     runtime.stop();
@@ -288,18 +340,18 @@ describe("realtimeRuntime", () => {
       authStore: stores.authStore,
       workspaceStore: stores.workspaceStore,
       queryClient,
-      surface: "admin"
+      surface: "admin",
+      socketFactory: createSocketFactory()
     });
 
     runtime.start();
-    const socket = FakeWebSocket.instances[0];
-    socket.open();
+    const socket = FakeSocket.instances[0];
 
     runtime.stop();
-    expect(socket.closeArgs?.[0]).toBe(1000);
+    expect(socket.connected).toBe(false);
 
     await vi.advanceTimersByTimeAsync(10_000);
-    expect(FakeWebSocket.instances).toHaveLength(1);
+    expect(FakeSocket.instances).toHaveLength(1);
   });
 
   it("replays deferred events when command fails", async () => {
@@ -310,7 +362,8 @@ describe("realtimeRuntime", () => {
       authStore: stores.authStore,
       workspaceStore: stores.workspaceStore,
       queryClient,
-      surface: "admin"
+      surface: "admin",
+      socketFactory: createSocketFactory()
     });
 
     runtime.start();
@@ -340,7 +393,8 @@ describe("realtimeRuntime", () => {
       authStore: stores.authStore,
       workspaceStore: stores.workspaceStore,
       queryClient,
-      surface: "admin"
+      surface: "admin",
+      socketFactory: createSocketFactory()
     });
 
     runtime.start();

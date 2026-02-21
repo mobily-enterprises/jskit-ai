@@ -157,6 +157,8 @@ function normalizePaddleEventToCanonical(rawEvent) {
     const totals = rawObject?.details?.totals && typeof rawObject.details.totals === "object" ? rawObject.details.totals : {};
     const totalMinorUnits = toMinorUnits(totals.total || totals.grand_total || rawObject.amount);
     const isPaid = mappedType === "invoice.paid";
+    const amountPaidMinor = isPaid ? totalMinorUnits : 0;
+    const amountDueMinor = isPaid ? 0 : totalMinorUnits;
     return {
       id: String(normalized?.id || "").trim(),
       type: mappedType,
@@ -169,8 +171,9 @@ function normalizePaddleEventToCanonical(rawEvent) {
           status: isPaid ? "paid" : "open",
           currency: toNullableString(totals.currency_code || rawObject.currency_code || rawObject.currency),
           total: totalMinorUnits,
-          amount_paid: isPaid ? totalMinorUnits : 0,
-          amount_due: isPaid ? 0 : totalMinorUnits,
+          amount_paid: amountPaidMinor,
+          amount_due: amountDueMinor,
+          amount_remaining: Math.max(0, amountDueMinor - amountPaidMinor),
           attempt_count: Number(rawObject.attempt_count || 1),
           next_payment_attempt: toUnixEpochSeconds(rawObject.next_payment_attempt_at || rawObject.next_billed_at),
           customer_email: toNullableString(rawObject?.customer?.email),

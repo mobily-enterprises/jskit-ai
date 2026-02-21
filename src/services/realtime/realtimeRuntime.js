@@ -1,3 +1,5 @@
+import { io as createSocketIoClient } from "socket.io-client";
+
 import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "../../../shared/realtime/protocolTypes.js";
 import { getTopicRule, listRealtimeTopicsForSurface } from "../../../shared/realtime/topicRegistry.js";
 import { projectsScopeQueryKey } from "../../features/projects/queryKeys.js";
@@ -5,6 +7,8 @@ import { getClientId } from "./clientIdentity.js";
 import { commandTracker } from "./commandTracker.js";
 import { createRealtimeEventHandlers } from "./realtimeEventHandlers.js";
 
+const SOCKET_IO_PATH = "/api/realtime";
+const SOCKET_IO_MESSAGE_EVENT = "realtime:message";
 const RECONNECT_BASE_DELAY_MS = 500;
 const RECONNECT_MAX_DELAY_MS = 10_000;
 const MAINTENANCE_INTERVAL_MS = 1_000;
@@ -19,9 +23,12 @@ function normalizeSurface(surface) {
 
 function resolveRuntimeFingerprint({ surface, authenticated, workspaceSlug, topics }) {
   const normalizedTopics = normalizeTopics(topics);
-  return [normalizeSurface(surface), authenticated ? "1" : "0", workspaceSlug || "none", normalizedTopics.join(",") || "none"].join(
-    ":"
-  );
+  return [
+    normalizeSurface(surface),
+    authenticated ? "1" : "0",
+    workspaceSlug || "none",
+    normalizedTopics.join(",") || "none"
+  ].join(":");
 }
 
 function hasAnyTopicPermission({ workspaceStore, topic }) {
@@ -46,17 +53,20 @@ function resolveEligibleTopics(workspaceStore, surface) {
   return listRealtimeTopicsForSurface(surface).filter((topic) => hasAnyTopicPermission({ workspaceStore, topic }));
 }
 
-function buildRealtimeUrl(surfaceIdValue = "") {
+function buildRealtimeUrl() {
   if (typeof window === "undefined") {
     return "";
   }
 
-  const protocol = window.location?.protocol === "https:" ? "wss:" : "ws:";
+  const protocol = window.location?.protocol === "https:" ? "https:" : "http:";
+  return `${protocol}//${window.location.host}`;
+}
+
+function resolveSocketSurface(surfaceIdValue = "") {
   const surface = String(surfaceIdValue || "")
     .trim()
     .toLowerCase();
-  const querySurface = surface || "app";
-  return `${protocol}//${window.location.host}/api/realtime?surface=${encodeURIComponent(querySurface)}`;
+  return surface || "app";
 }
 
 function buildRequestId() {
@@ -87,7 +97,13 @@ function sameTopics(left, right) {
   return true;
 }
 
-function createRealtimeRuntime({ authStore, workspaceStore, queryClient, surface }) {
+function createRealtimeRuntime({
+  authStore,
+  workspaceStore,
+  queryClient,
+  surface,
+  socketFactory = createSocketIoClient
+}) {
   if (!authStore || !workspaceStore || !queryClient) {
     throw new Error("authStore, workspaceStore, and queryClient are required.");
   }
@@ -104,6 +120,7 @@ function createRealtimeRuntime({ authStore, workspaceStore, queryClient, surface
 
   let started = false;
   let socket = null;
+  let connecting = false;
   let socketEpoch = 0;
   let reconnectAttempts = 0;
   let reconnectTimer = null;
@@ -147,30 +164,29 @@ function createRealtimeRuntime({ authStore, workspaceStore, queryClient, surface
     }
 
     try {
-      socket.onopen = null;
-      socket.onclose = null;
-      socket.onerror = null;
-      socket.onmessage = null;
+      socket.removeAllListeners();
     } catch {
       // ignore teardown issues
     }
 
     socket = null;
+    connecting = false;
     activeConnectionFingerprint = "";
   }
 
-  function closeSocket(code = 1000, reason = "") {
+  function closeSocket() {
     if (!socket) {
       return;
     }
 
+    const activeSocket = socket;
+    clearSocket();
+
     try {
-      socket.close(code, reason);
+      activeSocket.disconnect();
     } catch {
       // ignore close errors
     }
-
-    clearSocket();
   }
 
   async function processDeferredEventsForCommand(commandId, { maxEvents = MAX_REPLAY_EVENTS_PER_COMMAND } = {}) {
@@ -248,12 +264,12 @@ function createRealtimeRuntime({ authStore, workspaceStore, queryClient, surface
   }
 
   function sendControlMessage(payload, tracking = null) {
-    if (!socket || socket.readyState !== 1) {
+    if (!socket || socket.connected !== true) {
       return false;
     }
 
     try {
-      socket.send(JSON.stringify(payload));
+      socket.emit(SOCKET_IO_MESSAGE_EVENT, payload);
       if (tracking && tracking.requestId) {
         pendingControlRequests.set(String(tracking.requestId), {
           ...tracking,
@@ -339,7 +355,7 @@ function createRealtimeRuntime({ authStore, workspaceStore, queryClient, surface
       const code = String(messagePayload?.code || "").trim();
       if (tracking.type === REALTIME_MESSAGE_TYPES.SUBSCRIBE && code === REALTIME_ERROR_CODES.FORBIDDEN) {
         terminalForbiddenFingerprint = tracking.fingerprint;
-        closeSocket(1000, "forbidden");
+        closeSocket();
       }
       return;
     }
@@ -365,65 +381,55 @@ function createRealtimeRuntime({ authStore, workspaceStore, queryClient, surface
       pendingControlRequests.clear();
       clearReconnectTimer();
       reconnectAttempts = 0;
-      closeSocket(1000, "ineligible");
+      closeSocket();
       return;
     }
 
-    if (
-      socket &&
-      (socket.readyState === 0 || socket.readyState === 1) &&
-      activeConnectionFingerprint === eligibility.fingerprint
-    ) {
+    if (socket && activeConnectionFingerprint === eligibility.fingerprint && (socket.connected || connecting)) {
       return;
     }
 
-    if (socket && socket.readyState <= 1) {
-      closeSocket(1000, "resubscribe");
+    if (socket && (socket.connected || connecting)) {
+      closeSocket();
     }
 
-    const realtimeUrl = buildRealtimeUrl(surface);
-    if (!realtimeUrl || typeof WebSocket === "undefined") {
+    const realtimeUrl = buildRealtimeUrl();
+    if (!realtimeUrl || typeof socketFactory !== "function") {
       return;
     }
 
     socketEpoch += 1;
     const connectionEpoch = socketEpoch;
+    connecting = true;
     activeConnectionFingerprint = eligibility.fingerprint;
-    const nextSocket = new WebSocket(realtimeUrl);
+    const nextSocket = socketFactory(realtimeUrl, {
+      path: SOCKET_IO_PATH,
+      transports: ["websocket"],
+      autoConnect: false,
+      reconnection: false,
+      query: {
+        surface: resolveSocketSurface(surface)
+      }
+    });
     socket = nextSocket;
 
-    nextSocket.onopen = () => {
+    nextSocket.on("connect", () => {
       if (!started || socketEpoch !== connectionEpoch) {
         return;
       }
 
+      connecting = false;
       pendingControlRequests.clear();
       sendSubscribe(eligibility.workspaceSlug, eligibility.fingerprint, eligibility.topics);
-    };
+    });
 
-    nextSocket.onmessage = (event) => {
-      const rawMessage = String(event?.data || "").trim();
-      if (!rawMessage) {
-        return;
-      }
-
-      let payload;
-      try {
-        payload = JSON.parse(rawMessage);
-      } catch {
-        return;
-      }
-
+    nextSocket.on(SOCKET_IO_MESSAGE_EVENT, (payload) => {
       void handleControlMessage(payload).finally(() => {
         void runMaintenanceSweep();
       });
-    };
+    });
 
-    nextSocket.onerror = () => {
-      // close handler drives retries
-    };
-
-    nextSocket.onclose = () => {
+    nextSocket.on("connect_error", () => {
       if (socketEpoch !== connectionEpoch) {
         return;
       }
@@ -434,7 +440,22 @@ function createRealtimeRuntime({ authStore, workspaceStore, queryClient, surface
       }
 
       scheduleReconnect(eligibility.fingerprint);
-    };
+    });
+
+    nextSocket.on("disconnect", () => {
+      if (socketEpoch !== connectionEpoch) {
+        return;
+      }
+
+      clearSocket();
+      if (!started) {
+        return;
+      }
+
+      scheduleReconnect(eligibility.fingerprint);
+    });
+
+    nextSocket.connect();
   }
 
   function startMaintenanceLoop() {
@@ -495,7 +516,7 @@ function createRealtimeRuntime({ authStore, workspaceStore, queryClient, surface
       finalizationUnsubscribe = null;
     }
 
-    closeSocket(1000, "stopped");
+    closeSocket();
   }
 
   return {

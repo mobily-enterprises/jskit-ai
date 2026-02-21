@@ -79,16 +79,16 @@ This repository is not just an annuity demo. It is a broad SaaS scaffold with mu
   - `server/modules/consoleErrors/routes.js`
   - `server/domain/console/services/errors.service.js`
 
-### 1.7 Realtime WebSocket system
+### 1.7 Realtime Socket.IO system
 
-- endpoint: `GET /api/realtime`
+- endpoint: Socket.IO path `/api/realtime` (websocket transport)
 - authenticated handshake
 - subscribe/unsubscribe/ping protocol
 - topic + surface + permission enforcement at subscribe time
-- heartbeat, payload-byte limits, fanout, cleanup lifecycle
-- in-memory event bus and envelope model
+- payload-byte limits, fanout, cleanup lifecycle
+- optional Redis Streams adapter for multi-node fanout
 - Key files:
-  - `server/fastify/registerRealtimeRoutes.js`
+  - `server/realtime/registerSocketIoRealtime.js`
   - `server/fastify/realtime/subscribeContext.js`
   - `server/domain/realtime/services/events.service.js`
   - `shared/realtime/topicRegistry.js`
@@ -299,4 +299,3 @@ Nightly resilience lane:
 1. Repair the failing Playwright file first so your top-level smoke path is trustworthy.
 2. Add cross-workspace isolation integration tests for projects/history/transcripts as your next highest-risk gap.
 3. Add websocket concurrency/race tests once e2e smoke is back to green.
-

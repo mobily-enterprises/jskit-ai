@@ -1,34 +1,67 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { Worker } from "node:worker_threads";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const repoRoot = path.resolve(__dirname, "..");
+const SERVER_ENTRY_URL = new URL("../server.js", import.meta.url).href;
 
 function runBootstrap(envOverrides = {}) {
-  return spawnSync(
-    process.execPath,
-    [
-      "-e",
-      "import('./server.js').then(() => process.exit(0)).catch((error) => { console.error(error); process.exit(1); });"
-    ],
-    {
-      cwd: repoRoot,
-      env: {
-        ...process.env,
-        NODE_ENV: "test",
-        ...envOverrides
-      },
-      encoding: "utf8"
-    }
-  );
+  return new Promise((resolve) => {
+    const worker = new Worker(
+      `
+        import { parentPort } from "node:worker_threads";
+        await import(${JSON.stringify(SERVER_ENTRY_URL)});
+        parentPort.postMessage({ ok: true });
+      `,
+      {
+        eval: true,
+        type: "module",
+        env: {
+          ...process.env,
+          NODE_ENV: "test",
+          ...envOverrides
+        }
+      }
+    );
+
+    let settled = false;
+
+    worker.once("message", () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve({
+        status: 0,
+        stderr: ""
+      });
+    });
+
+    worker.once("error", (error) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve({
+        status: 1,
+        stderr: String(error?.stack || error?.message || error || "")
+      });
+    });
+
+    worker.once("exit", (code) => {
+      if (settled || code === 0) {
+        return;
+      }
+      settled = true;
+      resolve({
+        status: Number.isInteger(code) ? code : 1,
+        stderr: ""
+      });
+    });
+  });
 }
 
-test("server bootstrap succeeds with billing disabled and no billing secrets", () => {
-  const child = runBootstrap({
+test("server bootstrap succeeds with billing disabled and no billing secrets", async () => {
+  const child = await runBootstrap({
     BILLING_ENABLED: "false",
     BILLING_OPERATION_KEY_SECRET: "",
     BILLING_PROVIDER_IDEMPOTENCY_KEY_SECRET: "",
@@ -43,8 +76,8 @@ test("server bootstrap succeeds with billing disabled and no billing secrets", (
   );
 });
 
-test("server bootstrap succeeds with billing enabled for stripe when paddle secrets are unset", () => {
-  const child = runBootstrap({
+test("server bootstrap succeeds with billing enabled for stripe when paddle secrets are unset", async () => {
+  const child = await runBootstrap({
     BILLING_ENABLED: "true",
     BILLING_PROVIDER: "stripe",
     APP_PUBLIC_URL: "https://app.example.test",
@@ -65,8 +98,8 @@ test("server bootstrap succeeds with billing enabled for stripe when paddle secr
   );
 });
 
-test("server bootstrap succeeds with billing enabled for paddle when stripe secrets are unset", () => {
-  const child = runBootstrap({
+test("server bootstrap succeeds with billing enabled for paddle when stripe secrets are unset", async () => {
+  const child = await runBootstrap({
     BILLING_ENABLED: "true",
     BILLING_PROVIDER: "paddle",
     APP_PUBLIC_URL: "https://app.example.test",
@@ -87,8 +120,8 @@ test("server bootstrap succeeds with billing enabled for paddle when stripe secr
   );
 });
 
-test("server bootstrap fails closed when billing enabled without operation key secret", () => {
-  const child = runBootstrap({
+test("server bootstrap fails closed when billing enabled without operation key secret", async () => {
+  const child = await runBootstrap({
     BILLING_ENABLED: "true",
     BILLING_PROVIDER: "stripe",
     APP_PUBLIC_URL: "https://app.example.test",
@@ -104,8 +137,8 @@ test("server bootstrap fails closed when billing enabled without operation key s
   assert.match(stderr, /operationKeySecret is required/i);
 });
 
-test("server bootstrap fails closed when billing enabled without provider idempotency secret", () => {
-  const child = runBootstrap({
+test("server bootstrap fails closed when billing enabled without provider idempotency secret", async () => {
+  const child = await runBootstrap({
     BILLING_ENABLED: "true",
     BILLING_PROVIDER: "stripe",
     APP_PUBLIC_URL: "https://app.example.test",
@@ -121,8 +154,8 @@ test("server bootstrap fails closed when billing enabled without provider idempo
   assert.match(stderr, /providerIdempotencyKeySecret is required/i);
 });
 
-test("server bootstrap fails closed when billing enabled without app public url", () => {
-  const child = runBootstrap({
+test("server bootstrap fails closed when billing enabled without app public url", async () => {
+  const child = await runBootstrap({
     BILLING_ENABLED: "true",
     BILLING_PROVIDER: "stripe",
     APP_PUBLIC_URL: "",
