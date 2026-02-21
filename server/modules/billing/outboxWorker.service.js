@@ -1,12 +1,13 @@
 import { AppError } from "../../lib/errors.js";
 
-function createService({
-  billingRepository,
-  stripeSdkService,
-  retryDelaySeconds = 60,
-  maxAttempts = 8,
-  observabilityService = null
-}) {
+function createService(options = {}) {
+  const {
+    billingRepository,
+    billingProviderAdapter,
+    retryDelaySeconds = 60,
+    maxAttempts = 8,
+    observabilityService = null
+  } = options;
   if (!billingRepository) {
     throw new Error("billingRepository is required.");
   }
@@ -16,8 +17,9 @@ function createService({
   if (typeof billingRepository.updateOutboxJobByLease !== "function") {
     throw new Error("billingRepository.updateOutboxJobByLease is required.");
   }
-  if (!stripeSdkService || typeof stripeSdkService.expireCheckoutSession !== "function") {
-    throw new Error("stripeSdkService.expireCheckoutSession is required.");
+  const providerAdapter = billingProviderAdapter;
+  if (!providerAdapter || typeof providerAdapter.expireCheckoutSession !== "function") {
+    throw new Error("billingProviderAdapter.expireCheckoutSession is required.");
   }
 
   const normalizedRetryDelaySeconds = Math.max(1, Number(retryDelaySeconds) || 1);
@@ -66,7 +68,7 @@ function createService({
       throw new AppError(400, "Outbox expire_checkout_session payload missing providerCheckoutSessionId.");
     }
 
-    await stripeSdkService.expireCheckoutSession({
+    await providerAdapter.expireCheckoutSession({
       sessionId: providerSessionId
     });
   }

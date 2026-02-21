@@ -1,7 +1,7 @@
 import { AppError } from "../../lib/errors.js";
 import {
   BILLING_CHECKOUT_SESSION_STATUS,
-  BILLING_PROVIDER_STRIPE,
+  BILLING_DEFAULT_PROVIDER,
   BILLING_SUBSCRIPTION_STATUS,
   NON_TERMINAL_CURRENT_SUBSCRIPTION_STATUS_SET
 } from "./constants.js";
@@ -41,7 +41,7 @@ function toPositiveInteger(value) {
   return parsed;
 }
 
-function normalizeStripeSubscriptionStatus(value) {
+function normalizeProviderSubscriptionStatus(value) {
   const normalized = String(value || "")
     .trim()
     .toLowerCase();
@@ -169,11 +169,11 @@ function buildCheckoutCorrelationError(message) {
   });
 }
 
-function buildCheckoutResponseJson({ session, billableEntityId, operationKey }) {
+function buildCheckoutResponseJson({ session, billableEntityId, operationKey, provider = BILLING_DEFAULT_PROVIDER }) {
   const expiresAtDate = parseUnixEpochSeconds(session?.expires_at);
 
   return {
-    provider: BILLING_PROVIDER_STRIPE,
+    provider: String(provider || BILLING_DEFAULT_PROVIDER).trim().toLowerCase() || BILLING_DEFAULT_PROVIDER,
     billableEntityId: Number(billableEntityId),
     operationKey: String(operationKey || ""),
     checkoutSession: {
@@ -193,7 +193,7 @@ const __testables = {
   toSafeMetadata,
   toNullableString,
   toPositiveInteger,
-  normalizeStripeSubscriptionStatus,
+  normalizeProviderSubscriptionStatus,
   isSubscriptionStatusCurrent,
   sortDuplicateCandidatesForCanonicalSelection,
   isIncomingEventOlder,
@@ -209,7 +209,7 @@ export {
   toSafeMetadata,
   toNullableString,
   toPositiveInteger,
-  normalizeStripeSubscriptionStatus,
+  normalizeProviderSubscriptionStatus,
   isSubscriptionStatusCurrent,
   sortDuplicateCandidatesForCanonicalSelection,
   isIncomingEventOlder,

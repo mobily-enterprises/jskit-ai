@@ -76,7 +76,7 @@ test("billing webhook service persists failed webhook event state when projectio
   const billingRepository = createInMemoryWebhookRepository();
   const webhookService = createBillingWebhookService({
     billingRepository,
-    stripeSdkService: {
+    billingProviderAdapter: {
       async verifyWebhookEvent() {
         return {
           id: "evt_projection_failure",
@@ -124,7 +124,7 @@ test("billing webhook service captures operation_key correlation on failed event
   const billingRepository = createInMemoryWebhookRepository();
   const webhookService = createBillingWebhookService({
     billingRepository,
-    stripeSdkService: {
+    billingProviderAdapter: {
       async verifyWebhookEvent() {
         return {
           id: "evt_operation_key_only",
@@ -183,7 +183,7 @@ test("billing webhook service resolves billable entity correlation from customer
 
   const webhookService = createBillingWebhookService({
     billingRepository,
-    stripeSdkService: {
+    billingProviderAdapter: {
       async verifyWebhookEvent() {
         return {
           id: "evt_customer_correlated",
@@ -244,7 +244,7 @@ test("billing webhook service resolves invoice correlation from customer ownersh
 
   const webhookService = createBillingWebhookService({
     billingRepository,
-    stripeSdkService: {
+    billingProviderAdapter: {
       async verifyWebhookEvent() {
         return {
           id: "evt_invoice_customer_88",
@@ -288,4 +288,47 @@ test("billing webhook service resolves invoice correlation from customer ownersh
   assert.ok(failedRow);
   assert.equal(failedRow.status, "failed");
   assert.equal(failedRow.billableEntityId, 88);
+});
+
+test("billing webhook service accepts paddle provider events and ignores unsupported types", async () => {
+  const billingRepository = createInMemoryWebhookRepository();
+  const webhookService = createBillingWebhookService({
+    billingRepository,
+    billingProviderAdapter: {
+      async verifyWebhookEvent() {
+        return {
+          id: "evt_paddle_ignore",
+          type: "notification.created",
+          created: 1_771_100_000,
+          data: {
+            object: {}
+          }
+        };
+      },
+      async retrieveCheckoutSession() {
+        return null;
+      },
+      async retrieveSubscription() {
+        return null;
+      },
+      async retrieveInvoice() {
+        return null;
+      }
+    },
+    billingCheckoutSessionService: {},
+    stripeWebhookEndpointSecret: "whsec_test",
+    paddleWebhookEndpointSecret: "pwhsec_test"
+  });
+
+  const result = await webhookService.processProviderEvent({
+    provider: "paddle",
+    rawBody: Buffer.from("{}"),
+    signatureHeader: "ts=123;h1=abc"
+  });
+
+  assert.deepEqual(result, {
+    ignored: true,
+    eventId: "evt_paddle_ignore",
+    eventType: "notification.created"
+  });
 });

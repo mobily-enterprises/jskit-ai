@@ -50,7 +50,7 @@ test("checkout projection reconciles one_off checkout.session.completed without 
         return null;
       }
     },
-    stripeSdkService: {
+    billingProviderAdapter: {
       async retrieveCheckoutSession() {
         return null;
       }

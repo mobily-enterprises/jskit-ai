@@ -3,14 +3,14 @@ import { AppError } from "../../lib/errors.js";
 import {
   BILLING_ACTIONS,
   BILLING_CHECKOUT_SESSION_STATUS,
+  BILLING_DEFAULT_PROVIDER,
   BILLING_FAILURE_CODES,
   BILLING_IDEMPOTENCY_STATUS,
-  BILLING_PROVIDER_STRIPE,
+  BILLING_RUNTIME_DEFAULTS,
   NON_TERMINAL_CURRENT_SUBSCRIPTION_STATUS_SET,
-  STRIPE_PHASE1_DEFAULTS
 } from "./constants.js";
 import { createService as createWebhookProjectionService } from "./webhookProjection.service.js";
-import { normalizeStripeSubscriptionStatus, toNullableString, toSafeMetadata } from "./webhookProjection.utils.js";
+import { normalizeProviderSubscriptionStatus, toNullableString, toSafeMetadata } from "./webhookProjection.utils.js";
 
 function providerSessionStatusToLocalStatus(providerStatus) {
   const normalized = String(providerStatus || "").trim().toLowerCase();
@@ -79,16 +79,17 @@ function computeAgeSeconds(referenceTime, now) {
   return ageMs / 1000;
 }
 
-function createService({
-  billingRepository,
-  stripeSdkService,
-  billingCheckoutSessionService,
-  billingWebhookService = null,
-  observabilityService = null,
-  checkoutSessionGraceSeconds = STRIPE_PHASE1_DEFAULTS.CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS,
-  completionSlaSeconds = 5 * 60,
-  stalePendingLeaseSeconds = STRIPE_PHASE1_DEFAULTS.CHECKOUT_PENDING_LEASE_SECONDS * 2
-}) {
+function createService(options = {}) {
+  const {
+    billingRepository,
+    billingProviderAdapter,
+    billingCheckoutSessionService,
+    billingWebhookService = null,
+    observabilityService = null,
+    checkoutSessionGraceSeconds = BILLING_RUNTIME_DEFAULTS.CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS,
+    completionSlaSeconds = 5 * 60,
+    stalePendingLeaseSeconds = BILLING_RUNTIME_DEFAULTS.CHECKOUT_PENDING_LEASE_SECONDS * 2
+  } = options;
   if (!billingRepository) {
     throw new Error("billingRepository is required.");
   }
@@ -98,9 +99,14 @@ function createService({
   if (typeof billingRepository.transaction !== "function") {
     throw new Error("billingRepository.transaction is required.");
   }
-  if (!stripeSdkService) {
-    throw new Error("stripeSdkService is required.");
+  const providerAdapter = billingProviderAdapter;
+  if (!providerAdapter) {
+    throw new Error("billingProviderAdapter is required.");
   }
+  const activeProvider =
+    String(providerAdapter?.provider || BILLING_DEFAULT_PROVIDER)
+      .trim()
+      .toLowerCase() || BILLING_DEFAULT_PROVIDER;
   if (!billingCheckoutSessionService) {
     throw new Error("billingCheckoutSessionService is required.");
   }
@@ -111,7 +117,7 @@ function createService({
   const webhookProjectionService = createWebhookProjectionService({
     billingRepository,
     billingCheckoutSessionService,
-    stripeSdkService,
+    billingProviderAdapter: providerAdapter,
     observabilityService
   });
 
@@ -168,7 +174,7 @@ function createService({
   async function resolveProviderCheckoutSession(session) {
     if (session?.providerCheckoutSessionId) {
       try {
-        return await stripeSdkService.retrieveCheckoutSession({
+        return await providerAdapter.retrieveCheckoutSession({
           sessionId: session.providerCheckoutSessionId,
           expand: ["subscription", "customer"]
         });
@@ -177,12 +183,12 @@ function createService({
       }
     }
 
-    if (!session?.operationKey || typeof stripeSdkService.listCheckoutSessionsByOperationKey !== "function") {
+    if (!session?.operationKey || typeof providerAdapter.listCheckoutSessionsByOperationKey !== "function") {
       return null;
     }
 
     try {
-      const candidates = await stripeSdkService.listCheckoutSessionsByOperationKey({
+      const candidates = await providerAdapter.listCheckoutSessionsByOperationKey({
         operationKey: session.operationKey,
         limit: 10
       });
@@ -234,7 +240,7 @@ function createService({
             operationKey: lockedSession.operationKey,
             reason: "expired",
             providerEventCreatedAt: now,
-            provider: BILLING_PROVIDER_STRIPE,
+            provider: activeProvider,
             trx
           });
           return true;
@@ -247,7 +253,7 @@ function createService({
           providerSubscriptionId: toNullableString(providerSession.subscription),
           providerEventCreatedAt: now,
           billableEntityId: lockedSession.billableEntityId,
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           trx
         });
         return true;
@@ -293,7 +299,7 @@ function createService({
 
       if (providerSubscriptionId) {
         try {
-          providerSubscription = await stripeSdkService.retrieveSubscription({
+          providerSubscription = await providerAdapter.retrieveSubscription({
             subscriptionId: providerSubscriptionId
           });
         } catch {
@@ -315,7 +321,7 @@ function createService({
         if (providerSubscriptionId) {
           const localSubscription = await billingRepository.findSubscriptionByProviderSubscriptionId(
             {
-              provider: BILLING_PROVIDER_STRIPE,
+              provider: activeProvider,
               providerSubscriptionId
             },
             {
@@ -330,7 +336,7 @@ function createService({
               operationKey: lockedSession.operationKey,
               providerSubscriptionId,
               providerEventCreatedAt: now,
-              provider: BILLING_PROVIDER_STRIPE,
+              provider: activeProvider,
               trx
             });
             return true;
@@ -349,7 +355,7 @@ function createService({
               customer: providerSubscription.customer || lockedSession.providerCustomerId
             };
 
-            await webhookProjectionService.projectSubscriptionFromStripe(projectedSubscription, {
+            await webhookProjectionService.projectSubscription(projectedSubscription, {
               trx,
               providerCreatedAt: now,
               providerEventId: `reconciliation.subscription.${lockedSession.id}.${now.getTime()}`
@@ -357,7 +363,7 @@ function createService({
 
             const refreshed = await billingRepository.findCheckoutSessionByProviderOperationKey(
               {
-                provider: BILLING_PROVIDER_STRIPE,
+                provider: activeProvider,
                 operationKey: lockedSession.operationKey
               },
               {
@@ -381,7 +387,7 @@ function createService({
             operationKey: lockedSession.operationKey,
             reason: "abandoned",
             providerEventCreatedAt: now,
-            provider: BILLING_PROVIDER_STRIPE,
+            provider: activeProvider,
             trx
           });
           return true;
@@ -464,7 +470,7 @@ function createService({
               providerSubscriptionId: toNullableString(providerSession.subscription),
               providerEventCreatedAt: now,
               billableEntityId: lockedSession.billableEntityId,
-              provider: BILLING_PROVIDER_STRIPE,
+              provider: activeProvider,
               trx
             });
             return true;
@@ -476,7 +482,7 @@ function createService({
               operationKey: lockedSession.operationKey,
               reason: "expired",
               providerEventCreatedAt: now,
-              provider: BILLING_PROVIDER_STRIPE,
+              provider: activeProvider,
               trx
             });
             return true;
@@ -646,7 +652,7 @@ function createService({
         const correlatedSession = operationKey
           ? checkoutSessions.find(
               (session) =>
-                session.provider === BILLING_PROVIDER_STRIPE &&
+                session.provider === activeProvider &&
                 String(session.operationKey || "") === String(operationKey)
             ) || null
           : null;
@@ -662,7 +668,7 @@ function createService({
           await billingRepository.upsertCheckoutSessionByOperationKey(
             {
               billableEntityId: lockedPendingRow.billableEntityId,
-              provider: BILLING_PROVIDER_STRIPE,
+              provider: activeProvider,
               providerCheckoutSessionId: null,
               idempotencyRowId: lockedPendingRow.id,
               operationKey,
@@ -763,7 +769,7 @@ function createService({
   async function reconcileActiveSubscriptions(now) {
     const subscriptions = typeof billingRepository.listCurrentSubscriptions === "function"
       ? await billingRepository.listCurrentSubscriptions({
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           limit: 300
         })
       : [];
@@ -775,7 +781,7 @@ function createService({
       let providerMissing = false;
 
       try {
-        providerSubscription = await stripeSdkService.retrieveSubscription({
+        providerSubscription = await providerAdapter.retrieveSubscription({
           subscriptionId: localSubscription.providerSubscriptionId
         });
       } catch (error) {
@@ -795,7 +801,7 @@ function createService({
 
         const lockedSubscription = await billingRepository.findSubscriptionByProviderSubscriptionId(
           {
-            provider: BILLING_PROVIDER_STRIPE,
+            provider: activeProvider,
             providerSubscriptionId: localSubscription.providerSubscriptionId
           },
           {
@@ -836,7 +842,7 @@ function createService({
           return true;
         }
 
-        const normalizedStatus = normalizeStripeSubscriptionStatus(providerSubscription?.status);
+        const normalizedStatus = normalizeProviderSubscriptionStatus(providerSubscription?.status);
         const shouldBeCurrent = hasCurrentStatus(normalizedStatus);
         const providerCurrentPeriodEnd = parseUnixEpochSeconds(providerSubscription?.current_period_end);
         const providerTrialEnd = parseUnixEpochSeconds(providerSubscription?.trial_end);
@@ -900,7 +906,7 @@ function createService({
     const since = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const invoices = typeof billingRepository.listRecentInvoices === "function"
       ? await billingRepository.listRecentInvoices({
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           since,
           limit: 500
         })
@@ -911,7 +917,7 @@ function createService({
     for (const localInvoice of invoices) {
       let providerInvoice;
       try {
-        providerInvoice = await stripeSdkService.retrieveInvoice({
+        providerInvoice = await providerAdapter.retrieveInvoice({
           invoiceId: localInvoice.providerInvoiceId
         });
       } catch {
@@ -924,7 +930,7 @@ function createService({
       }
 
       const subscriptionProbe = await billingRepository.findSubscriptionByProviderSubscriptionId({
-        provider: BILLING_PROVIDER_STRIPE,
+        provider: activeProvider,
         providerSubscriptionId
       });
       if (!subscriptionProbe) {
@@ -939,7 +945,7 @@ function createService({
 
         const lockedSubscription = await billingRepository.findSubscriptionByProviderSubscriptionId(
           {
-            provider: BILLING_PROVIDER_STRIPE,
+            provider: activeProvider,
             providerSubscriptionId
           },
           {
@@ -955,7 +961,7 @@ function createService({
           subscriptionId: lockedSubscription.id,
           billableEntityId: lockedSubscription.billableEntityId,
           billingCustomerId: lockedSubscription.billingCustomerId,
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           providerInvoiceId: toNullableString(providerInvoice?.id) || localInvoice.providerInvoiceId,
           status: String(providerInvoice?.status || ""),
           amountDueMinor: Number(providerInvoice?.amount_due || 0),
@@ -992,7 +998,7 @@ function createService({
           await billingRepository.upsertPayment(
             {
               invoiceId: invoiceRow.id,
-              provider: BILLING_PROVIDER_STRIPE,
+              provider: activeProvider,
               providerPaymentId,
               type: "invoice_payment",
               status: normalizedInvoiceStatus === "paid" ? "paid" : "failed",
@@ -1089,9 +1095,9 @@ function createService({
     }
   }
 
-  async function runScope({ provider = BILLING_PROVIDER_STRIPE, scope, runnerId, leaseSeconds = 180, now = new Date() }) {
+  async function runScope({ provider = activeProvider, scope, runnerId, leaseSeconds = 180, now = new Date() }) {
     const normalizedProvider = String(provider || "").trim().toLowerCase();
-    if (normalizedProvider !== BILLING_PROVIDER_STRIPE) {
+    if (normalizedProvider !== activeProvider) {
       throw new AppError(400, "Unsupported billing reconciliation provider.");
     }
 

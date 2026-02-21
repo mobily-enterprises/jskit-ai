@@ -34,7 +34,7 @@ function createOrchestrator() {
         return null;
       }
     },
-    stripeSdkService: {
+    billingProviderAdapter: {
       async createCheckoutSession() {
         return null;
       }
@@ -43,11 +43,11 @@ function createOrchestrator() {
   });
 }
 
-test("checkout orchestrator frozen Stripe params omit customer_creation in subscription mode", async () => {
+test("checkout orchestrator frozen checkout params omit customer_creation in subscription mode", async () => {
   const service = createOrchestrator();
   const now = new Date("2026-02-20T08:00:00.000Z");
 
-  const params = await service.buildFrozenStripeCheckoutSessionParams({
+  const params = await service.buildFrozenCheckoutSessionParams({
     operationKey: "op_1",
     billableEntityId: 99,
     idempotencyRowId: 501,
@@ -71,11 +71,11 @@ test("checkout orchestrator frozen Stripe params omit customer_creation in subsc
   assert.equal(params.customer, undefined);
 });
 
-test("checkout orchestrator frozen Stripe params include metered components without quantity", async () => {
+test("checkout orchestrator frozen checkout params include metered components without quantity", async () => {
   const service = createOrchestrator();
   const now = new Date("2026-02-20T09:00:00.000Z");
 
-  const params = await service.buildFrozenStripeCheckoutSessionParams({
+  const params = await service.buildFrozenCheckoutSessionParams({
     operationKey: "op_2",
     billableEntityId: 100,
     idempotencyRowId: 502,
@@ -118,11 +118,11 @@ test("checkout orchestrator frozen Stripe params include metered components with
   });
 });
 
-test("checkout orchestrator frozen Stripe params support one_off payment mode", async () => {
+test("checkout orchestrator frozen checkout params support one_off payment mode", async () => {
   const service = createOrchestrator();
   const now = new Date("2026-02-20T10:00:00.000Z");
 
-  const params = await service.buildFrozenStripeCheckoutSessionParams({
+  const params = await service.buildFrozenCheckoutSessionParams({
     operationKey: "op_one_off_1",
     billableEntityId: 101,
     idempotencyRowId: 503,
@@ -160,7 +160,7 @@ test("checkout orchestrator one_off params enforce deployment currency", async (
 
   await assert.rejects(
     () =>
-      service.buildFrozenStripeCheckoutSessionParams({
+      service.buildFrozenCheckoutSessionParams({
         operationKey: "op_one_off_currency",
         billableEntityId: 102,
         idempotencyRowId: 504,

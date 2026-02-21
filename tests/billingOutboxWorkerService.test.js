@@ -17,7 +17,7 @@ function createWorkerFixture({
     }
   };
 
-  const stripeSdkService = {
+  const billingProviderAdapter = {
     async expireCheckoutSession(payload) {
       if (expireCheckoutSession) {
         return expireCheckoutSession(payload);
@@ -34,7 +34,7 @@ function createWorkerFixture({
 
   return createOutboxWorkerService({
     billingRepository,
-    stripeSdkService,
+    billingProviderAdapter,
     observabilityService
   });
 }

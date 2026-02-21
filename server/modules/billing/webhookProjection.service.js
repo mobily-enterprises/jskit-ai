@@ -6,25 +6,32 @@ import {
   buildCheckoutResponseJson,
   hasSameTimestampOrderingConflict,
   isIncomingEventOlder,
-  normalizeStripeSubscriptionStatus,
+  normalizeProviderSubscriptionStatus,
   parseUnixEpochSeconds,
   toNullableString,
   toPositiveInteger,
   toSafeMetadata
 } from "./webhookProjection.utils.js";
 
-function createService({ billingRepository, billingCheckoutSessionService, stripeSdkService, observabilityService = null }) {
+function createService(options = {}) {
+  const {
+    billingRepository,
+    billingCheckoutSessionService,
+    billingProviderAdapter,
+    observabilityService = null
+  } = options;
+  const providerAdapter = billingProviderAdapter;
   const checkoutProjectionService = createCheckoutProjectionService({
     billingRepository,
     billingCheckoutSessionService,
-    stripeSdkService,
+    billingProviderAdapter: providerAdapter,
     observabilityService
   });
 
   const subscriptionProjectionService = createSubscriptionProjectionService({
     billingRepository,
     billingCheckoutSessionService,
-    stripeSdkService,
+    billingProviderAdapter: providerAdapter,
     observabilityService,
     resolveBillableEntityIdFromCustomerId: checkoutProjectionService.resolveBillableEntityIdFromCustomerId,
     lockEntityAggregate: checkoutProjectionService.lockEntityAggregate,
@@ -34,8 +41,8 @@ function createService({ billingRepository, billingCheckoutSessionService, strip
   return {
     handleCheckoutSessionCompleted: checkoutProjectionService.handleCheckoutSessionCompleted,
     handleCheckoutSessionExpired: checkoutProjectionService.handleCheckoutSessionExpired,
-    projectSubscriptionFromStripe: subscriptionProjectionService.projectSubscriptionFromStripe,
-    projectInvoiceAndPaymentFromStripe: subscriptionProjectionService.projectInvoiceAndPaymentFromStripe
+    projectSubscription: subscriptionProjectionService.projectSubscription,
+    projectInvoiceAndPayment: subscriptionProjectionService.projectInvoiceAndPayment
   };
 }
 
@@ -46,7 +53,7 @@ export {
   buildCheckoutResponseJson,
   hasSameTimestampOrderingConflict,
   isIncomingEventOlder,
-  normalizeStripeSubscriptionStatus,
+  normalizeProviderSubscriptionStatus,
   parseUnixEpochSeconds,
   toNullableString,
   toPositiveInteger,

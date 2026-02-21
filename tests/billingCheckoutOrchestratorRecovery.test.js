@@ -73,7 +73,7 @@ test("checkout recovery hash mismatch fails closed and marks idempotency failed"
         return null;
       }
     },
-    stripeSdkService: {
+    billingProviderAdapter: {
       async createCheckoutSession() {
         createCheckoutSessionCalls += 1;
         throw new Error("should not reach provider create when hash mismatch is detected");

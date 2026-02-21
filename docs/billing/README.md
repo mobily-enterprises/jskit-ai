@@ -6,6 +6,7 @@ Use these files first before changing billing behavior:
 
 - `docs/billing/contracts.md`
 - `docs/billing/integration-guide.md`
+- `docs/billing/provider-insulation-contract.md`
 
 Supporting source-of-truth implementation files:
 

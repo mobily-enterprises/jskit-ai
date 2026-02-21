@@ -53,7 +53,7 @@ function createPhase21Service(overrides = {}) {
       },
       ...overrides.billingCheckoutOrchestrator
     },
-    stripeSdkService: {
+    billingProviderAdapter: {
       async createBillingPortalSession() {
         return {
           id: "bps_1",
@@ -66,7 +66,7 @@ function createPhase21Service(overrides = {}) {
           defaultPaymentMethodId: null
         };
       },
-      ...overrides.stripeSdkService
+      ...overrides.billingProviderAdapter
     },
     appPublicUrl: "https://app.example.test",
     providerReplayWindowSeconds: 60 * 60,
@@ -336,7 +336,7 @@ test("phase 2.1 syncPaymentMethods upserts methods and records sync event", asyn
         ];
       }
     },
-    stripeSdkService: {
+    billingProviderAdapter: {
       async listCustomerPaymentMethods({ customerId }) {
         assert.equal(customerId, "cus_123");
         return {
@@ -413,7 +413,7 @@ test("phase 2.1 syncPaymentMethods does not detach methods when provider list is
         return [];
       }
     },
-    stripeSdkService: {
+    billingProviderAdapter: {
       async listCustomerPaymentMethods() {
         return {
           defaultPaymentMethodId: "pm_2",

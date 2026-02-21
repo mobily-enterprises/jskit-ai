@@ -129,6 +129,23 @@ function createController({ billingService, billingWebhookService }) {
     });
   }
 
+  async function processPaddleWebhook(request, reply) {
+    const rawBody = request.rawBody || null;
+    if (!rawBody || !Buffer.isBuffer(rawBody)) {
+      throw new AppError(400, "Webhook raw body is required.");
+    }
+
+    await billingWebhookService.processProviderEvent({
+      provider: "paddle",
+      rawBody,
+      signatureHeader: request.headers?.["paddle-signature"]
+    });
+
+    reply.code(200).send({
+      ok: true
+    });
+  }
+
   return {
     listPlans,
     getSubscriptionSnapshot,
@@ -139,7 +156,8 @@ function createController({ billingService, billingWebhookService }) {
     startCheckout,
     createPortalSession,
     createPaymentLink,
-    processStripeWebhook
+    processStripeWebhook,
+    processPaddleWebhook
   };
 }
 

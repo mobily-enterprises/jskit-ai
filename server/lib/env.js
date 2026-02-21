@@ -85,7 +85,7 @@ export const env = cleanEnv(
     AI_REQUIRED_PERMISSION: str({ default: "" }),
     BILLING_ENABLED: bool({ default: false }),
     BILLING_PROVIDER: str({
-      choices: ["stripe"],
+      choices: ["stripe", "paddle"],
       default: "stripe"
     }),
     BILLING_CURRENCY: str({ default: "USD" }),
@@ -96,6 +96,10 @@ export const env = cleanEnv(
     BILLING_STRIPE_WEBHOOK_ENDPOINT_SECRET: str({ default: "" }),
     BILLING_STRIPE_MAX_NETWORK_RETRIES: num({ default: 2 }),
     BILLING_STRIPE_TIMEOUT_MS: num({ default: 30000 }),
+    BILLING_PADDLE_API_KEY: str({ default: "" }),
+    BILLING_PADDLE_API_BASE_URL: str({ default: "https://api.paddle.com" }),
+    BILLING_PADDLE_WEBHOOK_ENDPOINT_SECRET: str({ default: "" }),
+    BILLING_PADDLE_TIMEOUT_MS: num({ default: 30000 }),
     BILLING_PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS: num({ default: 23 * 60 * 60 }),
     BILLING_CHECKOUT_PROVIDER_EXPIRES_SECONDS: num({ default: 24 * 60 * 60 }),
     BILLING_CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS: num({ default: 90 }),

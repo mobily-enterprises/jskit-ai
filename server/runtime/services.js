@@ -24,7 +24,7 @@ import { createService as createBillingPolicyService } from "../modules/billing/
 import { createService as createBillingPricingService } from "../modules/billing/pricing.service.js";
 import { createService as createBillingIdempotencyService } from "../modules/billing/idempotency.service.js";
 import { createService as createBillingCheckoutSessionService } from "../modules/billing/checkoutSession.service.js";
-import { createService as createStripeSdkService } from "../modules/billing/stripeSdk.service.js";
+import { createService as createBillingProvidersModule } from "../modules/billing/providers/index.js";
 import { createService as createBillingCheckoutOrchestratorService } from "../modules/billing/checkoutOrchestrator.service.js";
 import { createService as createBillingWebhookService } from "../modules/billing/webhook.service.js";
 import { createService as createBillingOutboxWorkerService } from "../modules/billing/outboxWorker.service.js";
@@ -74,7 +74,7 @@ function createBillingDisabledServices() {
       startCheckout: throwBillingDisabled,
       recoverCheckoutFromPending: throwBillingDisabled,
       finalizeRecoveredCheckout: throwBillingDisabled,
-      buildFrozenStripeCheckoutSessionParams: throwBillingDisabled
+      buildFrozenCheckoutSessionParams: throwBillingDisabled
     },
     billingWebhookService: {
       processProviderEvent: throwBillingDisabled,
@@ -301,13 +301,28 @@ function createServices({
     healthRepository
   });
 
-  const stripeSdkService = createStripeSdkService({
+  const billingProvidersModule = createBillingProvidersModule({
     enabled: env.BILLING_ENABLED,
-    secretKey: env.BILLING_STRIPE_SECRET_KEY,
-    apiVersion: env.BILLING_STRIPE_API_VERSION,
-    maxNetworkRetries: env.BILLING_STRIPE_MAX_NETWORK_RETRIES,
-    timeoutMs: env.BILLING_STRIPE_TIMEOUT_MS
+    defaultProvider: env.BILLING_PROVIDER,
+    stripe: {
+      secretKey: env.BILLING_STRIPE_SECRET_KEY,
+      apiVersion: env.BILLING_STRIPE_API_VERSION,
+      maxNetworkRetries: env.BILLING_STRIPE_MAX_NETWORK_RETRIES,
+      timeoutMs: env.BILLING_STRIPE_TIMEOUT_MS
+    },
+    paddle: {
+      apiKey: env.BILLING_PADDLE_API_KEY,
+      apiBaseUrl: env.BILLING_PADDLE_API_BASE_URL,
+      timeoutMs: env.BILLING_PADDLE_TIMEOUT_MS
+    }
   });
+  const {
+    stripeSdkService,
+    paddleSdkService,
+    billingProviderRegistryService,
+    billingProviderAdapter,
+    billingWebhookTranslationRegistryService
+  } = billingProvidersModule;
 
   let billingPolicyService;
   let billingPricingService;
@@ -352,7 +367,7 @@ function createServices({
       billingPricingService,
       billingIdempotencyService,
       billingCheckoutSessionService,
-      stripeSdkService,
+      billingProviderAdapter,
       appPublicUrl: env.APP_PUBLIC_URL,
       observabilityService,
       checkoutSessionGraceSeconds: env.BILLING_CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS,
@@ -362,16 +377,19 @@ function createServices({
 
     billingWebhookService = createBillingWebhookService({
       billingRepository,
-      stripeSdkService,
+      billingProviderAdapter,
+      billingProviderRegistryService,
+      billingWebhookTranslationRegistryService,
       billingCheckoutSessionService,
       stripeWebhookEndpointSecret: env.BILLING_STRIPE_WEBHOOK_ENDPOINT_SECRET,
+      paddleWebhookEndpointSecret: env.BILLING_PADDLE_WEBHOOK_ENDPOINT_SECRET,
       observabilityService,
       payloadRetentionDays: env.BILLING_WEBHOOK_PAYLOAD_RETENTION_DAYS
     });
 
     billingOutboxWorkerService = createBillingOutboxWorkerService({
       billingRepository,
-      stripeSdkService,
+      billingProviderAdapter,
       retryDelaySeconds: env.BILLING_OUTBOX_RETRY_DELAY_SECONDS,
       maxAttempts: env.BILLING_OUTBOX_MAX_ATTEMPTS,
       observabilityService
@@ -379,7 +397,7 @@ function createServices({
 
     billingRemediationWorkerService = createBillingRemediationWorkerService({
       billingRepository,
-      stripeSdkService,
+      billingProviderAdapter,
       retryDelaySeconds: env.BILLING_REMEDIATION_RETRY_DELAY_SECONDS,
       maxAttempts: env.BILLING_REMEDIATION_MAX_ATTEMPTS,
       observabilityService
@@ -387,7 +405,7 @@ function createServices({
 
     billingReconciliationService = createBillingReconciliationService({
       billingRepository,
-      stripeSdkService,
+      billingProviderAdapter,
       billingCheckoutSessionService,
       billingWebhookService,
       observabilityService,
@@ -401,7 +419,7 @@ function createServices({
       billingPricingService,
       billingIdempotencyService,
       billingCheckoutOrchestrator,
-      stripeSdkService,
+      billingProviderAdapter,
       appPublicUrl: env.APP_PUBLIC_URL,
       providerReplayWindowSeconds: env.BILLING_PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS,
       observabilityService
@@ -412,6 +430,7 @@ function createServices({
       billingOutboxWorkerService,
       billingRemediationWorkerService,
       billingReconciliationService,
+      reconciliationProvider: billingProviderAdapter.provider,
       logger: observabilityService?.logger || console,
       workerIdPrefix: `billing:${process.pid}`
     });
@@ -457,7 +476,11 @@ function createServices({
     billingIdempotencyService,
     billingCheckoutSessionService,
     billingCheckoutOrchestrator,
+    billingProviderRegistryService,
+    billingProviderAdapter,
+    billingWebhookTranslationRegistryService,
     stripeSdkService,
+    paddleSdkService,
     billingWebhookService,
     billingOutboxWorkerService,
     billingRemediationWorkerService,

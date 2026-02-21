@@ -1,20 +1,22 @@
 import { AppError } from "../../lib/errors.js";
 import { isMysqlDuplicateEntryError } from "../../lib/primitives/mysqlErrors.js";
-import { BILLING_PROVIDER_STRIPE } from "./constants.js";
+import { BILLING_DEFAULT_PROVIDER, BILLING_PROVIDER_PADDLE, BILLING_PROVIDER_STRIPE } from "./constants.js";
 import {
   createService as createWebhookProjectionService,
   parseUnixEpochSeconds
 } from "./webhookProjection.service.js";
-
-const STRIPE_REQUIRED_EVENT_TYPES = new Set([
-  "checkout.session.completed",
-  "checkout.session.expired",
-  "customer.subscription.created",
-  "customer.subscription.updated",
-  "customer.subscription.deleted",
-  "invoice.paid",
-  "invoice.payment_failed"
-]);
+import { createService as createStripeWebhookTranslationService } from "./providers/stripe/webhookTranslation.service.js";
+import {
+  PADDLE_EVENT_TYPE_MAP,
+  createService as createPaddleWebhookTranslationService,
+  mapPaddleEventType,
+  normalizePaddleEventToCanonical
+} from "./providers/paddle/webhookTranslation.service.js";
+import {
+  REQUIRED_CANONICAL_BILLING_WEBHOOK_EVENT_TYPES,
+  normalizeBillingWebhookProvider
+} from "./providers/shared/webhookTranslation.contract.js";
+import { createService as createBillingWebhookTranslationRegistryService } from "./providers/shared/webhookTranslationRegistry.service.js";
 
 function toNullableString(value) {
   const normalized = String(value || "").trim();
@@ -29,41 +31,54 @@ function toPositiveInteger(value) {
   return parsed;
 }
 
-function createService({
-  billingRepository,
-  stripeSdkService,
-  billingCheckoutSessionService,
-  stripeWebhookEndpointSecret,
-  observabilityService = null,
-  payloadRetentionDays = 30
-}) {
+function createService(options = {}) {
+  const {
+    billingRepository,
+    billingProviderAdapter,
+    billingProviderRegistryService,
+    billingCheckoutSessionService,
+    billingWebhookTranslationRegistryService = null,
+    stripeWebhookEndpointSecret,
+    paddleWebhookEndpointSecret,
+    observabilityService = null,
+    payloadRetentionDays = 30
+  } = options;
   if (!billingRepository) {
     throw new Error("billingRepository is required.");
   }
   if (typeof billingRepository.transaction !== "function") {
     throw new Error("billingRepository.transaction is required.");
   }
-  if (!stripeSdkService || typeof stripeSdkService.verifyWebhookEvent !== "function") {
-    throw new Error("stripeSdkService.verifyWebhookEvent is required.");
+  const providerAdapter = billingProviderAdapter;
+  if (!providerAdapter || typeof providerAdapter.verifyWebhookEvent !== "function") {
+    throw new Error("billingProviderAdapter.verifyWebhookEvent is required.");
   }
   if (!billingCheckoutSessionService) {
     throw new Error("billingCheckoutSessionService is required.");
   }
 
-  const endpointSecret = String(stripeWebhookEndpointSecret || "").trim();
-  if (!endpointSecret) {
-    throw new Error("stripeWebhookEndpointSecret is required.");
-  }
+  const endpointSecretByProvider = {
+    [BILLING_PROVIDER_STRIPE]: String(stripeWebhookEndpointSecret || "").trim(),
+    [BILLING_PROVIDER_PADDLE]: String(paddleWebhookEndpointSecret || "").trim()
+  };
+
+  const webhookTranslationRegistry =
+    billingWebhookTranslationRegistryService ||
+    createBillingWebhookTranslationRegistryService({
+      translators: [createStripeWebhookTranslationService(), createPaddleWebhookTranslationService()],
+      defaultProvider: BILLING_DEFAULT_PROVIDER
+    });
+  const supportedWebhookProviders = new Set(
+    typeof webhookTranslationRegistry.listProviders === "function"
+      ? webhookTranslationRegistry.listProviders()
+      : [BILLING_PROVIDER_STRIPE, BILLING_PROVIDER_PADDLE]
+  );
+
   const normalizedPayloadRetentionDays = Math.max(1, Number(payloadRetentionDays) || 30);
 
-  const projectionService = createWebhookProjectionService({
-    billingRepository,
-    billingCheckoutSessionService,
-    stripeSdkService,
-    observabilityService
-  });
+  const projectionServiceByProvider = new Map();
 
-  async function resolveBillableEntityIdFromCustomerId(customerId, trx) {
+  async function resolveBillableEntityIdFromCustomerId(customerId, provider, trx) {
     const providerCustomerId = toNullableString(customerId);
     if (!providerCustomerId || typeof billingRepository.findCustomerByProviderCustomerId !== "function") {
       return null;
@@ -71,7 +86,7 @@ function createService({
 
     const customer = await billingRepository.findCustomerByProviderCustomerId(
       {
-        provider: BILLING_PROVIDER_STRIPE,
+        provider,
         providerCustomerId
       },
       trx ? { trx } : {}
@@ -79,7 +94,7 @@ function createService({
     return toPositiveInteger(customer?.billableEntityId);
   }
 
-  async function resolveBillableEntityIdFromSubscriptionId(providerSubscriptionId, trx) {
+  async function resolveBillableEntityIdFromSubscriptionId(providerSubscriptionId, provider, trx) {
     const normalizedSubscriptionId = toNullableString(providerSubscriptionId);
     if (!normalizedSubscriptionId || typeof billingRepository.findSubscriptionByProviderSubscriptionId !== "function") {
       return null;
@@ -87,7 +102,7 @@ function createService({
 
     const subscription = await billingRepository.findSubscriptionByProviderSubscriptionId(
       {
-        provider: BILLING_PROVIDER_STRIPE,
+        provider,
         providerSubscriptionId: normalizedSubscriptionId
       },
       trx ? { trx } : {}
@@ -112,7 +127,7 @@ function createService({
     return billableEntity ? normalizedBillableEntityId : null;
   }
 
-  async function extractCorrelationFromStripeEvent(event, { trx } = {}) {
+  async function extractCorrelationFromEvent(event, { provider, trx } = {}) {
     const eventType = String(event?.type || "").trim();
     const eventObject = event?.data?.object && typeof event.data.object === "object" ? event.data.object : {};
     const metadata = eventObject?.metadata && typeof eventObject.metadata === "object" ? eventObject.metadata : {};
@@ -128,14 +143,14 @@ function createService({
         eventType === "customer.subscription.updated" ||
         eventType === "customer.subscription.deleted"
       ) {
-        billableEntityId = await resolveBillableEntityIdFromCustomerId(eventObject.customer, trx);
+        billableEntityId = await resolveBillableEntityIdFromCustomerId(eventObject.customer, provider, trx);
       }
     }
 
     if (!billableEntityId && (eventType === "invoice.paid" || eventType === "invoice.payment_failed")) {
-      billableEntityId = await resolveBillableEntityIdFromSubscriptionId(eventObject.subscription, trx);
+      billableEntityId = await resolveBillableEntityIdFromSubscriptionId(eventObject.subscription, provider, trx);
       if (!billableEntityId) {
-        billableEntityId = await resolveBillableEntityIdFromCustomerId(eventObject.customer, trx);
+        billableEntityId = await resolveBillableEntityIdFromCustomerId(eventObject.customer, provider, trx);
       }
     }
 
@@ -192,6 +207,47 @@ function createService({
     });
   }
 
+  function resolveProviderAdapter(provider) {
+    if (billingProviderRegistryService && typeof billingProviderRegistryService.resolveProvider === "function") {
+      return billingProviderRegistryService.resolveProvider(provider);
+    }
+    return providerAdapter;
+  }
+
+  function resolveWebhookTranslator(provider) {
+    const normalizedProvider = normalizeBillingWebhookProvider(provider);
+    if (!normalizedProvider) {
+      throw new AppError(400, "Unsupported billing webhook provider.");
+    }
+
+    if (!webhookTranslationRegistry || typeof webhookTranslationRegistry.resolveProvider !== "function") {
+      throw new AppError(500, "Billing webhook translation registry is unavailable.");
+    }
+
+    try {
+      return webhookTranslationRegistry.resolveProvider(normalizedProvider);
+    } catch {
+      throw new AppError(400, "Unsupported billing webhook provider.");
+    }
+  }
+
+  function resolveProjectionService(provider) {
+    const normalizedProvider = normalizeBillingWebhookProvider(provider);
+    if (projectionServiceByProvider.has(normalizedProvider)) {
+      return projectionServiceByProvider.get(normalizedProvider);
+    }
+
+    const scopedProviderAdapter = resolveProviderAdapter(normalizedProvider);
+    const projectionService = createWebhookProjectionService({
+      billingRepository,
+      billingCheckoutSessionService,
+      billingProviderAdapter: scopedProviderAdapter,
+      observabilityService
+    });
+    projectionServiceByProvider.set(normalizedProvider, projectionService);
+    return projectionService;
+  }
+
   async function lockOrCreateWebhookEvent({
     providerEventId,
     eventType,
@@ -199,12 +255,13 @@ function createService({
     payloadJson,
     billableEntityId,
     operationKey,
+    provider,
     now,
     trx
   }) {
     let existing = await billingRepository.findWebhookEventByProviderEventId(
       {
-        provider: BILLING_PROVIDER_STRIPE,
+        provider,
         providerEventId
       },
       {
@@ -217,7 +274,7 @@ function createService({
       try {
         await billingRepository.insertWebhookEvent(
           {
-            provider: BILLING_PROVIDER_STRIPE,
+            provider,
             providerEventId,
             eventType,
             providerCreatedAt,
@@ -240,7 +297,7 @@ function createService({
 
       existing = await billingRepository.findWebhookEventByProviderEventId(
         {
-          provider: BILLING_PROVIDER_STRIPE,
+          provider,
           providerEventId
         },
         {
@@ -266,7 +323,7 @@ function createService({
         await billingRepository.updateWebhookEventById(existing.id, correlationPatch, { trx });
         existing = await billingRepository.findWebhookEventByProviderEventId(
           {
-            provider: BILLING_PROVIDER_STRIPE,
+            provider,
             providerEventId
           },
           {
@@ -280,7 +337,8 @@ function createService({
     return existing;
   }
 
-  async function routeStripeEvent(event, eventContext) {
+  async function routeEvent(event, eventContext) {
+    const projectionService = resolveProjectionService(eventContext.provider);
     const eventType = String(event?.type || "").trim();
 
     if (eventType === "checkout.session.completed") {
@@ -298,24 +356,26 @@ function createService({
       eventType === "customer.subscription.updated" ||
       eventType === "customer.subscription.deleted"
     ) {
-      await projectionService.projectSubscriptionFromStripe(event.data?.object, eventContext);
+      await projectionService.projectSubscription(event.data?.object, eventContext);
       return;
     }
 
     if (eventType === "invoice.paid" || eventType === "invoice.payment_failed") {
-      await projectionService.projectInvoiceAndPaymentFromStripe(event.data?.object, {
+      await projectionService.projectInvoiceAndPayment(event.data?.object, {
         ...eventContext,
         eventType
       });
     }
   }
 
-  async function processEventTransaction(event) {
+  async function processEventTransaction(event, { provider }) {
     const providerEventId = String(event?.id || "").trim();
     const eventType = String(event?.type || "").trim();
     const providerCreatedAt = parseUnixEpochSeconds(event?.created) || new Date();
     const now = new Date();
-    const initialCorrelation = await extractCorrelationFromStripeEvent(event);
+    const initialCorrelation = await extractCorrelationFromEvent(event, {
+      provider
+    });
 
     await billingRepository.transaction(async (trx) => {
       await lockOrCreateWebhookEvent({
@@ -324,6 +384,7 @@ function createService({
         providerCreatedAt,
         billableEntityId: initialCorrelation.billableEntityId,
         operationKey: initialCorrelation.operationKey,
+        provider,
         payloadJson: event,
         now,
         trx
@@ -334,7 +395,7 @@ function createService({
       const result = await billingRepository.transaction(async (trx) => {
         const eventRow = await billingRepository.findWebhookEventByProviderEventId(
           {
-            provider: BILLING_PROVIDER_STRIPE,
+            provider,
             providerEventId
           },
           {
@@ -355,7 +416,7 @@ function createService({
         }
 
         const processingCorrelation = buildCorrelationPatch(
-          await extractCorrelationFromStripeEvent(event, { trx }),
+          await extractCorrelationFromEvent(event, { provider, trx }),
           eventRow
         );
 
@@ -371,15 +432,16 @@ function createService({
           { trx }
         );
 
-        await routeStripeEvent(event, {
+        await routeEvent(event, {
           trx,
           providerEventId,
           providerCreatedAt,
+          provider,
           billableEntityId: processingCorrelation.billableEntityId || eventRow.billableEntityId || null
         });
 
         const processedCorrelation = buildCorrelationPatch(
-          await extractCorrelationFromStripeEvent(event, { trx }),
+          await extractCorrelationFromEvent(event, { provider, trx }),
           processingCorrelation,
           eventRow
         );
@@ -407,7 +469,7 @@ function createService({
       await billingRepository.transaction(async (trx) => {
         const eventRow = await billingRepository.findWebhookEventByProviderEventId(
           {
-            provider: BILLING_PROVIDER_STRIPE,
+            provider,
             providerEventId
           },
           {
@@ -442,10 +504,8 @@ function createService({
   }
 
   async function processProviderEvent({ provider, rawBody, signatureHeader }) {
-    const normalizedProvider = String(provider || "")
-      .trim()
-      .toLowerCase();
-    if (normalizedProvider !== BILLING_PROVIDER_STRIPE) {
+    const normalizedProvider = normalizeBillingWebhookProvider(provider);
+    if (!supportedWebhookProviders.has(normalizedProvider)) {
       throw new AppError(400, "Unsupported billing webhook provider.");
     }
 
@@ -455,32 +515,51 @@ function createService({
 
     const signature = String(signatureHeader || "").trim();
     if (!signature) {
-      throw new AppError(400, "Stripe signature header is required.");
+      throw new AppError(
+        400,
+        normalizedProvider === BILLING_PROVIDER_PADDLE
+          ? "Paddle signature header is required."
+          : "Stripe signature header is required."
+      );
     }
 
-    const event = await stripeSdkService.verifyWebhookEvent({
+    const endpointSecret = String(endpointSecretByProvider[normalizedProvider] || "").trim();
+    if (!endpointSecret) {
+      throw new AppError(500, `Billing webhook endpoint secret is not configured for provider "${normalizedProvider}".`);
+    }
+
+    const scopedProviderAdapter = resolveProviderAdapter(normalizedProvider);
+    if (!scopedProviderAdapter || typeof scopedProviderAdapter.verifyWebhookEvent !== "function") {
+      throw new AppError(500, `Billing webhook adapter is unavailable for provider "${normalizedProvider}".`);
+    }
+    const scopedWebhookTranslator = resolveWebhookTranslator(normalizedProvider);
+
+    const providerEvent = await scopedProviderAdapter.verifyWebhookEvent({
       rawBody,
       signatureHeader: signature,
       endpointSecret
     });
+    const canonicalEvent = scopedWebhookTranslator.toCanonicalEvent(providerEvent);
 
-    const eventType = String(event?.type || "").trim();
-    if (!STRIPE_REQUIRED_EVENT_TYPES.has(eventType)) {
+    const eventType = String(canonicalEvent?.type || "").trim();
+    if (!scopedWebhookTranslator.supportsCanonicalEventType(eventType)) {
       return {
         ignored: true,
-        eventId: String(event?.id || ""),
+        eventId: String(canonicalEvent?.id || ""),
         eventType
       };
     }
 
-    const processed = await processEventTransaction(event);
+    const processed = await processEventTransaction(canonicalEvent, {
+      provider: normalizedProvider
+    });
     return {
       ignored: false,
       ...processed
     };
   }
 
-  async function reprocessStoredEvent({ eventPayload }) {
+  async function reprocessStoredEvent({ provider = BILLING_DEFAULT_PROVIDER, eventPayload }) {
     if (!eventPayload || typeof eventPayload !== "object") {
       throw new AppError(400, "Stored billing webhook payload is required for replay.");
     }
@@ -490,7 +569,14 @@ function createService({
       throw new AppError(400, "Stored billing webhook payload is missing provider event id.");
     }
 
-    return processEventTransaction(eventPayload);
+    const normalizedProvider = normalizeBillingWebhookProvider(provider);
+    if (!supportedWebhookProviders.has(normalizedProvider)) {
+      throw new AppError(400, "Unsupported billing webhook provider.");
+    }
+
+    return processEventTransaction(eventPayload, {
+      provider: normalizedProvider
+    });
   }
 
   return {
@@ -500,7 +586,10 @@ function createService({
 }
 
 const __testables = {
-  STRIPE_REQUIRED_EVENT_TYPES
+  REQUIRED_CANONICAL_BILLING_WEBHOOK_EVENT_TYPES,
+  PADDLE_EVENT_TYPE_MAP,
+  mapPaddleEventType,
+  normalizePaddleEventToCanonical
 };
 
-export { STRIPE_REQUIRED_EVENT_TYPES, createService, __testables };
+export { REQUIRED_CANONICAL_BILLING_WEBHOOK_EVENT_TYPES, PADDLE_EVENT_TYPE_MAP, createService, __testables };

@@ -3,8 +3,8 @@ import { toIsoString, toMysqlDateTimeUtc } from "../../lib/primitives/dateUtils.
 import { isMysqlDuplicateEntryError } from "../../lib/primitives/mysqlErrors.js";
 import {
   BILLING_CHECKOUT_SESSION_STATUS,
+  BILLING_DEFAULT_PROVIDER,
   BILLING_IDEMPOTENCY_STATUS,
-  BILLING_PROVIDER_STRIPE,
   BILLING_SUBSCRIPTION_STATUS,
   NON_TERMINAL_CURRENT_SUBSCRIPTION_STATUS_SET,
   TERMINAL_SUBSCRIPTION_STATUS_SET
@@ -21,7 +21,7 @@ function parseJsonValue(value, fallback = null) {
 
 function normalizeProvider(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  return normalized || BILLING_PROVIDER_STRIPE;
+  return normalized || BILLING_DEFAULT_PROVIDER;
 }
 
 function toNullableIsoString(value) {

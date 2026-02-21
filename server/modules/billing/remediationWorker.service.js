@@ -1,12 +1,13 @@
 import { AppError } from "../../lib/errors.js";
 
-function createService({
-  billingRepository,
-  stripeSdkService,
-  retryDelaySeconds = 120,
-  maxAttempts = 6,
-  observabilityService = null
-}) {
+function createService(options = {}) {
+  const {
+    billingRepository,
+    billingProviderAdapter,
+    retryDelaySeconds = 120,
+    maxAttempts = 6,
+    observabilityService = null
+  } = options;
   if (!billingRepository) {
     throw new Error("billingRepository is required.");
   }
@@ -19,6 +20,7 @@ function createService({
 
   const normalizedRetryDelaySeconds = Math.max(1, Number(retryDelaySeconds) || 1);
   const normalizedMaxAttempts = Math.max(1, Number(maxAttempts) || 1);
+  const providerAdapter = billingProviderAdapter;
 
   function recordGuardrail(code, context = {}) {
     const payload = {
@@ -63,11 +65,11 @@ function createService({
       throw new AppError(400, "Duplicate provider subscription id is required for remediation.");
     }
 
-    if (!stripeSdkService || typeof stripeSdkService.cancelSubscription !== "function") {
-      throw new AppError(501, "Stripe subscription cancellation is not available.");
+    if (!providerAdapter || typeof providerAdapter.cancelSubscription !== "function") {
+      throw new AppError(501, "Provider subscription cancellation is not available.");
     }
 
-    await stripeSdkService.cancelSubscription({
+    await providerAdapter.cancelSubscription({
       subscriptionId: duplicateProviderSubscriptionId
     });
   }

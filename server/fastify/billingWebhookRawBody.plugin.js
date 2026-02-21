@@ -2,15 +2,15 @@ import { Transform } from "node:stream";
 import fp from "fastify-plugin";
 import { AppError } from "../lib/errors.js";
 import { safePathnameFromRequest } from "../lib/primitives/requestUrl.js";
-import { STRIPE_PHASE1_DEFAULTS } from "../modules/billing/constants.js";
+import { BILLING_RUNTIME_DEFAULTS } from "../modules/billing/constants.js";
 
-const STRIPE_WEBHOOK_PATH = "/api/billing/webhooks/stripe";
+const BILLING_WEBHOOK_PATH_SET = new Set(["/api/billing/webhooks/stripe", "/api/billing/webhooks/paddle"]);
 
 async function billingWebhookRawBodyPlugin(fastify, options = {}) {
   const maxPayloadBytes = Math.max(
     1,
-    Number(options.maxPayloadBytes || STRIPE_PHASE1_DEFAULTS.WEBHOOK_MAX_PAYLOAD_BYTES) ||
-      STRIPE_PHASE1_DEFAULTS.WEBHOOK_MAX_PAYLOAD_BYTES
+    Number(options.maxPayloadBytes || BILLING_RUNTIME_DEFAULTS.WEBHOOK_MAX_PAYLOAD_BYTES) ||
+      BILLING_RUNTIME_DEFAULTS.WEBHOOK_MAX_PAYLOAD_BYTES
   );
 
   if (!Object.prototype.hasOwnProperty.call(fastify, "rawBody")) {
@@ -18,7 +18,7 @@ async function billingWebhookRawBodyPlugin(fastify, options = {}) {
   }
 
   fastify.addHook("preParsing", async (request, _reply, payload) => {
-    if (safePathnameFromRequest(request) !== STRIPE_WEBHOOK_PATH) {
+    if (!BILLING_WEBHOOK_PATH_SET.has(safePathnameFromRequest(request))) {
       return payload;
     }
 

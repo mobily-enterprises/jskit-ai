@@ -1,6 +1,6 @@
 import { withStandardErrorResponses } from "../api/schema.js";
 import { schema } from "./schema.js";
-import { STRIPE_PHASE1_DEFAULTS } from "./constants.js";
+import { BILLING_RUNTIME_DEFAULTS } from "./constants.js";
 
 function buildRoutes(controllers, { missingHandler } = {}) {
   return [
@@ -53,7 +53,7 @@ function buildRoutes(controllers, { missingHandler } = {}) {
       workspacePolicy: "optional",
       schema: {
         tags: ["billing"],
-        summary: "Synchronize billing payment methods from Stripe for the selected billable entity",
+        summary: "Synchronize billing payment methods for the selected billable entity",
         response: withStandardErrorResponses({
           200: schema.response.paymentMethodSync
         })
@@ -99,7 +99,7 @@ function buildRoutes(controllers, { missingHandler } = {}) {
       workspacePolicy: "optional",
       schema: {
         tags: ["billing"],
-        summary: "Create or replay a Stripe checkout session for the selected billable entity",
+        summary: "Create or replay a checkout session for the selected billable entity",
         body: schema.body.checkout,
         response: withStandardErrorResponses(
           {
@@ -117,7 +117,7 @@ function buildRoutes(controllers, { missingHandler } = {}) {
       workspacePolicy: "optional",
       schema: {
         tags: ["billing"],
-        summary: "Create or replay a Stripe billing portal session for the selected billable entity",
+        summary: "Create or replay a billing portal session for the selected billable entity",
         body: schema.body.portal,
         response: withStandardErrorResponses(
           {
@@ -135,7 +135,7 @@ function buildRoutes(controllers, { missingHandler } = {}) {
       workspacePolicy: "optional",
       schema: {
         tags: ["billing"],
-        summary: "Create or replay a Stripe payment link for one-off billing on the selected billable entity",
+        summary: "Create or replay a payment link for one-off billing on the selected billable entity",
         body: schema.body.paymentLink,
         response: withStandardErrorResponses(
           {
@@ -152,7 +152,7 @@ function buildRoutes(controllers, { missingHandler } = {}) {
       auth: "public",
       workspacePolicy: "none",
       csrfProtection: false,
-      bodyLimit: STRIPE_PHASE1_DEFAULTS.WEBHOOK_MAX_PAYLOAD_BYTES,
+      bodyLimit: BILLING_RUNTIME_DEFAULTS.WEBHOOK_MAX_PAYLOAD_BYTES,
       schema: {
         tags: ["billing-webhooks"],
         summary: "Stripe webhook endpoint (raw body signature-verified)",
@@ -161,6 +161,22 @@ function buildRoutes(controllers, { missingHandler } = {}) {
         })
       },
       handler: controllers.billing?.processStripeWebhook || missingHandler
+    },
+    {
+      path: "/api/billing/webhooks/paddle",
+      method: "POST",
+      auth: "public",
+      workspacePolicy: "none",
+      csrfProtection: false,
+      bodyLimit: BILLING_RUNTIME_DEFAULTS.WEBHOOK_MAX_PAYLOAD_BYTES,
+      schema: {
+        tags: ["billing-webhooks"],
+        summary: "Paddle webhook endpoint (raw body signature-verified)",
+        response: withStandardErrorResponses({
+          200: schema.response.webhook
+        })
+      },
+      handler: controllers.billing?.processPaddleWebhook || missingHandler
     }
   ];
 }

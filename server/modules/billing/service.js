@@ -2,8 +2,9 @@ import { AppError } from "../../lib/errors.js";
 import { normalizePagination } from "../../lib/primitives/pagination.js";
 import {
   BILLING_ACTIONS,
+  BILLING_DEFAULT_PROVIDER,
   BILLING_FAILURE_CODES,
-  BILLING_PROVIDER_STRIPE,
+  BILLING_RUNTIME_DEFAULTS,
   statusFromFailureCode
 } from "./constants.js";
 import { toCanonicalJson, toSha256Hex } from "./canonicalJson.js";
@@ -376,7 +377,7 @@ function buildWorkspaceTimelineEntry(activityEvent) {
 
   let description = event.message ? String(event.message) : `${provider} ${sourceLabel.toLowerCase()} ${statusLabel.toLowerCase()}.`;
   if (source === "payment_method_sync" && status === "succeeded") {
-    description = "Payment methods were synchronized with Stripe.";
+    description = "Payment methods were synchronized with the billing provider.";
   }
   if (source === "idempotency" && status === "failed" && event.message) {
     description = String(event.message);
@@ -446,17 +447,18 @@ function buildLimitExceededError({
   });
 }
 
-function createService({
-  billingRepository,
-  billingPolicyService,
-  billingPricingService,
-  billingIdempotencyService,
-  billingCheckoutOrchestrator,
-  stripeSdkService,
-  appPublicUrl,
-  providerReplayWindowSeconds,
-  observabilityService = null
-}) {
+function createService(options = {}) {
+  const {
+    billingRepository,
+    billingPolicyService,
+    billingPricingService,
+    billingIdempotencyService,
+    billingCheckoutOrchestrator,
+    billingProviderAdapter,
+    appPublicUrl,
+    providerReplayWindowSeconds = BILLING_RUNTIME_DEFAULTS.PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS,
+    observabilityService = null
+  } = options;
   if (!billingRepository) {
     throw new Error("billingRepository is required.");
   }
@@ -472,11 +474,19 @@ function createService({
   if (!billingCheckoutOrchestrator) {
     throw new Error("billingCheckoutOrchestrator is required.");
   }
-  if (!stripeSdkService || typeof stripeSdkService.createBillingPortalSession !== "function") {
-    throw new Error("stripeSdkService.createBillingPortalSession is required.");
+  const providerAdapter = billingProviderAdapter;
+  if (!providerAdapter || typeof providerAdapter.createBillingPortalSession !== "function") {
+    throw new Error("billingProviderAdapter.createBillingPortalSession is required.");
   }
+  const activeProvider =
+    String(providerAdapter?.provider || BILLING_DEFAULT_PROVIDER)
+      .trim()
+      .toLowerCase() || BILLING_DEFAULT_PROVIDER;
 
-  const replayWindowSeconds = Math.max(60, Number(providerReplayWindowSeconds) || 23 * 60 * 60);
+  const replayWindowSeconds = Math.max(
+    60,
+    Number(providerReplayWindowSeconds) || BILLING_RUNTIME_DEFAULTS.PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS
+  );
   const normalizedAppPublicUrl = String(appPublicUrl || "").trim();
   if (!normalizedAppPublicUrl) {
     throw new Error("appPublicUrl is required.");
@@ -526,7 +536,7 @@ function createService({
     const entries = [];
 
     for (const plan of plans) {
-      const prices = await billingRepository.listPlanPricesForPlan(plan.id, BILLING_PROVIDER_STRIPE);
+      const prices = await billingRepository.listPlanPricesForPlan(plan.id, activeProvider);
       const entitlements = await billingRepository.listPlanEntitlementsForPlan(plan.id);
 
       const validatedEntitlements = [];
@@ -543,7 +553,7 @@ function createService({
         try {
           return await billingPricingService.resolvePhase1SellablePrice({
             planId: plan.id,
-            provider: BILLING_PROVIDER_STRIPE
+            provider: activeProvider
           });
         } catch (error) {
           recordGuardrail("BILLING_PRICING_CONFIGURATION_INVALID");
@@ -792,7 +802,7 @@ function createService({
       typeof billingRepository.listPaymentMethodsForEntity === "function"
         ? await billingRepository.listPaymentMethodsForEntity({
             billableEntityId: billableEntity.id,
-            provider: BILLING_PROVIDER_STRIPE,
+            provider: activeProvider,
             includeInactive: false,
             limit: 50
           })
@@ -812,7 +822,7 @@ function createService({
 
     const customer = await billingRepository.findCustomerByEntityProvider({
       billableEntityId: billableEntity.id,
-      provider: BILLING_PROVIDER_STRIPE
+      provider: activeProvider
     });
     const providerCustomerId = toNonEmptyString(customer?.providerCustomerId);
     if (!providerCustomerId) {
@@ -820,7 +830,7 @@ function createService({
         await billingRepository.insertPaymentMethodSyncEvent({
           billableEntityId: billableEntity.id,
           billingCustomerId: customer?.id || null,
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           eventType: "manual_sync",
           status: "skipped",
           errorText: "Billing customer missing; payment-method sync skipped.",
@@ -840,13 +850,13 @@ function createService({
       };
     }
 
-    if (!stripeSdkService || typeof stripeSdkService.listCustomerPaymentMethods !== "function") {
+    if (!providerAdapter || typeof providerAdapter.listCustomerPaymentMethods !== "function") {
       throw new AppError(500, "Billing payment-method sync is not available.");
     }
 
     try {
       const { paymentMethods: providerPaymentMethods, defaultPaymentMethodId, hasMore = false } =
-        await stripeSdkService.listCustomerPaymentMethods({
+        await providerAdapter.listCustomerPaymentMethods({
           customerId: providerCustomerId,
           type: "card",
           limit: 100
@@ -861,7 +871,7 @@ function createService({
           await billingRepository.upsertPaymentMethod({
             billableEntityId: billableEntity.id,
             billingCustomerId: customer.id,
-            provider: BILLING_PROVIDER_STRIPE,
+            provider: activeProvider,
             providerPaymentMethodId: paymentMethod.providerPaymentMethodId,
             type: paymentMethod.type,
             brand: paymentMethod.brand,
@@ -879,7 +889,7 @@ function createService({
       if (!hasMore && typeof billingRepository.deactivateMissingPaymentMethods === "function") {
         await billingRepository.deactivateMissingPaymentMethods({
           billableEntityId: billableEntity.id,
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           keepProviderPaymentMethodIds: normalizedMethods.map((entry) => entry.providerPaymentMethodId),
           now
         });
@@ -889,7 +899,7 @@ function createService({
         await billingRepository.insertPaymentMethodSyncEvent({
           billableEntityId: billableEntity.id,
           billingCustomerId: customer.id,
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           eventType: "manual_sync",
           status: "succeeded",
           payloadJson: {
@@ -905,7 +915,7 @@ function createService({
         typeof billingRepository.listPaymentMethodsForEntity === "function"
           ? await billingRepository.listPaymentMethodsForEntity({
               billableEntityId: billableEntity.id,
-              provider: BILLING_PROVIDER_STRIPE,
+              provider: activeProvider,
               includeInactive: false,
               limit: 50
             })
@@ -923,7 +933,7 @@ function createService({
         await billingRepository.insertPaymentMethodSyncEvent({
           billableEntityId: billableEntity.id,
           billingCustomerId: customer.id,
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           eventType: "manual_sync",
           status: "failed",
           errorText: String(error?.message || "Billing payment-method sync failed."),
@@ -1227,7 +1237,7 @@ function createService({
 
     let portalSession;
     try {
-      portalSession = await stripeSdkService.createBillingPortalSession({
+      portalSession = await providerAdapter.createBillingPortalSession({
         params: recoveryRow.providerRequestParamsJson,
         idempotencyKey: recoveryRow.providerIdempotencyKey
       });
@@ -1241,7 +1251,7 @@ function createService({
           idempotencyRowId: recoveryRow.id,
           leaseVersion: expectedLeaseVersion,
           failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
-          failureReason: String(error?.message || "Stripe billing portal session recovery replay failed.")
+          failureReason: String(error?.message || "Provider billing portal session recovery replay failed.")
         });
 
         throw mapFailureCodeToError(
@@ -1265,7 +1275,7 @@ function createService({
     }
 
     const responseJson = {
-      provider: BILLING_PROVIDER_STRIPE,
+      provider: activeProvider,
       portalSession: {
         id: String(portalSession?.id || ""),
         url: String(portalSession?.url || "")
@@ -1292,7 +1302,7 @@ function createService({
         subscription: null,
         customer: await billingRepository.findCustomerByEntityProvider({
           billableEntityId: billableEntity.id,
-          provider: BILLING_PROVIDER_STRIPE
+          provider: activeProvider
         }),
         items: [],
         invoices: [],
@@ -1303,15 +1313,15 @@ function createService({
     const customer = await billingRepository.findCustomerById(currentSubscription.billingCustomerId);
     const items = await billingRepository.listSubscriptionItemsForSubscription({
       subscriptionId: currentSubscription.id,
-      provider: BILLING_PROVIDER_STRIPE
+      provider: activeProvider
     });
     const invoices = await billingRepository.listInvoicesForSubscription({
       subscriptionId: currentSubscription.id,
-      provider: BILLING_PROVIDER_STRIPE,
+      provider: activeProvider,
       limit: 25
     });
     const payments = await billingRepository.listPaymentsForInvoiceIds({
-      provider: BILLING_PROVIDER_STRIPE,
+      provider: activeProvider,
       invoiceIds: invoices.map((invoice) => invoice.id)
     });
 
@@ -1345,7 +1355,7 @@ function createService({
       clientIdempotencyKey,
       requestFingerprintHash: fingerprintHash,
       normalizedRequestJson: normalizedRequest,
-      provider: BILLING_PROVIDER_STRIPE,
+      provider: activeProvider,
       now
     });
 
@@ -1383,7 +1393,7 @@ function createService({
 
     const customer = await billingRepository.findCustomerByEntityProvider({
       billableEntityId: billableEntity.id,
-      provider: BILLING_PROVIDER_STRIPE
+      provider: activeProvider
     });
     if (!customer?.providerCustomerId) {
       await billingIdempotencyService.markFailed({
@@ -1403,12 +1413,12 @@ function createService({
     };
     const providerRequestHash = toSha256Hex(toCanonicalJson(providerRequestParams));
 
-    const sdkProvenance = await stripeSdkService.getSdkProvenance();
+    const sdkProvenance = await providerAdapter.getSdkProvenance();
 
     await billingRepository.updateIdempotencyById(idempotencyRow.id, {
       providerRequestParamsJson: providerRequestParams,
       providerRequestHash,
-      providerRequestSchemaVersion: "stripe_billing_portal_session_create_params_v1",
+      providerRequestSchemaVersion: `${activeProvider}_billing_portal_session_create_params_v1`,
       providerSdkName: sdkProvenance.providerSdkName,
       providerSdkVersion: sdkProvenance.providerSdkVersion,
       providerApiVersion: sdkProvenance.providerApiVersion,
@@ -1418,7 +1428,7 @@ function createService({
 
     let portalSession;
     try {
-      portalSession = await stripeSdkService.createBillingPortalSession({
+      portalSession = await providerAdapter.createBillingPortalSession({
         params: providerRequestParams,
         idempotencyKey: idempotencyRow.providerIdempotencyKey
       });
@@ -1431,7 +1441,7 @@ function createService({
         await billingIdempotencyService.markFailed({
           idempotencyRowId: idempotencyRow.id,
           failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
-          failureReason: String(error?.message || "Stripe billing portal session creation failed.")
+          failureReason: String(error?.message || "Provider billing portal session creation failed.")
         });
 
         throw mapFailureCodeToError(
@@ -1455,7 +1465,7 @@ function createService({
     }
 
     const responseJson = {
-      provider: BILLING_PROVIDER_STRIPE,
+      provider: activeProvider,
       portalSession: {
         id: String(portalSession?.id || ""),
         url: String(portalSession?.url || "")
@@ -1473,7 +1483,7 @@ function createService({
 
   function buildPaymentLinkResponseJson({ paymentLink, billableEntityId, operationKey }) {
     return {
-      provider: BILLING_PROVIDER_STRIPE,
+      provider: activeProvider,
       billableEntityId: Number(billableEntityId),
       operationKey: String(operationKey || ""),
       paymentLink: {
@@ -1517,8 +1527,8 @@ function createService({
         });
       }
 
-      if (!stripeSdkService || typeof stripeSdkService.createPrice !== "function") {
-        throw new AppError(500, "Stripe price creation is not available.");
+      if (!providerAdapter || typeof providerAdapter.createPrice !== "function") {
+        throw new AppError(500, "Provider price creation is not available.");
       }
 
       const adHocMetadata = {
@@ -1529,7 +1539,7 @@ function createService({
         billing_flow: "payment_link_one_off"
       };
 
-      const createdPrice = await stripeSdkService.createPrice({
+      const createdPrice = await providerAdapter.createPrice({
         params: {
           currency: String(lineItem.currency || deploymentCurrency).toLowerCase(),
           unit_amount: Number(lineItem.amountMinor || 0),
@@ -1544,7 +1554,7 @@ function createService({
 
       const providerPriceId = toNonEmptyString(createdPrice?.id);
       if (!providerPriceId) {
-        throw new AppError(502, "Stripe ad-hoc price creation did not return a price id.");
+        throw new AppError(502, "Provider ad-hoc price creation did not return a price id.");
       }
 
       resolvedLineItems.push({
@@ -1556,7 +1566,7 @@ function createService({
     return resolvedLineItems;
   }
 
-  async function buildFrozenStripePaymentLinkParams({ normalizedRequest, idempotencyRow }) {
+  async function buildFrozenPaymentLinkParams({ normalizedRequest, idempotencyRow }) {
     const successUrl = new URL(normalizedRequest.successPath, normalizedAppPublicUrl).toString();
     const metadata = {
       operation_key: String(idempotencyRow.operationKey || ""),
@@ -1591,12 +1601,12 @@ function createService({
 
   async function freezePaymentLinkProviderRequest({ idempotencyRow, providerRequestParams, now }) {
     const providerRequestHash = toSha256Hex(toCanonicalJson(providerRequestParams));
-    const sdkProvenance = await stripeSdkService.getSdkProvenance();
+    const sdkProvenance = await providerAdapter.getSdkProvenance();
 
     await billingRepository.updateIdempotencyById(idempotencyRow.id, {
       providerRequestParamsJson: providerRequestParams,
       providerRequestHash,
-      providerRequestSchemaVersion: "stripe_payment_link_create_params_v1",
+      providerRequestSchemaVersion: `${activeProvider}_payment_link_create_params_v1`,
       providerSdkName: sdkProvenance.providerSdkName,
       providerSdkVersion: sdkProvenance.providerSdkVersion,
       providerApiVersion: sdkProvenance.providerApiVersion,
@@ -1672,19 +1682,19 @@ function createService({
 
     if (!providerRequestParams || typeof providerRequestParams !== "object" || !providerRequestHash) {
       try {
-        providerRequestParams = await buildFrozenStripePaymentLinkParams({
+        providerRequestParams = await buildFrozenPaymentLinkParams({
           normalizedRequest: recoveryRow.normalizedRequestJson,
           idempotencyRow: recoveryRow
         });
         providerRequestHash = toSha256Hex(toCanonicalJson(providerRequestParams));
 
-        const sdkProvenance = await stripeSdkService.getSdkProvenance();
+        const sdkProvenance = await providerAdapter.getSdkProvenance();
         const updatedRow = await billingRepository.updateIdempotencyById(
           recoveryRow.id,
           {
             providerRequestParamsJson: providerRequestParams,
             providerRequestHash,
-            providerRequestSchemaVersion: "stripe_payment_link_create_params_v1",
+            providerRequestSchemaVersion: `${activeProvider}_payment_link_create_params_v1`,
             providerSdkName: sdkProvenance.providerSdkName,
             providerSdkVersion: sdkProvenance.providerSdkVersion,
             providerApiVersion: sdkProvenance.providerApiVersion,
@@ -1717,7 +1727,7 @@ function createService({
             idempotencyRowId: recoveryRow.id,
             leaseVersion: expectedLeaseVersion,
             failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
-            failureReason: String(error?.message || "Stripe payment-link recovery preparation failed.")
+            failureReason: String(error?.message || "Provider payment-link recovery preparation failed.")
           });
 
           throw mapFailureCodeToError(
@@ -1772,7 +1782,7 @@ function createService({
 
     let paymentLink;
     try {
-      paymentLink = await stripeSdkService.createPaymentLink({
+      paymentLink = await providerAdapter.createPaymentLink({
         params: providerRequestParams,
         idempotencyKey: recoveryRow.providerIdempotencyKey
       });
@@ -1786,7 +1796,7 @@ function createService({
           idempotencyRowId: recoveryRow.id,
           leaseVersion: expectedLeaseVersion,
           failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
-          failureReason: String(error?.message || "Stripe billing payment-link recovery replay failed.")
+          failureReason: String(error?.message || "Provider billing payment-link recovery replay failed.")
         });
 
         throw mapFailureCodeToError(
@@ -1826,8 +1836,8 @@ function createService({
   }
 
   async function createPaymentLink({ request, user, payload, clientIdempotencyKey, now = new Date() }) {
-    if (!stripeSdkService || typeof stripeSdkService.createPaymentLink !== "function") {
-      throw new AppError(500, "Stripe payment links are not available.");
+    if (!providerAdapter || typeof providerAdapter.createPaymentLink !== "function") {
+      throw new AppError(500, "Provider payment links are not available.");
     }
 
     const { billableEntity } = await billingPolicyService.resolveBillableEntityForWriteRequest({
@@ -1848,7 +1858,7 @@ function createService({
       clientIdempotencyKey,
       requestFingerprintHash,
       normalizedRequestJson: normalizedRequest,
-      provider: BILLING_PROVIDER_STRIPE,
+      provider: activeProvider,
       now
     });
 
@@ -1885,7 +1895,7 @@ function createService({
 
     let providerRequestParams;
     try {
-      providerRequestParams = await buildFrozenStripePaymentLinkParams({
+      providerRequestParams = await buildFrozenPaymentLinkParams({
         normalizedRequest,
         idempotencyRow
       });
@@ -1903,7 +1913,7 @@ function createService({
         await billingIdempotencyService.markFailed({
           idempotencyRowId: idempotencyRow.id,
           failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
-          failureReason: String(error?.message || "Stripe payment-link request preparation failed.")
+          failureReason: String(error?.message || "Provider payment-link request preparation failed.")
         });
 
         throw mapFailureCodeToError(
@@ -1936,7 +1946,7 @@ function createService({
 
     let paymentLink;
     try {
-      paymentLink = await stripeSdkService.createPaymentLink({
+      paymentLink = await providerAdapter.createPaymentLink({
         params: providerRequestParams,
         idempotencyKey: idempotencyRow.providerIdempotencyKey
       });
@@ -1949,7 +1959,7 @@ function createService({
         await billingIdempotencyService.markFailed({
           idempotencyRowId: idempotencyRow.id,
           failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
-          failureReason: String(error?.message || "Stripe payment-link create request failed.")
+          failureReason: String(error?.message || "Provider payment-link create request failed.")
         });
 
         throw mapFailureCodeToError(

@@ -1,5 +1,5 @@
-import { AppError } from "../../lib/errors.js";
-import { BILLING_PROVIDER_STRIPE, PROVIDER_SDK_NAME } from "./constants.js";
+import { AppError } from "../../../../lib/errors.js";
+import { BILLING_PROVIDER_STRIPE, resolveProviderSdkName } from "../../constants.js";
 
 function parsePositiveInteger(value, fallbackValue) {
   const parsed = Number(value);
@@ -54,6 +54,7 @@ function createService({
   timeoutMs = 30_000,
   stripeLoader = loadStripeModule
 } = {}) {
+  const providerSdkName = resolveProviderSdkName(BILLING_PROVIDER_STRIPE);
   const billingEnabled = enabled === true;
   const normalizedSecretKey = normalizeSecret(secretKey);
   const normalizedApiVersion = normalizeApiVersion(apiVersion);
@@ -239,7 +240,7 @@ function createService({
     if (!billingEnabled) {
       return {
         provider: BILLING_PROVIDER_STRIPE,
-        providerSdkName: PROVIDER_SDK_NAME,
+        providerSdkName,
         providerSdkVersion: "disabled",
         providerApiVersion: normalizedApiVersion || ""
       };
@@ -249,7 +250,7 @@ function createService({
 
     return {
       provider: BILLING_PROVIDER_STRIPE,
-      providerSdkName: PROVIDER_SDK_NAME,
+      providerSdkName,
       providerSdkVersion: sdkVersion,
       providerApiVersion: normalizedApiVersion
     };

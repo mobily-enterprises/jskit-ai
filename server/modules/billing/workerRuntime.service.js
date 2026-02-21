@@ -1,3 +1,5 @@
+import { BILLING_DEFAULT_PROVIDER } from "./constants.js";
+
 function toMs(seconds, fallbackSeconds) {
   const normalizedSeconds = Math.max(1, Number(seconds) || Number(fallbackSeconds) || 1);
   return normalizedSeconds * 1000;
@@ -8,6 +10,7 @@ function createService({
   billingOutboxWorkerService,
   billingRemediationWorkerService,
   billingReconciliationService,
+  reconciliationProvider = BILLING_DEFAULT_PROVIDER,
   logger = console,
   workerIdPrefix = `billing:${process.pid}`,
   outboxPollSeconds = 5,
@@ -30,6 +33,9 @@ function createService({
   }
 
   const billingEnabled = enabled === true;
+  const normalizedReconciliationProvider = String(reconciliationProvider || BILLING_DEFAULT_PROVIDER)
+    .trim()
+    .toLowerCase() || BILLING_DEFAULT_PROVIDER;
   let started = false;
   const timers = new Set();
   const runningFlags = new Set();
@@ -131,7 +137,7 @@ function createService({
   async function runReconciliationScope(scope) {
     const runnerId = `${workerIdPrefix}:reconciliation:${scope}`;
     await billingReconciliationService.runScope({
-      provider: "stripe",
+      provider: normalizedReconciliationProvider,
       scope,
       runnerId
     });

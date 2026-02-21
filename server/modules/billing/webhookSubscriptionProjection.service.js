@@ -2,14 +2,14 @@
 import { AppError } from "../../lib/errors.js";
 import {
   BILLING_CHECKOUT_SESSION_STATUS,
+  BILLING_DEFAULT_PROVIDER,
   BILLING_IDEMPOTENCY_STATUS,
-  BILLING_PROVIDER_STRIPE
 } from "./constants.js";
 import {
   hasSameTimestampOrderingConflict,
   isIncomingEventOlder,
   isSubscriptionStatusCurrent,
-  normalizeStripeSubscriptionStatus,
+  normalizeProviderSubscriptionStatus,
   parseUnixEpochSeconds,
   sortDuplicateCandidatesForCanonicalSelection,
   toNullableString,
@@ -19,15 +19,16 @@ import {
 
 const DUPLICATE_SELECTION_ALGORITHM_VERSION = "dup_canonical_v1";
 
-function createService({
-  billingRepository,
-  billingCheckoutSessionService,
-  stripeSdkService,
-  resolveBillableEntityIdFromCustomerId,
-  lockEntityAggregate,
-  maybeFinalizePendingCheckoutIdempotency,
-  observabilityService = null
-}) {
+function createService(options = {}) {
+  const {
+    billingRepository,
+    billingCheckoutSessionService,
+    billingProviderAdapter,
+    resolveBillableEntityIdFromCustomerId,
+    lockEntityAggregate,
+    maybeFinalizePendingCheckoutIdempotency,
+    observabilityService = null
+  } = options;
   if (!billingRepository) {
     throw new Error("billingRepository is required.");
   }
@@ -43,12 +44,17 @@ function createService({
   if (typeof maybeFinalizePendingCheckoutIdempotency !== "function") {
     throw new Error("maybeFinalizePendingCheckoutIdempotency is required.");
   }
-  if (!stripeSdkService || typeof stripeSdkService.retrieveSubscription !== "function") {
-    throw new Error("stripeSdkService.retrieveSubscription is required.");
+  const providerAdapter = billingProviderAdapter;
+  if (!providerAdapter || typeof providerAdapter.retrieveSubscription !== "function") {
+    throw new Error("billingProviderAdapter.retrieveSubscription is required.");
   }
-  if (typeof stripeSdkService.retrieveInvoice !== "function") {
-    throw new Error("stripeSdkService.retrieveInvoice is required.");
+  if (typeof providerAdapter.retrieveInvoice !== "function") {
+    throw new Error("billingProviderAdapter.retrieveInvoice is required.");
   }
+  const activeProvider =
+    String(providerAdapter?.provider || BILLING_DEFAULT_PROVIDER)
+      .trim()
+      .toLowerCase() || BILLING_DEFAULT_PROVIDER;
 
   function recordGuardrail(code, context = {}) {
     const payload = {
@@ -77,7 +83,7 @@ function createService({
     }
 
     try {
-      return await stripeSdkService.retrieveSubscription({
+      return await providerAdapter.retrieveSubscription({
         subscriptionId: normalizedProviderSubscriptionId
       });
     } catch {
@@ -92,7 +98,7 @@ function createService({
     }
 
     try {
-      return await stripeSdkService.retrieveInvoice({
+      return await providerAdapter.retrieveInvoice({
         invoiceId: normalizedProviderInvoiceId
       });
     } catch {
@@ -110,19 +116,19 @@ function createService({
     return resolveBillableEntityIdFromCustomerId(subscription?.customer, trx);
   }
 
-  async function resolvePlanMappingFromSubscriptionItems(stripeItems, trx, existingPlanId = null) {
+  async function resolvePlanMappingFromSubscriptionItems(subscriptionItems, trx, existingPlanId = null) {
     const priceByProviderPriceId = new Map();
     let resolvedPlanId = existingPlanId || null;
 
-    for (const stripeItem of stripeItems) {
-      const providerPriceId = toNullableString(stripeItem?.price?.id);
+    for (const subscriptionItem of subscriptionItems) {
+      const providerPriceId = toNullableString(subscriptionItem?.price?.id);
       if (!providerPriceId) {
         continue;
       }
 
       const mappedPrice = await billingRepository.findPlanPriceByProviderPriceId(
         {
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           providerPriceId
         },
         { trx }
@@ -149,7 +155,7 @@ function createService({
 
   async function updateSubscriptionItemsProjection({
     subscriptionRow,
-    stripeItems,
+    subscriptionItems,
     priceByProviderPriceId,
     providerCreatedAt,
     providerEventId,
@@ -158,8 +164,8 @@ function createService({
   }) {
     const seenProviderSubscriptionItemIds = new Set();
 
-    for (const stripeItem of stripeItems) {
-      const providerSubscriptionItemId = toNullableString(stripeItem?.id);
+    for (const subscriptionItem of subscriptionItems) {
+      const providerSubscriptionItemId = toNullableString(subscriptionItem?.id);
       if (!providerSubscriptionItemId) {
         continue;
       }
@@ -168,7 +174,7 @@ function createService({
 
       const existingItem = await billingRepository.findSubscriptionItemByProviderSubscriptionItemId(
         {
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           providerSubscriptionItemId
         },
         {
@@ -186,22 +192,22 @@ function createService({
         continue;
       }
 
-      const providerPriceId = toNullableString(stripeItem?.price?.id);
+      const providerPriceId = toNullableString(subscriptionItem?.price?.id);
       const mappedPrice = providerPriceId ? priceByProviderPriceId.get(providerPriceId) || null : null;
 
       await billingRepository.upsertSubscriptionItem(
         {
           subscriptionId: subscriptionRow.id,
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           providerSubscriptionItemId,
           billingPlanPriceId: mappedPrice ? mappedPrice.id : null,
           billingComponent: mappedPrice ? mappedPrice.billingComponent : "base",
           usageType: mappedPrice ? mappedPrice.usageType : "licensed",
-          quantity: stripeItem?.quantity == null ? null : Number(stripeItem.quantity),
-          isActive: Boolean(!stripeItem?.deleted),
+          quantity: subscriptionItem?.quantity == null ? null : Number(subscriptionItem.quantity),
+          isActive: Boolean(!subscriptionItem?.deleted),
           lastProviderEventCreatedAt: providerCreatedAt,
           lastProviderEventId: providerEventId,
-          metadataJson: toSafeMetadata(stripeItem?.metadata)
+          metadataJson: toSafeMetadata(subscriptionItem?.metadata)
         },
         { trx }
       );
@@ -210,7 +216,7 @@ function createService({
     const existingItems = await billingRepository.listSubscriptionItemsForSubscription(
       {
         subscriptionId: subscriptionRow.id,
-        provider: BILLING_PROVIDER_STRIPE
+        provider: activeProvider
       },
       { trx }
     );
@@ -312,7 +318,7 @@ function createService({
       await billingRepository.upsertSubscriptionRemediation(
         {
           billableEntityId,
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           operationKey,
           providerEventId,
           canonicalProviderSubscriptionId: canonicalCurrentRow.providerSubscriptionId,
@@ -342,7 +348,7 @@ function createService({
     if (operationKey) {
       checkoutSession = await billingRepository.findCheckoutSessionByProviderOperationKey(
         {
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           operationKey
         },
         {
@@ -355,7 +361,7 @@ function createService({
     if (!checkoutSession && providerSubscriptionId) {
       checkoutSession = await billingRepository.findCheckoutSessionByProviderSubscriptionId(
         {
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           providerSubscriptionId
         },
         {
@@ -390,7 +396,7 @@ function createService({
         providerSubscriptionId,
         providerEventCreatedAt: providerCreatedAt,
         providerEventId,
-        provider: BILLING_PROVIDER_STRIPE,
+        provider: activeProvider,
         trx
       });
     }
@@ -398,12 +404,12 @@ function createService({
     return checkoutSession;
   }
 
-  async function projectSubscriptionFromStripe(subscription, eventContext) {
+  async function projectSubscription(subscription, eventContext) {
     const { trx, providerCreatedAt, providerEventId } = eventContext;
 
     const providerSubscriptionId = toNullableString(subscription?.id);
     if (!providerSubscriptionId) {
-      throw new AppError(400, "Stripe subscription payload missing id.");
+      throw new AppError(400, "Provider subscription payload missing id.");
     }
 
     let projectionSubscription = subscription;
@@ -426,7 +432,7 @@ function createService({
 
     const existingSubscription = await billingRepository.findSubscriptionByProviderSubscriptionId(
       {
-        provider: BILLING_PROVIDER_STRIPE,
+        provider: activeProvider,
         providerSubscriptionId
       },
       {
@@ -476,7 +482,7 @@ function createService({
     const customer = await billingRepository.upsertCustomer(
       {
         billableEntityId,
-        provider: BILLING_PROVIDER_STRIPE,
+        provider: activeProvider,
         providerCustomerId: customerId,
         email:
           toNullableString(projectionSubscription?.customer_email) ||
@@ -486,9 +492,9 @@ function createService({
       { trx }
     );
 
-    const stripeItems = Array.isArray(projectionSubscription?.items?.data) ? projectionSubscription.items.data : [];
+    const subscriptionItems = Array.isArray(projectionSubscription?.items?.data) ? projectionSubscription.items.data : [];
     const { resolvedPlanId, priceByProviderPriceId } = await resolvePlanMappingFromSubscriptionItems(
-      stripeItems,
+      subscriptionItems,
       trx,
       existingSubscription?.planId || null
     );
@@ -496,14 +502,14 @@ function createService({
       throw new AppError(409, "Unable to map subscription price to billing plan.");
     }
 
-    const status = normalizeStripeSubscriptionStatus(projectionSubscription?.status);
+    const status = normalizeProviderSubscriptionStatus(projectionSubscription?.status);
 
     const subscriptionRow = await billingRepository.upsertSubscription(
       {
         billableEntityId,
         planId: resolvedPlanId,
         billingCustomerId: customer.id,
-        provider: BILLING_PROVIDER_STRIPE,
+        provider: activeProvider,
         providerSubscriptionId,
         status,
         providerSubscriptionCreatedAt:
@@ -525,7 +531,7 @@ function createService({
 
     await updateSubscriptionItemsProjection({
       subscriptionRow,
-      stripeItems,
+      subscriptionItems,
       priceByProviderPriceId,
       providerCreatedAt: projectionProviderCreatedAt,
       providerEventId: projectionProviderEventId,
@@ -574,7 +580,7 @@ function createService({
     }
   }
 
-  async function projectInvoiceAndPaymentFromStripe(invoice, eventContext) {
+  async function projectInvoiceAndPayment(invoice, eventContext) {
     const { trx, providerCreatedAt, providerEventId, eventType } = eventContext;
 
     let projectionInvoice = invoice;
@@ -584,7 +590,7 @@ function createService({
 
     const providerInvoiceId = toNullableString(projectionInvoice?.id);
     if (!providerInvoiceId) {
-      throw new AppError(400, "Stripe invoice payload missing id.");
+      throw new AppError(400, "Provider invoice payload missing id.");
     }
 
     let providerSubscriptionId = toNullableString(projectionInvoice?.subscription);
@@ -597,7 +603,7 @@ function createService({
     if (providerSubscriptionId) {
       subscription = await billingRepository.findSubscriptionByProviderSubscriptionId(
         {
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           providerSubscriptionId
         },
         {
@@ -613,7 +619,7 @@ function createService({
     if (!resolvedBillableEntityId && providerCustomerId) {
       const customerProbe = await billingRepository.findCustomerByProviderCustomerId(
         {
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           providerCustomerId
         },
         { trx }
@@ -636,7 +642,7 @@ function createService({
     if (providerSubscriptionId) {
       subscription = await billingRepository.findSubscriptionByProviderSubscriptionId(
         {
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           providerSubscriptionId
         },
         {
@@ -651,7 +657,7 @@ function createService({
 
     const existingInvoice = await billingRepository.findInvoiceByProviderInvoiceId(
       {
-        provider: BILLING_PROVIDER_STRIPE,
+        provider: activeProvider,
         providerInvoiceId
       },
       {
@@ -694,7 +700,7 @@ function createService({
       if (providerSubscriptionId) {
         subscription = await billingRepository.findSubscriptionByProviderSubscriptionId(
           {
-            provider: BILLING_PROVIDER_STRIPE,
+            provider: activeProvider,
             providerSubscriptionId
           },
           {
@@ -723,7 +729,7 @@ function createService({
     if (projectionProviderCustomerId) {
       const customerByProviderId = await billingRepository.findCustomerByProviderCustomerId(
         {
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           providerCustomerId: projectionProviderCustomerId
         },
         {
@@ -746,7 +752,7 @@ function createService({
       customer = await billingRepository.findCustomerByEntityProvider(
         {
           billableEntityId: resolvedBillableEntityId,
-          provider: BILLING_PROVIDER_STRIPE
+          provider: activeProvider
         },
         {
           trx,
@@ -759,7 +765,7 @@ function createService({
       customer = await billingRepository.upsertCustomer(
         {
           billableEntityId: resolvedBillableEntityId,
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           providerCustomerId: projectionProviderCustomerId,
           email:
             toNullableString(projectionInvoice?.customer_email) ||
@@ -783,7 +789,7 @@ function createService({
         subscriptionId: subscription ? subscription.id : null,
         billableEntityId: resolvedBillableEntityId,
         billingCustomerId: customer.id,
-        provider: BILLING_PROVIDER_STRIPE,
+        provider: activeProvider,
         providerInvoiceId,
         status: String(projectionInvoice?.status || ""),
         amountDueMinor: Number(projectionInvoice?.amount_due || 0),
@@ -808,7 +814,7 @@ function createService({
 
       const existingPayment = await billingRepository.findPaymentByProviderPaymentId(
         {
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           providerPaymentId
         },
         {
@@ -829,7 +835,7 @@ function createService({
       await billingRepository.upsertPayment(
         {
           invoiceId: invoiceRow.id,
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           providerPaymentId,
           type: "invoice_payment",
           status: eventType === "invoice.paid" ? "paid" : "failed",
@@ -849,8 +855,8 @@ function createService({
   }
 
   return {
-    projectSubscriptionFromStripe,
-    projectInvoiceAndPaymentFromStripe
+    projectSubscription,
+    projectInvoiceAndPayment
   };
 }
 

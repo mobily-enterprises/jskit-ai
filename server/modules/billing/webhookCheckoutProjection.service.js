@@ -2,9 +2,9 @@ import { AppError } from "../../lib/errors.js";
 import {
   BILLING_ACTIONS,
   BILLING_CHECKOUT_SESSION_STATUS,
+  BILLING_DEFAULT_PROVIDER,
   BILLING_FAILURE_CODES,
-  BILLING_IDEMPOTENCY_STATUS,
-  BILLING_PROVIDER_STRIPE
+  BILLING_IDEMPOTENCY_STATUS
 } from "./constants.js";
 import {
   CHECKOUT_CORRELATION_ERROR_CODE,
@@ -18,21 +18,27 @@ import {
   toSafeMetadata
 } from "./webhookProjection.utils.js";
 
-function createService({
-  billingRepository,
-  billingCheckoutSessionService,
-  stripeSdkService,
-  observabilityService = null
-}) {
+function createService(options = {}) {
+  const {
+    billingRepository,
+    billingCheckoutSessionService,
+    billingProviderAdapter,
+    observabilityService = null
+  } = options;
   if (!billingRepository) {
     throw new Error("billingRepository is required.");
   }
   if (!billingCheckoutSessionService) {
     throw new Error("billingCheckoutSessionService is required.");
   }
-  if (!stripeSdkService || typeof stripeSdkService.retrieveCheckoutSession !== "function") {
-    throw new Error("stripeSdkService.retrieveCheckoutSession is required.");
+  const providerAdapter = billingProviderAdapter;
+  if (!providerAdapter || typeof providerAdapter.retrieveCheckoutSession !== "function") {
+    throw new Error("billingProviderAdapter.retrieveCheckoutSession is required.");
   }
+  const activeProvider =
+    String(providerAdapter?.provider || BILLING_DEFAULT_PROVIDER)
+      .trim()
+      .toLowerCase() || BILLING_DEFAULT_PROVIDER;
 
   function recordCorrelationMismatch(context = {}) {
     const payload = {
@@ -88,7 +94,7 @@ function createService({
     }
 
     try {
-      return await stripeSdkService.retrieveCheckoutSession({
+      return await providerAdapter.retrieveCheckoutSession({
         sessionId,
         expand: ["subscription", "customer"]
       });
@@ -105,7 +111,7 @@ function createService({
 
     const customer = await billingRepository.findCustomerByProviderCustomerId(
       {
-        provider: BILLING_PROVIDER_STRIPE,
+        provider: activeProvider,
         providerCustomerId: normalizedCustomerId
       },
       { trx }
@@ -201,7 +207,7 @@ function createService({
     if (providerCheckoutSessionId) {
       existingBySession = await billingRepository.findCheckoutSessionByProviderSessionId(
         {
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           providerCheckoutSessionId
         },
         {
@@ -228,7 +234,7 @@ function createService({
 
     const existingByOperationKey = await billingRepository.findCheckoutSessionByProviderOperationKey(
       {
-        provider: BILLING_PROVIDER_STRIPE,
+        provider: activeProvider,
         operationKey
       },
       {
@@ -275,7 +281,8 @@ function createService({
         responseJson: buildCheckoutResponseJson({
           session,
           billableEntityId,
-          operationKey
+          operationKey,
+          provider: activeProvider
         }),
         providerSessionId: toNullableString(session?.id),
         pendingLeaseExpiresAt: null,
@@ -404,7 +411,7 @@ function createService({
         providerSubscriptionId: projectionProviderSubscriptionId,
         providerEventCreatedAt: projectionProviderCreatedAt,
         providerEventId: projectionProviderEventId,
-        provider: BILLING_PROVIDER_STRIPE,
+        provider: activeProvider,
         trx
       });
 
@@ -412,7 +419,7 @@ function createService({
         await billingRepository.upsertCheckoutSessionByOperationKey(
           {
             billableEntityId,
-            provider: BILLING_PROVIDER_STRIPE,
+            provider: activeProvider,
             providerCheckoutSessionId,
             operationKey,
             providerCustomerId: projectionProviderCustomerId,
@@ -437,7 +444,7 @@ function createService({
         providerEventCreatedAt: projectionProviderCreatedAt,
         providerEventId: projectionProviderEventId,
         billableEntityId,
-        provider: BILLING_PROVIDER_STRIPE,
+        provider: activeProvider,
         trx
       });
     }
@@ -456,7 +463,7 @@ function createService({
 
     const providerCheckoutSessionId = toNullableString(session?.id);
     if (!providerCheckoutSessionId) {
-      throw new AppError(400, "Stripe checkout session payload missing id.");
+      throw new AppError(400, "Provider checkout session payload missing id.");
     }
 
     const metadata = toSafeMetadata(session?.metadata);
@@ -465,7 +472,7 @@ function createService({
 
     let existingSession = await billingRepository.findCheckoutSessionByProviderSessionId(
       {
-        provider: BILLING_PROVIDER_STRIPE,
+        provider: activeProvider,
         providerCheckoutSessionId
       },
       {
@@ -550,14 +557,14 @@ function createService({
         reason: "expired",
         providerEventCreatedAt: projectionProviderCreatedAt,
         providerEventId: projectionProviderEventId,
-        provider: BILLING_PROVIDER_STRIPE,
+        provider: activeProvider,
         trx
       });
     } else if (operationKey) {
       await billingRepository.upsertCheckoutSessionByOperationKey(
         {
           billableEntityId,
-          provider: BILLING_PROVIDER_STRIPE,
+          provider: activeProvider,
           providerCheckoutSessionId,
           operationKey,
           providerCustomerId: projectionProviderCustomerId,

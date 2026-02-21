@@ -90,7 +90,7 @@ function createBaseBillingService(overrides = {}) {
       },
       ...overrides.billingCheckoutOrchestrator
     },
-    stripeSdkService: {
+    billingProviderAdapter: {
       async createPaymentLink() {
         return {
           id: "plink_default",
@@ -116,7 +116,7 @@ function createBaseBillingService(overrides = {}) {
           providerApiVersion: "2024-06-20"
         };
       },
-      ...overrides.stripeSdkService
+      ...overrides.billingProviderAdapter
     },
     appPublicUrl: "https://app.example.test",
     providerReplayWindowSeconds: 82800,
@@ -211,7 +211,7 @@ test("billing service createPortalSession recovers recover_pending idempotency r
         markSucceededCalls.push(payload);
       }
     },
-    stripeSdkService: {
+    billingProviderAdapter: {
       async createBillingPortalSession({ params, idempotencyKey }) {
         assert.deepEqual(params, replayParams);
         assert.equal(idempotencyKey, "prov_idem_123");
@@ -287,7 +287,7 @@ test("billing service createPortalSession keeps pending state for indeterminate 
         markFailedCalls.push(payload);
       }
     },
-    stripeSdkService: {
+    billingProviderAdapter: {
       async createBillingPortalSession() {
         const error = new Error("rate limit");
         error.statusCode = 429;
@@ -472,7 +472,7 @@ test("billing service createPaymentLink supports catalog and ad_hoc line items",
         return null;
       }
     },
-    stripeSdkService: {
+    billingProviderAdapter: {
       async createPrice({ params, idempotencyKey }) {
         createdPriceCalls.push({
           params,
@@ -619,7 +619,7 @@ test("billing service createPaymentLink recovers pending requests by rebuilding 
         return null;
       }
     },
-    stripeSdkService: {
+    billingProviderAdapter: {
       async createPrice() {
         return {
           id: "price_recovered_1"

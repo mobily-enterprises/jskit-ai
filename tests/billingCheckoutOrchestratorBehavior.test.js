@@ -127,7 +127,7 @@ function createOrchestrator({
         return null;
       }
     },
-    stripeSdkService: {
+    billingProviderAdapter: {
       async getSdkProvenance() {
         return {
           providerSdkName: "stripe-node",
@@ -359,7 +359,7 @@ test("checkout orchestrator persists deterministic Tx A failures for replay", as
         return null;
       }
     },
-    stripeSdkService: {
+    billingProviderAdapter: {
       async getSdkProvenance() {
         return {
           providerSdkName: "stripe-node",
@@ -576,7 +576,7 @@ test("checkout orchestrator supports one_off checkout without requiring plan loo
         return null;
       }
     },
-    stripeSdkService: {
+    billingProviderAdapter: {
       async getSdkProvenance() {
         return {
           providerSdkName: "stripe-node",
@@ -749,7 +749,7 @@ test("checkout orchestrator forwards optional licensed components into pricing a
         return null;
       }
     },
-    stripeSdkService: {
+    billingProviderAdapter: {
       async getSdkProvenance() {
         return {
           providerSdkName: "stripe-node",

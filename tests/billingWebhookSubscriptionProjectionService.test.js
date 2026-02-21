@@ -48,7 +48,7 @@ test("subscription projection service projects one_off invoice/payment rows with
       }
     },
     billingCheckoutSessionService: {},
-    stripeSdkService: {
+    billingProviderAdapter: {
       async retrieveSubscription() {
         return null;
       },
@@ -69,7 +69,7 @@ test("subscription projection service projects one_off invoice/payment rows with
     maybeFinalizePendingCheckoutIdempotency: async () => null
   });
 
-  await projectionService.projectInvoiceAndPaymentFromStripe(
+  await projectionService.projectInvoiceAndPayment(
     {
       id: "in_one_off_77",
       subscription: null,

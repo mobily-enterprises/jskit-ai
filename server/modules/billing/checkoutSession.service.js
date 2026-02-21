@@ -1,8 +1,8 @@
 import { AppError } from "../../lib/errors.js";
 import {
+  BILLING_RUNTIME_DEFAULTS,
   BILLING_CHECKOUT_SESSION_STATUS,
   CHECKOUT_BLOCKING_STATUS_SET,
-  STRIPE_PHASE1_DEFAULTS,
   canTransitionCheckoutStatus,
   isCheckoutTerminalStatus
 } from "./constants.js";
@@ -83,7 +83,10 @@ function mergeMetadataJson(existingMetadata, incomingMetadata) {
   };
 }
 
-function createService({ billingRepository, checkoutSessionGraceSeconds = STRIPE_PHASE1_DEFAULTS.CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS }) {
+function createService({
+  billingRepository,
+  checkoutSessionGraceSeconds = BILLING_RUNTIME_DEFAULTS.CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS
+}) {
   if (!billingRepository) {
     throw new Error("billingRepository is required.");
   }

@@ -2,10 +2,10 @@ import { AppError } from "../../lib/errors.js";
 import {
   BILLING_ACTIONS,
   BILLING_CHECKOUT_SESSION_STATUS,
+  BILLING_DEFAULT_PROVIDER,
   BILLING_FAILURE_CODES,
   BILLING_IDEMPOTENCY_STATUS,
-  BILLING_PROVIDER_STRIPE,
-  STRIPE_PHASE1_DEFAULTS
+  BILLING_RUNTIME_DEFAULTS
 } from "./constants.js";
 import { toHmacSha256Hex } from "./canonicalJson.js";
 
@@ -65,8 +65,8 @@ function createService({
   billingRepository,
   operationKeySecret,
   providerIdempotencyKeySecret,
-  pendingLeaseSeconds = STRIPE_PHASE1_DEFAULTS.CHECKOUT_PENDING_LEASE_SECONDS,
-  checkoutSessionGraceSeconds = STRIPE_PHASE1_DEFAULTS.CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS,
+  pendingLeaseSeconds = BILLING_RUNTIME_DEFAULTS.CHECKOUT_PENDING_LEASE_SECONDS,
+  checkoutSessionGraceSeconds = BILLING_RUNTIME_DEFAULTS.CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS,
   observabilityService = null
 }) {
   if (!billingRepository) {
@@ -94,10 +94,10 @@ function createService({
     throw new Error("providerIdempotencyKeySecret is required.");
   }
 
-  const leaseSeconds = Math.max(10, Number(pendingLeaseSeconds) || STRIPE_PHASE1_DEFAULTS.CHECKOUT_PENDING_LEASE_SECONDS);
+  const leaseSeconds = Math.max(10, Number(pendingLeaseSeconds) || BILLING_RUNTIME_DEFAULTS.CHECKOUT_PENDING_LEASE_SECONDS);
   const checkoutGraceSeconds = Math.max(
     0,
-    Number(checkoutSessionGraceSeconds) || STRIPE_PHASE1_DEFAULTS.CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS
+    Number(checkoutSessionGraceSeconds) || BILLING_RUNTIME_DEFAULTS.CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS
   );
 
   function recordGuardrail(code, context = {}) {
@@ -126,7 +126,7 @@ function createService({
   }
 
   function buildProviderIdempotencyKey({ provider, action, operationKey }) {
-    const input = `${String(provider || BILLING_PROVIDER_STRIPE).trim()}|${String(action || "").trim()}|${String(operationKey || "").trim()}`;
+    const input = `${String(provider || BILLING_DEFAULT_PROVIDER).trim()}|${String(action || "").trim()}|${String(operationKey || "").trim()}`;
     return toHmacSha256Hex(providerIdempotencyKeySecret, input);
   }
 
@@ -151,7 +151,7 @@ function createService({
       clientIdempotencyKey,
       requestFingerprintHash,
       normalizedRequestJson,
-      provider = BILLING_PROVIDER_STRIPE,
+      provider = BILLING_DEFAULT_PROVIDER,
       now = new Date()
     }
   ) {
@@ -643,13 +643,17 @@ function createService({
     }
 
     const operationKey = String(pendingRow?.operationKey || "").trim();
+    const provider =
+      String(pendingRow?.provider || BILLING_DEFAULT_PROVIDER)
+        .trim()
+        .toLowerCase() || BILLING_DEFAULT_PROVIDER;
     if (!operationKey) {
       return false;
     }
 
     const correlatedSession = await billingRepository.findCheckoutSessionByProviderOperationKey(
       {
-        provider: BILLING_PROVIDER_STRIPE,
+        provider,
         operationKey
       },
       {
@@ -689,7 +693,7 @@ function createService({
     await billingRepository.upsertCheckoutSessionByOperationKey(
       {
         billableEntityId: pendingRow.billableEntityId,
-        provider: BILLING_PROVIDER_STRIPE,
+        provider,
         providerCheckoutSessionId: null,
         idempotencyRowId: pendingRow.id,
         operationKey,

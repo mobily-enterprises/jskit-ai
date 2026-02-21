@@ -1,4 +1,6 @@
 const BILLING_PROVIDER_STRIPE = "stripe";
+const BILLING_PROVIDER_PADDLE = "paddle";
+const BILLING_DEFAULT_PROVIDER = BILLING_PROVIDER_STRIPE;
 const BILLING_ACTIONS = Object.freeze({
   CHECKOUT: "checkout",
   PORTAL: "portal",
@@ -96,7 +98,7 @@ const CHECKOUT_STATUS_TRANSITIONS = Object.freeze({
   [BILLING_CHECKOUT_SESSION_STATUS.ABANDONED]: new Set()
 });
 
-const STRIPE_PHASE1_DEFAULTS = Object.freeze({
+const BILLING_RUNTIME_DEFAULTS = Object.freeze({
   PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS: 23 * 60 * 60,
   CHECKOUT_PROVIDER_EXPIRES_SECONDS: 24 * 60 * 60,
   CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS: 90,
@@ -104,8 +106,15 @@ const STRIPE_PHASE1_DEFAULTS = Object.freeze({
   WEBHOOK_MAX_PAYLOAD_BYTES: 256 * 1024
 });
 
-const PROVIDER_REQUEST_SCHEMA_VERSION = "stripe_checkout_session_create_params_v1";
-const PROVIDER_SDK_NAME = "stripe-node";
+const BILLING_PROVIDER_REQUEST_SCHEMA_VERSION_BY_PROVIDER = Object.freeze({
+  [BILLING_PROVIDER_STRIPE]: "stripe_checkout_session_create_params_v1",
+  [BILLING_PROVIDER_PADDLE]: "paddle_checkout_session_create_params_v1"
+});
+
+const BILLING_PROVIDER_SDK_NAME_BY_PROVIDER = Object.freeze({
+  [BILLING_PROVIDER_STRIPE]: "stripe-node",
+  [BILLING_PROVIDER_PADDLE]: "paddle-rest"
+});
 
 const LOCK_ORDER = Object.freeze([
   "billable_entities",
@@ -160,8 +169,31 @@ function statusFromFailureCode(failureCode) {
   return 409;
 }
 
+function resolveProviderRequestSchemaVersion(provider) {
+  const normalizedProvider = String(provider || "")
+    .trim()
+    .toLowerCase();
+  const providerKey = normalizedProvider || BILLING_DEFAULT_PROVIDER;
+
+  return (
+    BILLING_PROVIDER_REQUEST_SCHEMA_VERSION_BY_PROVIDER[providerKey] ||
+    `${providerKey}_checkout_session_create_params_v1`
+  );
+}
+
+function resolveProviderSdkName(provider) {
+  const normalizedProvider = String(provider || "")
+    .trim()
+    .toLowerCase();
+  const providerKey = normalizedProvider || BILLING_DEFAULT_PROVIDER;
+
+  return BILLING_PROVIDER_SDK_NAME_BY_PROVIDER[providerKey] || `${providerKey}-sdk`;
+}
+
 export {
   BILLING_PROVIDER_STRIPE,
+  BILLING_PROVIDER_PADDLE,
+  BILLING_DEFAULT_PROVIDER,
   BILLING_ACTIONS,
   BILLING_FAILURE_CODES,
   BILLING_IDEMPOTENCY_STATUS,
@@ -172,12 +204,14 @@ export {
   CHECKOUT_BLOCKING_STATUS_SET,
   CHECKOUT_TERMINAL_STATUS_SET,
   CHECKOUT_STATUS_TRANSITIONS,
-  STRIPE_PHASE1_DEFAULTS,
-  PROVIDER_REQUEST_SCHEMA_VERSION,
-  PROVIDER_SDK_NAME,
+  BILLING_RUNTIME_DEFAULTS,
+  BILLING_PROVIDER_REQUEST_SCHEMA_VERSION_BY_PROVIDER,
+  BILLING_PROVIDER_SDK_NAME_BY_PROVIDER,
   LOCK_ORDER,
   isBlockingCheckoutStatus,
   isCheckoutTerminalStatus,
   canTransitionCheckoutStatus,
-  statusFromFailureCode
+  statusFromFailureCode,
+  resolveProviderRequestSchemaVersion,
+  resolveProviderSdkName
 };

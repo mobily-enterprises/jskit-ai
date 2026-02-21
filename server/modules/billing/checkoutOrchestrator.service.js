@@ -3,12 +3,12 @@ import { AppError } from "../../lib/errors.js";
 import {
   BILLING_ACTIONS,
   BILLING_CHECKOUT_SESSION_STATUS,
+  BILLING_DEFAULT_PROVIDER,
   BILLING_FAILURE_CODES,
   BILLING_IDEMPOTENCY_STATUS,
-  BILLING_PROVIDER_STRIPE,
+  BILLING_RUNTIME_DEFAULTS,
   NON_TERMINAL_CURRENT_SUBSCRIPTION_STATUS_SET,
-  STRIPE_PHASE1_DEFAULTS,
-  PROVIDER_REQUEST_SCHEMA_VERSION,
+  resolveProviderRequestSchemaVersion,
   statusFromFailureCode
 } from "./constants.js";
 import { toCanonicalJson, toSha256Hex } from "./canonicalJson.js";
@@ -282,19 +282,20 @@ function resolveDeterministicFailureCode(error) {
   return "";
 }
 
-function createService({
-  billingRepository,
-  billingPolicyService,
-  billingPricingService,
-  billingIdempotencyService,
-  billingCheckoutSessionService,
-  stripeSdkService,
-  appPublicUrl,
-  observabilityService = null,
-  checkoutSessionGraceSeconds = STRIPE_PHASE1_DEFAULTS.CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS,
-  providerReplayWindowSeconds = STRIPE_PHASE1_DEFAULTS.PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS,
-  providerCheckoutExpirySeconds = STRIPE_PHASE1_DEFAULTS.CHECKOUT_PROVIDER_EXPIRES_SECONDS
-}) {
+function createService(options = {}) {
+  const {
+    billingRepository,
+    billingPolicyService,
+    billingPricingService,
+    billingIdempotencyService,
+    billingCheckoutSessionService,
+    billingProviderAdapter,
+    appPublicUrl,
+    observabilityService = null,
+    checkoutSessionGraceSeconds = BILLING_RUNTIME_DEFAULTS.CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS,
+    providerReplayWindowSeconds = BILLING_RUNTIME_DEFAULTS.PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS,
+    providerCheckoutExpirySeconds = BILLING_RUNTIME_DEFAULTS.CHECKOUT_PROVIDER_EXPIRES_SECONDS
+  } = options;
   if (!billingRepository || typeof billingRepository.transaction !== "function") {
     throw new Error("billingRepository.transaction is required.");
   }
@@ -310,9 +311,14 @@ function createService({
   if (!billingCheckoutSessionService || typeof billingCheckoutSessionService.getBlockingCheckoutSession !== "function") {
     throw new Error("billingCheckoutSessionService.getBlockingCheckoutSession is required.");
   }
-  if (!stripeSdkService || typeof stripeSdkService.createCheckoutSession !== "function") {
-    throw new Error("stripeSdkService.createCheckoutSession is required.");
+  const providerAdapter = billingProviderAdapter;
+  if (!providerAdapter || typeof providerAdapter.createCheckoutSession !== "function") {
+    throw new Error("billingProviderAdapter.createCheckoutSession is required.");
   }
+  const activeProvider =
+    String(providerAdapter?.provider || BILLING_DEFAULT_PROVIDER)
+      .trim()
+      .toLowerCase() || BILLING_DEFAULT_PROVIDER;
 
   const normalizedAppPublicUrl = String(appPublicUrl || "").trim();
   if (!normalizedAppPublicUrl) {
@@ -394,7 +400,7 @@ function createService({
   function formatCheckoutResponse({ providerSession, billableEntityId, operationKey, checkoutType }) {
     const normalizedCheckoutType = normalizeCheckoutType(checkoutType);
     return {
-      provider: BILLING_PROVIDER_STRIPE,
+      provider: activeProvider,
       billableEntityId: Number(billableEntityId),
       operationKey: String(operationKey || ""),
       checkoutType: normalizedCheckoutType,
@@ -467,7 +473,7 @@ function createService({
     };
   }
 
-  async function buildFrozenStripeCheckoutSessionParams({
+  async function buildFrozenCheckoutSessionParams({
     operationKey,
     billableEntityId,
     idempotencyRowId,
@@ -676,21 +682,21 @@ function createService({
           );
 
           let abandonedSession = await billingCheckoutSessionService.markCheckoutSessionExpiredOrAbandoned(
-            {
-              providerCheckoutSessionId: providerSession?.id ? String(providerSession.id) : null,
-              operationKey,
-              reason: "abandoned",
-              providerEventCreatedAt: now,
-              provider: BILLING_PROVIDER_STRIPE,
-              trx
-            }
-          );
+              {
+                providerCheckoutSessionId: providerSession?.id ? String(providerSession.id) : null,
+                operationKey,
+                reason: "abandoned",
+                providerEventCreatedAt: now,
+                provider: activeProvider,
+                trx
+              }
+            );
 
           if (!abandonedSession) {
             abandonedSession = await billingRepository.upsertCheckoutSessionByOperationKey(
               {
                 billableEntityId,
-                provider: BILLING_PROVIDER_STRIPE,
+                provider: activeProvider,
                 providerCheckoutSessionId: providerSession?.id ? String(providerSession.id) : null,
                 idempotencyRowId,
                 operationKey,
@@ -716,7 +722,7 @@ function createService({
                 billableEntityId,
                 operationKey,
                 payloadJson: {
-                  provider: BILLING_PROVIDER_STRIPE,
+                  provider: activeProvider,
                   providerCheckoutSessionId: String(providerSession.id),
                   billableEntityId,
                   operationKey
@@ -752,7 +758,7 @@ function createService({
         checkoutSession = await billingCheckoutSessionService.upsertBlockingCheckoutSession(
           {
             billableEntityId,
-            provider: BILLING_PROVIDER_STRIPE,
+            provider: activeProvider,
             providerCheckoutSessionId,
             idempotencyRowId,
             operationKey,
@@ -774,7 +780,7 @@ function createService({
             operationKey,
             reason: "expired",
             providerEventCreatedAt: now,
-            provider: BILLING_PROVIDER_STRIPE,
+            provider: activeProvider,
             trx
           }
         );
@@ -783,7 +789,7 @@ function createService({
           checkoutSession = await billingRepository.upsertCheckoutSessionByOperationKey(
             {
               billableEntityId,
-              provider: BILLING_PROVIDER_STRIPE,
+              provider: activeProvider,
               providerCheckoutSessionId,
               idempotencyRowId,
               operationKey,
@@ -834,7 +840,7 @@ function createService({
     holdExpiresAt,
     now,
     checkoutSessionMetadata = null,
-    provider = BILLING_PROVIDER_STRIPE
+    provider = activeProvider
   }) {
     return billingRepository.transaction(async (trx) => {
       await billingRepository.findBillableEntityById(billableEntityId, {
@@ -936,7 +942,7 @@ function createService({
     }
 
     if (recoveryLeaseRow.providerSessionId) {
-      const providerSession = await stripeSdkService.retrieveCheckoutSession({
+      const providerSession = await providerAdapter.retrieveCheckoutSession({
         sessionId: recoveryLeaseRow.providerSessionId,
         expand: ["subscription", "customer"]
       });
@@ -975,7 +981,7 @@ function createService({
       );
     }
 
-    const sdkProvenance = await stripeSdkService.getSdkProvenance();
+    const sdkProvenance = await providerAdapter.getSdkProvenance();
 
     try {
       billingIdempotencyService.assertReplayProvenanceCompatible({
@@ -1004,7 +1010,7 @@ function createService({
         idempotencyRowId: recoveryLeaseRow.id,
         leaseVersion: expectedLeaseVersion,
         failureCode: BILLING_FAILURE_CODES.CHECKOUT_REPLAY_PROVENANCE_MISMATCH,
-        failureReason: "Runtime Stripe SDK/API provenance is incompatible with persisted frozen request provenance."
+        failureReason: "Runtime provider SDK/API provenance is incompatible with persisted frozen request provenance."
       });
 
       throw buildApiFailure(
@@ -1035,7 +1041,7 @@ function createService({
 
     let providerSession;
     try {
-      providerSession = await stripeSdkService.createCheckoutSession({
+      providerSession = await providerAdapter.createCheckoutSession({
         params: recoveryLeaseRow.providerRequestParamsJson,
         idempotencyKey: recoveryLeaseRow.providerIdempotencyKey
       });
@@ -1178,7 +1184,7 @@ function createService({
             clientIdempotencyKey,
             requestFingerprintHash,
             normalizedRequestJson: normalizedRequest,
-            provider: BILLING_PROVIDER_STRIPE,
+            provider: activeProvider,
             now
           },
           { trx }
@@ -1271,7 +1277,7 @@ function createService({
 
             priceSelection = await resolveSubscriptionPriceSelection({
               plan,
-              provider: BILLING_PROVIDER_STRIPE,
+              provider: activeProvider,
               selectedComponents: normalizedComponents
             });
           }
@@ -1279,12 +1285,12 @@ function createService({
           const customer = await billingRepository.findCustomerByEntityProvider(
             {
               billableEntityId: billableEntity.id,
-              provider: BILLING_PROVIDER_STRIPE
+              provider: activeProvider
             },
             { trx }
           );
 
-          const frozenParams = await buildFrozenStripeCheckoutSessionParams({
+          const frozenParams = await buildFrozenCheckoutSessionParams({
             operationKey: lockedIdempotencyRow.operationKey,
             billableEntityId: billableEntity.id,
             idempotencyRowId: lockedIdempotencyRow.id,
@@ -1297,7 +1303,7 @@ function createService({
           });
 
           const providerRequestHash = toSha256Hex(toCanonicalJson(frozenParams));
-          const sdkProvenance = await stripeSdkService.getSdkProvenance();
+          const sdkProvenance = await providerAdapter.getSdkProvenance();
           const frozenAt = new Date(now);
           const replayDeadlineAt = new Date(now.getTime() + replayWindowSeconds * 1000);
           const checkoutSessionExpiresAtUpperBound = new Date(Number(frozenParams.expires_at) * 1000);
@@ -1307,14 +1313,14 @@ function createService({
             {
               providerRequestParamsJson: frozenParams,
               providerRequestHash,
-              providerRequestSchemaVersion: PROVIDER_REQUEST_SCHEMA_VERSION,
+              providerRequestSchemaVersion: resolveProviderRequestSchemaVersion(activeProvider),
               providerSdkName: sdkProvenance.providerSdkName,
               providerSdkVersion: sdkProvenance.providerSdkVersion,
               providerApiVersion: sdkProvenance.providerApiVersion,
               providerRequestFrozenAt: frozenAt,
               providerIdempotencyReplayDeadlineAt: replayDeadlineAt,
               providerCheckoutSessionExpiresAtUpperBound: checkoutSessionExpiresAtUpperBound,
-              provider: BILLING_PROVIDER_STRIPE
+              provider: activeProvider
             },
             { trx }
           );
@@ -1419,7 +1425,7 @@ function createService({
 
     let providerSession;
     try {
-      providerSession = await stripeSdkService.createCheckoutSession({
+      providerSession = await providerAdapter.createCheckoutSession({
         params: checkoutContext.providerParams,
         idempotencyKey: checkoutContext.providerIdempotencyKey
       });
@@ -1480,7 +1486,7 @@ function createService({
     startCheckout,
     recoverCheckoutFromPending,
     finalizeRecoveredCheckout,
-    buildFrozenStripeCheckoutSessionParams
+    buildFrozenCheckoutSessionParams
   };
 }
 
