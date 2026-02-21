@@ -11,6 +11,11 @@ import { toCanonicalJson, toSha256Hex } from "./canonicalJson.js";
 import { normalizeBillingPath, normalizePortalPath } from "./pathPolicy.js";
 import { assertEntitlementValueOrThrow } from "./entitlementSchemaRegistry.js";
 import { resolveCapabilityLimitConfig } from "./appCapabilityLimits.js";
+import {
+  PROVIDER_OUTCOME_ACTIONS,
+  resolveProviderErrorOutcome
+} from "./providerOutcomePolicy.js";
+import { isBillingProviderError } from "./providers/shared/providerError.contract.js";
 
 function mapFailureCodeToError(failureCode, fallbackMessage) {
   const code = String(failureCode || "").trim() || BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR;
@@ -156,43 +161,21 @@ function normalizePaymentLinkRequest({ billableEntityId, payload, defaultCurrenc
   };
 }
 
-function isDeterministicProviderRejection(error) {
-  const statusCode = Number(error?.statusCode || error?.status || 0);
-  if (statusCode >= 400 && statusCode < 500 && statusCode !== 429) {
-    return true;
+function toLeaseVersionOrNull(value) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return null;
   }
 
-  const code = String(error?.code || "").trim();
-  if (code === "StripeInvalidRequestError") {
-    return true;
-  }
-
-  return false;
+  return parsed;
 }
 
-function isIndeterminateProviderOutcome(error) {
-  const statusCode = Number(error?.statusCode || error?.status || 0);
-  if (statusCode === 429 || statusCode >= 500) {
-    return true;
-  }
+function isLeaseFencedError(error) {
+  return String(error?.code || "").trim() === "BILLING_LEASE_FENCED";
+}
 
-  const code = String(error?.code || "").trim().toLowerCase();
-  if (
-    code === "ecconnreset" ||
-    code === "etimedout" ||
-    code === "econnaborted" ||
-    code === "stripeapiconnectionerror" ||
-    code === "stripeapierror"
-  ) {
-    return true;
-  }
-
-  const message = String(error?.message || "").toLowerCase();
-  if (message.includes("timeout") || message.includes("network") || message.includes("connection")) {
-    return true;
-  }
-
-  return false;
+function isLocalPreparationError(error) {
+  return error instanceof AppError && !isBillingProviderError(error);
 }
 
 const LIFETIME_WINDOW_END = new Date("9999-12-31T23:59:59.999Z");
@@ -511,6 +494,43 @@ function createService(options = {}) {
     observabilityService.recordDbError({
       code
     });
+  }
+
+  function resolveAndRecordProviderOutcome(error, { operation, correlation = {} } = {}) {
+    const context = correlation && typeof correlation === "object" ? correlation : {};
+    const outcome = resolveProviderErrorOutcome({
+      operation,
+      error
+    });
+
+    if (outcome.nonNormalizedGuardrailCode) {
+      recordGuardrail(outcome.nonNormalizedGuardrailCode, {
+        provider: activeProvider,
+        ...context
+      });
+    }
+
+    if (outcome.guardrailCode) {
+      recordGuardrail(outcome.guardrailCode, context);
+    }
+
+    return outcome;
+  }
+
+  async function updateIdempotencyWithLeaseFence({ idempotencyRowId, leaseVersion = null, patch = {} }) {
+    const normalizedLeaseVersion = toLeaseVersionOrNull(leaseVersion);
+    const options = normalizedLeaseVersion != null ? { expectedLeaseVersion: normalizedLeaseVersion } : {};
+    const updated = await billingRepository.updateIdempotencyById(idempotencyRowId, patch, options);
+    if (normalizedLeaseVersion != null && !updated) {
+      throw new AppError(409, "Billing idempotency lease has changed.", {
+        code: "BILLING_LEASE_FENCED",
+        details: {
+          code: "BILLING_LEASE_FENCED"
+        }
+      });
+    }
+
+    return updated;
   }
 
   async function ensureBillableEntity({ workspaceId, ownerUserId }) {
@@ -1242,31 +1262,30 @@ function createService(options = {}) {
         idempotencyKey: recoveryRow.providerIdempotencyKey
       });
     } catch (error) {
-      if (isDeterministicProviderRejection(error)) {
-        recordGuardrail("BILLING_PORTAL_PROVIDER_ERROR", {
+      const providerOutcome = resolveAndRecordProviderOutcome(error, {
+        operation: "portal_recover_replay",
+        correlation: {
           operationKey: recoveryRow.operationKey,
           billableEntityId: recoveryRow.billableEntityId
-        });
+        }
+      });
+      if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.MARK_FAILED) {
         await billingIdempotencyService.markFailed({
           idempotencyRowId: recoveryRow.id,
           leaseVersion: expectedLeaseVersion,
-          failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+          failureCode: providerOutcome.failureCode,
           failureReason: String(error?.message || "Provider billing portal session recovery replay failed.")
         });
 
         throw mapFailureCodeToError(
-          BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+          providerOutcome.failureCode,
           "Provider rejected billing portal recovery replay."
         );
       }
 
-      if (isIndeterminateProviderOutcome(error)) {
-        recordGuardrail("BILLING_PORTAL_INDETERMINATE_PROVIDER_OUTCOME", {
-          operationKey: recoveryRow.operationKey,
-          billableEntityId: recoveryRow.billableEntityId
-        });
+      if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.IN_PROGRESS) {
         throw mapFailureCodeToError(
-          BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+          providerOutcome.failureCode,
           "Billing portal recovery is in progress."
         );
       }
@@ -1379,14 +1398,26 @@ function createService(options = {}) {
     }
 
     const idempotencyRow = claim.row;
+    const claimLeaseVersion = toLeaseVersionOrNull(idempotencyRow?.leaseVersion);
 
     const currentSubscription = await billingRepository.findCurrentSubscriptionForEntity(billableEntity.id);
     if (!currentSubscription) {
-      await billingIdempotencyService.markFailed({
-        idempotencyRowId: idempotencyRow.id,
-        failureCode: BILLING_FAILURE_CODES.PORTAL_SUBSCRIPTION_REQUIRED,
-        failureReason: "Billing portal requires an existing subscription."
-      });
+      try {
+        await billingIdempotencyService.markFailed({
+          idempotencyRowId: idempotencyRow.id,
+          leaseVersion: claimLeaseVersion,
+          failureCode: BILLING_FAILURE_CODES.PORTAL_SUBSCRIPTION_REQUIRED,
+          failureReason: "Billing portal requires an existing subscription."
+        });
+      } catch (error) {
+        if (isLeaseFencedError(error)) {
+          throw mapFailureCodeToError(
+            BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+            "Billing portal request is in progress."
+          );
+        }
+        throw error;
+      }
 
       throw mapFailureCodeToError(BILLING_FAILURE_CODES.PORTAL_SUBSCRIPTION_REQUIRED, "No active subscription for portal.");
     }
@@ -1396,11 +1427,22 @@ function createService(options = {}) {
       provider: activeProvider
     });
     if (!customer?.providerCustomerId) {
-      await billingIdempotencyService.markFailed({
-        idempotencyRowId: idempotencyRow.id,
-        failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
-        failureReason: "Billing customer is missing for billing portal session create request."
-      });
+      try {
+        await billingIdempotencyService.markFailed({
+          idempotencyRowId: idempotencyRow.id,
+          leaseVersion: claimLeaseVersion,
+          failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+          failureReason: "Billing customer is missing for billing portal session create request."
+        });
+      } catch (error) {
+        if (isLeaseFencedError(error)) {
+          throw mapFailureCodeToError(
+            BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+            "Billing portal request is in progress."
+          );
+        }
+        throw error;
+      }
 
       throw mapFailureCodeToError(BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR, "Billing customer is missing.");
     }
@@ -1415,16 +1457,30 @@ function createService(options = {}) {
 
     const sdkProvenance = await providerAdapter.getSdkProvenance();
 
-    await billingRepository.updateIdempotencyById(idempotencyRow.id, {
-      providerRequestParamsJson: providerRequestParams,
-      providerRequestHash,
-      providerRequestSchemaVersion: `${activeProvider}_billing_portal_session_create_params_v1`,
-      providerSdkName: sdkProvenance.providerSdkName,
-      providerSdkVersion: sdkProvenance.providerSdkVersion,
-      providerApiVersion: sdkProvenance.providerApiVersion,
-      providerRequestFrozenAt: now,
-      providerIdempotencyReplayDeadlineAt: new Date(now.getTime() + replayWindowSeconds * 1000)
-    });
+    try {
+      await updateIdempotencyWithLeaseFence({
+        idempotencyRowId: idempotencyRow.id,
+        leaseVersion: claimLeaseVersion,
+        patch: {
+          providerRequestParamsJson: providerRequestParams,
+          providerRequestHash,
+          providerRequestSchemaVersion: `${activeProvider}_billing_portal_session_create_params_v1`,
+          providerSdkName: sdkProvenance.providerSdkName,
+          providerSdkVersion: sdkProvenance.providerSdkVersion,
+          providerApiVersion: sdkProvenance.providerApiVersion,
+          providerRequestFrozenAt: now,
+          providerIdempotencyReplayDeadlineAt: new Date(now.getTime() + replayWindowSeconds * 1000)
+        }
+      });
+    } catch (error) {
+      if (isLeaseFencedError(error)) {
+        throw mapFailureCodeToError(
+          BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+          "Billing portal request is in progress."
+        );
+      }
+      throw error;
+    }
 
     let portalSession;
     try {
@@ -1433,30 +1489,40 @@ function createService(options = {}) {
         idempotencyKey: idempotencyRow.providerIdempotencyKey
       });
     } catch (error) {
-      if (isDeterministicProviderRejection(error)) {
-        recordGuardrail("BILLING_PORTAL_PROVIDER_ERROR", {
+      const providerOutcome = resolveAndRecordProviderOutcome(error, {
+        operation: "portal_create",
+        correlation: {
           operationKey: idempotencyRow.operationKey,
           billableEntityId: billableEntity.id
-        });
-        await billingIdempotencyService.markFailed({
-          idempotencyRowId: idempotencyRow.id,
-          failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
-          failureReason: String(error?.message || "Provider billing portal session creation failed.")
-        });
+        }
+      });
+      if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.MARK_FAILED) {
+        try {
+          await billingIdempotencyService.markFailed({
+            idempotencyRowId: idempotencyRow.id,
+            leaseVersion: claimLeaseVersion,
+            failureCode: providerOutcome.failureCode,
+            failureReason: String(error?.message || "Provider billing portal session creation failed.")
+          });
+        } catch (markFailedError) {
+          if (isLeaseFencedError(markFailedError)) {
+            throw mapFailureCodeToError(
+              BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+              "Billing portal request is in progress."
+            );
+          }
+          throw markFailedError;
+        }
 
         throw mapFailureCodeToError(
-          BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+          providerOutcome.failureCode,
           "Failed to create billing portal session."
         );
       }
 
-      if (isIndeterminateProviderOutcome(error)) {
-        recordGuardrail("BILLING_PORTAL_INDETERMINATE_PROVIDER_OUTCOME", {
-          operationKey: idempotencyRow.operationKey,
-          billableEntityId: billableEntity.id
-        });
+      if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.IN_PROGRESS) {
         throw mapFailureCodeToError(
-          BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+          providerOutcome.failureCode,
           "Billing portal request is in progress."
         );
       }
@@ -1472,11 +1538,22 @@ function createService(options = {}) {
       }
     };
 
-    await billingIdempotencyService.markSucceeded({
-      idempotencyRowId: idempotencyRow.id,
-      responseJson,
-      providerSessionId: String(portalSession?.id || "")
-    });
+    try {
+      await billingIdempotencyService.markSucceeded({
+        idempotencyRowId: idempotencyRow.id,
+        leaseVersion: claimLeaseVersion,
+        responseJson,
+        providerSessionId: String(portalSession?.id || "")
+      });
+    } catch (error) {
+      if (isLeaseFencedError(error)) {
+        throw mapFailureCodeToError(
+          BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+          "Billing portal request is in progress."
+        );
+      }
+      throw error;
+    }
 
     return responseJson;
   }
@@ -1599,19 +1676,23 @@ function createService(options = {}) {
     };
   }
 
-  async function freezePaymentLinkProviderRequest({ idempotencyRow, providerRequestParams, now }) {
+  async function freezePaymentLinkProviderRequest({ idempotencyRow, providerRequestParams, now, leaseVersion = null }) {
     const providerRequestHash = toSha256Hex(toCanonicalJson(providerRequestParams));
     const sdkProvenance = await providerAdapter.getSdkProvenance();
 
-    await billingRepository.updateIdempotencyById(idempotencyRow.id, {
-      providerRequestParamsJson: providerRequestParams,
-      providerRequestHash,
-      providerRequestSchemaVersion: `${activeProvider}_payment_link_create_params_v1`,
-      providerSdkName: sdkProvenance.providerSdkName,
-      providerSdkVersion: sdkProvenance.providerSdkVersion,
-      providerApiVersion: sdkProvenance.providerApiVersion,
-      providerRequestFrozenAt: now,
-      providerIdempotencyReplayDeadlineAt: new Date(now.getTime() + replayWindowSeconds * 1000)
+    await updateIdempotencyWithLeaseFence({
+      idempotencyRowId: idempotencyRow.id,
+      leaseVersion,
+      patch: {
+        providerRequestParamsJson: providerRequestParams,
+        providerRequestHash,
+        providerRequestSchemaVersion: `${activeProvider}_payment_link_create_params_v1`,
+        providerSdkName: sdkProvenance.providerSdkName,
+        providerSdkVersion: sdkProvenance.providerSdkVersion,
+        providerApiVersion: sdkProvenance.providerApiVersion,
+        providerRequestFrozenAt: now,
+        providerIdempotencyReplayDeadlineAt: new Date(now.getTime() + replayWindowSeconds * 1000)
+      }
     });
 
     return providerRequestHash;
@@ -1718,31 +1799,44 @@ function createService(options = {}) {
           );
         }
 
-        if (isDeterministicProviderRejection(error)) {
-          recordGuardrail("BILLING_PAYMENT_LINK_PROVIDER_ERROR", {
-            operationKey: recoveryRow.operationKey,
-            billableEntityId: recoveryRow.billableEntityId
-          });
+        if (isLocalPreparationError(error)) {
           await billingIdempotencyService.markFailed({
             idempotencyRowId: recoveryRow.id,
             leaseVersion: expectedLeaseVersion,
-            failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+            failureCode: BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+            failureReason: String(error?.message || "Frozen billing payment-link provider params are missing.")
+          });
+
+          throw mapFailureCodeToError(
+            BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+            "Billing payment link recovery request state is invalid."
+          );
+        }
+
+        const providerOutcome = resolveAndRecordProviderOutcome(error, {
+          operation: "payment_link_recover_prepare",
+          correlation: {
+            operationKey: recoveryRow.operationKey,
+            billableEntityId: recoveryRow.billableEntityId
+          }
+        });
+        if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.MARK_FAILED) {
+          await billingIdempotencyService.markFailed({
+            idempotencyRowId: recoveryRow.id,
+            leaseVersion: expectedLeaseVersion,
+            failureCode: providerOutcome.failureCode,
             failureReason: String(error?.message || "Provider payment-link recovery preparation failed.")
           });
 
           throw mapFailureCodeToError(
-            BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+            providerOutcome.failureCode,
             "Provider rejected billing payment-link recovery replay preparation."
           );
         }
 
-        if (isIndeterminateProviderOutcome(error)) {
-          recordGuardrail("BILLING_PAYMENT_LINK_INDETERMINATE_PROVIDER_OUTCOME", {
-            operationKey: recoveryRow.operationKey,
-            billableEntityId: recoveryRow.billableEntityId
-          });
+        if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.IN_PROGRESS) {
           throw mapFailureCodeToError(
-            BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+            providerOutcome.failureCode,
             "Billing payment-link recovery is in progress."
           );
         }
@@ -1787,31 +1881,30 @@ function createService(options = {}) {
         idempotencyKey: recoveryRow.providerIdempotencyKey
       });
     } catch (error) {
-      if (isDeterministicProviderRejection(error)) {
-        recordGuardrail("BILLING_PAYMENT_LINK_PROVIDER_ERROR", {
+      const providerOutcome = resolveAndRecordProviderOutcome(error, {
+        operation: "payment_link_recover_replay",
+        correlation: {
           operationKey: recoveryRow.operationKey,
           billableEntityId: recoveryRow.billableEntityId
-        });
+        }
+      });
+      if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.MARK_FAILED) {
         await billingIdempotencyService.markFailed({
           idempotencyRowId: recoveryRow.id,
           leaseVersion: expectedLeaseVersion,
-          failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+          failureCode: providerOutcome.failureCode,
           failureReason: String(error?.message || "Provider billing payment-link recovery replay failed.")
         });
 
         throw mapFailureCodeToError(
-          BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+          providerOutcome.failureCode,
           "Provider rejected billing payment-link recovery replay."
         );
       }
 
-      if (isIndeterminateProviderOutcome(error)) {
-        recordGuardrail("BILLING_PAYMENT_LINK_INDETERMINATE_PROVIDER_OUTCOME", {
-          operationKey: recoveryRow.operationKey,
-          billableEntityId: recoveryRow.billableEntityId
-        });
+      if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.IN_PROGRESS) {
         throw mapFailureCodeToError(
-          BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+          providerOutcome.failureCode,
           "Billing payment-link recovery is in progress."
         );
       }
@@ -1889,9 +1982,24 @@ function createService(options = {}) {
     }
 
     const idempotencyRow = claim.row;
-    await billingRepository.updateIdempotencyById(idempotencyRow.id, {
-      providerIdempotencyReplayDeadlineAt: new Date(now.getTime() + replayWindowSeconds * 1000)
-    });
+    const claimLeaseVersion = toLeaseVersionOrNull(idempotencyRow?.leaseVersion);
+    try {
+      await updateIdempotencyWithLeaseFence({
+        idempotencyRowId: idempotencyRow.id,
+        leaseVersion: claimLeaseVersion,
+        patch: {
+          providerIdempotencyReplayDeadlineAt: new Date(now.getTime() + replayWindowSeconds * 1000)
+        }
+      });
+    } catch (error) {
+      if (isLeaseFencedError(error)) {
+        throw mapFailureCodeToError(
+          BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+          "Billing payment-link request is in progress."
+        );
+      }
+      throw error;
+    }
 
     let providerRequestParams;
     try {
@@ -1902,42 +2010,95 @@ function createService(options = {}) {
       await freezePaymentLinkProviderRequest({
         idempotencyRow,
         providerRequestParams,
-        now
+        now,
+        leaseVersion: claimLeaseVersion
       });
     } catch (error) {
-      if (isDeterministicProviderRejection(error)) {
-        recordGuardrail("BILLING_PAYMENT_LINK_PROVIDER_ERROR", {
-          operationKey: idempotencyRow.operationKey,
-          billableEntityId: idempotencyRow.billableEntityId
-        });
-        await billingIdempotencyService.markFailed({
-          idempotencyRowId: idempotencyRow.id,
-          failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
-          failureReason: String(error?.message || "Provider payment-link request preparation failed.")
-        });
-
-        throw mapFailureCodeToError(
-          BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
-          "Provider rejected billing payment-link request preparation."
-        );
-      }
-
-      if (isIndeterminateProviderOutcome(error)) {
-        recordGuardrail("BILLING_PAYMENT_LINK_INDETERMINATE_PROVIDER_OUTCOME", {
-          operationKey: idempotencyRow.operationKey,
-          billableEntityId: idempotencyRow.billableEntityId
-        });
+      if (isLeaseFencedError(error)) {
         throw mapFailureCodeToError(
           BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
           "Billing payment-link request is in progress."
         );
       }
 
-      await billingIdempotencyService.markFailed({
-        idempotencyRowId: idempotencyRow.id,
-        failureCode: BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
-        failureReason: String(error?.message || "Billing payment-link request is invalid.")
+      if (isLocalPreparationError(error)) {
+        try {
+          await billingIdempotencyService.markFailed({
+            idempotencyRowId: idempotencyRow.id,
+            leaseVersion: claimLeaseVersion,
+            failureCode: BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+            failureReason: String(error?.message || "Billing payment-link request is invalid.")
+          });
+        } catch (markFailedError) {
+          if (isLeaseFencedError(markFailedError)) {
+            throw mapFailureCodeToError(
+              BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+              "Billing payment-link request is in progress."
+            );
+          }
+          throw markFailedError;
+        }
+
+        throw mapFailureCodeToError(
+          BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+          "Billing payment-link request is invalid."
+        );
+      }
+
+      const providerOutcome = resolveAndRecordProviderOutcome(error, {
+        operation: "payment_link_create_prepare",
+        correlation: {
+          operationKey: idempotencyRow.operationKey,
+          billableEntityId: idempotencyRow.billableEntityId
+        }
       });
+      if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.MARK_FAILED) {
+        try {
+          await billingIdempotencyService.markFailed({
+            idempotencyRowId: idempotencyRow.id,
+            leaseVersion: claimLeaseVersion,
+            failureCode: providerOutcome.failureCode,
+            failureReason: String(error?.message || "Provider payment-link request preparation failed.")
+          });
+        } catch (markFailedError) {
+          if (isLeaseFencedError(markFailedError)) {
+            throw mapFailureCodeToError(
+              BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+              "Billing payment-link request is in progress."
+            );
+          }
+          throw markFailedError;
+        }
+
+        throw mapFailureCodeToError(
+          providerOutcome.failureCode,
+          "Provider rejected billing payment-link request preparation."
+        );
+      }
+
+      if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.IN_PROGRESS) {
+        throw mapFailureCodeToError(
+          providerOutcome.failureCode,
+          "Billing payment-link request is in progress."
+        );
+      }
+
+      try {
+        await billingIdempotencyService.markFailed({
+          idempotencyRowId: idempotencyRow.id,
+          leaseVersion: claimLeaseVersion,
+          failureCode: BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+          failureReason: String(error?.message || "Billing payment-link request is invalid.")
+        });
+      } catch (markFailedError) {
+        if (isLeaseFencedError(markFailedError)) {
+          throw mapFailureCodeToError(
+            BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+            "Billing payment-link request is in progress."
+          );
+        }
+        throw markFailedError;
+      }
       throw mapFailureCodeToError(
         BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
         "Billing payment-link request is invalid."
@@ -1951,30 +2112,40 @@ function createService(options = {}) {
         idempotencyKey: idempotencyRow.providerIdempotencyKey
       });
     } catch (error) {
-      if (isDeterministicProviderRejection(error)) {
-        recordGuardrail("BILLING_PAYMENT_LINK_PROVIDER_ERROR", {
+      const providerOutcome = resolveAndRecordProviderOutcome(error, {
+        operation: "payment_link_create",
+        correlation: {
           operationKey: idempotencyRow.operationKey,
           billableEntityId: idempotencyRow.billableEntityId
-        });
-        await billingIdempotencyService.markFailed({
-          idempotencyRowId: idempotencyRow.id,
-          failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
-          failureReason: String(error?.message || "Provider payment-link create request failed.")
-        });
+        }
+      });
+      if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.MARK_FAILED) {
+        try {
+          await billingIdempotencyService.markFailed({
+            idempotencyRowId: idempotencyRow.id,
+            leaseVersion: claimLeaseVersion,
+            failureCode: providerOutcome.failureCode,
+            failureReason: String(error?.message || "Provider payment-link create request failed.")
+          });
+        } catch (markFailedError) {
+          if (isLeaseFencedError(markFailedError)) {
+            throw mapFailureCodeToError(
+              BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+              "Billing payment-link request is in progress."
+            );
+          }
+          throw markFailedError;
+        }
 
         throw mapFailureCodeToError(
-          BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+          providerOutcome.failureCode,
           "Failed to create billing payment link."
         );
       }
 
-      if (isIndeterminateProviderOutcome(error)) {
-        recordGuardrail("BILLING_PAYMENT_LINK_INDETERMINATE_PROVIDER_OUTCOME", {
-          operationKey: idempotencyRow.operationKey,
-          billableEntityId: idempotencyRow.billableEntityId
-        });
+      if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.IN_PROGRESS) {
         throw mapFailureCodeToError(
-          BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+          providerOutcome.failureCode,
           "Billing payment-link request is in progress."
         );
       }
@@ -1988,11 +2159,22 @@ function createService(options = {}) {
       operationKey: idempotencyRow.operationKey
     });
 
-    await billingIdempotencyService.markSucceeded({
-      idempotencyRowId: idempotencyRow.id,
-      responseJson,
-      providerSessionId: String(paymentLink?.id || "")
-    });
+    try {
+      await billingIdempotencyService.markSucceeded({
+        idempotencyRowId: idempotencyRow.id,
+        leaseVersion: claimLeaseVersion,
+        responseJson,
+        providerSessionId: String(paymentLink?.id || "")
+      });
+    } catch (error) {
+      if (isLeaseFencedError(error)) {
+        throw mapFailureCodeToError(
+          BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+          "Billing payment-link request is in progress."
+        );
+      }
+      throw error;
+    }
 
     return responseJson;
   }

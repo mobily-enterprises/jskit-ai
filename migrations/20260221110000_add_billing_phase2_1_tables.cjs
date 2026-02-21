@@ -26,7 +26,10 @@ exports.up = async function up(knex) {
     table.index(["billing_customer_id", "provider"], "idx_billing_payment_methods_customer_provider");
 
     table.foreign("billable_entity_id").references("id").inTable("billable_entities").onDelete("RESTRICT");
-    table.foreign(["billing_customer_id", "billable_entity_id", "provider"])
+    table.foreign(
+      ["billing_customer_id", "billable_entity_id", "provider"],
+      "fk_bpay_methods_customer_entity_provider"
+    )
       .references(["id", "billable_entity_id", "provider"])
       .inTable("billing_customers")
       .onDelete("RESTRICT");

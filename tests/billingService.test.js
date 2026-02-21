@@ -435,6 +435,71 @@ test("billing service createPortalSession fails with portal_subscription_require
   assert.equal(markFailedCalls[0].failureCode, BILLING_FAILURE_CODES.PORTAL_SUBSCRIPTION_REQUIRED);
 });
 
+test("billing service createPortalSession claimed flow preserves lease fencing metadata on success", async () => {
+  const markSucceededCalls = [];
+
+  const service = createBaseBillingService({
+    billingRepository: {
+      async findCurrentSubscriptionForEntity() {
+        return {
+          id: 611
+        };
+      },
+      async findCustomerByEntityProvider() {
+        return {
+          providerCustomerId: "cus_lease_611"
+        };
+      },
+      async updateIdempotencyById(id) {
+        return {
+          id
+        };
+      }
+    },
+    billingIdempotencyService: {
+      async claimOrReplay() {
+        return {
+          type: "claimed",
+          row: {
+            id: 611,
+            leaseVersion: 13,
+            providerIdempotencyKey: "prov_idem_611"
+          }
+        };
+      },
+      async markSucceeded(payload) {
+        markSucceededCalls.push(payload);
+      }
+    },
+    billingProviderAdapter: {
+      async createBillingPortalSession() {
+        return {
+          id: "bps_611",
+          url: "https://billing.stripe.test/bps_611"
+        };
+      }
+    }
+  });
+
+  await service.createPortalSession({
+    request: {
+      headers: {}
+    },
+    user: {
+      id: 11
+    },
+    payload: {
+      returnPath: "/settings/billing"
+    },
+    clientIdempotencyKey: "idem_portal_lease",
+    now: new Date("2026-02-21T03:40:00.000Z")
+  });
+
+  assert.equal(markSucceededCalls.length, 1);
+  assert.equal(markSucceededCalls[0].idempotencyRowId, 611);
+  assert.equal(markSucceededCalls[0].leaseVersion, 13);
+});
+
 test("billing service createPaymentLink supports catalog and ad_hoc line items", async () => {
   const updateCalls = [];
   const markSucceededCalls = [];
@@ -550,6 +615,70 @@ test("billing service createPaymentLink supports catalog and ad_hoc line items",
   assert.equal(markSucceededCalls[0].providerSessionId, "plink_201");
 });
 
+test("billing service createPaymentLink claimed flow preserves lease fencing metadata on success", async () => {
+  const markSucceededCalls = [];
+
+  const service = createBaseBillingService({
+    billingRepository: {
+      async updateIdempotencyById(id) {
+        return {
+          id
+        };
+      }
+    },
+    billingIdempotencyService: {
+      async claimOrReplay() {
+        return {
+          type: "claimed",
+          row: {
+            id: 612,
+            leaseVersion: 21,
+            operationKey: "op_payment_link_612",
+            billableEntityId: 41,
+            providerIdempotencyKey: "prov_idem_payment_link_612"
+          }
+        };
+      },
+      async markSucceeded(payload) {
+        markSucceededCalls.push(payload);
+      }
+    },
+    billingProviderAdapter: {
+      async createPaymentLink() {
+        return {
+          id: "plink_612",
+          url: "https://buy.stripe.test/plink_612",
+          active: true
+        };
+      }
+    }
+  });
+
+  await service.createPaymentLink({
+    request: {
+      headers: {}
+    },
+    user: {
+      id: 11
+    },
+    payload: {
+      successPath: "/billing/success",
+      lineItems: [
+        {
+          priceId: "price_catalog_612",
+          quantity: 1
+        }
+      ]
+    },
+    clientIdempotencyKey: "idem_payment_link_612",
+    now: new Date("2026-02-21T07:00:00.000Z")
+  });
+
+  assert.equal(markSucceededCalls.length, 1);
+  assert.equal(markSucceededCalls[0].idempotencyRowId, 612);
+  assert.equal(markSucceededCalls[0].leaseVersion, 21);
+});
+
 test("billing service createPaymentLink recovers pending requests by rebuilding provider params", async () => {
   const updateCalls = [];
   const markSucceededCalls = [];
@@ -661,4 +790,239 @@ test("billing service createPaymentLink recovers pending requests by rebuilding 
   assert.equal(Number(updateCalls[0].options.expectedLeaseVersion), 9);
   assert.equal(markSucceededCalls.length, 1);
   assert.equal(markSucceededCalls[0].leaseVersion, 9);
+});
+
+test("billing service createPaymentLink maps deterministic provider failures to terminal provider error", async () => {
+  const markFailedCalls = [];
+
+  const service = createBaseBillingService({
+    billingRepository: {
+      async updateIdempotencyById(id) {
+        return { id };
+      }
+    },
+    billingIdempotencyService: {
+      async claimOrReplay() {
+        return {
+          type: "claimed",
+          row: {
+            id: 411,
+            operationKey: "op_payment_link_411",
+            billableEntityId: 41,
+            providerIdempotencyKey: "prov_idem_payment_link_411"
+          }
+        };
+      },
+      async markFailed(payload) {
+        markFailedCalls.push(payload);
+      }
+    },
+    billingProviderAdapter: {
+      async createPaymentLink() {
+        throw new AppError(400, "provider payload is invalid", {
+          code: "provider_invalid_payload"
+        });
+      }
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      service.createPaymentLink({
+        request: {
+          headers: {}
+        },
+        user: {
+          id: 11
+        },
+        payload: {
+          successPath: "/billing/success",
+          lineItems: [
+            {
+              priceId: "price_catalog_1",
+              quantity: 1
+            }
+          ]
+        },
+        clientIdempotencyKey: "idem_payment_link_411",
+        now: new Date("2026-02-21T08:00:00.000Z")
+      }),
+    (error) =>
+      Number(error?.statusCode || 0) === 502 &&
+      String(error?.code || "") === BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR
+  );
+
+  assert.equal(markFailedCalls.length, 1);
+  assert.equal(markFailedCalls[0].idempotencyRowId, 411);
+  assert.equal(markFailedCalls[0].failureCode, BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR);
+  assert.equal(markFailedCalls[0].failureReason, "provider payload is invalid");
+});
+
+test("billing service createPaymentLink fails closed on local prepare errors instead of returning in-progress", async () => {
+  const markFailedCalls = [];
+
+  const service = createBaseBillingService({
+    billingRepository: {
+      async updateIdempotencyById(id) {
+        return { id };
+      }
+    },
+    billingIdempotencyService: {
+      async claimOrReplay() {
+        return {
+          type: "claimed",
+          row: {
+            id: 512,
+            leaseVersion: 3,
+            operationKey: "op_payment_link_512",
+            billableEntityId: 41,
+            providerIdempotencyKey: "prov_idem_payment_link_512"
+          }
+        };
+      },
+      async markFailed(payload) {
+        markFailedCalls.push(payload);
+      }
+    },
+    billingProviderAdapter: {
+      async createPrice() {
+        throw new AppError(500, "Provider price creation is not available.");
+      },
+      async createPaymentLink() {
+        return {
+          id: "plink_512",
+          url: "https://buy.stripe.test/plink_512",
+          active: true
+        };
+      }
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      service.createPaymentLink({
+        request: {
+          headers: {}
+        },
+        user: {
+          id: 11
+        },
+        payload: {
+          successPath: "/billing/success",
+          lineItems: [
+            {
+              name: "Missing createPrice support",
+              amountMinor: 2500,
+              quantity: 1,
+              currency: "USD"
+            }
+          ]
+        },
+        clientIdempotencyKey: "idem_payment_link_512",
+        now: new Date("2026-02-21T08:30:00.000Z")
+      }),
+    (error) =>
+      Number(error?.statusCode || 0) === 409 &&
+      String(error?.code || "") === BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID
+  );
+
+  assert.equal(markFailedCalls.length, 1);
+  assert.equal(markFailedCalls[0].idempotencyRowId, 512);
+  assert.equal(markFailedCalls[0].leaseVersion, 3);
+  assert.equal(markFailedCalls[0].failureCode, BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID);
+  assert.match(String(markFailedCalls[0].failureReason || ""), /price creation is not available/i);
+});
+
+test("billing service payment-link recovery fails closed when rebuilt request is invalid", async () => {
+  const markFailedCalls = [];
+
+  const service = createBaseBillingService({
+    billingRepository: {
+      async updateIdempotencyById(id, patch) {
+        return {
+          id,
+          ...patch
+        };
+      }
+    },
+    billingIdempotencyService: {
+      async claimOrReplay() {
+        return {
+          type: "recover_pending",
+          row: {
+            id: 633
+          }
+        };
+      },
+      async recoverPendingRequest() {
+        return {
+          type: "recovery_leased",
+          row: {
+            id: 633,
+            operationKey: "op_payment_link_633",
+            billableEntityId: 41,
+            providerIdempotencyKey: "prov_idem_payment_link_633",
+            providerIdempotencyReplayDeadlineAt: "2026-02-21T09:00:00.000Z",
+            providerRequestParamsJson: null,
+            providerRequestHash: null,
+            normalizedRequestJson: {
+              action: "payment_link",
+              billableEntityId: 41,
+              successPath: "/billing/success",
+              lineItems: []
+            }
+          },
+          expectedLeaseVersion: 5
+        };
+      },
+      async markFailed(payload) {
+        markFailedCalls.push(payload);
+      },
+      async markExpired() {
+        return null;
+      },
+      async assertProviderRequestHashStable() {
+        return null;
+      }
+    },
+    billingProviderAdapter: {
+      async createPrice() {
+        throw new Error("createPrice should not be called for invalid recovery payloads");
+      },
+      async createPaymentLink() {
+        throw new Error("createPaymentLink should not be called for invalid recovery payloads");
+      }
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      service.createPaymentLink({
+        request: {
+          headers: {}
+        },
+        user: {
+          id: 11
+        },
+        payload: {
+          successPath: "/billing/success",
+          lineItems: [
+            {
+              priceId: "price_catalog_633",
+              quantity: 1
+            }
+          ]
+        },
+        clientIdempotencyKey: "idem_payment_link_633",
+        now: new Date("2026-02-21T08:40:00.000Z")
+      }),
+    (error) =>
+      Number(error?.statusCode || 0) === 409 &&
+      String(error?.code || "") === BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID
+  );
+
+  assert.equal(markFailedCalls.length, 1);
+  assert.equal(markFailedCalls[0].idempotencyRowId, 633);
+  assert.equal(markFailedCalls[0].leaseVersion, 5);
+  assert.equal(markFailedCalls[0].failureCode, BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID);
 });

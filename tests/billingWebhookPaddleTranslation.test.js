@@ -1,18 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { __testables } from "../server/modules/billing/webhook.service.js";
+import {
+  mapPaddleEventType,
+  normalizePaddleEventToCanonical
+} from "../server/modules/billing/providers/paddle/webhookTranslation.service.js";
 
 test("billing webhook paddle translation maps supported event types to canonical billing events", () => {
-  assert.equal(__testables.mapPaddleEventType("transaction.completed"), "invoice.paid");
-  assert.equal(__testables.mapPaddleEventType("transaction.payment_failed"), "invoice.payment_failed");
-  assert.equal(__testables.mapPaddleEventType("subscription.created"), "customer.subscription.created");
-  assert.equal(__testables.mapPaddleEventType("subscription.updated"), "customer.subscription.updated");
-  assert.equal(__testables.mapPaddleEventType("subscription.canceled"), "customer.subscription.deleted");
+  assert.equal(mapPaddleEventType("transaction.completed"), "invoice.paid");
+  assert.equal(mapPaddleEventType("transaction.payment_failed"), "invoice.payment_failed");
+  assert.equal(mapPaddleEventType("subscription.created"), "customer.subscription.created");
+  assert.equal(mapPaddleEventType("subscription.updated"), "customer.subscription.updated");
+  assert.equal(mapPaddleEventType("subscription.canceled"), "customer.subscription.deleted");
 });
 
 test("billing webhook paddle translation normalizes subscription payload into canonical shape", () => {
-  const canonical = __testables.normalizePaddleEventToCanonical({
+  const canonical = normalizePaddleEventToCanonical({
     id: "evt_123",
     type: "subscription.updated",
     created: 1761000000,
@@ -44,7 +47,7 @@ test("billing webhook paddle translation normalizes subscription payload into ca
 });
 
 test("billing webhook paddle translation normalizes transaction payload into invoice canonical shape", () => {
-  const canonical = __testables.normalizePaddleEventToCanonical({
+  const canonical = normalizePaddleEventToCanonical({
     id: "evt_456",
     type: "transaction.completed",
     created: 1761000000,

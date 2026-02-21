@@ -439,12 +439,17 @@ function createService({
   }
 
   function throwReplayProvenanceMismatch(idempotencyRow) {
+    const provider =
+      String(idempotencyRow?.provider || BILLING_DEFAULT_PROVIDER)
+        .trim()
+        .toLowerCase() || BILLING_DEFAULT_PROVIDER;
     const correlationContext = {
+      provider,
       operationKey: idempotencyRow?.operationKey,
       billableEntityId: idempotencyRow?.billableEntityId
     };
 
-    recordGuardrail("BILLING_STRIPE_SDK_API_BASELINE_DRIFT", {
+    recordGuardrail("BILLING_PROVIDER_SDK_API_BASELINE_DRIFT", {
       ...correlationContext,
       measure: "count",
       value: 1

@@ -21,6 +21,9 @@ function createService(options = {}) {
   if (!providerAdapter || typeof providerAdapter.expireCheckoutSession !== "function") {
     throw new Error("billingProviderAdapter.expireCheckoutSession is required.");
   }
+  const activeProvider = String(providerAdapter?.provider || "")
+    .trim()
+    .toLowerCase();
 
   const normalizedRetryDelaySeconds = Math.max(1, Number(retryDelaySeconds) || 1);
   const normalizedMaxAttempts = Math.max(1, Number(maxAttempts) || 1);
@@ -63,6 +66,19 @@ function createService(options = {}) {
   }
 
   async function runExpireCheckoutSession(payload) {
+    const payloadProvider = String(payload?.provider || "")
+      .trim()
+      .toLowerCase();
+    if (payloadProvider && activeProvider && payloadProvider !== activeProvider) {
+      throw new AppError(
+        409,
+        `Outbox provider mismatch: expected "${activeProvider}" but received "${payloadProvider}".`,
+        {
+          code: "BILLING_PROVIDER_MISMATCH"
+        }
+      );
+    }
+
     const providerSessionId = String(payload?.providerCheckoutSessionId || "").trim();
     if (!providerSessionId) {
       throw new AppError(400, "Outbox expire_checkout_session payload missing providerCheckoutSessionId.");
@@ -164,32 +180,44 @@ function createService(options = {}) {
       lastErrorText: String(error?.message || "Outbox worker execution failed.")
     };
 
+    async function patchLeasedJobOrThrow(patch) {
+      const updated = await billingRepository.updateOutboxJobByLease({
+        id: jobId,
+        leaseVersion: fencedJob.leaseVersion,
+        patch
+      });
+
+      if (!updated) {
+        recordGuardrail("BILLING_OUTBOX_LEASE_FENCED", {
+          measure: "count",
+          value: 1
+        });
+        throw new AppError(409, "Outbox lease fencing mismatch.", {
+          code: "BILLING_OUTBOX_LEASE_FENCED"
+        });
+      }
+
+      return updated;
+    }
+
     if (attemptCount >= normalizedMaxAttempts) {
       recordGuardrail("BILLING_OUTBOX_DEAD_LETTER", {
         measure: "attempt_count",
         value: attemptCount
       });
-      return billingRepository.updateOutboxJobByLease({
-        id: jobId,
-        leaseVersion: fencedJob.leaseVersion,
-        patch: {
-          ...basePatch,
-          status: "dead_letter",
-          finishedAt: now
-        }
+      return patchLeasedJobOrThrow({
+        ...basePatch,
+        status: "dead_letter",
+        finishedAt: now
       });
     }
 
     const nextAvailableAt = new Date(now.getTime() + normalizedRetryDelaySeconds * 1000 * attemptCount);
 
-    return billingRepository.updateOutboxJobByLease({
-      id: jobId,
-      leaseVersion: fencedJob.leaseVersion,
-      patch: {
-        ...basePatch,
-        status: "failed",
-        availableAt: nextAvailableAt
-      }
+    return patchLeasedJobOrThrow({
+      ...basePatch,
+      status: "failed",
+      availableAt: nextAvailableAt
     });
   }
 

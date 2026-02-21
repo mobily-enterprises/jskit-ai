@@ -13,6 +13,12 @@ import {
 } from "./constants.js";
 import { toCanonicalJson, toSha256Hex } from "./canonicalJson.js";
 import { normalizeCheckoutPaths } from "./pathPolicy.js";
+import {
+  PROVIDER_OUTCOME_ACTIONS,
+  resolveProviderErrorOutcome,
+  isDeterministicProviderRejection,
+  isIndeterminateProviderOutcome
+} from "./providerOutcomePolicy.js";
 
 function normalizePlanCode(value) {
   return String(value || "").trim();
@@ -206,45 +212,6 @@ function buildApiFailure(failureCode, message = "Billing checkout failed.", deta
   });
 }
 
-function isDeterministicProviderRejection(error) {
-  const statusCode = Number(error?.statusCode || error?.status || 0);
-  if (statusCode >= 400 && statusCode < 500 && statusCode !== 429) {
-    return true;
-  }
-
-  const code = String(error?.code || "").trim();
-  if (code === "StripeInvalidRequestError") {
-    return true;
-  }
-
-  return false;
-}
-
-function isIndeterminateProviderOutcome(error) {
-  const statusCode = Number(error?.statusCode || error?.status || 0);
-  if (statusCode === 429 || statusCode >= 500) {
-    return true;
-  }
-
-  const code = String(error?.code || "").trim().toLowerCase();
-  if (
-    code === "ecconnreset" ||
-    code === "etimedout" ||
-    code === "econnaborted" ||
-    code === "stripeapiconnectionerror" ||
-    code === "stripeapierror"
-  ) {
-    return true;
-  }
-
-  const message = String(error?.message || "").toLowerCase();
-  if (message.includes("timeout") || message.includes("network") || message.includes("connection")) {
-    return true;
-  }
-
-  return false;
-}
-
 function providerSessionStateToLocalStatus(providerStatus) {
   const normalized = String(providerStatus || "").trim().toLowerCase();
   if (normalized === "complete") {
@@ -348,6 +315,27 @@ function createService(options = {}) {
     observabilityService.recordDbError({
       code
     });
+  }
+
+  function resolveAndRecordProviderOutcome(error, { operation, correlation = {} } = {}) {
+    const context = correlation && typeof correlation === "object" ? correlation : {};
+    const outcome = resolveProviderErrorOutcome({
+      operation,
+      error
+    });
+
+    if (outcome.nonNormalizedGuardrailCode) {
+      recordGuardrail(outcome.nonNormalizedGuardrailCode, {
+        provider: activeProvider,
+        ...context
+      });
+    }
+
+    if (outcome.guardrailCode) {
+      recordGuardrail(outcome.guardrailCode, context);
+    }
+
+    return outcome;
   }
 
   function buildNormalizedCheckoutRequest({ billableEntityId, payload, action }) {
@@ -1046,27 +1034,26 @@ function createService(options = {}) {
         idempotencyKey: recoveryLeaseRow.providerIdempotencyKey
       });
     } catch (error) {
-      if (isDeterministicProviderRejection(error)) {
-        recordGuardrail("BILLING_CHECKOUT_PROVIDER_ERROR", {
+      const providerOutcome = resolveAndRecordProviderOutcome(error, {
+        operation: "checkout_recover_replay",
+        correlation: {
           operationKey: recoveryLeaseRow.operationKey,
           billableEntityId: recoveryLeaseRow.billableEntityId
-        });
+        }
+      });
+      if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.MARK_FAILED) {
         await billingIdempotencyService.markFailed({
           idempotencyRowId: recoveryLeaseRow.id,
           leaseVersion: expectedLeaseVersion,
-          failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+          failureCode: providerOutcome.failureCode,
           failureReason: String(error?.message || "Provider rejected checkout recovery replay.")
         });
 
-        throw buildApiFailure(BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR, "Provider rejected checkout recovery replay.");
+        throw buildApiFailure(providerOutcome.failureCode, "Provider rejected checkout recovery replay.");
       }
 
-      if (isIndeterminateProviderOutcome(error)) {
-        recordGuardrail("BILLING_CHECKOUT_INDETERMINATE_PROVIDER_OUTCOME", {
-          operationKey: recoveryLeaseRow.operationKey,
-          billableEntityId: recoveryLeaseRow.billableEntityId
-        });
-        throw buildApiFailure(BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS, "Checkout recovery is still in progress.");
+      if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.IN_PROGRESS) {
+        throw buildApiFailure(providerOutcome.failureCode, "Checkout recovery is still in progress.");
       }
 
       throw error;
@@ -1430,16 +1417,19 @@ function createService(options = {}) {
         idempotencyKey: checkoutContext.providerIdempotencyKey
       });
     } catch (error) {
-      if (isDeterministicProviderRejection(error)) {
-        recordGuardrail("BILLING_CHECKOUT_PROVIDER_ERROR", {
+      const providerOutcome = resolveAndRecordProviderOutcome(error, {
+        operation: "checkout_create",
+        correlation: {
           operationKey: checkoutContext.operationKey,
           billableEntityId: checkoutContext.billableEntityId
-        });
+        }
+      });
+      if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.MARK_FAILED) {
         try {
           await billingIdempotencyService.markFailed({
             idempotencyRowId: checkoutContext.idempotencyRowId,
             leaseVersion: checkoutContext.expectedLeaseVersion,
-            failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+            failureCode: providerOutcome.failureCode,
             failureReason: String(error?.message || "Provider rejected checkout create request.")
           });
         } catch (markFailedError) {
@@ -1449,15 +1439,11 @@ function createService(options = {}) {
           throw markFailedError;
         }
 
-        throw buildApiFailure(BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR, "Provider rejected checkout create request.");
+        throw buildApiFailure(providerOutcome.failureCode, "Provider rejected checkout create request.");
       }
 
-      if (isIndeterminateProviderOutcome(error)) {
-        recordGuardrail("BILLING_CHECKOUT_INDETERMINATE_PROVIDER_OUTCOME", {
-          operationKey: checkoutContext.operationKey,
-          billableEntityId: checkoutContext.billableEntityId
-        });
-        throw buildApiFailure(BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS, "Checkout request is in progress.");
+      if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.IN_PROGRESS) {
+        throw buildApiFailure(providerOutcome.failureCode, "Checkout request is in progress.");
       }
 
       throw error;

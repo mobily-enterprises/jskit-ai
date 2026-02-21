@@ -60,6 +60,58 @@ test("paddle sdk verifyWebhookEvent rejects invalid signatures", async () => {
   );
 });
 
+test("paddle sdk createCheckoutSession keeps non-empty items when checkout line_items are provided", async () => {
+  let capturedRequestBody = null;
+
+  const service = createPaddleSdkService({
+    enabled: true,
+    apiKey: "pdl_test_key",
+    fetchImpl: async (_url, init = {}) => {
+      capturedRequestBody = JSON.parse(String(init?.body || "{}"));
+      return {
+        ok: true,
+        async json() {
+          return {
+            data: {
+              id: "txn_checkout_1",
+              status: "ready",
+              checkout: {
+                url: "https://pay.paddle.test/t/txn_checkout_1"
+              },
+              customer_id: "ctm_1"
+            }
+          };
+        }
+      };
+    }
+  });
+
+  await service.createCheckoutSession({
+    idempotencyKey: "idem_checkout_1",
+    params: {
+      mode: "payment",
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: 999,
+            product_data: {
+              name: "One-off setup"
+            }
+          }
+        }
+      ],
+      metadata: {
+        operation_key: "op_checkout_1"
+      }
+    }
+  });
+
+  assert.ok(Array.isArray(capturedRequestBody?.items));
+  assert.ok(capturedRequestBody.items.length > 0);
+});
+
 test("paddle sdk testables normalize checkout/subscription/invoice payloads", () => {
   const checkout = __testables.normalizeCheckoutSessionFromTransaction({
     id: "txn_1",

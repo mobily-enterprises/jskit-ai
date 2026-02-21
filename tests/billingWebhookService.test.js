@@ -2,6 +2,23 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createService as createBillingWebhookService } from "../server/modules/billing/webhook.service.js";
+import { createService as createStripeWebhookTranslationService } from "../server/modules/billing/providers/stripe/webhookTranslation.service.js";
+import { createService as createPaddleWebhookTranslationService } from "../server/modules/billing/providers/paddle/webhookTranslation.service.js";
+import { createService as createBillingWebhookTranslationRegistryService } from "../server/modules/billing/providers/shared/webhookTranslationRegistry.service.js";
+
+function createWebhookTranslationRegistry() {
+  return createBillingWebhookTranslationRegistryService({
+    translators: [createStripeWebhookTranslationService(), createPaddleWebhookTranslationService()],
+    defaultProvider: "stripe"
+  });
+}
+
+function createWebhookService(options = {}) {
+  return createBillingWebhookService({
+    billingWebhookTranslationRegistryService: createWebhookTranslationRegistry(),
+    ...options
+  });
+}
 
 function createInMemoryWebhookRepository() {
   let nextId = 1;
@@ -74,7 +91,7 @@ function createInMemoryWebhookRepository() {
 
 test("billing webhook service persists failed webhook event state when projection fails", async () => {
   const billingRepository = createInMemoryWebhookRepository();
-  const webhookService = createBillingWebhookService({
+  const webhookService = createWebhookService({
     billingRepository,
     billingProviderAdapter: {
       async verifyWebhookEvent() {
@@ -122,7 +139,7 @@ test("billing webhook service persists failed webhook event state when projectio
 
 test("billing webhook service captures operation_key correlation on failed events", async () => {
   const billingRepository = createInMemoryWebhookRepository();
-  const webhookService = createBillingWebhookService({
+  const webhookService = createWebhookService({
     billingRepository,
     billingProviderAdapter: {
       async verifyWebhookEvent() {
@@ -181,7 +198,7 @@ test("billing webhook service resolves billable entity correlation from customer
     return null;
   };
 
-  const webhookService = createBillingWebhookService({
+  const webhookService = createWebhookService({
     billingRepository,
     billingProviderAdapter: {
       async verifyWebhookEvent() {
@@ -242,7 +259,7 @@ test("billing webhook service resolves invoice correlation from customer ownersh
     return null;
   };
 
-  const webhookService = createBillingWebhookService({
+  const webhookService = createWebhookService({
     billingRepository,
     billingProviderAdapter: {
       async verifyWebhookEvent() {
@@ -292,7 +309,7 @@ test("billing webhook service resolves invoice correlation from customer ownersh
 
 test("billing webhook service accepts paddle provider events and ignores unsupported types", async () => {
   const billingRepository = createInMemoryWebhookRepository();
-  const webhookService = createBillingWebhookService({
+  const webhookService = createWebhookService({
     billingRepository,
     billingProviderAdapter: {
       async verifyWebhookEvent() {
@@ -331,4 +348,154 @@ test("billing webhook service accepts paddle provider events and ignores unsuppo
     eventId: "evt_paddle_ignore",
     eventType: "notification.created"
   });
+});
+
+test("billing webhook service fails closed when canonical provider event id is missing", async () => {
+  const billingRepository = createInMemoryWebhookRepository();
+  const webhookService = createWebhookService({
+    billingRepository,
+    billingProviderAdapter: {
+      async verifyWebhookEvent() {
+        return {
+          type: "checkout.session.completed",
+          created: 1_771_200_999,
+          data: {
+            object: {
+              id: "cs_missing_event_id",
+              metadata: {
+                operation_key: "op_missing_event_id",
+                billable_entity_id: "77"
+              }
+            }
+          }
+        };
+      },
+      async retrieveCheckoutSession() {
+        return null;
+      },
+      async retrieveSubscription() {
+        return null;
+      },
+      async retrieveInvoice() {
+        return null;
+      }
+    },
+    billingCheckoutSessionService: {},
+    stripeWebhookEndpointSecret: "whsec_test"
+  });
+
+  await assert.rejects(() =>
+    webhookService.processProviderEvent({
+      provider: "stripe",
+      rawBody: Buffer.from("{}"),
+      signatureHeader: "t=123,v1=abc"
+    })
+  );
+
+  assert.equal(
+    billingRepository.__rows.size,
+    0,
+    "expected missing-id events to fail before webhook state is persisted"
+  );
+});
+
+test("billing webhook service dedupes stored event replays by provider event id", async () => {
+  const billingRepository = createInMemoryWebhookRepository();
+  const webhookService = createWebhookService({
+    billingRepository,
+    billingProviderAdapter: {
+      async verifyWebhookEvent() {
+        return null;
+      },
+      async retrieveCheckoutSession() {
+        return null;
+      },
+      async retrieveSubscription() {
+        return null;
+      },
+      async retrieveInvoice() {
+        return null;
+      }
+    },
+    billingCheckoutSessionService: {},
+    stripeWebhookEndpointSecret: "whsec_test"
+  });
+
+  const payload = {
+    id: "evt_replay_dedupe_1",
+    type: "unsupported.synthetic",
+    created: 1_771_210_000,
+    data: {
+      object: {}
+    }
+  };
+
+  const first = await webhookService.reprocessStoredEvent({
+    provider: "stripe",
+    eventPayload: payload
+  });
+  const second = await webhookService.reprocessStoredEvent({
+    provider: "stripe",
+    eventPayload: payload
+  });
+
+  assert.deepEqual(first, {
+    duplicate: false,
+    eventId: "evt_replay_dedupe_1",
+    eventType: "unsupported.synthetic"
+  });
+  assert.deepEqual(second, {
+    duplicate: true,
+    eventId: "evt_replay_dedupe_1",
+    eventType: "unsupported.synthetic"
+  });
+
+  const row = billingRepository.__rows.get("evt_replay_dedupe_1");
+  assert.ok(row);
+  assert.equal(row.status, "processed");
+  assert.equal(row.attemptCount, 1);
+});
+
+test("billing webhook service requires signature headers for stripe and paddle providers", async () => {
+  const billingRepository = createInMemoryWebhookRepository();
+  const webhookService = createWebhookService({
+    billingRepository,
+    billingProviderAdapter: {
+      async verifyWebhookEvent() {
+        return null;
+      },
+      async retrieveCheckoutSession() {
+        return null;
+      },
+      async retrieveSubscription() {
+        return null;
+      },
+      async retrieveInvoice() {
+        return null;
+      }
+    },
+    billingCheckoutSessionService: {},
+    stripeWebhookEndpointSecret: "whsec_test",
+    paddleWebhookEndpointSecret: "pwhsec_test"
+  });
+
+  await assert.rejects(
+    () =>
+      webhookService.processProviderEvent({
+        provider: "stripe",
+        rawBody: Buffer.from("{}"),
+        signatureHeader: ""
+      }),
+    /Stripe signature header is required/i
+  );
+
+  await assert.rejects(
+    () =>
+      webhookService.processProviderEvent({
+        provider: "paddle",
+        rawBody: Buffer.from("{}"),
+        signatureHeader: ""
+      }),
+    /Paddle signature header is required/i
+  );
 });

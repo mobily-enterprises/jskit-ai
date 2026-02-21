@@ -284,7 +284,8 @@ test("assertReplayProvenanceCompatible records baseline drift guardrail before m
 
   assert.deepEqual(guardrails, [
     {
-      code: "BILLING_STRIPE_SDK_API_BASELINE_DRIFT",
+      code: "BILLING_PROVIDER_SDK_API_BASELINE_DRIFT",
+      provider: "stripe",
       operationKey: "op_abc",
       billableEntityId: 42,
       measure: "count",
@@ -292,8 +293,57 @@ test("assertReplayProvenanceCompatible records baseline drift guardrail before m
     },
     {
       code: "BILLING_CHECKOUT_REPLAY_PROVENANCE_MISMATCH",
+      provider: "stripe",
       operationKey: "op_abc",
       billableEntityId: 42
     }
   ]);
+});
+
+test("assertReplayProvenanceCompatible does not emit stripe-specific drift guardrails for paddle rows", () => {
+  const guardrails = [];
+  const service = createBillingIdempotencyService({
+    billingRepository: createRepository(),
+    operationKeySecret: "op_secret",
+    providerIdempotencyKeySecret: "provider_secret",
+    observabilityService: {
+      recordBillingGuardrail(payload) {
+        guardrails.push(payload);
+      }
+    }
+  });
+
+  assert.throws(
+    () =>
+      service.assertReplayProvenanceCompatible({
+        idempotencyRow: {
+          provider: "paddle",
+          operationKey: "op_paddle_1",
+          billableEntityId: 71,
+          providerApiVersion: "paddle-api-v1",
+          providerSdkVersion: "1.2.3"
+        },
+        runtimeProviderSdkVersion: "1.2.3",
+        runtimeProviderApiVersion: "paddle-api-v2"
+      }),
+    (error) =>
+      error instanceof AppError &&
+      Number(error.statusCode) === 409 &&
+      String(error.code || "") === BILLING_FAILURE_CODES.CHECKOUT_REPLAY_PROVENANCE_MISMATCH
+  );
+
+  assert.equal(
+    guardrails.some(
+      (entry) =>
+        String(entry?.code || "") === "BILLING_PROVIDER_SDK_API_BASELINE_DRIFT" &&
+        String(entry?.provider || "") === "paddle"
+    ),
+    true,
+    "provider-agnostic replay guardrails should emit provider-neutral drift codes with provider context"
+  );
+  assert.equal(
+    guardrails.some((entry) => String(entry?.code || "") === "BILLING_STRIPE_SDK_API_BASELINE_DRIFT"),
+    false,
+    "provider-agnostic replay guardrails should not emit stripe-specific drift codes for paddle rows"
+  );
 });

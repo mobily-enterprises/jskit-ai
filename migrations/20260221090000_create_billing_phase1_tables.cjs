@@ -151,7 +151,10 @@ exports.up = async function up(knex) {
     table.unique(["id", "provider"], "uq_billing_subscriptions_id_provider");
     table.index(["billable_entity_id", "status"], "idx_billing_subscriptions_entity_status");
 
-    table.foreign(["billing_customer_id", "billable_entity_id", "provider"])
+    table.foreign(
+      ["billing_customer_id", "billable_entity_id", "provider"],
+      "fk_bsub_customer_entity_provider"
+    )
       .references(["id", "billable_entity_id", "provider"])
       .inTable("billing_customers")
       .onDelete("RESTRICT");
@@ -199,7 +202,7 @@ exports.up = async function up(knex) {
       .references(["id", "provider"])
       .inTable("billing_subscriptions")
       .onDelete("RESTRICT");
-    table.foreign(["billing_plan_price_id", "provider"])
+    table.foreign(["billing_plan_price_id", "provider"], "fk_bsub_items_plan_price_provider")
       .references(["id", "provider"])
       .inTable("billing_plan_prices")
       .onDelete("RESTRICT");
@@ -430,12 +433,16 @@ exports.up = async function up(knex) {
     table.index(["status", "next_attempt_at"], "idx_billing_subscription_remediations_status_next_attempt");
 
     table.foreign("billable_entity_id").references("id").inTable("billable_entities").onDelete("RESTRICT");
-    table.foreign("canonical_subscription_id").references("id").inTable("billing_subscriptions").onDelete("SET NULL");
+    table
+      .foreign("canonical_subscription_id", "fk_bsub_remediations_canonical_subscription")
+      .references("id")
+      .inTable("billing_subscriptions")
+      .onDelete("SET NULL");
   });
 
   await knex.raw(`
     ALTER TABLE billing_subscription_remediations
-    ADD CONSTRAINT chk_billing_subscription_remediations_distinct_provider_subscriptions
+    ADD CONSTRAINT chk_bsub_remediations_distinct_provider_subs
       CHECK (canonical_provider_subscription_id <> duplicate_provider_subscription_id)
   `);
 

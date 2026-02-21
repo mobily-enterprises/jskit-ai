@@ -5,18 +5,7 @@ import {
   createService as createWebhookProjectionService,
   parseUnixEpochSeconds
 } from "./webhookProjection.service.js";
-import { createService as createStripeWebhookTranslationService } from "./providers/stripe/webhookTranslation.service.js";
-import {
-  PADDLE_EVENT_TYPE_MAP,
-  createService as createPaddleWebhookTranslationService,
-  mapPaddleEventType,
-  normalizePaddleEventToCanonical
-} from "./providers/paddle/webhookTranslation.service.js";
-import {
-  REQUIRED_CANONICAL_BILLING_WEBHOOK_EVENT_TYPES,
-  normalizeBillingWebhookProvider
-} from "./providers/shared/webhookTranslation.contract.js";
-import { createService as createBillingWebhookTranslationRegistryService } from "./providers/shared/webhookTranslationRegistry.service.js";
+import { normalizeBillingWebhookProvider } from "./providers/shared/webhookTranslation.contract.js";
 
 function toNullableString(value) {
   const normalized = String(value || "").trim();
@@ -37,7 +26,7 @@ function createService(options = {}) {
     billingProviderAdapter,
     billingProviderRegistryService,
     billingCheckoutSessionService,
-    billingWebhookTranslationRegistryService = null,
+    billingWebhookTranslationRegistryService,
     stripeWebhookEndpointSecret,
     paddleWebhookEndpointSecret,
     observabilityService = null,
@@ -56,22 +45,24 @@ function createService(options = {}) {
   if (!billingCheckoutSessionService) {
     throw new Error("billingCheckoutSessionService is required.");
   }
+  if (!billingWebhookTranslationRegistryService) {
+    throw new Error("billingWebhookTranslationRegistryService is required.");
+  }
+  if (typeof billingWebhookTranslationRegistryService.resolveProvider !== "function") {
+    throw new Error("billingWebhookTranslationRegistryService.resolveProvider is required.");
+  }
+  if (typeof billingWebhookTranslationRegistryService.listProviders !== "function") {
+    throw new Error("billingWebhookTranslationRegistryService.listProviders is required.");
+  }
 
   const endpointSecretByProvider = {
     [BILLING_PROVIDER_STRIPE]: String(stripeWebhookEndpointSecret || "").trim(),
     [BILLING_PROVIDER_PADDLE]: String(paddleWebhookEndpointSecret || "").trim()
   };
 
-  const webhookTranslationRegistry =
-    billingWebhookTranslationRegistryService ||
-    createBillingWebhookTranslationRegistryService({
-      translators: [createStripeWebhookTranslationService(), createPaddleWebhookTranslationService()],
-      defaultProvider: BILLING_DEFAULT_PROVIDER
-    });
+  const webhookTranslationRegistry = billingWebhookTranslationRegistryService;
   const supportedWebhookProviders = new Set(
-    typeof webhookTranslationRegistry.listProviders === "function"
-      ? webhookTranslationRegistry.listProviders()
-      : [BILLING_PROVIDER_STRIPE, BILLING_PROVIDER_PADDLE]
+    webhookTranslationRegistry.listProviders()
   );
 
   const normalizedPayloadRetentionDays = Math.max(1, Number(payloadRetentionDays) || 30);
@@ -370,6 +361,10 @@ function createService(options = {}) {
 
   async function processEventTransaction(event, { provider }) {
     const providerEventId = String(event?.id || "").trim();
+    if (!providerEventId) {
+      throw new AppError(400, "Billing webhook payload missing provider event id.");
+    }
+
     const eventType = String(event?.type || "").trim();
     const providerCreatedAt = parseUnixEpochSeconds(event?.created) || new Date();
     const now = new Date();
@@ -585,11 +580,4 @@ function createService(options = {}) {
   };
 }
 
-const __testables = {
-  REQUIRED_CANONICAL_BILLING_WEBHOOK_EVENT_TYPES,
-  PADDLE_EVENT_TYPE_MAP,
-  mapPaddleEventType,
-  normalizePaddleEventToCanonical
-};
-
-export { REQUIRED_CANONICAL_BILLING_WEBHOOK_EVENT_TYPES, PADDLE_EVENT_TYPE_MAP, createService, __testables };
+export { createService };

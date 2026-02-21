@@ -21,6 +21,9 @@ function createService(options = {}) {
   const normalizedRetryDelaySeconds = Math.max(1, Number(retryDelaySeconds) || 1);
   const normalizedMaxAttempts = Math.max(1, Number(maxAttempts) || 1);
   const providerAdapter = billingProviderAdapter;
+  const activeProvider = String(providerAdapter?.provider || "")
+    .trim()
+    .toLowerCase();
 
   function recordGuardrail(code, context = {}) {
     const payload = {
@@ -60,6 +63,19 @@ function createService(options = {}) {
   }
 
   async function executeCancelDuplicateSubscription(remediation) {
+    const remediationProvider = String(remediation?.provider || "")
+      .trim()
+      .toLowerCase();
+    if (remediationProvider && activeProvider && remediationProvider !== activeProvider) {
+      throw new AppError(
+        409,
+        `Remediation provider mismatch: expected "${activeProvider}" but received "${remediationProvider}".`,
+        {
+          code: "BILLING_PROVIDER_MISMATCH"
+        }
+      );
+    }
+
     const duplicateProviderSubscriptionId = String(remediation?.duplicateProviderSubscriptionId || "").trim();
     if (!duplicateProviderSubscriptionId) {
       throw new AppError(400, "Duplicate provider subscription id is required for remediation.");
@@ -149,32 +165,44 @@ function createService(options = {}) {
       errorText: String(error?.message || "Remediation execution failed.")
     };
 
+    async function patchLeasedRemediationOrThrow(patch) {
+      const updated = await billingRepository.updateRemediationByLease({
+        id: remediationId,
+        leaseVersion: fencedRemediation.leaseVersion,
+        patch
+      });
+
+      if (!updated) {
+        recordGuardrail("BILLING_REMEDIATION_LEASE_FENCED", {
+          measure: "count",
+          value: 1
+        });
+        throw new AppError(409, "Remediation lease fencing mismatch.", {
+          code: "BILLING_REMEDIATION_LEASE_FENCED"
+        });
+      }
+
+      return updated;
+    }
+
     if (attemptCount >= normalizedMaxAttempts) {
       recordGuardrail("BILLING_REMEDIATION_DEAD_LETTER", {
         measure: "attempt_count",
         value: attemptCount
       });
-      return billingRepository.updateRemediationByLease({
-        id: remediationId,
-        leaseVersion: fencedRemediation.leaseVersion,
-        patch: {
-          ...basePatch,
-          status: "dead_letter",
-          resolvedAt: now
-        }
+      return patchLeasedRemediationOrThrow({
+        ...basePatch,
+        status: "dead_letter",
+        resolvedAt: now
       });
     }
 
     const nextAttemptAt = new Date(now.getTime() + normalizedRetryDelaySeconds * 1000 * attemptCount);
 
-    return billingRepository.updateRemediationByLease({
-      id: remediationId,
-      leaseVersion: fencedRemediation.leaseVersion,
-      patch: {
-        ...basePatch,
-        status: "failed",
-        nextAttemptAt
-      }
+    return patchLeasedRemediationOrThrow({
+      ...basePatch,
+      status: "failed",
+      nextAttemptAt
     });
   }
 

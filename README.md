@@ -388,6 +388,7 @@ Realtime note:
 - `POST /api/billing/portal`
 - `POST /api/billing/payment-links`
 - `POST /api/billing/webhooks/stripe`
+- `POST /api/billing/webhooks/paddle`
 - `POST /api/workspace/ai/chat/stream`
 - `GET /api/workspace/ai/conversations`
 - `GET /api/workspace/ai/conversations/:conversationId/messages`

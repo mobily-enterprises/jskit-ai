@@ -2,6 +2,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { AppError } from "../../../../lib/errors.js";
 import { BILLING_PROVIDER_PADDLE } from "../../constants.js";
+import { isBillingProviderError } from "../shared/providerError.contract.js";
+import { mapPaddleProviderError } from "./errorMapping.js";
 
 function parsePositiveInteger(value, fallbackValue) {
   const parsed = Number(value);
@@ -192,6 +194,76 @@ function normalizeSubscriptionStatus(status) {
   return "incomplete";
 }
 
+function normalizeCurrencyCode(value, fallback = "USD") {
+  const normalized = String(value || "")
+    .trim()
+    .toUpperCase();
+  if (/^[A-Z]{3}$/.test(normalized)) {
+    return normalized;
+  }
+
+  const fallbackNormalized = String(fallback || "")
+    .trim()
+    .toUpperCase();
+  if (/^[A-Z]{3}$/.test(fallbackNormalized)) {
+    return fallbackNormalized;
+  }
+
+  return "USD";
+}
+
+function normalizeMinorUnitAmount(value) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return null;
+  }
+
+  return String(parsed);
+}
+
+function normalizeCheckoutLineItemToPaddleItem(lineItem, { defaultCurrency = "USD" } = {}) {
+  const entry = lineItem && typeof lineItem === "object" ? lineItem : {};
+  const quantity = Math.max(1, Number(entry?.quantity || 1));
+  const priceId = toNullableString(entry?.price || entry?.price_id);
+  if (priceId) {
+    return {
+      price_id: priceId,
+      quantity
+    };
+  }
+
+  const inlinePriceData = entry?.price_data && typeof entry.price_data === "object" ? entry.price_data : null;
+  if (!inlinePriceData) {
+    return null;
+  }
+
+  const amount = normalizeMinorUnitAmount(inlinePriceData.unit_amount);
+  const productData = inlinePriceData.product_data && typeof inlinePriceData.product_data === "object" ? inlinePriceData.product_data : {};
+  const name = toNullableString(productData.name || entry?.name || entry?.description);
+  if (!amount || !name) {
+    return null;
+  }
+
+  const description = toNullableString(productData.description) || name;
+  const currencyCode = normalizeCurrencyCode(inlinePriceData.currency, defaultCurrency);
+
+  return {
+    quantity,
+    price: {
+      name,
+      description,
+      unit_price: {
+        amount,
+        currency_code: currencyCode
+      },
+      product: {
+        name,
+        tax_category: "standard"
+      }
+    }
+  };
+}
+
 function normalizeCheckoutSessionFromTransaction(transaction) {
   const entry = transaction && typeof transaction === "object" ? transaction : {};
   return {
@@ -274,7 +346,7 @@ function normalizePaddleWebhookEvent(rawEvent) {
   };
 }
 
-function buildPaddleError(responseBody, fallbackMessage = "Paddle API request failed.") {
+function buildPaddleError(responseBody, fallbackMessage = "Paddle API request failed.", statusCode = null) {
   const message =
     toNullableString(responseBody?.error?.detail) ||
     toNullableString(responseBody?.error?.message) ||
@@ -282,6 +354,7 @@ function buildPaddleError(responseBody, fallbackMessage = "Paddle API request fa
     fallbackMessage;
   const error = new Error(message);
   error.code = toNullableString(responseBody?.error?.code) || null;
+  error.statusCode = Number(statusCode || responseBody?.error?.status || 0) || null;
   error.details = responseBody;
   return error;
 }
@@ -298,7 +371,14 @@ function createService({
   const normalizedApiBaseUrl = normalizeApiBaseUrl(apiBaseUrl);
   const normalizedTimeoutMs = parsePositiveInteger(timeoutMs, 30_000);
 
-  async function callPaddleApi({ method, path, query = null, body = null, idempotencyKey = null }) {
+  async function callPaddleApi({
+    method,
+    path,
+    query = null,
+    body = null,
+    idempotencyKey = null,
+    operation = "unknown"
+  }) {
     if (!billingEnabled) {
       throw new AppError(404, "Not found.");
     }
@@ -343,36 +423,51 @@ function createService({
         .json()
         .catch(() => ({}));
       if (!response.ok) {
-        throw buildPaddleError(json);
+        throw mapPaddleProviderError(buildPaddleError(json, "Paddle API request failed.", response.status), {
+          operation,
+          fallbackStatusCode: response.status,
+          providerRequestId: response.headers?.get?.("x-request-id")
+        });
       }
 
       return json?.data != null ? json.data : json;
+    } catch (error) {
+      if (error instanceof AppError || isBillingProviderError(error)) {
+        throw error;
+      }
+      throw mapPaddleProviderError(error, {
+        operation
+      });
     } finally {
       clearTimeout(timeout);
     }
   }
 
-  async function createCheckoutSession({ params, idempotencyKey }) {
+  async function createCheckoutSession({ params, idempotencyKey, operation = "checkout_create" }) {
     const checkoutParams = params && typeof params === "object" ? params : {};
     const lineItems = Array.isArray(checkoutParams.line_items) ? checkoutParams.line_items : [];
-    const items = lineItems
-      .map((lineItem) => {
-        const priceId = toNullableString(lineItem?.price || lineItem?.price_id);
-        const quantity = Math.max(1, Number(lineItem?.quantity || 1));
-        if (priceId) {
-          return {
-            price_id: priceId,
-            quantity
-          };
-        }
-        return null;
+    if (lineItems.length < 1) {
+      throw new AppError(400, "Paddle checkout requires at least one line item.");
+    }
+    const defaultCurrency = normalizeCurrencyCode(checkoutParams.currency);
+    const mappedItems = lineItems.map((lineItem) =>
+      normalizeCheckoutLineItemToPaddleItem(lineItem, {
+        defaultCurrency
       })
-      .filter(Boolean);
+    );
+    if (mappedItems.some((item) => !item)) {
+      throw new AppError(400, "Paddle checkout line items must include a provider price id or valid price_data.");
+    }
+    const items = mappedItems.filter(Boolean);
+    if (items.length < 1) {
+      throw new AppError(400, "Paddle checkout requires at least one purchasable item.");
+    }
 
     const transaction = await callPaddleApi({
       method: "POST",
       path: "/transactions",
       idempotencyKey,
+      operation,
       body: {
         items,
         custom_data: normalizeMetadata(checkoutParams.metadata),
@@ -386,7 +481,8 @@ function createService({
   async function createPaymentLink({ params, idempotencyKey }) {
     const session = await createCheckoutSession({
       params,
-      idempotencyKey
+      idempotencyKey,
+      operation: "payment_link_create"
     });
 
     return {
@@ -401,6 +497,7 @@ function createService({
       method: "POST",
       path: "/prices",
       idempotencyKey,
+      operation: "price_create",
       body: params && typeof params === "object" ? params : {}
     });
 
@@ -419,6 +516,7 @@ function createService({
     const portalSession = await callPaddleApi({
       method: "POST",
       path: "/customer-portal-sessions",
+      operation: "portal_create",
       body: {
         customer_id: customerId,
         return_url: toNullableString(payload.return_url || payload.returnUrl)
@@ -472,7 +570,8 @@ function createService({
   async function retrieveCheckoutSession({ sessionId }) {
     const transaction = await callPaddleApi({
       method: "GET",
-      path: `/transactions/${encodeURIComponent(String(sessionId || "").trim())}`
+      path: `/transactions/${encodeURIComponent(String(sessionId || "").trim())}`,
+      operation: "checkout_retrieve"
     });
     return normalizeCheckoutSessionFromTransaction(transaction);
   }
@@ -480,7 +579,8 @@ function createService({
   async function retrieveSubscription({ subscriptionId }) {
     const subscription = await callPaddleApi({
       method: "GET",
-      path: `/subscriptions/${encodeURIComponent(String(subscriptionId || "").trim())}`
+      path: `/subscriptions/${encodeURIComponent(String(subscriptionId || "").trim())}`,
+      operation: "subscription_retrieve"
     });
     return normalizeSubscriptionFromPaddle(subscription);
   }
@@ -488,7 +588,8 @@ function createService({
   async function retrieveInvoice({ invoiceId }) {
     const transaction = await callPaddleApi({
       method: "GET",
-      path: `/transactions/${encodeURIComponent(String(invoiceId || "").trim())}`
+      path: `/transactions/${encodeURIComponent(String(invoiceId || "").trim())}`,
+      operation: "invoice_retrieve"
     });
     return normalizeInvoiceFromTransaction(transaction);
   }
@@ -502,7 +603,8 @@ function createService({
     try {
       const transaction = await callPaddleApi({
         method: "POST",
-        path: `/transactions/${encodeURIComponent(normalizedSessionId)}/cancel`
+        path: `/transactions/${encodeURIComponent(normalizedSessionId)}/cancel`,
+        operation: "checkout_expire"
       });
       return normalizeCheckoutSessionFromTransaction(transaction);
     } catch {
@@ -522,6 +624,7 @@ function createService({
     const result = await callPaddleApi({
       method: "POST",
       path: `/subscriptions/${encodeURIComponent(normalizedSubscriptionId)}/cancel`,
+      operation: "subscription_cancel",
       body: {
         effective_from:
           cancelAtPeriodEnd === true ? "next_billing_period" : "immediately"
@@ -541,6 +644,7 @@ function createService({
     const result = await callPaddleApi({
       method: "GET",
       path: `/customers/${encodeURIComponent(normalizedCustomerId)}/payment-methods`,
+      operation: "payment_methods_list",
       query: {
         per_page: pageSize
       }
@@ -575,6 +679,7 @@ function createService({
     const result = await callPaddleApi({
       method: "GET",
       path: "/transactions",
+      operation: "checkout_sessions_list",
       query: {
         per_page: Math.max(1, Math.min(100, Number(limit) || 5))
       }

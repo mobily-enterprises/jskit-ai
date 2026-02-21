@@ -96,3 +96,29 @@ Core webhook processing (`server/modules/billing/webhook.service.js`) is respons
 - transactional projection dispatch
 
 Core webhook processing must not contain provider-specific payload translation logic.
+
+## Phase 4: Provider Error Outcome Policy
+
+Provider-specific SDK/API error mapping belongs only in provider modules:
+
+- `server/modules/billing/providers/stripe/errorMapping.js`
+- `server/modules/billing/providers/paddle/errorMapping.js`
+
+Core billing must consume only normalized provider errors and resolve behavior through:
+
+- `server/modules/billing/providerOutcomePolicy.js`
+
+`providerOutcomePolicy` decides deterministic terminal failures vs in-progress outcomes and emits operation-family guardrail codes. Core billing modules must not parse provider SDK literals.
+
+## Phase 5: Boundary Enforcement
+
+Provider-literal leakage in core billing is blocked by guard tests:
+
+- `tests/billingProviderBoundaryGuard.test.js`
+
+This test fails if provider SDK class/code literals appear in:
+
+- `server/modules/billing/service.js`
+- `server/modules/billing/checkoutOrchestrator.service.js`
+- `server/modules/billing/idempotency.service.js`
+- `server/modules/billing/providerOutcomePolicy.js`

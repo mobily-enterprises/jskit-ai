@@ -79,6 +79,12 @@ function computeAgeSeconds(referenceTime, now) {
   return ageMs / 1000;
 }
 
+function normalizeProvider(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
 function createService(options = {}) {
   const {
     billingRepository,
@@ -103,10 +109,7 @@ function createService(options = {}) {
   if (!providerAdapter) {
     throw new Error("billingProviderAdapter is required.");
   }
-  const activeProvider =
-    String(providerAdapter?.provider || BILLING_DEFAULT_PROVIDER)
-      .trim()
-      .toLowerCase() || BILLING_DEFAULT_PROVIDER;
+  const activeProvider = normalizeProvider(providerAdapter?.provider || BILLING_DEFAULT_PROVIDER) || BILLING_DEFAULT_PROVIDER;
   if (!billingCheckoutSessionService) {
     throw new Error("billingCheckoutSessionService is required.");
   }
@@ -530,17 +533,23 @@ function createService(options = {}) {
 
   async function reconcilePendingRecent(now) {
     const staleBefore = new Date(now.getTime() - staleLeaseWindowSeconds * 1000);
-    const pendingRows = await billingRepository.listPendingIdempotencyRows({
+    const pendingRowsRaw = await billingRepository.listPendingIdempotencyRows({
       action: BILLING_ACTIONS.CHECKOUT,
       staleBefore,
       limit: 200
     });
-    const failedWebhookEvents = typeof billingRepository.listFailedWebhookEvents === "function"
+    const failedWebhookEventsRaw = typeof billingRepository.listFailedWebhookEvents === "function"
       ? await billingRepository.listFailedWebhookEvents({
           olderThan: staleBefore,
           limit: 200
         })
       : [];
+    const pendingRows = (Array.isArray(pendingRowsRaw) ? pendingRowsRaw : []).filter(
+      (row) => normalizeProvider(row?.provider) === activeProvider
+    );
+    const failedWebhookEvents = (Array.isArray(failedWebhookEventsRaw) ? failedWebhookEventsRaw : []).filter(
+      (row) => normalizeProvider(row?.provider) === activeProvider
+    );
 
     let replayDeadlineNearCount = 0;
     let replayDeadlineExceededCount = 0;
@@ -724,6 +733,7 @@ function createService(options = {}) {
       for (const failedEvent of failedWebhookEvents) {
         try {
           await billingWebhookService.reprocessStoredEvent({
+            provider: failedEvent.provider,
             eventPayload: failedEvent.payloadJson
           });
           replayedWebhookCount += 1;
