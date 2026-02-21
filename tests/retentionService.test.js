@@ -159,6 +159,8 @@ test("retention service config helpers normalize values", () => {
     inviteArtifactRetentionDays: "180",
     securityAuditRetentionDays: null,
     aiTranscriptsRetentionDays: "120",
+    billingIdempotencyRetentionDays: "45",
+    billingWebhookPayloadRetentionDays: "15",
     batchSize: "99999"
   });
 
@@ -166,5 +168,71 @@ test("retention service config helpers normalize values", () => {
   assert.equal(config.inviteArtifactRetentionDays, 180);
   assert.equal(config.securityAuditRetentionDays, 365);
   assert.equal(config.aiTranscriptsRetentionDays, 120);
+  assert.equal(config.billingIdempotencyRetentionDays, 45);
+  assert.equal(config.billingWebhookPayloadRetentionDays, 15);
   assert.equal(config.batchSize, 10_000);
+});
+
+test("retention service runs billing retention rules when billing repository is wired", async () => {
+  let billingIdempotencyCalls = 0;
+  let billingWebhookPayloadCalls = 0;
+
+  const service = createRetentionService({
+    consoleErrorLogsRepository: {
+      async deleteBrowserErrorsOlderThan() {
+        return 0;
+      },
+      async deleteServerErrorsOlderThan() {
+        return 0;
+      }
+    },
+    workspaceInvitesRepository: {
+      async deleteArtifactsOlderThan() {
+        return 0;
+      }
+    },
+    consoleInvitesRepository: {
+      async deleteArtifactsOlderThan() {
+        return 0;
+      }
+    },
+    auditEventsRepository: {
+      async deleteOlderThan() {
+        return 0;
+      }
+    },
+    aiTranscriptMessagesRepository: {
+      async deleteOlderThan() {
+        return 0;
+      }
+    },
+    aiTranscriptConversationsRepository: {
+      async deleteWithoutMessagesOlderThan() {
+        return 0;
+      }
+    },
+    billingRepository: {
+      async deleteTerminalIdempotencyOlderThan() {
+        billingIdempotencyCalls += 1;
+        return 2;
+      },
+      async scrubWebhookPayloadsPastRetention() {
+        billingWebhookPayloadCalls += 1;
+        return 3;
+      }
+    },
+    retentionConfig: {
+      billingIdempotencyRetentionDays: 30,
+      billingWebhookPayloadRetentionDays: 30,
+      batchSize: 1000
+    },
+    now: () => new Date("2026-02-20T00:00:00.000Z")
+  });
+
+  const summary = await service.runSweep();
+  assert.equal(summary.rules.some((entry) => entry.table === "billing_idempotency_requests"), true);
+  assert.equal(summary.rules.some((entry) => entry.table === "billing_webhook_payloads"), true);
+  assert.equal(billingIdempotencyCalls, 1);
+  assert.equal(billingWebhookPayloadCalls, 1);
+  assert.equal(summary.totalDeletedRows, 5);
 });

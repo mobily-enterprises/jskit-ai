@@ -297,6 +297,15 @@ function normalizeReasonLabel(value) {
   return normalized.replace(/[^a-z0-9_.:-]/g, "_");
 }
 
+function normalizeBillingMeasureLabel(value) {
+  const normalized = sanitizeLabelValue(value, {
+    fallback: "value",
+    maxLength: 32
+  }).toLowerCase();
+
+  return normalized.replace(/[^a-z0-9_.:-]/g, "_");
+}
+
 function normalizeDurationSeconds(durationMs) {
   const parsedDurationMs = Number(durationMs);
   if (!Number.isFinite(parsedDurationMs) || parsedDurationMs < 0) {
@@ -364,6 +373,17 @@ function createMetricsRegistry({ httpDurationBuckets = DEFAULT_HTTP_DURATION_BUC
       name: "app_ai_tool_calls_total",
       help: "Total AI tool calls grouped by tool name and outcome.",
       labelNames: ["tool", "outcome"]
+    }),
+    billingGuardrailEventsTotal: new CounterMetric({
+      name: "app_billing_guardrail_events_total",
+      help: "Total billing guardrail events grouped by guardrail code.",
+      labelNames: ["code"]
+    }),
+    billingGuardrailMeasurement: new HistogramMetric({
+      name: "app_billing_guardrail_measurement",
+      help: "Observed billing guardrail measurements grouped by code and measure.",
+      labelNames: ["code", "measure"],
+      buckets: [1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600, 21600, 43200, 86400]
     })
   };
 
@@ -458,6 +478,34 @@ function createMetricsRegistry({ httpDurationBuckets = DEFAULT_HTTP_DURATION_BUC
     });
   }
 
+  function recordBillingGuardrailEvent({ code }) {
+    metrics.billingGuardrailEventsTotal.increment({
+      code: normalizeErrorCodeLabel(code)
+    });
+  }
+
+  function recordBillingGuardrailMeasurement({ code, measure = "value", value }) {
+    if (value == null) {
+      return;
+    }
+    if (typeof value === "string" && value.trim() === "") {
+      return;
+    }
+
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue) || numericValue < 0) {
+      return;
+    }
+
+    metrics.billingGuardrailMeasurement.observe(
+      {
+        code: normalizeErrorCodeLabel(code),
+        measure: normalizeBillingMeasureLabel(measure)
+      },
+      numericValue
+    );
+  }
+
   function renderPrometheusMetrics() {
     const blocks = [
       metrics.httpRequestsTotal.toLines(),
@@ -470,7 +518,9 @@ function createMetricsRegistry({ httpDurationBuckets = DEFAULT_HTTP_DURATION_BUC
       metrics.securityAuditEventsTotal.toLines(),
       metrics.aiTurnsTotal.toLines(),
       metrics.aiTurnDurationSeconds.toLines(),
-      metrics.aiToolCallsTotal.toLines()
+      metrics.aiToolCallsTotal.toLines(),
+      metrics.billingGuardrailEventsTotal.toLines(),
+      metrics.billingGuardrailMeasurement.toLines()
     ];
 
     return `${blocks.flat().join("\n")}\n`;
@@ -485,6 +535,8 @@ function createMetricsRegistry({ httpDurationBuckets = DEFAULT_HTTP_DURATION_BUC
     recordSecurityAuditEvent,
     recordAiTurn,
     recordAiToolCall,
+    recordBillingGuardrailEvent,
+    recordBillingGuardrailMeasurement,
     renderPrometheusMetrics
   };
 }
@@ -505,6 +557,7 @@ const __testables = {
   normalizeErrorCodeLabel,
   normalizeActionLabel,
   normalizeReasonLabel,
+  normalizeBillingMeasureLabel,
   normalizeDurationSeconds,
   formatMetricLabels,
   formatMetricNumber

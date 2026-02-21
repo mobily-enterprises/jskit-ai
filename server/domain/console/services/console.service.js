@@ -1,6 +1,7 @@
 import { AppError } from "../../../lib/errors.js";
 import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
 import { isMysqlDuplicateEntryError } from "../../../lib/primitives/mysqlErrors.js";
+import { normalizePagination } from "../../../lib/primitives/pagination.js";
 import { normalizeEmail } from "../../../../shared/auth/utils.js";
 import {
   AI_ASSISTANT_SYSTEM_PROMPT_MAX_LENGTH,
@@ -18,6 +19,7 @@ import {
 } from "../policies/inviteTokens.js";
 import {
   CONSOLE_ASSISTANT_SETTINGS_PERMISSIONS,
+  CONSOLE_BILLING_PERMISSIONS,
   CONSOLE_MANAGEMENT_PERMISSIONS,
   CONSOLE_ROLE_ID,
   getRoleCatalog,
@@ -32,7 +34,9 @@ function createService({
   consoleInvitesRepository,
   consoleRootRepository,
   consoleSettingsRepository,
-  userProfilesRepository
+  userProfilesRepository,
+  billingRepository = null,
+  billingEnabled = true
 }) {
   if (
     !consoleMembershipsRepository ||
@@ -46,6 +50,11 @@ function createService({
 
   const roleCatalog = getRoleCatalog();
   const assignableRoleIds = resolveAssignableRoleIds();
+
+  function normalizeOptionalString(value) {
+    const normalized = String(value || "").trim();
+    return normalized || "";
+  }
 
   async function runInTransaction(work) {
     if (typeof consoleMembershipsRepository.transaction === "function") {
@@ -569,6 +578,60 @@ function createService({
     return mapAssistantSettingsResponse(updatedSettings);
   }
 
+  async function listBillingEvents(user, query = {}) {
+    await requirePermission(user, CONSOLE_BILLING_PERMISSIONS.READ_ALL);
+
+    if (!billingEnabled) {
+      throw new AppError(404, "Not found.");
+    }
+
+    if (!billingRepository || typeof billingRepository.listBillingActivityEvents !== "function") {
+      throw new AppError(501, "Console billing event explorer is not available.");
+    }
+
+    const pagination = normalizePagination(
+      {
+        page: query?.page,
+        pageSize: query?.pageSize
+      },
+      {
+        defaultPage: 1,
+        defaultPageSize: 25,
+        maxPageSize: 100
+      }
+    );
+    const startIndex = (pagination.page - 1) * pagination.pageSize;
+    const fetchLimit = Math.max(1, startIndex + pagination.pageSize + 1);
+
+    const workspaceId = parsePositiveInteger(query?.workspaceId);
+    const ownerUserId = parsePositiveInteger(query?.userId);
+    const billableEntityId = parsePositiveInteger(query?.billableEntityId);
+    const operationKey = normalizeOptionalString(query?.operationKey);
+    const providerEventId = normalizeOptionalString(query?.providerEventId);
+    const source = normalizeOptionalString(query?.source).toLowerCase();
+
+    const events = await billingRepository.listBillingActivityEvents({
+      workspaceId: workspaceId || null,
+      ownerUserId: ownerUserId || null,
+      billableEntityId: billableEntityId || null,
+      operationKey: operationKey || null,
+      providerEventId: providerEventId || null,
+      source: source || null,
+      includeGlobal: true,
+      limit: fetchLimit
+    });
+
+    const hasMore = events.length > startIndex + pagination.pageSize;
+    const entries = events.slice(startIndex, startIndex + pagination.pageSize);
+
+    return {
+      entries,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      hasMore
+    };
+  }
+
   return {
     ensureInitialConsoleMember,
     resolveRequestContext,
@@ -582,7 +645,8 @@ function createService({
     respondToPendingInviteByToken,
     listRoles,
     getAssistantSettings,
-    updateAssistantSettings
+    updateAssistantSettings,
+    listBillingEvents
   };
 }
 

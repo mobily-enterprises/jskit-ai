@@ -120,6 +120,35 @@ function createApi({ request }) {
       const queryString = params.toString();
       return request(`/api/console/ai/transcripts/export${queryString ? `?${queryString}` : ""}`);
     },
+    listBillingEvents(query = {}) {
+      const params = new URLSearchParams();
+      if (query.page != null) {
+        params.set("page", String(query.page));
+      }
+      if (query.pageSize != null) {
+        params.set("pageSize", String(query.pageSize));
+      }
+      if (query.workspaceId != null) {
+        params.set("workspaceId", String(query.workspaceId));
+      }
+      if (query.userId != null) {
+        params.set("userId", String(query.userId));
+      }
+      if (query.billableEntityId != null) {
+        params.set("billableEntityId", String(query.billableEntityId));
+      }
+      if (query.operationKey) {
+        params.set("operationKey", String(query.operationKey));
+      }
+      if (query.providerEventId) {
+        params.set("providerEventId", String(query.providerEventId));
+      }
+      if (query.source) {
+        params.set("source", String(query.source));
+      }
+      const queryString = params.toString();
+      return request(`/api/console/billing/events${queryString ? `?${queryString}` : ""}`);
+    },
     simulateServerError(payload) {
       return request("/api/console/simulate/server-error", { method: "POST", body: payload || {} });
     },

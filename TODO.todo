@@ -22,16 +22,16 @@ X Add email system (SMTP?, Amazon?)
 X Add SMS system (PLIVIO?)
 X Add websocket infrastructure with realtime updates
 X AI integration (actions abstraction etc.)
+X Check why pending invites don't appear
 - Payments
 - User chats
-- Check why pending invites don't appear
+
 - Create an "alerts" system so that users can see their alerts
 
 - Is this done? CI policy gate: fail build when any `workspaceSurface: "admin"` route lacks `permission` (explicit allowlist for exceptions)
 - Add final rails, practices, post checks
 
 - FINAL CODE CHECK, write onboarding document, go through it carefully
-
 
 LATER:
 
@@ -43,6 +43,16 @@ LATER:
   - Low: SMS text is trim()'d before send, which mutates payload content (can matter for OTP formatting/messages with intentional whitespace). (server/domain/communications/services/sms.service.js:27)
   - Low: SMTP from currently requires a normalized bare email; common Display Name <email@...> formats would be treated as unconfigured. (server/domain/workspace/services/inviteEmail.service.js:42)
 
+LATER LATER:
+  0. Finish monitorability system
+  1. Real delivery integrations: SMTP/SMS are scaffolded but not implemented (not_implemented paths).
+  2. Billing-to-entitlement enforcement: billing exists, but plan entitlements need hard gating across features/limits.
+  3. Production-grade async/distributed layer: queue/locking/pubsub strategy for multi-instance scale and worker durability.
+  4. Enterprise auth/security: MFA/passkeys, SSO/SAML, SCIM, stronger session/device controls.
+  5. Compliance workflows: GDPR/CCPA data export/delete, audit export APIs, stricter secret/data handling controls.
+  6. Tenant lifecycle ops: suspension/reactivation, support impersonation, stronger admin tooling, feature flags.
+  7. Public platform surface: API keys, customer webhooks, API versioning + compatibility policy.
+  8. End-to-end operational confidence: fix failing Playwright flows and add full cross-surface user journeys.
 
   Appendices:
 

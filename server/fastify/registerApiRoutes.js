@@ -10,6 +10,7 @@ function registerApiRoutes(fastify, { controllers, routes, routeConfig } = {}) {
       method: route.method,
       url: route.path,
       ...(route.schema ? { schema: route.schema } : {}),
+      ...(route.bodyLimit ? { bodyLimit: route.bodyLimit } : {}),
       config: {
         authPolicy: route.auth || "public",
         workspacePolicy: route.workspacePolicy || "none",

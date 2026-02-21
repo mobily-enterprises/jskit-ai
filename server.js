@@ -16,6 +16,7 @@ import { initDatabase, closeDatabase } from "./db/knex.js";
 import { isAppError } from "./server/lib/errors.js";
 import { registerApiRoutes } from "./server/fastify/registerApiRoutes.js";
 import authPlugin from "./server/fastify/auth.plugin.js";
+import billingWebhookRawBodyPlugin from "./server/fastify/billingWebhookRawBody.plugin.js";
 import { registerRealtimeRoutes, MAX_INBOUND_MESSAGE_BYTES } from "./server/fastify/registerRealtimeRoutes.js";
 import { safePathnameFromRequest } from "./server/lib/primitives/requestUrl.js";
 import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar/index.js";
@@ -81,7 +82,8 @@ const {
     consoleErrorsService,
     realtimeEventsService,
     avatarStorageService,
-    observabilityService
+    observabilityService,
+    billingWorkerRuntimeService
   }
 } = createServerRuntime({
   env,
@@ -637,6 +639,8 @@ export async function buildServer({ frontendBuildAvailable }) {
   registerErrorHandler(app, { observabilityService });
   app.setValidatorCompiler(TypeBoxValidatorCompiler);
 
+  await app.register(billingWebhookRawBodyPlugin);
+
   await app.register(fastifyHelmet, {
     contentSecurityPolicy: {
       directives: {
@@ -730,6 +734,18 @@ export async function buildServer({ frontendBuildAvailable }) {
   if (frontendBuildAvailable) {
     registerPageGuardHook(app);
   }
+
+  app.addHook("onReady", async () => {
+    if (billingWorkerRuntimeService && typeof billingWorkerRuntimeService.start === "function") {
+      billingWorkerRuntimeService.start();
+    }
+  });
+
+  app.addHook("onClose", async () => {
+    if (billingWorkerRuntimeService && typeof billingWorkerRuntimeService.stop === "function") {
+      billingWorkerRuntimeService.stop();
+    }
+  });
 
   app.setNotFoundHandler(async (request, reply) => {
     const pathnameValue = safePathnameFromRequest(request);

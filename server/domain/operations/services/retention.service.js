@@ -5,6 +5,8 @@ const DEFAULT_ERROR_LOG_RETENTION_DAYS = 30;
 const DEFAULT_INVITE_ARTIFACT_RETENTION_DAYS = 90;
 const DEFAULT_SECURITY_AUDIT_RETENTION_DAYS = 365;
 const DEFAULT_AI_TRANSCRIPTS_RETENTION_DAYS = 60;
+const DEFAULT_BILLING_IDEMPOTENCY_RETENTION_DAYS = 30;
+const DEFAULT_BILLING_WEBHOOK_PAYLOAD_RETENTION_DAYS = 30;
 const DEFAULT_RETENTION_BATCH_SIZE = 1000;
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 const MAX_BATCH_ITERATIONS = 50_000;
@@ -53,6 +55,14 @@ function resolveRetentionConfig(config = {}) {
       config.aiTranscriptsRetentionDays,
       DEFAULT_AI_TRANSCRIPTS_RETENTION_DAYS
     ),
+    billingIdempotencyRetentionDays: normalizeRetentionDays(
+      config.billingIdempotencyRetentionDays,
+      DEFAULT_BILLING_IDEMPOTENCY_RETENTION_DAYS
+    ),
+    billingWebhookPayloadRetentionDays: normalizeRetentionDays(
+      config.billingWebhookPayloadRetentionDays,
+      DEFAULT_BILLING_WEBHOOK_PAYLOAD_RETENTION_DAYS
+    ),
     batchSize: normalizeBatchSize(config.batchSize)
   };
 }
@@ -88,6 +98,7 @@ function createService({
   auditEventsRepository,
   aiTranscriptConversationsRepository,
   aiTranscriptMessagesRepository,
+  billingRepository = null,
   retentionConfig,
   now = () => new Date()
 }) {
@@ -121,6 +132,14 @@ function createService({
   }
   if (typeof aiTranscriptMessagesRepository.deleteOlderThan !== "function") {
     throw new Error("aiTranscriptMessagesRepository.deleteOlderThan is required.");
+  }
+  if (billingRepository) {
+    if (typeof billingRepository.deleteTerminalIdempotencyOlderThan !== "function") {
+      throw new Error("billingRepository.deleteTerminalIdempotencyOlderThan is required.");
+    }
+    if (typeof billingRepository.scrubWebhookPayloadsPastRetention !== "function") {
+      throw new Error("billingRepository.scrubWebhookPayloadsPastRetention is required.");
+    }
   }
 
   const config = resolveRetentionConfig(retentionConfig);
@@ -167,6 +186,24 @@ function createService({
           aiTranscriptConversationsRepository.deleteWithoutMessagesOlderThan(cutoffDate, batchSize)
       }
     ];
+
+    if (billingRepository) {
+      rules.push({
+        key: "billing_idempotency_requests",
+        retentionDays: config.billingIdempotencyRetentionDays,
+        deleteBatch: (cutoffDate, batchSize) =>
+          billingRepository.deleteTerminalIdempotencyOlderThan(cutoffDate, batchSize)
+      });
+      rules.push({
+        key: "billing_webhook_payloads",
+        retentionDays: config.billingWebhookPayloadRetentionDays,
+        deleteBatch: (_cutoffDate, batchSize) =>
+          billingRepository.scrubWebhookPayloadsPastRetention({
+            now: nowDate,
+            batchSize
+          })
+      });
+    }
 
     const sweepSummary = [];
     for (const rule of rules) {
@@ -224,6 +261,8 @@ const __testables = {
   DEFAULT_INVITE_ARTIFACT_RETENTION_DAYS,
   DEFAULT_SECURITY_AUDIT_RETENTION_DAYS,
   DEFAULT_AI_TRANSCRIPTS_RETENTION_DAYS,
+  DEFAULT_BILLING_IDEMPOTENCY_RETENTION_DAYS,
+  DEFAULT_BILLING_WEBHOOK_PAYLOAD_RETENTION_DAYS,
   DEFAULT_RETENTION_BATCH_SIZE,
   DAY_IN_MILLISECONDS,
   normalizeRetentionDays,

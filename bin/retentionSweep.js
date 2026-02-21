@@ -22,11 +22,14 @@ async function main() {
     auditEventsRepository: repositories.auditEventsRepository,
     aiTranscriptConversationsRepository: repositories.aiTranscriptConversationsRepository,
     aiTranscriptMessagesRepository: repositories.aiTranscriptMessagesRepository,
+    billingRepository: repositories.billingRepository,
     retentionConfig: {
       errorLogRetentionDays: env.ERROR_LOG_RETENTION_DAYS,
       inviteArtifactRetentionDays: env.INVITE_ARTIFACT_RETENTION_DAYS,
       securityAuditRetentionDays: env.SECURITY_AUDIT_RETENTION_DAYS,
       aiTranscriptsRetentionDays: env.AI_TRANSCRIPTS_RETENTION_DAYS,
+      billingIdempotencyRetentionDays: env.BILLING_IDEMPOTENCY_RETENTION_DAYS,
+      billingWebhookPayloadRetentionDays: env.BILLING_WEBHOOK_PAYLOAD_RETENTION_DAYS,
       batchSize: env.RETENTION_BATCH_SIZE
     }
   });

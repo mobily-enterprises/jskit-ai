@@ -19,6 +19,103 @@ import { createService as createHealthService } from "../modules/health/service.
 import { createService as createAiService } from "../modules/ai/service.js";
 import { createService as createAiTranscriptsService } from "../modules/ai/transcripts/service.js";
 import { createOpenAiClient } from "../modules/ai/provider/openaiClient.js";
+import { createService as createBillingService } from "../modules/billing/service.js";
+import { createService as createBillingPolicyService } from "../modules/billing/policy.service.js";
+import { createService as createBillingPricingService } from "../modules/billing/pricing.service.js";
+import { createService as createBillingIdempotencyService } from "../modules/billing/idempotency.service.js";
+import { createService as createBillingCheckoutSessionService } from "../modules/billing/checkoutSession.service.js";
+import { createService as createStripeSdkService } from "../modules/billing/stripeSdk.service.js";
+import { createService as createBillingCheckoutOrchestratorService } from "../modules/billing/checkoutOrchestrator.service.js";
+import { createService as createBillingWebhookService } from "../modules/billing/webhook.service.js";
+import { createService as createBillingOutboxWorkerService } from "../modules/billing/outboxWorker.service.js";
+import { createService as createBillingRemediationWorkerService } from "../modules/billing/remediationWorker.service.js";
+import { createService as createBillingReconciliationService } from "../modules/billing/reconciliation.service.js";
+import { createService as createBillingWorkerRuntimeService } from "../modules/billing/workerRuntime.service.js";
+import { AppError } from "../lib/errors.js";
+
+function createBillingDisabledServices() {
+  const throwBillingDisabled = async () => {
+    throw new AppError(404, "Not found.");
+  };
+
+  return {
+    billingPolicyService: {
+      resolveBillableEntityForReadRequest: throwBillingDisabled,
+      resolveBillableEntityForWriteRequest: throwBillingDisabled,
+      listAccessibleWorkspacesForUser: async () => []
+    },
+    billingPricingService: {
+      resolvePhase1SellablePrice: throwBillingDisabled,
+      deploymentCurrency: ""
+    },
+    billingIdempotencyService: {
+      claimOrReplay: throwBillingDisabled,
+      recoverPendingRequest: throwBillingDisabled,
+      expireStalePendingRequests: throwBillingDisabled,
+      assertProviderRequestHashStable: throwBillingDisabled,
+      assertLeaseVersion: throwBillingDisabled,
+      assertProviderReplayWindowOpen: throwBillingDisabled,
+      assertReplayProvenanceCompatible: throwBillingDisabled,
+      markSucceeded: throwBillingDisabled,
+      markFailed: throwBillingDisabled,
+      markExpired: throwBillingDisabled
+    },
+    billingCheckoutSessionService: {
+      cleanupExpiredBlockingSessions: throwBillingDisabled,
+      getBlockingCheckoutSession: throwBillingDisabled,
+      upsertBlockingCheckoutSession: throwBillingDisabled,
+      markCheckoutSessionCompletedPendingSubscription: throwBillingDisabled,
+      markCheckoutSessionReconciled: throwBillingDisabled,
+      markCheckoutSessionRecoveryVerificationPending: throwBillingDisabled,
+      markCheckoutSessionExpiredOrAbandoned: throwBillingDisabled,
+      assertCheckoutSessionCorrelation: throwBillingDisabled
+    },
+    billingCheckoutOrchestrator: {
+      startCheckout: throwBillingDisabled,
+      recoverCheckoutFromPending: throwBillingDisabled,
+      finalizeRecoveredCheckout: throwBillingDisabled,
+      buildFrozenStripeCheckoutSessionParams: throwBillingDisabled
+    },
+    billingWebhookService: {
+      processProviderEvent: throwBillingDisabled,
+      reprocessStoredEvent: throwBillingDisabled
+    },
+    billingOutboxWorkerService: {
+      leaseNextJob: async () => null,
+      executeJob: throwBillingDisabled,
+      retryOrDeadLetter: throwBillingDisabled,
+      runExpireCheckoutSession: throwBillingDisabled
+    },
+    billingRemediationWorkerService: {
+      leaseNextRemediation: async () => null,
+      runCancelDuplicateSubscription: throwBillingDisabled,
+      retryOrDeadLetterRemediation: throwBillingDisabled
+    },
+    billingReconciliationService: {
+      runScope: throwBillingDisabled
+    },
+    billingService: {
+      ensureBillableEntity: throwBillingDisabled,
+      listPlans: throwBillingDisabled,
+      getSnapshot: throwBillingDisabled,
+      listPaymentMethods: throwBillingDisabled,
+      syncPaymentMethods: throwBillingDisabled,
+      getLimitations: throwBillingDisabled,
+      listTimeline: throwBillingDisabled,
+      recordUsage: throwBillingDisabled,
+      createPortalSession: throwBillingDisabled,
+      createPaymentLink: throwBillingDisabled,
+      startCheckout: throwBillingDisabled
+    },
+    billingWorkerRuntimeService: {
+      start() {},
+      stop() {},
+      isStarted() {
+        return false;
+      }
+    }
+  };
+}
 
 function createServices({
   repositories,
@@ -47,13 +144,15 @@ function createServices({
     aiTranscriptConversationsRepository,
     aiTranscriptMessagesRepository,
     projectsRepository,
-    healthRepository
+    healthRepository,
+    billingRepository
   } = repositories;
 
   const observabilityService = createObservabilityService({
     metricsRegistry: observabilityRegistry,
     metricsEnabled: env.METRICS_ENABLED,
-    metricsBearerToken: env.METRICS_BEARER_TOKEN
+    metricsBearerToken: env.METRICS_BEARER_TOKEN,
+    logger: console
   });
 
   const authService = createAuthService({
@@ -139,7 +238,9 @@ function createServices({
     consoleInvitesRepository,
     consoleRootRepository,
     consoleSettingsRepository,
-    userProfilesRepository
+    userProfilesRepository,
+    billingRepository,
+    billingEnabled: env.BILLING_ENABLED
   });
 
   const consoleErrorsService = createConsoleErrorsService({
@@ -194,6 +295,136 @@ function createServices({
     healthRepository
   });
 
+  const stripeSdkService = createStripeSdkService({
+    enabled: env.BILLING_ENABLED,
+    secretKey: env.BILLING_STRIPE_SECRET_KEY,
+    apiVersion: env.BILLING_STRIPE_API_VERSION,
+    maxNetworkRetries: env.BILLING_STRIPE_MAX_NETWORK_RETRIES,
+    timeoutMs: env.BILLING_STRIPE_TIMEOUT_MS
+  });
+
+  let billingPolicyService;
+  let billingPricingService;
+  let billingIdempotencyService;
+  let billingCheckoutSessionService;
+  let billingCheckoutOrchestrator;
+  let billingWebhookService;
+  let billingOutboxWorkerService;
+  let billingRemediationWorkerService;
+  let billingReconciliationService;
+  let billingService;
+  let billingWorkerRuntimeService;
+
+  if (env.BILLING_ENABLED) {
+    billingPolicyService = createBillingPolicyService({
+      workspacesRepository,
+      billingRepository,
+      resolvePermissions: workspaceService.resolvePermissions
+    });
+
+    billingPricingService = createBillingPricingService({
+      billingRepository,
+      billingCurrency: env.BILLING_CURRENCY
+    });
+
+    billingIdempotencyService = createBillingIdempotencyService({
+      billingRepository,
+      operationKeySecret: env.BILLING_OPERATION_KEY_SECRET,
+      providerIdempotencyKeySecret: env.BILLING_PROVIDER_IDEMPOTENCY_KEY_SECRET,
+      pendingLeaseSeconds: env.BILLING_CHECKOUT_PENDING_LEASE_SECONDS,
+      observabilityService
+    });
+
+    billingCheckoutSessionService = createBillingCheckoutSessionService({
+      billingRepository,
+      checkoutSessionGraceSeconds: env.BILLING_CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS
+    });
+
+    billingCheckoutOrchestrator = createBillingCheckoutOrchestratorService({
+      billingRepository,
+      billingPolicyService,
+      billingPricingService,
+      billingIdempotencyService,
+      billingCheckoutSessionService,
+      stripeSdkService,
+      appPublicUrl: env.APP_PUBLIC_URL,
+      observabilityService,
+      checkoutSessionGraceSeconds: env.BILLING_CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS,
+      providerReplayWindowSeconds: env.BILLING_PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS,
+      providerCheckoutExpirySeconds: env.BILLING_CHECKOUT_PROVIDER_EXPIRES_SECONDS
+    });
+
+    billingWebhookService = createBillingWebhookService({
+      billingRepository,
+      stripeSdkService,
+      billingCheckoutSessionService,
+      stripeWebhookEndpointSecret: env.BILLING_STRIPE_WEBHOOK_ENDPOINT_SECRET,
+      observabilityService,
+      payloadRetentionDays: env.BILLING_WEBHOOK_PAYLOAD_RETENTION_DAYS
+    });
+
+    billingOutboxWorkerService = createBillingOutboxWorkerService({
+      billingRepository,
+      stripeSdkService,
+      retryDelaySeconds: env.BILLING_OUTBOX_RETRY_DELAY_SECONDS,
+      maxAttempts: env.BILLING_OUTBOX_MAX_ATTEMPTS,
+      observabilityService
+    });
+
+    billingRemediationWorkerService = createBillingRemediationWorkerService({
+      billingRepository,
+      stripeSdkService,
+      retryDelaySeconds: env.BILLING_REMEDIATION_RETRY_DELAY_SECONDS,
+      maxAttempts: env.BILLING_REMEDIATION_MAX_ATTEMPTS,
+      observabilityService
+    });
+
+    billingReconciliationService = createBillingReconciliationService({
+      billingRepository,
+      stripeSdkService,
+      billingCheckoutSessionService,
+      billingWebhookService,
+      observabilityService,
+      checkoutSessionGraceSeconds: env.BILLING_CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS,
+      completionSlaSeconds: env.BILLING_CHECKOUT_COMPLETION_SLA_SECONDS
+    });
+
+    billingService = createBillingService({
+      billingRepository,
+      billingPolicyService,
+      billingPricingService,
+      billingIdempotencyService,
+      billingCheckoutOrchestrator,
+      stripeSdkService,
+      appPublicUrl: env.APP_PUBLIC_URL,
+      providerReplayWindowSeconds: env.BILLING_PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS,
+      observabilityService
+    });
+
+    billingWorkerRuntimeService = createBillingWorkerRuntimeService({
+      enabled: env.BILLING_ENABLED,
+      billingOutboxWorkerService,
+      billingRemediationWorkerService,
+      billingReconciliationService,
+      logger: observabilityService?.logger || console,
+      workerIdPrefix: `billing:${process.pid}`
+    });
+  } else {
+    ({
+      billingPolicyService,
+      billingPricingService,
+      billingIdempotencyService,
+      billingCheckoutSessionService,
+      billingCheckoutOrchestrator,
+      billingWebhookService,
+      billingOutboxWorkerService,
+      billingRemediationWorkerService,
+      billingReconciliationService,
+      billingService,
+      billingWorkerRuntimeService
+    } = createBillingDisabledServices());
+  }
+
   return {
     authService,
     annuityService,
@@ -214,7 +445,19 @@ function createServices({
     realtimeEventsService,
     aiTranscriptsService,
     aiService,
-    healthService
+    healthService,
+    billingPolicyService,
+    billingPricingService,
+    billingIdempotencyService,
+    billingCheckoutSessionService,
+    billingCheckoutOrchestrator,
+    stripeSdkService,
+    billingWebhookService,
+    billingOutboxWorkerService,
+    billingRemediationWorkerService,
+    billingReconciliationService,
+    billingWorkerRuntimeService,
+    billingService
   };
 }
 

@@ -6,6 +6,7 @@ import { createApi as createProjectsApi } from "./projectsApi.js";
 import { createApi as createSettingsApi } from "./settingsApi.js";
 import { createApi as createAnnuityApi } from "./annuityApi.js";
 import { createApi as createHistoryApi } from "./historyApi.js";
+import { createApi as createBillingApi } from "./billingApi.js";
 import { request, requestStream, clearCsrfTokenCache, __testables } from "./transport.js";
 
 const api = {
@@ -17,6 +18,7 @@ const api = {
   settings: createSettingsApi({ request }),
   annuity: createAnnuityApi({ request }),
   history: createHistoryApi({ request }),
+  billing: createBillingApi({ request }),
   clearCsrfTokenCache
 };
 

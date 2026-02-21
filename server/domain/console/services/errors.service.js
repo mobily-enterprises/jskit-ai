@@ -1,14 +1,12 @@
 import { AppError } from "../../../lib/errors.js";
 import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
+import { normalizePagination } from "../../../lib/primitives/pagination.js";
 import { hasPermission, resolveRolePermissions } from "../policies/roles.js";
 
 const BROWSER_ERRORS_READ_PERMISSION = "console.errors.browser.read";
 const SERVER_ERRORS_READ_PERMISSION = "console.errors.server.read";
 const SERVER_SIMULATION_KINDS = ["app_error", "type_error", "range_error", "async_rejection"];
 
-const DEFAULT_PAGE = 1;
-const DEFAULT_PAGE_SIZE = 20;
-const MAX_PAGE_SIZE = 100;
 let simulationSequence = 0;
 
 function normalizeString(value, maxLength = 0) {
@@ -82,16 +80,6 @@ function normalizeIsoDate(value) {
   }
 
   return parsed.toISOString();
-}
-
-function normalizePagination(pagination) {
-  const rawPage = parsePositiveInteger(pagination?.page);
-  const rawPageSize = parsePositiveInteger(pagination?.pageSize);
-
-  return {
-    page: rawPage || DEFAULT_PAGE,
-    pageSize: Math.max(1, Math.min(MAX_PAGE_SIZE, rawPageSize || DEFAULT_PAGE_SIZE))
-  };
 }
 
 function normalizeErrorEntryId(value) {
@@ -214,7 +202,11 @@ function createService({ consoleMembershipsRepository, consoleErrorLogsRepositor
 
   async function listBrowserErrors(user, pagination) {
     await requirePermission(user, BROWSER_ERRORS_READ_PERMISSION);
-    const { page, pageSize } = normalizePagination(pagination);
+    const { page, pageSize } = normalizePagination(pagination, {
+      defaultPage: 1,
+      defaultPageSize: 20,
+      maxPageSize: 100
+    });
 
     const total = await consoleErrorLogsRepository.countBrowserErrors();
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -243,7 +235,11 @@ function createService({ consoleMembershipsRepository, consoleErrorLogsRepositor
 
   async function listServerErrors(user, pagination) {
     await requirePermission(user, SERVER_ERRORS_READ_PERMISSION);
-    const { page, pageSize } = normalizePagination(pagination);
+    const { page, pageSize } = normalizePagination(pagination, {
+      defaultPage: 1,
+      defaultPageSize: 20,
+      maxPageSize: 100
+    });
 
     const total = await consoleErrorLogsRepository.countServerErrors();
     const totalPages = Math.max(1, Math.ceil(total / pageSize));

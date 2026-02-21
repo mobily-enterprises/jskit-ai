@@ -121,6 +121,23 @@ function buildRoutes(controllers, { missingHandler }) {
       handler: controllers.console?.listAiTranscripts || missingHandler
     },
     {
+      path: "/api/console/billing/events",
+      method: "GET",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "List technical billing activity events across workspaces/entities",
+        querystring: schema.query.billingEvents,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.billingEvents
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.listBillingEvents || missingHandler
+    },
+    {
       path: "/api/console/ai/transcripts/:conversationId/messages",
       method: "GET",
       auth: "required",

@@ -26,6 +26,7 @@ Current console capabilities:
 - invite create/revoke + pending invite accept/refuse flow
 - browser JavaScript error ingestion + paginated browser-error screen
 - server-side error ingestion + paginated server-error screen
+- global billing-event explorer with workspace/user/entity/correlation filters
 
 Future console capabilities (not yet implemented):
 
@@ -238,6 +239,12 @@ Use `docs/release-checklist.md` before shipping.
 - Protect endpoint with `METRICS_BEARER_TOKEN` in shared environments
 - Metrics/alerts/dashboard queries: `docs/observability.md`
 
+## Billing Contracts and Integration
+
+- Billing docs entry point: `docs/billing/README.md`
+- Contracts: `docs/billing/contracts.md`
+- Integration guide: `docs/billing/integration-guide.md`
+
 ## End-to-End Tests
 
 Install browser once:
@@ -346,10 +353,13 @@ Realtime note:
 - `DELETE /api/workspace/invites/:inviteId`
 - `GET /api/console/bootstrap`
 - `GET /api/console/roles`
+- `GET /api/console/settings`
+- `PATCH /api/console/settings`
 - `GET /api/console/members`
 - `PATCH /api/console/members/:memberUserId/role`
 - `GET /api/console/invites`
 - `GET /api/console/ai/transcripts`
+- `GET /api/console/billing/events`
 - `GET /api/console/ai/transcripts/:conversationId/messages`
 - `GET /api/console/ai/transcripts/export`
 - `POST /api/console/invites`
@@ -368,7 +378,19 @@ Realtime note:
 - `POST /api/workspace/projects`
 - `PATCH /api/workspace/projects/:projectId`
 - `PUT /api/workspace/projects/:projectId`
+- `GET /api/billing/plans`
+- `GET /api/billing/subscription`
+- `GET /api/billing/payment-methods`
+- `POST /api/billing/payment-methods/sync`
+- `GET /api/billing/limitations`
+- `GET /api/billing/timeline`
+- `POST /api/billing/checkout`
+- `POST /api/billing/portal`
+- `POST /api/billing/payment-links`
+- `POST /api/billing/webhooks/stripe`
 - `POST /api/workspace/ai/chat/stream`
+- `GET /api/workspace/ai/conversations`
+- `GET /api/workspace/ai/conversations/:conversationId/messages`
 - `GET /api/settings`
 - `PATCH /api/settings/profile`
 - `POST /api/settings/profile/avatar`

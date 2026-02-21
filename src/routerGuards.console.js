@@ -263,6 +263,29 @@ function createConsoleRouteGuards(stores, options) {
     }
   }
 
+  async function beforeLoadBillingEvents() {
+    const state = await resolveConsoleRuntimeState(resolvedStores);
+    if (state.sessionUnavailable) {
+      return;
+    }
+
+    if (!state.authenticated) {
+      throw redirect({ to: loginPath });
+    }
+
+    if (!state.hasConsoleAccess) {
+      if (state.hasPendingInvites) {
+        throw redirect({ to: invitationsPath });
+      }
+
+      throw redirect({ to: fallbackPath });
+    }
+
+    if (!resolvedStores.consoleStore.can("console.billing.events.read_all")) {
+      throw redirect({ to: rootPath });
+    }
+  }
+
   return {
     beforeLoadRoot,
     beforeLoadPublic,
@@ -273,7 +296,8 @@ function createConsoleRouteGuards(stores, options) {
     beforeLoadBrowserErrorDetails,
     beforeLoadServerErrors,
     beforeLoadServerErrorDetails,
-    beforeLoadAiTranscripts
+    beforeLoadAiTranscripts,
+    beforeLoadBillingEvents
   };
 }
 

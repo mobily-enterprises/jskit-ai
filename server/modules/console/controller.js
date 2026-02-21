@@ -241,6 +241,34 @@ function createController({ consoleService, aiTranscriptsService = null, auditSe
     reply.code(200).send(response);
   }
 
+  async function listBillingEvents(request, reply) {
+    const query = request.query || {};
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "billing.events.console.viewed",
+      execute: () => consoleService.listBillingEvents(request.user, query),
+      metadata: () => ({
+        scope: "console",
+        workspaceId: parsePositiveInteger(query.workspaceId),
+        userId: parsePositiveInteger(query.userId),
+        billableEntityId: parsePositiveInteger(query.billableEntityId),
+        operationKey: normalizeText(query.operationKey),
+        providerEventId: normalizeText(query.providerEventId),
+        source: normalizeText(query.source).toLowerCase(),
+        page: parsePositiveInteger(query.page) || 1,
+        pageSize: parsePositiveInteger(query.pageSize) || 25
+      }),
+      onSuccess: (context) => ({
+        metadata: {
+          returnedCount: Array.isArray(context?.result?.entries) ? context.result.entries.length : 0
+        }
+      })
+    });
+
+    reply.code(200).send(response);
+  }
+
   return {
     bootstrap,
     listRoles,
@@ -255,7 +283,8 @@ function createController({ consoleService, aiTranscriptsService = null, auditSe
     respondToPendingInviteByToken,
     listAiTranscripts,
     getAiTranscriptMessages,
-    exportAiTranscripts
+    exportAiTranscripts,
+    listBillingEvents
   };
 }
 

@@ -148,6 +148,9 @@ describe("routerGuards.console", () => {
     await expect(deniedGuards.beforeLoadServerErrorDetails()).rejects.toMatchObject({
       options: { to: "/console" }
     });
+    await expect(deniedGuards.beforeLoadBillingEvents()).rejects.toMatchObject({
+      options: { to: "/console" }
+    });
 
     const allowedGuards = createConsoleRouteGuards(
       buildStores({
@@ -165,5 +168,37 @@ describe("routerGuards.console", () => {
     await expect(allowedGuards.beforeLoadBrowserErrorDetails()).resolves.toBeUndefined();
     await expect(allowedGuards.beforeLoadServerErrors()).resolves.toBeUndefined();
     await expect(allowedGuards.beforeLoadServerErrorDetails()).resolves.toBeUndefined();
+  });
+
+  it("enforces billing event read permission on console billing routes", async () => {
+    const deniedGuards = createConsoleRouteGuards(
+      buildStores({
+        authenticated: true,
+        hasConsoleAccess: true,
+        permissions: []
+      }),
+      {
+        loginPath: "/console/login",
+        rootPath: "/console"
+      }
+    );
+
+    await expect(deniedGuards.beforeLoadBillingEvents()).rejects.toMatchObject({
+      options: { to: "/console" }
+    });
+
+    const allowedGuards = createConsoleRouteGuards(
+      buildStores({
+        authenticated: true,
+        hasConsoleAccess: true,
+        permissions: ["console.billing.events.read_all"]
+      }),
+      {
+        loginPath: "/console/login",
+        rootPath: "/console"
+      }
+    );
+
+    await expect(allowedGuards.beforeLoadBillingEvents()).resolves.toBeUndefined();
   });
 });

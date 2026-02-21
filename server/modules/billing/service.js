@@ -1,0 +1,1772 @@
+import { AppError } from "../../lib/errors.js";
+import { normalizePagination } from "../../lib/primitives/pagination.js";
+import {
+  BILLING_ACTIONS,
+  BILLING_FAILURE_CODES,
+  BILLING_PROVIDER_STRIPE,
+  statusFromFailureCode
+} from "./constants.js";
+import { toCanonicalJson, toSha256Hex } from "./canonicalJson.js";
+import { normalizeBillingPath, normalizePortalPath } from "./pathPolicy.js";
+import { assertEntitlementValueOrThrow } from "./entitlementSchemaRegistry.js";
+
+function mapFailureCodeToError(failureCode, fallbackMessage) {
+  const code = String(failureCode || "").trim() || BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR;
+  return new AppError(statusFromFailureCode(code), fallbackMessage || "Billing request failed.", {
+    code,
+    details: {
+      code
+    }
+  });
+}
+
+function normalizePortalRequest({ billableEntityId, payload }) {
+  return {
+    action: BILLING_ACTIONS.PORTAL,
+    billableEntityId: Number(billableEntityId),
+    returnPath: String(payload.returnPath || "").trim()
+  };
+}
+
+function normalizeCurrency(value) {
+  return String(value || "")
+    .trim()
+    .toUpperCase();
+}
+
+function normalizePaymentLinkQuantity(value) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 10000) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function normalizePaymentLinkLineItems(items, { defaultCurrency }) {
+  const sourceItems = Array.isArray(items) ? items : [];
+  if (sourceItems.length < 1 || sourceItems.length > 20) {
+    throw new AppError(400, "Validation failed.", {
+      details: {
+        fieldErrors: {
+          lineItems: "lineItems must contain between 1 and 20 entries."
+        }
+      }
+    });
+  }
+
+  const normalizedItems = [];
+  const requiredCurrency = normalizeCurrency(defaultCurrency);
+  for (let index = 0; index < sourceItems.length; index += 1) {
+    const entry = sourceItems[index] && typeof sourceItems[index] === "object" ? sourceItems[index] : {};
+    const lineItemFieldPrefix = `lineItems[${index}]`;
+    const priceId = toNonEmptyString(entry.priceId || entry.providerPriceId);
+    const quantity = normalizePaymentLinkQuantity(entry.quantity == null ? 1 : entry.quantity);
+    if (!quantity) {
+      throw new AppError(400, "Validation failed.", {
+        details: {
+          fieldErrors: {
+            [`${lineItemFieldPrefix}.quantity`]: `${lineItemFieldPrefix}.quantity must be an integer between 1 and 10,000.`
+          }
+        }
+      });
+    }
+
+    if (priceId) {
+      normalizedItems.push({
+        type: "price",
+        priceId,
+        quantity
+      });
+      continue;
+    }
+
+    const name = toNonEmptyString(entry.name);
+    if (!name) {
+      throw new AppError(400, "Validation failed.", {
+        details: {
+          fieldErrors: {
+            [`${lineItemFieldPrefix}.name`]: `${lineItemFieldPrefix}.name is required when priceId is not provided.`
+          }
+        }
+      });
+    }
+
+    const amountMinor = Number(entry.amountMinor);
+    if (!Number.isInteger(amountMinor) || amountMinor < 1 || amountMinor > 99999999) {
+      throw new AppError(400, "Validation failed.", {
+        details: {
+          fieldErrors: {
+            [`${lineItemFieldPrefix}.amountMinor`]:
+              `${lineItemFieldPrefix}.amountMinor must be an integer between 1 and 99,999,999.`
+          }
+        }
+      });
+    }
+
+    const currency = normalizeCurrency(entry.currency || defaultCurrency);
+    if (!currency || currency.length !== 3) {
+      throw new AppError(400, "Validation failed.", {
+        details: {
+          fieldErrors: {
+            [`${lineItemFieldPrefix}.currency`]: `${lineItemFieldPrefix}.currency must be a 3-letter ISO currency code.`
+          }
+        }
+      });
+    }
+    if (requiredCurrency && currency !== requiredCurrency) {
+      throw new AppError(400, "Validation failed.", {
+        details: {
+          fieldErrors: {
+            [`${lineItemFieldPrefix}.currency`]:
+              `${lineItemFieldPrefix}.currency must match deployment billing currency (${requiredCurrency}).`
+          }
+        }
+      });
+    }
+
+    normalizedItems.push({
+      type: "ad_hoc",
+      name,
+      amountMinor,
+      quantity,
+      currency
+    });
+  }
+
+  return normalizedItems;
+}
+
+function normalizePaymentLinkRequest({ billableEntityId, payload, defaultCurrency }) {
+  const body = payload && typeof payload === "object" ? payload : {};
+  const normalizedSuccessPath = normalizeBillingPath(body.successPath, { fieldName: "successPath" });
+  const sourceLineItems = Array.isArray(body.lineItems) && body.lineItems.length > 0 ? body.lineItems : null;
+
+  const normalizedLineItems = sourceLineItems
+    ? normalizePaymentLinkLineItems(sourceLineItems, { defaultCurrency })
+    : normalizePaymentLinkLineItems([body.oneOff || {}], { defaultCurrency });
+
+  return {
+    action: BILLING_ACTIONS.PAYMENT_LINK,
+    billableEntityId: Number(billableEntityId),
+    successPath: normalizedSuccessPath,
+    lineItems: normalizedLineItems
+  };
+}
+
+function isDeterministicProviderRejection(error) {
+  const statusCode = Number(error?.statusCode || error?.status || 0);
+  if (statusCode >= 400 && statusCode < 500 && statusCode !== 429) {
+    return true;
+  }
+
+  const code = String(error?.code || "").trim();
+  if (code === "StripeInvalidRequestError") {
+    return true;
+  }
+
+  return false;
+}
+
+function isIndeterminateProviderOutcome(error) {
+  const statusCode = Number(error?.statusCode || error?.status || 0);
+  if (statusCode === 429 || statusCode >= 500) {
+    return true;
+  }
+
+  const code = String(error?.code || "").trim().toLowerCase();
+  if (
+    code === "ecconnreset" ||
+    code === "etimedout" ||
+    code === "econnaborted" ||
+    code === "stripeapiconnectionerror" ||
+    code === "stripeapierror"
+  ) {
+    return true;
+  }
+
+  const message = String(error?.message || "").toLowerCase();
+  if (message.includes("timeout") || message.includes("network") || message.includes("connection")) {
+    return true;
+  }
+
+  return false;
+}
+
+const LIFETIME_WINDOW_END = new Date("9999-12-31T23:59:59.999Z");
+
+function toNonEmptyString(value) {
+  const normalized = String(value || "").trim();
+  return normalized || "";
+}
+
+function toPositiveInteger(value) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function startOfUtcDay(date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
+}
+
+function addUtcDays(date, days) {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+function resolveUsageWindow(interval, now = new Date()) {
+  const reference = now instanceof Date ? now : new Date(now);
+  if (Number.isNaN(reference.getTime())) {
+    throw new AppError(400, "Invalid usage window reference time.");
+  }
+
+  const normalizedInterval = toNonEmptyString(interval).toLowerCase();
+  if (normalizedInterval === "lifetime") {
+    return {
+      interval: "lifetime",
+      windowStartAt: new Date("1970-01-01T00:00:00.000Z"),
+      windowEndAt: new Date(LIFETIME_WINDOW_END)
+    };
+  }
+
+  if (normalizedInterval === "day") {
+    const windowStartAt = startOfUtcDay(reference);
+    return {
+      interval: "day",
+      windowStartAt,
+      windowEndAt: addUtcDays(windowStartAt, 1)
+    };
+  }
+
+  if (normalizedInterval === "week") {
+    const day = reference.getUTCDay();
+    const daysSinceMonday = (day + 6) % 7;
+    const windowStartAt = addUtcDays(startOfUtcDay(reference), -daysSinceMonday);
+    return {
+      interval: "week",
+      windowStartAt,
+      windowEndAt: addUtcDays(windowStartAt, 7)
+    };
+  }
+
+  if (normalizedInterval === "year") {
+    const windowStartAt = new Date(Date.UTC(reference.getUTCFullYear(), 0, 1, 0, 0, 0, 0));
+    return {
+      interval: "year",
+      windowStartAt,
+      windowEndAt: new Date(Date.UTC(reference.getUTCFullYear() + 1, 0, 1, 0, 0, 0, 0))
+    };
+  }
+
+  const windowStartAt = new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth(), 1, 0, 0, 0, 0));
+  return {
+    interval: "month",
+    windowStartAt,
+    windowEndAt: new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth() + 1, 1, 0, 0, 0, 0))
+  };
+}
+
+function normalizeUsageAmount(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  const integer = Math.floor(parsed);
+  return integer > 0 ? integer : null;
+}
+
+function classifyEntitlementType(schemaVersion) {
+  const normalized = toNonEmptyString(schemaVersion).toLowerCase();
+  if (normalized === "entitlement.quota.v1") {
+    return "quota";
+  }
+  if (normalized === "entitlement.boolean.v1") {
+    return "boolean";
+  }
+  if (normalized === "entitlement.string_list.v1") {
+    return "string_list";
+  }
+  return "unknown";
+}
+
+function normalizePaymentMethod(method, defaultPaymentMethodId) {
+  const paymentMethod = method && typeof method === "object" ? method : {};
+  const card = paymentMethod.card && typeof paymentMethod.card === "object" ? paymentMethod.card : {};
+  const providerPaymentMethodId = toNonEmptyString(paymentMethod.id);
+  if (!providerPaymentMethodId) {
+    return null;
+  }
+
+  return {
+    providerPaymentMethodId,
+    type: toNonEmptyString(paymentMethod.type) || "card",
+    brand: toNonEmptyString(card.brand) || null,
+    last4: toNonEmptyString(card.last4) || null,
+    expMonth: toPositiveInteger(card.exp_month),
+    expYear: toPositiveInteger(card.exp_year),
+    isDefault: providerPaymentMethodId === toNonEmptyString(defaultPaymentMethodId),
+    metadataJson: {
+      fingerprint: toNonEmptyString(card.fingerprint) || null
+    }
+  };
+}
+
+function toTitleCase(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) {
+    return "";
+  }
+
+  return normalized
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(" ");
+}
+
+function buildWorkspaceTimelineEntry(activityEvent) {
+  const event = activityEvent && typeof activityEvent === "object" ? activityEvent : {};
+  const source = toNonEmptyString(event.source).toLowerCase();
+  const status = toNonEmptyString(event.status).toLowerCase();
+  const provider = toNonEmptyString(event.provider).toUpperCase() || "BILLING";
+
+  const sourceLabel = (() => {
+    if (source === "idempotency") {
+      return "Request";
+    }
+    if (source === "checkout_session") {
+      return "Checkout";
+    }
+    if (source === "subscription") {
+      return "Subscription";
+    }
+    if (source === "invoice") {
+      return "Invoice";
+    }
+    if (source === "payment") {
+      return "Payment";
+    }
+    if (source === "payment_method_sync") {
+      return "Payment Methods";
+    }
+    if (source === "outbox_job") {
+      return "Automation";
+    }
+    if (source === "remediation") {
+      return "Recovery";
+    }
+    if (source === "reconciliation_run") {
+      return "Reconciliation";
+    }
+    if (source === "webhook") {
+      return "Webhook";
+    }
+    return "Billing";
+  })();
+
+  const statusLabel = toTitleCase(status || "updated") || "Updated";
+  const title = `${sourceLabel} ${statusLabel}`;
+
+  let description = event.message ? String(event.message) : `${provider} ${sourceLabel.toLowerCase()} ${statusLabel.toLowerCase()}.`;
+  if (source === "payment_method_sync" && status === "succeeded") {
+    description = "Payment methods were synchronized with Stripe.";
+  }
+  if (source === "idempotency" && status === "failed" && event.message) {
+    description = String(event.message);
+  }
+  if (source === "outbox_job" && status === "succeeded") {
+    description = "Automated billing follow-up completed.";
+  }
+  if (source === "remediation" && status === "succeeded") {
+    description = "Billing remediation completed successfully.";
+  }
+
+  return {
+    id: String(event.id || ""),
+    occurredAt: String(event.occurredAt || ""),
+    kind: source || "billing",
+    status: status || "unknown",
+    title,
+    description,
+    provider: toNonEmptyString(event.provider) || null,
+    operationKey: toNonEmptyString(event.operationKey) || null,
+    providerEventId: toNonEmptyString(event.providerEventId) || null,
+    sourceId: Number(event.sourceId || 0)
+  };
+}
+
+function createService({
+  billingRepository,
+  billingPolicyService,
+  billingPricingService,
+  billingIdempotencyService,
+  billingCheckoutOrchestrator,
+  stripeSdkService,
+  appPublicUrl,
+  providerReplayWindowSeconds,
+  observabilityService = null
+}) {
+  if (!billingRepository) {
+    throw new Error("billingRepository is required.");
+  }
+  if (!billingPolicyService) {
+    throw new Error("billingPolicyService is required.");
+  }
+  if (!billingPricingService) {
+    throw new Error("billingPricingService is required.");
+  }
+  if (!billingIdempotencyService) {
+    throw new Error("billingIdempotencyService is required.");
+  }
+  if (!billingCheckoutOrchestrator) {
+    throw new Error("billingCheckoutOrchestrator is required.");
+  }
+  if (!stripeSdkService || typeof stripeSdkService.createBillingPortalSession !== "function") {
+    throw new Error("stripeSdkService.createBillingPortalSession is required.");
+  }
+
+  const replayWindowSeconds = Math.max(60, Number(providerReplayWindowSeconds) || 23 * 60 * 60);
+  const normalizedAppPublicUrl = String(appPublicUrl || "").trim();
+  if (!normalizedAppPublicUrl) {
+    throw new Error("appPublicUrl is required.");
+  }
+  const deploymentCurrency = normalizeCurrency(billingPricingService?.deploymentCurrency || "USD");
+
+  function recordGuardrail(code, context = {}) {
+    const payload = {
+      code,
+      ...(context && typeof context === "object" ? context : {})
+    };
+
+    if (observabilityService && typeof observabilityService.recordBillingGuardrail === "function") {
+      observabilityService.recordBillingGuardrail(payload);
+      return;
+    }
+
+    if (!observabilityService || typeof observabilityService.recordDbError !== "function") {
+      return;
+    }
+
+    observabilityService.recordDbError({
+      code
+    });
+  }
+
+  async function ensureBillableEntity({ workspaceId, ownerUserId }) {
+    if (typeof billingRepository.ensureBillableEntityByScope === "function") {
+      return billingRepository.ensureBillableEntityByScope({
+        entityType: "workspace",
+        workspaceId,
+        ownerUserId
+      });
+    }
+
+    return billingRepository.ensureBillableEntity({
+      workspaceId,
+      ownerUserId
+    });
+  }
+
+  async function listPlans(requestContext = {}) {
+    const { billableEntity } = await billingPolicyService.resolveBillableEntityForReadRequest(requestContext);
+    void billableEntity;
+
+    const plans = await billingRepository.listPlans();
+    const entries = [];
+
+    for (const plan of plans) {
+      const prices = await billingRepository.listPlanPricesForPlan(plan.id, BILLING_PROVIDER_STRIPE);
+      const entitlements = await billingRepository.listPlanEntitlementsForPlan(plan.id);
+
+      const validatedEntitlements = [];
+      for (const entitlement of entitlements) {
+        assertEntitlementValueOrThrow({
+          schemaVersion: entitlement.schemaVersion,
+          value: entitlement.valueJson,
+          errorStatus: 500
+        });
+        validatedEntitlements.push(entitlement);
+      }
+
+      const sellablePrice = await (async () => {
+        try {
+          return await billingPricingService.resolvePhase1SellablePrice({
+            planId: plan.id,
+            provider: BILLING_PROVIDER_STRIPE
+          });
+        } catch (error) {
+          recordGuardrail("BILLING_PRICING_CONFIGURATION_INVALID");
+          throw error;
+        }
+      })();
+
+      entries.push({
+        ...plan,
+        prices,
+        sellablePrice,
+        entitlements: validatedEntitlements
+      });
+    }
+
+    return {
+      plans: entries
+    };
+  }
+
+  async function resolveCurrentSubscriptionEntitlements({ billableEntityId }) {
+    const currentSubscription = await billingRepository.findCurrentSubscriptionForEntity(billableEntityId);
+    if (!currentSubscription) {
+      return {
+        currentSubscription: null,
+        entitlements: []
+      };
+    }
+
+    const entitlements = await billingRepository.listPlanEntitlementsForPlan(currentSubscription.planId);
+    const validatedEntitlements = [];
+    for (const entitlement of entitlements) {
+      assertEntitlementValueOrThrow({
+        schemaVersion: entitlement.schemaVersion,
+        value: entitlement.valueJson,
+        errorStatus: 500
+      });
+      validatedEntitlements.push(entitlement);
+    }
+
+    return {
+      currentSubscription,
+      entitlements: validatedEntitlements
+    };
+  }
+
+  async function listPaymentMethods(requestContext = {}) {
+    const { billableEntity } = await billingPolicyService.resolveBillableEntityForReadRequest(requestContext);
+    const paymentMethods =
+      typeof billingRepository.listPaymentMethodsForEntity === "function"
+        ? await billingRepository.listPaymentMethodsForEntity({
+            billableEntityId: billableEntity.id,
+            provider: BILLING_PROVIDER_STRIPE,
+            includeInactive: false,
+            limit: 50
+          })
+        : [];
+
+    return {
+      billableEntity,
+      paymentMethods
+    };
+  }
+
+  async function syncPaymentMethods({ request, user, now = new Date() }) {
+    const { billableEntity } = await billingPolicyService.resolveBillableEntityForWriteRequest({
+      request,
+      user
+    });
+
+    const customer = await billingRepository.findCustomerByEntityProvider({
+      billableEntityId: billableEntity.id,
+      provider: BILLING_PROVIDER_STRIPE
+    });
+    const providerCustomerId = toNonEmptyString(customer?.providerCustomerId);
+    if (!providerCustomerId) {
+      if (typeof billingRepository.insertPaymentMethodSyncEvent === "function") {
+        await billingRepository.insertPaymentMethodSyncEvent({
+          billableEntityId: billableEntity.id,
+          billingCustomerId: customer?.id || null,
+          provider: BILLING_PROVIDER_STRIPE,
+          eventType: "manual_sync",
+          status: "skipped",
+          errorText: "Billing customer missing; payment-method sync skipped.",
+          payloadJson: {
+            reason: "billing_customer_missing"
+          },
+          processedAt: now
+        });
+      }
+
+      return {
+        billableEntity,
+        paymentMethods: [],
+        syncedAt: now.toISOString(),
+        syncStatus: "skipped",
+        fetchedCount: 0
+      };
+    }
+
+    if (!stripeSdkService || typeof stripeSdkService.listCustomerPaymentMethods !== "function") {
+      throw new AppError(500, "Billing payment-method sync is not available.");
+    }
+
+    try {
+      const { paymentMethods: providerPaymentMethods, defaultPaymentMethodId, hasMore = false } =
+        await stripeSdkService.listCustomerPaymentMethods({
+          customerId: providerCustomerId,
+          type: "card",
+          limit: 100
+        });
+
+      const normalizedMethods = (Array.isArray(providerPaymentMethods) ? providerPaymentMethods : [])
+        .map((entry) => normalizePaymentMethod(entry, defaultPaymentMethodId))
+        .filter(Boolean);
+
+      if (typeof billingRepository.upsertPaymentMethod === "function") {
+        for (const paymentMethod of normalizedMethods) {
+          await billingRepository.upsertPaymentMethod({
+            billableEntityId: billableEntity.id,
+            billingCustomerId: customer.id,
+            provider: BILLING_PROVIDER_STRIPE,
+            providerPaymentMethodId: paymentMethod.providerPaymentMethodId,
+            type: paymentMethod.type,
+            brand: paymentMethod.brand,
+            last4: paymentMethod.last4,
+            expMonth: paymentMethod.expMonth,
+            expYear: paymentMethod.expYear,
+            isDefault: paymentMethod.isDefault,
+            status: "active",
+            lastProviderSyncedAt: now,
+            metadataJson: paymentMethod.metadataJson
+          });
+        }
+      }
+
+      if (!hasMore && typeof billingRepository.deactivateMissingPaymentMethods === "function") {
+        await billingRepository.deactivateMissingPaymentMethods({
+          billableEntityId: billableEntity.id,
+          provider: BILLING_PROVIDER_STRIPE,
+          keepProviderPaymentMethodIds: normalizedMethods.map((entry) => entry.providerPaymentMethodId),
+          now
+        });
+      }
+
+      if (typeof billingRepository.insertPaymentMethodSyncEvent === "function") {
+        await billingRepository.insertPaymentMethodSyncEvent({
+          billableEntityId: billableEntity.id,
+          billingCustomerId: customer.id,
+          provider: BILLING_PROVIDER_STRIPE,
+          eventType: "manual_sync",
+          status: "succeeded",
+          payloadJson: {
+            fetchedCount: normalizedMethods.length,
+            providerHasMore: Boolean(hasMore),
+            defaultPaymentMethodId: toNonEmptyString(defaultPaymentMethodId) || null
+          },
+          processedAt: now
+        });
+      }
+
+      const paymentMethods =
+        typeof billingRepository.listPaymentMethodsForEntity === "function"
+          ? await billingRepository.listPaymentMethodsForEntity({
+              billableEntityId: billableEntity.id,
+              provider: BILLING_PROVIDER_STRIPE,
+              includeInactive: false,
+              limit: 50
+            })
+          : [];
+
+      return {
+        billableEntity,
+        paymentMethods,
+        syncedAt: now.toISOString(),
+        syncStatus: "succeeded",
+        fetchedCount: normalizedMethods.length
+      };
+    } catch (error) {
+      if (typeof billingRepository.insertPaymentMethodSyncEvent === "function") {
+        await billingRepository.insertPaymentMethodSyncEvent({
+          billableEntityId: billableEntity.id,
+          billingCustomerId: customer.id,
+          provider: BILLING_PROVIDER_STRIPE,
+          eventType: "manual_sync",
+          status: "failed",
+          errorText: String(error?.message || "Billing payment-method sync failed."),
+          payloadJson: {
+            providerCustomerId
+          },
+          processedAt: now
+        });
+      }
+
+      throw error;
+    }
+  }
+
+  async function getLimitations({ request, user, now = new Date() }) {
+    const { billableEntity } = await billingPolicyService.resolveBillableEntityForReadRequest({
+      request,
+      user
+    });
+
+    const { currentSubscription, entitlements } = await resolveCurrentSubscriptionEntitlements({
+      billableEntityId: billableEntity.id
+    });
+
+    const limitations = [];
+    for (const entitlement of entitlements) {
+      const type = classifyEntitlementType(entitlement.schemaVersion);
+      const limitation = {
+        code: entitlement.code,
+        schemaVersion: entitlement.schemaVersion,
+        type,
+        valueJson: entitlement.valueJson
+      };
+
+      if (type === "boolean") {
+        limitation.enabled = Boolean(entitlement?.valueJson?.enabled);
+      } else if (type === "string_list") {
+        const values = Array.isArray(entitlement?.valueJson?.values) ? entitlement.valueJson.values : [];
+        limitation.values = values.map((value) => String(value));
+      } else if (type === "quota") {
+        const limit = Math.max(0, Number(entitlement?.valueJson?.limit) || 0);
+        const interval = toNonEmptyString(entitlement?.valueJson?.interval).toLowerCase() || "month";
+        const enforcement = toNonEmptyString(entitlement?.valueJson?.enforcement).toLowerCase() || "hard";
+        const window = resolveUsageWindow(interval, now);
+        const usageCounter =
+          typeof billingRepository.findUsageCounter === "function"
+            ? await billingRepository.findUsageCounter({
+                billableEntityId: billableEntity.id,
+                entitlementCode: entitlement.code,
+                windowStartAt: window.windowStartAt,
+                windowEndAt: window.windowEndAt
+              })
+            : null;
+        const used = Math.max(0, Number(usageCounter?.usageCount || 0));
+        const remaining = Math.max(0, limit - used);
+
+        limitation.quota = {
+          interval: window.interval,
+          enforcement,
+          limit,
+          used,
+          remaining,
+          reached: used >= limit,
+          exceeded: used > limit,
+          windowStartAt: window.windowStartAt.toISOString(),
+          windowEndAt: window.windowEndAt.toISOString()
+        };
+      }
+
+      limitations.push(limitation);
+    }
+
+    return {
+      billableEntity,
+      subscription: currentSubscription,
+      generatedAt: now.toISOString(),
+      limitations
+    };
+  }
+
+  async function listTimeline({ request, user, query = {} }) {
+    const { billableEntity } = await billingPolicyService.resolveBillableEntityForReadRequest({
+      request,
+      user
+    });
+
+    const pagination = normalizePagination(
+      {
+        page: query?.page,
+        pageSize: query?.pageSize
+      },
+      {
+        defaultPage: 1,
+        defaultPageSize: 20,
+        maxPageSize: 100
+      }
+    );
+    const startIndex = (pagination.page - 1) * pagination.pageSize;
+    const fetchLimit = Math.max(1, startIndex + pagination.pageSize + 1);
+
+    const sourceFilter = toNonEmptyString(query?.source).toLowerCase();
+    const operationKeyFilter = toNonEmptyString(query?.operationKey);
+    const providerEventIdFilter = toNonEmptyString(query?.providerEventId);
+
+    const events =
+      typeof billingRepository.listBillingActivityEvents === "function"
+        ? await billingRepository.listBillingActivityEvents({
+            billableEntityId: billableEntity.id,
+            operationKey: operationKeyFilter || null,
+            providerEventId: providerEventIdFilter || null,
+            source: sourceFilter || null,
+            includeGlobal: false,
+            limit: fetchLimit
+          })
+        : [];
+
+    const hasMore = events.length > startIndex + pagination.pageSize;
+    const pagedEntries = events.slice(startIndex, startIndex + pagination.pageSize).map(buildWorkspaceTimelineEntry);
+
+    return {
+      billableEntity,
+      entries: pagedEntries,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      hasMore
+    };
+  }
+
+  async function recordUsage({ billableEntityId, entitlementCode, amount = 1, now = new Date(), metadataJson = null }) {
+    const normalizedBillableEntityId = toPositiveInteger(billableEntityId);
+    const normalizedEntitlementCode = toNonEmptyString(entitlementCode);
+    const normalizedAmount = normalizeUsageAmount(amount);
+    if (!normalizedBillableEntityId) {
+      throw new AppError(400, "Billable entity id is required.");
+    }
+    if (!normalizedEntitlementCode) {
+      throw new AppError(400, "Entitlement code is required.");
+    }
+    if (!normalizedAmount) {
+      throw new AppError(400, "Usage amount must be a positive integer.");
+    }
+
+    const { currentSubscription, entitlements } = await resolveCurrentSubscriptionEntitlements({
+      billableEntityId: normalizedBillableEntityId
+    });
+    if (!currentSubscription) {
+      throw new AppError(409, "No active subscription for usage accounting.");
+    }
+
+    const entitlement = entitlements.find((entry) => entry.code === normalizedEntitlementCode) || null;
+    if (!entitlement) {
+      throw new AppError(404, "Entitlement not found.");
+    }
+    if (classifyEntitlementType(entitlement.schemaVersion) !== "quota") {
+      throw new AppError(409, "Entitlement does not support usage accounting.");
+    }
+
+    if (typeof billingRepository.incrementUsageCounter !== "function") {
+      throw new AppError(500, "Billing usage counter storage is unavailable.");
+    }
+
+    const window = resolveUsageWindow(entitlement?.valueJson?.interval, now);
+    const updatedCounter = await billingRepository.incrementUsageCounter({
+      billableEntityId: normalizedBillableEntityId,
+      entitlementCode: normalizedEntitlementCode,
+      windowStartAt: window.windowStartAt,
+      windowEndAt: window.windowEndAt,
+      amount: normalizedAmount,
+      metadataJson
+    });
+
+    const limit = Math.max(0, Number(entitlement?.valueJson?.limit) || 0);
+    const used = Math.max(0, Number(updatedCounter?.usageCount || 0));
+
+    return {
+      billableEntityId: normalizedBillableEntityId,
+      entitlementCode: normalizedEntitlementCode,
+      interval: window.interval,
+      enforcement: toNonEmptyString(entitlement?.valueJson?.enforcement).toLowerCase() || "hard",
+      limit,
+      used,
+      remaining: Math.max(0, limit - used),
+      reached: used >= limit,
+      exceeded: used > limit,
+      windowStartAt: window.windowStartAt.toISOString(),
+      windowEndAt: window.windowEndAt.toISOString()
+    };
+  }
+
+  async function recoverPendingPortalSession({ idempotencyRow, now }) {
+    const leased = await billingIdempotencyService.recoverPendingRequest({
+      idempotencyRowId: idempotencyRow.id,
+      leaseOwner: `portal-recovery:${process.pid}`,
+      now
+    });
+
+    if (leased.type !== "recovery_leased") {
+      if (leased.type === "not_pending") {
+        if (leased.row?.status === "succeeded") {
+          return leased.row.responseJson;
+        }
+
+        if (leased.row?.failureCode) {
+          throw mapFailureCodeToError(
+            leased.row.failureCode,
+            leased.row.failureReason || "Billing portal request cannot be recovered."
+          );
+        }
+      }
+
+      throw mapFailureCodeToError(
+        BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+        "Billing portal request is in progress."
+      );
+    }
+
+    const recoveryRow = leased.row;
+    const expectedLeaseVersion = leased.expectedLeaseVersion;
+
+    const replayDeadlineAt = recoveryRow.providerIdempotencyReplayDeadlineAt
+      ? new Date(recoveryRow.providerIdempotencyReplayDeadlineAt)
+      : null;
+    if (!replayDeadlineAt || !Number.isFinite(replayDeadlineAt.getTime())) {
+      await billingIdempotencyService.markFailed({
+        idempotencyRowId: recoveryRow.id,
+        leaseVersion: expectedLeaseVersion,
+        failureCode: BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+        failureReason: "Billing portal replay deadline is missing."
+      });
+
+      throw mapFailureCodeToError(
+        BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+        "Billing portal recovery request state is invalid."
+      );
+    }
+
+    const replayWindowElapsed =
+      now.getTime() >= replayDeadlineAt.getTime();
+
+    if (replayWindowElapsed) {
+      await billingIdempotencyService.markExpired({
+        idempotencyRowId: recoveryRow.id,
+        leaseVersion: expectedLeaseVersion,
+        failureCode: BILLING_FAILURE_CODES.CHECKOUT_RECOVERY_WINDOW_ELAPSED,
+        failureReason: "Billing portal recovery replay window elapsed."
+      });
+
+      throw mapFailureCodeToError(
+        BILLING_FAILURE_CODES.CHECKOUT_RECOVERY_WINDOW_ELAPSED,
+        "Billing portal recovery window elapsed."
+      );
+    }
+
+    if (!recoveryRow.providerRequestParamsJson || typeof recoveryRow.providerRequestParamsJson !== "object") {
+      await billingIdempotencyService.markFailed({
+        idempotencyRowId: recoveryRow.id,
+        leaseVersion: expectedLeaseVersion,
+        failureCode: BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+        failureReason: "Frozen billing portal provider params are missing."
+      });
+
+      throw mapFailureCodeToError(
+        BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+        "Billing portal recovery request state is invalid."
+      );
+    }
+
+    if (!String(recoveryRow.providerRequestHash || "").trim()) {
+      await billingIdempotencyService.markFailed({
+        idempotencyRowId: recoveryRow.id,
+        leaseVersion: expectedLeaseVersion,
+        failureCode: BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+        failureReason: "Frozen billing portal provider request hash is missing."
+      });
+
+      throw mapFailureCodeToError(
+        BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+        "Billing portal recovery request state is invalid."
+      );
+    }
+
+    const replayParamsHash = toSha256Hex(toCanonicalJson(recoveryRow.providerRequestParamsJson));
+    try {
+      await billingIdempotencyService.assertProviderRequestHashStable({
+        idempotencyRowId: recoveryRow.id,
+        candidateProviderRequestHash: replayParamsHash
+      });
+    } catch (error) {
+      await billingIdempotencyService.markFailed({
+        idempotencyRowId: recoveryRow.id,
+        leaseVersion: expectedLeaseVersion,
+        failureCode: BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+        failureReason: String(error?.message || "Billing portal replay hash mismatch.")
+      });
+
+      throw mapFailureCodeToError(
+        BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+        "Billing portal recovery request state is invalid."
+      );
+    }
+
+    let portalSession;
+    try {
+      portalSession = await stripeSdkService.createBillingPortalSession({
+        params: recoveryRow.providerRequestParamsJson,
+        idempotencyKey: recoveryRow.providerIdempotencyKey
+      });
+    } catch (error) {
+      if (isDeterministicProviderRejection(error)) {
+        recordGuardrail("BILLING_PORTAL_PROVIDER_ERROR", {
+          operationKey: recoveryRow.operationKey,
+          billableEntityId: recoveryRow.billableEntityId
+        });
+        await billingIdempotencyService.markFailed({
+          idempotencyRowId: recoveryRow.id,
+          leaseVersion: expectedLeaseVersion,
+          failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+          failureReason: String(error?.message || "Stripe billing portal session recovery replay failed.")
+        });
+
+        throw mapFailureCodeToError(
+          BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+          "Provider rejected billing portal recovery replay."
+        );
+      }
+
+      if (isIndeterminateProviderOutcome(error)) {
+        recordGuardrail("BILLING_PORTAL_INDETERMINATE_PROVIDER_OUTCOME", {
+          operationKey: recoveryRow.operationKey,
+          billableEntityId: recoveryRow.billableEntityId
+        });
+        throw mapFailureCodeToError(
+          BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+          "Billing portal recovery is in progress."
+        );
+      }
+
+      throw error;
+    }
+
+    const responseJson = {
+      provider: BILLING_PROVIDER_STRIPE,
+      portalSession: {
+        id: String(portalSession?.id || ""),
+        url: String(portalSession?.url || "")
+      }
+    };
+
+    await billingIdempotencyService.markSucceeded({
+      idempotencyRowId: recoveryRow.id,
+      leaseVersion: expectedLeaseVersion,
+      responseJson,
+      providerSessionId: String(portalSession?.id || "")
+    });
+
+    return responseJson;
+  }
+
+  async function getSnapshot(requestContext = {}) {
+    const { billableEntity } = await billingPolicyService.resolveBillableEntityForReadRequest(requestContext);
+
+    const currentSubscription = await billingRepository.findCurrentSubscriptionForEntity(billableEntity.id);
+    if (!currentSubscription) {
+      return {
+        billableEntity,
+        subscription: null,
+        customer: await billingRepository.findCustomerByEntityProvider({
+          billableEntityId: billableEntity.id,
+          provider: BILLING_PROVIDER_STRIPE
+        }),
+        items: [],
+        invoices: [],
+        payments: []
+      };
+    }
+
+    const customer = await billingRepository.findCustomerById(currentSubscription.billingCustomerId);
+    const items = await billingRepository.listSubscriptionItemsForSubscription({
+      subscriptionId: currentSubscription.id,
+      provider: BILLING_PROVIDER_STRIPE
+    });
+    const invoices = await billingRepository.listInvoicesForSubscription({
+      subscriptionId: currentSubscription.id,
+      provider: BILLING_PROVIDER_STRIPE,
+      limit: 25
+    });
+    const payments = await billingRepository.listPaymentsForInvoiceIds({
+      provider: BILLING_PROVIDER_STRIPE,
+      invoiceIds: invoices.map((invoice) => invoice.id)
+    });
+
+    return {
+      billableEntity,
+      subscription: currentSubscription,
+      customer,
+      items,
+      invoices,
+      payments
+    };
+  }
+
+  async function createPortalSession({ request, user, payload, clientIdempotencyKey, now = new Date() }) {
+    const { billableEntity } = await billingPolicyService.resolveBillableEntityForWriteRequest({
+      request,
+      user
+    });
+
+    const normalizedPayload = normalizePortalPath(payload || {});
+    const normalizedRequest = normalizePortalRequest({
+      billableEntityId: billableEntity.id,
+      payload: normalizedPayload
+    });
+
+    const fingerprintHash = toSha256Hex(toCanonicalJson(normalizedRequest));
+
+    const claim = await billingIdempotencyService.claimOrReplay({
+      action: BILLING_ACTIONS.PORTAL,
+      billableEntityId: billableEntity.id,
+      clientIdempotencyKey,
+      requestFingerprintHash: fingerprintHash,
+      normalizedRequestJson: normalizedRequest,
+      provider: BILLING_PROVIDER_STRIPE,
+      now
+    });
+
+    if (claim.type === "replay_succeeded") {
+      return claim.row.responseJson;
+    }
+
+    if (claim.type === "replay_terminal") {
+      throw mapFailureCodeToError(claim.row.failureCode, claim.row.failureReason || "Billing portal request previously failed.");
+    }
+
+    if (claim.type === "recover_pending") {
+      return recoverPendingPortalSession({
+        idempotencyRow: claim.row,
+        now
+      });
+    }
+
+    if (claim.type === "in_progress_same_key" || claim.type === "checkout_in_progress_other_key") {
+      throw mapFailureCodeToError(BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS, "Billing portal request is in progress.");
+    }
+
+    const idempotencyRow = claim.row;
+
+    const currentSubscription = await billingRepository.findCurrentSubscriptionForEntity(billableEntity.id);
+    if (!currentSubscription) {
+      await billingIdempotencyService.markFailed({
+        idempotencyRowId: idempotencyRow.id,
+        failureCode: BILLING_FAILURE_CODES.PORTAL_SUBSCRIPTION_REQUIRED,
+        failureReason: "Billing portal requires an existing subscription."
+      });
+
+      throw mapFailureCodeToError(BILLING_FAILURE_CODES.PORTAL_SUBSCRIPTION_REQUIRED, "No active subscription for portal.");
+    }
+
+    const customer = await billingRepository.findCustomerByEntityProvider({
+      billableEntityId: billableEntity.id,
+      provider: BILLING_PROVIDER_STRIPE
+    });
+    if (!customer?.providerCustomerId) {
+      await billingIdempotencyService.markFailed({
+        idempotencyRowId: idempotencyRow.id,
+        failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+        failureReason: "Billing customer is missing for billing portal session create request."
+      });
+
+      throw mapFailureCodeToError(BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR, "Billing customer is missing.");
+    }
+
+    const returnUrl = new URL(normalizedPayload.returnPath, normalizedAppPublicUrl).toString();
+
+    const providerRequestParams = {
+      customer: customer.providerCustomerId,
+      return_url: returnUrl
+    };
+    const providerRequestHash = toSha256Hex(toCanonicalJson(providerRequestParams));
+
+    const sdkProvenance = await stripeSdkService.getSdkProvenance();
+
+    await billingRepository.updateIdempotencyById(idempotencyRow.id, {
+      providerRequestParamsJson: providerRequestParams,
+      providerRequestHash,
+      providerRequestSchemaVersion: "stripe_billing_portal_session_create_params_v1",
+      providerSdkName: sdkProvenance.providerSdkName,
+      providerSdkVersion: sdkProvenance.providerSdkVersion,
+      providerApiVersion: sdkProvenance.providerApiVersion,
+      providerRequestFrozenAt: now,
+      providerIdempotencyReplayDeadlineAt: new Date(now.getTime() + replayWindowSeconds * 1000)
+    });
+
+    let portalSession;
+    try {
+      portalSession = await stripeSdkService.createBillingPortalSession({
+        params: providerRequestParams,
+        idempotencyKey: idempotencyRow.providerIdempotencyKey
+      });
+    } catch (error) {
+      if (isDeterministicProviderRejection(error)) {
+        recordGuardrail("BILLING_PORTAL_PROVIDER_ERROR", {
+          operationKey: idempotencyRow.operationKey,
+          billableEntityId: billableEntity.id
+        });
+        await billingIdempotencyService.markFailed({
+          idempotencyRowId: idempotencyRow.id,
+          failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+          failureReason: String(error?.message || "Stripe billing portal session creation failed.")
+        });
+
+        throw mapFailureCodeToError(
+          BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+          "Failed to create billing portal session."
+        );
+      }
+
+      if (isIndeterminateProviderOutcome(error)) {
+        recordGuardrail("BILLING_PORTAL_INDETERMINATE_PROVIDER_OUTCOME", {
+          operationKey: idempotencyRow.operationKey,
+          billableEntityId: billableEntity.id
+        });
+        throw mapFailureCodeToError(
+          BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+          "Billing portal request is in progress."
+        );
+      }
+
+      throw error;
+    }
+
+    const responseJson = {
+      provider: BILLING_PROVIDER_STRIPE,
+      portalSession: {
+        id: String(portalSession?.id || ""),
+        url: String(portalSession?.url || "")
+      }
+    };
+
+    await billingIdempotencyService.markSucceeded({
+      idempotencyRowId: idempotencyRow.id,
+      responseJson,
+      providerSessionId: String(portalSession?.id || "")
+    });
+
+    return responseJson;
+  }
+
+  function buildPaymentLinkResponseJson({ paymentLink, billableEntityId, operationKey }) {
+    return {
+      provider: BILLING_PROVIDER_STRIPE,
+      billableEntityId: Number(billableEntityId),
+      operationKey: String(operationKey || ""),
+      paymentLink: {
+        id: String(paymentLink?.id || ""),
+        url: String(paymentLink?.url || ""),
+        active: Boolean(paymentLink?.active !== false)
+      }
+    };
+  }
+
+  async function resolvePaymentLinkProviderLineItems({ normalizedRequest, idempotencyRow }) {
+    const lineItems = Array.isArray(normalizedRequest?.lineItems) ? normalizedRequest.lineItems : [];
+    if (lineItems.length < 1) {
+      throw new AppError(400, "Validation failed.", {
+        details: {
+          fieldErrors: {
+            lineItems: "lineItems is required."
+          }
+        }
+      });
+    }
+
+    const resolvedLineItems = [];
+    for (let index = 0; index < lineItems.length; index += 1) {
+      const lineItem = lineItems[index];
+      if (lineItem?.type === "price") {
+        resolvedLineItems.push({
+          price: String(lineItem.priceId || ""),
+          quantity: Number(lineItem.quantity || 1)
+        });
+        continue;
+      }
+
+      if (lineItem?.type !== "ad_hoc") {
+        throw new AppError(400, "Validation failed.", {
+          details: {
+            fieldErrors: {
+              [`lineItems[${index}]`]: "line item type is invalid."
+            }
+          }
+        });
+      }
+
+      if (!stripeSdkService || typeof stripeSdkService.createPrice !== "function") {
+        throw new AppError(500, "Stripe price creation is not available.");
+      }
+
+      const adHocMetadata = {
+        operation_key: String(idempotencyRow.operationKey || ""),
+        billable_entity_id: String(idempotencyRow.billableEntityId || ""),
+        idempotency_row_id: String(idempotencyRow.id || ""),
+        line_item_index: String(index),
+        billing_flow: "payment_link_one_off"
+      };
+
+      const createdPrice = await stripeSdkService.createPrice({
+        params: {
+          currency: String(lineItem.currency || deploymentCurrency).toLowerCase(),
+          unit_amount: Number(lineItem.amountMinor || 0),
+          product_data: {
+            name: String(lineItem.name || ""),
+            metadata: adHocMetadata
+          },
+          metadata: adHocMetadata
+        },
+        idempotencyKey: `${idempotencyRow.providerIdempotencyKey}:price:${index}`
+      });
+
+      const providerPriceId = toNonEmptyString(createdPrice?.id);
+      if (!providerPriceId) {
+        throw new AppError(502, "Stripe ad-hoc price creation did not return a price id.");
+      }
+
+      resolvedLineItems.push({
+        price: providerPriceId,
+        quantity: Number(lineItem.quantity || 1)
+      });
+    }
+
+    return resolvedLineItems;
+  }
+
+  async function buildFrozenStripePaymentLinkParams({ normalizedRequest, idempotencyRow }) {
+    const successUrl = new URL(normalizedRequest.successPath, normalizedAppPublicUrl).toString();
+    const metadata = {
+      operation_key: String(idempotencyRow.operationKey || ""),
+      billable_entity_id: String(idempotencyRow.billableEntityId || ""),
+      idempotency_row_id: String(idempotencyRow.id || ""),
+      checkout_flow: "one_off",
+      checkout_type: "one_off",
+      payment_link_mode: "one_off"
+    };
+
+    return {
+      line_items: await resolvePaymentLinkProviderLineItems({
+        normalizedRequest,
+        idempotencyRow
+      }),
+      after_completion: {
+        type: "redirect",
+        redirect: {
+          url: successUrl
+        }
+      },
+      customer_creation: "always",
+      metadata,
+      invoice_creation: {
+        enabled: true,
+        invoice_data: {
+          metadata
+        }
+      }
+    };
+  }
+
+  async function freezePaymentLinkProviderRequest({ idempotencyRow, providerRequestParams, now }) {
+    const providerRequestHash = toSha256Hex(toCanonicalJson(providerRequestParams));
+    const sdkProvenance = await stripeSdkService.getSdkProvenance();
+
+    await billingRepository.updateIdempotencyById(idempotencyRow.id, {
+      providerRequestParamsJson: providerRequestParams,
+      providerRequestHash,
+      providerRequestSchemaVersion: "stripe_payment_link_create_params_v1",
+      providerSdkName: sdkProvenance.providerSdkName,
+      providerSdkVersion: sdkProvenance.providerSdkVersion,
+      providerApiVersion: sdkProvenance.providerApiVersion,
+      providerRequestFrozenAt: now,
+      providerIdempotencyReplayDeadlineAt: new Date(now.getTime() + replayWindowSeconds * 1000)
+    });
+
+    return providerRequestHash;
+  }
+
+  async function recoverPendingPaymentLink({ idempotencyRow, now }) {
+    const leased = await billingIdempotencyService.recoverPendingRequest({
+      idempotencyRowId: idempotencyRow.id,
+      leaseOwner: `payment-link-recovery:${process.pid}`,
+      now
+    });
+
+    if (leased.type !== "recovery_leased") {
+      if (leased.type === "not_pending") {
+        if (leased.row?.status === "succeeded") {
+          return leased.row.responseJson;
+        }
+
+        if (leased.row?.failureCode) {
+          throw mapFailureCodeToError(
+            leased.row.failureCode,
+            leased.row.failureReason || "Billing payment link request cannot be recovered."
+          );
+        }
+      }
+
+      throw mapFailureCodeToError(
+        BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+        "Billing payment link request is in progress."
+      );
+    }
+
+    const recoveryRow = leased.row;
+    const expectedLeaseVersion = leased.expectedLeaseVersion;
+    const replayDeadlineAt = recoveryRow.providerIdempotencyReplayDeadlineAt
+      ? new Date(recoveryRow.providerIdempotencyReplayDeadlineAt)
+      : null;
+    if (!replayDeadlineAt || !Number.isFinite(replayDeadlineAt.getTime())) {
+      await billingIdempotencyService.markFailed({
+        idempotencyRowId: recoveryRow.id,
+        leaseVersion: expectedLeaseVersion,
+        failureCode: BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+        failureReason: "Billing payment-link replay deadline is missing."
+      });
+
+      throw mapFailureCodeToError(
+        BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+        "Billing payment link recovery request state is invalid."
+      );
+    }
+
+    if (now.getTime() >= replayDeadlineAt.getTime()) {
+      await billingIdempotencyService.markExpired({
+        idempotencyRowId: recoveryRow.id,
+        leaseVersion: expectedLeaseVersion,
+        failureCode: BILLING_FAILURE_CODES.CHECKOUT_RECOVERY_WINDOW_ELAPSED,
+        failureReason: "Billing payment-link recovery replay window elapsed."
+      });
+
+      throw mapFailureCodeToError(
+        BILLING_FAILURE_CODES.CHECKOUT_RECOVERY_WINDOW_ELAPSED,
+        "Billing payment link recovery window elapsed."
+      );
+    }
+
+    let providerRequestParams = recoveryRow.providerRequestParamsJson;
+    let providerRequestHash = toNonEmptyString(recoveryRow.providerRequestHash);
+
+    if (!providerRequestParams || typeof providerRequestParams !== "object" || !providerRequestHash) {
+      try {
+        providerRequestParams = await buildFrozenStripePaymentLinkParams({
+          normalizedRequest: recoveryRow.normalizedRequestJson,
+          idempotencyRow: recoveryRow
+        });
+        providerRequestHash = toSha256Hex(toCanonicalJson(providerRequestParams));
+
+        const sdkProvenance = await stripeSdkService.getSdkProvenance();
+        const updatedRow = await billingRepository.updateIdempotencyById(
+          recoveryRow.id,
+          {
+            providerRequestParamsJson: providerRequestParams,
+            providerRequestHash,
+            providerRequestSchemaVersion: "stripe_payment_link_create_params_v1",
+            providerSdkName: sdkProvenance.providerSdkName,
+            providerSdkVersion: sdkProvenance.providerSdkVersion,
+            providerApiVersion: sdkProvenance.providerApiVersion,
+            providerRequestFrozenAt: now,
+            providerIdempotencyReplayDeadlineAt: new Date(now.getTime() + replayWindowSeconds * 1000)
+          },
+          {
+            expectedLeaseVersion
+          }
+        );
+        if (!updatedRow) {
+          throw new AppError(409, "Billing idempotency lease has changed.", {
+            code: "BILLING_LEASE_FENCED"
+          });
+        }
+      } catch (error) {
+        if (String(error?.code || "").trim() === "BILLING_LEASE_FENCED") {
+          throw mapFailureCodeToError(
+            BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+            "Billing payment-link recovery is in progress."
+          );
+        }
+
+        if (isDeterministicProviderRejection(error)) {
+          recordGuardrail("BILLING_PAYMENT_LINK_PROVIDER_ERROR", {
+            operationKey: recoveryRow.operationKey,
+            billableEntityId: recoveryRow.billableEntityId
+          });
+          await billingIdempotencyService.markFailed({
+            idempotencyRowId: recoveryRow.id,
+            leaseVersion: expectedLeaseVersion,
+            failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+            failureReason: String(error?.message || "Stripe payment-link recovery preparation failed.")
+          });
+
+          throw mapFailureCodeToError(
+            BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+            "Provider rejected billing payment-link recovery replay preparation."
+          );
+        }
+
+        if (isIndeterminateProviderOutcome(error)) {
+          recordGuardrail("BILLING_PAYMENT_LINK_INDETERMINATE_PROVIDER_OUTCOME", {
+            operationKey: recoveryRow.operationKey,
+            billableEntityId: recoveryRow.billableEntityId
+          });
+          throw mapFailureCodeToError(
+            BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+            "Billing payment-link recovery is in progress."
+          );
+        }
+
+        await billingIdempotencyService.markFailed({
+          idempotencyRowId: recoveryRow.id,
+          leaseVersion: expectedLeaseVersion,
+          failureCode: BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+          failureReason: String(error?.message || "Frozen billing payment-link provider params are missing.")
+        });
+        throw mapFailureCodeToError(
+          BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+          "Billing payment link recovery request state is invalid."
+        );
+      }
+    }
+
+    const replayParamsHash = toSha256Hex(toCanonicalJson(providerRequestParams));
+    try {
+      await billingIdempotencyService.assertProviderRequestHashStable({
+        idempotencyRowId: recoveryRow.id,
+        candidateProviderRequestHash: replayParamsHash
+      });
+    } catch (error) {
+      await billingIdempotencyService.markFailed({
+        idempotencyRowId: recoveryRow.id,
+        leaseVersion: expectedLeaseVersion,
+        failureCode: BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+        failureReason: String(error?.message || "Billing payment-link replay hash mismatch.")
+      });
+
+      throw mapFailureCodeToError(
+        BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+        "Billing payment link recovery request state is invalid."
+      );
+    }
+
+    let paymentLink;
+    try {
+      paymentLink = await stripeSdkService.createPaymentLink({
+        params: providerRequestParams,
+        idempotencyKey: recoveryRow.providerIdempotencyKey
+      });
+    } catch (error) {
+      if (isDeterministicProviderRejection(error)) {
+        recordGuardrail("BILLING_PAYMENT_LINK_PROVIDER_ERROR", {
+          operationKey: recoveryRow.operationKey,
+          billableEntityId: recoveryRow.billableEntityId
+        });
+        await billingIdempotencyService.markFailed({
+          idempotencyRowId: recoveryRow.id,
+          leaseVersion: expectedLeaseVersion,
+          failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+          failureReason: String(error?.message || "Stripe billing payment-link recovery replay failed.")
+        });
+
+        throw mapFailureCodeToError(
+          BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+          "Provider rejected billing payment-link recovery replay."
+        );
+      }
+
+      if (isIndeterminateProviderOutcome(error)) {
+        recordGuardrail("BILLING_PAYMENT_LINK_INDETERMINATE_PROVIDER_OUTCOME", {
+          operationKey: recoveryRow.operationKey,
+          billableEntityId: recoveryRow.billableEntityId
+        });
+        throw mapFailureCodeToError(
+          BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+          "Billing payment-link recovery is in progress."
+        );
+      }
+
+      throw error;
+    }
+
+    const responseJson = buildPaymentLinkResponseJson({
+      paymentLink,
+      billableEntityId: recoveryRow.billableEntityId,
+      operationKey: recoveryRow.operationKey
+    });
+
+    await billingIdempotencyService.markSucceeded({
+      idempotencyRowId: recoveryRow.id,
+      leaseVersion: expectedLeaseVersion,
+      responseJson,
+      providerSessionId: String(paymentLink?.id || "")
+    });
+
+    return responseJson;
+  }
+
+  async function createPaymentLink({ request, user, payload, clientIdempotencyKey, now = new Date() }) {
+    if (!stripeSdkService || typeof stripeSdkService.createPaymentLink !== "function") {
+      throw new AppError(500, "Stripe payment links are not available.");
+    }
+
+    const { billableEntity } = await billingPolicyService.resolveBillableEntityForWriteRequest({
+      request,
+      user
+    });
+
+    const normalizedRequest = normalizePaymentLinkRequest({
+      billableEntityId: billableEntity.id,
+      payload,
+      defaultCurrency: deploymentCurrency
+    });
+    const requestFingerprintHash = toSha256Hex(toCanonicalJson(normalizedRequest));
+
+    const claim = await billingIdempotencyService.claimOrReplay({
+      action: BILLING_ACTIONS.PAYMENT_LINK,
+      billableEntityId: billableEntity.id,
+      clientIdempotencyKey,
+      requestFingerprintHash,
+      normalizedRequestJson: normalizedRequest,
+      provider: BILLING_PROVIDER_STRIPE,
+      now
+    });
+
+    if (claim.type === "replay_succeeded") {
+      return claim.row.responseJson;
+    }
+
+    if (claim.type === "replay_terminal") {
+      throw mapFailureCodeToError(
+        claim.row.failureCode,
+        claim.row.failureReason || "Billing payment-link request previously failed."
+      );
+    }
+
+    if (claim.type === "recover_pending") {
+      return recoverPendingPaymentLink({
+        idempotencyRow: claim.row,
+        now
+      });
+    }
+
+    if (claim.type === "in_progress_same_key" || claim.type === "checkout_in_progress_other_key") {
+      throw mapFailureCodeToError(BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS, "Billing payment-link request is in progress.");
+    }
+
+    if (claim.type !== "claimed" || !claim.row) {
+      throw new AppError(500, "Billing payment-link idempotency claim state is invalid.");
+    }
+
+    const idempotencyRow = claim.row;
+    await billingRepository.updateIdempotencyById(idempotencyRow.id, {
+      providerIdempotencyReplayDeadlineAt: new Date(now.getTime() + replayWindowSeconds * 1000)
+    });
+
+    let providerRequestParams;
+    try {
+      providerRequestParams = await buildFrozenStripePaymentLinkParams({
+        normalizedRequest,
+        idempotencyRow
+      });
+      await freezePaymentLinkProviderRequest({
+        idempotencyRow,
+        providerRequestParams,
+        now
+      });
+    } catch (error) {
+      if (isDeterministicProviderRejection(error)) {
+        recordGuardrail("BILLING_PAYMENT_LINK_PROVIDER_ERROR", {
+          operationKey: idempotencyRow.operationKey,
+          billableEntityId: idempotencyRow.billableEntityId
+        });
+        await billingIdempotencyService.markFailed({
+          idempotencyRowId: idempotencyRow.id,
+          failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+          failureReason: String(error?.message || "Stripe payment-link request preparation failed.")
+        });
+
+        throw mapFailureCodeToError(
+          BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+          "Provider rejected billing payment-link request preparation."
+        );
+      }
+
+      if (isIndeterminateProviderOutcome(error)) {
+        recordGuardrail("BILLING_PAYMENT_LINK_INDETERMINATE_PROVIDER_OUTCOME", {
+          operationKey: idempotencyRow.operationKey,
+          billableEntityId: idempotencyRow.billableEntityId
+        });
+        throw mapFailureCodeToError(
+          BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+          "Billing payment-link request is in progress."
+        );
+      }
+
+      await billingIdempotencyService.markFailed({
+        idempotencyRowId: idempotencyRow.id,
+        failureCode: BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+        failureReason: String(error?.message || "Billing payment-link request is invalid.")
+      });
+      throw mapFailureCodeToError(
+        BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+        "Billing payment-link request is invalid."
+      );
+    }
+
+    let paymentLink;
+    try {
+      paymentLink = await stripeSdkService.createPaymentLink({
+        params: providerRequestParams,
+        idempotencyKey: idempotencyRow.providerIdempotencyKey
+      });
+    } catch (error) {
+      if (isDeterministicProviderRejection(error)) {
+        recordGuardrail("BILLING_PAYMENT_LINK_PROVIDER_ERROR", {
+          operationKey: idempotencyRow.operationKey,
+          billableEntityId: idempotencyRow.billableEntityId
+        });
+        await billingIdempotencyService.markFailed({
+          idempotencyRowId: idempotencyRow.id,
+          failureCode: BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+          failureReason: String(error?.message || "Stripe payment-link create request failed.")
+        });
+
+        throw mapFailureCodeToError(
+          BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
+          "Failed to create billing payment link."
+        );
+      }
+
+      if (isIndeterminateProviderOutcome(error)) {
+        recordGuardrail("BILLING_PAYMENT_LINK_INDETERMINATE_PROVIDER_OUTCOME", {
+          operationKey: idempotencyRow.operationKey,
+          billableEntityId: idempotencyRow.billableEntityId
+        });
+        throw mapFailureCodeToError(
+          BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+          "Billing payment-link request is in progress."
+        );
+      }
+
+      throw error;
+    }
+
+    const responseJson = buildPaymentLinkResponseJson({
+      paymentLink,
+      billableEntityId: billableEntity.id,
+      operationKey: idempotencyRow.operationKey
+    });
+
+    await billingIdempotencyService.markSucceeded({
+      idempotencyRowId: idempotencyRow.id,
+      responseJson,
+      providerSessionId: String(paymentLink?.id || "")
+    });
+
+    return responseJson;
+  }
+
+  async function startCheckout({ request, user, payload, clientIdempotencyKey, now = new Date() }) {
+    return billingCheckoutOrchestrator.startCheckout({
+      request,
+      user,
+      payload,
+      clientIdempotencyKey,
+      now
+    });
+  }
+
+  return {
+    ensureBillableEntity,
+    listPlans,
+    getSnapshot,
+    listPaymentMethods,
+    syncPaymentMethods,
+    getLimitations,
+    listTimeline,
+    recordUsage,
+    createPortalSession,
+    createPaymentLink,
+    startCheckout
+  };
+}
+
+export { createService };

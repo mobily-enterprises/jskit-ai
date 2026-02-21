@@ -353,6 +353,42 @@ const aiTranscriptExport = Type.Object(
   }
 );
 
+const billingEvent = Type.Object(
+  {
+    id: Type.String({ minLength: 1 }),
+    source: Type.String({ minLength: 1, maxLength: 64 }),
+    sourceId: Type.Integer({ minimum: 0 }),
+    billableEntityId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    workspaceId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    workspaceSlug: Type.Union([Type.String(), Type.Null()]),
+    workspaceName: Type.Union([Type.String(), Type.Null()]),
+    ownerUserId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    provider: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+    operationKey: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+    providerEventId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+    eventType: Type.String({ minLength: 1 }),
+    status: Type.String({ minLength: 1 }),
+    message: Type.Union([Type.String(), Type.Null()]),
+    occurredAt: Type.String({ format: "iso-utc-date-time" }),
+    detailsJson: Type.Unknown()
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingEvents = Type.Object(
+  {
+    entries: Type.Array(billingEvent),
+    page: Type.Integer({ minimum: 1 }),
+    pageSize: Type.Integer({ minimum: 1, maximum: 100 }),
+    hasMore: Type.Boolean()
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const aiTranscriptsQuery = Type.Object(
   {
     page: Type.Optional(Type.Integer({ minimum: 1, default: 1 })),
@@ -361,6 +397,22 @@ const aiTranscriptsQuery = Type.Object(
     from: Type.Optional(Type.String({ maxLength: 64 })),
     to: Type.Optional(Type.String({ maxLength: 64 })),
     status: Type.Optional(transcriptStatus)
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingEventsQuery = Type.Object(
+  {
+    page: Type.Optional(Type.Integer({ minimum: 1, default: 1 })),
+    pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 25 })),
+    workspaceId: Type.Optional(Type.Integer({ minimum: 1 })),
+    userId: Type.Optional(Type.Integer({ minimum: 1 })),
+    billableEntityId: Type.Optional(Type.Integer({ minimum: 1 })),
+    operationKey: Type.Optional(Type.String({ minLength: 1, maxLength: 191 })),
+    providerEventId: Type.Optional(Type.String({ minLength: 1, maxLength: 191 })),
+    source: Type.Optional(Type.String({ minLength: 1, maxLength: 64 }))
   },
   {
     additionalProperties: false
@@ -399,7 +451,8 @@ const schema = {
     respondToInvite,
     aiTranscriptsList,
     aiTranscriptMessages,
-    aiTranscriptExport
+    aiTranscriptExport,
+    billingEvents
   },
   body: {
     createInvite,
@@ -410,7 +463,8 @@ const schema = {
   query: {
     aiTranscripts: aiTranscriptsQuery,
     aiTranscriptMessages: aiTranscriptMessagesQuery,
-    aiTranscriptExport: aiTranscriptExportQuery
+    aiTranscriptExport: aiTranscriptExportQuery,
+    billingEvents: billingEventsQuery
   },
   params: {
     member,

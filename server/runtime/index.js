@@ -26,7 +26,13 @@ function createServerRuntime({ env, nodeEnv, appConfig, rbacManifest, rootDir, s
       realtimeEventsService: services.realtimeEventsService,
       observabilityService: services.observabilityService,
       avatarStorageService: services.avatarStorageService,
-      aiService: services.aiService
+      aiService: services.aiService,
+      billingService: services.billingService,
+      billingWebhookService: services.billingWebhookService,
+      billingOutboxWorkerService: services.billingOutboxWorkerService,
+      billingRemediationWorkerService: services.billingRemediationWorkerService,
+      billingReconciliationService: services.billingReconciliationService,
+      billingWorkerRuntimeService: services.billingWorkerRuntimeService
     }
   };
 }

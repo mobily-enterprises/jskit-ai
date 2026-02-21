@@ -10,6 +10,7 @@ import { createController as createObservabilityController } from "../modules/ob
 import { createController as createProjectsController } from "../modules/projects/controller.js";
 import { createController as createHealthController } from "../modules/health/controller.js";
 import { createController as createAiController } from "../modules/ai/controller.js";
+import { createController as createBillingController } from "../modules/billing/controller.js";
 
 function createControllers({ services }) {
   const {
@@ -23,6 +24,8 @@ function createControllers({ services }) {
     aiTranscriptsService,
     realtimeEventsService,
     healthService,
+    billingService,
+    billingWebhookService,
     workspaceService,
     workspaceAdminService,
     consoleService,
@@ -48,6 +51,10 @@ function createControllers({ services }) {
     }),
     health: createHealthController({
       healthService
+    }),
+    billing: createBillingController({
+      billingService,
+      billingWebhookService
     }),
     projects: createProjectsController({
       projectsService,

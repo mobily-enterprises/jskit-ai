@@ -18,6 +18,7 @@
         "workspace.roles.view",
         "workspace.ai.transcripts.read",
         "workspace.ai.transcripts.export",
+        "workspace.billing.manage",
         "history.read",
         "history.write",
         "projects.read",

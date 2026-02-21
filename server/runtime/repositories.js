@@ -15,6 +15,7 @@ import * as aiTranscriptConversationsRepository from "../modules/ai/repositories
 import * as aiTranscriptMessagesRepository from "../modules/ai/repositories/messages.repository.js";
 import * as projectsRepository from "../modules/projects/repository.js";
 import * as healthRepository from "../modules/health/repository.js";
+import * as billingRepository from "../modules/billing/repository.js";
 
 function createRepositories() {
   return {
@@ -34,7 +35,8 @@ function createRepositories() {
     aiTranscriptConversationsRepository,
     aiTranscriptMessagesRepository,
     projectsRepository,
-    healthRepository
+    healthRepository,
+    billingRepository
   };
 }
 

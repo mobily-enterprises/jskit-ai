@@ -72,6 +72,7 @@ export function useAdminShell() {
     () => workspaceStore.can("workspace.settings.view") || workspaceStore.can("workspace.settings.update")
   );
   const canViewAiTranscripts = computed(() => workspaceStore.can("workspace.ai.transcripts.read"));
+  const canViewBilling = computed(() => workspaceStore.can("workspace.billing.manage"));
   const assistantFeatureEnabled = computed(() => Boolean(workspaceStore.app?.features?.assistantEnabled));
   const assistantRequiredPermission = computed(() =>
     String(workspaceStore.app?.features?.assistantRequiredPermission || "").trim()
@@ -95,6 +96,10 @@ export function useAdminShell() {
 
     if (canViewWorkspaceSettings.value) {
       items.push({ title: "Workspace settings", to: workspacePath("/settings"), icon: "$menuSettings" });
+    }
+
+    if (canViewBilling.value) {
+      items.push({ title: "Billing", to: workspacePath("/billing"), icon: "$menuSettings" });
     }
 
     items.push({ title: "Back to App", to: appSurfaceTargetPath.value, icon: "$menuBackToApp", forceReload: true });
@@ -125,6 +130,9 @@ export function useAdminShell() {
     }
     if (currentPath.value.endsWith("/transcripts")) {
       return "AI transcripts";
+    }
+    if (currentPath.value.endsWith("/billing")) {
+      return "Billing";
     }
     return "Calculator";
   });

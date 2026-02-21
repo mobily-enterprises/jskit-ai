@@ -33,7 +33,48 @@ function isMetricsRegistry(value) {
   );
 }
 
-function createService({ metricsRegistry, metricsEnabled = true, metricsBearerToken = "" } = {}) {
+function normalizeCorrelationId(value) {
+  const normalized = String(value || "").trim();
+  return normalized || null;
+}
+
+function normalizePositiveInteger(value) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function shouldRecordGuardrailEvent({ measure, value }) {
+  const normalizedMeasure = normalizeCorrelationId(measure);
+  if (normalizedMeasure !== "count") {
+    return true;
+  }
+
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) && numericValue > 0;
+}
+
+function normalizeGuardrailMeasurementValue(value) {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === "string" && value.trim() === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function createService({ metricsRegistry, metricsEnabled = true, metricsBearerToken = "", logger = console } = {}) {
   const registry = isMetricsRegistry(metricsRegistry) ? metricsRegistry : createMetricsRegistry();
   const enabled = Boolean(metricsEnabled);
   const requiredBearerToken = normalizeBearerToken(metricsBearerToken);
@@ -90,6 +131,50 @@ function createService({ metricsRegistry, metricsEnabled = true, metricsBearerTo
     registry.recordAiToolCall(payload || {});
   }
 
+  function recordBillingGuardrail(payload) {
+    const normalizedPayload = payload && typeof payload === "object" ? payload : {};
+    const code = normalizedPayload.code;
+    const measure = normalizedPayload.measure;
+    const value = normalizedPayload.value;
+    const normalizedValue = normalizeGuardrailMeasurementValue(value);
+
+    if (!shouldRecordGuardrailEvent({ measure, value })) {
+      return;
+    }
+
+    if (typeof registry.recordBillingGuardrailEvent === "function") {
+      registry.recordBillingGuardrailEvent({
+        code
+      });
+    } else {
+      registry.recordDbError({
+        code
+      });
+    }
+
+    if (normalizedValue != null && typeof registry.recordBillingGuardrailMeasurement === "function") {
+      registry.recordBillingGuardrailMeasurement({
+        code,
+        measure,
+        value: normalizedValue
+      });
+    }
+
+    if (logger && typeof logger.warn === "function") {
+      logger.warn(
+        {
+          code: String(code || "").trim() || "UNKNOWN",
+          operation_key: normalizeCorrelationId(normalizedPayload.operationKey),
+          provider_event_id: normalizeCorrelationId(normalizedPayload.providerEventId),
+          billable_entity_id: normalizePositiveInteger(normalizedPayload.billableEntityId),
+          measure: normalizeCorrelationId(measure),
+          value: normalizedValue
+        },
+        "billing.guardrail"
+      );
+    }
+  }
+
   return {
     isEnabled() {
       return enabled;
@@ -101,14 +186,19 @@ function createService({ metricsRegistry, metricsEnabled = true, metricsBearerTo
     recordAuthFailure,
     recordSecurityAuditEvent,
     recordAiTurn,
-    recordAiToolCall
+    recordAiToolCall,
+    recordBillingGuardrail
   };
 }
 
 const __testables = {
   normalizeBearerToken,
   parseAuthorizationBearerToken,
-  isMetricsRegistry
+  isMetricsRegistry,
+  normalizeCorrelationId,
+  normalizePositiveInteger,
+  shouldRecordGuardrailEvent,
+  normalizeGuardrailMeasurementValue
 };
 
 export { createService, __testables };

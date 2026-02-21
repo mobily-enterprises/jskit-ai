@@ -4,6 +4,7 @@ import { buildRoutes as buildConsoleRoutes } from "../console/routes.js";
 import { buildRoutes as buildConsoleErrorsRoutes } from "../consoleErrors/routes.js";
 import { buildRoutes as buildCommunicationsRoutes } from "../communications/routes.js";
 import { buildRoutes as buildProjectsRoutes } from "../projects/routes.js";
+import { buildRoutes as buildBillingRoutes } from "../billing/routes.js";
 import { buildRoutes as buildSettingsRoutes } from "../settings/routes.js";
 import { buildRoutes as buildHistoryRoutes } from "../history/routes.js";
 import { buildRoutes as buildAnnuityRoutes } from "../annuity/routes.js";
@@ -31,6 +32,7 @@ function buildDefaultRoutes(controllers, routeConfig = {}) {
     ...buildConsoleErrorsRoutes(controllers, { missingHandler }),
     ...buildCommunicationsRoutes(controllers, { missingHandler }),
     ...buildProjectsRoutes(controllers, { missingHandler }),
+    ...buildBillingRoutes(controllers, { missingHandler }),
     ...buildAiRoutes(controllers, {
       missingHandler,
       aiEnabled: routeConfig.aiEnabled,

@@ -4,6 +4,7 @@ import { createRoute, lazyRouteComponent } from "@tanstack/vue-router";
 /* v8 ignore start -- lazy Vue SFC loaders require full Vite CSS handling and are exercised in browser/E2E paths. */
 const WorkspaceSettingsView = lazyRouteComponent(() => import("../views/workspace-settings/WorkspaceSettingsView.vue"));
 const WorkspaceTranscriptsView = lazyRouteComponent(() => import("../views/workspace-transcripts/WorkspaceTranscriptsView.vue"));
+const WorkspaceBillingView = lazyRouteComponent(() => import("../views/workspace-billing/WorkspaceBillingView.vue"));
 /* v8 ignore stop */
 /* c8 ignore stop */
 
@@ -21,6 +22,12 @@ function createRoutes({ rootRoute, workspaceRoutePrefix, guards }) {
       path: `${workspaceRoutePrefix}/transcripts`,
       component: WorkspaceTranscriptsView,
       beforeLoad: (context) => guards.beforeLoadWorkspacePermissionsRequired(context, "workspace.ai.transcripts.read")
+    }),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: `${workspaceRoutePrefix}/billing`,
+      component: WorkspaceBillingView,
+      beforeLoad: (context) => guards.beforeLoadWorkspacePermissionsRequired(context, "workspace.billing.manage")
     })
   ];
 }

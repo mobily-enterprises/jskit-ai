@@ -444,6 +444,23 @@ describe("client api transport", () => {
     await api.console.getServerError(202);
     await api.console.reportBrowserError({ message: "boom" });
     await api.console.simulateServerError({ kind: "type_error" });
+    await api.console.listBillingEvents({
+      page: 2,
+      pageSize: 25,
+      workspaceId: 7,
+      userId: 8,
+      billableEntityId: 9,
+      operationKey: "op_123",
+      providerEventId: "evt_123",
+      source: "idempotency"
+    });
+    await api.billing.getTimeline({
+      page: 3,
+      pageSize: 20,
+      source: "payment",
+      operationKey: "op_456",
+      providerEventId: "evt_456"
+    });
     await api.projects.list(2, 25);
     await api.projects.get("project/id");
     await api.projects.create({ name: "Project A", status: "draft" });
@@ -473,6 +490,12 @@ describe("client api transport", () => {
     expect(urls).toContain("/api/console/errors/server/202");
     expect(urls).toContain("/api/console/errors/browser");
     expect(urls).toContain("/api/console/simulate/server-error");
+    expect(urls).toContain(
+      "/api/console/billing/events?page=2&pageSize=25&workspaceId=7&userId=8&billableEntityId=9&operationKey=op_123&providerEventId=evt_123&source=idempotency"
+    );
+    expect(urls).toContain(
+      "/api/billing/timeline?page=3&pageSize=20&source=payment&operationKey=op_456&providerEventId=evt_456"
+    );
     expect(urls).toContain("/api/workspace/projects?page=2&pageSize=25");
     expect(urls).toContain("/api/workspace/projects/project%2Fid");
     expect(urls).toContain("/api/workspace/projects");
