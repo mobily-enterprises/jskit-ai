@@ -269,6 +269,94 @@ function createController({ consoleService, aiTranscriptsService = null, auditSe
     reply.code(200).send(response);
   }
 
+  async function listBillingPlans(request, reply) {
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "billing.catalog.console.viewed",
+      execute: () => consoleService.listBillingPlans(request.user),
+      metadata: () => ({
+        scope: "console"
+      }),
+      onSuccess: (context) => ({
+        metadata: {
+          returnedCount: Array.isArray(context?.result?.plans) ? context.result.plans.length : 0
+        }
+      })
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function listBillingProviderPrices(request, reply) {
+    const query = request.query || {};
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "billing.catalog.provider_prices.viewed",
+      execute: () => consoleService.listBillingProviderPrices(request.user, query),
+      metadata: () => ({
+        scope: "console",
+        active: query?.active,
+        limit: parsePositiveInteger(query?.limit)
+      }),
+      onSuccess: (context) => ({
+        metadata: {
+          returnedCount: Array.isArray(context?.result?.prices) ? context.result.prices.length : 0
+        }
+      })
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function createBillingPlan(request, reply) {
+    const payload = request.body || {};
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "billing.catalog.plan.created",
+      execute: () => consoleService.createBillingPlan(request.user, payload),
+      metadata: () => ({
+        scope: "console",
+        code: normalizeText(payload?.code).toLowerCase(),
+        pricingModel: normalizeText(payload?.pricingModel).toLowerCase(),
+        providerPriceId: normalizeText(payload?.basePrice?.providerPriceId)
+      }),
+      onSuccess: (context) => ({
+        metadata: {
+          planId: parsePositiveInteger(context?.result?.plan?.id)
+        }
+      })
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function updateBillingPlanPrice(request, reply) {
+    const params = request.params || {};
+    const payload = request.body || {};
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "billing.catalog.plan_price.updated",
+      execute: () => consoleService.updateBillingPlanPrice(request.user, params, payload),
+      metadata: () => ({
+        scope: "console",
+        planId: parsePositiveInteger(params?.planId),
+        priceId: parsePositiveInteger(params?.priceId),
+        providerPriceId: normalizeText(payload?.providerPriceId)
+      }),
+      onSuccess: (context) => ({
+        metadata: {
+          planId: parsePositiveInteger(context?.result?.plan?.id)
+        }
+      })
+    });
+
+    reply.code(200).send(response);
+  }
+
   return {
     bootstrap,
     listRoles,
@@ -284,7 +372,11 @@ function createController({ consoleService, aiTranscriptsService = null, auditSe
     listAiTranscripts,
     getAiTranscriptMessages,
     exportAiTranscripts,
-    listBillingEvents
+    listBillingEvents,
+    listBillingPlans,
+    createBillingPlan,
+    listBillingProviderPrices,
+    updateBillingPlanPrice
   };
 }
 

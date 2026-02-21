@@ -24,6 +24,19 @@ function normalizeProvider(value) {
   return normalized || BILLING_DEFAULT_PROVIDER;
 }
 
+function resolvePatchPropertyName(columnName) {
+  const normalizedColumn = String(columnName || "").trim();
+  if (!normalizedColumn) {
+    return "";
+  }
+
+  if (!normalizedColumn.includes("_")) {
+    return normalizedColumn;
+  }
+
+  return normalizedColumn.replace(/_([a-z])/g, (_fullMatch, letter) => letter.toUpperCase());
+}
+
 function toNullableIsoString(value) {
   if (!value) {
     return null;
@@ -823,6 +836,125 @@ function createBillingRepository(dbClient) {
     return rows.map(mapEntitlementRowNullable).filter(Boolean);
   }
 
+  async function createPlan(payload, options = {}) {
+    const now = new Date();
+    const client = resolveClient(options);
+    const [id] = await client("billing_plans").insert({
+      code: String(payload?.code || "").trim(),
+      plan_family_code: String(payload?.planFamilyCode || "").trim(),
+      version: Number(payload?.version || 1),
+      name: String(payload?.name || "").trim(),
+      description: toNullableString(payload?.description),
+      applies_to: String(payload?.appliesTo || "workspace").trim().toLowerCase() || "workspace",
+      pricing_model: String(payload?.pricingModel || "flat").trim().toLowerCase() || "flat",
+      is_active: payload?.isActive !== false,
+      metadata_json: payload?.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
+      created_at: toInsertDateTime(payload?.createdAt, now),
+      updated_at: toInsertDateTime(payload?.updatedAt, now)
+    });
+
+    return findPlanById(id, {
+      ...options,
+      trx: client
+    });
+  }
+
+  async function createPlanPrice(payload, options = {}) {
+    const now = new Date();
+    const client = resolveClient(options);
+    const [id] = await client("billing_plan_prices").insert({
+      plan_id: Number(payload?.planId),
+      provider: normalizeProvider(payload?.provider),
+      billing_component: String(payload?.billingComponent || "base").trim().toLowerCase() || "base",
+      usage_type: String(payload?.usageType || "licensed").trim().toLowerCase() || "licensed",
+      interval: String(payload?.interval || "month").trim().toLowerCase() || "month",
+      interval_count: Number(payload?.intervalCount || 1),
+      currency: String(payload?.currency || "").trim().toUpperCase(),
+      unit_amount_minor: Number(payload?.unitAmountMinor || 0),
+      provider_product_id: toNullableString(payload?.providerProductId),
+      provider_price_id: String(payload?.providerPriceId || "").trim(),
+      is_active: payload?.isActive !== false,
+      metadata_json: payload?.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
+      created_at: toInsertDateTime(payload?.createdAt, now),
+      updated_at: toInsertDateTime(payload?.updatedAt, now)
+    });
+
+    const row = await client("billing_plan_prices").where({ id }).first();
+    return mapPlanPriceRowNullable(row);
+  }
+
+  async function updatePlanPriceById(id, patch = {}, options = {}) {
+    const client = resolveClient(options);
+    const dbPatch = {};
+
+    if (Object.hasOwn(patch, "providerPriceId")) {
+      dbPatch.provider_price_id = String(patch.providerPriceId || "").trim();
+    }
+    if (Object.hasOwn(patch, "providerProductId")) {
+      dbPatch.provider_product_id = toNullableString(patch.providerProductId);
+    }
+    if (Object.hasOwn(patch, "currency")) {
+      dbPatch.currency = String(patch.currency || "").trim().toUpperCase();
+    }
+    if (Object.hasOwn(patch, "unitAmountMinor")) {
+      dbPatch.unit_amount_minor = Number(patch.unitAmountMinor || 0);
+    }
+    if (Object.hasOwn(patch, "interval")) {
+      dbPatch.interval = String(patch.interval || "").trim().toLowerCase();
+    }
+    if (Object.hasOwn(patch, "intervalCount")) {
+      dbPatch.interval_count = Number(patch.intervalCount || 1);
+    }
+    if (Object.hasOwn(patch, "usageType")) {
+      dbPatch.usage_type = String(patch.usageType || "").trim().toLowerCase() || "licensed";
+    }
+    if (Object.hasOwn(patch, "isActive")) {
+      dbPatch.is_active = patch.isActive !== false;
+    }
+    if (Object.hasOwn(patch, "metadataJson")) {
+      dbPatch.metadata_json = patch.metadataJson == null ? null : JSON.stringify(patch.metadataJson);
+    }
+
+    if (Object.keys(dbPatch).length > 0) {
+      dbPatch.updated_at = toInsertDateTime(new Date(), new Date());
+      await client("billing_plan_prices").where({ id }).update(dbPatch);
+    }
+
+    const row = await client("billing_plan_prices").where({ id }).first();
+    return mapPlanPriceRowNullable(row);
+  }
+
+  async function upsertPlanEntitlement(payload, options = {}) {
+    const now = new Date();
+    const client = resolveClient(options);
+    const normalizedPlanId = Number(payload?.planId);
+    const normalizedCode = String(payload?.code || "").trim();
+
+    await client("billing_entitlements")
+      .insert({
+        plan_id: normalizedPlanId,
+        code: normalizedCode,
+        schema_version: String(payload?.schemaVersion || "").trim(),
+        value_json: JSON.stringify(payload?.valueJson ?? {}),
+        created_at: toInsertDateTime(payload?.createdAt, now),
+        updated_at: toInsertDateTime(payload?.updatedAt, now)
+      })
+      .onConflict(["plan_id", "code"])
+      .merge({
+        schema_version: String(payload?.schemaVersion || "").trim(),
+        value_json: JSON.stringify(payload?.valueJson ?? {}),
+        updated_at: toInsertDateTime(payload?.updatedAt, now)
+      });
+
+    const row = await client("billing_entitlements")
+      .where({
+        plan_id: normalizedPlanId,
+        code: normalizedCode
+      })
+      .first();
+    return mapEntitlementRowNullable(row);
+  }
+
   async function findCustomerById(id, options = {}) {
     const client = resolveClient(options);
     const row = await client("billing_customers").where({ id }).first();
@@ -1445,7 +1577,7 @@ function createBillingRepository(dbClient) {
       usage_count: client.raw("usage_count + ?", [normalizedAmount]),
       updated_at: toInsertDateTime(payload.updatedAt, now)
     };
-    if (Object.prototype.hasOwnProperty.call(payload, "metadataJson")) {
+    if (Object.hasOwn(payload, "metadataJson")) {
       mergePatch.metadata_json = payload.metadataJson == null ? null : JSON.stringify(payload.metadataJson);
     }
 
@@ -2146,22 +2278,23 @@ function createBillingRepository(dbClient) {
 
   async function updateIdempotencyById(id, patch, options = {}) {
     const client = resolveClient(options);
-    const expectedLeaseVersion = Object.prototype.hasOwnProperty.call(options, "expectedLeaseVersion")
+    const expectedLeaseVersion = Object.hasOwn(options, "expectedLeaseVersion")
       ? Number(options.expectedLeaseVersion)
       : null;
     const dbPatch = {};
 
-    function setRaw(key, value) {
-      if (!Object.prototype.hasOwnProperty.call(patch, key)) {
+    function setRaw(columnName, value) {
+      const patchKey = resolvePatchPropertyName(columnName);
+      if (!patchKey || !Object.hasOwn(patch, patchKey)) {
         return;
       }
-      dbPatch[key] = value;
+      dbPatch[columnName] = value;
     }
 
     setRaw("request_fingerprint_hash", patch.requestFingerprintHash);
     setRaw(
       "normalized_request_json",
-      Object.prototype.hasOwnProperty.call(patch, "normalizedRequestJson")
+      Object.hasOwn(patch, "normalizedRequestJson")
         ? patch.normalizedRequestJson == null
           ? JSON.stringify({})
           : JSON.stringify(patch.normalizedRequestJson)
@@ -2170,7 +2303,7 @@ function createBillingRepository(dbClient) {
     setRaw("operation_key", patch.operationKey);
     setRaw(
       "provider_request_params_json",
-      Object.prototype.hasOwnProperty.call(patch, "providerRequestParamsJson")
+      Object.hasOwn(patch, "providerRequestParamsJson")
         ? patch.providerRequestParamsJson == null
           ? null
           : JSON.stringify(patch.providerRequestParamsJson)
@@ -2182,7 +2315,7 @@ function createBillingRepository(dbClient) {
     setRaw("provider_sdk_version", patch.providerSdkVersion);
     setRaw("provider_api_version", patch.providerApiVersion);
     setRaw("provider_request_frozen_at", toNullableDateTime(patch.providerRequestFrozenAt));
-    setRaw("provider", Object.prototype.hasOwnProperty.call(patch, "provider") ? normalizeProvider(patch.provider) : undefined);
+    setRaw("provider", Object.hasOwn(patch, "provider") ? normalizeProvider(patch.provider) : undefined);
     setRaw("provider_idempotency_key", patch.providerIdempotencyKey);
     setRaw("provider_idempotency_replay_deadline_at", toNullableDateTime(patch.providerIdempotencyReplayDeadlineAt));
     setRaw(
@@ -2192,7 +2325,7 @@ function createBillingRepository(dbClient) {
     setRaw("provider_session_id", patch.providerSessionId);
     setRaw(
       "response_json",
-      Object.prototype.hasOwnProperty.call(patch, "responseJson")
+      Object.hasOwn(patch, "responseJson")
         ? patch.responseJson == null
           ? null
           : JSON.stringify(patch.responseJson)
@@ -2202,10 +2335,10 @@ function createBillingRepository(dbClient) {
     setRaw("pending_lease_expires_at", toNullableDateTime(patch.pendingLeaseExpiresAt));
     setRaw("pending_last_heartbeat_at", toNullableDateTime(patch.pendingLastHeartbeatAt));
     setRaw("lease_owner", patch.leaseOwner);
-    setRaw("lease_version", Object.prototype.hasOwnProperty.call(patch, "leaseVersion") ? Number(patch.leaseVersion) : undefined);
+    setRaw("lease_version", Object.hasOwn(patch, "leaseVersion") ? Number(patch.leaseVersion) : undefined);
     setRaw(
       "recovery_attempt_count",
-      Object.prototype.hasOwnProperty.call(patch, "recoveryAttemptCount") ? Number(patch.recoveryAttemptCount) : undefined
+      Object.hasOwn(patch, "recoveryAttemptCount") ? Number(patch.recoveryAttemptCount) : undefined
     );
     setRaw("last_recovery_attempt_at", toNullableDateTime(patch.lastRecoveryAttemptAt));
     setRaw("failure_code", patch.failureCode);
@@ -2304,7 +2437,7 @@ function createBillingRepository(dbClient) {
     const dbPatch = {};
 
     function setIfPresent(key, value) {
-      if (!Object.prototype.hasOwnProperty.call(patch, key)) {
+      if (!Object.hasOwn(patch, key)) {
         return;
       }
       dbPatch[key] = value;
@@ -2323,7 +2456,7 @@ function createBillingRepository(dbClient) {
     setIfPresent("last_provider_event_id", patch.lastProviderEventId || null);
     setIfPresent(
       "metadata_json",
-      Object.prototype.hasOwnProperty.call(patch, "metadataJson")
+      Object.hasOwn(patch, "metadataJson")
         ? patch.metadataJson == null
           ? null
           : JSON.stringify(patch.metadataJson)
@@ -2449,7 +2582,7 @@ function createBillingRepository(dbClient) {
     const dbPatch = {};
 
     function setIfPresent(key, value) {
-      if (!Object.prototype.hasOwnProperty.call(patch, key)) {
+      if (!Object.hasOwn(patch, key)) {
         return;
       }
       dbPatch[key] = value;
@@ -2459,16 +2592,16 @@ function createBillingRepository(dbClient) {
     setIfPresent("processing_started_at", toNullableDateTime(patch.processingStartedAt));
     setIfPresent("processed_at", toNullableDateTime(patch.processedAt));
     setIfPresent("last_failed_at", toNullableDateTime(patch.lastFailedAt));
-    setIfPresent("attempt_count", Object.prototype.hasOwnProperty.call(patch, "attemptCount") ? Number(patch.attemptCount) : undefined);
+    setIfPresent("attempt_count", Object.hasOwn(patch, "attemptCount") ? Number(patch.attemptCount) : undefined);
     setIfPresent("payload_retention_until", toNullableDateTime(patch.payloadRetentionUntil));
     setIfPresent("error_text", patch.errorText || null);
     setIfPresent(
       "billable_entity_id",
-      Object.prototype.hasOwnProperty.call(patch, "billableEntityId") ? toPositiveInteger(patch.billableEntityId) : undefined
+      Object.hasOwn(patch, "billableEntityId") ? toPositiveInteger(patch.billableEntityId) : undefined
     );
     setIfPresent(
       "operation_key",
-      Object.prototype.hasOwnProperty.call(patch, "operationKey") ? toNullableString(patch.operationKey) : undefined
+      Object.hasOwn(patch, "operationKey") ? toNullableString(patch.operationKey) : undefined
     );
 
     for (const key of Object.keys(dbPatch)) {
@@ -2689,28 +2822,28 @@ function createBillingRepository(dbClient) {
       updated_at: toInsertDateTime(new Date(), new Date())
     };
 
-    if (Object.prototype.hasOwnProperty.call(patch, "status")) {
+    if (Object.hasOwn(patch, "status")) {
       dbPatch.status = patch.status;
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "availableAt")) {
+    if (Object.hasOwn(patch, "availableAt")) {
       dbPatch.available_at = toNullableDateTime(patch.availableAt);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "attemptCount")) {
+    if (Object.hasOwn(patch, "attemptCount")) {
       dbPatch.attempt_count = Number(patch.attemptCount || 0);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "leaseOwner")) {
+    if (Object.hasOwn(patch, "leaseOwner")) {
       dbPatch.lease_owner = patch.leaseOwner || null;
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "leaseExpiresAt")) {
+    if (Object.hasOwn(patch, "leaseExpiresAt")) {
       dbPatch.lease_expires_at = toNullableDateTime(patch.leaseExpiresAt);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "leaseVersion")) {
+    if (Object.hasOwn(patch, "leaseVersion")) {
       dbPatch.lease_version = Number(patch.leaseVersion || 0);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "lastErrorText")) {
+    if (Object.hasOwn(patch, "lastErrorText")) {
       dbPatch.last_error_text = patch.lastErrorText || null;
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "finishedAt")) {
+    if (Object.hasOwn(patch, "finishedAt")) {
       dbPatch.finished_at = toNullableDateTime(patch.finishedAt);
     }
 
@@ -2777,34 +2910,34 @@ function createBillingRepository(dbClient) {
       updated_at: toInsertDateTime(new Date(), new Date())
     };
 
-    if (Object.prototype.hasOwnProperty.call(patch, "status")) {
+    if (Object.hasOwn(patch, "status")) {
       dbPatch.status = patch.status;
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "attemptCount")) {
+    if (Object.hasOwn(patch, "attemptCount")) {
       dbPatch.attempt_count = Number(patch.attemptCount || 0);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "nextAttemptAt")) {
+    if (Object.hasOwn(patch, "nextAttemptAt")) {
       dbPatch.next_attempt_at = toNullableDateTime(patch.nextAttemptAt);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "lastAttemptAt")) {
+    if (Object.hasOwn(patch, "lastAttemptAt")) {
       dbPatch.last_attempt_at = toNullableDateTime(patch.lastAttemptAt);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "resolvedAt")) {
+    if (Object.hasOwn(patch, "resolvedAt")) {
       dbPatch.resolved_at = toNullableDateTime(patch.resolvedAt);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "leaseOwner")) {
+    if (Object.hasOwn(patch, "leaseOwner")) {
       dbPatch.lease_owner = patch.leaseOwner || null;
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "leaseExpiresAt")) {
+    if (Object.hasOwn(patch, "leaseExpiresAt")) {
       dbPatch.lease_expires_at = toNullableDateTime(patch.leaseExpiresAt);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "leaseVersion")) {
+    if (Object.hasOwn(patch, "leaseVersion")) {
       dbPatch.lease_version = Number(patch.leaseVersion || 0);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "errorText")) {
+    if (Object.hasOwn(patch, "errorText")) {
       dbPatch.error_text = patch.errorText || null;
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "canonicalSubscriptionId")) {
+    if (Object.hasOwn(patch, "canonicalSubscriptionId")) {
       dbPatch.canonical_subscription_id = patch.canonicalSubscriptionId || null;
     }
 
@@ -2926,37 +3059,37 @@ function createBillingRepository(dbClient) {
       updated_at: toInsertDateTime(new Date(), new Date())
     };
 
-    if (Object.prototype.hasOwnProperty.call(patch, "status")) {
+    if (Object.hasOwn(patch, "status")) {
       dbPatch.status = patch.status;
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "runnerId")) {
+    if (Object.hasOwn(patch, "runnerId")) {
       dbPatch.runner_id = patch.runnerId || null;
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "leaseExpiresAt")) {
+    if (Object.hasOwn(patch, "leaseExpiresAt")) {
       dbPatch.lease_expires_at = toNullableDateTime(patch.leaseExpiresAt);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "leaseVersion")) {
+    if (Object.hasOwn(patch, "leaseVersion")) {
       dbPatch.lease_version = Number(patch.leaseVersion || 0);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "finishedAt")) {
+    if (Object.hasOwn(patch, "finishedAt")) {
       dbPatch.finished_at = toNullableDateTime(patch.finishedAt);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "cursorJson")) {
+    if (Object.hasOwn(patch, "cursorJson")) {
       dbPatch.cursor_json = patch.cursorJson == null ? null : JSON.stringify(patch.cursorJson);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "summaryJson")) {
+    if (Object.hasOwn(patch, "summaryJson")) {
       dbPatch.summary_json = patch.summaryJson == null ? null : JSON.stringify(patch.summaryJson);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "scannedCount")) {
+    if (Object.hasOwn(patch, "scannedCount")) {
       dbPatch.scanned_count = Number(patch.scannedCount || 0);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "driftDetectedCount")) {
+    if (Object.hasOwn(patch, "driftDetectedCount")) {
       dbPatch.drift_detected_count = Number(patch.driftDetectedCount || 0);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "repairedCount")) {
+    if (Object.hasOwn(patch, "repairedCount")) {
       dbPatch.repaired_count = Number(patch.repairedCount || 0);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "errorText")) {
+    if (Object.hasOwn(patch, "errorText")) {
       dbPatch.error_text = patch.errorText || null;
     }
 
@@ -3016,6 +3149,10 @@ function createBillingRepository(dbClient) {
     findPlanPriceByProviderPriceId,
     findSellablePlanPricesForPlan,
     listPlanEntitlementsForPlan,
+    createPlan,
+    createPlanPrice,
+    updatePlanPriceById,
+    upsertPlanEntitlement,
     findCustomerById,
     findCustomerByEntityProvider,
     findCustomerByProviderCustomerId,
@@ -3085,6 +3222,7 @@ const repository = createBillingRepository(db);
 const __testables = {
   parseJsonValue,
   normalizeProvider,
+  resolvePatchPropertyName,
   normalizeBillableEntityType,
   mapBillableEntityRowNullable,
   mapPlanRowNullable,
@@ -3125,6 +3263,10 @@ export const {
   findPlanPriceByProviderPriceId,
   findSellablePlanPricesForPlan,
   listPlanEntitlementsForPlan,
+  createPlan,
+  createPlanPrice,
+  updatePlanPriceById,
+  upsertPlanEntitlement,
   findCustomerById,
   findCustomerByEntityProvider,
   findCustomerByProviderCustomerId,

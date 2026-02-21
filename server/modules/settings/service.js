@@ -19,7 +19,7 @@ function validationError(fieldErrors) {
 }
 
 function hasOwn(payload, key) {
-  return Object.prototype.hasOwnProperty.call(payload, key);
+  return Object.hasOwn(payload, key);
 }
 
 function normalizeText(value) {

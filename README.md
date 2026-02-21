@@ -359,6 +359,10 @@ Realtime note:
 - `PATCH /api/console/members/:memberUserId/role`
 - `GET /api/console/invites`
 - `GET /api/console/ai/transcripts`
+- `GET /api/console/billing/plans`
+- `GET /api/console/billing/provider-prices`
+- `POST /api/console/billing/plans`
+- `PATCH /api/console/billing/plans/:planId/prices/:priceId`
 - `GET /api/console/billing/events`
 - `GET /api/console/ai/transcripts/:conversationId/messages`
 - `GET /api/console/ai/transcripts/export`

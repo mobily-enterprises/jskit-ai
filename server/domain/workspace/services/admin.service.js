@@ -158,7 +158,7 @@ function createService({
       const currentSettings = await ensureWorkspaceSettings(workspace.id, options);
       const settingsPatch = {};
 
-      if (Object.prototype.hasOwnProperty.call(parsed.settingsPatch, "invitesEnabled")) {
+      if (Object.hasOwn(parsed.settingsPatch, "invitesEnabled")) {
         settingsPatch.invitesEnabled = parsed.settingsPatch.invitesEnabled;
       }
 
@@ -191,7 +191,7 @@ function createService({
         };
       }
 
-      if (Object.prototype.hasOwnProperty.call(parsed.settingsPatch, "aiTranscriptMode")) {
+      if (Object.hasOwn(parsed.settingsPatch, "aiTranscriptMode")) {
         const baseFeatures =
           settingsPatch.features && typeof settingsPatch.features === "object"
             ? settingsPatch.features

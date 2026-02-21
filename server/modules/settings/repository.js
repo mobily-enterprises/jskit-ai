@@ -42,37 +42,37 @@ function mapUserSettingsRowNullable(row) {
 function buildPreferencesUpdatePatch(patch) {
   const dbPatch = {};
 
-  if (Object.prototype.hasOwnProperty.call(patch, "theme")) {
+  if (Object.hasOwn(patch, "theme")) {
     dbPatch.theme = patch.theme;
   }
-  if (Object.prototype.hasOwnProperty.call(patch, "locale")) {
+  if (Object.hasOwn(patch, "locale")) {
     dbPatch.locale = patch.locale;
   }
-  if (Object.prototype.hasOwnProperty.call(patch, "timeZone")) {
+  if (Object.hasOwn(patch, "timeZone")) {
     dbPatch.time_zone = patch.timeZone;
   }
-  if (Object.prototype.hasOwnProperty.call(patch, "dateFormat")) {
+  if (Object.hasOwn(patch, "dateFormat")) {
     dbPatch.date_format = patch.dateFormat;
   }
-  if (Object.prototype.hasOwnProperty.call(patch, "numberFormat")) {
+  if (Object.hasOwn(patch, "numberFormat")) {
     dbPatch.number_format = patch.numberFormat;
   }
-  if (Object.prototype.hasOwnProperty.call(patch, "currencyCode")) {
+  if (Object.hasOwn(patch, "currencyCode")) {
     dbPatch.currency_code = patch.currencyCode;
   }
-  if (Object.prototype.hasOwnProperty.call(patch, "defaultMode")) {
+  if (Object.hasOwn(patch, "defaultMode")) {
     dbPatch.default_mode = patch.defaultMode;
   }
-  if (Object.prototype.hasOwnProperty.call(patch, "defaultTiming")) {
+  if (Object.hasOwn(patch, "defaultTiming")) {
     dbPatch.default_timing = patch.defaultTiming;
   }
-  if (Object.prototype.hasOwnProperty.call(patch, "defaultPaymentsPerYear")) {
+  if (Object.hasOwn(patch, "defaultPaymentsPerYear")) {
     dbPatch.default_payments_per_year = patch.defaultPaymentsPerYear;
   }
-  if (Object.prototype.hasOwnProperty.call(patch, "defaultHistoryPageSize")) {
+  if (Object.hasOwn(patch, "defaultHistoryPageSize")) {
     dbPatch.default_history_page_size = patch.defaultHistoryPageSize;
   }
-  if (Object.prototype.hasOwnProperty.call(patch, "avatarSize")) {
+  if (Object.hasOwn(patch, "avatarSize")) {
     dbPatch.avatar_size = patch.avatarSize;
   }
 
@@ -82,13 +82,13 @@ function buildPreferencesUpdatePatch(patch) {
 function buildNotificationsUpdatePatch(patch) {
   const dbPatch = {};
 
-  if (Object.prototype.hasOwnProperty.call(patch, "productUpdates")) {
+  if (Object.hasOwn(patch, "productUpdates")) {
     dbPatch.notify_product_updates = patch.productUpdates;
   }
-  if (Object.prototype.hasOwnProperty.call(patch, "accountActivity")) {
+  if (Object.hasOwn(patch, "accountActivity")) {
     dbPatch.notify_account_activity = patch.accountActivity;
   }
-  if (Object.prototype.hasOwnProperty.call(patch, "securityAlerts")) {
+  if (Object.hasOwn(patch, "securityAlerts")) {
     dbPatch.notify_security_alerts = patch.securityAlerts;
   }
 
@@ -166,7 +166,7 @@ function createUserSettingsRepository(dbClient) {
     const dbPatch = {
       password_sign_in_enabled: Boolean(enabled)
     };
-    if (Object.prototype.hasOwnProperty.call(options, "passwordSetupRequired")) {
+    if (Object.hasOwn(options, "passwordSetupRequired")) {
       dbPatch.password_setup_required = Boolean(options.passwordSetupRequired);
     }
 

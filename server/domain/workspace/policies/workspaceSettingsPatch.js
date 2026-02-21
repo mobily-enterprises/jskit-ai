@@ -138,7 +138,7 @@ function parseWorkspaceSettingsPatch(payload) {
   const settingsPatch = {};
   const defaultsPatch = {};
 
-  if (Object.prototype.hasOwnProperty.call(body, "name")) {
+  if (Object.hasOwn(body, "name")) {
     const name = String(body.name || "").trim();
     if (!name) {
       fieldErrors.name = "Workspace name is required.";
@@ -149,7 +149,7 @@ function parseWorkspaceSettingsPatch(payload) {
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(body, "avatarUrl")) {
+  if (Object.hasOwn(body, "avatarUrl")) {
     try {
       workspacePatch.avatarUrl = normalizeWorkspaceAvatarUrl(body.avatarUrl);
     } catch (error) {
@@ -161,7 +161,7 @@ function parseWorkspaceSettingsPatch(payload) {
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(body, "color")) {
+  if (Object.hasOwn(body, "color")) {
     try {
       workspacePatch.color = normalizeWorkspaceColor(body.color);
     } catch (error) {
@@ -173,7 +173,7 @@ function parseWorkspaceSettingsPatch(payload) {
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(body, "invitesEnabled")) {
+  if (Object.hasOwn(body, "invitesEnabled")) {
     if (typeof body.invitesEnabled !== "boolean") {
       fieldErrors.invitesEnabled = "Invites enabled must be a boolean.";
     } else {
@@ -181,7 +181,7 @@ function parseWorkspaceSettingsPatch(payload) {
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(body, "defaultMode")) {
+  if (Object.hasOwn(body, "defaultMode")) {
     const value = String(body.defaultMode || "")
       .trim()
       .toLowerCase();
@@ -192,7 +192,7 @@ function parseWorkspaceSettingsPatch(payload) {
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(body, "defaultTiming")) {
+  if (Object.hasOwn(body, "defaultTiming")) {
     const value = String(body.defaultTiming || "")
       .trim()
       .toLowerCase();
@@ -203,7 +203,7 @@ function parseWorkspaceSettingsPatch(payload) {
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(body, "defaultPaymentsPerYear")) {
+  if (Object.hasOwn(body, "defaultPaymentsPerYear")) {
     const value = Number(body.defaultPaymentsPerYear);
     if (!Number.isInteger(value) || value < 1 || value > 365) {
       fieldErrors.defaultPaymentsPerYear = "Default payments per year must be an integer from 1 to 365.";
@@ -212,7 +212,7 @@ function parseWorkspaceSettingsPatch(payload) {
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(body, "defaultHistoryPageSize")) {
+  if (Object.hasOwn(body, "defaultHistoryPageSize")) {
     const value = Number(body.defaultHistoryPageSize);
     if (!Number.isInteger(value) || value < 1 || value > 100) {
       fieldErrors.defaultHistoryPageSize = "Default history page size must be an integer from 1 to 100.";
@@ -221,7 +221,7 @@ function parseWorkspaceSettingsPatch(payload) {
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(body, "assistantTranscriptMode")) {
+  if (Object.hasOwn(body, "assistantTranscriptMode")) {
     const value = String(body.assistantTranscriptMode || "")
       .trim()
       .toLowerCase();
@@ -232,7 +232,7 @@ function parseWorkspaceSettingsPatch(payload) {
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(body, "assistantSystemPromptApp")) {
+  if (Object.hasOwn(body, "assistantSystemPromptApp")) {
     try {
       settingsPatch.assistantSystemPrompts = {
         ...(settingsPatch.assistantSystemPrompts || {}),
@@ -253,7 +253,7 @@ function parseWorkspaceSettingsPatch(payload) {
 
   let appSurfaceAccessPatch = null;
 
-  if (Object.prototype.hasOwnProperty.call(body, "appDenyEmails")) {
+  if (Object.hasOwn(body, "appDenyEmails")) {
     const parsedDenyEmails = normalizeDenyEmails(body.appDenyEmails);
     if (!parsedDenyEmails.valid) {
       fieldErrors.appDenyEmails = "App deny emails must be an array of valid email addresses.";
@@ -265,7 +265,7 @@ function parseWorkspaceSettingsPatch(payload) {
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(body, "appDenyUserIds")) {
+  if (Object.hasOwn(body, "appDenyUserIds")) {
     const parsedDenyUserIds = normalizeDenyUserIds(body.appDenyUserIds);
     if (!parsedDenyUserIds.valid) {
       fieldErrors.appDenyUserIds = "App deny user ids must be an array of positive integers.";

@@ -117,19 +117,19 @@ function createProjectsRepository(dbClient) {
     const client = resolveClient(options);
     const dbPatch = {};
 
-    if (Object.prototype.hasOwnProperty.call(patch, "name")) {
+    if (Object.hasOwn(patch, "name")) {
       dbPatch.name = String(patch.name || "");
     }
 
-    if (Object.prototype.hasOwnProperty.call(patch, "status")) {
+    if (Object.hasOwn(patch, "status")) {
       dbPatch.status = normalizeStatus(patch.status);
     }
 
-    if (Object.prototype.hasOwnProperty.call(patch, "owner")) {
+    if (Object.hasOwn(patch, "owner")) {
       dbPatch.owner = String(patch.owner || "");
     }
 
-    if (Object.prototype.hasOwnProperty.call(patch, "notes")) {
+    if (Object.hasOwn(patch, "notes")) {
       dbPatch.notes = String(patch.notes || "");
     }
 

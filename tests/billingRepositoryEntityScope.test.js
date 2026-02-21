@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { __testables } from "../server/modules/billing/repository.js";
 
-const { mapBillableEntityRowNullable, normalizeBillableEntityType } = __testables;
+const { mapBillableEntityRowNullable, normalizeBillableEntityType, resolvePatchPropertyName } = __testables;
 
 test("billing repository maps nullable workspace/owner fields for non-workspace entities", () => {
   const mapped = mapBillableEntityRowNullable({
@@ -31,4 +31,10 @@ test("billing repository normalizes unknown billable entity types to workspace",
   assert.equal(normalizeBillableEntityType("workspace"), "workspace");
   assert.equal(normalizeBillableEntityType("USER"), "user");
   assert.equal(normalizeBillableEntityType("unknown_type"), "workspace");
+});
+
+test("billing repository maps snake_case idempotency columns to camelCase patch keys", () => {
+  assert.equal(resolvePatchPropertyName("failure_code"), "failureCode");
+  assert.equal(resolvePatchPropertyName("provider_request_hash"), "providerRequestHash");
+  assert.equal(resolvePatchPropertyName("status"), "status");
 });

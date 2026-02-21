@@ -239,22 +239,6 @@ function createServices({
     workspaceInviteEmailService
   });
 
-  const consoleService = createConsoleService({
-    consoleMembershipsRepository,
-    consoleInvitesRepository,
-    consoleRootRepository,
-    consoleSettingsRepository,
-    userProfilesRepository,
-    billingRepository,
-    billingEnabled: env.BILLING_ENABLED
-  });
-
-  const consoleErrorsService = createConsoleErrorsService({
-    consoleMembershipsRepository,
-    consoleErrorLogsRepository,
-    observabilityService
-  });
-
   const auditService = createAuditService({
     auditEventsRepository,
     observabilityService
@@ -323,6 +307,24 @@ function createServices({
     billingProviderAdapter,
     billingWebhookTranslationRegistryService
   } = billingProvidersModule;
+
+  const consoleService = createConsoleService({
+    consoleMembershipsRepository,
+    consoleInvitesRepository,
+    consoleRootRepository,
+    consoleSettingsRepository,
+    userProfilesRepository,
+    billingRepository,
+    billingProviderAdapter,
+    billingEnabled: env.BILLING_ENABLED,
+    billingProvider: env.BILLING_PROVIDER
+  });
+
+  const consoleErrorsService = createConsoleErrorsService({
+    consoleMembershipsRepository,
+    consoleErrorLogsRepository,
+    observabilityService
+  });
 
   let billingPolicyService;
   let billingPricingService;

@@ -108,13 +108,13 @@ function createWorkspaceSettingsRepository(dbClient) {
   async function repoUpdateByWorkspaceId(workspaceId, patch = {}, options = {}) {
     const client = resolveClient(options);
     const dbPatch = {};
-    if (Object.prototype.hasOwnProperty.call(patch, "invitesEnabled")) {
+    if (Object.hasOwn(patch, "invitesEnabled")) {
       dbPatch.invites_enabled = Boolean(patch.invitesEnabled);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "features")) {
+    if (Object.hasOwn(patch, "features")) {
       dbPatch.features_json = toDbJson(patch.features || {});
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "policy")) {
+    if (Object.hasOwn(patch, "policy")) {
       dbPatch.policy_json = toDbJson(patch.policy || {});
     }
 

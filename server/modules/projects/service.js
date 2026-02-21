@@ -176,19 +176,19 @@ function createService({ projectsRepository }) {
     const body = payload && typeof payload === "object" ? payload : {};
     const patch = {};
 
-    if (Object.prototype.hasOwnProperty.call(body, "name")) {
+    if (Object.hasOwn(body, "name")) {
       patch.name = normalizeName(body.name, { required: true });
     }
 
-    if (Object.prototype.hasOwnProperty.call(body, "status")) {
+    if (Object.hasOwn(body, "status")) {
       patch.status = normalizeStatus(body.status, { required: true });
     }
 
-    if (Object.prototype.hasOwnProperty.call(body, "owner")) {
+    if (Object.hasOwn(body, "owner")) {
       patch.owner = normalizeOwner(body.owner, { required: true });
     }
 
-    if (Object.prototype.hasOwnProperty.call(body, "notes")) {
+    if (Object.hasOwn(body, "notes")) {
       patch.notes = normalizeNotes(body.notes, { required: true });
     }
 

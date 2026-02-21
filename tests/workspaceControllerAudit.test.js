@@ -135,7 +135,7 @@ test("workspace controller emits success security audit events for critical acti
   assert.equal(auditEvents[0].targetUserId, 22);
   assert.equal(auditEvents[1].metadata.inviteId, 501);
   assert.equal(auditEvents[3].metadata.decision, "accept");
-  assert.equal(Object.prototype.hasOwnProperty.call(auditEvents[3].metadata, "token"), false);
+  assert.equal(Object.hasOwn(auditEvents[3].metadata, "token"), false);
 });
 
 test("workspace controller emits failure security audit events and rethrows", async () => {

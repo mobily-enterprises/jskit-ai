@@ -67,7 +67,7 @@ function applyAssistantSystemPromptAppToWorkspaceFeatures(features, promptValue 
 }
 
 function applyAssistantSystemPromptsToWorkspaceFeatures(features, promptPatch = {}) {
-  if (!Object.prototype.hasOwnProperty.call(promptPatch, "app")) {
+  if (!Object.hasOwn(promptPatch, "app")) {
     return resolveFeatures(features);
   }
 

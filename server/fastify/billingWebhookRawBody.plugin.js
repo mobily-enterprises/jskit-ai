@@ -13,7 +13,7 @@ async function billingWebhookRawBodyPlugin(fastify, options = {}) {
       BILLING_RUNTIME_DEFAULTS.WEBHOOK_MAX_PAYLOAD_BYTES
   );
 
-  if (!Object.prototype.hasOwnProperty.call(fastify, "rawBody")) {
+  if (!Object.hasOwn(fastify, "rawBody")) {
     fastify.decorateRequest("rawBody", null);
   }
 

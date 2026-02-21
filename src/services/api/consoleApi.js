@@ -149,6 +149,31 @@ function createApi({ request }) {
       const queryString = params.toString();
       return request(`/api/console/billing/events${queryString ? `?${queryString}` : ""}`);
     },
+    listBillingPlans() {
+      return request("/api/console/billing/plans");
+    },
+    listBillingProviderPrices(query = {}) {
+      const params = new URLSearchParams();
+      if (query.active != null) {
+        params.set("active", String(query.active));
+      }
+      if (query.limit != null) {
+        params.set("limit", String(query.limit));
+      }
+      const queryString = params.toString();
+      return request(`/api/console/billing/provider-prices${queryString ? `?${queryString}` : ""}`);
+    },
+    createBillingPlan(payload) {
+      return request("/api/console/billing/plans", { method: "POST", body: payload });
+    },
+    updateBillingPlanPrice(planId, priceId, payload) {
+      const encodedPlanId = encodeURIComponent(String(planId || "").trim());
+      const encodedPriceId = encodeURIComponent(String(priceId || "").trim());
+      return request(`/api/console/billing/plans/${encodedPlanId}/prices/${encodedPriceId}`, {
+        method: "PATCH",
+        body: payload
+      });
+    },
     simulateServerError(payload) {
       return request("/api/console/simulate/server-error", { method: "POST", body: payload || {} });
     },

@@ -135,7 +135,7 @@ function parseCookieHeader(cookieHeader) {
 function resolveConnectionSurface(socket) {
   const handshakeQuery =
     socket?.handshake?.query && typeof socket.handshake.query === "object" ? socket.handshake.query : {};
-  const hasSurfaceQuery = Object.prototype.hasOwnProperty.call(handshakeQuery, "surface");
+  const hasSurfaceQuery = Object.hasOwn(handshakeQuery, "surface");
   const querySurfaceValue = hasSurfaceQuery
     ? Array.isArray(handshakeQuery.surface)
       ? handshakeQuery.surface[0]

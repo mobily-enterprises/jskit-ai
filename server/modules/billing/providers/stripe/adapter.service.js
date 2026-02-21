@@ -22,6 +22,12 @@ function createService({ stripeSdkService } = {}) {
     async createPrice(payload) {
       return stripeSdkService.createPrice(payload);
     },
+    async listPrices(payload) {
+      return stripeSdkService.listPrices(payload);
+    },
+    async retrievePrice(payload) {
+      return stripeSdkService.retrievePrice(payload);
+    },
     async createBillingPortalSession(payload) {
       return stripeSdkService.createBillingPortalSession(payload);
     },

@@ -28,6 +28,19 @@ import {
   resolveAssignableRoleIds,
   resolveRolePermissions
 } from "../policies/roles.js";
+import {
+  DEFAULT_BILLING_PROVIDER,
+  resolveBillingProvider,
+  normalizeBillingCatalogPlanCreatePayload,
+  normalizeBillingCatalogPlanPricePatchPayload,
+  mapBillingPlanDuplicateError,
+  ensureBillingCatalogRepository,
+  buildConsoleBillingPlanCatalog
+} from "./billingCatalog.service.js";
+import {
+  resolveCatalogBasePriceForCreate,
+  resolveCatalogPricePatchForUpdate
+} from "./billingCatalogProviderPricing.service.js";
 
 function createService({
   consoleMembershipsRepository,
@@ -36,7 +49,9 @@ function createService({
   consoleSettingsRepository,
   userProfilesRepository,
   billingRepository = null,
-  billingEnabled = true
+  billingProviderAdapter = null,
+  billingEnabled = true,
+  billingProvider = DEFAULT_BILLING_PROVIDER
 }) {
   if (
     !consoleMembershipsRepository ||
@@ -50,6 +65,7 @@ function createService({
 
   const roleCatalog = getRoleCatalog();
   const assignableRoleIds = resolveAssignableRoleIds();
+  const activeBillingProvider = resolveBillingProvider(billingProvider);
 
   function normalizeOptionalString(value) {
     const normalized = String(value || "").trim();
@@ -556,7 +572,7 @@ function createService({
     await requirePermission(user, CONSOLE_ASSISTANT_SETTINGS_PERMISSIONS.MANAGE);
     const body = payload && typeof payload === "object" ? payload : {};
 
-    if (!Object.prototype.hasOwnProperty.call(body, "assistantSystemPromptWorkspace")) {
+    if (!Object.hasOwn(body, "assistantSystemPromptWorkspace")) {
       throw new AppError(400, "Validation failed.", {
         details: {
           fieldErrors: {
@@ -632,6 +648,192 @@ function createService({
     };
   }
 
+  async function listBillingPlans(user) {
+    await requirePermission(user, CONSOLE_BILLING_PERMISSIONS.CATALOG_MANAGE);
+
+    if (!billingEnabled) {
+      throw new AppError(404, "Not found.");
+    }
+
+    ensureBillingCatalogRepository(billingRepository);
+    return buildConsoleBillingPlanCatalog({
+      billingRepository,
+      activeBillingProvider
+    });
+  }
+
+  async function createBillingPlan(user, payload = {}) {
+    await requirePermission(user, CONSOLE_BILLING_PERMISSIONS.CATALOG_MANAGE);
+
+    if (!billingEnabled) {
+      throw new AppError(404, "Not found.");
+    }
+
+    ensureBillingCatalogRepository(billingRepository);
+    const normalized = normalizeBillingCatalogPlanCreatePayload(payload, {
+      activeBillingProvider
+    });
+    const resolvedBasePrice = await resolveCatalogBasePriceForCreate({
+      activeBillingProvider,
+      billingProviderAdapter,
+      basePrice: normalized.basePrice
+    });
+
+    try {
+      const createdPlan = await billingRepository.transaction(async (trx) => {
+        const plan = await billingRepository.createPlan(normalized.plan, { trx });
+        await billingRepository.createPlanPrice(
+          {
+            ...resolvedBasePrice,
+            planId: plan.id
+          },
+          { trx }
+        );
+
+        for (const entitlement of normalized.entitlements) {
+          await billingRepository.upsertPlanEntitlement(
+            {
+              planId: plan.id,
+              code: entitlement.code,
+              schemaVersion: entitlement.schemaVersion,
+              valueJson: entitlement.valueJson
+            },
+            { trx }
+          );
+        }
+
+        const prices = await billingRepository.listPlanPricesForPlan(plan.id, activeBillingProvider, { trx });
+        const entitlements = await billingRepository.listPlanEntitlementsForPlan(plan.id, { trx });
+        return {
+          ...plan,
+          prices,
+          entitlements
+        };
+      });
+
+      return {
+        provider: activeBillingProvider,
+        plan: createdPlan
+      };
+    } catch (error) {
+      const mappedError = mapBillingPlanDuplicateError(error);
+      if (mappedError) {
+        throw mappedError;
+      }
+      throw error;
+    }
+  }
+
+  async function listBillingProviderPrices(user, query = {}) {
+    await requirePermission(user, CONSOLE_BILLING_PERMISSIONS.CATALOG_MANAGE);
+
+    if (!billingEnabled) {
+      throw new AppError(404, "Not found.");
+    }
+
+    if (!billingProviderAdapter || typeof billingProviderAdapter.listPrices !== "function") {
+      throw new AppError(501, "Provider price listing is not available.");
+    }
+
+    const limit = Math.max(1, Math.min(100, parsePositiveInteger(query?.limit) || 100));
+    const normalizedActive = String(query?.active ?? "")
+      .trim()
+      .toLowerCase();
+    const active = normalizedActive === "false" || normalizedActive === "0" ? false : true;
+    const prices = await billingProviderAdapter.listPrices({
+      limit,
+      active
+    });
+
+    return {
+      provider: activeBillingProvider,
+      prices: Array.isArray(prices) ? prices : []
+    };
+  }
+
+  async function updateBillingPlanPrice(user, params = {}, payload = {}) {
+    await requirePermission(user, CONSOLE_BILLING_PERMISSIONS.CATALOG_MANAGE);
+
+    if (!billingEnabled) {
+      throw new AppError(404, "Not found.");
+    }
+
+    ensureBillingCatalogRepository(billingRepository);
+    if (typeof billingRepository.updatePlanPriceById !== "function") {
+      throw new AppError(501, "Console billing catalog is not available.");
+    }
+
+    const planId = parsePositiveInteger(params?.planId);
+    const priceId = parsePositiveInteger(params?.priceId);
+    if (!planId || !priceId) {
+      throw new AppError(400, "Validation failed.", {
+        details: {
+          fieldErrors: {
+            planId: "planId is required.",
+            priceId: "priceId is required."
+          }
+        }
+      });
+    }
+
+    const normalizedPatch = normalizeBillingCatalogPlanPricePatchPayload(payload, {
+      activeBillingProvider
+    });
+    const resolvedPatch = await resolveCatalogPricePatchForUpdate({
+      activeBillingProvider,
+      billingProviderAdapter,
+      patch: normalizedPatch
+    });
+
+    try {
+      const updatedPlan = await billingRepository.transaction(async (trx) => {
+        const plan = await billingRepository.findPlanById(planId, { trx });
+        if (!plan) {
+          throw new AppError(404, "Billing plan not found.");
+        }
+
+        const prices = await billingRepository.listPlanPricesForPlan(plan.id, activeBillingProvider, { trx });
+        const targetPrice = prices.find((entry) => Number(entry?.id) === priceId);
+        if (!targetPrice) {
+          throw new AppError(404, "Billing plan price not found.");
+        }
+
+        await billingRepository.updatePlanPriceById(
+          priceId,
+          {
+            providerPriceId: resolvedPatch.providerPriceId,
+            providerProductId: resolvedPatch.providerProductId,
+            currency: resolvedPatch.currency,
+            unitAmountMinor: resolvedPatch.unitAmountMinor,
+            interval: resolvedPatch.interval,
+            intervalCount: resolvedPatch.intervalCount,
+            usageType: resolvedPatch.usageType
+          },
+          { trx }
+        );
+
+        const nextPrices = await billingRepository.listPlanPricesForPlan(plan.id, activeBillingProvider, { trx });
+        const entitlements = await billingRepository.listPlanEntitlementsForPlan(plan.id, { trx });
+        return {
+          ...plan,
+          prices: nextPrices,
+          entitlements
+        };
+      });
+
+      return {
+        provider: activeBillingProvider,
+        plan: updatedPlan
+      };
+    } catch (error) {
+      const mappedError = mapBillingPlanDuplicateError(error);
+      if (mappedError) {
+        throw mappedError;
+      }
+      throw error;
+    }
+  }
+
   return {
     ensureInitialConsoleMember,
     resolveRequestContext,
@@ -646,7 +848,11 @@ function createService({
     listRoles,
     getAssistantSettings,
     updateAssistantSettings,
-    listBillingEvents
+    listBillingEvents,
+    listBillingPlans,
+    createBillingPlan,
+    listBillingProviderPrices,
+    updateBillingPlanPrice
   };
 }
 

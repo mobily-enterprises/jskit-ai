@@ -212,31 +212,31 @@ function createConversationsRepository(dbClient) {
     }
 
     const dbPatch = {};
-    if (Object.prototype.hasOwnProperty.call(patch, "title")) {
+    if (Object.hasOwn(patch, "title")) {
       dbPatch.title = String(patch.title || "").trim() || "New conversation";
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "status")) {
+    if (Object.hasOwn(patch, "status")) {
       dbPatch.status = String(patch.status || "").trim().toLowerCase() || "active";
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "transcriptMode")) {
+    if (Object.hasOwn(patch, "transcriptMode")) {
       dbPatch.transcript_mode = String(patch.transcriptMode || "").trim().toLowerCase() || "standard";
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "provider")) {
+    if (Object.hasOwn(patch, "provider")) {
       dbPatch.provider = String(patch.provider || "").trim();
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "model")) {
+    if (Object.hasOwn(patch, "model")) {
       dbPatch.model = String(patch.model || "").trim();
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "messageCount")) {
+    if (Object.hasOwn(patch, "messageCount")) {
       const messageCount = Number(patch.messageCount);
       if (Number.isInteger(messageCount) && messageCount >= 0) {
         dbPatch.message_count = messageCount;
       }
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "endedAt")) {
+    if (Object.hasOwn(patch, "endedAt")) {
       dbPatch.ended_at = patch.endedAt ? toMysqlDateTimeUtc(normalizeCutoffDateOrThrow(patch.endedAt)) : null;
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "metadata")) {
+    if (Object.hasOwn(patch, "metadata")) {
       dbPatch.metadata_json = stringifyJsonObject(patch.metadata);
     }
 

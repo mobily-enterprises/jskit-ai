@@ -9,7 +9,7 @@ import {
 } from "./constants.js";
 import { toCanonicalJson, toSha256Hex } from "./canonicalJson.js";
 import { normalizeBillingPath, normalizePortalPath } from "./pathPolicy.js";
-import { assertEntitlementValueOrThrow } from "./entitlementSchemaRegistry.js";
+import { assertEntitlementValueOrThrow } from "../../lib/billing/entitlementSchemaRegistry.js";
 import { resolveCapabilityLimitConfig } from "./appCapabilityLimits.js";
 import {
   PROVIDER_OUTCOME_ACTIONS,

@@ -555,7 +555,7 @@ export function useAssistantView() {
             streamEventCount += 1;
             const eventType = normalizeText(event?.type).toLowerCase();
 
-            if (eventType === "meta" && Object.prototype.hasOwnProperty.call(event || {}, "conversationId")) {
+            if (eventType === "meta" && Object.hasOwn(event || {}, "conversationId")) {
               conversationId.value = event?.conversationId ? String(event.conversationId) : null;
               return;
             }

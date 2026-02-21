@@ -18,7 +18,7 @@ function assertNoLegacyFactoryNames(exportKeys, allowed) {
 
 function isContractMap(value) {
   return (
-    value && typeof value === "object" && !Array.isArray(value) && !Object.prototype.hasOwnProperty.call(value, "type")
+    value && typeof value === "object" && !Array.isArray(value) && !Object.hasOwn(value, "type")
   );
 }
 
@@ -143,7 +143,7 @@ test("projects schema uses strict CRUD contract", async () => {
   assert.deepEqual(Object.keys(schema).sort(), ["body", "params", "query", "response"]);
   assert.deepEqual(Object.keys(schema.response).sort(), ["list", "single"]);
   assert.deepEqual(Object.keys(schema.body).sort(), ["create", "replace", "update"]);
-  assert.equal(Object.prototype.hasOwnProperty.call(schema.body, "levitate"), false);
+  assert.equal(Object.hasOwn(schema.body, "levitate"), false);
 });
 
 test("client API modules expose createApi contract", async () => {

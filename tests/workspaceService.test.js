@@ -280,7 +280,7 @@ function createWorkspaceServiceFixture(options = {}) {
     },
     ...(options.rbacManifest || {})
   };
-  const userAvatarService = Object.prototype.hasOwnProperty.call(options, "userAvatarService")
+  const userAvatarService = Object.hasOwn(options, "userAvatarService")
     ? options.userAvatarService
     : {
         buildAvatarResponse(user, { avatarSize }) {

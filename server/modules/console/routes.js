@@ -121,6 +121,71 @@ function buildRoutes(controllers, { missingHandler }) {
       handler: controllers.console?.listAiTranscripts || missingHandler
     },
     {
+      path: "/api/console/billing/plans",
+      method: "GET",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "List billing catalog plans for the active billing provider",
+        response: withStandardErrorResponses({
+          200: schema.response.billingPlans
+        })
+      },
+      handler: controllers.console?.listBillingPlans || missingHandler
+    },
+    {
+      path: "/api/console/billing/provider-prices",
+      method: "GET",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "List active provider prices available for plan configuration",
+        querystring: schema.query.billingProviderPrices,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.billingProviderPrices
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.listBillingProviderPrices || missingHandler
+    },
+    {
+      path: "/api/console/billing/plans",
+      method: "POST",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "Create billing catalog plan with one sellable base price",
+        body: schema.body.billingPlanCreate,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.billingPlanCreate
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.createBillingPlan || missingHandler
+    },
+    {
+      path: "/api/console/billing/plans/:planId/prices/:priceId",
+      method: "PATCH",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "Update an existing billing plan price mapping",
+        params: schema.params.billingPlanPrice,
+        body: schema.body.billingPlanPriceUpdate,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.billingPlanPriceUpdate
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.updateBillingPlanPrice || missingHandler
+    },
+    {
       path: "/api/console/billing/events",
       method: "GET",
       auth: "required",

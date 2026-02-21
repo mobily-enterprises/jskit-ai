@@ -93,7 +93,7 @@ function createConsoleSettingsRepository(dbClient) {
     const normalizedPatch = patch && typeof patch === "object" ? patch : {};
 
     const dbPatch = {};
-    if (Object.prototype.hasOwnProperty.call(normalizedPatch, "features")) {
+    if (Object.hasOwn(normalizedPatch, "features")) {
       dbPatch.features_json = toDbJson(normalizedPatch.features || {});
     }
 

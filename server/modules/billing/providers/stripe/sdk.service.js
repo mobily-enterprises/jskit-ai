@@ -19,6 +19,41 @@ function normalizeSecret(value) {
   return String(value || "").trim();
 }
 
+function toNullableInteger(value, { minimum = null } = {}) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) {
+    return null;
+  }
+  if (minimum != null && parsed < minimum) {
+    return null;
+  }
+  return parsed;
+}
+
+function toNullableString(value) {
+  const normalized = String(value || "").trim();
+  return normalized || null;
+}
+
+function mapStripePriceRecord(price) {
+  const recurring = price?.recurring && typeof price.recurring === "object" ? price.recurring : null;
+  const product = price?.product && typeof price.product === "object" ? price.product : null;
+  const currency = toNullableString(price?.currency);
+  return {
+    id: String(price?.id || ""),
+    provider: BILLING_PROVIDER_STRIPE,
+    productId: toNullableString(product?.id || price?.product),
+    productName: toNullableString(product?.name),
+    nickname: toNullableString(price?.nickname),
+    currency: currency ? currency.toUpperCase() : null,
+    unitAmountMinor: toNullableInteger(price?.unit_amount, { minimum: 0 }),
+    interval: toNullableString(recurring?.interval),
+    intervalCount: toNullableInteger(recurring?.interval_count, { minimum: 1 }),
+    usageType: toNullableString(recurring?.usage_type),
+    active: Boolean(price?.active)
+  };
+}
+
 function resolveDefaultPaymentMethodId(customer) {
   const candidate = customer?.invoice_settings?.default_payment_method;
   if (!candidate) {
@@ -127,6 +162,36 @@ function createService({
       return client.prices.create(params, {
         idempotencyKey
       });
+    });
+  }
+
+  async function listPrices({ limit = 100, active = true } = {}) {
+    return runStripeOperation("prices_list", async () => {
+      const client = await getClient();
+      const cappedLimit = Math.max(1, Math.min(100, Number(limit) || 100));
+      const normalizedActive = active === false ? false : true;
+      const list = await client.prices.list({
+        limit: cappedLimit,
+        active: normalizedActive,
+        expand: ["data.product"]
+      });
+      const prices = Array.isArray(list?.data) ? list.data : [];
+      return prices.map(mapStripePriceRecord);
+    });
+  }
+
+  async function retrievePrice({ priceId } = {}) {
+    const normalizedPriceId = String(priceId || "").trim();
+    if (!normalizedPriceId) {
+      throw new AppError(400, "Stripe price id is required.");
+    }
+
+    return runStripeOperation("price_retrieve", async () => {
+      const client = await getClient();
+      const price = await client.prices.retrieve(normalizedPriceId, {
+        expand: ["product"]
+      });
+      return mapStripePriceRecord(price);
     });
   }
 
@@ -297,6 +362,8 @@ function createService({
     createCheckoutSession,
     createPaymentLink,
     createPrice,
+    listPrices,
+    retrievePrice,
     createBillingPortalSession,
     verifyWebhookEvent,
     retrieveCheckoutSession,
@@ -314,6 +381,9 @@ const __testables = {
   parsePositiveInteger,
   normalizeApiVersion,
   normalizeSecret,
+  toNullableInteger,
+  toNullableString,
+  mapStripePriceRecord,
   resolveDefaultPaymentMethodId,
   loadStripeModule
 };

@@ -151,6 +151,9 @@ describe("routerGuards.console", () => {
     await expect(deniedGuards.beforeLoadBillingEvents()).rejects.toMatchObject({
       options: { to: "/console" }
     });
+    await expect(deniedGuards.beforeLoadBillingPlans()).rejects.toMatchObject({
+      options: { to: "/console" }
+    });
 
     const allowedGuards = createConsoleRouteGuards(
       buildStores({
@@ -200,5 +203,19 @@ describe("routerGuards.console", () => {
     );
 
     await expect(allowedGuards.beforeLoadBillingEvents()).resolves.toBeUndefined();
+
+    const billingCatalogGuards = createConsoleRouteGuards(
+      buildStores({
+        authenticated: true,
+        hasConsoleAccess: true,
+        permissions: ["console.billing.catalog.manage"]
+      }),
+      {
+        loginPath: "/console/login",
+        rootPath: "/console"
+      }
+    );
+
+    await expect(billingCatalogGuards.beforeLoadBillingPlans()).resolves.toBeUndefined();
   });
 });

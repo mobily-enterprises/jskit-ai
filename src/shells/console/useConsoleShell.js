@@ -50,6 +50,9 @@ export function useConsoleShell() {
   const canViewBillingEvents = computed(
     () => consoleStore.can("console.billing.events.read_all") && consoleStore.hasAccess
   );
+  const canManageBillingPlans = computed(
+    () => consoleStore.can("console.billing.catalog.manage") && consoleStore.hasAccess
+  );
 
   const navigationItems = computed(() => {
     const paths = surfacePaths.value;
@@ -65,6 +68,10 @@ export function useConsoleShell() {
 
     if (canViewAiTranscripts.value) {
       items.push({ title: "AI transcripts", to: `${paths.prefix}/transcripts`, icon: "$consoleTranscripts" });
+    }
+
+    if (canManageBillingPlans.value) {
+      items.push({ title: "Billing plans", to: `${paths.prefix}/billing/plans`, icon: "$consoleServerErrors" });
     }
 
     if (canViewBillingEvents.value) {
@@ -103,6 +110,10 @@ export function useConsoleShell() {
 
     if (currentPath.value.endsWith("/billing/events")) {
       return "Billing events";
+    }
+
+    if (currentPath.value.endsWith("/billing/plans")) {
+      return "Billing plans";
     }
 
     return "Console";
@@ -169,7 +180,8 @@ export function useConsoleShell() {
       canViewBrowserErrors,
       canViewServerErrors,
       canViewAiTranscripts,
-      canViewBillingEvents
+      canViewBillingEvents,
+      canManageBillingPlans
     },
     navigation: {
       navigationItems

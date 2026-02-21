@@ -100,16 +100,16 @@ function createWorkspacesRepository(dbClient) {
     const client = resolveClient(options);
     const dbPatch = {};
 
-    if (Object.prototype.hasOwnProperty.call(patch, "slug")) {
+    if (Object.hasOwn(patch, "slug")) {
       dbPatch.slug = patch.slug;
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "name")) {
+    if (Object.hasOwn(patch, "name")) {
       dbPatch.name = patch.name;
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "color")) {
+    if (Object.hasOwn(patch, "color")) {
       dbPatch.color = coerceWorkspaceColor(patch.color);
     }
-    if (Object.prototype.hasOwnProperty.call(patch, "avatarUrl")) {
+    if (Object.hasOwn(patch, "avatarUrl")) {
       dbPatch.avatar_url = patch.avatarUrl ? String(patch.avatarUrl) : null;
     }
 

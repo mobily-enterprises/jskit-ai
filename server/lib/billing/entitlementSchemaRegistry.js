@@ -1,4 +1,4 @@
-import { AppError } from "../../lib/errors.js";
+import { AppError } from "../errors.js";
 
 function isObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);

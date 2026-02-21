@@ -20,7 +20,7 @@ function normalizeConnectionSurface(surfaceIdValue) {
   if (!normalizedSurfaceId) {
     return "app";
   }
-  if (Object.prototype.hasOwnProperty.call(SURFACE_REGISTRY, normalizedSurfaceId)) {
+  if (Object.hasOwn(SURFACE_REGISTRY, normalizedSurfaceId)) {
     return normalizedSurfaceId;
   }
   return "";

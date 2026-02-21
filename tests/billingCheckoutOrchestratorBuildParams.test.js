@@ -67,7 +67,7 @@ test("checkout orchestrator frozen checkout params omit customer_creation in sub
   });
 
   assert.equal(params.mode, "subscription");
-  assert.equal(Object.prototype.hasOwnProperty.call(params, "customer_creation"), false);
+  assert.equal(Object.hasOwn(params, "customer_creation"), false);
   assert.equal(params.customer, undefined);
 });
 

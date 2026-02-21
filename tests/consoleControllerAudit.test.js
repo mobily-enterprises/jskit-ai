@@ -147,7 +147,7 @@ test("console controller emits success security audit events for critical action
   assert.equal(auditEvents[1].metadata.inviteId, 401);
   assert.equal(auditEvents[3].metadata.inviteId, 401);
   assert.equal(auditEvents[4].metadata.decision, "accept");
-  assert.equal(Object.prototype.hasOwnProperty.call(auditEvents[4].metadata, "token"), false);
+  assert.equal(Object.hasOwn(auditEvents[4].metadata, "token"), false);
 });
 
 test("console controller emits failure security audit events and rethrows", async () => {

@@ -250,6 +250,16 @@ const conversation = Type.Object(
   }
 );
 
+const billingPlanPriceParams = Type.Object(
+  {
+    planId: Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" }),
+    priceId: Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const transcriptMode = enumSchema(["standard", "restricted", "disabled"]);
 const transcriptStatus = enumSchema(["active", "completed", "failed", "aborted"]);
 const transcriptExportFormat = enumSchema(["json", "ndjson"]);
@@ -389,6 +399,168 @@ const billingEvents = Type.Object(
   }
 );
 
+const billingPlanPrice = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    planId: Type.Integer({ minimum: 1 }),
+    provider: Type.String({ minLength: 1, maxLength: 32 }),
+    billingComponent: Type.String({ minLength: 1, maxLength: 32 }),
+    usageType: Type.String({ minLength: 1, maxLength: 32 }),
+    interval: Type.String({ minLength: 1, maxLength: 32 }),
+    intervalCount: Type.Integer({ minimum: 1 }),
+    currency: Type.String({ minLength: 3, maxLength: 3 }),
+    unitAmountMinor: Type.Integer({ minimum: 0 }),
+    providerProductId: Type.Union([Type.String({ minLength: 1, maxLength: 191 }), Type.Null()]),
+    providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
+    isActive: Type.Boolean(),
+    metadataJson: Type.Unknown(),
+    createdAt: Type.String({ format: "iso-utc-date-time" }),
+    updatedAt: Type.String({ format: "iso-utc-date-time" })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPlanEntitlement = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    planId: Type.Integer({ minimum: 1 }),
+    code: Type.String({ minLength: 1, maxLength: 120 }),
+    schemaVersion: Type.String({ minLength: 1, maxLength: 120 }),
+    valueJson: Type.Record(Type.String(), Type.Unknown()),
+    createdAt: Type.String({ format: "iso-utc-date-time" }),
+    updatedAt: Type.String({ format: "iso-utc-date-time" })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPlan = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    code: Type.String({ minLength: 1, maxLength: 120 }),
+    planFamilyCode: Type.String({ minLength: 1, maxLength: 120 }),
+    version: Type.Integer({ minimum: 1 }),
+    name: Type.String({ minLength: 1, maxLength: 160 }),
+    description: Type.Union([Type.String(), Type.Null()]),
+    appliesTo: Type.String({ minLength: 1, maxLength: 32 }),
+    pricingModel: Type.String({ minLength: 1, maxLength: 32 }),
+    isActive: Type.Boolean(),
+    metadataJson: Type.Unknown(),
+    createdAt: Type.String({ format: "iso-utc-date-time" }),
+    updatedAt: Type.String({ format: "iso-utc-date-time" }),
+    prices: Type.Array(billingPlanPrice),
+    entitlements: Type.Array(billingPlanEntitlement)
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPlans = Type.Object(
+  {
+    provider: Type.String({ minLength: 1, maxLength: 32 }),
+    plans: Type.Array(billingPlan)
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingProviderPrice = Type.Object(
+  {
+    id: Type.String({ minLength: 1, maxLength: 191 }),
+    provider: Type.String({ minLength: 1, maxLength: 32 }),
+    productId: Type.Union([Type.String({ minLength: 1, maxLength: 191 }), Type.Null()]),
+    productName: Type.Union([Type.String(), Type.Null()]),
+    nickname: Type.Union([Type.String(), Type.Null()]),
+    currency: Type.Union([Type.String({ minLength: 3, maxLength: 3 }), Type.Null()]),
+    unitAmountMinor: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
+    interval: Type.Union([Type.String({ minLength: 1, maxLength: 32 }), Type.Null()]),
+    intervalCount: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    usageType: Type.Union([Type.String({ minLength: 1, maxLength: 32 }), Type.Null()]),
+    active: Type.Boolean()
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingProviderPrices = Type.Object(
+  {
+    provider: Type.String({ minLength: 1, maxLength: 32 }),
+    prices: Type.Array(billingProviderPrice)
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPlanCreateResponse = Type.Object(
+  {
+    provider: Type.String({ minLength: 1, maxLength: 32 }),
+    plan: billingPlan
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPlanCreateBody = Type.Object(
+  {
+    code: Type.String({ minLength: 1, maxLength: 120 }),
+    planFamilyCode: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
+    version: Type.Optional(Type.Integer({ minimum: 1 })),
+    name: Type.String({ minLength: 1, maxLength: 160 }),
+    description: Type.Optional(Type.String({ maxLength: 10000 })),
+    pricingModel: Type.Optional(enumSchema(["flat", "per_seat", "usage", "hybrid"])),
+    isActive: Type.Optional(Type.Boolean()),
+    metadataJson: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+    basePrice: Type.Object(
+      {
+        providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
+        providerProductId: Type.Optional(Type.String({ maxLength: 191 })),
+        currency: Type.Optional(Type.String({ minLength: 3, maxLength: 3 })),
+        unitAmountMinor: Type.Optional(Type.Integer({ minimum: 0 })),
+        interval: Type.Optional(enumSchema(["day", "week", "month", "year"])),
+        intervalCount: Type.Optional(Type.Integer({ minimum: 1 }))
+      },
+      {
+        additionalProperties: false
+      }
+    ),
+    entitlements: Type.Optional(
+      Type.Array(
+        Type.Object(
+          {
+            code: Type.String({ minLength: 1, maxLength: 120 }),
+            schemaVersion: Type.String({ minLength: 1, maxLength: 120 }),
+            valueJson: Type.Record(Type.String(), Type.Unknown())
+          },
+          {
+            additionalProperties: false
+          }
+        )
+      )
+    )
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPlanPriceUpdateBody = Type.Object(
+  {
+    providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
+    providerProductId: Type.Optional(Type.String({ maxLength: 191 }))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const aiTranscriptsQuery = Type.Object(
   {
     page: Type.Optional(Type.Integer({ minimum: 1, default: 1 })),
@@ -413,6 +585,16 @@ const billingEventsQuery = Type.Object(
     operationKey: Type.Optional(Type.String({ minLength: 1, maxLength: 191 })),
     providerEventId: Type.Optional(Type.String({ minLength: 1, maxLength: 191 })),
     source: Type.Optional(Type.String({ minLength: 1, maxLength: 64 }))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingProviderPricesQuery = Type.Object(
+  {
+    active: Type.Optional(Type.Boolean({ default: true })),
+    limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 100 }))
   },
   {
     additionalProperties: false
@@ -452,24 +634,32 @@ const schema = {
     aiTranscriptsList,
     aiTranscriptMessages,
     aiTranscriptExport,
-    billingEvents
+    billingEvents,
+    billingPlans,
+    billingPlanCreate: billingPlanCreateResponse,
+    billingProviderPrices,
+    billingPlanPriceUpdate: billingPlanCreateResponse
   },
   body: {
     createInvite,
     memberRoleUpdate,
     assistantSettingsUpdate,
-    redeemInvite
+    redeemInvite,
+    billingPlanCreate: billingPlanCreateBody,
+    billingPlanPriceUpdate: billingPlanPriceUpdateBody
   },
   query: {
     aiTranscripts: aiTranscriptsQuery,
     aiTranscriptMessages: aiTranscriptMessagesQuery,
     aiTranscriptExport: aiTranscriptExportQuery,
-    billingEvents: billingEventsQuery
+    billingEvents: billingEventsQuery,
+    billingProviderPrices: billingProviderPricesQuery
   },
   params: {
     member,
     invite,
-    conversation
+    conversation,
+    billingPlanPrice: billingPlanPriceParams
   }
 };
 

@@ -7,4 +7,5 @@ test("devop console role includes billing event explorer read permission", () =>
   const permissions = resolveRolePermissions("devop");
   assert.ok(Array.isArray(permissions));
   assert.ok(permissions.includes(CONSOLE_BILLING_PERMISSIONS.READ_ALL));
+  assert.ok(permissions.includes(CONSOLE_BILLING_PERMISSIONS.CATALOG_MANAGE));
 });
