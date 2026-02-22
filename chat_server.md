@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Thirty-eighth Review Amendments Summary (Post-commit server review #38)
+
+This section records corrections made during a thirty-eighth pass after the prior review cycles.
+
+### Tombstone privacy + delete-retry idempotency hardening
+
+- Fixed a security/privacy gap in the tombstone table design: `chat_message_idempotency_tombstones.metadata_json` was described as optional audit/debug storage without explicit limits on sensitive content.
+- Added explicit restrictions that tombstones must not store message plaintext/ciphertext, attachment keys, or signed URLs, and should carry only bounded non-sensitive debug metadata (or just `'{}'`).
+- Tightened the tombstone repository/delete-flow guidance so tombstone writes are idempotent (upsert/insert-or-update semantics) under repeated retention/moderation delete attempts, avoiding duplicate-job failures that could break hard-delete workflows.
+
 ## Thirty-seventh Review Amendments Summary (Post-commit server review #37)
 
 This section records corrections made during a thirty-seventh pass after the prior review cycles.
@@ -1120,6 +1130,7 @@ Columns:
   - e.g. `retention`, `moderation`, `teardown`
 - `metadata_json` MEDIUMTEXT NOT NULL
   - optional bounded audit/debug fields; initialize to `'{}'`
+  - do not store message plaintext/ciphertext, attachment storage keys, signed URLs, or other sensitive payload material here
 - `created_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
 - `updated_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
 
@@ -1136,6 +1147,7 @@ Notes:
 - This table is only required if the chosen product policy allows hard-deleting messages with non-null `client_message_id` before the retry horizon expires.
 - If the implementation chooses the simpler strategy ("retain deleted/redacted message row until retry window elapses"), this table can be omitted.
 - Tombstone rows should be written in the same delete workflow/transactional unit as the message hard-delete decision whenever possible (or with an equivalent fail-safe sequence) so duplicate suppression is not lost between steps.
+- Keep tombstone data minimal: replay/conflict identifiers + bounded operational reason fields only. Prefer `metadata_json='{}'` unless a concrete, non-sensitive debugging need is documented.
 
 ### Table 6: `chat_attachments`
 
@@ -1337,6 +1349,7 @@ Notes:
 
 - `insertForDeletedMessage(...)`
   - writes `(thread_id, sender_user_id, client_message_id, idempotency_payload_version, idempotency_payload_sha256, expires_at, ...)`
+  - should be idempotent for repeated delete attempts/jobs (e.g. insert-or-update/upsert on the unique key), and should not fail the delete workflow on harmless duplicate tombstone writes
 - `findByClientMessageId(threadId, senderUserId, clientMessageId, options)`
 - `deleteExpiredBatch(now, batchSize, options)`
 - `listExpired(batchSize, now, options)` (optional if delete method returns rows)
@@ -2262,6 +2275,7 @@ Using existing realtime test harness patterns adapted for chat:
 
 - chat retention rules added to sweep output
 - idempotency tombstone/ledger expiry cleanup runs when tombstone strategy is enabled (or is explicitly absent when simpler retained-message strategy is selected)
+- repeated retention/moderation delete attempts do not fail on duplicate tombstone writes (tombstone insert path is idempotent/upsert-safe)
 - attachment orphan cleanup deletes DB row + storage blob
 - safe no-op when blob already missing
 
