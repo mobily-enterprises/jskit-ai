@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Thirty-third Review Amendments Summary (Post-commit server review #33)
+
+This section records corrections made during a thirty-third pass after the prior review cycles.
+
+### Abuse-control integration / rate-limit keying clarifications
+
+- Tightened the abuse-controls plan to reflect this repo’s middleware reality: route-level Fastify rate limiting is primarily an edge/IP throttle in the current setup and should not be treated as sufficient per-user/per-thread chat abuse control for authenticated routes.
+- Added explicit guidance to layer service-level/user-scoped throttles (and thread-scoped limits where relevant, e.g. typing) on top of route-level `rateLimit`, reusing Redis where available.
+- Added test coverage expectations for service-level throttling behavior (especially typing/message send) so abuse controls do not depend only on route middleware.
+
 ## Thirty-second Review Amendments Summary (Post-commit server review #32)
 
 This section records corrections made during a thirty-second pass after the prior review cycles.
@@ -1974,6 +1984,12 @@ Add route-specific rate limits using existing `route.rateLimit` config pattern:
 - attachment upload: low/moderate (`10/min`) + byte quotas
 - reaction add/remove: moderate (`120/min`)
 
+Important integration note:
+
+- In the current server setup, route-level Fastify rate limiting should be treated as an edge/client throttle (typically IP-keyed) unless you explicitly reconfigure hook/key behavior.
+- Do not rely on route-level `rateLimit` alone for authenticated chat abuse controls (`sendMessage`, typing, uploads, DM ensure), because those controls often need user-scoped and/or thread-scoped limits.
+- Add service-level throttles/quotas keyed by authenticated user (and thread where appropriate, e.g. typing), using Redis-backed counters/TTL where available for multi-node consistency.
+
 ### Payload validation
 
 - text length hard caps
@@ -2042,6 +2058,7 @@ Per repository:
 - logically equivalent retries with metadata key-order differences / omitted defaults normalize to the same idempotency payload and replay successfully
 - E2EE mode: same `clientMessageId` replay with exact same ciphertext/nonce payload replays successfully; changed opaque encrypted payload is conflict under v1 compare rules
 - deadlock / lock-timeout transient DB errors retry successfully within bounded retry policy
+- service-level send throttling/quota enforcement denies over-limit sends independently of route middleware
 - post-commit realtime publish failure does not lose the message or incorrectly rollback/send error (client can recover via fetch path)
 - sender not participant denied
 - sender removed/left denied
@@ -2055,6 +2072,11 @@ Per repository:
 - monotonic update only
 - out-of-order calls do not regress
 - read event publishes correctly
+
+#### `typing` / abuse throttling
+
+- service-level typing throttle enforces user/thread TTL window (not only route middleware/IP rate limit)
+- throttling remains correct across nodes when Redis-backed counters are enabled
 
 #### attachments service
 
