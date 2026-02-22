@@ -386,6 +386,71 @@ function createParticipantsRepository(dbClient) {
     }));
   }
 
+  async function repoRepairPointersForThread(threadId, { lastMessageSeq = null } = {}, options = {}) {
+    const client = resolveClient(dbClient, options);
+    const numericThreadId = parsePositiveInteger(threadId);
+    if (!numericThreadId) {
+      return 0;
+    }
+
+    const normalizedLastMessageSeq = parsePositiveInteger(lastMessageSeq);
+    const nowValue = toMysqlDateTimeUtc(new Date());
+    if (!normalizedLastMessageSeq) {
+      const updated = await client("chat_thread_participants")
+        .where({
+          thread_id: numericThreadId
+        })
+        .update({
+          last_read_seq: 0,
+          last_delivered_seq: 0,
+          last_read_message_id: null,
+          last_delivered_message_id: null,
+          last_read_at: null,
+          updated_at: nowValue
+        });
+
+      return Number.isFinite(Number(updated)) && Number(updated) > 0 ? Number(updated) : 0;
+    }
+
+    const updated = await client("chat_thread_participants")
+      .where({
+        thread_id: numericThreadId
+      })
+      .update({
+        last_read_seq: client.raw("LEAST(last_read_seq, ?)", [normalizedLastMessageSeq]),
+        last_delivered_seq: client.raw("LEAST(last_delivered_seq, ?)", [normalizedLastMessageSeq]),
+        last_read_message_id: client.raw(
+          `CASE
+             WHEN last_read_message_id IS NULL THEN NULL
+             WHEN EXISTS (
+               SELECT 1
+               FROM chat_messages AS m
+               WHERE m.id = chat_thread_participants.last_read_message_id
+                 AND m.thread_id = ?
+             ) THEN last_read_message_id
+             ELSE NULL
+           END`,
+          [numericThreadId]
+        ),
+        last_delivered_message_id: client.raw(
+          `CASE
+             WHEN last_delivered_message_id IS NULL THEN NULL
+             WHEN EXISTS (
+               SELECT 1
+               FROM chat_messages AS m
+               WHERE m.id = chat_thread_participants.last_delivered_message_id
+                 AND m.thread_id = ?
+             ) THEN last_delivered_message_id
+             ELSE NULL
+           END`,
+          [numericThreadId]
+        ),
+        updated_at: nowValue
+      });
+
+    return Number.isFinite(Number(updated)) && Number(updated) > 0 ? Number(updated) : 0;
+  }
+
   async function repoTransaction(callback) {
     if (typeof dbClient.transaction === "function") {
       return dbClient.transaction(callback);
@@ -406,6 +471,7 @@ function createParticipantsRepository(dbClient) {
     markRemoved: repoMarkRemoved,
     updateReadCursorMonotonic: repoUpdateReadCursorMonotonic,
     listThreadsForInboxUser: repoListThreadsForInboxUser,
+    repairPointersForThread: repoRepairPointersForThread,
     transaction: repoTransaction
   };
 }
@@ -432,6 +498,7 @@ export const {
   markRemoved,
   updateReadCursorMonotonic,
   listThreadsForInboxUser,
+  repairPointersForThread,
   transaction
 } = repository;
 

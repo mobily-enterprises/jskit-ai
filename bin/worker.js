@@ -15,6 +15,11 @@ const runtime = createWorkerRuntime({
     aiTranscriptsRetentionDays: env.AI_TRANSCRIPTS_RETENTION_DAYS,
     billingIdempotencyRetentionDays: env.BILLING_IDEMPOTENCY_RETENTION_DAYS,
     billingWebhookPayloadRetentionDays: env.BILLING_WEBHOOK_PAYLOAD_RETENTION_DAYS,
+    chatMessagesRetentionDays: env.CHAT_MESSAGES_RETENTION_DAYS,
+    chatAttachmentsRetentionDays: env.CHAT_ATTACHMENTS_RETENTION_DAYS,
+    chatUnattachedUploadsRetentionHours: env.CHAT_UNATTACHED_UPLOAD_RETENTION_HOURS,
+    chatMessageIdempotencyRetryWindowHours: env.CHAT_MESSAGE_IDEMPOTENCY_RETRY_WINDOW_HOURS,
+    chatEmptyThreadCleanupEnabled: env.CHAT_EMPTY_THREAD_CLEANUP_ENABLED,
     batchSize: env.RETENTION_BATCH_SIZE
   },
   logger: console

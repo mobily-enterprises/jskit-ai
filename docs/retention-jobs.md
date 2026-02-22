@@ -32,6 +32,11 @@ Always run a dry-run job in the target environment before enabling schedule auto
 - `INVITE_ARTIFACT_RETENTION_DAYS` default `90`.
 - `SECURITY_AUDIT_RETENTION_DAYS` default `365`.
 - `AI_TRANSCRIPTS_RETENTION_DAYS` default `60`.
+- `CHAT_MESSAGES_RETENTION_DAYS` default `365`.
+- `CHAT_ATTACHMENTS_RETENTION_DAYS` default `365`.
+- `CHAT_UNATTACHED_UPLOAD_RETENTION_HOURS` default `24`.
+- `CHAT_MESSAGE_IDEMPOTENCY_RETRY_WINDOW_HOURS` default `72`.
+- `CHAT_EMPTY_THREAD_CLEANUP_ENABLED` default `false`.
 - `RETENTION_BATCH_SIZE` default `1000`.
 
 ## Failure/Consistency Policy

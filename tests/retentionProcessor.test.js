@@ -19,6 +19,11 @@ test("retention sweep processor normalizes retention config and executes runSwee
       inviteArtifactRetentionDays: "120",
       securityAuditRetentionDays: "500",
       aiTranscriptsRetentionDays: "30",
+      chatMessagesRetentionDays: "450",
+      chatAttachmentsRetentionDays: "540",
+      chatUnattachedUploadsRetentionHours: "48",
+      chatMessageIdempotencyRetryWindowHours: "96",
+      chatEmptyThreadCleanupEnabled: "true",
       batchSize: "2500"
     },
     createRepositoriesImpl: () => ({
@@ -27,7 +32,12 @@ test("retention sweep processor normalizes retention config and executes runSwee
       consoleInvitesRepository: {},
       auditEventsRepository: {},
       aiTranscriptConversationsRepository: {},
-      aiTranscriptMessagesRepository: {}
+      aiTranscriptMessagesRepository: {},
+      chatThreadsRepository: {},
+      chatParticipantsRepository: {},
+      chatMessagesRepository: {},
+      chatIdempotencyTombstonesRepository: {},
+      chatAttachmentsRepository: {}
     }),
     createRetentionServiceImpl: (args) => {
       calls.serviceArgs = args;
@@ -73,6 +83,11 @@ test("retention sweep processor normalizes retention config and executes runSwee
   assert.equal(calls.serviceArgs.retentionConfig.inviteArtifactRetentionDays, 120);
   assert.equal(calls.serviceArgs.retentionConfig.securityAuditRetentionDays, 500);
   assert.equal(calls.serviceArgs.retentionConfig.aiTranscriptsRetentionDays, 30);
+  assert.equal(calls.serviceArgs.retentionConfig.chatMessagesRetentionDays, 450);
+  assert.equal(calls.serviceArgs.retentionConfig.chatAttachmentsRetentionDays, 540);
+  assert.equal(calls.serviceArgs.retentionConfig.chatUnattachedUploadsRetentionHours, 48);
+  assert.equal(calls.serviceArgs.retentionConfig.chatMessageIdempotencyRetryWindowHours, 96);
+  assert.equal(calls.serviceArgs.retentionConfig.chatEmptyThreadCleanupEnabled, true);
   assert.equal(calls.serviceArgs.retentionConfig.batchSize, 2500);
   assert.equal(calls.runSweep.length, 1);
   assert.equal(calls.runSweep[0].dryRun, true);
@@ -82,13 +97,16 @@ test("retention sweep processor normalizes retention config and executes runSwee
   assert.equal(calls.lockRelease.length, 1);
   assert.equal(result.trigger, "cron");
   assert.equal(result.requestedBy, "systemd");
-  assert.equal(result.idempotencyKey, "cron-2026-02-21-dry-run");
+  assert.match(result.idempotencyKey, /^cron-\d{4}-\d{2}-\d{2}-dry-run$/);
 });
 
 test("retention processor numeric helper falls back for invalid values", () => {
   assert.equal(__testables.toPositiveInteger("5", 9), 5);
   assert.equal(__testables.toPositiveInteger("0", 9), 9);
   assert.equal(__testables.toPositiveInteger("", 9), 9);
+  assert.equal(__testables.toBoolean("true", false), true);
+  assert.equal(__testables.toBoolean("false", true), false);
+  assert.equal(__testables.toBoolean("", true), true);
   assert.equal(__testables.normalizeLockHeartbeatIntervalMs(500), 333);
 });
 
@@ -110,7 +128,12 @@ test("retention processor throws retryable lock-held error when distributed lock
       consoleInvitesRepository: {},
       auditEventsRepository: {},
       aiTranscriptConversationsRepository: {},
-      aiTranscriptMessagesRepository: {}
+      aiTranscriptMessagesRepository: {},
+      chatThreadsRepository: {},
+      chatParticipantsRepository: {},
+      chatMessagesRepository: {},
+      chatIdempotencyTombstonesRepository: {},
+      chatAttachmentsRepository: {}
     }),
     createRetentionServiceImpl: () => ({
       async runSweep() {
@@ -173,7 +196,12 @@ test("retention processor extends lock heartbeat while sweep is running", async 
       consoleInvitesRepository: {},
       auditEventsRepository: {},
       aiTranscriptConversationsRepository: {},
-      aiTranscriptMessagesRepository: {}
+      aiTranscriptMessagesRepository: {},
+      chatThreadsRepository: {},
+      chatParticipantsRepository: {},
+      chatMessagesRepository: {},
+      chatIdempotencyTombstonesRepository: {},
+      chatAttachmentsRepository: {}
     }),
     createRetentionServiceImpl: () => ({
       async runSweep() {
@@ -224,7 +252,12 @@ test("retention processor fails job when lock extension is lost during sweep", a
       consoleInvitesRepository: {},
       auditEventsRepository: {},
       aiTranscriptConversationsRepository: {},
-      aiTranscriptMessagesRepository: {}
+      aiTranscriptMessagesRepository: {},
+      chatThreadsRepository: {},
+      chatParticipantsRepository: {},
+      chatMessagesRepository: {},
+      chatIdempotencyTombstonesRepository: {},
+      chatAttachmentsRepository: {}
     }),
     createRetentionServiceImpl: () => ({
       async runSweep() {
@@ -278,7 +311,12 @@ test("retention processor fails when an in-flight lock heartbeat reports failure
       consoleInvitesRepository: {},
       auditEventsRepository: {},
       aiTranscriptConversationsRepository: {},
-      aiTranscriptMessagesRepository: {}
+      aiTranscriptMessagesRepository: {},
+      chatThreadsRepository: {},
+      chatParticipantsRepository: {},
+      chatMessagesRepository: {},
+      chatIdempotencyTombstonesRepository: {},
+      chatAttachmentsRepository: {}
     }),
     createRetentionServiceImpl: () => ({
       async runSweep() {

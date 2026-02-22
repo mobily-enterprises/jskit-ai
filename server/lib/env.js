@@ -86,6 +86,10 @@ export const env = cleanEnv(
     CHAT_ATTACHMENT_STORAGE_DRIVER: str({ default: "fs" }),
     CHAT_ATTACHMENT_STORAGE_FS_BASE_PATH: str({ default: "" }),
     CHAT_UNATTACHED_UPLOAD_RETENTION_HOURS: num({ default: 24 }),
+    CHAT_MESSAGES_RETENTION_DAYS: num({ default: 365 }),
+    CHAT_ATTACHMENTS_RETENTION_DAYS: num({ default: 365 }),
+    CHAT_MESSAGE_IDEMPOTENCY_RETRY_WINDOW_HOURS: num({ default: 72 }),
+    CHAT_EMPTY_THREAD_CLEANUP_ENABLED: bool({ default: false }),
     AI_ENABLED: bool({ default: false }),
     AI_PROVIDER: str({
       choices: ["openai"],

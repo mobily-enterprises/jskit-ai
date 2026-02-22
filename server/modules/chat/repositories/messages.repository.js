@@ -2,8 +2,15 @@ import { db } from "../../../../db/knex.js";
 import { toIsoString, toMysqlDateTimeUtc } from "../../../lib/primitives/dateUtils.js";
 import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
 import { isMysqlDuplicateEntryError } from "../../../lib/primitives/mysqlErrors.js";
-import { deleteRowsOlderThan, normalizeBatchSize } from "../../../lib/primitives/retention.js";
-import { normalizeCountRow, normalizePagination, parseJsonObject, resolveClient, stringifyJsonObject } from "./shared.js";
+import { deleteRowsOlderThan, normalizeBatchSize, normalizeCutoffDateOrThrow } from "../../../lib/primitives/retention.js";
+import {
+  normalizeCountRow,
+  normalizeIdList,
+  normalizePagination,
+  parseJsonObject,
+  resolveClient,
+  stringifyJsonObject
+} from "./shared.js";
 
 const CLIENT_MESSAGE_UNIQUE_INDEX_NAME = "uq_chat_messages_thread_sender_client_id";
 
@@ -61,6 +68,40 @@ function mapMessageRowNullable(row) {
   }
 
   return mapMessageRowRequired(row);
+}
+
+function mapRetentionCandidateRowRequired(row) {
+  if (!row) {
+    throw new TypeError("mapRetentionCandidateRowRequired expected a row object.");
+  }
+
+  return {
+    id: Number(row.id),
+    threadId: Number(row.thread_id),
+    senderUserId: Number(row.sender_user_id),
+    clientMessageId: row.client_message_id == null ? null : String(row.client_message_id),
+    idempotencyPayloadSha256: row.idempotency_payload_sha256 == null ? null : String(row.idempotency_payload_sha256),
+    idempotencyPayloadVersion: row.idempotency_payload_version == null ? null : Number(row.idempotency_payload_version),
+    createdAt: row.created_at ? toIsoString(row.created_at) : null
+  };
+}
+
+function applyRetentionSelectionMode(query, selectionMode) {
+  if (selectionMode === "tombstone-eligible-only") {
+    return query.andWhere((builder) => {
+      builder
+        .whereNull("client_message_id")
+        .orWhere((nested) => nested.whereNotNull("idempotency_payload_sha256").whereNotNull("idempotency_payload_version"));
+    });
+  }
+
+  if (selectionMode === "legacy-exception-only") {
+    return query.whereNotNull("client_message_id").andWhere((builder) => {
+      builder.whereNull("idempotency_payload_sha256").orWhereNull("idempotency_payload_version");
+    });
+  }
+
+  return query;
 }
 
 function createMessagesRepository(dbClient) {
@@ -229,24 +270,64 @@ function createMessagesRepository(dbClient) {
         fallback: 1000,
         max: 10_000
       }),
-      applyFilters: (query) => {
-        if (selectionMode === "tombstone-eligible-only") {
-          return query.andWhere((builder) => {
-            builder
-              .whereNull("client_message_id")
-              .orWhere((nested) => nested.whereNotNull("idempotency_payload_sha256").whereNotNull("idempotency_payload_version"));
-          });
-        }
-
-        if (selectionMode === "legacy-exception-only") {
-          return query.whereNotNull("client_message_id").andWhere((builder) => {
-            builder.whereNull("idempotency_payload_sha256").orWhereNull("idempotency_payload_version");
-          });
-        }
-
-        return query;
-      }
+      applyFilters: (query) => applyRetentionSelectionMode(query, selectionMode)
     });
+  }
+
+  async function repoListRetentionCandidatesOlderThan(cutoffDate, batchSize = 1000, options = {}) {
+    const client = resolveClient(dbClient, options);
+    const selectionMode = String(options?.selectionMode || "all").trim().toLowerCase();
+    const normalizedCutoff = toMysqlDateTimeUtc(normalizeCutoffDateOrThrow(cutoffDate));
+    const normalizedBatchSize = normalizeBatchSize(batchSize, {
+      fallback: 1000,
+      max: 10_000
+    });
+
+    let query = client("chat_messages").where("created_at", "<", normalizedCutoff);
+    query = applyRetentionSelectionMode(query, selectionMode);
+
+    const rows = await query
+      .orderBy("created_at", "asc")
+      .orderBy("id", "asc")
+      .limit(normalizedBatchSize)
+      .select(
+        "id",
+        "thread_id",
+        "sender_user_id",
+        "client_message_id",
+        "idempotency_payload_sha256",
+        "idempotency_payload_version",
+        "created_at"
+      );
+
+    return rows.map(mapRetentionCandidateRowRequired);
+  }
+
+  async function repoDeleteByIds(messageIds, options = {}) {
+    const client = resolveClient(dbClient, options);
+    const normalizedMessageIds = normalizeIdList(messageIds);
+    if (normalizedMessageIds.length < 1) {
+      return 0;
+    }
+
+    const deleted = await client("chat_messages").whereIn("id", normalizedMessageIds).del();
+    return normalizeCountRow({ total: deleted });
+  }
+
+  async function repoFindLatestByThreadId(threadId, options = {}) {
+    const client = resolveClient(dbClient, options);
+    const numericThreadId = parsePositiveInteger(threadId);
+    if (!numericThreadId) {
+      return null;
+    }
+
+    const row = await client("chat_messages")
+      .where({ thread_id: numericThreadId })
+      .orderBy("thread_seq", "desc")
+      .orderBy("id", "desc")
+      .first();
+
+    return mapMessageRowNullable(row);
   }
 
   async function repoTransaction(callback) {
@@ -266,6 +347,9 @@ function createMessagesRepository(dbClient) {
     updateById: repoUpdateById,
     countByThreadId: repoCountByThreadId,
     deleteOlderThan: repoDeleteOlderThan,
+    listRetentionCandidatesOlderThan: repoListRetentionCandidatesOlderThan,
+    deleteByIds: repoDeleteByIds,
+    findLatestByThreadId: repoFindLatestByThreadId,
     transaction: repoTransaction
   };
 }
@@ -276,8 +360,10 @@ const __testables = {
   CLIENT_MESSAGE_UNIQUE_INDEX_NAME,
   isClientMessageUniqueConflictError,
   isMysqlDuplicateEntryError,
+  mapRetentionCandidateRowRequired,
   mapMessageRowRequired,
   mapMessageRowNullable,
+  applyRetentionSelectionMode,
   normalizeClientMessageId,
   createMessagesRepository
 };
@@ -291,6 +377,9 @@ export const {
   updateById,
   countByThreadId,
   deleteOlderThan,
+  listRetentionCandidatesOlderThan,
+  deleteByIds,
+  findLatestByThreadId,
   transaction
 } = repository;
 
