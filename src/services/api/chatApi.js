@@ -1,5 +1,8 @@
 function buildQueryString(query = {}) {
   const params = new URLSearchParams();
+  if (query.q) {
+    params.set("q", String(query.q));
+  }
   if (query.cursor) {
     params.set("cursor", String(query.cursor));
   }
@@ -13,6 +16,9 @@ function buildQueryString(query = {}) {
 
 function createApi({ request }) {
   return {
+    listDmCandidates(query = {}) {
+      return request(`/api/chat/dm/candidates${buildQueryString(query)}`);
+    },
     ensureDm(payload) {
       return request("/api/chat/dm/ensure", {
         method: "POST",

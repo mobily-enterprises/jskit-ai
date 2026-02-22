@@ -11,6 +11,7 @@ import { publishRealtimeEvent, __testables as realtimeEventBusTestables } from "
 const mocks = vi.hoisted(() => ({
   api: {
     chat: {
+      listDmCandidates: vi.fn(),
       ensureDm: vi.fn(),
       listInbox: vi.fn(),
       listThreadMessages: vi.fn(),
@@ -126,6 +127,7 @@ describe("useChatView", () => {
   beforeEach(() => {
     mocks.api.chat.listInbox.mockReset();
     mocks.api.chat.listThreadMessages.mockReset();
+    mocks.api.chat.listDmCandidates.mockReset();
     mocks.api.chat.ensureDm.mockReset();
     mocks.api.chat.sendThreadMessage.mockReset();
     mocks.api.chat.markThreadRead.mockReset();
@@ -149,6 +151,17 @@ describe("useChatView", () => {
     });
     mocks.api.chat.deleteThreadAttachment.mockResolvedValue({
       ok: true
+    });
+    mocks.api.chat.listDmCandidates.mockResolvedValue({
+      items: [
+        {
+          userId: 42,
+          displayName: "Alex",
+          avatarUrl: null,
+          publicChatId: "u42",
+          sharedWorkspaceCount: 1
+        }
+      ]
     });
     mocks.queryClient.invalidateQueries.mockReset();
     mocks.queryClient.invalidateQueries.mockResolvedValue(undefined);
@@ -296,6 +309,30 @@ describe("useChatView", () => {
     expect(mocks.inboxQueryState.refetch).toHaveBeenCalledTimes(1);
     expect(wrapper.vm.state.selectedThreadId).toBe(55);
     expect(wrapper.vm.state.sendStatus).toBe("Direct message created.");
+  });
+
+  it("loads direct-message candidates and exposes normalized entries", async () => {
+    const wrapper = mount(Harness);
+    await nextTick();
+
+    const candidates = await wrapper.vm.actions.refreshDmCandidates({
+      search: "alex",
+      limit: 8
+    });
+
+    expect(mocks.api.chat.listDmCandidates).toHaveBeenCalledWith({
+      q: "alex",
+      limit: 8
+    });
+    expect(Array.isArray(candidates)).toBe(true);
+    expect(wrapper.vm.state.dmCandidates).toHaveLength(1);
+    expect(wrapper.vm.state.dmCandidates[0]).toEqual({
+      userId: 42,
+      displayName: "Alex",
+      avatarUrl: "",
+      publicChatId: "u42",
+      sharedWorkspaceCount: 1
+    });
   });
 
   it("uploads attachments and supports attachment-only sends", async () => {

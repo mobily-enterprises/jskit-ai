@@ -65,6 +65,41 @@ test("chat controller content endpoint sets attachment security headers", async 
   assert.equal(reply.payload.toString("utf8"), "hello");
 });
 
+test("chat controller dm candidates endpoint forwards query payload", async () => {
+  const calls = [];
+  const controller = createChatController({
+    chatService: {
+      async listDmCandidates(payload) {
+        calls.push(payload);
+        return {
+          items: []
+        };
+      }
+    }
+  });
+
+  const reply = createReplyDouble();
+  await controller.listDmCandidates(
+    {
+      user: { id: 5 },
+      query: {
+        q: "ali",
+        limit: 8
+      }
+    },
+    reply
+  );
+
+  assert.equal(reply.statusCode, 200);
+  assert.deepEqual(reply.payload, { items: [] });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].user.id, 5);
+  assert.deepEqual(calls[0].query, {
+    q: "ali",
+    limit: 8
+  });
+});
+
 test("chat controller upload endpoint parses multipart payload and forwards to service", async () => {
   const calls = [];
   const controller = createChatController({

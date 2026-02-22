@@ -44,6 +44,7 @@ function createChatServiceFixture(options = {}) {
       updatedAt: "2026-02-22T00:00:00.000Z"
     },
     targetSettingsByPublicChatId: new Map(),
+    targetSettingsByUserId: new Map(),
     blockedPairKeys: new Set()
   };
 
@@ -509,6 +510,25 @@ function createChatServiceFixture(options = {}) {
           publicChatId: null
         };
       },
+      async findByUserId(userId) {
+        const numericUserId = Number(userId);
+        if (numericUserId === Number(state.actorSettings.userId)) {
+          return { ...state.actorSettings };
+        }
+
+        const direct = state.targetSettingsByUserId.get(numericUserId);
+        if (direct) {
+          return { ...direct };
+        }
+
+        for (const target of state.targetSettingsByPublicChatId.values()) {
+          if (Number(target?.userId) === numericUserId) {
+            return { ...target };
+          }
+        }
+
+        return null;
+      },
       async findByPublicChatId(publicChatId) {
         const normalized = String(publicChatId || "").trim().toLowerCase();
         const target = state.targetSettingsByPublicChatId.get(normalized);
@@ -527,6 +547,13 @@ function createChatServiceFixture(options = {}) {
           return options.workspaceMembershipsForSharedCheck;
         }
         return [];
+      },
+      async listActiveByWorkspaceId(workspaceId) {
+        const byWorkspaceId = options.workspaceMembersByWorkspaceId;
+        if (!(byWorkspaceId instanceof Map)) {
+          return [];
+        }
+        return byWorkspaceId.get(Number(workspaceId)) || [];
       },
       async findByWorkspaceIdAndUserId() {
         return null;
@@ -827,6 +854,75 @@ test("ensureDm keeps anti-enumeration behavior for unknown and blocked targets",
       return true;
     }
   );
+});
+
+test("listDmCandidates returns discoverable shared-workspace users and supports search filtering", async () => {
+  const { service, state } = createChatServiceFixture({
+    chatGlobalDmsRequireSharedWorkspace: true,
+    workspaceMembershipsForSharedCheck: [
+      {
+        workspaceId: 19,
+        status: "active"
+      },
+      {
+        workspaceId: 21,
+        status: "active"
+      }
+    ],
+    workspaceMembersByWorkspaceId: new Map([
+      [
+        19,
+        [
+          { userId: 5, status: "active" },
+          { userId: 8, status: "active" },
+          { userId: 12, status: "active" }
+        ]
+      ],
+      [
+        21,
+        [
+          { userId: 5, status: "active" },
+          { userId: 8, status: "active" }
+        ]
+      ]
+    ])
+  });
+
+  state.targetSettingsByUserId.set(8, {
+    id: 18,
+    userId: 8,
+    publicChatId: "u8",
+    allowWorkspaceDms: true,
+    allowGlobalDms: true,
+    requireSharedWorkspaceForGlobalDm: true,
+    discoverableByPublicChatId: true,
+    createdAt: "2026-02-22T00:00:00.000Z",
+    updatedAt: "2026-02-22T00:00:00.000Z"
+  });
+  state.targetSettingsByUserId.set(12, {
+    id: 22,
+    userId: 12,
+    publicChatId: "u12",
+    allowWorkspaceDms: true,
+    allowGlobalDms: false,
+    requireSharedWorkspaceForGlobalDm: true,
+    discoverableByPublicChatId: true,
+    createdAt: "2026-02-22T00:00:00.000Z",
+    updatedAt: "2026-02-22T00:00:00.000Z"
+  });
+
+  const result = await service.listDmCandidates({
+    user: { id: 5 },
+    query: {
+      q: "u8",
+      limit: 10
+    }
+  });
+
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0].userId, 8);
+  assert.equal(result.items[0].publicChatId, "u8");
+  assert.equal(result.items[0].sharedWorkspaceCount, 2);
 });
 
 test("sendThreadMessage remains successful when realtime publish fails post-commit", async () => {

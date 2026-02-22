@@ -223,6 +223,28 @@ function normalizeDmTargetPublicChatId(value) {
   return targetPublicChatId.toLowerCase();
 }
 
+function normalizeDmCandidatesSearch(value) {
+  const search = String(value || "").trim();
+  if (!search) {
+    return "";
+  }
+
+  if (search.length > 120) {
+    throw createChatValidationError({
+      q: "q must be at most 120 characters."
+    });
+  }
+
+  return search.toLowerCase();
+}
+
+function normalizeDmCandidatesLimit(value) {
+  return toBoundedLimit(value, {
+    fallback: 50,
+    max: 100
+  });
+}
+
 function normalizeClientMessageId(value) {
   const clientMessageId = String(value || "").trim();
   if (!clientMessageId) {
@@ -1211,6 +1233,122 @@ function createService({
     }
 
     return resolveUserSummary(peerUserId);
+  }
+
+  function matchesDmCandidateSearch(candidate, normalizedSearch) {
+    const search = String(normalizedSearch || "").trim().toLowerCase();
+    if (!search) {
+      return true;
+    }
+
+    const displayName = String(candidate?.displayName || "").toLowerCase();
+    const publicChatId = String(candidate?.publicChatId || "").toLowerCase();
+    return displayName.includes(search) || publicChatId.includes(search);
+  }
+
+  async function listDmCandidates({ user, query = {} } = {}) {
+    if (!options.chatEnabled) {
+      throw createFeatureDisabledError();
+    }
+
+    const actorUserId = normalizeUserId(user);
+    const normalizedSearch = normalizeDmCandidatesSearch(query?.q);
+    const limit = normalizeDmCandidatesLimit(query?.limit);
+
+    const actorSettings = await chatUserSettingsRepository.ensureForUserId(actorUserId);
+    if (!options.chatGlobalDmsEnabled || !actorSettings?.allowGlobalDms) {
+      return {
+        items: []
+      };
+    }
+
+    if (typeof workspaceMembershipsRepository.listByUserId !== "function") {
+      return {
+        items: []
+      };
+    }
+
+    const actorMemberships = await workspaceMembershipsRepository.listByUserId(actorUserId);
+    const workspaceIds = Array.from(
+      new Set(
+        (Array.isArray(actorMemberships) ? actorMemberships : [])
+          .filter((membership) => String(membership?.status || "") === "active")
+          .map((membership) => parsePositiveInteger(membership?.workspaceId))
+          .filter(Boolean)
+      )
+    );
+
+    if (workspaceIds.length < 1 || typeof workspaceMembershipsRepository.listActiveByWorkspaceId !== "function") {
+      return {
+        items: []
+      };
+    }
+
+    const candidateByUserId = new Map();
+    for (const workspaceId of workspaceIds) {
+      const members = await workspaceMembershipsRepository.listActiveByWorkspaceId(workspaceId);
+      for (const member of Array.isArray(members) ? members : []) {
+        const candidateUserId = parsePositiveInteger(member?.userId);
+        if (!candidateUserId || candidateUserId === actorUserId) {
+          continue;
+        }
+
+        const existing = candidateByUserId.get(candidateUserId) || {
+          userId: candidateUserId,
+          sharedWorkspaceCount: 0
+        };
+        existing.sharedWorkspaceCount += 1;
+        candidateByUserId.set(candidateUserId, existing);
+      }
+    }
+
+    if (candidateByUserId.size < 1) {
+      return {
+        items: []
+      };
+    }
+
+    const candidates = [];
+    for (const [candidateUserId, candidateMeta] of candidateByUserId.entries()) {
+      const blockedEitherDirection = await chatBlocksRepository.isBlockedEitherDirection(actorUserId, candidateUserId);
+      if (blockedEitherDirection) {
+        continue;
+      }
+
+      const settings = await chatUserSettingsRepository.findByUserId(candidateUserId);
+      if (!settings || !settings.publicChatId || !settings.discoverableByPublicChatId || !settings.allowGlobalDms) {
+        continue;
+      }
+
+      const userSummary = await resolveUserSummary(candidateUserId);
+      const candidate = {
+        userId: candidateUserId,
+        displayName: String(userSummary?.displayName || `User #${candidateUserId}`),
+        avatarUrl: userSummary?.avatarUrl ? String(userSummary.avatarUrl) : null,
+        publicChatId: String(settings.publicChatId || "").trim(),
+        sharedWorkspaceCount: Math.max(1, Number(candidateMeta?.sharedWorkspaceCount || 1))
+      };
+
+      if (!candidate.publicChatId || !matchesDmCandidateSearch(candidate, normalizedSearch)) {
+        continue;
+      }
+
+      candidates.push(candidate);
+    }
+
+    candidates.sort((left, right) => {
+      const byDisplayName = String(left.displayName || "").localeCompare(String(right.displayName || ""), undefined, {
+        sensitivity: "base"
+      });
+      if (byDisplayName !== 0) {
+        return byDisplayName;
+      }
+      return Number(left.userId) - Number(right.userId);
+    });
+
+    return {
+      items: candidates.slice(0, limit)
+    };
   }
 
   async function ensureDm({ user, targetPublicChatId }) {
@@ -2541,6 +2679,7 @@ function createService({
 
   return {
     ensureDm,
+    listDmCandidates,
     listInbox,
     getThread,
     listThreadMessages,

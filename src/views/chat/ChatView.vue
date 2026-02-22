@@ -6,9 +6,9 @@
           <v-card-item>
             <v-card-title class="text-subtitle-2 font-weight-bold">Inbox</v-card-title>
             <template #append>
-              <div class="d-flex ga-2">
+              <div class="chat-side-actions">
                 <v-btn variant="text" size="small" :loading="state.inboxLoading" @click="actions.refreshInbox">Refresh</v-btn>
-                <v-btn variant="tonal" size="small" :loading="state.dmPending" @click="dmDialogOpen = true">Start DM</v-btn>
+                <v-btn variant="tonal" size="small" :loading="state.dmPending" @click="openDmDialog">Start DM</v-btn>
                 <v-btn variant="text" size="small" :href="workspaceChatPath">Workspace chat</v-btn>
               </div>
             </template>
@@ -257,23 +257,72 @@
       <v-card rounded="lg" border>
         <v-card-item>
           <v-card-title class="text-subtitle-1 font-weight-bold">Start Direct Message</v-card-title>
-          <v-card-subtitle>Enter a target user's public chat id.</v-card-subtitle>
+          <v-card-subtitle>Select a user from your shared workspaces.</v-card-subtitle>
         </v-card-item>
         <v-divider />
         <v-card-text>
-          <v-text-field
-            v-model="targetPublicChatId"
-            label="Public chat id"
-            placeholder="e.g. u29"
-            :maxlength="64"
-            hint="Ask the other user for their public chat id."
-            persistent-hint
-            :disabled="state.dmPending"
-          />
+          <v-alert v-if="state.dmCandidatesError" type="error" variant="tonal" density="comfortable" class="mb-3">
+            {{ state.dmCandidatesError }}
+          </v-alert>
+
+          <div class="d-flex ga-2 align-center mb-3">
+            <v-text-field
+              v-model="dmSearchQuery"
+              label="Search people"
+              placeholder="Name or public chat id"
+              hide-details
+              density="comfortable"
+              :disabled="state.dmPending || state.dmCandidatesLoading"
+            />
+            <v-btn
+              variant="text"
+              size="small"
+              :loading="state.dmCandidatesLoading"
+              :disabled="state.dmPending"
+              @click="refreshDmCandidates"
+            >
+              Refresh
+            </v-btn>
+          </div>
+
+          <div class="chat-dm-candidates">
+            <v-list density="comfortable" nav class="pa-0">
+              <v-list-item v-if="state.dmCandidatesLoading" title="Loading people..." />
+              <v-list-item
+                v-else-if="dmFilteredCandidates.length < 1"
+                title="No available people found."
+                subtitle="Try another search or check DM availability settings."
+              />
+              <v-list-item
+                v-for="candidate in dmFilteredCandidates"
+                v-else
+                :key="candidate.userId"
+                :title="candidate.displayName"
+                :subtitle="`${candidate.publicChatId} · ${candidate.sharedWorkspaceCount} shared workspace${candidate.sharedWorkspaceCount === 1 ? '' : 's'}`"
+              >
+                <template #prepend>
+                  <v-avatar size="30">
+                    <v-img v-if="candidate.avatarUrl" :src="candidate.avatarUrl" cover />
+                    <span v-else class="chat-thread-avatar-initials">{{ avatarInitialsFromLabel(candidate.displayName) }}</span>
+                  </v-avatar>
+                </template>
+                <template #append>
+                  <v-btn
+                    size="small"
+                    variant="tonal"
+                    :loading="state.dmPending"
+                    :disabled="state.dmPending || state.dmCandidatesLoading"
+                    @click="startDmWithCandidate(candidate)"
+                  >
+                    Start
+                  </v-btn>
+                </template>
+              </v-list-item>
+            </v-list>
+          </div>
         </v-card-text>
         <v-card-actions class="justify-end">
-          <v-btn variant="text" :disabled="state.dmPending" @click="closeDmDialog">Cancel</v-btn>
-          <v-btn color="primary" :loading="state.dmPending" @click="startDm">Start</v-btn>
+          <v-btn variant="text" :disabled="state.dmPending" @click="closeDmDialog">Close</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -288,10 +337,23 @@ import { useChatView } from "./useChatView.js";
 const { meta, state, helpers, actions } = useChatView();
 const workspaceStore = useWorkspaceStore();
 const dmDialogOpen = ref(false);
-const targetPublicChatId = ref("");
+const dmSearchQuery = ref("");
 const composerFileInputRef = ref(null);
 const workspaceChatPath = computed(() => workspaceStore.workspacePath("/workspace-chat"));
 const readableUploadLimit = computed(() => formatBytes(meta.attachmentMaxUploadBytes));
+const dmFilteredCandidates = computed(() => {
+  const candidates = Array.isArray(state.dmCandidates) ? state.dmCandidates : [];
+  const search = normalizeText(dmSearchQuery.value).toLowerCase();
+  if (!search) {
+    return candidates;
+  }
+
+  return candidates.filter((candidate) => {
+    const name = normalizeText(candidate?.displayName).toLowerCase();
+    const publicChatId = normalizeText(candidate?.publicChatId).toLowerCase();
+    return name.includes(search) || publicChatId.includes(search);
+  });
+});
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -437,11 +499,23 @@ async function handleComposerFileInputChange(event) {
 
 function closeDmDialog() {
   dmDialogOpen.value = false;
-  targetPublicChatId.value = "";
+  dmSearchQuery.value = "";
 }
 
-async function startDm() {
-  const threadId = await actions.ensureDmThread(targetPublicChatId.value);
+async function refreshDmCandidates() {
+  await actions.refreshDmCandidates({
+    limit: Number(meta.dmCandidatesPageSize || 100)
+  });
+}
+
+async function openDmDialog() {
+  dmDialogOpen.value = true;
+  dmSearchQuery.value = "";
+  await refreshDmCandidates();
+}
+
+async function startDmWithCandidate(candidate) {
+  const threadId = await actions.ensureDmThread(candidate?.publicChatId);
   if (threadId > 0) {
     closeDmDialog();
   }
@@ -455,6 +529,14 @@ async function startDm() {
 
 .chat-layout {
   align-items: stretch;
+}
+
+.chat-side-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  justify-content: flex-end;
 }
 
 .chat-side-card,
@@ -483,12 +565,12 @@ async function startDm() {
   align-items: center;
   width: fit-content;
   max-width: 100%;
-  padding: 0.35rem 0.65rem;
+  padding: 0.22rem 0.55rem;
   border-radius: 999px;
   border: 1px solid rgba(var(--v-theme-success), 0.28);
   background: rgba(var(--v-theme-success), 0.12);
   color: rgb(var(--v-theme-success));
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 600;
 }
 
@@ -632,6 +714,13 @@ async function startDm() {
   white-space: nowrap;
 }
 
+.chat-dm-candidates {
+  max-height: 52vh;
+  overflow: auto;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
+  border-radius: 12px;
+}
+
 .chat-actions {
   display: flex;
   align-items: center;
@@ -683,12 +772,46 @@ async function startDm() {
 }
 
 @media (max-width: 960px) {
+  .chat-view {
+    padding-block: 0.2rem 0.45rem;
+  }
+
+  .chat-side-actions {
+    justify-content: flex-start;
+  }
+
   .chat-thread-list-wrapper {
-    min-height: 360px;
+    min-height: 300px;
   }
 
   .chat-message-panel {
-    max-height: 52vh;
+    min-height: 280px;
+    max-height: 48vh;
+    padding: 0.65rem 0.7rem;
+    border-radius: 12px;
+  }
+
+  .chat-message-body {
+    max-width: min(86%, 520px);
+  }
+
+  .chat-message-meta {
+    gap: 0.35rem;
+    flex-wrap: wrap;
+  }
+
+  .chat-composer-tools {
+    align-items: flex-start;
+  }
+
+  .chat-actions {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .chat-dm-candidates {
+    max-height: 44vh;
   }
 }
 </style>

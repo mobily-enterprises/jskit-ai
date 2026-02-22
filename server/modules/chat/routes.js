@@ -48,6 +48,28 @@ function buildRoutes(
       handler: controllers.chat?.ensureDm || missingHandler
     },
     {
+      path: "/api/chat/dm/candidates",
+      method: "GET",
+      auth: "required",
+      workspacePolicy: "none",
+      schema: {
+        tags: ["chat"],
+        summary: "List eligible direct-message candidates for authenticated user",
+        querystring: schema.query.dmCandidates,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.dmCandidates
+          },
+          { includeValidation400: true }
+        )
+      },
+      rateLimit: {
+        max: 90,
+        timeWindow: "1 minute"
+      },
+      handler: controllers.chat?.listDmCandidates || missingHandler
+    },
+    {
       path: "/api/chat/inbox",
       method: "GET",
       auth: "required",

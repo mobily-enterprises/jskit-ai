@@ -36,7 +36,9 @@ describe("ChatView template", () => {
     const source = readChatViewSource();
 
     expect(source.includes("Start DM")).toBe(true);
+    expect(source.includes("actions.refreshDmCandidates")).toBe(true);
     expect(source.includes("actions.ensureDmThread")).toBe(true);
+    expect(source.includes("dmFilteredCandidates")).toBe(true);
     expect(source.includes("state.messageRows")).toBe(true);
     expect(source.includes("chat-message-bubble")).toBe(true);
   });

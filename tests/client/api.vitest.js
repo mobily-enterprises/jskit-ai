@@ -729,6 +729,7 @@ describe("client api transport", () => {
     });
 
     await api.chat.ensureDm({ targetPublicChatId: "friend_1" });
+    await api.chat.listDmCandidates({ q: "friend", limit: 8 });
     await api.chat.listInbox({ cursor: "cursor-1", limit: 15 });
     await api.chat.getThread("thread/id");
     await api.chat.listThreadMessages("thread/id", { cursor: "cursor-2", limit: 30 });
@@ -756,6 +757,7 @@ describe("client api transport", () => {
 
     const urls = global.fetch.mock.calls.map(([url]) => url);
     expect(urls).toContain("/api/chat/dm/ensure");
+    expect(urls).toContain("/api/chat/dm/candidates?q=friend&limit=8");
     expect(urls).toContain("/api/chat/inbox?cursor=cursor-1&limit=15");
     expect(urls).toContain("/api/chat/threads/thread%2Fid");
     expect(urls).toContain("/api/chat/threads/thread%2Fid/messages?cursor=cursor-2&limit=30");

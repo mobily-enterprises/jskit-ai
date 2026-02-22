@@ -59,6 +59,16 @@ function createSchema({
     }
   );
 
+  const dmCandidatesQuery = Type.Object(
+    {
+      q: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 }))
+    },
+    {
+      additionalProperties: false
+    }
+  );
+
   const dmEnsureBody = Type.Object(
     {
       targetPublicChatId: Type.String({ minLength: 1, maxLength: 64 })
@@ -253,6 +263,28 @@ function createSchema({
     }
   );
 
+  const dmCandidate = Type.Object(
+    {
+      userId: Type.Integer({ minimum: 1 }),
+      displayName: Type.String(),
+      avatarUrl: Type.Union([Type.String(), Type.Null()]),
+      publicChatId: Type.String({ minLength: 1, maxLength: 64 }),
+      sharedWorkspaceCount: Type.Integer({ minimum: 1 })
+    },
+    {
+      additionalProperties: false
+    }
+  );
+
+  const dmCandidatesResponse = Type.Object(
+    {
+      items: Type.Array(dmCandidate)
+    },
+    {
+      additionalProperties: false
+    }
+  );
+
   const messagesResponse = Type.Object(
     {
       items: Type.Array(messageEntity),
@@ -317,7 +349,8 @@ function createSchema({
   return {
     query: {
       inbox: inboxQuery,
-      messages: messagesQuery
+      messages: messagesQuery,
+      dmCandidates: dmCandidatesQuery
     },
     params: {
       thread: threadParams,
@@ -333,6 +366,7 @@ function createSchema({
     },
     response: {
       dmEnsure: dmEnsureResponse,
+      dmCandidates: dmCandidatesResponse,
       inbox: inboxResponse,
       thread: threadResponse,
       messages: messagesResponse,

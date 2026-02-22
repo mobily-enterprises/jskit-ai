@@ -14,6 +14,7 @@ import {
 
 const INBOX_PAGE_SIZE = 20;
 const THREAD_MESSAGES_PAGE_SIZE = 50;
+const DM_CANDIDATES_PAGE_SIZE = 100;
 const CHAT_MESSAGE_MAX_TEXT_CHARS = 4000;
 const CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE = 5;
 const CHAT_ATTACHMENT_MAX_UPLOAD_BYTES = 20_000_000;
@@ -95,6 +96,22 @@ function normalizePublicChatId(value) {
     return "";
   }
   return normalized.slice(0, DM_PUBLIC_CHAT_ID_MAX_CHARS);
+}
+
+function normalizeDmCandidate(value) {
+  const userId = normalizeThreadId(value?.userId);
+  const publicChatId = normalizePublicChatId(value?.publicChatId);
+  if (!userId || !publicChatId) {
+    return null;
+  }
+
+  return {
+    userId,
+    displayName: normalizeText(value?.displayName) || `User #${userId}`,
+    avatarUrl: normalizeAvatarUrl(value?.avatarUrl),
+    publicChatId,
+    sharedWorkspaceCount: Math.max(1, Number(value?.sharedWorkspaceCount || 1))
+  };
 }
 
 function normalizeFilesArray(filesValue) {
@@ -336,6 +353,9 @@ export function useChatView() {
   const dmPending = ref(false);
   const sendStatus = ref("");
   const actionError = ref("");
+  const dmCandidates = ref([]);
+  const dmCandidatesLoading = ref(false);
+  const dmCandidatesError = ref("");
 
   const markReadInFlightThreadId = ref(0);
   const markedReadSeqByThreadId = new Map();
@@ -1088,6 +1108,39 @@ export function useChatView() {
     }
   }
 
+  async function refreshDmCandidates({ search = "", limit = DM_CANDIDATES_PAGE_SIZE } = {}) {
+    if (typeof api?.chat?.listDmCandidates !== "function") {
+      dmCandidates.value = [];
+      dmCandidatesError.value = "Direct-message candidates are unavailable.";
+      return [];
+    }
+
+    dmCandidatesLoading.value = true;
+    dmCandidatesError.value = "";
+
+    try {
+      const result = await api.chat.listDmCandidates({
+        q: normalizeText(search) || undefined,
+        limit
+      });
+
+      const items = Array.isArray(result?.items) ? result.items : [];
+      dmCandidates.value = items.map((entry) => normalizeDmCandidate(entry)).filter(Boolean);
+    } catch (error) {
+      const handled = await handleUnauthorizedError(error);
+      if (handled) {
+        return [];
+      }
+
+      dmCandidatesError.value = mapChatError(error, "Unable to load direct-message candidates.").message;
+      dmCandidates.value = [];
+    } finally {
+      dmCandidatesLoading.value = false;
+    }
+
+    return dmCandidates.value;
+  }
+
   watch(
     threads,
     (nextThreads) => {
@@ -1161,6 +1214,7 @@ export function useChatView() {
     meta: {
       inboxPageSize: INBOX_PAGE_SIZE,
       messagePageSize: THREAD_MESSAGES_PAGE_SIZE,
+      dmCandidatesPageSize: DM_CANDIDATES_PAGE_SIZE,
       messageMaxChars: CHAT_MESSAGE_MAX_TEXT_CHARS,
       attachmentMaxFilesPerMessage: CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE,
       attachmentMaxUploadBytes: CHAT_ATTACHMENT_MAX_UPLOAD_BYTES
@@ -1181,6 +1235,9 @@ export function useChatView() {
       sendOnEnter,
       sendPending,
       dmPending,
+      dmCandidates,
+      dmCandidatesLoading,
+      dmCandidatesError,
       sendStatus,
       actionError,
       inboxError,
@@ -1214,6 +1271,7 @@ export function useChatView() {
     actions: {
       selectThread,
       ensureDmThread,
+      refreshDmCandidates,
       refreshInbox,
       refreshThread,
       loadMoreThreads,

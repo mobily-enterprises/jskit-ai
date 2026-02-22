@@ -88,6 +88,15 @@ function createController({ chatService }) {
     reply.code(200).send(result);
   }
 
+  async function listDmCandidates(request, reply) {
+    const result = await chatService.listDmCandidates({
+      user: request.user,
+      query: request.query || {}
+    });
+
+    reply.code(200).send(result);
+  }
+
   async function listInbox(request, reply) {
     const result = await chatService.listInbox({
       user: request.user,
@@ -236,6 +245,7 @@ function createController({ chatService }) {
 
   return {
     ensureDm,
+    listDmCandidates,
     listInbox,
     getThread,
     listThreadMessages,

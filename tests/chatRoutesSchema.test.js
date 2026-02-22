@@ -88,6 +88,19 @@ function buildControllers() {
           created: true
         });
       },
+      async listDmCandidates(_request, reply) {
+        reply.code(200).send({
+          items: [
+            {
+              userId: 8,
+              displayName: "User 8",
+              avatarUrl: null,
+              publicChatId: "u8",
+              sharedWorkspaceCount: 1
+            }
+          ]
+        });
+      },
       async listInbox(_request, reply) {
         reply.code(200).send({
           items: [thread],
@@ -170,7 +183,7 @@ test("chat routes use required auth and workspace-agnostic policy", () => {
     missingHandler: createMissingHandler()
   });
 
-  assert.equal(routes.length, 13);
+  assert.equal(routes.length, 14);
 
   for (const route of routes) {
     assert.equal(route.auth, "required");
@@ -204,6 +217,18 @@ test("chat dm ensure and message send schemas enforce required fields", async ()
     }
   });
   assert.equal(validEnsure.statusCode, 200);
+
+  const invalidCandidates = await app.inject({
+    method: "GET",
+    url: "/api/chat/dm/candidates?limit=0"
+  });
+  assert.equal(invalidCandidates.statusCode, 400);
+
+  const validCandidates = await app.inject({
+    method: "GET",
+    url: "/api/chat/dm/candidates?q=u&limit=10"
+  });
+  assert.equal(validCandidates.statusCode, 200);
 
   const invalidSend = await app.inject({
     method: "POST",
