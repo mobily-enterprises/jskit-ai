@@ -1,5 +1,18 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Tenth Review Amendments Summary (Post-commit server review #10)
+
+This section records corrections made during a tenth pass after the prior review cycles.
+
+### Existing-code integration fit clarifications
+
+- Added an explicit warning that `workspaceService.resolveRequestContext(...)` has side effects in the current codebase (it can update `lastActiveWorkspaceId`), so chat authz-only checks must not call it naively in scope-agnostic thread routes or inbox filtering loops.
+- Clarified the recommended implementation pattern for workspace-thread authz on `/api/chat/...`: use a no-side-effects helper path (or a resolver mode that disables persistence) rather than repeatedly invoking the full selection resolver.
+
+### Data consistency / normalization clarifications
+
+- Added reaction canonicalization guidance so `chat_message_reactions.reaction` values are normalized before uniqueness checks (prevents duplicate-equivalent reactions caused by Unicode variation/normalization differences).
+
 ## Ninth Review Amendments Summary (Post-commit server review #9)
 
 This section records corrections made during a ninth pass after the prior review cycles.
@@ -885,6 +898,7 @@ Notes:
 
 - `thread_id` can be validated against message thread in service layer.
 - If desired, enforce consistency by always deriving `thread_id` from message lookup in service and not exposing it in controller payload.
+- Normalize/canonicalize `reaction` values before insert/delete lookups (e.g. chosen emoji representation, Unicode normalization policy, optional variation-selector policy) so `UNIQUE(message_id, user_id, reaction)` matches product-visible behavior.
 
 ## Migration Plan (Detailed, in repo style)
 
@@ -1226,6 +1240,7 @@ Then inside service/controller:
 - if `scope_kind=workspace`, treat client `x-surface-id` as untrusted input: validate against allowed workspace surfaces (`app`/`admin`) and reject ambiguous/invalid values
 - if `scope_kind=workspace`, resolve workspace context and permission via `workspaceService.resolveRequestContext(...)` using the **server-loaded thread workspace identity** (not client-provided `x-workspace-slug`) plus the validated request surface
   - implementation note: in the current codebase `resolveRequestContext(...)` reads workspace/surface from request headers/query/params, so use a server-sanitized request shim (or dedicated helper) that injects the thread workspace slug and validated surface instead of passing the raw request unchanged
+  - important: `resolveRequestContext(...)` also updates `lastActiveWorkspaceId` as part of selection logic today; avoid calling it in authz-only loops/paths unless using a no-side-effects helper/mode, or you risk mutating user settings during thread reads/inbox listing
 - enforce participant status
 - if `scope_kind=global`, apply global DM policy and participant checks
 
