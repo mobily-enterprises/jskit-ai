@@ -4,7 +4,8 @@ import { api } from "../../services/api/index.js";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 import {
   workspaceBillingPlanStateQueryKey,
-  workspaceBillingProductsQueryKey
+  workspaceBillingProductsQueryKey,
+  workspaceBillingPurchasesQueryKey
 } from "../../features/workspaceAdmin/queryKeys.js";
 
 function formatDateOnly(value) {
@@ -99,6 +100,41 @@ function normalizeCatalogProduct(entry) {
   };
 }
 
+function normalizePurchase(entry) {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+
+  const amountMinor = Number(entry.amountMinor || 0);
+  const quantity = Number(entry.quantity || 1);
+  return {
+    id: Number(entry.id || 0),
+    purchaseKind: String(entry.purchaseKind || ""),
+    status: String(entry.status || "confirmed"),
+    amountMinor: Number.isFinite(amountMinor) ? amountMinor : 0,
+    currency: String(entry.currency || "USD"),
+    quantity: Number.isInteger(quantity) && quantity > 0 ? quantity : 1,
+    displayName: entry.displayName == null ? null : String(entry.displayName),
+    purchasedAt: String(entry.purchasedAt || "")
+  };
+}
+
+function formatPurchaseKindLabel(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) {
+    return "Purchase";
+  }
+  if (normalized === "subscription_invoice") {
+    return "Plan charge";
+  }
+
+  return normalized
+    .split("_")
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
+}
+
 function formatPlanOptionTitle(plan) {
   const name = String(plan?.name || plan?.code || "Plan").trim();
   const corePrice = plan?.corePrice && typeof plan.corePrice === "object" ? plan.corePrice : null;
@@ -146,6 +182,11 @@ export function useWorkspaceBillingView() {
   const productsQuery = useQuery({
     queryKey: computed(() => workspaceBillingProductsQueryKey(workspaceSlug.value)),
     queryFn: () => api.billing.listProducts(),
+    enabled: computed(() => Boolean(workspaceSlug.value))
+  });
+  const purchasesQuery = useQuery({
+    queryKey: computed(() => workspaceBillingPurchasesQueryKey(workspaceSlug.value)),
+    queryFn: () => api.billing.listPurchases(),
     enabled: computed(() => Boolean(workspaceSlug.value))
   });
 
@@ -232,6 +273,21 @@ export function useWorkspaceBillingView() {
     return items;
   });
 
+  const purchaseItems = computed(() => {
+    const entries = Array.isArray(purchasesQuery.data.value?.purchases) ? purchasesQuery.data.value.purchases : [];
+    return entries
+      .map(normalizePurchase)
+      .filter(Boolean)
+      .map((entry) => ({
+        ...entry,
+        kindLabel: formatPurchaseKindLabel(entry.purchaseKind),
+        title: String(entry.displayName || "").trim() || formatPurchaseKindLabel(entry.purchaseKind)
+      }));
+  });
+
+  const purchasesLoading = computed(() => Boolean(purchasesQuery.isPending.value || purchasesQuery.isFetching.value));
+  const purchasesError = computed(() => String(purchasesQuery.error.value?.message || ""));
+
   watch(
     planOptions,
     (nextOptions) => {
@@ -293,7 +349,7 @@ export function useWorkspaceBillingView() {
   }
 
   async function refresh() {
-    await planStateQuery.refetch();
+    await Promise.all([planStateQuery.refetch(), purchasesQuery.refetch()]);
   }
 
   async function submitPlanChange() {
@@ -515,6 +571,9 @@ export function useWorkspaceBillingView() {
       cancelCurrentPlanLoading,
       cancelPlanChangeLoading,
       catalogItems,
+      purchaseItems,
+      purchasesLoading,
+      purchasesError,
       selectedCatalogPriceId,
       selectedCatalogQuantity,
       oneOffMode,

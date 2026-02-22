@@ -499,6 +499,7 @@ describe("client api transport", () => {
       operationKey: "op_456",
       providerEventId: "evt_456"
     });
+    await api.billing.listPurchases();
     await api.billing.getPlanState();
     await api.billing.requestPlanChange({
       planCode: "pro",
@@ -563,6 +564,7 @@ describe("client api transport", () => {
     expect(urls).toContain(
       "/api/billing/timeline?page=3&pageSize=20&source=payment&operationKey=op_456&providerEventId=evt_456"
     );
+    expect(urls).toContain("/api/billing/purchases");
     expect(urls).toContain("/api/billing/plan-state");
     expect(urls).toContain("/api/billing/plan-change");
     expect(urls).toContain("/api/billing/plan-change/cancel");

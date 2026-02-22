@@ -10,6 +10,7 @@ import {
   isSubscriptionStatusCurrent,
   normalizeProviderSubscriptionStatus,
   parseUnixEpochSeconds,
+  resolveInvoiceSubscriptionId,
   sortDuplicateCandidatesForCanonicalSelection,
   toNullableString,
   toPositiveInteger,
@@ -518,7 +519,7 @@ function createService(options = {}) {
       throw new AppError(400, "Provider invoice payload missing id.");
     }
 
-    let providerSubscriptionId = toNullableString(projectionInvoice?.subscription);
+    let providerSubscriptionId = resolveInvoiceSubscriptionId(projectionInvoice);
     const providerCustomerId = toNullableString(projectionInvoice?.customer);
     let subscription = null;
     let resolvedBillableEntityId =

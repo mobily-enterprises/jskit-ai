@@ -155,42 +155,84 @@
           </v-card-text>
         </v-card>
 
-        <v-card rounded="lg" border class="mt-4">
-          <v-card-item>
-            <v-card-title class="text-subtitle-2 font-weight-bold">One-off purchases</v-card-title>
-            <v-card-subtitle>Click a product to open checkout.</v-card-subtitle>
-          </v-card-item>
-          <v-card-text>
-            <div v-if="state.catalogItems.length > 0" class="one-off-grid mb-3">
-              <button
-                v-for="item in state.catalogItems"
-                :key="item.value"
-                type="button"
-                class="one-off-tile"
-                :disabled="state.paymentLinkLoading"
-                @click="actions.buyCatalogItem(item)"
-              >
-                <span class="one-off-tile__name">{{ item.title }}</span>
-                <span class="one-off-tile__price">{{ item.subtitle }}</span>
-                <span class="one-off-tile__meta">
-                  <template v-if="state.buyingCatalogPriceId === item.value && state.paymentLinkLoading">
-                    Opening checkout...
-                  </template>
-                  <template v-else>
-                    Buy now
-                  </template>
-                </span>
-              </button>
-            </div>
-            <div v-else class="text-body-2 text-medium-emphasis mb-3">
-              No one-off products are available yet.
-            </div>
+        <v-row dense class="mt-4">
+          <v-col cols="12" lg="7">
+            <v-card rounded="lg" border class="h-100">
+              <v-card-item>
+                <v-card-title class="text-subtitle-2 font-weight-bold">One-off purchases</v-card-title>
+                <v-card-subtitle>Click a product to open checkout.</v-card-subtitle>
+              </v-card-item>
+              <v-card-text>
+                <div v-if="state.catalogItems.length > 0" class="one-off-grid mb-3">
+                  <button
+                    v-for="item in state.catalogItems"
+                    :key="item.value"
+                    type="button"
+                    class="one-off-tile"
+                    :disabled="state.paymentLinkLoading"
+                    @click="actions.buyCatalogItem(item)"
+                  >
+                    <span class="one-off-tile__name">{{ item.title }}</span>
+                    <span class="one-off-tile__price">{{ item.subtitle }}</span>
+                    <span class="one-off-tile__meta">
+                      <template v-if="state.buyingCatalogPriceId === item.value && state.paymentLinkLoading">
+                        Opening checkout...
+                      </template>
+                      <template v-else>
+                        Buy now
+                      </template>
+                    </span>
+                  </button>
+                </div>
+                <div v-else class="text-body-2 text-medium-emphasis mb-3">
+                  No one-off products are available yet.
+                </div>
 
-            <a v-if="state.lastPaymentLinkUrl" :href="state.lastPaymentLinkUrl" target="_blank" rel="noopener noreferrer">
-              Open payment link
-            </a>
-          </v-card-text>
-        </v-card>
+                <a v-if="state.lastPaymentLinkUrl" :href="state.lastPaymentLinkUrl" target="_blank" rel="noopener noreferrer">
+                  Open payment link
+                </a>
+              </v-card-text>
+            </v-card>
+          </v-col>
+
+          <v-col cols="12" lg="5">
+            <v-card rounded="lg" border class="h-100">
+              <v-card-item>
+                <v-card-title class="text-subtitle-2 font-weight-bold">Purchase history</v-card-title>
+                <v-card-subtitle>Confirmed charges, including plan invoices and one-off purchases.</v-card-subtitle>
+              </v-card-item>
+              <v-card-text>
+                <div v-if="state.purchasesError" class="text-body-2 text-error mb-2">
+                  {{ state.purchasesError }}
+                </div>
+                <div v-if="state.purchasesLoading" class="text-body-2 text-medium-emphasis">
+                  Loading purchases...
+                </div>
+                <v-list v-else-if="state.purchaseItems.length > 0" density="compact" lines="two" class="pa-0">
+                  <v-list-item v-for="purchase in state.purchaseItems" :key="purchase.id">
+                    <template #title>{{ purchase.title }}</template>
+                    <template #subtitle>
+                      {{ meta.formatDateOnly(purchase.purchasedAt) }} · {{ purchase.kindLabel }}
+                    </template>
+                    <template #append>
+                      <div class="purchase-amount">
+                        {{
+                          meta.formatMoneyMinor(
+                            Number(purchase.amountMinor || 0) * Number(purchase.quantity || 1),
+                            purchase.currency
+                          )
+                        }}
+                      </div>
+                    </template>
+                  </v-list-item>
+                </v-list>
+                <div v-else class="text-body-2 text-medium-emphasis">
+                  No confirmed purchases yet.
+                </div>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
       </v-card-text>
     </v-card>
   </section>
@@ -261,5 +303,11 @@ const { meta, state, actions } = useWorkspaceBillingView();
 .one-off-tile__meta {
   font-size: 0.78rem;
   color: rgba(var(--v-theme-on-surface), 0.65);
+}
+
+.purchase-amount {
+  font-size: 0.92rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 </style>

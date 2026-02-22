@@ -42,6 +42,37 @@ function normalizeCurrency(value) {
     .toUpperCase();
 }
 
+function normalizeOptionalEmail(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (!normalized || normalized.length > 320 || !normalized.includes("@") || normalized.includes(" ")) {
+    return "";
+  }
+  return normalized;
+}
+
+function buildPaymentLinkUrlWithEmailPrefill({ provider, paymentLinkUrl, customerEmail }) {
+  const normalizedUrl = String(paymentLinkUrl || "").trim();
+  const normalizedEmail = normalizeOptionalEmail(customerEmail);
+  const normalizedProvider = String(provider || "")
+    .trim()
+    .toLowerCase();
+  if (!normalizedUrl || !normalizedEmail || normalizedProvider !== "stripe") {
+    return normalizedUrl;
+  }
+
+  try {
+    const parsed = new URL(normalizedUrl);
+    if (!parsed.searchParams.has("prefilled_email")) {
+      parsed.searchParams.set("prefilled_email", normalizedEmail);
+    }
+    return parsed.toString();
+  } catch {
+    return normalizedUrl;
+  }
+}
+
 function normalizePaymentLinkQuantity(value) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 10000) {
@@ -145,10 +176,11 @@ function normalizePaymentLinkLineItems(items, { defaultCurrency }) {
   return normalizedItems;
 }
 
-function normalizePaymentLinkRequest({ billableEntityId, payload, defaultCurrency }) {
+function normalizePaymentLinkRequest({ billableEntityId, payload, defaultCurrency, customerEmail = "" }) {
   const body = payload && typeof payload === "object" ? payload : {};
   const normalizedSuccessPath = normalizeBillingPath(body.successPath, { fieldName: "successPath" });
   const sourceLineItems = Array.isArray(body.lineItems) && body.lineItems.length > 0 ? body.lineItems : null;
+  const normalizedCustomerEmail = normalizeOptionalEmail(customerEmail);
 
   const normalizedLineItems = sourceLineItems
     ? normalizePaymentLinkLineItems(sourceLineItems, { defaultCurrency })
@@ -158,7 +190,8 @@ function normalizePaymentLinkRequest({ billableEntityId, payload, defaultCurrenc
     action: BILLING_ACTIONS.PAYMENT_LINK,
     billableEntityId: Number(billableEntityId),
     successPath: normalizedSuccessPath,
-    lineItems: normalizedLineItems
+    lineItems: normalizedLineItems,
+    ...(normalizedCustomerEmail ? { customerEmail: normalizedCustomerEmail } : {})
   };
 }
 
@@ -634,6 +667,26 @@ function createService(options = {}) {
     };
   }
 
+  function mapPurchaseForResponse(entry) {
+    const purchase = entry && typeof entry === "object" ? entry : null;
+    if (!purchase) {
+      return null;
+    }
+
+    return {
+      id: Number(purchase.id || 0),
+      purchaseKind: String(purchase.purchaseKind || ""),
+      status: String(purchase.status || "confirmed"),
+      amountMinor: Number(purchase.amountMinor || 0),
+      currency: String(purchase.currency || "USD")
+        .trim()
+        .toUpperCase(),
+      quantity: purchase.quantity == null ? 1 : Number(purchase.quantity || 1),
+      displayName: purchase.displayName == null ? null : String(purchase.displayName),
+      purchasedAt: String(purchase.purchasedAt || "")
+    };
+  }
+
   async function updateIdempotencyWithLeaseFence({ idempotencyRowId, leaseVersion = null, patch = {} }) {
     const normalizedLeaseVersion = toLeaseVersionOrNull(leaseVersion);
     const options = normalizedLeaseVersion != null ? { expectedLeaseVersion: normalizedLeaseVersion } : {};
@@ -723,6 +776,28 @@ function createService(options = {}) {
 
     return {
       products: entries
+    };
+  }
+
+  async function listPurchases(requestContext = {}) {
+    const { billableEntity } = await billingPolicyService.resolveBillableEntityForReadRequest(requestContext);
+
+    if (typeof billingRepository.listBillingPurchasesForEntity !== "function") {
+      return {
+        billableEntity,
+        purchases: []
+      };
+    }
+
+    const rows = await billingRepository.listBillingPurchasesForEntity({
+      billableEntityId: billableEntity.id,
+      status: "confirmed",
+      limit: 50
+    });
+
+    return {
+      billableEntity,
+      purchases: rows.map(mapPurchaseForResponse).filter(Boolean)
     };
   }
 
@@ -2738,14 +2813,19 @@ function createService(options = {}) {
     return responseJson;
   }
 
-  function buildPaymentLinkResponseJson({ paymentLink, billableEntityId, operationKey }) {
+  function buildPaymentLinkResponseJson({ paymentLink, billableEntityId, operationKey, customerEmail = "" }) {
+    const paymentLinkUrl = buildPaymentLinkUrlWithEmailPrefill({
+      provider: activeProvider,
+      paymentLinkUrl: paymentLink?.url,
+      customerEmail
+    });
     return {
       provider: activeProvider,
       billableEntityId: Number(billableEntityId),
       operationKey: String(operationKey || ""),
       paymentLink: {
         id: String(paymentLink?.id || ""),
-        url: String(paymentLink?.url || ""),
+        url: paymentLinkUrl,
         active: Boolean(paymentLink?.active !== false)
       }
     };
@@ -3160,7 +3240,8 @@ function createService(options = {}) {
     const responseJson = buildPaymentLinkResponseJson({
       paymentLink,
       billableEntityId: recoveryRow.billableEntityId,
-      operationKey: recoveryRow.operationKey
+      operationKey: recoveryRow.operationKey,
+      customerEmail: recoveryRow.normalizedRequestJson?.customerEmail
     });
 
     await billingIdempotencyService.markSucceeded({
@@ -3186,7 +3267,8 @@ function createService(options = {}) {
     const normalizedRequest = normalizePaymentLinkRequest({
       billableEntityId: billableEntity.id,
       payload,
-      defaultCurrency: deploymentCurrency
+      defaultCurrency: deploymentCurrency,
+      customerEmail: user?.email
     });
     await assertPaymentLinkCatalogLineItemsAllowed({
       normalizedRequest
@@ -3404,7 +3486,8 @@ function createService(options = {}) {
     const responseJson = buildPaymentLinkResponseJson({
       paymentLink,
       billableEntityId: billableEntity.id,
-      operationKey: idempotencyRow.operationKey
+      operationKey: idempotencyRow.operationKey,
+      customerEmail: normalizedRequest.customerEmail
     });
 
     try {
@@ -3442,6 +3525,7 @@ function createService(options = {}) {
     seedSignupPromoPlan,
     listPlans,
     listProducts,
+    listPurchases,
     getPlanState,
     requestPlanChange,
     cancelPendingPlanChange,

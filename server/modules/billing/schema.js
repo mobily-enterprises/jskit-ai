@@ -217,6 +217,32 @@ const productsResponse = Type.Object(
   }
 );
 
+const purchase = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    purchaseKind: Type.String({ minLength: 1 }),
+    status: Type.String({ minLength: 1 }),
+    amountMinor: Type.Integer({ minimum: 0 }),
+    currency: Type.String({ minLength: 3, maxLength: 3 }),
+    quantity: Type.Integer({ minimum: 1 }),
+    displayName: Type.Union([Type.String(), Type.Null()]),
+    purchasedAt: Type.String({ format: "iso-utc-date-time" })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const purchasesResponse = Type.Object(
+  {
+    billableEntity,
+    purchases: Type.Array(purchase)
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const checkoutBody = Type.Object(
   {
     checkoutType: Type.Optional(Type.String({ minLength: 1, maxLength: 32 })),
@@ -529,6 +555,7 @@ const schema = {
   response: {
     plans: plansResponse,
     products: productsResponse,
+    purchases: purchasesResponse,
     paymentMethods: paymentMethodsResponse,
     paymentMethodSync: paymentMethodSyncResponse,
     limitations: limitationsResponse,

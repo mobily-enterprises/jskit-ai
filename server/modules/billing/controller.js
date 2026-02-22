@@ -42,6 +42,15 @@ function createController({ billingService, billingWebhookService }) {
     reply.code(200).send(response);
   }
 
+  async function listPurchases(request, reply) {
+    const response = await billingService.listPurchases({
+      request,
+      user: request.user
+    });
+
+    reply.code(200).send(response);
+  }
+
   async function getPlanState(request, reply) {
     const response = await billingService.getPlanState({
       request,
@@ -178,6 +187,7 @@ function createController({ billingService, billingWebhookService }) {
   return {
     listPlans,
     listProducts,
+    listPurchases,
     getPlanState,
     listPaymentMethods,
     syncPaymentMethods,

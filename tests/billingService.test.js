@@ -591,7 +591,8 @@ test("billing service createPaymentLink supports catalog and ad_hoc line items",
       headers: {}
     },
     user: {
-      id: 11
+      id: 11,
+      email: "billing-owner@example.test"
     },
     payload: {
       successPath: "/billing/success",
@@ -616,6 +617,7 @@ test("billing service createPaymentLink supports catalog and ad_hoc line items",
   assert.equal(response.billableEntityId, 41);
   assert.equal(response.operationKey, "op_payment_link_201");
   assert.equal(response.paymentLink.id, "plink_201");
+  assert.equal(response.paymentLink.url, "https://buy.stripe.test/plink_201?prefilled_email=billing-owner%40example.test");
   assert.equal(createdPriceCalls.length, 1);
   assert.equal(createdPriceCalls[0].idempotencyKey, "prov_idem_payment_link_201:price:1");
   assert.equal(createdPaymentLinkCalls.length, 1);
@@ -629,6 +631,7 @@ test("billing service createPaymentLink supports catalog and ad_hoc line items",
       quantity: 1
     }
   ]);
+  assert.equal(createdPaymentLinkCalls[0].params.customer_email, undefined);
   assert.equal(createdPaymentLinkCalls[0].params.invoice_creation.enabled, true);
   assert.equal(updateCalls.length, 2);
   assert.equal(updateCalls[0].id, 201);

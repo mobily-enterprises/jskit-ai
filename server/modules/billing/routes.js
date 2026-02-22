@@ -33,6 +33,20 @@ function buildRoutes(controllers, { missingHandler } = {}) {
       handler: controllers.billing?.listProducts || missingHandler
     },
     {
+      path: "/api/billing/purchases",
+      method: "GET",
+      auth: "required",
+      workspacePolicy: "optional",
+      schema: {
+        tags: ["billing"],
+        summary: "List confirmed billing purchases for the selected billable entity",
+        response: withStandardErrorResponses({
+          200: schema.response.purchases
+        })
+      },
+      handler: controllers.billing?.listPurchases || missingHandler
+    },
+    {
       path: "/api/billing/plan-state",
       method: "GET",
       auth: "required",
