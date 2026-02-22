@@ -1,5 +1,17 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Fourteenth Review Amendments Summary (Post-commit server review #14)
+
+This section records corrections made during a fourteenth pass after the prior review cycles.
+
+### Concurrency / endpoint-behavior clarifications
+
+- Clarified that workspace-scoped DM creation through `POST /api/workspace/chat/threads` should use the same canonical-pair race-safe ensure semantics as global DMs (unique constraint + insert/lookup retry), not naive create-only behavior.
+
+### Cache-policy correctness clarifications
+
+- Clarified the send-path thread cache update step so `last_message_preview` is only populated when plaintext preview policy is enabled; in E2EE/preview-disabled modes it should remain `NULL` (or be cleared) rather than accidentally caching content.
+
 ## Thirteenth Review Amendments Summary (Post-commit server review #13)
 
 This section records corrections made during a thirteenth pass after the prior review cycles.
@@ -1200,6 +1212,7 @@ Create a new module mirroring other modules:
 - `POST /api/workspace/chat/threads`
   - permission `chat.write` or `chat.manage` depending on create policy
   - create workspace group thread or workspace-scoped DM
+  - when creating a workspace-scoped DM, use race-safe ensure semantics (canonical participant pair + unique constraint fallback) rather than naive insert-only create
 
 #### Global DM operations (configurable)
 
@@ -1309,6 +1322,7 @@ This is the most important server flow.
    - set `message_id`, `position`, `status='attached'`
 9. Update `chat_threads` cache fields:
    - `last_message_id`, `last_message_seq`, `last_message_at`, `last_message_preview`, `updated_at`
+   - populate `last_message_preview` only when plaintext preview policy is enabled for the thread/app mode; otherwise keep it `NULL` (or clear it)
 10. Optionally update sender participant delivered/read cursor to at least new seq
 11. Commit transaction
 12. Load participant recipient IDs (outside transaction OK if not already fetched)
