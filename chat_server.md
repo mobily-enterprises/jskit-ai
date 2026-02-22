@@ -1,5 +1,34 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Review Amendments Summary (Post-commit server review)
+
+This section records corrections made after a careful server-side review of the initial plan commit.
+
+### Security / privacy corrections
+
+- Clarified that chat attachments must **not** default to public static file delivery (unlike avatar-style public URL patterns).
+- Updated attachment design to prefer **authenticated download endpoints** (or short-lived signed URLs) for private threads.
+- Clarified that any `public` attachment URL/path concept is optional and only valid for explicitly public deployments.
+- Added attachment delivery hardening notes (`Content-Disposition`, `nosniff`, MIME trust boundaries) for safer file serving.
+
+### Schema correctness / consistency fixes
+
+- Fixed FK guidance inconsistencies where columns were `NOT NULL` but FK notes suggested `ON DELETE SET NULL`.
+  - `chat_threads.created_by_user_id` now documented as `ON DELETE RESTRICT`
+  - `chat_messages.sender_user_id` now documented as `ON DELETE RESTRICT`
+- Clarified `chat_threads.participant_count` semantics as the canonical participant-row count (not active-only count), so DM invariants remain valid even if a participant later leaves/is removed.
+- Fixed `chat_attachments.thread_id` v1 schema inconsistency by documenting it as `NOT NULL` (thread-scoped uploads in v1).
+
+### Authorization / policy clarifications
+
+- Clarified global-DM policy precedence: effective policy is the stricter combination of env config and per-user settings.
+- Clarified mixed inbox (`GET /api/chat/inbox`) behavior for workspace threads: rows must still pass workspace access + `chat.read` checks for the request surface, in addition to participant membership.
+
+### Operational robustness additions
+
+- Added explicit retention/cache-repair requirement: retention deletes must repair/recompute `chat_threads.last_message_*` caches (or delete empty threads).
+- Added note that `chat_user_settings.public_chat_id` must be server-generated, random, and non-sequential to avoid enumeration abuse.
+
 ## Purpose
 
 This document is an implementation plan for a robust server-side chat system in this codebase, designed to support:
@@ -144,6 +173,13 @@ Add new env vars to `server/lib/env.js` and `.env.example` (all with conservativ
   - If `true`, endpoint may accept `targetUserId` directly.
   - If `false`, require a public chat identifier / alias (future-safe option).
 
+Policy precedence rule (important):
+
+- Effective global-DM policy should be the **stricter** combination of env policy and user preferences.
+- Example:
+  - if env requires shared workspace, user setting cannot disable that requirement
+  - if env disables global DMs entirely, per-user allow flags are ignored
+
 ### Message and pagination limits
 
 - `CHAT_MESSAGE_MAX_TEXT_CHARS` (`num`, default e.g. `4000`)
@@ -159,7 +195,9 @@ Add new env vars to `server/lib/env.js` and `.env.example` (all with conservativ
 - `CHAT_ATTACHMENT_TOTAL_BYTES_PER_MESSAGE` (`num`, default e.g. `50_000_000`)
 - `CHAT_ATTACHMENT_STORAGE_DRIVER` (`str`, default `fs`)
 - `CHAT_ATTACHMENT_STORAGE_FS_BASE_PATH` (`str`, default empty => derived path)
-- `CHAT_ATTACHMENT_PUBLIC_BASE_PATH` (`str`, default `/chat-uploads`)
+- `CHAT_ATTACHMENT_PUBLIC_BASE_PATH` (`str`, default empty / disabled)
+  - Only used if product explicitly enables public/signed URL delivery mode.
+  - Private-thread attachments should default to authenticated application routes, not world-readable static mounts.
 
 ### Ephemeral realtime behavior
 
@@ -433,6 +471,7 @@ Indexes/constraints:
 Notes:
 
 - If we want a very small v1, this table can be deferred and defaults enforced by env config. But for robust global DMs, it is recommended.
+- `public_chat_id` must be server-generated (or server-validated), high-entropy, non-sequential, and rate-limited on lookup to reduce enumeration and abuse risk.
 
 ### Table 2: `chat_user_blocks`
 
@@ -485,6 +524,7 @@ Columns:
 - `dm_user_high_id` BIGINT UNSIGNED NULL
   - canonical sorted pair for DMs only
 - `participant_count` INT UNSIGNED NOT NULL DEFAULT `0`
+  - Canonical participant-row count for the thread (not "active participant count")
 - `next_message_seq` BIGINT UNSIGNED NOT NULL DEFAULT `1`
   - sequence allocator for robust concurrent sends
 - `last_message_id` BIGINT UNSIGNED NULL  (pointer, no FK in v1)
@@ -502,7 +542,7 @@ Columns:
 Indexes/constraints:
 
 - FK `workspace_id -> workspaces.id` ON DELETE CASCADE (nullable)
-- FK `created_by_user_id -> user_profiles.id` ON DELETE RESTRICT or SET NULL (prefer RESTRICT if creator integrity matters)
+- FK `created_by_user_id -> user_profiles.id` ON DELETE RESTRICT
 - UNIQUE for DMs: (`thread_kind`, `scope_key`, `dm_user_low_id`, `dm_user_high_id`)
   - service enforces only DMs populate pair columns
 - index (`workspace_id`, `updated_at`) for workspace thread lists
@@ -514,7 +554,7 @@ Service-level invariants:
 
 - `scope_kind=workspace` => `workspace_id` required
 - `scope_kind=global` => `workspace_id` null
-- `thread_kind=dm` => pair columns required and distinct, `participant_count=2`
+- `thread_kind=dm` => pair columns required and distinct, canonical `participant_count=2` (participant rows remain 2 even if status later becomes `left`/`removed`)
 - `thread_kind=group` => pair columns null
 
 ### Table 4: `chat_thread_participants`
@@ -600,7 +640,8 @@ Columns:
 Indexes/constraints:
 
 - FK `thread_id -> chat_threads.id` ON DELETE CASCADE
-- FK `sender_user_id -> user_profiles.id` ON DELETE RESTRICT (or SET NULL if message history should survive account deletion)
+- FK `sender_user_id -> user_profiles.id` ON DELETE RESTRICT
+  - If product later chooses history-preserving user deletion, make this column nullable and add sender snapshot fields before switching FK behavior.
 - FK `reply_to_message_id -> chat_messages.id` ON DELETE SET NULL (optional, can omit FK if migration complexity is high)
 - FK `deleted_by_user_id -> user_profiles.id` ON DELETE SET NULL
 - UNIQUE (`thread_id`, `thread_seq`)
@@ -625,8 +666,8 @@ Purpose:
 Columns:
 
 - `id` BIGINT UNSIGNED PK
-- `thread_id` BIGINT UNSIGNED NULL
-  - null only if allowing pre-thread staging (optional); recommended v1 requires thread and makes this NOT NULL
+- `thread_id` BIGINT UNSIGNED NOT NULL
+  - v1 is thread-scoped upload only; make nullable only if a future pre-thread staging flow is added
 - `message_id` BIGINT UNSIGNED NULL
   - null while staged/unattached
 - `uploaded_by_user_id` BIGINT UNSIGNED NOT NULL
@@ -640,10 +681,10 @@ Columns:
   - `reserved`, `uploading`, `uploaded`, `attached`, `failed`, `quarantined`, `expired`, `deleted`
 - `storage_driver` VARCHAR(32) NOT NULL DEFAULT `fs`
 - `storage_key` VARCHAR(255) NULL
-- `public_url_path` VARCHAR(512) NULL
-  - optional denormalized path; may also derive from `storage_key`
+- `delivery_path` VARCHAR(512) NULL
+  - optional denormalized relative path for authenticated/signed delivery; do not treat as a public static URL by default
 - `preview_storage_key` VARCHAR(255) NULL
-- `preview_url_path` VARCHAR(512) NULL
+- `preview_delivery_path` VARCHAR(512) NULL
 - `mime_type` VARCHAR(160) NULL
 - `file_name` VARCHAR(255) NULL
 - `size_bytes` BIGINT UNSIGNED NULL
@@ -662,7 +703,7 @@ Columns:
 
 Indexes/constraints:
 
-- FK `thread_id -> chat_threads.id` ON DELETE CASCADE (nullable if supporting pre-thread staging)
+- FK `thread_id -> chat_threads.id` ON DELETE CASCADE
 - FK `message_id -> chat_messages.id` ON DELETE CASCADE
 - FK `uploaded_by_user_id -> user_profiles.id` ON DELETE CASCADE
 - UNIQUE (`message_id`, `position`) (nullable `message_id`)
@@ -917,7 +958,7 @@ Responsibilities:
 Reuse from avatar code:
 
 - `unstorage` usage pattern
-- `toPublicUrl(storageKey, version)` style URL builder
+- `toDeliveryUrl(storageKey, options)` style URL builder (authenticated route or signed URL aware)
 - stream validation patterns and structured `AppError` validation responses
 
 Important design difference from avatar uploads:
@@ -983,6 +1024,7 @@ Create a new module mirroring other modules:
 - `GET /api/chat/inbox`
   - `auth: required`
   - returns mixed inbox (workspace + global) unless filtered
+  - workspace-thread rows must still be filtered by workspace access + `chat.read` for the request surface/context, in addition to participant membership
 
 #### Thread operations (scope-agnostic)
 
@@ -996,6 +1038,10 @@ Create a new module mirroring other modules:
 - `DELETE /api/chat/threads/:threadId/reactions`
 - `POST /api/chat/threads/:threadId/typing`
   - ephemeral emit only, no DB write
+- `GET /api/chat/attachments/:attachmentId/content`
+  - authenticated attachment delivery endpoint (or redirect/sign URL issuance endpoint)
+  - must verify thread/message access before streaming/redirecting attachment content
+  - if attachment is unattached/staged, restrict access to uploader (and admins only if explicitly allowed)
 
 #### Attachment upload endpoints (recommended two-step)
 
@@ -1125,8 +1171,13 @@ Base it on avatar storage service patterns:
 
 - `unstorage` + `fs` driver
 - `init()` to create base dir
-- `registerDelivery(app, { fastifyStatic })`
-- `toPublicUrl(storageKey, version?)`
+- storage key/path normalization helpers
+- optional URL builder for signed delivery links (not public static URLs by default)
+
+Important security distinction:
+
+- Reuse the avatar storage **backend patterns**, but do not copy avatar-style public static delivery semantics for private chat attachments.
+- Private chat attachments should be served via authenticated route handlers (or short-lived signed URLs issued after authz checks).
 
 Storage key pattern recommendation:
 
@@ -1152,6 +1203,16 @@ Why one file per request in v1:
 - Easier partial failure handling
 - Simpler multipart parsing and error reporting
 - Cleaner idempotency (`clientAttachmentId` per file)
+
+### Attachment delivery hardening (important)
+
+For authenticated attachment content responses (or signed URL-backed responses), enforce safe serving defaults:
+
+- do not trust client-supplied `mime_type` or file extension alone; detect/sniff server-side where practical and store normalized type
+- set `X-Content-Type-Options: nosniff`
+- default `Content-Disposition: attachment` for active-content types (HTML, SVG, XML, JS, etc.)
+- only allow inline rendering for a tightly controlled allowlist (e.g. common images) and after authz checks
+- validate attachment `status` is readable (`attached`, and optionally `uploaded` for uploader-only previews) before serving
 
 ### Multipart limits problem (current server)
 
@@ -1266,12 +1327,17 @@ Update `server/modules/api/routes.js` to include:
 
 ### Server bootstrap (`server.js`)
 
-Add chat storage service lifecycle similar to avatar storage if using fastify static delivery:
+Add chat storage service lifecycle similar to avatar storage **for storage initialization only**:
 
 - `await chatAttachmentStorageService.init()`
-- `await chatAttachmentStorageService.registerDelivery(app, { fastifyStatic, decorateReply: false })`
 
-Be careful to avoid path collisions with avatar uploads (`/uploads`).
+Do not mount private chat attachment blobs via unauthenticated `fastifyStatic` by default.
+
+Instead:
+
+- expose authenticated chat attachment content routes under `/api/chat/...`
+- optionally issue short-lived signed URLs (if implemented) after access checks
+- keep any static/public mount opt-in and clearly segregated from private attachment storage
 
 ## API Payload and Schema Design (Server Contracts)
 
@@ -1371,6 +1437,14 @@ Add retention rules for:
 - `chat_threads` without messages (optional cleanup)
 - `chat_attachments` unattached expired uploads
 - `chat_attachments` soft-deleted rows/blobs (if soft delete strategy used)
+
+Important cache repair requirement:
+
+- Retention deletes can invalidate `chat_threads.last_message_*` cache fields.
+- The retention path must either:
+  - recompute caches for affected threads in batch, or
+  - delete empty threads and recompute caches for non-empty threads touched by deletions
+- This repair step should be part of the same retention worker flow (or an immediately chained job) to avoid stale inbox ordering/previews.
 
 ### Blob cleanup strategy
 
