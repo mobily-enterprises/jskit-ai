@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Nineteenth Review Amendments Summary (Post-commit server review #19)
+
+This section records corrections made during a nineteenth pass after the prior review cycles.
+
+### Service-contract / existing-code integration clarifications
+
+- Fixed a service-interface gap: several `chat.service.js` method signatures were documented without a request/authz context parameter even though scope-agnostic `/api/chat/...` workspace-thread access requires validated surface handling and a no-side-effects workspace authz path.
+- Clarified that the orchestrator methods for inbox/thread/message/reaction/read/typing/attachment operations should accept an explicit request context (or prevalidated access context) and pass it through to chat access resolution, rather than re-deriving from hidden globals/raw request state.
+- Added a test-plan expectation to catch controller/service plumbing regressions where validated surface/authz context is dropped before chat access checks.
+
 ## Eighteenth Review Amendments Summary (Post-commit server review #18)
 
 This section records corrections made during an eighteenth pass after the prior review cycles.
@@ -1138,18 +1148,23 @@ Core methods:
 - `createWorkspaceThread(requestWorkspace, requestUser, payload)`
 - `ensureGlobalDm(requestUser, targetUserSelector, options)`
   - if `targetUserSelector` uses `targetPublicChatId`, target lookup/enforcement must include `discoverable_by_public_chat_id=true` and preserve anti-enumeration responses on denial
-- `listInboxForUser(requestUser, filters, pagination)`
-- `getThreadForUser(threadId, requestUser)`
-- `listMessagesForUser(threadId, requestUser, pagination)`
-- `sendMessage(threadId, requestUser, payload, requestMeta)`
-- `markRead(threadId, requestUser, payload)`
-- `addReaction(threadId, messageId, requestUser, payload)`
-- `removeReaction(threadId, messageId, requestUser, payload)`
-- `sendTyping(threadId, requestUser, payload)` (ephemeral only)
+- `listInboxForUser(requestUser, filters, pagination, requestContext)`
+- `getThreadForUser(threadId, requestUser, requestContext)`
+- `listMessagesForUser(threadId, requestUser, pagination, requestContext)`
+- `sendMessage(threadId, requestUser, payload, requestMeta, requestContext)`
+- `markRead(threadId, requestUser, payload, requestContext)`
+- `addReaction(threadId, messageId, requestUser, payload, requestContext)`
+- `removeReaction(threadId, messageId, requestUser, payload, requestContext)`
+- `sendTyping(threadId, requestUser, payload, requestContext)` (ephemeral only)
 - attachment methods:
-  - `reserveAttachment(...)`
-  - `uploadAttachmentContent(...)`
+  - `reserveAttachment(..., requestContext)`
+  - `uploadAttachmentContent(..., requestContext)`
   - `attachUploadsToMessage(...)` (normally internal to `sendMessage`)
+
+Notes:
+
+- `requestContext` here means an explicit, controller-provided authz context object (or equivalent) carrying the validated surface selection and any server-sanitized request inputs needed by chat access resolution for scope-agnostic workspace-thread operations.
+- Do not let `chat.service.js` silently re-derive surface/workspace auth context from ambient globals or raw request headers when a validated controller/access context is available.
 
 ### `access.service.js` responsibilities
 
@@ -1159,6 +1174,7 @@ Key methods:
 
 - `resolveThreadAccess({ threadId, user, requireWrite, request })`
   - returns thread + participant + scope context + workspace context (if workspace thread)
+  - when controller has already validated surface selection for a scope-agnostic route, prefer passing that validated value/context explicitly so access resolution does not re-interpret untrusted headers
 - `assertCanCreateWorkspaceThread({ workspaceContext, user, payload })`
 - `assertCanCreateGlobalDm({ user, targetUser, config })`
 - `assertCanSendMessage(threadAccess)`
@@ -1875,6 +1891,7 @@ Per repository:
 - workspace-scoped routes enforce auth + workspace permission + participant membership
 - scope-agnostic workspace-thread routes enforce validated workspace-capable surface and do not mutate `lastActiveWorkspaceId` (or trigger personal-workspace provisioning) during authz-only reads/listing (no-side-effects helper path)
 - invalid/ambiguous `x-surface-id` on scope-agnostic workspace chat reads (`inbox`, thread reads, attachment content`) is rejected explicitly and never silently normalized/fallbacked to `app`
+- controller/service plumbing preserves validated surface/authz context into `chat.service` / access resolution for scope-agnostic workspace chat operations (no accidental fallback to raw request header parsing)
 - global DM routes enforce feature flags and block settings
 - error codes and payload shapes match conventions (`400`, `401`, `403`, `404`, `409`)
 - multipart attachment upload route behavior and validation errors
