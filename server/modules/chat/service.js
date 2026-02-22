@@ -770,6 +770,10 @@ function mapMessageForResponse(message, { attachments = [], reactions = [] } = {
 function mapThreadForResponse(thread, participant = null) {
   const lastMessageSeq = thread.lastMessageSeq == null ? null : Number(thread.lastMessageSeq);
   const participantLastReadSeq = participant ? Number(participant.lastReadSeq || 0) : 0;
+  const participantLastReadAt = participant?.lastReadAt == null ? null : String(participant.lastReadAt);
+  const participantMutedUntil = participant?.muteUntil == null ? null : String(participant.muteUntil);
+  const participantArchivedAt = participant?.archivedAt == null ? null : String(participant.archivedAt);
+  const participantPinnedAt = participant?.pinnedAt == null ? null : String(participant.pinnedAt);
 
   return {
     id: Number(thread.id),
@@ -790,10 +794,10 @@ function mapThreadForResponse(thread, participant = null) {
           status: String(participant.status || ""),
           lastReadSeq: Number(participant.lastReadSeq || 0),
           lastReadMessageId: participant.lastReadMessageId == null ? null : Number(participant.lastReadMessageId),
-          lastReadAt: participant.lastReadAt,
-          mutedUntil: participant.muteUntil,
-          archivedAt: participant.archivedAt,
-          pinnedAt: participant.pinnedAt
+          lastReadAt: participantLastReadAt,
+          mutedUntil: participantMutedUntil,
+          archivedAt: participantArchivedAt,
+          pinnedAt: participantPinnedAt
         }
       : null
   };

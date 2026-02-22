@@ -697,6 +697,38 @@ test("sendThreadMessage replays identical idempotent payload and rejects conflic
   );
 });
 
+test("mapThreadForResponse normalizes missing participant nullable fields to null", () => {
+  const mapped = __testables.mapThreadForResponse(
+    {
+      id: 11,
+      scopeKind: "global",
+      workspaceId: null,
+      threadKind: "dm",
+      title: null,
+      participantCount: 2,
+      lastMessageId: null,
+      lastMessageSeq: null,
+      lastMessageAt: null,
+      lastMessagePreview: null,
+      createdAt: "2026-02-22T00:00:00.000Z",
+      updatedAt: "2026-02-22T00:00:00.000Z"
+    },
+    {
+      status: "active",
+      lastReadSeq: 0,
+      lastReadMessageId: null
+    }
+  );
+
+  assert.equal(mapped.participant.status, "active");
+  assert.equal(mapped.participant.lastReadSeq, 0);
+  assert.equal(mapped.participant.lastReadMessageId, null);
+  assert.equal(mapped.participant.lastReadAt, null);
+  assert.equal(mapped.participant.mutedUntil, null);
+  assert.equal(mapped.participant.archivedAt, null);
+  assert.equal(mapped.participant.pinnedAt, null);
+});
+
 test("sendThreadMessage returns CHAT_MESSAGE_RETRY_BLOCKED for matching tombstone", async () => {
   const { service, state } = createChatServiceFixture();
   const user = {
