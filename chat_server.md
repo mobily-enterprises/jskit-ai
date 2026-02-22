@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Forty-first Review Amendments Summary (Post-commit server review #41)
+
+This section records corrections made during a forty-first pass after the prior review cycles.
+
+### Legacy-message compatibility for tombstone strategy
+
+- Fixed a compatibility gap in the tombstone design: `chat_messages` can contain legacy/backfill rows with `client_message_id` but missing `idempotency_payload_version` / `idempotency_payload_sha256`, while the tombstone table intentionally requires those fields.
+- Added explicit guidance that tombstone-based hard-delete flows must not write partial tombstones for such rows; deployments must either backfill idempotency hash/version first or fall back to retaining/redacting those messages until the retry window expires.
+- Added repository/retention test-plan expectations so legacy rows do not cause hard-delete failures or silent loss of duplicate-send suppression.
+
 ## Fortieth Review Amendments Summary (Post-commit server review #40)
 
 This section records corrections made during a fortieth pass after the prior review cycles.
@@ -1170,6 +1180,7 @@ Notes:
 - Tombstone identity fields are immutable once written for a given unique key (`thread_id`, `sender_user_id`, `client_message_id`): duplicate writes must verify `idempotency_payload_version` + `idempotency_payload_sha256` match existing values rather than overwriting them.
 - If duplicate tombstone writes provide a different expiry horizon, apply a deterministic policy (recommended: keep `expires_at = GREATEST(existing, incoming)` so retries/duplicate jobs do not shorten suppression unexpectedly).
 - Account-lifecycle note: because `sender_user_id` is `ON DELETE RESTRICT`, any hard user deletion/erasure workflow must explicitly clean/expire tombstones (or otherwise handle them in the broader chat migration/anonymization plan) when the tombstone strategy is enabled.
+- Legacy compatibility note: this tombstone schema requires non-null `idempotency_payload_version` + `idempotency_payload_sha256`. If a deletable message row has `client_message_id` but lacks those fields (legacy/backfill cases), do not write a partial tombstone; either backfill first or use the retained-message fallback policy for that row.
 
 ### Table 6: `chat_attachments`
 
@@ -1374,6 +1385,7 @@ Notes:
   - should be idempotent for repeated delete attempts/jobs (e.g. insert-or-update/upsert on the unique key), and should not fail the delete workflow on harmless duplicate tombstone writes
   - on duplicate key, verify immutable idempotency fields match existing row; do not silently overwrite hash/version
   - use deterministic duplicate-write merge rules for mutable fields (recommended: `expires_at = max(existing, incoming)`, bounded metadata merge or keep-existing)
+  - if the source message lacks `idempotency_payload_version`/`idempotency_payload_sha256` (legacy/backfill row), return an explicit unsupported/legacy result so the caller can apply the documented fallback (retain/redact row until retry window), not a partial tombstone write
 - `findByClientMessageId(threadId, senderUserId, clientMessageId, options)`
 - `deleteExpiredBatch(now, batchSize, options)`
 - `listExpired(batchSize, now, options)` (optional if delete method returns rows)
@@ -2104,6 +2116,14 @@ Choose one explicit strategy and keep it consistent across send + retention flow
 
 Tombstone/ledger retention should be bounded (hours/days, product dependent) and cleaned by the same retention worker framework after the retry horizon expires.
 
+Legacy/backfill compatibility requirement (important):
+
+- If using the tombstone strategy in an existing deployment, handle messages that have `client_message_id` but lack `idempotency_payload_version` / `idempotency_payload_sha256` (pre-hash rows).
+- Recommended options:
+  - backfill idempotency hash/version for eligible retained rows before enabling hard-delete+tombstone processing, or
+  - treat those rows as “retain/redact until retry window elapses” exceptions and skip tombstone-based hard delete for them.
+- Do not emit tombstones without hash/version for these rows; that weakens the replay/conflict contract and creates ambiguous send behavior.
+
 Important cache repair requirement:
 
 - Retention deletes can invalidate `chat_threads.last_message_*` cache fields.
@@ -2301,6 +2321,7 @@ Using existing realtime test harness patterns adapted for chat:
 - idempotency tombstone/ledger expiry cleanup runs when tombstone strategy is enabled (or is explicitly absent when simpler retained-message strategy is selected)
 - repeated retention/moderation delete attempts do not fail on duplicate tombstone writes (tombstone insert path is idempotent/upsert-safe)
 - duplicate tombstone writes with mismatched immutable idempotency hash/version are detected and do not silently overwrite existing tombstone identity data
+- tombstone-enabled hard-delete flow handles legacy rows missing idempotency hash/version via the documented fallback (backfill-first or retain/redact exception), not partial tombstone writes or hard-delete failure loops
 - attachment orphan cleanup deletes DB row + storage blob
 - safe no-op when blob already missing
 
