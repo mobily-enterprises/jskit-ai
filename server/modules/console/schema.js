@@ -223,6 +223,32 @@ const assistantSettingsUpdate = Type.Object(
   }
 );
 
+const billingSettings = Type.Object(
+  {
+    settings: Type.Object(
+      {
+        paidPlanChangePaymentMethodPolicy: enumSchema(["required_now", "allow_without_payment_method"])
+      },
+      {
+        additionalProperties: false
+      }
+    )
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingSettingsUpdate = Type.Object(
+  {
+    paidPlanChangePaymentMethodPolicy: enumSchema(["required_now", "allow_without_payment_method"])
+  },
+  {
+    additionalProperties: false,
+    minProperties: 1
+  }
+);
+
 const member = Type.Object(
   {
     memberUserId: Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" })
@@ -631,6 +657,7 @@ const schema = {
     invites,
     roles,
     assistantSettings,
+    billingSettings,
     pendingInvites,
     respondToInvite,
     aiTranscriptsList,
@@ -646,6 +673,7 @@ const schema = {
     createInvite,
     memberRoleUpdate,
     assistantSettingsUpdate,
+    billingSettingsUpdate,
     redeemInvite,
     billingPlanCreate: billingPlanCreateBody,
     billingPlanUpdate: billingPlanUpdateBody

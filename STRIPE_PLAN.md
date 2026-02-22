@@ -79,36 +79,20 @@ Note: no polymorphic entity type in Phase 1. Additional entity types are a futur
 
 ### 2.3 `billing_plans`
 
-- `id`, `code`, `plan_family_code`, `version`, `name`, `description`
+- `id`, `code`, `name`, `description`
 - `applies_to = workspace` (Phase 1)
-- `pricing_model` (`flat`, `per_seat`, `usage`, `hybrid`)
+- core checkout mapping: `checkout_provider`, `checkout_provider_price_id`, `checkout_provider_product_id`, `checkout_interval`, `checkout_interval_count`, `checkout_currency`, `checkout_unit_amount_minor`
 - `is_active`, `metadata_json`, timestamps
 - **Unique**: `code`
-- **Unique**: `(plan_family_code, version)`
-- immutable for commercial behavior
+- **Unique**: `(checkout_provider, checkout_provider_price_id)`
 
-### 2.4 `billing_plan_prices`
+### 2.4 Core checkout price mapping
 
-- `id`, `plan_id`, `provider`
-- `billing_component` (`base`, `seat`, `metered`, `add_on`)
-- `usage_type` (`licensed`, `metered`)
-- `interval`, `interval_count`, `currency`, `unit_amount_minor`
-- `provider_product_id`, `provider_price_id`
-- `is_active`, `metadata_json`, timestamps
-- generated column:
-  - `phase1_sellable_price_key = CASE WHEN is_active = 1 AND usage_type = 'licensed' AND billing_component = 'base' THEN CONCAT(plan_id, ':', provider) ELSE NULL END`
-- **Unique**: `(provider, provider_price_id)`
-- **Unique**: `(id, provider)` (composite FK target)
-- **Unique**: `phase1_sellable_price_key` (Phase 1 determinism guard: one sellable recurring price per plan/provider)
-- **Indexes**: `(plan_id, is_active)`, `(plan_id, provider)`
-- **FK**: `plan_id -> billing_plans.id` (`ON DELETE RESTRICT`)
+- Core plan checkout resolves directly from the plan row (`billing_plans.corePrice` in service contract).
+- Exactly one recurring monthly core price mapping is allowed per plan.
+- Checkout does not use componentized plan-price rows.
 
-Phase 1 checkout must only use this one sellable licensed recurring row.
-Phase 1 currency policy:
-- all sellable prices used for checkout must match deployment `BILLING_CURRENCY`
-- mismatched-currency rows are invalid for Phase 1 checkout resolution
-
-### 2.5 `billing_entitlements`
+### 2.5 `plan capability storage`
 
 - `id`, `plan_id`, `code`, `schema_version`, `value_json`
 - `schema_version` must resolve to a canonical JSON schema in the entitlement schema registry.
@@ -142,7 +126,7 @@ Service invariant (required even if DB check support is limited):
 - terminal statuses in Phase 1: `canceled`, `incomplete_expired`.
 - `provider_subscription_created_at` must be populated from provider object data on first authoritative subscription write and never mutated afterward.
 
-### 2.7 `billing_subscription_items`
+### 2.7 `subscription item projection storage`
 
 - `id`, `subscription_id`, `provider`, `provider_subscription_item_id`
 - `billing_plan_price_id` (nullable for reconciliation fallback)
@@ -152,9 +136,9 @@ Service invariant (required even if DB check support is limited):
 - **Unique**: `(provider, provider_subscription_item_id)`
 - **Indexes**: `(subscription_id, is_active)`, `billing_plan_price_id`
 - **FK**: `(subscription_id, provider) -> billing_subscriptions(id, provider)` (`ON DELETE RESTRICT`)
-- **FK**: `(billing_plan_price_id, provider) -> billing_plan_prices(id, provider)` (nullable, `ON DELETE RESTRICT`)
+- `billing_plan_price_id` linkage is legacy projection metadata and no longer drives plan resolution.
 
-### 2.8 `billing_invoices`
+### 2.8 `invoice projection storage`
 
 - `id`, `subscription_id` (nullable), `billable_entity_id`, `billing_customer_id`, `provider`, `provider_invoice_id`
 - `status`, `amount_due_minor`, `amount_paid_minor`, `amount_remaining_minor`
@@ -168,16 +152,16 @@ Service invariant (required even if DB check support is limited):
 - **FK**: `billable_entity_id -> billable_entities.id` (`ON DELETE RESTRICT`)
 - **FK**: `(billing_customer_id, billable_entity_id, provider) -> billing_customers(id, billable_entity_id, provider)` (`ON DELETE RESTRICT`)
 
-### 2.9 `billing_payments`
+### 2.9 `payment projection storage`
 
 - `id`, `invoice_id`, `provider`, `provider_payment_id`, `type`, `status`
 - `amount_minor`, `currency`, `paid_at`
 - `last_provider_event_created_at`, `last_provider_event_id`
 - `metadata_json`, timestamps
 - **Unique**: `(provider, provider_payment_id)`
-- **FK**: `(invoice_id, provider) -> billing_invoices(id, provider)` (`ON DELETE RESTRICT`)
+- **FK**: `(invoice_id, provider)` references invoice projection storage (`ON DELETE RESTRICT`)
 
-### 2.10 `billing_webhook_events`
+### 2.10 `billing_events`
 
 - `id`, `provider`, `provider_event_id`, `event_type`
 - `provider_created_at`
@@ -223,7 +207,7 @@ Service invariant (required even if DB check support is limited):
 
 `active_checkout_pending_key` is the single-active-pending-checkout-request guard for Phase 1.
 
-### 2.12 `billing_reconciliation_runs`
+### 2.12 `reconciliation run storage`
 
 - `id`, `provider`, `scope`, `status` (`running`, `succeeded`, `failed`)
 - `runner_id`, `lease_expires_at`
@@ -237,7 +221,7 @@ Service invariant (required even if DB check support is limited):
 - **Unique**: `active_run_key` (single active run per provider/scope)
 - **Indexes**: `(provider, started_at)`, `(status, updated_at)`
 
-### 2.13 `billing_subscription_remediations`
+### 2.13 `subscription remediation storage`
 
 - `id`, `billable_entity_id`, `provider`
 - `canonical_provider_subscription_id` (required stable canonical target)
@@ -257,7 +241,7 @@ Service invariant (required even if DB check support is limited):
 - **FK**: `billable_entity_id -> billable_entities.id` (`ON DELETE RESTRICT`)
 - **FK**: `canonical_subscription_id -> billing_subscriptions.id` (`ON DELETE SET NULL`)
 
-### 2.14 `billing_outbox_jobs`
+### 2.14 `outbox storage`
 
 - `id`, `job_type`, `dedupe_key`
 - `payload_json`
@@ -423,10 +407,10 @@ Mandatory entity-scoped lock order (all writers):
 2. lock `billing_subscriptions` rows for that entity (`FOR UPDATE`)
 3. lock `billing_request_idempotency` row if present (`FOR UPDATE`)
 4. lock `billing_checkout_sessions` rows for that entity (`FOR UPDATE`)
-5. lock/insert `billing_subscription_remediations` row if present
-6. lock/insert `billing_outbox_jobs` row if present
+5. lock/insert `subscription remediation storage` row if present
+6. lock/insert `outbox storage` row if present
 
-Webhook event-row lock (`billing_webhook_events`) is acquired before entity-scoped locks for dedupe; once entity is known, the above lock order is mandatory.
+Webhook event-row lock (`billing_events` where `event_type='webhook'`) is acquired before entity-scoped locks for dedupe; once entity is known, the above lock order is mandatory.
 Short fenced recovery transactions that touch both `billing_request_idempotency` and `billing_checkout_sessions` are also entity-scoped writers and must use this same lock order.
 
 Flow:
@@ -579,7 +563,7 @@ Recovery finalization must reacquire locks in the same entity-scoped order as Tx
 ### 5.11 `BillingReconciliationService`
 
 - `runScope({ provider, scope, runnerId })`
-- acquires/renews run lease via `billing_reconciliation_runs.active_run_key`
+- acquires/renews run lease via reconciliation run active key
 - increments and validates `lease_version` fencing token on acquire/renew
 - detects and repairs drift transactionally
 
@@ -623,7 +607,7 @@ Recovery finalization must reacquire locks in the same entity-scoped order as Tx
   - write authorization uses the same billing policy rules as checkout
   - requires `Idempotency-Key`
   - supports both catalog price IDs and ad-hoc one-off amount line items
-  - one-off payment links must set provider invoice-creation options so paid one-off purchases project into `billing_invoices`
+  - one-off payment links must set provider invoice-creation options so paid one-off purchases project into `invoice projection storage`
 6. `POST /api/billing/webhooks/stripe`
   - auth: public
   - csrfProtection: false
@@ -661,16 +645,16 @@ Event ownership matrix (required):
   - authoritative for checkout-session lifecycle cleanup (`billing_checkout_sessions.status -> expired`, pending idempotency expiration/cleanup path)
   - must not mutate subscription lifecycle state
 - `customer.subscription.created|updated|deleted`:
-  - authoritative for `billing_subscriptions` and `billing_subscription_items`
+  - authoritative for `billing_subscriptions` and `subscription item projection storage`
   - responsible for `is_current` transitions under status invariants
   - when correlated checkout session exists in `completed_pending_subscription`, transition it to `completed_reconciled` in the same transaction after authoritative subscription projection
 - `invoice.paid|invoice.payment_failed`:
-  - authoritative for `billing_invoices`/`billing_payments`
+  - authoritative for `invoice projection storage`/`payment projection storage`
   - must not directly mutate `billing_subscriptions.is_current`
 
 Processing sequence:
 1. verify payload size, then call `stripe.webhooks.constructEvent` with raw bytes and signature
-2. upsert/load `billing_webhook_events` by `(provider, provider_event_id)`
+2. upsert/load `billing_events` (`event_type='webhook'`) by `(provider, provider_event_id)`
 3. lock event row `FOR UPDATE`
 4. if already processed, return success
 5. resolve affected billable entity and lock `billable_entities` row `FOR UPDATE`
@@ -700,9 +684,9 @@ Important:
 Phase 1 webhook-updated tables:
 - `billing_customers`
 - `billing_subscriptions`
-- `billing_subscription_items`
-- `billing_invoices`
-- `billing_payments`
+- `subscription item projection storage`
+- `invoice projection storage`
+- `payment projection storage`
 - `billing_checkout_sessions`
 
 Payment methods are not synchronized in Phase 1.

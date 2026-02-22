@@ -7,6 +7,7 @@ import { resolveBillingPlanProviderProfile } from "./billingPlans/providers/inde
 
 const CONSOLE_BILLING_PLANS_QUERY_KEY = ["console-billing-plans"];
 const CONSOLE_BILLING_PROVIDER_PRICES_QUERY_KEY = ["console-billing-provider-prices"];
+const CONSOLE_BILLING_SETTINGS_QUERY_KEY = ["console-billing-settings"];
 
 function parseEntitlementsJson(value) {
   const normalized = String(value || "").trim();
@@ -161,6 +162,8 @@ export function useConsoleBillingPlansView() {
 
   const submitError = ref("");
   const submitMessage = ref("");
+  const billingSettingsError = ref("");
+  const billingSettingsSaveMessage = ref("");
 
   const createDialogOpen = ref(false);
   const createFieldErrors = ref({});
@@ -177,6 +180,9 @@ export function useConsoleBillingPlansView() {
 
   const createForm = reactive(createDefaultCreateForm());
   const editForm = reactive(createDefaultEditForm());
+  const billingSettingsForm = reactive({
+    paidPlanChangePaymentMethodPolicy: "required_now"
+  });
 
   const plansQuery = useQuery({
     queryKey: CONSOLE_BILLING_PLANS_QUERY_KEY,
@@ -188,8 +194,17 @@ export function useConsoleBillingPlansView() {
     queryFn: () => api.console.listBillingProviderPrices({ active: true, limit: 100 })
   });
 
+  const billingSettingsQuery = useQuery({
+    queryKey: CONSOLE_BILLING_SETTINGS_QUERY_KEY,
+    queryFn: () => api.console.getBillingSettings()
+  });
+
   const createPlanMutation = useMutation({
     mutationFn: (payload) => api.console.createBillingPlan(payload)
+  });
+
+  const billingSettingsMutation = useMutation({
+    mutationFn: (payload) => api.console.updateBillingSettings(payload)
   });
 
   const plans = computed(() => (Array.isArray(plansQuery.data.value?.plans) ? plansQuery.data.value.plans : []));
@@ -200,6 +215,20 @@ export function useConsoleBillingPlansView() {
   const providerPrices = computed(() =>
     Array.isArray(providerPricesQuery.data.value?.prices) ? providerPricesQuery.data.value.prices : []
   );
+  const billingSettings = computed(() => {
+    const value = billingSettingsQuery.data.value?.settings;
+    return value && typeof value === "object" ? value : null;
+  });
+  const billingPolicyOptions = [
+    {
+      title: "Require payment method now",
+      value: "required_now"
+    },
+    {
+      title: "Allow change without payment method",
+      value: "allow_without_payment_method"
+    }
+  ];
 
   const selectableProviderPrices = computed(() => providerProfile.value.selectCatalogPrices(providerPrices.value));
 
@@ -244,8 +273,14 @@ export function useConsoleBillingPlansView() {
   const providerPricesLoading = computed(() =>
     Boolean(providerPricesQuery.isPending.value || providerPricesQuery.isFetching.value)
   );
+  const billingSettingsLoading = computed(() =>
+    Boolean(billingSettingsQuery.isPending.value || billingSettingsQuery.isFetching.value)
+  );
+  const billingSettingsSaving = computed(() => billingSettingsMutation.isPending.value);
 
-  const loading = computed(() => Boolean(plansQuery.isPending.value || plansQuery.isFetching.value));
+  const loading = computed(() =>
+    Boolean(plansQuery.isPending.value || plansQuery.isFetching.value || billingSettingsQuery.isFetching.value)
+  );
   const isSavingCreate = computed(() => createPlanMutation.isPending.value);
 
   const plansLoadError = useQueryErrorMessage({
@@ -258,6 +293,11 @@ export function useConsoleBillingPlansView() {
     query: providerPricesQuery,
     handleUnauthorizedError,
     mapError: (nextError) => String(nextError?.message || "Unable to load provider catalog prices.")
+  });
+  const billingSettingsLoadError = useQueryErrorMessage({
+    query: billingSettingsQuery,
+    handleUnauthorizedError,
+    mapError: (nextError) => String(nextError?.message || "Unable to load billing settings.")
   });
 
   const selectedPlan = computed(() =>
@@ -313,8 +353,13 @@ export function useConsoleBillingPlansView() {
     submitError.value = "";
   }
 
+  function clearBillingSettingsMessages() {
+    billingSettingsError.value = "";
+    billingSettingsSaveMessage.value = "";
+  }
+
   async function refresh() {
-    await Promise.all([plansQuery.refetch(), providerPricesQuery.refetch()]);
+    await Promise.all([plansQuery.refetch(), providerPricesQuery.refetch(), billingSettingsQuery.refetch()]);
   }
 
   function openCreateDialog() {
@@ -366,6 +411,17 @@ export function useConsoleBillingPlansView() {
     editDialogOpen.value = false;
     editInitialProviderPriceId.value = "";
   }
+
+  watch(
+    billingSettings,
+    (nextSettings) => {
+      const policy = String(nextSettings?.paidPlanChangePaymentMethodPolicy || "required_now").trim();
+      if (policy === "required_now" || policy === "allow_without_payment_method") {
+        billingSettingsForm.paidPlanChangePaymentMethodPolicy = policy;
+      }
+    },
+    { immediate: true }
+  );
 
   watch(
     providerPriceOptions,
@@ -470,6 +526,30 @@ export function useConsoleBillingPlansView() {
     }
   }
 
+  async function saveBillingSettings() {
+    clearBillingSettingsMessages();
+
+    const policy = String(billingSettingsForm.paidPlanChangePaymentMethodPolicy || "").trim();
+    if (policy !== "required_now" && policy !== "allow_without_payment_method") {
+      billingSettingsError.value = "Select a valid payment-method policy.";
+      return;
+    }
+
+    try {
+      await billingSettingsMutation.mutateAsync({
+        paidPlanChangePaymentMethodPolicy: policy
+      });
+      billingSettingsSaveMessage.value = "Billing settings updated.";
+      await queryClient.invalidateQueries({ queryKey: CONSOLE_BILLING_SETTINGS_QUERY_KEY });
+    } catch (error) {
+      if (await handleUnauthorizedError(error)) {
+        return;
+      }
+
+      billingSettingsError.value = String(error?.message || "Unable to update billing settings.");
+    }
+  }
+
   function formatPriceSummary(price) {
     if (!price) {
       return "-";
@@ -490,11 +570,18 @@ export function useConsoleBillingPlansView() {
       formatMoneyMinor,
       formatInterval,
       formatPriceSummary,
-      shortenProviderPriceId
+      shortenProviderPriceId,
+      billingPolicyOptions
     },
     state: reactive({
       provider,
       ui,
+      billingSettingsForm,
+      billingSettingsLoading,
+      billingSettingsSaving,
+      billingSettingsError,
+      billingSettingsSaveMessage,
+      billingSettingsLoadError,
       tableRows,
       plans,
       selectedPlan,
@@ -530,7 +617,8 @@ export function useConsoleBillingPlansView() {
       openEditDialog,
       closeEditDialog,
       submitCreatePlan,
-      saveEditedPlan
+      saveEditedPlan,
+      saveBillingSettings
     }
   };
 }

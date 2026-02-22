@@ -96,7 +96,15 @@ function createBillingDisabledServices() {
     },
     billingService: {
       ensureBillableEntity: throwBillingDisabled,
+      seedSignupPromoPlan: throwBillingDisabled,
       listPlans: throwBillingDisabled,
+      getPlanState: throwBillingDisabled,
+      requestPlanChange: throwBillingDisabled,
+      cancelPendingPlanChange: throwBillingDisabled,
+      processDuePlanChanges: async () => ({
+        scannedCount: 0,
+        appliedCount: 0
+      }),
       getSnapshot: throwBillingDisabled,
       listPaymentMethods: throwBillingDisabled,
       syncPaymentMethods: throwBillingDisabled,
@@ -205,6 +213,8 @@ function createServices({
     userAvatarService
   });
 
+  let billingPromoProvisioner = null;
+
   const workspaceService = createWorkspaceService({
     appConfig,
     rbacManifest,
@@ -213,7 +223,8 @@ function createServices({
     workspaceSettingsRepository,
     workspaceInvitesRepository,
     userSettingsRepository,
-    userAvatarService
+    userAvatarService,
+    getBillingPromoProvisioner: () => billingPromoProvisioner
   });
 
   const workspaceInviteEmailService = createWorkspaceInviteEmailService({
@@ -422,16 +433,19 @@ function createServices({
       billingIdempotencyService,
       billingCheckoutOrchestrator,
       billingProviderAdapter,
+      consoleSettingsRepository,
       appPublicUrl: env.APP_PUBLIC_URL,
       providerReplayWindowSeconds: env.BILLING_PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS,
       observabilityService
     });
+    billingPromoProvisioner = (payload) => billingService.seedSignupPromoPlan(payload);
 
     billingWorkerRuntimeService = createBillingWorkerRuntimeService({
       enabled: env.BILLING_ENABLED,
       billingOutboxWorkerService,
       billingRemediationWorkerService,
       billingReconciliationService,
+      billingService,
       reconciliationProvider: billingProviderAdapter.provider,
       logger: observabilityService?.logger || console,
       workerIdPrefix: `billing:${process.pid}`
@@ -450,6 +464,7 @@ function createServices({
       billingService,
       billingWorkerRuntimeService
     } = createBillingDisabledServices());
+    billingPromoProvisioner = null;
   }
 
   return {

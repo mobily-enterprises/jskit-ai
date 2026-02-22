@@ -16,6 +16,7 @@ import {
   resolveProviderErrorOutcome
 } from "./providerOutcomePolicy.js";
 import { isBillingProviderError } from "./providers/shared/providerError.contract.js";
+import { normalizeProviderSubscriptionStatus, parseUnixEpochSeconds } from "./webhookProjection.utils.js";
 
 function mapFailureCodeToError(failureCode, fallbackMessage) {
   const code = String(failureCode || "").trim() || BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR;
@@ -181,6 +182,10 @@ function isLocalPreparationError(error) {
 const LIFETIME_WINDOW_END = new Date("9999-12-31T23:59:59.999Z");
 const BILLING_LIMIT_EXCEEDED_ERROR_CODE = "BILLING_LIMIT_EXCEEDED";
 const BILLING_LIMIT_NOT_CONFIGURED_ERROR_CODE = "BILLING_LIMIT_NOT_CONFIGURED";
+const PAID_PLAN_CHANGE_POLICY_REQUIRED_NOW = "required_now";
+const PAID_PLAN_CHANGE_POLICY_ALLOW_WITHOUT_PAYMENT_METHOD = "allow_without_payment_method";
+const PLAN_ASSIGNMENT_DEFAULT_PERIOD_DAYS = 30;
+const SIGNUP_PROMO_PERIOD_DAYS = 7;
 
 function toNonEmptyString(value) {
   const normalized = String(value || "").trim();
@@ -254,6 +259,64 @@ function resolveUsageWindow(interval, now = new Date()) {
     windowStartAt,
     windowEndAt: new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth() + 1, 1, 0, 0, 0, 0))
   };
+}
+
+function toDateOrNull(value) {
+  if (!value) {
+    return null;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+}
+
+function resolveSubscriptionPeriodEnd(subscription, now = new Date()) {
+  const candidate = toDateOrNull(subscription?.currentPeriodEnd) || toDateOrNull(subscription?.trialEnd);
+  if (candidate) {
+    return candidate;
+  }
+
+  return addUtcDays(now, PLAN_ASSIGNMENT_DEFAULT_PERIOD_DAYS);
+}
+
+function resolvePlanCoreAmountMinor(plan) {
+  const amount = Number(plan?.corePrice?.unitAmountMinor);
+  if (!Number.isInteger(amount) || amount < 0) {
+    return 0;
+  }
+  return amount;
+}
+
+function classifyPlanChangeDirection(currentPlan, targetPlan) {
+  if (!currentPlan || !targetPlan) {
+    return "new";
+  }
+
+  if (Number(currentPlan.id) === Number(targetPlan.id)) {
+    return "same";
+  }
+
+  const currentAmount = resolvePlanCoreAmountMinor(currentPlan);
+  const targetAmount = resolvePlanCoreAmountMinor(targetPlan);
+  if (targetAmount > currentAmount) {
+    return "upgrade";
+  }
+  if (targetAmount < currentAmount) {
+    return "downgrade";
+  }
+  return "lateral";
+}
+
+function normalizePaidPlanChangePolicy(value) {
+  const normalized = toNonEmptyString(value).toLowerCase();
+  if (normalized === PAID_PLAN_CHANGE_POLICY_ALLOW_WITHOUT_PAYMENT_METHOD) {
+    return PAID_PLAN_CHANGE_POLICY_ALLOW_WITHOUT_PAYMENT_METHOD;
+  }
+  return PAID_PLAN_CHANGE_POLICY_REQUIRED_NOW;
 }
 
 function normalizeUsageAmount(value) {
@@ -438,6 +501,7 @@ function createService(options = {}) {
     billingIdempotencyService,
     billingCheckoutOrchestrator,
     billingProviderAdapter,
+    consoleSettingsRepository = null,
     appPublicUrl,
     providerReplayWindowSeconds = BILLING_RUNTIME_DEFAULTS.PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS,
     observabilityService = null
@@ -517,6 +581,33 @@ function createService(options = {}) {
     return outcome;
   }
 
+  async function resolvePaidPlanChangePolicy() {
+    if (!consoleSettingsRepository || typeof consoleSettingsRepository.ensure !== "function") {
+      return PAID_PLAN_CHANGE_POLICY_REQUIRED_NOW;
+    }
+
+    const settings = await consoleSettingsRepository.ensure();
+    const features = settings?.features && typeof settings.features === "object" ? settings.features : {};
+    const billingFeatures = features?.billing && typeof features.billing === "object" ? features.billing : {};
+    return normalizePaidPlanChangePolicy(billingFeatures.paidPlanChangePaymentMethodPolicy);
+  }
+
+  function mapPlanForSelection(plan) {
+    const entry = plan && typeof plan === "object" ? plan : null;
+    if (!entry) {
+      return null;
+    }
+
+    return {
+      id: Number(entry.id),
+      code: String(entry.code || ""),
+      name: String(entry.name || ""),
+      description: entry.description == null ? null : String(entry.description),
+      isActive: entry.isActive !== false,
+      corePrice: entry.corePrice && typeof entry.corePrice === "object" ? entry.corePrice : null
+    };
+  }
+
   async function updateIdempotencyWithLeaseFence({ idempotencyRowId, leaseVersion = null, patch = {} }) {
     const normalizedLeaseVersion = toLeaseVersionOrNull(leaseVersion);
     const options = normalizedLeaseVersion != null ? { expectedLeaseVersion: normalizedLeaseVersion } : {};
@@ -579,16 +670,744 @@ function createService(options = {}) {
     };
   }
 
-  async function resolveCurrentSubscriptionEntitlements({ billableEntityId }) {
-    const currentSubscription = await billingRepository.findCurrentSubscriptionForEntity(billableEntityId);
-    if (!currentSubscription) {
+  async function listActiveWorkspacePlans({ trx = null } = {}) {
+    const plans = await billingRepository.listPlans(trx ? { trx } : {});
+    return plans.filter((plan) => plan && plan.isActive !== false && String(plan.appliesTo || "workspace") === "workspace");
+  }
+
+  async function resolveCurrentPlanContext({ billableEntityId, now = new Date(), trx = null, forUpdate = false } = {}) {
+    const readOptions = trx
+      ? {
+          trx,
+          forUpdate
+        }
+      : {
+          forUpdate
+        };
+
+    const currentSubscription = await billingRepository.findCurrentSubscriptionForEntity(billableEntityId, readOptions);
+    if (currentSubscription) {
+      const plan = await billingRepository.findPlanById(currentSubscription.planId, trx ? { trx } : {});
       return {
-        currentSubscription: null,
+        source: "subscription",
+        plan,
+        subscription: currentSubscription,
+        assignment: null,
+        periodEndAt: resolveSubscriptionPeriodEnd(currentSubscription, now)
+      };
+    }
+
+    if (typeof billingRepository.findCurrentPlanAssignmentForEntity !== "function") {
+      return {
+        source: "none",
+        plan: null,
+        subscription: null,
+        assignment: null,
+        periodEndAt: null
+      };
+    }
+
+    const currentAssignment = await billingRepository.findCurrentPlanAssignmentForEntity(billableEntityId, readOptions);
+    if (!currentAssignment) {
+      return {
+        source: "none",
+        plan: null,
+        subscription: null,
+        assignment: null,
+        periodEndAt: null
+      };
+    }
+
+    const plan = await billingRepository.findPlanById(currentAssignment.planId, trx ? { trx } : {});
+    return {
+      source: "assignment",
+      plan,
+      subscription: null,
+      assignment: currentAssignment,
+      periodEndAt: toDateOrNull(currentAssignment.periodEndAt)
+    };
+  }
+
+  async function hasDefaultPaymentMethodForEntity(billableEntityId) {
+    const methods = await billingRepository.listPaymentMethodsForEntity({
+      billableEntityId,
+      provider: activeProvider,
+      includeInactive: false,
+      limit: 25
+    });
+    return methods.some((entry) => entry && entry.isDefault === true);
+  }
+
+  async function updateCurrentSubscriptionPlan({
+    currentSubscription,
+    targetPlan,
+    prorationBehavior = "create_prorations",
+    now = new Date(),
+    trx = null
+  }) {
+    if (!currentSubscription) {
+      throw new AppError(409, "No active subscription found for plan update.");
+    }
+
+    const targetPriceId = String(targetPlan?.corePrice?.providerPriceId || "").trim();
+    if (!targetPriceId) {
+      throw new AppError(409, "Target plan does not expose a valid Stripe recurring price.");
+    }
+    if (typeof providerAdapter.updateSubscriptionPlan !== "function") {
+      throw new AppError(501, "Provider subscription plan updates are not available.");
+    }
+
+    const providerSubscription = await providerAdapter.updateSubscriptionPlan({
+      subscriptionId: currentSubscription.providerSubscriptionId,
+      providerPriceId: targetPriceId,
+      prorationBehavior,
+      billingCycleAnchor: "unchanged"
+    });
+
+    const providerCurrentPeriodEnd = parseUnixEpochSeconds(providerSubscription?.current_period_end);
+    const providerTrialEnd = parseUnixEpochSeconds(providerSubscription?.trial_end);
+    const providerCanceledAt = parseUnixEpochSeconds(providerSubscription?.canceled_at);
+    const providerEndedAt = parseUnixEpochSeconds(providerSubscription?.ended_at);
+    const providerCreatedAt = parseUnixEpochSeconds(providerSubscription?.created);
+    const normalizedStatus = normalizeProviderSubscriptionStatus(providerSubscription?.status);
+
+    const nextSubscription = await billingRepository.upsertSubscription(
+      {
+        billableEntityId: currentSubscription.billableEntityId,
+        planId: targetPlan.id,
+        billingCustomerId: currentSubscription.billingCustomerId,
+        provider: currentSubscription.provider,
+        providerSubscriptionId: currentSubscription.providerSubscriptionId,
+        status: normalizedStatus,
+        providerSubscriptionCreatedAt: providerCreatedAt || currentSubscription.providerSubscriptionCreatedAt,
+        currentPeriodEnd: providerCurrentPeriodEnd || resolveSubscriptionPeriodEnd(currentSubscription, now),
+        trialEnd: providerTrialEnd,
+        canceledAt: providerCanceledAt,
+        cancelAtPeriodEnd: Boolean(providerSubscription?.cancel_at_period_end),
+        endedAt: providerEndedAt,
+        isCurrent: true,
+        lastProviderEventCreatedAt: now,
+        lastProviderEventId: null,
+        metadataJson:
+          providerSubscription?.metadata && typeof providerSubscription.metadata === "object"
+            ? providerSubscription.metadata
+            : currentSubscription.metadataJson
+      },
+      trx ? { trx } : {}
+    );
+
+    return nextSubscription;
+  }
+
+  async function applyInternalPlanAssignment({
+    billableEntityId,
+    targetPlan,
+    now = new Date(),
+    source = "internal",
+    periodEndAt = null,
+    metadataJson = null,
+    trx = null
+  }) {
+    if (typeof billingRepository.insertPlanAssignment !== "function") {
+      throw new AppError(500, "Internal plan assignment storage is unavailable.");
+    }
+
+    const resolvedPeriodEndAt = toDateOrNull(periodEndAt) || addUtcDays(now, PLAN_ASSIGNMENT_DEFAULT_PERIOD_DAYS);
+    return billingRepository.insertPlanAssignment(
+      {
+        billableEntityId,
+        planId: targetPlan.id,
+        source,
+        periodStartAt: now,
+        periodEndAt: resolvedPeriodEndAt,
+        isCurrent: true,
+        metadataJson
+      },
+      trx ? { trx } : {}
+    );
+  }
+
+  async function applyPendingPlanChangeSchedule({
+    schedule,
+    now = new Date(),
+    trx = null
+  }) {
+    if (!schedule || schedule.status !== "pending") {
+      return null;
+    }
+
+    const effectiveAtDate = toDateOrNull(schedule.effectiveAt);
+    if (!effectiveAtDate || effectiveAtDate.getTime() > now.getTime()) {
+      return null;
+    }
+
+    const targetPlan = await billingRepository.findPlanById(schedule.targetPlanId, trx ? { trx } : {});
+    if (!targetPlan || targetPlan.isActive === false) {
+      await billingRepository.updatePlanChangeScheduleById(
+        schedule.id,
+        {
+          status: "canceled",
+          metadataJson: {
+            reason: "target_plan_unavailable"
+          }
+        },
+        trx ? { trx } : {}
+      );
+      return null;
+    }
+
+    const currentContext = await resolveCurrentPlanContext({
+      billableEntityId: schedule.billableEntityId,
+      now,
+      trx,
+      forUpdate: true
+    });
+    const fromPlanId = currentContext?.plan?.id || schedule.fromPlanId || null;
+
+    if (currentContext?.source === "subscription" && currentContext.subscription) {
+      await updateCurrentSubscriptionPlan({
+        currentSubscription: currentContext.subscription,
+        targetPlan,
+        prorationBehavior: "none",
+        now,
+        trx
+      });
+    } else {
+      await applyInternalPlanAssignment({
+        billableEntityId: schedule.billableEntityId,
+        targetPlan,
+        now,
+        source: "manual",
+        periodEndAt: addUtcDays(now, PLAN_ASSIGNMENT_DEFAULT_PERIOD_DAYS),
+        metadataJson: {
+          scheduledChangeId: schedule.id
+        },
+        trx
+      });
+    }
+
+    await billingRepository.updatePlanChangeScheduleById(
+      schedule.id,
+      {
+        status: "applied",
+        appliedAt: now
+      },
+      trx ? { trx } : {}
+    );
+
+    await billingRepository.insertPlanChangeHistory(
+      {
+        billableEntityId: schedule.billableEntityId,
+        fromPlanId,
+        toPlanId: targetPlan.id,
+        changeKind: schedule.changeKind === "promo_fallback" ? "promo_fallback_applied" : "downgrade_applied",
+        effectiveAt: now,
+        scheduleId: schedule.id
+      },
+      trx ? { trx } : {}
+    );
+
+    return schedule.id;
+  }
+
+  async function applyDuePlanChangeForEntity({ billableEntityId, now = new Date() }) {
+    if (typeof billingRepository.findPendingPlanChangeScheduleForEntity !== "function") {
+      return false;
+    }
+
+    let applied = false;
+    await billingRepository.transaction(async (trx) => {
+      const pending = await billingRepository.findPendingPlanChangeScheduleForEntity(billableEntityId, {
+        trx,
+        forUpdate: true
+      });
+      const appliedScheduleId = await applyPendingPlanChangeSchedule({
+        schedule: pending,
+        now,
+        trx
+      });
+      applied = Boolean(appliedScheduleId);
+    });
+
+    return applied;
+  }
+
+  async function buildPlanState({
+    billableEntity,
+    now = new Date(),
+    includeHistoryLimit = 20
+  }) {
+    await applyDuePlanChangeForEntity({
+      billableEntityId: billableEntity.id,
+      now
+    });
+
+    const activePlans = await listActiveWorkspacePlans();
+    const planMapById = new Map(activePlans.map((plan) => [Number(plan.id), plan]));
+    const currentContext = await resolveCurrentPlanContext({
+      billableEntityId: billableEntity.id,
+      now
+    });
+    const currentPlan = currentContext.plan && currentContext.plan.isActive !== false ? currentContext.plan : null;
+    const currentPlanId = Number(currentPlan?.id || 0);
+
+    const pendingSchedule =
+      typeof billingRepository.findPendingPlanChangeScheduleForEntity === "function"
+        ? await billingRepository.findPendingPlanChangeScheduleForEntity(billableEntity.id)
+        : null;
+
+    const nextPlan = pendingSchedule ? planMapById.get(Number(pendingSchedule.targetPlanId)) || null : null;
+    const history =
+      typeof billingRepository.listPlanChangeHistoryForEntity === "function"
+        ? await billingRepository.listPlanChangeHistoryForEntity({
+            billableEntityId: billableEntity.id,
+            limit: includeHistoryLimit
+          })
+        : [];
+
+    const planSelections = activePlans
+      .filter((plan) => Number(plan.id) !== currentPlanId)
+      .map((plan) => mapPlanForSelection(plan))
+      .filter(Boolean);
+
+    const historyEntries = history.map((entry) => {
+      const fromPlan = entry.fromPlanId ? planMapById.get(Number(entry.fromPlanId)) || null : null;
+      const toPlan = planMapById.get(Number(entry.toPlanId)) || null;
+      return {
+        id: entry.id,
+        effectiveAt: entry.effectiveAt,
+        changeKind: entry.changeKind,
+        fromPlan: fromPlan ? mapPlanForSelection(fromPlan) : null,
+        toPlan: toPlan ? mapPlanForSelection(toPlan) : null
+      };
+    });
+
+    const currentPlanPeriodEndDate = toDateOrNull(currentContext.periodEndAt);
+    return {
+      currentPlan: currentPlan
+        ? {
+            ...mapPlanForSelection(currentPlan),
+            source: currentContext.source,
+            expiresAt: currentPlanPeriodEndDate ? currentPlanPeriodEndDate.toISOString() : null
+          }
+        : null,
+      nextPlanChange:
+        pendingSchedule && nextPlan
+          ? {
+              id: pendingSchedule.id,
+              changeKind: pendingSchedule.changeKind,
+              effectiveAt: pendingSchedule.effectiveAt,
+              targetPlan: mapPlanForSelection(nextPlan)
+            }
+          : null,
+      availablePlans: planSelections,
+      history: historyEntries,
+      settings: {
+        paidPlanChangePaymentMethodPolicy: await resolvePaidPlanChangePolicy()
+      }
+    };
+  }
+
+  async function getPlanState({ request, user, now = new Date() }) {
+    const { billableEntity } = await billingPolicyService.resolveBillableEntityForReadRequest({
+      request,
+      user
+    });
+
+    const state = await buildPlanState({
+      billableEntity,
+      now
+    });
+
+    return {
+      billableEntity,
+      ...state
+    };
+  }
+
+  async function requestPlanChange({ request, user, payload = {}, clientIdempotencyKey = "", now = new Date() }) {
+    const { billableEntity } = await billingPolicyService.resolveBillableEntityForWriteRequest({
+      request,
+      user
+    });
+
+    const targetPlanCode = toNonEmptyString(payload.planCode).toLowerCase();
+    if (!targetPlanCode) {
+      throw new AppError(400, "Validation failed.", {
+        details: {
+          fieldErrors: {
+            planCode: "planCode is required."
+          }
+        }
+      });
+    }
+
+    const activePlans = await listActiveWorkspacePlans();
+    const targetPlan = activePlans.find((entry) => String(entry.code || "").toLowerCase() === targetPlanCode) || null;
+    if (!targetPlan) {
+      throw new AppError(404, "Billing plan not found.");
+    }
+
+    await applyDuePlanChangeForEntity({
+      billableEntityId: billableEntity.id,
+      now
+    });
+
+    const currentContext = await resolveCurrentPlanContext({
+      billableEntityId: billableEntity.id,
+      now
+    });
+    const currentPlan = currentContext.plan || null;
+    const direction = classifyPlanChangeDirection(currentPlan, targetPlan);
+    const isTargetPaid = resolvePlanCoreAmountMinor(targetPlan) > 0;
+
+    if (direction === "same") {
+      return {
+        mode: "unchanged",
+        state: await buildPlanState({
+          billableEntity,
+          now
+        })
+      };
+    }
+
+    if (direction === "downgrade" && currentContext.source !== "none") {
+      const effectiveAt = currentContext.periodEndAt || addUtcDays(now, PLAN_ASSIGNMENT_DEFAULT_PERIOD_DAYS);
+      if (effectiveAt.getTime() <= now.getTime()) {
+        if (currentContext.source === "subscription" && currentContext.subscription) {
+          await updateCurrentSubscriptionPlan({
+            currentSubscription: currentContext.subscription,
+            targetPlan,
+            prorationBehavior: "none",
+            now
+          });
+        } else {
+          await applyInternalPlanAssignment({
+            billableEntityId: billableEntity.id,
+            targetPlan,
+            now,
+            source: "manual"
+          });
+        }
+
+        await billingRepository.insertPlanChangeHistory({
+          billableEntityId: billableEntity.id,
+          fromPlanId: currentPlan?.id || null,
+          toPlanId: targetPlan.id,
+          changeKind: "downgrade_immediate",
+          effectiveAt: now,
+          appliedByUserId: user?.id || null
+        });
+
+        return {
+          mode: "applied",
+          state: await buildPlanState({
+            billableEntity,
+            now
+          })
+        };
+      }
+
+      if (typeof billingRepository.replacePendingPlanChangeSchedule !== "function") {
+        throw new AppError(500, "Billing plan change scheduling is unavailable.");
+      }
+
+      await billingRepository.replacePendingPlanChangeSchedule({
+        billableEntityId: billableEntity.id,
+        fromPlanId: currentPlan?.id || null,
+        targetPlanId: targetPlan.id,
+        changeKind: "downgrade",
+        effectiveAt,
+        requestedByUserId: user?.id || null
+      });
+
+      return {
+        mode: "scheduled",
+        state: await buildPlanState({
+          billableEntity,
+          now
+        })
+      };
+    }
+
+    if (typeof billingRepository.cancelPendingPlanChangeScheduleForEntity === "function") {
+      await billingRepository.cancelPendingPlanChangeScheduleForEntity({
+        billableEntityId: billableEntity.id,
+        canceledByUserId: user?.id || null
+      });
+    }
+
+    if (currentContext.source === "subscription" && currentContext.subscription) {
+      const policy = await resolvePaidPlanChangePolicy();
+      if (isTargetPaid && policy === PAID_PLAN_CHANGE_POLICY_REQUIRED_NOW) {
+        const hasDefaultPaymentMethod = await hasDefaultPaymentMethodForEntity(billableEntity.id);
+        if (!hasDefaultPaymentMethod) {
+          throw new AppError(409, "A default payment method is required before switching to a paid plan.", {
+            code: "PAYMENT_METHOD_REQUIRED"
+          });
+        }
+      }
+
+      await updateCurrentSubscriptionPlan({
+        currentSubscription: currentContext.subscription,
+        targetPlan,
+        prorationBehavior: "create_prorations",
+        now
+      });
+      await billingRepository.insertPlanChangeHistory({
+        billableEntityId: billableEntity.id,
+        fromPlanId: currentPlan?.id || null,
+        toPlanId: targetPlan.id,
+        changeKind: direction === "upgrade" ? "upgrade_immediate" : "plan_change_immediate",
+        effectiveAt: now,
+        appliedByUserId: user?.id || null
+      });
+
+      return {
+        mode: "applied",
+        state: await buildPlanState({
+          billableEntity,
+          now
+        })
+      };
+    }
+
+    if (isTargetPaid) {
+      const normalizedSuccessPath = toNonEmptyString(payload.successPath);
+      const normalizedCancelPath = toNonEmptyString(payload.cancelPath);
+      if (!normalizedSuccessPath || !normalizedCancelPath) {
+        throw new AppError(400, "Validation failed.", {
+          details: {
+            fieldErrors: {
+              successPath: "successPath is required when checkout is needed.",
+              cancelPath: "cancelPath is required when checkout is needed."
+            }
+          }
+        });
+      }
+      if (!toNonEmptyString(clientIdempotencyKey)) {
+        throw new AppError(400, "Idempotency-Key header is required.", {
+          code: "IDEMPOTENCY_KEY_REQUIRED"
+        });
+      }
+
+      const checkoutResponse = await billingCheckoutOrchestrator.startCheckout({
+        request,
+        user,
+        payload: {
+          planCode: targetPlan.code,
+          successPath: normalizedSuccessPath,
+          cancelPath: normalizedCancelPath
+        },
+        clientIdempotencyKey,
+        now
+      });
+
+      return {
+        mode: "checkout_required",
+        checkout: checkoutResponse,
+        state: await buildPlanState({
+          billableEntity,
+          now
+        })
+      };
+    }
+
+    await applyInternalPlanAssignment({
+      billableEntityId: billableEntity.id,
+      targetPlan,
+      now,
+      source: "manual"
+    });
+    await billingRepository.insertPlanChangeHistory({
+      billableEntityId: billableEntity.id,
+      fromPlanId: currentPlan?.id || null,
+      toPlanId: targetPlan.id,
+      changeKind: "internal_immediate",
+      effectiveAt: now,
+      appliedByUserId: user?.id || null
+    });
+
+    return {
+      mode: "applied",
+      state: await buildPlanState({
+        billableEntity,
+        now
+      })
+    };
+  }
+
+  async function cancelPendingPlanChange({ request, user, now = new Date() }) {
+    const { billableEntity } = await billingPolicyService.resolveBillableEntityForWriteRequest({
+      request,
+      user
+    });
+
+    const canceled =
+      typeof billingRepository.cancelPendingPlanChangeScheduleForEntity === "function"
+        ? await billingRepository.cancelPendingPlanChangeScheduleForEntity({
+            billableEntityId: billableEntity.id,
+            canceledByUserId: user?.id || null
+          })
+        : null;
+
+    return {
+      canceled: Boolean(canceled),
+      state: await buildPlanState({
+        billableEntity,
+        now
+      })
+    };
+  }
+
+  async function processDuePlanChanges({ now = new Date(), limit = 50 } = {}) {
+    if (typeof billingRepository.listDuePendingPlanChangeSchedules !== "function") {
+      return {
+        scannedCount: 0,
+        appliedCount: 0
+      };
+    }
+
+    const dueSchedules = await billingRepository.listDuePendingPlanChangeSchedules({
+      effectiveAtOrBefore: now,
+      limit
+    });
+
+    let appliedCount = 0;
+    for (const schedule of dueSchedules) {
+      try {
+        await billingRepository.transaction(async (trx) => {
+          const lockedSchedule = await billingRepository.findPlanChangeScheduleById(schedule.id, {
+            trx,
+            forUpdate: true
+          });
+          const appliedScheduleId = await applyPendingPlanChangeSchedule({
+            schedule: lockedSchedule,
+            now,
+            trx
+          });
+          if (appliedScheduleId) {
+            appliedCount += 1;
+          }
+        });
+      } catch {
+        // Best effort processing; failed schedules remain pending for the next worker tick.
+      }
+    }
+
+    return {
+      scannedCount: dueSchedules.length,
+      appliedCount
+    };
+  }
+
+  async function seedSignupPromoPlan({ workspaceId, ownerUserId, now = new Date() }) {
+    if (typeof billingRepository.insertPlanAssignment !== "function") {
+      return null;
+    }
+
+    const billableEntity = await ensureBillableEntity({
+      workspaceId,
+      ownerUserId
+    });
+    const currentContext = await resolveCurrentPlanContext({
+      billableEntityId: billableEntity.id,
+      now
+    });
+    if (currentContext.source !== "none") {
+      return null;
+    }
+
+    const activePlans = await listActiveWorkspacePlans();
+    if (activePlans.length < 1) {
+      return null;
+    }
+
+    const sortedByAmountAsc = [...activePlans].sort((left, right) => {
+      const delta = resolvePlanCoreAmountMinor(left) - resolvePlanCoreAmountMinor(right);
+      if (delta !== 0) {
+        return delta;
+      }
+      return Number(left.id) - Number(right.id);
+    });
+    const promoPlan = [...activePlans].sort((left, right) => {
+      const delta = resolvePlanCoreAmountMinor(right) - resolvePlanCoreAmountMinor(left);
+      if (delta !== 0) {
+        return delta;
+      }
+      return Number(left.id) - Number(right.id);
+    })[0];
+    const fallbackPlan =
+      sortedByAmountAsc.find((plan) => resolvePlanCoreAmountMinor(plan) === 0) || sortedByAmountAsc[0] || promoPlan;
+    if (!promoPlan || !fallbackPlan) {
+      return null;
+    }
+
+    const promoEndsAt = addUtcDays(now, SIGNUP_PROMO_PERIOD_DAYS);
+    await billingRepository.transaction(async (trx) => {
+      await applyInternalPlanAssignment({
+        billableEntityId: billableEntity.id,
+        targetPlan: promoPlan,
+        now,
+        source: "promo",
+        periodEndAt: promoEndsAt,
+        metadataJson: {
+          reason: "signup_promo"
+        },
+        trx
+      });
+
+      await billingRepository.insertPlanChangeHistory(
+        {
+          billableEntityId: billableEntity.id,
+          fromPlanId: null,
+          toPlanId: promoPlan.id,
+          changeKind: "promo_granted",
+          effectiveAt: now,
+          metadataJson: {
+            promoEndsAt: promoEndsAt.toISOString()
+          }
+        },
+        { trx }
+      );
+
+      if (Number(fallbackPlan.id) !== Number(promoPlan.id) && typeof billingRepository.replacePendingPlanChangeSchedule === "function") {
+        await billingRepository.replacePendingPlanChangeSchedule(
+          {
+            billableEntityId: billableEntity.id,
+            fromPlanId: promoPlan.id,
+            targetPlanId: fallbackPlan.id,
+            changeKind: "promo_fallback",
+            effectiveAt: promoEndsAt,
+            requestedByUserId: null
+          },
+          { trx }
+        );
+      }
+    });
+
+    return {
+      billableEntityId: billableEntity.id,
+      promoPlanCode: promoPlan.code,
+      fallbackPlanCode: fallbackPlan.code,
+      promoEndsAt: promoEndsAt.toISOString()
+    };
+  }
+
+  async function resolveCurrentSubscriptionEntitlements({ billableEntityId }) {
+    const currentContext = await resolveCurrentPlanContext({
+      billableEntityId
+    });
+    const currentPlan = currentContext.plan || null;
+    if (!currentPlan) {
+      return {
+        currentSubscription: currentContext.subscription || null,
+        currentPlan: null,
         entitlements: []
       };
     }
 
-    const entitlements = await billingRepository.listPlanEntitlementsForPlan(currentSubscription.planId);
+    const entitlements = await billingRepository.listPlanEntitlementsForPlan(currentPlan.id);
     const validatedEntitlements = [];
     for (const entitlement of entitlements) {
       assertEntitlementValueOrThrow({
@@ -600,7 +1419,8 @@ function createService(options = {}) {
     }
 
     return {
-      currentSubscription,
+      currentSubscription: currentContext.subscription || null,
+      currentPlan,
       entitlements: validatedEntitlements
     };
   }
@@ -2176,7 +2996,12 @@ function createService(options = {}) {
 
   return {
     ensureBillableEntity,
+    seedSignupPromoPlan,
     listPlans,
+    getPlanState,
+    requestPlanChange,
+    cancelPendingPlanChange,
+    processDuePlanChanges,
     getSnapshot,
     listPaymentMethods,
     syncPaymentMethods,

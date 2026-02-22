@@ -3,8 +3,7 @@ import { useQuery } from "@tanstack/vue-query";
 import { api } from "../../services/api/index.js";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 import {
-  workspaceBillingPlansQueryKey,
-  workspaceBillingTimelineQueryKey
+  workspaceBillingPlanStateQueryKey
 } from "../../features/workspaceAdmin/queryKeys.js";
 
 function formatDateTime(value) {
@@ -16,17 +15,17 @@ function formatDateTime(value) {
   return date.toLocaleString();
 }
 
-function toTitleCase(value) {
-  const normalized = String(value || "").trim().toLowerCase();
-  if (!normalized) {
-    return "";
+function formatDateOnly(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "unknown";
   }
 
-  return normalized
-    .split(/[_\s]+/)
-    .filter(Boolean)
-    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
-    .join(" ");
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric"
+  });
 }
 
 function formatMoneyMinor(amountMinor, currency = "USD") {
@@ -66,24 +65,58 @@ function resolvePlanDisplayName(plan) {
   return String(plan?.name || plan?.code || "Plan").trim();
 }
 
+function normalizePlanHistoryEntries(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((entry) => entry && typeof entry === "object")
+    .map((entry) => {
+      const toPlan = entry.toPlan && typeof entry.toPlan === "object" ? entry.toPlan : null;
+      const fromPlan = entry.fromPlan && typeof entry.fromPlan === "object" ? entry.fromPlan : null;
+
+      return {
+        id: Number(entry.id || 0),
+        effectiveAt: String(entry.effectiveAt || ""),
+        changeKind: String(entry.changeKind || ""),
+        fromPlan,
+        toPlan
+      };
+    })
+    .filter((entry) => entry.id > 0);
+}
+
+function normalizePlanSelection(entry) {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+
+  return {
+    id: Number(entry.id || 0),
+    code: String(entry.code || ""),
+    name: String(entry.name || ""),
+    description: entry.description == null ? null : String(entry.description),
+    isActive: entry.isActive !== false,
+    corePrice: entry.corePrice && typeof entry.corePrice === "object" ? entry.corePrice : null
+  };
+}
+
 export function useWorkspaceBillingView() {
   const workspaceStore = useWorkspaceStore();
-  const page = ref(1);
-  const pageSize = ref(20);
-  const sourceFilter = ref("");
-  const operationKeyFilter = ref("");
-  const providerEventIdFilter = ref("");
-  const activeTab = ref("purchase");
 
   const selectedPlanCode = ref("");
+  const planChangeLoading = ref(false);
+  const cancelPlanChangeLoading = ref(false);
+
   const selectedCatalogPriceId = ref("");
   const selectedCatalogQuantity = ref(1);
   const oneOffMode = ref("catalog");
   const adHocName = ref("");
   const adHocAmountMinor = ref("");
   const adHocQuantity = ref(1);
-  const checkoutLoading = ref(false);
   const paymentLinkLoading = ref(false);
+
   const actionError = ref("");
   const actionSuccess = ref("");
   const lastCheckoutUrl = ref("");
@@ -94,55 +127,95 @@ export function useWorkspaceBillingView() {
   });
   const workspaceBillingPath = computed(() => workspaceStore.workspacePath("/billing"));
 
-  const plansQuery = useQuery({
-    queryKey: computed(() => workspaceBillingPlansQueryKey(workspaceSlug.value)),
-    queryFn: () => api.billing.listPlans(),
+  const planStateQuery = useQuery({
+    queryKey: computed(() => workspaceBillingPlanStateQueryKey(workspaceSlug.value)),
+    queryFn: () => api.billing.getPlanState(),
     enabled: computed(() => Boolean(workspaceSlug.value))
   });
 
-  const timelineQuery = useQuery({
-    queryKey: computed(() =>
-      workspaceBillingTimelineQueryKey(workspaceSlug.value, {
-        page: page.value,
-        pageSize: pageSize.value,
-        source: sourceFilter.value,
-        operationKey: operationKeyFilter.value,
-        providerEventId: providerEventIdFilter.value
-      })
-    ),
-    queryFn: () =>
-      api.billing.getTimeline({
-        page: page.value,
-        pageSize: pageSize.value,
-        source: sourceFilter.value || undefined,
-        operationKey: operationKeyFilter.value || undefined,
-        providerEventId: providerEventIdFilter.value || undefined
-      }),
-    enabled: computed(() => Boolean(workspaceSlug.value))
+  const billableEntity = computed(() => {
+    const value = planStateQuery.data.value?.billableEntity;
+    return value && typeof value === "object" ? value : null;
   });
 
-  const plans = computed(() => (Array.isArray(plansQuery.data.value?.plans) ? plansQuery.data.value.plans : []));
-  const activePlans = computed(() => plans.value.filter((plan) => plan && plan.isActive !== false));
-  const selectedPlan = computed(() => {
-    const explicit = activePlans.value.find((plan) => String(plan.code || "") === String(selectedPlanCode.value || ""));
-    if (explicit) {
-      return explicit;
-    }
-    return activePlans.value[0] || null;
+  const currentPlan = computed(() => normalizePlanSelection(planStateQuery.data.value?.currentPlan));
+
+  const currentPlanExpiresAt = computed(() => {
+    const value = String(planStateQuery.data.value?.currentPlan?.expiresAt || "").trim();
+    return value || "";
   });
 
-  const selectedPlanCorePrice = computed(() => {
-    const plan = selectedPlan.value;
-    if (!plan) {
+  const availablePlans = computed(() => {
+    const entries = Array.isArray(planStateQuery.data.value?.availablePlans) ? planStateQuery.data.value.availablePlans : [];
+    return entries.map(normalizePlanSelection).filter(Boolean);
+  });
+
+  const nextPlanChange = computed(() => {
+    const value = planStateQuery.data.value?.nextPlanChange;
+    if (!value || typeof value !== "object") {
       return null;
     }
-    return plan.corePrice && typeof plan.corePrice === "object" ? plan.corePrice : null;
+
+    const targetPlan = normalizePlanSelection(value.targetPlan);
+    if (!targetPlan) {
+      return null;
+    }
+
+    return {
+      id: Number(value.id || 0),
+      changeKind: String(value.changeKind || ""),
+      effectiveAt: String(value.effectiveAt || ""),
+      targetPlan
+    };
   });
+
+  const historyEntries = computed(() => normalizePlanHistoryEntries(planStateQuery.data.value?.history));
+
+  const paymentPolicy = computed(() =>
+    String(planStateQuery.data.value?.settings?.paidPlanChangePaymentMethodPolicy || "required_now").trim()
+  );
+
+  const allSelectablePlans = computed(() => {
+    const entries = [];
+    if (currentPlan.value) {
+      entries.push(currentPlan.value);
+    }
+
+    for (const entry of availablePlans.value) {
+      entries.push(entry);
+    }
+
+    const byCode = new Map();
+    for (const entry of entries) {
+      if (!entry || !entry.code || byCode.has(entry.code)) {
+        continue;
+      }
+      byCode.set(entry.code, entry);
+    }
+
+    return Array.from(byCode.values());
+  });
+
+  const selectedTargetPlan = computed(() => {
+    const selectedCode = String(selectedPlanCode.value || "");
+    if (!selectedCode) {
+      return null;
+    }
+
+    return availablePlans.value.find((entry) => entry.code === selectedCode) || null;
+  });
+
+  const planOptions = computed(() =>
+    availablePlans.value.map((plan) => ({
+      value: String(plan.code || ""),
+      title: String(plan.name || plan.code || "Plan")
+    }))
+  );
 
   const catalogItems = computed(() => {
     const items = [];
     const seen = new Set();
-    for (const plan of activePlans.value) {
+    for (const plan of allSelectablePlans.value) {
       const corePrice = plan?.corePrice && typeof plan.corePrice === "object" ? plan.corePrice : null;
       if (!corePrice) {
         continue;
@@ -166,26 +239,16 @@ export function useWorkspaceBillingView() {
     return items;
   });
 
-  const planOptions = computed(() =>
-    activePlans.value.map((plan) => ({
-      value: String(plan.code || ""),
-      title: String(plan.name || plan.code || "Plan")
-    }))
-  );
-
   watch(
     planOptions,
     (nextOptions) => {
-      if (!Array.isArray(nextOptions) || nextOptions.length < 1) {
-        selectedPlanCode.value = "";
+      const currentCode = String(selectedPlanCode.value || "");
+      if (currentCode && nextOptions.some((entry) => entry.value === currentCode)) {
         return;
       }
 
-      const currentCode = String(selectedPlanCode.value || "");
-      if (nextOptions.some((entry) => entry.value === currentCode)) {
-        return;
-      }
-      selectedPlanCode.value = String(nextOptions[0].value || "");
+      const defaultOption = nextOptions[0];
+      selectedPlanCode.value = defaultOption ? String(defaultOption.value || "") : "";
     },
     {
       immediate: true
@@ -211,12 +274,8 @@ export function useWorkspaceBillingView() {
     }
   );
 
-  const entries = computed(() => (Array.isArray(timelineQuery.data.value?.entries) ? timelineQuery.data.value.entries : []));
-  const loading = computed(() => timelineQuery.isFetching.value);
-  const error = computed(() =>
-    String(timelineQuery.error.value?.message || plansQuery.error.value?.message || "")
-  );
-  const hasMore = computed(() => Boolean(timelineQuery.data.value?.hasMore));
+  const loading = computed(() => Boolean(planStateQuery.isPending.value || planStateQuery.isFetching.value));
+  const error = computed(() => String(planStateQuery.error.value?.message || ""));
 
   function resetActionFeedback() {
     actionError.value = "";
@@ -241,70 +300,63 @@ export function useWorkspaceBillingView() {
   }
 
   async function refresh() {
-    await Promise.all([timelineQuery.refetch(), plansQuery.refetch()]);
+    await planStateQuery.refetch();
   }
 
-  async function applyFilters() {
-    page.value = 1;
-    await refresh();
-  }
-
-  async function setPageSize(nextPageSize) {
-    const parsed = Number(nextPageSize);
-    if (!Number.isInteger(parsed) || parsed < 1) {
-      return;
-    }
-
-    pageSize.value = parsed;
-    page.value = 1;
-  }
-
-  async function goPreviousPage() {
-    if (loading.value || page.value <= 1) {
-      return;
-    }
-
-    page.value -= 1;
-  }
-
-  async function goNextPage() {
-    if (loading.value || !hasMore.value) {
-      return;
-    }
-
-    page.value += 1;
-  }
-
-  async function startSubscriptionCheckout() {
+  async function submitPlanChange() {
     resetActionFeedback();
     const selectedPlanCodeValue = String(selectedPlanCode.value || "").trim();
     if (!selectedPlanCodeValue) {
-      actionError.value = "Select a plan before starting checkout.";
+      actionError.value = "Select a target plan.";
       return;
     }
 
-    checkoutLoading.value = true;
+    planChangeLoading.value = true;
     try {
-      const checkoutPayload = {
+      const response = await api.billing.requestPlanChange({
         planCode: selectedPlanCodeValue,
-        successPath: buildWorkspaceBillingPath({ checkout: "success" }),
-        cancelPath: buildWorkspaceBillingPath({ checkout: "cancel" })
-      };
+        successPath: buildWorkspaceBillingPath({ billing: "checkout_success" }),
+        cancelPath: buildWorkspaceBillingPath({ billing: "checkout_cancel" })
+      });
 
-      const response = await api.billing.startCheckout(checkoutPayload);
-
-      const checkoutUrl = String(response?.checkoutSession?.checkoutUrl || "").trim();
+      const mode = String(response?.mode || "").trim().toLowerCase();
+      const checkoutUrl = String(response?.checkout?.checkoutSession?.checkoutUrl || "").trim();
       lastCheckoutUrl.value = checkoutUrl;
-      actionSuccess.value = checkoutUrl
-        ? "Checkout session created. Redirecting to provider checkout..."
-        : "Checkout session created.";
-      if (checkoutUrl && typeof window !== "undefined" && typeof window.location?.assign === "function") {
-        window.location.assign(checkoutUrl);
+
+      if (mode === "checkout_required") {
+        actionSuccess.value = "Checkout session created. Redirecting to complete the plan change.";
+        if (checkoutUrl && typeof window !== "undefined" && typeof window.location?.assign === "function") {
+          window.location.assign(checkoutUrl);
+        }
+      } else if (mode === "scheduled") {
+        actionSuccess.value = "Plan downgrade scheduled for the current period end.";
+      } else if (mode === "unchanged") {
+        actionSuccess.value = "The selected plan is already current.";
+      } else {
+        actionSuccess.value = "Plan updated.";
       }
+
+      await refresh();
     } catch (errorValue) {
-      actionError.value = String(errorValue?.message || "Failed to start subscription checkout.");
+      actionError.value = String(errorValue?.message || "Failed to change plan.");
     } finally {
-      checkoutLoading.value = false;
+      planChangeLoading.value = false;
+    }
+  }
+
+  async function cancelPendingPlanChange() {
+    resetActionFeedback();
+
+    cancelPlanChangeLoading.value = true;
+    try {
+      const response = await api.billing.cancelPendingPlanChange();
+      const canceled = Boolean(response?.canceled);
+      actionSuccess.value = canceled ? "Scheduled plan change canceled." : "No pending plan change to cancel.";
+      await refresh();
+    } catch (errorValue) {
+      actionError.value = String(errorValue?.message || "Failed to cancel the scheduled plan change.");
+    } finally {
+      cancelPlanChangeLoading.value = false;
     }
   }
 
@@ -384,23 +436,6 @@ export function useWorkspaceBillingView() {
 
   return {
     meta: {
-      tabs: [
-        { value: "purchase", title: "Purchase" },
-        { value: "timeline", title: "Timeline" }
-      ],
-      pageSizeOptions: [20, 50, 100],
-      sourceOptions: [
-        { title: "All sources", value: "" },
-        { title: "Requests", value: "idempotency" },
-        { title: "Checkout sessions", value: "checkout_session" },
-        { title: "Subscriptions", value: "subscription" },
-        { title: "Invoices", value: "invoice" },
-        { title: "Payments", value: "payment" },
-        { title: "Payment method sync", value: "payment_method_sync" },
-        { title: "Webhooks", value: "webhook" },
-        { title: "Outbox jobs", value: "outbox_job" },
-        { title: "Remediations", value: "remediation" }
-      ],
       oneOffModeOptions: [
         {
           title: "Catalog",
@@ -412,15 +447,22 @@ export function useWorkspaceBillingView() {
         }
       ],
       formatDateTime,
-      toTitleCase,
+      formatDateOnly,
       formatMoneyMinor
     },
     state: reactive({
-      activeTab,
+      billableEntity,
+      currentPlan,
+      currentPlanExpiresAt,
+      availablePlans,
+      nextPlanChange,
+      historyEntries,
+      paymentPolicy,
       planOptions,
       selectedPlanCode,
-      selectedPlan,
-      selectedPlanCorePrice,
+      selectedTargetPlan,
+      planChangeLoading,
+      cancelPlanChangeLoading,
       catalogItems,
       selectedCatalogPriceId,
       selectedCatalogQuantity,
@@ -428,29 +470,18 @@ export function useWorkspaceBillingView() {
       adHocName,
       adHocAmountMinor,
       adHocQuantity,
-      checkoutLoading,
       paymentLinkLoading,
       actionError,
       actionSuccess,
       lastCheckoutUrl,
       lastPaymentLinkUrl,
-      entries,
       loading,
-      error,
-      page,
-      pageSize,
-      hasMore,
-      sourceFilter,
-      operationKeyFilter,
-      providerEventIdFilter
+      error
     }),
     actions: {
       refresh,
-      applyFilters,
-      setPageSize,
-      goPreviousPage,
-      goNextPage,
-      startSubscriptionCheckout,
+      submitPlanChange,
+      cancelPendingPlanChange,
       createCatalogPaymentLink,
       createAdHocPaymentLink
     }

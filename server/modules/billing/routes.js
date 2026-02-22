@@ -33,6 +33,20 @@ function buildRoutes(controllers, { missingHandler } = {}) {
       handler: controllers.billing?.getSubscriptionSnapshot || missingHandler
     },
     {
+      path: "/api/billing/plan-state",
+      method: "GET",
+      auth: "required",
+      workspacePolicy: "optional",
+      schema: {
+        tags: ["billing"],
+        summary: "Get current workspace billing plan, pending change, and effective plan history",
+        response: withStandardErrorResponses({
+          200: schema.response.planState
+        })
+      },
+      handler: controllers.billing?.getPlanState || missingHandler
+    },
+    {
       path: "/api/billing/payment-methods",
       method: "GET",
       auth: "required",
@@ -109,6 +123,38 @@ function buildRoutes(controllers, { missingHandler } = {}) {
         )
       },
       handler: controllers.billing?.startCheckout || missingHandler
+    },
+    {
+      path: "/api/billing/plan-change",
+      method: "POST",
+      auth: "required",
+      workspacePolicy: "optional",
+      schema: {
+        tags: ["billing"],
+        summary: "Request a workspace core-plan change (immediate upgrade or scheduled downgrade)",
+        body: schema.body.planChange,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.planChange
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.billing?.requestPlanChange || missingHandler
+    },
+    {
+      path: "/api/billing/plan-change/cancel",
+      method: "POST",
+      auth: "required",
+      workspacePolicy: "optional",
+      schema: {
+        tags: ["billing"],
+        summary: "Cancel a pending scheduled core-plan downgrade",
+        response: withStandardErrorResponses({
+          200: schema.response.planChangeCancel
+        })
+      },
+      handler: controllers.billing?.cancelPendingPlanChange || missingHandler
     },
     {
       path: "/api/billing/portal",

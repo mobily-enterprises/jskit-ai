@@ -41,6 +41,7 @@ import {
   resolveCatalogCorePriceForCreate,
   resolveCatalogCorePriceForUpdate
 } from "./billingCatalogProviderPricing.service.js";
+import { createBillingSettingsService } from "./billingSettings.service.js";
 
 function createService({
   consoleMembershipsRepository,
@@ -312,6 +313,12 @@ function createService({
 
     return context;
   }
+
+  const { getBillingSettings, updateBillingSettings } = createBillingSettingsService({
+    requirePermission,
+    ensureConsoleSettings,
+    consoleSettingsRepository
+  });
 
   async function buildBootstrapPayload({ user }) {
     if (!user) {
@@ -833,6 +840,8 @@ function createService({
     listRoles,
     getAssistantSettings,
     updateAssistantSettings,
+    getBillingSettings,
+    updateBillingSettings,
     listBillingEvents,
     listBillingPlans,
     createBillingPlan,

@@ -43,6 +43,9 @@ function createService({ paddleSdkService } = {}) {
     async cancelSubscription(payload) {
       return paddleSdkService.cancelSubscription(payload);
     },
+    async updateSubscriptionPlan(payload) {
+      return paddleSdkService.updateSubscriptionPlan(payload);
+    },
     async listCustomerPaymentMethods(payload) {
       return paddleSdkService.listCustomerPaymentMethods(payload);
     },

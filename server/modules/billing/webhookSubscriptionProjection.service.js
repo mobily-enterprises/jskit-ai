@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 import { AppError } from "../../lib/errors.js";
 import {
   BILLING_CHECKOUT_SESSION_STATUS,
@@ -120,29 +119,52 @@ function createService(options = {}) {
     const priceByProviderPriceId = new Map();
     let resolvedPlanId = existingPlanId || null;
 
+    let planByProviderPriceId = null;
+    if (typeof billingRepository.listPlans === "function") {
+      const plans = await billingRepository.listPlans({ trx });
+      planByProviderPriceId = new Map();
+      for (const plan of plans) {
+        const corePrice = plan?.corePrice && typeof plan.corePrice === "object" ? plan.corePrice : null;
+        const providerPriceId = toNullableString(corePrice?.providerPriceId);
+        const provider = toNullableString(corePrice?.provider);
+        if (!providerPriceId || provider !== activeProvider) {
+          continue;
+        }
+
+        planByProviderPriceId.set(providerPriceId, plan);
+      }
+    }
+
     for (const subscriptionItem of subscriptionItems) {
       const providerPriceId = toNullableString(subscriptionItem?.price?.id);
       if (!providerPriceId) {
         continue;
       }
 
-      const mappedPrice = await billingRepository.findPlanPriceByProviderPriceId(
-        {
-          provider: activeProvider,
-          providerPriceId
-        },
-        { trx }
-      );
-
-      if (!mappedPrice) {
+      const mappedPlan =
+        typeof billingRepository.findPlanByCheckoutProviderPriceId === "function"
+          ? await billingRepository.findPlanByCheckoutProviderPriceId(
+              {
+                provider: activeProvider,
+                providerPriceId
+              },
+              { trx }
+            )
+          : planByProviderPriceId?.get(providerPriceId) || null;
+      if (!mappedPlan) {
         continue;
       }
 
-      priceByProviderPriceId.set(providerPriceId, mappedPrice);
+      priceByProviderPriceId.set(providerPriceId, {
+        planId: Number(mappedPlan.id),
+        billingComponent: "base",
+        usageType: "licensed",
+        id: null
+      });
 
       if (resolvedPlanId == null) {
-        resolvedPlanId = mappedPrice.planId;
-      } else if (Number(resolvedPlanId) !== Number(mappedPrice.planId)) {
+        resolvedPlanId = Number(mappedPlan.id);
+      } else if (Number(resolvedPlanId) !== Number(mappedPlan.id)) {
         throw new AppError(409, "Subscription price mapping spans multiple plans.");
       }
     }
@@ -162,90 +184,13 @@ function createService(options = {}) {
     ignoreOrderingGuards = false,
     trx
   }) {
-    const seenProviderSubscriptionItemIds = new Set();
-
-    for (const subscriptionItem of subscriptionItems) {
-      const providerSubscriptionItemId = toNullableString(subscriptionItem?.id);
-      if (!providerSubscriptionItemId) {
-        continue;
-      }
-
-      seenProviderSubscriptionItemIds.add(providerSubscriptionItemId);
-
-      const existingItem = await billingRepository.findSubscriptionItemByProviderSubscriptionItemId(
-        {
-          provider: activeProvider,
-          providerSubscriptionItemId
-        },
-        {
-          trx,
-          forUpdate: true
-        }
-      );
-      if (
-        !ignoreOrderingGuards &&
-        isIncomingEventOlder(existingItem?.lastProviderEventCreatedAt, providerCreatedAt, {
-          existingProviderEventId: existingItem?.lastProviderEventId,
-          incomingProviderEventId: providerEventId
-        })
-      ) {
-        continue;
-      }
-
-      const providerPriceId = toNullableString(subscriptionItem?.price?.id);
-      const mappedPrice = providerPriceId ? priceByProviderPriceId.get(providerPriceId) || null : null;
-
-      await billingRepository.upsertSubscriptionItem(
-        {
-          subscriptionId: subscriptionRow.id,
-          provider: activeProvider,
-          providerSubscriptionItemId,
-          billingPlanPriceId: mappedPrice ? mappedPrice.id : null,
-          billingComponent: mappedPrice ? mappedPrice.billingComponent : "base",
-          usageType: mappedPrice ? mappedPrice.usageType : "licensed",
-          quantity: subscriptionItem?.quantity == null ? null : Number(subscriptionItem.quantity),
-          isActive: Boolean(!subscriptionItem?.deleted),
-          lastProviderEventCreatedAt: providerCreatedAt,
-          lastProviderEventId: providerEventId,
-          metadataJson: toSafeMetadata(subscriptionItem?.metadata)
-        },
-        { trx }
-      );
-    }
-
-    const existingItems = await billingRepository.listSubscriptionItemsForSubscription(
-      {
-        subscriptionId: subscriptionRow.id,
-        provider: activeProvider
-      },
-      { trx }
-    );
-
-    for (const existingItem of existingItems) {
-      if (seenProviderSubscriptionItemIds.has(existingItem.providerSubscriptionItemId)) {
-        continue;
-      }
-      if (!existingItem.isActive) {
-        continue;
-      }
-
-      await billingRepository.upsertSubscriptionItem(
-        {
-          subscriptionId: existingItem.subscriptionId,
-          provider: existingItem.provider,
-          providerSubscriptionItemId: existingItem.providerSubscriptionItemId,
-          billingPlanPriceId: existingItem.billingPlanPriceId,
-          billingComponent: existingItem.billingComponent,
-          usageType: existingItem.usageType,
-          quantity: existingItem.quantity,
-          isActive: false,
-          lastProviderEventCreatedAt: providerCreatedAt,
-          lastProviderEventId: providerEventId,
-          metadataJson: existingItem.metadataJson
-        },
-        { trx }
-      );
-    }
+    void subscriptionRow;
+    void subscriptionItems;
+    void priceByProviderPriceId;
+    void providerCreatedAt;
+    void providerEventId;
+    void ignoreOrderingGuards;
+    void trx;
   }
 
   async function applyCanonicalCurrentSubscriptionSelection({ billableEntityId, operationKey, providerEventId, trx }) {

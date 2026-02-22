@@ -31,6 +31,10 @@ function workspaceBillingSubscriptionQueryKey(scopeValue) {
   return [...workspaceAdminScopeQueryKey(scopeValue), "billing", "subscription"];
 }
 
+function workspaceBillingPlanStateQueryKey(scopeValue) {
+  return [...workspaceAdminScopeQueryKey(scopeValue), "billing", "plan-state"];
+}
+
 function workspaceBillingTimelineQueryKey(scopeValue, filters = {}) {
   const normalizedFilters = filters && typeof filters === "object" ? filters : {};
   return [...workspaceAdminScopeQueryKey(scopeValue), "billing", "timeline", normalizedFilters];
@@ -44,5 +48,6 @@ export {
   workspaceInvitesQueryKey,
   workspaceBillingPlansQueryKey,
   workspaceBillingSubscriptionQueryKey,
+  workspaceBillingPlanStateQueryKey,
   workspaceBillingTimelineQueryKey
 };

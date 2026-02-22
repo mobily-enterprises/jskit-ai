@@ -481,11 +481,127 @@ const timelineQuery = Type.Object(
   }
 );
 
+const planSelection = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    code: Type.String({ minLength: 1 }),
+    name: Type.String({ minLength: 1 }),
+    description: Type.Union([Type.String(), Type.Null()]),
+    isActive: Type.Boolean(),
+    corePrice: Type.Union([planCorePrice, Type.Null()])
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const currentPlanState = Type.Object(
+  {
+    ...planSelection.properties,
+    source: Type.String({ minLength: 1 }),
+    expiresAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()])
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const nextPlanChange = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    changeKind: Type.String({ minLength: 1 }),
+    effectiveAt: Type.String({ format: "iso-utc-date-time" }),
+    targetPlan: planSelection
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const planChangeHistoryEntry = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    effectiveAt: Type.String({ format: "iso-utc-date-time" }),
+    changeKind: Type.String({ minLength: 1 }),
+    fromPlan: Type.Union([planSelection, Type.Null()]),
+    toPlan: Type.Union([planSelection, Type.Null()])
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const planStatePayload = Type.Object(
+  {
+    currentPlan: Type.Union([currentPlanState, Type.Null()]),
+    nextPlanChange: Type.Union([nextPlanChange, Type.Null()]),
+    availablePlans: Type.Array(planSelection),
+    history: Type.Array(planChangeHistoryEntry),
+    settings: Type.Object(
+      {
+        paidPlanChangePaymentMethodPolicy: Type.Union([
+          Type.Literal("required_now"),
+          Type.Literal("allow_without_payment_method")
+        ])
+      },
+      {
+        additionalProperties: false
+      }
+    )
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const planStateResponse = Type.Object(
+  {
+    billableEntity,
+    ...planStatePayload.properties
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const planChangeBody = Type.Object(
+  {
+    planCode: Type.String({ minLength: 1, maxLength: 120 }),
+    successPath: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
+    cancelPath: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 }))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const planChangeResponse = Type.Object(
+  {
+    mode: Type.String({ minLength: 1 }),
+    checkout: Type.Optional(checkoutResponse),
+    state: planStatePayload
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const planChangeCancelResponse = Type.Object(
+  {
+    canceled: Type.Boolean(),
+    state: planStatePayload
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const schema = {
   body: {
     checkout: checkoutBody,
     portal: portalBody,
-    paymentLink: paymentLinkBody
+    paymentLink: paymentLinkBody,
+    planChange: planChangeBody
   },
   query: {
     timeline: timelineQuery
@@ -497,6 +613,9 @@ const schema = {
     paymentMethodSync: paymentMethodSyncResponse,
     limitations: limitationsResponse,
     timeline: timelineResponse,
+    planState: planStateResponse,
+    planChange: planChangeResponse,
+    planChangeCancel: planChangeCancelResponse,
     checkout: checkoutResponse,
     portal: portalResponse,
     paymentLink: paymentLinkResponse,

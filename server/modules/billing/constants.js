@@ -120,9 +120,7 @@ const LOCK_ORDER = Object.freeze([
   "billable_entities",
   "billing_subscriptions",
   "billing_request_idempotency",
-  "billing_checkout_sessions",
-  "billing_subscription_remediations",
-  "billing_outbox_jobs"
+  "billing_checkout_sessions"
 ]);
 
 function isBlockingCheckoutStatus(status) {

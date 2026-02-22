@@ -21,6 +21,48 @@
         <v-alert v-if="state.submitMessage" type="success" variant="tonal" class="mb-3">
           {{ state.submitMessage }}
         </v-alert>
+        <v-alert v-if="state.billingSettingsLoadError" type="warning" variant="tonal" class="mb-3">
+          {{ state.billingSettingsLoadError }}
+        </v-alert>
+        <v-alert v-if="state.billingSettingsError" type="error" variant="tonal" class="mb-3">
+          {{ state.billingSettingsError }}
+        </v-alert>
+        <v-alert v-if="state.billingSettingsSaveMessage" type="success" variant="tonal" class="mb-3">
+          {{ state.billingSettingsSaveMessage }}
+        </v-alert>
+
+        <v-card rounded="lg" variant="tonal" class="mb-4">
+          <v-card-item>
+            <v-card-title class="text-subtitle-2 font-weight-bold">Billing behavior</v-card-title>
+            <v-card-subtitle>
+              Controls paid-plan changes for workspaces without a default payment method.
+            </v-card-subtitle>
+          </v-card-item>
+          <v-card-text>
+            <div class="d-flex flex-wrap align-center ga-3">
+              <v-select
+                v-model="state.billingSettingsForm.paidPlanChangePaymentMethodPolicy"
+                :items="meta.billingPolicyOptions"
+                item-title="title"
+                item-value="value"
+                label="Paid plan change policy"
+                variant="outlined"
+                density="compact"
+                hide-details
+                :loading="state.billingSettingsLoading"
+                class="billing-policy-field"
+              />
+              <v-btn
+                color="primary"
+                :loading="state.billingSettingsSaving"
+                :disabled="state.billingSettingsLoading"
+                @click="actions.saveBillingSettings"
+              >
+                Save setting
+              </v-btn>
+            </div>
+          </v-card-text>
+        </v-card>
 
         <div class="billing-plans-table-wrap">
           <v-table density="comfortable">
@@ -454,6 +496,11 @@ const { meta, state, actions } = useConsoleBillingPlansView();
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.billing-policy-field {
+  min-width: 260px;
+  max-width: 420px;
 }
 
 .plan-details-header {

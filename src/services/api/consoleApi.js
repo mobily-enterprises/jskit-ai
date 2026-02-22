@@ -152,6 +152,12 @@ function createApi({ request }) {
     listBillingPlans() {
       return request("/api/console/billing/plans");
     },
+    getBillingSettings() {
+      return request("/api/console/billing/settings");
+    },
+    updateBillingSettings(payload) {
+      return request("/api/console/billing/settings", { method: "PATCH", body: payload });
+    },
     listBillingProviderPrices(query = {}) {
       const params = new URLSearchParams();
       if (query.active != null) {

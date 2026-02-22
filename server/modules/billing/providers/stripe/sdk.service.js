@@ -69,6 +69,15 @@ function resolveDefaultPaymentMethodId(customer) {
   return nestedId || null;
 }
 
+function resolvePrimarySubscriptionItemId(subscription) {
+  const items = Array.isArray(subscription?.items?.data) ? subscription.items.data : [];
+  const activeItem =
+    items.find((item) => item && !item.deleted && String(item?.price?.type || "recurring").trim() !== "one_time") || null;
+  const fallback = activeItem || items[0] || null;
+  const itemId = String(fallback?.id || "").trim();
+  return itemId || null;
+}
+
 async function loadStripeModule() {
   const mod = await import("stripe");
   const StripeCtor = mod?.default || mod?.Stripe || null;
@@ -264,6 +273,66 @@ function createService({
     });
   }
 
+  async function updateSubscriptionPlan({
+    subscriptionId,
+    providerPriceId,
+    subscriptionItemId = null,
+    prorationBehavior = "create_prorations",
+    billingCycleAnchor = "unchanged",
+    paymentBehavior = null
+  }) {
+    const normalizedSubscriptionId = String(subscriptionId || "").trim();
+    if (!normalizedSubscriptionId) {
+      throw new AppError(400, "Stripe subscription id is required.");
+    }
+
+    const normalizedProviderPriceId = String(providerPriceId || "").trim();
+    if (!normalizedProviderPriceId) {
+      throw new AppError(400, "Stripe provider price id is required.");
+    }
+
+    return runStripeOperation("subscription_update_plan", async () => {
+      const client = await getClient();
+
+      let resolvedSubscriptionItemId = String(subscriptionItemId || "").trim();
+      if (!resolvedSubscriptionItemId) {
+        const currentSubscription = await client.subscriptions.retrieve(normalizedSubscriptionId, {
+          expand: ["items.data.price"]
+        });
+        resolvedSubscriptionItemId = resolvePrimarySubscriptionItemId(currentSubscription);
+      }
+
+      if (!resolvedSubscriptionItemId) {
+        throw new AppError(409, "Stripe subscription has no mutable items.");
+      }
+
+      const params = {
+        cancel_at_period_end: false,
+        proration_behavior: String(prorationBehavior || "create_prorations").trim() || "create_prorations",
+        items: [
+          {
+            id: resolvedSubscriptionItemId,
+            price: normalizedProviderPriceId,
+            quantity: 1
+          }
+        ],
+        expand: ["latest_invoice.payment_intent", "items.data.price"]
+      };
+
+      const normalizedAnchor = String(billingCycleAnchor || "").trim();
+      if (normalizedAnchor) {
+        params.billing_cycle_anchor = normalizedAnchor;
+      }
+
+      const normalizedPaymentBehavior = String(paymentBehavior || "").trim();
+      if (normalizedPaymentBehavior) {
+        params.payment_behavior = normalizedPaymentBehavior;
+      }
+
+      return client.subscriptions.update(normalizedSubscriptionId, params);
+    });
+  }
+
   async function listCustomerPaymentMethods({ customerId, type = "card", limit = 100 }) {
     const normalizedCustomerId = String(customerId || "").trim();
     if (!normalizedCustomerId) {
@@ -371,6 +440,7 @@ function createService({
     retrieveInvoice,
     expireCheckoutSession,
     cancelSubscription,
+    updateSubscriptionPlan,
     listCustomerPaymentMethods,
     listCheckoutSessionsByOperationKey,
     getSdkProvenance
@@ -384,6 +454,7 @@ const __testables = {
   toNullableInteger,
   toNullableString,
   mapStripePriceRecord,
+  resolvePrimarySubscriptionItemId,
   resolveDefaultPaymentMethodId,
   loadStripeModule
 };

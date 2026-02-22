@@ -9,7 +9,9 @@ function createOrchestrator({
   findPlanByCode,
   getBlockingCheckoutSession,
   markFailed,
-  createCheckoutSession
+  createCheckoutSession,
+  retrieveCheckoutSession,
+  markCheckoutSessionExpiredOrAbandoned
 } = {}) {
   const state = {
     idempotencyStatus: "pending",
@@ -38,6 +40,9 @@ function createOrchestrator({
       async lockSubscriptionsForEntity() {
         return [];
       },
+      async lockCheckoutSessionsForEntity() {
+        return [];
+      },
       async findCurrentSubscriptionForEntity() {
         return null;
       },
@@ -60,6 +65,9 @@ function createOrchestrator({
         };
       },
       async findCustomerByEntityProvider() {
+        return null;
+      },
+      async findSubscriptionByProviderSubscriptionId() {
         return null;
       },
       async updateIdempotencyById() {
@@ -123,6 +131,15 @@ function createOrchestrator({
         return null;
       },
       async markCheckoutSessionExpiredOrAbandoned() {
+        if (typeof markCheckoutSessionExpiredOrAbandoned === "function") {
+          return markCheckoutSessionExpiredOrAbandoned();
+        }
+        return null;
+      },
+      async markCheckoutSessionCompletedPendingSubscription() {
+        return null;
+      },
+      async markCheckoutSessionReconciled() {
         return null;
       }
     },
@@ -148,6 +165,13 @@ function createOrchestrator({
           subscription: null,
           metadata: {}
         };
+      },
+      async retrieveCheckoutSession() {
+        if (typeof retrieveCheckoutSession === "function") {
+          return retrieveCheckoutSession();
+        }
+
+        throw new AppError(501, "retrieveCheckoutSession not configured for test.");
       }
     },
     appPublicUrl: "https://app.example.test"
@@ -232,6 +256,71 @@ test("checkout orchestrator includes safe existing session details for checkout_
       String(error?.details?.providerCheckoutSessionId || "") === "cs_existing_open" &&
       String(error?.details?.checkoutUrl || "") === "https://checkout.stripe.test/existing-open"
   );
+});
+
+test("checkout orchestrator self-heals stale blocking checkout sessions when provider shows expired", async () => {
+  let blockingSession = {
+    id: 18,
+    status: "open",
+    operationKey: "op_blocking_18",
+    providerCheckoutSessionId: "cs_blocking_18",
+    checkoutUrl: "https://checkout.stripe.test/blocking"
+  };
+
+  const { service } = createOrchestrator({
+    getBlockingCheckoutSession() {
+      return blockingSession;
+    },
+    retrieveCheckoutSession() {
+      return {
+        id: "cs_blocking_18",
+        status: "expired",
+        url: "https://checkout.stripe.test/blocking",
+        expires_at: Math.floor(Date.now() / 1000) - 60,
+        customer: "cus_blocking_18",
+        subscription: null,
+        metadata: {
+          operation_key: "op_blocking_18"
+        }
+      };
+    },
+    markCheckoutSessionExpiredOrAbandoned() {
+      blockingSession = null;
+      return {
+        id: 18,
+        status: "expired"
+      };
+    },
+    createCheckoutSession() {
+      return {
+        id: "cs_new_after_self_heal",
+        status: "open",
+        url: "https://checkout.stripe.test/new",
+        expires_at: Math.floor(Date.now() / 1000) + 300,
+        customer: "cus_new",
+        subscription: null,
+        metadata: {}
+      };
+    }
+  });
+
+  const response = await service.startCheckout({
+    request: {
+      headers: {}
+    },
+    user: {
+      id: 11
+    },
+    payload: {
+      planCode: "pro_monthly",
+      successPath: "/billing/success",
+      cancelPath: "/billing/cancel"
+    },
+    clientIdempotencyKey: "idem_self_heal_blocking",
+    now: new Date("2026-02-22T11:15:00.000Z")
+  });
+
+  assert.equal(response.checkoutSession.providerCheckoutSessionId, "cs_new_after_self_heal");
 });
 
 test("checkout orchestrator persists deterministic Tx A failures for replay", async () => {

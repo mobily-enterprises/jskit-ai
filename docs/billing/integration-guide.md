@@ -92,9 +92,19 @@ Keep these tests passing and extend them when behavior changes:
 
 ## 6. Purchase UX Contract (Scaffold Level)
 
+- Plan selection state:
+  - call `api.billing.getPlanState()` to render current plan, expiry, pending next plan (if any), and effective-change history.
+  - `availablePlans` excludes the current plan and should drive target options.
 - Subscription checkout:
   - call `api.billing.startCheckout` with `planCode`, `successPath`, and `cancelPath`.
   - checkout resolves a single recurring Stripe price mapped directly to that plan.
+- Plan change flow:
+  - call `api.billing.requestPlanChange({ planCode, successPath?, cancelPath? })`.
+  - upgrades apply immediately; downgrades schedule at current period end.
+  - when `mode === "checkout_required"`, redirect to `checkout.checkoutSession.checkoutUrl`.
+  - free-plan changes apply without Stripe checkout.
+- Cancel pending downgrade:
+  - call `api.billing.cancelPendingPlanChange()` to clear the scheduled next plan.
 - One-off catalog checkout:
   - call `api.billing.createPaymentLink` with `lineItems[]` (`priceId`, `quantity`).
 - One-off ad-hoc checkout:

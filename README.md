@@ -360,8 +360,10 @@ Realtime note:
 - `GET /api/console/invites`
 - `GET /api/console/ai/transcripts`
 - `GET /api/console/billing/plans`
+- `GET /api/console/billing/settings`
 - `GET /api/console/billing/provider-prices`
 - `POST /api/console/billing/plans`
+- `PATCH /api/console/billing/settings`
 - `PATCH /api/console/billing/plans/:planId`
 - `GET /api/console/billing/events`
 - `GET /api/console/ai/transcripts/:conversationId/messages`
@@ -384,11 +386,14 @@ Realtime note:
 - `PUT /api/workspace/projects/:projectId`
 - `GET /api/billing/plans`
 - `GET /api/billing/subscription`
+- `GET /api/billing/plan-state`
 - `GET /api/billing/payment-methods`
 - `POST /api/billing/payment-methods/sync`
 - `GET /api/billing/limitations`
 - `GET /api/billing/timeline`
 - `POST /api/billing/checkout`
+- `POST /api/billing/plan-change`
+- `POST /api/billing/plan-change/cancel`
 - `POST /api/billing/portal`
 - `POST /api/billing/payment-links`
 - `POST /api/billing/webhooks/stripe`

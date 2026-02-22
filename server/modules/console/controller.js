@@ -47,6 +47,26 @@ function createController({ consoleService, aiTranscriptsService = null, auditSe
     reply.code(200).send(response);
   }
 
+  async function getBillingSettings(request, reply) {
+    const response = await consoleService.getBillingSettings(request.user);
+    reply.code(200).send(response);
+  }
+
+  async function updateBillingSettings(request, reply) {
+    const payload = request.body || {};
+    const response = await withAuditEvent({
+      auditService,
+      request,
+      action: "console.billing.settings.updated",
+      execute: () => consoleService.updateBillingSettings(request.user, payload),
+      metadata: () => ({
+        paidPlanChangePaymentMethodPolicy: normalizeText(payload.paidPlanChangePaymentMethodPolicy)
+      })
+    });
+
+    reply.code(200).send(response);
+  }
+
   async function listMembers(request, reply) {
     const response = await consoleService.listMembers(request.user);
     reply.code(200).send(response);
@@ -362,6 +382,8 @@ function createController({ consoleService, aiTranscriptsService = null, auditSe
     listRoles,
     getAssistantSettings,
     updateAssistantSettings,
+    getBillingSettings,
+    updateBillingSettings,
     listMembers,
     updateMemberRole,
     listInvites,

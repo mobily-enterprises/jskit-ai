@@ -42,6 +42,15 @@ function createController({ billingService, billingWebhookService }) {
     reply.code(200).send(response);
   }
 
+  async function getPlanState(request, reply) {
+    const response = await billingService.getPlanState({
+      request,
+      user: request.user
+    });
+
+    reply.code(200).send(response);
+  }
+
   async function listPaymentMethods(request, reply) {
     const response = await billingService.listPaymentMethods({
       request,
@@ -85,6 +94,26 @@ function createController({ billingService, billingWebhookService }) {
       user: request.user,
       payload: request.body || {},
       clientIdempotencyKey: requireIdempotencyKey(request)
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function requestPlanChange(request, reply) {
+    const response = await billingService.requestPlanChange({
+      request,
+      user: request.user,
+      payload: request.body || {},
+      clientIdempotencyKey: requireIdempotencyKey(request)
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function cancelPendingPlanChange(request, reply) {
+    const response = await billingService.cancelPendingPlanChange({
+      request,
+      user: request.user
     });
 
     reply.code(200).send(response);
@@ -148,12 +177,15 @@ function createController({ billingService, billingWebhookService }) {
 
   return {
     listPlans,
+    getPlanState,
     getSubscriptionSnapshot,
     listPaymentMethods,
     syncPaymentMethods,
     getLimitations,
     getTimeline,
     startCheckout,
+    requestPlanChange,
+    cancelPendingPlanChange,
     createPortalSession,
     createPaymentLink,
     processStripeWebhook,

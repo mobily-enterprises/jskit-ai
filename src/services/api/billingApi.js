@@ -19,6 +19,9 @@ function createApi({ request }) {
     getSubscription() {
       return request("/api/billing/subscription");
     },
+    getPlanState() {
+      return request("/api/billing/plan-state");
+    },
     listPaymentMethods() {
       return request("/api/billing/payment-methods");
     },
@@ -54,6 +57,23 @@ function createApi({ request }) {
       return request("/api/billing/checkout", {
         method: "POST",
         body: payload,
+        headers: {
+          "Idempotency-Key": resolveIdempotencyKey(options)
+        }
+      });
+    },
+    requestPlanChange(payload, options = {}) {
+      return request("/api/billing/plan-change", {
+        method: "POST",
+        body: payload,
+        headers: {
+          "Idempotency-Key": resolveIdempotencyKey(options)
+        }
+      });
+    },
+    cancelPendingPlanChange(options = {}) {
+      return request("/api/billing/plan-change/cancel", {
+        method: "POST",
         headers: {
           "Idempotency-Key": resolveIdempotencyKey(options)
         }

@@ -28,3 +28,5 @@ Contract-lock tests:
 - `tests/billingPolicyServiceEntityScope.test.js`
 - `tests/billingIdempotencyService.test.js`
 - `tests/billingErrorCodeContract.test.js`
+- `tests/billingPlanChangeService.test.js`
+- `tests/billingRoutesPolicy.test.js`

@@ -19,6 +19,10 @@ import {
   isDeterministicProviderRejection,
   isIndeterminateProviderOutcome
 } from "./providerOutcomePolicy.js";
+import {
+  normalizeProviderSubscriptionStatus,
+  isSubscriptionStatusCurrent
+} from "./webhookProjection.utils.js";
 
 function normalizePlanCode(value) {
   return String(value || "").trim();
@@ -149,6 +153,25 @@ function providerSessionStateToLocalStatus(providerStatus) {
   }
 
   return BILLING_CHECKOUT_SESSION_STATUS.OPEN;
+}
+
+function normalizeOptionalString(value) {
+  const normalized = String(value || "").trim();
+  return normalized || null;
+}
+
+function parseUnixEpochSeconds(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return new Date(parsed * 1000);
+}
+
+function isProviderNotFoundError(error) {
+  const statusCode = Number(error?.statusCode || error?.status || 0);
+  return statusCode === 404;
 }
 
 function buildPlanNotFoundError() {
@@ -304,6 +327,462 @@ function createService(options = {}) {
     }
 
     return null;
+  }
+
+  async function resolveProviderSessionForBlockingSession(blockingSession) {
+    const providerCheckoutSessionId = normalizeOptionalString(blockingSession?.providerCheckoutSessionId);
+    const operationKey = normalizeOptionalString(blockingSession?.operationKey);
+
+    if (providerCheckoutSessionId && typeof providerAdapter.retrieveCheckoutSession === "function") {
+      try {
+        const providerSession = await providerAdapter.retrieveCheckoutSession({
+          sessionId: providerCheckoutSessionId,
+          expand: ["subscription", "customer"]
+        });
+        if (providerSession) {
+          return {
+            providerSession,
+            providerSessionMissing: false
+          };
+        }
+      } catch (error) {
+        if (isProviderNotFoundError(error)) {
+          return {
+            providerSession: null,
+            providerSessionMissing: true
+          };
+        }
+      }
+    }
+
+    if (operationKey && typeof providerAdapter.listCheckoutSessionsByOperationKey === "function") {
+      try {
+        const sessions = await providerAdapter.listCheckoutSessionsByOperationKey({
+          operationKey,
+          limit: 10
+        });
+        const providerSession = Array.isArray(sessions) ? sessions[0] || null : null;
+        if (providerSession) {
+          return {
+            providerSession,
+            providerSessionMissing: false
+          };
+        }
+      } catch {
+        return {
+          providerSession: null,
+          providerSessionMissing: false
+        };
+      }
+    }
+
+    return {
+      providerSession: null,
+      providerSessionMissing: false
+    };
+  }
+
+  function collectProviderSubscriptionPriceIds(providerSubscription) {
+    const uniquePriceIds = new Set();
+    const items = Array.isArray(providerSubscription?.items?.data) ? providerSubscription.items.data : [];
+
+    for (const item of items) {
+      const providerPriceId = normalizeOptionalString(item?.price?.id);
+      if (providerPriceId) {
+        uniquePriceIds.add(providerPriceId);
+      }
+    }
+
+    const fallbackPlanPriceId = normalizeOptionalString(providerSubscription?.plan?.id);
+    if (fallbackPlanPriceId) {
+      uniquePriceIds.add(fallbackPlanPriceId);
+    }
+
+    return Array.from(uniquePriceIds.values());
+  }
+
+  async function resolvePlanIdFromProviderSubscription(providerSubscription, { trx = null } = {}) {
+    const providerPriceIds = collectProviderSubscriptionPriceIds(providerSubscription);
+    if (providerPriceIds.length < 1) {
+      return null;
+    }
+
+    if (typeof billingRepository.listPlans !== "function") {
+      return null;
+    }
+
+    let resolvedPlanId = null;
+    const plans = await billingRepository.listPlans(trx ? { trx } : {});
+    for (const providerPriceId of providerPriceIds) {
+      const matchedPlan =
+        plans.find((plan) => {
+          const corePrice = plan?.corePrice && typeof plan.corePrice === "object" ? plan.corePrice : null;
+          if (!corePrice) {
+            return false;
+          }
+          return (
+            String(corePrice.provider || "").trim().toLowerCase() === activeProvider &&
+            String(corePrice.providerPriceId || "").trim() === providerPriceId
+          );
+        }) || null;
+      if (!matchedPlan) {
+        continue;
+      }
+
+      if (resolvedPlanId == null) {
+        resolvedPlanId = Number(matchedPlan.id);
+        continue;
+      }
+
+      if (Number(resolvedPlanId) !== Number(matchedPlan.id)) {
+        return null;
+      }
+    }
+
+    return resolvedPlanId;
+  }
+
+  async function projectCurrentProviderSubscription({
+    providerSubscription,
+    billableEntityId,
+    operationKey,
+    now = new Date(),
+    trx = null
+  }) {
+    if (!providerSubscription || typeof providerSubscription !== "object") {
+      return null;
+    }
+    if (typeof billingRepository.upsertSubscription !== "function") {
+      return null;
+    }
+
+    const providerSubscriptionId = normalizeOptionalString(providerSubscription.id);
+    if (!providerSubscriptionId) {
+      return null;
+    }
+
+    const planId = await resolvePlanIdFromProviderSubscription(providerSubscription, {
+      trx
+    });
+    if (!Number.isInteger(Number(planId)) || Number(planId) < 1) {
+      return null;
+    }
+
+    const providerCustomerId = normalizeOptionalString(providerSubscription.customer);
+    let customer = null;
+    if (providerCustomerId && typeof billingRepository.findCustomerByProviderCustomerId === "function") {
+      customer = await billingRepository.findCustomerByProviderCustomerId(
+        {
+          provider: activeProvider,
+          providerCustomerId
+        },
+        trx ? { trx } : {}
+      );
+    }
+
+    const metadataJson = providerSubscription?.metadata && typeof providerSubscription.metadata === "object"
+      ? providerSubscription.metadata
+      : {};
+
+    if (!customer && providerCustomerId && typeof billingRepository.upsertCustomer === "function") {
+      customer = await billingRepository.upsertCustomer(
+        {
+          billableEntityId,
+          provider: activeProvider,
+          providerCustomerId,
+          metadataJson
+        },
+        trx ? { trx } : {}
+      );
+    }
+
+    const normalizedStatus = normalizeProviderSubscriptionStatus(providerSubscription.status);
+    return billingRepository.upsertSubscription(
+      {
+        billableEntityId,
+        planId: Number(planId),
+        billingCustomerId: customer ? Number(customer.id) : null,
+        provider: activeProvider,
+        providerSubscriptionId,
+        status: normalizedStatus,
+        providerSubscriptionCreatedAt: parseUnixEpochSeconds(providerSubscription.created),
+        currentPeriodEnd: parseUnixEpochSeconds(providerSubscription.current_period_end),
+        trialEnd: parseUnixEpochSeconds(providerSubscription.trial_end),
+        canceledAt: parseUnixEpochSeconds(providerSubscription.canceled_at),
+        cancelAtPeriodEnd: Boolean(providerSubscription.cancel_at_period_end),
+        endedAt: parseUnixEpochSeconds(providerSubscription.ended_at),
+        isCurrent: isSubscriptionStatusCurrent(normalizedStatus),
+        lastProviderEventCreatedAt: now,
+        lastProviderEventId: operationKey ? `self_heal.subscription.${operationKey}` : `self_heal.subscription.${now.getTime()}`,
+        metadataJson
+      },
+      trx ? { trx } : {}
+    );
+  }
+
+  async function attemptSelfHealBlockingCheckoutSession({
+    blockingSession,
+    billableEntityId,
+    now = new Date(),
+    trx = null
+  }) {
+    const currentBlockingSession = blockingSession && typeof blockingSession === "object" ? blockingSession : null;
+    if (!currentBlockingSession) {
+      return {
+        attempted: false,
+        repaired: false
+      };
+    }
+
+    const operationKey = normalizeOptionalString(currentBlockingSession.operationKey);
+    const guardrailContext = {
+      billableEntityId,
+      operationKey
+    };
+
+    recordGuardrail("BILLING_CHECKOUT_BLOCKING_SELF_HEAL_ATTEMPT", {
+      ...guardrailContext,
+      measure: "count",
+      value: 1
+    });
+
+    const { providerSession, providerSessionMissing } = await resolveProviderSessionForBlockingSession(currentBlockingSession);
+    const fallbackProviderCheckoutSessionId = normalizeOptionalString(currentBlockingSession.providerCheckoutSessionId);
+
+    if (!providerSession && providerSessionMissing) {
+      await billingCheckoutSessionService.markCheckoutSessionExpiredOrAbandoned({
+        providerCheckoutSessionId: fallbackProviderCheckoutSessionId,
+        operationKey,
+        reason: "abandoned",
+        providerEventCreatedAt: now,
+        provider: activeProvider,
+        trx
+      });
+      recordGuardrail("BILLING_CHECKOUT_BLOCKING_SELF_HEAL_PROVIDER_SESSION_MISSING", {
+        ...guardrailContext,
+        measure: "count",
+        value: 1
+      });
+
+      return {
+        attempted: true,
+        repaired: true
+      };
+    }
+
+    if (!providerSession) {
+      recordGuardrail("BILLING_CHECKOUT_BLOCKING_SELF_HEAL_PROVIDER_SESSION_UNRESOLVED", {
+        ...guardrailContext,
+        measure: "count",
+        value: 1
+      });
+      return {
+        attempted: true,
+        repaired: false
+      };
+    }
+
+    const metadata = providerSession?.metadata && typeof providerSession.metadata === "object" ? providerSession.metadata : {};
+    const providerOperationKey = normalizeOptionalString(metadata.operation_key);
+    const effectiveOperationKey = operationKey || providerOperationKey;
+    const providerCheckoutSessionId = normalizeOptionalString(providerSession.id) || fallbackProviderCheckoutSessionId;
+    const providerCustomerId = normalizeOptionalString(providerSession.customer);
+    const providerSubscriptionId =
+      normalizeOptionalString(providerSession.subscription) || normalizeOptionalString(currentBlockingSession.providerSubscriptionId);
+    const providerLocalStatus = providerSessionStateToLocalStatus(providerSession.status);
+
+    if (providerLocalStatus === BILLING_CHECKOUT_SESSION_STATUS.EXPIRED) {
+      await billingCheckoutSessionService.markCheckoutSessionExpiredOrAbandoned({
+        providerCheckoutSessionId,
+        operationKey: effectiveOperationKey,
+        reason: "expired",
+        providerEventCreatedAt: now,
+        provider: activeProvider,
+        trx
+      });
+      recordGuardrail("BILLING_CHECKOUT_BLOCKING_SELF_HEAL_EXPIRED", {
+        ...guardrailContext,
+        operationKey: effectiveOperationKey,
+        measure: "count",
+        value: 1
+      });
+
+      return {
+        attempted: true,
+        repaired: true
+      };
+    }
+
+    if (providerLocalStatus === BILLING_CHECKOUT_SESSION_STATUS.COMPLETED_PENDING_SUBSCRIPTION) {
+      await billingCheckoutSessionService.markCheckoutSessionCompletedPendingSubscription({
+        providerCheckoutSessionId,
+        operationKey: effectiveOperationKey,
+        providerCustomerId,
+        providerSubscriptionId,
+        providerEventCreatedAt: now,
+        billableEntityId,
+        provider: activeProvider,
+        trx
+      });
+
+      if (providerSubscriptionId && typeof billingRepository.findSubscriptionByProviderSubscriptionId === "function") {
+        const localSubscription = await billingRepository.findSubscriptionByProviderSubscriptionId(
+          {
+            provider: activeProvider,
+            providerSubscriptionId
+          },
+          {
+            trx,
+            forUpdate: true
+          }
+        );
+
+        if (localSubscription) {
+          await billingCheckoutSessionService.markCheckoutSessionReconciled({
+            providerCheckoutSessionId,
+            operationKey: effectiveOperationKey,
+            providerSubscriptionId,
+            providerEventCreatedAt: now,
+            provider: activeProvider,
+            trx
+          });
+          recordGuardrail("BILLING_CHECKOUT_BLOCKING_SELF_HEAL_RECONCILED", {
+            ...guardrailContext,
+            operationKey: effectiveOperationKey,
+            measure: "count",
+            value: 1
+          });
+
+          return {
+            attempted: true,
+            repaired: true
+          };
+        }
+      }
+
+      if (providerSubscriptionId && typeof providerAdapter.retrieveSubscription === "function") {
+        try {
+          const providerSubscription = await providerAdapter.retrieveSubscription({
+            subscriptionId: providerSubscriptionId
+          });
+          const providerSubscriptionStatus = normalizeProviderSubscriptionStatus(providerSubscription?.status);
+
+          if (!isSubscriptionStatusCurrent(providerSubscriptionStatus)) {
+            await billingCheckoutSessionService.markCheckoutSessionExpiredOrAbandoned({
+              providerCheckoutSessionId,
+              operationKey: effectiveOperationKey,
+              reason: "abandoned",
+              providerEventCreatedAt: now,
+              provider: activeProvider,
+              trx
+            });
+            recordGuardrail("BILLING_CHECKOUT_BLOCKING_SELF_HEAL_PROVIDER_SUBSCRIPTION_TERMINAL", {
+              ...guardrailContext,
+              operationKey: effectiveOperationKey,
+              measure: "count",
+              value: 1
+            });
+
+            return {
+              attempted: true,
+              repaired: true
+            };
+          }
+
+          const projectedSubscription = await projectCurrentProviderSubscription({
+            providerSubscription,
+            billableEntityId,
+            operationKey: effectiveOperationKey,
+            now,
+            trx
+          });
+          if (projectedSubscription && isSubscriptionStatusCurrent(projectedSubscription.status)) {
+            await billingCheckoutSessionService.markCheckoutSessionReconciled({
+              providerCheckoutSessionId,
+              operationKey: effectiveOperationKey,
+              providerSubscriptionId,
+              providerEventCreatedAt: now,
+              provider: activeProvider,
+              trx
+            });
+            recordGuardrail("BILLING_CHECKOUT_BLOCKING_SELF_HEAL_PROJECTED_CURRENT_SUBSCRIPTION", {
+              ...guardrailContext,
+              operationKey: effectiveOperationKey,
+              measure: "count",
+              value: 1
+            });
+
+            return {
+              attempted: true,
+              repaired: true
+            };
+          }
+
+          recordGuardrail("BILLING_CHECKOUT_BLOCKING_PROVIDER_SUBSCRIPTION_UNPROJECTED", {
+            ...guardrailContext,
+            operationKey: effectiveOperationKey,
+            measure: "count",
+            value: 1
+          });
+        } catch (error) {
+          if (isProviderNotFoundError(error)) {
+            await billingCheckoutSessionService.markCheckoutSessionExpiredOrAbandoned({
+              providerCheckoutSessionId,
+              operationKey: effectiveOperationKey,
+              reason: "abandoned",
+              providerEventCreatedAt: now,
+              provider: activeProvider,
+              trx
+            });
+            recordGuardrail("BILLING_CHECKOUT_BLOCKING_SELF_HEAL_PROVIDER_SUBSCRIPTION_MISSING", {
+              ...guardrailContext,
+              operationKey: effectiveOperationKey,
+              measure: "count",
+              value: 1
+            });
+
+            return {
+              attempted: true,
+              repaired: true
+            };
+          }
+        }
+      }
+
+      return {
+        attempted: true,
+        repaired: false
+      };
+    }
+
+    const metadataJson = providerSession?.metadata && typeof providerSession.metadata === "object" ? providerSession.metadata : {};
+    await billingCheckoutSessionService.upsertBlockingCheckoutSession(
+      {
+        billableEntityId,
+        provider: activeProvider,
+        providerCheckoutSessionId,
+        idempotencyRowId: currentBlockingSession.idempotencyRowId || null,
+        operationKey: effectiveOperationKey,
+        providerCustomerId,
+        providerSubscriptionId,
+        status: BILLING_CHECKOUT_SESSION_STATUS.OPEN,
+        checkoutUrl: normalizeOptionalString(providerSession?.url),
+        expiresAt: parseUnixEpochSeconds(providerSession?.expires_at),
+        metadataJson
+      },
+      { trx }
+    );
+    recordGuardrail("BILLING_CHECKOUT_BLOCKING_SELF_HEAL_STILL_OPEN", {
+      ...guardrailContext,
+      operationKey: effectiveOperationKey,
+      measure: "count",
+      value: 1
+    });
+
+    return {
+      attempted: true,
+      repaired: false
+    };
   }
 
   function formatCheckoutResponse({ providerSession, billableEntityId, operationKey, checkoutType }) {
@@ -590,25 +1069,6 @@ function createService(options = {}) {
                 metadataJson: {
                   ...(checkoutSessionMetadata && typeof checkoutSessionMetadata === "object" ? checkoutSessionMetadata : {})
                 }
-              },
-              { trx }
-            );
-          }
-
-          if (providerSession?.id) {
-            await billingRepository.enqueueOutboxJob(
-              {
-                jobType: "expire_checkout_session",
-                dedupeKey: `expire_checkout_session:${String(providerSession.id)}`,
-                billableEntityId,
-                operationKey,
-                payloadJson: {
-                  provider: activeProvider,
-                  providerCheckoutSessionId: String(providerSession.id),
-                  billableEntityId,
-                  operationKey
-                },
-                availableAt: now
               },
               { trx }
             );
@@ -1086,7 +1546,7 @@ function createService(options = {}) {
             trx
           });
 
-          const blockingSession = await billingCheckoutSessionService.getBlockingCheckoutSession({
+          let blockingSession = await billingCheckoutSessionService.getBlockingCheckoutSession({
             billableEntityId: billableEntity.id,
             now,
             trx,
@@ -1094,16 +1554,56 @@ function createService(options = {}) {
           });
 
           if (blockingSession) {
+            let selfHealAttempted = false;
+            try {
+              const selfHealResult = await attemptSelfHealBlockingCheckoutSession({
+                blockingSession,
+                billableEntityId: billableEntity.id,
+                now,
+                trx
+              });
+              selfHealAttempted = Boolean(selfHealResult?.attempted);
+            } catch {
+              recordGuardrail("BILLING_CHECKOUT_BLOCKING_SELF_HEAL_FAILED", {
+                billableEntityId: billableEntity.id,
+                operationKey: normalizeOptionalString(blockingSession.operationKey),
+                measure: "count",
+                value: 1
+              });
+            }
+
+            if (selfHealAttempted) {
+              blockingSession = await billingCheckoutSessionService.getBlockingCheckoutSession({
+                billableEntityId: billableEntity.id,
+                now,
+                trx,
+                cleanupExpired: false
+              });
+            }
+          }
+
+          if (blockingSession) {
             const failureCode =
               resolveFailureCodeForBlockingSession(blockingSession, now) || BILLING_FAILURE_CODES.CHECKOUT_IN_PROGRESS;
             const failureMessage = "Checkout is blocked by another checkout session.";
+            const failureDetailsBase = {
+              blockingSessionStatus: String(blockingSession.status || ""),
+              blockingOperationKey: normalizeOptionalString(blockingSession.operationKey)
+            };
             const failureDetails =
               failureCode === BILLING_FAILURE_CODES.CHECKOUT_SESSION_OPEN
                 ? {
+                    ...failureDetailsBase,
                     providerCheckoutSessionId: blockingSession.providerCheckoutSessionId || null,
                     checkoutUrl: blockingSession.checkoutUrl || null
                   }
-                : {};
+                : failureDetailsBase;
+            recordGuardrail("BILLING_CHECKOUT_BLOCKING_SESSION_PERSISTED", {
+              billableEntityId: billableEntity.id,
+              operationKey: normalizeOptionalString(blockingSession.operationKey),
+              measure: "count",
+              value: 1
+            });
             await billingIdempotencyService.markFailed(
               {
                 idempotencyRowId: lockedIdempotencyRow.id,

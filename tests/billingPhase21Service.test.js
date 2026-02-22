@@ -14,6 +14,15 @@ function createPhase21Service(overrides = {}) {
       async findCurrentSubscriptionForEntity() {
         return null;
       },
+      async findPlanById(planId) {
+        const numericPlanId = Number(planId);
+        if (!Number.isFinite(numericPlanId) || numericPlanId <= 0) {
+          return null;
+        }
+        return {
+          id: numericPlanId
+        };
+      },
       async listPlanEntitlementsForPlan() {
         return [];
       },

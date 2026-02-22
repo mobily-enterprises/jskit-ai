@@ -12,9 +12,6 @@ function createBaseBillingService(overrides = {}) {
       async listPlans() {
         return [];
       },
-      async listPlanPricesForPlan() {
-        return [];
-      },
       async listPlanEntitlementsForPlan() {
         return [];
       },

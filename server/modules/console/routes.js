@@ -134,6 +134,36 @@ function buildRoutes(controllers, { missingHandler }) {
       handler: controllers.console?.listBillingPlans || missingHandler
     },
     {
+      path: "/api/console/billing/settings",
+      method: "GET",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "Get console billing behavior settings",
+        response: withStandardErrorResponses({
+          200: schema.response.billingSettings
+        })
+      },
+      handler: controllers.console?.getBillingSettings || missingHandler
+    },
+    {
+      path: "/api/console/billing/settings",
+      method: "PATCH",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "Update console billing behavior settings",
+        body: schema.body.billingSettingsUpdate,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.billingSettings
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.updateBillingSettings || missingHandler
+    },
+    {
       path: "/api/console/billing/provider-prices",
       method: "GET",
       auth: "required",

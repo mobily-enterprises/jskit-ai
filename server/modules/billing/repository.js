@@ -137,30 +137,6 @@ function mapPlanRowNullable(row) {
   };
 }
 
-function mapPlanPriceRowNullable(row) {
-  if (!row) {
-    return null;
-  }
-
-  return {
-    id: Number(row.id),
-    planId: Number(row.plan_id),
-    provider: normalizeProvider(row.provider),
-    billingComponent: String(row.billing_component || "base"),
-    usageType: String(row.usage_type || "licensed"),
-    interval: String(row.interval || "month"),
-    intervalCount: Number(row.interval_count || 1),
-    currency: String(row.currency || "").toUpperCase(),
-    unitAmountMinor: Number(row.unit_amount_minor || 0),
-    providerProductId: row.provider_product_id == null ? null : String(row.provider_product_id),
-    providerPriceId: String(row.provider_price_id || ""),
-    isActive: Boolean(row.is_active),
-    metadataJson: parseJsonValue(row.metadata_json, {}),
-    createdAt: toIsoString(row.created_at),
-    updatedAt: toIsoString(row.updated_at)
-  };
-}
-
 function mapEntitlementRowNullable(row) {
   if (!row) {
     return null;
@@ -326,12 +302,17 @@ function mapPaymentMethodSyncEventRowNullable(row) {
     return null;
   }
 
+  const eventTypeValue =
+    toNullableString(row.event_name) ||
+    toNullableString(row.event_type) ||
+    "manual_sync";
+
   return {
     id: Number(row.id),
-    billableEntityId: Number(row.billable_entity_id),
+    billableEntityId: row.billable_entity_id == null ? null : Number(row.billable_entity_id),
     billingCustomerId: row.billing_customer_id == null ? null : Number(row.billing_customer_id),
     provider: normalizeProvider(row.provider),
-    eventType: String(row.event_type || "manual_sync"),
+    eventType: String(eventTypeValue),
     providerEventId: row.provider_event_id == null ? null : String(row.provider_event_id),
     status: String(row.status || "succeeded"),
     errorText: row.error_text == null ? null : String(row.error_text),
@@ -481,16 +462,21 @@ function mapWebhookEventRowNullable(row) {
     return null;
   }
 
+  const eventTypeValue =
+    toNullableString(row.event_name) ||
+    toNullableString(row.event_type) ||
+    "";
+
   return {
     id: Number(row.id),
     billableEntityId: row.billable_entity_id == null ? null : Number(row.billable_entity_id),
     provider: normalizeProvider(row.provider),
     providerEventId: String(row.provider_event_id || ""),
     operationKey: toNullableString(row.operation_key),
-    eventType: String(row.event_type || ""),
-    providerCreatedAt: toIsoString(row.provider_created_at),
+    eventType: String(eventTypeValue),
+    providerCreatedAt: toIsoString(row.provider_created_at || row.occurred_at || row.created_at),
     status: String(row.status || "received"),
-    receivedAt: toIsoString(row.received_at),
+    receivedAt: toIsoString(row.received_at || row.created_at),
     processingStartedAt: toNullableIsoString(row.processing_started_at),
     processedAt: toNullableIsoString(row.processed_at),
     lastFailedAt: toNullableIsoString(row.last_failed_at),
@@ -586,6 +572,78 @@ function mapReconciliationRunRowNullable(row) {
   };
 }
 
+function mapPlanAssignmentRowNullable(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: Number(row.id),
+    billableEntityId: Number(row.billable_entity_id),
+    planId: Number(row.plan_id),
+    source: String(row.source || "internal"),
+    periodStartAt: toIsoString(row.period_start_at),
+    periodEndAt: toIsoString(row.period_end_at),
+    isCurrent: Boolean(row.is_current),
+    metadataJson: parseJsonValue(row.metadata_json, {}),
+    createdAt: toIsoString(row.created_at),
+    updatedAt: toIsoString(row.updated_at)
+  };
+}
+
+function mapPlanChangeScheduleRowNullable(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: Number(row.id),
+    billableEntityId: Number(row.billable_entity_id),
+    fromPlanId: row.from_plan_id == null ? null : Number(row.from_plan_id),
+    targetPlanId: Number(row.target_plan_id),
+    changeKind: String(row.change_kind || "downgrade"),
+    effectiveAt: toIsoString(row.effective_at),
+    status: String(row.status || "pending"),
+    requestedByUserId: row.requested_by_user_id == null ? null : Number(row.requested_by_user_id),
+    canceledByUserId: row.canceled_by_user_id == null ? null : Number(row.canceled_by_user_id),
+    appliedAt: toNullableIsoString(row.applied_at),
+    metadataJson: parseJsonValue(row.metadata_json, {}),
+    createdAt: toIsoString(row.created_at),
+    updatedAt: toIsoString(row.updated_at)
+  };
+}
+
+function mapPlanChangeHistoryRowNullable(row) {
+  if (!row) {
+    return null;
+  }
+
+  const changeKindValue =
+    toNullableString(row.change_kind) ||
+    toNullableString(row.event_name) ||
+    toNullableString(row.event_type) ||
+    "";
+
+  return {
+    id: Number(row.id),
+    billableEntityId: row.billable_entity_id == null ? null : Number(row.billable_entity_id),
+    fromPlanId: row.from_plan_id == null ? null : Number(row.from_plan_id),
+    toPlanId: row.to_plan_id == null ? null : Number(row.to_plan_id),
+    changeKind: String(changeKindValue),
+    effectiveAt: toIsoString(row.effective_at || row.occurred_at || row.created_at),
+    appliedByUserId:
+      row.applied_by_user_id == null
+        ? row.user_id == null
+          ? null
+          : Number(row.user_id)
+        : Number(row.applied_by_user_id),
+    scheduleId: row.schedule_id == null ? null : Number(row.schedule_id),
+    metadataJson: parseJsonValue(row.metadata_json, parseJsonValue(row.payload_json, {})),
+    createdAt: toIsoString(row.created_at),
+    updatedAt: toIsoString(row.updated_at)
+  };
+}
+
 function toInsertDateTime(dateLike, fallback = new Date()) {
   const normalized = normalizeDateInput(dateLike) || fallback;
   return toMysqlDateTimeUtc(normalized);
@@ -598,6 +656,20 @@ function toNullableDateTime(dateLike) {
   }
 
   return toMysqlDateTimeUtc(normalized);
+}
+
+async function resolveWorkspaceIdForBillableEntity(client, billableEntityId) {
+  const normalizedBillableEntityId = toPositiveInteger(billableEntityId);
+  if (!normalizedBillableEntityId) {
+    return null;
+  }
+
+  const row = await client("billable_entities")
+    .where({ id: normalizedBillableEntityId })
+    .select(["workspace_id"])
+    .first();
+
+  return row?.workspace_id == null ? null : Number(row.workspace_id);
 }
 
 function resolveQueryOptions(options = {}) {
@@ -799,17 +871,7 @@ function createBillingRepository(dbClient) {
     return mapPlanRowNullable(row);
   }
 
-  async function listPlanPricesForPlan(planId, provider, options = {}) {
-    const client = resolveClient(options);
-    const rows = await client("billing_plan_prices")
-      .where({ plan_id: planId, provider: normalizeProvider(provider) })
-      .orderBy("is_active", "desc")
-      .orderBy("id", "asc");
-
-    return rows.map(mapPlanPriceRowNullable).filter(Boolean);
-  }
-
-  async function findPlanPriceByProviderPriceId({ provider, providerPriceId }, options = {}) {
+  async function findPlanByCheckoutProviderPriceId({ provider, providerPriceId }, options = {}) {
     const normalizedProvider = normalizeProvider(provider);
     const normalizedProviderPriceId = String(providerPriceId || "").trim();
     if (!normalizedProviderPriceId) {
@@ -817,38 +879,21 @@ function createBillingRepository(dbClient) {
     }
 
     const client = resolveClient(options);
-    const query = client("billing_plan_prices")
+    const query = client("billing_plans")
       .where({
-        provider: normalizedProvider,
-        provider_price_id: normalizedProviderPriceId
+        checkout_provider: normalizedProvider,
+        checkout_provider_price_id: normalizedProviderPriceId
       })
       .first();
 
     const row = await applyForUpdate(query, options);
-    return mapPlanPriceRowNullable(row);
-  }
-
-  async function findSellablePlanPricesForPlan({ planId, provider, currency }, options = {}) {
-    const normalizedCurrency = String(currency || "").trim().toUpperCase();
-    const client = resolveClient(options);
-    const rows = await client("billing_plan_prices")
-      .where({
-        plan_id: planId,
-        provider: normalizeProvider(provider),
-        is_active: true,
-        usage_type: "licensed",
-        billing_component: "base"
-      })
-      .andWhere("currency", normalizedCurrency)
-      .orderBy("id", "asc");
-
-    return rows.map(mapPlanPriceRowNullable).filter(Boolean);
+    return mapPlanRowNullable(row);
   }
 
   async function listPlanEntitlementsForPlan(planId, options = {}) {
-    const client = resolveClient(options);
-    const rows = await client("billing_entitlements").where({ plan_id: planId }).orderBy("id", "asc");
-    return rows.map(mapEntitlementRowNullable).filter(Boolean);
+    void planId;
+    void options;
+    return [];
   }
 
   async function createPlan(payload, options = {}) {
@@ -938,57 +983,159 @@ function createBillingRepository(dbClient) {
     });
   }
 
-  async function createPlanPrice(payload, options = {}) {
+  async function upsertPlanEntitlement(payload, options = {}) {
+    void options;
+    if (!payload || typeof payload !== "object") {
+      return null;
+    }
+    return {
+      id: null,
+      planId: Number(payload.planId),
+      code: String(payload.code || "").trim(),
+      schemaVersion: String(payload.schemaVersion || "").trim(),
+      valueJson: payload.valueJson ?? {},
+      createdAt: toNullableDateTime(payload.createdAt) || new Date(),
+      updatedAt: toNullableDateTime(payload.updatedAt) || new Date()
+    };
+  }
+
+  async function findCurrentPlanAssignmentForEntity(billableEntityId, options = {}) {
+    const client = resolveClient(options);
+    const query = client("billing_plan_assignments")
+      .where({
+        billable_entity_id: Number(billableEntityId),
+        is_current: true
+      })
+      .orderBy("id", "asc")
+      .first();
+    const row = await applyForUpdate(query, options);
+    return mapPlanAssignmentRowNullable(row);
+  }
+
+  async function clearCurrentPlanAssignmentsForEntity(billableEntityId, options = {}) {
+    const client = resolveClient(options);
+    await client("billing_plan_assignments")
+      .where({
+        billable_entity_id: Number(billableEntityId),
+        is_current: true
+      })
+      .update({
+        is_current: false,
+        updated_at: toInsertDateTime(new Date(), new Date())
+      });
+  }
+
+  async function insertPlanAssignment(payload, options = {}) {
     const now = new Date();
     const client = resolveClient(options);
-    const [id] = await client("billing_plan_prices").insert({
-      plan_id: Number(payload?.planId),
-      provider: normalizeProvider(payload?.provider),
-      billing_component: String(payload?.billingComponent || "base").trim().toLowerCase() || "base",
-      usage_type: String(payload?.usageType || "licensed").trim().toLowerCase() || "licensed",
-      interval: String(payload?.interval || "month").trim().toLowerCase() || "month",
-      interval_count: Number(payload?.intervalCount || 1),
-      currency: String(payload?.currency || "").trim().toUpperCase(),
-      unit_amount_minor: Number(payload?.unitAmountMinor || 0),
-      provider_product_id: toNullableString(payload?.providerProductId),
-      provider_price_id: String(payload?.providerPriceId || "").trim(),
-      is_active: payload?.isActive !== false,
+
+    const normalizedBillableEntityId = Number(payload?.billableEntityId);
+    const normalizedPlanId = Number(payload?.planId);
+    const isCurrent = payload?.isCurrent !== false;
+    if (isCurrent) {
+      await clearCurrentPlanAssignmentsForEntity(normalizedBillableEntityId, {
+        ...options,
+        trx: client
+      });
+    }
+
+    const [id] = await client("billing_plan_assignments").insert({
+      billable_entity_id: normalizedBillableEntityId,
+      plan_id: normalizedPlanId,
+      source: String(payload?.source || "internal").trim() || "internal",
+      period_start_at: toInsertDateTime(payload?.periodStartAt, now),
+      period_end_at: toInsertDateTime(payload?.periodEndAt, now),
+      is_current: isCurrent,
       metadata_json: payload?.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
       created_at: toInsertDateTime(payload?.createdAt, now),
       updated_at: toInsertDateTime(payload?.updatedAt, now)
     });
 
-    const row = await client("billing_plan_prices").where({ id }).first();
-    return mapPlanPriceRowNullable(row);
+    const row = await client("billing_plan_assignments").where({ id }).first();
+    return mapPlanAssignmentRowNullable(row);
   }
 
-  async function updatePlanPriceById(id, patch = {}, options = {}) {
+  async function findPendingPlanChangeScheduleForEntity(billableEntityId, options = {}) {
+    const client = resolveClient(options);
+    const query = client("billing_plan_change_schedules")
+      .where({
+        billable_entity_id: Number(billableEntityId),
+        status: "pending"
+      })
+      .orderBy("id", "asc")
+      .first();
+    const row = await applyForUpdate(query, options);
+    return mapPlanChangeScheduleRowNullable(row);
+  }
+
+  async function findPlanChangeScheduleById(id, options = {}) {
+    const client = resolveClient(options);
+    const query = client("billing_plan_change_schedules").where({ id: Number(id) }).first();
+    const row = await applyForUpdate(query, options);
+    return mapPlanChangeScheduleRowNullable(row);
+  }
+
+  async function replacePendingPlanChangeSchedule(payload, options = {}) {
+    const now = new Date();
+    const client = resolveClient(options);
+    const normalizedBillableEntityId = Number(payload?.billableEntityId);
+    const normalizedRequestedByUserId = toPositiveInteger(payload?.requestedByUserId);
+
+    await client("billing_plan_change_schedules")
+      .where({
+        billable_entity_id: normalizedBillableEntityId,
+        status: "pending"
+      })
+      .update({
+        status: "canceled",
+        canceled_by_user_id: normalizedRequestedByUserId || null,
+        updated_at: toInsertDateTime(now, now)
+      });
+
+    const [id] = await client("billing_plan_change_schedules").insert({
+      billable_entity_id: normalizedBillableEntityId,
+      from_plan_id: payload?.fromPlanId == null ? null : Number(payload.fromPlanId),
+      target_plan_id: Number(payload?.targetPlanId),
+      change_kind: String(payload?.changeKind || "downgrade").trim() || "downgrade",
+      effective_at: toInsertDateTime(payload?.effectiveAt, now),
+      status: "pending",
+      requested_by_user_id: normalizedRequestedByUserId || null,
+      metadata_json: payload?.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
+      created_at: toInsertDateTime(payload?.createdAt, now),
+      updated_at: toInsertDateTime(payload?.updatedAt, now)
+    });
+
+    const row = await client("billing_plan_change_schedules").where({ id }).first();
+    return mapPlanChangeScheduleRowNullable(row);
+  }
+
+  async function updatePlanChangeScheduleById(id, patch = {}, options = {}) {
     const client = resolveClient(options);
     const dbPatch = {};
 
-    if (Object.hasOwn(patch, "providerPriceId")) {
-      dbPatch.provider_price_id = String(patch.providerPriceId || "").trim();
+    if (Object.hasOwn(patch, "fromPlanId")) {
+      dbPatch.from_plan_id = patch.fromPlanId == null ? null : Number(patch.fromPlanId);
     }
-    if (Object.hasOwn(patch, "providerProductId")) {
-      dbPatch.provider_product_id = toNullableString(patch.providerProductId);
+    if (Object.hasOwn(patch, "targetPlanId")) {
+      dbPatch.target_plan_id = Number(patch.targetPlanId);
     }
-    if (Object.hasOwn(patch, "currency")) {
-      dbPatch.currency = String(patch.currency || "").trim().toUpperCase();
+    if (Object.hasOwn(patch, "changeKind")) {
+      dbPatch.change_kind = String(patch.changeKind || "").trim() || "downgrade";
     }
-    if (Object.hasOwn(patch, "unitAmountMinor")) {
-      dbPatch.unit_amount_minor = Number(patch.unitAmountMinor || 0);
+    if (Object.hasOwn(patch, "effectiveAt")) {
+      dbPatch.effective_at = toInsertDateTime(patch.effectiveAt, new Date());
     }
-    if (Object.hasOwn(patch, "interval")) {
-      dbPatch.interval = String(patch.interval || "").trim().toLowerCase();
+    if (Object.hasOwn(patch, "status")) {
+      dbPatch.status = String(patch.status || "").trim() || "pending";
     }
-    if (Object.hasOwn(patch, "intervalCount")) {
-      dbPatch.interval_count = Number(patch.intervalCount || 1);
+    if (Object.hasOwn(patch, "requestedByUserId")) {
+      dbPatch.requested_by_user_id = toPositiveInteger(patch.requestedByUserId);
     }
-    if (Object.hasOwn(patch, "usageType")) {
-      dbPatch.usage_type = String(patch.usageType || "").trim().toLowerCase() || "licensed";
+    if (Object.hasOwn(patch, "canceledByUserId")) {
+      dbPatch.canceled_by_user_id = toPositiveInteger(patch.canceledByUserId);
     }
-    if (Object.hasOwn(patch, "isActive")) {
-      dbPatch.is_active = patch.isActive !== false;
+    if (Object.hasOwn(patch, "appliedAt")) {
+      dbPatch.applied_at = toNullableDateTime(patch.appliedAt);
     }
     if (Object.hasOwn(patch, "metadataJson")) {
       dbPatch.metadata_json = patch.metadataJson == null ? null : JSON.stringify(patch.metadataJson);
@@ -996,42 +1143,100 @@ function createBillingRepository(dbClient) {
 
     if (Object.keys(dbPatch).length > 0) {
       dbPatch.updated_at = toInsertDateTime(new Date(), new Date());
-      await client("billing_plan_prices").where({ id }).update(dbPatch);
+      await client("billing_plan_change_schedules").where({ id: Number(id) }).update(dbPatch);
     }
 
-    const row = await client("billing_plan_prices").where({ id }).first();
-    return mapPlanPriceRowNullable(row);
+    return findPlanChangeScheduleById(id, {
+      ...options,
+      trx: client
+    });
   }
 
-  async function upsertPlanEntitlement(payload, options = {}) {
+  async function cancelPendingPlanChangeScheduleForEntity({ billableEntityId, canceledByUserId = null }, options = {}) {
+    const client = resolveClient(options);
+    const pending = await findPendingPlanChangeScheduleForEntity(billableEntityId, {
+      ...options,
+      trx: client,
+      forUpdate: true
+    });
+    if (!pending) {
+      return null;
+    }
+
+    await updatePlanChangeScheduleById(
+      pending.id,
+      {
+        status: "canceled",
+        canceledByUserId,
+        appliedAt: null
+      },
+      {
+        ...options,
+        trx: client
+      }
+    );
+
+    return findPlanChangeScheduleById(pending.id, {
+      ...options,
+      trx: client
+    });
+  }
+
+  async function listDuePendingPlanChangeSchedules({ effectiveAtOrBefore, limit = 50 } = {}, options = {}) {
+    const client = resolveClient(options);
+    const threshold = effectiveAtOrBefore || new Date();
+    const rows = await client("billing_plan_change_schedules")
+      .where({ status: "pending" })
+      .andWhere("effective_at", "<=", toInsertDateTime(threshold, threshold))
+      .orderBy("effective_at", "asc")
+      .orderBy("id", "asc")
+      .limit(Math.max(1, Math.min(200, Number(limit) || 50)));
+    return rows.map(mapPlanChangeScheduleRowNullable).filter(Boolean);
+  }
+
+  async function insertPlanChangeHistory(payload, options = {}) {
     const now = new Date();
     const client = resolveClient(options);
-    const normalizedPlanId = Number(payload?.planId);
-    const normalizedCode = String(payload?.code || "").trim();
+    const normalizedBillableEntityId = toPositiveInteger(payload?.billableEntityId);
+    const normalizedEffectiveAt = toInsertDateTime(payload?.effectiveAt, now);
+    const [id] = await client("billing_events").insert({
+      event_type: "plan_change",
+      event_name: String(payload?.changeKind || "").trim() || "plan_change",
+      billable_entity_id: normalizedBillableEntityId,
+      workspace_id: await resolveWorkspaceIdForBillableEntity(client, normalizedBillableEntityId),
+      user_id: toPositiveInteger(payload?.appliedByUserId),
+      from_plan_id: payload?.fromPlanId == null ? null : Number(payload.fromPlanId),
+      to_plan_id: payload?.toPlanId == null ? null : Number(payload.toPlanId),
+      schedule_id: payload?.scheduleId == null ? null : Number(payload.scheduleId),
+      effective_at: normalizedEffectiveAt,
+      occurred_at: normalizedEffectiveAt,
+      status: "applied",
+      payload_json: payload?.metadataJson == null ? JSON.stringify({}) : JSON.stringify(payload.metadataJson),
+      metadata_json: payload?.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
+      created_at: toInsertDateTime(payload?.createdAt, now),
+      updated_at: toInsertDateTime(payload?.updatedAt, now)
+    });
 
-    await client("billing_entitlements")
-      .insert({
-        plan_id: normalizedPlanId,
-        code: normalizedCode,
-        schema_version: String(payload?.schemaVersion || "").trim(),
-        value_json: JSON.stringify(payload?.valueJson ?? {}),
-        created_at: toInsertDateTime(payload?.createdAt, now),
-        updated_at: toInsertDateTime(payload?.updatedAt, now)
-      })
-      .onConflict(["plan_id", "code"])
-      .merge({
-        schema_version: String(payload?.schemaVersion || "").trim(),
-        value_json: JSON.stringify(payload?.valueJson ?? {}),
-        updated_at: toInsertDateTime(payload?.updatedAt, now)
-      });
-
-    const row = await client("billing_entitlements")
+    const row = await client("billing_events")
       .where({
-        plan_id: normalizedPlanId,
-        code: normalizedCode
+        id,
+        event_type: "plan_change"
       })
       .first();
-    return mapEntitlementRowNullable(row);
+    return mapPlanChangeHistoryRowNullable(row);
+  }
+
+  async function listPlanChangeHistoryForEntity({ billableEntityId, limit = 20 } = {}, options = {}) {
+    const client = resolveClient(options);
+    const rows = await client("billing_events")
+      .where({
+        event_type: "plan_change",
+        billable_entity_id: Number(billableEntityId)
+      })
+      .orderBy("effective_at", "desc")
+      .orderBy("id", "desc")
+      .limit(Math.max(1, Math.min(200, Number(limit) || 20)));
+    return rows.map(mapPlanChangeHistoryRowNullable).filter(Boolean);
   }
 
   async function findCustomerById(id, options = {}) {
@@ -1222,247 +1427,75 @@ function createBillingRepository(dbClient) {
   }
 
   async function listSubscriptionItemsForSubscription({ subscriptionId, provider }, options = {}) {
-    const client = resolveClient(options);
-    const rows = await client("billing_subscription_items")
-      .where({ subscription_id: subscriptionId, provider: normalizeProvider(provider) })
-      .orderBy("id", "asc");
-
-    return rows.map(mapSubscriptionItemRowNullable).filter(Boolean);
+    void subscriptionId;
+    void provider;
+    void options;
+    return [];
   }
 
   async function findSubscriptionItemByProviderSubscriptionItemId(
     { provider, providerSubscriptionItemId },
     options = {}
   ) {
-    const normalizedProviderSubscriptionItemId = String(providerSubscriptionItemId || "").trim();
-    if (!normalizedProviderSubscriptionItemId) {
-      return null;
-    }
-
-    const client = resolveClient(options);
-    const query = client("billing_subscription_items")
-      .where({
-        provider: normalizeProvider(provider),
-        provider_subscription_item_id: normalizedProviderSubscriptionItemId
-      })
-      .first();
-    const row = await applyForUpdate(query, options);
-    return mapSubscriptionItemRowNullable(row);
+    void provider;
+    void providerSubscriptionItemId;
+    void options;
+    return null;
   }
 
   async function upsertSubscriptionItem(payload, options = {}) {
-    const now = new Date();
-    const client = resolveClient(options);
-    const provider = normalizeProvider(payload.provider);
-
-    await client("billing_subscription_items")
-      .insert({
-        subscription_id: payload.subscriptionId,
-        provider,
-        provider_subscription_item_id: payload.providerSubscriptionItemId,
-        billing_plan_price_id: payload.billingPlanPriceId || null,
-        billing_component: payload.billingComponent,
-        usage_type: payload.usageType,
-        quantity: payload.quantity == null ? null : Number(payload.quantity),
-        is_active: Boolean(payload.isActive),
-        last_provider_event_created_at: toNullableDateTime(payload.lastProviderEventCreatedAt),
-        last_provider_event_id: payload.lastProviderEventId || null,
-        metadata_json: payload.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
-        created_at: toInsertDateTime(payload.createdAt, now),
-        updated_at: toInsertDateTime(payload.updatedAt, now)
-      })
-      .onConflict(["provider", "provider_subscription_item_id"])
-      .merge({
-        subscription_id: payload.subscriptionId,
-        billing_plan_price_id: payload.billingPlanPriceId || null,
-        billing_component: payload.billingComponent,
-        usage_type: payload.usageType,
-        quantity: payload.quantity == null ? null : Number(payload.quantity),
-        is_active: Boolean(payload.isActive),
-        last_provider_event_created_at: toNullableDateTime(payload.lastProviderEventCreatedAt),
-        last_provider_event_id: payload.lastProviderEventId || null,
-        metadata_json: payload.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
-        updated_at: toInsertDateTime(payload.updatedAt, now)
-      });
-
-    const row = await client("billing_subscription_items")
-      .where({ provider, provider_subscription_item_id: payload.providerSubscriptionItemId })
-      .first();
-
-    return mapSubscriptionItemRowNullable(row);
+    void payload;
+    void options;
+    return null;
   }
 
   async function listInvoicesForSubscription({ subscriptionId, provider, limit = 20 }, options = {}) {
-    const client = resolveClient(options);
-    const rows = await client("billing_invoices")
-      .where({ subscription_id: subscriptionId, provider: normalizeProvider(provider) })
-      .orderBy("issued_at", "desc")
-      .orderBy("id", "desc")
-      .limit(Math.max(1, Math.min(100, Number(limit) || 20)));
-
-    return rows.map(mapInvoiceRowNullable).filter(Boolean);
+    void subscriptionId;
+    void provider;
+    void limit;
+    void options;
+    return [];
   }
 
   async function listRecentInvoices({ provider, since = null, limit = 200 }, options = {}) {
-    const client = resolveClient(options);
-    let query = client("billing_invoices").where({ provider: normalizeProvider(provider) });
-    if (since) {
-      query = query.andWhere("updated_at", ">=", toInsertDateTime(since, since));
-    }
-
-    const rows = await query
-      .orderBy("updated_at", "desc")
-      .orderBy("id", "desc")
-      .limit(Math.max(1, Math.min(1000, Number(limit) || 200)));
-
-    return rows.map(mapInvoiceRowNullable).filter(Boolean);
+    void provider;
+    void since;
+    void limit;
+    void options;
+    return [];
   }
 
   async function findInvoiceByProviderInvoiceId({ provider, providerInvoiceId }, options = {}) {
-    const normalizedProviderInvoiceId = String(providerInvoiceId || "").trim();
-    if (!normalizedProviderInvoiceId) {
-      return null;
-    }
-
-    const client = resolveClient(options);
-    const query = client("billing_invoices")
-      .where({
-        provider: normalizeProvider(provider),
-        provider_invoice_id: normalizedProviderInvoiceId
-      })
-      .first();
-
-    const row = await applyForUpdate(query, options);
-    return mapInvoiceRowNullable(row);
+    void provider;
+    void providerInvoiceId;
+    void options;
+    return null;
   }
 
   async function upsertInvoice(payload, options = {}) {
-    const now = new Date();
-    const client = resolveClient(options);
-    const provider = normalizeProvider(payload.provider);
-
-    await client("billing_invoices")
-      .insert({
-        subscription_id: payload.subscriptionId == null ? null : Number(payload.subscriptionId),
-        billable_entity_id: payload.billableEntityId,
-        billing_customer_id: payload.billingCustomerId,
-        provider,
-        provider_invoice_id: payload.providerInvoiceId,
-        status: payload.status,
-        amount_due_minor: Number(payload.amountDueMinor || 0),
-        amount_paid_minor: Number(payload.amountPaidMinor || 0),
-        amount_remaining_minor: Number(payload.amountRemainingMinor || 0),
-        currency: String(payload.currency || "").toUpperCase(),
-        issued_at: toNullableDateTime(payload.issuedAt),
-        due_at: toNullableDateTime(payload.dueAt),
-        paid_at: toNullableDateTime(payload.paidAt),
-        last_provider_event_created_at: toNullableDateTime(payload.lastProviderEventCreatedAt),
-        last_provider_event_id: payload.lastProviderEventId || null,
-        metadata_json: payload.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
-        created_at: toInsertDateTime(payload.createdAt, now),
-        updated_at: toInsertDateTime(payload.updatedAt, now)
-      })
-      .onConflict(["provider", "provider_invoice_id"])
-      .merge({
-        subscription_id: payload.subscriptionId == null ? null : Number(payload.subscriptionId),
-        billable_entity_id: payload.billableEntityId,
-        billing_customer_id: payload.billingCustomerId,
-        status: payload.status,
-        amount_due_minor: Number(payload.amountDueMinor || 0),
-        amount_paid_minor: Number(payload.amountPaidMinor || 0),
-        amount_remaining_minor: Number(payload.amountRemainingMinor || 0),
-        currency: String(payload.currency || "").toUpperCase(),
-        issued_at: toNullableDateTime(payload.issuedAt),
-        due_at: toNullableDateTime(payload.dueAt),
-        paid_at: toNullableDateTime(payload.paidAt),
-        last_provider_event_created_at: toNullableDateTime(payload.lastProviderEventCreatedAt),
-        last_provider_event_id: payload.lastProviderEventId || null,
-        metadata_json: payload.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
-        updated_at: toInsertDateTime(payload.updatedAt, now)
-      });
-
-    const row = await client("billing_invoices")
-      .where({ provider, provider_invoice_id: payload.providerInvoiceId })
-      .first();
-
-    return mapInvoiceRowNullable(row);
+    void payload;
+    void options;
+    return null;
   }
 
   async function listPaymentsForInvoiceIds({ provider, invoiceIds }, options = {}) {
-    const normalizedInvoiceIds = (Array.isArray(invoiceIds) ? invoiceIds : [])
-      .map((id) => Number(id))
-      .filter((id) => Number.isInteger(id) && id > 0);
-    if (normalizedInvoiceIds.length < 1) {
-      return [];
-    }
-
-    const client = resolveClient(options);
-    const rows = await client("billing_payments")
-      .where({ provider: normalizeProvider(provider) })
-      .whereIn("invoice_id", normalizedInvoiceIds)
-      .orderBy("id", "desc");
-
-    return rows.map(mapPaymentRowNullable).filter(Boolean);
+    void provider;
+    void invoiceIds;
+    void options;
+    return [];
   }
 
   async function findPaymentByProviderPaymentId({ provider, providerPaymentId }, options = {}) {
-    const normalizedProviderPaymentId = String(providerPaymentId || "").trim();
-    if (!normalizedProviderPaymentId) {
-      return null;
-    }
-
-    const client = resolveClient(options);
-    const query = client("billing_payments")
-      .where({
-        provider: normalizeProvider(provider),
-        provider_payment_id: normalizedProviderPaymentId
-      })
-      .first();
-
-    const row = await applyForUpdate(query, options);
-    return mapPaymentRowNullable(row);
+    void provider;
+    void providerPaymentId;
+    void options;
+    return null;
   }
 
   async function upsertPayment(payload, options = {}) {
-    const now = new Date();
-    const client = resolveClient(options);
-    const provider = normalizeProvider(payload.provider);
-
-    await client("billing_payments")
-      .insert({
-        invoice_id: payload.invoiceId,
-        provider,
-        provider_payment_id: payload.providerPaymentId,
-        type: payload.type,
-        status: payload.status,
-        amount_minor: Number(payload.amountMinor || 0),
-        currency: String(payload.currency || "").toUpperCase(),
-        paid_at: toNullableDateTime(payload.paidAt),
-        last_provider_event_created_at: toNullableDateTime(payload.lastProviderEventCreatedAt),
-        last_provider_event_id: payload.lastProviderEventId || null,
-        metadata_json: payload.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
-        created_at: toInsertDateTime(payload.createdAt, now),
-        updated_at: toInsertDateTime(payload.updatedAt, now)
-      })
-      .onConflict(["provider", "provider_payment_id"])
-      .merge({
-        invoice_id: payload.invoiceId,
-        type: payload.type,
-        status: payload.status,
-        amount_minor: Number(payload.amountMinor || 0),
-        currency: String(payload.currency || "").toUpperCase(),
-        paid_at: toNullableDateTime(payload.paidAt),
-        last_provider_event_created_at: toNullableDateTime(payload.lastProviderEventCreatedAt),
-        last_provider_event_id: payload.lastProviderEventId || null,
-        metadata_json: payload.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
-        updated_at: toInsertDateTime(payload.updatedAt, now)
-      });
-
-    const row = await client("billing_payments")
-      .where({ provider, provider_payment_id: payload.providerPaymentId })
-      .first();
-
-    return mapPaymentRowNullable(row);
+    void payload;
+    void options;
+    return null;
   }
 
   async function listPaymentMethodsForEntity(
@@ -1592,27 +1625,48 @@ function createBillingRepository(dbClient) {
   async function insertPaymentMethodSyncEvent(payload, options = {}) {
     const now = new Date();
     const client = resolveClient(options);
-    const [id] = await client("billing_payment_method_sync_events").insert({
-      billable_entity_id: Number(payload.billableEntityId),
+    const normalizedBillableEntityId = toPositiveInteger(payload?.billableEntityId);
+    const normalizedPayloadJson =
+      payload?.payloadJson && typeof payload.payloadJson === "object"
+        ? payload.payloadJson
+        : null;
+    const normalizedOperationKey =
+      toNullableString(payload?.operationKey) ||
+      toNullableString(normalizedPayloadJson?.operationKey) ||
+      toNullableString(normalizedPayloadJson?.operation_key);
+    const [id] = await client("billing_events").insert({
+      event_type: "payment_method_sync",
+      event_name: String(payload.eventType || "").trim() || "manual_sync",
+      billable_entity_id: normalizedBillableEntityId,
+      workspace_id: await resolveWorkspaceIdForBillableEntity(client, normalizedBillableEntityId),
       billing_customer_id: payload.billingCustomerId == null ? null : Number(payload.billingCustomerId),
       provider: normalizeProvider(payload.provider),
-      event_type: String(payload.eventType || "").trim() || "manual_sync",
       provider_event_id: payload.providerEventId == null ? null : String(payload.providerEventId || "").trim() || null,
+      operation_key: normalizedOperationKey,
       status: String(payload.status || "").trim() || "succeeded",
       error_text: payload.errorText == null ? null : String(payload.errorText),
-      payload_json: payload.payloadJson == null ? null : JSON.stringify(payload.payloadJson),
+      payload_json: normalizedPayloadJson == null ? null : JSON.stringify(normalizedPayloadJson),
       processed_at: toNullableDateTime(payload.processedAt || now),
+      occurred_at: toInsertDateTime(payload.processedAt || now, now),
       created_at: toInsertDateTime(payload.createdAt, now),
       updated_at: toInsertDateTime(payload.updatedAt, now)
     });
 
-    const row = await client("billing_payment_method_sync_events").where({ id }).first();
+    const row = await client("billing_events")
+      .where({
+        id,
+        event_type: "payment_method_sync"
+      })
+      .first();
     return mapPaymentMethodSyncEventRowNullable(row);
   }
 
   async function listPaymentMethodSyncEventsForEntity({ billableEntityId, provider, limit = 20 }, options = {}) {
     const client = resolveClient(options);
-    let query = client("billing_payment_method_sync_events").where({ billable_entity_id: Number(billableEntityId) });
+    let query = client("billing_events").where({
+      event_type: "payment_method_sync",
+      billable_entity_id: Number(billableEntityId)
+    });
     if (String(provider || "").trim()) {
       query = query.andWhere({ provider: normalizeProvider(provider) });
     }
@@ -1625,156 +1679,42 @@ function createBillingRepository(dbClient) {
   }
 
   async function findUsageCounter({ billableEntityId, entitlementCode, windowStartAt, windowEndAt }, options = {}) {
-    const client = resolveClient(options);
-    const query = client("billing_usage_counters")
-      .where({
-        billable_entity_id: Number(billableEntityId),
-        entitlement_code: String(entitlementCode || "").trim(),
-        window_start_at: toInsertDateTime(windowStartAt, windowStartAt),
-        window_end_at: toInsertDateTime(windowEndAt, windowEndAt)
-      })
-      .first();
-    const row = await applyForUpdate(query, options);
-    return mapUsageCounterRowNullable(row);
+    void billableEntityId;
+    void entitlementCode;
+    void windowStartAt;
+    void windowEndAt;
+    void options;
+    return null;
   }
 
   async function incrementUsageCounter(payload, options = {}) {
-    const client = resolveClient(options);
-    const now = new Date();
-    const amount = Number(payload.amount);
-    const normalizedAmount = Number.isFinite(amount) && amount > 0 ? Math.floor(amount) : 0;
-    if (normalizedAmount < 1) {
-      return findUsageCounter(payload, options);
-    }
-
-    const billableEntityId = Number(payload.billableEntityId);
-    const entitlementCode = String(payload.entitlementCode || "").trim();
-    const windowStartAt = toInsertDateTime(payload.windowStartAt, payload.windowStartAt);
-    const windowEndAt = toInsertDateTime(payload.windowEndAt, payload.windowEndAt);
-
-    const mergePatch = {
-      usage_count: client.raw("usage_count + ?", [normalizedAmount]),
-      updated_at: toInsertDateTime(payload.updatedAt, now)
-    };
-    if (Object.hasOwn(payload, "metadataJson")) {
-      mergePatch.metadata_json = payload.metadataJson == null ? null : JSON.stringify(payload.metadataJson);
-    }
-
-    await client("billing_usage_counters")
-      .insert({
-        billable_entity_id: billableEntityId,
-        entitlement_code: entitlementCode,
-        window_start_at: windowStartAt,
-        window_end_at: windowEndAt,
-        usage_count: normalizedAmount,
-        metadata_json: payload.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
-        created_at: toInsertDateTime(payload.createdAt, now),
-        updated_at: toInsertDateTime(payload.updatedAt, now)
-      })
-      .onConflict(["billable_entity_id", "entitlement_code", "window_start_at", "window_end_at"])
-      .merge(mergePatch);
-
-    const row = await client("billing_usage_counters")
-      .where({
-        billable_entity_id: billableEntityId,
-        entitlement_code: entitlementCode,
-        window_start_at: windowStartAt,
-        window_end_at: windowEndAt
-      })
-      .first();
-
-    return mapUsageCounterRowNullable(row);
+    void payload;
+    void options;
+    return null;
   }
 
   async function claimUsageEvent(payload, options = {}) {
-    const client = resolveClient(options);
-    const now = new Date();
-    const amount = Number(payload.amount);
-    const normalizedAmount = Number.isFinite(amount) && amount > 0 ? Math.floor(amount) : 1;
-    const billableEntityId = Number(payload.billableEntityId);
-    const entitlementCode = String(payload.entitlementCode || "").trim();
-    const usageEventKey = String(payload.usageEventKey || "").trim();
-    const windowStartAt = toInsertDateTime(payload.windowStartAt, payload.windowStartAt);
-    const windowEndAt = toInsertDateTime(payload.windowEndAt, payload.windowEndAt);
-
-    if (!Number.isInteger(billableEntityId) || billableEntityId < 1 || !entitlementCode || !usageEventKey) {
-      throw new Error("claimUsageEvent requires billableEntityId, entitlementCode, and usageEventKey.");
-    }
-
-    let claimed = false;
-    try {
-      const [id] = await client("billing_usage_events").insert({
-        billable_entity_id: billableEntityId,
-        entitlement_code: entitlementCode,
-        usage_event_key: usageEventKey,
-        window_start_at: windowStartAt,
-        window_end_at: windowEndAt,
-        amount: normalizedAmount,
-        metadata_json: payload.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
-        created_at: toInsertDateTime(payload.createdAt, now),
-        updated_at: toInsertDateTime(payload.updatedAt, now)
-      });
-
-      claimed = Number.isInteger(Number(id)) && Number(id) > 0;
-    } catch (error) {
-      if (!isMysqlDuplicateEntryError(error)) {
-        throw error;
-      }
-    }
-
-    const row = await client("billing_usage_events")
-      .where({
-        billable_entity_id: billableEntityId,
-        entitlement_code: entitlementCode,
-        usage_event_key: usageEventKey,
-        window_start_at: windowStartAt,
-        window_end_at: windowEndAt
-      })
-      .first();
-
+    void payload;
+    void options;
     return {
-      claimed,
-      event: mapUsageEventRowNullable(row)
+      claimed: true,
+      event: null
     };
   }
 
   async function listUsageCountersForEntity({ billableEntityId, entitlementCode = null, limit = 200 }, options = {}) {
-    const client = resolveClient(options);
-    let query = client("billing_usage_counters")
-      .where({
-        billable_entity_id: Number(billableEntityId)
-      });
-    if (String(entitlementCode || "").trim()) {
-      query = query.andWhere({ entitlement_code: String(entitlementCode || "").trim() });
-    }
-
-    const rows = await query
-      .orderBy("window_start_at", "desc")
-      .orderBy("id", "desc")
-      .limit(Math.max(1, Math.min(1000, Number(limit) || 200)));
-
-    return rows.map(mapUsageCounterRowNullable).filter(Boolean);
+    void billableEntityId;
+    void entitlementCode;
+    void limit;
+    void options;
+    return [];
   }
 
   async function deleteUsageCountersOlderThan(cutoffDate, batchSize = 1000, options = {}) {
-    const client = resolveClient(options);
-    const normalizedBatchSize = Math.max(1, Math.min(10_000, Number(batchSize) || 1000));
-    const cutoff = toInsertDateTime(cutoffDate, cutoffDate);
-    const ids = await client("billing_usage_counters")
-      .where("window_end_at", "<", cutoff)
-      .orderBy("id", "asc")
-      .limit(normalizedBatchSize)
-      .select("id");
-
-    if (!ids || ids.length < 1) {
-      return 0;
-    }
-
-    const deleted = await client("billing_usage_counters")
-      .whereIn("id", ids.map((entry) => Number(entry.id)))
-      .delete();
-
-    return Number(deleted || 0);
+    void cutoffDate;
+    void batchSize;
+    void options;
+    return 0;
   }
 
   async function listBillingActivityEvents(filters = {}, options = {}) {
@@ -1925,269 +1865,93 @@ function createBillingRepository(dbClient) {
       rows.push(...(await query));
     }
 
-    if (includeSource("invoice")) {
-      let query = client("billing_invoices as bi")
-        .join("billable_entities as be", "be.id", "bi.billable_entity_id")
+    if (includeSource("payment_method_sync")) {
+      let query = client("billing_events as bevt")
+        .join("billable_entities as be", "be.id", "bevt.billable_entity_id")
         .leftJoin("workspaces as w", "w.id", "be.workspace_id")
         .select(
-          client.raw("? as source", ["invoice"]),
-          "bi.id as source_id",
-          "bi.billable_entity_id",
+          client.raw("? as source", ["payment_method_sync"]),
+          "bevt.id as source_id",
+          "bevt.billable_entity_id",
           "be.workspace_id",
           "w.slug as workspace_slug",
           "w.name as workspace_name",
           "be.owner_user_id",
-          "bi.provider",
-          client.raw("NULL as operation_key"),
-          "bi.last_provider_event_id as provider_event_id",
-          client.raw("? as event_type", ["invoice"]),
-          "bi.status",
-          "bi.updated_at as occurred_at",
-          client.raw("NULL as message"),
-          "bi.metadata_json as details_json"
+          "bevt.provider",
+          "bevt.operation_key",
+          "bevt.provider_event_id",
+          "bevt.event_name as event_type",
+          "bevt.status",
+          "bevt.updated_at as occurred_at",
+          "bevt.error_text as message",
+          "bevt.payload_json as details_json"
         );
 
-      query = applyEntityFilters(query, "bi.billable_entity_id");
-      if (normalizedOperationKey) {
-        query = query.andWhereRaw(
-          "JSON_UNQUOTE(JSON_EXTRACT(bi.metadata_json, '$.operation_key')) = ?",
-          [normalizedOperationKey]
-        );
-      }
-      if (normalizedProviderEventId) {
-        query = query.andWhere("bi.last_provider_event_id", normalizedProviderEventId);
-      }
-
-      query = query.orderBy("bi.updated_at", "desc").orderBy("bi.id", "desc").limit(perSourceLimit);
-      rows.push(...(await query));
-    }
-
-    if (includeSource("payment")) {
-      let query = client("billing_payments as bp")
-        .join("billing_invoices as bi", "bi.id", "bp.invoice_id")
-        .join("billable_entities as be", "be.id", "bi.billable_entity_id")
-        .leftJoin("workspaces as w", "w.id", "be.workspace_id")
-        .select(
-          client.raw("? as source", ["payment"]),
-          "bp.id as source_id",
-          "bi.billable_entity_id",
-          "be.workspace_id",
-          "w.slug as workspace_slug",
-          "w.name as workspace_name",
-          "be.owner_user_id",
-          "bp.provider",
-          client.raw("NULL as operation_key"),
-          "bp.last_provider_event_id as provider_event_id",
-          client.raw("? as event_type", ["payment"]),
-          "bp.status",
-          "bp.updated_at as occurred_at",
-          client.raw("NULL as message"),
-          "bp.metadata_json as details_json"
-        );
-
-      query = applyEntityFilters(query, "bi.billable_entity_id");
+      query = query.andWhere("bevt.event_type", "payment_method_sync");
+      query = applyEntityFilters(query, "bevt.billable_entity_id");
       if (normalizedOperationKey) {
         query = query.andWhere((builder) => {
           builder
-            .whereRaw(
-              "JSON_UNQUOTE(JSON_EXTRACT(bp.metadata_json, '$.operation_key')) = ?",
-              [normalizedOperationKey]
-            )
+            .where("bevt.operation_key", normalizedOperationKey)
             .orWhereRaw(
-              "JSON_UNQUOTE(JSON_EXTRACT(bi.metadata_json, '$.operation_key')) = ?",
+              "JSON_UNQUOTE(JSON_EXTRACT(bevt.payload_json, '$.operation_key')) = ?",
               [normalizedOperationKey]
             );
         });
       }
       if (normalizedProviderEventId) {
-        query = query.andWhere("bp.last_provider_event_id", normalizedProviderEventId);
+        query = query.andWhere("bevt.provider_event_id", normalizedProviderEventId);
       }
 
-      query = query.orderBy("bp.updated_at", "desc").orderBy("bp.id", "desc").limit(perSourceLimit);
-      rows.push(...(await query));
-    }
-
-    if (includeSource("payment_method_sync")) {
-      let query = client("billing_payment_method_sync_events as bpmse")
-        .join("billable_entities as be", "be.id", "bpmse.billable_entity_id")
-        .leftJoin("workspaces as w", "w.id", "be.workspace_id")
-        .select(
-          client.raw("? as source", ["payment_method_sync"]),
-          "bpmse.id as source_id",
-          "bpmse.billable_entity_id",
-          "be.workspace_id",
-          "w.slug as workspace_slug",
-          "w.name as workspace_name",
-          "be.owner_user_id",
-          "bpmse.provider",
-          client.raw("NULL as operation_key"),
-          "bpmse.provider_event_id",
-          "bpmse.event_type",
-          "bpmse.status",
-          "bpmse.updated_at as occurred_at",
-          "bpmse.error_text as message",
-          "bpmse.payload_json as details_json"
-        );
-
-      query = applyEntityFilters(query, "bpmse.billable_entity_id");
-      if (normalizedOperationKey) {
-        query = query.andWhereRaw(
-          "JSON_UNQUOTE(JSON_EXTRACT(bpmse.payload_json, '$.operation_key')) = ?",
-          [normalizedOperationKey]
-        );
-      }
-      if (normalizedProviderEventId) {
-        query = query.andWhere("bpmse.provider_event_id", normalizedProviderEventId);
-      }
-
-      query = query.orderBy("bpmse.updated_at", "desc").orderBy("bpmse.id", "desc").limit(perSourceLimit);
+      query = query.orderBy("bevt.updated_at", "desc").orderBy("bevt.id", "desc").limit(perSourceLimit);
       rows.push(...(await query));
     }
 
     if (includeSource("webhook")) {
-      let query = client("billing_webhook_events as bwe")
-        .leftJoin("billable_entities as be", "be.id", "bwe.billable_entity_id")
+      let query = client("billing_events as bevt")
+        .leftJoin("billable_entities as be", "be.id", "bevt.billable_entity_id")
         .leftJoin("workspaces as w", "w.id", "be.workspace_id")
         .select(
           client.raw("? as source", ["webhook"]),
-          "bwe.id as source_id",
-          "bwe.billable_entity_id",
+          "bevt.id as source_id",
+          "bevt.billable_entity_id",
           "be.workspace_id",
           "w.slug as workspace_slug",
           "w.name as workspace_name",
           "be.owner_user_id",
-          "bwe.provider",
-          "bwe.operation_key",
-          "bwe.provider_event_id",
-          "bwe.event_type",
-          "bwe.status",
-          "bwe.updated_at as occurred_at",
-          "bwe.error_text as message",
-          "bwe.payload_json as details_json"
+          "bevt.provider",
+          "bevt.operation_key",
+          "bevt.provider_event_id",
+          "bevt.event_name as event_type",
+          "bevt.status",
+          "bevt.updated_at as occurred_at",
+          "bevt.error_text as message",
+          "bevt.payload_json as details_json"
         );
 
-      query = applyEntityFilters(query, "bwe.billable_entity_id");
+      query = query.andWhere("bevt.event_type", "webhook");
+      query = applyEntityFilters(query, "bevt.billable_entity_id");
       if (!includeGlobal && !hasEntityScopedFilter) {
-        query = query.whereNotNull("bwe.billable_entity_id");
+        query = query.whereNotNull("bevt.billable_entity_id");
       }
       if (normalizedProviderEventId) {
-        query = query.andWhere("bwe.provider_event_id", normalizedProviderEventId);
+        query = query.andWhere("bevt.provider_event_id", normalizedProviderEventId);
       }
       if (normalizedOperationKey) {
         query = query.andWhere((builder) => {
           builder
-            .where("bwe.operation_key", normalizedOperationKey)
+            .where("bevt.operation_key", normalizedOperationKey)
             .orWhereRaw(
-              "JSON_UNQUOTE(JSON_EXTRACT(bwe.payload_json, '$.data.object.metadata.operation_key')) = ?",
+              "JSON_UNQUOTE(JSON_EXTRACT(bevt.payload_json, '$.data.object.metadata.operation_key')) = ?",
               [normalizedOperationKey]
             );
         });
       }
 
-      query = query.orderBy("bwe.updated_at", "desc").orderBy("bwe.id", "desc").limit(perSourceLimit);
+      query = query.orderBy("bevt.updated_at", "desc").orderBy("bevt.id", "desc").limit(perSourceLimit);
       rows.push(...(await query));
     }
 
-    if (includeSource("outbox_job")) {
-      let query = client("billing_outbox_jobs as boj")
-        .leftJoin("billable_entities as be", "be.id", "boj.billable_entity_id")
-        .leftJoin("workspaces as w", "w.id", "be.workspace_id")
-        .select(
-          client.raw("? as source", ["outbox_job"]),
-          "boj.id as source_id",
-          "boj.billable_entity_id",
-          "be.workspace_id",
-          "w.slug as workspace_slug",
-          "w.name as workspace_name",
-          "be.owner_user_id",
-          client.raw("NULL as provider"),
-          "boj.operation_key",
-          "boj.provider_event_id",
-          "boj.job_type as event_type",
-          "boj.status",
-          "boj.updated_at as occurred_at",
-          "boj.last_error_text as message",
-          "boj.payload_json as details_json"
-        );
-
-      query = applyEntityFilters(query, "boj.billable_entity_id");
-      if (!includeGlobal && !hasEntityScopedFilter) {
-        query = query.whereNotNull("boj.billable_entity_id");
-      }
-      if (normalizedOperationKey) {
-        query = query.andWhere("boj.operation_key", normalizedOperationKey);
-      }
-      if (normalizedProviderEventId) {
-        query = query.andWhere("boj.provider_event_id", normalizedProviderEventId);
-      }
-
-      query = query.orderBy("boj.updated_at", "desc").orderBy("boj.id", "desc").limit(perSourceLimit);
-      rows.push(...(await query));
-    }
-
-    if (includeSource("remediation")) {
-      let query = client("billing_subscription_remediations as bsr")
-        .join("billable_entities as be", "be.id", "bsr.billable_entity_id")
-        .leftJoin("workspaces as w", "w.id", "be.workspace_id")
-        .select(
-          client.raw("? as source", ["remediation"]),
-          "bsr.id as source_id",
-          "bsr.billable_entity_id",
-          "be.workspace_id",
-          "w.slug as workspace_slug",
-          "w.name as workspace_name",
-          "be.owner_user_id",
-          "bsr.provider",
-          "bsr.operation_key",
-          "bsr.provider_event_id",
-          "bsr.action as event_type",
-          "bsr.status",
-          "bsr.updated_at as occurred_at",
-          "bsr.error_text as message",
-          "bsr.metadata_json as details_json"
-        );
-
-      query = applyEntityFilters(query, "bsr.billable_entity_id");
-      if (normalizedOperationKey) {
-        query = query.andWhere("bsr.operation_key", normalizedOperationKey);
-      }
-      if (normalizedProviderEventId) {
-        query = query.andWhere("bsr.provider_event_id", normalizedProviderEventId);
-      }
-
-      query = query.orderBy("bsr.updated_at", "desc").orderBy("bsr.id", "desc").limit(perSourceLimit);
-      rows.push(...(await query));
-    }
-
-    if (includeGlobal && includeSource("reconciliation_run") && !hasEntityScopedFilter) {
-      if (!normalizedOperationKey && !normalizedProviderEventId) {
-        const query = client("billing_reconciliation_runs as brr")
-          .select(
-            client.raw("? as source", ["reconciliation_run"]),
-            "brr.id as source_id",
-            client.raw("NULL as billable_entity_id"),
-            client.raw("NULL as workspace_id"),
-            client.raw("NULL as workspace_slug"),
-            client.raw("NULL as workspace_name"),
-            client.raw("NULL as owner_user_id"),
-            "brr.provider",
-            client.raw("NULL as operation_key"),
-            client.raw("NULL as provider_event_id"),
-            "brr.scope as event_type",
-            "brr.status",
-            "brr.updated_at as occurred_at",
-            "brr.error_text as message",
-            client.raw(
-              "JSON_OBJECT('summary', brr.summary_json, 'cursor', brr.cursor_json, 'scanned_count', brr.scanned_count, 'drift_detected_count', brr.drift_detected_count, 'repaired_count', brr.repaired_count) as details_json"
-            )
-          )
-          .orderBy("brr.updated_at", "desc")
-          .orderBy("brr.id", "desc")
-          .limit(perSourceLimit);
-
-        rows.push(...(await query));
-      }
-    }
 
     const normalizedRows = rows.map(mapBillingActivityRowNullable).filter(Boolean);
     normalizedRows.sort((left, right) => {
@@ -2612,8 +2376,12 @@ function createBillingRepository(dbClient) {
 
   async function findWebhookEventByProviderEventId({ provider, providerEventId }, options = {}) {
     const client = resolveClient(options);
-    const query = client("billing_webhook_events")
-      .where({ provider: normalizeProvider(provider), provider_event_id: providerEventId })
+    const query = client("billing_events")
+      .where({
+        event_type: "webhook",
+        provider: normalizeProvider(provider),
+        provider_event_id: providerEventId
+      })
       .first();
 
     const row = await applyForUpdate(query, options);
@@ -2623,13 +2391,16 @@ function createBillingRepository(dbClient) {
   async function insertWebhookEvent(payload, options = {}) {
     const now = new Date();
     const client = resolveClient(options);
+    const normalizedBillableEntityId = toPositiveInteger(payload.billableEntityId);
 
-    const [id] = await client("billing_webhook_events").insert({
+    const [id] = await client("billing_events").insert({
+      event_type: "webhook",
+      event_name: String(payload.eventType || "").trim(),
       provider: normalizeProvider(payload.provider),
       provider_event_id: payload.providerEventId,
-      billable_entity_id: toPositiveInteger(payload.billableEntityId),
+      billable_entity_id: normalizedBillableEntityId,
+      workspace_id: await resolveWorkspaceIdForBillableEntity(client, normalizedBillableEntityId),
       operation_key: toNullableString(payload.operationKey),
-      event_type: payload.eventType,
       provider_created_at: toInsertDateTime(payload.providerCreatedAt, now),
       status: payload.status || "received",
       received_at: toInsertDateTime(payload.receivedAt, now),
@@ -2640,6 +2411,7 @@ function createBillingRepository(dbClient) {
       payload_json: payload.payloadJson == null ? JSON.stringify({}) : JSON.stringify(payload.payloadJson),
       payload_retention_until: toNullableDateTime(payload.payloadRetentionUntil),
       error_text: payload.errorText || null,
+      occurred_at: toInsertDateTime(payload.providerCreatedAt || payload.receivedAt || now, now),
       created_at: toInsertDateTime(payload.createdAt, now),
       updated_at: toInsertDateTime(payload.updatedAt, now)
     });
@@ -2660,47 +2432,60 @@ function createBillingRepository(dbClient) {
     const client = resolveClient(options);
     const dbPatch = {};
 
-    function setIfPresent(key, value) {
-      if (!Object.hasOwn(patch, key)) {
-        return;
-      }
-      dbPatch[key] = value;
+    if (Object.hasOwn(patch, "status")) {
+      dbPatch.status = patch.status;
     }
-
-    setIfPresent("status", patch.status);
-    setIfPresent("processing_started_at", toNullableDateTime(patch.processingStartedAt));
-    setIfPresent("processed_at", toNullableDateTime(patch.processedAt));
-    setIfPresent("last_failed_at", toNullableDateTime(patch.lastFailedAt));
-    setIfPresent("attempt_count", Object.hasOwn(patch, "attemptCount") ? Number(patch.attemptCount) : undefined);
-    setIfPresent("payload_retention_until", toNullableDateTime(patch.payloadRetentionUntil));
-    setIfPresent("error_text", patch.errorText || null);
-    setIfPresent(
-      "billable_entity_id",
-      Object.hasOwn(patch, "billableEntityId") ? toPositiveInteger(patch.billableEntityId) : undefined
-    );
-    setIfPresent(
-      "operation_key",
-      Object.hasOwn(patch, "operationKey") ? toNullableString(patch.operationKey) : undefined
-    );
-
-    for (const key of Object.keys(dbPatch)) {
-      if (dbPatch[key] === undefined) {
-        delete dbPatch[key];
-      }
+    if (Object.hasOwn(patch, "processingStartedAt")) {
+      dbPatch.processing_started_at = toNullableDateTime(patch.processingStartedAt);
+    }
+    if (Object.hasOwn(patch, "processedAt")) {
+      dbPatch.processed_at = toNullableDateTime(patch.processedAt);
+    }
+    if (Object.hasOwn(patch, "lastFailedAt")) {
+      dbPatch.last_failed_at = toNullableDateTime(patch.lastFailedAt);
+    }
+    if (Object.hasOwn(patch, "attemptCount")) {
+      dbPatch.attempt_count = Number(patch.attemptCount || 0);
+    }
+    if (Object.hasOwn(patch, "payloadRetentionUntil")) {
+      dbPatch.payload_retention_until = toNullableDateTime(patch.payloadRetentionUntil);
+    }
+    if (Object.hasOwn(patch, "errorText")) {
+      dbPatch.error_text = patch.errorText || null;
+    }
+    if (Object.hasOwn(patch, "billableEntityId")) {
+      dbPatch.billable_entity_id = toPositiveInteger(patch.billableEntityId);
+      dbPatch.workspace_id = await resolveWorkspaceIdForBillableEntity(client, dbPatch.billable_entity_id);
+    }
+    if (Object.hasOwn(patch, "operationKey")) {
+      dbPatch.operation_key = toNullableString(patch.operationKey);
     }
 
     if (Object.keys(dbPatch).length > 0) {
       dbPatch.updated_at = toInsertDateTime(new Date(), new Date());
-      await client("billing_webhook_events").where({ id }).update(dbPatch);
+      await client("billing_events")
+        .where({
+          id,
+          event_type: "webhook"
+        })
+        .update(dbPatch);
     }
 
-    const row = await client("billing_webhook_events").where({ id }).first();
+    const row = await client("billing_events")
+      .where({
+        id,
+        event_type: "webhook"
+      })
+      .first();
     return mapWebhookEventRowNullable(row);
   }
 
   async function listFailedWebhookEvents({ olderThan = null, limit = 200 }, options = {}) {
     const client = resolveClient(options);
-    let query = client("billing_webhook_events").where({ status: "failed" });
+    let query = client("billing_events").where({
+      event_type: "webhook",
+      status: "failed"
+    });
     if (olderThan) {
       query = query.andWhere("updated_at", "<=", toInsertDateTime(olderThan, olderThan));
     }
@@ -2718,7 +2503,8 @@ function createBillingRepository(dbClient) {
     const nowDate = normalizeDateInput(now) || new Date();
     const cappedBatchSize = Math.max(1, Math.min(10_000, Number(batchSize) || 1000));
 
-    const rows = await client("billing_webhook_events")
+    const rows = await client("billing_events")
+      .where({ event_type: "webhook" })
       .whereNotNull("payload_retention_until")
       .andWhere("payload_retention_until", "<=", toInsertDateTime(nowDate, nowDate))
       .orderBy("payload_retention_until", "asc")
@@ -2734,7 +2520,7 @@ function createBillingRepository(dbClient) {
       return 0;
     }
 
-    const updated = await client("billing_webhook_events").whereIn("id", ids).update({
+    const updated = await client("billing_events").whereIn("id", ids).update({
       payload_json: JSON.stringify({}),
       payload_retention_until: null,
       updated_at: toInsertDateTime(nowDate, nowDate)
@@ -2747,438 +2533,74 @@ function createBillingRepository(dbClient) {
     { jobType, dedupeKey, payloadJson, availableAt, billableEntityId, operationKey, providerEventId },
     options = {}
   ) {
-    const now = new Date();
-    const client = resolveClient(options);
-    const normalizedPayloadJson = payloadJson && typeof payloadJson === "object" ? payloadJson : {};
-    const inferredBillableEntityId = toPositiveInteger(
-      billableEntityId ??
-        normalizedPayloadJson.billableEntityId ??
-        normalizedPayloadJson.billable_entity_id
-    );
-    const inferredOperationKey =
-      toNullableString(operationKey) ||
-      toNullableString(normalizedPayloadJson.operationKey) ||
-      toNullableString(normalizedPayloadJson.operation_key);
-    const inferredProviderEventId =
-      toNullableString(providerEventId) ||
-      toNullableString(normalizedPayloadJson.providerEventId) ||
-      toNullableString(normalizedPayloadJson.provider_event_id);
-
-    await client("billing_outbox_jobs")
-      .insert({
-        billable_entity_id: inferredBillableEntityId,
-        operation_key: inferredOperationKey,
-        provider_event_id: inferredProviderEventId,
-        job_type: String(jobType || "").trim(),
-        dedupe_key: String(dedupeKey || "").trim(),
-        payload_json: JSON.stringify(normalizedPayloadJson),
-        status: "pending",
-        available_at: toInsertDateTime(availableAt, now),
-        attempt_count: 0,
-        lease_owner: null,
-        lease_expires_at: null,
-        lease_version: 1,
-        last_error_text: null,
-        finished_at: null,
-        created_at: toInsertDateTime(now, now),
-        updated_at: toInsertDateTime(now, now)
-      })
-      .onConflict(["job_type", "dedupe_key"])
-      .ignore();
-
-    const row = await client("billing_outbox_jobs")
-      .where({ job_type: String(jobType || "").trim(), dedupe_key: String(dedupeKey || "").trim() })
-      .first();
-    return mapOutboxJobRowNullable(row);
+    void jobType;
+    void dedupeKey;
+    void payloadJson;
+    void availableAt;
+    void billableEntityId;
+    void operationKey;
+    void providerEventId;
+    void options;
+    return null;
   }
 
   async function upsertSubscriptionRemediation(payload, options = {}) {
-    const now = new Date();
-    const client = resolveClient(options);
-
-    await client("billing_subscription_remediations")
-      .insert({
-        billable_entity_id: payload.billableEntityId,
-        provider: normalizeProvider(payload.provider),
-        operation_key: toNullableString(payload.operationKey),
-        provider_event_id: toNullableString(payload.providerEventId),
-        canonical_provider_subscription_id: payload.canonicalProviderSubscriptionId,
-        canonical_subscription_id: payload.canonicalSubscriptionId || null,
-        duplicate_provider_subscription_id: payload.duplicateProviderSubscriptionId,
-        action: payload.action,
-        status: payload.status || "pending",
-        selection_algorithm_version: payload.selectionAlgorithmVersion,
-        attempt_count: Number(payload.attemptCount || 0),
-        next_attempt_at: toNullableDateTime(payload.nextAttemptAt),
-        last_attempt_at: toNullableDateTime(payload.lastAttemptAt),
-        resolved_at: toNullableDateTime(payload.resolvedAt),
-        lease_owner: payload.leaseOwner || null,
-        lease_expires_at: toNullableDateTime(payload.leaseExpiresAt),
-        lease_version: Number(payload.leaseVersion || 1),
-        error_text: payload.errorText || null,
-        metadata_json: payload.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
-        created_at: toInsertDateTime(payload.createdAt, now),
-        updated_at: toInsertDateTime(payload.updatedAt, now)
-      })
-      .onConflict(["provider", "duplicate_provider_subscription_id", "action"])
-      .merge({
-        canonical_provider_subscription_id: payload.canonicalProviderSubscriptionId,
-        canonical_subscription_id: payload.canonicalSubscriptionId || null,
-        status: payload.status || "pending",
-        operation_key: toNullableString(payload.operationKey),
-        provider_event_id: toNullableString(payload.providerEventId),
-        selection_algorithm_version: payload.selectionAlgorithmVersion,
-        next_attempt_at: toNullableDateTime(payload.nextAttemptAt),
-        last_attempt_at: toNullableDateTime(payload.lastAttemptAt),
-        resolved_at: toNullableDateTime(payload.resolvedAt),
-        lease_owner: payload.leaseOwner || null,
-        lease_expires_at: toNullableDateTime(payload.leaseExpiresAt),
-        error_text: payload.errorText || null,
-        metadata_json: payload.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
-        updated_at: toInsertDateTime(payload.updatedAt, now)
-      });
-
-    const row = await client("billing_subscription_remediations")
-      .where({
-        provider: normalizeProvider(payload.provider),
-        duplicate_provider_subscription_id: payload.duplicateProviderSubscriptionId,
-        action: payload.action
-      })
-      .first();
-
-    return mapRemediationRowNullable(row);
+    void payload;
+    void options;
+    return null;
   }
 
   async function leaseNextOutboxJob({ workerId, now = new Date(), leaseSeconds = 60 }, options = {}) {
-    const client = resolveClient(options);
-    const nowDate = normalizeDateInput(now) || new Date();
-    const nowMysql = toInsertDateTime(nowDate, nowDate);
-
-    const query = client("billing_outbox_jobs")
-      .whereIn("status", ["pending", "failed"])
-      .andWhere("available_at", "<=", nowMysql)
-      .andWhere((builder) => {
-        builder.whereNull("lease_expires_at").orWhere("lease_expires_at", "<=", nowMysql);
-      })
-      .orderBy("available_at", "asc")
-      .orderBy("id", "asc")
-      .first();
-
-    const row = await applyForUpdate(query, {
-      ...options,
-      forUpdate: true
-    });
-
-    const candidate = mapOutboxJobRowNullable(row);
-    if (!candidate) {
-      return null;
-    }
-
-    const nextLeaseVersion = Number(candidate.leaseVersion || 0) + 1;
-    const leaseExpiresAt = new Date(nowDate.getTime() + Math.max(1, Number(leaseSeconds) || 1) * 1000);
-
-    const affectedRows = await client("billing_outbox_jobs")
-      .where({ id: candidate.id, lease_version: candidate.leaseVersion })
-      .update({
-        status: "leased",
-        lease_owner: String(workerId || "").trim() || null,
-        lease_expires_at: toInsertDateTime(leaseExpiresAt, leaseExpiresAt),
-        lease_version: nextLeaseVersion,
-        updated_at: toInsertDateTime(nowDate, nowDate)
-      });
-
-    if (Number(affectedRows || 0) < 1) {
-      return null;
-    }
-
-    const updatedRow = await client("billing_outbox_jobs").where({ id: candidate.id }).first();
-    return mapOutboxJobRowNullable(updatedRow);
+    void workerId;
+    void now;
+    void leaseSeconds;
+    void options;
+    return null;
   }
 
   async function updateOutboxJobByLease({ id, leaseVersion, patch }, options = {}) {
-    const client = resolveClient(options);
-    const dbPatch = {
-      updated_at: toInsertDateTime(new Date(), new Date())
-    };
-
-    if (Object.hasOwn(patch, "status")) {
-      dbPatch.status = patch.status;
-    }
-    if (Object.hasOwn(patch, "availableAt")) {
-      dbPatch.available_at = toNullableDateTime(patch.availableAt);
-    }
-    if (Object.hasOwn(patch, "attemptCount")) {
-      dbPatch.attempt_count = Number(patch.attemptCount || 0);
-    }
-    if (Object.hasOwn(patch, "leaseOwner")) {
-      dbPatch.lease_owner = patch.leaseOwner || null;
-    }
-    if (Object.hasOwn(patch, "leaseExpiresAt")) {
-      dbPatch.lease_expires_at = toNullableDateTime(patch.leaseExpiresAt);
-    }
-    if (Object.hasOwn(patch, "leaseVersion")) {
-      dbPatch.lease_version = Number(patch.leaseVersion || 0);
-    }
-    if (Object.hasOwn(patch, "lastErrorText")) {
-      dbPatch.last_error_text = patch.lastErrorText || null;
-    }
-    if (Object.hasOwn(patch, "finishedAt")) {
-      dbPatch.finished_at = toNullableDateTime(patch.finishedAt);
-    }
-
-    const affectedRows = await client("billing_outbox_jobs").where({ id, lease_version: leaseVersion }).update(dbPatch);
-    if (Number(affectedRows || 0) < 1) {
-      return null;
-    }
-
-    const row = await client("billing_outbox_jobs").where({ id }).first();
-    return mapOutboxJobRowNullable(row);
+    void id;
+    void leaseVersion;
+    void patch;
+    void options;
+    return null;
   }
 
   async function leaseNextRemediation({ workerId, now = new Date(), leaseSeconds = 60 }, options = {}) {
-    const client = resolveClient(options);
-    const nowDate = normalizeDateInput(now) || new Date();
-    const nowMysql = toInsertDateTime(nowDate, nowDate);
-
-    const query = client("billing_subscription_remediations")
-      .whereIn("status", ["pending", "failed"])
-      .andWhere((builder) => {
-        builder.whereNull("next_attempt_at").orWhere("next_attempt_at", "<=", nowMysql);
-      })
-      .andWhere((builder) => {
-        builder.whereNull("lease_expires_at").orWhere("lease_expires_at", "<=", nowMysql);
-      })
-      .orderBy("updated_at", "asc")
-      .orderBy("id", "asc")
-      .first();
-
-    const row = await applyForUpdate(query, {
-      ...options,
-      forUpdate: true
-    });
-
-    const candidate = mapRemediationRowNullable(row);
-    if (!candidate) {
-      return null;
-    }
-
-    const nextLeaseVersion = Number(candidate.leaseVersion || 0) + 1;
-    const leaseExpiresAt = new Date(nowDate.getTime() + Math.max(1, Number(leaseSeconds) || 1) * 1000);
-
-    const affectedRows = await client("billing_subscription_remediations")
-      .where({ id: candidate.id, lease_version: candidate.leaseVersion })
-      .update({
-        status: "in_progress",
-        lease_owner: String(workerId || "").trim() || null,
-        lease_expires_at: toInsertDateTime(leaseExpiresAt, leaseExpiresAt),
-        lease_version: nextLeaseVersion,
-        updated_at: toInsertDateTime(nowDate, nowDate)
-      });
-
-    if (Number(affectedRows || 0) < 1) {
-      return null;
-    }
-
-    const updatedRow = await client("billing_subscription_remediations").where({ id: candidate.id }).first();
-    return mapRemediationRowNullable(updatedRow);
+    void workerId;
+    void now;
+    void leaseSeconds;
+    void options;
+    return null;
   }
 
   async function updateRemediationByLease({ id, leaseVersion, patch }, options = {}) {
-    const client = resolveClient(options);
-    const dbPatch = {
-      updated_at: toInsertDateTime(new Date(), new Date())
-    };
-
-    if (Object.hasOwn(patch, "status")) {
-      dbPatch.status = patch.status;
-    }
-    if (Object.hasOwn(patch, "attemptCount")) {
-      dbPatch.attempt_count = Number(patch.attemptCount || 0);
-    }
-    if (Object.hasOwn(patch, "nextAttemptAt")) {
-      dbPatch.next_attempt_at = toNullableDateTime(patch.nextAttemptAt);
-    }
-    if (Object.hasOwn(patch, "lastAttemptAt")) {
-      dbPatch.last_attempt_at = toNullableDateTime(patch.lastAttemptAt);
-    }
-    if (Object.hasOwn(patch, "resolvedAt")) {
-      dbPatch.resolved_at = toNullableDateTime(patch.resolvedAt);
-    }
-    if (Object.hasOwn(patch, "leaseOwner")) {
-      dbPatch.lease_owner = patch.leaseOwner || null;
-    }
-    if (Object.hasOwn(patch, "leaseExpiresAt")) {
-      dbPatch.lease_expires_at = toNullableDateTime(patch.leaseExpiresAt);
-    }
-    if (Object.hasOwn(patch, "leaseVersion")) {
-      dbPatch.lease_version = Number(patch.leaseVersion || 0);
-    }
-    if (Object.hasOwn(patch, "errorText")) {
-      dbPatch.error_text = patch.errorText || null;
-    }
-    if (Object.hasOwn(patch, "canonicalSubscriptionId")) {
-      dbPatch.canonical_subscription_id = patch.canonicalSubscriptionId || null;
-    }
-
-    const affectedRows = await client("billing_subscription_remediations")
-      .where({ id, lease_version: leaseVersion })
-      .update(dbPatch);
-    if (Number(affectedRows || 0) < 1) {
-      return null;
-    }
-
-    const row = await client("billing_subscription_remediations").where({ id }).first();
-    return mapRemediationRowNullable(row);
+    void id;
+    void leaseVersion;
+    void patch;
+    void options;
+    return null;
   }
 
   async function acquireReconciliationRun({ provider, scope, runnerId, now = new Date(), leaseSeconds = 120 }, options = {}) {
-    const client = resolveClient(options);
-    const normalizedProvider = normalizeProvider(provider);
-    const normalizedScope = String(scope || "").trim();
-    const nowDate = normalizeDateInput(now) || new Date();
-
-    const query = client("billing_reconciliation_runs")
-      .where({ provider: normalizedProvider, scope: normalizedScope, status: "running" })
-      .orderBy("id", "desc")
-      .first();
-    const existing = mapReconciliationRunRowNullable(
-      await applyForUpdate(query, {
-        ...options,
-        forUpdate: true
-      })
-    );
-
-    const leaseExpiresAt = new Date(nowDate.getTime() + Math.max(1, Number(leaseSeconds) || 1) * 1000);
-
-    if (existing) {
-      const existingLeaseExpires = normalizeDateInput(existing.leaseExpiresAt);
-      if (existingLeaseExpires && existingLeaseExpires.getTime() > nowDate.getTime()) {
-        return {
-          acquired: false,
-          run: existing
-        };
-      }
-
-      const nextLeaseVersion = Number(existing.leaseVersion || 0) + 1;
-      const affectedRows = await client("billing_reconciliation_runs")
-        .where({ id: existing.id, lease_version: existing.leaseVersion })
-        .update({
-          runner_id: String(runnerId || "").trim() || null,
-          lease_expires_at: toInsertDateTime(leaseExpiresAt, leaseExpiresAt),
-          lease_version: nextLeaseVersion,
-          updated_at: toInsertDateTime(nowDate, nowDate)
-        });
-
-      if (Number(affectedRows || 0) < 1) {
-        const latest = await client("billing_reconciliation_runs").where({ id: existing.id }).first();
-        return {
-          acquired: false,
-          run: mapReconciliationRunRowNullable(latest) || existing
-        };
-      }
-
-      const row = await client("billing_reconciliation_runs").where({ id: existing.id }).first();
-      return {
-        acquired: true,
-        run: mapReconciliationRunRowNullable(row)
-      };
-    }
-
-    try {
-      const [id] = await client("billing_reconciliation_runs").insert({
-        provider: normalizedProvider,
-        scope: normalizedScope,
-        status: "running",
-        runner_id: String(runnerId || "").trim() || null,
-        lease_expires_at: toInsertDateTime(leaseExpiresAt, leaseExpiresAt),
-        lease_version: 1,
-        started_at: toInsertDateTime(nowDate, nowDate),
-        finished_at: null,
-        cursor_json: null,
-        summary_json: null,
-        scanned_count: 0,
-        drift_detected_count: 0,
-        repaired_count: 0,
-        error_text: null,
-        created_at: toInsertDateTime(nowDate, nowDate),
-        updated_at: toInsertDateTime(nowDate, nowDate)
-      });
-
-      const row = await client("billing_reconciliation_runs").where({ id }).first();
-      return {
-        acquired: true,
-        run: mapReconciliationRunRowNullable(row)
-      };
-    } catch (error) {
-      if (!isMysqlDuplicateEntryError(error)) {
-        throw error;
-      }
-
-      const latestQuery = client("billing_reconciliation_runs")
-        .where({ provider: normalizedProvider, scope: normalizedScope, status: "running" })
-        .orderBy("id", "desc")
-        .first();
-      const latest = mapReconciliationRunRowNullable(
-        await applyForUpdate(latestQuery, {
-          ...options,
-          forUpdate: true
-        })
-      );
-
-      return {
-        acquired: false,
-        run: latest
-      };
-    }
+    void provider;
+    void scope;
+    void runnerId;
+    void now;
+    void leaseSeconds;
+    void options;
+    return {
+      acquired: false,
+      run: null
+    };
   }
 
   async function updateReconciliationRunByLease({ id, leaseVersion, patch }, options = {}) {
-    const client = resolveClient(options);
-    const dbPatch = {
-      updated_at: toInsertDateTime(new Date(), new Date())
-    };
-
-    if (Object.hasOwn(patch, "status")) {
-      dbPatch.status = patch.status;
-    }
-    if (Object.hasOwn(patch, "runnerId")) {
-      dbPatch.runner_id = patch.runnerId || null;
-    }
-    if (Object.hasOwn(patch, "leaseExpiresAt")) {
-      dbPatch.lease_expires_at = toNullableDateTime(patch.leaseExpiresAt);
-    }
-    if (Object.hasOwn(patch, "leaseVersion")) {
-      dbPatch.lease_version = Number(patch.leaseVersion || 0);
-    }
-    if (Object.hasOwn(patch, "finishedAt")) {
-      dbPatch.finished_at = toNullableDateTime(patch.finishedAt);
-    }
-    if (Object.hasOwn(patch, "cursorJson")) {
-      dbPatch.cursor_json = patch.cursorJson == null ? null : JSON.stringify(patch.cursorJson);
-    }
-    if (Object.hasOwn(patch, "summaryJson")) {
-      dbPatch.summary_json = patch.summaryJson == null ? null : JSON.stringify(patch.summaryJson);
-    }
-    if (Object.hasOwn(patch, "scannedCount")) {
-      dbPatch.scanned_count = Number(patch.scannedCount || 0);
-    }
-    if (Object.hasOwn(patch, "driftDetectedCount")) {
-      dbPatch.drift_detected_count = Number(patch.driftDetectedCount || 0);
-    }
-    if (Object.hasOwn(patch, "repairedCount")) {
-      dbPatch.repaired_count = Number(patch.repairedCount || 0);
-    }
-    if (Object.hasOwn(patch, "errorText")) {
-      dbPatch.error_text = patch.errorText || null;
-    }
-
-    const affectedRows = await client("billing_reconciliation_runs").where({ id, lease_version: leaseVersion }).update(dbPatch);
-    if (Number(affectedRows || 0) < 1) {
-      return null;
-    }
-
-    const row = await client("billing_reconciliation_runs").where({ id }).first();
-    return mapReconciliationRunRowNullable(row);
+    void id;
+    void leaseVersion;
+    void patch;
+    void options;
+    return null;
   }
 
   async function listReconciliationCheckoutSessions(
@@ -3224,15 +2646,22 @@ function createBillingRepository(dbClient) {
     listPlans,
     findPlanByCode,
     findPlanById,
-    listPlanPricesForPlan,
-    findPlanPriceByProviderPriceId,
-    findSellablePlanPricesForPlan,
+    findPlanByCheckoutProviderPriceId,
     listPlanEntitlementsForPlan,
     createPlan,
     updatePlanById,
-    createPlanPrice,
-    updatePlanPriceById,
     upsertPlanEntitlement,
+    findCurrentPlanAssignmentForEntity,
+    clearCurrentPlanAssignmentsForEntity,
+    insertPlanAssignment,
+    findPendingPlanChangeScheduleForEntity,
+    findPlanChangeScheduleById,
+    replacePendingPlanChangeSchedule,
+    updatePlanChangeScheduleById,
+    cancelPendingPlanChangeScheduleForEntity,
+    listDuePendingPlanChangeSchedules,
+    insertPlanChangeHistory,
+    listPlanChangeHistoryForEntity,
     findCustomerById,
     findCustomerByEntityProvider,
     findCustomerByProviderCustomerId,
@@ -3306,7 +2735,6 @@ const __testables = {
   normalizeBillableEntityType,
   mapBillableEntityRowNullable,
   mapPlanRowNullable,
-  mapPlanPriceRowNullable,
   mapEntitlementRowNullable,
   mapCustomerRowNullable,
   mapSubscriptionRowNullable,
@@ -3324,6 +2752,9 @@ const __testables = {
   mapOutboxJobRowNullable,
   mapRemediationRowNullable,
   mapReconciliationRunRowNullable,
+  mapPlanAssignmentRowNullable,
+  mapPlanChangeScheduleRowNullable,
+  mapPlanChangeHistoryRowNullable,
   toInsertDateTime,
   toNullableDateTime,
   createBillingRepository
@@ -3339,15 +2770,22 @@ export const {
   listPlans,
   findPlanByCode,
   findPlanById,
-  listPlanPricesForPlan,
-  findPlanPriceByProviderPriceId,
-  findSellablePlanPricesForPlan,
+  findPlanByCheckoutProviderPriceId,
   listPlanEntitlementsForPlan,
   createPlan,
   updatePlanById,
-  createPlanPrice,
-  updatePlanPriceById,
   upsertPlanEntitlement,
+  findCurrentPlanAssignmentForEntity,
+  clearCurrentPlanAssignmentsForEntity,
+  insertPlanAssignment,
+  findPendingPlanChangeScheduleForEntity,
+  findPlanChangeScheduleById,
+  replacePendingPlanChangeSchedule,
+  updatePlanChangeScheduleById,
+  cancelPendingPlanChangeScheduleForEntity,
+  listDuePendingPlanChangeSchedules,
+  insertPlanChangeHistory,
+  listPlanChangeHistoryForEntity,
   findCustomerById,
   findCustomerByEntityProvider,
   findCustomerByProviderCustomerId,

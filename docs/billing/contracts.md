@@ -7,6 +7,7 @@ This document freezes current billing contracts for:
 - limitations API shape
 - billable-entity selector and authorization behavior
 - idempotency and billing failure code behavior
+- workspace core-plan state/change behavior (immediate upgrades, scheduled downgrades)
 
 Primary implementation references:
 
@@ -125,7 +126,7 @@ Runtime enforcement kernel contract (`billingService.enforceLimitAndRecordUsage`
   - loads active subscription entitlements for that entity.
   - for quota entitlements, enforces hard limits before executing `action`.
   - increments usage only after successful `action`.
-  - if `usageEventKey` is supplied, dedupes counter increments through `billing_usage_events`.
+  - if `usageEventKey` is supplied, dedupes counter increments through `usage dedupe storage`.
 
 Deterministic limit-exceeded error contract:
 
@@ -200,3 +201,44 @@ Error envelope:
 - standard API error body includes `error`.
 - billing service failures include machine-readable code at `details.code`.
 - validation failures include `fieldErrors` and `details.fieldErrors`.
+
+## 4. Plan-State and Plan-Change Contract
+
+Endpoints:
+
+- `GET /api/billing/plan-state`
+- `POST /api/billing/plan-change`
+- `POST /api/billing/plan-change/cancel`
+
+`GET /api/billing/plan-state` response guarantees:
+
+- `currentPlan`: active plan currently applied to the entity (or `null`).
+- `nextPlanChange`: pending scheduled change (or `null`).
+- `availablePlans`: active plans excluding `currentPlan`.
+- `history`: effective changes only (no pending-only records).
+- `settings.paidPlanChangePaymentMethodPolicy`: one of:
+  - `required_now`
+  - `allow_without_payment_method`
+
+`POST /api/billing/plan-change` request body:
+
+```json
+{
+  "planCode": "pro_monthly",
+  "successPath": "/billing?checkout=success",
+  "cancelPath": "/billing?checkout=cancel"
+}
+```
+
+Behavior contract:
+
+- Upgrades apply immediately (`mode: "applied"`).
+- Downgrades schedule at the current period end (`mode: "scheduled"`).
+- Selecting the current plan is a no-op (`mode: "unchanged"`).
+- If no active subscription exists and target is paid, response can require checkout (`mode: "checkout_required"` + `checkout` payload).
+- Free-plan moves do not require Stripe checkout and apply directly.
+
+`POST /api/billing/plan-change/cancel` behavior:
+
+- Cancels only a pending scheduled change.
+- Returns `{ "canceled": true|false, "state": ... }`.

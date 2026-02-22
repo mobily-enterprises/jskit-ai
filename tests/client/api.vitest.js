@@ -455,6 +455,10 @@ describe("client api transport", () => {
       source: "idempotency"
     });
     await api.console.listBillingPlans();
+    await api.console.getBillingSettings();
+    await api.console.updateBillingSettings({
+      paidPlanChangePaymentMethodPolicy: "required_now"
+    });
     await api.console.listBillingProviderPrices({
       active: true,
       limit: 50
@@ -480,6 +484,13 @@ describe("client api transport", () => {
       operationKey: "op_456",
       providerEventId: "evt_456"
     });
+    await api.billing.getPlanState();
+    await api.billing.requestPlanChange({
+      planCode: "pro",
+      successPath: "/admin/w/acme/billing?checkout=success",
+      cancelPath: "/admin/w/acme/billing?checkout=cancel"
+    });
+    await api.billing.cancelPendingPlanChange();
     await api.projects.list(2, 25);
     await api.projects.get("project/id");
     await api.projects.create({ name: "Project A", status: "draft" });
@@ -513,6 +524,7 @@ describe("client api transport", () => {
       "/api/console/billing/events?page=2&pageSize=25&workspaceId=7&userId=8&billableEntityId=9&operationKey=op_123&providerEventId=evt_123&source=idempotency"
     );
     expect(urls).toContain("/api/console/billing/plans");
+    expect(urls).toContain("/api/console/billing/settings");
     expect(urls).toContain("/api/console/billing/provider-prices?active=true&limit=50");
     const createBillingPlanCall = global.fetch.mock.calls.find(
       ([url, options]) => url === "/api/console/billing/plans" && String(options?.method || "").toUpperCase() === "POST"
@@ -526,6 +538,9 @@ describe("client api transport", () => {
     expect(urls).toContain(
       "/api/billing/timeline?page=3&pageSize=20&source=payment&operationKey=op_456&providerEventId=evt_456"
     );
+    expect(urls).toContain("/api/billing/plan-state");
+    expect(urls).toContain("/api/billing/plan-change");
+    expect(urls).toContain("/api/billing/plan-change/cancel");
     expect(urls).toContain("/api/workspace/projects?page=2&pageSize=25");
     expect(urls).toContain("/api/workspace/projects/project%2Fid");
     expect(urls).toContain("/api/workspace/projects");

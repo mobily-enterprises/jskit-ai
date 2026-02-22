@@ -32,6 +32,7 @@ Required adapter methods:
 - `retrieveInvoice`
 - `expireCheckoutSession`
 - `cancelSubscription`
+- `updateSubscriptionPlan`
 - `listCustomerPaymentMethods`
 - `listCheckoutSessionsByOperationKey`
 - `getSdkProvenance`

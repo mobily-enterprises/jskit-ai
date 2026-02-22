@@ -669,6 +669,10 @@ function createService({
     return normalizeSubscriptionFromPaddle(result);
   }
 
+  async function updateSubscriptionPlan() {
+    throw new AppError(501, "Paddle subscription plan updates are not implemented.");
+  }
+
   async function listCustomerPaymentMethods({ customerId, limit = 100 }) {
     const normalizedCustomerId = String(customerId || "").trim();
     if (!normalizedCustomerId) {
@@ -747,6 +751,7 @@ function createService({
     retrieveInvoice,
     expireCheckoutSession,
     cancelSubscription,
+    updateSubscriptionPlan,
     listCustomerPaymentMethods,
     listCheckoutSessionsByOperationKey,
     getSdkProvenance

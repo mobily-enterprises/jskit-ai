@@ -265,9 +265,6 @@ function mapBillingPlanDuplicateError(error) {
   if (normalizedMessage.includes("uq_billing_plans_checkout_provider_price")) {
     return new AppError(409, "Provider price id is already mapped to another plan.");
   }
-  if (normalizedMessage.includes("uq_billing_plan_prices_provider_price")) {
-    return new AppError(409, "Provider price id is already mapped to another plan.");
-  }
 
   return new AppError(409, "Billing catalog conflict.");
 }

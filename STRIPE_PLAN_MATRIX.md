@@ -67,19 +67,19 @@ Plan Source: `STRIPE_PLAN.md` (v22 merged phase 2 program)
 | `billable_entities` | migration + repository map/find/ensure methods | done | Unique workspace mapping enforced. |
 | `billing_customers` | migration + `find/upsertCustomer` | done | Composite uniqueness and FK constraints present. |
 | `billing_plans` | migration + `listPlans/findPlan*` | done | Immutable-version structure represented. |
-| `billing_plan_prices` | migration + `findSellablePlanPricesForPlan/findPlanPriceByProviderPriceId` | done | Includes generated `phase1_sellable_price_key`. |
-| `billing_entitlements` | migration + `listPlanEntitlementsForPlan` + schema registry validation path | done | Runtime validation applied when listing plans. |
+| `billing_plans` core checkout mapping | migration + `findPlanByCheckoutProviderPriceId` / direct `corePrice` mapping | done | One recurring core price per plan is stored directly on `billing_plans`. |
+| `plan capability storage` | migration + `listPlanEntitlementsForPlan` + schema registry validation path | done | Runtime validation applied when listing plans. |
 | `billing_subscriptions` | migration + `findCurrent`, `upsertSubscription`, `clearCurrentSubscriptionFlags` | done | Current-subscription uniqueness and terminal clearing behavior implemented. |
-| `billing_subscription_items` | migration + upsert/find/list methods | done | Provider item id uniqueness present. |
-| `billing_invoices` | phase 1 + phase 2.3 migrations + upsert/find/list methods | done | Subscription-linked and one-off invoices are both supported via nullable `subscription_id` plus explicit invoice ownership (`billable_entity_id`, `billing_customer_id`). |
-| `billing_payments` | migration + upsert/find/list methods | done | Payment projection and reconciliation support present. |
-| `billing_webhook_events` | migration + insert/find/update/list failed methods | done | Dedupe key `(provider, provider_event_id)` enforced. |
+| `subscription item projection storage` | migration + upsert/find/list methods | done | Provider item id uniqueness present. |
+| `invoice projection storage` | phase 1 + phase 2.3 migrations + upsert/find/list methods | done | Subscription-linked and one-off invoices are both supported via nullable `subscription_id` plus explicit invoice ownership (`billable_entity_id`, `billing_customer_id`). |
+| `payment projection storage` | migration + upsert/find/list methods | done | Payment projection and reconciliation support present. |
+| `billing_events` | migration + insert/find/update/list methods for webhook + payment-method-sync + plan-change history events | done | Webhook dedupe by `(provider, provider_event_id)` is enforced for `event_type='webhook'`. |
 | `billing_request_idempotency` | migration + full claim/replay/recovery/update methods | done | Includes lease/failure/provenance fields, generated active key, and action scope for `checkout`/`portal`/`payment_link`. |
-| `billing_reconciliation_runs` | migration + acquire/update methods | done | Includes active-run uniqueness and lease fencing support. |
-| `billing_subscription_remediations` | migration + upsert/lease/update methods | done | Duplicate remediation dedupe key enforced. |
-| `billing_outbox_jobs` | migration + enqueue/lease/update methods | done | Deterministic dedupe key uniqueness enforced. |
+| `reconciliation run storage` | migration + acquire/update methods | done | Includes active-run uniqueness and lease fencing support. |
+| `subscription remediation storage` | migration + upsert/lease/update methods | done | Duplicate remediation dedupe key enforced. |
+| `outbox storage` | migration + enqueue/lease/update methods | done | Deterministic dedupe key uniqueness enforced. |
 | `billing_checkout_sessions` | migration + upsert/find/update/lock methods | done | Includes operation key, correlation fields, and active block key. |
-| Nullability rule for FK with `ON DELETE SET NULL` | `billing_checkout_sessions.idempotency_row_id` and `billing_subscription_remediations.canonical_subscription_id` nullable in migration | done | Matches plan nullability constraint. |
+| Nullability rule for FK with `ON DELETE SET NULL` | `billing_checkout_sessions.idempotency_row_id` and remediation canonical subscription FK are nullable in migration | done | Matches plan nullability constraint. |
 
 ## 3) Idempotency and Recovery Rules
 
@@ -305,12 +305,12 @@ Plan Source: `STRIPE_PLAN.md` (v22 merged phase 2 program)
 | Phase 2 Scope Item | Implementation | Status | Notes |
 | --- | --- | --- | --- |
 | 2.1 `billing_payment_methods` table and payment-method sync events | `migrations/20260221110000_add_billing_phase2_1_tables.cjs` + payment-method repository methods + `GET/POST /api/billing/payment-methods*` | partial | Manual sync path is implemented; provider-webhook-driven payment-method sync parity remains pending. |
-| 2.1 usage counters + windowed limits | `billing_usage_counters` + `billing_usage_events` dedupe table, repository usage claim/increment ops, `billingService.recordUsage`, and `billingService.enforceLimitAndRecordUsage` | partial | Counter persistence, UTC windows, hard-limit prechecks, and retry-safe increment dedupe are implemented; broad feature-by-feature rollout is still pending. |
+| 2.1 usage counters + windowed limits | `usage counter storage` + `usage dedupe storage` dedupe table, repository usage claim/increment ops, `billingService.recordUsage`, and `billingService.enforceLimitAndRecordUsage` | partial | Counter persistence, UTC windows, hard-limit prechecks, and retry-safe increment dedupe are implemented; broad feature-by-feature rollout is still pending. |
 | 2.1 clean app-facing limitations contract | `billingService.getLimitations` + `GET /api/billing/limitations` + client API surface + capability map (`server/modules/billing/appCapabilityLimits.js`) | partial | Contract is available for app/runtime consumption and representative server-side enforcement wiring (`projects.create`) is implemented; full app coverage remains pending. |
 | 2.2 console billing event explorer (global) | `GET /api/console/billing/events` + console billing view/route + console guard/nav wiring | done | Event-source parity includes idempotency, checkout-session, subscription, invoice, payment, payment-method-sync, webhook, outbox, remediation, and reconciliation sources with workspace/user/entity correlation filters. |
 | 2.2 workspace billing UX (user-friendly) | `GET /api/billing/timeline` + workspace billing view/route + admin-shell nav wiring + purchase-tab scaffold (`src/views/workspace-billing/*`) | partial | Timeline plus purchase scaffold are shipped (core subscription checkout from a single plan-mapped monthly Stripe price, plus one-off catalog/ad-hoc payment links); advanced reporting and richer operator workflows are still pending. |
 | 2.3 metered/hybrid component enablement | Core plan checkout is intentionally simplified to one Stripe recurring plan price per plan (no bundled seats/metered/add-on components) | done | Extras are intentionally moved to separate payment-link or separate purchase flows. |
-| 2.3 one-off billing flows | `POST /api/billing/payment-links` supports catalog/ad-hoc one-off purchases with invoice projection into `billing_invoices`; workspace purchase UI can initiate these extras flows | partial | Core payment-link orchestration and scaffold UX are implemented; richer catalog curation and operator tooling remain pending. |
+| 2.3 one-off billing flows | `POST /api/billing/payment-links` supports catalog/ad-hoc one-off purchases with invoice projection into `invoice projection storage`; workspace purchase UI can initiate these extras flows | partial | Core payment-link orchestration and scaffold UX are implemented; richer catalog curation and operator tooling remain pending. |
 | 2.4 non-workspace billable entities | `migrations/20260221150000_add_billing_phase2_4_billable_entity_scopes.cjs` + repository scope methods + policy entity-selector resolution + billing route workspace-policy relaxation | partial | Schema now supports `entity_type`/`entity_ref` and nullable workspace/owner linkage; explicit billable-entity selector policy supports workspace + owner-scoped user entities and billing routes now allow selector-first access. Broader non-workspace auth models (organization/external) remain pending. |
 | 2.4 expanded analytics/provider parity | Stripe-only productionized provider path today | deferred | Requires additional provider abstractions and parity analytics/reporting. |
 

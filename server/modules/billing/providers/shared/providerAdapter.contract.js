@@ -9,6 +9,7 @@ const REQUIRED_BILLING_PROVIDER_ADAPTER_METHODS = Object.freeze([
   "retrieveInvoice",
   "expireCheckoutSession",
   "cancelSubscription",
+  "updateSubscriptionPlan",
   "listCustomerPaymentMethods",
   "listCheckoutSessionsByOperationKey",
   "getSdkProvenance"

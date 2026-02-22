@@ -34,7 +34,8 @@ function createService({
   workspaceSettingsRepository,
   workspaceInvitesRepository,
   userSettingsRepository,
-  userAvatarService
+  userAvatarService,
+  getBillingPromoProvisioner = null
 }) {
   if (
     !workspacesRepository ||
@@ -117,7 +118,7 @@ function createService({
       throw new AppError(400, "Cannot ensure personal workspace without a valid user id.");
     }
 
-    return runInTransaction(async (trx) => {
+    const workspace = await runInTransaction(async (trx) => {
       const transactionOptions = trx ? { trx } : {};
       const existingWorkspace = await workspacesRepository.findPersonalByOwnerUserId(userId, {
         ...transactionOptions,
@@ -136,6 +137,20 @@ function createService({
 
       return workspace;
     });
+
+    const billingProvisioner = typeof getBillingPromoProvisioner === "function" ? getBillingPromoProvisioner() : null;
+    if (typeof billingProvisioner === "function") {
+      try {
+        await billingProvisioner({
+          workspaceId: workspace.id,
+          ownerUserId: userId
+        });
+      } catch {
+        // Workspace bootstrap should not fail when billing promo bootstrap fails.
+      }
+    }
+
+    return workspace;
   }
 
   async function listMembershipWorkspacesForUser(userId) {

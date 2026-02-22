@@ -8,12 +8,15 @@ function buildRouteMap() {
     {
       billing: {
         listPlans() {},
+        getPlanState() {},
         getSubscriptionSnapshot() {},
         listPaymentMethods() {},
         syncPaymentMethods() {},
         getLimitations() {},
         getTimeline() {},
         startCheckout() {},
+        requestPlanChange() {},
+        cancelPendingPlanChange() {},
         createPortalSession() {},
         createPaymentLink() {},
         processStripeWebhook() {}
@@ -31,12 +34,15 @@ test("billing API routes are selector-compatible with optional workspace policy"
   const routeMap = buildRouteMap();
   const selectorCompatibleRoutes = [
     "GET /api/billing/plans",
+    "GET /api/billing/plan-state",
     "GET /api/billing/subscription",
     "GET /api/billing/payment-methods",
     "POST /api/billing/payment-methods/sync",
     "GET /api/billing/limitations",
     "GET /api/billing/timeline",
     "POST /api/billing/checkout",
+    "POST /api/billing/plan-change",
+    "POST /api/billing/plan-change/cancel",
     "POST /api/billing/portal",
     "POST /api/billing/payment-links"
   ];
@@ -54,6 +60,8 @@ test("billing write routes do not depend on prehandler workspace permission chec
   const writeRoutes = [
     "POST /api/billing/payment-methods/sync",
     "POST /api/billing/checkout",
+    "POST /api/billing/plan-change",
+    "POST /api/billing/plan-change/cancel",
     "POST /api/billing/portal",
     "POST /api/billing/payment-links"
   ];
