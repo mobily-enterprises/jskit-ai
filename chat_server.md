@@ -1,5 +1,24 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Fourth Review Amendments Summary (Post-commit server review #4)
+
+This section records corrections made during a fourth pass after the prior review cycles.
+
+### Concurrency / robustness corrections
+
+- Added explicit duplicate-race handling guidance for `POST /api/chat/dm/ensure` (canonical pair + unique constraint + insert-then-retry/lookup on conflict).
+- Tightened message-send idempotency guidance for v1: `clientMessageId` should be required for send endpoints (not merely recommended) to match the stated robustness goals.
+
+### Data model / invariants corrections
+
+- Fixed `chat_messages` service invariants wording so it does not incorrectly require `text_content` or `ciphertext_blob` for every message kind (e.g. attachment/system/call/event messages).
+- Added retention repair guidance to clamp participant sequence cursors (`last_read_seq`, `last_delivered_seq`) to valid thread ranges after deletions.
+
+### Existing-code integration fit clarifications
+
+- Clarified mixed inbox behavior for current surface/workspace model: define a v1-compatible default (`global` + active workspace on workspace surfaces) and require explicit all-workspaces mode only with authz-aware server filtering.
+- Added `public_chat_id` normalization guidance (canonical lowercase/base32-or-hex style) to avoid MySQL collation/case-sensitivity ambiguity.
+
 ## Third Review Amendments Summary (Post-commit server review #3)
 
 This section records corrections made during a third pass after the prior review cycles.
@@ -508,6 +527,7 @@ Notes:
 
 - If we want a very small v1, this table can be deferred and defaults enforced by env config. But for robust global DMs, it is recommended.
 - `public_chat_id` must be server-generated (or server-validated), high-entropy, non-sequential, and rate-limited on lookup to reduce enumeration and abuse risk.
+- Normalize `public_chat_id` to a canonical lowercase format (e.g. base32/base58/hex policy chosen once) before persistence/lookups to avoid collation/case ambiguity.
 
 ### Table 2: `chat_user_blocks`
 
@@ -691,7 +711,10 @@ Indexes/constraints:
 
 Service invariants:
 
-- `text_content` OR `ciphertext_blob` (depending on encryption mode)
+- Payload requirements depend on `message_kind` and encryption mode:
+  - `text` messages require plaintext text (`text_content`) or encrypted content (`ciphertext_blob`)
+  - `attachment` messages may be attachment-only (no text/ciphertext required if attached files exist)
+  - `system` / `call` / `event` messages may use structured `metadata_json` with no user text
 - sender must be active participant
 - `thread_seq` assigned in transaction
 
@@ -1063,9 +1086,12 @@ Create a new module mirroring other modules:
   - body: `targetUserId` (if config allows) or `targetPublicChatId`
   - creates or returns global DM thread
   - use enumeration-resistant error responses for target resolution (unknown target vs blocked vs privacy-disabled should not reveal more than necessary)
+  - implement as race-safe ensure (canonical user pair + unique DM constraint + insert/lookup retry on duplicate)
 - `GET /api/chat/inbox`
   - `auth: required`
   - returns mixed inbox (workspace + global) unless filtered
+  - v1 recommended default on workspace surfaces: `global` + active workspace threads only (fits current single-workspace request context model)
+  - full all-workspaces inbox mode should be explicit and must use authz-aware server filtering/pagination
   - workspace-thread rows must still be filtered by workspace access + `chat.read` for the request surface/context, in addition to participant membership
 
 #### Thread operations (scope-agnostic)
@@ -1130,7 +1156,7 @@ This is the most important server flow.
 ### Inputs
 
 - `threadId`
-- `clientMessageId` (recommended required for robust retries)
+- `clientMessageId` (v1 should require this for send endpoints to guarantee idempotent retries)
 - `text` and/or `attachmentIds`
 - `replyToMessageId` optional
 - metadata (bounded, validated)
@@ -1143,7 +1169,7 @@ This is the most important server flow.
 3. Begin DB transaction
 4. Re-read participant and thread row in transaction (optional but recommended for race safety)
 5. Idempotency check:
-   - if `clientMessageId` provided and `(thread_id, sender_user_id, client_message_id)` already exists, return existing message + thread summary
+   - look up `(thread_id, sender_user_id, client_message_id)` and return existing message + thread summary on hit
 6. Allocate `thread_seq`
    - lock thread row (`SELECT ... FOR UPDATE`) and increment `next_message_seq`
 7. Insert `chat_messages` row
@@ -1494,6 +1520,7 @@ Important cache repair requirement:
   - recompute caches for affected threads in batch, or
   - delete empty threads and recompute caches for non-empty threads touched by deletions
 - and must null/repair affected participant message-pointer columns where the referenced message row no longer exists
+- and should clamp participant seq cursors (`last_read_seq`, `last_delivered_seq`) to `<= thread.last_message_seq` for affected threads to keep cursor math and invariants consistent after deletions
 - This repair step should be part of the same retention worker flow (or an immediately chained job) to avoid stale inbox ordering/previews and dangling pointers.
 
 If `chat_messages.reply_to_message_id` FK is omitted in v1 (allowed earlier for migration simplicity):
