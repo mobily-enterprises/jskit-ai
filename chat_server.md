@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Twentieth Review Amendments Summary (Post-commit server review #20)
+
+This section records corrections made during a twentieth pass after the prior review cycles.
+
+### Service-contract consistency / authz-plumbing clarifications
+
+- Fixed an internal interface inconsistency introduced by the prior pass: `chat.service.js` methods were updated to take explicit `requestContext`, but `access.service.resolveThreadAccess(...)` was still documented as accepting only `{ request }`.
+- Updated `resolveThreadAccess(...)` to accept explicit `requestContext` and documented precedence so validated controller-provided authz context is preferred over raw request-derived surface/header parsing on scope-agnostic routes.
+- Added a service-test expectation to catch regressions where access resolution ignores provided validated authz context and falls back to raw request header parsing.
+
 ## Nineteenth Review Amendments Summary (Post-commit server review #19)
 
 This section records corrections made during a nineteenth pass after the prior review cycles.
@@ -1172,9 +1182,10 @@ Centralize chat authz; do not scatter chat access checks across controllers.
 
 Key methods:
 
-- `resolveThreadAccess({ threadId, user, requireWrite, request })`
+- `resolveThreadAccess({ threadId, user, requireWrite, request, requestContext })`
   - returns thread + participant + scope context + workspace context (if workspace thread)
-  - when controller has already validated surface selection for a scope-agnostic route, prefer passing that validated value/context explicitly so access resolution does not re-interpret untrusted headers
+  - when controller has already validated surface selection for a scope-agnostic route, pass that validated authz context explicitly (`requestContext`) so access resolution does not re-interpret untrusted headers
+  - if both raw `request` and `requestContext` are provided, `requestContext` should be authoritative for surface/workspace authz inputs on scope-agnostic chat routes
 - `assertCanCreateWorkspaceThread({ workspaceContext, user, payload })`
 - `assertCanCreateGlobalDm({ user, targetUser, config })`
 - `assertCanSendMessage(threadAccess)`
@@ -1857,6 +1868,11 @@ Per repository:
 - config disabled prevents create
 - shared-workspace requirement enforced when enabled
 - `targetPublicChatId` targeting enforces `discoverable_by_public_chat_id` and returns the same enumeration-resistant denial shape as unknown/blocked/privacy-disabled targets
+
+#### `access.service` / `resolveThreadAccess`
+
+- honors controller-provided validated `requestContext` (surface/authz inputs) on scope-agnostic routes instead of re-reading raw headers when both are present
+- rejects/denies consistently when validated context is missing for workspace-thread scope-agnostic access (per route contract)
 
 #### `sendMessage`
 
