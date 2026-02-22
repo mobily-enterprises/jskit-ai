@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Thirty-seventh Review Amendments Summary (Post-commit server review #37)
+
+This section records corrections made during a thirty-seventh pass after the prior review cycles.
+
+### Idempotency tombstone implementation-completeness hardening
+
+- Fixed a plan-completeness gap introduced by the hard-delete idempotency guidance: the document referenced an idempotency tombstone/ledger path but did not define a schema table or repository contract for it.
+- Added an optional `chat_message_idempotency_tombstones` table design (for deployments that allow hard deletes within the retry horizon), including uniqueness, expiry indexing, and payload hash/version fields needed by the send path.
+- Updated migration/repository planning so the tombstone strategy is represented in concrete implementation steps instead of remaining only a retention-policy note.
+
 ## Thirty-sixth Review Amendments Summary (Post-commit server review #36)
 
 This section records corrections made during a thirty-sixth pass after the prior review cycles.
@@ -1085,6 +1095,47 @@ Service invariants:
 - `thread_seq` assigned in transaction
 - If `client_message_id` is set for a user send, `idempotency_payload_sha256` must be generated from the canonicalized logical send payload before insert and treated as immutable thereafter.
 - If `idempotency_payload_sha256` is present, `idempotency_payload_version` must be present and immutable as well.
+
+### Table 5b (optional if hard deletes are enabled): `chat_message_idempotency_tombstones`
+
+Purpose:
+
+- Preserve duplicate-send suppression for a bounded retry horizon after hard-deleting message rows with `client_message_id`
+- Store only the minimum replay/conflict data needed by the `sendMessage` idempotency path
+
+Columns:
+
+- `id` BIGINT UNSIGNED PK
+- `thread_id` BIGINT UNSIGNED NOT NULL
+- `sender_user_id` BIGINT UNSIGNED NOT NULL
+- `client_message_id` VARCHAR(128) NOT NULL
+- `idempotency_payload_version` SMALLINT UNSIGNED NOT NULL
+- `idempotency_payload_sha256` CHAR(64) NOT NULL
+- `original_message_id` BIGINT UNSIGNED NULL
+  - optional audit/debug reference to the deleted message row id; do not use FK because the source row is intentionally deleted
+- `deleted_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
+- `expires_at` DATETIME(3) NOT NULL
+  - retry-suppression horizon; retention worker removes tombstones after expiry
+- `delete_reason` VARCHAR(64) NULL
+  - e.g. `retention`, `moderation`, `teardown`
+- `metadata_json` MEDIUMTEXT NOT NULL
+  - optional bounded audit/debug fields; initialize to `'{}'`
+- `created_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
+- `updated_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
+
+Indexes/constraints:
+
+- FK `thread_id -> chat_threads.id` ON DELETE CASCADE
+- FK `sender_user_id -> user_profiles.id` ON DELETE RESTRICT
+- UNIQUE (`thread_id`, `sender_user_id`, `client_message_id`)
+- index (`expires_at`)
+- index (`thread_id`, `sender_user_id`, `deleted_at`)
+
+Notes:
+
+- This table is only required if the chosen product policy allows hard-deleting messages with non-null `client_message_id` before the retry horizon expires.
+- If the implementation chooses the simpler strategy ("retain deleted/redacted message row until retry window elapses"), this table can be omitted.
+- Tombstone rows should be written in the same delete workflow/transactional unit as the message hard-delete decision whenever possible (or with an equivalent fail-safe sequence) so duplicate suppression is not lost between steps.
 
 ### Table 6: `chat_attachments`
 
