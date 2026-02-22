@@ -1,5 +1,21 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Fifth Review Amendments Summary (Post-commit server review #5)
+
+This section records corrections made during a fifth pass after the prior review cycles.
+
+### Correctness / data semantics corrections
+
+- Clarified that `seq`-difference unread counts (`last_message_seq - last_read_seq`) are only exact when no relevant message-sequence holes exist; hard deletes/retention can make this overcount.
+- Added guidance to use `COALESCE` for empty-thread unread math and to compute exact unread counts via `COUNT(*)` over visible messages when retention/deletes create holes.
+- Tightened `markRead` semantics: incoming read cursors should be clamped to thread bounds and validated against the target thread/message to prevent invalid cursor advancement.
+
+### Existing-code integration fit clarifications
+
+- Clarified `GET /api/chat/inbox` defaults by surface (`console` vs workspace surfaces) to fit the current request-context model.
+- Clarified that workspace-scoped threads accessed via scope-agnostic routes must be rejected on non-workspace surfaces (e.g. `console`) instead of attempting workspace context resolution there.
+- Added request-schema validation note for `POST /api/chat/dm/ensure`: require exactly one target selector and define self-DM policy explicitly.
+
 ## Fourth Review Amendments Summary (Post-commit server review #4)
 
 This section records corrections made during a fourth pass after the prior review cycles.
@@ -1084,12 +1100,15 @@ Create a new module mirroring other modules:
 - `POST /api/chat/dm/ensure`
   - `auth: required`, `workspacePolicy: none`
   - body: `targetUserId` (if config allows) or `targetPublicChatId`
+  - request validation should require **exactly one** target selector (never both / neither)
+  - define self-DM policy explicitly (recommended v1: reject self-DM unless product has a notes-to-self feature)
   - creates or returns global DM thread
   - use enumeration-resistant error responses for target resolution (unknown target vs blocked vs privacy-disabled should not reveal more than necessary)
   - implement as race-safe ensure (canonical user pair + unique DM constraint + insert/lookup retry on duplicate)
 - `GET /api/chat/inbox`
   - `auth: required`
   - returns mixed inbox (workspace + global) unless filtered
+  - v1 recommended default on `console` surface: global threads only
   - v1 recommended default on workspace surfaces: `global` + active workspace threads only (fits current single-workspace request context model)
   - full all-workspaces inbox mode should be explicit and must use authz-aware server filtering/pagination
   - workspace-thread rows must still be filtered by workspace access + `chat.read` for the request surface/context, in addition to participant membership
@@ -1143,6 +1162,7 @@ Use:
 Then inside service/controller:
 
 - load thread
+- if `scope_kind=workspace`, require a workspace-capable surface (`app`/`admin`); reject on `console` surface
 - if `scope_kind=workspace`, resolve workspace context and permission via `workspaceService.resolveRequestContext(...)` using thread workspace slug/id and request surface
 - enforce participant status
 - if `scope_kind=global`, apply global DM policy and participant checks
@@ -1205,14 +1225,17 @@ Store per-participant read cursor in `chat_thread_participants`:
 
 `markRead` endpoint should perform monotonic updates only:
 
-- `last_read_seq = GREATEST(last_read_seq, incomingSeq)`
+- validate incoming cursor belongs to the thread (`messageId` -> `threadId`), and if both `messageId` and `threadSeq` are supplied they must agree
+- clamp incoming seq to valid thread range (`0..thread.last_message_seq` or current max surviving seq semantics)
+- `last_read_seq = GREATEST(last_read_seq, clampedIncomingSeq)`
 - update message pointer iff incoming seq wins
 
 This avoids regressions when requests arrive out of order.
 
 ### Derivations
 
-- Thread unread count for self: `max(0, thread.last_message_seq - participant.last_read_seq)`
+- Fast-path unread count (exact only when no relevant sequence holes exist): `max(0, COALESCE(thread.last_message_seq, 0) - participant.last_read_seq)`
+- If hard deletes/retention (or future moderation deletes) can create holes above a participant cursor, exact unread counts should be computed as `COUNT(*)` of visible messages with `thread_seq > participant.last_read_seq` (or a maintained equivalent counter/cache), not pure seq difference
 - Seen-by list for message (for UI): participants where `last_read_seq >= message.thread_seq`
 
 No separate `chat_message_receipts` table is required in v1 unless product insists on delivered-vs-seen per device.
