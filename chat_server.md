@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Twenty-ninth Review Amendments Summary (Post-commit server review #29)
+
+This section records corrections made during a twenty-ninth pass after the prior review cycles.
+
+### E2EE idempotency-compare semantics clarifications
+
+- Fixed an E2EE edge case introduced by the stronger `clientMessageId` payload-compare rules: in encrypted mode, semantically identical retries may produce different ciphertext/nonces if the client re-encrypts.
+- Added explicit v1 contract guidance that same-`clientMessageId` retries in E2EE mode must reuse the exact encrypted payload bytes (ciphertext/nonce/alg/key ref) unless a separate client-generated idempotency fingerprint scheme is implemented.
+- Added `sendMessage` service-test coverage for encrypted duplicate-key retries (exact opaque replay accepted, changed ciphertext rejected as conflict under v1 rules).
+
 ## Twenty-eighth Review Amendments Summary (Post-commit server review #28)
 
 This section records corrections made during a twenty-eighth pass after the prior review cycles.
@@ -1480,6 +1490,8 @@ This is the most important server flow.
 4. Re-read participant and thread row in transaction (optional but recommended for race safety)
 5. Idempotency check:
    - look up `(thread_id, sender_user_id, client_message_id)` and compare against the incoming logical send payload (message kind/text-or-ciphertext mode, reply target, attachment IDs set/order as policy defines, and relevant metadata)
+   - E2EE note (important): in v1, the server can only compare opaque encrypted payload fields it stores (`ciphertext_blob`, `cipher_nonce`, `cipher_alg`, `key_ref`); do not attempt semantic equivalence of plaintext
+   - therefore, same-`clientMessageId` retries in E2EE mode should reuse the exact encrypted payload bytes/metadata, unless a separate client-generated idempotency fingerprint/hash contract is introduced and persisted for comparison
    - if existing row matches the incoming logical payload, return existing message + thread summary (idempotent replay)
    - if the same key maps to a materially different payload, reject as conflict (`409`) rather than returning a misleading replay
 6. Allocate `thread_seq`
@@ -1986,6 +1998,7 @@ Per repository:
 - same `clientMessageId` with materially different payload is rejected as conflict (no misleading replay)
 - concurrent duplicate `clientMessageId` requests (race) return one canonical message via unique-conflict fallback path
 - concurrent duplicate-key race with mismatched payload resolves to conflict after re-read/payload-compare (not false replay success)
+- E2EE mode: same `clientMessageId` replay with exact same ciphertext/nonce payload replays successfully; changed opaque encrypted payload is conflict under v1 compare rules
 - deadlock / lock-timeout transient DB errors retry successfully within bounded retry policy
 - post-commit realtime publish failure does not lose the message or incorrectly rollback/send error (client can recover via fetch path)
 - sender not participant denied
