@@ -53,9 +53,14 @@ function toFieldErrors(value) {
   if (!value || typeof value !== "object") {
     return {};
   }
+  if (value.fieldErrors && typeof value.fieldErrors === "object") {
+    return value.fieldErrors;
+  }
   const details = value.details && typeof value.details === "object" ? value.details : {};
-  const fieldErrors = details.fieldErrors && typeof details.fieldErrors === "object" ? details.fieldErrors : {};
-  return fieldErrors;
+  if (details.fieldErrors && typeof details.fieldErrors === "object") {
+    return details.fieldErrors;
+  }
+  return {};
 }
 
 function resolveCorePlanPrice(plan) {
@@ -71,14 +76,83 @@ function createDefaultCreateForm() {
     code: "",
     name: "",
     description: "",
-    currency: "USD",
-    unitAmountMinor: 0,
-    interval: "month",
-    intervalCount: 1,
+    isActive: true,
     providerPriceId: "",
-    providerProductId: "",
     entitlementsJson: "[]"
   };
+}
+
+function createDefaultEditForm() {
+  return {
+    code: "",
+    name: "",
+    description: "",
+    isActive: true,
+    providerPriceId: ""
+  };
+}
+
+function normalizeOptionalString(value) {
+  return String(value || "").trim();
+}
+
+function resolvePriceDetails(price) {
+  if (!price || typeof price !== "object") {
+    return null;
+  }
+
+  const providerPriceId = String(price.id || price.providerPriceId || "").trim();
+  if (!providerPriceId) {
+    return null;
+  }
+
+  const currency = String(price.currency || "").trim().toUpperCase();
+  const unitAmountMinor = Number(price.unitAmountMinor);
+  const hasAmount = Number.isInteger(unitAmountMinor) && unitAmountMinor >= 0 && currency.length === 3;
+
+  const interval = String(price.interval || "").trim().toLowerCase();
+  const intervalCount = Number(price.intervalCount);
+  const hasInterval = interval && Number.isInteger(intervalCount) && intervalCount > 0;
+
+  const usageType = String(price.usageType || "").trim().toLowerCase() || null;
+  const active = typeof price.active === "boolean" ? price.active : null;
+
+  return {
+    providerPriceId,
+    shortProviderPriceId: shortenProviderPriceId(providerPriceId),
+    productName: String(price.productName || "").trim() || null,
+    productId: String(price.productId || price.providerProductId || "").trim() || null,
+    currency: currency || null,
+    unitAmountMinor: Number.isInteger(unitAmountMinor) ? unitAmountMinor : null,
+    hasAmount,
+    interval: interval || null,
+    intervalCount: Number.isInteger(intervalCount) ? intervalCount : null,
+    hasInterval,
+    usageType,
+    active
+  };
+}
+
+function findProviderPriceById(prices, providerPriceId) {
+  const targetId = String(providerPriceId || "").trim();
+  if (!targetId) {
+    return null;
+  }
+
+  return (Array.isArray(prices) ? prices : []).find((entry) => String(entry?.id || "").trim() === targetId) || null;
+}
+
+function collectPrefixedFieldErrors(fieldErrors, prefix) {
+  const source = fieldErrors && typeof fieldErrors === "object" ? fieldErrors : {};
+  const normalizedPrefix = String(prefix || "");
+  if (!normalizedPrefix) {
+    return [];
+  }
+
+  return Object.entries(source)
+    .filter(([key]) => String(key || "").startsWith(normalizedPrefix))
+    .map(([, message]) => String(message || "").trim())
+    .filter(Boolean);
 }
 
 export function useConsoleBillingPlansView() {
@@ -99,12 +173,10 @@ export function useConsoleBillingPlansView() {
   const editError = ref("");
   const editSaving = ref(false);
   const editingPlanId = ref(0);
+  const editInitialProviderPriceId = ref("");
 
   const createForm = reactive(createDefaultCreateForm());
-  const editForm = reactive({
-    providerPriceId: "",
-    providerProductId: ""
-  });
+  const editForm = reactive(createDefaultEditForm());
 
   const plansQuery = useQuery({
     queryKey: CONSOLE_BILLING_PLANS_QUERY_KEY,
@@ -131,8 +203,8 @@ export function useConsoleBillingPlansView() {
 
   const selectableProviderPrices = computed(() => providerProfile.value.selectCatalogPrices(providerPrices.value));
 
-  const providerPriceOptions = computed(() =>
-    selectableProviderPrices.value
+  const providerPriceOptions = computed(() => {
+    const options = selectableProviderPrices.value
       .filter((entry) => String(entry?.id || "").trim())
       .map((entry) => ({
         title: providerProfile.value.formatCatalogPriceOption(entry, {
@@ -140,33 +212,33 @@ export function useConsoleBillingPlansView() {
           formatInterval
         }),
         value: String(entry.id).trim()
-      }))
-  );
+      }));
 
-  const createSelectedProviderPrice = computed(() => {
-    const selectedId = String(createForm.providerPriceId || "").trim();
-    if (!selectedId) {
-      return null;
-    }
+      const editingProviderPriceId = String(editForm.providerPriceId || "").trim();
+      if (editingProviderPriceId && !options.some((entry) => entry.value === editingProviderPriceId)) {
+        options.unshift({
+          title: `${shortenProviderPriceId(editingProviderPriceId)} | Current mapping`,
+          value: editingProviderPriceId
+        });
+      }
 
-    return selectableProviderPrices.value.find((entry) => String(entry?.id || "").trim() === selectedId) || null;
+    return options;
   });
 
-  const editSelectedProviderPrice = computed(() => {
-    const selectedId = String(editForm.providerPriceId || "").trim();
-    if (!selectedId) {
-      return null;
-    }
-
-    return selectableProviderPrices.value.find((entry) => String(entry?.id || "").trim() === selectedId) || null;
-  });
-
-  const isCreatePriceAutofilled = computed(() =>
-    providerProfile.value.isCreateFormDerivedFromSelectedPrice(createSelectedProviderPrice.value)
+  const createSelectedProviderPrice = computed(() =>
+    findProviderPriceById(selectableProviderPrices.value, createForm.providerPriceId)
   );
 
-  const isEditPriceAutofilled = computed(() =>
-    providerProfile.value.isCreateFormDerivedFromSelectedPrice(editSelectedProviderPrice.value)
+  const editSelectedProviderPrice = computed(() =>
+    findProviderPriceById(selectableProviderPrices.value, editForm.providerPriceId)
+  );
+
+  const createSelectedProviderPriceInfo = computed(() => resolvePriceDetails(createSelectedProviderPrice.value));
+  const editSelectedProviderPriceInfo = computed(() => resolvePriceDetails(editSelectedProviderPrice.value));
+  const createEntitlementErrors = computed(() =>
+    collectPrefixedFieldErrors(createFieldErrors.value, "entitlements[").filter(
+      (message, index, array) => array.indexOf(message) === index
+    )
   );
 
   const providerPricesLoading = computed(() =>
@@ -192,18 +264,34 @@ export function useConsoleBillingPlansView() {
     plans.value.find((plan) => Number(plan?.id || 0) === Number(selectedPlanId.value || 0)) || null
   );
 
+  const selectedPlanCorePriceInfo = computed(() => {
+    const corePrice = resolveCorePlanPrice(selectedPlan.value);
+    if (!corePrice) {
+      return null;
+    }
+
+    const catalogPrice = findProviderPriceById(selectableProviderPrices.value, corePrice.providerPriceId);
+    return resolvePriceDetails(
+      catalogPrice
+        ? {
+            ...corePrice,
+            ...catalogPrice,
+            providerPriceId: corePrice.providerPriceId
+          }
+        : corePrice
+    );
+  });
+
   const tableRows = computed(() =>
     plans.value.map((plan) => {
       const corePrice = resolveCorePlanPrice(plan);
-      const entitlements = Array.isArray(plan?.entitlements) ? plan.entitlements : [];
       return {
         id: Number(plan?.id || 0),
         code: String(plan?.code || ""),
         name: String(plan?.name || ""),
+        description: String(plan?.description || ""),
         isActive: plan?.isActive !== false,
-        corePrice,
-        entitlementsCount: entitlements.length,
-        source: plan
+        corePrice
       };
     })
   );
@@ -255,16 +343,20 @@ export function useConsoleBillingPlansView() {
       return;
     }
 
-    const targetPrice = resolveCorePlanPrice(plan);
-
-    if (!targetPrice) {
-      return;
+    const defaults = createDefaultEditForm();
+    for (const [key, value] of Object.entries(defaults)) {
+      editForm[key] = value;
     }
 
+    const targetPrice = resolveCorePlanPrice(plan);
     selectedPlanId.value = Number(plan.id || 0);
     editingPlanId.value = Number(plan.id || 0);
-    editForm.providerPriceId = String(targetPrice.providerPriceId || "").trim();
-    editForm.providerProductId = String(targetPrice.providerProductId || "").trim();
+    editForm.code = String(plan.code || "").trim();
+    editForm.name = String(plan.name || "").trim();
+    editForm.description = String(plan.description || "");
+    editForm.isActive = plan.isActive !== false;
+    editInitialProviderPriceId.value = String(targetPrice?.providerPriceId || "").trim();
+    editForm.providerPriceId = editInitialProviderPriceId.value;
     editFieldErrors.value = {};
     editError.value = "";
     editDialogOpen.value = true;
@@ -272,6 +364,7 @@ export function useConsoleBillingPlansView() {
 
   function closeEditDialog() {
     editDialogOpen.value = false;
+    editInitialProviderPriceId.value = "";
   }
 
   watch(
@@ -283,24 +376,6 @@ export function useConsoleBillingPlansView() {
     },
     { immediate: true }
   );
-
-  watch(
-    createSelectedProviderPrice,
-    (price) => {
-      providerProfile.value.applySelectedPriceToForm({
-        form: createForm,
-        selectedPrice: price
-      });
-    },
-    { immediate: true }
-  );
-
-  watch(editSelectedProviderPrice, (price) => {
-    const productId = String(price?.productId || "").trim();
-    if (productId) {
-      editForm.providerProductId = productId;
-    }
-  });
 
   async function submitCreatePlan() {
     clearMessages();
@@ -322,7 +397,8 @@ export function useConsoleBillingPlansView() {
     const payload = {
       code: createForm.code,
       name: createForm.name,
-      description: createForm.description || undefined,
+      description: normalizeOptionalString(createForm.description) || undefined,
+      isActive: Boolean(createForm.isActive),
       corePrice: providerProfile.value.buildCorePricePayload({
         form: createForm,
         selectedPrice: createSelectedProviderPrice.value
@@ -345,7 +421,7 @@ export function useConsoleBillingPlansView() {
     }
   }
 
-  async function saveEditedPrice() {
+  async function saveEditedPlan() {
     clearMessages();
     editFieldErrors.value = {};
     editError.value = "";
@@ -355,18 +431,32 @@ export function useConsoleBillingPlansView() {
       return;
     }
 
+    const normalizedCurrentPriceId = String(editForm.providerPriceId || "").trim();
+    const priceChanged = normalizedCurrentPriceId !== String(editInitialProviderPriceId.value || "").trim();
+    const requiresCatalogSelection = providerProfile.value.requiresCatalogPriceSelection();
+    if (requiresCatalogSelection && priceChanged && !editSelectedProviderPrice.value) {
+      editError.value = "Selected price is unavailable. Pick an active catalog price.";
+      return;
+    }
+
     editSaving.value = true;
     const payload = {
-      corePrice: {
-        providerPriceId: String(editForm.providerPriceId || "").trim(),
-        providerProductId: String(editForm.providerProductId || "").trim() || undefined
-      }
+      name: editForm.name,
+      description: normalizeOptionalString(editForm.description) || null,
+      isActive: Boolean(editForm.isActive)
     };
+    if (priceChanged || !requiresCatalogSelection) {
+      payload.corePrice = providerProfile.value.buildCorePricePayload({
+        form: editForm,
+        selectedPrice: editSelectedProviderPrice.value
+      });
+    }
 
     try {
       await api.console.updateBillingPlan(editingPlanId.value, payload);
       submitMessage.value = "Billing plan updated.";
       editDialogOpen.value = false;
+      editInitialProviderPriceId.value = "";
       await queryClient.invalidateQueries({ queryKey: CONSOLE_BILLING_PLANS_QUERY_KEY });
     } catch (error) {
       if (await handleUnauthorizedError(error)) {
@@ -374,7 +464,7 @@ export function useConsoleBillingPlansView() {
       }
 
       editFieldErrors.value = toFieldErrors(error);
-      editError.value = String(error?.message || "Unable to update billing plan core price.");
+      editError.value = String(error?.message || "Unable to update billing plan.");
     } finally {
       editSaving.value = false;
     }
@@ -397,12 +487,6 @@ export function useConsoleBillingPlansView() {
 
   return {
     meta: {
-      intervalOptions: [
-        { title: "Day", value: "day" },
-        { title: "Week", value: "week" },
-        { title: "Month", value: "month" },
-        { title: "Year", value: "year" }
-      ],
       formatMoneyMinor,
       formatInterval,
       formatPriceSummary,
@@ -414,6 +498,7 @@ export function useConsoleBillingPlansView() {
       tableRows,
       plans,
       selectedPlan,
+      selectedPlanCorePriceInfo,
       createDialogOpen,
       viewDialogOpen,
       editDialogOpen,
@@ -427,8 +512,10 @@ export function useConsoleBillingPlansView() {
       providerPriceOptions,
       providerPricesLoading,
       providerPricesLoadError,
-      isCreatePriceAutofilled,
-      isEditPriceAutofilled,
+      createSelectedProviderPriceInfo,
+      editSelectedProviderPriceInfo,
+      createEntitlementErrors,
+      editInitialProviderPriceId,
       loading,
       isSavingCreate,
       editSaving,
@@ -443,7 +530,7 @@ export function useConsoleBillingPlansView() {
       openEditDialog,
       closeEditDialog,
       submitCreatePlan,
-      saveEditedPrice
+      saveEditedPlan
     }
   };
 }

@@ -36,14 +36,11 @@ const stripeProviderProfile = {
   ui: {
     ...defaultProviderProfile.ui,
     corePriceDescription:
-      "Stripe price decides the amount and billing interval. The fields below are auto-filled from the selected Stripe price.",
+      "Select a recurring Stripe price. Plan amount and interval come from Stripe and are shown below as read-only details.",
     catalogPriceLabel: "Stripe price",
-    catalogPriceHint: "Pick a recurring Stripe Price (format: price_...).",
+    catalogPriceHint: "Pick a recurring Stripe Price (price_...).",
     catalogPriceNoDataLoading: "Loading Stripe prices...",
-    catalogPriceNoDataEmpty: "No recurring Stripe prices found. Create one in Stripe Dashboard (Test mode) first.",
-    productLabel: "Stripe product",
-    showUnitAmountField: false,
-    tablePriceColumnLabel: "Stripe price",
+    catalogPriceNoDataEmpty: "No recurring Stripe prices found. Create one in Stripe Dashboard first.",
     selectPriceRequiredError: "Select a recurring Stripe price."
   },
   selectCatalogPrices(prices = []) {
@@ -61,38 +58,8 @@ const stripeProviderProfile = {
     const productName = toText(price?.productName);
     return `${toShortPriceId(id)} | ${amountLabel}/${intervalLabel}${productName ? ` | ${productName}` : ""}`;
   },
-  applySelectedPriceToForm({ form, selectedPrice }) {
-    if (!selectedPrice || !form) {
-      return;
-    }
-
-    const productId = toText(selectedPrice?.productId);
-    const currency = toText(selectedPrice?.currency).toUpperCase();
-    const interval = toText(selectedPrice?.interval).toLowerCase();
-    const intervalCount = Number(selectedPrice?.intervalCount);
-    const unitAmountMinor = Number(selectedPrice?.unitAmountMinor);
-
-    if (productId) {
-      form.providerProductId = productId;
-    }
-    if (currency.length === 3) {
-      form.currency = currency;
-    }
-    if (interval) {
-      form.interval = interval;
-    }
-    if (Number.isInteger(intervalCount) && intervalCount > 0) {
-      form.intervalCount = intervalCount;
-    }
-    if (Number.isInteger(unitAmountMinor) && unitAmountMinor >= 0) {
-      form.unitAmountMinor = unitAmountMinor;
-    }
-  },
   requiresCatalogPriceSelection() {
     return true;
-  },
-  isCreateFormDerivedFromSelectedPrice(selectedPrice) {
-    return Boolean(selectedPrice);
   }
 };
 

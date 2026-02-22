@@ -7,7 +7,7 @@ describe("console billing plan provider profiles", () => {
     const profile = resolveBillingPlanProviderProfile("stripe");
     expect(profile.key).toBe("stripe");
     expect(profile.ui.catalogPriceLabel).toBe("Stripe price");
-    expect(profile.ui.showUnitAmountField).toBe(false);
+    expect(profile.ui.selectPriceRequiredError).toContain("Stripe");
   });
 
   it("falls back to default profile for unknown providers", () => {

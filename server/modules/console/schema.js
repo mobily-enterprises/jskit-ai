@@ -538,22 +538,28 @@ const billingPlanCreateBody = Type.Object(
 
 const billingPlanUpdateBody = Type.Object(
   {
-    corePrice: Type.Object(
-      {
-        providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
-        providerProductId: Type.Optional(Type.String({ maxLength: 191 })),
-        currency: Type.Optional(Type.String({ minLength: 3, maxLength: 3 })),
-        unitAmountMinor: Type.Optional(Type.Integer({ minimum: 0 })),
-        interval: Type.Optional(enumSchema(["day", "week", "month", "year"])),
-        intervalCount: Type.Optional(Type.Integer({ minimum: 1 }))
-      },
-      {
-        additionalProperties: false
-      }
+    name: Type.Optional(Type.String({ minLength: 1, maxLength: 160 })),
+    description: Type.Optional(Type.Union([Type.String({ maxLength: 10000 }), Type.Null()])),
+    isActive: Type.Optional(Type.Boolean()),
+    corePrice: Type.Optional(
+      Type.Object(
+        {
+          providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
+          providerProductId: Type.Optional(Type.String({ maxLength: 191 })),
+          currency: Type.Optional(Type.String({ minLength: 3, maxLength: 3 })),
+          unitAmountMinor: Type.Optional(Type.Integer({ minimum: 0 })),
+          interval: Type.Optional(enumSchema(["day", "week", "month", "year"])),
+          intervalCount: Type.Optional(Type.Integer({ minimum: 1 }))
+        },
+        {
+          additionalProperties: false
+        }
+      )
     )
   },
   {
-    additionalProperties: false
+    additionalProperties: false,
+    minProperties: 1
   }
 );
 

@@ -771,11 +771,13 @@ function createService({
     const normalizedPatch = normalizeBillingCatalogPlanUpdatePayload(payload, {
       activeBillingProvider
     });
-    const resolvedCorePrice = await resolveCatalogCorePriceForUpdate({
-      activeBillingProvider,
-      billingProviderAdapter,
-      corePrice: normalizedPatch.corePrice
-    });
+    const resolvedCorePrice = normalizedPatch.corePrice
+      ? await resolveCatalogCorePriceForUpdate({
+          activeBillingProvider,
+          billingProviderAdapter,
+          corePrice: normalizedPatch.corePrice
+        })
+      : null;
 
     try {
       const updatedPlan = await billingRepository.transaction(async (trx) => {
@@ -784,11 +786,16 @@ function createService({
           throw new AppError(404, "Billing plan not found.");
         }
 
+        const updatePatch = {
+          ...normalizedPatch
+        };
+        if (resolvedCorePrice) {
+          updatePatch.corePrice = resolvedCorePrice;
+        }
+
         const nextPlan = await billingRepository.updatePlanById(
           plan.id,
-          {
-            corePrice: resolvedCorePrice
-          },
+          updatePatch,
           { trx }
         );
 

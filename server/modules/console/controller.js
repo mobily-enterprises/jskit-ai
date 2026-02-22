@@ -343,7 +343,9 @@ function createController({ consoleService, aiTranscriptsService = null, auditSe
       metadata: () => ({
         scope: "console",
         planId: parsePositiveInteger(params?.planId),
-        providerPriceId: normalizeText(payload?.corePrice?.providerPriceId)
+        providerPriceId: normalizeText(payload?.corePrice?.providerPriceId),
+        name: normalizeText(payload?.name),
+        isActive: typeof payload?.isActive === "boolean" ? payload.isActive : undefined
       }),
       onSuccess: (context) => ({
         metadata: {

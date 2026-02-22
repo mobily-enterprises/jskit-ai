@@ -407,3 +407,92 @@ test("console billing plan update edits existing core price mapping", async () =
   assert.ok(updateCall);
   assert.equal(updateCall[2], "price_new");
 });
+
+test("console billing plan update edits metadata without changing core price", async () => {
+  const calls = [];
+  const service = createConsoleServiceHarness({
+    billingProviderAdapter: {
+      async retrievePrice() {
+        throw new Error("retrievePrice should not be called when corePrice is not patched");
+      }
+    },
+    billingRepository: createBillingRepositoryStub({
+      async transaction(work) {
+        return work("trx-2");
+      },
+      async findPlanById(planId, options = {}) {
+        calls.push(["findPlanById", planId, options.trx]);
+        return {
+          id: 12,
+          code: "pro_monthly",
+          name: "Pro Monthly",
+          description: "Original description",
+          appliesTo: "workspace",
+          corePrice: {
+            provider: "stripe",
+            providerPriceId: "price_existing",
+            providerProductId: "prod_existing",
+            interval: "month",
+            intervalCount: 1,
+            currency: "USD",
+            unitAmountMinor: 4900
+          },
+          isActive: true,
+          metadataJson: {},
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z"
+        };
+      },
+      async updatePlanById(planId, patch, options = {}) {
+        calls.push(["updatePlanById", planId, patch.name, patch.description, patch.isActive, options.trx]);
+        return {
+          id: planId,
+          code: "pro_monthly",
+          name: patch.name,
+          description: patch.description,
+          appliesTo: "workspace",
+          corePrice: {
+            provider: "stripe",
+            providerPriceId: "price_existing",
+            providerProductId: "prod_existing",
+            interval: "month",
+            intervalCount: 1,
+            currency: "USD",
+            unitAmountMinor: 4900
+          },
+          isActive: patch.isActive,
+          metadataJson: {},
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z"
+        };
+      },
+      async listPlanEntitlementsForPlan(planId, options = {}) {
+        calls.push(["listPlanEntitlementsForPlan", planId, options.trx]);
+        return [];
+      }
+    })
+  });
+
+  const response = await service.updateBillingPlan(
+    {
+      id: 1,
+      email: "devop@example.test"
+    },
+    {
+      planId: 12
+    },
+    {
+      name: "Pro Monthly Updated",
+      description: "Updated description",
+      isActive: false
+    }
+  );
+
+  assert.equal(response.provider, "stripe");
+  assert.equal(response.plan.id, 12);
+  assert.equal(response.plan.name, "Pro Monthly Updated");
+  assert.equal(response.plan.description, "Updated description");
+  assert.equal(response.plan.isActive, false);
+  const updateCall = calls.find((entry) => entry[0] === "updatePlanById");
+  assert.ok(updateCall);
+});

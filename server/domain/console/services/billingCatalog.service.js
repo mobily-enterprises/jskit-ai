@@ -197,20 +197,60 @@ function normalizeBillingCatalogPlanUpdatePayload(payload = {}, { activeBillingP
   const body = payload && typeof payload === "object" ? payload : {};
   const fieldErrors = {};
   const resolvedProvider = resolveBillingProvider(activeBillingProvider);
+  const patch = {};
 
-  const { fieldErrors: corePriceFieldErrors, normalizedCorePrice } = normalizeCorePricePayload(body.corePrice, {
-    resolvedProvider,
-    fieldPrefix: "corePrice"
-  });
-  Object.assign(fieldErrors, corePriceFieldErrors);
+  if (Object.hasOwn(body, "name")) {
+    const name = normalizeOptionalString(body.name);
+    if (!name) {
+      fieldErrors.name = "name is required.";
+    } else if (name.length > 160) {
+      fieldErrors.name = "name must be at most 160 characters.";
+    } else {
+      patch.name = name;
+    }
+  }
+
+  if (Object.hasOwn(body, "description")) {
+    if (body.description == null) {
+      patch.description = null;
+    } else if (typeof body.description !== "string") {
+      fieldErrors.description = "description must be a string when provided.";
+    } else if (body.description.length > 10000) {
+      fieldErrors.description = "description must be at most 10000 characters.";
+    } else {
+      const normalizedDescription = normalizeOptionalString(body.description);
+      patch.description = normalizedDescription || null;
+    }
+  }
+
+  if (Object.hasOwn(body, "isActive")) {
+    if (typeof body.isActive !== "boolean") {
+      fieldErrors.isActive = "isActive must be a boolean.";
+    } else {
+      patch.isActive = body.isActive;
+    }
+  }
+
+  if (Object.hasOwn(body, "corePrice")) {
+    const { fieldErrors: corePriceFieldErrors, normalizedCorePrice } = normalizeCorePricePayload(body.corePrice, {
+      resolvedProvider,
+      fieldPrefix: "corePrice"
+    });
+    Object.assign(fieldErrors, corePriceFieldErrors);
+    if (normalizedCorePrice) {
+      patch.corePrice = normalizedCorePrice;
+    }
+  }
+
+  if (Object.keys(patch).length < 1) {
+    fieldErrors.request = "At least one of name, description, isActive, or corePrice must be provided.";
+  }
 
   if (Object.keys(fieldErrors).length > 0) {
     throw toFieldValidationError(fieldErrors);
   }
 
-  return {
-    corePrice: normalizedCorePrice
-  };
+  return patch;
 }
 
 function mapBillingPlanDuplicateError(error) {
