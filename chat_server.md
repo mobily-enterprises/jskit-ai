@@ -1,0 +1,1642 @@
+# Chat Server Implementation Plan (Server-Only, Detailed)
+
+## Purpose
+
+This document is an implementation plan for a robust server-side chat system in this codebase, designed to support:
+
+1. Intra-workspace chat (workspace-scoped DMs and group threads)
+2. User-to-user chat independent of workspace membership (global DMs), controlled by configuration
+3. Attachments, reactions, read state, conversation lists, and realtime updates
+4. Strong integration with the existing auth/workspace/realtime/runtime architecture
+5. A future path to E2EE without requiring a schema rewrite
+
+This plan is intentionally server-only. It does not define client UX implementation details except where server contracts and ephemeral state requirements must be explicit.
+
+## Constraints and Principles
+
+### Hard constraints from the current codebase
+
+- Users are represented by `user_profiles`, not a `users` table.
+- Workspace access is already centralized in `workspaceService.resolveRequestContext(...)` and enforced by `server/fastify/auth.plugin.js` for workspace-scoped routes.
+- Realtime transport is already Socket.IO-based (`server/realtime/registerSocketIoRealtime.js`) with auth, subscription handling, and Redis Streams adapter support.
+- The existing realtime topic subscription model is workspace/topic based, which is not sufficient by itself for private chat thread membership authorization.
+- File upload/storage already exists for avatars using `unstorage` (`server/domain/users/avatarStorage.service.js`) and image processing patterns in `server/domain/users/avatar.service.js`.
+- `fastifyMultipart` is currently globally registered with avatar-oriented limits in `server.js`; chat attachments need a route-specific strategy.
+- BullMQ worker infrastructure and retention sweep infrastructure exist and should be reused for cleanup and future attachment processing.
+
+### Design principles
+
+- Reuse existing infrastructure whenever possible (auth/session, route registration, realtime transport, storage conventions, worker/retention framework).
+- Avoid leaking private thread events to whole workspaces; enforce per-thread recipient fanout for chat events.
+- Keep schema normalized, and derive/calc fields in services/API payloads.
+- Make global DMs configurable without forcing workspace coupling.
+- Make the schema E2EE-ready, even if v1 launches in plaintext mode.
+- Use idempotency and transactional writes for message send paths.
+- Be explicit about what is persistent vs ephemeral.
+
+## What We Already Have (and should reuse)
+
+### Identity / auth / user model
+
+Reuse directly:
+
+- `user_profiles` (`migrations/20260215120000_create_user_profiles.cjs`)
+- auth/session cookie handling via `authService.authenticateRequest(...)`
+- `request.user` population in `server/fastify/auth.plugin.js`
+
+Implication:
+
+- All internal chat FKs should use `user_profiles.id`.
+- Global DMs can work without workspaces because `request.user` exists independently of workspace context.
+
+### Workspace access and permissions
+
+Reuse directly:
+
+- `workspaceService.resolveRequestContext(...)`
+- `workspace_memberships`
+- RBAC manifest + `workspaceStore.can(...)` model
+- route `workspacePolicy`, `workspaceSurface`, and `permission` enforcement in `auth.plugin`
+
+Implication:
+
+- Workspace-scoped chat routes should stay under `/api/workspace/...` where possible.
+- Workspace thread access should combine RBAC + thread participant membership.
+- Global DM routes cannot rely on route-static workspace permission checks; they require service-level authz.
+
+### Realtime transport (Socket.IO)
+
+Reuse directly:
+
+- Socket.IO server and Redis adapter in `server/realtime/registerSocketIoRealtime.js`
+- auth-on-connect pattern using `authService.authenticateRequest(...)`
+- single message channel `realtime:message`
+- existing `realtimeEventsService` + event envelope fanout
+
+Important limitation to address:
+
+- Current fanout authorization is workspace-topic based (`workspaceService.resolveRequestContext` + topic permission checks).
+- Chat needs participant-level authorization, especially for private group threads and global DMs.
+
+### File upload/storage patterns
+
+Reuse patterns from:
+
+- `server/domain/users/avatarStorage.service.js` (unstorage + fs driver + public URL mapping)
+- `server/domain/users/avatar.service.js` (validation, stream handling, processing, safe storage updates)
+- settings avatar upload controller/route multipart style (`server/modules/settings/controller.js`, `server/modules/settings/routes.js`)
+
+Important limitation to address:
+
+- The current global multipart plugin registration uses avatar-sized limits and `files: 1`. Chat attachments need route-level limits and likely multi-file support.
+
+### Worker / retention infrastructure
+
+Reuse directly:
+
+- BullMQ worker runtime (`server/workers/*`)
+- retention service and retention sweep (`server/domain/operations/services/retention.service.js`, `server/workers/retentionProcessor.js`)
+
+Implication:
+
+- Add chat message + attachment cleanup to the retention sweep rather than inventing separate cron logic.
+- Optional thumbnail/scan jobs can use the existing worker runtime pattern.
+
+## Scope Model (Critical)
+
+To support both workspace chat and user-to-user chat independent of workspace, define a thread scope model.
+
+### Thread scope kinds
+
+- `workspace`: thread belongs to one workspace (`workspace_id` required)
+- `global`: thread is not tied to any workspace (`workspace_id` null)
+
+### Thread kinds (v1)
+
+- `dm`: exactly 2 participants
+- `group`: 2+ participants (workspace scope in v1; global groups can be deferred)
+
+### Supported combinations in v1
+
+- `workspace + dm` (allowed)
+- `workspace + group` (allowed)
+- `global + dm` (allowed only if config enables it)
+- `global + group` (defer unless explicitly needed)
+
+This avoids overbuilding while fully satisfying the user-to-user regardless-of-workspaces requirement.
+
+## Configuration and Policy (Server)
+
+Add new env vars to `server/lib/env.js` and `.env.example` (all with conservative defaults):
+
+### Core feature flags
+
+- `CHAT_ENABLED` (`bool`, default `false`)
+- `CHAT_WORKSPACE_THREADS_ENABLED` (`bool`, default `false`)
+- `CHAT_GLOBAL_DMS_ENABLED` (`bool`, default `false`)
+
+### Global DM policy controls
+
+- `CHAT_GLOBAL_DMS_REQUIRE_SHARED_WORKSPACE` (`bool`, default `true`)
+  - If `true`, global DM exists but only if users share any active workspace membership.
+  - If `false`, users may DM regardless of workspace overlap.
+- `CHAT_GLOBAL_DMS_ALLOW_INTERNAL_USER_ID_TARGETING` (`bool`, default `false`)
+  - If `true`, endpoint may accept `targetUserId` directly.
+  - If `false`, require a public chat identifier / alias (future-safe option).
+
+### Message and pagination limits
+
+- `CHAT_MESSAGE_MAX_TEXT_CHARS` (`num`, default e.g. `4000`)
+- `CHAT_MESSAGES_PAGE_SIZE_MAX` (`num`, default e.g. `100`)
+- `CHAT_THREADS_PAGE_SIZE_MAX` (`num`, default e.g. `50`)
+- `CHAT_REACTIONS_PER_MESSAGE_MAX` (`num`, default e.g. `64`, soft validation)
+
+### Attachment controls
+
+- `CHAT_ATTACHMENTS_ENABLED` (`bool`, default `false`)
+- `CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE` (`num`, default `5`)
+- `CHAT_ATTACHMENT_MAX_UPLOAD_BYTES` (`num`, default e.g. `20_000_000`)
+- `CHAT_ATTACHMENT_TOTAL_BYTES_PER_MESSAGE` (`num`, default e.g. `50_000_000`)
+- `CHAT_ATTACHMENT_STORAGE_DRIVER` (`str`, default `fs`)
+- `CHAT_ATTACHMENT_STORAGE_FS_BASE_PATH` (`str`, default empty => derived path)
+- `CHAT_ATTACHMENT_PUBLIC_BASE_PATH` (`str`, default `/chat-uploads`)
+
+### Ephemeral realtime behavior
+
+- `CHAT_TYPING_EVENT_TTL_MS` (`num`, default `7000`)
+- `CHAT_TYPING_THROTTLE_MS` (`num`, default `1000`)
+- `CHAT_PRESENCE_ENABLED` (`bool`, default `false`) (optional v1)
+- `CHAT_PRESENCE_TTL_MS` (`num`, default `60_000`)
+
+### Retention and cleanup
+
+- `CHAT_MESSAGES_RETENTION_DAYS` (`num`, default `null` or disabled by default)
+- `CHAT_ATTACHMENTS_RETENTION_DAYS` (`num`, default `null` or disabled by default)
+- `CHAT_UNATTACHED_UPLOAD_RETENTION_HOURS` (`num`, default `24`)
+
+## RBAC and Authorization Plan
+
+### New workspace-scoped permissions (RBAC manifest)
+
+Add to `shared/auth/rbac.manifest.json` (and normalize through existing manifest loader):
+
+- `chat.read`
+- `chat.write`
+- `chat.attachments.upload`
+- `chat.manage` (optional, for thread admin actions: rename, remove members, etc.)
+
+Suggested initial role mapping:
+
+- `owner`: wildcard already covers all
+- `admin`: add all `chat.*`
+- `member`: add `chat.read`, `chat.write`, `chat.attachments.upload`
+- `viewer`: optionally add `chat.read` only (product decision)
+
+### Workspace thread authz model
+
+A request to a workspace-scoped thread must satisfy all:
+
+1. Authenticated user (`request.user`)
+2. Active workspace access via `workspaceService.resolveRequestContext(...)`
+3. Required route permission (`chat.read` / `chat.write` etc.)
+4. Active thread participant membership (`chat_thread_participants.status = active`)
+
+Why both (2) and (4)?
+
+- Workspace permission gate ensures feature-level access and tenancy guardrails.
+- Thread participant gate prevents private group thread leakage inside the workspace.
+
+### Global DM authz model
+
+A request to a global DM thread must satisfy all:
+
+1. Authenticated user (`request.user`)
+2. `CHAT_GLOBAL_DMS_ENABLED=true`
+3. Active thread participant membership
+4. User-level privacy/block checks
+5. Optional shared-workspace requirement depending on config
+
+Global DMs are intentionally not tied to route-static workspace permissions.
+
+### User blocking / privacy (robustness requirement)
+
+Add server-side support for blocking to avoid abuse and to make global DMs safe enough to enable:
+
+- `chat_user_blocks` table (defined below)
+- Service checks on:
+  - create DM
+  - send message
+  - typing emit
+  - attachment upload/attach
+
+## Realtime Architecture Plan (Chat-specific)
+
+## Key decision: do not use workspace topic fanout alone for chat
+
+Current realtime topic fanout (`workspace + topic`) is too coarse for chat because:
+
+- A workspace may contain multiple private threads.
+- Not every workspace member should receive every chat event.
+- Global DMs have no workspace context at all.
+
+### Reuse strategy (what we reuse vs extend)
+
+Reuse as-is:
+
+- Socket.IO transport and auth handshake
+- Redis Streams adapter scaling
+- `realtime:message` event channel and connection lifecycle
+- existing reconnect/auth semantics on client (later)
+
+Extend:
+
+- Socket.IO connection setup to auto-join a per-user room: `u:{userId}`
+- `realtimeEventsService` envelope/fanout to support explicit recipient user IDs (or add a chat-specific publish path that still runs through the same Socket.IO instance)
+- protocol message types for ephemeral chat typing (and optionally thread room subscribe) if we keep chat over the same `realtime:message` control channel
+
+### Recommended fanout model for chat
+
+Use targeted participant fanout rather than workspace-wide topic fanout.
+
+#### Durable chat events (message created, reaction, read state, thread updates)
+
+Publish to participant user rooms only:
+
+- room names: `u:{userId}`
+- server publishes one event envelope with explicit `targetUserIds` or loops participants and emits
+
+This prevents leakage and works for both workspace and global threads.
+
+#### Ephemeral typing events
+
+Also publish to participant user rooms only, excluding sender.
+
+Optional optimization (later): thread rooms (`th:{threadId}`) for high-volume threads.
+
+### How to extend the existing Socket.IO server cleanly
+
+There are two viable approaches. Recommended one is first.
+
+#### Option A (recommended): extend the existing realtime fanout service/envelope
+
+Add recipient targeting support to `realtimeEventsService` and `registerSocketIoRealtime`:
+
+- Existing envelopes continue to support workspace/topic fanout unchanged.
+- New chat envelopes may carry `targetUserIds` (and thread metadata in payload).
+- `registerSocketIoRealtime` on connection joins `u:{userId}`.
+- Fanout logic branches:
+  - if envelope has `targetUserIds`: emit to per-user rooms
+  - else fallback to existing workspace/topic fanout logic
+
+Advantages:
+
+- Keeps a single realtime publishing abstraction
+- Reuses current logging, fanout lifecycle, Redis adapter integration
+- Minimal cross-module transport duplication
+
+#### Option B (acceptable fallback): add a chat-specific realtime bridge on top of the same Socket.IO instance
+
+- Decorate fastify with `io` or a small emitter facade from `registerSocketIoRealtime`
+- Chat service/controllers publish directly through `chatRealtimeService`
+- Keep `realtimeEventsService` untouched for legacy topics
+
+This works, but increases parallel abstractions and should be avoided if Option A is not much harder.
+
+### Chat protocol events (server-side contract)
+
+Even if the client implementation is deferred, define server payload categories now.
+
+#### Durable event types (examples)
+
+- `chat.thread.created`
+- `chat.thread.updated`
+- `chat.thread.participant.added`
+- `chat.thread.participant.removed`
+- `chat.message.created`
+- `chat.message.edited`
+- `chat.message.deleted`
+- `chat.message.reaction.updated`
+- `chat.thread.read.updated`
+- `chat.attachment.updated` (upload processed / failed / quarantined)
+
+#### Ephemeral event types (not persisted)
+
+- `chat.typing.started`
+- `chat.typing.stopped`
+- (optional later) `chat.presence.updated`
+
+### Topic registry changes
+
+Current `shared/realtime/eventTypes.js` already includes `CHAT` and `TYPING` topics in this tree, but topic registry and event type mappings are not fully wired.
+
+Plan:
+
+- Formalize chat event types in `REALTIME_EVENT_TYPES`
+- Decide whether `CHAT`/`TYPING` topics remain used for client-side filtering only, or whether chat bypasses topic auth entirely and uses direct-user fanout
+- If chat uses topics, do not rely on topic-level permission as sufficient auth for private threads; recipient filtering remains mandatory
+
+## Persistent vs Ephemeral Field Model (explicit mapping)
+
+This is the most common source of over-design mistakes. Below is the authoritative split.
+
+### Persisted in DB (canonical)
+
+These belong in tables and are required for server functionality:
+
+- Thread identity and scope (`id`, scope kind, workspace link, kind)
+- Participants (user IDs, participant role/status, join/leave state)
+- Message rows (sender, thread, sequence, timestamps, text/ciphertext, delete/edit markers)
+- Attachment metadata and storage keys
+- Reactions
+- Read cursors (`last_read_seq`, `last_read_message_id`)
+- Mute/archive/pin per participant
+- Optional persisted drafts if we support cross-device sync
+- Block lists and chat preferences for global DMs
+
+### Ephemeral (server memory/Redis/client state; not DB canonical)
+
+These are needed for functionality but should not be stored as durable canonical records (or should be optional caches only):
+
+- Typing state (`typingParticipantIds`, `typingActive`)
+- Live presence (`online/offline/away`) and `presenceSummary`
+- Socket-to-user mappings and thread socket room membership
+- UI interaction state (hover/context menu/open pickers)
+- Scroll state / viewport state
+- `isAtBottom`, `loadingOlder`, `loadingNewer`
+- local optimistic message send states (`sending`, `failed`, `canceled`) before server ack
+- upload progress percentages and in-flight bytes
+- composer caret positions (`caretStart`, `caretEnd`)
+
+### Derived fields (API/view model, not canonical DB columns)
+
+These can be returned by the server but are computed from canonical rows:
+
+- `participantIds` (from participants table)
+- `isSelf` (compare participant user ID to request user)
+- `unreadCount` (thread latest seq - participant `last_read_seq`, with filtering rules)
+- `seenByParticipantIds` (participants with `last_read_seq >= message.thread_seq`)
+- DM title/avatar (derive from other participant)
+- `lastReadMessageIdBySelf` (from participant row)
+- `presenceSummary` (from ephemeral presence service + timestamps)
+
+### Product choice: fields that can be either persistent or ephemeral
+
+- `draftText`
+- `sendOnEnter`
+
+Recommendation:
+
+- v1: local client state only
+- v2 (if cross-device drafts matter): persist `draft_text` on `chat_thread_participants`
+
+## Database Schema (Detailed)
+
+This section defines the server-side tables needed to support Messenger-like chat functionality robustly.
+
+## Important implementation note about MySQL and FK cycles
+
+We need pointers like `chat_threads.last_message_id` and `chat_thread_participants.last_read_message_id` that reference `chat_messages.id`, but `chat_messages` itself references `chat_threads.id`.
+
+To avoid migration/FK cycle complexity and brittle deletes:
+
+- Keep pointer columns (`last_*_message_id`) as nullable indexed bigint columns without hard FKs in v1.
+- Enforce pointer consistency in services/repositories.
+
+This is a pragmatic and robust choice.
+
+### Table 1: `chat_user_settings`
+
+Purpose:
+
+- Per-user chat preferences and global-DM policy knobs
+- Keeps chat-specific settings isolated from generic `user_settings`
+
+Columns:
+
+- `id` BIGINT UNSIGNED PK
+- `user_id` BIGINT UNSIGNED NOT NULL UNIQUE (FK -> `user_profiles.id`)
+- `public_chat_id` VARCHAR(64) NULL UNIQUE
+  - Optional pseudonymous identifier for global DM targeting (preferable to raw internal IDs)
+- `allow_workspace_dms` BOOLEAN NOT NULL DEFAULT `1`
+- `allow_global_dms` BOOLEAN NOT NULL DEFAULT `0`
+- `require_shared_workspace_for_global_dm` BOOLEAN NOT NULL DEFAULT `1`
+- `discoverable_by_public_chat_id` BOOLEAN NOT NULL DEFAULT `0`
+- `created_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
+- `updated_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
+
+Indexes/constraints:
+
+- FK `user_id -> user_profiles.id` ON DELETE CASCADE
+- unique on `public_chat_id`
+- index on `allow_global_dms` (optional)
+
+Notes:
+
+- If we want a very small v1, this table can be deferred and defaults enforced by env config. But for robust global DMs, it is recommended.
+
+### Table 2: `chat_user_blocks`
+
+Purpose:
+
+- Blocklist used by DM creation and message send enforcement
+
+Columns:
+
+- `id` BIGINT UNSIGNED PK
+- `user_id` BIGINT UNSIGNED NOT NULL (blocker)
+- `blocked_user_id` BIGINT UNSIGNED NOT NULL (target)
+- `reason` VARCHAR(64) NOT NULL DEFAULT `""` (optional internal classification)
+- `created_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
+
+Indexes/constraints:
+
+- FK `user_id -> user_profiles.id` ON DELETE CASCADE
+- FK `blocked_user_id -> user_profiles.id` ON DELETE CASCADE
+- UNIQUE (`user_id`, `blocked_user_id`)
+- CHECK/service validation to prevent `user_id == blocked_user_id`
+- index (`blocked_user_id`, `created_at`) for reverse checks
+
+### Table 3: `chat_threads`
+
+Purpose:
+
+- Canonical thread record for workspace and global chats
+- Stores thread-level metadata and list-view cache fields
+
+Columns:
+
+- `id` BIGINT UNSIGNED PK
+- `scope_kind` VARCHAR(32) NOT NULL
+  - values: `workspace`, `global`
+- `workspace_id` BIGINT UNSIGNED NULL
+  - required when `scope_kind=workspace`, null when `scope_kind=global`
+- `thread_kind` VARCHAR(32) NOT NULL
+  - values: `dm`, `group`
+- `created_by_user_id` BIGINT UNSIGNED NOT NULL
+- `title` VARCHAR(160) NULL
+  - null for DMs (derive from peer) unless product wants custom DM names
+- `avatar_storage_key` VARCHAR(255) NULL
+  - group avatar only
+- `avatar_version` BIGINT UNSIGNED NULL
+- `scope_key` VARCHAR(128) NOT NULL
+  - normalized key to support uniqueness across nullable workspace scopes
+  - examples: `workspace:123`, `global`
+- `dm_user_low_id` BIGINT UNSIGNED NULL
+- `dm_user_high_id` BIGINT UNSIGNED NULL
+  - canonical sorted pair for DMs only
+- `participant_count` INT UNSIGNED NOT NULL DEFAULT `0`
+- `next_message_seq` BIGINT UNSIGNED NOT NULL DEFAULT `1`
+  - sequence allocator for robust concurrent sends
+- `last_message_id` BIGINT UNSIGNED NULL  (pointer, no FK in v1)
+- `last_message_seq` BIGINT UNSIGNED NULL
+- `last_message_at` DATETIME(3) NULL
+- `last_message_preview` VARCHAR(280) NULL
+  - plaintext-mode optimization only; null/disabled in E2EE mode
+- `encryption_mode` VARCHAR(32) NOT NULL DEFAULT `none`
+  - values: `none`, `e2ee`
+- `metadata_json` MEDIUMTEXT NOT NULL
+- `created_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
+- `updated_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
+- `archived_at` DATETIME(3) NULL (thread-wide archive/deletion marker, optional)
+
+Indexes/constraints:
+
+- FK `workspace_id -> workspaces.id` ON DELETE CASCADE (nullable)
+- FK `created_by_user_id -> user_profiles.id` ON DELETE RESTRICT or SET NULL (prefer RESTRICT if creator integrity matters)
+- UNIQUE for DMs: (`thread_kind`, `scope_key`, `dm_user_low_id`, `dm_user_high_id`)
+  - service enforces only DMs populate pair columns
+- index (`workspace_id`, `updated_at`) for workspace thread lists
+- index (`workspace_id`, `last_message_at`)
+- index (`scope_kind`, `last_message_at`)
+- index (`created_by_user_id`, `created_at`)
+
+Service-level invariants:
+
+- `scope_kind=workspace` => `workspace_id` required
+- `scope_kind=global` => `workspace_id` null
+- `thread_kind=dm` => pair columns required and distinct, `participant_count=2`
+- `thread_kind=group` => pair columns null
+
+### Table 4: `chat_thread_participants`
+
+Purpose:
+
+- Join table between threads and users
+- Stores participant-level state (role, mute/archive, read cursor, optional drafts)
+
+Columns:
+
+- `id` BIGINT UNSIGNED PK
+- `thread_id` BIGINT UNSIGNED NOT NULL
+- `user_id` BIGINT UNSIGNED NOT NULL
+- `participant_role` VARCHAR(32) NOT NULL DEFAULT `member`
+  - values: `owner`, `admin`, `member`
+- `status` VARCHAR(32) NOT NULL DEFAULT `active`
+  - values: `active`, `left`, `removed`
+- `joined_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
+- `left_at` DATETIME(3) NULL
+- `removed_by_user_id` BIGINT UNSIGNED NULL
+- `mute_until` DATETIME(3) NULL
+- `archived_at` DATETIME(3) NULL
+- `pinned_at` DATETIME(3) NULL
+- `last_delivered_seq` BIGINT UNSIGNED NOT NULL DEFAULT `0`
+- `last_delivered_message_id` BIGINT UNSIGNED NULL (pointer, no FK in v1)
+- `last_read_seq` BIGINT UNSIGNED NOT NULL DEFAULT `0`
+- `last_read_message_id` BIGINT UNSIGNED NULL (pointer, no FK in v1)
+- `last_read_at` DATETIME(3) NULL
+- `draft_text` LONGTEXT NULL (optional if cross-device draft sync is in v1)
+- `draft_updated_at` DATETIME(3) NULL
+- `metadata_json` MEDIUMTEXT NOT NULL
+- `created_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
+- `updated_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
+
+Indexes/constraints:
+
+- FK `thread_id -> chat_threads.id` ON DELETE CASCADE
+- FK `user_id -> user_profiles.id` ON DELETE CASCADE
+- FK `removed_by_user_id -> user_profiles.id` ON DELETE SET NULL
+- UNIQUE (`thread_id`, `user_id`)
+- index (`user_id`, `status`, `updated_at`) for inbox queries
+- index (`thread_id`, `status`) for participant fanout lookup
+- index (`thread_id`, `last_read_seq`) for seen calculations
+
+Notes:
+
+- For performance, inbox list query can compute unread count as `GREATEST(0, t.last_message_seq - p.last_read_seq)`.
+
+### Table 5: `chat_messages`
+
+Purpose:
+
+- Canonical message rows with ordering, text/ciphertext payload, edit/delete markers, metadata
+
+Columns:
+
+- `id` BIGINT UNSIGNED PK
+- `thread_id` BIGINT UNSIGNED NOT NULL
+- `thread_seq` BIGINT UNSIGNED NOT NULL
+  - monotonic per thread; allocated transactionally using `chat_threads.next_message_seq`
+- `sender_user_id` BIGINT UNSIGNED NOT NULL
+- `client_message_id` VARCHAR(128) NULL
+  - client-generated idempotency key scoped to sender+thread
+- `message_kind` VARCHAR(32) NOT NULL DEFAULT `text`
+  - values: `text`, `system`, `attachment`, `call`, `event`
+- `reply_to_message_id` BIGINT UNSIGNED NULL
+- `text_content` LONGTEXT NULL
+  - plaintext mode only
+- `ciphertext_blob` LONGBLOB NULL
+  - E2EE mode (optional v1, schema-ready)
+- `cipher_nonce` VARBINARY(64) NULL
+- `cipher_alg` VARCHAR(32) NULL
+- `key_ref` VARCHAR(128) NULL
+- `metadata_json` MEDIUMTEXT NOT NULL
+- `edited_at` DATETIME(3) NULL
+- `deleted_at` DATETIME(3) NULL
+- `deleted_by_user_id` BIGINT UNSIGNED NULL
+- `sent_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
+- `created_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
+- `updated_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
+
+Indexes/constraints:
+
+- FK `thread_id -> chat_threads.id` ON DELETE CASCADE
+- FK `sender_user_id -> user_profiles.id` ON DELETE RESTRICT (or SET NULL if message history should survive account deletion)
+- FK `reply_to_message_id -> chat_messages.id` ON DELETE SET NULL (optional, can omit FK if migration complexity is high)
+- FK `deleted_by_user_id -> user_profiles.id` ON DELETE SET NULL
+- UNIQUE (`thread_id`, `thread_seq`)
+- UNIQUE (`thread_id`, `sender_user_id`, `client_message_id`) (nullable `client_message_id` permits multiple nulls)
+- index (`thread_id`, `sent_at`)
+- index (`thread_id`, `id`)
+- index (`sender_user_id`, `sent_at`)
+
+Service invariants:
+
+- `text_content` OR `ciphertext_blob` (depending on encryption mode)
+- sender must be active participant
+- `thread_seq` assigned in transaction
+
+### Table 6: `chat_attachments`
+
+Purpose:
+
+- Staged and attached file metadata
+- Supports reserve/upload/attach flow, cleanup of abandoned uploads, and future moderation/scanning
+
+Columns:
+
+- `id` BIGINT UNSIGNED PK
+- `thread_id` BIGINT UNSIGNED NULL
+  - null only if allowing pre-thread staging (optional); recommended v1 requires thread and makes this NOT NULL
+- `message_id` BIGINT UNSIGNED NULL
+  - null while staged/unattached
+- `uploaded_by_user_id` BIGINT UNSIGNED NOT NULL
+- `client_attachment_id` VARCHAR(128) NULL
+  - idempotency/correlation key from client for retry-safe uploads
+- `position` INT UNSIGNED NULL
+  - ordinal within message when attached
+- `attachment_kind` VARCHAR(32) NOT NULL
+  - `image`, `video`, `audio`, `file`, `link`, `gif`, `sticker`
+- `status` VARCHAR(32) NOT NULL DEFAULT `reserved`
+  - `reserved`, `uploading`, `uploaded`, `attached`, `failed`, `quarantined`, `expired`, `deleted`
+- `storage_driver` VARCHAR(32) NOT NULL DEFAULT `fs`
+- `storage_key` VARCHAR(255) NULL
+- `public_url_path` VARCHAR(512) NULL
+  - optional denormalized path; may also derive from `storage_key`
+- `preview_storage_key` VARCHAR(255) NULL
+- `preview_url_path` VARCHAR(512) NULL
+- `mime_type` VARCHAR(160) NULL
+- `file_name` VARCHAR(255) NULL
+- `size_bytes` BIGINT UNSIGNED NULL
+- `sha256_hex` CHAR(64) NULL
+- `width` INT UNSIGNED NULL
+- `height` INT UNSIGNED NULL
+- `duration_ms` INT UNSIGNED NULL
+- `upload_expires_at` DATETIME(3) NULL
+  - cleanup of unattached staged uploads
+- `processed_at` DATETIME(3) NULL
+- `failed_reason` VARCHAR(255) NULL
+- `metadata_json` MEDIUMTEXT NOT NULL
+- `created_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
+- `updated_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
+- `deleted_at` DATETIME(3) NULL
+
+Indexes/constraints:
+
+- FK `thread_id -> chat_threads.id` ON DELETE CASCADE (nullable if supporting pre-thread staging)
+- FK `message_id -> chat_messages.id` ON DELETE CASCADE
+- FK `uploaded_by_user_id -> user_profiles.id` ON DELETE CASCADE
+- UNIQUE (`message_id`, `position`) (nullable `message_id`)
+- UNIQUE (`thread_id`, `uploaded_by_user_id`, `client_attachment_id`) for idempotent uploads when client key supplied
+- index (`thread_id`, `status`, `created_at`)
+- index (`message_id`)
+- index (`status`, `upload_expires_at`)
+- index (`uploaded_by_user_id`, `created_at`)
+
+Notes:
+
+- One table is simpler than separate staging + attachment-link tables and supports robust lifecycle tracking.
+- If future attachment reuse is required, split into blob table + message link table later.
+
+### Table 7: `chat_message_reactions`
+
+Purpose:
+
+- Per-user reactions on messages
+
+Columns:
+
+- `id` BIGINT UNSIGNED PK
+- `message_id` BIGINT UNSIGNED NOT NULL
+- `thread_id` BIGINT UNSIGNED NOT NULL (denormalized for query speed and simpler auth filters)
+- `user_id` BIGINT UNSIGNED NOT NULL
+- `reaction` VARCHAR(32) NOT NULL
+- `created_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
+
+Indexes/constraints:
+
+- FK `message_id -> chat_messages.id` ON DELETE CASCADE
+- FK `thread_id -> chat_threads.id` ON DELETE CASCADE
+- FK `user_id -> user_profiles.id` ON DELETE CASCADE
+- UNIQUE (`message_id`, `user_id`, `reaction`)
+- index (`thread_id`, `message_id`)
+- index (`user_id`, `created_at`)
+
+Notes:
+
+- `thread_id` can be validated against message thread in service layer.
+- If desired, enforce consistency by always deriving `thread_id` from message lookup in service and not exposing it in controller payload.
+
+## Migration Plan (Detailed, in repo style)
+
+Use repo migration conventions:
+
+- CommonJS migrations (`*.cjs`)
+- `bigIncrements`, `bigInteger(...).unsigned()`
+- `DATETIME(3)` with `UTC_TIMESTAMP(3)` defaults
+- named indexes and unique constraints
+
+### Recommended migration sequence
+
+1. `YYYYMMDDHHMMSS_create_chat_user_settings_and_blocks.cjs`
+2. `YYYYMMDDHHMMSS_create_chat_threads_and_participants.cjs`
+3. `YYYYMMDDHHMMSS_create_chat_messages_and_attachments.cjs`
+4. `YYYYMMDDHHMMSS_create_chat_reactions_and_indexes.cjs`
+5. (optional) `YYYYMMDDHHMMSS_add_chat_retention_or_pointer_indexes.cjs` if further tuning needed
+
+Why split this way:
+
+- Smaller rollback surface
+- Easier test failures/debugging
+- Avoid giant migration with FK cycles and add/alter sequencing complexity
+
+### Migration implementation notes
+
+- Initialize all `metadata_json` columns to `'{}'` and mark non-null (consistent with AI repositories)
+- Prefer service-level invariants over DB check constraints if MySQL compatibility is uncertain
+- For nullable pointer columns (`last_message_id`, `last_read_message_id`), do not add FKs in v1
+- Add indexes early; chat queries are list-heavy and message-page heavy
+
+## Repository Layer Plan (server/modules/chat/repositories)
+
+Create dedicated repositories mirroring patterns used by AI transcript repositories.
+
+### Files
+
+- `server/modules/chat/repositories/threads.repository.js`
+- `server/modules/chat/repositories/participants.repository.js`
+- `server/modules/chat/repositories/messages.repository.js`
+- `server/modules/chat/repositories/attachments.repository.js`
+- `server/modules/chat/repositories/reactions.repository.js`
+- `server/modules/chat/repositories/userSettings.repository.js`
+- `server/modules/chat/repositories/blocks.repository.js`
+
+### Shared repository conventions to follow
+
+Reuse conventions from `server/modules/ai/repositories/*`:
+
+- `resolveClient(options)` to support transactions
+- row mappers (`mapXRowRequired`, `mapXRowNullable`)
+- `parseJsonObject` / `stringifyJsonObject` helpers using `*_json` text columns
+- pagination with bounded `page` / `pageSize`
+- `repoTransaction(callback)` wrapper
+
+### Critical repository functions (minimum set)
+
+#### `threads.repository.js`
+
+- `insert(payload, options)`
+- `findById(threadId, options)`
+- `findDmByCanonicalPair({ scopeKey, userAId, userBId }, options)`
+- `listForUser(userId, filters, pagination, options)`
+- `updateById(threadId, patch, options)`
+- `allocateNextMessageSequence(threadId, options)`
+  - transaction-safe allocator (or `lockThreadForUpdate` + manual increment)
+- `updateLastMessageCache(threadId, cachePatch, options)`
+- `incrementParticipantCount(threadId, delta, options)`
+- retention helpers (optional): `deleteWithoutMessagesOlderThan(...)`
+
+#### `participants.repository.js`
+
+- `insert(payload, options)`
+- `listByThreadId(threadId, options)`
+- `findByThreadIdAndUserId(threadId, userId, options)`
+- `listActiveUserIdsByThreadId(threadId, options)` (fanout helper)
+- `upsertDmParticipants(threadId, [userIds], options)`
+- `updateByThreadIdAndUserId(...)`
+- `markLeft(...)`, `markRemoved(...)`
+- `updateReadCursorMonotonic(...)`
+  - SQL monotonic update (`GREATEST`) to avoid regressions under race conditions
+- `listThreadsForInboxUser(userId, filters, pagination, options)` (or in threads repo via joins)
+
+#### `messages.repository.js`
+
+- `insert(payload, options)`
+- `findById(messageId, options)`
+- `findByClientMessageId(threadId, senderUserId, clientMessageId, options)`
+- `listByThreadId(threadId, pagination, options)`
+- `listByThreadIdBeforeSeq(threadId, beforeSeq, limit, options)` (cursor pagination preferred)
+- `updateById(...)` for edit/delete markers
+- `countByThreadId(...)`
+- retention: `deleteOlderThan(cutoffDate, batchSize, options)`
+
+#### `attachments.repository.js`
+
+- `insertReserved(...)`
+- `findById(...)`
+- `findByClientAttachmentId(...)`
+- `listStagedByUserIdAndThreadId(...)`
+- `markUploading(...)`
+- `markUploaded(...)`
+- `attachToMessage(...)` (sets `message_id`, `position`, `status='attached'`)
+- `markFailed(...)`
+- `markExpired(...)`
+- `listExpiredUnattached(...)` / `deleteExpiredUnattachedBatch(...)`
+- retention: `deleteSoftDeletedOlderThan(...)` or `deleteDetachedOlderThan(...)`
+
+#### `reactions.repository.js`
+
+- `addReaction(...)` (idempotent insert)
+- `removeReaction(...)`
+- `listByMessageIds(messageIds, options)`
+- `countByMessageId(...)` (if needed)
+
+#### `userSettings.repository.js` / `blocks.repository.js`
+
+- `ensureForUserId(userId)`
+- `findByUserId(userId)`
+- `updateByUserId(userId, patch)`
+- `isBlockedEitherDirection(userAId, userBId)`
+- `addBlock(...)`
+- `removeBlock(...)`
+- `listBlockedUsers(userId, pagination)`
+
+## Service Layer Plan (server/modules/chat + server/domain/chat)
+
+Prefer a layered service design so controller logic stays thin and authz is reusable.
+
+### Recommended services
+
+- `server/modules/chat/service.js` (orchestrator API used by controller)
+- `server/domain/chat/services/access.service.js` (thread authz, workspace/global policies)
+- `server/domain/chat/services/dmResolution.service.js` (canonical pair + thread creation race handling)
+- `server/domain/chat/services/attachments.service.js` (reserve/upload/attach lifecycle)
+- `server/domain/chat/services/realtime.service.js` (publishing durable events + typing)
+- `server/domain/chat/services/presence.service.js` (optional, Redis/in-memory)
+- `server/domain/chat/services/storage.service.js` (chat attachment storage wrapper, extracted from avatar pattern)
+
+### `chat.service.js` responsibilities (orchestrator)
+
+This is the main domain API. It should depend on repositories + access + realtime + audit + optional workspace service hooks.
+
+Core methods:
+
+- `createWorkspaceThread(requestWorkspace, requestUser, payload)`
+- `ensureGlobalDm(requestUser, targetUserSelector, options)`
+- `listInboxForUser(requestUser, filters, pagination)`
+- `getThreadForUser(threadId, requestUser)`
+- `listMessagesForUser(threadId, requestUser, pagination)`
+- `sendMessage(threadId, requestUser, payload, requestMeta)`
+- `markRead(threadId, requestUser, payload)`
+- `addReaction(threadId, messageId, requestUser, payload)`
+- `removeReaction(threadId, messageId, requestUser, payload)`
+- `sendTyping(threadId, requestUser, payload)` (ephemeral only)
+- attachment methods:
+  - `reserveAttachment(...)`
+  - `uploadAttachmentContent(...)`
+  - `attachUploadsToMessage(...)` (normally internal to `sendMessage`)
+
+### `access.service.js` responsibilities
+
+Centralize chat authz; do not scatter chat access checks across controllers.
+
+Key methods:
+
+- `resolveThreadAccess({ threadId, user, requireWrite, request })`
+  - returns thread + participant + scope context + workspace context (if workspace thread)
+- `assertCanCreateWorkspaceThread({ workspaceContext, user, payload })`
+- `assertCanCreateGlobalDm({ user, targetUser, config })`
+- `assertCanSendMessage(threadAccess)`
+- `assertCanUploadAttachment(threadAccess)`
+- `assertCanReact(threadAccess)`
+- `assertCanManageThread(threadAccess)`
+
+This service should reuse:
+
+- `workspaceService.resolveRequestContext(...)` for workspace thread routes when request already has `request.workspace` / `request.permissions`
+- `workspaceMembershipsRepository` for shared-workspace checks when global DM policy requires it
+- `chat_user_settings` + `chat_user_blocks` repositories for privacy enforcement
+
+### `dmResolution.service.js` (race-safe DM creation)
+
+Problem to solve robustly:
+
+- Two users can try to create the same DM simultaneously.
+
+Strategy:
+
+1. Canonicalize pair (`low`, `high`)
+2. Compute `scopeKey` (`global` or `workspace:<id>`)
+3. Try find existing DM thread
+4. If not found, insert new thread with pair columns and unique index
+5. If unique conflict occurs, re-read existing thread and return it
+6. Ensure both participants exist and are active (idempotently)
+
+This mirrors robustness patterns already used in workspace provisioning (retry around uniqueness/races).
+
+### `attachments.service.js` (reuse avatar patterns, but generic)
+
+Responsibilities:
+
+- MIME validation and upload size limits
+- stream-to-buffer or stream-to-storage pipeline (prefer streaming when possible for large files)
+- metadata extraction (safe subset)
+- optional image thumbnail generation (future worker task)
+- attachment lifecycle transitions (`reserved` -> `uploading` -> `uploaded` -> `attached`)
+- orphan upload cleanup
+
+Reuse from avatar code:
+
+- `unstorage` usage pattern
+- `toPublicUrl(storageKey, version)` style URL builder
+- stream validation patterns and structured `AppError` validation responses
+
+Important design difference from avatar uploads:
+
+- Attachments are not tied to one deterministic storage key (avatars are)
+- Need random/object-id-based keys (e.g. `chat/threads/{threadId}/{attachmentId}/{fileName}` or hashed path)
+- Need staged upload lifecycle and cleanup
+
+### `realtime.service.js` for chat
+
+Responsibilities:
+
+- Publish durable chat events to recipients (participant user IDs)
+- Emit typing events with throttling and TTL semantics
+- Avoid leaking events outside participant set
+
+This service should abstract transport details from `chat.service.js`.
+
+Recommended methods:
+
+- `publishThreadEvent({ thread, eventType, actorUserId, payload, recipientUserIds, commandId, sourceClientId })`
+- `publishMessageEvent(...)`
+- `publishReadCursorUpdated(...)`
+- `publishReactionUpdated(...)`
+- `emitTyping({ threadId, actorUserId, recipientUserIds, state, expiresAt })`
+
+## Controller and Route Plan (server/modules/chat)
+
+Create a new module mirroring other modules:
+
+- `server/modules/chat/controller.js`
+- `server/modules/chat/routes.js`
+- `server/modules/chat/schema.js`
+- optional route split files:
+  - `routes/workspace.route.js`
+  - `routes/global.route.js`
+  - `routes/thread.route.js`
+
+### Route design goals
+
+- Keep workspace-scoped routes under `/api/workspace/...` when they need workspace auth plugin support
+- Use `/api/chat/...` for global-DM and thread-by-id operations that may be workspace or global
+- Keep route handlers thin; all business logic in services
+- Use route schemas (TypeBox) and standard error responses like other modules
+
+### Proposed endpoints (server-side)
+
+#### Workspace-scoped thread creation/listing
+
+- `GET /api/workspace/chat/threads`
+  - `auth: required`, `workspacePolicy: required`, permission `chat.read`
+  - list workspace threads visible to current user
+- `POST /api/workspace/chat/threads`
+  - permission `chat.write` or `chat.manage` depending on create policy
+  - create workspace group thread or workspace-scoped DM
+
+#### Global DM operations (configurable)
+
+- `POST /api/chat/dm/ensure`
+  - `auth: required`, `workspacePolicy: none`
+  - body: `targetUserId` (if config allows) or `targetPublicChatId`
+  - creates or returns global DM thread
+- `GET /api/chat/inbox`
+  - `auth: required`
+  - returns mixed inbox (workspace + global) unless filtered
+
+#### Thread operations (scope-agnostic)
+
+- `GET /api/chat/threads/:threadId`
+- `GET /api/chat/threads/:threadId/messages`
+- `POST /api/chat/threads/:threadId/messages`
+  - idempotent via `clientMessageId` in body
+- `POST /api/chat/threads/:threadId/read`
+  - update read cursor by `messageId` or `threadSeq`
+- `POST /api/chat/threads/:threadId/reactions`
+- `DELETE /api/chat/threads/:threadId/reactions`
+- `POST /api/chat/threads/:threadId/typing`
+  - ephemeral emit only, no DB write
+
+#### Attachment upload endpoints (recommended two-step)
+
+- `POST /api/chat/threads/:threadId/attachments/reserve`
+  - create reserved attachment rows with client keys (optional if you prefer direct upload endpoint to reserve+upload in one call)
+- `POST /api/chat/threads/:threadId/attachments/upload`
+  - multipart upload, one file per request (simplest robust v1), returns uploaded attachment metadata
+- `DELETE /api/chat/threads/:threadId/attachments/:attachmentId`
+  - delete staged unattached attachment (or mark deleted if attached and policy allows)
+
+Alternative (also valid): `POST /api/chat/threads/:threadId/attachments` both reserves and uploads.
+
+### Route auth strategy details
+
+#### Workspace routes
+
+Use existing route config fields:
+
+- `workspacePolicy: "required"`
+- `permission: "chat.read"` / `"chat.write"` / etc.
+
+Controllers then still call `chatAccessService` for participant-level checks.
+
+#### Scope-agnostic routes (`/api/chat/threads/:threadId/...`)
+
+Use:
+
+- `auth: required`
+- no route-static workspace permission
+
+Then inside service/controller:
+
+- load thread
+- if `scope_kind=workspace`, resolve workspace context and permission via `workspaceService.resolveRequestContext(...)` using thread workspace slug/id and request surface
+- enforce participant status
+- if `scope_kind=global`, apply global DM policy and participant checks
+
+This keeps route registration simple and avoids overloading `auth.plugin` with dynamic scope logic.
+
+## Message Send Path (transactional, robust)
+
+This is the most important server flow.
+
+### Inputs
+
+- `threadId`
+- `clientMessageId` (recommended required for robust retries)
+- `text` and/or `attachmentIds`
+- `replyToMessageId` optional
+- metadata (bounded, validated)
+- request meta from headers (`x-command-id`, `x-client-id`) for realtime correlation
+
+### Transaction flow (recommended)
+
+1. Resolve thread access (`requireWrite=true`)
+2. Validate message payload limits (`text`, attachments count, reply target)
+3. Begin DB transaction
+4. Re-read participant and thread row in transaction (optional but recommended for race safety)
+5. Idempotency check:
+   - if `clientMessageId` provided and `(thread_id, sender_user_id, client_message_id)` already exists, return existing message + thread summary
+6. Allocate `thread_seq`
+   - lock thread row (`SELECT ... FOR UPDATE`) and increment `next_message_seq`
+7. Insert `chat_messages` row
+8. Attach uploaded attachment rows (if any)
+   - validate each attachment belongs to sender, thread, status `uploaded`, unattached
+   - set `message_id`, `position`, `status='attached'`
+9. Update `chat_threads` cache fields:
+   - `last_message_id`, `last_message_seq`, `last_message_at`, `last_message_preview`, `updated_at`
+10. Optionally update sender participant delivered/read cursor to at least new seq
+11. Commit transaction
+12. Load participant recipient IDs (outside transaction OK if not already fetched)
+13. Publish realtime event to recipient user rooms
+14. Return API response with canonical message payload
+
+### Why this is robust
+
+- Handles retries safely (idempotency)
+- Prevents duplicate seq values under concurrency
+- Prevents attachment theft/reuse across users/threads
+- Ensures thread list cache is updated atomically with message insert
+
+## Read Receipt / Unread Count Model
+
+### Canonical model
+
+Store per-participant read cursor in `chat_thread_participants`:
+
+- `last_read_seq`
+- `last_read_message_id`
+- `last_read_at`
+
+### Update semantics
+
+`markRead` endpoint should perform monotonic updates only:
+
+- `last_read_seq = GREATEST(last_read_seq, incomingSeq)`
+- update message pointer iff incoming seq wins
+
+This avoids regressions when requests arrive out of order.
+
+### Derivations
+
+- Thread unread count for self: `max(0, thread.last_message_seq - participant.last_read_seq)`
+- Seen-by list for message (for UI): participants where `last_read_seq >= message.thread_seq`
+
+No separate `chat_message_receipts` table is required in v1 unless product insists on delivered-vs-seen per device.
+
+## Attachment Handling Plan (Detailed)
+
+### Why not reuse avatar service directly
+
+Avatar storage is user-singleton and deterministic (`avatars/users/{id}/avatar.webp`). Chat attachments need:
+
+- many files per user/thread/message
+- staged upload lifecycle
+- per-attachment metadata
+- optional preview/processing pipeline
+- cleanup of unattached blobs
+
+### Recommended implementation reuse pattern
+
+Refactor or create a sibling storage service:
+
+- `server/domain/chat/attachmentStorage.service.js`
+
+Base it on avatar storage service patterns:
+
+- `unstorage` + `fs` driver
+- `init()` to create base dir
+- `registerDelivery(app, { fastifyStatic })`
+- `toPublicUrl(storageKey, version?)`
+
+Storage key pattern recommendation:
+
+- `chat/threads/{threadId}/attachments/{attachmentId}/{safeFileName}`
+- or hashed split path for FS scalability if needed later
+
+### Upload strategy (v1 robust)
+
+Prefer **one-file-per-upload request** for simplicity and reliability.
+
+Flow:
+
+1. Validate thread write/upload permission
+2. Create or reuse reserved attachment row (`status='reserved'`)
+3. Mark `status='uploading'`
+4. Stream upload and capture metadata (mime/size, maybe image dimensions)
+5. Save blob to storage and mark `status='uploaded'`
+6. Return attachment metadata (unattached)
+7. Message send endpoint attaches uploaded IDs transactionally
+
+Why one file per request in v1:
+
+- Easier partial failure handling
+- Simpler multipart parsing and error reporting
+- Cleaner idempotency (`clientAttachmentId` per file)
+
+### Multipart limits problem (current server)
+
+Current global `fastifyMultipart` registration in `server.js` uses avatar-centric limits (`fileSize`, `files`, `fields`). Chat attachments will exceed these.
+
+Plan to fix safely:
+
+- Keep global plugin registration, but in chat attachment controller use route/request-level multipart parsing with explicit limits for chat uploads
+- Do not silently widen avatar route limits globally unless audited
+
+If fastify plugin config limitations prevent route-level overrides cleanly, refactor server multipart setup to use a broader global registration and enforce stricter limits inside avatar service/controller.
+
+### Optional future worker integration for attachments
+
+Use BullMQ worker framework for:
+
+- thumbnail generation
+- antivirus scanning / content safety checks
+- media transcoding
+
+v1 can skip this and still be robust if attachment status lifecycle supports later async transitions.
+
+## Realtime Event Publishing and Subscription Plan (Chat)
+
+### Realtime publishing helpers (recommended additions)
+
+Add `server/realtime/publishers/chatPublisher.js` mirroring existing publisher pattern files.
+
+Responsibilities:
+
+- Build event payloads using request meta (`x-command-id`, `x-client-id`, actor user)
+- Publish durable chat events safely via `realtimeEventsService`
+- Provide chat-specific log codes (`chat.realtime.publish_failed`)
+
+### Extending `realtimeEventsService` (recommended)
+
+Add methods or payload support for targeted delivery, e.g.:
+
+- `publishChatEvent({ eventType, thread, recipientUserIds, payload, ... })`
+
+Envelope additions (backward compatible):
+
+- `recipientUserIds` (array of user IDs) OR `targets` object
+- `threadId`, `threadScopeKind` in payload metadata
+- optional `workspaceId`/`workspaceSlug` preserved for workspace threads
+
+### Socket.IO server changes (`registerSocketIoRealtime.js`)
+
+#### Required changes
+
+1. On connection, auto-join user room:
+   - `socket.join("u:<userId>")`
+2. Fanout support for targeted events:
+   - if envelope includes recipient user IDs, emit to each `u:<userId>` room (or direct socket lookup if desired)
+   - skip workspace topic authorization branch for these targeted events because authz is already enforced by chat service participant resolution
+3. Add optional handler for chat typing inbound control message over `realtime:message`
+   - validate payload size and shape
+   - call chat typing service with authz checks
+
+#### Optional changes (phase 2)
+
+- Thread room subscribe/unsubscribe support (`th:{threadId}`) if chat traffic volume requires narrower targeting than user rooms
+- Presence tracking hooks on connect/disconnect
+
+### Why recipient fanout is the correct choice
+
+- Works for global DMs and workspace threads uniformly
+- Prevents workspace-wide leakage
+- Avoids forcing chat membership checks into workspace topic registry logic
+- Reuses the existing Socket.IO transport and Redis scaling path
+
+## Runtime Wiring Plan (server/runtime/* and route aggregation)
+
+### Repositories
+
+Update `server/runtime/repositories.js` to include:
+
+- chat repositories (`threads`, `participants`, `messages`, `attachments`, `reactions`, `chatUserSettings`, `chatBlocks`)
+
+### Services
+
+Update `server/runtime/services.js` to instantiate:
+
+- `chatAttachmentStorageService`
+- `chatService`
+- `chatRealtimeService` (or integrate into `chatService` if small)
+- optional `chatPresenceService`
+
+Dependencies to inject:
+
+- `authService` (indirectly via controllers, usually not service dependency)
+- `workspaceService`
+- `workspaceMembershipsRepository`
+- `userProfilesRepository`
+- `realtimeEventsService`
+- `auditService`
+- `observabilityService`
+- `appConfig` / `env` for chat feature flags and limits
+- `fastify` is not available in runtime services; transport-facing logic should go through `realtimeEventsService` or a bridge created at server bootstrap
+
+### Controllers
+
+Update `server/runtime/controllers.js` to add:
+
+- `chat: createChatController({ chatService, auditService, ... })`
+
+### API route aggregation
+
+Update `server/modules/api/routes.js` to include:
+
+- `buildChatRoutes(controllers, { missingHandler, routeConfig: chat config values })`
+
+### Server bootstrap (`server.js`)
+
+Add chat storage service lifecycle similar to avatar storage if using fastify static delivery:
+
+- `await chatAttachmentStorageService.init()`
+- `await chatAttachmentStorageService.registerDelivery(app, { fastifyStatic, decorateReply: false })`
+
+Be careful to avoid path collisions with avatar uploads (`/uploads`).
+
+## API Payload and Schema Design (Server Contracts)
+
+Use TypeBox schemas and `withStandardErrorResponses(...)` like existing modules.
+
+### Canonical message response shape (server)
+
+Return a normalized payload that already separates persistent and derived fields:
+
+- `id`
+- `threadId`
+- `threadSeq`
+- `senderUserId`
+- `clientMessageId`
+- `kind`
+- `text` (or `null` if deleted / E2EE opaque mode)
+- `replyToMessageId`
+- `attachments[]`
+- `reactions[]` (or grouped summary)
+- `sentAt`, `editedAt`, `deletedAt`
+- `metadata`
+
+Do not return client-only ephemeral statuses (`sending`, `failed`) as canonical message fields.
+
+### Thread list item response shape (server)
+
+Include denormalized values needed for inbox rendering:
+
+- thread core metadata
+- participant summaries (bounded)
+- `lastMessage*` cache fields
+- derived `unreadCount` for requesting user
+- self participant state (`mute`, `archive`, `pin`, `lastReadSeq`)
+
+`presenceSummary` should be optional and only populated if presence service is enabled.
+
+## Auditing, Logging, and Observability (Robustness)
+
+### Security audit events (selective)
+
+Use existing `withAuditEvent(...)` pattern for structural/admin actions, not every message send (to avoid audit spam and cost).
+
+Audit candidates:
+
+- thread created (workspace group threads especially)
+- participant added/removed
+- thread renamed
+- thread archived/unarchived (if implemented)
+- block/unblock user
+- attachment moderation/quarantine actions
+
+Message sends can be logged operationally (metrics/counters) but should usually not be written to the security audit trail.
+
+### Observability metrics (recommended)
+
+Add counters/timers to `observabilityService` integration points:
+
+- `chat.thread.create.count`
+- `chat.message.send.count`
+- `chat.message.send.latency_ms`
+- `chat.message.send.idempotent_replay.count`
+- `chat.message.send.failure.count`
+- `chat.attachment.upload.count`
+- `chat.attachment.upload.bytes`
+- `chat.attachment.upload.failure.count`
+- `chat.realtime.publish.count`
+- `chat.realtime.publish.failure.count`
+- `chat.typing.emit.count`
+
+### Logging
+
+Use structured logs with request IDs and thread/message IDs.
+
+Examples of useful log codes:
+
+- `chat.thread.create_failed`
+- `chat.message.send_failed`
+- `chat.message.idempotent_replay`
+- `chat.attachment.upload_failed`
+- `chat.attachment.orphan_cleanup_failed`
+- `chat.realtime.publish_failed`
+- `chat.typing.authz_failed`
+
+## Retention and Cleanup Plan (BullMQ + retention service reuse)
+
+### Add chat retention to existing retention sweep
+
+Extend `server/domain/operations/services/retention.service.js` and `server/workers/retentionProcessor.js` config to include:
+
+- `chatMessagesRetentionDays`
+- `chatAttachmentsRetentionDays`
+- `chatUnattachedUploadsRetentionHours` (can be a separate cleanup rule if hour granularity is needed)
+
+Add retention rules for:
+
+- `chat_messages` (hard-delete older than retention if allowed by product policy)
+- `chat_threads` without messages (optional cleanup)
+- `chat_attachments` unattached expired uploads
+- `chat_attachments` soft-deleted rows/blobs (if soft delete strategy used)
+
+### Blob cleanup strategy
+
+DB retention alone is not enough for attachments.
+
+Need a cleanup path that also deletes storage blobs:
+
+- repository returns a batch of deletable attachment rows with `storage_key`
+- service deletes blobs first (or marks rows and then deletes blobs)
+- mark rows deleted/expired and remove after success
+
+For robustness, use an idempotent cleanup worker job if blob deletion is not guaranteed synchronous.
+
+## Abuse and Safety Controls (Server)
+
+For a chat server to be robust, rate limiting and abuse controls are not optional.
+
+### Rate limits (route-level)
+
+Add route-specific rate limits using existing `route.rateLimit` config pattern:
+
+- create thread / ensure DM: moderate (`10-30/min`)
+- send message: moderate-high but bounded (`60/min`, product dependent)
+- typing endpoint: strict throttle (`e.g. 30/min` plus service-level debounce)
+- attachment upload: low/moderate (`10/min`) + byte quotas
+- reaction add/remove: moderate (`120/min`)
+
+### Payload validation
+
+- text length hard caps
+- metadata size caps
+- reaction string allowlist/length caps
+- attachment file type allowlist and size caps
+- attachment count per message cap
+- reply-to target must exist in same thread
+
+### Blocking and privacy checks
+
+Enforce on every user-to-user path:
+
+- DM creation
+- sending messages in existing DM
+- typing events
+- attachment uploads
+
+## Testing Plan (Server-Side Only, Detailed)
+
+Follow current test patterns (node:test + focused module tests + integration tests).
+
+### 1. Migration tests / schema smoke tests
+
+- migrations apply cleanly from scratch
+- rollback sequence works (or at least no broken FK order)
+- indexes/uniques exist as expected
+
+### 2. Repository unit tests
+
+Per repository:
+
+- row mapping correctness
+- pagination bounds
+- idempotency lookups (`client_message_id`, `client_attachment_id`)
+- unique conflict handling (DM pair uniqueness)
+- read cursor monotonic updates
+- sequence allocation under transaction (if repository owns it)
+
+### 3. Service tests (high value)
+
+#### `ensureGlobalDm` / workspace DM creation
+
+- creates once under race
+- returns existing thread on retry
+- blocked user prevents create
+- config disabled prevents create
+- shared-workspace requirement enforced when enabled
+
+#### `sendMessage`
+
+- happy path text-only
+- attachments attached atomically
+- duplicate `clientMessageId` returns same message (idempotent)
+- sender not participant denied
+- sender removed/left denied
+- reply-to cross-thread denied
+- thread cache fields updated correctly
+- concurrent sends produce unique increasing `thread_seq`
+
+#### `markRead`
+
+- monotonic update only
+- out-of-order calls do not regress
+- read event publishes correctly
+
+#### attachments service
+
+- invalid mime type rejected
+- oversize rejected
+- staged upload transitions correct
+- attach only by uploader + same thread
+- orphan cleanup works
+
+### 4. Controller/route integration tests
+
+- workspace-scoped routes enforce auth + workspace permission + participant membership
+- global DM routes enforce feature flags and block settings
+- error codes and payload shapes match conventions (`400`, `401`, `403`, `404`, `409`)
+- multipart attachment upload route behavior and validation errors
+
+### 5. Realtime integration tests (critical)
+
+Using existing realtime test harness patterns adapted for chat:
+
+- sockets auto-join user room on connect
+- chat message event only delivered to thread participants
+- workspace members not in private thread do not receive events
+- global DM events deliver without workspace subscription
+- typing events are ephemeral and not persisted
+- multi-node Redis adapter fanout still reaches intended recipients only
+
+### 6. Security/regression tests
+
+- cannot read/send in thread by guessing `threadId`
+- cannot attach another user's staged attachment
+- cannot react to message in inaccessible thread
+- cannot bypass global DM disable flag using existing thread IDs
+- blocked users cannot continue messaging after block (product choice: immediate enforcement)
+
+### 7. Retention/cleanup tests
+
+- chat retention rules added to sweep output
+- attachment orphan cleanup deletes DB row + storage blob
+- safe no-op when blob already missing
+
+## Implementation Phases (Practical sequence)
+
+### Phase 0: Decision lock (before coding)
+
+Decide and document:
+
+- whether global DMs can use internal `user_profiles.id` targeting in v1
+- whether `chat_user_settings` ships in v1 or defaults are env-only
+- whether attachments ship in v1 or v1.1
+- whether `draft_text` persists in v1
+- whether `global + group` is deferred (recommended defer)
+
+### Phase 1: Schema + repositories (no routes yet)
+
+- Add migrations for chat core tables
+- Add repositories and row mappers
+- Add repository tests
+- Add retention repository methods where needed (attachments/messages)
+
+### Phase 2: Services + access model (no realtime yet)
+
+- Implement `chatAccessService`, `chatService`, `dmResolutionService`
+- Implement send-message transaction path with idempotency + sequence allocation
+- Implement inbox list and message list queries
+- Service tests for races, authz, idempotency
+
+### Phase 3: Routes/controllers + runtime wiring
+
+- Add `chat` module schemas/routes/controller
+- Wire into runtime repositories/services/controllers and API route aggregator
+- Add env config parsing and defaults
+- Integration tests for REST paths
+
+### Phase 4: Realtime chat events and typing
+
+- Extend Socket.IO server for per-user rooms and targeted fanout
+- Add chat realtime publisher/service
+- Add typing endpoint + ephemeral fanout
+- Realtime integration tests (participant-only delivery, global DM delivery)
+
+### Phase 5: Attachments (if not included in Phase 2/3)
+
+- Add attachment storage service (unstorage-based)
+- Add upload/attach endpoints
+- Route-specific multipart handling and limits
+- Attachment cleanup (orphan expiry) and tests
+
+### Phase 6: Retention + hardening
+
+- Add chat retention rules to retention sweep
+- Add route rate limits and abuse checks
+- Add observability metrics and audit events
+- Update docs / operational notes
+
+## File-by-File Change Plan (Server)
+
+### New migrations
+
+- `migrations/*_create_chat_user_settings_and_blocks.cjs`
+- `migrations/*_create_chat_threads_and_participants.cjs`
+- `migrations/*_create_chat_messages_and_attachments.cjs`
+- `migrations/*_create_chat_reactions.cjs`
+
+### New repositories
+
+- `server/modules/chat/repositories/*.repository.js`
+
+### New services/domain helpers
+
+- `server/modules/chat/service.js`
+- `server/domain/chat/services/access.service.js`
+- `server/domain/chat/services/dmResolution.service.js`
+- `server/domain/chat/services/attachments.service.js`
+- `server/domain/chat/attachmentStorage.service.js`
+- `server/domain/chat/services/realtime.service.js`
+- `server/domain/chat/services/presence.service.js` (optional)
+
+### New module/controller/routes/schema
+
+- `server/modules/chat/controller.js`
+- `server/modules/chat/routes.js` (+ route split files optional)
+- `server/modules/chat/schema.js`
+
+### Runtime wiring updates
+
+- `server/runtime/repositories.js`
+- `server/runtime/services.js`
+- `server/runtime/controllers.js`
+- `server/runtime/index.js` (runtimeServices export if needed)
+- `server/modules/api/routes.js`
+- `server.js` (attachment storage lifecycle + any multipart strategy changes)
+- `server/lib/env.js`
+- `.env.example`
+
+### Realtime updates
+
+- `server/realtime/registerSocketIoRealtime.js`
+- `server/domain/realtime/services/events.service.js` (if envelope targeting support added)
+- `server/realtime/publishers/index.js`
+- `server/realtime/publishers/chatPublisher.js` (new)
+- `server/lib/realtimeEvents.js`
+- `shared/realtime/eventTypes.js`
+- `shared/realtime/topicRegistry.js` (if chat topics used for filtering)
+- `shared/realtime/protocolTypes.js` (if adding typing control message types)
+
+### Retention/worker updates
+
+- `server/domain/operations/services/retention.service.js`
+- `server/workers/retentionProcessor.js`
+- `bin/worker.js` (retention config pass-through)
+
+## Open Questions (must be resolved before implementation starts)
+
+1. Do we allow global DMs by raw internal `user_profiles.id` in v1, or require `public_chat_id`?
+2. Should viewers have `chat.read` by default in the RBAC manifest?
+3. Should chat messages be retained indefinitely by default, or should retention be on from day 1?
+4. Are attachments in v1 required, or can we ship text/reactions/read-state first?
+5. Do we need message edit/delete in v1, or only send/read/react?
+6. For global DMs, should blocking immediately prevent reading history or only new sends?
+7. Do we need workspace-wide admin visibility into workspace chat threads/messages (compliance/moderation), or is thread membership the only read gate?
+8. Are we planning E2EE soon enough to justify shipping `ciphertext_*` fields immediately (recommended yes for schema future-proofing)?
+
+## Summary of Recommended v1 (robust but achievable)
+
+If we want a solid first server release without overbuilding, v1 should include:
+
+- Core schema: threads, participants, messages, attachments, reactions, blocklist, chat user settings
+- Workspace-scoped chat + global DMs behind config
+- Transactional/idempotent message send path with per-thread sequence allocation
+- Read cursor + unread counts (derived)
+- Socket.IO participant-targeted realtime events + typing (ephemeral)
+- Attachment uploads reusing unstorage patterns (one-file-per-request)
+- Retention hooks for messages and orphan attachments
+- Tests for race conditions, authz, and fanout leakage prevention
+
+This gives us Messenger-like functionality on the server side while staying aligned with the current codebase architecture and without creating parallel infrastructure.
