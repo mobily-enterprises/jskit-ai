@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Twenty-fifth Review Amendments Summary (Post-commit server review #25)
+
+This section records corrections made during a twenty-fifth pass after the prior review cycles.
+
+### Attachment upload failure-recovery / stuck-state clarifications
+
+- Fixed an upload-lifecycle gap: the plan did not explicitly define how to recover from stream/storage failures after an attachment row has been claimed as `uploading`, which can leave same-key retries blocked.
+- Added failure-path guidance to mark rows `failed` (with `failed_reason`) and best-effort clean partial blobs when upload streaming/storage write fails, instead of leaving ambiguous `uploading` state.
+- Added retry/recovery guidance for same `clientAttachmentId` when prior rows are `failed` (and for stale `uploading` rows), plus attachments-service test coverage for failure cleanup and retryability.
+
 ## Twenty-fourth Review Amendments Summary (Post-commit server review #24)
 
 This section records corrections made during a twenty-fourth pass after the prior review cycles.
@@ -1564,10 +1574,13 @@ Flow:
 2. Create or reuse reserved attachment row (`status='reserved'`)
    - if reusing by `clientAttachmentId`, treat it as an idempotency key for the same logical upload (same user + thread)
    - if an existing row for that key is already `uploaded`/`attached`, return the existing attachment only when content identity matches (e.g. same `sha256_hex`/size when available); otherwise reject as conflict (`409`) rather than overwriting/rebinding
+   - if an existing same-key row is `failed` (or expired and still unattached), allow explicit retry by reusing/resetting that row (clear stale failure/upload metadata before re-claiming upload state)
 3. Claim upload transition (`reserved` -> `uploading`) atomically
    - use row lock and/or conditional update on expected prior state to ensure only one request starts streaming bytes for a given attachment row
    - if duplicate request finds same-key row already `uploading`, do not start a second stream; return conflict/in-progress response (v1 recommended `409`) or equivalent idempotent-in-progress contract
+   - if same-key row is `uploading` but stale (timeout policy based on `updated_at`/`upload_expires_at`), transition it to `failed`/`expired` first (with cleanup) before allowing a new upload attempt
 4. Stream upload and capture metadata (mime/size, maybe image dimensions)
+   - on stream/storage failure: best-effort delete partial blob, set `status='failed'`, set bounded `failed_reason`, and leave row unattached for safe retry/cleanup
 5. Save blob to storage and mark `status='uploaded'`
 6. Return attachment metadata (unattached)
 7. Message send endpoint attaches uploaded IDs transactionally
@@ -1952,6 +1965,8 @@ Per repository:
 - same `clientAttachmentId` retry returns existing attachment idempotently when content matches
 - same `clientAttachmentId` with different content/metadata is rejected as conflict (no overwrite/rebind)
 - concurrent same `clientAttachmentId` uploads do not both start streaming/writing (atomic `reserved -> uploading` claim)
+- stream/storage failure marks attachment `failed` and cleans partial blob best-effort (no stuck ambiguous `uploading` state)
+- retry after `failed` same-key upload is handled explicitly (row reuse/reset or documented conflict policy), including stale `uploading` timeout path
 - attach only by uploader + same thread
 - orphan cleanup works
 
