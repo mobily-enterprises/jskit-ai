@@ -35,7 +35,7 @@ const stripeProviderProfile = {
   key: "stripe",
   ui: {
     ...defaultProviderProfile.ui,
-    basePriceDescription:
+    corePriceDescription:
       "Stripe price decides the amount and billing interval. The fields below are auto-filled from the selected Stripe price.",
     catalogPriceLabel: "Stripe price",
     catalogPriceHint: "Pick a recurring Stripe Price (format: price_...).",

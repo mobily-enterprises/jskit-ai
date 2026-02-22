@@ -556,7 +556,6 @@ function createService(options = {}) {
     const entries = [];
 
     for (const plan of plans) {
-      const prices = await billingRepository.listPlanPricesForPlan(plan.id, activeProvider);
       const entitlements = await billingRepository.listPlanEntitlementsForPlan(plan.id);
 
       const validatedEntitlements = [];
@@ -569,22 +568,8 @@ function createService(options = {}) {
         validatedEntitlements.push(entitlement);
       }
 
-      const sellablePrice = await (async () => {
-        try {
-          return await billingPricingService.resolvePhase1SellablePrice({
-            planId: plan.id,
-            provider: activeProvider
-          });
-        } catch (error) {
-          recordGuardrail("BILLING_PRICING_CONFIGURATION_INVALID");
-          throw error;
-        }
-      })();
-
       entries.push({
         ...plan,
-        prices,
-        sellablePrice,
         entitlements: validatedEntitlements
       });
     }

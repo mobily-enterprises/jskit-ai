@@ -62,16 +62,8 @@ function normalizeProviderPriceId(value) {
   return String(value || "").trim();
 }
 
-function resolvePriceDisplayName(plan, price) {
-  const metadata = price?.metadataJson && typeof price.metadataJson === "object" ? price.metadataJson : {};
-  const customName = String(metadata.displayName || metadata.name || metadata.label || "").trim();
-  if (customName) {
-    return customName;
-  }
-
-  const planName = String(plan?.name || plan?.code || "Plan").trim();
-  const component = toTitleCase(price?.billingComponent || "component");
-  return `${planName} • ${component}`;
+function resolvePlanDisplayName(plan) {
+  return String(plan?.name || plan?.code || "Plan").trim();
 }
 
 export function useWorkspaceBillingView() {
@@ -86,7 +78,6 @@ export function useWorkspaceBillingView() {
   const selectedPlanCode = ref("");
   const selectedCatalogPriceId = ref("");
   const selectedCatalogQuantity = ref(1);
-  const selectedComponentQuantities = reactive({});
   const oneOffMode = ref("catalog");
   const adHocName = ref("");
   const adHocAmountMinor = ref("");
@@ -140,78 +131,37 @@ export function useWorkspaceBillingView() {
     return activePlans.value[0] || null;
   });
 
-  const selectedPlanBasePrice = computed(() => {
+  const selectedPlanCorePrice = computed(() => {
     const plan = selectedPlan.value;
     if (!plan) {
       return null;
     }
-    if (plan.sellablePrice) {
-      return plan.sellablePrice;
-    }
-
-    const prices = Array.isArray(plan.prices) ? plan.prices : [];
-    return (
-      prices.find(
-        (price) =>
-          price &&
-          price.isActive &&
-          String(price.billingComponent || "").trim().toLowerCase() === "base" &&
-          String(price.usageType || "").trim().toLowerCase() === "licensed"
-      ) || null
-    );
-  });
-
-  const selectedPlanOptionalComponents = computed(() => {
-    const plan = selectedPlan.value;
-    const prices = Array.isArray(plan?.prices) ? plan.prices : [];
-    return prices
-      .filter((price) => {
-        if (!price || !price.isActive) {
-          return false;
-        }
-        if (String(price.usageType || "").trim().toLowerCase() !== "licensed") {
-          return false;
-        }
-        return String(price.billingComponent || "").trim().toLowerCase() !== "base";
-      })
-      .map((price) => ({
-        providerPriceId: normalizeProviderPriceId(price.providerPriceId),
-        label: resolvePriceDisplayName(plan, price),
-        billingComponent: String(price.billingComponent || ""),
-        amountMinor: Number(price.unitAmountMinor || 0),
-        currency: String(price.currency || "USD"),
-        metadataJson: price.metadataJson || {}
-      }));
+    return plan.corePrice && typeof plan.corePrice === "object" ? plan.corePrice : null;
   });
 
   const catalogItems = computed(() => {
     const items = [];
     const seen = new Set();
     for (const plan of activePlans.value) {
-      const prices = Array.isArray(plan?.prices) ? plan.prices : [];
-      for (const price of prices) {
-        if (!price || !price.isActive) {
-          continue;
-        }
-        if (String(price.usageType || "").trim().toLowerCase() !== "licensed") {
-          continue;
-        }
-
-        const providerPriceId = normalizeProviderPriceId(price.providerPriceId);
-        if (!providerPriceId || seen.has(providerPriceId)) {
-          continue;
-        }
-        seen.add(providerPriceId);
-
-        items.push({
-          value: providerPriceId,
-          title: resolvePriceDisplayName(plan, price),
-          subtitle: formatMoneyMinor(price.unitAmountMinor, price.currency),
-          currency: String(price.currency || "USD"),
-          amountMinor: Number(price.unitAmountMinor || 0),
-          planCode: String(plan.code || "")
-        });
+      const corePrice = plan?.corePrice && typeof plan.corePrice === "object" ? plan.corePrice : null;
+      if (!corePrice) {
+        continue;
       }
+
+      const providerPriceId = normalizeProviderPriceId(corePrice.providerPriceId);
+      if (!providerPriceId || seen.has(providerPriceId)) {
+        continue;
+      }
+      seen.add(providerPriceId);
+
+      items.push({
+        value: providerPriceId,
+        title: resolvePlanDisplayName(plan),
+        subtitle: formatMoneyMinor(corePrice.unitAmountMinor, corePrice.currency),
+        currency: String(corePrice.currency || "USD"),
+        amountMinor: Number(corePrice.unitAmountMinor || 0),
+        planCode: String(plan.code || "")
+      });
     }
     return items;
   });
@@ -261,28 +211,6 @@ export function useWorkspaceBillingView() {
     }
   );
 
-  watch(
-    selectedPlanOptionalComponents,
-    (components) => {
-      const allowedIds = new Set(components.map((entry) => String(entry.providerPriceId || "")));
-      for (const key of Object.keys(selectedComponentQuantities)) {
-        if (!allowedIds.has(key)) {
-          delete selectedComponentQuantities[key];
-        }
-      }
-      for (const component of components) {
-        const key = String(component.providerPriceId || "");
-        if (!key || selectedComponentQuantities[key] != null) {
-          continue;
-        }
-        selectedComponentQuantities[key] = 0;
-      }
-    },
-    {
-      immediate: true
-    }
-  );
-
   const entries = computed(() => (Array.isArray(timelineQuery.data.value?.entries) ? timelineQuery.data.value.entries : []));
   const loading = computed(() => timelineQuery.isFetching.value);
   const error = computed(() =>
@@ -293,23 +221,6 @@ export function useWorkspaceBillingView() {
   function resetActionFeedback() {
     actionError.value = "";
     actionSuccess.value = "";
-  }
-
-  function getSelectedComponentPayload() {
-    const payload = [];
-    for (const component of selectedPlanOptionalComponents.value) {
-      const providerPriceId = String(component.providerPriceId || "");
-      const quantity = normalizePositiveQuantity(selectedComponentQuantities[providerPriceId] || 0);
-      if (!providerPriceId || !quantity) {
-        continue;
-      }
-      payload.push({
-        providerPriceId,
-        quantity
-      });
-    }
-    payload.sort((left, right) => left.providerPriceId.localeCompare(right.providerPriceId));
-    return payload;
   }
 
   function buildWorkspaceBillingPath(searchParams = {}) {
@@ -374,16 +285,11 @@ export function useWorkspaceBillingView() {
 
     checkoutLoading.value = true;
     try {
-      const components = getSelectedComponentPayload();
       const checkoutPayload = {
-        checkoutType: "subscription",
         planCode: selectedPlanCodeValue,
         successPath: buildWorkspaceBillingPath({ checkout: "success" }),
         cancelPath: buildWorkspaceBillingPath({ checkout: "cancel" })
       };
-      if (components.length > 0) {
-        checkoutPayload.components = components;
-      }
 
       const response = await api.billing.startCheckout(checkoutPayload);
 
@@ -514,9 +420,7 @@ export function useWorkspaceBillingView() {
       planOptions,
       selectedPlanCode,
       selectedPlan,
-      selectedPlanBasePrice,
-      selectedPlanOptionalComponents,
-      selectedComponentQuantities,
+      selectedPlanCorePrice,
       catalogItems,
       selectedCatalogPriceId,
       selectedCatalogQuantity,

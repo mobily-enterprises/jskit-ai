@@ -1,6 +1,6 @@
 # Billing Integration Guide
 
-Last updated: 2026-02-21
+Last updated: 2026-02-22
 
 This guide defines how app features should integrate billing limitations and usage accounting.
 
@@ -93,8 +93,10 @@ Keep these tests passing and extend them when behavior changes:
 ## 6. Purchase UX Contract (Scaffold Level)
 
 - Subscription checkout:
-  - call `api.billing.startCheckout` with `planCode`, paths, and optional `components[]` (`providerPriceId`, `quantity`).
+  - call `api.billing.startCheckout` with `planCode`, `successPath`, and `cancelPath`.
+  - checkout resolves a single recurring Stripe price mapped directly to that plan.
 - One-off catalog checkout:
   - call `api.billing.createPaymentLink` with `lineItems[]` (`priceId`, `quantity`).
 - One-off ad-hoc checkout:
   - call `api.billing.createPaymentLink` with `oneOff` payload (`name`, `amountMinor`, `quantity`).
+- Extras are separate flows and are not bundled into core plan subscription checkout.

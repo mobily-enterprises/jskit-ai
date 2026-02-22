@@ -16,23 +16,15 @@ const billableEntity = Type.Object(
   }
 );
 
-const planPrice = Type.Object(
+const planCorePrice = Type.Object(
   {
-    id: Type.Integer({ minimum: 1 }),
-    planId: Type.Integer({ minimum: 1 }),
     provider: Type.String({ minLength: 1 }),
-    billingComponent: Type.String({ minLength: 1 }),
-    usageType: Type.String({ minLength: 1 }),
-    interval: Type.String({ minLength: 1 }),
+    providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
+    providerProductId: Type.Union([Type.String({ minLength: 1, maxLength: 191 }), Type.Null()]),
+    interval: Type.String({ minLength: 1, maxLength: 32 }),
     intervalCount: Type.Integer({ minimum: 1 }),
     currency: Type.String({ minLength: 3, maxLength: 3 }),
-    unitAmountMinor: Type.Integer({ minimum: 0 }),
-    providerProductId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
-    providerPriceId: Type.String({ minLength: 1 }),
-    isActive: Type.Boolean(),
-    metadataJson: Type.Unknown(),
-    createdAt: Type.String({ format: "iso-utc-date-time" }),
-    updatedAt: Type.String({ format: "iso-utc-date-time" })
+    unitAmountMinor: Type.Integer({ minimum: 0 })
   },
   {
     additionalProperties: false
@@ -58,18 +50,14 @@ const plan = Type.Object(
   {
     id: Type.Integer({ minimum: 1 }),
     code: Type.String({ minLength: 1 }),
-    planFamilyCode: Type.String({ minLength: 1 }),
-    version: Type.Integer({ minimum: 1 }),
     name: Type.String({ minLength: 1 }),
     description: Type.Union([Type.String(), Type.Null()]),
     appliesTo: Type.String({ minLength: 1 }),
-    pricingModel: Type.String({ minLength: 1 }),
+    corePrice: planCorePrice,
     isActive: Type.Boolean(),
     metadataJson: Type.Unknown(),
     createdAt: Type.String({ format: "iso-utc-date-time" }),
     updatedAt: Type.String({ format: "iso-utc-date-time" }),
-    prices: Type.Array(planPrice),
-    sellablePrice: Type.Union([planPrice, Type.Null()]),
     entitlements: Type.Array(entitlement)
   },
   {
@@ -292,20 +280,6 @@ const checkoutBody = Type.Object(
   {
     checkoutType: Type.Optional(Type.String({ minLength: 1, maxLength: 32 })),
     planCode: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
-    components: Type.Optional(
-      Type.Array(
-        Type.Object(
-          {
-            providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
-            quantity: Type.Optional(Type.Integer({ minimum: 1, maximum: 10000 }))
-          },
-          {
-            additionalProperties: false
-          }
-        ),
-        { minItems: 1, maxItems: 20 }
-      )
-    ),
     oneOff: Type.Optional(
       Type.Object(
         {

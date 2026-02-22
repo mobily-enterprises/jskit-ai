@@ -166,10 +166,9 @@ function createApi({ request }) {
     createBillingPlan(payload) {
       return request("/api/console/billing/plans", { method: "POST", body: payload });
     },
-    updateBillingPlanPrice(planId, priceId, payload) {
+    updateBillingPlan(planId, payload) {
       const encodedPlanId = encodeURIComponent(String(planId || "").trim());
-      const encodedPriceId = encodeURIComponent(String(priceId || "").trim());
-      return request(`/api/console/billing/plans/${encodedPlanId}/prices/${encodedPriceId}`, {
+      return request(`/api/console/billing/plans/${encodedPlanId}`, {
         method: "PATCH",
         body: payload
       });

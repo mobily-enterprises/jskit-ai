@@ -28,7 +28,7 @@
             <v-card variant="tonal" rounded="lg" class="mb-4">
               <v-card-item>
                 <v-card-title class="text-subtitle-2 font-weight-bold">Subscription checkout</v-card-title>
-                <v-card-subtitle>Select plan and optional licensed components.</v-card-subtitle>
+                <v-card-subtitle>Select a plan and start monthly subscription checkout.</v-card-subtitle>
               </v-card-item>
               <v-card-text>
                 <div class="d-flex flex-wrap ga-3 align-center mb-3">
@@ -44,36 +44,9 @@
                     class="filters-field"
                     @update:model-value="(value) => (state.selectedPlanCode = String(value || ''))"
                   />
-                  <v-chip v-if="state.selectedPlanBasePrice" size="small" label>
-                    Base: {{ meta.formatMoneyMinor(state.selectedPlanBasePrice.unitAmountMinor, state.selectedPlanBasePrice.currency) }}
+                  <v-chip v-if="state.selectedPlanCorePrice" size="small" label>
+                    Core: {{ meta.formatMoneyMinor(state.selectedPlanCorePrice.unitAmountMinor, state.selectedPlanCorePrice.currency) }}
                   </v-chip>
-                </div>
-
-                <div v-if="state.selectedPlanOptionalComponents.length" class="mb-3">
-                  <div class="text-body-2 font-weight-medium mb-2">Optional components</div>
-                  <div
-                    v-for="component in state.selectedPlanOptionalComponents"
-                    :key="component.providerPriceId"
-                    class="d-flex flex-wrap ga-3 align-center mb-2"
-                  >
-                    <span class="text-body-2 component-label">{{ component.label }}</span>
-                    <v-chip size="x-small" label>
-                      {{ meta.formatMoneyMinor(component.amountMinor, component.currency) }}
-                    </v-chip>
-                    <v-text-field
-                      :model-value="state.selectedComponentQuantities[component.providerPriceId]"
-                      type="number"
-                      min="0"
-                      label="Qty"
-                      density="compact"
-                      variant="outlined"
-                      hide-details
-                      class="qty-field"
-                      @update:model-value="
-                        (value) => (state.selectedComponentQuantities[component.providerPriceId] = Number(value || 0))
-                      "
-                    />
-                  </div>
                 </div>
 
                 <div class="d-flex flex-wrap ga-3 align-center">
@@ -277,10 +250,6 @@ const { meta, state, actions } = useWorkspaceBillingView();
 
 .qty-field {
   width: 120px;
-}
-
-.component-label {
-  min-width: 220px;
 }
 
 .billing-timeline {

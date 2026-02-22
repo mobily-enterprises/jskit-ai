@@ -1,6 +1,6 @@
 # Billing Contract Reference
 
-Last updated: 2026-02-21
+Last updated: 2026-02-22
 
 This document freezes current billing contracts for:
 
@@ -145,14 +145,7 @@ Checkout request contract (subscription flow):
 
 ```json
 {
-  "checkoutType": "subscription",
   "planCode": "pro_monthly",
-  "components": [
-    {
-      "providerPriceId": "price_addon_support",
-      "quantity": 3
-    }
-  ],
   "successPath": "/billing?checkout=success",
   "cancelPath": "/billing?checkout=cancel"
 }
@@ -160,9 +153,9 @@ Checkout request contract (subscription flow):
 
 Notes:
 
-- `components` is optional.
-- each component is keyed by `providerPriceId` with quantity range `1..10000`.
-- components are normalized deterministically before idempotency fingerprinting.
+- Core subscription checkout resolves exactly one recurring Stripe price from the selected plan mapping.
+- Core subscription checkout does not accept component selection.
+- Extras (credits, setup fees, premium support) are sold through separate payment-link flows.
 
 Routes requiring `Idempotency-Key` request header:
 

@@ -462,14 +462,16 @@ describe("client api transport", () => {
     await api.console.createBillingPlan({
       code: "pro_monthly",
       name: "Pro Monthly",
-      basePrice: {
+      corePrice: {
         providerPriceId: "price_pro_monthly",
         currency: "USD",
         unitAmountMinor: 4900
       }
     });
-    await api.console.updateBillingPlanPrice(12, 34, {
-      providerPriceId: "price_pro_monthly_v2"
+    await api.console.updateBillingPlan(12, {
+      corePrice: {
+        providerPriceId: "price_pro_monthly_v2"
+      }
     });
     await api.billing.getTimeline({
       page: 3,
@@ -516,11 +518,11 @@ describe("client api transport", () => {
       ([url, options]) => url === "/api/console/billing/plans" && String(options?.method || "").toUpperCase() === "POST"
     );
     expect(Boolean(createBillingPlanCall)).toBe(true);
-    const updateBillingPlanPriceCall = global.fetch.mock.calls.find(
+    const updateBillingPlanCall = global.fetch.mock.calls.find(
       ([url, options]) =>
-        url === "/api/console/billing/plans/12/prices/34" && String(options?.method || "").toUpperCase() === "PATCH"
+        url === "/api/console/billing/plans/12" && String(options?.method || "").toUpperCase() === "PATCH"
     );
-    expect(Boolean(updateBillingPlanPriceCall)).toBe(true);
+    expect(Boolean(updateBillingPlanCall)).toBe(true);
     expect(urls).toContain(
       "/api/billing/timeline?page=3&pageSize=20&source=payment&operationKey=op_456&providerEventId=evt_456"
     );

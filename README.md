@@ -362,7 +362,7 @@ Realtime note:
 - `GET /api/console/billing/plans`
 - `GET /api/console/billing/provider-prices`
 - `POST /api/console/billing/plans`
-- `PATCH /api/console/billing/plans/:planId/prices/:priceId`
+- `PATCH /api/console/billing/plans/:planId`
 - `GET /api/console/billing/events`
 - `GET /api/console/ai/transcripts/:conversationId/messages`
 - `GET /api/console/ai/transcripts/export`

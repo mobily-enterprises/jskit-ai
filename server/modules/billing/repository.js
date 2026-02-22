@@ -84,6 +84,23 @@ function normalizeBillableEntityType(value) {
   return BILLABLE_ENTITY_TYPES.has(normalized) ? normalized : "workspace";
 }
 
+function mapPlanCorePriceFromPlanRow(row) {
+  const providerPriceId = String(row?.checkout_provider_price_id || "").trim();
+  if (!providerPriceId) {
+    return null;
+  }
+
+  return {
+    provider: normalizeProvider(row.checkout_provider),
+    providerPriceId,
+    providerProductId: row.checkout_provider_product_id == null ? null : String(row.checkout_provider_product_id),
+    interval: String(row.checkout_interval || "month"),
+    intervalCount: Number(row.checkout_interval_count || 1),
+    currency: String(row.checkout_currency || "").toUpperCase(),
+    unitAmountMinor: Number(row.checkout_unit_amount_minor || 0)
+  };
+}
+
 function mapBillableEntityRowNullable(row) {
   if (!row) {
     return null;
@@ -109,12 +126,10 @@ function mapPlanRowNullable(row) {
   return {
     id: Number(row.id),
     code: String(row.code || ""),
-    planFamilyCode: String(row.plan_family_code || ""),
-    version: Number(row.version),
     name: String(row.name || ""),
     description: row.description == null ? null : String(row.description),
     appliesTo: String(row.applies_to || "workspace"),
-    pricingModel: String(row.pricing_model || "flat"),
+    corePrice: mapPlanCorePriceFromPlanRow(row),
     isActive: Boolean(row.is_active),
     metadataJson: parseJsonValue(row.metadata_json, {}),
     createdAt: toIsoString(row.created_at),
@@ -839,19 +854,83 @@ function createBillingRepository(dbClient) {
   async function createPlan(payload, options = {}) {
     const now = new Date();
     const client = resolveClient(options);
+    const corePrice = payload?.corePrice && typeof payload.corePrice === "object" ? payload.corePrice : {};
     const [id] = await client("billing_plans").insert({
       code: String(payload?.code || "").trim(),
-      plan_family_code: String(payload?.planFamilyCode || "").trim(),
-      version: Number(payload?.version || 1),
       name: String(payload?.name || "").trim(),
       description: toNullableString(payload?.description),
       applies_to: String(payload?.appliesTo || "workspace").trim().toLowerCase() || "workspace",
-      pricing_model: String(payload?.pricingModel || "flat").trim().toLowerCase() || "flat",
+      checkout_provider: normalizeProvider(corePrice.provider),
+      checkout_provider_price_id: String(corePrice.providerPriceId || "").trim(),
+      checkout_provider_product_id: toNullableString(corePrice.providerProductId),
+      checkout_interval: String(corePrice.interval || "month").trim().toLowerCase() || "month",
+      checkout_interval_count: Number(corePrice.intervalCount || 1),
+      checkout_currency: String(corePrice.currency || "").trim().toUpperCase(),
+      checkout_unit_amount_minor: Number(corePrice.unitAmountMinor || 0),
       is_active: payload?.isActive !== false,
       metadata_json: payload?.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
       created_at: toInsertDateTime(payload?.createdAt, now),
       updated_at: toInsertDateTime(payload?.updatedAt, now)
     });
+
+    return findPlanById(id, {
+      ...options,
+      trx: client
+    });
+  }
+
+  async function updatePlanById(id, patch = {}, options = {}) {
+    const client = resolveClient(options);
+    const dbPatch = {};
+
+    if (Object.hasOwn(patch, "code")) {
+      dbPatch.code = String(patch.code || "").trim();
+    }
+    if (Object.hasOwn(patch, "name")) {
+      dbPatch.name = String(patch.name || "").trim();
+    }
+    if (Object.hasOwn(patch, "description")) {
+      dbPatch.description = toNullableString(patch.description);
+    }
+    if (Object.hasOwn(patch, "appliesTo")) {
+      dbPatch.applies_to = String(patch.appliesTo || "workspace").trim().toLowerCase() || "workspace";
+    }
+    if (Object.hasOwn(patch, "isActive")) {
+      dbPatch.is_active = patch.isActive !== false;
+    }
+    if (Object.hasOwn(patch, "metadataJson")) {
+      dbPatch.metadata_json = patch.metadataJson == null ? null : JSON.stringify(patch.metadataJson);
+    }
+
+    const corePricePatch = patch?.corePrice && typeof patch.corePrice === "object" ? patch.corePrice : null;
+    if (corePricePatch) {
+      if (Object.hasOwn(corePricePatch, "provider")) {
+        dbPatch.checkout_provider = normalizeProvider(corePricePatch.provider);
+      }
+      if (Object.hasOwn(corePricePatch, "providerPriceId")) {
+        dbPatch.checkout_provider_price_id = String(corePricePatch.providerPriceId || "").trim();
+      }
+      if (Object.hasOwn(corePricePatch, "providerProductId")) {
+        dbPatch.checkout_provider_product_id = toNullableString(corePricePatch.providerProductId);
+      }
+      if (Object.hasOwn(corePricePatch, "interval")) {
+        dbPatch.checkout_interval = String(corePricePatch.interval || "month").trim().toLowerCase() || "month";
+      }
+      if (Object.hasOwn(corePricePatch, "intervalCount")) {
+        dbPatch.checkout_interval_count = Number(corePricePatch.intervalCount || 1);
+      }
+      if (Object.hasOwn(corePricePatch, "currency")) {
+        dbPatch.checkout_currency = String(corePricePatch.currency || "").trim().toUpperCase();
+      }
+      if (Object.hasOwn(corePricePatch, "unitAmountMinor")) {
+        dbPatch.checkout_unit_amount_minor = Number(corePricePatch.unitAmountMinor || 0);
+      }
+    }
+
+    if (Object.keys(dbPatch).length > 0) {
+      dbPatch.updated_at = toInsertDateTime(new Date(), new Date());
+      await client("billing_plans").where({ id }).update(dbPatch);
+    }
 
     return findPlanById(id, {
       ...options,
@@ -3150,6 +3229,7 @@ function createBillingRepository(dbClient) {
     findSellablePlanPricesForPlan,
     listPlanEntitlementsForPlan,
     createPlan,
+    updatePlanById,
     createPlanPrice,
     updatePlanPriceById,
     upsertPlanEntitlement,
@@ -3264,6 +3344,7 @@ export const {
   findSellablePlanPricesForPlan,
   listPlanEntitlementsForPlan,
   createPlan,
+  updatePlanById,
   createPlanPrice,
   updatePlanPriceById,
   upsertPlanEntitlement,

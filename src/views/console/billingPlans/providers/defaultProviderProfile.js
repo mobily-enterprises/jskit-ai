@@ -31,7 +31,7 @@ function toShortPriceId(value) {
 const defaultProviderProfile = {
   key: "default",
   ui: {
-    basePriceDescription: "Choose a catalog price for this provider.",
+    corePriceDescription: "Choose a catalog price for this provider.",
     catalogPriceLabel: "Catalog price",
     catalogPriceHint: "This controls what the customer is charged at checkout.",
     catalogPriceNoDataLoading: "Loading catalog prices...",
@@ -56,7 +56,7 @@ const defaultProviderProfile = {
     return `${toShortPriceId(id)} | ${amountLabel}/${intervalLabel}${productName ? ` | ${productName}` : ""}`;
   },
   applySelectedPriceToForm() {},
-  buildCreateBasePrice({ form, selectedPrice }) {
+  buildCorePricePayload({ form, selectedPrice }) {
     const selectedProductId = toText(selectedPrice?.productId);
     const selectedCurrency = toText(selectedPrice?.currency).toUpperCase();
     const selectedInterval = toText(selectedPrice?.interval).toLowerCase();

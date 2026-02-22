@@ -4,6 +4,36 @@ import test from "node:test";
 import { AppError } from "../server/lib/errors.js";
 import { createService as createConsoleService } from "../server/domain/console/services/console.service.js";
 
+function createBillingRepositoryStub(overrides = {}) {
+  return {
+    async transaction(work) {
+      return work(null);
+    },
+    async listBillingActivityEvents() {
+      return [];
+    },
+    async listPlans() {
+      return [];
+    },
+    async findPlanById() {
+      return null;
+    },
+    async listPlanEntitlementsForPlan() {
+      return [];
+    },
+    async createPlan() {
+      throw new Error("not used");
+    },
+    async updatePlanById() {
+      throw new Error("not used");
+    },
+    async upsertPlanEntitlement() {
+      throw new Error("not used");
+    },
+    ...overrides
+  };
+}
+
 function createConsoleServiceHarness({
   billingRepository,
   billingEnabled = true,
@@ -59,12 +89,12 @@ function createConsoleServiceHarness({
 test("console billing events list does not cap deep-page fetch limit at 2000", async () => {
   const repositoryCalls = [];
   const service = createConsoleServiceHarness({
-    billingRepository: {
+    billingRepository: createBillingRepositoryStub({
       async listBillingActivityEvents(payload) {
         repositoryCalls.push(payload);
         return [];
       }
-    }
+    })
   });
 
   const response = await service.listBillingEvents(
@@ -89,41 +119,24 @@ test("console billing events list does not cap deep-page fetch limit at 2000", a
 
 test("console billing plans list returns catalog entries for active provider", async () => {
   const service = createConsoleServiceHarness({
-    billingRepository: {
+    billingRepository: createBillingRepositoryStub({
       async listPlans() {
         return [
           {
             id: 11,
             code: "pro_monthly",
-            planFamilyCode: "pro",
-            version: 1,
             name: "Pro Monthly",
             description: null,
             appliesTo: "workspace",
-            pricingModel: "flat",
-            isActive: true,
-            metadataJson: {},
-            createdAt: "2026-01-01T00:00:00.000Z",
-            updatedAt: "2026-01-01T00:00:00.000Z"
-          }
-        ];
-      },
-      async listPlanPricesForPlan(planId, provider) {
-        assert.equal(planId, 11);
-        assert.equal(provider, "stripe");
-        return [
-          {
-            id: 21,
-            planId: 11,
-            provider: "stripe",
-            billingComponent: "base",
-            usageType: "licensed",
-            interval: "month",
-            intervalCount: 1,
-            currency: "USD",
-            unitAmountMinor: 4900,
-            providerProductId: "prod_pro",
-            providerPriceId: "price_pro_monthly",
+            corePrice: {
+              provider: "stripe",
+              providerPriceId: "price_pro_monthly",
+              providerProductId: "prod_pro",
+              interval: "month",
+              intervalCount: 1,
+              currency: "USD",
+              unitAmountMinor: 4900
+            },
             isActive: true,
             metadataJson: {},
             createdAt: "2026-01-01T00:00:00.000Z",
@@ -134,20 +147,8 @@ test("console billing plans list returns catalog entries for active provider", a
       async listPlanEntitlementsForPlan(planId) {
         assert.equal(planId, 11);
         return [];
-      },
-      async transaction(work) {
-        return work(null);
-      },
-      async createPlan() {
-        throw new Error("not used");
-      },
-      async createPlanPrice() {
-        throw new Error("not used");
-      },
-      async upsertPlanEntitlement() {
-        throw new Error("not used");
       }
-    }
+    })
   });
 
   const response = await service.listBillingPlans({
@@ -156,10 +157,10 @@ test("console billing plans list returns catalog entries for active provider", a
   });
   assert.equal(response.provider, "stripe");
   assert.equal(response.plans.length, 1);
-  assert.equal(response.plans[0].prices.length, 1);
+  assert.equal(response.plans[0].corePrice.providerPriceId, "price_pro_monthly");
 });
 
-test("console billing plan create inserts plan and base price", async () => {
+test("console billing plan create inserts plan and core price mapping", async () => {
   const calls = [];
   const service = createConsoleServiceHarness({
     billingProviderAdapter: {
@@ -180,74 +181,28 @@ test("console billing plan create inserts plan and base price", async () => {
         };
       }
     },
-    billingRepository: {
+    billingRepository: createBillingRepositoryStub({
       async transaction(work) {
         return work("trx-1");
       },
-      async listPlans() {
-        return [];
-      },
-      async listPlanPricesForPlan(planId, provider, options = {}) {
-        calls.push(["listPlanPricesForPlan", planId, provider, options.trx]);
-        return [
-          {
-            id: 41,
-            planId,
-            provider,
-            billingComponent: "base",
-            usageType: "licensed",
-            interval: "month",
-            intervalCount: 1,
-            currency: "USD",
-            unitAmountMinor: 4900,
-            providerProductId: "prod_pro",
-            providerPriceId: "price_pro_monthly",
-            isActive: true,
-            metadataJson: {},
-            createdAt: "2026-01-01T00:00:00.000Z",
-            updatedAt: "2026-01-01T00:00:00.000Z"
-          }
-        ];
-      },
-      async listPlanEntitlementsForPlan(planId, options = {}) {
-        calls.push(["listPlanEntitlementsForPlan", planId, options.trx]);
-        return [];
-      },
       async createPlan(payload, options = {}) {
-        calls.push(["createPlan", payload.code, payload.planFamilyCode, options.trx]);
+        calls.push(["createPlan", payload.code, payload.corePrice?.providerPriceId, options.trx]);
         return {
           id: 31,
           code: payload.code,
-          planFamilyCode: payload.planFamilyCode,
-          version: payload.version,
           name: payload.name,
           description: payload.description || null,
           appliesTo: payload.appliesTo,
-          pricingModel: payload.pricingModel,
+          corePrice: payload.corePrice,
           isActive: payload.isActive !== false,
           metadataJson: {},
           createdAt: "2026-01-01T00:00:00.000Z",
           updatedAt: "2026-01-01T00:00:00.000Z"
         };
       },
-      async createPlanPrice(payload, options = {}) {
-        calls.push([
-          "createPlanPrice",
-          payload.planId,
-          payload.providerPriceId,
-          payload.providerProductId,
-          payload.currency,
-          payload.unitAmountMinor,
-          payload.interval,
-          payload.intervalCount,
-          options.trx
-        ]);
-        return {
-          id: 41,
-          ...payload,
-          createdAt: "2026-01-01T00:00:00.000Z",
-          updatedAt: "2026-01-01T00:00:00.000Z"
-        };
+      async listPlanEntitlementsForPlan(planId, options = {}) {
+        calls.push(["listPlanEntitlementsForPlan", planId, options.trx]);
+        return [];
       },
       async upsertPlanEntitlement(payload, options = {}) {
         calls.push(["upsertPlanEntitlement", payload.code, options.trx]);
@@ -258,7 +213,7 @@ test("console billing plan create inserts plan and base price", async () => {
           updatedAt: "2026-01-01T00:00:00.000Z"
         };
       }
-    }
+    })
   });
 
   const response = await service.createBillingPlan(
@@ -266,53 +221,25 @@ test("console billing plan create inserts plan and base price", async () => {
       id: 1,
       email: "devop@example.test"
     },
-        {
-          code: "pro_monthly",
-          name: "Pro Monthly",
-          basePrice: {
-            providerPriceId: "price_pro_monthly"
-          }
-        }
-      );
+    {
+      code: "pro_monthly",
+      name: "Pro Monthly",
+      corePrice: {
+        providerPriceId: "price_pro_monthly"
+      }
+    }
+  );
 
   assert.equal(response.provider, "stripe");
   assert.equal(response.plan.code, "pro_monthly");
-  assert.equal(calls.some((entry) => entry[0] === "createPlan"), true);
-  const createPlanPriceCall = calls.find((entry) => entry[0] === "createPlanPrice");
-  assert.ok(createPlanPriceCall);
-  assert.equal(createPlanPriceCall[2], "price_pro_monthly");
-  assert.equal(createPlanPriceCall[3], "prod_from_stripe");
-  assert.equal(createPlanPriceCall[4], "USD");
-  assert.equal(createPlanPriceCall[5], 9900);
-  assert.equal(createPlanPriceCall[6], "month");
-  assert.equal(createPlanPriceCall[7], 1);
+  const createPlanCall = calls.find((entry) => entry[0] === "createPlan");
+  assert.ok(createPlanCall);
+  assert.equal(createPlanCall[2], "price_pro_monthly");
 });
 
 test("console billing plan create rejects non-stripe provider price id format", async () => {
   const service = createConsoleServiceHarness({
-    billingRepository: {
-      async transaction(work) {
-        return work("trx-1");
-      },
-      async listPlans() {
-        return [];
-      },
-      async listPlanPricesForPlan() {
-        return [];
-      },
-      async listPlanEntitlementsForPlan() {
-        return [];
-      },
-      async createPlan() {
-        throw new Error("not used");
-      },
-      async createPlanPrice() {
-        throw new Error("not used");
-      },
-      async upsertPlanEntitlement() {
-        throw new Error("not used");
-      }
-    },
+    billingRepository: createBillingRepositoryStub(),
     billingProvider: "stripe"
   });
 
@@ -326,7 +253,7 @@ test("console billing plan create rejects non-stripe provider price id format", 
         {
           code: "pro_monthly",
           name: "Pro Monthly",
-          basePrice: {
+          corePrice: {
             providerPriceId: "10",
             currency: "USD",
             unitAmountMinor: 4900
@@ -337,7 +264,9 @@ test("console billing plan create rejects non-stripe provider price id format", 
       assert.ok(error instanceof AppError);
       assert.equal(error.status, 400);
       assert.equal(
-        String(error?.details?.fieldErrors?.["basePrice.providerPriceId"] || "").toLowerCase().includes("stripe price id"),
+        String(error?.details?.fieldErrors?.["corePrice.providerPriceId"] || "")
+          .toLowerCase()
+          .includes("stripe price id"),
         true
       );
       return true;
@@ -347,29 +276,7 @@ test("console billing plan create rejects non-stripe provider price id format", 
 
 test("console billing provider prices list delegates to provider adapter", async () => {
   const service = createConsoleServiceHarness({
-    billingRepository: {
-      async listPlans() {
-        return [];
-      },
-      async listPlanPricesForPlan() {
-        return [];
-      },
-      async listPlanEntitlementsForPlan() {
-        return [];
-      },
-      async transaction(work) {
-        return work(null);
-      },
-      async createPlan() {
-        throw new Error("not used");
-      },
-      async createPlanPrice() {
-        throw new Error("not used");
-      },
-      async upsertPlanEntitlement() {
-        throw new Error("not used");
-      }
-    },
+    billingRepository: createBillingRepositoryStub(),
     billingProviderAdapter: {
       async listPrices(payload) {
         assert.equal(payload.limit, 25);
@@ -409,7 +316,7 @@ test("console billing provider prices list delegates to provider adapter", async
   assert.equal(response.prices[0].id, "price_123");
 });
 
-test("console billing plan price update edits existing price mapping", async () => {
+test("console billing plan update edits existing core price mapping", async () => {
   const calls = [];
   const service = createConsoleServiceHarness({
     billingProviderAdapter: {
@@ -430,7 +337,7 @@ test("console billing plan price update edits existing price mapping", async () 
         };
       }
     },
-    billingRepository: {
+    billingRepository: createBillingRepositoryStub({
       async transaction(work) {
         return work("trx-1");
       },
@@ -439,98 +346,64 @@ test("console billing plan price update edits existing price mapping", async () 
         return {
           id: 11,
           code: "pro_monthly",
-          planFamilyCode: "pro",
-          version: 1,
           name: "Pro Monthly",
           description: null,
           appliesTo: "workspace",
-          pricingModel: "flat",
+          corePrice: {
+            provider: "stripe",
+            providerPriceId: "price_old",
+            providerProductId: "prod_old",
+            interval: "month",
+            intervalCount: 1,
+            currency: "USD",
+            unitAmountMinor: 4900
+          },
           isActive: true,
           metadataJson: {},
           createdAt: "2026-01-01T00:00:00.000Z",
           updatedAt: "2026-01-01T00:00:00.000Z"
         };
       },
-      async listPlanPricesForPlan(planId, provider, options = {}) {
-        calls.push(["listPlanPricesForPlan", planId, provider, options.trx]);
-        return [
-          {
-            id: 21,
-            planId,
-            provider,
-            billingComponent: "base",
-            usageType: "licensed",
-            interval: "month",
-            intervalCount: 1,
-            currency: "USD",
-            unitAmountMinor: 4900,
-            providerProductId: "prod_pro",
-            providerPriceId: "price_old",
-            isActive: true,
-            metadataJson: {},
-            createdAt: "2026-01-01T00:00:00.000Z",
-            updatedAt: "2026-01-01T00:00:00.000Z"
-          }
-        ];
-      },
-      async updatePlanPriceById(priceId, patch, options = {}) {
-        calls.push([
-          "updatePlanPriceById",
-          priceId,
-          patch.providerPriceId,
-          patch.providerProductId,
-          patch.currency,
-          patch.unitAmountMinor,
-          patch.interval,
-          patch.intervalCount,
-          options.trx
-        ]);
+      async updatePlanById(planId, patch, options = {}) {
+        calls.push(["updatePlanById", planId, patch.corePrice?.providerPriceId, options.trx]);
         return {
-          id: priceId,
-          providerPriceId: patch.providerPriceId
+          id: planId,
+          code: "pro_monthly",
+          name: "Pro Monthly",
+          description: null,
+          appliesTo: "workspace",
+          corePrice: patch.corePrice,
+          isActive: true,
+          metadataJson: {},
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z"
         };
       },
       async listPlanEntitlementsForPlan(planId, options = {}) {
         calls.push(["listPlanEntitlementsForPlan", planId, options.trx]);
         return [];
-      },
-      async listPlans() {
-        return [];
-      },
-      async createPlan() {
-        throw new Error("not used");
-      },
-      async createPlanPrice() {
-        throw new Error("not used");
-      },
-      async upsertPlanEntitlement() {
-        throw new Error("not used");
       }
-    }
+    })
   });
 
-  const response = await service.updateBillingPlanPrice(
+  const response = await service.updateBillingPlan(
     {
       id: 1,
       email: "devop@example.test"
     },
     {
-      planId: 11,
-      priceId: 21
+      planId: 11
     },
     {
-      providerPriceId: "price_new"
+      corePrice: {
+        providerPriceId: "price_new"
+      }
     }
   );
 
   assert.equal(response.provider, "stripe");
   assert.equal(response.plan.id, 11);
-  const updateCall = calls.find((entry) => entry[0] === "updatePlanPriceById");
+  const updateCall = calls.find((entry) => entry[0] === "updatePlanById");
   assert.ok(updateCall);
   assert.equal(updateCall[2], "price_new");
-  assert.equal(updateCall[3], "prod_from_stripe_new");
-  assert.equal(updateCall[4], "USD");
-  assert.equal(updateCall[5], 14900);
-  assert.equal(updateCall[6], "month");
-  assert.equal(updateCall[7], 1);
 });

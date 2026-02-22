@@ -135,14 +135,14 @@ Plan Source: `STRIPE_PLAN.md` (v22 merged phase 2 program)
 
 | Contract | Implementation | Status | Notes |
 | --- | --- | --- | --- |
-| `resolvePhase1SellablePrice` | `pricing.service.js` | done | Enforces one deterministic sellable price in deployment currency. |
+| `resolvePhase1SellablePrice` | `pricing.service.js` | done | Resolves one deterministic plan-owned core recurring price in deployment currency. |
 
 ### 5.3 BillingService
 
 | Contract | Implementation | Status | Notes |
 | --- | --- | --- | --- |
 | `ensureBillableEntity` | `service.js` | done | |
-| `listPlans` | `service.js` | done | Includes entitlement validation and sellable price resolution. |
+| `listPlans` | `service.js` | done | Includes entitlement validation and returns each plan with its core price mapping. |
 | `getSnapshot` | `service.js` | done | Returns customer/subscription/items/invoices/payments snapshot. |
 | `createPortalSession` | `service.js` | done | Idempotent, deterministic, and replay-safe. |
 | `createPaymentLink` | `service.js` | done | Idempotent one-off payment-link creation supports both catalog prices and ad-hoc amounts with replay-safe frozen provider params. |
@@ -308,9 +308,9 @@ Plan Source: `STRIPE_PLAN.md` (v22 merged phase 2 program)
 | 2.1 usage counters + windowed limits | `billing_usage_counters` + `billing_usage_events` dedupe table, repository usage claim/increment ops, `billingService.recordUsage`, and `billingService.enforceLimitAndRecordUsage` | partial | Counter persistence, UTC windows, hard-limit prechecks, and retry-safe increment dedupe are implemented; broad feature-by-feature rollout is still pending. |
 | 2.1 clean app-facing limitations contract | `billingService.getLimitations` + `GET /api/billing/limitations` + client API surface + capability map (`server/modules/billing/appCapabilityLimits.js`) | partial | Contract is available for app/runtime consumption and representative server-side enforcement wiring (`projects.create`) is implemented; full app coverage remains pending. |
 | 2.2 console billing event explorer (global) | `GET /api/console/billing/events` + console billing view/route + console guard/nav wiring | done | Event-source parity includes idempotency, checkout-session, subscription, invoice, payment, payment-method-sync, webhook, outbox, remediation, and reconciliation sources with workspace/user/entity correlation filters. |
-| 2.2 workspace billing UX (user-friendly) | `GET /api/billing/timeline` + workspace billing view/route + admin-shell nav wiring + purchase-tab scaffold (`src/views/workspace-billing/*`) | partial | Timeline plus purchase scaffold are shipped (subscription checkout, optional-component quantities, one-off catalog/ad-hoc payment links); advanced reporting and richer operator workflows are still pending. |
-| 2.3 metered/hybrid component enablement | Subscription checkout pricing now resolves base sellable price plus active metered components for usage/hybrid plans, and accepts selected licensed optional components with explicit quantities | partial | Deterministic/currency-scoped checkout is preserved with idempotent normalized component payloads; broader catalog governance and advanced UX polish remain pending. |
-| 2.3 one-off billing flows | `POST /api/billing/checkout` (`checkoutType=one_off`) + `POST /api/billing/payment-links` support catalog/ad-hoc one-off purchases with invoice projection into `billing_invoices`; workspace purchase UI can initiate both modes | partial | Core backend orchestration and scaffold UX are implemented; richer catalog curation and operator tooling remain pending. |
+| 2.2 workspace billing UX (user-friendly) | `GET /api/billing/timeline` + workspace billing view/route + admin-shell nav wiring + purchase-tab scaffold (`src/views/workspace-billing/*`) | partial | Timeline plus purchase scaffold are shipped (core subscription checkout from a single plan-mapped monthly Stripe price, plus one-off catalog/ad-hoc payment links); advanced reporting and richer operator workflows are still pending. |
+| 2.3 metered/hybrid component enablement | Core plan checkout is intentionally simplified to one Stripe recurring plan price per plan (no bundled seats/metered/add-on components) | done | Extras are intentionally moved to separate payment-link or separate purchase flows. |
+| 2.3 one-off billing flows | `POST /api/billing/payment-links` supports catalog/ad-hoc one-off purchases with invoice projection into `billing_invoices`; workspace purchase UI can initiate these extras flows | partial | Core payment-link orchestration and scaffold UX are implemented; richer catalog curation and operator tooling remain pending. |
 | 2.4 non-workspace billable entities | `migrations/20260221150000_add_billing_phase2_4_billable_entity_scopes.cjs` + repository scope methods + policy entity-selector resolution + billing route workspace-policy relaxation | partial | Schema now supports `entity_type`/`entity_ref` and nullable workspace/owner linkage; explicit billable-entity selector policy supports workspace + owner-scoped user entities and billing routes now allow selector-first access. Broader non-workspace auth models (organization/external) remain pending. |
 | 2.4 expanded analytics/provider parity | Stripe-only productionized provider path today | deferred | Requires additional provider abstractions and parity analytics/reporting. |
 

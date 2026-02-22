@@ -56,7 +56,6 @@ function createOrchestrator({
         return {
           id: 11,
           code: "pro_monthly",
-          version: 1,
           isActive: true
         };
       },
@@ -628,8 +627,8 @@ test("checkout orchestrator supports one_off checkout without requiring plan loo
   assert.equal(response.checkoutSession.providerCheckoutSessionId, "cs_one_off_1");
 });
 
-test("checkout orchestrator forwards optional licensed components into pricing and checkout params", async () => {
-  let capturedSelectedComponents = null;
+test("checkout orchestrator resolves one core plan price for subscription checkout", async () => {
+  let capturedPlan = null;
   let createCheckoutParams = null;
 
   const service = createCheckoutOrchestratorService({
@@ -656,16 +655,14 @@ test("checkout orchestrator forwards optional licensed components into pricing a
           id: 701,
           leaseVersion: 1,
           status: "pending",
-          operationKey: "op_sub_components_701"
+          operationKey: "op_sub_core_price_701"
         };
       },
       async findPlanByCode() {
         return {
           id: 88,
           code: "pro_monthly",
-          version: 2,
-          isActive: true,
-          pricingModel: "flat"
+          isActive: true
         };
       },
       async findCustomerByEntityProvider() {
@@ -691,29 +688,15 @@ test("checkout orchestrator forwards optional licensed components into pricing a
     },
     billingPricingService: {
       deploymentCurrency: "USD",
-      async resolvePhase1SellablePrice() {
-        throw new Error("phase1 price resolver should not be called when subscription resolver is available");
-      },
-      async resolveSubscriptionCheckoutPrices({ selectedComponents }) {
-        capturedSelectedComponents = selectedComponents;
+      async resolvePlanCheckoutPrice({ plan }) {
+        capturedPlan = plan;
         return {
-          basePrice: {
-            providerPriceId: "price_base_1",
-            usageType: "licensed"
-          },
-          meteredComponentPrices: [],
-          lineItemPrices: [
-            {
-              providerPriceId: "price_base_1",
-              usageType: "licensed"
-            },
-            {
-              providerPriceId: "price_addon_support",
-              usageType: "licensed",
-              quantity: 3
-            }
-          ]
+          providerPriceId: "price_base_1",
+          usageType: "licensed"
         };
+      },
+      async resolvePhase1SellablePrice() {
+        throw new Error("resolvePhase1SellablePrice should not be called when resolvePlanCheckoutPrice is available.");
       }
     },
     billingIdempotencyService: {
@@ -723,8 +706,8 @@ test("checkout orchestrator forwards optional licensed components into pricing a
           row: {
             id: 701,
             leaseVersion: 1,
-            operationKey: "op_sub_components_701",
-            providerIdempotencyKey: "prov_idem_sub_components_701"
+            operationKey: "op_sub_core_price_701",
+            providerIdempotencyKey: "prov_idem_sub_core_price_701"
           }
         };
       },
@@ -760,9 +743,9 @@ test("checkout orchestrator forwards optional licensed components into pricing a
       async createCheckoutSession({ params }) {
         createCheckoutParams = params;
         return {
-          id: "cs_sub_components_1",
+          id: "cs_sub_core_price_1",
           status: "open",
-          url: "https://checkout.stripe.test/cs_sub_components_1",
+          url: "https://checkout.stripe.test/cs_sub_core_price_1",
           expires_at: Math.floor(Date.now() / 1000) + 300,
           customer: "cus_sub_1",
           subscription: null,
@@ -782,75 +765,21 @@ test("checkout orchestrator forwards optional licensed components into pricing a
     },
     payload: {
       planCode: "pro_monthly",
-      components: [
-        {
-          providerPriceId: "price_addon_support",
-          quantity: 3
-        }
-      ],
       successPath: "/billing/success",
       cancelPath: "/billing/cancel"
     },
-    clientIdempotencyKey: "idem_sub_components_1",
+    clientIdempotencyKey: "idem_sub_core_price_1",
     now: new Date("2026-02-20T16:40:00.000Z")
   });
 
-  assert.deepEqual(capturedSelectedComponents, [
-    {
-      providerPriceId: "price_addon_support",
-      quantity: 3
-    }
-  ]);
+  assert.equal(capturedPlan?.code, "pro_monthly");
   assert.ok(createCheckoutParams);
   assert.equal(createCheckoutParams.mode, "subscription");
   assert.deepEqual(createCheckoutParams.line_items, [
     {
       price: "price_base_1",
       quantity: 1
-    },
-    {
-      price: "price_addon_support",
-      quantity: 3
     }
   ]);
   assert.equal(response.checkoutType, "subscription");
-});
-
-test("checkout orchestrator validates optional component payload before idempotency claim", async () => {
-  const { service, callOrder } = createOrchestrator();
-
-  await assert.rejects(
-    () =>
-      service.startCheckout({
-        request: {
-          headers: {}
-        },
-        user: {
-          id: 11
-        },
-        payload: {
-          planCode: "pro_monthly",
-          components: [
-            {
-              providerPriceId: "price_addon_support",
-              quantity: 2
-            },
-            {
-              providerPriceId: "price_addon_support",
-              quantity: 1
-            }
-          ],
-          successPath: "/billing/success",
-          cancelPath: "/billing/cancel"
-        },
-        clientIdempotencyKey: "idem_components_duplicate",
-        now: new Date("2026-02-20T16:45:00.000Z")
-      }),
-    (error) =>
-      error instanceof AppError &&
-      Number(error.statusCode) === 400 &&
-      String(error?.details?.fieldErrors?.["components[1].providerPriceId"] || "").includes("unique")
-  );
-
-  assert.deepEqual(callOrder, []);
 });

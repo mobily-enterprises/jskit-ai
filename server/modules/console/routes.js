@@ -156,7 +156,7 @@ function buildRoutes(controllers, { missingHandler }) {
       auth: "required",
       schema: {
         tags: ["console-billing"],
-        summary: "Create billing catalog plan with one sellable base price",
+        summary: "Create billing catalog plan with one core recurring price mapping",
         body: schema.body.billingPlanCreate,
         response: withStandardErrorResponses(
           {
@@ -168,22 +168,22 @@ function buildRoutes(controllers, { missingHandler }) {
       handler: controllers.console?.createBillingPlan || missingHandler
     },
     {
-      path: "/api/console/billing/plans/:planId/prices/:priceId",
+      path: "/api/console/billing/plans/:planId",
       method: "PATCH",
       auth: "required",
       schema: {
         tags: ["console-billing"],
-        summary: "Update an existing billing plan price mapping",
-        params: schema.params.billingPlanPrice,
-        body: schema.body.billingPlanPriceUpdate,
+        summary: "Update an existing billing plan core price mapping",
+        params: schema.params.billingPlan,
+        body: schema.body.billingPlanUpdate,
         response: withStandardErrorResponses(
           {
-            200: schema.response.billingPlanPriceUpdate
+            200: schema.response.billingPlanUpdate
           },
           { includeValidation400: true }
         )
       },
-      handler: controllers.console?.updateBillingPlanPrice || missingHandler
+      handler: controllers.console?.updateBillingPlan || missingHandler
     },
     {
       path: "/api/console/billing/events",

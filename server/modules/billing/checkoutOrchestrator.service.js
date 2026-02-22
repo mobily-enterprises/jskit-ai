@@ -127,80 +127,6 @@ function normalizeOneOffPayload(oneOffPayload, { defaultCurrency }) {
   };
 }
 
-function normalizeCheckoutComponents(value) {
-  if (value == null) {
-    return [];
-  }
-
-  if (!Array.isArray(value)) {
-    throw new AppError(400, "Validation failed.", {
-      details: {
-        fieldErrors: {
-          components: "components must be an array."
-        }
-      }
-    });
-  }
-
-  if (value.length > 20) {
-    throw new AppError(400, "Validation failed.", {
-      details: {
-        fieldErrors: {
-          components: "components must contain at most 20 entries."
-        }
-      }
-    });
-  }
-
-  const normalized = [];
-  const seenProviderPriceIds = new Set();
-  for (let index = 0; index < value.length; index += 1) {
-    const entry = value[index] && typeof value[index] === "object" ? value[index] : null;
-    const fieldPrefix = `components[${index}]`;
-    const providerPriceId = String(entry?.providerPriceId || entry?.priceId || "").trim();
-    if (!providerPriceId) {
-      throw new AppError(400, "Validation failed.", {
-        details: {
-          fieldErrors: {
-            [`${fieldPrefix}.providerPriceId`]: `${fieldPrefix}.providerPriceId is required.`
-          }
-        }
-      });
-    }
-
-    const quantityCandidate = entry?.quantity == null ? 1 : Number(entry.quantity);
-    if (!Number.isInteger(quantityCandidate) || quantityCandidate < 1 || quantityCandidate > 10000) {
-      throw new AppError(400, "Validation failed.", {
-        details: {
-          fieldErrors: {
-            [`${fieldPrefix}.quantity`]: `${fieldPrefix}.quantity must be an integer between 1 and 10,000.`
-          }
-        }
-      });
-    }
-
-    const dedupeKey = providerPriceId.toLowerCase();
-    if (seenProviderPriceIds.has(dedupeKey)) {
-      throw new AppError(400, "Validation failed.", {
-        details: {
-          fieldErrors: {
-            [`${fieldPrefix}.providerPriceId`]: `${fieldPrefix}.providerPriceId must be unique within components.`
-          }
-        }
-      });
-    }
-    seenProviderPriceIds.add(dedupeKey);
-
-    normalized.push({
-      providerPriceId,
-      quantity: quantityCandidate
-    });
-  }
-
-  normalized.sort((left, right) => left.providerPriceId.localeCompare(right.providerPriceId));
-  return normalized;
-}
-
 function buildApiFailure(failureCode, message = "Billing checkout failed.", details = {}) {
   const code = String(failureCode || "").trim();
   return new AppError(statusFromFailureCode(failureCode), message, {
@@ -340,8 +266,6 @@ function createService(options = {}) {
 
   function buildNormalizedCheckoutRequest({ billableEntityId, payload, action }) {
     const checkoutType = normalizeCheckoutType(payload.checkoutType);
-    const normalizedComponents =
-      checkoutType === CHECKOUT_KIND_SUBSCRIPTION && Array.isArray(payload.components) ? payload.components : [];
     const normalizedRequest = {
       action,
       billableEntityId: Number(billableEntityId),
@@ -354,9 +278,6 @@ function createService(options = {}) {
     }
     if (checkoutType === CHECKOUT_KIND_ONE_OFF) {
       normalizedRequest.oneOff = payload.oneOff;
-    }
-    if (normalizedComponents.length > 0) {
-      normalizedRequest.components = normalizedComponents;
     }
 
     return normalizedRequest;
@@ -418,46 +339,38 @@ function createService(options = {}) {
     };
   }
 
-  async function resolveSubscriptionPriceSelection({ plan, provider, selectedComponents = [] }) {
-    const normalizedSelectedComponents = Array.isArray(selectedComponents) ? selectedComponents : [];
+  async function resolveSubscriptionPriceSelection({ plan, provider }) {
+    if (typeof billingPricingService.resolvePlanCheckoutPrice === "function") {
+      const resolvedPrice = await billingPricingService.resolvePlanCheckoutPrice({
+        plan,
+        provider
+      });
+      return {
+        basePrice: resolvedPrice,
+        lineItemPrices: [resolvedPrice]
+      };
+    }
+
     if (typeof billingPricingService.resolveSubscriptionCheckoutPrices === "function") {
       const resolved = await billingPricingService.resolveSubscriptionCheckoutPrices({
         plan,
-        provider,
-        selectedComponents: normalizedSelectedComponents
+        provider
       });
-
-      if (resolved && Array.isArray(resolved.lineItemPrices) && resolved.lineItemPrices.length > 0) {
-        return resolved;
-      }
-
       if (resolved?.basePrice) {
-        const meteredComponentPrices = Array.isArray(resolved.meteredComponentPrices)
-          ? resolved.meteredComponentPrices
-          : [];
         return {
           basePrice: resolved.basePrice,
-          meteredComponentPrices,
-          lineItemPrices: [resolved.basePrice, ...meteredComponentPrices]
+          lineItemPrices: [resolved.basePrice]
         };
       }
     }
 
-    if (normalizedSelectedComponents.length > 0) {
-      throw buildApiFailure(
-        BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
-        "Billing pricing configuration is invalid."
-      );
-    }
-
-    const basePrice = await billingPricingService.resolvePhase1SellablePrice({
+    const resolvedPrice = await billingPricingService.resolvePhase1SellablePrice({
       planId: plan.id,
       provider
     });
     return {
-      basePrice,
-      meteredComponentPrices: [],
-      lineItemPrices: [basePrice]
+      basePrice: resolvedPrice,
+      lineItemPrices: [resolvedPrice]
     };
   }
 
@@ -467,7 +380,6 @@ function createService(options = {}) {
     idempotencyRowId,
     plan,
     price,
-    priceSelection,
     customer,
     payload,
     now = new Date()
@@ -486,8 +398,7 @@ function createService(options = {}) {
       idempotency_row_id: String(idempotencyRowId),
       checkout_type: checkoutType,
       checkout_flow: checkoutType,
-      plan_code: String(plan?.code || ""),
-      plan_version: String(Number(plan?.version || 0) || "")
+      plan_code: String(plan?.code || "")
     };
 
     let params;
@@ -523,48 +434,30 @@ function createService(options = {}) {
         }
       };
     } else {
-      const lineItemPrices =
-        Array.isArray(priceSelection?.lineItemPrices) && priceSelection.lineItemPrices.length > 0
-          ? priceSelection.lineItemPrices
-          : price
-            ? [price]
-            : [];
-      if (lineItemPrices.length < 1) {
+      const checkoutPrice = price || null;
+      if (!checkoutPrice) {
         throw buildApiFailure(
           BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
           "Billing pricing configuration is invalid."
         );
       }
 
-      const lineItems = lineItemPrices.map((lineItemPrice) => {
-        const providerPriceId = String(lineItemPrice?.providerPriceId || "").trim();
-        if (!providerPriceId) {
-          throw buildApiFailure(
-            BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
-            "Billing pricing configuration is invalid."
-          );
-        }
-
-        const usageType = String(lineItemPrice?.usageType || "licensed")
-          .trim()
-          .toLowerCase();
-        if (usageType === "metered") {
-          return {
-            price: providerPriceId
-          };
-        }
-
-        const quantityCandidate = lineItemPrice?.quantity == null ? 1 : Number(lineItemPrice.quantity);
-        const quantity = Number.isInteger(quantityCandidate) && quantityCandidate > 0 ? quantityCandidate : 1;
-        return {
-          price: providerPriceId,
-          quantity
-        };
-      });
+      const providerPriceId = String(checkoutPrice?.providerPriceId || "").trim();
+      if (!providerPriceId) {
+        throw buildApiFailure(
+          BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
+          "Billing pricing configuration is invalid."
+        );
+      }
 
       params = {
         mode: "subscription",
-        line_items: lineItems,
+        line_items: [
+          {
+            price: providerPriceId,
+            quantity: 1
+          }
+        ],
         success_url: successUrl,
         cancel_url: cancelUrl,
         metadata,
@@ -1100,29 +993,25 @@ function createService(options = {}) {
       request,
       user
     });
+    const payloadBody = payload && typeof payload === "object" ? payload : {};
 
-    const normalizedPaths = normalizeCheckoutPaths(payload || {});
-    const checkoutType = normalizeCheckoutType(payload?.checkoutType);
+    const normalizedPaths = normalizeCheckoutPaths(payloadBody);
+    const checkoutType = normalizeCheckoutType(payloadBody.checkoutType);
     const normalizedOneOff =
       checkoutType === CHECKOUT_KIND_ONE_OFF
-        ? normalizeOneOffPayload(payload?.oneOff, {
+        ? normalizeOneOffPayload(payloadBody.oneOff, {
             defaultCurrency: deploymentCurrency
           })
         : null;
-    const normalizedComponents =
-      checkoutType === CHECKOUT_KIND_SUBSCRIPTION ? normalizeCheckoutComponents(payload?.components) : [];
     const normalizedPayload = {
-      ...(payload || {}),
+      ...payloadBody,
       ...normalizedPaths
     };
-    if (checkoutType === CHECKOUT_KIND_ONE_OFF || payload?.checkoutType != null) {
+    if (checkoutType === CHECKOUT_KIND_ONE_OFF || payloadBody.checkoutType != null) {
       normalizedPayload.checkoutType = checkoutType;
     }
     if (normalizedOneOff) {
       normalizedPayload.oneOff = normalizedOneOff;
-    }
-    if (normalizedComponents.length > 0) {
-      normalizedPayload.components = normalizedComponents;
     }
 
     const normalizedRequest = buildNormalizedCheckoutRequest({
@@ -1255,18 +1144,18 @@ function createService(options = {}) {
         }
         try {
           let plan = null;
-          let priceSelection = null;
+          let price = null;
           if (checkoutType === CHECKOUT_KIND_SUBSCRIPTION) {
             plan = await billingRepository.findPlanByCode(planCode, { trx });
             if (!plan || !plan.isActive) {
               throw buildPlanNotFoundError();
             }
 
-            priceSelection = await resolveSubscriptionPriceSelection({
+            const priceSelection = await resolveSubscriptionPriceSelection({
               plan,
-              provider: activeProvider,
-              selectedComponents: normalizedComponents
+              provider: activeProvider
             });
+            price = priceSelection?.basePrice || null;
           }
 
           const customer = await billingRepository.findCustomerByEntityProvider(
@@ -1282,8 +1171,7 @@ function createService(options = {}) {
             billableEntityId: billableEntity.id,
             idempotencyRowId: lockedIdempotencyRow.id,
             plan,
-            price: priceSelection?.basePrice || null,
-            priceSelection,
+            price,
             customer,
             payload: normalizedPayload,
             now
@@ -1480,7 +1368,6 @@ const __testables = {
   normalizePlanCode,
   normalizeCheckoutType,
   normalizeOneOffPayload,
-  normalizeCheckoutComponents,
   isDeterministicProviderRejection,
   isIndeterminateProviderOutcome,
   providerSessionStateToLocalStatus,

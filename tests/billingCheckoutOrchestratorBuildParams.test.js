@@ -52,8 +52,7 @@ test("checkout orchestrator frozen checkout params omit customer_creation in sub
     billableEntityId: 99,
     idempotencyRowId: 501,
     plan: {
-      code: "pro_monthly",
-      version: 1
+      code: "pro_monthly"
     },
     price: {
       providerPriceId: "price_123"
@@ -71,7 +70,7 @@ test("checkout orchestrator frozen checkout params omit customer_creation in sub
   assert.equal(params.customer, undefined);
 });
 
-test("checkout orchestrator frozen checkout params include metered components without quantity", async () => {
+test("checkout orchestrator frozen checkout params include one core plan price", async () => {
   const service = createOrchestrator();
   const now = new Date("2026-02-20T09:00:00.000Z");
 
@@ -80,27 +79,16 @@ test("checkout orchestrator frozen checkout params include metered components wi
     billableEntityId: 100,
     idempotencyRowId: 502,
     plan: {
-      code: "hybrid_monthly",
-      version: 3
+      code: "pro_monthly"
     },
-    priceSelection: {
-      lineItemPrices: [
-        {
-          providerPriceId: "price_base_123",
-          usageType: "licensed",
-          quantity: 1
-        },
-        {
-          providerPriceId: "price_metered_456",
-          usageType: "metered"
-        }
-      ]
+    price: {
+      providerPriceId: "price_base_123"
     },
     customer: {
       providerCustomerId: "cus_123"
     },
     payload: {
-      planCode: "hybrid_monthly",
+      planCode: "pro_monthly",
       successPath: "/billing/success",
       cancelPath: "/billing/cancel"
     },
@@ -108,13 +96,10 @@ test("checkout orchestrator frozen checkout params include metered components wi
   });
 
   assert.equal(params.mode, "subscription");
-  assert.equal(params.line_items.length, 2);
+  assert.equal(params.line_items.length, 1);
   assert.deepEqual(params.line_items[0], {
     price: "price_base_123",
     quantity: 1
-  });
-  assert.deepEqual(params.line_items[1], {
-    price: "price_metered_456"
   });
 });
 

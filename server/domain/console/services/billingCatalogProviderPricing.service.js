@@ -14,14 +14,6 @@ function toValidationError(fieldPath, message) {
   });
 }
 
-function normalizeUsageType(value) {
-  const normalized = normalizeText(value).toLowerCase();
-  if (normalized === "metered" || normalized === "licensed") {
-    return normalized;
-  }
-  return "licensed";
-}
-
 function parseNonNegativeInteger(value) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 0) {
@@ -42,7 +34,7 @@ async function resolveStripeCatalogPriceSnapshot({
   billingProviderAdapter,
   providerPriceId,
   fallbackProviderProductId = null,
-  fieldPath = "basePrice.providerPriceId"
+  fieldPath = "corePrice.providerPriceId"
 } = {}) {
   const normalizedProviderPriceId = normalizeText(providerPriceId);
   if (!normalizedProviderPriceId) {
@@ -89,6 +81,14 @@ async function resolveStripeCatalogPriceSnapshot({
   if (!interval || intervalCount == null) {
     throw toValidationError(fieldPath, "Stripe price must be recurring.");
   }
+  if (interval !== "month" || intervalCount !== 1) {
+    throw toValidationError(fieldPath, "Stripe core plan price must be monthly.");
+  }
+
+  const usageType = normalizeText(price.usageType).toLowerCase() || "licensed";
+  if (usageType !== "licensed") {
+    throw toValidationError(fieldPath, "Stripe core plan price must be licensed.");
+  }
 
   const providerProductId = normalizeText(price.productId) || normalizeText(fallbackProviderProductId) || null;
 
@@ -98,57 +98,56 @@ async function resolveStripeCatalogPriceSnapshot({
     currency,
     unitAmountMinor,
     interval,
-    intervalCount,
-    usageType: normalizeUsageType(price.usageType)
+    intervalCount
   };
 }
 
-async function resolveCatalogBasePriceForCreate({
+async function resolveCatalogCorePriceForCreate({
   activeBillingProvider,
   billingProviderAdapter,
-  basePrice
+  corePrice
 } = {}) {
   const normalizedProvider = normalizeText(activeBillingProvider).toLowerCase();
   if (normalizedProvider === "stripe") {
     const stripeSnapshot = await resolveStripeCatalogPriceSnapshot({
       billingProviderAdapter,
-      providerPriceId: basePrice?.providerPriceId,
-      fallbackProviderProductId: basePrice?.providerProductId,
-      fieldPath: "basePrice.providerPriceId"
+      providerPriceId: corePrice?.providerPriceId,
+      fallbackProviderProductId: corePrice?.providerProductId,
+      fieldPath: "corePrice.providerPriceId"
     });
     return {
-      ...basePrice,
+      ...corePrice,
       ...stripeSnapshot
     };
   }
 
-  return basePrice;
+  return corePrice;
 }
 
-async function resolveCatalogPricePatchForUpdate({
+async function resolveCatalogCorePriceForUpdate({
   activeBillingProvider,
   billingProviderAdapter,
-  patch
+  corePrice
 } = {}) {
   const normalizedProvider = normalizeText(activeBillingProvider).toLowerCase();
   if (normalizedProvider === "stripe") {
     const stripeSnapshot = await resolveStripeCatalogPriceSnapshot({
       billingProviderAdapter,
-      providerPriceId: patch?.providerPriceId,
-      fallbackProviderProductId: patch?.providerProductId,
-      fieldPath: "providerPriceId"
+      providerPriceId: corePrice?.providerPriceId,
+      fallbackProviderProductId: corePrice?.providerProductId,
+      fieldPath: "corePrice.providerPriceId"
     });
     return {
-      ...patch,
+      ...corePrice,
       ...stripeSnapshot
     };
   }
 
-  return patch;
+  return corePrice;
 }
 
 export {
   resolveStripeCatalogPriceSnapshot,
-  resolveCatalogBasePriceForCreate,
-  resolveCatalogPricePatchForUpdate
+  resolveCatalogCorePriceForCreate,
+  resolveCatalogCorePriceForUpdate
 };

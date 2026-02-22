@@ -320,8 +320,7 @@ function createController({ consoleService, aiTranscriptsService = null, auditSe
       metadata: () => ({
         scope: "console",
         code: normalizeText(payload?.code).toLowerCase(),
-        pricingModel: normalizeText(payload?.pricingModel).toLowerCase(),
-        providerPriceId: normalizeText(payload?.basePrice?.providerPriceId)
+        providerPriceId: normalizeText(payload?.corePrice?.providerPriceId)
       }),
       onSuccess: (context) => ({
         metadata: {
@@ -333,19 +332,18 @@ function createController({ consoleService, aiTranscriptsService = null, auditSe
     reply.code(200).send(response);
   }
 
-  async function updateBillingPlanPrice(request, reply) {
+  async function updateBillingPlan(request, reply) {
     const params = request.params || {};
     const payload = request.body || {};
     const response = await withAuditEvent({
       auditService,
       request,
-      action: "billing.catalog.plan_price.updated",
-      execute: () => consoleService.updateBillingPlanPrice(request.user, params, payload),
+      action: "billing.catalog.plan.updated",
+      execute: () => consoleService.updateBillingPlan(request.user, params, payload),
       metadata: () => ({
         scope: "console",
         planId: parsePositiveInteger(params?.planId),
-        priceId: parsePositiveInteger(params?.priceId),
-        providerPriceId: normalizeText(payload?.providerPriceId)
+        providerPriceId: normalizeText(payload?.corePrice?.providerPriceId)
       }),
       onSuccess: (context) => ({
         metadata: {
@@ -376,7 +374,7 @@ function createController({ consoleService, aiTranscriptsService = null, auditSe
     listBillingPlans,
     createBillingPlan,
     listBillingProviderPrices,
-    updateBillingPlanPrice
+    updateBillingPlan
   };
 }
 

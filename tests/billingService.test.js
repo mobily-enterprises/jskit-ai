@@ -124,8 +124,7 @@ function createBaseBillingService(overrides = {}) {
   });
 }
 
-test("billing service listPlans fails closed when pricing configuration is invalid", async () => {
-  const dbErrorCodes = [];
+test("billing service listPlans returns plan entries with core price mapping", async () => {
   const service = createBaseBillingService({
     billingRepository: {
       async listPlans() {
@@ -133,43 +132,36 @@ test("billing service listPlans fails closed when pricing configuration is inval
           {
             id: 100,
             code: "pro_monthly",
-            planFamilyCode: "pro",
-            version: 1,
             name: "Pro",
             description: null,
             appliesTo: "workspace",
-            pricingModel: "flat",
+            corePrice: {
+              provider: "stripe",
+              providerPriceId: "price_pro_monthly",
+              providerProductId: "prod_pro",
+              interval: "month",
+              intervalCount: 1,
+              currency: "USD",
+              unitAmountMinor: 4900
+            },
             isActive: true,
             metadataJson: {},
             createdAt: "2026-02-20T00:00:00.000Z",
             updatedAt: "2026-02-20T00:00:00.000Z"
           }
         ];
-      }
-    },
-    billingPricingService: {
-      async resolvePhase1SellablePrice() {
-        throw new AppError(409, "Billing pricing configuration is invalid.", {
-          code: BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID
-        });
-      }
-    },
-    observabilityService: {
-      recordDbError(payload) {
-        dbErrorCodes.push(String(payload?.code || ""));
+      },
+      async listPlanEntitlementsForPlan() {
+        return [];
       }
     }
   });
 
-  await assert.rejects(
-    () => service.listPlans({}),
-    (error) =>
-      error instanceof AppError &&
-      Number(error.statusCode) === 409 &&
-      String(error.code || "") === BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID
-  );
+  const response = await service.listPlans({});
 
-  assert.deepEqual(dbErrorCodes, ["BILLING_PRICING_CONFIGURATION_INVALID"]);
+  assert.equal(response.plans.length, 1);
+  assert.equal(response.plans[0].code, "pro_monthly");
+  assert.equal(response.plans[0].corePrice.providerPriceId, "price_pro_monthly");
 });
 
 test("billing service createPortalSession recovers recover_pending idempotency rows", async () => {

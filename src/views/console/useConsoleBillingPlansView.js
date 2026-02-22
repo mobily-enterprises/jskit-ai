@@ -58,32 +58,19 @@ function toFieldErrors(value) {
   return fieldErrors;
 }
 
-function resolveBasePlanPrice(plan) {
-  const prices = Array.isArray(plan?.prices) ? plan.prices : [];
-  const activeBase = prices.find((price) => {
-    if (!price || !price.isActive) {
-      return false;
-    }
-    return (
-      String(price.billingComponent || "").trim().toLowerCase() === "base" &&
-      String(price.usageType || "").trim().toLowerCase() === "licensed"
-    );
-  });
-  if (activeBase) {
-    return activeBase;
+function resolveCorePlanPrice(plan) {
+  if (!plan || typeof plan !== "object") {
+    return null;
   }
 
-  return prices[0] || null;
+  return plan.corePrice && typeof plan.corePrice === "object" ? plan.corePrice : null;
 }
 
 function createDefaultCreateForm() {
   return {
     code: "",
-    planFamilyCode: "",
-    version: 1,
     name: "",
     description: "",
-    pricingModel: "flat",
     currency: "USD",
     unitAmountMinor: 0,
     interval: "month",
@@ -112,7 +99,6 @@ export function useConsoleBillingPlansView() {
   const editError = ref("");
   const editSaving = ref(false);
   const editingPlanId = ref(0);
-  const editingPriceId = ref(0);
 
   const createForm = reactive(createDefaultCreateForm());
   const editForm = reactive({
@@ -206,29 +192,16 @@ export function useConsoleBillingPlansView() {
     plans.value.find((plan) => Number(plan?.id || 0) === Number(selectedPlanId.value || 0)) || null
   );
 
-  const selectedPlanPrices = computed(() =>
-    Array.isArray(selectedPlan.value?.prices) ? selectedPlan.value.prices : []
-  );
-
-  const editingPrice = computed(() =>
-    selectedPlanPrices.value.find((price) => Number(price?.id || 0) === Number(editingPriceId.value || 0)) || null
-  );
-
   const tableRows = computed(() =>
     plans.value.map((plan) => {
-      const basePrice = resolveBasePlanPrice(plan);
-      const prices = Array.isArray(plan?.prices) ? plan.prices : [];
+      const corePrice = resolveCorePlanPrice(plan);
       const entitlements = Array.isArray(plan?.entitlements) ? plan.entitlements : [];
       return {
         id: Number(plan?.id || 0),
         code: String(plan?.code || ""),
         name: String(plan?.name || ""),
-        planFamilyCode: String(plan?.planFamilyCode || ""),
-        version: Number(plan?.version || 0),
-        pricingModel: String(plan?.pricingModel || ""),
         isActive: plan?.isActive !== false,
-        basePrice,
-        pricesCount: prices.length,
+        corePrice,
         entitlementsCount: entitlements.length,
         source: plan
       };
@@ -276,17 +249,13 @@ export function useConsoleBillingPlansView() {
     viewDialogOpen.value = false;
   }
 
-  function openEditDialog(planId, priceId) {
+  function openEditDialog(planId) {
     const plan = plans.value.find((entry) => Number(entry?.id || 0) === Number(planId || 0)) || null;
     if (!plan) {
       return;
     }
 
-    const planPrices = Array.isArray(plan.prices) ? plan.prices : [];
-    const targetPrice =
-      planPrices.find((entry) => Number(entry?.id || 0) === Number(priceId || 0)) ||
-      resolveBasePlanPrice(plan) ||
-      null;
+    const targetPrice = resolveCorePlanPrice(plan);
 
     if (!targetPrice) {
       return;
@@ -294,7 +263,6 @@ export function useConsoleBillingPlansView() {
 
     selectedPlanId.value = Number(plan.id || 0);
     editingPlanId.value = Number(plan.id || 0);
-    editingPriceId.value = Number(targetPrice.id || 0);
     editForm.providerPriceId = String(targetPrice.providerPriceId || "").trim();
     editForm.providerProductId = String(targetPrice.providerProductId || "").trim();
     editFieldErrors.value = {};
@@ -353,12 +321,9 @@ export function useConsoleBillingPlansView() {
 
     const payload = {
       code: createForm.code,
-      planFamilyCode: createForm.planFamilyCode || undefined,
-      version: Number(createForm.version) || 1,
       name: createForm.name,
       description: createForm.description || undefined,
-      pricingModel: createForm.pricingModel,
-      basePrice: providerProfile.value.buildCreateBasePrice({
+      corePrice: providerProfile.value.buildCorePricePayload({
         form: createForm,
         selectedPrice: createSelectedProviderPrice.value
       }),
@@ -385,20 +350,22 @@ export function useConsoleBillingPlansView() {
     editFieldErrors.value = {};
     editError.value = "";
 
-    if (!editingPlanId.value || !editingPriceId.value) {
-      editError.value = "Missing plan price context for update.";
+    if (!editingPlanId.value) {
+      editError.value = "Missing plan context for update.";
       return;
     }
 
     editSaving.value = true;
     const payload = {
-      providerPriceId: String(editForm.providerPriceId || "").trim(),
-      providerProductId: String(editForm.providerProductId || "").trim() || undefined
+      corePrice: {
+        providerPriceId: String(editForm.providerPriceId || "").trim(),
+        providerProductId: String(editForm.providerProductId || "").trim() || undefined
+      }
     };
 
     try {
-      await api.console.updateBillingPlanPrice(editingPlanId.value, editingPriceId.value, payload);
-      submitMessage.value = "Billing plan price updated.";
+      await api.console.updateBillingPlan(editingPlanId.value, payload);
+      submitMessage.value = "Billing plan updated.";
       editDialogOpen.value = false;
       await queryClient.invalidateQueries({ queryKey: CONSOLE_BILLING_PLANS_QUERY_KEY });
     } catch (error) {
@@ -407,7 +374,7 @@ export function useConsoleBillingPlansView() {
       }
 
       editFieldErrors.value = toFieldErrors(error);
-      editError.value = String(error?.message || "Unable to update billing plan price.");
+      editError.value = String(error?.message || "Unable to update billing plan core price.");
     } finally {
       editSaving.value = false;
     }
@@ -430,12 +397,6 @@ export function useConsoleBillingPlansView() {
 
   return {
     meta: {
-      pricingModelOptions: [
-        { title: "Flat", value: "flat" },
-        { title: "Per seat", value: "per_seat" },
-        { title: "Usage", value: "usage" },
-        { title: "Hybrid", value: "hybrid" }
-      ],
       intervalOptions: [
         { title: "Day", value: "day" },
         { title: "Week", value: "week" },
@@ -453,8 +414,6 @@ export function useConsoleBillingPlansView() {
       tableRows,
       plans,
       selectedPlan,
-      selectedPlanPrices,
-      editingPrice,
       createDialogOpen,
       viewDialogOpen,
       editDialogOpen,

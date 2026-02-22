@@ -28,17 +28,14 @@
               <tr>
                 <th>Code</th>
                 <th>Name</th>
-                <th>Family / Version</th>
-                <th>Pricing model</th>
-                <th>Base price</th>
-                <th>Prices</th>
+                <th>Core price</th>
                 <th>Entitlements</th>
                 <th class="text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="!state.tableRows.length">
-                <td colspan="8" class="text-center text-medium-emphasis py-6">No billing plans yet.</td>
+                <td colspan="5" class="text-center text-medium-emphasis py-6">No billing plans yet.</td>
               </tr>
               <tr v-for="row in state.tableRows" :key="row.id">
                 <td>
@@ -55,10 +52,7 @@
                   </div>
                 </td>
                 <td>{{ row.name || "-" }}</td>
-                <td>{{ row.planFamilyCode || "-" }} / v{{ row.version || "-" }}</td>
-                <td>{{ row.pricingModel || "-" }}</td>
-                <td>{{ meta.formatPriceSummary(row.basePrice) }}</td>
-                <td>{{ row.pricesCount }}</td>
+                <td>{{ meta.formatPriceSummary(row.corePrice) }}</td>
                 <td>{{ row.entitlementsCount }}</td>
                 <td class="text-right">
                   <div class="d-inline-flex ga-2">
@@ -67,8 +61,8 @@
                       size="small"
                       variant="text"
                       color="primary"
-                      :disabled="!row.basePrice"
-                      @click="actions.openEditDialog(row.id, row.basePrice?.id)"
+                      :disabled="!row.corePrice"
+                      @click="actions.openEditDialog(row.id)"
                     >
                       Edit
                     </v-btn>
@@ -96,26 +90,6 @@
                 :error-messages="state.createFieldErrors.code"
               />
             </v-col>
-            <v-col cols="12" md="4">
-              <v-text-field
-                v-model="state.createForm.planFamilyCode"
-                label="Plan family code"
-                variant="outlined"
-                density="compact"
-                :error-messages="state.createFieldErrors.planFamilyCode"
-              />
-            </v-col>
-            <v-col cols="12" md="4">
-              <v-text-field
-                v-model.number="state.createForm.version"
-                label="Version"
-                variant="outlined"
-                density="compact"
-                type="number"
-                min="1"
-                :error-messages="state.createFieldErrors.version"
-              />
-            </v-col>
             <v-col cols="12" md="6">
               <v-text-field
                 v-model="state.createForm.name"
@@ -123,18 +97,6 @@
                 variant="outlined"
                 density="compact"
                 :error-messages="state.createFieldErrors.name"
-              />
-            </v-col>
-            <v-col cols="12" md="6">
-              <v-select
-                v-model="state.createForm.pricingModel"
-                :items="meta.pricingModelOptions"
-                item-title="title"
-                item-value="value"
-                label="Pricing model"
-                variant="outlined"
-                density="compact"
-                :error-messages="state.createFieldErrors.pricingModel"
               />
             </v-col>
             <v-col cols="12">
@@ -150,9 +112,9 @@
           </v-row>
 
           <v-divider class="my-2" />
-          <div class="text-body-2 font-weight-medium mb-1">Base price</div>
+          <div class="text-body-2 font-weight-medium mb-1">Core price</div>
           <div class="text-caption text-medium-emphasis mb-2">
-            {{ state.ui.basePriceDescription }}
+            {{ state.ui.corePriceDescription }}
           </div>
           <v-row dense>
             <v-col cols="12" md="6">
@@ -170,7 +132,7 @@
                 "
                 :hint="state.ui.catalogPriceHint"
                 persistent-hint
-                :error-messages="state.createFieldErrors['basePrice.providerPriceId']"
+                :error-messages="state.createFieldErrors['corePrice.providerPriceId']"
               />
             </v-col>
             <v-col cols="12" md="6">
@@ -182,7 +144,7 @@
                 :readonly="state.isCreatePriceAutofilled"
                 :hint="state.ui.autoFillHint"
                 persistent-hint
-                :error-messages="state.createFieldErrors['basePrice.providerProductId']"
+                :error-messages="state.createFieldErrors['corePrice.providerProductId']"
               />
             </v-col>
             <v-col cols="12" md="4">
@@ -195,7 +157,7 @@
                 :readonly="state.isCreatePriceAutofilled"
                 :hint="state.ui.autoFillHint"
                 persistent-hint
-                :error-messages="state.createFieldErrors['basePrice.currency']"
+                :error-messages="state.createFieldErrors['corePrice.currency']"
               />
             </v-col>
             <v-col v-if="state.ui.showUnitAmountField !== false" cols="12" md="4">
@@ -209,7 +171,7 @@
                 :readonly="state.isCreatePriceAutofilled"
                 :hint="state.ui.autoFillHint"
                 persistent-hint
-                :error-messages="state.createFieldErrors['basePrice.unitAmountMinor']"
+                :error-messages="state.createFieldErrors['corePrice.unitAmountMinor']"
               />
             </v-col>
             <v-col cols="12" md="4">
@@ -224,7 +186,7 @@
                 :disabled="state.isCreatePriceAutofilled"
                 :hint="state.ui.autoFillHint"
                 persistent-hint
-                :error-messages="state.createFieldErrors['basePrice.interval']"
+                :error-messages="state.createFieldErrors['corePrice.interval']"
               />
             </v-col>
             <v-col cols="12" md="4">
@@ -238,7 +200,7 @@
                 :readonly="state.isCreatePriceAutofilled"
                 :hint="state.ui.autoFillHint"
                 persistent-hint
-                :error-messages="state.createFieldErrors['basePrice.intervalCount']"
+                :error-messages="state.createFieldErrors['corePrice.intervalCount']"
               />
             </v-col>
             <v-col cols="12">
@@ -270,42 +232,8 @@
           <div class="text-body-2 mb-3">
             <div><strong>Code:</strong> {{ state.selectedPlan.code }}</div>
             <div><strong>Name:</strong> {{ state.selectedPlan.name || "-" }}</div>
-            <div><strong>Family / version:</strong> {{ state.selectedPlan.planFamilyCode || "-" }} / v{{ state.selectedPlan.version || "-" }}</div>
-            <div><strong>Pricing model:</strong> {{ state.selectedPlan.pricingModel || "-" }}</div>
             <div><strong>Description:</strong> {{ state.selectedPlan.description || "-" }}</div>
-          </div>
-
-          <div class="text-body-2 font-weight-medium mb-1">Prices</div>
-          <div class="billing-plans-table-wrap mb-3">
-            <v-table density="compact">
-              <thead>
-                <tr>
-                  <th>Provider price</th>
-                  <th>Component</th>
-                  <th>Usage</th>
-                  <th>Interval</th>
-                  <th>Amount</th>
-                  <th class="text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-if="!state.selectedPlanPrices.length">
-                  <td colspan="6" class="text-center text-medium-emphasis py-6">No prices on this plan.</td>
-                </tr>
-                <tr v-for="price in state.selectedPlanPrices" :key="price.id">
-                  <td>{{ meta.shortenProviderPriceId(price.providerPriceId) }}</td>
-                  <td>{{ price.billingComponent }}</td>
-                  <td>{{ price.usageType }}</td>
-                  <td>{{ meta.formatInterval(price.interval, price.intervalCount) }}</td>
-                  <td>{{ meta.formatMoneyMinor(price.unitAmountMinor, price.currency) }}</td>
-                  <td class="text-right">
-                    <v-btn size="small" variant="text" color="primary" @click="actions.openEditDialog(state.selectedPlan.id, price.id)">
-                      Edit
-                    </v-btn>
-                  </td>
-                </tr>
-              </tbody>
-            </v-table>
+            <div><strong>Core price:</strong> {{ meta.formatPriceSummary(state.selectedPlan.corePrice) }}</div>
           </div>
 
           <div class="text-body-2 font-weight-medium mb-1">Entitlements</div>
@@ -322,7 +250,7 @@
 
     <v-dialog v-model="state.editDialogOpen" max-width="760">
       <v-card>
-        <v-card-title class="text-subtitle-1 font-weight-bold">Edit plan price</v-card-title>
+        <v-card-title class="text-subtitle-1 font-weight-bold">Edit core plan price</v-card-title>
         <v-divider />
         <v-card-text>
           <v-alert v-if="state.editError" type="error" variant="tonal" class="mb-3">
@@ -343,7 +271,7 @@
                 :no-data-text="
                   state.providerPricesLoading ? state.ui.catalogPriceNoDataLoading : state.ui.catalogPriceNoDataEmpty
                 "
-                :error-messages="state.editFieldErrors.providerPriceId"
+                :error-messages="state.editFieldErrors['corePrice.providerPriceId']"
               />
             </v-col>
             <v-col cols="12">
@@ -355,7 +283,7 @@
                 :readonly="state.isEditPriceAutofilled"
                 :hint="state.ui.autoFillHint"
                 persistent-hint
-                :error-messages="state.editFieldErrors.providerProductId"
+                :error-messages="state.editFieldErrors['corePrice.providerProductId']"
               />
             </v-col>
           </v-row>

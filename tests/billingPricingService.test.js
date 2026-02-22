@@ -5,219 +5,86 @@ import { AppError } from "../server/lib/errors.js";
 import { BILLING_FAILURE_CODES } from "../server/modules/billing/constants.js";
 import { createService as createBillingPricingService } from "../server/modules/billing/pricing.service.js";
 
-test("billing pricing service resolves hybrid checkout with base plus metered components", async () => {
-  const basePrice = {
-    id: 1,
-    providerPriceId: "price_base",
-    billingComponent: "base",
-    usageType: "licensed",
-    interval: "month",
-    intervalCount: 1,
-    currency: "USD",
-    isActive: true
-  };
-  const meteredPrice = {
-    id: 2,
-    providerPriceId: "price_metered",
-    billingComponent: "metered",
-    usageType: "metered",
-    interval: "month",
-    intervalCount: 1,
-    currency: "USD",
-    isActive: true
-  };
-
-  const service = createBillingPricingService({
+function createService() {
+  return createBillingPricingService({
     billingRepository: {
-      async findSellablePlanPricesForPlan() {
-        return [basePrice];
-      },
-      async listPlanPricesForPlan() {
-        return [
-          basePrice,
-          meteredPrice,
-          {
-            id: 3,
-            providerPriceId: "price_addon",
-            billingComponent: "add_on",
-            usageType: "licensed",
-            interval: "month",
-            intervalCount: 1,
-            currency: "USD",
-            isActive: true
-          }
-        ];
+      async findPlanById() {
+        return null;
       }
     },
-    billingCurrency: "usd"
+    billingCurrency: "USD"
   });
+}
+
+test("billing pricing service resolves one checkout price from plan core mapping", async () => {
+  const service = createService();
 
   const resolved = await service.resolveSubscriptionCheckoutPrices({
     plan: {
       id: 10,
-      pricingModel: "hybrid"
+      corePrice: {
+        provider: "stripe",
+        providerPriceId: "price_pro_monthly",
+        providerProductId: "prod_pro",
+        interval: "month",
+        intervalCount: 1,
+        currency: "USD",
+        unitAmountMinor: 4900
+      }
     },
     provider: "stripe"
   });
 
-  assert.equal(resolved.basePrice.providerPriceId, "price_base");
-  assert.deepEqual(
-    resolved.lineItemPrices.map((row) => row.providerPriceId),
-    ["price_base", "price_metered"]
-  );
+  assert.equal(resolved.basePrice.providerPriceId, "price_pro_monthly");
+  assert.deepEqual(resolved.lineItemPrices.map((row) => row.providerPriceId), ["price_pro_monthly"]);
 });
 
-test("billing pricing service resolves selected licensed optional components with explicit quantities", async () => {
-  const basePrice = {
-    id: 1,
-    providerPriceId: "price_base",
-    billingComponent: "base",
-    usageType: "licensed",
-    interval: "month",
-    intervalCount: 1,
-    currency: "USD",
-    isActive: true
-  };
-  const addOnPrice = {
-    id: 4,
-    providerPriceId: "price_addon_support",
-    billingComponent: "add_on",
-    usageType: "licensed",
-    interval: "month",
-    intervalCount: 1,
-    currency: "USD",
-    isActive: true
-  };
-
+test("billing pricing service resolves phase1 sellable price from stored plan core mapping", async () => {
   const service = createBillingPricingService({
     billingRepository: {
-      async findSellablePlanPricesForPlan() {
-        return [basePrice];
-      },
-      async listPlanPricesForPlan() {
-        return [basePrice, addOnPrice];
+      async findPlanById(planId) {
+        assert.equal(planId, 10);
+        return {
+          id: 10,
+          corePrice: {
+            provider: "stripe",
+            providerPriceId: "price_pro_monthly",
+            providerProductId: "prod_pro",
+            interval: "month",
+            intervalCount: 1,
+            currency: "USD",
+            unitAmountMinor: 4900
+          }
+        };
       }
     },
     billingCurrency: "USD"
   });
 
-  const resolved = await service.resolveSubscriptionCheckoutPrices({
-    plan: {
-      id: 10,
-      pricingModel: "flat"
-    },
-    provider: "stripe",
-    selectedComponents: [
-      {
-        providerPriceId: "price_addon_support",
-        quantity: 3
-      }
-    ]
+  const resolved = await service.resolvePhase1SellablePrice({
+    planId: 10,
+    provider: "stripe"
   });
 
-  assert.deepEqual(
-    resolved.lineItemPrices.map((row) => `${row.providerPriceId}:${row.quantity == null ? "-" : row.quantity}`),
-    ["price_base:-", "price_addon_support:3"]
-  );
+  assert.equal(resolved.providerPriceId, "price_pro_monthly");
 });
 
-test("billing pricing service fails closed when selected optional component price is unknown", async () => {
-  const basePrice = {
-    id: 1,
-    providerPriceId: "price_base",
-    billingComponent: "base",
-    usageType: "licensed",
-    interval: "month",
-    intervalCount: 1,
-    currency: "USD",
-    isActive: true
-  };
-
-  const service = createBillingPricingService({
-    billingRepository: {
-      async findSellablePlanPricesForPlan() {
-        return [basePrice];
-      },
-      async listPlanPricesForPlan() {
-        return [basePrice];
-      }
-    },
-    billingCurrency: "USD"
-  });
+test("billing pricing service fails closed on invalid core checkout mapping", async () => {
+  const service = createService();
 
   await assert.rejects(
     () =>
       service.resolveSubscriptionCheckoutPrices({
         plan: {
           id: 10,
-          pricingModel: "flat"
-        },
-        provider: "stripe",
-        selectedComponents: [
-          {
-            providerPriceId: "price_unknown_addon",
-            quantity: 2
-          }
-        ]
-      }),
-    (error) =>
-      error instanceof AppError &&
-      Number(error.statusCode) === 409 &&
-      String(error.code || "") === BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID
-  );
-});
-
-test("billing pricing service fails closed on hybrid metered interval mismatch", async () => {
-  const service = createBillingPricingService({
-    billingRepository: {
-      async findSellablePlanPricesForPlan() {
-        return [
-          {
-            id: 1,
-            providerPriceId: "price_base",
-            billingComponent: "base",
-            usageType: "licensed",
-            interval: "month",
-            intervalCount: 1,
-            currency: "USD",
-            isActive: true
-          }
-        ];
-      },
-      async listPlanPricesForPlan() {
-        return [
-          {
-            id: 1,
-            providerPriceId: "price_base",
-            billingComponent: "base",
-            usageType: "licensed",
-            interval: "month",
-            intervalCount: 1,
-            currency: "USD",
-            isActive: true
-          },
-          {
-            id: 2,
-            providerPriceId: "price_metered_weekly",
-            billingComponent: "metered",
-            usageType: "metered",
+          corePrice: {
+            provider: "stripe",
+            providerPriceId: "price_pro_weekly",
             interval: "week",
             intervalCount: 1,
             currency: "USD",
-            isActive: true
+            unitAmountMinor: 4900
           }
-        ];
-      }
-    },
-    billingCurrency: "USD"
-  });
-
-  await assert.rejects(
-    () =>
-      service.resolveSubscriptionCheckoutPrices({
-        plan: {
-          id: 10,
-          pricingModel: "hybrid"
         },
         provider: "stripe"
       }),

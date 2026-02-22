@@ -250,10 +250,9 @@ const conversation = Type.Object(
   }
 );
 
-const billingPlanPriceParams = Type.Object(
+const billingPlanParams = Type.Object(
   {
-    planId: Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" }),
-    priceId: Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" })
+    planId: Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" })
   },
   {
     additionalProperties: false
@@ -399,23 +398,15 @@ const billingEvents = Type.Object(
   }
 );
 
-const billingPlanPrice = Type.Object(
+const billingPlanCorePrice = Type.Object(
   {
-    id: Type.Integer({ minimum: 1 }),
-    planId: Type.Integer({ minimum: 1 }),
     provider: Type.String({ minLength: 1, maxLength: 32 }),
-    billingComponent: Type.String({ minLength: 1, maxLength: 32 }),
-    usageType: Type.String({ minLength: 1, maxLength: 32 }),
+    providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
+    providerProductId: Type.Union([Type.String({ minLength: 1, maxLength: 191 }), Type.Null()]),
     interval: Type.String({ minLength: 1, maxLength: 32 }),
     intervalCount: Type.Integer({ minimum: 1 }),
     currency: Type.String({ minLength: 3, maxLength: 3 }),
-    unitAmountMinor: Type.Integer({ minimum: 0 }),
-    providerProductId: Type.Union([Type.String({ minLength: 1, maxLength: 191 }), Type.Null()]),
-    providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
-    isActive: Type.Boolean(),
-    metadataJson: Type.Unknown(),
-    createdAt: Type.String({ format: "iso-utc-date-time" }),
-    updatedAt: Type.String({ format: "iso-utc-date-time" })
+    unitAmountMinor: Type.Integer({ minimum: 0 })
   },
   {
     additionalProperties: false
@@ -441,17 +432,14 @@ const billingPlan = Type.Object(
   {
     id: Type.Integer({ minimum: 1 }),
     code: Type.String({ minLength: 1, maxLength: 120 }),
-    planFamilyCode: Type.String({ minLength: 1, maxLength: 120 }),
-    version: Type.Integer({ minimum: 1 }),
     name: Type.String({ minLength: 1, maxLength: 160 }),
     description: Type.Union([Type.String(), Type.Null()]),
     appliesTo: Type.String({ minLength: 1, maxLength: 32 }),
-    pricingModel: Type.String({ minLength: 1, maxLength: 32 }),
+    corePrice: billingPlanCorePrice,
     isActive: Type.Boolean(),
     metadataJson: Type.Unknown(),
     createdAt: Type.String({ format: "iso-utc-date-time" }),
     updatedAt: Type.String({ format: "iso-utc-date-time" }),
-    prices: Type.Array(billingPlanPrice),
     entitlements: Type.Array(billingPlanEntitlement)
   },
   {
@@ -511,14 +499,11 @@ const billingPlanCreateResponse = Type.Object(
 const billingPlanCreateBody = Type.Object(
   {
     code: Type.String({ minLength: 1, maxLength: 120 }),
-    planFamilyCode: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
-    version: Type.Optional(Type.Integer({ minimum: 1 })),
     name: Type.String({ minLength: 1, maxLength: 160 }),
     description: Type.Optional(Type.String({ maxLength: 10000 })),
-    pricingModel: Type.Optional(enumSchema(["flat", "per_seat", "usage", "hybrid"])),
     isActive: Type.Optional(Type.Boolean()),
     metadataJson: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
-    basePrice: Type.Object(
+    corePrice: Type.Object(
       {
         providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
         providerProductId: Type.Optional(Type.String({ maxLength: 191 })),
@@ -551,10 +536,21 @@ const billingPlanCreateBody = Type.Object(
   }
 );
 
-const billingPlanPriceUpdateBody = Type.Object(
+const billingPlanUpdateBody = Type.Object(
   {
-    providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
-    providerProductId: Type.Optional(Type.String({ maxLength: 191 }))
+    corePrice: Type.Object(
+      {
+        providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
+        providerProductId: Type.Optional(Type.String({ maxLength: 191 })),
+        currency: Type.Optional(Type.String({ minLength: 3, maxLength: 3 })),
+        unitAmountMinor: Type.Optional(Type.Integer({ minimum: 0 })),
+        interval: Type.Optional(enumSchema(["day", "week", "month", "year"])),
+        intervalCount: Type.Optional(Type.Integer({ minimum: 1 }))
+      },
+      {
+        additionalProperties: false
+      }
+    )
   },
   {
     additionalProperties: false
@@ -638,7 +634,7 @@ const schema = {
     billingPlans,
     billingPlanCreate: billingPlanCreateResponse,
     billingProviderPrices,
-    billingPlanPriceUpdate: billingPlanCreateResponse
+    billingPlanUpdate: billingPlanCreateResponse
   },
   body: {
     createInvite,
@@ -646,7 +642,7 @@ const schema = {
     assistantSettingsUpdate,
     redeemInvite,
     billingPlanCreate: billingPlanCreateBody,
-    billingPlanPriceUpdate: billingPlanPriceUpdateBody
+    billingPlanUpdate: billingPlanUpdateBody
   },
   query: {
     aiTranscripts: aiTranscriptsQuery,
@@ -659,7 +655,7 @@ const schema = {
     member,
     invite,
     conversation,
-    billingPlanPrice: billingPlanPriceParams
+    billingPlan: billingPlanParams
   }
 };
 

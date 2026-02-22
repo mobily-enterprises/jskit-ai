@@ -1,5 +1,5 @@
 import { AppError } from "../../lib/errors.js";
-import { BILLING_FAILURE_CODES } from "./constants.js";
+import { BILLING_DEFAULT_PROVIDER, BILLING_FAILURE_CODES } from "./constants.js";
 
 function normalizeCurrency(value) {
   return String(value || "")
@@ -7,73 +7,29 @@ function normalizeCurrency(value) {
     .toUpperCase();
 }
 
-function normalizePricingModel(value) {
+function normalizeProvider(value) {
   return String(value || "")
     .trim()
     .toLowerCase();
 }
 
-function normalizeProviderPriceId(value) {
-  return String(value || "").trim();
-}
-
-function normalizeSelectedComponents(selectedComponents) {
-  const source = Array.isArray(selectedComponents) ? selectedComponents : [];
-  const normalized = [];
-  const seenProviderPriceIds = new Set();
-
-  for (const entry of source) {
-    const providerPriceId = normalizeProviderPriceId(entry?.providerPriceId || entry?.priceId);
-    const quantityRaw = entry?.quantity == null ? 1 : Number(entry.quantity);
-    if (!providerPriceId || !Number.isInteger(quantityRaw) || quantityRaw < 1 || quantityRaw > 10000) {
-      throw buildConfigurationInvalidError();
-    }
-
-    const dedupeKey = providerPriceId.toLowerCase();
-    if (seenProviderPriceIds.has(dedupeKey)) {
-      throw buildConfigurationInvalidError();
-    }
-    seenProviderPriceIds.add(dedupeKey);
-
-    normalized.push({
-      providerPriceId,
-      quantity: quantityRaw
-    });
-  }
-
-  normalized.sort((left, right) => left.providerPriceId.localeCompare(right.providerPriceId));
-  return normalized;
-}
-
-function isOptionalLicensedComponentPrice(price, { basePrice, deploymentCurrency }) {
-  if (!price || !price.isActive) {
-    return false;
-  }
-  if (Number(price.id) === Number(basePrice?.id)) {
-    return false;
-  }
-  if (normalizeCurrency(price.currency) !== deploymentCurrency) {
-    return false;
-  }
-  if (String(price.usageType || "").trim().toLowerCase() !== "licensed") {
-    return false;
-  }
-
-  const billingComponent = String(price.billingComponent || "")
+function normalizeInterval(value) {
+  return String(value || "")
     .trim()
     .toLowerCase();
-  if (billingComponent === "base" || !billingComponent) {
-    return false;
-  }
+}
 
-  if (
-    String(price.interval || "").trim().toLowerCase() !== String(basePrice?.interval || "").trim().toLowerCase() ||
-    Number(price.intervalCount || 0) !== Number(basePrice?.intervalCount || 0)
-  ) {
-    throw buildConfigurationInvalidError();
+function toPositiveInteger(value, fallback = null) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return fallback;
   }
+  return parsed;
+}
 
-  return true;
+function normalizeOptionalString(value) {
+  const normalized = String(value || "").trim();
+  return normalized || null;
 }
 
 function buildConfigurationInvalidError() {
@@ -85,12 +41,53 @@ function buildConfigurationInvalidError() {
   });
 }
 
-function createService({ billingRepository, billingCurrency }) {
-  if (!billingRepository || typeof billingRepository.findSellablePlanPricesForPlan !== "function") {
-    throw new Error("billingRepository.findSellablePlanPricesForPlan is required.");
+function toNormalizedCorePrice(plan, { provider, deploymentCurrency }) {
+  const corePrice = plan?.corePrice && typeof plan.corePrice === "object" ? plan.corePrice : null;
+  if (!corePrice) {
+    throw buildConfigurationInvalidError();
   }
-  if (typeof billingRepository.listPlanPricesForPlan !== "function") {
-    throw new Error("billingRepository.listPlanPricesForPlan is required.");
+
+  const expectedProvider = normalizeProvider(provider) || BILLING_DEFAULT_PROVIDER;
+  const mappedProvider = normalizeProvider(corePrice.provider) || BILLING_DEFAULT_PROVIDER;
+  if (mappedProvider !== expectedProvider) {
+    throw buildConfigurationInvalidError();
+  }
+
+  const providerPriceId = String(corePrice.providerPriceId || "").trim();
+  if (!providerPriceId) {
+    throw buildConfigurationInvalidError();
+  }
+
+  const currency = normalizeCurrency(corePrice.currency);
+  if (currency !== deploymentCurrency) {
+    throw buildConfigurationInvalidError();
+  }
+
+  const interval = normalizeInterval(corePrice.interval);
+  const intervalCount = toPositiveInteger(corePrice.intervalCount, 1);
+  if (interval !== "month" || intervalCount !== 1) {
+    throw buildConfigurationInvalidError();
+  }
+
+  const unitAmountMinor = Number(corePrice.unitAmountMinor);
+  if (!Number.isInteger(unitAmountMinor) || unitAmountMinor < 0) {
+    throw buildConfigurationInvalidError();
+  }
+
+  return {
+    provider: mappedProvider,
+    providerPriceId,
+    providerProductId: normalizeOptionalString(corePrice.providerProductId),
+    interval,
+    intervalCount,
+    currency,
+    unitAmountMinor
+  };
+}
+
+function createService({ billingRepository, billingCurrency }) {
+  if (!billingRepository || typeof billingRepository.findPlanById !== "function") {
+    throw new Error("billingRepository.findPlanById is required.");
   }
 
   const deploymentCurrency = normalizeCurrency(billingCurrency);
@@ -98,112 +95,42 @@ function createService({ billingRepository, billingCurrency }) {
     throw new Error("billingCurrency is required.");
   }
 
-  async function resolvePhase1SellablePrice({ planId, provider }) {
-    const prices = await billingRepository.findSellablePlanPricesForPlan({
-      planId,
-      provider,
-      currency: deploymentCurrency
-    });
-
-    if (!Array.isArray(prices) || prices.length !== 1) {
-      throw buildConfigurationInvalidError();
-    }
-
-    const [price] = prices;
-    if (normalizeCurrency(price.currency) !== deploymentCurrency) {
-      throw buildConfigurationInvalidError();
-    }
-
-    return price;
-  }
-
-  async function resolveSubscriptionCheckoutPrices({ plan, provider, selectedComponents = [] }) {
+  async function resolvePlanCheckoutPrice({ plan, provider }) {
     const planId = Number(plan?.id || 0);
     if (!Number.isInteger(planId) || planId < 1) {
       throw buildConfigurationInvalidError();
     }
 
-    const normalizedSelectedComponents = normalizeSelectedComponents(selectedComponents);
-    const basePrice = await resolvePhase1SellablePrice({
-      planId,
-      provider
+    return toNormalizedCorePrice(plan, {
+      provider,
+      deploymentCurrency
     });
+  }
 
-    const pricingModel = normalizePricingModel(plan?.pricingModel);
-    const includeMetered = pricingModel === "usage" || pricingModel === "hybrid";
-    const includeOptionalLicensed = normalizedSelectedComponents.length > 0;
-    if (!includeMetered && !includeOptionalLicensed) {
-      return {
-        basePrice,
-        selectedLicensedComponentPrices: [],
-        meteredComponentPrices: [],
-        lineItemPrices: [basePrice]
-      };
+  async function resolvePhase1SellablePrice({ planId, provider }) {
+    const normalizedPlanId = Number(planId);
+    if (!Number.isInteger(normalizedPlanId) || normalizedPlanId < 1) {
+      throw buildConfigurationInvalidError();
     }
 
-    const planPrices = await billingRepository.listPlanPricesForPlan(planId, provider);
-    const selectedLicensedComponentPrices = [];
-    if (includeOptionalLicensed) {
-      for (const selectedComponent of normalizedSelectedComponents) {
-        const requestedProviderPriceId = String(selectedComponent.providerPriceId || "")
-          .trim()
-          .toLowerCase();
-        const matches = planPrices.filter((price) => {
-          if (!isOptionalLicensedComponentPrice(price, { basePrice, deploymentCurrency })) {
-            return false;
-          }
-          return String(price.providerPriceId || "").trim().toLowerCase() === requestedProviderPriceId;
-        });
-
-        if (matches.length !== 1) {
-          throw buildConfigurationInvalidError();
-        }
-
-        const [componentPrice] = matches;
-        selectedLicensedComponentPrices.push({
-          ...componentPrice,
-          quantity: selectedComponent.quantity
-        });
-      }
+    const plan = await billingRepository.findPlanById(normalizedPlanId);
+    if (!plan) {
+      throw buildConfigurationInvalidError();
     }
 
-    const meteredComponentPrices = [];
-    if (includeMetered) {
-      for (const price of planPrices) {
-        if (!price || !price.isActive) {
-          continue;
-        }
-        if (Number(price.id) === Number(basePrice.id)) {
-          continue;
-        }
-        if (normalizeCurrency(price.currency) !== deploymentCurrency) {
-          continue;
-        }
-        if (String(price.usageType || "").trim().toLowerCase() !== "metered") {
-          continue;
-        }
-        if (
-          String(price.interval || "").trim().toLowerCase() !== String(basePrice.interval || "").trim().toLowerCase() ||
-          Number(price.intervalCount || 0) !== Number(basePrice.intervalCount || 0)
-        ) {
-          throw buildConfigurationInvalidError();
-        }
+    return resolvePlanCheckoutPrice({ plan, provider });
+  }
 
-        meteredComponentPrices.push(price);
-      }
-    }
-
-    meteredComponentPrices.sort((left, right) => Number(left.id || 0) - Number(right.id || 0));
-
+  async function resolveSubscriptionCheckoutPrices({ plan, provider }) {
+    const basePrice = await resolvePlanCheckoutPrice({ plan, provider });
     return {
       basePrice,
-      selectedLicensedComponentPrices,
-      meteredComponentPrices,
-      lineItemPrices: [basePrice, ...selectedLicensedComponentPrices, ...meteredComponentPrices]
+      lineItemPrices: [basePrice]
     };
   }
 
   return {
+    resolvePlanCheckoutPrice,
     resolvePhase1SellablePrice,
     resolveSubscriptionCheckoutPrices,
     deploymentCurrency
@@ -212,10 +139,11 @@ function createService({ billingRepository, billingCurrency }) {
 
 const __testables = {
   normalizeCurrency,
-  normalizePricingModel,
-  normalizeProviderPriceId,
-  normalizeSelectedComponents,
-  isOptionalLicensedComponentPrice
+  normalizeProvider,
+  normalizeInterval,
+  toPositiveInteger,
+  normalizeOptionalString,
+  toNormalizedCorePrice
 };
 
 export { createService, __testables };

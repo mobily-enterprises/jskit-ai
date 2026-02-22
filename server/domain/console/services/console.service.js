@@ -32,14 +32,14 @@ import {
   DEFAULT_BILLING_PROVIDER,
   resolveBillingProvider,
   normalizeBillingCatalogPlanCreatePayload,
-  normalizeBillingCatalogPlanPricePatchPayload,
+  normalizeBillingCatalogPlanUpdatePayload,
   mapBillingPlanDuplicateError,
   ensureBillingCatalogRepository,
   buildConsoleBillingPlanCatalog
 } from "./billingCatalog.service.js";
 import {
-  resolveCatalogBasePriceForCreate,
-  resolveCatalogPricePatchForUpdate
+  resolveCatalogCorePriceForCreate,
+  resolveCatalogCorePriceForUpdate
 } from "./billingCatalogProviderPricing.service.js";
 
 function createService({
@@ -673,19 +673,18 @@ function createService({
     const normalized = normalizeBillingCatalogPlanCreatePayload(payload, {
       activeBillingProvider
     });
-    const resolvedBasePrice = await resolveCatalogBasePriceForCreate({
+    const resolvedCorePrice = await resolveCatalogCorePriceForCreate({
       activeBillingProvider,
       billingProviderAdapter,
-      basePrice: normalized.basePrice
+      corePrice: normalized.plan.corePrice
     });
 
     try {
       const createdPlan = await billingRepository.transaction(async (trx) => {
-        const plan = await billingRepository.createPlan(normalized.plan, { trx });
-        await billingRepository.createPlanPrice(
+        const plan = await billingRepository.createPlan(
           {
-            ...resolvedBasePrice,
-            planId: plan.id
+            ...normalized.plan,
+            corePrice: resolvedCorePrice
           },
           { trx }
         );
@@ -702,11 +701,9 @@ function createService({
           );
         }
 
-        const prices = await billingRepository.listPlanPricesForPlan(plan.id, activeBillingProvider, { trx });
         const entitlements = await billingRepository.listPlanEntitlementsForPlan(plan.id, { trx });
         return {
           ...plan,
-          prices,
           entitlements
         };
       });
@@ -751,7 +748,7 @@ function createService({
     };
   }
 
-  async function updateBillingPlanPrice(user, params = {}, payload = {}) {
+  async function updateBillingPlan(user, params = {}, payload = {}) {
     await requirePermission(user, CONSOLE_BILLING_PERMISSIONS.CATALOG_MANAGE);
 
     if (!billingEnabled) {
@@ -759,30 +756,25 @@ function createService({
     }
 
     ensureBillingCatalogRepository(billingRepository);
-    if (typeof billingRepository.updatePlanPriceById !== "function") {
-      throw new AppError(501, "Console billing catalog is not available.");
-    }
 
     const planId = parsePositiveInteger(params?.planId);
-    const priceId = parsePositiveInteger(params?.priceId);
-    if (!planId || !priceId) {
+    if (!planId) {
       throw new AppError(400, "Validation failed.", {
         details: {
           fieldErrors: {
-            planId: "planId is required.",
-            priceId: "priceId is required."
+            planId: "planId is required."
           }
         }
       });
     }
 
-    const normalizedPatch = normalizeBillingCatalogPlanPricePatchPayload(payload, {
+    const normalizedPatch = normalizeBillingCatalogPlanUpdatePayload(payload, {
       activeBillingProvider
     });
-    const resolvedPatch = await resolveCatalogPricePatchForUpdate({
+    const resolvedCorePrice = await resolveCatalogCorePriceForUpdate({
       activeBillingProvider,
       billingProviderAdapter,
-      patch: normalizedPatch
+      corePrice: normalizedPatch.corePrice
     });
 
     try {
@@ -792,31 +784,17 @@ function createService({
           throw new AppError(404, "Billing plan not found.");
         }
 
-        const prices = await billingRepository.listPlanPricesForPlan(plan.id, activeBillingProvider, { trx });
-        const targetPrice = prices.find((entry) => Number(entry?.id) === priceId);
-        if (!targetPrice) {
-          throw new AppError(404, "Billing plan price not found.");
-        }
-
-        await billingRepository.updatePlanPriceById(
-          priceId,
+        const nextPlan = await billingRepository.updatePlanById(
+          plan.id,
           {
-            providerPriceId: resolvedPatch.providerPriceId,
-            providerProductId: resolvedPatch.providerProductId,
-            currency: resolvedPatch.currency,
-            unitAmountMinor: resolvedPatch.unitAmountMinor,
-            interval: resolvedPatch.interval,
-            intervalCount: resolvedPatch.intervalCount,
-            usageType: resolvedPatch.usageType
+            corePrice: resolvedCorePrice
           },
           { trx }
         );
 
-        const nextPrices = await billingRepository.listPlanPricesForPlan(plan.id, activeBillingProvider, { trx });
         const entitlements = await billingRepository.listPlanEntitlementsForPlan(plan.id, { trx });
         return {
-          ...plan,
-          prices: nextPrices,
+          ...nextPlan,
           entitlements
         };
       });
@@ -852,7 +830,7 @@ function createService({
     listBillingPlans,
     createBillingPlan,
     listBillingProviderPrices,
-    updateBillingPlanPrice
+    updateBillingPlan
   };
 }
 
