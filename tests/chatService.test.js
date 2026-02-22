@@ -7,6 +7,7 @@ import { createService as createChatService, __testables } from "../server/modul
 function createChatServiceFixture(options = {}) {
   const state = {
     nextMessageId: 1,
+    nextAttachmentId: 1,
     nextThreadId: 90,
     thread: {
       id: Number(options.threadId || 11),
@@ -27,6 +28,7 @@ function createChatServiceFixture(options = {}) {
     messages: [],
     tombstonesByKey: new Map(),
     attachmentsById: new Map(),
+    attachmentStorageByKey: new Map(),
     reactionsByMessageId: new Map(),
     dmByPair: new Map(),
     realtimeEvents: [],
@@ -96,6 +98,42 @@ function createChatServiceFixture(options = {}) {
     const left = Number(userAId);
     const right = Number(userBId);
     return left < right ? `${left}:${right}` : `${right}:${left}`;
+  }
+
+  function cloneAttachment(attachment) {
+    if (!attachment) {
+      return null;
+    }
+
+    return {
+      ...attachment,
+      metadata: attachment.metadata && typeof attachment.metadata === "object" ? { ...attachment.metadata } : {}
+    };
+  }
+
+  function findAttachmentByClientAttachmentId(threadId, userId, clientAttachmentId) {
+    const normalizedClientAttachmentId = String(clientAttachmentId || "").trim();
+    if (!normalizedClientAttachmentId) {
+      return null;
+    }
+
+    return (
+      Array.from(state.attachmentsById.values()).find((attachment) => {
+        return (
+          Number(attachment.threadId) === Number(threadId) &&
+          Number(attachment.uploadedByUserId) === Number(userId) &&
+          String(attachment.clientAttachmentId || "") === normalizedClientAttachmentId
+        );
+      }) || null
+    );
+  }
+
+  function createAttachmentTransitionError(currentStatus, nextStatus) {
+    const error = new Error(`Invalid attachment status transition: ${currentStatus} -> ${nextStatus}`);
+    error.code = "CHAT_ATTACHMENT_INVALID_STATUS_TRANSITION";
+    error.currentStatus = currentStatus;
+    error.nextStatus = nextStatus;
+    return error;
   }
 
   const repositories = {
@@ -259,9 +297,135 @@ function createChatServiceFixture(options = {}) {
       }
     },
     chatAttachmentsRepository: {
+      async insertReserved(payload) {
+        const existing = findAttachmentByClientAttachmentId(
+          payload.threadId,
+          payload.uploadedByUserId,
+          payload.clientAttachmentId
+        );
+        if (existing) {
+          const error = new Error("Duplicate attachment client key.");
+          error.errno = 1062;
+          error.code = "ER_DUP_ENTRY";
+          error.sqlMessage = "Duplicate entry for key uq_chat_attachments_thread_user_client_attachment_id";
+          throw error;
+        }
+
+        const inserted = {
+          id: state.nextAttachmentId++,
+          threadId: Number(payload.threadId),
+          messageId: payload.messageId == null ? null : Number(payload.messageId),
+          uploadedByUserId: Number(payload.uploadedByUserId),
+          clientAttachmentId: String(payload.clientAttachmentId || ""),
+          position: payload.position == null ? null : Number(payload.position),
+          attachmentKind: String(payload.attachmentKind || "file"),
+          status: "reserved",
+          storageDriver: String(payload.storageDriver || "fs"),
+          storageKey: payload.storageKey || null,
+          deliveryPath: payload.deliveryPath || null,
+          previewStorageKey: payload.previewStorageKey || null,
+          previewDeliveryPath: payload.previewDeliveryPath || null,
+          mimeType: payload.mimeType || null,
+          fileName: payload.fileName || null,
+          sizeBytes: payload.sizeBytes == null ? null : Number(payload.sizeBytes),
+          sha256Hex: payload.sha256Hex || null,
+          width: payload.width == null ? null : Number(payload.width),
+          height: payload.height == null ? null : Number(payload.height),
+          durationMs: payload.durationMs == null ? null : Number(payload.durationMs),
+          uploadExpiresAt: payload.uploadExpiresAt || null,
+          processedAt: payload.processedAt || null,
+          failedReason: payload.failedReason || null,
+          metadata: payload.metadata && typeof payload.metadata === "object" ? { ...payload.metadata } : {},
+          createdAt: "2026-02-22T00:00:00.000Z",
+          updatedAt: "2026-02-22T00:00:00.000Z",
+          deletedAt: payload.deletedAt || null
+        };
+
+        state.attachmentsById.set(inserted.id, inserted);
+        return cloneAttachment(inserted);
+      },
+      async findByClientAttachmentId(threadId, userId, clientAttachmentId) {
+        return cloneAttachment(findAttachmentByClientAttachmentId(threadId, userId, clientAttachmentId));
+      },
       async findById(attachmentId) {
         const found = state.attachmentsById.get(Number(attachmentId));
-        return found ? { ...found } : null;
+        return cloneAttachment(found);
+      },
+      async markUploading(attachmentId) {
+        const attachment = state.attachmentsById.get(Number(attachmentId));
+        if (!attachment) {
+          return null;
+        }
+
+        const currentStatus = String(attachment.status || "");
+        if (currentStatus !== "reserved" && currentStatus !== "failed") {
+          throw createAttachmentTransitionError(currentStatus, "uploading");
+        }
+
+        attachment.status = "uploading";
+        attachment.updatedAt = "2026-02-22T00:00:00.000Z";
+        return cloneAttachment(attachment);
+      },
+      async markUploaded(attachmentId, patch) {
+        const attachment = state.attachmentsById.get(Number(attachmentId));
+        if (!attachment) {
+          return null;
+        }
+
+        const currentStatus = String(attachment.status || "");
+        if (currentStatus !== "uploading") {
+          throw createAttachmentTransitionError(currentStatus, "uploaded");
+        }
+
+        attachment.status = "uploaded";
+        attachment.storageDriver = patch.storageDriver || attachment.storageDriver;
+        attachment.storageKey = patch.storageKey || null;
+        attachment.deliveryPath = patch.deliveryPath || null;
+        attachment.previewStorageKey = patch.previewStorageKey || null;
+        attachment.previewDeliveryPath = patch.previewDeliveryPath || null;
+        attachment.mimeType = patch.mimeType || attachment.mimeType;
+        attachment.fileName = patch.fileName || attachment.fileName;
+        attachment.sizeBytes = patch.sizeBytes == null ? attachment.sizeBytes : Number(patch.sizeBytes);
+        attachment.sha256Hex = patch.sha256Hex || null;
+        attachment.processedAt = "2026-02-22T00:00:00.000Z";
+        attachment.updatedAt = "2026-02-22T00:00:00.000Z";
+        return cloneAttachment(attachment);
+      },
+      async markFailed(attachmentId, failedReason) {
+        const attachment = state.attachmentsById.get(Number(attachmentId));
+        if (!attachment) {
+          return null;
+        }
+
+        const currentStatus = String(attachment.status || "");
+        if (currentStatus !== "reserved" && currentStatus !== "uploading" && currentStatus !== "uploaded") {
+          throw createAttachmentTransitionError(currentStatus, "failed");
+        }
+
+        attachment.status = "failed";
+        attachment.failedReason = failedReason ? String(failedReason) : null;
+        attachment.updatedAt = "2026-02-22T00:00:00.000Z";
+        return cloneAttachment(attachment);
+      },
+      async markDeleted(attachmentId, patch = {}) {
+        const attachment = state.attachmentsById.get(Number(attachmentId));
+        if (!attachment) {
+          return null;
+        }
+
+        const currentStatus = String(attachment.status || "");
+        if (!["reserved", "uploading", "uploaded", "attached", "failed", "quarantined"].includes(currentStatus)) {
+          throw createAttachmentTransitionError(currentStatus, "deleted");
+        }
+
+        attachment.status = "deleted";
+        attachment.storageKey = null;
+        attachment.deliveryPath = null;
+        attachment.previewStorageKey = null;
+        attachment.previewDeliveryPath = null;
+        attachment.deletedAt = patch.deletedAt || "2026-02-22T00:00:00.000Z";
+        attachment.updatedAt = "2026-02-22T00:00:00.000Z";
+        return cloneAttachment(attachment);
       },
       async attachToMessage(attachmentId, patch) {
         const attachment = state.attachmentsById.get(Number(attachmentId));
@@ -272,20 +436,20 @@ function createChatServiceFixture(options = {}) {
         attachment.messageId = Number(patch.messageId);
         attachment.position = Number(patch.position);
         attachment.status = "attached";
-        return { ...attachment };
+        return cloneAttachment(attachment);
       },
       async listByMessageId(messageId) {
         return Array.from(state.attachmentsById.values())
           .filter((attachment) => Number(attachment.messageId) === Number(messageId))
           .sort((left, right) => Number(left.position || 0) - Number(right.position || 0))
-          .map((row) => ({ ...row }));
+          .map(cloneAttachment);
       },
       async listByMessageIds(messageIds) {
         const idSet = new Set((Array.isArray(messageIds) ? messageIds : []).map((value) => Number(value)));
         return Array.from(state.attachmentsById.values())
           .filter((attachment) => idSet.has(Number(attachment.messageId)))
           .sort((left, right) => Number(left.id) - Number(right.id))
-          .map((row) => ({ ...row }));
+          .map(cloneAttachment);
       }
     },
     chatReactionsRepository: {
@@ -377,6 +541,24 @@ function createChatServiceFixture(options = {}) {
     }
   };
 
+  const chatAttachmentStorageService = options.chatAttachmentStorageService || {
+    driver: "fs",
+    async saveAttachment({ attachmentId, buffer }) {
+      const storageKey = `chat/attachments/${Number(attachmentId)}/${Date.now()}`;
+      state.attachmentStorageByKey.set(storageKey, Buffer.from(buffer));
+      return {
+        storageKey
+      };
+    },
+    async readAttachment(storageKey) {
+      const buffer = state.attachmentStorageByKey.get(String(storageKey || ""));
+      return buffer ? Buffer.from(buffer) : null;
+    },
+    async deleteAttachment(storageKey) {
+      state.attachmentStorageByKey.delete(String(storageKey || ""));
+    }
+  };
+
   const chatRealtimeService = options.chatRealtimeService || {
     publishThreadEvent(payload) {
       state.realtimeEvents.push({
@@ -406,6 +588,13 @@ function createChatServiceFixture(options = {}) {
       });
       return payload;
     },
+    publishAttachmentUpdated(payload) {
+      state.realtimeEvents.push({
+        kind: "attachment",
+        payload
+      });
+      return payload;
+    },
     emitTyping(payload) {
       state.realtimeEvents.push({
         kind: "typing",
@@ -418,6 +607,7 @@ function createChatServiceFixture(options = {}) {
   const service = createChatService({
     ...repositories,
     chatRealtimeService,
+    chatAttachmentStorageService,
     rbacManifest: {
       version: 1,
       defaultInviteRole: null,
@@ -438,7 +628,10 @@ function createChatServiceFixture(options = {}) {
       chatMessageMaxTextChars: 4000,
       chatMessagesPageSizeMax: 100,
       chatThreadsPageSizeMax: 50,
+      chatAttachmentsEnabled: options.chatAttachmentsEnabled !== false,
       chatAttachmentsMaxFilesPerMessage: 5,
+      chatAttachmentMaxUploadBytes: options.chatAttachmentMaxUploadBytes || 20_000_000,
+      chatUnattachedUploadRetentionHours: options.chatUnattachedUploadRetentionHours || 24,
       chatTypingRateLimit: options.chatTypingRateLimit,
       chatTypingRateWindowMs: options.chatTypingRateWindowMs,
       chatTypingThrottleMs: options.chatTypingThrottleMs,
@@ -639,6 +832,324 @@ test("sendThreadMessage remains successful when realtime publish fails post-comm
 
   assert.equal(result.idempotencyStatus, "created");
   assert.equal(result.message.clientMessageId, "cm_realtime_failure");
+});
+
+test("reserveThreadAttachment replays identical payload and rejects metadata conflicts", async () => {
+  const { service } = createChatServiceFixture();
+  const user = { id: 5 };
+
+  const first = await service.reserveThreadAttachment({
+    user,
+    threadId: 11,
+    surfaceId: "app",
+    payload: {
+      clientAttachmentId: "ca_1",
+      fileName: "note.txt",
+      mimeType: "text/plain",
+      sizeBytes: 5,
+      kind: "file",
+      metadata: {
+        source: "composer"
+      }
+    }
+  });
+  assert.equal(first.attachment.clientAttachmentId, "ca_1");
+
+  const replay = await service.reserveThreadAttachment({
+    user,
+    threadId: 11,
+    surfaceId: "app",
+    payload: {
+      clientAttachmentId: "ca_1",
+      fileName: "note.txt",
+      mimeType: "text/plain",
+      sizeBytes: 5,
+      kind: "file",
+      metadata: {
+        source: "composer"
+      }
+    }
+  });
+  assert.equal(replay.attachment.id, first.attachment.id);
+
+  await assert.rejects(
+    () =>
+      service.reserveThreadAttachment({
+        user,
+        threadId: 11,
+        surfaceId: "app",
+        payload: {
+          clientAttachmentId: "ca_1",
+          fileName: "other.txt",
+          mimeType: "text/plain",
+          sizeBytes: 5,
+          kind: "file",
+          metadata: {
+            source: "composer"
+          }
+        }
+      }),
+    (error) => {
+      assert.ok(error instanceof AppError);
+      assert.equal(error.statusCode, 409);
+      assert.equal(error.details?.code, "CHAT_ATTACHMENT_CONFLICT");
+      return true;
+    }
+  );
+});
+
+test("uploadThreadAttachment returns CHAT_ATTACHMENT_UPLOAD_IN_PROGRESS for uploading rows", async () => {
+  const { service, state } = createChatServiceFixture();
+  const user = { id: 5 };
+
+  const reserved = await service.reserveThreadAttachment({
+    user,
+    threadId: 11,
+    surfaceId: "app",
+    payload: {
+      clientAttachmentId: "ca_uploading",
+      fileName: "note.txt",
+      mimeType: "text/plain",
+      sizeBytes: 5
+    }
+  });
+
+  const attachment = state.attachmentsById.get(Number(reserved.attachment.id));
+  attachment.status = "uploading";
+
+  await assert.rejects(
+    () =>
+      service.uploadThreadAttachment({
+        user,
+        threadId: 11,
+        surfaceId: "app",
+        attachmentId: reserved.attachment.id,
+        payload: {
+          fileBuffer: Buffer.from("hello"),
+          uploadFileName: "note.txt",
+          uploadMimeType: "text/plain"
+        }
+      }),
+    (error) => {
+      assert.ok(error instanceof AppError);
+      assert.equal(error.statusCode, 409);
+      assert.equal(error.details?.code, "CHAT_ATTACHMENT_UPLOAD_IN_PROGRESS");
+      return true;
+    }
+  );
+});
+
+test("uploadThreadAttachment replays same bytes and rejects conflicting bytes for the same attachment", async () => {
+  const { service } = createChatServiceFixture();
+  const user = { id: 5 };
+
+  const reserved = await service.reserveThreadAttachment({
+    user,
+    threadId: 11,
+    surfaceId: "app",
+    payload: {
+      clientAttachmentId: "ca_upload",
+      fileName: "note.txt",
+      mimeType: "text/plain",
+      sizeBytes: 5
+    }
+  });
+
+  const first = await service.uploadThreadAttachment({
+    user,
+    threadId: 11,
+    surfaceId: "app",
+    attachmentId: reserved.attachment.id,
+    payload: {
+      fileBuffer: Buffer.from("hello"),
+      uploadFileName: "note.txt",
+      uploadMimeType: "text/plain"
+    }
+  });
+  assert.equal(first.attachment.status, "uploaded");
+
+  const replay = await service.uploadThreadAttachment({
+    user,
+    threadId: 11,
+    surfaceId: "app",
+    attachmentId: reserved.attachment.id,
+    payload: {
+      fileBuffer: Buffer.from("hello"),
+      uploadFileName: "note.txt",
+      uploadMimeType: "text/plain"
+    }
+  });
+  assert.equal(replay.attachment.id, first.attachment.id);
+
+  await assert.rejects(
+    () =>
+      service.uploadThreadAttachment({
+        user,
+        threadId: 11,
+        surfaceId: "app",
+        attachmentId: reserved.attachment.id,
+        payload: {
+          fileBuffer: Buffer.from("jello"),
+          uploadFileName: "note.txt",
+          uploadMimeType: "text/plain"
+        }
+      }),
+    (error) => {
+      assert.ok(error instanceof AppError);
+      assert.equal(error.statusCode, 409);
+      assert.equal(error.details?.code, "CHAT_ATTACHMENT_CONFLICT");
+      return true;
+    }
+  );
+});
+
+test("getAttachmentContent restricts staged access to uploader and allows attached thread participants", async () => {
+  const { service, state } = createChatServiceFixture({
+    otherParticipantUserId: 8
+  });
+
+  const reserved = await service.reserveThreadAttachment({
+    user: { id: 5 },
+    threadId: 11,
+    surfaceId: "app",
+    payload: {
+      clientAttachmentId: "ca_content",
+      fileName: "note.txt",
+      mimeType: "text/plain",
+      sizeBytes: 5
+    }
+  });
+
+  await service.uploadThreadAttachment({
+    user: { id: 5 },
+    threadId: 11,
+    surfaceId: "app",
+    attachmentId: reserved.attachment.id,
+    payload: {
+      fileBuffer: Buffer.from("hello"),
+      uploadFileName: "note.txt",
+      uploadMimeType: "text/plain"
+    }
+  });
+
+  const uploaderResult = await service.getAttachmentContent({
+    user: { id: 5 },
+    attachmentId: reserved.attachment.id,
+    surfaceId: "app"
+  });
+  assert.equal(Buffer.isBuffer(uploaderResult.contentBuffer), true);
+  assert.equal(uploaderResult.contentBuffer.toString("utf8"), "hello");
+
+  await assert.rejects(
+    () =>
+      service.getAttachmentContent({
+        user: { id: 8 },
+        attachmentId: reserved.attachment.id,
+        surfaceId: "app"
+      }),
+    (error) => {
+      assert.ok(error instanceof AppError);
+      assert.equal(error.statusCode, 404);
+      assert.equal(error.details?.code, "CHAT_ATTACHMENT_NOT_FOUND");
+      return true;
+    }
+  );
+
+  const attachment = state.attachmentsById.get(Number(reserved.attachment.id));
+  attachment.status = "attached";
+  attachment.messageId = 1;
+
+  const participantResult = await service.getAttachmentContent({
+    user: { id: 8 },
+    attachmentId: reserved.attachment.id,
+    surfaceId: "app"
+  });
+  assert.equal(participantResult.contentBuffer.toString("utf8"), "hello");
+});
+
+test("deleteThreadAttachment clears staged storage and rejects attached attachments", async () => {
+  const { service, state } = createChatServiceFixture();
+  const user = { id: 5 };
+
+  const reserved = await service.reserveThreadAttachment({
+    user,
+    threadId: 11,
+    surfaceId: "app",
+    payload: {
+      clientAttachmentId: "ca_delete",
+      fileName: "note.txt",
+      mimeType: "text/plain",
+      sizeBytes: 5
+    }
+  });
+
+  await service.uploadThreadAttachment({
+    user,
+    threadId: 11,
+    surfaceId: "app",
+    attachmentId: reserved.attachment.id,
+    payload: {
+      fileBuffer: Buffer.from("hello"),
+      uploadFileName: "note.txt",
+      uploadMimeType: "text/plain"
+    }
+  });
+
+  const beforeDeleteKeys = Array.from(state.attachmentStorageByKey.keys());
+  assert.equal(beforeDeleteKeys.length > 0, true);
+
+  await service.deleteThreadAttachment({
+    user,
+    threadId: 11,
+    surfaceId: "app",
+    attachmentId: reserved.attachment.id
+  });
+
+  assert.equal(state.attachmentStorageByKey.size, 0);
+  assert.equal(state.attachmentsById.get(Number(reserved.attachment.id))?.status, "deleted");
+
+  const attachedReserved = await service.reserveThreadAttachment({
+    user,
+    threadId: 11,
+    surfaceId: "app",
+    payload: {
+      clientAttachmentId: "ca_delete_attached",
+      fileName: "note.txt",
+      mimeType: "text/plain",
+      sizeBytes: 5
+    }
+  });
+  await service.uploadThreadAttachment({
+    user,
+    threadId: 11,
+    surfaceId: "app",
+    attachmentId: attachedReserved.attachment.id,
+    payload: {
+      fileBuffer: Buffer.from("hello"),
+      uploadFileName: "note.txt",
+      uploadMimeType: "text/plain"
+    }
+  });
+
+  const attached = state.attachmentsById.get(Number(attachedReserved.attachment.id));
+  attached.status = "attached";
+  attached.messageId = 2;
+
+  await assert.rejects(
+    () =>
+      service.deleteThreadAttachment({
+        user,
+        threadId: 11,
+        surfaceId: "app",
+        attachmentId: attachedReserved.attachment.id
+      }),
+    (error) => {
+      assert.ok(error instanceof AppError);
+      assert.equal(error.statusCode, 409);
+      assert.equal(error.details?.code, "CHAT_ATTACHMENT_CONFLICT");
+      return true;
+    }
+  );
 });
 
 test("emitThreadTyping excludes actor and applies throttle plus ttl stop emit", async () => {

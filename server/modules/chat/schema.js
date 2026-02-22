@@ -1,6 +1,12 @@
 import { Type } from "@fastify/type-provider-typebox";
 
-function createSchema({ messageMaxChars = 4000, messagePageSizeMax = 100, inboxPageSizeMax = 50 } = {}) {
+function createSchema({
+  messageMaxChars = 4000,
+  messagePageSizeMax = 100,
+  inboxPageSizeMax = 50,
+  attachmentsMaxFilesPerMessage = 5,
+  attachmentMaxUploadBytes = 20_000_000
+} = {}) {
   const threadId = Type.Integer({ minimum: 1 });
   const messageId = Type.Integer({ minimum: 1 });
   const attachmentId = Type.Integer({ minimum: 1 });
@@ -8,6 +14,25 @@ function createSchema({ messageMaxChars = 4000, messagePageSizeMax = 100, inboxP
   const threadParams = Type.Object(
     {
       threadId
+    },
+    {
+      additionalProperties: false
+    }
+  );
+
+  const threadAttachmentParams = Type.Object(
+    {
+      threadId,
+      attachmentId
+    },
+    {
+      additionalProperties: false
+    }
+  );
+
+  const attachmentParams = Type.Object(
+    {
+      attachmentId
     },
     {
       additionalProperties: false
@@ -47,8 +72,22 @@ function createSchema({ messageMaxChars = 4000, messagePageSizeMax = 100, inboxP
     {
       clientMessageId: Type.String({ minLength: 1, maxLength: 128 }),
       text: Type.Optional(Type.String({ maxLength: messageMaxChars })),
-      attachmentIds: Type.Optional(Type.Array(attachmentId, { maxItems: 20 })),
+      attachmentIds: Type.Optional(Type.Array(attachmentId, { maxItems: Math.max(1, Number(attachmentsMaxFilesPerMessage) || 5) })),
       replyToMessageId: Type.Optional(messageId),
+      metadata: Type.Optional(Type.Object({}, { additionalProperties: true }))
+    },
+    {
+      additionalProperties: false
+    }
+  );
+
+  const reserveAttachmentBody = Type.Object(
+    {
+      clientAttachmentId: Type.String({ minLength: 1, maxLength: 128 }),
+      fileName: Type.String({ minLength: 1, maxLength: 255 }),
+      mimeType: Type.String({ minLength: 1, maxLength: 160 }),
+      sizeBytes: Type.Integer({ minimum: 1, maximum: Math.max(1, Number(attachmentMaxUploadBytes) || 20_000_000) }),
+      kind: Type.Optional(Type.String({ minLength: 1, maxLength: 32 })),
       metadata: Type.Optional(Type.Object({}, { additionalProperties: true }))
     },
     {
@@ -223,6 +262,15 @@ function createSchema({ messageMaxChars = 4000, messagePageSizeMax = 100, inboxP
     }
   );
 
+  const attachmentResponse = Type.Object(
+    {
+      attachment: attachmentEntity
+    },
+    {
+      additionalProperties: false
+    }
+  );
+
   const markReadResponse = Type.Object(
     {
       threadId: Type.Integer({ minimum: 1 }),
@@ -260,13 +308,16 @@ function createSchema({ messageMaxChars = 4000, messagePageSizeMax = 100, inboxP
       messages: messagesQuery
     },
     params: {
-      thread: threadParams
+      thread: threadParams,
+      threadAttachment: threadAttachmentParams,
+      attachment: attachmentParams
     },
     body: {
       dmEnsure: dmEnsureBody,
       sendMessage: sendMessageBody,
       markRead: markReadBody,
-      reaction: reactionBody
+      reaction: reactionBody,
+      reserveAttachment: reserveAttachmentBody
     },
     response: {
       dmEnsure: dmEnsureResponse,
@@ -274,6 +325,7 @@ function createSchema({ messageMaxChars = 4000, messagePageSizeMax = 100, inboxP
       thread: threadResponse,
       messages: messagesResponse,
       sendMessage: sendMessageResponse,
+      attachment: attachmentResponse,
       markRead: markReadResponse,
       reactions: reactionsResponse,
       typing: typingResponse

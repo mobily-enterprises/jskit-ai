@@ -69,3 +69,34 @@ test("chat realtime service typing emits exclude actor and normalize recipients"
   assert.equal(published[0].payload.userId, 5);
   assert.equal(published[0].payload.threadId, 44);
 });
+
+test("chat realtime service publishes attachment updated events", () => {
+  const published = [];
+  const chatRealtimeService = createChatRealtimeService({
+    realtimeEventsService: {
+      publishChatEvent(payload) {
+        published.push(payload);
+        return payload;
+      }
+    }
+  });
+
+  chatRealtimeService.publishAttachmentUpdated({
+    thread: {
+      id: 77,
+      scopeKind: "global",
+      workspaceId: null
+    },
+    attachment: {
+      id: 3
+    },
+    actorUserId: 5,
+    targetUserIds: [5, 8]
+  });
+
+  assert.equal(published.length, 1);
+  assert.equal(published[0].eventType, REALTIME_EVENT_TYPES.CHAT_ATTACHMENT_UPDATED);
+  assert.equal(published[0].threadId, 77);
+  assert.deepEqual(published[0].targetUserIds, [5, 8]);
+  assert.equal(published[0].payload.attachment.id, 3);
+});

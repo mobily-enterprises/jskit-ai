@@ -1,8 +1,10 @@
+import { createHash } from "node:crypto";
 import { AppError } from "../../lib/errors.js";
 import { parsePositiveInteger } from "../../lib/primitives/integers.js";
 import { isMysqlDuplicateEntryError } from "../../lib/primitives/mysqlErrors.js";
 import { hasPermission, manifestIncludesPermission, resolveRolePermissions } from "../../lib/rbacManifest.js";
 import { toCanonicalJson, toSha256Hex } from "../billing/canonicalJson.js";
+import { REALTIME_EVENT_TYPES } from "../../../shared/realtime/eventTypes.js";
 
 const IDEMPOTENCY_VERSION = 1;
 const CHAT_MESSAGE_CLIENT_KEY_UNIQUE_INDEX = "uq_chat_messages_thread_sender_client_id";
@@ -12,6 +14,8 @@ const CHAT_TYPING_RATE_WINDOW_MS = 60_000;
 const CHAT_TYPING_RATE_LIMIT = 30;
 const CHAT_TYPING_THROTTLE_MS = 1_000;
 const CHAT_TYPING_TTL_MS = 8_000;
+const CHAT_ATTACHMENT_MAX_UPLOAD_BYTES = 20_000_000;
+const CHAT_UNATTACHED_UPLOAD_RETENTION_HOURS = 24;
 
 function createChatError(status, message, code, { fieldErrors = null, details = {} } = {}) {
   const payloadDetails = {
@@ -85,6 +89,18 @@ function createRateLimitedError({ retryAfterMs = 1000 } = {}) {
       retryAfterMs: normalizedRetryAfterMs
     }
   });
+}
+
+function createAttachmentNotFoundError() {
+  return createChatError(404, "Attachment not found.", "CHAT_ATTACHMENT_NOT_FOUND");
+}
+
+function createAttachmentConflictError(message = "Attachment operation conflicts with existing state.") {
+  return createChatError(409, message, "CHAT_ATTACHMENT_CONFLICT");
+}
+
+function createAttachmentUploadInProgressError() {
+  return createChatError(409, "Attachment upload is already in progress.", "CHAT_ATTACHMENT_UPLOAD_IN_PROGRESS");
 }
 
 function normalizeSurfaceIdForInbox(surfaceIdLike) {
@@ -307,6 +323,140 @@ function normalizeOptionalMetadata(value) {
   return value;
 }
 
+function normalizeClientAttachmentId(value) {
+  const clientAttachmentId = String(value || "").trim();
+  if (!clientAttachmentId) {
+    throw createChatValidationError({
+      clientAttachmentId: "clientAttachmentId is required."
+    });
+  }
+
+  if (clientAttachmentId.length > 128) {
+    throw createChatValidationError({
+      clientAttachmentId: "clientAttachmentId must be at most 128 characters."
+    });
+  }
+
+  return clientAttachmentId;
+}
+
+function normalizeAttachmentKind(value) {
+  const attachmentKind = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (!attachmentKind) {
+    return "file";
+  }
+
+  if (attachmentKind.length > 32) {
+    throw createChatValidationError({
+      kind: "kind must be at most 32 characters."
+    });
+  }
+
+  return attachmentKind;
+}
+
+function normalizeAttachmentMimeType(value) {
+  const mimeType = String(value || "").trim();
+  if (!mimeType) {
+    throw createChatValidationError({
+      mimeType: "mimeType is required."
+    });
+  }
+
+  if (mimeType.length > 160) {
+    throw createChatValidationError({
+      mimeType: "mimeType must be at most 160 characters."
+    });
+  }
+
+  return mimeType;
+}
+
+function normalizeAttachmentFileName(value) {
+  const fileName = String(value || "").trim();
+  if (!fileName) {
+    throw createChatValidationError({
+      fileName: "fileName is required."
+    });
+  }
+
+  if (fileName.length > 255) {
+    throw createChatValidationError({
+      fileName: "fileName must be at most 255 characters."
+    });
+  }
+
+  return fileName;
+}
+
+function normalizeAttachmentSizeBytes(value, maxUploadBytes) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
+    throw createChatValidationError({
+      sizeBytes: "sizeBytes must be a positive integer."
+    });
+  }
+
+  if (parsed > maxUploadBytes) {
+    throw createChatValidationError({
+      sizeBytes: `sizeBytes must be at most ${maxUploadBytes}.`
+    });
+  }
+
+  return parsed;
+}
+
+function normalizeReserveAttachmentPayload(body, options) {
+  const source = body && typeof body === "object" ? body : {};
+  return {
+    clientAttachmentId: normalizeClientAttachmentId(source.clientAttachmentId),
+    fileName: normalizeAttachmentFileName(source.fileName),
+    mimeType: normalizeAttachmentMimeType(source.mimeType),
+    sizeBytes: normalizeAttachmentSizeBytes(source.sizeBytes, options.chatAttachmentMaxUploadBytes),
+    kind: normalizeAttachmentKind(source.kind),
+    metadata: normalizeOptionalMetadata(source.metadata)
+  };
+}
+
+function normalizeUploadAttachmentId(value) {
+  const attachmentId = parsePositiveInteger(value);
+  if (!attachmentId) {
+    throw createChatValidationError({
+      attachmentId: "attachmentId must be a positive integer."
+    });
+  }
+
+  return attachmentId;
+}
+
+function normalizeUploadBuffer(value, maxUploadBytes) {
+  if (!Buffer.isBuffer(value)) {
+    throw createChatValidationError({
+      file: "Uploaded file is required."
+    });
+  }
+
+  const sizeBytes = Number(value.length || 0);
+  if (sizeBytes < 1) {
+    throw createChatValidationError({
+      file: "Uploaded file must not be empty."
+    });
+  }
+
+  if (sizeBytes > maxUploadBytes) {
+    throw createChatValidationError({
+      file: `Uploaded file exceeds maximum size ${maxUploadBytes}.`
+    });
+  }
+
+  return {
+    buffer: value,
+    sizeBytes
+  };
+}
+
 function normalizeSendPayload(body, options) {
   const source = body && typeof body === "object" ? body : {};
   const clientMessageId = normalizeClientMessageId(source.clientMessageId);
@@ -416,6 +566,119 @@ function buildMessageIdempotencyFingerprint({ text, attachmentIds, replyToMessag
     version: IDEMPOTENCY_VERSION,
     sha256: toSha256Hex(canonicalJson)
   };
+}
+
+function computeBufferSha256Hex(buffer) {
+  return createHash("sha256").update(buffer).digest("hex");
+}
+
+function buildAttachmentDeliveryPath(attachmentId) {
+  return `/api/chat/attachments/${Number(attachmentId)}/content`;
+}
+
+function isAttachmentReserveReplayCompatible(existingAttachment, reservePayload) {
+  const existingMetadata =
+    existingAttachment?.metadata && typeof existingAttachment.metadata === "object" && !Array.isArray(existingAttachment.metadata)
+      ? existingAttachment.metadata
+      : {};
+  const incomingMetadata =
+    reservePayload?.metadata && typeof reservePayload.metadata === "object" && !Array.isArray(reservePayload.metadata)
+      ? reservePayload.metadata
+      : {};
+
+  return (
+    String(existingAttachment?.clientAttachmentId || "") === String(reservePayload.clientAttachmentId || "") &&
+    String(existingAttachment?.fileName || "") === String(reservePayload.fileName || "") &&
+    String(existingAttachment?.mimeType || "") === String(reservePayload.mimeType || "") &&
+    Number(existingAttachment?.sizeBytes || 0) === Number(reservePayload.sizeBytes || 0) &&
+    String(existingAttachment?.attachmentKind || "file") === String(reservePayload.kind || "file") &&
+    toCanonicalJson(existingMetadata) === toCanonicalJson(incomingMetadata)
+  );
+}
+
+function isAttachmentUploadReplayCompatible(existingAttachment, { sizeBytes, sha256Hex }) {
+  const existingSha = String(existingAttachment?.sha256Hex || "").trim().toLowerCase();
+  const expectedSha = String(sha256Hex || "").trim().toLowerCase();
+  if (existingSha && expectedSha) {
+    return existingSha === expectedSha;
+  }
+
+  return Number(existingAttachment?.sizeBytes || 0) === Number(sizeBytes || 0);
+}
+
+function isAttachmentStatusInSet(attachment, allowedStatuses) {
+  const status = String(attachment?.status || "")
+    .trim()
+    .toLowerCase();
+  return allowedStatuses.has(status);
+}
+
+function buildUploadExpiresAtIso(unattachedUploadRetentionHours) {
+  const retentionHours = Math.max(
+    1,
+    Number.isFinite(Number(unattachedUploadRetentionHours))
+      ? Math.floor(Number(unattachedUploadRetentionHours))
+      : CHAT_UNATTACHED_UPLOAD_RETENTION_HOURS
+  );
+  return new Date(Date.now() + retentionHours * 60 * 60 * 1000).toISOString();
+}
+
+function normalizeAttachmentReadableStatus(statusLike) {
+  return String(statusLike || "")
+    .trim()
+    .toLowerCase();
+}
+
+function isInlineAttachmentMimeType(mimeType) {
+  const normalizedMimeType = String(mimeType || "")
+    .trim()
+    .toLowerCase();
+  if (!normalizedMimeType) {
+    return false;
+  }
+
+  return new Set(["image/jpeg", "image/png", "image/gif", "image/webp", "image/avif", "image/bmp"]).has(
+    normalizedMimeType
+  );
+}
+
+function shouldForceAttachmentDownload(mimeType) {
+  const normalizedMimeType = String(mimeType || "")
+    .trim()
+    .toLowerCase();
+  if (!normalizedMimeType) {
+    return true;
+  }
+
+  if (
+    normalizedMimeType.includes("html") ||
+    normalizedMimeType.includes("svg") ||
+    normalizedMimeType.includes("xml") ||
+    normalizedMimeType.includes("javascript")
+  ) {
+    return true;
+  }
+
+  return !isInlineAttachmentMimeType(normalizedMimeType);
+}
+
+function sanitizeFileNameForContentDisposition(fileName) {
+  const normalized = String(fileName || "").trim();
+  if (!normalized) {
+    return "attachment";
+  }
+
+  return normalized
+    .replace(/[\\"]/g, "_")
+    .replace(/[\r\n]+/g, " ")
+    .trim()
+    .slice(0, 255);
+}
+
+function buildAttachmentContentDisposition(fileName, mimeType) {
+  const safeFileName = sanitizeFileNameForContentDisposition(fileName);
+  const dispositionType = shouldForceAttachmentDownload(mimeType) ? "attachment" : "inline";
+  return `${dispositionType}; filename="${safeFileName}"`;
 }
 
 function isClientMessageDuplicateConflict(error) {
@@ -546,6 +809,7 @@ function createService({
   chatUserSettingsRepository,
   chatBlocksRepository,
   chatRealtimeService,
+  chatAttachmentStorageService,
   workspaceMembershipsRepository,
   userSettingsRepository,
   rbacManifest,
@@ -560,6 +824,7 @@ function createService({
     !chatIdempotencyTombstonesRepository ||
     !chatUserSettingsRepository ||
     !chatBlocksRepository ||
+    !chatAttachmentStorageService ||
     !workspaceMembershipsRepository ||
     !userSettingsRepository
   ) {
@@ -574,7 +839,16 @@ function createService({
     chatMessageMaxTextChars: Math.max(1, Number(config.chatMessageMaxTextChars) || 4000),
     chatMessagesPageSizeMax: Math.max(1, Number(config.chatMessagesPageSizeMax) || 100),
     chatThreadsPageSizeMax: Math.max(1, Number(config.chatThreadsPageSizeMax) || 50),
+    chatAttachmentsEnabled: config.chatAttachmentsEnabled !== false,
     chatAttachmentsMaxFilesPerMessage: Math.max(1, Number(config.chatAttachmentsMaxFilesPerMessage) || 5),
+    chatAttachmentMaxUploadBytes: Math.max(
+      1,
+      Number(config.chatAttachmentMaxUploadBytes) || CHAT_ATTACHMENT_MAX_UPLOAD_BYTES
+    ),
+    chatUnattachedUploadRetentionHours: Math.max(
+      1,
+      Number(config.chatUnattachedUploadRetentionHours) || CHAT_UNATTACHED_UPLOAD_RETENTION_HOURS
+    ),
     chatTypingRateLimit: Math.max(1, Number(config.chatTypingRateLimit) || CHAT_TYPING_RATE_LIMIT),
     chatTypingRateWindowMs: toBoundedMilliseconds(config.chatTypingRateWindowMs, {
       fallback: CHAT_TYPING_RATE_WINDOW_MS,
@@ -1055,6 +1329,448 @@ function createService({
     return {
       items,
       nextCursor: hasMoreRows ? String(oldestSeq) : null
+    };
+  }
+
+  function ensureAttachmentsEnabled() {
+    if (!options.chatAttachmentsEnabled) {
+      throw createFeatureDisabledError();
+    }
+  }
+
+  async function publishAttachmentUpdated({
+    thread,
+    attachment,
+    actorUserId,
+    requestMeta,
+    logContext = {}
+  } = {}) {
+    if (!thread || !attachment || !Number.isInteger(Number(actorUserId))) {
+      return;
+    }
+
+    const normalizedStatus = normalizeAttachmentReadableStatus(attachment.status);
+    const targetUserIds =
+      normalizedStatus === "attached" ? await listActiveParticipantUserIds(thread.id) : [Number(actorUserId)];
+
+    if (targetUserIds.length < 1) {
+      return;
+    }
+
+    publishRealtimeSafely(
+      () => {
+        if (typeof realtimePublisher?.publishAttachmentUpdated === "function") {
+          return realtimePublisher.publishAttachmentUpdated({
+            thread,
+            attachment,
+            actorUserId,
+            targetUserIds,
+            commandId: requestMeta.commandId,
+            sourceClientId: requestMeta.sourceClientId
+          });
+        }
+
+        return realtimePublisher.publishThreadEvent({
+          thread,
+          eventType: REALTIME_EVENT_TYPES.CHAT_ATTACHMENT_UPDATED,
+          actorUserId,
+          targetUserIds,
+          payload: {
+            threadId: Number(thread.id),
+            attachment
+          },
+          commandId: requestMeta.commandId,
+          sourceClientId: requestMeta.sourceClientId
+        });
+      },
+      {
+        requestMeta,
+        logContext: {
+          eventType: "chat.attachment.updated",
+          threadId: Number(thread.id),
+          attachmentId: Number(attachment.id),
+          ...(logContext && typeof logContext === "object" ? logContext : {})
+        }
+      }
+    );
+  }
+
+  async function reserveThreadAttachment({ user, threadId, surfaceId, payload, requestMeta }) {
+    if (!options.chatEnabled) {
+      throw createFeatureDisabledError();
+    }
+
+    ensureAttachmentsEnabled();
+
+    const userId = normalizeUserId(user);
+    const normalizedRequestMeta = normalizeRequestMeta(requestMeta);
+    const normalizedPayload = normalizeReserveAttachmentPayload(payload, options);
+    const access = await resolveThreadAccess({
+      threadId,
+      userId,
+      surfaceId,
+      requireWrite: true
+    });
+
+    const existing = await chatAttachmentsRepository.findByClientAttachmentId(
+      access.thread.id,
+      userId,
+      normalizedPayload.clientAttachmentId
+    );
+    if (existing) {
+      if (!isAttachmentReserveReplayCompatible(existing, normalizedPayload)) {
+        throw createAttachmentConflictError("clientAttachmentId conflicts with existing attachment metadata.");
+      }
+
+      return {
+        attachment: mapAttachmentForResponse(existing)
+      };
+    }
+
+    let createdAttachment;
+    const uploadExpiresAt = buildUploadExpiresAtIso(options.chatUnattachedUploadRetentionHours);
+    try {
+      createdAttachment = await chatAttachmentsRepository.insertReserved({
+        threadId: access.thread.id,
+        uploadedByUserId: userId,
+        clientAttachmentId: normalizedPayload.clientAttachmentId,
+        attachmentKind: normalizedPayload.kind,
+        mimeType: normalizedPayload.mimeType,
+        fileName: normalizedPayload.fileName,
+        sizeBytes: normalizedPayload.sizeBytes,
+        metadata: normalizedPayload.metadata,
+        uploadExpiresAt,
+        storageDriver: chatAttachmentStorageService.driver
+      });
+    } catch (error) {
+      if (!isMysqlDuplicateEntryError(error)) {
+        throw error;
+      }
+
+      const raced = await chatAttachmentsRepository.findByClientAttachmentId(
+        access.thread.id,
+        userId,
+        normalizedPayload.clientAttachmentId
+      );
+      if (!raced) {
+        throw error;
+      }
+
+      if (!isAttachmentReserveReplayCompatible(raced, normalizedPayload)) {
+        throw createAttachmentConflictError("clientAttachmentId conflicts with existing attachment metadata.");
+      }
+
+      createdAttachment = raced;
+    }
+
+    if (!createdAttachment) {
+      throw createAttachmentConflictError();
+    }
+
+    const mappedAttachment = mapAttachmentForResponse(createdAttachment);
+    await publishAttachmentUpdated({
+      thread: access.thread,
+      attachment: mappedAttachment,
+      actorUserId: userId,
+      requestMeta: normalizedRequestMeta
+    });
+
+    return {
+      attachment: mappedAttachment
+    };
+  }
+
+  async function uploadThreadAttachment({ user, threadId, surfaceId, attachmentId, payload, requestMeta }) {
+    if (!options.chatEnabled) {
+      throw createFeatureDisabledError();
+    }
+
+    ensureAttachmentsEnabled();
+
+    const userId = normalizeUserId(user);
+    const normalizedRequestMeta = normalizeRequestMeta(requestMeta);
+    const normalizedAttachmentId = normalizeUploadAttachmentId(attachmentId);
+    const normalizedUpload = normalizeUploadBuffer(payload?.fileBuffer, options.chatAttachmentMaxUploadBytes);
+    const access = await resolveThreadAccess({
+      threadId,
+      userId,
+      surfaceId,
+      requireWrite: true
+    });
+
+    const claimedAttachment = await chatAttachmentsRepository.findById(normalizedAttachmentId);
+    const ownedAttachment =
+      claimedAttachment &&
+      Number(claimedAttachment.threadId) === Number(access.thread.id) &&
+      Number(claimedAttachment.uploadedByUserId) === Number(userId);
+    if (!ownedAttachment) {
+      throw createAttachmentNotFoundError();
+    }
+
+    const sha256Hex = computeBufferSha256Hex(normalizedUpload.buffer);
+    const status = normalizeAttachmentReadableStatus(claimedAttachment.status);
+    if (status === "uploading") {
+      throw createAttachmentUploadInProgressError();
+    }
+
+    if (status === "uploaded" || status === "attached") {
+      if (isAttachmentUploadReplayCompatible(claimedAttachment, { sizeBytes: normalizedUpload.sizeBytes, sha256Hex })) {
+        return {
+          attachment: mapAttachmentForResponse(claimedAttachment)
+        };
+      }
+
+      throw createAttachmentConflictError("Attachment content conflicts with existing upload.");
+    }
+
+    if (!isAttachmentStatusInSet(claimedAttachment, new Set(["reserved", "failed"]))) {
+      throw createAttachmentConflictError();
+    }
+
+    let uploadingAttachment;
+    try {
+      uploadingAttachment = await chatAttachmentsRepository.markUploading(normalizedAttachmentId);
+    } catch (error) {
+      if (String(error?.code || "") !== "CHAT_ATTACHMENT_INVALID_STATUS_TRANSITION") {
+        throw error;
+      }
+
+      const latestAttachment = await chatAttachmentsRepository.findById(normalizedAttachmentId);
+      if (!latestAttachment) {
+        throw createAttachmentNotFoundError();
+      }
+
+      const latestStatus = normalizeAttachmentReadableStatus(error.currentStatus || latestAttachment.status);
+      if (latestStatus === "uploading") {
+        throw createAttachmentUploadInProgressError();
+      }
+
+      if ((latestStatus === "uploaded" || latestStatus === "attached") && isAttachmentUploadReplayCompatible(latestAttachment, {
+        sizeBytes: normalizedUpload.sizeBytes,
+        sha256Hex
+      })) {
+        return {
+          attachment: mapAttachmentForResponse(latestAttachment)
+        };
+      }
+
+      throw createAttachmentConflictError();
+    }
+
+    if (!uploadingAttachment) {
+      throw createAttachmentNotFoundError();
+    }
+
+    const expectedSizeBytes = Number(uploadingAttachment.sizeBytes || 0);
+    if (expectedSizeBytes > 0 && expectedSizeBytes !== normalizedUpload.sizeBytes) {
+      await chatAttachmentsRepository.markFailed(normalizedAttachmentId, "size_mismatch").catch(() => {});
+      throw createAttachmentConflictError("Uploaded file size does not match reserved attachment metadata.");
+    }
+
+    const uploadFileName = String(uploadingAttachment.fileName || payload?.uploadFileName || "").trim() || "file";
+    const uploadMimeType = String(uploadingAttachment.mimeType || payload?.uploadMimeType || "").trim() || "application/octet-stream";
+
+    let storageKey = null;
+    try {
+      const saved = await chatAttachmentStorageService.saveAttachment({
+        threadId: access.thread.id,
+        attachmentId: normalizedAttachmentId,
+        fileName: uploadFileName,
+        buffer: normalizedUpload.buffer
+      });
+      storageKey = String(saved?.storageKey || "").trim() || null;
+    } catch (error) {
+      await chatAttachmentsRepository.markFailed(normalizedAttachmentId, "storage_write_failed").catch(() => {});
+      throw error;
+    }
+
+    if (!storageKey) {
+      await chatAttachmentsRepository.markFailed(normalizedAttachmentId, "storage_key_missing").catch(() => {});
+      throw createAttachmentConflictError();
+    }
+
+    let uploadedAttachment;
+    try {
+      uploadedAttachment = await chatAttachmentsRepository.markUploaded(normalizedAttachmentId, {
+        storageDriver: chatAttachmentStorageService.driver,
+        storageKey,
+        deliveryPath: buildAttachmentDeliveryPath(normalizedAttachmentId),
+        mimeType: uploadMimeType,
+        fileName: uploadFileName,
+        sizeBytes: normalizedUpload.sizeBytes,
+        sha256Hex
+      });
+    } catch (error) {
+      await chatAttachmentStorageService.deleteAttachment(storageKey).catch(() => {});
+      await chatAttachmentsRepository.markFailed(normalizedAttachmentId, "upload_finalize_failed").catch(() => {});
+
+      if (String(error?.code || "") !== "CHAT_ATTACHMENT_INVALID_STATUS_TRANSITION") {
+        throw error;
+      }
+
+      const latestAttachment = await chatAttachmentsRepository.findById(normalizedAttachmentId);
+      if (!latestAttachment) {
+        throw createAttachmentNotFoundError();
+      }
+
+      const latestStatus = normalizeAttachmentReadableStatus(error.currentStatus || latestAttachment.status);
+      if (latestStatus === "uploading") {
+        throw createAttachmentUploadInProgressError();
+      }
+
+      if ((latestStatus === "uploaded" || latestStatus === "attached") && isAttachmentUploadReplayCompatible(latestAttachment, {
+        sizeBytes: normalizedUpload.sizeBytes,
+        sha256Hex
+      })) {
+        return {
+          attachment: mapAttachmentForResponse(latestAttachment)
+        };
+      }
+
+      throw createAttachmentConflictError();
+    }
+
+    if (!uploadedAttachment) {
+      throw createAttachmentNotFoundError();
+    }
+
+    const mappedAttachment = mapAttachmentForResponse(uploadedAttachment);
+    await publishAttachmentUpdated({
+      thread: access.thread,
+      attachment: mappedAttachment,
+      actorUserId: userId,
+      requestMeta: normalizedRequestMeta
+    });
+
+    return {
+      attachment: mappedAttachment
+    };
+  }
+
+  async function deleteThreadAttachment({ user, threadId, surfaceId, attachmentId, requestMeta }) {
+    if (!options.chatEnabled) {
+      throw createFeatureDisabledError();
+    }
+
+    ensureAttachmentsEnabled();
+
+    const userId = normalizeUserId(user);
+    const normalizedRequestMeta = normalizeRequestMeta(requestMeta);
+    const normalizedAttachmentId = normalizeUploadAttachmentId(attachmentId);
+    const access = await resolveThreadAccess({
+      threadId,
+      userId,
+      surfaceId,
+      requireWrite: true
+    });
+
+    const attachment = await chatAttachmentsRepository.findById(normalizedAttachmentId);
+    const ownedAttachment =
+      attachment &&
+      Number(attachment.threadId) === Number(access.thread.id) &&
+      Number(attachment.uploadedByUserId) === Number(userId);
+    if (!ownedAttachment) {
+      throw createAttachmentNotFoundError();
+    }
+
+    const status = normalizeAttachmentReadableStatus(attachment.status);
+    if (attachment.messageId != null || status === "attached") {
+      throw createAttachmentConflictError("Attached attachments cannot be deleted.");
+    }
+
+    if (status === "deleted") {
+      return {
+        deleted: true
+      };
+    }
+
+    const storageKeys = [attachment.storageKey, attachment.previewStorageKey]
+      .map((value) => String(value || "").trim())
+      .filter((value) => value.length > 0);
+
+    let deletedAttachment;
+    try {
+      deletedAttachment = await chatAttachmentsRepository.markDeleted(normalizedAttachmentId, {
+        deletedAt: new Date().toISOString(),
+        failedReason: null
+      });
+    } catch (error) {
+      if (String(error?.code || "") !== "CHAT_ATTACHMENT_INVALID_STATUS_TRANSITION") {
+        throw error;
+      }
+      throw createAttachmentConflictError();
+    }
+
+    if (!deletedAttachment) {
+      throw createAttachmentNotFoundError();
+    }
+
+    for (const storageKey of storageKeys) {
+      await chatAttachmentStorageService.deleteAttachment(storageKey).catch(() => {});
+    }
+
+    await publishAttachmentUpdated({
+      thread: access.thread,
+      attachment: mapAttachmentForResponse(deletedAttachment),
+      actorUserId: userId,
+      requestMeta: normalizedRequestMeta
+    });
+
+    return {
+      deleted: true
+    };
+  }
+
+  async function getAttachmentContent({ user, attachmentId, surfaceId }) {
+    if (!options.chatEnabled) {
+      throw createFeatureDisabledError();
+    }
+
+    ensureAttachmentsEnabled();
+
+    const userId = normalizeUserId(user);
+    const normalizedAttachmentId = normalizeUploadAttachmentId(attachmentId);
+    const attachment = await chatAttachmentsRepository.findById(normalizedAttachmentId);
+    if (!attachment) {
+      throw createAttachmentNotFoundError();
+    }
+
+    const status = normalizeAttachmentReadableStatus(attachment.status);
+    const isAttached = status === "attached" && attachment.messageId != null;
+    const isUploaderPreview =
+      attachment.messageId == null && status === "uploaded" && Number(attachment.uploadedByUserId) === Number(userId);
+    if (!isAttached && !isUploaderPreview) {
+      throw createAttachmentNotFoundError();
+    }
+
+    await resolveThreadAccess({
+      threadId: attachment.threadId,
+      userId,
+      surfaceId,
+      requireWrite: false
+    });
+
+    if (!isAttached && Number(attachment.uploadedByUserId) !== Number(userId)) {
+      throw createAttachmentNotFoundError();
+    }
+
+    const storageKey = String(attachment.storageKey || "").trim();
+    if (!storageKey) {
+      throw createAttachmentNotFoundError();
+    }
+
+    const contentBuffer = await chatAttachmentStorageService.readAttachment(storageKey);
+    if (!Buffer.isBuffer(contentBuffer) || contentBuffer.length < 1) {
+      throw createAttachmentNotFoundError();
+    }
+
+    const contentType = String(attachment.mimeType || "").trim() || "application/octet-stream";
+    const contentDisposition = buildAttachmentContentDisposition(attachment.fileName, contentType);
+    return {
+      attachment: mapAttachmentForResponse(attachment),
+      contentBuffer,
+      contentType,
+      contentDisposition
     };
   }
 
@@ -1650,6 +2366,10 @@ function createService({
     listInbox,
     getThread,
     listThreadMessages,
+    reserveThreadAttachment,
+    uploadThreadAttachment,
+    deleteThreadAttachment,
+    getAttachmentContent,
     sendThreadMessage,
     markThreadRead,
     addReaction,
@@ -1677,6 +2397,9 @@ const __testables = {
   mapReactionSummary,
   mapThreadForResponse,
   normalizeAttachmentIds,
+  normalizeReserveAttachmentPayload,
+  normalizeUploadAttachmentId,
+  normalizeUploadBuffer,
   normalizeClientMessageId,
   normalizeDmTargetPublicChatId,
   normalizeReactionPayload,

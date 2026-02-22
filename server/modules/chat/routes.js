@@ -1,3 +1,4 @@
+import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "../api/schema.js";
 import { createSchema } from "./schema.js";
 
@@ -7,13 +8,20 @@ function buildRoutes(
     missingHandler,
     messageMaxChars = 4000,
     messagePageSizeMax = 100,
-    threadPageSizeMax = 50
+    threadPageSizeMax = 50,
+    attachmentsMaxFilesPerMessage = 5,
+    attachmentMaxUploadBytes = 20_000_000
   } = {}
 ) {
+  const normalizedAttachmentMaxUploadBytes = Math.max(1, Number(attachmentMaxUploadBytes) || 20_000_000);
+  const uploadRouteBodyLimit = normalizedAttachmentMaxUploadBytes + 256 * 1024;
+
   const schema = createSchema({
     messageMaxChars,
     messagePageSizeMax,
-    inboxPageSizeMax: threadPageSizeMax
+    inboxPageSizeMax: threadPageSizeMax,
+    attachmentsMaxFilesPerMessage,
+    attachmentMaxUploadBytes: normalizedAttachmentMaxUploadBytes
   });
 
   return [
@@ -128,6 +136,92 @@ function buildRoutes(
         timeWindow: "1 minute"
       },
       handler: controllers.chat?.sendThreadMessage || missingHandler
+    },
+    {
+      path: "/api/chat/threads/:threadId/attachments/reserve",
+      method: "POST",
+      auth: "required",
+      workspacePolicy: "none",
+      schema: {
+        tags: ["chat"],
+        summary: "Reserve one staged attachment slot for a thread",
+        params: schema.params.thread,
+        body: schema.body.reserveAttachment,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.attachment
+          },
+          { includeValidation400: true }
+        )
+      },
+      rateLimit: {
+        max: 60,
+        timeWindow: "1 minute"
+      },
+      handler: controllers.chat?.reserveThreadAttachment || missingHandler
+    },
+    {
+      path: "/api/chat/threads/:threadId/attachments/upload",
+      method: "POST",
+      auth: "required",
+      workspacePolicy: "none",
+      bodyLimit: uploadRouteBodyLimit,
+      schema: {
+        tags: ["chat"],
+        summary: "Upload one reserved thread attachment",
+        description: `Multipart upload. One file per request. Required multipart field: attachmentId. Max bytes: ${normalizedAttachmentMaxUploadBytes}.`,
+        params: schema.params.thread,
+        consumes: ["multipart/form-data"],
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.attachment
+          },
+          { includeValidation400: true }
+        )
+      },
+      rateLimit: {
+        max: 30,
+        timeWindow: "1 minute"
+      },
+      handler: controllers.chat?.uploadThreadAttachment || missingHandler
+    },
+    {
+      path: "/api/chat/threads/:threadId/attachments/:attachmentId",
+      method: "DELETE",
+      auth: "required",
+      workspacePolicy: "none",
+      schema: {
+        tags: ["chat"],
+        summary: "Delete one staged thread attachment",
+        params: schema.params.threadAttachment,
+        response: withStandardErrorResponses({
+          204: Type.Null()
+        })
+      },
+      rateLimit: {
+        max: 60,
+        timeWindow: "1 minute"
+      },
+      handler: controllers.chat?.deleteThreadAttachment || missingHandler
+    },
+    {
+      path: "/api/chat/attachments/:attachmentId/content",
+      method: "GET",
+      auth: "required",
+      workspacePolicy: "none",
+      schema: {
+        tags: ["chat"],
+        summary: "Get attachment content for one chat attachment",
+        params: schema.params.attachment,
+        response: withStandardErrorResponses({
+          200: Type.Unknown()
+        })
+      },
+      rateLimit: {
+        max: 180,
+        timeWindow: "1 minute"
+      },
+      handler: controllers.chat?.getAttachmentContent || missingHandler
     },
     {
       path: "/api/chat/threads/:threadId/read",

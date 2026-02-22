@@ -421,6 +421,30 @@ function createAttachmentsRepository(dbClient) {
     );
   }
 
+  async function repoMarkDeleted(attachmentId, patch = {}, options = {}) {
+    return repoApplyStatusTransition(
+      attachmentId,
+      ATTACHMENT_STATUS.DELETED,
+      [
+        ATTACHMENT_STATUS.RESERVED,
+        ATTACHMENT_STATUS.UPLOADING,
+        ATTACHMENT_STATUS.UPLOADED,
+        ATTACHMENT_STATUS.ATTACHED,
+        ATTACHMENT_STATUS.FAILED,
+        ATTACHMENT_STATUS.QUARANTINED
+      ],
+      {
+        storageKey: null,
+        deliveryPath: null,
+        previewStorageKey: null,
+        previewDeliveryPath: null,
+        failedReason: patch.failedReason,
+        deletedAt: patch.deletedAt || new Date()
+      },
+      options
+    );
+  }
+
   async function repoListExpiredUnattached(now = new Date(), batchSize = 1000, options = {}) {
     const client = resolveClient(dbClient, options);
     const normalizedBatchSize = normalizeBatchSize(batchSize, {
@@ -504,6 +528,7 @@ function createAttachmentsRepository(dbClient) {
     attachToMessage: repoAttachToMessage,
     markFailed: repoMarkFailed,
     markExpired: repoMarkExpired,
+    markDeleted: repoMarkDeleted,
     listExpiredUnattached: repoListExpiredUnattached,
     deleteExpiredUnattachedBatch: repoDeleteExpiredUnattachedBatch,
     deleteDetachedOlderThan: repoDeleteDetachedOlderThan,
@@ -536,6 +561,7 @@ export const {
   attachToMessage,
   markFailed,
   markExpired,
+  markDeleted,
   listExpiredUnattached,
   deleteExpiredUnattachedBatch,
   deleteDetachedOlderThan,

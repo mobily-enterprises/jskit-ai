@@ -37,7 +37,9 @@ function buildDefaultRoutes(controllers, routeConfig = {}) {
       missingHandler,
       messageMaxChars: routeConfig.chatMessageMaxTextChars,
       messagePageSizeMax: routeConfig.chatMessagesPageSizeMax,
-      threadPageSizeMax: routeConfig.chatThreadsPageSizeMax
+      threadPageSizeMax: routeConfig.chatThreadsPageSizeMax,
+      attachmentsMaxFilesPerMessage: routeConfig.chatAttachmentsMaxFilesPerMessage,
+      attachmentMaxUploadBytes: routeConfig.chatAttachmentMaxUploadBytes
     }),
     ...buildBillingRoutes(controllers, { missingHandler }),
     ...buildAiRoutes(controllers, {

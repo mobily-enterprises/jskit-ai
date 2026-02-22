@@ -9,6 +9,7 @@ import { createService as createUserAvatarService } from "../domain/users/avatar
 import { createService as createWorkspaceService } from "../domain/workspace/services/workspace.service.js";
 import { createService as createWorkspaceAdminService } from "../domain/workspace/services/admin.service.js";
 import { createService as createWorkspaceInviteEmailService } from "../domain/workspace/services/inviteEmail.service.js";
+import { createService as createChatAttachmentStorageService } from "../domain/chat/services/attachmentStorage.service.js";
 import { createService as createConsoleService } from "../domain/console/services/console.service.js";
 import { createService as createConsoleErrorsService } from "../domain/console/services/errors.service.js";
 import { createService as createAuditService } from "../domain/security/services/audit.service.js";
@@ -211,6 +212,12 @@ function createServices({
     rootDir
   });
 
+  const chatAttachmentStorageService = createChatAttachmentStorageService({
+    driver: env.CHAT_ATTACHMENT_STORAGE_DRIVER,
+    fsBasePath: env.CHAT_ATTACHMENT_STORAGE_FS_BASE_PATH,
+    rootDir
+  });
+
   const userAvatarService = createUserAvatarService({
     userProfilesRepository,
     avatarStorageService
@@ -285,6 +292,7 @@ function createServices({
     chatUserSettingsRepository,
     chatBlocksRepository,
     chatRealtimeService,
+    chatAttachmentStorageService,
     workspaceMembershipsRepository,
     userSettingsRepository,
     rbacManifest,
@@ -296,7 +304,10 @@ function createServices({
       chatMessageMaxTextChars: env.CHAT_MESSAGE_MAX_TEXT_CHARS,
       chatMessagesPageSizeMax: env.CHAT_MESSAGES_PAGE_SIZE_MAX,
       chatThreadsPageSizeMax: env.CHAT_THREADS_PAGE_SIZE_MAX,
-      chatAttachmentsMaxFilesPerMessage: env.CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE
+      chatAttachmentsEnabled: env.CHAT_ATTACHMENTS_ENABLED,
+      chatAttachmentsMaxFilesPerMessage: env.CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE,
+      chatAttachmentMaxUploadBytes: env.CHAT_ATTACHMENT_MAX_UPLOAD_BYTES,
+      chatUnattachedUploadRetentionHours: env.CHAT_UNATTACHED_UPLOAD_RETENTION_HOURS
     }
   });
 
@@ -513,6 +524,7 @@ function createServices({
     smsService,
     communicationsService,
     avatarStorageService,
+    chatAttachmentStorageService,
     userAvatarService,
     userSettingsService,
     workspaceService,

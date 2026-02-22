@@ -51,9 +51,33 @@ function createMessage() {
   };
 }
 
+function createAttachment() {
+  return {
+    id: 3,
+    threadId: 1,
+    messageId: null,
+    uploadedByUserId: 3,
+    clientAttachmentId: "ca_1",
+    position: null,
+    kind: "file",
+    status: "uploaded",
+    mimeType: "text/plain",
+    fileName: "note.txt",
+    sizeBytes: 5,
+    width: null,
+    height: null,
+    durationMs: null,
+    deliveryPath: "/api/chat/attachments/3/content",
+    previewDeliveryPath: null,
+    createdAt: "2026-02-22T00:00:00.000Z",
+    updatedAt: "2026-02-22T00:00:00.000Z"
+  };
+}
+
 function buildControllers() {
   const thread = createThread();
   const message = createMessage();
+  const attachment = createAttachment();
 
   return {
     chat: {
@@ -86,6 +110,22 @@ function buildControllers() {
           thread,
           idempotencyStatus: "created"
         });
+      },
+      async reserveThreadAttachment(_request, reply) {
+        reply.code(200).send({
+          attachment
+        });
+      },
+      async uploadThreadAttachment(_request, reply) {
+        reply.code(200).send({
+          attachment
+        });
+      },
+      async deleteThreadAttachment(_request, reply) {
+        reply.code(204).send();
+      },
+      async getAttachmentContent(_request, reply) {
+        reply.type("text/plain").send("hello");
       },
       async markThreadRead(_request, reply) {
         reply.code(200).send({
@@ -129,7 +169,7 @@ test("chat routes use required auth and workspace-agnostic policy", () => {
     missingHandler: createMissingHandler()
   });
 
-  assert.equal(routes.length, 9);
+  assert.equal(routes.length, 13);
 
   for (const route of routes) {
     assert.equal(route.auth, "required");
@@ -183,6 +223,25 @@ test("chat dm ensure and message send schemas enforce required fields", async ()
   });
   assert.equal(validSend.statusCode, 200);
 
+  const invalidReserve = await app.inject({
+    method: "POST",
+    url: "/api/chat/threads/1/attachments/reserve",
+    payload: {}
+  });
+  assert.equal(invalidReserve.statusCode, 400);
+
+  const validReserve = await app.inject({
+    method: "POST",
+    url: "/api/chat/threads/1/attachments/reserve",
+    payload: {
+      clientAttachmentId: "ca_1",
+      fileName: "note.txt",
+      mimeType: "text/plain",
+      sizeBytes: 5
+    }
+  });
+  assert.equal(validReserve.statusCode, 200);
+
   await app.close();
 });
 
@@ -218,6 +277,18 @@ test("chat read schema rejects empty cursor payload", async () => {
     url: "/api/chat/threads/1/typing"
   });
   assert.equal(typing.statusCode, 202);
+
+  const deleteAttachment = await app.inject({
+    method: "DELETE",
+    url: "/api/chat/threads/1/attachments/3"
+  });
+  assert.equal(deleteAttachment.statusCode, 204);
+
+  const attachmentContent = await app.inject({
+    method: "GET",
+    url: "/api/chat/attachments/3/content"
+  });
+  assert.equal(attachmentContent.statusCode, 200);
 
   await app.close();
 });

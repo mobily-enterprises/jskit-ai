@@ -193,6 +193,28 @@ function createService({ realtimeEventsService = null } = {}) {
     });
   }
 
+  function publishAttachmentUpdated({
+    thread,
+    attachment,
+    actorUserId,
+    targetUserIds,
+    commandId,
+    sourceClientId
+  } = {}) {
+    return publishThreadEvent({
+      thread,
+      eventType: REALTIME_EVENT_TYPES.CHAT_ATTACHMENT_UPDATED,
+      actorUserId,
+      targetUserIds,
+      payload: {
+        threadId: normalizePositiveIntegerOrNull(thread?.id),
+        attachment: attachment && typeof attachment === "object" ? { ...attachment } : null
+      },
+      commandId,
+      sourceClientId
+    });
+  }
+
   function emitTyping({
     thread,
     actorUserId,
@@ -231,6 +253,7 @@ function createService({ realtimeEventsService = null } = {}) {
     publishMessageEvent,
     publishReadCursorUpdated,
     publishReactionUpdated,
+    publishAttachmentUpdated,
     emitTyping
   };
 }
