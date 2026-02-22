@@ -1,5 +1,19 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Seventh Review Amendments Summary (Post-commit server review #7)
+
+This section records corrections made during a seventh pass after the prior review cycles.
+
+### Data integrity / account-lifecycle corrections
+
+- Fixed a participant-integrity risk: `chat_thread_participants.user_id` was documented with `ON DELETE CASCADE`, which can silently remove participant rows and break DM/group invariants (`participant_count`, membership semantics) during user deletion.
+- Updated `chat_thread_participants.user_id` FK guidance to `ON DELETE RESTRICT` and added an explicit note that account deletion should use a deliberate deactivation/anonymization workflow (or a separately designed erasure flow), not blind cascades.
+
+### Existing-code integration fit clarifications
+
+- Added an implementation note for scope-agnostic workspace-thread authz: `workspaceService.resolveRequestContext(...)` currently derives workspace/surface from request headers/query/params, so chat routes must use a server-sanitized request shim (or dedicated helper) that injects the thread’s workspace identity rather than passing the raw request unchanged.
+- Clarified that scope-agnostic workspace-thread routes should require a validated workspace-capable surface value (effectively mandatory `x-surface-id` for these routes when the path itself does not encode surface context).
+
 ## Sixth Review Amendments Summary (Post-commit server review #6)
 
 This section records corrections made during a sixth pass after the prior review cycles.
@@ -679,7 +693,7 @@ Columns:
 Indexes/constraints:
 
 - FK `thread_id -> chat_threads.id` ON DELETE CASCADE
-- FK `user_id -> user_profiles.id` ON DELETE CASCADE
+- FK `user_id -> user_profiles.id` ON DELETE RESTRICT
 - FK `removed_by_user_id -> user_profiles.id` ON DELETE SET NULL
 - UNIQUE (`thread_id`, `user_id`)
 - index (`user_id`, `status`, `updated_at`) for inbox queries
@@ -692,6 +706,7 @@ Notes:
 - For mixed inbox pagination (`workspace` + `global`), authz filtering must be pagination-aware:
   - prefer filtering in SQL join predicates where possible
   - otherwise over-fetch and refill until the requested page size is reached (or result set exhausted) to avoid sparse/unstable pages
+- Do not rely on blind user-row cascades for chat membership cleanup. If account deletion/erasure is a product requirement, implement an explicit chat-aware deactivation/anonymization or erasure workflow that preserves thread invariants (or updates them transactionally).
 
 ### Table 5: `chat_messages`
 
@@ -1179,6 +1194,7 @@ Then inside service/controller:
 - if `scope_kind=workspace`, require a workspace-capable surface (`app`/`admin`); reject on `console` surface
 - if `scope_kind=workspace`, treat client `x-surface-id` as untrusted input: validate against allowed workspace surfaces (`app`/`admin`) and reject ambiguous/invalid values
 - if `scope_kind=workspace`, resolve workspace context and permission via `workspaceService.resolveRequestContext(...)` using the **server-loaded thread workspace identity** (not client-provided `x-workspace-slug`) plus the validated request surface
+  - implementation note: in the current codebase `resolveRequestContext(...)` reads workspace/surface from request headers/query/params, so use a server-sanitized request shim (or dedicated helper) that injects the thread workspace slug and validated surface instead of passing the raw request unchanged
 - enforce participant status
 - if `scope_kind=global`, apply global DM policy and participant checks
 
