@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Forty-eighth Review Amendments Summary (Post-commit server review #48)
+
+This section records corrections made during a forty-eighth pass after the prior review cycles.
+
+### Empty-thread cleanup vs active tombstone preservation
+
+- Fixed a real duplicate-suppression risk in the tombstone strategy: `chat_message_idempotency_tombstones.thread_id` is `ON DELETE CASCADE`, so optional cleanup of empty `chat_threads` can silently delete active (unexpired) tombstones before the idempotency retry window ends.
+- Added explicit retention/thread-cleanup rules requiring empty-thread cleanup to exclude threads with active tombstones (or run only after tombstones expire) when tombstone mode is enabled.
+- Added repository/test-plan guidance so optional thread cleanup helpers and retention tests preserve active tombstones instead of relying on cascading deletes.
+
 ## Forty-seventh Review Amendments Summary (Post-commit server review #47)
 
 This section records corrections made during a forty-seventh pass after the prior review cycles.
@@ -1244,6 +1254,7 @@ Notes:
 - If duplicate tombstone writes provide a different expiry horizon, apply a deterministic policy (recommended: keep `expires_at = GREATEST(existing, incoming)` so retries/duplicate jobs do not shorten suppression unexpectedly).
 - Account-lifecycle note: because `sender_user_id` is `ON DELETE RESTRICT`, any hard user deletion/erasure workflow must explicitly clean/expire tombstones (or otherwise handle them in the broader chat migration/anonymization plan) when the tombstone strategy is enabled.
 - Legacy compatibility note: this tombstone schema requires non-null `idempotency_payload_version` + `idempotency_payload_sha256`. If a deletable message row has `client_message_id` but lacks those fields (legacy/backfill cases), do not write a partial tombstone; either backfill first or use the retained-message fallback policy for that row.
+- Thread-cleanup note: because `thread_id` is `ON DELETE CASCADE`, any optional empty-thread cleanup must not delete threads that still have active (unexpired) tombstones, or it will destroy duplicate-suppression state before the retry horizon expires.
 
 ### Table 6: `chat_attachments`
 
@@ -1413,6 +1424,7 @@ Reuse conventions from `server/modules/ai/repositories/*`:
 - `updateLastMessageCache(threadId, cachePatch, options)`
 - `incrementParticipantCount(threadId, delta, options)`
 - retention helpers (optional): `deleteWithoutMessagesOlderThan(...)`
+  - if tombstone strategy is enabled, support excluding threads with active tombstones from empty-thread cleanup candidates
 
 #### `participants.repository.js`
 
@@ -2185,6 +2197,14 @@ Choose one explicit strategy and keep it consistent across send + retention flow
 
 Tombstone/ledger retention should be bounded (hours/days, product dependent) and cleaned by the same retention worker framework after the retry horizon expires.
 
+Important interaction with optional empty-thread cleanup:
+
+- If `chat_threads` without messages cleanup is enabled and tombstone strategy is active, do not delete an empty thread while it still has active (unexpired) tombstones.
+- Because tombstones FK to `chat_threads` with `ON DELETE CASCADE`, deleting the thread would remove the tombstones and prematurely end duplicate-send suppression.
+- Safe patterns:
+  - run tombstone expiry cleanup before empty-thread cleanup and filter empty-thread deletion to threads with no remaining active tombstones, or
+  - have the empty-thread cleanup query explicitly exclude threads with active tombstones.
+
 Define the retry horizon explicitly in config (recommended: `chatMessageIdempotencyRetryWindowHours`) and apply it consistently:
 
 - Tombstone strategy: `expires_at` for tombstones should be at least `deleted_at + retryWindow` (product may keep longer, but not shorter).
@@ -2409,6 +2429,7 @@ Using existing realtime test harness patterns adapted for chat:
 - tombstone-enabled hard-delete flow handles legacy rows missing idempotency hash/version via the documented fallback (backfill-first or retain/redact exception), not partial tombstone writes or hard-delete failure loops
 - retention sweeps do not perpetually re-select the same legacy exception rows for tombstone deletion attempts (candidate filtering/exception routing prevents log churn)
 - tombstone strategy hard-delete paths fail closed on tombstone write errors/mismatches (message row remains until tombstone succeeds or a documented fallback path is applied)
+- optional empty-thread cleanup does not cascade-delete active tombstones before their retry-window expiry (threads with active tombstones are excluded/deferred)
 - attachment orphan cleanup deletes DB row + storage blob
 - safe no-op when blob already missing
 
