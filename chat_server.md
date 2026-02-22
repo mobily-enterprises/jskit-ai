@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Thirty-fourth Review Amendments Summary (Post-commit server review #34)
+
+This section records corrections made during a thirty-fourth pass after the prior review cycles.
+
+### Idempotency replay-compare mutability hardening
+
+- Fixed a subtle `sendMessage` replay-check weakness: duplicate `clientMessageId` handling relied on comparing against the current stored/hydrated message payload, but some compared fields can legitimately change later (for example `reply_to_message_id` repairs after retention/deletion or attachment moderation/cleanup state changes).
+- Added an immutable `idempotency_payload_sha256` field to `chat_messages` (schema-plan level) and clarified it is computed from the canonical logical send payload at initial insert time and never rewritten by later message/attachment maintenance flows.
+- Updated `sendMessage` transaction guidance to compare duplicate-key retries against the stored immutable fingerprint first (with legacy/backfill fallback behavior only when the fingerprint is absent) and added service-test coverage for replay-after-retention/mutation scenarios.
+
 ## Thirty-third Review Amendments Summary (Post-commit server review #33)
 
 This section records corrections made during a thirty-third pass after the prior review cycles.
@@ -1006,6 +1016,10 @@ Columns:
 - `client_message_id` VARCHAR(128) NULL
   - client-generated idempotency key scoped to sender+thread
   - nullable for system/generated/backfill messages; v1 user send endpoints should require it
+- `idempotency_payload_sha256` CHAR(64) NULL
+  - immutable SHA-256 (hex) of the canonical logical send payload used for `client_message_id` replay/conflict checks
+  - populate for user-sent messages that provide `client_message_id`; nullable for system/generated/backfill rows
+  - do not recompute/update during message edits, retention repairs, moderation actions, or attachment cleanup (replay checks must not depend on mutable current message state)
 - `message_kind` VARCHAR(32) NOT NULL DEFAULT `text`
   - values: `text`, `system`, `attachment`, `call`, `event`
 - `reply_to_message_id` BIGINT UNSIGNED NULL
@@ -1045,6 +1059,7 @@ Service invariants:
   - `system` / `call` / `event` messages may use structured `metadata_json` with no user text
 - sender must be active participant
 - `thread_seq` assigned in transaction
+- If `client_message_id` is set for a user send, `idempotency_payload_sha256` must be generated from the canonicalized logical send payload before insert and treated as immutable thereafter.
 
 ### Table 6: `chat_attachments`
 
@@ -1536,18 +1551,23 @@ This is the most important server flow.
 3. Begin DB transaction
 4. Re-read participant and thread row in transaction (optional but recommended for race safety)
 5. Idempotency check:
-   - look up `(thread_id, sender_user_id, client_message_id)` and compare against a **canonicalized logical send payload** (message kind/text-or-ciphertext mode, reply target, attachment IDs set/order as policy defines, and relevant metadata)
-   - normalize/canonicalize before compare (e.g. metadata JSON key ordering, omitted-vs-default fields, null/empty conventions) so logically equivalent retries do not become false conflicts
+   - build a **canonicalized logical send payload** from the request (message kind/text-or-ciphertext mode, reply target, attachment IDs set/order as policy defines, and relevant metadata)
+   - normalize/canonicalize before compare/hash (e.g. metadata JSON key ordering, omitted-vs-default fields, null/empty conventions) so logically equivalent retries do not become false conflicts
    - exclude transport-only/request-only fields (`x-command-id`, `x-client-id`, request timestamps, tracing IDs) from the idempotency payload comparison
+   - compute `incomingIdempotencyPayloadSha256` from the canonicalized logical send payload (SHA-256 hex)
    - E2EE note (important): in v1, the server can only compare opaque encrypted payload fields it stores (`ciphertext_blob`, `cipher_nonce`, `cipher_alg`, `key_ref`); do not attempt semantic equivalence of plaintext
    - therefore, same-`clientMessageId` retries in E2EE mode should reuse the exact encrypted payload bytes/metadata, unless a separate client-generated idempotency fingerprint/hash contract is introduced and persisted for comparison
-   - if existing row matches the incoming logical payload, return existing message + thread summary (idempotent replay)
+   - look up `(thread_id, sender_user_id, client_message_id)`
+   - if an existing row is found and `idempotency_payload_sha256` is present, compare the stored immutable hash to `incomingIdempotencyPayloadSha256` (authoritative replay/conflict check)
+   - if an existing row is found but the immutable hash is absent (legacy/backfill/system row), use a documented fallback compare path (best effort) and avoid relying on mutable hydrated state where possible
+   - if existing row matches the incoming idempotency payload, return existing message + thread summary (idempotent replay)
    - if the same key maps to a materially different payload, reject as conflict (`409`) rather than returning a misleading replay
 6. Allocate `thread_seq`
    - lock thread row (`SELECT ... FOR UPDATE`), assign `thread_seq = next_message_seq`, then increment/store `next_message_seq = thread_seq + 1`
 7. Insert `chat_messages` row
+   - persist `idempotency_payload_sha256 = incomingIdempotencyPayloadSha256` for user-sent rows with `clientMessageId`
    - if insert hits unique conflict on `(thread_id, sender_user_id, client_message_id)` (concurrent duplicate request race), roll back and re-read the existing message
-   - apply the same idempotency payload-match check on the re-read result before deciding replay-success vs conflict
+   - apply the same idempotency payload-match check on the re-read result before deciding replay-success vs conflict (prefer stored immutable hash if present)
 8. Attach uploaded attachment rows (if any)
    - claim attachments in a race-safe way (e.g. lock selected attachment rows `FOR UPDATE`, or use conditional `UPDATE ... WHERE status='uploaded' AND message_id IS NULL AND thread_id=? AND uploaded_by_user_id=?`)
    - validate each attachment belongs to sender, thread, status `uploaded`, unattached
@@ -2057,6 +2077,7 @@ Per repository:
 - concurrent duplicate-key race with mismatched payload resolves to conflict after re-read/payload-compare (not false replay success)
 - logically equivalent retries with metadata key-order differences / omitted defaults normalize to the same idempotency payload and replay successfully
 - E2EE mode: same `clientMessageId` replay with exact same ciphertext/nonce payload replays successfully; changed opaque encrypted payload is conflict under v1 compare rules
+- duplicate `clientMessageId` replay still succeeds after later mutable-state changes (e.g. `reply_to_message_id` repaired/null'd by retention or attachment moderation state changes) because replay/conflict uses the stored immutable idempotency fingerprint, not mutable hydrated message state
 - deadlock / lock-timeout transient DB errors retry successfully within bounded retry policy
 - service-level send throttling/quota enforcement denies over-limit sends independently of route middleware
 - post-commit realtime publish failure does not lose the message or incorrectly rollback/send error (client can recover via fetch path)
