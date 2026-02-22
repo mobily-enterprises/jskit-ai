@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Forty-ninth Review Amendments Summary (Post-commit server review #49)
+
+This section records corrections made during a forty-ninth pass after the prior review cycles.
+
+### Tombstone-only empty-thread visibility/cache handling
+
+- Fixed a user-visible behavior gap introduced by preserving empty threads with active tombstones: the plan prevented deleting those threads, but did not specify cache/list behavior for now-empty threads retained only for duplicate-suppression state.
+- Added retention/cache-repair guidance requiring tombstone-only retained empty threads to have `last_message_*` caches cleared and to be excluded from normal inbox/thread-list results until cleanup is safe.
+- Added repository/test-plan guidance so optional empty-thread cleanup protections do not create ghost/blank threads in user-visible lists.
+
 ## Forty-eighth Review Amendments Summary (Post-commit server review #48)
 
 This section records corrections made during a forty-eighth pass after the prior review cycles.
@@ -1418,6 +1428,7 @@ Reuse conventions from `server/modules/ai/repositories/*`:
 - `findById(threadId, options)`
 - `findDmByCanonicalPair({ scopeKey, userAId, userBId }, options)`
 - `listForUser(userId, filters, pagination, options)`
+  - if tombstone strategy retains empty threads with active tombstones, normal user-facing list queries should exclude tombstone-only empty threads (or equivalent hidden-state filter) so they do not appear as ghost/blank conversations
 - `updateById(threadId, patch, options)`
 - `allocateNextMessageSequence(threadId, options)`
   - transaction-safe allocator (or `lockThreadForUpdate` + manual increment)
@@ -2204,6 +2215,9 @@ Important interaction with optional empty-thread cleanup:
 - Safe patterns:
   - run tombstone expiry cleanup before empty-thread cleanup and filter empty-thread deletion to threads with no remaining active tombstones, or
   - have the empty-thread cleanup query explicitly exclude threads with active tombstones.
+- If an empty thread is intentionally retained only because active tombstones still exist, treat it as internal duplicate-suppression state:
+  - clear/recompute `chat_threads.last_message_*` cache fields to an empty-thread state
+  - exclude it from normal inbox/thread list responses until it is deleted (or otherwise explicitly hidden by product policy)
 
 Define the retry horizon explicitly in config (recommended: `chatMessageIdempotencyRetryWindowHours`) and apply it consistently:
 
@@ -2236,6 +2250,7 @@ Important cache repair requirement:
   - delete empty threads and recompute caches for non-empty threads touched by deletions
 - and must null/repair affected participant message-pointer columns where the referenced message row no longer exists
 - and should clamp participant seq cursors (`last_read_seq`, `last_delivered_seq`) to `<= thread.last_message_seq` for affected threads to keep cursor math and invariants consistent after deletions
+- and, when tombstone strategy preserves an otherwise-empty thread, must clear `last_message_*` caches and ensure that thread is not returned as a normal user-visible conversation solely because tombstones remain
 - This repair step should be part of the same retention worker flow (or an immediately chained job) to avoid stale inbox ordering/previews and dangling pointers.
 
 If `chat_messages.reply_to_message_id` FK is omitted in v1 (allowed earlier for migration simplicity):
@@ -2430,6 +2445,7 @@ Using existing realtime test harness patterns adapted for chat:
 - retention sweeps do not perpetually re-select the same legacy exception rows for tombstone deletion attempts (candidate filtering/exception routing prevents log churn)
 - tombstone strategy hard-delete paths fail closed on tombstone write errors/mismatches (message row remains until tombstone succeeds or a documented fallback path is applied)
 - optional empty-thread cleanup does not cascade-delete active tombstones before their retry-window expiry (threads with active tombstones are excluded/deferred)
+- threads retained only for active tombstones are not surfaced as ghost/blank conversations in inbox/thread-list queries (cache cleared + list filtering/hidden-state behavior)
 - attachment orphan cleanup deletes DB row + storage blob
 - safe no-op when blob already missing
 
