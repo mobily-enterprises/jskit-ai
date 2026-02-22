@@ -21,13 +21,15 @@
         "workspace.billing.manage",
         "history.read",
         "history.write",
+        "chat.read",
+        "chat.write",
         "projects.read",
         "projects.write"
       ]
     },
     "member": {
       "assignable": true,
-      "permissions": ["history.read", "history.write", "projects.read", "projects.write"]
+      "permissions": ["history.read", "history.write", "chat.read", "chat.write", "projects.read", "projects.write"]
     },
     "viewer": {
       "assignable": true,
