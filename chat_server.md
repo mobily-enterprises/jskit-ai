@@ -1,5 +1,20 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Second Review Amendments Summary (Post-commit server review #2)
+
+This section records corrections made during a second pass after the prior review-amended version was committed.
+
+### Data integrity / storage lifecycle corrections
+
+- Fixed a blob-leak risk in the attachment schema plan: attachment FK cascades (`thread_id` / `message_id`) can delete DB rows before storage blob cleanup runs.
+- Updated `chat_attachments` FK guidance to prefer `ON DELETE RESTRICT` for parent rows so attachment/blob cleanup happens explicitly in service code before parent deletion.
+- Expanded cleanup guidance to include `preview_storage_key` (and other derived renditions), not only `storage_key`.
+
+### Authorization / product-behavior clarifications
+
+- Clarified shared-workspace policy semantics for global DMs to avoid accidental retroactive lockouts: recommend enforcing shared-workspace requirement at DM creation/ensure time in v1 (not silently re-checking and revoking existing thread access later unless a stricter mode is explicitly introduced).
+- Added mixed-inbox pagination note: when workspace authz filtering is applied, pagination must be authz-aware (DB-side where possible, or over-fetch + refill) to avoid sparse/unstable pages.
+
 ## Review Amendments Summary (Post-commit server review)
 
 This section records corrections made after a careful server-side review of the initial plan commit.
@@ -255,6 +270,12 @@ A request to a global DM thread must satisfy all:
 5. Optional shared-workspace requirement depending on config
 
 Global DMs are intentionally not tied to route-static workspace permissions.
+
+Recommended v1 policy semantics (important):
+
+- If `CHAT_GLOBAL_DMS_REQUIRE_SHARED_WORKSPACE=true`, enforce the shared-workspace rule at DM creation / `ensure` time.
+- Do not retroactively revoke access to an existing global DM solely because users no longer share a workspace (unless a stricter explicit policy mode is added later).
+- Continue to enforce block/privacy checks on every request/send path.
 
 ### User blocking / privacy (robustness requirement)
 
@@ -603,6 +624,9 @@ Indexes/constraints:
 Notes:
 
 - For performance, inbox list query can compute unread count as `GREATEST(0, t.last_message_seq - p.last_read_seq)`.
+- For mixed inbox pagination (`workspace` + `global`), authz filtering must be pagination-aware:
+  - prefer filtering in SQL join predicates where possible
+  - otherwise over-fetch and refill until the requested page size is reached (or result set exhausted) to avoid sparse/unstable pages
 
 ### Table 5: `chat_messages`
 
@@ -703,9 +727,9 @@ Columns:
 
 Indexes/constraints:
 
-- FK `thread_id -> chat_threads.id` ON DELETE CASCADE
-- FK `message_id -> chat_messages.id` ON DELETE CASCADE
-- FK `uploaded_by_user_id -> user_profiles.id` ON DELETE CASCADE
+- FK `thread_id -> chat_threads.id` ON DELETE RESTRICT
+- FK `message_id -> chat_messages.id` ON DELETE RESTRICT
+- FK `uploaded_by_user_id -> user_profiles.id` ON DELETE RESTRICT
 - UNIQUE (`message_id`, `position`) (nullable `message_id`)
 - UNIQUE (`thread_id`, `uploaded_by_user_id`, `client_attachment_id`) for idempotent uploads when client key supplied
 - index (`thread_id`, `status`, `created_at`)
@@ -717,6 +741,8 @@ Notes:
 
 - One table is simpler than separate staging + attachment-link tables and supports robust lifecycle tracking.
 - If future attachment reuse is required, split into blob table + message link table later.
+- Because attachments reference external blob storage, parent-row deletes (message/thread/user/workspace cascades) should not silently delete attachment rows before blob cleanup runs.
+- Prefer explicit delete flows: delete/expire blobs first (or mark + async cleanup), then delete attachment rows, then delete parent rows.
 
 ### Table 7: `chat_message_reactions`
 
@@ -1452,11 +1478,16 @@ DB retention alone is not enough for attachments.
 
 Need a cleanup path that also deletes storage blobs:
 
-- repository returns a batch of deletable attachment rows with `storage_key`
+- repository returns a batch of deletable attachment rows with `storage_key`, `preview_storage_key` (and any future derivative keys stored in metadata)
 - service deletes blobs first (or marks rows and then deletes blobs)
 - mark rows deleted/expired and remove after success
 
 For robustness, use an idempotent cleanup worker job if blob deletion is not guaranteed synchronous.
+
+Deletion ordering rule (important):
+
+- Never rely on DB cascades alone for blob-backed records.
+- Message/thread/workspace cleanup flows must process attachment blob deletion (or durable tombstoning + async cleanup) before deleting parent rows that would make attachment keys undiscoverable.
 
 ## Abuse and Safety Controls (Server)
 
