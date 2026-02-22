@@ -1,5 +1,19 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Sixth Review Amendments Summary (Post-commit server review #6)
+
+This section records corrections made during a sixth pass after the prior review cycles.
+
+### Security / trust-boundary clarifications
+
+- Clarified trust boundaries for scope-agnostic workspace-thread routes: do not trust client-provided `x-workspace-slug` for thread authz; derive workspace identity from the loaded thread record and use that for context resolution.
+- Tightened surface handling for scope-agnostic workspace-thread routes: treat `x-surface-id` as user input, validate it against an explicit allowlist (`app`/`admin`), and reject ambiguous/invalid surface selection instead of silently falling back.
+
+### Correctness / API-behavior clarifications
+
+- Clarified `GET /api/chat/inbox` wording so “mixed inbox” is explicitly policy/surface-dependent rather than implied as universal behavior.
+- Added `markRead` guidance for retention/deletion scenarios: if a supplied `messageId` no longer exists, clients should use `threadSeq`; server should not infer read advancement from an unknown message ID.
+
 ## Fifth Review Amendments Summary (Post-commit server review #5)
 
 This section records corrections made during a fifth pass after the prior review cycles.
@@ -1107,7 +1121,7 @@ Create a new module mirroring other modules:
   - implement as race-safe ensure (canonical user pair + unique DM constraint + insert/lookup retry on duplicate)
 - `GET /api/chat/inbox`
   - `auth: required`
-  - returns mixed inbox (workspace + global) unless filtered
+  - returns inbox results according to surface + policy (mixed where allowed; not universally mixed)
   - v1 recommended default on `console` surface: global threads only
   - v1 recommended default on workspace surfaces: `global` + active workspace threads only (fits current single-workspace request context model)
   - full all-workspaces inbox mode should be explicit and must use authz-aware server filtering/pagination
@@ -1163,7 +1177,8 @@ Then inside service/controller:
 
 - load thread
 - if `scope_kind=workspace`, require a workspace-capable surface (`app`/`admin`); reject on `console` surface
-- if `scope_kind=workspace`, resolve workspace context and permission via `workspaceService.resolveRequestContext(...)` using thread workspace slug/id and request surface
+- if `scope_kind=workspace`, treat client `x-surface-id` as untrusted input: validate against allowed workspace surfaces (`app`/`admin`) and reject ambiguous/invalid values
+- if `scope_kind=workspace`, resolve workspace context and permission via `workspaceService.resolveRequestContext(...)` using the **server-loaded thread workspace identity** (not client-provided `x-workspace-slug`) plus the validated request surface
 - enforce participant status
 - if `scope_kind=global`, apply global DM policy and participant checks
 
@@ -1226,6 +1241,7 @@ Store per-participant read cursor in `chat_thread_participants`:
 `markRead` endpoint should perform monotonic updates only:
 
 - validate incoming cursor belongs to the thread (`messageId` -> `threadId`), and if both `messageId` and `threadSeq` are supplied they must agree
+- if `messageId` is supplied but not found (e.g. deleted/retained), do not infer advancement from that ID; require `threadSeq` (or return a bounded validation/conflict error)
 - clamp incoming seq to valid thread range (`0..thread.last_message_seq` or current max surviving seq semantics)
 - `last_read_seq = GREATEST(last_read_seq, clampedIncomingSeq)`
 - update message pointer iff incoming seq wins
