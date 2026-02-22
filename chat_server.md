@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Twenty-second Review Amendments Summary (Post-commit server review #22)
+
+This section records corrections made during a twenty-second pass after the prior review cycles.
+
+### Attachment-linking race / transactional integrity clarifications
+
+- Tightened the `sendMessage` attachment-linking step to explicitly require race-safe attachment claiming (row locks and/or conditional updates) so concurrent sends cannot attach/reassign the same uploaded attachment rows.
+- Added explicit guidance to validate affected-row counts during attachment attach operations and fail/rollback if any requested attachment is no longer attachable (`uploaded`, unattached, same thread/uploader).
+- Added service-test coverage for concurrent attachment attach races to ensure the plan’s “no attachment theft/reuse” guarantee is actually enforceable in implementation.
+
 ## Twenty-first Review Amendments Summary (Post-commit server review #21)
 
 This section records corrections made during a twenty-first pass after the prior review cycles.
@@ -1407,8 +1417,10 @@ This is the most important server flow.
 7. Insert `chat_messages` row
    - if insert hits unique conflict on `(thread_id, sender_user_id, client_message_id)` (concurrent duplicate request race), roll back and re-read the existing message to return a successful idempotent response
 8. Attach uploaded attachment rows (if any)
+   - claim attachments in a race-safe way (e.g. lock selected attachment rows `FOR UPDATE`, or use conditional `UPDATE ... WHERE status='uploaded' AND message_id IS NULL AND thread_id=? AND uploaded_by_user_id=?`)
    - validate each attachment belongs to sender, thread, status `uploaded`, unattached
    - set `message_id`, `position`, `status='attached'`
+   - verify the number of successfully claimed/updated rows matches requested attachment IDs; otherwise fail and roll back (another request may have attached/changed one of them)
 9. Update `chat_threads` cache fields:
    - `last_message_id`, `last_message_seq`, `last_message_at`, `last_message_preview`, `updated_at`
    - populate `last_message_preview` only when plaintext preview policy is enabled for the thread/app mode; otherwise keep it `NULL` (or clear it)
@@ -1891,6 +1903,7 @@ Per repository:
 
 - happy path text-only
 - attachments attached atomically
+- concurrent attach race on the same uploaded attachment IDs fails/rolls back cleanly (no attachment reassignment across messages)
 - duplicate `clientMessageId` returns same message (idempotent)
 - concurrent duplicate `clientMessageId` requests (race) return one canonical message via unique-conflict fallback path
 - deadlock / lock-timeout transient DB errors retry successfully within bounded retry policy
