@@ -99,6 +99,17 @@ function createProjectsRepository(dbClient) {
     return normalizeCount(row);
   }
 
+  async function repoCountActiveForWorkspace(workspaceId, options = {}) {
+    const client = resolveClient(options);
+    const row = await client("workspace_projects")
+      .where({ workspace_id: workspaceId })
+      .andWhereNot({ status: "archived" })
+      .count({ total: "*" })
+      .first();
+
+    return normalizeCount(row);
+  }
+
   async function repoListForWorkspace(workspaceId, page, pageSize, options = {}) {
     const client = resolveClient(options);
     const offset = (page - 1) * pageSize;
@@ -159,6 +170,7 @@ function createProjectsRepository(dbClient) {
     insert: repoInsert,
     findByIdForWorkspace: repoFindByIdForWorkspace,
     countForWorkspace: repoCountForWorkspace,
+    countActiveForWorkspace: repoCountActiveForWorkspace,
     listForWorkspace: repoListForWorkspace,
     updateByIdForWorkspace: repoUpdateByIdForWorkspace,
     transaction: repoTransaction
@@ -175,6 +187,14 @@ const __testables = {
   createProjectsRepository
 };
 
-export const { insert, findByIdForWorkspace, countForWorkspace, listForWorkspace, updateByIdForWorkspace, transaction } =
+export const {
+  insert,
+  findByIdForWorkspace,
+  countForWorkspace,
+  countActiveForWorkspace,
+  listForWorkspace,
+  updateByIdForWorkspace,
+  transaction
+} =
   repository;
 export { __testables };

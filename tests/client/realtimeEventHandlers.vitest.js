@@ -5,7 +5,12 @@ import {
   workspaceAiTranscriptsScopeQueryKey
 } from "../../src/features/aiTranscripts/queryKeys.js";
 import { projectDetailQueryKey, projectsScopeQueryKey } from "../../src/features/projects/queryKeys.js";
-import { workspaceAdminRootQueryKey } from "../../src/features/workspaceAdmin/queryKeys.js";
+import {
+  workspaceAdminRootQueryKey,
+  workspaceBillingLimitationsQueryKey,
+  workspaceBillingPlanStateQueryKey,
+  workspaceBillingPurchasesQueryKey
+} from "../../src/features/workspaceAdmin/queryKeys.js";
 import { commandTracker, __testables as trackerTestables } from "../../src/services/realtime/commandTracker.js";
 import { createRealtimeEventHandlers } from "../../src/services/realtime/realtimeEventHandlers.js";
 
@@ -232,6 +237,90 @@ describe("realtimeEventHandlers", () => {
     expect(result.status).toBe("processed");
     expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
       queryKey: workspaceAiTranscriptsRootQueryKey()
+    });
+  });
+
+  it("invalidates limitations for billing-limit events", async () => {
+    const handlers = createRealtimeEventHandlers({
+      queryClient,
+      commandTracker,
+      clientId: "cli-local"
+    });
+
+    const event = {
+      eventId: "evt-billing-limits",
+      topic: REALTIME_TOPICS.WORKSPACE_BILLING_LIMITS,
+      workspaceSlug: "acme",
+      sourceClientId: "cli-remote",
+      payload: {
+        changeSource: "manual_refresh"
+      }
+    };
+
+    const result = await handlers.processEvent(event);
+    expect(result.status).toBe("processed");
+    expect(queryClient.invalidateQueries).toHaveBeenCalledTimes(1);
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: workspaceBillingLimitationsQueryKey("acme")
+    });
+  });
+
+  it("invalidates plan state and purchases on purchase grants", async () => {
+    const handlers = createRealtimeEventHandlers({
+      queryClient,
+      commandTracker,
+      clientId: "cli-local"
+    });
+
+    const event = {
+      eventId: "evt-billing-purchase-grant",
+      topic: REALTIME_TOPICS.WORKSPACE_BILLING_LIMITS,
+      workspaceSlug: "acme",
+      sourceClientId: "cli-remote",
+      payload: {
+        changeSource: "purchase_grant"
+      }
+    };
+
+    const result = await handlers.processEvent(event);
+    expect(result.status).toBe("processed");
+    expect(queryClient.invalidateQueries).toHaveBeenCalledTimes(3);
+    expect(queryClient.invalidateQueries).toHaveBeenNthCalledWith(1, {
+      queryKey: workspaceBillingLimitationsQueryKey("acme")
+    });
+    expect(queryClient.invalidateQueries).toHaveBeenNthCalledWith(2, {
+      queryKey: workspaceBillingPlanStateQueryKey("acme")
+    });
+    expect(queryClient.invalidateQueries).toHaveBeenNthCalledWith(3, {
+      queryKey: workspaceBillingPurchasesQueryKey("acme")
+    });
+  });
+
+  it("invalidates plan state but not purchases on plan grants", async () => {
+    const handlers = createRealtimeEventHandlers({
+      queryClient,
+      commandTracker,
+      clientId: "cli-local"
+    });
+
+    const event = {
+      eventId: "evt-billing-plan-grant",
+      topic: REALTIME_TOPICS.WORKSPACE_BILLING_LIMITS,
+      workspaceSlug: "acme",
+      sourceClientId: "cli-remote",
+      payload: {
+        changeSource: "plan_grant"
+      }
+    };
+
+    const result = await handlers.processEvent(event);
+    expect(result.status).toBe("processed");
+    expect(queryClient.invalidateQueries).toHaveBeenCalledTimes(2);
+    expect(queryClient.invalidateQueries).toHaveBeenNthCalledWith(1, {
+      queryKey: workspaceBillingLimitationsQueryKey("acme")
+    });
+    expect(queryClient.invalidateQueries).toHaveBeenNthCalledWith(2, {
+      queryKey: workspaceBillingPlanStateQueryKey("acme")
     });
   });
 });

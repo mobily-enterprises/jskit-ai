@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/vue-query";
 import { api } from "../../services/api/index.js";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 import {
+  workspaceBillingLimitationsQueryKey,
   workspaceBillingPlanStateQueryKey,
   workspaceBillingProductsQueryKey,
   workspaceBillingPurchasesQueryKey
@@ -119,6 +120,39 @@ function normalizePurchase(entry) {
   };
 }
 
+function normalizeLimitation(entry) {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+
+  const hardLimitAmount = entry.hardLimitAmount == null ? null : Number(entry.hardLimitAmount);
+  const consumedAmount = Number(entry.consumedAmount || 0);
+  const grantedAmount = Number(entry.grantedAmount || 0);
+  const effectiveAmount = Number(entry.effectiveAmount || 0);
+  const usagePercent =
+    hardLimitAmount != null && hardLimitAmount > 0
+      ? Math.max(0, Math.min(100, Math.round((consumedAmount / hardLimitAmount) * 100)))
+      : null;
+
+  return {
+    code: String(entry.code || ""),
+    entitlementType: String(entry.entitlementType || ""),
+    enforcementMode: String(entry.enforcementMode || ""),
+    unit: String(entry.unit || ""),
+    grantedAmount: Number.isFinite(grantedAmount) ? grantedAmount : 0,
+    consumedAmount: Number.isFinite(consumedAmount) ? consumedAmount : 0,
+    effectiveAmount: Number.isFinite(effectiveAmount) ? effectiveAmount : 0,
+    hardLimitAmount: hardLimitAmount != null && Number.isFinite(hardLimitAmount) ? hardLimitAmount : null,
+    overLimit: Boolean(entry.overLimit),
+    lockState: String(entry.lockState || "none"),
+    nextChangeAt: String(entry.nextChangeAt || ""),
+    windowStartAt: String(entry.windowStartAt || ""),
+    windowEndAt: String(entry.windowEndAt || ""),
+    lastRecomputedAt: String(entry.lastRecomputedAt || ""),
+    usagePercent
+  };
+}
+
 function formatPurchaseKindLabel(value) {
   const normalized = String(value || "").trim().toLowerCase();
   if (!normalized) {
@@ -183,6 +217,12 @@ export function useWorkspaceBillingView() {
     queryKey: computed(() => workspaceBillingProductsQueryKey(workspaceSlug.value)),
     queryFn: () => api.billing.listProducts(),
     enabled: computed(() => Boolean(workspaceSlug.value))
+  });
+  const limitationsQuery = useQuery({
+    queryKey: computed(() => workspaceBillingLimitationsQueryKey(workspaceSlug.value)),
+    queryFn: () => api.billing.getLimitations(),
+    enabled: computed(() => Boolean(workspaceSlug.value)),
+    refetchInterval: 30_000
   });
   const purchasesQuery = useQuery({
     queryKey: computed(() => workspaceBillingPurchasesQueryKey(workspaceSlug.value)),
@@ -287,6 +327,18 @@ export function useWorkspaceBillingView() {
 
   const purchasesLoading = computed(() => Boolean(purchasesQuery.isPending.value || purchasesQuery.isFetching.value));
   const purchasesError = computed(() => String(purchasesQuery.error.value?.message || ""));
+  const limitationItems = computed(() => {
+    const entries = Array.isArray(limitationsQuery.data.value?.limitations) ? limitationsQuery.data.value.limitations : [];
+    return entries.map(normalizeLimitation).filter(Boolean);
+  });
+  const limitationsLoading = computed(() =>
+    Boolean(limitationsQuery.isPending.value || limitationsQuery.isFetching.value)
+  );
+  const limitationsError = computed(() => String(limitationsQuery.error.value?.message || ""));
+  const limitationsGeneratedAt = computed(() =>
+    String(limitationsQuery.data.value?.generatedAt || "").trim()
+  );
+  const limitationsStale = computed(() => Boolean(limitationsQuery.data.value?.stale));
 
   watch(
     planOptions,
@@ -349,7 +401,7 @@ export function useWorkspaceBillingView() {
   }
 
   async function refresh() {
-    await Promise.all([planStateQuery.refetch(), purchasesQuery.refetch()]);
+    await Promise.all([planStateQuery.refetch(), purchasesQuery.refetch(), limitationsQuery.refetch()]);
   }
 
   async function submitPlanChange() {
@@ -574,6 +626,11 @@ export function useWorkspaceBillingView() {
       purchaseItems,
       purchasesLoading,
       purchasesError,
+      limitationItems,
+      limitationsLoading,
+      limitationsError,
+      limitationsGeneratedAt,
+      limitationsStale,
       selectedCatalogPriceId,
       selectedCatalogQuantity,
       oneOffMode,

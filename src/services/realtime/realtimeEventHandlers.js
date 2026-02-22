@@ -4,7 +4,12 @@ import {
   workspaceAiTranscriptsScopeQueryKey
 } from "../../features/aiTranscripts/queryKeys.js";
 import { projectDetailQueryKey, projectsScopeQueryKey } from "../../features/projects/queryKeys.js";
-import { workspaceAdminRootQueryKey } from "../../features/workspaceAdmin/queryKeys.js";
+import {
+  workspaceAdminRootQueryKey,
+  workspaceBillingLimitationsQueryKey,
+  workspaceBillingPlanStateQueryKey,
+  workspaceBillingPurchasesQueryKey
+} from "../../features/workspaceAdmin/queryKeys.js";
 
 function normalizeEventEnvelope(eventEnvelope) {
   if (!eventEnvelope || typeof eventEnvelope !== "object") {
@@ -30,6 +35,12 @@ function normalizeTopics(topics) {
 
 function normalizeWorkspaceSlugFromEvent(eventEnvelope) {
   return String(eventEnvelope?.workspaceSlug || "").trim();
+}
+
+function normalizeBillingLimitChangeSource(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
 }
 
 function createStaticQueryInvalidator({ queryKey }) {
@@ -76,6 +87,27 @@ async function invalidateForProjectEvent(queryClient, eventEnvelope) {
   });
 }
 
+async function invalidateForWorkspaceBillingLimitsEvent(queryClient, eventEnvelope) {
+  const workspaceSlug = normalizeWorkspaceSlugFromEvent(eventEnvelope);
+  const changeSource = normalizeBillingLimitChangeSource(eventEnvelope?.payload?.changeSource);
+
+  await queryClient.invalidateQueries({
+    queryKey: workspaceBillingLimitationsQueryKey(workspaceSlug)
+  });
+
+  if (changeSource === "purchase_grant" || changeSource === "plan_grant") {
+    await queryClient.invalidateQueries({
+      queryKey: workspaceBillingPlanStateQueryKey(workspaceSlug)
+    });
+  }
+
+  if (changeSource === "purchase_grant") {
+    await queryClient.invalidateQueries({
+      queryKey: workspaceBillingPurchasesQueryKey(workspaceSlug)
+    });
+  }
+}
+
 const invalidateForWorkspaceAdminEvent = createStaticQueryInvalidator({
   queryKey: workspaceAdminRootQueryKey
 });
@@ -113,6 +145,10 @@ const TOPIC_STRATEGY_REGISTRY = Object.freeze({
   }),
   [REALTIME_TOPICS.WORKSPACE_AI_TRANSCRIPTS]: Object.freeze({
     invalidate: invalidateForWorkspaceAiTranscriptsEvent,
+    refreshBootstrap: false
+  }),
+  [REALTIME_TOPICS.WORKSPACE_BILLING_LIMITS]: Object.freeze({
+    invalidate: invalidateForWorkspaceBillingLimitsEvent,
     refreshBootstrap: false
   })
 });
@@ -251,7 +287,8 @@ function createRealtimeEventHandlers({ queryClient, commandTracker, clientId, wo
 
 const __testables = {
   normalizeEventEnvelope,
-  invalidateForProjectEvent
+  invalidateForProjectEvent,
+  invalidateForWorkspaceBillingLimitsEvent
 };
 
 export { createRealtimeEventHandlers, __testables };

@@ -31,13 +31,33 @@ function resolveRuntimeFingerprint({ surface, authenticated, workspaceSlug, topi
   ].join(":");
 }
 
-function hasAnyTopicPermission({ workspaceStore, topic }) {
+function resolveTopicRequiredPermissions(topicRule, surfaceValue) {
+  if (!topicRule || typeof topicRule !== "object") {
+    return [];
+  }
+
+  const surfaceMap =
+    topicRule.requiredAnyPermissionBySurface && typeof topicRule.requiredAnyPermissionBySurface === "object"
+      ? topicRule.requiredAnyPermissionBySurface
+      : null;
+  const normalizedSurface = normalizeSurface(surfaceValue);
+  if (surfaceMap && normalizedSurface) {
+    const surfacedPermissions = Array.isArray(surfaceMap[normalizedSurface]) ? surfaceMap[normalizedSurface] : null;
+    if (surfacedPermissions) {
+      return surfacedPermissions;
+    }
+  }
+
+  return Array.isArray(topicRule.requiredAnyPermission) ? topicRule.requiredAnyPermission : [];
+}
+
+function hasAnyTopicPermission({ workspaceStore, topic, surface = "" }) {
   const topicRule = getTopicRule(topic);
   if (!topicRule) {
     return false;
   }
 
-  const requiredPermissions = Array.isArray(topicRule.requiredAnyPermission) ? topicRule.requiredAnyPermission : [];
+  const requiredPermissions = resolveTopicRequiredPermissions(topicRule, surface);
   if (requiredPermissions.length < 1) {
     return true;
   }
@@ -50,7 +70,9 @@ function hasAnyTopicPermission({ workspaceStore, topic }) {
 }
 
 function resolveEligibleTopics(workspaceStore, surface) {
-  return listRealtimeTopicsForSurface(surface).filter((topic) => hasAnyTopicPermission({ workspaceStore, topic }));
+  return listRealtimeTopicsForSurface(surface).filter((topic) =>
+    hasAnyTopicPermission({ workspaceStore, topic, surface })
+  );
 }
 
 function buildRealtimeUrl() {

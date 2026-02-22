@@ -1,11 +1,21 @@
 const APP_CAPABILITY_LIMIT_CONFIG = Object.freeze({
   "projects.create": Object.freeze({
-    limitationCode: "projects_created_monthly",
-    usageAmount: 1
+    limitationCode: "projects.max",
+    usageAmount: 1,
+    reasonCode: "project.create",
+    entitlementType: "capacity"
   }),
-  "ai.chat.turn": Object.freeze({
-    limitationCode: "ai_chat_turns_monthly",
-    usageAmount: 1
+  "projects.unarchive": Object.freeze({
+    limitationCode: "projects.max",
+    usageAmount: 1,
+    reasonCode: "project.unarchive",
+    entitlementType: "capacity"
+  }),
+  "annuity.calculate": Object.freeze({
+    limitationCode: "annuity.calculations.monthly",
+    usageAmount: 1,
+    reasonCode: "annuity.calculate",
+    entitlementType: "metered_quota"
   })
 });
 

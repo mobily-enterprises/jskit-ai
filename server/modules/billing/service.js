@@ -9,7 +9,6 @@ import {
 } from "./constants.js";
 import { toCanonicalJson, toSha256Hex } from "./canonicalJson.js";
 import { normalizeBillingPath, normalizePortalPath } from "./pathPolicy.js";
-import { assertEntitlementValueOrThrow } from "../../lib/billing/entitlementSchemaRegistry.js";
 import { resolveCapabilityLimitConfig } from "./appCapabilityLimits.js";
 import {
   PROVIDER_OUTCOME_ACTIONS,
@@ -212,7 +211,6 @@ function isLocalPreparationError(error) {
   return error instanceof AppError && !isBillingProviderError(error);
 }
 
-const LIFETIME_WINDOW_END = new Date("9999-12-31T23:59:59.999Z");
 const BILLING_LIMIT_EXCEEDED_ERROR_CODE = "BILLING_LIMIT_EXCEEDED";
 const BILLING_LIMIT_NOT_CONFIGURED_ERROR_CODE = "BILLING_LIMIT_NOT_CONFIGURED";
 const PAID_PLAN_CHANGE_POLICY_REQUIRED_NOW = "required_now";
@@ -234,64 +232,8 @@ function toPositiveInteger(value) {
   return parsed;
 }
 
-function startOfUtcDay(date) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
-}
-
 function addUtcDays(date, days) {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
-}
-
-function resolveUsageWindow(interval, now = new Date()) {
-  const reference = now instanceof Date ? now : new Date(now);
-  if (Number.isNaN(reference.getTime())) {
-    throw new AppError(400, "Invalid usage window reference time.");
-  }
-
-  const normalizedInterval = toNonEmptyString(interval).toLowerCase();
-  if (normalizedInterval === "lifetime") {
-    return {
-      interval: "lifetime",
-      windowStartAt: new Date("1970-01-01T00:00:00.000Z"),
-      windowEndAt: new Date(LIFETIME_WINDOW_END)
-    };
-  }
-
-  if (normalizedInterval === "day") {
-    const windowStartAt = startOfUtcDay(reference);
-    return {
-      interval: "day",
-      windowStartAt,
-      windowEndAt: addUtcDays(windowStartAt, 1)
-    };
-  }
-
-  if (normalizedInterval === "week") {
-    const day = reference.getUTCDay();
-    const daysSinceMonday = (day + 6) % 7;
-    const windowStartAt = addUtcDays(startOfUtcDay(reference), -daysSinceMonday);
-    return {
-      interval: "week",
-      windowStartAt,
-      windowEndAt: addUtcDays(windowStartAt, 7)
-    };
-  }
-
-  if (normalizedInterval === "year") {
-    const windowStartAt = new Date(Date.UTC(reference.getUTCFullYear(), 0, 1, 0, 0, 0, 0));
-    return {
-      interval: "year",
-      windowStartAt,
-      windowEndAt: new Date(Date.UTC(reference.getUTCFullYear() + 1, 0, 1, 0, 0, 0, 0))
-    };
-  }
-
-  const windowStartAt = new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth(), 1, 0, 0, 0, 0));
-  return {
-    interval: "month",
-    windowStartAt,
-    windowEndAt: new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth() + 1, 1, 0, 0, 0, 0))
-  };
 }
 
 function toDateOrNull(value) {
@@ -388,19 +330,6 @@ function normalizeUsageAmount(value) {
   return integer > 0 ? integer : null;
 }
 
-function classifyEntitlementType(schemaVersion) {
-  const normalized = toNonEmptyString(schemaVersion).toLowerCase();
-  if (normalized === "entitlement.quota.v1") {
-    return "quota";
-  }
-  if (normalized === "entitlement.boolean.v1") {
-    return "boolean";
-  }
-  if (normalized === "entitlement.string_list.v1") {
-    return "string_list";
-  }
-  return "unknown";
-}
 
 function normalizePaymentMethod(method, defaultPaymentMethodId) {
   const paymentMethod = method && typeof method === "object" ? method : {};
@@ -508,14 +437,6 @@ function buildWorkspaceTimelineEntry(activityEvent) {
   };
 }
 
-function normalizeLimitBehavior(value, fallback = "allow") {
-  const normalized = toNonEmptyString(value).toLowerCase();
-  if (normalized === "allow" || normalized === "deny") {
-    return normalized;
-  }
-  return fallback;
-}
-
 function buildLimitExceededError({
   limitationCode,
   billableEntityId,
@@ -560,6 +481,7 @@ function createService(options = {}) {
     billingIdempotencyService,
     billingCheckoutOrchestrator,
     billingProviderAdapter,
+    billingRealtimePublishService = null,
     consoleSettingsRepository = null,
     appPublicUrl,
     providerReplayWindowSeconds = BILLING_RUNTIME_DEFAULTS.PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS,
@@ -723,24 +645,40 @@ function createService(options = {}) {
     void billableEntity;
 
     const plans = await billingRepository.listPlans();
+    const definitions = await billingRepository.listEntitlementDefinitions();
+    const definitionById = new Map(definitions.map((entry) => [Number(entry.id), entry]));
     const entries = [];
 
     for (const plan of plans) {
-      const entitlements = await billingRepository.listPlanEntitlementsForPlan(plan.id);
-
-      const validatedEntitlements = [];
-      for (const entitlement of entitlements) {
-        assertEntitlementValueOrThrow({
-          schemaVersion: entitlement.schemaVersion,
-          value: entitlement.valueJson,
-          errorStatus: 500
-        });
-        validatedEntitlements.push(entitlement);
-      }
+      const templates = await billingRepository.listPlanEntitlementTemplates(plan.id);
+      const entitlements = templates
+        .map((template) => {
+          const definition = definitionById.get(Number(template.entitlementDefinitionId));
+          if (!definition) {
+            return null;
+          }
+          return {
+            id: Number(template.id),
+            planId: Number(template.planId),
+            code: String(definition.code || ""),
+            schemaVersion: "entitlement.template.v1",
+            valueJson: {
+              amount: Number(template.amount || 0),
+              grantKind: String(template.grantKind || ""),
+              effectivePolicy: String(template.effectivePolicy || ""),
+              durationPolicy: String(template.durationPolicy || ""),
+              durationDays: template.durationDays == null ? null : Number(template.durationDays),
+              metadataJson: template.metadataJson && typeof template.metadataJson === "object" ? template.metadataJson : {}
+            },
+            createdAt: template.createdAt,
+            updatedAt: template.updatedAt
+          };
+        })
+        .filter(Boolean);
 
       entries.push({
         ...plan,
-        entitlements: validatedEntitlements
+        entitlements
       });
     }
 
@@ -1232,6 +1170,7 @@ function createService(options = {}) {
     }
 
     let applied = false;
+    let changedCodes = [];
     await billingRepository.transaction(async (trx) => {
       const upcoming = await billingRepository.findUpcomingPlanAssignmentForEntity(billableEntityId, {
         trx,
@@ -1339,7 +1278,22 @@ function createService(options = {}) {
         },
         { trx }
       );
+      const grantOutcome = await grantEntitlementsForPlanState({
+        billableEntityId,
+        planAssignmentId: upcoming.id,
+        now,
+        trx,
+        publish: false
+      });
+      changedCodes = Array.isArray(grantOutcome?.changedCodes) ? grantOutcome.changedCodes : [];
       applied = true;
+    });
+
+    await publishBillingLimitRealtime({
+      billableEntityId,
+      changedCodes,
+      changeSource: "plan_grant",
+      changedAt: now
     });
 
     return applied;
@@ -1501,6 +1455,12 @@ function createService(options = {}) {
           effectiveAt: now,
           appliedByUserId: user?.id || null
         });
+        await grantEntitlementsForPlanState({
+          billableEntityId: billableEntity.id,
+          now,
+          request,
+          user
+        });
 
         return {
           mode: "applied",
@@ -1604,6 +1564,12 @@ function createService(options = {}) {
         effectiveAt: now,
         appliedByUserId: user?.id || null
       });
+      await grantEntitlementsForPlanState({
+        billableEntityId: billableEntity.id,
+        now,
+        request,
+        user
+      });
 
       return {
         mode: "applied",
@@ -1672,6 +1638,12 @@ function createService(options = {}) {
       changeKind: "internal_immediate",
       effectiveAt: now,
       appliedByUserId: user?.id || null
+    });
+    await grantEntitlementsForPlanState({
+      billableEntityId: billableEntity.id,
+      now,
+      request,
+      user
     });
 
     return {
@@ -1830,6 +1802,7 @@ function createService(options = {}) {
     }
 
     const promoEndsAt = addUtcDays(now, SIGNUP_PROMO_PERIOD_DAYS);
+    let changedCodes = [];
     await billingRepository.transaction(async (trx) => {
       await applyInternalPlanAssignment({
         billableEntityId: billableEntity.id,
@@ -1856,6 +1829,13 @@ function createService(options = {}) {
         },
         { trx }
       );
+      const grantOutcome = await grantEntitlementsForPlanState({
+        billableEntityId: billableEntity.id,
+        now,
+        trx,
+        publish: false
+      });
+      changedCodes = Array.isArray(grantOutcome?.changedCodes) ? grantOutcome.changedCodes : [];
 
       if (
         Number(fallbackPlan.id) !== Number(promoPlan.id) &&
@@ -1879,6 +1859,13 @@ function createService(options = {}) {
       }
     });
 
+    await publishBillingLimitRealtime({
+      billableEntityId: billableEntity.id,
+      changedCodes,
+      changeSource: "plan_grant",
+      changedAt: now
+    });
+
     return {
       billableEntityId: billableEntity.id,
       promoPlanCode: promoPlan.code,
@@ -1887,53 +1874,743 @@ function createService(options = {}) {
     };
   }
 
-  async function resolveCurrentSubscriptionEntitlements({ billableEntityId }) {
-    const currentContext = await resolveCurrentPlanContext({
-      billableEntityId
+  function buildCapacityLockedError({
+    limitationCode,
+    used,
+    cap,
+    requestedAmount = 1,
+    lockState = "projects_locked_over_cap"
+  }) {
+    const normalizedUsed = Math.max(0, Number(used || 0));
+    const normalizedCap = Math.max(0, Number(cap || 0));
+    const normalizedRequestedAmount = Math.max(1, Number(requestedAmount || 1));
+    const projectedUsed = normalizedUsed + normalizedRequestedAmount;
+
+    throw new AppError(409, "Billing capacity is locked.", {
+      code: "BILLING_CAPACITY_LOCKED",
+      details: {
+        code: "BILLING_CAPACITY_LOCKED",
+        limitationCode: toNonEmptyString(limitationCode),
+        used: normalizedUsed,
+        cap: normalizedCap,
+        overBy: Math.max(0, projectedUsed - normalizedCap),
+        lockState: toNonEmptyString(lockState) || null,
+        requiredReduction: Math.max(0, projectedUsed - normalizedCap)
+      }
     });
-    const currentPlan = currentContext.plan || null;
-    if (!currentPlan) {
-      return {
-        currentSubscription: currentContext.subscription || null,
-        currentPlan: null,
-        entitlements: []
-      };
+  }
+
+  function resolveNormalizedChangeSource(value, fallback = "manual_refresh") {
+    const normalized = String(value || "")
+      .trim()
+      .toLowerCase();
+    if (
+      normalized === "purchase_grant" ||
+      normalized === "plan_grant" ||
+      normalized === "consumption" ||
+      normalized === "boundary_recompute" ||
+      normalized === "manual_refresh"
+    ) {
+      return normalized;
+    }
+    return fallback;
+  }
+
+  function mapPlanTemplateGrantKindToGrantKind(templateGrantKind) {
+    const normalized = String(templateGrantKind || "plan_base")
+      .trim()
+      .toLowerCase();
+    if (normalized === "plan_base") {
+      return "plan_base";
+    }
+    if (normalized === "plan_bonus") {
+      return "promo";
+    }
+    return "plan_base";
+  }
+
+  function resolvePlanTemplateExpiresAt(template, assignment, effectiveAt) {
+    const durationPolicy = String(template?.durationPolicy || "while_current")
+      .trim()
+      .toLowerCase();
+    const assignmentEnd = toDateOrNull(assignment?.periodEndAt);
+    if (durationPolicy === "while_current" || durationPolicy === "period_window") {
+      return assignmentEnd;
+    }
+    if (durationPolicy === "fixed_duration") {
+      const durationDays = toPositiveInteger(template?.durationDays);
+      if (!durationDays) {
+        throw new AppError(500, "Plan entitlement template fixed_duration requires durationDays.");
+      }
+      return addUtcDays(effectiveAt, durationDays);
+    }
+    return assignmentEnd;
+  }
+
+  function mapProductTemplateGrantKindToGrantKind(templateGrantKind) {
+    const normalized = String(templateGrantKind || "one_off_topup")
+      .trim()
+      .toLowerCase();
+    if (normalized === "timeboxed_addon") {
+      return "addon_timeboxed";
+    }
+    return "topup";
+  }
+
+  function resolveProductTemplateExpiresAt(template, effectiveAt) {
+    const grantKind = String(template?.grantKind || "one_off_topup")
+      .trim()
+      .toLowerCase();
+    if (grantKind === "timeboxed_addon") {
+      const durationDays = toPositiveInteger(template?.durationDays);
+      if (!durationDays) {
+        throw new AppError(500, "Product entitlement template timeboxed_addon requires durationDays.");
+      }
+      return addUtcDays(effectiveAt, durationDays);
+    }
+    return null;
+  }
+
+  function hasMaterialBalanceChange(previousBalance, nextBalance) {
+    if (!previousBalance && nextBalance) {
+      return true;
+    }
+    if (previousBalance && !nextBalance) {
+      return true;
+    }
+    if (!previousBalance && !nextBalance) {
+      return false;
     }
 
-    const entitlements = await billingRepository.listPlanEntitlementsForPlan(currentPlan.id);
-    const validatedEntitlements = [];
-    for (const entitlement of entitlements) {
-      assertEntitlementValueOrThrow({
-        schemaVersion: entitlement.schemaVersion,
-        value: entitlement.valueJson,
-        errorStatus: 500
+    const comparableKeys = [
+      "grantedAmount",
+      "consumedAmount",
+      "effectiveAmount",
+      "hardLimitAmount",
+      "overLimit",
+      "lockState",
+      "nextChangeAt"
+    ];
+    return comparableKeys.some((key) => {
+      const left = previousBalance?.[key] == null ? null : previousBalance[key];
+      const right = nextBalance?.[key] == null ? null : nextBalance[key];
+      return String(left) !== String(right);
+    });
+  }
+
+  async function publishBillingLimitRealtime({
+    billableEntityId,
+    changedCodes = [],
+    changeSource = "manual_refresh",
+    changedAt = new Date(),
+    request = null,
+    user = null
+  } = {}) {
+    if (!Array.isArray(changedCodes) || changedCodes.length < 1) {
+      return;
+    }
+    if (!billingRealtimePublishService || typeof billingRealtimePublishService.publishWorkspaceBillingLimitsUpdated !== "function") {
+      return;
+    }
+
+    await billingRealtimePublishService.publishWorkspaceBillingLimitsUpdated({
+      billableEntityId,
+      changedCodes,
+      changeSource: resolveNormalizedChangeSource(changeSource),
+      changedAt,
+      commandId: request?.headers?.["x-command-id"] || null,
+      sourceClientId: request?.headers?.["x-client-id"] || null,
+      actorUserId: user?.id || null
+    });
+  }
+
+  async function resolveEffectiveLimitations({
+    billableEntityId,
+    limitationCodes = null,
+    now = new Date(),
+    capacityResolvers = {},
+    trx = null
+  } = {}) {
+    const normalizedBillableEntityId = toPositiveInteger(billableEntityId);
+    if (!normalizedBillableEntityId) {
+      throw new AppError(400, "Billable entity id is required.");
+    }
+
+    const normalizedNow = now instanceof Date ? now : new Date(now);
+    const normalizedCodes =
+      Array.isArray(limitationCodes) && limitationCodes.length > 0
+        ? [...new Set(limitationCodes.map((entry) => String(entry || "").trim()).filter(Boolean))]
+        : null;
+    const definitions = await billingRepository.listEntitlementDefinitions(
+      {
+        includeInactive: false,
+        codes: normalizedCodes
+      },
+      trx ? { trx } : {}
+    );
+
+    const entries = [];
+    for (const definition of definitions) {
+      const capacityResolver = capacityResolvers?.[definition.code];
+      const previous = await billingRepository.findEntitlementBalance(
+        {
+          subjectType: "billable_entity",
+          subjectId: normalizedBillableEntityId,
+          entitlementDefinitionId: definition.id
+        },
+        trx ? { trx } : {}
+      );
+      const recomputed = await billingRepository.recomputeEntitlementBalance(
+        {
+          subjectType: "billable_entity",
+          subjectId: normalizedBillableEntityId,
+          entitlementDefinitionId: definition.id,
+          now: normalizedNow,
+          capacityConsumedAmountResolver: capacityResolver
+        },
+        trx ? { trx } : {}
+      );
+      const balance = recomputed?.balance || null;
+      if (!balance) {
+        continue;
+      }
+
+      entries.push({
+        code: String(definition.code || ""),
+        entitlementType: String(definition.entitlementType || ""),
+        enforcementMode: String(definition.enforcementMode || "hard_deny"),
+        unit: String(definition.unit || ""),
+        windowInterval: definition.windowInterval || null,
+        windowAnchor: definition.windowAnchor || null,
+        grantedAmount: Number(balance.grantedAmount || 0),
+        consumedAmount: Number(balance.consumedAmount || 0),
+        effectiveAmount: Number(balance.effectiveAmount || 0),
+        hardLimitAmount: balance.hardLimitAmount == null ? null : Number(balance.hardLimitAmount),
+        overLimit: Boolean(balance.overLimit),
+        lockState: balance.lockState || null,
+        nextChangeAt: balance.nextChangeAt || null,
+        windowStartAt: balance.windowStartAt,
+        windowEndAt: balance.windowEndAt,
+        lastRecomputedAt: balance.lastRecomputedAt,
+        _previous: previous
       });
-      validatedEntitlements.push(entitlement);
     }
 
     return {
-      currentSubscription: currentContext.subscription || null,
-      currentPlan,
-      entitlements: validatedEntitlements
+      billableEntityId: normalizedBillableEntityId,
+      generatedAt: normalizedNow.toISOString(),
+      stale: false,
+      limitations: entries
     };
   }
 
-  async function enforceLimitAndRecordUsage({
+  async function grantEntitlementsForPlanState({
+    billableEntityId,
+    planAssignmentId = null,
+    now = new Date(),
+    trx = null,
+    publish = true,
+    request = null,
+    user = null
+  } = {}) {
+    const normalizedBillableEntityId = toPositiveInteger(billableEntityId);
+    if (!normalizedBillableEntityId) {
+      throw new AppError(400, "Billable entity id is required.");
+    }
+    const normalizedNow = now instanceof Date ? now : new Date(now);
+
+    const run = async (trxHandle) => {
+      const assignmentReadOptions = {
+        trx: trxHandle,
+        forUpdate: true
+      };
+      let assignment = null;
+      const normalizedAssignmentId = toPositiveInteger(planAssignmentId);
+      if (normalizedAssignmentId && typeof billingRepository.findPlanAssignmentById === "function") {
+        assignment = await billingRepository.findPlanAssignmentById(normalizedAssignmentId, assignmentReadOptions);
+      }
+      if (!assignment && typeof billingRepository.findCurrentPlanAssignmentForEntity === "function") {
+        assignment = await billingRepository.findCurrentPlanAssignmentForEntity(
+          normalizedBillableEntityId,
+          assignmentReadOptions
+        );
+      }
+      if (!assignment || String(assignment.status || "").toLowerCase() !== "current") {
+        return {
+          changedCodes: []
+        };
+      }
+
+      const plan = await billingRepository.findPlanById(assignment.planId, { trx: trxHandle });
+      if (!plan || plan.isActive === false) {
+        return {
+          changedCodes: []
+        };
+      }
+
+      const templates = await billingRepository.listPlanEntitlementTemplates(plan.id, { trx: trxHandle });
+      if (!Array.isArray(templates) || templates.length < 1) {
+        return {
+          changedCodes: []
+        };
+      }
+
+      const changedCodes = new Set();
+      for (const template of templates) {
+        const entitlementDefinitionId = toPositiveInteger(template?.entitlementDefinitionId);
+        if (!entitlementDefinitionId) {
+          continue;
+        }
+        const definition = await billingRepository.findEntitlementDefinitionById(entitlementDefinitionId, { trx: trxHandle });
+        if (!definition || definition.isActive === false) {
+          continue;
+        }
+
+        const effectiveAt = toDateOrNull(assignment.periodStartAt) || normalizedNow;
+        const expiresAt = resolvePlanTemplateExpiresAt(template, assignment, effectiveAt);
+        if (expiresAt && expiresAt.getTime() <= effectiveAt.getTime()) {
+          throw new AppError(500, "Plan entitlement template resolved invalid grant window.");
+        }
+
+        const dedupeKey =
+          `plan_assignment:${Number(assignment.id)}:` +
+          `template:${Number(template.id)}:` +
+          `subject:${normalizedBillableEntityId}`;
+        await billingRepository.insertEntitlementGrant(
+          {
+            subjectType: "billable_entity",
+            subjectId: normalizedBillableEntityId,
+            entitlementDefinitionId,
+            amount: Number(template.amount || 0),
+            kind: mapPlanTemplateGrantKindToGrantKind(template.grantKind),
+            effectiveAt,
+            expiresAt,
+            sourceType: "plan_assignment",
+            sourceId: Number(assignment.id),
+            operationKey: null,
+            provider: null,
+            providerEventId: null,
+            dedupeKey,
+            metadataJson: {
+              assignmentId: Number(assignment.id),
+              planId: Number(plan.id),
+              templateId: Number(template.id)
+            }
+          },
+          { trx: trxHandle }
+        );
+
+        const previous = await billingRepository.findEntitlementBalance(
+          {
+            subjectType: "billable_entity",
+            subjectId: normalizedBillableEntityId,
+            entitlementDefinitionId
+          },
+          { trx: trxHandle }
+        );
+        const recomputed = await billingRepository.recomputeEntitlementBalance(
+          {
+            subjectType: "billable_entity",
+            subjectId: normalizedBillableEntityId,
+            entitlementDefinitionId,
+            now: normalizedNow
+          },
+          { trx: trxHandle }
+        );
+        if (hasMaterialBalanceChange(previous, recomputed?.balance || null)) {
+          changedCodes.add(String(definition.code || ""));
+        }
+      }
+
+      return {
+        changedCodes: [...changedCodes].filter(Boolean)
+      };
+    };
+
+    const outcome =
+      trx && typeof trx === "object"
+        ? await run(trx)
+        : await billingRepository.transaction(async (tx) => run(tx));
+
+    if (publish && outcome.changedCodes.length > 0) {
+      await publishBillingLimitRealtime({
+        billableEntityId: normalizedBillableEntityId,
+        changedCodes: outcome.changedCodes,
+        changeSource: "plan_grant",
+        changedAt: normalizedNow,
+        request,
+        user
+      });
+    }
+
+    return {
+      billableEntityId: normalizedBillableEntityId,
+      changedCodes: outcome.changedCodes
+    };
+  }
+
+  async function grantEntitlementsForPurchase({
+    billableEntityId = null,
+    purchase = null,
+    now = new Date(),
+    trx = null,
+    publish = true,
+    request = null,
+    user = null
+  } = {}) {
+    const normalizedNow = now instanceof Date ? now : new Date(now);
+    const purchaseRow = purchase && typeof purchase === "object" ? purchase : null;
+    const normalizedBillableEntityId = toPositiveInteger(billableEntityId || purchaseRow?.billableEntityId);
+    if (!normalizedBillableEntityId) {
+      throw new AppError(400, "Billable entity id is required for purchase entitlement grants.");
+    }
+    if (!purchaseRow || !toPositiveInteger(purchaseRow.id)) {
+      return {
+        billableEntityId: normalizedBillableEntityId,
+        changedCodes: []
+      };
+    }
+
+    const run = async (trxHandle) => {
+      const purchaseMetadata = purchaseRow.metadataJson && typeof purchaseRow.metadataJson === "object"
+        ? purchaseRow.metadataJson
+        : {};
+      const explicitProductId = toPositiveInteger(purchaseMetadata.billingProductId || purchaseMetadata.productId);
+      let product = explicitProductId ? await billingRepository.findProductById(explicitProductId, { trx: trxHandle }) : null;
+      if (!product) {
+        const providerPriceId = toNonEmptyString(
+          purchaseMetadata.providerPriceId || purchaseMetadata.provider_price_id || purchaseMetadata.priceId
+        );
+        if (providerPriceId && typeof billingRepository.listProducts === "function") {
+          const products = await billingRepository.listProducts({ trx: trxHandle });
+          const provider = String(purchaseRow.provider || "").trim().toLowerCase();
+          product =
+            products.find((entry) => {
+              const price = entry?.price && typeof entry.price === "object" ? entry.price : null;
+              if (!price) {
+                return false;
+              }
+              return (
+                String(price.provider || "")
+                  .trim()
+                  .toLowerCase() === provider && String(price.providerPriceId || "").trim() === providerPriceId
+              );
+            }) || null;
+        }
+      }
+      if (!product) {
+        return {
+          changedCodes: []
+        };
+      }
+
+      const templates = await billingRepository.listProductEntitlementTemplates(product.id, { trx: trxHandle });
+      if (!Array.isArray(templates) || templates.length < 1) {
+        return {
+          changedCodes: []
+        };
+      }
+
+      const changedCodes = new Set();
+      for (const template of templates) {
+        const entitlementDefinitionId = toPositiveInteger(template?.entitlementDefinitionId);
+        if (!entitlementDefinitionId) {
+          continue;
+        }
+        const definition = await billingRepository.findEntitlementDefinitionById(entitlementDefinitionId, { trx: trxHandle });
+        if (!definition || definition.isActive === false) {
+          continue;
+        }
+
+        const effectiveAt = toDateOrNull(purchaseRow.purchasedAt) || normalizedNow;
+        const expiresAt = resolveProductTemplateExpiresAt(template, effectiveAt);
+        if (expiresAt && expiresAt.getTime() <= effectiveAt.getTime()) {
+          throw new AppError(500, "Product entitlement template resolved invalid grant window.");
+        }
+
+        const dedupeKey = `purchase:${Number(purchaseRow.id)}:template:${Number(template.id)}:subject:${normalizedBillableEntityId}`;
+        await billingRepository.insertEntitlementGrant(
+          {
+            subjectType: "billable_entity",
+            subjectId: normalizedBillableEntityId,
+            entitlementDefinitionId,
+            amount: Number(template.amount || 0),
+            kind: mapProductTemplateGrantKindToGrantKind(template.grantKind),
+            effectiveAt,
+            expiresAt,
+            sourceType: "billing_purchase",
+            sourceId: Number(purchaseRow.id),
+            operationKey: toNonEmptyString(purchaseRow.operationKey) || null,
+            provider: toNonEmptyString(purchaseRow.provider) || null,
+            providerEventId: toNonEmptyString(
+              purchaseMetadata.providerEventId || purchaseMetadata.provider_event_id
+            ) || null,
+            dedupeKey,
+            metadataJson: {
+              purchaseId: Number(purchaseRow.id),
+              productId: Number(product.id),
+              templateId: Number(template.id)
+            }
+          },
+          { trx: trxHandle }
+        );
+
+        const previous = await billingRepository.findEntitlementBalance(
+          {
+            subjectType: "billable_entity",
+            subjectId: normalizedBillableEntityId,
+            entitlementDefinitionId
+          },
+          { trx: trxHandle }
+        );
+        const recomputed = await billingRepository.recomputeEntitlementBalance(
+          {
+            subjectType: "billable_entity",
+            subjectId: normalizedBillableEntityId,
+            entitlementDefinitionId,
+            now: normalizedNow
+          },
+          { trx: trxHandle }
+        );
+        if (hasMaterialBalanceChange(previous, recomputed?.balance || null)) {
+          changedCodes.add(String(definition.code || ""));
+        }
+      }
+
+      return {
+        changedCodes: [...changedCodes].filter(Boolean)
+      };
+    };
+
+    const outcome =
+      trx && typeof trx === "object"
+        ? await run(trx)
+        : await billingRepository.transaction(async (tx) => run(tx));
+
+    if (publish && outcome.changedCodes.length > 0) {
+      await publishBillingLimitRealtime({
+        billableEntityId: normalizedBillableEntityId,
+        changedCodes: outcome.changedCodes,
+        changeSource: "purchase_grant",
+        changedAt: normalizedNow,
+        request,
+        user
+      });
+    }
+
+    return {
+      billableEntityId: normalizedBillableEntityId,
+      changedCodes: outcome.changedCodes
+    };
+  }
+
+  async function refreshDueLimitationsForSubject({
+    billableEntityId,
+    entitlementDefinitionIds = null,
+    limitationCodes = null,
+    now = new Date(),
+    changeSource = "boundary_recompute",
+    publish = true,
+    request = null,
+    user = null,
+    trx = null
+  } = {}) {
+    const normalizedBillableEntityId = toPositiveInteger(billableEntityId);
+    if (!normalizedBillableEntityId) {
+      throw new AppError(400, "Billable entity id is required.");
+    }
+    const normalizedNow = now instanceof Date ? now : new Date(now);
+    const explicitDefinitionIds = Array.isArray(entitlementDefinitionIds)
+      ? entitlementDefinitionIds.map((entry) => toPositiveInteger(entry)).filter(Boolean)
+      : [];
+    const explicitCodes = Array.isArray(limitationCodes)
+      ? [...new Set(limitationCodes.map((entry) => String(entry || "").trim()).filter(Boolean))]
+      : [];
+
+    const run = async (trxHandle) => {
+      let scopedDefinitionIds = [...explicitDefinitionIds];
+      if (scopedDefinitionIds.length < 1 && explicitCodes.length > 0) {
+        const definitions = await billingRepository.listEntitlementDefinitions(
+          {
+            includeInactive: false,
+            codes: explicitCodes
+          },
+          { trx: trxHandle }
+        );
+        scopedDefinitionIds = definitions.map((entry) => toPositiveInteger(entry.id)).filter(Boolean);
+      }
+      const forceSelectedDefinitions = scopedDefinitionIds.length > 0;
+
+      const balances = await billingRepository.listEntitlementBalancesForSubject(
+        {
+          subjectType: "billable_entity",
+          subjectId: normalizedBillableEntityId,
+          entitlementDefinitionIds: forceSelectedDefinitions ? scopedDefinitionIds : null
+        },
+        { trx: trxHandle }
+      );
+
+      const changedCodes = new Set();
+      for (const balance of balances) {
+        const definitionId = toPositiveInteger(balance?.entitlementDefinitionId);
+        if (!definitionId) {
+          continue;
+        }
+        const nextChangeAt = toDateOrNull(balance.nextChangeAt);
+        if (!forceSelectedDefinitions && nextChangeAt && nextChangeAt.getTime() > normalizedNow.getTime()) {
+          continue;
+        }
+
+        const definition = await billingRepository.findEntitlementDefinitionById(definitionId, { trx: trxHandle });
+        if (!definition || definition.isActive === false) {
+          continue;
+        }
+
+        const previous = await billingRepository.findEntitlementBalance(
+          {
+            subjectType: "billable_entity",
+            subjectId: normalizedBillableEntityId,
+            entitlementDefinitionId: definitionId,
+            windowStartAt: balance.windowStartAt || null,
+            windowEndAt: balance.windowEndAt || null
+          },
+          { trx: trxHandle }
+        );
+        const recomputed = await billingRepository.recomputeEntitlementBalance(
+          {
+            subjectType: "billable_entity",
+            subjectId: normalizedBillableEntityId,
+            entitlementDefinitionId: definitionId,
+            windowStartAt: balance.windowStartAt || null,
+            windowEndAt: balance.windowEndAt || null,
+            now: normalizedNow
+          },
+          { trx: trxHandle }
+        );
+        if (hasMaterialBalanceChange(previous, recomputed?.balance || null)) {
+          changedCodes.add(String(definition.code || ""));
+        }
+      }
+
+      return {
+        changedCodes: [...changedCodes].filter(Boolean)
+      };
+    };
+
+    const outcome =
+      trx && typeof trx === "object"
+        ? await run(trx)
+        : await billingRepository.transaction(async (tx) => run(tx));
+
+    if (publish && outcome.changedCodes.length > 0) {
+      await publishBillingLimitRealtime({
+        billableEntityId: normalizedBillableEntityId,
+        changedCodes: outcome.changedCodes,
+        changeSource,
+        changedAt: normalizedNow,
+        request,
+        user
+      });
+    }
+
+    return {
+      billableEntityId: normalizedBillableEntityId,
+      changedCodes: outcome.changedCodes
+    };
+  }
+
+  async function consumeEntitlement({
+    billableEntityId,
+    limitationCode,
+    amount = 1,
+    usageEventKey = "",
+    operationKey = "",
+    requestId = "",
+    reasonCode = "",
+    metadataJson = null,
+    now = new Date(),
+    trx = null
+  } = {}) {
+    const normalizedBillableEntityId = toPositiveInteger(billableEntityId);
+    const normalizedLimitationCode = toNonEmptyString(limitationCode);
+    const normalizedAmount = normalizeUsageAmount(amount);
+    if (!normalizedBillableEntityId || !normalizedLimitationCode || !normalizedAmount) {
+      throw new AppError(400, "consumeEntitlement requires billableEntityId, limitationCode, and amount.");
+    }
+
+    const definition = await billingRepository.findEntitlementDefinitionByCode(
+      normalizedLimitationCode,
+      trx ? { trx } : {}
+    );
+    if (!definition) {
+      throw new AppError(409, "Billing limitation is not configured.", {
+        code: BILLING_LIMIT_NOT_CONFIGURED_ERROR_CODE,
+        details: {
+          limitationCode: normalizedLimitationCode
+        }
+      });
+    }
+
+    const normalizedUsageEventKey = toNonEmptyString(usageEventKey);
+    const normalizedOperationKey = toNonEmptyString(operationKey);
+    const dedupeKey = normalizedUsageEventKey
+      ? `usage:${normalizedBillableEntityId}:${definition.id}:${normalizedUsageEventKey}`
+      : normalizedOperationKey
+        ? `op:${normalizedBillableEntityId}:${definition.id}:${normalizedOperationKey}:${toNonEmptyString(reasonCode)}`
+        : `req:${normalizedBillableEntityId}:${definition.id}:${toNonEmptyString(requestId)}:${toNonEmptyString(reasonCode)}`;
+
+    const consumption = await billingRepository.insertEntitlementConsumption(
+      {
+        subjectType: "billable_entity",
+        subjectId: normalizedBillableEntityId,
+        entitlementDefinitionId: definition.id,
+        amount: normalizedAmount,
+        occurredAt: now,
+        reasonCode: toNonEmptyString(reasonCode) || "usage",
+        operationKey: normalizedOperationKey || null,
+        usageEventKey: normalizedUsageEventKey || null,
+        requestId: toNonEmptyString(requestId) || null,
+        dedupeKey,
+        metadataJson
+      },
+      trx ? { trx } : {}
+    );
+
+    const recomputed = await billingRepository.recomputeEntitlementBalance(
+      {
+        subjectType: "billable_entity",
+        subjectId: normalizedBillableEntityId,
+        entitlementDefinitionId: definition.id,
+        now
+      },
+      trx ? { trx } : {}
+    );
+
+    return {
+      inserted: Boolean(consumption?.inserted),
+      definition,
+      balance: recomputed?.balance || null,
+      consumption: consumption?.consumption || null
+    };
+  }
+
+  async function executeWithEntitlementConsumption({
     request,
     user,
     capability = "",
     limitationCode = "",
     amount = null,
     usageEventKey = "",
+    operationKey = "",
+    requestId = "",
     metadataJson = null,
     now = new Date(),
     access = "write",
-    missingSubscriptionBehavior = "allow",
-    missingLimitationBehavior = "allow",
+    capacityResolvers = {},
     action
   } = {}) {
     if (typeof action !== "function") {
-      throw new Error("enforceLimitAndRecordUsage requires an action function.");
+      throw new Error("executeWithEntitlementConsumption requires an action callback.");
     }
 
     const normalizedAccess = toNonEmptyString(access).toLowerCase() === "read" ? "read" : "write";
@@ -1949,8 +2626,7 @@ function createService(options = {}) {
 
     const capabilityConfig = resolveCapabilityLimitConfig(capability);
     const resolvedLimitationCode = toNonEmptyString(limitationCode || capabilityConfig?.limitationCode);
-    const requestedAmount = amount == null ? capabilityConfig?.usageAmount ?? 1 : amount;
-    const normalizedAmount = normalizeUsageAmount(requestedAmount);
+    const normalizedAmount = normalizeUsageAmount(amount == null ? capabilityConfig?.usageAmount ?? 1 : amount);
     if (!normalizedAmount) {
       throw new AppError(400, "Usage amount must be a positive integer.");
     }
@@ -1960,155 +2636,107 @@ function createService(options = {}) {
         billableEntity,
         limitationCode: null,
         capability: toNonEmptyString(capability),
-        now
+        now,
+        trx: null
       });
     }
 
-    const { currentSubscription, entitlements } = await resolveCurrentSubscriptionEntitlements({
-      billableEntityId
-    });
+    let actionResult = null;
+    let postCommitChangeSource = "manual_refresh";
+    let changedCodes = [];
 
-    const subscriptionBehavior = normalizeLimitBehavior(missingSubscriptionBehavior, "allow");
-    if (!currentSubscription) {
-      if (subscriptionBehavior === "deny") {
-        buildLimitExceededError({
-          limitationCode: resolvedLimitationCode,
-          billableEntityId,
-          requestedAmount: normalizedAmount,
-          reason: "subscription_required"
-        });
-      }
-
-      return action({
-        billableEntity,
-        limitationCode: resolvedLimitationCode,
-        capability: toNonEmptyString(capability),
-        now
+    await billingRepository.transaction(async (trx) => {
+      const effective = await resolveEffectiveLimitations({
+        billableEntityId,
+        limitationCodes: [resolvedLimitationCode],
+        now,
+        capacityResolvers,
+        trx
       });
-    }
-
-    const limitation = entitlements.find((entry) => entry.code === resolvedLimitationCode) || null;
-    const limitationBehavior = normalizeLimitBehavior(missingLimitationBehavior, "allow");
-    if (!limitation) {
-      if (limitationBehavior === "deny") {
+      const limitation = effective.limitations.find((entry) => entry.code === resolvedLimitationCode) || null;
+      if (!limitation) {
         throw new AppError(409, "Billing limitation is not configured.", {
           code: BILLING_LIMIT_NOT_CONFIGURED_ERROR_CODE,
           details: {
-            code: BILLING_LIMIT_NOT_CONFIGURED_ERROR_CODE,
             limitationCode: resolvedLimitationCode,
             billableEntityId
           }
         });
       }
 
-      return action({
-        billableEntity,
-        limitationCode: resolvedLimitationCode,
-        capability: toNonEmptyString(capability),
-        now
-      });
-    }
-
-    const limitationType = classifyEntitlementType(limitation.schemaVersion);
-    if (limitationType === "boolean") {
-      if (!limitation?.valueJson?.enabled) {
-        buildLimitExceededError({
-          limitationCode: resolvedLimitationCode,
-          billableEntityId,
-          requestedAmount: normalizedAmount,
-          reason: "feature_disabled"
-        });
+      if (limitation.entitlementType === "capacity") {
+        const cap = limitation.hardLimitAmount == null ? 0 : Number(limitation.hardLimitAmount);
+        const used = Number(limitation.consumedAmount || 0);
+        if (used + normalizedAmount > cap) {
+          buildCapacityLockedError({
+            limitationCode: resolvedLimitationCode,
+            used,
+            cap,
+            requestedAmount: normalizedAmount,
+            lockState: limitation.lockState
+          });
+        }
+      } else if (limitation.entitlementType === "metered_quota" || limitation.entitlementType === "balance") {
+        if (Number(limitation.effectiveAmount || 0) < normalizedAmount) {
+          buildLimitExceededError({
+            limitationCode: resolvedLimitationCode,
+            billableEntityId,
+            requestedAmount: normalizedAmount,
+            limit: limitation.hardLimitAmount,
+            used: limitation.consumedAmount,
+            remaining: Math.max(0, Number(limitation.effectiveAmount || 0)),
+            interval: limitation.windowInterval,
+            enforcement: limitation.enforcementMode,
+            windowEndAt: limitation.windowEndAt ? new Date(limitation.windowEndAt) : null,
+            reason: "quota_exceeded"
+          });
+        }
       }
 
-      return action({
+      actionResult = await action({
+        trx,
         billableEntity,
         limitationCode: resolvedLimitationCode,
         capability: toNonEmptyString(capability),
         limitation,
         now
       });
-    }
 
-    if (limitationType !== "quota") {
-      throw new AppError(409, "Billing limitation does not support usage accounting.", {
-        code: BILLING_LIMIT_NOT_CONFIGURED_ERROR_CODE,
-        details: {
-          code: BILLING_LIMIT_NOT_CONFIGURED_ERROR_CODE,
+      if (limitation.entitlementType === "metered_quota" || limitation.entitlementType === "balance") {
+        await consumeEntitlement({
+          billableEntityId,
           limitationCode: resolvedLimitationCode,
-          billableEntityId
-        }
-      });
-    }
+          amount: normalizedAmount,
+          usageEventKey,
+          operationKey,
+          requestId,
+          reasonCode: capabilityConfig?.reasonCode || toNonEmptyString(capability) || "usage",
+          metadataJson,
+          now,
+          trx
+        });
+        postCommitChangeSource = "consumption";
+      } else {
+        await resolveEffectiveLimitations({
+          billableEntityId,
+          limitationCodes: [resolvedLimitationCode],
+          now,
+          capacityResolvers,
+          trx
+        });
+        postCommitChangeSource = "manual_refresh";
+      }
 
-    if (typeof billingRepository.incrementUsageCounter !== "function") {
-      throw new AppError(500, "Billing usage counter storage is unavailable.");
-    }
-
-    const interval = toNonEmptyString(limitation?.valueJson?.interval).toLowerCase() || "month";
-    const enforcement = toNonEmptyString(limitation?.valueJson?.enforcement).toLowerCase() || "hard";
-    const window = resolveUsageWindow(interval, now);
-    const usageCounter =
-      typeof billingRepository.findUsageCounter === "function"
-        ? await billingRepository.findUsageCounter({
-            billableEntityId,
-            entitlementCode: resolvedLimitationCode,
-            windowStartAt: window.windowStartAt,
-            windowEndAt: window.windowEndAt
-          })
-        : null;
-
-    const limit = Math.max(0, Number(limitation?.valueJson?.limit) || 0);
-    const used = Math.max(0, Number(usageCounter?.usageCount || 0));
-    const projectedUsed = used + normalizedAmount;
-    const remaining = Math.max(0, limit - used);
-
-    if (enforcement === "hard" && projectedUsed > limit) {
-      buildLimitExceededError({
-        limitationCode: resolvedLimitationCode,
-        billableEntityId,
-        requestedAmount: normalizedAmount,
-        limit,
-        used,
-        remaining,
-        interval: window.interval,
-        enforcement,
-        windowEndAt: window.windowEndAt,
-        reason: "quota_exceeded"
-      });
-    }
-
-    const actionResult = await action({
-      billableEntity,
-      limitationCode: resolvedLimitationCode,
-      capability: toNonEmptyString(capability),
-      limitation,
-      now
+      changedCodes = [resolvedLimitationCode];
     });
 
-    const normalizedUsageEventKey = toNonEmptyString(usageEventKey);
-    if (normalizedUsageEventKey && typeof billingRepository.claimUsageEvent === "function") {
-      const claim = await billingRepository.claimUsageEvent({
-        billableEntityId,
-        entitlementCode: resolvedLimitationCode,
-        usageEventKey: normalizedUsageEventKey,
-        windowStartAt: window.windowStartAt,
-        windowEndAt: window.windowEndAt,
-        amount: normalizedAmount,
-        metadataJson
-      });
-
-      if (claim?.claimed === false) {
-        return actionResult;
-      }
-    }
-
-    await billingRepository.incrementUsageCounter({
+    await publishBillingLimitRealtime({
       billableEntityId,
-      entitlementCode: resolvedLimitationCode,
-      windowStartAt: window.windowStartAt,
-      windowEndAt: window.windowEndAt,
-      amount: normalizedAmount,
-      metadataJson
+      changedCodes,
+      changeSource: resolveNormalizedChangeSource(postCommitChangeSource, "consumption"),
+      changedAt: now,
+      request,
+      user
     });
 
     return actionResult;
@@ -2271,64 +2899,33 @@ function createService(options = {}) {
       request,
       user
     });
-
-    const { currentSubscription, entitlements } = await resolveCurrentSubscriptionEntitlements({
-      billableEntityId: billableEntity.id
+    const resolved = await resolveEffectiveLimitations({
+      billableEntityId: billableEntity.id,
+      now
     });
-
-    const limitations = [];
-    for (const entitlement of entitlements) {
-      const type = classifyEntitlementType(entitlement.schemaVersion);
-      const limitation = {
-        code: entitlement.code,
-        schemaVersion: entitlement.schemaVersion,
-        type,
-        valueJson: entitlement.valueJson
-      };
-
-      if (type === "boolean") {
-        limitation.enabled = Boolean(entitlement?.valueJson?.enabled);
-      } else if (type === "string_list") {
-        const values = Array.isArray(entitlement?.valueJson?.values) ? entitlement.valueJson.values : [];
-        limitation.values = values.map((value) => String(value));
-      } else if (type === "quota") {
-        const limit = Math.max(0, Number(entitlement?.valueJson?.limit) || 0);
-        const interval = toNonEmptyString(entitlement?.valueJson?.interval).toLowerCase() || "month";
-        const enforcement = toNonEmptyString(entitlement?.valueJson?.enforcement).toLowerCase() || "hard";
-        const window = resolveUsageWindow(interval, now);
-        const usageCounter =
-          typeof billingRepository.findUsageCounter === "function"
-            ? await billingRepository.findUsageCounter({
-                billableEntityId: billableEntity.id,
-                entitlementCode: entitlement.code,
-                windowStartAt: window.windowStartAt,
-                windowEndAt: window.windowEndAt
-              })
-            : null;
-        const used = Math.max(0, Number(usageCounter?.usageCount || 0));
-        const remaining = Math.max(0, limit - used);
-
-        limitation.quota = {
-          interval: window.interval,
-          enforcement,
-          limit,
-          used,
-          remaining,
-          reached: used >= limit,
-          exceeded: used > limit,
-          windowStartAt: window.windowStartAt.toISOString(),
-          windowEndAt: window.windowEndAt.toISOString()
-        };
-      }
-
-      limitations.push(limitation);
-    }
 
     return {
       billableEntity,
-      subscription: currentSubscription,
-      generatedAt: now.toISOString(),
-      limitations
+      generatedAt: resolved.generatedAt,
+      stale: resolved.stale,
+      limitations: resolved.limitations.map((entry) => ({
+        code: entry.code,
+        entitlementType: entry.entitlementType,
+        enforcementMode: entry.enforcementMode,
+        unit: entry.unit,
+        windowInterval: entry.windowInterval,
+        windowAnchor: entry.windowAnchor,
+        grantedAmount: entry.grantedAmount,
+        consumedAmount: entry.consumedAmount,
+        effectiveAmount: entry.effectiveAmount,
+        hardLimitAmount: entry.hardLimitAmount,
+        overLimit: entry.overLimit,
+        lockState: entry.lockState,
+        nextChangeAt: entry.nextChangeAt,
+        windowStartAt: entry.windowStartAt,
+        windowEndAt: entry.windowEndAt,
+        lastRecomputedAt: entry.lastRecomputedAt
+      }))
     };
   }
 
@@ -2377,67 +2974,6 @@ function createService(options = {}) {
       page: pagination.page,
       pageSize: pagination.pageSize,
       hasMore
-    };
-  }
-
-  async function recordUsage({ billableEntityId, entitlementCode, amount = 1, now = new Date(), metadataJson = null }) {
-    const normalizedBillableEntityId = toPositiveInteger(billableEntityId);
-    const normalizedEntitlementCode = toNonEmptyString(entitlementCode);
-    const normalizedAmount = normalizeUsageAmount(amount);
-    if (!normalizedBillableEntityId) {
-      throw new AppError(400, "Billable entity id is required.");
-    }
-    if (!normalizedEntitlementCode) {
-      throw new AppError(400, "Entitlement code is required.");
-    }
-    if (!normalizedAmount) {
-      throw new AppError(400, "Usage amount must be a positive integer.");
-    }
-
-    const { currentSubscription, entitlements } = await resolveCurrentSubscriptionEntitlements({
-      billableEntityId: normalizedBillableEntityId
-    });
-    if (!currentSubscription) {
-      throw new AppError(409, "No active subscription for usage accounting.");
-    }
-
-    const entitlement = entitlements.find((entry) => entry.code === normalizedEntitlementCode) || null;
-    if (!entitlement) {
-      throw new AppError(404, "Entitlement not found.");
-    }
-    if (classifyEntitlementType(entitlement.schemaVersion) !== "quota") {
-      throw new AppError(409, "Entitlement does not support usage accounting.");
-    }
-
-    if (typeof billingRepository.incrementUsageCounter !== "function") {
-      throw new AppError(500, "Billing usage counter storage is unavailable.");
-    }
-
-    const window = resolveUsageWindow(entitlement?.valueJson?.interval, now);
-    const updatedCounter = await billingRepository.incrementUsageCounter({
-      billableEntityId: normalizedBillableEntityId,
-      entitlementCode: normalizedEntitlementCode,
-      windowStartAt: window.windowStartAt,
-      windowEndAt: window.windowEndAt,
-      amount: normalizedAmount,
-      metadataJson
-    });
-
-    const limit = Math.max(0, Number(entitlement?.valueJson?.limit) || 0);
-    const used = Math.max(0, Number(updatedCounter?.usageCount || 0));
-
-    return {
-      billableEntityId: normalizedBillableEntityId,
-      entitlementCode: normalizedEntitlementCode,
-      interval: window.interval,
-      enforcement: toNonEmptyString(entitlement?.valueJson?.enforcement).toLowerCase() || "hard",
-      limit,
-      used,
-      remaining: Math.max(0, limit - used),
-      reached: used >= limit,
-      exceeded: used > limit,
-      windowStartAt: window.windowStartAt.toISOString(),
-      windowEndAt: window.windowEndAt.toISOString()
     };
   }
 
@@ -3533,9 +4069,13 @@ function createService(options = {}) {
     listPaymentMethods,
     syncPaymentMethods,
     getLimitations,
+    resolveEffectiveLimitations,
+    consumeEntitlement,
+    executeWithEntitlementConsumption,
+    grantEntitlementsForPurchase,
+    grantEntitlementsForPlanState,
+    refreshDueLimitationsForSubject,
     listTimeline,
-    recordUsage,
-    enforceLimitAndRecordUsage,
     createPortalSession,
     createPaymentLink,
     startCheckout

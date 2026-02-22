@@ -13,6 +13,19 @@ const PRODUCT_KIND_OPTIONS = [
   { title: "Setup fee", value: "setup_fee" }
 ];
 
+function parseEntitlementsJson(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    return [];
+  }
+
+  const parsed = JSON.parse(normalized);
+  if (!Array.isArray(parsed)) {
+    throw new Error("Entitlements JSON must be an array.");
+  }
+  return parsed;
+}
+
 function formatMoneyMinor(amountMinor, currency) {
   const numericAmount = Number(amountMinor || 0);
   const normalizedCurrency = String(currency || "").trim().toUpperCase() || "USD";
@@ -62,6 +75,19 @@ function toFieldErrors(value) {
   return {};
 }
 
+function collectPrefixedFieldErrors(fieldErrors, prefix) {
+  const source = fieldErrors && typeof fieldErrors === "object" ? fieldErrors : {};
+  const normalizedPrefix = String(prefix || "");
+  if (!normalizedPrefix) {
+    return [];
+  }
+
+  return Object.entries(source)
+    .filter(([key]) => String(key || "").startsWith(normalizedPrefix))
+    .map(([, message]) => String(message || "").trim())
+    .filter(Boolean);
+}
+
 function createDefaultCreateForm() {
   return {
     code: "",
@@ -69,7 +95,8 @@ function createDefaultCreateForm() {
     description: "",
     productKind: "one_off",
     isActive: true,
-    providerPriceId: ""
+    providerPriceId: "",
+    entitlementsJson: "[]"
   };
 }
 
@@ -80,7 +107,8 @@ function createDefaultEditForm() {
     description: "",
     productKind: "one_off",
     isActive: true,
-    providerPriceId: ""
+    providerPriceId: "",
+    entitlementsJson: "[]"
   };
 }
 
@@ -268,6 +296,16 @@ export function useConsoleBillingProductsView() {
 
   const createSelectedProviderPriceInfo = computed(() => resolvePriceDetails(createSelectedProviderPrice.value));
   const editSelectedProviderPriceInfo = computed(() => resolvePriceDetails(editSelectedProviderPrice.value));
+  const createEntitlementErrors = computed(() =>
+    collectPrefixedFieldErrors(createFieldErrors.value, "entitlements[").filter(
+      (message, index, array) => array.indexOf(message) === index
+    )
+  );
+  const editEntitlementErrors = computed(() =>
+    collectPrefixedFieldErrors(editFieldErrors.value, "entitlements[").filter(
+      (message, index, array) => array.indexOf(message) === index
+    )
+  );
 
   const selectedProduct = computed(() =>
     products.value.find((product) => Number(product?.id || 0) === Number(selectedProductId.value || 0)) || null
@@ -385,6 +423,7 @@ export function useConsoleBillingProductsView() {
     editForm.isActive = product.isActive !== false;
     editInitialProviderPriceId.value = String(price?.providerPriceId || "").trim();
     editForm.providerPriceId = editInitialProviderPriceId.value;
+    editForm.entitlementsJson = JSON.stringify(Array.isArray(product.entitlements) ? product.entitlements : [], null, 2);
     editFieldErrors.value = {};
     editError.value = "";
     editDialogOpen.value = true;
@@ -410,6 +449,14 @@ export function useConsoleBillingProductsView() {
     createError.value = "";
     createFieldErrors.value = {};
 
+    let entitlements;
+    try {
+      entitlements = parseEntitlementsJson(createForm.entitlementsJson);
+    } catch (error) {
+      createError.value = String(error?.message || "Entitlements JSON must be a valid JSON array.");
+      return;
+    }
+
     if (!createSelectedProviderPrice.value) {
       createError.value = "Select an active catalog price.";
       return;
@@ -424,7 +471,8 @@ export function useConsoleBillingProductsView() {
       price: buildProductPricePayload({
         form: createForm,
         selectedPrice: createSelectedProviderPrice.value
-      })
+      }),
+      entitlements
     };
 
     try {
@@ -458,12 +506,21 @@ export function useConsoleBillingProductsView() {
       return;
     }
 
+    let entitlements;
+    try {
+      entitlements = parseEntitlementsJson(editForm.entitlementsJson);
+    } catch (error) {
+      editError.value = String(error?.message || "Entitlements JSON must be a valid JSON array.");
+      return;
+    }
+
     editSaving.value = true;
     const payload = {
       name: editForm.name,
       description: normalizeOptionalString(editForm.description) || null,
       productKind: normalizeOptionalString(editForm.productKind) || "one_off",
-      isActive: Boolean(editForm.isActive)
+      isActive: Boolean(editForm.isActive),
+      entitlements
     };
     if (priceChanged) {
       payload.price = buildProductPricePayload({
@@ -518,6 +575,8 @@ export function useConsoleBillingProductsView() {
       providerPricesLoadError,
       createSelectedProviderPriceInfo,
       editSelectedProviderPriceInfo,
+      createEntitlementErrors,
+      editEntitlementErrors,
       editInitialProviderPriceId,
       loading,
       isSavingCreate,

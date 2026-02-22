@@ -28,31 +28,32 @@ Client API entry point:
 
 - `api.billing.getLimitations()` in `src/services/api/billingApi.js`
 
-## 2. Where Usage Counters Must Be Incremented
+## 2. Where Usage Must Be Consumed
 
-Usage counters are server-side only. Do not trust client-side increments.
+Consumption writes are server-side only. Do not trust client-side counters.
 
 Service API:
 
-- `billingService.recordUsage({ billableEntityId, entitlementCode, amount, now, metadataJson })`
-- `billingService.enforceLimitAndRecordUsage({ request, user, capability, limitationCode, amount, usageEventKey, action, ... })`
+- `billingService.executeWithEntitlementConsumption({ request, user, capability, limitationCode, amount, usageEventKey, action, ... })`
+- `billingService.consumeEntitlement({ billableEntityId, limitationCode, amount, usageEventKey, ... })` (manual/repair paths only)
 
 Integration rules for feature services:
 
-1. Prefer `enforceLimitAndRecordUsage` for billable actions:
-   - pre-checks limits
-   - executes action
-   - records usage on success
-2. Pass a stable `usageEventKey` when available to dedupe retry increments.
-3. Keep `recordUsage` for explicit/manual accounting paths.
-4. Return quota-aware response state or refetch limitations.
+1. Prefer `executeWithEntitlementConsumption` for billable actions:
+   - freshens projection
+   - enforces limits
+   - executes domain mutation callback
+   - consumes usage (metered/balance) or recomputes capacity
+2. Pass a stable `usageEventKey` when available to dedupe retries.
+3. Keep direct `consumeEntitlement` for explicit/manual accounting or repair tooling.
+4. Return refreshed limitation-aware response state or refetch limitations.
 
 Recommended placement:
 
-- increment in the same backend flow that persists the billable action.
-- for batch operations, pass the aggregate `amount`.
+- execute consumption in the same backend transaction that persists the billable action.
+- for batch operations, pass aggregate `amount`.
 - include metadata useful for audits (`metadataJson`).
-- use capability mapping as the source of truth (`server/modules/billing/appCapabilityLimits.js`).
+- use capability mapping as source of truth (`server/modules/billing/appCapabilityLimits.js`).
 
 ## 3. Expected Fail-Closed Behavior
 
@@ -71,13 +72,13 @@ Required fail-closed outcomes:
 
 1. Map feature actions to entitlement codes in `server/modules/billing/appCapabilityLimits.js`.
 2. Add preflight `getLimitations` checks in client and backend guard points.
-3. Add server-side `enforceLimitAndRecordUsage` on successful billable actions.
+3. Add server-side `executeWithEntitlementConsumption` on successful billable actions.
 4. Wire fail-closed responses for unavailable/uncertain billing state.
 5. Add tests that lock this behavior.
 
 Current scaffold wiring example:
 
-- `projects.create` route uses `billingService.enforceLimitAndRecordUsage` in `server/modules/projects/controller.js`.
+- `projects.create` and `projects.unarchive` route through `billingService.executeWithEntitlementConsumption` in `server/modules/projects/controller.js`.
 
 ## 5. Contract-Lock Tests
 

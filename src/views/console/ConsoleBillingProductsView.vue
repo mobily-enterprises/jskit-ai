@@ -189,6 +189,31 @@
               <div><strong>Usage type:</strong> {{ state.createSelectedProviderPriceInfo.usageType || "-" }}</div>
             </div>
           </v-sheet>
+
+          <v-row dense>
+            <v-col cols="12">
+              <v-textarea
+                v-model="state.createForm.entitlementsJson"
+                label="Entitlements JSON array"
+                variant="outlined"
+                density="compact"
+                rows="5"
+                auto-grow
+                :error-messages="state.createFieldErrors['entitlements[0].code']"
+              />
+              <v-alert
+                v-if="state.createEntitlementErrors.length"
+                type="error"
+                variant="tonal"
+                density="compact"
+                class="mt-2"
+              >
+                <div v-for="(message, index) in state.createEntitlementErrors" :key="`create-entitlement-error-${index}`">
+                  {{ message }}
+                </div>
+              </v-alert>
+            </v-col>
+          </v-row>
         </v-card-text>
         <v-divider />
         <v-card-actions class="justify-end">
@@ -308,6 +333,17 @@
               </v-card>
             </v-col>
           </v-row>
+          <v-card rounded="lg" variant="tonal" class="mt-3">
+            <v-card-item>
+              <v-card-title class="product-section-title">Entitlements JSON</v-card-title>
+              <v-card-subtitle>
+                <v-chip size="x-small" label>{{ (state.selectedProduct.entitlements || []).length }} entries</v-chip>
+              </v-card-subtitle>
+            </v-card-item>
+            <v-card-text>
+              <pre>{{ JSON.stringify(state.selectedProduct.entitlements || [], null, 2) }}</pre>
+            </v-card-text>
+          </v-card>
         </v-card-text>
         <v-divider />
         <v-card-actions class="justify-end">
@@ -432,6 +468,30 @@
             <code v-if="state.editInitialProviderPriceId">{{ state.editInitialProviderPriceId }}</code>.
             You can still update name/description/kind/status, or choose a new active price.
           </v-alert>
+          <v-row dense class="mt-2">
+            <v-col cols="12">
+              <v-textarea
+                v-model="state.editForm.entitlementsJson"
+                label="Entitlements JSON array"
+                variant="outlined"
+                density="compact"
+                rows="5"
+                auto-grow
+                :error-messages="state.editFieldErrors['entitlements[0].code']"
+              />
+              <v-alert
+                v-if="state.editEntitlementErrors.length"
+                type="error"
+                variant="tonal"
+                density="compact"
+                class="mt-2"
+              >
+                <div v-for="(message, index) in state.editEntitlementErrors" :key="`edit-entitlement-error-${index}`">
+                  {{ message }}
+                </div>
+              </v-alert>
+            </v-col>
+          </v-row>
         </v-card-text>
         <v-divider />
         <v-card-actions class="justify-end">

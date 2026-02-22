@@ -140,10 +140,10 @@ function createService({ projectsRepository }) {
     };
   }
 
-  async function get(workspaceContext, projectIdLike) {
+  async function get(workspaceContext, projectIdLike, options = {}) {
     const workspaceId = normalizeWorkspaceId(workspaceContext);
     const projectId = normalizeProjectId(projectIdLike);
-    const project = await projectsRepository.findByIdForWorkspace(workspaceId, projectId);
+    const project = await projectsRepository.findByIdForWorkspace(workspaceId, projectId, options);
 
     if (!project) {
       throw new AppError(404, "Project not found.");
@@ -154,23 +154,27 @@ function createService({ projectsRepository }) {
     };
   }
 
-  async function create(workspaceContext, payload) {
+  async function create(workspaceContext, payload, options = {}) {
     const workspaceId = normalizeWorkspaceId(workspaceContext);
     const body = payload && typeof payload === "object" ? payload : {};
 
-    const project = await projectsRepository.insert(workspaceId, {
-      name: normalizeName(body.name, { required: true }),
-      status: normalizeStatus(body.status || "draft", { required: true }),
-      owner: normalizeOwner(body.owner),
-      notes: normalizeNotes(body.notes)
-    });
+    const project = await projectsRepository.insert(
+      workspaceId,
+      {
+        name: normalizeName(body.name, { required: true }),
+        status: normalizeStatus(body.status || "draft", { required: true }),
+        owner: normalizeOwner(body.owner),
+        notes: normalizeNotes(body.notes)
+      },
+      options
+    );
 
     return {
       project
     };
   }
 
-  async function update(workspaceContext, projectIdLike, payload) {
+  async function update(workspaceContext, projectIdLike, payload, options = {}) {
     const workspaceId = normalizeWorkspaceId(workspaceContext);
     const projectId = normalizeProjectId(projectIdLike);
     const body = payload && typeof payload === "object" ? payload : {};
@@ -202,7 +206,7 @@ function createService({ projectsRepository }) {
       });
     }
 
-    const project = await projectsRepository.updateByIdForWorkspace(workspaceId, projectId, patch);
+    const project = await projectsRepository.updateByIdForWorkspace(workspaceId, projectId, patch, options);
     if (!project) {
       throw new AppError(404, "Project not found.");
     }
@@ -212,7 +216,7 @@ function createService({ projectsRepository }) {
     };
   }
 
-  async function replace(workspaceContext, projectIdLike, payload) {
+  async function replace(workspaceContext, projectIdLike, payload, options = {}) {
     const workspaceId = normalizeWorkspaceId(workspaceContext);
     const projectId = normalizeProjectId(projectIdLike);
     const body = payload && typeof payload === "object" ? payload : {};
@@ -223,7 +227,7 @@ function createService({ projectsRepository }) {
       notes: normalizeNotes(body.notes)
     };
 
-    const project = await projectsRepository.updateByIdForWorkspace(workspaceId, projectId, replacement);
+    const project = await projectsRepository.updateByIdForWorkspace(workspaceId, projectId, replacement, options);
     if (!project) {
       throw new AppError(404, "Project not found.");
     }
@@ -233,12 +237,21 @@ function createService({ projectsRepository }) {
     };
   }
 
+  async function countActiveForWorkspace(workspaceContext, options = {}) {
+    const workspaceId = normalizeWorkspaceId(workspaceContext);
+    if (typeof projectsRepository.countActiveForWorkspace !== "function") {
+      return 0;
+    }
+    return projectsRepository.countActiveForWorkspace(workspaceId, options);
+  }
+
   return {
     list,
     get,
     create,
     update,
-    replace
+    replace,
+    countActiveForWorkspace
   };
 }
 

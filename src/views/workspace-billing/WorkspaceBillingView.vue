@@ -117,6 +117,76 @@
 
         <v-card rounded="lg" border class="mt-4">
           <v-card-item>
+            <v-card-title class="text-subtitle-2 font-weight-bold">Usage limits</v-card-title>
+            <v-card-subtitle>
+              Effective entitlement balances for this workspace.
+            </v-card-subtitle>
+          </v-card-item>
+          <v-card-text>
+            <div v-if="state.limitationsError" class="text-body-2 text-error mb-2">
+              {{ state.limitationsError }}
+            </div>
+            <div v-if="state.limitationsLoading" class="text-body-2 text-medium-emphasis">
+              Loading limits...
+            </div>
+            <div v-else-if="state.limitationItems.length > 0" class="limit-grid">
+              <v-card
+                v-for="limit in state.limitationItems"
+                :key="limit.code"
+                rounded="lg"
+                variant="tonal"
+                class="limit-card"
+              >
+                <v-card-item class="pb-1">
+                  <div class="d-flex align-center ga-2">
+                    <code>{{ limit.code }}</code>
+                    <v-chip
+                      size="x-small"
+                      label
+                      :color="limit.overLimit ? 'error' : 'primary'"
+                      :variant="limit.overLimit ? 'tonal' : 'outlined'"
+                    >
+                      {{ limit.overLimit ? "Over limit" : "Within limit" }}
+                    </v-chip>
+                  </div>
+                </v-card-item>
+                <v-card-text class="pt-1">
+                  <div class="text-body-2">
+                    <strong>{{ limit.consumedAmount }}</strong>
+                    <span class="text-medium-emphasis"> used</span>
+                    <span class="text-medium-emphasis">
+                      /
+                      <strong>{{ limit.hardLimitAmount ?? limit.grantedAmount }}</strong>
+                    </span>
+                    <span v-if="limit.unit" class="text-medium-emphasis"> {{ limit.unit }}</span>
+                  </div>
+                  <v-progress-linear
+                    v-if="limit.usagePercent != null"
+                    :model-value="limit.usagePercent"
+                    :color="limit.overLimit ? 'error' : 'primary'"
+                    height="8"
+                    rounded
+                    class="mt-2"
+                  />
+                  <div class="text-caption text-medium-emphasis mt-2">
+                    Remaining: {{ limit.effectiveAmount }} · Lock: {{ limit.lockState || "none" }}
+                  </div>
+                  <div v-if="limit.nextChangeAt" class="text-caption text-medium-emphasis">
+                    Next change: {{ meta.formatDateOnly(limit.nextChangeAt) }}
+                  </div>
+                </v-card-text>
+              </v-card>
+            </div>
+            <div v-else class="text-body-2 text-medium-emphasis">No limitations are configured.</div>
+            <div v-if="state.limitationsGeneratedAt" class="text-caption text-medium-emphasis mt-3">
+              Generated {{ meta.formatDateOnly(state.limitationsGeneratedAt) }}
+              <span v-if="state.limitationsStale"> (stale)</span>
+            </div>
+          </v-card-text>
+        </v-card>
+
+        <v-card rounded="lg" border class="mt-4">
+          <v-card-item>
             <v-card-title class="text-subtitle-2 font-weight-bold">Change core plan</v-card-title>
             <v-card-subtitle>
               Select a different plan. Current plan is excluded from options.
@@ -309,5 +379,15 @@ const { meta, state, actions } = useWorkspaceBillingView();
   font-size: 0.92rem;
   font-weight: 600;
   white-space: nowrap;
+}
+
+.limit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.9rem;
+}
+
+.limit-card {
+  min-height: 168px;
 }
 </style>

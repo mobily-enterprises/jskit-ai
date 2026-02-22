@@ -24,6 +24,14 @@ const REALTIME_TOPIC_REGISTRY = Object.freeze({
   [REALTIME_TOPICS.WORKSPACE_AI_TRANSCRIPTS]: Object.freeze({
     subscribeSurfaces: Object.freeze(["admin"]),
     requiredAnyPermission: Object.freeze(["workspace.ai.transcripts.read"])
+  }),
+  [REALTIME_TOPICS.WORKSPACE_BILLING_LIMITS]: Object.freeze({
+    subscribeSurfaces: Object.freeze(["app", "admin"]),
+    requiredAnyPermission: Object.freeze([]),
+    requiredAnyPermissionBySurface: Object.freeze({
+      app: Object.freeze([]),
+      admin: Object.freeze(["workspace.billing.manage"])
+    })
   })
 });
 
@@ -81,13 +89,33 @@ function listRealtimeTopicsForSurface(surfaceValue) {
   return listRealtimeTopics().filter((topic) => isTopicAllowedForSurface(topic, surfaceValue));
 }
 
-function hasTopicPermission(topicValue, permissions) {
+function resolveRequiredPermissions(topicRule, surfaceValue) {
+  if (!topicRule || typeof topicRule !== "object") {
+    return [];
+  }
+
+  const surfaceMap =
+    topicRule.requiredAnyPermissionBySurface && typeof topicRule.requiredAnyPermissionBySurface === "object"
+      ? topicRule.requiredAnyPermissionBySurface
+      : null;
+  const normalizedSurface = normalizeSurface(surfaceValue);
+  if (surfaceMap && normalizedSurface) {
+    const surfacedPermissions = Array.isArray(surfaceMap[normalizedSurface]) ? surfaceMap[normalizedSurface] : null;
+    if (surfacedPermissions) {
+      return surfacedPermissions;
+    }
+  }
+
+  return Array.isArray(topicRule.requiredAnyPermission) ? topicRule.requiredAnyPermission : [];
+}
+
+function hasTopicPermission(topicValue, permissions, surfaceValue = "") {
   const topicRule = getTopicRule(topicValue);
   if (!topicRule) {
     return false;
   }
 
-  const requiredAnyPermission = Array.isArray(topicRule.requiredAnyPermission) ? topicRule.requiredAnyPermission : [];
+  const requiredAnyPermission = resolveRequiredPermissions(topicRule, surfaceValue);
   if (requiredAnyPermission.length < 1) {
     return true;
   }

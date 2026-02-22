@@ -599,7 +599,7 @@ async function registerSocketIoRealtime(
         };
       }
 
-      const allowed = hasTopicPermission(topic, context?.permissions);
+      const allowed = hasTopicPermission(topic, context?.permissions, surfaceId);
       return {
         allowed,
         evict: !allowed
@@ -682,7 +682,7 @@ async function registerSocketIoRealtime(
 
   function validateTopicPermissionsOrError(socket, requestId, topics, permissions) {
     for (const topic of topics) {
-      if (!hasTopicPermission(topic, permissions)) {
+      if (!hasTopicPermission(topic, permissions, socket?.data?.surface || "")) {
         emitProtocolError(socket, {
           requestId,
           code: REALTIME_ERROR_CODES.FORBIDDEN

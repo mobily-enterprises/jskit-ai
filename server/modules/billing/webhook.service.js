@@ -26,6 +26,8 @@ function createService(options = {}) {
     billingProviderAdapter,
     billingProviderRegistryService,
     billingCheckoutSessionService,
+    billingService = null,
+    billingRealtimePublishService = null,
     billingWebhookTranslationRegistryService,
     stripeWebhookEndpointSecret,
     paddleWebhookEndpointSecret,
@@ -233,6 +235,7 @@ function createService(options = {}) {
       billingRepository,
       billingCheckoutSessionService,
       billingProviderAdapter: scopedProviderAdapter,
+      billingService,
       observabilityService
     });
     projectionServiceByProvider.set(normalizedProvider, projectionService);
@@ -334,12 +337,12 @@ function createService(options = {}) {
 
     if (eventType === "checkout.session.completed") {
       await projectionService.handleCheckoutSessionCompleted(event.data?.object, eventContext);
-      return;
+      return [];
     }
 
     if (eventType === "checkout.session.expired") {
       await projectionService.handleCheckoutSessionExpired(event.data?.object, eventContext);
-      return;
+      return [];
     }
 
     if (
@@ -347,16 +350,19 @@ function createService(options = {}) {
       eventType === "customer.subscription.updated" ||
       eventType === "customer.subscription.deleted"
     ) {
-      await projectionService.projectSubscription(event.data?.object, eventContext);
-      return;
+      const outcome = await projectionService.projectSubscription(event.data?.object, eventContext);
+      return Array.isArray(outcome?.realtimeChanges) ? outcome.realtimeChanges : [];
     }
 
     if (eventType === "invoice.paid" || eventType === "invoice.payment_failed") {
-      await projectionService.projectInvoiceAndPayment(event.data?.object, {
+      const outcome = await projectionService.projectInvoiceAndPayment(event.data?.object, {
         ...eventContext,
         eventType
       });
+      return Array.isArray(outcome?.realtimeChanges) ? outcome.realtimeChanges : [];
     }
+
+    return [];
   }
 
   async function processEventTransaction(event, { provider }) {
@@ -406,7 +412,8 @@ function createService(options = {}) {
           return {
             duplicate: true,
             eventId: providerEventId,
-            eventType
+            eventType,
+            realtimeChanges: []
           };
         }
 
@@ -427,7 +434,7 @@ function createService(options = {}) {
           { trx }
         );
 
-        await routeEvent(event, {
+        const realtimeChanges = await routeEvent(event, {
           trx,
           billingEventId: eventRow.id,
           providerEventId,
@@ -456,11 +463,40 @@ function createService(options = {}) {
         return {
           duplicate: false,
           eventId: providerEventId,
-          eventType
+          eventType,
+          realtimeChanges: Array.isArray(realtimeChanges) ? realtimeChanges : []
         };
       });
 
-      return result;
+      if (
+        billingRealtimePublishService &&
+        typeof billingRealtimePublishService.publishWorkspaceBillingLimitsUpdated === "function" &&
+        !result?.duplicate &&
+        Array.isArray(result?.realtimeChanges)
+      ) {
+        for (const realtimeChange of result.realtimeChanges) {
+          const billableEntityId = toPositiveInteger(realtimeChange?.billableEntityId);
+          const changedCodes = Array.isArray(realtimeChange?.changedCodes)
+            ? [...new Set(realtimeChange.changedCodes.map((entry) => String(entry || "").trim()).filter(Boolean))]
+            : [];
+          if (!billableEntityId || changedCodes.length < 1) {
+            continue;
+          }
+
+          await billingRealtimePublishService.publishWorkspaceBillingLimitsUpdated({
+            billableEntityId,
+            changedCodes,
+            changeSource: toNullableString(realtimeChange?.changeSource) || "manual_refresh",
+            changedAt: realtimeChange?.changedAt || providerCreatedAt || new Date()
+          });
+        }
+      }
+
+      return {
+        duplicate: Boolean(result?.duplicate),
+        eventId: String(result?.eventId || ""),
+        eventType: String(result?.eventType || "")
+      };
     } catch (error) {
       await billingRepository.transaction(async (trx) => {
         const eventRow = await billingRepository.findWebhookEventByProviderEventId(

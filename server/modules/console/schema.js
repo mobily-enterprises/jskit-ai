@@ -465,13 +465,27 @@ const billingProductPrice = Type.Object(
 
 const billingPlanEntitlement = Type.Object(
   {
-    id: Type.Integer({ minimum: 1 }),
-    planId: Type.Integer({ minimum: 1 }),
     code: Type.String({ minLength: 1, maxLength: 120 }),
     schemaVersion: Type.String({ minLength: 1, maxLength: 120 }),
     valueJson: Type.Record(Type.String(), Type.Unknown()),
-    createdAt: Type.String({ format: "iso-utc-date-time" }),
-    updatedAt: Type.String({ format: "iso-utc-date-time" })
+    grantKind: Type.Optional(enumSchema(["plan_base", "plan_bonus"])),
+    effectivePolicy: Type.Optional(enumSchema(["on_assignment_current", "on_period_paid"])),
+    durationPolicy: Type.Optional(enumSchema(["while_current", "period_window", "fixed_duration"])),
+    durationDays: Type.Optional(Type.Union([Type.Integer({ minimum: 1 }), Type.Null()])),
+    metadataJson: Type.Optional(Type.Union([Type.Record(Type.String(), Type.Unknown()), Type.Null()]))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingProductEntitlement = Type.Object(
+  {
+    code: Type.String({ minLength: 1, maxLength: 120 }),
+    amount: Type.Integer({ minimum: 1 }),
+    grantKind: enumSchema(["one_off_topup", "timeboxed_addon"]),
+    durationDays: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    metadataJson: Type.Optional(Type.Union([Type.Record(Type.String(), Type.Unknown()), Type.Null()]))
   },
   {
     additionalProperties: false
@@ -515,6 +529,7 @@ const billingProduct = Type.Object(
     description: Type.Union([Type.String(), Type.Null()]),
     productKind: Type.String({ minLength: 1, maxLength: 64 }),
     price: billingProductPrice,
+    entitlements: Type.Array(billingProductEntitlement),
     isActive: Type.Boolean(),
     metadataJson: Type.Unknown(),
     createdAt: Type.String({ format: "iso-utc-date-time" }),
@@ -613,7 +628,12 @@ const billingPlanCreateBody = Type.Object(
           {
             code: Type.String({ minLength: 1, maxLength: 120 }),
             schemaVersion: Type.String({ minLength: 1, maxLength: 120 }),
-            valueJson: Type.Record(Type.String(), Type.Unknown())
+            valueJson: Type.Record(Type.String(), Type.Unknown()),
+            grantKind: Type.Optional(enumSchema(["plan_base", "plan_bonus"])),
+            effectivePolicy: Type.Optional(enumSchema(["on_assignment_current", "on_period_paid"])),
+            durationPolicy: Type.Optional(enumSchema(["while_current", "period_window", "fixed_duration"])),
+            durationDays: Type.Optional(Type.Union([Type.Integer({ minimum: 1 }), Type.Null()])),
+            metadataJson: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
           },
           {
             additionalProperties: false
@@ -649,6 +669,25 @@ const billingPlanUpdateBody = Type.Object(
         ),
         Type.Null()
       ])
+    ),
+    entitlements: Type.Optional(
+      Type.Array(
+        Type.Object(
+          {
+            code: Type.String({ minLength: 1, maxLength: 120 }),
+            schemaVersion: Type.String({ minLength: 1, maxLength: 120 }),
+            valueJson: Type.Record(Type.String(), Type.Unknown()),
+            grantKind: Type.Optional(enumSchema(["plan_base", "plan_bonus"])),
+            effectivePolicy: Type.Optional(enumSchema(["on_assignment_current", "on_period_paid"])),
+            durationPolicy: Type.Optional(enumSchema(["while_current", "period_window", "fixed_duration"])),
+            durationDays: Type.Optional(Type.Union([Type.Integer({ minimum: 1 }), Type.Null()])),
+            metadataJson: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
+          },
+          {
+            additionalProperties: false
+          }
+        )
+      )
     )
   },
   {
@@ -677,6 +716,22 @@ const billingProductCreateBody = Type.Object(
       {
         additionalProperties: false
       }
+    ),
+    entitlements: Type.Optional(
+      Type.Array(
+        Type.Object(
+          {
+            code: Type.String({ minLength: 1, maxLength: 120 }),
+            amount: Type.Integer({ minimum: 1 }),
+            grantKind: enumSchema(["one_off_topup", "timeboxed_addon"]),
+            durationDays: Type.Optional(Type.Union([Type.Integer({ minimum: 1 }), Type.Null()])),
+            metadataJson: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
+          },
+          {
+            additionalProperties: false
+          }
+        )
+      )
     )
   },
   {
@@ -703,6 +758,22 @@ const billingProductUpdateBody = Type.Object(
         {
           additionalProperties: false
         }
+      )
+    ),
+    entitlements: Type.Optional(
+      Type.Array(
+        Type.Object(
+          {
+            code: Type.String({ minLength: 1, maxLength: 120 }),
+            amount: Type.Integer({ minimum: 1 }),
+            grantKind: enumSchema(["one_off_topup", "timeboxed_addon"]),
+            durationDays: Type.Optional(Type.Union([Type.Integer({ minimum: 1 }), Type.Null()])),
+            metadataJson: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
+          },
+          {
+            additionalProperties: false
+          }
+        )
       )
     )
   },

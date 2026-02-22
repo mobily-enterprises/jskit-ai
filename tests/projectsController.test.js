@@ -159,8 +159,8 @@ test("projects controller routes create through billing limit enforcement when a
   const calls = [];
   const controller = createProjectsController({
     projectsService: {
-      async create(workspaceContext, payload) {
-        calls.push(["create", workspaceContext.id, payload.name]);
+      async create(workspaceContext, payload, options = {}) {
+        calls.push(["create", workspaceContext.id, payload.name, options?.trx || null]);
         return {
           project: {
             id: 777
@@ -169,14 +169,14 @@ test("projects controller routes create through billing limit enforcement when a
       }
     },
     billingService: {
-      async enforceLimitAndRecordUsage(payload) {
+      async executeWithEntitlementConsumption(payload) {
         calls.push([
           "enforce",
           payload.capability,
           payload.usageEventKey,
           Number(payload?.metadataJson?.workspaceId || 0)
         ]);
-        return payload.action();
+        return payload.action({ trx: "trx-enforce" });
       }
     }
   });
@@ -205,7 +205,7 @@ test("projects controller routes create through billing limit enforcement when a
   assert.equal(reply.payload.project.id, 777);
   assert.deepEqual(calls, [
     ["enforce", "projects.create", "idem_project_create_1", 11],
-    ["create", 11, "Created via enforcement"]
+    ["create", 11, "Created via enforcement", "trx-enforce"]
   ]);
 });
 

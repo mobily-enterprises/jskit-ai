@@ -25,6 +25,7 @@ function createService(options = {}) {
     billingRepository,
     billingCheckoutSessionService,
     billingProviderAdapter,
+    billingService = null,
     resolveBillableEntityIdFromCustomerId,
     lockEntityAggregate,
     maybeFinalizePendingCheckoutIdempotency,
@@ -335,6 +336,7 @@ function createService(options = {}) {
 
   async function projectSubscription(subscription, eventContext) {
     const { trx, providerCreatedAt, providerEventId } = eventContext;
+    const realtimeChanges = [];
 
     const providerSubscriptionId = toNullableString(subscription?.id);
     if (!providerSubscriptionId) {
@@ -383,12 +385,16 @@ function createService(options = {}) {
         }
       );
       if (!sameTimestampConflict) {
-        return;
+        return {
+          realtimeChanges
+        };
       }
 
       const authoritativeSubscription = await fetchAuthoritativeSubscription(providerSubscriptionId);
       if (!authoritativeSubscription) {
-        return;
+        return {
+          realtimeChanges
+        };
       }
 
       projectionSubscription = authoritativeSubscription;
@@ -474,6 +480,22 @@ function createService(options = {}) {
       providerEventId: projectionProviderEventId,
       trx
     });
+    if (billingService && typeof billingService.grantEntitlementsForPlanState === "function") {
+      const grantOutcome = await billingService.grantEntitlementsForPlanState({
+        billableEntityId,
+        now: projectionProviderCreatedAt || new Date(),
+        trx,
+        publish: false
+      });
+      if (Array.isArray(grantOutcome?.changedCodes) && grantOutcome.changedCodes.length > 0) {
+        realtimeChanges.push({
+          billableEntityId,
+          changedCodes: grantOutcome.changedCodes,
+          changeSource: "plan_grant",
+          changedAt: projectionProviderCreatedAt || new Date()
+        });
+      }
+    }
 
     const reconciledSession = await reconcileCheckoutSessionFromSubscription({
       providerSubscriptionId: subscriptionRow.providerSubscriptionId,
@@ -507,10 +529,15 @@ function createService(options = {}) {
         trx
       });
     }
+
+    return {
+      realtimeChanges
+    };
   }
 
   async function projectInvoiceAndPayment(invoice, eventContext) {
     const { trx, providerCreatedAt, providerEventId, eventType, billingEventId } = eventContext;
+    const realtimeChanges = [];
     const projectionInvoice = invoice;
     const projectionProviderCreatedAt = providerCreatedAt;
     const projectionProviderEventId = providerEventId;
@@ -644,7 +671,9 @@ function createService(options = {}) {
     }
 
     if (eventType !== "invoice.paid") {
-      return;
+      return {
+        realtimeChanges
+      };
     }
 
     const providerPaymentId =
@@ -652,7 +681,7 @@ function createService(options = {}) {
       toNullableString(projectionInvoice?.charge) ||
       `${providerInvoiceId}:${eventType}`;
 
-    await recordConfirmedPurchaseForInvoicePaid(
+    const purchase = await recordConfirmedPurchaseForInvoicePaid(
       {
         billingRepository,
         provider: activeProvider,
@@ -669,6 +698,27 @@ function createService(options = {}) {
         providerEventId: projectionProviderEventId
       }
     );
+    if (purchase && billingService && typeof billingService.grantEntitlementsForPurchase === "function") {
+      const grantOutcome = await billingService.grantEntitlementsForPurchase({
+        billableEntityId: resolvedBillableEntityId,
+        purchase,
+        now: projectionProviderCreatedAt || new Date(),
+        trx,
+        publish: false
+      });
+      if (Array.isArray(grantOutcome?.changedCodes) && grantOutcome.changedCodes.length > 0) {
+        realtimeChanges.push({
+          billableEntityId: resolvedBillableEntityId,
+          changedCodes: grantOutcome.changedCodes,
+          changeSource: "purchase_grant",
+          changedAt: projectionProviderCreatedAt || new Date()
+        });
+      }
+    }
+
+    return {
+      realtimeChanges
+    };
   }
 
   return {

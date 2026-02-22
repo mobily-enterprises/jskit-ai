@@ -7,6 +7,10 @@ import {
   normalizeBillingCatalogPlanUpdatePayload,
   normalizeBillingCatalogProductCreatePayload,
   normalizeBillingCatalogProductUpdatePayload,
+  mapPlanEntitlementsToTemplates,
+  mapProductEntitlementsToTemplates,
+  mapPlanTemplatesToConsoleEntitlements,
+  mapProductTemplatesToConsoleEntitlements,
   mapBillingPlanDuplicateError,
   mapBillingProductDuplicateError,
   ensureBillingCatalogRepository,
@@ -168,6 +172,16 @@ function createConsoleBillingService({
 
     try {
       const createdPlan = await billingRepository.transaction(async (trx) => {
+        const definitions = await billingRepository.listEntitlementDefinitions(
+          {
+            includeInactive: true
+          },
+          { trx }
+        );
+        const definitionByCode = new Map(definitions.map((entry) => [String(entry.code || ""), entry]));
+        const definitionById = new Map(definitions.map((entry) => [Number(entry.id), entry]));
+        const templates = mapPlanEntitlementsToTemplates(normalized.entitlements, definitionByCode);
+
         const plan = await billingRepository.createPlan(
           {
             ...normalized.plan,
@@ -176,19 +190,9 @@ function createConsoleBillingService({
           { trx }
         );
 
-        for (const entitlement of normalized.entitlements) {
-          await billingRepository.upsertPlanEntitlement(
-            {
-              planId: plan.id,
-              code: entitlement.code,
-              schemaVersion: entitlement.schemaVersion,
-              valueJson: entitlement.valueJson
-            },
-            { trx }
-          );
-        }
-
-        const entitlements = await billingRepository.listPlanEntitlementsForPlan(plan.id, { trx });
+        await billingRepository.replacePlanEntitlementTemplates(plan.id, templates, { trx });
+        const persistedTemplates = await billingRepository.listPlanEntitlementTemplates(plan.id, { trx });
+        const entitlements = mapPlanTemplatesToConsoleEntitlements(persistedTemplates, definitionById);
         return {
           ...plan,
           entitlements
@@ -226,15 +230,32 @@ function createConsoleBillingService({
     });
 
     try {
-      const createdProduct = await billingRepository.transaction(async (trx) =>
-        billingRepository.createProduct(
+      const createdProduct = await billingRepository.transaction(async (trx) => {
+        const definitions = await billingRepository.listEntitlementDefinitions(
+          {
+            includeInactive: true
+          },
+          { trx }
+        );
+        const definitionByCode = new Map(definitions.map((entry) => [String(entry.code || ""), entry]));
+        const definitionById = new Map(definitions.map((entry) => [Number(entry.id), entry]));
+        const templates = mapProductEntitlementsToTemplates(normalized.entitlements, definitionByCode);
+
+        const product = await billingRepository.createProduct(
           {
             ...normalized.product,
             price: resolvedPrice
           },
           { trx }
-        )
-      );
+        );
+        await billingRepository.replaceProductEntitlementTemplates(product.id, templates, { trx });
+        const persistedTemplates = await billingRepository.listProductEntitlementTemplates(product.id, { trx });
+
+        return {
+          ...product,
+          entitlements: mapProductTemplatesToConsoleEntitlements(persistedTemplates, definitionById)
+        };
+      });
 
       return {
         provider: activeBillingProvider,
@@ -297,33 +318,47 @@ function createConsoleBillingService({
       });
     }
 
-    const normalizedPatch = normalizeBillingCatalogPlanUpdatePayload(payload, {
+    const normalizedUpdate = normalizeBillingCatalogPlanUpdatePayload(payload, {
       activeBillingProvider
     });
-    const resolvedCorePrice = Object.hasOwn(normalizedPatch, "corePrice")
+    const resolvedCorePrice = Object.hasOwn(normalizedUpdate.patch, "corePrice")
       ? await resolveCatalogCorePriceForUpdate({
           activeBillingProvider,
           billingProviderAdapter,
-          corePrice: normalizedPatch.corePrice
+          corePrice: normalizedUpdate.patch.corePrice
         })
       : null;
 
     try {
       const updatedPlan = await billingRepository.transaction(async (trx) => {
+        const definitions = await billingRepository.listEntitlementDefinitions(
+          {
+            includeInactive: true
+          },
+          { trx }
+        );
+        const definitionByCode = new Map(definitions.map((entry) => [String(entry.code || ""), entry]));
+        const definitionById = new Map(definitions.map((entry) => [Number(entry.id), entry]));
         const plan = await billingRepository.findPlanById(planId, { trx });
         if (!plan) {
           throw new AppError(404, "Billing plan not found.");
         }
 
         const updatePatch = {
-          ...normalizedPatch
+          ...normalizedUpdate.patch
         };
-        if (Object.hasOwn(normalizedPatch, "corePrice")) {
+        if (Object.hasOwn(normalizedUpdate.patch, "corePrice")) {
           updatePatch.corePrice = resolvedCorePrice;
         }
 
         const nextPlan = await billingRepository.updatePlanById(plan.id, updatePatch, { trx });
-        const entitlements = await billingRepository.listPlanEntitlementsForPlan(plan.id, { trx });
+        if (normalizedUpdate.entitlementsProvided) {
+          const templates = mapPlanEntitlementsToTemplates(normalizedUpdate.entitlements, definitionByCode);
+          await billingRepository.replacePlanEntitlementTemplates(plan.id, templates, { trx });
+        }
+
+        const persistedTemplates = await billingRepository.listPlanEntitlementTemplates(plan.id, { trx });
+        const entitlements = mapPlanTemplatesToConsoleEntitlements(persistedTemplates, definitionById);
         return {
           ...nextPlan,
           entitlements
@@ -363,32 +398,50 @@ function createConsoleBillingService({
       });
     }
 
-    const normalizedPatch = normalizeBillingCatalogProductUpdatePayload(payload, {
+    const normalizedUpdate = normalizeBillingCatalogProductUpdatePayload(payload, {
       activeBillingProvider
     });
-    const resolvedPrice = normalizedPatch.price
+    const resolvedPrice = normalizedUpdate.patch.price
       ? await resolveCatalogProductPriceForUpdate({
           activeBillingProvider,
           billingProviderAdapter,
-          price: normalizedPatch.price
+          price: normalizedUpdate.patch.price
         })
       : null;
 
     try {
       const updatedProduct = await billingRepository.transaction(async (trx) => {
+        const definitions = await billingRepository.listEntitlementDefinitions(
+          {
+            includeInactive: true
+          },
+          { trx }
+        );
+        const definitionByCode = new Map(definitions.map((entry) => [String(entry.code || ""), entry]));
+        const definitionById = new Map(definitions.map((entry) => [Number(entry.id), entry]));
         const product = await billingRepository.findProductById(productId, { trx });
         if (!product) {
           throw new AppError(404, "Billing product not found.");
         }
 
         const updatePatch = {
-          ...normalizedPatch
+          ...normalizedUpdate.patch
         };
         if (resolvedPrice) {
           updatePatch.price = resolvedPrice;
         }
 
-        return billingRepository.updateProductById(product.id, updatePatch, { trx });
+        const nextProduct = await billingRepository.updateProductById(product.id, updatePatch, { trx });
+        if (normalizedUpdate.entitlementsProvided) {
+          const templates = mapProductEntitlementsToTemplates(normalizedUpdate.entitlements, definitionByCode);
+          await billingRepository.replaceProductEntitlementTemplates(product.id, templates, { trx });
+        }
+        const persistedTemplates = await billingRepository.listProductEntitlementTemplates(product.id, { trx });
+
+        return {
+          ...nextProduct,
+          entitlements: mapProductTemplatesToConsoleEntitlements(persistedTemplates, definitionById)
+        };
       });
 
       return {

@@ -35,8 +35,14 @@ function mapCalculationRowRequired(row) {
 }
 
 function createCalculationLogsRepository(dbClient) {
-  async function repoInsert(workspaceId, userId, entry) {
-    await dbClient("calculation_logs").insert({
+  function resolveClient(options = {}) {
+    const trx = options && typeof options === "object" ? options.trx || null : null;
+    return trx || dbClient;
+  }
+
+  async function repoInsert(workspaceId, userId, entry, options = {}) {
+    const client = resolveClient(options);
+    await client("calculation_logs").insert({
       id: entry.id,
       workspace_id: workspaceId,
       user_id: userId,
@@ -56,18 +62,20 @@ function createCalculationLogsRepository(dbClient) {
     });
   }
 
-  async function repoCountForWorkspaceUser(workspaceId, userId) {
-    const row = await dbClient("calculation_logs")
+  async function repoCountForWorkspaceUser(workspaceId, userId, options = {}) {
+    const client = resolveClient(options);
+    const row = await client("calculation_logs")
       .where({ workspace_id: workspaceId, user_id: userId })
       .count({ total: "*" })
       .first();
     return normalizeCount(row);
   }
 
-  async function repoListForWorkspaceUser(workspaceId, userId, page, pageSize) {
+  async function repoListForWorkspaceUser(workspaceId, userId, page, pageSize, options = {}) {
+    const client = resolveClient(options);
     const offset = (page - 1) * pageSize;
 
-    const rows = await dbClient("calculation_logs")
+    const rows = await client("calculation_logs")
       .where({ workspace_id: workspaceId, user_id: userId })
       .orderBy("created_at", "desc")
       .limit(pageSize)
@@ -76,15 +84,17 @@ function createCalculationLogsRepository(dbClient) {
     return rows.map(mapCalculationRowRequired);
   }
 
-  async function repoCountForWorkspace(workspaceId) {
-    const row = await dbClient("calculation_logs").where({ workspace_id: workspaceId }).count({ total: "*" }).first();
+  async function repoCountForWorkspace(workspaceId, options = {}) {
+    const client = resolveClient(options);
+    const row = await client("calculation_logs").where({ workspace_id: workspaceId }).count({ total: "*" }).first();
     return normalizeCount(row);
   }
 
-  async function repoListForWorkspace(workspaceId, page, pageSize) {
+  async function repoListForWorkspace(workspaceId, page, pageSize, options = {}) {
+    const client = resolveClient(options);
     const offset = (page - 1) * pageSize;
 
-    const rows = await dbClient("calculation_logs")
+    const rows = await client("calculation_logs")
       .where({ workspace_id: workspaceId })
       .orderBy("created_at", "desc")
       .limit(pageSize)

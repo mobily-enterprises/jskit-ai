@@ -4,8 +4,13 @@ import test from "node:test";
 import { createService as createBillingService } from "../server/modules/billing/service.js";
 
 function createPhase21Service(overrides = {}) {
+  const trxToken = overrides.trxToken || { id: "trx_token" };
+
   return createBillingService({
     billingRepository: {
+      async transaction(action) {
+        return action(trxToken);
+      },
       async ensureBillableEntity() {
         return {
           id: 7
@@ -23,8 +28,19 @@ function createPhase21Service(overrides = {}) {
           id: numericPlanId
         };
       },
-      async listPlanEntitlementsForPlan() {
+      async listEntitlementDefinitions() {
         return [];
+      },
+      async findEntitlementDefinitionByCode() {
+        return null;
+      },
+      async findEntitlementBalance() {
+        return null;
+      },
+      async recomputeEntitlementBalance() {
+        return {
+          balance: null
+        };
       },
       ...overrides.billingRepository
     },
@@ -77,56 +93,103 @@ function createPhase21Service(overrides = {}) {
       },
       ...overrides.billingProviderAdapter
     },
+    billingRealtimePublishService: {
+      async publishWorkspaceBillingLimitsUpdated() {
+        return null;
+      },
+      ...overrides.billingRealtimePublishService
+    },
     appPublicUrl: "https://app.example.test",
     providerReplayWindowSeconds: 60 * 60,
     observabilityService: overrides.observabilityService || null
   });
 }
 
-test("phase 2.1 getLimitations resolves quota windows and usage", async () => {
+test("phase 2.1 getLimitations returns projection-backed limitation rows", async () => {
   const now = new Date("2026-02-21T12:34:56.000Z");
+  let recomputeCalls = 0;
   const service = createPhase21Service({
     billingRepository: {
-      async findCurrentSubscriptionForEntity(billableEntityId) {
-        assert.equal(billableEntityId, 7);
-        return {
-          id: 21,
-          billableEntityId: 7,
-          planId: 101
-        };
-      },
-      async listPlanEntitlementsForPlan(planId) {
-        assert.equal(planId, 101);
+      async listEntitlementDefinitions(query) {
+        assert.equal(query.includeInactive, false);
+        assert.equal(query.codes, null);
         return [
           {
-            id: 1,
-            planId,
-            code: "api_calls",
-            schemaVersion: "entitlement.quota.v1",
-            valueJson: {
-              limit: 10,
-              interval: "month",
-              enforcement: "hard"
-            }
-          },
-          {
-            id: 2,
-            planId,
-            code: "priority_support",
-            schemaVersion: "entitlement.boolean.v1",
-            valueJson: {
-              enabled: true
-            }
+            id: 71,
+            code: "annuity.calculations.monthly",
+            entitlementType: "metered_quota",
+            enforcementMode: "hard_deny",
+            unit: "calculation",
+            windowInterval: "month",
+            windowAnchor: "calendar_utc"
           }
         ];
       },
-      async findUsageCounter({ entitlementCode }) {
-        if (entitlementCode === "api_calls") {
-          return {
-            usageCount: 3
-          };
-        }
-        return null;
+      async recomputeEntitlementBalance(payload) {
+        recomputeCalls += 1;
+        assert.equal(payload.subjectType, "billable_entity");
+        assert.equal(payload.subjectId, 7);
+        assert.equal(payload.entitlementDefinitionId, 71);
+        assert.equal(payload.now.toISOString(), now.toISOString());
+        return {
+          balance: {
+            grantedAmount: 10,
+            consumedAmount: 3,
+            effectiveAmount: 7,
+            hardLimitAmount: 10,
+            overLimit: false,
+            lockState: "none",
+            nextChangeAt: "2026-03-01T00:00:00.000Z",
+            windowStartAt: "2026-02-01T00:00:00.000Z",
+            windowEndAt: "2026-03-01T00:00:00.000Z",
+            lastRecomputedAt: now.toISOString()
+          }
+        };
+      }
+    }
+  });
+
+  const response = await service.getLimitations({
+    request: {
+      headers: {}
+    },
+    user: {
+      id: 12
+    },
+    now
+  });
+
+  assert.equal(recomputeCalls, 1);
+  assert.equal(response.billableEntity.id, 7);
+  assert.equal(response.generatedAt, now.toISOString());
+  assert.equal(response.stale, false);
+  assert.equal(response.limitations.length, 1);
+
+  const limitation = response.limitations[0];
+  assert.equal(limitation.code, "annuity.calculations.monthly");
+  assert.equal(limitation.entitlementType, "metered_quota");
+  assert.equal(limitation.enforcementMode, "hard_deny");
+  assert.equal(limitation.unit, "calculation");
+  assert.equal(limitation.windowInterval, "month");
+  assert.equal(limitation.windowAnchor, "calendar_utc");
+  assert.equal(limitation.grantedAmount, 10);
+  assert.equal(limitation.consumedAmount, 3);
+  assert.equal(limitation.effectiveAmount, 7);
+  assert.equal(limitation.hardLimitAmount, 10);
+  assert.equal(limitation.overLimit, false);
+  assert.equal(limitation.lockState, "none");
+  assert.equal(limitation.nextChangeAt, "2026-03-01T00:00:00.000Z");
+  assert.equal(limitation.windowStartAt, "2026-02-01T00:00:00.000Z");
+  assert.equal(limitation.windowEndAt, "2026-03-01T00:00:00.000Z");
+  assert.equal(limitation.lastRecomputedAt, now.toISOString());
+});
+
+test("phase 2.1 getLimitations returns empty limitations when definitions are missing", async () => {
+  const now = new Date("2026-02-21T12:35:00.000Z");
+  const service = createPhase21Service({
+    billingRepository: {
+      async listEntitlementDefinitions() {
+        return [];
       }
     }
   });
@@ -142,159 +205,202 @@ test("phase 2.1 getLimitations resolves quota windows and usage", async () => {
   });
 
   assert.equal(response.billableEntity.id, 7);
-  assert.equal(response.subscription.id, 21);
-  assert.equal(response.limitations.length, 2);
-
-  const quota = response.limitations.find((entry) => entry.code === "api_calls");
-  assert.ok(quota);
-  assert.equal(quota.type, "quota");
-  assert.equal(quota.quota.limit, 10);
-  assert.equal(quota.quota.used, 3);
-  assert.equal(quota.quota.remaining, 7);
-  assert.equal(quota.quota.reached, false);
-  assert.equal(quota.quota.exceeded, false);
-  assert.equal(quota.quota.windowStartAt, "2026-02-01T00:00:00.000Z");
-  assert.equal(quota.quota.windowEndAt, "2026-03-01T00:00:00.000Z");
-});
-
-test("phase 2.1 getLimitations returns null subscription and empty limitations when unsubscribed", async () => {
-  const service = createPhase21Service();
-
-  const response = await service.getLimitations({
-    request: {
-      headers: {}
-    },
-    user: {
-      id: 12
-    },
-    now: new Date("2026-02-21T12:35:00.000Z")
-  });
-
-  assert.equal(response.billableEntity.id, 7);
-  assert.equal(response.subscription, null);
+  assert.equal(response.generatedAt, now.toISOString());
+  assert.equal(response.stale, false);
   assert.deepEqual(response.limitations, []);
 });
 
-test("phase 2.1 getLimitations maps string_list and quota limitation shapes deterministically", async () => {
-  const now = new Date("2026-02-21T12:36:00.000Z");
+test("phase 2.1 executeWithEntitlementConsumption rejects exhausted metered quota deterministically", async () => {
+  let actionCalls = 0;
   const service = createPhase21Service({
     billingRepository: {
-      async findCurrentSubscriptionForEntity() {
-        return {
-          id: 31,
-          billableEntityId: 7,
-          planId: 401
-        };
-      },
-      async listPlanEntitlementsForPlan(planId) {
-        assert.equal(planId, 401);
+      async listEntitlementDefinitions(query) {
+        assert.deepEqual(query.codes, ["annuity.calculations.monthly"]);
         return [
           {
-            id: 1,
-            planId,
-            code: "allowed_models",
-            schemaVersion: "entitlement.string_list.v1",
-            valueJson: {
-              values: ["gpt-5-mini", 42, true]
-            }
-          },
-          {
-            id: 2,
-            planId,
-            code: "api_calls",
-            schemaVersion: "entitlement.quota.v1",
-            valueJson: {
-              limit: 2,
-              interval: "week",
-              enforcement: "soft"
-            }
+            id: 71,
+            code: "annuity.calculations.monthly",
+            entitlementType: "metered_quota",
+            enforcementMode: "hard_deny",
+            unit: "calculation",
+            windowInterval: "month",
+            windowAnchor: "calendar_utc"
           }
         ];
       },
-      async findUsageCounter({ entitlementCode }) {
-        if (entitlementCode !== "api_calls") {
-          return null;
-        }
+      async recomputeEntitlementBalance() {
         return {
-          usageCount: 4
-        };
-      }
-    }
-  });
-
-  const response = await service.getLimitations({
-    request: {
-      headers: {}
-    },
-    user: {
-      id: 12
-    },
-    now
-  });
-
-  const stringList = response.limitations.find((entry) => entry.code === "allowed_models");
-  assert.ok(stringList);
-  assert.equal(stringList.type, "string_list");
-  assert.deepEqual(stringList.values, ["gpt-5-mini", "42", "true"]);
-
-  const quota = response.limitations.find((entry) => entry.code === "api_calls");
-  assert.ok(quota);
-  assert.equal(quota.type, "quota");
-  assert.equal(quota.quota.interval, "week");
-  assert.equal(quota.quota.enforcement, "soft");
-  assert.equal(quota.quota.limit, 2);
-  assert.equal(quota.quota.used, 4);
-  assert.equal(quota.quota.remaining, 0);
-  assert.equal(quota.quota.reached, true);
-  assert.equal(quota.quota.exceeded, true);
-  assert.equal(quota.quota.windowStartAt, "2026-02-16T00:00:00.000Z");
-  assert.equal(quota.quota.windowEndAt, "2026-02-23T00:00:00.000Z");
-});
-
-test("phase 2.1 getLimitations fails closed on invalid entitlement schema payloads", async () => {
-  const service = createPhase21Service({
-    billingRepository: {
-      async findCurrentSubscriptionForEntity() {
-        return {
-          id: 31,
-          billableEntityId: 7,
-          planId: 401
-        };
-      },
-      async listPlanEntitlementsForPlan(planId) {
-        assert.equal(planId, 401);
-        return [
-          {
-            id: 1,
-            planId,
-            code: "api_calls",
-            schemaVersion: "entitlement.quota.v1",
-            valueJson: {
-              limit: 10,
-              interval: "month"
-            }
+          balance: {
+            grantedAmount: 5,
+            consumedAmount: 5,
+            effectiveAmount: 0,
+            hardLimitAmount: 5,
+            overLimit: true,
+            lockState: "none",
+            nextChangeAt: "2026-03-01T00:00:00.000Z",
+            windowStartAt: "2026-02-01T00:00:00.000Z",
+            windowEndAt: "2026-03-01T00:00:00.000Z",
+            lastRecomputedAt: "2026-02-21T12:36:00.000Z"
           }
-        ];
+        };
       }
     }
   });
 
   await assert.rejects(
     () =>
-      service.getLimitations({
+      service.executeWithEntitlementConsumption({
         request: {
           headers: {}
         },
         user: {
           id: 12
         },
-        now: new Date("2026-02-21T12:37:00.000Z")
+        capability: "annuity.calculate",
+        action: async () => {
+          actionCalls += 1;
+          return {
+            ok: true
+          };
+        },
+        now: new Date("2026-02-21T12:36:00.000Z")
       }),
     (error) =>
-      Number(error?.statusCode) === 500 &&
-      String(error?.code || "") === "ENTITLEMENT_SCHEMA_INVALID" &&
-      String(error?.details?.reason || "") === "invalid_payload"
+      Number(error?.statusCode) === 429 &&
+      String(error?.code || "") === "BILLING_LIMIT_EXCEEDED" &&
+      String(error?.details?.limitationCode || "") === "annuity.calculations.monthly" &&
+      Number(error?.details?.remaining) === 0
   );
+
+  assert.equal(actionCalls, 0);
+});
+
+test("phase 2.1 executeWithEntitlementConsumption consumes once and publishes post-commit", async () => {
+  const now = new Date("2026-02-21T12:37:00.000Z");
+  const actionCalls = [];
+  const insertCalls = [];
+  const realtimeCalls = [];
+  let recomputeCalls = 0;
+  const trxToken = { id: "trx_42" };
+  const service = createPhase21Service({
+    trxToken,
+    billingRepository: {
+      async listEntitlementDefinitions(query, options) {
+        assert.deepEqual(query.codes, ["annuity.calculations.monthly"]);
+        assert.equal(options.trx, trxToken);
+        return [
+          {
+            id: 71,
+            code: "annuity.calculations.monthly",
+            entitlementType: "metered_quota",
+            enforcementMode: "hard_deny",
+            unit: "calculation",
+            windowInterval: "month",
+            windowAnchor: "calendar_utc"
+          }
+        ];
+      },
+      async findEntitlementDefinitionByCode(code, options) {
+        assert.equal(code, "annuity.calculations.monthly");
+        assert.equal(options.trx, trxToken);
+        return {
+          id: 71,
+          code: "annuity.calculations.monthly"
+        };
+      },
+      async insertEntitlementConsumption(payload, options) {
+        insertCalls.push({
+          payload,
+          options
+        });
+        return {
+          inserted: true,
+          consumption: {
+            id: 501
+          }
+        };
+      },
+      async recomputeEntitlementBalance(payload) {
+        recomputeCalls += 1;
+        assert.equal(payload.subjectId, 7);
+        if (recomputeCalls === 1) {
+          return {
+            balance: {
+              grantedAmount: 5,
+              consumedAmount: 0,
+              effectiveAmount: 5,
+              hardLimitAmount: 5,
+              overLimit: false,
+              lockState: "none",
+              nextChangeAt: "2026-03-01T00:00:00.000Z",
+              windowStartAt: "2026-02-01T00:00:00.000Z",
+              windowEndAt: "2026-03-01T00:00:00.000Z",
+              lastRecomputedAt: now.toISOString()
+            }
+          };
+        }
+        return {
+          balance: {
+            grantedAmount: 5,
+            consumedAmount: 1,
+            effectiveAmount: 4,
+            hardLimitAmount: 5,
+            overLimit: false,
+            lockState: "none",
+            nextChangeAt: "2026-03-01T00:00:00.000Z",
+            windowStartAt: "2026-02-01T00:00:00.000Z",
+            windowEndAt: "2026-03-01T00:00:00.000Z",
+            lastRecomputedAt: now.toISOString()
+          }
+        };
+      }
+    },
+    billingRealtimePublishService: {
+      async publishWorkspaceBillingLimitsUpdated(payload) {
+        realtimeCalls.push(payload);
+      }
+    }
+  });
+
+  const response = await service.executeWithEntitlementConsumption({
+    request: {
+      headers: {
+        "x-command-id": "cmd_123",
+        "x-client-id": "client_abc"
+      }
+    },
+    user: {
+      id: 12
+    },
+    capability: "annuity.calculate",
+    usageEventKey: "usage_evt_1",
+    now,
+    action: async ({ trx, limitation }) => {
+      actionCalls.push({
+        trx,
+        limitation
+      });
+      return {
+        ok: true
+      };
+    }
+  });
+
+  assert.deepEqual(response, { ok: true });
+  assert.equal(actionCalls.length, 1);
+  assert.equal(actionCalls[0].trx, trxToken);
+  assert.equal(actionCalls[0].limitation.code, "annuity.calculations.monthly");
+  assert.equal(insertCalls.length, 1);
+  assert.equal(insertCalls[0].options.trx, trxToken);
+  assert.equal(insertCalls[0].payload.reasonCode, "annuity.calculate");
+  assert.equal(insertCalls[0].payload.dedupeKey, "usage:7:71:usage_evt_1");
+  assert.equal(realtimeCalls.length, 1);
+  assert.equal(realtimeCalls[0].billableEntityId, 7);
+  assert.deepEqual(realtimeCalls[0].changedCodes, ["annuity.calculations.monthly"]);
+  assert.equal(realtimeCalls[0].changeSource, "consumption");
+  assert.equal(realtimeCalls[0].commandId, "cmd_123");
+  assert.equal(realtimeCalls[0].sourceClientId, "client_abc");
+  assert.equal(realtimeCalls[0].actorUserId, 12);
 });
 
 test("phase 2.1 syncPaymentMethods upserts methods and records sync event", async () => {
@@ -456,234 +562,6 @@ test("phase 2.1 syncPaymentMethods does not detach methods when provider list is
   assert.equal(deactivateCalls.length, 0);
 });
 
-test("phase 2.1 recordUsage increments quota counter", async () => {
-  const incrementCalls = [];
-  const now = new Date("2026-02-21T14:30:00.000Z");
-  const service = createPhase21Service({
-    billingRepository: {
-      async findCurrentSubscriptionForEntity() {
-        return {
-          id: 50,
-          planId: 300
-        };
-      },
-      async listPlanEntitlementsForPlan(planId) {
-        assert.equal(planId, 300);
-        return [
-          {
-            id: 1,
-            planId,
-            code: "api_calls",
-            schemaVersion: "entitlement.quota.v1",
-            valueJson: {
-              limit: 5,
-              interval: "day",
-              enforcement: "hard"
-            }
-          }
-        ];
-      },
-      async incrementUsageCounter(payload) {
-        incrementCalls.push(payload);
-        return {
-          usageCount: 4
-        };
-      }
-    }
-  });
-
-  const response = await service.recordUsage({
-    billableEntityId: 7,
-    entitlementCode: "api_calls",
-    amount: 2,
-    now
-  });
-
-  assert.equal(incrementCalls.length, 1);
-  assert.equal(incrementCalls[0].amount, 2);
-  assert.equal(response.limit, 5);
-  assert.equal(response.used, 4);
-  assert.equal(response.remaining, 1);
-  assert.equal(response.reached, false);
-  assert.equal(response.exceeded, false);
-  assert.equal(response.windowStartAt, "2026-02-21T00:00:00.000Z");
-  assert.equal(response.windowEndAt, "2026-02-22T00:00:00.000Z");
-});
-
-test("phase 2.1 enforceLimitAndRecordUsage blocks hard quota overage with deterministic payload", async () => {
-  let actionCalls = 0;
-  const service = createPhase21Service({
-    billingRepository: {
-      async findCurrentSubscriptionForEntity() {
-        return {
-          id: 50,
-          planId: 300
-        };
-      },
-      async listPlanEntitlementsForPlan() {
-        return [
-          {
-            id: 1,
-            planId: 300,
-            code: "projects_created_monthly",
-            schemaVersion: "entitlement.quota.v1",
-            valueJson: {
-              limit: 2,
-              interval: "month",
-              enforcement: "hard"
-            }
-          }
-        ];
-      },
-      async findUsageCounter() {
-        return {
-          usageCount: 2
-        };
-      },
-      async incrementUsageCounter() {
-        throw new Error("incrementUsageCounter should not be called when quota check fails.");
-      }
-    }
-  });
-
-  await assert.rejects(
-    () =>
-      service.enforceLimitAndRecordUsage({
-        request: { headers: {} },
-        user: { id: 12 },
-        capability: "projects.create",
-        action: async () => {
-          actionCalls += 1;
-          return {
-            ok: true
-          };
-        },
-        now: new Date("2026-02-21T15:00:00.000Z")
-      }),
-    (error) =>
-      Number(error?.statusCode) === 429 &&
-      String(error?.code || "") === "BILLING_LIMIT_EXCEEDED" &&
-      String(error?.details?.limitationCode || "") === "projects_created_monthly"
-  );
-
-  assert.equal(actionCalls, 0);
-});
-
-test("phase 2.1 enforceLimitAndRecordUsage increments usage on success and dedupes retries by usageEventKey", async () => {
-  let usageCount = 0;
-  const incrementCalls = [];
-  const usageEventClaims = [];
-  const service = createPhase21Service({
-    billingRepository: {
-      async findCurrentSubscriptionForEntity() {
-        return {
-          id: 50,
-          planId: 300
-        };
-      },
-      async listPlanEntitlementsForPlan() {
-        return [
-          {
-            id: 1,
-            planId: 300,
-            code: "projects_created_monthly",
-            schemaVersion: "entitlement.quota.v1",
-            valueJson: {
-              limit: 20,
-              interval: "month",
-              enforcement: "hard"
-            }
-          }
-        ];
-      },
-      async findUsageCounter() {
-        return {
-          usageCount
-        };
-      },
-      async claimUsageEvent(payload) {
-        usageEventClaims.push(payload.usageEventKey);
-        return {
-          claimed: usageEventClaims.length === 1
-        };
-      },
-      async incrementUsageCounter(payload) {
-        incrementCalls.push(payload);
-        usageCount += Number(payload.amount || 0);
-        return {
-          usageCount
-        };
-      }
-    }
-  });
-
-  const actionCalls = [];
-  const first = await service.enforceLimitAndRecordUsage({
-    request: { headers: {} },
-    user: { id: 12 },
-    capability: "projects.create",
-    usageEventKey: "usage_evt_1",
-    action: async () => {
-      actionCalls.push("first");
-      return {
-        ok: true,
-        marker: "first"
-      };
-    },
-    now: new Date("2026-02-21T15:10:00.000Z")
-  });
-  const second = await service.enforceLimitAndRecordUsage({
-    request: { headers: {} },
-    user: { id: 12 },
-    capability: "projects.create",
-    usageEventKey: "usage_evt_1",
-    action: async () => {
-      actionCalls.push("second");
-      return {
-        ok: true,
-        marker: "second"
-      };
-    },
-    now: new Date("2026-02-21T15:11:00.000Z")
-  });
-
-  assert.equal(first.ok, true);
-  assert.equal(second.ok, true);
-  assert.deepEqual(actionCalls, ["first", "second"]);
-  assert.deepEqual(usageEventClaims, ["usage_evt_1", "usage_evt_1"]);
-  assert.equal(incrementCalls.length, 1);
-  assert.equal(incrementCalls[0].entitlementCode, "projects_created_monthly");
-  assert.equal(usageCount, 1);
-});
-
-test("phase 2.1 enforceLimitAndRecordUsage allows action when limitation is not configured by default", async () => {
-  const service = createPhase21Service({
-    billingRepository: {
-      async findCurrentSubscriptionForEntity() {
-        return {
-          id: 50,
-          planId: 300
-        };
-      },
-      async listPlanEntitlementsForPlan() {
-        return [];
-      },
-      async incrementUsageCounter() {
-        throw new Error("incrementUsageCounter should not be called when limitation is missing and allow behavior is used.");
-      }
-    }
-  });
-
-  const response = await service.enforceLimitAndRecordUsage({
-    request: { headers: {} },
-    user: { id: 12 },
-    capability: "projects.create",
-    action: async () => ({ ok: true })
-  });
-
-  assert.deepEqual(response, { ok: true });
-});
-
 test("phase 2.2 listTimeline returns paged workspace-friendly activity entries", async () => {
   const repositoryCalls = [];
   const service = createPhase21Service({
@@ -762,17 +640,15 @@ test("phase 2.2 listTimeline does not cap deep-page fetch limit at 2000", async 
     }
   });
 
-  const response = await service.listTimeline({
+  await service.listTimeline({
     request: { headers: {} },
     user: { id: 12 },
     query: {
-      page: 30,
-      pageSize: 100
+      page: 101,
+      pageSize: 20
     }
   });
 
   assert.equal(repositoryCalls.length, 1);
-  assert.equal(repositoryCalls[0].limit, 3001);
-  assert.equal(response.entries.length, 0);
-  assert.equal(response.hasMore, false);
+  assert.equal(repositoryCalls[0].limit, 2021);
 });

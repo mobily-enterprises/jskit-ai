@@ -194,7 +194,10 @@ describe("realtimeRuntime", () => {
 
     const socket = FakeSocket.instances[0];
     expect(socket.sent[0].type).toBe(REALTIME_MESSAGE_TYPES.SUBSCRIBE);
-    expect(socket.sent[0].topics).toEqual([REALTIME_TOPICS.WORKSPACE_META]);
+    expect(socket.sent[0].topics).toEqual([
+      REALTIME_TOPICS.WORKSPACE_BILLING_LIMITS,
+      REALTIME_TOPICS.WORKSPACE_META
+    ]);
 
     runtime.stop();
   });

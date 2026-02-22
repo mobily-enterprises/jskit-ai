@@ -24,9 +24,17 @@ function createBillingRepositoryStub(overrides = {}) {
     async findProductById() {
       return null;
     },
-    async listPlanEntitlementsForPlan() {
+    async listEntitlementDefinitions() {
       return [];
     },
+    async listPlanEntitlementTemplates() {
+      return [];
+    },
+    async replacePlanEntitlementTemplates() {},
+    async listProductEntitlementTemplates() {
+      return [];
+    },
+    async replaceProductEntitlementTemplates() {},
     async createPlan() {
       throw new Error("not used");
     },
@@ -37,9 +45,6 @@ function createBillingRepositoryStub(overrides = {}) {
       throw new Error("not used");
     },
     async updateProductById() {
-      throw new Error("not used");
-    },
-    async upsertPlanEntitlement() {
       throw new Error("not used");
     },
     ...overrides

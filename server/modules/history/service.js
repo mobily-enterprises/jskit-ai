@@ -53,11 +53,11 @@ function assertValidHistoryEntry(historyEntry) {
 function createService(options) {
   const calculationLogsRepository = options.calculationLogsRepository;
 
-  async function appendCalculation(workspaceId, userId, result) {
+  async function appendCalculation(workspaceId, userId, result, options = {}) {
     const historyEntry = buildHistoryEntryFromResult(result);
     assertValidHistoryEntry(historyEntry);
 
-    await calculationLogsRepository.insert(workspaceId, userId, historyEntry);
+    await calculationLogsRepository.insert(workspaceId, userId, historyEntry, options);
     return historyEntry;
   }
 

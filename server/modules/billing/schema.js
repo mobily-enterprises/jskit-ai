@@ -98,33 +98,6 @@ const product = Type.Object(
   }
 );
 
-const subscription = Type.Object(
-  {
-    id: Type.Integer({ minimum: 1 }),
-    billableEntityId: Type.Integer({ minimum: 1 }),
-    planId: Type.Integer({ minimum: 1 }),
-    billingCustomerId: Type.Integer({ minimum: 1 }),
-    provider: Type.String({ minLength: 1 }),
-    providerSubscriptionId: Type.String({ minLength: 1 }),
-    status: Type.String({ minLength: 1 }),
-    providerSubscriptionCreatedAt: Type.String({ format: "iso-utc-date-time" }),
-    currentPeriodEnd: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
-    trialEnd: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
-    canceledAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
-    cancelAtPeriodEnd: Type.Boolean(),
-    endedAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
-    isCurrent: Type.Boolean(),
-    lastProviderEventCreatedAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
-    lastProviderEventId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
-    metadataJson: Type.Unknown(),
-    createdAt: Type.String({ format: "iso-utc-date-time" }),
-    updatedAt: Type.String({ format: "iso-utc-date-time" })
-  },
-  {
-    additionalProperties: false
-  }
-);
-
 const paymentMethod = Type.Object(
   {
     id: Type.Integer({ minimum: 1 }),
@@ -149,32 +122,24 @@ const paymentMethod = Type.Object(
   }
 );
 
-const quotaLimitation = Type.Object(
-  {
-    interval: Type.String({ minLength: 1 }),
-    enforcement: Type.String({ minLength: 1 }),
-    limit: Type.Integer({ minimum: 0 }),
-    used: Type.Integer({ minimum: 0 }),
-    remaining: Type.Integer({ minimum: 0 }),
-    reached: Type.Boolean(),
-    exceeded: Type.Boolean(),
-    windowStartAt: Type.String({ format: "iso-utc-date-time" }),
-    windowEndAt: Type.String({ format: "iso-utc-date-time" })
-  },
-  {
-    additionalProperties: false
-  }
-);
-
 const limitation = Type.Object(
   {
     code: Type.String({ minLength: 1 }),
-    schemaVersion: Type.String({ minLength: 1 }),
-    type: Type.String({ minLength: 1 }),
-    valueJson: Type.Unknown(),
-    enabled: Type.Optional(Type.Boolean()),
-    values: Type.Optional(Type.Array(Type.String())),
-    quota: Type.Optional(quotaLimitation)
+    entitlementType: Type.String({ minLength: 1 }),
+    enforcementMode: Type.String({ minLength: 1 }),
+    unit: Type.String({ minLength: 1 }),
+    windowInterval: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+    windowAnchor: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+    grantedAmount: Type.Integer(),
+    consumedAmount: Type.Integer({ minimum: 0 }),
+    effectiveAmount: Type.Integer(),
+    hardLimitAmount: Type.Union([Type.Integer(), Type.Null()]),
+    overLimit: Type.Boolean(),
+    lockState: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+    nextChangeAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
+    windowStartAt: Type.String({ format: "iso-utc-date-time" }),
+    windowEndAt: Type.String({ format: "iso-utc-date-time" }),
+    lastRecomputedAt: Type.String({ format: "iso-utc-date-time" })
   },
   {
     additionalProperties: false
@@ -413,8 +378,8 @@ const paymentMethodSyncResponse = Type.Object(
 const limitationsResponse = Type.Object(
   {
     billableEntity,
-    subscription: Type.Union([subscription, Type.Null()]),
     generatedAt: Type.String({ format: "iso-utc-date-time" }),
+    stale: Type.Boolean(),
     limitations: Type.Array(limitation)
   },
   {

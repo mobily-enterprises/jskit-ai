@@ -39,7 +39,8 @@ function createControllers({ services }) {
     history: createHistoryController({ annuityHistoryService }),
     annuity: createAnnuityController({
       annuityService,
-      annuityHistoryService
+      annuityHistoryService,
+      billingService
     }),
     communications: createCommunicationsController({
       communicationsService

@@ -7,16 +7,19 @@ function toMs(seconds, fallbackSeconds) {
 
 function createService({
   enabled = false,
+  billingRepository = null,
   billingOutboxWorkerService,
   billingRemediationWorkerService,
   billingReconciliationService,
   billingService = null,
+  billingRealtimePublishService = null,
   reconciliationProvider = BILLING_DEFAULT_PROVIDER,
   logger = console,
   workerIdPrefix = `billing:${process.pid}`,
   outboxPollSeconds = 5,
   remediationPollSeconds = 10,
   planChangePollSeconds = 60,
+  entitlementsBoundaryPollSeconds = 60,
   reconciliationPendingRecentSeconds = 15 * 60,
   reconciliationCheckoutOpenSeconds = 30 * 60,
   reconciliationCheckoutCompletedSeconds = 10 * 60,
@@ -146,6 +149,73 @@ function createService({
     });
   }
 
+  async function tickEntitlementBoundaries() {
+    if (
+      !billingRepository ||
+      typeof billingRepository.transaction !== "function" ||
+      typeof billingRepository.leaseDueEntitlementBalances !== "function" ||
+      !billingService ||
+      typeof billingService.refreshDueLimitationsForSubject !== "function"
+    ) {
+      return;
+    }
+
+    const now = new Date();
+    const workerId = `${workerIdPrefix}:entitlements-boundary`;
+    const changedCodesBySubject = new Map();
+
+    await billingRepository.transaction(async (trx) => {
+      const leasedBalances = await billingRepository.leaseDueEntitlementBalances(
+        {
+          now,
+          limit: 100,
+          workerId
+        },
+        { trx }
+      );
+
+      const definitionIdsBySubject = new Map();
+      for (const balance of leasedBalances) {
+        const subjectId = Number(balance?.subjectId || 0);
+        const definitionId = Number(balance?.entitlementDefinitionId || 0);
+        if (!Number.isInteger(subjectId) || subjectId < 1 || !Number.isInteger(definitionId) || definitionId < 1) {
+          continue;
+        }
+        const current = definitionIdsBySubject.get(subjectId) || new Set();
+        current.add(definitionId);
+        definitionIdsBySubject.set(subjectId, current);
+      }
+
+      for (const [subjectId, definitionIds] of definitionIdsBySubject.entries()) {
+        const refreshOutcome = await billingService.refreshDueLimitationsForSubject({
+          billableEntityId: subjectId,
+          entitlementDefinitionIds: [...definitionIds],
+          now,
+          changeSource: "boundary_recompute",
+          publish: false,
+          trx
+        });
+        if (Array.isArray(refreshOutcome?.changedCodes) && refreshOutcome.changedCodes.length > 0) {
+          changedCodesBySubject.set(subjectId, refreshOutcome.changedCodes);
+        }
+      }
+    });
+
+    if (
+      billingRealtimePublishService &&
+      typeof billingRealtimePublishService.publishWorkspaceBillingLimitsUpdated === "function"
+    ) {
+      for (const [subjectId, changedCodes] of changedCodesBySubject.entries()) {
+        await billingRealtimePublishService.publishWorkspaceBillingLimitsUpdated({
+          billableEntityId: subjectId,
+          changedCodes,
+          changeSource: "boundary_recompute",
+          changedAt: now
+        });
+      }
+    }
+  }
+
   async function runReconciliationScope(scope) {
     const runnerId = `${workerIdPrefix}:reconciliation:${scope}`;
     await billingReconciliationService.runScope({
@@ -173,6 +243,7 @@ function createService({
     registerInterval("outbox", toMs(outboxPollSeconds, 5), tickOutbox);
     registerInterval("remediation", toMs(remediationPollSeconds, 10), tickRemediation);
     registerInterval("plan-change", toMs(planChangePollSeconds, 60), tickPlanChanges);
+    registerInterval("entitlements-boundary", toMs(entitlementsBoundaryPollSeconds, 60), tickEntitlementBoundaries);
 
     registerInterval(
       "reconciliation:pending_recent",

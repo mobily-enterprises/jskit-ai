@@ -74,59 +74,49 @@ Response shape:
     "createdAt": "2026-02-21T00:00:00.000Z",
     "updatedAt": "2026-02-21T00:00:00.000Z"
   },
-  "subscription": null,
   "generatedAt": "2026-02-21T12:34:56.000Z",
+  "stale": false,
   "limitations": [
     {
-      "code": "api_calls",
-      "schemaVersion": "entitlement.quota.v1",
-      "type": "quota",
-      "valueJson": { "limit": 1000, "interval": "month", "enforcement": "hard" },
-      "quota": {
-        "interval": "month",
-        "enforcement": "hard",
-        "limit": 1000,
-        "used": 20,
-        "remaining": 980,
-        "reached": false,
-        "exceeded": false,
-        "windowStartAt": "2026-02-01T00:00:00.000Z",
-        "windowEndAt": "2026-03-01T00:00:00.000Z"
-      }
+      "code": "annuity.calculations.monthly",
+      "entitlementType": "metered_quota",
+      "enforcementMode": "hard_deny",
+      "unit": "calculation",
+      "windowInterval": "month",
+      "windowAnchor": "calendar_utc",
+      "grantedAmount": 1000,
+      "consumedAmount": 120,
+      "effectiveAmount": 880,
+      "hardLimitAmount": 1000,
+      "overLimit": false,
+      "lockState": "none",
+      "nextChangeAt": "2026-03-01T00:00:00.000Z",
+      "windowStartAt": "2026-02-01T00:00:00.000Z",
+      "windowEndAt": "2026-03-01T00:00:00.000Z",
+      "lastRecomputedAt": "2026-02-21T12:34:56.000Z"
     }
   ]
 }
 ```
 
-Limitation derivation rules:
-
-- `entitlement.boolean.v1` -> `type: "boolean"` + `enabled`
-- `entitlement.string_list.v1` -> `type: "string_list"` + `values` (stringified)
-- `entitlement.quota.v1` -> `type: "quota"` + `quota` object
-- unknown or invalid entitlement payloads are fail-closed and reject `getLimitations` (current behavior: `500`, code `ENTITLEMENT_SCHEMA_INVALID`)
-
-Quota window rules:
-
-- allowed intervals in current entitlement schema: `day`, `week`, `month`, `year`
-- windows are UTC-based
-- allowed quota enforcement values: `hard`, `soft`
-
-Runtime enforcement kernel contract (`billingService.enforceLimitAndRecordUsage`):
+Runtime enforcement kernel contract (`billingService.executeWithEntitlementConsumption`):
 
 - Inputs:
   - request context (`request`, `user`) for billable-entity resolution.
   - `capability` and/or explicit `limitationCode`.
-  - `amount` (usage increment amount, default from capability config or `1`).
-  - `usageEventKey` (optional dedupe key for retry-safe counter increments).
+  - `amount` (usage amount, default from capability config or `1`).
+  - `usageEventKey` (optional dedupe key for retry-safe consumption writes).
   - `action` callback (the business operation to execute).
 - Capability mapping source:
   - `server/modules/billing/appCapabilityLimits.js`
 - Behavior:
-  - resolves billable entity through billing policy (`read`/`write` access mode).
-  - loads active subscription entitlements for that entity.
-  - for quota entitlements, enforces hard limits before executing `action`.
-  - increments usage only after successful `action`.
-  - if `usageEventKey` is supplied, dedupes counter increments through `usage dedupe storage`.
+  - resolves billable entity through billing policy.
+  - freshens projection-backed limitation balances.
+  - enforces capacity/quota/balance constraints before executing `action`.
+  - executes `action` and consumption write in one transaction.
+  - for metered/balance types, writes idempotent rows in `billing_entitlement_consumptions`.
+  - for capacity types, recomputes with domain-provided count resolver (no consumption row in scaffold v1).
+  - emits billing-limit realtime invalidation after commit.
 
 Deterministic limit-exceeded error contract:
 

@@ -18,6 +18,7 @@ function createService(options = {}) {
     billingRepository,
     billingCheckoutSessionService,
     billingProviderAdapter,
+    billingService = null,
     observabilityService = null
   } = options;
   const providerAdapter = billingProviderAdapter;
@@ -32,6 +33,7 @@ function createService(options = {}) {
     billingRepository,
     billingCheckoutSessionService,
     billingProviderAdapter: providerAdapter,
+    billingService,
     observabilityService,
     resolveBillableEntityIdFromCustomerId: checkoutProjectionService.resolveBillableEntityIdFromCustomerId,
     lockEntityAggregate: checkoutProjectionService.lockEntityAggregate,

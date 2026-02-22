@@ -41,7 +41,10 @@ function createBaseBillingService(overrides = {}) {
       async listPlans() {
         return [];
       },
-      async listPlanEntitlementsForPlan() {
+      async listEntitlementDefinitions() {
+        return [];
+      },
+      async listPlanEntitlementTemplates() {
         return [];
       },
       async findCurrentSubscriptionForEntity() {
@@ -184,8 +187,36 @@ test("billing service listPlans returns plan entries with core price mapping", a
           }
         ];
       },
-      async listPlanEntitlementsForPlan() {
-        return [];
+      async listEntitlementDefinitions() {
+        return [
+          {
+            id: 501,
+            code: "projects.max",
+            entitlementType: "capacity",
+            enforcementMode: "hard_deny",
+            unit: "project",
+            windowInterval: null,
+            windowAnchor: null
+          }
+        ];
+      },
+      async listPlanEntitlementTemplates(planId) {
+        assert.equal(planId, 100);
+        return [
+          {
+            id: 9001,
+            planId: 100,
+            entitlementDefinitionId: 501,
+            amount: 25,
+            grantKind: "plan_base",
+            effectivePolicy: "on_assignment_current",
+            durationPolicy: "while_current",
+            durationDays: null,
+            metadataJson: {},
+            createdAt: "2026-02-20T00:00:00.000Z",
+            updatedAt: "2026-02-20T00:00:00.000Z"
+          }
+        ];
       }
     }
   });
@@ -195,6 +226,9 @@ test("billing service listPlans returns plan entries with core price mapping", a
   assert.equal(response.plans.length, 1);
   assert.equal(response.plans[0].code, "pro_monthly");
   assert.equal(response.plans[0].corePrice.providerPriceId, "price_pro_monthly");
+  assert.equal(response.plans[0].entitlements.length, 1);
+  assert.equal(response.plans[0].entitlements[0].code, "projects.max");
+  assert.equal(response.plans[0].entitlements[0].valueJson.amount, 25);
 });
 
 test("billing service createPortalSession recovers recover_pending idempotency rows", async () => {

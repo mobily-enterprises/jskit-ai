@@ -95,7 +95,8 @@ function createDefaultEditForm() {
     description: "",
     isActive: true,
     billingMode: "paid",
-    providerPriceId: ""
+    providerPriceId: "",
+    entitlementsJson: "[]"
   };
 }
 
@@ -286,6 +287,11 @@ export function useConsoleBillingPlansView() {
       (message, index, array) => array.indexOf(message) === index
     )
   );
+  const editEntitlementErrors = computed(() =>
+    collectPrefixedFieldErrors(editFieldErrors.value, "entitlements[").filter(
+      (message, index, array) => array.indexOf(message) === index
+    )
+  );
 
   const providerPricesLoading = computed(() =>
     Boolean(providerPricesQuery.isPending.value || providerPricesQuery.isFetching.value)
@@ -422,6 +428,7 @@ export function useConsoleBillingPlansView() {
     editForm.billingMode = resolvePlanBillingMode(plan);
     editInitialProviderPriceId.value = String(targetPrice?.providerPriceId || "").trim();
     editForm.providerPriceId = editInitialProviderPriceId.value;
+    editForm.entitlementsJson = JSON.stringify(Array.isArray(plan.entitlements) ? plan.entitlements : [], null, 2);
     editFieldErrors.value = {};
     editError.value = "";
     editDialogOpen.value = true;
@@ -526,11 +533,20 @@ export function useConsoleBillingPlansView() {
       return;
     }
 
+    let entitlements;
+    try {
+      entitlements = parseEntitlementsJson(editForm.entitlementsJson);
+    } catch (error) {
+      editError.value = String(error?.message || "Entitlements JSON must be a valid JSON array.");
+      return;
+    }
+
     editSaving.value = true;
     const payload = {
       name: editForm.name,
       description: normalizeOptionalString(editForm.description) || null,
-      isActive: Boolean(editForm.isActive)
+      isActive: Boolean(editForm.isActive),
+      entitlements
     };
     if (wantsPaid) {
       if (priceChanged || !requiresCatalogSelection) {
@@ -639,6 +655,7 @@ export function useConsoleBillingPlansView() {
       createSelectedProviderPriceInfo,
       editSelectedProviderPriceInfo,
       createEntitlementErrors,
+      editEntitlementErrors,
       editInitialProviderPriceId,
       loading,
       isSavingCreate,

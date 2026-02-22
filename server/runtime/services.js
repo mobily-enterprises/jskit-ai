@@ -31,6 +31,7 @@ import { createService as createBillingOutboxWorkerService } from "../modules/bi
 import { createService as createBillingRemediationWorkerService } from "../modules/billing/remediationWorker.service.js";
 import { createService as createBillingReconciliationService } from "../modules/billing/reconciliation.service.js";
 import { createService as createBillingWorkerRuntimeService } from "../modules/billing/workerRuntime.service.js";
+import { createService as createBillingRealtimePublishService } from "../modules/billing/realtimePublish.service.js";
 import { AppError } from "../lib/errors.js";
 
 function createBillingDisabledServices() {
@@ -94,6 +95,11 @@ function createBillingDisabledServices() {
     billingReconciliationService: {
       runScope: throwBillingDisabled
     },
+    billingRealtimePublishService: {
+      async publishWorkspaceBillingLimitsUpdated() {
+        return null;
+      }
+    },
     billingService: {
       ensureBillableEntity: throwBillingDisabled,
       seedSignupPromoPlan: throwBillingDisabled,
@@ -109,14 +115,18 @@ function createBillingDisabledServices() {
       listPaymentMethods: throwBillingDisabled,
       syncPaymentMethods: throwBillingDisabled,
       getLimitations: throwBillingDisabled,
-      listTimeline: throwBillingDisabled,
-      recordUsage: throwBillingDisabled,
-      async enforceLimitAndRecordUsage({ action } = {}) {
+      resolveEffectiveLimitations: throwBillingDisabled,
+      consumeEntitlement: throwBillingDisabled,
+      executeWithEntitlementConsumption: async ({ action } = {}) => {
         if (typeof action !== "function") {
-          throw new AppError(500, "Billing enforcement action is unavailable.");
+          throw new AppError(500, "Billing entitlement action is unavailable.");
         }
-        return action();
+        return action({ trx: null });
       },
+      grantEntitlementsForPurchase: throwBillingDisabled,
+      grantEntitlementsForPlanState: throwBillingDisabled,
+      refreshDueLimitationsForSubject: throwBillingDisabled,
+      listTimeline: throwBillingDisabled,
       createPortalSession: throwBillingDisabled,
       createPaymentLink: throwBillingDisabled,
       startCheckout: throwBillingDisabled
@@ -346,6 +356,7 @@ function createServices({
   let billingOutboxWorkerService;
   let billingRemediationWorkerService;
   let billingReconciliationService;
+  let billingRealtimePublishService;
   let billingService;
   let billingWorkerRuntimeService;
 
@@ -388,16 +399,9 @@ function createServices({
       providerCheckoutExpirySeconds: env.BILLING_CHECKOUT_PROVIDER_EXPIRES_SECONDS
     });
 
-    billingWebhookService = createBillingWebhookService({
+    billingRealtimePublishService = createBillingRealtimePublishService({
       billingRepository,
-      billingProviderAdapter,
-      billingProviderRegistryService,
-      billingWebhookTranslationRegistryService,
-      billingCheckoutSessionService,
-      stripeWebhookEndpointSecret: env.BILLING_STRIPE_WEBHOOK_ENDPOINT_SECRET,
-      paddleWebhookEndpointSecret: env.BILLING_PADDLE_WEBHOOK_ENDPOINT_SECRET,
-      observabilityService,
-      payloadRetentionDays: env.BILLING_WEBHOOK_PAYLOAD_RETENTION_DAYS
+      realtimeEventsService
     });
 
     billingOutboxWorkerService = createBillingOutboxWorkerService({
@@ -416,6 +420,32 @@ function createServices({
       observabilityService
     });
 
+    billingService = createBillingService({
+      billingRepository,
+      billingPolicyService,
+      billingPricingService,
+      billingIdempotencyService,
+      billingCheckoutOrchestrator,
+      billingProviderAdapter,
+      billingRealtimePublishService,
+      consoleSettingsRepository,
+      appPublicUrl: env.APP_PUBLIC_URL,
+      providerReplayWindowSeconds: env.BILLING_PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS,
+      observabilityService
+    });
+    billingWebhookService = createBillingWebhookService({
+      billingRepository,
+      billingProviderAdapter,
+      billingProviderRegistryService,
+      billingWebhookTranslationRegistryService,
+      billingCheckoutSessionService,
+      billingService,
+      billingRealtimePublishService,
+      stripeWebhookEndpointSecret: env.BILLING_STRIPE_WEBHOOK_ENDPOINT_SECRET,
+      paddleWebhookEndpointSecret: env.BILLING_PADDLE_WEBHOOK_ENDPOINT_SECRET,
+      observabilityService,
+      payloadRetentionDays: env.BILLING_WEBHOOK_PAYLOAD_RETENTION_DAYS
+    });
     billingReconciliationService = createBillingReconciliationService({
       billingRepository,
       billingProviderAdapter,
@@ -425,27 +455,16 @@ function createServices({
       checkoutSessionGraceSeconds: env.BILLING_CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS,
       completionSlaSeconds: env.BILLING_CHECKOUT_COMPLETION_SLA_SECONDS
     });
-
-    billingService = createBillingService({
-      billingRepository,
-      billingPolicyService,
-      billingPricingService,
-      billingIdempotencyService,
-      billingCheckoutOrchestrator,
-      billingProviderAdapter,
-      consoleSettingsRepository,
-      appPublicUrl: env.APP_PUBLIC_URL,
-      providerReplayWindowSeconds: env.BILLING_PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS,
-      observabilityService
-    });
     billingPromoProvisioner = (payload) => billingService.seedSignupPromoPlan(payload);
 
     billingWorkerRuntimeService = createBillingWorkerRuntimeService({
       enabled: env.BILLING_ENABLED,
+      billingRepository,
       billingOutboxWorkerService,
       billingRemediationWorkerService,
       billingReconciliationService,
       billingService,
+      billingRealtimePublishService,
       reconciliationProvider: billingProviderAdapter.provider,
       logger: observabilityService?.logger || console,
       workerIdPrefix: `billing:${process.pid}`
@@ -461,6 +480,7 @@ function createServices({
       billingOutboxWorkerService,
       billingRemediationWorkerService,
       billingReconciliationService,
+      billingRealtimePublishService,
       billingService,
       billingWorkerRuntimeService
     } = createBillingDisabledServices());
@@ -502,6 +522,7 @@ function createServices({
     billingOutboxWorkerService,
     billingRemediationWorkerService,
     billingReconciliationService,
+    billingRealtimePublishService,
     billingWorkerRuntimeService,
     billingService
   };

@@ -101,6 +101,26 @@ function createFixture(overrides = {}) {
     async findPlanById(id) {
       return activePlans.find((entry) => Number(entry.id) === Number(id)) || null;
     },
+    async listPlanEntitlementTemplates() {
+      return [];
+    },
+    async findEntitlementDefinitionById() {
+      return null;
+    },
+    async insertEntitlementGrant() {
+      return {
+        inserted: true,
+        grant: null
+      };
+    },
+    async findEntitlementBalance() {
+      return null;
+    },
+    async recomputeEntitlementBalance() {
+      return {
+        balance: null
+      };
+    },
     async findCurrentSubscriptionForEntity() {
       return currentSubscription;
     },

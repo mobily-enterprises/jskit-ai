@@ -507,6 +507,30 @@
           <v-alert v-else type="info" variant="tonal" class="mt-2">
             Free plans do not have a provider checkout price.
           </v-alert>
+          <v-row dense class="mt-2">
+            <v-col cols="12">
+              <v-textarea
+                v-model="state.editForm.entitlementsJson"
+                label="Entitlements JSON array"
+                variant="outlined"
+                density="compact"
+                rows="5"
+                auto-grow
+                :error-messages="state.editFieldErrors['entitlements[0].valueJson']"
+              />
+              <v-alert
+                v-if="state.editEntitlementErrors.length"
+                type="error"
+                variant="tonal"
+                density="compact"
+                class="mt-2"
+              >
+                <div v-for="(message, index) in state.editEntitlementErrors" :key="`edit-entitlement-error-${index}`">
+                  {{ message }}
+                </div>
+              </v-alert>
+            </v-col>
+          </v-row>
         </v-card-text>
         <v-divider />
         <v-card-actions class="justify-end">

@@ -6,7 +6,9 @@ import test from "node:test";
 const MYSQL_IDENTIFIER_LIMIT = 64;
 const BILLING_MIGRATION_FILES = [
   "migrations/20260221090000_create_billing_phase1_tables.cjs",
-  "migrations/20260221110000_add_billing_phase2_1_tables.cjs"
+  "migrations/20260221110000_add_billing_phase2_1_tables.cjs",
+  "migrations/20260222230000_create_billing_entitlements_engine_tables.cjs",
+  "migrations/20260222232000_backfill_billing_entitlements_engine.cjs"
 ];
 
 function readMigrationSource(filePath) {
@@ -42,10 +44,31 @@ test("billing migrations keep schema identifier names within MySQL limits", () =
 test("billing migrations pin explicit names for historically overlong constraints", () => {
   const phase1Source = readMigrationSource(BILLING_MIGRATION_FILES[0]);
   const phase21Source = readMigrationSource(BILLING_MIGRATION_FILES[1]);
+  const entitlementSchemaSource = readMigrationSource(BILLING_MIGRATION_FILES[2]);
 
   assert.match(phase1Source, /fk_bsub_customer_entity_provider/);
   assert.match(phase1Source, /fk_bsub_items_plan_price_provider/);
   assert.match(phase1Source, /fk_bsub_remediations_canonical_subscription/);
   assert.match(phase1Source, /chk_bsub_remediations_distinct_provider_subs/);
   assert.match(phase21Source, /fk_bpay_methods_customer_entity_provider/);
+  assert.match(entitlementSchemaSource, /fk_bpet_plan/);
+  assert.match(entitlementSchemaSource, /fk_bpret_product/);
+  assert.match(entitlementSchemaSource, /uq_beb_subject_def_window/);
+});
+
+test("entitlement-engine migrations are irreversible by design", () => {
+  const schemaSource = readMigrationSource(BILLING_MIGRATION_FILES[2]);
+  const backfillSource = readMigrationSource(BILLING_MIGRATION_FILES[3]);
+
+  assert.match(schemaSource, /is irreversible/);
+  assert.match(backfillSource, /is irreversible/);
+});
+
+test("entitlement backfill migration fails loudly on core invariant violations", () => {
+  const backfillSource = readMigrationSource(BILLING_MIGRATION_FILES[3]);
+
+  assert.match(backfillSource, /Unknown entitlement definition code/);
+  assert.match(backfillSource, /Cannot derive entitlement amount/);
+  assert.match(backfillSource, /Entitlement-granting product/);
+  assert.match(backfillSource, /Invalid entitlement window/);
 });
