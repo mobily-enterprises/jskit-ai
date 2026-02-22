@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Thirtieth Review Amendments Summary (Post-commit server review #30)
+
+This section records corrections made during a thirtieth pass after the prior review cycles.
+
+### Message idempotency compare normalization clarifications
+
+- Tightened `clientMessageId` payload-compare guidance to require canonicalization/normalization of the compared logical send payload (especially metadata JSON and omitted/default fields) before deciding replay vs conflict.
+- Added explicit caution to exclude non-logical request metadata (transport-only headers like `x-command-id` / `x-client-id`) from idempotency payload comparison.
+- Added `sendMessage` service-test coverage for logically equivalent retries that differ only by metadata key order / omitted defaults (should replay, not conflict).
+
 ## Twenty-ninth Review Amendments Summary (Post-commit server review #29)
 
 This section records corrections made during a twenty-ninth pass after the prior review cycles.
@@ -1489,7 +1499,9 @@ This is the most important server flow.
 3. Begin DB transaction
 4. Re-read participant and thread row in transaction (optional but recommended for race safety)
 5. Idempotency check:
-   - look up `(thread_id, sender_user_id, client_message_id)` and compare against the incoming logical send payload (message kind/text-or-ciphertext mode, reply target, attachment IDs set/order as policy defines, and relevant metadata)
+   - look up `(thread_id, sender_user_id, client_message_id)` and compare against a **canonicalized logical send payload** (message kind/text-or-ciphertext mode, reply target, attachment IDs set/order as policy defines, and relevant metadata)
+   - normalize/canonicalize before compare (e.g. metadata JSON key ordering, omitted-vs-default fields, null/empty conventions) so logically equivalent retries do not become false conflicts
+   - exclude transport-only/request-only fields (`x-command-id`, `x-client-id`, request timestamps, tracing IDs) from the idempotency payload comparison
    - E2EE note (important): in v1, the server can only compare opaque encrypted payload fields it stores (`ciphertext_blob`, `cipher_nonce`, `cipher_alg`, `key_ref`); do not attempt semantic equivalence of plaintext
    - therefore, same-`clientMessageId` retries in E2EE mode should reuse the exact encrypted payload bytes/metadata, unless a separate client-generated idempotency fingerprint/hash contract is introduced and persisted for comparison
    - if existing row matches the incoming logical payload, return existing message + thread summary (idempotent replay)
@@ -1998,6 +2010,7 @@ Per repository:
 - same `clientMessageId` with materially different payload is rejected as conflict (no misleading replay)
 - concurrent duplicate `clientMessageId` requests (race) return one canonical message via unique-conflict fallback path
 - concurrent duplicate-key race with mismatched payload resolves to conflict after re-read/payload-compare (not false replay success)
+- logically equivalent retries with metadata key-order differences / omitted defaults normalize to the same idempotency payload and replay successfully
 - E2EE mode: same `clientMessageId` replay with exact same ciphertext/nonce payload replays successfully; changed opaque encrypted payload is conflict under v1 compare rules
 - deadlock / lock-timeout transient DB errors retry successfully within bounded retry policy
 - post-commit realtime publish failure does not lose the message or incorrectly rollback/send error (client can recover via fetch path)
