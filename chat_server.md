@@ -1,5 +1,14 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Forty-fifth Review Amendments Summary (Post-commit server review #45)
+
+This section records corrections made during a forty-fifth pass after the prior review cycles.
+
+### Retry-window unit consistency (hours-only in v1 plan)
+
+- Fixed an internal inconsistency introduced by the retry-window env-var addition: the config section now names an hours-based variable, but later sections still said “hours or days; choose one unit.”
+- Standardized the plan on the hours-based knob (`CHAT_MESSAGE_IDEMPOTENCY_RETRY_WINDOW_HOURS` / `chatMessageIdempotencyRetryWindowHours`) so retention logic, tests, and rollout decisions reference one concrete unit in v1.
+
 ## Forty-fourth Review Amendments Summary (Post-commit server review #44)
 
 This section records corrections made during a forty-fourth pass after the prior review cycles.
@@ -2126,7 +2135,7 @@ Extend `server/domain/operations/services/retention.service.js` and `server/work
 - `chatMessagesRetentionDays`
 - `chatAttachmentsRetentionDays`
 - `chatUnattachedUploadsRetentionHours` (can be a separate cleanup rule if hour granularity is needed)
-- `chatMessageIdempotencyRetryWindowHours` (or days; choose one unit and use it consistently)
+- `chatMessageIdempotencyRetryWindowHours`
 
 Add retention rules for:
 
@@ -2366,7 +2375,7 @@ Using existing realtime test harness patterns adapted for chat:
 
 - chat retention rules added to sweep output
 - idempotency tombstone/ledger expiry cleanup runs when tombstone strategy is enabled (or is explicitly absent when simpler retained-message strategy is selected)
-- effective message hard-delete cutoff honors `chatMessageIdempotencyRetryWindow*` semantics for rows with `client_message_id` (retained-row fallback or valid same-workflow tombstone path)
+- effective message hard-delete cutoff honors `chatMessageIdempotencyRetryWindowHours` semantics for rows with `client_message_id` (retained-row fallback or valid same-workflow tombstone path)
 - repeated retention/moderation delete attempts do not fail on duplicate tombstone writes (tombstone insert path is idempotent/upsert-safe)
 - duplicate tombstone writes with mismatched immutable idempotency hash/version are detected and do not silently overwrite existing tombstone identity data
 - tombstone-enabled hard-delete flow handles legacy rows missing idempotency hash/version via the documented fallback (backfill-first or retain/redact exception), not partial tombstone writes or hard-delete failure loops
@@ -2385,7 +2394,7 @@ Decide and document:
 - whether attachments ship in v1 or v1.1
 - whether `draft_text` persists in v1
 - whether `global + group` is deferred (recommended defer)
-- idempotency retry-window value/unit (`hours` vs `days`) and whether tombstone expiry equals that window or extends beyond it
+- idempotency retry-window value (hours) and whether tombstone expiry equals that window or extends beyond it
 
 ### Phase 1: Schema + repositories (no routes yet)
 
