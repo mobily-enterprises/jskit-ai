@@ -300,7 +300,7 @@ function createConsoleBillingService({
     const normalizedPatch = normalizeBillingCatalogPlanUpdatePayload(payload, {
       activeBillingProvider
     });
-    const resolvedCorePrice = normalizedPatch.corePrice
+    const resolvedCorePrice = Object.hasOwn(normalizedPatch, "corePrice")
       ? await resolveCatalogCorePriceForUpdate({
           activeBillingProvider,
           billingProviderAdapter,
@@ -318,7 +318,7 @@ function createConsoleBillingService({
         const updatePatch = {
           ...normalizedPatch
         };
-        if (resolvedCorePrice) {
+        if (Object.hasOwn(normalizedPatch, "corePrice")) {
           updatePatch.corePrice = resolvedCorePrice;
         }
 

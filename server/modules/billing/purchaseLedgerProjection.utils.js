@@ -1,4 +1,11 @@
-import { parseUnixEpochSeconds, toNullableString, toSafeMetadata } from "./webhookProjection.utils.js";
+import {
+  parseUnixEpochSeconds,
+  resolveInvoicePrimaryLineDescription,
+  resolveInvoicePrimaryPriceId,
+  resolveInvoiceSubscriptionId,
+  toNullableString,
+  toSafeMetadata
+} from "./webhookProjection.utils.js";
 
 function buildPurchaseDedupeKey({
   provider,
@@ -26,6 +33,140 @@ function buildPurchaseDedupeKey({
   }
 
   return null;
+}
+
+function toNormalizedProvider(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function normalizePlanNameFromLineDescription(description) {
+  const normalizedDescription = toNullableString(description);
+  if (!normalizedDescription) {
+    return null;
+  }
+
+  const quantityPattern = /^\s*\d+\s*[×x]\s*(.+?)(?:\s+\(at\s+.+\))?\s*$/i;
+  const matched = normalizedDescription.match(quantityPattern);
+  if (!matched) {
+    return null;
+  }
+
+  return toNullableString(matched[1]);
+}
+
+async function resolvePlanNameForInvoice({
+  billingRepository,
+  provider,
+  providerPriceId,
+  subscription,
+  trx
+}) {
+  const normalizedProvider = toNormalizedProvider(provider);
+  const normalizedProviderPriceId = toNullableString(providerPriceId);
+
+  if (normalizedProviderPriceId && typeof billingRepository.findPlanByCheckoutProviderPriceId === "function") {
+    const mappedPlan = await billingRepository.findPlanByCheckoutProviderPriceId(
+      {
+        provider: normalizedProvider,
+        providerPriceId: normalizedProviderPriceId
+      },
+      { trx }
+    );
+    if (mappedPlan?.name) {
+      return String(mappedPlan.name);
+    }
+  }
+
+  const subscriptionPlanId = Number(subscription?.planId || 0);
+  if (subscriptionPlanId > 0 && typeof billingRepository.findPlanById === "function") {
+    const subscriptionPlan = await billingRepository.findPlanById(subscriptionPlanId, { trx });
+    if (subscriptionPlan?.name) {
+      return String(subscriptionPlan.name);
+    }
+  }
+
+  if (normalizedProviderPriceId && typeof billingRepository.listPlans === "function") {
+    const plans = await billingRepository.listPlans({ trx });
+    for (const plan of Array.isArray(plans) ? plans : []) {
+      const corePrice = plan?.corePrice && typeof plan.corePrice === "object" ? plan.corePrice : null;
+      const planProvider = toNormalizedProvider(corePrice?.provider);
+      const planProviderPriceId = toNullableString(corePrice?.providerPriceId);
+      if (planProvider === normalizedProvider && planProviderPriceId === normalizedProviderPriceId) {
+        return toNullableString(plan?.name);
+      }
+    }
+  }
+
+  return null;
+}
+
+async function resolveOneOffProductNameForInvoice({ billingRepository, provider, providerPriceId, trx }) {
+  const normalizedProvider = toNormalizedProvider(provider);
+  const normalizedProviderPriceId = toNullableString(providerPriceId);
+  if (!normalizedProviderPriceId || typeof billingRepository.listProducts !== "function") {
+    return null;
+  }
+
+  const products = await billingRepository.listProducts({ trx });
+  for (const product of Array.isArray(products) ? products : []) {
+    if (!product || product.isActive === false) {
+      continue;
+    }
+    const price = product.price && typeof product.price === "object" ? product.price : null;
+    const productProvider = toNormalizedProvider(price?.provider);
+    const productProviderPriceId = toNullableString(price?.providerPriceId);
+    if (productProvider === normalizedProvider && productProviderPriceId === normalizedProviderPriceId) {
+      return toNullableString(product.name);
+    }
+  }
+
+  return null;
+}
+
+async function resolveInvoiceDisplayName({
+  billingRepository,
+  provider,
+  invoice,
+  invoiceMetadata,
+  purchaseKind,
+  subscription,
+  trx
+}) {
+  const metadataDisplayName = toNullableString(invoiceMetadata.display_name) || toNullableString(invoiceMetadata.item_name);
+  const providerPriceId = resolveInvoicePrimaryPriceId(invoice);
+  const lineDescription = resolveInvoicePrimaryLineDescription(invoice);
+
+  if (purchaseKind === "subscription_invoice") {
+    const planNameFromCatalog = await resolvePlanNameForInvoice({
+      billingRepository,
+      provider,
+      providerPriceId,
+      subscription,
+      trx
+    });
+    const parsedPlanName = normalizePlanNameFromLineDescription(lineDescription);
+    const candidatePlanName = planNameFromCatalog || metadataDisplayName || parsedPlanName;
+    if (candidatePlanName) {
+      return `Plan charge - ${candidatePlanName}`;
+    }
+    return "Plan charge";
+  }
+
+  const productNameFromCatalog = await resolveOneOffProductNameForInvoice({
+    billingRepository,
+    provider,
+    providerPriceId,
+    trx
+  });
+  return (
+    metadataDisplayName ||
+    productNameFromCatalog ||
+    toNullableString(lineDescription) ||
+    toNullableString(invoice?.description) ||
+    "One-off purchase"
+  );
 }
 
 async function recordConfirmedPurchaseForInvoicePaid({
@@ -58,8 +199,20 @@ async function recordConfirmedPurchaseForInvoicePaid({
   }
 
   const paidAt = parseUnixEpochSeconds(invoice?.status_transitions?.paid_at);
+  const invoiceSubscriptionId = resolveInvoiceSubscriptionId(invoice);
+  const providerPriceId = resolveInvoicePrimaryPriceId(invoice);
+  const primaryLineDescription = resolveInvoicePrimaryLineDescription(invoice);
   const invoiceMetadata = toSafeMetadata(invoice?.metadata);
-  const purchaseKind = subscription ? "subscription_invoice" : "one_off";
+  const purchaseKind = invoiceSubscriptionId ? "subscription_invoice" : "one_off";
+  const displayName = await resolveInvoiceDisplayName({
+    billingRepository,
+    provider,
+    invoice,
+    invoiceMetadata,
+    purchaseKind,
+    subscription,
+    trx
+  });
 
   return billingRepository.upsertBillingPurchase(
     {
@@ -78,13 +231,13 @@ async function recordConfirmedPurchaseForInvoicePaid({
       providerPaymentId,
       providerInvoiceId,
       billingEventId: billingEventId == null ? null : Number(billingEventId),
-      displayName:
-        toNullableString(invoiceMetadata.display_name) ||
-        toNullableString(invoiceMetadata.item_name) ||
-        (subscription ? "Subscription invoice" : "One-off purchase"),
+      displayName,
       metadataJson: {
         invoiceStatus: String(invoice?.status || ""),
-        subscriptionId: toNullableString(invoice?.subscription),
+        billingReason: toNullableString(invoice?.billing_reason),
+        subscriptionId: invoiceSubscriptionId,
+        providerPriceId,
+        lineDescription: toNullableString(primaryLineDescription),
         eventSource: "webhook.invoice.paid"
       },
       dedupeKey,

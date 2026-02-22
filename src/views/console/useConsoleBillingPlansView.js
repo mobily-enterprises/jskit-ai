@@ -72,12 +72,17 @@ function resolveCorePlanPrice(plan) {
   return plan.corePrice && typeof plan.corePrice === "object" ? plan.corePrice : null;
 }
 
+function resolvePlanBillingMode(plan) {
+  return resolveCorePlanPrice(plan) ? "paid" : "free";
+}
+
 function createDefaultCreateForm() {
   return {
     code: "",
     name: "",
     description: "",
     isActive: true,
+    billingMode: "paid",
     providerPriceId: "",
     entitlementsJson: "[]"
   };
@@ -89,6 +94,7 @@ function createDefaultEditForm() {
     name: "",
     description: "",
     isActive: true,
+    billingMode: "paid",
     providerPriceId: ""
   };
 }
@@ -230,6 +236,16 @@ export function useConsoleBillingPlansView() {
       value: "allow_without_payment_method"
     }
   ];
+  const planBillingModeOptions = [
+    {
+      title: "Paid (Stripe subscription)",
+      value: "paid"
+    },
+    {
+      title: "Free (no checkout price)",
+      value: "free"
+    }
+  ];
 
   const selectableProviderPrices = computed(() => providerProfile.value.selectCatalogPrices(providerPrices.value));
 
@@ -256,11 +272,11 @@ export function useConsoleBillingPlansView() {
   });
 
   const createSelectedProviderPrice = computed(() =>
-    findProviderPriceById(selectableProviderPrices.value, createForm.providerPriceId)
+    createForm.billingMode === "paid" ? findProviderPriceById(selectableProviderPrices.value, createForm.providerPriceId) : null
   );
 
   const editSelectedProviderPrice = computed(() =>
-    findProviderPriceById(selectableProviderPrices.value, editForm.providerPriceId)
+    editForm.billingMode === "paid" ? findProviderPriceById(selectableProviderPrices.value, editForm.providerPriceId) : null
   );
 
   const createSelectedProviderPriceInfo = computed(() => resolvePriceDetails(createSelectedProviderPrice.value));
@@ -403,6 +419,7 @@ export function useConsoleBillingPlansView() {
     editForm.name = String(plan.name || "").trim();
     editForm.description = String(plan.description || "");
     editForm.isActive = plan.isActive !== false;
+    editForm.billingMode = resolvePlanBillingMode(plan);
     editInitialProviderPriceId.value = String(targetPrice?.providerPriceId || "").trim();
     editForm.providerPriceId = editInitialProviderPriceId.value;
     editFieldErrors.value = {};
@@ -449,7 +466,11 @@ export function useConsoleBillingPlansView() {
       return;
     }
 
-    if (providerProfile.value.requiresCatalogPriceSelection() && !createSelectedProviderPrice.value) {
+    if (
+      createForm.billingMode === "paid" &&
+      providerProfile.value.requiresCatalogPriceSelection() &&
+      !createSelectedProviderPrice.value
+    ) {
       createError.value = String(ui.value?.selectPriceRequiredError || "Select a catalog price.");
       return;
     }
@@ -459,10 +480,13 @@ export function useConsoleBillingPlansView() {
       name: createForm.name,
       description: normalizeOptionalString(createForm.description) || undefined,
       isActive: Boolean(createForm.isActive),
-      corePrice: providerProfile.value.buildCorePricePayload({
-        form: createForm,
-        selectedPrice: createSelectedProviderPrice.value
-      }),
+      corePrice:
+        createForm.billingMode === "free"
+          ? null
+          : providerProfile.value.buildCorePricePayload({
+              form: createForm,
+              selectedPrice: createSelectedProviderPrice.value
+            }),
       entitlements
     };
 
@@ -492,9 +516,12 @@ export function useConsoleBillingPlansView() {
     }
 
     const normalizedCurrentPriceId = String(editForm.providerPriceId || "").trim();
-    const priceChanged = normalizedCurrentPriceId !== String(editInitialProviderPriceId.value || "").trim();
+    const initialProviderPriceId = String(editInitialProviderPriceId.value || "").trim();
+    const wasPaid = Boolean(initialProviderPriceId);
+    const wantsPaid = String(editForm.billingMode || "paid") === "paid";
+    const priceChanged = wantsPaid ? normalizedCurrentPriceId !== initialProviderPriceId || !wasPaid : wasPaid;
     const requiresCatalogSelection = providerProfile.value.requiresCatalogPriceSelection();
-    if (requiresCatalogSelection && priceChanged && !editSelectedProviderPrice.value) {
+    if (wantsPaid && requiresCatalogSelection && priceChanged && !editSelectedProviderPrice.value) {
       editError.value = "Selected price is unavailable. Pick an active catalog price.";
       return;
     }
@@ -505,11 +532,15 @@ export function useConsoleBillingPlansView() {
       description: normalizeOptionalString(editForm.description) || null,
       isActive: Boolean(editForm.isActive)
     };
-    if (priceChanged || !requiresCatalogSelection) {
-      payload.corePrice = providerProfile.value.buildCorePricePayload({
-        form: editForm,
-        selectedPrice: editSelectedProviderPrice.value
-      });
+    if (wantsPaid) {
+      if (priceChanged || !requiresCatalogSelection) {
+        payload.corePrice = providerProfile.value.buildCorePricePayload({
+          form: editForm,
+          selectedPrice: editSelectedProviderPrice.value
+        });
+      }
+    } else if (wasPaid) {
+      payload.corePrice = null;
     }
 
     try {
@@ -556,7 +587,7 @@ export function useConsoleBillingPlansView() {
 
   function formatPriceSummary(price) {
     if (!price) {
-      return "-";
+      return "Free";
     }
 
     const money = formatMoneyMinor(price.unitAmountMinor, price.currency);
@@ -575,7 +606,8 @@ export function useConsoleBillingPlansView() {
       formatInterval,
       formatPriceSummary,
       shortenProviderPriceId,
-      billingPolicyOptions
+      billingPolicyOptions,
+      planBillingModeOptions
     },
     state: reactive({
       provider,

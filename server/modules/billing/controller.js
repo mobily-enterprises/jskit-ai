@@ -33,8 +33,17 @@ function createController({ billingService, billingWebhookService }) {
     reply.code(200).send(response);
   }
 
-  async function getSubscriptionSnapshot(request, reply) {
-    const response = await billingService.getSnapshot({
+  async function listProducts(request, reply) {
+    const response = await billingService.listProducts({
+      request,
+      user: request.user
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function listPurchases(request, reply) {
+    const response = await billingService.listPurchases({
       request,
       user: request.user
     });
@@ -177,8 +186,9 @@ function createController({ billingService, billingWebhookService }) {
 
   return {
     listPlans,
+    listProducts,
+    listPurchases,
     getPlanState,
-    getSubscriptionSnapshot,
     listPaymentMethods,
     syncPaymentMethods,
     getLimitations,

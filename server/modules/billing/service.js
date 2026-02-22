@@ -42,6 +42,37 @@ function normalizeCurrency(value) {
     .toUpperCase();
 }
 
+function normalizeOptionalEmail(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (!normalized || normalized.length > 320 || !normalized.includes("@") || normalized.includes(" ")) {
+    return "";
+  }
+  return normalized;
+}
+
+function buildPaymentLinkUrlWithEmailPrefill({ provider, paymentLinkUrl, customerEmail }) {
+  const normalizedUrl = String(paymentLinkUrl || "").trim();
+  const normalizedEmail = normalizeOptionalEmail(customerEmail);
+  const normalizedProvider = String(provider || "")
+    .trim()
+    .toLowerCase();
+  if (!normalizedUrl || !normalizedEmail || normalizedProvider !== "stripe") {
+    return normalizedUrl;
+  }
+
+  try {
+    const parsed = new URL(normalizedUrl);
+    if (!parsed.searchParams.has("prefilled_email")) {
+      parsed.searchParams.set("prefilled_email", normalizedEmail);
+    }
+    return parsed.toString();
+  } catch {
+    return normalizedUrl;
+  }
+}
+
 function normalizePaymentLinkQuantity(value) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 10000) {
@@ -145,10 +176,11 @@ function normalizePaymentLinkLineItems(items, { defaultCurrency }) {
   return normalizedItems;
 }
 
-function normalizePaymentLinkRequest({ billableEntityId, payload, defaultCurrency }) {
+function normalizePaymentLinkRequest({ billableEntityId, payload, defaultCurrency, customerEmail = "" }) {
   const body = payload && typeof payload === "object" ? payload : {};
   const normalizedSuccessPath = normalizeBillingPath(body.successPath, { fieldName: "successPath" });
   const sourceLineItems = Array.isArray(body.lineItems) && body.lineItems.length > 0 ? body.lineItems : null;
+  const normalizedCustomerEmail = normalizeOptionalEmail(customerEmail);
 
   const normalizedLineItems = sourceLineItems
     ? normalizePaymentLinkLineItems(sourceLineItems, { defaultCurrency })
@@ -158,7 +190,8 @@ function normalizePaymentLinkRequest({ billableEntityId, payload, defaultCurrenc
     action: BILLING_ACTIONS.PAYMENT_LINK,
     billableEntityId: Number(billableEntityId),
     successPath: normalizedSuccessPath,
-    lineItems: normalizedLineItems
+    lineItems: normalizedLineItems,
+    ...(normalizedCustomerEmail ? { customerEmail: normalizedCustomerEmail } : {})
   };
 }
 
@@ -289,6 +322,32 @@ function resolvePlanCoreAmountMinor(plan) {
     return 0;
   }
   return amount;
+}
+
+function isPaidPlan(plan) {
+  return resolvePlanCoreAmountMinor(plan) > 0;
+}
+
+function resolveDefaultAssignmentPeriodEndForPlan(plan, now = new Date()) {
+  return isPaidPlan(plan) ? addUtcDays(now, PLAN_ASSIGNMENT_DEFAULT_PERIOD_DAYS) : null;
+}
+
+function resolveProviderObjectId(value) {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    const normalized = String(value).trim();
+    return normalized || null;
+  }
+
+  if (typeof value === "object") {
+    const normalized = String(value.id || "").trim();
+    return normalized || null;
+  }
+
+  return null;
 }
 
 function classifyPlanChangeDirection(currentPlan, targetPlan) {
@@ -608,6 +667,26 @@ function createService(options = {}) {
     };
   }
 
+  function mapPurchaseForResponse(entry) {
+    const purchase = entry && typeof entry === "object" ? entry : null;
+    if (!purchase) {
+      return null;
+    }
+
+    return {
+      id: Number(purchase.id || 0),
+      purchaseKind: String(purchase.purchaseKind || ""),
+      status: String(purchase.status || "confirmed"),
+      amountMinor: Number(purchase.amountMinor || 0),
+      currency: String(purchase.currency || "USD")
+        .trim()
+        .toUpperCase(),
+      quantity: purchase.quantity == null ? 1 : Number(purchase.quantity || 1),
+      displayName: purchase.displayName == null ? null : String(purchase.displayName),
+      purchasedAt: String(purchase.purchasedAt || "")
+    };
+  }
+
   async function updateIdempotencyWithLeaseFence({ idempotencyRowId, leaseVersion = null, patch = {} }) {
     const normalizedLeaseVersion = toLeaseVersionOrNull(leaseVersion);
     const options = normalizedLeaseVersion != null ? { expectedLeaseVersion: normalizedLeaseVersion } : {};
@@ -667,6 +746,58 @@ function createService(options = {}) {
 
     return {
       plans: entries
+    };
+  }
+
+  async function listProducts(requestContext = {}) {
+    const { billableEntity } = await billingPolicyService.resolveBillableEntityForReadRequest(requestContext);
+    void billableEntity;
+
+    if (typeof billingRepository.listProducts !== "function") {
+      return {
+        products: []
+      };
+    }
+
+    const products = await billingRepository.listProducts();
+    const entries = products.filter((entry) => {
+      if (!entry || entry.isActive === false) {
+        return false;
+      }
+
+      const price = entry.price && typeof entry.price === "object" ? entry.price : null;
+      if (!price) {
+        return false;
+      }
+
+      const interval = price.interval == null ? "" : String(price.interval).trim().toLowerCase();
+      return !interval;
+    });
+
+    return {
+      products: entries
+    };
+  }
+
+  async function listPurchases(requestContext = {}) {
+    const { billableEntity } = await billingPolicyService.resolveBillableEntityForReadRequest(requestContext);
+
+    if (typeof billingRepository.listBillingPurchasesForEntity !== "function") {
+      return {
+        billableEntity,
+        purchases: []
+      };
+    }
+
+    const rows = await billingRepository.listBillingPurchasesForEntity({
+      billableEntityId: billableEntity.id,
+      status: "confirmed",
+      limit: 50
+    });
+
+    return {
+      billableEntity,
+      purchases: rows.map(mapPurchaseForResponse).filter(Boolean)
     };
   }
 
@@ -774,7 +905,7 @@ function createService(options = {}) {
       throw new AppError(500, "Internal plan assignment storage is unavailable.");
     }
 
-    const resolvedPeriodEndAt = toDateOrNull(periodEndAt) || addUtcDays(now, PLAN_ASSIGNMENT_DEFAULT_PERIOD_DAYS);
+    const resolvedPeriodEndAt = toDateOrNull(periodEndAt) || resolveDefaultAssignmentPeriodEndForPlan(targetPlan, now);
     return billingRepository.insertPlanAssignment(
       {
         billableEntityId,
@@ -787,6 +918,69 @@ function createService(options = {}) {
       },
       trx ? { trx } : {}
     );
+  }
+
+  async function syncCurrentAssignmentProviderDetailsFromProviderSubscription({
+    currentContext,
+    providerSubscription,
+    now = new Date(),
+    trx = null
+  }) {
+    if (typeof billingRepository.upsertPlanAssignmentProviderDetails !== "function") {
+      return;
+    }
+
+    const assignment = currentContext?.assignment || null;
+    const subscription = currentContext?.subscription || null;
+    if (!assignment || !subscription || !subscription.providerSubscriptionId) {
+      return;
+    }
+
+    const providerCurrentPeriodEnd = parseUnixEpochSeconds(providerSubscription?.current_period_end);
+    const providerTrialEnd = parseUnixEpochSeconds(providerSubscription?.trial_end);
+    const providerCanceledAt = parseUnixEpochSeconds(providerSubscription?.canceled_at);
+    const providerEndedAt = parseUnixEpochSeconds(providerSubscription?.ended_at);
+    const providerCreatedAt = parseUnixEpochSeconds(providerSubscription?.created);
+    const providerCustomerId =
+      resolveProviderObjectId(providerSubscription?.customer) || subscription.providerCustomerId || null;
+    const normalizedStatus = normalizeProviderSubscriptionStatus(providerSubscription?.status || subscription?.status);
+
+    await billingRepository.upsertPlanAssignmentProviderDetails(
+      {
+        billingPlanAssignmentId: assignment.id,
+        provider: subscription.provider,
+        providerSubscriptionId: subscription.providerSubscriptionId,
+        providerCustomerId,
+        providerStatus: normalizedStatus,
+        providerSubscriptionCreatedAt:
+          providerCreatedAt || toDateOrNull(subscription.providerSubscriptionCreatedAt) || now,
+        currentPeriodEnd: providerCurrentPeriodEnd || resolveSubscriptionPeriodEnd(subscription, now),
+        trialEnd: providerTrialEnd || toDateOrNull(subscription.trialEnd),
+        canceledAt: providerCanceledAt || toDateOrNull(subscription.canceledAt),
+        cancelAtPeriodEnd: Boolean(providerSubscription?.cancel_at_period_end),
+        endedAt: providerEndedAt || toDateOrNull(subscription.endedAt),
+        lastProviderEventCreatedAt: now,
+        lastProviderEventId: null,
+        metadataJson:
+          providerSubscription?.metadata && typeof providerSubscription.metadata === "object"
+            ? providerSubscription.metadata
+            : subscription.metadataJson || {}
+      },
+      trx ? { trx } : {}
+    );
+
+    if (providerCurrentPeriodEnd) {
+      const assignmentPeriodStart = toDateOrNull(assignment.periodStartAt);
+      if (!assignmentPeriodStart || providerCurrentPeriodEnd.getTime() > assignmentPeriodStart.getTime()) {
+        await billingRepository.updatePlanAssignmentById(
+          assignment.id,
+          {
+            periodEndAt: providerCurrentPeriodEnd
+          },
+          trx ? { trx } : {}
+        );
+      }
+    }
   }
 
   async function applyProviderBackedPlanChangeToAssignment({
@@ -913,6 +1107,125 @@ function createService(options = {}) {
     );
   }
 
+  async function applyProviderBackedDowngradeToFreeAssignment({
+    currentSubscription,
+    targetPlan,
+    targetAssignment = null,
+    previousCurrentAssignment = null,
+    billableEntityId = null,
+    assignmentSource = "internal",
+    targetEffectiveAt = null,
+    assignmentMetadataJson = null,
+    now = new Date(),
+    trx = null
+  }) {
+    if (!currentSubscription) {
+      throw new AppError(409, "Provider-backed free downgrade requires current subscription.");
+    }
+    if (isPaidPlan(targetPlan)) {
+      throw new AppError(409, "Free downgrade helper requires a free target plan.");
+    }
+    if (typeof providerAdapter.cancelSubscription !== "function") {
+      throw new AppError(501, "Provider subscription cancellation is not available.");
+    }
+
+    const providerSubscription = await providerAdapter.cancelSubscription({
+      subscriptionId: currentSubscription.providerSubscriptionId,
+      cancelAtPeriodEnd: false
+    });
+
+    const providerCurrentPeriodEnd = parseUnixEpochSeconds(providerSubscription?.current_period_end);
+    const providerTrialEnd = parseUnixEpochSeconds(providerSubscription?.trial_end);
+    const providerCanceledAt = parseUnixEpochSeconds(providerSubscription?.canceled_at) || now;
+    const providerEndedAt = parseUnixEpochSeconds(providerSubscription?.ended_at) || now;
+    const providerCreatedAt =
+      parseUnixEpochSeconds(providerSubscription?.created) ||
+      toDateOrNull(currentSubscription.providerSubscriptionCreatedAt) ||
+      now;
+    const normalizedStatus = normalizeProviderSubscriptionStatus(providerSubscription?.status);
+
+    if (previousCurrentAssignment && Number(previousCurrentAssignment.id) !== Number(targetAssignment?.id || 0)) {
+      await billingRepository.updatePlanAssignmentById(
+        previousCurrentAssignment.id,
+        {
+          status: "past",
+          periodEndAt: now,
+          metadataJson: {
+            ...(previousCurrentAssignment.metadataJson && typeof previousCurrentAssignment.metadataJson === "object"
+              ? previousCurrentAssignment.metadataJson
+              : {}),
+            replacedByPlanId: Number(targetPlan.id)
+          }
+        },
+        trx ? { trx } : {}
+      );
+    }
+
+    const resolvedTargetAssignment =
+      targetAssignment ||
+      (await billingRepository.insertPlanAssignment(
+        {
+          billableEntityId: billableEntityId || currentSubscription.billableEntityId,
+          planId: targetPlan.id,
+          source: assignmentSource,
+          status: "current",
+          periodStartAt: targetEffectiveAt || now,
+          periodEndAt: null,
+          metadataJson:
+            assignmentMetadataJson && typeof assignmentMetadataJson === "object" ? assignmentMetadataJson : {}
+        },
+        trx ? { trx } : {}
+      ));
+
+    await billingRepository.updatePlanAssignmentById(
+      resolvedTargetAssignment.id,
+      {
+        status: "current",
+        planId: targetPlan.id,
+        periodEndAt: null,
+        metadataJson: {
+          ...(resolvedTargetAssignment.metadataJson && typeof resolvedTargetAssignment.metadataJson === "object"
+            ? resolvedTargetAssignment.metadataJson
+            : {}),
+          ...(assignmentMetadataJson && typeof assignmentMetadataJson === "object" ? assignmentMetadataJson : {}),
+          downgradedFromProviderSubscriptionId: currentSubscription.providerSubscriptionId
+        }
+      },
+      trx ? { trx } : {}
+    );
+
+    if (
+      previousCurrentAssignment &&
+      typeof billingRepository.upsertPlanAssignmentProviderDetails === "function" &&
+      currentSubscription.providerSubscriptionId
+    ) {
+      await billingRepository.upsertPlanAssignmentProviderDetails(
+        {
+          billingPlanAssignmentId: previousCurrentAssignment.id,
+          provider: currentSubscription.provider,
+          providerSubscriptionId: currentSubscription.providerSubscriptionId,
+          providerCustomerId: currentSubscription.providerCustomerId || null,
+          providerStatus: normalizedStatus,
+          providerSubscriptionCreatedAt: providerCreatedAt,
+          currentPeriodEnd: providerCurrentPeriodEnd || toDateOrNull(currentSubscription.currentPeriodEnd),
+          trialEnd: providerTrialEnd || toDateOrNull(currentSubscription.trialEnd),
+          canceledAt: providerCanceledAt,
+          cancelAtPeriodEnd: Boolean(providerSubscription?.cancel_at_period_end),
+          endedAt: providerEndedAt,
+          lastProviderEventCreatedAt: now,
+          lastProviderEventId: null,
+          metadataJson:
+            providerSubscription?.metadata && typeof providerSubscription.metadata === "object"
+              ? providerSubscription.metadata
+              : currentSubscription.metadataJson || {}
+        },
+        trx ? { trx } : {}
+      );
+    }
+
+    return resolvedTargetAssignment;
+  }
+
   async function applyDuePlanChangeForEntity({ billableEntityId, now = new Date() }) {
     if (typeof billingRepository.findUpcomingPlanAssignmentForEntity !== "function") {
       return false;
@@ -960,15 +1273,32 @@ function createService(options = {}) {
       const fromPlanId = currentContext.plan?.id || null;
 
       if (currentContext.subscription) {
-        await applyProviderBackedPlanChangeToAssignment({
-          currentSubscription: currentContext.subscription,
-          targetPlan,
-          targetAssignment: upcoming,
-          previousCurrentAssignment,
-          prorationBehavior: "none",
-          now,
-          trx
-        });
+        if (isPaidPlan(targetPlan)) {
+          await applyProviderBackedPlanChangeToAssignment({
+            currentSubscription: currentContext.subscription,
+            targetPlan,
+            targetAssignment: upcoming,
+            previousCurrentAssignment,
+            prorationBehavior: "none",
+            now,
+            trx
+          });
+        } else {
+          await applyProviderBackedDowngradeToFreeAssignment({
+            currentSubscription: currentContext.subscription,
+            targetPlan,
+            targetAssignment: upcoming,
+            previousCurrentAssignment,
+            billableEntityId,
+            assignmentSource: "manual",
+            assignmentMetadataJson: {
+              changeKind: "scheduled_change_applied"
+            },
+            targetEffectiveAt: now,
+            now,
+            trx
+          });
+        }
       } else {
         if (previousCurrentAssignment && Number(previousCurrentAssignment.id) !== Number(upcoming.id)) {
           await billingRepository.updatePlanAssignmentById(
@@ -980,14 +1310,17 @@ function createService(options = {}) {
             { trx }
           );
         }
+        const upcomingPeriodEndDate = toDateOrNull(upcoming.periodEndAt);
         await billingRepository.updatePlanAssignmentById(
           upcoming.id,
           {
             status: "current",
             periodEndAt:
-              toDateOrNull(upcoming.periodEndAt) && new Date(upcoming.periodEndAt) > now
-                ? upcoming.periodEndAt
-                : addUtcDays(now, PLAN_ASSIGNMENT_DEFAULT_PERIOD_DAYS)
+              !upcomingPeriodEndDate
+                ? null
+                : upcomingPeriodEndDate.getTime() > now.getTime()
+                  ? upcoming.periodEndAt
+                  : resolveDefaultAssignmentPeriodEndForPlan(targetPlan, now)
           },
           { trx }
         );
@@ -1118,19 +1451,35 @@ function createService(options = {}) {
       const effectiveAt = currentContext.periodEndAt || addUtcDays(now, PLAN_ASSIGNMENT_DEFAULT_PERIOD_DAYS);
       if (effectiveAt.getTime() <= now.getTime()) {
         if (currentContext.source === "subscription" && currentContext.subscription) {
-          await applyProviderBackedPlanChangeToAssignment({
-            currentSubscription: currentContext.subscription,
-            targetPlan,
-            previousCurrentAssignment: currentContext.assignment || null,
-            prorationBehavior: "none",
-            billableEntityId: billableEntity.id,
-            assignmentSource: "manual",
-            assignmentMetadataJson: {
-              changeKind: "downgrade_immediate",
-              appliedByUserId: user?.id || null
-            },
-            now
-          });
+          if (isPaidPlan(targetPlan)) {
+            await applyProviderBackedPlanChangeToAssignment({
+              currentSubscription: currentContext.subscription,
+              targetPlan,
+              previousCurrentAssignment: currentContext.assignment || null,
+              prorationBehavior: "none",
+              billableEntityId: billableEntity.id,
+              assignmentSource: "manual",
+              assignmentMetadataJson: {
+                changeKind: "downgrade_immediate",
+                appliedByUserId: user?.id || null
+              },
+              now
+            });
+          } else {
+            await applyProviderBackedDowngradeToFreeAssignment({
+              currentSubscription: currentContext.subscription,
+              targetPlan,
+              previousCurrentAssignment: currentContext.assignment || null,
+              billableEntityId: billableEntity.id,
+              assignmentSource: "manual",
+              assignmentMetadataJson: {
+                changeKind: "downgrade_immediate",
+                appliedByUserId: user?.id || null
+              },
+              targetEffectiveAt: now,
+              now
+            });
+          }
         } else {
           await applyInternalPlanAssignment({
             billableEntityId: billableEntity.id,
@@ -1166,12 +1515,29 @@ function createService(options = {}) {
         throw new AppError(500, "Billing plan change scheduling is unavailable.");
       }
 
+      if (currentContext.source === "subscription" && currentContext.subscription && !isPaidPlan(targetPlan)) {
+        if (typeof providerAdapter.cancelSubscription !== "function") {
+          throw new AppError(501, "Provider subscription cancellation is not available.");
+        }
+
+        const providerSubscription = await providerAdapter.cancelSubscription({
+          subscriptionId: currentContext.subscription.providerSubscriptionId,
+          cancelAtPeriodEnd: true
+        });
+        await syncCurrentAssignmentProviderDetailsFromProviderSubscription({
+          currentContext,
+          providerSubscription,
+          now
+        });
+      }
+
       await billingRepository.replaceUpcomingPlanAssignmentForEntity({
         billableEntityId: billableEntity.id,
         fromPlanId: currentPlan?.id || null,
         targetPlanId: targetPlan.id,
         changeKind: "downgrade",
         effectiveAt,
+        ...(isPaidPlan(targetPlan) ? {} : { periodEndAt: null }),
         requestedByUserId: user?.id || null,
         metadataJson: {
           changeKind: "downgrade",
@@ -1208,7 +1574,7 @@ function createService(options = {}) {
 
     if (currentContext.source === "subscription" && currentContext.subscription) {
       const policy = await resolvePaidPlanChangePolicy();
-      if (isTargetPaid && policy === PAID_PLAN_CHANGE_POLICY_REQUIRED_NOW) {
+      if (direction === "upgrade" && isTargetPaid && policy === PAID_PLAN_CHANGE_POLICY_REQUIRED_NOW) {
         const hasDefaultPaymentMethod = await hasDefaultPaymentMethodForEntity(billableEntity.id);
         if (!hasDefaultPaymentMethod) {
           throw new AppError(409, "A default payment method is required before switching to a paid plan.", {
@@ -1323,6 +1689,36 @@ function createService(options = {}) {
       user
     });
 
+    const currentContext = await resolveCurrentPlanContext({
+      billableEntityId: billableEntity.id,
+      now
+    });
+    const upcomingContext = await resolveUpcomingPlanContext({
+      billableEntityId: billableEntity.id
+    });
+
+    if (
+      upcomingContext.assignment &&
+      upcomingContext.plan &&
+      !isPaidPlan(upcomingContext.plan) &&
+      currentContext.source === "subscription" &&
+      currentContext.subscription
+    ) {
+      if (typeof providerAdapter.setSubscriptionCancelAtPeriodEnd !== "function") {
+        throw new AppError(501, "Provider renewal reinstatement is not available.");
+      }
+
+      const providerSubscription = await providerAdapter.setSubscriptionCancelAtPeriodEnd({
+        subscriptionId: currentContext.subscription.providerSubscriptionId,
+        cancelAtPeriodEnd: false
+      });
+      await syncCurrentAssignmentProviderDetailsFromProviderSubscription({
+        currentContext,
+        providerSubscription,
+        now
+      });
+    }
+
     const canceled =
       typeof billingRepository.cancelUpcomingPlanAssignmentForEntity === "function"
         ? await billingRepository.cancelUpcomingPlanAssignmentForEntity({
@@ -1335,10 +1731,6 @@ function createService(options = {}) {
         : null;
 
     if (canceled) {
-      const currentContext = await resolveCurrentPlanContext({
-        billableEntityId: billableEntity.id,
-        now
-      });
       await billingRepository.insertPlanChangeHistory({
         billableEntityId: billableEntity.id,
         fromPlanId: currentContext.plan?.id || null,
@@ -1476,6 +1868,7 @@ function createService(options = {}) {
             targetPlanId: fallbackPlan.id,
             changeKind: "promo_fallback",
             effectiveAt: promoEndsAt,
+            ...(isPaidPlan(fallbackPlan) ? {} : { periodEndAt: null }),
             requestedByUserId: null,
             metadataJson: {
               reason: "signup_promo_fallback"
@@ -2216,49 +2609,6 @@ function createService(options = {}) {
     return responseJson;
   }
 
-  async function getSnapshot(requestContext = {}) {
-    const { billableEntity } = await billingPolicyService.resolveBillableEntityForReadRequest(requestContext);
-
-    const currentSubscription = await billingRepository.findCurrentSubscriptionForEntity(billableEntity.id);
-    if (!currentSubscription) {
-      return {
-        billableEntity,
-        subscription: null,
-        customer: await billingRepository.findCustomerByEntityProvider({
-          billableEntityId: billableEntity.id,
-          provider: activeProvider
-        }),
-        items: [],
-        invoices: [],
-        payments: []
-      };
-    }
-
-    const customer = await billingRepository.findCustomerById(currentSubscription.billingCustomerId);
-    const items = await billingRepository.listSubscriptionItemsForSubscription({
-      subscriptionId: currentSubscription.id,
-      provider: activeProvider
-    });
-    const invoices = await billingRepository.listInvoicesForSubscription({
-      subscriptionId: currentSubscription.id,
-      provider: activeProvider,
-      limit: 25
-    });
-    const payments = await billingRepository.listPaymentsForInvoiceIds({
-      provider: activeProvider,
-      invoiceIds: invoices.map((invoice) => invoice.id)
-    });
-
-    return {
-      billableEntity,
-      subscription: currentSubscription,
-      customer,
-      items,
-      invoices,
-      payments
-    };
-  }
-
   async function createPortalSession({ request, user, payload, clientIdempotencyKey, now = new Date() }) {
     const { billableEntity } = await billingPolicyService.resolveBillableEntityForWriteRequest({
       request,
@@ -2463,17 +2813,87 @@ function createService(options = {}) {
     return responseJson;
   }
 
-  function buildPaymentLinkResponseJson({ paymentLink, billableEntityId, operationKey }) {
+  function buildPaymentLinkResponseJson({ paymentLink, billableEntityId, operationKey, customerEmail = "" }) {
+    const paymentLinkUrl = buildPaymentLinkUrlWithEmailPrefill({
+      provider: activeProvider,
+      paymentLinkUrl: paymentLink?.url,
+      customerEmail
+    });
     return {
       provider: activeProvider,
       billableEntityId: Number(billableEntityId),
       operationKey: String(operationKey || ""),
       paymentLink: {
         id: String(paymentLink?.id || ""),
-        url: String(paymentLink?.url || ""),
+        url: paymentLinkUrl,
         active: Boolean(paymentLink?.active !== false)
       }
     };
+  }
+
+  async function assertPaymentLinkCatalogLineItemsAllowed({ normalizedRequest }) {
+    const lineItems = Array.isArray(normalizedRequest?.lineItems) ? normalizedRequest.lineItems : [];
+    const priceLineItems = [];
+    for (let index = 0; index < lineItems.length; index += 1) {
+      const lineItem = lineItems[index];
+      if (lineItem?.type !== "price") {
+        continue;
+      }
+      priceLineItems.push({
+        index,
+        priceId: toNonEmptyString(lineItem.priceId)
+      });
+    }
+
+    if (priceLineItems.length < 1) {
+      return;
+    }
+    if (typeof billingRepository.listProducts !== "function") {
+      throw new AppError(500, "Billing product catalog storage is unavailable.");
+    }
+
+    const products = await billingRepository.listProducts();
+    const productByPriceId = new Map();
+    for (const product of Array.isArray(products) ? products : []) {
+      if (!product || product.isActive === false) {
+        continue;
+      }
+      const price = product.price && typeof product.price === "object" ? product.price : null;
+      const providerPriceId = toNonEmptyString(price?.providerPriceId);
+      if (!price || !providerPriceId) {
+        continue;
+      }
+      productByPriceId.set(providerPriceId, {
+        product,
+        price
+      });
+    }
+
+    for (const lineItem of priceLineItems) {
+      const catalogEntry = productByPriceId.get(lineItem.priceId);
+      if (!catalogEntry) {
+        throw new AppError(400, "Validation failed.", {
+          details: {
+            fieldErrors: {
+              [`lineItems[${lineItem.index}].priceId`]:
+                "lineItems priceId must reference an active one-off billing product."
+            }
+          }
+        });
+      }
+
+      const interval = toNonEmptyString(catalogEntry.price?.interval).toLowerCase();
+      if (interval) {
+        throw new AppError(400, "Validation failed.", {
+          details: {
+            fieldErrors: {
+              [`lineItems[${lineItem.index}].priceId`]:
+                "Recurring prices are not allowed in one-off purchases."
+            }
+          }
+        });
+      }
+    }
   }
 
   async function resolvePaymentLinkProviderLineItems({ normalizedRequest, idempotencyRow }) {
@@ -2820,7 +3240,8 @@ function createService(options = {}) {
     const responseJson = buildPaymentLinkResponseJson({
       paymentLink,
       billableEntityId: recoveryRow.billableEntityId,
-      operationKey: recoveryRow.operationKey
+      operationKey: recoveryRow.operationKey,
+      customerEmail: recoveryRow.normalizedRequestJson?.customerEmail
     });
 
     await billingIdempotencyService.markSucceeded({
@@ -2846,7 +3267,11 @@ function createService(options = {}) {
     const normalizedRequest = normalizePaymentLinkRequest({
       billableEntityId: billableEntity.id,
       payload,
-      defaultCurrency: deploymentCurrency
+      defaultCurrency: deploymentCurrency,
+      customerEmail: user?.email
+    });
+    await assertPaymentLinkCatalogLineItemsAllowed({
+      normalizedRequest
     });
     const requestFingerprintHash = toSha256Hex(toCanonicalJson(normalizedRequest));
 
@@ -3061,7 +3486,8 @@ function createService(options = {}) {
     const responseJson = buildPaymentLinkResponseJson({
       paymentLink,
       billableEntityId: billableEntity.id,
-      operationKey: idempotencyRow.operationKey
+      operationKey: idempotencyRow.operationKey,
+      customerEmail: normalizedRequest.customerEmail
     });
 
     try {
@@ -3098,11 +3524,12 @@ function createService(options = {}) {
     ensureBillableEntity,
     seedSignupPromoPlan,
     listPlans,
+    listProducts,
+    listPurchases,
     getPlanState,
     requestPlanChange,
     cancelPendingPlanChange,
     processDuePlanChanges,
-    getSnapshot,
     listPaymentMethods,
     syncPaymentMethods,
     getLimitations,

@@ -53,8 +53,15 @@ function pickLaterDate(left, right) {
 }
 
 function parseUnixEpochSeconds(value) {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === "string" && String(value).trim() === "") {
+    return null;
+  }
+
   const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
+  if (!Number.isFinite(parsed) || parsed <= 0) {
     return null;
   }
 
@@ -912,135 +919,6 @@ function createService(options = {}) {
     };
   }
 
-  async function reconcileRecentInvoices(now) {
-    const since = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const invoices = typeof billingRepository.listRecentInvoices === "function"
-      ? await billingRepository.listRecentInvoices({
-          provider: activeProvider,
-          since,
-          limit: 500
-        })
-      : [];
-
-    let repairedCount = 0;
-
-    for (const localInvoice of invoices) {
-      let providerInvoice;
-      try {
-        providerInvoice = await providerAdapter.retrieveInvoice({
-          invoiceId: localInvoice.providerInvoiceId
-        });
-      } catch {
-        continue;
-      }
-
-      const providerSubscriptionId = toNullableString(providerInvoice?.subscription);
-      if (!providerSubscriptionId) {
-        continue;
-      }
-
-      const subscriptionProbe = await billingRepository.findSubscriptionByProviderSubscriptionId({
-        provider: activeProvider,
-        providerSubscriptionId
-      });
-      if (!subscriptionProbe) {
-        continue;
-      }
-
-      const repaired = await billingRepository.transaction(async (trx) => {
-        await lockEntityAggregate({
-          billableEntityId: subscriptionProbe.billableEntityId,
-          trx
-        });
-
-        const lockedSubscription = await billingRepository.findSubscriptionByProviderSubscriptionId(
-          {
-            provider: activeProvider,
-            providerSubscriptionId
-          },
-          {
-            trx,
-            forUpdate: true
-          }
-        );
-        if (!lockedSubscription) {
-          return false;
-        }
-
-        const nextInvoice = {
-          subscriptionId: lockedSubscription.id,
-          billableEntityId: lockedSubscription.billableEntityId,
-          billingCustomerId: lockedSubscription.billingCustomerId,
-          provider: activeProvider,
-          providerInvoiceId: toNullableString(providerInvoice?.id) || localInvoice.providerInvoiceId,
-          status: String(providerInvoice?.status || ""),
-          amountDueMinor: Number(providerInvoice?.amount_due || 0),
-          amountPaidMinor: Number(providerInvoice?.amount_paid || 0),
-          amountRemainingMinor: Number(providerInvoice?.amount_remaining || 0),
-          currency: String(providerInvoice?.currency || "").toUpperCase(),
-          issuedAt: parseUnixEpochSeconds(providerInvoice?.created),
-          dueAt: parseUnixEpochSeconds(providerInvoice?.due_date),
-          paidAt: parseUnixEpochSeconds(providerInvoice?.status_transitions?.paid_at),
-          lastProviderEventCreatedAt: now,
-          metadataJson: toSafeMetadata(providerInvoice?.metadata)
-        };
-
-        const hasInvoiceDrift =
-          String(localInvoice.status || "") !== String(nextInvoice.status || "") ||
-          Number(localInvoice.amountDueMinor || 0) !== Number(nextInvoice.amountDueMinor || 0) ||
-          Number(localInvoice.amountPaidMinor || 0) !== Number(nextInvoice.amountPaidMinor || 0) ||
-          Number(localInvoice.amountRemainingMinor || 0) !== Number(nextInvoice.amountRemainingMinor || 0);
-
-        const invoiceRow = await billingRepository.upsertInvoice(nextInvoice, { trx });
-
-        const normalizedInvoiceStatus = String(providerInvoice?.status || "").trim().toLowerCase();
-        const providerPaymentId =
-          toNullableString(providerInvoice?.payment_intent) ||
-          toNullableString(providerInvoice?.charge);
-
-        let hasPaymentRepair = false;
-        if (
-          providerPaymentId &&
-          (normalizedInvoiceStatus === "paid" ||
-            normalizedInvoiceStatus === "uncollectible" ||
-            normalizedInvoiceStatus === "void")
-        ) {
-          await billingRepository.upsertPayment(
-            {
-              invoiceId: invoiceRow.id,
-              provider: activeProvider,
-              providerPaymentId,
-              type: "invoice_payment",
-              status: normalizedInvoiceStatus === "paid" ? "paid" : "failed",
-              amountMinor: Number(providerInvoice?.amount_paid || providerInvoice?.amount_due || 0),
-              currency: String(providerInvoice?.currency || "").toUpperCase(),
-              paidAt: parseUnixEpochSeconds(providerInvoice?.status_transitions?.paid_at),
-              lastProviderEventCreatedAt: now,
-              metadataJson: {
-                invoiceId: invoiceRow.providerInvoiceId,
-                source: "reconciliation"
-              }
-            },
-            { trx }
-          );
-          hasPaymentRepair = true;
-        }
-
-        return hasInvoiceDrift || hasPaymentRepair;
-      });
-
-      if (repaired) {
-        repairedCount += 1;
-      }
-    }
-
-    return {
-      scannedCount: invoices.length,
-      repairedCount,
-      driftCount: repairedCount
-    };
-  }
-
   async function assertRunFinalization(run, summary, now) {
     const updatedRun = await billingRepository.updateReconciliationRunByLease({
       id: run.id,
@@ -1146,8 +1024,6 @@ function createService(options = {}) {
         summary = await reconcilePendingRecent(now);
       } else if (normalizedScope === "subscriptions_active") {
         summary = await reconcileActiveSubscriptions(now);
-      } else if (normalizedScope === "invoices_recent") {
-        summary = await reconcileRecentInvoices(now);
       } else {
         throw new AppError(400, `Unsupported billing reconciliation scope: ${normalizedScope}`);
       }

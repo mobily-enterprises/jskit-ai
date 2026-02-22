@@ -49,6 +49,9 @@ function createService({ stripeSdkService } = {}) {
     async cancelSubscription(payload) {
       return stripeSdkService.cancelSubscription(payload);
     },
+    async setSubscriptionCancelAtPeriodEnd(payload) {
+      return stripeSdkService.setSubscriptionCancelAtPeriodEnd(payload);
+    },
     async updateSubscriptionPlan(payload) {
       return stripeSdkService.updateSubscriptionPlan(payload);
     },

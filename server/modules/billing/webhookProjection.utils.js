@@ -9,8 +9,15 @@ import {
 const CHECKOUT_CORRELATION_ERROR_CODE = "CHECKOUT_SESSION_CORRELATION_MISMATCH";
 
 function parseUnixEpochSeconds(value) {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === "string" && String(value).trim() === "") {
+    return null;
+  }
+
   const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
+  if (!Number.isFinite(parsed) || parsed <= 0) {
     return null;
   }
   return new Date(parsed * 1000);
@@ -39,6 +46,70 @@ function toPositiveInteger(value) {
     return null;
   }
   return parsed;
+}
+
+function toInvoiceLineItems(invoice) {
+  return Array.isArray(invoice?.lines?.data) ? invoice.lines.data : [];
+}
+
+function resolveInvoiceSubscriptionId(invoice) {
+  const parentSubscriptionId = toNullableString(invoice?.parent?.subscription_details?.subscription);
+  if (parentSubscriptionId) {
+    return parentSubscriptionId;
+  }
+
+  for (const lineItem of toInvoiceLineItems(invoice)) {
+    const lineParentSubscriptionId = toNullableString(lineItem?.parent?.subscription_item_details?.subscription);
+    if (lineParentSubscriptionId) {
+      return lineParentSubscriptionId;
+    }
+  }
+
+  const topLevelSubscriptionId = toNullableString(invoice?.subscription);
+  if (topLevelSubscriptionId) {
+    return topLevelSubscriptionId;
+  }
+
+  for (const lineItem of toInvoiceLineItems(invoice)) {
+    const lineSubscriptionId = toNullableString(lineItem?.subscription);
+    if (lineSubscriptionId) {
+      return lineSubscriptionId;
+    }
+  }
+
+  return null;
+}
+
+function resolveInvoicePrimaryPriceId(invoice) {
+  for (const lineItem of toInvoiceLineItems(invoice)) {
+    const pricingPriceId = toNullableString(lineItem?.pricing?.price_details?.price);
+    if (pricingPriceId) {
+      return pricingPriceId;
+    }
+
+    const linePriceId = toNullableString(lineItem?.price?.id);
+    if (linePriceId) {
+      return linePriceId;
+    }
+
+    const linePlanId = toNullableString(lineItem?.plan?.id);
+    if (linePlanId) {
+      return linePlanId;
+    }
+  }
+
+  return null;
+}
+
+function resolveInvoicePrimaryLineDescription(invoice) {
+  for (const lineItem of toInvoiceLineItems(invoice)) {
+    const description = toNullableString(lineItem?.description);
+    if (description) {
+      return description;
+    }
+  }
+
+  return null;
 }
 
 function normalizeProviderSubscriptionStatus(value) {
@@ -193,6 +264,9 @@ const __testables = {
   toSafeMetadata,
   toNullableString,
   toPositiveInteger,
+  resolveInvoiceSubscriptionId,
+  resolveInvoicePrimaryPriceId,
+  resolveInvoicePrimaryLineDescription,
   normalizeProviderSubscriptionStatus,
   isSubscriptionStatusCurrent,
   sortDuplicateCandidatesForCanonicalSelection,
@@ -209,6 +283,9 @@ export {
   toSafeMetadata,
   toNullableString,
   toPositiveInteger,
+  resolveInvoiceSubscriptionId,
+  resolveInvoicePrimaryPriceId,
+  resolveInvoicePrimaryLineDescription,
   normalizeProviderSubscriptionStatus,
   isSubscriptionStatusCurrent,
   sortDuplicateCandidatesForCanonicalSelection,

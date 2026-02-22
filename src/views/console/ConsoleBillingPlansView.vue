@@ -148,6 +148,18 @@
                 density="compact"
               />
             </v-col>
+            <v-col cols="12" md="4">
+              <v-select
+                v-model="state.createForm.billingMode"
+                :items="meta.planBillingModeOptions"
+                item-title="title"
+                item-value="value"
+                label="Plan billing mode"
+                variant="outlined"
+                density="compact"
+                hide-details
+              />
+            </v-col>
             <v-col cols="12">
               <v-textarea
                 v-model="state.createForm.description"
@@ -161,62 +173,67 @@
             </v-col>
           </v-row>
 
-          <v-divider class="my-2" />
-          <div class="text-body-2 font-weight-medium mb-1">Core price</div>
-          <div class="text-caption text-medium-emphasis mb-2">{{ state.ui.corePriceDescription }}</div>
+          <template v-if="state.createForm.billingMode === 'paid'">
+            <v-divider class="my-2" />
+            <div class="text-body-2 font-weight-medium mb-1">Core price</div>
+            <div class="text-caption text-medium-emphasis mb-2">{{ state.ui.corePriceDescription }}</div>
 
-          <v-row dense>
-            <v-col cols="12">
-              <v-select
-                v-model="state.createForm.providerPriceId"
-                :items="state.providerPriceOptions"
-                item-title="title"
-                item-value="value"
-                :label="state.ui.catalogPriceLabel"
-                variant="outlined"
-                density="compact"
-                :loading="state.providerPricesLoading"
-                :no-data-text="
-                  state.providerPricesLoading ? state.ui.catalogPriceNoDataLoading : state.ui.catalogPriceNoDataEmpty
-                "
-                :hint="state.ui.catalogPriceHint"
-                persistent-hint
-                :error-messages="state.createFieldErrors['corePrice.providerPriceId']"
-              />
-            </v-col>
-          </v-row>
+            <v-row dense>
+              <v-col cols="12">
+                <v-select
+                  v-model="state.createForm.providerPriceId"
+                  :items="state.providerPriceOptions"
+                  item-title="title"
+                  item-value="value"
+                  :label="state.ui.catalogPriceLabel"
+                  variant="outlined"
+                  density="compact"
+                  :loading="state.providerPricesLoading"
+                  :no-data-text="
+                    state.providerPricesLoading ? state.ui.catalogPriceNoDataLoading : state.ui.catalogPriceNoDataEmpty
+                  "
+                  :hint="state.ui.catalogPriceHint"
+                  persistent-hint
+                  :error-messages="state.createFieldErrors['corePrice.providerPriceId']"
+                />
+              </v-col>
+            </v-row>
 
-          <v-sheet v-if="state.createSelectedProviderPriceInfo" color="surface-variant" rounded="md" class="pa-3 mb-3">
-            <div class="text-caption text-medium-emphasis mb-2">Selected price details</div>
-            <div class="price-grid text-body-2">
-              <div><strong>Price ID:</strong> {{ state.createSelectedProviderPriceInfo.providerPriceId }}</div>
-              <div>
-                <strong>Amount:</strong>
-                {{
-                  state.createSelectedProviderPriceInfo.hasAmount
-                    ? meta.formatMoneyMinor(
-                      state.createSelectedProviderPriceInfo.unitAmountMinor,
-                      state.createSelectedProviderPriceInfo.currency
-                    )
-                    : "-"
-                }}
+            <v-sheet v-if="state.createSelectedProviderPriceInfo" color="surface-variant" rounded="md" class="pa-3 mb-3">
+              <div class="text-caption text-medium-emphasis mb-2">Selected price details</div>
+              <div class="price-grid text-body-2">
+                <div><strong>Price ID:</strong> {{ state.createSelectedProviderPriceInfo.providerPriceId }}</div>
+                <div>
+                  <strong>Amount:</strong>
+                  {{
+                    state.createSelectedProviderPriceInfo.hasAmount
+                      ? meta.formatMoneyMinor(
+                        state.createSelectedProviderPriceInfo.unitAmountMinor,
+                        state.createSelectedProviderPriceInfo.currency
+                      )
+                      : "-"
+                  }}
+                </div>
+                <div>
+                  <strong>Interval:</strong>
+                  {{
+                    state.createSelectedProviderPriceInfo.hasInterval
+                      ? meta.formatInterval(
+                        state.createSelectedProviderPriceInfo.interval,
+                        state.createSelectedProviderPriceInfo.intervalCount
+                      )
+                      : "-"
+                  }}
+                </div>
+                <div><strong>Product:</strong> {{ state.createSelectedProviderPriceInfo.productName || '-' }}</div>
+                <div><strong>Product ID:</strong> {{ state.createSelectedProviderPriceInfo.productId || '-' }}</div>
+                <div><strong>Usage type:</strong> {{ state.createSelectedProviderPriceInfo.usageType || '-' }}</div>
               </div>
-              <div>
-                <strong>Interval:</strong>
-                {{
-                  state.createSelectedProviderPriceInfo.hasInterval
-                    ? meta.formatInterval(
-                      state.createSelectedProviderPriceInfo.interval,
-                      state.createSelectedProviderPriceInfo.intervalCount
-                    )
-                    : "-"
-                }}
-              </div>
-              <div><strong>Product:</strong> {{ state.createSelectedProviderPriceInfo.productName || '-' }}</div>
-              <div><strong>Product ID:</strong> {{ state.createSelectedProviderPriceInfo.productId || '-' }}</div>
-              <div><strong>Usage type:</strong> {{ state.createSelectedProviderPriceInfo.usageType || '-' }}</div>
-            </div>
-          </v-sheet>
+            </v-sheet>
+          </template>
+          <v-alert v-else type="info" variant="tonal" class="mb-3">
+            Free plans do not have a provider checkout price. They are applied internally and do not redirect to Stripe.
+          </v-alert>
 
           <v-row dense>
             <v-col cols="12">
@@ -350,7 +367,7 @@
                       <dd><code>{{ state.selectedPlanCorePriceInfo.productId || "-" }}</code></dd>
                     </div>
                   </dl>
-                  <div v-else class="text-body-2 text-medium-emphasis">No core price mapping.</div>
+                  <div v-else class="text-body-2 text-medium-emphasis">Free plan (no provider price mapping).</div>
                 </v-card-text>
               </v-card>
             </v-col>
@@ -403,6 +420,18 @@
                 density="compact"
               />
             </v-col>
+            <v-col cols="12" md="4">
+              <v-select
+                v-model="state.editForm.billingMode"
+                :items="meta.planBillingModeOptions"
+                item-title="title"
+                item-value="value"
+                label="Plan billing mode"
+                variant="outlined"
+                density="compact"
+                hide-details
+              />
+            </v-col>
             <v-col cols="12">
               <v-textarea
                 v-model="state.editForm.description"
@@ -414,7 +443,7 @@
                 :error-messages="state.editFieldErrors.description"
               />
             </v-col>
-            <v-col cols="12">
+            <v-col v-if="state.editForm.billingMode === 'paid'" cols="12">
               <v-select
                 v-model="state.editForm.providerPriceId"
                 :items="state.providerPriceOptions"
@@ -434,7 +463,12 @@
             </v-col>
           </v-row>
 
-          <v-sheet v-if="state.editSelectedProviderPriceInfo" color="surface-variant" rounded="md" class="pa-3 mt-2">
+          <v-sheet
+            v-if="state.editForm.billingMode === 'paid' && state.editSelectedProviderPriceInfo"
+            color="surface-variant"
+            rounded="md"
+            class="pa-3 mt-2"
+          >
             <div class="text-caption text-medium-emphasis mb-2">Selected price details</div>
             <div class="price-grid text-body-2">
               <div><strong>Price ID:</strong> {{ state.editSelectedProviderPriceInfo.providerPriceId }}</div>
@@ -465,10 +499,13 @@
               <div><strong>Usage type:</strong> {{ state.editSelectedProviderPriceInfo.usageType || '-' }}</div>
             </div>
           </v-sheet>
-          <v-alert v-else type="warning" variant="tonal" class="mt-2">
+          <v-alert v-else-if="state.editForm.billingMode === 'paid'" type="warning" variant="tonal" class="mt-2">
             Price details are unavailable for the current mapping
             <code v-if="state.editInitialProviderPriceId">{{ state.editInitialProviderPriceId }}</code>.
             You can still update name/description/status, or choose a new active price.
+          </v-alert>
+          <v-alert v-else type="info" variant="tonal" class="mt-2">
+            Free plans do not have a provider checkout price.
           </v-alert>
         </v-card-text>
         <v-divider />
