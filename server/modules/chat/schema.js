@@ -142,6 +142,17 @@ function createSchema({
     }
   );
 
+  const threadUserSummary = Type.Object(
+    {
+      id: Type.Integer({ minimum: 1 }),
+      displayName: Type.String(),
+      avatarUrl: Type.Union([Type.String(), Type.Null()])
+    },
+    {
+      additionalProperties: false
+    }
+  );
+
   const threadEntity = Type.Object(
     {
       id: Type.Integer({ minimum: 1 }),
@@ -157,7 +168,8 @@ function createSchema({
       createdAt: Type.String({ format: "iso-utc-date-time" }),
       updatedAt: Type.String({ format: "iso-utc-date-time" }),
       unreadCount: Type.Integer({ minimum: 0 }),
-      participant: Type.Union([threadParticipant, Type.Null()])
+      participant: Type.Union([threadParticipant, Type.Null()]),
+      peerUser: Type.Union([threadUserSummary, Type.Null()])
     },
     {
       additionalProperties: false

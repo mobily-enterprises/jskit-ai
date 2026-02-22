@@ -1,6 +1,8 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/vue-query";
+import { REALTIME_EVENT_TYPES } from "../../../shared/realtime/eventTypes.js";
 import { api } from "../../services/api/index.js";
+import { subscribeRealtimeEvents } from "../../services/realtime/realtimeEventBus.js";
 import { useAuthGuard } from "../../composables/useAuthGuard.js";
 import { useQueryErrorMessage } from "../../composables/useQueryErrorMessage.js";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
@@ -16,6 +18,9 @@ const CHAT_MESSAGE_MAX_TEXT_CHARS = 4000;
 const MARK_READ_DEBOUNCE_MS = 180;
 const DM_PUBLIC_CHAT_ID_MAX_CHARS = 64;
 const MESSAGE_GROUP_WINDOW_MS = 5 * 60 * 1000;
+const TYPING_EMIT_THROTTLE_MS = 1200;
+const TYPING_DEFAULT_TTL_MS = 2_000;
+const TYPING_PRUNE_INTERVAL_MS = 250;
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -30,6 +35,10 @@ function normalizeThreadId(value) {
   return parsed;
 }
 
+function normalizeAvatarUrl(value) {
+  return String(value || "").trim();
+}
+
 function parseTimestampMs(value) {
   const parsed = new Date(value);
   const timestamp = parsed.getTime();
@@ -37,6 +46,14 @@ function parseTimestampMs(value) {
     return 0;
   }
   return timestamp;
+}
+
+function parseTypingExpiresAtMs(value, nowMs = Date.now()) {
+  const parsedMs = parseTimestampMs(value);
+  if (parsedMs > 0) {
+    return parsedMs;
+  }
+  return nowMs + TYPING_DEFAULT_TTL_MS;
 }
 
 function withinMessageGroupWindow(leftMs, rightMs) {
@@ -117,6 +134,16 @@ function formatThreadTitle(thread) {
 
   const threadKind = String(thread?.threadKind || "").toLowerCase();
   if (threadKind === "dm") {
+    const peerDisplayName = normalizeText(thread?.peerUser?.displayName);
+    if (peerDisplayName) {
+      return peerDisplayName;
+    }
+
+    const peerUserId = normalizeThreadId(thread?.peerUser?.id);
+    if (peerUserId) {
+      return `User #${peerUserId}`;
+    }
+
     return `Direct message #${normalizeThreadId(thread?.id) || "?"}`;
   }
 
@@ -141,6 +168,24 @@ function formatMessageSender(message) {
   return senderUserId ? `User #${senderUserId}` : "Unknown sender";
 }
 
+function resolveThreadPeerUser(thread) {
+  const threadKind = String(thread?.threadKind || "").toLowerCase();
+  if (threadKind !== "dm") {
+    return null;
+  }
+
+  const userId = normalizeThreadId(thread?.peerUser?.id);
+  if (!userId) {
+    return null;
+  }
+
+  return {
+    id: userId,
+    displayName: normalizeText(thread?.peerUser?.displayName) || `User #${userId}`,
+    avatarUrl: normalizeAvatarUrl(thread?.peerUser?.avatarUrl)
+  };
+}
+
 function formatMessageText(message) {
   const text = String(message?.text || "");
   if (normalizeText(text)) {
@@ -156,15 +201,42 @@ function formatMessageText(message) {
   return "(No content)";
 }
 
-function resolveSenderLabel(message, { currentUserId = 0, currentUserLabel = "You" } = {}) {
+function resolveSenderIdentity(
+  message,
+  { currentUserId = 0, currentUserLabel = "You", currentUserAvatarUrl = "", dmPeerUser = null } = {}
+) {
   const senderUserId = normalizeThreadId(message?.senderUserId);
+  const normalizedCurrentUserAvatarUrl = normalizeAvatarUrl(currentUserAvatarUrl);
   if (currentUserId > 0 && senderUserId === currentUserId) {
-    return String(currentUserLabel || "You").trim() || "You";
+    return {
+      label: String(currentUserLabel || "You").trim() || "You",
+      avatarUrl: normalizedCurrentUserAvatarUrl
+    };
   }
-  return formatMessageSender(message);
+
+  const dmPeerUserId = normalizeThreadId(dmPeerUser?.id);
+  if (dmPeerUserId > 0 && senderUserId === dmPeerUserId) {
+    return {
+      label: normalizeText(dmPeerUser?.displayName) || `User #${dmPeerUserId}`,
+      avatarUrl: normalizeAvatarUrl(dmPeerUser?.avatarUrl)
+    };
+  }
+
+  return {
+    label: formatMessageSender(message),
+    avatarUrl: ""
+  };
 }
 
-function buildMessageRows(messages, { currentUserId = 0, currentUserLabel = "You" } = {}) {
+function buildMessageRows(
+  messages,
+  {
+    currentUserId = 0,
+    currentUserLabel = "You",
+    currentUserAvatarUrl = "",
+    dmPeerUser = null
+  } = {}
+) {
   const source = Array.isArray(messages) ? messages : [];
 
   return source.map((message, index) => {
@@ -188,15 +260,19 @@ function buildMessageRows(messages, { currentUserId = 0, currentUserLabel = "You
       withinMessageGroupWindow(currentSentMs, nextSentMs);
 
     const isMine = currentUserId > 0 && currentSenderId === currentUserId;
+    const senderIdentity = resolveSenderIdentity(message, {
+      currentUserId,
+      currentUserLabel,
+      currentUserAvatarUrl,
+      dmPeerUser
+    });
 
     return {
       id: Number(message?.id) || `msg_${index}`,
       message,
       isMine,
-      senderLabel: resolveSenderLabel(message, {
-        currentUserId,
-        currentUserLabel
-      }),
+      senderLabel: senderIdentity.label,
+      senderAvatarUrl: senderIdentity.avatarUrl,
       showMeta: !groupedWithPrevious,
       showAvatar: !groupedWithPrevious,
       groupStart: !groupedWithPrevious,
@@ -220,7 +296,12 @@ export function useChatView() {
 
   const markReadInFlightThreadId = ref(0);
   const markedReadSeqByThreadId = new Map();
+  const typingExpiresByThreadUserKey = new Map();
+  const lastTypingEmitAtByThreadId = new Map();
+  const typingStateVersion = ref(0);
   let markReadTimer = null;
+  let typingPruneTimer = null;
+  let unsubscribeRealtimeEvents = null;
 
   const workspaceSlug = computed(() => String(workspaceStore.activeWorkspaceSlug || "").trim() || "none");
   const currentUserId = computed(() => {
@@ -234,6 +315,7 @@ export function useChatView() {
     const displayName = String(workspaceStore.profileDisplayName || "").trim();
     return displayName || "You";
   });
+  const currentUserAvatarUrl = computed(() => normalizeAvatarUrl(workspaceStore.profileAvatarUrl));
   const enabled = computed(
     () => Boolean(workspaceStore.initialized && workspaceStore.hasActiveWorkspace && workspaceStore.can("chat.read"))
   );
@@ -260,6 +342,7 @@ export function useChatView() {
   const selectedThread = computed(() =>
     threads.value.find((entry) => Number(entry?.id) === Number(selectedThreadId.value)) || null
   );
+  const selectedThreadPeerUser = computed(() => resolveThreadPeerUser(selectedThread.value));
 
   const messagesQueryKey = computed(() =>
     chatThreadMessagesInfiniteQueryKey(workspaceSlug.value, selectedThreadId.value, {
@@ -287,12 +370,63 @@ export function useChatView() {
   const messageRows = computed(() =>
     buildMessageRows(messages.value, {
       currentUserId: currentUserId.value,
-      currentUserLabel: currentUserLabel.value
+      currentUserLabel: currentUserLabel.value,
+      currentUserAvatarUrl: currentUserAvatarUrl.value,
+      dmPeerUser: selectedThreadPeerUser.value
     })
   );
   const latestMessage = computed(() => {
     const source = messages.value;
     return source.length > 0 ? source[source.length - 1] : null;
+  });
+  const typingParticipantLabels = computed(() => {
+    void typingStateVersion.value;
+    const threadId = normalizeThreadId(selectedThreadId.value);
+    if (!threadId) {
+      return [];
+    }
+
+    const nowMs = Date.now();
+    const labels = [];
+    for (const [key, expiresAtMs] of typingExpiresByThreadUserKey.entries()) {
+      if (Number(expiresAtMs) <= nowMs) {
+        continue;
+      }
+
+      const [keyThreadIdRaw, keyUserIdRaw] = String(key || "").split(":");
+      const keyThreadId = normalizeThreadId(keyThreadIdRaw);
+      const keyUserId = normalizeThreadId(keyUserIdRaw);
+      if (!keyThreadId || !keyUserId || keyThreadId !== threadId || keyUserId === currentUserId.value) {
+        continue;
+      }
+
+      if (selectedThreadPeerUser.value && Number(selectedThreadPeerUser.value.id) === keyUserId) {
+        labels.push(selectedThreadPeerUser.value.displayName);
+        continue;
+      }
+
+      labels.push(`User #${keyUserId}`);
+    }
+
+    return [...new Set(labels)];
+  });
+  const typingNotice = computed(() => {
+    const labels = typingParticipantLabels.value;
+    if (labels.length < 1) {
+      return "";
+    }
+    if (labels.length === 1) {
+      return `${labels[0]} is typing...`;
+    }
+    if (labels.length === 2) {
+      return `${labels[0]} and ${labels[1]} are typing...`;
+    }
+    if (labels.length === 3) {
+      return `${labels[0]}, ${labels[1]}, and ${labels[2]} are typing...`;
+    }
+
+    const others = labels.length - 2;
+    return `${labels[0]}, ${labels[1]}, and ${others} others are typing...`;
   });
 
   const inboxError = useQueryErrorMessage({
@@ -321,6 +455,118 @@ export function useChatView() {
       markReadTimer = null;
       void markActiveThreadRead();
     }, Math.max(0, Number(delayMs) || MARK_READ_DEBOUNCE_MS));
+  }
+
+  function buildThreadUserTypingKey(threadId, userId) {
+    return `${Number(threadId)}:${Number(userId)}`;
+  }
+
+  function pruneExpiredTypingState(nowMs = Date.now()) {
+    let changed = false;
+    for (const [key, expiresAtMs] of typingExpiresByThreadUserKey.entries()) {
+      if (Number(expiresAtMs) > nowMs) {
+        continue;
+      }
+      typingExpiresByThreadUserKey.delete(key);
+      changed = true;
+    }
+
+    if (changed) {
+      typingStateVersion.value += 1;
+    }
+  }
+
+  function upsertTypingState(threadId, userId, expiresAtMs) {
+    const key = buildThreadUserTypingKey(threadId, userId);
+    const previous = Number(typingExpiresByThreadUserKey.get(key) || 0);
+    const nextExpiresAtMs = Math.max(Number(expiresAtMs) || 0, previous);
+    if (nextExpiresAtMs <= previous) {
+      return;
+    }
+
+    typingExpiresByThreadUserKey.set(key, nextExpiresAtMs);
+    typingStateVersion.value += 1;
+  }
+
+  function clearTypingState(threadId, userId) {
+    const key = buildThreadUserTypingKey(threadId, userId);
+    if (!typingExpiresByThreadUserKey.has(key)) {
+      return;
+    }
+
+    typingExpiresByThreadUserKey.delete(key);
+    typingStateVersion.value += 1;
+  }
+
+  function handleRealtimeTypingEvent(event) {
+    const eventType = String(event?.eventType || "").trim().toLowerCase();
+    const isTypingStarted = eventType === String(REALTIME_EVENT_TYPES.CHAT_TYPING_STARTED || "").toLowerCase();
+    const isTypingStopped = eventType === String(REALTIME_EVENT_TYPES.CHAT_TYPING_STOPPED || "").toLowerCase();
+    if (!isTypingStarted && !isTypingStopped) {
+      return;
+    }
+
+    const payload = event?.payload && typeof event.payload === "object" ? event.payload : {};
+    const threadId = normalizeThreadId(payload.threadId);
+    const userId = normalizeThreadId(payload.userId);
+    if (!threadId || !userId || userId === currentUserId.value) {
+      return;
+    }
+
+    if (isTypingStarted) {
+      upsertTypingState(threadId, userId, parseTypingExpiresAtMs(payload.expiresAt));
+      return;
+    }
+
+    clearTypingState(threadId, userId);
+  }
+
+  function startTypingPruneLoop() {
+    if (typingPruneTimer) {
+      return;
+    }
+
+    typingPruneTimer = setInterval(() => {
+      pruneExpiredTypingState();
+    }, TYPING_PRUNE_INTERVAL_MS);
+  }
+
+  function stopTypingPruneLoop() {
+    if (!typingPruneTimer) {
+      return;
+    }
+
+    clearInterval(typingPruneTimer);
+    typingPruneTimer = null;
+  }
+
+  async function emitTypingForActiveThread({ force = false } = {}) {
+    if (typeof api?.chat?.emitThreadTyping !== "function") {
+      return;
+    }
+
+    const threadId = normalizeThreadId(selectedThreadId.value);
+    if (!threadId || !enabled.value) {
+      return;
+    }
+
+    const composerHasContent = normalizeText(composerText.value).length > 0;
+    if (!composerHasContent) {
+      return;
+    }
+
+    const now = Date.now();
+    const lastEmittedAt = Number(lastTypingEmitAtByThreadId.get(threadId) || 0);
+    if (!force && now - lastEmittedAt < TYPING_EMIT_THROTTLE_MS) {
+      return;
+    }
+
+    lastTypingEmitAtByThreadId.set(threadId, now);
+    try {
+      await api.chat.emitThreadTyping(threadId);
+    } catch (error) {
+      await handleUnauthorizedError(error);
+    }
   }
 
   async function markActiveThreadRead() {
@@ -595,8 +841,33 @@ export function useChatView() {
     }
   );
 
+  watch(
+    () => [selectedThreadId.value, composerText.value],
+    ([nextThreadId, nextText], previous = []) => {
+      const previousThreadId = Number(previous[0] || 0);
+      if (!nextThreadId || !normalizeText(nextText)) {
+        return;
+      }
+
+      const force = Number(nextThreadId) !== previousThreadId;
+      void emitTypingForActiveThread({
+        force
+      });
+    }
+  );
+
+  unsubscribeRealtimeEvents = subscribeRealtimeEvents((eventEnvelope) => {
+    handleRealtimeTypingEvent(eventEnvelope);
+  });
+  startTypingPruneLoop();
+
   onBeforeUnmount(() => {
     clearMarkReadTimer();
+    stopTypingPruneLoop();
+    if (typeof unsubscribeRealtimeEvents === "function") {
+      unsubscribeRealtimeEvents();
+      unsubscribeRealtimeEvents = null;
+    }
   });
 
   return {
@@ -609,10 +880,13 @@ export function useChatView() {
       enabled,
       selectedThreadId,
       selectedThread,
+      selectedThreadPeerUser,
       threads,
       messages,
       latestMessage,
       messageRows,
+      currentUserAvatarUrl,
+      typingNotice,
       composerText,
       sendOnEnter,
       sendPending,

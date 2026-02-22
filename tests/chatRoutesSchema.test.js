@@ -28,7 +28,8 @@ function createThread() {
       mutedUntil: null,
       archivedAt: null,
       pinnedAt: null
-    }
+    },
+    peerUser: null
   };
 }
 

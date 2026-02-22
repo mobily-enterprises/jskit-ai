@@ -9,6 +9,7 @@
               <div class="d-flex ga-2">
                 <v-btn variant="text" size="small" :loading="state.inboxLoading" @click="actions.refreshInbox">Refresh</v-btn>
                 <v-btn variant="tonal" size="small" :loading="state.dmPending" @click="dmDialogOpen = true">Start DM</v-btn>
+                <v-btn variant="text" size="small" :href="workspaceChatPath">Workspace chat</v-btn>
               </div>
             </template>
           </v-card-item>
@@ -18,9 +19,9 @@
             <v-alert v-if="state.actionError" type="error" variant="tonal" density="comfortable" class="mb-3">
               {{ state.actionError }}
             </v-alert>
-            <v-alert v-if="state.sendStatus" type="success" variant="tonal" density="comfortable" class="mb-3">
+            <div v-if="state.sendStatus" class="chat-inline-status mb-3">
               {{ state.sendStatus }}
-            </v-alert>
+            </div>
             <v-alert v-if="state.inboxError" type="error" variant="tonal" density="comfortable" class="mb-3">
               {{ state.inboxError }}
             </v-alert>
@@ -41,6 +42,12 @@
                   :subtitle="threadSubtitle(thread)"
                   @click="actions.selectThread(thread.id)"
                 >
+                  <template #prepend>
+                    <v-avatar size="30">
+                      <v-img v-if="threadAvatarUrl(thread)" :src="threadAvatarUrl(thread)" cover />
+                      <span v-else class="chat-thread-avatar-initials">{{ threadAvatarInitials(thread) }}</span>
+                    </v-avatar>
+                  </template>
                   <template #append>
                     <v-chip v-if="Number(thread.unreadCount || 0) > 0" size="x-small" label color="primary" variant="tonal">
                       {{ thread.unreadCount }}
@@ -118,7 +125,7 @@
                 }"
               >
                 <v-avatar v-if="row.showAvatar" size="34" class="chat-message-avatar">
-                  <v-img v-if="row.isMine && currentUserAvatarUrl" :src="currentUserAvatarUrl" cover />
+                  <v-img v-if="row.senderAvatarUrl" :src="row.senderAvatarUrl" cover />
                   <span v-else class="chat-message-avatar-initials">{{ rowAvatarInitials(row) }}</span>
                 </v-avatar>
                 <span v-else class="chat-message-avatar-spacer" />
@@ -139,6 +146,13 @@
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div v-if="state.typingNotice" class="chat-typing-indicator" aria-live="polite">
+              <span>{{ state.typingNotice }}</span>
+              <span class="chat-typing-dot" />
+              <span class="chat-typing-dot" />
+              <span class="chat-typing-dot" />
             </div>
 
             <v-divider class="my-4" />
@@ -202,11 +216,27 @@ const { meta, state, helpers, actions } = useChatView();
 const workspaceStore = useWorkspaceStore();
 const dmDialogOpen = ref(false);
 const targetPublicChatId = ref("");
-
-const currentUserAvatarUrl = computed(() => normalizeText(workspaceStore.profileAvatarUrl));
+const workspaceChatPath = computed(() => workspaceStore.workspacePath("/workspace-chat"));
 
 function normalizeText(value) {
   return String(value || "").trim();
+}
+
+function avatarInitialsFromLabel(labelValue) {
+  const label = normalizeText(labelValue) || "U";
+  const parts = label
+    .split(/\s+/)
+    .map((part) => normalizeText(part))
+    .filter(Boolean);
+
+  if (parts.length < 1) {
+    return "U";
+  }
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
 function threadSubtitle(thread) {
@@ -227,21 +257,29 @@ function threadHeaderSubtitle(thread) {
   return `${scope} • ${readState} • ${lastMessageAt}`;
 }
 
+function threadAvatarUrl(thread) {
+  const threadKind = String(thread?.threadKind || "").trim().toLowerCase();
+  if (threadKind !== "dm") {
+    return "";
+  }
+
+  return normalizeText(thread?.peerUser?.avatarUrl);
+}
+
+function threadAvatarInitials(thread) {
+  const threadKind = String(thread?.threadKind || "").trim().toLowerCase();
+  if (threadKind === "dm") {
+    const peerDisplayName = normalizeText(thread?.peerUser?.displayName);
+    if (peerDisplayName) {
+      return avatarInitialsFromLabel(peerDisplayName);
+    }
+  }
+
+  return avatarInitialsFromLabel(helpers.formatThreadTitle(thread));
+}
+
 function rowAvatarInitials(row) {
-  const label = normalizeText(row?.senderLabel) || "U";
-  const parts = label
-    .split(/\s+/)
-    .map((part) => normalizeText(part))
-    .filter(Boolean);
-
-  if (parts.length < 1) {
-    return "U";
-  }
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  return avatarInitialsFromLabel(row?.senderLabel);
 }
 
 function closeDmDialog() {
@@ -280,6 +318,25 @@ async function startDm() {
 .chat-thread-list {
   flex: 1;
   overflow: auto;
+}
+
+.chat-thread-avatar-initials {
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.chat-inline-status {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--v-theme-success), 0.28);
+  background: rgba(var(--v-theme-success), 0.12);
+  color: rgb(var(--v-theme-success));
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
 .chat-message-panel {
@@ -370,6 +427,49 @@ async function startDm() {
   align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
+}
+
+.chat-typing-indicator {
+  margin-top: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: rgba(var(--v-theme-on-surface), 0.66);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.chat-typing-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(var(--v-theme-on-surface), 0.55);
+  animation: chat-typing-blink 1.1s infinite ease-in-out;
+}
+
+.chat-typing-dot:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.chat-typing-dot:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
+.chat-typing-dot:nth-child(4) {
+  animation-delay: 0.36s;
+}
+
+@keyframes chat-typing-blink {
+  0%,
+  80%,
+  100% {
+    opacity: 0.26;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-1px);
+  }
 }
 
 @media (max-width: 960px) {

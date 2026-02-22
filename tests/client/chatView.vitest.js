@@ -1,10 +1,12 @@
 import { defineComponent, nextTick, ref } from "vue";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { REALTIME_TOPICS } from "../../shared/realtime/eventTypes.js";
 import {
   chatInboxInfiniteQueryKey,
   chatThreadMessagesInfiniteQueryKey
 } from "../../src/features/chat/queryKeys.js";
+import { publishRealtimeEvent, __testables as realtimeEventBusTestables } from "../../src/services/realtime/realtimeEventBus.js";
 
 const mocks = vi.hoisted(() => ({
   api: {
@@ -13,7 +15,8 @@ const mocks = vi.hoisted(() => ({
       listInbox: vi.fn(),
       listThreadMessages: vi.fn(),
       sendThreadMessage: vi.fn(),
-      markThreadRead: vi.fn()
+      markThreadRead: vi.fn(),
+      emitThreadTyping: vi.fn()
     }
   },
   workspaceStore: {
@@ -123,6 +126,11 @@ describe("useChatView", () => {
     mocks.api.chat.ensureDm.mockReset();
     mocks.api.chat.sendThreadMessage.mockReset();
     mocks.api.chat.markThreadRead.mockReset();
+    mocks.api.chat.emitThreadTyping.mockReset();
+    mocks.api.chat.emitThreadTyping.mockResolvedValue({
+      accepted: true,
+      expiresAt: "2026-02-22T00:00:08.000Z"
+    });
     mocks.queryClient.invalidateQueries.mockReset();
     mocks.queryClient.invalidateQueries.mockResolvedValue(undefined);
     mocks.handleUnauthorizedError.mockReset();
@@ -133,6 +141,7 @@ describe("useChatView", () => {
     mocks.workspaceStore.sessionUserId = 29;
     mocks.workspaceStore.can.mockReset();
     mocks.workspaceStore.can.mockImplementation((permission) => permission === "chat.read");
+    realtimeEventBusTestables.listeners.clear();
 
     const inboxQuery = createInfiniteQueryState({
       pages: [{ items: [buildThread()], nextCursor: null }],
@@ -268,5 +277,60 @@ describe("useChatView", () => {
     expect(mocks.inboxQueryState.refetch).toHaveBeenCalledTimes(1);
     expect(wrapper.vm.state.selectedThreadId).toBe(55);
     expect(wrapper.vm.state.sendStatus).toBe("Direct message created.");
+  });
+
+  it("emits typing heartbeat while composing", async () => {
+    const wrapper = mount(Harness);
+    await nextTick();
+
+    wrapper.vm.state.composerText = "typing now";
+    await nextTick();
+    await Promise.resolve();
+
+    expect(mocks.api.chat.emitThreadTyping).toHaveBeenCalledWith(11);
+  });
+
+  it("shows typing notice from realtime typing events", async () => {
+    const wrapper = mount(Harness);
+    await nextTick();
+
+    publishRealtimeEvent({
+      eventId: "evt-typing-started",
+      eventType: "chat.typing.started",
+      topic: REALTIME_TOPICS.TYPING,
+      workspaceSlug: "acme",
+      sourceClientId: "cli-remote",
+      payload: {
+        threadId: 11,
+        userId: 42,
+        expiresAt: "2099-01-01T00:00:00.000Z"
+      }
+    });
+
+    await nextTick();
+    expect(wrapper.vm.state.typingNotice).toBe("User #42 is typing...");
+  });
+
+  it("formats multi-user typing notice with names", async () => {
+    const wrapper = mount(Harness);
+    await nextTick();
+
+    for (const userId of [42, 43, 44]) {
+      publishRealtimeEvent({
+        eventId: `evt-typing-${userId}`,
+        eventType: "chat.typing.started",
+        topic: REALTIME_TOPICS.TYPING,
+        workspaceSlug: "acme",
+        sourceClientId: "cli-remote",
+        payload: {
+          threadId: 11,
+          userId,
+          expiresAt: "2099-01-01T00:00:00.000Z"
+        }
+      });
+    }
+
+    await nextTick();
+    expect(wrapper.vm.state.typingNotice).toBe("User #42, User #43, and User #44 are typing...");
   });
 });

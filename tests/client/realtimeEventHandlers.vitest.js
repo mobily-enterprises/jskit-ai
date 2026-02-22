@@ -9,6 +9,7 @@ import { projectDetailQueryKey, projectsScopeQueryKey } from "../../src/features
 import { workspaceAdminRootQueryKey } from "../../src/features/workspaceAdmin/queryKeys.js";
 import { commandTracker, __testables as trackerTestables } from "../../src/services/realtime/commandTracker.js";
 import { createRealtimeEventHandlers } from "../../src/services/realtime/realtimeEventHandlers.js";
+import { subscribeRealtimeEvents, __testables as realtimeEventBusTestables } from "../../src/services/realtime/realtimeEventBus.js";
 
 describe("realtimeEventHandlers", () => {
   const queryClient = {
@@ -19,6 +20,7 @@ describe("realtimeEventHandlers", () => {
     commandTracker.resetForTests();
     queryClient.invalidateQueries.mockReset();
     queryClient.invalidateQueries.mockResolvedValue(undefined);
+    realtimeEventBusTestables.listeners.clear();
   });
 
   it("drops duplicate events by eventId", async () => {
@@ -278,5 +280,40 @@ describe("realtimeEventHandlers", () => {
     expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
       queryKey: chatRootQueryKey()
     });
+  });
+
+  it("processes typing topic events without invalidation and emits them on event bus", async () => {
+    const handlers = createRealtimeEventHandlers({
+      queryClient,
+      commandTracker,
+      clientId: "cli-local"
+    });
+
+    const receivedEvents = [];
+    const unsubscribe = subscribeRealtimeEvents((eventEnvelope) => {
+      receivedEvents.push(eventEnvelope);
+    });
+
+    const event = {
+      eventId: "evt-typing-1",
+      eventType: "chat.typing.started",
+      topic: REALTIME_TOPICS.TYPING,
+      workspaceSlug: "acme",
+      sourceClientId: "cli-remote",
+      payload: {
+        threadId: "11",
+        userId: "7",
+        expiresAt: "2026-02-22T00:00:08.000Z"
+      }
+    };
+
+    const result = await handlers.processEvent(event);
+    unsubscribe();
+
+    expect(result.status).toBe("processed");
+    expect(queryClient.invalidateQueries).not.toHaveBeenCalled();
+    expect(receivedEvents).toHaveLength(1);
+    expect(receivedEvents[0].topic).toBe(REALTIME_TOPICS.TYPING);
+    expect(receivedEvents[0].payload.threadId).toBe("11");
   });
 });

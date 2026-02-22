@@ -739,6 +739,7 @@ describe("client api transport", () => {
     await api.chat.markThreadRead("thread/id", {
       threadSeq: 44
     });
+    await api.chat.emitThreadTyping("thread/id");
 
     const urls = global.fetch.mock.calls.map(([url]) => url);
     expect(urls).toContain("/api/chat/dm/ensure");
@@ -747,6 +748,7 @@ describe("client api transport", () => {
     expect(urls).toContain("/api/chat/threads/thread%2Fid/messages?cursor=cursor-2&limit=30");
     expect(urls).toContain("/api/chat/threads/thread%2Fid/messages");
     expect(urls).toContain("/api/chat/threads/thread%2Fid/read");
+    expect(urls).toContain("/api/chat/threads/thread%2Fid/typing");
   });
 
   it("builds oauth URL helpers with and without returnTo", () => {

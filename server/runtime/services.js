@@ -295,6 +295,8 @@ function createServices({
     chatAttachmentStorageService,
     workspaceMembershipsRepository,
     userSettingsRepository,
+    userProfilesRepository,
+    userAvatarService,
     rbacManifest,
     config: {
       chatEnabled: env.CHAT_ENABLED,

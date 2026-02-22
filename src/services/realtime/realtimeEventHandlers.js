@@ -6,6 +6,7 @@ import {
 import { chatRootQueryKey, chatScopeQueryKey } from "../../features/chat/queryKeys.js";
 import { projectDetailQueryKey, projectsScopeQueryKey } from "../../features/projects/queryKeys.js";
 import { workspaceAdminRootQueryKey } from "../../features/workspaceAdmin/queryKeys.js";
+import { publishRealtimeEvent } from "./realtimeEventBus.js";
 
 function normalizeEventEnvelope(eventEnvelope) {
   if (!eventEnvelope || typeof eventEnvelope !== "object") {
@@ -124,6 +125,10 @@ const TOPIC_STRATEGY_REGISTRY = Object.freeze({
   [REALTIME_TOPICS.CHAT]: Object.freeze({
     invalidate: invalidateForChatEvent,
     refreshBootstrap: false
+  }),
+  [REALTIME_TOPICS.TYPING]: Object.freeze({
+    invalidate: invalidateNoop,
+    refreshBootstrap: false
   })
 });
 
@@ -198,6 +203,8 @@ function createRealtimeEventHandlers({ queryClient, commandTracker, clientId, wo
         status: "duplicate"
       };
     }
+
+    publishRealtimeEvent(normalizedEvent);
 
     const topicStrategy = resolveTopicStrategy(normalizedEvent.topic);
     if (!topicStrategy) {

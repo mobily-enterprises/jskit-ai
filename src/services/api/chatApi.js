@@ -43,6 +43,12 @@ function createApi({ request }) {
         method: "POST",
         body: payload
       });
+    },
+    emitThreadTyping(threadId) {
+      const encodedThreadId = encodeURIComponent(String(threadId || "").trim());
+      return request(`/api/chat/threads/${encodedThreadId}/typing`, {
+        method: "POST"
+      });
     }
   };
 }

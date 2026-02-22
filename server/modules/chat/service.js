@@ -13,7 +13,7 @@ const INBOX_SURFACE_IDS = new Set(["app", "admin", "console"]);
 const CHAT_TYPING_RATE_WINDOW_MS = 60_000;
 const CHAT_TYPING_RATE_LIMIT = 30;
 const CHAT_TYPING_THROTTLE_MS = 1_000;
-const CHAT_TYPING_TTL_MS = 8_000;
+const CHAT_TYPING_TTL_MS = 2_000;
 const CHAT_ATTACHMENT_MAX_UPLOAD_BYTES = 20_000_000;
 const CHAT_UNATTACHED_UPLOAD_RETENTION_HOURS = 24;
 
@@ -767,13 +767,30 @@ function mapMessageForResponse(message, { attachments = [], reactions = [] } = {
   };
 }
 
-function mapThreadForResponse(thread, participant = null) {
+function mapThreadPeerUserForResponse(peerUser) {
+  const userId = parsePositiveInteger(peerUser?.id);
+  if (!userId) {
+    return null;
+  }
+
+  const displayName = String(peerUser?.displayName || "").trim() || `User #${userId}`;
+  const avatarUrl = String(peerUser?.avatarUrl || "").trim();
+
+  return {
+    id: userId,
+    displayName,
+    avatarUrl: avatarUrl || null
+  };
+}
+
+function mapThreadForResponse(thread, participant = null, context = {}) {
   const lastMessageSeq = thread.lastMessageSeq == null ? null : Number(thread.lastMessageSeq);
   const participantLastReadSeq = participant ? Number(participant.lastReadSeq || 0) : 0;
   const participantLastReadAt = participant?.lastReadAt == null ? null : String(participant.lastReadAt);
   const participantMutedUntil = participant?.muteUntil == null ? null : String(participant.muteUntil);
   const participantArchivedAt = participant?.archivedAt == null ? null : String(participant.archivedAt);
   const participantPinnedAt = participant?.pinnedAt == null ? null : String(participant.pinnedAt);
+  const peerUser = mapThreadPeerUserForResponse(context?.peerUser);
 
   return {
     id: Number(thread.id),
@@ -799,7 +816,8 @@ function mapThreadForResponse(thread, participant = null) {
           archivedAt: participantArchivedAt,
           pinnedAt: participantPinnedAt
         }
-      : null
+      : null,
+    peerUser
   };
 }
 
@@ -816,6 +834,8 @@ function createService({
   chatAttachmentStorageService,
   workspaceMembershipsRepository,
   userSettingsRepository,
+  userProfilesRepository,
+  userAvatarService,
   rbacManifest,
   config = {}
 }) {
@@ -876,6 +896,10 @@ function createService({
   const realtimePublisher = chatRealtimeService && typeof chatRealtimeService.publishThreadEvent === "function"
     ? chatRealtimeService
     : null;
+  const canLookupUserProfile = Boolean(
+    userProfilesRepository && typeof userProfilesRepository.findById === "function"
+  );
+  const canBuildUserAvatar = Boolean(userAvatarService && typeof userAvatarService.buildAvatarResponse === "function");
 
   async function listActiveParticipantUserIds(threadId) {
     if (typeof chatParticipantsRepository.listActiveUserIdsByThreadId !== "function") {
@@ -1061,6 +1085,134 @@ function createService({
     return left < right ? [left, right] : [right, left];
   }
 
+  function resolveDmPeerUserId(thread, actorUserId) {
+    if (String(thread?.threadKind || "").toLowerCase() !== "dm") {
+      return 0;
+    }
+
+    const normalizedActorUserId = parsePositiveInteger(actorUserId);
+    if (!normalizedActorUserId) {
+      return 0;
+    }
+
+    const lowUserId = parsePositiveInteger(thread?.dmUserLowId);
+    const highUserId = parsePositiveInteger(thread?.dmUserHighId);
+    if (!lowUserId || !highUserId) {
+      return 0;
+    }
+
+    if (lowUserId === normalizedActorUserId) {
+      return highUserId;
+    }
+    if (highUserId === normalizedActorUserId) {
+      return lowUserId;
+    }
+
+    return 0;
+  }
+
+  function buildFallbackUserSummary(userId) {
+    const normalizedUserId = parsePositiveInteger(userId);
+    if (!normalizedUserId) {
+      return null;
+    }
+
+    return {
+      id: normalizedUserId,
+      displayName: `User #${normalizedUserId}`,
+      avatarUrl: null
+    };
+  }
+
+  function resolveAvatarUrlFromProfile(profile) {
+    if (!profile || !canBuildUserAvatar) {
+      return null;
+    }
+
+    try {
+      const avatar = userAvatarService.buildAvatarResponse(profile, {
+        avatarSize: 64
+      });
+      const effectiveUrl = String(avatar?.effectiveUrl || "").trim();
+      return effectiveUrl || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function resolveUserSummary(userId) {
+    const fallback = buildFallbackUserSummary(userId);
+    if (!fallback || !canLookupUserProfile) {
+      return fallback;
+    }
+
+    const profile = await userProfilesRepository.findById(fallback.id);
+    if (!profile) {
+      return fallback;
+    }
+
+    const displayName = String(profile.displayName || "").trim() || fallback.displayName;
+
+    return {
+      id: fallback.id,
+      displayName,
+      avatarUrl: resolveAvatarUrlFromProfile(profile)
+    };
+  }
+
+  async function resolveUserSummariesById(userIds) {
+    const normalizedUserIds = normalizeUserIds(userIds);
+    if (normalizedUserIds.length < 1) {
+      return new Map();
+    }
+
+    const summaries = await Promise.all(normalizedUserIds.map((userId) => resolveUserSummary(userId)));
+    const byUserId = new Map();
+    for (const summary of summaries) {
+      const normalizedUserId = parsePositiveInteger(summary?.id);
+      if (!normalizedUserId) {
+        continue;
+      }
+      byUserId.set(normalizedUserId, summary);
+    }
+
+    return byUserId;
+  }
+
+  function resolveDmPeerSummaryFromMap(thread, actorUserId, peerSummariesByUserId = null) {
+    const peerUserId = resolveDmPeerUserId(thread, actorUserId);
+    if (!peerUserId) {
+      return null;
+    }
+
+    if (peerSummariesByUserId && typeof peerSummariesByUserId.get === "function") {
+      const summary = peerSummariesByUserId.get(peerUserId);
+      if (summary) {
+        return summary;
+      }
+    }
+
+    return buildFallbackUserSummary(peerUserId);
+  }
+
+  async function resolveDmPeerSummaryForThread(thread, actorUserId, peerSummariesByUserId = null) {
+    const fromMap = resolveDmPeerSummaryFromMap(thread, actorUserId, peerSummariesByUserId);
+    if (!fromMap) {
+      return null;
+    }
+
+    const peerUserId = parsePositiveInteger(fromMap.id);
+    if (!peerUserId) {
+      return null;
+    }
+
+    if (peerSummariesByUserId && typeof peerSummariesByUserId.has === "function" && peerSummariesByUserId.has(peerUserId)) {
+      return fromMap;
+    }
+
+    return resolveUserSummary(peerUserId);
+  }
+
   async function ensureDm({ user, targetPublicChatId }) {
     if (!options.chatEnabled) {
       throw createFeatureDisabledError();
@@ -1093,6 +1245,8 @@ function createService({
       targetUserId
     });
 
+    const targetUserSummary = await resolveUserSummary(targetUserId);
+
     const existing = await chatThreadsRepository.findDmByCanonicalPair({
       scopeKey: buildGlobalDmScopeKey(),
       userAId: actorUserId,
@@ -1104,7 +1258,9 @@ function createService({
       const participant = await chatParticipantsRepository.findByThreadIdAndUserId(existing.id, actorUserId);
 
       return {
-        thread: mapThreadForResponse(existing, participant),
+        thread: mapThreadForResponse(existing, participant, {
+          peerUser: targetUserSummary
+        }),
         created: false
       };
     }
@@ -1173,7 +1329,9 @@ function createService({
     const participant = await chatParticipantsRepository.findByThreadIdAndUserId(thread.id, actorUserId);
 
     return {
-      thread: mapThreadForResponse(thread, participant),
+      thread: mapThreadForResponse(thread, participant, {
+        peerUser: targetUserSummary
+      }),
       created: true
     };
   }
@@ -1226,7 +1384,16 @@ function createService({
       return Number(thread.workspaceId) === Number(activeWorkspaceId);
     });
 
-    const items = filteredThreads.slice(0, pageSize).map((thread) => mapThreadForResponse(thread, thread.participant));
+    const selectedThreads = filteredThreads.slice(0, pageSize);
+    const dmPeerSummariesByUserId = await resolveUserSummariesById(
+      selectedThreads.map((thread) => resolveDmPeerUserId(thread, userId)).filter(Boolean)
+    );
+
+    const items = selectedThreads.map((thread) =>
+      mapThreadForResponse(thread, thread.participant, {
+        peerUser: resolveDmPeerSummaryFromMap(thread, userId, dmPeerSummariesByUserId)
+      })
+    );
     const hasMore = filteredThreads.length > pageSize;
 
     return {
@@ -1248,8 +1415,12 @@ function createService({
       requireWrite: false
     });
 
+    const peerUser = await resolveDmPeerSummaryForThread(access.thread, userId);
+
     return {
-      thread: mapThreadForResponse(access.thread, access.participant)
+      thread: mapThreadForResponse(access.thread, access.participant, {
+        peerUser
+      })
     };
   }
 
@@ -1994,9 +2165,12 @@ function createService({
     const participant = await chatParticipantsRepository.findByThreadIdAndUserId(access.thread.id, userId);
     const latestThread = transactionResult.thread || (await chatThreadsRepository.findById(access.thread.id));
     const responseThread = latestThread || access.thread;
+    const peerUser = await resolveDmPeerSummaryForThread(responseThread, userId);
     const responsePayload = {
       message,
-      thread: mapThreadForResponse(responseThread, participant || access.participant),
+      thread: mapThreadForResponse(responseThread, participant || access.participant, {
+        peerUser
+      }),
       idempotencyStatus: transactionResult.idempotencyStatus
     };
 

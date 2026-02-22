@@ -260,6 +260,23 @@ describe("useAppShell", () => {
     ]);
   });
 
+  it("hides shell chrome for workspace chat-only route", async () => {
+    mocks.routerPathname = "/w/acme/workspace-chat";
+    mocks.workspaceStore.can.mockImplementation(
+      (permission) =>
+        permission === "workspace.settings.view" ||
+        permission === "workspace.settings.update" ||
+        permission === "workspace.ai.use" ||
+        permission === "chat.read"
+    );
+
+    const wrapper = mountHarness();
+    await nextTick();
+
+    expect(wrapper.vm.shell.layout.showApplicationShell.value).toBe(false);
+    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Chat");
+  });
+
   it("navigates to admin surface and signs out with cleanup", async () => {
     const wrapper = mountHarness();
     await nextTick();
