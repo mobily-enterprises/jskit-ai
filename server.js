@@ -56,6 +56,7 @@ const LOG_LEVEL = String(env.LOG_LEVEL || "")
   .trim()
   .toLowerCase();
 const REQUEST_STARTED_AT_SYMBOL = Symbol("request_started_at_ns");
+const GRACEFUL_SHUTDOWN_TIMEOUT_MS = 10_000;
 const ALLOWED_LOG_LEVELS = new Set(["fatal", "error", "warn", "info", "debug", "trace"]);
 const LOG_REDACT_PATHS = [
   "req.headers.authorization",
@@ -781,6 +782,18 @@ let appInstance = null;
 let isShuttingDown = false;
 let signalHandlersRegistered = false;
 
+function stopBackgroundRuntimesForShutdown() {
+  if (!billingWorkerRuntimeService || typeof billingWorkerRuntimeService.stop !== "function") {
+    return;
+  }
+
+  try {
+    billingWorkerRuntimeService.stop();
+  } catch (error) {
+    console.warn("Failed to stop billing worker runtime during shutdown:", error);
+  }
+}
+
 export async function createServerApp({ frontendBuildAvailable } = {}) {
   const resolvedFrontendBuildAvailable =
     typeof frontendBuildAvailable === "boolean" ? frontendBuildAvailable : await hasFrontendBuild();
@@ -826,9 +839,29 @@ export async function shutdownServer({ signal = "", exitProcess = false, exitCod
     return;
   }
   isShuttingDown = true;
+  let forcedExitTimer = null;
 
   if (signal) {
     console.log(`Received ${signal}. Shutting down.`);
+  }
+
+  stopBackgroundRuntimesForShutdown();
+
+  if (exitProcess) {
+    forcedExitTimer = setTimeout(() => {
+      try {
+        appInstance?.server?.closeIdleConnections?.();
+        appInstance?.server?.closeAllConnections?.();
+      } catch {
+        // Ignore best-effort force-close failures.
+      }
+
+      console.error(
+        `Graceful shutdown timed out after ${GRACEFUL_SHUTDOWN_TIMEOUT_MS}ms. Forcing process exit.`
+      );
+      process.exit(1);
+    }, GRACEFUL_SHUTDOWN_TIMEOUT_MS);
+    forcedExitTimer.unref?.();
   }
 
   try {
@@ -844,6 +877,9 @@ export async function shutdownServer({ signal = "", exitProcess = false, exitCod
     }
     throw error;
   } finally {
+    if (forcedExitTimer) {
+      clearTimeout(forcedExitTimer);
+    }
     isShuttingDown = false;
   }
 
