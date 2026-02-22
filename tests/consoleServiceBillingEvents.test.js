@@ -15,7 +15,13 @@ function createBillingRepositoryStub(overrides = {}) {
     async listPlans() {
       return [];
     },
+    async listProducts() {
+      return [];
+    },
     async findPlanById() {
+      return null;
+    },
+    async findProductById() {
       return null;
     },
     async listPlanEntitlementsForPlan() {
@@ -25,6 +31,12 @@ function createBillingRepositoryStub(overrides = {}) {
       throw new Error("not used");
     },
     async updatePlanById() {
+      throw new Error("not used");
+    },
+    async createProduct() {
+      throw new Error("not used");
+    },
+    async updateProductById() {
       throw new Error("not used");
     },
     async upsertPlanEntitlement() {
@@ -77,7 +89,18 @@ function createConsoleServiceHarness({
         return 1;
       }
     },
-    consoleSettingsRepository: {},
+    consoleSettingsRepository: {
+      async ensure() {
+        return {
+          features: {}
+        };
+      },
+      async update(patch = {}) {
+        return {
+          features: patch?.features || {}
+        };
+      }
+    },
     userProfilesRepository: {},
     billingRepository,
     billingEnabled,
@@ -105,6 +128,7 @@ test("console billing events list does not cap deep-page fetch limit at 2000", a
     {
       page: 26,
       pageSize: 100,
+      workspaceSlug: "acme",
       operationKey: "op_1"
     }
   );
@@ -112,6 +136,7 @@ test("console billing events list does not cap deep-page fetch limit at 2000", a
   assert.equal(repositoryCalls.length, 1);
   assert.equal(repositoryCalls[0].limit, 2601);
   assert.equal(repositoryCalls[0].includeGlobal, true);
+  assert.equal(repositoryCalls[0].workspaceSlug, "acme");
   assert.equal(repositoryCalls[0].operationKey, "op_1");
   assert.equal(response.entries.length, 0);
   assert.equal(response.hasMore, false);
@@ -158,6 +183,46 @@ test("console billing plans list returns catalog entries for active provider", a
   assert.equal(response.provider, "stripe");
   assert.equal(response.plans.length, 1);
   assert.equal(response.plans[0].corePrice.providerPriceId, "price_pro_monthly");
+});
+
+test("console billing products list returns catalog entries for active provider", async () => {
+  const service = createConsoleServiceHarness({
+    billingRepository: createBillingRepositoryStub({
+      async listProducts() {
+        return [
+          {
+            id: 21,
+            code: "credits_100",
+            name: "100 Credits",
+            description: "One-time credit top-up",
+            productKind: "credit_topup",
+            price: {
+              provider: "stripe",
+              providerPriceId: "price_credits_100",
+              providerProductId: "prod_credits",
+              interval: null,
+              intervalCount: null,
+              currency: "USD",
+              unitAmountMinor: 1000
+            },
+            isActive: true,
+            metadataJson: {},
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z"
+          }
+        ];
+      }
+    })
+  });
+
+  const response = await service.listBillingProducts({
+    id: 1,
+    email: "devop@example.test"
+  });
+
+  assert.equal(response.provider, "stripe");
+  assert.equal(response.products.length, 1);
+  assert.equal(response.products[0].price.providerPriceId, "price_credits_100");
 });
 
 test("console billing plan create inserts plan and core price mapping", async () => {
@@ -267,6 +332,129 @@ test("console billing plan create rejects non-stripe provider price id format", 
         String(error?.details?.fieldErrors?.["corePrice.providerPriceId"] || "")
           .toLowerCase()
           .includes("stripe price id"),
+        true
+      );
+      return true;
+    }
+  );
+});
+
+test("console billing product create inserts product and provider price mapping", async () => {
+  const calls = [];
+  const service = createConsoleServiceHarness({
+    billingProviderAdapter: {
+      async retrievePrice({ priceId }) {
+        assert.equal(priceId, "price_credits_100");
+        return {
+          id: "price_credits_100",
+          provider: "stripe",
+          productId: "prod_credits",
+          productName: "100 Credits",
+          nickname: null,
+          currency: "USD",
+          unitAmountMinor: 1000,
+          interval: null,
+          intervalCount: null,
+          usageType: null,
+          active: true
+        };
+      }
+    },
+    billingRepository: createBillingRepositoryStub({
+      async transaction(work) {
+        return work("trx-product-create");
+      },
+      async createProduct(payload, options = {}) {
+        calls.push(["createProduct", payload.code, payload.price?.providerPriceId, options.trx]);
+        return {
+          id: 41,
+          code: payload.code,
+          name: payload.name,
+          description: payload.description || null,
+          productKind: payload.productKind,
+          price: payload.price,
+          isActive: payload.isActive !== false,
+          metadataJson: {},
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z"
+        };
+      }
+    })
+  });
+
+  const response = await service.createBillingProduct(
+    {
+      id: 1,
+      email: "devop@example.test"
+    },
+    {
+      code: "credits_100",
+      name: "100 Credits",
+      productKind: "credit_topup",
+      price: {
+        providerPriceId: "price_credits_100"
+      }
+    }
+  );
+
+  assert.equal(response.provider, "stripe");
+  assert.equal(response.product.code, "credits_100");
+  assert.equal(response.product.price.interval, null);
+  const createCall = calls.find((entry) => entry[0] === "createProduct");
+  assert.ok(createCall);
+  assert.equal(createCall[2], "price_credits_100");
+});
+
+test("console billing product create rejects recurring Stripe prices", async () => {
+  const service = createConsoleServiceHarness({
+    billingProviderAdapter: {
+      async retrievePrice({ priceId }) {
+        assert.equal(priceId, "price_monthly_not_allowed");
+        return {
+          id: "price_monthly_not_allowed",
+          provider: "stripe",
+          productId: "prod_monthly",
+          productName: "Monthly thing",
+          nickname: null,
+          currency: "USD",
+          unitAmountMinor: 1200,
+          interval: "month",
+          intervalCount: 1,
+          usageType: "licensed",
+          active: true
+        };
+      }
+    },
+    billingRepository: createBillingRepositoryStub({
+      async createProduct() {
+        throw new Error("createProduct should not be called for invalid recurring product price");
+      }
+    })
+  });
+
+  await assert.rejects(
+    () =>
+      service.createBillingProduct(
+        {
+          id: 1,
+          email: "devop@example.test"
+        },
+        {
+          code: "bad_recurring_product",
+          name: "Bad recurring product",
+          productKind: "one_off",
+          price: {
+            providerPriceId: "price_monthly_not_allowed"
+          }
+        }
+      ),
+    (error) => {
+      assert.ok(error instanceof AppError);
+      assert.equal(error.status, 400);
+      assert.equal(
+        String(error?.details?.fieldErrors?.["price.providerPriceId"] || "")
+          .toLowerCase()
+          .includes("one-time"),
         true
       );
       return true;
@@ -494,5 +682,93 @@ test("console billing plan update edits metadata without changing core price", a
   assert.equal(response.plan.description, "Updated description");
   assert.equal(response.plan.isActive, false);
   const updateCall = calls.find((entry) => entry[0] === "updatePlanById");
+  assert.ok(updateCall);
+});
+
+test("console billing product update edits existing price mapping", async () => {
+  const calls = [];
+  const service = createConsoleServiceHarness({
+    billingProviderAdapter: {
+      async retrievePrice({ priceId }) {
+        assert.equal(priceId, "price_setup_fee_new");
+        return {
+          id: "price_setup_fee_new",
+          provider: "stripe",
+          productId: "prod_setup_fee",
+          productName: "Setup fee",
+          nickname: null,
+          currency: "USD",
+          unitAmountMinor: 2500,
+          interval: null,
+          intervalCount: null,
+          usageType: null,
+          active: true
+        };
+      }
+    },
+    billingRepository: createBillingRepositoryStub({
+      async transaction(work) {
+        return work("trx-product-update");
+      },
+      async findProductById(productId, options = {}) {
+        calls.push(["findProductById", productId, options.trx]);
+        return {
+          id: 13,
+          code: "setup_fee",
+          name: "Setup fee",
+          description: "Original",
+          productKind: "setup_fee",
+          price: {
+            provider: "stripe",
+            providerPriceId: "price_setup_fee_old",
+            providerProductId: "prod_setup_fee",
+            interval: null,
+            intervalCount: null,
+            currency: "USD",
+            unitAmountMinor: 1500
+          },
+          isActive: true,
+          metadataJson: {},
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z"
+        };
+      },
+      async updateProductById(productId, patch, options = {}) {
+        calls.push(["updateProductById", productId, patch.price?.providerPriceId, options.trx]);
+        return {
+          id: productId,
+          code: "setup_fee",
+          name: "Setup fee",
+          description: "Original",
+          productKind: "setup_fee",
+          price: patch.price,
+          isActive: true,
+          metadataJson: {},
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z"
+        };
+      }
+    })
+  });
+
+  const response = await service.updateBillingProduct(
+    {
+      id: 1,
+      email: "devop@example.test"
+    },
+    {
+      productId: 13
+    },
+    {
+      price: {
+        providerPriceId: "price_setup_fee_new"
+      }
+    }
+  );
+
+  assert.equal(response.provider, "stripe");
+  assert.equal(response.product.id, 13);
+  assert.equal(response.product.price.providerPriceId, "price_setup_fee_new");
+  const updateCall = calls.find((entry) => entry[0] === "updateProductById");
   assert.ok(updateCall);
 });

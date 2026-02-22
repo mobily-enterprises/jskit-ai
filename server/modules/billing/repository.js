@@ -137,6 +137,42 @@ function mapPlanRowNullable(row) {
   };
 }
 
+function mapProductPriceFromRow(row) {
+  const providerPriceId = String(row?.provider_price_id || "").trim();
+  if (!providerPriceId) {
+    return null;
+  }
+
+  return {
+    provider: normalizeProvider(row.provider),
+    providerPriceId,
+    providerProductId: row.provider_product_id == null ? null : String(row.provider_product_id),
+    interval: row.price_interval == null ? null : String(row.price_interval),
+    intervalCount: row.price_interval_count == null ? null : Number(row.price_interval_count),
+    currency: String(row.currency || "").toUpperCase(),
+    unitAmountMinor: Number(row.unit_amount_minor || 0)
+  };
+}
+
+function mapProductRowNullable(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: Number(row.id),
+    code: String(row.code || ""),
+    name: String(row.name || ""),
+    description: row.description == null ? null : String(row.description),
+    productKind: String(row.product_kind || "one_off"),
+    price: mapProductPriceFromRow(row),
+    isActive: Boolean(row.is_active),
+    metadataJson: parseJsonValue(row.metadata_json, {}),
+    createdAt: toIsoString(row.created_at),
+    updatedAt: toIsoString(row.updated_at)
+  };
+}
+
 function mapEntitlementRowNullable(row) {
   if (!row) {
     return null;
@@ -1016,6 +1052,111 @@ function createBillingRepository(dbClient) {
     }
 
     return findPlanById(id, {
+      ...options,
+      trx: client
+    });
+  }
+
+  async function listProducts(options = {}) {
+    const client = resolveClient(options);
+    const rows = await client("billing_products").orderBy("is_active", "desc").orderBy("id", "asc");
+    return rows.map(mapProductRowNullable).filter(Boolean);
+  }
+
+  async function findProductByCode(code, options = {}) {
+    const client = resolveClient(options);
+    const row = await client("billing_products").where({ code }).first();
+    return mapProductRowNullable(row);
+  }
+
+  async function findProductById(id, options = {}) {
+    const client = resolveClient(options);
+    const row = await client("billing_products").where({ id }).first();
+    return mapProductRowNullable(row);
+  }
+
+  async function createProduct(payload, options = {}) {
+    const now = new Date();
+    const client = resolveClient(options);
+    const price = payload?.price && typeof payload.price === "object" ? payload.price : {};
+    const [id] = await client("billing_products").insert({
+      code: String(payload?.code || "").trim(),
+      name: String(payload?.name || "").trim(),
+      description: toNullableString(payload?.description),
+      product_kind: String(payload?.productKind || "one_off").trim().toLowerCase() || "one_off",
+      provider: normalizeProvider(price.provider),
+      provider_price_id: String(price.providerPriceId || "").trim(),
+      provider_product_id: toNullableString(price.providerProductId),
+      price_interval: toNullableString(price.interval),
+      price_interval_count: price.intervalCount == null ? null : Number(price.intervalCount),
+      currency: String(price.currency || "").trim().toUpperCase(),
+      unit_amount_minor: Number(price.unitAmountMinor || 0),
+      is_active: payload?.isActive !== false,
+      metadata_json: payload?.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
+      created_at: toInsertDateTime(payload?.createdAt, now),
+      updated_at: toInsertDateTime(payload?.updatedAt, now)
+    });
+
+    return findProductById(id, {
+      ...options,
+      trx: client
+    });
+  }
+
+  async function updateProductById(id, patch = {}, options = {}) {
+    const client = resolveClient(options);
+    const dbPatch = {};
+
+    if (Object.hasOwn(patch, "code")) {
+      dbPatch.code = String(patch.code || "").trim();
+    }
+    if (Object.hasOwn(patch, "name")) {
+      dbPatch.name = String(patch.name || "").trim();
+    }
+    if (Object.hasOwn(patch, "description")) {
+      dbPatch.description = toNullableString(patch.description);
+    }
+    if (Object.hasOwn(patch, "productKind")) {
+      dbPatch.product_kind = String(patch.productKind || "one_off").trim().toLowerCase() || "one_off";
+    }
+    if (Object.hasOwn(patch, "isActive")) {
+      dbPatch.is_active = patch.isActive !== false;
+    }
+    if (Object.hasOwn(patch, "metadataJson")) {
+      dbPatch.metadata_json = patch.metadataJson == null ? null : JSON.stringify(patch.metadataJson);
+    }
+
+    const pricePatch = patch?.price && typeof patch.price === "object" ? patch.price : null;
+    if (pricePatch) {
+      if (Object.hasOwn(pricePatch, "provider")) {
+        dbPatch.provider = normalizeProvider(pricePatch.provider);
+      }
+      if (Object.hasOwn(pricePatch, "providerPriceId")) {
+        dbPatch.provider_price_id = String(pricePatch.providerPriceId || "").trim();
+      }
+      if (Object.hasOwn(pricePatch, "providerProductId")) {
+        dbPatch.provider_product_id = toNullableString(pricePatch.providerProductId);
+      }
+      if (Object.hasOwn(pricePatch, "interval")) {
+        dbPatch.price_interval = toNullableString(pricePatch.interval);
+      }
+      if (Object.hasOwn(pricePatch, "intervalCount")) {
+        dbPatch.price_interval_count = pricePatch.intervalCount == null ? null : Number(pricePatch.intervalCount);
+      }
+      if (Object.hasOwn(pricePatch, "currency")) {
+        dbPatch.currency = String(pricePatch.currency || "").trim().toUpperCase();
+      }
+      if (Object.hasOwn(pricePatch, "unitAmountMinor")) {
+        dbPatch.unit_amount_minor = Number(pricePatch.unitAmountMinor || 0);
+      }
+    }
+
+    if (Object.keys(dbPatch).length > 0) {
+      dbPatch.updated_at = toInsertDateTime(new Date(), new Date());
+      await client("billing_products").where({ id }).update(dbPatch);
+    }
+
+    return findProductById(id, {
       ...options,
       trx: client
     });
@@ -2117,6 +2258,7 @@ function createBillingRepository(dbClient) {
     const normalizedLimit =
       Number.isFinite(requestedLimit) && requestedLimit > 0 ? Math.floor(requestedLimit) : 100;
     const normalizedWorkspaceId = toPositiveInteger(filters?.workspaceId);
+    const normalizedWorkspaceSlug = toNullableString(filters?.workspaceSlug);
     const normalizedOwnerUserId = toPositiveInteger(filters?.ownerUserId || filters?.userId);
     const normalizedBillableEntityId = toPositiveInteger(filters?.billableEntityId);
     const normalizedOperationKey = toNullableString(filters?.operationKey);
@@ -2125,7 +2267,7 @@ function createBillingRepository(dbClient) {
     const includeGlobal = filters?.includeGlobal !== false;
     const perSourceLimit = Math.max(50, normalizedLimit);
 
-    const hasWorkspaceFilter = normalizedWorkspaceId != null;
+    const hasWorkspaceFilter = normalizedWorkspaceId != null || Boolean(normalizedWorkspaceSlug);
     const hasOwnerUserFilter = normalizedOwnerUserId != null;
     const hasBillableEntityFilter = normalizedBillableEntityId != null;
     const hasEntityScopedFilter = hasWorkspaceFilter || hasOwnerUserFilter || hasBillableEntityFilter;
@@ -2143,7 +2285,12 @@ function createBillingRepository(dbClient) {
         scopedQuery = scopedQuery.andWhere(billableEntityColumn, normalizedBillableEntityId);
       }
       if (hasWorkspaceFilter) {
-        scopedQuery = scopedQuery.andWhere(`${entityAlias}.workspace_id`, normalizedWorkspaceId);
+        if (normalizedWorkspaceId != null) {
+          scopedQuery = scopedQuery.andWhere(`${entityAlias}.workspace_id`, normalizedWorkspaceId);
+        }
+        if (normalizedWorkspaceSlug) {
+          scopedQuery = scopedQuery.andWhere("w.slug", normalizedWorkspaceSlug);
+        }
       }
       if (hasOwnerUserFilter) {
         scopedQuery = scopedQuery.andWhere(`${entityAlias}.owner_user_id`, normalizedOwnerUserId);
@@ -3041,6 +3188,11 @@ function createBillingRepository(dbClient) {
     findPlanByCode,
     findPlanById,
     findPlanByCheckoutProviderPriceId,
+    listProducts,
+    findProductByCode,
+    findProductById,
+    createProduct,
+    updateProductById,
     listPlanEntitlementsForPlan,
     createPlan,
     updatePlanById,
@@ -3135,6 +3287,7 @@ const __testables = {
   normalizeBillableEntityType,
   mapBillableEntityRowNullable,
   mapPlanRowNullable,
+  mapProductRowNullable,
   mapEntitlementRowNullable,
   mapCustomerRowNullable,
   mapSubscriptionRowNullable,
@@ -3172,6 +3325,11 @@ export const {
   findPlanByCode,
   findPlanById,
   findPlanByCheckoutProviderPriceId,
+  listProducts,
+  findProductByCode,
+  findProductById,
+  createProduct,
+  updateProductById,
   listPlanEntitlementsForPlan,
   createPlan,
   updatePlanById,

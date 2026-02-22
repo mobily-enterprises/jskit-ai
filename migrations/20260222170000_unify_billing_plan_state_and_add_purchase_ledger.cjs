@@ -337,7 +337,11 @@ async function ensureAssignmentProviderDetailsTable(knex) {
     table.dateTime("created_at", { precision: 3 }).notNullable().defaultTo(knex.raw("UTC_TIMESTAMP(3)"));
     table.dateTime("updated_at", { precision: 3 }).notNullable().defaultTo(knex.raw("UTC_TIMESTAMP(3)"));
 
-    table.foreign("billing_plan_assignment_id").references("id").inTable("billing_plan_assignments").onDelete("CASCADE");
+    table
+      .foreign("billing_plan_assignment_id", "fk_bpad_assignment")
+      .references("id")
+      .inTable("billing_plan_assignments")
+      .onDelete("CASCADE");
     table.unique(["provider", "provider_subscription_id"], "uq_bpad_provider_subscription");
     table.index(["provider", "provider_subscription_id"], "idx_bpad_provider_subscription");
     table.index(["provider", "provider_customer_id"], "idx_bpad_provider_customer");

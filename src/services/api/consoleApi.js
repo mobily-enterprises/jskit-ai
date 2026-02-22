@@ -128,8 +128,8 @@ function createApi({ request }) {
       if (query.pageSize != null) {
         params.set("pageSize", String(query.pageSize));
       }
-      if (query.workspaceId != null) {
-        params.set("workspaceId", String(query.workspaceId));
+      if (query.workspaceSlug) {
+        params.set("workspaceSlug", String(query.workspaceSlug));
       }
       if (query.userId != null) {
         params.set("userId", String(query.userId));
@@ -152,6 +152,9 @@ function createApi({ request }) {
     listBillingPlans() {
       return request("/api/console/billing/plans");
     },
+    listBillingProducts() {
+      return request("/api/console/billing/products");
+    },
     getBillingSettings() {
       return request("/api/console/billing/settings");
     },
@@ -172,9 +175,19 @@ function createApi({ request }) {
     createBillingPlan(payload) {
       return request("/api/console/billing/plans", { method: "POST", body: payload });
     },
+    createBillingProduct(payload) {
+      return request("/api/console/billing/products", { method: "POST", body: payload });
+    },
     updateBillingPlan(planId, payload) {
       const encodedPlanId = encodeURIComponent(String(planId || "").trim());
       return request(`/api/console/billing/plans/${encodedPlanId}`, {
+        method: "PATCH",
+        body: payload
+      });
+    },
+    updateBillingProduct(productId, payload) {
+      const encodedProductId = encodeURIComponent(String(productId || "").trim());
+      return request(`/api/console/billing/products/${encodedProductId}`, {
         method: "PATCH",
         body: payload
       });

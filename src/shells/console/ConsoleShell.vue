@@ -45,6 +45,51 @@
             rounded="lg"
             @click="goToNavigationItem(item)"
           />
+
+          <template v-if="aiNavigationItems.length">
+            <v-divider v-if="navigationItems.length" class="my-2" />
+            <v-list-subheader class="console-nav-section">AI</v-list-subheader>
+            <v-list-item
+              v-for="item in aiNavigationItems"
+              :key="item.to"
+              :title="item.title"
+              :prepend-icon="item.icon"
+              :active="isNavigationItemActive(item.to)"
+              rounded="lg"
+              class="console-nav-child"
+              @click="goToNavigationItem(item)"
+            />
+          </template>
+
+          <template v-if="errorNavigationItems.length">
+            <v-divider v-if="navigationItems.length || aiNavigationItems.length" class="my-2" />
+            <v-list-subheader class="console-nav-section">Errors</v-list-subheader>
+            <v-list-item
+              v-for="item in errorNavigationItems"
+              :key="item.to"
+              :title="item.title"
+              :prepend-icon="item.icon"
+              :active="isNavigationItemActive(item.to)"
+              rounded="lg"
+              class="console-nav-child"
+              @click="goToNavigationItem(item)"
+            />
+          </template>
+
+          <template v-if="billingNavigationItems.length">
+            <v-divider v-if="navigationItems.length || aiNavigationItems.length || errorNavigationItems.length" class="my-2" />
+            <v-list-subheader class="console-nav-section">Billing</v-list-subheader>
+            <v-list-item
+              v-for="item in billingNavigationItems"
+              :key="item.to"
+              :title="item.title"
+              :prepend-icon="item.icon"
+              :active="isNavigationItemActive(item.to)"
+              rounded="lg"
+              class="console-nav-child"
+              @click="goToNavigationItem(item)"
+            />
+          </template>
         </v-list>
       </v-navigation-drawer>
 
@@ -133,5 +178,17 @@ export default {
 
 :deep(.v-navigation-drawer .v-list-item--active) {
   background-color: rgba(15, 107, 84, 0.15);
+}
+
+.console-nav-section {
+  color: rgba(var(--v-theme-on-surface), 0.72);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+:deep(.v-navigation-drawer .console-nav-child) {
+  margin-left: 10px;
 }
 </style>

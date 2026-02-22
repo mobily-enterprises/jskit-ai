@@ -47,6 +47,7 @@ export function useConsoleShell() {
   const canViewAiTranscripts = computed(
     () => consoleStore.can("console.ai.transcripts.read_all") && consoleStore.hasAccess
   );
+  const canViewAiSystemPrompt = computed(() => consoleStore.hasAccess);
   const canViewBillingEvents = computed(
     () => consoleStore.can("console.billing.events.read_all") && consoleStore.hasAccess
   );
@@ -56,30 +57,56 @@ export function useConsoleShell() {
 
   const navigationItems = computed(() => {
     const paths = surfacePaths.value;
-    const items = [{ title: "Home", to: paths.rootPath, icon: "$consoleHome" }];
+    const items = [];
 
-    if (canViewBrowserErrors.value) {
-      items.push({ title: "Browser errors", to: `${paths.prefix}/errors/browser`, icon: "$consoleBrowserErrors" });
+    if (canViewMembers.value) {
+      items.push({ title: "Members", to: `${paths.prefix}/members`, icon: "$consoleMembers" });
     }
+
+    return items;
+  });
+
+  const aiNavigationItems = computed(() => {
+    const paths = surfacePaths.value;
+    const items = [];
+
+    if (canViewAiSystemPrompt.value) {
+      items.push({ title: "AI System prompt", to: paths.rootPath, icon: "$consoleHome" });
+    }
+
+    if (canViewAiTranscripts.value) {
+      items.push({ title: "AI Transcripts", to: `${paths.prefix}/transcripts`, icon: "$consoleTranscripts" });
+    }
+
+    return items;
+  });
+
+  const errorNavigationItems = computed(() => {
+    const paths = surfacePaths.value;
+    const items = [];
 
     if (canViewServerErrors.value) {
       items.push({ title: "Server errors", to: `${paths.prefix}/errors/server`, icon: "$consoleServerErrors" });
     }
 
-    if (canViewAiTranscripts.value) {
-      items.push({ title: "AI transcripts", to: `${paths.prefix}/transcripts`, icon: "$consoleTranscripts" });
+    if (canViewBrowserErrors.value) {
+      items.push({ title: "Client errors", to: `${paths.prefix}/errors/browser`, icon: "$consoleBrowserErrors" });
     }
+
+    return items;
+  });
+
+  const billingNavigationItems = computed(() => {
+    const paths = surfacePaths.value;
+    const items = [];
 
     if (canManageBillingPlans.value) {
       items.push({ title: "Billing plans", to: `${paths.prefix}/billing/plans`, icon: "$consoleServerErrors" });
+      items.push({ title: "Billing products", to: `${paths.prefix}/billing/products`, icon: "$consoleServerErrors" });
     }
 
     if (canViewBillingEvents.value) {
       items.push({ title: "Billing events", to: `${paths.prefix}/billing/events`, icon: "$consoleServerErrors" });
-    }
-
-    if (canViewMembers.value) {
-      items.push({ title: "Members", to: `${paths.prefix}/members`, icon: "$consoleMembers" });
     }
 
     return items;
@@ -90,7 +117,7 @@ export function useConsoleShell() {
       currentPath.value.endsWith("/errors/browser") ||
       currentPath.value.includes("/errors/browser/")
     ) {
-      return "Browser errors";
+      return "Client errors";
     }
 
     if (
@@ -105,7 +132,7 @@ export function useConsoleShell() {
     }
 
     if (currentPath.value.endsWith("/transcripts")) {
-      return "AI transcripts";
+      return "AI Transcripts";
     }
 
     if (currentPath.value.endsWith("/billing/events")) {
@@ -114,6 +141,14 @@ export function useConsoleShell() {
 
     if (currentPath.value.endsWith("/billing/plans")) {
       return "Billing plans";
+    }
+
+    if (currentPath.value.endsWith("/billing/products")) {
+      return "Billing products";
+    }
+
+    if (currentPath.value === surfacePaths.value.rootPath) {
+      return "AI System prompt";
     }
 
     return "Console";
@@ -180,11 +215,15 @@ export function useConsoleShell() {
       canViewBrowserErrors,
       canViewServerErrors,
       canViewAiTranscripts,
+      canViewAiSystemPrompt,
       canViewBillingEvents,
       canManageBillingPlans
     },
     navigation: {
-      navigationItems
+      navigationItems,
+      aiNavigationItems,
+      errorNavigationItems,
+      billingNavigationItems
     },
     actions: {
       toggleDrawer,

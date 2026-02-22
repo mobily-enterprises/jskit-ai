@@ -146,8 +146,122 @@ async function resolveCatalogCorePriceForUpdate({
   return corePrice;
 }
 
+async function resolveStripeCatalogProductPriceSnapshot({
+  billingProviderAdapter,
+  providerPriceId,
+  fallbackProviderProductId = null,
+  fieldPath = "price.providerPriceId"
+} = {}) {
+  const normalizedProviderPriceId = normalizeText(providerPriceId);
+  if (!normalizedProviderPriceId) {
+    throw toValidationError(fieldPath, `${fieldPath} is required.`);
+  }
+
+  if (!billingProviderAdapter || typeof billingProviderAdapter.retrievePrice !== "function") {
+    throw new AppError(501, "Stripe price verification is not available.");
+  }
+
+  let price;
+  try {
+    price = await billingProviderAdapter.retrievePrice({
+      priceId: normalizedProviderPriceId
+    });
+  } catch (error) {
+    const status = Number(error?.httpStatus || error?.statusCode || error?.status || 0);
+    if (status === 400 || status === 404) {
+      throw toValidationError(fieldPath, "Stripe price not found.");
+    }
+    throw error;
+  }
+
+  if (!price || typeof price !== "object" || !normalizeText(price.id)) {
+    throw toValidationError(fieldPath, "Stripe price not found.");
+  }
+
+  if (price.active !== true) {
+    throw toValidationError(fieldPath, "Stripe price must be active.");
+  }
+
+  const currency = normalizeText(price.currency).toUpperCase();
+  if (!currency || currency.length !== 3) {
+    throw toValidationError(fieldPath, "Stripe price currency is invalid.");
+  }
+
+  const unitAmountMinor = parseNonNegativeInteger(price.unitAmountMinor);
+  if (unitAmountMinor == null) {
+    throw toValidationError(fieldPath, "Stripe price amount is invalid.");
+  }
+
+  const interval = normalizeText(price.interval).toLowerCase() || null;
+  const intervalCount = interval ? parsePositiveInteger(price.intervalCount) : null;
+  if (interval && intervalCount == null) {
+    throw toValidationError(fieldPath, "Stripe recurring price intervalCount is invalid.");
+  }
+  if (interval) {
+    throw toValidationError(fieldPath, "Stripe product catalog price must be one-time. Recurring prices belong in billing plans.");
+  }
+
+  const providerProductId = normalizeText(price.productId) || normalizeText(fallbackProviderProductId) || null;
+
+  return {
+    providerPriceId: normalizeText(price.id),
+    providerProductId,
+    currency,
+    unitAmountMinor,
+    interval,
+    intervalCount
+  };
+}
+
+async function resolveCatalogProductPriceForCreate({
+  activeBillingProvider,
+  billingProviderAdapter,
+  price
+} = {}) {
+  const normalizedProvider = normalizeText(activeBillingProvider).toLowerCase();
+  if (normalizedProvider === "stripe") {
+    const stripeSnapshot = await resolveStripeCatalogProductPriceSnapshot({
+      billingProviderAdapter,
+      providerPriceId: price?.providerPriceId,
+      fallbackProviderProductId: price?.providerProductId,
+      fieldPath: "price.providerPriceId"
+    });
+    return {
+      ...price,
+      ...stripeSnapshot
+    };
+  }
+
+  return price;
+}
+
+async function resolveCatalogProductPriceForUpdate({
+  activeBillingProvider,
+  billingProviderAdapter,
+  price
+} = {}) {
+  const normalizedProvider = normalizeText(activeBillingProvider).toLowerCase();
+  if (normalizedProvider === "stripe") {
+    const stripeSnapshot = await resolveStripeCatalogProductPriceSnapshot({
+      billingProviderAdapter,
+      providerPriceId: price?.providerPriceId,
+      fallbackProviderProductId: price?.providerProductId,
+      fieldPath: "price.providerPriceId"
+    });
+    return {
+      ...price,
+      ...stripeSnapshot
+    };
+  }
+
+  return price;
+}
+
 export {
   resolveStripeCatalogPriceSnapshot,
   resolveCatalogCorePriceForCreate,
-  resolveCatalogCorePriceForUpdate
+  resolveCatalogCorePriceForUpdate,
+  resolveStripeCatalogProductPriceSnapshot,
+  resolveCatalogProductPriceForCreate,
+  resolveCatalogProductPriceForUpdate
 };

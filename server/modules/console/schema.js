@@ -285,6 +285,15 @@ const billingPlanParams = Type.Object(
   }
 );
 
+const billingProductParams = Type.Object(
+  {
+    productId: Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const transcriptMode = enumSchema(["standard", "restricted", "disabled"]);
 const transcriptStatus = enumSchema(["active", "completed", "failed", "aborted"]);
 const transcriptExportFormat = enumSchema(["json", "ndjson"]);
@@ -439,6 +448,21 @@ const billingPlanCorePrice = Type.Object(
   }
 );
 
+const billingProductPrice = Type.Object(
+  {
+    provider: Type.String({ minLength: 1, maxLength: 32 }),
+    providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
+    providerProductId: Type.Union([Type.String({ minLength: 1, maxLength: 191 }), Type.Null()]),
+    interval: Type.Union([Type.String({ minLength: 1, maxLength: 32 }), Type.Null()]),
+    intervalCount: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    currency: Type.String({ minLength: 3, maxLength: 3 }),
+    unitAmountMinor: Type.Integer({ minimum: 0 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const billingPlanEntitlement = Type.Object(
   {
     id: Type.Integer({ minimum: 1 }),
@@ -483,6 +507,34 @@ const billingPlans = Type.Object(
   }
 );
 
+const billingProduct = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    code: Type.String({ minLength: 1, maxLength: 120 }),
+    name: Type.String({ minLength: 1, maxLength: 160 }),
+    description: Type.Union([Type.String(), Type.Null()]),
+    productKind: Type.String({ minLength: 1, maxLength: 64 }),
+    price: billingProductPrice,
+    isActive: Type.Boolean(),
+    metadataJson: Type.Unknown(),
+    createdAt: Type.String({ format: "iso-utc-date-time" }),
+    updatedAt: Type.String({ format: "iso-utc-date-time" })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingProducts = Type.Object(
+  {
+    provider: Type.String({ minLength: 1, maxLength: 32 }),
+    products: Type.Array(billingProduct)
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const billingProviderPrice = Type.Object(
   {
     id: Type.String({ minLength: 1, maxLength: 191 }),
@@ -516,6 +568,16 @@ const billingPlanCreateResponse = Type.Object(
   {
     provider: Type.String({ minLength: 1, maxLength: 32 }),
     plan: billingPlan
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingProductCreateResponse = Type.Object(
+  {
+    provider: Type.String({ minLength: 1, maxLength: 32 }),
+    product: billingProduct
   },
   {
     additionalProperties: false
@@ -589,6 +651,61 @@ const billingPlanUpdateBody = Type.Object(
   }
 );
 
+const billingProductCreateBody = Type.Object(
+  {
+    code: Type.String({ minLength: 1, maxLength: 120 }),
+    name: Type.String({ minLength: 1, maxLength: 160 }),
+    description: Type.Optional(Type.String({ maxLength: 10000 })),
+    productKind: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+    isActive: Type.Optional(Type.Boolean()),
+    metadataJson: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+    price: Type.Object(
+      {
+        providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
+        providerProductId: Type.Optional(Type.String({ maxLength: 191 })),
+        currency: Type.Optional(Type.String({ minLength: 3, maxLength: 3 })),
+        unitAmountMinor: Type.Optional(Type.Integer({ minimum: 0 })),
+        interval: Type.Optional(Type.Union([enumSchema(["day", "week", "month", "year"]), Type.Null()])),
+        intervalCount: Type.Optional(Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]))
+      },
+      {
+        additionalProperties: false
+      }
+    )
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingProductUpdateBody = Type.Object(
+  {
+    name: Type.Optional(Type.String({ minLength: 1, maxLength: 160 })),
+    description: Type.Optional(Type.Union([Type.String({ maxLength: 10000 }), Type.Null()])),
+    productKind: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+    isActive: Type.Optional(Type.Boolean()),
+    price: Type.Optional(
+      Type.Object(
+        {
+          providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
+          providerProductId: Type.Optional(Type.String({ maxLength: 191 })),
+          currency: Type.Optional(Type.String({ minLength: 3, maxLength: 3 })),
+          unitAmountMinor: Type.Optional(Type.Integer({ minimum: 0 })),
+          interval: Type.Optional(Type.Union([enumSchema(["day", "week", "month", "year"]), Type.Null()])),
+          intervalCount: Type.Optional(Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]))
+        },
+        {
+          additionalProperties: false
+        }
+      )
+    )
+  },
+  {
+    additionalProperties: false,
+    minProperties: 1
+  }
+);
+
 const aiTranscriptsQuery = Type.Object(
   {
     page: Type.Optional(Type.Integer({ minimum: 1, default: 1 })),
@@ -607,7 +724,7 @@ const billingEventsQuery = Type.Object(
   {
     page: Type.Optional(Type.Integer({ minimum: 1, default: 1 })),
     pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 25 })),
-    workspaceId: Type.Optional(Type.Integer({ minimum: 1 })),
+    workspaceSlug: Type.Optional(Type.String({ minLength: 1, maxLength: 191 })),
     userId: Type.Optional(Type.Integer({ minimum: 1 })),
     billableEntityId: Type.Optional(Type.Integer({ minimum: 1 })),
     operationKey: Type.Optional(Type.String({ minLength: 1, maxLength: 191 })),
@@ -665,9 +782,12 @@ const schema = {
     aiTranscriptExport,
     billingEvents,
     billingPlans,
+    billingProducts,
     billingPlanCreate: billingPlanCreateResponse,
+    billingProductCreate: billingProductCreateResponse,
     billingProviderPrices,
-    billingPlanUpdate: billingPlanCreateResponse
+    billingPlanUpdate: billingPlanCreateResponse,
+    billingProductUpdate: billingProductCreateResponse
   },
   body: {
     createInvite,
@@ -676,7 +796,9 @@ const schema = {
     billingSettingsUpdate,
     redeemInvite,
     billingPlanCreate: billingPlanCreateBody,
-    billingPlanUpdate: billingPlanUpdateBody
+    billingPlanUpdate: billingPlanUpdateBody,
+    billingProductCreate: billingProductCreateBody,
+    billingProductUpdate: billingProductUpdateBody
   },
   query: {
     aiTranscripts: aiTranscriptsQuery,
@@ -689,7 +811,8 @@ const schema = {
     member,
     invite,
     conversation,
-    billingPlan: billingPlanParams
+    billingPlan: billingPlanParams,
+    billingProduct: billingProductParams
   }
 };
 

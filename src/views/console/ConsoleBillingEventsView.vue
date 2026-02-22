@@ -13,8 +13,8 @@
 
         <div class="d-flex flex-wrap ga-3 align-center mb-3">
           <v-text-field
-            v-model="state.workspaceIdFilter"
-            label="Workspace id"
+            v-model="state.workspaceSlugFilter"
+            label="Workspace handle"
             density="compact"
             variant="outlined"
             hide-details
@@ -88,7 +88,7 @@
                   {{ entry.status }}
                 </v-chip>
                 <span class="text-caption text-medium-emphasis">
-                  ws={{ entry.workspaceId || "-" }} entity={{ entry.billableEntityId || "-" }} user={{ entry.ownerUserId || "-" }}
+                  ws={{ entry.workspaceSlug || "-" }} entity={{ entry.billableEntityId || "-" }} user={{ entry.ownerUserId || "-" }}
                 </span>
               </div>
             </v-expansion-panel-title>

@@ -38,7 +38,7 @@ export function useConsoleBillingEventsView() {
     defaultPageSize: CONSOLE_BILLING_EVENTS_PAGE_SIZE_OPTIONS[0],
     pageSizeOptions: CONSOLE_BILLING_EVENTS_PAGE_SIZE_OPTIONS
   });
-  const workspaceIdFilter = ref("");
+  const workspaceSlugFilter = ref("");
   const userIdFilter = ref("");
   const billableEntityIdFilter = ref("");
   const operationKeyFilter = ref("");
@@ -51,7 +51,7 @@ export function useConsoleBillingEventsView() {
       {
         page: pagination.page.value,
         pageSize: pagination.pageSize.value,
-        workspaceId: workspaceIdFilter.value,
+        workspaceSlug: workspaceSlugFilter.value,
         userId: userIdFilter.value,
         billableEntityId: billableEntityIdFilter.value,
         operationKey: operationKeyFilter.value,
@@ -63,7 +63,7 @@ export function useConsoleBillingEventsView() {
       api.console.listBillingEvents({
         page: pagination.page.value,
         pageSize: pagination.pageSize.value,
-        workspaceId: workspaceIdFilter.value || undefined,
+        workspaceSlug: workspaceSlugFilter.value || undefined,
         userId: userIdFilter.value || undefined,
         billableEntityId: billableEntityIdFilter.value || undefined,
         operationKey: operationKeyFilter.value || undefined,
@@ -133,7 +133,7 @@ export function useConsoleBillingEventsView() {
       hasMore,
       page: pagination.page,
       pageSize: pagination.pageSize,
-      workspaceIdFilter,
+      workspaceSlugFilter,
       userIdFilter,
       billableEntityIdFilter,
       operationKeyFilter,
