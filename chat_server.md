@@ -1,5 +1,18 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Thirteenth Review Amendments Summary (Post-commit server review #13)
+
+This section records corrections made during a thirteenth pass after the prior review cycles.
+
+### Account lifecycle / data-integrity clarifications
+
+- Broadened the account-deletion/erasure note: chat user references are restricted not only in participants but also in thread/message author fields (`created_by_user_id`, `sender_user_id`), so user deletion requires an explicit chat-aware erasure/anonymization strategy across the chat schema.
+
+### Existing-code integration fit clarifications
+
+- Expanded the `resolveRequestContext(...)` side-effect warning for scope-agnostic workspace-thread authz: in the current codebase it can also trigger `ensurePersonalWorkspaceForUser(...)` in personal tenancy mode, not just update `lastActiveWorkspaceId`.
+- Extended the route integration test expectations to cover avoiding unintended side effects from authz-only chat reads in personal-tenancy mode as well.
+
 ## Twelfth Review Amendments Summary (Post-commit server review #12)
 
 This section records corrections made during a twelfth pass after the prior review cycles.
@@ -767,6 +780,7 @@ Notes:
   - prefer filtering in SQL join predicates where possible
   - otherwise over-fetch and refill until the requested page size is reached (or result set exhausted) to avoid sparse/unstable pages
 - Do not rely on blind user-row cascades for chat membership cleanup. If account deletion/erasure is a product requirement, implement an explicit chat-aware deactivation/anonymization or erasure workflow that preserves thread invariants (or updates them transactionally).
+- This applies across the chat schema, not only participants: `chat_threads.created_by_user_id` and `chat_messages.sender_user_id` are also `ON DELETE RESTRICT` in this plan, so hard user deletion requires a deliberate migration/anonymization strategy.
 - Because of `UNIQUE(thread_id, user_id)`, participant rejoin/reinvite flows should reactivate/update the existing row (`status`, `joined_at`/audit fields as policy dictates) rather than inserting a second row.
 
 ### Table 5: `chat_messages`
@@ -1259,7 +1273,7 @@ Then inside service/controller:
 - if `scope_kind=workspace`, treat client `x-surface-id` as untrusted input: validate against allowed workspace surfaces (`app`/`admin`) and reject ambiguous/invalid values
 - if `scope_kind=workspace`, resolve workspace context and permission via `workspaceService.resolveRequestContext(...)` using the **server-loaded thread workspace identity** (not client-provided `x-workspace-slug`) plus the validated request surface
   - implementation note: in the current codebase `resolveRequestContext(...)` reads workspace/surface from request headers/query/params, so use a server-sanitized request shim (or dedicated helper) that injects the thread workspace slug and validated surface instead of passing the raw request unchanged
-  - important: `resolveRequestContext(...)` also updates `lastActiveWorkspaceId` as part of selection logic today; avoid calling it in authz-only loops/paths unless using a no-side-effects helper/mode, or you risk mutating user settings during thread reads/inbox listing
+  - important: `resolveRequestContext(...)` also updates `lastActiveWorkspaceId` as part of selection logic today and may call `ensurePersonalWorkspaceForUser(...)` in personal tenancy mode; avoid calling it in authz-only loops/paths unless using a no-side-effects helper/mode, or you risk mutating user/workspace state during thread reads/inbox listing
 - enforce participant status
 - if `scope_kind=global`, apply global DM policy and participant checks
 
@@ -1789,7 +1803,7 @@ Per repository:
 ### 4. Controller/route integration tests
 
 - workspace-scoped routes enforce auth + workspace permission + participant membership
-- scope-agnostic workspace-thread routes enforce validated workspace-capable surface and do not mutate `lastActiveWorkspaceId` during authz-only reads/listing (no-side-effects helper path)
+- scope-agnostic workspace-thread routes enforce validated workspace-capable surface and do not mutate `lastActiveWorkspaceId` (or trigger personal-workspace provisioning) during authz-only reads/listing (no-side-effects helper path)
 - global DM routes enforce feature flags and block settings
 - error codes and payload shapes match conventions (`400`, `401`, `403`, `404`, `409`)
 - multipart attachment upload route behavior and validation errors
