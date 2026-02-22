@@ -1,5 +1,14 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Twelfth Review Amendments Summary (Post-commit server review #12)
+
+This section records corrections made during a twelfth pass after the prior review cycles.
+
+### Concurrency / operational robustness clarifications
+
+- Added explicit deadlock/lock-timeout retry guidance for the message-send transaction (`SELECT ... FOR UPDATE` + insert/update path), with bounded retries and backoff.
+- Added test-plan coverage for deadlock/lock-timeout retry handling on `sendMessage`.
+
 ## Eleventh Review Amendments Summary (Post-commit server review #11)
 
 This section records corrections made during an eleventh pass after the prior review cycles.
@@ -1292,10 +1301,25 @@ This is the most important server flow.
 13. Publish realtime event to recipient user rooms
 14. Return API response with canonical message payload
 
+### Transaction retry policy (important)
+
+The send path should use a bounded retry wrapper around the DB transaction for transient concurrency errors, especially:
+
+- deadlocks (e.g. `ER_LOCK_DEADLOCK`)
+- lock wait timeouts (e.g. `ER_LOCK_WAIT_TIMEOUT`)
+
+Recommended behavior:
+
+- retry only for known transient DB concurrency errors
+- use a small bounded retry count (e.g. 2-3 retries) with jittered backoff
+- preserve idempotent behavior by reusing the same `clientMessageId` across retries
+- do not retry validation/authz failures or non-transient DB errors
+
 ### Why this is robust
 
 - Handles retries safely (idempotency)
 - Handles concurrent duplicate-send races safely by falling back on the DB unique constraint + re-read path
+- Handles transient DB concurrency failures with bounded retry behavior
 - Prevents duplicate seq values under concurrency
 - Prevents attachment theft/reuse across users/threads
 - Ensures thread list cache is updated atomically with message insert
@@ -1741,6 +1765,7 @@ Per repository:
 - attachments attached atomically
 - duplicate `clientMessageId` returns same message (idempotent)
 - concurrent duplicate `clientMessageId` requests (race) return one canonical message via unique-conflict fallback path
+- deadlock / lock-timeout transient DB errors retry successfully within bounded retry policy
 - sender not participant denied
 - sender removed/left denied
 - reply-to cross-thread denied
