@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Thirty-first Review Amendments Summary (Post-commit server review #31)
+
+This section records corrections made during a thirty-first pass after the prior review cycles.
+
+### Repository-plan completeness / message-attachment read-path clarifications
+
+- Fixed a repository-plan gap: `attachments.repository.js` listed write/staging helpers but omitted a read helper for fetching attachments by message ID(s), which is needed for canonical message payload responses and message-send idempotency payload comparison when attachments are part of the logical send.
+- Added attachment repository read helpers for message hydration (`listByMessageId` / `listByMessageIds`) and called out stable ordering for deterministic payload rendering/idempotency comparisons.
+- Added repository/service test coverage expectations for deterministic attachment ordering in hydrated message payloads (especially when used in idempotency compare paths).
+
 ## Thirtieth Review Amendments Summary (Post-commit server review #30)
 
 This section records corrections made during a thirtieth pass after the prior review cycles.
@@ -1204,11 +1214,17 @@ Reuse conventions from `server/modules/ai/repositories/*`:
 - `countByThreadId(...)`
 - retention: `deleteOlderThan(cutoffDate, batchSize, options)`
 
+Notes:
+
+- Message list/find repos can return core message rows only, but service hydration should use deterministic attachment/reaction ordering before building API responses or doing idempotency replay payload comparisons that depend on attachment IDs/order.
+
 #### `attachments.repository.js`
 
 - `insertReserved(...)`
 - `findById(...)`
 - `findByClientAttachmentId(...)`
+- `listByMessageId(messageId, options)` (ordered by `position`, fallback `id`)
+- `listByMessageIds(messageIds, options)` (batch hydration helper; deterministic ordering within each message)
 - `listStagedByUserIdAndThreadId(...)`
 - `markUploading(...)`
 - `markUploaded(...)`
@@ -1981,6 +1997,7 @@ Per repository:
 - row mapping correctness
 - pagination bounds
 - idempotency lookups (`client_message_id`, `client_attachment_id`)
+- attachment hydration queries (`listByMessageId` / `listByMessageIds`) return deterministic ordering (`position`, fallback `id`)
 - unique conflict handling (DM pair uniqueness)
 - read cursor monotonic updates
 - sequence allocation under transaction (if repository owns it)
