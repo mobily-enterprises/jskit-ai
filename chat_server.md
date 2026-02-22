@@ -1,5 +1,20 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Convergence Amendments Summary (Freeze Pass)
+
+This section records the final convergence pass that freezes v1 server scope and removes strategy ambiguity before implementation.
+
+### Tombstone strategy is now mandatory for v1 hard-delete idempotency
+
+- Removed remaining plan branches that treated idempotency tombstones as optional when hard deletes are active.
+- Standardized schema, migration, repository, retention, and test guidance on one required path: write/maintain tombstones for duplicate-suppression continuity across hard deletes.
+- Kept legacy-row handling as a bounded compatibility exception (explicit backfill or retention exception workflow), not an alternative strategy.
+
+### Open questions replaced with explicit v1 decisions
+
+- Replaced the unresolved decision list with locked v1 policy decisions for DM identity, RBAC defaults, retention defaults, attachment scope, edit/delete scope, block semantics, admin visibility, and E2EE schema readiness.
+- Updated implementation phases to reference these locked decisions (including concrete retry-window default) so build work can start without re-litigating requirements.
+
 ## Fiftieth Review Amendments Summary (Post-commit server review #50)
 
 This section records corrections made during a fiftieth pass after the prior review cycles.
@@ -710,8 +725,8 @@ Add new env vars to `server/lib/env.js` and `.env.example` (all with conservativ
   - If `true`, global DM exists but only if users share any active workspace membership.
   - If `false`, users may DM regardless of workspace overlap.
 - `CHAT_GLOBAL_DMS_ALLOW_INTERNAL_USER_ID_TARGETING` (`bool`, default `false`)
-  - If `true`, endpoint may accept `targetUserId` directly.
-  - If `false`, require a public chat identifier / alias (future-safe option).
+  - v1 lock: keep `false`; require public chat identifier targeting for global DMs.
+  - Internal numeric IDs remain server-internal and must not be accepted from public DM-create APIs.
 
 Policy precedence rule (important):
 
@@ -729,7 +744,7 @@ Policy precedence rule (important):
 
 ### Attachment controls
 
-- `CHAT_ATTACHMENTS_ENABLED` (`bool`, default `false`)
+- `CHAT_ATTACHMENTS_ENABLED` (`bool`, default `true`)
 - `CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE` (`num`, default `5`)
 - `CHAT_ATTACHMENT_MAX_UPLOAD_BYTES` (`num`, default e.g. `20_000_000`)
 - `CHAT_ATTACHMENT_TOTAL_BYTES_PER_MESSAGE` (`num`, default e.g. `50_000_000`)
@@ -748,11 +763,11 @@ Policy precedence rule (important):
 
 ### Retention and cleanup
 
-- `CHAT_MESSAGES_RETENTION_DAYS` (`num`, default `null` or disabled by default)
-- `CHAT_ATTACHMENTS_RETENTION_DAYS` (`num`, default `null` or disabled by default)
+- `CHAT_MESSAGES_RETENTION_DAYS` (`num`, default `365`)
+- `CHAT_ATTACHMENTS_RETENTION_DAYS` (`num`, default `365`)
 - `CHAT_UNATTACHED_UPLOAD_RETENTION_HOURS` (`num`, default `24`)
-- `CHAT_MESSAGE_IDEMPOTENCY_RETRY_WINDOW_HOURS` (`num`, default e.g. `72`)
-  - Defines the duplicate-send suppression retry horizon used by tombstone expiry and retained-message hard-delete cutoffs.
+- `CHAT_MESSAGE_IDEMPOTENCY_RETRY_WINDOW_HOURS` (`num`, default `72`)
+  - Defines the duplicate-send suppression retry horizon used by tombstone expiry and hard-delete gating.
 
 ## RBAC and Authorization Plan
 
@@ -770,7 +785,7 @@ Suggested initial role mapping:
 - `owner`: wildcard already covers all
 - `admin`: add all `chat.*`
 - `member`: add `chat.read`, `chat.write`, `chat.attachments.upload`
-- `viewer`: optionally add `chat.read` only (product decision)
+- `viewer`: do not grant chat permissions by default in v1
 
 ### Workspace thread authz model
 
@@ -1157,7 +1172,7 @@ Notes:
   - prefer filtering in SQL join predicates where possible
   - otherwise over-fetch and refill until the requested page size is reached (or result set exhausted) to avoid sparse/unstable pages
 - Do not rely on blind user-row cascades for chat membership cleanup. If account deletion/erasure is a product requirement, implement an explicit chat-aware deactivation/anonymization or erasure workflow that preserves thread invariants (or updates them transactionally).
-- This applies across the chat schema, not only participants: `chat_threads.created_by_user_id` and `chat_messages.sender_user_id` are also `ON DELETE RESTRICT` in this plan (and `chat_message_idempotency_tombstones.sender_user_id` too if the tombstone strategy is enabled), so hard user deletion requires a deliberate migration/anonymization strategy.
+- This applies across the chat schema, not only participants: `chat_threads.created_by_user_id`, `chat_messages.sender_user_id`, and `chat_message_idempotency_tombstones.sender_user_id` are all `ON DELETE RESTRICT` in this plan, so hard user deletion requires a deliberate migration/anonymization strategy.
 - Because of `UNIQUE(thread_id, user_id)`, participant rejoin/reinvite flows should reactivate/update the existing row (`status`, `joined_at`/audit fields as policy dictates) rather than inserting a second row.
 
 ### Table 5: `chat_messages`
@@ -1227,7 +1242,7 @@ Service invariants:
 - If `client_message_id` is set for a user send, `idempotency_payload_sha256` must be generated from the canonicalized logical send payload before insert and treated as immutable thereafter.
 - If `idempotency_payload_sha256` is present, `idempotency_payload_version` must be present and immutable as well.
 
-### Table 5b (optional if hard deletes are enabled): `chat_message_idempotency_tombstones`
+### Table 5b (required for v1 hard-delete idempotency): `chat_message_idempotency_tombstones`
 
 Purpose:
 
@@ -1244,14 +1259,14 @@ Columns:
 - `idempotency_payload_version` SMALLINT UNSIGNED NOT NULL
 - `idempotency_payload_sha256` CHAR(64) NOT NULL
 - `original_message_id` BIGINT UNSIGNED NULL
-  - optional audit/debug reference to the deleted message row id; do not use FK because the source row is intentionally deleted
+  - audit/debug reference to the deleted message row id; do not use FK because the source row is intentionally deleted
 - `deleted_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
 - `expires_at` DATETIME(3) NOT NULL
   - retry-suppression horizon; retention worker removes tombstones after expiry
 - `delete_reason` VARCHAR(64) NULL
   - e.g. `retention`, `moderation`, `teardown`
 - `metadata_json` MEDIUMTEXT NOT NULL
-  - optional bounded audit/debug fields; initialize to `'{}'`
+  - bounded audit/debug fields; initialize to `'{}'`
   - do not store message plaintext/ciphertext, attachment storage keys, signed URLs, or other sensitive payload material here
 - `created_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
 - `updated_at` DATETIME(3) NOT NULL DEFAULT `UTC_TIMESTAMP(3)`
@@ -1266,14 +1281,13 @@ Indexes/constraints:
 
 Notes:
 
-- This table is only required if the chosen product policy allows hard-deleting messages with non-null `client_message_id` before the retry horizon expires.
-- If the implementation chooses the simpler strategy ("retain deleted/redacted message row until retry window elapses"), this table can be omitted.
+- This table is required in v1 because the plan adopts hard deletes with idempotency continuity and fail-closed duplicate suppression.
 - Tombstone rows should be written in the same delete workflow/transactional unit as the message hard-delete decision whenever possible (or with an equivalent fail-safe sequence) so duplicate suppression is not lost between steps.
 - Keep tombstone data minimal: replay/conflict identifiers + bounded operational reason fields only. Prefer `metadata_json='{}'` unless a concrete, non-sensitive debugging need is documented.
 - Tombstone identity fields are immutable once written for a given unique key (`thread_id`, `sender_user_id`, `client_message_id`): duplicate writes must verify `idempotency_payload_version` + `idempotency_payload_sha256` match existing values rather than overwriting them.
 - If duplicate tombstone writes provide a different expiry horizon, apply a deterministic policy (recommended: keep `expires_at = GREATEST(existing, incoming)` so retries/duplicate jobs do not shorten suppression unexpectedly).
-- Account-lifecycle note: because `sender_user_id` is `ON DELETE RESTRICT`, any hard user deletion/erasure workflow must explicitly clean/expire tombstones (or otherwise handle them in the broader chat migration/anonymization plan) when the tombstone strategy is enabled.
-- Legacy compatibility note: this tombstone schema requires non-null `idempotency_payload_version` + `idempotency_payload_sha256`. If a deletable message row has `client_message_id` but lacks those fields (legacy/backfill cases), do not write a partial tombstone; either backfill first or use the retained-message fallback policy for that row.
+- Account-lifecycle note: because `sender_user_id` is `ON DELETE RESTRICT`, any hard user deletion/erasure workflow must explicitly clean/expire tombstones (or otherwise handle them in the broader chat migration/anonymization plan).
+- Legacy compatibility note: this tombstone schema requires non-null `idempotency_payload_version` + `idempotency_payload_sha256`. If a deletable message row has `client_message_id` but lacks those fields (legacy/backfill cases), do not write a partial tombstone; require backfill first or route to the documented legacy-exception retention workflow.
 - Thread-cleanup note: because `thread_id` is `ON DELETE CASCADE`, any optional empty-thread cleanup must not delete threads that still have active (unexpired) tombstones, or it will destroy duplicate-suppression state before the retry horizon expires.
 
 ### Table 6: `chat_attachments`
@@ -1386,7 +1400,7 @@ Use repo migration conventions:
 1. `YYYYMMDDHHMMSS_create_chat_user_settings_and_blocks.cjs`
 2. `YYYYMMDDHHMMSS_create_chat_threads_and_participants.cjs`
 3. `YYYYMMDDHHMMSS_create_chat_messages_and_attachments.cjs`
-4. (optional) `YYYYMMDDHHMMSS_create_chat_message_idempotency_tombstones.cjs` (required only if using the tombstone strategy for hard-delete duplicate suppression)
+4. `YYYYMMDDHHMMSS_create_chat_message_idempotency_tombstones.cjs`
 5. `YYYYMMDDHHMMSS_create_chat_reactions_and_indexes.cjs`
 6. (optional) `YYYYMMDDHHMMSS_add_chat_retention_or_pointer_indexes.cjs` if further tuning needed
 
@@ -1402,7 +1416,6 @@ Why split this way:
 - Prefer service-level invariants over DB check constraints if MySQL compatibility is uncertain
 - For nullable pointer columns (`last_message_id`, `last_read_message_id`), do not add FKs in v1
 - Add indexes early; chat queries are list-heavy and message-page heavy
-- If using the simpler “retain deleted message rows through retry window” policy, explicitly skip the tombstone migration and document the chosen retention behavior in deploy config/docs.
 - For `client_message_id` / `client_attachment_id` (and tombstone `client_message_id`), define exact-match semantics explicitly in schema/migrations (preferred: case-sensitive/binary collation) so idempotency behavior does not depend on DB default collation.
 
 ## Repository Layer Plan (server/modules/chat/repositories)
@@ -1414,7 +1427,7 @@ Create dedicated repositories mirroring patterns used by AI transcript repositor
 - `server/modules/chat/repositories/threads.repository.js`
 - `server/modules/chat/repositories/participants.repository.js`
 - `server/modules/chat/repositories/messages.repository.js`
-- `server/modules/chat/repositories/idempotencyTombstones.repository.js` (optional; required if hard-delete tombstone strategy is enabled)
+- `server/modules/chat/repositories/idempotencyTombstones.repository.js`
 - `server/modules/chat/repositories/attachments.repository.js`
 - `server/modules/chat/repositories/reactions.repository.js`
 - `server/modules/chat/repositories/userSettings.repository.js`
@@ -1438,14 +1451,14 @@ Reuse conventions from `server/modules/ai/repositories/*`:
 - `findById(threadId, options)`
 - `findDmByCanonicalPair({ scopeKey, userAId, userBId }, options)`
 - `listForUser(userId, filters, pagination, options)`
-  - if tombstone strategy retains empty threads with active tombstones, normal user-facing list queries should exclude tombstone-only empty threads (or equivalent hidden-state filter) so they do not appear as ghost/blank conversations
+  - normal user-facing list queries should exclude tombstone-only empty threads with active tombstones (or equivalent hidden-state filter) so they do not appear as ghost/blank conversations
 - `updateById(threadId, patch, options)`
 - `allocateNextMessageSequence(threadId, options)`
   - transaction-safe allocator (or `lockThreadForUpdate` + manual increment)
 - `updateLastMessageCache(threadId, cachePatch, options)`
 - `incrementParticipantCount(threadId, delta, options)`
 - retention helpers (optional): `deleteWithoutMessagesOlderThan(...)`
-  - if tombstone strategy is enabled, support excluding threads with active tombstones from empty-thread cleanup candidates
+  - support excluding threads with active tombstones from empty-thread cleanup candidates
 
 #### `participants.repository.js`
 
@@ -1470,21 +1483,21 @@ Reuse conventions from `server/modules/ai/repositories/*`:
 - `updateById(...)` for edit/delete markers
 - `countByThreadId(...)`
 - retention: `deleteOlderThan(cutoffDate, batchSize, options)`
-  - if tombstone strategy is enabled, support retention selection modes/filters that distinguish tombstone-eligible rows (e.g. `client_message_id` is null OR hash/version present) from legacy exception rows (`client_message_id` set but hash/version missing)
+  - support retention selection modes/filters that distinguish tombstone-eligible rows (e.g. `client_message_id` is null OR hash/version present) from legacy exception rows (`client_message_id` set but hash/version missing)
 
 Notes:
 
 - Message list/find repos can return core message rows only, but service hydration should use deterministic attachment/reaction ordering before building API responses or doing idempotency replay payload comparisons that depend on attachment IDs/order.
-- If the tombstone strategy is enabled, message hard-delete workflows should coordinate with `idempotencyTombstones.repository.js` so the duplicate-suppression tombstone write happens before (or atomically with) message deletion.
+- Message hard-delete workflows must coordinate with `idempotencyTombstones.repository.js` so the duplicate-suppression tombstone write happens before (or atomically with) message deletion.
 
-#### `idempotencyTombstones.repository.js` (optional strategy)
+#### `idempotencyTombstones.repository.js`
 
 - `insertForDeletedMessage(...)`
   - writes `(thread_id, sender_user_id, client_message_id, idempotency_payload_version, idempotency_payload_sha256, expires_at, ...)`
   - should be idempotent for repeated delete attempts/jobs (e.g. insert-or-update/upsert on the unique key), and should not fail the delete workflow on harmless duplicate tombstone writes
   - on duplicate key, verify immutable idempotency fields match existing row; do not silently overwrite hash/version
   - use deterministic duplicate-write merge rules for mutable fields (recommended: `expires_at = max(existing, incoming)`, bounded metadata merge or keep-existing)
-  - if the source message lacks `idempotency_payload_version`/`idempotency_payload_sha256` (legacy/backfill row), return an explicit unsupported/legacy result so the caller can apply the documented fallback (retain/redact row until retry window), not a partial tombstone write
+  - if the source message lacks `idempotency_payload_version`/`idempotency_payload_sha256` (legacy/backfill row), return an explicit unsupported/legacy result so the caller can apply the documented legacy-exception retention workflow, not a partial tombstone write
   - for non-duplicate errors (DB write failure, invariant mismatch) return a hard failure result; callers must not proceed to hard-delete the source message in tombstone mode
 - `findByClientMessageId(threadId, senderUserId, clientMessageId, options)`
 - `deleteExpiredBatch(now, batchSize, options)`
@@ -1800,8 +1813,8 @@ This is the most important server flow.
    - if an existing row is found and immutable hash+version are present, first compare `idempotency_payload_version`
    - if versions match, compare the stored immutable hash to `incomingIdempotencyPayloadSha256` (authoritative replay/conflict check)
    - if versions differ, use a documented compatibility path (e.g. recompute incoming payload under the stored version if supported) or fail safely with a bounded conflict/unsupported-idempotency response; do not silently compare hashes across different canonicalization versions
-   - if no live message row is found and product policy allows hard deletes within the client retry horizon, consult a retained idempotency tombstone/ledger record before treating the send as new
-   - if a matching tombstone/ledger row is found, apply the same version-aware hash comparison and return a bounded duplicate/deleted response (recommended `409` + stable error code) rather than inserting a new message row
+   - if no live message row is found, consult `chat_message_idempotency_tombstones` before treating the send as new
+   - if a matching tombstone row is found, apply the same version-aware hash comparison and return a bounded duplicate/deleted response (recommended `409` + stable error code) rather than inserting a new message row
    - if an existing row is found but immutable hash/version are absent (legacy/backfill/system row), use a documented fallback compare path (best effort) and avoid relying on mutable hydrated state where possible
    - if existing row matches the incoming idempotency payload, return existing message + thread summary (idempotent replay)
    - if the same key maps to a materially different payload, reject as conflict (`409`) rather than returning a misleading replay
@@ -2200,27 +2213,26 @@ Add retention rules for:
 - `chat_attachments` unattached expired uploads
 - `chat_attachments` soft-deleted rows/blobs (if soft delete strategy used)
 - `chat_messages` (hard-delete older than retention if allowed by product policy)
-- idempotency tombstone/ledger rows for deleted messages (if using the preferred hard-delete suppression strategy)
+- idempotency tombstone rows for deleted messages
 - `chat_threads` without messages (optional cleanup)
 
 ### Idempotency retention/tombstone requirement (important if hard deletes are enabled)
 
 If messages with non-null `client_message_id` can be hard-deleted (retention and/or moderation), the implementation must preserve duplicate-send suppression for a bounded client retry horizon. Otherwise the same `(thread_id, sender_user_id, client_message_id)` can be reinserted after deletion.
 
-Choose one explicit strategy and keep it consistent across send + retention flows:
+v1 strategy is fixed:
 
-- Preferred (more robust): write an idempotency tombstone/ledger row before hard-deleting the message row, containing at least:
-  - Fail-closed rule: if tombstone creation/update cannot be completed (and no documented fallback branch applies for that row), do **not** hard-delete the message row.
+- Write an idempotency tombstone row before hard-deleting the message row, containing at least:
+  - Fail-closed rule: if tombstone creation/update cannot be completed (and no documented legacy-exception branch applies for that row), do **not** hard-delete the message row.
   - `thread_id`, `sender_user_id`, `client_message_id`
   - `idempotency_payload_version`, `idempotency_payload_sha256`
-  - optional `original_message_id`, `deleted_at`, `expires_at`, `delete_reason`
-- Simpler: do not hard-delete messages with `client_message_id` until an idempotency retry window has elapsed (retain a deleted/redacted row if needed).
+  - `original_message_id`, `deleted_at`, `expires_at`, `delete_reason` (where available)
 
-Tombstone/ledger retention should be bounded (hours/days, product dependent) and cleaned by the same retention worker framework after the retry horizon expires.
+Tombstone retention must be bounded and cleaned by the same retention worker framework after the retry horizon expires.
 
 Important interaction with optional empty-thread cleanup:
 
-- If `chat_threads` without messages cleanup is enabled and tombstone strategy is active, do not delete an empty thread while it still has active (unexpired) tombstones.
+- If `chat_threads` without messages cleanup is enabled, do not delete an empty thread while it still has active (unexpired) tombstones.
 - Because tombstones FK to `chat_threads` with `ON DELETE CASCADE`, deleting the thread would remove the tombstones and prematurely end duplicate-send suppression.
 - Safe patterns:
   - run tombstone expiry cleanup before empty-thread cleanup and filter empty-thread deletion to threads with no remaining active tombstones, or
@@ -2231,25 +2243,21 @@ Important interaction with optional empty-thread cleanup:
 
 Define the retry horizon explicitly in config (recommended: `chatMessageIdempotencyRetryWindowHours`) and apply it consistently:
 
-- Tombstone strategy: `expires_at` for tombstones should be at least `deleted_at + retryWindow` (product may keep longer, but not shorter).
-- Retained-message fallback strategy: retention hard-delete selection for messages with non-null `client_message_id` must honor the retry window (effective deletion cutoff should not delete those rows before the retry horizon, even if the generic message-retention cutoff is earlier).
-- In practice, treat the effective hard-delete cutoff for `client_message_id` rows as the later of:
-  - the product retention cutoff, and
-  - the idempotency retry-window cutoff
-  unless the tombstone path is used and a valid tombstone is written in the same delete workflow.
+- Tombstone `expires_at` must be at least `deleted_at + retryWindow` (product may keep longer, but not shorter).
+- Hard-delete execution for messages with non-null `client_message_id` must be gated on a successful same-workflow tombstone write (or a documented legacy-exception branch that does not hard-delete yet).
 
 Legacy/backfill compatibility requirement (important):
 
-- If using the tombstone strategy in an existing deployment, handle messages that have `client_message_id` but lack `idempotency_payload_version` / `idempotency_payload_sha256` (pre-hash rows).
-- Recommended options:
-  - backfill idempotency hash/version for eligible retained rows before enabling hard-delete+tombstone processing, or
-  - treat those rows as “retain/redact until retry window elapses” exceptions and skip tombstone-based hard delete for them.
+- Handle messages that have `client_message_id` but lack `idempotency_payload_version` / `idempotency_payload_sha256` (pre-hash rows).
+- Required approach:
+  - backfill idempotency hash/version for eligible retained rows before they become hard-delete candidates, and
+  - until backfill exists, route those rows to a legacy-exception path that does not hard-delete without tombstone guarantees.
 - Do not emit tombstones without hash/version for these rows; that weakens the replay/conflict contract and creates ambiguous send behavior.
-- Operational requirement: avoid perpetual retention reprocessing loops for legacy exception rows. When tombstone strategy is enabled, hard-delete candidate selection should either:
+- Operational requirement: avoid perpetual retention reprocessing loops for legacy exception rows. Hard-delete candidate selection should either:
   - exclude rows with `client_message_id` present and missing hash/version from the hard-delete batch query, or
   - mark/route them to a separate backfill-or-redact exception workflow so they are not retried as tombstone deletes every sweep.
 - Emit bounded metrics/counters for legacy exception backlog (e.g. pre-hash rows blocking tombstone hard delete) so operators can see drift instead of silent churn.
-- This fail-closed rule applies to retention sweeps, moderation deletes, and any manual/admin hard-delete path that uses the tombstone strategy (not only the retention worker).
+- This fail-closed rule applies to retention sweeps, moderation deletes, and any manual/admin hard-delete path (not only the retention worker).
 
 Important cache repair requirement:
 
@@ -2448,13 +2456,13 @@ Using existing realtime test harness patterns adapted for chat:
 ### 7. Retention/cleanup tests
 
 - chat retention rules added to sweep output
-- idempotency tombstone/ledger expiry cleanup runs when tombstone strategy is enabled (or is explicitly absent when simpler retained-message strategy is selected)
-- effective message hard-delete cutoff honors `chatMessageIdempotencyRetryWindowHours` semantics for rows with `client_message_id` (retained-row fallback or valid same-workflow tombstone path)
+- idempotency tombstone expiry cleanup runs
+- effective message hard-delete cutoff honors `chatMessageIdempotencyRetryWindowHours` semantics for rows with `client_message_id` (hard delete only after valid same-workflow tombstone path)
 - repeated retention/moderation delete attempts do not fail on duplicate tombstone writes (tombstone insert path is idempotent/upsert-safe)
 - duplicate tombstone writes with mismatched immutable idempotency hash/version are detected and do not silently overwrite existing tombstone identity data
-- tombstone-enabled hard-delete flow handles legacy rows missing idempotency hash/version via the documented fallback (backfill-first or retain/redact exception), not partial tombstone writes or hard-delete failure loops
+- tombstone-enabled hard-delete flow handles legacy rows missing idempotency hash/version via the documented legacy-exception workflow (backfill-first + no hard delete until eligible), not partial tombstone writes or hard-delete failure loops
 - retention sweeps do not perpetually re-select the same legacy exception rows for tombstone deletion attempts (candidate filtering/exception routing prevents log churn)
-- tombstone strategy hard-delete paths fail closed on tombstone write errors/mismatches (message row remains until tombstone succeeds or a documented fallback path is applied)
+- tombstone strategy hard-delete paths fail closed on tombstone write errors/mismatches (message row remains until tombstone succeeds or a documented legacy-exception branch is applied)
 - optional empty-thread cleanup does not cascade-delete active tombstones before their retry-window expiry (threads with active tombstones are excluded/deferred)
 - threads retained only for active tombstones are not surfaced as ghost/blank conversations in inbox/thread-list queries (cache cleared + list filtering/hidden-state behavior)
 - tombstone-retained empty-thread repair resets participant seq/message-pointer state to empty-thread values (`last_*_seq = 0`, pointer IDs null) instead of leaving stale pre-delete cursors
@@ -2465,22 +2473,28 @@ Using existing realtime test harness patterns adapted for chat:
 
 ### Phase 0: Decision lock (before coding)
 
-Decide and document:
+v1 decisions are locked as follows:
 
-- whether global DMs can use internal `user_profiles.id` targeting in v1
-- whether `chat_user_settings` ships in v1 or defaults are env-only
-- whether attachments ship in v1 or v1.1
-- whether `draft_text` persists in v1
-- whether `global + group` is deferred (recommended defer)
-- idempotency retry-window value (hours) and whether tombstone expiry equals that window or extends beyond it
+- Global DMs must target users via public chat identifier; do not accept raw internal `user_profiles.id` in public APIs.
+- `chat_user_settings` ships in v1.
+- Attachments ship in v1 (`CHAT_ATTACHMENTS_ENABLED=true` default).
+- `draft_text` remains optional and is deferred from durable cross-device sync in v1.
+- `global + group` remains deferred; v1 global scope is DM-only.
+- `CHAT_MESSAGE_IDEMPOTENCY_RETRY_WINDOW_HOURS=72` default.
+- Tombstone expiry is `>= deleted_at + retryWindow` and may be extended by policy; never shorter.
+- Viewer role does not receive `chat.read` by default.
+- Message edit/delete user endpoints are out of v1; retention/moderation deletes are server-internal flows.
+- Block semantics for global DMs are immediate for both send and read access.
+- Workspace-wide admin read visibility into chat is out of v1 (membership remains the read gate).
+- `ciphertext_*` fields ship in schema now for E2EE-forward compatibility.
 
 ### Phase 1: Schema + repositories (no routes yet)
 
 - Add migrations for chat core tables
-- Add optional tombstone migration if the hard-delete tombstone strategy is selected
+- Add tombstone migration (required)
 - Add repositories and row mappers
 - Add repository tests
-- Add retention repository methods where needed (attachments/messages and tombstones if enabled)
+- Add retention repository methods where needed (attachments/messages and tombstones)
 
 ### Phase 2: Services + access model (no realtime yet)
 
@@ -2524,7 +2538,7 @@ Decide and document:
 - `migrations/*_create_chat_user_settings_and_blocks.cjs`
 - `migrations/*_create_chat_threads_and_participants.cjs`
 - `migrations/*_create_chat_messages_and_attachments.cjs`
-- `migrations/*_create_chat_message_idempotency_tombstones.cjs` (optional; tombstone strategy only)
+- `migrations/*_create_chat_message_idempotency_tombstones.cjs`
 - `migrations/*_create_chat_reactions.cjs`
 
 ### New repositories
@@ -2575,16 +2589,16 @@ Decide and document:
 - `server/workers/retentionProcessor.js`
 - `bin/worker.js` (retention config pass-through)
 
-## Open Questions (must be resolved before implementation starts)
+## Decision Lock (Resolved for implementation start)
 
-1. Do we allow global DMs by raw internal `user_profiles.id` in v1, or require `public_chat_id`?
-2. Should viewers have `chat.read` by default in the RBAC manifest?
-3. Should chat messages be retained indefinitely by default, or should retention be on from day 1?
-4. Are attachments in v1 required, or can we ship text/reactions/read-state first?
-5. Do we need message edit/delete in v1, or only send/read/react?
-6. For global DMs, should blocking immediately prevent reading history or only new sends?
-7. Do we need workspace-wide admin visibility into workspace chat threads/messages (compliance/moderation), or is thread membership the only read gate?
-8. Are we planning E2EE soon enough to justify shipping `ciphertext_*` fields immediately (recommended yes for schema future-proofing)?
+1. Global DM target identity: require public chat identifier in public APIs; no raw internal `user_profiles.id` targeting.
+2. Viewer RBAC default: no `chat.read` grant for `viewer` role in v1.
+3. Message retention default: enabled from day 1 with `CHAT_MESSAGES_RETENTION_DAYS=365` default.
+4. Attachments scope: included in v1 with attachment routes/storage/realtime events enabled by default.
+5. User delete/edit scope: user-facing message edit/delete endpoints deferred from v1; server-internal retention/moderation delete flows stay in scope.
+6. Block semantics: block is immediate and prevents both new sends and further reads in global DMs.
+7. Workspace admin visibility: no special admin read bypass in v1; participant membership remains required.
+8. E2EE schema readiness: ship `ciphertext_*` fields in v1 schema now; plaintext mode remains default behavior until E2EE rollout.
 
 ## Summary of Recommended v1 (robust but achievable)
 
