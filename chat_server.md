@@ -1,5 +1,20 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Eighth Review Amendments Summary (Post-commit server review #8)
+
+This section records corrections made during an eighth pass after the prior review cycles.
+
+### Consistency / implementation-robustness corrections
+
+- Added participant rejoin/reactivation guidance for `chat_thread_participants`: because of `UNIQUE(thread_id, user_id)`, re-adding a former participant must update/reactivate the existing row, not insert a new one.
+- Tightened `POST /api/chat/threads/:threadId/messages` endpoint wording to match the plan’s idempotency stance: `clientMessageId` should be required in v1 (not merely implied/optional).
+- Clarified `chat_messages.client_message_id` schema intent: column remains nullable for system/backfill messages, while v1 user send endpoints should require it.
+
+### Cache correctness / behavior clarifications
+
+- Added thread cache invalidation guidance for message edit/delete flows (especially when the affected message is the cached latest message), not just retention jobs.
+- Clarified `last_message_preview` behavior on delete/redaction in plaintext mode: recompute from latest surviving visible message or clear it.
+
 ## Seventh Review Amendments Summary (Post-commit server review #7)
 
 This section records corrections made during a seventh pass after the prior review cycles.
@@ -707,6 +722,7 @@ Notes:
   - prefer filtering in SQL join predicates where possible
   - otherwise over-fetch and refill until the requested page size is reached (or result set exhausted) to avoid sparse/unstable pages
 - Do not rely on blind user-row cascades for chat membership cleanup. If account deletion/erasure is a product requirement, implement an explicit chat-aware deactivation/anonymization or erasure workflow that preserves thread invariants (or updates them transactionally).
+- Because of `UNIQUE(thread_id, user_id)`, participant rejoin/reinvite flows should reactivate/update the existing row (`status`, `joined_at`/audit fields as policy dictates) rather than inserting a second row.
 
 ### Table 5: `chat_messages`
 
@@ -723,6 +739,7 @@ Columns:
 - `sender_user_id` BIGINT UNSIGNED NOT NULL
 - `client_message_id` VARCHAR(128) NULL
   - client-generated idempotency key scoped to sender+thread
+  - nullable for system/generated/backfill messages; v1 user send endpoints should require it
 - `message_kind` VARCHAR(32) NOT NULL DEFAULT `text`
   - values: `text`, `system`, `attachment`, `call`, `event`
 - `reply_to_message_id` BIGINT UNSIGNED NULL
@@ -1147,7 +1164,7 @@ Create a new module mirroring other modules:
 - `GET /api/chat/threads/:threadId`
 - `GET /api/chat/threads/:threadId/messages`
 - `POST /api/chat/threads/:threadId/messages`
-  - idempotent via `clientMessageId` in body
+  - idempotent via required `clientMessageId` in body (v1 recommendation)
 - `POST /api/chat/threads/:threadId/read`
   - update read cursor by `messageId` or `threadSeq`
 - `POST /api/chat/threads/:threadId/reactions`
@@ -1241,6 +1258,15 @@ This is the most important server flow.
 - Prevents duplicate seq values under concurrency
 - Prevents attachment theft/reuse across users/threads
 - Ensures thread list cache is updated atomically with message insert
+
+### Message edit/delete cache maintenance (important)
+
+If v1 or later adds message edit/delete endpoints (or moderation redaction actions), thread cache fields need explicit maintenance beyond the send path:
+
+- if the affected message is not the cached latest message, update only fields impacted by preview policy (often none)
+- if the affected message is the cached latest message, recompute `last_message_id`, `last_message_seq`, `last_message_at`, and `last_message_preview` from the latest surviving visible message in the thread
+- if no visible messages remain, clear `last_message_*` cache fields
+- in plaintext mode, delete/redaction of the cached latest message should recompute or clear `last_message_preview` rather than leaving stale text cached
 
 ## Read Receipt / Unread Count Model
 
