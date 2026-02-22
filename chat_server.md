@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Thirty-sixth Review Amendments Summary (Post-commit server review #36)
+
+This section records corrections made during a thirty-sixth pass after the prior review cycles.
+
+### Hard-delete idempotency resurrection prevention
+
+- Fixed a real `clientMessageId` durability gap: if a message row is hard-deleted (retention/moderation), the unique row disappears and the same `clientMessageId` could later be inserted again, effectively recreating a deleted send.
+- Added plan guidance for a bounded idempotency-retention window via message-row retention or a dedicated idempotency tombstone ledger, and updated the `sendMessage` replay/conflict flow to consult tombstones when the live message row is gone.
+- Added retention/test-plan expectations so hard-delete flows preserve idempotency semantics (no deleted-message resurrection via duplicate retries).
+
 ## Thirty-fifth Review Amendments Summary (Post-commit server review #35)
 
 This section records corrections made during a thirty-fifth pass after the prior review cycles.
@@ -1577,6 +1587,8 @@ This is the most important server flow.
    - if an existing row is found and immutable hash+version are present, first compare `idempotency_payload_version`
    - if versions match, compare the stored immutable hash to `incomingIdempotencyPayloadSha256` (authoritative replay/conflict check)
    - if versions differ, use a documented compatibility path (e.g. recompute incoming payload under the stored version if supported) or fail safely with a bounded conflict/unsupported-idempotency response; do not silently compare hashes across different canonicalization versions
+   - if no live message row is found and product policy allows hard deletes within the client retry horizon, consult a retained idempotency tombstone/ledger record before treating the send as new
+   - if a matching tombstone/ledger row is found, apply the same version-aware hash comparison and return a bounded duplicate/deleted response (recommended `409` + stable error code) rather than inserting a new message row
    - if an existing row is found but immutable hash/version are absent (legacy/backfill/system row), use a documented fallback compare path (best effort) and avoid relying on mutable hydrated state where possible
    - if existing row matches the incoming idempotency payload, return existing message + thread summary (idempotent replay)
    - if the same key maps to a materially different payload, reject as conflict (`409`) rather than returning a misleading replay
@@ -1618,6 +1630,7 @@ Recommended behavior:
 ### Why this is robust
 
 - Handles retries safely (idempotency)
+- Preserves idempotency semantics across hard-delete retention/moderation paths (tombstone/retained-key strategy prevents deleted-message resurrection on duplicate retries)
 - Handles concurrent duplicate-send races safely by falling back on the DB unique constraint + re-read path
 - Handles transient DB concurrency failures with bounded retry behavior
 - Prevents duplicate seq values under concurrency
@@ -1973,7 +1986,22 @@ Add retention rules for:
 - `chat_attachments` unattached expired uploads
 - `chat_attachments` soft-deleted rows/blobs (if soft delete strategy used)
 - `chat_messages` (hard-delete older than retention if allowed by product policy)
+- idempotency tombstone/ledger rows for deleted messages (if using the preferred hard-delete suppression strategy)
 - `chat_threads` without messages (optional cleanup)
+
+### Idempotency retention/tombstone requirement (important if hard deletes are enabled)
+
+If messages with non-null `client_message_id` can be hard-deleted (retention and/or moderation), the implementation must preserve duplicate-send suppression for a bounded client retry horizon. Otherwise the same `(thread_id, sender_user_id, client_message_id)` can be reinserted after deletion.
+
+Choose one explicit strategy and keep it consistent across send + retention flows:
+
+- Preferred (more robust): write an idempotency tombstone/ledger row before hard-deleting the message row, containing at least:
+  - `thread_id`, `sender_user_id`, `client_message_id`
+  - `idempotency_payload_version`, `idempotency_payload_sha256`
+  - optional `original_message_id`, `deleted_at`, `expires_at`, `delete_reason`
+- Simpler: do not hard-delete messages with `client_message_id` until an idempotency retry window has elapsed (retain a deleted/redacted row if needed).
+
+Tombstone/ledger retention should be bounded (hours/days, product dependent) and cleaned by the same retention worker framework after the retry horizon expires.
 
 Important cache repair requirement:
 
@@ -2097,6 +2125,7 @@ Per repository:
 - E2EE mode: same `clientMessageId` replay with exact same ciphertext/nonce payload replays successfully; changed opaque encrypted payload is conflict under v1 compare rules
 - duplicate `clientMessageId` replay still succeeds after later mutable-state changes (e.g. `reply_to_message_id` repaired/null'd by retention or attachment moderation state changes) because replay/conflict uses the stored immutable idempotency fingerprint, not mutable hydrated message state
 - idempotency replay/conflict checks remain stable across canonicalization-rule upgrades because stored fingerprints carry an explicit version and the compare path is version-aware (or fails safely if an old version is unsupported)
+- duplicate `clientMessageId` retry after original-message hard delete is suppressed by the documented tombstone/retained-key path (no message resurrection)
 - deadlock / lock-timeout transient DB errors retry successfully within bounded retry policy
 - service-level send throttling/quota enforcement denies over-limit sends independently of route middleware
 - post-commit realtime publish failure does not lose the message or incorrectly rollback/send error (client can recover via fetch path)
