@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Sixteenth Review Amendments Summary (Post-commit server review #16)
+
+This section records corrections made during a sixteenth pass after the prior review cycles.
+
+### Existing-code integration / authz hardening clarifications
+
+- Expanded scope-agnostic surface-handling guidance beyond thread-id routes: `GET /api/chat/inbox` and `GET /api/chat/attachments/:attachmentId/content` can also touch workspace-scoped data and therefore must not rely on `/api/chat/...` path-based surface inference (which defaults to `app` in this codebase).
+- Added an explicit validation warning for `x-surface-id`: do not use `normalizeSurfaceId(...)` as the validator for untrusted request input because invalid values silently normalize to `app`; instead validate raw/canonicalized header values against an explicit allowlist before any normalization fallback behavior is applied.
+- Extended the route integration test expectations to cover invalid/ambiguous `x-surface-id` handling (no silent fallback-to-`app`) on scope-agnostic workspace chat reads.
+
 ## Fifteenth Review Amendments Summary (Post-commit server review #15)
 
 This section records corrections made during a fifteenth pass after the prior review cycles.
@@ -1241,6 +1251,7 @@ Create a new module mirroring other modules:
 - `GET /api/chat/inbox`
   - `auth: required`
   - returns inbox results according to surface + policy (mixed where allowed; not universally mixed)
+  - if workspace-thread rows are eligible in this request mode, require a validated workspace-capable surface value (practically `x-surface-id`) instead of inferring surface from `/api/chat/...` path fallback
   - v1 recommended default on `console` surface: global threads only
   - v1 recommended default on workspace surfaces: `global` + active workspace threads only (fits current single-workspace request context model)
   - full all-workspaces inbox mode should be explicit and must use authz-aware server filtering/pagination
@@ -1262,6 +1273,7 @@ Create a new module mirroring other modules:
   - authenticated attachment delivery endpoint (or redirect/sign URL issuance endpoint)
   - must verify thread/message access before streaming/redirecting attachment content
   - if attachment is unattached/staged, restrict access to uploader (and admins only if explicitly allowed)
+  - if attachment belongs to a workspace-scoped thread, require the same validated workspace-capable surface handling as other scope-agnostic workspace chat routes (do not infer from `/api/chat/...` path fallback)
 
 #### Attachment upload endpoints (recommended two-step)
 
@@ -1298,6 +1310,7 @@ Then inside service/controller:
 - load thread
 - if `scope_kind=workspace`, require a workspace-capable surface (`app`/`admin`); reject on `console` surface
 - if `scope_kind=workspace`, treat client `x-surface-id` as untrusted input: validate against allowed workspace surfaces (`app`/`admin`) and reject ambiguous/invalid values
+  - do not use `normalizeSurfaceId(...)` as the validator for this header value, because in the current codebase it silently falls back to `app` for unknown inputs; validate raw/canonicalized header text against an explicit allowlist first
 - if `scope_kind=workspace`, resolve workspace context and permission via `workspaceService.resolveRequestContext(...)` using the **server-loaded thread workspace identity** (not client-provided `x-workspace-slug`) plus the validated request surface
   - implementation note: in the current codebase `resolveRequestContext(...)` reads workspace/surface from request headers/query/params, so use a server-sanitized request shim (or dedicated helper) that injects the thread workspace slug and validated surface instead of passing the raw request unchanged
   - important: `resolveRequestContext(...)` also updates `lastActiveWorkspaceId` as part of selection logic today and may call `ensurePersonalWorkspaceForUser(...)` in personal tenancy mode; avoid calling it in authz-only loops/paths unless using a no-side-effects helper/mode, or you risk mutating user/workspace state during thread reads/inbox listing
@@ -1835,6 +1848,7 @@ Per repository:
 
 - workspace-scoped routes enforce auth + workspace permission + participant membership
 - scope-agnostic workspace-thread routes enforce validated workspace-capable surface and do not mutate `lastActiveWorkspaceId` (or trigger personal-workspace provisioning) during authz-only reads/listing (no-side-effects helper path)
+- invalid/ambiguous `x-surface-id` on scope-agnostic workspace chat reads (`inbox`, thread reads, attachment content`) is rejected explicitly and never silently normalized/fallbacked to `app`
 - global DM routes enforce feature flags and block settings
 - error codes and payload shapes match conventions (`400`, `401`, `403`, `404`, `409`)
 - multipart attachment upload route behavior and validation errors
