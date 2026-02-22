@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Fiftieth Review Amendments Summary (Post-commit server review #50)
+
+This section records corrections made during a fiftieth pass after the prior review cycles.
+
+### Empty-thread cursor repair semantics (tombstone-retained threads)
+
+- Fixed an integrity gap in retention/cache-repair guidance: participant seq cursors were only described as clamped to `<= thread.last_message_seq`, which is ambiguous when a thread becomes empty and `last_message_seq` is `NULL` (including tombstone-only retained threads).
+- Added explicit empty-thread repair semantics requiring participant seq cursors to clamp/reset to `0` and message-pointer columns to be nulled when the thread is in an empty-thread cache state.
+- Added retention test coverage expectations for tombstone-retained empty threads to verify cursor/pointer repair and prevent stale nonzero cursors on hidden threads.
+
 ## Forty-ninth Review Amendments Summary (Post-commit server review #49)
 
 This section records corrections made during a forty-ninth pass after the prior review cycles.
@@ -2251,6 +2261,7 @@ Important cache repair requirement:
 - and must null/repair affected participant message-pointer columns where the referenced message row no longer exists
 - and should clamp participant seq cursors (`last_read_seq`, `last_delivered_seq`) to `<= thread.last_message_seq` for affected threads to keep cursor math and invariants consistent after deletions
 - and, when tombstone strategy preserves an otherwise-empty thread, must clear `last_message_*` caches and ensure that thread is not returned as a normal user-visible conversation solely because tombstones remain
+- and, when a thread is in an empty-thread cache state (`last_message_seq` is null), must treat participant sequence cursors as empty-thread values (clamp/reset to `0`) and null message-pointer columns (`last_read_message_id`, `last_delivered_message_id`) rather than leaving stale nonzero cursors
 - This repair step should be part of the same retention worker flow (or an immediately chained job) to avoid stale inbox ordering/previews and dangling pointers.
 
 If `chat_messages.reply_to_message_id` FK is omitted in v1 (allowed earlier for migration simplicity):
@@ -2446,6 +2457,7 @@ Using existing realtime test harness patterns adapted for chat:
 - tombstone strategy hard-delete paths fail closed on tombstone write errors/mismatches (message row remains until tombstone succeeds or a documented fallback path is applied)
 - optional empty-thread cleanup does not cascade-delete active tombstones before their retry-window expiry (threads with active tombstones are excluded/deferred)
 - threads retained only for active tombstones are not surfaced as ghost/blank conversations in inbox/thread-list queries (cache cleared + list filtering/hidden-state behavior)
+- tombstone-retained empty-thread repair resets participant seq/message-pointer state to empty-thread values (`last_*_seq = 0`, pointer IDs null) instead of leaving stale pre-delete cursors
 - attachment orphan cleanup deletes DB row + storage blob
 - safe no-op when blob already missing
 
