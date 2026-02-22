@@ -15,6 +15,7 @@ import {
   toPositiveInteger,
   toSafeMetadata
 } from "./webhookProjection.utils.js";
+import { recordConfirmedPurchaseForInvoicePaid } from "./purchaseLedgerProjection.utils.js";
 
 const DUPLICATE_SELECTION_ALGORITHM_VERSION = "dup_canonical_v1";
 
@@ -526,7 +527,7 @@ function createService(options = {}) {
   }
 
   async function projectInvoiceAndPayment(invoice, eventContext) {
-    const { trx, providerCreatedAt, providerEventId, eventType } = eventContext;
+    const { trx, providerCreatedAt, providerEventId, eventType, billingEventId } = eventContext;
 
     let projectionInvoice = invoice;
     let projectionProviderCreatedAt = providerCreatedAt;
@@ -796,6 +797,26 @@ function createService(options = {}) {
         },
         { trx }
       );
+
+      if (eventType === "invoice.paid") {
+        await recordConfirmedPurchaseForInvoicePaid(
+          {
+            billingRepository,
+            provider: activeProvider,
+            trx,
+            billableEntityId: resolvedBillableEntityId,
+            providerInvoiceId,
+            providerPaymentId,
+            providerCustomerId: projectionProviderCustomerId || customer?.providerCustomerId || null,
+            invoice: projectionInvoice,
+            operationKey: toNullableString(projectionMetadata.operation_key),
+            billingEventId,
+            providerCreatedAt: projectionProviderCreatedAt,
+            subscription,
+            providerEventId: projectionProviderEventId
+          }
+        );
+      }
     }
   }
 

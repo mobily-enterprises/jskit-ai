@@ -179,8 +179,9 @@ function mapSubscriptionRowNullable(row) {
     id: Number(row.id),
     billableEntityId: Number(row.billable_entity_id),
     planId: Number(row.plan_id),
-    billingCustomerId: Number(row.billing_customer_id),
+    billingCustomerId: row.billing_customer_id == null ? null : Number(row.billing_customer_id),
     provider: normalizeProvider(row.provider),
+    providerCustomerId: row.provider_customer_id == null ? null : String(row.provider_customer_id),
     providerSubscriptionId: String(row.provider_subscription_id || ""),
     status: String(row.status || BILLING_SUBSCRIPTION_STATUS.INCOMPLETE),
     providerSubscriptionCreatedAt: toIsoString(row.provider_subscription_created_at),
@@ -577,6 +578,8 @@ function mapPlanAssignmentRowNullable(row) {
     return null;
   }
 
+  const status = String(row.status || (row.is_current ? "current" : "past"));
+
   return {
     id: Number(row.id),
     billableEntityId: Number(row.billable_entity_id),
@@ -584,14 +587,40 @@ function mapPlanAssignmentRowNullable(row) {
     source: String(row.source || "internal"),
     periodStartAt: toIsoString(row.period_start_at),
     periodEndAt: toIsoString(row.period_end_at),
-    isCurrent: Boolean(row.is_current),
+    status,
+    isCurrent: status === "current",
     metadataJson: parseJsonValue(row.metadata_json, {}),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at)
   };
 }
 
-function mapPlanChangeScheduleRowNullable(row) {
+function mapPlanAssignmentProviderDetailsRowNullable(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    billingPlanAssignmentId: Number(row.billing_plan_assignment_id),
+    provider: normalizeProvider(row.provider),
+    providerSubscriptionId: String(row.provider_subscription_id || ""),
+    providerCustomerId: row.provider_customer_id == null ? null : String(row.provider_customer_id),
+    providerStatus: row.provider_status == null ? null : String(row.provider_status),
+    providerSubscriptionCreatedAt: toNullableIsoString(row.provider_subscription_created_at),
+    currentPeriodEnd: toNullableIsoString(row.current_period_end),
+    trialEnd: toNullableIsoString(row.trial_end),
+    canceledAt: toNullableIsoString(row.canceled_at),
+    cancelAtPeriodEnd: Boolean(row.cancel_at_period_end),
+    endedAt: toNullableIsoString(row.ended_at),
+    lastProviderEventCreatedAt: toNullableIsoString(row.last_provider_event_created_at),
+    lastProviderEventId: row.last_provider_event_id == null ? null : String(row.last_provider_event_id),
+    metadataJson: parseJsonValue(row.metadata_json, {}),
+    createdAt: toIsoString(row.created_at),
+    updatedAt: toIsoString(row.updated_at)
+  };
+}
+
+function mapBillingPurchaseRowNullable(row) {
   if (!row) {
     return null;
   }
@@ -599,15 +628,24 @@ function mapPlanChangeScheduleRowNullable(row) {
   return {
     id: Number(row.id),
     billableEntityId: Number(row.billable_entity_id),
-    fromPlanId: row.from_plan_id == null ? null : Number(row.from_plan_id),
-    targetPlanId: Number(row.target_plan_id),
-    changeKind: String(row.change_kind || "downgrade"),
-    effectiveAt: toIsoString(row.effective_at),
-    status: String(row.status || "pending"),
-    requestedByUserId: row.requested_by_user_id == null ? null : Number(row.requested_by_user_id),
-    canceledByUserId: row.canceled_by_user_id == null ? null : Number(row.canceled_by_user_id),
-    appliedAt: toNullableIsoString(row.applied_at),
+    workspaceId: row.workspace_id == null ? null : Number(row.workspace_id),
+    provider: normalizeProvider(row.provider),
+    purchaseKind: String(row.purchase_kind || ""),
+    status: String(row.status || "confirmed"),
+    amountMinor: Number(row.amount_minor || 0),
+    currency: String(row.currency || "").toUpperCase(),
+    quantity: row.quantity == null ? null : Number(row.quantity),
+    operationKey: row.operation_key == null ? null : String(row.operation_key),
+    providerCustomerId: row.provider_customer_id == null ? null : String(row.provider_customer_id),
+    providerCheckoutSessionId:
+      row.provider_checkout_session_id == null ? null : String(row.provider_checkout_session_id),
+    providerPaymentId: row.provider_payment_id == null ? null : String(row.provider_payment_id),
+    providerInvoiceId: row.provider_invoice_id == null ? null : String(row.provider_invoice_id),
+    billingEventId: row.billing_event_id == null ? null : Number(row.billing_event_id),
+    displayName: row.display_name == null ? null : String(row.display_name),
     metadataJson: parseJsonValue(row.metadata_json, {}),
+    dedupeKey: String(row.dedupe_key || ""),
+    purchasedAt: toIsoString(row.purchased_at),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at)
   };
@@ -999,12 +1037,19 @@ function createBillingRepository(dbClient) {
     };
   }
 
+  async function findPlanAssignmentById(id, options = {}) {
+    const client = resolveClient(options);
+    const query = client("billing_plan_assignments").where({ id: Number(id) }).first();
+    const row = await applyForUpdate(query, options);
+    return mapPlanAssignmentRowNullable(row);
+  }
+
   async function findCurrentPlanAssignmentForEntity(billableEntityId, options = {}) {
     const client = resolveClient(options);
     const query = client("billing_plan_assignments")
       .where({
         billable_entity_id: Number(billableEntityId),
-        is_current: true
+        status: "current"
       })
       .orderBy("id", "asc")
       .first();
@@ -1012,17 +1057,176 @@ function createBillingRepository(dbClient) {
     return mapPlanAssignmentRowNullable(row);
   }
 
+  async function findUpcomingPlanAssignmentForEntity(billableEntityId, options = {}) {
+    const client = resolveClient(options);
+    const query = client("billing_plan_assignments")
+      .where({
+        billable_entity_id: Number(billableEntityId),
+        status: "upcoming"
+      })
+      .orderBy("id", "asc")
+      .first();
+    const row = await applyForUpdate(query, options);
+    return mapPlanAssignmentRowNullable(row);
+  }
+
+  async function listPlanAssignmentsForEntity({ billableEntityId, statuses = null, limit = 100 } = {}, options = {}) {
+    const client = resolveClient(options);
+    let query = client("billing_plan_assignments")
+      .where({ billable_entity_id: Number(billableEntityId) })
+      .orderBy("period_start_at", "desc")
+      .orderBy("id", "desc")
+      .limit(Math.max(1, Math.min(500, Number(limit) || 100)));
+
+    if (Array.isArray(statuses) && statuses.length > 0) {
+      query = query.whereIn(
+        "status",
+        statuses.map((value) => String(value || "").trim()).filter(Boolean)
+      );
+    }
+
+    const rows = await query;
+    return rows.map(mapPlanAssignmentRowNullable).filter(Boolean);
+  }
+
+  async function updatePlanAssignmentById(id, patch = {}, options = {}) {
+    const client = resolveClient(options);
+    const dbPatch = {};
+
+    if (Object.hasOwn(patch, "planId")) {
+      dbPatch.plan_id = Number(patch.planId);
+    }
+    if (Object.hasOwn(patch, "source")) {
+      dbPatch.source = String(patch.source || "internal").trim() || "internal";
+    }
+    if (Object.hasOwn(patch, "status")) {
+      dbPatch.status = String(patch.status || "past").trim() || "past";
+    }
+    if (Object.hasOwn(patch, "periodStartAt")) {
+      dbPatch.period_start_at = toInsertDateTime(patch.periodStartAt, new Date());
+    }
+    if (Object.hasOwn(patch, "periodEndAt")) {
+      dbPatch.period_end_at = toInsertDateTime(patch.periodEndAt, new Date());
+    }
+    if (Object.hasOwn(patch, "metadataJson")) {
+      dbPatch.metadata_json = patch.metadataJson == null ? null : JSON.stringify(patch.metadataJson);
+    }
+
+    if (Object.keys(dbPatch).length > 0) {
+      dbPatch.updated_at = toInsertDateTime(new Date(), new Date());
+      await client("billing_plan_assignments").where({ id: Number(id) }).update(dbPatch);
+    }
+
+    return findPlanAssignmentById(id, {
+      ...options,
+      trx: client
+    });
+  }
+
   async function clearCurrentPlanAssignmentsForEntity(billableEntityId, options = {}) {
     const client = resolveClient(options);
     await client("billing_plan_assignments")
       .where({
         billable_entity_id: Number(billableEntityId),
-        is_current: true
+        status: "current"
       })
       .update({
-        is_current: false,
+        status: "past",
         updated_at: toInsertDateTime(new Date(), new Date())
       });
+  }
+
+  async function cancelUpcomingPlanAssignmentForEntity(
+    { billableEntityId, metadataJson = null, canceledByUserId = null } = {},
+    options = {}
+  ) {
+    const client = resolveClient(options);
+    const upcoming = await findUpcomingPlanAssignmentForEntity(billableEntityId, {
+      ...options,
+      trx: client,
+      forUpdate: true
+    });
+    if (!upcoming) {
+      return null;
+    }
+
+    const nextMetadata = {
+      ...(upcoming.metadataJson && typeof upcoming.metadataJson === "object" ? upcoming.metadataJson : {}),
+      ...(metadataJson && typeof metadataJson === "object" ? metadataJson : {})
+    };
+    if (canceledByUserId != null) {
+      nextMetadata.canceledByUserId = Number(canceledByUserId);
+    }
+
+    await client("billing_plan_assignments")
+      .where({ id: Number(upcoming.id) })
+      .update({
+        status: "canceled",
+        metadata_json: JSON.stringify(nextMetadata),
+        updated_at: toInsertDateTime(new Date(), new Date())
+      });
+
+    return findPlanAssignmentById(upcoming.id, {
+      ...options,
+      trx: client
+    });
+  }
+
+  async function replaceUpcomingPlanAssignmentForEntity(payload, options = {}) {
+    const client = resolveClient(options);
+    const now = new Date();
+    const normalizedBillableEntityId = Number(payload?.billableEntityId);
+
+    await cancelUpcomingPlanAssignmentForEntity(
+      {
+        billableEntityId: normalizedBillableEntityId,
+        metadataJson: {
+          replacedBy: "replaceUpcomingPlanAssignmentForEntity"
+        },
+        canceledByUserId: payload?.requestedByUserId == null ? null : Number(payload.requestedByUserId)
+      },
+      {
+        ...options,
+        trx: client
+      }
+    );
+
+    return insertPlanAssignment(
+      {
+        billableEntityId: normalizedBillableEntityId,
+        planId: Number(payload?.targetPlanId || payload?.planId),
+        source: String(payload?.source || (payload?.changeKind === "promo_fallback" ? "promo" : "manual"))
+          .trim()
+          .toLowerCase() || "manual",
+        status: "upcoming",
+        periodStartAt: payload?.effectiveAt || now,
+        periodEndAt:
+          payload?.periodEndAt ||
+          new Date(new Date(payload?.effectiveAt || now).getTime() + 30 * 24 * 60 * 60 * 1000),
+        metadataJson: {
+          ...(payload?.metadataJson && typeof payload.metadataJson === "object" ? payload.metadataJson : {}),
+          changeKind: payload?.changeKind || "downgrade",
+          requestedByUserId: payload?.requestedByUserId == null ? null : Number(payload.requestedByUserId),
+          fromPlanId: payload?.fromPlanId == null ? null : Number(payload.fromPlanId)
+        }
+      },
+      {
+        ...options,
+        trx: client
+      }
+    );
+  }
+
+  async function listDueUpcomingPlanAssignments({ periodStartAtOrBefore, limit = 50 } = {}, options = {}) {
+    const client = resolveClient(options);
+    const threshold = periodStartAtOrBefore || new Date();
+    const rows = await client("billing_plan_assignments")
+      .where({ status: "upcoming" })
+      .andWhere("period_start_at", "<=", toInsertDateTime(threshold, threshold))
+      .orderBy("period_start_at", "asc")
+      .orderBy("id", "asc")
+      .limit(Math.max(1, Math.min(200, Number(limit) || 50)));
+    return rows.map(mapPlanAssignmentRowNullable).filter(Boolean);
   }
 
   async function insertPlanAssignment(payload, options = {}) {
@@ -1031,167 +1235,46 @@ function createBillingRepository(dbClient) {
 
     const normalizedBillableEntityId = Number(payload?.billableEntityId);
     const normalizedPlanId = Number(payload?.planId);
-    const isCurrent = payload?.isCurrent !== false;
-    if (isCurrent) {
+    const explicitStatus = toNullableString(payload?.status);
+    const resolvedStatus = explicitStatus || (payload?.isCurrent === false ? "past" : "current");
+
+    if (resolvedStatus === "current") {
       await clearCurrentPlanAssignmentsForEntity(normalizedBillableEntityId, {
         ...options,
         trx: client
       });
+    }
+    if (resolvedStatus === "upcoming") {
+      await cancelUpcomingPlanAssignmentForEntity(
+        {
+          billableEntityId: normalizedBillableEntityId,
+          metadataJson: {
+            replacedByInsert: true
+          }
+        },
+        {
+          ...options,
+          trx: client
+        }
+      );
     }
 
     const [id] = await client("billing_plan_assignments").insert({
       billable_entity_id: normalizedBillableEntityId,
       plan_id: normalizedPlanId,
       source: String(payload?.source || "internal").trim() || "internal",
+      status: resolvedStatus,
       period_start_at: toInsertDateTime(payload?.periodStartAt, now),
       period_end_at: toInsertDateTime(payload?.periodEndAt, now),
-      is_current: isCurrent,
       metadata_json: payload?.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
       created_at: toInsertDateTime(payload?.createdAt, now),
       updated_at: toInsertDateTime(payload?.updatedAt, now)
     });
 
-    const row = await client("billing_plan_assignments").where({ id }).first();
-    return mapPlanAssignmentRowNullable(row);
-  }
-
-  async function findPendingPlanChangeScheduleForEntity(billableEntityId, options = {}) {
-    const client = resolveClient(options);
-    const query = client("billing_plan_change_schedules")
-      .where({
-        billable_entity_id: Number(billableEntityId),
-        status: "pending"
-      })
-      .orderBy("id", "asc")
-      .first();
-    const row = await applyForUpdate(query, options);
-    return mapPlanChangeScheduleRowNullable(row);
-  }
-
-  async function findPlanChangeScheduleById(id, options = {}) {
-    const client = resolveClient(options);
-    const query = client("billing_plan_change_schedules").where({ id: Number(id) }).first();
-    const row = await applyForUpdate(query, options);
-    return mapPlanChangeScheduleRowNullable(row);
-  }
-
-  async function replacePendingPlanChangeSchedule(payload, options = {}) {
-    const now = new Date();
-    const client = resolveClient(options);
-    const normalizedBillableEntityId = Number(payload?.billableEntityId);
-    const normalizedRequestedByUserId = toPositiveInteger(payload?.requestedByUserId);
-
-    await client("billing_plan_change_schedules")
-      .where({
-        billable_entity_id: normalizedBillableEntityId,
-        status: "pending"
-      })
-      .update({
-        status: "canceled",
-        canceled_by_user_id: normalizedRequestedByUserId || null,
-        updated_at: toInsertDateTime(now, now)
-      });
-
-    const [id] = await client("billing_plan_change_schedules").insert({
-      billable_entity_id: normalizedBillableEntityId,
-      from_plan_id: payload?.fromPlanId == null ? null : Number(payload.fromPlanId),
-      target_plan_id: Number(payload?.targetPlanId),
-      change_kind: String(payload?.changeKind || "downgrade").trim() || "downgrade",
-      effective_at: toInsertDateTime(payload?.effectiveAt, now),
-      status: "pending",
-      requested_by_user_id: normalizedRequestedByUserId || null,
-      metadata_json: payload?.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
-      created_at: toInsertDateTime(payload?.createdAt, now),
-      updated_at: toInsertDateTime(payload?.updatedAt, now)
-    });
-
-    const row = await client("billing_plan_change_schedules").where({ id }).first();
-    return mapPlanChangeScheduleRowNullable(row);
-  }
-
-  async function updatePlanChangeScheduleById(id, patch = {}, options = {}) {
-    const client = resolveClient(options);
-    const dbPatch = {};
-
-    if (Object.hasOwn(patch, "fromPlanId")) {
-      dbPatch.from_plan_id = patch.fromPlanId == null ? null : Number(patch.fromPlanId);
-    }
-    if (Object.hasOwn(patch, "targetPlanId")) {
-      dbPatch.target_plan_id = Number(patch.targetPlanId);
-    }
-    if (Object.hasOwn(patch, "changeKind")) {
-      dbPatch.change_kind = String(patch.changeKind || "").trim() || "downgrade";
-    }
-    if (Object.hasOwn(patch, "effectiveAt")) {
-      dbPatch.effective_at = toInsertDateTime(patch.effectiveAt, new Date());
-    }
-    if (Object.hasOwn(patch, "status")) {
-      dbPatch.status = String(patch.status || "").trim() || "pending";
-    }
-    if (Object.hasOwn(patch, "requestedByUserId")) {
-      dbPatch.requested_by_user_id = toPositiveInteger(patch.requestedByUserId);
-    }
-    if (Object.hasOwn(patch, "canceledByUserId")) {
-      dbPatch.canceled_by_user_id = toPositiveInteger(patch.canceledByUserId);
-    }
-    if (Object.hasOwn(patch, "appliedAt")) {
-      dbPatch.applied_at = toNullableDateTime(patch.appliedAt);
-    }
-    if (Object.hasOwn(patch, "metadataJson")) {
-      dbPatch.metadata_json = patch.metadataJson == null ? null : JSON.stringify(patch.metadataJson);
-    }
-
-    if (Object.keys(dbPatch).length > 0) {
-      dbPatch.updated_at = toInsertDateTime(new Date(), new Date());
-      await client("billing_plan_change_schedules").where({ id: Number(id) }).update(dbPatch);
-    }
-
-    return findPlanChangeScheduleById(id, {
+    return findPlanAssignmentById(id, {
       ...options,
       trx: client
     });
-  }
-
-  async function cancelPendingPlanChangeScheduleForEntity({ billableEntityId, canceledByUserId = null }, options = {}) {
-    const client = resolveClient(options);
-    const pending = await findPendingPlanChangeScheduleForEntity(billableEntityId, {
-      ...options,
-      trx: client,
-      forUpdate: true
-    });
-    if (!pending) {
-      return null;
-    }
-
-    await updatePlanChangeScheduleById(
-      pending.id,
-      {
-        status: "canceled",
-        canceledByUserId,
-        appliedAt: null
-      },
-      {
-        ...options,
-        trx: client
-      }
-    );
-
-    return findPlanChangeScheduleById(pending.id, {
-      ...options,
-      trx: client
-    });
-  }
-
-  async function listDuePendingPlanChangeSchedules({ effectiveAtOrBefore, limit = 50 } = {}, options = {}) {
-    const client = resolveClient(options);
-    const threshold = effectiveAtOrBefore || new Date();
-    const rows = await client("billing_plan_change_schedules")
-      .where({ status: "pending" })
-      .andWhere("effective_at", "<=", toInsertDateTime(threshold, threshold))
-      .orderBy("effective_at", "asc")
-      .orderBy("id", "asc")
-      .limit(Math.max(1, Math.min(200, Number(limit) || 50)));
-    return rows.map(mapPlanChangeScheduleRowNullable).filter(Boolean);
   }
 
   async function insertPlanChangeHistory(payload, options = {}) {
@@ -1207,7 +1290,6 @@ function createBillingRepository(dbClient) {
       user_id: toPositiveInteger(payload?.appliedByUserId),
       from_plan_id: payload?.fromPlanId == null ? null : Number(payload.fromPlanId),
       to_plan_id: payload?.toPlanId == null ? null : Number(payload.toPlanId),
-      schedule_id: payload?.scheduleId == null ? null : Number(payload.scheduleId),
       effective_at: normalizedEffectiveAt,
       occurred_at: normalizedEffectiveAt,
       status: "applied",
@@ -1228,15 +1310,35 @@ function createBillingRepository(dbClient) {
 
   async function listPlanChangeHistoryForEntity({ billableEntityId, limit = 20 } = {}, options = {}) {
     const client = resolveClient(options);
-    const rows = await client("billing_events")
-      .where({
-        event_type: "plan_change",
-        billable_entity_id: Number(billableEntityId)
-      })
-      .orderBy("effective_at", "desc")
-      .orderBy("id", "desc")
-      .limit(Math.max(1, Math.min(200, Number(limit) || 20)));
-    return rows.map(mapPlanChangeHistoryRowNullable).filter(Boolean);
+    const rows = await client("billing_plan_assignments")
+      .where({ billable_entity_id: Number(billableEntityId) })
+      .whereIn("status", ["current", "past"])
+      .orderBy("period_start_at", "asc")
+      .orderBy("id", "asc");
+
+    const assignments = rows.map(mapPlanAssignmentRowNullable).filter(Boolean);
+    const entries = [];
+    let previous = null;
+    for (const assignment of assignments) {
+      const metadataJson = assignment.metadataJson && typeof assignment.metadataJson === "object" ? assignment.metadataJson : {};
+      entries.push({
+        id: Number(assignment.id),
+        billableEntityId: Number(assignment.billableEntityId),
+        fromPlanId: previous ? Number(previous.planId) : null,
+        toPlanId: Number(assignment.planId),
+        changeKind: String(metadataJson.changeKind || `${assignment.source || "internal"}_effective`),
+        effectiveAt: assignment.periodStartAt,
+        appliedByUserId:
+          metadataJson.appliedByUserId == null ? null : Number(metadataJson.appliedByUserId),
+        scheduleId: null,
+        metadataJson,
+        createdAt: assignment.createdAt,
+        updatedAt: assignment.updatedAt
+      });
+      previous = assignment;
+    }
+
+    return entries.reverse().slice(0, Math.max(1, Math.min(200, Number(limit) || 20)));
   }
 
   async function findCustomerById(id, options = {}) {
@@ -1295,12 +1397,117 @@ function createBillingRepository(dbClient) {
     );
   }
 
+  function applySubscriptionProjectionSelect(query, client) {
+    return query.select(
+      "bpa.id as id",
+      "bpa.billable_entity_id",
+      "bpa.plan_id",
+      "bc.id as billing_customer_id",
+      "bpad.provider",
+      "bpad.provider_customer_id",
+      "bpad.provider_subscription_id",
+      "bpad.provider_status as status",
+      "bpad.provider_subscription_created_at",
+      "bpad.current_period_end",
+      "bpad.trial_end",
+      "bpad.canceled_at",
+      "bpad.cancel_at_period_end",
+      "bpad.ended_at",
+      client.raw("CASE WHEN bpa.status = 'current' THEN 1 ELSE 0 END as is_current"),
+      "bpad.last_provider_event_created_at",
+      "bpad.last_provider_event_id",
+      "bpad.metadata_json",
+      "bpad.created_at",
+      "bpad.updated_at"
+    );
+  }
+
+  function buildSubscriptionProjectionQuery(client) {
+    return client("billing_plan_assignment_provider_details as bpad")
+      .join("billing_plan_assignments as bpa", "bpa.id", "bpad.billing_plan_assignment_id")
+      .leftJoin("billing_customers as bc", function joinBillingCustomer() {
+        this.on("bc.billable_entity_id", "=", "bpa.billable_entity_id")
+          .andOn("bc.provider", "=", "bpad.provider")
+          .andOn("bc.provider_customer_id", "=", "bpad.provider_customer_id");
+      });
+  }
+
+  async function findPlanAssignmentProviderDetailsByAssignmentId(billingPlanAssignmentId, options = {}) {
+    const client = resolveClient(options);
+    const query = client("billing_plan_assignment_provider_details")
+      .where({ billing_plan_assignment_id: Number(billingPlanAssignmentId) })
+      .first();
+    const row = await applyForUpdate(query, options);
+    return mapPlanAssignmentProviderDetailsRowNullable(row);
+  }
+
+  async function upsertPlanAssignmentProviderDetails(payload, options = {}) {
+    const now = new Date();
+    const client = resolveClient(options);
+    const assignmentId = Number(payload?.billingPlanAssignmentId || payload?.planAssignmentId);
+    const provider = normalizeProvider(payload?.provider);
+    const dbPayload = {
+      billing_plan_assignment_id: assignmentId,
+      provider,
+      provider_subscription_id: String(payload?.providerSubscriptionId || "").trim(),
+      provider_customer_id: toNullableString(payload?.providerCustomerId),
+      provider_status: toNullableString(payload?.providerStatus),
+      provider_subscription_created_at: toNullableDateTime(payload?.providerSubscriptionCreatedAt),
+      current_period_end: toNullableDateTime(payload?.currentPeriodEnd),
+      trial_end: toNullableDateTime(payload?.trialEnd),
+      canceled_at: toNullableDateTime(payload?.canceledAt),
+      cancel_at_period_end: Boolean(payload?.cancelAtPeriodEnd),
+      ended_at: toNullableDateTime(payload?.endedAt),
+      last_provider_event_created_at: toNullableDateTime(payload?.lastProviderEventCreatedAt),
+      last_provider_event_id: toNullableString(payload?.lastProviderEventId),
+      metadata_json: payload?.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
+      updated_at: toInsertDateTime(payload?.updatedAt, now)
+    };
+
+    await client("billing_plan_assignment_provider_details")
+      .insert({
+        ...dbPayload,
+        created_at: toInsertDateTime(payload?.createdAt, now)
+      })
+      .onConflict("billing_plan_assignment_id")
+      .merge(dbPayload);
+
+    return findPlanAssignmentProviderDetailsByAssignmentId(assignmentId, {
+      ...options,
+      trx: client
+    });
+  }
+
+  async function findPlanAssignmentByProviderSubscriptionId({ provider, providerSubscriptionId }, options = {}) {
+    const client = resolveClient(options);
+    const query = client("billing_plan_assignments as bpa")
+      .join(
+        "billing_plan_assignment_provider_details as bpad",
+        "bpad.billing_plan_assignment_id",
+        "bpa.id"
+      )
+      .where({
+        "bpad.provider": normalizeProvider(provider),
+        "bpad.provider_subscription_id": String(providerSubscriptionId || "").trim()
+      })
+      .select("bpa.*")
+      .first();
+    const row = await applyForUpdate(query, options);
+    return mapPlanAssignmentRowNullable(row);
+  }
+
   async function findCurrentSubscriptionForEntity(billableEntityId, options = {}) {
     const client = resolveClient(options);
-    const query = client("billing_subscriptions")
-      .where({ billable_entity_id: billableEntityId, is_current: true })
-      .orderBy("id", "asc")
-      .first();
+    const query = applySubscriptionProjectionSelect(
+      buildSubscriptionProjectionQuery(client)
+        .where({
+          "bpa.billable_entity_id": Number(billableEntityId),
+          "bpa.status": "current"
+        })
+        .orderBy("bpa.id", "asc")
+        .first(),
+      client
+    );
 
     const row = await applyForUpdate(query, options);
     return mapSubscriptionRowNullable(row);
@@ -1308,7 +1515,12 @@ function createBillingRepository(dbClient) {
 
   async function lockSubscriptionsForEntity(billableEntityId, options = {}) {
     const client = resolveClient(options);
-    let query = client("billing_subscriptions").where({ billable_entity_id: billableEntityId }).orderBy("id", "asc");
+    let query = applySubscriptionProjectionSelect(
+      buildSubscriptionProjectionQuery(client)
+        .where({ "bpa.billable_entity_id": Number(billableEntityId) })
+        .orderBy("bpa.id", "asc"),
+      client
+    );
     if (resolveQueryOptions(options).forUpdate && typeof query.forUpdate === "function") {
       query = query.forUpdate();
     }
@@ -1319,9 +1531,15 @@ function createBillingRepository(dbClient) {
 
   async function findSubscriptionByProviderSubscriptionId({ provider, providerSubscriptionId }, options = {}) {
     const client = resolveClient(options);
-    const query = client("billing_subscriptions")
-      .where({ provider: normalizeProvider(provider), provider_subscription_id: providerSubscriptionId })
-      .first();
+    const query = applySubscriptionProjectionSelect(
+      buildSubscriptionProjectionQuery(client)
+        .where({
+          "bpad.provider": normalizeProvider(provider),
+          "bpad.provider_subscription_id": String(providerSubscriptionId || "").trim()
+        })
+        .first(),
+      client
+    );
 
     const row = await applyForUpdate(query, options);
     return mapSubscriptionRowNullable(row);
@@ -1329,26 +1547,26 @@ function createBillingRepository(dbClient) {
 
   async function listCurrentSubscriptions({ provider, limit = 200 }, options = {}) {
     const client = resolveClient(options);
-    const rows = await client("billing_subscriptions")
-      .where({
-        provider: normalizeProvider(provider),
-        is_current: true
-      })
-      .orderBy("updated_at", "desc")
-      .orderBy("id", "desc")
+    const rows = await applySubscriptionProjectionSelect(
+      buildSubscriptionProjectionQuery(client)
+        .where({
+          "bpad.provider": normalizeProvider(provider),
+          "bpa.status": "current"
+        })
+        .orderBy("bpad.updated_at", "desc")
+        .orderBy("bpa.id", "desc"),
+      client
+    )
       .limit(Math.max(1, Math.min(1000, Number(limit) || 200)));
 
     return rows.map(mapSubscriptionRowNullable).filter(Boolean);
   }
 
   async function clearCurrentSubscriptionFlagsForEntity(billableEntityId, options = {}) {
-    const client = resolveClient(options);
-    await client("billing_subscriptions")
-      .where({ billable_entity_id: billableEntityId, is_current: true })
-      .update({
-        is_current: false,
-        updated_at: toInsertDateTime(new Date(), new Date())
-      });
+    void billableEntityId;
+    void options;
+    // Current provider-subscription selection now follows the current assignment row.
+    return 0;
   }
 
   async function upsertSubscription(payload, options = {}) {
@@ -1359,62 +1577,120 @@ function createBillingRepository(dbClient) {
     const isCurrentCandidate = Boolean(payload.isCurrent);
     const isCurrentAllowed = NON_TERMINAL_CURRENT_SUBSCRIPTION_STATUS_SET.has(status);
     const isCurrent = isCurrentCandidate && isCurrentAllowed;
+    const normalizedBillableEntityId = Number(payload.billableEntityId);
+    const normalizedPlanId = Number(payload.planId);
+    const providerSubscriptionId = String(payload.providerSubscriptionId || "").trim();
 
-    if (isCurrent) {
-      await clearCurrentSubscriptionFlagsForEntity(payload.billableEntityId, {
+    const existingProviderRowQuery = client("billing_plan_assignment_provider_details as bpad")
+      .join("billing_plan_assignments as bpa", "bpa.id", "bpad.billing_plan_assignment_id")
+      .where({
+        "bpad.provider": provider,
+        "bpad.provider_subscription_id": providerSubscriptionId
+      })
+      .select(
+        "bpad.*",
+        "bpa.id as assignment_id",
+        "bpa.billable_entity_id as assignment_billable_entity_id",
+        "bpa.plan_id as assignment_plan_id",
+        "bpa.status as assignment_status"
+      )
+      .first();
+    const existingProviderRow = await applyForUpdate(existingProviderRowQuery, options);
+
+    let targetAssignment = null;
+
+    if (existingProviderRow) {
+      targetAssignment = await findPlanAssignmentById(existingProviderRow.assignment_id, {
         ...options,
-        trx: client
+        trx: client,
+        forUpdate: true
       });
     }
 
-    const patch = {
-      billable_entity_id: payload.billableEntityId,
-      plan_id: payload.planId,
-      billing_customer_id: payload.billingCustomerId,
-      status,
-      current_period_end: toNullableDateTime(payload.currentPeriodEnd),
-      trial_end: toNullableDateTime(payload.trialEnd),
-      canceled_at: toNullableDateTime(payload.canceledAt),
-      cancel_at_period_end: Boolean(payload.cancelAtPeriodEnd),
-      ended_at: toNullableDateTime(payload.endedAt),
-      is_current: isCurrent,
-      last_provider_event_created_at: toNullableDateTime(payload.lastProviderEventCreatedAt),
-      last_provider_event_id: payload.lastProviderEventId || null,
-      metadata_json: payload.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
-      updated_at: toInsertDateTime(payload.updatedAt, now)
-    };
+    if (isCurrent) {
+      const currentAssignment = await findCurrentPlanAssignmentForEntity(normalizedBillableEntityId, {
+        ...options,
+        trx: client,
+        forUpdate: true
+      });
+      if (currentAssignment && Number(currentAssignment.planId) === normalizedPlanId) {
+        targetAssignment = currentAssignment;
+      } else {
+        if (currentAssignment) {
+          await updatePlanAssignmentById(
+            currentAssignment.id,
+            {
+              status: "past",
+              periodEndAt: payload.currentPeriodEnd || payload.trialEnd || currentAssignment.periodEndAt,
+              metadataJson: {
+                ...(currentAssignment.metadataJson && typeof currentAssignment.metadataJson === "object"
+                  ? currentAssignment.metadataJson
+                  : {}),
+                replacedByProviderSubscriptionId: providerSubscriptionId
+              }
+            },
+            {
+              ...options,
+              trx: client
+            }
+          );
+        }
 
-    await client("billing_subscriptions")
-      .insert({
-        ...patch,
-        provider,
-        provider_subscription_id: payload.providerSubscriptionId,
-        provider_subscription_created_at: toInsertDateTime(payload.providerSubscriptionCreatedAt, now),
-        created_at: toInsertDateTime(payload.createdAt, now)
-      })
-      .onConflict(["provider", "provider_subscription_id"])
-      .merge(patch);
-
-    const row = await client("billing_subscriptions")
-      .where({ provider, provider_subscription_id: payload.providerSubscriptionId })
-      .first();
-
-    const mapped = mapSubscriptionRowNullable(row);
-    if (!mapped) {
-      return null;
+        targetAssignment = await insertPlanAssignment(
+          {
+            billableEntityId: normalizedBillableEntityId,
+            planId: normalizedPlanId,
+            source: "internal",
+            status: "current",
+            periodStartAt: payload.providerSubscriptionCreatedAt || now,
+            periodEndAt:
+              payload.currentPeriodEnd ||
+              payload.trialEnd ||
+              new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+            metadataJson: {
+              provider,
+              providerSubscriptionId,
+              migratedBy: "upsertSubscription"
+            }
+          },
+          {
+            ...options,
+            trx: client
+          }
+        );
+      }
     }
 
-    if (TERMINAL_SUBSCRIPTION_STATUS_SET.has(mapped.status) && mapped.isCurrent) {
-      await client("billing_subscriptions")
-        .where({ id: mapped.id })
-        .update({
-          is_current: false,
-          updated_at: toInsertDateTime(new Date(), new Date())
-        });
-      return findSubscriptionByProviderSubscriptionId(
+    if (!targetAssignment) {
+      targetAssignment =
+        existingProviderRow &&
+        Number(existingProviderRow.assignment_billable_entity_id) === normalizedBillableEntityId &&
+        Number(existingProviderRow.assignment_plan_id) === normalizedPlanId
+          ? await findPlanAssignmentById(existingProviderRow.assignment_id, {
+              ...options,
+              trx: client,
+              forUpdate: true
+            })
+          : null;
+    }
+
+    if (!targetAssignment) {
+      targetAssignment = await insertPlanAssignment(
         {
-          provider,
-          providerSubscriptionId: payload.providerSubscriptionId
+          billableEntityId: normalizedBillableEntityId,
+          planId: normalizedPlanId,
+          source: "internal",
+          status: "past",
+          periodStartAt: payload.providerSubscriptionCreatedAt || now,
+          periodEndAt:
+            payload.currentPeriodEnd ||
+            payload.trialEnd ||
+            new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+          metadataJson: {
+            provider,
+            providerSubscriptionId,
+            insertedAs: "provider_details_noncurrent"
+          }
         },
         {
           ...options,
@@ -1423,7 +1699,66 @@ function createBillingRepository(dbClient) {
       );
     }
 
-    return mapped;
+    let providerCustomerId = toNullableString(payload.providerCustomerId);
+    if (!providerCustomerId && payload.billingCustomerId) {
+      const customer = await findCustomerById(payload.billingCustomerId, {
+        ...options,
+        trx: client
+      });
+      providerCustomerId = toNullableString(customer?.providerCustomerId);
+    }
+    if (!providerCustomerId && existingProviderRow) {
+      providerCustomerId = toNullableString(existingProviderRow.provider_customer_id);
+    }
+
+    if (
+      existingProviderRow &&
+      Number(existingProviderRow.billing_plan_assignment_id) !== Number(targetAssignment.id)
+    ) {
+      await client("billing_plan_assignment_provider_details")
+        .where({ billing_plan_assignment_id: Number(existingProviderRow.billing_plan_assignment_id) })
+        .delete();
+    }
+
+    await upsertPlanAssignmentProviderDetails(
+      {
+        billingPlanAssignmentId: targetAssignment.id,
+        provider,
+        providerSubscriptionId,
+        providerCustomerId,
+        providerStatus: status,
+        providerSubscriptionCreatedAt: payload.providerSubscriptionCreatedAt,
+        currentPeriodEnd: payload.currentPeriodEnd,
+        trialEnd: payload.trialEnd,
+        canceledAt: payload.canceledAt,
+        cancelAtPeriodEnd: Boolean(payload.cancelAtPeriodEnd),
+        endedAt: payload.endedAt,
+        lastProviderEventCreatedAt: payload.lastProviderEventCreatedAt,
+        lastProviderEventId: payload.lastProviderEventId || null,
+        metadataJson: payload.metadataJson == null ? {} : payload.metadataJson,
+        createdAt: payload.createdAt || now,
+        updatedAt: payload.updatedAt || now
+      },
+      {
+        ...options,
+        trx: client
+      }
+    );
+
+    if (TERMINAL_SUBSCRIPTION_STATUS_SET.has(status) && targetAssignment.status === "current") {
+      // Keep assignment state stable; provider status is terminal and callers gate on provider status.
+    }
+
+    return findSubscriptionByProviderSubscriptionId(
+      {
+        provider,
+        providerSubscriptionId
+      },
+      {
+        ...options,
+        trx: client
+      }
+    );
   }
 
   async function listSubscriptionItemsForSubscription({ subscriptionId, provider }, options = {}) {
@@ -1496,6 +1831,64 @@ function createBillingRepository(dbClient) {
     void payload;
     void options;
     return null;
+  }
+
+  async function upsertBillingPurchase(payload, options = {}) {
+    const now = new Date();
+    const client = resolveClient(options);
+    const normalizedBillableEntityId = Number(payload?.billableEntityId);
+    const dedupeKey = String(payload?.dedupeKey || "").trim();
+    if (!dedupeKey) {
+      throw new Error("upsertBillingPurchase requires payload.dedupeKey.");
+    }
+
+    const rowPayload = {
+      billable_entity_id: normalizedBillableEntityId,
+      workspace_id:
+        payload?.workspaceId == null ? await resolveWorkspaceIdForBillableEntity(client, normalizedBillableEntityId) : Number(payload.workspaceId),
+      provider: normalizeProvider(payload?.provider),
+      purchase_kind: String(payload?.purchaseKind || "").trim() || "one_off",
+      status: String(payload?.status || "confirmed").trim() || "confirmed",
+      amount_minor: Math.max(0, Number(payload?.amountMinor || 0)),
+      currency: String(payload?.currency || "").trim().toUpperCase() || "USD",
+      quantity: payload?.quantity == null ? 1 : Math.max(1, Number(payload.quantity || 1)),
+      operation_key: toNullableString(payload?.operationKey),
+      provider_customer_id: toNullableString(payload?.providerCustomerId),
+      provider_checkout_session_id: toNullableString(payload?.providerCheckoutSessionId),
+      provider_payment_id: toNullableString(payload?.providerPaymentId),
+      provider_invoice_id: toNullableString(payload?.providerInvoiceId),
+      billing_event_id: payload?.billingEventId == null ? null : Number(payload.billingEventId),
+      display_name: toNullableString(payload?.displayName),
+      metadata_json: payload?.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
+      dedupe_key: dedupeKey,
+      purchased_at: toInsertDateTime(payload?.purchasedAt, now),
+      created_at: toInsertDateTime(payload?.createdAt, now),
+      updated_at: toInsertDateTime(payload?.updatedAt, now)
+    };
+
+    await client("billing_purchases")
+      .insert(rowPayload)
+      .onConflict(["dedupe_key"])
+      .ignore();
+
+    const row = await client("billing_purchases").where({ dedupe_key: dedupeKey }).first();
+    return mapBillingPurchaseRowNullable(row);
+  }
+
+  async function listBillingPurchasesForEntity({ billableEntityId, limit = 50, status = "confirmed" } = {}, options = {}) {
+    const client = resolveClient(options);
+    let query = client("billing_purchases")
+      .where({ billable_entity_id: Number(billableEntityId) })
+      .orderBy("purchased_at", "desc")
+      .orderBy("id", "desc")
+      .limit(Math.max(1, Math.min(200, Number(limit) || 50)));
+
+    if (status) {
+      query = query.andWhere("status", String(status || "").trim());
+    }
+
+    const rows = await query;
+    return rows.map(mapBillingPurchaseRowNullable).filter(Boolean);
   }
 
   async function listPaymentMethodsForEntity(
@@ -1829,39 +2222,40 @@ function createBillingRepository(dbClient) {
     }
 
     if (includeSource("subscription")) {
-      let query = client("billing_subscriptions as bs")
-        .join("billable_entities as be", "be.id", "bs.billable_entity_id")
+      let query = client("billing_plan_assignment_provider_details as bpad")
+        .join("billing_plan_assignments as bpa", "bpa.id", "bpad.billing_plan_assignment_id")
+        .join("billable_entities as be", "be.id", "bpa.billable_entity_id")
         .leftJoin("workspaces as w", "w.id", "be.workspace_id")
         .select(
           client.raw("? as source", ["subscription"]),
-          "bs.id as source_id",
-          "bs.billable_entity_id",
+          "bpa.id as source_id",
+          "bpa.billable_entity_id",
           "be.workspace_id",
           "w.slug as workspace_slug",
           "w.name as workspace_name",
           "be.owner_user_id",
-          "bs.provider",
+          "bpad.provider",
           client.raw("NULL as operation_key"),
-          "bs.last_provider_event_id as provider_event_id",
+          "bpad.last_provider_event_id as provider_event_id",
           client.raw("? as event_type", ["subscription"]),
-          "bs.status",
-          "bs.updated_at as occurred_at",
+          "bpad.provider_status as status",
+          "bpad.updated_at as occurred_at",
           client.raw("NULL as message"),
-          "bs.metadata_json as details_json"
+          "bpad.metadata_json as details_json"
         );
 
-      query = applyEntityFilters(query, "bs.billable_entity_id");
+      query = applyEntityFilters(query, "bpa.billable_entity_id");
       if (normalizedOperationKey) {
         query = query.andWhereRaw(
-          "JSON_UNQUOTE(JSON_EXTRACT(bs.metadata_json, '$.operation_key')) = ?",
+          "JSON_UNQUOTE(JSON_EXTRACT(bpad.metadata_json, '$.operation_key')) = ?",
           [normalizedOperationKey]
         );
       }
       if (normalizedProviderEventId) {
-        query = query.andWhere("bs.last_provider_event_id", normalizedProviderEventId);
+        query = query.andWhere("bpad.last_provider_event_id", normalizedProviderEventId);
       }
 
-      query = query.orderBy("bs.updated_at", "desc").orderBy("bs.id", "desc").limit(perSourceLimit);
+      query = query.orderBy("bpad.updated_at", "desc").orderBy("bpa.id", "desc").limit(perSourceLimit);
       rows.push(...(await query));
     }
 
@@ -2651,21 +3045,25 @@ function createBillingRepository(dbClient) {
     createPlan,
     updatePlanById,
     upsertPlanEntitlement,
+    findPlanAssignmentById,
     findCurrentPlanAssignmentForEntity,
+    findUpcomingPlanAssignmentForEntity,
+    listPlanAssignmentsForEntity,
+    updatePlanAssignmentById,
     clearCurrentPlanAssignmentsForEntity,
+    cancelUpcomingPlanAssignmentForEntity,
+    replaceUpcomingPlanAssignmentForEntity,
+    listDueUpcomingPlanAssignments,
     insertPlanAssignment,
-    findPendingPlanChangeScheduleForEntity,
-    findPlanChangeScheduleById,
-    replacePendingPlanChangeSchedule,
-    updatePlanChangeScheduleById,
-    cancelPendingPlanChangeScheduleForEntity,
-    listDuePendingPlanChangeSchedules,
     insertPlanChangeHistory,
     listPlanChangeHistoryForEntity,
     findCustomerById,
     findCustomerByEntityProvider,
     findCustomerByProviderCustomerId,
     upsertCustomer,
+    findPlanAssignmentProviderDetailsByAssignmentId,
+    upsertPlanAssignmentProviderDetails,
+    findPlanAssignmentByProviderSubscriptionId,
     findCurrentSubscriptionForEntity,
     lockSubscriptionsForEntity,
     findSubscriptionByProviderSubscriptionId,
@@ -2682,6 +3080,8 @@ function createBillingRepository(dbClient) {
     findPaymentByProviderPaymentId,
     listPaymentsForInvoiceIds,
     upsertPayment,
+    upsertBillingPurchase,
+    listBillingPurchasesForEntity,
     listPaymentMethodsForEntity,
     findPaymentMethodByProviderPaymentMethodId,
     upsertPaymentMethod,
@@ -2753,8 +3153,9 @@ const __testables = {
   mapRemediationRowNullable,
   mapReconciliationRunRowNullable,
   mapPlanAssignmentRowNullable,
-  mapPlanChangeScheduleRowNullable,
+  mapPlanAssignmentProviderDetailsRowNullable,
   mapPlanChangeHistoryRowNullable,
+  mapBillingPurchaseRowNullable,
   toInsertDateTime,
   toNullableDateTime,
   createBillingRepository
@@ -2775,21 +3176,25 @@ export const {
   createPlan,
   updatePlanById,
   upsertPlanEntitlement,
+  findPlanAssignmentById,
   findCurrentPlanAssignmentForEntity,
+  findUpcomingPlanAssignmentForEntity,
+  listPlanAssignmentsForEntity,
+  updatePlanAssignmentById,
   clearCurrentPlanAssignmentsForEntity,
+  cancelUpcomingPlanAssignmentForEntity,
+  replaceUpcomingPlanAssignmentForEntity,
+  listDueUpcomingPlanAssignments,
   insertPlanAssignment,
-  findPendingPlanChangeScheduleForEntity,
-  findPlanChangeScheduleById,
-  replacePendingPlanChangeSchedule,
-  updatePlanChangeScheduleById,
-  cancelPendingPlanChangeScheduleForEntity,
-  listDuePendingPlanChangeSchedules,
   insertPlanChangeHistory,
   listPlanChangeHistoryForEntity,
   findCustomerById,
   findCustomerByEntityProvider,
   findCustomerByProviderCustomerId,
   upsertCustomer,
+  findPlanAssignmentProviderDetailsByAssignmentId,
+  upsertPlanAssignmentProviderDetails,
+  findPlanAssignmentByProviderSubscriptionId,
   findCurrentSubscriptionForEntity,
   lockSubscriptionsForEntity,
   findSubscriptionByProviderSubscriptionId,
@@ -2806,6 +3211,8 @@ export const {
   findPaymentByProviderPaymentId,
   listPaymentsForInvoiceIds,
   upsertPayment,
+  upsertBillingPurchase,
+  listBillingPurchasesForEntity,
   listPaymentMethodsForEntity,
   findPaymentMethodByProviderPaymentMethodId,
   upsertPaymentMethod,

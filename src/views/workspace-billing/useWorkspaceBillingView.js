@@ -6,15 +6,6 @@ import {
   workspaceBillingPlanStateQueryKey
 } from "../../features/workspaceAdmin/queryKeys.js";
 
-function formatDateTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "unknown";
-  }
-
-  return date.toLocaleString();
-}
-
 function formatDateOnly(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -63,28 +54,6 @@ function normalizeProviderPriceId(value) {
 
 function resolvePlanDisplayName(plan) {
   return String(plan?.name || plan?.code || "Plan").trim();
-}
-
-function normalizePlanHistoryEntries(value) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .filter((entry) => entry && typeof entry === "object")
-    .map((entry) => {
-      const toPlan = entry.toPlan && typeof entry.toPlan === "object" ? entry.toPlan : null;
-      const fromPlan = entry.fromPlan && typeof entry.fromPlan === "object" ? entry.fromPlan : null;
-
-      return {
-        id: Number(entry.id || 0),
-        effectiveAt: String(entry.effectiveAt || ""),
-        changeKind: String(entry.changeKind || ""),
-        fromPlan,
-        toPlan
-      };
-    })
-    .filter((entry) => entry.id > 0);
 }
 
 function normalizePlanSelection(entry) {
@@ -140,8 +109,8 @@ export function useWorkspaceBillingView() {
 
   const currentPlan = computed(() => normalizePlanSelection(planStateQuery.data.value?.currentPlan));
 
-  const currentPlanExpiresAt = computed(() => {
-    const value = String(planStateQuery.data.value?.currentPlan?.expiresAt || "").trim();
+  const currentPeriodEndAt = computed(() => {
+    const value = String(planStateQuery.data.value?.currentPeriodEndAt || "").trim();
     return value || "";
   });
 
@@ -150,26 +119,9 @@ export function useWorkspaceBillingView() {
     return entries.map(normalizePlanSelection).filter(Boolean);
   });
 
-  const nextPlanChange = computed(() => {
-    const value = planStateQuery.data.value?.nextPlanChange;
-    if (!value || typeof value !== "object") {
-      return null;
-    }
-
-    const targetPlan = normalizePlanSelection(value.targetPlan);
-    if (!targetPlan) {
-      return null;
-    }
-
-    return {
-      id: Number(value.id || 0),
-      changeKind: String(value.changeKind || ""),
-      effectiveAt: String(value.effectiveAt || ""),
-      targetPlan
-    };
-  });
-
-  const historyEntries = computed(() => normalizePlanHistoryEntries(planStateQuery.data.value?.history));
+  const nextPlan = computed(() => normalizePlanSelection(planStateQuery.data.value?.nextPlan));
+  const nextEffectiveAt = computed(() => String(planStateQuery.data.value?.nextEffectiveAt || "").trim());
+  const pendingChange = computed(() => Boolean(planStateQuery.data.value?.pendingChange));
 
   const paymentPolicy = computed(() =>
     String(planStateQuery.data.value?.settings?.paidPlanChangePaymentMethodPolicy || "required_now").trim()
@@ -330,8 +282,6 @@ export function useWorkspaceBillingView() {
         }
       } else if (mode === "scheduled") {
         actionSuccess.value = "Plan downgrade scheduled for the current period end.";
-      } else if (mode === "unchanged") {
-        actionSuccess.value = "The selected plan is already current.";
       } else {
         actionSuccess.value = "Plan updated.";
       }
@@ -446,17 +396,17 @@ export function useWorkspaceBillingView() {
           value: "ad_hoc"
         }
       ],
-      formatDateTime,
       formatDateOnly,
       formatMoneyMinor
     },
     state: reactive({
       billableEntity,
       currentPlan,
-      currentPlanExpiresAt,
+      currentPeriodEndAt,
       availablePlans,
-      nextPlanChange,
-      historyEntries,
+      nextPlan,
+      nextEffectiveAt,
+      pendingChange,
       paymentPolicy,
       planOptions,
       selectedPlanCode,

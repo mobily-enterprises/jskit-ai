@@ -429,6 +429,7 @@ function createService(options = {}) {
 
         await routeEvent(event, {
           trx,
+          billingEventId: eventRow.id,
           providerEventId,
           providerCreatedAt,
           provider,

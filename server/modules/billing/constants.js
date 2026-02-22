@@ -118,7 +118,8 @@ const BILLING_PROVIDER_SDK_NAME_BY_PROVIDER = Object.freeze({
 
 const LOCK_ORDER = Object.freeze([
   "billable_entities",
-  "billing_subscriptions",
+  "billing_plan_assignments",
+  "billing_plan_assignment_provider_details",
   "billing_request_idempotency",
   "billing_checkout_sessions"
 ]);

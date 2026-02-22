@@ -93,8 +93,10 @@ Keep these tests passing and extend them when behavior changes:
 ## 6. Purchase UX Contract (Scaffold Level)
 
 - Plan selection state:
-  - call `api.billing.getPlanState()` to render current plan, expiry, pending next plan (if any), and effective-change history.
+  - call `api.billing.getPlanState()` to render `currentPlan`, `currentPeriodEndAt`, optional `nextPlan`, and optional `nextEffectiveAt`.
+  - `pendingChange` indicates whether a downgrade/fallback is scheduled.
   - `availablePlans` excludes the current plan and should drive target options.
+  - workspace billing no longer renders the legacy timeline/effective-history table.
 - Subscription checkout:
   - call `api.billing.startCheckout` with `planCode`, `successPath`, and `cancelPath`.
   - checkout resolves a single recurring Stripe price mapped directly to that plan.
@@ -110,3 +112,8 @@ Keep these tests passing and extend them when behavior changes:
 - One-off ad-hoc checkout:
   - call `api.billing.createPaymentLink` with `oneOff` payload (`name`, `amountMinor`, `quantity`).
 - Extras are separate flows and are not bundled into core plan subscription checkout.
+- Data model notes:
+  - `billing_plan_assignments` is the plan-state source of truth (current/upcoming/past/canceled) and includes promo fallback scheduling.
+  - `billing_plan_assignment_provider_details` stores provider subscription operational fields for the assignment row.
+  - `billing_events` remains audit/observability/recovery data and is not a customer purchase ledger.
+  - `billing_purchases` stores one row per confirmed purchase for customer-facing purchase history.

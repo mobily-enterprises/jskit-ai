@@ -24,7 +24,7 @@
               <v-card-item>
                 <v-card-title class="text-subtitle-2 font-weight-bold">Current plan</v-card-title>
                 <v-card-subtitle v-if="state.currentPlan">
-                  Current plan remains active until {{ meta.formatDateOnly(state.currentPlanExpiresAt) }}.
+                  Current plan remains active until {{ meta.formatDateOnly(state.currentPeriodEndAt) }}.
                 </v-card-subtitle>
                 <v-card-subtitle v-else>No active plan assigned yet.</v-card-subtitle>
               </v-card-item>
@@ -38,7 +38,7 @@
                 </div>
                 <div class="text-body-2 mb-2">{{ state.currentPlan.description || "No description." }}</div>
                 <div class="text-body-2 text-medium-emphasis mb-2">
-                  Current period ends: <strong>{{ meta.formatDateOnly(state.currentPlanExpiresAt) }}</strong>
+                  Current period ends: <strong>{{ meta.formatDateOnly(state.currentPeriodEndAt) }}</strong>
                 </div>
                 <div v-if="state.currentPlan.corePrice" class="text-body-2 text-medium-emphasis">
                   Core price:
@@ -64,18 +64,18 @@
             <v-card rounded="lg" variant="tonal" class="h-100">
               <v-card-item>
                 <v-card-title class="text-subtitle-2 font-weight-bold">Scheduled change</v-card-title>
-                <v-card-subtitle v-if="state.nextPlanChange">
-                  The downgrade will take effect on {{ meta.formatDateOnly(state.nextPlanChange.effectiveAt) }}.
+                <v-card-subtitle v-if="state.pendingChange && state.nextPlan">
+                  The downgrade will take effect on {{ meta.formatDateOnly(state.nextEffectiveAt) }}.
                 </v-card-subtitle>
                 <v-card-subtitle v-else>No scheduled plan change.</v-card-subtitle>
               </v-card-item>
 
-              <v-card-text v-if="state.nextPlanChange">
+              <v-card-text v-if="state.pendingChange && state.nextPlan">
                 <div class="text-body-1 font-weight-medium mb-1">
-                  {{ state.nextPlanChange.targetPlan.name || state.nextPlanChange.targetPlan.code }}
+                  {{ state.nextPlan.name || state.nextPlan.code }}
                 </div>
                 <div class="text-body-2 text-medium-emphasis mb-3">
-                  Effective {{ meta.formatDateOnly(state.nextPlanChange.effectiveAt) }}
+                  Effective {{ meta.formatDateOnly(state.nextEffectiveAt) }}
                 </div>
                 <v-btn
                   variant="outlined"
@@ -133,36 +133,6 @@
             <div class="text-caption text-medium-emphasis mt-2">
               Paid-plan payment-method policy: <strong>{{ state.paymentPolicy }}</strong>
             </div>
-          </v-card-text>
-        </v-card>
-
-        <v-card rounded="lg" variant="tonal" class="mt-4">
-          <v-card-item>
-            <v-card-title class="text-subtitle-2 font-weight-bold">Effective change history</v-card-title>
-            <v-card-subtitle>Only changes that actually took effect are listed.</v-card-subtitle>
-          </v-card-item>
-          <v-card-text>
-            <v-table density="compact">
-              <thead>
-                <tr>
-                  <th>Effective at</th>
-                  <th>From</th>
-                  <th>To</th>
-                  <th>Type</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-if="!state.historyEntries.length">
-                  <td colspan="4" class="text-medium-emphasis">No effective plan changes yet.</td>
-                </tr>
-                <tr v-for="entry in state.historyEntries" :key="entry.id">
-                  <td>{{ meta.formatDateTime(entry.effectiveAt) }}</td>
-                  <td>{{ entry.fromPlan?.name || entry.fromPlan?.code || "-" }}</td>
-                  <td>{{ entry.toPlan?.name || entry.toPlan?.code || "-" }}</td>
-                  <td>{{ entry.changeKind }}</td>
-                </tr>
-              </tbody>
-            </v-table>
           </v-card-text>
         </v-card>
 

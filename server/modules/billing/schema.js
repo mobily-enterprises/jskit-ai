@@ -497,34 +497,7 @@ const planSelection = Type.Object(
 
 const currentPlanState = Type.Object(
   {
-    ...planSelection.properties,
-    source: Type.String({ minLength: 1 }),
-    expiresAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()])
-  },
-  {
-    additionalProperties: false
-  }
-);
-
-const nextPlanChange = Type.Object(
-  {
-    id: Type.Integer({ minimum: 1 }),
-    changeKind: Type.String({ minLength: 1 }),
-    effectiveAt: Type.String({ format: "iso-utc-date-time" }),
-    targetPlan: planSelection
-  },
-  {
-    additionalProperties: false
-  }
-);
-
-const planChangeHistoryEntry = Type.Object(
-  {
-    id: Type.Integer({ minimum: 1 }),
-    effectiveAt: Type.String({ format: "iso-utc-date-time" }),
-    changeKind: Type.String({ minLength: 1 }),
-    fromPlan: Type.Union([planSelection, Type.Null()]),
-    toPlan: Type.Union([planSelection, Type.Null()])
+    ...planSelection.properties
   },
   {
     additionalProperties: false
@@ -534,9 +507,11 @@ const planChangeHistoryEntry = Type.Object(
 const planStatePayload = Type.Object(
   {
     currentPlan: Type.Union([currentPlanState, Type.Null()]),
-    nextPlanChange: Type.Union([nextPlanChange, Type.Null()]),
+    currentPeriodEndAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
+    nextPlan: Type.Union([planSelection, Type.Null()]),
+    nextEffectiveAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
+    pendingChange: Type.Boolean(),
     availablePlans: Type.Array(planSelection),
-    history: Type.Array(planChangeHistoryEntry),
     settings: Type.Object(
       {
         paidPlanChangePaymentMethodPolicy: Type.Union([
@@ -577,7 +552,11 @@ const planChangeBody = Type.Object(
 
 const planChangeResponse = Type.Object(
   {
-    mode: Type.String({ minLength: 1 }),
+    mode: Type.Union([
+      Type.Literal("applied"),
+      Type.Literal("scheduled"),
+      Type.Literal("checkout_required")
+    ]),
     checkout: Type.Optional(checkoutResponse),
     state: planStatePayload
   },

@@ -39,7 +39,7 @@ function buildRoutes(controllers, { missingHandler } = {}) {
       workspacePolicy: "optional",
       schema: {
         tags: ["billing"],
-        summary: "Get current workspace billing plan, pending change, and effective plan history",
+        summary: "Get current workspace billing plan state (current plan, expiry, and next scheduled plan)",
         response: withStandardErrorResponses({
           200: schema.response.planState
         })

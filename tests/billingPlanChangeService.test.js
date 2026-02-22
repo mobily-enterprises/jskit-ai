@@ -10,6 +10,9 @@ function toIso(value) {
 
 function createFixture(overrides = {}) {
   const now = new Date("2026-02-22T10:00:00.000Z");
+  function addDays(reference, days) {
+    return new Date(new Date(reference).getTime() + days * 24 * 60 * 60 * 1000);
+  }
   const activePlans =
     overrides.plans || [
       {
@@ -66,11 +69,25 @@ function createFixture(overrides = {}) {
     ];
 
   let currentSubscription = overrides.currentSubscription || null;
-  let currentAssignment = overrides.currentAssignment || null;
-  let pendingSchedule = overrides.pendingSchedule || null;
+  let currentAssignment =
+    overrides.currentAssignment ||
+    (currentSubscription
+      ? {
+          id: 52,
+          billableEntityId: Number(currentSubscription.billableEntityId || 41),
+          planId: Number(currentSubscription.planId),
+          source: "internal",
+          status: "current",
+          periodStartAt: toIso(currentSubscription.providerSubscriptionCreatedAt || now),
+          periodEndAt: toIso(currentSubscription.currentPeriodEnd || addDays(now, 30)),
+          metadataJson: {}
+        }
+      : null);
+  let nextAssignment = overrides.nextAssignment || null;
   const historyEntries = Array.isArray(overrides.historyEntries) ? [...overrides.historyEntries] : [];
   const updateSubscriptionCalls = [];
   const checkoutCalls = [];
+  const providerDetailsByAssignmentId = new Map();
 
   const billingRepository = {
     async transaction(work) {
@@ -88,34 +105,79 @@ function createFixture(overrides = {}) {
     async findCurrentPlanAssignmentForEntity() {
       return currentAssignment;
     },
+    async findUpcomingPlanAssignmentForEntity() {
+      return nextAssignment && nextAssignment.status === "upcoming" ? nextAssignment : null;
+    },
+    async findPlanAssignmentById(id) {
+      if (currentAssignment && Number(currentAssignment.id) === Number(id)) {
+        return currentAssignment;
+      }
+      if (nextAssignment && Number(nextAssignment.id) === Number(id)) {
+        return nextAssignment;
+      }
+      return null;
+    },
+    async updatePlanAssignmentById(id, patch = {}) {
+      function applyPatch(assignment) {
+        if (!assignment || Number(assignment.id) !== Number(id)) {
+          return assignment;
+        }
+        return {
+          ...assignment,
+          ...(Object.hasOwn(patch, "planId") ? { planId: Number(patch.planId) } : {}),
+          ...(Object.hasOwn(patch, "source") ? { source: String(patch.source || "") } : {}),
+          ...(Object.hasOwn(patch, "status") ? { status: String(patch.status || "") } : {}),
+          ...(Object.hasOwn(patch, "periodStartAt") ? { periodStartAt: toIso(patch.periodStartAt) } : {}),
+          ...(Object.hasOwn(patch, "periodEndAt") ? { periodEndAt: toIso(patch.periodEndAt) } : {}),
+          ...(Object.hasOwn(patch, "metadataJson") ? { metadataJson: patch.metadataJson || {} } : {})
+        };
+      }
+
+      currentAssignment = applyPatch(currentAssignment);
+      nextAssignment = applyPatch(nextAssignment);
+      if (nextAssignment && nextAssignment.status === "current") {
+        currentAssignment = nextAssignment;
+      }
+      if (currentAssignment && Number(currentAssignment.id) === Number(id)) {
+        return currentAssignment;
+      }
+      return nextAssignment;
+    },
     async listPaymentMethodsForEntity() {
       return overrides.paymentMethods || [];
     },
-    async replacePendingPlanChangeSchedule(payload) {
-      pendingSchedule = {
+    async replaceUpcomingPlanAssignmentForEntity(payload) {
+      nextAssignment = {
         id: 81,
         billableEntityId: Number(payload.billableEntityId),
-        fromPlanId: payload.fromPlanId == null ? null : Number(payload.fromPlanId),
-        targetPlanId: Number(payload.targetPlanId),
-        changeKind: String(payload.changeKind || "downgrade"),
-        effectiveAt: toIso(payload.effectiveAt),
-        status: "pending"
+        planId: Number(payload.targetPlanId),
+        source: String(payload.changeKind || "manual") === "promo_fallback" ? "promo" : "manual",
+        status: "upcoming",
+        periodStartAt: toIso(payload.effectiveAt),
+        periodEndAt: toIso(payload.periodEndAt || addDays(payload.effectiveAt || now, 30)),
+        metadataJson: payload.metadataJson || {}
       };
-      return pendingSchedule;
+      return nextAssignment;
     },
-    async findPendingPlanChangeScheduleForEntity() {
-      return pendingSchedule;
-    },
-    async cancelPendingPlanChangeScheduleForEntity() {
-      if (!pendingSchedule) {
+    async cancelUpcomingPlanAssignmentForEntity() {
+      if (!nextAssignment) {
         return null;
       }
       const canceled = {
-        ...pendingSchedule,
+        ...nextAssignment,
         status: "canceled"
       };
-      pendingSchedule = null;
+      nextAssignment = null;
       return canceled;
+    },
+    async listDueUpcomingPlanAssignments({ periodStartAtOrBefore }) {
+      if (!nextAssignment || nextAssignment.status !== "upcoming") {
+        return [];
+      }
+      if (new Date(nextAssignment.periodStartAt).getTime() > new Date(periodStartAtOrBefore).getTime()) {
+        return [];
+      }
+      return [nextAssignment];
     },
     async listPlanChangeHistoryForEntity() {
       return [...historyEntries].reverse();
@@ -154,30 +216,43 @@ function createFixture(overrides = {}) {
       };
       return currentSubscription;
     },
+    async findSubscriptionByProviderSubscriptionId() {
+      return currentSubscription;
+    },
     async insertPlanAssignment(payload) {
-      currentAssignment = {
-        id: 52,
+      const assignment = {
+        id: String(payload.status || "") === "upcoming" ? 81 : 52,
         billableEntityId: Number(payload.billableEntityId),
         planId: Number(payload.planId),
         source: String(payload.source || "internal"),
+        status: String(payload.status || (payload.isCurrent === false ? "past" : "current")),
         periodStartAt: toIso(payload.periodStartAt || now),
         periodEndAt: toIso(payload.periodEndAt || now),
-        isCurrent: payload.isCurrent !== false
+        metadataJson: payload.metadataJson || {}
       };
+      if (assignment.status === "upcoming") {
+        nextAssignment = assignment;
+        return nextAssignment;
+      }
+      currentAssignment = assignment;
       return currentAssignment;
     },
-    async updatePlanChangeScheduleById(id, patch = {}) {
-      if (!pendingSchedule || Number(pendingSchedule.id) !== Number(id)) {
-        return null;
+    async upsertPlanAssignmentProviderDetails(payload) {
+      providerDetailsByAssignmentId.set(Number(payload.billingPlanAssignmentId), { ...payload });
+      if (currentSubscription && currentAssignment && Number(currentAssignment.id) === Number(payload.billingPlanAssignmentId)) {
+        currentSubscription = {
+          ...currentSubscription,
+          planId: Number(currentAssignment.planId),
+          status: String(payload.providerStatus || currentSubscription.status || "active"),
+          currentPeriodEnd: payload.currentPeriodEnd ? toIso(payload.currentPeriodEnd) : currentSubscription.currentPeriodEnd,
+          trialEnd: payload.trialEnd ? toIso(payload.trialEnd) : currentSubscription.trialEnd,
+          canceledAt: payload.canceledAt ? toIso(payload.canceledAt) : currentSubscription.canceledAt,
+          cancelAtPeriodEnd: Boolean(payload.cancelAtPeriodEnd),
+          endedAt: payload.endedAt ? toIso(payload.endedAt) : currentSubscription.endedAt,
+          metadataJson: payload.metadataJson || currentSubscription.metadataJson || {}
+        };
       }
-
-      pendingSchedule = {
-        ...pendingSchedule,
-        ...patch,
-        effectiveAt: patch.effectiveAt ? toIso(patch.effectiveAt) : pendingSchedule.effectiveAt,
-        appliedAt: patch.appliedAt ? toIso(patch.appliedAt) : pendingSchedule.appliedAt || null
-      };
-      return pendingSchedule;
+      return payload;
     }
   };
 
@@ -272,7 +347,9 @@ function createFixture(overrides = {}) {
     service,
     historyEntries,
     getCurrentSubscription: () => currentSubscription,
-    getPendingSchedule: () => pendingSchedule,
+    getCurrentAssignment: () => currentAssignment,
+    getNextAssignment: () => nextAssignment,
+    getProviderDetailsByAssignmentId: () => new Map(providerDetailsByAssignmentId),
     updateSubscriptionCalls,
     checkoutCalls
   };
@@ -308,6 +385,7 @@ test("billing plan change service returns plan state with current plan and avail
   });
 
   assert.equal(response.currentPlan.code, "basic");
+  assert.equal(response.currentPeriodEndAt, "2026-03-01T00:00:00.000Z");
   assert.equal(response.availablePlans.some((entry) => entry.code === "basic"), false);
   assert.equal(response.availablePlans.some((entry) => entry.code === "pro"), true);
 });
@@ -345,7 +423,8 @@ test("billing plan change service schedules downgrades at current period end", a
   });
 
   assert.equal(response.mode, "scheduled");
-  assert.equal(fixture.getPendingSchedule()?.targetPlanId, 2);
+  assert.equal(fixture.getNextAssignment()?.planId, 2);
+  assert.equal(fixture.getNextAssignment()?.status, "upcoming");
 });
 
 test("billing plan change service applies upgrades immediately with provider subscription update", async () => {
@@ -390,6 +469,7 @@ test("billing plan change service applies upgrades immediately with provider sub
   assert.equal(fixture.updateSubscriptionCalls.length, 1);
   assert.equal(fixture.updateSubscriptionCalls[0].providerPriceId, "price_pro");
   assert.equal(fixture.getCurrentSubscription()?.planId, 3);
+  assert.equal(fixture.getCurrentAssignment()?.planId, 3);
   assert.equal(fixture.historyEntries.length, 1);
   assert.equal(fixture.historyEntries[0].changeKind, "upgrade_immediate");
 });
@@ -437,14 +517,17 @@ test("billing plan change service cancels pending scheduled downgrade", async ()
       isCurrent: true,
       metadataJson: {}
     },
-    pendingSchedule: {
+    nextAssignment: {
       id: 81,
       billableEntityId: 41,
-      fromPlanId: 3,
-      targetPlanId: 2,
-      changeKind: "downgrade",
-      effectiveAt: "2026-03-01T00:00:00.000Z",
-      status: "pending"
+      planId: 2,
+      source: "manual",
+      status: "upcoming",
+      periodStartAt: "2026-03-01T00:00:00.000Z",
+      periodEndAt: "2026-03-31T00:00:00.000Z",
+      metadataJson: {
+        changeKind: "downgrade"
+      }
     }
   });
 
@@ -457,5 +540,72 @@ test("billing plan change service cancels pending scheduled downgrade", async ()
   });
 
   assert.equal(response.canceled, true);
-  assert.equal(fixture.getPendingSchedule(), null);
+  assert.equal(fixture.getNextAssignment(), null);
+});
+
+test("billing plan change service promotes due upcoming assignment at boundary", async () => {
+  const fixture = createFixture({
+    currentSubscription: {
+      id: 11,
+      billableEntityId: 41,
+      planId: 3,
+      billingCustomerId: 91,
+      provider: "stripe",
+      providerCustomerId: "cus_91",
+      providerSubscriptionId: "sub_current",
+      status: "active",
+      providerSubscriptionCreatedAt: "2026-01-01T00:00:00.000Z",
+      currentPeriodEnd: "2026-03-01T00:00:00.000Z",
+      trialEnd: null,
+      canceledAt: null,
+      cancelAtPeriodEnd: false,
+      endedAt: null,
+      isCurrent: true,
+      metadataJson: {}
+    },
+    nextAssignment: {
+      id: 81,
+      billableEntityId: 41,
+      planId: 2,
+      source: "manual",
+      status: "upcoming",
+      periodStartAt: "2026-02-22T09:00:00.000Z",
+      periodEndAt: "2026-03-22T09:00:00.000Z",
+      metadataJson: {
+        changeKind: "downgrade"
+      }
+    }
+  });
+
+  const result = await fixture.service.processDuePlanChanges({
+    now: fixture.now,
+    limit: 10
+  });
+
+  assert.equal(result.scannedCount, 1);
+  assert.equal(result.appliedCount, 1);
+  assert.equal(fixture.getCurrentAssignment()?.id, 81);
+  assert.equal(fixture.getCurrentAssignment()?.status, "current");
+});
+
+test("billing plan change service applies free plan immediately without checkout when no current plan exists", async () => {
+  const fixture = createFixture({
+    currentSubscription: null,
+    currentAssignment: null
+  });
+
+  const response = await fixture.service.requestPlanChange({
+    request: {},
+    user: {
+      id: 8
+    },
+    payload: {
+      planCode: "free"
+    },
+    now: fixture.now
+  });
+
+  assert.equal(response.mode, "applied");
+  assert.equal(fixture.checkoutCalls.length, 0);
+  assert.equal(fixture.getCurrentAssignment()?.planId, 1);
 });
