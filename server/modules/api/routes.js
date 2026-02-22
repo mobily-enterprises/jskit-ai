@@ -4,6 +4,7 @@ import { buildRoutes as buildConsoleRoutes } from "../console/routes.js";
 import { buildRoutes as buildConsoleErrorsRoutes } from "../consoleErrors/routes.js";
 import { buildRoutes as buildCommunicationsRoutes } from "../communications/routes.js";
 import { buildRoutes as buildProjectsRoutes } from "../projects/routes.js";
+import { buildRoutes as buildChatRoutes } from "../chat/routes.js";
 import { buildRoutes as buildBillingRoutes } from "../billing/routes.js";
 import { buildRoutes as buildSettingsRoutes } from "../settings/routes.js";
 import { buildRoutes as buildHistoryRoutes } from "../history/routes.js";
@@ -32,6 +33,14 @@ function buildDefaultRoutes(controllers, routeConfig = {}) {
     ...buildConsoleErrorsRoutes(controllers, { missingHandler }),
     ...buildCommunicationsRoutes(controllers, { missingHandler }),
     ...buildProjectsRoutes(controllers, { missingHandler }),
+    ...buildChatRoutes(controllers, {
+      missingHandler,
+      messageMaxChars: routeConfig.chatMessageMaxTextChars,
+      messagePageSizeMax: routeConfig.chatMessagesPageSizeMax,
+      threadPageSizeMax: routeConfig.chatThreadsPageSizeMax,
+      attachmentsMaxFilesPerMessage: routeConfig.chatAttachmentsMaxFilesPerMessage,
+      attachmentMaxUploadBytes: routeConfig.chatAttachmentMaxUploadBytes
+    }),
     ...buildBillingRoutes(controllers, { missingHandler }),
     ...buildAiRoutes(controllers, {
       missingHandler,

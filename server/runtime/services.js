@@ -9,12 +9,15 @@ import { createService as createUserAvatarService } from "../domain/users/avatar
 import { createService as createWorkspaceService } from "../domain/workspace/services/workspace.service.js";
 import { createService as createWorkspaceAdminService } from "../domain/workspace/services/admin.service.js";
 import { createService as createWorkspaceInviteEmailService } from "../domain/workspace/services/inviteEmail.service.js";
+import { createService as createChatAttachmentStorageService } from "../domain/chat/services/attachmentStorage.service.js";
 import { createService as createConsoleService } from "../domain/console/services/console.service.js";
 import { createService as createConsoleErrorsService } from "../domain/console/services/errors.service.js";
 import { createService as createAuditService } from "../domain/security/services/audit.service.js";
 import { createService as createRealtimeEventsService } from "../domain/realtime/services/events.service.js";
+import { createService as createChatRealtimeService } from "../domain/chat/services/realtime.service.js";
 import { createService as createObservabilityService } from "../modules/observability/service.js";
 import { createService as createProjectsService } from "../modules/projects/service.js";
+import { createService as createChatService } from "../modules/chat/service.js";
 import { createService as createHealthService } from "../modules/health/service.js";
 import { createService as createAiService } from "../modules/ai/service.js";
 import { createService as createAiTranscriptsService } from "../modules/ai/transcripts/service.js";
@@ -167,6 +170,14 @@ function createServices({
     auditEventsRepository,
     aiTranscriptConversationsRepository,
     aiTranscriptMessagesRepository,
+    chatThreadsRepository,
+    chatParticipantsRepository,
+    chatMessagesRepository,
+    chatIdempotencyTombstonesRepository,
+    chatAttachmentsRepository,
+    chatReactionsRepository,
+    chatUserSettingsRepository,
+    chatBlocksRepository,
     projectsRepository,
     healthRepository,
     billingRepository
@@ -208,6 +219,12 @@ function createServices({
     driver: env.AVATAR_STORAGE_DRIVER,
     fsBasePath: env.AVATAR_STORAGE_FS_BASE_PATH,
     publicBasePath: env.AVATAR_PUBLIC_BASE_PATH,
+    rootDir
+  });
+
+  const chatAttachmentStorageService = createChatAttachmentStorageService({
+    driver: env.CHAT_ATTACHMENT_STORAGE_DRIVER,
+    fsBasePath: env.CHAT_ATTACHMENT_STORAGE_FS_BASE_PATH,
     rootDir
   });
 
@@ -270,6 +287,41 @@ function createServices({
   });
 
   const realtimeEventsService = createRealtimeEventsService();
+
+  const chatRealtimeService = createChatRealtimeService({
+    realtimeEventsService
+  });
+
+  const chatService = createChatService({
+    chatThreadsRepository,
+    chatParticipantsRepository,
+    chatMessagesRepository,
+    chatAttachmentsRepository,
+    chatReactionsRepository,
+    chatIdempotencyTombstonesRepository,
+    chatUserSettingsRepository,
+    chatBlocksRepository,
+    chatRealtimeService,
+    chatAttachmentStorageService,
+    workspaceMembershipsRepository,
+    userSettingsRepository,
+    userProfilesRepository,
+    userAvatarService,
+    rbacManifest,
+    config: {
+      chatEnabled: env.CHAT_ENABLED,
+      chatWorkspaceThreadsEnabled: env.CHAT_WORKSPACE_THREADS_ENABLED,
+      chatGlobalDmsEnabled: env.CHAT_GLOBAL_DMS_ENABLED,
+      chatGlobalDmsRequireSharedWorkspace: env.CHAT_GLOBAL_DMS_REQUIRE_SHARED_WORKSPACE,
+      chatMessageMaxTextChars: env.CHAT_MESSAGE_MAX_TEXT_CHARS,
+      chatMessagesPageSizeMax: env.CHAT_MESSAGES_PAGE_SIZE_MAX,
+      chatThreadsPageSizeMax: env.CHAT_THREADS_PAGE_SIZE_MAX,
+      chatAttachmentsEnabled: env.CHAT_ATTACHMENTS_ENABLED,
+      chatAttachmentsMaxFilesPerMessage: env.CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE,
+      chatAttachmentMaxUploadBytes: env.CHAT_ATTACHMENT_MAX_UPLOAD_BYTES,
+      chatUnattachedUploadRetentionHours: env.CHAT_UNATTACHED_UPLOAD_RETENTION_HOURS
+    }
+  });
 
   const aiProviderClient = createOpenAiClient({
     enabled: env.AI_ENABLED,
@@ -494,6 +546,7 @@ function createServices({
     smsService,
     communicationsService,
     avatarStorageService,
+    chatAttachmentStorageService,
     userAvatarService,
     userSettingsService,
     workspaceService,
@@ -504,6 +557,7 @@ function createServices({
     observabilityService,
     auditService,
     projectsService,
+    chatService,
     realtimeEventsService,
     aiTranscriptsService,
     aiService,

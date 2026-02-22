@@ -233,6 +233,50 @@ describe("useAppShell", () => {
     ]);
   });
 
+  it("shows chat navigation and title when chat.read permission is granted", async () => {
+    mocks.routerPathname = "/w/acme/chat";
+    mocks.workspaceStore.can.mockImplementation(
+      (permission) =>
+        permission === "workspace.settings.view" ||
+        permission === "workspace.settings.update" ||
+        permission === "workspace.ai.use" ||
+        permission === "chat.read"
+    );
+
+    const wrapper = mountHarness();
+    await nextTick();
+
+    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Chat");
+    expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
+      { title: "Annuities", to: "/w/acme", icon: "$navChoice1" },
+      { title: "Assistant", to: "/w/acme/assistant", icon: "$navChoice2" },
+      { title: "Chat", to: "/w/acme/chat", icon: "mdi-chat-outline" },
+      {
+        title: "Go to Admin",
+        to: "/admin/w/acme/settings",
+        icon: "$menuGoToAdmin",
+        forceReload: true
+      }
+    ]);
+  });
+
+  it("hides shell chrome for workspace chat-only route", async () => {
+    mocks.routerPathname = "/w/acme/workspace-chat";
+    mocks.workspaceStore.can.mockImplementation(
+      (permission) =>
+        permission === "workspace.settings.view" ||
+        permission === "workspace.settings.update" ||
+        permission === "workspace.ai.use" ||
+        permission === "chat.read"
+    );
+
+    const wrapper = mountHarness();
+    await nextTick();
+
+    expect(wrapper.vm.shell.layout.showApplicationShell.value).toBe(false);
+    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Chat");
+  });
+
   it("navigates to admin surface and signs out with cleanup", async () => {
     const wrapper = mountHarness();
     await nextTick();

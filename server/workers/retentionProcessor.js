@@ -38,6 +38,28 @@ function toPositiveInteger(value, fallback) {
   return parsed;
 }
 
+function toBoolean(value, fallback = false) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (value == null) {
+    return fallback;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) {
+    return fallback;
+  }
+  if (["1", "true", "yes", "y", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "n", "off"].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+}
+
 function normalizeLockHeartbeatIntervalMs(lockTtlMs) {
   const normalizedTtlMs = normalizeLockTtlMs(lockTtlMs, 30 * 60 * 1000);
   return Math.min(Math.max(Math.floor(normalizedTtlMs / 3), 250), 60 * 1000);
@@ -64,6 +86,11 @@ function createRetentionSweepProcessor({
     auditEventsRepository: repositories.auditEventsRepository,
     aiTranscriptConversationsRepository: repositories.aiTranscriptConversationsRepository,
     aiTranscriptMessagesRepository: repositories.aiTranscriptMessagesRepository,
+    chatThreadsRepository: repositories.chatThreadsRepository,
+    chatParticipantsRepository: repositories.chatParticipantsRepository,
+    chatMessagesRepository: repositories.chatMessagesRepository,
+    chatIdempotencyTombstonesRepository: repositories.chatIdempotencyTombstonesRepository,
+    chatAttachmentsRepository: repositories.chatAttachmentsRepository,
     billingRepository: repositories.billingRepository || null,
     retentionConfig: {
       errorLogRetentionDays: toPositiveInteger(retentionConfig.errorLogRetentionDays, 30),
@@ -72,6 +99,14 @@ function createRetentionSweepProcessor({
       aiTranscriptsRetentionDays: toPositiveInteger(retentionConfig.aiTranscriptsRetentionDays, 60),
       billingIdempotencyRetentionDays: toPositiveInteger(retentionConfig.billingIdempotencyRetentionDays, 30),
       billingWebhookPayloadRetentionDays: toPositiveInteger(retentionConfig.billingWebhookPayloadRetentionDays, 30),
+      chatMessagesRetentionDays: toPositiveInteger(retentionConfig.chatMessagesRetentionDays, 365),
+      chatAttachmentsRetentionDays: toPositiveInteger(retentionConfig.chatAttachmentsRetentionDays, 365),
+      chatUnattachedUploadsRetentionHours: toPositiveInteger(retentionConfig.chatUnattachedUploadsRetentionHours, 24),
+      chatMessageIdempotencyRetryWindowHours: toPositiveInteger(
+        retentionConfig.chatMessageIdempotencyRetryWindowHours,
+        72
+      ),
+      chatEmptyThreadCleanupEnabled: toBoolean(retentionConfig.chatEmptyThreadCleanupEnabled, false),
       batchSize: toPositiveInteger(retentionConfig.batchSize, 1000)
     }
   });
@@ -250,6 +285,7 @@ function createRetentionSweepProcessor({
 
 const __testables = {
   toPositiveInteger,
+  toBoolean,
   normalizeLockHeartbeatIntervalMs,
   isRetentionLockHeldError
 };

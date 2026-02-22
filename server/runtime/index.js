@@ -26,6 +26,7 @@ function createServerRuntime({ env, nodeEnv, appConfig, rbacManifest, rootDir, s
       realtimeEventsService: services.realtimeEventsService,
       observabilityService: services.observabilityService,
       avatarStorageService: services.avatarStorageService,
+      chatAttachmentStorageService: services.chatAttachmentStorageService,
       aiService: services.aiService,
       billingService: services.billingService,
       billingWebhookService: services.billingWebhookService,

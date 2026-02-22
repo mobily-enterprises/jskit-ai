@@ -3,6 +3,7 @@ import {
   workspaceAiTranscriptsRootQueryKey,
   workspaceAiTranscriptsScopeQueryKey
 } from "../../features/aiTranscripts/queryKeys.js";
+import { chatRootQueryKey, chatScopeQueryKey } from "../../features/chat/queryKeys.js";
 import { projectDetailQueryKey, projectsScopeQueryKey } from "../../features/projects/queryKeys.js";
 import {
   workspaceAdminRootQueryKey,
@@ -10,6 +11,7 @@ import {
   workspaceBillingPlanStateQueryKey,
   workspaceBillingPurchasesQueryKey
 } from "../../features/workspaceAdmin/queryKeys.js";
+import { publishRealtimeEvent } from "./realtimeEventBus.js";
 
 function normalizeEventEnvelope(eventEnvelope) {
   if (!eventEnvelope || typeof eventEnvelope !== "object") {
@@ -117,6 +119,11 @@ const invalidateForWorkspaceAiTranscriptsEvent = createWorkspaceScopeInvalidator
   scopeQueryKey: workspaceAiTranscriptsScopeQueryKey
 });
 
+const invalidateForChatEvent = createWorkspaceScopeInvalidator({
+  rootQueryKey: chatRootQueryKey,
+  scopeQueryKey: chatScopeQueryKey
+});
+
 async function invalidateNoop() {
   return undefined;
 }
@@ -149,6 +156,14 @@ const TOPIC_STRATEGY_REGISTRY = Object.freeze({
   }),
   [REALTIME_TOPICS.WORKSPACE_BILLING_LIMITS]: Object.freeze({
     invalidate: invalidateForWorkspaceBillingLimitsEvent,
+    refreshBootstrap: false
+  }),
+  [REALTIME_TOPICS.CHAT]: Object.freeze({
+    invalidate: invalidateForChatEvent,
+    refreshBootstrap: false
+  }),
+  [REALTIME_TOPICS.TYPING]: Object.freeze({
+    invalidate: invalidateNoop,
     refreshBootstrap: false
   })
 });
@@ -224,6 +239,8 @@ function createRealtimeEventHandlers({ queryClient, commandTracker, clientId, wo
         status: "duplicate"
       };
     }
+
+    publishRealtimeEvent(normalizedEvent);
 
     const topicStrategy = resolveTopicStrategy(normalizedEvent.topic);
     if (!topicStrategy) {

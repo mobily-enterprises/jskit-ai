@@ -715,6 +715,65 @@ describe("client api transport", () => {
     expect(rolesReadHeaders["x-client-id"]).toBeUndefined();
   });
 
+  it("calls chat wrapper endpoints and encodes thread identifiers", async () => {
+    global.fetch.mockImplementation(async (url) => {
+      if (url === "/api/session") {
+        return mockResponse({
+          data: { csrfToken: "chat-token" }
+        });
+      }
+
+      return mockResponse({
+        data: { ok: true, url }
+      });
+    });
+
+    await api.chat.ensureDm({ targetPublicChatId: "friend_1" });
+    await api.chat.listDmCandidates({ q: "friend", limit: 8 });
+    await api.chat.listInbox({ cursor: "cursor-1", limit: 15 });
+    await api.chat.getThread("thread/id");
+    await api.chat.listThreadMessages("thread/id", { cursor: "cursor-2", limit: 30 });
+    await api.chat.sendThreadMessage("thread/id", {
+      clientMessageId: "msg_1",
+      text: "hello"
+    });
+    await api.chat.reserveThreadAttachment("thread/id", {
+      clientAttachmentId: "att_1",
+      fileName: "hello.txt",
+      mimeType: "text/plain",
+      sizeBytes: 3,
+      kind: "file",
+      metadata: {}
+    });
+    const uploadForm = new FormData();
+    uploadForm.append("attachmentId", "81");
+    uploadForm.append("file", new Blob(["abc"], { type: "text/plain" }), "hello.txt");
+    await api.chat.uploadThreadAttachment("thread/id", uploadForm);
+    await api.chat.deleteThreadAttachment("thread/id", "attachment/id");
+    await api.chat.markThreadRead("thread/id", {
+      threadSeq: 44
+    });
+    await api.chat.emitThreadTyping("thread/id");
+
+    const urls = global.fetch.mock.calls.map(([url]) => url);
+    expect(urls).toContain("/api/chat/dm/ensure");
+    expect(urls).toContain("/api/chat/dm/candidates?q=friend&limit=8");
+    expect(urls).toContain("/api/chat/inbox?cursor=cursor-1&limit=15");
+    expect(urls).toContain("/api/chat/threads/thread%2Fid");
+    expect(urls).toContain("/api/chat/threads/thread%2Fid/messages?cursor=cursor-2&limit=30");
+    expect(urls).toContain("/api/chat/threads/thread%2Fid/messages");
+    expect(urls).toContain("/api/chat/threads/thread%2Fid/attachments/reserve");
+    expect(urls).toContain("/api/chat/threads/thread%2Fid/attachments/upload");
+    expect(urls).toContain("/api/chat/threads/thread%2Fid/attachments/attachment%2Fid");
+    expect(urls).toContain("/api/chat/threads/thread%2Fid/read");
+    expect(urls).toContain("/api/chat/threads/thread%2Fid/typing");
+
+    const uploadCall = global.fetch.mock.calls.find(
+      ([url]) => url === "/api/chat/threads/thread%2Fid/attachments/upload"
+    );
+    expect(uploadCall?.[1]?.body).toBe(uploadForm);
+  });
+
   it("builds oauth URL helpers with and without returnTo", () => {
     expect(api.auth.oauthStartUrl("Google")).toBe("/api/oauth/google/start");
     expect(api.auth.oauthStartUrl("Google", { returnTo: "/w/acme" })).toBe("/api/oauth/google/start?returnTo=%2Fw%2Facme");

@@ -32,6 +32,14 @@ const REALTIME_TOPIC_REGISTRY = Object.freeze({
       app: Object.freeze([]),
       admin: Object.freeze(["workspace.billing.manage"])
     })
+  }),
+  [REALTIME_TOPICS.CHAT]: Object.freeze({
+    subscribeSurfaces: Object.freeze(["app"]),
+    requiredAnyPermission: Object.freeze(["chat.read"])
+  }),
+  [REALTIME_TOPICS.TYPING]: Object.freeze({
+    subscribeSurfaces: Object.freeze(["app"]),
+    requiredAnyPermission: Object.freeze(["chat.read"])
   })
 });
 

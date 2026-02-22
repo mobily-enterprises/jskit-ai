@@ -1,0 +1,56 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+
+const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+const chatViewPath = path.join(rootDir, "src/views/chat/ChatView.vue");
+
+function readChatViewSource() {
+  return readFileSync(chatViewPath, "utf8");
+}
+
+describe("ChatView template", () => {
+  it("renders load-more controls for threads and messages", () => {
+    const source = readChatViewSource();
+    const matches = source.match(/Load more/g) || [];
+
+    expect(matches.length).toBeGreaterThanOrEqual(2);
+    expect(source.includes("actions.loadMoreThreads")).toBe(true);
+    expect(source.includes("actions.loadOlderMessages")).toBe(true);
+  });
+
+  it("wires composer send action and deterministic status/error alerts", () => {
+    const source = readChatViewSource();
+
+    expect(source.includes("actions.sendFromComposer")).toBe(true);
+    expect(source.includes("actions.handleComposerKeydown")).toBe(true);
+    expect(source.includes("state.sendOnEnter")).toBe(true);
+    expect(source.includes("state.sendStatus")).toBe(true);
+    expect(source.includes("state.actionError")).toBe(true);
+    expect(source.includes("state.inboxError")).toBe(true);
+    expect(source.includes("state.messagesError")).toBe(true);
+  });
+
+  it("includes start dm dialog wiring and grouped message rows", () => {
+    const source = readChatViewSource();
+
+    expect(source.includes("Start DM")).toBe(true);
+    expect(source.includes("actions.refreshDmCandidates")).toBe(true);
+    expect(source.includes("actions.ensureDmThread")).toBe(true);
+    expect(source.includes("dmFilteredCandidates")).toBe(true);
+    expect(source.includes("state.messageRows")).toBe(true);
+    expect(source.includes("chat-message-bubble")).toBe(true);
+  });
+
+  it("wires attachment controls and typing indicator UI", () => {
+    const source = readChatViewSource();
+
+    expect(source.includes("Add files")).toBe(true);
+    expect(source.includes("actions.addComposerFiles")).toBe(true);
+    expect(source.includes("actions.retryComposerAttachment")).toBe(true);
+    expect(source.includes("actions.removeComposerAttachment")).toBe(true);
+    expect(source.includes("state.composerAttachments")).toBe(true);
+    expect(source.includes("state.typingNotice")).toBe(true);
+  });
+});

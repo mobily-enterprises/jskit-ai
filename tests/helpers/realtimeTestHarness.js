@@ -18,19 +18,50 @@ function installRealtimeTestErrorHandler(app) {
 }
 
 function createRealtimeTestAuthService() {
+  function parseSessionIdFromCookie(cookieHeader) {
+    const source = String(cookieHeader || "");
+    const match = source.match(/(?:^|;\s*)sid=([^;]+)/);
+    if (!match) {
+      return "";
+    }
+
+    return String(match[1] || "").trim();
+  }
+
+  function buildProfileForSession(sessionId) {
+    if (!sessionId) {
+      return null;
+    }
+
+    if (sessionId === "ok") {
+      return {
+        id: 7,
+        email: "user@example.com"
+      };
+    }
+
+    const userMatch = sessionId.match(/^u([1-9]\d*)$/);
+    if (!userMatch) {
+      return null;
+    }
+
+    const userId = Number(userMatch[1]);
+    return {
+      id: userId,
+      email: `user${userId}@example.com`
+    };
+  }
+
   return {
     async authenticateRequest(request) {
       const cookieHeader = String(request?.headers?.cookie || "");
-      const authenticated = cookieHeader.includes("sid=ok");
+      const sessionId = parseSessionIdFromCookie(cookieHeader);
+      const profile = buildProfileForSession(sessionId);
+      const authenticated = Boolean(profile);
 
       return {
         authenticated,
-        profile: authenticated
-          ? {
-              id: 7,
-              email: "user@example.com"
-            }
-          : null,
+        profile: authenticated ? profile : null,
         clearSession: false,
         session: null,
         transientFailure: false
@@ -122,6 +153,7 @@ async function createRealtimeTestApp({
   appDenyUserIdsBySlug,
   appDenyEmailsBySlug,
   workspaceService,
+  authService,
   requireRedisAdapter = false
 } = {}) {
   const app = Fastify();
@@ -137,7 +169,7 @@ async function createRealtimeTestApp({
   const realtimeEventsService = createRealtimeEventsService();
 
   await registerSocketIoRealtime(app, {
-    authService: createRealtimeTestAuthService(),
+    authService: authService || createRealtimeTestAuthService(),
     realtimeEventsService,
     workspaceService: effectiveWorkspaceService,
     redisUrl: "",

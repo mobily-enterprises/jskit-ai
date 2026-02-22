@@ -37,6 +37,30 @@ function buildRoomName(workspaceId, topic) {
   return `w:${Number(workspaceId)}:t:${String(topic || "").trim()}`;
 }
 
+function buildUserRoomName(userId) {
+  return `u:${Number(userId)}`;
+}
+
+function normalizeTargetUserIds(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const normalized = [];
+  for (const entry of value) {
+    const userId = Number(entry);
+    if (!Number.isInteger(userId) || userId < 1 || seen.has(userId)) {
+      continue;
+    }
+
+    seen.add(userId);
+    normalized.push(userId);
+  }
+
+  return normalized;
+}
+
 function buildProtocolErrorMessage(code) {
   if (code === REALTIME_ERROR_CODES.WORKSPACE_REQUIRED) {
     return "Workspace slug is required.";
@@ -916,6 +940,11 @@ async function registerSocketIoRealtime(
   });
 
   io.on("connection", (socket) => {
+    const socketUserId = Number(socket?.data?.user?.id);
+    if (Number.isInteger(socketUserId) && socketUserId > 0) {
+      socket.join(buildUserRoomName(socketUserId));
+    }
+
     socket.on(SOCKET_IO_MESSAGE_EVENT, (messagePayload) => {
       void handleInboundMessage(socket, messagePayload).catch(() => {
         emitProtocolError(socket, {
@@ -930,7 +959,44 @@ async function registerSocketIoRealtime(
     });
   });
 
+  async function fanoutTargetedEvent(eventEnvelope, targetUserIds) {
+    const socketById = new Map();
+
+    try {
+      await Promise.all(
+        targetUserIds.map(async (targetUserId) => {
+          const roomName = buildUserRoomName(targetUserId);
+          const sockets = await io.in(roomName).fetchSockets();
+          for (const socket of sockets) {
+            socketById.set(String(socket?.id || ""), socket);
+          }
+        })
+      );
+    } catch (error) {
+      appLogger.warn(
+        {
+          err: error,
+          targetUserIds
+        },
+        "realtime.socketio.targeted_fanout_socket_lookup_failed"
+      );
+      return;
+    }
+
+    await Promise.all(
+      Array.from(socketById.values()).map(async (socket) => {
+        await emitEventMessage(socket, eventEnvelope);
+      })
+    );
+  }
+
   async function fanoutEvent(eventEnvelope) {
+    const targetUserIds = normalizeTargetUserIds(eventEnvelope?.targetUserIds);
+    if (targetUserIds.length > 0) {
+      await fanoutTargetedEvent(eventEnvelope, targetUserIds);
+      return;
+    }
+
     const workspaceId = Number(eventEnvelope?.workspaceId);
     const topic = String(eventEnvelope?.topic || "").trim();
     const workspaceSlug = normalizeWorkspaceSlug(eventEnvelope?.workspaceSlug);

@@ -82,6 +82,7 @@ const {
     consoleErrorsService,
     realtimeEventsService,
     avatarStorageService,
+    chatAttachmentStorageService,
     observabilityService,
     billingWorkerRuntimeService
   }
@@ -711,6 +712,7 @@ export async function buildServer({ frontendBuildAvailable }) {
   });
 
   await avatarStorageService.init();
+  await chatAttachmentStorageService.init();
   await avatarStorageService.registerDelivery(app, { fastifyStatic });
 
   if (frontendBuildAvailable) {
@@ -727,7 +729,12 @@ export async function buildServer({ frontendBuildAvailable }) {
       aiEnabled: env.AI_ENABLED,
       aiRequiredPermission: env.AI_REQUIRED_PERMISSION,
       aiMaxInputChars: env.AI_MAX_INPUT_CHARS,
-      aiMaxHistoryMessages: env.AI_MAX_HISTORY_MESSAGES
+      aiMaxHistoryMessages: env.AI_MAX_HISTORY_MESSAGES,
+      chatMessageMaxTextChars: env.CHAT_MESSAGE_MAX_TEXT_CHARS,
+      chatMessagesPageSizeMax: env.CHAT_MESSAGES_PAGE_SIZE_MAX,
+      chatThreadsPageSizeMax: env.CHAT_THREADS_PAGE_SIZE_MAX,
+      chatAttachmentsMaxFilesPerMessage: env.CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE,
+      chatAttachmentMaxUploadBytes: env.CHAT_ATTACHMENT_MAX_UPLOAD_BYTES
     }
   });
   if (frontendBuildAvailable) {

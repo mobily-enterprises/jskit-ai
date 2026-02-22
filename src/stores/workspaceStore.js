@@ -146,6 +146,7 @@ function resolveWorkspacePathSurfaceId(preferredSurface) {
 export const useWorkspaceStore = defineStore("workspace", {
   state: () => ({
     initialized: false,
+    sessionUserId: null,
     profile: null,
     app: {
       tenancyMode: "personal",
@@ -188,6 +189,8 @@ export const useWorkspaceStore = defineStore("workspace", {
   },
   actions: {
     applyBootstrap(payload = {}) {
+      const sessionUserId = Number(payload?.session?.userId);
+      this.sessionUserId = Number.isInteger(sessionUserId) && sessionUserId > 0 ? sessionUserId : null;
       this.profile = normalizeProfile(payload.profile);
 
       const app = payload.app && typeof payload.app === "object" ? payload.app : {};
@@ -337,6 +340,7 @@ export const useWorkspaceStore = defineStore("workspace", {
     },
     clearWorkspaceState() {
       this.initialized = false;
+      this.sessionUserId = null;
       this.profile = null;
       this.app = {
         tenancyMode: "personal",
