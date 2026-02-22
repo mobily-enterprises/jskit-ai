@@ -1,171 +1,209 @@
 <template>
-  <section class="chat-view py-2 py-md-4">
-    <v-card rounded="lg" elevation="1" border>
-      <v-card-item>
-        <v-card-title class="text-subtitle-1 font-weight-bold">Chat</v-card-title>
-        <v-card-subtitle>Threads, messages, and read state in one place.</v-card-subtitle>
-      </v-card-item>
-      <v-divider />
+  <section class="chat-view">
+    <v-row dense class="chat-layout">
+      <v-col cols="12" lg="4">
+        <v-card rounded="lg" elevation="1" border class="chat-side-card">
+          <v-card-item>
+            <v-card-title class="text-subtitle-2 font-weight-bold">Inbox</v-card-title>
+            <template #append>
+              <div class="d-flex ga-2">
+                <v-btn variant="text" size="small" :loading="state.inboxLoading" @click="actions.refreshInbox">Refresh</v-btn>
+                <v-btn variant="tonal" size="small" :loading="state.dmPending" @click="dmDialogOpen = true">Start DM</v-btn>
+              </div>
+            </template>
+          </v-card-item>
+          <v-divider />
 
-      <v-card-text>
-        <v-alert v-if="state.actionError" type="error" variant="tonal" density="comfortable" class="mb-3">
-          {{ state.actionError }}
-        </v-alert>
-        <v-alert v-if="state.sendStatus" type="success" variant="tonal" density="comfortable" class="mb-3">
-          {{ state.sendStatus }}
-        </v-alert>
-        <v-alert v-if="state.inboxError" type="error" variant="tonal" density="comfortable" class="mb-3">
-          {{ state.inboxError }}
-        </v-alert>
-        <v-alert v-if="state.messagesError" type="error" variant="tonal" density="comfortable" class="mb-3">
-          {{ state.messagesError }}
-        </v-alert>
+          <v-card-text class="chat-thread-list-wrapper">
+            <v-alert v-if="state.actionError" type="error" variant="tonal" density="comfortable" class="mb-3">
+              {{ state.actionError }}
+            </v-alert>
+            <v-alert v-if="state.sendStatus" type="success" variant="tonal" density="comfortable" class="mb-3">
+              {{ state.sendStatus }}
+            </v-alert>
+            <v-alert v-if="state.inboxError" type="error" variant="tonal" density="comfortable" class="mb-3">
+              {{ state.inboxError }}
+            </v-alert>
 
-        <div v-if="!state.enabled" class="text-body-2 text-medium-emphasis">
-          Chat is unavailable in the current workspace context.
-        </div>
+            <div v-if="!state.enabled" class="text-body-2 text-medium-emphasis">
+              Chat is unavailable in the current workspace context.
+            </div>
 
-        <v-row v-else dense>
-          <v-col cols="12" md="4">
-            <v-card rounded="lg" border class="h-100">
-              <v-card-item>
-                <v-card-title class="text-subtitle-2 font-weight-bold">Inbox</v-card-title>
-                <template #append>
-                  <v-btn variant="text" size="small" :loading="state.inboxLoading" @click="actions.refreshInbox">Refresh</v-btn>
-                </template>
-              </v-card-item>
-              <v-divider />
-              <v-card-text class="chat-thread-list-wrapper">
-                <v-list nav density="comfortable" class="pa-0 chat-thread-list">
-                  <v-list-item v-if="state.inboxLoading && state.threads.length < 1" title="Loading threads..." />
-                  <v-list-item v-else-if="state.threads.length < 1" title="No threads yet." />
-                  <v-list-item
-                    v-for="thread in state.threads"
-                    :key="thread.id"
-                    :active="Number(thread.id) === Number(state.selectedThreadId)"
-                    :title="helpers.formatThreadTitle(thread)"
-                    :subtitle="threadSubtitle(thread)"
-                    @click="actions.selectThread(thread.id)"
-                  >
-                    <template #append>
-                      <v-chip
-                        v-if="Number(thread.unreadCount || 0) > 0"
-                        size="x-small"
-                        label
-                        color="primary"
-                        variant="tonal"
-                      >
-                        {{ thread.unreadCount }}
-                      </v-chip>
-                    </template>
-                  </v-list-item>
-                </v-list>
+            <template v-else>
+              <v-list nav density="comfortable" class="pa-0 chat-thread-list">
+                <v-list-item v-if="state.inboxLoading && state.threads.length < 1" title="Loading threads..." />
+                <v-list-item v-else-if="state.threads.length < 1" title="No threads yet." />
+                <v-list-item
+                  v-for="thread in state.threads"
+                  :key="thread.id"
+                  :active="Number(thread.id) === Number(state.selectedThreadId)"
+                  :title="helpers.formatThreadTitle(thread)"
+                  :subtitle="threadSubtitle(thread)"
+                  @click="actions.selectThread(thread.id)"
+                >
+                  <template #append>
+                    <v-chip v-if="Number(thread.unreadCount || 0) > 0" size="x-small" label color="primary" variant="tonal">
+                      {{ thread.unreadCount }}
+                    </v-chip>
+                  </template>
+                </v-list-item>
+              </v-list>
 
-                <div class="d-flex justify-space-between align-center mt-3">
-                  <span class="text-caption text-medium-emphasis">Load older thread entries.</span>
-                  <v-btn
-                    variant="outlined"
-                    size="small"
-                    :loading="state.loadingMoreThreads"
-                    :disabled="!state.hasMoreThreads"
-                    @click="actions.loadMoreThreads"
-                  >
-                    Load more
-                  </v-btn>
-                </div>
-              </v-card-text>
-            </v-card>
-          </v-col>
+              <div class="d-flex justify-space-between align-center mt-3">
+                <span class="text-caption text-medium-emphasis">Load older thread entries.</span>
+                <v-btn
+                  variant="outlined"
+                  size="small"
+                  :loading="state.loadingMoreThreads"
+                  :disabled="!state.hasMoreThreads"
+                  @click="actions.loadMoreThreads"
+                >
+                  Load more
+                </v-btn>
+              </div>
+            </template>
+          </v-card-text>
+        </v-card>
+      </v-col>
 
-          <v-col cols="12" md="8">
-            <v-card rounded="lg" border class="h-100">
-              <v-card-item>
-                <v-card-title class="text-subtitle-2 font-weight-bold">
-                  {{ state.selectedThread ? helpers.formatThreadTitle(state.selectedThread) : "Messages" }}
-                </v-card-title>
-                <v-card-subtitle v-if="state.selectedThread">
-                  {{ threadHeaderSubtitle(state.selectedThread) }}
-                </v-card-subtitle>
-                <template #append>
-                  <v-btn
-                    variant="text"
-                    size="small"
-                    :disabled="!state.selectedThreadId || state.messagesLoading"
-                    @click="actions.refreshThread"
-                  >
-                    Refresh
-                  </v-btn>
-                </template>
-              </v-card-item>
-              <v-divider />
-              <v-card-text>
-                <div class="d-flex justify-space-between align-center mb-2">
-                  <span class="text-caption text-medium-emphasis">Load older history first, then continue chatting.</span>
-                  <v-btn
-                    variant="outlined"
-                    size="small"
-                    :loading="state.loadingMoreMessages"
-                    :disabled="!state.selectedThreadId || !state.hasMoreMessages"
-                    @click="actions.loadOlderMessages"
-                  >
-                    Load more
-                  </v-btn>
-                </div>
+      <v-col cols="12" lg="8">
+        <v-card rounded="lg" elevation="1" border class="chat-main-card">
+          <v-card-item>
+            <v-card-title class="text-subtitle-2 font-weight-bold">
+              {{ state.selectedThread ? helpers.formatThreadTitle(state.selectedThread) : "Messages" }}
+            </v-card-title>
+            <v-card-subtitle v-if="state.selectedThread">
+              {{ threadHeaderSubtitle(state.selectedThread) }}
+            </v-card-subtitle>
+            <template #append>
+              <v-btn variant="text" size="small" :disabled="!state.selectedThreadId || state.messagesLoading" @click="actions.refreshThread">
+                Refresh
+              </v-btn>
+            </template>
+          </v-card-item>
+          <v-divider />
 
-                <div class="chat-message-panel">
-                  <div v-if="!state.selectedThreadId" class="text-body-2 text-medium-emphasis">
-                    Select a thread to start.
+          <v-card-text>
+            <v-alert v-if="state.messagesError" type="error" variant="tonal" density="comfortable" class="mb-3">
+              {{ state.messagesError }}
+            </v-alert>
+
+            <div class="d-flex justify-space-between align-center mb-2">
+              <span class="text-caption text-medium-emphasis">Load older history first, then continue chatting.</span>
+              <v-btn
+                variant="outlined"
+                size="small"
+                :loading="state.loadingMoreMessages"
+                :disabled="!state.selectedThreadId || !state.hasMoreMessages"
+                @click="actions.loadOlderMessages"
+              >
+                Load more
+              </v-btn>
+            </div>
+
+            <div class="chat-message-panel" :class="{ 'chat-message-panel--empty': state.messageRows.length < 1 }">
+              <div v-if="!state.selectedThreadId" class="chat-empty-state">Select a thread to start.</div>
+              <div v-else-if="state.messagesLoading && state.messageRows.length < 1" class="chat-empty-state">Loading messages...</div>
+              <div v-else-if="state.messageRows.length < 1" class="chat-empty-state">No messages yet.</div>
+
+              <div
+                v-for="row in state.messageRows"
+                v-else
+                :key="row.id"
+                class="chat-message-row"
+                :class="{
+                  'chat-message-row--mine': row.isMine,
+                  'chat-message-row--group-start': row.groupStart,
+                  'chat-message-row--group-end': row.groupEnd
+                }"
+              >
+                <v-avatar v-if="row.showAvatar" size="34" class="chat-message-avatar">
+                  <v-img v-if="row.isMine && currentUserAvatarUrl" :src="currentUserAvatarUrl" cover />
+                  <span v-else class="chat-message-avatar-initials">{{ rowAvatarInitials(row) }}</span>
+                </v-avatar>
+                <span v-else class="chat-message-avatar-spacer" />
+
+                <div class="chat-message-body">
+                  <div v-if="row.showMeta" class="chat-message-meta text-caption text-medium-emphasis">
+                    <span>{{ row.senderLabel }}</span>
+                    <span>{{ helpers.formatTimestamp(row.message.sentAt) }}</span>
                   </div>
-                  <div v-else-if="state.messagesLoading && state.messages.length < 1" class="text-body-2 text-medium-emphasis">
-                    Loading messages...
+                  <div
+                    class="chat-message-bubble text-body-2"
+                    :class="{
+                      'chat-message-bubble--mine': row.isMine,
+                      'chat-message-bubble--theirs': !row.isMine
+                    }"
+                  >
+                    {{ helpers.formatMessageText(row.message) }}
                   </div>
-                  <div v-else-if="state.messages.length < 1" class="text-body-2 text-medium-emphasis">No messages yet.</div>
-                  <v-list v-else density="comfortable" class="pa-0">
-                    <v-list-item v-for="message in state.messages" :key="message.id" class="chat-message-row">
-                      <template #title>
-                        <div class="d-flex flex-wrap align-center ga-2">
-                          <span class="text-body-2 font-weight-medium">{{ helpers.formatMessageSender(message) }}</span>
-                          <span class="text-caption text-medium-emphasis">{{ helpers.formatTimestamp(message.sentAt) }}</span>
-                        </div>
-                      </template>
-                      <template #subtitle>
-                        <div class="chat-message-text text-body-2">{{ helpers.formatMessageText(message) }}</div>
-                      </template>
-                    </v-list-item>
-                  </v-list>
                 </div>
+              </div>
+            </div>
 
-                <v-divider class="my-4" />
+            <v-divider class="my-4" />
 
-                <v-textarea
-                  v-model="state.composerText"
-                  label="Message"
-                  rows="2"
-                  max-rows="6"
-                  auto-grow
-                  hide-details="auto"
-                  :counter="meta.messageMaxChars"
-                  :disabled="!state.selectedThreadId || state.sendPending"
-                />
+            <v-textarea
+              v-model="state.composerText"
+              label="Message"
+              rows="2"
+              max-rows="6"
+              auto-grow
+              hide-details="auto"
+              :counter="meta.messageMaxChars"
+              :disabled="!state.selectedThreadId || state.sendPending"
+              @keydown="actions.handleComposerKeydown"
+            />
 
-                <div class="d-flex justify-end mt-3">
-                  <v-btn color="primary" :loading="state.sendPending" :disabled="!state.canSend" @click="actions.sendFromComposer">
-                    Send
-                  </v-btn>
-                </div>
-              </v-card-text>
-            </v-card>
-          </v-col>
-        </v-row>
-      </v-card-text>
-    </v-card>
+            <div class="chat-actions mt-3">
+              <v-checkbox v-model="state.sendOnEnter" label="Send on enter" hide-details density="compact" />
+              <v-btn color="primary" :loading="state.sendPending" :disabled="!state.canSend" @click="actions.sendFromComposer">
+                Send
+              </v-btn>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+
+    <v-dialog v-model="dmDialogOpen" max-width="460">
+      <v-card rounded="lg" border>
+        <v-card-item>
+          <v-card-title class="text-subtitle-1 font-weight-bold">Start Direct Message</v-card-title>
+          <v-card-subtitle>Enter a target user's public chat id.</v-card-subtitle>
+        </v-card-item>
+        <v-divider />
+        <v-card-text>
+          <v-text-field
+            v-model="targetPublicChatId"
+            label="Public chat id"
+            placeholder="e.g. u29"
+            :maxlength="64"
+            hint="Ask the other user for their public chat id."
+            persistent-hint
+            :disabled="state.dmPending"
+          />
+        </v-card-text>
+        <v-card-actions class="justify-end">
+          <v-btn variant="text" :disabled="state.dmPending" @click="closeDmDialog">Cancel</v-btn>
+          <v-btn color="primary" :loading="state.dmPending" @click="startDm">Start</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </section>
 </template>
 
 <script setup>
+import { computed, ref } from "vue";
+import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 import { useChatView } from "./useChatView.js";
 
 const { meta, state, helpers, actions } = useChatView();
+const workspaceStore = useWorkspaceStore();
+const dmDialogOpen = ref(false);
+const targetPublicChatId = ref("");
+
+const currentUserAvatarUrl = computed(() => normalizeText(workspaceStore.profileAvatarUrl));
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -188,13 +226,55 @@ function threadHeaderSubtitle(thread) {
   const lastMessageAt = thread?.lastMessageAt ? helpers.formatTimestamp(thread.lastMessageAt) : "No activity yet";
   return `${scope} • ${readState} • ${lastMessageAt}`;
 }
+
+function rowAvatarInitials(row) {
+  const label = normalizeText(row?.senderLabel) || "U";
+  const parts = label
+    .split(/\s+/)
+    .map((part) => normalizeText(part))
+    .filter(Boolean);
+
+  if (parts.length < 1) {
+    return "U";
+  }
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function closeDmDialog() {
+  dmDialogOpen.value = false;
+  targetPublicChatId.value = "";
+}
+
+async function startDm() {
+  const threadId = await actions.ensureDmThread(targetPublicChatId.value);
+  if (threadId > 0) {
+    closeDmDialog();
+  }
+}
 </script>
 
 <style scoped>
+.chat-view {
+  padding-block: 0.35rem 0.8rem;
+}
+
+.chat-layout {
+  align-items: stretch;
+}
+
+.chat-side-card,
+.chat-main-card {
+  height: 100%;
+}
+
 .chat-thread-list-wrapper {
   display: flex;
   flex-direction: column;
-  min-height: 420px;
+  min-height: 520px;
 }
 
 .chat-thread-list {
@@ -203,20 +283,102 @@ function threadHeaderSubtitle(thread) {
 }
 
 .chat-message-panel {
-  min-height: 300px;
-  max-height: 480px;
+  min-height: 360px;
+  max-height: 62vh;
   overflow: auto;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.14);
-  border-radius: 12px;
-  padding: 0.5rem;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(var(--v-theme-surface), 0.95) 0%, rgba(var(--v-theme-surface), 0.75) 100%);
+  padding: 0.85rem 0.9rem;
 }
 
-.chat-message-row + .chat-message-row {
-  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+.chat-message-panel--empty {
+  display: grid;
+  place-items: center;
 }
 
-.chat-message-text {
+.chat-empty-state {
+  min-height: 280px;
+  display: grid;
+  place-items: center;
+  color: rgba(var(--v-theme-on-surface), 0.66);
+  font-size: 0.94rem;
+}
+
+.chat-message-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.55rem;
+  margin-bottom: 0.45rem;
+}
+
+.chat-message-row--mine {
+  flex-direction: row-reverse;
+}
+
+.chat-message-avatar,
+.chat-message-avatar-spacer {
+  width: 34px;
+  min-width: 34px;
+}
+
+.chat-message-avatar-spacer {
+  height: 34px;
+}
+
+.chat-message-avatar-initials {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.chat-message-body {
+  display: grid;
+  gap: 0.18rem;
+  max-width: min(80%, 540px);
+}
+
+.chat-message-row--mine .chat-message-body {
+  justify-items: end;
+}
+
+.chat-message-meta {
+  display: inline-flex;
+  gap: 0.45rem;
+  line-height: 1.2;
+}
+
+.chat-message-bubble {
+  border-radius: 16px;
+  padding: 0.55rem 0.75rem;
   white-space: pre-wrap;
-  line-height: 1.35;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+
+.chat-message-bubble--mine {
+  background: rgba(var(--v-theme-primary), 0.16);
+  border-color: rgba(var(--v-theme-primary), 0.2);
+}
+
+.chat-message-bubble--theirs {
+  background: rgba(var(--v-theme-on-surface), 0.06);
+  border-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.chat-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+@media (max-width: 960px) {
+  .chat-thread-list-wrapper {
+    min-height: 360px;
+  }
+
+  .chat-message-panel {
+    max-height: 52vh;
+  }
 }
 </style>

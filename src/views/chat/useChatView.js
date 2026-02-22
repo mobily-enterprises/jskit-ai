@@ -14,6 +14,8 @@ const INBOX_PAGE_SIZE = 20;
 const THREAD_MESSAGES_PAGE_SIZE = 50;
 const CHAT_MESSAGE_MAX_TEXT_CHARS = 4000;
 const MARK_READ_DEBOUNCE_MS = 180;
+const DM_PUBLIC_CHAT_ID_MAX_CHARS = 64;
+const MESSAGE_GROUP_WINDOW_MS = 5 * 60 * 1000;
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -28,12 +30,36 @@ function normalizeThreadId(value) {
   return parsed;
 }
 
+function parseTimestampMs(value) {
+  const parsed = new Date(value);
+  const timestamp = parsed.getTime();
+  if (Number.isNaN(timestamp)) {
+    return 0;
+  }
+  return timestamp;
+}
+
+function withinMessageGroupWindow(leftMs, rightMs) {
+  if (!leftMs || !rightMs) {
+    return false;
+  }
+  return Math.abs(Number(rightMs) - Number(leftMs)) <= MESSAGE_GROUP_WINDOW_MS;
+}
+
 function buildClientMessageId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return `cm_${crypto.randomUUID()}`;
   }
 
   return `cm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function normalizePublicChatId(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) {
+    return "";
+  }
+  return normalized.slice(0, DM_PUBLIC_CHAT_ID_MAX_CHARS);
 }
 
 function flattenThreadPages(pages) {
@@ -130,6 +156,55 @@ function formatMessageText(message) {
   return "(No content)";
 }
 
+function resolveSenderLabel(message, { currentUserId = 0, currentUserLabel = "You" } = {}) {
+  const senderUserId = normalizeThreadId(message?.senderUserId);
+  if (currentUserId > 0 && senderUserId === currentUserId) {
+    return String(currentUserLabel || "You").trim() || "You";
+  }
+  return formatMessageSender(message);
+}
+
+function buildMessageRows(messages, { currentUserId = 0, currentUserLabel = "You" } = {}) {
+  const source = Array.isArray(messages) ? messages : [];
+
+  return source.map((message, index) => {
+    const currentSenderId = normalizeThreadId(message?.senderUserId);
+    const previous = source[index - 1] || null;
+    const next = source[index + 1] || null;
+    const previousSenderId = normalizeThreadId(previous?.senderUserId);
+    const nextSenderId = normalizeThreadId(next?.senderUserId);
+
+    const currentSentMs = parseTimestampMs(message?.sentAt);
+    const previousSentMs = parseTimestampMs(previous?.sentAt);
+    const nextSentMs = parseTimestampMs(next?.sentAt);
+
+    const groupedWithPrevious =
+      Boolean(currentSenderId) &&
+      currentSenderId === previousSenderId &&
+      withinMessageGroupWindow(previousSentMs, currentSentMs);
+    const groupedWithNext =
+      Boolean(currentSenderId) &&
+      currentSenderId === nextSenderId &&
+      withinMessageGroupWindow(currentSentMs, nextSentMs);
+
+    const isMine = currentUserId > 0 && currentSenderId === currentUserId;
+
+    return {
+      id: Number(message?.id) || `msg_${index}`,
+      message,
+      isMine,
+      senderLabel: resolveSenderLabel(message, {
+        currentUserId,
+        currentUserLabel
+      }),
+      showMeta: !groupedWithPrevious,
+      showAvatar: !groupedWithPrevious,
+      groupStart: !groupedWithPrevious,
+      groupEnd: !groupedWithNext
+    };
+  });
+}
+
 export function useChatView() {
   const workspaceStore = useWorkspaceStore();
   const queryClient = useQueryClient();
@@ -137,7 +212,9 @@ export function useChatView() {
 
   const selectedThreadId = ref(0);
   const composerText = ref("");
+  const sendOnEnter = ref(true);
   const sendPending = ref(false);
+  const dmPending = ref(false);
   const sendStatus = ref("");
   const actionError = ref("");
 
@@ -146,6 +223,17 @@ export function useChatView() {
   let markReadTimer = null;
 
   const workspaceSlug = computed(() => String(workspaceStore.activeWorkspaceSlug || "").trim() || "none");
+  const currentUserId = computed(() => {
+    const parsed = Number(workspaceStore.sessionUserId);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      return 0;
+    }
+    return parsed;
+  });
+  const currentUserLabel = computed(() => {
+    const displayName = String(workspaceStore.profileDisplayName || "").trim();
+    return displayName || "You";
+  });
   const enabled = computed(
     () => Boolean(workspaceStore.initialized && workspaceStore.hasActiveWorkspace && workspaceStore.can("chat.read"))
   );
@@ -196,6 +284,12 @@ export function useChatView() {
   });
 
   const messages = computed(() => flattenMessagePagesChronologically(threadMessagesQuery.data.value?.pages));
+  const messageRows = computed(() =>
+    buildMessageRows(messages.value, {
+      currentUserId: currentUserId.value,
+      currentUserLabel: currentUserLabel.value
+    })
+  );
   const latestMessage = computed(() => {
     const source = messages.value;
     return source.length > 0 ? source[source.length - 1] : null;
@@ -392,6 +486,76 @@ export function useChatView() {
     }
   }
 
+  function handleComposerKeydown(event) {
+    if (!sendOnEnter.value) {
+      return;
+    }
+
+    if (String(event?.key || "") !== "Enter") {
+      return;
+    }
+
+    if (event?.shiftKey || event?.ctrlKey || event?.metaKey || event?.altKey) {
+      return;
+    }
+
+    if (!(
+      selectedThreadId.value > 0 &&
+      !sendPending.value &&
+      normalizeText(composerText.value).length > 0 &&
+      normalizeText(composerText.value).length <= CHAT_MESSAGE_MAX_TEXT_CHARS
+    )) {
+      return;
+    }
+
+    if (typeof event?.preventDefault === "function") {
+      event.preventDefault();
+    }
+    void sendFromComposer();
+  }
+
+  async function ensureDmThread(targetPublicChatId) {
+    const normalizedTargetPublicChatId = normalizePublicChatId(targetPublicChatId);
+    if (!normalizedTargetPublicChatId) {
+      actionError.value = "Enter a public chat id to start a DM.";
+      return 0;
+    }
+
+    dmPending.value = true;
+    actionError.value = "";
+    sendStatus.value = "";
+
+    try {
+      const result = await api.chat.ensureDm({
+        targetPublicChatId: normalizedTargetPublicChatId
+      });
+      const threadId = normalizeThreadId(result?.thread?.id);
+      if (!threadId) {
+        throw new Error("DM response did not include a valid thread.");
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: inboxQueryKey.value
+        }),
+        inboxQuery.refetch()
+      ]);
+
+      await selectThread(threadId);
+      sendStatus.value = result?.created ? "Direct message created." : "Direct message opened.";
+      return threadId;
+    } catch (error) {
+      const handled = await handleUnauthorizedError(error);
+      if (handled) {
+        return 0;
+      }
+      actionError.value = mapChatError(error, "Unable to start direct message.").message;
+      return 0;
+    } finally {
+      dmPending.value = false;
+    }
+  }
+
   watch(
     threads,
     (nextThreads) => {
@@ -448,8 +612,11 @@ export function useChatView() {
       threads,
       messages,
       latestMessage,
+      messageRows,
       composerText,
+      sendOnEnter,
       sendPending,
+      dmPending,
       sendStatus,
       actionError,
       inboxError,
@@ -479,12 +646,13 @@ export function useChatView() {
     },
     actions: {
       selectThread,
+      ensureDmThread,
       refreshInbox,
       refreshThread,
       loadMoreThreads,
       loadOlderMessages,
-      sendFromComposer
+      sendFromComposer,
+      handleComposerKeydown
     }
   };
 }
-

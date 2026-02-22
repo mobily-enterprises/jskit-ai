@@ -9,6 +9,7 @@ import {
 const mocks = vi.hoisted(() => ({
   api: {
     chat: {
+      ensureDm: vi.fn(),
       listInbox: vi.fn(),
       listThreadMessages: vi.fn(),
       sendThreadMessage: vi.fn(),
@@ -19,6 +20,7 @@ const mocks = vi.hoisted(() => ({
     initialized: true,
     hasActiveWorkspace: true,
     activeWorkspaceSlug: "acme",
+    sessionUserId: 29,
     can: vi.fn((permission) => permission === "chat.read")
   },
   queryClient: {
@@ -118,6 +120,7 @@ describe("useChatView", () => {
   beforeEach(() => {
     mocks.api.chat.listInbox.mockReset();
     mocks.api.chat.listThreadMessages.mockReset();
+    mocks.api.chat.ensureDm.mockReset();
     mocks.api.chat.sendThreadMessage.mockReset();
     mocks.api.chat.markThreadRead.mockReset();
     mocks.queryClient.invalidateQueries.mockReset();
@@ -127,6 +130,7 @@ describe("useChatView", () => {
     mocks.workspaceStore.initialized = true;
     mocks.workspaceStore.hasActiveWorkspace = true;
     mocks.workspaceStore.activeWorkspaceSlug = "acme";
+    mocks.workspaceStore.sessionUserId = 29;
     mocks.workspaceStore.can.mockReset();
     mocks.workspaceStore.can.mockImplementation((permission) => permission === "chat.read");
 
@@ -217,5 +221,52 @@ describe("useChatView", () => {
 
     expect(mocks.inboxQueryState.fetchNextPage).toHaveBeenCalledTimes(1);
     expect(mocks.messagesQueryState.fetchNextPage).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends on Enter when sendOnEnter is enabled", async () => {
+    mocks.api.chat.sendThreadMessage.mockResolvedValueOnce({
+      idempotencyStatus: "created"
+    });
+
+    const wrapper = mount(Harness);
+    await nextTick();
+
+    wrapper.vm.state.composerText = "enter-send";
+    const event = {
+      key: "Enter",
+      shiftKey: false,
+      ctrlKey: false,
+      metaKey: false,
+      altKey: false,
+      preventDefault: vi.fn()
+    };
+
+    wrapper.vm.actions.handleComposerKeydown(event);
+    await Promise.resolve();
+
+    expect(event.preventDefault).toHaveBeenCalledTimes(1);
+    expect(mocks.api.chat.sendThreadMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates or opens dm via ensureDmThread and selects resulting thread", async () => {
+    mocks.api.chat.ensureDm.mockResolvedValueOnce({
+      created: true,
+      thread: {
+        id: 55
+      }
+    });
+
+    const wrapper = mount(Harness);
+    await nextTick();
+
+    const threadId = await wrapper.vm.actions.ensureDmThread("u55");
+
+    expect(threadId).toBe(55);
+    expect(mocks.api.chat.ensureDm).toHaveBeenCalledWith({
+      targetPublicChatId: "u55"
+    });
+    expect(mocks.inboxQueryState.refetch).toHaveBeenCalledTimes(1);
+    expect(wrapper.vm.state.selectedThreadId).toBe(55);
+    expect(wrapper.vm.state.sendStatus).toBe("Direct message created.");
   });
 });
