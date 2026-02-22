@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Forty-seventh Review Amendments Summary (Post-commit server review #47)
+
+This section records corrections made during a forty-seventh pass after the prior review cycles.
+
+### Idempotency-key collation / exact-match semantics hardening
+
+- Fixed a DB-integrity gap in the idempotency-key schema plan: `client_message_id` / `client_attachment_id` were treated as exact keys, but the document did not specify collation/case behavior, which can cause false collisions under MySQL case-insensitive defaults.
+- Added explicit guidance that client idempotency/correlation keys must use exact-match semantics (prefer binary/case-sensitive collation or an equivalently strict normalized format chosen once) and that message/tombstone key handling must match.
+- Added migration/test-plan notes so collation choices are verified and idempotency behavior does not silently depend on database defaults.
+
 ## Forty-sixth Review Amendments Summary (Post-commit server review #46)
 
 This section records corrections made during a forty-sixth pass after the prior review cycles.
@@ -1136,6 +1146,7 @@ Columns:
 - `client_message_id` VARCHAR(128) NULL
   - client-generated idempotency key scoped to sender+thread
   - nullable for system/generated/backfill messages; v1 user send endpoints should require it
+  - exact-match key semantics required: do not rely on MySQL default case-insensitive collation for idempotency keys (use binary/case-sensitive collation or an equivalently strict normalized format and apply it consistently)
 - `idempotency_payload_sha256` CHAR(64) NULL
   - immutable SHA-256 (hex) of the canonical logical send payload used for `client_message_id` replay/conflict checks
   - populate for user-sent messages that provide `client_message_id`; nullable for system/generated/backfill rows
@@ -1199,6 +1210,7 @@ Columns:
 - `thread_id` BIGINT UNSIGNED NOT NULL
 - `sender_user_id` BIGINT UNSIGNED NOT NULL
 - `client_message_id` VARCHAR(128) NOT NULL
+  - must use the same exact-match/collation semantics as `chat_messages.client_message_id` (tombstone duplicate suppression depends on identical key behavior)
 - `idempotency_payload_version` SMALLINT UNSIGNED NOT NULL
 - `idempotency_payload_sha256` CHAR(64) NOT NULL
 - `original_message_id` BIGINT UNSIGNED NULL
@@ -1250,6 +1262,7 @@ Columns:
 - `uploaded_by_user_id` BIGINT UNSIGNED NOT NULL
 - `client_attachment_id` VARCHAR(128) NULL
   - idempotency/correlation key from client for retry-safe uploads
+  - exact-match key semantics required (same collation/normalization caution as `client_message_id`)
 - `position` INT UNSIGNED NULL
   - ordinal within message when attached
 - `attachment_kind` VARCHAR(32) NOT NULL
@@ -1359,6 +1372,7 @@ Why split this way:
 - For nullable pointer columns (`last_message_id`, `last_read_message_id`), do not add FKs in v1
 - Add indexes early; chat queries are list-heavy and message-page heavy
 - If using the simpler “retain deleted message rows through retry window” policy, explicitly skip the tombstone migration and document the chosen retention behavior in deploy config/docs.
+- For `client_message_id` / `client_attachment_id` (and tombstone `client_message_id`), define exact-match semantics explicitly in schema/migrations (preferred: case-sensitive/binary collation) so idempotency behavior does not depend on DB default collation.
 
 ## Repository Layer Plan (server/modules/chat/repositories)
 
@@ -2281,6 +2295,7 @@ Per repository:
 - row mapping correctness
 - pagination bounds
 - idempotency lookups (`client_message_id`, `client_attachment_id`)
+- idempotency-key collation behavior matches plan (e.g. case-variant keys are not collapsed unexpectedly under DB defaults; exact-match semantics are enforced by schema/normalization choice)
 - attachment hydration queries (`listByMessageId` / `listByMessageIds`) return deterministic ordering (`position`, fallback `id`)
 - unique conflict handling (DM pair uniqueness)
 - read cursor monotonic updates
