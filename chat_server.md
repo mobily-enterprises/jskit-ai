@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Twenty-third Review Amendments Summary (Post-commit server review #23)
+
+This section records corrections made during a twenty-third pass after the prior review cycles.
+
+### Attachment upload idempotency / collision-semantics clarifications
+
+- Fixed a gap in `clientAttachmentId` idempotency semantics: the plan defined uniqueness for retry-safe uploads but did not specify behavior when the same `clientAttachmentId` is retried with different file content/metadata.
+- Added explicit upload-service guidance to treat `clientAttachmentId` as an idempotency key bound to the original attachment row/content and to reject mismatched retries (e.g. `409`) rather than overwriting/rebinding.
+- Added attachments-service test coverage for same-key retry success vs mismatched-content collision rejection.
+
 ## Twenty-second Review Amendments Summary (Post-commit server review #22)
 
 This section records corrections made during a twenty-second pass after the prior review cycles.
@@ -1542,6 +1552,8 @@ Flow:
 
 1. Validate thread write/upload permission
 2. Create or reuse reserved attachment row (`status='reserved'`)
+   - if reusing by `clientAttachmentId`, treat it as an idempotency key for the same logical upload (same user + thread)
+   - if an existing row for that key is already `uploaded`/`attached`, return the existing attachment only when content identity matches (e.g. same `sha256_hex`/size when available); otherwise reject as conflict (`409`) rather than overwriting/rebinding
 3. Mark `status='uploading'`
 4. Stream upload and capture metadata (mime/size, maybe image dimensions)
 5. Save blob to storage and mark `status='uploaded'`
@@ -1925,6 +1937,8 @@ Per repository:
 - invalid mime type rejected
 - oversize rejected
 - staged upload transitions correct
+- same `clientAttachmentId` retry returns existing attachment idempotently when content matches
+- same `clientAttachmentId` with different content/metadata is rejected as conflict (no overwrite/rebind)
 - attach only by uploader + same thread
 - orphan cleanup works
 
