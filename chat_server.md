@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Forty-third Review Amendments Summary (Post-commit server review #43)
+
+This section records corrections made during a forty-third pass after the prior review cycles.
+
+### Idempotency retry-window config completeness
+
+- Fixed an implementation-completeness gap: the plan repeatedly referenced a bounded idempotency retry horizon/window but did not define a concrete config value for retention/tombstone processing to use.
+- Added an explicit retention/worker config knob for the message-send idempotency retry window and clarified how both the tombstone strategy and retained-message fallback must honor it.
+- Added retention test coverage expectations for effective hard-delete cutoff behavior so retry-window semantics are enforced, not implied.
+
 ## Forty-second Review Amendments Summary (Post-commit server review #42)
 
 This section records corrections made during a forty-second pass after the prior review cycles.
@@ -2104,6 +2114,7 @@ Extend `server/domain/operations/services/retention.service.js` and `server/work
 - `chatMessagesRetentionDays`
 - `chatAttachmentsRetentionDays`
 - `chatUnattachedUploadsRetentionHours` (can be a separate cleanup rule if hour granularity is needed)
+- `chatMessageIdempotencyRetryWindowHours` (or days; choose one unit and use it consistently)
 
 Add retention rules for:
 
@@ -2126,6 +2137,15 @@ Choose one explicit strategy and keep it consistent across send + retention flow
 - Simpler: do not hard-delete messages with `client_message_id` until an idempotency retry window has elapsed (retain a deleted/redacted row if needed).
 
 Tombstone/ledger retention should be bounded (hours/days, product dependent) and cleaned by the same retention worker framework after the retry horizon expires.
+
+Define the retry horizon explicitly in config (recommended: `chatMessageIdempotencyRetryWindowHours`) and apply it consistently:
+
+- Tombstone strategy: `expires_at` for tombstones should be at least `deleted_at + retryWindow` (product may keep longer, but not shorter).
+- Retained-message fallback strategy: retention hard-delete selection for messages with non-null `client_message_id` must honor the retry window (effective deletion cutoff should not delete those rows before the retry horizon, even if the generic message-retention cutoff is earlier).
+- In practice, treat the effective hard-delete cutoff for `client_message_id` rows as the later of:
+  - the product retention cutoff, and
+  - the idempotency retry-window cutoff
+  unless the tombstone path is used and a valid tombstone is written in the same delete workflow.
 
 Legacy/backfill compatibility requirement (important):
 
@@ -2334,6 +2354,7 @@ Using existing realtime test harness patterns adapted for chat:
 
 - chat retention rules added to sweep output
 - idempotency tombstone/ledger expiry cleanup runs when tombstone strategy is enabled (or is explicitly absent when simpler retained-message strategy is selected)
+- effective message hard-delete cutoff honors `chatMessageIdempotencyRetryWindow*` semantics for rows with `client_message_id` (retained-row fallback or valid same-workflow tombstone path)
 - repeated retention/moderation delete attempts do not fail on duplicate tombstone writes (tombstone insert path is idempotent/upsert-safe)
 - duplicate tombstone writes with mismatched immutable idempotency hash/version are detected and do not silently overwrite existing tombstone identity data
 - tombstone-enabled hard-delete flow handles legacy rows missing idempotency hash/version via the documented fallback (backfill-first or retain/redact exception), not partial tombstone writes or hard-delete failure loops
@@ -2352,6 +2373,7 @@ Decide and document:
 - whether attachments ship in v1 or v1.1
 - whether `draft_text` persists in v1
 - whether `global + group` is deferred (recommended defer)
+- idempotency retry-window value/unit (`hours` vs `days`) and whether tombstone expiry equals that window or extends beyond it
 
 ### Phase 1: Schema + repositories (no routes yet)
 
