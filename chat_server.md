@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Twenty-fourth Review Amendments Summary (Post-commit server review #24)
+
+This section records corrections made during a twenty-fourth pass after the prior review cycles.
+
+### Attachment upload status-transition race clarifications
+
+- Tightened attachment upload lifecycle guidance so `reserved -> uploading` transition is claimed atomically (lock/conditional update), preventing concurrent same-`clientAttachmentId` requests from both streaming/writing bytes for the same logical upload.
+- Added explicit behavior for duplicate requests hitting an already-`uploading` attachment row: do not start a second upload stream; return a bounded conflict/in-progress response (v1 recommended `409`) or equivalent idempotent-in-progress contract.
+- Added attachments-service test coverage for concurrent same-key upload attempts and state-transition race handling.
+
 ## Twenty-third Review Amendments Summary (Post-commit server review #23)
 
 This section records corrections made during a twenty-third pass after the prior review cycles.
@@ -1554,7 +1564,9 @@ Flow:
 2. Create or reuse reserved attachment row (`status='reserved'`)
    - if reusing by `clientAttachmentId`, treat it as an idempotency key for the same logical upload (same user + thread)
    - if an existing row for that key is already `uploaded`/`attached`, return the existing attachment only when content identity matches (e.g. same `sha256_hex`/size when available); otherwise reject as conflict (`409`) rather than overwriting/rebinding
-3. Mark `status='uploading'`
+3. Claim upload transition (`reserved` -> `uploading`) atomically
+   - use row lock and/or conditional update on expected prior state to ensure only one request starts streaming bytes for a given attachment row
+   - if duplicate request finds same-key row already `uploading`, do not start a second stream; return conflict/in-progress response (v1 recommended `409`) or equivalent idempotent-in-progress contract
 4. Stream upload and capture metadata (mime/size, maybe image dimensions)
 5. Save blob to storage and mark `status='uploaded'`
 6. Return attachment metadata (unattached)
@@ -1939,6 +1951,7 @@ Per repository:
 - staged upload transitions correct
 - same `clientAttachmentId` retry returns existing attachment idempotently when content matches
 - same `clientAttachmentId` with different content/metadata is rejected as conflict (no overwrite/rebind)
+- concurrent same `clientAttachmentId` uploads do not both start streaming/writing (atomic `reserved -> uploading` claim)
 - attach only by uploader + same thread
 - orphan cleanup works
 
