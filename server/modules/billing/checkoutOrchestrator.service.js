@@ -160,6 +160,22 @@ function normalizeOptionalString(value) {
   return normalized || null;
 }
 
+function normalizeProviderRefId(value) {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    return normalizeOptionalString(value);
+  }
+
+  if (typeof value === "object") {
+    return normalizeOptionalString(value.id);
+  }
+
+  return null;
+}
+
 function parseUnixEpochSeconds(value) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -172,6 +188,77 @@ function parseUnixEpochSeconds(value) {
 function isProviderNotFoundError(error) {
   const statusCode = Number(error?.statusCode || error?.status || 0);
   return statusCode === 404;
+}
+
+function isBlockingCheckoutDebugEnabled() {
+  return String(process.env.BILLING_DEBUG_CHECKOUT_BLOCKS || "")
+    .trim()
+    .toLowerCase() === "1";
+}
+
+function toIsoOrNull(value) {
+  if (!value) {
+    return null;
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function summarizeCheckoutSessionForDebug(session) {
+  if (!session || typeof session !== "object") {
+    return null;
+  }
+
+  return {
+    id: Number(session.id || 0) || null,
+    billableEntityId: Number(session.billableEntityId || 0) || null,
+    status: String(session.status || ""),
+    operationKey: String(session.operationKey || ""),
+    providerCheckoutSessionId: String(session.providerCheckoutSessionId || ""),
+    providerSubscriptionId: String(session.providerSubscriptionId || ""),
+    providerCustomerId: String(session.providerCustomerId || ""),
+    expiresAt: toIsoOrNull(session.expiresAt),
+    completedAt: toIsoOrNull(session.completedAt),
+    lastProviderEventCreatedAt: toIsoOrNull(session.lastProviderEventCreatedAt),
+    lastProviderEventId: session.lastProviderEventId ? String(session.lastProviderEventId) : null,
+    metadataJson: session.metadataJson && typeof session.metadataJson === "object" ? session.metadataJson : null
+  };
+}
+
+function summarizeProviderCheckoutSessionForDebug(session) {
+  if (!session || typeof session !== "object") {
+    return null;
+  }
+
+  return {
+    id: session.id ? String(session.id) : null,
+    status: session.status ? String(session.status) : null,
+    customer: normalizeProviderRefId(session.customer),
+    subscription: normalizeProviderRefId(session.subscription),
+    expiresAt: session.expires_at ? toIsoOrNull(new Date(Number(session.expires_at) * 1000)) : null,
+    urlPresent: Boolean(session.url),
+    metadata:
+      session.metadata && typeof session.metadata === "object"
+        ? {
+            operation_key: session.metadata.operation_key || null,
+            checkout_flow: session.metadata.checkout_flow || null,
+            checkout_type: session.metadata.checkout_type || null
+          }
+        : null
+  };
+}
+
+function debugBlockingCheckoutLog(step, payload = {}) {
+  if (!isBlockingCheckoutDebugEnabled()) {
+    return;
+  }
+
+  const safePayload = payload && typeof payload === "object" ? payload : { value: payload };
+  console.log("[billing.checkout.blocking.debug]", {
+    step,
+    at: new Date().toISOString(),
+    ...safePayload
+  });
 }
 
 function buildPlanNotFoundError() {
@@ -333,6 +420,12 @@ function createService(options = {}) {
     const providerCheckoutSessionId = normalizeOptionalString(blockingSession?.providerCheckoutSessionId);
     const operationKey = normalizeOptionalString(blockingSession?.operationKey);
 
+    debugBlockingCheckoutLog("resolve_provider_session.begin", {
+      blockingSession: summarizeCheckoutSessionForDebug(blockingSession),
+      hasRetrieveCheckoutSession: typeof providerAdapter.retrieveCheckoutSession === "function",
+      hasListCheckoutSessionsByOperationKey: typeof providerAdapter.listCheckoutSessionsByOperationKey === "function"
+    });
+
     if (providerCheckoutSessionId && typeof providerAdapter.retrieveCheckoutSession === "function") {
       try {
         const providerSession = await providerAdapter.retrieveCheckoutSession({
@@ -340,6 +433,10 @@ function createService(options = {}) {
           expand: ["subscription", "customer"]
         });
         if (providerSession) {
+          debugBlockingCheckoutLog("resolve_provider_session.retrieve_by_id.hit", {
+            providerCheckoutSessionId,
+            providerSession: summarizeProviderCheckoutSessionForDebug(providerSession)
+          });
           return {
             providerSession,
             providerSessionMissing: false
@@ -347,11 +444,21 @@ function createService(options = {}) {
         }
       } catch (error) {
         if (isProviderNotFoundError(error)) {
+          debugBlockingCheckoutLog("resolve_provider_session.retrieve_by_id.not_found", {
+            providerCheckoutSessionId,
+            errorMessage: String(error?.message || "")
+          });
           return {
             providerSession: null,
             providerSessionMissing: true
           };
         }
+
+        debugBlockingCheckoutLog("resolve_provider_session.retrieve_by_id.error", {
+          providerCheckoutSessionId,
+          errorMessage: String(error?.message || ""),
+          errorStatus: Number(error?.statusCode || error?.status || 0) || null
+        });
       }
     }
 
@@ -362,6 +469,11 @@ function createService(options = {}) {
           limit: 10
         });
         const providerSession = Array.isArray(sessions) ? sessions[0] || null : null;
+        debugBlockingCheckoutLog("resolve_provider_session.list_by_operation_key.result", {
+          operationKey,
+          returnedCount: Array.isArray(sessions) ? sessions.length : 0,
+          providerSession: summarizeProviderCheckoutSessionForDebug(providerSession)
+        });
         if (providerSession) {
           return {
             providerSession,
@@ -369,6 +481,9 @@ function createService(options = {}) {
           };
         }
       } catch {
+        debugBlockingCheckoutLog("resolve_provider_session.list_by_operation_key.error", {
+          operationKey
+        });
         return {
           providerSession: null,
           providerSessionMissing: false
@@ -376,6 +491,10 @@ function createService(options = {}) {
       }
     }
 
+    debugBlockingCheckoutLog("resolve_provider_session.none", {
+      providerCheckoutSessionId,
+      operationKey
+    });
     return {
       providerSession: null,
       providerSessionMissing: false
@@ -528,6 +647,9 @@ function createService(options = {}) {
   }) {
     const currentBlockingSession = blockingSession && typeof blockingSession === "object" ? blockingSession : null;
     if (!currentBlockingSession) {
+      debugBlockingCheckoutLog("self_heal.skip_no_blocking_session", {
+        billableEntityId
+      });
       return {
         attempted: false,
         repaired: false
@@ -548,6 +670,12 @@ function createService(options = {}) {
 
     const { providerSession, providerSessionMissing } = await resolveProviderSessionForBlockingSession(currentBlockingSession);
     const fallbackProviderCheckoutSessionId = normalizeOptionalString(currentBlockingSession.providerCheckoutSessionId);
+
+    debugBlockingCheckoutLog("self_heal.provider_session_resolved", {
+      guardrailContext,
+      providerSessionMissing,
+      providerSession: summarizeProviderCheckoutSessionForDebug(providerSession)
+    });
 
     if (!providerSession && providerSessionMissing) {
       await billingCheckoutSessionService.markCheckoutSessionExpiredOrAbandoned({
@@ -586,10 +714,19 @@ function createService(options = {}) {
     const providerOperationKey = normalizeOptionalString(metadata.operation_key);
     const effectiveOperationKey = operationKey || providerOperationKey;
     const providerCheckoutSessionId = normalizeOptionalString(providerSession.id) || fallbackProviderCheckoutSessionId;
-    const providerCustomerId = normalizeOptionalString(providerSession.customer);
+    const providerCustomerId = normalizeProviderRefId(providerSession.customer);
     const providerSubscriptionId =
-      normalizeOptionalString(providerSession.subscription) || normalizeOptionalString(currentBlockingSession.providerSubscriptionId);
+      normalizeProviderRefId(providerSession.subscription) || normalizeOptionalString(currentBlockingSession.providerSubscriptionId);
     const providerLocalStatus = providerSessionStateToLocalStatus(providerSession.status);
+
+    debugBlockingCheckoutLog("self_heal.provider_session_status_mapped", {
+      guardrailContext,
+      providerCheckoutSessionId,
+      providerStatus: String(providerSession?.status || ""),
+      providerLocalStatus,
+      effectiveOperationKey,
+      providerSubscriptionId
+    });
 
     if (providerLocalStatus === BILLING_CHECKOUT_SESSION_STATUS.EXPIRED) {
       await billingCheckoutSessionService.markCheckoutSessionExpiredOrAbandoned({
@@ -638,6 +775,12 @@ function createService(options = {}) {
         );
 
         if (localSubscription) {
+          debugBlockingCheckoutLog("self_heal.local_subscription_found_reconcile", {
+            guardrailContext,
+            providerSubscriptionId,
+            localSubscriptionId: Number(localSubscription.id || 0) || null,
+            localSubscriptionStatus: String(localSubscription.status || "")
+          });
           await billingCheckoutSessionService.markCheckoutSessionReconciled({
             providerCheckoutSessionId,
             operationKey: effectiveOperationKey,
@@ -666,6 +809,12 @@ function createService(options = {}) {
             subscriptionId: providerSubscriptionId
           });
           const providerSubscriptionStatus = normalizeProviderSubscriptionStatus(providerSubscription?.status);
+
+          debugBlockingCheckoutLog("self_heal.provider_subscription_retrieved", {
+            guardrailContext,
+            providerSubscriptionId,
+            providerSubscriptionStatus
+          });
 
           if (!isSubscriptionStatusCurrent(providerSubscriptionStatus)) {
             await billingCheckoutSessionService.markCheckoutSessionExpiredOrAbandoned({
@@ -697,6 +846,12 @@ function createService(options = {}) {
             trx
           });
           if (projectedSubscription && isSubscriptionStatusCurrent(projectedSubscription.status)) {
+            debugBlockingCheckoutLog("self_heal.provider_subscription_projected_current", {
+              guardrailContext,
+              providerSubscriptionId,
+              projectedSubscriptionId: Number(projectedSubscription.id || 0) || null,
+              projectedStatus: String(projectedSubscription.status || "")
+            });
             await billingCheckoutSessionService.markCheckoutSessionReconciled({
               providerCheckoutSessionId,
               operationKey: effectiveOperationKey,
@@ -724,6 +879,10 @@ function createService(options = {}) {
             measure: "count",
             value: 1
           });
+          debugBlockingCheckoutLog("self_heal.provider_subscription_unprojected", {
+            guardrailContext,
+            providerSubscriptionId
+          });
         } catch (error) {
           if (isProviderNotFoundError(error)) {
             await billingCheckoutSessionService.markCheckoutSessionExpiredOrAbandoned({
@@ -746,9 +905,20 @@ function createService(options = {}) {
               repaired: true
             };
           }
+
+          debugBlockingCheckoutLog("self_heal.provider_subscription_error", {
+            guardrailContext,
+            providerSubscriptionId,
+            errorMessage: String(error?.message || ""),
+            errorStatus: Number(error?.statusCode || error?.status || 0) || null
+          });
         }
       }
 
+      debugBlockingCheckoutLog("self_heal.completed_pending_not_repaired", {
+        guardrailContext,
+        providerSubscriptionId
+      });
       return {
         attempted: true,
         repaired: false
@@ -801,8 +971,8 @@ function createService(options = {}) {
           providerSession?.expires_at != null
             ? new Date(Number(providerSession.expires_at) * 1000).toISOString()
             : null,
-        customerId: providerSession?.customer ? String(providerSession.customer) : null,
-        subscriptionId: providerSession?.subscription ? String(providerSession.subscription) : null
+        customerId: normalizeProviderRefId(providerSession?.customer),
+        subscriptionId: normalizeProviderRefId(providerSession?.subscription)
       }
     };
   }
@@ -1060,8 +1230,8 @@ function createService(options = {}) {
                 providerCheckoutSessionId: providerSession?.id ? String(providerSession.id) : null,
                 idempotencyRowId,
                 operationKey,
-                providerCustomerId: providerSession?.customer ? String(providerSession.customer) : null,
-                providerSubscriptionId: providerSession?.subscription ? String(providerSession.subscription) : null,
+                providerCustomerId: normalizeProviderRefId(providerSession?.customer),
+                providerSubscriptionId: normalizeProviderRefId(providerSession?.subscription),
                 status: BILLING_CHECKOUT_SESSION_STATUS.ABANDONED,
                 checkoutUrl: providerSession?.url ? String(providerSession.url) : null,
                 expiresAt: providerSession?.expires_at ? new Date(Number(providerSession.expires_at) * 1000) : null,
@@ -1082,8 +1252,8 @@ function createService(options = {}) {
 
       const localStatus = providerSessionStateToLocalStatus(providerSession?.status);
       const providerCheckoutSessionId = providerSession?.id ? String(providerSession.id) : null;
-      const providerCustomerId = providerSession?.customer ? String(providerSession.customer) : null;
-      const providerSubscriptionId = providerSession?.subscription ? String(providerSession.subscription) : null;
+      const providerCustomerId = normalizeProviderRefId(providerSession?.customer);
+      const providerSubscriptionId = normalizeProviderRefId(providerSession?.subscription);
       const checkoutUrl = providerSession?.url ? String(providerSession.url) : null;
       const expiresAt = providerSession?.expires_at ? new Date(Number(providerSession.expires_at) * 1000) : null;
       const metadataJson = {
@@ -1527,8 +1697,20 @@ function createService(options = {}) {
         );
 
         if (!claim || claim.type !== "claimed") {
+          debugBlockingCheckoutLog("start_checkout.claim_not_claimed", {
+            billableEntityId: billableEntity.id,
+            claimType: claim?.type || null,
+            idempotencyRowId: claim?.row?.id ? Number(claim.row.id) : null
+          });
           return;
         }
+
+        debugBlockingCheckoutLog("start_checkout.claimed", {
+          billableEntityId: billableEntity.id,
+          idempotencyRowId: claim?.row?.id ? Number(claim.row.id) : null,
+          checkoutType,
+          operationKey: claim?.row?.operationKey ? String(claim.row.operationKey) : null
+        });
 
         const lockedIdempotencyRow = await billingRepository.findIdempotencyById(claim.row.id, {
           trx,
@@ -1540,10 +1722,21 @@ function createService(options = {}) {
         claimedIdempotencyRowId = lockedIdempotencyRow.id;
 
         if (checkoutType === CHECKOUT_KIND_SUBSCRIPTION) {
-          await billingCheckoutSessionService.cleanupExpiredBlockingSessions({
+          const cleanupResult = await billingCheckoutSessionService.cleanupExpiredBlockingSessions({
             billableEntityId: billableEntity.id,
             now,
             trx
+          });
+          debugBlockingCheckoutLog("start_checkout.cleanup_expired_blocking_sessions", {
+            billableEntityId: billableEntity.id,
+            now: now.toISOString(),
+            updatedCount: Array.isArray(cleanupResult?.updates) ? cleanupResult.updates.length : 0,
+            updates: Array.isArray(cleanupResult?.updates)
+              ? cleanupResult.updates.map((session) => summarizeCheckoutSessionForDebug(session))
+              : [],
+            scannedSessions: Array.isArray(cleanupResult?.sessions)
+              ? cleanupResult.sessions.map((session) => summarizeCheckoutSessionForDebug(session))
+              : []
           });
 
           let blockingSession = await billingCheckoutSessionService.getBlockingCheckoutSession({
@@ -1551,6 +1744,11 @@ function createService(options = {}) {
             now,
             trx,
             cleanupExpired: false
+          });
+
+          debugBlockingCheckoutLog("start_checkout.blocking_session.initial", {
+            billableEntityId: billableEntity.id,
+            blockingSession: summarizeCheckoutSessionForDebug(blockingSession)
           });
 
           if (blockingSession) {
@@ -1563,7 +1761,16 @@ function createService(options = {}) {
                 trx
               });
               selfHealAttempted = Boolean(selfHealResult?.attempted);
+              debugBlockingCheckoutLog("start_checkout.blocking_session.self_heal_result", {
+                billableEntityId: billableEntity.id,
+                blockingSession: summarizeCheckoutSessionForDebug(blockingSession),
+                selfHealResult: selfHealResult && typeof selfHealResult === "object" ? selfHealResult : null
+              });
             } catch {
+              debugBlockingCheckoutLog("start_checkout.blocking_session.self_heal_error", {
+                billableEntityId: billableEntity.id,
+                blockingSession: summarizeCheckoutSessionForDebug(blockingSession)
+              });
               recordGuardrail("BILLING_CHECKOUT_BLOCKING_SELF_HEAL_FAILED", {
                 billableEntityId: billableEntity.id,
                 operationKey: normalizeOptionalString(blockingSession.operationKey),
@@ -1578,6 +1785,10 @@ function createService(options = {}) {
                 now,
                 trx,
                 cleanupExpired: false
+              });
+              debugBlockingCheckoutLog("start_checkout.blocking_session.after_self_heal_reload", {
+                billableEntityId: billableEntity.id,
+                blockingSession: summarizeCheckoutSessionForDebug(blockingSession)
               });
             }
           }
@@ -1618,6 +1829,13 @@ function createService(options = {}) {
               failureMessage,
               failureDetails
             };
+            debugBlockingCheckoutLog("start_checkout.blocking_session.persisted_failure", {
+              billableEntityId: billableEntity.id,
+              failureCode,
+              failureMessage,
+              failureDetails,
+              blockingSession: summarizeCheckoutSessionForDebug(blockingSession)
+            });
             return;
           }
 
@@ -1757,6 +1975,12 @@ function createService(options = {}) {
     }
 
     if (txDeterministicFailure) {
+      debugBlockingCheckoutLog("start_checkout.tx_deterministic_failure.throw", {
+        billableEntityId: billableEntity.id,
+        failure: txDeterministicFailure,
+        claimType: claim?.type || null,
+        claimedIdempotencyRowId
+      });
       throw buildApiFailure(
         txDeterministicFailure.failureCode,
         txDeterministicFailure.failureMessage,
@@ -1769,10 +1993,20 @@ function createService(options = {}) {
     }
 
     if (claim.type === "replay_succeeded") {
+      debugBlockingCheckoutLog("start_checkout.replay_succeeded", {
+        billableEntityId: billableEntity.id,
+        idempotencyRowId: claim?.row?.id ? Number(claim.row.id) : null
+      });
       return claim.row.responseJson;
     }
 
     if (claim.type === "replay_terminal") {
+      debugBlockingCheckoutLog("start_checkout.replay_terminal", {
+        billableEntityId: billableEntity.id,
+        idempotencyRowId: claim?.row?.id ? Number(claim.row.id) : null,
+        failureCode: claim?.row?.failureCode || null,
+        failureReason: claim?.row?.failureReason || null
+      });
       throw buildApiFailure(
         claim.row.failureCode || BILLING_FAILURE_CODES.CHECKOUT_PROVIDER_ERROR,
         claim.row.failureReason || "Checkout request previously failed."
@@ -1780,14 +2014,27 @@ function createService(options = {}) {
     }
 
     if (claim.type === "in_progress_same_key") {
+      debugBlockingCheckoutLog("start_checkout.in_progress_same_key", {
+        billableEntityId: billableEntity.id,
+        idempotencyRowId: claim?.row?.id ? Number(claim.row.id) : null
+      });
       throw buildApiFailure(BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS, "Checkout request is in progress.");
     }
 
     if (claim.type === "checkout_in_progress_other_key") {
+      debugBlockingCheckoutLog("start_checkout.checkout_in_progress_other_key", {
+        billableEntityId: billableEntity.id,
+        idempotencyRowId: claim?.row?.id ? Number(claim.row.id) : null
+      });
       throw buildApiFailure(BILLING_FAILURE_CODES.CHECKOUT_IN_PROGRESS, "Another checkout request is in progress.");
     }
 
     if (claim.type === "recover_pending") {
+      debugBlockingCheckoutLog("start_checkout.recover_pending", {
+        billableEntityId: billableEntity.id,
+        idempotencyRowId: claim?.row?.id ? Number(claim.row.id) : null,
+        operationKey: claim?.row?.operationKey ? String(claim.row.operationKey) : null
+      });
       return recoverCheckoutFromPending({
         idempotencyRow: claim.row,
         now

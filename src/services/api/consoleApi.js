@@ -169,6 +169,9 @@ function createApi({ request }) {
       if (query.limit != null) {
         params.set("limit", String(query.limit));
       }
+      if (query.target) {
+        params.set("target", String(query.target));
+      }
       const queryString = params.toString();
       return request(`/api/console/billing/provider-prices${queryString ? `?${queryString}` : ""}`);
     },

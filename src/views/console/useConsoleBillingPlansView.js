@@ -6,7 +6,7 @@ import { api } from "../../services/api/index.js";
 import { resolveBillingPlanProviderProfile } from "./billingPlans/providers/index.js";
 
 const CONSOLE_BILLING_PLANS_QUERY_KEY = ["console-billing-plans"];
-const CONSOLE_BILLING_PROVIDER_PRICES_QUERY_KEY = ["console-billing-provider-prices"];
+const CONSOLE_BILLING_PROVIDER_PRICES_QUERY_KEY = ["console-billing-provider-prices", "plan"];
 const CONSOLE_BILLING_SETTINGS_QUERY_KEY = ["console-billing-settings"];
 
 function parseEntitlementsJson(value) {
@@ -167,6 +167,7 @@ export function useConsoleBillingPlansView() {
 
   const createDialogOpen = ref(false);
   const createFieldErrors = ref({});
+  const createError = ref("");
 
   const viewDialogOpen = ref(false);
   const selectedPlanId = ref(0);
@@ -191,7 +192,7 @@ export function useConsoleBillingPlansView() {
 
   const providerPricesQuery = useQuery({
     queryKey: CONSOLE_BILLING_PROVIDER_PRICES_QUERY_KEY,
-    queryFn: () => api.console.listBillingProviderPrices({ active: true, limit: 100 })
+    queryFn: () => api.console.listBillingProviderPrices({ active: true, limit: 100, target: "plan" })
   });
 
   const billingSettingsQuery = useQuery({
@@ -365,12 +366,14 @@ export function useConsoleBillingPlansView() {
   function openCreateDialog() {
     clearMessages();
     createFieldErrors.value = {};
+    createError.value = "";
     resetCreateForm();
     createDialogOpen.value = true;
   }
 
   function closeCreateDialog() {
     createDialogOpen.value = false;
+    createError.value = "";
   }
 
   function openViewDialog(planId) {
@@ -435,18 +438,19 @@ export function useConsoleBillingPlansView() {
 
   async function submitCreatePlan() {
     clearMessages();
+    createError.value = "";
     createFieldErrors.value = {};
 
     let entitlements;
     try {
       entitlements = parseEntitlementsJson(createForm.entitlementsJson);
     } catch (error) {
-      submitError.value = String(error?.message || "Entitlements JSON must be a valid JSON array.");
+      createError.value = String(error?.message || "Entitlements JSON must be a valid JSON array.");
       return;
     }
 
     if (providerProfile.value.requiresCatalogPriceSelection() && !createSelectedProviderPrice.value) {
-      submitError.value = String(ui.value?.selectPriceRequiredError || "Select a catalog price.");
+      createError.value = String(ui.value?.selectPriceRequiredError || "Select a catalog price.");
       return;
     }
 
@@ -473,7 +477,7 @@ export function useConsoleBillingPlansView() {
       }
 
       createFieldErrors.value = toFieldErrors(error);
-      submitError.value = String(error?.message || "Unable to create billing plan.");
+      createError.value = String(error?.message || "Unable to create billing plan.");
     }
   }
 
@@ -592,6 +596,7 @@ export function useConsoleBillingPlansView() {
       createForm,
       editForm,
       createFieldErrors,
+      createError,
       editFieldErrors,
       editError,
       submitError,

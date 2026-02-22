@@ -462,7 +462,7 @@ test("console billing product create rejects recurring Stripe prices", async () 
   );
 });
 
-test("console billing provider prices list delegates to provider adapter", async () => {
+test("console billing provider prices list filters by target and delegates to provider adapter", async () => {
   const service = createConsoleServiceHarness({
     billingRepository: createBillingRepositoryStub(),
     billingProviderAdapter: {
@@ -482,6 +482,19 @@ test("console billing provider prices list delegates to provider adapter", async
             intervalCount: 1,
             usageType: "licensed",
             active: true
+          },
+          {
+            id: "price_one_time",
+            provider: "stripe",
+            productId: "prod_one_time",
+            productName: "Credits",
+            nickname: null,
+            currency: "USD",
+            unitAmountMinor: 1000,
+            interval: null,
+            intervalCount: null,
+            usageType: null,
+            active: true
           }
         ];
       }
@@ -495,13 +508,14 @@ test("console billing provider prices list delegates to provider adapter", async
     },
     {
       limit: 25,
-      active: true
+      active: true,
+      target: "product"
     }
   );
 
   assert.equal(response.provider, "stripe");
   assert.equal(response.prices.length, 1);
-  assert.equal(response.prices[0].id, "price_123");
+  assert.equal(response.prices[0].id, "price_one_time");
 });
 
 test("console billing plan update edits existing core price mapping", async () => {

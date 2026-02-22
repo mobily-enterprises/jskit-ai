@@ -27,6 +27,31 @@ function normalizeOptionalString(value) {
   return normalized || "";
 }
 
+function normalizeProviderPriceTarget(value) {
+  const normalized = normalizeOptionalString(value).toLowerCase();
+  if (normalized === "plan" || normalized === "product") {
+    return normalized;
+  }
+  return "";
+}
+
+function isRecurringProviderPrice(price) {
+  const interval = normalizeOptionalString(price?.interval).toLowerCase();
+  const intervalCount = parsePositiveInteger(price?.intervalCount);
+  return Boolean(interval && intervalCount);
+}
+
+function filterProviderPricesByTarget(prices, target) {
+  const entries = Array.isArray(prices) ? prices : [];
+  if (target === "plan") {
+    return entries.filter((price) => isRecurringProviderPrice(price));
+  }
+  if (target === "product") {
+    return entries.filter((price) => !isRecurringProviderPrice(price));
+  }
+  return entries;
+}
+
 function createConsoleBillingService({
   requirePermission,
   ensureConsoleSettings,
@@ -240,6 +265,7 @@ function createConsoleBillingService({
       .trim()
       .toLowerCase();
     const active = normalizedActive === "false" || normalizedActive === "0" ? false : true;
+    const target = normalizeProviderPriceTarget(query?.target);
     const prices = await billingProviderAdapter.listPrices({
       limit,
       active
@@ -247,7 +273,7 @@ function createConsoleBillingService({
 
     return {
       provider: activeBillingProvider,
-      prices: Array.isArray(prices) ? prices : []
+      prices: filterProviderPricesByTarget(prices, target)
     };
   }
 

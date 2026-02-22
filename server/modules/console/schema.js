@@ -739,7 +739,8 @@ const billingEventsQuery = Type.Object(
 const billingProviderPricesQuery = Type.Object(
   {
     active: Type.Optional(Type.Boolean({ default: true })),
-    limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 100 }))
+    limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 100 })),
+    target: Type.Optional(enumSchema(["plan", "product"]))
   },
   {
     additionalProperties: false
