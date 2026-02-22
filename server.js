@@ -727,7 +727,10 @@ export async function buildServer({ frontendBuildAvailable }) {
       aiEnabled: env.AI_ENABLED,
       aiRequiredPermission: env.AI_REQUIRED_PERMISSION,
       aiMaxInputChars: env.AI_MAX_INPUT_CHARS,
-      aiMaxHistoryMessages: env.AI_MAX_HISTORY_MESSAGES
+      aiMaxHistoryMessages: env.AI_MAX_HISTORY_MESSAGES,
+      chatMessageMaxTextChars: env.CHAT_MESSAGE_MAX_TEXT_CHARS,
+      chatMessagesPageSizeMax: env.CHAT_MESSAGES_PAGE_SIZE_MAX,
+      chatThreadsPageSizeMax: env.CHAT_THREADS_PAGE_SIZE_MAX
     }
   });
   if (frontendBuildAvailable) {

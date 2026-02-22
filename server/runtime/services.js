@@ -15,6 +15,7 @@ import { createService as createAuditService } from "../domain/security/services
 import { createService as createRealtimeEventsService } from "../domain/realtime/services/events.service.js";
 import { createService as createObservabilityService } from "../modules/observability/service.js";
 import { createService as createProjectsService } from "../modules/projects/service.js";
+import { createService as createChatService } from "../modules/chat/service.js";
 import { createService as createHealthService } from "../modules/health/service.js";
 import { createService as createAiService } from "../modules/ai/service.js";
 import { createService as createAiTranscriptsService } from "../modules/ai/transcripts/service.js";
@@ -157,6 +158,14 @@ function createServices({
     auditEventsRepository,
     aiTranscriptConversationsRepository,
     aiTranscriptMessagesRepository,
+    chatThreadsRepository,
+    chatParticipantsRepository,
+    chatMessagesRepository,
+    chatIdempotencyTombstonesRepository,
+    chatAttachmentsRepository,
+    chatReactionsRepository,
+    chatUserSettingsRepository,
+    chatBlocksRepository,
     projectsRepository,
     healthRepository,
     billingRepository
@@ -257,6 +266,30 @@ function createServices({
 
   const projectsService = createProjectsService({
     projectsRepository
+  });
+
+  const chatService = createChatService({
+    chatThreadsRepository,
+    chatParticipantsRepository,
+    chatMessagesRepository,
+    chatAttachmentsRepository,
+    chatReactionsRepository,
+    chatIdempotencyTombstonesRepository,
+    chatUserSettingsRepository,
+    chatBlocksRepository,
+    workspaceMembershipsRepository,
+    userSettingsRepository,
+    rbacManifest,
+    config: {
+      chatEnabled: env.CHAT_ENABLED,
+      chatWorkspaceThreadsEnabled: env.CHAT_WORKSPACE_THREADS_ENABLED,
+      chatGlobalDmsEnabled: env.CHAT_GLOBAL_DMS_ENABLED,
+      chatGlobalDmsRequireSharedWorkspace: env.CHAT_GLOBAL_DMS_REQUIRE_SHARED_WORKSPACE,
+      chatMessageMaxTextChars: env.CHAT_MESSAGE_MAX_TEXT_CHARS,
+      chatMessagesPageSizeMax: env.CHAT_MESSAGES_PAGE_SIZE_MAX,
+      chatThreadsPageSizeMax: env.CHAT_THREADS_PAGE_SIZE_MAX,
+      chatAttachmentsMaxFilesPerMessage: env.CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE
+    }
   });
 
   const realtimeEventsService = createRealtimeEventsService();
@@ -484,6 +517,7 @@ function createServices({
     observabilityService,
     auditService,
     projectsService,
+    chatService,
     realtimeEventsService,
     aiTranscriptsService,
     aiService,

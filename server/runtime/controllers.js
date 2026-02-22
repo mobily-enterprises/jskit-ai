@@ -8,6 +8,7 @@ import { createController as createConsoleController } from "../modules/console/
 import { createController as createConsoleErrorsController } from "../modules/consoleErrors/controller.js";
 import { createController as createObservabilityController } from "../modules/observability/controller.js";
 import { createController as createProjectsController } from "../modules/projects/controller.js";
+import { createController as createChatController } from "../modules/chat/controller.js";
 import { createController as createHealthController } from "../modules/health/controller.js";
 import { createController as createAiController } from "../modules/ai/controller.js";
 import { createController as createBillingController } from "../modules/billing/controller.js";
@@ -20,6 +21,7 @@ function createControllers({ services }) {
     communicationsService,
     userSettingsService,
     projectsService,
+    chatService,
     aiService,
     aiTranscriptsService,
     realtimeEventsService,
@@ -60,6 +62,9 @@ function createControllers({ services }) {
       projectsService,
       realtimeEventsService,
       billingService
+    }),
+    chat: createChatController({
+      chatService
     }),
     ai: createAiController({
       aiService,
