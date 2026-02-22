@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Forty-second Review Amendments Summary (Post-commit server review #42)
+
+This section records corrections made during a forty-second pass after the prior review cycles.
+
+### Legacy-row retention-loop prevention for tombstone strategy
+
+- Fixed an operational gap in the legacy-row tombstone fallback: after adding the “backfill-first or retain/redact exception” rule, the plan still did not specify how retention sweeps avoid re-selecting the same legacy `client_message_id` rows on every run.
+- Added retention/repository guidance to make tombstone-based hard-delete candidate selection aware of tombstone eligibility (hash/version present), and to treat legacy exception rows as a separate path with explicit filtering/marking/backfill tracking.
+- Added retention test coverage expectations to catch perpetual reprocessing/log-churn loops for legacy exception rows.
+
 ## Forty-first Review Amendments Summary (Post-commit server review #41)
 
 This section records corrections made during a forty-first pass after the prior review cycles.
@@ -1372,6 +1382,7 @@ Reuse conventions from `server/modules/ai/repositories/*`:
 - `updateById(...)` for edit/delete markers
 - `countByThreadId(...)`
 - retention: `deleteOlderThan(cutoffDate, batchSize, options)`
+  - if tombstone strategy is enabled, support retention selection modes/filters that distinguish tombstone-eligible rows (e.g. `client_message_id` is null OR hash/version present) from legacy exception rows (`client_message_id` set but hash/version missing)
 
 Notes:
 
@@ -2123,6 +2134,10 @@ Legacy/backfill compatibility requirement (important):
   - backfill idempotency hash/version for eligible retained rows before enabling hard-delete+tombstone processing, or
   - treat those rows as “retain/redact until retry window elapses” exceptions and skip tombstone-based hard delete for them.
 - Do not emit tombstones without hash/version for these rows; that weakens the replay/conflict contract and creates ambiguous send behavior.
+- Operational requirement: avoid perpetual retention reprocessing loops for legacy exception rows. When tombstone strategy is enabled, hard-delete candidate selection should either:
+  - exclude rows with `client_message_id` present and missing hash/version from the hard-delete batch query, or
+  - mark/route them to a separate backfill-or-redact exception workflow so they are not retried as tombstone deletes every sweep.
+- Emit bounded metrics/counters for legacy exception backlog (e.g. pre-hash rows blocking tombstone hard delete) so operators can see drift instead of silent churn.
 
 Important cache repair requirement:
 
@@ -2322,6 +2337,7 @@ Using existing realtime test harness patterns adapted for chat:
 - repeated retention/moderation delete attempts do not fail on duplicate tombstone writes (tombstone insert path is idempotent/upsert-safe)
 - duplicate tombstone writes with mismatched immutable idempotency hash/version are detected and do not silently overwrite existing tombstone identity data
 - tombstone-enabled hard-delete flow handles legacy rows missing idempotency hash/version via the documented fallback (backfill-first or retain/redact exception), not partial tombstone writes or hard-delete failure loops
+- retention sweeps do not perpetually re-select the same legacy exception rows for tombstone deletion attempts (candidate filtering/exception routing prevents log churn)
 - attachment orphan cleanup deletes DB row + storage blob
 - safe no-op when blob already missing
 
