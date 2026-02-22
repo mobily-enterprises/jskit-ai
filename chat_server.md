@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Thirty-ninth Review Amendments Summary (Post-commit server review #39)
+
+This section records corrections made during a thirty-ninth pass after the prior review cycles.
+
+### Tombstone upsert immutability / expiry semantics hardening
+
+- Fixed a subtle integrity gap in the tombstone retry-safe write guidance: “upsert” behavior could be implemented by blindly overwriting immutable tombstone fields (`idempotency_payload_version`, `idempotency_payload_sha256`) on duplicate keys.
+- Added explicit tombstone-write semantics requiring duplicate-key upserts to preserve/verify immutable idempotency fields (no silent overwrite) and to apply a deterministic `expires_at` rule (prefer extending to the max horizon, never shortening on duplicate job writes).
+- Added retention/test-plan coverage for duplicate tombstone writes with mismatched immutable data to catch corruption/logic regressions.
+
 ## Thirty-eighth Review Amendments Summary (Post-commit server review #38)
 
 This section records corrections made during a thirty-eighth pass after the prior review cycles.
@@ -1148,6 +1158,8 @@ Notes:
 - If the implementation chooses the simpler strategy ("retain deleted/redacted message row until retry window elapses"), this table can be omitted.
 - Tombstone rows should be written in the same delete workflow/transactional unit as the message hard-delete decision whenever possible (or with an equivalent fail-safe sequence) so duplicate suppression is not lost between steps.
 - Keep tombstone data minimal: replay/conflict identifiers + bounded operational reason fields only. Prefer `metadata_json='{}'` unless a concrete, non-sensitive debugging need is documented.
+- Tombstone identity fields are immutable once written for a given unique key (`thread_id`, `sender_user_id`, `client_message_id`): duplicate writes must verify `idempotency_payload_version` + `idempotency_payload_sha256` match existing values rather than overwriting them.
+- If duplicate tombstone writes provide a different expiry horizon, apply a deterministic policy (recommended: keep `expires_at = GREATEST(existing, incoming)` so retries/duplicate jobs do not shorten suppression unexpectedly).
 
 ### Table 6: `chat_attachments`
 
@@ -1350,6 +1362,8 @@ Notes:
 - `insertForDeletedMessage(...)`
   - writes `(thread_id, sender_user_id, client_message_id, idempotency_payload_version, idempotency_payload_sha256, expires_at, ...)`
   - should be idempotent for repeated delete attempts/jobs (e.g. insert-or-update/upsert on the unique key), and should not fail the delete workflow on harmless duplicate tombstone writes
+  - on duplicate key, verify immutable idempotency fields match existing row; do not silently overwrite hash/version
+  - use deterministic duplicate-write merge rules for mutable fields (recommended: `expires_at = max(existing, incoming)`, bounded metadata merge or keep-existing)
 - `findByClientMessageId(threadId, senderUserId, clientMessageId, options)`
 - `deleteExpiredBatch(now, batchSize, options)`
 - `listExpired(batchSize, now, options)` (optional if delete method returns rows)
@@ -2276,6 +2290,7 @@ Using existing realtime test harness patterns adapted for chat:
 - chat retention rules added to sweep output
 - idempotency tombstone/ledger expiry cleanup runs when tombstone strategy is enabled (or is explicitly absent when simpler retained-message strategy is selected)
 - repeated retention/moderation delete attempts do not fail on duplicate tombstone writes (tombstone insert path is idempotent/upsert-safe)
+- duplicate tombstone writes with mismatched immutable idempotency hash/version are detected and do not silently overwrite existing tombstone identity data
 - attachment orphan cleanup deletes DB row + storage blob
 - safe no-op when blob already missing
 
