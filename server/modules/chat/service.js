@@ -8,6 +8,10 @@ const IDEMPOTENCY_VERSION = 1;
 const CHAT_MESSAGE_CLIENT_KEY_UNIQUE_INDEX = "uq_chat_messages_thread_sender_client_id";
 const WORKSPACE_SURFACE_IDS = new Set(["app", "admin"]);
 const INBOX_SURFACE_IDS = new Set(["app", "admin", "console"]);
+const CHAT_TYPING_RATE_WINDOW_MS = 60_000;
+const CHAT_TYPING_RATE_LIMIT = 30;
+const CHAT_TYPING_THROTTLE_MS = 1_000;
+const CHAT_TYPING_TTL_MS = 8_000;
 
 function createChatError(status, message, code, { fieldErrors = null, details = {} } = {}) {
   const payloadDetails = {
@@ -73,6 +77,16 @@ function createMessageRetryBlockedError() {
   return createChatError(409, "Message retry blocked because original message was deleted.", "CHAT_MESSAGE_RETRY_BLOCKED");
 }
 
+function createRateLimitedError({ retryAfterMs = 1000 } = {}) {
+  const normalizedRetryAfterMs = Math.max(1000, Number(retryAfterMs) || 1000);
+
+  return createChatError(429, "Chat rate limit exceeded.", "CHAT_RATE_LIMITED", {
+    details: {
+      retryAfterMs: normalizedRetryAfterMs
+    }
+  });
+}
+
 function normalizeSurfaceIdForInbox(surfaceIdLike) {
   const normalized = String(surfaceIdLike || "")
     .trim()
@@ -115,6 +129,47 @@ function toBoundedLimit(value, { fallback = 20, max = 50 } = {}) {
   }
 
   return Math.max(1, Math.min(max, parsed));
+}
+
+function toBoundedMilliseconds(value, { fallback = 1000, min = 1, max = 60_000 } = {}) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+
+  return Math.max(min, Math.min(max, Math.floor(parsed)));
+}
+
+function normalizeRequestMeta(metaValue) {
+  const source = metaValue && typeof metaValue === "object" ? metaValue : {};
+  const commandId = String(source.commandId || "").trim();
+  const sourceClientId = String(source.sourceClientId || "").trim();
+  const logger = source.logger && typeof source.logger.warn === "function" ? source.logger : null;
+
+  return {
+    commandId: commandId || null,
+    sourceClientId: sourceClientId || null,
+    logger
+  };
+}
+
+function normalizeUserIds(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const normalized = [];
+  for (const entry of value) {
+    const userId = parsePositiveInteger(entry);
+    if (!userId || seen.has(userId)) {
+      continue;
+    }
+    seen.add(userId);
+    normalized.push(userId);
+  }
+
+  return normalized;
 }
 
 function normalizeThreadId(threadIdLike) {
@@ -490,6 +545,7 @@ function createService({
   chatIdempotencyTombstonesRepository,
   chatUserSettingsRepository,
   chatBlocksRepository,
+  chatRealtimeService,
   workspaceMembershipsRepository,
   userSettingsRepository,
   rbacManifest,
@@ -518,8 +574,86 @@ function createService({
     chatMessageMaxTextChars: Math.max(1, Number(config.chatMessageMaxTextChars) || 4000),
     chatMessagesPageSizeMax: Math.max(1, Number(config.chatMessagesPageSizeMax) || 100),
     chatThreadsPageSizeMax: Math.max(1, Number(config.chatThreadsPageSizeMax) || 50),
-    chatAttachmentsMaxFilesPerMessage: Math.max(1, Number(config.chatAttachmentsMaxFilesPerMessage) || 5)
+    chatAttachmentsMaxFilesPerMessage: Math.max(1, Number(config.chatAttachmentsMaxFilesPerMessage) || 5),
+    chatTypingRateLimit: Math.max(1, Number(config.chatTypingRateLimit) || CHAT_TYPING_RATE_LIMIT),
+    chatTypingRateWindowMs: toBoundedMilliseconds(config.chatTypingRateWindowMs, {
+      fallback: CHAT_TYPING_RATE_WINDOW_MS,
+      min: 5_000,
+      max: 5 * 60_000
+    }),
+    chatTypingThrottleMs: toBoundedMilliseconds(config.chatTypingThrottleMs, {
+      fallback: CHAT_TYPING_THROTTLE_MS,
+      min: 100,
+      max: 30_000
+    }),
+    chatTypingTtlMs: toBoundedMilliseconds(config.chatTypingTtlMs, {
+      fallback: CHAT_TYPING_TTL_MS,
+      min: 100,
+      max: 30_000
+    })
   };
+
+  const typingStateByThreadUser = new Map();
+  const typingRateStateByThreadUser = new Map();
+  const realtimePublisher = chatRealtimeService && typeof chatRealtimeService.publishThreadEvent === "function"
+    ? chatRealtimeService
+    : null;
+
+  async function listActiveParticipantUserIds(threadId) {
+    if (typeof chatParticipantsRepository.listActiveUserIdsByThreadId !== "function") {
+      return [];
+    }
+
+    const userIds = await chatParticipantsRepository.listActiveUserIdsByThreadId(threadId);
+    return normalizeUserIds(userIds);
+  }
+
+  function buildThreadUserKey(threadId, userId) {
+    return `${Number(threadId)}:${Number(userId)}`;
+  }
+
+  function logRealtimePublishFailure(logger, error, logContext = {}) {
+    if (!logger || typeof logger.warn !== "function") {
+      return;
+    }
+
+    logger.warn(
+      {
+        err: error,
+        ...(logContext && typeof logContext === "object" ? logContext : {})
+      },
+      "chat.realtime.publish_failed"
+    );
+  }
+
+  function publishRealtimeSafely(fn, { requestMeta = {}, logContext = {} } = {}) {
+    if (!realtimePublisher || typeof fn !== "function") {
+      return;
+    }
+
+    try {
+      fn();
+    } catch (error) {
+      logRealtimePublishFailure(requestMeta.logger, error, logContext);
+    }
+  }
+
+  function clearTypingTimer(state) {
+    if (!state || !state.stopTimer) {
+      return;
+    }
+
+    clearTimeout(state.stopTimer);
+    state.stopTimer = null;
+  }
+
+  function cleanupTypingRateState(nowMs) {
+    for (const [key, state] of typingRateStateByThreadUser.entries()) {
+      if (!state || nowMs - Number(state.windowStartedAtMs || 0) > options.chatTypingRateWindowMs * 2) {
+        typingRateStateByThreadUser.delete(key);
+      }
+    }
+  }
 
   async function resolveWorkspaceMembershipAccess({ workspaceId, userId, requiredPermission }) {
     const membership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(workspaceId, userId);
@@ -949,12 +1083,13 @@ function createService({
     );
   }
 
-  async function sendThreadMessage({ user, threadId, surfaceId, payload }) {
+  async function sendThreadMessage({ user, threadId, surfaceId, payload, requestMeta }) {
     if (!options.chatEnabled) {
       throw createFeatureDisabledError();
     }
 
     const userId = normalizeUserId(user);
+    const normalizedRequestMeta = normalizeRequestMeta(requestMeta);
     const normalizedPayload = normalizeSendPayload(payload, options);
     const incomingFingerprint = buildMessageIdempotencyFingerprint(normalizedPayload);
 
@@ -1138,20 +1273,44 @@ function createService({
     const [message] = await hydrateMessages([storedMessage], userId);
     const participant = await chatParticipantsRepository.findByThreadIdAndUserId(access.thread.id, userId);
     const latestThread = transactionResult.thread || (await chatThreadsRepository.findById(access.thread.id));
-
-    return {
+    const responseThread = latestThread || access.thread;
+    const responsePayload = {
       message,
-      thread: mapThreadForResponse(latestThread || access.thread, participant || access.participant),
+      thread: mapThreadForResponse(responseThread, participant || access.participant),
       idempotencyStatus: transactionResult.idempotencyStatus
     };
+
+    const participantUserIds = await listActiveParticipantUserIds(access.thread.id);
+    publishRealtimeSafely(
+      () =>
+        realtimePublisher.publishMessageEvent({
+          thread: responseThread,
+          message: responsePayload.message,
+          idempotencyStatus: responsePayload.idempotencyStatus,
+          actorUserId: userId,
+          targetUserIds: participantUserIds,
+          commandId: normalizedRequestMeta.commandId,
+          sourceClientId: normalizedRequestMeta.sourceClientId
+        }),
+      {
+        requestMeta: normalizedRequestMeta,
+        logContext: {
+          eventType: "chat.message.created",
+          threadId: Number(access.thread.id)
+        }
+      }
+    );
+
+    return responsePayload;
   }
 
-  async function markThreadRead({ user, threadId, surfaceId, payload }) {
+  async function markThreadRead({ user, threadId, surfaceId, payload, requestMeta }) {
     if (!options.chatEnabled) {
       throw createFeatureDisabledError();
     }
 
     const userId = normalizeUserId(user);
+    const normalizedRequestMeta = normalizeRequestMeta(requestMeta);
     const normalizedPayload = normalizeReadPayload(payload);
     const access = await resolveThreadAccess({
       threadId,
@@ -1204,12 +1363,36 @@ function createService({
       throw createThreadNotFoundError();
     }
 
-    return {
+    const responsePayload = {
       threadId: Number(access.thread.id),
       lastReadSeq: Number(updatedParticipant.lastReadSeq || 0),
       lastReadMessageId:
         updatedParticipant.lastReadMessageId == null ? null : Number(updatedParticipant.lastReadMessageId)
     };
+
+    const participantUserIds = await listActiveParticipantUserIds(access.thread.id);
+    publishRealtimeSafely(
+      () =>
+        realtimePublisher.publishReadCursorUpdated({
+          thread: access.thread,
+          userId,
+          lastReadSeq: responsePayload.lastReadSeq,
+          lastReadMessageId: responsePayload.lastReadMessageId,
+          actorUserId: userId,
+          targetUserIds: participantUserIds,
+          commandId: normalizedRequestMeta.commandId,
+          sourceClientId: normalizedRequestMeta.sourceClientId
+        }),
+      {
+        requestMeta: normalizedRequestMeta,
+        logContext: {
+          eventType: "chat.thread.read.updated",
+          threadId: Number(access.thread.id)
+        }
+      }
+    );
+
+    return responsePayload;
   }
 
   async function listMessageReactions(threadId, messageId, userId) {
@@ -1225,12 +1408,13 @@ function createService({
     };
   }
 
-  async function addReaction({ user, threadId, surfaceId, payload }) {
+  async function addReaction({ user, threadId, surfaceId, payload, requestMeta }) {
     if (!options.chatEnabled) {
       throw createFeatureDisabledError();
     }
 
     const userId = normalizeUserId(user);
+    const normalizedRequestMeta = normalizeRequestMeta(requestMeta);
     const normalizedPayload = normalizeReactionPayload(payload);
 
     const access = await resolveThreadAccess({
@@ -1253,19 +1437,43 @@ function createService({
     });
 
     const reactionSummary = await listMessageReactions(access.thread.id, normalizedPayload.messageId, userId);
-
-    return {
+    const responsePayload = {
       messageId: Number(normalizedPayload.messageId),
       reactions: reactionSummary.summary
     };
+
+    const participantUserIds = await listActiveParticipantUserIds(access.thread.id);
+    publishRealtimeSafely(
+      () =>
+        realtimePublisher.publishReactionUpdated({
+          thread: access.thread,
+          messageId: responsePayload.messageId,
+          reactions: responsePayload.reactions,
+          actorUserId: userId,
+          targetUserIds: participantUserIds,
+          commandId: normalizedRequestMeta.commandId,
+          sourceClientId: normalizedRequestMeta.sourceClientId
+        }),
+      {
+        requestMeta: normalizedRequestMeta,
+        logContext: {
+          eventType: "chat.message.reaction.updated",
+          threadId: Number(access.thread.id),
+          messageId: responsePayload.messageId
+        }
+      }
+    );
+
+    return responsePayload;
   }
 
-  async function removeReaction({ user, threadId, surfaceId, payload }) {
+  async function removeReaction({ user, threadId, surfaceId, payload, requestMeta }) {
     if (!options.chatEnabled) {
       throw createFeatureDisabledError();
     }
 
     const userId = normalizeUserId(user);
+    const normalizedRequestMeta = normalizeRequestMeta(requestMeta);
     const normalizedPayload = normalizeReactionPayload(payload);
 
     const access = await resolveThreadAccess({
@@ -1287,10 +1495,153 @@ function createService({
     });
 
     const reactionSummary = await listMessageReactions(access.thread.id, normalizedPayload.messageId, userId);
-
-    return {
+    const responsePayload = {
       messageId: Number(normalizedPayload.messageId),
       reactions: reactionSummary.summary
+    };
+
+    const participantUserIds = await listActiveParticipantUserIds(access.thread.id);
+    publishRealtimeSafely(
+      () =>
+        realtimePublisher.publishReactionUpdated({
+          thread: access.thread,
+          messageId: responsePayload.messageId,
+          reactions: responsePayload.reactions,
+          actorUserId: userId,
+          targetUserIds: participantUserIds,
+          commandId: normalizedRequestMeta.commandId,
+          sourceClientId: normalizedRequestMeta.sourceClientId
+        }),
+      {
+        requestMeta: normalizedRequestMeta,
+        logContext: {
+          eventType: "chat.message.reaction.updated",
+          threadId: Number(access.thread.id),
+          messageId: responsePayload.messageId
+        }
+      }
+    );
+
+    return responsePayload;
+  }
+
+  async function emitThreadTyping({ user, threadId, surfaceId, requestMeta }) {
+    if (!options.chatEnabled) {
+      throw createFeatureDisabledError();
+    }
+
+    const userId = normalizeUserId(user);
+    const normalizedRequestMeta = normalizeRequestMeta(requestMeta);
+    const access = await resolveThreadAccess({
+      threadId,
+      userId,
+      surfaceId,
+      requireWrite: true
+    });
+
+    const nowMs = Date.now();
+    cleanupTypingRateState(nowMs);
+
+    const threadUserKey = buildThreadUserKey(access.thread.id, userId);
+    const rateState = typingRateStateByThreadUser.get(threadUserKey);
+    if (!rateState || nowMs - Number(rateState.windowStartedAtMs || 0) >= options.chatTypingRateWindowMs) {
+      typingRateStateByThreadUser.set(threadUserKey, {
+        windowStartedAtMs: nowMs,
+        requestCount: 1
+      });
+    } else {
+      const nextRequestCount = Number(rateState.requestCount || 0) + 1;
+      if (nextRequestCount > options.chatTypingRateLimit) {
+        const retryAfterMs = Math.max(1000, options.chatTypingRateWindowMs - (nowMs - rateState.windowStartedAtMs));
+        throw createRateLimitedError({
+          retryAfterMs
+        });
+      }
+
+      rateState.requestCount = nextRequestCount;
+      typingRateStateByThreadUser.set(threadUserKey, rateState);
+    }
+
+    const targetUserIds = (await listActiveParticipantUserIds(access.thread.id)).filter((participantUserId) => {
+      return Number(participantUserId) !== Number(userId);
+    });
+
+    const previousState = typingStateByThreadUser.get(threadUserKey) || null;
+    const expiresAtMs = nowMs + options.chatTypingTtlMs;
+    const shouldEmitStarted =
+      !previousState ||
+      nowMs - Number(previousState.lastStartedAtMs || 0) >= options.chatTypingThrottleMs ||
+      Number(previousState.expiresAtMs || 0) <= nowMs;
+
+    if (previousState) {
+      clearTypingTimer(previousState);
+    }
+
+    const nextState = {
+      lastStartedAtMs: shouldEmitStarted ? nowMs : Number(previousState?.lastStartedAtMs || 0),
+      expiresAtMs,
+      stopTimer: null
+    };
+
+    nextState.stopTimer = setTimeout(() => {
+      const latestState = typingStateByThreadUser.get(threadUserKey);
+      if (!latestState || Number(latestState.expiresAtMs) !== Number(expiresAtMs)) {
+        return;
+      }
+
+      typingStateByThreadUser.delete(threadUserKey);
+      publishRealtimeSafely(
+        () =>
+          realtimePublisher.emitTyping({
+            thread: access.thread,
+            actorUserId: userId,
+            targetUserIds,
+            state: "stopped",
+            expiresAt: new Date(expiresAtMs).toISOString(),
+            commandId: normalizedRequestMeta.commandId,
+            sourceClientId: normalizedRequestMeta.sourceClientId
+          }),
+        {
+          requestMeta: normalizedRequestMeta,
+          logContext: {
+            eventType: "chat.typing.stopped",
+            threadId: Number(access.thread.id)
+          }
+        }
+      );
+    }, options.chatTypingTtlMs);
+
+    if (typeof nextState.stopTimer.unref === "function") {
+      nextState.stopTimer.unref();
+    }
+
+    typingStateByThreadUser.set(threadUserKey, nextState);
+
+    if (shouldEmitStarted) {
+      publishRealtimeSafely(
+        () =>
+          realtimePublisher.emitTyping({
+            thread: access.thread,
+            actorUserId: userId,
+            targetUserIds,
+            state: "started",
+            expiresAt: new Date(expiresAtMs).toISOString(),
+            commandId: normalizedRequestMeta.commandId,
+            sourceClientId: normalizedRequestMeta.sourceClientId
+          }),
+        {
+          requestMeta: normalizedRequestMeta,
+          logContext: {
+            eventType: "chat.typing.started",
+            threadId: Number(access.thread.id)
+          }
+        }
+      );
+    }
+
+    return {
+      accepted: true,
+      expiresAt: new Date(expiresAtMs).toISOString()
     };
   }
 
@@ -1302,7 +1653,8 @@ function createService({
     sendThreadMessage,
     markThreadRead,
     addReaction,
-    removeReaction
+    removeReaction,
+    emitThreadTyping
   };
 }
 
@@ -1315,6 +1667,7 @@ const __testables = {
   createFeatureDisabledError,
   createIdempotencyConflictError,
   createMessageRetryBlockedError,
+  createRateLimitedError,
   createReadCursorInvalidError,
   createReadCursorRequiredError,
   createThreadNotFoundError,
@@ -1327,10 +1680,13 @@ const __testables = {
   normalizeClientMessageId,
   normalizeDmTargetPublicChatId,
   normalizeReactionPayload,
+  normalizeRequestMeta,
   normalizeReadPayload,
   normalizeSendPayload,
   normalizeSurfaceIdForInbox,
   normalizeSurfaceIdForThreadAccess,
+  normalizeUserIds,
+  toBoundedMilliseconds,
   createService
 };
 

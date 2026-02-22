@@ -31,6 +31,107 @@ test("realtime route requires websocket auth on handshake", async () => {
   await app.close();
 });
 
+test("targeted chat events fan out only to requested user rooms", async () => {
+  const { app, port, realtimeEventsService } = await createRealtimeTestApp();
+  const url = `ws://127.0.0.1:${port}/api/realtime`;
+
+  const recipientOne = await openRealtimeWebSocket(url, {
+    headers: {
+      cookie: "sid=u11"
+    }
+  });
+  const recipientTwo = await openRealtimeWebSocket(url, {
+    headers: {
+      cookie: "sid=u12"
+    }
+  });
+  const nonRecipient = await openRealtimeWebSocket(url, {
+    headers: {
+      cookie: "sid=u13"
+    }
+  });
+
+  realtimeEventsService.publishChatEvent({
+    eventType: "chat.message.created",
+    threadId: 501,
+    scopeKind: "workspace",
+    workspaceId: 11,
+    actorUserId: 11,
+    targetUserIds: [11, 12],
+    payload: {
+      threadId: 501,
+      message: {
+        id: 99
+      }
+    }
+  });
+
+  const [firstDelivery, secondDelivery] = await Promise.all([
+    waitForRealtimeMessage(recipientOne),
+    waitForRealtimeMessage(recipientTwo)
+  ]);
+  const nonDelivery = await waitForOptionalRealtimeMessage(nonRecipient, 500);
+
+  assert.equal(firstDelivery.type, "event");
+  assert.equal(firstDelivery.event.eventType, "chat.message.created");
+  assert.equal(firstDelivery.event.threadId, "501");
+  assert.equal(secondDelivery.type, "event");
+  assert.equal(secondDelivery.event.eventType, "chat.message.created");
+  assert.equal(nonDelivery, null);
+
+  recipientOne.close();
+  recipientTwo.close();
+  nonRecipient.close();
+  await app.close();
+});
+
+test("targeted chat fanout works for global DM events without workspace subscriptions", async () => {
+  const { app, port, realtimeEventsService } = await createRealtimeTestApp();
+  const url = `ws://127.0.0.1:${port}/api/realtime`;
+
+  const leftSocket = await openRealtimeWebSocket(url, {
+    headers: {
+      cookie: "sid=u21"
+    }
+  });
+  const rightSocket = await openRealtimeWebSocket(url, {
+    headers: {
+      cookie: "sid=u22"
+    }
+  });
+
+  realtimeEventsService.publishChatEvent({
+    eventType: "chat.thread.read.updated",
+    threadId: 702,
+    scopeKind: "global",
+    workspaceId: null,
+    actorUserId: 21,
+    targetUserIds: [21, 22],
+    payload: {
+      threadId: 702,
+      userId: 21,
+      lastReadSeq: 7,
+      lastReadMessageId: 44
+    }
+  });
+
+  const [leftDelivery, rightDelivery] = await Promise.all([
+    waitForRealtimeMessage(leftSocket),
+    waitForRealtimeMessage(rightSocket)
+  ]);
+
+  assert.equal(leftDelivery.type, "event");
+  assert.equal(leftDelivery.event.scopeKind, "global");
+  assert.equal(leftDelivery.event.workspaceId, null);
+  assert.equal(rightDelivery.type, "event");
+  assert.equal(rightDelivery.event.scopeKind, "global");
+  assert.equal(rightDelivery.event.workspaceId, null);
+
+  leftSocket.close();
+  rightSocket.close();
+  await app.close();
+});
+
 test("subscribe succeeds for authorized topics and forces server-side context overrides", async () => {
   const { app, port, workspaceService } = await createRealtimeTestApp();
   const url = `ws://127.0.0.1:${port}/api/realtime?surface=admin`;

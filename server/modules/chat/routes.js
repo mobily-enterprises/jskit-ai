@@ -153,6 +153,25 @@ function buildRoutes(
       handler: controllers.chat?.markThreadRead || missingHandler
     },
     {
+      path: "/api/chat/threads/:threadId/typing",
+      method: "POST",
+      auth: "required",
+      workspacePolicy: "none",
+      schema: {
+        tags: ["chat"],
+        summary: "Emit ephemeral typing state for one chat thread",
+        params: schema.params.thread,
+        response: withStandardErrorResponses({
+          202: schema.response.typing
+        })
+      },
+      rateLimit: {
+        max: 30,
+        timeWindow: "1 minute"
+      },
+      handler: controllers.chat?.emitThreadTyping || missingHandler
+    },
+    {
       path: "/api/chat/threads/:threadId/reactions",
       method: "POST",
       auth: "required",

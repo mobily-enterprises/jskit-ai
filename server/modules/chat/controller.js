@@ -3,6 +3,14 @@ function createController({ chatService }) {
     throw new Error("chatService is required.");
   }
 
+  function buildRequestMeta(request) {
+    return {
+      commandId: request?.headers?.["x-command-id"],
+      sourceClientId: request?.headers?.["x-client-id"],
+      logger: request?.log || null
+    };
+  }
+
   async function ensureDm(request, reply) {
     const result = await chatService.ensureDm({
       user: request.user,
@@ -50,7 +58,8 @@ function createController({ chatService }) {
       user: request.user,
       threadId: request.params?.threadId,
       surfaceId: request.headers?.["x-surface-id"],
-      payload: request.body || {}
+      payload: request.body || {},
+      requestMeta: buildRequestMeta(request)
     });
 
     reply.code(200).send(result);
@@ -61,7 +70,8 @@ function createController({ chatService }) {
       user: request.user,
       threadId: request.params?.threadId,
       surfaceId: request.headers?.["x-surface-id"],
-      payload: request.body || {}
+      payload: request.body || {},
+      requestMeta: buildRequestMeta(request)
     });
 
     reply.code(200).send(result);
@@ -72,7 +82,8 @@ function createController({ chatService }) {
       user: request.user,
       threadId: request.params?.threadId,
       surfaceId: request.headers?.["x-surface-id"],
-      payload: request.body || {}
+      payload: request.body || {},
+      requestMeta: buildRequestMeta(request)
     });
 
     reply.code(200).send(result);
@@ -83,10 +94,22 @@ function createController({ chatService }) {
       user: request.user,
       threadId: request.params?.threadId,
       surfaceId: request.headers?.["x-surface-id"],
-      payload: request.body || {}
+      payload: request.body || {},
+      requestMeta: buildRequestMeta(request)
     });
 
     reply.code(200).send(result);
+  }
+
+  async function emitThreadTyping(request, reply) {
+    const result = await chatService.emitThreadTyping({
+      user: request.user,
+      threadId: request.params?.threadId,
+      surfaceId: request.headers?.["x-surface-id"],
+      requestMeta: buildRequestMeta(request)
+    });
+
+    reply.code(202).send(result);
   }
 
   return {
@@ -97,7 +120,8 @@ function createController({ chatService }) {
     sendThreadMessage,
     markThreadRead,
     addReaction,
-    removeReaction
+    removeReaction,
+    emitThreadTyping
   };
 }
 

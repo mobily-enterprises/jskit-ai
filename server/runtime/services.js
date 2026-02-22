@@ -13,6 +13,7 @@ import { createService as createConsoleService } from "../domain/console/service
 import { createService as createConsoleErrorsService } from "../domain/console/services/errors.service.js";
 import { createService as createAuditService } from "../domain/security/services/audit.service.js";
 import { createService as createRealtimeEventsService } from "../domain/realtime/services/events.service.js";
+import { createService as createChatRealtimeService } from "../domain/chat/services/realtime.service.js";
 import { createService as createObservabilityService } from "../modules/observability/service.js";
 import { createService as createProjectsService } from "../modules/projects/service.js";
 import { createService as createChatService } from "../modules/chat/service.js";
@@ -268,6 +269,12 @@ function createServices({
     projectsRepository
   });
 
+  const realtimeEventsService = createRealtimeEventsService();
+
+  const chatRealtimeService = createChatRealtimeService({
+    realtimeEventsService
+  });
+
   const chatService = createChatService({
     chatThreadsRepository,
     chatParticipantsRepository,
@@ -277,6 +284,7 @@ function createServices({
     chatIdempotencyTombstonesRepository,
     chatUserSettingsRepository,
     chatBlocksRepository,
+    chatRealtimeService,
     workspaceMembershipsRepository,
     userSettingsRepository,
     rbacManifest,
@@ -291,8 +299,6 @@ function createServices({
       chatAttachmentsMaxFilesPerMessage: env.CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE
     }
   });
-
-  const realtimeEventsService = createRealtimeEventsService();
 
   const aiProviderClient = createOpenAiClient({
     enabled: env.AI_ENABLED,

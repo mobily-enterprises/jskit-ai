@@ -244,6 +244,16 @@ function createSchema({ messageMaxChars = 4000, messagePageSizeMax = 100, inboxP
     }
   );
 
+  const typingResponse = Type.Object(
+    {
+      accepted: Type.Literal(true),
+      expiresAt: Type.String({ format: "iso-utc-date-time" })
+    },
+    {
+      additionalProperties: false
+    }
+  );
+
   return {
     query: {
       inbox: inboxQuery,
@@ -265,7 +275,8 @@ function createSchema({ messageMaxChars = 4000, messagePageSizeMax = 100, inboxP
       messages: messagesResponse,
       sendMessage: sendMessageResponse,
       markRead: markReadResponse,
-      reactions: reactionsResponse
+      reactions: reactionsResponse,
+      typing: typingResponse
     }
   };
 }

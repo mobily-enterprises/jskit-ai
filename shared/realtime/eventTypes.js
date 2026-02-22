@@ -16,7 +16,18 @@ const REALTIME_EVENT_TYPES = Object.freeze({
   WORKSPACE_SETTINGS_UPDATED: "workspace.settings.updated",
   WORKSPACE_MEMBERS_UPDATED: "workspace.members.updated",
   WORKSPACE_INVITES_UPDATED: "workspace.invites.updated",
-  WORKSPACE_AI_TRANSCRIPTS_UPDATED: "workspace.ai.transcripts.updated"
+  WORKSPACE_AI_TRANSCRIPTS_UPDATED: "workspace.ai.transcripts.updated",
+  CHAT_THREAD_CREATED: "chat.thread.created",
+  CHAT_THREAD_UPDATED: "chat.thread.updated",
+  CHAT_THREAD_PARTICIPANT_ADDED: "chat.thread.participant.added",
+  CHAT_THREAD_PARTICIPANT_REMOVED: "chat.thread.participant.removed",
+  CHAT_MESSAGE_CREATED: "chat.message.created",
+  CHAT_MESSAGE_DELETED: "chat.message.deleted",
+  CHAT_MESSAGE_REACTION_UPDATED: "chat.message.reaction.updated",
+  CHAT_THREAD_READ_UPDATED: "chat.thread.read.updated",
+  CHAT_ATTACHMENT_UPDATED: "chat.attachment.updated",
+  CHAT_TYPING_STARTED: "chat.typing.started",
+  CHAT_TYPING_STOPPED: "chat.typing.stopped"
 });
 
 export { REALTIME_TOPICS, REALTIME_EVENT_TYPES };

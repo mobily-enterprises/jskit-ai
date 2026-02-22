@@ -29,6 +29,7 @@ function createChatServiceFixture(options = {}) {
     attachmentsById: new Map(),
     reactionsByMessageId: new Map(),
     dmByPair: new Map(),
+    realtimeEvents: [],
     actorSettings: {
       id: 10,
       userId: Number(options.actorUserId || 5),
@@ -70,6 +71,15 @@ function createChatServiceFixture(options = {}) {
     updatedAt: "2026-02-22T00:00:00.000Z"
   };
   state.participantByThreadUser.set(`${initialThreadId}:${actorUserId}`, threadParticipant);
+
+  const otherParticipantUserId = Number(options.otherParticipantUserId || 8);
+  if (otherParticipantUserId > 0 && otherParticipantUserId !== actorUserId) {
+    state.participantByThreadUser.set(`${initialThreadId}:${otherParticipantUserId}`, {
+      ...threadParticipant,
+      id: 2,
+      userId: otherParticipantUserId
+    });
+  }
 
   function findMessageByClientMessageId(threadId, userId, clientMessageId) {
     return (
@@ -194,6 +204,15 @@ function createChatServiceFixture(options = {}) {
         }
 
         return Array.from(state.participantByThreadUser.values());
+      },
+      async listActiveUserIdsByThreadId(threadId) {
+        const numericThreadId = Number(threadId);
+        return Array.from(state.participantByThreadUser.values())
+          .filter((participant) => {
+            return Number(participant.threadId) === numericThreadId && String(participant.status || "") === "active";
+          })
+          .map((participant) => Number(participant.userId))
+          .filter((userId) => Number.isInteger(userId) && userId > 0);
       }
     },
     chatMessagesRepository: {
@@ -358,8 +377,47 @@ function createChatServiceFixture(options = {}) {
     }
   };
 
+  const chatRealtimeService = options.chatRealtimeService || {
+    publishThreadEvent(payload) {
+      state.realtimeEvents.push({
+        kind: "thread",
+        payload
+      });
+      return payload;
+    },
+    publishMessageEvent(payload) {
+      state.realtimeEvents.push({
+        kind: "message",
+        payload
+      });
+      return payload;
+    },
+    publishReadCursorUpdated(payload) {
+      state.realtimeEvents.push({
+        kind: "read",
+        payload
+      });
+      return payload;
+    },
+    publishReactionUpdated(payload) {
+      state.realtimeEvents.push({
+        kind: "reaction",
+        payload
+      });
+      return payload;
+    },
+    emitTyping(payload) {
+      state.realtimeEvents.push({
+        kind: "typing",
+        payload
+      });
+      return payload;
+    }
+  };
+
   const service = createChatService({
     ...repositories,
+    chatRealtimeService,
     rbacManifest: {
       version: 1,
       defaultInviteRole: null,
@@ -380,7 +438,11 @@ function createChatServiceFixture(options = {}) {
       chatMessageMaxTextChars: 4000,
       chatMessagesPageSizeMax: 100,
       chatThreadsPageSizeMax: 50,
-      chatAttachmentsMaxFilesPerMessage: 5
+      chatAttachmentsMaxFilesPerMessage: 5,
+      chatTypingRateLimit: options.chatTypingRateLimit,
+      chatTypingRateWindowMs: options.chatTypingRateWindowMs,
+      chatTypingThrottleMs: options.chatTypingThrottleMs,
+      chatTypingTtlMs: options.chatTypingTtlMs
     }
   });
 
@@ -537,6 +599,126 @@ test("ensureDm keeps anti-enumeration behavior for unknown and blocked targets",
       assert.ok(error instanceof AppError);
       assert.equal(error.statusCode, 404);
       assert.equal(error.details?.code, "CHAT_DM_TARGET_UNAVAILABLE");
+      return true;
+    }
+  );
+});
+
+test("sendThreadMessage remains successful when realtime publish fails post-commit", async () => {
+  const { service } = createChatServiceFixture({
+    chatRealtimeService: {
+      publishThreadEvent() {
+        return null;
+      },
+      publishMessageEvent() {
+        throw new Error("realtime down");
+      },
+      publishReadCursorUpdated() {
+        return null;
+      },
+      publishReactionUpdated() {
+        return null;
+      },
+      emitTyping() {
+        return null;
+      }
+    }
+  });
+
+  const result = await service.sendThreadMessage({
+    user: {
+      id: 5
+    },
+    threadId: 11,
+    surfaceId: "app",
+    payload: {
+      clientMessageId: "cm_realtime_failure",
+      text: "hello"
+    }
+  });
+
+  assert.equal(result.idempotencyStatus, "created");
+  assert.equal(result.message.clientMessageId, "cm_realtime_failure");
+});
+
+test("emitThreadTyping excludes actor and applies throttle plus ttl stop emit", async () => {
+  const { service, state } = createChatServiceFixture({
+    chatTypingThrottleMs: 1000,
+    chatTypingTtlMs: 70,
+    chatTypingRateLimit: 30
+  });
+
+  const first = await service.emitThreadTyping({
+    user: {
+      id: 5
+    },
+    threadId: 11,
+    surfaceId: "app"
+  });
+
+  const second = await service.emitThreadTyping({
+    user: {
+      id: 5
+    },
+    threadId: 11,
+    surfaceId: "app"
+  });
+
+  assert.equal(first.accepted, true);
+  assert.equal(typeof first.expiresAt, "string");
+  assert.equal(second.accepted, true);
+  assert.equal(typeof second.expiresAt, "string");
+
+  const typingEvents = state.realtimeEvents.filter((event) => event.kind === "typing");
+  assert.equal(typingEvents.length, 1);
+  assert.equal(typingEvents[0].payload.state, "started");
+  assert.deepEqual(typingEvents[0].payload.targetUserIds, [8]);
+
+  await new Promise((resolve) => {
+    setTimeout(resolve, 180);
+  });
+
+  const typingEventsAfterTtl = state.realtimeEvents.filter((event) => event.kind === "typing");
+  assert.equal(typingEventsAfterTtl.length, 2);
+  assert.equal(typingEventsAfterTtl[1].payload.state, "stopped");
+  assert.deepEqual(typingEventsAfterTtl[1].payload.targetUserIds, [8]);
+});
+
+test("emitThreadTyping enforces service-level rate limiting per user/thread", async () => {
+  const { service } = createChatServiceFixture({
+    chatTypingRateLimit: 2,
+    chatTypingRateWindowMs: 60_000,
+    chatTypingTtlMs: 1000
+  });
+
+  await service.emitThreadTyping({
+    user: {
+      id: 5
+    },
+    threadId: 11,
+    surfaceId: "app"
+  });
+  await service.emitThreadTyping({
+    user: {
+      id: 5
+    },
+    threadId: 11,
+    surfaceId: "app"
+  });
+
+  await assert.rejects(
+    () =>
+      service.emitThreadTyping({
+        user: {
+          id: 5
+        },
+        threadId: 11,
+        surfaceId: "app"
+      }),
+    (error) => {
+      assert.ok(error instanceof AppError);
+      assert.equal(error.statusCode, 429);
+      assert.equal(error.details?.code, "CHAT_RATE_LIMITED");
       return true;
     }
   );

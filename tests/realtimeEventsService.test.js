@@ -113,3 +113,39 @@ test("realtime events service resetForTests clears listeners", () => {
 
   assert.equal(callCount, 1);
 });
+
+test("realtime events service builds targeted chat event envelopes", () => {
+  const service = createService();
+
+  const envelope = service.publishChatEvent({
+    eventType: "chat.message.created",
+    thread: {
+      id: 42,
+      scopeKind: "global",
+      workspaceId: null
+    },
+    actorUserId: 7,
+    targetUserIds: [7, "8", 0, 7],
+    commandId: "cmd_chat",
+    sourceClientId: "client_1",
+    payload: {
+      threadId: 42
+    }
+  });
+
+  assert.equal(typeof envelope.eventId, "string");
+  assert.equal(envelope.eventType, "chat.message.created");
+  assert.equal(envelope.eventVersion, 1);
+  assert.equal(envelope.topic, REALTIME_TOPICS.CHAT);
+  assert.equal(envelope.threadId, "42");
+  assert.equal(envelope.scopeKind, "global");
+  assert.equal(envelope.workspaceId, null);
+  assert.equal(envelope.actorUserId, "7");
+  assert.deepEqual(envelope.targetUserIds, [7, 8]);
+  assert.equal(envelope.commandId, "cmd_chat");
+  assert.equal(envelope.sourceClientId, "client_1");
+  assert.deepEqual(envelope.payload, {
+    threadId: 42
+  });
+  assert.equal(__testables.resolveChatTopic("chat.typing.started"), REALTIME_TOPICS.TYPING);
+});

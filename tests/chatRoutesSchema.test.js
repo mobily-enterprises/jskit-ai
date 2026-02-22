@@ -94,6 +94,12 @@ function buildControllers() {
           lastReadMessageId: 9
         });
       },
+      async emitThreadTyping(_request, reply) {
+        reply.code(202).send({
+          accepted: true,
+          expiresAt: "2026-02-22T00:00:08.000Z"
+        });
+      },
       async addReaction(_request, reply) {
         reply.code(200).send({
           messageId: 9,
@@ -123,7 +129,7 @@ test("chat routes use required auth and workspace-agnostic policy", () => {
     missingHandler: createMissingHandler()
   });
 
-  assert.equal(routes.length, 8);
+  assert.equal(routes.length, 9);
 
   for (const route of routes) {
     assert.equal(route.auth, "required");
@@ -206,6 +212,12 @@ test("chat read schema rejects empty cursor payload", async () => {
     }
   });
   assert.equal(validRead.statusCode, 200);
+
+  const typing = await app.inject({
+    method: "POST",
+    url: "/api/chat/threads/1/typing"
+  });
+  assert.equal(typing.statusCode, 202);
 
   await app.close();
 });

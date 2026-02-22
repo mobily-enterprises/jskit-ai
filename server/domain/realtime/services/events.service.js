@@ -20,6 +20,53 @@ function normalizeEntityId(value) {
   return normalized || "none";
 }
 
+function normalizePositiveIntegerArray(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const normalized = [];
+  for (const item of value) {
+    const parsed = normalizePositiveIntegerOrNull(item);
+    if (!parsed || seen.has(parsed)) {
+      continue;
+    }
+    seen.add(parsed);
+    normalized.push(parsed);
+  }
+
+  return normalized;
+}
+
+function normalizeScopeKind(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  return normalized === "workspace" ? "workspace" : "global";
+}
+
+function normalizeStringifiedPositiveIntegerOrNull(value) {
+  const normalized = normalizePositiveIntegerOrNull(value);
+  return normalized ? String(normalized) : null;
+}
+
+function resolveChatTopic(eventType, topic) {
+  const normalizedTopic = String(topic || "").trim();
+  if (normalizedTopic) {
+    return normalizedTopic;
+  }
+
+  const normalizedEventType = String(eventType || "")
+    .trim()
+    .toLowerCase();
+  if (normalizedEventType.startsWith("chat.typing.")) {
+    return REALTIME_TOPICS.TYPING;
+  }
+
+  return REALTIME_TOPICS.CHAT;
+}
+
 function createEventEnvelope({
   eventType,
   topic,
@@ -43,6 +90,35 @@ function createEventEnvelope({
     commandId: normalizeStringOrNull(commandId),
     sourceClientId: normalizeStringOrNull(sourceClientId),
     actorUserId: normalizePositiveIntegerOrNull(actorUserId),
+    payload: payload && typeof payload === "object" ? { ...payload } : {}
+  };
+}
+
+function createChatEventEnvelope({
+  eventType,
+  threadId,
+  scopeKind,
+  workspaceId,
+  actorUserId,
+  targetUserIds,
+  commandId,
+  sourceClientId,
+  payload,
+  topic
+}) {
+  return {
+    eventId: `evt_${randomUUID()}`,
+    eventType: String(eventType || "").trim(),
+    eventVersion: 1,
+    occurredAt: new Date().toISOString(),
+    topic: resolveChatTopic(eventType, topic),
+    threadId: normalizeStringifiedPositiveIntegerOrNull(threadId),
+    scopeKind: normalizeScopeKind(scopeKind),
+    workspaceId: normalizeStringifiedPositiveIntegerOrNull(workspaceId),
+    actorUserId: normalizeStringifiedPositiveIntegerOrNull(actorUserId),
+    targetUserIds: normalizePositiveIntegerArray(targetUserIds),
+    commandId: normalizeStringOrNull(commandId),
+    sourceClientId: normalizeStringOrNull(sourceClientId),
     payload: payload && typeof payload === "object" ? { ...payload } : {}
   };
 }
@@ -128,6 +204,36 @@ function createService() {
     return envelope;
   }
 
+  function publishChatEvent({
+    eventType,
+    thread,
+    threadId = thread?.id,
+    scopeKind = thread?.scopeKind,
+    workspaceId = thread?.workspaceId,
+    actorUserId,
+    targetUserIds,
+    commandId,
+    sourceClientId,
+    payload,
+    topic
+  }) {
+    const envelope = createChatEventEnvelope({
+      eventType,
+      threadId,
+      scopeKind,
+      workspaceId,
+      actorUserId,
+      targetUserIds,
+      commandId,
+      sourceClientId,
+      payload,
+      topic
+    });
+
+    publish(envelope);
+    return envelope;
+  }
+
   function resetForTests() {
     listeners.clear();
   }
@@ -139,14 +245,19 @@ function createService() {
     unsubscribe,
     publishProjectEvent,
     publishWorkspaceEvent,
+    publishChatEvent,
     resetForTests
   };
 }
 
 const __testables = {
   normalizePositiveIntegerOrNull,
+  normalizePositiveIntegerArray,
   normalizeStringOrNull,
-  normalizeEntityId
+  normalizeEntityId,
+  normalizeScopeKind,
+  normalizeStringifiedPositiveIntegerOrNull,
+  resolveChatTopic
 };
 
 export { createService, __testables };
