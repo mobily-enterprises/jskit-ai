@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Twenty-seventh Review Amendments Summary (Post-commit server review #27)
+
+This section records corrections made during a twenty-seventh pass after the prior review cycles.
+
+### Route-registration constraint / surface-model clarifications
+
+- Clarified an implementation constraint in this repo’s route model: `workspaceSurface` is a single route-config value, so one Fastify route entry (`method + path`) cannot serve both `app` and `admin` workspace surfaces just by changing headers.
+- Added guidance to choose a valid pattern when both surfaces need similar functionality: either expose separate route entries/endpoints per surface (with explicit `workspaceSurface`) or use the scope-agnostic `/api/chat/...` routes with validated surface handling.
+- Clarified the v1 recommendation that `/api/workspace/chat/threads` should be treated as a surface-specific workspace route (typically app-surface), not implicitly dual-surface.
+
 ## Twenty-sixth Review Amendments Summary (Post-commit server review #26)
 
 This section records corrections made during a twenty-sixth pass after the prior review cycles.
@@ -1343,8 +1353,10 @@ Create a new module mirroring other modules:
 
 - `GET /api/workspace/chat/threads`
   - `auth: required`, `workspacePolicy: required`, permission `chat.read`
+  - v1 recommendation: define this as a surface-specific route entry (typically `workspaceSurface: "app"`); do not assume one route entry can serve both app/admin surfaces
   - list workspace threads visible to current user
 - `POST /api/workspace/chat/threads`
+  - v1 recommendation: surface-specific route entry (typically `workspaceSurface: "app"` unless product explicitly wants admin-surface creation)
   - permission `chat.write` or `chat.manage` depending on create policy
   - create workspace group thread or workspace-scoped DM
   - when creating a workspace-scoped DM, use race-safe ensure semantics (canonical participant pair + unique constraint fallback) rather than naive insert-only create
@@ -1411,6 +1423,7 @@ Use existing route config fields:
 Notes:
 
 - In this codebase, many admin workspace APIs still use `/api/workspace/...` paths and rely on `workspaceSurface: "admin"` in route config (see existing workspace admin route modules). Chat workspace routes should follow the same pattern for admin-surface variants.
+- `workspaceSurface` is route-config, not request-selected behavior for a single registered route. If both app and admin surfaces need the "same" workspace chat operation, plan separate route entries/endpoints (each with explicit `workspaceSurface`) or route one surface through scope-agnostic `/api/chat/...` handlers with validated surface context.
 
 Controllers then still call `chatAccessService` for participant-level checks.
 
@@ -1989,6 +2002,7 @@ Per repository:
 
 - workspace-scoped routes enforce auth + workspace permission + participant membership
 - workspace chat routes on `/api/workspace/...` set the intended `workspaceSurface` explicitly (especially admin variants) so auth/plugin context does not silently default to `app`
+- route design does not assume one `/api/workspace/...` method+path entry can serve both app/admin surfaces; dual-surface support uses separate route entries/endpoints or scope-agnostic `/api/chat/...` path with validated surface
 - scope-agnostic workspace-thread routes enforce validated workspace-capable surface and do not mutate `lastActiveWorkspaceId` (or trigger personal-workspace provisioning) during authz-only reads/listing (no-side-effects helper path)
 - invalid/ambiguous `x-surface-id` on scope-agnostic workspace chat reads (`inbox`, thread reads, attachment content`) is rejected explicitly and never silently normalized/fallbacked to `app`
 - controller/service plumbing preserves validated surface/authz context into `chat.service` / access resolution for scope-agnostic workspace chat operations (no accidental fallback to raw request header parsing)
