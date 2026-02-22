@@ -23,15 +23,38 @@ X Add SMS system (PLIVIO?)
 X Add websocket infrastructure with realtime updates
 X AI integration (actions abstraction etc.)
 X Check why pending invites don't appear
-- Payments
-- User chats
+X Payments
+X User chats
 
+DAY #1
+- Merge chats and permissions trees
+- Have "configs" in JSON files rather than .env for everything
+- Improve UI for chats, have proper workspace chats
+- Have proper test configuration for projects and annuity calcs
+
+DAY #2
+- Add full abilities to AI chatbot (calculate annuity, add project, change plan, list users...)s
+- Security audit to the lot
+
+DAY #3
 - Create an "alerts" system so that users can see their alerts
+- Improve redirect after login, admin or not?
+
+DAY #4
+- Add proper SMTP and SMS abilities, not stubs
+- Fix documentation, ML and human, and onboarding documents
+
+DAY #5
+- Add rails for AI to add features
+
+DAY #6
+- Do infrastructure, management mini-app, deploy
+
+DAY #7-#1000
+- !!!STUDY THE LOT!!!
 
 - Is this done? CI policy gate: fail build when any `workspaceSurface: "admin"` route lacks `permission` (explicit allowlist for exceptions)
-- Add final rails, practices, post checks
 
-- FINAL CODE CHECK, write onboarding document, go through it carefully
 
 LATER:
 
@@ -46,8 +69,8 @@ LATER:
 LATER LATER:
   0. Finish monitorability system
   1. Real delivery integrations: SMTP/SMS are scaffolded but not implemented (not_implemented paths).
-  2. Billing-to-entitlement enforcement: billing exists, but plan entitlements need hard gating across features/limits.
-  3. Production-grade async/distributed layer: queue/locking/pubsub strategy for multi-instance scale and worker durability.
+  X Billing-to-entitlement enforcement: billing exists, but plan entitlements need hard gating across features/limits.
+  X Production-grade async/distributed layer: queue/locking/pubsub strategy for multi-instance scale and worker durability.
   4. Enterprise auth/security: MFA/passkeys, SSO/SAML, SCIM, stronger session/device controls.
   5. Compliance workflows: GDPR/CCPA data export/delete, audit export APIs, stricter secret/data handling controls.
   6. Tenant lifecycle ops: suspension/reactivation, support impersonation, stronger admin tooling, feature flags.
