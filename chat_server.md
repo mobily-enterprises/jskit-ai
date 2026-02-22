@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Twenty-eighth Review Amendments Summary (Post-commit server review #28)
+
+This section records corrections made during a twenty-eighth pass after the prior review cycles.
+
+### Message-send idempotency collision-semantics clarifications
+
+- Fixed a `clientMessageId` idempotency gap: the plan described replaying existing messages on duplicate keys but did not define behavior when the same key is reused with a materially different message payload.
+- Added explicit send-path guidance to treat `clientMessageId` as an idempotency key bound to the original logical send and to reject mismatched payload retries (recommended `409`) instead of returning a misleading success replay.
+- Added service-test coverage for same-key replay success vs mismatched-payload conflict behavior on `sendMessage`.
+
 ## Twenty-seventh Review Amendments Summary (Post-commit server review #27)
 
 This section records corrections made during a twenty-seventh pass after the prior review cycles.
@@ -1469,11 +1479,14 @@ This is the most important server flow.
 3. Begin DB transaction
 4. Re-read participant and thread row in transaction (optional but recommended for race safety)
 5. Idempotency check:
-   - look up `(thread_id, sender_user_id, client_message_id)` and return existing message + thread summary on hit
+   - look up `(thread_id, sender_user_id, client_message_id)` and compare against the incoming logical send payload (message kind/text-or-ciphertext mode, reply target, attachment IDs set/order as policy defines, and relevant metadata)
+   - if existing row matches the incoming logical payload, return existing message + thread summary (idempotent replay)
+   - if the same key maps to a materially different payload, reject as conflict (`409`) rather than returning a misleading replay
 6. Allocate `thread_seq`
    - lock thread row (`SELECT ... FOR UPDATE`), assign `thread_seq = next_message_seq`, then increment/store `next_message_seq = thread_seq + 1`
 7. Insert `chat_messages` row
-   - if insert hits unique conflict on `(thread_id, sender_user_id, client_message_id)` (concurrent duplicate request race), roll back and re-read the existing message to return a successful idempotent response
+   - if insert hits unique conflict on `(thread_id, sender_user_id, client_message_id)` (concurrent duplicate request race), roll back and re-read the existing message
+   - apply the same idempotency payload-match check on the re-read result before deciding replay-success vs conflict
 8. Attach uploaded attachment rows (if any)
    - claim attachments in a race-safe way (e.g. lock selected attachment rows `FOR UPDATE`, or use conditional `UPDATE ... WHERE status='uploaded' AND message_id IS NULL AND thread_id=? AND uploaded_by_user_id=?`)
    - validate each attachment belongs to sender, thread, status `uploaded`, unattached
@@ -1970,7 +1983,9 @@ Per repository:
 - attachments attached atomically
 - concurrent attach race on the same uploaded attachment IDs fails/rolls back cleanly (no attachment reassignment across messages)
 - duplicate `clientMessageId` returns same message (idempotent)
+- same `clientMessageId` with materially different payload is rejected as conflict (no misleading replay)
 - concurrent duplicate `clientMessageId` requests (race) return one canonical message via unique-conflict fallback path
+- concurrent duplicate-key race with mismatched payload resolves to conflict after re-read/payload-compare (not false replay success)
 - deadlock / lock-timeout transient DB errors retry successfully within bounded retry policy
 - post-commit realtime publish failure does not lose the message or incorrectly rollback/send error (client can recover via fetch path)
 - sender not participant denied
