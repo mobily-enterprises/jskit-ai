@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Twenty-first Review Amendments Summary (Post-commit server review #21)
+
+This section records corrections made during a twenty-first pass after the prior review cycles.
+
+### Attachment delivery privacy / cache-hardening clarifications
+
+- Added explicit cache-control guidance for authenticated attachment responses so private chat blobs are not accidentally cached/shared by intermediaries or browser caches across users/sessions.
+- Added `Vary` guidance for cookie/authorization-based attachment delivery to prevent cache-key confusion when authenticated routes are ever fronted by shared caches.
+- Added test-plan coverage for attachment response header hardening (`Cache-Control`, `Vary`, `nosniff`, disposition behavior).
+
 ## Twentieth Review Amendments Summary (Post-commit server review #20)
 
 This section records corrections made during a twentieth pass after the prior review cycles.
@@ -1541,6 +1551,9 @@ For authenticated attachment content responses (or signed URL-backed responses),
 - default `Content-Disposition: attachment` for active-content types (HTML, SVG, XML, JS, etc.)
 - only allow inline rendering for a tightly controlled allowlist (e.g. common images) and after authz checks
 - validate attachment `status` is readable (`attached`, and optionally `uploaded` for uploader-only previews) before serving
+- for authenticated (cookie/header-auth) attachment responses, set conservative cache headers (recommended: `Cache-Control: private, no-store`) so private blobs are not reused across users/sessions
+- if authenticated attachment routes might traverse shared caches/proxies, include appropriate `Vary` headers (at least on auth-bearing selectors such as `Authorization`/`Cookie`) or disable caching entirely
+- if using signed URLs, keep URL TTL short and ensure cache policy does not outlive signature validity (e.g. `max-age <= signed-url-ttl`; avoid long-lived public cache headers for private chat blobs)
 
 ### Multipart limits problem (current server)
 
@@ -1927,6 +1940,7 @@ Using existing realtime test harness patterns adapted for chat:
 ### 6. Security/regression tests
 
 - cannot read/send in thread by guessing `threadId`
+- attachment content route sets safe security/cache headers (`X-Content-Type-Options`, `Content-Disposition`, and conservative cache/Vary behavior for authenticated responses)
 - cannot attach another user's staged attachment
 - cannot react to message in inaccessible thread
 - cannot bypass global DM disable flag using existing thread IDs
