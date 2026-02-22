@@ -40,4 +40,15 @@ describe("ChatView template", () => {
     expect(source.includes("state.messageRows")).toBe(true);
     expect(source.includes("chat-message-bubble")).toBe(true);
   });
+
+  it("wires attachment controls and typing indicator UI", () => {
+    const source = readChatViewSource();
+
+    expect(source.includes("Add files")).toBe(true);
+    expect(source.includes("actions.addComposerFiles")).toBe(true);
+    expect(source.includes("actions.retryComposerAttachment")).toBe(true);
+    expect(source.includes("actions.removeComposerAttachment")).toBe(true);
+    expect(source.includes("state.composerAttachments")).toBe(true);
+    expect(source.includes("state.typingNotice")).toBe(true);
+  });
 });

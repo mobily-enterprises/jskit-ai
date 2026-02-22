@@ -16,7 +16,10 @@ const mocks = vi.hoisted(() => ({
       listThreadMessages: vi.fn(),
       sendThreadMessage: vi.fn(),
       markThreadRead: vi.fn(),
-      emitThreadTyping: vi.fn()
+      emitThreadTyping: vi.fn(),
+      reserveThreadAttachment: vi.fn(),
+      uploadThreadAttachment: vi.fn(),
+      deleteThreadAttachment: vi.fn()
     }
   },
   workspaceStore: {
@@ -127,9 +130,25 @@ describe("useChatView", () => {
     mocks.api.chat.sendThreadMessage.mockReset();
     mocks.api.chat.markThreadRead.mockReset();
     mocks.api.chat.emitThreadTyping.mockReset();
+    mocks.api.chat.reserveThreadAttachment.mockReset();
+    mocks.api.chat.uploadThreadAttachment.mockReset();
+    mocks.api.chat.deleteThreadAttachment.mockReset();
     mocks.api.chat.emitThreadTyping.mockResolvedValue({
       accepted: true,
       expiresAt: "2026-02-22T00:00:08.000Z"
+    });
+    mocks.api.chat.reserveThreadAttachment.mockResolvedValue({
+      attachment: {
+        id: 7001
+      }
+    });
+    mocks.api.chat.uploadThreadAttachment.mockResolvedValue({
+      attachment: {
+        id: 7001
+      }
+    });
+    mocks.api.chat.deleteThreadAttachment.mockResolvedValue({
+      ok: true
     });
     mocks.queryClient.invalidateQueries.mockReset();
     mocks.queryClient.invalidateQueries.mockResolvedValue(undefined);
@@ -277,6 +296,90 @@ describe("useChatView", () => {
     expect(mocks.inboxQueryState.refetch).toHaveBeenCalledTimes(1);
     expect(wrapper.vm.state.selectedThreadId).toBe(55);
     expect(wrapper.vm.state.sendStatus).toBe("Direct message created.");
+  });
+
+  it("uploads attachments and supports attachment-only sends", async () => {
+    mocks.api.chat.sendThreadMessage.mockResolvedValueOnce({
+      idempotencyStatus: "created"
+    });
+
+    const wrapper = mount(Harness);
+    await nextTick();
+
+    const file = new File(["hello"], "hello.txt", {
+      type: "text/plain"
+    });
+
+    const added = await wrapper.vm.actions.addComposerFiles([file]);
+
+    expect(added).toBe(1);
+    expect(mocks.api.chat.reserveThreadAttachment).toHaveBeenCalledTimes(1);
+    expect(mocks.api.chat.reserveThreadAttachment).toHaveBeenCalledWith(
+      11,
+      expect.objectContaining({
+        fileName: "hello.txt",
+        mimeType: "text/plain",
+        kind: "file"
+      })
+    );
+    expect(mocks.api.chat.uploadThreadAttachment).toHaveBeenCalledTimes(1);
+    expect(wrapper.vm.state.composerAttachments).toHaveLength(1);
+    expect(wrapper.vm.state.composerAttachments[0].status).toBe("uploaded");
+
+    await wrapper.vm.actions.sendFromComposer();
+
+    expect(mocks.api.chat.sendThreadMessage).toHaveBeenCalledTimes(1);
+    const [threadId, payload] = mocks.api.chat.sendThreadMessage.mock.calls[0];
+    expect(threadId).toBe(11);
+    expect(payload.text).toBeUndefined();
+    expect(payload.attachmentIds).toEqual([7001]);
+    expect(wrapper.vm.state.composerAttachments).toHaveLength(0);
+  });
+
+  it("blocks send while failed attachment states remain unresolved", async () => {
+    mocks.api.chat.reserveThreadAttachment.mockRejectedValueOnce({
+      status: 409,
+      message: "conflict",
+      details: {
+        code: "CHAT_ATTACHMENT_CONFLICT"
+      }
+    });
+
+    const wrapper = mount(Harness);
+    await nextTick();
+
+    const file = new File(["mismatch"], "conflict.txt", {
+      type: "text/plain"
+    });
+    const added = await wrapper.vm.actions.addComposerFiles([file]);
+
+    expect(added).toBe(1);
+    expect(wrapper.vm.state.composerAttachments).toHaveLength(1);
+    expect(wrapper.vm.state.composerAttachments[0].status).toBe("failed");
+    expect(wrapper.vm.state.composerAttachments[0].errorMessage).toBe("Attachment state changed. Try uploading again.");
+
+    wrapper.vm.state.composerText = "hello";
+    await wrapper.vm.actions.sendFromComposer();
+
+    expect(wrapper.vm.state.actionError).toBe("Resolve attachment uploads before sending.");
+    expect(mocks.api.chat.sendThreadMessage).not.toHaveBeenCalled();
+  });
+
+  it("removes uploaded composer attachments and calls staged delete endpoint", async () => {
+    const wrapper = mount(Harness);
+    await nextTick();
+
+    const file = new File(["bye"], "remove.txt", {
+      type: "text/plain"
+    });
+    await wrapper.vm.actions.addComposerFiles([file]);
+
+    expect(wrapper.vm.state.composerAttachments).toHaveLength(1);
+    const localId = wrapper.vm.state.composerAttachments[0].localId;
+    await wrapper.vm.actions.removeComposerAttachment(localId);
+
+    expect(wrapper.vm.state.composerAttachments).toHaveLength(0);
+    expect(mocks.api.chat.deleteThreadAttachment).toHaveBeenCalledWith(11, 7001);
   });
 
   it("emits typing heartbeat while composing", async () => {

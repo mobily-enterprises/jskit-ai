@@ -37,6 +37,27 @@ function createApi({ request }) {
         body: payload
       });
     },
+    reserveThreadAttachment(threadId, payload) {
+      const encodedThreadId = encodeURIComponent(String(threadId || "").trim());
+      return request(`/api/chat/threads/${encodedThreadId}/attachments/reserve`, {
+        method: "POST",
+        body: payload
+      });
+    },
+    uploadThreadAttachment(threadId, formData) {
+      const encodedThreadId = encodeURIComponent(String(threadId || "").trim());
+      return request(`/api/chat/threads/${encodedThreadId}/attachments/upload`, {
+        method: "POST",
+        body: formData
+      });
+    },
+    deleteThreadAttachment(threadId, attachmentId) {
+      const encodedThreadId = encodeURIComponent(String(threadId || "").trim());
+      const encodedAttachmentId = encodeURIComponent(String(attachmentId || "").trim());
+      return request(`/api/chat/threads/${encodedThreadId}/attachments/${encodedAttachmentId}`, {
+        method: "DELETE"
+      });
+    },
     markThreadRead(threadId, payload) {
       const encodedThreadId = encodeURIComponent(String(threadId || "").trim());
       return request(`/api/chat/threads/${encodedThreadId}/read`, {

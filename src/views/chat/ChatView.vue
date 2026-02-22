@@ -144,6 +144,22 @@
                   >
                     {{ helpers.formatMessageText(row.message) }}
                   </div>
+                  <div
+                    v-if="Array.isArray(row.message.attachments) && row.message.attachments.length > 0"
+                    class="chat-message-attachments"
+                  >
+                    <a
+                      v-for="attachment in row.message.attachments"
+                      :key="attachment.id"
+                      class="chat-message-attachment-link"
+                      :href="attachmentContentUrl(attachment)"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <span>{{ attachmentLabel(attachment) }}</span>
+                      <span v-if="attachmentSizeLabel(attachment)"> · {{ attachmentSizeLabel(attachment) }}</span>
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
@@ -168,6 +184,63 @@
               :disabled="!state.selectedThreadId || state.sendPending"
               @keydown="actions.handleComposerKeydown"
             />
+
+            <div class="chat-composer-tools mt-3">
+              <input
+                ref="composerFileInputRef"
+                type="file"
+                multiple
+                class="chat-file-input"
+                @change="handleComposerFileInputChange"
+              >
+              <v-btn
+                variant="tonal"
+                size="small"
+                :disabled="!state.selectedThreadId || state.sendPending"
+                @click="openComposerFilePicker"
+              >
+                Add files
+              </v-btn>
+              <span class="text-caption text-medium-emphasis">
+                Max {{ meta.attachmentMaxFilesPerMessage }} files, up to {{ readableUploadLimit }} each.
+              </span>
+            </div>
+
+            <div v-if="state.composerAttachments.length > 0" class="chat-composer-attachment-list mt-3">
+              <div
+                v-for="attachment in state.composerAttachments"
+                :key="attachment.localId"
+                class="chat-composer-attachment-row"
+              >
+                <div class="chat-composer-attachment-main">
+                  <div class="chat-composer-attachment-name">{{ attachment.fileName }}</div>
+                  <div class="chat-composer-attachment-meta text-caption text-medium-emphasis">
+                    {{ attachmentSizeLabel(attachment) }}
+                  </div>
+                </div>
+                <v-chip size="x-small" label :color="composerAttachmentStatusColor(attachment)" variant="tonal">
+                  {{ composerAttachmentStatusLabel(attachment) }}
+                </v-chip>
+                <v-btn
+                  v-if="String(attachment.status) === 'failed'"
+                  size="x-small"
+                  variant="text"
+                  :disabled="state.sendPending"
+                  @click="actions.retryComposerAttachment(attachment.localId)"
+                >
+                  Retry
+                </v-btn>
+                <v-btn
+                  size="x-small"
+                  variant="text"
+                  color="error"
+                  :disabled="String(attachment.status) === 'uploading' || state.sendPending"
+                  @click="actions.removeComposerAttachment(attachment.localId)"
+                >
+                  Remove
+                </v-btn>
+              </div>
+            </div>
 
             <div class="chat-actions mt-3">
               <v-checkbox v-model="state.sendOnEnter" label="Send on enter" hide-details density="compact" />
@@ -216,10 +289,28 @@ const { meta, state, helpers, actions } = useChatView();
 const workspaceStore = useWorkspaceStore();
 const dmDialogOpen = ref(false);
 const targetPublicChatId = ref("");
+const composerFileInputRef = ref(null);
 const workspaceChatPath = computed(() => workspaceStore.workspacePath("/workspace-chat"));
+const readableUploadLimit = computed(() => formatBytes(meta.attachmentMaxUploadBytes));
 
 function normalizeText(value) {
   return String(value || "").trim();
+}
+
+function formatBytes(value) {
+  const bytes = Number(value || 0);
+  if (!Number.isFinite(bytes) || bytes < 1) {
+    return "";
+  }
+
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function avatarInitialsFromLabel(labelValue) {
@@ -280,6 +371,68 @@ function threadAvatarInitials(thread) {
 
 function rowAvatarInitials(row) {
   return avatarInitialsFromLabel(row?.senderLabel);
+}
+
+function attachmentContentUrl(attachment) {
+  return normalizeText(attachment?.deliveryPath);
+}
+
+function attachmentLabel(attachment) {
+  const name = normalizeText(attachment?.fileName);
+  if (name) {
+    return name;
+  }
+
+  const id = Number(attachment?.id || 0);
+  return id > 0 ? `Attachment #${id}` : "Attachment";
+}
+
+function attachmentSizeLabel(attachment) {
+  return formatBytes(attachment?.sizeBytes);
+}
+
+function composerAttachmentStatusColor(attachment) {
+  const status = String(attachment?.status || "").toLowerCase();
+  if (status === "uploaded") {
+    return "success";
+  }
+  if (status === "uploading") {
+    return "info";
+  }
+  if (status === "failed") {
+    return "error";
+  }
+  return "default";
+}
+
+function composerAttachmentStatusLabel(attachment) {
+  const status = String(attachment?.status || "").toLowerCase();
+  if (status === "uploaded") {
+    return "Uploaded";
+  }
+  if (status === "uploading") {
+    return "Uploading";
+  }
+  if (status === "failed") {
+    return "Failed";
+  }
+  return "Queued";
+}
+
+function openComposerFilePicker() {
+  const input = composerFileInputRef.value;
+  if (!input || typeof input.click !== "function") {
+    return;
+  }
+  input.click();
+}
+
+async function handleComposerFileInputChange(event) {
+  const files = event?.target?.files;
+  await actions.addComposerFiles(files);
+  if (event?.target) {
+    event.target.value = "";
+  }
 }
 
 function closeDmDialog() {
@@ -420,6 +573,63 @@ async function startDm() {
 .chat-message-bubble--theirs {
   background: rgba(var(--v-theme-on-surface), 0.06);
   border-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.chat-message-attachments {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.chat-message-attachment-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  font-size: 0.79rem;
+  color: rgb(var(--v-theme-primary));
+  text-decoration: none;
+}
+
+.chat-message-attachment-link:hover {
+  text-decoration: underline;
+}
+
+.chat-composer-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.chat-file-input {
+  display: none;
+}
+
+.chat-composer-attachment-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.chat-composer-attachment-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
+  border-radius: 12px;
+  padding: 0.35rem 0.5rem;
+  background: rgba(var(--v-theme-on-surface), 0.03);
+}
+
+.chat-composer-attachment-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.chat-composer-attachment-name {
+  font-size: 0.84rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chat-actions {

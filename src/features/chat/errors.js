@@ -23,6 +23,12 @@ function mapChatCodeToMessage(errorCode) {
       return "Read cursor is invalid for this thread.";
     case "CHAT_RATE_LIMITED":
       return "You are sending too quickly. Try again in a moment.";
+    case "CHAT_ATTACHMENT_NOT_FOUND":
+      return "Attachment is unavailable.";
+    case "CHAT_ATTACHMENT_CONFLICT":
+      return "Attachment state changed. Try uploading again.";
+    case "CHAT_ATTACHMENT_UPLOAD_IN_PROGRESS":
+      return "Upload already in progress for this attachment.";
     default:
       return "";
   }

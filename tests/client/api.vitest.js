@@ -736,6 +736,19 @@ describe("client api transport", () => {
       clientMessageId: "msg_1",
       text: "hello"
     });
+    await api.chat.reserveThreadAttachment("thread/id", {
+      clientAttachmentId: "att_1",
+      fileName: "hello.txt",
+      mimeType: "text/plain",
+      sizeBytes: 3,
+      kind: "file",
+      metadata: {}
+    });
+    const uploadForm = new FormData();
+    uploadForm.append("attachmentId", "81");
+    uploadForm.append("file", new Blob(["abc"], { type: "text/plain" }), "hello.txt");
+    await api.chat.uploadThreadAttachment("thread/id", uploadForm);
+    await api.chat.deleteThreadAttachment("thread/id", "attachment/id");
     await api.chat.markThreadRead("thread/id", {
       threadSeq: 44
     });
@@ -747,8 +760,16 @@ describe("client api transport", () => {
     expect(urls).toContain("/api/chat/threads/thread%2Fid");
     expect(urls).toContain("/api/chat/threads/thread%2Fid/messages?cursor=cursor-2&limit=30");
     expect(urls).toContain("/api/chat/threads/thread%2Fid/messages");
+    expect(urls).toContain("/api/chat/threads/thread%2Fid/attachments/reserve");
+    expect(urls).toContain("/api/chat/threads/thread%2Fid/attachments/upload");
+    expect(urls).toContain("/api/chat/threads/thread%2Fid/attachments/attachment%2Fid");
     expect(urls).toContain("/api/chat/threads/thread%2Fid/read");
     expect(urls).toContain("/api/chat/threads/thread%2Fid/typing");
+
+    const uploadCall = global.fetch.mock.calls.find(
+      ([url]) => url === "/api/chat/threads/thread%2Fid/attachments/upload"
+    );
+    expect(uploadCall?.[1]?.body).toBe(uploadForm);
   });
 
   it("builds oauth URL helpers with and without returnTo", () => {
