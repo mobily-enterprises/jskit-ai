@@ -53,7 +53,22 @@ function resolveEligibleTopics(workspaceStore, surface) {
   return listRealtimeTopicsForSurface(surface).filter((topic) => hasAnyTopicPermission({ workspaceStore, topic }));
 }
 
+function resolveConfiguredRealtimeUrl() {
+  const envObject = typeof import.meta !== "undefined" && import.meta && import.meta.env ? import.meta.env : null;
+  const configured = String(envObject?.VITE_REALTIME_URL || "").trim();
+  if (!configured) {
+    return "";
+  }
+
+  return configured.replace(/\/+$/, "");
+}
+
 function buildRealtimeUrl() {
+  const configuredRealtimeUrl = resolveConfiguredRealtimeUrl();
+  if (configuredRealtimeUrl) {
+    return configuredRealtimeUrl;
+  }
+
   if (typeof window === "undefined") {
     return "";
   }
@@ -527,7 +542,8 @@ function createRealtimeRuntime({
 
 const __testables = {
   resolveRuntimeFingerprint,
-  buildRealtimeUrl
+  buildRealtimeUrl,
+  resolveConfiguredRealtimeUrl
 };
 
 export { createRealtimeRuntime, __testables };

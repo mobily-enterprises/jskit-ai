@@ -3,6 +3,7 @@ import { createSurfacePaths } from "../shared/routing/surfacePaths.js";
 import { createSurfaceRouteGuards } from "./routerGuards.js";
 import { createRoutes as createCoreRoutes } from "./routes/coreRoutes.js";
 import { createRoutes as createAssistantRoutes } from "./routes/assistantRoutes.js";
+import { createRoutes as createChatRoutes } from "./routes/chatRoutes.js";
 import { createRoutes as createWorkspaceRoutes } from "./routes/workspaceRoutes.js";
 import { createRoutes as createProjectsRoutes } from "./routes/projectsRoutes.js";
 
@@ -13,6 +14,7 @@ function createSurfaceRouter({
   shellComponent,
   includeWorkspaceSettings = false,
   includeAssistantRoute = false,
+  includeChatRoute = false,
   includeChoiceTwoRoute = true
 }) {
   const stores = { authStore, workspaceStore };
@@ -49,8 +51,20 @@ function createSurfaceRouter({
     );
   }
 
+  if (includeChatRoute) {
+    routes.splice(
+      includeAssistantRoute ? 4 : 3,
+      0,
+      ...createChatRoutes({
+        rootRoute,
+        workspaceRoutePrefix,
+        guards
+      })
+    );
+  }
+
   if (includeWorkspaceSettings) {
-    const insertIndex = includeAssistantRoute ? 4 : 3;
+    const insertIndex = includeAssistantRoute && includeChatRoute ? 5 : includeAssistantRoute || includeChatRoute ? 4 : 3;
     routes.splice(
       insertIndex,
       0,

@@ -4,6 +4,7 @@ import {
   workspaceAiTranscriptsRootQueryKey,
   workspaceAiTranscriptsScopeQueryKey
 } from "../../src/features/aiTranscripts/queryKeys.js";
+import { chatRootQueryKey, chatScopeQueryKey } from "../../src/features/chat/queryKeys.js";
 import { projectDetailQueryKey, projectsScopeQueryKey } from "../../src/features/projects/queryKeys.js";
 import { workspaceAdminRootQueryKey } from "../../src/features/workspaceAdmin/queryKeys.js";
 import { commandTracker, __testables as trackerTestables } from "../../src/services/realtime/commandTracker.js";
@@ -232,6 +233,50 @@ describe("realtimeEventHandlers", () => {
     expect(result.status).toBe("processed");
     expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
       queryKey: workspaceAiTranscriptsRootQueryKey()
+    });
+  });
+
+  it("invalidates chat scope when chat events include workspace slug", async () => {
+    const handlers = createRealtimeEventHandlers({
+      queryClient,
+      commandTracker,
+      clientId: "cli-local"
+    });
+
+    const event = {
+      eventId: "evt-chat-scope",
+      topic: REALTIME_TOPICS.CHAT,
+      workspaceSlug: "acme",
+      sourceClientId: "cli-remote",
+      entityId: "10"
+    };
+
+    const result = await handlers.processEvent(event);
+    expect(result.status).toBe("processed");
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: chatScopeQueryKey("acme")
+    });
+  });
+
+  it("invalidates chat root when chat events omit workspace slug", async () => {
+    const handlers = createRealtimeEventHandlers({
+      queryClient,
+      commandTracker,
+      clientId: "cli-local"
+    });
+
+    const event = {
+      eventId: "evt-chat-root",
+      topic: REALTIME_TOPICS.CHAT,
+      workspaceSlug: "",
+      sourceClientId: "cli-remote",
+      entityId: "10"
+    };
+
+    const result = await handlers.processEvent(event);
+    expect(result.status).toBe("processed");
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: chatRootQueryKey()
     });
   });
 });

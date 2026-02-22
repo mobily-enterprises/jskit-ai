@@ -715,6 +715,40 @@ describe("client api transport", () => {
     expect(rolesReadHeaders["x-client-id"]).toBeUndefined();
   });
 
+  it("calls chat wrapper endpoints and encodes thread identifiers", async () => {
+    global.fetch.mockImplementation(async (url) => {
+      if (url === "/api/session") {
+        return mockResponse({
+          data: { csrfToken: "chat-token" }
+        });
+      }
+
+      return mockResponse({
+        data: { ok: true, url }
+      });
+    });
+
+    await api.chat.ensureDm({ targetPublicChatId: "friend_1" });
+    await api.chat.listInbox({ cursor: "cursor-1", limit: 15 });
+    await api.chat.getThread("thread/id");
+    await api.chat.listThreadMessages("thread/id", { cursor: "cursor-2", limit: 30 });
+    await api.chat.sendThreadMessage("thread/id", {
+      clientMessageId: "msg_1",
+      text: "hello"
+    });
+    await api.chat.markThreadRead("thread/id", {
+      threadSeq: 44
+    });
+
+    const urls = global.fetch.mock.calls.map(([url]) => url);
+    expect(urls).toContain("/api/chat/dm/ensure");
+    expect(urls).toContain("/api/chat/inbox?cursor=cursor-1&limit=15");
+    expect(urls).toContain("/api/chat/threads/thread%2Fid");
+    expect(urls).toContain("/api/chat/threads/thread%2Fid/messages?cursor=cursor-2&limit=30");
+    expect(urls).toContain("/api/chat/threads/thread%2Fid/messages");
+    expect(urls).toContain("/api/chat/threads/thread%2Fid/read");
+  });
+
   it("builds oauth URL helpers with and without returnTo", () => {
     expect(api.auth.oauthStartUrl("Google")).toBe("/api/oauth/google/start");
     expect(api.auth.oauthStartUrl("Google", { returnTo: "/w/acme" })).toBe("/api/oauth/google/start?returnTo=%2Fw%2Facme");

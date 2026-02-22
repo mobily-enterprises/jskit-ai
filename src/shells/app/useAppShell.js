@@ -59,6 +59,7 @@ export function useAppShell() {
       assistantFeatureEnabled.value &&
       (!assistantRequiredPermission.value || workspaceStore.can(assistantRequiredPermission.value))
   );
+  const canUseChat = computed(() => workspaceStore.can("chat.read"));
   const canOpenAdminSurface = computed(() => activeWorkspaceHasMembership.value && canViewWorkspaceAdminSettings.value);
   const activeWorkspaceColor = computed(() => normalizeWorkspaceColor(workspaceStore.activeWorkspace?.color));
   const workspaceThemeStyle = computed(() => buildWorkspaceThemeStyle(activeWorkspaceColor.value));
@@ -84,6 +85,9 @@ export function useAppShell() {
     if (canUseAssistant.value) {
       items.push({ title: "Assistant", to: workspacePath("/assistant"), icon: "$navChoice2" });
     }
+    if (canUseChat.value) {
+      items.push({ title: "Chat", to: workspacePath("/chat"), icon: "mdi-chat-outline" });
+    }
 
     if (canOpenAdminSurface.value) {
       items.push({
@@ -100,6 +104,9 @@ export function useAppShell() {
   const destinationTitle = computed(() => {
     if (currentPath.value.endsWith("/assistant")) {
       return "Assistant";
+    }
+    if (currentPath.value.endsWith("/chat")) {
+      return "Chat";
     }
     return "Annuities";
   });

@@ -3,6 +3,7 @@ import {
   workspaceAiTranscriptsRootQueryKey,
   workspaceAiTranscriptsScopeQueryKey
 } from "../../features/aiTranscripts/queryKeys.js";
+import { chatRootQueryKey, chatScopeQueryKey } from "../../features/chat/queryKeys.js";
 import { projectDetailQueryKey, projectsScopeQueryKey } from "../../features/projects/queryKeys.js";
 import { workspaceAdminRootQueryKey } from "../../features/workspaceAdmin/queryKeys.js";
 
@@ -85,6 +86,11 @@ const invalidateForWorkspaceAiTranscriptsEvent = createWorkspaceScopeInvalidator
   scopeQueryKey: workspaceAiTranscriptsScopeQueryKey
 });
 
+const invalidateForChatEvent = createWorkspaceScopeInvalidator({
+  rootQueryKey: chatRootQueryKey,
+  scopeQueryKey: chatScopeQueryKey
+});
+
 async function invalidateNoop() {
   return undefined;
 }
@@ -113,6 +119,10 @@ const TOPIC_STRATEGY_REGISTRY = Object.freeze({
   }),
   [REALTIME_TOPICS.WORKSPACE_AI_TRANSCRIPTS]: Object.freeze({
     invalidate: invalidateForWorkspaceAiTranscriptsEvent,
+    refreshBootstrap: false
+  }),
+  [REALTIME_TOPICS.CHAT]: Object.freeze({
+    invalidate: invalidateForChatEvent,
     refreshBootstrap: false
   })
 });

@@ -9,6 +9,7 @@ export function createAppRouter({ authStore, workspaceStore }) {
     shellComponent: AppShell,
     includeWorkspaceSettings: false,
     includeAssistantRoute: true,
+    includeChatRoute: true,
     includeChoiceTwoRoute: false
   });
 }
