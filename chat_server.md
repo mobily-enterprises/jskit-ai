@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Eleventh Review Amendments Summary (Post-commit server review #11)
+
+This section records corrections made during an eleventh pass after the prior review cycles.
+
+### Concurrency / idempotency robustness corrections
+
+- Fixed a message-send idempotency race gap: an early lookup alone is not sufficient under concurrent duplicate requests with the same `clientMessageId`.
+- Added explicit guidance to catch the unique-constraint conflict on message insert (`thread_id`, `sender_user_id`, `client_message_id`) and then re-read/return the canonical existing message as an idempotent success.
+- Added a test-plan expectation for this concurrent duplicate-send race path.
+
 ## Tenth Review Amendments Summary (Post-commit server review #10)
 
 This section records corrections made during a tenth pass after the prior review cycles.
@@ -1270,6 +1280,7 @@ This is the most important server flow.
 6. Allocate `thread_seq`
    - lock thread row (`SELECT ... FOR UPDATE`) and increment `next_message_seq`
 7. Insert `chat_messages` row
+   - if insert hits unique conflict on `(thread_id, sender_user_id, client_message_id)` (concurrent duplicate request race), roll back and re-read the existing message to return a successful idempotent response
 8. Attach uploaded attachment rows (if any)
    - validate each attachment belongs to sender, thread, status `uploaded`, unattached
    - set `message_id`, `position`, `status='attached'`
@@ -1284,6 +1295,7 @@ This is the most important server flow.
 ### Why this is robust
 
 - Handles retries safely (idempotency)
+- Handles concurrent duplicate-send races safely by falling back on the DB unique constraint + re-read path
 - Prevents duplicate seq values under concurrency
 - Prevents attachment theft/reuse across users/threads
 - Ensures thread list cache is updated atomically with message insert
@@ -1728,6 +1740,7 @@ Per repository:
 - happy path text-only
 - attachments attached atomically
 - duplicate `clientMessageId` returns same message (idempotent)
+- concurrent duplicate `clientMessageId` requests (race) return one canonical message via unique-conflict fallback path
 - sender not participant denied
 - sender removed/left denied
 - reply-to cross-thread denied
@@ -1751,6 +1764,7 @@ Per repository:
 ### 4. Controller/route integration tests
 
 - workspace-scoped routes enforce auth + workspace permission + participant membership
+- scope-agnostic workspace-thread routes enforce validated workspace-capable surface and do not mutate `lastActiveWorkspaceId` during authz-only reads/listing (no-side-effects helper path)
 - global DM routes enforce feature flags and block settings
 - error codes and payload shapes match conventions (`400`, `401`, `403`, `404`, `409`)
 - multipart attachment upload route behavior and validation errors
