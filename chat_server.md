@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Thirty-second Review Amendments Summary (Post-commit server review #32)
+
+This section records corrections made during a thirty-second pass after the prior review cycles.
+
+### `markRead` request-contract completeness clarifications
+
+- Fixed an input-contract gap for `POST /api/chat/threads/:threadId/read`: the plan described `messageId`/`threadSeq` semantics but did not explicitly reject requests that provide neither cursor.
+- Added explicit guidance that `markRead` requests must provide at least one read cursor (`messageId` or `threadSeq`); if both are provided, they must agree.
+- Added service/route test coverage expectations for missing-cursor validation on `markRead` (not a silent no-op).
+
 ## Thirty-first Review Amendments Summary (Post-commit server review #31)
 
 This section records corrections made during a thirty-first pass after the prior review cycles.
@@ -1435,6 +1445,7 @@ Create a new module mirroring other modules:
   - idempotent via required `clientMessageId` in body (v1 recommendation)
 - `POST /api/chat/threads/:threadId/read`
   - update read cursor by `messageId` or `threadSeq`
+  - request validation should require at least one cursor (`messageId` or `threadSeq`); if both are supplied, service validation must require they agree
 - `POST /api/chat/threads/:threadId/reactions`
 - `DELETE /api/chat/threads/:threadId/reactions`
 - `POST /api/chat/threads/:threadId/typing`
@@ -1594,6 +1605,7 @@ Pointer semantics note:
 
 `markRead` endpoint should perform monotonic updates only:
 
+- require at least one cursor input (`messageId` or `threadSeq`); reject empty payloads instead of treating them as no-op success
 - validate incoming cursor belongs to the thread (`messageId` -> `threadId`), and if both `messageId` and `threadSeq` are supplied they must agree
 - if `messageId` is supplied but not found (e.g. deleted/retained), do not infer advancement from that ID; require `threadSeq` (or return a bounded validation/conflict error)
 - clamp incoming seq to valid thread range (`0..thread.last_message_seq` or current max surviving seq semantics)
@@ -2039,6 +2051,7 @@ Per repository:
 
 #### `markRead`
 
+- empty payload / missing cursor rejected (not silent no-op)
 - monotonic update only
 - out-of-order calls do not regress
 - read event publishes correctly
@@ -2064,6 +2077,7 @@ Per repository:
 - scope-agnostic workspace-thread routes enforce validated workspace-capable surface and do not mutate `lastActiveWorkspaceId` (or trigger personal-workspace provisioning) during authz-only reads/listing (no-side-effects helper path)
 - invalid/ambiguous `x-surface-id` on scope-agnostic workspace chat reads (`inbox`, thread reads, attachment content`) is rejected explicitly and never silently normalized/fallbacked to `app`
 - controller/service plumbing preserves validated surface/authz context into `chat.service` / access resolution for scope-agnostic workspace chat operations (no accidental fallback to raw request header parsing)
+- `POST /api/chat/threads/:threadId/read` validates that at least one cursor (`messageId` or `threadSeq`) is provided and rejects empty cursor payloads
 - global DM routes enforce feature flags and block settings
 - error codes and payload shapes match conventions (`400`, `401`, `403`, `404`, `409`)
 - multipart attachment upload route behavior and validation errors
