@@ -1,5 +1,20 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Third Review Amendments Summary (Post-commit server review #3)
+
+This section records corrections made during a third pass after the prior review cycles.
+
+### Retention / pointer integrity corrections
+
+- Added explicit retention repair requirements for participant pointer columns (`last_read_message_id`, `last_delivered_message_id`) because these are intentionally non-FK pointers and can become stale after message deletion.
+- Added note that if `reply_to_message_id` FK is omitted in v1 (allowed by plan), retention/deletion flows must null dangling reply pointers in service code.
+- Clarified retention ordering: attachment cleanup must run before hard-deleting messages when attachment rows use `ON DELETE RESTRICT`.
+
+### Security / abuse-hardening clarifications
+
+- Added anti-enumeration guidance for global DM target resolution (`/api/chat/dm/ensure`) so unknown/disallowed/blocked targets do not leak existence information via divergent error responses.
+- Added logging redaction guidance: avoid logging message text/ciphertext, raw attachment keys/URLs, and other sensitive payload fields at normal log levels.
+
 ## Second Review Amendments Summary (Post-commit server review #2)
 
 This section records corrections made during a second pass after the prior review-amended version was committed.
@@ -1047,6 +1062,7 @@ Create a new module mirroring other modules:
   - `auth: required`, `workspacePolicy: none`
   - body: `targetUserId` (if config allows) or `targetPublicChatId`
   - creates or returns global DM thread
+  - use enumeration-resistant error responses for target resolution (unknown target vs blocked vs privacy-disabled should not reveal more than necessary)
 - `GET /api/chat/inbox`
   - `auth: required`
   - returns mixed inbox (workspace + global) unless filtered
@@ -1437,6 +1453,12 @@ Add counters/timers to `observabilityService` integration points:
 
 Use structured logs with request IDs and thread/message IDs.
 
+Logging redaction rules (important):
+
+- Do not log message plaintext, ciphertext blobs, decrypted previews, or attachment binary metadata beyond bounded operational fields (size/type/status).
+- Do not log raw attachment storage keys or signed URLs at info/warn level.
+- Redact `targetPublicChatId` and similar identifiers in error logs unless explicitly needed for secure debugging.
+
 Examples of useful log codes:
 
 - `chat.thread.create_failed`
@@ -1459,18 +1481,24 @@ Extend `server/domain/operations/services/retention.service.js` and `server/work
 
 Add retention rules for:
 
-- `chat_messages` (hard-delete older than retention if allowed by product policy)
-- `chat_threads` without messages (optional cleanup)
 - `chat_attachments` unattached expired uploads
 - `chat_attachments` soft-deleted rows/blobs (if soft delete strategy used)
+- `chat_messages` (hard-delete older than retention if allowed by product policy)
+- `chat_threads` without messages (optional cleanup)
 
 Important cache repair requirement:
 
 - Retention deletes can invalidate `chat_threads.last_message_*` cache fields.
+- Retention deletes can also leave dangling participant pointers (`last_read_message_id`, `last_delivered_message_id`) because those columns intentionally do not have FKs in v1.
 - The retention path must either:
   - recompute caches for affected threads in batch, or
   - delete empty threads and recompute caches for non-empty threads touched by deletions
-- This repair step should be part of the same retention worker flow (or an immediately chained job) to avoid stale inbox ordering/previews.
+- and must null/repair affected participant message-pointer columns where the referenced message row no longer exists
+- This repair step should be part of the same retention worker flow (or an immediately chained job) to avoid stale inbox ordering/previews and dangling pointers.
+
+If `chat_messages.reply_to_message_id` FK is omitted in v1 (allowed earlier for migration simplicity):
+
+- retention/deletion jobs must also null dangling `reply_to_message_id` values in remaining messages, or provide a repository repair step that does so in batch.
 
 ### Blob cleanup strategy
 
@@ -1488,6 +1516,7 @@ Deletion ordering rule (important):
 
 - Never rely on DB cascades alone for blob-backed records.
 - Message/thread/workspace cleanup flows must process attachment blob deletion (or durable tombstoning + async cleanup) before deleting parent rows that would make attachment keys undiscoverable.
+- Retention job ordering should reflect this explicitly: attachment cleanup phases (or attachment detachment/deletion for doomed messages) must run before message hard-delete phases when attachment FKs are `ON DELETE RESTRICT`.
 
 ## Abuse and Safety Controls (Server)
 
