@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Seventeenth Review Amendments Summary (Post-commit server review #17)
+
+This section records corrections made during a seventeenth pass after the prior review cycles.
+
+### Lifecycle / deletion-path robustness clarifications
+
+- Added an explicit workspace-deletion integration note: `chat_threads.workspace_id` may cascade from `workspaces`, but attachment/message cleanup ordering and `chat_attachments` `RESTRICT` FKs mean workspace teardown must run a chat-aware cleanup flow first (or perform a planned ordered delete), not rely on raw workspace-row cascade behavior.
+- Clarified that chat attachment/blob cleanup requirements apply to **retention, moderation, and workspace/account teardown** paths (not just retention and ad-hoc message deletes).
+- Added a route/service integration test expectation (or workflow test) for workspace/thread teardown ordering so attachment `RESTRICT` constraints fail closed unless cleanup runs first.
+
 ## Sixteenth Review Amendments Summary (Post-commit server review #16)
 
 This section records corrections made during a sixteenth pass after the prior review cycles.
@@ -765,6 +775,7 @@ Service-level invariants:
 - `scope_kind=global` => `workspace_id` null
 - `thread_kind=dm` => pair columns required and distinct, canonical `participant_count=2` (participant rows remain 2 even if status later becomes `left`/`removed`)
 - `thread_kind=group` => pair columns null
+- Workspace deletion integration note: because downstream attachment cleanup uses explicit ordering and `chat_attachments` parent FKs are `RESTRICT`, do not rely on deleting a `workspaces` row and expecting DB cascades alone to clean chat data. Use a chat-aware teardown flow (or documented ordered delete job) that removes/cleans attachments before thread/message teardown.
 
 ### Table 4: `chat_thread_participants`
 
@@ -938,6 +949,7 @@ Notes:
 - If future attachment reuse is required, split into blob table + message link table later.
 - Because attachments reference external blob storage, parent-row deletes (message/thread/user/workspace cascades) should not silently delete attachment rows before blob cleanup runs.
 - Prefer explicit delete flows: delete/expire blobs first (or mark + async cleanup), then delete attachment rows, then delete parent rows.
+- Apply the same ordering rule to retention, moderation hard deletes, and workspace/account teardown flows (not only ad-hoc message deletes).
 
 ### Table 7: `chat_message_reactions`
 
@@ -1852,6 +1864,7 @@ Per repository:
 - global DM routes enforce feature flags and block settings
 - error codes and payload shapes match conventions (`400`, `401`, `403`, `404`, `409`)
 - multipart attachment upload route behavior and validation errors
+- workspace/thread teardown integration path (service/job) honors attachment/blob cleanup ordering and does not rely on raw `workspaces -> chat_threads` cascade when `chat_attachments` `RESTRICT` FKs are present
 
 ### 5. Realtime integration tests (critical)
 
