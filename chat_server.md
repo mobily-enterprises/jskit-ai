@@ -1,5 +1,19 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Fifteenth Review Amendments Summary (Post-commit server review #15)
+
+This section records corrections made during a fifteenth pass after the prior review cycles.
+
+### Concurrency / sequencing correctness clarifications
+
+- Clarified `next_message_seq` allocation semantics to avoid off-by-one implementation bugs: allocate the current `next_message_seq` value to the new message, then increment/store the next value.
+
+### Realtime delivery failure semantics clarifications
+
+- Clarified that post-commit realtime publish is best-effort: a committed message send must not be rolled back or turned into an HTTP failure solely because Socket.IO publish/fanout fails after commit.
+- Added guidance to log/metric publish failures and rely on subsequent fetch/sync paths for client recovery.
+- Added a test-plan expectation for post-commit realtime publish failure behavior on `sendMessage`.
+
 ## Fourteenth Review Amendments Summary (Post-commit server review #14)
 
 This section records corrections made during a fourteenth pass after the prior review cycles.
@@ -711,7 +725,7 @@ Columns:
 - `participant_count` INT UNSIGNED NOT NULL DEFAULT `0`
   - Canonical participant-row count for the thread (not "active participant count")
 - `next_message_seq` BIGINT UNSIGNED NOT NULL DEFAULT `1`
-  - sequence allocator for robust concurrent sends
+  - sequence allocator for robust concurrent sends (allocate current value, then increment)
 - `last_message_id` BIGINT UNSIGNED NULL  (pointer, no FK in v1)
 - `last_message_seq` BIGINT UNSIGNED NULL
 - `last_message_at` DATETIME(3) NULL
@@ -1314,7 +1328,7 @@ This is the most important server flow.
 5. Idempotency check:
    - look up `(thread_id, sender_user_id, client_message_id)` and return existing message + thread summary on hit
 6. Allocate `thread_seq`
-   - lock thread row (`SELECT ... FOR UPDATE`) and increment `next_message_seq`
+   - lock thread row (`SELECT ... FOR UPDATE`), assign `thread_seq = next_message_seq`, then increment/store `next_message_seq = thread_seq + 1`
 7. Insert `chat_messages` row
    - if insert hits unique conflict on `(thread_id, sender_user_id, client_message_id)` (concurrent duplicate request race), roll back and re-read the existing message to return a successful idempotent response
 8. Attach uploaded attachment rows (if any)
@@ -1327,6 +1341,7 @@ This is the most important server flow.
 11. Commit transaction
 12. Load participant recipient IDs (outside transaction OK if not already fetched)
 13. Publish realtime event to recipient user rooms
+   - best-effort after commit: if publish/fanout fails, log + metric it and continue returning success for the committed message (clients recover via inbox/messages fetch)
 14. Return API response with canonical message payload
 
 ### Transaction retry policy (important)
@@ -1351,6 +1366,7 @@ Recommended behavior:
 - Prevents duplicate seq values under concurrency
 - Prevents attachment theft/reuse across users/threads
 - Ensures thread list cache is updated atomically with message insert
+- Decouples post-commit realtime fanout failure from message durability/HTTP success semantics
 
 ### Message edit/delete cache maintenance (important)
 
@@ -1794,6 +1810,7 @@ Per repository:
 - duplicate `clientMessageId` returns same message (idempotent)
 - concurrent duplicate `clientMessageId` requests (race) return one canonical message via unique-conflict fallback path
 - deadlock / lock-timeout transient DB errors retry successfully within bounded retry policy
+- post-commit realtime publish failure does not lose the message or incorrectly rollback/send error (client can recover via fetch path)
 - sender not participant denied
 - sender removed/left denied
 - reply-to cross-thread denied
