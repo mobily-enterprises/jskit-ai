@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Forty-fourth Review Amendments Summary (Post-commit server review #44)
+
+This section records corrections made during a forty-fourth pass after the prior review cycles.
+
+### Retry-window env wiring + file-plan consistency
+
+- Fixed an internal plan-consistency gap introduced by the idempotency retry-window config addition: the retention section defined `chatMessageIdempotencyRetryWindow*`, but the earlier explicit env-var list did not include the corresponding `CHAT_*` variable.
+- Added the retry-window env variable to the configuration/env section so `server/lib/env.js` and `.env.example` planning is complete and consistent with the retention strategy.
+- Updated the file-by-file migration plan to include the optional tombstone migration so the end-of-document implementation checklist matches the detailed migration sequence.
+
 ## Forty-third Review Amendments Summary (Post-commit server review #43)
 
 This section records corrections made during a forty-third pass after the prior review cycles.
@@ -682,6 +692,8 @@ Policy precedence rule (important):
 - `CHAT_MESSAGES_RETENTION_DAYS` (`num`, default `null` or disabled by default)
 - `CHAT_ATTACHMENTS_RETENTION_DAYS` (`num`, default `null` or disabled by default)
 - `CHAT_UNATTACHED_UPLOAD_RETENTION_HOURS` (`num`, default `24`)
+- `CHAT_MESSAGE_IDEMPOTENCY_RETRY_WINDOW_HOURS` (`num`, default e.g. `72`)
+  - Defines the duplicate-send suppression retry horizon used by tombstone expiry and retained-message hard-delete cutoffs.
 
 ## RBAC and Authorization Plan
 
@@ -2425,6 +2437,7 @@ Decide and document:
 - `migrations/*_create_chat_user_settings_and_blocks.cjs`
 - `migrations/*_create_chat_threads_and_participants.cjs`
 - `migrations/*_create_chat_messages_and_attachments.cjs`
+- `migrations/*_create_chat_message_idempotency_tombstones.cjs` (optional; tombstone strategy only)
 - `migrations/*_create_chat_reactions.cjs`
 
 ### New repositories
