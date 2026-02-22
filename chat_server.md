@@ -1,5 +1,18 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Ninth Review Amendments Summary (Post-commit server review #9)
+
+This section records corrections made during a ninth pass after the prior review cycles.
+
+### Consistency / semantics clarifications
+
+- Corrected an internal inconsistency in unread-count guidance: the earlier table note now labels the `last_message_seq - last_read_seq` formula as a fast-path approximation and points to the later exact-count caveat for retention/delete holes.
+- Clarified read-cursor pointer semantics: `last_read_message_id` (and similarly `last_delivered_message_id`) may legitimately be `NULL` while sequence cursors remain > 0 after retention/deletion repair, so services/clients must treat sequence as canonical.
+
+### Existing-code integration fit clarifications
+
+- Made the scope-agnostic workspace-thread route requirement explicit: because `/api/chat/...` paths do not encode surface context, clients must supply a validated workspace-capable surface value (practically `x-surface-id`) for workspace-thread access.
+
 ## Eighth Review Amendments Summary (Post-commit server review #8)
 
 This section records corrections made during an eighth pass after the prior review cycles.
@@ -717,7 +730,7 @@ Indexes/constraints:
 
 Notes:
 
-- For performance, inbox list query can compute unread count as `GREATEST(0, t.last_message_seq - p.last_read_seq)`.
+- For performance, inbox list query can use fast-path unread math `GREATEST(0, COALESCE(t.last_message_seq, 0) - p.last_read_seq)`, but see the later read/unread section for exact-count handling when retention/deletes create sequence holes.
 - For mixed inbox pagination (`workspace` + `global`), authz filtering must be pagination-aware:
   - prefer filtering in SQL join predicates where possible
   - otherwise over-fetch and refill until the requested page size is reached (or result set exhausted) to avoid sparse/unstable pages
@@ -1204,6 +1217,7 @@ Use:
 
 - `auth: required`
 - no route-static workspace permission
+- for workspace-thread access via these scope-agnostic paths, require a validated workspace-capable surface value (practically `x-surface-id`), because the route path itself does not encode surface context
 
 Then inside service/controller:
 
@@ -1277,6 +1291,11 @@ Store per-participant read cursor in `chat_thread_participants`:
 - `last_read_seq`
 - `last_read_message_id`
 - `last_read_at`
+
+Pointer semantics note:
+
+- `last_read_seq` is the canonical read cursor.
+- `last_read_message_id` is a best-effort convenience pointer and may be `NULL` even when `last_read_seq > 0` after retention/deletion repair (same principle for delivered pointers).
 
 ### Update semantics
 
