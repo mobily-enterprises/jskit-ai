@@ -273,6 +273,20 @@ function createService({
     });
   }
 
+  async function setSubscriptionCancelAtPeriodEnd({ subscriptionId, cancelAtPeriodEnd = false }) {
+    const normalizedSubscriptionId = String(subscriptionId || "").trim();
+    if (!normalizedSubscriptionId) {
+      throw new AppError(400, "Stripe subscription id is required.");
+    }
+
+    return runStripeOperation("subscription_set_cancel_at_period_end", async () => {
+      const client = await getClient();
+      return client.subscriptions.update(normalizedSubscriptionId, {
+        cancel_at_period_end: Boolean(cancelAtPeriodEnd)
+      });
+    });
+  }
+
   async function updateSubscriptionPlan({
     subscriptionId,
     providerPriceId,
@@ -440,6 +454,7 @@ function createService({
     retrieveInvoice,
     expireCheckoutSession,
     cancelSubscription,
+    setSubscriptionCancelAtPeriodEnd,
     updateSubscriptionPlan,
     listCustomerPaymentMethods,
     listCheckoutSessionsByOperationKey,

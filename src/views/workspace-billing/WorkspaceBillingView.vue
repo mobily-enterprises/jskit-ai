@@ -20,11 +20,14 @@
 
         <v-row dense>
           <v-col cols="12" lg="7">
-            <v-card rounded="lg" variant="tonal" class="h-100">
+            <v-card rounded="lg" border class="h-100">
               <v-card-item>
                 <v-card-title class="text-subtitle-2 font-weight-bold">Current plan</v-card-title>
                 <v-card-subtitle v-if="state.currentPlan">
-                  Current plan remains active until {{ meta.formatDateOnly(state.currentPeriodEndAt) }}.
+                  <template v-if="state.currentPlanHasNoExpiry">This plan does not expire.</template>
+                  <template v-else>
+                    Current plan remains active until {{ meta.formatDateOnly(state.currentPeriodEndAt) }}.
+                  </template>
                 </v-card-subtitle>
                 <v-card-subtitle v-else>No active plan assigned yet.</v-card-subtitle>
               </v-card-item>
@@ -38,7 +41,10 @@
                 </div>
                 <div class="text-body-2 mb-2">{{ state.currentPlan.description || "No description." }}</div>
                 <div class="text-body-2 text-medium-emphasis mb-2">
-                  Current period ends: <strong>{{ meta.formatDateOnly(state.currentPeriodEndAt) }}</strong>
+                  Current period ends:
+                  <strong>{{
+                    state.currentPlanHasNoExpiry ? "No expiry" : meta.formatDateOnly(state.currentPeriodEndAt)
+                  }}</strong>
                 </div>
                 <div v-if="state.currentPlan.corePrice" class="text-body-2 text-medium-emphasis">
                   Core price:
@@ -49,6 +55,19 @@
                     )
                   }}
                   / {{ state.currentPlan.corePrice.interval }}
+                </div>
+                <div v-else class="text-body-2 text-medium-emphasis">
+                  Core price: <strong>Free</strong>
+                </div>
+                <div v-if="state.canCancelCurrentPlan" class="mt-3">
+                  <v-btn
+                    variant="outlined"
+                    color="error"
+                    :loading="state.cancelCurrentPlanLoading"
+                    @click="actions.cancelCurrentPlan"
+                  >
+                    Cancel plan
+                  </v-btn>
                 </div>
               </v-card-text>
 
@@ -61,7 +80,7 @@
           </v-col>
 
           <v-col cols="12" lg="5">
-            <v-card rounded="lg" variant="tonal" class="h-100">
+            <v-card rounded="lg" border class="h-100">
               <v-card-item>
                 <v-card-title class="text-subtitle-2 font-weight-bold">Scheduled change</v-card-title>
                 <v-card-subtitle v-if="state.pendingChange && state.nextPlan">
@@ -96,7 +115,7 @@
           </v-col>
         </v-row>
 
-        <v-card rounded="lg" variant="tonal" class="mt-4">
+        <v-card rounded="lg" border class="mt-4">
           <v-card-item>
             <v-card-title class="text-subtitle-2 font-weight-bold">Change core plan</v-card-title>
             <v-card-subtitle>
@@ -136,81 +155,35 @@
           </v-card-text>
         </v-card>
 
-        <v-card variant="tonal" rounded="lg" class="mt-4">
+        <v-card rounded="lg" border class="mt-4">
           <v-card-item>
             <v-card-title class="text-subtitle-2 font-weight-bold">One-off purchases</v-card-title>
-            <v-card-subtitle>Create payment links from catalog items or ad-hoc pricing.</v-card-subtitle>
+            <v-card-subtitle>Click a product to open checkout.</v-card-subtitle>
           </v-card-item>
           <v-card-text>
-            <v-radio-group v-model="state.oneOffMode" inline hide-details class="mb-3">
-              <v-radio
-                v-for="entry in meta.oneOffModeOptions"
-                :key="entry.value"
-                :label="entry.title"
-                :value="entry.value"
-              />
-            </v-radio-group>
-
-            <div v-if="state.oneOffMode === 'catalog'" class="d-flex flex-wrap ga-3 align-center mb-3">
-              <v-select
-                :model-value="state.selectedCatalogPriceId"
-                :items="state.catalogItems"
-                item-title="title"
-                item-value="value"
-                label="Catalog item"
-                density="compact"
-                variant="outlined"
-                hide-details
-                class="catalog-field"
-                @update:model-value="(value) => (state.selectedCatalogPriceId = String(value || ''))"
-              />
-              <v-text-field
-                v-model="state.selectedCatalogQuantity"
-                type="number"
-                min="1"
-                label="Qty"
-                density="compact"
-                variant="outlined"
-                hide-details
-                class="qty-field"
-              />
-              <v-btn color="primary" :loading="state.paymentLinkLoading" @click="actions.createCatalogPaymentLink">
-                Create catalog payment link
-              </v-btn>
+            <div v-if="state.catalogItems.length > 0" class="one-off-grid mb-3">
+              <button
+                v-for="item in state.catalogItems"
+                :key="item.value"
+                type="button"
+                class="one-off-tile"
+                :disabled="state.paymentLinkLoading"
+                @click="actions.buyCatalogItem(item)"
+              >
+                <span class="one-off-tile__name">{{ item.title }}</span>
+                <span class="one-off-tile__price">{{ item.subtitle }}</span>
+                <span class="one-off-tile__meta">
+                  <template v-if="state.buyingCatalogPriceId === item.value && state.paymentLinkLoading">
+                    Opening checkout...
+                  </template>
+                  <template v-else>
+                    Buy now
+                  </template>
+                </span>
+              </button>
             </div>
-
-            <div v-else class="d-flex flex-wrap ga-3 align-center mb-3">
-              <v-text-field
-                v-model="state.adHocName"
-                label="Item name"
-                density="compact"
-                variant="outlined"
-                hide-details
-                class="catalog-field"
-              />
-              <v-text-field
-                v-model="state.adHocAmountMinor"
-                type="number"
-                min="1"
-                label="Amount (minor units)"
-                density="compact"
-                variant="outlined"
-                hide-details
-                class="qty-field"
-              />
-              <v-text-field
-                v-model="state.adHocQuantity"
-                type="number"
-                min="1"
-                label="Qty"
-                density="compact"
-                variant="outlined"
-                hide-details
-                class="qty-field"
-              />
-              <v-btn color="primary" :loading="state.paymentLinkLoading" @click="actions.createAdHocPaymentLink">
-                Create ad-hoc payment link
-              </v-btn>
+            <div v-else class="text-body-2 text-medium-emphasis mb-3">
+              No one-off products are available yet.
             </div>
 
             <a v-if="state.lastPaymentLinkUrl" :href="state.lastPaymentLinkUrl" target="_blank" rel="noopener noreferrer">
@@ -235,12 +208,58 @@ const { meta, state, actions } = useWorkspaceBillingView();
   max-width: 340px;
 }
 
-.catalog-field {
-  min-width: 240px;
-  max-width: 420px;
+.one-off-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 0.9rem;
 }
 
-.qty-field {
-  width: 120px;
+.one-off-tile {
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.14);
+  border-radius: 14px;
+  background: transparent;
+  color: inherit;
+  padding: 0.9rem;
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    transform 140ms ease;
+}
+
+.one-off-tile:hover:not(:disabled),
+.one-off-tile:focus-visible:not(:disabled) {
+  border-color: rgba(var(--v-theme-primary), 0.55);
+  background: rgba(var(--v-theme-primary), 0.05);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.one-off-tile:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.one-off-tile__name {
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.2;
+  align-self: start;
+}
+
+.one-off-tile__price {
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.one-off-tile__meta {
+  font-size: 0.78rem;
+  color: rgba(var(--v-theme-on-surface), 0.65);
 }
 </style>

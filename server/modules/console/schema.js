@@ -485,7 +485,7 @@ const billingPlan = Type.Object(
     name: Type.String({ minLength: 1, maxLength: 160 }),
     description: Type.Union([Type.String(), Type.Null()]),
     appliesTo: Type.String({ minLength: 1, maxLength: 32 }),
-    corePrice: billingPlanCorePrice,
+    corePrice: Type.Union([billingPlanCorePrice, Type.Null()]),
     isActive: Type.Boolean(),
     metadataJson: Type.Unknown(),
     createdAt: Type.String({ format: "iso-utc-date-time" }),
@@ -591,19 +591,22 @@ const billingPlanCreateBody = Type.Object(
     description: Type.Optional(Type.String({ maxLength: 10000 })),
     isActive: Type.Optional(Type.Boolean()),
     metadataJson: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
-    corePrice: Type.Object(
-      {
-        providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
-        providerProductId: Type.Optional(Type.String({ maxLength: 191 })),
-        currency: Type.Optional(Type.String({ minLength: 3, maxLength: 3 })),
-        unitAmountMinor: Type.Optional(Type.Integer({ minimum: 0 })),
-        interval: Type.Optional(enumSchema(["day", "week", "month", "year"])),
-        intervalCount: Type.Optional(Type.Integer({ minimum: 1 }))
-      },
-      {
-        additionalProperties: false
-      }
-    ),
+    corePrice: Type.Union([
+      Type.Object(
+        {
+          providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
+          providerProductId: Type.Optional(Type.String({ maxLength: 191 })),
+          currency: Type.Optional(Type.String({ minLength: 3, maxLength: 3 })),
+          unitAmountMinor: Type.Optional(Type.Integer({ minimum: 0 })),
+          interval: Type.Optional(enumSchema(["day", "week", "month", "year"])),
+          intervalCount: Type.Optional(Type.Integer({ minimum: 1 }))
+        },
+        {
+          additionalProperties: false
+        }
+      ),
+      Type.Null()
+    ]),
     entitlements: Type.Optional(
       Type.Array(
         Type.Object(
@@ -630,19 +633,22 @@ const billingPlanUpdateBody = Type.Object(
     description: Type.Optional(Type.Union([Type.String({ maxLength: 10000 }), Type.Null()])),
     isActive: Type.Optional(Type.Boolean()),
     corePrice: Type.Optional(
-      Type.Object(
-        {
-          providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
-          providerProductId: Type.Optional(Type.String({ maxLength: 191 })),
-          currency: Type.Optional(Type.String({ minLength: 3, maxLength: 3 })),
-          unitAmountMinor: Type.Optional(Type.Integer({ minimum: 0 })),
-          interval: Type.Optional(enumSchema(["day", "week", "month", "year"])),
-          intervalCount: Type.Optional(Type.Integer({ minimum: 1 }))
-        },
-        {
-          additionalProperties: false
-        }
-      )
+      Type.Union([
+        Type.Object(
+          {
+            providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
+            providerProductId: Type.Optional(Type.String({ maxLength: 191 })),
+            currency: Type.Optional(Type.String({ minLength: 3, maxLength: 3 })),
+            unitAmountMinor: Type.Optional(Type.Integer({ minimum: 0 })),
+            interval: Type.Optional(enumSchema(["day", "week", "month", "year"])),
+            intervalCount: Type.Optional(Type.Integer({ minimum: 1 }))
+          },
+          {
+            additionalProperties: false
+          }
+        ),
+        Type.Null()
+      ])
     )
   },
   {

@@ -16,8 +16,8 @@ function createApi({ request }) {
     listPlans() {
       return request("/api/billing/plans");
     },
-    getSubscription() {
-      return request("/api/billing/subscription");
+    listProducts() {
+      return request("/api/billing/products");
     },
     getPlanState() {
       return request("/api/billing/plan-state");

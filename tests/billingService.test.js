@@ -6,6 +6,35 @@ import { toCanonicalJson, toSha256Hex } from "../server/modules/billing/canonica
 import { BILLING_FAILURE_CODES } from "../server/modules/billing/constants.js";
 import { createService as createBillingService } from "../server/modules/billing/service.js";
 
+function createCatalogProductStub({
+  id = 1,
+  code = "product_stub",
+  providerPriceId = "price_catalog_stub",
+  interval = null,
+  isActive = true
+} = {}) {
+  return {
+    id,
+    code,
+    name: code,
+    description: null,
+    productKind: "one_off",
+    price: {
+      provider: "stripe",
+      providerPriceId,
+      providerProductId: "prod_stub",
+      interval,
+      intervalCount: interval ? 1 : null,
+      currency: "USD",
+      unitAmountMinor: 1000
+    },
+    isActive,
+    metadataJson: {},
+    createdAt: "2026-02-20T00:00:00.000Z",
+    updatedAt: "2026-02-20T00:00:00.000Z"
+  };
+}
+
 function createBaseBillingService(overrides = {}) {
   return createBillingService({
     billingRepository: {
@@ -20,6 +49,13 @@ function createBaseBillingService(overrides = {}) {
       },
       async findCustomerByEntityProvider() {
         return null;
+      },
+      async listProducts() {
+        return [
+          createCatalogProductStub({ id: 1, code: "catalog_1", providerPriceId: "price_catalog_1" }),
+          createCatalogProductStub({ id: 2, code: "catalog_612", providerPriceId: "price_catalog_612" }),
+          createCatalogProductStub({ id: 3, code: "catalog_633", providerPriceId: "price_catalog_633" })
+        ];
       },
       async updateIdempotencyById() {
         return null;
@@ -920,6 +956,56 @@ test("billing service createPaymentLink fails closed on local prepare errors ins
   assert.equal(markFailedCalls[0].leaseVersion, 3);
   assert.equal(markFailedCalls[0].failureCode, BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID);
   assert.match(String(markFailedCalls[0].failureReason || ""), /price creation is not available/i);
+});
+
+test("billing service createPaymentLink rejects recurring catalog prices for one-off purchases", async () => {
+  const service = createBaseBillingService({
+    billingRepository: {
+      async listProducts() {
+        return [
+          createCatalogProductStub({
+            id: 22,
+            code: "topup_bad",
+            providerPriceId: "price_topup_bad",
+            interval: "month"
+          })
+        ];
+      }
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      service.createPaymentLink({
+        request: {
+          headers: {}
+        },
+        user: {
+          id: 11
+        },
+        payload: {
+          successPath: "/billing/success",
+          lineItems: [
+            {
+              priceId: "price_topup_bad",
+              quantity: 1
+            }
+          ]
+        },
+        clientIdempotencyKey: "idem_payment_link_recurring_bad",
+        now: new Date("2026-02-21T09:30:00.000Z")
+      }),
+    (error) => {
+      assert.ok(error instanceof AppError);
+      assert.equal(Number(error.status || error.statusCode || 0), 400);
+      assert.equal(String(error.message || ""), "Validation failed.");
+      assert.equal(
+        String(error?.details?.fieldErrors?.["lineItems[0].priceId"] || "").toLowerCase().includes("recurring"),
+        true
+      );
+      return true;
+    }
+  );
 });
 
 test("billing service payment-link recovery fails closed when rebuilt request is invalid", async () => {

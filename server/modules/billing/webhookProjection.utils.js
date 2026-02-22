@@ -9,8 +9,15 @@ import {
 const CHECKOUT_CORRELATION_ERROR_CODE = "CHECKOUT_SESSION_CORRELATION_MISMATCH";
 
 function parseUnixEpochSeconds(value) {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === "string" && String(value).trim() === "") {
+    return null;
+  }
+
   const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
+  if (!Number.isFinite(parsed) || parsed <= 0) {
     return null;
   }
   return new Date(parsed * 1000);

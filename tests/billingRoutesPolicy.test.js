@@ -8,8 +8,8 @@ function buildRouteMap() {
     {
       billing: {
         listPlans() {},
+        listProducts() {},
         getPlanState() {},
-        getSubscriptionSnapshot() {},
         listPaymentMethods() {},
         syncPaymentMethods() {},
         getLimitations() {},
@@ -34,8 +34,8 @@ test("billing API routes are selector-compatible with optional workspace policy"
   const routeMap = buildRouteMap();
   const selectorCompatibleRoutes = [
     "GET /api/billing/plans",
+    "GET /api/billing/products",
     "GET /api/billing/plan-state",
-    "GET /api/billing/subscription",
     "GET /api/billing/payment-methods",
     "POST /api/billing/payment-methods/sync",
     "GET /api/billing/limitations",

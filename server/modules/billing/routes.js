@@ -19,18 +19,18 @@ function buildRoutes(controllers, { missingHandler } = {}) {
       handler: controllers.billing?.listPlans || missingHandler
     },
     {
-      path: "/api/billing/subscription",
+      path: "/api/billing/products",
       method: "GET",
       auth: "required",
       workspacePolicy: "optional",
       schema: {
         tags: ["billing"],
-        summary: "Get billing snapshot for the selected billable entity",
+        summary: "List active one-off billing products for the selected billable entity",
         response: withStandardErrorResponses({
-          200: schema.response.subscription
+          200: schema.response.products
         })
       },
-      handler: controllers.billing?.getSubscriptionSnapshot || missingHandler
+      handler: controllers.billing?.listProducts || missingHandler
     },
     {
       path: "/api/billing/plan-state",

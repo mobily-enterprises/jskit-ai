@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/vue-query";
 import { api } from "../../services/api/index.js";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 import {
-  workspaceBillingPlanStateQueryKey
+  workspaceBillingPlanStateQueryKey,
+  workspaceBillingProductsQueryKey
 } from "../../features/workspaceAdmin/queryKeys.js";
 
 function formatDateOnly(value) {
@@ -52,8 +53,8 @@ function normalizeProviderPriceId(value) {
   return String(value || "").trim();
 }
 
-function resolvePlanDisplayName(plan) {
-  return String(plan?.name || plan?.code || "Plan").trim();
+function isPaidPlanSelection(plan) {
+  return Number(plan?.corePrice?.unitAmountMinor) > 0;
 }
 
 function normalizePlanSelection(entry) {
@@ -71,11 +72,51 @@ function normalizePlanSelection(entry) {
   };
 }
 
+function normalizeCatalogProduct(entry) {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+
+  const price = entry.price && typeof entry.price === "object" ? entry.price : null;
+  return {
+    id: Number(entry.id || 0),
+    code: String(entry.code || ""),
+    name: String(entry.name || ""),
+    description: entry.description == null ? null : String(entry.description),
+    productKind: String(entry.productKind || "one_off"),
+    isActive: entry.isActive !== false,
+    price: price
+      ? {
+          provider: String(price.provider || ""),
+          providerPriceId: String(price.providerPriceId || ""),
+          providerProductId: price.providerProductId == null ? null : String(price.providerProductId),
+          interval: price.interval == null ? null : String(price.interval),
+          intervalCount: price.intervalCount == null ? null : Number(price.intervalCount),
+          currency: String(price.currency || "USD"),
+          unitAmountMinor: Number(price.unitAmountMinor || 0)
+        }
+      : null
+  };
+}
+
+function formatPlanOptionTitle(plan) {
+  const name = String(plan?.name || plan?.code || "Plan").trim();
+  const corePrice = plan?.corePrice && typeof plan.corePrice === "object" ? plan.corePrice : null;
+  if (!corePrice) {
+    return `${name} (Free)`;
+  }
+
+  const amountLabel = formatMoneyMinor(corePrice.unitAmountMinor, corePrice.currency);
+  const intervalLabel = String(corePrice.interval || "").trim().toLowerCase() || "month";
+  return `${name} (${amountLabel}/${intervalLabel})`;
+}
+
 export function useWorkspaceBillingView() {
   const workspaceStore = useWorkspaceStore();
 
   const selectedPlanCode = ref("");
   const planChangeLoading = ref(false);
+  const cancelCurrentPlanLoading = ref(false);
   const cancelPlanChangeLoading = ref(false);
 
   const selectedCatalogPriceId = ref("");
@@ -85,6 +126,7 @@ export function useWorkspaceBillingView() {
   const adHocAmountMinor = ref("");
   const adHocQuantity = ref(1);
   const paymentLinkLoading = ref(false);
+  const buyingCatalogPriceId = ref("");
 
   const actionError = ref("");
   const actionSuccess = ref("");
@@ -99,6 +141,11 @@ export function useWorkspaceBillingView() {
   const planStateQuery = useQuery({
     queryKey: computed(() => workspaceBillingPlanStateQueryKey(workspaceSlug.value)),
     queryFn: () => api.billing.getPlanState(),
+    enabled: computed(() => Boolean(workspaceSlug.value))
+  });
+  const productsQuery = useQuery({
+    queryKey: computed(() => workspaceBillingProductsQueryKey(workspaceSlug.value)),
+    queryFn: () => api.billing.listProducts(),
     enabled: computed(() => Boolean(workspaceSlug.value))
   });
 
@@ -122,31 +169,18 @@ export function useWorkspaceBillingView() {
   const nextPlan = computed(() => normalizePlanSelection(planStateQuery.data.value?.nextPlan));
   const nextEffectiveAt = computed(() => String(planStateQuery.data.value?.nextEffectiveAt || "").trim());
   const pendingChange = computed(() => Boolean(planStateQuery.data.value?.pendingChange));
+  const currentPlanIsPaid = computed(() => isPaidPlanSelection(currentPlan.value));
+  const currentPlanHasNoExpiry = computed(() => Boolean(currentPlan.value) && !currentPeriodEndAt.value);
+  const freeTargetPlan = computed(() =>
+    availablePlans.value.find((entry) => !isPaidPlanSelection(entry)) || null
+  );
+  const canCancelCurrentPlan = computed(() =>
+    Boolean(currentPlan.value && currentPlanIsPaid.value && !pendingChange.value && freeTargetPlan.value)
+  );
 
   const paymentPolicy = computed(() =>
     String(planStateQuery.data.value?.settings?.paidPlanChangePaymentMethodPolicy || "required_now").trim()
   );
-
-  const allSelectablePlans = computed(() => {
-    const entries = [];
-    if (currentPlan.value) {
-      entries.push(currentPlan.value);
-    }
-
-    for (const entry of availablePlans.value) {
-      entries.push(entry);
-    }
-
-    const byCode = new Map();
-    for (const entry of entries) {
-      if (!entry || !entry.code || byCode.has(entry.code)) {
-        continue;
-      }
-      byCode.set(entry.code, entry);
-    }
-
-    return Array.from(byCode.values());
-  });
 
   const selectedTargetPlan = computed(() => {
     const selectedCode = String(selectedPlanCode.value || "");
@@ -160,20 +194,25 @@ export function useWorkspaceBillingView() {
   const planOptions = computed(() =>
     availablePlans.value.map((plan) => ({
       value: String(plan.code || ""),
-      title: String(plan.name || plan.code || "Plan")
+      title: formatPlanOptionTitle(plan)
     }))
   );
 
   const catalogItems = computed(() => {
+    const products = Array.isArray(productsQuery.data.value?.products) ? productsQuery.data.value.products : [];
     const items = [];
     const seen = new Set();
-    for (const plan of allSelectablePlans.value) {
-      const corePrice = plan?.corePrice && typeof plan.corePrice === "object" ? plan.corePrice : null;
-      if (!corePrice) {
+    for (const productEntry of products) {
+      const product = normalizeCatalogProduct(productEntry);
+      const price = product?.price && typeof product.price === "object" ? product.price : null;
+      if (!product || product.isActive === false || !price) {
+        continue;
+      }
+      if (price.interval) {
         continue;
       }
 
-      const providerPriceId = normalizeProviderPriceId(corePrice.providerPriceId);
+      const providerPriceId = normalizeProviderPriceId(price.providerPriceId);
       if (!providerPriceId || seen.has(providerPriceId)) {
         continue;
       }
@@ -181,11 +220,13 @@ export function useWorkspaceBillingView() {
 
       items.push({
         value: providerPriceId,
-        title: resolvePlanDisplayName(plan),
-        subtitle: formatMoneyMinor(corePrice.unitAmountMinor, corePrice.currency),
-        currency: String(corePrice.currency || "USD"),
-        amountMinor: Number(corePrice.unitAmountMinor || 0),
-        planCode: String(plan.code || "")
+        title: String(product.name || product.code || "Product"),
+        subtitle: formatMoneyMinor(price.unitAmountMinor, price.currency),
+        currency: String(price.currency || "USD"),
+        amountMinor: Number(price.unitAmountMinor || 0),
+        productCode: String(product.code || ""),
+        productKind: String(product.productKind || "one_off"),
+        description: product.description || null
       });
     }
     return items;
@@ -294,6 +335,40 @@ export function useWorkspaceBillingView() {
     }
   }
 
+  async function cancelCurrentPlan() {
+    resetActionFeedback();
+
+    const freePlan = freeTargetPlan.value;
+    if (!freePlan) {
+      actionError.value = "No free plan is available for cancellation.";
+      return;
+    }
+
+    cancelCurrentPlanLoading.value = true;
+    try {
+      const response = await api.billing.requestPlanChange({
+        planCode: String(freePlan.code || "").trim(),
+        successPath: buildWorkspaceBillingPath({ billing: "checkout_success" }),
+        cancelPath: buildWorkspaceBillingPath({ billing: "checkout_cancel" })
+      });
+      const mode = String(response?.mode || "").trim().toLowerCase();
+      if (mode === "scheduled") {
+        actionSuccess.value = "Plan cancellation scheduled for the current period end.";
+      } else if (mode === "applied") {
+        actionSuccess.value = "Plan canceled and switched to free.";
+      } else if (mode === "checkout_required") {
+        actionError.value = "Free-plan cancellation should not require checkout.";
+      } else {
+        actionSuccess.value = "Plan cancellation requested.";
+      }
+      await refresh();
+    } catch (errorValue) {
+      actionError.value = String(errorValue?.message || "Failed to cancel the current plan.");
+    } finally {
+      cancelCurrentPlanLoading.value = false;
+    }
+  }
+
   async function cancelPendingPlanChange() {
     resetActionFeedback();
 
@@ -310,21 +385,22 @@ export function useWorkspaceBillingView() {
     }
   }
 
-  async function createCatalogPaymentLink() {
+  async function createCatalogPaymentLink(options = {}) {
     resetActionFeedback();
-    const selectedPriceId = normalizeProviderPriceId(selectedCatalogPriceId.value);
+    const selectedPriceId = normalizeProviderPriceId(options.priceId ?? selectedCatalogPriceId.value);
     if (!selectedPriceId) {
       actionError.value = "Select a catalog item before creating a payment link.";
       return;
     }
 
-    const quantity = normalizePositiveQuantity(selectedCatalogQuantity.value);
+    const quantity = normalizePositiveQuantity(options.quantity ?? selectedCatalogQuantity.value);
     if (!quantity) {
       actionError.value = "Catalog quantity must be an integer between 1 and 10,000.";
       return;
     }
 
     paymentLinkLoading.value = true;
+    buyingCatalogPriceId.value = selectedPriceId;
     try {
       const response = await api.billing.createPaymentLink({
         successPath: buildWorkspaceBillingPath({ payment: "success" }),
@@ -338,11 +414,31 @@ export function useWorkspaceBillingView() {
       const paymentLinkUrl = String(response?.paymentLink?.url || "").trim();
       lastPaymentLinkUrl.value = paymentLinkUrl;
       actionSuccess.value = paymentLinkUrl ? "Payment link created." : "Payment link created.";
+      if (options.redirect !== false && paymentLinkUrl && typeof window !== "undefined" && typeof window.location?.assign === "function") {
+        window.location.assign(paymentLinkUrl);
+      }
     } catch (errorValue) {
       actionError.value = String(errorValue?.message || "Failed to create catalog payment link.");
     } finally {
       paymentLinkLoading.value = false;
+      buyingCatalogPriceId.value = "";
     }
+  }
+
+  async function buyCatalogItem(item) {
+    const providerPriceId = normalizeProviderPriceId(item?.value);
+    if (!providerPriceId) {
+      actionError.value = "This item is unavailable.";
+      return;
+    }
+
+    selectedCatalogPriceId.value = providerPriceId;
+    selectedCatalogQuantity.value = 1;
+    await createCatalogPaymentLink({
+      priceId: providerPriceId,
+      quantity: 1,
+      redirect: true
+    });
   }
 
   async function createAdHocPaymentLink() {
@@ -407,11 +503,16 @@ export function useWorkspaceBillingView() {
       nextPlan,
       nextEffectiveAt,
       pendingChange,
+      currentPlanIsPaid,
+      currentPlanHasNoExpiry,
+      freeTargetPlan,
+      canCancelCurrentPlan,
       paymentPolicy,
       planOptions,
       selectedPlanCode,
       selectedTargetPlan,
       planChangeLoading,
+      cancelCurrentPlanLoading,
       cancelPlanChangeLoading,
       catalogItems,
       selectedCatalogPriceId,
@@ -421,6 +522,7 @@ export function useWorkspaceBillingView() {
       adHocAmountMinor,
       adHocQuantity,
       paymentLinkLoading,
+      buyingCatalogPriceId,
       actionError,
       actionSuccess,
       lastCheckoutUrl,
@@ -431,8 +533,10 @@ export function useWorkspaceBillingView() {
     actions: {
       refresh,
       submitPlanChange,
+      cancelCurrentPlan,
       cancelPendingPlanChange,
       createCatalogPaymentLink,
+      buyCatalogItem,
       createAdHocPaymentLink
     }
   };

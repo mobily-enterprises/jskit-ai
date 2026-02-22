@@ -105,7 +105,6 @@ function createBillingDisabledServices() {
         scannedCount: 0,
         appliedCount: 0
       }),
-      getSnapshot: throwBillingDisabled,
       listPaymentMethods: throwBillingDisabled,
       syncPaymentMethods: throwBillingDisabled,
       getLimitations: throwBillingDisabled,

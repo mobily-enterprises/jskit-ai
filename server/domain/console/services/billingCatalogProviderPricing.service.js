@@ -107,6 +107,9 @@ async function resolveCatalogCorePriceForCreate({
   billingProviderAdapter,
   corePrice
 } = {}) {
+  if (!corePrice || typeof corePrice !== "object") {
+    return null;
+  }
   const normalizedProvider = normalizeText(activeBillingProvider).toLowerCase();
   if (normalizedProvider === "stripe") {
     const stripeSnapshot = await resolveStripeCatalogPriceSnapshot({
@@ -129,6 +132,9 @@ async function resolveCatalogCorePriceForUpdate({
   billingProviderAdapter,
   corePrice
 } = {}) {
+  if (!corePrice || typeof corePrice !== "object") {
+    return null;
+  }
   const normalizedProvider = normalizeText(activeBillingProvider).toLowerCase();
   if (normalizedProvider === "stripe") {
     const stripeSnapshot = await resolveStripeCatalogPriceSnapshot({

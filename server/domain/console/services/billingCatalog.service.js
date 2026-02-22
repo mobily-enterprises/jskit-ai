@@ -42,10 +42,19 @@ function resolveBillingProvider(value) {
   return normalizeOptionalString(value).toLowerCase() || DEFAULT_BILLING_PROVIDER;
 }
 
-function normalizeCorePricePayload(rawCorePrice, { resolvedProvider, fieldPrefix = "corePrice", requirePriceId = true } = {}) {
+function normalizeCorePricePayload(
+  rawCorePrice,
+  { resolvedProvider, fieldPrefix = "corePrice", requirePriceId = true, allowNull = false } = {}
+) {
   const fieldErrors = {};
   const corePrice = rawCorePrice && typeof rawCorePrice === "object" ? rawCorePrice : null;
   if (!corePrice) {
+    if (allowNull && rawCorePrice == null) {
+      return {
+        fieldErrors,
+        normalizedCorePrice: null
+      };
+    }
     fieldErrors[fieldPrefix] = `${fieldPrefix} is required.`;
     return {
       fieldErrors,
@@ -195,7 +204,8 @@ function normalizeBillingCatalogPlanCreatePayload(payload = {}, { activeBillingP
 
   const { fieldErrors: corePriceFieldErrors, normalizedCorePrice } = normalizeCorePricePayload(body.corePrice, {
     resolvedProvider,
-    fieldPrefix: "corePrice"
+    fieldPrefix: "corePrice",
+    allowNull: true
   });
   Object.assign(fieldErrors, corePriceFieldErrors);
 
@@ -305,12 +315,11 @@ function normalizeBillingCatalogPlanUpdatePayload(payload = {}, { activeBillingP
   if (Object.hasOwn(body, "corePrice")) {
     const { fieldErrors: corePriceFieldErrors, normalizedCorePrice } = normalizeCorePricePayload(body.corePrice, {
       resolvedProvider,
-      fieldPrefix: "corePrice"
+      fieldPrefix: "corePrice",
+      allowNull: true
     });
     Object.assign(fieldErrors, corePriceFieldErrors);
-    if (normalizedCorePrice) {
-      patch.corePrice = normalizedCorePrice;
-    }
+    patch.corePrice = normalizedCorePrice;
   }
 
   if (Object.keys(patch).length < 1) {

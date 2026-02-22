@@ -235,80 +235,6 @@ function mapSubscriptionRowNullable(row) {
   };
 }
 
-function mapSubscriptionItemRowNullable(row) {
-  if (!row) {
-    return null;
-  }
-
-  return {
-    id: Number(row.id),
-    subscriptionId: Number(row.subscription_id),
-    provider: normalizeProvider(row.provider),
-    providerSubscriptionItemId: String(row.provider_subscription_item_id || ""),
-    billingPlanPriceId: row.billing_plan_price_id == null ? null : Number(row.billing_plan_price_id),
-    billingComponent: String(row.billing_component || "base"),
-    usageType: String(row.usage_type || "licensed"),
-    quantity: row.quantity == null ? null : Number(row.quantity),
-    isActive: Boolean(row.is_active),
-    lastProviderEventCreatedAt: toNullableIsoString(row.last_provider_event_created_at),
-    lastProviderEventId: row.last_provider_event_id == null ? null : String(row.last_provider_event_id),
-    metadataJson: parseJsonValue(row.metadata_json, {}),
-    createdAt: toIsoString(row.created_at),
-    updatedAt: toIsoString(row.updated_at)
-  };
-}
-
-function mapInvoiceRowNullable(row) {
-  if (!row) {
-    return null;
-  }
-
-  return {
-    id: Number(row.id),
-    subscriptionId: row.subscription_id == null ? null : Number(row.subscription_id),
-    billableEntityId: Number(row.billable_entity_id),
-    billingCustomerId: Number(row.billing_customer_id),
-    provider: normalizeProvider(row.provider),
-    providerInvoiceId: String(row.provider_invoice_id || ""),
-    status: String(row.status || ""),
-    amountDueMinor: Number(row.amount_due_minor || 0),
-    amountPaidMinor: Number(row.amount_paid_minor || 0),
-    amountRemainingMinor: Number(row.amount_remaining_minor || 0),
-    currency: String(row.currency || "").toUpperCase(),
-    issuedAt: toNullableIsoString(row.issued_at),
-    dueAt: toNullableIsoString(row.due_at),
-    paidAt: toNullableIsoString(row.paid_at),
-    lastProviderEventCreatedAt: toNullableIsoString(row.last_provider_event_created_at),
-    lastProviderEventId: row.last_provider_event_id == null ? null : String(row.last_provider_event_id),
-    metadataJson: parseJsonValue(row.metadata_json, {}),
-    createdAt: toIsoString(row.created_at),
-    updatedAt: toIsoString(row.updated_at)
-  };
-}
-
-function mapPaymentRowNullable(row) {
-  if (!row) {
-    return null;
-  }
-
-  return {
-    id: Number(row.id),
-    invoiceId: Number(row.invoice_id),
-    provider: normalizeProvider(row.provider),
-    providerPaymentId: String(row.provider_payment_id || ""),
-    type: String(row.type || ""),
-    status: String(row.status || ""),
-    amountMinor: Number(row.amount_minor || 0),
-    currency: String(row.currency || "").toUpperCase(),
-    paidAt: toNullableIsoString(row.paid_at),
-    lastProviderEventCreatedAt: toNullableIsoString(row.last_provider_event_created_at),
-    lastProviderEventId: row.last_provider_event_id == null ? null : String(row.last_provider_event_id),
-    metadataJson: parseJsonValue(row.metadata_json, {}),
-    createdAt: toIsoString(row.created_at),
-    updatedAt: toIsoString(row.updated_at)
-  };
-}
-
 function mapPaymentMethodRowNullable(row) {
   if (!row) {
     return null;
@@ -622,7 +548,7 @@ function mapPlanAssignmentRowNullable(row) {
     planId: Number(row.plan_id),
     source: String(row.source || "internal"),
     periodStartAt: toIsoString(row.period_start_at),
-    periodEndAt: toIsoString(row.period_end_at),
+    periodEndAt: toNullableIsoString(row.period_end_at),
     status,
     isCurrent: status === "current",
     metadataJson: parseJsonValue(row.metadata_json, {}),
@@ -973,19 +899,19 @@ function createBillingRepository(dbClient) {
   async function createPlan(payload, options = {}) {
     const now = new Date();
     const client = resolveClient(options);
-    const corePrice = payload?.corePrice && typeof payload.corePrice === "object" ? payload.corePrice : {};
+    const corePrice = payload?.corePrice && typeof payload.corePrice === "object" ? payload.corePrice : null;
     const [id] = await client("billing_plans").insert({
       code: String(payload?.code || "").trim(),
       name: String(payload?.name || "").trim(),
       description: toNullableString(payload?.description),
       applies_to: String(payload?.appliesTo || "workspace").trim().toLowerCase() || "workspace",
-      checkout_provider: normalizeProvider(corePrice.provider),
-      checkout_provider_price_id: String(corePrice.providerPriceId || "").trim(),
-      checkout_provider_product_id: toNullableString(corePrice.providerProductId),
-      checkout_interval: String(corePrice.interval || "month").trim().toLowerCase() || "month",
-      checkout_interval_count: Number(corePrice.intervalCount || 1),
-      checkout_currency: String(corePrice.currency || "").trim().toUpperCase(),
-      checkout_unit_amount_minor: Number(corePrice.unitAmountMinor || 0),
+      checkout_provider: corePrice ? normalizeProvider(corePrice.provider) : null,
+      checkout_provider_price_id: corePrice ? String(corePrice.providerPriceId || "").trim() : null,
+      checkout_provider_product_id: corePrice ? toNullableString(corePrice.providerProductId) : null,
+      checkout_interval: corePrice ? String(corePrice.interval || "month").trim().toLowerCase() || "month" : null,
+      checkout_interval_count: corePrice ? Number(corePrice.intervalCount || 1) : null,
+      checkout_currency: corePrice ? String(corePrice.currency || "").trim().toUpperCase() : null,
+      checkout_unit_amount_minor: corePrice ? Number(corePrice.unitAmountMinor || 0) : null,
       is_active: payload?.isActive !== false,
       metadata_json: payload?.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
       created_at: toInsertDateTime(payload?.createdAt, now),
@@ -1021,28 +947,38 @@ function createBillingRepository(dbClient) {
       dbPatch.metadata_json = patch.metadataJson == null ? null : JSON.stringify(patch.metadataJson);
     }
 
-    const corePricePatch = patch?.corePrice && typeof patch.corePrice === "object" ? patch.corePrice : null;
-    if (corePricePatch) {
-      if (Object.hasOwn(corePricePatch, "provider")) {
-        dbPatch.checkout_provider = normalizeProvider(corePricePatch.provider);
-      }
-      if (Object.hasOwn(corePricePatch, "providerPriceId")) {
-        dbPatch.checkout_provider_price_id = String(corePricePatch.providerPriceId || "").trim();
-      }
-      if (Object.hasOwn(corePricePatch, "providerProductId")) {
-        dbPatch.checkout_provider_product_id = toNullableString(corePricePatch.providerProductId);
-      }
-      if (Object.hasOwn(corePricePatch, "interval")) {
-        dbPatch.checkout_interval = String(corePricePatch.interval || "month").trim().toLowerCase() || "month";
-      }
-      if (Object.hasOwn(corePricePatch, "intervalCount")) {
-        dbPatch.checkout_interval_count = Number(corePricePatch.intervalCount || 1);
-      }
-      if (Object.hasOwn(corePricePatch, "currency")) {
-        dbPatch.checkout_currency = String(corePricePatch.currency || "").trim().toUpperCase();
-      }
-      if (Object.hasOwn(corePricePatch, "unitAmountMinor")) {
-        dbPatch.checkout_unit_amount_minor = Number(corePricePatch.unitAmountMinor || 0);
+    if (Object.hasOwn(patch, "corePrice")) {
+      const corePricePatch = patch?.corePrice && typeof patch.corePrice === "object" ? patch.corePrice : null;
+      if (!corePricePatch) {
+        dbPatch.checkout_provider = null;
+        dbPatch.checkout_provider_price_id = null;
+        dbPatch.checkout_provider_product_id = null;
+        dbPatch.checkout_interval = null;
+        dbPatch.checkout_interval_count = null;
+        dbPatch.checkout_currency = null;
+        dbPatch.checkout_unit_amount_minor = null;
+      } else {
+        if (Object.hasOwn(corePricePatch, "provider")) {
+          dbPatch.checkout_provider = normalizeProvider(corePricePatch.provider);
+        }
+        if (Object.hasOwn(corePricePatch, "providerPriceId")) {
+          dbPatch.checkout_provider_price_id = String(corePricePatch.providerPriceId || "").trim();
+        }
+        if (Object.hasOwn(corePricePatch, "providerProductId")) {
+          dbPatch.checkout_provider_product_id = toNullableString(corePricePatch.providerProductId);
+        }
+        if (Object.hasOwn(corePricePatch, "interval")) {
+          dbPatch.checkout_interval = String(corePricePatch.interval || "month").trim().toLowerCase() || "month";
+        }
+        if (Object.hasOwn(corePricePatch, "intervalCount")) {
+          dbPatch.checkout_interval_count = Number(corePricePatch.intervalCount || 1);
+        }
+        if (Object.hasOwn(corePricePatch, "currency")) {
+          dbPatch.checkout_currency = String(corePricePatch.currency || "").trim().toUpperCase();
+        }
+        if (Object.hasOwn(corePricePatch, "unitAmountMinor")) {
+          dbPatch.checkout_unit_amount_minor = Number(corePricePatch.unitAmountMinor || 0);
+        }
       }
     }
 
@@ -1247,7 +1183,7 @@ function createBillingRepository(dbClient) {
       dbPatch.period_start_at = toInsertDateTime(patch.periodStartAt, new Date());
     }
     if (Object.hasOwn(patch, "periodEndAt")) {
-      dbPatch.period_end_at = toInsertDateTime(patch.periodEndAt, new Date());
+      dbPatch.period_end_at = patch.periodEndAt == null ? null : toInsertDateTime(patch.periodEndAt, new Date());
     }
     if (Object.hasOwn(patch, "metadataJson")) {
       dbPatch.metadata_json = patch.metadataJson == null ? null : JSON.stringify(patch.metadataJson);
@@ -1341,9 +1277,9 @@ function createBillingRepository(dbClient) {
           .toLowerCase() || "manual",
         status: "upcoming",
         periodStartAt: payload?.effectiveAt || now,
-        periodEndAt:
-          payload?.periodEndAt ||
-          new Date(new Date(payload?.effectiveAt || now).getTime() + 30 * 24 * 60 * 60 * 1000),
+        periodEndAt: Object.hasOwn(payload || {}, "periodEndAt")
+          ? payload?.periodEndAt ?? null
+          : new Date(new Date(payload?.effectiveAt || now).getTime() + 30 * 24 * 60 * 60 * 1000),
         metadataJson: {
           ...(payload?.metadataJson && typeof payload.metadataJson === "object" ? payload.metadataJson : {}),
           changeKind: payload?.changeKind || "downgrade",
@@ -1406,7 +1342,10 @@ function createBillingRepository(dbClient) {
       source: String(payload?.source || "internal").trim() || "internal",
       status: resolvedStatus,
       period_start_at: toInsertDateTime(payload?.periodStartAt, now),
-      period_end_at: toInsertDateTime(payload?.periodEndAt, now),
+      period_end_at:
+        Object.hasOwn(payload || {}, "periodEndAt") && payload?.periodEndAt == null
+          ? null
+          : toInsertDateTime(payload?.periodEndAt, now),
       metadata_json: payload?.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
       created_at: toInsertDateTime(payload?.createdAt, now),
       updated_at: toInsertDateTime(payload?.updatedAt, now)
@@ -1900,78 +1839,6 @@ function createBillingRepository(dbClient) {
         trx: client
       }
     );
-  }
-
-  async function listSubscriptionItemsForSubscription({ subscriptionId, provider }, options = {}) {
-    void subscriptionId;
-    void provider;
-    void options;
-    return [];
-  }
-
-  async function findSubscriptionItemByProviderSubscriptionItemId(
-    { provider, providerSubscriptionItemId },
-    options = {}
-  ) {
-    void provider;
-    void providerSubscriptionItemId;
-    void options;
-    return null;
-  }
-
-  async function upsertSubscriptionItem(payload, options = {}) {
-    void payload;
-    void options;
-    return null;
-  }
-
-  async function listInvoicesForSubscription({ subscriptionId, provider, limit = 20 }, options = {}) {
-    void subscriptionId;
-    void provider;
-    void limit;
-    void options;
-    return [];
-  }
-
-  async function listRecentInvoices({ provider, since = null, limit = 200 }, options = {}) {
-    void provider;
-    void since;
-    void limit;
-    void options;
-    return [];
-  }
-
-  async function findInvoiceByProviderInvoiceId({ provider, providerInvoiceId }, options = {}) {
-    void provider;
-    void providerInvoiceId;
-    void options;
-    return null;
-  }
-
-  async function upsertInvoice(payload, options = {}) {
-    void payload;
-    void options;
-    return null;
-  }
-
-  async function listPaymentsForInvoiceIds({ provider, invoiceIds }, options = {}) {
-    void provider;
-    void invoiceIds;
-    void options;
-    return [];
-  }
-
-  async function findPaymentByProviderPaymentId({ provider, providerPaymentId }, options = {}) {
-    void provider;
-    void providerPaymentId;
-    void options;
-    return null;
-  }
-
-  async function upsertPayment(payload, options = {}) {
-    void payload;
-    void options;
-    return null;
   }
 
   async function upsertBillingPurchase(payload, options = {}) {
@@ -3220,18 +3087,8 @@ function createBillingRepository(dbClient) {
     lockSubscriptionsForEntity,
     findSubscriptionByProviderSubscriptionId,
     listCurrentSubscriptions,
-    findSubscriptionItemByProviderSubscriptionItemId,
     clearCurrentSubscriptionFlagsForEntity,
     upsertSubscription,
-    listSubscriptionItemsForSubscription,
-    upsertSubscriptionItem,
-    findInvoiceByProviderInvoiceId,
-    listInvoicesForSubscription,
-    listRecentInvoices,
-    upsertInvoice,
-    findPaymentByProviderPaymentId,
-    listPaymentsForInvoiceIds,
-    upsertPayment,
     upsertBillingPurchase,
     listBillingPurchasesForEntity,
     listPaymentMethodsForEntity,
@@ -3291,9 +3148,6 @@ const __testables = {
   mapEntitlementRowNullable,
   mapCustomerRowNullable,
   mapSubscriptionRowNullable,
-  mapSubscriptionItemRowNullable,
-  mapInvoiceRowNullable,
-  mapPaymentRowNullable,
   mapPaymentMethodRowNullable,
   mapPaymentMethodSyncEventRowNullable,
   mapUsageCounterRowNullable,
@@ -3357,18 +3211,8 @@ export const {
   lockSubscriptionsForEntity,
   findSubscriptionByProviderSubscriptionId,
   listCurrentSubscriptions,
-  findSubscriptionItemByProviderSubscriptionItemId,
   clearCurrentSubscriptionFlagsForEntity,
   upsertSubscription,
-  listSubscriptionItemsForSubscription,
-  upsertSubscriptionItem,
-  findInvoiceByProviderInvoiceId,
-  listInvoicesForSubscription,
-  listRecentInvoices,
-  upsertInvoice,
-  findPaymentByProviderPaymentId,
-  listPaymentsForInvoiceIds,
-  upsertPayment,
   upsertBillingPurchase,
   listBillingPurchasesForEntity,
   listPaymentMethodsForEntity,

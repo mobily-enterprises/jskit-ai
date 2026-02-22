@@ -48,9 +48,6 @@ function createService(options = {}) {
   if (!providerAdapter || typeof providerAdapter.retrieveSubscription !== "function") {
     throw new Error("billingProviderAdapter.retrieveSubscription is required.");
   }
-  if (typeof providerAdapter.retrieveInvoice !== "function") {
-    throw new Error("billingProviderAdapter.retrieveInvoice is required.");
-  }
   const activeProvider =
     String(providerAdapter?.provider || BILLING_DEFAULT_PROVIDER)
       .trim()
@@ -85,21 +82,6 @@ function createService(options = {}) {
     try {
       return await providerAdapter.retrieveSubscription({
         subscriptionId: normalizedProviderSubscriptionId
-      });
-    } catch {
-      return null;
-    }
-  }
-
-  async function fetchAuthoritativeInvoice(providerInvoiceId) {
-    const normalizedProviderInvoiceId = toNullableString(providerInvoiceId);
-    if (!normalizedProviderInvoiceId) {
-      return null;
-    }
-
-    try {
-      return await providerAdapter.retrieveInvoice({
-        invoiceId: normalizedProviderInvoiceId
       });
     } catch {
       return null;
@@ -528,12 +510,9 @@ function createService(options = {}) {
 
   async function projectInvoiceAndPayment(invoice, eventContext) {
     const { trx, providerCreatedAt, providerEventId, eventType, billingEventId } = eventContext;
-
-    let projectionInvoice = invoice;
-    let projectionProviderCreatedAt = providerCreatedAt;
-    let projectionProviderEventId = providerEventId;
-    let usedAuthoritativeFallback = false;
-
+    const projectionInvoice = invoice;
+    const projectionProviderCreatedAt = providerCreatedAt;
+    const projectionProviderEventId = providerEventId;
     const providerInvoiceId = toNullableString(projectionInvoice?.id);
     if (!providerInvoiceId) {
       throw new AppError(400, "Provider invoice payload missing id.");
@@ -601,73 +580,6 @@ function createService(options = {}) {
       }
     }
 
-    const existingInvoice = await billingRepository.findInvoiceByProviderInvoiceId(
-      {
-        provider: activeProvider,
-        providerInvoiceId
-      },
-      {
-        trx,
-        forUpdate: true
-      }
-    );
-    if (
-      isIncomingEventOlder(existingInvoice?.lastProviderEventCreatedAt, providerCreatedAt, {
-        existingProviderEventId: existingInvoice?.lastProviderEventId,
-        incomingProviderEventId: providerEventId
-      })
-    ) {
-      const sameTimestampConflict = hasSameTimestampOrderingConflict(
-        existingInvoice?.lastProviderEventCreatedAt,
-        providerCreatedAt,
-        {
-          existingProviderEventId: existingInvoice?.lastProviderEventId,
-          incomingProviderEventId: providerEventId
-        }
-      );
-
-      if (!sameTimestampConflict) {
-        return;
-      }
-
-      const authoritativeInvoice = await fetchAuthoritativeInvoice(providerInvoiceId);
-      if (!authoritativeInvoice) {
-        return;
-      }
-
-      projectionInvoice = authoritativeInvoice;
-      const existingProviderCreatedAt = new Date(existingInvoice.lastProviderEventCreatedAt || 0);
-      projectionProviderCreatedAt = Number.isNaN(existingProviderCreatedAt.getTime())
-        ? providerCreatedAt
-        : existingProviderCreatedAt;
-      projectionProviderEventId = toNullableString(existingInvoice.lastProviderEventId) || providerEventId;
-      usedAuthoritativeFallback = true;
-      providerSubscriptionId = toNullableString(projectionInvoice?.subscription);
-      if (providerSubscriptionId) {
-        subscription = await billingRepository.findSubscriptionByProviderSubscriptionId(
-          {
-            provider: activeProvider,
-            providerSubscriptionId
-          },
-          {
-            trx,
-            forUpdate: true
-          }
-        );
-      } else {
-        subscription = null;
-      }
-
-      const fallbackMetadata = toSafeMetadata(projectionInvoice?.metadata);
-      resolvedBillableEntityId =
-        subscription?.billableEntityId ||
-        toPositiveInteger(fallbackMetadata.billable_entity_id) ||
-        toPositiveInteger(eventContext?.billableEntityId);
-      if (!resolvedBillableEntityId) {
-        throw new AppError(409, "Unable to correlate invoice to billable entity.");
-      }
-    }
-
     const projectionMetadata = toSafeMetadata(projectionInvoice?.metadata);
     const projectionProviderCustomerId = toNullableString(projectionInvoice?.customer) || providerCustomerId;
 
@@ -730,94 +642,32 @@ function createService(options = {}) {
       throw new AppError(409, "Unable to correlate invoice to billing customer.");
     }
 
-    const invoiceRow = await billingRepository.upsertInvoice(
-      {
-        subscriptionId: subscription ? subscription.id : null,
-        billableEntityId: resolvedBillableEntityId,
-        billingCustomerId: customer.id,
-        provider: activeProvider,
-        providerInvoiceId,
-        status: String(projectionInvoice?.status || ""),
-        amountDueMinor: Number(projectionInvoice?.amount_due || 0),
-        amountPaidMinor: Number(projectionInvoice?.amount_paid || 0),
-        amountRemainingMinor: Number(projectionInvoice?.amount_remaining || 0),
-        currency: String(projectionInvoice?.currency || "").toUpperCase(),
-        issuedAt: parseUnixEpochSeconds(projectionInvoice?.created),
-        dueAt: parseUnixEpochSeconds(projectionInvoice?.due_date),
-        paidAt: parseUnixEpochSeconds(projectionInvoice?.status_transitions?.paid_at),
-        lastProviderEventCreatedAt: projectionProviderCreatedAt,
-        lastProviderEventId: projectionProviderEventId,
-        metadataJson: projectionMetadata
-      },
-      { trx }
-    );
-
-    if (eventType === "invoice.paid" || eventType === "invoice.payment_failed") {
-      const providerPaymentId =
-        toNullableString(projectionInvoice?.payment_intent) ||
-        toNullableString(projectionInvoice?.charge) ||
-        `${providerInvoiceId}:${eventType}`;
-
-      const existingPayment = await billingRepository.findPaymentByProviderPaymentId(
-        {
-          provider: activeProvider,
-          providerPaymentId
-        },
-        {
-          trx,
-          forUpdate: true
-        }
-      );
-      if (
-        !usedAuthoritativeFallback &&
-        isIncomingEventOlder(existingPayment?.lastProviderEventCreatedAt, projectionProviderCreatedAt, {
-          existingProviderEventId: existingPayment?.lastProviderEventId,
-          incomingProviderEventId: projectionProviderEventId
-        })
-      ) {
-        return;
-      }
-
-      await billingRepository.upsertPayment(
-        {
-          invoiceId: invoiceRow.id,
-          provider: activeProvider,
-          providerPaymentId,
-          type: "invoice_payment",
-          status: eventType === "invoice.paid" ? "paid" : "failed",
-          amountMinor: Number(projectionInvoice?.amount_paid || projectionInvoice?.amount_due || 0),
-          currency: String(projectionInvoice?.currency || "").toUpperCase(),
-          paidAt: parseUnixEpochSeconds(projectionInvoice?.status_transitions?.paid_at),
-          lastProviderEventCreatedAt: projectionProviderCreatedAt,
-          lastProviderEventId: projectionProviderEventId,
-          metadataJson: {
-            invoiceId: providerInvoiceId,
-            eventType
-          }
-        },
-        { trx }
-      );
-
-      if (eventType === "invoice.paid") {
-        await recordConfirmedPurchaseForInvoicePaid(
-          {
-            billingRepository,
-            provider: activeProvider,
-            trx,
-            billableEntityId: resolvedBillableEntityId,
-            providerInvoiceId,
-            providerPaymentId,
-            providerCustomerId: projectionProviderCustomerId || customer?.providerCustomerId || null,
-            invoice: projectionInvoice,
-            operationKey: toNullableString(projectionMetadata.operation_key),
-            billingEventId,
-            providerCreatedAt: projectionProviderCreatedAt,
-            subscription,
-            providerEventId: projectionProviderEventId
-          }
-        );
-      }
+    if (eventType !== "invoice.paid") {
+      return;
     }
+
+    const providerPaymentId =
+      toNullableString(projectionInvoice?.payment_intent) ||
+      toNullableString(projectionInvoice?.charge) ||
+      `${providerInvoiceId}:${eventType}`;
+
+    await recordConfirmedPurchaseForInvoicePaid(
+      {
+        billingRepository,
+        provider: activeProvider,
+        trx,
+        billableEntityId: resolvedBillableEntityId,
+        providerInvoiceId,
+        providerPaymentId,
+        providerCustomerId: projectionProviderCustomerId || customer?.providerCustomerId || null,
+        invoice: projectionInvoice,
+        operationKey: toNullableString(projectionMetadata.operation_key),
+        billingEventId,
+        providerCreatedAt: projectionProviderCreatedAt,
+        subscription,
+        providerEventId: projectionProviderEventId
+      }
+    );
   }
 
   return {

@@ -5,8 +5,6 @@ import { createService as createWebhookSubscriptionProjectionService } from "../
 
 test("subscription projection service projects one_off invoice/payment rows without subscription", async () => {
   const lockCalls = [];
-  const upsertInvoiceCalls = [];
-  const upsertPaymentCalls = [];
   const upsertPurchaseCalls = [];
 
   const projectionService = createWebhookSubscriptionProjectionService({
@@ -29,23 +27,6 @@ test("subscription projection service projects one_off invoice/payment rows with
           provider: "stripe",
           providerCustomerId: "cus_one_off_77"
         };
-      },
-      async findInvoiceByProviderInvoiceId() {
-        return null;
-      },
-      async upsertInvoice(payload) {
-        upsertInvoiceCalls.push(payload);
-        return {
-          id: 990,
-          ...payload
-        };
-      },
-      async findPaymentByProviderPaymentId() {
-        return null;
-      },
-      async upsertPayment(payload) {
-        upsertPaymentCalls.push(payload);
-        return payload;
       },
       async upsertBillingPurchase(payload) {
         upsertPurchaseCalls.push(payload);
@@ -112,17 +93,6 @@ test("subscription projection service projects one_off invoice/payment rows with
   assert.equal(lockCalls[0].billableEntityId, 77);
   assert.equal(lockCalls[0].operationKey, "op_one_off_77");
 
-  assert.equal(upsertInvoiceCalls.length, 1);
-  assert.equal(upsertInvoiceCalls[0].subscriptionId, null);
-  assert.equal(upsertInvoiceCalls[0].billableEntityId, 77);
-  assert.equal(upsertInvoiceCalls[0].billingCustomerId, 88);
-  assert.equal(upsertInvoiceCalls[0].providerInvoiceId, "in_one_off_77");
-
-  assert.equal(upsertPaymentCalls.length, 1);
-  assert.equal(upsertPaymentCalls[0].invoiceId, 990);
-  assert.equal(upsertPaymentCalls[0].providerPaymentId, "pi_one_off_77");
-  assert.equal(upsertPaymentCalls[0].status, "paid");
-
   assert.equal(upsertPurchaseCalls.length, 1);
   assert.equal(upsertPurchaseCalls[0].purchaseKind, "one_off");
   assert.equal(upsertPurchaseCalls[0].providerPaymentId, "pi_one_off_77");
@@ -154,18 +124,6 @@ test("subscription projection service reuses canonical purchase dedupe key acros
       },
       async upsertCustomer() {
         throw new Error("upsertCustomer should not be called");
-      },
-      async findInvoiceByProviderInvoiceId() {
-        return null;
-      },
-      async upsertInvoice(payload) {
-        return { id: 990, ...payload };
-      },
-      async findPaymentByProviderPaymentId() {
-        return null;
-      },
-      async upsertPayment(payload) {
-        return payload;
       },
       async upsertBillingPurchase(payload) {
         lastDedupeKey = String(payload.dedupeKey || "");

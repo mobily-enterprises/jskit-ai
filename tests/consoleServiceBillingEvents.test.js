@@ -302,6 +302,65 @@ test("console billing plan create inserts plan and core price mapping", async ()
   assert.equal(createPlanCall[2], "price_pro_monthly");
 });
 
+test("console billing plan create supports free plans without provider price mapping", async () => {
+  const calls = [];
+  let retrievePriceCalls = 0;
+  const service = createConsoleServiceHarness({
+    billingProviderAdapter: {
+      async retrievePrice() {
+        retrievePriceCalls += 1;
+        throw new Error("retrievePrice should not be called for free plan create");
+      }
+    },
+    billingRepository: createBillingRepositoryStub({
+      async transaction(work) {
+        return work("trx-free");
+      },
+      async createPlan(payload, options = {}) {
+        calls.push(["createPlan", payload, options.trx]);
+        return {
+          id: 32,
+          code: payload.code,
+          name: payload.name,
+          description: payload.description || null,
+          appliesTo: payload.appliesTo,
+          corePrice: payload.corePrice ?? null,
+          isActive: payload.isActive !== false,
+          metadataJson: payload.metadataJson || {},
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z"
+        };
+      },
+      async listPlanEntitlementsForPlan() {
+        return [];
+      },
+      async upsertPlanEntitlement() {
+        throw new Error("not used");
+      }
+    })
+  });
+
+  const response = await service.createBillingPlan(
+    {
+      id: 1,
+      email: "devop@example.test"
+    },
+    {
+      code: "free",
+      name: "Free",
+      corePrice: null
+    }
+  );
+
+  assert.equal(response.provider, "stripe");
+  assert.equal(response.plan.code, "free");
+  assert.equal(response.plan.corePrice, null);
+  assert.equal(retrievePriceCalls, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], "createPlan");
+  assert.equal(calls[0][1].corePrice, null);
+});
+
 test("console billing plan create rejects non-stripe provider price id format", async () => {
   const service = createConsoleServiceHarness({
     billingRepository: createBillingRepositoryStub(),

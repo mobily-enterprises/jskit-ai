@@ -86,6 +86,8 @@ function createFixture(overrides = {}) {
   let nextAssignment = overrides.nextAssignment || null;
   const historyEntries = Array.isArray(overrides.historyEntries) ? [...overrides.historyEntries] : [];
   const updateSubscriptionCalls = [];
+  const cancelSubscriptionCalls = [];
+  const setSubscriptionCancelAtPeriodEndCalls = [];
   const checkoutCalls = [];
   const providerDetailsByAssignmentId = new Map();
 
@@ -128,7 +130,9 @@ function createFixture(overrides = {}) {
           ...(Object.hasOwn(patch, "source") ? { source: String(patch.source || "") } : {}),
           ...(Object.hasOwn(patch, "status") ? { status: String(patch.status || "") } : {}),
           ...(Object.hasOwn(patch, "periodStartAt") ? { periodStartAt: toIso(patch.periodStartAt) } : {}),
-          ...(Object.hasOwn(patch, "periodEndAt") ? { periodEndAt: toIso(patch.periodEndAt) } : {}),
+          ...(Object.hasOwn(patch, "periodEndAt")
+            ? { periodEndAt: patch.periodEndAt == null ? null : toIso(patch.periodEndAt) }
+            : {}),
           ...(Object.hasOwn(patch, "metadataJson") ? { metadataJson: patch.metadataJson || {} } : {})
         };
       }
@@ -154,7 +158,10 @@ function createFixture(overrides = {}) {
         source: String(payload.changeKind || "manual") === "promo_fallback" ? "promo" : "manual",
         status: "upcoming",
         periodStartAt: toIso(payload.effectiveAt),
-        periodEndAt: toIso(payload.periodEndAt || addDays(payload.effectiveAt || now, 30)),
+        periodEndAt:
+          Object.hasOwn(payload, "periodEndAt") && payload.periodEndAt == null
+            ? null
+            : toIso(payload.periodEndAt || addDays(payload.effectiveAt || now, 30)),
         metadataJson: payload.metadataJson || {}
       };
       return nextAssignment;
@@ -227,7 +234,8 @@ function createFixture(overrides = {}) {
         source: String(payload.source || "internal"),
         status: String(payload.status || (payload.isCurrent === false ? "past" : "current")),
         periodStartAt: toIso(payload.periodStartAt || now),
-        periodEndAt: toIso(payload.periodEndAt || now),
+        periodEndAt:
+          Object.hasOwn(payload, "periodEndAt") && payload.periodEndAt == null ? null : toIso(payload.periodEndAt || now),
         metadataJson: payload.metadataJson || {}
       };
       if (assignment.status === "upcoming") {
@@ -326,6 +334,36 @@ function createFixture(overrides = {}) {
           metadata: {}
         };
       },
+      async cancelSubscription(payload) {
+        cancelSubscriptionCalls.push(payload);
+        return {
+          id: String(payload.subscriptionId || "sub_test"),
+          status: payload.cancelAtPeriodEnd ? "active" : "canceled",
+          current_period_end: Math.floor((now.getTime() + 20 * 24 * 60 * 60 * 1000) / 1000),
+          trial_end: null,
+          canceled_at: payload.cancelAtPeriodEnd ? null : Math.floor(now.getTime() / 1000),
+          ended_at: payload.cancelAtPeriodEnd ? null : Math.floor(now.getTime() / 1000),
+          cancel_at_period_end: Boolean(payload.cancelAtPeriodEnd),
+          created: Math.floor(now.getTime() / 1000),
+          customer: "cus_test",
+          metadata: {}
+        };
+      },
+      async setSubscriptionCancelAtPeriodEnd(payload) {
+        setSubscriptionCancelAtPeriodEndCalls.push(payload);
+        return {
+          id: String(payload.subscriptionId || "sub_test"),
+          status: "active",
+          current_period_end: Math.floor((now.getTime() + 20 * 24 * 60 * 60 * 1000) / 1000),
+          trial_end: null,
+          canceled_at: null,
+          ended_at: null,
+          cancel_at_period_end: Boolean(payload.cancelAtPeriodEnd),
+          created: Math.floor(now.getTime() / 1000),
+          customer: "cus_test",
+          metadata: {}
+        };
+      },
       ...overrides.billingProviderAdapter
     },
     consoleSettingsRepository: {
@@ -351,6 +389,8 @@ function createFixture(overrides = {}) {
     getNextAssignment: () => nextAssignment,
     getProviderDetailsByAssignmentId: () => new Map(providerDetailsByAssignmentId),
     updateSubscriptionCalls,
+    cancelSubscriptionCalls,
+    setSubscriptionCancelAtPeriodEndCalls,
     checkoutCalls
   };
 }
@@ -427,6 +467,47 @@ test("billing plan change service schedules downgrades at current period end", a
   assert.equal(fixture.getNextAssignment()?.status, "upcoming");
 });
 
+test("billing plan change service schedules free downgrade by toggling provider cancel_at_period_end first", async () => {
+  const fixture = createFixture({
+    currentSubscription: {
+      id: 11,
+      billableEntityId: 41,
+      planId: 3,
+      billingCustomerId: 91,
+      provider: "stripe",
+      providerSubscriptionId: "sub_current",
+      status: "active",
+      providerSubscriptionCreatedAt: "2026-01-01T00:00:00.000Z",
+      currentPeriodEnd: "2026-03-01T00:00:00.000Z",
+      trialEnd: null,
+      canceledAt: null,
+      cancelAtPeriodEnd: false,
+      endedAt: null,
+      isCurrent: true,
+      metadataJson: {}
+    }
+  });
+
+  const response = await fixture.service.requestPlanChange({
+    request: {},
+    user: {
+      id: 8
+    },
+    payload: {
+      planCode: "free"
+    },
+    now: fixture.now
+  });
+
+  assert.equal(response.mode, "scheduled");
+  assert.equal(fixture.cancelSubscriptionCalls.length, 1);
+  assert.equal(fixture.cancelSubscriptionCalls[0].subscriptionId, "sub_current");
+  assert.equal(fixture.cancelSubscriptionCalls[0].cancelAtPeriodEnd, true);
+  assert.equal(fixture.setSubscriptionCancelAtPeriodEndCalls.length, 0);
+  assert.equal(fixture.getNextAssignment()?.planId, 1);
+  assert.equal(fixture.getNextAssignment()?.status, "upcoming");
+});
+
 test("billing plan change service applies upgrades immediately with provider subscription update", async () => {
   const fixture = createFixture({
     currentSubscription: {
@@ -472,6 +553,89 @@ test("billing plan change service applies upgrades immediately with provider sub
   assert.equal(fixture.getCurrentAssignment()?.planId, 3);
   assert.equal(fixture.historyEntries.length, 1);
   assert.equal(fixture.historyEntries[0].changeKind, "upgrade_immediate");
+});
+
+test("billing plan change service allows lateral paid plan change without default payment method", async () => {
+  const fixture = createFixture({
+    plans: [
+      {
+        id: 1,
+        code: "free",
+        name: "Free",
+        description: "Free plan",
+        appliesTo: "workspace",
+        isActive: true,
+        corePrice: null
+      },
+      {
+        id: 2,
+        code: "basic",
+        name: "Basic",
+        description: "Basic plan",
+        appliesTo: "workspace",
+        isActive: true,
+        corePrice: {
+          provider: "stripe",
+          providerPriceId: "price_basic",
+          providerProductId: "prod_basic",
+          interval: "month",
+          intervalCount: 1,
+          currency: "USD",
+          unitAmountMinor: 1000
+        }
+      },
+      {
+        id: 4,
+        code: "team",
+        name: "Team",
+        description: "Team plan",
+        appliesTo: "workspace",
+        isActive: true,
+        corePrice: {
+          provider: "stripe",
+          providerPriceId: "price_team",
+          providerProductId: "prod_team",
+          interval: "month",
+          intervalCount: 1,
+          currency: "USD",
+          unitAmountMinor: 1000
+        }
+      }
+    ],
+    currentSubscription: {
+      id: 11,
+      billableEntityId: 41,
+      planId: 2,
+      billingCustomerId: 91,
+      provider: "stripe",
+      providerSubscriptionId: "sub_current",
+      status: "active",
+      providerSubscriptionCreatedAt: "2026-01-01T00:00:00.000Z",
+      currentPeriodEnd: "2026-03-01T00:00:00.000Z",
+      trialEnd: null,
+      canceledAt: null,
+      cancelAtPeriodEnd: false,
+      endedAt: null,
+      isCurrent: true,
+      metadataJson: {}
+    },
+    paymentMethods: []
+  });
+
+  const response = await fixture.service.requestPlanChange({
+    request: {},
+    user: {
+      id: 8
+    },
+    payload: {
+      planCode: "team"
+    },
+    now: fixture.now
+  });
+
+  assert.equal(response.mode, "applied");
+  assert.equal(fixture.updateSubscriptionCalls.length, 1);
+  assert.equal(fixture.updateSubscriptionCalls[0].providerPriceId, "price_team");
 });
 
 test("billing plan change service requires checkout for paid target without active subscription", async () => {
@@ -543,6 +707,54 @@ test("billing plan change service cancels pending scheduled downgrade", async ()
   assert.equal(fixture.getNextAssignment(), null);
 });
 
+test("billing plan change service reinstates provider renewal before canceling pending free downgrade", async () => {
+  const fixture = createFixture({
+    currentSubscription: {
+      id: 11,
+      billableEntityId: 41,
+      planId: 3,
+      billingCustomerId: 91,
+      provider: "stripe",
+      providerSubscriptionId: "sub_current",
+      status: "active",
+      providerSubscriptionCreatedAt: "2026-01-01T00:00:00.000Z",
+      currentPeriodEnd: "2026-03-01T00:00:00.000Z",
+      trialEnd: null,
+      canceledAt: null,
+      cancelAtPeriodEnd: true,
+      endedAt: null,
+      isCurrent: true,
+      metadataJson: {}
+    },
+    nextAssignment: {
+      id: 81,
+      billableEntityId: 41,
+      planId: 1,
+      source: "manual",
+      status: "upcoming",
+      periodStartAt: "2026-03-01T00:00:00.000Z",
+      periodEndAt: null,
+      metadataJson: {
+        changeKind: "downgrade"
+      }
+    }
+  });
+
+  const response = await fixture.service.cancelPendingPlanChange({
+    request: {},
+    user: {
+      id: 8
+    },
+    now: fixture.now
+  });
+
+  assert.equal(response.canceled, true);
+  assert.equal(fixture.setSubscriptionCancelAtPeriodEndCalls.length, 1);
+  assert.equal(fixture.setSubscriptionCancelAtPeriodEndCalls[0].subscriptionId, "sub_current");
+  assert.equal(fixture.setSubscriptionCancelAtPeriodEndCalls[0].cancelAtPeriodEnd, false);
+  assert.equal(fixture.getNextAssignment(), null);
+});
+
 test("billing plan change service promotes due upcoming assignment at boundary", async () => {
   const fixture = createFixture({
     currentSubscription: {
@@ -608,4 +820,32 @@ test("billing plan change service applies free plan immediately without checkout
   assert.equal(response.mode, "applied");
   assert.equal(fixture.checkoutCalls.length, 0);
   assert.equal(fixture.getCurrentAssignment()?.planId, 1);
+  assert.equal(fixture.getCurrentAssignment()?.periodEndAt, null);
+});
+
+test("billing plan change service returns no expiry for current free assignment", async () => {
+  const fixture = createFixture({
+    currentSubscription: null,
+    currentAssignment: {
+      id: 52,
+      billableEntityId: 41,
+      planId: 1,
+      source: "internal",
+      status: "current",
+      periodStartAt: "2026-02-20T00:00:00.000Z",
+      periodEndAt: null,
+      metadataJson: {}
+    }
+  });
+
+  const response = await fixture.service.getPlanState({
+    request: {},
+    user: {
+      id: 8
+    },
+    now: fixture.now
+  });
+
+  assert.equal(response.currentPlan?.code, "free");
+  assert.equal(response.currentPeriodEndAt, null);
 });

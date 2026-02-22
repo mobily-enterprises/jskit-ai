@@ -21,8 +21,7 @@ function createService({
   reconciliationCheckoutOpenSeconds = 30 * 60,
   reconciliationCheckoutCompletedSeconds = 10 * 60,
   reconciliationCheckoutRecoverySeconds = 10 * 60,
-  reconciliationSubscriptionsSeconds = 6 * 60 * 60,
-  reconciliationInvoicesSeconds = 24 * 60 * 60
+  reconciliationSubscriptionsSeconds = 6 * 60 * 60
 }) {
   if (!billingOutboxWorkerService) {
     throw new Error("billingOutboxWorkerService is required.");
@@ -199,11 +198,6 @@ function createService({
       "reconciliation:subscriptions_active",
       toMs(reconciliationSubscriptionsSeconds, 6 * 60 * 60),
       async () => runReconciliationScope("subscriptions_active")
-    );
-    registerInterval(
-      "reconciliation:invoices_recent",
-      toMs(reconciliationInvoicesSeconds, 24 * 60 * 60),
-      async () => runReconciliationScope("invoices_recent")
     );
 
     logInfo(

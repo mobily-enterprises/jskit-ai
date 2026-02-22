@@ -53,7 +53,7 @@ const plan = Type.Object(
     name: Type.String({ minLength: 1 }),
     description: Type.Union([Type.String(), Type.Null()]),
     appliesTo: Type.String({ minLength: 1 }),
-    corePrice: planCorePrice,
+    corePrice: Type.Union([planCorePrice, Type.Null()]),
     isActive: Type.Boolean(),
     metadataJson: Type.Unknown(),
     createdAt: Type.String({ format: "iso-utc-date-time" }),
@@ -65,13 +65,30 @@ const plan = Type.Object(
   }
 );
 
-const customer = Type.Object(
+const productPrice = Type.Object(
+  {
+    provider: Type.String({ minLength: 1, maxLength: 32 }),
+    providerPriceId: Type.String({ minLength: 1, maxLength: 191 }),
+    providerProductId: Type.Union([Type.String({ minLength: 1, maxLength: 191 }), Type.Null()]),
+    interval: Type.Union([Type.String({ minLength: 1, maxLength: 32 }), Type.Null()]),
+    intervalCount: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    currency: Type.String({ minLength: 3, maxLength: 3 }),
+    unitAmountMinor: Type.Integer({ minimum: 0 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const product = Type.Object(
   {
     id: Type.Integer({ minimum: 1 }),
-    billableEntityId: Type.Integer({ minimum: 1 }),
-    provider: Type.String({ minLength: 1 }),
-    providerCustomerId: Type.String({ minLength: 1 }),
-    email: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+    code: Type.String({ minLength: 1, maxLength: 120 }),
+    name: Type.String({ minLength: 1, maxLength: 160 }),
+    description: Type.Union([Type.String(), Type.Null()]),
+    productKind: Type.String({ minLength: 1, maxLength: 64 }),
+    price: Type.Union([productPrice, Type.Null()]),
+    isActive: Type.Boolean(),
     metadataJson: Type.Unknown(),
     createdAt: Type.String({ format: "iso-utc-date-time" }),
     updatedAt: Type.String({ format: "iso-utc-date-time" })
@@ -97,77 +114,6 @@ const subscription = Type.Object(
     cancelAtPeriodEnd: Type.Boolean(),
     endedAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
     isCurrent: Type.Boolean(),
-    lastProviderEventCreatedAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
-    lastProviderEventId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
-    metadataJson: Type.Unknown(),
-    createdAt: Type.String({ format: "iso-utc-date-time" }),
-    updatedAt: Type.String({ format: "iso-utc-date-time" })
-  },
-  {
-    additionalProperties: false
-  }
-);
-
-const subscriptionItem = Type.Object(
-  {
-    id: Type.Integer({ minimum: 1 }),
-    subscriptionId: Type.Integer({ minimum: 1 }),
-    provider: Type.String({ minLength: 1 }),
-    providerSubscriptionItemId: Type.String({ minLength: 1 }),
-    billingPlanPriceId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
-    billingComponent: Type.String({ minLength: 1 }),
-    usageType: Type.String({ minLength: 1 }),
-    quantity: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
-    isActive: Type.Boolean(),
-    lastProviderEventCreatedAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
-    lastProviderEventId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
-    metadataJson: Type.Unknown(),
-    createdAt: Type.String({ format: "iso-utc-date-time" }),
-    updatedAt: Type.String({ format: "iso-utc-date-time" })
-  },
-  {
-    additionalProperties: false
-  }
-);
-
-const invoice = Type.Object(
-  {
-    id: Type.Integer({ minimum: 1 }),
-    subscriptionId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
-    billableEntityId: Type.Integer({ minimum: 1 }),
-    billingCustomerId: Type.Integer({ minimum: 1 }),
-    provider: Type.String({ minLength: 1 }),
-    providerInvoiceId: Type.String({ minLength: 1 }),
-    status: Type.String({ minLength: 1 }),
-    amountDueMinor: Type.Integer({ minimum: 0 }),
-    amountPaidMinor: Type.Integer({ minimum: 0 }),
-    amountRemainingMinor: Type.Integer({ minimum: 0 }),
-    currency: Type.String({ minLength: 3, maxLength: 3 }),
-    issuedAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
-    dueAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
-    paidAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
-    lastProviderEventCreatedAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
-    lastProviderEventId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
-    metadataJson: Type.Unknown(),
-    createdAt: Type.String({ format: "iso-utc-date-time" }),
-    updatedAt: Type.String({ format: "iso-utc-date-time" })
-  },
-  {
-    additionalProperties: false
-  }
-);
-
-const payment = Type.Object(
-  {
-    id: Type.Integer({ minimum: 1 }),
-    invoiceId: Type.Integer({ minimum: 1 }),
-    provider: Type.String({ minLength: 1 }),
-    providerPaymentId: Type.String({ minLength: 1 }),
-    type: Type.String({ minLength: 1 }),
-    status: Type.String({ minLength: 1 }),
-    amountMinor: Type.Integer({ minimum: 0 }),
-    currency: Type.String({ minLength: 3, maxLength: 3 }),
-    paidAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
     lastProviderEventCreatedAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
     lastProviderEventId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
     metadataJson: Type.Unknown(),
@@ -262,14 +208,9 @@ const plansResponse = Type.Object(
   }
 );
 
-const subscriptionResponse = Type.Object(
+const productsResponse = Type.Object(
   {
-    billableEntity,
-    subscription: Type.Union([subscription, Type.Null()]),
-    customer: Type.Union([customer, Type.Null()]),
-    items: Type.Array(subscriptionItem),
-    invoices: Type.Array(invoice),
-    payments: Type.Array(payment)
+    products: Type.Array(product)
   },
   {
     additionalProperties: false
@@ -587,7 +528,7 @@ const schema = {
   },
   response: {
     plans: plansResponse,
-    subscription: subscriptionResponse,
+    products: productsResponse,
     paymentMethods: paymentMethodsResponse,
     paymentMethodSync: paymentMethodSyncResponse,
     limitations: limitationsResponse,
