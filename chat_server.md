@@ -1246,8 +1246,9 @@ Use repo migration conventions:
 1. `YYYYMMDDHHMMSS_create_chat_user_settings_and_blocks.cjs`
 2. `YYYYMMDDHHMMSS_create_chat_threads_and_participants.cjs`
 3. `YYYYMMDDHHMMSS_create_chat_messages_and_attachments.cjs`
-4. `YYYYMMDDHHMMSS_create_chat_reactions_and_indexes.cjs`
-5. (optional) `YYYYMMDDHHMMSS_add_chat_retention_or_pointer_indexes.cjs` if further tuning needed
+4. (optional) `YYYYMMDDHHMMSS_create_chat_message_idempotency_tombstones.cjs` (required only if using the tombstone strategy for hard-delete duplicate suppression)
+5. `YYYYMMDDHHMMSS_create_chat_reactions_and_indexes.cjs`
+6. (optional) `YYYYMMDDHHMMSS_add_chat_retention_or_pointer_indexes.cjs` if further tuning needed
 
 Why split this way:
 
@@ -1261,6 +1262,7 @@ Why split this way:
 - Prefer service-level invariants over DB check constraints if MySQL compatibility is uncertain
 - For nullable pointer columns (`last_message_id`, `last_read_message_id`), do not add FKs in v1
 - Add indexes early; chat queries are list-heavy and message-page heavy
+- If using the simpler “retain deleted message rows through retry window” policy, explicitly skip the tombstone migration and document the chosen retention behavior in deploy config/docs.
 
 ## Repository Layer Plan (server/modules/chat/repositories)
 
@@ -1271,6 +1273,7 @@ Create dedicated repositories mirroring patterns used by AI transcript repositor
 - `server/modules/chat/repositories/threads.repository.js`
 - `server/modules/chat/repositories/participants.repository.js`
 - `server/modules/chat/repositories/messages.repository.js`
+- `server/modules/chat/repositories/idempotencyTombstones.repository.js` (optional; required if hard-delete tombstone strategy is enabled)
 - `server/modules/chat/repositories/attachments.repository.js`
 - `server/modules/chat/repositories/reactions.repository.js`
 - `server/modules/chat/repositories/userSettings.repository.js`
@@ -1328,6 +1331,16 @@ Reuse conventions from `server/modules/ai/repositories/*`:
 Notes:
 
 - Message list/find repos can return core message rows only, but service hydration should use deterministic attachment/reaction ordering before building API responses or doing idempotency replay payload comparisons that depend on attachment IDs/order.
+- If the tombstone strategy is enabled, message hard-delete workflows should coordinate with `idempotencyTombstones.repository.js` so the duplicate-suppression tombstone write happens before (or atomically with) message deletion.
+
+#### `idempotencyTombstones.repository.js` (optional strategy)
+
+- `insertForDeletedMessage(...)`
+  - writes `(thread_id, sender_user_id, client_message_id, idempotency_payload_version, idempotency_payload_sha256, expires_at, ...)`
+- `findByClientMessageId(threadId, senderUserId, clientMessageId, options)`
+- `deleteExpiredBatch(now, batchSize, options)`
+- `listExpired(batchSize, now, options)` (optional if delete method returns rows)
+- retention/reporting helper (optional): `countActiveByExpiryBucket(...)`
 
 #### `attachments.repository.js`
 
@@ -2248,6 +2261,7 @@ Using existing realtime test harness patterns adapted for chat:
 ### 7. Retention/cleanup tests
 
 - chat retention rules added to sweep output
+- idempotency tombstone/ledger expiry cleanup runs when tombstone strategy is enabled (or is explicitly absent when simpler retained-message strategy is selected)
 - attachment orphan cleanup deletes DB row + storage blob
 - safe no-op when blob already missing
 
@@ -2266,9 +2280,10 @@ Decide and document:
 ### Phase 1: Schema + repositories (no routes yet)
 
 - Add migrations for chat core tables
+- Add optional tombstone migration if the hard-delete tombstone strategy is selected
 - Add repositories and row mappers
 - Add repository tests
-- Add retention repository methods where needed (attachments/messages)
+- Add retention repository methods where needed (attachments/messages and tombstones if enabled)
 
 ### Phase 2: Services + access model (no realtime yet)
 
