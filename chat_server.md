@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Contract Lock Amendments Summary (Freeze Pass)
+
+This section records a dedicated contract-lock pass that converts remaining v1 API/realtime ambiguities into fixed implementation contracts.
+
+### API/realtime contract decisions are now explicit
+
+- Locked realtime implementation to a single path: extend existing `realtimeEventsService` + Socket.IO registration (`registerSocketIoRealtime`) with recipient-user fanout.
+- Replaced route-level "recommendation" wording with a fixed v1 endpoint set and fixed request contracts for DM ensure, inbox, thread operations, read cursors, reactions, typing, and attachment flows.
+- Added a stable chat error-code catalog and endpoint status/error matrix so server and client can implement against exact HTTP/error semantics.
+
 ## Convergence Amendments Summary (Freeze Pass)
 
 This section records the final convergence pass that freezes v1 server scope and removes strategy ambiguity before implementation.
@@ -852,10 +862,10 @@ Reuse as-is:
 Extend:
 
 - Socket.IO connection setup to auto-join a per-user room: `u:{userId}`
-- `realtimeEventsService` envelope/fanout to support explicit recipient user IDs (or add a chat-specific publish path that still runs through the same Socket.IO instance)
-- protocol message types for ephemeral chat typing (and optionally thread room subscribe) if we keep chat over the same `realtime:message` control channel
+- `realtimeEventsService` envelope/fanout to support explicit recipient user IDs
+- server-side chat typing event publication driven by REST typing endpoint (no inbound generic realtime typing command in v1)
 
-### Recommended fanout model for chat
+### Fanout model (locked v1)
 
 Use targeted participant fanout rather than workspace-wide topic fanout.
 
@@ -874,67 +884,78 @@ Also publish to participant user rooms only, excluding sender.
 
 Optional optimization (later): thread rooms (`th:{threadId}`) for high-volume threads.
 
-### How to extend the existing Socket.IO server cleanly
+### Realtime implementation contract (locked for v1)
 
-There are two viable approaches. Recommended one is first.
+v1 uses one realtime transport path only:
 
-#### Option A (recommended): extend the existing realtime fanout service/envelope
+- extend `realtimeEventsService` and `registerSocketIoRealtime` for recipient-user fanout
+- do not introduce a parallel chat-specific emitter abstraction in v1
+- on authenticated connect, each socket joins `u:{userId}`
+- chat events must always fan out by recipient-user room, never workspace-wide broadcast
 
-Add recipient targeting support to `realtimeEventsService` and `registerSocketIoRealtime`:
+### Chat event envelope contract (locked)
 
-- Existing envelopes continue to support workspace/topic fanout unchanged.
-- New chat envelopes may carry `targetUserIds` (and thread metadata in payload).
-- `registerSocketIoRealtime` on connection joins `u:{userId}`.
-- Fanout logic branches:
-  - if envelope has `targetUserIds`: emit to per-user rooms
-  - else fallback to existing workspace/topic fanout logic
+All durable and typing chat events must use the same normalized envelope shape:
 
-Advantages:
+- `eventId` (string, ULID/UUID; unique per emitted event)
+- `eventType` (string enum from locked v1 event list below)
+- `eventVersion` (`1` for v1)
+- `occurredAt` (ISO timestamp)
+- `threadId` (stringified thread id)
+- `scopeKind` (`workspace` | `global`)
+- `workspaceId` (stringified id or `null`)
+- `actorUserId` (stringified sender/actor user id)
+- `targetUserIds` (array of recipient user ids)
+- `commandId` (`x-command-id` or `null`)
+- `sourceClientId` (`x-client-id` or `null`)
+- `payload` (event-specific object)
 
-- Keeps a single realtime publishing abstraction
-- Reuses current logging, fanout lifecycle, Redis adapter integration
-- Minimal cross-module transport duplication
+Delivery semantics:
 
-#### Option B (acceptable fallback): add a chat-specific realtime bridge on top of the same Socket.IO instance
+- publish occurs post-commit for durable events and is best effort (no DB rollback on fanout failure)
+- clients must treat delivery as at-least-once and dedupe via `eventId`
+- typing events exclude actor from recipients
 
-- Decorate fastify with `io` or a small emitter facade from `registerSocketIoRealtime`
-- Chat service/controllers publish directly through `chatRealtimeService`
-- Keep `realtimeEventsService` untouched for legacy topics
+### Chat protocol events (locked v1 set)
 
-This works, but increases parallel abstractions and should be avoided if Option A is not much harder.
-
-### Chat protocol events (server-side contract)
-
-Even if the client implementation is deferred, define server payload categories now.
-
-#### Durable event types (examples)
+Durable events:
 
 - `chat.thread.created`
 - `chat.thread.updated`
 - `chat.thread.participant.added`
 - `chat.thread.participant.removed`
 - `chat.message.created`
-- `chat.message.edited`
-- `chat.message.deleted`
+- `chat.message.deleted` (system/moderation/retention visible state transitions)
 - `chat.message.reaction.updated`
 - `chat.thread.read.updated`
-- `chat.attachment.updated` (upload processed / failed / quarantined)
+- `chat.attachment.updated`
 
-#### Ephemeral event types (not persisted)
+Ephemeral events:
 
 - `chat.typing.started`
 - `chat.typing.stopped`
-- (optional later) `chat.presence.updated`
 
-### Topic registry changes
+Not in v1 contract:
 
-Current `shared/realtime/eventTypes.js` already includes `CHAT` and `TYPING` topics in this tree, but topic registry and event type mappings are not fully wired.
+- `chat.message.edited` (user edit endpoint deferred)
+- `chat.presence.updated` (presence service deferred)
 
-Plan:
+### Event payload minima (locked v1)
 
-- Formalize chat event types in `REALTIME_EVENT_TYPES`
-- Decide whether `CHAT`/`TYPING` topics remain used for client-side filtering only, or whether chat bypasses topic auth entirely and uses direct-user fanout
-- If chat uses topics, do not rely on topic-level permission as sufficient auth for private threads; recipient filtering remains mandatory
+- `chat.thread.created` / `chat.thread.updated`: `payload.thread` (thread list-item contract shape).
+- `chat.thread.participant.added` / `chat.thread.participant.removed`: `payload.threadId`, `payload.participantUserId`, `payload.participantStatus`.
+- `chat.message.created`: `payload.message` (canonical message response shape) + `payload.idempotencyStatus`.
+- `chat.message.deleted`: `payload.messageId`, `payload.threadId`, `payload.deletedAt`, `payload.deleteReason`.
+- `chat.message.reaction.updated`: `payload.messageId`, `payload.threadId`, `payload.reactions`.
+- `chat.thread.read.updated`: `payload.threadId`, `payload.userId`, `payload.lastReadSeq`, `payload.lastReadMessageId`.
+- `chat.attachment.updated`: `payload.attachmentId`, `payload.threadId`, `payload.status`, `payload.failedReason`.
+- `chat.typing.started` / `chat.typing.stopped`: `payload.threadId`, `payload.userId`, `payload.expiresAt`.
+
+### Topic registry and auth contract
+
+- formalize the locked event types in `REALTIME_EVENT_TYPES`
+- chat authorization must be participant-based; topic-level permission checks are not sufficient for private chat delivery
+- any `CHAT` / `TYPING` topic fields are metadata/filtering hints only and must not replace recipient filtering
 
 ## Persistent vs Ephemeral Field Model (explicit mapping)
 
@@ -1652,13 +1673,13 @@ Responsibilities:
 
 This service should abstract transport details from `chat.service.js`.
 
-Recommended methods:
+Locked service methods:
 
-- `publishThreadEvent({ thread, eventType, actorUserId, payload, recipientUserIds, commandId, sourceClientId })`
+- `publishThreadEvent({ thread, eventType, actorUserId, payload, targetUserIds, commandId, sourceClientId })`
 - `publishMessageEvent(...)`
 - `publishReadCursorUpdated(...)`
 - `publishReactionUpdated(...)`
-- `emitTyping({ threadId, actorUserId, recipientUserIds, state, expiresAt })`
+- `emitTyping({ threadId, actorUserId, targetUserIds, state, expiresAt })`
 
 ## Controller and Route Plan (server/modules/chat)
 
@@ -1685,11 +1706,11 @@ Create a new module mirroring other modules:
 
 - `GET /api/workspace/chat/threads`
   - `auth: required`, `workspacePolicy: required`, permission `chat.read`
-  - v1 recommendation: define this as a surface-specific route entry (typically `workspaceSurface: "app"`); do not assume one route entry can serve both app/admin surfaces
+  - route is registered as `workspaceSurface: "app"` in v1
   - list workspace threads visible to current user
 - `POST /api/workspace/chat/threads`
-  - v1 recommendation: surface-specific route entry (typically `workspaceSurface: "app"` unless product explicitly wants admin-surface creation)
-  - permission `chat.write` or `chat.manage` depending on create policy
+  - route is registered as `workspaceSurface: "app"` in v1
+  - permission `chat.write`
   - create workspace group thread or workspace-scoped DM
   - when creating a workspace-scoped DM, use race-safe ensure semantics (canonical participant pair + unique constraint fallback) rather than naive insert-only create
 
@@ -1697,20 +1718,19 @@ Create a new module mirroring other modules:
 
 - `POST /api/chat/dm/ensure`
   - `auth: required`, `workspacePolicy: none`
-  - body: `targetUserId` (if config allows) or `targetPublicChatId`
-  - request validation should require **exactly one** target selector (never both / neither)
-  - define self-DM policy explicitly (recommended v1: reject self-DM unless product has a notes-to-self feature)
+  - body: `targetPublicChatId` only (raw internal user-id targeting is not part of v1 public API)
+  - self-DM is rejected in v1
   - creates or returns global DM thread
   - when selector is `targetPublicChatId`, target resolution must require the target user to be discoverable by public chat ID (`discoverable_by_public_chat_id=true`) in addition to normal global-DM privacy/allow checks
   - use enumeration-resistant error responses for target resolution (unknown target vs blocked vs privacy-disabled should not reveal more than necessary)
   - implement as race-safe ensure (canonical user pair + unique DM constraint + insert/lookup retry on duplicate)
 - `GET /api/chat/inbox`
   - `auth: required`
-  - returns inbox results according to surface + policy (mixed where allowed; not universally mixed)
+  - returns inbox results according to surface + policy
   - if workspace-thread rows are eligible in this request mode, require a validated workspace-capable surface value (practically `x-surface-id`) instead of inferring surface from `/api/chat/...` path fallback
-  - v1 recommended default on `console` surface: global threads only
-  - v1 recommended default on workspace surfaces: `global` + active workspace threads only (fits current single-workspace request context model)
-  - full all-workspaces inbox mode should be explicit and must use authz-aware server filtering/pagination
+  - v1 lock on `console` surface: global threads only
+  - v1 lock on workspace surfaces: global threads + active threads in resolved workspace only
+  - all-workspaces aggregation is out of v1 contract
   - workspace-thread rows must still be filtered by workspace access + `chat.read` for the request surface/context, in addition to participant membership
 
 #### Thread operations (scope-agnostic)
@@ -1718,7 +1738,7 @@ Create a new module mirroring other modules:
 - `GET /api/chat/threads/:threadId`
 - `GET /api/chat/threads/:threadId/messages`
 - `POST /api/chat/threads/:threadId/messages`
-  - idempotent via required `clientMessageId` in body (v1 recommendation)
+  - idempotent via required `clientMessageId` in body (locked v1 requirement)
 - `POST /api/chat/threads/:threadId/read`
   - update read cursor by `messageId` or `threadSeq`
   - request validation should require at least one cursor (`messageId` or `threadSeq`); if both are supplied, service validation must require they agree
@@ -1729,19 +1749,17 @@ Create a new module mirroring other modules:
 - `GET /api/chat/attachments/:attachmentId/content`
   - authenticated attachment delivery endpoint (or redirect/sign URL issuance endpoint)
   - must verify thread/message access before streaming/redirecting attachment content
-  - if attachment is unattached/staged, restrict access to uploader (and admins only if explicitly allowed)
+  - if attachment is unattached/staged, restrict access to uploader only in v1
   - if attachment belongs to a workspace-scoped thread, require the same validated workspace-capable surface handling as other scope-agnostic workspace chat routes (do not infer from `/api/chat/...` path fallback)
 
-#### Attachment upload endpoints (recommended two-step)
+#### Attachment upload endpoints (locked two-step v1 flow)
 
 - `POST /api/chat/threads/:threadId/attachments/reserve`
-  - create reserved attachment rows with client keys (optional if you prefer direct upload endpoint to reserve+upload in one call)
+  - create reserved attachment rows with client keys
 - `POST /api/chat/threads/:threadId/attachments/upload`
-  - multipart upload, one file per request (simplest robust v1), returns uploaded attachment metadata
+  - multipart upload, one file per request, returns uploaded attachment metadata
 - `DELETE /api/chat/threads/:threadId/attachments/:attachmentId`
   - delete staged unattached attachment (or mark deleted if attached and policy allows)
-
-Alternative (also valid): `POST /api/chat/threads/:threadId/attachments` both reserves and uploads.
 
 ### Route auth strategy details
 
@@ -1750,13 +1768,13 @@ Alternative (also valid): `POST /api/chat/threads/:threadId/attachments` both re
 Use existing route config fields:
 
 - `workspacePolicy: "required"`
-- `workspaceSurface: "app"` or `"admin"` (set explicitly per route definition; do not rely on `/api/workspace/...` path inference for admin routes)
+- `workspaceSurface: "app"` (v1 locked)
 - `permission: "chat.read"` / `"chat.write"` / etc.
 
 Notes:
 
-- In this codebase, many admin workspace APIs still use `/api/workspace/...` paths and rely on `workspaceSurface: "admin"` in route config (see existing workspace admin route modules). Chat workspace routes should follow the same pattern for admin-surface variants.
-- `workspaceSurface` is route-config, not request-selected behavior for a single registered route. If both app and admin surfaces need the "same" workspace chat operation, plan separate route entries/endpoints (each with explicit `workspaceSurface`) or route one surface through scope-agnostic `/api/chat/...` handlers with validated surface context.
+- `workspaceSurface` is route-config, not request-selected behavior for a single registered route.
+- Admin-surface workspace chat routes are out of v1 contract and can be introduced in a later revision with separate route entries.
 
 Controllers then still call `chatAccessService` for participant-level checks.
 
@@ -1789,13 +1807,13 @@ This is the most important server flow.
 ### Inputs
 
 - `threadId`
-- `clientMessageId` (v1 should require this for send endpoints to guarantee idempotent retries)
+- `clientMessageId` (required in v1 send endpoint contract for idempotent retries)
 - `text` and/or `attachmentIds`
 - `replyToMessageId` optional
 - metadata (bounded, validated)
 - request meta from headers (`x-command-id`, `x-client-id`) for realtime correlation
 
-### Transaction flow (recommended)
+### Transaction flow (v1 reference contract)
 
 1. Resolve thread access (`requireWrite=true`)
 2. Validate message payload limits (`text`, attachments count, reply target)
@@ -1814,10 +1832,10 @@ This is the most important server flow.
    - if versions match, compare the stored immutable hash to `incomingIdempotencyPayloadSha256` (authoritative replay/conflict check)
    - if versions differ, use a documented compatibility path (e.g. recompute incoming payload under the stored version if supported) or fail safely with a bounded conflict/unsupported-idempotency response; do not silently compare hashes across different canonicalization versions
    - if no live message row is found, consult `chat_message_idempotency_tombstones` before treating the send as new
-   - if a matching tombstone row is found, apply the same version-aware hash comparison and return a bounded duplicate/deleted response (recommended `409` + stable error code) rather than inserting a new message row
+   - if a matching tombstone row is found, apply the same version-aware hash comparison and return `409` with `errorCode=CHAT_MESSAGE_RETRY_BLOCKED` rather than inserting a new message row
    - if an existing row is found but immutable hash/version are absent (legacy/backfill/system row), use a documented fallback compare path (best effort) and avoid relying on mutable hydrated state where possible
    - if existing row matches the incoming idempotency payload, return existing message + thread summary (idempotent replay)
-   - if the same key maps to a materially different payload, reject as conflict (`409`) rather than returning a misleading replay
+   - if the same key maps to a materially different payload, reject as conflict (`409`, `errorCode=CHAT_IDEMPOTENCY_CONFLICT`) rather than returning a misleading replay
 6. Allocate `thread_seq`
    - lock thread row (`SELECT ... FOR UPDATE`), assign `thread_seq = next_message_seq`, then increment/store `next_message_seq = thread_seq + 1`
 7. Insert `chat_messages` row
@@ -1953,11 +1971,11 @@ Flow:
 1. Validate thread write/upload permission
 2. Create or reuse reserved attachment row (`status='reserved'`)
    - if reusing by `clientAttachmentId`, treat it as an idempotency key for the same logical upload (same user + thread)
-   - if an existing row for that key is already `uploaded`/`attached`, return the existing attachment only when content identity matches (e.g. same `sha256_hex`/size when available); otherwise reject as conflict (`409`) rather than overwriting/rebinding
+   - if an existing row for that key is already `uploaded`/`attached`, return the existing attachment only when content identity matches (e.g. same `sha256_hex`/size when available); otherwise reject as conflict (`409`, `errorCode=CHAT_ATTACHMENT_CONFLICT`) rather than overwriting/rebinding
    - if an existing same-key row is `failed` (or expired and still unattached), allow explicit retry by reusing/resetting that row (clear stale failure/upload metadata before re-claiming upload state)
 3. Claim upload transition (`reserved` -> `uploading`) atomically
    - use row lock and/or conditional update on expected prior state to ensure only one request starts streaming bytes for a given attachment row
-   - if duplicate request finds same-key row already `uploading`, do not start a second stream; return conflict/in-progress response (v1 recommended `409`) or equivalent idempotent-in-progress contract
+   - if duplicate request finds same-key row already `uploading`, do not start a second stream; return `409` with `errorCode=CHAT_ATTACHMENT_UPLOAD_IN_PROGRESS`
    - if same-key row is `uploading` but stale (timeout policy based on `updated_at`/`upload_expires_at`), transition it to `failed`/`expired` first (with cleanup) before allowing a new upload attempt
 4. Stream upload and capture metadata (mime/size, maybe image dimensions)
    - on stream/storage failure: best-effort delete partial blob, set `status='failed'`, set bounded `failed_reason`, and leave row unattached for safe retry/cleanup
@@ -1980,8 +1998,8 @@ For authenticated attachment content responses (or signed URL-backed responses),
 - default `Content-Disposition: attachment` for active-content types (HTML, SVG, XML, JS, etc.)
 - only allow inline rendering for a tightly controlled allowlist (e.g. common images) and after authz checks
 - validate attachment `status` is readable (`attached`, and optionally `uploaded` for uploader-only previews) before serving
-- for authenticated (cookie/header-auth) attachment responses, set conservative cache headers (recommended: `Cache-Control: private, no-store`) so private blobs are not reused across users/sessions
-- if authenticated attachment routes might traverse shared caches/proxies, include appropriate `Vary` headers (at least on auth-bearing selectors such as `Authorization`/`Cookie`) or disable caching entirely
+- for authenticated (cookie/header-auth) attachment responses, set `Cache-Control: private, no-store`
+- include `Vary: Authorization, Cookie` for authenticated attachment responses
 - if using signed URLs, keep URL TTL short and ensure cache policy does not outlive signature validity (e.g. `max-age <= signed-url-ttl`; avoid long-lived public cache headers for private chat blobs)
 
 ### Multipart limits problem (current server)
@@ -2007,7 +2025,7 @@ v1 can skip this and still be robust if attachment status lifecycle supports lat
 
 ## Realtime Event Publishing and Subscription Plan (Chat)
 
-### Realtime publishing helpers (recommended additions)
+### Realtime publishing helpers (required for v1)
 
 Add `server/realtime/publishers/chatPublisher.js` mirroring existing publisher pattern files.
 
@@ -2017,17 +2035,17 @@ Responsibilities:
 - Publish durable chat events safely via `realtimeEventsService`
 - Provide chat-specific log codes (`chat.realtime.publish_failed`)
 
-### Extending `realtimeEventsService` (recommended)
+### Extending `realtimeEventsService` (required for v1)
 
 Add methods or payload support for targeted delivery, e.g.:
 
-- `publishChatEvent({ eventType, thread, recipientUserIds, payload, ... })`
+- `publishChatEvent({ eventType, thread, targetUserIds, payload, ... })`
 
 Envelope additions (backward compatible):
 
-- `recipientUserIds` (array of user IDs) OR `targets` object
+- `targetUserIds` (array of user IDs)
 - `threadId`, `threadScopeKind` in payload metadata
-- optional `workspaceId`/`workspaceSlug` preserved for workspace threads
+- `workspaceId`/`workspaceSlug` preserved for workspace threads when scope is workspace
 
 ### Socket.IO server changes (`registerSocketIoRealtime.js`)
 
@@ -2038,9 +2056,9 @@ Envelope additions (backward compatible):
 2. Fanout support for targeted events:
    - if envelope includes recipient user IDs, emit to each `u:<userId>` room (or direct socket lookup if desired)
    - skip workspace topic authorization branch for these targeted events because authz is already enforced by chat service participant resolution
-3. Add optional handler for chat typing inbound control message over `realtime:message`
-   - validate payload size and shape
-   - call chat typing service with authz checks
+3. Do not accept chat typing as a generic inbound `realtime:message` client command in v1.
+   - v1 typing input contract is the REST endpoint `POST /api/chat/threads/:threadId/typing`
+   - server may add inbound realtime typing commands only in a later explicit contract revision
 
 #### Optional changes (phase 2)
 
@@ -2112,6 +2130,57 @@ Instead:
 ## API Payload and Schema Design (Server Contracts)
 
 Use TypeBox schemas and `withStandardErrorResponses(...)` like existing modules.
+
+### Error code catalog (locked v1)
+
+Chat module application errors must set `AppError.code` to one of these stable values:
+
+- `CHAT_VALIDATION_FAILED` (`400`)
+- `CHAT_FEATURE_DISABLED` (`403`)
+- `CHAT_DM_SELF_NOT_ALLOWED` (`400`)
+- `CHAT_DM_TARGET_UNAVAILABLE` (`404`) (anti-enumeration response for unknown/disallowed/blocked targets)
+- `CHAT_SURFACE_INVALID` (`400`)
+- `CHAT_THREAD_NOT_FOUND` (`404`) (includes inaccessible thread-id lookups)
+- `CHAT_MESSAGE_NOT_FOUND` (`404`)
+- `CHAT_ATTACHMENT_NOT_FOUND` (`404`)
+- `CHAT_READ_CURSOR_REQUIRED` (`400`)
+- `CHAT_READ_CURSOR_INVALID` (`400`)
+- `CHAT_IDEMPOTENCY_CONFLICT` (`409`)
+- `CHAT_MESSAGE_RETRY_BLOCKED` (`409`) (duplicate retry matched tombstone for deleted message)
+- `CHAT_ATTACHMENT_CONFLICT` (`409`)
+- `CHAT_ATTACHMENT_UPLOAD_IN_PROGRESS` (`409`)
+- `CHAT_RATE_LIMITED` (`429`)
+
+Notes:
+
+- `401` responses are produced by existing auth middleware and are outside chat-module error-code ownership.
+- Workspace-route permission denials from existing auth/workspace middleware remain framework-standard `403` responses; chat-module `AppError.code` applies to module/service-originated failures.
+
+### Endpoint contract matrix (locked v1)
+
+| Endpoint | Success contract | Locked error codes |
+| --- | --- | --- |
+| `POST /api/chat/dm/ensure` | `200` with `{ thread, created }` | `CHAT_FEATURE_DISABLED`, `CHAT_DM_SELF_NOT_ALLOWED`, `CHAT_DM_TARGET_UNAVAILABLE`, `CHAT_RATE_LIMITED` |
+| `GET /api/chat/inbox` | `200` with `{ items, nextCursor }` | `CHAT_SURFACE_INVALID`, `CHAT_FEATURE_DISABLED`, `CHAT_RATE_LIMITED` |
+| `GET /api/chat/threads/:threadId` | `200` with `{ thread }` | `CHAT_THREAD_NOT_FOUND`, `CHAT_RATE_LIMITED` |
+| `GET /api/chat/threads/:threadId/messages` | `200` with `{ items, nextCursor }` | `CHAT_THREAD_NOT_FOUND`, `CHAT_RATE_LIMITED` |
+| `POST /api/chat/threads/:threadId/messages` | `200` with `{ message, thread, idempotencyStatus }` where `idempotencyStatus` is `created` or `replayed` | `CHAT_THREAD_NOT_FOUND`, `CHAT_VALIDATION_FAILED`, `CHAT_IDEMPOTENCY_CONFLICT`, `CHAT_MESSAGE_RETRY_BLOCKED`, `CHAT_RATE_LIMITED` |
+| `POST /api/chat/threads/:threadId/read` | `200` with `{ threadId, lastReadSeq, lastReadMessageId }` | `CHAT_THREAD_NOT_FOUND`, `CHAT_READ_CURSOR_REQUIRED`, `CHAT_READ_CURSOR_INVALID`, `CHAT_RATE_LIMITED` |
+| `POST /api/chat/threads/:threadId/reactions` | `200` with `{ messageId, reactions }` | `CHAT_THREAD_NOT_FOUND`, `CHAT_MESSAGE_NOT_FOUND`, `CHAT_VALIDATION_FAILED`, `CHAT_RATE_LIMITED` |
+| `DELETE /api/chat/threads/:threadId/reactions` | `200` with `{ messageId, reactions }` | `CHAT_THREAD_NOT_FOUND`, `CHAT_MESSAGE_NOT_FOUND`, `CHAT_VALIDATION_FAILED`, `CHAT_RATE_LIMITED` |
+| `POST /api/chat/threads/:threadId/typing` | `202` with `{ accepted: true, expiresAt }` | `CHAT_THREAD_NOT_FOUND`, `CHAT_RATE_LIMITED` |
+| `POST /api/chat/threads/:threadId/attachments/reserve` | `200` with `{ attachment }` | `CHAT_THREAD_NOT_FOUND`, `CHAT_VALIDATION_FAILED`, `CHAT_ATTACHMENT_CONFLICT`, `CHAT_RATE_LIMITED` |
+| `POST /api/chat/threads/:threadId/attachments/upload` | `200` with `{ attachment }` | `CHAT_THREAD_NOT_FOUND`, `CHAT_ATTACHMENT_NOT_FOUND`, `CHAT_VALIDATION_FAILED`, `CHAT_ATTACHMENT_CONFLICT`, `CHAT_ATTACHMENT_UPLOAD_IN_PROGRESS`, `CHAT_RATE_LIMITED` |
+| `DELETE /api/chat/threads/:threadId/attachments/:attachmentId` | `204` empty body | `CHAT_THREAD_NOT_FOUND`, `CHAT_ATTACHMENT_NOT_FOUND`, `CHAT_ATTACHMENT_CONFLICT`, `CHAT_RATE_LIMITED` |
+| `GET /api/chat/attachments/:attachmentId/content` | `200` streamed content (or signed-url redirect if delivery mode enabled) | `CHAT_ATTACHMENT_NOT_FOUND`, `CHAT_SURFACE_INVALID`, `CHAT_RATE_LIMITED` |
+
+### Request body contract highlights (locked v1)
+
+- `POST /api/chat/dm/ensure`: body requires `targetPublicChatId` and rejects unknown extra target selectors.
+- `POST /api/chat/threads/:threadId/messages`: body requires `clientMessageId`; accepts text and/or `attachmentIds`; reply uses optional `replyToMessageId`.
+- `POST /api/chat/threads/:threadId/read`: body requires at least one of `messageId` or `threadSeq`; if both are supplied they must resolve to the same position.
+- `POST /api/chat/threads/:threadId/attachments/reserve`: body requires `clientAttachmentId`, file metadata (`fileName`, `mimeType`, `sizeBytes`).
+- `POST /api/chat/threads/:threadId/attachments/upload`: multipart one-file request with `attachmentId` binding to a reserved row.
 
 ### Canonical message response shape (server)
 
