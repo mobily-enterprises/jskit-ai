@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Twenty-sixth Review Amendments Summary (Post-commit server review #26)
+
+This section records corrections made during a twenty-sixth pass after the prior review cycles.
+
+### Route-convention / workspace-surface integration clarifications
+
+- Fixed a route-config convention gap: the workspace-route guidance listed `workspacePolicy` and `permission` but omitted `workspaceSurface`, which this codebase uses on `/api/workspace/...` routes to distinguish `app` vs `admin` workspace context.
+- Added explicit guidance to define workspace chat routes with the correct `workspaceSurface` per route set (e.g. admin transcript-like routes use `workspaceSurface: "admin"`); otherwise `/api/workspace/...` paths default to `app` surface inference in current auth middleware.
+- Added integration-test coverage to catch missing/wrong `workspaceSurface` config on workspace chat routes.
+
 ## Twenty-fifth Review Amendments Summary (Post-commit server review #25)
 
 This section records corrections made during a twenty-fifth pass after the prior review cycles.
@@ -1395,7 +1405,12 @@ Alternative (also valid): `POST /api/chat/threads/:threadId/attachments` both re
 Use existing route config fields:
 
 - `workspacePolicy: "required"`
+- `workspaceSurface: "app"` or `"admin"` (set explicitly per route definition; do not rely on `/api/workspace/...` path inference for admin routes)
 - `permission: "chat.read"` / `"chat.write"` / etc.
+
+Notes:
+
+- In this codebase, many admin workspace APIs still use `/api/workspace/...` paths and rely on `workspaceSurface: "admin"` in route config (see existing workspace admin route modules). Chat workspace routes should follow the same pattern for admin-surface variants.
 
 Controllers then still call `chatAccessService` for participant-level checks.
 
@@ -1973,6 +1988,7 @@ Per repository:
 ### 4. Controller/route integration tests
 
 - workspace-scoped routes enforce auth + workspace permission + participant membership
+- workspace chat routes on `/api/workspace/...` set the intended `workspaceSurface` explicitly (especially admin variants) so auth/plugin context does not silently default to `app`
 - scope-agnostic workspace-thread routes enforce validated workspace-capable surface and do not mutate `lastActiveWorkspaceId` (or trigger personal-workspace provisioning) during authz-only reads/listing (no-side-effects helper path)
 - invalid/ambiguous `x-surface-id` on scope-agnostic workspace chat reads (`inbox`, thread reads, attachment content`) is rejected explicitly and never silently normalized/fallbacked to `app`
 - controller/service plumbing preserves validated surface/authz context into `chat.service` / access resolution for scope-agnostic workspace chat operations (no accidental fallback to raw request header parsing)
