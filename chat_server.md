@@ -1,5 +1,14 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Fortieth Review Amendments Summary (Post-commit server review #40)
+
+This section records corrections made during a fortieth pass after the prior review cycles.
+
+### Account-lifecycle coverage for tombstone strategy
+
+- Fixed an account-deletion/erasure integration gap introduced by the optional tombstone table: the existing `ON DELETE RESTRICT` lifecycle notes were updated before tombstones existed and did not call out `chat_message_idempotency_tombstones.sender_user_id`.
+- Clarified that when the tombstone strategy is enabled, user deletion/erasure workflows must explicitly handle tombstones (e.g. expire/delete them or follow a documented migration/anonymization path) in addition to participants/threads/messages.
+
 ## Thirty-ninth Review Amendments Summary (Post-commit server review #39)
 
 This section records corrections made during a thirty-ninth pass after the prior review cycles.
@@ -1047,7 +1056,7 @@ Notes:
   - prefer filtering in SQL join predicates where possible
   - otherwise over-fetch and refill until the requested page size is reached (or result set exhausted) to avoid sparse/unstable pages
 - Do not rely on blind user-row cascades for chat membership cleanup. If account deletion/erasure is a product requirement, implement an explicit chat-aware deactivation/anonymization or erasure workflow that preserves thread invariants (or updates them transactionally).
-- This applies across the chat schema, not only participants: `chat_threads.created_by_user_id` and `chat_messages.sender_user_id` are also `ON DELETE RESTRICT` in this plan, so hard user deletion requires a deliberate migration/anonymization strategy.
+- This applies across the chat schema, not only participants: `chat_threads.created_by_user_id` and `chat_messages.sender_user_id` are also `ON DELETE RESTRICT` in this plan (and `chat_message_idempotency_tombstones.sender_user_id` too if the tombstone strategy is enabled), so hard user deletion requires a deliberate migration/anonymization strategy.
 - Because of `UNIQUE(thread_id, user_id)`, participant rejoin/reinvite flows should reactivate/update the existing row (`status`, `joined_at`/audit fields as policy dictates) rather than inserting a second row.
 
 ### Table 5: `chat_messages`
@@ -1160,6 +1169,7 @@ Notes:
 - Keep tombstone data minimal: replay/conflict identifiers + bounded operational reason fields only. Prefer `metadata_json='{}'` unless a concrete, non-sensitive debugging need is documented.
 - Tombstone identity fields are immutable once written for a given unique key (`thread_id`, `sender_user_id`, `client_message_id`): duplicate writes must verify `idempotency_payload_version` + `idempotency_payload_sha256` match existing values rather than overwriting them.
 - If duplicate tombstone writes provide a different expiry horizon, apply a deterministic policy (recommended: keep `expires_at = GREATEST(existing, incoming)` so retries/duplicate jobs do not shorten suppression unexpectedly).
+- Account-lifecycle note: because `sender_user_id` is `ON DELETE RESTRICT`, any hard user deletion/erasure workflow must explicitly clean/expire tombstones (or otherwise handle them in the broader chat migration/anonymization plan) when the tombstone strategy is enabled.
 
 ### Table 6: `chat_attachments`
 
