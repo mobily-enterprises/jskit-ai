@@ -116,6 +116,10 @@
         <v-card-title class="text-subtitle-1 font-weight-bold">Create billing plan</v-card-title>
         <v-divider />
         <v-card-text>
+          <v-alert v-if="state.createError" type="error" variant="tonal" class="mb-3">
+            {{ state.createError }}
+          </v-alert>
+
           <v-row dense>
             <v-col cols="12" md="4">
               <v-text-field

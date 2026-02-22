@@ -5,7 +5,7 @@ import { useQueryErrorMessage } from "../../composables/useQueryErrorMessage.js"
 import { api } from "../../services/api/index.js";
 
 const CONSOLE_BILLING_PRODUCTS_QUERY_KEY = ["console-billing-products"];
-const CONSOLE_BILLING_PROVIDER_PRICES_QUERY_KEY = ["console-billing-provider-prices"];
+const CONSOLE_BILLING_PROVIDER_PRICES_QUERY_KEY = ["console-billing-provider-prices", "product"];
 
 const PRODUCT_KIND_OPTIONS = [
   { title: "One-off", value: "one_off" },
@@ -136,9 +136,8 @@ function findProviderPriceById(prices, providerPriceId) {
   return (Array.isArray(prices) ? prices : []).find((entry) => String(entry?.id || "").trim() === targetId) || null;
 }
 
-function buildProductPricePayload({ form, selectedPrice, provider }) {
+function buildProductPricePayload({ form, selectedPrice }) {
   const providerPriceId = String(form?.providerPriceId || selectedPrice?.id || "").trim();
-  const normalizedProvider = String(provider || "").trim().toLowerCase() || "stripe";
   const interval = String(selectedPrice?.interval || "").trim().toLowerCase();
   const intervalCountValue = Number(selectedPrice?.intervalCount);
 
@@ -151,8 +150,7 @@ function buildProductPricePayload({ form, selectedPrice, provider }) {
         ? Number(selectedPrice.unitAmountMinor)
         : undefined,
     interval: interval || undefined,
-    intervalCount: interval && Number.isInteger(intervalCountValue) && intervalCountValue > 0 ? intervalCountValue : undefined,
-    provider: normalizedProvider
+    intervalCount: interval && Number.isInteger(intervalCountValue) && intervalCountValue > 0 ? intervalCountValue : undefined
   };
 }
 
@@ -198,6 +196,7 @@ export function useConsoleBillingProductsView() {
 
   const createDialogOpen = ref(false);
   const createFieldErrors = ref({});
+  const createError = ref("");
 
   const viewDialogOpen = ref(false);
   const selectedProductId = ref(0);
@@ -219,7 +218,7 @@ export function useConsoleBillingProductsView() {
 
   const providerPricesQuery = useQuery({
     queryKey: CONSOLE_BILLING_PROVIDER_PRICES_QUERY_KEY,
-    queryFn: () => api.console.listBillingProviderPrices({ active: true, limit: 100 })
+    queryFn: () => api.console.listBillingProviderPrices({ active: true, limit: 100, target: "product" })
   });
 
   const createProductMutation = useMutation({
@@ -346,12 +345,14 @@ export function useConsoleBillingProductsView() {
   function openCreateDialog() {
     clearMessages();
     createFieldErrors.value = {};
+    createError.value = "";
     resetCreateForm();
     createDialogOpen.value = true;
   }
 
   function closeCreateDialog() {
     createDialogOpen.value = false;
+    createError.value = "";
   }
 
   function openViewDialog(productId) {
@@ -406,10 +407,11 @@ export function useConsoleBillingProductsView() {
 
   async function submitCreateProduct() {
     clearMessages();
+    createError.value = "";
     createFieldErrors.value = {};
 
     if (!createSelectedProviderPrice.value) {
-      submitError.value = "Select an active catalog price.";
+      createError.value = "Select an active catalog price.";
       return;
     }
 
@@ -421,8 +423,7 @@ export function useConsoleBillingProductsView() {
       isActive: Boolean(createForm.isActive),
       price: buildProductPricePayload({
         form: createForm,
-        selectedPrice: createSelectedProviderPrice.value,
-        provider: provider.value
+        selectedPrice: createSelectedProviderPrice.value
       })
     };
 
@@ -436,7 +437,7 @@ export function useConsoleBillingProductsView() {
         return;
       }
       createFieldErrors.value = toFieldErrors(error);
-      submitError.value = String(error?.message || "Unable to create billing product.");
+      createError.value = String(error?.message || "Unable to create billing product.");
     }
   }
 
@@ -467,8 +468,7 @@ export function useConsoleBillingProductsView() {
     if (priceChanged) {
       payload.price = buildProductPricePayload({
         form: editForm,
-        selectedPrice: editSelectedProviderPrice.value,
-        provider: provider.value
+        selectedPrice: editSelectedProviderPrice.value
       });
     }
 
@@ -508,6 +508,7 @@ export function useConsoleBillingProductsView() {
       createForm,
       editForm,
       createFieldErrors,
+      createError,
       editFieldErrors,
       editError,
       submitError,
@@ -524,7 +525,7 @@ export function useConsoleBillingProductsView() {
       productsLoadError,
       ui: {
         priceDescription:
-          "Select an active provider catalog price. One-time and recurring prices are supported for products.",
+          "Select an active one-time provider catalog price. Recurring prices belong in billing plans.",
         catalogPriceLabel: "Provider price",
         catalogPriceHint: "Pick the one-time provider price this product should sell.",
         catalogPriceNoDataLoading: "Loading one-time provider prices...",

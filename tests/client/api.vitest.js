@@ -462,7 +462,8 @@ describe("client api transport", () => {
     });
     await api.console.listBillingProviderPrices({
       active: true,
-      limit: 50
+      limit: 50,
+      target: "plan"
     });
     await api.console.createBillingPlan({
       code: "pro_monthly",
@@ -540,7 +541,7 @@ describe("client api transport", () => {
     expect(urls).toContain("/api/console/billing/plans");
     expect(urls).toContain("/api/console/billing/products");
     expect(urls).toContain("/api/console/billing/settings");
-    expect(urls).toContain("/api/console/billing/provider-prices?active=true&limit=50");
+    expect(urls).toContain("/api/console/billing/provider-prices?active=true&limit=50&target=plan");
     const createBillingPlanCall = global.fetch.mock.calls.find(
       ([url, options]) => url === "/api/console/billing/plans" && String(options?.method || "").toUpperCase() === "POST"
     );
