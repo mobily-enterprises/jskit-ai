@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Eighteenth Review Amendments Summary (Post-commit server review #18)
+
+This section records corrections made during an eighteenth pass after the prior review cycles.
+
+### Global-DM privacy enforcement clarifications
+
+- Fixed a privacy-policy gap in the plan: `chat_user_settings.discoverable_by_public_chat_id` was defined in schema but not explicitly enforced in the `targetPublicChatId` DM creation/lookup flow.
+- Added explicit `POST /api/chat/dm/ensure` guidance that `targetPublicChatId` lookups must honor the target user’s discoverability setting (plus existing global-DM privacy checks) while still returning enumeration-resistant responses.
+- Added service-layer and test-plan notes so `ensureGlobalDm` / public-ID DM resolution consistently enforces discoverability.
+
 ## Seventeenth Review Amendments Summary (Post-commit server review #17)
 
 This section records corrections made during a seventeenth pass after the prior review cycles.
@@ -1127,6 +1137,7 @@ Core methods:
 
 - `createWorkspaceThread(requestWorkspace, requestUser, payload)`
 - `ensureGlobalDm(requestUser, targetUserSelector, options)`
+  - if `targetUserSelector` uses `targetPublicChatId`, target lookup/enforcement must include `discoverable_by_public_chat_id=true` and preserve anti-enumeration responses on denial
 - `listInboxForUser(requestUser, filters, pagination)`
 - `getThreadForUser(threadId, requestUser)`
 - `listMessagesForUser(threadId, requestUser, pagination)`
@@ -1160,6 +1171,7 @@ This service should reuse:
 - `workspaceService.resolveRequestContext(...)` for workspace thread routes when request already has `request.workspace` / `request.permissions`
 - `workspaceMembershipsRepository` for shared-workspace checks when global DM policy requires it
 - `chat_user_settings` + `chat_user_blocks` repositories for privacy enforcement
+  - public-ID target lookup should enforce `discoverable_by_public_chat_id` (not only `allow_global_dms`) when resolving `targetPublicChatId`
 
 ### `dmResolution.service.js` (race-safe DM creation)
 
@@ -1258,6 +1270,7 @@ Create a new module mirroring other modules:
   - request validation should require **exactly one** target selector (never both / neither)
   - define self-DM policy explicitly (recommended v1: reject self-DM unless product has a notes-to-self feature)
   - creates or returns global DM thread
+  - when selector is `targetPublicChatId`, target resolution must require the target user to be discoverable by public chat ID (`discoverable_by_public_chat_id=true`) in addition to normal global-DM privacy/allow checks
   - use enumeration-resistant error responses for target resolution (unknown target vs blocked vs privacy-disabled should not reveal more than necessary)
   - implement as race-safe ensure (canonical user pair + unique DM constraint + insert/lookup retry on duplicate)
 - `GET /api/chat/inbox`
@@ -1827,6 +1840,7 @@ Per repository:
 - blocked user prevents create
 - config disabled prevents create
 - shared-workspace requirement enforced when enabled
+- `targetPublicChatId` targeting enforces `discoverable_by_public_chat_id` and returns the same enumeration-resistant denial shape as unknown/blocked/privacy-disabled targets
 
 #### `sendMessage`
 
