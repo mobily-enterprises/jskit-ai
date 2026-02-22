@@ -1,5 +1,15 @@
 # Chat Server Implementation Plan (Server-Only, Detailed)
 
+## Forty-sixth Review Amendments Summary (Post-commit server review #46)
+
+This section records corrections made during a forty-sixth pass after the prior review cycles.
+
+### Tombstone strategy fail-closed hard-delete semantics
+
+- Fixed a durability gap in the tombstone strategy wording: the plan required writing tombstones before hard delete, but did not explicitly state that hard deletes must fail closed when tombstone creation fails (or is unsupported and no fallback path is selected).
+- Added explicit fail-closed requirements for retention/moderation/manual hard-delete flows so message rows are not deleted after losing duplicate-send suppression guarantees.
+- Added retention test coverage expectations for tombstone-write failure/unsupported paths to prevent accidental hard deletes during error handling regressions.
+
 ## Forty-fifth Review Amendments Summary (Post-commit server review #45)
 
 This section records corrections made during a forty-fifth pass after the prior review cycles.
@@ -1428,6 +1438,7 @@ Notes:
   - on duplicate key, verify immutable idempotency fields match existing row; do not silently overwrite hash/version
   - use deterministic duplicate-write merge rules for mutable fields (recommended: `expires_at = max(existing, incoming)`, bounded metadata merge or keep-existing)
   - if the source message lacks `idempotency_payload_version`/`idempotency_payload_sha256` (legacy/backfill row), return an explicit unsupported/legacy result so the caller can apply the documented fallback (retain/redact row until retry window), not a partial tombstone write
+  - for non-duplicate errors (DB write failure, invariant mismatch) return a hard failure result; callers must not proceed to hard-delete the source message in tombstone mode
 - `findByClientMessageId(threadId, senderUserId, clientMessageId, options)`
 - `deleteExpiredBatch(now, batchSize, options)`
 - `listExpired(batchSize, now, options)` (optional if delete method returns rows)
@@ -2152,6 +2163,7 @@ If messages with non-null `client_message_id` can be hard-deleted (retention and
 Choose one explicit strategy and keep it consistent across send + retention flows:
 
 - Preferred (more robust): write an idempotency tombstone/ledger row before hard-deleting the message row, containing at least:
+  - Fail-closed rule: if tombstone creation/update cannot be completed (and no documented fallback branch applies for that row), do **not** hard-delete the message row.
   - `thread_id`, `sender_user_id`, `client_message_id`
   - `idempotency_payload_version`, `idempotency_payload_sha256`
   - optional `original_message_id`, `deleted_at`, `expires_at`, `delete_reason`
@@ -2179,6 +2191,7 @@ Legacy/backfill compatibility requirement (important):
   - exclude rows with `client_message_id` present and missing hash/version from the hard-delete batch query, or
   - mark/route them to a separate backfill-or-redact exception workflow so they are not retried as tombstone deletes every sweep.
 - Emit bounded metrics/counters for legacy exception backlog (e.g. pre-hash rows blocking tombstone hard delete) so operators can see drift instead of silent churn.
+- This fail-closed rule applies to retention sweeps, moderation deletes, and any manual/admin hard-delete path that uses the tombstone strategy (not only the retention worker).
 
 Important cache repair requirement:
 
@@ -2380,6 +2393,7 @@ Using existing realtime test harness patterns adapted for chat:
 - duplicate tombstone writes with mismatched immutable idempotency hash/version are detected and do not silently overwrite existing tombstone identity data
 - tombstone-enabled hard-delete flow handles legacy rows missing idempotency hash/version via the documented fallback (backfill-first or retain/redact exception), not partial tombstone writes or hard-delete failure loops
 - retention sweeps do not perpetually re-select the same legacy exception rows for tombstone deletion attempts (candidate filtering/exception routing prevents log churn)
+- tombstone strategy hard-delete paths fail closed on tombstone write errors/mismatches (message row remains until tombstone succeeds or a documented fallback path is applied)
 - attachment orphan cleanup deletes DB row + storage blob
 - safe no-op when blob already missing
 
