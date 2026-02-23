@@ -30,12 +30,13 @@ DAY #1
 X Merge chats and permissions trees
 X Have "configs" in JSON files rather than .env for everything
 - Improve UI for chats, have proper workspace chats
+- Add full abilities to AI chatbot (calculate annuity, add project, change plan, list users...)s
 
 DAY #2
-- Have proper test entitlement configuration for projects and annuity calcs <---- !!!
+- Have proper entitlement configuration for projects and annuity calcs <---- !!!
 
 DAY #3
-- Add full abilities to AI chatbot (calculate annuity, add project, change plan, list users...)s
+- Have proper DB seeding, so that it "starts" well and workspaces can be created
 - Security audit to the lot
 
 DAY #4
