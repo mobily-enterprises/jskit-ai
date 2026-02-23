@@ -35,7 +35,8 @@ X have proper workspace chats
   - New message form
   - DMs button and UI
   - Won't scroll down, give focus to message form, when new message arrives
-- Add full abilities to AI chatbot (calculate DEG2RAD, add project, change plan, list users...)
+
+  - Add full abilities to AI chatbot (calculate DEG2RAD, add project, change plan, list users...)
   - Make sure chatbot has exact same permission as user chatting to it
 
 DAY #2

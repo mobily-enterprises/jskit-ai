@@ -11,12 +11,12 @@ function readChatViewSource() {
 }
 
 describe("ChatView template", () => {
-  it("renders workspace-room-first header and secondary actions", () => {
+  it("renders compact thread controls and secondary actions", () => {
     const source = readChatViewSource();
 
-    expect(source.includes("Workspace room")).toBe(true);
+    expect(source.includes("Workspace room")).toBe(false);
     expect(source.includes("Start DM")).toBe(true);
-    expect(source.includes("Back to Workspace chat")).toBe(true);
+    expect(source.includes("Workspace chat")).toBe(true);
     expect(source.includes("refreshCurrentThread")).toBe(true);
     expect(source.includes("workspaceChatPath")).toBe(false);
   });
@@ -24,19 +24,23 @@ describe("ChatView template", () => {
   it("keeps message history controls and grouped rows", () => {
     const source = readChatViewSource();
 
+    expect(source.includes("Load older history first, then continue chatting.")).toBe(false);
     expect(source.includes("Load older")).toBe(true);
     expect(source.includes("actions.loadOlderMessages")).toBe(true);
     expect(source.includes("state.messageRows")).toBe(true);
+    expect(source.includes("state.composerError")).toBe(true);
+    expect(source.includes("chat-message-bubble--composer-error")).toBe(true);
     expect(source.includes("chat-message-bubble")).toBe(true);
   });
 
-  it("wires composer send flow with attachment controls and typing indicator", () => {
+  it("wires slim composer send flow with attachment controls and typing indicator", () => {
     const source = readChatViewSource();
 
     expect(source.includes("chat-composer-shell")).toBe(true);
+    expect(source.includes("chat-composer-row")).toBe(true);
+    expect(source.includes("chat-attach-icon")).toBe(true);
     expect(source.includes("actions.sendFromComposer")).toBe(true);
     expect(source.includes("actions.handleComposerKeydown")).toBe(true);
-    expect(source.includes("state.sendOnEnter")).toBe(true);
     expect(source.includes("actions.addComposerFiles")).toBe(true);
     expect(source.includes("actions.retryComposerAttachment")).toBe(true);
     expect(source.includes("actions.removeComposerAttachment")).toBe(true);

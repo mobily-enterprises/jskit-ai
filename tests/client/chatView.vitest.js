@@ -231,7 +231,7 @@ describe("useChatView", () => {
     expect(payload.text).toBe("hello there");
     expect(String(payload.clientMessageId || "").startsWith("cm_")).toBe(true);
 
-    expect(wrapper.vm.state.sendStatus).toBe("Message sent.");
+    expect(wrapper.vm.state.composerError).toBe("");
     expect(wrapper.vm.state.composerText).toBe("");
     expect(wrapper.vm.state.actionError).toBe("");
 
@@ -243,7 +243,7 @@ describe("useChatView", () => {
     });
   });
 
-  it("shows replay status when server returns idempotency replay", async () => {
+  it("keeps composer quiet when server returns idempotency replay", async () => {
     mocks.api.chat.sendThreadMessage.mockResolvedValueOnce({
       idempotencyStatus: "replayed"
     });
@@ -254,7 +254,7 @@ describe("useChatView", () => {
     wrapper.vm.state.composerText = "same payload";
     await wrapper.vm.actions.sendFromComposer();
 
-    expect(wrapper.vm.state.sendStatus).toBe("Request replayed. Existing message returned.");
+    expect(wrapper.vm.state.composerError).toBe("");
     expect(wrapper.vm.state.actionError).toBe("");
   });
 
@@ -273,8 +273,8 @@ describe("useChatView", () => {
     wrapper.vm.state.composerText = "conflicting";
     await wrapper.vm.actions.sendFromComposer();
 
-    expect(wrapper.vm.state.sendStatus).toBe("");
-    expect(wrapper.vm.state.actionError).toBe("Duplicate message id conflicts with different content.");
+    expect(wrapper.vm.state.composerError).toBe("Duplicate message id conflicts with different content.");
+    expect(wrapper.vm.state.actionError).toBe("");
     expect(mocks.queryClient.invalidateQueries).not.toHaveBeenCalled();
   });
 
@@ -352,7 +352,7 @@ describe("useChatView", () => {
     });
     expect(mocks.inboxQueryState.refetch).toHaveBeenCalledTimes(1);
     expect(wrapper.vm.state.selectedThreadId).toBe(55);
-    expect(wrapper.vm.state.sendStatus).toBe("Direct message created.");
+    expect(wrapper.vm.state.composerError).toBe("");
   });
 
   it("supports returning to workspace room after switching threads", async () => {
@@ -452,7 +452,7 @@ describe("useChatView", () => {
     wrapper.vm.state.composerText = "hello";
     await wrapper.vm.actions.sendFromComposer();
 
-    expect(wrapper.vm.state.actionError).toBe("Resolve attachment uploads before sending.");
+    expect(wrapper.vm.state.composerError).toBe("Resolve attachment uploads before sending.");
     expect(mocks.api.chat.sendThreadMessage).not.toHaveBeenCalled();
   });
 

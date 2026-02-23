@@ -367,7 +367,7 @@ export function useChatView() {
   const sendOnEnter = ref(true);
   const sendPending = ref(false);
   const dmPending = ref(false);
-  const sendStatus = ref("");
+  const composerError = ref("");
   const actionError = ref("");
   const dmCandidates = ref([]);
   const dmCandidatesLoading = ref(false);
@@ -803,7 +803,7 @@ export function useChatView() {
   async function addComposerFiles(filesValue) {
     const threadId = normalizeThreadId(selectedThreadId.value);
     if (!threadId) {
-      actionError.value = "Select a thread before adding attachments.";
+      composerError.value = "Select a thread before adding attachments.";
       return 0;
     }
 
@@ -812,25 +812,24 @@ export function useChatView() {
       return 0;
     }
 
-    actionError.value = "";
-    sendStatus.value = "";
+    composerError.value = "";
 
     const availableSlots = Math.max(0, CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE - composerAttachments.value.length);
     if (availableSlots < 1) {
-      actionError.value = `You can add up to ${CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE} attachments per message.`;
+      composerError.value = `You can add up to ${CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE} attachments per message.`;
       return 0;
     }
 
     const acceptedFiles = incomingFiles.slice(0, availableSlots);
     if (acceptedFiles.length < incomingFiles.length) {
-      actionError.value = `Only ${CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE} attachments are allowed per message.`;
+      composerError.value = `Only ${CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE} attachments are allowed per message.`;
     }
 
     const drafts = [];
     for (const file of acceptedFiles) {
       const sizeBytes = Math.max(0, Number(file?.size || 0));
       if (sizeBytes < 1 || sizeBytes > CHAT_ATTACHMENT_MAX_UPLOAD_BYTES) {
-        actionError.value = `Each attachment must be between 1 byte and ${CHAT_ATTACHMENT_MAX_UPLOAD_BYTES} bytes.`;
+        composerError.value = `Each attachment must be between 1 byte and ${CHAT_ATTACHMENT_MAX_UPLOAD_BYTES} bytes.`;
         continue;
       }
       drafts.push(createComposerAttachmentDraft(file));
@@ -999,7 +998,7 @@ export function useChatView() {
 
     selectedThreadId.value = normalizedThreadId;
     actionError.value = "";
-    sendStatus.value = "";
+    composerError.value = "";
     composerText.value = "";
     clearComposerAttachments();
   }
@@ -1080,12 +1079,12 @@ export function useChatView() {
     const attachmentIds = composerUploadedAttachmentIds.value;
 
     if (trimmed.length > CHAT_MESSAGE_MAX_TEXT_CHARS) {
-      actionError.value = `Message must be ${CHAT_MESSAGE_MAX_TEXT_CHARS} characters or fewer.`;
+      composerError.value = `Message must be ${CHAT_MESSAGE_MAX_TEXT_CHARS} characters or fewer.`;
       return;
     }
 
     if (composerHasBlockingAttachments.value) {
-      actionError.value = "Resolve attachment uploads before sending.";
+      composerError.value = "Resolve attachment uploads before sending.";
       return;
     }
 
@@ -1096,8 +1095,7 @@ export function useChatView() {
     }
 
     sendPending.value = true;
-    actionError.value = "";
-    sendStatus.value = "";
+    composerError.value = "";
 
     try {
       const payload = {
@@ -1105,13 +1103,10 @@ export function useChatView() {
         text: hasText ? trimmed : undefined,
         attachmentIds: hasAttachments ? attachmentIds : undefined
       };
-      const result = await api.chat.sendThreadMessage(threadId, payload);
+      await api.chat.sendThreadMessage(threadId, payload);
       composerText.value = "";
       clearComposerAttachments();
-      sendStatus.value =
-        String(result?.idempotencyStatus || "") === "replayed"
-          ? "Request replayed. Existing message returned."
-          : "Message sent.";
+      composerError.value = "";
 
       await Promise.all([
         queryClient.invalidateQueries({
@@ -1129,7 +1124,7 @@ export function useChatView() {
         return;
       }
       const mapped = mapChatError(error, "Unable to send message.");
-      actionError.value = mapped.message;
+      composerError.value = mapped.message;
     } finally {
       sendPending.value = false;
     }
@@ -1175,7 +1170,6 @@ export function useChatView() {
 
     dmPending.value = true;
     actionError.value = "";
-    sendStatus.value = "";
 
     try {
       const result = await api.chat.ensureDm({
@@ -1194,7 +1188,6 @@ export function useChatView() {
       ]);
 
       await selectThread(threadId);
-      sendStatus.value = result?.created ? "Direct message created." : "Direct message opened.";
       return threadId;
     } catch (error) {
       const handled = await handleUnauthorizedError(error);
@@ -1385,7 +1378,7 @@ export function useChatView() {
       dmCandidates,
       dmCandidatesLoading,
       dmCandidatesError,
-      sendStatus,
+      composerError,
       actionError,
       inboxError,
       messagesError,
