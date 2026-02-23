@@ -6,7 +6,6 @@ import { normalizeEmail } from "../shared/auth/utils.js";
 import { parsePositiveInteger } from "../server/lib/primitives/integers.js";
 import { normalizeWorkspaceColor, mapWorkspaceAdminSummary } from "../server/domain/workspace/mappers/workspaceMappers.js";
 import { listRoleDescriptors, resolveAssignableRoleIds } from "../server/domain/workspace/policies/workspaceRoleCatalog.js";
-import { resolveWorkspaceDefaults } from "../server/domain/workspace/policies/workspacePolicyDefaults.js";
 import {
   parseWorkspaceSettingsPatch
 } from "../server/domain/workspace/policies/workspaceSettingsPatch.js";
@@ -67,44 +66,12 @@ test("workspace role catalog builds descriptors and assignable ids", () => {
   assert.equal(descriptorsWithNullRole.find((descriptor) => descriptor.id === "member").assignable, false);
 });
 
-test("resolveWorkspaceDefaults validates policy ranges and fallback values", () => {
-  const defaults = resolveWorkspaceDefaults({
-    defaultMode: "pv",
-    defaultTiming: "due",
-    defaultPaymentsPerYear: 4,
-    defaultHistoryPageSize: 25
-  });
-  assert.equal(defaults.defaultMode, "pv");
-  assert.equal(defaults.defaultTiming, "due");
-  assert.equal(defaults.defaultPaymentsPerYear, 4);
-  assert.equal(defaults.defaultHistoryPageSize, 25);
-
-  const fallbackDefaults = resolveWorkspaceDefaults({
-    defaultMode: "invalid",
-    defaultTiming: "invalid",
-    defaultPaymentsPerYear: 0,
-    defaultHistoryPageSize: 999
-  });
-  assert.equal(fallbackDefaults.defaultMode, "fv");
-  assert.equal(fallbackDefaults.defaultTiming, "ordinary");
-  assert.equal(fallbackDefaults.defaultPaymentsPerYear, 12);
-  assert.equal(fallbackDefaults.defaultHistoryPageSize, 10);
-
-  const nullPolicyDefaults = resolveWorkspaceDefaults(null);
-  assert.equal(nullPolicyDefaults.defaultMode, "fv");
-  assert.equal(nullPolicyDefaults.defaultTiming, "ordinary");
-});
-
 test("parseWorkspaceSettingsPatch parses valid fields and reports field-level errors", () => {
   const parsed = parseWorkspaceSettingsPatch({
     name: "Acme Prime",
     avatarUrl: "https://example.com/acme.png",
     color: "#123456",
     invitesEnabled: true,
-    defaultMode: "pv",
-    defaultTiming: "due",
-    defaultPaymentsPerYear: 24,
-    defaultHistoryPageSize: 30,
     appDenyEmails: [" one@example.com ", "two@example.com", "one@example.com"],
     appDenyUserIds: [1, "2", 1]
   });
@@ -114,12 +81,6 @@ test("parseWorkspaceSettingsPatch parses valid fields and reports field-level er
   assert.equal(parsed.workspacePatch.avatarUrl, "https://example.com/acme.png");
   assert.equal(parsed.workspacePatch.color, "#123456");
   assert.equal(parsed.settingsPatch.invitesEnabled, true);
-  assert.deepEqual(parsed.settingsPatch.defaults, {
-    defaultMode: "pv",
-    defaultTiming: "due",
-    defaultPaymentsPerYear: 24,
-    defaultHistoryPageSize: 30
-  });
   assert.deepEqual(parsed.settingsPatch.appSurfaceAccess, {
     denyEmails: ["one@example.com", "two@example.com"],
     denyUserIds: [1, 2]
@@ -130,25 +91,16 @@ test("parseWorkspaceSettingsPatch parses valid fields and reports field-level er
     avatarUrl: "ftp://example.com/acme.png",
     color: "not-a-color",
     invitesEnabled: "yes",
-    defaultMode: "invalid",
-    defaultTiming: "invalid",
-    defaultPaymentsPerYear: 0,
-    defaultHistoryPageSize: 101,
     appDenyEmails: ["bad-email"],
     appDenyUserIds: ["bad-id"]
   });
 
   assert.equal(invalid.workspacePatch.name, undefined);
-  assert.equal(invalid.settingsPatch.defaults, undefined);
   assert.equal(invalid.settingsPatch.appSurfaceAccess, undefined);
   assert.equal(invalid.fieldErrors.name.includes("required"), true);
   assert.equal(invalid.fieldErrors.avatarUrl.includes("http://"), true);
   assert.equal(invalid.fieldErrors.color.includes("hex color"), true);
   assert.equal(invalid.fieldErrors.invitesEnabled.includes("boolean"), true);
-  assert.equal(invalid.fieldErrors.defaultMode.includes("fv or pv"), true);
-  assert.equal(invalid.fieldErrors.defaultTiming.includes("ordinary or due"), true);
-  assert.equal(invalid.fieldErrors.defaultPaymentsPerYear.includes("1 to 365"), true);
-  assert.equal(invalid.fieldErrors.defaultHistoryPageSize.includes("1 to 100"), true);
   assert.equal(invalid.fieldErrors.appDenyEmails.includes("valid email"), true);
   assert.equal(invalid.fieldErrors.appDenyUserIds.includes("positive integers"), true);
 
@@ -186,13 +138,13 @@ test("parseWorkspaceSettingsPatch parses valid fields and reports field-level er
   const emptyColorAndDefaults = parseWorkspaceSettingsPatch({
     avatarUrl: "   ",
     color: "",
-    defaultMode: null,
-    defaultTiming: null
+    unsupportedFieldA: null,
+    unsupportedFieldB: null
   });
   assert.equal(emptyColorAndDefaults.workspacePatch.avatarUrl, "");
   assert.equal(emptyColorAndDefaults.fieldErrors.color.includes("hex color"), true);
-  assert.equal(emptyColorAndDefaults.fieldErrors.defaultMode.includes("fv or pv"), true);
-  assert.equal(emptyColorAndDefaults.fieldErrors.defaultTiming.includes("ordinary or due"), true);
+  assert.equal(emptyColorAndDefaults.fieldErrors.unsupportedFieldA, undefined);
+  assert.equal(emptyColorAndDefaults.fieldErrors.unsupportedFieldB, undefined);
 
   const throwingStringValues = parseWorkspaceSettingsPatch({
     avatarUrl: {

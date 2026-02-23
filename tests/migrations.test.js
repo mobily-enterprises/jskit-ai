@@ -15,6 +15,9 @@ const consoleBrowserErrorsMigration = require("../migrations/20260220100000_crea
 const consoleServerErrorsMigration = require("../migrations/20260220100100_create_console_server_errors.cjs");
 const securityAuditEventsMigration = require("../migrations/20260220110000_create_security_audit_events.cjs");
 const aiTranscriptsMigration = require("../migrations/20260220130000_create_ai_transcripts.cjs");
+const workspaceDefaultPolicyCleanupMigration = require(
+  "../migrations/20260223150000_remove_workspace_default_calculation_policy.cjs"
+);
 
 function createSchemaStub() {
   const calls = [];
@@ -368,4 +371,66 @@ test("ai transcripts migration creates expected tables and drop behavior", async
 
   assert.deepEqual(calls[calls.length - 2], ["dropTableIfExists", "ai_messages"]);
   assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "ai_conversations"]);
+});
+
+test("workspace default-policy cleanup migration removes deprecated fields only when present", async () => {
+  const updates = [];
+  const selectedRows = [
+    {
+      workspace_id: 1,
+      policy_json: JSON.stringify({
+        defaultMode: "fv",
+        defaultTiming: "ordinary",
+        keepMe: true
+      })
+    },
+    {
+      workspace_id: 2,
+      policy_json: JSON.stringify({
+        keepMe: true
+      })
+    }
+  ];
+
+  const knex = Object.assign(
+    (table) => {
+      assert.equal(table, "workspace_settings");
+      return {
+        async select() {
+          return selectedRows;
+        },
+        where(whereClause) {
+          return {
+            async update(payload) {
+              updates.push({
+                whereClause,
+                payload
+              });
+              return 1;
+            }
+          };
+        }
+      };
+    },
+    {
+      schema: {
+        async hasTable(name) {
+          assert.equal(name, "workspace_settings");
+          return true;
+        }
+      },
+      raw(value) {
+        return `RAW(${value})`;
+      }
+    }
+  );
+
+  await workspaceDefaultPolicyCleanupMigration.up(knex);
+
+  assert.equal(updates.length, 1);
+  assert.deepEqual(updates[0].whereClause, { workspace_id: 1 });
+  assert.equal(updates[0].payload.updated_at, "RAW(UTC_TIMESTAMP(3))");
+  assert.deepEqual(JSON.parse(updates[0].payload.policy_json), {
+    keepMe: true
+  });
 });

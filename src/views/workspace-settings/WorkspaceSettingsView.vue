@@ -45,55 +45,6 @@
               />
             </v-col>
 
-            <v-col cols="12" md="4">
-              <v-select
-                v-model="workspaceForm.defaultMode"
-                label="Default mode"
-                :items="modeOptions"
-                item-title="title"
-                item-value="value"
-                variant="outlined"
-                density="comfortable"
-                :readonly="!canManageWorkspaceSettings"
-              />
-            </v-col>
-            <v-col cols="12" md="4">
-              <v-select
-                v-model="workspaceForm.defaultTiming"
-                label="Default timing"
-                :items="timingOptions"
-                item-title="title"
-                item-value="value"
-                variant="outlined"
-                density="comfortable"
-                :readonly="!canManageWorkspaceSettings"
-              />
-            </v-col>
-            <v-col cols="12" md="2">
-              <v-text-field
-                v-model.number="workspaceForm.defaultPaymentsPerYear"
-                type="number"
-                min="1"
-                max="365"
-                label="Payments/year"
-                variant="outlined"
-                density="comfortable"
-                :readonly="!canManageWorkspaceSettings"
-              />
-            </v-col>
-            <v-col cols="12" md="2">
-              <v-text-field
-                v-model.number="workspaceForm.defaultHistoryPageSize"
-                type="number"
-                min="1"
-                max="100"
-                label="History rows"
-                variant="outlined"
-                density="comfortable"
-                :readonly="!canManageWorkspaceSettings"
-              />
-            </v-col>
-
             <v-col cols="12" md="6" class="d-flex align-center">
               <v-switch
                 v-model="workspaceForm.invitesEnabled"
@@ -176,6 +127,6 @@ const { workspace: workspaceForm } = forms;
 const { workspaceError, workspaceMessage, workspaceMessageType } = toRefs(feedback);
 const { canManageWorkspaceSettings } = toRefs(permissions);
 const { isSavingWorkspaceSettings } = toRefs(status);
-const { mode: modeOptions, timing: timingOptions, transcriptModes: transcriptModeOptions } = options;
+const { transcriptModes: transcriptModeOptions } = options;
 const { submitWorkspaceSettings } = actions;
 </script>

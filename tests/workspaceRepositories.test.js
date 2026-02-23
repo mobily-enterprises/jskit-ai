@@ -108,7 +108,7 @@ function workspaceSettingsRow(overrides = {}) {
     workspace_id: 11,
     invites_enabled: 1,
     features_json: JSON.stringify({ featureA: true }),
-    policy_json: JSON.stringify({ defaultMode: "pv" }),
+    policy_json: JSON.stringify({ retentionDays: 30 }),
     created_at: "2024-01-01T00:00:00.000Z",
     updated_at: "2024-01-01T00:00:00.000Z",
     ...overrides
@@ -258,7 +258,7 @@ test("workspace settings repository parses JSON and supports find/ensure/update 
   const ensured = await createRepo.ensureForWorkspaceId(2, {
     invitesEnabled: true,
     features: { app: true },
-    policy: { defaultMode: "pv" }
+    policy: { retentionDays: 30 }
   });
   assert.equal(ensured.workspaceId, 2);
   assert.equal(createStub.state.inserts.length, 1);
@@ -266,7 +266,7 @@ test("workspace settings repository parses JSON and supports find/ensure/update 
   const updated = await createRepo.updateByWorkspaceId(2, {
     invitesEnabled: false,
     features: { app: false },
-    policy: { defaultMode: "fv" }
+    policy: { retentionDays: 14 }
   });
   assert.equal(updated.workspaceId, 2);
   assert.equal(createStub.state.updates.length > 0, true);

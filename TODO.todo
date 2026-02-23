@@ -29,8 +29,14 @@ X User chats
 DAY #1
 X Merge chats and permissions trees
 X Have "configs" in JSON files rather than .env for everything
-- Improve UI for chats, have proper workspace chats
-- Add full abilities to AI chatbot (calculate DEG2RAD, add project, change plan, list users...)s
+X have proper workspace chats
+- Improve UI for chats
+  - Full layout, less wasted vertical space at the top
+  - New message form
+  - DMs button and UI
+  - Won't scroll down, give focus to message form, when new message arrives
+- Add full abilities to AI chatbot (calculate DEG2RAD, add project, change plan, list users...)
+  - Make sure chatbot has exact same permission as user chatting to it
 
 DAY #2
 - Have proper entitlement configuration for projects and DEG2RAD calcs <---- !!!

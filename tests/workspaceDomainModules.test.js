@@ -64,13 +64,7 @@ test("workspace mappers normalize color, summary, settings and invite payloads",
 
   const settings = mapWorkspaceSettingsPublic(
     {
-      invitesEnabled: true,
-      policy: {
-        defaultMode: "pv",
-        defaultTiming: "due",
-        defaultPaymentsPerYear: 4,
-        defaultHistoryPageSize: 25
-      }
+      invitesEnabled: true
     },
     {
       appInvitesEnabled: true,
@@ -80,10 +74,6 @@ test("workspace mappers normalize color, summary, settings and invite payloads",
   assert.equal(settings.invitesEnabled, true);
   assert.equal(settings.invitesAvailable, true);
   assert.equal(settings.invitesEffective, true);
-  assert.equal(settings.defaultMode, "pv");
-  assert.equal(settings.defaultTiming, "due");
-  assert.equal(settings.defaultPaymentsPerYear, 4);
-  assert.equal(settings.defaultHistoryPageSize, 25);
   assert.equal(mapWorkspaceSettingsPublic(null), null);
 
   const userSettings = mapUserSettingsPublic({
@@ -152,7 +142,7 @@ test("workspace access primitives normalize role/status and index structures", (
       transcriptMode: "standard"
     }
   });
-  assert.equal(defaults.policy.defaultMode, "fv");
+  assert.deepEqual(defaults.policy, {});
 
   const indexes = createMembershipIndexes([
     { id: 1, slug: "acme" },

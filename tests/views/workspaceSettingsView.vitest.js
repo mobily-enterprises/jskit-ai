@@ -211,11 +211,7 @@ function buildSettingsPayload(overrides = {}) {
     settings: {
       invitesEnabled: true,
       invitesAvailable: true,
-      appDenyEmails: ["deny@example.com"],
-      defaultMode: "pv",
-      defaultTiming: "due",
-      defaultPaymentsPerYear: 4,
-      defaultHistoryPageSize: 25
+      appDenyEmails: ["deny@example.com"]
     },
     roleCatalog: buildRoleCatalog(),
     ...overrides
@@ -330,10 +326,6 @@ describe("useWorkspaceSettingsView", () => {
     expect(wrapper.vm.vm.forms.workspace.name).toBe("Acme");
     expect(wrapper.vm.vm.forms.workspace.color).toBe("#123456");
     expect(wrapper.vm.vm.forms.workspace.appDenyEmailsText).toBe("deny@example.com");
-    expect(wrapper.vm.vm.forms.workspace.defaultMode).toBe("pv");
-    expect(wrapper.vm.vm.forms.workspace.defaultTiming).toBe("due");
-    expect(wrapper.vm.vm.forms.workspace.defaultPaymentsPerYear).toBe(4);
-    expect(wrapper.vm.vm.forms.workspace.defaultHistoryPageSize).toBe(25);
 
     expect(wrapper.vm.vm.options.inviteRoles.value).toEqual([
       { title: "admin", value: "admin" },

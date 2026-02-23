@@ -9,16 +9,6 @@ import {
   workspaceSettingsQueryKey
 } from "../../features/workspaceAdmin/queryKeys.js";
 
-const modeOptions = [
-  { title: "Future value", value: "fv" },
-  { title: "Present value", value: "pv" }
-];
-
-const timingOptions = [
-  { title: "Ordinary", value: "ordinary" },
-  { title: "Due", value: "due" }
-];
-
 const transcriptModeOptions = [
   { title: "Standard logging", value: "standard" },
   { title: "Restricted logging", value: "restricted" },
@@ -77,11 +67,7 @@ export function useWorkspaceSettingsView(options = {}) {
     invitesAvailable: false,
     assistantTranscriptMode: "standard",
     assistantSystemPromptApp: "",
-    appDenyEmailsText: "",
-    defaultMode: "fv",
-    defaultTiming: "ordinary",
-    defaultPaymentsPerYear: 12,
-    defaultHistoryPageSize: 10
+    appDenyEmailsText: ""
   });
 
   const inviteForm = reactive({
@@ -205,10 +191,6 @@ export function useWorkspaceSettingsView(options = {}) {
           .filter(Boolean)
           .join("\n")
       : "";
-    workspaceForm.defaultMode = String(data.settings?.defaultMode || "fv");
-    workspaceForm.defaultTiming = String(data.settings?.defaultTiming || "ordinary");
-    workspaceForm.defaultPaymentsPerYear = Number(data.settings?.defaultPaymentsPerYear || 12);
-    workspaceForm.defaultHistoryPageSize = Number(data.settings?.defaultHistoryPageSize || 10);
 
     if (data.roleCatalog && typeof data.roleCatalog === "object") {
       roleCatalog.value = normalizeRoleCatalog(data.roleCatalog);
@@ -250,10 +232,6 @@ export function useWorkspaceSettingsView(options = {}) {
     workspaceForm.assistantTranscriptMode = "standard";
     workspaceForm.assistantSystemPromptApp = "";
     workspaceForm.appDenyEmailsText = "";
-    workspaceForm.defaultMode = "fv";
-    workspaceForm.defaultTiming = "ordinary";
-    workspaceForm.defaultPaymentsPerYear = 12;
-    workspaceForm.defaultHistoryPageSize = 10;
 
     inviteForm.email = "";
     inviteForm.roleId = "member";
@@ -356,11 +334,7 @@ export function useWorkspaceSettingsView(options = {}) {
         invitesEnabled: workspaceForm.invitesEnabled,
         assistantTranscriptMode: workspaceForm.assistantTranscriptMode,
         assistantSystemPromptApp: workspaceForm.assistantSystemPromptApp,
-        appDenyEmails: parseDenyEmailsInput(workspaceForm.appDenyEmailsText),
-        defaultMode: workspaceForm.defaultMode,
-        defaultTiming: workspaceForm.defaultTiming,
-        defaultPaymentsPerYear: Number(workspaceForm.defaultPaymentsPerYear),
-        defaultHistoryPageSize: Number(workspaceForm.defaultHistoryPageSize)
+        appDenyEmails: parseDenyEmailsInput(workspaceForm.appDenyEmailsText)
       });
 
       queryClient.setQueryData(settingsQueryKey, data);
@@ -461,8 +435,6 @@ export function useWorkspaceSettingsView(options = {}) {
       invite: inviteForm
     },
     options: {
-      mode: modeOptions,
-      timing: timingOptions,
       transcriptModes: transcriptModeOptions,
       inviteRoles: inviteRoleOptions,
       memberRoles: memberRoleOptions,

@@ -1,13 +1,11 @@
 import { OWNER_ROLE_ID } from "../../../lib/rbacManifest.js";
 import { extractAppSurfacePolicy } from "../../../surfaces/appSurface.js";
 import { coerceWorkspaceColor } from "../../../../shared/workspace/colors.js";
-import { resolveWorkspaceDefaults } from "../policies/workspacePolicyDefaults.js";
 import { resolveTranscriptModeFromWorkspaceSettings } from "../../../lib/aiTranscriptMode.js";
 import { resolveAssistantSystemPromptsFromWorkspaceSettings } from "../../../lib/aiAssistantSystemPrompt.js";
 import { mapWorkspaceAdminSummary } from "./workspaceMappers.js";
 
 function mapWorkspaceSettingsResponse(workspace, workspaceSettings, options = {}) {
-  const defaults = resolveWorkspaceDefaults(workspaceSettings?.policy);
   const appSurfacePolicy = extractAppSurfacePolicy(workspaceSettings);
   const invitesAvailable = Boolean(options.appInvitesEnabled && options.collaborationEnabled);
   const invitesEnabled = Boolean(workspaceSettings?.invitesEnabled);
@@ -20,8 +18,7 @@ function mapWorkspaceSettingsResponse(workspace, workspaceSettings, options = {}
     invitesAvailable,
     invitesEffective: invitesAvailable && invitesEnabled,
     assistantTranscriptMode,
-    assistantSystemPromptApp: assistantSystemPrompts.app,
-    ...defaults
+    assistantSystemPromptApp: assistantSystemPrompts.app
   };
 
   if (includeAppSurfaceDenyLists) {

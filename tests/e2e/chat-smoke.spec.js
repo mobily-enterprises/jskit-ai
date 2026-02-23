@@ -44,11 +44,7 @@ function buildBootstrapResponse({ csrfToken = "csrf-chat", username = "owner.use
     workspaceSettings: {
       invitesEnabled: true,
       invitesAvailable: true,
-      invitesEffective: true,
-      defaultMode: "fv",
-      defaultTiming: "ordinary",
-      defaultPaymentsPerYear: 12,
-      defaultHistoryPageSize: 10
+      invitesEffective: true
     }
   };
 }

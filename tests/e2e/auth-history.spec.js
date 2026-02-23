@@ -65,11 +65,7 @@ function buildBootstrapResponse({ authenticated, csrfToken, username = "seed.use
     workspaceSettings: {
       invitesEnabled: true,
       invitesAvailable: true,
-      invitesEffective: true,
-      defaultMode: "fv",
-      defaultTiming: "ordinary",
-      defaultPaymentsPerYear: 12,
-      defaultHistoryPageSize: 10
+      invitesEffective: true
     }
   };
 }

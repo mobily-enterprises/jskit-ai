@@ -162,13 +162,6 @@ function createService({
         settingsPatch.invitesEnabled = parsed.settingsPatch.invitesEnabled;
       }
 
-      if (parsed.settingsPatch.defaults) {
-        settingsPatch.policy = {
-          ...(currentSettings?.policy && typeof currentSettings.policy === "object" ? currentSettings.policy : {}),
-          ...parsed.settingsPatch.defaults
-        };
-      }
-
       if (parsed.settingsPatch.appSurfaceAccess) {
         const currentFeatures =
           currentSettings?.features && typeof currentSettings.features === "object" ? currentSettings.features : {};

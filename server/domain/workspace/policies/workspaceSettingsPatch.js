@@ -1,6 +1,5 @@
 import { AppError } from "../../../lib/errors.js";
 import { normalizeEmail } from "../../../../shared/auth/utils.js";
-import { SETTINGS_MODE_OPTIONS, SETTINGS_TIMING_OPTIONS } from "../../../../shared/settings/index.js";
 import { isWorkspaceColor } from "../../../../shared/workspace/colors.js";
 import { TRANSCRIPT_MODE_VALUES } from "../../../lib/aiTranscriptMode.js";
 import { AI_ASSISTANT_SYSTEM_PROMPT_MAX_LENGTH } from "../../../lib/aiAssistantSystemPrompt.js";
@@ -136,7 +135,6 @@ function parseWorkspaceSettingsPatch(payload) {
   const fieldErrors = {};
   const workspacePatch = {};
   const settingsPatch = {};
-  const defaultsPatch = {};
 
   if (Object.hasOwn(body, "name")) {
     const name = String(body.name || "").trim();
@@ -181,46 +179,6 @@ function parseWorkspaceSettingsPatch(payload) {
     }
   }
 
-  if (Object.hasOwn(body, "defaultMode")) {
-    const value = String(body.defaultMode || "")
-      .trim()
-      .toLowerCase();
-    if (!SETTINGS_MODE_OPTIONS.includes(value)) {
-      fieldErrors.defaultMode = "Default mode must be fv or pv.";
-    } else {
-      defaultsPatch.defaultMode = value;
-    }
-  }
-
-  if (Object.hasOwn(body, "defaultTiming")) {
-    const value = String(body.defaultTiming || "")
-      .trim()
-      .toLowerCase();
-    if (!SETTINGS_TIMING_OPTIONS.includes(value)) {
-      fieldErrors.defaultTiming = "Default timing must be ordinary or due.";
-    } else {
-      defaultsPatch.defaultTiming = value;
-    }
-  }
-
-  if (Object.hasOwn(body, "defaultPaymentsPerYear")) {
-    const value = Number(body.defaultPaymentsPerYear);
-    if (!Number.isInteger(value) || value < 1 || value > 365) {
-      fieldErrors.defaultPaymentsPerYear = "Default payments per year must be an integer from 1 to 365.";
-    } else {
-      defaultsPatch.defaultPaymentsPerYear = value;
-    }
-  }
-
-  if (Object.hasOwn(body, "defaultHistoryPageSize")) {
-    const value = Number(body.defaultHistoryPageSize);
-    if (!Number.isInteger(value) || value < 1 || value > 100) {
-      fieldErrors.defaultHistoryPageSize = "Default history page size must be an integer from 1 to 100.";
-    } else {
-      defaultsPatch.defaultHistoryPageSize = value;
-    }
-  }
-
   if (Object.hasOwn(body, "assistantTranscriptMode")) {
     const value = String(body.assistantTranscriptMode || "")
       .trim()
@@ -245,10 +203,6 @@ function parseWorkspaceSettingsPatch(payload) {
         fieldErrors.assistantSystemPromptApp = "assistantSystemPromptApp is invalid.";
       }
     }
-  }
-
-  if (Object.keys(defaultsPatch).length > 0) {
-    settingsPatch.defaults = defaultsPatch;
   }
 
   let appSurfaceAccessPatch = null;

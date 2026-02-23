@@ -54,12 +54,7 @@ function createWorkspaceServiceFixture(options = {}) {
           workspaceId: 11,
           invitesEnabled: true,
           features: {},
-          policy: {
-            defaultMode: "pv",
-            defaultTiming: "due",
-            defaultPaymentsPerYear: 4,
-            defaultHistoryPageSize: 25
-          }
+          policy: {}
         }
       ],
       [
@@ -538,7 +533,12 @@ test("workspace service list/select methods enforce auth, access rules, and work
   assert.equal(selectedBySlug.workspace.slug, "acme");
   assert.equal(selectedBySlug.membership.roleId, "member");
   assert.equal(selectedBySlug.permissions.includes("history.read"), true);
-  assert.equal(selectedBySlug.workspaceSettings.defaultMode, "pv");
+  assert.deepEqual(Object.keys(selectedBySlug.workspaceSettings).sort(), [
+    "assistantTranscriptMode",
+    "invitesAvailable",
+    "invitesEffective",
+    "invitesEnabled"
+  ]);
 
   const selectedById = await service.selectWorkspaceForUser(
     {
@@ -744,7 +744,12 @@ test("workspace service builds bootstrap payload for authenticated and unauthent
   assert.equal(Array.isArray(signedIn.pendingInvites), true);
   assert.equal(state.calls.markExpiredPendingInvites, 0);
   assert.equal(signedIn.activeWorkspace.slug, "acme");
-  assert.equal(signedIn.workspaceSettings.defaultMode, "pv");
+  assert.deepEqual(Object.keys(signedIn.workspaceSettings).sort(), [
+    "assistantTranscriptMode",
+    "invitesAvailable",
+    "invitesEffective",
+    "invitesEnabled"
+  ]);
   assert.equal(signedIn.userSettings.theme, "system");
 
   const fixtureWithoutAvatarService = createWorkspaceServiceFixture({

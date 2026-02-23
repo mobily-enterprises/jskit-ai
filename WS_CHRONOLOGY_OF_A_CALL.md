@@ -22,11 +22,7 @@ async function submitWorkspaceSettings() {
     color: workspaceForm.color,
     avatarUrl: workspaceForm.avatarUrl,
     invitesEnabled: workspaceForm.invitesEnabled,
-    appDenyEmails: parseDenyEmailsInput(workspaceForm.appDenyEmailsText),
-    defaultMode: workspaceForm.defaultMode,
-    defaultTiming: workspaceForm.defaultTiming,
-    defaultPaymentsPerYear: Number(workspaceForm.defaultPaymentsPerYear),
-    defaultHistoryPageSize: Number(workspaceForm.defaultHistoryPageSize)
+    appDenyEmails: parseDenyEmailsInput(workspaceForm.appDenyEmailsText)
   });
 
   queryClient.setQueryData(settingsQueryKey, data);

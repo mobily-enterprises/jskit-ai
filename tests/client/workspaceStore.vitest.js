@@ -105,11 +105,7 @@ describe("workspaceStore", () => {
       workspaceSettings: {
         invitesEnabled: true,
         invitesAvailable: true,
-        invitesEffective: true,
-        defaultMode: "pv",
-        defaultTiming: "due",
-        defaultPaymentsPerYear: "4",
-        defaultHistoryPageSize: "25"
+        invitesEffective: true
       },
       userSettings: {
         theme: "dark"

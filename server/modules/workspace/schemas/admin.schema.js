@@ -4,7 +4,6 @@ import {
   AUTH_EMAIL_MIN_LENGTH,
   AUTH_EMAIL_PATTERN
 } from "../../../../shared/auth/authConstraints.js";
-import { SETTINGS_MODE_OPTIONS, SETTINGS_TIMING_OPTIONS } from "../../../../shared/settings/index.js";
 import { enumSchema } from "../../api/schema.js";
 import { createPaginationQuerySchema } from "../../api/schema/paginationQuery.schema.js";
 import { schema as sharedSchema } from "./shared.schema.js";
@@ -43,10 +42,6 @@ const settingsUpdate = Type.Object(
     invitesEnabled: Type.Optional(Type.Boolean()),
     assistantTranscriptMode: Type.Optional(enumSchema(["standard", "restricted", "disabled"])),
     assistantSystemPromptApp: Type.Optional(Type.String({ maxLength: 4000 })),
-    defaultMode: Type.Optional(enumSchema(SETTINGS_MODE_OPTIONS)),
-    defaultTiming: Type.Optional(enumSchema(SETTINGS_TIMING_OPTIONS)),
-    defaultPaymentsPerYear: Type.Optional(Type.Integer({ minimum: 1, maximum: 365 })),
-    defaultHistoryPageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
     appDenyEmails: Type.Optional(
       Type.Array(
         Type.String({

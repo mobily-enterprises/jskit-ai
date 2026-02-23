@@ -30,12 +30,6 @@ test("workspace admin mappers map settings/member/invite/payload shapes", () => 
             denyUserIds: [3]
           }
         }
-      },
-      policy: {
-        defaultMode: "pv",
-        defaultTiming: "due",
-        defaultPaymentsPerYear: 4,
-        defaultHistoryPageSize: 25
       }
     },
     {

@@ -38,12 +38,7 @@ function createWorkspaceAdminFixture(overrides = {}) {
           }
         }
       },
-      policy: {
-        defaultMode: "pv",
-        defaultTiming: "due",
-        defaultPaymentsPerYear: 4,
-        defaultHistoryPageSize: 25
-      }
+      policy: {}
     },
     memberships: [
       {
@@ -600,10 +595,6 @@ test("workspace admin service reads and updates workspace settings with role cat
       avatarUrl: "https://example.com/new.png",
       color: "#112233",
       invitesEnabled: false,
-      defaultMode: "fv",
-      defaultTiming: "ordinary",
-      defaultPaymentsPerYear: 12,
-      defaultHistoryPageSize: 10,
       assistantSystemPromptApp: "Keep answers brief.",
       appDenyEmails: ["one@example.com"],
       appDenyUserIds: [2]
@@ -964,12 +955,7 @@ test("workspace admin service rolls back workspace update when settings write fa
       workspaceId: 11,
       invitesEnabled: true,
       features: {},
-      policy: {
-        defaultMode: "fv",
-        defaultTiming: "ordinary",
-        defaultPaymentsPerYear: 12,
-        defaultHistoryPageSize: 10
-      }
+      policy: {}
     }
   };
 
@@ -1526,20 +1512,11 @@ test("workspace admin service normalizes sparse member/invite data and fallback 
   await service.updateWorkspaceSettings(
     { id: 11 },
     {
-      defaultMode: "pv",
-      defaultTiming: "due",
-      defaultPaymentsPerYear: 4,
-      defaultHistoryPageSize: 25,
       appDenyEmails: ["one@example.com"],
       appDenyUserIds: [2]
     }
   );
-  assert.deepEqual(state.settings.policy, {
-    defaultMode: "pv",
-    defaultTiming: "due",
-    defaultPaymentsPerYear: 4,
-    defaultHistoryPageSize: 25
-  });
+  assert.equal(state.settings.policy, null);
   assert.deepEqual(state.settings.features.surfaceAccess.app, {
     denyEmails: ["one@example.com"],
     denyUserIds: [2]
