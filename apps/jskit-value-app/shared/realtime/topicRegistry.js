@@ -1,6 +1,14 @@
 import { REALTIME_TOPICS } from "./eventTypes.js";
+import {
+  createTopicCatalog,
+  listTopics,
+  getTopicRule as lookupTopicRule,
+  isSupportedTopic as catalogSupportsTopic,
+  isTopicAllowedForSurface as catalogTopicAllowedForSurface,
+  hasTopicPermission as catalogHasTopicPermission
+} from "@jskit-ai/realtime-contracts";
 
-const REALTIME_TOPIC_REGISTRY = Object.freeze({
+const REALTIME_TOPIC_REGISTRY = createTopicCatalog({
   [REALTIME_TOPICS.PROJECTS]: Object.freeze({
     subscribeSurfaces: Object.freeze(["app", "admin"]),
     requiredAnyPermission: Object.freeze(["projects.read"])
@@ -43,99 +51,28 @@ const REALTIME_TOPIC_REGISTRY = Object.freeze({
   })
 });
 
-function normalizeTopic(topicValue) {
-  return String(topicValue || "").trim();
-}
-
-function normalizePermission(permissionValue) {
-  return String(permissionValue || "").trim();
-}
-
-function normalizeSurface(surfaceValue) {
-  return String(surfaceValue || "")
-    .trim()
-    .toLowerCase();
-}
-
 function listRealtimeTopics() {
-  return Object.keys(REALTIME_TOPIC_REGISTRY);
+  return listTopics(REALTIME_TOPIC_REGISTRY);
 }
 
 function getTopicRule(topicValue) {
-  const topic = normalizeTopic(topicValue);
-  if (!topic) {
-    return null;
-  }
-
-  return REALTIME_TOPIC_REGISTRY[topic] || null;
+  return lookupTopicRule(REALTIME_TOPIC_REGISTRY, topicValue);
 }
 
 function isSupportedTopic(topicValue) {
-  return Boolean(getTopicRule(topicValue));
+  return catalogSupportsTopic(REALTIME_TOPIC_REGISTRY, topicValue);
 }
 
 function isTopicAllowedForSurface(topicValue, surfaceValue) {
-  const topicRule = getTopicRule(topicValue);
-  if (!topicRule) {
-    return false;
-  }
-
-  const normalizedSurface = normalizeSurface(surfaceValue);
-  if (!normalizedSurface) {
-    return false;
-  }
-
-  const subscribeSurfaces = Array.isArray(topicRule.subscribeSurfaces) ? topicRule.subscribeSurfaces : [];
-  if (subscribeSurfaces.length < 1) {
-    return true;
-  }
-
-  return subscribeSurfaces.map(normalizeSurface).includes(normalizedSurface);
+  return catalogTopicAllowedForSurface(REALTIME_TOPIC_REGISTRY, topicValue, surfaceValue);
 }
 
 function listRealtimeTopicsForSurface(surfaceValue) {
   return listRealtimeTopics().filter((topic) => isTopicAllowedForSurface(topic, surfaceValue));
 }
 
-function resolveRequiredPermissions(topicRule, surfaceValue) {
-  if (!topicRule || typeof topicRule !== "object") {
-    return [];
-  }
-
-  const surfaceMap =
-    topicRule.requiredAnyPermissionBySurface && typeof topicRule.requiredAnyPermissionBySurface === "object"
-      ? topicRule.requiredAnyPermissionBySurface
-      : null;
-  const normalizedSurface = normalizeSurface(surfaceValue);
-  if (surfaceMap && normalizedSurface) {
-    const surfacedPermissions = Array.isArray(surfaceMap[normalizedSurface]) ? surfaceMap[normalizedSurface] : null;
-    if (surfacedPermissions) {
-      return surfacedPermissions;
-    }
-  }
-
-  return Array.isArray(topicRule.requiredAnyPermission) ? topicRule.requiredAnyPermission : [];
-}
-
 function hasTopicPermission(topicValue, permissions, surfaceValue = "") {
-  const topicRule = getTopicRule(topicValue);
-  if (!topicRule) {
-    return false;
-  }
-
-  const requiredAnyPermission = resolveRequiredPermissions(topicRule, surfaceValue);
-  if (requiredAnyPermission.length < 1) {
-    return true;
-  }
-
-  const permissionSet = new Set(
-    (Array.isArray(permissions) ? permissions : []).map(normalizePermission).filter(Boolean)
-  );
-  if (permissionSet.has("*")) {
-    return true;
-  }
-
-  return requiredAnyPermission.some((permission) => permissionSet.has(normalizePermission(permission)));
+  return catalogHasTopicPermission(REALTIME_TOPIC_REGISTRY, topicValue, permissions, surfaceValue);
 }
 
 export {
