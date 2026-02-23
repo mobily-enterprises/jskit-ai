@@ -284,7 +284,9 @@ export default {
 .app-content--conversation {
   display: flex;
   flex-direction: column;
+  height: calc(100dvh - var(--v-layout-top, 56px));
   min-height: calc(100dvh - var(--v-layout-top, 56px));
+  overflow: hidden;
   padding-top: 0.32rem;
   padding-bottom: 0;
 }

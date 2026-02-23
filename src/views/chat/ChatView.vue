@@ -1,6 +1,6 @@
 <template>
-  <section class="chat-view">
-    <div class="chat-status-stack">
+  <section class="chat-view d-flex flex-column h-100 ga-1">
+    <div class="chat-status-stack d-flex flex-column ga-1">
       <v-alert v-if="state.workspaceRoomError" type="error" variant="tonal" density="comfortable">
         {{ state.workspaceRoomError }}
       </v-alert>
@@ -15,9 +15,9 @@
       </v-alert>
     </div>
 
-    <section class="chat-message-section">
-      <div class="chat-history-tools">
-        <div class="chat-history-tools-main">
+    <section class="chat-message-section d-flex flex-column flex-grow-1 ga-1">
+      <div class="chat-history-tools d-flex align-center justify-space-between ga-1">
+        <div class="chat-history-tools-main d-flex align-center flex-wrap ga-1">
           <v-btn
             variant="text"
             size="small"
@@ -33,7 +33,7 @@
             variant="text"
             size="small"
             density="compact"
-            class="chat-back-link"
+            class="chat-back-link text-none font-weight-semibold px-2"
             @click="actions.backToWorkspaceRoom"
           >
             Workspace chat
@@ -53,7 +53,7 @@
 
       <div
         ref="messagePanelRef"
-        class="chat-message-panel"
+        class="chat-message-panel flex-grow-1"
         :class="{ 'chat-message-panel--empty': state.messageRows.length < 1 && !state.composerError }"
         @scroll.passive="handleMessagePanelScroll"
       >
@@ -140,7 +140,7 @@
           @change="handleComposerFileInputChange"
         >
 
-        <div class="chat-composer-row">
+        <div class="chat-composer-row d-flex align-end ga-2">
           <v-btn
             variant="text"
             size="small"
@@ -196,7 +196,7 @@
           <div
             v-for="attachment in state.composerAttachments"
             :key="attachment.localId"
-            class="chat-composer-attachment-row"
+            class="chat-composer-attachment-row d-flex align-center ga-2"
           >
             <div class="chat-composer-attachment-main">
               <div class="chat-composer-attachment-name">{{ attachment.fileName }}</div>
@@ -605,52 +605,26 @@ watch(
 
 <style scoped>
 .chat-view {
-  --chat-gap: 0.24rem;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: var(--chat-gap);
-  height: 100%;
-  min-height: min(82vh, 980px);
+  min-height: 0;
+  overflow: hidden;
   padding-block: 0.1rem 0;
 }
 
 .chat-back-link {
   min-height: 30px;
-  padding-inline: 0.4rem;
-  text-transform: none;
-  font-weight: 600;
-}
-
-.chat-status-stack {
-  display: grid;
-  gap: 0.28rem;
 }
 
 .chat-message-section {
   min-height: 0;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: 0.24rem;
-}
-
-.chat-history-tools {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.2rem;
+  overflow: hidden;
 }
 
 .chat-history-tools-main {
   min-width: 0;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.08rem;
 }
 
 .chat-message-panel {
-  min-height: 340px;
-  max-height: min(64vh, 720px);
+  min-height: 0;
   overflow: auto;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   border-radius: 20px;
@@ -792,11 +766,9 @@ watch(
 }
 
 .chat-composer-section {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
+  flex: 0 0 auto;
+  position: relative;
   padding-bottom: 0;
-  background: linear-gradient(180deg, rgba(var(--v-theme-background), 0) 0%, rgba(var(--v-theme-background), 0.92) 24%);
 }
 
 .chat-composer-shell {
@@ -807,12 +779,6 @@ watch(
   display: grid;
   gap: 0.3rem;
   box-shadow: 0 8px 20px rgba(17, 26, 42, 0.05);
-}
-
-.chat-composer-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.35rem;
 }
 
 .chat-attach-button {
@@ -873,9 +839,6 @@ watch(
 }
 
 .chat-composer-attachment-row {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   border-radius: 12px;
   padding: 0.35rem 0.5rem;
@@ -917,9 +880,6 @@ watch(
 
 @media (max-width: 960px) {
   .chat-view {
-    --chat-gap: 0.2rem;
-    height: 100%;
-    min-height: calc(100vh - 140px);
     padding-block: 0.05rem 0;
   }
 
@@ -933,8 +893,7 @@ watch(
   }
 
   .chat-message-panel {
-    min-height: 250px;
-    max-height: 52vh;
+    min-height: 0;
     padding: 0.7rem 0.72rem;
     border-radius: 14px;
   }
@@ -949,7 +908,6 @@ watch(
   }
 
   .chat-composer-section {
-    bottom: calc(env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
