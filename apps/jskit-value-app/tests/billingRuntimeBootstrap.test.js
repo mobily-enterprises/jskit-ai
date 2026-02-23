@@ -73,6 +73,7 @@ test("server bootstrap succeeds with billing disabled and no billing secrets", a
       }
     },
     envOverrides: {
+      APP_PUBLIC_URL: "https://app.example.test",
       BILLING_OPERATION_KEY_SECRET: "",
       BILLING_PROVIDER_IDEMPOTENCY_KEY_SECRET: "",
       BILLING_STRIPE_WEBHOOK_ENDPOINT_SECRET: ""

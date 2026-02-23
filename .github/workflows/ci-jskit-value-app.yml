@@ -1,0 +1,54 @@
+name: CI - jskit-value-app
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "apps/jskit-value-app/**"
+      - ".github/workflows/ci-jskit-value-app.yml"
+  pull_request:
+    paths:
+      - "apps/jskit-value-app/**"
+      - ".github/workflows/ci-jskit-value-app.yml"
+
+jobs:
+  quality-and-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/jskit-value-app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/jskit-value-app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: API contract docs check
+        run: npm run docs:api-contracts:check
+
+      - name: Backend tests
+        run: npm test
+
+      - name: Client tests
+        run: npm run test:client
+
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=critical
