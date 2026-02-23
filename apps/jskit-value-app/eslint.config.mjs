@@ -1,6 +1,4 @@
-import js from "@eslint/js";
-import vue from "eslint-plugin-vue";
-import globals from "globals";
+import { baseConfig, nodeConfig, webConfig, vueConfig } from "@jskit-ai/config-eslint";
 
 export default [
   {
@@ -15,35 +13,10 @@ export default [
       "coverage-vue/**"
     ]
   },
-  js.configs.recommended,
-  ...vue.configs["flat/recommended"],
-  {
-    files: ["**/*.{js,mjs,cjs,vue}"],
-    languageOptions: {
-      ecmaVersion: "latest",
-      sourceType: "module",
-      globals: {
-        ...globals.browser,
-        ...globals.node
-      }
-    },
-    rules: {
-      "vue/multi-word-component-names": "off",
-      "vue/max-attributes-per-line": "off",
-      "vue/singleline-html-element-content-newline": "off",
-      "vue/attributes-order": "off",
-      "vue/one-component-per-file": "off"
-    }
-  },
-  {
-    files: ["**/*.cjs"],
-    languageOptions: {
-      sourceType: "commonjs",
-      globals: {
-        ...globals.node
-      }
-    }
-  },
+  ...baseConfig,
+  ...webConfig,
+  ...nodeConfig,
+  ...vueConfig,
   {
     files: ["server/**/*.service.js"],
     rules: {
