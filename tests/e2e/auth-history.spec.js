@@ -13,6 +13,8 @@ const WORKSPACE = {
   isAccessible: true
 };
 
+const CALCULATOR_ROUTE_GLOB = "**/api/deg2rad";
+
 function buildBootstrapResponse({ authenticated, csrfToken, username = "seed.user1" }) {
   const app = {
     tenancyMode: "workspace",
@@ -59,7 +61,7 @@ function buildBootstrapResponse({ authenticated, csrfToken, username = "seed.use
       roleId: "owner",
       status: "active"
     },
-    permissions: ["annuity.calculate", "annuity.history.read", "workspace.settings.view"],
+    permissions: ["history.write", "workspace.settings.view"],
     workspaceSettings: {
       invitesEnabled: true,
       invitesAvailable: true,
@@ -69,16 +71,6 @@ function buildBootstrapResponse({ authenticated, csrfToken, username = "seed.use
       defaultPaymentsPerYear: 12,
       defaultHistoryPageSize: 10
     }
-  };
-}
-
-function buildHistoryResponse(entries) {
-  return {
-    entries,
-    page: 1,
-    pageSize: 10,
-    total: entries.length,
-    totalPages: 1
   };
 }
 
@@ -101,10 +93,7 @@ async function mockBootstrap(page, payloadFactory) {
 }
 
 async function mockSession(page, payloadFactory) {
-  let requestCount = 0;
-
   await page.route("**/api/session", async (route) => {
-    requestCount += 1;
     const payload = typeof payloadFactory === "function" ? payloadFactory(route) : payloadFactory;
     await route.fulfill({
       status: 200,
@@ -112,10 +101,6 @@ async function mockSession(page, payloadFactory) {
       body: JSON.stringify(payload)
     });
   });
-
-  return {
-    requestCount: () => requestCount
-  };
 }
 
 test("login sends CSRF token and lands on calculator", async ({ page }) => {
@@ -135,14 +120,6 @@ test("login sends CSRF token and lands on calculator", async ({ page }) => {
     username: loginCompleted ? "seed.user1" : null,
     csrfToken: "csrf-token-1"
   }));
-
-  await page.route((url) => url.pathname === "/api/history", async (route) => {
-    await route.fulfill({
-      status: 200,
-      headers: JSON_HEADERS,
-      body: JSON.stringify(buildHistoryResponse([]))
-    });
-  });
 
   await page.route("**/api/login", async (route) => {
     loginRequestCount += 1;
@@ -171,11 +148,9 @@ test("login sends CSRF token and lands on calculator", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Calculate" })).toBeVisible();
 });
 
-test("calculate appends history and includes CSRF header", async ({ page }) => {
-  const entries = [];
-  let historyIndex = 1;
-  let annuityRequestCount = 0;
-  let annuityCsrfHeader = null;
+test("DEG2RAD conversion includes CSRF header and renders result", async ({ page }) => {
+  let calculatorRequestCount = 0;
+  let calculatorCsrfHeader = null;
 
   const bootstrap = await mockBootstrap(page, () =>
     buildBootstrapResponse({
@@ -190,52 +165,18 @@ test("calculate appends history and includes CSRF header", async ({ page }) => {
     csrfToken: "csrf-token-2"
   }));
 
-  await page.route((url) => url.pathname === "/api/history", async (route) => {
-    await route.fulfill({
-      status: 200,
-      headers: JSON_HEADERS,
-      body: JSON.stringify(buildHistoryResponse(entries))
-    });
-  });
-
-  await page.route("**/api/annuityCalculator", async (route) => {
-    annuityRequestCount += 1;
-    annuityCsrfHeader = route.request().headers()["csrf-token"] || null;
-
-    const now = new Date().toISOString();
-    const entry = {
-      id: `entry-${historyIndex}`,
-      createdAt: now,
-      mode: "fv",
-      timing: "ordinary",
-      payment: "500.000000",
-      annualRate: "6.000000",
-      annualGrowthRate: "0.000000",
-      years: "20.0000",
-      paymentsPerYear: 12,
-      periodicRate: "0.005000000000",
-      periodicGrowthRate: "0.000000000000",
-      totalPeriods: "240.0000",
-      isPerpetual: false,
-      value: "230581.364674000000"
-    };
-
-    historyIndex += 1;
-    entries.unshift(entry);
+  await page.route(CALCULATOR_ROUTE_GLOB, async (route) => {
+    calculatorRequestCount += 1;
+    calculatorCsrfHeader = route.request().headers()["csrf-token"] || null;
 
     await route.fulfill({
       status: 200,
       headers: JSON_HEADERS,
       body: JSON.stringify({
-        ...entry,
-        warnings: [],
-        assumptions: {
-          rateConversion: "Periodic discount rate = annualRate/100/paymentsPerYear.",
-          timing: "Ordinary annuity assumes end-of-period payments.",
-          growingAnnuity: "Growing annuity assumes a constant annual growth rate.",
-          perpetuity: "Perpetual present value requires discount > growth."
-        },
-        historyId: entry.id
+        DEG2RAD_operation: "DEG2RAD",
+        DEG2RAD_formula: "DEG2RAD(x) = x * PI / 180",
+        DEG2RAD_degrees: "180.000000000000",
+        DEG2RAD_radians: "3.141592653590"
       })
     });
   });
@@ -246,16 +187,15 @@ test("calculate appends history and includes CSRF header", async ({ page }) => {
 
   await page.getByRole("button", { name: "Calculate" }).click();
 
-  await expect.poll(() => annuityRequestCount).toBe(1);
+  await expect.poll(() => calculatorRequestCount).toBe(1);
   await expect.poll(() => bootstrap.requestCount()).toBeGreaterThan(0);
-  expect(annuityCsrfHeader).toBe("csrf-token-2");
-  await expect(page.getByText("Page 1 of 1 (1 total)")).toBeVisible();
-  await expect(page.getByRole("cell", { name: "$230,581.36" })).toBeVisible();
-  await expect(page.getByText("no payment growth")).toBeVisible();
+  expect(calculatorCsrfHeader).toBe("csrf-token-2");
+  await expect(page.getByText("3.141592653590 rad", { exact: true })).toBeVisible();
+  await expect(page.getByText("DEG2RAD(180.000000000000) = 3.141592653590 rad")).toBeVisible();
 });
 
-test("calculate can be retried after transient API failure", async ({ page }) => {
-  let annuityRequestCount = 0;
+test("DEG2RAD conversion can be retried after transient API failure", async ({ page }) => {
+  let calculatorRequestCount = 0;
 
   const bootstrap = await mockBootstrap(page, () =>
     buildBootstrapResponse({
@@ -270,18 +210,10 @@ test("calculate can be retried after transient API failure", async ({ page }) =>
     csrfToken: "csrf-token-retry"
   }));
 
-  await page.route((url) => url.pathname === "/api/history", async (route) => {
-    await route.fulfill({
-      status: 200,
-      headers: JSON_HEADERS,
-      body: JSON.stringify(buildHistoryResponse([]))
-    });
-  });
+  await page.route(CALCULATOR_ROUTE_GLOB, async (route) => {
+    calculatorRequestCount += 1;
 
-  await page.route("**/api/annuityCalculator", async (route) => {
-    annuityRequestCount += 1;
-
-    if (annuityRequestCount === 1) {
+    if (calculatorRequestCount === 1) {
       await route.fulfill({
         status: 503,
         headers: JSON_HEADERS,
@@ -296,28 +228,10 @@ test("calculate can be retried after transient API failure", async ({ page }) =>
       status: 200,
       headers: JSON_HEADERS,
       body: JSON.stringify({
-        id: "entry-retry-1",
-        createdAt: new Date().toISOString(),
-        mode: "fv",
-        timing: "ordinary",
-        payment: "500.000000",
-        annualRate: "6.000000",
-        annualGrowthRate: "0.000000",
-        years: "20.0000",
-        paymentsPerYear: 12,
-        periodicRate: "0.005000000000",
-        periodicGrowthRate: "0.000000000000",
-        totalPeriods: "240.0000",
-        isPerpetual: false,
-        value: "230581.364674000000",
-        warnings: [],
-        assumptions: {
-          rateConversion: "Periodic discount rate = annualRate/100/paymentsPerYear.",
-          timing: "Ordinary annuity assumes end-of-period payments.",
-          growingAnnuity: "Growing annuity assumes a constant annual growth rate.",
-          perpetuity: "Perpetual present value requires discount > growth."
-        },
-        historyId: "entry-retry-1"
+        DEG2RAD_operation: "DEG2RAD",
+        DEG2RAD_formula: "DEG2RAD(x) = x * PI / 180",
+        DEG2RAD_degrees: "90.000000000000",
+        DEG2RAD_radians: "1.570796326795"
       })
     });
   });
@@ -327,11 +241,11 @@ test("calculate can be retried after transient API failure", async ({ page }) =>
   await expect(page.getByRole("button", { name: "Calculate" })).toBeVisible();
   await page.getByRole("button", { name: "Calculate" }).click();
 
-  await expect.poll(() => annuityRequestCount).toBe(1);
+  await expect.poll(() => calculatorRequestCount).toBe(1);
   await expect(page.getByText("Temporary upstream failure.")).toBeVisible();
 
   await page.getByRole("button", { name: "Calculate" }).click();
-  await expect.poll(() => annuityRequestCount).toBe(2);
+  await expect.poll(() => calculatorRequestCount).toBe(2);
   await expect.poll(() => bootstrap.requestCount()).toBeGreaterThan(0);
-  await expect(page.getByText("$230,581.36")).toBeVisible();
+  await expect(page.getByText("1.570796326795 rad", { exact: true })).toBeVisible();
 });

@@ -121,6 +121,32 @@ function createThreadsRepository(dbClient) {
     return mapThreadRowNullable(row);
   }
 
+  async function repoFindWorkspaceRoomByWorkspaceId(workspaceId, filters = {}, options = {}) {
+    const client = resolveClient(dbClient, options);
+    const numericWorkspaceId = parsePositiveInteger(workspaceId);
+    if (!numericWorkspaceId) {
+      return null;
+    }
+
+    const threadKind = String(filters?.threadKind || "").trim().toLowerCase() || "workspace_room";
+    const scopeKey = String(filters?.scopeKey || "").trim();
+
+    let query = client("chat_threads")
+      .where({
+        scope_kind: "workspace",
+        workspace_id: numericWorkspaceId,
+        thread_kind: threadKind
+      })
+      .orderBy("id", "asc");
+
+    if (scopeKey) {
+      query = query.andWhere("scope_key", scopeKey);
+    }
+
+    const row = await query.first();
+    return mapThreadRowNullable(row);
+  }
+
   async function repoListForUser(userId, filters = {}, pagination = {}, options = {}) {
     const client = resolveClient(dbClient, options);
     const numericUserId = parsePositiveInteger(userId);
@@ -374,6 +400,7 @@ function createThreadsRepository(dbClient) {
     insert: repoInsert,
     findById: repoFindById,
     findDmByCanonicalPair: repoFindDmByCanonicalPair,
+    findWorkspaceRoomByWorkspaceId: repoFindWorkspaceRoomByWorkspaceId,
     listForUser: repoListForUser,
     countForUser: repoCountForUser,
     updateById: repoUpdateById,
@@ -398,6 +425,7 @@ export const {
   insert,
   findById,
   findDmByCanonicalPair,
+  findWorkspaceRoomByWorkspaceId,
   listForUser,
   countForUser,
   updateById,

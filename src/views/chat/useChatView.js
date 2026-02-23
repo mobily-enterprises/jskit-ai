@@ -18,6 +18,7 @@ const DM_CANDIDATES_PAGE_SIZE = 100;
 const CHAT_MESSAGE_MAX_TEXT_CHARS = 4000;
 const CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE = 5;
 const CHAT_ATTACHMENT_MAX_UPLOAD_BYTES = 20_000_000;
+const WORKSPACE_ROOM_THREAD_KIND = "workspace_room";
 const MARK_READ_DEBOUNCE_MS = 180;
 const DM_PUBLIC_CHAT_ID_MAX_CHARS = 64;
 const MESSAGE_GROUP_WINDOW_MS = 5 * 60 * 1000;
@@ -40,6 +41,10 @@ function normalizeThreadId(value) {
 
 function normalizeAvatarUrl(value) {
   return String(value || "").trim();
+}
+
+function isWorkspaceRoomThread(thread) {
+  return String(thread?.threadKind || "").trim().toLowerCase() === WORKSPACE_ROOM_THREAD_KIND;
 }
 
 function parseTimestampMs(value) {
@@ -192,6 +197,10 @@ function formatThreadTitle(thread) {
   }
 
   const threadKind = String(thread?.threadKind || "").toLowerCase();
+  if (threadKind === WORKSPACE_ROOM_THREAD_KIND) {
+    return "Workspace chat";
+  }
+
   if (threadKind === "dm") {
     const peerDisplayName = normalizeText(thread?.peerUser?.displayName);
     if (peerDisplayName) {
@@ -210,6 +219,10 @@ function formatThreadTitle(thread) {
 }
 
 function formatThreadPreview(thread) {
+  if (isWorkspaceRoomThread(thread) && !thread?.lastMessageAt) {
+    return "Shared room for everyone in this workspace.";
+  }
+
   const preview = normalizeText(thread?.lastMessagePreview);
   if (preview) {
     return preview;
@@ -346,6 +359,9 @@ export function useChatView() {
   const { handleUnauthorizedError } = useAuthGuard();
 
   const selectedThreadId = ref(0);
+  const workspaceRoomThread = ref(null);
+  const workspaceRoomPending = ref(false);
+  const workspaceRoomError = ref("");
   const composerText = ref("");
   const composerAttachments = ref([]);
   const sendOnEnter = ref(true);
@@ -403,9 +419,20 @@ export function useChatView() {
   });
 
   const threads = computed(() => flattenThreadPages(inboxQuery.data.value?.pages));
-  const selectedThread = computed(() =>
-    threads.value.find((entry) => Number(entry?.id) === Number(selectedThreadId.value)) || null
-  );
+  const selectedThread = computed(() => {
+    const normalizedSelectedThreadId = normalizeThreadId(selectedThreadId.value);
+    if (!normalizedSelectedThreadId) {
+      return null;
+    }
+
+    const workspaceThreadId = normalizeThreadId(workspaceRoomThread.value?.id);
+    if (workspaceThreadId && workspaceThreadId === normalizedSelectedThreadId) {
+      return workspaceRoomThread.value;
+    }
+
+    return threads.value.find((entry) => Number(entry?.id) === normalizedSelectedThreadId) || null;
+  });
+  const inWorkspaceRoom = computed(() => isWorkspaceRoomThread(selectedThread.value));
   const selectedThreadPeerUser = computed(() => resolveThreadPeerUser(selectedThread.value));
   const composerUploadedAttachments = computed(() =>
     (Array.isArray(composerAttachments.value) ? composerAttachments.value : []).filter(
@@ -891,6 +918,79 @@ export function useChatView() {
     }
   }
 
+  async function ensureWorkspaceRoom({ force = false, selectRoom = true } = {}) {
+    if (!enabled.value) {
+      workspaceRoomThread.value = null;
+      workspaceRoomError.value = "";
+      return 0;
+    }
+
+    if (typeof api?.chat?.ensureWorkspaceRoom !== "function") {
+      workspaceRoomError.value = "Workspace chat is unavailable.";
+      return 0;
+    }
+
+    if (workspaceRoomPending.value) {
+      return normalizeThreadId(workspaceRoomThread.value?.id);
+    }
+
+    const existingThreadId = normalizeThreadId(workspaceRoomThread.value?.id);
+    if (!force && existingThreadId > 0) {
+      if (selectRoom && !normalizeThreadId(selectedThreadId.value)) {
+        selectedThreadId.value = existingThreadId;
+      }
+      return existingThreadId;
+    }
+
+    workspaceRoomPending.value = true;
+    workspaceRoomError.value = "";
+    actionError.value = "";
+
+    try {
+      const response = await api.chat.ensureWorkspaceRoom({});
+      const thread = response?.thread && typeof response.thread === "object" ? response.thread : null;
+      const threadId = normalizeThreadId(thread?.id);
+      if (!threadId) {
+        throw new Error("Workspace chat ensure response did not include a valid thread id.");
+      }
+
+      workspaceRoomThread.value = thread;
+      if (selectRoom || !normalizeThreadId(selectedThreadId.value)) {
+        await selectThread(threadId);
+      }
+
+      return threadId;
+    } catch (error) {
+      const handled = await handleUnauthorizedError(error);
+      if (handled) {
+        return 0;
+      }
+
+      const mapped = mapChatError(error, "Unable to open workspace chat.");
+      workspaceRoomError.value = mapped.message;
+      actionError.value = mapped.message;
+      if (selectRoom) {
+        selectedThreadId.value = 0;
+      }
+      return 0;
+    } finally {
+      workspaceRoomPending.value = false;
+    }
+  }
+
+  async function backToWorkspaceRoom() {
+    const workspaceThreadId = normalizeThreadId(workspaceRoomThread.value?.id);
+    if (workspaceThreadId > 0) {
+      await selectThread(workspaceThreadId);
+      return workspaceThreadId;
+    }
+
+    return ensureWorkspaceRoom({
+      force: true,
+      selectRoom: true
+    });
+  }
+
   async function selectThread(threadId) {
     const normalizedThreadId = normalizeThreadId(threadId);
     if (!normalizedThreadId || normalizedThreadId === selectedThreadId.value) {
@@ -1142,20 +1242,63 @@ export function useChatView() {
   }
 
   watch(
-    threads,
-    (nextThreads) => {
-      if (!Array.isArray(nextThreads) || nextThreads.length < 1) {
+    () => [enabled.value, workspaceSlug.value],
+    ([nextEnabled, nextWorkspaceSlug], previous = []) => {
+      const previousEnabled = Boolean(previous[0]);
+      const previousWorkspaceSlug = String(previous[1] || "");
+      const workspaceChanged = Boolean(previousWorkspaceSlug) && previousWorkspaceSlug !== String(nextWorkspaceSlug || "");
+
+      if (!nextEnabled) {
         selectedThreadId.value = 0;
+        workspaceRoomThread.value = null;
+        workspaceRoomError.value = "";
+        workspaceRoomPending.value = false;
         return;
       }
 
-      const selected = normalizeThreadId(selectedThreadId.value);
-      const selectedStillExists = nextThreads.some((thread) => Number(thread?.id) === selected);
-      if (selectedStillExists) {
+      if (workspaceChanged) {
+        selectedThreadId.value = 0;
+        workspaceRoomThread.value = null;
+        workspaceRoomError.value = "";
+      }
+
+      const hasWorkspaceThread = normalizeThreadId(workspaceRoomThread.value?.id) > 0;
+      if (!previousEnabled || workspaceChanged || !hasWorkspaceThread) {
+        void ensureWorkspaceRoom({
+          force: workspaceChanged || !hasWorkspaceThread,
+          selectRoom: true
+        });
+      }
+    },
+    {
+      immediate: true
+    }
+  );
+
+  watch(
+    () => [threads.value, workspaceRoomThread.value, selectedThreadId.value],
+    ([nextThreads, nextWorkspaceRoomThread, nextSelectedThreadId]) => {
+      const selected = normalizeThreadId(nextSelectedThreadId);
+      const workspaceThreadId = normalizeThreadId(nextWorkspaceRoomThread?.id);
+      const threadItems = Array.isArray(nextThreads) ? nextThreads : [];
+
+      if (!selected) {
+        if (workspaceThreadId) {
+          selectedThreadId.value = workspaceThreadId;
+        }
         return;
       }
 
-      selectedThreadId.value = normalizeThreadId(nextThreads[0]?.id);
+      if (workspaceThreadId && selected === workspaceThreadId) {
+        return;
+      }
+
+      const selectedExists = threadItems.some((thread) => normalizeThreadId(thread?.id) === selected);
+      if (selectedExists) {
+        return;
+      }
+
+      selectedThreadId.value = workspaceThreadId || 0;
     },
     {
       immediate: true
@@ -1224,6 +1367,10 @@ export function useChatView() {
       selectedThreadId,
       selectedThread,
       selectedThreadPeerUser,
+      workspaceRoomThread,
+      workspaceRoomPending,
+      workspaceRoomError,
+      inWorkspaceRoom,
       threads,
       messages,
       latestMessage,
@@ -1269,6 +1416,8 @@ export function useChatView() {
       formatMessageText
     },
     actions: {
+      ensureWorkspaceRoom,
+      backToWorkspaceRoom,
       selectThread,
       ensureDmThread,
       refreshDmCandidates,

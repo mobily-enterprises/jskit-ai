@@ -9,6 +9,8 @@ function createChatServiceFixture(options = {}) {
     nextMessageId: 1,
     nextAttachmentId: 1,
     nextThreadId: 90,
+    workspaceRoomByWorkspaceId: new Map(),
+    workspaceRoomInsertDuplicateRemaining: Math.max(0, Number(options.workspaceRoomInsertDuplicateTimes || 0)),
     thread: {
       id: Number(options.threadId || 11),
       scopeKind: options.threadScopeKind || "global",
@@ -145,6 +147,19 @@ function createChatServiceFixture(options = {}) {
         }
         return { ...state.thread };
       },
+      async findWorkspaceRoomByWorkspaceId(workspaceId, { threadKind = "workspace_room", scopeKey } = {}) {
+        const entry = state.workspaceRoomByWorkspaceId.get(Number(workspaceId)) || null;
+        if (!entry) {
+          return null;
+        }
+        if (String(entry.threadKind || "") !== String(threadKind || "")) {
+          return null;
+        }
+        if (scopeKey && String(entry.scopeKey || "") !== String(scopeKey || "")) {
+          return null;
+        }
+        return { ...entry };
+      },
       async findDmByCanonicalPair({ userAId, userBId }) {
         const threadId = state.dmByPair.get(dmPairKey(userAId, userBId));
         if (!threadId) {
@@ -159,6 +174,14 @@ function createChatServiceFixture(options = {}) {
         };
       },
       async insert(payload) {
+        if (String(payload?.threadKind || "") === "workspace_room" && state.workspaceRoomInsertDuplicateRemaining > 0) {
+          state.workspaceRoomInsertDuplicateRemaining -= 1;
+          const error = new Error("Duplicate workspace room");
+          error.errno = 1062;
+          error.code = "ER_DUP_ENTRY";
+          throw error;
+        }
+
         const inserted = {
           ...state.thread,
           id: state.nextThreadId++,
@@ -176,8 +199,27 @@ function createChatServiceFixture(options = {}) {
           updatedAt: "2026-02-22T00:00:00.000Z"
         };
 
+        if (String(inserted.threadKind || "") === "workspace_room" && Number(inserted.workspaceId) > 0) {
+          state.workspaceRoomByWorkspaceId.set(Number(inserted.workspaceId), inserted);
+        }
         state.thread = inserted;
         return { ...inserted };
+      },
+      async updateById(threadId, patch = {}) {
+        if (Number(threadId) !== Number(state.thread.id)) {
+          return null;
+        }
+
+        if (Object.hasOwn(patch, "participantCount")) {
+          state.thread.participantCount = Number(patch.participantCount || 0);
+        }
+        state.thread.updatedAt = "2026-02-22T00:00:00.000Z";
+
+        if (String(state.thread.threadKind || "") === "workspace_room" && Number(state.thread.workspaceId) > 0) {
+          state.workspaceRoomByWorkspaceId.set(Number(state.thread.workspaceId), { ...state.thread });
+        }
+
+        return { ...state.thread };
       },
       async allocateNextMessageSequence(threadId) {
         if (Number(threadId) !== Number(state.thread.id)) {
@@ -211,6 +253,12 @@ function createChatServiceFixture(options = {}) {
         const participant = state.participantByThreadUser.get(key);
         return participant ? { ...participant } : null;
       },
+      async listByThreadId(threadId) {
+        const numericThreadId = Number(threadId);
+        return Array.from(state.participantByThreadUser.values())
+          .filter((participant) => Number(participant.threadId) === numericThreadId)
+          .map((participant) => ({ ...participant }));
+      },
       async updateReadCursorMonotonic(threadId, userId, patch) {
         const key = `${Number(threadId)}:${Number(userId)}`;
         const participant = state.participantByThreadUser.get(key);
@@ -243,6 +291,33 @@ function createChatServiceFixture(options = {}) {
         }
 
         return Array.from(state.participantByThreadUser.values());
+      },
+      async upsertWorkspaceRoomParticipants(threadId, userIds) {
+        for (const userId of userIds) {
+          const key = `${Number(threadId)}:${Number(userId)}`;
+          const existing = state.participantByThreadUser.get(key);
+          if (existing) {
+            state.participantByThreadUser.set(key, {
+              ...existing,
+              status: "active",
+              leftAt: null,
+              removedByUserId: null
+            });
+            continue;
+          }
+
+          state.participantByThreadUser.set(key, {
+            ...threadParticipant,
+            id: state.participantByThreadUser.size + 1,
+            threadId: Number(threadId),
+            userId: Number(userId),
+            status: "active"
+          });
+        }
+
+        return Array.from(state.participantByThreadUser.values()).filter(
+          (participant) => Number(participant.threadId) === Number(threadId)
+        );
       },
       async listActiveUserIdsByThreadId(threadId) {
         const numericThreadId = Number(threadId);
@@ -555,14 +630,17 @@ function createChatServiceFixture(options = {}) {
         }
         return byWorkspaceId.get(Number(workspaceId)) || [];
       },
-      async findByWorkspaceIdAndUserId() {
+      async findByWorkspaceIdAndUserId(workspaceId, userId) {
+        if (typeof options.findWorkspaceMembershipByWorkspaceIdAndUserId === "function") {
+          return options.findWorkspaceMembershipByWorkspaceIdAndUserId(workspaceId, userId);
+        }
         return null;
       }
     },
     userSettingsRepository: {
       async findByUserId() {
         return {
-          lastActiveWorkspaceId: null
+          lastActiveWorkspaceId: options.lastActiveWorkspaceId == null ? null : Number(options.lastActiveWorkspaceId)
         };
       }
     }
@@ -1002,6 +1080,143 @@ test("ensureDm allows actor with allowGlobalDms disabled when target permits glo
 
   assert.equal(Number(result.thread?.id) > 0, true);
   assert.equal(Boolean(result.thread?.peerUser), true);
+});
+
+test("ensureWorkspaceRoom creates canonical workspace room and syncs active workspace members", async () => {
+  const { service, state } = createChatServiceFixture({
+    chatWorkspaceThreadsEnabled: true,
+    lastActiveWorkspaceId: 19,
+    workspaceMembersByWorkspaceId: new Map([
+      [
+        19,
+        [
+          { userId: 5, status: "active" },
+          { userId: 8, status: "active" }
+        ]
+      ]
+    ]),
+    findWorkspaceMembershipByWorkspaceIdAndUserId(workspaceId, userId) {
+      if (Number(workspaceId) === 19 && Number(userId) === 5) {
+        return {
+          workspaceId: 19,
+          userId: 5,
+          roleId: "owner",
+          status: "active"
+        };
+      }
+      return null;
+    }
+  });
+
+  const result = await service.ensureWorkspaceRoom({
+    user: {
+      id: 5
+    }
+  });
+
+  assert.equal(result.created, true);
+  assert.equal(result.thread.scopeKind, "workspace");
+  assert.equal(result.thread.threadKind, "workspace_room");
+  assert.equal(result.thread.workspaceId, 19);
+  assert.equal(Number(result.thread.participantCount) >= 2, true);
+  assert.ok(state.participantByThreadUser.has(`${Number(result.thread.id)}:8`));
+});
+
+test("ensureWorkspaceRoom reuses existing canonical workspace room on subsequent calls", async () => {
+  const { service } = createChatServiceFixture({
+    chatWorkspaceThreadsEnabled: true,
+    lastActiveWorkspaceId: 19,
+    workspaceMembersByWorkspaceId: new Map([
+      [
+        19,
+        [
+          { userId: 5, status: "active" },
+          { userId: 8, status: "active" }
+        ]
+      ]
+    ]),
+    findWorkspaceMembershipByWorkspaceIdAndUserId(workspaceId, userId) {
+      if (Number(workspaceId) === 19 && Number(userId) === 5) {
+        return {
+          workspaceId: 19,
+          userId: 5,
+          roleId: "owner",
+          status: "active"
+        };
+      }
+      return null;
+    }
+  });
+
+  const first = await service.ensureWorkspaceRoom({
+    user: {
+      id: 5
+    }
+  });
+  const second = await service.ensureWorkspaceRoom({
+    user: {
+      id: 5
+    }
+  });
+
+  assert.equal(first.created, true);
+  assert.equal(second.created, false);
+  assert.equal(second.thread.id, first.thread.id);
+});
+
+test("ensureWorkspaceRoom is duplicate-safe when another request creates room concurrently", async () => {
+  const { service, state } = createChatServiceFixture({
+    chatWorkspaceThreadsEnabled: true,
+    lastActiveWorkspaceId: 19,
+    workspaceRoomInsertDuplicateTimes: 1,
+    workspaceMembersByWorkspaceId: new Map([
+      [
+        19,
+        [
+          { userId: 5, status: "active" },
+          { userId: 8, status: "active" }
+        ]
+      ]
+    ]),
+    findWorkspaceMembershipByWorkspaceIdAndUserId(workspaceId, userId) {
+      if (Number(workspaceId) === 19 && Number(userId) === 5) {
+        return {
+          workspaceId: 19,
+          userId: 5,
+          roleId: "owner",
+          status: "active"
+        };
+      }
+      return null;
+    }
+  });
+
+  const racedThread = {
+    ...state.thread,
+    id: 501,
+    scopeKind: "workspace",
+    workspaceId: 19,
+    threadKind: "workspace_room",
+    scopeKey: "workspace:19:room",
+    participantCount: 2
+  };
+  state.workspaceRoomByWorkspaceId.set(19, racedThread);
+  state.thread = racedThread;
+  state.participantByThreadUser.set("501:5", {
+    ...state.participantByThreadUser.get("11:5"),
+    id: 10,
+    threadId: 501,
+    userId: 5
+  });
+
+  const result = await service.ensureWorkspaceRoom({
+    user: {
+      id: 5
+    }
+  });
+
+  assert.equal(result.created, false);
+  assert.equal(result.thread.id, 501);
 });
 
 test("sendThreadMessage remains successful when realtime publish fails post-commit", async () => {

@@ -58,6 +58,47 @@ function normalizeDmParticipantIds(userIds) {
 }
 
 function createParticipantsRepository(dbClient) {
+  async function repoUpsertParticipants(threadId, userIds, { minUsers = 1 } = {}, options = {}) {
+    const client = resolveClient(dbClient, options);
+    const numericThreadId = parsePositiveInteger(threadId);
+    const normalizedUserIds = normalizeDmParticipantIds(userIds);
+    if (!numericThreadId || normalizedUserIds.length < Math.max(1, Number(minUsers) || 1)) {
+      return [];
+    }
+
+    for (const userId of normalizedUserIds) {
+      try {
+        await repoInsert(
+          {
+            threadId: numericThreadId,
+            userId,
+            participantRole: "member",
+            status: "active"
+          },
+          options
+        );
+      } catch (error) {
+        if (!isMysqlDuplicateEntryError(error)) {
+          throw error;
+        }
+
+        await client("chat_thread_participants")
+          .where({
+            thread_id: numericThreadId,
+            user_id: userId
+          })
+          .update({
+            status: "active",
+            left_at: null,
+            removed_by_user_id: null,
+            updated_at: toMysqlDateTimeUtc(new Date())
+          });
+      }
+    }
+
+    return repoListByThreadId(numericThreadId, options);
+  }
+
   async function repoInsert(payload, options = {}) {
     const client = resolveClient(dbClient, options);
     const threadId = parsePositiveInteger(payload?.threadId);
@@ -155,44 +196,25 @@ function createParticipantsRepository(dbClient) {
   }
 
   async function repoUpsertDmParticipants(threadId, userIds, options = {}) {
-    const client = resolveClient(dbClient, options);
-    const numericThreadId = parsePositiveInteger(threadId);
-    const normalizedUserIds = normalizeDmParticipantIds(userIds);
-    if (!numericThreadId || normalizedUserIds.length < 2) {
-      return [];
-    }
+    return repoUpsertParticipants(
+      threadId,
+      userIds,
+      {
+        minUsers: 2
+      },
+      options
+    );
+  }
 
-    for (const userId of normalizedUserIds) {
-      try {
-        await repoInsert(
-          {
-            threadId: numericThreadId,
-            userId,
-            participantRole: "member",
-            status: "active"
-          },
-          options
-        );
-      } catch (error) {
-        if (!isMysqlDuplicateEntryError(error)) {
-          throw error;
-        }
-
-        await client("chat_thread_participants")
-          .where({
-            thread_id: numericThreadId,
-            user_id: userId
-          })
-          .update({
-            status: "active",
-            left_at: null,
-            removed_by_user_id: null,
-            updated_at: toMysqlDateTimeUtc(new Date())
-          });
-      }
-    }
-
-    return repoListByThreadId(numericThreadId, options);
+  async function repoUpsertWorkspaceRoomParticipants(threadId, userIds, options = {}) {
+    return repoUpsertParticipants(
+      threadId,
+      userIds,
+      {
+        minUsers: 1
+      },
+      options
+    );
   }
 
   async function repoUpdateByThreadIdAndUserId(threadId, userId, patch = {}, options = {}) {
@@ -466,6 +488,7 @@ function createParticipantsRepository(dbClient) {
     findByThreadIdAndUserId: repoFindByThreadIdAndUserId,
     listActiveUserIdsByThreadId: repoListActiveUserIdsByThreadId,
     upsertDmParticipants: repoUpsertDmParticipants,
+    upsertWorkspaceRoomParticipants: repoUpsertWorkspaceRoomParticipants,
     updateByThreadIdAndUserId: repoUpdateByThreadIdAndUserId,
     markLeft: repoMarkLeft,
     markRemoved: repoMarkRemoved,
@@ -493,6 +516,7 @@ export const {
   findByThreadIdAndUserId,
   listActiveUserIdsByThreadId,
   upsertDmParticipants,
+  upsertWorkspaceRoomParticipants,
   updateByThreadIdAndUserId,
   markLeft,
   markRemoved,

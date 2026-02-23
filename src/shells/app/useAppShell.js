@@ -20,7 +20,6 @@ export function useAppShell() {
   });
   const surfacePaths = computed(() => resolveSurfacePaths(currentPath.value));
   const adminSurfacePaths = createSurfacePaths("admin");
-  const isWorkspaceChatOnlyPath = computed(() => currentPath.value.endsWith("/workspace-chat"));
 
   const showApplicationShell = computed(() => {
     const paths = surfacePaths.value;
@@ -28,8 +27,7 @@ export function useAppShell() {
       currentPath.value === paths.loginPath ||
       currentPath.value === paths.resetPasswordPath ||
       currentPath.value === paths.workspacesPath ||
-      currentPath.value === paths.accountSettingsPath ||
-      isWorkspaceChatOnlyPath.value
+      currentPath.value === paths.accountSettingsPath
     );
   });
   const { state: shellState, actions: shellActions } = useShellNavigation({
@@ -88,7 +86,7 @@ export function useAppShell() {
       items.push({ title: "Assistant", to: workspacePath("/assistant"), icon: "$navChoice2" });
     }
     if (canUseChat.value) {
-      items.push({ title: "Chat", to: workspacePath("/chat"), icon: "mdi-chat-outline" });
+      items.push({ title: "Workspace chat", to: workspacePath("/chat"), icon: "mdi-chat-outline" });
     }
 
     if (canOpenAdminSurface.value) {
@@ -108,7 +106,7 @@ export function useAppShell() {
       return "Assistant";
     }
     if (currentPath.value.endsWith("/chat") || currentPath.value.endsWith("/workspace-chat")) {
-      return "Chat";
+      return "Workspace chat";
     }
     return "Annuities";
   });

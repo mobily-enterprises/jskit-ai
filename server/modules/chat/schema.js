@@ -78,6 +78,8 @@ function createSchema({
     }
   );
 
+  const workspaceEnsureBody = Type.Object({}, { additionalProperties: false });
+
   const sendMessageBody = Type.Object(
     {
       clientMessageId: Type.String({ minLength: 1, maxLength: 128 }),
@@ -263,6 +265,16 @@ function createSchema({
     }
   );
 
+  const workspaceEnsureResponse = Type.Object(
+    {
+      thread: threadEntity,
+      created: Type.Boolean()
+    },
+    {
+      additionalProperties: false
+    }
+  );
+
   const dmCandidate = Type.Object(
     {
       userId: Type.Integer({ minimum: 1 }),
@@ -359,6 +371,7 @@ function createSchema({
     },
     body: {
       dmEnsure: dmEnsureBody,
+      workspaceEnsure: workspaceEnsureBody,
       sendMessage: sendMessageBody,
       markRead: markReadBody,
       reaction: reactionBody,
@@ -366,6 +379,7 @@ function createSchema({
     },
     response: {
       dmEnsure: dmEnsureResponse,
+      workspaceEnsure: workspaceEnsureResponse,
       dmCandidates: dmCandidatesResponse,
       inbox: inboxResponse,
       thread: threadResponse,

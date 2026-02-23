@@ -10,6 +10,7 @@ const IDEMPOTENCY_VERSION = 1;
 const CHAT_MESSAGE_CLIENT_KEY_UNIQUE_INDEX = "uq_chat_messages_thread_sender_client_id";
 const WORKSPACE_SURFACE_IDS = new Set(["app", "admin"]);
 const INBOX_SURFACE_IDS = new Set(["app", "admin", "console"]);
+const WORKSPACE_ROOM_THREAD_KIND = "workspace_room";
 const CHAT_TYPING_RATE_WINDOW_MS = 60_000;
 const CHAT_TYPING_RATE_LIMIT = 30;
 const CHAT_TYPING_THROTTLE_MS = 1_000;
@@ -41,6 +42,14 @@ function createChatValidationError(fieldErrors = {}) {
 
 function createFeatureDisabledError() {
   return createChatError(403, "Chat feature is disabled.", "CHAT_FEATURE_DISABLED");
+}
+
+function createWorkspaceThreadsDisabledError() {
+  return createChatError(403, "Workspace chat is disabled.", "CHAT_WORKSPACE_THREADS_DISABLED");
+}
+
+function createWorkspaceContextUnavailableError() {
+  return createChatError(404, "Workspace context unavailable.", "CHAT_WORKSPACE_CONTEXT_UNAVAILABLE");
 }
 
 function createDmSelfNotAllowedError() {
@@ -1101,6 +1110,10 @@ function createService({
     return "global";
   }
 
+  function buildWorkspaceRoomScopeKey(workspaceId) {
+    return `workspace:${Number(workspaceId)}:room`;
+  }
+
   function normalizeDmPair(userAId, userBId) {
     const left = Number(userAId);
     const right = Number(userBId);
@@ -1347,6 +1360,158 @@ function createService({
 
     return {
       items: candidates.slice(0, limit)
+    };
+  }
+
+  async function ensureWorkspaceRoom({ user } = {}) {
+    if (!options.chatEnabled) {
+      throw createFeatureDisabledError();
+    }
+
+    if (!options.chatWorkspaceThreadsEnabled) {
+      throw createWorkspaceThreadsDisabledError();
+    }
+
+    const userId = normalizeUserId(user);
+    const userSettings = await userSettingsRepository.findByUserId(userId);
+    const activeWorkspaceId = parsePositiveInteger(userSettings?.lastActiveWorkspaceId);
+    if (!activeWorkspaceId) {
+      throw createWorkspaceContextUnavailableError();
+    }
+
+    const workspaceAccess = await resolveWorkspaceMembershipAccess({
+      workspaceId: activeWorkspaceId,
+      userId,
+      requiredPermission: "chat.read"
+    });
+    if (!workspaceAccess.allowed) {
+      throw createWorkspaceContextUnavailableError();
+    }
+
+    const scopeKey = buildWorkspaceRoomScopeKey(activeWorkspaceId);
+    let created = false;
+
+    const thread = await chatThreadsRepository.transaction(async (trx) => {
+      const scopedOptions = {
+        trx
+      };
+
+      let roomThread =
+        typeof chatThreadsRepository.findWorkspaceRoomByWorkspaceId === "function"
+          ? await chatThreadsRepository.findWorkspaceRoomByWorkspaceId(
+              activeWorkspaceId,
+              {
+                threadKind: WORKSPACE_ROOM_THREAD_KIND,
+                scopeKey
+              },
+              scopedOptions
+            )
+          : null;
+
+      if (!roomThread) {
+        try {
+          roomThread = await chatThreadsRepository.insert(
+            {
+              scopeKind: "workspace",
+              workspaceId: activeWorkspaceId,
+              threadKind: WORKSPACE_ROOM_THREAD_KIND,
+              scopeKey,
+              createdByUserId: userId,
+              title: "Workspace chat",
+              participantCount: 0,
+              nextMessageSeq: 1,
+              encryptionMode: "none",
+              metadata: {}
+            },
+            scopedOptions
+          );
+          created = true;
+        } catch (error) {
+          if (!isMysqlDuplicateEntryError(error)) {
+            throw error;
+          }
+
+          roomThread =
+            typeof chatThreadsRepository.findWorkspaceRoomByWorkspaceId === "function"
+              ? await chatThreadsRepository.findWorkspaceRoomByWorkspaceId(
+                  activeWorkspaceId,
+                  {
+                    threadKind: WORKSPACE_ROOM_THREAD_KIND,
+                    scopeKey
+                  },
+                  scopedOptions
+                )
+              : null;
+
+          if (!roomThread) {
+            throw error;
+          }
+        }
+      }
+
+      const workspaceMembers =
+        typeof workspaceMembershipsRepository.listActiveByWorkspaceId === "function"
+          ? await workspaceMembershipsRepository.listActiveByWorkspaceId(activeWorkspaceId, scopedOptions)
+          : [];
+
+      const participantUserIds = normalizeUserIds([
+        userId,
+        ...(Array.isArray(workspaceMembers) ? workspaceMembers.map((member) => member?.userId) : [])
+      ]);
+      const normalizedParticipantUserIds = participantUserIds.length > 0 ? participantUserIds : [userId];
+
+      let participants = [];
+      if (typeof chatParticipantsRepository.upsertWorkspaceRoomParticipants === "function") {
+        participants = await chatParticipantsRepository.upsertWorkspaceRoomParticipants(
+          roomThread.id,
+          normalizedParticipantUserIds,
+          scopedOptions
+        );
+      } else if (typeof chatParticipantsRepository.insert === "function") {
+        for (const participantUserId of normalizedParticipantUserIds) {
+          try {
+            await chatParticipantsRepository.insert(
+              {
+                threadId: roomThread.id,
+                userId: participantUserId,
+                participantRole: "member",
+                status: "active"
+              },
+              scopedOptions
+            );
+          } catch (error) {
+            if (!isMysqlDuplicateEntryError(error)) {
+              throw error;
+            }
+          }
+        }
+
+        if (typeof chatParticipantsRepository.listByThreadId === "function") {
+          participants = await chatParticipantsRepository.listByThreadId(roomThread.id, scopedOptions);
+        }
+      }
+
+      const participantCount =
+        Array.isArray(participants) && participants.length > 0 ? participants.length : normalizedParticipantUserIds.length;
+      const updatedThread =
+        typeof chatThreadsRepository.updateById === "function"
+          ? await chatThreadsRepository.updateById(
+              roomThread.id,
+              {
+                participantCount: Math.max(1, participantCount)
+              },
+              scopedOptions
+            )
+          : null;
+
+      return updatedThread || roomThread;
+    });
+
+    const participant = await chatParticipantsRepository.findByThreadIdAndUserId(thread.id, userId);
+
+    return {
+      thread: mapThreadForResponse(thread, participant),
+      created
     };
   }
 
@@ -2677,6 +2842,7 @@ function createService({
   }
 
   return {
+    ensureWorkspaceRoom,
     ensureDm,
     listDmCandidates,
     listInbox,

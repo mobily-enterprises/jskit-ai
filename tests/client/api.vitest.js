@@ -76,7 +76,10 @@ describe("client api transport", () => {
       .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-a" } }))
       .mockResolvedValueOnce(mockResponse({ data: { ok: true } }));
 
-    const result = await api.annuity.calculate({ payment: 500 });
+    const result = await __testables.request("/api/custom-unsafe", {
+      method: "POST",
+      body: { DEG2RAD_degrees: 180 }
+    });
 
     expect(result).toEqual({ ok: true });
     expect(global.fetch).toHaveBeenNthCalledWith(1, "/api/session", {
@@ -85,10 +88,10 @@ describe("client api transport", () => {
     });
 
     const secondCall = global.fetch.mock.calls[1];
-    expect(secondCall[0]).toBe("/api/annuityCalculator");
+    expect(secondCall[0]).toBe("/api/custom-unsafe");
     expect(secondCall[1].headers["Content-Type"]).toBe("application/json");
     expect(secondCall[1].headers["csrf-token"]).toBe("csrf-a");
-    expect(secondCall[1].body).toBe(JSON.stringify({ payment: 500 }));
+    expect(secondCall[1].body).toBe(JSON.stringify({ DEG2RAD_degrees: 180 }));
   });
 
   it("does not overwrite an explicit content-type header", async () => {
@@ -118,7 +121,10 @@ describe("client api transport", () => {
     const formData = new FormData();
     formData.append("file", "data");
 
-    const result = await api.annuity.calculate(formData);
+    const result = await __testables.request("/api/custom-upload", {
+      method: "POST",
+      body: formData
+    });
     const requestCall = global.fetch.mock.calls[1];
 
     expect(result).toEqual({ ok: true });
@@ -737,6 +743,7 @@ describe("client api transport", () => {
       });
     });
 
+    await api.chat.ensureWorkspaceRoom();
     await api.chat.ensureDm({ targetPublicChatId: "friend_1" });
     await api.chat.listDmCandidates({ q: "friend", limit: 8 });
     await api.chat.listInbox({ cursor: "cursor-1", limit: 15 });
@@ -765,6 +772,7 @@ describe("client api transport", () => {
     await api.chat.emitThreadTyping("thread/id");
 
     const urls = global.fetch.mock.calls.map(([url]) => url);
+    expect(urls).toContain("/api/chat/workspace/ensure");
     expect(urls).toContain("/api/chat/dm/ensure");
     expect(urls).toContain("/api/chat/dm/candidates?q=friend&limit=8");
     expect(urls).toContain("/api/chat/inbox?cursor=cursor-1&limit=15");

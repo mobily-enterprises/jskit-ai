@@ -245,6 +245,69 @@ test("threads repository canonical DM lookup normalizes user order", async () =>
   assert.equal(threadsTestables.normalizeCanonicalDmPair(9, 9), null);
 });
 
+test("threads repository finds canonical workspace room by workspace id and thread kind", async () => {
+  const calls = [];
+  const row = {
+    id: 51,
+    scope_kind: "workspace",
+    workspace_id: 19,
+    thread_kind: "workspace_room",
+    created_by_user_id: 5,
+    title: "Workspace chat",
+    avatar_storage_key: null,
+    avatar_version: null,
+    scope_key: "workspace:19:room",
+    dm_user_low_id: null,
+    dm_user_high_id: null,
+    participant_count: 2,
+    next_message_seq: 1,
+    last_message_id: null,
+    last_message_seq: null,
+    last_message_at: null,
+    last_message_preview: null,
+    encryption_mode: "none",
+    metadata_json: "{}",
+    archived_at: null,
+    created_at: "2026-02-22T00:00:00.000Z",
+    updated_at: "2026-02-22T00:00:00.000Z"
+  };
+
+  const dbClient = () => ({
+    where(condition) {
+      calls.push(["where", condition]);
+      return this;
+    },
+    orderBy(column, direction) {
+      calls.push(["orderBy", column, direction]);
+      return this;
+    },
+    andWhere(column, value) {
+      calls.push(["andWhere", column, value]);
+      return this;
+    },
+    first() {
+      return Promise.resolve(row);
+    }
+  });
+
+  const repo = threadsTestables.createThreadsRepository(dbClient);
+  const found = await repo.findWorkspaceRoomByWorkspaceId(19, {
+    threadKind: "workspace_room",
+    scopeKey: "workspace:19:room"
+  });
+
+  assert.equal(found.id, 51);
+  assert.deepEqual(calls[0], [
+    "where",
+    {
+      scope_kind: "workspace",
+      workspace_id: 19,
+      thread_kind: "workspace_room"
+    }
+  ]);
+  assert.deepEqual(calls[2], ["andWhere", "scope_key", "workspace:19:room"]);
+});
+
 test("messages repository normalizes clientMessageId and duplicate-conflict detector keys off unique index", async () => {
   const { dbClient, state } = createMessagesDbStub();
   const repo = messagesTestables.createMessagesRepository(dbClient);

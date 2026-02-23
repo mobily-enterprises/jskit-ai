@@ -100,6 +100,40 @@ test("chat controller dm candidates endpoint forwards query payload", async () =
   });
 });
 
+test("chat controller workspace ensure endpoint forwards user context", async () => {
+  const calls = [];
+  const controller = createChatController({
+    chatService: {
+      async ensureWorkspaceRoom(payload) {
+        calls.push(payload);
+        return {
+          thread: {
+            id: 77
+          },
+          created: false
+        };
+      }
+    }
+  });
+
+  const reply = createReplyDouble();
+  await controller.ensureWorkspaceRoom(
+    {
+      user: { id: 5 },
+      headers: {
+        "x-surface-id": "app"
+      }
+    },
+    reply
+  );
+
+  assert.equal(reply.statusCode, 200);
+  assert.equal(reply.payload.thread.id, 77);
+  assert.equal(reply.payload.created, false);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].user.id, 5);
+});
+
 test("chat controller upload endpoint parses multipart payload and forwards to service", async () => {
   const calls = [];
   const controller = createChatController({

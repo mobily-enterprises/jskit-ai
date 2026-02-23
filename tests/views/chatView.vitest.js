@@ -11,46 +11,43 @@ function readChatViewSource() {
 }
 
 describe("ChatView template", () => {
-  it("renders load-more controls for threads and messages", () => {
-    const source = readChatViewSource();
-    const matches = source.match(/Load more/g) || [];
-
-    expect(matches.length).toBeGreaterThanOrEqual(2);
-    expect(source.includes("actions.loadMoreThreads")).toBe(true);
-    expect(source.includes("actions.loadOlderMessages")).toBe(true);
-  });
-
-  it("wires composer send action and deterministic status/error alerts", () => {
+  it("renders workspace-room-first header and secondary actions", () => {
     const source = readChatViewSource();
 
-    expect(source.includes("actions.sendFromComposer")).toBe(true);
-    expect(source.includes("actions.handleComposerKeydown")).toBe(true);
-    expect(source.includes("state.sendOnEnter")).toBe(true);
-    expect(source.includes("state.sendStatus")).toBe(true);
-    expect(source.includes("state.actionError")).toBe(true);
-    expect(source.includes("state.inboxError")).toBe(true);
-    expect(source.includes("state.messagesError")).toBe(true);
-  });
-
-  it("includes start dm dialog wiring and grouped message rows", () => {
-    const source = readChatViewSource();
-
+    expect(source.includes("Workspace room")).toBe(true);
     expect(source.includes("Start DM")).toBe(true);
-    expect(source.includes("actions.refreshDmCandidates")).toBe(true);
-    expect(source.includes("actions.ensureDmThread")).toBe(true);
-    expect(source.includes("dmFilteredCandidates")).toBe(true);
+    expect(source.includes("Back to Workspace chat")).toBe(true);
+    expect(source.includes("refreshCurrentThread")).toBe(true);
+    expect(source.includes("workspaceChatPath")).toBe(false);
+  });
+
+  it("keeps message history controls and grouped rows", () => {
+    const source = readChatViewSource();
+
+    expect(source.includes("Load older")).toBe(true);
+    expect(source.includes("actions.loadOlderMessages")).toBe(true);
     expect(source.includes("state.messageRows")).toBe(true);
     expect(source.includes("chat-message-bubble")).toBe(true);
   });
 
-  it("wires attachment controls and typing indicator UI", () => {
+  it("wires composer send flow with attachment controls and typing indicator", () => {
     const source = readChatViewSource();
 
-    expect(source.includes("Add files")).toBe(true);
+    expect(source.includes("chat-composer-shell")).toBe(true);
+    expect(source.includes("actions.sendFromComposer")).toBe(true);
+    expect(source.includes("actions.handleComposerKeydown")).toBe(true);
+    expect(source.includes("state.sendOnEnter")).toBe(true);
     expect(source.includes("actions.addComposerFiles")).toBe(true);
     expect(source.includes("actions.retryComposerAttachment")).toBe(true);
     expect(source.includes("actions.removeComposerAttachment")).toBe(true);
-    expect(source.includes("state.composerAttachments")).toBe(true);
     expect(source.includes("state.typingNotice")).toBe(true);
+  });
+
+  it("keeps dm dialog wiring for candidate lookup and thread ensure", () => {
+    const source = readChatViewSource();
+
+    expect(source.includes("actions.refreshDmCandidates")).toBe(true);
+    expect(source.includes("actions.ensureDmThread")).toBe(true);
+    expect(source.includes("dmFilteredCandidates")).toBe(true);
   });
 });

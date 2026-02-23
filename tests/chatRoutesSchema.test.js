@@ -82,6 +82,12 @@ function buildControllers() {
 
   return {
     chat: {
+      async ensureWorkspaceRoom(_request, reply) {
+        reply.code(200).send({
+          thread,
+          created: false
+        });
+      },
       async ensureDm(_request, reply) {
         reply.code(200).send({
           thread,
@@ -183,7 +189,7 @@ test("chat routes use required auth and workspace-agnostic policy", () => {
     missingHandler: createMissingHandler()
   });
 
-  assert.equal(routes.length, 14);
+  assert.equal(routes.length, 15);
 
   for (const route of routes) {
     assert.equal(route.auth, "required");
@@ -201,6 +207,22 @@ test("chat dm ensure and message send schemas enforce required fields", async ()
       missingHandler: createMissingHandler()
     })
   });
+
+  const validWorkspaceEnsure = await app.inject({
+    method: "POST",
+    url: "/api/chat/workspace/ensure",
+    payload: {}
+  });
+  assert.equal(validWorkspaceEnsure.statusCode, 200);
+
+  const invalidWorkspaceEnsure = await app.inject({
+    method: "POST",
+    url: "/api/chat/workspace/ensure",
+    payload: {
+      unexpected: true
+    }
+  });
+  assert.equal(invalidWorkspaceEnsure.statusCode, 200);
 
   const invalidEnsure = await app.inject({
     method: "POST",

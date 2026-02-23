@@ -1,257 +1,210 @@
 <template>
   <section class="chat-view">
-    <v-row dense class="chat-layout">
-      <v-col cols="12" lg="4">
-        <v-card rounded="lg" elevation="1" border class="chat-side-card">
-          <v-card-item>
-            <v-card-title class="text-subtitle-2 font-weight-bold">Inbox</v-card-title>
-            <template #append>
-              <div class="chat-side-actions">
-                <v-btn variant="text" size="small" :loading="state.inboxLoading" @click="actions.refreshInbox">Refresh</v-btn>
-                <v-btn variant="tonal" size="small" :loading="state.dmPending" @click="openDmDialog">Start DM</v-btn>
-                <v-btn variant="text" size="small" :href="workspaceChatPath">Workspace chat</v-btn>
-              </div>
-            </template>
-          </v-card-item>
-          <v-divider />
+    <header class="chat-header">
+      <div class="chat-header-copy">
+        <p class="chat-kicker">Workspace room</p>
+        <h1 class="chat-title">{{ headerTitle }}</h1>
+        <p class="chat-subtitle">{{ headerSubtitle }}</p>
+        <v-btn
+          v-if="!state.inWorkspaceRoom"
+          variant="text"
+          size="small"
+          class="chat-back-link"
+          @click="actions.backToWorkspaceRoom"
+        >
+          Back to Workspace chat
+        </v-btn>
+      </div>
 
-          <v-card-text class="chat-thread-list-wrapper">
-            <v-alert v-if="state.actionError" type="error" variant="tonal" density="comfortable" class="mb-3">
-              {{ state.actionError }}
-            </v-alert>
-            <div v-if="state.sendStatus" class="chat-inline-status mb-3">
-              {{ state.sendStatus }}
+      <div class="chat-header-actions">
+        <v-btn variant="tonal" size="small" :loading="state.dmPending" @click="openDmDialog">Start DM</v-btn>
+        <v-menu location="bottom end" offset="8">
+          <template #activator="{ props }">
+            <v-btn v-bind="props" variant="text" icon="mdi-dots-vertical" size="small" aria-label="Chat actions" />
+          </template>
+          <v-list density="comfortable" min-width="180">
+            <v-list-item title="Refresh" :disabled="state.workspaceRoomPending || state.messagesLoading" @click="refreshCurrentThread" />
+          </v-list>
+        </v-menu>
+      </div>
+    </header>
+
+    <div class="chat-status-stack">
+      <v-alert v-if="state.workspaceRoomError" type="error" variant="tonal" density="comfortable">
+        {{ state.workspaceRoomError }}
+      </v-alert>
+      <v-alert v-if="state.actionError" type="error" variant="tonal" density="comfortable">
+        {{ state.actionError }}
+      </v-alert>
+      <div v-if="state.sendStatus" class="chat-inline-status">{{ state.sendStatus }}</div>
+      <v-alert v-if="state.messagesError" type="error" variant="tonal" density="comfortable">
+        {{ state.messagesError }}
+      </v-alert>
+      <v-alert v-if="state.inboxError" type="error" variant="tonal" density="comfortable">
+        {{ state.inboxError }}
+      </v-alert>
+    </div>
+
+    <section class="chat-message-section">
+      <div class="chat-history-tools">
+        <span class="text-caption text-medium-emphasis">Load older history first, then continue chatting.</span>
+        <v-btn
+          variant="text"
+          size="small"
+          :loading="state.loadingMoreMessages"
+          :disabled="!state.selectedThreadId || !state.hasMoreMessages"
+          @click="actions.loadOlderMessages"
+        >
+          Load older
+        </v-btn>
+      </div>
+
+      <div class="chat-message-panel" :class="{ 'chat-message-panel--empty': state.messageRows.length < 1 }">
+        <div v-if="state.workspaceRoomPending && !state.selectedThreadId" class="chat-empty-state">Opening workspace chat...</div>
+        <div v-else-if="!state.selectedThreadId" class="chat-empty-state">Workspace chat is unavailable in this context.</div>
+        <div v-else-if="state.messagesLoading && state.messageRows.length < 1" class="chat-empty-state">Loading messages...</div>
+        <div v-else-if="state.messageRows.length < 1" class="chat-empty-state">No messages yet.</div>
+
+        <div
+          v-for="row in state.messageRows"
+          v-else
+          :key="row.id"
+          class="chat-message-row"
+          :class="{
+            'chat-message-row--mine': row.isMine,
+            'chat-message-row--group-start': row.groupStart,
+            'chat-message-row--group-end': row.groupEnd
+          }"
+        >
+          <v-avatar v-if="row.showAvatar" size="34" class="chat-message-avatar">
+            <v-img v-if="row.senderAvatarUrl" :src="row.senderAvatarUrl" cover />
+            <span v-else class="chat-message-avatar-initials">{{ rowAvatarInitials(row) }}</span>
+          </v-avatar>
+          <span v-else class="chat-message-avatar-spacer" />
+
+          <div class="chat-message-body">
+            <div v-if="row.showMeta" class="chat-message-meta text-caption text-medium-emphasis">
+              <span>{{ row.senderLabel }}</span>
+              <span>{{ helpers.formatTimestamp(row.message.sentAt) }}</span>
             </div>
-            <v-alert v-if="state.inboxError" type="error" variant="tonal" density="comfortable" class="mb-3">
-              {{ state.inboxError }}
-            </v-alert>
-
-            <div v-if="!state.enabled" class="text-body-2 text-medium-emphasis">
-              Chat is unavailable in the current workspace context.
+            <div
+              class="chat-message-bubble text-body-2"
+              :class="{
+                'chat-message-bubble--mine': row.isMine,
+                'chat-message-bubble--theirs': !row.isMine
+              }"
+            >
+              {{ helpers.formatMessageText(row.message) }}
             </div>
-
-            <template v-else>
-              <v-list nav density="comfortable" class="pa-0 chat-thread-list">
-                <v-list-item v-if="state.inboxLoading && state.threads.length < 1" title="Loading threads..." />
-                <v-list-item v-else-if="state.threads.length < 1" title="No threads yet." />
-                <v-list-item
-                  v-for="thread in state.threads"
-                  :key="thread.id"
-                  :active="Number(thread.id) === Number(state.selectedThreadId)"
-                  :title="helpers.formatThreadTitle(thread)"
-                  :subtitle="threadSubtitle(thread)"
-                  @click="actions.selectThread(thread.id)"
-                >
-                  <template #prepend>
-                    <v-avatar size="30">
-                      <v-img v-if="threadAvatarUrl(thread)" :src="threadAvatarUrl(thread)" cover />
-                      <span v-else class="chat-thread-avatar-initials">{{ threadAvatarInitials(thread) }}</span>
-                    </v-avatar>
-                  </template>
-                  <template #append>
-                    <v-chip v-if="Number(thread.unreadCount || 0) > 0" size="x-small" label color="primary" variant="tonal">
-                      {{ thread.unreadCount }}
-                    </v-chip>
-                  </template>
-                </v-list-item>
-              </v-list>
-
-              <div class="d-flex justify-space-between align-center mt-3">
-                <span class="text-caption text-medium-emphasis">Load older thread entries.</span>
-                <v-btn
-                  variant="outlined"
-                  size="small"
-                  :loading="state.loadingMoreThreads"
-                  :disabled="!state.hasMoreThreads"
-                  @click="actions.loadMoreThreads"
-                >
-                  Load more
-                </v-btn>
-              </div>
-            </template>
-          </v-card-text>
-        </v-card>
-      </v-col>
-
-      <v-col cols="12" lg="8">
-        <v-card rounded="lg" elevation="1" border class="chat-main-card">
-          <v-card-item>
-            <v-card-title class="text-subtitle-2 font-weight-bold">
-              {{ state.selectedThread ? helpers.formatThreadTitle(state.selectedThread) : "Messages" }}
-            </v-card-title>
-            <v-card-subtitle v-if="state.selectedThread">
-              {{ threadHeaderSubtitle(state.selectedThread) }}
-            </v-card-subtitle>
-            <template #append>
-              <v-btn variant="text" size="small" :disabled="!state.selectedThreadId || state.messagesLoading" @click="actions.refreshThread">
-                Refresh
-              </v-btn>
-            </template>
-          </v-card-item>
-          <v-divider />
-
-          <v-card-text>
-            <v-alert v-if="state.messagesError" type="error" variant="tonal" density="comfortable" class="mb-3">
-              {{ state.messagesError }}
-            </v-alert>
-
-            <div class="d-flex justify-space-between align-center mb-2">
-              <span class="text-caption text-medium-emphasis">Load older history first, then continue chatting.</span>
-              <v-btn
-                variant="outlined"
-                size="small"
-                :loading="state.loadingMoreMessages"
-                :disabled="!state.selectedThreadId || !state.hasMoreMessages"
-                @click="actions.loadOlderMessages"
+            <div v-if="Array.isArray(row.message.attachments) && row.message.attachments.length > 0" class="chat-message-attachments">
+              <a
+                v-for="attachment in row.message.attachments"
+                :key="attachment.id"
+                class="chat-message-attachment-link"
+                :href="attachmentContentUrl(attachment)"
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                Load more
-              </v-btn>
+                <span>{{ attachmentLabel(attachment) }}</span>
+                <span v-if="attachmentSizeLabel(attachment)"> · {{ attachmentSizeLabel(attachment) }}</span>
+              </a>
             </div>
+          </div>
+        </div>
+      </div>
 
-            <div class="chat-message-panel" :class="{ 'chat-message-panel--empty': state.messageRows.length < 1 }">
-              <div v-if="!state.selectedThreadId" class="chat-empty-state">Select a thread to start.</div>
-              <div v-else-if="state.messagesLoading && state.messageRows.length < 1" class="chat-empty-state">Loading messages...</div>
-              <div v-else-if="state.messageRows.length < 1" class="chat-empty-state">No messages yet.</div>
+      <div v-if="state.typingNotice" class="chat-typing-indicator" aria-live="polite">
+        <span>{{ state.typingNotice }}</span>
+        <span class="chat-typing-dot" />
+        <span class="chat-typing-dot" />
+        <span class="chat-typing-dot" />
+      </div>
+    </section>
 
-              <div
-                v-for="row in state.messageRows"
-                v-else
-                :key="row.id"
-                class="chat-message-row"
-                :class="{
-                  'chat-message-row--mine': row.isMine,
-                  'chat-message-row--group-start': row.groupStart,
-                  'chat-message-row--group-end': row.groupEnd
-                }"
-              >
-                <v-avatar v-if="row.showAvatar" size="34" class="chat-message-avatar">
-                  <v-img v-if="row.senderAvatarUrl" :src="row.senderAvatarUrl" cover />
-                  <span v-else class="chat-message-avatar-initials">{{ rowAvatarInitials(row) }}</span>
-                </v-avatar>
-                <span v-else class="chat-message-avatar-spacer" />
+    <section class="chat-composer-section">
+      <div class="chat-composer-shell">
+        <v-textarea
+          v-model="state.composerText"
+          label="Message"
+          placeholder="Message the workspace"
+          rows="2"
+          max-rows="8"
+          auto-grow
+          hide-details="auto"
+          class="chat-composer-textarea"
+          :counter="meta.messageMaxChars"
+          :disabled="!state.selectedThreadId || state.sendPending"
+          @keydown="actions.handleComposerKeydown"
+        />
 
-                <div class="chat-message-body">
-                  <div v-if="row.showMeta" class="chat-message-meta text-caption text-medium-emphasis">
-                    <span>{{ row.senderLabel }}</span>
-                    <span>{{ helpers.formatTimestamp(row.message.sentAt) }}</span>
-                  </div>
-                  <div
-                    class="chat-message-bubble text-body-2"
-                    :class="{
-                      'chat-message-bubble--mine': row.isMine,
-                      'chat-message-bubble--theirs': !row.isMine
-                    }"
-                  >
-                    {{ helpers.formatMessageText(row.message) }}
-                  </div>
-                  <div
-                    v-if="Array.isArray(row.message.attachments) && row.message.attachments.length > 0"
-                    class="chat-message-attachments"
-                  >
-                    <a
-                      v-for="attachment in row.message.attachments"
-                      :key="attachment.id"
-                      class="chat-message-attachment-link"
-                      :href="attachmentContentUrl(attachment)"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <span>{{ attachmentLabel(attachment) }}</span>
-                      <span v-if="attachmentSizeLabel(attachment)"> · {{ attachmentSizeLabel(attachment) }}</span>
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div v-if="state.typingNotice" class="chat-typing-indicator" aria-live="polite">
-              <span>{{ state.typingNotice }}</span>
-              <span class="chat-typing-dot" />
-              <span class="chat-typing-dot" />
-              <span class="chat-typing-dot" />
-            </div>
-
-            <v-divider class="my-4" />
-
-            <v-textarea
-              v-model="state.composerText"
-              label="Message"
-              rows="2"
-              max-rows="6"
-              auto-grow
-              hide-details="auto"
-              :counter="meta.messageMaxChars"
+        <div class="chat-composer-toolbar">
+          <div class="chat-composer-tools">
+            <input
+              ref="composerFileInputRef"
+              type="file"
+              multiple
+              class="chat-file-input"
+              @change="handleComposerFileInputChange"
+            >
+            <v-btn
+              variant="text"
+              size="small"
+              prepend-icon="mdi-paperclip"
               :disabled="!state.selectedThreadId || state.sendPending"
-              @keydown="actions.handleComposerKeydown"
-            />
+              @click="openComposerFilePicker"
+            >
+              Add files
+            </v-btn>
+            <span class="text-caption text-medium-emphasis">
+              Max {{ meta.attachmentMaxFilesPerMessage }} files, up to {{ readableUploadLimit }} each.
+            </span>
+          </div>
 
-            <div class="chat-composer-tools mt-3">
-              <input
-                ref="composerFileInputRef"
-                type="file"
-                multiple
-                class="chat-file-input"
-                @change="handleComposerFileInputChange"
-              >
-              <v-btn
-                variant="tonal"
-                size="small"
-                :disabled="!state.selectedThreadId || state.sendPending"
-                @click="openComposerFilePicker"
-              >
-                Add files
-              </v-btn>
-              <span class="text-caption text-medium-emphasis">
-                Max {{ meta.attachmentMaxFilesPerMessage }} files, up to {{ readableUploadLimit }} each.
-              </span>
-            </div>
+          <div class="chat-actions">
+            <v-checkbox v-model="state.sendOnEnter" label="Send on enter" hide-details density="compact" />
+            <v-btn color="primary" rounded="pill" :loading="state.sendPending" :disabled="!state.canSend" @click="actions.sendFromComposer">
+              Send
+            </v-btn>
+          </div>
+        </div>
 
-            <div v-if="state.composerAttachments.length > 0" class="chat-composer-attachment-list mt-3">
-              <div
-                v-for="attachment in state.composerAttachments"
-                :key="attachment.localId"
-                class="chat-composer-attachment-row"
-              >
-                <div class="chat-composer-attachment-main">
-                  <div class="chat-composer-attachment-name">{{ attachment.fileName }}</div>
-                  <div class="chat-composer-attachment-meta text-caption text-medium-emphasis">
-                    {{ attachmentSizeLabel(attachment) }}
-                  </div>
-                </div>
-                <v-chip size="x-small" label :color="composerAttachmentStatusColor(attachment)" variant="tonal">
-                  {{ composerAttachmentStatusLabel(attachment) }}
-                </v-chip>
-                <v-btn
-                  v-if="String(attachment.status) === 'failed'"
-                  size="x-small"
-                  variant="text"
-                  :disabled="state.sendPending"
-                  @click="actions.retryComposerAttachment(attachment.localId)"
-                >
-                  Retry
-                </v-btn>
-                <v-btn
-                  size="x-small"
-                  variant="text"
-                  color="error"
-                  :disabled="String(attachment.status) === 'uploading' || state.sendPending"
-                  @click="actions.removeComposerAttachment(attachment.localId)"
-                >
-                  Remove
-                </v-btn>
+        <div v-if="state.composerAttachments.length > 0" class="chat-composer-attachment-list">
+          <div
+            v-for="attachment in state.composerAttachments"
+            :key="attachment.localId"
+            class="chat-composer-attachment-row"
+          >
+            <div class="chat-composer-attachment-main">
+              <div class="chat-composer-attachment-name">{{ attachment.fileName }}</div>
+              <div class="chat-composer-attachment-meta text-caption text-medium-emphasis">
+                {{ attachmentSizeLabel(attachment) }}
               </div>
             </div>
-
-            <div class="chat-actions mt-3">
-              <v-checkbox v-model="state.sendOnEnter" label="Send on enter" hide-details density="compact" />
-              <v-btn color="primary" :loading="state.sendPending" :disabled="!state.canSend" @click="actions.sendFromComposer">
-                Send
-              </v-btn>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+            <v-chip size="x-small" label :color="composerAttachmentStatusColor(attachment)" variant="tonal">
+              {{ composerAttachmentStatusLabel(attachment) }}
+            </v-chip>
+            <v-btn
+              v-if="String(attachment.status) === 'failed'"
+              size="x-small"
+              variant="text"
+              :disabled="state.sendPending"
+              @click="actions.retryComposerAttachment(attachment.localId)"
+            >
+              Retry
+            </v-btn>
+            <v-btn
+              size="x-small"
+              variant="text"
+              color="error"
+              :disabled="String(attachment.status) === 'uploading' || state.sendPending"
+              @click="actions.removeComposerAttachment(attachment.localId)"
+            >
+              Remove
+            </v-btn>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <v-dialog v-model="dmDialogOpen" max-width="460">
       <v-card rounded="lg" border>
@@ -331,15 +284,12 @@
 
 <script setup>
 import { computed, ref } from "vue";
-import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 import { useChatView } from "./useChatView.js";
 
 const { meta, state, helpers, actions } = useChatView();
-const workspaceStore = useWorkspaceStore();
 const dmDialogOpen = ref(false);
 const dmSearchQuery = ref("");
 const composerFileInputRef = ref(null);
-const workspaceChatPath = computed(() => workspaceStore.workspacePath("/workspace-chat"));
 const readableUploadLimit = computed(() => formatBytes(meta.attachmentMaxUploadBytes));
 const dmFilteredCandidates = computed(() => {
   const candidates = Array.isArray(state.dmCandidates) ? state.dmCandidates : [];
@@ -353,6 +303,30 @@ const dmFilteredCandidates = computed(() => {
     const publicChatId = normalizeText(candidate?.publicChatId).toLowerCase();
     return name.includes(search) || publicChatId.includes(search);
   });
+});
+const headerTitle = computed(() => {
+  if (state.selectedThread) {
+    return helpers.formatThreadTitle(state.selectedThread);
+  }
+
+  if (state.workspaceRoomPending) {
+    return "Opening workspace chat...";
+  }
+
+  return "Workspace chat";
+});
+const headerSubtitle = computed(() => {
+  const thread = state.selectedThread;
+  if (!thread) {
+    return "Everyone in this workspace can read and write.";
+  }
+
+  if (state.inWorkspaceRoom) {
+    const lastMessageAt = thread?.lastMessageAt ? helpers.formatTimestamp(thread.lastMessageAt) : "No messages yet";
+    return `Everyone in this workspace can read and write. ${lastMessageAt}.`;
+  }
+
+  return threadHeaderSubtitle(thread);
 });
 
 function normalizeText(value) {
@@ -392,43 +366,11 @@ function avatarInitialsFromLabel(labelValue) {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
-function threadSubtitle(thread) {
-  const preview = helpers.formatThreadPreview(thread);
-  const timestamp = thread?.lastMessageAt ? helpers.formatTimestamp(thread.lastMessageAt) : "";
-  if (!timestamp) {
-    return preview;
-  }
-
-  return `${preview} • ${timestamp}`;
-}
-
 function threadHeaderSubtitle(thread) {
   const unreadCount = Number(thread?.unreadCount || 0);
   const readState = unreadCount > 0 ? `${unreadCount} unread` : "All read";
-  const scope = normalizeText(thread?.scopeKind) || "thread";
   const lastMessageAt = thread?.lastMessageAt ? helpers.formatTimestamp(thread.lastMessageAt) : "No activity yet";
-  return `${scope} • ${readState} • ${lastMessageAt}`;
-}
-
-function threadAvatarUrl(thread) {
-  const threadKind = String(thread?.threadKind || "").trim().toLowerCase();
-  if (threadKind !== "dm") {
-    return "";
-  }
-
-  return normalizeText(thread?.peerUser?.avatarUrl);
-}
-
-function threadAvatarInitials(thread) {
-  const threadKind = String(thread?.threadKind || "").trim().toLowerCase();
-  if (threadKind === "dm") {
-    const peerDisplayName = normalizeText(thread?.peerUser?.displayName);
-    if (peerDisplayName) {
-      return avatarInitialsFromLabel(peerDisplayName);
-    }
-  }
-
-  return avatarInitialsFromLabel(helpers.formatThreadTitle(thread));
+  return `Direct message • ${readState} • ${lastMessageAt}`;
 }
 
 function rowAvatarInitials(row) {
@@ -520,44 +462,72 @@ async function startDmWithCandidate(candidate) {
     closeDmDialog();
   }
 }
+
+async function refreshCurrentThread() {
+  await Promise.all([actions.refreshInbox(), actions.refreshThread()]);
+}
 </script>
 
 <style scoped>
 .chat-view {
-  padding-block: 0.35rem 0.8rem;
+  --chat-gap: 1rem;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: var(--chat-gap);
+  min-height: min(82vh, 980px);
+  padding-block: 0.25rem 0.8rem;
 }
 
-.chat-layout {
-  align-items: stretch;
+.chat-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem;
 }
 
-.chat-side-actions {
+.chat-header-copy {
+  min-width: 0;
+}
+
+.chat-kicker {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(var(--v-theme-on-surface), 0.56);
+}
+
+.chat-title {
+  margin: 0.28rem 0 0;
+  font-size: clamp(1.35rem, 2.2vw, 1.7rem);
+  line-height: 1.16;
+  font-weight: 700;
+}
+
+.chat-subtitle {
+  margin: 0.32rem 0 0;
+  color: rgba(var(--v-theme-on-surface), 0.68);
+  font-size: 0.92rem;
+}
+
+.chat-back-link {
+  margin-top: 0.2rem;
+  padding-inline: 0;
+  min-height: 28px;
+  text-transform: none;
+  font-weight: 600;
+}
+
+.chat-header-actions {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  justify-content: flex-end;
+  gap: 0.25rem;
 }
 
-.chat-side-card,
-.chat-main-card {
-  height: 100%;
-}
-
-.chat-thread-list-wrapper {
-  display: flex;
-  flex-direction: column;
-  min-height: 520px;
-}
-
-.chat-thread-list {
-  flex: 1;
-  overflow: auto;
-}
-
-.chat-thread-avatar-initials {
-  font-size: 0.68rem;
-  font-weight: 700;
+.chat-status-stack {
+  display: grid;
+  gap: 0.55rem;
 }
 
 .chat-inline-status {
@@ -574,14 +544,28 @@ async function startDmWithCandidate(candidate) {
   font-weight: 600;
 }
 
+.chat-message-section {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 0.55rem;
+}
+
+.chat-history-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
 .chat-message-panel {
   min-height: 360px;
-  max-height: 62vh;
+  max-height: min(62vh, 700px);
   overflow: auto;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(var(--v-theme-surface), 0.95) 0%, rgba(var(--v-theme-surface), 0.75) 100%);
-  padding: 0.85rem 0.9rem;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(var(--v-theme-surface), 0.96) 0%, rgba(var(--v-theme-surface), 0.78) 100%);
+  padding: 0.95rem 1rem;
 }
 
 .chat-message-panel--empty {
@@ -595,6 +579,7 @@ async function startDmWithCandidate(candidate) {
   place-items: center;
   color: rgba(var(--v-theme-on-surface), 0.66);
   font-size: 0.94rem;
+  text-align: center;
 }
 
 .chat-message-row {
@@ -618,7 +603,8 @@ async function startDmWithCandidate(candidate) {
   height: 34px;
 }
 
-.chat-message-avatar-initials {
+.chat-message-avatar-initials,
+.chat-thread-avatar-initials {
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -626,7 +612,8 @@ async function startDmWithCandidate(candidate) {
 .chat-message-body {
   display: grid;
   gap: 0.18rem;
-  max-width: min(80%, 540px);
+  min-width: 0;
+  max-width: min(80%, 620px);
 }
 
 .chat-message-row--mine .chat-message-body {
@@ -640,8 +627,8 @@ async function startDmWithCandidate(candidate) {
 }
 
 .chat-message-bubble {
-  border-radius: 16px;
-  padding: 0.55rem 0.75rem;
+  border-radius: 18px;
+  padding: 0.58rem 0.78rem;
   white-space: pre-wrap;
   line-height: 1.4;
   border: 1px solid transparent;
@@ -675,15 +662,80 @@ async function startDmWithCandidate(candidate) {
   text-decoration: underline;
 }
 
+.chat-typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: rgba(var(--v-theme-on-surface), 0.66);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.chat-typing-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(var(--v-theme-on-surface), 0.55);
+  animation: chat-typing-blink 1.1s infinite ease-in-out;
+}
+
+.chat-typing-dot:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.chat-typing-dot:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
+.chat-typing-dot:nth-child(4) {
+  animation-delay: 0.36s;
+}
+
+.chat-composer-section {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  padding-bottom: 0.1rem;
+  background: linear-gradient(180deg, rgba(var(--v-theme-background), 0) 0%, rgba(var(--v-theme-background), 0.92) 24%);
+}
+
+.chat-composer-shell {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  background: rgba(var(--v-theme-surface), 0.94);
+  border-radius: 24px;
+  padding: 0.65rem 0.8rem 0.75rem;
+  display: grid;
+  gap: 0.45rem;
+  box-shadow: 0 8px 20px rgba(17, 26, 42, 0.05);
+}
+
+.chat-composer-textarea :deep(textarea) {
+  line-height: 1.42;
+}
+
+.chat-composer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
 .chat-composer-tools {
+  min-width: 0;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.55rem;
+  gap: 0.4rem;
 }
 
 .chat-file-input {
   display: none;
+}
+
+.chat-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
 }
 
 .chat-composer-attachment-list {
@@ -721,43 +773,6 @@ async function startDmWithCandidate(candidate) {
   border-radius: 12px;
 }
 
-.chat-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-}
-
-.chat-typing-indicator {
-  margin-top: 0.65rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  color: rgba(var(--v-theme-on-surface), 0.66);
-  font-size: 0.82rem;
-  font-weight: 500;
-}
-
-.chat-typing-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 999px;
-  background: rgba(var(--v-theme-on-surface), 0.55);
-  animation: chat-typing-blink 1.1s infinite ease-in-out;
-}
-
-.chat-typing-dot:nth-child(2) {
-  animation-delay: 0.12s;
-}
-
-.chat-typing-dot:nth-child(3) {
-  animation-delay: 0.24s;
-}
-
-.chat-typing-dot:nth-child(4) {
-  animation-delay: 0.36s;
-}
-
 @keyframes chat-typing-blink {
   0%,
   80%,
@@ -773,26 +788,38 @@ async function startDmWithCandidate(candidate) {
 
 @media (max-width: 960px) {
   .chat-view {
-    padding-block: 0.2rem 0.45rem;
+    --chat-gap: 0.75rem;
+    min-height: calc(100vh - 140px);
+    padding-block: 0.1rem 0.45rem;
   }
 
-  .chat-side-actions {
+  .chat-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .chat-header-actions {
     justify-content: flex-start;
   }
 
-  .chat-thread-list-wrapper {
-    min-height: 300px;
+  .chat-subtitle {
+    font-size: 0.88rem;
+  }
+
+  .chat-history-tools {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .chat-message-panel {
-    min-height: 280px;
-    max-height: 48vh;
-    padding: 0.65rem 0.7rem;
-    border-radius: 12px;
+    min-height: 260px;
+    max-height: 50vh;
+    padding: 0.75rem 0.78rem;
+    border-radius: 14px;
   }
 
   .chat-message-body {
-    max-width: min(86%, 520px);
+    max-width: min(88%, 520px);
   }
 
   .chat-message-meta {
@@ -800,14 +827,24 @@ async function startDmWithCandidate(candidate) {
     flex-wrap: wrap;
   }
 
-  .chat-composer-tools {
+  .chat-composer-section {
+    bottom: calc(env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.1rem);
+  }
+
+  .chat-composer-shell {
+    border-radius: 20px;
+    padding-inline: 0.65rem;
+  }
+
+  .chat-composer-toolbar {
     align-items: flex-start;
+    flex-direction: column;
   }
 
   .chat-actions {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 0.2rem;
+    width: 100%;
+    justify-content: space-between;
   }
 
   .chat-dm-candidates {

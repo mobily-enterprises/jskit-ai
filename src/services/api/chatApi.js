@@ -16,6 +16,12 @@ function buildQueryString(query = {}) {
 
 function createApi({ request }) {
   return {
+    ensureWorkspaceRoom(payload = {}) {
+      return request("/api/chat/workspace/ensure", {
+        method: "POST",
+        body: payload
+      });
+    },
     listDmCandidates(query = {}) {
       return request(`/api/chat/dm/candidates${buildQueryString(query)}`);
     },

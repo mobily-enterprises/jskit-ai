@@ -59,6 +59,7 @@ function toIsoNow() {
 
 test("chat smoke: start DM, upload attachment, send message, and emit typing", async ({ page }) => {
   const state = {
+    workspaceEnsureRequestCount: 0,
     dmCreated: false,
     ensureRequestCount: 0,
     typingRequestCount: 0,
@@ -112,6 +113,34 @@ test("chat smoke: start DM, upload attachment, send message, and emit typing", a
     };
   }
 
+  function buildWorkspaceRoomThreadResponse() {
+    return {
+      id: 77,
+      scopeKind: "workspace",
+      workspaceId: 1,
+      threadKind: "workspace_room",
+      title: "Workspace chat",
+      participantCount: 2,
+      lastMessageId: null,
+      lastMessageSeq: null,
+      lastMessageAt: null,
+      lastMessagePreview: null,
+      createdAt: "2026-02-23T00:00:00.000Z",
+      updatedAt: toIsoNow(),
+      unreadCount: 0,
+      participant: {
+        status: "active",
+        lastReadSeq: 0,
+        lastReadMessageId: null,
+        lastReadAt: null,
+        mutedUntil: null,
+        archivedAt: null,
+        pinnedAt: null
+      },
+      peerUser: null
+    };
+  }
+
   await page.route("**/api/bootstrap", async (route) => {
     await route.fulfill({
       status: 200,
@@ -144,6 +173,19 @@ test("chat smoke: start DM, upload attachment, send message, and emit typing", a
         headers: JSON_HEADERS,
         body: JSON.stringify({
           items: [dmCandidate]
+        })
+      });
+      return;
+    }
+
+    if (pathname === "/api/chat/workspace/ensure" && method === "POST") {
+      state.workspaceEnsureRequestCount += 1;
+      await route.fulfill({
+        status: 200,
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          thread: buildWorkspaceRoomThreadResponse(),
+          created: false
         })
       });
       return;
@@ -352,6 +394,7 @@ test("chat smoke: start DM, upload attachment, send message, and emit typing", a
   });
 
   await page.goto("/w/acme/chat");
+  await expect.poll(() => state.workspaceEnsureRequestCount).toBe(1);
   await expect(page.getByRole("button", { name: "Start DM" })).toBeVisible();
 
   await page.getByRole("button", { name: "Start DM" }).click();

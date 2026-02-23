@@ -88,6 +88,15 @@ function createController({ chatService }) {
     reply.code(200).send(result);
   }
 
+  async function ensureWorkspaceRoom(request, reply) {
+    const result = await chatService.ensureWorkspaceRoom({
+      user: request.user,
+      surfaceId: request.headers?.["x-surface-id"]
+    });
+
+    reply.code(200).send(result);
+  }
+
   async function listDmCandidates(request, reply) {
     const result = await chatService.listDmCandidates({
       user: request.user,
@@ -244,6 +253,7 @@ function createController({ chatService }) {
   }
 
   return {
+    ensureWorkspaceRoom,
     ensureDm,
     listDmCandidates,
     listInbox,

@@ -11,6 +11,7 @@ import { publishRealtimeEvent, __testables as realtimeEventBusTestables } from "
 const mocks = vi.hoisted(() => ({
   api: {
     chat: {
+      ensureWorkspaceRoom: vi.fn(),
       listDmCandidates: vi.fn(),
       ensureDm: vi.fn(),
       listInbox: vi.fn(),
@@ -125,6 +126,7 @@ const Harness = defineComponent({
 
 describe("useChatView", () => {
   beforeEach(() => {
+    mocks.api.chat.ensureWorkspaceRoom.mockReset();
     mocks.api.chat.listInbox.mockReset();
     mocks.api.chat.listThreadMessages.mockReset();
     mocks.api.chat.listDmCandidates.mockReset();
@@ -143,6 +145,29 @@ describe("useChatView", () => {
       attachment: {
         id: 7001
       }
+    });
+    mocks.api.chat.ensureWorkspaceRoom.mockResolvedValue({
+      thread: {
+        id: 11,
+        scopeKind: "workspace",
+        workspaceId: 19,
+        threadKind: "workspace_room",
+        title: "Workspace chat",
+        participantCount: 2,
+        lastMessageId: null,
+        lastMessageSeq: null,
+        lastMessageAt: null,
+        lastMessagePreview: null,
+        createdAt: "2026-02-22T00:00:00.000Z",
+        updatedAt: "2026-02-22T00:00:00.000Z",
+        unreadCount: 0,
+        participant: {
+          status: "active",
+          lastReadSeq: 0
+        },
+        peerUser: null
+      },
+      created: false
     });
     mocks.api.chat.uploadThreadAttachment.mockResolvedValue({
       attachment: {
@@ -264,6 +289,15 @@ describe("useChatView", () => {
     expect(mocks.messagesQueryState.fetchNextPage).toHaveBeenCalledTimes(1);
   });
 
+  it("ensures workspace room on mount and selects it by default", async () => {
+    const wrapper = mount(Harness);
+    await nextTick();
+
+    expect(mocks.api.chat.ensureWorkspaceRoom).toHaveBeenCalledTimes(1);
+    expect(wrapper.vm.state.selectedThreadId).toBe(11);
+    expect(wrapper.vm.state.inWorkspaceRoom).toBe(true);
+  });
+
   it("sends on Enter when sendOnEnter is enabled", async () => {
     mocks.api.chat.sendThreadMessage.mockResolvedValueOnce({
       idempotencyStatus: "created"
@@ -296,6 +330,16 @@ describe("useChatView", () => {
         id: 55
       }
     });
+    mocks.inboxQueryState.refetch.mockImplementationOnce(async () => {
+      mocks.inboxQueryState.data.value = {
+        pages: [
+          {
+            items: [buildThread({ id: 55 }), buildThread({ id: 11 })],
+            nextCursor: null
+          }
+        ]
+      };
+    });
 
     const wrapper = mount(Harness);
     await nextTick();
@@ -309,6 +353,16 @@ describe("useChatView", () => {
     expect(mocks.inboxQueryState.refetch).toHaveBeenCalledTimes(1);
     expect(wrapper.vm.state.selectedThreadId).toBe(55);
     expect(wrapper.vm.state.sendStatus).toBe("Direct message created.");
+  });
+
+  it("supports returning to workspace room after switching threads", async () => {
+    const wrapper = mount(Harness);
+    await nextTick();
+
+    await wrapper.vm.actions.selectThread(55);
+    await wrapper.vm.actions.backToWorkspaceRoom();
+
+    expect(wrapper.vm.state.selectedThreadId).toBe(11);
   });
 
   it("loads direct-message candidates and exposes normalized entries", async () => {

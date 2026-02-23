@@ -9,6 +9,7 @@ const threadsAndParticipantsMigration = require("../migrations/20260222190100_cr
 const messagesAndAttachmentsMigration = require("../migrations/20260222190200_create_chat_messages_and_attachments.cjs");
 const tombstonesMigration = require("../migrations/20260222190300_create_chat_message_idempotency_tombstones.cjs");
 const reactionsMigration = require("../migrations/20260222190400_create_chat_reactions_and_indexes.cjs");
+const workspaceRoomUniquenessMigration = require("../migrations/20260223090000_enforce_unique_workspace_room_thread.cjs");
 
 function createSchemaStub() {
   const calls = [];
@@ -105,6 +106,23 @@ function createSchemaStub() {
   }
 
   const schema = {
+    async hasTable() {
+      return true;
+    },
+    async alterTable(name, callback) {
+      calls.push(["alterTable", name]);
+      const tableCalls = [];
+      const table = {
+        unique(columns, indexName) {
+          tableCalls.push(["unique", columns, indexName]);
+        },
+        dropUnique(columns, indexName) {
+          tableCalls.push(["dropUnique", columns, indexName]);
+        }
+      };
+      callback(table);
+      calls.push(["tableCalls", tableCalls]);
+    },
     async createTable(name, callback) {
       calls.push(["createTable", name]);
       const tableCalls = [];
@@ -184,4 +202,22 @@ test("chat reactions migration smoke test", async () => {
   const createdTables = calls.filter((entry) => entry[0] === "createTable").map((entry) => entry[1]);
   assert.deepEqual(createdTables, ["chat_message_reactions"]);
   assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "chat_message_reactions"]);
+});
+
+test("workspace room uniqueness migration adds and removes workspace/thread_kind index", async () => {
+  const { knex, calls } = createSchemaStub();
+  await workspaceRoomUniquenessMigration.up(knex);
+  await workspaceRoomUniquenessMigration.down(knex);
+
+  const tableCallsEntries = calls.filter((entry) => entry[0] === "tableCalls");
+  assert.deepEqual(tableCallsEntries[0][1][0], [
+    "unique",
+    ["workspace_id", "thread_kind"],
+    "uq_chat_threads_workspace_thread_kind"
+  ]);
+  assert.deepEqual(tableCallsEntries[1][1][0], [
+    "dropUnique",
+    ["workspace_id", "thread_kind"],
+    "uq_chat_threads_workspace_thread_kind"
+  ]);
 });

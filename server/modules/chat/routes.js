@@ -26,6 +26,25 @@ function buildRoutes(
 
   return [
     {
+      path: "/api/chat/workspace/ensure",
+      method: "POST",
+      auth: "required",
+      workspacePolicy: "none",
+      schema: {
+        tags: ["chat"],
+        summary: "Ensure canonical workspace chat room for authenticated user workspace context",
+        body: schema.body.workspaceEnsure,
+        response: withStandardErrorResponses({
+          200: schema.response.workspaceEnsure
+        })
+      },
+      rateLimit: {
+        max: 30,
+        timeWindow: "1 minute"
+      },
+      handler: controllers.chat?.ensureWorkspaceRoom || missingHandler
+    },
+    {
       path: "/api/chat/dm/ensure",
       method: "POST",
       auth: "required",
