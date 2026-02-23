@@ -1,0 +1,12 @@
+{
+  "name": "@jskit-ai/app-scripts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "jskit-app-scripts": "./bin/jskit-app-scripts.js"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  }
+}
