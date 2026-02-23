@@ -290,12 +290,15 @@
         </v-card>
       </v-col>
     </v-row>
+
+    <WorkspaceBillingView v-if="canViewBilling" class="mt-4" />
   </section>
 </template>
 
 <script setup>
 import { toRefs } from "vue";
 import { useWorkspaceSettingsView } from "./useWorkspaceSettingsView";
+import WorkspaceBillingView from "../workspace-billing/WorkspaceBillingView.vue";
 
 const { forms, options, feedback, members, permissions, status, actions } = useWorkspaceSettingsView();
 const { workspace: workspaceForm, invite: inviteForm } = forms;
@@ -310,7 +313,7 @@ const {
   revokeInviteId
 } = toRefs(feedback);
 const { list: membersList, invites } = toRefs(members);
-const { canManageWorkspaceSettings, canViewMembers, canInviteMembers, canManageMembers, canRevokeInvites } =
+const { canManageWorkspaceSettings, canViewMembers, canInviteMembers, canManageMembers, canRevokeInvites, canViewBilling } =
   toRefs(permissions);
 const { isSavingWorkspaceSettings, isCreatingInvite, isRevokingInvite } = toRefs(status);
 const {

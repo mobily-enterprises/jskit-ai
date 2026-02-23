@@ -126,6 +126,7 @@ export function useWorkspaceSettingsView() {
   const canInviteMembers = computed(() => workspaceStore.can("workspace.members.invite"));
   const canManageMembers = computed(() => workspaceStore.can("workspace.members.manage"));
   const canRevokeInvites = computed(() => workspaceStore.can("workspace.invites.revoke"));
+  const canViewBilling = computed(() => workspaceStore.can("workspace.billing.manage"));
 
   const inviteRoleOptions = computed(() => {
     const assignable = Array.isArray(roleCatalog.value.assignableRoleIds) ? roleCatalog.value.assignableRoleIds : [];
@@ -487,7 +488,8 @@ export function useWorkspaceSettingsView() {
       canViewMembers,
       canInviteMembers,
       canManageMembers,
-      canRevokeInvites
+      canRevokeInvites,
+      canViewBilling
     }),
     status: reactive({
       isSavingWorkspaceSettings,

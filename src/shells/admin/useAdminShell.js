@@ -72,7 +72,6 @@ export function useAdminShell() {
     () => workspaceStore.can("workspace.settings.view") || workspaceStore.can("workspace.settings.update")
   );
   const canViewAiTranscripts = computed(() => workspaceStore.can("workspace.ai.transcripts.read"));
-  const canViewBilling = computed(() => workspaceStore.can("workspace.billing.manage"));
   const assistantFeatureEnabled = computed(() => Boolean(workspaceStore.app?.features?.assistantEnabled));
   const assistantRequiredPermission = computed(() =>
     String(workspaceStore.app?.features?.assistantRequiredPermission || "").trim()
@@ -83,28 +82,21 @@ export function useAdminShell() {
       (!assistantRequiredPermission.value || workspaceStore.can(assistantRequiredPermission.value))
   );
   const canUseChat = computed(() => workspaceStore.can("chat.read"));
+  const workspaceSettingsPath = computed(() => workspacePath("/settings"));
 
   const navigationItems = computed(() => {
     const items = [{ title: "Projects", to: workspacePath("/projects"), icon: "$navChoice2" }];
+
+    if (canUseChat.value) {
+      items.push({ title: "Workspace chat", to: workspacePath("/chat"), icon: "$workspaceChat" });
+    }
 
     if (canUseAssistant.value) {
       items.push({ title: "Assistant", to: workspacePath("/assistant"), icon: "$navChoice2" });
     }
 
-    if (canUseChat.value) {
-      items.push({ title: "Workspace chat", to: workspacePath("/chat"), icon: "mdi-chat-outline" });
-    }
-
     if (canViewAiTranscripts.value) {
       items.push({ title: "AI transcripts", to: workspacePath("/transcripts"), icon: "$navChoice2" });
-    }
-
-    if (canViewWorkspaceSettings.value) {
-      items.push({ title: "Workspace settings", to: workspacePath("/settings"), icon: "$menuSettings" });
-    }
-
-    if (canViewBilling.value) {
-      items.push({ title: "Billing", to: workspacePath("/billing"), icon: "$menuSettings" });
     }
     return items;
   });
@@ -210,6 +202,16 @@ export function useAdminShell() {
         section: "profile",
         returnTo: currentPath.value
       }
+    });
+  }
+
+  async function goToWorkspaceSettings() {
+    if (!canViewWorkspaceSettings.value) {
+      return;
+    }
+
+    await navigate({
+      to: workspaceSettingsPath.value
     });
   }
 
@@ -324,11 +326,13 @@ export function useAdminShell() {
     user: {
       userAvatarUrl,
       userDisplayName,
-      userInitials
+      userInitials,
+      canViewWorkspaceSettings
     },
     navigation: {
       navigationItems,
-      workspaceAvatarStyle
+      workspaceAvatarStyle,
+      workspaceSettingsPath
     },
     dialogs: {
       inviteDialogVisible,
@@ -344,6 +348,7 @@ export function useAdminShell() {
       selectWorkspaceFromShell,
       openInviteDialog,
       goToAccountSettings,
+      goToWorkspaceSettings,
       goToAppSurface,
       handleMenuNotice,
       signOut,

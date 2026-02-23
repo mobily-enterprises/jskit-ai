@@ -190,12 +190,12 @@ describe("useAdminShell", () => {
 
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
       { title: "Projects", to: "/admin/w/acme/projects", icon: "$navChoice2" },
+      { title: "Workspace chat", to: "/admin/w/acme/chat", icon: "$workspaceChat" },
       { title: "Assistant", to: "/admin/w/acme/assistant", icon: "$navChoice2" },
-      { title: "Workspace chat", to: "/admin/w/acme/chat", icon: "mdi-chat-outline" },
-      { title: "AI transcripts", to: "/admin/w/acme/transcripts", icon: "$navChoice2" },
-      { title: "Workspace settings", to: "/admin/w/acme/settings", icon: "$menuSettings" },
-      { title: "Billing", to: "/admin/w/acme/billing", icon: "$menuSettings" }
+      { title: "AI transcripts", to: "/admin/w/acme/transcripts", icon: "$navChoice2" }
     ]);
+    expect(wrapper.vm.shell.user.canViewWorkspaceSettings.value).toBe(true);
+    expect(wrapper.vm.shell.navigation.workspaceSettingsPath.value).toBe("/admin/w/acme/settings");
   });
 
   it("maps assistant destination title", async () => {
@@ -321,6 +321,11 @@ describe("useAdminShell", () => {
 
     await wrapper.vm.shell.actions.goToAppSurface();
     expect(mocks.shellActions.hardNavigate).toHaveBeenCalledWith("/w/acme");
+
+    await wrapper.vm.shell.actions.goToWorkspaceSettings();
+    expect(mocks.navigate).toHaveBeenCalledWith({
+      to: "/admin/w/acme/settings"
+    });
   });
 
   it("selects workspace from shell and handles early-return and error branches", async () => {
@@ -412,15 +417,18 @@ describe("useAdminShell", () => {
     expect(mocks.consoleStore.clearConsoleState).toHaveBeenCalledTimes(2);
   });
 
-  it("hides workspace settings navigation when user lacks permission", async () => {
+  it("hides workspace settings shortcut when user lacks permission", async () => {
     mocks.workspaceStore.can.mockImplementation(
       (permission) => permission !== "workspace.settings.view" && permission !== "workspace.settings.update"
     );
     const wrapper = mountHarness();
     await nextTick();
-    expect(wrapper.vm.shell.navigation.navigationItems.value.some((item) => item.title === "Workspace settings")).toBe(
-      false
-    );
+    expect(wrapper.vm.shell.user.canViewWorkspaceSettings.value).toBe(false);
+
+    await wrapper.vm.shell.actions.goToWorkspaceSettings();
+    expect(mocks.navigate).not.toHaveBeenCalledWith({
+      to: "/admin/w/acme/settings"
+    });
   });
 
   it("hides assistant navigation when feature is disabled", async () => {

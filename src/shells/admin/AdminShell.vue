@@ -69,6 +69,16 @@
         </v-toolbar-title>
         <v-spacer />
 
+        <v-btn
+          v-if="canViewWorkspaceSettings"
+          variant="text"
+          prepend-icon="$menuSettings"
+          class="workspace-settings-shortcut mr-2"
+          @click="goToWorkspaceSettings"
+        >
+          Workspace settings
+        </v-btn>
+
         <v-menu location="bottom end" offset="8">
           <template #activator="{ props }">
             <v-btn v-bind="props" variant="text" class="user-menu-button px-2" aria-label="Open user menu">
@@ -244,6 +254,10 @@ export default {
   text-transform: none;
 }
 
+.workspace-settings-shortcut {
+  text-transform: none;
+}
+
 .user-menu-name {
   max-width: 160px;
   overflow: hidden;
@@ -255,6 +269,15 @@ export default {
 }
 
 @media (max-width: 760px) {
+  .workspace-settings-shortcut {
+    min-width: 40px;
+    padding-inline: 8px;
+  }
+
+  .workspace-settings-shortcut :deep(.v-btn__content) {
+    font-size: 0;
+  }
+
   .user-menu-name {
     display: none;
   }
