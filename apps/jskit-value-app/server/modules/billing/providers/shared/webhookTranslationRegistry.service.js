@@ -1,64 +1,38 @@
-import { assertBillingWebhookTranslator, normalizeBillingWebhookProvider } from "./webhookTranslation.contract.js";
+import {
+  createProviderRegistry,
+  assertWebhookTranslator,
+  normalizeWebhookProvider
+} from "@jskit-ai/billing-provider-core";
 
 function createService({ translators = [], defaultProvider = "" } = {}) {
-  const translatorByProvider = new Map();
-  let resolvedDefaultProvider = normalizeBillingWebhookProvider(defaultProvider);
-
-  function registerTranslator(translator) {
-    const validTranslator = assertBillingWebhookTranslator(translator);
-    const provider = normalizeBillingWebhookProvider(validTranslator.provider);
-    if (translatorByProvider.has(provider)) {
-      throw new Error(`Billing webhook translator already registered: ${provider}.`);
-    }
-    translatorByProvider.set(provider, validTranslator);
-
-    if (!resolvedDefaultProvider) {
-      resolvedDefaultProvider = provider;
-    }
-
-    return validTranslator;
-  }
-
-  if (Array.isArray(translators)) {
-    for (const translator of translators) {
-      registerTranslator(translator);
-    }
-  }
-
-  function resolveProvider(provider = resolvedDefaultProvider) {
-    const normalizedProvider = normalizeBillingWebhookProvider(provider);
-    if (!normalizedProvider) {
-      throw new Error("Billing webhook translator provider is required.");
-    }
-
-    const translator = translatorByProvider.get(normalizedProvider);
-    if (!translator) {
-      throw new Error(`Unsupported billing webhook translator provider: ${normalizedProvider}.`);
-    }
-
-    return translator;
-  }
-
-  function hasProvider(provider) {
-    const normalizedProvider = normalizeBillingWebhookProvider(provider);
-    if (!normalizedProvider) {
-      return false;
-    }
-
-    return translatorByProvider.has(normalizedProvider);
-  }
-
-  function listProviders() {
-    return Array.from(translatorByProvider.keys());
-  }
+  const translatorRegistry = createProviderRegistry({
+    providers: translators,
+    defaultProvider,
+    normalizeProvider: normalizeWebhookProvider,
+    validateProvider: (translator) =>
+      assertWebhookTranslator(translator, {
+        name: "billingWebhookTranslator"
+      }),
+    providerRequiredMessage: "Billing webhook translator provider is required.",
+    unsupportedProviderMessage: (provider) => `Unsupported billing webhook translator provider: ${provider}.`,
+    duplicateProviderMessage: (provider) => `Billing webhook translator already registered: ${provider}.`
+  });
 
   return {
-    registerTranslator,
-    resolveProvider,
-    hasProvider,
-    listProviders,
+    registerTranslator(translator) {
+      return translatorRegistry.registerProvider(translator);
+    },
+    resolveProvider(provider = translatorRegistry.getDefaultProvider()) {
+      return translatorRegistry.resolveProvider(provider);
+    },
+    hasProvider(provider) {
+      return translatorRegistry.hasProvider(provider);
+    },
+    listProviders() {
+      return translatorRegistry.listProviders();
+    },
     getDefaultProvider() {
-      return resolvedDefaultProvider;
+      return translatorRegistry.getDefaultProvider();
     }
   };
 }

@@ -1,63 +1,35 @@
-import { assertBillingProviderAdapter, normalizeBillingProviderCode } from "./providerAdapter.contract.js";
+import {
+  createProviderRegistry,
+  assertProviderAdapter,
+  normalizeProviderCode
+} from "@jskit-ai/billing-provider-core";
 
 function createService({ adapters = [], defaultProvider = "" } = {}) {
-  const adapterByProvider = new Map();
-  let resolvedDefaultProvider = normalizeBillingProviderCode(defaultProvider);
-
-  function registerAdapter(adapter) {
-    const validAdapter = assertBillingProviderAdapter(adapter);
-    const provider = normalizeBillingProviderCode(validAdapter.provider);
-    if (adapterByProvider.has(provider)) {
-      throw new Error(`Billing provider already registered: ${provider}.`);
-    }
-    adapterByProvider.set(provider, validAdapter);
-
-    if (!resolvedDefaultProvider) {
-      resolvedDefaultProvider = provider;
-    }
-
-    return validAdapter;
-  }
-
-  if (Array.isArray(adapters)) {
-    for (const adapter of adapters) {
-      registerAdapter(adapter);
-    }
-  }
-
-  function resolveProvider(provider = resolvedDefaultProvider) {
-    const normalizedProvider = normalizeBillingProviderCode(provider);
-    if (!normalizedProvider) {
-      throw new Error("Billing provider is required.");
-    }
-
-    const adapter = adapterByProvider.get(normalizedProvider);
-    if (!adapter) {
-      throw new Error(`Unsupported billing provider: ${normalizedProvider}.`);
-    }
-
-    return adapter;
-  }
-
-  function hasProvider(provider) {
-    const normalizedProvider = normalizeBillingProviderCode(provider);
-    if (!normalizedProvider) {
-      return false;
-    }
-    return adapterByProvider.has(normalizedProvider);
-  }
-
-  function listProviders() {
-    return Array.from(adapterByProvider.keys());
-  }
+  const providerRegistry = createProviderRegistry({
+    providers: adapters,
+    defaultProvider,
+    normalizeProvider: normalizeProviderCode,
+    validateProvider: (adapter) => assertProviderAdapter(adapter, { name: "billingProviderAdapter" }),
+    providerRequiredMessage: "Billing provider is required.",
+    unsupportedProviderMessage: (provider) => `Unsupported billing provider: ${provider}.`,
+    duplicateProviderMessage: (provider) => `Billing provider already registered: ${provider}.`
+  });
 
   return {
-    registerAdapter,
-    resolveProvider,
-    hasProvider,
-    listProviders,
+    registerAdapter(adapter) {
+      return providerRegistry.registerProvider(adapter);
+    },
+    resolveProvider(provider = providerRegistry.getDefaultProvider()) {
+      return providerRegistry.resolveProvider(provider);
+    },
+    hasProvider(provider) {
+      return providerRegistry.hasProvider(provider);
+    },
+    listProviders() {
+      return providerRegistry.listProviders();
+    },
     getDefaultProvider() {
-      return resolvedDefaultProvider;
+      return providerRegistry.getDefaultProvider();
     }
   };
 }
