@@ -83,22 +83,27 @@ vi.mock("vuetify/iconsets/mdi-svg", () => ({
   mdi: {}
 }));
 
-vi.mock("@mdi/js", () => ({
-  mdiAccountMultipleOutline: "mdi-account-multiple-outline",
-  mdiAlertCircleOutline: "mdi-alert-circle-outline",
-  mdiArrowLeftTopBold: "mdi-arrow-left-top-bold",
-  mdiAccountOutline: "mdi-account-outline",
-  mdiCogOutline: "mdi-cog-outline",
-  mdiGoogle: "mdi-google",
-  mdiHelpCircleOutline: "mdi-help-circle-outline",
-  mdiHomeOutline: "mdi-home-outline",
-  mdiLogout: "mdi-logout",
-  mdiMessageTextOutline: "mdi-message-text-outline",
-  mdiServer: "mdi-server",
-  mdiShieldCrownOutline: "mdi-shield-crown-outline",
-  mdiShapeOutline: "mdi-shape-outline",
-  mdiViewDashboardOutline: "mdi-view-dashboard-outline"
-}));
+vi.mock("@mdi/js", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    mdiAccountMultipleOutline: "mdi-account-multiple-outline",
+    mdiAlertCircleOutline: "mdi-alert-circle-outline",
+    mdiArrowLeftTopBold: "mdi-arrow-left-top-bold",
+    mdiAccountOutline: "mdi-account-outline",
+    mdiChatOutline: "mdi-chat-outline",
+    mdiCogOutline: "mdi-cog-outline",
+    mdiGoogle: "mdi-google",
+    mdiHelpCircleOutline: "mdi-help-circle-outline",
+    mdiHomeOutline: "mdi-home-outline",
+    mdiLogout: "mdi-logout",
+    mdiMessageTextOutline: "mdi-message-text-outline",
+    mdiServer: "mdi-server",
+    mdiShieldCrownOutline: "mdi-shield-crown-outline",
+    mdiShapeOutline: "mdi-shape-outline",
+    mdiViewDashboardOutline: "mdi-view-dashboard-outline"
+  };
+});
 
 vi.mock("vuetify/styles", () => ({}));
 
