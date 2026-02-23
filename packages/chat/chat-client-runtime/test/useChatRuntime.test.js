@@ -1,0 +1,78 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { __testables } from "../src/useChatRuntime.js";
+
+test("chat runtime normalizes thread ids and public chat ids", () => {
+  assert.equal(__testables.normalizeThreadId(42), 42);
+  assert.equal(__testables.normalizeThreadId("x"), 0);
+  assert.equal(__testables.normalizePublicChatId("  USER-ABC  "), "user-abc");
+  assert.equal(__testables.normalizePublicChatId(""), "");
+});
+
+test("chat runtime flattens thread pages without duplicate ids", () => {
+  const flattened = __testables.flattenThreadPages([
+    {
+      items: [{ id: 3 }, { id: 2 }]
+    },
+    {
+      items: [{ id: 2 }, { id: 1 }]
+    }
+  ]);
+
+  assert.deepEqual(
+    flattened.map((entry) => entry.id),
+    [3, 2, 1]
+  );
+});
+
+test("chat runtime flattens message pages chronologically and de-duplicates ids", () => {
+  const flattened = __testables.flattenMessagePagesChronologically([
+    {
+      items: [{ id: 30 }, { id: 31 }]
+    },
+    {
+      items: [{ id: 31 }, { id: 32 }]
+    }
+  ]);
+
+  assert.deepEqual(
+    flattened.map((entry) => entry.id),
+    [31, 32, 30]
+  );
+});
+
+test("chat runtime buildMessageRows groups adjacent messages by sender and time window", () => {
+  const rows = __testables.buildMessageRows(
+    [
+      {
+        id: 1,
+        senderUserId: 5,
+        sentAt: "2026-02-23T00:00:00.000Z",
+        text: "a"
+      },
+      {
+        id: 2,
+        senderUserId: 5,
+        sentAt: "2026-02-23T00:03:00.000Z",
+        text: "b"
+      },
+      {
+        id: 3,
+        senderUserId: 7,
+        sentAt: "2026-02-23T00:04:00.000Z",
+        text: "c"
+      }
+    ],
+    {
+      currentUserId: 5,
+      currentUserLabel: "You"
+    }
+  );
+
+  assert.equal(rows[0].isMine, true);
+  assert.equal(rows[0].groupStart, true);
+  assert.equal(rows[0].groupEnd, false);
+  assert.equal(rows[1].groupStart, false);
+  assert.equal(rows[1].groupEnd, true);
+  assert.equal(rows[2].isMine, false);
+});
