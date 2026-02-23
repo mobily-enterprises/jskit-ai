@@ -44,6 +44,7 @@
   "dependencies": {
     "@jskit-ai/app-scripts": "0.1.0",
     "@jskit-ai/billing-provider-core": "0.1.0",
+    "@jskit-ai/entitlements-core": "0.1.0",
     "@jskit-ai/fastify-auth-policy": "0.1.0",
     "@jskit-ai/http-client-runtime": "0.1.0",
     "@jskit-ai/realtime-client-runtime": "0.1.0",

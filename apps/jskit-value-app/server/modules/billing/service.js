@@ -1,5 +1,6 @@
 import { AppError } from "../../lib/errors.js";
 import { normalizePagination } from "../../lib/primitives/pagination.js";
+import { createEntitlementsService } from "@jskit-ai/entitlements-core";
 import {
   BILLING_ACTIONS,
   BILLING_DEFAULT_PROVIDER,
@@ -519,6 +520,51 @@ function createService(options = {}) {
     throw new Error("appPublicUrl is required.");
   }
   const deploymentCurrency = normalizeCurrency(billingPricingService?.deploymentCurrency || "USD");
+
+  function createEntitlementsRepositoryAdapter(repository) {
+    const source = repository && typeof repository === "object" ? repository : {};
+    const bindMethodOr = (methodName, fallback) =>
+      typeof source[methodName] === "function" ? source[methodName].bind(source) : fallback;
+
+    return {
+      transaction: bindMethodOr("transaction", async (work) => work(null)),
+      listEntitlementDefinitions: bindMethodOr("listEntitlementDefinitions", async () => []),
+      findEntitlementDefinitionByCode: bindMethodOr("findEntitlementDefinitionByCode", async () => null),
+      findEntitlementDefinitionById: bindMethodOr("findEntitlementDefinitionById", async () => null),
+      insertEntitlementGrant: bindMethodOr("insertEntitlementGrant", async () => ({ inserted: false, grant: null })),
+      insertEntitlementConsumption: bindMethodOr("insertEntitlementConsumption", async () => ({
+        inserted: false,
+        consumption: null
+      })),
+      findEntitlementBalance: bindMethodOr("findEntitlementBalance", async () => null),
+      upsertEntitlementBalance: bindMethodOr("upsertEntitlementBalance", async () => null),
+      listEntitlementBalancesForSubject: bindMethodOr("listEntitlementBalancesForSubject", async () => []),
+      listNextGrantBoundariesForSubjectDefinition: bindMethodOr(
+        "listNextGrantBoundariesForSubjectDefinition",
+        async () => []
+      ),
+      recomputeEntitlementBalance: bindMethodOr("recomputeEntitlementBalance", async () => ({
+        balance: null,
+        definition: null
+      }))
+    };
+  }
+
+  const entitlementsService = createEntitlementsService(
+    {
+      repository: createEntitlementsRepositoryAdapter(billingRepository)
+    },
+    {
+      policy: {
+        resolveLockState({ definition, overLimit }) {
+          if (String(definition?.code || "").trim() === "projects.max" && overLimit) {
+            return "projects_locked_over_cap";
+          }
+          return "none";
+        }
+      }
+    }
+  );
 
   function recordGuardrail(code, context = {}) {
     const payload = {
@@ -2041,70 +2087,20 @@ function createService(options = {}) {
     }
 
     const normalizedNow = now instanceof Date ? now : new Date(now);
-    const normalizedCodes =
-      Array.isArray(limitationCodes) && limitationCodes.length > 0
-        ? [...new Set(limitationCodes.map((entry) => String(entry || "").trim()).filter(Boolean))]
-        : null;
-    const definitions = await billingRepository.listEntitlementDefinitions(
-      {
-        includeInactive: false,
-        codes: normalizedCodes
-      },
-      trx ? { trx } : {}
-    );
-
-    const entries = [];
-    for (const definition of definitions) {
-      const capacityResolver = capacityResolvers?.[definition.code];
-      const previous = await billingRepository.findEntitlementBalance(
-        {
-          subjectType: "billable_entity",
-          subjectId: normalizedBillableEntityId,
-          entitlementDefinitionId: definition.id
-        },
-        trx ? { trx } : {}
-      );
-      const recomputed = await billingRepository.recomputeEntitlementBalance(
-        {
-          subjectType: "billable_entity",
-          subjectId: normalizedBillableEntityId,
-          entitlementDefinitionId: definition.id,
-          now: normalizedNow,
-          capacityConsumedAmountResolver: capacityResolver
-        },
-        trx ? { trx } : {}
-      );
-      const balance = recomputed?.balance || null;
-      if (!balance) {
-        continue;
-      }
-
-      entries.push({
-        code: String(definition.code || ""),
-        entitlementType: String(definition.entitlementType || ""),
-        enforcementMode: String(definition.enforcementMode || "hard_deny"),
-        unit: String(definition.unit || ""),
-        windowInterval: definition.windowInterval || null,
-        windowAnchor: definition.windowAnchor || null,
-        grantedAmount: Number(balance.grantedAmount || 0),
-        consumedAmount: Number(balance.consumedAmount || 0),
-        effectiveAmount: Number(balance.effectiveAmount || 0),
-        hardLimitAmount: balance.hardLimitAmount == null ? null : Number(balance.hardLimitAmount),
-        overLimit: Boolean(balance.overLimit),
-        lockState: balance.lockState || null,
-        nextChangeAt: balance.nextChangeAt || null,
-        windowStartAt: balance.windowStartAt,
-        windowEndAt: balance.windowEndAt,
-        lastRecomputedAt: balance.lastRecomputedAt,
-        _previous: previous
-      });
-    }
+    const resolved = await entitlementsService.resolveEffectiveLimitations({
+      subjectType: "billable_entity",
+      subjectId: normalizedBillableEntityId,
+      limitationCodes,
+      now: normalizedNow,
+      capacityResolvers,
+      trx
+    });
 
     return {
       billableEntityId: normalizedBillableEntityId,
-      generatedAt: normalizedNow.toISOString(),
-      stale: false,
-      limitations: entries
+      generatedAt: resolved.generatedAt,
+      stale: Boolean(resolved.stale),
+      limitations: Array.isArray(resolved.limitations) ? resolved.limitations : []
     };
   }
 
@@ -2182,7 +2178,7 @@ function createService(options = {}) {
           `plan_assignment:${Number(assignment.id)}:` +
           `template:${Number(template.id)}:` +
           `subject:${normalizedBillableEntityId}`;
-        await billingRepository.insertEntitlementGrant(
+        const grantOutcome = await entitlementsService.grant(
           {
             subjectType: "billable_entity",
             subjectId: normalizedBillableEntityId,
@@ -2197,33 +2193,16 @@ function createService(options = {}) {
             provider: null,
             providerEventId: null,
             dedupeKey,
+            now: normalizedNow,
             metadataJson: {
               assignmentId: Number(assignment.id),
               planId: Number(plan.id),
               templateId: Number(template.id)
-            }
+            },
+            trx: trxHandle
           },
-          { trx: trxHandle }
         );
-
-        const previous = await billingRepository.findEntitlementBalance(
-          {
-            subjectType: "billable_entity",
-            subjectId: normalizedBillableEntityId,
-            entitlementDefinitionId
-          },
-          { trx: trxHandle }
-        );
-        const recomputed = await billingRepository.recomputeEntitlementBalance(
-          {
-            subjectType: "billable_entity",
-            subjectId: normalizedBillableEntityId,
-            entitlementDefinitionId,
-            now: normalizedNow
-          },
-          { trx: trxHandle }
-        );
-        if (hasMaterialBalanceChange(previous, recomputed?.balance || null)) {
+        if (grantOutcome?.changed) {
           changedCodes.add(String(definition.code || ""));
         }
       }
@@ -2338,7 +2317,7 @@ function createService(options = {}) {
         }
 
         const dedupeKey = `purchase:${Number(purchaseRow.id)}:template:${Number(template.id)}:subject:${normalizedBillableEntityId}`;
-        await billingRepository.insertEntitlementGrant(
+        const grantOutcome = await entitlementsService.grant(
           {
             subjectType: "billable_entity",
             subjectId: normalizedBillableEntityId,
@@ -2354,33 +2333,16 @@ function createService(options = {}) {
             providerEventId:
               toNonEmptyString(purchaseMetadata.providerEventId || purchaseMetadata.provider_event_id) || null,
             dedupeKey,
+            now: normalizedNow,
             metadataJson: {
               purchaseId: Number(purchaseRow.id),
               productId: Number(product.id),
               templateId: Number(template.id)
-            }
+            },
+            trx: trxHandle
           },
-          { trx: trxHandle }
         );
-
-        const previous = await billingRepository.findEntitlementBalance(
-          {
-            subjectType: "billable_entity",
-            subjectId: normalizedBillableEntityId,
-            entitlementDefinitionId
-          },
-          { trx: trxHandle }
-        );
-        const recomputed = await billingRepository.recomputeEntitlementBalance(
-          {
-            subjectType: "billable_entity",
-            subjectId: normalizedBillableEntityId,
-            entitlementDefinitionId,
-            now: normalizedNow
-          },
-          { trx: trxHandle }
-        );
-        if (hasMaterialBalanceChange(previous, recomputed?.balance || null)) {
+        if (grantOutcome?.changed) {
           changedCodes.add(String(definition.code || ""));
         }
       }
@@ -2482,16 +2444,16 @@ function createService(options = {}) {
           },
           { trx: trxHandle }
         );
-        const recomputed = await billingRepository.recomputeEntitlementBalance(
+        const recomputed = await entitlementsService.recompute(
           {
             subjectType: "billable_entity",
             subjectId: normalizedBillableEntityId,
             entitlementDefinitionId: definitionId,
             windowStartAt: balance.windowStartAt || null,
             windowEndAt: balance.windowEndAt || null,
-            now: normalizedNow
-          },
-          { trx: trxHandle }
+            now: normalizedNow,
+            trx: trxHandle
+          }
         );
         if (hasMaterialBalanceChange(previous, recomputed?.balance || null)) {
           changedCodes.add(String(definition.code || ""));
@@ -2542,60 +2504,54 @@ function createService(options = {}) {
       throw new AppError(400, "consumeEntitlement requires billableEntityId, limitationCode, and amount.");
     }
 
-    const definition = await billingRepository.findEntitlementDefinitionByCode(
-      normalizedLimitationCode,
-      trx ? { trx } : {}
-    );
-    if (!definition) {
-      throw new AppError(409, "Billing limitation is not configured.", {
-        code: BILLING_LIMIT_NOT_CONFIGURED_ERROR_CODE,
-        details: {
-          limitationCode: normalizedLimitationCode
-        }
-      });
-    }
-
     const normalizedUsageEventKey = toNonEmptyString(usageEventKey);
     const normalizedOperationKey = toNonEmptyString(operationKey);
+    const normalizedRequestId = toNonEmptyString(requestId);
+    const normalizedReasonCode = toNonEmptyString(reasonCode) || "usage";
+    const definitionForDedupe =
+      typeof billingRepository.findEntitlementDefinitionByCode === "function"
+        ? await billingRepository.findEntitlementDefinitionByCode(normalizedLimitationCode, trx ? { trx } : {})
+        : null;
+    const dedupeScope = toPositiveInteger(definitionForDedupe?.id) || normalizedLimitationCode;
     const dedupeKey = normalizedUsageEventKey
-      ? `usage:${normalizedBillableEntityId}:${definition.id}:${normalizedUsageEventKey}`
+      ? `usage:${normalizedBillableEntityId}:${dedupeScope}:${normalizedUsageEventKey}`
       : normalizedOperationKey
-        ? `op:${normalizedBillableEntityId}:${definition.id}:${normalizedOperationKey}:${toNonEmptyString(reasonCode)}`
-        : `req:${normalizedBillableEntityId}:${definition.id}:${toNonEmptyString(requestId)}:${toNonEmptyString(reasonCode)}`;
+        ? `op:${normalizedBillableEntityId}:${dedupeScope}:${normalizedOperationKey}:${normalizedReasonCode}`
+        : `req:${normalizedBillableEntityId}:${dedupeScope}:${normalizedRequestId}:${normalizedReasonCode}`;
 
-    const consumption = await billingRepository.insertEntitlementConsumption(
-      {
+    try {
+      const outcome = await entitlementsService.consume({
         subjectType: "billable_entity",
         subjectId: normalizedBillableEntityId,
-        entitlementDefinitionId: definition.id,
+        limitationCode: normalizedLimitationCode,
         amount: normalizedAmount,
-        occurredAt: now,
-        reasonCode: toNonEmptyString(reasonCode) || "usage",
-        operationKey: normalizedOperationKey || null,
         usageEventKey: normalizedUsageEventKey || null,
-        requestId: toNonEmptyString(requestId) || null,
+        operationKey: normalizedOperationKey || null,
+        requestId: normalizedRequestId || null,
         dedupeKey,
-        metadataJson
-      },
-      trx ? { trx } : {}
-    );
+        reasonCode: normalizedReasonCode,
+        metadataJson,
+        now,
+        trx
+      });
 
-    const recomputed = await billingRepository.recomputeEntitlementBalance(
-      {
-        subjectType: "billable_entity",
-        subjectId: normalizedBillableEntityId,
-        entitlementDefinitionId: definition.id,
-        now
-      },
-      trx ? { trx } : {}
-    );
-
-    return {
-      inserted: Boolean(consumption?.inserted),
-      definition,
-      balance: recomputed?.balance || null,
-      consumption: consumption?.consumption || null
-    };
+      return {
+        inserted: Boolean(outcome?.inserted),
+        definition: outcome?.definition || null,
+        balance: outcome?.balance || null,
+        consumption: outcome?.consumption || null
+      };
+    } catch (error) {
+      if (String(error?.code || "").trim() === "ENTITLEMENT_NOT_CONFIGURED") {
+        throw new AppError(409, "Billing limitation is not configured.", {
+          code: BILLING_LIMIT_NOT_CONFIGURED_ERROR_CODE,
+          details: {
+            limitationCode: normalizedLimitationCode
+          }
+        });
+      }
+      throw error;
+    }
   }
 
   async function executeWithEntitlementConsumption({
