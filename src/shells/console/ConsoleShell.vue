@@ -1,20 +1,22 @@
 <template>
-  <v-app class="console-root">
+  <v-app class="bg-background">
     <template v-if="showApplicationShell">
-      <v-app-bar border density="comfortable" elevation="0" class="console-bar">
+      <v-app-bar border density="comfortable" elevation="0" class="console-bar bg-surface">
         <v-app-bar-nav-icon
           :disabled="isDesktopPermanentDrawer && !isMobile"
           :aria-label="isDesktopCollapsible ? 'Toggle navigation drawer' : 'Toggle navigation menu'"
           @click="toggleDrawer"
         />
 
-        <v-toolbar-title class="console-title">{{ destinationTitle }}</v-toolbar-title>
+        <v-toolbar-title class="text-subtitle-1 font-weight-bold">{{ destinationTitle }}</v-toolbar-title>
         <v-spacer />
 
         <v-menu location="bottom end" offset="8">
           <template #activator="{ props }">
-            <v-btn v-bind="props" variant="text" class="user-menu-button px-2" aria-label="Open user menu">
-              <span class="user-menu-name">{{ userDisplayName }}</span>
+            <v-btn v-bind="props" variant="text" class="user-menu-button px-2 text-none" aria-label="Open user menu">
+              <span class="user-menu-name d-inline-block text-truncate text-body-2 font-weight-medium">
+                {{ userDisplayName }}
+              </span>
             </v-btn>
           </template>
 
@@ -32,7 +34,7 @@
         :temporary="isMobile"
         :scrim="isMobile"
         :width="272"
-        class="console-drawer"
+        class="bg-surface"
         border
       >
         <v-list nav density="comfortable" class="pt-2">
@@ -43,12 +45,13 @@
             :prepend-icon="item.icon"
             :active="isNavigationItemActive(item.to)"
             rounded="lg"
+            class="mb-1"
             @click="goToNavigationItem(item)"
           />
 
           <template v-if="aiNavigationItems.length">
             <v-divider v-if="navigationItems.length" class="my-2" />
-            <v-list-subheader class="console-nav-section">AI</v-list-subheader>
+            <v-list-subheader class="console-nav-section text-uppercase">AI</v-list-subheader>
             <v-list-item
               v-for="item in aiNavigationItems"
               :key="item.to"
@@ -56,14 +59,14 @@
               :prepend-icon="item.icon"
               :active="isNavigationItemActive(item.to)"
               rounded="lg"
-              class="console-nav-child"
+              class="ms-2"
               @click="goToNavigationItem(item)"
             />
           </template>
 
           <template v-if="errorNavigationItems.length">
             <v-divider v-if="navigationItems.length || aiNavigationItems.length" class="my-2" />
-            <v-list-subheader class="console-nav-section">Errors</v-list-subheader>
+            <v-list-subheader class="console-nav-section text-uppercase">Errors</v-list-subheader>
             <v-list-item
               v-for="item in errorNavigationItems"
               :key="item.to"
@@ -71,14 +74,14 @@
               :prepend-icon="item.icon"
               :active="isNavigationItemActive(item.to)"
               rounded="lg"
-              class="console-nav-child"
+              class="ms-2"
               @click="goToNavigationItem(item)"
             />
           </template>
 
           <template v-if="billingNavigationItems.length">
             <v-divider v-if="navigationItems.length || aiNavigationItems.length || errorNavigationItems.length" class="my-2" />
-            <v-list-subheader class="console-nav-section">Billing</v-list-subheader>
+            <v-list-subheader class="console-nav-section text-uppercase">Billing</v-list-subheader>
             <v-list-item
               v-for="item in billingNavigationItems"
               :key="item.to"
@@ -86,7 +89,7 @@
               :prepend-icon="item.icon"
               :active="isNavigationItemActive(item.to)"
               rounded="lg"
-              class="console-nav-child"
+              class="ms-2"
               @click="goToNavigationItem(item)"
             />
           </template>
@@ -94,7 +97,7 @@
       </v-navigation-drawer>
 
       <v-main class="console-main-shell">
-        <v-container fluid class="console-content px-3 px-sm-5 py-4">
+        <v-container fluid class="mx-auto px-3 px-sm-5 py-4" style="max-width: 1280px">
           <Outlet />
         </v-container>
       </v-main>
@@ -129,23 +132,8 @@ export default {
 </script>
 
 <style scoped>
-.console-root {
-  background-color: rgb(var(--v-theme-background));
-}
-
 .console-bar {
-  background-color: rgb(var(--v-theme-surface));
   border-bottom: 2px solid rgba(15, 107, 84, 0.25);
-}
-
-.console-drawer {
-  background-color: rgb(var(--v-theme-surface));
-}
-
-.console-title {
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
 }
 
 .console-main-shell {
@@ -153,27 +141,12 @@ export default {
     rgb(var(--v-theme-background));
 }
 
-.console-content {
-  max-width: 1280px;
-  margin-inline: auto;
-}
-
 .user-menu-button {
   min-width: 42px;
-  text-transform: none;
 }
 
 .user-menu-name {
   max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-:deep(.v-navigation-drawer .v-list-item) {
-  margin-bottom: 4px;
 }
 
 :deep(.v-navigation-drawer .v-list-item--active) {
@@ -185,10 +158,5 @@ export default {
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-:deep(.v-navigation-drawer .console-nav-child) {
-  margin-left: 10px;
 }
 </style>

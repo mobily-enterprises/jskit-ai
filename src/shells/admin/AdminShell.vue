@@ -15,7 +15,7 @@
                 <v-img v-if="activeWorkspaceAvatarUrl" :src="activeWorkspaceAvatarUrl" cover />
                 <span v-else class="text-caption font-weight-bold">{{ activeWorkspaceInitials }}</span>
               </v-avatar>
-              <span class="workspace-switcher-label d-inline-block text-truncate">{{ activeWorkspaceName }}</span>
+              <span class="d-inline-block text-truncate" style="max-width: 180px">{{ activeWorkspaceName }}</span>
               <v-chip v-if="pendingInvitesCount > 0" size="x-small" color="warning" label class="ml-2">
                 {{ pendingInvitesCount }}?
               </v-chip>
@@ -110,12 +110,21 @@
 
         <v-menu location="bottom end" offset="8">
           <template #activator="{ props }">
-            <v-btn v-bind="props" variant="text" class="user-menu-button px-2 text-none" aria-label="Open user menu">
+            <v-btn
+              v-bind="props"
+              variant="text"
+              class="px-2 text-none"
+              style="min-width: 42px"
+              aria-label="Open user menu"
+            >
               <v-avatar color="primary" size="32" class="mr-2">
                 <v-img v-if="userAvatarUrl" :src="userAvatarUrl" cover />
                 <span v-else class="text-caption font-weight-bold">{{ userInitials }}</span>
               </v-avatar>
-              <span class="user-menu-name d-inline-block text-truncate text-body-2 font-weight-medium">
+              <span
+                class="user-menu-name d-inline-block text-truncate text-body-2 font-weight-medium"
+                style="max-width: 160px; letter-spacing: 0.01em"
+              >
                 {{ userDisplayName }}
               </span>
             </v-btn>
@@ -241,10 +250,6 @@ export default {
   border: 1px solid var(--workspace-color-soft);
 }
 
-.workspace-switcher-label {
-  max-width: 180px;
-}
-
 .accent-pill {
   width: 18px;
   height: 6px;
@@ -272,15 +277,6 @@ export default {
   flex: 1 1 auto;
   width: 100%;
   min-height: 0;
-}
-
-.user-menu-button {
-  min-width: 42px;
-}
-
-.user-menu-name {
-  max-width: 160px;
-  letter-spacing: 0.01em;
 }
 
 @media (max-width: 760px) {
