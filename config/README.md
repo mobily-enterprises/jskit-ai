@@ -46,7 +46,7 @@ Do not move entitlement data into `/config` or env vars.
 
 ## Enforcement
 
-`server/lib/runtimeEnv.js` rejects env vars that were moved into `/config` so there is no dual-source configuration drift.
+Repository-owned behavior now lives in `/config/*.js`; runtime env validation in `server/lib/runtimeEnv.js` is limited to declared runtime env vars.
 
 ## Test-Only Repository Config Overrides
 
