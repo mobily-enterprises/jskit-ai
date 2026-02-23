@@ -1,47 +1,71 @@
 # `@jskit-ai/billing-provider-core`
 
-Shared billing provider contracts and registry helpers for SaaS apps.
+Shared billing provider contracts, validators, error taxonomy, and provider registry helpers for SaaS apps.
 
-If you are new to this topic, read this first:
-This package is not a payment gateway SDK. It is the shared "shape and rules" layer that all billing providers must follow.
+If you are new to billing integrations, this is the most important idea:
+This package is not the code that talks to Stripe or Paddle.  
+This package defines the common rules and shapes your app uses around those providers.
+
+---
+
+## Table of Contents
+
+1. [What This Package Is For](#1-what-this-package-is-for)
+2. [What This Package Is Not For](#2-what-this-package-is-not-for)
+3. [Beginner Glossary](#3-beginner-glossary)
+4. [Install](#4-install)
+5. [Quick Start](#5-quick-start)
+6. [Full API Reference (Every Export)](#6-full-api-reference-every-export)
+7. [How Apps Use This In Real Terms (And Why)](#7-how-apps-use-this-in-real-terms-and-why)
+8. [Real End-to-End Example](#8-real-end-to-end-example)
+9. [Common Mistakes](#9-common-mistakes)
+10. [Troubleshooting](#10-troubleshooting)
 
 ---
 
 ## 1) What This Package Is For
 
-Use this package to standardize how apps integrate billing providers (Stripe, Paddle, future providers) without sharing app-specific billing policy.
+Use this package when you want many apps to share the same provider integration boundaries:
 
-What it gives you:
+1. What methods a provider adapter must implement.
+2. What methods a webhook translator must implement.
+3. How provider errors are normalized and categorized.
+4. How provider implementations are registered and resolved by provider code.
 
-1. A provider adapter contract (what methods a provider adapter must implement).
-2. A webhook translator contract (how provider webhook payloads become canonical events).
-3. A stable provider error type and category taxonomy.
-4. A provider registry helper for selecting provider implementations by provider code.
+Practical value:
 
-Real-life value:
-
-1. You can swap provider implementations without rewriting orchestration code.
-2. Error handling logic can use one shared category model.
-3. Webhook ingestion can rely on one canonical event filter interface.
+1. Apps can switch provider implementation with less risk.
+2. Business code can rely on stable method names and stable error shape.
+3. CI catches missing adapter/translator methods at startup instead of during production requests.
 
 ---
 
-## 2) What This Package Does Not Do
+## 2) What This Package Is Not For
 
 This package intentionally does not include:
 
-1. Product catalog configuration.
-2. Pricing and entitlement policy.
-3. Checkout orchestration business decisions.
-4. Database storage logic.
-5. Vendor SDK implementations (Stripe/Paddle HTTP calls).
+1. Product catalog or price list decisions.
+2. Entitlement or subscription policy.
+3. Checkout orchestration business rules.
+4. Database or repository logic.
+5. Stripe/Paddle SDK request code.
 
-Why:
-Those are app/domain concerns, not shared provider-core concerns.
+Reason:
+Those concerns are app/domain-specific and should stay in each app.
 
 ---
 
-## 3) Install
+## 3) Beginner Glossary
+
+1. Provider adapter: an object with methods like `createCheckoutSession` and `cancelSubscription` that hides SDK details.
+2. Webhook translator: an object that converts provider webhook payloads into your app’s canonical event shape.
+3. Canonical event: a provider-neutral event name/shape your app uses internally (for example `invoice.paid`).
+4. Registry: a helper that stores providers and resolves one by code like `"stripe"` or `"paddle"`.
+5. Error taxonomy: a fixed set of categories (for example `transient_network`) used to drive retry/failure behavior.
+
+---
+
+## 4) Install
 
 In app `package.json`:
 
@@ -53,7 +77,7 @@ In app `package.json`:
 }
 ```
 
-Then install from monorepo root:
+Then run from monorepo root:
 
 ```bash
 npm install
@@ -61,13 +85,13 @@ npm install
 
 ---
 
-## 4) Quick Start
+## 5) Quick Start
 
 ```js
 import {
   assertProviderAdapter,
-  createProviderRegistry,
-  createBillingProviderError
+  assertWebhookTranslator,
+  createProviderRegistry
 } from "@jskit-ai/billing-provider-core";
 
 const stripeAdapter = assertProviderAdapter({
@@ -88,24 +112,33 @@ const stripeAdapter = assertProviderAdapter({
   async getSdkProvenance() {}
 });
 
-const registry = createProviderRegistry({
+const stripeTranslator = assertWebhookTranslator({
+  provider: "stripe",
+  toCanonicalEvent(providerEvent) {
+    return providerEvent;
+  },
+  supportsCanonicalEventType(eventType) {
+    return eventType === "invoice.paid";
+  }
+});
+
+const adapterRegistry = createProviderRegistry({
   providers: [stripeAdapter],
   defaultProvider: "stripe"
 });
 
-const providerAdapter = registry.resolveProvider(); // stripe adapter
-
-const error = createBillingProviderError({
-  provider: "stripe",
-  operation: "checkout_create",
-  category: "transient_network",
-  message: "Connection timed out."
+const translatorRegistry = createProviderRegistry({
+  providers: [stripeTranslator],
+  defaultProvider: "stripe"
 });
+
+const activeAdapter = adapterRegistry.resolveProvider("stripe");
+const activeTranslator = translatorRegistry.resolveProvider();
 ```
 
 ---
 
-## 5) Full API Reference
+## 6) Full API Reference (Every Export)
 
 Imports:
 
@@ -113,15 +146,15 @@ Imports:
 import {
   createProviderRegistry,
   REQUIRED_PROVIDER_ADAPTER_METHODS,
+  normalizeProviderCode,
   validateProviderAdapter,
   assertProviderAdapter,
-  normalizeProviderCode,
-  REQUIRED_CANONICAL_WEBHOOK_EVENT_TYPES,
   REQUIRED_WEBHOOK_TRANSLATOR_METHODS,
-  validateWebhookTranslator,
-  assertWebhookTranslator,
+  REQUIRED_CANONICAL_WEBHOOK_EVENT_TYPES,
   normalizeWebhookProvider,
   shouldProcessCanonicalWebhookEvent,
+  validateWebhookTranslator,
+  assertWebhookTranslator,
   PROVIDER_ERROR_CATEGORIES,
   RETRYABLE_PROVIDER_ERROR_CATEGORIES,
   BillingProviderError,
@@ -133,23 +166,21 @@ import {
 
 ### `createProviderRegistry(options?)`
 
-Creates a provider registry service.
-
 What it does:
+Creates a registry service that can store and resolve provider-like objects by normalized provider code.
 
-1. Registers providers by normalized provider code.
-2. Resolves providers by code or default provider.
-3. Rejects duplicates and unsupported providers with explicit errors.
+Why apps use it:
+The app can register Stripe and Paddle once, then resolve the right one based on deployment or request context.
 
-Methods returned:
+Important options:
 
-1. `registerProvider(providerEntry)`
-2. `resolveProvider(provider?)`
-3. `hasProvider(provider)`
-4. `listProviders()`
-5. `getDefaultProvider()`
+1. `providers`: initial provider entries.
+2. `defaultProvider`: fallback provider code when `resolveProvider()` is called with no argument.
+3. `normalizeProvider`: normalization function (default trims/lowercases).
+4. `validateProvider`: optional assertion function to enforce shape.
+5. `providerRequiredMessage`, `unsupportedProviderMessage`, `duplicateProviderMessage`: custom error texts.
 
-Practical example:
+Real-life example:
 
 ```js
 const registry = createProviderRegistry({
@@ -160,17 +191,74 @@ const registry = createProviderRegistry({
 const adapter = registry.resolveProvider("paddle");
 ```
 
-Real-world usage:
-An app can keep both Stripe and Paddle adapters registered and route per deployment config.
+Returned registry methods:
+
+#### `registerProvider(providerEntry)`
+
+What it does:
+Validates and registers a provider entry by code.
+
+Real-life example:
+
+```js
+registry.registerProvider(newProviderAdapter);
+```
+
+#### `resolveProvider(provider?)`
+
+What it does:
+Returns a registered provider by code, or default provider if no code is passed.
+
+Real-life example:
+
+```js
+const adapter = registry.resolveProvider(); // default provider
+```
+
+#### `hasProvider(provider)`
+
+What it does:
+Checks if a provider code is registered.
+
+Real-life example:
+
+```js
+if (!registry.hasProvider(env.BILLING_PROVIDER)) {
+  throw new Error("Unsupported provider in env.");
+}
+```
+
+#### `listProviders()`
+
+What it does:
+Returns all registered provider codes.
+
+Real-life example:
+
+```js
+console.info("Configured billing providers:", registry.listProviders());
+```
+
+#### `getDefaultProvider()`
+
+What it does:
+Returns the current default provider code.
+
+Real-life example:
+
+```js
+const defaultProvider = registry.getDefaultProvider();
+```
 
 ### `REQUIRED_PROVIDER_ADAPTER_METHODS`
 
-Array of required provider adapter method names.
-
 What it does:
-Defines the required adapter surface so app code can rely on stable provider capabilities.
+Defines the mandatory methods for any provider adapter.
 
-Practical example:
+Why it matters:
+Billing orchestration code can rely on this stable method surface.
+
+Real-life example:
 
 ```js
 for (const methodName of REQUIRED_PROVIDER_ADAPTER_METHODS) {
@@ -182,40 +270,35 @@ for (const methodName of REQUIRED_PROVIDER_ADAPTER_METHODS) {
 
 ### `normalizeProviderCode(value)`
 
-Returns lowercase trimmed provider code.
+What it does:
+Trims and lowercases a provider code.
 
-Practical example:
+Real-life example:
 
 ```js
 normalizeProviderCode("  StrIPE "); // "stripe"
 ```
 
-Why:
-Provider lookups should not fail due to casing/whitespace drift.
-
 ### `validateProviderAdapter(adapter)`
 
-Returns shape validation result:
+What it does:
+Checks adapter shape and returns `{ valid, provider, missingFields, missingMethods }`.
 
-1. `valid`
-2. `provider`
-3. `missingFields`
-4. `missingMethods`
-
-Practical example:
+Real-life example:
 
 ```js
 const validation = validateProviderAdapter(candidateAdapter);
 if (!validation.valid) {
-  console.error(validation.missingMethods);
+  console.error("Adapter is incomplete:", validation.missingMethods);
 }
 ```
 
 ### `assertProviderAdapter(adapter, options?)`
 
-Throws if adapter contract is invalid. Returns adapter if valid.
+What it does:
+Throws if adapter is invalid. Returns adapter if valid.
 
-Practical example:
+Real-life example:
 
 ```js
 const adapter = assertProviderAdapter(candidateAdapter, {
@@ -223,54 +306,78 @@ const adapter = assertProviderAdapter(candidateAdapter, {
 });
 ```
 
-Why:
-Fail fast during bootstrap instead of failing during checkout runtime.
-
-### `REQUIRED_CANONICAL_WEBHOOK_EVENT_TYPES`
-
-Set of canonical webhook event types the app supports.
-
-Practical example:
-
-1. `checkout.session.completed`
-2. `customer.subscription.updated`
-3. `invoice.paid`
-
-Why:
-This prevents provider-specific event names from leaking into domain logic.
-
 ### `REQUIRED_WEBHOOK_TRANSLATOR_METHODS`
 
-Array of required webhook translator methods:
+What it does:
+Defines mandatory methods for webhook translators.
+
+Required methods:
 
 1. `toCanonicalEvent`
 2. `supportsCanonicalEventType`
 
+Real-life example:
+
+```js
+for (const methodName of REQUIRED_WEBHOOK_TRANSLATOR_METHODS) {
+  if (typeof translator[methodName] !== "function") {
+    throw new Error(`translator.${methodName} is required.`);
+  }
+}
+```
+
+### `REQUIRED_CANONICAL_WEBHOOK_EVENT_TYPES`
+
+What it does:
+Set of canonical event types accepted by shared webhook processing guardrails.
+
+Real-life example:
+Use this set to ensure translators output only supported canonical event types.
+
 ### `normalizeWebhookProvider(value)`
 
-Normalizes webhook provider code (trim + lowercase).
+What it does:
+Normalizes provider code for webhook translator lookup.
+
+Real-life example:
+
+```js
+normalizeWebhookProvider(" Paddle "); // "paddle"
+```
 
 ### `shouldProcessCanonicalWebhookEvent(eventType)`
 
-Returns `true` if the canonical event type is supported.
+What it does:
+Returns `true` only for supported canonical event types.
 
-Practical example:
+Real-life example:
 
 ```js
-if (!shouldProcessCanonicalWebhookEvent(event.type)) {
-  return { ignored: true };
+if (!shouldProcessCanonicalWebhookEvent(canonicalEvent.type)) {
+  return { ignored: true, reason: "unsupported_event" };
 }
 ```
 
 ### `validateWebhookTranslator(translator)`
 
-Returns validation object for webhook translator shape (same structure as adapter validation).
+What it does:
+Checks translator shape and returns `{ valid, provider, missingFields, missingMethods }`.
+
+Real-life example:
+
+```js
+const validation = validateWebhookTranslator(stripeTranslator);
+if (!validation.valid) {
+  throw new Error("Translator contract is incomplete.");
+}
+```
 
 ### `assertWebhookTranslator(translator, options?)`
 
-Throws when translator shape is invalid.
+What it does:
+Throws if translator is invalid. Returns translator if valid.
 
-Practical example:
+Real-life example:
 
 ```js
 const translator = assertWebhookTranslator(candidateTranslator, {
@@ -280,7 +387,10 @@ const translator = assertWebhookTranslator(candidateTranslator, {
 
 ### `PROVIDER_ERROR_CATEGORIES`
 
-Shared provider error category enum:
+What it does:
+Shared category enum for provider-layer errors.
+
+Categories:
 
 1. `invalid_request`
 2. `rate_limited`
@@ -292,22 +402,23 @@ Shared provider error category enum:
 8. `conflict`
 9. `unknown`
 
-Why:
-App logic can classify provider errors consistently across Stripe/Paddle mappings.
+Real-life example:
+A Stripe mapping function can categorize a timeout as `transient_network` and a malformed payload as `invalid_request`.
 
 ### `RETRYABLE_PROVIDER_ERROR_CATEGORIES`
 
-Set of categories typically safe to retry:
+What it does:
+Set of categories usually safe to retry.
 
-1. `rate_limited`
-2. `transient_network`
-3. `transient_provider`
+Real-life example:
+If category is in this set, your orchestration can mark operation as in-progress and queue remediation.
 
 ### `BillingProviderError`
 
-Canonical error class for provider-layer failures.
+What it does:
+Canonical error class for normalized provider failures.
 
-Important fields:
+Main fields:
 
 1. `provider`
 2. `operation`
@@ -318,7 +429,7 @@ Important fields:
 7. `providerRequestId`
 8. `details`
 
-Practical example:
+Real-life example:
 
 ```js
 throw new BillingProviderError("Stripe request failed.", {
@@ -331,126 +442,118 @@ throw new BillingProviderError("Stripe request failed.", {
 
 ### `createBillingProviderError(payload)`
 
-Factory helper for `BillingProviderError`.
+What it does:
+Factory that creates a `BillingProviderError`.
 
-Practical example:
+Real-life example:
 
 ```js
 const error = createBillingProviderError({
   provider: "paddle",
   operation: "subscription_retrieve",
-  category: PROVIDER_ERROR_CATEGORIES.TRANSIENT_NETWORK,
-  message: "Network timeout."
+  category: PROVIDER_ERROR_CATEGORIES.TRANSIENT_PROVIDER,
+  message: "Provider is temporarily unavailable."
 });
 ```
 
 ### `isBillingProviderError(error)`
 
-Type guard for canonical provider errors.
+What it does:
+Type guard for normalized provider errors.
 
-Practical example:
+Real-life example:
 
 ```js
-if (isBillingProviderError(error)) {
-  if (error.retryable) {
-    // mark operation in-progress and retry later
-  }
+if (isBillingProviderError(error) && error.retryable) {
+  // enqueue retry/remediation instead of failing immediately
 }
 ```
 
 ### `normalizeProviderErrorCategory(value)`
 
-Normalizes/validates category and falls back to `unknown`.
+What it does:
+Normalizes category text and safely falls back to `unknown`.
 
-Practical example:
+Real-life example:
 
 ```js
 normalizeProviderErrorCategory("TRANSIENT_NETWORK"); // "transient_network"
-normalizeProviderErrorCategory("unexpected_category"); // "unknown"
+normalizeProviderErrorCategory("something_new"); // "unknown"
 ```
 
 ---
 
-## 6) How Apps Use This In Real Terms (And Why)
+## 7) How Apps Use This In Real Terms (And Why)
 
-In this repo, app-level files under:
-`apps/jskit-value-app/server/modules/billing/providers/shared/`
-are thin wrappers over this package.
+In this repository, this package is used as the shared core while vendor details stay local:
 
-What this means in practice:
+1. App-local wrapper files in `apps/jskit-value-app/server/modules/billing/providers/shared/` import from this package.
+2. Stripe and Paddle adapter implementations stay local in `apps/jskit-value-app/server/modules/billing/providers/stripe/` and `apps/jskit-value-app/server/modules/billing/providers/paddle/`.
+3. Error mapping files call `createBillingProviderError(...)` so downstream policy gets a stable error shape.
+4. Webhook flow uses `normalizeWebhookProvider(...)` and `shouldProcessCanonicalWebhookEvent(...)` before applying business projections.
 
-1. App runtime keeps familiar local import paths.
-2. Generic provider contracts and registry behavior come from one shared package.
-3. Vendor-specific code remains app-local (`stripe/*`, `paddle/*`).
+Why this split:
 
-Why this split is important:
-
-1. Shared package stays provider-core only.
-2. App keeps domain policy and SDK-specific behaviors.
-3. Future apps can reuse the same contract layer immediately.
+1. Shared package remains provider-core and reusable across many apps.
+2. App keeps domain policy, migration logic, and provider SDK behavior where it belongs.
+3. Future apps can reuse the same contracts without inheriting this app’s billing rules.
 
 ---
 
-## 7) Compatibility Exports
+## 8) Real End-to-End Example
 
-To ease migration, this package also exports billing-prefixed aliases used by existing app code:
+This is a realistic flow:
 
-1. `REQUIRED_BILLING_PROVIDER_ADAPTER_METHODS`
-2. `normalizeBillingProviderCode`
-3. `validateBillingProviderAdapter`
-4. `assertBillingProviderAdapter`
-5. `REQUIRED_CANONICAL_BILLING_WEBHOOK_EVENT_TYPES`
-6. `REQUIRED_BILLING_WEBHOOK_TRANSLATOR_METHODS`
-7. `normalizeBillingWebhookProvider`
-8. `shouldProcessCanonicalBillingWebhookEvent`
-9. `validateBillingWebhookTranslator`
-10. `assertBillingWebhookTranslator`
-11. `BILLING_PROVIDER_ERROR_CATEGORIES`
-
-These aliases keep app migration low-risk while still moving generic logic to shared package ownership.
+1. App bootstraps provider adapters (Stripe/Paddle).
+2. App validates them with `assertProviderAdapter`.
+3. App registers them in `createProviderRegistry`.
+4. A checkout request resolves active adapter and calls `createCheckoutSession`.
+5. If provider SDK throws, adapter mapping creates `BillingProviderError`.
+6. App policy checks `isBillingProviderError` and category/retryable flags to decide fail-fast vs retry path.
+7. Webhook events are translated, filtered with `shouldProcessCanonicalWebhookEvent`, then passed to app projections.
 
 ---
 
-## 8) Common Mistakes
+## 9) Common Mistakes
 
-1. Putting pricing catalog constants in this package.
-2. Putting entitlement mapping logic in this package.
-3. Mixing provider SDK transport code into shared contract layer.
-4. Throwing raw provider SDK errors instead of normalized `BillingProviderError`.
-5. Hardcoding app-specific provider routing policy in shared registry defaults.
+1. Putting product catalog constants in this package.
+2. Putting entitlement/policy mapping in this package.
+3. Putting raw Stripe/Paddle SDK request logic in this package.
+4. Throwing raw SDK errors instead of normalized provider errors.
+5. Relying on provider code without normalization.
 
 ---
 
-## 9) Troubleshooting
+## 10) Troubleshooting
 
-### "Invalid billing provider adapter: missing ..."
-
-Cause:
-Adapter is missing one required method.
-
-Fix:
-Implement every method in `REQUIRED_PROVIDER_ADAPTER_METHODS`.
-
-### "Unsupported billing provider: ..."
+### Error: `Invalid billing provider adapter: missing ...`
 
 Cause:
-Registry has no entry for that provider code.
+Adapter object does not implement all required methods.
 
 Fix:
-Register the adapter and verify provider code normalization.
+Use `REQUIRED_PROVIDER_ADAPTER_METHODS` and `assertProviderAdapter(...)` at bootstrap.
 
-### Webhook event is ignored unexpectedly
+### Error: `Unsupported billing provider: ...`
 
 Cause:
-Canonical event type is not in supported set.
+Registry does not contain requested provider code.
 
 Fix:
-Check translator output and `shouldProcessCanonicalWebhookEvent(...)`.
+Register the provider and check normalization (`normalizeProviderCode`).
 
-### Retry behavior is inconsistent
+### Webhook events are unexpectedly ignored
 
 Cause:
-Provider mapping may not classify errors into shared categories.
+Canonical event type is not supported by the shared event filter.
 
 Fix:
-Ensure mappings use `createBillingProviderError(...)` with correct `category`.
+Verify translator output and check with `shouldProcessCanonicalWebhookEvent(...)`.
+
+### Retry behavior feels inconsistent
+
+Cause:
+Error mapping may not normalize to shared categories.
+
+Fix:
+Map provider SDK errors with `createBillingProviderError(...)` and consistent categories.

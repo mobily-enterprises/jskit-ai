@@ -1,7 +1,7 @@
 import { BILLING_PROVIDER_PADDLE } from "../../constants.js";
 import {
-  assertBillingWebhookTranslator,
-  shouldProcessCanonicalBillingWebhookEvent
+  assertWebhookTranslator,
+  shouldProcessCanonicalWebhookEvent
 } from "../shared/webhookTranslation.contract.js";
 
 const PADDLE_EVENT_TYPE_MAP = Object.freeze({
@@ -209,11 +209,11 @@ function createService() {
       return normalizePaddleEventToCanonical(providerEvent);
     },
     supportsCanonicalEventType(eventType) {
-      return shouldProcessCanonicalBillingWebhookEvent(eventType);
+      return shouldProcessCanonicalWebhookEvent(eventType);
     }
   };
 
-  return assertBillingWebhookTranslator(translator, {
+  return assertWebhookTranslator(translator, {
     name: "paddleBillingWebhookTranslator"
   });
 }

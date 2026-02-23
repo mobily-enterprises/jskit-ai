@@ -1,7 +1,7 @@
 import { AppError } from "../../../../lib/errors.js";
 import { BILLING_PROVIDER_STRIPE } from "../../constants.js";
 import {
-  BILLING_PROVIDER_ERROR_CATEGORIES,
+  PROVIDER_ERROR_CATEGORIES,
   createBillingProviderError,
   isBillingProviderError
 } from "../shared/providerError.contract.js";
@@ -44,22 +44,22 @@ function resolveProviderRequestId(error) {
 
 function resolveCategory({ statusCode, code, message }) {
   if (statusCode === 429 || code.includes("ratelimit")) {
-    return BILLING_PROVIDER_ERROR_CATEGORIES.RATE_LIMITED;
+    return PROVIDER_ERROR_CATEGORIES.RATE_LIMITED;
   }
   if (statusCode >= 500) {
-    return BILLING_PROVIDER_ERROR_CATEGORIES.TRANSIENT_PROVIDER;
+    return PROVIDER_ERROR_CATEGORIES.TRANSIENT_PROVIDER;
   }
   if (statusCode === 401 || code.includes("authentication")) {
-    return BILLING_PROVIDER_ERROR_CATEGORIES.AUTH;
+    return PROVIDER_ERROR_CATEGORIES.AUTH;
   }
   if (statusCode === 403 || code.includes("permission")) {
-    return BILLING_PROVIDER_ERROR_CATEGORIES.PERMISSION;
+    return PROVIDER_ERROR_CATEGORIES.PERMISSION;
   }
   if (statusCode === 404 || code.includes("notfound")) {
-    return BILLING_PROVIDER_ERROR_CATEGORIES.NOT_FOUND;
+    return PROVIDER_ERROR_CATEGORIES.NOT_FOUND;
   }
   if (statusCode === 409 || code.includes("conflict")) {
-    return BILLING_PROVIDER_ERROR_CATEGORIES.CONFLICT;
+    return PROVIDER_ERROR_CATEGORIES.CONFLICT;
   }
   if (
     code.includes("apiconnection") ||
@@ -70,18 +70,18 @@ function resolveCategory({ statusCode, code, message }) {
     message.includes("network") ||
     message.includes("connection")
   ) {
-    return BILLING_PROVIDER_ERROR_CATEGORIES.TRANSIENT_NETWORK;
+    return PROVIDER_ERROR_CATEGORIES.TRANSIENT_NETWORK;
   }
   if (code.includes("apierror")) {
-    return BILLING_PROVIDER_ERROR_CATEGORIES.TRANSIENT_PROVIDER;
+    return PROVIDER_ERROR_CATEGORIES.TRANSIENT_PROVIDER;
   }
   if (statusCode >= 400 && statusCode < 500) {
-    return BILLING_PROVIDER_ERROR_CATEGORIES.INVALID_REQUEST;
+    return PROVIDER_ERROR_CATEGORIES.INVALID_REQUEST;
   }
   if (code.includes("invalidrequest") || code.includes("invalid_request")) {
-    return BILLING_PROVIDER_ERROR_CATEGORIES.INVALID_REQUEST;
+    return PROVIDER_ERROR_CATEGORIES.INVALID_REQUEST;
   }
-  return BILLING_PROVIDER_ERROR_CATEGORIES.UNKNOWN;
+  return PROVIDER_ERROR_CATEGORIES.UNKNOWN;
 }
 
 function mapStripeProviderError(error, { operation = "unknown", fallbackStatusCode = null } = {}) {

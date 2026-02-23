@@ -2,7 +2,7 @@ import { AppError } from "../../lib/errors.js";
 import { isMysqlDuplicateEntryError } from "../../lib/primitives/mysqlErrors.js";
 import { BILLING_DEFAULT_PROVIDER, BILLING_PROVIDER_PADDLE, BILLING_PROVIDER_STRIPE } from "./constants.js";
 import { createService as createWebhookProjectionService, parseUnixEpochSeconds } from "./webhookProjection.service.js";
-import { normalizeBillingWebhookProvider } from "./providers/shared/webhookTranslation.contract.js";
+import { normalizeWebhookProvider } from "./providers/shared/webhookTranslation.contract.js";
 
 function toNullableString(value) {
   const normalized = String(value || "").trim();
@@ -203,7 +203,7 @@ function createService(options = {}) {
   }
 
   function resolveWebhookTranslator(provider) {
-    const normalizedProvider = normalizeBillingWebhookProvider(provider);
+    const normalizedProvider = normalizeWebhookProvider(provider);
     if (!normalizedProvider) {
       throw new AppError(400, "Unsupported billing webhook provider.");
     }
@@ -220,7 +220,7 @@ function createService(options = {}) {
   }
 
   function resolveProjectionService(provider) {
-    const normalizedProvider = normalizeBillingWebhookProvider(provider);
+    const normalizedProvider = normalizeWebhookProvider(provider);
     if (projectionServiceByProvider.has(normalizedProvider)) {
       return projectionServiceByProvider.get(normalizedProvider);
     }
@@ -531,7 +531,7 @@ function createService(options = {}) {
   }
 
   async function processProviderEvent({ provider, rawBody, signatureHeader }) {
-    const normalizedProvider = normalizeBillingWebhookProvider(provider);
+    const normalizedProvider = normalizeWebhookProvider(provider);
     if (!supportedWebhookProviders.has(normalizedProvider)) {
       throw new AppError(400, "Unsupported billing webhook provider.");
     }
@@ -599,7 +599,7 @@ function createService(options = {}) {
       throw new AppError(400, "Stored billing webhook payload is missing provider event id.");
     }
 
-    const normalizedProvider = normalizeBillingWebhookProvider(provider);
+    const normalizedProvider = normalizeWebhookProvider(provider);
     if (!supportedWebhookProviders.has(normalizedProvider)) {
       throw new AppError(400, "Unsupported billing webhook provider.");
     }

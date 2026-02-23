@@ -1,7 +1,7 @@
 import { BILLING_PROVIDER_STRIPE } from "../../constants.js";
 import {
-  assertBillingWebhookTranslator,
-  shouldProcessCanonicalBillingWebhookEvent
+  assertWebhookTranslator,
+  shouldProcessCanonicalWebhookEvent
 } from "../shared/webhookTranslation.contract.js";
 
 function createService() {
@@ -11,11 +11,11 @@ function createService() {
       return providerEvent && typeof providerEvent === "object" ? providerEvent : {};
     },
     supportsCanonicalEventType(eventType) {
-      return shouldProcessCanonicalBillingWebhookEvent(eventType);
+      return shouldProcessCanonicalWebhookEvent(eventType);
     }
   };
 
-  return assertBillingWebhookTranslator(translator, {
+  return assertWebhookTranslator(translator, {
     name: "stripeBillingWebhookTranslator"
   });
 }

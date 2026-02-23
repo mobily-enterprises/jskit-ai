@@ -82,14 +82,11 @@ function createBillingProviderError({ message, ...options } = {}) {
   return new BillingProviderError(message, options);
 }
 
-const BILLING_PROVIDER_ERROR_CATEGORIES = PROVIDER_ERROR_CATEGORIES;
-
 export {
   PROVIDER_ERROR_CATEGORIES,
   RETRYABLE_PROVIDER_ERROR_CATEGORIES,
   BillingProviderError,
   isBillingProviderError,
   createBillingProviderError,
-  normalizeProviderErrorCategory,
-  BILLING_PROVIDER_ERROR_CATEGORIES
+  normalizeProviderErrorCategory
 };

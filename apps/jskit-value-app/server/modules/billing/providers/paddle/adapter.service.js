@@ -1,11 +1,11 @@
 import { BILLING_PROVIDER_PADDLE } from "../../constants.js";
 import {
-  REQUIRED_BILLING_PROVIDER_ADAPTER_METHODS,
-  assertBillingProviderAdapter
+  REQUIRED_PROVIDER_ADAPTER_METHODS,
+  assertProviderAdapter
 } from "../shared/providerAdapter.contract.js";
 
 function createService({ paddleSdkService } = {}) {
-  for (const methodName of REQUIRED_BILLING_PROVIDER_ADAPTER_METHODS) {
+  for (const methodName of REQUIRED_PROVIDER_ADAPTER_METHODS) {
     if (typeof paddleSdkService?.[methodName] !== "function") {
       throw new Error(`paddleSdkService.${methodName} is required.`);
     }
@@ -57,7 +57,7 @@ function createService({ paddleSdkService } = {}) {
     }
   };
 
-  return assertBillingProviderAdapter(adapter, { name: "paddleBillingProviderAdapter" });
+  return assertProviderAdapter(adapter, { name: "paddleBillingProviderAdapter" });
 }
 
 export { createService };

@@ -3,10 +3,10 @@ import test from "node:test";
 
 import { BILLING_PROVIDER_STRIPE } from "../server/modules/billing/constants.js";
 import {
-  REQUIRED_BILLING_PROVIDER_ADAPTER_METHODS,
-  normalizeBillingProviderCode,
-  validateBillingProviderAdapter,
-  assertBillingProviderAdapter
+  REQUIRED_PROVIDER_ADAPTER_METHODS,
+  normalizeProviderCode,
+  validateProviderAdapter,
+  assertProviderAdapter
 } from "../server/modules/billing/providers/shared/providerAdapter.contract.js";
 import { createService as createBillingProviderRegistryService } from "../server/modules/billing/providers/shared/providerRegistry.service.js";
 import { createService as createStripeBillingProviderAdapterService } from "../server/modules/billing/providers/stripe/adapter.service.js";
@@ -17,7 +17,7 @@ function createStubProviderAdapter(provider = "stub") {
     provider
   };
 
-  for (const methodName of REQUIRED_BILLING_PROVIDER_ADAPTER_METHODS) {
+  for (const methodName of REQUIRED_PROVIDER_ADAPTER_METHODS) {
     adapter[methodName] = async () => null;
   }
 
@@ -25,14 +25,14 @@ function createStubProviderAdapter(provider = "stub") {
 }
 
 test("billing provider adapter contract validation reports missing fields and methods", () => {
-  const validation = validateBillingProviderAdapter({});
+  const validation = validateProviderAdapter({});
   assert.equal(validation.valid, false);
   assert.deepEqual(validation.missingFields, ["provider"]);
   assert.ok(validation.missingMethods.includes("createCheckoutSession"));
   assert.ok(validation.missingMethods.includes("verifyWebhookEvent"));
-  assert.equal(validation.missingMethods.length, REQUIRED_BILLING_PROVIDER_ADAPTER_METHODS.length);
+  assert.equal(validation.missingMethods.length, REQUIRED_PROVIDER_ADAPTER_METHODS.length);
 
-  assert.throws(() => assertBillingProviderAdapter({}, { name: "adapterUnderTest" }), /adapterUnderTest\.provider/);
+  assert.throws(() => assertProviderAdapter({}, { name: "adapterUnderTest" }), /adapterUnderTest\.provider/);
 });
 
 test("billing provider registry resolves default and explicitly requested providers", () => {
@@ -63,7 +63,7 @@ test("stripe billing provider adapter delegates full contract to stripe sdk serv
   const calls = [];
   const stripeSdkService = {};
 
-  for (const methodName of REQUIRED_BILLING_PROVIDER_ADAPTER_METHODS) {
+  for (const methodName of REQUIRED_PROVIDER_ADAPTER_METHODS) {
     stripeSdkService[methodName] = async (payload) => {
       calls.push({
         methodName,
@@ -82,7 +82,7 @@ test("stripe billing provider adapter delegates full contract to stripe sdk serv
 
   assert.equal(adapter.provider, BILLING_PROVIDER_STRIPE);
 
-  for (const methodName of REQUIRED_BILLING_PROVIDER_ADAPTER_METHODS) {
+  for (const methodName of REQUIRED_PROVIDER_ADAPTER_METHODS) {
     const payload = {
       key: methodName
     };
@@ -93,7 +93,7 @@ test("stripe billing provider adapter delegates full contract to stripe sdk serv
     });
   }
 
-  assert.equal(calls.length, REQUIRED_BILLING_PROVIDER_ADAPTER_METHODS.length);
+  assert.equal(calls.length, REQUIRED_PROVIDER_ADAPTER_METHODS.length);
 
   const missingVerifyWebhookEventService = {
     ...stripeSdkService
@@ -106,16 +106,16 @@ test("stripe billing provider adapter delegates full contract to stripe sdk serv
   );
 });
 
-test("normalizeBillingProviderCode trims and lowercases provider identifiers", () => {
-  assert.equal(normalizeBillingProviderCode("  StrIPE "), "stripe");
-  assert.equal(normalizeBillingProviderCode(""), "");
-  assert.equal(normalizeBillingProviderCode(null), "");
+test("normalizeProviderCode trims and lowercases provider identifiers", () => {
+  assert.equal(normalizeProviderCode("  StrIPE "), "stripe");
+  assert.equal(normalizeProviderCode(""), "");
+  assert.equal(normalizeProviderCode(null), "");
 });
 
 test("paddle billing provider adapter delegates full contract to paddle sdk service", async () => {
   const calls = [];
   const paddleSdkService = {};
-  for (const methodName of REQUIRED_BILLING_PROVIDER_ADAPTER_METHODS) {
+  for (const methodName of REQUIRED_PROVIDER_ADAPTER_METHODS) {
     paddleSdkService[methodName] = async (payload) => {
       calls.push({
         methodName,
@@ -133,7 +133,7 @@ test("paddle billing provider adapter delegates full contract to paddle sdk serv
   });
   assert.equal(adapter.provider, "paddle");
 
-  for (const methodName of REQUIRED_BILLING_PROVIDER_ADAPTER_METHODS) {
+  for (const methodName of REQUIRED_PROVIDER_ADAPTER_METHODS) {
     const payload = {
       key: methodName
     };
@@ -144,5 +144,5 @@ test("paddle billing provider adapter delegates full contract to paddle sdk serv
     });
   }
 
-  assert.equal(calls.length, REQUIRED_BILLING_PROVIDER_ADAPTER_METHODS.length);
+  assert.equal(calls.length, REQUIRED_PROVIDER_ADAPTER_METHODS.length);
 });

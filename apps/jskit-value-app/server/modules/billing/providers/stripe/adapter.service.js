@@ -1,11 +1,11 @@
 import { BILLING_PROVIDER_STRIPE } from "../../constants.js";
 import {
-  REQUIRED_BILLING_PROVIDER_ADAPTER_METHODS,
-  assertBillingProviderAdapter
+  REQUIRED_PROVIDER_ADAPTER_METHODS,
+  assertProviderAdapter
 } from "../shared/providerAdapter.contract.js";
 
 function createService({ stripeSdkService } = {}) {
-  for (const methodName of REQUIRED_BILLING_PROVIDER_ADAPTER_METHODS) {
+  for (const methodName of REQUIRED_PROVIDER_ADAPTER_METHODS) {
     if (typeof stripeSdkService?.[methodName] !== "function") {
       throw new Error(`stripeSdkService.${methodName} is required.`);
     }
@@ -66,7 +66,7 @@ function createService({ stripeSdkService } = {}) {
     }
   };
 
-  return assertBillingProviderAdapter(adapter, { name: "stripeBillingProviderAdapter" });
+  return assertProviderAdapter(adapter, { name: "stripeBillingProviderAdapter" });
 }
 
 export { createService };

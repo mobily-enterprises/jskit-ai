@@ -10,7 +10,7 @@ import {
 } from "../server/modules/billing/providerOutcomePolicy.js";
 import { BILLING_FAILURE_CODES } from "../server/modules/billing/constants.js";
 import {
-  BILLING_PROVIDER_ERROR_CATEGORIES,
+  PROVIDER_ERROR_CATEGORIES,
   createBillingProviderError
 } from "../server/modules/billing/providers/shared/providerError.contract.js";
 
@@ -35,13 +35,13 @@ test("provider error classification uses canonical provider-error categories whe
   const deterministic = createBillingProviderError({
     provider: "stripe",
     operation: "checkout_create",
-    category: BILLING_PROVIDER_ERROR_CATEGORIES.INVALID_REQUEST,
+    category: PROVIDER_ERROR_CATEGORIES.INVALID_REQUEST,
     message: "Invalid request."
   });
   const indeterminate = createBillingProviderError({
     provider: "paddle",
     operation: "checkout_create",
-    category: BILLING_PROVIDER_ERROR_CATEGORIES.TRANSIENT_NETWORK,
+    category: PROVIDER_ERROR_CATEGORIES.TRANSIENT_NETWORK,
     message: "Network timeout."
   });
 
@@ -64,7 +64,7 @@ test("provider outcome policy resolves deterministic and indeterminate actions b
   const deterministicError = createBillingProviderError({
     provider: "stripe",
     operation: "checkout_create",
-    category: BILLING_PROVIDER_ERROR_CATEGORIES.INVALID_REQUEST,
+    category: PROVIDER_ERROR_CATEGORIES.INVALID_REQUEST,
     message: "Invalid request."
   });
 

@@ -33,18 +33,9 @@ function assertProviderAdapter(adapter, { name = "providerAdapter" } = {}) {
   });
 }
 
-const REQUIRED_BILLING_PROVIDER_ADAPTER_METHODS = REQUIRED_PROVIDER_ADAPTER_METHODS;
-const normalizeBillingProviderCode = normalizeProviderCode;
-const validateBillingProviderAdapter = validateProviderAdapter;
-const assertBillingProviderAdapter = assertProviderAdapter;
-
 export {
   REQUIRED_PROVIDER_ADAPTER_METHODS,
   normalizeProviderCode,
   validateProviderAdapter,
-  assertProviderAdapter,
-  REQUIRED_BILLING_PROVIDER_ADAPTER_METHODS,
-  normalizeBillingProviderCode,
-  validateBillingProviderAdapter,
-  assertBillingProviderAdapter
+  assertProviderAdapter
 };
