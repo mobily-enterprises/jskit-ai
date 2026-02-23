@@ -1,26 +1,27 @@
 #!/usr/bin/env node
 
-import { env } from "../server/lib/env.js";
+import { repositoryConfig } from "../config/index.js";
+import { runtimeEnv } from "../server/lib/runtimeEnv.js";
 import { createWorkerRuntime } from "../server/workers/runtime.js";
 
 const runtime = createWorkerRuntime({
-  redisUrl: env.REDIS_URL,
-  workerConcurrency: env.WORKER_CONCURRENCY,
-  lockHeldRequeueMax: env.WORKER_LOCK_HELD_REQUEUE_MAX,
-  retentionLockTtlMs: env.WORKER_RETENTION_LOCK_TTL_MS,
+  redisUrl: runtimeEnv.REDIS_URL,
+  workerConcurrency: runtimeEnv.WORKER_CONCURRENCY,
+  lockHeldRequeueMax: runtimeEnv.WORKER_LOCK_HELD_REQUEUE_MAX,
+  retentionLockTtlMs: runtimeEnv.WORKER_RETENTION_LOCK_TTL_MS,
   retentionConfig: {
-    errorLogRetentionDays: env.ERROR_LOG_RETENTION_DAYS,
-    inviteArtifactRetentionDays: env.INVITE_ARTIFACT_RETENTION_DAYS,
-    securityAuditRetentionDays: env.SECURITY_AUDIT_RETENTION_DAYS,
-    aiTranscriptsRetentionDays: env.AI_TRANSCRIPTS_RETENTION_DAYS,
-    billingIdempotencyRetentionDays: env.BILLING_IDEMPOTENCY_RETENTION_DAYS,
-    billingWebhookPayloadRetentionDays: env.BILLING_WEBHOOK_PAYLOAD_RETENTION_DAYS,
-    chatMessagesRetentionDays: env.CHAT_MESSAGES_RETENTION_DAYS,
-    chatAttachmentsRetentionDays: env.CHAT_ATTACHMENTS_RETENTION_DAYS,
-    chatUnattachedUploadsRetentionHours: env.CHAT_UNATTACHED_UPLOAD_RETENTION_HOURS,
-    chatMessageIdempotencyRetryWindowHours: env.CHAT_MESSAGE_IDEMPOTENCY_RETRY_WINDOW_HOURS,
-    chatEmptyThreadCleanupEnabled: env.CHAT_EMPTY_THREAD_CLEANUP_ENABLED,
-    batchSize: env.RETENTION_BATCH_SIZE
+    errorLogRetentionDays: repositoryConfig.retention.errorLogDays,
+    inviteArtifactRetentionDays: repositoryConfig.retention.inviteArtifactDays,
+    securityAuditRetentionDays: repositoryConfig.retention.securityAuditDays,
+    aiTranscriptsRetentionDays: repositoryConfig.retention.aiTranscriptsDays,
+    billingIdempotencyRetentionDays: repositoryConfig.billing.retention.idempotencyDays,
+    billingWebhookPayloadRetentionDays: repositoryConfig.billing.retention.webhookPayloadDays,
+    chatMessagesRetentionDays: repositoryConfig.retention.chat.messagesDays,
+    chatAttachmentsRetentionDays: repositoryConfig.retention.chat.attachmentsDays,
+    chatUnattachedUploadsRetentionHours: repositoryConfig.chat.unattachedUploadRetentionHours,
+    chatMessageIdempotencyRetryWindowHours: repositoryConfig.retention.chat.messageIdempotencyRetryWindowHours,
+    chatEmptyThreadCleanupEnabled: repositoryConfig.retention.chat.emptyThreadCleanupEnabled,
+    batchSize: runtimeEnv.RETENTION_BATCH_SIZE
   },
   logger: console
 });

@@ -391,7 +391,9 @@ function createService({
     }
 
     if (!normalizedApiKey) {
-      throw new Error("BILLING_PADDLE_API_KEY is required when BILLING_ENABLED=true and BILLING_PROVIDER=paddle.");
+      throw new Error(
+        "BILLING_PADDLE_API_KEY is required when billing is enabled in config/billing.js and provider is paddle."
+      );
     }
 
     const url = new URL(`${normalizedApiBaseUrl}${path.startsWith("/") ? path : `/${path}`}`);

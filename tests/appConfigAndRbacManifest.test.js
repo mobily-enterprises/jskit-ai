@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-import { resolveAppConfig, toPublicAppConfig } from "../server/lib/appConfig.js";
+import { resolveAppConfig, toBrowserConfig } from "../server/lib/appConfig.js";
 import {
   OWNER_ROLE_ID,
   createOwnerOnlyManifest,
@@ -15,19 +15,28 @@ import {
   resolveRolePermissions
 } from "../server/lib/rbacManifest.js";
 
-test("resolveAppConfig normalizes tenancy, booleans, limits, and manifest path", () => {
-  const personal = resolveAppConfig(
-    {
-      TENANCY_MODE: "unknown",
-      WORKSPACE_SWITCHING_DEFAULT: "1",
-      WORKSPACE_INVITES_DEFAULT: "1",
-      WORKSPACE_CREATE_ENABLED: "1",
-      MAX_WORKSPACES_PER_USER: "0"
+test("resolveAppConfig normalizes tenancy, limits, feature gates, and manifest path", () => {
+  const personal = resolveAppConfig({
+    repositoryConfig: {
+      app: {
+        tenancyMode: "unknown",
+        features: {
+          workspaceSwitching: true,
+          workspaceInvites: true,
+          workspaceCreateEnabled: true
+        },
+        limits: {
+          maxWorkspacesPerUser: 0
+        }
+      },
+      ai: {
+        enabled: false,
+        requiredPermission: ""
+      }
     },
-    {
-      rootDir: "/repo-root"
-    }
-  );
+    runtimeEnv: {},
+    rootDir: "/repo-root"
+  });
 
   assert.equal(personal.tenancyMode, "personal");
   assert.equal(personal.features.workspaceSwitching, true);
@@ -38,44 +47,68 @@ test("resolveAppConfig normalizes tenancy, booleans, limits, and manifest path",
   assert.equal(personal.limits.maxWorkspacesPerUser, 1);
   assert.equal(personal.rbacManifestPath, path.resolve("/repo-root", "shared", "auth", "rbac.manifest.json"));
 
-  const multiWorkspace = resolveAppConfig(
-    {
-      TENANCY_MODE: "multi-workspace",
-      MAX_WORKSPACES_PER_USER: "33",
-      WORKSPACE_SWITCHING_DEFAULT: "0",
-      WORKSPACE_INVITES_DEFAULT: "0",
-      WORKSPACE_CREATE_ENABLED: "0",
+  const multiWorkspace = resolveAppConfig({
+    repositoryConfig: {
+      app: {
+        tenancyMode: "multi-workspace",
+        features: {
+          workspaceSwitching: false,
+          workspaceInvites: false,
+          workspaceCreateEnabled: false
+        },
+        limits: {
+          maxWorkspacesPerUser: 33
+        }
+      },
+      ai: {
+        enabled: true,
+        requiredPermission: " workspace.ai.use "
+      }
+    },
+    runtimeEnv: {
       RBAC_MANIFEST_PATH: "config/rbac.json"
     },
-    {
-      rootDir: "/repo-root"
-    }
-  );
+    rootDir: "/repo-root"
+  });
 
   assert.equal(multiWorkspace.tenancyMode, "multi-workspace");
   assert.equal(multiWorkspace.features.workspaceSwitching, true);
   assert.equal(multiWorkspace.features.workspaceInvites, false);
   assert.equal(multiWorkspace.features.workspaceCreateEnabled, false);
-  assert.equal(multiWorkspace.features.assistantEnabled, false);
-  assert.equal(multiWorkspace.features.assistantRequiredPermission, "");
+  assert.equal(multiWorkspace.features.assistantEnabled, true);
+  assert.equal(multiWorkspace.features.assistantRequiredPermission, "workspace.ai.use");
   assert.equal(multiWorkspace.limits.maxWorkspacesPerUser, 33);
   assert.equal(multiWorkspace.rbacManifestPath, path.resolve("/repo-root", "config/rbac.json"));
 
-  const absoluteManifest = resolveAppConfig(
-    {
-      TENANCY_MODE: "team-single",
+  const absoluteManifest = resolveAppConfig({
+    repositoryConfig: {
+      app: {
+        tenancyMode: "team-single",
+        features: {
+          workspaceSwitching: false,
+          workspaceInvites: true,
+          workspaceCreateEnabled: true
+        },
+        limits: {
+          maxWorkspacesPerUser: 1
+        }
+      },
+      ai: {
+        enabled: false,
+        requiredPermission: ""
+      }
+    },
+    runtimeEnv: {
       RBAC_MANIFEST_PATH: "/etc/app/rbac.json"
     },
-    {
-      rootDir: "/repo-root"
-    }
-  );
+    rootDir: "/repo-root"
+  });
 
   assert.equal(absoluteManifest.rbacManifestPath, "/etc/app/rbac.json");
 });
 
-test("toPublicAppConfig returns only public feature state", () => {
-  const publicConfig = toPublicAppConfig({
+test("toBrowserConfig returns only browser-safe feature state", () => {
+  const browserConfig = toBrowserConfig({
     tenancyMode: "multi-workspace",
     features: {
       workspaceSwitching: 1,
@@ -86,7 +119,7 @@ test("toPublicAppConfig returns only public feature state", () => {
     }
   });
 
-  assert.deepEqual(publicConfig, {
+  assert.deepEqual(browserConfig, {
     tenancyMode: "multi-workspace",
     features: {
       workspaceSwitching: true,

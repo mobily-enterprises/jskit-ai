@@ -125,11 +125,11 @@ function createService({
     }
 
     if (!normalizedSecretKey) {
-      throw new Error("BILLING_STRIPE_SECRET_KEY is required when BILLING_ENABLED=true.");
+      throw new Error("BILLING_STRIPE_SECRET_KEY is required when billing is enabled in config/billing.js.");
     }
 
     if (!normalizedApiVersion) {
-      throw new Error("BILLING_STRIPE_API_VERSION is required when BILLING_ENABLED=true.");
+      throw new Error("BILLING_STRIPE_API_VERSION is required when billing is enabled in config/billing.js.");
     }
 
     if (!clientPromise) {

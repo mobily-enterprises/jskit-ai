@@ -27,10 +27,10 @@ X Payments
 X User chats
 
 DAY #1
-- Merge chats and permissions trees
-- Have "configs" in JSON files rather than .env for everything
+X Merge chats and permissions trees
+X Have "configs" in JSON files rather than .env for everything
 - Improve UI for chats, have proper workspace chats
-- Have proper test configuration for projects and annuity calcs
+- Have proper test entitlement configuration for projects and annuity calcs <---- !!!
 
 DAY #2
 - Add full abilities to AI chatbot (calculate annuity, add project, change plan, list users...)s

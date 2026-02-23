@@ -1,0 +1,29 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { buildRepositoryConfig, repositoryConfig } from "../config/index.js";
+
+test("repositoryConfig exposes expected subsystem slices and is deeply frozen", () => {
+  assert.deepEqual(Object.keys(repositoryConfig), ["app", "chat", "ai", "billing", "retention"]);
+
+  assert.equal(Object.isFrozen(repositoryConfig), true);
+  assert.equal(Object.isFrozen(repositoryConfig.app), true);
+  assert.equal(Object.isFrozen(repositoryConfig.app.features), true);
+  assert.equal(Object.isFrozen(repositoryConfig.chat), true);
+  assert.equal(Object.isFrozen(repositoryConfig.ai), true);
+  assert.equal(Object.isFrozen(repositoryConfig.billing), true);
+  assert.equal(Object.isFrozen(repositoryConfig.billing.checkout), true);
+  assert.equal(Object.isFrozen(repositoryConfig.retention), true);
+  assert.equal(Object.isFrozen(repositoryConfig.retention.chat), true);
+});
+
+test("buildRepositoryConfig returns a fresh frozen copy", () => {
+  const a = buildRepositoryConfig();
+  const b = buildRepositoryConfig();
+
+  assert.notStrictEqual(a, b);
+  assert.notStrictEqual(a.app, b.app);
+  assert.notStrictEqual(a.chat, b.chat);
+  assert.equal(Object.isFrozen(a), true);
+  assert.equal(Object.isFrozen(b), true);
+});

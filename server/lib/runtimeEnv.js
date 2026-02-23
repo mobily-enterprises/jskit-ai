@@ -7,12 +7,69 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.resolve(__dirname, "..", "..", ".env") });
-dotenv.config({
-  path: path.resolve(__dirname, "..", "..", ".env.local"),
-  override: false
-});
 
-export const env = cleanEnv(
+const DEPRECATED_REPO_CONFIG_ENV_KEYS = Object.freeze([
+  "TENANCY_MODE",
+  "WORKSPACE_SWITCHING_DEFAULT",
+  "WORKSPACE_INVITES_DEFAULT",
+  "WORKSPACE_CREATE_ENABLED",
+  "MAX_WORKSPACES_PER_USER",
+  "CHAT_ENABLED",
+  "CHAT_WORKSPACE_THREADS_ENABLED",
+  "CHAT_GLOBAL_DMS_ENABLED",
+  "CHAT_GLOBAL_DMS_REQUIRE_SHARED_WORKSPACE",
+  "CHAT_ATTACHMENTS_ENABLED",
+  "CHAT_MESSAGE_MAX_TEXT_CHARS",
+  "CHAT_MESSAGES_PAGE_SIZE_MAX",
+  "CHAT_THREADS_PAGE_SIZE_MAX",
+  "CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE",
+  "CHAT_ATTACHMENT_MAX_UPLOAD_BYTES",
+  "CHAT_UNATTACHED_UPLOAD_RETENTION_HOURS",
+  "CHAT_MESSAGES_RETENTION_DAYS",
+  "CHAT_ATTACHMENTS_RETENTION_DAYS",
+  "CHAT_MESSAGE_IDEMPOTENCY_RETRY_WINDOW_HOURS",
+  "CHAT_EMPTY_THREAD_CLEANUP_ENABLED",
+  "AI_ENABLED",
+  "AI_MODEL",
+  "AI_MAX_INPUT_CHARS",
+  "AI_MAX_HISTORY_MESSAGES",
+  "AI_MAX_TOOL_CALLS_PER_TURN",
+  "AI_REQUIRED_PERMISSION",
+  "BILLING_ENABLED",
+  "BILLING_PROVIDER",
+  "BILLING_CURRENCY",
+  "BILLING_PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS",
+  "BILLING_CHECKOUT_PROVIDER_EXPIRES_SECONDS",
+  "BILLING_CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS",
+  "BILLING_CHECKOUT_PENDING_LEASE_SECONDS",
+  "BILLING_OUTBOX_RETRY_DELAY_SECONDS",
+  "BILLING_OUTBOX_MAX_ATTEMPTS",
+  "BILLING_REMEDIATION_RETRY_DELAY_SECONDS",
+  "BILLING_REMEDIATION_MAX_ATTEMPTS",
+  "BILLING_CHECKOUT_COMPLETION_SLA_SECONDS",
+  "BILLING_IDEMPOTENCY_RETENTION_DAYS",
+  "BILLING_WEBHOOK_PAYLOAD_RETENTION_DAYS",
+  "BILLING_DEBUG_CHECKOUT_BLOCKS",
+  "ERROR_LOG_RETENTION_DAYS",
+  "INVITE_ARTIFACT_RETENTION_DAYS",
+  "SECURITY_AUDIT_RETENTION_DAYS",
+  "AI_TRANSCRIPTS_RETENTION_DAYS"
+]);
+
+function assertNoDeprecatedRepoConfigEnvKeys(rawEnv) {
+  const presentKeys = DEPRECATED_REPO_CONFIG_ENV_KEYS.filter((key) => Object.prototype.hasOwnProperty.call(rawEnv, key));
+  if (presentKeys.length < 1) {
+    return;
+  }
+
+  throw new Error(
+    `The following environment variables moved to repository config files under /config and are no longer supported: ${presentKeys.join(", ")}`
+  );
+}
+
+assertNoDeprecatedRepoConfigEnvKeys(process.env);
+
+export const runtimeEnv = cleanEnv(
   process.env,
   {
     NODE_ENV: str({
@@ -48,14 +105,6 @@ export const env = cleanEnv(
     WORKER_LOCK_HELD_REQUEUE_MAX: num({ default: 3 }),
     WORKER_RETENTION_LOCK_TTL_MS: num({ default: 1800000 }),
     TRUST_PROXY: bool({ default: false }),
-    TENANCY_MODE: str({
-      choices: ["personal", "team-single", "multi-workspace"],
-      default: "personal"
-    }),
-    WORKSPACE_SWITCHING_DEFAULT: bool({ default: false }),
-    WORKSPACE_INVITES_DEFAULT: bool({ default: false }),
-    WORKSPACE_CREATE_ENABLED: bool({ default: false }),
-    MAX_WORKSPACES_PER_USER: num({ default: 1 }),
     RBAC_MANIFEST_PATH: str({ default: "./shared/auth/rbac.manifest.json" }),
     FRONTEND_DIST_DIR: str({ default: "dist" }),
     AVATAR_STORAGE_DRIVER: str({ default: "fs" }),
@@ -73,42 +122,15 @@ export const env = cleanEnv(
     SMTP_FROM: str({ default: "" }),
     METRICS_ENABLED: bool({ default: true }),
     METRICS_BEARER_TOKEN: str({ default: "" }),
-    CHAT_ENABLED: bool({ default: false }),
-    CHAT_WORKSPACE_THREADS_ENABLED: bool({ default: false }),
-    CHAT_GLOBAL_DMS_ENABLED: bool({ default: false }),
-    CHAT_GLOBAL_DMS_REQUIRE_SHARED_WORKSPACE: bool({ default: true }),
-    CHAT_ATTACHMENTS_ENABLED: bool({ default: true }),
-    CHAT_MESSAGE_MAX_TEXT_CHARS: num({ default: 4000 }),
-    CHAT_MESSAGES_PAGE_SIZE_MAX: num({ default: 100 }),
-    CHAT_THREADS_PAGE_SIZE_MAX: num({ default: 50 }),
-    CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE: num({ default: 5 }),
-    CHAT_ATTACHMENT_MAX_UPLOAD_BYTES: num({ default: 20_000_000 }),
     CHAT_ATTACHMENT_STORAGE_DRIVER: str({ default: "fs" }),
     CHAT_ATTACHMENT_STORAGE_FS_BASE_PATH: str({ default: "" }),
-    CHAT_UNATTACHED_UPLOAD_RETENTION_HOURS: num({ default: 24 }),
-    CHAT_MESSAGES_RETENTION_DAYS: num({ default: 365 }),
-    CHAT_ATTACHMENTS_RETENTION_DAYS: num({ default: 365 }),
-    CHAT_MESSAGE_IDEMPOTENCY_RETRY_WINDOW_HOURS: num({ default: 72 }),
-    CHAT_EMPTY_THREAD_CLEANUP_ENABLED: bool({ default: false }),
-    AI_ENABLED: bool({ default: false }),
     AI_PROVIDER: str({
       choices: ["openai"],
       default: "openai"
     }),
     AI_API_KEY: str({ default: "" }),
     AI_BASE_URL: str({ default: "" }),
-    AI_MODEL: str({ default: "gpt-4.1-mini" }),
     AI_TIMEOUT_MS: num({ default: 45000 }),
-    AI_MAX_INPUT_CHARS: num({ default: 8000 }),
-    AI_MAX_HISTORY_MESSAGES: num({ default: 20 }),
-    AI_MAX_TOOL_CALLS_PER_TURN: num({ default: 4 }),
-    AI_REQUIRED_PERMISSION: str({ default: "" }),
-    BILLING_ENABLED: bool({ default: false }),
-    BILLING_PROVIDER: str({
-      choices: ["stripe", "paddle"],
-      default: "stripe"
-    }),
-    BILLING_CURRENCY: str({ default: "USD" }),
     BILLING_OPERATION_KEY_SECRET: str({ default: "" }),
     BILLING_PROVIDER_IDEMPOTENCY_KEY_SECRET: str({ default: "" }),
     BILLING_STRIPE_SECRET_KEY: str({ default: "" }),
@@ -120,21 +142,6 @@ export const env = cleanEnv(
     BILLING_PADDLE_API_BASE_URL: str({ default: "https://api.paddle.com" }),
     BILLING_PADDLE_WEBHOOK_ENDPOINT_SECRET: str({ default: "" }),
     BILLING_PADDLE_TIMEOUT_MS: num({ default: 30000 }),
-    BILLING_PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS: num({ default: 23 * 60 * 60 }),
-    BILLING_CHECKOUT_PROVIDER_EXPIRES_SECONDS: num({ default: 24 * 60 * 60 }),
-    BILLING_CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS: num({ default: 90 }),
-    BILLING_CHECKOUT_PENDING_LEASE_SECONDS: num({ default: 120 }),
-    BILLING_OUTBOX_RETRY_DELAY_SECONDS: num({ default: 60 }),
-    BILLING_OUTBOX_MAX_ATTEMPTS: num({ default: 8 }),
-    BILLING_REMEDIATION_RETRY_DELAY_SECONDS: num({ default: 120 }),
-    BILLING_REMEDIATION_MAX_ATTEMPTS: num({ default: 6 }),
-    BILLING_CHECKOUT_COMPLETION_SLA_SECONDS: num({ default: 5 * 60 }),
-    BILLING_IDEMPOTENCY_RETENTION_DAYS: num({ default: 30 }),
-    BILLING_WEBHOOK_PAYLOAD_RETENTION_DAYS: num({ default: 30 }),
-    ERROR_LOG_RETENTION_DAYS: num({ default: 30 }),
-    INVITE_ARTIFACT_RETENTION_DAYS: num({ default: 90 }),
-    SECURITY_AUDIT_RETENTION_DAYS: num({ default: 365 }),
-    AI_TRANSCRIPTS_RETENTION_DAYS: num({ default: 60 }),
     RETENTION_BATCH_SIZE: num({ default: 1000 })
   },
   {

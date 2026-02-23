@@ -34,7 +34,7 @@ function createOpenAiClient({
 
   const normalizedApiKey = String(apiKey || "").trim();
   if (!normalizedApiKey) {
-    throw new Error("AI_API_KEY is required when AI_ENABLED=true.");
+    throw new Error("AI_API_KEY is required when AI is enabled in config/ai.js.");
   }
 
   const normalizedBaseUrl = String(baseUrl || "").trim();

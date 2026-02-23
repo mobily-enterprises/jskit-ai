@@ -190,12 +190,6 @@ function isProviderNotFoundError(error) {
   return statusCode === 404;
 }
 
-function isBlockingCheckoutDebugEnabled() {
-  return String(process.env.BILLING_DEBUG_CHECKOUT_BLOCKS || "")
-    .trim()
-    .toLowerCase() === "1";
-}
-
 function toIsoOrNull(value) {
   if (!value) {
     return null;
@@ -248,17 +242,19 @@ function summarizeProviderCheckoutSessionForDebug(session) {
   };
 }
 
-function debugBlockingCheckoutLog(step, payload = {}) {
-  if (!isBlockingCheckoutDebugEnabled()) {
-    return;
-  }
+function buildDebugBlockingCheckoutLogger(enabled = false) {
+  return function debugBlockingCheckoutLog(step, payload = {}) {
+    if (!enabled) {
+      return;
+    }
 
-  const safePayload = payload && typeof payload === "object" ? payload : { value: payload };
-  console.log("[billing.checkout.blocking.debug]", {
-    step,
-    at: new Date().toISOString(),
-    ...safePayload
-  });
+    const safePayload = payload && typeof payload === "object" ? payload : { value: payload };
+    console.log("[billing.checkout.blocking.debug]", {
+      step,
+      at: new Date().toISOString(),
+      ...safePayload
+    });
+  };
 }
 
 function buildPlanNotFoundError() {
@@ -297,7 +293,8 @@ function createService(options = {}) {
     observabilityService = null,
     checkoutSessionGraceSeconds = BILLING_RUNTIME_DEFAULTS.CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS,
     providerReplayWindowSeconds = BILLING_RUNTIME_DEFAULTS.PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS,
-    providerCheckoutExpirySeconds = BILLING_RUNTIME_DEFAULTS.CHECKOUT_PROVIDER_EXPIRES_SECONDS
+    providerCheckoutExpirySeconds = BILLING_RUNTIME_DEFAULTS.CHECKOUT_PROVIDER_EXPIRES_SECONDS,
+    debugBlockingCheckoutLogsEnabled = false
   } = options;
   if (!billingRepository || typeof billingRepository.transaction !== "function") {
     throw new Error("billingRepository.transaction is required.");
@@ -318,6 +315,7 @@ function createService(options = {}) {
   if (!providerAdapter || typeof providerAdapter.createCheckoutSession !== "function") {
     throw new Error("billingProviderAdapter.createCheckoutSession is required.");
   }
+  const debugBlockingCheckoutLog = buildDebugBlockingCheckoutLogger(Boolean(debugBlockingCheckoutLogsEnabled));
   const activeProvider =
     String(providerAdapter?.provider || BILLING_DEFAULT_PROVIDER)
       .trim()

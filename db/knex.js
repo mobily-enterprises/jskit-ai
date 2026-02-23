@@ -1,6 +1,6 @@
 import knex from "knex";
 import knexEnvironments from "../knexfile.cjs";
-import { env } from "../server/lib/env.js";
+import { runtimeEnv } from "../server/lib/runtimeEnv.js";
 
 function resolveRuntimeEnv(nodeEnv) {
   if (nodeEnv === "production") {
@@ -27,7 +27,7 @@ function resolveKnexConfig(nodeEnv, environments) {
   };
 }
 
-const { config: knexConfig } = resolveKnexConfig(env.NODE_ENV, knexEnvironments);
+const { config: knexConfig } = resolveKnexConfig(runtimeEnv.NODE_ENV, knexEnvironments);
 
 export const db = knex(knexConfig);
 

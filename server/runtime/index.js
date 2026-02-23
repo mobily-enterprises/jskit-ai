@@ -2,11 +2,21 @@ import { createRepositories } from "./repositories.js";
 import { createServices } from "./services.js";
 import { createControllers } from "./controllers.js";
 
-function createServerRuntime({ env, nodeEnv, appConfig, rbacManifest, rootDir, supabasePublishableKey, observabilityRegistry }) {
+function createServerRuntime({
+  runtimeEnv,
+  repositoryConfig,
+  nodeEnv,
+  appConfig,
+  rbacManifest,
+  rootDir,
+  supabasePublishableKey,
+  observabilityRegistry
+}) {
   const repositories = createRepositories();
   const services = createServices({
     repositories,
-    env,
+    env: runtimeEnv,
+    repositoryConfig,
     nodeEnv,
     appConfig,
     rbacManifest,

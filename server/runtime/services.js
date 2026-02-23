@@ -144,9 +144,67 @@ function createBillingDisabledServices() {
   };
 }
 
+function hasNonEmptyEnvValue(value) {
+  return String(value || "").trim().length > 0;
+}
+
+function throwEnabledSubsystemStartupPreflightError({ env, aiPolicyConfig, billingPolicyConfig }) {
+  const issues = [];
+  const hints = [];
+
+  if (aiPolicyConfig?.enabled === true && !hasNonEmptyEnvValue(env.AI_API_KEY)) {
+    issues.push("AI_API_KEY is required when AI is enabled in config/ai.js.");
+    hints.push("Disable AI in config/ai.js (ai.enabled = false) if you are not using it yet.");
+  }
+
+  if (billingPolicyConfig?.enabled === true) {
+    const provider = String(billingPolicyConfig?.provider || "").trim().toLowerCase();
+
+    if (!hasNonEmptyEnvValue(env.APP_PUBLIC_URL)) {
+      issues.push("APP_PUBLIC_URL is required.");
+    }
+    if (!hasNonEmptyEnvValue(env.BILLING_OPERATION_KEY_SECRET)) {
+      issues.push("operationKeySecret is required (set BILLING_OPERATION_KEY_SECRET).");
+    }
+    if (!hasNonEmptyEnvValue(env.BILLING_PROVIDER_IDEMPOTENCY_KEY_SECRET)) {
+      issues.push("providerIdempotencyKeySecret is required (set BILLING_PROVIDER_IDEMPOTENCY_KEY_SECRET).");
+    }
+
+    if (provider === "stripe") {
+      if (!hasNonEmptyEnvValue(env.BILLING_STRIPE_SECRET_KEY)) {
+        issues.push("BILLING_STRIPE_SECRET_KEY is required when billing is enabled in config/billing.js.");
+      }
+      if (!hasNonEmptyEnvValue(env.BILLING_STRIPE_API_VERSION)) {
+        issues.push("BILLING_STRIPE_API_VERSION is required when billing is enabled in config/billing.js.");
+      }
+      if (!hasNonEmptyEnvValue(env.BILLING_STRIPE_WEBHOOK_ENDPOINT_SECRET)) {
+        issues.push("BILLING_STRIPE_WEBHOOK_ENDPOINT_SECRET is required when billing is enabled in config/billing.js.");
+      }
+    } else if (provider === "paddle") {
+      if (!hasNonEmptyEnvValue(env.BILLING_PADDLE_API_KEY)) {
+        issues.push("BILLING_PADDLE_API_KEY is required when billing is enabled in config/billing.js.");
+      }
+      if (!hasNonEmptyEnvValue(env.BILLING_PADDLE_WEBHOOK_ENDPOINT_SECRET)) {
+        issues.push("BILLING_PADDLE_WEBHOOK_ENDPOINT_SECRET is required when billing is enabled in config/billing.js.");
+      }
+    }
+
+    hints.push("Disable billing in config/billing.js (billing.enabled = false) if you are not using it yet.");
+  }
+
+  if (issues.length < 1) {
+    return;
+  }
+
+  const uniqueHints = [...new Set(hints)];
+  const hintBlock = uniqueHints.length > 0 ? `\nHints:\n- ${uniqueHints.join("\n- ")}` : "";
+  throw new Error(`Startup configuration preflight failed:\n- ${issues.join("\n- ")}${hintBlock}`);
+}
+
 function createServices({
   repositories,
   env,
+  repositoryConfig,
   nodeEnv,
   appConfig,
   rbacManifest,
@@ -182,6 +240,17 @@ function createServices({
     healthRepository,
     billingRepository
   } = repositories;
+  if (!repositoryConfig || typeof repositoryConfig !== "object") {
+    throw new Error("repositoryConfig is required.");
+  }
+  const chatPolicyConfig = repositoryConfig?.chat || {};
+  const aiPolicyConfig = repositoryConfig?.ai || {};
+  const billingPolicyConfig = repositoryConfig?.billing || {};
+  throwEnabledSubsystemStartupPreflightError({
+    env,
+    aiPolicyConfig,
+    billingPolicyConfig
+  });
 
   const observabilityService = createObservabilityService({
     metricsRegistry: observabilityRegistry,
@@ -309,22 +378,22 @@ function createServices({
     userAvatarService,
     rbacManifest,
     config: {
-      chatEnabled: env.CHAT_ENABLED,
-      chatWorkspaceThreadsEnabled: env.CHAT_WORKSPACE_THREADS_ENABLED,
-      chatGlobalDmsEnabled: env.CHAT_GLOBAL_DMS_ENABLED,
-      chatGlobalDmsRequireSharedWorkspace: env.CHAT_GLOBAL_DMS_REQUIRE_SHARED_WORKSPACE,
-      chatMessageMaxTextChars: env.CHAT_MESSAGE_MAX_TEXT_CHARS,
-      chatMessagesPageSizeMax: env.CHAT_MESSAGES_PAGE_SIZE_MAX,
-      chatThreadsPageSizeMax: env.CHAT_THREADS_PAGE_SIZE_MAX,
-      chatAttachmentsEnabled: env.CHAT_ATTACHMENTS_ENABLED,
-      chatAttachmentsMaxFilesPerMessage: env.CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE,
-      chatAttachmentMaxUploadBytes: env.CHAT_ATTACHMENT_MAX_UPLOAD_BYTES,
-      chatUnattachedUploadRetentionHours: env.CHAT_UNATTACHED_UPLOAD_RETENTION_HOURS
+      chatEnabled: chatPolicyConfig.enabled,
+      chatWorkspaceThreadsEnabled: chatPolicyConfig.workspaceThreadsEnabled,
+      chatGlobalDmsEnabled: chatPolicyConfig.globalDmsEnabled,
+      chatGlobalDmsRequireSharedWorkspace: chatPolicyConfig.globalDmsRequireSharedWorkspace,
+      chatMessageMaxTextChars: chatPolicyConfig.messageMaxTextChars,
+      chatMessagesPageSizeMax: chatPolicyConfig.messagesPageSizeMax,
+      chatThreadsPageSizeMax: chatPolicyConfig.threadsPageSizeMax,
+      chatAttachmentsEnabled: chatPolicyConfig.attachmentsEnabled,
+      chatAttachmentsMaxFilesPerMessage: chatPolicyConfig.attachmentsMaxFilesPerMessage,
+      chatAttachmentMaxUploadBytes: chatPolicyConfig.attachmentMaxUploadBytes,
+      chatUnattachedUploadRetentionHours: chatPolicyConfig.unattachedUploadRetentionHours
     }
   });
 
   const aiProviderClient = createOpenAiClient({
-    enabled: env.AI_ENABLED,
+    enabled: aiPolicyConfig.enabled,
     provider: env.AI_PROVIDER,
     apiKey: env.AI_API_KEY,
     baseUrl: env.AI_BASE_URL,
@@ -348,10 +417,10 @@ function createServices({
     aiTranscriptsService,
     auditService,
     observabilityService,
-    aiModel: env.AI_MODEL,
-    aiMaxInputChars: env.AI_MAX_INPUT_CHARS,
-    aiMaxHistoryMessages: env.AI_MAX_HISTORY_MESSAGES,
-    aiMaxToolCallsPerTurn: env.AI_MAX_TOOL_CALLS_PER_TURN
+    aiModel: aiPolicyConfig.model,
+    aiMaxInputChars: aiPolicyConfig.maxInputChars,
+    aiMaxHistoryMessages: aiPolicyConfig.maxHistoryMessages,
+    aiMaxToolCallsPerTurn: aiPolicyConfig.maxToolCallsPerTurn
   });
 
   const healthService = createHealthService({
@@ -359,8 +428,8 @@ function createServices({
   });
 
   const billingProvidersModule = createBillingProvidersModule({
-    enabled: env.BILLING_ENABLED,
-    defaultProvider: env.BILLING_PROVIDER,
+    enabled: billingPolicyConfig.enabled,
+    defaultProvider: billingPolicyConfig.provider,
     stripe: {
       secretKey: env.BILLING_STRIPE_SECRET_KEY,
       apiVersion: env.BILLING_STRIPE_API_VERSION,
@@ -389,8 +458,8 @@ function createServices({
     userProfilesRepository,
     billingRepository,
     billingProviderAdapter,
-    billingEnabled: env.BILLING_ENABLED,
-    billingProvider: env.BILLING_PROVIDER
+    billingEnabled: billingPolicyConfig.enabled,
+    billingProvider: billingPolicyConfig.provider
   });
 
   const consoleErrorsService = createConsoleErrorsService({
@@ -412,7 +481,7 @@ function createServices({
   let billingService;
   let billingWorkerRuntimeService;
 
-  if (env.BILLING_ENABLED) {
+  if (billingPolicyConfig.enabled) {
     billingPolicyService = createBillingPolicyService({
       workspacesRepository,
       billingRepository,
@@ -421,20 +490,20 @@ function createServices({
 
     billingPricingService = createBillingPricingService({
       billingRepository,
-      billingCurrency: env.BILLING_CURRENCY
+      billingCurrency: billingPolicyConfig.currency
     });
 
     billingIdempotencyService = createBillingIdempotencyService({
       billingRepository,
       operationKeySecret: env.BILLING_OPERATION_KEY_SECRET,
       providerIdempotencyKeySecret: env.BILLING_PROVIDER_IDEMPOTENCY_KEY_SECRET,
-      pendingLeaseSeconds: env.BILLING_CHECKOUT_PENDING_LEASE_SECONDS,
+      pendingLeaseSeconds: billingPolicyConfig.idempotency.pendingLeaseSeconds,
       observabilityService
     });
 
     billingCheckoutSessionService = createBillingCheckoutSessionService({
       billingRepository,
-      checkoutSessionGraceSeconds: env.BILLING_CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS
+      checkoutSessionGraceSeconds: billingPolicyConfig.checkout.sessionExpiresAtGraceSeconds
     });
 
     billingCheckoutOrchestrator = createBillingCheckoutOrchestratorService({
@@ -446,9 +515,10 @@ function createServices({
       billingProviderAdapter,
       appPublicUrl: env.APP_PUBLIC_URL,
       observabilityService,
-      checkoutSessionGraceSeconds: env.BILLING_CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS,
-      providerReplayWindowSeconds: env.BILLING_PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS,
-      providerCheckoutExpirySeconds: env.BILLING_CHECKOUT_PROVIDER_EXPIRES_SECONDS
+      checkoutSessionGraceSeconds: billingPolicyConfig.checkout.sessionExpiresAtGraceSeconds,
+      providerReplayWindowSeconds: billingPolicyConfig.idempotency.providerReplayWindowSeconds,
+      providerCheckoutExpirySeconds: billingPolicyConfig.checkout.providerExpiresSeconds,
+      debugBlockingCheckoutLogsEnabled: billingPolicyConfig.checkout.debugBlockingCheckoutLogsEnabled
     });
 
     billingRealtimePublishService = createBillingRealtimePublishService({
@@ -459,16 +529,16 @@ function createServices({
     billingOutboxWorkerService = createBillingOutboxWorkerService({
       billingRepository,
       billingProviderAdapter,
-      retryDelaySeconds: env.BILLING_OUTBOX_RETRY_DELAY_SECONDS,
-      maxAttempts: env.BILLING_OUTBOX_MAX_ATTEMPTS,
+      retryDelaySeconds: billingPolicyConfig.workers.outbox.retryDelaySeconds,
+      maxAttempts: billingPolicyConfig.workers.outbox.maxAttempts,
       observabilityService
     });
 
     billingRemediationWorkerService = createBillingRemediationWorkerService({
       billingRepository,
       billingProviderAdapter,
-      retryDelaySeconds: env.BILLING_REMEDIATION_RETRY_DELAY_SECONDS,
-      maxAttempts: env.BILLING_REMEDIATION_MAX_ATTEMPTS,
+      retryDelaySeconds: billingPolicyConfig.workers.remediation.retryDelaySeconds,
+      maxAttempts: billingPolicyConfig.workers.remediation.maxAttempts,
       observabilityService
     });
 
@@ -482,7 +552,7 @@ function createServices({
       billingRealtimePublishService,
       consoleSettingsRepository,
       appPublicUrl: env.APP_PUBLIC_URL,
-      providerReplayWindowSeconds: env.BILLING_PROVIDER_IDEMPOTENCY_REPLAY_WINDOW_SECONDS,
+      providerReplayWindowSeconds: billingPolicyConfig.idempotency.providerReplayWindowSeconds,
       observabilityService
     });
     billingWebhookService = createBillingWebhookService({
@@ -496,7 +566,7 @@ function createServices({
       stripeWebhookEndpointSecret: env.BILLING_STRIPE_WEBHOOK_ENDPOINT_SECRET,
       paddleWebhookEndpointSecret: env.BILLING_PADDLE_WEBHOOK_ENDPOINT_SECRET,
       observabilityService,
-      payloadRetentionDays: env.BILLING_WEBHOOK_PAYLOAD_RETENTION_DAYS
+      payloadRetentionDays: billingPolicyConfig.retention.webhookPayloadDays
     });
     billingReconciliationService = createBillingReconciliationService({
       billingRepository,
@@ -504,13 +574,13 @@ function createServices({
       billingCheckoutSessionService,
       billingWebhookService,
       observabilityService,
-      checkoutSessionGraceSeconds: env.BILLING_CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS,
-      completionSlaSeconds: env.BILLING_CHECKOUT_COMPLETION_SLA_SECONDS
+      checkoutSessionGraceSeconds: billingPolicyConfig.checkout.sessionExpiresAtGraceSeconds,
+      completionSlaSeconds: billingPolicyConfig.checkout.completionSlaSeconds
     });
     billingPromoProvisioner = (payload) => billingService.seedSignupPromoPlan(payload);
 
     billingWorkerRuntimeService = createBillingWorkerRuntimeService({
-      enabled: env.BILLING_ENABLED,
+      enabled: billingPolicyConfig.enabled,
       billingRepository,
       billingOutboxWorkerService,
       billingRemediationWorkerService,

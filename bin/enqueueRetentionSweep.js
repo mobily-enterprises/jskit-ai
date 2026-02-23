@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { env } from "../server/lib/env.js";
+import { runtimeEnv } from "../server/lib/runtimeEnv.js";
 import {
   RETENTION_QUEUE_NAME,
   createRetentionQueue,
@@ -14,7 +14,7 @@ async function main() {
   const { dryRun, trigger, requestedBy, idempotencyKey } = parseCliArgs(process.argv.slice(2));
 
   const connection = createWorkerRedisConnection({
-    redisUrl: env.REDIS_URL
+    redisUrl: runtimeEnv.REDIS_URL
   });
   const queue = createRetentionQueue({
     connection

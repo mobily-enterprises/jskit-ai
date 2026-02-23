@@ -119,7 +119,7 @@ export SMTP_PASSWORD=""
 export SMTP_FROM=""
 ```
 
-The server loads `.env` (and `.env.local`) via `dotenv`, so you can place the same key/value pairs in that file instead of exporting them manually before each command.
+The server loads `.env` via `dotenv`, so you can place the same key/value pairs in that file instead of exporting them manually before each command.
 
 Notes:
 

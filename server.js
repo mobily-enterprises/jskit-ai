@@ -8,8 +8,9 @@ import fastifyStatic from "@fastify/static";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
 import { TypeBoxValidatorCompiler } from "@fastify/type-provider-typebox";
-import { env } from "./server/lib/env.js";
-import { resolveAppConfig, toPublicAppConfig } from "./server/lib/appConfig.js";
+import { resolveRepositoryConfigForRuntime } from "./config/index.js";
+import { runtimeEnv } from "./server/lib/runtimeEnv.js";
+import { resolveAppConfig, toBrowserConfig } from "./server/lib/appConfig.js";
 import { listManifestPermissions, loadRbacManifest, manifestIncludesPermission } from "./server/lib/rbacManifest.js";
 import { initDatabase, closeDatabase } from "./db/knex.js";
 import { isAppError } from "./server/lib/errors.js";
@@ -31,8 +32,11 @@ import { createServerRuntime } from "./server/runtime/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const APP_CONFIG = resolveAppConfig(env, { rootDir: __dirname });
-const APP_CONFIG_PUBLIC = toPublicAppConfig(APP_CONFIG);
+const REPOSITORY_CONFIG = resolveRepositoryConfigForRuntime({
+  nodeEnv: runtimeEnv.NODE_ENV
+});
+const APP_CONFIG = resolveAppConfig({ repositoryConfig: REPOSITORY_CONFIG, runtimeEnv, rootDir: __dirname });
+const APP_CONFIG_BROWSER = toBrowserConfig(APP_CONFIG);
 const RBAC_MANIFEST = await loadRbacManifest(APP_CONFIG.rbacManifestPath);
 
 function resolveRuntimeEnv(nodeEnv) {
@@ -45,14 +49,14 @@ function resolveRuntimeEnv(nodeEnv) {
   return "development";
 }
 
-const NODE_ENV = resolveRuntimeEnv(env.NODE_ENV);
-const PORT = Number(env.PORT) || 3000;
-const FRONTEND_DIST_DIR = String(env.FRONTEND_DIST_DIR || "dist").trim() || "dist";
+const NODE_ENV = resolveRuntimeEnv(runtimeEnv.NODE_ENV);
+const PORT = Number(runtimeEnv.PORT) || 3000;
+const FRONTEND_DIST_DIR = String(runtimeEnv.FRONTEND_DIST_DIR || "dist").trim() || "dist";
 const PUBLIC_DIR = path.resolve(__dirname, FRONTEND_DIST_DIR);
 const INDEX_FILE_NAME = "index.html";
-const SUPABASE_PUBLISHABLE_KEY = String(env.SUPABASE_PUBLISHABLE_KEY || "");
+const SUPABASE_PUBLISHABLE_KEY = String(runtimeEnv.SUPABASE_PUBLISHABLE_KEY || "");
 const SCRIPT_SRC_POLICY = NODE_ENV === "production" ? ["'self'"] : ["'self'", "'unsafe-inline'"];
-const LOG_LEVEL = String(env.LOG_LEVEL || "")
+const LOG_LEVEL = String(runtimeEnv.LOG_LEVEL || "")
   .trim()
   .toLowerCase();
 const REQUEST_STARTED_AT_SYMBOL = Symbol("request_started_at_ns");
@@ -87,7 +91,8 @@ const {
     billingWorkerRuntimeService
   }
 } = createServerRuntime({
-  env,
+  runtimeEnv,
+  repositoryConfig: REPOSITORY_CONFIG,
   nodeEnv: NODE_ENV,
   appConfig: APP_CONFIG,
   rbacManifest: RBAC_MANIFEST,
@@ -106,7 +111,7 @@ function validateRuntimeConfig() {
     throw new Error("RBAC_MANIFEST_PATH must resolve to a readable manifest path.");
   }
 
-  const aiRequiredPermission = String(env.AI_REQUIRED_PERMISSION || "").trim();
+  const aiRequiredPermission = String(APP_CONFIG.features?.assistantRequiredPermission || "").trim();
   if (aiRequiredPermission && !manifestIncludesPermission(RBAC_MANIFEST, aiRequiredPermission, { includeOwner: false })) {
     const availablePermissions = listManifestPermissions(RBAC_MANIFEST, {
       includeOwner: false
@@ -121,7 +126,7 @@ function validateRuntimeConfig() {
   }
 
   if (NODE_ENV !== "test") {
-    const appPublicUrl = String(env.APP_PUBLIC_URL || "").trim();
+    const appPublicUrl = String(runtimeEnv.APP_PUBLIC_URL || "").trim();
     if (!appPublicUrl) {
       throw new Error("APP_PUBLIC_URL is required.");
     }
@@ -140,21 +145,21 @@ function validateRuntimeConfig() {
 
   if (NODE_ENV === "production") {
     const rateLimitStartupError = resolveRateLimitStartupError({
-      mode: env.RATE_LIMIT_MODE,
+      mode: runtimeEnv.RATE_LIMIT_MODE,
       nodeEnv: NODE_ENV
     });
     if (rateLimitStartupError) {
       throw new Error(rateLimitStartupError);
     }
 
-    const dbUser = String(env.DB_USER || "")
+    const dbUser = String(runtimeEnv.DB_USER || "")
       .trim()
       .toLowerCase();
     if (dbUser === "root") {
       throw new Error("DB_USER must not be root in production.");
     }
 
-    if (!env.SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+    if (!runtimeEnv.SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
       throw new Error("SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are required in production.");
     }
   }
@@ -592,15 +597,15 @@ function registerPageGuardHook(app) {
 
 export async function buildServer({ frontendBuildAvailable }) {
   const rateLimitPluginOptions = createRateLimitPluginOptions({
-    mode: env.RATE_LIMIT_MODE,
-    redisUrl: env.REDIS_URL
+    mode: runtimeEnv.RATE_LIMIT_MODE,
+    redisUrl: runtimeEnv.REDIS_URL
   });
 
   const loggerOptions = NODE_ENV === "test" ? false : createFastifyLoggerOptions();
   const app = Fastify({
     logger: loggerOptions,
     disableRequestLogging: NODE_ENV !== "test",
-    trustProxy: Boolean(env.TRUST_PROXY)
+    trustProxy: Boolean(runtimeEnv.TRUST_PROXY)
   });
 
   if (rateLimitPluginOptions?.redis) {
@@ -627,14 +632,14 @@ export async function buildServer({ frontendBuildAvailable }) {
   });
 
   const rateLimitStartupWarning = resolveRateLimitStartupWarning({
-    mode: env.RATE_LIMIT_MODE,
+    mode: runtimeEnv.RATE_LIMIT_MODE,
     nodeEnv: NODE_ENV
   });
   if (rateLimitStartupWarning) {
     app.log.warn(rateLimitStartupWarning);
   }
 
-  app.decorate("appConfig", APP_CONFIG_PUBLIC);
+  app.decorate("browserConfig", APP_CONFIG_BROWSER);
   app.decorate("rbacManifest", RBAC_MANIFEST);
 
   registerErrorHandler(app, { observabilityService });
@@ -699,7 +704,7 @@ export async function buildServer({ frontendBuildAvailable }) {
     authService,
     realtimeEventsService,
     workspaceService,
-    redisUrl: env.REDIS_URL,
+    redisUrl: runtimeEnv.REDIS_URL,
     requireRedisAdapter: NODE_ENV === "production",
     logger: app.log
   });
@@ -726,15 +731,15 @@ export async function buildServer({ frontendBuildAvailable }) {
   registerApiRoutes(app, {
     controllers,
     routeConfig: {
-      aiEnabled: env.AI_ENABLED,
-      aiRequiredPermission: env.AI_REQUIRED_PERMISSION,
-      aiMaxInputChars: env.AI_MAX_INPUT_CHARS,
-      aiMaxHistoryMessages: env.AI_MAX_HISTORY_MESSAGES,
-      chatMessageMaxTextChars: env.CHAT_MESSAGE_MAX_TEXT_CHARS,
-      chatMessagesPageSizeMax: env.CHAT_MESSAGES_PAGE_SIZE_MAX,
-      chatThreadsPageSizeMax: env.CHAT_THREADS_PAGE_SIZE_MAX,
-      chatAttachmentsMaxFilesPerMessage: env.CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE,
-      chatAttachmentMaxUploadBytes: env.CHAT_ATTACHMENT_MAX_UPLOAD_BYTES
+      aiEnabled: REPOSITORY_CONFIG.ai.enabled,
+      aiRequiredPermission: REPOSITORY_CONFIG.ai.requiredPermission,
+      aiMaxInputChars: REPOSITORY_CONFIG.ai.maxInputChars,
+      aiMaxHistoryMessages: REPOSITORY_CONFIG.ai.maxHistoryMessages,
+      chatMessageMaxTextChars: REPOSITORY_CONFIG.chat.messageMaxTextChars,
+      chatMessagesPageSizeMax: REPOSITORY_CONFIG.chat.messagesPageSizeMax,
+      chatThreadsPageSizeMax: REPOSITORY_CONFIG.chat.threadsPageSizeMax,
+      chatAttachmentsMaxFilesPerMessage: REPOSITORY_CONFIG.chat.attachmentsMaxFilesPerMessage,
+      chatAttachmentMaxUploadBytes: REPOSITORY_CONFIG.chat.attachmentMaxUploadBytes
     }
   });
   if (frontendBuildAvailable) {
