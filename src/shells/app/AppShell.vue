@@ -142,7 +142,7 @@ export default {
   display: flex;
   flex-direction: column;
   min-height: calc(100dvh - var(--v-layout-top, 56px));
-  padding-top: 0.75rem;
+  padding-top: 0.32rem;
   padding-bottom: 0;
 }
 

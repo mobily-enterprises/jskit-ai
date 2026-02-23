@@ -21,6 +21,7 @@
           <v-btn
             variant="text"
             size="small"
+            density="compact"
             :loading="state.loadingMoreMessages"
             :disabled="!state.selectedThreadId || !state.hasMoreMessages"
             @click="actions.loadOlderMessages"
@@ -31,17 +32,18 @@
             v-if="!state.inWorkspaceRoom"
             variant="text"
             size="small"
+            density="compact"
             class="chat-back-link"
             @click="actions.backToWorkspaceRoom"
           >
             Workspace chat
           </v-btn>
-          <v-btn variant="text" size="small" :loading="state.dmPending" @click="openDmDialog">Start DM</v-btn>
+          <v-btn variant="text" size="small" density="compact" :loading="state.dmPending" @click="openDmDialog">Start DM</v-btn>
         </div>
 
         <v-menu location="bottom end" offset="8">
           <template #activator="{ props }">
-            <v-btn v-bind="props" variant="text" icon="mdi-dots-vertical" size="small" aria-label="Chat actions" />
+            <v-btn v-bind="props" variant="text" icon="mdi-dots-vertical" size="small" density="compact" aria-label="Chat actions" />
           </template>
           <v-list density="comfortable" min-width="180">
             <v-list-item title="Refresh" :disabled="state.workspaceRoomPending || state.messagesLoading" @click="refreshCurrentThread" />
@@ -603,7 +605,7 @@ watch(
 
 <style scoped>
 .chat-view {
-  --chat-gap: 0.72rem;
+  --chat-gap: 0.24rem;
   display: grid;
   grid-template-rows: auto 1fr auto;
   gap: var(--chat-gap);
@@ -621,21 +623,21 @@ watch(
 
 .chat-status-stack {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.28rem;
 }
 
 .chat-message-section {
   min-height: 0;
   display: grid;
   grid-template-rows: auto 1fr auto;
-  gap: 0.45rem;
+  gap: 0.24rem;
 }
 
 .chat-history-tools {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.35rem;
+  gap: 0.2rem;
 }
 
 .chat-history-tools-main {
@@ -643,7 +645,7 @@ watch(
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.15rem;
+  gap: 0.08rem;
 }
 
 .chat-message-panel {
@@ -915,7 +917,7 @@ watch(
 
 @media (max-width: 960px) {
   .chat-view {
-    --chat-gap: 0.6rem;
+    --chat-gap: 0.2rem;
     height: 100%;
     min-height: calc(100vh - 140px);
     padding-block: 0.05rem 0;
