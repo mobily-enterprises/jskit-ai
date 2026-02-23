@@ -68,8 +68,9 @@
           <div
             v-for="row in state.messageRows"
             :key="row.id"
-            class="chat-message-row"
+            class="chat-message-row d-flex align-end ga-2 mb-2"
             :class="{
+              'flex-row-reverse': row.isMine,
               'chat-message-row--mine': row.isMine,
               'chat-message-row--group-start': row.groupStart,
               'chat-message-row--group-end': row.groupEnd
@@ -82,7 +83,7 @@
             <span v-else class="chat-message-avatar-spacer" />
 
             <div class="chat-message-body">
-              <div v-if="row.showMeta" class="chat-message-meta text-caption text-medium-emphasis">
+              <div v-if="row.showMeta" class="chat-message-meta d-inline-flex ga-2 text-caption text-medium-emphasis">
                 <span>{{ row.senderLabel }}</span>
                 <span>{{ helpers.formatTimestamp(row.message.sentAt) }}</span>
               </div>
@@ -95,7 +96,10 @@
               >
                 {{ helpers.formatMessageText(row.message) }}
               </div>
-              <div v-if="Array.isArray(row.message.attachments) && row.message.attachments.length > 0" class="chat-message-attachments">
+              <div
+                v-if="Array.isArray(row.message.attachments) && row.message.attachments.length > 0"
+                class="chat-message-attachments d-grid ga-1"
+              >
                 <a
                   v-for="attachment in row.message.attachments"
                   :key="attachment.id"
@@ -122,7 +126,7 @@
         </template>
       </div>
 
-      <div v-if="state.typingNotice" class="chat-typing-indicator" aria-live="polite">
+      <div v-if="state.typingNotice" class="chat-typing-indicator d-inline-flex align-center ga-1" aria-live="polite">
         <span>{{ state.typingNotice }}</span>
         <span class="chat-typing-dot" />
         <span class="chat-typing-dot" />
@@ -131,7 +135,7 @@
     </section>
 
     <section class="chat-composer-section">
-      <div class="chat-composer-shell">
+      <div class="chat-composer-shell d-grid">
         <input
           ref="composerFileInputRef"
           type="file"
@@ -192,7 +196,7 @@
           Max {{ meta.attachmentMaxFilesPerMessage }} files, up to {{ readableUploadLimit }} each.
         </div>
 
-        <div v-if="state.composerAttachments.length > 0" class="chat-composer-attachment-list">
+        <div v-if="state.composerAttachments.length > 0" class="chat-composer-attachment-list d-grid ga-2">
           <div
             v-for="attachment in state.composerAttachments"
             :key="attachment.localId"
@@ -646,17 +650,6 @@ watch(
   text-align: center;
 }
 
-.chat-message-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.55rem;
-  margin-bottom: 0.45rem;
-}
-
-.chat-message-row--mine {
-  flex-direction: row-reverse;
-}
-
 .chat-message-avatar,
 .chat-message-avatar-spacer {
   width: 34px;
@@ -685,8 +678,6 @@ watch(
 }
 
 .chat-message-meta {
-  display: inline-flex;
-  gap: 0.45rem;
   line-height: 1.2;
 }
 
@@ -718,11 +709,6 @@ watch(
   color: rgb(var(--v-theme-error));
 }
 
-.chat-message-attachments {
-  display: grid;
-  gap: 0.3rem;
-}
-
 .chat-message-attachment-link {
   display: inline-flex;
   align-items: center;
@@ -737,9 +723,6 @@ watch(
 }
 
 .chat-typing-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
   color: rgba(var(--v-theme-on-surface), 0.66);
   font-size: 0.82rem;
   font-weight: 500;
@@ -776,7 +759,6 @@ watch(
   background: rgba(var(--v-theme-surface), 0.94);
   border-radius: 18px;
   padding: 0.4rem 0.5rem 0.55rem;
-  display: grid;
   gap: 0.3rem;
   box-shadow: 0 8px 20px rgba(17, 26, 42, 0.05);
 }
@@ -831,11 +813,6 @@ watch(
 .chat-composer-meta {
   padding-inline: 0.25rem;
   font-size: 0.72rem;
-}
-
-.chat-composer-attachment-list {
-  display: grid;
-  gap: 0.45rem;
 }
 
 .chat-composer-attachment-row {
