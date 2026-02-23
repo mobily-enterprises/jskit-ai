@@ -31,7 +31,9 @@ export function useProjectsEdit() {
   const form = reactive(createDefaultProjectForm());
   const projectId = computed(() => resolveProjectIdFromPath(routerPath.value));
   const workspaceScope = computed(() => workspaceStore.activeWorkspaceSlug || "none");
-  const enabled = computed(() => Boolean(workspaceStore.initialized && workspaceStore.activeWorkspaceSlug && projectId.value));
+  const enabled = computed(() =>
+    Boolean(workspaceStore.initialized && workspaceStore.activeWorkspaceSlug && projectId.value)
+  );
   const message = ref("");
 
   const projectQueryKey = computed(() => projectDetailQueryKey(workspaceScope.value, projectId.value || "none"));

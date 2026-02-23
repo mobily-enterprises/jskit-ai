@@ -19,10 +19,7 @@ import {
   isDeterministicProviderRejection,
   isIndeterminateProviderOutcome
 } from "./providerOutcomePolicy.js";
-import {
-  normalizeProviderSubscriptionStatus,
-  isSubscriptionStatusCurrent
-} from "./webhookProjection.utils.js";
+import { normalizeProviderSubscriptionStatus, isSubscriptionStatusCurrent } from "./webhookProjection.utils.js";
 
 function normalizePlanCode(value) {
   return String(value || "").trim();
@@ -38,7 +35,12 @@ function normalizeCheckoutType(value) {
   if (!normalized || normalized === CHECKOUT_KIND_SUBSCRIPTION) {
     return CHECKOUT_KIND_SUBSCRIPTION;
   }
-  if (normalized === CHECKOUT_KIND_ONE_OFF || normalized === "one-off" || normalized === "oneoff" || normalized === "payment") {
+  if (
+    normalized === CHECKOUT_KIND_ONE_OFF ||
+    normalized === "one-off" ||
+    normalized === "oneoff" ||
+    normalized === "payment"
+  ) {
     return CHECKOUT_KIND_ONE_OFF;
   }
 
@@ -143,7 +145,9 @@ function buildApiFailure(failureCode, message = "Billing checkout failed.", deta
 }
 
 function providerSessionStateToLocalStatus(providerStatus) {
-  const normalized = String(providerStatus || "").trim().toLowerCase();
+  const normalized = String(providerStatus || "")
+    .trim()
+    .toLowerCase();
   if (normalized === "complete") {
     return BILLING_CHECKOUT_SESSION_STATUS.COMPLETED_PENDING_SUBSCRIPTION;
   }
@@ -313,7 +317,10 @@ function createService(options = {}) {
   if (!billingIdempotencyService || typeof billingIdempotencyService.claimOrReplay !== "function") {
     throw new Error("billingIdempotencyService.claimOrReplay is required.");
   }
-  if (!billingCheckoutSessionService || typeof billingCheckoutSessionService.getBlockingCheckoutSession !== "function") {
+  if (
+    !billingCheckoutSessionService ||
+    typeof billingCheckoutSessionService.getBlockingCheckoutSession !== "function"
+  ) {
     throw new Error("billingCheckoutSessionService.getBlockingCheckoutSession is required.");
   }
   const providerAdapter = billingProviderAdapter;
@@ -543,8 +550,9 @@ function createService(options = {}) {
             return false;
           }
           return (
-            String(corePrice.provider || "").trim().toLowerCase() === activeProvider &&
-            String(corePrice.providerPriceId || "").trim() === providerPriceId
+            String(corePrice.provider || "")
+              .trim()
+              .toLowerCase() === activeProvider && String(corePrice.providerPriceId || "").trim() === providerPriceId
           );
         }) || null;
       if (!matchedPlan) {
@@ -602,9 +610,10 @@ function createService(options = {}) {
       );
     }
 
-    const metadataJson = providerSubscription?.metadata && typeof providerSubscription.metadata === "object"
-      ? providerSubscription.metadata
-      : {};
+    const metadataJson =
+      providerSubscription?.metadata && typeof providerSubscription.metadata === "object"
+        ? providerSubscription.metadata
+        : {};
 
     if (!customer && providerCustomerId && typeof billingRepository.upsertCustomer === "function") {
       customer = await billingRepository.upsertCustomer(
@@ -635,7 +644,9 @@ function createService(options = {}) {
         endedAt: parseUnixEpochSeconds(providerSubscription.ended_at),
         isCurrent: isSubscriptionStatusCurrent(normalizedStatus),
         lastProviderEventCreatedAt: now,
-        lastProviderEventId: operationKey ? `self_heal.subscription.${operationKey}` : `self_heal.subscription.${now.getTime()}`,
+        lastProviderEventId: operationKey
+          ? `self_heal.subscription.${operationKey}`
+          : `self_heal.subscription.${now.getTime()}`,
         metadataJson
       },
       trx ? { trx } : {}
@@ -671,7 +682,8 @@ function createService(options = {}) {
       value: 1
     });
 
-    const { providerSession, providerSessionMissing } = await resolveProviderSessionForBlockingSession(currentBlockingSession);
+    const { providerSession, providerSessionMissing } =
+      await resolveProviderSessionForBlockingSession(currentBlockingSession);
     const fallbackProviderCheckoutSessionId = normalizeOptionalString(currentBlockingSession.providerCheckoutSessionId);
 
     debugBlockingCheckoutLog("self_heal.provider_session_resolved", {
@@ -713,13 +725,15 @@ function createService(options = {}) {
       };
     }
 
-    const metadata = providerSession?.metadata && typeof providerSession.metadata === "object" ? providerSession.metadata : {};
+    const metadata =
+      providerSession?.metadata && typeof providerSession.metadata === "object" ? providerSession.metadata : {};
     const providerOperationKey = normalizeOptionalString(metadata.operation_key);
     const effectiveOperationKey = operationKey || providerOperationKey;
     const providerCheckoutSessionId = normalizeOptionalString(providerSession.id) || fallbackProviderCheckoutSessionId;
     const providerCustomerId = normalizeProviderRefId(providerSession.customer);
     const providerSubscriptionId =
-      normalizeProviderRefId(providerSession.subscription) || normalizeOptionalString(currentBlockingSession.providerSubscriptionId);
+      normalizeProviderRefId(providerSession.subscription) ||
+      normalizeOptionalString(currentBlockingSession.providerSubscriptionId);
     const providerLocalStatus = providerSessionStateToLocalStatus(providerSession.status);
 
     debugBlockingCheckoutLog("self_heal.provider_session_status_mapped", {
@@ -928,7 +942,8 @@ function createService(options = {}) {
       };
     }
 
-    const metadataJson = providerSession?.metadata && typeof providerSession.metadata === "object" ? providerSession.metadata : {};
+    const metadataJson =
+      providerSession?.metadata && typeof providerSession.metadata === "object" ? providerSession.metadata : {};
     await billingCheckoutSessionService.upsertBlockingCheckoutSession(
       {
         billableEntityId,
@@ -1144,10 +1159,7 @@ function createService(options = {}) {
       return null;
     }
 
-    if (
-      currentSubscription.isCurrent &&
-      NON_TERMINAL_CURRENT_SUBSCRIPTION_STATUS_SET.has(currentSubscription.status)
-    ) {
+    if (currentSubscription.isCurrent && NON_TERMINAL_CURRENT_SUBSCRIPTION_STATUS_SET.has(currentSubscription.status)) {
       return currentSubscription;
     }
 
@@ -1214,16 +1226,14 @@ function createService(options = {}) {
             { trx }
           );
 
-          let abandonedSession = await billingCheckoutSessionService.markCheckoutSessionExpiredOrAbandoned(
-              {
-                providerCheckoutSessionId: providerSession?.id ? String(providerSession.id) : null,
-                operationKey,
-                reason: "abandoned",
-                providerEventCreatedAt: now,
-                provider: activeProvider,
-                trx
-              }
-            );
+          let abandonedSession = await billingCheckoutSessionService.markCheckoutSessionExpiredOrAbandoned({
+            providerCheckoutSessionId: providerSession?.id ? String(providerSession.id) : null,
+            operationKey,
+            reason: "abandoned",
+            providerEventCreatedAt: now,
+            provider: activeProvider,
+            trx
+          });
 
           if (!abandonedSession) {
             abandonedSession = await billingRepository.upsertCheckoutSessionByOperationKey(
@@ -1240,7 +1250,9 @@ function createService(options = {}) {
                 expiresAt: providerSession?.expires_at ? new Date(Number(providerSession.expires_at) * 1000) : null,
                 completedAt: now,
                 metadataJson: {
-                  ...(checkoutSessionMetadata && typeof checkoutSessionMetadata === "object" ? checkoutSessionMetadata : {})
+                  ...(checkoutSessionMetadata && typeof checkoutSessionMetadata === "object"
+                    ? checkoutSessionMetadata
+                    : {})
                 }
               },
               { trx }
@@ -1288,16 +1300,14 @@ function createService(options = {}) {
           { trx }
         );
       } else if (localStatus === BILLING_CHECKOUT_SESSION_STATUS.EXPIRED) {
-        checkoutSession = await billingCheckoutSessionService.markCheckoutSessionExpiredOrAbandoned(
-          {
-            providerCheckoutSessionId,
-            operationKey,
-            reason: "expired",
-            providerEventCreatedAt: now,
-            provider: activeProvider,
-            trx
-          }
-        );
+        checkoutSession = await billingCheckoutSessionService.markCheckoutSessionExpiredOrAbandoned({
+          providerCheckoutSessionId,
+          operationKey,
+          reason: "expired",
+          providerEventCreatedAt: now,
+          provider: activeProvider,
+          trx
+        });
 
         if (!checkoutSession) {
           checkoutSession = await billingRepository.upsertCheckoutSessionByOperationKey(
@@ -1374,22 +1384,25 @@ function createService(options = {}) {
         forUpdate: true
       });
 
-      return billingCheckoutSessionService.markCheckoutSessionRecoveryVerificationPending(
-        {
-          operationKey,
-          idempotencyRowId,
-          holdExpiresAt,
-          providerEventCreatedAt: now,
-          billableEntityId,
-          metadataJson: checkoutSessionMetadata,
-          provider,
-          trx
-        }
-      );
+      return billingCheckoutSessionService.markCheckoutSessionRecoveryVerificationPending({
+        operationKey,
+        idempotencyRowId,
+        holdExpiresAt,
+        providerEventCreatedAt: now,
+        billableEntityId,
+        metadataJson: checkoutSessionMetadata,
+        provider,
+        trx
+      });
     });
   }
 
-  async function finalizeRecoveredCheckout({ idempotencyRow, providerSession, expectedLeaseVersion, now = new Date() }) {
+  async function finalizeRecoveredCheckout({
+    idempotencyRow,
+    providerSession,
+    expectedLeaseVersion,
+    now = new Date()
+  }) {
     const checkoutType = normalizeCheckoutType(idempotencyRow?.normalizedRequestJson?.checkoutType);
     const result = await applyFinalizeTx({
       idempotencyRowId: idempotencyRow.id,
@@ -1607,7 +1620,10 @@ function createService(options = {}) {
         }
 
         if (leased.row?.failureCode) {
-          throw buildApiFailure(leased.row.failureCode, leased.row.failureReason || "Checkout request cannot be recovered.");
+          throw buildApiFailure(
+            leased.row.failureCode,
+            leased.row.failureReason || "Checkout request cannot be recovered."
+          );
         }
       }
 
@@ -1953,7 +1969,8 @@ function createService(options = {}) {
       });
     } catch (error) {
       if (claimedIdempotencyRowId != null) {
-        const failureCode = resolveDeterministicFailureCode(error) || BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID;
+        const failureCode =
+          resolveDeterministicFailureCode(error) || BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID;
         await billingRepository.transaction(async (trx) => {
           const lockedIdempotencyRow = await billingRepository.findIdempotencyById(claimedIdempotencyRowId, {
             trx,

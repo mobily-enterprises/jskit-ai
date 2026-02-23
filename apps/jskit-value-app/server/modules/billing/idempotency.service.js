@@ -94,7 +94,10 @@ function createService({
     throw new Error("providerIdempotencyKeySecret is required.");
   }
 
-  const leaseSeconds = Math.max(10, Number(pendingLeaseSeconds) || BILLING_RUNTIME_DEFAULTS.CHECKOUT_PENDING_LEASE_SECONDS);
+  const leaseSeconds = Math.max(
+    10,
+    Number(pendingLeaseSeconds) || BILLING_RUNTIME_DEFAULTS.CHECKOUT_PENDING_LEASE_SECONDS
+  );
   const checkoutGraceSeconds = Math.max(
     0,
     Number(checkoutSessionGraceSeconds) || BILLING_RUNTIME_DEFAULTS.CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS
@@ -188,7 +191,10 @@ function createService({
         };
       }
 
-      if (existing.status === BILLING_IDEMPOTENCY_STATUS.FAILED || existing.status === BILLING_IDEMPOTENCY_STATUS.EXPIRED) {
+      if (
+        existing.status === BILLING_IDEMPOTENCY_STATUS.FAILED ||
+        existing.status === BILLING_IDEMPOTENCY_STATUS.EXPIRED
+      ) {
         return {
           type: "replay_terminal",
           row: existing
@@ -279,7 +285,10 @@ function createService({
           };
         }
 
-        if (duplicate.status === BILLING_IDEMPOTENCY_STATUS.FAILED || duplicate.status === BILLING_IDEMPOTENCY_STATUS.EXPIRED) {
+        if (
+          duplicate.status === BILLING_IDEMPOTENCY_STATUS.FAILED ||
+          duplicate.status === BILLING_IDEMPOTENCY_STATUS.EXPIRED
+        ) {
           return {
             type: "replay_terminal",
             row: duplicate
@@ -478,7 +487,10 @@ function createService({
     }
   }
 
-  async function markSucceeded({ idempotencyRowId, responseJson, providerSessionId, leaseVersion = null }, options = {}) {
+  async function markSucceeded(
+    { idempotencyRowId, responseJson, providerSessionId, leaseVersion = null },
+    options = {}
+  ) {
     const updated = await billingRepository.updateIdempotencyById(
       idempotencyRowId,
       {
@@ -749,8 +761,7 @@ function createService({
             {
               status: BILLING_IDEMPOTENCY_STATUS.FAILED,
               failureCode: BILLING_FAILURE_CODES.CHECKOUT_CONFIGURATION_INVALID,
-              failureReason:
-                "Pending checkout recovery metadata is invalid during stale-request cleanup.",
+              failureReason: "Pending checkout recovery metadata is invalid during stale-request cleanup.",
               pendingLeaseExpiresAt: null,
               pendingLastHeartbeatAt: null,
               leaseOwner: null

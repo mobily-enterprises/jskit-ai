@@ -2,11 +2,11 @@ import { defineComponent, nextTick, ref } from "vue";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { REALTIME_TOPICS } from "../../shared/realtime/eventTypes.js";
+import { chatInboxInfiniteQueryKey, chatThreadMessagesInfiniteQueryKey } from "../../src/features/chat/queryKeys.js";
 import {
-  chatInboxInfiniteQueryKey,
-  chatThreadMessagesInfiniteQueryKey
-} from "../../src/features/chat/queryKeys.js";
-import { publishRealtimeEvent, __testables as realtimeEventBusTestables } from "../../src/services/realtime/realtimeEventBus.js";
+  publishRealtimeEvent,
+  __testables as realtimeEventBusTestables
+} from "../../src/services/realtime/realtimeEventBus.js";
 
 const mocks = vi.hoisted(() => ({
   api: {
@@ -73,10 +73,7 @@ vi.mock("../../src/composables/useQueryErrorMessage.js", async () => {
 
 import { useChatView } from "../../src/views/chat/useChatView.js";
 
-function createInfiniteQueryState({
-  pages = [{ items: [], nextCursor: null }],
-  hasNextPage = false
-} = {}) {
+function createInfiniteQueryState({ pages = [{ items: [], nextCursor: null }], hasNextPage = false } = {}) {
   return {
     data: ref({ pages }),
     error: ref(null),
@@ -89,11 +86,7 @@ function createInfiniteQueryState({
   };
 }
 
-function buildThread({
-  id = 11,
-  unreadCount = 0,
-  lastReadSeq = 2
-} = {}) {
+function buildThread({ id = 11, unreadCount = 0, lastReadSeq = 2 } = {}) {
   return {
     id,
     threadKind: "dm",

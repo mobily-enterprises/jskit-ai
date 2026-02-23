@@ -3,12 +3,9 @@ exports.up = async function up(knex) {
     table.string("title", 160).notNullable().defaultTo("New conversation");
   });
 
-  await knex("ai_conversations")
-    .whereNull("title")
-    .orWhere("title", "")
-    .update({
-      title: "New conversation"
-    });
+  await knex("ai_conversations").whereNull("title").orWhere("title", "").update({
+    title: "New conversation"
+  });
 };
 
 exports.down = async function down(knex) {

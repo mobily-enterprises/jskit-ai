@@ -37,9 +37,10 @@ function createService({
   }
 
   const billingEnabled = enabled === true;
-  const normalizedReconciliationProvider = String(reconciliationProvider || BILLING_DEFAULT_PROVIDER)
-    .trim()
-    .toLowerCase() || BILLING_DEFAULT_PROVIDER;
+  const normalizedReconciliationProvider =
+    String(reconciliationProvider || BILLING_DEFAULT_PROVIDER)
+      .trim()
+      .toLowerCase() || BILLING_DEFAULT_PROVIDER;
   let started = false;
   const timers = new Set();
   const runningFlags = new Set();
@@ -245,15 +246,11 @@ function createService({
     registerInterval("plan-change", toMs(planChangePollSeconds, 60), tickPlanChanges);
     registerInterval("entitlements-boundary", toMs(entitlementsBoundaryPollSeconds, 60), tickEntitlementBoundaries);
 
-    registerInterval(
-      "reconciliation:pending_recent",
-      toMs(reconciliationPendingRecentSeconds, 15 * 60),
-      async () => runReconciliationScope("pending_recent")
+    registerInterval("reconciliation:pending_recent", toMs(reconciliationPendingRecentSeconds, 15 * 60), async () =>
+      runReconciliationScope("pending_recent")
     );
-    registerInterval(
-      "reconciliation:checkout_open",
-      toMs(reconciliationCheckoutOpenSeconds, 30 * 60),
-      async () => runReconciliationScope("checkout_open")
+    registerInterval("reconciliation:checkout_open", toMs(reconciliationCheckoutOpenSeconds, 30 * 60), async () =>
+      runReconciliationScope("checkout_open")
     );
     registerInterval(
       "reconciliation:checkout_completed_pending",

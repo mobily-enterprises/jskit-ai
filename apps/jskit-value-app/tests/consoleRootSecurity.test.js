@@ -121,9 +121,16 @@ function createConsoleServiceFixture({ rootUserId = null, memberships = [] } = {
       return state.membershipsByUserId.get(Number(userId)) || null;
     },
     async findActiveByRoleId(roleId) {
-      const normalizedRoleId = String(roleId || "").trim().toLowerCase();
+      const normalizedRoleId = String(roleId || "")
+        .trim()
+        .toLowerCase();
       for (const membership of state.membershipsByUserId.values()) {
-        if (membership.status === "active" && String(membership.roleId || "").trim().toLowerCase() === normalizedRoleId) {
+        if (
+          membership.status === "active" &&
+          String(membership.roleId || "")
+            .trim()
+            .toLowerCase() === normalizedRoleId
+        ) {
           return membership;
         }
       }
@@ -143,7 +150,8 @@ function createConsoleServiceFixture({ rootUserId = null, memberships = [] } = {
         }));
     },
     async countActiveMembers() {
-      return Array.from(state.membershipsByUserId.values()).filter((membership) => membership.status === "active").length;
+      return Array.from(state.membershipsByUserId.values()).filter((membership) => membership.status === "active")
+        .length;
     },
     async insert(membership) {
       const nextMembership = {
@@ -162,7 +170,9 @@ function createConsoleServiceFixture({ rootUserId = null, memberships = [] } = {
         return null;
       }
 
-      existing.roleId = String(roleId || "").trim().toLowerCase();
+      existing.roleId = String(roleId || "")
+        .trim()
+        .toLowerCase();
       state.roleUpdates.push([numericUserId, existing.roleId]);
       return existing;
     },
@@ -173,14 +183,18 @@ function createConsoleServiceFixture({ rootUserId = null, memberships = [] } = {
         const created = {
           id: state.membershipsByUserId.size + 1,
           userId: numericUserId,
-          roleId: String(roleId || "").trim().toLowerCase(),
+          roleId: String(roleId || "")
+            .trim()
+            .toLowerCase(),
           status: "active"
         };
         state.membershipsByUserId.set(numericUserId, created);
         return created;
       }
 
-      existing.roleId = String(roleId || "").trim().toLowerCase();
+      existing.roleId = String(roleId || "")
+        .trim()
+        .toLowerCase();
       existing.status = "active";
       return existing;
     },
@@ -249,7 +263,9 @@ function createConsoleServiceFixture({ rootUserId = null, memberships = [] } = {
         ...state.consoleSettings,
         ...(patch && typeof patch === "object" ? patch : {}),
         features:
-          patch && typeof patch.features === "object" ? { ...patch.features } : { ...(state.consoleSettings.features || {}) },
+          patch && typeof patch.features === "object"
+            ? { ...patch.features }
+            : { ...(state.consoleSettings.features || {}) },
         updatedAt: new Date().toISOString()
       };
       return {
@@ -384,7 +400,10 @@ test("console service allows root to manage non-root members and keeps root role
       roleId: "devop"
     }
   );
-  assert.equal(updated.members.some((member) => member.userId === 9 && member.roleId === "devop"), true);
+  assert.equal(
+    updated.members.some((member) => member.userId === 9 && member.roleId === "devop"),
+    true
+  );
   assert.deepEqual(fixture.state.roleUpdates, [[9, "devop"]]);
 
   await assert.rejects(

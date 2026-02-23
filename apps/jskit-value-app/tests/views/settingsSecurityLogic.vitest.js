@@ -11,9 +11,7 @@ import {
 const mocks = vi.hoisted(() => ({
   api: {
     settings: {
-      oauthLinkStartUrl: vi.fn(
-        (provider, { returnTo }) => `/api/settings/oauth/${provider}/start?returnTo=${returnTo}`
-      )
+      oauthLinkStartUrl: vi.fn((provider, { returnTo }) => `/api/settings/oauth/${provider}/start?returnTo=${returnTo}`)
     }
   },
   writePendingOAuthContext: vi.fn()

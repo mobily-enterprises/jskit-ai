@@ -29,10 +29,7 @@ function publishChatEventSafely({
   });
 }
 
-function createChatEventPublisher({
-  realtimeEventsService = null,
-  logCode = "chat.realtime.publish_failed"
-} = {}) {
+function createChatEventPublisher({ realtimeEventsService = null, logCode = "chat.realtime.publish_failed" } = {}) {
   const publishChatEvent = resolvePublishChatEvent(realtimeEventsService);
 
   return function publishChatEventForRequest({

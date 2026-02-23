@@ -15,7 +15,10 @@ exports.up = async function up(knex) {
       ["billable_entity_id", "entitlement_code", "usage_event_key", "window_start_at", "window_end_at"],
       "uq_billing_usage_events_entity_code_key_window"
     );
-    table.index(["billable_entity_id", "entitlement_code", "created_at"], "idx_billing_usage_events_entity_code_created");
+    table.index(
+      ["billable_entity_id", "entitlement_code", "created_at"],
+      "idx_billing_usage_events_entity_code_created"
+    );
     table.index(["window_end_at"], "idx_billing_usage_events_window_end");
 
     table.foreign("billable_entity_id").references("id").inTable("billable_entities").onDelete("RESTRICT");

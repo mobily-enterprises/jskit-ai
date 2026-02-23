@@ -24,7 +24,10 @@ function parseEntitlementsJson(value) {
 
 function formatMoneyMinor(amountMinor, currency) {
   const numericAmount = Number(amountMinor || 0);
-  const normalizedCurrency = String(currency || "").trim().toUpperCase() || "USD";
+  const normalizedCurrency =
+    String(currency || "")
+      .trim()
+      .toUpperCase() || "USD";
   const major = numericAmount / 100;
   try {
     return new Intl.NumberFormat(undefined, {
@@ -37,7 +40,10 @@ function formatMoneyMinor(amountMinor, currency) {
 }
 
 function formatInterval(interval, intervalCount) {
-  const normalizedInterval = String(interval || "").trim().toLowerCase() || "month";
+  const normalizedInterval =
+    String(interval || "")
+      .trim()
+      .toLowerCase() || "month";
   const count = Math.max(1, Number(intervalCount) || 1);
   return count === 1 ? normalizedInterval : `${count} ${normalizedInterval}s`;
 }
@@ -114,15 +120,22 @@ function resolvePriceDetails(price) {
     return null;
   }
 
-  const currency = String(price.currency || "").trim().toUpperCase();
+  const currency = String(price.currency || "")
+    .trim()
+    .toUpperCase();
   const unitAmountMinor = Number(price.unitAmountMinor);
   const hasAmount = Number.isInteger(unitAmountMinor) && unitAmountMinor >= 0 && currency.length === 3;
 
-  const interval = String(price.interval || "").trim().toLowerCase();
+  const interval = String(price.interval || "")
+    .trim()
+    .toLowerCase();
   const intervalCount = Number(price.intervalCount);
   const hasInterval = interval && Number.isInteger(intervalCount) && intervalCount > 0;
 
-  const usageType = String(price.usageType || "").trim().toLowerCase() || null;
+  const usageType =
+    String(price.usageType || "")
+      .trim()
+      .toLowerCase() || null;
   const active = typeof price.active === "boolean" ? price.active : null;
 
   return {
@@ -261,23 +274,27 @@ export function useConsoleBillingPlansView() {
         value: String(entry.id).trim()
       }));
 
-      const editingProviderPriceId = String(editForm.providerPriceId || "").trim();
-      if (editingProviderPriceId && !options.some((entry) => entry.value === editingProviderPriceId)) {
-        options.unshift({
-          title: `${shortenProviderPriceId(editingProviderPriceId)} | Current mapping`,
-          value: editingProviderPriceId
-        });
-      }
+    const editingProviderPriceId = String(editForm.providerPriceId || "").trim();
+    if (editingProviderPriceId && !options.some((entry) => entry.value === editingProviderPriceId)) {
+      options.unshift({
+        title: `${shortenProviderPriceId(editingProviderPriceId)} | Current mapping`,
+        value: editingProviderPriceId
+      });
+    }
 
     return options;
   });
 
   const createSelectedProviderPrice = computed(() =>
-    createForm.billingMode === "paid" ? findProviderPriceById(selectableProviderPrices.value, createForm.providerPriceId) : null
+    createForm.billingMode === "paid"
+      ? findProviderPriceById(selectableProviderPrices.value, createForm.providerPriceId)
+      : null
   );
 
   const editSelectedProviderPrice = computed(() =>
-    editForm.billingMode === "paid" ? findProviderPriceById(selectableProviderPrices.value, editForm.providerPriceId) : null
+    editForm.billingMode === "paid"
+      ? findProviderPriceById(selectableProviderPrices.value, editForm.providerPriceId)
+      : null
   );
 
   const createSelectedProviderPriceInfo = computed(() => resolvePriceDetails(createSelectedProviderPrice.value));
@@ -323,8 +340,8 @@ export function useConsoleBillingPlansView() {
     mapError: (nextError) => String(nextError?.message || "Unable to load billing settings.")
   });
 
-  const selectedPlan = computed(() =>
-    plans.value.find((plan) => Number(plan?.id || 0) === Number(selectedPlanId.value || 0)) || null
+  const selectedPlan = computed(
+    () => plans.value.find((plan) => Number(plan?.id || 0) === Number(selectedPlanId.value || 0)) || null
   );
 
   const selectedPlanCorePriceInfo = computed(() => {

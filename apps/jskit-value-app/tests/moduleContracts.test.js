@@ -17,9 +17,7 @@ function assertNoLegacyFactoryNames(exportKeys, allowed) {
 }
 
 function isContractMap(value) {
-  return (
-    value && typeof value === "object" && !Array.isArray(value) && !Object.hasOwn(value, "type")
-  );
+  return value && typeof value === "object" && !Array.isArray(value) && !Object.hasOwn(value, "type");
 }
 
 function assertNoSchemaSuffixKeys(value, path = "schema") {

@@ -125,7 +125,9 @@ function buildImportGraph() {
       const resolvedImports = parseImportSpecifiers(filePath)
         .map((specifier) => resolveRelativeImport(filePath, specifier))
         .filter(Boolean)
-        .filter((targetPath) => ARCHITECTURE_SCAN_DIRS.some((scanRoot) => toPosixPath(targetPath).startsWith(toPosixPath(scanRoot))));
+        .filter((targetPath) =>
+          ARCHITECTURE_SCAN_DIRS.some((scanRoot) => toPosixPath(targetPath).startsWith(toPosixPath(scanRoot)))
+        );
 
       graph.set(filePath, resolvedImports);
     }
@@ -176,7 +178,9 @@ function findCycle(graph) {
 }
 
 test("architecture guardrail: server/domain must not contain lib directories", () => {
-  const libDirectories = listDirectoriesNamedLib(SERVER_DOMAIN_DIR).map((dirPath) => toPosixPath(path.relative(ROOT_DIR, dirPath)));
+  const libDirectories = listDirectoriesNamedLib(SERVER_DOMAIN_DIR).map((dirPath) =>
+    toPosixPath(path.relative(ROOT_DIR, dirPath))
+  );
   assert.deepEqual(libDirectories, []);
 });
 
@@ -242,8 +246,9 @@ test("architecture guardrail: realtime events service import hygiene forbids cro
 
     const relativePath = toPosixPath(path.relative(ROOT_DIR, resolvedImportPath));
     const importsModuleService = /^server\/modules\/.+\/service\.js$/.test(relativePath);
-    const importsOtherDomainService =
-      /^server\/domain\/(?!realtime\/).+\/services\/.+\.service\.js$/.test(relativePath);
+    const importsOtherDomainService = /^server\/domain\/(?!realtime\/).+\/services\/.+\.service\.js$/.test(
+      relativePath
+    );
 
     if (importsModuleService || importsOtherDomainService) {
       violations.push(relativePath);

@@ -26,10 +26,7 @@ function sanitizeFileName(fileName) {
     return "file";
   }
 
-  const stripped = source
-    .replace(/[\\/]/g, "_")
-    .replace(/\s+/g, " ")
-    .trim();
+  const stripped = source.replace(/[\\/]/g, "_").replace(/\s+/g, " ").trim();
 
   return stripped || "file";
 }

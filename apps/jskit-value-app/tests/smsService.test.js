@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createService as createSmsService, __testables } from "../server/domain/communications/services/sms.service.js";
+import {
+  createService as createSmsService,
+  __testables
+} from "../server/domain/communications/services/sms.service.js";
 
 test("sms service validates supported drivers", () => {
   assert.throws(() => createSmsService({ driver: "twilio" }), /Unsupported SMS_DRIVER/);

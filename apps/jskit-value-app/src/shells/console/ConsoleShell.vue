@@ -80,7 +80,10 @@
           </template>
 
           <template v-if="billingNavigationItems.length">
-            <v-divider v-if="navigationItems.length || aiNavigationItems.length || errorNavigationItems.length" class="my-2" />
+            <v-divider
+              v-if="navigationItems.length || aiNavigationItems.length || errorNavigationItems.length"
+              class="my-2"
+            />
             <v-list-subheader class="console-nav-section text-uppercase">Billing</v-list-subheader>
             <v-list-item
               v-for="item in billingNavigationItems"
@@ -137,8 +140,8 @@ export default {
 }
 
 .console-main-shell {
-  background: linear-gradient(180deg, rgba(15, 107, 84, 0.08), rgba(15, 107, 84, 0) 220px),
-    rgb(var(--v-theme-background));
+  background:
+    linear-gradient(180deg, rgba(15, 107, 84, 0.08), rgba(15, 107, 84, 0) 220px), rgb(var(--v-theme-background));
 }
 
 .user-menu-button {

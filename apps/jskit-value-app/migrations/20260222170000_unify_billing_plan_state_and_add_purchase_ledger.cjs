@@ -107,10 +107,7 @@ async function assertNoDuplicateAssignmentsByStatus(knex, status) {
 }
 
 async function assertNoNullAssignmentStatuses(knex) {
-  const row = await knex("billing_plan_assignments")
-    .count({ count: "*" })
-    .whereNull("status")
-    .first();
+  const row = await knex("billing_plan_assignments").count({ count: "*" }).whereNull("status").first();
   if (Number(row?.count || 0) > 0) {
     throw new Error("Migration invariant failed: billing_plan_assignments.status contains NULL rows after backfill.");
   }
@@ -195,10 +192,8 @@ async function backfillCurrentAssignmentsFromSubscriptions(knex) {
   for (const row of rows) {
     await knex.transaction(async (trx) => {
       const currentAssignment = await findCurrentAssignmentForEntity(knex, row.billable_entity_id, trx);
-      const periodStart =
-        row.provider_subscription_created_at || row.created_at || row.updated_at || new Date();
-      const periodEnd =
-        row.current_period_end || row.trial_end || addDays(periodStart, 30);
+      const periodStart = row.provider_subscription_created_at || row.created_at || row.updated_at || new Date();
+      const periodEnd = row.current_period_end || row.trial_end || addDays(periodStart, 30);
 
       if (currentAssignment) {
         if (Number(currentAssignment.plan_id) !== Number(row.plan_id)) {
@@ -214,10 +209,12 @@ async function backfillCurrentAssignmentsFromSubscriptions(knex) {
           billingSubscriptionId: Number(row.id)
         };
 
-        await trx("billing_plan_assignments").where({ id: currentAssignment.id }).update({
-          metadata_json: JSON.stringify(mergedMetadata),
-          updated_at: toMysqlDateTimeUtc(new Date())
-        });
+        await trx("billing_plan_assignments")
+          .where({ id: currentAssignment.id })
+          .update({
+            metadata_json: JSON.stringify(mergedMetadata),
+            updated_at: toMysqlDateTimeUtc(new Date())
+          });
         return;
       }
 
@@ -281,10 +278,12 @@ async function backfillUpcomingAssignmentsFromSchedules(knex) {
           scheduleId: Number(row.id)
         };
 
-        await trx("billing_plan_assignments").where({ id: existingUpcoming.id }).update({
-          metadata_json: JSON.stringify(mergedMetadata),
-          updated_at: toMysqlDateTimeUtc(new Date())
-        });
+        await trx("billing_plan_assignments")
+          .where({ id: existingUpcoming.id })
+          .update({
+            metadata_json: JSON.stringify(mergedMetadata),
+            updated_at: toMysqlDateTimeUtc(new Date())
+          });
         return;
       }
 
@@ -394,7 +393,9 @@ async function backfillAssignmentProviderDetails(knex) {
 
       const existingByProvider = await trx("billing_plan_assignment_provider_details")
         .where({
-          provider: String(row.provider || "").trim().toLowerCase(),
+          provider: String(row.provider || "")
+            .trim()
+            .toLowerCase(),
           provider_subscription_id: String(row.provider_subscription_id || "")
         })
         .first();
@@ -410,7 +411,9 @@ async function backfillAssignmentProviderDetails(knex) {
       await trx("billing_plan_assignment_provider_details")
         .insert({
           billing_plan_assignment_id: Number(assignment.id),
-          provider: String(row.provider || "").trim().toLowerCase(),
+          provider: String(row.provider || "")
+            .trim()
+            .toLowerCase(),
           provider_subscription_id: String(row.provider_subscription_id || ""),
           provider_customer_id: providerCustomerId,
           provider_status: row.status == null ? null : String(row.status),
@@ -432,7 +435,9 @@ async function backfillAssignmentProviderDetails(knex) {
         })
         .onConflict("billing_plan_assignment_id")
         .merge({
-          provider: String(row.provider || "").trim().toLowerCase(),
+          provider: String(row.provider || "")
+            .trim()
+            .toLowerCase(),
           provider_subscription_id: String(row.provider_subscription_id || ""),
           provider_customer_id: providerCustomerId,
           provider_status: row.status == null ? null : String(row.status),
@@ -549,24 +554,18 @@ async function addAssignmentStatusConstraints(knex) {
     `);
   }
 
-  await addIndexIfMissing(
-    knex,
-    "billing_plan_assignments",
-    "idx_billing_plan_assignments_entity_status",
-    ["billable_entity_id", "status"]
-  );
-  await addIndexIfMissing(
-    knex,
-    "billing_plan_assignments",
-    "idx_billing_plan_assignments_status_period_start",
-    ["status", "period_start_at"]
-  );
-  await addIndexIfMissing(
-    knex,
-    "billing_plan_assignments",
-    "idx_billing_plan_assignments_entity_period_end",
-    ["billable_entity_id", "period_end_at"]
-  );
+  await addIndexIfMissing(knex, "billing_plan_assignments", "idx_billing_plan_assignments_entity_status", [
+    "billable_entity_id",
+    "status"
+  ]);
+  await addIndexIfMissing(knex, "billing_plan_assignments", "idx_billing_plan_assignments_status_period_start", [
+    "status",
+    "period_start_at"
+  ]);
+  await addIndexIfMissing(knex, "billing_plan_assignments", "idx_billing_plan_assignments_entity_period_end", [
+    "billable_entity_id",
+    "period_end_at"
+  ]);
 
   await knex.raw(`
     UPDATE billing_plan_assignments

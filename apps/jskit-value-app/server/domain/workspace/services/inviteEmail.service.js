@@ -45,11 +45,7 @@ function normalizeSmtpConfig(options = {}) {
 
 function hasSmtpTransportConfig(smtpConfig) {
   return Boolean(
-    smtpConfig.host &&
-      smtpConfig.port > 0 &&
-      smtpConfig.username &&
-      smtpConfig.password &&
-      smtpConfig.from
+    smtpConfig.host && smtpConfig.port > 0 && smtpConfig.username && smtpConfig.password && smtpConfig.from
   );
 }
 

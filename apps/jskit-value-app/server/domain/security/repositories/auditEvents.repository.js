@@ -91,7 +91,10 @@ function createAuditEventsRepository(dbClient) {
     const [id] = await client("security_audit_events").insert({
       created_at: toMysqlDateTimeUtc(createdAt),
       action: String(event?.action || "").trim(),
-      outcome: String(event?.outcome || "success").trim().toLowerCase() || "success",
+      outcome:
+        String(event?.outcome || "success")
+          .trim()
+          .toLowerCase() || "success",
       actor_user_id: parsePositiveInteger(event?.actorUserId),
       actor_email: String(event?.actorEmail || "").trim(),
       target_user_id: parsePositiveInteger(event?.targetUserId),

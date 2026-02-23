@@ -55,28 +55,16 @@ function createController({ aiService, aiTranscriptsService = null }) {
   if (!aiService || typeof aiService.streamChatTurn !== "function") {
     throw new Error("aiService.streamChatTurn is required.");
   }
-  if (
-    aiTranscriptsService &&
-    typeof aiTranscriptsService.listWorkspaceConversations !== "function"
-  ) {
+  if (aiTranscriptsService && typeof aiTranscriptsService.listWorkspaceConversations !== "function") {
     throw new Error("aiTranscriptsService.listWorkspaceConversations is required when provided.");
   }
-  if (
-    aiTranscriptsService &&
-    typeof aiTranscriptsService.listWorkspaceConversationsForUser !== "function"
-  ) {
+  if (aiTranscriptsService && typeof aiTranscriptsService.listWorkspaceConversationsForUser !== "function") {
     throw new Error("aiTranscriptsService.listWorkspaceConversationsForUser is required when provided.");
   }
-  if (
-    aiTranscriptsService &&
-    typeof aiTranscriptsService.getWorkspaceConversationMessages !== "function"
-  ) {
+  if (aiTranscriptsService && typeof aiTranscriptsService.getWorkspaceConversationMessages !== "function") {
     throw new Error("aiTranscriptsService.getWorkspaceConversationMessages is required when provided.");
   }
-  if (
-    aiTranscriptsService &&
-    typeof aiTranscriptsService.getWorkspaceConversationMessagesForUser !== "function"
-  ) {
+  if (aiTranscriptsService && typeof aiTranscriptsService.getWorkspaceConversationMessagesForUser !== "function") {
     throw new Error("aiTranscriptsService.getWorkspaceConversationMessagesForUser is required when provided.");
   }
 

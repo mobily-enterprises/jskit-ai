@@ -101,15 +101,10 @@ function toScopePrefix(scope) {
   return `[${normalizedScope}]`;
 }
 
-function createScopedLogger({
-  logger = console,
-  scope = "",
-  isScopeDebugEnabled = () => false
-} = {}) {
+function createScopedLogger({ logger = console, scope = "", isScopeDebugEnabled = () => false } = {}) {
   const normalizedScope = normalizeScopeToken(scope);
   const hasChildLogger = logger && typeof logger.child === "function";
-  const scopedLogger =
-    hasChildLogger && normalizedScope ? logger.child({ scope: normalizedScope }) : logger || console;
+  const scopedLogger = hasChildLogger && normalizedScope ? logger.child({ scope: normalizedScope }) : logger || console;
   const scopePrefix = hasChildLogger ? "" : toScopePrefix(normalizedScope);
 
   function write(level, args, { debugOnly = false } = {}) {

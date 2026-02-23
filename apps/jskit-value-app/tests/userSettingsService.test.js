@@ -187,7 +187,10 @@ test("user settings service helper validators cover success and failure branches
   const chatEmpty = __testables.parseChatInput({});
   assert.equal(chatEmpty.fieldErrors.chat, "At least one chat setting is required.");
 
-  assert.equal(__testables.duplicateEntryTargetsPublicChatId({ code: "ER_DUP_ENTRY", sqlMessage: "public_chat_id" }), true);
+  assert.equal(
+    __testables.duplicateEntryTargetsPublicChatId({ code: "ER_DUP_ENTRY", sqlMessage: "public_chat_id" }),
+    true
+  );
   assert.equal(__testables.duplicateEntryTargetsPublicChatId(new Error("nope")), false);
 
   const passwordInvalid = __testables.parseChangePasswordInput({

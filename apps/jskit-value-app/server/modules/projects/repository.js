@@ -82,19 +82,14 @@ function createProjectsRepository(dbClient) {
 
   async function repoFindByIdForWorkspace(workspaceId, projectId, options = {}) {
     const client = resolveClient(options);
-    const row = await client("workspace_projects")
-      .where({ id: projectId, workspace_id: workspaceId })
-      .first();
+    const row = await client("workspace_projects").where({ id: projectId, workspace_id: workspaceId }).first();
 
     return mapProjectRowNullable(row);
   }
 
   async function repoCountForWorkspace(workspaceId, options = {}) {
     const client = resolveClient(options);
-    const row = await client("workspace_projects")
-      .where({ workspace_id: workspaceId })
-      .count({ total: "*" })
-      .first();
+    const row = await client("workspace_projects").where({ workspace_id: workspaceId }).count({ total: "*" }).first();
 
     return normalizeCount(row);
   }
@@ -146,14 +141,10 @@ function createProjectsRepository(dbClient) {
 
     if (Object.keys(dbPatch).length > 0) {
       dbPatch.updated_at = toMysqlDateTimeUtc(new Date());
-      await client("workspace_projects")
-        .where({ id: projectId, workspace_id: workspaceId })
-        .update(dbPatch);
+      await client("workspace_projects").where({ id: projectId, workspace_id: workspaceId }).update(dbPatch);
     }
 
-    const row = await client("workspace_projects")
-      .where({ id: projectId, workspace_id: workspaceId })
-      .first();
+    const row = await client("workspace_projects").where({ id: projectId, workspace_id: workspaceId }).first();
 
     return mapProjectRowNullable(row);
   }
@@ -195,6 +186,5 @@ export const {
   listForWorkspace,
   updateByIdForWorkspace,
   transaction
-} =
-  repository;
+} = repository;
 export { __testables };

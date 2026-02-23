@@ -262,7 +262,10 @@ function parseProductEdgeEntitlements(metadataJson) {
 }
 
 function buildDefaultPlanTemplates(planRow) {
-  const isFreePlan = String(planRow?.code || "").trim().toLowerCase() === "free";
+  const isFreePlan =
+    String(planRow?.code || "")
+      .trim()
+      .toLowerCase() === "free";
   const isPaidPlan =
     Number(planRow?.checkout_unit_amount_minor || 0) > 0 &&
     String(planRow?.checkout_provider_price_id || "").trim().length > 0;
@@ -393,7 +396,8 @@ function normalizePlanTemplateFromEdge(edgeEntry, definitionByCode) {
     metadata_json: JSON.stringify({
       schemaVersion: String(edgeEntry?.schemaVersion || ""),
       valueJson: edgeEntry?.valueJson && typeof edgeEntry.valueJson === "object" ? edgeEntry.valueJson : {},
-      metadataJson: edgeEntry?.metadataJson && typeof edgeEntry.metadataJson === "object" ? edgeEntry.metadataJson : null
+      metadataJson:
+        edgeEntry?.metadataJson && typeof edgeEntry.metadataJson === "object" ? edgeEntry.metadataJson : null
     })
   };
 }
@@ -432,12 +436,16 @@ function normalizeProductTemplateFromEdge(edgeEntry, definitionByCode) {
     amount,
     grant_kind: grantKind,
     duration_days: grantKind === "timeboxed_addon" ? durationDays : null,
-    metadata_json: JSON.stringify(edgeEntry?.metadataJson && typeof edgeEntry.metadataJson === "object" ? edgeEntry.metadataJson : {})
+    metadata_json: JSON.stringify(
+      edgeEntry?.metadataJson && typeof edgeEntry.metadataJson === "object" ? edgeEntry.metadataJson : {}
+    )
   };
 }
 
 async function replacePlanTemplates(trx, { planId, rows, now }) {
-  await trx("billing_plan_entitlement_templates").where({ plan_id: Number(planId) }).del();
+  await trx("billing_plan_entitlement_templates")
+    .where({ plan_id: Number(planId) })
+    .del();
   if (rows.length < 1) {
     return;
   }
@@ -457,7 +465,9 @@ async function replacePlanTemplates(trx, { planId, rows, now }) {
 }
 
 async function replaceProductTemplates(trx, { productId, rows, now }) {
-  await trx("billing_product_entitlement_templates").where({ billing_product_id: Number(productId) }).del();
+  await trx("billing_product_entitlement_templates")
+    .where({ billing_product_id: Number(productId) })
+    .del();
   if (rows.length < 1) {
     return;
   }
@@ -475,7 +485,9 @@ async function replaceProductTemplates(trx, { productId, rows, now }) {
 }
 
 function resolvePlanGrantWindow(templateRow, assignmentRow, effectiveAt) {
-  const durationPolicy = String(templateRow.duration_policy || "while_current").trim().toLowerCase();
+  const durationPolicy = String(templateRow.duration_policy || "while_current")
+    .trim()
+    .toLowerCase();
   const assignmentPeriodEnd = toDateOrNull(assignmentRow?.period_end_at);
   if (durationPolicy === "while_current" || durationPolicy === "period_window") {
     return assignmentPeriodEnd;
@@ -491,7 +503,9 @@ function resolvePlanGrantWindow(templateRow, assignmentRow, effectiveAt) {
 }
 
 function resolveProductGrantWindow(templateRow, effectiveAt) {
-  const grantKind = String(templateRow.grant_kind || "").trim().toLowerCase();
+  const grantKind = String(templateRow.grant_kind || "")
+    .trim()
+    .toLowerCase();
   if (grantKind === "one_off_topup") {
     return null;
   }
@@ -506,7 +520,9 @@ function resolveProductGrantWindow(templateRow, effectiveAt) {
 }
 
 function mapPlanTemplateGrantKindToGrantKind(templateGrantKind) {
-  const normalized = String(templateGrantKind || "").trim().toLowerCase();
+  const normalized = String(templateGrantKind || "")
+    .trim()
+    .toLowerCase();
   if (normalized === "plan_base") {
     return "plan_base";
   }
@@ -517,7 +533,9 @@ function mapPlanTemplateGrantKindToGrantKind(templateGrantKind) {
 }
 
 function mapProductTemplateGrantKindToGrantKind(templateGrantKind) {
-  const normalized = String(templateGrantKind || "").trim().toLowerCase();
+  const normalized = String(templateGrantKind || "")
+    .trim()
+    .toLowerCase();
   if (normalized === "one_off_topup") {
     return "topup";
   }
@@ -528,19 +546,10 @@ function mapProductTemplateGrantKindToGrantKind(templateGrantKind) {
 }
 
 async function insertGrantIdempotent(trx, payload) {
-  await trx("billing_entitlement_grants")
-    .insert(payload)
-    .onConflict("dedupe_key")
-    .ignore();
+  await trx("billing_entitlement_grants").insert(payload).onConflict("dedupe_key").ignore();
 }
 
-async function recomputeBalanceRow({
-  trx,
-  now,
-  subjectId,
-  workspaceId,
-  definitionRow
-}) {
+async function recomputeBalanceRow({ trx, now, subjectId, workspaceId, definitionRow }) {
   const definitionId = Number(definitionRow.id);
   const definitionCode = String(definitionRow.code || "");
   const entitlementType = String(definitionRow.entitlement_type || "");
@@ -586,8 +595,7 @@ async function recomputeBalanceRow({
   }
 
   const effectiveAmount = grantedAmount - consumedAmount;
-  const hardLimitAmount =
-    entitlementType === "capacity" || entitlementType === "metered_quota" ? grantedAmount : null;
+  const hardLimitAmount = entitlementType === "capacity" || entitlementType === "metered_quota" ? grantedAmount : null;
   const overLimit =
     entitlementType === "balance" ? effectiveAmount < 0 : Number(consumedAmount) > Number(grantedAmount);
   const lockState = definitionCode === "projects.max" && overLimit ? "projects_locked_over_cap" : "none";
@@ -614,9 +622,7 @@ async function recomputeBalanceRow({
 
   const nextCandidates = [toDateOrNull(nextEffectiveRow?.at), toDateOrNull(nextExpiryRow?.at)].filter(Boolean);
   const nextChangeAt =
-    nextCandidates.length > 0
-      ? nextCandidates.sort((left, right) => left.getTime() - right.getTime())[0]
-      : null;
+    nextCandidates.length > 0 ? nextCandidates.sort((left, right) => left.getTime() - right.getTime())[0] : null;
 
   const balancePayload = {
     subject_type: "billable_entity",
@@ -668,9 +674,7 @@ exports.up = async function up(knex) {
       const sourceEdgeEntitlements = parsePlanEdgeEntitlements(plan.metadata_json);
       const templateSource =
         sourceEdgeEntitlements.length > 0 ? sourceEdgeEntitlements : buildDefaultPlanTemplates(plan);
-      const normalizedRows = templateSource.map((entry) =>
-        normalizePlanTemplateFromEdge(entry, definitionByCode)
-      );
+      const normalizedRows = templateSource.map((entry) => normalizePlanTemplateFromEdge(entry, definitionByCode));
 
       if (Number(plan.is_active) === 1 && normalizedRows.length < 1) {
         throw new Error(`Active plan "${String(plan.code || "")}" has no entitlement template coverage.`);
@@ -777,7 +781,9 @@ exports.up = async function up(knex) {
 
     const productsByProviderPrice = new Map();
     for (const product of products) {
-      const provider = String(product.provider || "").trim().toLowerCase();
+      const provider = String(product.provider || "")
+        .trim()
+        .toLowerCase();
       const providerPriceId = String(product.provider_price_id || "").trim();
       if (!provider || !providerPriceId) {
         continue;
@@ -808,7 +814,9 @@ exports.up = async function up(knex) {
     for (const purchase of purchases) {
       const metadata = safeParseJson(purchase.metadata_json, {});
       const providerPriceId = toNullableString(metadata?.providerPriceId);
-      const provider = String(purchase.provider || "").trim().toLowerCase();
+      const provider = String(purchase.provider || "")
+        .trim()
+        .toLowerCase();
       if (!providerPriceId || !provider) {
         continue;
       }

@@ -277,7 +277,8 @@ function createWorkspaceAdminFixture(overrides = {}) {
       return state.memberships
         .filter(
           (membership) =>
-            Number(membership.userId) === Number(userId) && normalizedWorkspaceIds.includes(Number(membership.workspaceId))
+            Number(membership.userId) === Number(userId) &&
+            normalizedWorkspaceIds.includes(Number(membership.workspaceId))
         )
         .map((membership) => ({
           ...membership,
@@ -361,9 +362,7 @@ function createWorkspaceAdminFixture(overrides = {}) {
     },
     async listPendingByWorkspaceIdWithWorkspace(workspaceId) {
       return state.invites
-        .filter(
-          (invite) => Number(invite.workspaceId) === Number(workspaceId) && isInvitePendingAndUnexpired(invite)
-        )
+        .filter((invite) => Number(invite.workspaceId) === Number(workspaceId) && isInvitePendingAndUnexpired(invite))
         .map((invite) => toInviteWithWorkspace(invite));
     },
     async findPendingByWorkspaceIdAndEmail(workspaceId, email) {
@@ -428,7 +427,8 @@ function createWorkspaceAdminFixture(overrides = {}) {
         .toLowerCase();
       return state.invites
         .filter(
-          (invite) => isInvitePendingAndUnexpired(invite) && String(invite.email || "").toLowerCase() === normalizedEmail
+          (invite) =>
+            isInvitePendingAndUnexpired(invite) && String(invite.email || "").toLowerCase() === normalizedEmail
         )
         .map((invite) => toInviteWithWorkspace(invite));
     },
@@ -441,7 +441,8 @@ function createWorkspaceAdminFixture(overrides = {}) {
       }
 
       const found = state.invites.find(
-        (invite) => isInvitePendingAndUnexpired(invite) && String(invite.tokenHash || "").toLowerCase() === normalizedTokenHash
+        (invite) =>
+          isInvitePendingAndUnexpired(invite) && String(invite.tokenHash || "").toLowerCase() === normalizedTokenHash
       );
       return found ? toInviteWithWorkspace(found) : null;
     },
@@ -469,17 +470,15 @@ function createWorkspaceAdminFixture(overrides = {}) {
     }
   };
 
-  const workspaceInviteEmailService =
-    overrides.workspaceInviteEmailService ||
-    {
-      async sendWorkspaceInviteEmail() {
-        counters.inviteEmailDispatches += 1;
-        return {
-          delivered: false,
-          reason: "not_configured"
-        };
-      }
-    };
+  const workspaceInviteEmailService = overrides.workspaceInviteEmailService || {
+    async sendWorkspaceInviteEmail() {
+      counters.inviteEmailDispatches += 1;
+      return {
+        delivered: false,
+        reason: "not_configured"
+      };
+    }
+  };
 
   const appConfig = {
     features: {
@@ -892,7 +891,10 @@ test("workspace admin service invite creation tolerates invite-email delivery fa
 
   const response = await service.createInvite({ id: 11 }, { id: 5 }, { email: "fresh@example.com", roleId: "member" });
   assert.equal(sendAttempts, 1);
-  assert.equal(response.invites.some((invite) => invite.email === "fresh@example.com"), true);
+  assert.equal(
+    response.invites.some((invite) => invite.email === "fresh@example.com"),
+    true
+  );
 });
 
 test("workspace admin service pending invite listing uses O(1) membership lookups for large invite sets", async () => {

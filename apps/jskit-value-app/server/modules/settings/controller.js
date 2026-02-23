@@ -95,7 +95,7 @@ function createController({ userSettingsService, authService, auditService }) {
       action: "auth.password_method.toggled",
       execute: () => userSettingsService.setPasswordMethodEnabled(request, request.user, payload),
       shared: () => ({
-        targetUserId: parsePositiveInteger(request.user?.id),
+        targetUserId: parsePositiveInteger(request.user?.id)
       }),
       metadata: () => ({
         enabled: Boolean(payload.enabled)
@@ -126,7 +126,7 @@ function createController({ userSettingsService, authService, auditService }) {
           provider
         }),
       shared: () => ({
-        targetUserId: parsePositiveInteger(request.user?.id),
+        targetUserId: parsePositiveInteger(request.user?.id)
       }),
       metadata: () => ({
         provider: normalizeText(provider).toLowerCase()

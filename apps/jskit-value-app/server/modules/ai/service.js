@@ -206,13 +206,7 @@ function normalizeSurfaceToolAllowlist(value) {
   for (const [rawSurfaceId, rawToolNames] of Object.entries(source)) {
     const surfaceId = normalizeSurfaceId(rawSurfaceId);
     const list = Array.isArray(rawToolNames) ? rawToolNames : [];
-    const toolNames = Array.from(
-      new Set(
-        list
-          .map((toolName) => normalizeText(toolName))
-          .filter(Boolean)
-      )
-    );
+    const toolNames = Array.from(new Set(list.map((toolName) => normalizeText(toolName)).filter(Boolean)));
 
     if (!normalized[surfaceId]) {
       normalized[surfaceId] = [];
@@ -714,10 +708,7 @@ function createService({
   if (!workspaceAdminService) {
     throw new Error("workspaceAdminService is required.");
   }
-  if (
-    workspaceSettingsRepository &&
-    typeof workspaceSettingsRepository.ensureForWorkspaceId !== "function"
-  ) {
+  if (workspaceSettingsRepository && typeof workspaceSettingsRepository.ensureForWorkspaceId !== "function") {
     throw new Error("workspaceSettingsRepository.ensureForWorkspaceId must be a function when provided.");
   }
   if (consoleSettingsRepository && typeof consoleSettingsRepository.ensure !== "function") {
@@ -1139,10 +1130,7 @@ function createService({
         })
           .then(async (generatedTitle) => {
             const normalizedGeneratedTitle = normalizeConversationTitle(generatedTitle);
-            if (
-              !normalizedGeneratedTitle ||
-              normalizedGeneratedTitle === DEFAULT_CONVERSATION_TITLE
-            ) {
+            if (!normalizedGeneratedTitle || normalizedGeneratedTitle === DEFAULT_CONVERSATION_TITLE) {
               return null;
             }
 

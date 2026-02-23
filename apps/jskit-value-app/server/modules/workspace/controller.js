@@ -23,7 +23,9 @@ function createController({
   realtimeEventsService = null
 }) {
   if (!authService || !workspaceService || !workspaceAdminService || !consoleService || !auditService) {
-    throw new Error("authService, workspaceService, workspaceAdminService, consoleService, and auditService are required.");
+    throw new Error(
+      "authService, workspaceService, workspaceAdminService, consoleService, and auditService are required."
+    );
   }
   if (typeof auditService.recordSafe !== "function") {
     throw new Error("auditService.recordSafe is required.");
@@ -193,7 +195,7 @@ function createController({
       action: "workspace.invite.created",
       execute: () => workspaceAdminService.createInvite(request.workspace, request.user, payload),
       shared: () => ({
-        workspaceId: parsePositiveInteger(request.workspace?.id),
+        workspaceId: parsePositiveInteger(request.workspace?.id)
       }),
       metadata: () => ({
         email: normalizeText(payload.email).toLowerCase(),
@@ -212,7 +214,9 @@ function createController({
       eventType: REALTIME_EVENT_TYPES.WORKSPACE_INVITES_UPDATED,
       entityType: "workspace_invite",
       entityId:
-        parsePositiveInteger(response?.createdInvite?.inviteId) || parsePositiveInteger(response?.invites?.[0]?.id) || "none",
+        parsePositiveInteger(response?.createdInvite?.inviteId) ||
+        parsePositiveInteger(response?.invites?.[0]?.id) ||
+        "none",
       payload: {
         operation: "invite_created",
         workspaceId: parsePositiveInteger(request.workspace?.id)
@@ -230,11 +234,11 @@ function createController({
       action: "workspace.invite.revoked",
       execute: () => workspaceAdminService.revokeInvite(request.workspace, inviteId),
       shared: () => ({
-        workspaceId: parsePositiveInteger(request.workspace?.id),
+        workspaceId: parsePositiveInteger(request.workspace?.id)
       }),
       metadata: () => ({
         inviteId: parsePositiveInteger(inviteId)
-      }),
+      })
     });
 
     publishWorkspaceEventForRequest({
@@ -273,7 +277,8 @@ function createController({
           decision: payload.decision
         }),
       shared: (context) => ({
-        workspaceId: parsePositiveInteger(context?.result?.workspace?.id) || parsePositiveInteger(request.workspace?.id),
+        workspaceId:
+          parsePositiveInteger(context?.result?.workspace?.id) || parsePositiveInteger(request.workspace?.id),
         targetUserId: parsePositiveInteger(request.user?.id)
       }),
       metadata: () => ({

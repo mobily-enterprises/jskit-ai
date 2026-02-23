@@ -23,14 +23,9 @@ exports.up = async function up(knex) {
 };
 
 exports.down = async function down(knex) {
-  await knex("billable_entities")
-    .whereNot({ entity_type: "workspace" })
-    .delete();
+  await knex("billable_entities").whereNot({ entity_type: "workspace" }).delete();
 
-  await knex("billable_entities")
-    .whereNull("workspace_id")
-    .orWhereNull("owner_user_id")
-    .delete();
+  await knex("billable_entities").whereNull("workspace_id").orWhereNull("owner_user_id").delete();
 
   await knex.schema.alterTable("billable_entities", (table) => {
     table.dropUnique(["entity_type", "entity_ref"], "uq_billable_entities_type_ref");

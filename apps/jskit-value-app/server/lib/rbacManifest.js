@@ -141,7 +141,12 @@ function listManifestPermissions(manifest, { includeOwner = false } = {}) {
   const permissions = new Set();
 
   for (const [roleId, role] of Object.entries(roles)) {
-    if (!includeOwner && String(roleId || "").trim().toLowerCase() === OWNER_ROLE_ID) {
+    if (
+      !includeOwner &&
+      String(roleId || "")
+        .trim()
+        .toLowerCase() === OWNER_ROLE_ID
+    ) {
       continue;
     }
 
@@ -164,7 +169,12 @@ function manifestIncludesPermission(manifest, permission, { includeOwner = false
 
   const roles = manifest?.roles && typeof manifest.roles === "object" ? manifest.roles : {};
   for (const [roleId, role] of Object.entries(roles)) {
-    if (!includeOwner && String(roleId || "").trim().toLowerCase() === OWNER_ROLE_ID) {
+    if (
+      !includeOwner &&
+      String(roleId || "")
+        .trim()
+        .toLowerCase() === OWNER_ROLE_ID
+    ) {
       continue;
     }
 

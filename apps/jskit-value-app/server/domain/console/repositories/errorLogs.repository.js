@@ -139,7 +139,9 @@ function createErrorLogsRepository(dbClient) {
 
   async function repoGetBrowserErrorById(errorId, options = {}) {
     const client = resolveClient(options);
-    const row = await client("console_browser_errors").where({ id: Number(errorId) }).first();
+    const row = await client("console_browser_errors")
+      .where({ id: Number(errorId) })
+      .first();
     if (!row) {
       return null;
     }
@@ -198,7 +200,9 @@ function createErrorLogsRepository(dbClient) {
 
   async function repoGetServerErrorById(errorId, options = {}) {
     const client = resolveClient(options);
-    const row = await client("console_server_errors").where({ id: Number(errorId) }).first();
+    const row = await client("console_server_errors")
+      .where({ id: Number(errorId) })
+      .first();
     if (!row) {
       return null;
     }

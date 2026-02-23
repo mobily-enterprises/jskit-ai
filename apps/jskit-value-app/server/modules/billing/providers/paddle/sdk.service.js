@@ -146,12 +146,7 @@ function normalizeCheckoutStatus(status) {
     return "open";
   }
 
-  if (
-    normalized === "completed" ||
-    normalized === "paid" ||
-    normalized === "billed" ||
-    normalized === "active"
-  ) {
+  if (normalized === "completed" || normalized === "paid" || normalized === "billed" || normalized === "active") {
     return "complete";
   }
 
@@ -238,7 +233,10 @@ function normalizeCheckoutLineItemToPaddleItem(lineItem, { defaultCurrency = "US
   }
 
   const amount = normalizeMinorUnitAmount(inlinePriceData.unit_amount);
-  const productData = inlinePriceData.product_data && typeof inlinePriceData.product_data === "object" ? inlinePriceData.product_data : {};
+  const productData =
+    inlinePriceData.product_data && typeof inlinePriceData.product_data === "object"
+      ? inlinePriceData.product_data
+      : {};
   const name = toNullableString(productData.name || entry?.name || entry?.description);
   if (!amount || !name) {
     return null;
@@ -424,9 +422,7 @@ function createService({
         body: body == null ? undefined : JSON.stringify(body),
         signal: controller.signal
       });
-      const json = await response
-        .json()
-        .catch(() => ({}));
+      const json = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw mapPaddleProviderError(buildPaddleError(json, "Paddle API request failed.", response.status), {
           operation,
@@ -541,9 +537,7 @@ function createService({
     }
 
     const subscriptionIds = Array.isArray(payload.subscription_ids || payload.subscriptionIds)
-      ? (payload.subscription_ids || payload.subscriptionIds)
-          .map((entry) => toNullableString(entry))
-          .filter(Boolean)
+      ? (payload.subscription_ids || payload.subscriptionIds).map((entry) => toNullableString(entry)).filter(Boolean)
       : [];
     const requestBody =
       subscriptionIds.length > 0
@@ -663,8 +657,7 @@ function createService({
       path: `/subscriptions/${encodeURIComponent(normalizedSubscriptionId)}/cancel`,
       operation: "subscription_cancel",
       body: {
-        effective_from:
-          cancelAtPeriodEnd === true ? "next_billing_period" : "immediately"
+        effective_from: cancelAtPeriodEnd === true ? "next_billing_period" : "immediately"
       }
     });
 

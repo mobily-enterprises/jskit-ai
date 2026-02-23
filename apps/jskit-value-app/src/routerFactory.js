@@ -65,7 +65,8 @@ function createSurfaceRouter({
   }
 
   if (includeWorkspaceSettings) {
-    const insertIndex = includeAssistantRoute && includeChatRoute ? 5 : includeAssistantRoute || includeChatRoute ? 4 : 3;
+    const insertIndex =
+      includeAssistantRoute && includeChatRoute ? 5 : includeAssistantRoute || includeChatRoute ? 4 : 3;
     routes.splice(
       insertIndex,
       0,

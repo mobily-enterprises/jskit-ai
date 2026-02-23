@@ -112,7 +112,10 @@ function validateRuntimeConfig() {
   }
 
   const aiRequiredPermission = String(APP_CONFIG.features?.assistantRequiredPermission || "").trim();
-  if (aiRequiredPermission && !manifestIncludesPermission(RBAC_MANIFEST, aiRequiredPermission, { includeOwner: false })) {
+  if (
+    aiRequiredPermission &&
+    !manifestIncludesPermission(RBAC_MANIFEST, aiRequiredPermission, { includeOwner: false })
+  ) {
     const availablePermissions = listManifestPermissions(RBAC_MANIFEST, {
       includeOwner: false
     });
@@ -187,7 +190,10 @@ function createFastifyLoggerOptions() {
   };
 }
 
-function registerRequestLoggingHooks(app, { observabilityService: instrumentationService, enableRequestLogs = true } = {}) {
+function registerRequestLoggingHooks(
+  app,
+  { observabilityService: instrumentationService, enableRequestLogs = true } = {}
+) {
   app.addHook("onRequest", async (request) => {
     request[REQUEST_STARTED_AT_SYMBOL] = process.hrtime.bigint();
   });
@@ -868,9 +874,7 @@ export async function shutdownServer({ signal = "", exitProcess = false, exitCod
         // Ignore best-effort force-close failures.
       }
 
-      console.error(
-        `Graceful shutdown timed out after ${GRACEFUL_SHUTDOWN_TIMEOUT_MS}ms. Forcing process exit.`
-      );
+      console.error(`Graceful shutdown timed out after ${GRACEFUL_SHUTDOWN_TIMEOUT_MS}ms. Forcing process exit.`);
       process.exit(1);
     }, GRACEFUL_SHUTDOWN_TIMEOUT_MS);
     forcedExitTimer.unref?.();

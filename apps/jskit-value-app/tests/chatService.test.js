@@ -605,7 +605,9 @@ function createChatServiceFixture(options = {}) {
         return null;
       },
       async findByPublicChatId(publicChatId) {
-        const normalized = String(publicChatId || "").trim().toLowerCase();
+        const normalized = String(publicChatId || "")
+          .trim()
+          .toLowerCase();
         const target = state.targetSettingsByPublicChatId.get(normalized);
         return target ? { ...target } : null;
       }

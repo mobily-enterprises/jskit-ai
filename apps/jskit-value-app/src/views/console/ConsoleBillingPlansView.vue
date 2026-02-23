@@ -199,7 +199,12 @@
               </v-col>
             </v-row>
 
-            <v-sheet v-if="state.createSelectedProviderPriceInfo" color="surface-variant" rounded="md" class="pa-3 mb-3">
+            <v-sheet
+              v-if="state.createSelectedProviderPriceInfo"
+              color="surface-variant"
+              rounded="md"
+              class="pa-3 mb-3"
+            >
               <div class="text-caption text-medium-emphasis mb-2">Selected price details</div>
               <div class="price-grid text-body-2">
                 <div><strong>Price ID:</strong> {{ state.createSelectedProviderPriceInfo.providerPriceId }}</div>
@@ -208,9 +213,9 @@
                   {{
                     state.createSelectedProviderPriceInfo.hasAmount
                       ? meta.formatMoneyMinor(
-                        state.createSelectedProviderPriceInfo.unitAmountMinor,
-                        state.createSelectedProviderPriceInfo.currency
-                      )
+                          state.createSelectedProviderPriceInfo.unitAmountMinor,
+                          state.createSelectedProviderPriceInfo.currency
+                        )
                       : "-"
                   }}
                 </div>
@@ -219,15 +224,15 @@
                   {{
                     state.createSelectedProviderPriceInfo.hasInterval
                       ? meta.formatInterval(
-                        state.createSelectedProviderPriceInfo.interval,
-                        state.createSelectedProviderPriceInfo.intervalCount
-                      )
+                          state.createSelectedProviderPriceInfo.interval,
+                          state.createSelectedProviderPriceInfo.intervalCount
+                        )
                       : "-"
                   }}
                 </div>
-                <div><strong>Product:</strong> {{ state.createSelectedProviderPriceInfo.productName || '-' }}</div>
-                <div><strong>Product ID:</strong> {{ state.createSelectedProviderPriceInfo.productId || '-' }}</div>
-                <div><strong>Usage type:</strong> {{ state.createSelectedProviderPriceInfo.usageType || '-' }}</div>
+                <div><strong>Product:</strong> {{ state.createSelectedProviderPriceInfo.productName || "-" }}</div>
+                <div><strong>Product ID:</strong> {{ state.createSelectedProviderPriceInfo.productId || "-" }}</div>
+                <div><strong>Usage type:</strong> {{ state.createSelectedProviderPriceInfo.usageType || "-" }}</div>
               </div>
             </v-sheet>
           </template>
@@ -306,7 +311,9 @@
                     </div>
                     <div class="kv-item">
                       <dt>Code</dt>
-                      <dd><code>{{ state.selectedPlan.code }}</code></dd>
+                      <dd>
+                        <code>{{ state.selectedPlan.code }}</code>
+                      </dd>
                     </div>
                     <div class="kv-item">
                       <dt>Status</dt>
@@ -330,7 +337,9 @@
                   <dl v-if="state.selectedPlanCorePriceInfo" class="kv-grid">
                     <div class="kv-item">
                       <dt>Price ID</dt>
-                      <dd><code>{{ state.selectedPlanCorePriceInfo.providerPriceId }}</code></dd>
+                      <dd>
+                        <code>{{ state.selectedPlanCorePriceInfo.providerPriceId }}</code>
+                      </dd>
                     </div>
                     <div class="kv-item">
                       <dt>Amount</dt>
@@ -338,9 +347,9 @@
                         {{
                           state.selectedPlanCorePriceInfo.hasAmount
                             ? meta.formatMoneyMinor(
-                              state.selectedPlanCorePriceInfo.unitAmountMinor,
-                              state.selectedPlanCorePriceInfo.currency
-                            )
+                                state.selectedPlanCorePriceInfo.unitAmountMinor,
+                                state.selectedPlanCorePriceInfo.currency
+                              )
                             : "-"
                         }}
                       </dd>
@@ -351,9 +360,9 @@
                         {{
                           state.selectedPlanCorePriceInfo.hasInterval
                             ? meta.formatInterval(
-                              state.selectedPlanCorePriceInfo.interval,
-                              state.selectedPlanCorePriceInfo.intervalCount
-                            )
+                                state.selectedPlanCorePriceInfo.interval,
+                                state.selectedPlanCorePriceInfo.intervalCount
+                              )
                             : "-"
                         }}
                       </dd>
@@ -364,7 +373,9 @@
                     </div>
                     <div class="kv-item">
                       <dt>Product ID</dt>
-                      <dd><code>{{ state.selectedPlanCorePriceInfo.productId || "-" }}</code></dd>
+                      <dd>
+                        <code>{{ state.selectedPlanCorePriceInfo.productId || "-" }}</code>
+                      </dd>
                     </div>
                   </dl>
                   <div v-else class="text-body-2 text-medium-emphasis">Free plan (no provider price mapping).</div>
@@ -400,7 +411,13 @@
 
           <v-row dense>
             <v-col cols="12" md="4">
-              <v-text-field v-model="state.editForm.code" label="Plan code" variant="outlined" density="compact" readonly />
+              <v-text-field
+                v-model="state.editForm.code"
+                label="Plan code"
+                variant="outlined"
+                density="compact"
+                readonly
+              />
             </v-col>
             <v-col cols="12" md="5">
               <v-text-field
@@ -477,9 +494,9 @@
                 {{
                   state.editSelectedProviderPriceInfo.hasAmount
                     ? meta.formatMoneyMinor(
-                      state.editSelectedProviderPriceInfo.unitAmountMinor,
-                      state.editSelectedProviderPriceInfo.currency
-                    )
+                        state.editSelectedProviderPriceInfo.unitAmountMinor,
+                        state.editSelectedProviderPriceInfo.currency
+                      )
                     : "-"
                 }}
               </div>
@@ -488,21 +505,21 @@
                 {{
                   state.editSelectedProviderPriceInfo.hasInterval
                     ? meta.formatInterval(
-                      state.editSelectedProviderPriceInfo.interval,
-                      state.editSelectedProviderPriceInfo.intervalCount
-                    )
+                        state.editSelectedProviderPriceInfo.interval,
+                        state.editSelectedProviderPriceInfo.intervalCount
+                      )
                     : "-"
                 }}
               </div>
-              <div><strong>Product:</strong> {{ state.editSelectedProviderPriceInfo.productName || '-' }}</div>
-              <div><strong>Product ID:</strong> {{ state.editSelectedProviderPriceInfo.productId || '-' }}</div>
-              <div><strong>Usage type:</strong> {{ state.editSelectedProviderPriceInfo.usageType || '-' }}</div>
+              <div><strong>Product:</strong> {{ state.editSelectedProviderPriceInfo.productName || "-" }}</div>
+              <div><strong>Product ID:</strong> {{ state.editSelectedProviderPriceInfo.productId || "-" }}</div>
+              <div><strong>Usage type:</strong> {{ state.editSelectedProviderPriceInfo.usageType || "-" }}</div>
             </div>
           </v-sheet>
           <v-alert v-else-if="state.editForm.billingMode === 'paid'" type="warning" variant="tonal" class="mt-2">
             Price details are unavailable for the current mapping
-            <code v-if="state.editInitialProviderPriceId">{{ state.editInitialProviderPriceId }}</code>.
-            You can still update name/description/status, or choose a new active price.
+            <code v-if="state.editInitialProviderPriceId">{{ state.editInitialProviderPriceId }}</code
+            >. You can still update name/description/status, or choose a new active price.
           </v-alert>
           <v-alert v-else type="info" variant="tonal" class="mt-2">
             Free plans do not have a provider checkout price.

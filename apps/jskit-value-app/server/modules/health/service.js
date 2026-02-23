@@ -11,7 +11,9 @@ function createService(options) {
   const healthRepository = options?.healthRepository;
   const now = typeof options?.now === "function" ? options.now : () => new Date();
   const uptimeSeconds =
-    typeof options?.uptimeSeconds === "function" ? options.uptimeSeconds : () => normalizeUptimeSeconds(process.uptime());
+    typeof options?.uptimeSeconds === "function"
+      ? options.uptimeSeconds
+      : () => normalizeUptimeSeconds(process.uptime());
 
   if (!healthRepository || typeof healthRepository.checkDatabase !== "function") {
     throw new Error("healthRepository.checkDatabase is required.");

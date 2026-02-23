@@ -31,105 +31,105 @@ function buildControllers({ onListProjects } = {}) {
       auth: {
         register: noop,
         login: noop,
-      requestOtpLogin: noop,
-      verifyOtpLogin: noop,
-      oauthStart: noop,
-      oauthComplete: noop,
-      requestPasswordReset: noop,
-      completePasswordRecovery: noop,
-      resetPassword: noop,
-      logout: noop,
-      session: noop
-    },
-    settings: {
-      get: noop,
-      updateProfile: noop,
-      uploadAvatar: noop,
-      deleteAvatar: noop,
-      updatePreferences: noop,
-      updateNotifications: noop,
-      updateChat: noop,
-      changePassword: noop,
-      setPasswordMethodEnabled: noop,
-      startOAuthProviderLink: noop,
-      unlinkOAuthProvider: noop,
-      logoutOtherSessions: noop
-    },
-    history: {
-      list: noop
-    },
-    workspace: {},
-    projects: {
-      async list(request, reply) {
-        if (typeof onListProjects === "function") {
-          await onListProjects(request);
-        }
+        requestOtpLogin: noop,
+        verifyOtpLogin: noop,
+        oauthStart: noop,
+        oauthComplete: noop,
+        requestPasswordReset: noop,
+        completePasswordRecovery: noop,
+        resetPassword: noop,
+        logout: noop,
+        session: noop
+      },
+      settings: {
+        get: noop,
+        updateProfile: noop,
+        uploadAvatar: noop,
+        deleteAvatar: noop,
+        updatePreferences: noop,
+        updateNotifications: noop,
+        updateChat: noop,
+        changePassword: noop,
+        setPasswordMethodEnabled: noop,
+        startOAuthProviderLink: noop,
+        unlinkOAuthProvider: noop,
+        logoutOtherSessions: noop
+      },
+      history: {
+        list: noop
+      },
+      workspace: {},
+      projects: {
+        async list(request, reply) {
+          if (typeof onListProjects === "function") {
+            await onListProjects(request);
+          }
 
-        reply.code(200).send({
-          entries: [],
-          page: 1,
-          pageSize: 10,
-          total: 0,
-          totalPages: 1
-        });
-      },
-      async get(_request, reply) {
-        reply.code(200).send({
-          project: {
-            id: 1,
-            workspaceId: 1,
-            name: "Project",
-            status: "draft",
-            owner: "",
-            notes: "",
-            createdAt: "2026-01-01T00:00:00.000Z",
-            updatedAt: "2026-01-01T00:00:00.000Z"
-          }
-        });
-      },
-      async create(_request, reply) {
-        reply.code(200).send({
-          project: {
-            id: 1,
-            workspaceId: 1,
-            name: "Project",
-            status: "draft",
-            owner: "",
-            notes: "",
-            createdAt: "2026-01-01T00:00:00.000Z",
-            updatedAt: "2026-01-01T00:00:00.000Z"
-          }
-        });
-      },
-      async update(_request, reply) {
-        reply.code(200).send({
-          project: {
-            id: 1,
-            workspaceId: 1,
-            name: "Project",
-            status: "active",
-            owner: "",
-            notes: "",
-            createdAt: "2026-01-01T00:00:00.000Z",
-            updatedAt: "2026-01-01T00:00:00.000Z"
-          }
-        });
-      },
-      async replace(_request, reply) {
-        reply.code(200).send({
-          project: {
-            id: 1,
-            workspaceId: 1,
-            name: "Project replace",
-            status: "active",
-            owner: "",
-            notes: "",
-            createdAt: "2026-01-01T00:00:00.000Z",
-            updatedAt: "2026-01-01T00:00:00.000Z"
-          }
-        });
+          reply.code(200).send({
+            entries: [],
+            page: 1,
+            pageSize: 10,
+            total: 0,
+            totalPages: 1
+          });
+        },
+        async get(_request, reply) {
+          reply.code(200).send({
+            project: {
+              id: 1,
+              workspaceId: 1,
+              name: "Project",
+              status: "draft",
+              owner: "",
+              notes: "",
+              createdAt: "2026-01-01T00:00:00.000Z",
+              updatedAt: "2026-01-01T00:00:00.000Z"
+            }
+          });
+        },
+        async create(_request, reply) {
+          reply.code(200).send({
+            project: {
+              id: 1,
+              workspaceId: 1,
+              name: "Project",
+              status: "draft",
+              owner: "",
+              notes: "",
+              createdAt: "2026-01-01T00:00:00.000Z",
+              updatedAt: "2026-01-01T00:00:00.000Z"
+            }
+          });
+        },
+        async update(_request, reply) {
+          reply.code(200).send({
+            project: {
+              id: 1,
+              workspaceId: 1,
+              name: "Project",
+              status: "active",
+              owner: "",
+              notes: "",
+              createdAt: "2026-01-01T00:00:00.000Z",
+              updatedAt: "2026-01-01T00:00:00.000Z"
+            }
+          });
+        },
+        async replace(_request, reply) {
+          reply.code(200).send({
+            project: {
+              id: 1,
+              workspaceId: 1,
+              name: "Project replace",
+              status: "active",
+              owner: "",
+              notes: "",
+              createdAt: "2026-01-01T00:00:00.000Z",
+              updatedAt: "2026-01-01T00:00:00.000Z"
+            }
+          });
+        }
       }
-    }
     },
     {
       get(target, prop, receiver) {

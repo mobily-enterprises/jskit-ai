@@ -2,12 +2,7 @@ import { AppError } from "../../../lib/errors.js";
 import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
 import { isMysqlDuplicateEntryError } from "../../../lib/primitives/mysqlErrors.js";
 import { mapMembershipSummary } from "../mappers/consoleMappers.js";
-import {
-  CONSOLE_ROLE_ID,
-  hasPermission,
-  normalizeRoleId,
-  resolveRolePermissions
-} from "../policies/roles.js";
+import { CONSOLE_ROLE_ID, hasPermission, normalizeRoleId, resolveRolePermissions } from "../policies/roles.js";
 
 function createConsoleAccessService({
   consoleMembershipsRepository,
@@ -78,7 +73,9 @@ function createConsoleAccessService({
         if (
           !rootUserId &&
           normalizeRoleId(existingMembership.roleId) === CONSOLE_ROLE_ID &&
-          String(existingMembership.status || "").trim().toLowerCase() === "active"
+          String(existingMembership.status || "")
+            .trim()
+            .toLowerCase() === "active"
         ) {
           await consoleRootRepository.assignRootUserIdIfUnset(numericUserId, transactionOptions);
         }
@@ -115,7 +112,9 @@ function createConsoleAccessService({
       if (
         membership &&
         normalizeRoleId(membership.roleId) === CONSOLE_ROLE_ID &&
-        String(membership.status || "").trim().toLowerCase() === "active"
+        String(membership.status || "")
+          .trim()
+          .toLowerCase() === "active"
       ) {
         await consoleRootRepository.assignRootUserIdIfUnset(numericUserId, transactionOptions);
       }

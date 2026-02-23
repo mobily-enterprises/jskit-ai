@@ -49,9 +49,7 @@ function normalizeDmParticipantIds(userIds) {
 
   const normalized = Array.from(
     new Set(
-      userIds
-        .map((userId) => parsePositiveInteger(userId))
-        .filter((userId) => Number.isInteger(userId) && userId > 0)
+      userIds.map((userId) => parsePositiveInteger(userId)).filter((userId) => Number.isInteger(userId) && userId > 0)
     )
   );
   return normalized.sort((a, b) => a - b);
@@ -111,8 +109,14 @@ function createParticipantsRepository(dbClient) {
     const [id] = await client("chat_thread_participants").insert({
       thread_id: threadId,
       user_id: userId,
-      participant_role: String(payload?.participantRole || "").trim().toLowerCase() || "member",
-      status: String(payload?.status || "").trim().toLowerCase() || "active",
+      participant_role:
+        String(payload?.participantRole || "")
+          .trim()
+          .toLowerCase() || "member",
+      status:
+        String(payload?.status || "")
+          .trim()
+          .toLowerCase() || "active",
       joined_at: toMysqlDateTimeUtc(payload?.joinedAt ? new Date(payload.joinedAt) : now),
       left_at: payload?.leftAt ? toMysqlDateTimeUtc(new Date(payload.leftAt)) : null,
       removed_by_user_id: parsePositiveInteger(payload?.removedByUserId),
@@ -152,9 +156,7 @@ function createParticipantsRepository(dbClient) {
       return [];
     }
 
-    const rows = await client("chat_thread_participants")
-      .where({ thread_id: numericThreadId })
-      .orderBy("id", "asc");
+    const rows = await client("chat_thread_participants").where({ thread_id: numericThreadId }).orderBy("id", "asc");
 
     return rows.map(mapParticipantRowRequired);
   }
@@ -227,10 +229,16 @@ function createParticipantsRepository(dbClient) {
 
     const dbPatch = {};
     if (Object.hasOwn(patch, "participantRole")) {
-      dbPatch.participant_role = String(patch.participantRole || "").trim().toLowerCase() || "member";
+      dbPatch.participant_role =
+        String(patch.participantRole || "")
+          .trim()
+          .toLowerCase() || "member";
     }
     if (Object.hasOwn(patch, "status")) {
-      dbPatch.status = String(patch.status || "").trim().toLowerCase() || "active";
+      dbPatch.status =
+        String(patch.status || "")
+          .trim()
+          .toLowerCase() || "active";
     }
     if (Object.hasOwn(patch, "leftAt")) {
       dbPatch.left_at = patch.leftAt ? toMysqlDateTimeUtc(new Date(patch.leftAt)) : null;

@@ -52,8 +52,12 @@ const currentPath = useRouterState({
 const canViewAiTranscripts = computed(() => workspaceStore.can("workspace.ai.transcripts.read"));
 
 const monitoringPath = computed(() => workspaceStore.workspacePath("/admin/monitoring", { surface: "admin" }));
-const transcriptsPath = computed(() => workspaceStore.workspacePath("/admin/monitoring/transcripts", { surface: "admin" }));
-const auditPath = computed(() => workspaceStore.workspacePath("/admin/monitoring/audit-activity", { surface: "admin" }));
+const transcriptsPath = computed(() =>
+  workspaceStore.workspacePath("/admin/monitoring/transcripts", { surface: "admin" })
+);
+const auditPath = computed(() =>
+  workspaceStore.workspacePath("/admin/monitoring/audit-activity", { surface: "admin" })
+);
 
 const activeTab = computed(() => {
   const path = String(currentPath.value || "");
@@ -69,7 +73,9 @@ const activeTab = computed(() => {
 });
 
 async function handleTabChange(nextTab) {
-  const normalizedTab = String(nextTab || "").trim().toLowerCase();
+  const normalizedTab = String(nextTab || "")
+    .trim()
+    .toLowerCase();
 
   if (normalizedTab === TAB_AUDIT) {
     await navigate({ to: auditPath.value });

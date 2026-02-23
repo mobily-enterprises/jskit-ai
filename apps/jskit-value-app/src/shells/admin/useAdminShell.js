@@ -158,7 +158,9 @@ export function useAdminShell() {
     return "Calculator";
   });
   const isConversationDestination = computed(() => {
-    const pathname = String(currentPath.value || "").trim().toLowerCase();
+    const pathname = String(currentPath.value || "")
+      .trim()
+      .toLowerCase();
     return pathname.endsWith("/chat") || pathname.endsWith("/workspace-chat") || pathname.endsWith("/assistant");
   });
 

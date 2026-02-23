@@ -1112,7 +1112,7 @@ Columns:
   - Canonical participant-row count for the thread (not "active participant count")
 - `next_message_seq` BIGINT UNSIGNED NOT NULL DEFAULT `1`
   - sequence allocator for robust concurrent sends (allocate current value, then increment)
-- `last_message_id` BIGINT UNSIGNED NULL  (pointer, no FK in v1)
+- `last_message_id` BIGINT UNSIGNED NULL (pointer, no FK in v1)
 - `last_message_seq` BIGINT UNSIGNED NULL
 - `last_message_at` DATETIME(3) NULL
 - `last_message_preview` VARCHAR(280) NULL
@@ -1854,7 +1854,9 @@ This is the most important server flow.
 11. Commit transaction
 12. Load participant recipient IDs (outside transaction OK if not already fetched)
 13. Publish realtime event to recipient user rooms
-   - best-effort after commit: if publish/fanout fails, log + metric it and continue returning success for the committed message (clients recover via inbox/messages fetch)
+
+- best-effort after commit: if publish/fanout fails, log + metric it and continue returning success for the committed message (clients recover via inbox/messages fetch)
+
 14. Return API response with canonical message payload
 
 ### Transaction retry policy (important)
@@ -2072,7 +2074,7 @@ Envelope additions (backward compatible):
 - Avoids forcing chat membership checks into workspace topic registry logic
 - Reuses the existing Socket.IO transport and Redis scaling path
 
-## Runtime Wiring Plan (server/runtime/* and route aggregation)
+## Runtime Wiring Plan (server/runtime/\* and route aggregation)
 
 ### Repositories
 
@@ -2158,21 +2160,21 @@ Notes:
 
 ### Endpoint contract matrix (locked v1)
 
-| Endpoint | Success contract | Locked error codes |
-| --- | --- | --- |
-| `POST /api/chat/dm/ensure` | `200` with `{ thread, created }` | `CHAT_FEATURE_DISABLED`, `CHAT_DM_SELF_NOT_ALLOWED`, `CHAT_DM_TARGET_UNAVAILABLE`, `CHAT_RATE_LIMITED` |
-| `GET /api/chat/inbox` | `200` with `{ items, nextCursor }` | `CHAT_SURFACE_INVALID`, `CHAT_FEATURE_DISABLED`, `CHAT_RATE_LIMITED` |
-| `GET /api/chat/threads/:threadId` | `200` with `{ thread }` | `CHAT_THREAD_NOT_FOUND`, `CHAT_RATE_LIMITED` |
-| `GET /api/chat/threads/:threadId/messages` | `200` with `{ items, nextCursor }` | `CHAT_THREAD_NOT_FOUND`, `CHAT_RATE_LIMITED` |
-| `POST /api/chat/threads/:threadId/messages` | `200` with `{ message, thread, idempotencyStatus }` where `idempotencyStatus` is `created` or `replayed` | `CHAT_THREAD_NOT_FOUND`, `CHAT_VALIDATION_FAILED`, `CHAT_IDEMPOTENCY_CONFLICT`, `CHAT_MESSAGE_RETRY_BLOCKED`, `CHAT_RATE_LIMITED` |
-| `POST /api/chat/threads/:threadId/read` | `200` with `{ threadId, lastReadSeq, lastReadMessageId }` | `CHAT_THREAD_NOT_FOUND`, `CHAT_READ_CURSOR_REQUIRED`, `CHAT_READ_CURSOR_INVALID`, `CHAT_RATE_LIMITED` |
-| `POST /api/chat/threads/:threadId/reactions` | `200` with `{ messageId, reactions }` | `CHAT_THREAD_NOT_FOUND`, `CHAT_MESSAGE_NOT_FOUND`, `CHAT_VALIDATION_FAILED`, `CHAT_RATE_LIMITED` |
-| `DELETE /api/chat/threads/:threadId/reactions` | `200` with `{ messageId, reactions }` | `CHAT_THREAD_NOT_FOUND`, `CHAT_MESSAGE_NOT_FOUND`, `CHAT_VALIDATION_FAILED`, `CHAT_RATE_LIMITED` |
-| `POST /api/chat/threads/:threadId/typing` | `202` with `{ accepted: true, expiresAt }` | `CHAT_THREAD_NOT_FOUND`, `CHAT_RATE_LIMITED` |
-| `POST /api/chat/threads/:threadId/attachments/reserve` | `200` with `{ attachment }` | `CHAT_THREAD_NOT_FOUND`, `CHAT_VALIDATION_FAILED`, `CHAT_ATTACHMENT_CONFLICT`, `CHAT_RATE_LIMITED` |
-| `POST /api/chat/threads/:threadId/attachments/upload` | `200` with `{ attachment }` | `CHAT_THREAD_NOT_FOUND`, `CHAT_ATTACHMENT_NOT_FOUND`, `CHAT_VALIDATION_FAILED`, `CHAT_ATTACHMENT_CONFLICT`, `CHAT_ATTACHMENT_UPLOAD_IN_PROGRESS`, `CHAT_RATE_LIMITED` |
-| `DELETE /api/chat/threads/:threadId/attachments/:attachmentId` | `204` empty body | `CHAT_THREAD_NOT_FOUND`, `CHAT_ATTACHMENT_NOT_FOUND`, `CHAT_ATTACHMENT_CONFLICT`, `CHAT_RATE_LIMITED` |
-| `GET /api/chat/attachments/:attachmentId/content` | `200` streamed content (or signed-url redirect if delivery mode enabled) | `CHAT_ATTACHMENT_NOT_FOUND`, `CHAT_SURFACE_INVALID`, `CHAT_RATE_LIMITED` |
+| Endpoint                                                       | Success contract                                                                                         | Locked error codes                                                                                                                                                    |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/chat/dm/ensure`                                     | `200` with `{ thread, created }`                                                                         | `CHAT_FEATURE_DISABLED`, `CHAT_DM_SELF_NOT_ALLOWED`, `CHAT_DM_TARGET_UNAVAILABLE`, `CHAT_RATE_LIMITED`                                                                |
+| `GET /api/chat/inbox`                                          | `200` with `{ items, nextCursor }`                                                                       | `CHAT_SURFACE_INVALID`, `CHAT_FEATURE_DISABLED`, `CHAT_RATE_LIMITED`                                                                                                  |
+| `GET /api/chat/threads/:threadId`                              | `200` with `{ thread }`                                                                                  | `CHAT_THREAD_NOT_FOUND`, `CHAT_RATE_LIMITED`                                                                                                                          |
+| `GET /api/chat/threads/:threadId/messages`                     | `200` with `{ items, nextCursor }`                                                                       | `CHAT_THREAD_NOT_FOUND`, `CHAT_RATE_LIMITED`                                                                                                                          |
+| `POST /api/chat/threads/:threadId/messages`                    | `200` with `{ message, thread, idempotencyStatus }` where `idempotencyStatus` is `created` or `replayed` | `CHAT_THREAD_NOT_FOUND`, `CHAT_VALIDATION_FAILED`, `CHAT_IDEMPOTENCY_CONFLICT`, `CHAT_MESSAGE_RETRY_BLOCKED`, `CHAT_RATE_LIMITED`                                     |
+| `POST /api/chat/threads/:threadId/read`                        | `200` with `{ threadId, lastReadSeq, lastReadMessageId }`                                                | `CHAT_THREAD_NOT_FOUND`, `CHAT_READ_CURSOR_REQUIRED`, `CHAT_READ_CURSOR_INVALID`, `CHAT_RATE_LIMITED`                                                                 |
+| `POST /api/chat/threads/:threadId/reactions`                   | `200` with `{ messageId, reactions }`                                                                    | `CHAT_THREAD_NOT_FOUND`, `CHAT_MESSAGE_NOT_FOUND`, `CHAT_VALIDATION_FAILED`, `CHAT_RATE_LIMITED`                                                                      |
+| `DELETE /api/chat/threads/:threadId/reactions`                 | `200` with `{ messageId, reactions }`                                                                    | `CHAT_THREAD_NOT_FOUND`, `CHAT_MESSAGE_NOT_FOUND`, `CHAT_VALIDATION_FAILED`, `CHAT_RATE_LIMITED`                                                                      |
+| `POST /api/chat/threads/:threadId/typing`                      | `202` with `{ accepted: true, expiresAt }`                                                               | `CHAT_THREAD_NOT_FOUND`, `CHAT_RATE_LIMITED`                                                                                                                          |
+| `POST /api/chat/threads/:threadId/attachments/reserve`         | `200` with `{ attachment }`                                                                              | `CHAT_THREAD_NOT_FOUND`, `CHAT_VALIDATION_FAILED`, `CHAT_ATTACHMENT_CONFLICT`, `CHAT_RATE_LIMITED`                                                                    |
+| `POST /api/chat/threads/:threadId/attachments/upload`          | `200` with `{ attachment }`                                                                              | `CHAT_THREAD_NOT_FOUND`, `CHAT_ATTACHMENT_NOT_FOUND`, `CHAT_VALIDATION_FAILED`, `CHAT_ATTACHMENT_CONFLICT`, `CHAT_ATTACHMENT_UPLOAD_IN_PROGRESS`, `CHAT_RATE_LIMITED` |
+| `DELETE /api/chat/threads/:threadId/attachments/:attachmentId` | `204` empty body                                                                                         | `CHAT_THREAD_NOT_FOUND`, `CHAT_ATTACHMENT_NOT_FOUND`, `CHAT_ATTACHMENT_CONFLICT`, `CHAT_RATE_LIMITED`                                                                 |
+| `GET /api/chat/attachments/:attachmentId/content`              | `200` streamed content (or signed-url redirect if delivery mode enabled)                                 | `CHAT_ATTACHMENT_NOT_FOUND`, `CHAT_SURFACE_INVALID`, `CHAT_RATE_LIMITED`                                                                                              |
 
 ### Request body contract highlights (locked v1)
 

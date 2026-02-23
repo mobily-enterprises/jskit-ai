@@ -26,10 +26,7 @@ test("observability service records billing guardrail metrics and structured log
   });
 
   const output = registry.renderPrometheusMetrics();
-  assert.match(
-    output,
-    /app_billing_guardrail_events_total\{code="BILLING_CHECKOUT_PROVIDER_ERROR"\} 1/
-  );
+  assert.match(output, /app_billing_guardrail_events_total\{code="BILLING_CHECKOUT_PROVIDER_ERROR"\} 1/);
   assert.match(
     output,
     /app_billing_guardrail_measurement_sum\{code="BILLING_CHECKOUT_PROVIDER_ERROR",measure="age_seconds"\} 75/

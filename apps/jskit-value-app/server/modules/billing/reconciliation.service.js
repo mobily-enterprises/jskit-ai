@@ -7,13 +7,15 @@ import {
   BILLING_FAILURE_CODES,
   BILLING_IDEMPOTENCY_STATUS,
   BILLING_RUNTIME_DEFAULTS,
-  NON_TERMINAL_CURRENT_SUBSCRIPTION_STATUS_SET,
+  NON_TERMINAL_CURRENT_SUBSCRIPTION_STATUS_SET
 } from "./constants.js";
 import { createService as createWebhookProjectionService } from "./webhookProjection.service.js";
 import { normalizeProviderSubscriptionStatus, toNullableString, toSafeMetadata } from "./webhookProjection.utils.js";
 
 function providerSessionStatusToLocalStatus(providerStatus) {
-  const normalized = String(providerStatus || "").trim().toLowerCase();
+  const normalized = String(providerStatus || "")
+    .trim()
+    .toLowerCase();
   if (normalized === "complete") {
     return BILLING_CHECKOUT_SESSION_STATUS.COMPLETED_PENDING_SUBSCRIPTION;
   }
@@ -116,7 +118,8 @@ function createService(options = {}) {
   if (!providerAdapter) {
     throw new Error("billingProviderAdapter is required.");
   }
-  const activeProvider = normalizeProvider(providerAdapter?.provider || BILLING_DEFAULT_PROVIDER) || BILLING_DEFAULT_PROVIDER;
+  const activeProvider =
+    normalizeProvider(providerAdapter?.provider || BILLING_DEFAULT_PROVIDER) || BILLING_DEFAULT_PROVIDER;
   if (!billingCheckoutSessionService) {
     throw new Error("billingCheckoutSessionService is required.");
   }
@@ -178,7 +181,10 @@ function createService(options = {}) {
   }
 
   function findLockedCheckoutSessionById(checkoutSessions, sessionId) {
-    return (Array.isArray(checkoutSessions) ? checkoutSessions : []).find((row) => Number(row.id) === Number(sessionId)) || null;
+    return (
+      (Array.isArray(checkoutSessions) ? checkoutSessions : []).find((row) => Number(row.id) === Number(sessionId)) ||
+      null
+    );
   }
 
   async function resolveProviderCheckoutSession(session) {
@@ -342,7 +348,8 @@ function createService(options = {}) {
 
           if (localSubscription) {
             await billingCheckoutSessionService.markCheckoutSessionReconciled({
-              providerCheckoutSessionId: toNullableString(providerSession.id) || lockedSession.providerCheckoutSessionId,
+              providerCheckoutSessionId:
+                toNullableString(providerSession.id) || lockedSession.providerCheckoutSessionId,
               operationKey: lockedSession.operationKey,
               providerSubscriptionId,
               providerEventCreatedAt: now,
@@ -359,8 +366,7 @@ function createService(options = {}) {
               metadata: {
                 ...providerMetadata,
                 operation_key: providerMetadata.operation_key || lockedSession.operationKey,
-                billable_entity_id:
-                  providerMetadata.billable_entity_id || String(lockedSession.billableEntityId)
+                billable_entity_id: providerMetadata.billable_entity_id || String(lockedSession.billableEntityId)
               },
               customer: providerSubscription.customer || lockedSession.providerCustomerId
             };
@@ -382,10 +388,7 @@ function createService(options = {}) {
               }
             );
 
-            if (
-              refreshed &&
-              refreshed.status !== BILLING_CHECKOUT_SESSION_STATUS.COMPLETED_PENDING_SUBSCRIPTION
-            ) {
+            if (refreshed && refreshed.status !== BILLING_CHECKOUT_SESSION_STATUS.COMPLETED_PENDING_SUBSCRIPTION) {
               return true;
             }
           }
@@ -458,11 +461,11 @@ function createService(options = {}) {
               lockedSession.id,
               {
                 status: BILLING_CHECKOUT_SESSION_STATUS.OPEN,
-                providerCheckoutSessionId: toNullableString(providerSession.id) || lockedSession.providerCheckoutSessionId,
+                providerCheckoutSessionId:
+                  toNullableString(providerSession.id) || lockedSession.providerCheckoutSessionId,
                 checkoutUrl: toNullableString(providerSession.url),
                 expiresAt:
-                  parseUnixEpochSeconds(providerSession.expires_at) ||
-                  parseDateOrNull(lockedSession.expiresAt),
+                  parseUnixEpochSeconds(providerSession.expires_at) || parseDateOrNull(lockedSession.expiresAt),
                 providerCustomerId: toNullableString(providerSession.customer),
                 providerSubscriptionId: toNullableString(providerSession.subscription),
                 lastProviderEventCreatedAt: now
@@ -474,7 +477,8 @@ function createService(options = {}) {
 
           if (localStatus === BILLING_CHECKOUT_SESSION_STATUS.COMPLETED_PENDING_SUBSCRIPTION) {
             await billingCheckoutSessionService.markCheckoutSessionCompletedPendingSubscription({
-              providerCheckoutSessionId: toNullableString(providerSession.id) || lockedSession.providerCheckoutSessionId,
+              providerCheckoutSessionId:
+                toNullableString(providerSession.id) || lockedSession.providerCheckoutSessionId,
               operationKey: lockedSession.operationKey,
               providerCustomerId: toNullableString(providerSession.customer) || lockedSession.providerCustomerId,
               providerSubscriptionId: toNullableString(providerSession.subscription),
@@ -488,7 +492,8 @@ function createService(options = {}) {
 
           if (localStatus === BILLING_CHECKOUT_SESSION_STATUS.EXPIRED) {
             await billingCheckoutSessionService.markCheckoutSessionExpiredOrAbandoned({
-              providerCheckoutSessionId: toNullableString(providerSession.id) || lockedSession.providerCheckoutSessionId,
+              providerCheckoutSessionId:
+                toNullableString(providerSession.id) || lockedSession.providerCheckoutSessionId,
               operationKey: lockedSession.operationKey,
               reason: "expired",
               providerEventCreatedAt: now,
@@ -545,12 +550,13 @@ function createService(options = {}) {
       staleBefore,
       limit: 200
     });
-    const failedWebhookEventsRaw = typeof billingRepository.listFailedWebhookEvents === "function"
-      ? await billingRepository.listFailedWebhookEvents({
-          olderThan: staleBefore,
-          limit: 200
-        })
-      : [];
+    const failedWebhookEventsRaw =
+      typeof billingRepository.listFailedWebhookEvents === "function"
+        ? await billingRepository.listFailedWebhookEvents({
+            olderThan: staleBefore,
+            limit: 200
+          })
+        : [];
     const pendingRows = (Array.isArray(pendingRowsRaw) ? pendingRowsRaw : []).filter(
       (row) => normalizeProvider(row?.provider) === activeProvider
     );
@@ -661,23 +667,20 @@ function createService(options = {}) {
           return true;
         }
 
-        const holdRiskUntil = sessionUpperBound
-          ? new Date(sessionUpperBound.getTime() + graceSeconds * 1000)
-          : null;
+        const holdRiskUntil = sessionUpperBound ? new Date(sessionUpperBound.getTime() + graceSeconds * 1000) : null;
 
         const correlatedSession = operationKey
           ? checkoutSessions.find(
               (session) =>
-                session.provider === activeProvider &&
-                String(session.operationKey || "") === String(operationKey)
+                session.provider === activeProvider && String(session.operationKey || "") === String(operationKey)
             ) || null
           : null;
 
         const shouldMaterializeHold = Boolean(
           holdRiskUntil &&
-            now.getTime() < holdRiskUntil.getTime() &&
-            (!correlatedSession ||
-              correlatedSession.status === BILLING_CHECKOUT_SESSION_STATUS.RECOVERY_VERIFICATION_PENDING)
+          now.getTime() < holdRiskUntil.getTime() &&
+          (!correlatedSession ||
+            correlatedSession.status === BILLING_CHECKOUT_SESSION_STATUS.RECOVERY_VERIFICATION_PENDING)
         );
 
         if (shouldMaterializeHold && !correlatedSession) {
@@ -784,12 +787,13 @@ function createService(options = {}) {
   }
 
   async function reconcileActiveSubscriptions(now) {
-    const subscriptions = typeof billingRepository.listCurrentSubscriptions === "function"
-      ? await billingRepository.listCurrentSubscriptions({
-          provider: activeProvider,
-          limit: 300
-        })
-      : [];
+    const subscriptions =
+      typeof billingRepository.listCurrentSubscriptions === "function"
+        ? await billingRepository.listCurrentSubscriptions({
+            provider: activeProvider,
+            limit: 300
+          })
+        : [];
 
     let repairedCount = 0;
 
@@ -984,7 +988,9 @@ function createService(options = {}) {
   }
 
   async function runScope({ provider = activeProvider, scope, runnerId, leaseSeconds = 180, now = new Date() }) {
-    const normalizedProvider = String(provider || "").trim().toLowerCase();
+    const normalizedProvider = String(provider || "")
+      .trim()
+      .toLowerCase();
     if (normalizedProvider !== activeProvider) {
       throw new AppError(400, "Unsupported billing reconciliation provider.");
     }

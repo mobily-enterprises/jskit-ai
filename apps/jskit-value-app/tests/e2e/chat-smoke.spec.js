@@ -189,7 +189,11 @@ test("chat smoke: start DM, upload attachment, send message, and emit typing", a
 
     if (pathname === "/api/chat/dm/ensure" && method === "POST") {
       const payload = request.postDataJSON();
-      if (String(payload?.targetPublicChatId || "").trim().toLowerCase() === "u42") {
+      if (
+        String(payload?.targetPublicChatId || "")
+          .trim()
+          .toLowerCase() === "u42"
+      ) {
         state.dmCreated = true;
       }
       state.ensureRequestCount += 1;
@@ -314,7 +318,9 @@ test("chat smoke: start DM, upload attachment, send message, and emit typing", a
     }
 
     if (/^\/api\/chat\/threads\/\d+\/attachments\/upload$/.test(pathname) && method === "POST") {
-      const attachmentEntries = Array.from(state.attachmentById.values()).sort((left, right) => Number(right.id) - Number(left.id));
+      const attachmentEntries = Array.from(state.attachmentById.values()).sort(
+        (left, right) => Number(right.id) - Number(left.id)
+      );
       const attachment = attachmentEntries[0];
       if (attachment) {
         attachment.status = "uploaded";

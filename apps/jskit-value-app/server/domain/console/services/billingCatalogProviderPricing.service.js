@@ -102,11 +102,7 @@ async function resolveStripeCatalogPriceSnapshot({
   };
 }
 
-async function resolveCatalogCorePriceForCreate({
-  activeBillingProvider,
-  billingProviderAdapter,
-  corePrice
-} = {}) {
+async function resolveCatalogCorePriceForCreate({ activeBillingProvider, billingProviderAdapter, corePrice } = {}) {
   if (!corePrice || typeof corePrice !== "object") {
     return null;
   }
@@ -127,11 +123,7 @@ async function resolveCatalogCorePriceForCreate({
   return corePrice;
 }
 
-async function resolveCatalogCorePriceForUpdate({
-  activeBillingProvider,
-  billingProviderAdapter,
-  corePrice
-} = {}) {
+async function resolveCatalogCorePriceForUpdate({ activeBillingProvider, billingProviderAdapter, corePrice } = {}) {
   if (!corePrice || typeof corePrice !== "object") {
     return null;
   }
@@ -204,7 +196,10 @@ async function resolveStripeCatalogProductPriceSnapshot({
     throw toValidationError(fieldPath, "Stripe recurring price intervalCount is invalid.");
   }
   if (interval) {
-    throw toValidationError(fieldPath, "Stripe product catalog price must be one-time. Recurring prices belong in billing plans.");
+    throw toValidationError(
+      fieldPath,
+      "Stripe product catalog price must be one-time. Recurring prices belong in billing plans."
+    );
   }
 
   const providerProductId = normalizeText(price.productId) || normalizeText(fallbackProviderProductId) || null;
@@ -219,11 +214,7 @@ async function resolveStripeCatalogProductPriceSnapshot({
   };
 }
 
-async function resolveCatalogProductPriceForCreate({
-  activeBillingProvider,
-  billingProviderAdapter,
-  price
-} = {}) {
+async function resolveCatalogProductPriceForCreate({ activeBillingProvider, billingProviderAdapter, price } = {}) {
   const normalizedProvider = normalizeText(activeBillingProvider).toLowerCase();
   if (normalizedProvider === "stripe") {
     const stripeSnapshot = await resolveStripeCatalogProductPriceSnapshot({
@@ -241,11 +232,7 @@ async function resolveCatalogProductPriceForCreate({
   return price;
 }
 
-async function resolveCatalogProductPriceForUpdate({
-  activeBillingProvider,
-  billingProviderAdapter,
-  price
-} = {}) {
+async function resolveCatalogProductPriceForUpdate({ activeBillingProvider, billingProviderAdapter, price } = {}) {
   const normalizedProvider = normalizeText(activeBillingProvider).toLowerCase();
   if (normalizedProvider === "stripe") {
     const stripeSnapshot = await resolveStripeCatalogProductPriceSnapshot({

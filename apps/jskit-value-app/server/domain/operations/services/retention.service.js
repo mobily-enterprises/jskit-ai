@@ -100,11 +100,7 @@ function normalizeThreadIdList(values) {
   }
 
   return Array.from(
-    new Set(
-      values
-        .map((value) => parsePositiveInteger(value))
-        .filter((value) => Number.isInteger(value) && value > 0)
-    )
+    new Set(values.map((value) => parsePositiveInteger(value)).filter((value) => Number.isInteger(value) && value > 0))
   );
 }
 
@@ -392,7 +388,8 @@ function createService({
         break;
       }
 
-      const normalizedDeletedRows = Number.isFinite(Number(batch.deletedRows)) && Number(batch.deletedRows) > 0 ? batch.deletedRows : 0;
+      const normalizedDeletedRows =
+        Number.isFinite(Number(batch.deletedRows)) && Number(batch.deletedRows) > 0 ? batch.deletedRows : 0;
       totalDeletedRows += normalizedDeletedRows;
       if (normalizedDeletedRows > 0) {
         batches += 1;
@@ -430,7 +427,8 @@ function createService({
       {
         key: "workspace_invites",
         retentionDays: config.inviteArtifactRetentionDays,
-        deleteBatch: (cutoffDate, batchSize) => workspaceInvitesRepository.deleteArtifactsOlderThan(cutoffDate, batchSize)
+        deleteBatch: (cutoffDate, batchSize) =>
+          workspaceInvitesRepository.deleteArtifactsOlderThan(cutoffDate, batchSize)
       },
       {
         key: "console_invites",
@@ -456,7 +454,8 @@ function createService({
       {
         key: "chat_unattached_uploads",
         retentionDays: Math.max(1, Math.ceil(config.chatUnattachedUploadsRetentionHours / 24)),
-        deleteBatch: (_cutoffDate, batchSize) => chatAttachmentsRepository.deleteExpiredUnattachedBatch(nowDate, batchSize)
+        deleteBatch: (_cutoffDate, batchSize) =>
+          chatAttachmentsRepository.deleteExpiredUnattachedBatch(nowDate, batchSize)
       },
       {
         key: "chat_detached_attachments",
@@ -471,7 +470,8 @@ function createService({
       {
         key: "chat_message_idempotency_tombstones",
         retentionDays: Math.max(1, Math.ceil(config.chatMessageIdempotencyRetryWindowHours / 24)),
-        deleteBatch: (_cutoffDate, batchSize) => chatIdempotencyTombstonesRepository.deleteExpiredBatch(nowDate, batchSize)
+        deleteBatch: (_cutoffDate, batchSize) =>
+          chatIdempotencyTombstonesRepository.deleteExpiredBatch(nowDate, batchSize)
       }
     ];
 
@@ -479,7 +479,8 @@ function createService({
       rules.push({
         key: "chat_empty_threads",
         retentionDays: config.chatMessagesRetentionDays,
-        deleteBatch: (cutoffDate, batchSize) => chatThreadsRepository.deleteWithoutMessagesOlderThan(cutoffDate, batchSize)
+        deleteBatch: (cutoffDate, batchSize) =>
+          chatThreadsRepository.deleteWithoutMessagesOlderThan(cutoffDate, batchSize)
       });
     }
 
@@ -537,7 +538,10 @@ function createService({
       });
     }
 
-    const totalDeletedRows = sweepSummary.reduce((count, ruleSummary) => count + Number(ruleSummary.deletedRows || 0), 0);
+    const totalDeletedRows = sweepSummary.reduce(
+      (count, ruleSummary) => count + Number(ruleSummary.deletedRows || 0),
+      0
+    );
     const result = {
       executedAt: nowDate.toISOString(),
       dryRun: Boolean(dryRun),

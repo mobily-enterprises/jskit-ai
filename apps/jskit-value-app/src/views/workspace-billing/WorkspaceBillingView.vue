@@ -56,9 +56,7 @@
                   }}
                   / {{ state.currentPlan.corePrice.interval }}
                 </div>
-                <div v-else class="text-body-2 text-medium-emphasis">
-                  Core price: <strong>Free</strong>
-                </div>
+                <div v-else class="text-body-2 text-medium-emphasis">Core price: <strong>Free</strong></div>
                 <div v-if="state.canCancelCurrentPlan" class="mt-3">
                   <v-btn
                     variant="outlined"
@@ -118,17 +116,13 @@
         <v-card rounded="lg" border class="mt-4">
           <v-card-item>
             <v-card-title class="text-subtitle-2 font-weight-bold">Usage limits</v-card-title>
-            <v-card-subtitle>
-              Effective entitlement balances for this workspace.
-            </v-card-subtitle>
+            <v-card-subtitle> Effective entitlement balances for this workspace. </v-card-subtitle>
           </v-card-item>
           <v-card-text>
             <div v-if="state.limitationsError" class="text-body-2 text-error mb-2">
               {{ state.limitationsError }}
             </div>
-            <div v-if="state.limitationsLoading" class="text-body-2 text-medium-emphasis">
-              Loading limits...
-            </div>
+            <div v-if="state.limitationsLoading" class="text-body-2 text-medium-emphasis">Loading limits...</div>
             <div v-else-if="state.limitationItems.length > 0" class="limit-grid d-grid ga-3">
               <v-card
                 v-for="limit in state.limitationItems"
@@ -188,9 +182,7 @@
         <v-card rounded="lg" border class="mt-4">
           <v-card-item>
             <v-card-title class="text-subtitle-2 font-weight-bold">Change core plan</v-card-title>
-            <v-card-subtitle>
-              Select a different plan. Current plan is excluded from options.
-            </v-card-subtitle>
+            <v-card-subtitle> Select a different plan. Current plan is excluded from options. </v-card-subtitle>
           </v-card-item>
           <v-card-text>
             <div class="d-flex flex-wrap ga-3 align-center mb-2">
@@ -248,17 +240,18 @@
                       <template v-if="state.buyingCatalogPriceId === item.value && state.paymentLinkLoading">
                         Opening checkout...
                       </template>
-                      <template v-else>
-                        Buy now
-                      </template>
+                      <template v-else> Buy now </template>
                     </span>
                   </button>
                 </div>
-                <div v-else class="text-body-2 text-medium-emphasis mb-3">
-                  No one-off products are available yet.
-                </div>
+                <div v-else class="text-body-2 text-medium-emphasis mb-3">No one-off products are available yet.</div>
 
-                <a v-if="state.lastPaymentLinkUrl" :href="state.lastPaymentLinkUrl" target="_blank" rel="noopener noreferrer">
+                <a
+                  v-if="state.lastPaymentLinkUrl"
+                  :href="state.lastPaymentLinkUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   Open payment link
                 </a>
               </v-card-text>
@@ -275,9 +268,7 @@
                 <div v-if="state.purchasesError" class="text-body-2 text-error mb-2">
                   {{ state.purchasesError }}
                 </div>
-                <div v-if="state.purchasesLoading" class="text-body-2 text-medium-emphasis">
-                  Loading purchases...
-                </div>
+                <div v-if="state.purchasesLoading" class="text-body-2 text-medium-emphasis">Loading purchases...</div>
                 <v-list v-else-if="state.purchaseItems.length > 0" density="compact" lines="two" class="pa-0">
                   <v-list-item v-for="purchase in state.purchaseItems" :key="purchase.id">
                     <template #title>{{ purchase.title }}</template>
@@ -296,9 +287,7 @@
                     </template>
                   </v-list-item>
                 </v-list>
-                <div v-else class="text-body-2 text-medium-emphasis">
-                  No confirmed purchases yet.
-                </div>
+                <div v-else class="text-body-2 text-medium-emphasis">No confirmed purchases yet.</div>
               </v-card-text>
             </v-card>
           </v-col>

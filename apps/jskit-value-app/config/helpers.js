@@ -48,11 +48,4 @@ function expectPlainObject(name, value) {
   }
 }
 
-export {
-  deepFreeze,
-  expectBoolean,
-  expectPositiveInteger,
-  expectString,
-  expectOneOf,
-  expectPlainObject
-};
+export { deepFreeze, expectBoolean, expectPositiveInteger, expectString, expectOneOf, expectPlainObject };

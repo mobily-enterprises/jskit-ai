@@ -215,21 +215,15 @@ function createService({ realtimeEventsService = null } = {}) {
     });
   }
 
-  function emitTyping({
-    thread,
-    actorUserId,
-    targetUserIds,
-    state,
-    expiresAt,
-    commandId,
-    sourceClientId
-  } = {}) {
+  function emitTyping({ thread, actorUserId, targetUserIds, state, expiresAt, commandId, sourceClientId } = {}) {
     const normalizedActorUserId = normalizePositiveIntegerOrNull(actorUserId);
     const normalizedState = String(state || "")
       .trim()
       .toLowerCase();
     const eventType =
-      normalizedState === "stopped" ? REALTIME_EVENT_TYPES.CHAT_TYPING_STOPPED : REALTIME_EVENT_TYPES.CHAT_TYPING_STARTED;
+      normalizedState === "stopped"
+        ? REALTIME_EVENT_TYPES.CHAT_TYPING_STOPPED
+        : REALTIME_EVENT_TYPES.CHAT_TYPING_STARTED;
 
     return publishThreadEvent({
       thread,

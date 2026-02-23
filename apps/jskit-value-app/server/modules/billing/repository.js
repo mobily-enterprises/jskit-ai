@@ -20,7 +20,9 @@ function parseJsonValue(value, fallback = null) {
 }
 
 function normalizeProvider(value) {
-  const normalized = String(value || "").trim().toLowerCase();
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
   return normalized || BILLING_DEFAULT_PROVIDER;
 }
 
@@ -404,10 +406,7 @@ function mapPaymentMethodSyncEventRowNullable(row) {
     return null;
   }
 
-  const eventTypeValue =
-    toNullableString(row.event_name) ||
-    toNullableString(row.event_type) ||
-    "manual_sync";
+  const eventTypeValue = toNullableString(row.event_name) || toNullableString(row.event_type) || "manual_sync";
 
   return {
     id: Number(row.id),
@@ -515,7 +514,9 @@ function mapIdempotencyRowNullable(row) {
     provider: normalizeProvider(row.provider),
     providerIdempotencyKey: String(row.provider_idempotency_key || ""),
     providerIdempotencyReplayDeadlineAt: toNullableIsoString(row.provider_idempotency_replay_deadline_at),
-    providerCheckoutSessionExpiresAtUpperBound: toNullableIsoString(row.provider_checkout_session_expires_at_upper_bound),
+    providerCheckoutSessionExpiresAtUpperBound: toNullableIsoString(
+      row.provider_checkout_session_expires_at_upper_bound
+    ),
     providerSessionId: row.provider_session_id == null ? null : String(row.provider_session_id),
     responseJson: parseJsonValue(row.response_json, null),
     status: String(row.status || BILLING_IDEMPOTENCY_STATUS.PENDING),
@@ -542,7 +543,8 @@ function mapCheckoutSessionRowNullable(row) {
     id: Number(row.id),
     billableEntityId: Number(row.billable_entity_id),
     provider: normalizeProvider(row.provider),
-    providerCheckoutSessionId: row.provider_checkout_session_id == null ? null : String(row.provider_checkout_session_id),
+    providerCheckoutSessionId:
+      row.provider_checkout_session_id == null ? null : String(row.provider_checkout_session_id),
     idempotencyRowId: row.idempotency_row_id == null ? null : Number(row.idempotency_row_id),
     operationKey: String(row.operation_key || ""),
     providerCustomerId: row.provider_customer_id == null ? null : String(row.provider_customer_id),
@@ -564,10 +566,7 @@ function mapWebhookEventRowNullable(row) {
     return null;
   }
 
-  const eventTypeValue =
-    toNullableString(row.event_name) ||
-    toNullableString(row.event_type) ||
-    "";
+  const eventTypeValue = toNullableString(row.event_name) || toNullableString(row.event_type) || "";
 
   return {
     id: Number(row.id),
@@ -758,10 +757,7 @@ function mapPlanChangeHistoryRowNullable(row) {
   }
 
   const changeKindValue =
-    toNullableString(row.change_kind) ||
-    toNullableString(row.event_name) ||
-    toNullableString(row.event_type) ||
-    "";
+    toNullableString(row.change_kind) || toNullableString(row.event_name) || toNullableString(row.event_type) || "";
 
   return {
     id: Number(row.id),
@@ -1197,7 +1193,9 @@ function createBillingRepository(dbClient) {
           plan_id: normalizedPlanId,
           entitlement_definition_id: entitlementDefinitionId,
           amount,
-          grant_kind: String(template.grantKind || template.grant_kind || "plan_base").trim().toLowerCase(),
+          grant_kind: String(template.grantKind || template.grant_kind || "plan_base")
+            .trim()
+            .toLowerCase(),
           effective_policy: String(template.effectivePolicy || template.effective_policy || "on_assignment_current")
             .trim()
             .toLowerCase(),
@@ -1242,9 +1240,7 @@ function createBillingRepository(dbClient) {
 
     const now = new Date();
     const client = resolveClient(options);
-    await client("billing_product_entitlement_templates")
-      .where({ billing_product_id: normalizedProductId })
-      .del();
+    await client("billing_product_entitlement_templates").where({ billing_product_id: normalizedProductId }).del();
 
     const source = Array.isArray(templates) ? templates : [];
     if (source.length > 0) {
@@ -1265,7 +1261,9 @@ function createBillingRepository(dbClient) {
           billing_product_id: normalizedProductId,
           entitlement_definition_id: entitlementDefinitionId,
           amount,
-          grant_kind: String(template.grantKind || template.grant_kind || "one_off_topup").trim().toLowerCase(),
+          grant_kind: String(template.grantKind || template.grant_kind || "one_off_topup")
+            .trim()
+            .toLowerCase(),
           duration_days:
             template.durationDays == null && template.duration_days == null
               ? null
@@ -1292,13 +1290,24 @@ function createBillingRepository(dbClient) {
       code: String(payload?.code || "").trim(),
       name: String(payload?.name || "").trim(),
       description: toNullableString(payload?.description),
-      applies_to: String(payload?.appliesTo || "workspace").trim().toLowerCase() || "workspace",
+      applies_to:
+        String(payload?.appliesTo || "workspace")
+          .trim()
+          .toLowerCase() || "workspace",
       checkout_provider: corePrice ? normalizeProvider(corePrice.provider) : null,
       checkout_provider_price_id: corePrice ? String(corePrice.providerPriceId || "").trim() : null,
       checkout_provider_product_id: corePrice ? toNullableString(corePrice.providerProductId) : null,
-      checkout_interval: corePrice ? String(corePrice.interval || "month").trim().toLowerCase() || "month" : null,
+      checkout_interval: corePrice
+        ? String(corePrice.interval || "month")
+            .trim()
+            .toLowerCase() || "month"
+        : null,
       checkout_interval_count: corePrice ? Number(corePrice.intervalCount || 1) : null,
-      checkout_currency: corePrice ? String(corePrice.currency || "").trim().toUpperCase() : null,
+      checkout_currency: corePrice
+        ? String(corePrice.currency || "")
+            .trim()
+            .toUpperCase()
+        : null,
       checkout_unit_amount_minor: corePrice ? Number(corePrice.unitAmountMinor || 0) : null,
       is_active: payload?.isActive !== false,
       metadata_json: payload?.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
@@ -1326,7 +1335,10 @@ function createBillingRepository(dbClient) {
       dbPatch.description = toNullableString(patch.description);
     }
     if (Object.hasOwn(patch, "appliesTo")) {
-      dbPatch.applies_to = String(patch.appliesTo || "workspace").trim().toLowerCase() || "workspace";
+      dbPatch.applies_to =
+        String(patch.appliesTo || "workspace")
+          .trim()
+          .toLowerCase() || "workspace";
     }
     if (Object.hasOwn(patch, "isActive")) {
       dbPatch.is_active = patch.isActive !== false;
@@ -1356,13 +1368,18 @@ function createBillingRepository(dbClient) {
           dbPatch.checkout_provider_product_id = toNullableString(corePricePatch.providerProductId);
         }
         if (Object.hasOwn(corePricePatch, "interval")) {
-          dbPatch.checkout_interval = String(corePricePatch.interval || "month").trim().toLowerCase() || "month";
+          dbPatch.checkout_interval =
+            String(corePricePatch.interval || "month")
+              .trim()
+              .toLowerCase() || "month";
         }
         if (Object.hasOwn(corePricePatch, "intervalCount")) {
           dbPatch.checkout_interval_count = Number(corePricePatch.intervalCount || 1);
         }
         if (Object.hasOwn(corePricePatch, "currency")) {
-          dbPatch.checkout_currency = String(corePricePatch.currency || "").trim().toUpperCase();
+          dbPatch.checkout_currency = String(corePricePatch.currency || "")
+            .trim()
+            .toUpperCase();
         }
         if (Object.hasOwn(corePricePatch, "unitAmountMinor")) {
           dbPatch.checkout_unit_amount_minor = Number(corePricePatch.unitAmountMinor || 0);
@@ -1407,13 +1424,18 @@ function createBillingRepository(dbClient) {
       code: String(payload?.code || "").trim(),
       name: String(payload?.name || "").trim(),
       description: toNullableString(payload?.description),
-      product_kind: String(payload?.productKind || "one_off").trim().toLowerCase() || "one_off",
+      product_kind:
+        String(payload?.productKind || "one_off")
+          .trim()
+          .toLowerCase() || "one_off",
       provider: normalizeProvider(price.provider),
       provider_price_id: String(price.providerPriceId || "").trim(),
       provider_product_id: toNullableString(price.providerProductId),
       price_interval: toNullableString(price.interval),
       price_interval_count: price.intervalCount == null ? null : Number(price.intervalCount),
-      currency: String(price.currency || "").trim().toUpperCase(),
+      currency: String(price.currency || "")
+        .trim()
+        .toUpperCase(),
       unit_amount_minor: Number(price.unitAmountMinor || 0),
       is_active: payload?.isActive !== false,
       metadata_json: payload?.metadataJson == null ? null : JSON.stringify(payload.metadataJson),
@@ -1441,7 +1463,10 @@ function createBillingRepository(dbClient) {
       dbPatch.description = toNullableString(patch.description);
     }
     if (Object.hasOwn(patch, "productKind")) {
-      dbPatch.product_kind = String(patch.productKind || "one_off").trim().toLowerCase() || "one_off";
+      dbPatch.product_kind =
+        String(patch.productKind || "one_off")
+          .trim()
+          .toLowerCase() || "one_off";
     }
     if (Object.hasOwn(patch, "isActive")) {
       dbPatch.is_active = patch.isActive !== false;
@@ -1468,7 +1493,9 @@ function createBillingRepository(dbClient) {
         dbPatch.price_interval_count = pricePatch.intervalCount == null ? null : Number(pricePatch.intervalCount);
       }
       if (Object.hasOwn(pricePatch, "currency")) {
-        dbPatch.currency = String(pricePatch.currency || "").trim().toUpperCase();
+        dbPatch.currency = String(pricePatch.currency || "")
+          .trim()
+          .toUpperCase();
       }
       if (Object.hasOwn(pricePatch, "unitAmountMinor")) {
         dbPatch.unit_amount_minor = Number(pricePatch.unitAmountMinor || 0);
@@ -1512,7 +1539,9 @@ function createBillingRepository(dbClient) {
 
   async function findPlanAssignmentById(id, options = {}) {
     const client = resolveClient(options);
-    const query = client("billing_plan_assignments").where({ id: Number(id) }).first();
+    const query = client("billing_plan_assignments")
+      .where({ id: Number(id) })
+      .first();
     const row = await applyForUpdate(query, options);
     return mapPlanAssignmentRowNullable(row);
   }
@@ -1552,10 +1581,7 @@ function createBillingRepository(dbClient) {
       .limit(Math.max(1, Math.min(500, Number(limit) || 100)));
 
     if (Array.isArray(statuses) && statuses.length > 0) {
-      query = query.whereIn(
-        "status",
-        statuses.map((value) => String(value || "").trim()).filter(Boolean)
-      );
+      query = query.whereIn("status", statuses.map((value) => String(value || "").trim()).filter(Boolean));
     }
 
     const rows = await query;
@@ -1587,7 +1613,9 @@ function createBillingRepository(dbClient) {
 
     if (Object.keys(dbPatch).length > 0) {
       dbPatch.updated_at = toInsertDateTime(new Date(), new Date());
-      await client("billing_plan_assignments").where({ id: Number(id) }).update(dbPatch);
+      await client("billing_plan_assignments")
+        .where({ id: Number(id) })
+        .update(dbPatch);
     }
 
     return findPlanAssignmentById(id, {
@@ -1668,13 +1696,14 @@ function createBillingRepository(dbClient) {
       {
         billableEntityId: normalizedBillableEntityId,
         planId: Number(payload?.targetPlanId || payload?.planId),
-        source: String(payload?.source || (payload?.changeKind === "promo_fallback" ? "promo" : "manual"))
-          .trim()
-          .toLowerCase() || "manual",
+        source:
+          String(payload?.source || (payload?.changeKind === "promo_fallback" ? "promo" : "manual"))
+            .trim()
+            .toLowerCase() || "manual",
         status: "upcoming",
         periodStartAt: payload?.effectiveAt || now,
         periodEndAt: Object.hasOwn(payload || {}, "periodEndAt")
-          ? payload?.periodEndAt ?? null
+          ? (payload?.periodEndAt ?? null)
           : new Date(new Date(payload?.effectiveAt || now).getTime() + 30 * 24 * 60 * 60 * 1000),
         metadataJson: {
           ...(payload?.metadataJson && typeof payload.metadataJson === "object" ? payload.metadataJson : {}),
@@ -1796,7 +1825,8 @@ function createBillingRepository(dbClient) {
     const entries = [];
     let previous = null;
     for (const assignment of assignments) {
-      const metadataJson = assignment.metadataJson && typeof assignment.metadataJson === "object" ? assignment.metadataJson : {};
+      const metadataJson =
+        assignment.metadataJson && typeof assignment.metadataJson === "object" ? assignment.metadataJson : {};
       entries.push({
         id: Number(assignment.id),
         billableEntityId: Number(assignment.billableEntityId),
@@ -1804,8 +1834,7 @@ function createBillingRepository(dbClient) {
         toPlanId: Number(assignment.planId),
         changeKind: String(metadataJson.changeKind || `${assignment.source || "internal"}_effective`),
         effectiveAt: assignment.periodStartAt,
-        appliedByUserId:
-          metadataJson.appliedByUserId == null ? null : Number(metadataJson.appliedByUserId),
+        appliedByUserId: metadataJson.appliedByUserId == null ? null : Number(metadataJson.appliedByUserId),
         scheduleId: null,
         metadataJson,
         createdAt: assignment.createdAt,
@@ -1957,11 +1986,7 @@ function createBillingRepository(dbClient) {
   async function findPlanAssignmentByProviderSubscriptionId({ provider, providerSubscriptionId }, options = {}) {
     const client = resolveClient(options);
     const query = client("billing_plan_assignments as bpa")
-      .join(
-        "billing_plan_assignment_provider_details as bpad",
-        "bpad.billing_plan_assignment_id",
-        "bpa.id"
-      )
+      .join("billing_plan_assignment_provider_details as bpad", "bpad.billing_plan_assignment_id", "bpa.id")
       .where({
         "bpad.provider": normalizeProvider(provider),
         "bpad.provider_subscription_id": String(providerSubscriptionId || "").trim()
@@ -2032,8 +2057,7 @@ function createBillingRepository(dbClient) {
         .orderBy("bpad.updated_at", "desc")
         .orderBy("bpa.id", "desc"),
       client
-    )
-      .limit(Math.max(1, Math.min(1000, Number(limit) || 200)));
+    ).limit(Math.max(1, Math.min(1000, Number(limit) || 200)));
 
     return rows.map(mapSubscriptionRowNullable).filter(Boolean);
   }
@@ -2120,9 +2144,7 @@ function createBillingRepository(dbClient) {
             status: "current",
             periodStartAt: payload.providerSubscriptionCreatedAt || now,
             periodEndAt:
-              payload.currentPeriodEnd ||
-              payload.trialEnd ||
-              new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+              payload.currentPeriodEnd || payload.trialEnd || new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
             metadataJson: {
               provider,
               providerSubscriptionId,
@@ -2159,9 +2181,7 @@ function createBillingRepository(dbClient) {
           status: "past",
           periodStartAt: payload.providerSubscriptionCreatedAt || now,
           periodEndAt:
-            payload.currentPeriodEnd ||
-            payload.trialEnd ||
-            new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+            payload.currentPeriodEnd || payload.trialEnd || new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
           metadataJson: {
             provider,
             providerSubscriptionId,
@@ -2187,10 +2207,7 @@ function createBillingRepository(dbClient) {
       providerCustomerId = toNullableString(existingProviderRow.provider_customer_id);
     }
 
-    if (
-      existingProviderRow &&
-      Number(existingProviderRow.billing_plan_assignment_id) !== Number(targetAssignment.id)
-    ) {
+    if (existingProviderRow && Number(existingProviderRow.billing_plan_assignment_id) !== Number(targetAssignment.id)) {
       await client("billing_plan_assignment_provider_details")
         .where({ billing_plan_assignment_id: Number(existingProviderRow.billing_plan_assignment_id) })
         .delete();
@@ -2249,12 +2266,17 @@ function createBillingRepository(dbClient) {
     const rowPayload = {
       billable_entity_id: normalizedBillableEntityId,
       workspace_id:
-        payload?.workspaceId == null ? await resolveWorkspaceIdForBillableEntity(client, normalizedBillableEntityId) : Number(payload.workspaceId),
+        payload?.workspaceId == null
+          ? await resolveWorkspaceIdForBillableEntity(client, normalizedBillableEntityId)
+          : Number(payload.workspaceId),
       provider: normalizeProvider(payload?.provider),
       purchase_kind: String(payload?.purchaseKind || "").trim() || "one_off",
       status: String(payload?.status || "confirmed").trim() || "confirmed",
       amount_minor: Math.max(0, Number(payload?.amountMinor || 0)),
-      currency: String(payload?.currency || "").trim().toUpperCase() || "USD",
+      currency:
+        String(payload?.currency || "")
+          .trim()
+          .toUpperCase() || "USD",
       quantity: payload?.quantity == null ? 1 : Math.max(1, Number(payload.quantity || 1)),
       operation_key: toNullableString(payload?.operationKey),
       provider_customer_id: toNullableString(payload?.providerCustomerId),
@@ -2270,16 +2292,16 @@ function createBillingRepository(dbClient) {
       updated_at: toInsertDateTime(payload?.updatedAt, now)
     };
 
-    await client("billing_purchases")
-      .insert(rowPayload)
-      .onConflict(["dedupe_key"])
-      .ignore();
+    await client("billing_purchases").insert(rowPayload).onConflict(["dedupe_key"]).ignore();
 
     const row = await client("billing_purchases").where({ dedupe_key: dedupeKey }).first();
     return mapBillingPurchaseRowNullable(row);
   }
 
-  async function listBillingPurchasesForEntity({ billableEntityId, limit = 50, status = "confirmed" } = {}, options = {}) {
+  async function listBillingPurchasesForEntity(
+    { billableEntityId, limit = 50, status = "confirmed" } = {},
+    options = {}
+  ) {
     const client = resolveClient(options);
     let query = client("billing_purchases")
       .where({ billable_entity_id: Number(billableEntityId) })
@@ -2300,11 +2322,10 @@ function createBillingRepository(dbClient) {
     options = {}
   ) {
     const client = resolveClient(options);
-    let query = client("billing_payment_methods")
-      .where({
-        billable_entity_id: billableEntityId,
-        provider: normalizeProvider(provider)
-      });
+    let query = client("billing_payment_methods").where({
+      billable_entity_id: billableEntityId,
+      provider: normalizeProvider(provider)
+    });
 
     if (!includeInactive) {
       query = query.andWhere({ status: "active" });
@@ -2394,9 +2415,13 @@ function createBillingRepository(dbClient) {
   ) {
     const client = resolveClient(options);
     const normalizedProvider = normalizeProvider(provider);
-    const keepIds = [...new Set((Array.isArray(keepProviderPaymentMethodIds) ? keepProviderPaymentMethodIds : [])
-      .map((value) => String(value || "").trim())
-      .filter((value) => value.length > 0))];
+    const keepIds = [
+      ...new Set(
+        (Array.isArray(keepProviderPaymentMethodIds) ? keepProviderPaymentMethodIds : [])
+          .map((value) => String(value || "").trim())
+          .filter((value) => value.length > 0)
+      )
+    ];
 
     let query = client("billing_payment_methods")
       .where({
@@ -2424,9 +2449,7 @@ function createBillingRepository(dbClient) {
     const client = resolveClient(options);
     const normalizedBillableEntityId = toPositiveInteger(payload?.billableEntityId);
     const normalizedPayloadJson =
-      payload?.payloadJson && typeof payload.payloadJson === "object"
-        ? payload.payloadJson
-        : null;
+      payload?.payloadJson && typeof payload.payloadJson === "object" ? payload.payloadJson : null;
     const normalizedOperationKey =
       toNullableString(payload?.operationKey) ||
       toNullableString(normalizedPayloadJson?.operationKey) ||
@@ -2468,9 +2491,7 @@ function createBillingRepository(dbClient) {
       query = query.andWhere({ provider: normalizeProvider(provider) });
     }
 
-    const rows = await query
-      .orderBy("id", "desc")
-      .limit(Math.max(1, Math.min(200, Number(limit) || 20)));
+    const rows = await query.orderBy("id", "desc").limit(Math.max(1, Math.min(200, Number(limit) || 20)));
 
     return rows.map(mapPaymentMethodSyncEventRowNullable).filter(Boolean);
   }
@@ -2496,11 +2517,16 @@ function createBillingRepository(dbClient) {
       subject_id: subjectId,
       entitlement_definition_id: entitlementDefinitionId,
       amount: Number(payload.amount || 0),
-      kind: String(payload.kind || "manual_adjustment").trim().toLowerCase(),
+      kind: String(payload.kind || "manual_adjustment")
+        .trim()
+        .toLowerCase(),
       effective_at: toInsertDateTime(payload.effectiveAt ?? payload.effective_at, now),
       expires_at: toNullableDateTime(payload.expiresAt ?? payload.expires_at),
-      source_type: String(payload.sourceType || payload.source_type || "manual_console").trim().toLowerCase(),
-      source_id: payload.sourceId == null && payload.source_id == null ? null : Number(payload.sourceId ?? payload.source_id),
+      source_type: String(payload.sourceType || payload.source_type || "manual_console")
+        .trim()
+        .toLowerCase(),
+      source_id:
+        payload.sourceId == null && payload.source_id == null ? null : Number(payload.sourceId ?? payload.source_id),
       operation_key: toNullableString(payload.operationKey ?? payload.operation_key),
       provider: toNullableString(payload.provider),
       provider_event_id: toNullableString(payload.providerEventId ?? payload.provider_event_id),
@@ -2561,7 +2587,9 @@ function createBillingRepository(dbClient) {
       entitlement_definition_id: entitlementDefinitionId,
       amount,
       occurred_at: toInsertDateTime(payload.occurredAt ?? payload.occurred_at, now),
-      reason_code: String(payload.reasonCode || payload.reason_code || "manual").trim().toLowerCase(),
+      reason_code: String(payload.reasonCode || payload.reason_code || "manual")
+        .trim()
+        .toLowerCase(),
       operation_key: toNullableString(payload.operationKey ?? payload.operation_key),
       usage_event_key: toNullableString(payload.usageEventKey ?? payload.usage_event_key),
       provider_event_id: toNullableString(payload.providerEventId ?? payload.provider_event_id),
@@ -2599,13 +2627,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function findEntitlementBalance(
-    {
-      subjectType = "billable_entity",
-      subjectId,
-      entitlementDefinitionId,
-      windowStartAt = null,
-      windowEndAt = null
-    },
+    { subjectType = "billable_entity", subjectId, entitlementDefinitionId, windowStartAt = null, windowEndAt = null },
     options = {}
   ) {
     const normalizedSubjectId = toPositiveInteger(subjectId);
@@ -2644,7 +2666,8 @@ function createBillingRepository(dbClient) {
     }
 
     const windowStartAt =
-      toNullableDateTime(payload.windowStartAt ?? payload.window_start_at) || toInsertDateTime(LIFETIME_WINDOW_START, now);
+      toNullableDateTime(payload.windowStartAt ?? payload.window_start_at) ||
+      toInsertDateTime(LIFETIME_WINDOW_START, now);
     const windowEndAt =
       toNullableDateTime(payload.windowEndAt ?? payload.window_end_at) || toInsertDateTime(LIFETIME_WINDOW_END, now);
     const insertPayload = {
@@ -2660,7 +2683,7 @@ function createBillingRepository(dbClient) {
         payload.hardLimitAmount == null && payload.hard_limit_amount == null
           ? null
           : Number(payload.hardLimitAmount ?? payload.hard_limit_amount),
-      over_limit: payload.overLimit ?? payload.over_limit ? 1 : 0,
+      over_limit: (payload.overLimit ?? payload.over_limit) ? 1 : 0,
       lock_state: toNullableString(payload.lockState ?? payload.lock_state),
       next_change_at: toNullableDateTime(payload.nextChangeAt ?? payload.next_change_at),
       last_recomputed_at: toInsertDateTime(payload.lastRecomputedAt ?? payload.last_recomputed_at, now),
@@ -2703,12 +2726,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function listNextGrantBoundariesForSubjectDefinition(
-    {
-      subjectType = "billable_entity",
-      subjectId,
-      entitlementDefinitionId,
-      now = new Date()
-    },
+    { subjectType = "billable_entity", subjectId, entitlementDefinitionId, now = new Date() },
     options = {}
   ) {
     const normalizedSubjectId = toPositiveInteger(subjectId);
@@ -2905,8 +2923,7 @@ function createBillingRepository(dbClient) {
       definition.entitlementType === "capacity" || definition.entitlementType === "metered_quota"
         ? grantedAmount
         : null;
-    const overLimit =
-      definition.entitlementType === "balance" ? effectiveAmount < 0 : consumedAmount > grantedAmount;
+    const overLimit = definition.entitlementType === "balance" ? effectiveAmount < 0 : consumedAmount > grantedAmount;
     const lockState = definition.code === "projects.max" && overLimit ? "projects_locked_over_cap" : "none";
     const boundaries = await listNextGrantBoundariesForSubjectDefinition(
       {
@@ -2978,15 +2995,16 @@ function createBillingRepository(dbClient) {
     const client = resolveClient(options);
 
     const requestedLimit = Number(filters?.limit);
-    const normalizedLimit =
-      Number.isFinite(requestedLimit) && requestedLimit > 0 ? Math.floor(requestedLimit) : 100;
+    const normalizedLimit = Number.isFinite(requestedLimit) && requestedLimit > 0 ? Math.floor(requestedLimit) : 100;
     const normalizedWorkspaceId = toPositiveInteger(filters?.workspaceId);
     const normalizedWorkspaceSlug = toNullableString(filters?.workspaceSlug);
     const normalizedOwnerUserId = toPositiveInteger(filters?.ownerUserId || filters?.userId);
     const normalizedBillableEntityId = toPositiveInteger(filters?.billableEntityId);
     const normalizedOperationKey = toNullableString(filters?.operationKey);
     const normalizedProviderEventId = toNullableString(filters?.providerEventId);
-    const normalizedSource = String(filters?.source || "").trim().toLowerCase();
+    const normalizedSource = String(filters?.source || "")
+      .trim()
+      .toLowerCase();
     const includeGlobal = filters?.includeGlobal !== false;
     const perSourceLimit = Math.max(50, normalizedLimit);
 
@@ -3116,10 +3134,9 @@ function createBillingRepository(dbClient) {
 
       query = applyEntityFilters(query, "bpa.billable_entity_id");
       if (normalizedOperationKey) {
-        query = query.andWhereRaw(
-          "JSON_UNQUOTE(JSON_EXTRACT(bpad.metadata_json, '$.operation_key')) = ?",
-          [normalizedOperationKey]
-        );
+        query = query.andWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(bpad.metadata_json, '$.operation_key')) = ?", [
+          normalizedOperationKey
+        ]);
       }
       if (normalizedProviderEventId) {
         query = query.andWhere("bpad.last_provider_event_id", normalizedProviderEventId);
@@ -3157,10 +3174,9 @@ function createBillingRepository(dbClient) {
         query = query.andWhere((builder) => {
           builder
             .where("bevt.operation_key", normalizedOperationKey)
-            .orWhereRaw(
-              "JSON_UNQUOTE(JSON_EXTRACT(bevt.payload_json, '$.operation_key')) = ?",
-              [normalizedOperationKey]
-            );
+            .orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(bevt.payload_json, '$.operation_key')) = ?", [
+              normalizedOperationKey
+            ]);
         });
       }
       if (normalizedProviderEventId) {
@@ -3205,17 +3221,15 @@ function createBillingRepository(dbClient) {
         query = query.andWhere((builder) => {
           builder
             .where("bevt.operation_key", normalizedOperationKey)
-            .orWhereRaw(
-              "JSON_UNQUOTE(JSON_EXTRACT(bevt.payload_json, '$.data.object.metadata.operation_key')) = ?",
-              [normalizedOperationKey]
-            );
+            .orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(bevt.payload_json, '$.data.object.metadata.operation_key')) = ?", [
+              normalizedOperationKey
+            ]);
         });
       }
 
       query = query.orderBy("bevt.updated_at", "desc").orderBy("bevt.id", "desc").limit(perSourceLimit);
       rows.push(...(await query));
     }
-
 
     const normalizedRows = rows.map(mapBillingActivityRowNullable).filter(Boolean);
     normalizedRows.sort((left, right) => {
@@ -3235,7 +3249,10 @@ function createBillingRepository(dbClient) {
     return normalizedRows.slice(0, normalizedLimit);
   }
 
-  async function findIdempotencyByEntityActionClientKey({ billableEntityId, action, clientIdempotencyKey }, options = {}) {
+  async function findIdempotencyByEntityActionClientKey(
+    { billableEntityId, action, clientIdempotencyKey },
+    options = {}
+  ) {
     const client = resolveClient(options);
     const query = client("billing_request_idempotency")
       .where({ billable_entity_id: billableEntityId, action, client_idempotency_key: clientIdempotencyKey })
@@ -3285,10 +3302,7 @@ function createBillingRepository(dbClient) {
     return mapIdempotencyRowNullable(row);
   }
 
-  async function listPendingIdempotencyRows(
-    { action = null, staleBefore = null, limit = 100 } = {},
-    options = {}
-  ) {
+  async function listPendingIdempotencyRows({ action = null, staleBefore = null, limit = 100 } = {}, options = {}) {
     const client = resolveClient(options);
     let query = client("billing_request_idempotency").where({ status: BILLING_IDEMPOTENCY_STATUS.PENDING });
     const normalizedAction = String(action || "").trim();
@@ -3360,7 +3374,9 @@ function createBillingRepository(dbClient) {
       provider: normalizeProvider(payload.provider),
       provider_idempotency_key: payload.providerIdempotencyKey,
       provider_idempotency_replay_deadline_at: toNullableDateTime(payload.providerIdempotencyReplayDeadlineAt),
-      provider_checkout_session_expires_at_upper_bound: toNullableDateTime(payload.providerCheckoutSessionExpiresAtUpperBound),
+      provider_checkout_session_expires_at_upper_bound: toNullableDateTime(
+        payload.providerCheckoutSessionExpiresAtUpperBound
+      ),
       provider_session_id: payload.providerSessionId || null,
       response_json: payload.responseJson == null ? null : JSON.stringify(payload.responseJson),
       status: payload.status,
@@ -3466,11 +3482,7 @@ function createBillingRepository(dbClient) {
       }
 
       const affectedRows = await updateQuery.update(dbPatch);
-      if (
-        expectedLeaseVersion != null &&
-        Number.isInteger(expectedLeaseVersion) &&
-        Number(affectedRows || 0) < 1
-      ) {
+      if (expectedLeaseVersion != null && Number.isInteger(expectedLeaseVersion) && Number(affectedRows || 0) < 1) {
         return null;
       }
     }
@@ -3776,19 +3788,19 @@ function createBillingRepository(dbClient) {
       .limit(cappedBatchSize)
       .select(["id"]);
 
-    const ids = rows
-      .map((row) => Number(row.id))
-      .filter((id) => Number.isInteger(id) && id > 0);
+    const ids = rows.map((row) => Number(row.id)).filter((id) => Number.isInteger(id) && id > 0);
 
     if (ids.length < 1) {
       return 0;
     }
 
-    const updated = await client("billing_events").whereIn("id", ids).update({
-      payload_json: JSON.stringify({}),
-      payload_retention_until: null,
-      updated_at: toInsertDateTime(nowDate, nowDate)
-    });
+    const updated = await client("billing_events")
+      .whereIn("id", ids)
+      .update({
+        payload_json: JSON.stringify({}),
+        payload_retention_until: null,
+        updated_at: toInsertDateTime(nowDate, nowDate)
+      });
 
     return Number(updated || 0);
   }
@@ -3846,7 +3858,10 @@ function createBillingRepository(dbClient) {
     return null;
   }
 
-  async function acquireReconciliationRun({ provider, scope, runnerId, now = new Date(), leaseSeconds = 120 }, options = {}) {
+  async function acquireReconciliationRun(
+    { provider, scope, runnerId, now = new Date(), leaseSeconds = 120 },
+    options = {}
+  ) {
     void provider;
     void scope;
     void runnerId;
@@ -3875,7 +3890,9 @@ function createBillingRepository(dbClient) {
     const normalizedStatus = String(status || "").trim();
     let query = client("billing_checkout_sessions").where({ status: normalizedStatus });
 
-    const normalizedOlderThanColumn = String(olderThanColumn || "updated_at").trim().toLowerCase();
+    const normalizedOlderThanColumn = String(olderThanColumn || "updated_at")
+      .trim()
+      .toLowerCase();
     const safeOlderThanColumns = new Set(["updated_at", "expires_at", "completed_at", "created_at"]);
     const comparisonColumn = safeOlderThanColumns.has(normalizedOlderThanColumn)
       ? normalizedOlderThanColumn

@@ -77,7 +77,8 @@ async function invalidateForProjectEvent(queryClient, eventEnvelope) {
   });
 
   const eventEntityId = String(eventEnvelope.entityId || "").trim();
-  const payloadProjectId = eventEnvelope.payload?.projectId == null ? "" : String(eventEnvelope.payload.projectId).trim();
+  const payloadProjectId =
+    eventEnvelope.payload?.projectId == null ? "" : String(eventEnvelope.payload.projectId).trim();
   const projectId = eventEntityId || payloadProjectId;
 
   if (!projectId || projectId === "none") {

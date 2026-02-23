@@ -12,9 +12,7 @@
             <template #title>
               {{ invite.email }}
             </template>
-            <template #subtitle>
-              Role: {{ invite.roleId }} • expires {{ invite.expiresAt }}
-            </template>
+            <template #subtitle> Role: {{ invite.roleId }} • expires {{ invite.expiresAt }} </template>
             <template #append>
               <div class="d-flex ga-2">
                 <v-btn

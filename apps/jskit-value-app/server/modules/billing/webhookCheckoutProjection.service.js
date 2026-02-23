@@ -482,8 +482,7 @@ function createService(options = {}) {
     );
 
     const operationKey =
-      operationKeyFromMetadata ||
-      (existingSession ? toNullableString(existingSession.operationKey) : null);
+      operationKeyFromMetadata || (existingSession ? toNullableString(existingSession.operationKey) : null);
 
     let billableEntityId = await resolveBillableEntityIdFromCheckoutSession(session, trx);
     if (!billableEntityId && existingSession) {

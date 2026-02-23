@@ -26,7 +26,9 @@ function createApi({ request, requestStream }) {
       let streamEventError = null;
       const streamHandlers = {
         onEvent(event) {
-          const eventType = String(event?.type || "").trim().toLowerCase();
+          const eventType = String(event?.type || "")
+            .trim()
+            .toLowerCase();
           if (rejectOnErrorEvent && eventType === "error" && !streamEventError) {
             streamEventError = buildStreamEventError(event);
           }

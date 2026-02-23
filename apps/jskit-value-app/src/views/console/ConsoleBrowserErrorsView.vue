@@ -19,7 +19,9 @@
           <v-btn color="error" variant="tonal" class="header-btn text-none" @click="actions.simulateClientError">
             Simulate client error<span class="simulation-label"> ({{ meta.nextSimulationLabel }})</span>
           </v-btn>
-          <v-btn variant="outlined" :loading="state.loading" class="header-btn text-none" @click="actions.load">Refresh</v-btn>
+          <v-btn variant="outlined" :loading="state.loading" class="header-btn text-none" @click="actions.load"
+            >Refresh</v-btn
+          >
         </div>
       </v-card-title>
       <v-divider />
@@ -46,7 +48,9 @@
             </thead>
             <tbody>
               <tr v-if="!state.entries.length" class="empty-row">
-                <td colspan="7" class="empty-cell text-center text-medium-emphasis py-6">No browser errors captured.</td>
+                <td colspan="7" class="empty-cell text-center text-medium-emphasis py-6">
+                  No browser errors captured.
+                </td>
               </tr>
               <tr v-for="entry in state.entries" :key="entry.id">
                 <td data-label="Captured">{{ meta.formatDateTime(entry.createdAt) }}</td>
@@ -68,12 +72,18 @@
         </div>
 
         <div class="pagination-row d-flex align-center justify-space-between ga-3 flex-wrap mt-4">
-          <p class="text-body-2 text-medium-emphasis mb-2">Page {{ state.page }} of {{ state.totalPages }} ({{ state.total }} total)</p>
+          <p class="text-body-2 text-medium-emphasis mb-2">
+            Page {{ state.page }} of {{ state.totalPages }} ({{ state.total }} total)
+          </p>
           <div class="pagination-actions d-flex ga-2">
             <v-btn variant="outlined" :disabled="state.page <= 1 || state.loading" @click="actions.goPrevious">
               Previous
             </v-btn>
-            <v-btn variant="outlined" :disabled="state.page >= state.totalPages || state.loading" @click="actions.goNext">
+            <v-btn
+              variant="outlined"
+              :disabled="state.page >= state.totalPages || state.loading"
+              @click="actions.goNext"
+            >
               Next
             </v-btn>
           </div>
@@ -90,7 +100,6 @@ const { meta, state, actions } = useConsoleBrowserErrorsView();
 </script>
 
 <style scoped>
-
 .rows-select {
   flex: 0 0 120px;
   max-width: 120px;

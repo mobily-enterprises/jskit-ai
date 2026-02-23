@@ -14,7 +14,10 @@ import {
 } from "../../src/features/workspaceAdmin/queryKeys.js";
 import { commandTracker, __testables as trackerTestables } from "../../src/services/realtime/commandTracker.js";
 import { createRealtimeEventHandlers } from "../../src/services/realtime/realtimeEventHandlers.js";
-import { subscribeRealtimeEvents, __testables as realtimeEventBusTestables } from "../../src/services/realtime/realtimeEventBus.js";
+import {
+  subscribeRealtimeEvents,
+  __testables as realtimeEventBusTestables
+} from "../../src/services/realtime/realtimeEventBus.js";
 
 describe("realtimeEventHandlers", () => {
   const queryClient = {

@@ -7,7 +7,10 @@ import {
 } from "../server/domain/workspace/services/inviteEmail.service.js";
 
 test("workspace invite email service validates configured driver", () => {
-  assert.throws(() => createWorkspaceInviteEmailService({ driver: "postal" }), /Unsupported WORKSPACE_INVITE_EMAIL_DRIVER/);
+  assert.throws(
+    () => createWorkspaceInviteEmailService({ driver: "postal" }),
+    /Unsupported WORKSPACE_INVITE_EMAIL_DRIVER/
+  );
   assert.equal(__testables.normalizeDriver("none"), "none");
   assert.equal(__testables.normalizeDriver("smtp"), "smtp");
 });

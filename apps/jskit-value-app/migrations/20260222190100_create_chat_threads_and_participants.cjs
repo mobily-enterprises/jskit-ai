@@ -23,10 +23,7 @@ exports.up = async function up(knex) {
     table.dateTime("updated_at", { precision: 3 }).notNullable().defaultTo(knex.raw("UTC_TIMESTAMP(3)"));
     table.dateTime("archived_at", { precision: 3 }).nullable();
 
-    table.unique(
-      ["thread_kind", "scope_key", "dm_user_low_id", "dm_user_high_id"],
-      "uq_chat_threads_dm_scope_pair"
-    );
+    table.unique(["thread_kind", "scope_key", "dm_user_low_id", "dm_user_high_id"], "uq_chat_threads_dm_scope_pair");
     table.index(["workspace_id", "updated_at"], "idx_chat_threads_workspace_updated");
     table.index(["workspace_id", "last_message_at"], "idx_chat_threads_workspace_last_message_at");
     table.index(["scope_kind", "last_message_at"], "idx_chat_threads_scope_last_message_at");

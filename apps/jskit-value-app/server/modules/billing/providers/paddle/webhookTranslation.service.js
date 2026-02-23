@@ -126,7 +126,9 @@ function normalizePaddleEventToCanonical(rawEvent) {
           status: normalizePaddleSubscriptionStatus(rawObject.status),
           customer: toNullableString(rawObject.customer_id || rawObject?.customer?.id),
           created: toUnixEpochSeconds(rawObject.started_at || rawObject.created_at) || created,
-          current_period_end: toUnixEpochSeconds(rawObject.next_billed_at || rawObject?.current_billing_period?.ends_at),
+          current_period_end: toUnixEpochSeconds(
+            rawObject.next_billed_at || rawObject?.current_billing_period?.ends_at
+          ),
           trial_end: toUnixEpochSeconds(rawObject.trial_end_at || rawObject?.trial_period?.ends_at),
           canceled_at: toUnixEpochSeconds(rawObject.canceled_at || rawObject.cancelled_at),
           cancel_at_period_end:
@@ -154,7 +156,8 @@ function normalizePaddleEventToCanonical(rawEvent) {
   }
 
   if (mappedType === "invoice.paid" || mappedType === "invoice.payment_failed") {
-    const totals = rawObject?.details?.totals && typeof rawObject.details.totals === "object" ? rawObject.details.totals : {};
+    const totals =
+      rawObject?.details?.totals && typeof rawObject.details.totals === "object" ? rawObject.details.totals : {};
     const totalMinorUnits = toMinorUnits(totals.total || totals.grand_total || rawObject.amount);
     const isPaid = mappedType === "invoice.paid";
     const amountPaidMinor = isPaid ? totalMinorUnits : 0;
@@ -225,10 +228,4 @@ const __testables = {
   normalizeMetadata
 };
 
-export {
-  PADDLE_EVENT_TYPE_MAP,
-  mapPaddleEventType,
-  normalizePaddleEventToCanonical,
-  createService,
-  __testables
-};
+export { PADDLE_EVENT_TYPE_MAP, mapPaddleEventType, normalizePaddleEventToCanonical, createService, __testables };

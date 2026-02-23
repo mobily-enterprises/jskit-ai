@@ -36,14 +36,17 @@ function mapTombstoneRowNullable(row) {
 }
 
 function normalizePayloadSha256(value) {
-  const normalized = String(value || "").trim().toLowerCase();
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
   return normalized || null;
 }
 
 function compareImmutableFields(existingRow, incoming) {
   return (
     Number(existingRow.idempotency_payload_version) === Number(incoming.idempotencyPayloadVersion) &&
-    String(existingRow.idempotency_payload_sha256 || "").toLowerCase() === String(incoming.idempotencyPayloadSha256 || "").toLowerCase()
+    String(existingRow.idempotency_payload_sha256 || "").toLowerCase() ===
+      String(incoming.idempotencyPayloadSha256 || "").toLowerCase()
   );
 }
 
@@ -175,7 +178,10 @@ function createIdempotencyTombstonesRepository(dbClient) {
       if (laterExpiresAt) {
         updatePatch.expires_at = toMysqlDateTimeUtc(laterExpiresAt);
       }
-      if (normalized.payload.deleteReason && normalized.payload.deleteReason !== String(existingRow.delete_reason || "")) {
+      if (
+        normalized.payload.deleteReason &&
+        normalized.payload.deleteReason !== String(existingRow.delete_reason || "")
+      ) {
         updatePatch.delete_reason = normalized.payload.deleteReason;
       }
       if (Object.keys(updatePatch).length > 0) {

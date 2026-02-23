@@ -3,12 +3,7 @@ import test from "node:test";
 
 import { createService as createOutboxWorkerService } from "../server/modules/billing/outboxWorker.service.js";
 
-function createWorkerFixture({
-  updateOutboxJobByLease,
-  expireCheckoutSession,
-  recordBillingGuardrail,
-  provider
-} = {}) {
+function createWorkerFixture({ updateOutboxJobByLease, expireCheckoutSession, recordBillingGuardrail, provider } = {}) {
   const billingRepository = {
     async leaseNextOutboxJob() {
       return null;

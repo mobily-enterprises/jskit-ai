@@ -283,7 +283,9 @@ export const useWorkspaceStore = defineStore("workspace", {
         return;
       }
 
-      this.pendingInvites = this.pendingInvites.filter((invite) => String(invite.token || "") !== normalizedInviteToken);
+      this.pendingInvites = this.pendingInvites.filter(
+        (invite) => String(invite.token || "") !== normalizedInviteToken
+      );
     },
     can(permission) {
       const normalized = String(permission || "").trim();

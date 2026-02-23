@@ -1,5 +1,7 @@
 function isDuplicateIndexError(error) {
-  const code = String(error?.code || "").trim().toUpperCase();
+  const code = String(error?.code || "")
+    .trim()
+    .toUpperCase();
   if (code === "ER_DUP_KEYNAME") {
     return true;
   }

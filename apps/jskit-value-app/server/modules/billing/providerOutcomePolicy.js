@@ -178,7 +178,8 @@ function resolveProviderErrorOutcome({
 } = {}) {
   const operationFamily = resolveProviderOperationFamily(operation);
   const guardrails =
-    PROVIDER_OPERATION_GUARDRAILS[operationFamily] || PROVIDER_OPERATION_GUARDRAILS[PROVIDER_OPERATION_FAMILIES.UNKNOWN];
+    PROVIDER_OPERATION_GUARDRAILS[operationFamily] ||
+    PROVIDER_OPERATION_GUARDRAILS[PROVIDER_OPERATION_FAMILIES.UNKNOWN];
   const normalized = isProviderErrorNormalized(error);
   const deterministic = isDeterministicProviderRejection(error);
   const indeterminate = isIndeterminateProviderOutcome(error);

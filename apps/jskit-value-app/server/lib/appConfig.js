@@ -28,14 +28,18 @@ function resolveAppConfig({ repositoryConfig, runtimeEnv, rootDir = process.cwd(
     throw new Error("repositoryConfig is required.");
   }
 
-  const appRepositoryConfig = repositoryConfig.app && typeof repositoryConfig.app === "object" ? repositoryConfig.app : {};
+  const appRepositoryConfig =
+    repositoryConfig.app && typeof repositoryConfig.app === "object" ? repositoryConfig.app : {};
   const aiRepositoryConfig = repositoryConfig.ai && typeof repositoryConfig.ai === "object" ? repositoryConfig.ai : {};
 
   const tenancyMode = String(appRepositoryConfig.tenancyMode || "personal").trim();
   const normalizedTenancyMode = TENANCY_MODES.has(tenancyMode) ? tenancyMode : "personal";
 
   const maxWorkspacesPerUserFallback = normalizedTenancyMode === "multi-workspace" ? 20 : 1;
-  const maxWorkspacesPerUser = toPositiveInteger(appRepositoryConfig?.limits?.maxWorkspacesPerUser, maxWorkspacesPerUserFallback);
+  const maxWorkspacesPerUser = toPositiveInteger(
+    appRepositoryConfig?.limits?.maxWorkspacesPerUser,
+    maxWorkspacesPerUserFallback
+  );
   const workspaceSwitchingDefault =
     normalizedTenancyMode === "multi-workspace" ? true : Boolean(appRepositoryConfig?.features?.workspaceSwitching);
   const workspaceInvitesDefault =

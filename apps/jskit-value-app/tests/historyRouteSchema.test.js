@@ -79,69 +79,69 @@ function buildStubControllers({ onHistoryList } = {}) {
       auth: {
         async register(_request, reply) {
           reply.code(201).send({ ok: true, requiresEmailConfirmation: false, username: "demo-user" });
-      },
-      async login(_request, reply) {
-        reply.code(200).send({ ok: true, username: "demo-user" });
-      },
-      async requestPasswordReset(_request, reply) {
-        reply.code(200).send({ ok: true, message: "ok" });
-      },
-      async completePasswordRecovery(_request, reply) {
-        reply.code(200).send({ ok: true });
-      },
-      async resetPassword(_request, reply) {
-        reply.code(200).send({ ok: true, message: "ok" });
-      },
-      async logout(_request, reply) {
-        reply.code(200).send({ ok: true });
-      },
-      async session(_request, reply) {
-        reply.code(200).send({ authenticated: true, username: "demo-user", csrfToken: "test-csrf-token" });
-      }
-    },
-    settings: {
-      async get(_request, reply) {
-        reply.code(200).send(buildSettingsPayload());
-      },
-      async updateProfile(_request, reply) {
-        reply.code(200).send(buildSettingsPayload());
-      },
-      async uploadAvatar(_request, reply) {
-        reply.code(200).send(buildSettingsPayload());
-      },
-      async deleteAvatar(_request, reply) {
-        reply.code(200).send(buildSettingsPayload());
-      },
-      async updatePreferences(_request, reply) {
-        reply.code(200).send(buildSettingsPayload());
-      },
-      async updateNotifications(_request, reply) {
-        reply.code(200).send(buildSettingsPayload());
-      },
-      async updateChat(_request, reply) {
-        reply.code(200).send(buildSettingsPayload());
-      },
-      async changePassword(_request, reply) {
-        reply.code(200).send({ ok: true, message: "ok" });
-      },
-      async logoutOtherSessions(_request, reply) {
-        reply.code(200).send({ ok: true, message: "ok" });
-      }
-    },
-    history: {
-      async list(request, reply) {
-        if (typeof onHistoryList === "function") {
-          await onHistoryList(request);
+        },
+        async login(_request, reply) {
+          reply.code(200).send({ ok: true, username: "demo-user" });
+        },
+        async requestPasswordReset(_request, reply) {
+          reply.code(200).send({ ok: true, message: "ok" });
+        },
+        async completePasswordRecovery(_request, reply) {
+          reply.code(200).send({ ok: true });
+        },
+        async resetPassword(_request, reply) {
+          reply.code(200).send({ ok: true, message: "ok" });
+        },
+        async logout(_request, reply) {
+          reply.code(200).send({ ok: true });
+        },
+        async session(_request, reply) {
+          reply.code(200).send({ authenticated: true, username: "demo-user", csrfToken: "test-csrf-token" });
         }
-        reply.code(200).send({
-          entries: [],
-          page: 1,
-          pageSize: 10,
-          total: 0,
-          totalPages: 1
-        });
+      },
+      settings: {
+        async get(_request, reply) {
+          reply.code(200).send(buildSettingsPayload());
+        },
+        async updateProfile(_request, reply) {
+          reply.code(200).send(buildSettingsPayload());
+        },
+        async uploadAvatar(_request, reply) {
+          reply.code(200).send(buildSettingsPayload());
+        },
+        async deleteAvatar(_request, reply) {
+          reply.code(200).send(buildSettingsPayload());
+        },
+        async updatePreferences(_request, reply) {
+          reply.code(200).send(buildSettingsPayload());
+        },
+        async updateNotifications(_request, reply) {
+          reply.code(200).send(buildSettingsPayload());
+        },
+        async updateChat(_request, reply) {
+          reply.code(200).send(buildSettingsPayload());
+        },
+        async changePassword(_request, reply) {
+          reply.code(200).send({ ok: true, message: "ok" });
+        },
+        async logoutOtherSessions(_request, reply) {
+          reply.code(200).send({ ok: true, message: "ok" });
+        }
+      },
+      history: {
+        async list(request, reply) {
+          if (typeof onHistoryList === "function") {
+            await onHistoryList(request);
+          }
+          reply.code(200).send({
+            entries: [],
+            page: 1,
+            pageSize: 10,
+            total: 0,
+            totalPages: 1
+          });
+        }
       }
-    }
     },
     {
       get(target, prop, receiver) {

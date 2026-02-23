@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createService as createRetentionService, __testables } from "../server/domain/operations/services/retention.service.js";
+import {
+  createService as createRetentionService,
+  __testables
+} from "../server/domain/operations/services/retention.service.js";
 
 function createDeque(values) {
   const queue = Array.isArray(values) ? [...values] : [];
@@ -348,7 +351,10 @@ test("retention service dry run does not execute delete methods", async () => {
   assert.equal(summary.rules.length, 11);
   assert.equal(summary.totalDeletedRows, 0);
   assert.equal(deleteCalls, 0);
-  assert.equal(summary.rules.every((entry) => entry.dryRun === true), true);
+  assert.equal(
+    summary.rules.every((entry) => entry.dryRun === true),
+    true
+  );
 });
 
 test("retention service config helpers normalize values", () => {
@@ -406,8 +412,14 @@ test("retention service runs billing retention rules when billing repository is 
   });
 
   const summary = await service.runSweep();
-  assert.equal(summary.rules.some((entry) => entry.table === "billing_idempotency_requests"), true);
-  assert.equal(summary.rules.some((entry) => entry.table === "billing_webhook_payloads"), true);
+  assert.equal(
+    summary.rules.some((entry) => entry.table === "billing_idempotency_requests"),
+    true
+  );
+  assert.equal(
+    summary.rules.some((entry) => entry.table === "billing_webhook_payloads"),
+    true
+  );
   assert.equal(billingIdempotencyCalls, 1);
   assert.equal(billingWebhookPayloadCalls, 1);
   assert.equal(summary.totalDeletedRows, 5);
@@ -496,7 +508,10 @@ test("retention service enables empty-thread cleanup only when configured", asyn
   });
 
   const summary = await service.runSweep();
-  assert.equal(summary.rules.some((entry) => entry.table === "chat_empty_threads"), true);
+  assert.equal(
+    summary.rules.some((entry) => entry.table === "chat_empty_threads"),
+    true
+  );
   assert.equal(summary.rules.find((entry) => entry.table === "chat_empty_threads").deletedRows, 4);
   assert.equal(emptyThreadCleanupCalls, 1);
 });

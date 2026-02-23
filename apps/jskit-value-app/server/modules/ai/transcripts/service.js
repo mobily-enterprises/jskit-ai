@@ -225,7 +225,12 @@ function createService({
   consoleReadPermission = DEFAULT_CONSOLE_READ_PERMISSION,
   consoleExportPermission = DEFAULT_CONSOLE_EXPORT_PERMISSION
 } = {}) {
-  if (!conversationsRepository || !messagesRepository || !workspaceSettingsRepository || !consoleMembershipsRepository) {
+  if (
+    !conversationsRepository ||
+    !messagesRepository ||
+    !workspaceSettingsRepository ||
+    !consoleMembershipsRepository
+  ) {
     throw new Error("transcript repositories are required.");
   }
   if (
@@ -235,7 +240,10 @@ function createService({
   ) {
     throw new Error("conversationsRepository methods are required.");
   }
-  if (typeof messagesRepository.insert !== "function" || typeof messagesRepository.listByConversationId !== "function") {
+  if (
+    typeof messagesRepository.insert !== "function" ||
+    typeof messagesRepository.listByConversationId !== "function"
+  ) {
     throw new Error("messagesRepository methods are required.");
   }
   if (typeof workspaceSettingsRepository.ensureForWorkspaceId !== "function") {
@@ -282,7 +290,11 @@ function createService({
 
     const existingConversationId = parsePositiveInteger(conversationId);
     if (existingConversationId) {
-      const existingConversation = await findWorkspaceConversationForUser(workspaceId, actorUserId, existingConversationId);
+      const existingConversation = await findWorkspaceConversationForUser(
+        workspaceId,
+        actorUserId,
+        existingConversationId
+      );
       if (!existingConversation) {
         throw new AppError(404, "Conversation not found.");
       }
@@ -556,7 +568,12 @@ function createService({
     }
 
     const membership = await consoleMembershipsRepository.findByUserId(userId);
-    if (!membership || String(membership.status || "").trim().toLowerCase() !== "active") {
+    if (
+      !membership ||
+      String(membership.status || "")
+        .trim()
+        .toLowerCase() !== "active"
+    ) {
       throw new AppError(403, "Forbidden.");
     }
 

@@ -5,8 +5,11 @@ import { createService as createBillingService } from "../server/modules/billing
 import { APP_CAPABILITY_LIMIT_CONFIG } from "../server/modules/billing/appCapabilityLimits.js";
 
 const DEG2RAD_CAPABILITY =
-  Object.keys(APP_CAPABILITY_LIMIT_CONFIG).find((capability) => String(capability || "").toLowerCase().endsWith(".calculate")) ||
-  "deg2rad.calculate";
+  Object.keys(APP_CAPABILITY_LIMIT_CONFIG).find((capability) =>
+    String(capability || "")
+      .toLowerCase()
+      .endsWith(".calculate")
+  ) || "deg2rad.calculate";
 
 const DEG2RAD_LIMIT_CONFIG = APP_CAPABILITY_LIMIT_CONFIG[DEG2RAD_CAPABILITY] || {
   limitationCode: "deg2rad.calculations.monthly",

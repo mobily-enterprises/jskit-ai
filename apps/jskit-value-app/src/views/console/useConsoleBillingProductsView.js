@@ -28,7 +28,10 @@ function parseEntitlementsJson(value) {
 
 function formatMoneyMinor(amountMinor, currency) {
   const numericAmount = Number(amountMinor || 0);
-  const normalizedCurrency = String(currency || "").trim().toUpperCase() || "USD";
+  const normalizedCurrency =
+    String(currency || "")
+      .trim()
+      .toUpperCase() || "USD";
   const major = numericAmount / 100;
   try {
     return new Intl.NumberFormat(undefined, {
@@ -41,7 +44,9 @@ function formatMoneyMinor(amountMinor, currency) {
 }
 
 function formatInterval(interval, intervalCount) {
-  const normalizedInterval = String(interval || "").trim().toLowerCase();
+  const normalizedInterval = String(interval || "")
+    .trim()
+    .toLowerCase();
   const count = Math.max(1, Number(intervalCount) || 1);
   if (!normalizedInterval) {
     return "one-time";
@@ -130,15 +135,22 @@ function resolvePriceDetails(price) {
     return null;
   }
 
-  const currency = String(price.currency || "").trim().toUpperCase();
+  const currency = String(price.currency || "")
+    .trim()
+    .toUpperCase();
   const unitAmountMinor = Number(price.unitAmountMinor);
   const hasAmount = Number.isInteger(unitAmountMinor) && unitAmountMinor >= 0 && currency.length === 3;
 
-  const interval = String(price.interval || "").trim().toLowerCase();
+  const interval = String(price.interval || "")
+    .trim()
+    .toLowerCase();
   const intervalCount = Number(price.intervalCount);
   const hasInterval = Boolean(interval && Number.isInteger(intervalCount) && intervalCount > 0);
 
-  const usageType = String(price.usageType || "").trim().toLowerCase() || null;
+  const usageType =
+    String(price.usageType || "")
+      .trim()
+      .toLowerCase() || null;
 
   return {
     providerPriceId,
@@ -166,19 +178,25 @@ function findProviderPriceById(prices, providerPriceId) {
 
 function buildProductPricePayload({ form, selectedPrice }) {
   const providerPriceId = String(form?.providerPriceId || selectedPrice?.id || "").trim();
-  const interval = String(selectedPrice?.interval || "").trim().toLowerCase();
+  const interval = String(selectedPrice?.interval || "")
+    .trim()
+    .toLowerCase();
   const intervalCountValue = Number(selectedPrice?.intervalCount);
 
   return {
     providerPriceId,
     providerProductId: String(selectedPrice?.productId || "").trim() || undefined,
-    currency: String(selectedPrice?.currency || "").trim().toUpperCase() || undefined,
+    currency:
+      String(selectedPrice?.currency || "")
+        .trim()
+        .toUpperCase() || undefined,
     unitAmountMinor:
       Number.isInteger(Number(selectedPrice?.unitAmountMinor)) && Number(selectedPrice?.unitAmountMinor) >= 0
         ? Number(selectedPrice.unitAmountMinor)
         : undefined,
     interval: interval || undefined,
-    intervalCount: interval && Number.isInteger(intervalCountValue) && intervalCountValue > 0 ? intervalCountValue : undefined
+    intervalCount:
+      interval && Number.isInteger(intervalCountValue) && intervalCountValue > 0 ? intervalCountValue : undefined
   };
 }
 
@@ -195,7 +213,9 @@ function selectCatalogPrices(prices = []) {
     const id = String(entry?.id || "").trim();
     const currency = String(entry?.currency || "").trim();
     const amount = Number(entry?.unitAmountMinor);
-    const interval = String(entry?.interval || "").trim().toLowerCase();
+    const interval = String(entry?.interval || "")
+      .trim()
+      .toLowerCase();
     return id && currency && Number.isInteger(amount) && amount >= 0 && !interval;
   });
 }
@@ -307,8 +327,8 @@ export function useConsoleBillingProductsView() {
     )
   );
 
-  const selectedProduct = computed(() =>
-    products.value.find((product) => Number(product?.id || 0) === Number(selectedProductId.value || 0)) || null
+  const selectedProduct = computed(
+    () => products.value.find((product) => Number(product?.id || 0) === Number(selectedProductId.value || 0)) || null
   );
   const selectedProductPriceInfo = computed(() => {
     const price = resolveProductPrice(selectedProduct.value);
@@ -423,7 +443,11 @@ export function useConsoleBillingProductsView() {
     editForm.isActive = product.isActive !== false;
     editInitialProviderPriceId.value = String(price?.providerPriceId || "").trim();
     editForm.providerPriceId = editInitialProviderPriceId.value;
-    editForm.entitlementsJson = JSON.stringify(Array.isArray(product.entitlements) ? product.entitlements : [], null, 2);
+    editForm.entitlementsJson = JSON.stringify(
+      Array.isArray(product.entitlements) ? product.entitlements : [],
+      null,
+      2
+    );
     editFieldErrors.value = {};
     editError.value = "";
     editDialogOpen.value = true;
@@ -583,8 +607,7 @@ export function useConsoleBillingProductsView() {
       editSaving,
       productsLoadError,
       ui: {
-        priceDescription:
-          "Select an active one-time provider catalog price. Recurring prices belong in billing plans.",
+        priceDescription: "Select an active one-time provider catalog price. Recurring prices belong in billing plans.",
         catalogPriceLabel: "Provider price",
         catalogPriceHint: "Pick the one-time provider price this product should sell.",
         catalogPriceNoDataLoading: "Loading one-time provider prices...",

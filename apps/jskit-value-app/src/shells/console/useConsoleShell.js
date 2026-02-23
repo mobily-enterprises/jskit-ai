@@ -41,9 +41,7 @@ export function useConsoleShell() {
   const canViewBrowserErrors = computed(
     () => consoleStore.can("console.errors.browser.read") && consoleStore.hasAccess
   );
-  const canViewServerErrors = computed(
-    () => consoleStore.can("console.errors.server.read") && consoleStore.hasAccess
-  );
+  const canViewServerErrors = computed(() => consoleStore.can("console.errors.server.read") && consoleStore.hasAccess);
   const canViewAiTranscripts = computed(
     () => consoleStore.can("console.ai.transcripts.read_all") && consoleStore.hasAccess
   );
@@ -113,17 +111,11 @@ export function useConsoleShell() {
   });
 
   const destinationTitle = computed(() => {
-    if (
-      currentPath.value.endsWith("/errors/browser") ||
-      currentPath.value.includes("/errors/browser/")
-    ) {
+    if (currentPath.value.endsWith("/errors/browser") || currentPath.value.includes("/errors/browser/")) {
       return "Client errors";
     }
 
-    if (
-      currentPath.value.endsWith("/errors/server") ||
-      currentPath.value.includes("/errors/server/")
-    ) {
+    if (currentPath.value.endsWith("/errors/server") || currentPath.value.includes("/errors/server/")) {
       return "Server errors";
     }
 

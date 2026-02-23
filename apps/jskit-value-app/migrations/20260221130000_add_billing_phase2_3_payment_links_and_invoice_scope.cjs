@@ -59,12 +59,7 @@ exports.up = async function up(knex) {
 
 exports.down = async function down(knex) {
   await knex("billing_payments")
-    .whereIn(
-      "invoice_id",
-      knex("billing_invoices")
-        .whereNull("subscription_id")
-        .select("id")
-    )
+    .whereIn("invoice_id", knex("billing_invoices").whereNull("subscription_id").select("id"))
     .delete();
 
   await knex("billing_invoices").whereNull("subscription_id").delete();

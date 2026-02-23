@@ -1,9 +1,5 @@
 import { AppError } from "../../lib/errors.js";
-import {
-  BILLING_CHECKOUT_SESSION_STATUS,
-  BILLING_DEFAULT_PROVIDER,
-  BILLING_IDEMPOTENCY_STATUS,
-} from "./constants.js";
+import { BILLING_CHECKOUT_SESSION_STATUS, BILLING_DEFAULT_PROVIDER, BILLING_IDEMPOTENCY_STATUS } from "./constants.js";
 import {
   hasSameTimestampOrderingConflict,
   isIncomingEventOlder,
@@ -371,10 +367,14 @@ function createService(options = {}) {
         forUpdate: true
       }
     );
-    const olderThanExisting = isIncomingEventOlder(existingSubscription?.lastProviderEventCreatedAt, providerCreatedAt, {
-      existingProviderEventId: existingSubscription?.lastProviderEventId,
-      incomingProviderEventId: providerEventId
-    });
+    const olderThanExisting = isIncomingEventOlder(
+      existingSubscription?.lastProviderEventCreatedAt,
+      providerCreatedAt,
+      {
+        existingProviderEventId: existingSubscription?.lastProviderEventId,
+        incomingProviderEventId: providerEventId
+      }
+    );
     if (olderThanExisting) {
       const sameTimestampConflict = hasSameTimestampOrderingConflict(
         existingSubscription?.lastProviderEventCreatedAt,
@@ -427,7 +427,9 @@ function createService(options = {}) {
       { trx }
     );
 
-    const subscriptionItems = Array.isArray(projectionSubscription?.items?.data) ? projectionSubscription.items.data : [];
+    const subscriptionItems = Array.isArray(projectionSubscription?.items?.data)
+      ? projectionSubscription.items.data
+      : [];
     const { resolvedPlanId, priceByProviderPriceId } = await resolvePlanMappingFromSubscriptionItems(
       subscriptionItems,
       trx,
@@ -624,10 +626,7 @@ function createService(options = {}) {
         }
       );
 
-      if (
-        customerByProviderId &&
-        Number(customerByProviderId.billableEntityId) !== Number(resolvedBillableEntityId)
-      ) {
+      if (customerByProviderId && Number(customerByProviderId.billableEntityId) !== Number(resolvedBillableEntityId)) {
         throw new AppError(409, "Invoice customer ownership does not match billable entity.");
       }
 
@@ -681,23 +680,21 @@ function createService(options = {}) {
       toNullableString(projectionInvoice?.charge) ||
       `${providerInvoiceId}:${eventType}`;
 
-    const purchase = await recordConfirmedPurchaseForInvoicePaid(
-      {
-        billingRepository,
-        provider: activeProvider,
-        trx,
-        billableEntityId: resolvedBillableEntityId,
-        providerInvoiceId,
-        providerPaymentId,
-        providerCustomerId: projectionProviderCustomerId || customer?.providerCustomerId || null,
-        invoice: projectionInvoice,
-        operationKey: toNullableString(projectionMetadata.operation_key),
-        billingEventId,
-        providerCreatedAt: projectionProviderCreatedAt,
-        subscription,
-        providerEventId: projectionProviderEventId
-      }
-    );
+    const purchase = await recordConfirmedPurchaseForInvoicePaid({
+      billingRepository,
+      provider: activeProvider,
+      trx,
+      billableEntityId: resolvedBillableEntityId,
+      providerInvoiceId,
+      providerPaymentId,
+      providerCustomerId: projectionProviderCustomerId || customer?.providerCustomerId || null,
+      invoice: projectionInvoice,
+      operationKey: toNullableString(projectionMetadata.operation_key),
+      billingEventId,
+      providerCreatedAt: projectionProviderCreatedAt,
+      subscription,
+      providerEventId: projectionProviderEventId
+    });
     if (purchase && billingService && typeof billingService.grantEntitlementsForPurchase === "function") {
       const grantOutcome = await billingService.grantEntitlementsForPurchase({
         billableEntityId: resolvedBillableEntityId,

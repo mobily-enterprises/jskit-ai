@@ -13,7 +13,10 @@ function toPositiveInteger(value, fallback) {
   return parsed;
 }
 
-function createSchema({ maxInputChars = DEFAULT_MAX_INPUT_CHARS, maxHistoryMessages = DEFAULT_MAX_HISTORY_MESSAGES } = {}) {
+function createSchema({
+  maxInputChars = DEFAULT_MAX_INPUT_CHARS,
+  maxHistoryMessages = DEFAULT_MAX_HISTORY_MESSAGES
+} = {}) {
   const inputLimit = toPositiveInteger(maxInputChars, DEFAULT_MAX_INPUT_CHARS);
   const historyLimit = toPositiveInteger(maxHistoryMessages, DEFAULT_MAX_HISTORY_MESSAGES);
   const role = enumSchema(["user", "assistant"]);
@@ -45,7 +48,9 @@ function createSchema({ maxInputChars = DEFAULT_MAX_INPUT_CHARS, maxHistoryMessa
     {
       type: Type.Literal("meta"),
       messageId: Type.String({ minLength: 1, maxLength: 128 }),
-      conversationId: Type.Optional(Type.Union([Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" }), Type.Null()])),
+      conversationId: Type.Optional(
+        Type.Union([Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" }), Type.Null()])
+      ),
       model: Type.String({ minLength: 1, maxLength: 128 }),
       provider: Type.String({ minLength: 1, maxLength: 64 })
     },

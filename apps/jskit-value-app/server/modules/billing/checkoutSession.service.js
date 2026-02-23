@@ -142,7 +142,12 @@ function createService({
     };
   }
 
-  async function getBlockingCheckoutSession({ billableEntityId, now = new Date(), trx = null, cleanupExpired = false }) {
+  async function getBlockingCheckoutSession({
+    billableEntityId,
+    now = new Date(),
+    trx = null,
+    cleanupExpired = false
+  }) {
     const sessions = cleanupExpired
       ? (await cleanupExpiredBlockingSessions({ billableEntityId, now, trx })).sessions
       : await billingRepository.listCheckoutSessionsForEntity(billableEntityId, { trx });
@@ -322,7 +327,11 @@ function createService({
       );
     }
 
-    if (!existing && providerSubscriptionId && typeof billingRepository.findCheckoutSessionByProviderSubscriptionId === "function") {
+    if (
+      !existing &&
+      providerSubscriptionId &&
+      typeof billingRepository.findCheckoutSessionByProviderSubscriptionId === "function"
+    ) {
       existing = await billingRepository.findCheckoutSessionByProviderSubscriptionId(
         {
           provider,
@@ -501,9 +510,12 @@ function createService({
       return existing;
     }
 
-    const requestedStatus = String(reason || "").trim().toLowerCase() === "abandoned"
-      ? BILLING_CHECKOUT_SESSION_STATUS.ABANDONED
-      : BILLING_CHECKOUT_SESSION_STATUS.EXPIRED;
+    const requestedStatus =
+      String(reason || "")
+        .trim()
+        .toLowerCase() === "abandoned"
+        ? BILLING_CHECKOUT_SESSION_STATUS.ABANDONED
+        : BILLING_CHECKOUT_SESSION_STATUS.EXPIRED;
 
     // completed_pending_subscription cannot transition to expired; treat as abandoned cleanup.
     const nextStatus =
@@ -526,7 +538,14 @@ function createService({
     );
   }
 
-  async function assertCheckoutSessionCorrelation({ providerCheckoutSessionId, operationKey, billableEntityId, providerCustomerId, provider, trx = null }) {
+  async function assertCheckoutSessionCorrelation({
+    providerCheckoutSessionId,
+    operationKey,
+    billableEntityId,
+    providerCustomerId,
+    provider,
+    trx = null
+  }) {
     const existing = await billingRepository.findCheckoutSessionByProviderSessionId(
       {
         provider,
@@ -554,7 +573,11 @@ function createService({
       });
     }
 
-    if (providerCustomerId && existing.providerCustomerId && String(existing.providerCustomerId) !== String(providerCustomerId)) {
+    if (
+      providerCustomerId &&
+      existing.providerCustomerId &&
+      String(existing.providerCustomerId) !== String(providerCustomerId)
+    ) {
       throw new AppError(409, "Checkout session customer correlation mismatch.", {
         code: "CHECKOUT_SESSION_CORRELATION_MISMATCH"
       });

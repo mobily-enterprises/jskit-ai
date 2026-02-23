@@ -35,9 +35,7 @@ const settings = Type.Object(
 const settingsUpdate = Type.Object(
   {
     name: Type.Optional(Type.String({ minLength: 1, maxLength: 160 })),
-    color: Type.Optional(
-      Type.String({ minLength: 7, maxLength: 7, pattern: sharedSchema.fields.colorPattern })
-    ),
+    color: Type.Optional(Type.String({ minLength: 7, maxLength: 7, pattern: sharedSchema.fields.colorPattern })),
     avatarUrl: Type.Optional(Type.String()),
     invitesEnabled: Type.Optional(Type.Boolean()),
     assistantTranscriptMode: Type.Optional(enumSchema(["standard", "restricted", "disabled"])),

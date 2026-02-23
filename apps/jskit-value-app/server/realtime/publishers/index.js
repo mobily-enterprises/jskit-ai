@@ -8,8 +8,4 @@ export {
   publishProjectEventSafely,
   resolvePublishProjectEvent
 } from "./projectPublisher.js";
-export {
-  createChatEventPublisher,
-  publishChatEventSafely,
-  resolvePublishChatEvent
-} from "./chatPublisher.js";
+export { createChatEventPublisher, publishChatEventSafely, resolvePublishChatEvent } from "./chatPublisher.js";

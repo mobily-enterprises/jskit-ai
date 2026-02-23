@@ -81,15 +81,9 @@ test("metrics registry records db, auth, ingestion, and audit event counters", (
     /app_security_audit_events_total\{action="workspace\.invite\.redeemed",outcome="failure",surface="admin"\} 1/
   );
   assert.match(output, /app_ai_turns_total\{surface="app",provider="openai",outcome="timeout"\} 1/);
-  assert.match(
-    output,
-    /app_ai_turn_duration_seconds_sum\{surface="app",provider="openai",outcome="timeout"\} 2.1/
-  );
+  assert.match(output, /app_ai_turn_duration_seconds_sum\{surface="app",provider="openai",outcome="timeout"\} 2.1/);
   assert.match(output, /app_ai_tool_calls_total\{tool="workspace_rename",outcome="forbidden"\} 1/);
-  assert.match(
-    output,
-    /app_billing_guardrail_events_total\{code="BILLING_CHECKOUT_PROVIDER_ERROR"\} 1/
-  );
+  assert.match(output, /app_billing_guardrail_events_total\{code="BILLING_CHECKOUT_PROVIDER_ERROR"\} 1/);
   assert.match(
     output,
     /app_billing_guardrail_measurement_count\{code="BILLING_CHECKOUT_RECOVERY_VERIFICATION_PENDING",measure="age_seconds"\} 1/

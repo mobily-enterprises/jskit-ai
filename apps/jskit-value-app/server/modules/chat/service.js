@@ -87,7 +87,11 @@ function createIdempotencyConflictError() {
 }
 
 function createMessageRetryBlockedError() {
-  return createChatError(409, "Message retry blocked because original message was deleted.", "CHAT_MESSAGE_RETRY_BLOCKED");
+  return createChatError(
+    409,
+    "Message retry blocked because original message was deleted.",
+    "CHAT_MESSAGE_RETRY_BLOCKED"
+  );
 }
 
 function createRateLimitedError({ retryAfterMs = 1000 } = {}) {
@@ -609,7 +613,9 @@ function buildAttachmentDeliveryPath(attachmentId) {
 
 function isAttachmentReserveReplayCompatible(existingAttachment, reservePayload) {
   const existingMetadata =
-    existingAttachment?.metadata && typeof existingAttachment.metadata === "object" && !Array.isArray(existingAttachment.metadata)
+    existingAttachment?.metadata &&
+    typeof existingAttachment.metadata === "object" &&
+    !Array.isArray(existingAttachment.metadata)
       ? existingAttachment.metadata
       : {};
   const incomingMetadata =
@@ -628,8 +634,12 @@ function isAttachmentReserveReplayCompatible(existingAttachment, reservePayload)
 }
 
 function isAttachmentUploadReplayCompatible(existingAttachment, { sizeBytes, sha256Hex }) {
-  const existingSha = String(existingAttachment?.sha256Hex || "").trim().toLowerCase();
-  const expectedSha = String(sha256Hex || "").trim().toLowerCase();
+  const existingSha = String(existingAttachment?.sha256Hex || "")
+    .trim()
+    .toLowerCase();
+  const expectedSha = String(sha256Hex || "")
+    .trim()
+    .toLowerCase();
   if (existingSha && expectedSha) {
     return existingSha === expectedSha;
   }
@@ -924,12 +934,9 @@ function createService({
 
   const typingStateByThreadUser = new Map();
   const typingRateStateByThreadUser = new Map();
-  const realtimePublisher = chatRealtimeService && typeof chatRealtimeService.publishThreadEvent === "function"
-    ? chatRealtimeService
-    : null;
-  const canLookupUserProfile = Boolean(
-    userProfilesRepository && typeof userProfilesRepository.findById === "function"
-  );
+  const realtimePublisher =
+    chatRealtimeService && typeof chatRealtimeService.publishThreadEvent === "function" ? chatRealtimeService : null;
+  const canLookupUserProfile = Boolean(userProfilesRepository && typeof userProfilesRepository.findById === "function");
   const canBuildUserAvatar = Boolean(userAvatarService && typeof userAvatarService.buildAvatarResponse === "function");
 
   async function listActiveParticipantUserIds(threadId) {
@@ -1097,8 +1104,7 @@ function createService({
 
     const hasSharedWorkspace = (Array.isArray(targetMemberships) ? targetMemberships : []).some(
       (membership) =>
-        String(membership?.status || "") === "active" &&
-        actorWorkspaceIds.has(Number(membership.workspaceId))
+        String(membership?.status || "") === "active" && actorWorkspaceIds.has(Number(membership.workspaceId))
     );
 
     if (!hasSharedWorkspace) {
@@ -1241,7 +1247,11 @@ function createService({
       return null;
     }
 
-    if (peerSummariesByUserId && typeof peerSummariesByUserId.has === "function" && peerSummariesByUserId.has(peerUserId)) {
+    if (
+      peerSummariesByUserId &&
+      typeof peerSummariesByUserId.has === "function" &&
+      peerSummariesByUserId.has(peerUserId)
+    ) {
       return fromMap;
     }
 
@@ -1249,7 +1259,9 @@ function createService({
   }
 
   function matchesDmCandidateSearch(candidate, normalizedSearch) {
-    const search = String(normalizedSearch || "").trim().toLowerCase();
+    const search = String(normalizedSearch || "")
+      .trim()
+      .toLowerCase();
     if (!search) {
       return true;
     }
@@ -1492,7 +1504,9 @@ function createService({
       }
 
       const participantCount =
-        Array.isArray(participants) && participants.length > 0 ? participants.length : normalizedParticipantUserIds.length;
+        Array.isArray(participants) && participants.length > 0
+          ? participants.length
+          : normalizedParticipantUserIds.length;
       const updatedThread =
         typeof chatThreadsRepository.updateById === "function"
           ? await chatThreadsRepository.updateById(
@@ -1801,7 +1815,9 @@ function createService({
 
     const items = await hydrateMessages(orderedRows, userId);
     const oldestSeq = Number(orderedRows[0].threadSeq || 0);
-    const hasMoreRows = oldestSeq > 1 && (await chatMessagesRepository.listByThreadIdBeforeSeq(access.thread.id, oldestSeq, 1)).length > 0;
+    const hasMoreRows =
+      oldestSeq > 1 &&
+      (await chatMessagesRepository.listByThreadIdBeforeSeq(access.thread.id, oldestSeq, 1)).length > 0;
 
     return {
       items,
@@ -1815,13 +1831,7 @@ function createService({
     }
   }
 
-  async function publishAttachmentUpdated({
-    thread,
-    attachment,
-    actorUserId,
-    requestMeta,
-    logContext = {}
-  } = {}) {
+  async function publishAttachmentUpdated({ thread, attachment, actorUserId, requestMeta, logContext = {} } = {}) {
     if (!thread || !attachment || !Number.isInteger(Number(actorUserId))) {
       return;
     }
@@ -2022,10 +2032,13 @@ function createService({
         throw createAttachmentUploadInProgressError();
       }
 
-      if ((latestStatus === "uploaded" || latestStatus === "attached") && isAttachmentUploadReplayCompatible(latestAttachment, {
-        sizeBytes: normalizedUpload.sizeBytes,
-        sha256Hex
-      })) {
+      if (
+        (latestStatus === "uploaded" || latestStatus === "attached") &&
+        isAttachmentUploadReplayCompatible(latestAttachment, {
+          sizeBytes: normalizedUpload.sizeBytes,
+          sha256Hex
+        })
+      ) {
         return {
           attachment: mapAttachmentForResponse(latestAttachment)
         };
@@ -2045,7 +2058,8 @@ function createService({
     }
 
     const uploadFileName = String(uploadingAttachment.fileName || payload?.uploadFileName || "").trim() || "file";
-    const uploadMimeType = String(uploadingAttachment.mimeType || payload?.uploadMimeType || "").trim() || "application/octet-stream";
+    const uploadMimeType =
+      String(uploadingAttachment.mimeType || payload?.uploadMimeType || "").trim() || "application/octet-stream";
 
     let storageKey = null;
     try {
@@ -2095,10 +2109,13 @@ function createService({
         throw createAttachmentUploadInProgressError();
       }
 
-      if ((latestStatus === "uploaded" || latestStatus === "attached") && isAttachmentUploadReplayCompatible(latestAttachment, {
-        sizeBytes: normalizedUpload.sizeBytes,
-        sha256Hex
-      })) {
+      if (
+        (latestStatus === "uploaded" || latestStatus === "attached") &&
+        isAttachmentUploadReplayCompatible(latestAttachment, {
+          sizeBytes: normalizedUpload.sizeBytes,
+          sha256Hex
+        })
+      ) {
         return {
           attachment: mapAttachmentForResponse(latestAttachment)
         };
@@ -2265,7 +2282,8 @@ function createService({
     if (message.idempotencyPayloadVersion && message.idempotencyPayloadSha256) {
       return (
         Number(message.idempotencyPayloadVersion) === Number(incomingFingerprint.version) &&
-        String(message.idempotencyPayloadSha256 || "").toLowerCase() === String(incomingFingerprint.sha256 || "").toLowerCase()
+        String(message.idempotencyPayloadSha256 || "").toLowerCase() ===
+          String(incomingFingerprint.sha256 || "").toLowerCase()
       );
     }
 
@@ -2337,7 +2355,10 @@ function createService({
         throw createIdempotencyConflictError();
       }
 
-      const allocatedThreadSeq = await chatThreadsRepository.allocateNextMessageSequence(access.thread.id, scopedOptions);
+      const allocatedThreadSeq = await chatThreadsRepository.allocateNextMessageSequence(
+        access.thread.id,
+        scopedOptions
+      );
       if (!allocatedThreadSeq) {
         throw createThreadNotFoundError();
       }
@@ -2545,15 +2566,11 @@ function createService({
     const lastMessageSeq = Math.max(0, Number(access.thread.lastMessageSeq || 0));
     const clampedSeq = Math.min(lastMessageSeq, Math.max(0, Number(resolvedSeq || 0)));
 
-    const updatedParticipant = await chatParticipantsRepository.updateReadCursorMonotonic(
-      access.thread.id,
-      userId,
-      {
-        lastReadSeq: clampedSeq,
-        lastReadMessageId: resolvedMessageId,
-        lastReadAt: new Date().toISOString()
-      }
-    );
+    const updatedParticipant = await chatParticipantsRepository.updateReadCursorMonotonic(access.thread.id, userId, {
+      lastReadSeq: clampedSeq,
+      lastReadMessageId: resolvedMessageId,
+      lastReadAt: new Date().toISOString()
+    });
 
     if (!updatedParticipant) {
       throw createThreadNotFoundError();

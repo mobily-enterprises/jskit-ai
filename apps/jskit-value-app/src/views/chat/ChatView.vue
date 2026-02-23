@@ -16,7 +16,9 @@
     </div>
 
     <section class="chat-message-section d-flex flex-column flex-grow-1 ga-1">
-      <div class="chat-history-tools d-flex flex-column flex-md-row align-stretch align-md-center justify-space-between ga-1">
+      <div
+        class="chat-history-tools d-flex flex-column flex-md-row align-stretch align-md-center justify-space-between ga-1"
+      >
         <div class="chat-history-tools-main d-flex align-center flex-wrap ga-1">
           <v-btn
             variant="text"
@@ -38,15 +40,28 @@
           >
             Workspace chat
           </v-btn>
-          <v-btn variant="text" size="small" density="compact" :loading="state.dmPending" @click="openDmDialog">Start DM</v-btn>
+          <v-btn variant="text" size="small" density="compact" :loading="state.dmPending" @click="openDmDialog"
+            >Start DM</v-btn
+          >
         </div>
 
         <v-menu location="bottom end" offset="8">
           <template #activator="{ props }">
-            <v-btn v-bind="props" variant="text" icon="mdi-dots-vertical" size="small" density="compact" aria-label="Chat actions" />
+            <v-btn
+              v-bind="props"
+              variant="text"
+              icon="mdi-dots-vertical"
+              size="small"
+              density="compact"
+              aria-label="Chat actions"
+            />
           </template>
           <v-list density="comfortable" min-width="180">
-            <v-list-item title="Refresh" :disabled="state.workspaceRoomPending || state.messagesLoading" @click="refreshCurrentThread" />
+            <v-list-item
+              title="Refresh"
+              :disabled="state.workspaceRoomPending || state.messagesLoading"
+              @click="refreshCurrentThread"
+            />
           </v-list>
         </v-menu>
       </div>
@@ -57,12 +72,21 @@
         :class="{ 'chat-message-panel--empty': state.messageRows.length < 1 && !state.composerError }"
         @scroll.passive="handleMessagePanelScroll"
       >
-        <div v-if="state.workspaceRoomPending && !state.selectedThreadId" class="chat-empty-state">Opening workspace chat...</div>
-        <div v-else-if="!state.selectedThreadId" class="chat-empty-state">Workspace chat is unavailable in this context.</div>
-        <div v-else-if="state.messagesLoading && state.messageRows.length < 1 && !state.composerError" class="chat-empty-state">
+        <div v-if="state.workspaceRoomPending && !state.selectedThreadId" class="chat-empty-state">
+          Opening workspace chat...
+        </div>
+        <div v-else-if="!state.selectedThreadId" class="chat-empty-state">
+          Workspace chat is unavailable in this context.
+        </div>
+        <div
+          v-else-if="state.messagesLoading && state.messageRows.length < 1 && !state.composerError"
+          class="chat-empty-state"
+        >
           Loading messages...
         </div>
-        <div v-else-if="state.messageRows.length < 1 && !state.composerError" class="chat-empty-state">No messages yet.</div>
+        <div v-else-if="state.messageRows.length < 1 && !state.composerError" class="chat-empty-state">
+          No messages yet.
+        </div>
 
         <template v-else>
           <div
@@ -83,7 +107,10 @@
             <span v-else class="chat-message-avatar-spacer" />
 
             <div class="chat-message-body d-grid ga-1">
-              <div v-if="row.showMeta" class="chat-message-meta d-inline-flex ga-2 flex-wrap text-caption text-medium-emphasis">
+              <div
+                v-if="row.showMeta"
+                class="chat-message-meta d-inline-flex ga-2 flex-wrap text-caption text-medium-emphasis"
+              >
                 <span>{{ row.senderLabel }}</span>
                 <span>{{ helpers.formatTimestamp(row.message.sentAt) }}</span>
               </div>
@@ -115,7 +142,10 @@
             </div>
           </div>
 
-          <div v-if="state.composerError" class="chat-message-row chat-message-row--mine chat-message-row--composer-error mt-1">
+          <div
+            v-if="state.composerError"
+            class="chat-message-row chat-message-row--mine chat-message-row--composer-error mt-1"
+          >
             <span class="chat-message-avatar-spacer" />
             <div class="chat-message-body">
               <div class="chat-message-bubble chat-message-bubble--composer-error text-body-2">
@@ -146,7 +176,7 @@
           multiple
           class="chat-file-input"
           @change="handleComposerFileInputChange"
-        >
+        />
 
         <div class="chat-composer-row d-flex align-end ga-2">
           <v-btn
@@ -191,7 +221,13 @@
             @keydown="actions.handleComposerKeydown"
           />
 
-          <v-btn color="primary" rounded="pill" :loading="state.sendPending" :disabled="!state.canSend" @click="actions.sendFromComposer">
+          <v-btn
+            color="primary"
+            rounded="pill"
+            :loading="state.sendPending"
+            :disabled="!state.canSend"
+            @click="actions.sendFromComposer"
+          >
             Send
           </v-btn>
         </div>
@@ -288,7 +324,9 @@
                 <template #prepend>
                   <v-avatar size="30">
                     <v-img v-if="candidate.avatarUrl" :src="candidate.avatarUrl" cover />
-                    <span v-else class="chat-thread-avatar-initials">{{ avatarInitialsFromLabel(candidate.displayName) }}</span>
+                    <span v-else class="chat-thread-avatar-initials">{{
+                      avatarInitialsFromLabel(candidate.displayName)
+                    }}</span>
                   </v-avatar>
                 </template>
                 <template #append>
@@ -407,7 +445,10 @@ function scrollMessagesToBottom({ behavior = "auto" } = {}) {
     return;
   }
 
-  const targetTop = Math.max(0, normalizeScrollValue(element.scrollHeight) - normalizeScrollValue(element.clientHeight));
+  const targetTop = Math.max(
+    0,
+    normalizeScrollValue(element.scrollHeight) - normalizeScrollValue(element.clientHeight)
+  );
   element.scrollTo({
     top: targetTop,
     behavior

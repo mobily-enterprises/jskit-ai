@@ -128,7 +128,9 @@ function hasTopicPermission(topicValue, permissions, surfaceValue = "") {
     return true;
   }
 
-  const permissionSet = new Set((Array.isArray(permissions) ? permissions : []).map(normalizePermission).filter(Boolean));
+  const permissionSet = new Set(
+    (Array.isArray(permissions) ? permissions : []).map(normalizePermission).filter(Boolean)
+  );
   if (permissionSet.has("*")) {
     return true;
   }

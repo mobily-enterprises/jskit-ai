@@ -11,7 +11,9 @@ function formatDateTime(value) {
 }
 
 function formatTranscriptMode(value) {
-  const mode = String(value || "standard").trim().toLowerCase();
+  const mode = String(value || "standard")
+    .trim()
+    .toLowerCase();
   if (mode === "restricted") {
     return "Restricted";
   }

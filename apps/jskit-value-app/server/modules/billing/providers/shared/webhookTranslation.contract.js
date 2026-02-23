@@ -8,10 +8,7 @@ const REQUIRED_CANONICAL_BILLING_WEBHOOK_EVENT_TYPES = new Set([
   "invoice.payment_failed"
 ]);
 
-const REQUIRED_BILLING_WEBHOOK_TRANSLATOR_METHODS = Object.freeze([
-  "toCanonicalEvent",
-  "supportsCanonicalEventType"
-]);
+const REQUIRED_BILLING_WEBHOOK_TRANSLATOR_METHODS = Object.freeze(["toCanonicalEvent", "supportsCanonicalEventType"]);
 
 function normalizeBillingWebhookProvider(provider) {
   return String(provider || "")

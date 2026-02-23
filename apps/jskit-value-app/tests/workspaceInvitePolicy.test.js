@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { DEFAULT_INVITE_EXPIRY_DAYS, resolveInviteExpiresAt } from "../server/domain/workspace/policies/workspaceInvitePolicy.js";
+import {
+  DEFAULT_INVITE_EXPIRY_DAYS,
+  resolveInviteExpiresAt
+} from "../server/domain/workspace/policies/workspaceInvitePolicy.js";
 import { isMysqlDuplicateEntryError } from "../server/lib/primitives/mysqlErrors.js";
 
 test("workspace invite policy resolves default/custom invite expiry windows", () => {

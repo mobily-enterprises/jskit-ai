@@ -18,8 +18,12 @@ function validateQuotaSchema(value) {
   }
 
   const limit = Number(value.limit);
-  const interval = String(value.interval || "").trim().toLowerCase();
-  const enforcement = String(value.enforcement || "").trim().toLowerCase();
+  const interval = String(value.interval || "")
+    .trim()
+    .toLowerCase();
+  const enforcement = String(value.enforcement || "")
+    .trim()
+    .toLowerCase();
 
   if (!Number.isInteger(limit) || limit < 0) {
     return false;

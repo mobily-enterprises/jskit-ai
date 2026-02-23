@@ -32,10 +32,7 @@ test("billing provider adapter contract validation reports missing fields and me
   assert.ok(validation.missingMethods.includes("verifyWebhookEvent"));
   assert.equal(validation.missingMethods.length, REQUIRED_BILLING_PROVIDER_ADAPTER_METHODS.length);
 
-  assert.throws(
-    () => assertBillingProviderAdapter({}, { name: "adapterUnderTest" }),
-    /adapterUnderTest\.provider/
-  );
+  assert.throws(() => assertBillingProviderAdapter({}, { name: "adapterUnderTest" }), /adapterUnderTest\.provider/);
 });
 
 test("billing provider registry resolves default and explicitly requested providers", () => {

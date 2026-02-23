@@ -82,12 +82,14 @@ function normalizePlanTemplatePolicies(entry, { index, fieldErrors }) {
   }
 
   const durationDaysValue = Object.hasOwn(entry || {}, "durationDays") ? entry.durationDays : null;
-  const durationDays = durationDaysValue == null || durationDaysValue === "" ? null : parsePositiveInteger(durationDaysValue);
+  const durationDays =
+    durationDaysValue == null || durationDaysValue === "" ? null : parsePositiveInteger(durationDaysValue);
   if (durationPolicy === "fixed_duration" && !durationDays) {
     fieldErrors[`entitlements[${index}].durationDays`] = "durationDays is required when durationPolicy=fixed_duration.";
   }
   if (durationPolicy !== "fixed_duration" && durationDays != null) {
-    fieldErrors[`entitlements[${index}].durationDays`] = "durationDays is only allowed when durationPolicy=fixed_duration.";
+    fieldErrors[`entitlements[${index}].durationDays`] =
+      "durationDays is only allowed when durationPolicy=fixed_duration.";
   }
 
   return {
@@ -194,12 +196,12 @@ function normalizeProductEdgeEntitlements(rawEntitlements, { fieldErrors, allowO
 
     const grantKind = normalizeOptionalString(entry.grantKind || "one_off_topup").toLowerCase();
     if (!PRODUCT_TEMPLATE_GRANT_KINDS.has(grantKind)) {
-      fieldErrors[`entitlements[${index}].grantKind`] =
-        "grantKind must be one of one_off_topup or timeboxed_addon.";
+      fieldErrors[`entitlements[${index}].grantKind`] = "grantKind must be one of one_off_topup or timeboxed_addon.";
     }
 
     const durationDaysValue = Object.hasOwn(entry || {}, "durationDays") ? entry.durationDays : null;
-    const durationDays = durationDaysValue == null || durationDaysValue === "" ? null : parsePositiveInteger(durationDaysValue);
+    const durationDays =
+      durationDaysValue == null || durationDaysValue === "" ? null : parsePositiveInteger(durationDaysValue);
     if (grantKind === "timeboxed_addon" && !durationDays) {
       fieldErrors[`entitlements[${index}].durationDays`] = "durationDays is required when grantKind=timeboxed_addon.";
     }
@@ -380,12 +382,14 @@ function normalizeCorePricePayload(
   } else if (providerPriceId.length > 191) {
     fieldErrors[`${fieldPrefix}.providerPriceId`] = `${fieldPrefix}.providerPriceId must be at most 191 characters.`;
   } else if (resolvedProvider === "stripe" && !providerPriceId.toLowerCase().startsWith("price_")) {
-    fieldErrors[`${fieldPrefix}.providerPriceId`] = `${fieldPrefix}.providerPriceId must be a Stripe Price ID (price_...).`;
+    fieldErrors[`${fieldPrefix}.providerPriceId`] =
+      `${fieldPrefix}.providerPriceId must be a Stripe Price ID (price_...).`;
   }
 
   const providerProductId = normalizeOptionalString(corePrice.providerProductId);
   if (providerProductId.length > 191) {
-    fieldErrors[`${fieldPrefix}.providerProductId`] = `${fieldPrefix}.providerProductId must be at most 191 characters.`;
+    fieldErrors[`${fieldPrefix}.providerProductId`] =
+      `${fieldPrefix}.providerProductId must be at most 191 characters.`;
   }
 
   const requiresClientPriceDetails = resolvedProvider !== "stripe";
@@ -396,7 +400,8 @@ function normalizeCorePricePayload(
 
   const unitAmountMinor = parseOptionalNonNegativeInteger(corePrice.unitAmountMinor);
   if (requiresClientPriceDetails && unitAmountMinor == null) {
-    fieldErrors[`${fieldPrefix}.unitAmountMinor`] = `${fieldPrefix}.unitAmountMinor must be zero or a positive integer.`;
+    fieldErrors[`${fieldPrefix}.unitAmountMinor`] =
+      `${fieldPrefix}.unitAmountMinor must be zero or a positive integer.`;
   }
 
   const interval = normalizeOptionalString(corePrice.interval).toLowerCase() || "month";
@@ -423,7 +428,10 @@ function normalizeCorePricePayload(
   };
 }
 
-function normalizeProductPricePayload(rawPrice, { resolvedProvider, fieldPrefix = "price", requirePriceId = true } = {}) {
+function normalizeProductPricePayload(
+  rawPrice,
+  { resolvedProvider, fieldPrefix = "price", requirePriceId = true } = {}
+) {
   const fieldErrors = {};
   const price = rawPrice && typeof rawPrice === "object" ? rawPrice : null;
   if (!price) {
@@ -440,12 +448,14 @@ function normalizeProductPricePayload(rawPrice, { resolvedProvider, fieldPrefix 
   } else if (providerPriceId.length > 191) {
     fieldErrors[`${fieldPrefix}.providerPriceId`] = `${fieldPrefix}.providerPriceId must be at most 191 characters.`;
   } else if (resolvedProvider === "stripe" && !providerPriceId.toLowerCase().startsWith("price_")) {
-    fieldErrors[`${fieldPrefix}.providerPriceId`] = `${fieldPrefix}.providerPriceId must be a Stripe Price ID (price_...).`;
+    fieldErrors[`${fieldPrefix}.providerPriceId`] =
+      `${fieldPrefix}.providerPriceId must be a Stripe Price ID (price_...).`;
   }
 
   const providerProductId = normalizeOptionalString(price.providerProductId);
   if (providerProductId.length > 191) {
-    fieldErrors[`${fieldPrefix}.providerProductId`] = `${fieldPrefix}.providerProductId must be at most 191 characters.`;
+    fieldErrors[`${fieldPrefix}.providerProductId`] =
+      `${fieldPrefix}.providerProductId must be at most 191 characters.`;
   }
 
   const requiresClientPriceDetails = resolvedProvider !== "stripe";
@@ -456,7 +466,8 @@ function normalizeProductPricePayload(rawPrice, { resolvedProvider, fieldPrefix 
 
   const unitAmountMinor = parseOptionalNonNegativeInteger(price.unitAmountMinor);
   if (requiresClientPriceDetails && unitAmountMinor == null) {
-    fieldErrors[`${fieldPrefix}.unitAmountMinor`] = `${fieldPrefix}.unitAmountMinor must be zero or a positive integer.`;
+    fieldErrors[`${fieldPrefix}.unitAmountMinor`] =
+      `${fieldPrefix}.unitAmountMinor must be zero or a positive integer.`;
   }
 
   const rawInterval = normalizeOptionalString(price.interval).toLowerCase();
@@ -469,7 +480,8 @@ function normalizeProductPricePayload(rawPrice, { resolvedProvider, fieldPrefix 
   if (Object.hasOwn(price, "intervalCount") && price.intervalCount !== "" && price.intervalCount != null) {
     intervalCount = parseOptionalPositiveInteger(price.intervalCount);
     if (intervalCount == null) {
-      fieldErrors[`${fieldPrefix}.intervalCount`] = `${fieldPrefix}.intervalCount must be a positive integer when provided.`;
+      fieldErrors[`${fieldPrefix}.intervalCount`] =
+        `${fieldPrefix}.intervalCount must be a positive integer when provided.`;
     }
   } else if (rawInterval) {
     intervalCount = 1;
@@ -603,8 +615,7 @@ function normalizeBillingCatalogPlanUpdatePayload(payload = {}, { activeBillingP
   });
 
   if (Object.keys(patch).length < 1 && !entitlementsProvided) {
-    fieldErrors.request =
-      "At least one of name, description, isActive, corePrice, or entitlements must be provided.";
+    fieldErrors.request = "At least one of name, description, isActive, corePrice, or entitlements must be provided.";
   }
 
   if (Object.keys(fieldErrors).length > 0) {

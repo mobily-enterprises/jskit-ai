@@ -10,7 +10,11 @@ function summarizeFieldErrors(fieldErrors) {
 }
 
 function mapChatCodeToMessage(errorCode) {
-  switch (String(errorCode || "").trim().toUpperCase()) {
+  switch (
+    String(errorCode || "")
+      .trim()
+      .toUpperCase()
+  ) {
     case "CHAT_THREAD_NOT_FOUND":
       return "Thread not found or unavailable.";
     case "CHAT_SURFACE_INVALID":
@@ -35,7 +39,9 @@ function mapChatCodeToMessage(errorCode) {
 }
 
 function mapChatError(error, fallbackMessage = "Unable to process chat request.") {
-  const errorCode = String(error?.details?.code || "").trim().toUpperCase();
+  const errorCode = String(error?.details?.code || "")
+    .trim()
+    .toUpperCase();
   const fieldSummary = summarizeFieldErrors(error?.fieldErrors);
   const codeMessage = mapChatCodeToMessage(errorCode);
   const message = fieldSummary || codeMessage || String(error?.message || fallbackMessage);

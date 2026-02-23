@@ -27,14 +27,7 @@ function normalizeDeletedRowCount(value) {
   return parsed;
 }
 
-async function deleteRowsOlderThan({
-  client,
-  tableName,
-  dateColumn,
-  cutoffDate,
-  batchSize,
-  applyFilters
-}) {
+async function deleteRowsOlderThan({ client, tableName, dateColumn, cutoffDate, batchSize, applyFilters }) {
   const normalizedCutoff = toMysqlDateTimeUtc(normalizeCutoffDateOrThrow(cutoffDate));
   const normalizedBatchSize = normalizeBatchSize(batchSize);
   let query = client(tableName).where(dateColumn, "<", normalizedCutoff);
@@ -47,9 +40,7 @@ async function deleteRowsOlderThan({
     return 0;
   }
 
-  const numericIds = ids
-    .map((entry) => Number(entry.id))
-    .filter((id) => Number.isInteger(id) && id > 0);
+  const numericIds = ids.map((entry) => Number(entry.id)).filter((id) => Number.isInteger(id) && id > 0);
   if (numericIds.length < 1) {
     return 0;
   }

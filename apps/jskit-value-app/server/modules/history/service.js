@@ -19,7 +19,9 @@ function mapSchemaErrorsToFieldErrors(schemaErrors) {
 }
 
 function buildHistoryEntryFromResult(result) {
-  const operation = String(result?.DEG2RAD_operation || "DEG2RAD").trim().toUpperCase();
+  const operation = String(result?.DEG2RAD_operation || "DEG2RAD")
+    .trim()
+    .toUpperCase();
   const formula = String(result?.DEG2RAD_formula || "DEG2RAD(x) = x * PI / 180").trim();
 
   return {

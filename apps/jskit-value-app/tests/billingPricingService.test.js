@@ -36,7 +36,10 @@ test("billing pricing service resolves one checkout price from plan core mapping
   });
 
   assert.equal(resolved.basePrice.providerPriceId, "price_pro_monthly");
-  assert.deepEqual(resolved.lineItemPrices.map((row) => row.providerPriceId), ["price_pro_monthly"]);
+  assert.deepEqual(
+    resolved.lineItemPrices.map((row) => row.providerPriceId),
+    ["price_pro_monthly"]
+  );
 });
 
 test("billing pricing service resolves phase1 sellable price from stored plan core mapping", async () => {

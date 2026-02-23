@@ -231,9 +231,12 @@ describe("ai api stream client", () => {
     const onEvent = vi.fn();
 
     global.fetch.mockResolvedValueOnce(
-      createNdjsonResponse(['{"type":"assistant_delta","delta":"He"}\n', '{"type":"assistant_delta","delta":"llo"}\n{"type":"done"}\n'], {
-        contentType: "text/plain; charset=utf-8"
-      })
+      createNdjsonResponse(
+        ['{"type":"assistant_delta","delta":"He"}\n', '{"type":"assistant_delta","delta":"llo"}\n{"type":"done"}\n'],
+        {
+          contentType: "text/plain; charset=utf-8"
+        }
+      )
     );
 
     await __testables.requestStream(

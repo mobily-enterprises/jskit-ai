@@ -55,10 +55,12 @@ exports.up = async function up(knex) {
   }
 
   if (existing.is_active !== 1) {
-    await knex("billing_plans").where({ id: existing.id }).update({
-      is_active: 1,
-      updated_at: knex.raw("UTC_TIMESTAMP(3)")
-    });
+    await knex("billing_plans")
+      .where({ id: existing.id })
+      .update({
+        is_active: 1,
+        updated_at: knex.raw("UTC_TIMESTAMP(3)")
+      });
   }
 };
 

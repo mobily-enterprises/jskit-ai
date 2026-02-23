@@ -72,7 +72,8 @@ function resolveDefaultPaymentMethodId(customer) {
 function resolvePrimarySubscriptionItemId(subscription) {
   const items = Array.isArray(subscription?.items?.data) ? subscription.items.data : [];
   const activeItem =
-    items.find((item) => item && !item.deleted && String(item?.price?.type || "recurring").trim() !== "one_time") || null;
+    items.find((item) => item && !item.deleted && String(item?.price?.type || "recurring").trim() !== "one_time") ||
+    null;
   const fallback = activeItem || items[0] || null;
   const itemId = String(fallback?.id || "").trim();
   return itemId || null;

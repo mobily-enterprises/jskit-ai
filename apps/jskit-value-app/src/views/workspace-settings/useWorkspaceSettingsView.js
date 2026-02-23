@@ -94,7 +94,9 @@ export function useWorkspaceSettingsView(options = {}) {
       return `id:${workspaceId}`;
     }
 
-    const workspaceSlug = String(workspaceStore.activeWorkspace?.slug || workspaceStore.activeWorkspaceSlug || "").trim();
+    const workspaceSlug = String(
+      workspaceStore.activeWorkspace?.slug || workspaceStore.activeWorkspaceSlug || ""
+    ).trim();
     if (workspaceSlug) {
       return `slug:${workspaceSlug}`;
     }

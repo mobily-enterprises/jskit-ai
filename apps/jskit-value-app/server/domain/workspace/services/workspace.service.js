@@ -3,11 +3,7 @@ import { OWNER_ROLE_ID, resolveRolePermissions } from "../../../lib/rbacManifest
 import { normalizeSurfaceId, resolveSurfaceById } from "../../../surfaces/index.js";
 import { normalizeEmail } from "../../../../shared/auth/utils.js";
 import { isMysqlDuplicateEntryError } from "../../../lib/primitives/mysqlErrors.js";
-import {
-  toSlugPart,
-  buildWorkspaceName,
-  buildWorkspaceBaseSlug
-} from "../policies/workspaceNaming.js";
+import { toSlugPart, buildWorkspaceName, buildWorkspaceBaseSlug } from "../policies/workspaceNaming.js";
 import {
   normalizeWorkspaceColor,
   mapWorkspaceMembershipSummary,
@@ -182,7 +178,9 @@ function createService({
       }
     }
 
-    const missingWorkspaceIds = unresolvedWorkspaceIds.filter((workspaceId) => !workspaceSettingsCache.has(workspaceId));
+    const missingWorkspaceIds = unresolvedWorkspaceIds.filter(
+      (workspaceId) => !workspaceSettingsCache.has(workspaceId)
+    );
     if (missingWorkspaceIds.length < 1) {
       return;
     }

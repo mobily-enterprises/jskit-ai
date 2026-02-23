@@ -84,7 +84,9 @@ function createSchema({
     {
       clientMessageId: Type.String({ minLength: 1, maxLength: 128 }),
       text: Type.Optional(Type.String({ maxLength: messageMaxChars })),
-      attachmentIds: Type.Optional(Type.Array(attachmentId, { maxItems: Math.max(1, Number(attachmentsMaxFilesPerMessage) || 5) })),
+      attachmentIds: Type.Optional(
+        Type.Array(attachmentId, { maxItems: Math.max(1, Number(attachmentsMaxFilesPerMessage) || 5) })
+      ),
       replyToMessageId: Type.Optional(messageId),
       metadata: Type.Optional(Type.Object({}, { additionalProperties: true }))
     },

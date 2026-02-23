@@ -106,11 +106,13 @@ function createTombstonesDbStub() {
         return Promise.resolve(row ? { ...row } : undefined);
       },
       insert(payload) {
-        const existing = rows.find((entry) => matches(entry, {
-          thread_id: payload.thread_id,
-          sender_user_id: payload.sender_user_id,
-          client_message_id: payload.client_message_id
-        }));
+        const existing = rows.find((entry) =>
+          matches(entry, {
+            thread_id: payload.thread_id,
+            sender_user_id: payload.sender_user_id,
+            client_message_id: payload.client_message_id
+          })
+        );
         if (existing) {
           const error = new Error("duplicate");
           error.code = "ER_DUP_ENTRY";

@@ -4,7 +4,9 @@ const MAX_LABEL_VALUE_LENGTH = 160;
 const MAX_ROUTE_LABEL_LENGTH = 240;
 
 function sanitizeLabelValue(value, { fallback = "unknown", maxLength = MAX_LABEL_VALUE_LENGTH } = {}) {
-  const normalized = String(value ?? "").trim().replace(/\s+/g, " ");
+  const normalized = String(value ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
   if (!normalized) {
     return fallback;
   }
@@ -153,7 +155,9 @@ class HistogramMetric {
         lines.push(`${this.name}_bucket${formatMetricLabels(labels)} ${formatMetricNumber(entry.bucketCounts[index])}`);
       }
 
-      lines.push(`${this.name}_bucket${formatMetricLabels({ ...entry.labels, le: "+Inf" })} ${formatMetricNumber(entry.count)}`);
+      lines.push(
+        `${this.name}_bucket${formatMetricLabels({ ...entry.labels, le: "+Inf" })} ${formatMetricNumber(entry.count)}`
+      );
       lines.push(`${this.name}_sum${formatMetricLabels(entry.labels)} ${formatMetricNumber(entry.sum)}`);
       lines.push(`${this.name}_count${formatMetricLabels(entry.labels)} ${formatMetricNumber(entry.count)}`);
     }

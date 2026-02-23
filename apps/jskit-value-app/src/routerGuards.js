@@ -179,7 +179,8 @@ function createSurfaceRouteGuards(stores, options) {
     }
 
     const { assistantEnabled, assistantRequiredPermission } = resolveAssistantAccessPolicy();
-    const hasAssistantPermission = !assistantRequiredPermission || stores.workspaceStore.can(assistantRequiredPermission);
+    const hasAssistantPermission =
+      !assistantRequiredPermission || stores.workspaceStore.can(assistantRequiredPermission);
 
     if (assistantEnabled && hasAssistantPermission) {
       return;

@@ -85,7 +85,9 @@ function applyListFilters(query, filters = {}) {
     query.where("c.created_by_user_id", actorUserId);
   }
 
-  const status = String(filters.status || "").trim().toLowerCase();
+  const status = String(filters.status || "")
+    .trim()
+    .toLowerCase();
   if (status) {
     query.where("c.status", status);
   }
@@ -114,8 +116,14 @@ function createConversationsRepository(dbClient) {
       workspace_id: parsePositiveInteger(payload?.workspaceId),
       created_by_user_id: parsePositiveInteger(payload?.createdByUserId),
       title: String(payload?.title || "New conversation").trim() || "New conversation",
-      status: String(payload?.status || "active").trim().toLowerCase() || "active",
-      transcript_mode: String(payload?.transcriptMode || "standard").trim().toLowerCase() || "standard",
+      status:
+        String(payload?.status || "active")
+          .trim()
+          .toLowerCase() || "active",
+      transcript_mode:
+        String(payload?.transcriptMode || "standard")
+          .trim()
+          .toLowerCase() || "standard",
       provider: String(payload?.provider || "").trim(),
       model: String(payload?.model || "").trim(),
       started_at: toMysqlDateTimeUtc(startedAt),
@@ -216,10 +224,16 @@ function createConversationsRepository(dbClient) {
       dbPatch.title = String(patch.title || "").trim() || "New conversation";
     }
     if (Object.hasOwn(patch, "status")) {
-      dbPatch.status = String(patch.status || "").trim().toLowerCase() || "active";
+      dbPatch.status =
+        String(patch.status || "")
+          .trim()
+          .toLowerCase() || "active";
     }
     if (Object.hasOwn(patch, "transcriptMode")) {
-      dbPatch.transcript_mode = String(patch.transcriptMode || "").trim().toLowerCase() || "standard";
+      dbPatch.transcript_mode =
+        String(patch.transcriptMode || "")
+          .trim()
+          .toLowerCase() || "standard";
     }
     if (Object.hasOwn(patch, "provider")) {
       dbPatch.provider = String(patch.provider || "").trim();

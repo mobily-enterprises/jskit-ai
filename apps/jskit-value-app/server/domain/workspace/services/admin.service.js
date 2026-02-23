@@ -421,12 +421,7 @@ function createService({
     };
   }
 
-  async function resolveInviteResponse({
-    invite,
-    normalizedDecision,
-    userId,
-    transactionOptions
-  }) {
+  async function resolveInviteResponse({ invite, normalizedDecision, userId, transactionOptions }) {
     if (normalizedDecision === "refuse") {
       await workspaceInvitesRepository.revokeById(invite.id, transactionOptions);
       return {
@@ -450,7 +445,9 @@ function createService({
       await userSettingsRepository.updateLastActiveWorkspaceId(userId, invite.workspaceId, transactionOptions);
     }
 
-    const workspace = invite.workspace ? await workspacesRepository.findById(invite.workspace.id, transactionOptions) : null;
+    const workspace = invite.workspace
+      ? await workspacesRepository.findById(invite.workspace.id, transactionOptions)
+      : null;
 
     return {
       ok: true,

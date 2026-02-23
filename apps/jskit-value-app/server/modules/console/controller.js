@@ -85,7 +85,7 @@ function createController({ consoleService, aiTranscriptsService = null, auditSe
           roleId
         }),
       shared: () => ({
-        targetUserId: parsePositiveInteger(memberUserId),
+        targetUserId: parsePositiveInteger(memberUserId)
       }),
       metadata: () => ({
         roleId: normalizeText(roleId)
@@ -156,7 +156,7 @@ function createController({ consoleService, aiTranscriptsService = null, auditSe
           decision: payload.decision
         }),
       shared: () => ({
-        targetUserId: parsePositiveInteger(request.user?.id),
+        targetUserId: parsePositiveInteger(request.user?.id)
       }),
       metadata: () => ({
         decision: normalizeDecision(payload.decision)

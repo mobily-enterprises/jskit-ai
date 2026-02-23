@@ -122,7 +122,7 @@ Preferred model:
 
 This is the recommended package set for your current code patterns.
 
-## 6.1 `@jskit/surface-routing`
+## 6.1 `@jskit-ai/surface-routing`
 
 Purpose:
 
@@ -865,7 +865,7 @@ Exit criteria:
 
 Extract:
 
-1. `@jskit/surface-routing`
+1. `@jskit-ai/surface-routing`
 2. `@jskit/realtime-contracts`
 3. `@jskit/rbac-core`
 
@@ -1002,7 +1002,7 @@ If any item is false, keep code app-local for now.
 
 ## 23. Suggested Initial Package Creation Order
 
-1. `@jskit/surface-routing`
+1. `@jskit-ai/surface-routing`
 2. `@jskit/realtime-contracts`
 3. `@jskit/rbac-core`
 4. `@jskit/http-client-runtime`

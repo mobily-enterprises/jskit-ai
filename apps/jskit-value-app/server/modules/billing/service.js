@@ -10,10 +10,7 @@ import {
 import { toCanonicalJson, toSha256Hex } from "./canonicalJson.js";
 import { normalizeBillingPath, normalizePortalPath } from "./pathPolicy.js";
 import { resolveCapabilityLimitConfig } from "./appCapabilityLimits.js";
-import {
-  PROVIDER_OUTCOME_ACTIONS,
-  resolveProviderErrorOutcome
-} from "./providerOutcomePolicy.js";
+import { PROVIDER_OUTCOME_ACTIONS, resolveProviderErrorOutcome } from "./providerOutcomePolicy.js";
 import { isBillingProviderError } from "./providers/shared/providerError.contract.js";
 import { normalizeProviderSubscriptionStatus, parseUnixEpochSeconds } from "./webhookProjection.utils.js";
 
@@ -135,8 +132,7 @@ function normalizePaymentLinkLineItems(items, { defaultCurrency }) {
       throw new AppError(400, "Validation failed.", {
         details: {
           fieldErrors: {
-            [`${lineItemFieldPrefix}.amountMinor`]:
-              `${lineItemFieldPrefix}.amountMinor must be an integer between 1 and 99,999,999.`
+            [`${lineItemFieldPrefix}.amountMinor`]: `${lineItemFieldPrefix}.amountMinor must be an integer between 1 and 99,999,999.`
           }
         }
       });
@@ -156,8 +152,7 @@ function normalizePaymentLinkLineItems(items, { defaultCurrency }) {
       throw new AppError(400, "Validation failed.", {
         details: {
           fieldErrors: {
-            [`${lineItemFieldPrefix}.currency`]:
-              `${lineItemFieldPrefix}.currency must match deployment billing currency (${requiredCurrency}).`
+            [`${lineItemFieldPrefix}.currency`]: `${lineItemFieldPrefix}.currency must match deployment billing currency (${requiredCurrency}).`
           }
         }
       });
@@ -330,7 +325,6 @@ function normalizeUsageAmount(value) {
   return integer > 0 ? integer : null;
 }
 
-
 function normalizePaymentMethod(method, defaultPaymentMethodId) {
   const paymentMethod = method && typeof method === "object" ? method : {};
   const card = paymentMethod.card && typeof paymentMethod.card === "object" ? paymentMethod.card : {};
@@ -354,7 +348,9 @@ function normalizePaymentMethod(method, defaultPaymentMethodId) {
 }
 
 function toTitleCase(value) {
-  const normalized = String(value || "").trim().toLowerCase();
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
   if (!normalized) {
     return "";
   }
@@ -409,7 +405,9 @@ function buildWorkspaceTimelineEntry(activityEvent) {
   const statusLabel = toTitleCase(status || "updated") || "Updated";
   const title = `${sourceLabel} ${statusLabel}`;
 
-  let description = event.message ? String(event.message) : `${provider} ${sourceLabel.toLowerCase()} ${statusLabel.toLowerCase()}.`;
+  let description = event.message
+    ? String(event.message)
+    : `${provider} ${sourceLabel.toLowerCase()} ${statusLabel.toLowerCase()}.`;
   if (source === "payment_method_sync" && status === "succeeded") {
     description = "Payment methods were synchronized with the billing provider.";
   }
@@ -449,7 +447,8 @@ function buildLimitExceededError({
   windowEndAt = null,
   reason = "limit_exceeded"
 }) {
-  const normalizedWindowEndAt = windowEndAt instanceof Date && Number.isFinite(windowEndAt.getTime()) ? windowEndAt : null;
+  const normalizedWindowEndAt =
+    windowEndAt instanceof Date && Number.isFinite(windowEndAt.getTime()) ? windowEndAt : null;
   const retryAfterSeconds = normalizedWindowEndAt
     ? Math.max(0, Math.ceil((normalizedWindowEndAt.getTime() - Date.now()) / 1000))
     : null;
@@ -668,7 +667,8 @@ function createService(options = {}) {
               effectivePolicy: String(template.effectivePolicy || ""),
               durationPolicy: String(template.durationPolicy || ""),
               durationDays: template.durationDays == null ? null : Number(template.durationDays),
-              metadataJson: template.metadataJson && typeof template.metadataJson === "object" ? template.metadataJson : {}
+              metadataJson:
+                template.metadataJson && typeof template.metadataJson === "object" ? template.metadataJson : {}
             },
             createdAt: template.createdAt,
             updatedAt: template.updatedAt
@@ -741,7 +741,9 @@ function createService(options = {}) {
 
   async function listActiveWorkspacePlans({ trx = null } = {}) {
     const plans = await billingRepository.listPlans(trx ? { trx } : {});
-    return plans.filter((plan) => plan && plan.isActive !== false && String(plan.appliesTo || "workspace") === "workspace");
+    return plans.filter(
+      (plan) => plan && plan.isActive !== false && String(plan.appliesTo || "workspace") === "workspace"
+    );
   }
 
   async function resolveCurrentPlanContext({ billableEntityId, now = new Date(), trx = null, forUpdate = false } = {}) {
@@ -1254,12 +1256,11 @@ function createService(options = {}) {
           upcoming.id,
           {
             status: "current",
-            periodEndAt:
-              !upcomingPeriodEndDate
-                ? null
-                : upcomingPeriodEndDate.getTime() > now.getTime()
-                  ? upcoming.periodEndAt
-                  : resolveDefaultAssignmentPeriodEndForPlan(targetPlan, now)
+            periodEndAt: !upcomingPeriodEndDate
+              ? null
+              : upcomingPeriodEndDate.getTime() > now.getTime()
+                ? upcoming.periodEndAt
+                : resolveDefaultAssignmentPeriodEndForPlan(targetPlan, now)
           },
           { trx }
         );
@@ -2009,7 +2010,10 @@ function createService(options = {}) {
     if (!Array.isArray(changedCodes) || changedCodes.length < 1) {
       return;
     }
-    if (!billingRealtimePublishService || typeof billingRealtimePublishService.publishWorkspaceBillingLimitsUpdated !== "function") {
+    if (
+      !billingRealtimePublishService ||
+      typeof billingRealtimePublishService.publishWorkspaceBillingLimitsUpdated !== "function"
+    ) {
       return;
     }
 
@@ -2161,7 +2165,9 @@ function createService(options = {}) {
         if (!entitlementDefinitionId) {
           continue;
         }
-        const definition = await billingRepository.findEntitlementDefinitionById(entitlementDefinitionId, { trx: trxHandle });
+        const definition = await billingRepository.findEntitlementDefinitionById(entitlementDefinitionId, {
+          trx: trxHandle
+        });
         if (!definition || definition.isActive === false) {
           continue;
         }
@@ -2228,9 +2234,7 @@ function createService(options = {}) {
     };
 
     const outcome =
-      trx && typeof trx === "object"
-        ? await run(trx)
-        : await billingRepository.transaction(async (tx) => run(tx));
+      trx && typeof trx === "object" ? await run(trx) : await billingRepository.transaction(async (tx) => run(tx));
 
     if (publish && outcome.changedCodes.length > 0) {
       await publishBillingLimitRealtime({
@@ -2272,18 +2276,21 @@ function createService(options = {}) {
     }
 
     const run = async (trxHandle) => {
-      const purchaseMetadata = purchaseRow.metadataJson && typeof purchaseRow.metadataJson === "object"
-        ? purchaseRow.metadataJson
-        : {};
+      const purchaseMetadata =
+        purchaseRow.metadataJson && typeof purchaseRow.metadataJson === "object" ? purchaseRow.metadataJson : {};
       const explicitProductId = toPositiveInteger(purchaseMetadata.billingProductId || purchaseMetadata.productId);
-      let product = explicitProductId ? await billingRepository.findProductById(explicitProductId, { trx: trxHandle }) : null;
+      let product = explicitProductId
+        ? await billingRepository.findProductById(explicitProductId, { trx: trxHandle })
+        : null;
       if (!product) {
         const providerPriceId = toNonEmptyString(
           purchaseMetadata.providerPriceId || purchaseMetadata.provider_price_id || purchaseMetadata.priceId
         );
         if (providerPriceId && typeof billingRepository.listProducts === "function") {
           const products = await billingRepository.listProducts({ trx: trxHandle });
-          const provider = String(purchaseRow.provider || "").trim().toLowerCase();
+          const provider = String(purchaseRow.provider || "")
+            .trim()
+            .toLowerCase();
           product =
             products.find((entry) => {
               const price = entry?.price && typeof entry.price === "object" ? entry.price : null;
@@ -2317,7 +2324,9 @@ function createService(options = {}) {
         if (!entitlementDefinitionId) {
           continue;
         }
-        const definition = await billingRepository.findEntitlementDefinitionById(entitlementDefinitionId, { trx: trxHandle });
+        const definition = await billingRepository.findEntitlementDefinitionById(entitlementDefinitionId, {
+          trx: trxHandle
+        });
         if (!definition || definition.isActive === false) {
           continue;
         }
@@ -2342,9 +2351,8 @@ function createService(options = {}) {
             sourceId: Number(purchaseRow.id),
             operationKey: toNonEmptyString(purchaseRow.operationKey) || null,
             provider: toNonEmptyString(purchaseRow.provider) || null,
-            providerEventId: toNonEmptyString(
-              purchaseMetadata.providerEventId || purchaseMetadata.provider_event_id
-            ) || null,
+            providerEventId:
+              toNonEmptyString(purchaseMetadata.providerEventId || purchaseMetadata.provider_event_id) || null,
             dedupeKey,
             metadataJson: {
               purchaseId: Number(purchaseRow.id),
@@ -2383,9 +2391,7 @@ function createService(options = {}) {
     };
 
     const outcome =
-      trx && typeof trx === "object"
-        ? await run(trx)
-        : await billingRepository.transaction(async (tx) => run(tx));
+      trx && typeof trx === "object" ? await run(trx) : await billingRepository.transaction(async (tx) => run(tx));
 
     if (publish && outcome.changedCodes.length > 0) {
       await publishBillingLimitRealtime({
@@ -2498,9 +2504,7 @@ function createService(options = {}) {
     };
 
     const outcome =
-      trx && typeof trx === "object"
-        ? await run(trx)
-        : await billingRepository.transaction(async (tx) => run(tx));
+      trx && typeof trx === "object" ? await run(trx) : await billingRepository.transaction(async (tx) => run(tx));
 
     if (publish && outcome.changedCodes.length > 0) {
       await publishBillingLimitRealtime({
@@ -2626,7 +2630,7 @@ function createService(options = {}) {
 
     const capabilityConfig = resolveCapabilityLimitConfig(capability);
     const resolvedLimitationCode = toNonEmptyString(limitationCode || capabilityConfig?.limitationCode);
-    const normalizedAmount = normalizeUsageAmount(amount == null ? capabilityConfig?.usageAmount ?? 1 : amount);
+    const normalizedAmount = normalizeUsageAmount(amount == null ? (capabilityConfig?.usageAmount ?? 1) : amount);
     if (!normalizedAmount) {
       throw new AppError(400, "Usage amount must be a positive integer.");
     }
@@ -2801,12 +2805,15 @@ function createService(options = {}) {
     }
 
     try {
-      const { paymentMethods: providerPaymentMethods, defaultPaymentMethodId, hasMore = false } =
-        await providerAdapter.listCustomerPaymentMethods({
-          customerId: providerCustomerId,
-          type: "card",
-          limit: 100
-        });
+      const {
+        paymentMethods: providerPaymentMethods,
+        defaultPaymentMethodId,
+        hasMore = false
+      } = await providerAdapter.listCustomerPaymentMethods({
+        customerId: providerCustomerId,
+        type: "card",
+        limit: 100
+      });
 
       const normalizedMethods = (Array.isArray(providerPaymentMethods) ? providerPaymentMethods : [])
         .map((entry) => normalizePaymentMethod(entry, defaultPaymentMethodId))
@@ -2998,10 +3005,7 @@ function createService(options = {}) {
         }
       }
 
-      throw mapFailureCodeToError(
-        BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
-        "Billing portal request is in progress."
-      );
+      throw mapFailureCodeToError(BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS, "Billing portal request is in progress.");
     }
 
     const recoveryRow = leased.row;
@@ -3024,8 +3028,7 @@ function createService(options = {}) {
       );
     }
 
-    const replayWindowElapsed =
-      now.getTime() >= replayDeadlineAt.getTime();
+    const replayWindowElapsed = now.getTime() >= replayDeadlineAt.getTime();
 
     if (replayWindowElapsed) {
       await billingIdempotencyService.markExpired({
@@ -3111,17 +3114,11 @@ function createService(options = {}) {
           failureReason: String(error?.message || "Provider billing portal session recovery replay failed.")
         });
 
-        throw mapFailureCodeToError(
-          providerOutcome.failureCode,
-          "Provider rejected billing portal recovery replay."
-        );
+        throw mapFailureCodeToError(providerOutcome.failureCode, "Provider rejected billing portal recovery replay.");
       }
 
       if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.IN_PROGRESS) {
-        throw mapFailureCodeToError(
-          providerOutcome.failureCode,
-          "Billing portal recovery is in progress."
-        );
+        throw mapFailureCodeToError(providerOutcome.failureCode, "Billing portal recovery is in progress.");
       }
 
       throw error;
@@ -3174,7 +3171,10 @@ function createService(options = {}) {
     }
 
     if (claim.type === "replay_terminal") {
-      throw mapFailureCodeToError(claim.row.failureCode, claim.row.failureReason || "Billing portal request previously failed.");
+      throw mapFailureCodeToError(
+        claim.row.failureCode,
+        claim.row.failureReason || "Billing portal request previously failed."
+      );
     }
 
     if (claim.type === "recover_pending") {
@@ -3210,7 +3210,10 @@ function createService(options = {}) {
         throw error;
       }
 
-      throw mapFailureCodeToError(BILLING_FAILURE_CODES.PORTAL_SUBSCRIPTION_REQUIRED, "No active subscription for portal.");
+      throw mapFailureCodeToError(
+        BILLING_FAILURE_CODES.PORTAL_SUBSCRIPTION_REQUIRED,
+        "No active subscription for portal."
+      );
     }
 
     const customer = await billingRepository.findCustomerByEntityProvider({
@@ -3305,17 +3308,11 @@ function createService(options = {}) {
           throw markFailedError;
         }
 
-        throw mapFailureCodeToError(
-          providerOutcome.failureCode,
-          "Failed to create billing portal session."
-        );
+        throw mapFailureCodeToError(providerOutcome.failureCode, "Failed to create billing portal session.");
       }
 
       if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.IN_PROGRESS) {
-        throw mapFailureCodeToError(
-          providerOutcome.failureCode,
-          "Billing portal request is in progress."
-        );
+        throw mapFailureCodeToError(providerOutcome.failureCode, "Billing portal request is in progress.");
       }
 
       throw error;
@@ -3423,8 +3420,7 @@ function createService(options = {}) {
         throw new AppError(400, "Validation failed.", {
           details: {
             fieldErrors: {
-              [`lineItems[${lineItem.index}].priceId`]:
-                "Recurring prices are not allowed in one-off purchases."
+              [`lineItems[${lineItem.index}].priceId`]: "Recurring prices are not allowed in one-off purchases."
             }
           }
         });
@@ -3696,10 +3692,7 @@ function createService(options = {}) {
         }
 
         if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.IN_PROGRESS) {
-          throw mapFailureCodeToError(
-            providerOutcome.failureCode,
-            "Billing payment-link recovery is in progress."
-          );
+          throw mapFailureCodeToError(providerOutcome.failureCode, "Billing payment-link recovery is in progress.");
         }
 
         await billingIdempotencyService.markFailed({
@@ -3764,10 +3757,7 @@ function createService(options = {}) {
       }
 
       if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.IN_PROGRESS) {
-        throw mapFailureCodeToError(
-          providerOutcome.failureCode,
-          "Billing payment-link recovery is in progress."
-        );
+        throw mapFailureCodeToError(providerOutcome.failureCode, "Billing payment-link recovery is in progress.");
       }
 
       throw error;
@@ -3840,7 +3830,10 @@ function createService(options = {}) {
     }
 
     if (claim.type === "in_progress_same_key" || claim.type === "checkout_in_progress_other_key") {
-      throw mapFailureCodeToError(BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS, "Billing payment-link request is in progress.");
+      throw mapFailureCodeToError(
+        BILLING_FAILURE_CODES.REQUEST_IN_PROGRESS,
+        "Billing payment-link request is in progress."
+      );
     }
 
     if (claim.type !== "claimed" || !claim.row) {
@@ -3943,10 +3936,7 @@ function createService(options = {}) {
       }
 
       if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.IN_PROGRESS) {
-        throw mapFailureCodeToError(
-          providerOutcome.failureCode,
-          "Billing payment-link request is in progress."
-        );
+        throw mapFailureCodeToError(providerOutcome.failureCode, "Billing payment-link request is in progress.");
       }
 
       try {
@@ -4003,17 +3993,11 @@ function createService(options = {}) {
           throw markFailedError;
         }
 
-        throw mapFailureCodeToError(
-          providerOutcome.failureCode,
-          "Failed to create billing payment link."
-        );
+        throw mapFailureCodeToError(providerOutcome.failureCode, "Failed to create billing payment link.");
       }
 
       if (providerOutcome.action === PROVIDER_OUTCOME_ACTIONS.IN_PROGRESS) {
-        throw mapFailureCodeToError(
-          providerOutcome.failureCode,
-          "Billing payment-link request is in progress."
-        );
+        throw mapFailureCodeToError(providerOutcome.failureCode, "Billing payment-link request is in progress.");
       }
 
       throw error;

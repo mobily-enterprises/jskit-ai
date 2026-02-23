@@ -88,7 +88,9 @@
                   {{ entry.status }}
                 </v-chip>
                 <span class="text-caption text-medium-emphasis">
-                  ws={{ entry.workspaceSlug || "-" }} entity={{ entry.billableEntityId || "-" }} user={{ entry.ownerUserId || "-" }}
+                  ws={{ entry.workspaceSlug || "-" }} entity={{ entry.billableEntityId || "-" }} user={{
+                    entry.ownerUserId || "-"
+                  }}
                 </span>
               </div>
             </v-expansion-panel-title>

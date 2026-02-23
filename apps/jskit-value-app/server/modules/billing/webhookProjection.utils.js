@@ -244,7 +244,10 @@ function buildCheckoutResponseJson({ session, billableEntityId, operationKey, pr
   const expiresAtDate = parseUnixEpochSeconds(session?.expires_at);
 
   return {
-    provider: String(provider || BILLING_DEFAULT_PROVIDER).trim().toLowerCase() || BILLING_DEFAULT_PROVIDER,
+    provider:
+      String(provider || BILLING_DEFAULT_PROVIDER)
+        .trim()
+        .toLowerCase() || BILLING_DEFAULT_PROVIDER,
     billableEntityId: Number(billableEntityId),
     operationKey: String(operationKey || ""),
     checkoutSession: {

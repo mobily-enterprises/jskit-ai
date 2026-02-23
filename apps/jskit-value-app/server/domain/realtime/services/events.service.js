@@ -152,7 +152,9 @@ function createService() {
   }
 
   function publishProjectEvent({ operation, workspace, project, commandId, sourceClientId, actorUserId }) {
-    const normalizedOperation = String(operation || "").trim().toLowerCase();
+    const normalizedOperation = String(operation || "")
+      .trim()
+      .toLowerCase();
     const eventType =
       normalizedOperation === "created"
         ? REALTIME_EVENT_TYPES.WORKSPACE_PROJECT_CREATED

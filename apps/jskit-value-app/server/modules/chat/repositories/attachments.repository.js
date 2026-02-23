@@ -42,14 +42,20 @@ const ALLOWED_ATTACHMENT_STATUS_TRANSITIONS = {
     ATTACHMENT_STATUS.DELETED
   ]),
   [ATTACHMENT_STATUS.ATTACHED]: new Set([ATTACHMENT_STATUS.DELETED]),
-  [ATTACHMENT_STATUS.FAILED]: new Set([ATTACHMENT_STATUS.UPLOADING, ATTACHMENT_STATUS.EXPIRED, ATTACHMENT_STATUS.DELETED]),
+  [ATTACHMENT_STATUS.FAILED]: new Set([
+    ATTACHMENT_STATUS.UPLOADING,
+    ATTACHMENT_STATUS.EXPIRED,
+    ATTACHMENT_STATUS.DELETED
+  ]),
   [ATTACHMENT_STATUS.QUARANTINED]: new Set([ATTACHMENT_STATUS.DELETED]),
   [ATTACHMENT_STATUS.EXPIRED]: new Set([]),
   [ATTACHMENT_STATUS.DELETED]: new Set([])
 };
 
 function normalizeAttachmentStatus(value) {
-  const normalized = String(value || "").trim().toLowerCase();
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
   return normalized || ATTACHMENT_STATUS.RESERVED;
 }
 
@@ -141,9 +147,15 @@ function createAttachmentsRepository(dbClient) {
       uploaded_by_user_id: uploadedByUserId,
       client_attachment_id: normalizeClientKey(payload?.clientAttachmentId),
       position: parsePositiveInteger(payload?.position),
-      attachment_kind: String(payload?.attachmentKind || "").trim().toLowerCase() || "file",
+      attachment_kind:
+        String(payload?.attachmentKind || "")
+          .trim()
+          .toLowerCase() || "file",
       status: ATTACHMENT_STATUS.RESERVED,
-      storage_driver: String(payload?.storageDriver || "").trim().toLowerCase() || "fs",
+      storage_driver:
+        String(payload?.storageDriver || "")
+          .trim()
+          .toLowerCase() || "fs",
       storage_key: payload?.storageKey == null ? null : String(payload.storageKey),
       delivery_path: payload?.deliveryPath == null ? null : String(payload.deliveryPath),
       preview_storage_key: payload?.previewStorageKey == null ? null : String(payload.previewStorageKey),
@@ -274,7 +286,10 @@ function createAttachmentsRepository(dbClient) {
       dbPatch.position = parsePositiveInteger(patch.position);
     }
     if (Object.hasOwn(patch, "storageDriver")) {
-      dbPatch.storage_driver = String(patch.storageDriver || "").trim().toLowerCase() || "fs";
+      dbPatch.storage_driver =
+        String(patch.storageDriver || "")
+          .trim()
+          .toLowerCase() || "fs";
     }
     if (Object.hasOwn(patch, "storageKey")) {
       dbPatch.storage_key = patch.storageKey == null ? null : String(patch.storageKey);

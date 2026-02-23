@@ -57,7 +57,10 @@ function validateBillingConfig(config) {
   expectOneOf("billing.provider", config.provider, BILLING_PROVIDERS);
   expectString("billing.currency", config.currency);
   expectPlainObject("billing.idempotency", config.idempotency);
-  expectPositiveInteger("billing.idempotency.providerReplayWindowSeconds", config.idempotency.providerReplayWindowSeconds);
+  expectPositiveInteger(
+    "billing.idempotency.providerReplayWindowSeconds",
+    config.idempotency.providerReplayWindowSeconds
+  );
   expectPositiveInteger("billing.idempotency.pendingLeaseSeconds", config.idempotency.pendingLeaseSeconds);
   expectPlainObject("billing.checkout", config.checkout);
   expectPositiveInteger("billing.checkout.providerExpiresSeconds", config.checkout.providerExpiresSeconds);
@@ -112,7 +115,14 @@ function mergePlainObjectOverrides(baseValue, overrideValue, pathName = "config"
     }
     const nextPath = `${pathName}.${key}`;
     const baseEntry = baseValue[key];
-    if (value && typeof value === "object" && !Array.isArray(value) && baseEntry && typeof baseEntry === "object" && !Array.isArray(baseEntry)) {
+    if (
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      baseEntry &&
+      typeof baseEntry === "object" &&
+      !Array.isArray(baseEntry)
+    ) {
       output[key] = mergePlainObjectOverrides(baseEntry, value, nextPath);
       continue;
     }
@@ -150,7 +160,11 @@ function buildRepositoryConfig({ overrides = null } = {}) {
 const repositoryConfig = buildRepositoryConfig();
 
 function resolveRepositoryConfigForRuntime({ globalObject = globalThis, nodeEnv = "" } = {}) {
-  if (String(nodeEnv || "").trim().toLowerCase() !== "test") {
+  if (
+    String(nodeEnv || "")
+      .trim()
+      .toLowerCase() !== "test"
+  ) {
     return repositoryConfig;
   }
 

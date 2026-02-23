@@ -51,6 +51,7 @@
 ## 2) Data Model (MySQL-Safe, Phase 1 Strict)
 
 Nullability rule:
+
 - Any FK column with `ON DELETE SET NULL` must be nullable in schema DDL.
 
 ### 2.1 `billable_entities` (workspace-backed in Phase 1)
@@ -122,6 +123,7 @@ Note: no polymorphic entity type in Phase 1. Additional entity types are a futur
   - `is_current = 0 OR status IN ('incomplete', 'trialing', 'active', 'past_due', 'paused', 'unpaid')`
 
 Service invariant (required even if DB check support is limited):
+
 - transitions to terminal statuses must clear `is_current` in the same transaction.
 - terminal statuses in Phase 1: `canceled`, `incomplete_expired`.
 - `provider_subscription_created_at` must be populated from provider object data on first authoritative subscription write and never mutated afterward.
@@ -283,6 +285,7 @@ Outbox dedupe keys must be deterministic and namespaced per job type.
 `billing_checkout_sessions` is the source of truth for checkout-session blocking (`open`, post-completion pre-subscription windows, and unknown-outcome recovery holds), separate from request-idempotency pending state.
 
 Service invariant (required):
+
 - checkout-session state transitions are monotonic and must never regress to a more-blocking state.
 - allowed transitions:
   - `open -> completed_pending_subscription | expired | abandoned`
@@ -403,6 +406,7 @@ Service invariant (required):
 Checkout must run as a two-transaction flow to close race windows.
 
 Mandatory entity-scoped lock order (all writers):
+
 1. lock `billable_entities` row (`FOR UPDATE`)
 2. lock `billing_subscriptions` rows for that entity (`FOR UPDATE`)
 3. lock `billing_request_idempotency` row if present (`FOR UPDATE`)
@@ -414,54 +418,60 @@ Webhook event-row lock (`billing_events` where `event_type='webhook'`) is acquir
 Short fenced recovery transactions that touch both `billing_request_idempotency` and `billing_checkout_sessions` are also entity-scoped writers and must use this same lock order.
 
 Flow:
+
 1. **Tx A (claim phase)**:
-  - resolve workspace authorization
-  - lock `billable_entities` row `FOR UPDATE`
-  - lock current subscription rows for that entity `FOR UPDATE`
-  - execute idempotency `claimOrReplay` (may return replay or conflict)
-  - if claim is first-writer (not replay/conflict), lock `billing_checkout_sessions` rows for entity and enforce:
-    - transition any `status = open` rows with `expires_at + CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS <= now` to `expired` in the same transaction
-    - transition any `status = recovery_verification_pending` rows with `expires_at <= now` to `abandoned` in the same transaction
-    - no non-expired `status = open` checkout session exists (`expires_at > now - CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS`)
-    - no `status = completed_pending_subscription` checkout session exists
-    - no non-expired `status = recovery_verification_pending` checkout session exists (`expires_at > now`)
-    - else mark idempotency row `failed` and return:
-      - `409 checkout_session_open` for blocking `open` row
-      - `409 checkout_completion_pending` for blocking `completed_pending_subscription` row
-      - `409 checkout_recovery_verification_pending` for blocking `recovery_verification_pending` row
-  - verify no non-terminal `is_current = 1` subscription
-  - resolve plan and deterministic Phase 1 sellable price
-  - build and persist immutable `provider_request_params_json` + `provider_request_schema_version` + `provider_request_hash` for checkout
-  - persist `provider_sdk_name` + `provider_sdk_version` + `provider_api_version` for request provenance
-  - persist `provider_idempotency_replay_deadline_at` (Phase 1 Stripe: `created_at + 23h`)
-  - require frozen checkout params to include explicit `expires_at = provider_request_frozen_at + 24h`
-  - persist `provider_checkout_session_expires_at_upper_bound = frozenParams.expires_at` (no omission fallback)
-  - commit
+
+- resolve workspace authorization
+- lock `billable_entities` row `FOR UPDATE`
+- lock current subscription rows for that entity `FOR UPDATE`
+- execute idempotency `claimOrReplay` (may return replay or conflict)
+- if claim is first-writer (not replay/conflict), lock `billing_checkout_sessions` rows for entity and enforce:
+  - transition any `status = open` rows with `expires_at + CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS <= now` to `expired` in the same transaction
+  - transition any `status = recovery_verification_pending` rows with `expires_at <= now` to `abandoned` in the same transaction
+  - no non-expired `status = open` checkout session exists (`expires_at > now - CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS`)
+  - no `status = completed_pending_subscription` checkout session exists
+  - no non-expired `status = recovery_verification_pending` checkout session exists (`expires_at > now`)
+  - else mark idempotency row `failed` and return:
+    - `409 checkout_session_open` for blocking `open` row
+    - `409 checkout_completion_pending` for blocking `completed_pending_subscription` row
+    - `409 checkout_recovery_verification_pending` for blocking `recovery_verification_pending` row
+- verify no non-terminal `is_current = 1` subscription
+- resolve plan and deterministic Phase 1 sellable price
+- build and persist immutable `provider_request_params_json` + `provider_request_schema_version` + `provider_request_hash` for checkout
+- persist `provider_sdk_name` + `provider_sdk_version` + `provider_api_version` for request provenance
+- persist `provider_idempotency_replay_deadline_at` (Phase 1 Stripe: `created_at + 23h`)
+- require frozen checkout params to include explicit `expires_at = provider_request_frozen_at + 24h`
+- persist `provider_checkout_session_expires_at_upper_bound = frozenParams.expires_at` (no omission fallback)
+- commit
+
 2. **Provider call (outside DB tx)**:
-  - call `stripe.checkout.sessions.create(frozenParams, { idempotencyKey: provider_idempotency_key })`
-  - include `operation_key`, `billable_entity_id`, and plan code/version in provider metadata
-  - if provider result is indeterminate (timeout/reset/5xx/429 without definitive response), keep idempotency row `pending` and return `409 request_in_progress` (same key replay) / `409 checkout_in_progress` (different key) until recovery resolves
-  - if provider returns deterministic non-retryable rejection, run short fenced transaction to mark idempotency `failed` with `failure_code = checkout_provider_error`, persist provider error context, and return `502 checkout_provider_error`
+
+- call `stripe.checkout.sessions.create(frozenParams, { idempotencyKey: provider_idempotency_key })`
+- include `operation_key`, `billable_entity_id`, and plan code/version in provider metadata
+- if provider result is indeterminate (timeout/reset/5xx/429 without definitive response), keep idempotency row `pending` and return `409 request_in_progress` (same key replay) / `409 checkout_in_progress` (different key) until recovery resolves
+- if provider returns deterministic non-retryable rejection, run short fenced transaction to mark idempotency `failed` with `failure_code = checkout_provider_error`, persist provider error context, and return `502 checkout_provider_error`
+
 3. **Tx B (finalize phase)**:
-  - lock `billable_entities` row `FOR UPDATE`
-  - lock current subscription rows `FOR UPDATE`
-  - lock idempotency row `FOR UPDATE`
-  - lock `billing_checkout_sessions` rows for entity `FOR UPDATE`
-  - assert expected idempotency `lease_version` before final mutation
-  - re-check that no non-terminal `is_current = 1` subscription was created concurrently
-  - if concurrent subscription now exists:
-    - mark idempotency row `failed` with `failure_code = subscription_exists_use_portal`
-    - persist or upsert checkout-session row as `abandoned` for audit/correlation
-    - enqueue outbox job `expire_checkout_session` (if provider supports expiry API) using deterministic dedupe key
-    - return `409 subscription_exists_use_portal`
-  - persist provider session/response
-  - upsert `billing_checkout_sessions` row from provider session state:
-    - provider `open` -> local `open`
-    - provider `complete` -> local `completed_pending_subscription`
-    - provider `expired` -> local `expired`
-    - persist `operation_key`, `provider_customer_id`, and session correlation metadata
-  - set idempotency status `succeeded`
-  - commit
+
+- lock `billable_entities` row `FOR UPDATE`
+- lock current subscription rows `FOR UPDATE`
+- lock idempotency row `FOR UPDATE`
+- lock `billing_checkout_sessions` rows for entity `FOR UPDATE`
+- assert expected idempotency `lease_version` before final mutation
+- re-check that no non-terminal `is_current = 1` subscription was created concurrently
+- if concurrent subscription now exists:
+  - mark idempotency row `failed` with `failure_code = subscription_exists_use_portal`
+  - persist or upsert checkout-session row as `abandoned` for audit/correlation
+  - enqueue outbox job `expire_checkout_session` (if provider supports expiry API) using deterministic dedupe key
+  - return `409 subscription_exists_use_portal`
+- persist provider session/response
+- upsert `billing_checkout_sessions` row from provider session state:
+  - provider `open` -> local `open`
+  - provider `complete` -> local `completed_pending_subscription`
+  - provider `expired` -> local `expired`
+  - persist `operation_key`, `provider_customer_id`, and session correlation metadata
+- set idempotency status `succeeded`
+- commit
 
 If process crashes between provider call and Tx B, recovery logic in Section 3 resolves via deterministic SDK replay using stored `provider_request_params_json`.
 Recovery is not allowed to mark checkout idempotency `succeeded` until the matching blocking checkout-session row has been persisted.
@@ -570,51 +580,63 @@ Recovery finalization must reacquire locks in the same entity-scoped order as Tx
 ## 6) API Contracts
 
 1. `GET /api/billing/plans`
-  - auth: required
-  - workspace policy: optional (selector-first via `x-workspace-slug` or `x-billable-entity-id`)
+
+- auth: required
+- workspace policy: optional (selector-first via `x-workspace-slug` or `x-billable-entity-id`)
+
 2. `GET /api/billing/subscription`
-  - auth: required
-  - workspace policy: optional (selector-first via `x-workspace-slug` or `x-billable-entity-id`)
+
+- auth: required
+- workspace policy: optional (selector-first via `x-workspace-slug` or `x-billable-entity-id`)
+
 3. `POST /api/billing/checkout`
-  - auth: required
-  - workspace policy: optional (selector-first via `x-workspace-slug` or `x-billable-entity-id`)
-  - write authorization is resolved in billing policy service:
-    - workspace entities require `workspace.billing.manage`
-    - owner-scoped user entities require caller user id == entity owner user id
-  - requires `Idempotency-Key`
-  - response behavior:
-    - success: created session payload or deterministic replay payload
-    - `409 subscription_exists_use_portal` if current subscription exists (including concurrent-create detection)
-    - `409 checkout_session_open` if a non-expired open checkout session already exists for the entity (return existing `provider_checkout_session_id`/`checkout_url` when safe)
-    - `409 checkout_completion_pending` if a checkout session already completed but authoritative subscription projection is still pending
-    - `409 checkout_recovery_verification_pending` if checkout is temporarily blocked because prior recovery outcome is still unknown (for example replay-window elapsed before conservative session-risk horizon or Stripe SDK/API provenance mismatch)
-    - `409 checkout_in_progress` if another key has checkout `pending` for entity
-    - `409 request_in_progress` if same key is still `pending`
-    - `409 checkout_recovery_window_elapsed` if pending recovery can no longer safely replay provider create because the provider idempotency replay window elapsed
-    - `409 checkout_replay_provenance_mismatch` if pending recovery cannot safely replay because runtime Stripe SDK/API provenance is incompatible with the frozen request provenance
-    - `502 checkout_provider_error` if provider create/fetch fails deterministically with non-retryable rejection
-  - error envelope contract:
-    - API code/message must be derived from canonical persisted `failure_code` values (no ad hoc remapping)
-    - if idempotency row is `failed` or `expired`, return the row's `failure_code` as the API error `code`
+
+- auth: required
+- workspace policy: optional (selector-first via `x-workspace-slug` or `x-billable-entity-id`)
+- write authorization is resolved in billing policy service:
+  - workspace entities require `workspace.billing.manage`
+  - owner-scoped user entities require caller user id == entity owner user id
+- requires `Idempotency-Key`
+- response behavior:
+  - success: created session payload or deterministic replay payload
+  - `409 subscription_exists_use_portal` if current subscription exists (including concurrent-create detection)
+  - `409 checkout_session_open` if a non-expired open checkout session already exists for the entity (return existing `provider_checkout_session_id`/`checkout_url` when safe)
+  - `409 checkout_completion_pending` if a checkout session already completed but authoritative subscription projection is still pending
+  - `409 checkout_recovery_verification_pending` if checkout is temporarily blocked because prior recovery outcome is still unknown (for example replay-window elapsed before conservative session-risk horizon or Stripe SDK/API provenance mismatch)
+  - `409 checkout_in_progress` if another key has checkout `pending` for entity
+  - `409 request_in_progress` if same key is still `pending`
+  - `409 checkout_recovery_window_elapsed` if pending recovery can no longer safely replay provider create because the provider idempotency replay window elapsed
+  - `409 checkout_replay_provenance_mismatch` if pending recovery cannot safely replay because runtime Stripe SDK/API provenance is incompatible with the frozen request provenance
+  - `502 checkout_provider_error` if provider create/fetch fails deterministically with non-retryable rejection
+- error envelope contract:
+  - API code/message must be derived from canonical persisted `failure_code` values (no ad hoc remapping)
+  - if idempotency row is `failed` or `expired`, return the row's `failure_code` as the API error `code`
+
 4. `POST /api/billing/portal`
-  - auth: required
-  - workspace policy: optional (selector-first via `x-workspace-slug` or `x-billable-entity-id`)
-  - write authorization uses the same billing policy rules as checkout
-  - requires `Idempotency-Key`
+
+- auth: required
+- workspace policy: optional (selector-first via `x-workspace-slug` or `x-billable-entity-id`)
+- write authorization uses the same billing policy rules as checkout
+- requires `Idempotency-Key`
+
 5. `POST /api/billing/payment-links`
-  - auth: required
-  - workspace policy: optional (selector-first via `x-workspace-slug` or `x-billable-entity-id`)
-  - write authorization uses the same billing policy rules as checkout
-  - requires `Idempotency-Key`
-  - supports both catalog price IDs and ad-hoc one-off amount line items
-  - one-off payment links must set provider invoice-creation options so paid one-off purchases project into `invoice projection storage`
+
+- auth: required
+- workspace policy: optional (selector-first via `x-workspace-slug` or `x-billable-entity-id`)
+- write authorization uses the same billing policy rules as checkout
+- requires `Idempotency-Key`
+- supports both catalog price IDs and ad-hoc one-off amount line items
+- one-off payment links must set provider invoice-creation options so paid one-off purchases project into `invoice projection storage`
+
 6. `POST /api/billing/webhooks/stripe`
-  - auth: public
-  - csrfProtection: false
-  - raw request bytes required
-  - enforce max payload size (for example 256KB) before signature verify/parse
+
+- auth: public
+- csrfProtection: false
+- raw request bytes required
+- enforce max payload size (for example 256KB) before signature verify/parse
 
 Path validation for `successPath`, `cancelPath`, `returnPath`:
+
 - must start with `/`
 - must not start with `//`
 - must not include protocol/host
@@ -623,6 +645,7 @@ Path validation for `successPath`, `cancelPath`, `returnPath`:
 ## 7) Webhook Processing and Raw-Body Plumbing
 
 Implementation requirements:
+
 - Register route/plugin support so webhook handler receives exact raw bytes as `Buffer`.
 - If raw bytes are unavailable, fail closed (`400`) and do not process event.
 - Signature verification must run through `stripe.webhooks.constructEvent(rawBody, signatureHeader, endpointSecret)` before JSON parsing.
@@ -636,6 +659,7 @@ Implementation requirements:
   - `invoice.payment_failed`
 
 Event ownership matrix (required):
+
 - `checkout.session.completed`:
   - authoritative for checkout-session lifecycle/correlation (`billing_checkout_sessions.status` progression, `provider_checkout_session_id`, `provider_subscription_id`, checkout metadata, customer link validation)
   - must verify and persist session ownership correlation (`operation_key`, `billable_entity_id`, `provider_customer_id`) before state mutation
@@ -653,6 +677,7 @@ Event ownership matrix (required):
   - must not directly mutate `billing_subscriptions.is_current`
 
 Processing sequence:
+
 1. verify payload size, then call `stripe.webhooks.constructEvent` with raw bytes and signature
 2. upsert/load `billing_events` (`event_type='webhook'`) by `(provider, provider_event_id)`
 3. lock event row `FOR UPDATE`
@@ -664,24 +689,30 @@ Processing sequence:
 9. enforce ordering using `provider_created_at` vs `last_provider_event_created_at` for touched aggregate(s)
 10. same-timestamp conflicts reconcile by provider object semantics; use provider fetch fallback
 11. apply aggregate state updates in transaction:
-   - for `checkout.session.completed`, upsert missing session row by `operation_key` (if Tx B never completed); if existing status is `open` or `recovery_verification_pending`, advance to `completed_pending_subscription`; if existing status is `completed_reconciled`, `expired`, or `abandoned`, keep existing status (no regression)
-   - for correlated `customer.subscription.*`, transition linked session `completed_pending_subscription -> completed_reconciled`
+
+- for `checkout.session.completed`, upsert missing session row by `operation_key` (if Tx B never completed); if existing status is `open` or `recovery_verification_pending`, advance to `completed_pending_subscription`; if existing status is `completed_reconciled`, `expired`, or `abandoned`, keep existing status (no regression)
+- for correlated `customer.subscription.*`, transition linked session `completed_pending_subscription -> completed_reconciled`
+
 12. if duplicate active subscriptions detected, choose canonical deterministically:
-   - prefer the single non-terminal row already marked `is_current = 1`
-   - otherwise choose earliest persisted `provider_subscription_created_at`
-   - if a candidate row lacks `provider_subscription_created_at`, fetch authoritative subscription object and persist it before selection
-   - tie-break with lexical `provider_subscription_id`
-   - persist `canonical_provider_subscription_id` + `selection_algorithm_version` in remediation rows
-   - enqueue cancel jobs for non-canonical active subscriptions with deterministic dedupe keys
+
+- prefer the single non-terminal row already marked `is_current = 1`
+- otherwise choose earliest persisted `provider_subscription_created_at`
+- if a candidate row lacks `provider_subscription_created_at`, fetch authoritative subscription object and persist it before selection
+- tie-break with lexical `provider_subscription_id`
+- persist `canonical_provider_subscription_id` + `selection_algorithm_version` in remediation rows
+- enqueue cancel jobs for non-canonical active subscriptions with deterministic dedupe keys
+
 13. if event implies stale/orphan checkout session, enqueue `expire_checkout_session` or cleanup/audit job
 14. mark webhook event `processed` and commit
 15. on failure, mark failed with error and return non-2xx for provider retry
 
 Important:
+
 - Do not call provider cancellation APIs inside webhook DB transaction.
 - Provider-side remediation executes asynchronously through outbox/remediation workers with dedicated idempotency keys.
 
 Phase 1 webhook-updated tables:
+
 - `billing_customers`
 - `billing_subscriptions`
 - `subscription item projection storage`
@@ -781,50 +812,53 @@ Payment methods are not synchronized in Phase 1.
 ## 11) Phases
 
 1. Phase 1 (shipping)
-  - workspace-backed billable entities with hard workspace FK
-  - plans, checkout (new subscription only), portal, subscription snapshot
-  - webhook idempotency/retry/ordering with explicit event ownership matrix + duplicate-subscription remediation enqueueing
-  - explicit Stripe status mapping (`incomplete` is non-terminal and checkout-blocking)
-  - official `stripe` Node SDK integration with explicit `apiVersion`, `maxNetworkRetries`, and `timeout`
-  - strict idempotency model with tenant scope and deterministic replay recovery
-  - provider idempotency replay-window guard (`provider_idempotency_replay_deadline_at`) to fail closed after safe replay horizon
-  - recovery replay provenance guard (`provider_api_version` exact match + Stripe SDK major-version compatibility)
-  - idempotency lease fencing (`lease_version`) to prevent stale recovery finalization
-  - provider outcome-certainty contract: indeterminate provider results stay `pending` until recovery finalizes; deterministic provider rejections map to canonical `checkout_provider_error`
-  - immutable Stripe SDK params replay guarantees (frozen `checkout.sessions.create` params snapshot + stable hash)
-  - canonical `failure_code` taxonomy with deterministic persistence-to-API error mapping
-  - one-blocking-checkout-session invariant (`open` + `completed_pending_subscription` + `recovery_verification_pending`) enforced by `billing_checkout_sessions`
-  - unknown-outcome recovery holds remain blocking until conservative checkout-session lifetime upper bound elapses (`provider_checkout_session_expires_at_upper_bound + CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS`)
-  - checkout-session local expiry safety grace (`CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS`) to avoid premature unblock near expiry boundaries
-  - monotonic checkout-session lifecycle transitions (no regression to more-blocking states)
-  - strict checkout-session correlation invariants (`operation_key`, provider/customer/subscription linkage)
-  - race-safe two-transaction checkout orchestration
-  - explicit lock ordering contract for all entity-scoped writers
-  - deterministic duplicate-subscription canonical selection using persisted `provider_subscription_created_at`
-  - scheduled provider reconciliation with run leases
-  - reconciliation/outbox/remediation fencing token enforcement
-  - immutable plan versions
-  - single deployment billing currency enforcement
-  - entitlement schema registry enforcement
-  - outbox-based external side-effect execution
+
+- workspace-backed billable entities with hard workspace FK
+- plans, checkout (new subscription only), portal, subscription snapshot
+- webhook idempotency/retry/ordering with explicit event ownership matrix + duplicate-subscription remediation enqueueing
+- explicit Stripe status mapping (`incomplete` is non-terminal and checkout-blocking)
+- official `stripe` Node SDK integration with explicit `apiVersion`, `maxNetworkRetries`, and `timeout`
+- strict idempotency model with tenant scope and deterministic replay recovery
+- provider idempotency replay-window guard (`provider_idempotency_replay_deadline_at`) to fail closed after safe replay horizon
+- recovery replay provenance guard (`provider_api_version` exact match + Stripe SDK major-version compatibility)
+- idempotency lease fencing (`lease_version`) to prevent stale recovery finalization
+- provider outcome-certainty contract: indeterminate provider results stay `pending` until recovery finalizes; deterministic provider rejections map to canonical `checkout_provider_error`
+- immutable Stripe SDK params replay guarantees (frozen `checkout.sessions.create` params snapshot + stable hash)
+- canonical `failure_code` taxonomy with deterministic persistence-to-API error mapping
+- one-blocking-checkout-session invariant (`open` + `completed_pending_subscription` + `recovery_verification_pending`) enforced by `billing_checkout_sessions`
+- unknown-outcome recovery holds remain blocking until conservative checkout-session lifetime upper bound elapses (`provider_checkout_session_expires_at_upper_bound + CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS`)
+- checkout-session local expiry safety grace (`CHECKOUT_SESSION_EXPIRES_AT_GRACE_SECONDS`) to avoid premature unblock near expiry boundaries
+- monotonic checkout-session lifecycle transitions (no regression to more-blocking states)
+- strict checkout-session correlation invariants (`operation_key`, provider/customer/subscription linkage)
+- race-safe two-transaction checkout orchestration
+- explicit lock ordering contract for all entity-scoped writers
+- deterministic duplicate-subscription canonical selection using persisted `provider_subscription_created_at`
+- scheduled provider reconciliation with run leases
+- reconciliation/outbox/remediation fencing token enforcement
+- immutable plan versions
+- single deployment billing currency enforcement
+- entitlement schema registry enforcement
+- outbox-based external side-effect execution
+
 2. Phase 2 (merged program; includes former Phase 2 + Phase 3 scope)
-  - 2.1 Enforcement foundation
-    - `billing_payment_methods` table and sync events
-    - usage counters and windowed limits
-    - clean entitlement/limitation contract for app-runtime enforcement
-  - 2.2 Billing visibility surfaces
-    - console-level technical billing event explorer across all entities/workspaces
-    - workspace-level user-friendly billing timeline/status views
-    - filter/search by workspace, user, billable entity, `operation_key`, and provider event id
-  - 2.3 Commercial model expansion
-    - metered/hybrid component enablement
-    - one-off billing flows
-  - 2.4 Entity and provider expansion
-    - optional non-workspace billable entities (schema expansion migration)
-      - add billable-entity scope fields (`entity_type`, `entity_ref`) and nullable workspace/owner linkage
-      - preserve workspace-backed compatibility while enabling owner-scoped user entities as first non-workspace type
-      - billing API routes switch to optional workspace preselection so explicit `x-billable-entity-id` selectors can authorize non-workspace entities in billing policy
-    - expanded analytics/provider parity
+
+- 2.1 Enforcement foundation
+  - `billing_payment_methods` table and sync events
+  - usage counters and windowed limits
+  - clean entitlement/limitation contract for app-runtime enforcement
+- 2.2 Billing visibility surfaces
+  - console-level technical billing event explorer across all entities/workspaces
+  - workspace-level user-friendly billing timeline/status views
+  - filter/search by workspace, user, billable entity, `operation_key`, and provider event id
+- 2.3 Commercial model expansion
+  - metered/hybrid component enablement
+  - one-off billing flows
+- 2.4 Entity and provider expansion
+  - optional non-workspace billable entities (schema expansion migration)
+    - add billable-entity scope fields (`entity_type`, `entity_ref`) and nullable workspace/owner linkage
+    - preserve workspace-backed compatibility while enabling owner-scoped user entities as first non-workspace type
+    - billing API routes switch to optional workspace preselection so explicit `x-billable-entity-id` selectors can authorize non-workspace entities in billing policy
+  - expanded analytics/provider parity
 
 ## 12) Test Requirements (Minimum)
 

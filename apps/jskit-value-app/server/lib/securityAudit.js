@@ -89,7 +89,8 @@ function buildEventPayload({ action, outcome, shared, event, metadata, context }
 }
 
 function mergeFailureMetadata(error, metadata) {
-  const normalizedMetadata = metadata && typeof metadata === "object" && !Array.isArray(metadata) ? { ...metadata } : {};
+  const normalizedMetadata =
+    metadata && typeof metadata === "object" && !Array.isArray(metadata) ? { ...metadata } : {};
   if (!Object.hasOwn(normalizedMetadata, "error")) {
     normalizedMetadata.error = buildAuditError(error);
   }

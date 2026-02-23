@@ -174,8 +174,12 @@ test("chat messages and attachments migration smoke test includes binary collati
   await messagesAndAttachmentsMigration.down(knex);
 
   const rawStatements = calls.filter((entry) => entry[0] === "raw").map((entry) => String(entry[1]));
-  assert.ok(rawStatements.some((statement) => statement.includes("chat_messages") && statement.includes("utf8mb4_bin")));
-  assert.ok(rawStatements.some((statement) => statement.includes("chat_attachments") && statement.includes("utf8mb4_bin")));
+  assert.ok(
+    rawStatements.some((statement) => statement.includes("chat_messages") && statement.includes("utf8mb4_bin"))
+  );
+  assert.ok(
+    rawStatements.some((statement) => statement.includes("chat_attachments") && statement.includes("utf8mb4_bin"))
+  );
   assert.deepEqual(calls[calls.length - 2], ["dropTableIfExists", "chat_attachments"]);
   assert.deepEqual(calls[calls.length - 1], ["dropTableIfExists", "chat_messages"]);
 });

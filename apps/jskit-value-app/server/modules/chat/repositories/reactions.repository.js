@@ -120,7 +120,10 @@ function createReactionsRepository(dbClient) {
       return 0;
     }
 
-    const row = await client("chat_message_reactions").where({ message_id: numericMessageId }).count({ total: "*" }).first();
+    const row = await client("chat_message_reactions")
+      .where({ message_id: numericMessageId })
+      .count({ total: "*" })
+      .first();
     const total = Number(Object.values(row || {})[0] || 0);
     return Number.isInteger(total) && total >= 0 ? total : 0;
   }

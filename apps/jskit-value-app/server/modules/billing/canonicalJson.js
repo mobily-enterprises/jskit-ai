@@ -39,7 +39,10 @@ function toHmacSha256Hex(secret, value) {
     throw new Error("HMAC secret is required.");
   }
 
-  return crypto.createHmac("sha256", normalizedSecret).update(String(value || "")).digest("hex");
+  return crypto
+    .createHmac("sha256", normalizedSecret)
+    .update(String(value || ""))
+    .digest("hex");
 }
 
 function safeParseJson(value, fallback = null) {

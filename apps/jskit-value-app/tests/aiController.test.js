@@ -463,9 +463,12 @@ test("ai controller returns 501 when transcripts service is not wired for list r
   const request = createRequestDouble();
   const reply = createReplyDouble();
 
-  await assert.rejects(() => controller.listConversations(request, reply), (error) => {
-    assert.equal(error.status, 501);
-    assert.equal(error.message, "AI transcripts service is not available.");
-    return true;
-  });
+  await assert.rejects(
+    () => controller.listConversations(request, reply),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.message, "AI transcripts service is not available.");
+      return true;
+    }
+  );
 });

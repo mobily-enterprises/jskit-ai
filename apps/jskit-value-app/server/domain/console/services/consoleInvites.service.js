@@ -227,4 +227,3 @@ function createConsoleInvitesService({
 }
 
 export { createConsoleInvitesService };
-

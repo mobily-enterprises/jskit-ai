@@ -32,44 +32,44 @@ function buildControllers() {
         register: noop,
         login: noop,
         requestOtpLogin: noop,
-      verifyOtpLogin: noop,
-      oauthStart: noop,
-      oauthComplete: noop,
-      requestPasswordReset: noop,
-      completePasswordRecovery: noop,
-      resetPassword: noop,
-      logout: noop,
-      session: noop
-    },
-    settings: {
-      get: noop,
-      updateProfile: noop,
-      uploadAvatar: noop,
-      deleteAvatar: noop,
-      updatePreferences: noop,
-      updateNotifications: noop,
-      updateChat: noop,
-      changePassword: noop,
-      setPasswordMethodEnabled: noop,
-      startOAuthProviderLink: noop,
-      unlinkOAuthProvider: noop,
-      logoutOtherSessions: noop
-    },
-    history: {
-      list: noop
-    },
-    communications: {
-      async sendSms(_request, reply) {
-        reply.code(200).send({
-          sent: false,
-          reason: "not_configured",
-          provider: "none",
-          messageId: null
-        });
-      }
-    },
-    workspace: {},
-    projects: {}
+        verifyOtpLogin: noop,
+        oauthStart: noop,
+        oauthComplete: noop,
+        requestPasswordReset: noop,
+        completePasswordRecovery: noop,
+        resetPassword: noop,
+        logout: noop,
+        session: noop
+      },
+      settings: {
+        get: noop,
+        updateProfile: noop,
+        uploadAvatar: noop,
+        deleteAvatar: noop,
+        updatePreferences: noop,
+        updateNotifications: noop,
+        updateChat: noop,
+        changePassword: noop,
+        setPasswordMethodEnabled: noop,
+        startOAuthProviderLink: noop,
+        unlinkOAuthProvider: noop,
+        logoutOtherSessions: noop
+      },
+      history: {
+        list: noop
+      },
+      communications: {
+        async sendSms(_request, reply) {
+          reply.code(200).send({
+            sent: false,
+            reason: "not_configured",
+            provider: "none",
+            messageId: null
+          });
+        }
+      },
+      workspace: {},
+      projects: {}
     },
     {
       get(target, prop, receiver) {

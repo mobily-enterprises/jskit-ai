@@ -38,11 +38,7 @@ function createAppRouter({ authStore, workspaceStore, consoleStore, pathname }) 
   });
 }
 
-export {
-  createAppRouter,
-  createRouterForSurface,
-  createRouterForCurrentPath
-};
+export { createAppRouter, createRouterForSurface, createRouterForCurrentPath };
 
 function createAdminGuards(stores) {
   return createSurfaceRouteGuards(stores, {

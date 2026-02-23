@@ -77,60 +77,60 @@ function noopControllers() {
       auth: {
         async register(_request, reply) {
           reply.code(201).send({ ok: true, requiresEmailConfirmation: false, username: "u" });
+        },
+        async login(_request, reply) {
+          reply.code(200).send({ ok: true, username: "u" });
+        },
+        async requestPasswordReset(_request, reply) {
+          reply.code(200).send({ ok: true, message: "ok" });
+        },
+        async completePasswordRecovery(_request, reply) {
+          reply.code(200).send({ ok: true });
+        },
+        async resetPassword(_request, reply) {
+          reply.code(200).send({ ok: true, message: "ok" });
+        },
+        async logout(_request, reply) {
+          reply.code(200).send({ ok: true });
+        },
+        async session(_request, reply) {
+          reply.code(200).send({ authenticated: false, csrfToken: "csrf" });
+        }
       },
-      async login(_request, reply) {
-        reply.code(200).send({ ok: true, username: "u" });
+      settings: {
+        async get(_request, reply) {
+          reply.code(200).send(settingsPayload);
+        },
+        async updateProfile(_request, reply) {
+          reply.code(200).send(settingsPayload);
+        },
+        async uploadAvatar(_request, reply) {
+          reply.code(200).send(settingsPayload);
+        },
+        async deleteAvatar(_request, reply) {
+          reply.code(200).send(settingsPayload);
+        },
+        async updatePreferences(_request, reply) {
+          reply.code(200).send(settingsPayload);
+        },
+        async updateNotifications(_request, reply) {
+          reply.code(200).send(settingsPayload);
+        },
+        async updateChat(_request, reply) {
+          reply.code(200).send(settingsPayload);
+        },
+        async changePassword(_request, reply) {
+          reply.code(200).send({ ok: true, message: "ok" });
+        },
+        async logoutOtherSessions(_request, reply) {
+          reply.code(200).send({ ok: true, message: "ok" });
+        }
       },
-      async requestPasswordReset(_request, reply) {
-        reply.code(200).send({ ok: true, message: "ok" });
-      },
-      async completePasswordRecovery(_request, reply) {
-        reply.code(200).send({ ok: true });
-      },
-      async resetPassword(_request, reply) {
-        reply.code(200).send({ ok: true, message: "ok" });
-      },
-      async logout(_request, reply) {
-        reply.code(200).send({ ok: true });
-      },
-      async session(_request, reply) {
-        reply.code(200).send({ authenticated: false, csrfToken: "csrf" });
+      history: {
+        async list(_request, reply) {
+          reply.code(200).send({ entries: [], page: 1, pageSize: 10, total: 0, totalPages: 1 });
+        }
       }
-    },
-    settings: {
-      async get(_request, reply) {
-        reply.code(200).send(settingsPayload);
-      },
-      async updateProfile(_request, reply) {
-        reply.code(200).send(settingsPayload);
-      },
-      async uploadAvatar(_request, reply) {
-        reply.code(200).send(settingsPayload);
-      },
-      async deleteAvatar(_request, reply) {
-        reply.code(200).send(settingsPayload);
-      },
-      async updatePreferences(_request, reply) {
-        reply.code(200).send(settingsPayload);
-      },
-      async updateNotifications(_request, reply) {
-        reply.code(200).send(settingsPayload);
-      },
-      async updateChat(_request, reply) {
-        reply.code(200).send(settingsPayload);
-      },
-      async changePassword(_request, reply) {
-        reply.code(200).send({ ok: true, message: "ok" });
-      },
-      async logoutOtherSessions(_request, reply) {
-        reply.code(200).send({ ok: true, message: "ok" });
-      }
-    },
-    history: {
-      async list(_request, reply) {
-        reply.code(200).send({ entries: [], page: 1, pageSize: 10, total: 0, totalPages: 1 });
-      }
-    }
     },
     {
       get(target, prop, receiver) {

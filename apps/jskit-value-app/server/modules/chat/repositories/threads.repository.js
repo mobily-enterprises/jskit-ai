@@ -2,7 +2,13 @@ import { db } from "../../../../db/knex.js";
 import { toIsoString, toMysqlDateTimeUtc } from "../../../lib/primitives/dateUtils.js";
 import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
 import { normalizeBatchSize, normalizeCutoffDateOrThrow } from "../../../lib/primitives/retention.js";
-import { normalizeCountRow, normalizePagination, parseJsonObject, resolveClient, stringifyJsonObject } from "./shared.js";
+import {
+  normalizeCountRow,
+  normalizePagination,
+  parseJsonObject,
+  resolveClient,
+  stringifyJsonObject
+} from "./shared.js";
 
 function mapThreadRowRequired(row) {
   if (!row) {
@@ -64,9 +70,15 @@ function createThreadsRepository(dbClient) {
 
     const now = new Date();
     const [id] = await client("chat_threads").insert({
-      scope_kind: String(payload?.scopeKind || "").trim().toLowerCase() || "workspace",
+      scope_kind:
+        String(payload?.scopeKind || "")
+          .trim()
+          .toLowerCase() || "workspace",
       workspace_id: parsePositiveInteger(payload?.workspaceId),
-      thread_kind: String(payload?.threadKind || "").trim().toLowerCase() || "dm",
+      thread_kind:
+        String(payload?.threadKind || "")
+          .trim()
+          .toLowerCase() || "dm",
       created_by_user_id: createdByUserId,
       title: payload?.title == null ? null : String(payload.title),
       avatar_storage_key: payload?.avatarStorageKey == null ? null : String(payload.avatarStorageKey),
@@ -80,7 +92,10 @@ function createThreadsRepository(dbClient) {
       last_message_seq: parsePositiveInteger(payload?.lastMessageSeq),
       last_message_at: payload?.lastMessageAt ? toMysqlDateTimeUtc(new Date(payload.lastMessageAt)) : null,
       last_message_preview: payload?.lastMessagePreview == null ? null : String(payload.lastMessagePreview),
-      encryption_mode: String(payload?.encryptionMode || "").trim().toLowerCase() || "none",
+      encryption_mode:
+        String(payload?.encryptionMode || "")
+          .trim()
+          .toLowerCase() || "none",
       metadata_json: stringifyJsonObject(payload?.metadata),
       archived_at: payload?.archivedAt ? toMysqlDateTimeUtc(new Date(payload.archivedAt)) : null,
       created_at: toMysqlDateTimeUtc(payload?.createdAt ? new Date(payload.createdAt) : now),
@@ -128,7 +143,10 @@ function createThreadsRepository(dbClient) {
       return null;
     }
 
-    const threadKind = String(filters?.threadKind || "").trim().toLowerCase() || "workspace_room";
+    const threadKind =
+      String(filters?.threadKind || "")
+        .trim()
+        .toLowerCase() || "workspace_room";
     const scopeKey = String(filters?.scopeKey || "").trim();
 
     let query = client("chat_threads")
@@ -180,19 +198,23 @@ function createThreadsRepository(dbClient) {
       query = query.andWhere("t.workspace_id", workspaceId);
     }
 
-    const scopeKind = String(filters.scopeKind || "").trim().toLowerCase();
+    const scopeKind = String(filters.scopeKind || "")
+      .trim()
+      .toLowerCase();
     if (scopeKind) {
       query = query.andWhere("t.scope_kind", scopeKind);
     }
 
     if (!filters?.includeTombstoneOnlyEmptyThreads) {
       query = query.andWhere((builder) => {
-        builder.whereNotNull("t.last_message_id").orWhereNotExists(
-          client("chat_message_idempotency_tombstones as tomb")
-            .select(client.raw("1"))
-            .whereRaw("tomb.thread_id = t.id")
-            .andWhere("tomb.expires_at", ">", activeTombstoneThreshold)
-        );
+        builder
+          .whereNotNull("t.last_message_id")
+          .orWhereNotExists(
+            client("chat_message_idempotency_tombstones as tomb")
+              .select(client.raw("1"))
+              .whereRaw("tomb.thread_id = t.id")
+              .andWhere("tomb.expires_at", ">", activeTombstoneThreshold)
+          );
       });
     }
 
@@ -207,7 +229,8 @@ function createThreadsRepository(dbClient) {
       participant: {
         status: String(row.participant_status || ""),
         lastReadSeq: Number(row.participant_last_read_seq || 0),
-        lastReadMessageId: row.participant_last_read_message_id == null ? null : Number(row.participant_last_read_message_id),
+        lastReadMessageId:
+          row.participant_last_read_message_id == null ? null : Number(row.participant_last_read_message_id),
         lastReadAt: row.participant_last_read_at ? toIsoString(row.participant_last_read_at) : null
       }
     }));
@@ -234,7 +257,9 @@ function createThreadsRepository(dbClient) {
       query = query.andWhere("t.workspace_id", workspaceId);
     }
 
-    const scopeKind = String(filters.scopeKind || "").trim().toLowerCase();
+    const scopeKind = String(filters.scopeKind || "")
+      .trim()
+      .toLowerCase();
     if (scopeKind) {
       query = query.andWhere("t.scope_kind", scopeKind);
     }
@@ -279,7 +304,10 @@ function createThreadsRepository(dbClient) {
       dbPatch.last_message_preview = patch.lastMessagePreview == null ? null : String(patch.lastMessagePreview);
     }
     if (Object.hasOwn(patch, "encryptionMode")) {
-      dbPatch.encryption_mode = String(patch.encryptionMode || "").trim().toLowerCase() || "none";
+      dbPatch.encryption_mode =
+        String(patch.encryptionMode || "")
+          .trim()
+          .toLowerCase() || "none";
     }
     if (Object.hasOwn(patch, "metadata")) {
       dbPatch.metadata_json = stringifyJsonObject(patch.metadata);
@@ -367,9 +395,7 @@ function createThreadsRepository(dbClient) {
     const rows = await client("chat_threads as t")
       .select("t.id")
       .where("t.created_at", "<", normalizedCutoff)
-      .whereNotExists(
-        client("chat_messages as m").select(client.raw("1")).whereRaw("m.thread_id = t.id")
-      )
+      .whereNotExists(client("chat_messages as m").select(client.raw("1")).whereRaw("m.thread_id = t.id"))
       .whereNotExists(
         client("chat_message_idempotency_tombstones as tomb")
           .select(client.raw("1"))

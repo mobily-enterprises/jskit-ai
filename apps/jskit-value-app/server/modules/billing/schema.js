@@ -484,11 +484,7 @@ const planChangeBody = Type.Object(
 
 const planChangeResponse = Type.Object(
   {
-    mode: Type.Union([
-      Type.Literal("applied"),
-      Type.Literal("scheduled"),
-      Type.Literal("checkout_required")
-    ]),
+    mode: Type.Union([Type.Literal("applied"), Type.Literal("scheduled"), Type.Literal("checkout_required")]),
     checkout: Type.Optional(checkoutResponse),
     state: planStatePayload
   },

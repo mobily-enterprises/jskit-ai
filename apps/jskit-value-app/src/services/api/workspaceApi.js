@@ -94,7 +94,9 @@ function createApi({ request }) {
         params.set("format", String(query.format));
       }
       const queryString = params.toString();
-      return request(`/api/workspace/ai/transcripts/${encodedConversationId}/export${queryString ? `?${queryString}` : ""}`);
+      return request(
+        `/api/workspace/ai/transcripts/${encodedConversationId}/export${queryString ? `?${queryString}` : ""}`
+      );
     }
   };
 }

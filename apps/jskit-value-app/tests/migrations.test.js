@@ -15,9 +15,7 @@ const consoleBrowserErrorsMigration = require("../migrations/20260220100000_crea
 const consoleServerErrorsMigration = require("../migrations/20260220100100_create_console_server_errors.cjs");
 const securityAuditEventsMigration = require("../migrations/20260220110000_create_security_audit_events.cjs");
 const aiTranscriptsMigration = require("../migrations/20260220130000_create_ai_transcripts.cjs");
-const workspaceDefaultPolicyCleanupMigration = require(
-  "../migrations/20260223150000_remove_workspace_default_calculation_policy.cjs"
-);
+const workspaceDefaultPolicyCleanupMigration = require("../migrations/20260223150000_remove_workspace_default_calculation_policy.cjs");
 
 function createSchemaStub() {
   const calls = [];
@@ -363,7 +361,9 @@ test("ai transcripts migration creates expected tables and drop behavior", async
   await aiTranscriptsMigration.up(knex);
   await aiTranscriptsMigration.down(knex);
 
-  const createConversationTableCall = calls.find((entry) => entry[0] === "createTable" && entry[1] === "ai_conversations");
+  const createConversationTableCall = calls.find(
+    (entry) => entry[0] === "createTable" && entry[1] === "ai_conversations"
+  );
   const createMessageTableCall = calls.find((entry) => entry[0] === "createTable" && entry[1] === "ai_messages");
   assert.ok(createConversationTableCall);
   assert.ok(createMessageTableCall);

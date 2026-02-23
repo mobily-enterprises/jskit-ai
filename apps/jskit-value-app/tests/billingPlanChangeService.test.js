@@ -13,60 +13,59 @@ function createFixture(overrides = {}) {
   function addDays(reference, days) {
     return new Date(new Date(reference).getTime() + days * 24 * 60 * 60 * 1000);
   }
-  const activePlans =
-    overrides.plans || [
-      {
-        id: 1,
-        code: "free",
-        name: "Free",
-        description: "Free plan",
-        appliesTo: "workspace",
-        isActive: true,
-        corePrice: {
-          provider: "stripe",
-          providerPriceId: "price_free",
-          providerProductId: "prod_free",
-          interval: "month",
-          intervalCount: 1,
-          currency: "USD",
-          unitAmountMinor: 0
-        }
-      },
-      {
-        id: 2,
-        code: "basic",
-        name: "Basic",
-        description: "Basic plan",
-        appliesTo: "workspace",
-        isActive: true,
-        corePrice: {
-          provider: "stripe",
-          providerPriceId: "price_basic",
-          providerProductId: "prod_basic",
-          interval: "month",
-          intervalCount: 1,
-          currency: "USD",
-          unitAmountMinor: 1000
-        }
-      },
-      {
-        id: 3,
-        code: "pro",
-        name: "Pro",
-        description: "Pro plan",
-        appliesTo: "workspace",
-        isActive: true,
-        corePrice: {
-          provider: "stripe",
-          providerPriceId: "price_pro",
-          providerProductId: "prod_pro",
-          interval: "month",
-          intervalCount: 1,
-          currency: "USD",
-          unitAmountMinor: 5000
-        }
+  const activePlans = overrides.plans || [
+    {
+      id: 1,
+      code: "free",
+      name: "Free",
+      description: "Free plan",
+      appliesTo: "workspace",
+      isActive: true,
+      corePrice: {
+        provider: "stripe",
+        providerPriceId: "price_free",
+        providerProductId: "prod_free",
+        interval: "month",
+        intervalCount: 1,
+        currency: "USD",
+        unitAmountMinor: 0
       }
-    ];
+    },
+    {
+      id: 2,
+      code: "basic",
+      name: "Basic",
+      description: "Basic plan",
+      appliesTo: "workspace",
+      isActive: true,
+      corePrice: {
+        provider: "stripe",
+        providerPriceId: "price_basic",
+        providerProductId: "prod_basic",
+        interval: "month",
+        intervalCount: 1,
+        currency: "USD",
+        unitAmountMinor: 1000
+      }
+    },
+    {
+      id: 3,
+      code: "pro",
+      name: "Pro",
+      description: "Pro plan",
+      appliesTo: "workspace",
+      isActive: true,
+      corePrice: {
+        provider: "stripe",
+        providerPriceId: "price_pro",
+        providerProductId: "prod_pro",
+        interval: "month",
+        intervalCount: 1,
+        currency: "USD",
+        unitAmountMinor: 5000
+      }
+    }
+  ];
 
   let currentSubscription = overrides.currentSubscription || null;
   let currentAssignment =
@@ -255,7 +254,9 @@ function createFixture(overrides = {}) {
         status: String(payload.status || (payload.isCurrent === false ? "past" : "current")),
         periodStartAt: toIso(payload.periodStartAt || now),
         periodEndAt:
-          Object.hasOwn(payload, "periodEndAt") && payload.periodEndAt == null ? null : toIso(payload.periodEndAt || now),
+          Object.hasOwn(payload, "periodEndAt") && payload.periodEndAt == null
+            ? null
+            : toIso(payload.periodEndAt || now),
         metadataJson: payload.metadataJson || {}
       };
       if (assignment.status === "upcoming") {
@@ -267,12 +268,18 @@ function createFixture(overrides = {}) {
     },
     async upsertPlanAssignmentProviderDetails(payload) {
       providerDetailsByAssignmentId.set(Number(payload.billingPlanAssignmentId), { ...payload });
-      if (currentSubscription && currentAssignment && Number(currentAssignment.id) === Number(payload.billingPlanAssignmentId)) {
+      if (
+        currentSubscription &&
+        currentAssignment &&
+        Number(currentAssignment.id) === Number(payload.billingPlanAssignmentId)
+      ) {
         currentSubscription = {
           ...currentSubscription,
           planId: Number(currentAssignment.planId),
           status: String(payload.providerStatus || currentSubscription.status || "active"),
-          currentPeriodEnd: payload.currentPeriodEnd ? toIso(payload.currentPeriodEnd) : currentSubscription.currentPeriodEnd,
+          currentPeriodEnd: payload.currentPeriodEnd
+            ? toIso(payload.currentPeriodEnd)
+            : currentSubscription.currentPeriodEnd,
           trialEnd: payload.trialEnd ? toIso(payload.trialEnd) : currentSubscription.trialEnd,
           canceledAt: payload.canceledAt ? toIso(payload.canceledAt) : currentSubscription.canceledAt,
           cancelAtPeriodEnd: Boolean(payload.cancelAtPeriodEnd),
@@ -446,8 +453,14 @@ test("billing plan change service returns plan state with current plan and avail
 
   assert.equal(response.currentPlan.code, "basic");
   assert.equal(response.currentPeriodEndAt, "2026-03-01T00:00:00.000Z");
-  assert.equal(response.availablePlans.some((entry) => entry.code === "basic"), false);
-  assert.equal(response.availablePlans.some((entry) => entry.code === "pro"), true);
+  assert.equal(
+    response.availablePlans.some((entry) => entry.code === "basic"),
+    false
+  );
+  assert.equal(
+    response.availablePlans.some((entry) => entry.code === "pro"),
+    true
+  );
 });
 
 test("billing plan change service schedules downgrades at current period end", async () => {

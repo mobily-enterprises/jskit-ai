@@ -1,9 +1,4 @@
-const REMOVED_POLICY_KEYS = [
-  "defaultMode",
-  "defaultTiming",
-  "defaultPaymentsPerYear",
-  "defaultHistoryPageSize"
-];
+const REMOVED_POLICY_KEYS = ["defaultMode", "defaultTiming", "defaultPaymentsPerYear", "defaultHistoryPageSize"];
 
 function parsePolicyJson(value) {
   if (!value) {

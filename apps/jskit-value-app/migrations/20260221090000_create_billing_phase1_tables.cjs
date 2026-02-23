@@ -151,10 +151,8 @@ exports.up = async function up(knex) {
     table.unique(["id", "provider"], "uq_billing_subscriptions_id_provider");
     table.index(["billable_entity_id", "status"], "idx_billing_subscriptions_entity_status");
 
-    table.foreign(
-      ["billing_customer_id", "billable_entity_id", "provider"],
-      "fk_bsub_customer_entity_provider"
-    )
+    table
+      .foreign(["billing_customer_id", "billable_entity_id", "provider"], "fk_bsub_customer_entity_provider")
       .references(["id", "billable_entity_id", "provider"])
       .inTable("billing_customers")
       .onDelete("RESTRICT");
@@ -198,11 +196,13 @@ exports.up = async function up(knex) {
     table.index(["subscription_id", "is_active"], "idx_billing_subscription_items_subscription_active");
     table.index(["billing_plan_price_id"], "idx_billing_subscription_items_plan_price_id");
 
-    table.foreign(["subscription_id", "provider"])
+    table
+      .foreign(["subscription_id", "provider"])
       .references(["id", "provider"])
       .inTable("billing_subscriptions")
       .onDelete("RESTRICT");
-    table.foreign(["billing_plan_price_id", "provider"], "fk_bsub_items_plan_price_provider")
+    table
+      .foreign(["billing_plan_price_id", "provider"], "fk_bsub_items_plan_price_provider")
       .references(["id", "provider"])
       .inTable("billing_plan_prices")
       .onDelete("RESTRICT");
@@ -230,7 +230,8 @@ exports.up = async function up(knex) {
     table.unique(["provider", "provider_invoice_id"], "uq_billing_invoices_provider_invoice");
     table.unique(["id", "provider"], "uq_billing_invoices_id_provider");
 
-    table.foreign(["subscription_id", "provider"])
+    table
+      .foreign(["subscription_id", "provider"])
       .references(["id", "provider"])
       .inTable("billing_subscriptions")
       .onDelete("RESTRICT");
@@ -254,7 +255,8 @@ exports.up = async function up(knex) {
 
     table.unique(["provider", "provider_payment_id"], "uq_billing_payments_provider_payment");
 
-    table.foreign(["invoice_id", "provider"])
+    table
+      .foreign(["invoice_id", "provider"])
       .references(["id", "provider"])
       .inTable("billing_invoices")
       .onDelete("RESTRICT");
@@ -329,7 +331,10 @@ exports.up = async function up(knex) {
     );
     table.unique(["action", "operation_key"], "uq_billing_request_idempotency_action_operation_key");
     table.unique(["provider", "provider_idempotency_key"], "uq_billing_request_idempotency_provider_idempotency_key");
-    table.index(["billable_entity_id", "action", "created_at"], "idx_billing_request_idempotency_entity_action_created");
+    table.index(
+      ["billable_entity_id", "action", "created_at"],
+      "idx_billing_request_idempotency_entity_action_created"
+    );
     table.index(["status", "pending_lease_expires_at"], "idx_billing_request_idempotency_status_lease");
     table.index(
       ["provider_idempotency_replay_deadline_at"],
@@ -407,7 +412,10 @@ exports.up = async function up(knex) {
     table.bigInteger("canonical_subscription_id").unsigned().nullable();
     table.string("duplicate_provider_subscription_id", 191).notNullable();
     table.enu("action", ["cancel_duplicate_subscription"]).notNullable().defaultTo("cancel_duplicate_subscription");
-    table.enu("status", ["pending", "in_progress", "succeeded", "failed", "dead_letter"]).notNullable().defaultTo("pending");
+    table
+      .enu("status", ["pending", "in_progress", "succeeded", "failed", "dead_letter"])
+      .notNullable()
+      .defaultTo("pending");
     table.string("selection_algorithm_version", 64).notNullable();
     table.integer("attempt_count").unsigned().notNullable().defaultTo(0);
     table.dateTime("next_attempt_at", { precision: 3 }).nullable();
@@ -425,7 +433,10 @@ exports.up = async function up(knex) {
       ["provider", "duplicate_provider_subscription_id", "action"],
       "uq_billing_subscription_remediations_provider_duplicate_action"
     );
-    table.index(["billable_entity_id", "status", "updated_at"], "idx_billing_subscription_remediations_entity_status_updated");
+    table.index(
+      ["billable_entity_id", "status", "updated_at"],
+      "idx_billing_subscription_remediations_entity_status_updated"
+    );
     table.index(
       ["billable_entity_id", "provider_event_id"],
       "idx_billing_subscription_remediations_entity_provider_event"

@@ -11,10 +11,7 @@ import {
   normalizeRoleId,
   resolveAssignableRoleIds
 } from "../policies/roles.js";
-import {
-  DEFAULT_BILLING_PROVIDER,
-  resolveBillingProvider
-} from "./billingCatalog.service.js";
+import { DEFAULT_BILLING_PROVIDER, resolveBillingProvider } from "./billingCatalog.service.js";
 import { createConsoleAccessService } from "./consoleAccess.service.js";
 import { createConsoleBillingService } from "./consoleBilling.service.js";
 import { createConsoleMembersService } from "./consoleMembers.service.js";
@@ -127,10 +124,7 @@ function createService({
     listPendingInvitesForUser: (user) => resolvePendingInvitesForUser(user)
   });
 
-  const {
-    listMembers,
-    updateMemberRole
-  } = createConsoleMembersService({
+  const { listMembers, updateMemberRole } = createConsoleMembersService({
     requirePermission,
     consoleMembershipsRepository,
     roleCatalog,
@@ -138,21 +132,16 @@ function createService({
     ensureRootMutationAllowed
   });
 
-  const {
-    listPendingInvitesForUser,
-    listInvites,
-    createInvite,
-    revokeInvite,
-    respondToPendingInviteByToken
-  } = createConsoleInvitesService({
-    requirePermission,
-    runInInviteTransaction,
-    consoleInvitesRepository,
-    consoleMembershipsRepository,
-    userProfilesRepository,
-    roleCatalog,
-    normalizeRoleForAssignment
-  });
+  const { listPendingInvitesForUser, listInvites, createInvite, revokeInvite, respondToPendingInviteByToken } =
+    createConsoleInvitesService({
+      requirePermission,
+      runInInviteTransaction,
+      consoleInvitesRepository,
+      consoleMembershipsRepository,
+      userProfilesRepository,
+      roleCatalog,
+      normalizeRoleForAssignment
+    });
   resolvePendingInvitesForUser = listPendingInvitesForUser;
 
   const {
@@ -235,7 +224,8 @@ function createService({
 
     const normalizedPrompt = normalizeAssistantSystemPromptWorkspace(body.assistantSystemPromptWorkspace);
     const currentSettings = await ensureConsoleSettings();
-    const baseFeatures = currentSettings?.features && typeof currentSettings.features === "object" ? currentSettings.features : {};
+    const baseFeatures =
+      currentSettings?.features && typeof currentSettings.features === "object" ? currentSettings.features : {};
     const nextFeatures = applyAssistantSystemPromptWorkspaceToConsoleFeatures(baseFeatures, normalizedPrompt);
 
     const updatedSettings = await consoleSettingsRepository.update({

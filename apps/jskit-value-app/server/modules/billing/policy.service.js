@@ -94,7 +94,9 @@ function createService({ workspacesRepository, billingRepository, resolvePermiss
     typeof billingRepository.ensureBillableEntity !== "function" &&
     typeof billingRepository.ensureBillableEntityByScope !== "function"
   ) {
-    throw new Error("billingRepository.ensureBillableEntity or billingRepository.ensureBillableEntityByScope is required.");
+    throw new Error(
+      "billingRepository.ensureBillableEntity or billingRepository.ensureBillableEntityByScope is required."
+    );
   }
   if (typeof billingRepository.findBillableEntityById !== "function") {
     throw new Error("billingRepository.findBillableEntityById is required.");
@@ -104,8 +106,7 @@ function createService({ workspacesRepository, billingRepository, resolvePermiss
     workspacesRepository && typeof workspacesRepository.listByUserId === "function"
       ? workspacesRepository.listByUserId.bind(workspacesRepository)
       : async () => [];
-  const resolveRolePermissions =
-    typeof resolvePermissions === "function" ? resolvePermissions : () => [];
+  const resolveRolePermissions = typeof resolvePermissions === "function" ? resolvePermissions : () => [];
 
   async function listAccessibleWorkspacesForUser(user) {
     const userId = Number(user?.id);
@@ -242,7 +243,8 @@ function createService({ workspacesRepository, billingRepository, resolvePermiss
     const entityType = normalizeBillableEntityType(billableEntity.entityType);
     if (entityType === BILLABLE_ENTITY_TYPE_WORKSPACE) {
       const workspaces = await listAccessibleWorkspacesForUser(user);
-      const workspace = workspaces.find((candidate) => Number(candidate.id) === Number(billableEntity.workspaceId)) || null;
+      const workspace =
+        workspaces.find((candidate) => Number(candidate.id) === Number(billableEntity.workspaceId)) || null;
       if (!workspace) {
         throw new AppError(403, "Forbidden.", {
           code: "BILLING_ENTITY_FORBIDDEN"

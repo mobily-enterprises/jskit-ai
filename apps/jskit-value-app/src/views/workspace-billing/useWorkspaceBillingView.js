@@ -154,7 +154,9 @@ function normalizeLimitation(entry) {
 }
 
 function formatPurchaseKindLabel(value) {
-  const normalized = String(value || "").trim().toLowerCase();
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
   if (!normalized) {
     return "Purchase";
   }
@@ -177,7 +179,10 @@ function formatPlanOptionTitle(plan) {
   }
 
   const amountLabel = formatMoneyMinor(corePrice.unitAmountMinor, corePrice.currency);
-  const intervalLabel = String(corePrice.interval || "").trim().toLowerCase() || "month";
+  const intervalLabel =
+    String(corePrice.interval || "")
+      .trim()
+      .toLowerCase() || "month";
   return `${name} (${amountLabel}/${intervalLabel})`;
 }
 
@@ -243,7 +248,9 @@ export function useWorkspaceBillingView() {
   });
 
   const availablePlans = computed(() => {
-    const entries = Array.isArray(planStateQuery.data.value?.availablePlans) ? planStateQuery.data.value.availablePlans : [];
+    const entries = Array.isArray(planStateQuery.data.value?.availablePlans)
+      ? planStateQuery.data.value.availablePlans
+      : [];
     return entries.map(normalizePlanSelection).filter(Boolean);
   });
 
@@ -252,9 +259,7 @@ export function useWorkspaceBillingView() {
   const pendingChange = computed(() => Boolean(planStateQuery.data.value?.pendingChange));
   const currentPlanIsPaid = computed(() => isPaidPlanSelection(currentPlan.value));
   const currentPlanHasNoExpiry = computed(() => Boolean(currentPlan.value) && !currentPeriodEndAt.value);
-  const freeTargetPlan = computed(() =>
-    availablePlans.value.find((entry) => !isPaidPlanSelection(entry)) || null
-  );
+  const freeTargetPlan = computed(() => availablePlans.value.find((entry) => !isPaidPlanSelection(entry)) || null);
   const canCancelCurrentPlan = computed(() =>
     Boolean(currentPlan.value && currentPlanIsPaid.value && !pendingChange.value && freeTargetPlan.value)
   );
@@ -328,16 +333,16 @@ export function useWorkspaceBillingView() {
   const purchasesLoading = computed(() => Boolean(purchasesQuery.isPending.value || purchasesQuery.isFetching.value));
   const purchasesError = computed(() => String(purchasesQuery.error.value?.message || ""));
   const limitationItems = computed(() => {
-    const entries = Array.isArray(limitationsQuery.data.value?.limitations) ? limitationsQuery.data.value.limitations : [];
+    const entries = Array.isArray(limitationsQuery.data.value?.limitations)
+      ? limitationsQuery.data.value.limitations
+      : [];
     return entries.map(normalizeLimitation).filter(Boolean);
   });
   const limitationsLoading = computed(() =>
     Boolean(limitationsQuery.isPending.value || limitationsQuery.isFetching.value)
   );
   const limitationsError = computed(() => String(limitationsQuery.error.value?.message || ""));
-  const limitationsGeneratedAt = computed(() =>
-    String(limitationsQuery.data.value?.generatedAt || "").trim()
-  );
+  const limitationsGeneratedAt = computed(() => String(limitationsQuery.data.value?.generatedAt || "").trim());
   const limitationsStale = computed(() => Boolean(limitationsQuery.data.value?.stale));
 
   watch(
@@ -420,7 +425,9 @@ export function useWorkspaceBillingView() {
         cancelPath: buildWorkspaceBillingPath({ billing: "checkout_cancel" })
       });
 
-      const mode = String(response?.mode || "").trim().toLowerCase();
+      const mode = String(response?.mode || "")
+        .trim()
+        .toLowerCase();
       const checkoutUrl = String(response?.checkout?.checkoutSession?.checkoutUrl || "").trim();
       lastCheckoutUrl.value = checkoutUrl;
 
@@ -459,7 +466,9 @@ export function useWorkspaceBillingView() {
         successPath: buildWorkspaceBillingPath({ billing: "checkout_success" }),
         cancelPath: buildWorkspaceBillingPath({ billing: "checkout_cancel" })
       });
-      const mode = String(response?.mode || "").trim().toLowerCase();
+      const mode = String(response?.mode || "")
+        .trim()
+        .toLowerCase();
       if (mode === "scheduled") {
         actionSuccess.value = "Plan cancellation scheduled for the current period end.";
       } else if (mode === "applied") {
@@ -522,7 +531,12 @@ export function useWorkspaceBillingView() {
       const paymentLinkUrl = String(response?.paymentLink?.url || "").trim();
       lastPaymentLinkUrl.value = paymentLinkUrl;
       actionSuccess.value = paymentLinkUrl ? "Payment link created." : "Payment link created.";
-      if (options.redirect !== false && paymentLinkUrl && typeof window !== "undefined" && typeof window.location?.assign === "function") {
+      if (
+        options.redirect !== false &&
+        paymentLinkUrl &&
+        typeof window !== "undefined" &&
+        typeof window.location?.assign === "function"
+      ) {
         window.location.assign(paymentLinkUrl);
       }
     } catch (errorValue) {

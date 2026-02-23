@@ -143,7 +143,7 @@ test("ai service generates and persists conversation title after first user turn
           choices: [
             {
               message: {
-                content: "\"Rename workspace settings.\""
+                content: '"Rename workspace settings."'
               }
             }
           ]
@@ -254,7 +254,7 @@ test("ai service skips title generation for greeting-only input and generates ti
           choices: [
             {
               message: {
-                content: "\"Admin panel login issue.\""
+                content: '"Admin panel login issue."'
               }
             }
           ]
@@ -838,8 +838,14 @@ test("ai service app-surface assistant does not expose admin tools", async () =>
   assert.equal(updateCount, 0);
   assert.equal(providerCalls.length, 2);
   assert.deepEqual(providerCalls[0].tools, []);
-  assert.equal(events.some((event) => event.type === "tool_call"), true);
-  assert.equal(events.some((event) => event.type === "tool_result"), true);
+  assert.equal(
+    events.some((event) => event.type === "tool_call"),
+    true
+  );
+  assert.equal(
+    events.some((event) => event.type === "tool_result"),
+    true
+  );
   const toolResultEvent = events.find((event) => event.type === "tool_result");
   assert.equal(toolResultEvent.ok, false);
   assert.equal(toolResultEvent.error.code, "tool_unknown");
@@ -895,7 +901,10 @@ test("ai service enforces max input length and emits validation error event", as
 
   const errorEvent = events.find((event) => event.type === "error");
   assert.equal(errorEvent.code, "validation_failed");
-  assert.deepEqual(aiTurnMetrics.map((event) => event.outcome), ["validation"]);
+  assert.deepEqual(
+    aiTurnMetrics.map((event) => event.outcome),
+    ["validation"]
+  );
 });
 
 test("ai service enforces max tool calls across a single response", async () => {
@@ -1185,7 +1194,10 @@ test("ai service retries once when provider returns empty completion and then su
   });
 
   assert.equal(providerCalls.length, 2);
-  assert.deepEqual(providerCalls[0].tools.map((tool) => tool?.function?.name), ["workspace_rename"]);
+  assert.deepEqual(
+    providerCalls[0].tools.map((tool) => tool?.function?.name),
+    ["workspace_rename"]
+  );
   assert.deepEqual(providerCalls[1].tools, []);
   assert.equal(events.find((event) => event.type === "assistant_message")?.text, "Hello after retry.");
   assert.equal(events.at(-1)?.type, "done");

@@ -36,7 +36,12 @@ function createController({ deg2radService, deg2radHistoryService, billingServic
     const normalizedInput = deg2radService.validateAndNormalizeInput(payload);
     const runCalculation = async ({ trx = null } = {}) => {
       const result = deg2radService.calculateDeg2rad(normalizedInput);
-      const historyEntry = await deg2radHistoryService.appendCalculation(workspaceId, user.id, result, trx ? { trx } : {});
+      const historyEntry = await deg2radHistoryService.appendCalculation(
+        workspaceId,
+        user.id,
+        result,
+        trx ? { trx } : {}
+      );
 
       return {
         result: {

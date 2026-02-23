@@ -121,7 +121,9 @@
             >
               Start new conversation
             </v-btn>
-            <div v-if="conversationHistoryError" class="text-caption text-error mb-2">{{ conversationHistoryError }}</div>
+            <div v-if="conversationHistoryError" class="text-caption text-error mb-2">
+              {{ conversationHistoryError }}
+            </div>
             <v-list density="compact" class="assistant-history-list flex-grow-1 overflow-y-auto">
               <v-list-item v-if="conversationHistory.length < 1" title="No conversations yet." />
               <v-list-item
@@ -137,7 +139,12 @@
           </v-card-text>
         </v-card>
 
-        <v-card rounded="lg" elevation="1" border class="assistant-tools-card d-flex flex-column flex-grow-1 overflow-hidden">
+        <v-card
+          rounded="lg"
+          elevation="1"
+          border
+          class="assistant-tools-card d-flex flex-column flex-grow-1 overflow-hidden"
+        >
           <v-card-item>
             <v-card-title class="text-subtitle-2 font-weight-bold">Tool Timeline</v-card-title>
           </v-card-item>

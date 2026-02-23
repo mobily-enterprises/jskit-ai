@@ -77,9 +77,7 @@ export function useAppShell() {
   });
 
   const navigationItems = computed(() => {
-    const items = [
-      { title: "Deg2rad", to: workspacePath("/"), icon: "$navChoice1" }
-    ];
+    const items = [{ title: "Deg2rad", to: workspacePath("/"), icon: "$navChoice1" }];
 
     if (canUseAssistant.value) {
       items.push({ title: "Assistant", to: workspacePath("/assistant"), icon: "$navChoice2" });
@@ -95,7 +93,9 @@ export function useAppShell() {
     return "JSKIT app";
   });
   const isConversationDestination = computed(() => {
-    const pathname = String(currentPath.value || "").trim().toLowerCase();
+    const pathname = String(currentPath.value || "")
+      .trim()
+      .toLowerCase();
     return pathname.endsWith("/chat") || pathname.endsWith("/workspace-chat") || pathname.endsWith("/assistant");
   });
 

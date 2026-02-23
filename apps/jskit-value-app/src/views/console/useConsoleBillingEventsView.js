@@ -73,7 +73,9 @@ export function useConsoleBillingEventsView() {
     placeholderData: (previous) => previous
   });
 
-  const entries = computed(() => (Array.isArray(eventsQuery.data.value?.entries) ? eventsQuery.data.value.entries : []));
+  const entries = computed(() =>
+    Array.isArray(eventsQuery.data.value?.entries) ? eventsQuery.data.value.entries : []
+  );
   const loading = computed(() => Boolean(eventsQuery.isPending.value || eventsQuery.isFetching.value));
   const error = useQueryErrorMessage({
     query: eventsQuery,

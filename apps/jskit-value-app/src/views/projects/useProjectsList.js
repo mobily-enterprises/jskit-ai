@@ -35,7 +35,9 @@ export function useProjectsList({ initialPageSize = projectPageSizeOptions[0] } 
   const workspaceScope = computed(() => workspaceStore.activeWorkspaceSlug || "none");
 
   const query = useQuery({
-    queryKey: computed(() => projectsListQueryKey(workspaceScope.value, pagination.page.value, pagination.pageSize.value)),
+    queryKey: computed(() =>
+      projectsListQueryKey(workspaceScope.value, pagination.page.value, pagination.pageSize.value)
+    ),
     queryFn: () => api.projects.list(pagination.page.value, pagination.pageSize.value),
     enabled,
     placeholderData: (previous) => previous

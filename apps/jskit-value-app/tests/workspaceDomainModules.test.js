@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeEmail } from "../shared/auth/utils.js";
-import { buildWorkspaceBaseSlug, buildWorkspaceName, toSlugPart } from "../server/domain/workspace/policies/workspaceNaming.js";
+import {
+  buildWorkspaceBaseSlug,
+  buildWorkspaceName,
+  toSlugPart
+} from "../server/domain/workspace/policies/workspaceNaming.js";
 import {
   createMembershipIndexes,
   mapMembershipSummary,
@@ -18,8 +22,10 @@ import {
   mapWorkspaceMembershipSummary,
   normalizeWorkspaceColor
 } from "../server/domain/workspace/mappers/workspaceMappers.js";
-import { resolveRequestedWorkspaceSlug, resolveRequestSurfaceId } from "../server/domain/workspace/lookups/workspaceRequestContext.js";
-
+import {
+  resolveRequestedWorkspaceSlug,
+  resolveRequestSurfaceId
+} from "../server/domain/workspace/lookups/workspaceRequestContext.js";
 
 test("workspace naming primitives normalize text and slug/name fallback behavior", () => {
   assert.equal(toSlugPart("  Chiara Mobily  "), "chiara-mobily");
@@ -109,10 +115,7 @@ test("workspace mappers normalize color, summary, settings and invite payloads",
   });
   assert.equal(pendingInvite.workspaceSlug, "acme");
   assert.equal(pendingInvite.invitedByEmail, "tony@example.com");
-  assert.equal(
-    pendingInvite.token,
-    "inviteh_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-  );
+  assert.equal(pendingInvite.token, "inviteh_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 });
 
 test("workspace access primitives normalize role/status and index structures", () => {

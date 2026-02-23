@@ -29,7 +29,8 @@ function normalizePaidPlanChangePaymentMethodPolicy(value) {
 }
 
 function resolveBillingSettingsFromConsoleSettings(consoleSettings) {
-  const features = consoleSettings?.features && typeof consoleSettings.features === "object" ? consoleSettings.features : {};
+  const features =
+    consoleSettings?.features && typeof consoleSettings.features === "object" ? consoleSettings.features : {};
   const billingFeatures = features?.billing && typeof features.billing === "object" ? features.billing : {};
 
   return {
@@ -78,7 +79,8 @@ function createBillingSettingsService({ requirePermission, ensureConsoleSettings
 
     const normalizedPolicy = normalizePaidPlanChangePaymentMethodPolicy(body.paidPlanChangePaymentMethodPolicy);
     const currentSettings = await ensureConsoleSettings();
-    const baseFeatures = currentSettings?.features && typeof currentSettings.features === "object" ? currentSettings.features : {};
+    const baseFeatures =
+      currentSettings?.features && typeof currentSettings.features === "object" ? currentSettings.features : {};
     const baseBilling = baseFeatures?.billing && typeof baseFeatures.billing === "object" ? baseFeatures.billing : {};
     const nextFeatures = {
       ...baseFeatures,

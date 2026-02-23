@@ -24,8 +24,13 @@ class BillingProviderError extends Error {
     this.name = "BillingProviderError";
     this.code = "BILLING_PROVIDER_ERROR";
     this.isBillingProviderError = true;
-    this.provider = String(options.provider || "").trim().toLowerCase();
-    this.operation = String(options.operation || "").trim().toLowerCase() || "unknown";
+    this.provider = String(options.provider || "")
+      .trim()
+      .toLowerCase();
+    this.operation =
+      String(options.operation || "")
+        .trim()
+        .toLowerCase() || "unknown";
     this.category = normalizeProviderErrorCategory(options.category);
     this.retryable = resolveRetryable(options.retryable, this.category);
     this.httpStatus = toNullableInteger(options.httpStatus);

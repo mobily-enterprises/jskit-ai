@@ -651,7 +651,10 @@ test("billing service createPaymentLink supports catalog and ad_hoc line items",
   assert.equal(response.billableEntityId, 41);
   assert.equal(response.operationKey, "op_payment_link_201");
   assert.equal(response.paymentLink.id, "plink_201");
-  assert.equal(response.paymentLink.url, "https://buy.stripe.test/plink_201?prefilled_email=billing-owner%40example.test");
+  assert.equal(
+    response.paymentLink.url,
+    "https://buy.stripe.test/plink_201?prefilled_email=billing-owner%40example.test"
+  );
   assert.equal(createdPriceCalls.length, 1);
   assert.equal(createdPriceCalls[0].idempotencyKey, "prov_idem_payment_link_201:price:1");
   assert.equal(createdPaymentLinkCalls.length, 1);
@@ -1037,7 +1040,9 @@ test("billing service createPaymentLink rejects recurring catalog prices for one
       assert.equal(Number(error.status || error.statusCode || 0), 400);
       assert.equal(String(error.message || ""), "Validation failed.");
       assert.equal(
-        String(error?.details?.fieldErrors?.["lineItems[0].priceId"] || "").toLowerCase().includes("recurring"),
+        String(error?.details?.fieldErrors?.["lineItems[0].priceId"] || "")
+          .toLowerCase()
+          .includes("recurring"),
         true
       );
       return true;

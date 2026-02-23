@@ -49,13 +49,7 @@ function toUniqueStringArray(values) {
     return [];
   }
 
-  return Array.from(
-    new Set(
-      values
-        .map((value) => String(value || "").trim())
-        .filter(Boolean)
-    )
-  );
+  return Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean)));
 }
 
 function normalizeRoleId(roleId) {

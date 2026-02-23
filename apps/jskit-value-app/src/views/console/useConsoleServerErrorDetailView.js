@@ -40,7 +40,9 @@ function summarizeServerMessage(entry) {
 }
 
 function formatRequest(entry) {
-  const method = String(entry?.method || "").trim().toUpperCase();
+  const method = String(entry?.method || "")
+    .trim()
+    .toUpperCase();
   const path = String(entry?.path || "").trim();
 
   if (method && path) {

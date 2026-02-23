@@ -2,9 +2,7 @@ const STRIPE_PROVIDER = "stripe";
 const MONTHLY_INTERVAL = "month";
 
 function formatPlanList(rows) {
-  return rows
-    .map((row) => `${Number(row.id)}:${String(row.code || "").trim()}`)
-    .join(", ");
+  return rows.map((row) => `${Number(row.id)}:${String(row.code || "").trim()}`).join(", ");
 }
 
 exports.up = async function up(knex) {
@@ -130,7 +128,11 @@ exports.down = async function down(knex) {
   `);
 
   await knex.schema.alterTable("billing_plans", (table) => {
-    table.enu("pricing_model", ["flat", "per_seat", "usage", "hybrid"]).notNullable().defaultTo("flat").after("applies_to");
+    table
+      .enu("pricing_model", ["flat", "per_seat", "usage", "hybrid"])
+      .notNullable()
+      .defaultTo("flat")
+      .after("applies_to");
     table.dropUnique(["checkout_provider", "checkout_provider_price_id"], "uq_billing_plans_checkout_provider_price");
     table.dropColumn("checkout_unit_amount_minor");
     table.dropColumn("checkout_currency");

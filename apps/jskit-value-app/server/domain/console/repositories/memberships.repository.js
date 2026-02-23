@@ -46,7 +46,9 @@ function createMembershipsRepository(dbClient) {
   }
 
   async function repoFindActiveByRoleId(roleId, options = {}) {
-    const normalizedRoleId = String(roleId || "").trim().toLowerCase();
+    const normalizedRoleId = String(roleId || "")
+      .trim()
+      .toLowerCase();
     if (!normalizedRoleId) {
       return null;
     }

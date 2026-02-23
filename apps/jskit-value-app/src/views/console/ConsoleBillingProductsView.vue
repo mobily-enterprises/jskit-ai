@@ -53,7 +53,9 @@
                   </div>
                 </td>
                 <td>{{ row.name || "-" }}</td>
-                <td><code>{{ row.productKind || "one_off" }}</code></td>
+                <td>
+                  <code>{{ row.productKind || "one_off" }}</code>
+                </td>
                 <td class="description-cell">{{ row.description || "-" }}</td>
                 <td>{{ meta.formatPriceSummary(row.price) }}</td>
                 <td class="text-right">
@@ -167,9 +169,9 @@
                 {{
                   state.createSelectedProviderPriceInfo.hasAmount
                     ? meta.formatMoneyMinor(
-                      state.createSelectedProviderPriceInfo.unitAmountMinor,
-                      state.createSelectedProviderPriceInfo.currency
-                    )
+                        state.createSelectedProviderPriceInfo.unitAmountMinor,
+                        state.createSelectedProviderPriceInfo.currency
+                      )
                     : "-"
                 }}
               </div>
@@ -178,9 +180,9 @@
                 {{
                   state.createSelectedProviderPriceInfo.hasInterval
                     ? meta.formatInterval(
-                      state.createSelectedProviderPriceInfo.interval,
-                      state.createSelectedProviderPriceInfo.intervalCount
-                    )
+                        state.createSelectedProviderPriceInfo.interval,
+                        state.createSelectedProviderPriceInfo.intervalCount
+                      )
                     : "one-time"
                 }}
               </div>
@@ -208,7 +210,10 @@
                 density="compact"
                 class="mt-2"
               >
-                <div v-for="(message, index) in state.createEntitlementErrors" :key="`create-entitlement-error-${index}`">
+                <div
+                  v-for="(message, index) in state.createEntitlementErrors"
+                  :key="`create-entitlement-error-${index}`"
+                >
                   {{ message }}
                 </div>
               </v-alert>
@@ -263,11 +268,15 @@
                     </div>
                     <div class="kv-item">
                       <dt>Code</dt>
-                      <dd><code>{{ state.selectedProduct.code }}</code></dd>
+                      <dd>
+                        <code>{{ state.selectedProduct.code }}</code>
+                      </dd>
                     </div>
                     <div class="kv-item">
                       <dt>Kind</dt>
-                      <dd><code>{{ state.selectedProduct.productKind || "one_off" }}</code></dd>
+                      <dd>
+                        <code>{{ state.selectedProduct.productKind || "one_off" }}</code>
+                      </dd>
                     </div>
                     <div class="kv-item">
                       <dt>Status</dt>
@@ -291,7 +300,9 @@
                   <dl v-if="state.selectedProductPriceInfo" class="kv-grid">
                     <div class="kv-item">
                       <dt>Price ID</dt>
-                      <dd><code>{{ state.selectedProductPriceInfo.providerPriceId }}</code></dd>
+                      <dd>
+                        <code>{{ state.selectedProductPriceInfo.providerPriceId }}</code>
+                      </dd>
                     </div>
                     <div class="kv-item">
                       <dt>Amount</dt>
@@ -299,9 +310,9 @@
                         {{
                           state.selectedProductPriceInfo.hasAmount
                             ? meta.formatMoneyMinor(
-                              state.selectedProductPriceInfo.unitAmountMinor,
-                              state.selectedProductPriceInfo.currency
-                            )
+                                state.selectedProductPriceInfo.unitAmountMinor,
+                                state.selectedProductPriceInfo.currency
+                              )
                             : "-"
                         }}
                       </dd>
@@ -312,9 +323,9 @@
                         {{
                           state.selectedProductPriceInfo.hasInterval
                             ? meta.formatInterval(
-                              state.selectedProductPriceInfo.interval,
-                              state.selectedProductPriceInfo.intervalCount
-                            )
+                                state.selectedProductPriceInfo.interval,
+                                state.selectedProductPriceInfo.intervalCount
+                              )
                             : "one-time"
                         }}
                       </dd>
@@ -325,7 +336,9 @@
                     </div>
                     <div class="kv-item">
                       <dt>Product ID</dt>
-                      <dd><code>{{ state.selectedProductPriceInfo.productId || "-" }}</code></dd>
+                      <dd>
+                        <code>{{ state.selectedProductPriceInfo.productId || "-" }}</code>
+                      </dd>
                     </div>
                   </dl>
                   <div v-else class="text-body-2 text-medium-emphasis">No provider price mapping.</div>
@@ -441,9 +454,9 @@
                 {{
                   state.editSelectedProviderPriceInfo.hasAmount
                     ? meta.formatMoneyMinor(
-                      state.editSelectedProviderPriceInfo.unitAmountMinor,
-                      state.editSelectedProviderPriceInfo.currency
-                    )
+                        state.editSelectedProviderPriceInfo.unitAmountMinor,
+                        state.editSelectedProviderPriceInfo.currency
+                      )
                     : "-"
                 }}
               </div>
@@ -452,9 +465,9 @@
                 {{
                   state.editSelectedProviderPriceInfo.hasInterval
                     ? meta.formatInterval(
-                      state.editSelectedProviderPriceInfo.interval,
-                      state.editSelectedProviderPriceInfo.intervalCount
-                    )
+                        state.editSelectedProviderPriceInfo.interval,
+                        state.editSelectedProviderPriceInfo.intervalCount
+                      )
                     : "one-time"
                 }}
               </div>
@@ -465,8 +478,8 @@
           </v-sheet>
           <v-alert v-else type="warning" variant="tonal" class="mt-2">
             Price details are unavailable for the current mapping
-            <code v-if="state.editInitialProviderPriceId">{{ state.editInitialProviderPriceId }}</code>.
-            You can still update name/description/kind/status, or choose a new active price.
+            <code v-if="state.editInitialProviderPriceId">{{ state.editInitialProviderPriceId }}</code
+            >. You can still update name/description/kind/status, or choose a new active price.
           </v-alert>
           <v-row dense class="mt-2">
             <v-col cols="12">

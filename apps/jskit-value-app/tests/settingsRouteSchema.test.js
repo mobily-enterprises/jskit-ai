@@ -106,86 +106,86 @@ function buildStubControllers() {
       auth: {
         async register(_request, reply) {
           reply.code(201).send({ ok: true, requiresEmailConfirmation: false, username: "demo-user" });
-      },
-      async login(_request, reply) {
-        reply.code(200).send({ ok: true, username: "demo-user" });
-      },
-      async requestPasswordReset(_request, reply) {
-        reply.code(200).send({ ok: true, message: "ok" });
-      },
-      async oauthStart(_request, reply) {
-        reply.code(302).send();
-      },
-      async oauthComplete(request, reply) {
-        const code = String(request?.body?.code || "").trim();
-        const accessToken = String(request?.body?.accessToken || "").trim();
-        const refreshToken = String(request?.body?.refreshToken || "").trim();
-        const hasSessionPair = Boolean(accessToken && refreshToken);
-        if (!code && !hasSessionPair) {
-          reply.code(400).send({ ok: false, message: "missing token material" });
-          return;
-        }
+        },
+        async login(_request, reply) {
+          reply.code(200).send({ ok: true, username: "demo-user" });
+        },
+        async requestPasswordReset(_request, reply) {
+          reply.code(200).send({ ok: true, message: "ok" });
+        },
+        async oauthStart(_request, reply) {
+          reply.code(302).send();
+        },
+        async oauthComplete(request, reply) {
+          const code = String(request?.body?.code || "").trim();
+          const accessToken = String(request?.body?.accessToken || "").trim();
+          const refreshToken = String(request?.body?.refreshToken || "").trim();
+          const hasSessionPair = Boolean(accessToken && refreshToken);
+          if (!code && !hasSessionPair) {
+            reply.code(400).send({ ok: false, message: "missing token material" });
+            return;
+          }
 
-        reply.code(200).send({
-          ok: true,
-          provider: "google",
-          username: "demo-user",
-          email: "demo@example.com"
-        });
+          reply.code(200).send({
+            ok: true,
+            provider: "google",
+            username: "demo-user",
+            email: "demo@example.com"
+          });
+        },
+        async completePasswordRecovery(_request, reply) {
+          reply.code(200).send({ ok: true });
+        },
+        async resetPassword(_request, reply) {
+          reply.code(200).send({ ok: true, message: "ok" });
+        },
+        async logout(_request, reply) {
+          reply.code(200).send({ ok: true });
+        },
+        async session(_request, reply) {
+          reply.code(200).send({ authenticated: true, username: "demo-user", csrfToken: "csrf" });
+        }
       },
-      async completePasswordRecovery(_request, reply) {
-        reply.code(200).send({ ok: true });
+      settings: {
+        async get(_request, reply) {
+          reply.code(200).send(buildSettingsPayload());
+        },
+        async updateProfile(_request, reply) {
+          reply.code(200).send(buildSettingsPayload());
+        },
+        async uploadAvatar(_request, reply) {
+          reply.code(200).send(buildSettingsPayload());
+        },
+        async deleteAvatar(_request, reply) {
+          reply.code(200).send(buildSettingsPayload());
+        },
+        async updatePreferences(_request, reply) {
+          reply.code(200).send(buildSettingsPayload());
+        },
+        async updateNotifications(_request, reply) {
+          reply.code(200).send(buildSettingsPayload());
+        },
+        async updateChat(_request, reply) {
+          reply.code(200).send(buildSettingsPayload());
+        },
+        async changePassword(_request, reply) {
+          reply.code(200).send({ ok: true, message: "Password changed." });
+        },
+        async logoutOtherSessions(_request, reply) {
+          reply.code(200).send({ ok: true, message: "Signed out from other active sessions." });
+        }
       },
-      async resetPassword(_request, reply) {
-        reply.code(200).send({ ok: true, message: "ok" });
-      },
-      async logout(_request, reply) {
-        reply.code(200).send({ ok: true });
-      },
-      async session(_request, reply) {
-        reply.code(200).send({ authenticated: true, username: "demo-user", csrfToken: "csrf" });
+      history: {
+        async list(_request, reply) {
+          reply.code(200).send({
+            entries: [],
+            page: 1,
+            pageSize: 10,
+            total: 0,
+            totalPages: 1
+          });
+        }
       }
-    },
-    settings: {
-      async get(_request, reply) {
-        reply.code(200).send(buildSettingsPayload());
-      },
-      async updateProfile(_request, reply) {
-        reply.code(200).send(buildSettingsPayload());
-      },
-      async uploadAvatar(_request, reply) {
-        reply.code(200).send(buildSettingsPayload());
-      },
-      async deleteAvatar(_request, reply) {
-        reply.code(200).send(buildSettingsPayload());
-      },
-      async updatePreferences(_request, reply) {
-        reply.code(200).send(buildSettingsPayload());
-      },
-      async updateNotifications(_request, reply) {
-        reply.code(200).send(buildSettingsPayload());
-      },
-      async updateChat(_request, reply) {
-        reply.code(200).send(buildSettingsPayload());
-      },
-      async changePassword(_request, reply) {
-        reply.code(200).send({ ok: true, message: "Password changed." });
-      },
-      async logoutOtherSessions(_request, reply) {
-        reply.code(200).send({ ok: true, message: "Signed out from other active sessions." });
-      }
-    },
-    history: {
-      async list(_request, reply) {
-        reply.code(200).send({
-          entries: [],
-          page: 1,
-          pageSize: 10,
-          total: 0,
-          totalPages: 1
-        });
-      }
-    }
     },
     {
       get(target, prop, receiver) {

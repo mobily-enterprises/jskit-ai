@@ -35,7 +35,10 @@
           </div>
 
           <v-form @submit.prevent="submitAuth" novalidate>
-            <div v-if="showRememberedAccount" class="remembered-account d-flex align-center justify-space-between ga-3 mb-4">
+            <div
+              v-if="showRememberedAccount"
+              class="remembered-account d-flex align-center justify-space-between ga-3 mb-4"
+            >
               <div class="remembered-copy flex-grow-1">
                 <p class="remembered-title">Welcome back, {{ rememberedAccountDisplayName }}</p>
                 <p class="remembered-email">{{ rememberedAccountMaskedEmail }}</p>

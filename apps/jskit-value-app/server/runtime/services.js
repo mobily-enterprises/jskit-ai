@@ -158,7 +158,9 @@ function throwEnabledSubsystemStartupPreflightError({ env, aiPolicyConfig, billi
   }
 
   if (billingPolicyConfig?.enabled === true) {
-    const provider = String(billingPolicyConfig?.provider || "").trim().toLowerCase();
+    const provider = String(billingPolicyConfig?.provider || "")
+      .trim()
+      .toLowerCase();
 
     if (!hasNonEmptyEnvValue(env.APP_PUBLIC_URL)) {
       issues.push("APP_PUBLIC_URL is required.");

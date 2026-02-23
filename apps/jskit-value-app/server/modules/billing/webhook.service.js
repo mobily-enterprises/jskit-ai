@@ -1,10 +1,7 @@
 import { AppError } from "../../lib/errors.js";
 import { isMysqlDuplicateEntryError } from "../../lib/primitives/mysqlErrors.js";
 import { BILLING_DEFAULT_PROVIDER, BILLING_PROVIDER_PADDLE, BILLING_PROVIDER_STRIPE } from "./constants.js";
-import {
-  createService as createWebhookProjectionService,
-  parseUnixEpochSeconds
-} from "./webhookProjection.service.js";
+import { createService as createWebhookProjectionService, parseUnixEpochSeconds } from "./webhookProjection.service.js";
 import { normalizeBillingWebhookProvider } from "./providers/shared/webhookTranslation.contract.js";
 
 function toNullableString(value) {
@@ -63,9 +60,7 @@ function createService(options = {}) {
   };
 
   const webhookTranslationRegistry = billingWebhookTranslationRegistryService;
-  const supportedWebhookProviders = new Set(
-    webhookTranslationRegistry.listProviders()
-  );
+  const supportedWebhookProviders = new Set(webhookTranslationRegistry.listProviders());
 
   const normalizedPayloadRetentionDays = Math.max(1, Number(payloadRetentionDays) || 30);
 
@@ -557,7 +552,10 @@ function createService(options = {}) {
 
     const endpointSecret = String(endpointSecretByProvider[normalizedProvider] || "").trim();
     if (!endpointSecret) {
-      throw new AppError(500, `Billing webhook endpoint secret is not configured for provider "${normalizedProvider}".`);
+      throw new AppError(
+        500,
+        `Billing webhook endpoint secret is not configured for provider "${normalizedProvider}".`
+      );
     }
 
     const scopedProviderAdapter = resolveProviderAdapter(normalizedProvider);

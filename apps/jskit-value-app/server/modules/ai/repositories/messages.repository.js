@@ -1,7 +1,11 @@
 import { db } from "../../../../db/knex.js";
 import { toIsoString, toMysqlDateTimeUtc } from "../../../lib/primitives/dateUtils.js";
 import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
-import { deleteRowsOlderThan, normalizeBatchSize, normalizeCutoffDateOrThrow } from "../../../lib/primitives/retention.js";
+import {
+  deleteRowsOlderThan,
+  normalizeBatchSize,
+  normalizeCutoffDateOrThrow
+} from "../../../lib/primitives/retention.js";
 
 function parseJsonObject(value) {
   const source = String(value || "").trim();
@@ -72,10 +76,7 @@ function mapMessageRowNullable(row) {
 }
 
 async function resolveNextSequence(client, conversationId) {
-  const row = await client("ai_messages")
-    .where({ conversation_id: conversationId })
-    .max({ maxSeq: "seq" })
-    .first();
+  const row = await client("ai_messages").where({ conversation_id: conversationId }).max({ maxSeq: "seq" }).first();
   const currentMax = Number(row?.maxSeq || 0);
   if (!Number.isInteger(currentMax) || currentMax < 0) {
     return 1;
@@ -95,7 +96,9 @@ function applyExportFilters(query, filters = {}) {
     query.where("m.conversation_id", conversationId);
   }
 
-  const role = String(filters.role || "").trim().toLowerCase();
+  const role = String(filters.role || "")
+    .trim()
+    .toLowerCase();
   if (role) {
     query.where("m.role", role);
   }
@@ -124,15 +127,22 @@ function createMessagesRepository(dbClient) {
       throw new TypeError("conversationId and workspaceId are required.");
     }
 
-    const seq = Number.isInteger(Number(payload?.seq)) ? Number(payload.seq) : await resolveNextSequence(client, conversationId);
+    const seq = Number.isInteger(Number(payload?.seq))
+      ? Number(payload.seq)
+      : await resolveNextSequence(client, conversationId);
     const createdAt = payload?.createdAt ? normalizeCutoffDateOrThrow(payload.createdAt) : new Date();
 
     const [id] = await client("ai_messages").insert({
       conversation_id: conversationId,
       workspace_id: workspaceId,
       seq,
-      role: String(payload?.role || "").trim().toLowerCase(),
-      kind: String(payload?.kind || "chat").trim().toLowerCase() || "chat",
+      role: String(payload?.role || "")
+        .trim()
+        .toLowerCase(),
+      kind:
+        String(payload?.kind || "chat")
+          .trim()
+          .toLowerCase() || "chat",
       client_message_id: String(payload?.clientMessageId || "").trim(),
       actor_user_id: parsePositiveInteger(payload?.actorUserId),
       content_text: payload?.contentText == null ? null : String(payload.contentText),
@@ -228,7 +238,10 @@ function createMessagesRepository(dbClient) {
       return 0;
     }
 
-    const row = await client("ai_messages").where({ conversation_id: numericConversationId }).count({ total: "*" }).first();
+    const row = await client("ai_messages")
+      .where({ conversation_id: numericConversationId })
+      .count({ total: "*" })
+      .first();
     return normalizeCountRow(row);
   }
 
@@ -266,10 +279,7 @@ function createMessagesRepository(dbClient) {
         "c.ended_at as conversation_ended_at"
       );
 
-    query = applyExportFilters(query, filters)
-      .orderBy("m.created_at", "asc")
-      .orderBy("m.id", "asc")
-      .limit(limit);
+    query = applyExportFilters(query, filters).orderBy("m.created_at", "asc").orderBy("m.id", "asc").limit(limit);
 
     const rows = await query;
     return rows.map((row) => ({

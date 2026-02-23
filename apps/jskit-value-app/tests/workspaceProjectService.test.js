@@ -106,9 +106,18 @@ test("projects service creates, fetches, and updates projects", async () => {
   assert.equal(updated.project.id, 5);
   assert.equal(updated.project.name, "Alpha 2");
 
-  assert.equal(calls.some((entry) => entry[0] === "insert"), true);
-  assert.equal(calls.some((entry) => entry[0] === "findByIdForWorkspace"), true);
-  assert.equal(calls.some((entry) => entry[0] === "updateByIdForWorkspace"), true);
+  assert.equal(
+    calls.some((entry) => entry[0] === "insert"),
+    true
+  );
+  assert.equal(
+    calls.some((entry) => entry[0] === "findByIdForWorkspace"),
+    true
+  );
+  assert.equal(
+    calls.some((entry) => entry[0] === "updateByIdForWorkspace"),
+    true
+  );
 
   const replaced = await service.replace(createWorkspaceContext(), "5", {
     name: "Alpha Replace",

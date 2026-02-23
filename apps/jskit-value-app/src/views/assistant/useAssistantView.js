@@ -161,9 +161,10 @@ function mapTranscriptEntriesToAssistantState(entries) {
     const kind = normalizeText(entry?.kind).toLowerCase();
     const metadata = normalizeObject(entry?.metadata);
     const transcriptMessageId = Number(entry?.id);
-    const messageId = Number.isInteger(transcriptMessageId) && transcriptMessageId > 0
-      ? `transcript_${transcriptMessageId}`
-      : buildId("transcript");
+    const messageId =
+      Number.isInteger(transcriptMessageId) && transcriptMessageId > 0
+        ? `transcript_${transcriptMessageId}`
+        : buildId("transcript");
 
     if (kind === "chat" && (role === "user" || role === "assistant")) {
       const contentStored = entry?.contentText != null;
@@ -215,7 +216,7 @@ function mapTranscriptEntriesToAssistantState(entries) {
       const toolEvent = ensureToolEvent(toolCallId, toolName);
       const failed = parsedPayload.ok === false || metadata.ok === false;
       toolEvent.status = failed ? "failed" : "done";
-      toolEvent.result = failed ? null : parsedPayload.result ?? null;
+      toolEvent.result = failed ? null : (parsedPayload.result ?? null);
       toolEvent.error = failed ? parsedPayload.error || metadata.error || null : null;
       restoredMessages.push({
         id: messageId,
@@ -284,7 +285,9 @@ export function useAssistantView() {
   });
 
   const conversationHistory = computed(() => {
-    return Array.isArray(conversationHistoryQuery.data.value?.entries) ? conversationHistoryQuery.data.value.entries : [];
+    return Array.isArray(conversationHistoryQuery.data.value?.entries)
+      ? conversationHistoryQuery.data.value.entries
+      : [];
   });
 
   const conversationHistoryLoading = computed(() => conversationHistoryQuery.isFetching.value);

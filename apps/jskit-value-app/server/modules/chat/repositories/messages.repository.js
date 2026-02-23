@@ -2,7 +2,11 @@ import { db } from "../../../../db/knex.js";
 import { toIsoString, toMysqlDateTimeUtc } from "../../../lib/primitives/dateUtils.js";
 import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
 import { isMysqlDuplicateEntryError } from "../../../lib/primitives/mysqlErrors.js";
-import { deleteRowsOlderThan, normalizeBatchSize, normalizeCutoffDateOrThrow } from "../../../lib/primitives/retention.js";
+import {
+  deleteRowsOlderThan,
+  normalizeBatchSize,
+  normalizeCutoffDateOrThrow
+} from "../../../lib/primitives/retention.js";
 import {
   normalizeCountRow,
   normalizeIdList,
@@ -91,7 +95,9 @@ function applyRetentionSelectionMode(query, selectionMode) {
     return query.andWhere((builder) => {
       builder
         .whereNull("client_message_id")
-        .orWhere((nested) => nested.whereNotNull("idempotency_payload_sha256").whereNotNull("idempotency_payload_version"));
+        .orWhere((nested) =>
+          nested.whereNotNull("idempotency_payload_sha256").whereNotNull("idempotency_payload_version")
+        );
     });
   }
 
@@ -120,9 +126,13 @@ function createMessagesRepository(dbClient) {
       thread_seq: threadSeq,
       sender_user_id: senderUserId,
       client_message_id: normalizeClientMessageId(payload?.clientMessageId),
-      idempotency_payload_sha256: payload?.idempotencyPayloadSha256 == null ? null : String(payload.idempotencyPayloadSha256),
+      idempotency_payload_sha256:
+        payload?.idempotencyPayloadSha256 == null ? null : String(payload.idempotencyPayloadSha256),
       idempotency_payload_version: parsePositiveInteger(payload?.idempotencyPayloadVersion),
-      message_kind: String(payload?.messageKind || "").trim().toLowerCase() || "text",
+      message_kind:
+        String(payload?.messageKind || "")
+          .trim()
+          .toLowerCase() || "text",
       reply_to_message_id: parsePositiveInteger(payload?.replyToMessageId),
       text_content: payload?.textContent == null ? null : String(payload.textContent),
       ciphertext_blob: payload?.ciphertextBlob == null ? null : payload.ciphertextBlob,
@@ -259,7 +269,9 @@ function createMessagesRepository(dbClient) {
   }
 
   async function repoDeleteOlderThan(cutoffDate, batchSize = 1000, options = {}) {
-    const selectionMode = String(options?.selectionMode || "all").trim().toLowerCase();
+    const selectionMode = String(options?.selectionMode || "all")
+      .trim()
+      .toLowerCase();
 
     return deleteRowsOlderThan({
       client: resolveClient(dbClient, options),
@@ -276,7 +288,9 @@ function createMessagesRepository(dbClient) {
 
   async function repoListRetentionCandidatesOlderThan(cutoffDate, batchSize = 1000, options = {}) {
     const client = resolveClient(dbClient, options);
-    const selectionMode = String(options?.selectionMode || "all").trim().toLowerCase();
+    const selectionMode = String(options?.selectionMode || "all")
+      .trim()
+      .toLowerCase();
     const normalizedCutoff = toMysqlDateTimeUtc(normalizeCutoffDateOrThrow(cutoffDate));
     const normalizedBatchSize = normalizeBatchSize(batchSize, {
       fallback: 1000,

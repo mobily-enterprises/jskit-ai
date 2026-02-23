@@ -7,10 +7,7 @@ import { useAuthGuard } from "../../composables/useAuthGuard.js";
 import { useQueryErrorMessage } from "../../composables/useQueryErrorMessage.js";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 import { mapChatError } from "../../features/chat/errors.js";
-import {
-  chatInboxInfiniteQueryKey,
-  chatThreadMessagesInfiniteQueryKey
-} from "../../features/chat/queryKeys.js";
+import { chatInboxInfiniteQueryKey, chatThreadMessagesInfiniteQueryKey } from "../../features/chat/queryKeys.js";
 
 const INBOX_PAGE_SIZE = 20;
 const THREAD_MESSAGES_PAGE_SIZE = 50;
@@ -44,7 +41,11 @@ function normalizeAvatarUrl(value) {
 }
 
 function isWorkspaceRoomThread(thread) {
-  return String(thread?.threadKind || "").trim().toLowerCase() === WORKSPACE_ROOM_THREAD_KIND;
+  return (
+    String(thread?.threadKind || "")
+      .trim()
+      .toLowerCase() === WORKSPACE_ROOM_THREAD_KIND
+  );
 }
 
 function parseTimestampMs(value) {
@@ -96,7 +97,9 @@ function buildComposerAttachmentLocalId() {
 }
 
 function normalizePublicChatId(value) {
-  const normalized = String(value || "").trim().toLowerCase();
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
   if (!normalized) {
     return "";
   }
@@ -302,12 +305,7 @@ function resolveSenderIdentity(
 
 function buildMessageRows(
   messages,
-  {
-    currentUserId = 0,
-    currentUserLabel = "You",
-    currentUserAvatarUrl = "",
-    dmPeerUser = null
-  } = {}
+  { currentUserId = 0, currentUserLabel = "You", currentUserAvatarUrl = "", dmPeerUser = null } = {}
 ) {
   const source = Array.isArray(messages) ? messages : [];
 
@@ -396,8 +394,8 @@ export function useChatView() {
     return displayName || "You";
   });
   const currentUserAvatarUrl = computed(() => normalizeAvatarUrl(workspaceStore.profileAvatarUrl));
-  const enabled = computed(
-    () => Boolean(workspaceStore.initialized && workspaceStore.hasActiveWorkspace && workspaceStore.can("chat.read"))
+  const enabled = computed(() =>
+    Boolean(workspaceStore.initialized && workspaceStore.hasActiveWorkspace && workspaceStore.can("chat.read"))
   );
 
   const inboxQueryKey = computed(() => chatInboxInfiniteQueryKey(workspaceSlug.value, { limit: INBOX_PAGE_SIZE }));
@@ -560,10 +558,13 @@ export function useChatView() {
 
   function scheduleMarkRead(delayMs = MARK_READ_DEBOUNCE_MS) {
     clearMarkReadTimer();
-    markReadTimer = setTimeout(() => {
-      markReadTimer = null;
-      void markActiveThreadRead();
-    }, Math.max(0, Number(delayMs) || MARK_READ_DEBOUNCE_MS));
+    markReadTimer = setTimeout(
+      () => {
+        markReadTimer = null;
+        void markActiveThreadRead();
+      },
+      Math.max(0, Number(delayMs) || MARK_READ_DEBOUNCE_MS)
+    );
   }
 
   function buildThreadUserTypingKey(threadId, userId) {
@@ -608,7 +609,9 @@ export function useChatView() {
   }
 
   function handleRealtimeTypingEvent(event) {
-    const eventType = String(event?.eventType || "").trim().toLowerCase();
+    const eventType = String(event?.eventType || "")
+      .trim()
+      .toLowerCase();
     const isTypingStarted = eventType === String(REALTIME_EVENT_TYPES.CHAT_TYPING_STARTED || "").toLowerCase();
     const isTypingStopped = eventType === String(REALTIME_EVENT_TYPES.CHAT_TYPING_STOPPED || "").toLowerCase();
     if (!isTypingStarted && !isTypingStopped) {
@@ -1144,14 +1147,17 @@ export function useChatView() {
     }
 
     const hasText =
-      normalizeText(composerText.value).length > 0 && normalizeText(composerText.value).length <= CHAT_MESSAGE_MAX_TEXT_CHARS;
+      normalizeText(composerText.value).length > 0 &&
+      normalizeText(composerText.value).length <= CHAT_MESSAGE_MAX_TEXT_CHARS;
     const hasUploadedAttachments = composerUploadedAttachmentIds.value.length > 0;
-    if (!(
-      selectedThreadId.value > 0 &&
-      !sendPending.value &&
-      !composerHasBlockingAttachments.value &&
-      (hasText || hasUploadedAttachments)
-    )) {
+    if (
+      !(
+        selectedThreadId.value > 0 &&
+        !sendPending.value &&
+        !composerHasBlockingAttachments.value &&
+        (hasText || hasUploadedAttachments)
+      )
+    ) {
       return;
     }
 
@@ -1239,7 +1245,8 @@ export function useChatView() {
     ([nextEnabled, nextWorkspaceSlug], previous = []) => {
       const previousEnabled = Boolean(previous[0]);
       const previousWorkspaceSlug = String(previous[1] || "");
-      const workspaceChanged = Boolean(previousWorkspaceSlug) && previousWorkspaceSlug !== String(nextWorkspaceSlug || "");
+      const workspaceChanged =
+        Boolean(previousWorkspaceSlug) && previousWorkspaceSlug !== String(nextWorkspaceSlug || "");
 
       if (!nextEnabled) {
         selectedThreadId.value = 0;
@@ -1383,22 +1390,23 @@ export function useChatView() {
       inboxError,
       messagesError,
       inboxLoading: computed(() => Boolean(inboxQuery.isPending.value || inboxQuery.isFetching.value)),
-      messagesLoading: computed(() => Boolean(threadMessagesQuery.isPending.value || threadMessagesQuery.isFetching.value)),
+      messagesLoading: computed(() =>
+        Boolean(threadMessagesQuery.isPending.value || threadMessagesQuery.isFetching.value)
+      ),
       hasMoreThreads: computed(() => Boolean(inboxQuery.hasNextPage.value)),
       hasMoreMessages: computed(() => Boolean(threadMessagesQuery.hasNextPage.value)),
       loadingMoreThreads: computed(() => Boolean(inboxQuery.isFetchingNextPage.value)),
       loadingMoreMessages: computed(() => Boolean(threadMessagesQuery.isFetchingNextPage.value)),
       attachmentUploadPending: composerAttachmentUploadPending,
-      canSend: computed(
-        () =>
-          Boolean(
-            selectedThreadId.value > 0 &&
-              !sendPending.value &&
-              !composerHasBlockingAttachments.value &&
-              ((normalizeText(composerText.value).length > 0 &&
-                normalizeText(composerText.value).length <= CHAT_MESSAGE_MAX_TEXT_CHARS) ||
-                composerUploadedAttachmentIds.value.length > 0)
-          )
+      canSend: computed(() =>
+        Boolean(
+          selectedThreadId.value > 0 &&
+          !sendPending.value &&
+          !composerHasBlockingAttachments.value &&
+          ((normalizeText(composerText.value).length > 0 &&
+            normalizeText(composerText.value).length <= CHAT_MESSAGE_MAX_TEXT_CHARS) ||
+            composerUploadedAttachmentIds.value.length > 0)
+        )
       )
     }),
     helpers: {

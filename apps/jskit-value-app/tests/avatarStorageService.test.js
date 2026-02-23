@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { createService as createAvatarStorageService, __testables } from "../server/domain/users/avatarStorage.service.js";
+import {
+  createService as createAvatarStorageService,
+  __testables
+} from "../server/domain/users/avatarStorage.service.js";
 
 test("avatar storage helpers normalize config and keys", () => {
   assert.equal(__testables.normalizePublicBasePath(""), "/uploads");
@@ -85,10 +88,7 @@ test("avatar storage service validates unsupported driver and buffer payload", a
     () => service.saveAvatar({ userId: 3, buffer: "not-buffer", avatarVersion: 1 }),
     /Buffer instance/
   );
-  await assert.rejects(
-    () => service.registerDelivery(null, {}),
-    /requires a Fastify app instance/
-  );
+  await assert.rejects(() => service.registerDelivery(null, {}), /requires a Fastify app instance/);
   await assert.rejects(
     () => service.registerDelivery({ register: async () => {} }, {}),
     /requires fastifyStatic plugin/

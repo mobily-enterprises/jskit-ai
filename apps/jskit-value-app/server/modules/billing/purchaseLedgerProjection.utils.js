@@ -7,13 +7,11 @@ import {
   toSafeMetadata
 } from "./webhookProjection.utils.js";
 
-function buildPurchaseDedupeKey({
-  provider,
-  providerPaymentId,
-  providerInvoiceId,
-  providerEventId
-}) {
-  const normalizedProvider = String(provider || "").trim().toLowerCase() || "stripe";
+function buildPurchaseDedupeKey({ provider, providerPaymentId, providerInvoiceId, providerEventId }) {
+  const normalizedProvider =
+    String(provider || "")
+      .trim()
+      .toLowerCase() || "stripe";
 
   // Prefer the strongest provider identifier first so duplicate webhook deliveries
   // for the same confirmed payment collapse into one purchase row.
@@ -56,13 +54,7 @@ function normalizePlanNameFromLineDescription(description) {
   return toNullableString(matched[1]);
 }
 
-async function resolvePlanNameForInvoice({
-  billingRepository,
-  provider,
-  providerPriceId,
-  subscription,
-  trx
-}) {
+async function resolvePlanNameForInvoice({ billingRepository, provider, providerPriceId, subscription, trx }) {
   const normalizedProvider = toNormalizedProvider(provider);
   const normalizedProviderPriceId = toNullableString(providerPriceId);
 
@@ -134,7 +126,8 @@ async function resolveInvoiceDisplayName({
   subscription,
   trx
 }) {
-  const metadataDisplayName = toNullableString(invoiceMetadata.display_name) || toNullableString(invoiceMetadata.item_name);
+  const metadataDisplayName =
+    toNullableString(invoiceMetadata.display_name) || toNullableString(invoiceMetadata.item_name);
   const providerPriceId = resolveInvoicePrimaryPriceId(invoice);
   const lineDescription = resolveInvoicePrimaryLineDescription(invoice);
 

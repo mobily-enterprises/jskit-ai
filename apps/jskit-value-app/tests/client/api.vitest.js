@@ -159,19 +159,17 @@ describe("client api transport", () => {
   });
 
   it("does not retry unsafe requests for non-csrf 403 responses", async () => {
-    global.fetch
-      .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-1" } }))
-      .mockResolvedValueOnce(
-        mockResponse({
-          status: 403,
-          data: {
-            error: "forbidden",
-            details: {
-              code: "FORBIDDEN"
-            }
+    global.fetch.mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-1" } })).mockResolvedValueOnce(
+      mockResponse({
+        status: 403,
+        data: {
+          error: "forbidden",
+          details: {
+            code: "FORBIDDEN"
           }
-        })
-      );
+        }
+      })
+    );
 
     await expect(api.auth.logout()).rejects.toMatchObject({
       status: 403,
@@ -362,14 +360,28 @@ describe("client api transport", () => {
 
   it("calls settings endpoints through wrapper methods", async () => {
     global.fetch
-      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } }))
+      .mockResolvedValueOnce(
+        mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } })
+      )
       .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "settings-token" } }))
-      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } }))
-      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } }))
-      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } }))
-      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } }))
-      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } }))
-      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } }))
+      .mockResolvedValueOnce(
+        mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } })
+      )
+      .mockResolvedValueOnce(
+        mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } })
+      )
+      .mockResolvedValueOnce(
+        mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } })
+      )
+      .mockResolvedValueOnce(
+        mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } })
+      )
+      .mockResolvedValueOnce(
+        mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } })
+      )
+      .mockResolvedValueOnce(
+        mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } })
+      )
       .mockResolvedValueOnce(mockResponse({ data: { ok: true, message: "Password changed." } }))
       .mockResolvedValueOnce(mockResponse({ data: { ok: true, message: "Signed out from other active sessions." } }));
 
@@ -568,7 +580,8 @@ describe("client api transport", () => {
     );
     expect(Boolean(updateBillingPlanCall)).toBe(true);
     const createBillingProductCall = global.fetch.mock.calls.find(
-      ([url, options]) => url === "/api/console/billing/products" && String(options?.method || "").toUpperCase() === "POST"
+      ([url, options]) =>
+        url === "/api/console/billing/products" && String(options?.method || "").toUpperCase() === "POST"
     );
     expect(Boolean(createBillingProductCall)).toBe(true);
     const updateBillingProductCall = global.fetch.mock.calls.find(
@@ -642,17 +655,15 @@ describe("client api transport", () => {
   });
 
   it("sends put replace requests through projects api", async () => {
-    global.fetch
-      .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-1" } }))
-      .mockResolvedValueOnce(
-        mockResponse({
-          data: {
-            project: {
-              id: 202
-            }
+    global.fetch.mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-1" } })).mockResolvedValueOnce(
+      mockResponse({
+        data: {
+          project: {
+            id: 202
           }
-        })
-      );
+        }
+      })
+    );
 
     const response = await api.projects.replace("202", { name: "Replacement", status: "draft" });
     expect(response.project.id).toBe(202);
@@ -793,7 +804,9 @@ describe("client api transport", () => {
 
   it("builds oauth URL helpers with and without returnTo", () => {
     expect(api.auth.oauthStartUrl("Google")).toBe("/api/oauth/google/start");
-    expect(api.auth.oauthStartUrl("Google", { returnTo: "/w/acme" })).toBe("/api/oauth/google/start?returnTo=%2Fw%2Facme");
+    expect(api.auth.oauthStartUrl("Google", { returnTo: "/w/acme" })).toBe(
+      "/api/oauth/google/start?returnTo=%2Fw%2Facme"
+    );
 
     expect(api.settings.oauthLinkStartUrl("Google")).toBe("/api/settings/security/oauth/google/start");
     expect(api.settings.oauthLinkStartUrl("Google", { returnTo: "/account/settings" })).toBe(

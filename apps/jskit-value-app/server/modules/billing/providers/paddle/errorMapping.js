@@ -56,11 +56,7 @@ function resolveCategory({ statusCode, code, message }) {
   if (statusCode >= 400 && statusCode < 500) {
     return BILLING_PROVIDER_ERROR_CATEGORIES.INVALID_REQUEST;
   }
-  if (
-    code.includes("invalid_request") ||
-    code.includes("invalidrequest") ||
-    code.includes("validation")
-  ) {
+  if (code.includes("invalid_request") || code.includes("invalidrequest") || code.includes("validation")) {
     return BILLING_PROVIDER_ERROR_CATEGORIES.INVALID_REQUEST;
   }
   return BILLING_PROVIDER_ERROR_CATEGORIES.UNKNOWN;

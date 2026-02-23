@@ -293,15 +293,10 @@ test("ai transcripts service rejects foreign conversation id for user-scoped mes
 
   await assert.rejects(
     () =>
-      service.getWorkspaceConversationMessagesForUser(
-        { id: 11 },
-        { id: 7 },
-        99,
-        {
-          page: 1,
-          pageSize: 100
-        }
-      ),
+      service.getWorkspaceConversationMessagesForUser({ id: 11 }, { id: 7 }, 99, {
+        page: 1,
+        pageSize: 100
+      }),
     (error) => {
       assert.equal(error.status, 404);
       assert.equal(error.message, "Conversation not found.");

@@ -182,7 +182,9 @@ function normalizePathname(pathname) {
 }
 
 function isRealtimeCorrelatedCommandRequest(url, method) {
-  const normalizedMethod = String(method || "").trim().toUpperCase();
+  const normalizedMethod = String(method || "")
+    .trim()
+    .toUpperCase();
   const pathname = normalizePathname(resolvePathnameFromRequestUrl(url));
   if (!pathname.startsWith(API_PATH_PREFIX)) {
     return false;

@@ -4,11 +4,15 @@ import test from "node:test";
 import { AppError } from "../server/lib/errors.js";
 import { normalizeEmail } from "../shared/auth/utils.js";
 import { parsePositiveInteger } from "../server/lib/primitives/integers.js";
-import { normalizeWorkspaceColor, mapWorkspaceAdminSummary } from "../server/domain/workspace/mappers/workspaceMappers.js";
-import { listRoleDescriptors, resolveAssignableRoleIds } from "../server/domain/workspace/policies/workspaceRoleCatalog.js";
 import {
-  parseWorkspaceSettingsPatch
-} from "../server/domain/workspace/policies/workspaceSettingsPatch.js";
+  normalizeWorkspaceColor,
+  mapWorkspaceAdminSummary
+} from "../server/domain/workspace/mappers/workspaceMappers.js";
+import {
+  listRoleDescriptors,
+  resolveAssignableRoleIds
+} from "../server/domain/workspace/policies/workspaceRoleCatalog.js";
+import { parseWorkspaceSettingsPatch } from "../server/domain/workspace/policies/workspaceSettingsPatch.js";
 
 test("workspace admin primitives normalize values", () => {
   assert.equal(normalizeEmail(" User@Example.com "), "user@example.com");

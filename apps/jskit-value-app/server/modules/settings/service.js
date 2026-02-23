@@ -452,7 +452,13 @@ function createService({
     const securityStatus = await authService.getSecurityStatus(request);
 
     return {
-      settings: buildSettingsResponse(profile, settings, securityStatus, resolveAvatar(profile, settings), chatSettings),
+      settings: buildSettingsResponse(
+        profile,
+        settings,
+        securityStatus,
+        resolveAvatar(profile, settings),
+        chatSettings
+      ),
       session: updated.session || null
     };
   }

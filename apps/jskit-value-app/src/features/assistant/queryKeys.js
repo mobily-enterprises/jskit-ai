@@ -41,10 +41,7 @@ function assistantWorkspaceScopeQueryKey(workspaceScope = {}) {
   return [...assistantRootQueryKey(), normalizeWorkspaceScope(workspaceScope)];
 }
 
-function assistantConversationsListQueryKey(
-  workspaceScope = {},
-  { page = 1, pageSize = 50, status = "" } = {}
-) {
+function assistantConversationsListQueryKey(workspaceScope = {}, { page = 1, pageSize = 50, status = "" } = {}) {
   return [
     ...assistantWorkspaceScopeQueryKey(workspaceScope),
     "conversations",
@@ -55,11 +52,7 @@ function assistantConversationsListQueryKey(
   ];
 }
 
-function assistantConversationMessagesQueryKey(
-  workspaceScope = {},
-  conversationId,
-  { page = 1, pageSize = 500 } = {}
-) {
+function assistantConversationMessagesQueryKey(workspaceScope = {}, conversationId, { page = 1, pageSize = 500 } = {}) {
   return [
     ...assistantWorkspaceScopeQueryKey(workspaceScope),
     "conversations",

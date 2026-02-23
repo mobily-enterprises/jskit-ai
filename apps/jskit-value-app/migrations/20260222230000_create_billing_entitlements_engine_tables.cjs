@@ -7,24 +7,16 @@ exports.up = async function up(knex) {
     table.string("code", 120).notNullable();
     table.string("name", 191).notNullable();
     table.text("description").nullable();
-    table
-      .enu("entitlement_type", ["capacity", "metered_quota", "balance", "state"])
-      .notNullable();
+    table.enu("entitlement_type", ["capacity", "metered_quota", "balance", "state"]).notNullable();
     table.string("unit", 64).notNullable();
     table.enu("window_interval", ["day", "week", "month", "year"]).nullable();
     table.enu("window_anchor", ["calendar_utc", "rolling"]).nullable();
-    table
-      .enu("aggregation_mode", ["sum", "max", "boolean_any_true"])
-      .notNullable()
-      .defaultTo("sum");
+    table.enu("aggregation_mode", ["sum", "max", "boolean_any_true"]).notNullable().defaultTo("sum");
     table
       .enu("enforcement_mode", ["hard_deny", "hard_lock_resource", "soft_warn"])
       .notNullable()
       .defaultTo("hard_deny");
-    table
-      .enu("scope_type", ["billable_entity", "workspace", "user"])
-      .notNullable()
-      .defaultTo("billable_entity");
+    table.enu("scope_type", ["billable_entity", "workspace", "user"]).notNullable().defaultTo("billable_entity");
     table.boolean("is_active").notNullable().defaultTo(true);
     table.json("metadata_json").nullable();
     table.dateTime("created_at", { precision: 3 }).notNullable().defaultTo(knex.raw("UTC_TIMESTAMP(3)"));
@@ -74,11 +66,7 @@ exports.up = async function up(knex) {
     table.index(["plan_id"], "idx_bpet_plan");
     table.index(["entitlement_definition_id"], "idx_bpet_def");
 
-    table
-      .foreign("plan_id", "fk_bpet_plan")
-      .references("id")
-      .inTable("billing_plans")
-      .onDelete("CASCADE");
+    table.foreign("plan_id", "fk_bpet_plan").references("id").inTable("billing_plans").onDelete("CASCADE");
     table
       .foreign("entitlement_definition_id", "fk_bpet_def")
       .references("id")
@@ -106,10 +94,7 @@ exports.up = async function up(knex) {
     table.dateTime("created_at", { precision: 3 }).notNullable().defaultTo(knex.raw("UTC_TIMESTAMP(3)"));
     table.dateTime("updated_at", { precision: 3 }).notNullable().defaultTo(knex.raw("UTC_TIMESTAMP(3)"));
 
-    table.unique(
-      ["billing_product_id", "entitlement_definition_id", "grant_kind"],
-      "uq_bpret_product_def_kind"
-    );
+    table.unique(["billing_product_id", "entitlement_definition_id", "grant_kind"], "uq_bpret_product_def_kind");
     table.index(["billing_product_id"], "idx_bpret_product");
     table.index(["entitlement_definition_id"], "idx_bpret_def");
 

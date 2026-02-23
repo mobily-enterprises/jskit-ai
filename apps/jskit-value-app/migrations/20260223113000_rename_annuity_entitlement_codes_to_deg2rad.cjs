@@ -176,7 +176,9 @@ async function migrateLimitationCode(
     toDefinitionId: targetDefinition.id
   });
 
-  await trx(TABLE_NAMES.definitions).where({ id: Number(sourceDefinition.id) }).del();
+  await trx(TABLE_NAMES.definitions)
+    .where({ id: Number(sourceDefinition.id) })
+    .del();
 
   await normalizeDefinitionRow(trx, targetDefinition.id, {
     code: targetCode,
@@ -212,14 +214,7 @@ async function migrateConsumptionReasonCode(trx, tables, { sourceReasonCode, tar
       WHERE JSON_UNQUOTE(JSON_EXTRACT(COALESCE(metadata_json, JSON_OBJECT()), '$.capability[0]')) = ?
          OR JSON_UNQUOTE(JSON_EXTRACT(COALESCE(metadata_json, JSON_OBJECT()), '$.capability')) = ?
     `,
-    [
-      sourceReasonCode,
-      targetReasonCode,
-      sourceReasonCode,
-      targetReasonCode,
-      sourceReasonCode,
-      sourceReasonCode
-    ]
+    [sourceReasonCode, targetReasonCode, sourceReasonCode, targetReasonCode, sourceReasonCode, sourceReasonCode]
   );
 }
 
