@@ -2,7 +2,7 @@ import {
   buildAiToolRegistry as buildAssistantCoreToolRegistry,
   executeToolCall as executeAssistantCoreToolCall,
   listToolSchemas
-} from "../../../../../../packages/ai-agent/assistant-core/src/toolRegistry.js";
+} from "@jskit-ai/assistant-core";
 import { AppError } from "../../../lib/errors.js";
 import { hasPermission } from "../../../lib/rbacManifest.js";
 import { createWorkspaceRenameTool } from "./workspaceRename.tool.js";

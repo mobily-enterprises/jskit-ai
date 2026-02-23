@@ -12,3 +12,10 @@ export {
   workspaceAiTranscriptsListQueryKey,
   workspaceAiTranscriptMessagesQueryKey
 } from "./transcriptQueryKeys.js";
+export {
+  ASSISTANT_STREAM_EVENT_TYPES,
+  ASSISTANT_STREAM_EVENT_TYPE_VALUES,
+  normalizeAssistantStreamEventType,
+  isAssistantStreamEventType,
+  normalizeAssistantStreamEvent
+} from "./streamEvents.js";

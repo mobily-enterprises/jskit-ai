@@ -1,4 +1,4 @@
-import { buildRoutes as buildChatAdapterRoutes } from "../../../../../packages/chat/chat-fastify-adapter/src/routes.js";
+import { buildRoutes as buildChatAdapterRoutes } from "@jskit-ai/chat-fastify-adapter";
 import { withStandardErrorResponses } from "../api/schema.js";
 
 function buildRoutes(controllers, options = {}) {

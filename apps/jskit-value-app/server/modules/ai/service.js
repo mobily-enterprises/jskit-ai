@@ -1,7 +1,7 @@
 import {
-  createService as createAssistantCoreService,
-  __testables as assistantCoreTestables
-} from "../../../../../packages/ai-agent/assistant-core/src/service.js";
+  createAssistantService as createAssistantCoreService,
+  assistantServiceTestables as assistantCoreTestables
+} from "@jskit-ai/assistant-core";
 import { AppError } from "../../lib/errors.js";
 import { hasPermission } from "../../lib/rbacManifest.js";
 import { safePathnameFromRequest } from "../../lib/primitives/requestUrl.js";

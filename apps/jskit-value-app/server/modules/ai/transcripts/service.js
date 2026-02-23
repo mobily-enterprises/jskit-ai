@@ -1,7 +1,7 @@
 import {
-  createService as createAssistantTranscriptsCoreService,
-  __testables as assistantTranscriptsCoreTestables
-} from "../../../../../../packages/ai-agent/assistant-transcripts-core/src/service.js";
+  createAssistantTranscriptsService as createAssistantTranscriptsCoreService,
+  assistantTranscriptsServiceTestables as assistantTranscriptsCoreTestables
+} from "@jskit-ai/assistant-transcripts-core";
 import { AppError } from "../../../lib/errors.js";
 import {
   CONSOLE_AI_TRANSCRIPTS_PERMISSIONS,

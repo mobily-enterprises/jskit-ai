@@ -1,1 +1,5 @@
-export { REDACTION_VERSION, redactSecrets, __testables } from "../../../../../../packages/ai-agent/assistant-transcripts-core/src/redactSecrets.js";
+export {
+  REDACTION_VERSION,
+  redactSecrets,
+  redactSecretsTestables as __testables
+} from "@jskit-ai/assistant-transcripts-core";

@@ -1,1 +1,1 @@
-export { mapChatError, __testables } from "../../../../../packages/chat/chat-contracts/src/errors.js";
+export { mapChatError, chatErrorTestables as __testables } from "@jskit-ai/chat-contracts";

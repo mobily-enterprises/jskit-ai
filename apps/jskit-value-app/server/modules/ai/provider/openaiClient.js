@@ -1,4 +1,4 @@
-import { createOpenAiClient as createOpenAiProviderClient } from "../../../../../../packages/ai-agent/assistant-provider-openai/src/openaiClient.js";
+import { createOpenAiClient as createOpenAiProviderClient } from "@jskit-ai/assistant-provider-openai";
 import { AppError } from "../../../lib/errors.js";
 
 function createOpenAiClient(options = {}) {

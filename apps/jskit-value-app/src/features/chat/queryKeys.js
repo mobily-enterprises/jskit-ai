@@ -5,4 +5,4 @@ export {
   chatInboxInfiniteQueryKey,
   chatThreadQueryKey,
   chatThreadMessagesInfiniteQueryKey
-} from "../../../../../packages/chat/chat-contracts/src/queryKeys.js";
+} from "@jskit-ai/chat-contracts";

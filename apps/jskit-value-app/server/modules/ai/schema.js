@@ -1,1 +1,1 @@
-export { createSchema, schema } from "../../../../../packages/ai-agent/assistant-fastify-adapter/src/schema.js";
+export { createSchema, schema } from "@jskit-ai/assistant-fastify-adapter";

@@ -6,4 +6,4 @@ export {
   normalizeTranscriptMode,
   resolveTranscriptModeFromWorkspaceSettings,
   applyTranscriptModeToWorkspaceFeatures
-} from "../../../../../../packages/ai-agent/assistant-transcripts-core/src/mode.js";
+} from "@jskit-ai/assistant-transcripts-core";

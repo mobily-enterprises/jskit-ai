@@ -4,4 +4,4 @@ export {
   workspaceAiTranscriptsScopeQueryKey,
   workspaceAiTranscriptsListQueryKey,
   workspaceAiTranscriptMessagesQueryKey
-} from "../../../../../packages/ai-agent/assistant-contracts/src/transcriptQueryKeys.js";
+} from "@jskit-ai/assistant-contracts";
