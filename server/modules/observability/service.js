@@ -1,5 +1,6 @@
 import { AppError } from "../../lib/errors.js";
 import { createMetricsRegistry, PROMETHEUS_CONTENT_TYPE } from "../../lib/observability/metrics.js";
+import { createScopeDebugMatcher, createScopedLogger } from "../../lib/logging/scopeLogger.js";
 
 function normalizeBearerToken(value) {
   return String(value || "").trim();
@@ -74,10 +75,23 @@ function normalizeGuardrailMeasurementValue(value) {
   return parsed;
 }
 
-function createService({ metricsRegistry, metricsEnabled = true, metricsBearerToken = "", logger = console } = {}) {
+function createService({
+  metricsRegistry,
+  metricsEnabled = true,
+  metricsBearerToken = "",
+  logger = console,
+  debugScopes = ""
+} = {}) {
   const registry = isMetricsRegistry(metricsRegistry) ? metricsRegistry : createMetricsRegistry();
   const enabled = Boolean(metricsEnabled);
   const requiredBearerToken = normalizeBearerToken(metricsBearerToken);
+  const isScopeDebugEnabled = createScopeDebugMatcher(debugScopes);
+  const scopedLoggerFactory = (scope) =>
+    createScopedLogger({
+      logger,
+      scope,
+      isScopeDebugEnabled
+    });
 
   function ensureAuthorized(authorizationHeader) {
     if (!requiredBearerToken) {
@@ -179,6 +193,9 @@ function createService({ metricsRegistry, metricsEnabled = true, metricsBearerTo
     isEnabled() {
       return enabled;
     },
+    logger,
+    isScopeDebugEnabled,
+    createScopedLogger: scopedLoggerFactory,
     getMetricsPayload,
     observeHttpRequest,
     recordDbError,

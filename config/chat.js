@@ -1,7 +1,7 @@
 const chatConfig = {
-  enabled: false,
-  workspaceThreadsEnabled: false,
-  globalDmsEnabled: false,
+  enabled: true,
+  workspaceThreadsEnabled: true,
+  globalDmsEnabled: true,
   globalDmsRequireSharedWorkspace: true,
   attachmentsEnabled: true,
   messageMaxTextChars: 4000,

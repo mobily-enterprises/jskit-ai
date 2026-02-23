@@ -137,3 +137,25 @@ test("observability service records code-only guardrails without synthetic zero 
     value: null
   });
 });
+
+test("observability service scoped logger enables debug per LOG_DEBUG_SCOPES-style rules", () => {
+  const debugWrites = [];
+  const service = createObservabilityService({
+    logger: {
+      debug(...args) {
+        debugWrites.push(args);
+      }
+    },
+    debugScopes: "billing.checkout,auth,-auth.tokens"
+  });
+
+  const billingLogger = service.createScopedLogger("billing.checkout");
+  const authTokensLogger = service.createScopedLogger("auth.tokens");
+  const chatLogger = service.createScopedLogger("chat");
+
+  billingLogger.debug({ checkout_id: "cs_123" }, "billing.checkout.blocking.debug");
+  authTokensLogger.debug({ token_id: "t_123" }, "auth.tokens.debug");
+  chatLogger.debug({ thread_id: "th_123" }, "chat.debug");
+
+  assert.deepEqual(debugWrites, [["[billing.checkout]", { checkout_id: "cs_123" }, "billing.checkout.blocking.debug"]]);
+});

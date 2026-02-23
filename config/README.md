@@ -9,6 +9,7 @@ Use runtime env vars for:
 - Secrets (API keys, webhook secrets, passwords)
 - Deployment wiring (ports, URLs, DB/Redis hosts, filesystem paths)
 - Runtime/ops tuning that may differ by environment (worker concurrency, lock TTL, batch sizes)
+- Logging controls (`LOG_LEVEL`, `LOG_DEBUG_SCOPES`)
 
 Do not put product policy defaults here.
 

@@ -9,8 +9,7 @@ const billingConfig = {
   checkout: {
     providerExpiresSeconds: 24 * 60 * 60,
     sessionExpiresAtGraceSeconds: 90,
-    completionSlaSeconds: 5 * 60,
-    debugBlockingCheckoutLogsEnabled: false
+    completionSlaSeconds: 5 * 60
   },
   workers: {
     outbox: {

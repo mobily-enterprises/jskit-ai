@@ -49,22 +49,38 @@ const DEPRECATED_REPO_CONFIG_ENV_KEYS = Object.freeze([
   "BILLING_CHECKOUT_COMPLETION_SLA_SECONDS",
   "BILLING_IDEMPOTENCY_RETENTION_DAYS",
   "BILLING_WEBHOOK_PAYLOAD_RETENTION_DAYS",
-  "BILLING_DEBUG_CHECKOUT_BLOCKS",
   "ERROR_LOG_RETENTION_DAYS",
   "INVITE_ARTIFACT_RETENTION_DAYS",
   "SECURITY_AUDIT_RETENTION_DAYS",
   "AI_TRANSCRIPTS_RETENTION_DAYS"
 ]);
 
+const DEPRECATED_RUNTIME_ENV_KEYS = Object.freeze({
+  BILLING_DEBUG_CHECKOUT_BLOCKS: "Use LOG_DEBUG_SCOPES=billing.checkout to enable checkout debug logs."
+});
+
 function assertNoDeprecatedRepoConfigEnvKeys(rawEnv) {
   const presentKeys = DEPRECATED_REPO_CONFIG_ENV_KEYS.filter((key) => Object.prototype.hasOwnProperty.call(rawEnv, key));
-  if (presentKeys.length < 1) {
+  const deprecatedRuntimeKeys = Object.keys(DEPRECATED_RUNTIME_ENV_KEYS).filter((key) =>
+    Object.prototype.hasOwnProperty.call(rawEnv, key)
+  );
+
+  const messages = [];
+  if (presentKeys.length > 0) {
+    messages.push(
+      `The following environment variables moved to repository config files under /config and are no longer supported: ${presentKeys.join(", ")}`
+    );
+  }
+  if (deprecatedRuntimeKeys.length > 0) {
+    const replacementHints = deprecatedRuntimeKeys.map((key) => `${key} -> ${DEPRECATED_RUNTIME_ENV_KEYS[key]}`);
+    messages.push(`The following environment variables were removed: ${replacementHints.join("; ")}`);
+  }
+
+  if (messages.length < 1) {
     return;
   }
 
-  throw new Error(
-    `The following environment variables moved to repository config files under /config and are no longer supported: ${presentKeys.join(", ")}`
-  );
+  throw new Error(messages.join("\n"));
 }
 
 assertNoDeprecatedRepoConfigEnvKeys(process.env);
@@ -77,6 +93,7 @@ export const runtimeEnv = cleanEnv(
       default: "development"
     }),
     LOG_LEVEL: str({ default: "" }),
+    LOG_DEBUG_SCOPES: str({ default: "" }),
     PORT: port({ default: 3000 }),
     DB_HOST: str({ default: "127.0.0.1" }),
     DB_PORT: port({ default: 3306 }),

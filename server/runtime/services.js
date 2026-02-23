@@ -256,7 +256,8 @@ function createServices({
     metricsRegistry: observabilityRegistry,
     metricsEnabled: env.METRICS_ENABLED,
     metricsBearerToken: env.METRICS_BEARER_TOKEN,
-    logger: console
+    logger: console,
+    debugScopes: env.LOG_DEBUG_SCOPES
   });
 
   const authService = createAuthService({
@@ -515,10 +516,10 @@ function createServices({
       billingProviderAdapter,
       appPublicUrl: env.APP_PUBLIC_URL,
       observabilityService,
+      logger: observabilityService.createScopedLogger("billing.checkout"),
       checkoutSessionGraceSeconds: billingPolicyConfig.checkout.sessionExpiresAtGraceSeconds,
       providerReplayWindowSeconds: billingPolicyConfig.idempotency.providerReplayWindowSeconds,
-      providerCheckoutExpirySeconds: billingPolicyConfig.checkout.providerExpiresSeconds,
-      debugBlockingCheckoutLogsEnabled: billingPolicyConfig.checkout.debugBlockingCheckoutLogsEnabled
+      providerCheckoutExpirySeconds: billingPolicyConfig.checkout.providerExpiresSeconds
     });
 
     billingRealtimePublishService = createBillingRealtimePublishService({
@@ -588,7 +589,7 @@ function createServices({
       billingService,
       billingRealtimePublishService,
       reconciliationProvider: billingProviderAdapter.provider,
-      logger: observabilityService?.logger || console,
+      logger: observabilityService.createScopedLogger("billing.worker"),
       workerIdPrefix: `billing:${process.pid}`
     });
   } else {

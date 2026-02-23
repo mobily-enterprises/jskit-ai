@@ -63,7 +63,6 @@ function validateBillingConfig(config) {
   expectPositiveInteger("billing.checkout.providerExpiresSeconds", config.checkout.providerExpiresSeconds);
   expectPositiveInteger("billing.checkout.sessionExpiresAtGraceSeconds", config.checkout.sessionExpiresAtGraceSeconds);
   expectPositiveInteger("billing.checkout.completionSlaSeconds", config.checkout.completionSlaSeconds);
-  expectBoolean("billing.checkout.debugBlockingCheckoutLogsEnabled", config.checkout.debugBlockingCheckoutLogsEnabled);
   expectPlainObject("billing.workers", config.workers);
   expectPlainObject("billing.workers.outbox", config.workers.outbox);
   expectPositiveInteger("billing.workers.outbox.retryDelaySeconds", config.workers.outbox.retryDelaySeconds);
