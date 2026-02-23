@@ -40,9 +40,9 @@
           >
             Workspace chat
           </v-btn>
-          <v-btn variant="text" size="small" density="compact" :loading="state.dmPending" @click="openDmDialog"
-            >Start DM</v-btn
-          >
+          <v-btn variant="text" size="small" density="compact" :loading="state.dmPending" @click="openDmDialog">
+            Start DM
+          </v-btn>
         </div>
 
         <v-menu location="bottom end" offset="8">
@@ -176,7 +176,7 @@
           multiple
           class="chat-file-input"
           @change="handleComposerFileInputChange"
-        />
+        >
 
         <div class="chat-composer-row d-flex align-end ga-2">
           <v-btn

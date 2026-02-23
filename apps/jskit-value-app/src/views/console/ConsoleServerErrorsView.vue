@@ -25,9 +25,9 @@
           >
             Simulate server error<span class="simulation-label"> ({{ meta.nextSimulationLabel }})</span>
           </v-btn>
-          <v-btn variant="outlined" :loading="state.loading" class="header-btn text-none" @click="actions.load"
-            >Refresh</v-btn
-          >
+          <v-btn variant="outlined" :loading="state.loading" class="header-btn text-none" @click="actions.load">
+            Refresh
+          </v-btn>
         </div>
       </v-card-title>
       <v-divider />

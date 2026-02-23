@@ -213,9 +213,9 @@
                   {{
                     state.createSelectedProviderPriceInfo.hasAmount
                       ? meta.formatMoneyMinor(
-                          state.createSelectedProviderPriceInfo.unitAmountMinor,
-                          state.createSelectedProviderPriceInfo.currency
-                        )
+                        state.createSelectedProviderPriceInfo.unitAmountMinor,
+                        state.createSelectedProviderPriceInfo.currency
+                      )
                       : "-"
                   }}
                 </div>
@@ -224,9 +224,9 @@
                   {{
                     state.createSelectedProviderPriceInfo.hasInterval
                       ? meta.formatInterval(
-                          state.createSelectedProviderPriceInfo.interval,
-                          state.createSelectedProviderPriceInfo.intervalCount
-                        )
+                        state.createSelectedProviderPriceInfo.interval,
+                        state.createSelectedProviderPriceInfo.intervalCount
+                      )
                       : "-"
                   }}
                 </div>
@@ -347,9 +347,9 @@
                         {{
                           state.selectedPlanCorePriceInfo.hasAmount
                             ? meta.formatMoneyMinor(
-                                state.selectedPlanCorePriceInfo.unitAmountMinor,
-                                state.selectedPlanCorePriceInfo.currency
-                              )
+                              state.selectedPlanCorePriceInfo.unitAmountMinor,
+                              state.selectedPlanCorePriceInfo.currency
+                            )
                             : "-"
                         }}
                       </dd>
@@ -360,9 +360,9 @@
                         {{
                           state.selectedPlanCorePriceInfo.hasInterval
                             ? meta.formatInterval(
-                                state.selectedPlanCorePriceInfo.interval,
-                                state.selectedPlanCorePriceInfo.intervalCount
-                              )
+                              state.selectedPlanCorePriceInfo.interval,
+                              state.selectedPlanCorePriceInfo.intervalCount
+                            )
                             : "-"
                         }}
                       </dd>
@@ -494,9 +494,9 @@
                 {{
                   state.editSelectedProviderPriceInfo.hasAmount
                     ? meta.formatMoneyMinor(
-                        state.editSelectedProviderPriceInfo.unitAmountMinor,
-                        state.editSelectedProviderPriceInfo.currency
-                      )
+                      state.editSelectedProviderPriceInfo.unitAmountMinor,
+                      state.editSelectedProviderPriceInfo.currency
+                    )
                     : "-"
                 }}
               </div>
@@ -505,9 +505,9 @@
                 {{
                   state.editSelectedProviderPriceInfo.hasInterval
                     ? meta.formatInterval(
-                        state.editSelectedProviderPriceInfo.interval,
-                        state.editSelectedProviderPriceInfo.intervalCount
-                      )
+                      state.editSelectedProviderPriceInfo.interval,
+                      state.editSelectedProviderPriceInfo.intervalCount
+                    )
                     : "-"
                 }}
               </div>
@@ -518,8 +518,7 @@
           </v-sheet>
           <v-alert v-else-if="state.editForm.billingMode === 'paid'" type="warning" variant="tonal" class="mt-2">
             Price details are unavailable for the current mapping
-            <code v-if="state.editInitialProviderPriceId">{{ state.editInitialProviderPriceId }}</code
-            >. You can still update name/description/status, or choose a new active price.
+            <code v-if="state.editInitialProviderPriceId">{{ state.editInitialProviderPriceId }}</code>. You can still update name/description/status, or choose a new active price.
           </v-alert>
           <v-alert v-else type="info" variant="tonal" class="mt-2">
             Free plans do not have a provider checkout price.

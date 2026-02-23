@@ -169,9 +169,9 @@
                 {{
                   state.createSelectedProviderPriceInfo.hasAmount
                     ? meta.formatMoneyMinor(
-                        state.createSelectedProviderPriceInfo.unitAmountMinor,
-                        state.createSelectedProviderPriceInfo.currency
-                      )
+                      state.createSelectedProviderPriceInfo.unitAmountMinor,
+                      state.createSelectedProviderPriceInfo.currency
+                    )
                     : "-"
                 }}
               </div>
@@ -180,9 +180,9 @@
                 {{
                   state.createSelectedProviderPriceInfo.hasInterval
                     ? meta.formatInterval(
-                        state.createSelectedProviderPriceInfo.interval,
-                        state.createSelectedProviderPriceInfo.intervalCount
-                      )
+                      state.createSelectedProviderPriceInfo.interval,
+                      state.createSelectedProviderPriceInfo.intervalCount
+                    )
                     : "one-time"
                 }}
               </div>
@@ -310,9 +310,9 @@
                         {{
                           state.selectedProductPriceInfo.hasAmount
                             ? meta.formatMoneyMinor(
-                                state.selectedProductPriceInfo.unitAmountMinor,
-                                state.selectedProductPriceInfo.currency
-                              )
+                              state.selectedProductPriceInfo.unitAmountMinor,
+                              state.selectedProductPriceInfo.currency
+                            )
                             : "-"
                         }}
                       </dd>
@@ -323,9 +323,9 @@
                         {{
                           state.selectedProductPriceInfo.hasInterval
                             ? meta.formatInterval(
-                                state.selectedProductPriceInfo.interval,
-                                state.selectedProductPriceInfo.intervalCount
-                              )
+                              state.selectedProductPriceInfo.interval,
+                              state.selectedProductPriceInfo.intervalCount
+                            )
                             : "one-time"
                         }}
                       </dd>
@@ -454,9 +454,9 @@
                 {{
                   state.editSelectedProviderPriceInfo.hasAmount
                     ? meta.formatMoneyMinor(
-                        state.editSelectedProviderPriceInfo.unitAmountMinor,
-                        state.editSelectedProviderPriceInfo.currency
-                      )
+                      state.editSelectedProviderPriceInfo.unitAmountMinor,
+                      state.editSelectedProviderPriceInfo.currency
+                    )
                     : "-"
                 }}
               </div>
@@ -465,9 +465,9 @@
                 {{
                   state.editSelectedProviderPriceInfo.hasInterval
                     ? meta.formatInterval(
-                        state.editSelectedProviderPriceInfo.interval,
-                        state.editSelectedProviderPriceInfo.intervalCount
-                      )
+                      state.editSelectedProviderPriceInfo.interval,
+                      state.editSelectedProviderPriceInfo.intervalCount
+                    )
                     : "one-time"
                 }}
               </div>
@@ -478,8 +478,7 @@
           </v-sheet>
           <v-alert v-else type="warning" variant="tonal" class="mt-2">
             Price details are unavailable for the current mapping
-            <code v-if="state.editInitialProviderPriceId">{{ state.editInitialProviderPriceId }}</code
-            >. You can still update name/description/kind/status, or choose a new active price.
+            <code v-if="state.editInitialProviderPriceId">{{ state.editInitialProviderPriceId }}</code>. You can still update name/description/kind/status, or choose a new active price.
           </v-alert>
           <v-row dense class="mt-2">
             <v-col cols="12">
