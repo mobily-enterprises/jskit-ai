@@ -2,39 +2,41 @@ import { computed, reactive, ref } from "vue";
 import { useMutation } from "@tanstack/vue-query";
 import { api } from "../../services/api/index.js";
 import { useAuthGuard } from "../../composables/useAuthGuard.js";
-import { createDefaultAnnuityForm, modeOptions, timingOptions } from "../../features/annuity/formModel.js";
-import { buildAnnuityPayload, validateAnnuityForm } from "../../features/annuity/request.js";
-import { mapCalculationError } from "../../features/annuity/errors.js";
-import { resultSummary, resultWarnings } from "../../features/annuity/presentation.js";
+import { createDefaultDeg2radForm } from "../../features/deg2rad/formModel.js";
+import { buildDeg2radPayload, validateDeg2radForm } from "../../features/deg2rad/request.js";
+import { mapCalculationError } from "../../features/deg2rad/errors.js";
+import { resultSummary } from "../../features/deg2rad/presentation.js";
 
-export function useAnnuityCalculatorForm({ onCalculated } = {}) {
+const DEG2RAD_MUTATION_META = "deg2rad";
+
+export function useDeg2radCalculatorForm({ onCalculated } = {}) {
   const { handleUnauthorizedError } = useAuthGuard();
 
-  const form = reactive(createDefaultAnnuityForm());
+  const form = reactive(createDefaultDeg2radForm());
   const error = ref("");
-  const warnings = ref([]);
   const result = ref(null);
 
   const mutation = useMutation({
-    mutationFn: (payload) => api.annuity.calculate(payload)
+    mutationFn: (payload) => api.deg2rad.calculate(payload),
+    meta: {
+      calculator: DEG2RAD_MUTATION_META
+    }
   });
 
   const calculating = computed(() => mutation.isPending.value);
 
   async function calculate() {
     error.value = "";
-    warnings.value = [];
 
-    const validation = validateAnnuityForm(form);
+    const validation = validateDeg2radForm(form);
     if (!validation.ok) {
       error.value = validation.message;
       return;
     }
 
     try {
-      const data = await mutation.mutateAsync(buildAnnuityPayload(form));
+      const data = await mutation.mutateAsync(buildDeg2radPayload(form));
       result.value = data;
-      warnings.value = Array.isArray(data.warnings) ? data.warnings : [];
 
       if (typeof onCalculated === "function") {
         await onCalculated(data);
@@ -49,25 +51,19 @@ export function useAnnuityCalculatorForm({ onCalculated } = {}) {
   }
 
   function resetForm() {
-    Object.assign(form, createDefaultAnnuityForm());
+    Object.assign(form, createDefaultDeg2radForm());
     error.value = "";
-    warnings.value = [];
     result.value = null;
   }
 
   return {
-    meta: {
-      modeOptions,
-      timingOptions
-    },
+    meta: {},
     state: reactive({
       form,
       error,
-      warnings,
       result,
       calculating,
-      resultSummary: computed(() => resultSummary(result.value)),
-      resultWarnings: computed(() => resultWarnings(result.value))
+      resultSummary: computed(() => resultSummary(result.value))
     }),
     actions: {
       calculate,

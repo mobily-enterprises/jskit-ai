@@ -26,23 +26,14 @@ test("calculation mapper required invariant and decimal string mapping", () => {
   const mapped = calcTestables.mapCalculationRowRequired({
     id: "log-1",
     created_at: "2026-02-15T00:00:00.000Z",
-    mode: "pv",
-    timing: "ordinary",
-    payment: "500.000000",
-    annual_rate: "6.000000",
-    annual_growth_rate: "0.000000",
-    years: null,
-    payments_per_year: 12,
-    periodic_rate: "0.005000000000",
-    periodic_growth_rate: "0.000000000000",
-    total_periods: null,
-    is_perpetual: 1,
-    value: "100000.000000000000"
+    deg2rad_operation: "DEG2RAD",
+    deg2rad_formula: "DEG2RAD(x) = x * PI / 180",
+    deg2rad_degrees: "180.000000000000",
+    deg2rad_radians: "3.141592653590"
   });
 
   assert.equal(mapped.id, "log-1");
-  assert.equal(mapped.isPerpetual, true);
-  assert.equal(mapped.years, null);
-  assert.equal(mapped.totalPeriods, null);
-  assert.equal(mapped.payment, "500.000000");
+  assert.equal(mapped.DEG2RAD_operation, "DEG2RAD");
+  assert.equal(mapped.DEG2RAD_degrees, "180.000000000000");
+  assert.equal(mapped.DEG2RAD_radians, "3.141592653590");
 });

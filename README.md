@@ -377,6 +377,7 @@ Realtime note:
 - `POST /api/workspace/projects`
 - `PATCH /api/workspace/projects/:projectId`
 - `PUT /api/workspace/projects/:projectId`
+- `POST /api/chat/workspace/ensure`
 - `POST /api/chat/dm/ensure`
 - `GET /api/chat/dm/candidates`
 - `GET /api/chat/inbox`
@@ -422,7 +423,7 @@ Realtime note:
 - `DELETE /api/settings/security/oauth/:provider`
 - `POST /api/settings/security/logout-others`
 - `GET /api/history`
-- `POST /api/annuityCalculator`
+- `POST /api/deg2rad`
 <!-- API_CONTRACTS_END -->
 
 Auth/security behavior:
@@ -460,17 +461,12 @@ AI stream contract (`POST /api/workspace/ai/chat/stream`):
   - Pre-stream failures (auth, permissions, validation, disabled route) return normal HTTP errors (`4xx/5xx`).
   - In-stream failures (provider/tool/runtime after stream starts) emit NDJSON `type:"error"` events while HTTP status remains `200`.
 
-`/api/annuityCalculator` supports finite and perpetual PV calculations:
+`/api/deg2rad` supports server-side DEG2RAD conversion:
 
 ```json
 {
-  "mode": "pv",
-  "payment": 500,
-  "annualRate": 6,
-  "annualGrowthRate": 3,
-  "paymentsPerYear": 12,
-  "timing": "ordinary",
-  "isPerpetual": true
+  "DEG2RAD_operation": "DEG2RAD",
+  "DEG2RAD_degrees": 180
 }
 ```
 

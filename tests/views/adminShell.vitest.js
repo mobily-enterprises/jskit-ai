@@ -191,6 +191,7 @@ describe("useAdminShell", () => {
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
       { title: "Projects", to: "/admin/w/acme/projects", icon: "$navChoice2" },
       { title: "Assistant", to: "/admin/w/acme/assistant", icon: "$navChoice2" },
+      { title: "Workspace chat", to: "/admin/w/acme/chat", icon: "mdi-chat-outline" },
       { title: "AI transcripts", to: "/admin/w/acme/transcripts", icon: "$navChoice2" },
       { title: "Workspace settings", to: "/admin/w/acme/settings", icon: "$menuSettings" },
       { title: "Billing", to: "/admin/w/acme/billing", icon: "$menuSettings" },
@@ -205,6 +206,15 @@ describe("useAdminShell", () => {
     await nextTick();
 
     expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Assistant");
+  });
+
+  it("maps workspace chat destination title", async () => {
+    mocks.routerPathname = "/admin/w/acme/chat";
+    window.history.replaceState({}, "", "/admin/w/acme/chat");
+    const wrapper = mountHarness();
+    await nextTick();
+
+    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Workspace chat");
   });
 
   it("handles non-shell paths, title fallback, and app-surface target fallback", async () => {

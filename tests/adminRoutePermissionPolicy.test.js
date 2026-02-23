@@ -17,13 +17,22 @@ function createNoopControllers() {
     }
   );
 
-  return {
-    auth: handlerProxy,
-    workspace: handlerProxy,
-    settings: handlerProxy,
-    history: handlerProxy,
-    annuity: handlerProxy
-  };
+  return new Proxy(
+    {
+      auth: handlerProxy,
+      workspace: handlerProxy,
+      settings: handlerProxy,
+      history: handlerProxy
+    },
+    {
+      get(target, prop, receiver) {
+        if (Reflect.has(target, prop)) {
+          return Reflect.get(target, prop, receiver);
+        }
+        return handlerProxy;
+      }
+    }
+  );
 }
 
 function toRouteKey(route) {

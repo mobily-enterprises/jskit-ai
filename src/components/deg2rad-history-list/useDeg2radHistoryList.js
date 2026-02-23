@@ -6,14 +6,14 @@ import { useListQueryState } from "../../composables/useListQueryState.js";
 import { useUrlListPagination } from "../../composables/useUrlListPagination.js";
 import { useQueryErrorMessage } from "../../composables/useQueryErrorMessage.js";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
-import { mapHistoryError } from "../../features/annuity/errors.js";
-import { pageSizeOptions } from "../../features/annuity/formModel.js";
+import { mapHistoryError } from "../../features/deg2rad/errors.js";
+import { pageSizeOptions } from "../../features/deg2rad/formModel.js";
 
 export const HISTORY_QUERY_KEY_PREFIX = ["history"];
 export const HISTORY_PAGE_QUERY_KEY = "historyPage";
 export const HISTORY_PAGE_SIZE_QUERY_KEY = "historyPageSize";
 
-export function useAnnuityHistoryList({ initialPageSize = pageSizeOptions[0] } = {}) {
+export function useDeg2radHistoryList({ initialPageSize = pageSizeOptions[0] } = {}) {
   const queryClient = useQueryClient();
   const { handleUnauthorizedError } = useAuthGuard();
   const workspaceStore = useWorkspaceStore();

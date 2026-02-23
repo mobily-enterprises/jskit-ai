@@ -61,18 +61,10 @@ test("calculation logs repository factory insert/count/list and mapper branches"
       {
         id: "entry-1",
         created_at: "2024-01-01T00:00:00.000Z",
-        mode: "pv",
-        timing: "ordinary",
-        payment: "500.000000",
-        annual_rate: "6.000000",
-        annual_growth_rate: "0.000000",
-        years: null,
-        payments_per_year: 12,
-        periodic_rate: "0.005000000000",
-        periodic_growth_rate: "0.000000000000",
-        total_periods: null,
-        is_perpetual: 1,
-        value: "100000.000000000000"
+        deg2rad_operation: "DEG2RAD",
+        deg2rad_formula: "DEG2RAD(x) = x * PI / 180",
+        deg2rad_degrees: "180.000000000000",
+        deg2rad_radians: "3.141592653590"
       }
     ],
     countRow: { total: "3" }
@@ -84,31 +76,28 @@ test("calculation logs repository factory insert/count/list and mapper branches"
   await repo.insert(workspaceId, userId, {
     id: "entry-1",
     createdAt: "2024-01-01T00:00:00.000Z",
-    mode: "pv",
-    timing: "ordinary",
-    payment: "500.000000",
-    annualRate: "6.000000",
-    annualGrowthRate: "0.000000",
-    years: null,
-    paymentsPerYear: 12,
-    periodicRate: "0.005000000000",
-    periodicGrowthRate: "0.000000000000",
-    totalPeriods: null,
-    isPerpetual: true,
-    value: "100000.000000000000"
+    DEG2RAD_operation: "DEG2RAD",
+    DEG2RAD_formula: "DEG2RAD(x) = x * PI / 180",
+    DEG2RAD_degrees: "180.000000000000",
+    DEG2RAD_radians: "3.141592653590"
   });
 
   assert.equal(state.inserted.workspace_id, workspaceId);
   assert.equal(state.inserted.user_id, userId);
   assert.equal(state.inserted.id, "entry-1");
   assert.equal(state.inserted.created_at, "2024-01-01 00:00:00.000");
+  assert.equal(state.inserted.deg2rad_operation, "DEG2RAD");
+  assert.equal(state.inserted.deg2rad_degrees, "180.000000000000");
+  assert.equal(state.inserted.deg2rad_radians, "3.141592653590");
 
   const total = await repo.countForWorkspaceUser(workspaceId, userId);
   assert.equal(total, 3);
 
   const entries = await repo.listForWorkspaceUser(workspaceId, userId, 2, 10);
   assert.equal(entries.length, 1);
-  assert.equal(entries[0].isPerpetual, true);
+  assert.equal(entries[0].DEG2RAD_operation, "DEG2RAD");
+  assert.equal(entries[0].DEG2RAD_degrees, "180.000000000000");
+  assert.equal(entries[0].DEG2RAD_radians, "3.141592653590");
   assert.equal(state.offsetArgs[0], 10);
   assert.deepEqual(state.whereArgs, [
     { workspace_id: workspaceId, user_id: userId },
@@ -125,22 +114,12 @@ test("calculation logs repository factory insert/count/list and mapper branches"
   const mappedWithHorizon = calcTestables.mapCalculationRowRequired({
     id: "entry-2",
     created_at: "2024-01-01T00:00:00.000Z",
-    mode: "fv",
-    timing: "due",
-    payment: "100.000000",
-    annual_rate: "7.000000",
-    annual_growth_rate: "1.000000",
-    years: "10.0000",
-    payments_per_year: 4,
-    periodic_rate: "0.010000000000",
-    periodic_growth_rate: "0.001000000000",
-    total_periods: "40.0000",
-    is_perpetual: 0,
-    value: "9999.000000000000"
+    payment: "90.000000",
+    value: "1.570796326795"
   });
-  assert.equal(mappedWithHorizon.years, "10.0000");
-  assert.equal(mappedWithHorizon.totalPeriods, "40.0000");
-  assert.equal(mappedWithHorizon.isPerpetual, false);
+  assert.equal(mappedWithHorizon.DEG2RAD_operation, "DEG2RAD");
+  assert.equal(mappedWithHorizon.DEG2RAD_degrees, "90.000000");
+  assert.equal(mappedWithHorizon.DEG2RAD_radians, "1.570796326795");
 });
 
 function duplicateErrorFor(fieldName) {

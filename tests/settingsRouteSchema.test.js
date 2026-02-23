@@ -88,10 +88,24 @@ function buildSettingsPayload() {
 }
 
 function buildStubControllers() {
-  return {
-    auth: {
-      async register(_request, reply) {
-        reply.code(201).send({ ok: true, requiresEmailConfirmation: false, username: "demo-user" });
+  const fallbackController = new Proxy(
+    async (_request, reply) => {
+      if (reply && typeof reply.code === "function") {
+        reply.code(200).send({ ok: true });
+      }
+    },
+    {
+      get() {
+        return fallbackController;
+      }
+    }
+  );
+
+  return new Proxy(
+    {
+      auth: {
+        async register(_request, reply) {
+          reply.code(201).send({ ok: true, requiresEmailConfirmation: false, username: "demo-user" });
       },
       async login(_request, reply) {
         reply.code(200).send({ ok: true, username: "demo-user" });
@@ -171,34 +185,17 @@ function buildStubControllers() {
           totalPages: 1
         });
       }
+    }
     },
-    annuity: {
-      async calculate(_request, reply) {
-        reply.code(200).send({
-          historyId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-          mode: "pv",
-          timing: "ordinary",
-          payment: "1",
-          annualRate: "1",
-          annualGrowthRate: "0",
-          years: null,
-          paymentsPerYear: 1,
-          periodicRate: "1",
-          periodicGrowthRate: "0",
-          totalPeriods: null,
-          isPerpetual: true,
-          value: "1",
-          warnings: [],
-          assumptions: {
-            rateConversion: "x",
-            timing: "y",
-            growingAnnuity: "z",
-            perpetuity: "k"
-          }
-        });
+    {
+      get(target, prop, receiver) {
+        if (Reflect.has(target, prop)) {
+          return Reflect.get(target, prop, receiver);
+        }
+        return fallbackController;
       }
     }
-  };
+  );
 }
 
 test("settings get route returns expected payload", async () => {

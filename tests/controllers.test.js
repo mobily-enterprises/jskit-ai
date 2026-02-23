@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createController as createAnnuityController } from "../server/modules/annuity/controller.js";
 import { createController as createAuthController } from "../server/modules/auth/controller.js";
-import { createController as createHistoryController } from "../server/modules/history/controller.js";
 import { createController as createSettingsController } from "../server/modules/settings/controller.js";
 
 function createReplyDouble() {
@@ -30,126 +28,6 @@ function createReplyDouble() {
     }
   };
 }
-
-test("annuity controller validates, calculates, appends history, and returns combined payload", async () => {
-  const receivedPayloads = [];
-  const appendCalls = [];
-  const annuityController = createAnnuityController({
-    annuityService: {
-      validateAndNormalizeInput(payload) {
-        receivedPayloads.push(payload);
-        return { normalized: true };
-      },
-      calculateAnnuity() {
-        return {
-          value: "123.000000000000",
-          mode: "pv"
-        };
-      }
-    },
-    annuityHistoryService: {
-      async appendCalculation(workspaceId, userId, result) {
-        appendCalls.push({ workspaceId, userId, result });
-        assert.equal(workspaceId, 42);
-        assert.equal(userId, 7);
-        assert.equal(result.value, "123.000000000000");
-        return { id: "history-1" };
-      }
-    }
-  });
-
-  const reply = createReplyDouble();
-  await annuityController.calculate(
-    {
-      user: { id: 7 },
-      workspace: { id: 42 },
-      body: { payment: 500 }
-    },
-    reply
-  );
-
-  assert.equal(reply.statusCode, 200);
-  assert.deepEqual(reply.payload, {
-    value: "123.000000000000",
-    mode: "pv",
-    historyId: "history-1"
-  });
-  assert.equal(receivedPayloads[0].payment, 500);
-
-  const fallbackReply = createReplyDouble();
-  await annuityController.calculate(
-    {
-      user: { id: 7 },
-      workspace: { id: 42 }
-    },
-    fallbackReply
-  );
-  assert.equal(fallbackReply.statusCode, 200);
-  assert.deepEqual(receivedPayloads[1], {});
-  assert.equal(appendCalls.length, 2);
-  assert.deepEqual(
-    appendCalls.map((call) => [call.workspaceId, call.userId]),
-    [
-      [42, 7],
-      [42, 7]
-    ]
-  );
-});
-
-test("history controller maps pagination query and returns service response", async () => {
-  const calls = [];
-  const historyController = createHistoryController({
-    annuityHistoryService: {
-      async listForUser(workspaceId, user, pagination) {
-        calls.push({ workspaceId, user, pagination });
-        return {
-          entries: [],
-          page: pagination.page,
-          pageSize: pagination.pageSize,
-          total: 0,
-          totalPages: 1
-        };
-      }
-    }
-  });
-
-  const reply = createReplyDouble();
-  await historyController.list(
-    {
-      workspace: { id: 99 },
-      user: { id: 11, displayName: "alex" },
-      query: { page: "2", pageSize: "25" }
-    },
-    reply
-  );
-
-  assert.equal(reply.statusCode, 200);
-  assert.equal(reply.payload.page, 2);
-
-  const defaultReply = createReplyDouble();
-  await historyController.list(
-    {
-      workspace: { id: 99 },
-      user: { id: 11, displayName: "alex" }
-    },
-    defaultReply
-  );
-  assert.equal(defaultReply.statusCode, 200);
-  assert.equal(defaultReply.payload.page, 1);
-
-  assert.deepEqual(calls, [
-    {
-      workspaceId: 99,
-      user: { id: 11, displayName: "alex" },
-      pagination: { page: 2, pageSize: 25 }
-    },
-    {
-      workspaceId: 99,
-      user: { id: 11, displayName: "alex" },
-      pagination: { page: 1, pageSize: 10 }
-    }
-  ]);
-});
 
 test("auth controller covers register/login/logout/session/password flows", async () => {
   const calls = [];

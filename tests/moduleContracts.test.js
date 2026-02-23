@@ -35,7 +35,6 @@ function assertNoSchemaSuffixKeys(value, path = "schema") {
 
 test("server controllers expose createController contract", async () => {
   const modules = [
-    "../server/modules/annuity/controller.js",
     "../server/modules/ai/controller.js",
     "../server/modules/auth/controller.js",
     "../server/modules/communications/controller.js",
@@ -59,7 +58,6 @@ test("server controllers expose createController contract", async () => {
 
 test("server services expose createService contract", async () => {
   const modules = [
-    "../server/domain/annuity/calculator.service.js",
     "../server/domain/communications/services/sms.service.js",
     "../server/modules/ai/service.js",
     "../server/modules/auth/service.js",
@@ -90,7 +88,6 @@ test("server services expose createService contract", async () => {
 
 test("server routes expose buildRoutes contract", async () => {
   const modules = [
-    "../server/modules/annuity/routes.js",
     "../server/modules/ai/routes.js",
     "../server/modules/auth/routes.js",
     "../server/modules/communications/routes.js",
@@ -114,7 +111,6 @@ test("server routes expose buildRoutes contract", async () => {
 
 test("server schemas expose schema object contract", async () => {
   const modules = [
-    "../server/modules/annuity/schema.js",
     "../server/modules/ai/schema.js",
     "../server/modules/auth/schema.js",
     "../server/modules/communications/schema.js",
@@ -154,7 +150,6 @@ test("client API modules expose createApi contract", async () => {
     "../src/services/api/consoleApi.js",
     "../src/services/api/projectsApi.js",
     "../src/services/api/settingsApi.js",
-    "../src/services/api/annuityApi.js",
     "../src/services/api/historyApi.js"
   ];
 

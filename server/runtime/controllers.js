@@ -1,6 +1,6 @@
 import { createController as createAuthController } from "../modules/auth/controller.js";
 import { createController as createHistoryController } from "../modules/history/controller.js";
-import { createController as createAnnuityController } from "../modules/annuity/controller.js";
+import { createController as createDeg2radController } from "../modules/deg2rad/controller.js";
 import { createController as createCommunicationsController } from "../modules/communications/controller.js";
 import { createController as createSettingsController } from "../modules/settings/controller.js";
 import { createController as createWorkspaceController } from "../modules/workspace/controller.js";
@@ -16,8 +16,8 @@ import { createController as createBillingController } from "../modules/billing/
 function createControllers({ services }) {
   const {
     authService,
-    annuityHistoryService,
-    annuityService,
+    deg2radHistoryService,
+    deg2radService,
     communicationsService,
     userSettingsService,
     projectsService,
@@ -38,10 +38,10 @@ function createControllers({ services }) {
 
   return {
     auth: createAuthController({ authService }),
-    history: createHistoryController({ annuityHistoryService }),
-    annuity: createAnnuityController({
-      annuityService,
-      annuityHistoryService,
+    history: createHistoryController({ deg2radHistoryService }),
+    deg2rad: createDeg2radController({
+      deg2radService,
+      deg2radHistoryService,
       billingService
     }),
     communications: createCommunicationsController({

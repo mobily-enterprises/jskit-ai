@@ -16,21 +16,18 @@ function mapCalculationRowRequired(row) {
     throw new TypeError("mapCalculationRowRequired expected a row object.");
   }
 
+  const operation = String(row.deg2rad_operation || "DEG2RAD").trim().toUpperCase() || "DEG2RAD";
+  const formula = String(row.deg2rad_formula || "DEG2RAD(x) = x * PI / 180").trim() || "DEG2RAD(x) = x * PI / 180";
+  const degrees = row.deg2rad_degrees == null ? row.payment : row.deg2rad_degrees;
+  const radians = row.deg2rad_radians == null ? row.value : row.deg2rad_radians;
+
   return {
     id: row.id,
     createdAt: toIsoString(row.created_at),
-    mode: row.mode,
-    timing: row.timing,
-    payment: String(row.payment),
-    annualRate: String(row.annual_rate),
-    annualGrowthRate: String(row.annual_growth_rate),
-    years: row.years == null ? null : String(row.years),
-    paymentsPerYear: Number(row.payments_per_year),
-    periodicRate: String(row.periodic_rate),
-    periodicGrowthRate: String(row.periodic_growth_rate),
-    totalPeriods: row.total_periods == null ? null : String(row.total_periods),
-    isPerpetual: Boolean(row.is_perpetual),
-    value: String(row.value)
+    DEG2RAD_operation: operation,
+    DEG2RAD_formula: formula,
+    DEG2RAD_degrees: degrees == null ? "0" : String(degrees),
+    DEG2RAD_radians: radians == null ? "0" : String(radians)
   };
 }
 
@@ -42,23 +39,30 @@ function createCalculationLogsRepository(dbClient) {
 
   async function repoInsert(workspaceId, userId, entry, options = {}) {
     const client = resolveClient(options);
+    const fallbackDegrees = String(entry.DEG2RAD_degrees);
+    const fallbackRadians = String(entry.DEG2RAD_radians);
+
     await client("calculation_logs").insert({
       id: entry.id,
       workspace_id: workspaceId,
       user_id: userId,
       created_at: toMysqlDateTimeUtc(entry.createdAt),
-      mode: entry.mode,
-      timing: entry.timing,
-      payment: entry.payment,
-      annual_rate: entry.annualRate,
-      annual_growth_rate: entry.annualGrowthRate,
-      years: entry.years,
-      payments_per_year: entry.paymentsPerYear,
-      periodic_rate: entry.periodicRate,
-      periodic_growth_rate: entry.periodicGrowthRate,
-      total_periods: entry.totalPeriods,
-      is_perpetual: entry.isPerpetual,
-      value: entry.value
+      mode: "pv",
+      timing: "ordinary",
+      payment: fallbackDegrees,
+      annual_rate: "0",
+      annual_growth_rate: "0",
+      years: null,
+      payments_per_year: 1,
+      periodic_rate: "0",
+      periodic_growth_rate: "0",
+      total_periods: null,
+      is_perpetual: false,
+      value: fallbackRadians,
+      deg2rad_operation: entry.DEG2RAD_operation,
+      deg2rad_formula: entry.DEG2RAD_formula,
+      deg2rad_degrees: fallbackDegrees,
+      deg2rad_radians: fallbackRadians
     });
   }
 

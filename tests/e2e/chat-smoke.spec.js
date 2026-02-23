@@ -393,7 +393,7 @@ test("chat smoke: start DM, upload attachment, send message, and emit typing", a
     });
   });
 
-  await page.goto("/w/acme/chat");
+  await page.goto("/admin/w/acme/chat");
   await expect.poll(() => state.workspaceEnsureRequestCount).toBe(1);
   await expect(page.getByRole("button", { name: "Start DM" })).toBeVisible();
 

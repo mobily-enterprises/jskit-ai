@@ -16,14 +16,14 @@ function summarizeFieldErrors(fieldErrors) {
 
 export function mapHistoryError(error) {
   return {
-    message: String(error?.message || "Unable to load history.")
+    message: String(error?.message || "Unable to load DEG2RAD history.")
   };
 }
 
 export function mapCalculationError(error) {
   const summary = summarizeFieldErrors(error?.fieldErrors);
   return {
-    message: summary || String(error?.message || "Unable to calculate annuity."),
+    message: summary || String(error?.message || "Unable to run DEG2RAD conversion."),
     fieldErrorSummary: summary
   };
 }

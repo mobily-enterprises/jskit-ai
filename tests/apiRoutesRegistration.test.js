@@ -59,10 +59,24 @@ function noopControllers() {
     }
   };
 
-  return {
-    auth: {
-      async register(_request, reply) {
-        reply.code(201).send({ ok: true, requiresEmailConfirmation: false, username: "u" });
+  const fallbackController = new Proxy(
+    async (_request, reply) => {
+      if (reply && typeof reply.code === "function") {
+        reply.code(200).send({ ok: true });
+      }
+    },
+    {
+      get() {
+        return fallbackController;
+      }
+    }
+  );
+
+  return new Proxy(
+    {
+      auth: {
+        async register(_request, reply) {
+          reply.code(201).send({ ok: true, requiresEmailConfirmation: false, username: "u" });
       },
       async login(_request, reply) {
         reply.code(200).send({ ok: true, username: "u" });
@@ -116,34 +130,17 @@ function noopControllers() {
       async list(_request, reply) {
         reply.code(200).send({ entries: [], page: 1, pageSize: 10, total: 0, totalPages: 1 });
       }
+    }
     },
-    annuity: {
-      async calculate(_request, reply) {
-        reply.code(200).send({
-          historyId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-          mode: "pv",
-          timing: "ordinary",
-          payment: "1",
-          annualRate: "1",
-          annualGrowthRate: "0",
-          years: null,
-          paymentsPerYear: 1,
-          periodicRate: "1",
-          periodicGrowthRate: "0",
-          totalPeriods: null,
-          isPerpetual: true,
-          value: "1",
-          warnings: [],
-          assumptions: {
-            rateConversion: "x",
-            timing: "y",
-            growingAnnuity: "z",
-            perpetuity: "k"
-          }
-        });
+    {
+      get(target, prop, receiver) {
+        if (Reflect.has(target, prop)) {
+          return Reflect.get(target, prop, receiver);
+        }
+        return fallbackController;
       }
     }
-  };
+  );
 }
 
 test("registerApiRoutes supports custom routes and route defaults", async () => {

@@ -19,21 +19,16 @@ function mapSchemaErrorsToFieldErrors(schemaErrors) {
 }
 
 function buildHistoryEntryFromResult(result) {
+  const operation = String(result?.DEG2RAD_operation || "DEG2RAD").trim().toUpperCase();
+  const formula = String(result?.DEG2RAD_formula || "DEG2RAD(x) = x * PI / 180").trim();
+
   return {
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
-    mode: result.mode,
-    timing: result.timing,
-    payment: String(result.payment),
-    annualRate: String(result.annualRate),
-    annualGrowthRate: String(result.annualGrowthRate),
-    years: result.years == null ? null : String(result.years),
-    paymentsPerYear: result.paymentsPerYear,
-    periodicRate: String(result.periodicRate),
-    periodicGrowthRate: String(result.periodicGrowthRate),
-    totalPeriods: result.totalPeriods == null ? null : String(result.totalPeriods),
-    isPerpetual: result.isPerpetual,
-    value: String(result.value)
+    DEG2RAD_operation: operation || "DEG2RAD",
+    DEG2RAD_formula: formula || "DEG2RAD(x) = x * PI / 180",
+    DEG2RAD_degrees: String(result?.DEG2RAD_degrees),
+    DEG2RAD_radians: String(result?.DEG2RAD_radians)
   };
 }
 

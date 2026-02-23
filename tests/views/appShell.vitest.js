@@ -233,7 +233,7 @@ describe("useAppShell", () => {
     ]);
   });
 
-  it("shows workspace chat navigation and title when chat.read permission is granted", async () => {
+  it("keeps chat out of app navigation even when chat.read permission is granted", async () => {
     mocks.routerPathname = "/w/acme/chat";
     mocks.workspaceStore.can.mockImplementation(
       (permission) =>
@@ -246,11 +246,10 @@ describe("useAppShell", () => {
     const wrapper = mountHarness();
     await nextTick();
 
-    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Workspace chat");
+    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Annuities");
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
       { title: "Annuities", to: "/w/acme", icon: "$navChoice1" },
       { title: "Assistant", to: "/w/acme/assistant", icon: "$navChoice2" },
-      { title: "Workspace chat", to: "/w/acme/chat", icon: "mdi-chat-outline" },
       {
         title: "Go to Admin",
         to: "/admin/w/acme/settings",
@@ -274,7 +273,7 @@ describe("useAppShell", () => {
     await nextTick();
 
     expect(wrapper.vm.shell.layout.showApplicationShell.value).toBe(true);
-    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Workspace chat");
+    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Annuities");
   });
 
   it("navigates to admin surface and signs out with cleanup", async () => {

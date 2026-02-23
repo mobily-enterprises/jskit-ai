@@ -58,7 +58,8 @@ function createSurfaceRouter({
       ...createChatRoutes({
         rootRoute,
         workspaceRoutePrefix,
-        guards
+        guards,
+        surface
       })
     );
   }

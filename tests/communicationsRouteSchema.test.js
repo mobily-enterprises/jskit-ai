@@ -20,11 +20,18 @@ function buildControllers() {
     nextReply.code(200).send({ ok: true });
   };
 
-  return {
-    auth: {
-      register: noop,
-      login: noop,
-      requestOtpLogin: noop,
+  const fallbackController = new Proxy(noop, {
+    get() {
+      return fallbackController;
+    }
+  });
+
+  return new Proxy(
+    {
+      auth: {
+        register: noop,
+        login: noop,
+        requestOtpLogin: noop,
       verifyOtpLogin: noop,
       oauthStart: noop,
       oauthComplete: noop,
@@ -51,9 +58,6 @@ function buildControllers() {
     history: {
       list: noop
     },
-    annuity: {
-      calculate: noop
-    },
     communications: {
       async sendSms(_request, reply) {
         reply.code(200).send({
@@ -66,7 +70,16 @@ function buildControllers() {
     },
     workspace: {},
     projects: {}
-  };
+    },
+    {
+      get(target, prop, receiver) {
+        if (Reflect.has(target, prop)) {
+          return Reflect.get(target, prop, receiver);
+        }
+        return fallbackController;
+      }
+    }
+  );
 }
 
 test("communications sms route accepts E.164 payload", async () => {

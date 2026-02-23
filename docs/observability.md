@@ -44,7 +44,7 @@ Prometheus scrape job example:
 
 ```yaml
 scrape_configs:
-  - job_name: annuity-app
+  - job_name: jskit-app
     metrics_path: /api/metrics
     scheme: https
     static_configs:
@@ -64,7 +64,7 @@ Rule-file template is included at `ops/observability/prometheus-alerts.yml`.
 Trigger when readiness is unavailable for 5 minutes:
 
 ```promql
-sum_over_time(up{job="annuity-app"}[5m]) == 0
+sum_over_time(up{job="jskit-app"}[5m]) == 0
 ```
 
 If your platform supports HTTP health checks directly, alert when `GET /api/ready` is non-200 for 5 minutes.

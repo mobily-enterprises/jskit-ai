@@ -8,7 +8,7 @@ import { buildRoutes as buildChatRoutes } from "../chat/routes.js";
 import { buildRoutes as buildBillingRoutes } from "../billing/routes.js";
 import { buildRoutes as buildSettingsRoutes } from "../settings/routes.js";
 import { buildRoutes as buildHistoryRoutes } from "../history/routes.js";
-import { buildRoutes as buildAnnuityRoutes } from "../annuity/routes.js";
+import { buildRoutes as buildDeg2radRoutes } from "../deg2rad/routes.js";
 import { buildRoutes as buildHealthRoutes } from "../health/routes.js";
 import { buildRoutes as buildObservabilityRoutes } from "../observability/routes.js";
 import { buildRoutes as buildAiRoutes } from "../ai/routes.js";
@@ -51,7 +51,7 @@ function buildDefaultRoutes(controllers, routeConfig = {}) {
     }),
     ...buildSettingsRoutes(controllers),
     ...buildHistoryRoutes(controllers),
-    ...buildAnnuityRoutes(controllers)
+    ...buildDeg2radRoutes(controllers)
   ];
 }
 

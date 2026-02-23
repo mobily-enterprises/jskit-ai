@@ -20,10 +20,17 @@ function buildControllers({ onListProjects } = {}) {
     nextReply.code(200).send({ ok: true });
   };
 
-  return {
-    auth: {
-      register: noop,
-      login: noop,
+  const fallbackController = new Proxy(noop, {
+    get() {
+      return fallbackController;
+    }
+  });
+
+  return new Proxy(
+    {
+      auth: {
+        register: noop,
+        login: noop,
       requestOtpLogin: noop,
       verifyOtpLogin: noop,
       oauthStart: noop,
@@ -50,9 +57,6 @@ function buildControllers({ onListProjects } = {}) {
     },
     history: {
       list: noop
-    },
-    annuity: {
-      calculate: noop
     },
     workspace: {},
     projects: {
@@ -126,7 +130,16 @@ function buildControllers({ onListProjects } = {}) {
         });
       }
     }
-  };
+    },
+    {
+      get(target, prop, receiver) {
+        if (Reflect.has(target, prop)) {
+          return Reflect.get(target, prop, receiver);
+        }
+        return fallbackController;
+      }
+    }
+  );
 }
 
 test("workspace projects route accepts page and pageSize query", async () => {

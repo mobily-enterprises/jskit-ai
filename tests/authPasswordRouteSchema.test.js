@@ -61,35 +61,24 @@ function buildStubControllers() {
     };
   }
 
-  function buildAnnuityPayload() {
-    return {
-      historyId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-      mode: "pv",
-      timing: "ordinary",
-      payment: "500.000000",
-      annualRate: "6.000000",
-      annualGrowthRate: "0.000000",
-      years: null,
-      paymentsPerYear: 12,
-      periodicRate: "0.005000000000",
-      periodicGrowthRate: "0.000000000000",
-      totalPeriods: null,
-      isPerpetual: true,
-      value: "100000.000000000000",
-      warnings: [],
-      assumptions: {
-        rateConversion: "Periodic discount rate = annualRate/100/paymentsPerYear.",
-        timing: "Ordinary annuity assumes end-of-period payments.",
-        growingAnnuity: "Growing annuity assumes a constant annual growth rate.",
-        perpetuity: "Perpetual present value requires discount > growth."
+  const fallbackController = new Proxy(
+    async (_request, reply) => {
+      if (reply && typeof reply.code === "function") {
+        reply.code(200).send({ ok: true });
       }
-    };
-  }
+    },
+    {
+      get() {
+        return fallbackController;
+      }
+    }
+  );
 
-  return {
-    auth: {
-      async register(_request, reply) {
-        reply.code(201).send({ ok: true, requiresEmailConfirmation: false, username: "demo-user" });
+  return new Proxy(
+    {
+      auth: {
+        async register(_request, reply) {
+          reply.code(201).send({ ok: true, requiresEmailConfirmation: false, username: "demo-user" });
       },
       async login(_request, reply) {
         reply.code(200).send({ ok: true, username: "demo-user" });
@@ -149,13 +138,17 @@ function buildStubControllers() {
           totalPages: 1
         });
       }
+    }
     },
-    annuity: {
-      async calculate(_request, reply) {
-        reply.code(200).send(buildAnnuityPayload());
+    {
+      get(target, prop, receiver) {
+        if (Reflect.has(target, prop)) {
+          return Reflect.get(target, prop, receiver);
+        }
+        return fallbackController;
       }
     }
-  };
+  );
 }
 
 test("password forgot route rejects invalid email", async () => {

@@ -1,6 +1,6 @@
 import { createService as createAuthService } from "../modules/auth/service.js";
-import { createService as createAnnuityService } from "../domain/annuity/calculator.service.js";
-import { createService as createAnnuityHistoryService } from "../modules/history/service.js";
+import { createService as createDeg2radService } from "../domain/deg2rad/calculator.service.js";
+import { createService as createDeg2radHistoryService } from "../modules/history/service.js";
 import { createService as createSmsService } from "../domain/communications/services/sms.service.js";
 import { createService as createCommunicationsService } from "../modules/communications/service.js";
 import { createService as createUserSettingsService } from "../modules/settings/service.js";
@@ -270,10 +270,10 @@ function createServices({
     nodeEnv
   });
 
-  const annuityHistoryService = createAnnuityHistoryService({
+  const deg2radHistoryService = createDeg2radHistoryService({
     calculationLogsRepository
   });
-  const annuityService = createAnnuityService();
+  const deg2radService = createDeg2radService();
   const smsService = createSmsService({
     driver: env.SMS_DRIVER,
     plivoAuthId: env.PLIVO_AUTH_ID,
@@ -613,8 +613,8 @@ function createServices({
 
   return {
     authService,
-    annuityService,
-    annuityHistoryService,
+    deg2radService,
+    deg2radHistoryService,
     smsService,
     communicationsService,
     avatarStorageService,

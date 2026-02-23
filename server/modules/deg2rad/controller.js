@@ -19,7 +19,11 @@ function resolveRequestId(request) {
   );
 }
 
-function createController({ annuityService, annuityHistoryService, billingService = null }) {
+function createController({ deg2radService, deg2radHistoryService, billingService = null }) {
+  if (!deg2radHistoryService || typeof deg2radHistoryService.appendCalculation !== "function") {
+    throw new Error("deg2radHistoryService.appendCalculation is required.");
+  }
+
   const executeWithEntitlementConsumption =
     billingService && typeof billingService.executeWithEntitlementConsumption === "function"
       ? billingService.executeWithEntitlementConsumption.bind(billingService)
@@ -29,18 +33,16 @@ function createController({ annuityService, annuityHistoryService, billingServic
     const user = request.user;
     const workspaceId = request.workspace?.id;
     const payload = request.body || {};
-    const normalizedInput = annuityService.validateAndNormalizeInput(payload);
+    const normalizedInput = deg2radService.validateAndNormalizeInput(payload);
     const runCalculation = async ({ trx = null } = {}) => {
-      const result = annuityService.calculateAnnuity(normalizedInput);
-      const historyEntry = await annuityHistoryService.appendCalculation(
-        workspaceId,
-        user.id,
-        result,
-        trx ? { trx } : {}
-      );
+      const result = deg2radService.calculateDeg2rad(normalizedInput);
+      const historyEntry = await deg2radHistoryService.appendCalculation(workspaceId, user.id, result, trx ? { trx } : {});
+
       return {
-        result,
-        historyEntry
+        result: {
+          ...result,
+          historyId: historyEntry.id
+        }
       };
     };
 
@@ -48,21 +50,19 @@ function createController({ annuityService, annuityHistoryService, billingServic
       ? await executeWithEntitlementConsumption({
           request,
           user,
-          capability: "annuity.calculate",
+          capability: "deg2rad.calculate",
           usageEventKey: resolveUsageEventKey(request),
           requestId: resolveRequestId(request),
           metadataJson: {
-            capability: "annuity.calculate",
-            workspaceId: workspaceId == null ? null : Number(workspaceId)
+            capability: "deg2rad.calculate",
+            workspaceId: workspaceId == null ? null : Number(workspaceId),
+            calculator: "DEG2RAD"
           },
-          action: ({ trx }) => runCalculation({ trx })
+          action: ({ trx } = {}) => runCalculation({ trx })
         })
       : await runCalculation();
 
-    reply.code(200).send({
-      ...execution.result,
-      historyId: execution.historyEntry.id
-    });
+    reply.code(200).send(execution.result);
   }
 
   return {

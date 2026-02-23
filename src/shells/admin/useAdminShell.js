@@ -82,12 +82,17 @@ export function useAdminShell() {
       assistantFeatureEnabled.value &&
       (!assistantRequiredPermission.value || workspaceStore.can(assistantRequiredPermission.value))
   );
+  const canUseChat = computed(() => workspaceStore.can("chat.read"));
 
   const navigationItems = computed(() => {
     const items = [{ title: "Projects", to: workspacePath("/projects"), icon: "$navChoice2" }];
 
     if (canUseAssistant.value) {
       items.push({ title: "Assistant", to: workspacePath("/assistant"), icon: "$navChoice2" });
+    }
+
+    if (canUseChat.value) {
+      items.push({ title: "Workspace chat", to: workspacePath("/chat"), icon: "mdi-chat-outline" });
     }
 
     if (canViewAiTranscripts.value) {
@@ -109,6 +114,9 @@ export function useAdminShell() {
   const destinationTitle = computed(() => {
     if (currentPath.value.endsWith("/assistant")) {
       return "Assistant";
+    }
+    if (currentPath.value.endsWith("/chat") || currentPath.value.endsWith("/workspace-chat")) {
+      return "Workspace chat";
     }
     if (currentPath.value.endsWith("/projects")) {
       return "Projects";

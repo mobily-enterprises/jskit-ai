@@ -3,7 +3,7 @@ import { createRoute, lazyRouteComponent } from "@tanstack/vue-router";
 /* c8 ignore start -- lazy Vue SFC loaders require full Vite CSS handling and are exercised in browser/E2E paths. */
 /* v8 ignore start -- lazy Vue SFC loaders require full Vite CSS handling and are exercised in browser/E2E paths. */
 const LoginView = lazyRouteComponent(() => import("../views/login/LoginView.vue"));
-const AnnuityCalculatorView = lazyRouteComponent(() => import("../views/annuity-calculator/AnnuityCalculatorView.vue"));
+const Deg2radCalculatorView = lazyRouteComponent(() => import("../views/deg2rad-calculator/Deg2radCalculatorView.vue"));
 const ChoiceTwoView = lazyRouteComponent(() => import("../views/choice-two/ChoiceTwoView.vue"));
 const ResetPasswordView = lazyRouteComponent(() => import("../views/reset-password/ResetPasswordView.vue"));
 const AccountSettingsView = lazyRouteComponent(() => import("../views/settings/SettingsView.vue"));
@@ -15,7 +15,7 @@ function createRoutes({ rootRoute, surfacePaths, workspaceRoutePrefix, guards, i
   const rootRedirectRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: surfacePaths.rootPath,
-    component: AnnuityCalculatorView,
+    component: Deg2radCalculatorView,
     beforeLoad: guards.beforeLoadRoot
   });
 
@@ -42,7 +42,7 @@ function createRoutes({ rootRoute, surfacePaths, workspaceRoutePrefix, guards, i
   const calculatorRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: workspaceRoutePrefix,
-    component: AnnuityCalculatorView,
+    component: Deg2radCalculatorView,
     beforeLoad: guards.beforeLoadWorkspaceRequired
   });
 

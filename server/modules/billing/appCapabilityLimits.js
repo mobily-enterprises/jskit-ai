@@ -11,10 +11,10 @@ const APP_CAPABILITY_LIMIT_CONFIG = Object.freeze({
     reasonCode: "project.unarchive",
     entitlementType: "capacity"
   }),
-  "annuity.calculate": Object.freeze({
-    limitationCode: "annuity.calculations.monthly",
+  "deg2rad.calculate": Object.freeze({
+    limitationCode: "deg2rad.calculations.monthly",
     usageAmount: 1,
-    reasonCode: "annuity.calculate",
+    reasonCode: "deg2rad.calculate",
     entitlementType: "metered_quota"
   })
 });

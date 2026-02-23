@@ -39,7 +39,7 @@
               <td>{{ formatDate(entry.createdAt) }}</td>
               <td>{{ typeLabel(entry) }}</td>
               <td>{{ inputSummary(entry) }}</td>
-              <td>{{ formatCurrency(entry.value) }}</td>
+              <td>{{ formatRadians(entry.DEG2RAD_radians) }}</td>
             </tr>
           </tbody>
         </v-table>
@@ -60,15 +60,15 @@
 
 <script setup>
 import { watch } from "vue";
-import { formatCurrency, formatDate, inputSummary, typeLabel } from "../../features/annuity/presentation";
-import { useAnnuityHistoryList } from "./useAnnuityHistoryList";
+import { formatDate, formatRadians, inputSummary, typeLabel } from "../../features/deg2rad/presentation";
+import { useDeg2radHistoryList } from "./useDeg2radHistoryList";
 
 const props = defineProps({
   refreshToken: { type: Number, default: 0 },
   initialPageSize: { type: Number, default: undefined }
 });
 
-const { meta, state, actions } = useAnnuityHistoryList({
+const { meta, state, actions } = useDeg2radHistoryList({
   initialPageSize: props.initialPageSize
 });
 

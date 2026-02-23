@@ -2,6 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createService as createBillingService } from "../server/modules/billing/service.js";
+import { APP_CAPABILITY_LIMIT_CONFIG } from "../server/modules/billing/appCapabilityLimits.js";
+
+const DEG2RAD_CAPABILITY =
+  Object.keys(APP_CAPABILITY_LIMIT_CONFIG).find((capability) => String(capability || "").toLowerCase().endsWith(".calculate")) ||
+  "deg2rad.calculate";
+
+const DEG2RAD_LIMIT_CONFIG = APP_CAPABILITY_LIMIT_CONFIG[DEG2RAD_CAPABILITY] || {
+  limitationCode: "deg2rad.calculations.monthly",
+  reasonCode: "deg2rad.calculate"
+};
+
+const DEG2RAD_LIMITATION_CODE = String(DEG2RAD_LIMIT_CONFIG.limitationCode || "deg2rad.calculations.monthly");
+const DEG2RAD_REASON_CODE = String(DEG2RAD_LIMIT_CONFIG.reasonCode || "deg2rad.calculate");
 
 function createPhase21Service(overrides = {}) {
   const trxToken = overrides.trxToken || { id: "trx_token" };
@@ -116,7 +129,7 @@ test("phase 2.1 getLimitations returns projection-backed limitation rows", async
         return [
           {
             id: 71,
-            code: "annuity.calculations.monthly",
+            code: DEG2RAD_LIMITATION_CODE,
             entitlementType: "metered_quota",
             enforcementMode: "hard_deny",
             unit: "calculation",
@@ -166,7 +179,7 @@ test("phase 2.1 getLimitations returns projection-backed limitation rows", async
   assert.equal(response.limitations.length, 1);
 
   const limitation = response.limitations[0];
-  assert.equal(limitation.code, "annuity.calculations.monthly");
+  assert.equal(limitation.code, DEG2RAD_LIMITATION_CODE);
   assert.equal(limitation.entitlementType, "metered_quota");
   assert.equal(limitation.enforcementMode, "hard_deny");
   assert.equal(limitation.unit, "calculation");
@@ -215,11 +228,11 @@ test("phase 2.1 executeWithEntitlementConsumption rejects exhausted metered quot
   const service = createPhase21Service({
     billingRepository: {
       async listEntitlementDefinitions(query) {
-        assert.deepEqual(query.codes, ["annuity.calculations.monthly"]);
+        assert.deepEqual(query.codes, [DEG2RAD_LIMITATION_CODE]);
         return [
           {
             id: 71,
-            code: "annuity.calculations.monthly",
+            code: DEG2RAD_LIMITATION_CODE,
             entitlementType: "metered_quota",
             enforcementMode: "hard_deny",
             unit: "calculation",
@@ -256,7 +269,7 @@ test("phase 2.1 executeWithEntitlementConsumption rejects exhausted metered quot
         user: {
           id: 12
         },
-        capability: "annuity.calculate",
+        capability: DEG2RAD_CAPABILITY,
         action: async () => {
           actionCalls += 1;
           return {
@@ -268,7 +281,7 @@ test("phase 2.1 executeWithEntitlementConsumption rejects exhausted metered quot
     (error) =>
       Number(error?.statusCode) === 429 &&
       String(error?.code || "") === "BILLING_LIMIT_EXCEEDED" &&
-      String(error?.details?.limitationCode || "") === "annuity.calculations.monthly" &&
+      String(error?.details?.limitationCode || "") === DEG2RAD_LIMITATION_CODE &&
       Number(error?.details?.remaining) === 0
   );
 
@@ -286,12 +299,12 @@ test("phase 2.1 executeWithEntitlementConsumption consumes once and publishes po
     trxToken,
     billingRepository: {
       async listEntitlementDefinitions(query, options) {
-        assert.deepEqual(query.codes, ["annuity.calculations.monthly"]);
+        assert.deepEqual(query.codes, [DEG2RAD_LIMITATION_CODE]);
         assert.equal(options.trx, trxToken);
         return [
           {
             id: 71,
-            code: "annuity.calculations.monthly",
+            code: DEG2RAD_LIMITATION_CODE,
             entitlementType: "metered_quota",
             enforcementMode: "hard_deny",
             unit: "calculation",
@@ -301,11 +314,11 @@ test("phase 2.1 executeWithEntitlementConsumption consumes once and publishes po
         ];
       },
       async findEntitlementDefinitionByCode(code, options) {
-        assert.equal(code, "annuity.calculations.monthly");
+        assert.equal(code, DEG2RAD_LIMITATION_CODE);
         assert.equal(options.trx, trxToken);
         return {
           id: 71,
-          code: "annuity.calculations.monthly"
+          code: DEG2RAD_LIMITATION_CODE
         };
       },
       async insertEntitlementConsumption(payload, options) {
@@ -372,7 +385,7 @@ test("phase 2.1 executeWithEntitlementConsumption consumes once and publishes po
     user: {
       id: 12
     },
-    capability: "annuity.calculate",
+    capability: DEG2RAD_CAPABILITY,
     usageEventKey: "usage_evt_1",
     now,
     action: async ({ trx, limitation }) => {
@@ -389,14 +402,14 @@ test("phase 2.1 executeWithEntitlementConsumption consumes once and publishes po
   assert.deepEqual(response, { ok: true });
   assert.equal(actionCalls.length, 1);
   assert.equal(actionCalls[0].trx, trxToken);
-  assert.equal(actionCalls[0].limitation.code, "annuity.calculations.monthly");
+  assert.equal(actionCalls[0].limitation.code, DEG2RAD_LIMITATION_CODE);
   assert.equal(insertCalls.length, 1);
   assert.equal(insertCalls[0].options.trx, trxToken);
-  assert.equal(insertCalls[0].payload.reasonCode, "annuity.calculate");
+  assert.equal(insertCalls[0].payload.reasonCode, DEG2RAD_REASON_CODE);
   assert.equal(insertCalls[0].payload.dedupeKey, "usage:7:71:usage_evt_1");
   assert.equal(realtimeCalls.length, 1);
   assert.equal(realtimeCalls[0].billableEntityId, 7);
-  assert.deepEqual(realtimeCalls[0].changedCodes, ["annuity.calculations.monthly"]);
+  assert.deepEqual(realtimeCalls[0].changedCodes, [DEG2RAD_LIMITATION_CODE]);
   assert.equal(realtimeCalls[0].changeSource, "consumption");
   assert.equal(realtimeCalls[0].commandId, "cmd_123");
   assert.equal(realtimeCalls[0].sourceClientId, "client_abc");
