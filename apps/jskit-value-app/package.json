@@ -59,7 +59,6 @@
     "@fastify/swagger-ui": "^5.2.5",
     "@fastify/type-provider-typebox": "^6.1.0",
     "@mdi/js": "^7.4.47",
-    "@socket.io/redis-streams-adapter": "^0.2.3",
     "@supabase/supabase-js": "^2.57.4",
     "@tanstack/vue-query": "^5.90.5",
     "@tanstack/vue-router": "^1.159.10",
