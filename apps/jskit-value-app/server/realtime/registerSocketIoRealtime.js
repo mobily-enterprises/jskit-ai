@@ -13,6 +13,27 @@ import {
   normalizeWorkspaceSlug
 } from "../fastify/realtime/subscribeContext.js";
 
+/**
+ * App-level realtime registration boundary.
+ *
+ * First-day explanation:
+ * This file is intentionally small. The shared package owns transport/runtime mechanics
+ * (Socket.IO server lifecycle, protocol handling, fanout, Redis adapter wiring).
+ * The app owns business policy (topic vocabulary, surface rules, permission checks,
+ * workspace request shaping).
+ *
+ * This function does exactly 2 jobs:
+ * 1) Accept app runtime dependencies (services + runtime options) from server bootstrap.
+ * 2) Inject app policy callbacks into the shared runtime.
+ *
+ * It does NOT:
+ * 1) Implement websocket protocol mechanics.
+ * 2) Implement Redis adapter lifecycle logic.
+ * 3) Provide compatibility translation for old APIs.
+ *
+ * Call flow:
+ * server.js -> registerSocketIoRealtime(...) -> registerRealtimeServerSocketio(...)
+ */
 async function registerSocketIoRealtime(
   fastify,
   {
@@ -30,16 +51,22 @@ async function registerSocketIoRealtime(
     redisStreamsAdapterFactory
   }
 ) {
-  return registerRealtimeServerSocketio(fastify, {
+  const runtimeDeps = {
     authService,
     realtimeEventsService,
-    workspaceService,
+    workspaceService
+  };
+
+  const appPolicyCallbacks = {
     isSupportedTopic,
     isTopicAllowedForSurface,
     hasTopicPermission,
     buildSubscribeContextRequest,
     normalizeConnectionSurface,
-    normalizeWorkspaceSlug,
+    normalizeWorkspaceSlug
+  };
+
+  const runtimeOptions = {
     redisUrl,
     requireRedisAdapter,
     logger,
@@ -49,6 +76,12 @@ async function registerSocketIoRealtime(
     redisConnectTimeoutMs,
     redisClientFactory,
     redisStreamsAdapterFactory
+  };
+
+  return registerRealtimeServerSocketio(fastify, {
+    ...runtimeDeps,
+    ...appPolicyCallbacks,
+    ...runtimeOptions
   });
 }
 

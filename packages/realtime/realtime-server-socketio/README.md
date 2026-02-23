@@ -745,32 +745,49 @@ Note about targeted fanout:
 
 ## 13) How Apps Use This Package In Real Terms (And Why)
 
-Typical app wiring pattern:
+First-day explanation:
 
-1. App keeps topic policy local (usually in `shared/realtime/topicRegistry`).
-2. App keeps workspace/context shaping local (usually in `fastify/realtime/subscribeContext`).
-3. App keeps auth service and workspace service local.
-4. App creates a thin adapter file that calls `registerRealtimeServerSocketio(...)`.
+1. The shared package is the engine.
+2. The app wrapper is the adapter.
+3. The wrapper exists to connect app policy into shared mechanics.
 
-In this repo, the thin adapter is:
+In this repo, the adapter is:
 
 1. `apps/jskit-value-app/server/realtime/registerSocketIoRealtime.js`
 
-That adapter imports app-local policy functions and injects them into shared runtime:
+What `registerSocketIoRealtime(...)` does, exactly:
 
-1. `isSupportedTopic`
-2. `isTopicAllowedForSurface`
-3. `hasTopicPermission`
-4. `buildSubscribeContextRequest`
-5. `normalizeConnectionSurface`
-6. `normalizeWorkspaceSlug`
+1. Accepts app runtime dependencies.
+These are things like `authService`, `workspaceService`, `realtimeEventsService`, and Redis/runtime options.
+2. Injects app policy callbacks into shared runtime.
+These are app-specific rules: `isSupportedTopic`, `isTopicAllowedForSurface`, `hasTopicPermission`, `buildSubscribeContextRequest`, `normalizeConnectionSurface`, `normalizeWorkspaceSlug`.
+3. Delegates to the shared runtime entrypoint (`registerRealtimeServerSocketio(...)`).
+
+What `registerSocketIoRealtime(...)` does NOT do:
+
+1. It does not implement websocket protocol parsing.
+2. It does not implement Socket.IO room fanout logic.
+3. It does not implement Redis Streams adapter lifecycle logic.
+4. It does not translate old API names (it is not a compatibility shim).
+
+Why this wrapper is important:
+
+1. It keeps business policy in app code (where it belongs).
+2. It keeps transport/runtime mechanics in package code (where reuse belongs).
+3. It gives every app one explicit wiring point instead of copy-pasting 1000+ lines of runtime internals.
+
+Concrete startup call chain:
+
+1. `server.js` calls `registerSocketIoRealtime(app, options)`.
+2. Wrapper passes services + policy callbacks into package runtime.
+3. Package runtime starts Socket.IO, attaches auth/protocol handlers, subscribes to event fanout, and registers shutdown cleanup.
 
 Why this is positive for 10 apps:
 
-1. Each app writes only policy callbacks and topic definitions.
-2. Each app avoids re-implementing large Socket.IO + Redis boilerplate.
-3. Runtime mechanics stay consistent, easier to debug and test across apps.
-4. App vocabulary remains local, so packages stay clean and reusable.
+1. Each app writes only policy and vocabulary.
+2. Runtime behavior stays consistent across all apps.
+3. Bug fixes in runtime mechanics are done once in one package.
+4. New apps start faster by copying a small adapter pattern, not a full server runtime.
 
 ---
 
@@ -881,4 +898,3 @@ Check Redis client behavior; tune `redisQuitTimeoutMs`.
 4. Assuming subscribe-time auth is enough (runtime also re-checks during fanout).
 5. Using `__testables` helpers in production runtime code.
 6. Treating client runtime and server runtime as one package.
-
