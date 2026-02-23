@@ -8,5 +8,8 @@
   },
   "exports": {
     ".": "./src/index.js"
+  },
+  "dependencies": {
+    "@jskit-ai/rbac-core": "0.1.0"
   }
 }
