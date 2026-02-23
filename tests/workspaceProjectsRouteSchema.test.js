@@ -41,6 +41,7 @@ function buildControllers({ onListProjects } = {}) {
       deleteAvatar: noop,
       updatePreferences: noop,
       updateNotifications: noop,
+      updateChat: noop,
       changePassword: noop,
       setPasswordMethodEnabled: noop,
       startOAuthProviderLink: noop,

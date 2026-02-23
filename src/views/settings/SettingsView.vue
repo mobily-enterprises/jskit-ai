@@ -3,7 +3,7 @@
     <v-card class="panel-card" rounded="lg" elevation="1" border>
       <v-card-item>
         <v-card-title class="panel-title">Account settings</v-card-title>
-        <v-card-subtitle>Global profile, preferences, security, and notification controls.</v-card-subtitle>
+        <v-card-subtitle>Global profile, preferences, chat, security, and notification controls.</v-card-subtitle>
         <template #append>
           <v-btn variant="text" color="secondary" @click="page.actions.goBack">Back</v-btn>
         </template>
@@ -35,12 +35,16 @@
                 <SettingsProfileForm />
               </v-window-item>
 
-              <v-window-item value="security">
-                <SettingsSecurityForm />
-              </v-window-item>
-
               <v-window-item value="preferences">
                 <SettingsPreferencesForm />
+              </v-window-item>
+
+              <v-window-item value="chat">
+                <SettingsChatForm />
+              </v-window-item>
+
+              <v-window-item value="security">
+                <SettingsSecurityForm />
               </v-window-item>
 
               <v-window-item value="notifications">
@@ -61,6 +65,7 @@ import SettingsSecurityForm from "./security/SettingsSecurityForm.vue";
 import SettingsProfileForm from "./profile/SettingsProfileForm.vue";
 import SettingsPreferencesForm from "./preferences/SettingsPreferencesForm.vue";
 import SettingsNotificationsForm from "./notifications/SettingsNotificationsForm.vue";
+import SettingsChatForm from "./chat/SettingsChatForm.vue";
 
 const { page, sections } = useSettingsView();
 provideSettingsContext({

@@ -30,27 +30,29 @@ DAY #1
 X Merge chats and permissions trees
 X Have "configs" in JSON files rather than .env for everything
 - Improve UI for chats, have proper workspace chats
-- Have proper test entitlement configuration for projects and annuity calcs <---- !!!
 
 DAY #2
+- Have proper test entitlement configuration for projects and annuity calcs <---- !!!
+
+DAY #3
 - Add full abilities to AI chatbot (calculate annuity, add project, change plan, list users...)s
 - Security audit to the lot
 
-DAY #3
+DAY #4
 - Create an "alerts" system so that users can see their alerts
 - Improve redirect after login, admin or not?
 
-DAY #4
+DAY #5
 - Add proper SMTP and SMS abilities, not stubs
 - Fix documentation, ML and human, and onboarding documents
 
-DAY #5
+DAY #6
 - Add rails for AI to add features
 
-DAY #6
+DAY #7
 - Do infrastructure, management mini-app, deploy
 
-DAY #7-#1000
+DAY #8-#1000
 - !!!STUDY THE LOT!!!
 
 - Is this done? CI policy gate: fail build when any `workspaceSurface: "admin"` route lacks `permission` (explicit allowlist for exceptions)

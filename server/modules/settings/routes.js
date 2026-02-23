@@ -111,6 +111,23 @@ function buildRoutes(controllers) {
       handler: controllers.settings.updateNotifications
     },
     {
+      path: "/api/settings/chat",
+      method: "PATCH",
+      auth: "required",
+      schema: {
+        tags: ["settings"],
+        summary: "Update chat settings",
+        body: schema.body.chat,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.settings.updateChat
+    },
+    {
       path: "/api/settings/security/change-password",
       method: "POST",
       auth: "required",

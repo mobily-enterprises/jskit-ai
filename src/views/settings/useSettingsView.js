@@ -14,6 +14,7 @@ import { useSettingsProfileForm } from "./profile/useSettingsProfileForm.js";
 import { useSettingsPreferencesForm } from "./preferences/useSettingsPreferencesForm.js";
 import { useSettingsSecurityForm } from "./security/useSettingsSecurityForm.js";
 import { useSettingsNotificationsForm } from "./notifications/useSettingsNotificationsForm.js";
+import { useSettingsChatForm } from "./chat/useSettingsChatForm.js";
 
 export function useSettingsView() {
   const navigate = useNavigate();
@@ -86,9 +87,18 @@ export function useSettingsView() {
     applySettingsData: applySettingsDataRef
   });
 
+  const chat = useSettingsChatForm({
+    queryClient,
+    clearFieldErrors,
+    toErrorMessage,
+    handleAuthError,
+    applySettingsData: applySettingsDataRef
+  });
+
   applySettingsData = (data) => {
     profile.hydrate(data);
     preferences.hydrate(data);
+    chat.hydrate(data);
     security.hydrate(data);
     notifications.hydrate(data);
   };
@@ -152,6 +162,7 @@ export function useSettingsView() {
     sections: {
       profile,
       preferences,
+      chat,
       security,
       notifications
     }

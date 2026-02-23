@@ -305,6 +305,7 @@ function createServices({
 
   const userSettingsService = createUserSettingsService({
     userSettingsRepository,
+    chatUserSettingsRepository,
     userProfilesRepository,
     authService,
     userAvatarService

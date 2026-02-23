@@ -925,6 +925,85 @@ test("listDmCandidates returns discoverable shared-workspace users and supports 
   assert.equal(result.items[0].sharedWorkspaceCount, 2);
 });
 
+test("listDmCandidates does not require actor allowGlobalDms to discover eligible targets", async () => {
+  const { service, state } = createChatServiceFixture({
+    chatGlobalDmsRequireSharedWorkspace: true,
+    workspaceMembershipsForSharedCheck: [
+      {
+        workspaceId: 19,
+        status: "active"
+      }
+    ],
+    workspaceMembersByWorkspaceId: new Map([
+      [
+        19,
+        [
+          { userId: 5, status: "active" },
+          { userId: 8, status: "active" }
+        ]
+      ]
+    ])
+  });
+
+  state.actorSettings.allowGlobalDms = false;
+  state.actorSettings.discoverableByPublicChatId = false;
+
+  state.targetSettingsByUserId.set(8, {
+    id: 18,
+    userId: 8,
+    publicChatId: "u8",
+    allowWorkspaceDms: true,
+    allowGlobalDms: true,
+    requireSharedWorkspaceForGlobalDm: true,
+    discoverableByPublicChatId: true,
+    createdAt: "2026-02-22T00:00:00.000Z",
+    updatedAt: "2026-02-22T00:00:00.000Z"
+  });
+
+  const result = await service.listDmCandidates({
+    user: { id: 5 },
+    query: {
+      q: "u8",
+      limit: 10
+    }
+  });
+
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0].userId, 8);
+  assert.equal(result.items[0].publicChatId, "u8");
+});
+
+test("ensureDm allows actor with allowGlobalDms disabled when target permits global DMs", async () => {
+  const { service, state } = createChatServiceFixture({
+    chatGlobalDmsRequireSharedWorkspace: false
+  });
+
+  state.actorSettings.allowGlobalDms = false;
+  state.actorSettings.discoverableByPublicChatId = false;
+
+  state.targetSettingsByPublicChatId.set("target_public", {
+    id: 22,
+    userId: 8,
+    publicChatId: "target_public",
+    allowWorkspaceDms: true,
+    allowGlobalDms: true,
+    requireSharedWorkspaceForGlobalDm: false,
+    discoverableByPublicChatId: true,
+    createdAt: "2026-02-22T00:00:00.000Z",
+    updatedAt: "2026-02-22T00:00:00.000Z"
+  });
+
+  const result = await service.ensureDm({
+    user: {
+      id: 5
+    },
+    targetPublicChatId: "target_public"
+  });
+
+  assert.equal(Number(result.thread?.id) > 0, true);
+  assert.equal(Boolean(result.thread?.peerUser), true);
+});
+
 test("sendThreadMessage remains successful when realtime publish fails post-commit", async () => {
   const { service } = createChatServiceFixture({
     chatRealtimeService: {

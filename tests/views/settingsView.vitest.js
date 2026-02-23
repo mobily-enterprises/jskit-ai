@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
       deleteAvatar: vi.fn(),
       updatePreferences: vi.fn(),
       updateNotifications: vi.fn(),
+      updateChat: vi.fn(),
       changePassword: vi.fn(),
       setPasswordMethodEnabled: vi.fn(),
       logoutOtherSessions: vi.fn()
@@ -168,6 +169,13 @@ function buildSettingsPayload(overrides = {}) {
       accountActivity: true,
       securityAlerts: true
     },
+    chat: {
+      publicChatId: "demo-user",
+      allowWorkspaceDms: true,
+      allowGlobalDms: false,
+      requireSharedWorkspaceForGlobalDm: true,
+      discoverableByPublicChatId: false
+    },
     ...overrides
   };
 }
@@ -229,6 +237,7 @@ describe("SettingsView", () => {
     mocks.api.settings.deleteAvatar.mockReset();
     mocks.api.settings.updatePreferences.mockReset();
     mocks.api.settings.updateNotifications.mockReset();
+    mocks.api.settings.updateChat.mockReset();
     mocks.api.settings.changePassword.mockReset();
     mocks.api.settings.setPasswordMethodEnabled.mockReset();
     mocks.api.settings.logoutOtherSessions.mockReset();
@@ -253,6 +262,7 @@ describe("SettingsView", () => {
     expect(sections.profile.state.profileForm.displayName).toBe("demo-user");
     expect(sections.preferences.state.preferencesForm.currencyCode).toBe("USD");
     expect(sections.notifications.state.notificationsForm.securityAlerts).toBe(true);
+    expect(sections.chat.state.chatForm.publicChatId).toBe("demo-user");
     expect(sections.security.state.mfaLabel).toContain("not enabled");
     wrapper.unmount();
   });
@@ -354,6 +364,44 @@ describe("SettingsView", () => {
     expect(preferences.state.preferencesMessageType).toBe("success");
     expect(mocks.themeName.value).toBe("dark");
     expect(preferences.state.preferencesForm.avatarSize).toBe(96);
+  });
+
+  it("submits chat settings and maps field validation errors", async () => {
+    const wrapper = mountView();
+    const chat = vmSections(wrapper).chat;
+
+    mocks.api.settings.updateChat.mockRejectedValueOnce({
+      status: 400,
+      message: "Validation failed.",
+      fieldErrors: {
+        publicChatId: "Public chat id is already in use."
+      }
+    });
+    await chat.actions.submitChat();
+    expect(chat.state.chatFieldErrors.publicChatId).toContain("already in use");
+    expect(chat.state.chatMessageType).toBe("error");
+
+    const payload = buildSettingsPayload({
+      chat: {
+        publicChatId: "user7",
+        allowWorkspaceDms: true,
+        allowGlobalDms: true,
+        requireSharedWorkspaceForGlobalDm: false,
+        discoverableByPublicChatId: true
+      }
+    });
+    mocks.api.settings.updateChat.mockResolvedValueOnce(payload);
+    await chat.actions.submitChat();
+
+    expect(mocks.api.settings.updateChat).toHaveBeenLastCalledWith({
+      publicChatId: "demo-user",
+      allowWorkspaceDms: true,
+      allowGlobalDms: false,
+      requireSharedWorkspaceForGlobalDm: true,
+      discoverableByPublicChatId: false
+    });
+    expect(chat.state.chatMessageType).toBe("success");
+    expect(chat.state.chatForm.publicChatId).toBe("user7");
   });
 
   it("submits password change and clears password fields", async () => {

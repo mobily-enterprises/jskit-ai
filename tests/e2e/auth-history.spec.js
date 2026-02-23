@@ -136,7 +136,7 @@ test("login sends CSRF token and lands on calculator", async ({ page }) => {
     csrfToken: "csrf-token-1"
   }));
 
-  await page.route("**/api/history**", async (route) => {
+  await page.route((url) => url.pathname === "/api/history", async (route) => {
     await route.fulfill({
       status: 200,
       headers: JSON_HEADERS,
@@ -190,7 +190,7 @@ test("calculate appends history and includes CSRF header", async ({ page }) => {
     csrfToken: "csrf-token-2"
   }));
 
-  await page.route("**/api/history**", async (route) => {
+  await page.route((url) => url.pathname === "/api/history", async (route) => {
     await route.fulfill({
       status: 200,
       headers: JSON_HEADERS,
@@ -270,7 +270,7 @@ test("calculate can be retried after transient API failure", async ({ page }) =>
     csrfToken: "csrf-token-retry"
   }));
 
-  await page.route("**/api/history**", async (route) => {
+  await page.route((url) => url.pathname === "/api/history", async (route) => {
     await route.fulfill({
       status: 200,
       headers: JSON_HEADERS,

@@ -370,6 +370,10 @@ test("settings controller covers get/update/security flows", async () => {
       calls.push(["updateNotifications", request.marker, user.id, payload]);
       return { notifications: { productUpdates: true } };
     },
+    async updateChat(request, user, payload) {
+      calls.push(["updateChat", request.marker, user.id, payload]);
+      return { chat: { publicChatId: "user7" } };
+    },
     async uploadAvatar(request, user, payload) {
       calls.push(["uploadAvatar", request.marker, user.id, payload.mimeType, payload.uploadDimension]);
       return { profile: { avatar: { hasUploadedAvatar: true } } };
@@ -421,6 +425,11 @@ test("settings controller covers get/update/security flows", async () => {
   );
   assert.equal(notificationsReply.statusCode, 200);
   assert.equal(notificationsReply.payload.notifications.productUpdates, true);
+
+  const chatReply = createReplyDouble();
+  await controller.updateChat({ marker: "chat", user, body: { publicChatId: "user7" } }, chatReply);
+  assert.equal(chatReply.statusCode, 200);
+  assert.equal(chatReply.payload.chat.publicChatId, "user7");
 
   const uploadAvatarReply = createReplyDouble();
   await controller.uploadAvatar(
@@ -477,6 +486,10 @@ test("settings controller covers get/update/security flows", async () => {
   const fallbackNotificationsReply = createReplyDouble();
   await controller.updateNotifications({ marker: "fallback-notifications", user }, fallbackNotificationsReply);
   assert.equal(fallbackNotificationsReply.statusCode, 200);
+
+  const fallbackChatReply = createReplyDouble();
+  await controller.updateChat({ marker: "fallback-chat", user }, fallbackChatReply);
+  assert.equal(fallbackChatReply.statusCode, 200);
 
   const missingAvatarReply = createReplyDouble();
   await assert.rejects(() =>

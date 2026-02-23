@@ -128,12 +128,26 @@ const notifications = Type.Object(
   }
 );
 
+const chat = Type.Object(
+  {
+    publicChatId: Type.Union([Type.String({ minLength: 1, maxLength: 64 }), Type.Null()]),
+    allowWorkspaceDms: Type.Boolean(),
+    allowGlobalDms: Type.Boolean(),
+    requireSharedWorkspaceForGlobalDm: Type.Boolean(),
+    discoverableByPublicChatId: Type.Boolean()
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const response = Type.Object(
   {
     profile,
     security,
     preferences,
-    notifications
+    notifications,
+    chat
   },
   {
     additionalProperties: false
@@ -177,6 +191,20 @@ const notificationsUpdate = Type.Object(
   }
 );
 
+const chatUpdate = Type.Object(
+  {
+    publicChatId: Type.Optional(Type.Union([Type.String({ minLength: 1, maxLength: 64 }), Type.Null()])),
+    allowWorkspaceDms: Type.Optional(Type.Boolean()),
+    allowGlobalDms: Type.Optional(Type.Boolean()),
+    requireSharedWorkspaceForGlobalDm: Type.Optional(Type.Boolean()),
+    discoverableByPublicChatId: Type.Optional(Type.Boolean())
+  },
+  {
+    additionalProperties: false,
+    minProperties: 1
+  }
+);
+
 const changePassword = Type.Object(
   {
     currentPassword: Type.Optional(Type.String({ minLength: 1, maxLength: AUTH_LOGIN_PASSWORD_MAX_LENGTH })),
@@ -195,11 +223,13 @@ const schema = {
   security,
   preferences,
   notifications,
+  chat,
   response,
   body: {
     profile: profileUpdate,
     preferences: preferencesUpdate,
     notifications: notificationsUpdate,
+    chat: chatUpdate,
     changePassword
   }
 };

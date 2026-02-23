@@ -50,6 +50,13 @@ function buildStubControllers() {
         productUpdates: true,
         accountActivity: true,
         securityAlerts: true
+      },
+      chat: {
+        publicChatId: "demo-user",
+        allowWorkspaceDms: true,
+        allowGlobalDms: false,
+        requireSharedWorkspaceForGlobalDm: true,
+        discoverableByPublicChatId: false
       }
     };
   }
@@ -120,6 +127,9 @@ function buildStubControllers() {
         reply.code(200).send(buildSettingsPayload());
       },
       async updateNotifications(_request, reply) {
+        reply.code(200).send(buildSettingsPayload());
+      },
+      async updateChat(_request, reply) {
         reply.code(200).send(buildSettingsPayload());
       },
       async changePassword(_request, reply) {

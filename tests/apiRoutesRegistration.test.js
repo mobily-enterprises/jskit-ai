@@ -49,6 +49,13 @@ function noopControllers() {
       productUpdates: true,
       accountActivity: true,
       securityAlerts: true
+    },
+    chat: {
+      publicChatId: "u",
+      allowWorkspaceDms: true,
+      allowGlobalDms: false,
+      requireSharedWorkspaceForGlobalDm: true,
+      discoverableByPublicChatId: false
     }
   };
 
@@ -93,6 +100,9 @@ function noopControllers() {
         reply.code(200).send(settingsPayload);
       },
       async updateNotifications(_request, reply) {
+        reply.code(200).send(settingsPayload);
+      },
+      async updateChat(_request, reply) {
         reply.code(200).send(settingsPayload);
       },
       async changePassword(_request, reply) {

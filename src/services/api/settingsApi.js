@@ -18,6 +18,9 @@ function createApi({ request }) {
     updateNotifications(payload) {
       return request("/api/settings/notifications", { method: "PATCH", body: payload });
     },
+    updateChat(payload) {
+      return request("/api/settings/chat", { method: "PATCH", body: payload });
+    },
     changePassword(payload) {
       return request("/api/settings/security/change-password", { method: "POST", body: payload });
     },

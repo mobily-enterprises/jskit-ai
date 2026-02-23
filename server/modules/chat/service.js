@@ -1063,7 +1063,7 @@ function createService({
       throw createDmTargetUnavailableError();
     }
 
-    if (!actorSettings.allowGlobalDms || !targetSettings.allowGlobalDms) {
+    if (!targetSettings.allowGlobalDms) {
       throw createDmTargetUnavailableError();
     }
 
@@ -1255,8 +1255,7 @@ function createService({
     const normalizedSearch = normalizeDmCandidatesSearch(query?.q);
     const limit = normalizeDmCandidatesLimit(query?.limit);
 
-    const actorSettings = await chatUserSettingsRepository.ensureForUserId(actorUserId);
-    if (!options.chatGlobalDmsEnabled || !actorSettings?.allowGlobalDms) {
+    if (!options.chatGlobalDmsEnabled) {
       return {
         items: []
       };

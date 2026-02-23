@@ -76,6 +76,13 @@ function buildSettingsPayload() {
       productUpdates: true,
       accountActivity: true,
       securityAlerts: true
+    },
+    chat: {
+      publicChatId: "demo-user",
+      allowWorkspaceDms: true,
+      allowGlobalDms: false,
+      requireSharedWorkspaceForGlobalDm: true,
+      discoverableByPublicChatId: false
     }
   };
 }
@@ -142,6 +149,9 @@ function buildStubControllers() {
         reply.code(200).send(buildSettingsPayload());
       },
       async updateNotifications(_request, reply) {
+        reply.code(200).send(buildSettingsPayload());
+      },
+      async updateChat(_request, reply) {
         reply.code(200).send(buildSettingsPayload());
       },
       async changePassword(_request, reply) {
@@ -261,6 +271,35 @@ test("settings security routes validate password payload and allow logout-others
     url: "/api/settings/security/logout-others"
   });
   assert.equal(logoutOthers.statusCode, 200);
+
+  await app.close();
+});
+
+test("settings chat route validates chat payload", async () => {
+  const app = Fastify();
+  registerApiRoutes(app, { controllers: buildStubControllers() });
+
+  const invalid = await app.inject({
+    method: "PATCH",
+    url: "/api/settings/chat",
+    payload: {
+      allowGlobalDms: "yes"
+    }
+  });
+  assert.equal(invalid.statusCode, 400);
+
+  const valid = await app.inject({
+    method: "PATCH",
+    url: "/api/settings/chat",
+    payload: {
+      publicChatId: "demo-user",
+      allowWorkspaceDms: true,
+      allowGlobalDms: true,
+      requireSharedWorkspaceForGlobalDm: true,
+      discoverableByPublicChatId: true
+    }
+  });
+  assert.equal(valid.statusCode, 200);
 
   await app.close();
 });

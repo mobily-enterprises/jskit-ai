@@ -39,6 +39,12 @@ function createController({ userSettingsService, authService, auditService }) {
     reply.code(200).send(response);
   }
 
+  async function updateChat(request, reply) {
+    const payload = request.body || {};
+    const response = await userSettingsService.updateChat(request, request.user, payload);
+    reply.code(200).send(response);
+  }
+
   async function uploadAvatar(request, reply) {
     const filePart = await request.file();
     if (!filePart) {
@@ -140,6 +146,7 @@ function createController({ userSettingsService, authService, auditService }) {
     updateProfile,
     updatePreferences,
     updateNotifications,
+    updateChat,
     uploadAvatar,
     deleteAvatar,
     changePassword,

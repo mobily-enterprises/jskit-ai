@@ -356,13 +356,14 @@ describe("client api transport", () => {
 
   it("calls settings endpoints through wrapper methods", async () => {
     global.fetch
-      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {} } }))
+      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } }))
       .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "settings-token" } }))
-      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {} } }))
-      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {} } }))
-      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {} } }))
-      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {} } }))
-      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {} } }))
+      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } }))
+      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } }))
+      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } }))
+      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } }))
+      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } }))
+      .mockResolvedValueOnce(mockResponse({ data: { profile: {}, security: {}, preferences: {}, notifications: {}, chat: {} } }))
       .mockResolvedValueOnce(mockResponse({ data: { ok: true, message: "Password changed." } }))
       .mockResolvedValueOnce(mockResponse({ data: { ok: true, message: "Signed out from other active sessions." } }));
 
@@ -372,6 +373,13 @@ describe("client api transport", () => {
     await api.settings.deleteAvatar();
     await api.settings.updatePreferences({ theme: "dark" });
     await api.settings.updateNotifications({ productUpdates: false, accountActivity: true, securityAlerts: true });
+    await api.settings.updateChat({
+      publicChatId: "u7",
+      allowWorkspaceDms: true,
+      allowGlobalDms: true,
+      requireSharedWorkspaceForGlobalDm: true,
+      discoverableByPublicChatId: true
+    });
     await api.settings.changePassword({
       currentPassword: "old-password",
       newPassword: "new-password-123",
@@ -387,6 +395,7 @@ describe("client api transport", () => {
       "/api/settings/profile/avatar",
       "/api/settings/preferences",
       "/api/settings/notifications",
+      "/api/settings/chat",
       "/api/settings/security/change-password",
       "/api/settings/security/logout-others"
     ]);

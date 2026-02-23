@@ -26,6 +26,20 @@ function buildSettings(overrides = {}) {
   };
 }
 
+function buildChatSettings(overrides = {}) {
+  return {
+    userId: 7,
+    publicChatId: "user7",
+    allowWorkspaceDms: true,
+    allowGlobalDms: false,
+    requireSharedWorkspaceForGlobalDm: true,
+    discoverableByPublicChatId: false,
+    createdAt: "2024-01-01T00:00:00.000Z",
+    updatedAt: "2024-01-01T00:00:00.000Z",
+    ...overrides
+  };
+}
+
 test("user settings service helper validators cover success and failure branches", () => {
   assert.equal(__testables.isValidLocale("en-US"), true);
   assert.equal(__testables.isValidLocale("bad-@@"), false);
@@ -136,6 +150,46 @@ test("user settings service helper validators cover success and failure branches
   const notificationsEmpty = __testables.parseNotificationsInput({});
   assert.equal(notificationsEmpty.fieldErrors.notifications, "At least one notification setting is required.");
 
+  const chatInvalid = __testables.parseChatInput({
+    publicChatId: "x".repeat(65),
+    allowWorkspaceDms: "yes",
+    allowGlobalDms: 1,
+    requireSharedWorkspaceForGlobalDm: "yes",
+    discoverableByPublicChatId: "yes"
+  });
+  assert.equal(chatInvalid.fieldErrors.publicChatId, "Public chat id must be at most 64 characters.");
+  assert.equal(chatInvalid.fieldErrors.allowWorkspaceDms, "Workspace direct messages setting must be boolean.");
+  assert.equal(chatInvalid.fieldErrors.allowGlobalDms, "Global direct messages setting must be boolean.");
+  assert.equal(
+    chatInvalid.fieldErrors.requireSharedWorkspaceForGlobalDm,
+    "Shared workspace requirement setting must be boolean."
+  );
+  assert.equal(chatInvalid.fieldErrors.discoverableByPublicChatId, "Discoverability setting must be boolean.");
+
+  const chatValid = __testables.parseChatInput({
+    publicChatId: " user_7 ",
+    allowWorkspaceDms: false,
+    allowGlobalDms: true,
+    requireSharedWorkspaceForGlobalDm: false,
+    discoverableByPublicChatId: true
+  });
+  assert.equal(chatValid.patch.publicChatId, "user_7");
+  assert.equal(chatValid.patch.allowWorkspaceDms, false);
+  assert.equal(chatValid.patch.allowGlobalDms, true);
+  assert.equal(chatValid.patch.requireSharedWorkspaceForGlobalDm, false);
+  assert.equal(chatValid.patch.discoverableByPublicChatId, true);
+
+  const chatNullId = __testables.parseChatInput({
+    publicChatId: null
+  });
+  assert.equal(chatNullId.patch.publicChatId, null);
+
+  const chatEmpty = __testables.parseChatInput({});
+  assert.equal(chatEmpty.fieldErrors.chat, "At least one chat setting is required.");
+
+  assert.equal(__testables.duplicateEntryTargetsPublicChatId({ code: "ER_DUP_ENTRY", sqlMessage: "public_chat_id" }), true);
+  assert.equal(__testables.duplicateEntryTargetsPublicChatId(new Error("nope")), false);
+
   const passwordInvalid = __testables.parseChangePasswordInput({
     currentPassword: "",
     newPassword: "short",
@@ -214,9 +268,17 @@ test("user settings service helper validators cover success and failure branches
       hasUploadedAvatar: false,
       size: 64,
       version: null
-    }
+    },
+    buildChatSettings({
+      publicChatId: "demo-user",
+      allowGlobalDms: true,
+      discoverableByPublicChatId: true
+    })
   );
   assert.equal(response.security.mfa.status, "enabled");
+  assert.equal(response.chat.publicChatId, "demo-user");
+  assert.equal(response.chat.allowGlobalDms, true);
+  assert.equal(response.chat.discoverableByPublicChatId, true);
 
   const validation = __testables.validationError({ a: "bad" });
   assert.ok(validation instanceof AppError);
@@ -238,6 +300,16 @@ test("user settings service orchestrates repositories and auth service", async (
       async updateNotifications(userId, patch) {
         calls.push(["updateNotifications", userId, patch]);
         return buildSettings({ userId, ...patch });
+      }
+    },
+    chatUserSettingsRepository: {
+      async ensureForUserId(userId) {
+        calls.push(["ensureChatForUserId", userId]);
+        return buildChatSettings({ userId });
+      },
+      async updateByUserId(userId, patch) {
+        calls.push(["updateChatByUserId", userId, patch]);
+        return buildChatSettings({ userId, ...patch });
       }
     },
     userProfilesRepository: {
@@ -367,6 +439,17 @@ test("user settings service orchestrates repositories and auth service", async (
   });
   assert.equal(notificationsUpdated.notifications.accountActivity, false);
 
+  const chatUpdated = await service.updateChat({ marker: "chat" }, user, {
+    publicChatId: "user-7",
+    allowWorkspaceDms: true,
+    allowGlobalDms: true,
+    requireSharedWorkspaceForGlobalDm: false,
+    discoverableByPublicChatId: true
+  });
+  assert.equal(chatUpdated.chat.publicChatId, "user-7");
+  assert.equal(chatUpdated.chat.allowGlobalDms, true);
+  assert.equal(chatUpdated.chat.discoverableByPublicChatId, true);
+
   const passwordResult = await service.changePassword(
     { marker: "password" },
     {
@@ -395,6 +478,14 @@ test("user settings service falls back when auth service omits profile/session",
       },
       async updateNotifications() {
         return buildSettings();
+      }
+    },
+    chatUserSettingsRepository: {
+      async ensureForUserId(userId) {
+        return buildChatSettings({ userId });
+      },
+      async updateByUserId(userId, patch) {
+        return buildChatSettings({ userId, ...patch });
       }
     },
     userProfilesRepository: {
@@ -483,6 +574,16 @@ test("user settings service handles avatar upload and delete flows", async () =>
       },
       async updateNotifications() {
         return buildSettings();
+      }
+    },
+    chatUserSettingsRepository: {
+      async ensureForUserId(userId) {
+        calls.push(["ensureChatForUserId", userId]);
+        return buildChatSettings({ userId });
+      },
+      async updateByUserId(userId, patch) {
+        calls.push(["updateChatByUserId", userId, patch]);
+        return buildChatSettings({ userId, ...patch });
       }
     },
     userProfilesRepository: {
@@ -616,6 +717,16 @@ test("user settings service orchestrates password method toggle and oauth link/u
         return buildSettings();
       }
     },
+    chatUserSettingsRepository: {
+      async ensureForUserId(userId) {
+        calls.push(["ensureChatForUserId", userId]);
+        return buildChatSettings({ userId });
+      },
+      async updateByUserId(userId, patch) {
+        calls.push(["updateChatByUserId", userId, patch]);
+        return buildChatSettings({ userId, ...patch });
+      }
+    },
     userProfilesRepository: {
       async findBySupabaseUserId(supabaseUserId) {
         calls.push(["findBySupabaseUserId", supabaseUserId]);
@@ -741,6 +852,14 @@ test("user settings service throws validation errors for invalid payloads", asyn
         return buildSettings();
       }
     },
+    chatUserSettingsRepository: {
+      async ensureForUserId() {
+        return buildChatSettings();
+      },
+      async updateByUserId(_userId, patch) {
+        return buildChatSettings({ ...patch });
+      }
+    },
     userProfilesRepository: {
       async updateDisplayNameById() {
         return null;
@@ -813,6 +932,15 @@ test("user settings service throws validation errors for invalid payloads", asyn
   );
 
   await assert.rejects(
+    () => service.updateChat({}, user, { allowGlobalDms: "yes" }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.details.fieldErrors.allowGlobalDms, "Global direct messages setting must be boolean.");
+      return true;
+    }
+  );
+
+  await assert.rejects(
     () =>
       service.changePassword(
         {},
@@ -825,6 +953,87 @@ test("user settings service throws validation errors for invalid payloads", asyn
     (error) => {
       assert.equal(error.status, 400);
       assert.equal(error.details.fieldErrors.confirmPassword, "Passwords do not match.");
+      return true;
+    }
+  );
+});
+
+test("user settings service maps duplicate public chat id conflicts to validation errors", async () => {
+  const service = createUserSettingsService({
+    userSettingsRepository: {
+      async ensureForUserId() {
+        return buildSettings();
+      },
+      async updatePreferences() {
+        return buildSettings();
+      },
+      async updateNotifications() {
+        return buildSettings();
+      }
+    },
+    chatUserSettingsRepository: {
+      async ensureForUserId() {
+        return buildChatSettings();
+      },
+      async updateByUserId() {
+        const error = new Error("Duplicate entry");
+        error.code = "ER_DUP_ENTRY";
+        error.sqlMessage = "Duplicate entry for key uq_chat_user_settings_public_chat_id";
+        throw error;
+      }
+    },
+    userProfilesRepository: {
+      async updateDisplayNameById() {
+        return null;
+      }
+    },
+    userAvatarService: {
+      buildAvatarResponse(_profile, { avatarSize }) {
+        return {
+          uploadedUrl: null,
+          gravatarUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+          effectiveUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+          hasUploadedAvatar: false,
+          size: Number(avatarSize || 64),
+          version: null
+        };
+      },
+      async uploadForUser() {
+        throw new Error("not used");
+      },
+      async clearForUser() {
+        throw new Error("not used");
+      }
+    },
+    authService: {
+      async getSecurityStatus() {
+        return { mfa: { status: "not_enabled", enrolled: false, methods: [] } };
+      },
+      async updateDisplayName() {
+        return { profile: null, session: null };
+      },
+      async changePassword() {
+        return { session: null };
+      },
+      async signOutOtherSessions() {}
+    }
+  });
+
+  const user = {
+    id: 7,
+    supabaseUserId: "supabase-7",
+    email: "user@example.com",
+    displayName: "user"
+  };
+
+  await assert.rejects(
+    () =>
+      service.updateChat({}, user, {
+        publicChatId: "already-used"
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.details.fieldErrors.publicChatId, "Public chat id is already in use.");
       return true;
     }
   );
@@ -852,6 +1061,14 @@ test("user settings service supports password fallback mode and user-profile fal
       },
       async updateNotifications() {
         return buildSettings();
+      }
+    },
+    chatUserSettingsRepository: {
+      async ensureForUserId(userId) {
+        return buildChatSettings({ userId });
+      },
+      async updateByUserId(userId, patch) {
+        return buildChatSettings({ userId, ...patch });
       }
     },
     userProfilesRepository: {

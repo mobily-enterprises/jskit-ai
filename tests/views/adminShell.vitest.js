@@ -193,6 +193,7 @@ describe("useAdminShell", () => {
       { title: "Assistant", to: "/admin/w/acme/assistant", icon: "$navChoice2" },
       { title: "AI transcripts", to: "/admin/w/acme/transcripts", icon: "$navChoice2" },
       { title: "Workspace settings", to: "/admin/w/acme/settings", icon: "$menuSettings" },
+      { title: "Billing", to: "/admin/w/acme/billing", icon: "$menuSettings" },
       { title: "Back to App", to: "/w/acme", icon: "$menuBackToApp", forceReload: true }
     ]);
   });

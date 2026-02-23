@@ -1,4 +1,5 @@
 import { AppError } from "../../lib/errors.js";
+import { isMysqlDuplicateEntryError } from "../../lib/primitives/mysqlErrors.js";
 import { validators as authValidators } from "../../../shared/auth/validators.js";
 import { AVATAR_MAX_SIZE, AVATAR_MIN_SIZE } from "../../../shared/avatar/index.js";
 import {
@@ -24,6 +25,15 @@ function hasOwn(payload, key) {
 
 function normalizeText(value) {
   return String(value ?? "").trim();
+}
+
+function duplicateEntryTargetsPublicChatId(error) {
+  if (!isMysqlDuplicateEntryError(error)) {
+    return false;
+  }
+
+  const message = String(error?.sqlMessage || error?.message || "").toLowerCase();
+  return message.includes("public_chat_id") || message.includes("uq_chat_user_settings_public_chat_id");
 }
 
 function isValidLocale(value) {
@@ -202,6 +212,65 @@ function parseNotificationsInput(payload = {}) {
   };
 }
 
+function parseChatInput(payload = {}) {
+  const fieldErrors = {};
+  const patch = {};
+
+  if (hasOwn(payload, "publicChatId")) {
+    if (payload.publicChatId == null) {
+      patch.publicChatId = null;
+    } else {
+      const publicChatId = normalizeText(payload.publicChatId);
+      if (publicChatId.length > 64) {
+        fieldErrors.publicChatId = "Public chat id must be at most 64 characters.";
+      } else {
+        patch.publicChatId = publicChatId || null;
+      }
+    }
+  }
+
+  if (hasOwn(payload, "allowWorkspaceDms")) {
+    if (typeof payload.allowWorkspaceDms !== "boolean") {
+      fieldErrors.allowWorkspaceDms = "Workspace direct messages setting must be boolean.";
+    } else {
+      patch.allowWorkspaceDms = payload.allowWorkspaceDms;
+    }
+  }
+
+  if (hasOwn(payload, "allowGlobalDms")) {
+    if (typeof payload.allowGlobalDms !== "boolean") {
+      fieldErrors.allowGlobalDms = "Global direct messages setting must be boolean.";
+    } else {
+      patch.allowGlobalDms = payload.allowGlobalDms;
+    }
+  }
+
+  if (hasOwn(payload, "requireSharedWorkspaceForGlobalDm")) {
+    if (typeof payload.requireSharedWorkspaceForGlobalDm !== "boolean") {
+      fieldErrors.requireSharedWorkspaceForGlobalDm = "Shared workspace requirement setting must be boolean.";
+    } else {
+      patch.requireSharedWorkspaceForGlobalDm = payload.requireSharedWorkspaceForGlobalDm;
+    }
+  }
+
+  if (hasOwn(payload, "discoverableByPublicChatId")) {
+    if (typeof payload.discoverableByPublicChatId !== "boolean") {
+      fieldErrors.discoverableByPublicChatId = "Discoverability setting must be boolean.";
+    } else {
+      patch.discoverableByPublicChatId = payload.discoverableByPublicChatId;
+    }
+  }
+
+  if (!Object.keys(patch).length && !Object.keys(fieldErrors).length) {
+    fieldErrors.chat = "At least one chat setting is required.";
+  }
+
+  return {
+    patch,
+    fieldErrors
+  };
+}
+
 function parseChangePasswordInput(payload = {}, options = {}) {
   const fieldErrors = {};
   const requireCurrentPassword = options.requireCurrentPassword !== false;
@@ -299,7 +368,20 @@ function findPasswordAuthMethod(securityStatus) {
   return methods.find((method) => String(method?.id || "") === "password") || null;
 }
 
-function buildSettingsResponse(userProfile, settings, securityStatus, avatar) {
+function normalizeChatSettings(chatSettings) {
+  const source = chatSettings && typeof chatSettings === "object" ? chatSettings : {};
+  const publicChatId = normalizeText(source.publicChatId);
+
+  return {
+    publicChatId: publicChatId || null,
+    allowWorkspaceDms: Boolean(source.allowWorkspaceDms),
+    allowGlobalDms: Boolean(source.allowGlobalDms),
+    requireSharedWorkspaceForGlobalDm: Boolean(source.requireSharedWorkspaceForGlobalDm),
+    discoverableByPublicChatId: Boolean(source.discoverableByPublicChatId)
+  };
+}
+
+function buildSettingsResponse(userProfile, settings, securityStatus, avatar, chatSettings) {
   return {
     profile: {
       displayName: userProfile.displayName,
@@ -322,13 +404,27 @@ function buildSettingsResponse(userProfile, settings, securityStatus, avatar) {
       productUpdates: settings.productUpdates,
       accountActivity: settings.accountActivity,
       securityAlerts: settings.securityAlerts
-    }
+    },
+    chat: normalizeChatSettings(chatSettings)
   };
 }
 
-function createService({ userSettingsRepository, userProfilesRepository, authService, userAvatarService }) {
+function createService({
+  userSettingsRepository,
+  chatUserSettingsRepository,
+  userProfilesRepository,
+  authService,
+  userAvatarService
+}) {
   if (!userAvatarService || typeof userAvatarService.buildAvatarResponse !== "function") {
     throw new Error("userAvatarService is required.");
+  }
+  if (
+    !chatUserSettingsRepository ||
+    typeof chatUserSettingsRepository.ensureForUserId !== "function" ||
+    typeof chatUserSettingsRepository.updateByUserId !== "function"
+  ) {
+    throw new Error("chatUserSettingsRepository is required.");
   }
 
   function resolveAvatar(profile, settings) {
@@ -337,8 +433,9 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
 
   async function getForUser(request, user) {
     const settings = await userSettingsRepository.ensureForUserId(user.id);
+    const chatSettings = await chatUserSettingsRepository.ensureForUserId(user.id);
     const securityStatus = await authService.getSecurityStatus(request);
-    return buildSettingsResponse(user, settings, securityStatus, resolveAvatar(user, settings));
+    return buildSettingsResponse(user, settings, securityStatus, resolveAvatar(user, settings), chatSettings);
   }
 
   async function updateProfile(request, user, payload) {
@@ -351,10 +448,11 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
     const profile =
       updated.profile || (await userProfilesRepository.updateDisplayNameById(user.id, parsed.displayName));
     const settings = await userSettingsRepository.ensureForUserId(profile.id);
+    const chatSettings = await chatUserSettingsRepository.ensureForUserId(profile.id);
     const securityStatus = await authService.getSecurityStatus(request);
 
     return {
-      settings: buildSettingsResponse(profile, settings, securityStatus, resolveAvatar(profile, settings)),
+      settings: buildSettingsResponse(profile, settings, securityStatus, resolveAvatar(profile, settings), chatSettings),
       session: updated.session || null
     };
   }
@@ -366,8 +464,9 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
     }
 
     const settings = await userSettingsRepository.updatePreferences(user.id, parsed.patch);
+    const chatSettings = await chatUserSettingsRepository.ensureForUserId(user.id);
     const securityStatus = await authService.getSecurityStatus(request);
-    return buildSettingsResponse(user, settings, securityStatus, resolveAvatar(user, settings));
+    return buildSettingsResponse(user, settings, securityStatus, resolveAvatar(user, settings), chatSettings);
   }
 
   async function updateNotifications(request, user, payload) {
@@ -377,24 +476,56 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
     }
 
     const settings = await userSettingsRepository.updateNotifications(user.id, parsed.patch);
+    const chatSettings = await chatUserSettingsRepository.ensureForUserId(user.id);
     const securityStatus = await authService.getSecurityStatus(request);
-    return buildSettingsResponse(user, settings, securityStatus, resolveAvatar(user, settings));
+    return buildSettingsResponse(user, settings, securityStatus, resolveAvatar(user, settings), chatSettings);
+  }
+
+  async function updateChat(request, user, payload) {
+    const parsed = parseChatInput(payload);
+    if (Object.keys(parsed.fieldErrors).length > 0) {
+      throw validationError(parsed.fieldErrors);
+    }
+
+    let chatSettings;
+    try {
+      chatSettings = await chatUserSettingsRepository.updateByUserId(user.id, parsed.patch);
+    } catch (error) {
+      if (duplicateEntryTargetsPublicChatId(error)) {
+        throw validationError({
+          publicChatId: "Public chat id is already in use."
+        });
+      }
+      throw error;
+    }
+
+    const settings = await userSettingsRepository.ensureForUserId(user.id);
+    const securityStatus = await authService.getSecurityStatus(request);
+    return buildSettingsResponse(user, settings, securityStatus, resolveAvatar(user, settings), chatSettings);
   }
 
   async function uploadAvatar(request, user, payload) {
     const upload = await userAvatarService.uploadForUser(user, payload);
     const settings = await userSettingsRepository.ensureForUserId(user.id);
+    const chatSettings = await chatUserSettingsRepository.ensureForUserId(user.id);
     const securityStatus = await authService.getSecurityStatus(request);
 
-    return buildSettingsResponse(upload.profile, settings, securityStatus, resolveAvatar(upload.profile, settings));
+    return buildSettingsResponse(
+      upload.profile,
+      settings,
+      securityStatus,
+      resolveAvatar(upload.profile, settings),
+      chatSettings
+    );
   }
 
   async function deleteAvatar(request, user) {
     const profile = await userAvatarService.clearForUser(user);
     const settings = await userSettingsRepository.ensureForUserId(user.id);
+    const chatSettings = await chatUserSettingsRepository.ensureForUserId(user.id);
     const securityStatus = await authService.getSecurityStatus(request);
 
-    return buildSettingsResponse(profile, settings, securityStatus, resolveAvatar(profile, settings));
+    return buildSettingsResponse(profile, settings, securityStatus, resolveAvatar(profile, settings), chatSettings);
   }
 
   async function changePassword(request, payload) {
@@ -428,9 +559,10 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
       : null;
     const profile = maybeLatestProfile || user;
     const settings = await userSettingsRepository.ensureForUserId(user.id);
+    const chatSettings = await chatUserSettingsRepository.ensureForUserId(user.id);
     const securityStatus = await authService.getSecurityStatus(request);
 
-    return buildSettingsResponse(profile, settings, securityStatus, resolveAvatar(profile, settings));
+    return buildSettingsResponse(profile, settings, securityStatus, resolveAvatar(profile, settings), chatSettings);
   }
 
   async function startOAuthProviderLink(request, user, payload) {
@@ -446,9 +578,10 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
       : null;
     const profile = maybeLatestProfile || user;
     const settings = await userSettingsRepository.ensureForUserId(user.id);
+    const chatSettings = await chatUserSettingsRepository.ensureForUserId(user.id);
     const securityStatus = await authService.getSecurityStatus(request);
 
-    return buildSettingsResponse(profile, settings, securityStatus, resolveAvatar(profile, settings));
+    return buildSettingsResponse(profile, settings, securityStatus, resolveAvatar(profile, settings), chatSettings);
   }
 
   async function logoutOtherSessions(request) {
@@ -465,6 +598,7 @@ function createService({ userSettingsRepository, userProfilesRepository, authSer
     updateProfile,
     updatePreferences,
     updateNotifications,
+    updateChat,
     uploadAvatar,
     deleteAvatar,
     changePassword,
@@ -480,8 +614,11 @@ const __testables = {
   parseProfileInput,
   parsePreferencesInput,
   parseNotificationsInput,
+  parseChatInput,
   parseChangePasswordInput,
   normalizeSecurityStatus,
+  normalizeChatSettings,
+  duplicateEntryTargetsPublicChatId,
   buildSettingsResponse,
   isValidLocale,
   isValidTimeZone,
