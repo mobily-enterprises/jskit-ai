@@ -157,6 +157,10 @@ export function useAdminShell() {
     }
     return "Calculator";
   });
+  const isConversationDestination = computed(() => {
+    const pathname = String(currentPath.value || "").trim().toLowerCase();
+    return pathname.endsWith("/chat") || pathname.endsWith("/workspace-chat") || pathname.endsWith("/assistant");
+  });
 
   const workspaceItems = computed(() => (Array.isArray(workspaceStore.workspaces) ? workspaceStore.workspaces : []));
   const pendingInvites = computed(() =>
@@ -363,6 +367,7 @@ export function useAdminShell() {
       isDesktopCollapsible,
       isMobile,
       destinationTitle,
+      isConversationDestination,
       activeWorkspaceColor,
       drawerModel,
       workspaceThemeStyle

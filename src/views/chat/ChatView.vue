@@ -607,8 +607,9 @@ watch(
   display: grid;
   grid-template-rows: auto 1fr auto;
   gap: var(--chat-gap);
+  height: 100%;
   min-height: min(82vh, 980px);
-  padding-block: 0.1rem 0.65rem;
+  padding-block: 0.1rem 0;
 }
 
 .chat-back-link {
@@ -792,7 +793,7 @@ watch(
   position: sticky;
   bottom: 0;
   z-index: 2;
-  padding-bottom: 0.1rem;
+  padding-bottom: 0;
   background: linear-gradient(180deg, rgba(var(--v-theme-background), 0) 0%, rgba(var(--v-theme-background), 0.92) 24%);
 }
 
@@ -915,8 +916,9 @@ watch(
 @media (max-width: 960px) {
   .chat-view {
     --chat-gap: 0.6rem;
+    height: 100%;
     min-height: calc(100vh - 140px);
-    padding-block: 0.05rem 0.4rem;
+    padding-block: 0.05rem 0;
   }
 
   .chat-history-tools {
@@ -946,7 +948,7 @@ watch(
 
   .chat-composer-section {
     bottom: calc(env(safe-area-inset-bottom, 0px));
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.1rem);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   .chat-composer-shell {

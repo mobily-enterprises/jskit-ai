@@ -94,6 +94,10 @@ export function useAppShell() {
     }
     return "JSKIT app";
   });
+  const isConversationDestination = computed(() => {
+    const pathname = String(currentPath.value || "").trim().toLowerCase();
+    return pathname.endsWith("/chat") || pathname.endsWith("/workspace-chat") || pathname.endsWith("/assistant");
+  });
 
   const userInitials = computed(() => {
     const source = String(workspaceStore.profileDisplayName || authStore.username || "A").trim();
@@ -147,6 +151,7 @@ export function useAppShell() {
       isDesktopCollapsible,
       activeWorkspaceColor,
       destinationTitle,
+      isConversationDestination,
       drawerModel
     },
     user: {

@@ -62,7 +62,10 @@
       </v-navigation-drawer>
 
       <v-main class="app-main-shell">
-        <v-container fluid class="app-content px-3 px-sm-5 py-4">
+        <v-container
+          fluid
+          :class="['app-content', 'px-3', 'px-sm-5', isConversationDestination ? 'app-content--conversation' : 'py-4']"
+        >
           <Outlet />
         </v-container>
       </v-main>
@@ -133,6 +136,21 @@ export default {
 .app-content {
   max-width: 1440px;
   margin-inline: auto;
+}
+
+.app-content--conversation {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - var(--v-layout-top, 56px));
+  padding-top: 0.75rem;
+  padding-bottom: 0;
+}
+
+.app-content--conversation :deep(.chat-view),
+.app-content--conversation :deep(.assistant-view) {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
 }
 
 .user-menu-button {
