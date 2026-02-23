@@ -64,6 +64,7 @@ export DB_USER="annuity_app"
 export DB_PASSWORD="replace-with-a-strong-password"
 export LOG_LEVEL="info"
 # optional; comma-separated debug scopes (example: billing.checkout,auth,-auth.tokens)
+# note: set LOG_LEVEL=debug (or trace) for scoped debug logs to emit
 export LOG_DEBUG_SCOPES=""
 
 export SUPABASE_URL="https://YOUR-PROJECT.supabase.co"
