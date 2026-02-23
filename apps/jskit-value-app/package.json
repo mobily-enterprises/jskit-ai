@@ -44,6 +44,7 @@
   "dependencies": {
     "@jskit-ai/app-scripts": "0.1.0",
     "@jskit-ai/realtime-contracts": "0.1.0",
+    "@jskit-ai/rbac-core": "0.1.0",
     "@fastify/cookie": "^11.0.2",
     "@fastify/csrf-protection": "^7.1.0",
     "@fastify/helmet": "^13.0.2",
