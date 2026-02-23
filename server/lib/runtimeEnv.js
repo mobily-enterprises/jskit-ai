@@ -20,7 +20,7 @@ export const runtimeEnv = cleanEnv(
     PORT: port({ default: 3000 }),
     DB_HOST: str({ default: "127.0.0.1" }),
     DB_PORT: port({ default: 3306 }),
-    DB_USER: str({ default: "annuity_app" }),
+    DB_USER: str({ default: "jskit-app" }),
     DB_PASSWORD: str({ default: "" }),
     DB_NAME: str({ default: "material-app" }),
     DB_TEST_NAME: str({ default: "" }),

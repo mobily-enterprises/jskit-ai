@@ -60,7 +60,7 @@ export DB_HOST="127.0.0.1"
 export DB_PORT="3306"
 export DB_NAME="material-app"
 export DB_TEST_NAME="material-app_test"
-export DB_USER="annuity_app"
+export DB_USER="jskit-app"
 export DB_PASSWORD="replace-with-a-strong-password"
 export LOG_LEVEL="info"
 # optional; comma-separated debug scopes (example: billing.checkout,auth,-auth.tokens)

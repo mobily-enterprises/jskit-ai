@@ -7,7 +7,7 @@ Use this runbook before production releases that include schema or data-impactin
 ```bash
 export DB_HOST=127.0.0.1
 export DB_PORT=3306
-export DB_USER=annuity_app
+export DB_USER=jskit-app
 export DB_NAME=material-app
 export BACKUP_FILE="backup_${DB_NAME}_$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
 
