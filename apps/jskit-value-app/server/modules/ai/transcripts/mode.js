@@ -6,4 +6,4 @@ export {
   normalizeTranscriptMode,
   resolveTranscriptModeFromWorkspaceSettings,
   applyTranscriptModeToWorkspaceFeatures
-} from "../../../lib/aiTranscriptMode.js";
+} from "../../../../../../packages/ai-agent/assistant-transcripts-core/src/mode.js";
