@@ -1,0 +1,17 @@
+{
+  "name": "@jskit-ai/fastify-auth-policy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/csrf-protection": "^7.1.0",
+    "@fastify/rate-limit": "^10.3.0"
+  }
+}

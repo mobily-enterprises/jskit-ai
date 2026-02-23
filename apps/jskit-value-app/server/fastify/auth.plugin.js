@@ -1,31 +1,10 @@
 import fp from "fastify-plugin";
-import fastifyCookie from "@fastify/cookie";
-import fastifyCsrfProtection from "@fastify/csrf-protection";
-import fastifyRateLimit from "@fastify/rate-limit";
+import { authPolicyPlugin } from "@jskit-ai/fastify-auth-policy";
+
 import { AppError } from "../lib/errors.js";
 import { hasPermission } from "../lib/rbacManifest.js";
-import { safeRequestUrl, safePathnameFromRequest } from "../lib/primitives/requestUrl.js";
+import { safePathnameFromRequest } from "../lib/primitives/requestUrl.js";
 import { resolveSurfaceFromPathname } from "../../shared/routing/surfacePaths.js";
-
-const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-
-function resolveOwnerValue(routeConfig, request) {
-  if (typeof routeConfig.ownerResolver === "function") {
-    return routeConfig.ownerResolver({
-      req: request,
-      res: request.raw,
-      url: safeRequestUrl(request),
-      params: request.params || {},
-      user: request.user || null
-    });
-  }
-
-  if (typeof routeConfig.ownerParam === "string" && routeConfig.ownerParam) {
-    return request.params ? request.params[routeConfig.ownerParam] : null;
-  }
-
-  return null;
-}
 
 function resolveRequestSurface(request) {
   const pathnameValue = safePathnameFromRequest(request);
@@ -57,120 +36,52 @@ async function authPlugin(fastify, options) {
     throw new Error("authService is required.");
   }
 
-  await fastify.register(fastifyCookie);
-  await fastify.register(fastifyRateLimit, rateLimitPluginOptions);
-  await fastify.register(fastifyCsrfProtection, {
-    getToken(request) {
-      return (
-        request.headers["csrf-token"] || request.headers["x-csrf-token"] || request.headers["x-xsrf-token"] || null
-      );
-    },
-    cookieOpts: {
-      path: "/",
-      sameSite: "lax",
-      secure: options.nodeEnv === "production",
-      httpOnly: true
-    }
-  });
-
-  fastify.decorateRequest("user", null);
-  fastify.decorateRequest("workspace", null);
-  fastify.decorateRequest("membership", null);
-  fastify.decorateRequest("permissions", null);
-
-  function enforceCsrfProtection(request, reply) {
-    return new Promise((resolve, reject) => {
-      fastify.csrfProtection(request, reply, (error) => {
-        if (error) {
-          reject(error);
-          return;
+  const registerPolicyPlugin = authPolicyPlugin(
+    {
+      async resolveActor(request, reply) {
+        const authResult = await authService.authenticateRequest(request);
+        if (authResult.clearSession) {
+          authService.clearSessionCookies(reply);
         }
-        resolve();
-      });
-    });
-  }
+        if (authResult.session) {
+          authService.writeSessionCookies(reply, authResult.session);
+        }
 
-  fastify.addHook("preHandler", async (request, reply) => {
-    const pathname = request.raw.url || request.url || "/";
-    if (!pathname.startsWith("/api/")) {
-      return;
-    }
+        return {
+          authenticated: authResult.authenticated,
+          actor: authResult.profile || null,
+          transientFailure: authResult.transientFailure
+        };
+      },
+      async resolveContext({ request, actor, meta }) {
+        if (!workspaceService) {
+          return null;
+        }
 
-    const routeConfig = request.routeOptions && request.routeOptions.config ? request.routeOptions.config : {};
-    const authPolicy = routeConfig.authPolicy || "public";
-    const workspacePolicy = routeConfig.workspacePolicy || "none";
-    const workspaceSurface = String(routeConfig.workspaceSurface || "").trim();
-    const permission = String(routeConfig.permission || "").trim();
-    const csrfProtectionEnabled = routeConfig.csrfProtection !== false;
-
-    if (csrfProtectionEnabled && UNSAFE_METHODS.has(request.method)) {
-      await enforceCsrfProtection(request, reply);
-    }
-
-    if (authPolicy === "public") {
-      return;
-    }
-
-    const authResult = await authService.authenticateRequest(request);
-    if (authResult.clearSession) {
-      authService.clearSessionCookies(reply);
-    }
-    if (authResult.session) {
-      authService.writeSessionCookies(reply, authResult.session);
-    }
-
-    if (authResult.transientFailure) {
-      recordAuthFailure(observabilityService, request, "auth_upstream_unavailable");
-      throw new AppError(503, "Authentication service temporarily unavailable. Please retry.");
-    }
-
-    if (!authResult.authenticated) {
-      recordAuthFailure(observabilityService, request, "unauthenticated");
-      throw new AppError(401, "Authentication required.");
-    }
-
-    request.user = authResult.profile;
-    request.workspace = null;
-    request.membership = null;
-    request.permissions = [];
-
-    if (authPolicy === "own") {
-      const ownerValue = await resolveOwnerValue(routeConfig, request);
-      const userField = routeConfig.userField || "id";
-      const userValue = request.user ? request.user[userField] : null;
-
-      if (ownerValue == null || userValue == null) {
-        recordAuthFailure(observabilityService, request, "owner_unresolved");
-        throw new AppError(400, "Route owner could not be resolved.");
+        return workspaceService.resolveRequestContext({
+          user: actor,
+          request,
+          workspacePolicy: meta.workspacePolicy,
+          workspaceSurface: meta.workspaceSurface
+        });
+      },
+      hasPermission({ permission, permissions }) {
+        return hasPermission(permissions, permission);
+      },
+      onPolicyDenied({ reason, request }) {
+        recordAuthFailure(observabilityService, request, reason);
       }
-
-      if (String(ownerValue) !== String(userValue)) {
-        recordAuthFailure(observabilityService, request, "forbidden_owner_mismatch");
-        throw new AppError(403, "Forbidden.");
+    },
+    {
+      nodeEnv: options.nodeEnv,
+      rateLimitPluginOptions,
+      createError(status, message) {
+        return new AppError(status, message);
       }
-    } else if (authPolicy !== "required") {
-      recordAuthFailure(observabilityService, request, "invalid_auth_policy");
-      throw new AppError(500, "Invalid route auth policy configuration.");
     }
+  );
 
-    if (workspaceService && (workspacePolicy !== "none" || permission)) {
-      const context = await workspaceService.resolveRequestContext({
-        user: request.user,
-        request,
-        workspacePolicy,
-        workspaceSurface
-      });
-
-      request.workspace = context.workspace;
-      request.membership = context.membership;
-      request.permissions = Array.isArray(context.permissions) ? context.permissions : [];
-    }
-
-    if (permission && !hasPermission(request.permissions, permission)) {
-      recordAuthFailure(observabilityService, request, "forbidden_permission");
-      throw new AppError(403, "Forbidden.");
-    }
-  });
+  await registerPolicyPlugin(fastify);
 }
 
 export default fp(authPlugin);
