@@ -129,7 +129,7 @@
             <div v-if="state.limitationsLoading" class="text-body-2 text-medium-emphasis">
               Loading limits...
             </div>
-            <div v-else-if="state.limitationItems.length > 0" class="limit-grid">
+            <div v-else-if="state.limitationItems.length > 0" class="limit-grid d-grid ga-3">
               <v-card
                 v-for="limit in state.limitationItems"
                 :key="limit.code"
@@ -233,12 +233,12 @@
                 <v-card-subtitle>Click a product to open checkout.</v-card-subtitle>
               </v-card-item>
               <v-card-text>
-                <div v-if="state.catalogItems.length > 0" class="one-off-grid mb-3">
+                <div v-if="state.catalogItems.length > 0" class="one-off-grid d-grid ga-3 mb-3">
                   <button
                     v-for="item in state.catalogItems"
                     :key="item.value"
                     type="button"
-                    class="one-off-tile"
+                    class="one-off-tile d-grid text-left"
                     :disabled="state.paymentLinkLoading"
                     @click="actions.buyCatalogItem(item)"
                   >
@@ -285,7 +285,7 @@
                       {{ meta.formatDateOnly(purchase.purchasedAt) }} · {{ purchase.kindLabel }}
                     </template>
                     <template #append>
-                      <div class="purchase-amount">
+                      <div class="text-body-2 font-weight-semibold text-no-wrap">
                         {{
                           meta.formatMoneyMinor(
                             Number(purchase.amountMinor || 0) * Number(purchase.quantity || 1),
@@ -321,9 +321,7 @@ const { meta, state, actions } = useWorkspaceBillingView();
 }
 
 .one-off-grid {
-  display: grid;
   grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 0.9rem;
 }
 
 .one-off-tile {
@@ -334,9 +332,7 @@ const { meta, state, actions } = useWorkspaceBillingView();
   background: transparent;
   color: inherit;
   padding: 0.9rem;
-  display: grid;
   grid-template-rows: 1fr auto auto;
-  text-align: left;
   cursor: pointer;
   transition:
     border-color 140ms ease,
@@ -375,16 +371,8 @@ const { meta, state, actions } = useWorkspaceBillingView();
   color: rgba(var(--v-theme-on-surface), 0.65);
 }
 
-.purchase-amount {
-  font-size: 0.92rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
 .limit-grid {
-  display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 0.9rem;
 }
 
 .limit-card {

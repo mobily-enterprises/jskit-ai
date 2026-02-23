@@ -1,27 +1,41 @@
 <template>
-  <section class="assistant-view">
-    <v-row class="assistant-layout">
-      <v-col cols="12" lg="8" class="assistant-main-col">
-        <v-card rounded="lg" elevation="1" border class="assistant-main-card">
-          <v-card-text class="assistant-main-card-text">
+  <section class="assistant-view d-flex flex-column h-100 ga-1">
+    <v-row class="assistant-layout h-100 flex-grow-1 my-0">
+      <v-col cols="12" lg="8" class="assistant-main-col d-flex flex-column overflow-hidden">
+        <v-card rounded="lg" elevation="1" border class="assistant-main-card d-flex flex-column flex-grow-1">
+          <v-card-text class="assistant-main-card-text d-flex flex-column flex-grow-1">
             <v-alert v-if="error" type="error" variant="tonal" density="comfortable" class="mb-3">
               {{ error }}
             </v-alert>
 
-            <div ref="messagesPanelRef" class="messages-panel mb-3" :class="{ 'messages-panel--empty': messages.length < 1 }">
+            <div
+              ref="messagesPanelRef"
+              class="messages-panel mb-3 flex-grow-1"
+              :class="{ 'messages-panel--empty': messages.length < 1 }"
+              @scroll.passive="handleMessagesPanelScroll"
+            >
               <div v-if="messages.length < 1" class="messages-empty-state">I am here to help</div>
-              <div v-for="message in messages" :key="message.id" class="message-row" :class="`message-row--${message.role}`">
+              <div
+                v-for="message in messages"
+                :key="message.id"
+                class="message-row d-flex align-end ga-2 mb-3"
+                :class="[`message-row--${message.role}`, { 'flex-row-reverse': message.role === 'user' }]"
+              >
                 <v-avatar v-if="message.role === 'user'" size="36" class="message-avatar message-avatar--user">
                   <v-img v-if="currentUserAvatarUrl" :src="currentUserAvatarUrl" cover />
                   <span v-else class="message-avatar-initials">{{ currentUserInitials }}</span>
                 </v-avatar>
                 <v-avatar v-else size="36" class="message-avatar message-avatar--assistant" aria-hidden="true" />
-                <div class="message-body">
-                  <div class="message-meta text-caption text-medium-emphasis">
+                <div class="message-body d-flex flex-column">
+                  <div class="message-meta mb-1 text-caption text-medium-emphasis">
                     <span class="message-author">{{ messageAuthorLabel(message) }}</span>
                   </div>
                   <div class="message-bubble">
-                    <div v-if="showAssistantTypingIndicator(message)" class="message-typing" aria-label="Assistant is typing">
+                    <div
+                      v-if="showAssistantTypingIndicator(message)"
+                      class="message-typing d-inline-flex align-center ga-1"
+                      aria-label="Assistant is typing"
+                    >
                       <span class="message-typing-dot" />
                       <span class="message-typing-dot" />
                       <span class="message-typing-dot" />
@@ -32,12 +46,12 @@
               </div>
             </div>
 
-            <div class="assistant-composer-shell">
-              <div class="assistant-composer-row">
+            <div class="assistant-composer-shell d-grid">
+              <div class="assistant-composer-row d-flex align-end ga-2">
                 <v-textarea
                   ref="composerRef"
                   v-model="input"
-                  class="assistant-composer-textarea"
+                  class="assistant-composer-textarea flex-grow-1"
                   placeholder="Message"
                   aria-label="Message"
                   rows="1"
@@ -60,7 +74,7 @@
                 </v-btn>
               </div>
 
-              <div class="assistant-actions mt-2">
+              <div class="assistant-actions d-flex ga-2 flex-wrap mt-2">
                 <v-btn
                   class="d-lg-none"
                   variant="tonal"
@@ -75,8 +89,13 @@
         </v-card>
       </v-col>
 
-      <v-col cols="12" lg="4" class="assistant-side-col">
-        <v-card rounded="lg" elevation="1" border class="d-none d-lg-flex mb-3 assistant-history-card">
+      <v-col cols="12" lg="4" class="assistant-side-col d-flex flex-column overflow-hidden">
+        <v-card
+          rounded="lg"
+          elevation="1"
+          border
+          class="d-none d-lg-flex flex-column mb-3 assistant-history-card overflow-hidden"
+        >
           <v-card-item>
             <v-card-title class="text-subtitle-2 font-weight-bold">Conversation History</v-card-title>
             <template #append>
@@ -91,7 +110,7 @@
             </template>
           </v-card-item>
           <v-divider />
-          <v-card-text class="pt-2 assistant-history-card-text">
+          <v-card-text class="pt-2 assistant-history-card-text d-flex flex-column flex-grow-1">
             <v-btn
               block
               variant="outlined"
@@ -103,7 +122,7 @@
               Start new conversation
             </v-btn>
             <div v-if="conversationHistoryError" class="text-caption text-error mb-2">{{ conversationHistoryError }}</div>
-            <v-list density="compact" class="assistant-history-list">
+            <v-list density="compact" class="assistant-history-list flex-grow-1 overflow-y-auto">
               <v-list-item v-if="conversationHistory.length < 1" title="No conversations yet." />
               <v-list-item
                 v-for="conversation in conversationHistory"
@@ -118,12 +137,12 @@
           </v-card-text>
         </v-card>
 
-        <v-card rounded="lg" elevation="1" border class="assistant-tools-card">
+        <v-card rounded="lg" elevation="1" border class="assistant-tools-card d-flex flex-column flex-grow-1 overflow-hidden">
           <v-card-item>
             <v-card-title class="text-subtitle-2 font-weight-bold">Tool Timeline</v-card-title>
           </v-card-item>
           <v-divider />
-          <v-list density="compact" class="assistant-tools-list">
+          <v-list density="compact" class="assistant-tools-list flex-grow-1 overflow-y-auto">
             <v-list-item v-if="pendingToolEvents.length < 1" title="No tool events yet." />
             <v-list-item
               v-for="toolEvent in pendingToolEvents"
@@ -177,6 +196,8 @@ import { computed, nextTick, ref, watch } from "vue";
 import { useAssistantView } from "./useAssistantView.js";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 
+const SCROLL_BOTTOM_THRESHOLD_PX = 30;
+
 const {
   meta: { formatConversationStartedAt, normalizeConversationStatus },
   state: {
@@ -208,6 +229,7 @@ const workspaceStore = useWorkspaceStore();
 const conversationPickerOpen = ref(false);
 const messagesPanelRef = ref(null);
 const composerRef = ref(null);
+const shouldAutoScrollToBottom = ref(true);
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -324,6 +346,56 @@ function focusComposer(selectText = false) {
   }
 }
 
+function normalizeScrollValue(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return 0;
+  }
+  return parsed;
+}
+
+function distanceFromBottom(element) {
+  if (!element) {
+    return Number.POSITIVE_INFINITY;
+  }
+  const scrollTop = normalizeScrollValue(element.scrollTop);
+  const scrollHeight = normalizeScrollValue(element.scrollHeight);
+  const clientHeight = normalizeScrollValue(element.clientHeight);
+  return Math.max(0, scrollHeight - (scrollTop + clientHeight));
+}
+
+function isScrolledToBottom(element) {
+  return distanceFromBottom(element) <= SCROLL_BOTTOM_THRESHOLD_PX;
+}
+
+function scrollMessagesToBottom({ behavior = "auto" } = {}) {
+  const panel = messagesPanelRef.value;
+  if (!panel) {
+    return;
+  }
+
+  if (behavior === "auto") {
+    panel.scrollTop = panel.scrollHeight;
+    return;
+  }
+
+  const targetTop = Math.max(0, normalizeScrollValue(panel.scrollHeight) - normalizeScrollValue(panel.clientHeight));
+  panel.scrollTo({
+    top: targetTop,
+    behavior
+  });
+}
+
+function handleMessagesPanelScroll() {
+  const panel = messagesPanelRef.value;
+  if (!panel) {
+    shouldAutoScrollToBottom.value = true;
+    return;
+  }
+
+  shouldAutoScrollToBottom.value = isScrolledToBottom(panel);
+}
+
 const lastMessageSignature = computed(() => {
   const entries = Array.isArray(messages.value) ? messages.value : [];
   const last = entries[entries.length - 1];
@@ -334,21 +406,45 @@ const lastMessageSignature = computed(() => {
   return `${entries.length}|${last.id}|${last.role}|${last.kind}|${String(last.text || "").length}|${last.status}`;
 });
 
-watch(lastMessageSignature, async () => {
-  const entries = Array.isArray(messages.value) ? messages.value : [];
-  const last = entries[entries.length - 1];
-  if (!last || last.role !== "assistant") {
-    return;
-  }
+watch(
+  () => normalizeText(conversationId.value),
+  async (nextConversationId, previousConversationId) => {
+    if (!nextConversationId || nextConversationId === previousConversationId) {
+      return;
+    }
 
-  await nextTick();
-  const panel = messagesPanelRef.value;
-  if (!panel) {
-    return;
+    shouldAutoScrollToBottom.value = true;
+    await nextTick();
+    scrollMessagesToBottom();
+    focusComposer(false);
+  },
+  {
+    immediate: true
   }
+);
 
-  panel.scrollTop = panel.scrollHeight;
-});
+watch(
+  lastMessageSignature,
+  async (_nextSignature, previousSignature) => {
+    const entries = Array.isArray(messages.value) ? messages.value : [];
+    const last = entries[entries.length - 1];
+    if (!last) {
+      return;
+    }
+
+    await nextTick();
+    if (!shouldAutoScrollToBottom.value) {
+      return;
+    }
+
+    scrollMessagesToBottom({
+      behavior: previousSignature && previousSignature !== "none" ? "smooth" : "auto"
+    });
+  },
+  {
+    immediate: true
+  }
+);
 
 watch(
   () => isStreaming.value,
@@ -358,33 +454,47 @@ watch(
     }
 
     await nextTick();
+    if (shouldAutoScrollToBottom.value) {
+      scrollMessagesToBottom({
+        behavior: "smooth"
+      });
+    }
+
     focusComposer(true);
   }
 );
 </script>
 
 <style scoped>
-.assistant-main-col,
-.assistant-side-col {
+.assistant-view {
   min-height: 0;
+  overflow: hidden;
+  padding-block: 0.1rem 0;
 }
 
-.assistant-main-card {
-  display: flex;
-  flex-direction: column;
+.assistant-layout {
+  min-height: 0;
+  overflow: hidden;
 }
 
-.assistant-main-card-text {
-  display: flex;
-  flex-direction: column;
+.assistant-main-col,
+.assistant-side-col,
+.assistant-main-card,
+.assistant-main-card-text,
+.assistant-history-card,
+.assistant-tools-card,
+.assistant-history-card-text,
+.assistant-history-list,
+.assistant-tools-list {
   min-height: 0;
 }
 
 .messages-panel {
+  flex: 1 1 auto;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.14);
   border-radius: 10px;
   padding: 12px;
-  min-height: 240px;
+  min-height: 0;
   overflow: auto;
   background: rgba(var(--v-theme-surface-variant), 0.14);
 }
@@ -395,6 +505,7 @@ watch(
 }
 
 .messages-empty-state {
+  min-height: 240px;
   text-align: center;
   font-size: clamp(1.25rem, 1.2rem + 1vw, 2rem);
   font-weight: 600;
@@ -402,20 +513,7 @@ watch(
   color: rgba(var(--v-theme-on-surface), 0.68);
 }
 
-.message-row {
-  align-items: flex-end;
-  display: flex;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.message-row--user {
-  flex-direction: row-reverse;
-}
-
 .message-body {
-  display: flex;
-  flex-direction: column;
   max-width: min(82%, 700px);
 }
 
@@ -477,10 +575,6 @@ watch(
   right: -10px;
 }
 
-.message-meta {
-  margin-bottom: 5px;
-}
-
 .message-author {
   color: rgba(var(--v-theme-on-surface), 0.84);
   font-weight: 600;
@@ -497,9 +591,6 @@ watch(
 }
 
 .message-typing {
-  align-items: center;
-  display: inline-flex;
-  gap: 5px;
   min-height: 20px;
 }
 
@@ -538,19 +629,11 @@ watch(
   background: rgba(var(--v-theme-surface), 0.94);
   border-radius: 18px;
   padding: 0.4rem 0.5rem;
-  display: grid;
   gap: 0.3rem;
   box-shadow: 0 8px 20px rgba(17, 26, 42, 0.05);
 }
 
-.assistant-composer-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.35rem;
-}
-
 .assistant-composer-textarea {
-  flex: 1;
   min-width: 0;
 }
 
@@ -573,12 +656,6 @@ watch(
   line-height: 1.35;
 }
 
-.assistant-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
 .assistant-history-start-button {
   flex: 0 0 auto;
 }
@@ -597,65 +674,12 @@ watch(
 }
 
 @media (min-width: 1280px) {
-  .assistant-view {
-    height: calc(100dvh - var(--v-layout-top, 0px) - var(--v-layout-bottom, 0px) - 32px);
-    min-height: 560px;
-  }
-
   .assistant-layout {
-    height: 100%;
-  }
-
-  .assistant-main-col,
-  .assistant-side-col {
-    display: flex;
-    height: 100%;
-    flex-direction: column;
-  }
-
-  .assistant-main-card {
-    flex: 1;
-    min-height: 0;
-  }
-
-  .assistant-main-card-text {
-    flex: 1;
-    min-height: 0;
-  }
-
-  .messages-panel {
-    flex: 1;
-    min-height: 0;
-    margin-bottom: 12px;
-  }
-
-  .assistant-history-card,
-  .assistant-tools-card {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
+    flex-wrap: nowrap;
   }
 
   .assistant-history-card {
     flex: 1.65;
-  }
-
-  .assistant-history-card-text {
-    display: flex;
-    flex: 1;
-    min-height: 0;
-    flex-direction: column;
-  }
-
-  .assistant-history-list,
-  .assistant-tools-list {
-    min-height: 0;
-    overflow: auto;
-    flex: 1;
-  }
-
-  .assistant-tools-card {
-    flex: 1;
   }
 }
 </style>

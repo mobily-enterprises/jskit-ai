@@ -2,8 +2,8 @@
   <v-main class="login-main">
     <v-container class="fill-height d-flex align-center justify-center py-8">
       <v-card class="auth-card" rounded="lg" elevation="1" border>
-        <v-card-text class="auth-content">
-          <div class="auth-header">
+        <v-card-text class="pa-7">
+          <div class="auth-header d-flex align-start justify-space-between ga-3 mb-5">
             <div>
               <p class="auth-kicker">Jskit Workspace</p>
               <h1 class="auth-title">{{ authTitle }}</h1>
@@ -12,7 +12,7 @@
             <v-chip color="primary" size="small" label>Secure</v-chip>
           </div>
 
-          <div v-if="!isForgot && !isOtp" class="mode-switch mb-5">
+          <div v-if="!isForgot && !isOtp" class="mode-switch d-flex ga-2 pa-1 mb-5">
             <v-btn
               data-testid="auth-mode-sign-in"
               class="text-none"
@@ -35,8 +35,8 @@
           </div>
 
           <v-form @submit.prevent="submitAuth" novalidate>
-            <div v-if="showRememberedAccount" class="remembered-account mb-4">
-              <div class="remembered-copy">
+            <div v-if="showRememberedAccount" class="remembered-account d-flex align-center justify-space-between ga-3 mb-4">
+              <div class="remembered-copy flex-grow-1">
                 <p class="remembered-title">Welcome back, {{ rememberedAccountDisplayName }}</p>
                 <p class="remembered-email">{{ rememberedAccountMaskedEmail }}</p>
               </div>
@@ -99,7 +99,7 @@
               class="mb-3"
             />
 
-            <div v-if="isLogin" class="aux-links mb-4">
+            <div v-if="isLogin" class="aux-links d-flex justify-end mb-4">
               <v-btn variant="text" color="secondary" @click="switchMode('forgot')">Forgot password?</v-btn>
               <v-btn variant="text" color="secondary" @click="switchMode('otp')">Use one-time code</v-btn>
             </div>
@@ -113,7 +113,7 @@
               class="mb-4"
             />
 
-            <div v-if="isOtp" class="aux-links mb-4">
+            <div v-if="isOtp" class="aux-links d-flex justify-end mb-4">
               <v-btn
                 type="button"
                 variant="tonal"
@@ -125,7 +125,7 @@
               </v-btn>
             </div>
 
-            <div v-if="isLogin || isRegister" class="oauth-actions mb-4">
+            <div v-if="isLogin || isRegister" class="oauth-actions d-grid ga-2 mb-4">
               <v-btn
                 v-for="provider in oauthProviders"
                 :key="provider.id"
@@ -161,17 +161,17 @@
               {{ submitLabel }}
             </v-btn>
 
-            <div v-if="isRegister" class="switch-row">
+            <div v-if="isRegister" class="switch-row mt-4 d-flex align-center justify-space-between ga-3">
               <span class="text-medium-emphasis">Already have an account?</span>
               <v-btn variant="text" color="secondary" @click="switchMode('login')">Back to sign in</v-btn>
             </div>
 
-            <div v-else-if="isForgot" class="switch-row">
+            <div v-else-if="isForgot" class="switch-row mt-4 d-flex align-center justify-space-between ga-3">
               <span class="text-medium-emphasis">Remembered your password?</span>
               <v-btn variant="text" color="secondary" @click="switchMode('login')">Back to sign in</v-btn>
             </div>
 
-            <div v-else-if="isOtp" class="switch-row">
+            <div v-else-if="isOtp" class="switch-row mt-4 d-flex align-center justify-space-between ga-3">
               <span class="text-medium-emphasis">Want to use another method?</span>
               <v-btn variant="text" color="secondary" @click="switchMode('login')">Back to sign in</v-btn>
             </div>
@@ -232,18 +232,6 @@ const { switchMode, switchAccount, requestOtpCode, startOAuthSignIn, submitAuth 
   width: min(520px, 100%);
 }
 
-.auth-content {
-  padding: 28px;
-}
-
-.auth-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
 .auth-kicker {
   margin: 0 0 8px;
   font-size: 12px;
@@ -261,31 +249,11 @@ const { switchMode, switchAccount, requestOtpCode, startOAuthSignIn, submitAuth 
 }
 
 .mode-switch {
-  display: flex;
-  gap: 8px;
-  padding: 6px;
   border-radius: 12px;
   background-color: rgba(57, 84, 71, 0.08);
 }
 
-.aux-links {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.switch-row {
-  margin-top: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 .remembered-account {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
   border-radius: 12px;
   border: 1px solid rgba(57, 84, 71, 0.2);
   background: rgba(57, 84, 71, 0.07);
@@ -307,11 +275,6 @@ const { switchMode, switchAccount, requestOtpCode, startOAuthSignIn, submitAuth 
   margin: 2px 0 0;
   font-size: 12px;
   color: rgba(29, 44, 36, 0.72);
-}
-
-.oauth-actions {
-  display: grid;
-  gap: 8px;
 }
 
 .oauth-provider-button {

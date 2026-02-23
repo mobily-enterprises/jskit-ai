@@ -1,11 +1,11 @@
 <template>
   <section class="console-errors-view py-2 py-md-4">
     <v-card rounded="lg" elevation="1" border>
-      <v-card-title class="console-errors-title">
-        <div class="title-row">
+      <v-card-title class="d-grid ga-3">
+        <div class="d-flex align-center">
           <span class="text-subtitle-1 font-weight-bold">Browser errors</span>
         </div>
-        <div class="actions-row">
+        <div class="actions-row d-flex flex-wrap align-center justify-end ga-3">
           <v-select
             :model-value="state.pageSize"
             :items="meta.pageSizeOptions"
@@ -16,10 +16,10 @@
             class="rows-select"
             @update:model-value="actions.onPageSizeChange"
           />
-          <v-btn color="error" variant="tonal" class="header-btn" @click="actions.simulateClientError">
+          <v-btn color="error" variant="tonal" class="header-btn text-none" @click="actions.simulateClientError">
             Simulate client error<span class="simulation-label"> ({{ meta.nextSimulationLabel }})</span>
           </v-btn>
-          <v-btn variant="outlined" :loading="state.loading" class="header-btn" @click="actions.load">Refresh</v-btn>
+          <v-btn variant="outlined" :loading="state.loading" class="header-btn text-none" @click="actions.load">Refresh</v-btn>
         </div>
       </v-card-title>
       <v-divider />
@@ -67,9 +67,9 @@
           </v-table>
         </div>
 
-        <div class="pagination-row mt-4">
+        <div class="pagination-row d-flex align-center justify-space-between ga-3 flex-wrap mt-4">
           <p class="text-body-2 text-medium-emphasis mb-2">Page {{ state.page }} of {{ state.totalPages }} ({{ state.total }} total)</p>
-          <div class="pagination-actions">
+          <div class="pagination-actions d-flex ga-2">
             <v-btn variant="outlined" :disabled="state.page <= 1 || state.loading" @click="actions.goPrevious">
               Previous
             </v-btn>
@@ -90,23 +90,6 @@ const { meta, state, actions } = useConsoleBrowserErrorsView();
 </script>
 
 <style scoped>
-.console-errors-title {
-  display: grid;
-  gap: 12px;
-}
-
-.title-row {
-  display: flex;
-  align-items: center;
-}
-
-.actions-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  justify-content: flex-end;
-}
 
 .rows-select {
   flex: 0 0 120px;
@@ -115,7 +98,6 @@ const { meta, state, actions } = useConsoleBrowserErrorsView();
 
 .header-btn {
   white-space: normal;
-  text-transform: none;
 }
 
 .errors-table-wrap {
@@ -129,19 +111,6 @@ const { meta, state, actions } = useConsoleBrowserErrorsView();
   max-width: 420px;
   white-space: normal;
   word-break: break-word;
-}
-
-.pagination-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.pagination-actions {
-  display: flex;
-  gap: 8px;
 }
 
 .simulation-label {

@@ -1,7 +1,7 @@
 <template>
-  <v-app class="app-root" :style="workspaceThemeStyle">
+  <v-app class="bg-background" :style="workspaceThemeStyle">
     <template v-if="showApplicationShell">
-      <v-app-bar border density="comfortable" elevation="0" class="app-bar">
+      <v-app-bar border density="comfortable" elevation="0" class="app-bar bg-surface">
         <v-app-bar-nav-icon
           :disabled="isDesktopPermanentDrawer && !isMobile"
           :aria-label="isDesktopCollapsible ? 'Toggle navigation drawer' : 'Toggle navigation menu'"
@@ -10,12 +10,12 @@
 
         <v-menu location="bottom start" offset="8">
           <template #activator="{ props }">
-            <v-btn v-bind="props" variant="text" class="workspace-switcher-button">
+            <v-btn v-bind="props" variant="text" class="workspace-switcher-button text-none">
               <v-avatar :style="workspaceAvatarStyle(workspaceStore.activeWorkspace)" size="28" class="mr-2">
                 <v-img v-if="activeWorkspaceAvatarUrl" :src="activeWorkspaceAvatarUrl" cover />
                 <span v-else class="text-caption font-weight-bold">{{ activeWorkspaceInitials }}</span>
               </v-avatar>
-              <span class="workspace-switcher-label">{{ activeWorkspaceName }}</span>
+              <span class="workspace-switcher-label d-inline-block text-truncate">{{ activeWorkspaceName }}</span>
               <v-chip v-if="pendingInvitesCount > 0" size="x-small" color="warning" label class="ml-2">
                 {{ pendingInvitesCount }}?
               </v-chip>
@@ -63,7 +63,7 @@
           </v-list>
         </v-menu>
 
-        <v-toolbar-title class="app-destination-title">
+        <v-toolbar-title class="d-flex align-center ga-3 text-subtitle-1 font-weight-bold ms-2">
           <span class="accent-pill" :style="{ backgroundColor: activeWorkspaceColor }" />
           {{ destinationTitle }}
         </v-toolbar-title>
@@ -75,7 +75,7 @@
               v-bind="props"
               icon="$menuSettings"
               variant="text"
-              class="workspace-control-menu-button mr-1"
+              class="mr-1"
               aria-label="Open workspace controls"
             />
           </template>
@@ -110,12 +110,14 @@
 
         <v-menu location="bottom end" offset="8">
           <template #activator="{ props }">
-            <v-btn v-bind="props" variant="text" class="user-menu-button px-2" aria-label="Open user menu">
+            <v-btn v-bind="props" variant="text" class="user-menu-button px-2 text-none" aria-label="Open user menu">
               <v-avatar color="primary" size="32" class="mr-2">
                 <v-img v-if="userAvatarUrl" :src="userAvatarUrl" cover />
                 <span v-else class="text-caption font-weight-bold">{{ userInitials }}</span>
               </v-avatar>
-              <span class="user-menu-name">{{ userDisplayName }}</span>
+              <span class="user-menu-name d-inline-block text-truncate text-body-2 font-weight-medium">
+                {{ userDisplayName }}
+              </span>
             </v-btn>
           </template>
 
@@ -139,7 +141,7 @@
         :temporary="isMobile"
         :scrim="isMobile"
         :width="272"
-        class="app-drawer"
+        class="bg-surface"
         border
       >
         <v-list nav density="comfortable" class="pt-2">
@@ -150,6 +152,7 @@
             :prepend-icon="item.icon"
             :active="isCurrentPath(item.to)"
             rounded="lg"
+            class="mb-1"
             @click="goToNavigationItem(item)"
           />
         </v-list>
@@ -158,7 +161,8 @@
       <v-main class="app-main-shell">
         <v-container
           fluid
-          :class="['app-content', 'px-3', 'px-sm-5', isConversationDestination ? 'app-content--conversation' : 'py-4']"
+          :class="['mx-auto', 'px-3', 'px-sm-5', isConversationDestination ? 'app-content--conversation' : 'py-4']"
+          style="max-width: 1440px"
         >
           <Outlet />
         </v-container>
@@ -228,40 +232,17 @@ export default {
 </script>
 
 <style scoped>
-.app-root {
-  background-color: rgb(var(--v-theme-background));
-}
-
 .app-bar {
-  background-color: rgb(var(--v-theme-surface));
   border-bottom: 2px solid var(--workspace-color);
 }
 
-.app-drawer {
-  background-color: rgb(var(--v-theme-surface));
-}
-
 .workspace-switcher-button {
-  text-transform: none;
   max-width: 320px;
   border: 1px solid var(--workspace-color-soft);
 }
 
 .workspace-switcher-label {
   max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.app-destination-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  margin-left: 8px;
 }
 
 .accent-pill {
@@ -274,11 +255,6 @@ export default {
 .app-main-shell {
   background:
     linear-gradient(180deg, var(--workspace-color-soft), rgba(15, 107, 84, 0) 240px), rgb(var(--v-theme-background));
-}
-
-.app-content {
-  max-width: 1440px;
-  margin-inline: auto;
 }
 
 .app-content--conversation {
@@ -300,20 +276,10 @@ export default {
 
 .user-menu-button {
   min-width: 42px;
-  text-transform: none;
-}
-
-.workspace-control-menu-button {
-  color: rgb(var(--v-theme-on-surface));
 }
 
 .user-menu-name {
   max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.9rem;
-  font-weight: 500;
   letter-spacing: 0.01em;
 }
 
@@ -321,10 +287,6 @@ export default {
   .user-menu-name {
     display: none;
   }
-}
-
-:deep(.v-navigation-drawer .v-list-item) {
-  margin-bottom: 4px;
 }
 
 :deep(.v-navigation-drawer .v-list-item--active) {
