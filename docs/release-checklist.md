@@ -53,8 +53,8 @@ Use this checklist before shipping changes to production.
 - [ ] Register a new account.
 - [ ] Confirm login/logout works.
 - [ ] Confirm password reset email flow works end-to-end.
-- [ ] Confirm annuity calculation works for finite and perpetual modes.
-- [ ] Confirm growing annuity validation and warnings behave correctly.
+- [ ] Confirm DEG2RAD conversion works for positive, negative, and decimal inputs.
+- [ ] Confirm DEG2RAD validation and warnings behave correctly.
 - [ ] Confirm calculation history appends and paginates correctly.
 
 ## 7. Deployment and rollback readiness

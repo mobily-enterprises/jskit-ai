@@ -1,9 +1,9 @@
 {
-  "name": "annuity-value-app",
+  "name": "jskit-value-app",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Client/server annuity calculator with Fastify, Vue, and Vuetify",
+  "description": "Client/server DEG2RAD calculator with Fastify, Vue, and Vuetify",
   "scripts": {
     "server": "node bin/server.js",
     "start": "node bin/server.js",

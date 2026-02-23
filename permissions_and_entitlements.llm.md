@@ -798,20 +798,20 @@ Client event handlers (`src/services/realtime/realtimeEventHandlers.js`):
    - `unit = project`
    - `enforcement_mode = hard_deny`
    - metadata capability hints: `projects.create`, `projects.unarchive`
-2. `annuity.calculations.monthly`
+2. `deg2rad.calculations.monthly`
    - `entitlement_type = metered_quota`
    - `unit = calculation`
    - `window_interval = month`
    - `window_anchor = calendar_utc`
    - `enforcement_mode = hard_deny`
-   - metadata capability hint: `annuity.calculate`
+   - metadata capability hint: `deg2rad.calculate`
 
 ## 8.2 Scaffold Nature (Implemented, Not Hypothetical)
 
 Current integrations are intentionally scaffold examples:
 
 - capacity example: `projects.max`
-- metered quota example: `annuity.calculations.monthly`
+- metered quota example: `deg2rad.calculations.monthly`
 
 The engine is generic; the examples are thin adapters and are expected to be replaceable without changing core entitlement schema/ledger/projection design.
 
@@ -854,10 +854,10 @@ Defaults used when plan metadata lacks edge entitlement JSON:
 
 - Free/non-paid plan defaults:
   - `projects.max = 3`
-  - `annuity.calculations.monthly = 100`
+  - `deg2rad.calculations.monthly = 100`
 - Paid plan defaults:
   - `projects.max = 25`
-  - `annuity.calculations.monthly = 1000`
+  - `deg2rad.calculations.monthly = 1000`
 
 Paid-vs-free heuristic in migration:
 
@@ -1176,9 +1176,9 @@ Current map:
    - `usageAmount = 1`
    - `reasonCode = "project.unarchive"`
    - `entitlementType = "capacity"`
-3. `annuity.calculate` -> `annuity.calculations.monthly`
+3. `deg2rad.calculate` -> `deg2rad.calculations.monthly`
    - `usageAmount = 1`
-   - `reasonCode = "annuity.calculate"`
+   - `reasonCode = "deg2rad.calculate"`
    - `entitlementType = "metered_quota"`
 
 Do not scatter limitation code literals across domain modules when capability mapping exists.
@@ -1510,17 +1510,17 @@ Capacity semantics in scaffold v1:
 - no consumption row writes for capacity
 - consumed count comes from active project count (`status != archived`)
 
-## 16.2 Annuity Calculator (Metered Quota Example)
+## 16.2 DEG2RAD Calculator (Metered Quota Example)
 
-Primary file: `server/modules/annuity/controller.js`
+Primary file: `server/modules/deg2rad/controller.js`
 
 Capability:
 
-- `annuity.calculate`
+- `deg2rad.calculate`
 
 Integration behavior:
 
-1. Validates/normalizes annuity input.
+1. Validates/normalizes DEG2RAD input.
 2. Wraps calculation + history append in `executeWithEntitlementConsumption(...)`.
 3. Uses `usageEventKey` from `Idempotency-Key` or `x-command-id`.
 4. Writes consumption only after action callback succeeds in same transaction.
@@ -1529,7 +1529,7 @@ Atomicity support:
 
 - `server/modules/history/service.js` passes `options` through to repository
 - `server/modules/history/repository.js` supports optional `trx`
-- `server/runtime/controllers.js` injects `billingService` into annuity controller
+- `server/runtime/controllers.js` injects `billingService` into deg2rad controller
 
 Result:
 
@@ -1724,7 +1724,7 @@ Important nuance:
 - `server/modules/projects/controller.js`
 - `server/modules/projects/service.js`
 - `server/modules/projects/repository.js`
-- `server/modules/annuity/controller.js`
+- `server/modules/deg2rad/controller.js`
 - `server/modules/history/service.js`
 - `server/modules/history/repository.js`
 - `server/runtime/controllers.js`
@@ -1796,4 +1796,3 @@ When answering "is JSON still used?":
 
 - Yes at the console/API edge and in metadata/audit fields.
 - No as the authoritative runtime source for grant projection/enforcement.
-

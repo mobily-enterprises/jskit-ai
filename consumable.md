@@ -6,7 +6,7 @@ Scope: Replace the current limitations stub path with a first-class consumable e
 
 Scaffold policy:
 
-- `projects` and annuity calculations are demo consumers only.
+- `projects` and DEG2RAD calculations are demo consumers only.
 - They exist to prove wiring patterns and provide implementation templates for developers/AI agents.
 - They are expected to be removed once real product-domain modules are in place.
 - Core consumables architecture must not depend on scaffold tables/routes.
@@ -56,11 +56,11 @@ For implementation and testing of the core engine:
 
 - Default plan example includes:
   - a capacity cap (`projects.max`)
-  - a metered quota (`annuity.calculations.monthly`)
+  - a metered quota (`deg2rad.calculations.monthly`)
 - One disposable add-on product example:
   - `extra_projects_pack_2m`
   - grants extra active projects for 2 months
-  - grants extra annuity calculations for the same period
+  - grants extra DEG2RAD calculations for the same period
 - These are examples only and are expected to be removed/replaced when real product-domain limits are introduced.
 - Core DB/service design must remain unchanged when those scaffold examples are deleted.
 
@@ -127,20 +127,20 @@ No SQL in service/controller.
 - Domain modules provide minimal adapters:
   - how to count current usage for capacity checks
   - where to call `executeWithEntitlementConsumption(...)`
-- Core engine never imports scaffold-specific repository methods directly (`workspace_projects`, annuity history internals, etc.).
+- Core engine never imports scaffold-specific repository methods directly (`workspace_projects`, deg2rad history internals, etc.).
 
 ## 3.5 Current HIGH/MEDIUM fit gaps and required fixes (locked)
 
 These are mandatory plan items to ensure the blueprint fits the current repository without heavy scaffold rewrites.
 
-1. Annuity atomicity gap (HIGH):
-   - Problem: annuity execution currently cannot run `enforce + domain mutation + consume` in one transaction.
+1. DEG2RAD atomicity gap (HIGH):
+   - Problem: DEG2RAD execution currently cannot run `enforce + domain mutation + consume` in one transaction.
    - Plan fix:
      - billing service exposes a single transactional wrapper (`executeWithEntitlementConsumption`).
-     - annuity controller calls that wrapper instead of direct history append.
-     - annuity domain mutation callback receives and uses shared `trx`.
+     - deg2rad controller calls that wrapper instead of direct history append.
+     - DEG2RAD domain mutation callback receives and uses shared `trx`.
      - history service/repository add optional `trx` parameter pass-through.
-     - runtime controller wiring injects billing service into annuity controller.
+     - runtime controller wiring injects billing service into deg2rad controller.
 2. Project status-transition bypass gap (HIGH):
    - Problem: capacity checks can be bypassed through update/replace status transitions.
    - Plan fix:
@@ -176,7 +176,7 @@ Purpose: catalog of capabilities and accounting behavior.
 Columns:
 
 - `id` bigint PK
-- `code` varchar(120) unique, stable key (`projects.max`, `annuity.calculations.monthly`, `ai.credits`, `workspace.access`)
+- `code` varchar(120) unique, stable key (`projects.max`, `deg2rad.calculations.monthly`, `ai.credits`, `workspace.access`)
 - `name` varchar(191)
 - `description` text nullable
 - `entitlement_type` enum:
@@ -468,10 +468,10 @@ Use one explicit mapping table in billing service config; do not scatter string 
   - type: `capacity`
   - delta: `+1` requested active project footprint
   - reason: `project.unarchive`
-- `annuity.calculate` -> `annuity.calculations.monthly`
+- `deg2rad.calculate` -> `deg2rad.calculations.monthly`
   - type: `metered_quota`
   - amount: `1` per successful calculation
-  - reason: `annuity.calculate`
+  - reason: `deg2rad.calculate`
 
 Rule:
 
@@ -503,11 +503,11 @@ Scaffold example:
 - Active count is domain-defined (`status != archived` for the scaffold projects table).
 - Optional lock states (`hard_lock_resource`) are supported by the core model but not required for initial scaffold integration.
 
-## 6.2 Refillable/depleting amounts (`annuity.calculations.monthly`, `ai.credits`, `ai.messages.monthly`)
+## 6.2 Refillable/depleting amounts (`deg2rad.calculations.monthly`, `ai.credits`, `ai.messages.monthly`)
 
 Definitions:
 
-- `metered_quota` for monthly execution limits (example: annuity calculations per month)
+- `metered_quota` for monthly execution limits (example: DEG2RAD calculations per month)
 - `balance` for credits (no window unless product specifies expiry)
 
 Enforcement:
@@ -896,21 +896,21 @@ Files likely touched minimally:
 - `server/modules/projects/service.js`
 - `server/modules/projects/repository.js`
 
-## 15.2 Scaffold example B: Annuity calculations module (minimal integration)
+## 15.2 Scaffold example B: DEG2RAD calculations module (minimal integration)
 
-- Before executing `/api/annuityCalculator`, call billing transactional wrapper for capability `annuity.calculate` mapped to limitation code `annuity.calculations.monthly`.
+- Before executing `/api/deg2rad`, call billing transactional wrapper for capability `deg2rad.calculate` mapped to limitation code `deg2rad.calculations.monthly`.
 - Wrapper executes:
   - pre-enforcement
-  - annuity append callback
+  - DEG2RAD append callback
   - consumption insert amount `1`
   - projection recompute
   - post-commit realtime emit
 - Use idempotency key (`x-command-id`/request key) to dedupe retries.
-- History append path must accept optional `trx` so annuity callback is truly atomic.
+- History append path must accept optional `trx` so DEG2RAD callback is truly atomic.
 
 Files likely touched minimally:
 
-- `server/modules/annuity/controller.js`
+- `server/modules/deg2rad/controller.js`
 - `server/modules/billing/service.js`
 - `server/runtime/controllers.js`
 - `server/modules/history/service.js`
@@ -983,7 +983,7 @@ Metrics:
 - scaffold capacity overflow blocks capacity-increasing write (projects example)
 - scaffold project update/replace archived->active path is blocked when over cap
 - scaffold capacity recompute is triggered on archive/unarchive transitions and reflects updated lock state
-- scaffold metered quota decrements for annuity calculation execution
+- scaffold metered quota decrements for DEG2RAD calculation execution
 - metered consumption decrements correctly with idempotency
 - synchronous refresh when `next_change_at <= now`
 - transactional helper guarantees mutation+consumption atomicity with shared `trx`
@@ -1047,7 +1047,7 @@ Reason:
 
 ## 20.1) Scaffold lifecycle and teardown rules
 
-- `projects` and annuity integrations are temporary proving grounds.
+- `projects` and DEG2RAD integrations are temporary proving grounds.
 - They should remain readable templates for:
   - capability mapping
   - transactional enforce+consume wrapper usage
@@ -1102,7 +1102,7 @@ Scaffold adapters (minimal, disposable):
 - `server/modules/projects/service.js`
 - `server/modules/projects/repository.js`
 - `server/modules/projects/schema.js`
-- `server/modules/annuity/controller.js`
+- `server/modules/deg2rad/controller.js`
 - `server/runtime/controllers.js`
 - `server/modules/history/service.js`
 - `server/modules/history/repository.js`
@@ -1132,7 +1132,7 @@ Tests:
 3. `next_change_at` incremental boundary model is active (no global full recompute job).
 4. Cross-tab billing limit changes propagate through realtime topic + query invalidation.
 5. Same-tab changes refresh immediately on mutation success.
-6. Scaffold examples (`projects.max`, `annuity.calculations.monthly`, `extra_projects_pack_2m`) prove thin integration without coupling core billing to scaffold modules.
+6. Scaffold examples (`projects.max`, `deg2rad.calculations.monthly`, `extra_projects_pack_2m`) prove thin integration without coupling core billing to scaffold modules.
 7. API contracts are deterministic and documented.
 8. Worker retries do not cause double grants or double consumptions.
 9. Capacity enforcement cannot be bypassed via scaffold status transitions (`archived -> active` paths covered).

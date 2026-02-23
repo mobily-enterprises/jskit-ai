@@ -194,8 +194,7 @@ describe("useAdminShell", () => {
       { title: "Workspace chat", to: "/admin/w/acme/chat", icon: "mdi-chat-outline" },
       { title: "AI transcripts", to: "/admin/w/acme/transcripts", icon: "$navChoice2" },
       { title: "Workspace settings", to: "/admin/w/acme/settings", icon: "$menuSettings" },
-      { title: "Billing", to: "/admin/w/acme/billing", icon: "$menuSettings" },
-      { title: "Back to App", to: "/w/acme", icon: "$menuBackToApp", forceReload: true }
+      { title: "Billing", to: "/admin/w/acme/billing", icon: "$menuSettings" }
     ]);
   });
 
@@ -240,12 +239,9 @@ describe("useAdminShell", () => {
     expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Calculator");
     expect(wrapper.vm.shell.workspace.activeWorkspaceName.value).toBe("Workspace invites");
     expect(wrapper.vm.shell.user.userDisplayName.value).toBe("alex");
-    expect(wrapper.vm.shell.navigation.navigationItems.value.at(-1)).toEqual({
-      title: "Back to App",
-      to: "/workspaces",
-      icon: "$menuBackToApp",
-      forceReload: true
-    });
+
+    await wrapper.vm.shell.actions.goToAppSurface();
+    expect(mocks.shellActions.hardNavigate).toHaveBeenCalledWith("/workspaces");
   });
 
   it("maps projects destination titles for list, detail, add, and edit paths", async () => {

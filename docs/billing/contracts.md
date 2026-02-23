@@ -78,7 +78,7 @@ Response shape:
   "stale": false,
   "limitations": [
     {
-      "code": "annuity.calculations.monthly",
+      "code": "deg2rad.calculations.monthly",
       "entitlementType": "metered_quota",
       "enforcementMode": "hard_deny",
       "unit": "calculation",

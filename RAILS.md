@@ -25,7 +25,7 @@ Rules:
 - Controllers do not run SQL.
 - Services do not access Knex directly.
 - Repositories do not contain business rules.
-- Keep contracts stable for `/api/session`, `/api/history`, `/api/annuityCalculator`.
+- Keep contracts stable for `/api/session`, `/api/history`, `/api/deg2rad`.
 
 ## 3) Backend naming and placement
 
@@ -77,10 +77,10 @@ Colocation rule (default):
 
 Examples in this repo:
 
-- `src/components/annuity-calculator-form/AnnuityCalculatorForm.vue`
-- `src/components/annuity-calculator-form/useAnnuityCalculatorForm.js`
-- `src/components/annuity-history-list/AnnuityHistoryList.vue`
-- `src/components/annuity-history-list/useAnnuityHistoryList.js`
+- `src/components/deg2rad-calculator-form/Deg2radCalculatorForm.vue`
+- `src/components/deg2rad-calculator-form/useDeg2radCalculatorForm.js`
+- `src/components/deg2rad-history-list/Deg2radHistoryList.vue`
+- `src/components/deg2rad-history-list/useDeg2radHistoryList.js`
 
 Shared client utilities:
 

@@ -106,8 +106,6 @@ export function useAdminShell() {
     if (canViewBilling.value) {
       items.push({ title: "Billing", to: workspacePath("/billing"), icon: "$menuSettings" });
     }
-
-    items.push({ title: "Back to App", to: appSurfaceTargetPath.value, icon: "$menuBackToApp", forceReload: true });
     return items;
   });
 

@@ -173,20 +173,14 @@ describe("useAppShell", () => {
     await nextTick();
 
     expect(wrapper.vm.shell.layout.showApplicationShell.value).toBe(true);
-    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Annuities");
+    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("JSKIT app");
     expect(wrapper.vm.shell.layout.activeWorkspaceColor.value).toBe("#336699");
     expect(wrapper.vm.shell.user.userInitials.value).toBe("TO");
     expect(wrapper.vm.shell.user.canOpenAdminSurface.value).toBe(true);
 
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
-      { title: "Annuities", to: "/w/acme", icon: "$navChoice1" },
-      { title: "Assistant", to: "/w/acme/assistant", icon: "$navChoice2" },
-      {
-        title: "Go to Admin",
-        to: "/admin/w/acme/settings",
-        icon: "$menuGoToAdmin",
-        forceReload: true
-      }
+      { title: "Deg2rad", to: "/w/acme", icon: "$navChoice1" },
+      { title: "Assistant", to: "/w/acme/assistant", icon: "$navChoice2" }
     ]);
   });
 
@@ -200,7 +194,7 @@ describe("useAppShell", () => {
     expect(wrapper.vm.shell.layout.showApplicationShell.value).toBe(false);
     expect(wrapper.vm.shell.user.canOpenAdminSurface.value).toBe(false);
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
-      { title: "Annuities", to: "/w/acme", icon: "$navChoice1" }
+      { title: "Deg2rad", to: "/w/acme", icon: "$navChoice1" }
     ]);
 
     await wrapper.vm.shell.actions.goToAccountSettings();
@@ -223,13 +217,7 @@ describe("useAppShell", () => {
     await nextTick();
 
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
-      { title: "Annuities", to: "/w/acme", icon: "$navChoice1" },
-      {
-        title: "Go to Admin",
-        to: "/admin/w/acme/settings",
-        icon: "$menuGoToAdmin",
-        forceReload: true
-      }
+      { title: "Deg2rad", to: "/w/acme", icon: "$navChoice1" }
     ]);
   });
 
@@ -246,16 +234,10 @@ describe("useAppShell", () => {
     const wrapper = mountHarness();
     await nextTick();
 
-    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Annuities");
+    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("JSKIT app");
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
-      { title: "Annuities", to: "/w/acme", icon: "$navChoice1" },
-      { title: "Assistant", to: "/w/acme/assistant", icon: "$navChoice2" },
-      {
-        title: "Go to Admin",
-        to: "/admin/w/acme/settings",
-        icon: "$menuGoToAdmin",
-        forceReload: true
-      }
+      { title: "Deg2rad", to: "/w/acme", icon: "$navChoice1" },
+      { title: "Assistant", to: "/w/acme/assistant", icon: "$navChoice2" }
     ]);
   });
 
@@ -273,7 +255,7 @@ describe("useAppShell", () => {
     await nextTick();
 
     expect(wrapper.vm.shell.layout.showApplicationShell.value).toBe(true);
-    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Annuities");
+    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("JSKIT app");
   });
 
   it("navigates to admin surface and signs out with cleanup", async () => {
@@ -312,7 +294,7 @@ describe("useAppShell", () => {
     });
   });
 
-  it("derives annuities title and user display fallback", async () => {
+  it("derives JSKIT app title and user display fallback", async () => {
     mocks.routerPathname = "/w/acme";
     mocks.workspaceStore.profileDisplayName = "";
     mocks.authStore.username = "alex";
@@ -320,7 +302,7 @@ describe("useAppShell", () => {
     const wrapper = mountHarness();
     await nextTick();
 
-    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Annuities");
+    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("JSKIT app");
     expect(wrapper.vm.shell.user.userDisplayName.value).toBe("alex");
     expect(wrapper.vm.shell.user.userInitials.value).toBe("AL");
   });

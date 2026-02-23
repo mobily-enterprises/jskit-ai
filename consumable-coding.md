@@ -8,7 +8,7 @@ Implement the consumable entitlements engine described in `consumable.md` and wi
 
 This is scaffolding-first:
 
-- `projects` and annuity calculator limits are **examples only** to prove the architecture.
+- `projects` and DEG2RAD calculator limits are **examples only** to prove the architecture.
 - The core engine must remain generic and reusable.
 - Example integrations must be thin and easy to delete later.
 
@@ -48,7 +48,7 @@ Current code surfaces to align:
 - `server/modules/projects/service.js`
 - `server/modules/projects/repository.js`
 - `server/modules/projects/schema.js`
-- `server/modules/annuity/controller.js`
+- `server/modules/deg2rad/controller.js`
 - `server/modules/history/service.js`
 - `server/modules/history/repository.js`
 - `server/runtime/controllers.js`
@@ -79,7 +79,7 @@ Current code surfaces to align:
 10. Realtime topic + client invalidation integration.
 11. Scaffold integration:
     - projects capacity checks (create + archived->active transitions)
-    - annuity metered consumption with shared transaction
+    - DEG2RAD metered consumption with shared transaction
 12. Updated API contract for `GET /api/billing/limitations`.
 13. Tests (migration/repository/service/worker/realtime/contract).
 14. Docs updates reflecting final behavior and scaffold status.
@@ -98,7 +98,7 @@ Current code surfaces to align:
    - `REALTIME_TOPICS`
    - `workspaceBilling...QueryKey`
 4. Confirm current console plan/product schemas and service payload handling.
-5. Confirm annuity + history + projects call graphs.
+5. Confirm DEG2RAD + history + projects call graphs.
 
 Success gate:
 
@@ -128,7 +128,7 @@ Backfill/bootstrap migration requirements:
 
 1. Seed `billing_entitlement_definitions` with scaffold definitions:
    - `projects.max`
-   - `annuity.calculations.monthly`
+   - `deg2rad.calculations.monthly`
    - optionally `workspace.access` if implementing now
 2. Backfill typed plan templates from existing plan entitlement JSON data.
 3. Backfill typed product templates from existing product entitlement JSON data when present.
@@ -206,7 +206,7 @@ Required service rules:
 1. Canonical capability map must be centralized (from `consumable.md` section 5.4):
    - `projects.create -> projects.max`
    - `projects.unarchive -> projects.max`
-   - `annuity.calculate -> annuity.calculations.monthly`
+   - `deg2rad.calculate -> deg2rad.calculations.monthly`
 2. Capacity path:
    - no consumption row writes in scaffold v1
    - use current-count resolver or snapshots for `consumed_amount`
@@ -389,27 +389,27 @@ Requirements:
 4. Add active-count resolver primitive (`status != archived`).
 5. Trigger capacity recompute on archive/unarchive transitions too.
 
-## 8B) Annuity (metered example)
+## 8B) DEG2RAD (metered example)
 
 Files:
 
-- `server/modules/annuity/controller.js`
+- `server/modules/deg2rad/controller.js`
 - `server/runtime/controllers.js`
 - `server/modules/history/service.js`
 - `server/modules/history/repository.js`
 
 Requirements:
 
-1. Inject billing service into annuity controller wiring.
-2. Call `executeWithEntitlementConsumption(...)` in annuity calculate endpoint.
-3. Use capability `annuity.calculate`.
+1. Inject billing service into deg2rad controller wiring.
+2. Call `executeWithEntitlementConsumption(...)` in DEG2RAD calculate endpoint.
+3. Use capability `deg2rad.calculate`.
 4. Use request command/idempotency key for usage dedupe.
 5. Ensure history append supports optional trx.
 6. Ensure append + consume are atomic in one transaction.
 
 Success gate:
 
-- Retried annuity request does not double-consume.
+- Retried DEG2RAD request does not double-consume.
 
 ## Phase 9 - API Contract and UI Read Path
 
@@ -465,8 +465,8 @@ Service tests:
 - plan transition grant projection
 - projects create over-cap denied
 - projects archived->active over-cap denied
-- annuity success consumes once
-- annuity retry no double consume
+- DEG2RAD success consumes once
+- DEG2RAD retry no double consume
 - transaction rollback on failed domain mutation
 
 Realtime client tests:
@@ -500,13 +500,13 @@ Return:
 3. Migration/backfill behavior + invariant failure behavior.
 4. API contract updates for limitations and realtime payload.
 5. Console JSON authoring -> typed template persistence explanation.
-6. Scaffold integration summary (projects + annuity).
+6. Scaffold integration summary (projects + DEG2RAD).
 7. Exact lint/test commands + pass/fail.
 8. Follow-up manual steps (migrate, seed, worker run flags if needed).
 
 ## 14) Anti-Scope-Creep Rules
 
-1. Do not redesign products/projects/annuity domains.
+1. Do not redesign products/projects/DEG2RAD domains.
 2. Do not build generic plugin frameworks beyond what current architecture needs.
 3. Do not add broad lock-state UX redesign in scaffold phase.
 4. Do not add unrelated billing catalog/product feature work.
@@ -519,4 +519,3 @@ Return:
 3. Transactional correctness for enforce+mutate+consume flow.
 4. No ambiguous source-of-truth in runtime grant projection.
 5. Scaffold code remains minimal and deletable.
-

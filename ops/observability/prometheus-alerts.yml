@@ -3,7 +3,7 @@ groups:
     rules:
       # Uptime probe against the scrape target itself.
       # If you use an HTTP uptime monitor on /api/ready, prefer that signal.
-      - alert: AnnuityAppScrapeDown
+      - alert: JskitAppScrapeDown
         expr: up{job="jskit-app"} == 0
         for: 5m
         labels:
@@ -13,7 +13,7 @@ groups:
           summary: "jskit-app is not scrapeable"
           description: "Prometheus could not scrape jskit-app for 5m."
 
-      - alert: AnnuityAppHighErrorRate
+      - alert: JskitAppHighErrorRate
         expr: |
           (
             sum(rate(app_http_5xx_total[5m]))

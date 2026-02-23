@@ -15,7 +15,7 @@ const DEFAULT_FREE_PLAN_TEMPLATES = Object.freeze([
     }
   },
   {
-    code: "annuity.calculations.monthly",
+    code: "deg2rad.calculations.monthly",
     amount: 100,
     grantKind: "plan_base",
     effectivePolicy: "on_assignment_current",
@@ -42,7 +42,7 @@ const DEFAULT_PAID_PLAN_TEMPLATES = Object.freeze([
     }
   },
   {
-    code: "annuity.calculations.monthly",
+    code: "deg2rad.calculations.monthly",
     amount: 1000,
     grantKind: "plan_base",
     effectivePolicy: "on_assignment_current",
@@ -74,9 +74,9 @@ const ENTITLEMENT_DEFINITION_SEEDS = Object.freeze([
     })
   },
   {
-    code: "annuity.calculations.monthly",
-    name: "Annuity Calculations Monthly",
-    description: "Monthly quota for annuity calculations.",
+    code: "deg2rad.calculations.monthly",
+    name: "DEG2RAD Calculations Monthly",
+    description: "Monthly quota for DEG2RAD calculations.",
     entitlement_type: "metered_quota",
     unit: "calculation",
     window_interval: "month",
@@ -87,7 +87,7 @@ const ENTITLEMENT_DEFINITION_SEEDS = Object.freeze([
     is_active: 1,
     metadata_json: JSON.stringify({
       scaffold: true,
-      capability: ["annuity.calculate"]
+      capability: ["deg2rad.calculate"]
     })
   }
 ]);
@@ -287,7 +287,7 @@ function endOfUtcMonthExclusive(date) {
 }
 
 function resolveWindowForDefinition(definitionCode, now) {
-  if (definitionCode === "annuity.calculations.monthly") {
+  if (definitionCode === "deg2rad.calculations.monthly") {
     return {
       windowStartAt: startOfUtcMonth(now),
       windowEndAt: endOfUtcMonthExclusive(now)

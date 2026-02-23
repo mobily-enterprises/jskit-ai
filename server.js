@@ -670,9 +670,9 @@ export async function buildServer({ frontendBuildAvailable }) {
       openapi: {
         openapi: "3.0.3",
         info: {
-          title: "Annuity Calculator API",
+          title: "Jskit API",
           version: "1.0.0",
-          description: "API for auth, annuity calculations, and calculation history."
+          description: "API for auth, DEG2RAD calculations, and calculation history."
         },
         servers: [
           {
@@ -829,7 +829,7 @@ export async function startServer({ port = PORT, host = "0.0.0.0", frontendBuild
   try {
     appInstance = await buildServer({ frontendBuildAvailable: resolvedFrontendBuildAvailable });
     await appInstance.listen({ port, host });
-    console.log(`Annuity app listening on http://localhost:${port}`);
+    console.log(`Jskit app listening on http://localhost:${port}`);
     return appInstance;
   } catch (error) {
     if (appInstance) {

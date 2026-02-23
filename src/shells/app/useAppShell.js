@@ -78,20 +78,11 @@ export function useAppShell() {
 
   const navigationItems = computed(() => {
     const items = [
-      { title: "Annuities", to: workspacePath("/"), icon: "$navChoice1" }
+      { title: "Deg2rad", to: workspacePath("/"), icon: "$navChoice1" }
     ];
 
     if (canUseAssistant.value) {
       items.push({ title: "Assistant", to: workspacePath("/assistant"), icon: "$navChoice2" });
-    }
-
-    if (canOpenAdminSurface.value) {
-      items.push({
-        title: "Go to Admin",
-        to: adminSurfaceTargetPath.value,
-        icon: "$menuGoToAdmin",
-        forceReload: true
-      });
     }
 
     return items;
@@ -101,7 +92,7 @@ export function useAppShell() {
     if (currentPath.value.endsWith("/assistant")) {
       return "Assistant";
     }
-    return "Annuities";
+    return "JSKIT app";
   });
 
   const userInitials = computed(() => {

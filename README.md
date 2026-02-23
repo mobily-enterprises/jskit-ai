@@ -1,6 +1,6 @@
-# Annuity Value Calculator (Fastify + Vue + Vuetify + TanStack)
+# Jskit DEG2RAD Calculator (Fastify + Vue + Vuetify + TanStack)
 
-Client/server annuity calculator with Supabase authentication and MySQL persistence via Knex.
+Client/server DEG2RAD calculator with Supabase authentication and MySQL persistence via Knex.
 
 ## Architecture
 
@@ -9,7 +9,7 @@ Client/server annuity calculator with Supabase authentication and MySQL persiste
 - `server/fastify/registerApiRoutes.js`: Fastify route registration/wiring
 - `server/fastify/auth.plugin.js`: auth policy + CSRF + rate-limit wiring
 - `controllers/`: HTTP concerns (status codes, request/response)
-- `services/`: business logic (auth, annuity math, history)
+- `services/`: business logic (auth, DEG2RAD conversion, history)
 - `repositories/`: DB queries only
 
 Frontend surfaces:

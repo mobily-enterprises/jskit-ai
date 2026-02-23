@@ -5,7 +5,7 @@
         <v-card-text class="auth-content">
           <div class="auth-header">
             <div>
-              <p class="auth-kicker">Annuity Workspace</p>
+              <p class="auth-kicker">Jskit Workspace</p>
               <h1 class="auth-title">{{ authTitle }}</h1>
               <p v-if="authSubtitle" class="text-medium-emphasis mb-0">{{ authSubtitle }}</p>
             </div>

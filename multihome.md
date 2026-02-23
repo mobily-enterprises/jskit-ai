@@ -625,7 +625,7 @@ Mode Default
    session, etc.).
 2. Keep /api/settings if needed for compatibility, but split semantics
    internally into user/workspace-aware data.
-3. For workspace-owned endpoints like /api/history and /api/annuityCalculator,
+3. For workspace-owned endpoints like /api/history and /api/deg2rad,
    enforce workspace context and permissions.
 4. Repository calls for workspace-owned resources must always include
    workspace_id.
@@ -959,7 +959,7 @@ commits are applied.
 2. Keep commits small and mechanical; one behavior change per commit.
 3. Preserve route/service/repository layer boundaries.
 4. Maintain backwards compatibility where possible (`/api/session`,
-   `/api/history`, `/api/annuityCalculator`).
+   `/api/history`, `/api/deg2rad`).
 5. Prefer additive migrations and compatibility shims before deletions.
 6. For every commit, include a short migration/rollback note in commit body.
 
@@ -1150,7 +1150,7 @@ Files and line anchors:
    - Add `workspacePolicy` + `permission` to existing workspace-owned routes:
      - `/api/history` -> `workspacePolicy: "required"`, permission
        `history.read`
-     - `/api/annuityCalculator` -> `workspacePolicy: "required"`, permission
+     - `/api/deg2rad` -> `workspacePolicy: "required"`, permission
        `history.write`
      - workspace settings routes -> appropriate `workspace.settings.*` perms
 5. `routes/api/index.js:1026-1041`
@@ -1202,10 +1202,10 @@ Goal: ensure services pass `workspaceId` to repositories.
 
 Files impacted outside requested map:
 
-1. `services/annuityHistoryService.js`
-2. `services/annuityService` consumers in controllers
+1. `services/deg2radHistoryService.js`
+2. `services/deg2radService` consumers in controllers
 3. `controllers/historyController.js`
-4. `controllers/annuityController.js`
+4. `controllers/deg2radController.js`
 
 Repository file anchors to verify:
 
@@ -1364,7 +1364,7 @@ introduced.
 Files and line anchors:
 
 1. `routes/api/index.js:990-1022`
-   - Keep `/api/history` and `/api/annuityCalculator` stable.
+   - Keep `/api/history` and `/api/deg2rad` stable.
    - Resolve workspace from context internally, not request body.
 2. `plugins/auth.js:66-122`
    - Ensure public endpoints remain public.

@@ -3,7 +3,7 @@ import { resolveClientIpAddress } from "./primitives/requestUrl.js";
 
 const RATE_LIMIT_MODE_MEMORY = "memory";
 const RATE_LIMIT_MODE_REDIS = "redis";
-const RATE_LIMIT_REDIS_NAMESPACE = "annuity-rate-limit-";
+const RATE_LIMIT_REDIS_NAMESPACE = "jskit-rate-limit-";
 const require = createRequire(import.meta.url);
 
 function normalizeRateLimitMode(value) {

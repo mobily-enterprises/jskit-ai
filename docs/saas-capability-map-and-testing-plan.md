@@ -4,7 +4,7 @@ Last verified: 2026-02-20
 
 ## 1) What This Repository Already Covers
 
-This repository is not just an annuity demo. It is a broad SaaS scaffold with multiple surfaces, tenancy, RBAC, realtime, AI, observability, and billing.
+This repository is not just a DEG2RAD demo. It is a broad SaaS scaffold with multiple surfaces, tenancy, RBAC, realtime, AI, observability, and billing.
 
 ### 1.1 Product surfaces and routing
 
@@ -96,12 +96,12 @@ This repository is not just an annuity demo. It is a broad SaaS scaffold with mu
 
 ### 1.8 Domain features currently present
 
-- annuity calculation engine + history persistence
+- DEG2RAD calculation engine + history persistence
 - workspace-scoped projects CRUD
 - user settings + avatar upload pipeline (Sharp + FS storage)
 - communications module (SMS driver abstraction)
 - Key files:
-  - `server/modules/annuity/*`
+  - `server/modules/deg2rad/*`
   - `server/modules/history/*`
   - `server/modules/projects/*`
   - `server/modules/settings/*`
@@ -166,7 +166,7 @@ HTTP routes registered via module route builders: 77
 - projects: 5
 - communications: 1
 - history: 1
-- annuity: 1
+- deg2rad: 1
 - ai: 3
 - billing: 5
 - observability: 1
