@@ -45,6 +45,7 @@
     "@jskit-ai/app-scripts": "0.1.0",
     "@jskit-ai/billing-provider-core": "0.1.0",
     "@jskit-ai/http-client-runtime": "0.1.0",
+    "@jskit-ai/realtime-client-runtime": "0.1.0",
     "@jskit-ai/realtime-contracts": "0.1.0",
     "@jskit-ai/rbac-core": "0.1.0",
     "@fastify/cookie": "^11.0.2",
