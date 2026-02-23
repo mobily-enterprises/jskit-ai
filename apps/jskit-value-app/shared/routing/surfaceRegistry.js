@@ -1,45 +1,32 @@
-const SURFACE_REGISTRY = Object.freeze({
-  app: Object.freeze({
-    id: "app",
-    prefix: "",
-    requiresWorkspace: true
-  }),
-  admin: Object.freeze({
-    id: "admin",
-    prefix: "/admin",
-    requiresWorkspace: true
-  }),
-  console: Object.freeze({
-    id: "console",
-    prefix: "/console",
-    requiresWorkspace: false
-  })
+import { createSurfaceRegistry } from "@jskit-ai/surface-routing";
+
+const {
+  SURFACE_REGISTRY,
+  DEFAULT_SURFACE_ID,
+  normalizeSurfaceId,
+  resolveSurfacePrefix,
+  surfaceRequiresWorkspace,
+  listSurfaceDefinitions
+} = createSurfaceRegistry({
+  surfaces: {
+    app: {
+      id: "app",
+      prefix: "",
+      requiresWorkspace: true
+    },
+    admin: {
+      id: "admin",
+      prefix: "/admin",
+      requiresWorkspace: true
+    },
+    console: {
+      id: "console",
+      prefix: "/console",
+      requiresWorkspace: false
+    }
+  },
+  defaultSurfaceId: "app"
 });
-
-const DEFAULT_SURFACE_ID = "app";
-
-function normalizeSurfaceId(value) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
-  if (SURFACE_REGISTRY[normalized]) {
-    return normalized;
-  }
-
-  return DEFAULT_SURFACE_ID;
-}
-
-function resolveSurfacePrefix(surfaceId) {
-  return SURFACE_REGISTRY[normalizeSurfaceId(surfaceId)]?.prefix || "";
-}
-
-function surfaceRequiresWorkspace(surfaceId) {
-  return Boolean(SURFACE_REGISTRY[normalizeSurfaceId(surfaceId)]?.requiresWorkspace);
-}
-
-function listSurfaceDefinitions() {
-  return Object.values(SURFACE_REGISTRY);
-}
 
 export {
   SURFACE_REGISTRY,
