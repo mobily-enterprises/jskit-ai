@@ -1,27 +1,20 @@
-import { AVATAR_DEFAULT_SIZE } from "../avatar/index.js";
-
-export const SETTINGS_THEME_OPTIONS = ["system", "light", "dark"];
-export const SETTINGS_DATE_FORMAT_OPTIONS = ["system", "mdy", "dmy", "ymd"];
-export const SETTINGS_NUMBER_FORMAT_OPTIONS = ["system", "comma-dot", "dot-comma", "space-comma"];
-export const SETTINGS_MODE_OPTIONS = ["fv", "pv"];
-export const SETTINGS_TIMING_OPTIONS = ["ordinary", "due"];
-
-export const SETTINGS_LOCALE_PATTERN = "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$";
-export const SETTINGS_CURRENCY_CODE_PATTERN = "^[A-Z]{3}$";
-
-export const SETTINGS_DEFAULTS = {
-  theme: "system",
-  locale: "en-US",
-  timeZone: "UTC",
-  dateFormat: "system",
-  numberFormat: "system",
-  currencyCode: "USD",
-  defaultMode: "fv",
-  defaultTiming: "ordinary",
-  defaultPaymentsPerYear: 12,
-  defaultHistoryPageSize: 10,
-  avatarSize: AVATAR_DEFAULT_SIZE,
-  productUpdates: true,
-  accountActivity: true,
-  securityAlerts: true
-};
+export {
+  SETTINGS_CHAT_DEFAULTS,
+  SETTINGS_CHAT_KEYS,
+  SETTINGS_CURRENCY_CODE_PATTERN,
+  SETTINGS_DATE_FORMAT_OPTIONS,
+  SETTINGS_DEFAULTS,
+  SETTINGS_FEATURE_FLAGS,
+  SETTINGS_FIELD_SPECS,
+  SETTINGS_LIMITS,
+  SETTINGS_LOCALE_PATTERN,
+  SETTINGS_MODE_OPTIONS,
+  SETTINGS_NOTIFICATION_KEYS,
+  SETTINGS_NOTIFICATIONS_DEFAULTS,
+  SETTINGS_NUMBER_FORMAT_OPTIONS,
+  SETTINGS_PREFERENCE_KEYS,
+  SETTINGS_PREFERENCES_OPTIONS,
+  SETTINGS_PROFILE_KEYS,
+  SETTINGS_THEME_OPTIONS,
+  SETTINGS_TIMING_OPTIONS
+} from "./model.js";

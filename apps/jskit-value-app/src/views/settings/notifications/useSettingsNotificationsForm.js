@@ -1,6 +1,7 @@
 import { reactive, ref } from "vue";
 import { useMutation } from "@tanstack/vue-query";
 import { api } from "../../../services/api/index.js";
+import { SETTINGS_NOTIFICATIONS_DEFAULTS } from "../../../../shared/settings/model.js";
 import { SETTINGS_QUERY_KEY } from "../lib/useSettingsPageConfig.js";
 import { useSettingsContext } from "../lib/useSettingsContext.js";
 import { useSettingsNotificationsLogic } from "./lib/useSettingsNotificationsLogic.js";
@@ -13,9 +14,9 @@ export function useSettingsNotificationsForm(options) {
   const { queryClient, toErrorMessage, handleAuthError, applySettingsData } = options;
 
   const notificationsForm = reactive({
-    productUpdates: true,
-    accountActivity: true,
-    securityAlerts: true
+    productUpdates: SETTINGS_NOTIFICATIONS_DEFAULTS.productUpdates,
+    accountActivity: SETTINGS_NOTIFICATIONS_DEFAULTS.accountActivity,
+    securityAlerts: SETTINGS_NOTIFICATIONS_DEFAULTS.securityAlerts
   });
 
   const notificationsMessage = ref("");
@@ -44,7 +45,7 @@ export function useSettingsNotificationsForm(options) {
 
     notificationsForm.productUpdates = Boolean(data.notifications?.productUpdates);
     notificationsForm.accountActivity = Boolean(data.notifications?.accountActivity);
-    notificationsForm.securityAlerts = true;
+    notificationsForm.securityAlerts = SETTINGS_NOTIFICATIONS_DEFAULTS.securityAlerts;
   }
 
   return {

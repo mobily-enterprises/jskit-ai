@@ -1,6 +1,7 @@
 import { reactive, ref } from "vue";
 import { useMutation } from "@tanstack/vue-query";
 import { api } from "../../../services/api/index.js";
+import { SETTINGS_CHAT_DEFAULTS } from "../../../../shared/settings/model.js";
 import { SETTINGS_QUERY_KEY } from "../lib/useSettingsPageConfig.js";
 import { useSettingsContext } from "../lib/useSettingsContext.js";
 import { useSettingsChatLogic } from "./lib/useSettingsChatLogic.js";
@@ -13,11 +14,11 @@ export function useSettingsChatForm(options) {
   const { queryClient, clearFieldErrors, toErrorMessage, handleAuthError, applySettingsData } = options;
 
   const chatForm = reactive({
-    publicChatId: "",
-    allowWorkspaceDms: true,
-    allowGlobalDms: false,
-    requireSharedWorkspaceForGlobalDm: true,
-    discoverableByPublicChatId: false
+    publicChatId: SETTINGS_CHAT_DEFAULTS.publicChatId,
+    allowWorkspaceDms: SETTINGS_CHAT_DEFAULTS.allowWorkspaceDms,
+    allowGlobalDms: SETTINGS_CHAT_DEFAULTS.allowGlobalDms,
+    requireSharedWorkspaceForGlobalDm: SETTINGS_CHAT_DEFAULTS.requireSharedWorkspaceForGlobalDm,
+    discoverableByPublicChatId: SETTINGS_CHAT_DEFAULTS.discoverableByPublicChatId
   });
 
   const chatFieldErrors = reactive({

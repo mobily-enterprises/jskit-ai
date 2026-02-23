@@ -1,0 +1,15 @@
+{
+  "name": "@jskit-ai/observability-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./browserPayload": "./src/browserPayload.js",
+    "./serverPayload": "./src/serverPayload.js",
+    "./metricsContracts": "./src/metricsContracts.js"
+  }
+}

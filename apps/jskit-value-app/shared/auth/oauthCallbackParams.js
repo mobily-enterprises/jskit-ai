@@ -1,5 +1,1 @@
-const OAUTH_QUERY_PARAM_PROVIDER = "oauthProvider";
-const OAUTH_QUERY_PARAM_INTENT = "oauthIntent";
-const OAUTH_QUERY_PARAM_RETURN_TO = "oauthReturnTo";
-
-export { OAUTH_QUERY_PARAM_PROVIDER, OAUTH_QUERY_PARAM_INTENT, OAUTH_QUERY_PARAM_RETURN_TO };
+export * from "@jskit-ai/access-core/oauthCallbackParams";

@@ -12,6 +12,7 @@ import { AUTH_OAUTH_PROVIDERS } from "../../../shared/auth/oauthProviders.js";
 import {
   SETTINGS_CURRENCY_CODE_PATTERN,
   SETTINGS_DATE_FORMAT_OPTIONS,
+  SETTINGS_FIELD_SPECS,
   SETTINGS_LOCALE_PATTERN,
   SETTINGS_NUMBER_FORMAT_OPTIONS,
   SETTINGS_THEME_OPTIONS
@@ -19,6 +20,7 @@ import {
 import { AVATAR_MAX_SIZE, AVATAR_MIN_SIZE } from "../../../shared/avatar/index.js";
 import { schema as authSchema } from "../auth/schema.js";
 import { enumSchema } from "../api/schema.js";
+import { buildSchema } from "@jskit-ai/workspace-console-core/settingsSchemaBuilder";
 
 const avatar = Type.Object(
   {
@@ -163,47 +165,20 @@ const profileUpdate = Type.Object(
   }
 );
 
-const preferencesUpdate = Type.Object(
-  {
-    theme: Type.Optional(enumSchema(SETTINGS_THEME_OPTIONS)),
-    locale: Type.Optional(Type.String({ minLength: 2, maxLength: 24, pattern: SETTINGS_LOCALE_PATTERN })),
-    timeZone: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
-    dateFormat: Type.Optional(enumSchema(SETTINGS_DATE_FORMAT_OPTIONS)),
-    numberFormat: Type.Optional(enumSchema(SETTINGS_NUMBER_FORMAT_OPTIONS)),
-    currencyCode: Type.Optional(Type.String({ pattern: SETTINGS_CURRENCY_CODE_PATTERN })),
-    avatarSize: Type.Optional(Type.Integer({ minimum: AVATAR_MIN_SIZE, maximum: AVATAR_MAX_SIZE }))
-  },
-  {
-    additionalProperties: false,
-    minProperties: 1
-  }
-);
+const preferencesUpdate = buildSchema({
+  fieldSpecs: SETTINGS_FIELD_SPECS.preferences,
+  mode: "patch"
+});
 
-const notificationsUpdate = Type.Object(
-  {
-    productUpdates: Type.Optional(Type.Boolean()),
-    accountActivity: Type.Optional(Type.Boolean()),
-    securityAlerts: Type.Optional(Type.Boolean())
-  },
-  {
-    additionalProperties: false,
-    minProperties: 1
-  }
-);
+const notificationsUpdate = buildSchema({
+  fieldSpecs: SETTINGS_FIELD_SPECS.notifications,
+  mode: "patch"
+});
 
-const chatUpdate = Type.Object(
-  {
-    publicChatId: Type.Optional(Type.Union([Type.String({ minLength: 1, maxLength: 64 }), Type.Null()])),
-    allowWorkspaceDms: Type.Optional(Type.Boolean()),
-    allowGlobalDms: Type.Optional(Type.Boolean()),
-    requireSharedWorkspaceForGlobalDm: Type.Optional(Type.Boolean()),
-    discoverableByPublicChatId: Type.Optional(Type.Boolean())
-  },
-  {
-    additionalProperties: false,
-    minProperties: 1
-  }
-);
+const chatUpdate = buildSchema({
+  fieldSpecs: SETTINGS_FIELD_SPECS.chat,
+  mode: "patch"
+});
 
 const changePassword = Type.Object(
   {

@@ -1,15 +1,14 @@
 import { AppError } from "../../lib/errors.js";
 import { isMysqlDuplicateEntryError } from "../../lib/primitives/mysqlErrors.js";
 import { validators as authValidators } from "../../../shared/auth/validators.js";
-import { AVATAR_MAX_SIZE, AVATAR_MIN_SIZE } from "../../../shared/avatar/index.js";
+import { SETTINGS_FIELD_SPECS } from "../../../shared/settings/model.js";
+import { buildPatch } from "@jskit-ai/workspace-console-core/settingsPatchBuilder";
 import {
-  SETTINGS_CURRENCY_CODE_PATTERN,
-  SETTINGS_DATE_FORMAT_OPTIONS,
-  SETTINGS_NUMBER_FORMAT_OPTIONS,
-  SETTINGS_THEME_OPTIONS
-} from "../../../shared/settings/index.js";
-
-const CURRENCY_CODE_REGEX = new RegExp(SETTINGS_CURRENCY_CODE_PATTERN);
+  isValidCurrencyCode,
+  isValidLocale,
+  isValidTimeZone,
+  toTrimmedString
+} from "@jskit-ai/workspace-console-core/settingsValidation";
 
 function validationError(fieldErrors) {
   return new AppError(400, "Validation failed.", {
@@ -19,12 +18,8 @@ function validationError(fieldErrors) {
   });
 }
 
-function hasOwn(payload, key) {
-  return Object.hasOwn(payload, key);
-}
-
 function normalizeText(value) {
-  return String(value ?? "").trim();
+  return toTrimmedString(value);
 }
 
 function duplicateEntryTargetsPublicChatId(error) {
@@ -36,53 +31,15 @@ function duplicateEntryTargetsPublicChatId(error) {
   return message.includes("public_chat_id") || message.includes("uq_chat_user_settings_public_chat_id");
 }
 
-function isValidLocale(value) {
-  try {
-    new Intl.Locale(value);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function isValidTimeZone(value) {
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: value });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function isValidCurrencyCode(value) {
-  const normalized = normalizeText(value).toUpperCase();
-  if (!normalized) {
-    return false;
-  }
-
-  if (typeof Intl.supportedValuesOf === "function") {
-    return Intl.supportedValuesOf("currency").includes(normalized);
-  }
-
-  try {
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: normalized
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function parseProfileInput(payload = {}) {
+  const source = payload && typeof payload === "object" ? payload : {};
   const fieldErrors = {};
-  const displayName = normalizeText(payload.displayName);
+  let displayName = "";
 
-  if (!displayName) {
-    fieldErrors.displayName = "Display name is required.";
-  } else if (displayName.length > 120) {
-    fieldErrors.displayName = "Display name must be at most 120 characters.";
+  try {
+    displayName = SETTINGS_FIELD_SPECS.profile.displayName.normalize(source.displayName);
+  } catch (error) {
+    fieldErrors.displayName = String(error?.message || "Display name is invalid.");
   }
 
   return {
@@ -92,183 +49,36 @@ function parseProfileInput(payload = {}) {
 }
 
 function parsePreferencesInput(payload = {}) {
-  const fieldErrors = {};
-  const patch = {};
-
-  if (hasOwn(payload, "theme")) {
-    const theme = normalizeText(payload.theme).toLowerCase();
-    if (!SETTINGS_THEME_OPTIONS.includes(theme)) {
-      fieldErrors.theme = "Theme must be one of: system, light, dark.";
-    } else {
-      patch.theme = theme;
-    }
-  }
-
-  if (hasOwn(payload, "locale")) {
-    const locale = normalizeText(payload.locale);
-    if (!locale) {
-      fieldErrors.locale = "Locale is required.";
-    } else if (!isValidLocale(locale)) {
-      fieldErrors.locale = "Locale must be a valid BCP 47 locale tag.";
-    } else {
-      patch.locale = locale;
-    }
-  }
-
-  if (hasOwn(payload, "timeZone")) {
-    const timeZone = normalizeText(payload.timeZone);
-    if (!timeZone) {
-      fieldErrors.timeZone = "Time zone is required.";
-    } else if (!isValidTimeZone(timeZone)) {
-      fieldErrors.timeZone = "Time zone must be a valid IANA time zone identifier.";
-    } else {
-      patch.timeZone = timeZone;
-    }
-  }
-
-  if (hasOwn(payload, "dateFormat")) {
-    const dateFormat = normalizeText(payload.dateFormat).toLowerCase();
-    if (!SETTINGS_DATE_FORMAT_OPTIONS.includes(dateFormat)) {
-      fieldErrors.dateFormat = "Date format must be one of: system, mdy, dmy, ymd.";
-    } else {
-      patch.dateFormat = dateFormat;
-    }
-  }
-
-  if (hasOwn(payload, "numberFormat")) {
-    const numberFormat = normalizeText(payload.numberFormat).toLowerCase();
-    if (!SETTINGS_NUMBER_FORMAT_OPTIONS.includes(numberFormat)) {
-      fieldErrors.numberFormat = "Number format must be one of: system, comma-dot, dot-comma, space-comma.";
-    } else {
-      patch.numberFormat = numberFormat;
-    }
-  }
-
-  if (hasOwn(payload, "currencyCode")) {
-    const currencyCode = normalizeText(payload.currencyCode).toUpperCase();
-    if (!CURRENCY_CODE_REGEX.test(currencyCode)) {
-      fieldErrors.currencyCode = "Currency code must be a 3-letter ISO 4217 code.";
-    } else if (!isValidCurrencyCode(currencyCode)) {
-      fieldErrors.currencyCode = "Currency code is not supported.";
-    } else {
-      patch.currencyCode = currencyCode;
-    }
-  }
-
-  if (hasOwn(payload, "avatarSize")) {
-    const value = Number(payload.avatarSize);
-    if (!Number.isInteger(value) || value < AVATAR_MIN_SIZE || value > AVATAR_MAX_SIZE) {
-      fieldErrors.avatarSize = `Avatar size must be an integer from ${AVATAR_MIN_SIZE} to ${AVATAR_MAX_SIZE}.`;
-    } else {
-      patch.avatarSize = value;
-    }
-  }
-
-  if (!Object.keys(patch).length && !Object.keys(fieldErrors).length) {
-    fieldErrors.preferences = "At least one preference field is required.";
-  }
-
-  return {
-    patch,
-    fieldErrors
-  };
+  return buildPatch({
+    input: payload,
+    fieldSpecs: SETTINGS_FIELD_SPECS.preferences,
+    requireAtLeastOne: true,
+    emptyField: "preferences",
+    emptyMessage: "At least one preference field is required.",
+    throwOnError: false
+  });
 }
 
 function parseNotificationsInput(payload = {}) {
-  const fieldErrors = {};
-  const patch = {};
-
-  if (hasOwn(payload, "productUpdates")) {
-    if (typeof payload.productUpdates !== "boolean") {
-      fieldErrors.productUpdates = "Product updates setting must be boolean.";
-    } else {
-      patch.productUpdates = payload.productUpdates;
-    }
-  }
-
-  if (hasOwn(payload, "accountActivity")) {
-    if (typeof payload.accountActivity !== "boolean") {
-      fieldErrors.accountActivity = "Account activity setting must be boolean.";
-    } else {
-      patch.accountActivity = payload.accountActivity;
-    }
-  }
-
-  if (hasOwn(payload, "securityAlerts")) {
-    if (payload.securityAlerts !== true) {
-      fieldErrors.securityAlerts = "Security alerts must stay enabled.";
-    } else {
-      patch.securityAlerts = true;
-    }
-  }
-
-  if (!Object.keys(patch).length && !Object.keys(fieldErrors).length) {
-    fieldErrors.notifications = "At least one notification setting is required.";
-  }
-
-  return {
-    patch,
-    fieldErrors
-  };
+  return buildPatch({
+    input: payload,
+    fieldSpecs: SETTINGS_FIELD_SPECS.notifications,
+    requireAtLeastOne: true,
+    emptyField: "notifications",
+    emptyMessage: "At least one notification setting is required.",
+    throwOnError: false
+  });
 }
 
 function parseChatInput(payload = {}) {
-  const fieldErrors = {};
-  const patch = {};
-
-  if (hasOwn(payload, "publicChatId")) {
-    if (payload.publicChatId == null) {
-      patch.publicChatId = null;
-    } else {
-      const publicChatId = normalizeText(payload.publicChatId);
-      if (publicChatId.length > 64) {
-        fieldErrors.publicChatId = "Public chat id must be at most 64 characters.";
-      } else {
-        patch.publicChatId = publicChatId || null;
-      }
-    }
-  }
-
-  if (hasOwn(payload, "allowWorkspaceDms")) {
-    if (typeof payload.allowWorkspaceDms !== "boolean") {
-      fieldErrors.allowWorkspaceDms = "Workspace direct messages setting must be boolean.";
-    } else {
-      patch.allowWorkspaceDms = payload.allowWorkspaceDms;
-    }
-  }
-
-  if (hasOwn(payload, "allowGlobalDms")) {
-    if (typeof payload.allowGlobalDms !== "boolean") {
-      fieldErrors.allowGlobalDms = "Global direct messages setting must be boolean.";
-    } else {
-      patch.allowGlobalDms = payload.allowGlobalDms;
-    }
-  }
-
-  if (hasOwn(payload, "requireSharedWorkspaceForGlobalDm")) {
-    if (typeof payload.requireSharedWorkspaceForGlobalDm !== "boolean") {
-      fieldErrors.requireSharedWorkspaceForGlobalDm = "Shared workspace requirement setting must be boolean.";
-    } else {
-      patch.requireSharedWorkspaceForGlobalDm = payload.requireSharedWorkspaceForGlobalDm;
-    }
-  }
-
-  if (hasOwn(payload, "discoverableByPublicChatId")) {
-    if (typeof payload.discoverableByPublicChatId !== "boolean") {
-      fieldErrors.discoverableByPublicChatId = "Discoverability setting must be boolean.";
-    } else {
-      patch.discoverableByPublicChatId = payload.discoverableByPublicChatId;
-    }
-  }
-
-  if (!Object.keys(patch).length && !Object.keys(fieldErrors).length) {
-    fieldErrors.chat = "At least one chat setting is required.";
-  }
-
-  return {
-    patch,
-    fieldErrors
-  };
+  return buildPatch({
+    input: payload,
+    fieldSpecs: SETTINGS_FIELD_SPECS.chat,
+    requireAtLeastOne: true,
+    emptyField: "chat",
+    emptyMessage: "At least one chat setting is required.",
+    throwOnError: false
+  });
 }
 
 function parseChangePasswordInput(payload = {}, options = {}) {

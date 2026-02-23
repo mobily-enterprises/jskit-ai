@@ -1,4 +1,4 @@
-import { AVATAR_DEFAULT_SIZE } from "../../../../../shared/avatar/index.js";
+import { SETTINGS_DEFAULTS } from "../../../../../shared/settings/model.js";
 
 export function createDefaultAvatar() {
   return {
@@ -6,7 +6,7 @@ export function createDefaultAvatar() {
     gravatarUrl: "",
     effectiveUrl: "",
     hasUploadedAvatar: false,
-    size: AVATAR_DEFAULT_SIZE,
+    size: SETTINGS_DEFAULTS.avatarSize,
     version: null
   };
 }

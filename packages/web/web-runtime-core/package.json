@@ -1,0 +1,23 @@
+{
+  "name": "@jskit-ai/web-runtime-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./pagination": "./src/pagination.js",
+    "./useListPagination": "./src/useListPagination.js",
+    "./useListQueryState": "./src/useListQueryState.js",
+    "./useUrlListPagination": "./src/useUrlListPagination.js",
+    "./useQueryErrorMessage": "./src/useQueryErrorMessage.js",
+    "./transportRuntime": "./src/transportRuntime.js"
+  },
+  "dependencies": {
+    "@jskit-ai/http-client-runtime": "0.1.0",
+    "@tanstack/vue-router": "^1.159.10",
+    "vue": "^3.5.13"
+  }
+}

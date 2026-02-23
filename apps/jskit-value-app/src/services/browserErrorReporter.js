@@ -1,3 +1,4 @@
+import { createBrowserErrorPayloadTools } from "@jskit-ai/observability-core/browserPayload";
 import { resolveSurfaceFromPathname } from "../../shared/routing/surfacePaths.js";
 
 const REPORT_ENDPOINT = "/api/console/errors/browser";
@@ -7,89 +8,17 @@ let installed = false;
 let reportsInFlight = 0;
 let suppressReporting = false;
 
-function stringifyReason(value) {
-  if (value == null) {
-    return "";
-  }
+const browserPayloadTools = createBrowserErrorPayloadTools({
+  resolveSurfaceFromPathname
+});
 
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (value instanceof Error) {
-    return value.message || value.name || "Unhandled rejection";
-  }
-
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
-}
-
-function toStack(value) {
-  if (value instanceof Error) {
-    return String(value.stack || "");
-  }
-
-  if (value && typeof value === "object" && typeof value.stack === "string") {
-    return String(value.stack);
-  }
-
-  return "";
-}
-
-function buildBasePayload(source) {
-  const path = typeof window !== "undefined" ? String(window.location?.pathname || "/") : "/";
-  const href = typeof window !== "undefined" ? String(window.location?.href || "") : "";
-  const userAgent = typeof navigator !== "undefined" ? String(navigator.userAgent || "") : "";
-
-  return {
-    occurredAt: new Date().toISOString(),
-    source,
-    url: href,
-    path,
-    surface: resolveSurfaceFromPathname(path),
-    userAgent
-  };
-}
-
-function createPayloadFromErrorEvent(event) {
-  const error = event?.error;
-
-  return {
-    ...buildBasePayload("window.error"),
-    errorName: String(error?.name || ""),
-    message: String(event?.message || error?.message || "Unknown browser error"),
-    stack: toStack(error),
-    lineNumber: Number.isInteger(event?.lineno) && event.lineno > 0 ? event.lineno : null,
-    columnNumber: Number.isInteger(event?.colno) && event.colno > 0 ? event.colno : null,
-    metadata: {
-      filename: String(event?.filename || "")
-    }
-  };
-}
-
-function createPayloadFromRejectionEvent(event) {
-  const reason = event?.reason;
-
-  return {
-    ...buildBasePayload("unhandledrejection"),
-    errorName: String(reason?.name || ""),
-    message: stringifyReason(reason) || "Unhandled promise rejection",
-    stack: toStack(reason),
-    metadata: {
-      reasonType:
-        reason == null
-          ? "nullish"
-          : Array.isArray(reason)
-            ? "array"
-            : typeof reason === "object"
-              ? "object"
-              : typeof reason
-    }
-  };
-}
+const {
+  stringifyReason,
+  toStack,
+  buildBasePayload,
+  createPayloadFromErrorEvent,
+  createPayloadFromRejectionEvent
+} = browserPayloadTools;
 
 async function sendBrowserErrorReport(payload) {
   if (typeof fetch !== "function") {

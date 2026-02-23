@@ -8,3 +8,16 @@ export const AVATAR_MIN_SIZE = 32;
 export const AVATAR_MAX_SIZE = 128;
 export const AVATAR_SIZE_OPTIONS = [32, 40, 48, 56, 64, 72, 80, 96, 112, 128];
 export const AVATAR_DEFAULT_SIZE = 64;
+
+export const AVATAR_POLICY = {
+  allowedMimeTypes: [...AVATAR_ALLOWED_MIME_TYPES],
+  maxUploadBytes: AVATAR_MAX_UPLOAD_BYTES,
+  uploadDimensionOptions: [...AVATAR_UPLOAD_DIMENSION_OPTIONS],
+  defaultUploadDimension: AVATAR_DEFAULT_UPLOAD_DIMENSION,
+  size: {
+    min: AVATAR_MIN_SIZE,
+    max: AVATAR_MAX_SIZE,
+    options: [...AVATAR_SIZE_OPTIONS],
+    default: AVATAR_DEFAULT_SIZE
+  }
+};

@@ -1,7 +1,7 @@
 import { reactive, ref, shallowRef, watch } from "vue";
 import { useMutation } from "@tanstack/vue-query";
 import { api } from "../../../services/api/index.js";
-import { AVATAR_DEFAULT_SIZE } from "../../../../shared/avatar/index.js";
+import { SETTINGS_DEFAULTS } from "../../../../shared/settings/model.js";
 import { SETTINGS_QUERY_KEY } from "../lib/useSettingsPageConfig.js";
 import { useSettingsContext } from "../lib/useSettingsContext.js";
 import { createDefaultAvatar } from "./lib/settingsProfileDefaults.js";
@@ -75,7 +75,7 @@ export function useSettingsProfileForm(options) {
   watch(
     () => preferencesForm.avatarSize,
     (nextSize) => {
-      profileAvatar.size = Number(nextSize || AVATAR_DEFAULT_SIZE);
+      profileAvatar.size = Number(nextSize || SETTINGS_DEFAULTS.avatarSize);
     },
     { immediate: true }
   );
