@@ -372,6 +372,14 @@ export function createEntitlementsService(deps = {}, options = {}) {
       definitionCode,
       trx: input.trx || null
     });
+    if (!definition && definitionCode) {
+      throw new EntitlementNotConfiguredError("Entitlement definition is not configured.", {
+        details: {
+          entitlementDefinitionId: definitionId || null,
+          limitationCode: definitionCode || null
+        }
+      });
+    }
 
     const delegatedPayload = {
       ...input,
