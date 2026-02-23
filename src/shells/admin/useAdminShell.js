@@ -72,6 +72,15 @@ export function useAdminShell() {
     () => workspaceStore.can("workspace.settings.view") || workspaceStore.can("workspace.settings.update")
   );
   const canViewAiTranscripts = computed(() => workspaceStore.can("workspace.ai.transcripts.read"));
+  const canViewBilling = computed(() => workspaceStore.can("workspace.billing.manage"));
+  const canViewMembersAdmin = computed(
+    () =>
+      workspaceStore.can("workspace.members.view") ||
+      workspaceStore.can("workspace.members.invite") ||
+      workspaceStore.can("workspace.members.manage") ||
+      workspaceStore.can("workspace.invites.revoke")
+  );
+  const canViewMonitoring = computed(() => canViewAiTranscripts.value || canViewBilling.value);
   const assistantFeatureEnabled = computed(() => Boolean(workspaceStore.app?.features?.assistantEnabled));
   const assistantRequiredPermission = computed(() =>
     String(workspaceStore.app?.features?.assistantRequiredPermission || "").trim()
@@ -82,7 +91,13 @@ export function useAdminShell() {
       (!assistantRequiredPermission.value || workspaceStore.can(assistantRequiredPermission.value))
   );
   const canUseChat = computed(() => workspaceStore.can("chat.read"));
+  const canOpenWorkspaceControlMenu = computed(
+    () => canViewWorkspaceSettings.value || canViewMonitoring.value || canViewMembersAdmin.value
+  );
   const workspaceSettingsPath = computed(() => workspacePath("/settings"));
+  const workspaceMonitoringPath = computed(() => workspacePath("/admin/monitoring"));
+  const workspaceBillingPath = computed(() => workspacePath("/admin/billing"));
+  const workspaceMembersPath = computed(() => workspacePath("/admin/members"));
 
   const navigationItems = computed(() => {
     const items = [{ title: "Projects", to: workspacePath("/projects"), icon: "$navChoice2" }];
@@ -93,10 +108,6 @@ export function useAdminShell() {
 
     if (canUseAssistant.value) {
       items.push({ title: "Assistant", to: workspacePath("/assistant"), icon: "$navChoice2" });
-    }
-
-    if (canViewAiTranscripts.value) {
-      items.push({ title: "AI transcripts", to: workspacePath("/transcripts"), icon: "$navChoice2" });
     }
     return items;
   });
@@ -122,6 +133,18 @@ export function useAdminShell() {
     }
     if (currentPath.value.endsWith("/choice-2")) {
       return "Choice 2";
+    }
+    if (currentPath.value.endsWith("/admin")) {
+      return "Monitoring";
+    }
+    if (currentPath.value.includes("/admin/monitoring")) {
+      return "Monitoring";
+    }
+    if (currentPath.value.endsWith("/admin/billing")) {
+      return "Billing";
+    }
+    if (currentPath.value.endsWith("/admin/members")) {
+      return "Members";
     }
     if (currentPath.value.endsWith("/settings")) {
       return "Settings";
@@ -212,6 +235,36 @@ export function useAdminShell() {
 
     await navigate({
       to: workspaceSettingsPath.value
+    });
+  }
+
+  async function goToWorkspaceMonitoring() {
+    if (!canViewMonitoring.value) {
+      return;
+    }
+
+    await navigate({
+      to: workspaceMonitoringPath.value
+    });
+  }
+
+  async function goToWorkspaceBilling() {
+    if (!canViewBilling.value) {
+      return;
+    }
+
+    await navigate({
+      to: workspaceBillingPath.value
+    });
+  }
+
+  async function goToWorkspaceMembers() {
+    if (!canViewMembersAdmin.value) {
+      return;
+    }
+
+    await navigate({
+      to: workspaceMembersPath.value
     });
   }
 
@@ -327,12 +380,19 @@ export function useAdminShell() {
       userAvatarUrl,
       userDisplayName,
       userInitials,
-      canViewWorkspaceSettings
+      canViewWorkspaceSettings,
+      canViewMonitoring,
+      canViewBilling,
+      canViewMembersAdmin,
+      canOpenWorkspaceControlMenu
     },
     navigation: {
       navigationItems,
       workspaceAvatarStyle,
-      workspaceSettingsPath
+      workspaceSettingsPath,
+      workspaceMonitoringPath,
+      workspaceBillingPath,
+      workspaceMembersPath
     },
     dialogs: {
       inviteDialogVisible,
@@ -349,6 +409,9 @@ export function useAdminShell() {
       openInviteDialog,
       goToAccountSettings,
       goToWorkspaceSettings,
+      goToWorkspaceMonitoring,
+      goToWorkspaceBilling,
+      goToWorkspaceMembers,
       goToAppSurface,
       handleMenuNotice,
       signOut,

@@ -191,11 +191,17 @@ describe("useAdminShell", () => {
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
       { title: "Projects", to: "/admin/w/acme/projects", icon: "$navChoice2" },
       { title: "Workspace chat", to: "/admin/w/acme/chat", icon: "$workspaceChat" },
-      { title: "Assistant", to: "/admin/w/acme/assistant", icon: "$navChoice2" },
-      { title: "AI transcripts", to: "/admin/w/acme/transcripts", icon: "$navChoice2" }
+      { title: "Assistant", to: "/admin/w/acme/assistant", icon: "$navChoice2" }
     ]);
     expect(wrapper.vm.shell.user.canViewWorkspaceSettings.value).toBe(true);
+    expect(wrapper.vm.shell.user.canOpenWorkspaceControlMenu.value).toBe(true);
+    expect(wrapper.vm.shell.user.canViewMonitoring.value).toBe(true);
+    expect(wrapper.vm.shell.user.canViewBilling.value).toBe(true);
+    expect(wrapper.vm.shell.user.canViewMembersAdmin.value).toBe(true);
     expect(wrapper.vm.shell.navigation.workspaceSettingsPath.value).toBe("/admin/w/acme/settings");
+    expect(wrapper.vm.shell.navigation.workspaceMonitoringPath.value).toBe("/admin/w/acme/admin/monitoring");
+    expect(wrapper.vm.shell.navigation.workspaceBillingPath.value).toBe("/admin/w/acme/admin/billing");
+    expect(wrapper.vm.shell.navigation.workspaceMembersPath.value).toBe("/admin/w/acme/admin/members");
   });
 
   it("maps assistant destination title", async () => {
@@ -214,6 +220,24 @@ describe("useAdminShell", () => {
     await nextTick();
 
     expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Workspace chat");
+  });
+
+  it("maps admin destination titles", async () => {
+    for (const [path, expectedTitle] of [
+      ["/admin/w/acme/admin", "Monitoring"],
+      ["/admin/w/acme/admin/billing", "Billing"],
+      ["/admin/w/acme/admin/members", "Members"],
+      ["/admin/w/acme/admin/monitoring", "Monitoring"],
+      ["/admin/w/acme/admin/monitoring/transcripts", "Monitoring"],
+      ["/admin/w/acme/admin/monitoring/audit-activity", "Monitoring"]
+    ]) {
+      mocks.routerPathname = path;
+      window.history.replaceState({}, "", path);
+      const wrapper = mountHarness();
+      await nextTick();
+      expect(wrapper.vm.shell.layout.destinationTitle.value).toBe(expectedTitle);
+      wrapper.unmount();
+    }
   });
 
   it("handles non-shell paths, title fallback, and app-surface target fallback", async () => {
@@ -326,6 +350,21 @@ describe("useAdminShell", () => {
     expect(mocks.navigate).toHaveBeenCalledWith({
       to: "/admin/w/acme/settings"
     });
+
+    await wrapper.vm.shell.actions.goToWorkspaceMonitoring();
+    expect(mocks.navigate).toHaveBeenCalledWith({
+      to: "/admin/w/acme/admin/monitoring"
+    });
+
+    await wrapper.vm.shell.actions.goToWorkspaceBilling();
+    expect(mocks.navigate).toHaveBeenCalledWith({
+      to: "/admin/w/acme/admin/billing"
+    });
+
+    await wrapper.vm.shell.actions.goToWorkspaceMembers();
+    expect(mocks.navigate).toHaveBeenCalledWith({
+      to: "/admin/w/acme/admin/members"
+    });
   });
 
   it("selects workspace from shell and handles early-return and error branches", async () => {
@@ -417,17 +456,50 @@ describe("useAdminShell", () => {
     expect(mocks.consoleStore.clearConsoleState).toHaveBeenCalledTimes(2);
   });
 
-  it("hides workspace settings shortcut when user lacks permission", async () => {
+  it("hides settings access when user lacks workspace-settings permission", async () => {
     mocks.workspaceStore.can.mockImplementation(
       (permission) => permission !== "workspace.settings.view" && permission !== "workspace.settings.update"
     );
     const wrapper = mountHarness();
     await nextTick();
     expect(wrapper.vm.shell.user.canViewWorkspaceSettings.value).toBe(false);
+    expect(wrapper.vm.shell.user.canOpenWorkspaceControlMenu.value).toBe(true);
 
     await wrapper.vm.shell.actions.goToWorkspaceSettings();
     expect(mocks.navigate).not.toHaveBeenCalledWith({
       to: "/admin/w/acme/settings"
+    });
+  });
+
+  it("hides workspace control menu when user has no settings/billing/monitoring/members permissions", async () => {
+    mocks.workspaceStore.can.mockImplementation(
+      (permission) =>
+        ![
+          "workspace.settings.view",
+          "workspace.settings.update",
+          "workspace.billing.manage",
+          "workspace.ai.transcripts.read",
+          "workspace.members.view",
+          "workspace.members.invite",
+          "workspace.members.manage",
+          "workspace.invites.revoke"
+        ].includes(permission)
+    );
+    const wrapper = mountHarness();
+    await nextTick();
+
+    expect(wrapper.vm.shell.user.canOpenWorkspaceControlMenu.value).toBe(false);
+    await wrapper.vm.shell.actions.goToWorkspaceMonitoring();
+    expect(mocks.navigate).not.toHaveBeenCalledWith({
+      to: "/admin/w/acme/admin/monitoring"
+    });
+    await wrapper.vm.shell.actions.goToWorkspaceBilling();
+    expect(mocks.navigate).not.toHaveBeenCalledWith({
+      to: "/admin/w/acme/admin/billing"
+    });
+    await wrapper.vm.shell.actions.goToWorkspaceMembers();
+    expect(mocks.navigate).not.toHaveBeenCalledWith({
+      to: "/admin/w/acme/admin/members"
     });
   });
 

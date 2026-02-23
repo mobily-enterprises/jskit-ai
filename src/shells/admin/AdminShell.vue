@@ -69,15 +69,44 @@
         </v-toolbar-title>
         <v-spacer />
 
-        <v-btn
-          v-if="canViewWorkspaceSettings"
-          variant="text"
-          prepend-icon="$menuSettings"
-          class="workspace-settings-shortcut mr-2"
-          @click="goToWorkspaceSettings"
-        >
-          Workspace settings
-        </v-btn>
+        <v-menu v-if="canOpenWorkspaceControlMenu" location="bottom end" offset="8">
+          <template #activator="{ props }">
+            <v-btn
+              v-bind="props"
+              icon="$menuSettings"
+              variant="text"
+              class="workspace-control-menu-button mr-1"
+              aria-label="Open workspace controls"
+            />
+          </template>
+
+          <v-list density="comfortable" min-width="220">
+            <v-list-item
+              prepend-icon="$menuSettings"
+              title="Settings"
+              :disabled="!canViewWorkspaceSettings"
+              @click="goToWorkspaceSettings"
+            />
+            <v-list-item
+              prepend-icon="$menuMonitoring"
+              title="Monitoring"
+              :disabled="!canViewMonitoring"
+              @click="goToWorkspaceMonitoring"
+            />
+            <v-list-item
+              prepend-icon="$menuBilling"
+              title="Billing"
+              :disabled="!canViewBilling"
+              @click="goToWorkspaceBilling"
+            />
+            <v-list-item
+              prepend-icon="$consoleMembers"
+              title="Members"
+              :disabled="!canViewMembersAdmin"
+              @click="goToWorkspaceMembers"
+            />
+          </v-list>
+        </v-menu>
 
         <v-menu location="bottom end" offset="8">
           <template #activator="{ props }">
@@ -254,8 +283,8 @@ export default {
   text-transform: none;
 }
 
-.workspace-settings-shortcut {
-  text-transform: none;
+.workspace-control-menu-button {
+  color: rgb(var(--v-theme-on-surface));
 }
 
 .user-menu-name {
@@ -269,15 +298,6 @@ export default {
 }
 
 @media (max-width: 760px) {
-  .workspace-settings-shortcut {
-    min-width: 40px;
-    padding-inline: 8px;
-  }
-
-  .workspace-settings-shortcut :deep(.v-btn__content) {
-    font-size: 0;
-  }
-
   .user-menu-name {
     display: none;
   }

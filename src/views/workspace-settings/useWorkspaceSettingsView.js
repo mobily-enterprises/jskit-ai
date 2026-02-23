@@ -63,7 +63,8 @@ function parseDenyEmailsInput(value) {
   );
 }
 
-export function useWorkspaceSettingsView() {
+export function useWorkspaceSettingsView(options = {}) {
+  const includeMembersSection = options?.includeMembers !== false;
   const workspaceStore = useWorkspaceStore();
   const queryClient = useQueryClient();
   const { handleUnauthorizedError } = useAuthGuard();
@@ -126,7 +127,6 @@ export function useWorkspaceSettingsView() {
   const canInviteMembers = computed(() => workspaceStore.can("workspace.members.invite"));
   const canManageMembers = computed(() => workspaceStore.can("workspace.members.manage"));
   const canRevokeInvites = computed(() => workspaceStore.can("workspace.invites.revoke"));
-  const canViewBilling = computed(() => workspaceStore.can("workspace.billing.manage"));
 
   const inviteRoleOptions = computed(() => {
     const assignable = Array.isArray(roleCatalog.value.assignableRoleIds) ? roleCatalog.value.assignableRoleIds : [];
@@ -155,13 +155,13 @@ export function useWorkspaceSettingsView() {
   const membersQuery = useQuery({
     queryKey: workspaceMembersKey,
     queryFn: () => api.workspace.listMembers(),
-    enabled: canViewMembers
+    enabled: computed(() => includeMembersSection && canViewMembers.value)
   });
 
   const invitesQuery = useQuery({
     queryKey: workspaceInvitesKey,
     queryFn: () => api.workspace.listInvites(),
-    enabled: canViewMembers
+    enabled: computed(() => includeMembersSection && canViewMembers.value)
   });
 
   const updateWorkspaceSettingsMutation = useMutation({
@@ -446,7 +446,7 @@ export function useWorkspaceSettingsView() {
       applyWorkspaceSettingsData(workspaceSettingsQuery.data.value);
     }
 
-    if (canViewMembers.value) {
+    if (includeMembersSection && canViewMembers.value) {
       try {
         await Promise.all([membersQuery.refetch(), invitesQuery.refetch()]);
       } catch (error) {
@@ -488,8 +488,7 @@ export function useWorkspaceSettingsView() {
       canViewMembers,
       canInviteMembers,
       canManageMembers,
-      canRevokeInvites,
-      canViewBilling
+      canRevokeInvites
     }),
     status: reactive({
       isSavingWorkspaceSettings,
