@@ -1,4 +1,5 @@
 import { db } from "../../../db/knex.js";
+import { createEntitlementsKnexRepository } from "@jskit-ai/entitlements-knex-mysql";
 import { toIsoString, toMysqlDateTimeUtc } from "../../lib/primitives/dateUtils.js";
 import { isMysqlDuplicateEntryError } from "../../lib/primitives/mysqlErrors.js";
 import {
@@ -78,9 +79,6 @@ function toNullableString(value) {
 }
 
 const BILLABLE_ENTITY_TYPES = new Set(["workspace", "user", "organization", "external"]);
-const LIFETIME_WINDOW_START = new Date("1970-01-01T00:00:00.000Z");
-const LIFETIME_WINDOW_END = new Date("9999-12-31T23:59:59.999Z");
-
 function normalizeBillableEntityType(value) {
   const normalized = String(value || "")
     .trim()
@@ -193,30 +191,6 @@ function mapEntitlementRowNullable(row) {
   };
 }
 
-function mapEntitlementDefinitionRowNullable(row) {
-  if (!row) {
-    return null;
-  }
-
-  return {
-    id: Number(row.id),
-    code: String(row.code || ""),
-    name: String(row.name || ""),
-    description: row.description == null ? null : String(row.description),
-    entitlementType: String(row.entitlement_type || ""),
-    unit: String(row.unit || ""),
-    windowInterval: row.window_interval == null ? null : String(row.window_interval),
-    windowAnchor: row.window_anchor == null ? null : String(row.window_anchor),
-    aggregationMode: String(row.aggregation_mode || "sum"),
-    enforcementMode: String(row.enforcement_mode || "hard_deny"),
-    scopeType: String(row.scope_type || "billable_entity"),
-    isActive: Boolean(row.is_active),
-    metadataJson: parseJsonValue(row.metadata_json, {}),
-    createdAt: toIsoString(row.created_at),
-    updatedAt: toIsoString(row.updated_at)
-  };
-}
-
 function mapPlanEntitlementTemplateRowNullable(row) {
   if (!row) {
     return null;
@@ -249,81 +223,6 @@ function mapProductEntitlementTemplateRowNullable(row) {
     amount: Number(row.amount || 0),
     grantKind: String(row.grant_kind || ""),
     durationDays: row.duration_days == null ? null : Number(row.duration_days),
-    metadataJson: parseJsonValue(row.metadata_json, {}),
-    createdAt: toIsoString(row.created_at),
-    updatedAt: toIsoString(row.updated_at)
-  };
-}
-
-function mapEntitlementGrantRowNullable(row) {
-  if (!row) {
-    return null;
-  }
-
-  return {
-    id: Number(row.id),
-    subjectType: String(row.subject_type || "billable_entity"),
-    subjectId: Number(row.subject_id),
-    entitlementDefinitionId: Number(row.entitlement_definition_id),
-    amount: Number(row.amount || 0),
-    kind: String(row.kind || ""),
-    effectiveAt: toIsoString(row.effective_at),
-    expiresAt: toNullableIsoString(row.expires_at),
-    sourceType: String(row.source_type || ""),
-    sourceId: row.source_id == null ? null : Number(row.source_id),
-    operationKey: toNullableString(row.operation_key),
-    provider: toNullableString(row.provider),
-    providerEventId: toNullableString(row.provider_event_id),
-    dedupeKey: String(row.dedupe_key || ""),
-    metadataJson: parseJsonValue(row.metadata_json, {}),
-    createdAt: toIsoString(row.created_at)
-  };
-}
-
-function mapEntitlementConsumptionRowNullable(row) {
-  if (!row) {
-    return null;
-  }
-
-  return {
-    id: Number(row.id),
-    subjectType: String(row.subject_type || "billable_entity"),
-    subjectId: Number(row.subject_id),
-    entitlementDefinitionId: Number(row.entitlement_definition_id),
-    amount: Number(row.amount || 0),
-    occurredAt: toIsoString(row.occurred_at),
-    reasonCode: String(row.reason_code || ""),
-    operationKey: toNullableString(row.operation_key),
-    usageEventKey: toNullableString(row.usage_event_key),
-    providerEventId: toNullableString(row.provider_event_id),
-    requestId: toNullableString(row.request_id),
-    dedupeKey: String(row.dedupe_key || ""),
-    metadataJson: parseJsonValue(row.metadata_json, {}),
-    createdAt: toIsoString(row.created_at)
-  };
-}
-
-function mapEntitlementBalanceRowNullable(row) {
-  if (!row) {
-    return null;
-  }
-
-  return {
-    id: Number(row.id),
-    subjectType: String(row.subject_type || "billable_entity"),
-    subjectId: Number(row.subject_id),
-    entitlementDefinitionId: Number(row.entitlement_definition_id),
-    windowStartAt: toIsoString(row.window_start_at),
-    windowEndAt: toIsoString(row.window_end_at),
-    grantedAmount: Number(row.granted_amount || 0),
-    consumedAmount: Number(row.consumed_amount || 0),
-    effectiveAmount: Number(row.effective_amount || 0),
-    hardLimitAmount: row.hard_limit_amount == null ? null : Number(row.hard_limit_amount),
-    overLimit: Boolean(row.over_limit),
-    lockState: row.lock_state == null ? null : String(row.lock_state),
-    nextChangeAt: toNullableIsoString(row.next_change_at),
-    lastRecomputedAt: toIsoString(row.last_recomputed_at),
-    version: Number(row.version || 0),
     metadataJson: parseJsonValue(row.metadata_json, {}),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at)
@@ -793,76 +692,6 @@ function toNullableDateTime(dateLike) {
   return toMysqlDateTimeUtc(normalized);
 }
 
-function startOfUtcDay(referenceDate) {
-  return new Date(
-    Date.UTC(referenceDate.getUTCFullYear(), referenceDate.getUTCMonth(), referenceDate.getUTCDate(), 0, 0, 0, 0)
-  );
-}
-
-function startOfUtcWeek(referenceDate) {
-  const start = startOfUtcDay(referenceDate);
-  const day = start.getUTCDay();
-  const mondayOffset = day === 0 ? -6 : 1 - day;
-  start.setUTCDate(start.getUTCDate() + mondayOffset);
-  return start;
-}
-
-function startOfUtcMonth(referenceDate) {
-  return new Date(Date.UTC(referenceDate.getUTCFullYear(), referenceDate.getUTCMonth(), 1, 0, 0, 0, 0));
-}
-
-function startOfUtcYear(referenceDate) {
-  return new Date(Date.UTC(referenceDate.getUTCFullYear(), 0, 1, 0, 0, 0, 0));
-}
-
-function addUtcDays(referenceDate, days) {
-  return new Date(referenceDate.getTime() + Number(days) * 24 * 60 * 60 * 1000);
-}
-
-function resolveCalendarWindow(interval, now = new Date()) {
-  const referenceDate = normalizeDateInput(now) || new Date();
-  const normalizedInterval = String(interval || "")
-    .trim()
-    .toLowerCase();
-
-  if (normalizedInterval === "day") {
-    const windowStartAt = startOfUtcDay(referenceDate);
-    return {
-      windowStartAt,
-      windowEndAt: addUtcDays(windowStartAt, 1)
-    };
-  }
-
-  if (normalizedInterval === "week") {
-    const windowStartAt = startOfUtcWeek(referenceDate);
-    return {
-      windowStartAt,
-      windowEndAt: addUtcDays(windowStartAt, 7)
-    };
-  }
-
-  if (normalizedInterval === "month") {
-    const windowStartAt = startOfUtcMonth(referenceDate);
-    return {
-      windowStartAt,
-      windowEndAt: new Date(Date.UTC(referenceDate.getUTCFullYear(), referenceDate.getUTCMonth() + 1, 1, 0, 0, 0, 0))
-    };
-  }
-
-  if (normalizedInterval === "year") {
-    const windowStartAt = startOfUtcYear(referenceDate);
-    return {
-      windowStartAt,
-      windowEndAt: new Date(Date.UTC(referenceDate.getUTCFullYear() + 1, 0, 1, 0, 0, 0, 0))
-    };
-  }
-
-  return {
-    windowStartAt: new Date(LIFETIME_WINDOW_START),
-    windowEndAt: new Date(LIFETIME_WINDOW_END)
-  };
-}
-
 function normalizeMetadataJsonInput(value) {
   if (value == null) {
     return null;
@@ -871,13 +700,6 @@ function normalizeMetadataJsonInput(value) {
     return value;
   }
   return JSON.stringify(value);
-}
-
-function resolveSubjectType(value) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
-  return normalized || "billable_entity";
 }
 
 async function resolveWorkspaceIdForBillableEntity(client, billableEntityId) {
@@ -1075,6 +897,76 @@ function createBillingRepository(dbClient) {
     }
   }
 
+  async function resolveCapacityConsumedAmountFromStorage(
+    { subjectId, definitionCode, now = new Date() },
+    options = {}
+  ) {
+    void now;
+    const normalizedSubjectId = toPositiveInteger(subjectId);
+    if (!normalizedSubjectId) {
+      return 0;
+    }
+    if (String(definitionCode || "").trim() !== "projects.max") {
+      return 0;
+    }
+
+    const client = resolveClient(options);
+    const billableEntityRow = await client("billable_entities")
+      .where({ id: normalizedSubjectId })
+      .select("workspace_id")
+      .first();
+    const workspaceId = toPositiveInteger(billableEntityRow?.workspace_id);
+    if (!workspaceId) {
+      return 0;
+    }
+
+    const row = await client("workspace_projects")
+      .where({ workspace_id: workspaceId })
+      .andWhereNot({ status: "archived" })
+      .count({ total: "*" })
+      .first();
+    return Math.max(0, Number(row?.total || 0));
+  }
+
+  const entitlementsRepository = createEntitlementsKnexRepository({
+    knex: dbClient,
+    dialectFeatures: {
+      skipLocked: true
+    },
+    resolveCapacityConsumedAmount: async (payload = {}, adapterOptions = {}) =>
+      resolveCapacityConsumedAmountFromStorage(
+        {
+          subjectId: payload.subjectId,
+          definitionCode: payload.definition?.code || payload.definitionCode,
+          now: payload.now
+        },
+        {
+          trx: adapterOptions?.trx || null
+        }
+      ),
+    resolveLockState({ definition, overLimit }) {
+      if (String(definition?.code || "").trim() === "projects.max" && overLimit) {
+        return "projects_locked_over_cap";
+      }
+      return "none";
+    }
+  });
+
+  const listEntitlementDefinitions = (...args) => entitlementsRepository.listEntitlementDefinitions(...args);
+  const findEntitlementDefinitionByCode = (...args) => entitlementsRepository.findEntitlementDefinitionByCode(...args);
+  const findEntitlementDefinitionById = (...args) => entitlementsRepository.findEntitlementDefinitionById(...args);
+  const insertEntitlementGrant = (...args) => entitlementsRepository.insertEntitlementGrant(...args);
+  const insertEntitlementConsumption = (...args) => entitlementsRepository.insertEntitlementConsumption(...args);
+  const findEntitlementBalance = (...args) => entitlementsRepository.findEntitlementBalance(...args);
+  const upsertEntitlementBalance = (...args) => entitlementsRepository.upsertEntitlementBalance(...args);
+  const listEntitlementBalancesForSubject = (...args) => entitlementsRepository.listEntitlementBalancesForSubject(...args);
+  const listNextGrantBoundariesForSubjectDefinition = (...args) =>
+    entitlementsRepository.listNextGrantBoundariesForSubjectDefinition(...args);
+  const sumEntitlementGrantAmount = (...args) => entitlementsRepository.sumEntitlementGrantAmount(...args);
+  const sumEntitlementConsumptionAmount = (...args) => entitlementsRepository.sumEntitlementConsumptionAmount(...args);
+  const recomputeEntitlementBalance = (...args) => entitlementsRepository.recomputeEntitlementBalance(...args);
+  const leaseDueEntitlementBalances = (...args) => entitlementsRepository.leaseDueEntitlementBalances(...args);
+
   async function listPlans(options = {}) {
     const client = resolveClient(options);
     const rows = await client("billing_plans").orderBy("is_active", "desc").orderBy("id", "asc");
@@ -1110,45 +1002,6 @@ function createBillingRepository(dbClient) {
 
     const row = await applyForUpdate(query, options);
     return mapPlanRowNullable(row);
-  }
-
-  async function listEntitlementDefinitions({ includeInactive = true, codes = null } = {}, options = {}) {
-    const client = resolveClient(options);
-    let query = client("billing_entitlement_definitions").orderBy("id", "asc");
-    if (!includeInactive) {
-      query = query.where({ is_active: 1 });
-    }
-    if (Array.isArray(codes) && codes.length > 0) {
-      const normalizedCodes = [...new Set(codes.map((entry) => String(entry || "").trim()).filter(Boolean))];
-      if (normalizedCodes.length > 0) {
-        query = query.whereIn("code", normalizedCodes);
-      }
-    }
-
-    const rows = await query;
-    return rows.map(mapEntitlementDefinitionRowNullable).filter(Boolean);
-  }
-
-  async function findEntitlementDefinitionByCode(code, options = {}) {
-    const normalizedCode = String(code || "").trim();
-    if (!normalizedCode) {
-      return null;
-    }
-    const client = resolveClient(options);
-    const query = client("billing_entitlement_definitions").where({ code: normalizedCode }).first();
-    const row = await applyForUpdate(query, options);
-    return mapEntitlementDefinitionRowNullable(row);
-  }
-
-  async function findEntitlementDefinitionById(id, options = {}) {
-    const normalizedId = toPositiveInteger(id);
-    if (!normalizedId) {
-      return null;
-    }
-    const client = resolveClient(options);
-    const query = client("billing_entitlement_definitions").where({ id: normalizedId }).first();
-    const row = await applyForUpdate(query, options);
-    return mapEntitlementDefinitionRowNullable(row);
   }
 
   async function listPlanEntitlementTemplates(planId, options = {}) {
@@ -2496,501 +2349,6 @@ function createBillingRepository(dbClient) {
     return rows.map(mapPaymentMethodSyncEventRowNullable).filter(Boolean);
   }
 
-  async function insertEntitlementGrant(payload = {}, options = {}) {
-    const now = new Date();
-    const client = resolveClient(options);
-    const dedupeKey = String(payload.dedupeKey || payload.dedupe_key || "").trim();
-    if (!dedupeKey) {
-      throw new Error("insertEntitlementGrant requires payload.dedupeKey.");
-    }
-
-    const subjectId = toPositiveInteger(payload.subjectId ?? payload.subject_id);
-    const entitlementDefinitionId = toPositiveInteger(
-      payload.entitlementDefinitionId ?? payload.entitlement_definition_id
-    );
-    if (!subjectId || !entitlementDefinitionId) {
-      throw new Error("insertEntitlementGrant requires subjectId and entitlementDefinitionId.");
-    }
-
-    const insertPayload = {
-      subject_type: resolveSubjectType(payload.subjectType ?? payload.subject_type),
-      subject_id: subjectId,
-      entitlement_definition_id: entitlementDefinitionId,
-      amount: Number(payload.amount || 0),
-      kind: String(payload.kind || "manual_adjustment")
-        .trim()
-        .toLowerCase(),
-      effective_at: toInsertDateTime(payload.effectiveAt ?? payload.effective_at, now),
-      expires_at: toNullableDateTime(payload.expiresAt ?? payload.expires_at),
-      source_type: String(payload.sourceType || payload.source_type || "manual_console")
-        .trim()
-        .toLowerCase(),
-      source_id:
-        payload.sourceId == null && payload.source_id == null ? null : Number(payload.sourceId ?? payload.source_id),
-      operation_key: toNullableString(payload.operationKey ?? payload.operation_key),
-      provider: toNullableString(payload.provider),
-      provider_event_id: toNullableString(payload.providerEventId ?? payload.provider_event_id),
-      dedupe_key: dedupeKey,
-      metadata_json: normalizeMetadataJsonInput(payload.metadataJson ?? payload.metadata_json),
-      created_at: toInsertDateTime(payload.createdAt ?? payload.created_at, now)
-    };
-
-    const existing = await client("billing_entitlement_grants").where({ dedupe_key: dedupeKey }).first();
-    if (existing) {
-      return {
-        inserted: false,
-        grant: mapEntitlementGrantRowNullable(existing)
-      };
-    }
-
-    try {
-      await client("billing_entitlement_grants").insert(insertPayload);
-    } catch (error) {
-      if (!isMysqlDuplicateEntryError(error)) {
-        throw error;
-      }
-      const duplicateRow = await client("billing_entitlement_grants").where({ dedupe_key: dedupeKey }).first();
-      return {
-        inserted: false,
-        grant: mapEntitlementGrantRowNullable(duplicateRow)
-      };
-    }
-    const row = await client("billing_entitlement_grants").where({ dedupe_key: dedupeKey }).first();
-    return {
-      inserted: true,
-      grant: mapEntitlementGrantRowNullable(row)
-    };
-  }
-
-  async function insertEntitlementConsumption(payload = {}, options = {}) {
-    const now = new Date();
-    const client = resolveClient(options);
-    const dedupeKey = String(payload.dedupeKey || payload.dedupe_key || "").trim();
-    if (!dedupeKey) {
-      throw new Error("insertEntitlementConsumption requires payload.dedupeKey.");
-    }
-
-    const subjectId = toPositiveInteger(payload.subjectId ?? payload.subject_id);
-    const entitlementDefinitionId = toPositiveInteger(
-      payload.entitlementDefinitionId ?? payload.entitlement_definition_id
-    );
-    const amount = toPositiveInteger(payload.amount);
-    if (!subjectId || !entitlementDefinitionId || !amount) {
-      throw new Error(
-        "insertEntitlementConsumption requires subjectId, entitlementDefinitionId, and a positive amount."
-      );
-    }
-
-    const insertPayload = {
-      subject_type: resolveSubjectType(payload.subjectType ?? payload.subject_type),
-      subject_id: subjectId,
-      entitlement_definition_id: entitlementDefinitionId,
-      amount,
-      occurred_at: toInsertDateTime(payload.occurredAt ?? payload.occurred_at, now),
-      reason_code: String(payload.reasonCode || payload.reason_code || "manual")
-        .trim()
-        .toLowerCase(),
-      operation_key: toNullableString(payload.operationKey ?? payload.operation_key),
-      usage_event_key: toNullableString(payload.usageEventKey ?? payload.usage_event_key),
-      provider_event_id: toNullableString(payload.providerEventId ?? payload.provider_event_id),
-      request_id: toNullableString(payload.requestId ?? payload.request_id),
-      dedupe_key: dedupeKey,
-      metadata_json: normalizeMetadataJsonInput(payload.metadataJson ?? payload.metadata_json),
-      created_at: toInsertDateTime(payload.createdAt ?? payload.created_at, now)
-    };
-
-    const existing = await client("billing_entitlement_consumptions").where({ dedupe_key: dedupeKey }).first();
-    if (existing) {
-      return {
-        inserted: false,
-        consumption: mapEntitlementConsumptionRowNullable(existing)
-      };
-    }
-
-    try {
-      await client("billing_entitlement_consumptions").insert(insertPayload);
-    } catch (error) {
-      if (!isMysqlDuplicateEntryError(error)) {
-        throw error;
-      }
-      const duplicateRow = await client("billing_entitlement_consumptions").where({ dedupe_key: dedupeKey }).first();
-      return {
-        inserted: false,
-        consumption: mapEntitlementConsumptionRowNullable(duplicateRow)
-      };
-    }
-    const row = await client("billing_entitlement_consumptions").where({ dedupe_key: dedupeKey }).first();
-    return {
-      inserted: true,
-      consumption: mapEntitlementConsumptionRowNullable(row)
-    };
-  }
-
-  async function findEntitlementBalance(
-    { subjectType = "billable_entity", subjectId, entitlementDefinitionId, windowStartAt = null, windowEndAt = null },
-    options = {}
-  ) {
-    const normalizedSubjectId = toPositiveInteger(subjectId);
-    const normalizedDefinitionId = toPositiveInteger(entitlementDefinitionId);
-    if (!normalizedSubjectId || !normalizedDefinitionId) {
-      return null;
-    }
-
-    const client = resolveClient(options);
-    let query = client("billing_entitlement_balances").where({
-      subject_type: resolveSubjectType(subjectType),
-      subject_id: normalizedSubjectId,
-      entitlement_definition_id: normalizedDefinitionId
-    });
-    if (windowStartAt) {
-      query = query.andWhere("window_start_at", toInsertDateTime(windowStartAt, new Date(windowStartAt)));
-    }
-    if (windowEndAt) {
-      query = query.andWhere("window_end_at", toInsertDateTime(windowEndAt, new Date(windowEndAt)));
-    }
-    query = query.orderBy("window_end_at", "desc").orderBy("id", "desc");
-
-    const row = await applyForUpdate(query.first(), options);
-    return mapEntitlementBalanceRowNullable(row);
-  }
-
-  async function upsertEntitlementBalance(payload = {}, options = {}) {
-    const now = new Date();
-    const client = resolveClient(options);
-    const normalizedSubjectId = toPositiveInteger(payload.subjectId ?? payload.subject_id);
-    const normalizedDefinitionId = toPositiveInteger(
-      payload.entitlementDefinitionId ?? payload.entitlement_definition_id
-    );
-    if (!normalizedSubjectId || !normalizedDefinitionId) {
-      throw new Error("upsertEntitlementBalance requires subjectId and entitlementDefinitionId.");
-    }
-
-    const windowStartAt =
-      toNullableDateTime(payload.windowStartAt ?? payload.window_start_at) ||
-      toInsertDateTime(LIFETIME_WINDOW_START, now);
-    const windowEndAt =
-      toNullableDateTime(payload.windowEndAt ?? payload.window_end_at) || toInsertDateTime(LIFETIME_WINDOW_END, now);
-    const insertPayload = {
-      subject_type: resolveSubjectType(payload.subjectType ?? payload.subject_type),
-      subject_id: normalizedSubjectId,
-      entitlement_definition_id: normalizedDefinitionId,
-      window_start_at: windowStartAt,
-      window_end_at: windowEndAt,
-      granted_amount: Number(payload.grantedAmount ?? payload.granted_amount ?? 0),
-      consumed_amount: Number(payload.consumedAmount ?? payload.consumed_amount ?? 0),
-      effective_amount: Number(payload.effectiveAmount ?? payload.effective_amount ?? 0),
-      hard_limit_amount:
-        payload.hardLimitAmount == null && payload.hard_limit_amount == null
-          ? null
-          : Number(payload.hardLimitAmount ?? payload.hard_limit_amount),
-      over_limit: (payload.overLimit ?? payload.over_limit) ? 1 : 0,
-      lock_state: toNullableString(payload.lockState ?? payload.lock_state),
-      next_change_at: toNullableDateTime(payload.nextChangeAt ?? payload.next_change_at),
-      last_recomputed_at: toInsertDateTime(payload.lastRecomputedAt ?? payload.last_recomputed_at, now),
-      version: Number(payload.version || 0),
-      metadata_json: normalizeMetadataJsonInput(payload.metadataJson ?? payload.metadata_json),
-      created_at: toInsertDateTime(payload.createdAt ?? payload.created_at, now),
-      updated_at: toInsertDateTime(payload.updatedAt ?? payload.updated_at, now)
-    };
-
-    await client("billing_entitlement_balances")
-      .insert(insertPayload)
-      .onConflict(["subject_type", "subject_id", "entitlement_definition_id", "window_start_at", "window_end_at"])
-      .merge({
-        granted_amount: insertPayload.granted_amount,
-        consumed_amount: insertPayload.consumed_amount,
-        effective_amount: insertPayload.effective_amount,
-        hard_limit_amount: insertPayload.hard_limit_amount,
-        over_limit: insertPayload.over_limit,
-        lock_state: insertPayload.lock_state,
-        next_change_at: insertPayload.next_change_at,
-        last_recomputed_at: insertPayload.last_recomputed_at,
-        metadata_json: insertPayload.metadata_json,
-        version: client.raw("version + 1"),
-        updated_at: insertPayload.updated_at
-      });
-
-    return findEntitlementBalance(
-      {
-        subjectType: insertPayload.subject_type,
-        subjectId: normalizedSubjectId,
-        entitlementDefinitionId: normalizedDefinitionId,
-        windowStartAt: insertPayload.window_start_at,
-        windowEndAt: insertPayload.window_end_at
-      },
-      {
-        ...options,
-        trx: client
-      }
-    );
-  }
-
-  async function listNextGrantBoundariesForSubjectDefinition(
-    { subjectType = "billable_entity", subjectId, entitlementDefinitionId, now = new Date() },
-    options = {}
-  ) {
-    const normalizedSubjectId = toPositiveInteger(subjectId);
-    const normalizedDefinitionId = toPositiveInteger(entitlementDefinitionId);
-    if (!normalizedSubjectId || !normalizedDefinitionId) {
-      return [];
-    }
-
-    const client = resolveClient(options);
-    const normalizedNow = toInsertDateTime(now, new Date());
-    const nextEffectiveRow = await client("billing_entitlement_grants")
-      .where({
-        subject_type: resolveSubjectType(subjectType),
-        subject_id: normalizedSubjectId,
-        entitlement_definition_id: normalizedDefinitionId
-      })
-      .andWhere("effective_at", ">", normalizedNow)
-      .min({ next_at: "effective_at" })
-      .first();
-
-    const nextExpiryRow = await client("billing_entitlement_grants")
-      .where({
-        subject_type: resolveSubjectType(subjectType),
-        subject_id: normalizedSubjectId,
-        entitlement_definition_id: normalizedDefinitionId
-      })
-      .whereNotNull("expires_at")
-      .andWhere("expires_at", ">", normalizedNow)
-      .min({ next_at: "expires_at" })
-      .first();
-
-    return [toNullableIsoString(nextEffectiveRow?.next_at), toNullableIsoString(nextExpiryRow?.next_at)]
-      .filter(Boolean)
-      .sort((left, right) => new Date(left).getTime() - new Date(right).getTime());
-  }
-
-  async function listEntitlementBalancesForSubject(
-    { subjectType = "billable_entity", subjectId, entitlementDefinitionIds = null } = {},
-    options = {}
-  ) {
-    const normalizedSubjectId = toPositiveInteger(subjectId);
-    if (!normalizedSubjectId) {
-      return [];
-    }
-
-    const client = resolveClient(options);
-    let query = client("billing_entitlement_balances").where({
-      subject_type: resolveSubjectType(subjectType),
-      subject_id: normalizedSubjectId
-    });
-    if (Array.isArray(entitlementDefinitionIds) && entitlementDefinitionIds.length > 0) {
-      const normalizedIds = entitlementDefinitionIds.map((entry) => toPositiveInteger(entry)).filter(Boolean);
-      if (normalizedIds.length > 0) {
-        query = query.whereIn("entitlement_definition_id", normalizedIds);
-      }
-    }
-
-    const rows = await query.orderBy("entitlement_definition_id", "asc").orderBy("window_end_at", "desc");
-    return rows.map(mapEntitlementBalanceRowNullable).filter(Boolean);
-  }
-
-  async function resolveCapacityConsumedAmountFromStorage(
-    { subjectId, definitionCode, now = new Date() },
-    options = {}
-  ) {
-    void now;
-    const normalizedSubjectId = toPositiveInteger(subjectId);
-    if (!normalizedSubjectId) {
-      return 0;
-    }
-    if (String(definitionCode || "").trim() !== "projects.max") {
-      return 0;
-    }
-
-    const client = resolveClient(options);
-    const billableEntityRow = await client("billable_entities")
-      .where({ id: normalizedSubjectId })
-      .select("workspace_id")
-      .first();
-    const workspaceId = toPositiveInteger(billableEntityRow?.workspace_id);
-    if (!workspaceId) {
-      return 0;
-    }
-
-    const row = await client("workspace_projects")
-      .where({ workspace_id: workspaceId })
-      .andWhereNot({ status: "archived" })
-      .count({ total: "*" })
-      .first();
-    return Math.max(0, Number(row?.total || 0));
-  }
-
-  async function recomputeEntitlementBalance(
-    {
-      subjectType = "billable_entity",
-      subjectId,
-      entitlementDefinitionId,
-      windowStartAt = null,
-      windowEndAt = null,
-      now = new Date(),
-      capacityConsumedAmount = null,
-      capacityConsumedAmountResolver = null
-    },
-    options = {}
-  ) {
-    const normalizedSubjectId = toPositiveInteger(subjectId);
-    const normalizedDefinitionId = toPositiveInteger(entitlementDefinitionId);
-    if (!normalizedSubjectId || !normalizedDefinitionId) {
-      throw new Error("recomputeEntitlementBalance requires subjectId and entitlementDefinitionId.");
-    }
-
-    const client = resolveClient(options);
-    const definition = await findEntitlementDefinitionById(normalizedDefinitionId, {
-      ...options,
-      trx: client
-    });
-    if (!definition) {
-      throw new Error(`Entitlement definition not found (${normalizedDefinitionId}).`);
-    }
-
-    const normalizedNow = normalizeDateInput(now) || new Date();
-    const resolvedWindow =
-      windowStartAt && windowEndAt
-        ? {
-            windowStartAt: normalizeDateInput(windowStartAt) || new Date(LIFETIME_WINDOW_START),
-            windowEndAt: normalizeDateInput(windowEndAt) || new Date(LIFETIME_WINDOW_END)
-          }
-        : definition.windowInterval
-          ? resolveCalendarWindow(definition.windowInterval, normalizedNow)
-          : {
-              windowStartAt: new Date(LIFETIME_WINDOW_START),
-              windowEndAt: new Date(LIFETIME_WINDOW_END)
-            };
-
-    const grantSumRow = await client("billing_entitlement_grants")
-      .where({
-        subject_type: resolveSubjectType(subjectType),
-        subject_id: normalizedSubjectId,
-        entitlement_definition_id: normalizedDefinitionId
-      })
-      .andWhere("effective_at", "<=", toInsertDateTime(normalizedNow, normalizedNow))
-      .andWhere((builder) => {
-        builder.whereNull("expires_at").orWhere("expires_at", ">", toInsertDateTime(normalizedNow, normalizedNow));
-      })
-      .sum({ total: "amount" })
-      .first();
-    const grantedAmount = Number(grantSumRow?.total || 0);
-
-    let consumedAmount = 0;
-    if (definition.entitlementType === "capacity") {
-      if (typeof capacityConsumedAmountResolver === "function") {
-        consumedAmount = Number(
-          await capacityConsumedAmountResolver({
-            subjectType,
-            subjectId: normalizedSubjectId,
-            entitlementDefinitionId: normalizedDefinitionId,
-            definition,
-            now: normalizedNow,
-            trx: client
-          })
-        );
-      } else if (capacityConsumedAmount != null) {
-        consumedAmount = Number(capacityConsumedAmount);
-      } else {
-        consumedAmount = await resolveCapacityConsumedAmountFromStorage(
-          {
-            subjectId: normalizedSubjectId,
-            definitionCode: definition.code,
-            now: normalizedNow
-          },
-          {
-            ...options,
-            trx: client
-          }
-        );
-      }
-    } else {
-      const consumptionSumRow = await client("billing_entitlement_consumptions")
-        .where({
-          subject_type: resolveSubjectType(subjectType),
-          subject_id: normalizedSubjectId,
-          entitlement_definition_id: normalizedDefinitionId
-        })
-        .andWhere("occurred_at", ">=", toInsertDateTime(resolvedWindow.windowStartAt, resolvedWindow.windowStartAt))
-        .andWhere("occurred_at", "<", toInsertDateTime(resolvedWindow.windowEndAt, resolvedWindow.windowEndAt))
-        .sum({ total: "amount" })
-        .first();
-      consumedAmount = Number(consumptionSumRow?.total || 0);
-    }
-    consumedAmount = Number.isFinite(consumedAmount) ? Math.max(0, consumedAmount) : 0;
-
-    const effectiveAmount = grantedAmount - consumedAmount;
-    const hardLimitAmount =
-      definition.entitlementType === "capacity" || definition.entitlementType === "metered_quota"
-        ? grantedAmount
-        : null;
-    const overLimit = definition.entitlementType === "balance" ? effectiveAmount < 0 : consumedAmount > grantedAmount;
-    const lockState = definition.code === "projects.max" && overLimit ? "projects_locked_over_cap" : "none";
-    const boundaries = await listNextGrantBoundariesForSubjectDefinition(
-      {
-        subjectType,
-        subjectId: normalizedSubjectId,
-        entitlementDefinitionId: normalizedDefinitionId,
-        now: normalizedNow
-      },
-      {
-        ...options,
-        trx: client
-      }
-    );
-
-    const balance = await upsertEntitlementBalance(
-      {
-        subjectType,
-        subjectId: normalizedSubjectId,
-        entitlementDefinitionId: normalizedDefinitionId,
-        windowStartAt: resolvedWindow.windowStartAt,
-        windowEndAt: resolvedWindow.windowEndAt,
-        grantedAmount,
-        consumedAmount,
-        effectiveAmount,
-        hardLimitAmount,
-        overLimit,
-        lockState,
-        nextChangeAt: boundaries[0] || null,
-        lastRecomputedAt: normalizedNow,
-        metadataJson: {
-          definitionCode: definition.code,
-          entitlementType: definition.entitlementType
-        }
-      },
-      {
-        ...options,
-        trx: client
-      }
-    );
-
-    return {
-      balance,
-      definition
-    };
-  }
-
-  async function leaseDueEntitlementBalances({ now = new Date(), limit = 100, workerId = "" } = {}, options = {}) {
-    void workerId;
-    const client = resolveClient(options);
-    const normalizedLimit = Math.max(1, Math.min(500, Number(limit) || 100));
-    const query = client("billing_entitlement_balances")
-      .whereNotNull("next_change_at")
-      .andWhere("next_change_at", "<=", toInsertDateTime(now, now))
-      .orderBy("next_change_at", "asc")
-      .limit(normalizedLimit);
-
-    let rows;
-    if (typeof query.forUpdate === "function") {
-      const lockedQuery = query.forUpdate();
-      rows = typeof lockedQuery.skipLocked === "function" ? await lockedQuery.skipLocked() : await lockedQuery;
-    } else {
-      rows = await query;
-    }
-
-    return rows.map(mapEntitlementBalanceRowNullable).filter(Boolean);
-  }
-
   async function listBillingActivityEvents(filters = {}, options = {}) {
     const client = resolveClient(options);
 
@@ -3938,6 +3296,8 @@ function createBillingRepository(dbClient) {
     upsertEntitlementBalance,
     listEntitlementBalancesForSubject,
     listNextGrantBoundariesForSubjectDefinition,
+    sumEntitlementGrantAmount,
+    sumEntitlementConsumptionAmount,
     recomputeEntitlementBalance,
     leaseDueEntitlementBalances,
     listPlans,
@@ -4071,6 +3431,8 @@ export const {
   upsertEntitlementBalance,
   listEntitlementBalancesForSubject,
   listNextGrantBoundariesForSubjectDefinition,
+  sumEntitlementGrantAmount,
+  sumEntitlementConsumptionAmount,
   recomputeEntitlementBalance,
   leaseDueEntitlementBalances,
   listPlans,
