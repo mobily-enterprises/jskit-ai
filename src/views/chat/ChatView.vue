@@ -16,7 +16,7 @@
     </div>
 
     <section class="chat-message-section d-flex flex-column flex-grow-1 ga-1">
-      <div class="chat-history-tools d-flex align-center justify-space-between ga-1">
+      <div class="chat-history-tools d-flex flex-column flex-md-row align-stretch align-md-center justify-space-between ga-1">
         <div class="chat-history-tools-main d-flex align-center flex-wrap ga-1">
           <v-btn
             variant="text"
@@ -82,8 +82,8 @@
             </v-avatar>
             <span v-else class="chat-message-avatar-spacer" />
 
-            <div class="chat-message-body">
-              <div v-if="row.showMeta" class="chat-message-meta d-inline-flex ga-2 text-caption text-medium-emphasis">
+            <div class="chat-message-body d-grid ga-1">
+              <div v-if="row.showMeta" class="chat-message-meta d-inline-flex ga-2 flex-wrap text-caption text-medium-emphasis">
                 <span>{{ row.senderLabel }}</span>
                 <span>{{ helpers.formatTimestamp(row.message.sentAt) }}</span>
               </div>
@@ -103,7 +103,7 @@
                 <a
                   v-for="attachment in row.message.attachments"
                   :key="attachment.id"
-                  class="chat-message-attachment-link"
+                  class="chat-message-attachment-link d-inline-flex align-center ga-1 text-primary text-caption"
                   :href="attachmentContentUrl(attachment)"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -115,7 +115,7 @@
             </div>
           </div>
 
-          <div v-if="state.composerError" class="chat-message-row chat-message-row--mine chat-message-row--composer-error">
+          <div v-if="state.composerError" class="chat-message-row chat-message-row--mine chat-message-row--composer-error mt-1">
             <span class="chat-message-avatar-spacer" />
             <div class="chat-message-body">
               <div class="chat-message-bubble chat-message-bubble--composer-error text-body-2">
@@ -126,7 +126,11 @@
         </template>
       </div>
 
-      <div v-if="state.typingNotice" class="chat-typing-indicator d-inline-flex align-center ga-1" aria-live="polite">
+      <div
+        v-if="state.typingNotice"
+        class="chat-typing-indicator d-inline-flex align-center ga-1 text-medium-emphasis text-caption font-weight-medium"
+        aria-live="polite"
+      >
         <span>{{ state.typingNotice }}</span>
         <span class="chat-typing-dot" />
         <span class="chat-typing-dot" />
@@ -134,7 +138,7 @@
       </div>
     </section>
 
-    <section class="chat-composer-section">
+    <section class="chat-composer-section" :style="{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }">
       <div class="chat-composer-shell d-grid">
         <input
           ref="composerFileInputRef"
@@ -182,7 +186,7 @@
             density="comfortable"
             auto-grow
             hide-details="auto"
-            class="chat-composer-textarea"
+            class="chat-composer-textarea flex-grow-1"
             :disabled="!state.selectedThreadId || state.sendPending"
             @keydown="actions.handleComposerKeydown"
           />
@@ -192,7 +196,7 @@
           </v-btn>
         </div>
 
-        <div class="chat-composer-meta text-caption text-medium-emphasis">
+        <div class="chat-composer-meta px-1 text-caption text-medium-emphasis">
           Max {{ meta.attachmentMaxFilesPerMessage }} files, up to {{ readableUploadLimit }} each.
         </div>
 
@@ -202,7 +206,7 @@
             :key="attachment.localId"
             class="chat-composer-attachment-row d-flex align-center ga-2"
           >
-            <div class="chat-composer-attachment-main">
+            <div class="chat-composer-attachment-main flex-grow-1">
               <div class="chat-composer-attachment-name">{{ attachment.fileName }}</div>
               <div class="chat-composer-attachment-meta text-caption text-medium-emphasis">
                 {{ attachmentSizeLabel(attachment) }}
@@ -667,18 +671,12 @@ watch(
 }
 
 .chat-message-body {
-  display: grid;
-  gap: 0.18rem;
   min-width: 0;
   max-width: min(80%, 620px);
 }
 
 .chat-message-row--mine .chat-message-body {
   justify-items: end;
-}
-
-.chat-message-meta {
-  line-height: 1.2;
 }
 
 .chat-message-bubble {
@@ -699,10 +697,6 @@ watch(
   border-color: rgba(var(--v-theme-on-surface), 0.08);
 }
 
-.chat-message-row--composer-error {
-  margin-top: 0.05rem;
-}
-
 .chat-message-bubble--composer-error {
   background: rgba(var(--v-theme-error), 0.12);
   border-color: rgba(var(--v-theme-error), 0.32);
@@ -710,22 +704,11 @@ watch(
 }
 
 .chat-message-attachment-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.1rem;
-  font-size: 0.79rem;
-  color: rgb(var(--v-theme-primary));
   text-decoration: none;
 }
 
 .chat-message-attachment-link:hover {
   text-decoration: underline;
-}
-
-.chat-typing-indicator {
-  color: rgba(var(--v-theme-on-surface), 0.66);
-  font-size: 0.82rem;
-  font-weight: 500;
 }
 
 .chat-typing-dot {
@@ -783,7 +766,6 @@ watch(
 }
 
 .chat-composer-textarea {
-  flex: 1;
   min-width: 0;
 }
 
@@ -810,11 +792,6 @@ watch(
   display: none;
 }
 
-.chat-composer-meta {
-  padding-inline: 0.25rem;
-  font-size: 0.72rem;
-}
-
 .chat-composer-attachment-row {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   border-radius: 12px;
@@ -824,7 +801,6 @@ watch(
 
 .chat-composer-attachment-main {
   min-width: 0;
-  flex: 1;
 }
 
 .chat-composer-attachment-name {
@@ -860,17 +836,7 @@ watch(
     padding-block: 0.05rem 0;
   }
 
-  .chat-history-tools {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .chat-history-tools-main {
-    width: 100%;
-  }
-
   .chat-message-panel {
-    min-height: 0;
     padding: 0.7rem 0.72rem;
     border-radius: 14px;
   }
@@ -879,22 +845,9 @@ watch(
     max-width: min(88%, 520px);
   }
 
-  .chat-message-meta {
-    gap: 0.35rem;
-    flex-wrap: wrap;
-  }
-
-  .chat-composer-section {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
   .chat-composer-shell {
     border-radius: 16px;
     padding-inline: 0.4rem;
-  }
-
-  .chat-composer-meta {
-    font-size: 0.68rem;
   }
 
   .chat-dm-candidates {
