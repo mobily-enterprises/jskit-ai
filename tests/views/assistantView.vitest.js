@@ -30,6 +30,15 @@ describe("AssistantView template", () => {
     expect(source.includes("startNewConversationFromPicker")).toBe(true);
   });
 
+  it("uses slim chat-style composer row without attachment affordance", () => {
+    const source = readAssistantViewSource();
+
+    expect(source.includes("assistant-composer-shell")).toBe(true);
+    expect(source.includes("assistant-composer-row")).toBe(true);
+    expect(source.includes("assistant-attach-button")).toBe(false);
+    expect(source.includes("Attachments are not supported for AI chat yet.")).toBe(false);
+  });
+
   it("renders admin conversation lines with actor display-name metadata and autoscroll behavior", () => {
     const source = readAssistantViewSource();
 

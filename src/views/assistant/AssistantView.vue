@@ -32,38 +32,44 @@
               </div>
             </div>
 
-            <v-textarea
-              ref="composerRef"
-              v-model="input"
-              class="assistant-composer"
-              label="Message"
-              rows="2"
-              max-rows="6"
-              auto-grow
-              hide-details="auto"
-              :disabled="isStreaming || isRestoringConversation"
-              @keydown="handleInputKeydown"
-            />
+            <div class="assistant-composer-shell">
+              <div class="assistant-composer-row">
+                <v-textarea
+                  ref="composerRef"
+                  v-model="input"
+                  class="assistant-composer-textarea"
+                  placeholder="Message"
+                  aria-label="Message"
+                  rows="1"
+                  max-rows="4"
+                  variant="solo-filled"
+                  density="comfortable"
+                  auto-grow
+                  hide-details="auto"
+                  :disabled="isStreaming || isRestoringConversation"
+                  @keydown="handleInputKeydown"
+                />
 
-            <div class="assistant-actions mt-3">
-              <v-checkbox v-model="sendOnEnter" label="Send on enter" hide-details density="compact" />
-              <v-btn
-                class="d-lg-none"
-                variant="tonal"
-                :disabled="isStreaming || isRestoringConversation"
-                @click="conversationPickerOpen = true"
-              >
-                Conversations
-              </v-btn>
-              <v-btn
-                :color="isStreaming ? 'error' : 'primary'"
-                :class="{ 'assistant-stop-button': isStreaming }"
-                :disabled="isStreaming ? false : !canSend"
-                @click="isStreaming ? cancelStream() : sendMessage()"
-              >
-                {{ isStreaming ? "STOP" : "Send" }}
-              </v-btn>
-              <v-btn variant="text" :disabled="!canStartNewConversation" @click="startNewConversation">Start New</v-btn>
+                <v-btn
+                  :color="isStreaming ? 'error' : 'primary'"
+                  :class="{ 'assistant-stop-button': isStreaming }"
+                  :disabled="isStreaming ? false : !canSend"
+                  @click="isStreaming ? cancelStream() : sendMessage()"
+                >
+                  {{ isStreaming ? "STOP" : "Send" }}
+                </v-btn>
+              </div>
+
+              <div class="assistant-actions mt-2">
+                <v-btn
+                  class="d-lg-none"
+                  variant="tonal"
+                  :disabled="isStreaming || isRestoringConversation"
+                  @click="conversationPickerOpen = true"
+                >
+                  Conversations
+                </v-btn>
+              </div>
             </div>
           </v-card-text>
         </v-card>
@@ -176,7 +182,6 @@ const {
   state: {
     messages,
     input,
-    sendOnEnter,
     isStreaming,
     isRestoringConversation,
     error,
@@ -528,13 +533,52 @@ watch(
   }
 }
 
+.assistant-composer-shell {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  background: rgba(var(--v-theme-surface), 0.94);
+  border-radius: 18px;
+  padding: 0.4rem 0.5rem;
+  display: grid;
+  gap: 0.3rem;
+  box-shadow: 0 8px 20px rgba(17, 26, 42, 0.05);
+}
+
+.assistant-composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.assistant-composer-textarea {
+  flex: 1;
+  min-width: 0;
+}
+
+.assistant-composer-textarea :deep(.v-field) {
+  border-radius: 14px;
+  background: rgba(var(--v-theme-on-surface), 0.03);
+}
+
+.assistant-composer-textarea :deep(.v-field__outline),
+.assistant-composer-textarea :deep(.v-field::before),
+.assistant-composer-textarea :deep(.v-field::after) {
+  display: none;
+}
+
+.assistant-composer-textarea :deep(.v-field__input) {
+  padding-block: 0.34rem;
+}
+
+.assistant-composer-textarea :deep(textarea) {
+  line-height: 1.35;
+}
+
 .assistant-actions {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.assistant-composer,
 .assistant-history-start-button {
   flex: 0 0 auto;
 }
