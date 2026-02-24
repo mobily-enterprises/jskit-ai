@@ -1,7 +1,8 @@
-import { createService as createAuthService } from "../modules/auth/service.js";
+import { createService as createAuthService } from "@jskit-ai/auth-provider-supabase-core";
 import { createService as createDeg2radHistoryService } from "../modules/history/service.js";
 import { createService as createSmsService } from "@jskit-ai/sms-core";
-import { createService as createCommunicationsService } from "../modules/communications/service.js";
+import { createService as createEmailService } from "@jskit-ai/email-core";
+import { createService as createCommunicationsService } from "@jskit-ai/communications-core";
 import { createService as createUserSettingsService } from "../modules/settings/service.js";
 import { createService as createAvatarStorageService } from "@jskit-ai/user-profile-core/avatarStorageService";
 import { createService as createUserAvatarService } from "@jskit-ai/user-profile-core/avatarService";
@@ -18,19 +19,23 @@ import { createService as createHealthService } from "../modules/health/service.
 import { createService as createAiService } from "../modules/ai/service.js";
 import { createService as createAiTranscriptsService } from "../modules/ai/transcripts/service.js";
 import { createOpenAiClient } from "../modules/ai/provider/openaiClient.js";
-import { createService as createBillingService } from "../modules/billing/service.js";
-import { createService as createBillingPolicyService } from "../modules/billing/policy.service.js";
-import { createService as createBillingPricingService } from "../modules/billing/pricing.service.js";
-import { createService as createBillingIdempotencyService } from "../modules/billing/idempotency.service.js";
-import { createService as createBillingCheckoutSessionService } from "../modules/billing/checkoutSession.service.js";
+import {
+  createBillingService,
+  createBillingPolicyService,
+  createBillingPricingService,
+  createBillingIdempotencyService,
+  createBillingCheckoutSessionService,
+  createBillingCheckoutOrchestratorService,
+  createBillingWebhookService,
+  createBillingRealtimePublishService
+} from "@jskit-ai/billing-service-core";
+import {
+  createBillingOutboxWorkerService,
+  createBillingRemediationWorkerService,
+  createBillingReconciliationService,
+  createBillingWorkerRuntimeService
+} from "@jskit-ai/billing-worker-core";
 import { createService as createBillingProvidersModule } from "../modules/billing/providers/index.js";
-import { createService as createBillingCheckoutOrchestratorService } from "../modules/billing/checkoutOrchestrator.service.js";
-import { createService as createBillingWebhookService } from "../modules/billing/webhook.service.js";
-import { createService as createBillingOutboxWorkerService } from "../modules/billing/outboxWorker.service.js";
-import { createService as createBillingRemediationWorkerService } from "../modules/billing/remediationWorker.service.js";
-import { createService as createBillingReconciliationService } from "../modules/billing/reconciliation.service.js";
-import { createService as createBillingWorkerRuntimeService } from "../modules/billing/workerRuntime.service.js";
-import { createService as createBillingRealtimePublishService } from "../modules/billing/realtimePublish.service.js";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { createService as createRealtimeEventsService } from "@jskit-ai/server-runtime-core/realtimeEventsService";
 import { createService as createObservabilityService } from "@jskit-ai/observability-core/service";
@@ -274,7 +279,9 @@ function createBillingSubsystem({ repositories, services, env, repositoryConfig 
 
   const billingRealtimePublishService = createBillingRealtimePublishService({
     billingRepository,
-    realtimeEventsService
+    realtimeEventsService,
+    realtimeEventTypes: REALTIME_EVENT_TYPES,
+    realtimeTopics: REALTIME_TOPICS
   });
 
   const billingOutboxWorkerService = createBillingOutboxWorkerService({
@@ -455,10 +462,19 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
     }
   },
   {
+    id: "emailService",
+    create({ env }) {
+      return createEmailService({
+        provider: env.EMAIL_PROVIDER
+      });
+    }
+  },
+  {
     id: "communicationsService",
     create({ services }) {
       return createCommunicationsService({
-        smsService: services.smsService
+        smsService: services.smsService,
+        emailService: services.emailService
       });
     }
   },

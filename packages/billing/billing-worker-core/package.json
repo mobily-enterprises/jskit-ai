@@ -1,0 +1,20 @@
+{
+  "name": "@jskit-ai/billing-worker-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./outboxWorkerService": "./src/outboxWorker.service.js",
+    "./remediationWorkerService": "./src/remediationWorker.service.js",
+    "./reconciliationService": "./src/reconciliation.service.js",
+    "./workerRuntimeService": "./src/workerRuntime.service.js"
+  },
+  "dependencies": {
+    "@jskit-ai/billing-service-core": "0.1.0",
+    "@jskit-ai/server-runtime-core": "0.1.0"
+  }
+}

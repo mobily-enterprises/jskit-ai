@@ -48,7 +48,7 @@ Future console capabilities (not yet implemented):
 | `server/realtime/publishers/shared.js` | `@jskit-ai/server-runtime-core/realtimePublish` |
 | `server/domain/realtime/services/events.service.js` (generic bus/envelope primitives) | `@jskit-ai/server-runtime-core/realtimeEvents` |
 | `server/lib/securityAudit.js` | `@jskit-ai/server-runtime-core/securityAudit` |
-| `server/runtime/{repositories,services,controllers,index}.js` generic assembly plumbing | `@jskit-ai/server-runtime-core/composition` |
+| `server/runtime/{index,platformModuleManifest}.js` runtime assembly plumbing | `@jskit-ai/platform-server-runtime` |
 | `server.js` logger/request/error/shutdown bootstrap helpers | `@jskit-ai/server-runtime-core/fastifyBootstrap` |
 | `server/lib/logging/scopeLogger.js` | `@jskit-ai/observability-core/scopeLogger` |
 | `server/lib/billing/entitlementSchemaRegistry.js` | `@jskit-ai/billing-core/entitlementSchema` |
@@ -61,7 +61,7 @@ Future console capabilities (not yet implemented):
 | `server/lib/primitives/retention.js` | `@jskit-ai/knex-mysql-core/retention` |
 | `server/modules/api/schema.js` + `server/modules/api/schema/*` helpers | `@jskit-ai/http-contracts/{errorResponses,paginationQuery,typeboxFormats}` |
 
-Note: metrics endpoint HTTP auth/response glue stays app-local in `server/modules/observability/service.js` for now because it still carries app-specific billing guardrail behavior.
+Note: metrics endpoint HTTP transport glue is package-owned in `@jskit-ai/observability-fastify-adapter`; app modules only provide thin wrapper wiring.
 
 ### Adding new shared primitives
 

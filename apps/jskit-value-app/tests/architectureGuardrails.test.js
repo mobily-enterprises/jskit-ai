@@ -61,6 +61,204 @@ const RETENTION_SERVICE_PACKAGE_FILE = path.resolve(ROOT_DIR, "../../packages/op
 const RETENTION_PROCESSOR_FILE = "server/workers/retentionProcessor.js";
 const RETENTION_RULES_PACKAGE_DIR = path.resolve(ROOT_DIR, "../../packages/operations/retention-core/src/rules");
 const APP_RETENTION_DOMAIN_DIR = "server/domain/operations";
+const EXTRACTED_REPOSITORY_WRAPPER_EXPECTATIONS = Object.freeze([
+  {
+    relativePath: "server/modules/chat/repositories/threads.repository.js",
+    importSegment: "@jskit-ai/chat-knex-mysql/repositories/threads",
+    maxLines: 80
+  },
+  {
+    relativePath: "server/modules/chat/repositories/participants.repository.js",
+    importSegment: "@jskit-ai/chat-knex-mysql/repositories/participants",
+    maxLines: 80
+  },
+  {
+    relativePath: "server/modules/chat/repositories/messages.repository.js",
+    importSegment: "@jskit-ai/chat-knex-mysql/repositories/messages",
+    maxLines: 80
+  },
+  {
+    relativePath: "server/modules/chat/repositories/idempotencyTombstones.repository.js",
+    importSegment: "@jskit-ai/chat-knex-mysql/repositories/idempotencyTombstones",
+    maxLines: 80
+  },
+  {
+    relativePath: "server/modules/chat/repositories/attachments.repository.js",
+    importSegment: "@jskit-ai/chat-knex-mysql/repositories/attachments",
+    maxLines: 80
+  },
+  {
+    relativePath: "server/modules/chat/repositories/reactions.repository.js",
+    importSegment: "@jskit-ai/chat-knex-mysql/repositories/reactions",
+    maxLines: 80
+  },
+  {
+    relativePath: "server/modules/chat/repositories/userSettings.repository.js",
+    importSegment: "@jskit-ai/chat-knex-mysql/repositories/userSettings",
+    maxLines: 80
+  },
+  {
+    relativePath: "server/modules/chat/repositories/blocks.repository.js",
+    importSegment: "@jskit-ai/chat-knex-mysql/repositories/blocks",
+    maxLines: 80
+  },
+  {
+    relativePath: "server/modules/ai/repositories/conversations.repository.js",
+    importSegment: "@jskit-ai/assistant-transcripts-knex-mysql/repositories/conversations",
+    maxLines: 80
+  },
+  {
+    relativePath: "server/modules/ai/repositories/messages.repository.js",
+    importSegment: "@jskit-ai/assistant-transcripts-knex-mysql/repositories/messages",
+    maxLines: 80
+  },
+  {
+    relativePath: "server/modules/billing/repository.js",
+    importSegment: "@jskit-ai/billing-knex-mysql/repository",
+    maxLines: 220
+  }
+]);
+const EXTRACTED_FASTIFY_WRAPPER_EXPECTATIONS = Object.freeze([
+  { relativePath: "server/modules/auth/controller.js", importSegment: "@jskit-ai/auth-fastify-adapter", maxLines: 20 },
+  { relativePath: "server/modules/auth/routes.js", importSegment: "@jskit-ai/auth-fastify-adapter", maxLines: 20 },
+  { relativePath: "server/modules/auth/schema.js", importSegment: "@jskit-ai/auth-fastify-adapter", maxLines: 20 },
+  {
+    relativePath: "server/modules/communications/controller.js",
+    importSegment: "@jskit-ai/communications-fastify-adapter",
+    maxLines: 20
+  },
+  {
+    relativePath: "server/modules/communications/routes.js",
+    importSegment: "@jskit-ai/communications-fastify-adapter",
+    maxLines: 60
+  },
+  {
+    relativePath: "server/modules/communications/schema.js",
+    importSegment: "@jskit-ai/communications-contracts",
+    maxLines: 20
+  },
+  {
+    relativePath: "server/modules/billing/controller.js",
+    importSegment: "@jskit-ai/billing-fastify-adapter",
+    maxLines: 20
+  },
+  {
+    relativePath: "server/modules/billing/routes.js",
+    importSegment: "@jskit-ai/billing-fastify-adapter",
+    maxLines: 20
+  },
+  {
+    relativePath: "server/modules/billing/schema.js",
+    importSegment: "@jskit-ai/billing-fastify-adapter",
+    maxLines: 20
+  },
+  {
+    relativePath: "server/modules/workspace/controller.js",
+    importSegment: "@jskit-ai/workspace-fastify-adapter",
+    maxLines: 40
+  },
+  {
+    relativePath: "server/modules/workspace/routes.js",
+    importSegment: "@jskit-ai/workspace-fastify-adapter",
+    maxLines: 20
+  },
+  {
+    relativePath: "server/modules/workspace/schema.js",
+    importSegment: "@jskit-ai/workspace-fastify-adapter",
+    maxLines: 20
+  },
+  {
+    relativePath: "server/modules/console/controller.js",
+    importSegment: "@jskit-ai/console-fastify-adapter",
+    maxLines: 30
+  },
+  {
+    relativePath: "server/modules/console/routes.js",
+    importSegment: "@jskit-ai/console-fastify-adapter",
+    maxLines: 20
+  },
+  {
+    relativePath: "server/modules/console/schema.js",
+    importSegment: "@jskit-ai/console-fastify-adapter",
+    maxLines: 20
+  },
+  {
+    relativePath: "server/modules/settings/controller.js",
+    importSegment: "@jskit-ai/settings-fastify-adapter",
+    maxLines: 30
+  },
+  {
+    relativePath: "server/modules/settings/routes.js",
+    importSegment: "@jskit-ai/settings-fastify-adapter",
+    maxLines: 40
+  },
+  {
+    relativePath: "server/modules/settings/schema.js",
+    importSegment: "@jskit-ai/settings-fastify-adapter",
+    maxLines: 20
+  },
+  {
+    relativePath: "server/modules/consoleErrors/controller.js",
+    importSegment: "@jskit-ai/console-errors-fastify-adapter",
+    maxLines: 20
+  },
+  {
+    relativePath: "server/modules/consoleErrors/routes.js",
+    importSegment: "@jskit-ai/console-errors-fastify-adapter",
+    maxLines: 20
+  },
+  {
+    relativePath: "server/modules/consoleErrors/schema.js",
+    importSegment: "@jskit-ai/console-errors-fastify-adapter",
+    maxLines: 20
+  },
+  {
+    relativePath: "server/modules/health/controller.js",
+    importSegment: "@jskit-ai/health-fastify-adapter",
+    maxLines: 20
+  },
+  {
+    relativePath: "server/modules/health/routes.js",
+    importSegment: "@jskit-ai/health-fastify-adapter",
+    maxLines: 20
+  },
+  {
+    relativePath: "server/modules/health/schema.js",
+    importSegment: "@jskit-ai/health-fastify-adapter",
+    maxLines: 20
+  },
+  {
+    relativePath: "server/modules/observability/controller.js",
+    importSegment: "@jskit-ai/observability-fastify-adapter",
+    maxLines: 20
+  },
+  {
+    relativePath: "server/modules/observability/routes.js",
+    importSegment: "@jskit-ai/observability-fastify-adapter",
+    maxLines: 20
+  },
+  {
+    relativePath: "server/modules/observability/schema.js",
+    importSegment: "@jskit-ai/observability-fastify-adapter",
+    maxLines: 20
+  }
+]);
+const CORE_PACKAGE_BOUNDARY_GUARD_DIRS = Object.freeze([
+  path.resolve(ROOT_DIR, "../../packages/communications/communications-core/src"),
+  path.resolve(ROOT_DIR, "../../packages/communications/email-core/src"),
+  path.resolve(ROOT_DIR, "../../packages/billing/billing-service-core/src"),
+  path.resolve(ROOT_DIR, "../../packages/billing/billing-worker-core/src")
+]);
+const FORBIDDEN_CORE_IMPORT_SEGMENTS = Object.freeze([
+  "@fastify/",
+  "fastify",
+  "/knex",
+  "mysql2",
+  "stripe",
+  "openai",
+  "@supabase/supabase-js",
+  "paddle"
+]);
 
 function toPosixPath(value) {
   return String(value || "").replace(/\\/g, "/");
@@ -441,7 +639,7 @@ test("architecture guardrail: realtime events service uses shared realtime event
 
 test("architecture guardrail: runtime composition is package-assembled and manifest-driven", () => {
   const runtimeIndexSource = readFileSync(path.resolve(ROOT_DIR, RUNTIME_INDEX_FILE), "utf8");
-  assert.match(runtimeIndexSource, /@jskit-ai\/server-runtime-core\/runtimeAssembly/);
+  assert.match(runtimeIndexSource, /@jskit-ai\/platform-server-runtime/);
   assert.doesNotMatch(runtimeIndexSource, /\bcreateRepositories\s*\(/);
   assert.doesNotMatch(runtimeIndexSource, /\bcreateServices\s*\(/);
   assert.doesNotMatch(runtimeIndexSource, /\bcreateControllers\s*\(/);
@@ -453,6 +651,70 @@ test("architecture guardrail: runtime composition is package-assembled and manif
   assert.doesNotMatch(repositoriesSource, /function\s+createRepositories\s*\(/);
   assert.doesNotMatch(servicesSource, /function\s+createServices\s*\(/);
   assert.doesNotMatch(controllersSource, /function\s+createControllers\s*\(/);
+});
+
+test("architecture guardrail: extracted repositories stay package-backed thin wrappers", () => {
+  for (const expectation of EXTRACTED_REPOSITORY_WRAPPER_EXPECTATIONS) {
+    const absolutePath = path.resolve(ROOT_DIR, expectation.relativePath);
+    const source = readFileSync(absolutePath, "utf8");
+    const lineCount = source.split(/\r?\n/).length;
+
+    assert.match(
+      source,
+      new RegExp(expectation.importSegment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      `Expected package-backed import in ${expectation.relativePath}`
+    );
+    assert.doesNotMatch(source, /\bdb\s*\(/, `Unexpected direct db query usage in ${expectation.relativePath}`);
+    assert.ok(
+      lineCount <= expectation.maxLines,
+      `Wrapper ${expectation.relativePath} exceeded max wrapper line budget (${lineCount} > ${expectation.maxLines}).`
+    );
+  }
+});
+
+test("architecture guardrail: extracted fastify modules stay thin package wrappers", () => {
+  for (const expectation of EXTRACTED_FASTIFY_WRAPPER_EXPECTATIONS) {
+    const absolutePath = path.resolve(ROOT_DIR, expectation.relativePath);
+    const source = readFileSync(absolutePath, "utf8");
+    const lineCount = source.split(/\r?\n/).length;
+
+    assert.match(
+      source,
+      new RegExp(expectation.importSegment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      `Expected adapter import in ${expectation.relativePath}`
+    );
+    assert.doesNotMatch(
+      source,
+      /\bwithStandardErrorResponses\s*\(|\bType\.Object\s*\(|\breply\.code\s*\(/,
+      `Unexpected inlined transport logic in ${expectation.relativePath}`
+    );
+    assert.ok(
+      lineCount <= expectation.maxLines,
+      `Wrapper ${expectation.relativePath} exceeded max wrapper line budget (${lineCount} > ${expectation.maxLines}).`
+    );
+  }
+});
+
+test("architecture guardrail: extracted core packages do not import fastify/knex/provider sdk layers", () => {
+  const violations = [];
+
+  for (const packageDir of CORE_PACKAGE_BOUNDARY_GUARD_DIRS) {
+    const files = listFilesRecursive(packageDir, (filePath) => /\.js$/.test(filePath));
+    for (const filePath of files) {
+      const importSpecifiers = parseImportSpecifiers(filePath);
+      for (const importSpecifier of importSpecifiers) {
+        const normalizedSpecifier = String(importSpecifier || "").toLowerCase();
+        if (FORBIDDEN_CORE_IMPORT_SEGMENTS.some((segment) => normalizedSpecifier.includes(segment))) {
+          violations.push({
+            file: toPosixPath(path.relative(ROOT_DIR, filePath)),
+            specifier: normalizedSpecifier
+          });
+        }
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
 });
 
 test("architecture guardrail: app-local observability glue is package-owned and removed", () => {

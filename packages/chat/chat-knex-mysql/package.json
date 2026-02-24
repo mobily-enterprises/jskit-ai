@@ -1,0 +1,25 @@
+{
+  "name": "@jskit-ai/chat-knex-mysql",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./repositories/threads": "./src/repositories/threads.repository.js",
+    "./repositories/participants": "./src/repositories/participants.repository.js",
+    "./repositories/messages": "./src/repositories/messages.repository.js",
+    "./repositories/idempotencyTombstones": "./src/repositories/idempotencyTombstones.repository.js",
+    "./repositories/attachments": "./src/repositories/attachments.repository.js",
+    "./repositories/reactions": "./src/repositories/reactions.repository.js",
+    "./repositories/userSettings": "./src/repositories/userSettings.repository.js",
+    "./repositories/blocks": "./src/repositories/blocks.repository.js",
+    "./repositories/shared": "./src/repositories/shared.js"
+  },
+  "dependencies": {
+    "@jskit-ai/knex-mysql-core": "0.1.0",
+    "@jskit-ai/server-runtime-core": "0.1.0"
+  }
+}

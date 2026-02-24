@@ -1,33 +1,12 @@
-function normalizeMetadata(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
+import {
+  createService as createCommunicationsCoreService,
+  __testables as communicationsCoreTestables
+} from "@jskit-ai/communications-core";
 
-  return value;
+function createService(options = {}) {
+  return createCommunicationsCoreService(options || {});
 }
 
-function createService({ smsService }) {
-  if (!smsService || typeof smsService.sendSms !== "function") {
-    throw new Error("smsService is required.");
-  }
-
-  async function sendSms(payload = {}) {
-    const request = payload && typeof payload === "object" ? payload : {};
-
-    return smsService.sendSms({
-      to: request.to,
-      text: request.text,
-      metadata: normalizeMetadata(request.metadata)
-    });
-  }
-
-  return {
-    sendSms
-  };
-}
-
-const __testables = {
-  normalizeMetadata
-};
+const __testables = communicationsCoreTestables;
 
 export { createService, __testables };

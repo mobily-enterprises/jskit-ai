@@ -1,0 +1,19 @@
+{
+  "name": "@jskit-ai/console-errors-fastify-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./controller": "./src/controller.js",
+    "./routes": "./src/routes.js",
+    "./schema": "./src/schema.js"
+  },
+  "dependencies": {
+    "@jskit-ai/http-contracts": "0.1.0",
+    "@fastify/type-provider-typebox": "^6.1.0"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@jskit-ai/settings-fastify-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./controller": "./src/controller.js",
+    "./routes": "./src/routes.js",
+    "./schema": "./src/schema.js",
+    "./avatarPolicy": "./src/avatarPolicy.js"
+  },
+  "dependencies": {
+    "@jskit-ai/access-core": "0.1.0",
+    "@jskit-ai/auth-fastify-adapter": "0.1.0",
+    "@jskit-ai/http-contracts": "0.1.0",
+    "@jskit-ai/server-runtime-core": "0.1.0",
+    "@jskit-ai/workspace-console-core": "0.1.0",
+    "@fastify/type-provider-typebox": "^6.1.0"
+  }
+}

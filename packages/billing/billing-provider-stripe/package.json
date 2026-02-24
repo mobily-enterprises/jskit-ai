@@ -1,0 +1,21 @@
+{
+  "name": "@jskit-ai/billing-provider-stripe",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./sdkService": "./src/sdk.service.js",
+    "./adapterService": "./src/adapter.service.js",
+    "./webhookTranslationService": "./src/webhookTranslation.service.js",
+    "./errorMapping": "./src/errorMapping.js"
+  },
+  "dependencies": {
+    "@jskit-ai/billing-provider-core": "0.1.0",
+    "@jskit-ai/server-runtime-core": "0.1.0",
+    "stripe": "^14.25.0"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "@jskit-ai/billing-service-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./constants": "./src/constants.js",
+    "./appCapabilityLimits": "./src/appCapabilityLimits.js",
+    "./canonicalJson": "./src/canonicalJson.js",
+    "./checkoutOrchestratorService": "./src/checkoutOrchestrator.service.js",
+    "./checkoutSessionService": "./src/checkoutSession.service.js",
+    "./idempotencyService": "./src/idempotency.service.js",
+    "./pathPolicy": "./src/pathPolicy.js",
+    "./policyService": "./src/policy.service.js",
+    "./pricingService": "./src/pricing.service.js",
+    "./providerOutcomePolicy": "./src/providerOutcomePolicy.js",
+    "./purchaseLedgerProjectionUtils": "./src/purchaseLedgerProjection.utils.js",
+    "./realtimePublishService": "./src/realtimePublish.service.js",
+    "./service": "./src/service.js",
+    "./webhookService": "./src/webhook.service.js",
+    "./webhookCheckoutProjectionService": "./src/webhookCheckoutProjection.service.js",
+    "./webhookProjectionService": "./src/webhookProjection.service.js",
+    "./webhookProjectionUtils": "./src/webhookProjection.utils.js",
+    "./webhookSubscriptionProjectionService": "./src/webhookSubscriptionProjection.service.js"
+  },
+  "dependencies": {
+    "@jskit-ai/access-core": "0.1.0",
+    "@jskit-ai/entitlements-core": "0.1.0",
+    "@jskit-ai/server-runtime-core": "0.1.0",
+    "@jskit-ai/billing-provider-core": "0.1.0"
+  }
+}

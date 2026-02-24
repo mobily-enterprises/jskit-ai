@@ -15,6 +15,7 @@ const PLATFORM_RUNTIME_DEFAULTS = Object.freeze({
   TRUST_PROXY: false,
   RBAC_MANIFEST_PATH: "./shared/auth/rbac.manifest.json",
   FRONTEND_DIST_DIR: "dist",
+  EMAIL_PROVIDER: "none",
   AVATAR_STORAGE_DRIVER: "fs",
   AVATAR_PUBLIC_BASE_PATH: "/uploads",
   WORKSPACE_INVITE_EMAIL_DRIVER: "none",
@@ -169,6 +170,12 @@ function createSmsRuntimeSpec(defaults = {}) {
   };
 }
 
+function createEmailRuntimeSpec(defaults = {}) {
+  return {
+    EMAIL_PROVIDER: str({ default: resolveStringDefault(defaults, "EMAIL_PROVIDER", PLATFORM_RUNTIME_DEFAULTS.EMAIL_PROVIDER) })
+  };
+}
+
 function createStorageRuntimeSpec(defaults = {}) {
   return {
     AVATAR_STORAGE_DRIVER: str({
@@ -277,6 +284,7 @@ function createPlatformRuntimeEnvSpec({ defaults = {} } = {}) {
     ...createRedisRuntimeSpec(defaults),
     ...createWorkerRuntimeSpec(defaults),
     ...createSmsRuntimeSpec(defaults),
+    ...createEmailRuntimeSpec(defaults),
     ...createStorageRuntimeSpec(defaults),
     ...createInviteEmailRuntimeSpec(defaults),
     ...createObservabilityRuntimeSpec(defaults),
@@ -293,6 +301,7 @@ export {
   createRedisRuntimeSpec,
   createWorkerRuntimeSpec,
   createSmsRuntimeSpec,
+  createEmailRuntimeSpec,
   createStorageRuntimeSpec,
   createInviteEmailRuntimeSpec,
   createObservabilityRuntimeSpec,

@@ -1,0 +1,16 @@
+{
+  "name": "@jskit-ai/communications-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "dependencies": {
+    "@fastify/type-provider-typebox": "^6.1.0",
+    "@jskit-ai/http-contracts": "0.1.0"
+  }
+}

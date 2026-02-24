@@ -1,19 +1,19 @@
 import { db } from "../../db/knex.js";
 import * as calculationLogsRepository from "../modules/history/repository.js";
 import * as userSettingsRepository from "../modules/settings/repository.js";
-import * as aiTranscriptConversationsRepository from "../modules/ai/repositories/conversations.repository.js";
-import * as aiTranscriptMessagesRepository from "../modules/ai/repositories/messages.repository.js";
-import * as chatThreadsRepository from "../modules/chat/repositories/threads.repository.js";
-import * as chatParticipantsRepository from "../modules/chat/repositories/participants.repository.js";
-import * as chatMessagesRepository from "../modules/chat/repositories/messages.repository.js";
-import * as chatIdempotencyTombstonesRepository from "../modules/chat/repositories/idempotencyTombstones.repository.js";
-import * as chatAttachmentsRepository from "../modules/chat/repositories/attachments.repository.js";
-import * as chatReactionsRepository from "../modules/chat/repositories/reactions.repository.js";
-import * as chatUserSettingsRepository from "../modules/chat/repositories/userSettings.repository.js";
-import * as chatBlocksRepository from "../modules/chat/repositories/blocks.repository.js";
 import * as projectsRepository from "../modules/projects/repository.js";
 import * as healthRepository from "../modules/health/repository.js";
-import * as billingRepository from "../modules/billing/repository.js";
+import { createRepository as createAiTranscriptConversationsRepository } from "@jskit-ai/assistant-transcripts-knex-mysql/repositories/conversations";
+import { createRepository as createAiTranscriptMessagesRepository } from "@jskit-ai/assistant-transcripts-knex-mysql/repositories/messages";
+import { createRepository as createBillingRepository } from "@jskit-ai/billing-knex-mysql/repository";
+import { createRepository as createChatThreadsRepository } from "@jskit-ai/chat-knex-mysql/repositories/threads";
+import { createRepository as createChatParticipantsRepository } from "@jskit-ai/chat-knex-mysql/repositories/participants";
+import { createRepository as createChatMessagesRepository } from "@jskit-ai/chat-knex-mysql/repositories/messages";
+import { createRepository as createChatIdempotencyTombstonesRepository } from "@jskit-ai/chat-knex-mysql/repositories/idempotencyTombstones";
+import { createRepository as createChatAttachmentsRepository } from "@jskit-ai/chat-knex-mysql/repositories/attachments";
+import { createRepository as createChatReactionsRepository } from "@jskit-ai/chat-knex-mysql/repositories/reactions";
+import { createRepository as createChatUserSettingsRepository } from "@jskit-ai/chat-knex-mysql/repositories/userSettings";
+import { createRepository as createChatBlocksRepository } from "@jskit-ai/chat-knex-mysql/repositories/blocks";
 import { createRepository as createUserProfilesRepository } from "@jskit-ai/user-profile-knex-mysql";
 import { createRepository as createWorkspacesRepository } from "@jskit-ai/workspace-knex-mysql/repositories/workspaces";
 import { createRepository as createWorkspaceMembershipsRepository } from "@jskit-ai/workspace-knex-mysql/repositories/memberships";
@@ -37,6 +37,17 @@ const consoleRootRepository = createConsoleRootRepository(db);
 const consoleSettingsRepository = createConsoleSettingsRepository(db);
 const consoleErrorLogsRepository = createConsoleErrorLogsRepository(db);
 const auditEventsRepository = createAuditEventsRepository(db);
+const aiTranscriptConversationsRepository = createAiTranscriptConversationsRepository(db);
+const aiTranscriptMessagesRepository = createAiTranscriptMessagesRepository(db);
+const chatThreadsRepository = createChatThreadsRepository(db);
+const chatParticipantsRepository = createChatParticipantsRepository(db);
+const chatMessagesRepository = createChatMessagesRepository(db);
+const chatIdempotencyTombstonesRepository = createChatIdempotencyTombstonesRepository(db);
+const chatAttachmentsRepository = createChatAttachmentsRepository(db);
+const chatReactionsRepository = createChatReactionsRepository(db);
+const chatUserSettingsRepository = createChatUserSettingsRepository(db);
+const chatBlocksRepository = createChatBlocksRepository(db);
+const billingRepository = createBillingRepository(db);
 
 const PLATFORM_REPOSITORY_DEFINITIONS = Object.freeze([
   {

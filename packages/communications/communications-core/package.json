@@ -1,0 +1,16 @@
+{
+  "name": "@jskit-ai/communications-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "dependencies": {
+    "@jskit-ai/communications-contracts": "0.1.0",
+    "@jskit-ai/communications-provider-core": "0.1.0"
+  }
+}

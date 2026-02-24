@@ -1,4 +1,4 @@
-import { createRuntimeAssembly } from "@jskit-ai/server-runtime-core/runtimeAssembly";
+import { createServerRuntimeWithPlatformBundle } from "@jskit-ai/platform-server-runtime";
 import { PLATFORM_RUNTIME_BUNDLE } from "./platformModuleManifest.js";
 import { APP_FEATURE_RUNTIME_BUNDLE } from "./appFeatureManifest.js";
 
@@ -12,8 +12,9 @@ function createServerRuntime({
   supabasePublishableKey,
   observabilityRegistry
 }) {
-  return createRuntimeAssembly({
-    bundles: [PLATFORM_RUNTIME_BUNDLE, APP_FEATURE_RUNTIME_BUNDLE],
+  return createServerRuntimeWithPlatformBundle({
+    platformBundle: PLATFORM_RUNTIME_BUNDLE,
+    appFeatureBundle: APP_FEATURE_RUNTIME_BUNDLE,
     dependencies: {
       env: runtimeEnv,
       repositoryConfig,

@@ -1,9 +1,1 @@
-import { Type } from "@fastify/type-provider-typebox";
-
-const schema = {
-  response: {
-    metrics: Type.String()
-  }
-};
-
-export { schema };
+export { schema } from "@jskit-ai/observability-fastify-adapter";
