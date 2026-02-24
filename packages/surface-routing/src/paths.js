@@ -54,6 +54,7 @@ function createSurfacePathHelpers(options = {}) {
     throw new Error("createSurfacePathHelpers requires listSurfaceDefinitions.");
   }
 
+  const apiBasePath = normalizePathname(options?.apiBasePath || "/api");
   const routeConfig = {
     loginPath: "/login",
     resetPasswordPath: "/reset-password",
@@ -76,13 +77,38 @@ function createSurfacePathHelpers(options = {}) {
       .sort((left, right) => String(right.prefix).length - String(left.prefix).length);
   }
 
+  function resolveApiNamespace(pathname) {
+    const normalizedPathname = normalizePathname(pathname);
+    if (!matchesPathPrefix(normalizedPathname, apiBasePath)) {
+      return "";
+    }
+
+    if (normalizedPathname === apiBasePath) {
+      return apiBasePath;
+    }
+
+    const remainder = normalizedPathname.slice(apiBasePath.length);
+    if (!remainder || remainder === "/") {
+      return apiBasePath;
+    }
+
+    const versionMatch = remainder.match(/^\/v[0-9]+(?:$|\/)/);
+    if (!versionMatch) {
+      return apiBasePath;
+    }
+
+    const versionPath = String(versionMatch[0]).replace(/\/$/, "");
+    return normalizePathname(`${apiBasePath}${versionPath}`);
+  }
+
   function resolveSurfaceFromApiPathname(pathname) {
-    if (!matchesPathPrefix(pathname, "/api")) {
+    const apiNamespace = resolveApiNamespace(pathname);
+    if (!apiNamespace) {
       return "";
     }
 
     for (const surface of prefixedSurfaceDefinitions()) {
-      const apiPrefix = normalizePathname(`/api${surface.prefix}`);
+      const apiPrefix = normalizePathname(`${apiNamespace}${surface.prefix}`);
       if (matchesPathPrefix(pathname, apiPrefix)) {
         return surface.id;
       }

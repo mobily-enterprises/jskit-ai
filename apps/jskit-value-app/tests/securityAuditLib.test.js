@@ -22,7 +22,7 @@ test("withAuditEvent applies shared fields and shared metadata across success/fa
   const request = {
     id: "req-1",
     method: "POST",
-    url: "/api/console/invites/1",
+    url: "/api/v1/console/invites/1",
     headers: {
       "x-forwarded-for": "198.51.100.10, 203.0.113.7",
       "user-agent": "audit-lib-test"
@@ -100,7 +100,7 @@ test("withAuditEvent does not break business flow when audit callbacks throw", a
   const request = {
     id: "req-2",
     method: "POST",
-    url: "/api/admin/users/1",
+    url: "/api/v1/admin/users/1",
     headers: {
       "user-agent": "audit-lib-test-2"
     },

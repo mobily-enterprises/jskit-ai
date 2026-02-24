@@ -37,6 +37,14 @@ import {
 } from "@jskit-ai/redis-ops-core/rateLimit";
 import { createMetricsRegistry } from "@jskit-ai/observability-core";
 import { createServerRuntime } from "./server/runtime/index.js";
+import {
+  API_DOCS_PATH,
+  API_MAJOR_VERSION,
+  API_REALTIME_PATH,
+  API_VERSION_SEGMENT,
+  buildVersionedApiPath,
+  isApiPath
+} from "./shared/apiPaths.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -99,6 +107,11 @@ const LOG_REDACT_PATHS = [
   "*.refresh_token"
 ];
 const OBSERVABILITY_REGISTRY = createMetricsRegistry();
+const API_CONSOLE_ERRORS_PREFIX = buildVersionedApiPath("/console/errors");
+
+function isPathPrefixMatch(pathname, prefix) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
 
 const {
   controllers,
@@ -389,7 +402,7 @@ function registerErrorHandler(app, { observabilityService: instrumentationServic
     }
 
     const pathnameValue = safePathnameFromRequest(request);
-    if (pathnameValue.startsWith("/api/console/errors/")) {
+    if (isPathPrefixMatch(pathnameValue, API_CONSOLE_ERRORS_PREFIX)) {
       return;
     }
 
@@ -436,7 +449,7 @@ function registerErrorHandler(app, { observabilityService: instrumentationServic
 function registerPageGuardHook(app) {
   app.addHook("preHandler", async (request, reply) => {
     const pathnameValue = safePathnameFromRequest(request);
-    if (pathnameValue.startsWith("/api/")) {
+    if (isApiPath(pathnameValue)) {
       return;
     }
 
@@ -545,7 +558,7 @@ export async function buildServer({ frontendBuildAvailable }) {
         openapi: "3.0.3",
         info: {
           title: "Jskit API",
-          version: "1.0.0",
+          version: `${API_MAJOR_VERSION}.0.0 (${API_VERSION_SEGMENT})`,
           description: "API for auth, DEG2RAD calculations, and calculation history."
         },
         servers: [
@@ -557,7 +570,7 @@ export async function buildServer({ frontendBuildAvailable }) {
     });
 
     await app.register(fastifySwaggerUi, {
-      routePrefix: "/api/docs",
+      routePrefix: API_DOCS_PATH,
       uiConfig: {
         docExpansion: "list",
         deepLinking: false
@@ -578,6 +591,7 @@ export async function buildServer({ frontendBuildAvailable }) {
     authService,
     realtimeEventsService,
     workspaceService,
+    path: API_REALTIME_PATH,
     redisUrl: runtimeEnv.REDIS_URL,
     requireRedisAdapter: NODE_ENV === "production",
     logger: app.log
@@ -635,7 +649,7 @@ export async function buildServer({ frontendBuildAvailable }) {
   app.setNotFoundHandler(async (request, reply) => {
     const pathnameValue = safePathnameFromRequest(request);
 
-    if (pathnameValue.startsWith("/api/")) {
+    if (isApiPath(pathnameValue)) {
       reply.code(404).send({ error: "Not found." });
       return;
     }

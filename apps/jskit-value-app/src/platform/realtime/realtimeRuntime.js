@@ -7,6 +7,7 @@ import {
 
 import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "@jskit-ai/realtime-contracts";
 import { getTopicRule, listRealtimeTopicsForSurface } from "../../../shared/topicRegistry.js";
+import { API_REALTIME_PATH } from "../../../shared/apiPaths.js";
 import { projectsScopeQueryKey } from "../../modules/projects/queryKeys.js";
 import { getClientId } from "./clientIdentity.js";
 import { commandTracker } from "./commandTracker.js";
@@ -229,7 +230,7 @@ function createRealtimeRuntime({
     buildRealtimeUrl,
     transport: createSocketIoTransport({
       socketFactory,
-      path: "/api/realtime",
+      path: API_REALTIME_PATH,
       transports: ["websocket"]
     }),
     messageTypes: REALTIME_MESSAGE_TYPES,

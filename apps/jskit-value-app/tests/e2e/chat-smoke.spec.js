@@ -137,7 +137,7 @@ test("chat smoke: start DM, upload attachment, send message, and emit typing", a
     };
   }
 
-  await page.route("**/api/bootstrap", async (route) => {
+  await page.route("**/api/v1/bootstrap", async (route) => {
     await route.fulfill({
       status: 200,
       headers: JSON_HEADERS,
@@ -145,7 +145,7 @@ test("chat smoke: start DM, upload attachment, send message, and emit typing", a
     });
   });
 
-  await page.route("**/api/session", async (route) => {
+  await page.route("**/api/v1/session", async (route) => {
     await route.fulfill({
       status: 200,
       headers: JSON_HEADERS,
@@ -157,13 +157,13 @@ test("chat smoke: start DM, upload attachment, send message, and emit typing", a
     });
   });
 
-  await page.route("**/api/chat/**", async (route) => {
+  await page.route("**/api/v1/chat/**", async (route) => {
     const request = route.request();
     const method = request.method().toUpperCase();
     const url = new URL(request.url());
     const pathname = url.pathname;
 
-    if (pathname === "/api/chat/dm/candidates" && method === "GET") {
+    if (pathname === "/api/v1/chat/dm/candidates" && method === "GET") {
       await route.fulfill({
         status: 200,
         headers: JSON_HEADERS,
@@ -174,7 +174,7 @@ test("chat smoke: start DM, upload attachment, send message, and emit typing", a
       return;
     }
 
-    if (pathname === "/api/chat/workspace/ensure" && method === "POST") {
+    if (pathname === "/api/v1/chat/workspace/ensure" && method === "POST") {
       state.workspaceEnsureRequestCount += 1;
       await route.fulfill({
         status: 200,
@@ -187,7 +187,7 @@ test("chat smoke: start DM, upload attachment, send message, and emit typing", a
       return;
     }
 
-    if (pathname === "/api/chat/dm/ensure" && method === "POST") {
+    if (pathname === "/api/v1/chat/dm/ensure" && method === "POST") {
       const payload = request.postDataJSON();
       if (
         String(payload?.targetPublicChatId || "")
@@ -208,7 +208,7 @@ test("chat smoke: start DM, upload attachment, send message, and emit typing", a
       return;
     }
 
-    if (pathname === "/api/chat/inbox" && method === "GET") {
+    if (pathname === "/api/v1/chat/inbox" && method === "GET") {
       await route.fulfill({
         status: 200,
         headers: JSON_HEADERS,
@@ -324,7 +324,7 @@ test("chat smoke: start DM, upload attachment, send message, and emit typing", a
       const attachment = attachmentEntries[0];
       if (attachment) {
         attachment.status = "uploaded";
-        attachment.deliveryPath = `/api/chat/attachments/${attachment.id}/content`;
+        attachment.deliveryPath = `/api/v1/chat/attachments/${attachment.id}/content`;
         attachment.updatedAt = toIsoNow();
       }
       state.uploadRequestCount += 1;

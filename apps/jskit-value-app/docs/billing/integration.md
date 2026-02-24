@@ -15,7 +15,7 @@ Primary references:
 
 ## 1. Where Features Must Call `getLimitations`
 
-Use `GET /api/billing/limitations` as the app-facing source of truth for entitlement and quota state.
+Use `GET /api/v1/billing/limitations` as the app-facing source of truth for entitlement and quota state.
 
 Required call points:
 

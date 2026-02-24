@@ -111,7 +111,7 @@ function createHttpClient(options = {}) {
 
   const csrf = {
     enabled: options?.csrf?.enabled !== false,
-    sessionPath: String(options?.csrf?.sessionPath || "/api/session"),
+    sessionPath: String(options?.csrf?.sessionPath || "/api/v1/session"),
     headerName: String(options?.csrf?.headerName || "csrf-token"),
     tokenField: String(options?.csrf?.tokenField || "csrfToken"),
     retryableErrorCodes: Array.isArray(options?.csrf?.retryableErrorCodes)

@@ -4,6 +4,7 @@ import {
   normalizeSurfaceId,
   resolveSurfacePrefix as resolveSurfacePrefixFromRegistry
 } from "./surfaceRegistry.js";
+import { API_BASE_PATH } from "./apiPaths.js";
 import { createSurfacePathHelpers } from "@jskit-ai/surface-routing";
 
 const SURFACE_APP = "app";
@@ -22,6 +23,7 @@ const {
   createSurfacePaths,
   resolveSurfacePaths
 } = createSurfacePathHelpers({
+  apiBasePath: API_BASE_PATH,
   defaultSurfaceId: DEFAULT_SURFACE_ID,
   normalizeSurfaceId,
   resolveSurfacePrefix: resolveSurfacePrefixFromRegistry,

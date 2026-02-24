@@ -1,31 +1,33 @@
+import { buildVersionedApiPath } from "../../../../shared/apiPaths.js";
+
 function createApi({ request }) {
   return {
     get() {
-      return request("/api/settings");
+      return request("/api/v1/settings");
     },
     updateProfile(payload) {
-      return request("/api/settings/profile", { method: "PATCH", body: payload });
+      return request("/api/v1/settings/profile", { method: "PATCH", body: payload });
     },
     uploadAvatar(payload) {
-      return request("/api/settings/profile/avatar", { method: "POST", body: payload });
+      return request("/api/v1/settings/profile/avatar", { method: "POST", body: payload });
     },
     deleteAvatar() {
-      return request("/api/settings/profile/avatar", { method: "DELETE" });
+      return request("/api/v1/settings/profile/avatar", { method: "DELETE" });
     },
     updatePreferences(payload) {
-      return request("/api/settings/preferences", { method: "PATCH", body: payload });
+      return request("/api/v1/settings/preferences", { method: "PATCH", body: payload });
     },
     updateNotifications(payload) {
-      return request("/api/settings/notifications", { method: "PATCH", body: payload });
+      return request("/api/v1/settings/notifications", { method: "PATCH", body: payload });
     },
     updateChat(payload) {
-      return request("/api/settings/chat", { method: "PATCH", body: payload });
+      return request("/api/v1/settings/chat", { method: "PATCH", body: payload });
     },
     changePassword(payload) {
-      return request("/api/settings/security/change-password", { method: "POST", body: payload });
+      return request("/api/v1/settings/security/change-password", { method: "POST", body: payload });
     },
     setPasswordMethodEnabled(payload) {
-      return request("/api/settings/security/methods/password", { method: "PATCH", body: payload });
+      return request("/api/v1/settings/security/methods/password", { method: "PATCH", body: payload });
     },
     oauthLinkStartUrl(provider, options = {}) {
       const encodedProvider = encodeURIComponent(
@@ -33,15 +35,16 @@ function createApi({ request }) {
           .trim()
           .toLowerCase()
       );
+      const oauthLinkStartPath = buildVersionedApiPath(`/settings/security/oauth/${encodedProvider}/start`);
       const returnTo = String(options.returnTo || "").trim();
       if (!returnTo) {
-        return `/api/settings/security/oauth/${encodedProvider}/start`;
+        return oauthLinkStartPath;
       }
 
       const params = new URLSearchParams({
         returnTo
       });
-      return `/api/settings/security/oauth/${encodedProvider}/start?${params.toString()}`;
+      return `${oauthLinkStartPath}?${params.toString()}`;
     },
     unlinkOAuthProvider(provider) {
       const encodedProvider = encodeURIComponent(
@@ -49,10 +52,10 @@ function createApi({ request }) {
           .trim()
           .toLowerCase()
       );
-      return request(`/api/settings/security/oauth/${encodedProvider}`, { method: "DELETE" });
+      return request(`/api/v1/settings/security/oauth/${encodedProvider}`, { method: "DELETE" });
     },
     logoutOtherSessions() {
-      return request("/api/settings/security/logout-others", { method: "POST" });
+      return request("/api/v1/settings/security/logout-others", { method: "POST" });
     }
   };
 }

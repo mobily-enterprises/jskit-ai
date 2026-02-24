@@ -5,7 +5,7 @@ import { createRealtimeTestApp, openRealtimeWebSocket, waitForRealtimeMessage } 
 
 test("missing subscribe workspaceSlug returns workspace_required and does not resolve workspace context", async () => {
   const { app, port, workspaceService } = await createRealtimeTestApp();
-  const url = `ws://127.0.0.1:${port}/api/realtime`;
+  const url = `ws://127.0.0.1:${port}/api/v1/realtime`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {
@@ -33,7 +33,7 @@ test("missing subscribe workspaceSlug returns workspace_required and does not re
 
 test("blank unsubscribe workspaceSlug returns workspace_required and does not resolve workspace context", async () => {
   const { app, port, workspaceService } = await createRealtimeTestApp();
-  const url = `ws://127.0.0.1:${port}/api/realtime`;
+  const url = `ws://127.0.0.1:${port}/api/v1/realtime`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {

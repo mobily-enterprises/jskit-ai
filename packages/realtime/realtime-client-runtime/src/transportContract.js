@@ -1,7 +1,7 @@
 import { io as createSocketIoClient } from "socket.io-client";
 
 const DEFAULT_SOCKET_IO_TRANSPORT_OPTIONS = Object.freeze({
-  path: "/api/realtime",
+  path: "/api/v1/realtime",
   messageEvent: "realtime:message",
   transports: Object.freeze(["websocket"])
 });

@@ -3,8 +3,12 @@ import fp from "fastify-plugin";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
 import { BILLING_RUNTIME_DEFAULTS } from "@jskit-ai/billing-service-core/constants";
+import { buildVersionedApiPath } from "../../shared/apiPaths.js";
 
-const BILLING_WEBHOOK_PATH_SET = new Set(["/api/billing/webhooks/stripe", "/api/billing/webhooks/paddle"]);
+const BILLING_WEBHOOK_PATH_SET = new Set([
+  buildVersionedApiPath("/billing/webhooks/stripe"),
+  buildVersionedApiPath("/billing/webhooks/paddle")
+]);
 
 async function billingWebhookRawBodyPlugin(fastify, options = {}) {
   const maxPayloadBytes = Math.max(

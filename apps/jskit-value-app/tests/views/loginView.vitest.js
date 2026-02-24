@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
       requestOtp: vi.fn(),
       verifyOtp: vi.fn(),
       oauthComplete: vi.fn(),
-      oauthStartUrl: vi.fn((provider) => `/api/oauth/${provider}/start`)
+      oauthStartUrl: vi.fn((provider) => `/api/v1/oauth/${provider}/start`)
     },
     workspace: {
       bootstrap: vi.fn()

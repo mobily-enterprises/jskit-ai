@@ -34,7 +34,7 @@ test("buildSubscribeContextRequest force-overrides surface and workspace headers
       workspaceSlug: "wrong"
     },
     raw: {
-      url: "/api/realtime"
+      url: "/api/v1/realtime"
     }
   };
 

@@ -5,6 +5,7 @@ import {
   __testables,
   registerRealtimeServerSocketio
 } from "@jskit-ai/realtime-server-socketio";
+import { API_REALTIME_PATH } from "../../shared/apiPaths.js";
 
 import { hasTopicPermission, isSupportedTopic, isTopicAllowedForSurface } from "../../shared/topicRegistry.js";
 import {
@@ -43,7 +44,7 @@ async function registerSocketIoRealtime(
     redisUrl = "",
     requireRedisAdapter = false,
     logger = null,
-    path = SOCKET_IO_PATH,
+    path = API_REALTIME_PATH,
     maxInboundMessageBytes = MAX_INBOUND_MESSAGE_BYTES,
     redisQuitTimeoutMs,
     redisConnectTimeoutMs,

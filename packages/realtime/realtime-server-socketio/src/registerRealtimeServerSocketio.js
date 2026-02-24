@@ -4,7 +4,7 @@ import { Server as SocketIoServer } from "socket.io";
 
 import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "@jskit-ai/realtime-contracts";
 
-const SOCKET_IO_PATH = "/api/realtime";
+const SOCKET_IO_PATH = "/api/v1/realtime";
 const SOCKET_IO_MESSAGE_EVENT = "realtime:message";
 const MAX_INBOUND_MESSAGE_BYTES = 8192;
 const REDIS_QUIT_TIMEOUT_MS = 5000;

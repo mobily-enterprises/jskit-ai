@@ -41,13 +41,13 @@ test("health routes expose liveness and readiness endpoints", async () => {
 
   const healthResponse = await app.inject({
     method: "GET",
-    url: "/api/health"
+    url: "/api/v1/health"
   });
   assert.equal(healthResponse.statusCode, 200);
 
   const readinessResponse = await app.inject({
     method: "GET",
-    url: "/api/ready"
+    url: "/api/v1/ready"
   });
   assert.equal(readinessResponse.statusCode, 200);
 
@@ -64,7 +64,7 @@ test("readiness route supports 503 degraded payload", async () => {
 
   const response = await app.inject({
     method: "GET",
-    url: "/api/ready"
+    url: "/api/v1/ready"
   });
 
   assert.equal(response.statusCode, 503);

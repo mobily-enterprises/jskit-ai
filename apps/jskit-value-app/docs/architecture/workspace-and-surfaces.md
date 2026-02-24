@@ -17,7 +17,7 @@ This document replaces the previous `multihome.md` transcript with a decision re
 3. App config is operator-owned and loaded at boot.
 4. Workspace config is workspace-admin owned and persisted per workspace.
 5. User config is user-owned and persisted per user.
-6. `/api/bootstrap` is the first-load runtime context contract.
+6. `/api/v1/bootstrap` is the first-load runtime context contract.
 
 ## Mode Profiles
 
@@ -100,7 +100,7 @@ Policy:
 - Slug is route identity.
 - Authorization always resolves and checks `workspace_id`.
 
-## `/api/bootstrap` Contract
+## `/api/v1/bootstrap` Contract
 
 Purpose:
 
@@ -158,7 +158,7 @@ Each workspace owns at least two surfaces:
 Boundary requirements:
 
 1. Separate auth contexts (cookies/audiences/tokens) for `admin` and `app`.
-2. Separate API namespaces (`/api/admin/*`, `/api/app/*`).
+2. Separate API namespaces (`/api/v1/admin/*`, `/api/v1/app/*`).
 3. `app` surface must not expose staff role/invite/settings-admin actions.
 4. Shared business logic should remain single-source in services/repositories.
 
@@ -179,7 +179,7 @@ Workspace-native track:
 2. Workspace schema and backfills.
 3. Repository tenant scoping by `workspace_id`.
 4. Auth plugin workspace context + permission checks.
-5. `/api/bootstrap`, `/api/workspaces`, `/api/workspaces/select` contracts.
+5. `/api/v1/bootstrap`, `/api/v1/workspaces`, `/api/v1/workspaces/select` contracts.
 6. Server wiring and page guards for no-workspace state.
 7. Service/controller refactor to pass `workspaceId` explicitly.
 8. Frontend bootstrap hydration in `src/main.js`.
@@ -215,6 +215,6 @@ Two-surface expansion track:
 1. `defaultInviteRole`: app-global only, or workspace-overridable.
 2. Workspace creation policy in multi-workspace mode.
 3. Role definitions: manifest-only in v1, or workspace-customizable later.
-4. Whether `/api/bootstrap` should include CSRF token.
+4. Whether `/api/v1/bootstrap` should include CSRF token.
 5. Slug mutability and redirect policy.
 6. Owner transfer behavior in v1.

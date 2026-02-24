@@ -21,7 +21,7 @@ test("realtime registration can require Redis adapter", async () => {
 
 test("realtime route requires websocket auth on handshake", async () => {
   const { app, port } = await createRealtimeTestApp();
-  const url = `ws://127.0.0.1:${port}/api/realtime`;
+  const url = `ws://127.0.0.1:${port}/api/v1/realtime`;
 
   await assert.rejects(
     () => openRealtimeWebSocket(url),
@@ -33,7 +33,7 @@ test("realtime route requires websocket auth on handshake", async () => {
 
 test("targeted chat events fan out only to requested user rooms", async () => {
   const { app, port, realtimeEventsService } = await createRealtimeTestApp();
-  const url = `ws://127.0.0.1:${port}/api/realtime`;
+  const url = `ws://127.0.0.1:${port}/api/v1/realtime`;
 
   const recipientOne = await openRealtimeWebSocket(url, {
     headers: {
@@ -87,7 +87,7 @@ test("targeted chat events fan out only to requested user rooms", async () => {
 
 test("targeted chat fanout works for global DM events without workspace subscriptions", async () => {
   const { app, port, realtimeEventsService } = await createRealtimeTestApp();
-  const url = `ws://127.0.0.1:${port}/api/realtime`;
+  const url = `ws://127.0.0.1:${port}/api/v1/realtime`;
 
   const leftSocket = await openRealtimeWebSocket(url, {
     headers: {
@@ -134,7 +134,7 @@ test("targeted chat fanout works for global DM events without workspace subscrip
 
 test("subscribe succeeds for authorized topics and forces server-side context overrides", async () => {
   const { app, port, workspaceService } = await createRealtimeTestApp();
-  const url = `ws://127.0.0.1:${port}/api/realtime?surface=admin`;
+  const url = `ws://127.0.0.1:${port}/api/v1/realtime?surface=admin`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {
@@ -173,7 +173,7 @@ test("unsubscribe succeeds after permissions are revoked and removes existing su
   const { app, port, realtimeEventsService } = await createRealtimeTestApp({
     permissionsBySlug
   });
-  const url = `ws://127.0.0.1:${port}/api/realtime?surface=app`;
+  const url = `ws://127.0.0.1:${port}/api/v1/realtime?surface=app`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {
@@ -235,7 +235,7 @@ test("existing subscriptions are evicted when topic permissions are revoked", as
   const { app, port, realtimeEventsService } = await createRealtimeTestApp({
     permissionsBySlug
   });
-  const url = `ws://127.0.0.1:${port}/api/realtime?surface=app`;
+  const url = `ws://127.0.0.1:${port}/api/v1/realtime?surface=app`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {
@@ -336,7 +336,7 @@ test("transient event authorization failures do not evict existing subscriptions
   const { app, port, realtimeEventsService } = await createRealtimeTestApp({
     workspaceService
   });
-  const url = `ws://127.0.0.1:${port}/api/realtime?surface=app`;
+  const url = `ws://127.0.0.1:${port}/api/v1/realtime?surface=app`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {
@@ -395,7 +395,7 @@ test("transient event authorization failures do not evict existing subscriptions
 
 test("realtime route rejects unsupported connection surface without resolving workspace context", async () => {
   const { app, port, workspaceService } = await createRealtimeTestApp();
-  const url = `ws://127.0.0.1:${port}/api/realtime?surface=future`;
+  const url = `ws://127.0.0.1:${port}/api/v1/realtime?surface=future`;
 
   await assert.rejects(
     () =>
@@ -413,7 +413,7 @@ test("realtime route rejects unsupported connection surface without resolving wo
 
 test("app-surface subscribe rejects admin-only topics server-side", async () => {
   const { app, port, workspaceService } = await createRealtimeTestApp();
-  const url = `ws://127.0.0.1:${port}/api/realtime?surface=app`;
+  const url = `ws://127.0.0.1:${port}/api/v1/realtime?surface=app`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {
@@ -446,7 +446,7 @@ test("app-surface deny-list blocks realtime subscribe", async () => {
       acme: [7]
     }
   });
-  const url = `ws://127.0.0.1:${port}/api/realtime?surface=app`;
+  const url = `ws://127.0.0.1:${port}/api/v1/realtime?surface=app`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {
@@ -480,7 +480,7 @@ test("admin surface is not blocked by app deny-list for the same user", async ()
       acme: [7]
     }
   });
-  const url = `ws://127.0.0.1:${port}/api/realtime?surface=admin`;
+  const url = `ws://127.0.0.1:${port}/api/v1/realtime?surface=admin`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {
@@ -514,7 +514,7 @@ test("subscribe returns forbidden without projects.read permission", async () =>
       acme: []
     }
   });
-  const url = `ws://127.0.0.1:${port}/api/realtime`;
+  const url = `ws://127.0.0.1:${port}/api/v1/realtime`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {
@@ -546,7 +546,7 @@ test("subscribe allows read-only workspace_meta topic without elevated workspace
       acme: []
     }
   });
-  const url = `ws://127.0.0.1:${port}/api/realtime`;
+  const url = `ws://127.0.0.1:${port}/api/v1/realtime`;
 
   const socket = await openRealtimeWebSocket(url, {
     headers: {
@@ -575,7 +575,7 @@ test("subscribe allows read-only workspace_meta topic without elevated workspace
 test("payload limit is UTF-8 byte accurate and closes oversized frames", async () => {
   const { app, port } = await createRealtimeTestApp();
   try {
-    const url = `ws://127.0.0.1:${port}/api/realtime`;
+    const url = `ws://127.0.0.1:${port}/api/v1/realtime`;
 
     const socket = await openRealtimeWebSocket(url, {
       headers: {

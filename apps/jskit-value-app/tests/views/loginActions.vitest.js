@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   api: {
     auth: {
       oauthComplete: vi.fn(),
-      oauthStartUrl: vi.fn((provider, { returnTo }) => `/api/oauth/${provider}/start?returnTo=${returnTo}`)
+      oauthStartUrl: vi.fn((provider, { returnTo }) => `/api/v1/oauth/${provider}/start?returnTo=${returnTo}`)
     },
     workspace: {
       bootstrap: vi.fn()
@@ -193,7 +193,7 @@ describe("useLoginActions", () => {
     mocks.api.auth.oauthComplete.mockReset();
     mocks.api.auth.oauthStartUrl.mockReset();
     mocks.api.auth.oauthStartUrl.mockImplementation(
-      (provider, { returnTo }) => `/api/oauth/${provider}/start?returnTo=${returnTo}`
+      (provider, { returnTo }) => `/api/v1/oauth/${provider}/start?returnTo=${returnTo}`
     );
 
     mocks.oauthUtils.clearPendingOAuthContext.mockReset();
@@ -297,7 +297,7 @@ describe("useLoginActions", () => {
         returnTo: "/",
         rememberAccountOnDevice: true
       });
-      expect(assign).toHaveBeenCalledWith("/api/oauth/google/start?returnTo=/");
+      expect(assign).toHaveBeenCalledWith("/api/v1/oauth/google/start?returnTo=/");
     } finally {
       vi.stubGlobal("window", originalWindow);
     }

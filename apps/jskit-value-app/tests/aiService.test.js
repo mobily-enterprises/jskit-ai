@@ -61,7 +61,7 @@ function createBaseRequest(overrides = {}) {
   return {
     id: "req-ai",
     method: "POST",
-    url: "/api/workspace/ai/chat/stream",
+    url: "/api/v1/workspace/ai/chat/stream",
     headers: {
       "x-command-id": "cmd-ai",
       "x-client-id": "client-ai",

@@ -22,7 +22,7 @@ function createBaseRequest(overrides = {}) {
   return {
     id: "req-console-1",
     method: "POST",
-    url: "/api/console/invites",
+    url: "/api/v1/console/invites",
     headers: {
       "x-forwarded-for": "198.51.100.10, 203.0.113.4",
       "user-agent": "console-audit-test"
@@ -79,7 +79,7 @@ test("console controller emits success security audit events for critical action
   await controller.updateMemberRole(
     createBaseRequest({
       method: "PATCH",
-      url: "/api/console/members/22/role",
+      url: "/api/v1/console/members/22/role",
       params: { memberUserId: "22" },
       body: { roleId: "moderator" }
     }),
@@ -91,7 +91,7 @@ test("console controller emits success security audit events for critical action
   await controller.createInvite(
     createBaseRequest({
       method: "POST",
-      url: "/api/console/invites",
+      url: "/api/v1/console/invites",
       body: { email: "invitee@example.com", roleId: "moderator" }
     }),
     createReply
@@ -102,7 +102,7 @@ test("console controller emits success security audit events for critical action
   await controller.updateAssistantSettings(
     createBaseRequest({
       method: "PATCH",
-      url: "/api/console/settings",
+      url: "/api/v1/console/settings",
       body: {
         assistantSystemPromptWorkspace: "Use concise language."
       }
@@ -115,7 +115,7 @@ test("console controller emits success security audit events for critical action
   await controller.revokeInvite(
     createBaseRequest({
       method: "DELETE",
-      url: "/api/console/invites/401",
+      url: "/api/v1/console/invites/401",
       params: { inviteId: "401" }
     }),
     revokeReply
@@ -126,7 +126,7 @@ test("console controller emits success security audit events for critical action
   await controller.respondToPendingInviteByToken(
     createBaseRequest({
       method: "POST",
-      url: "/api/console/invitations/redeem",
+      url: "/api/v1/console/invitations/redeem",
       body: { token: "console-secret-token", decision: "accept" }
     }),
     redeemReply
@@ -175,7 +175,7 @@ test("console controller emits failure security audit events and rethrows", asyn
       controller.revokeInvite(
         createBaseRequest({
           method: "DELETE",
-          url: "/api/console/invites/999",
+          url: "/api/v1/console/invites/999",
           params: { inviteId: "999" }
         }),
         reply

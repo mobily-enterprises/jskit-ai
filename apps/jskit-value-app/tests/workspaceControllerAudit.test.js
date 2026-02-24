@@ -22,7 +22,7 @@ function createBaseRequest(overrides = {}) {
   return {
     id: "req-1",
     method: "POST",
-    url: "/api/workspace/acme/invites",
+    url: "/api/v1/workspace/acme/invites",
     headers: {
       "x-forwarded-for": "203.0.113.11, 198.51.100.4",
       "user-agent": "workspace-audit-test"
@@ -82,7 +82,7 @@ test("workspace controller emits success security audit events for critical acti
   await controller.updateWorkspaceMemberRole(
     createBaseRequest({
       method: "PATCH",
-      url: "/api/workspace/acme/members/22/role",
+      url: "/api/v1/workspace/acme/members/22/role",
       params: { memberUserId: "22" },
       body: { roleId: "admin" }
     }),
@@ -94,7 +94,7 @@ test("workspace controller emits success security audit events for critical acti
   await controller.createWorkspaceInvite(
     createBaseRequest({
       method: "POST",
-      url: "/api/workspace/acme/invites",
+      url: "/api/v1/workspace/acme/invites",
       body: { email: "invitee@example.com", roleId: "member" }
     }),
     createInviteReply
@@ -105,7 +105,7 @@ test("workspace controller emits success security audit events for critical acti
   await controller.revokeWorkspaceInvite(
     createBaseRequest({
       method: "DELETE",
-      url: "/api/workspace/acme/invites/501",
+      url: "/api/v1/workspace/acme/invites/501",
       params: { inviteId: "501" }
     }),
     revokeReply
@@ -116,7 +116,7 @@ test("workspace controller emits success security audit events for critical acti
   await controller.respondToPendingInviteByToken(
     createBaseRequest({
       method: "POST",
-      url: "/api/workspace/invitations/redeem",
+      url: "/api/v1/workspace/invitations/redeem",
       body: { token: "invite-secret-token", decision: "accept" }
     }),
     redeemReply

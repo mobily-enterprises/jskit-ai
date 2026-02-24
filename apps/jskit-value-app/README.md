@@ -229,7 +229,7 @@ export REDIS_NAMESPACE=""
 export TRUST_PROXY="false"
 # Prometheus metrics endpoint toggle
 export METRICS_ENABLED="true"
-# Optional bearer token required for GET /api/metrics
+# Optional bearer token required for GET /api/v1/metrics
 export METRICS_BEARER_TOKEN=""
 # AI assistant behavior defaults (enabled/model/limits/permission) live in config/ai.js
 # AI provider id (current supported value: openai)
@@ -252,7 +252,7 @@ Notes:
 - Keep secrets in environment variables only.
 - Runtime/application code is ESM. Knex CLI files stay as `.cjs` by design.
 - Backend tests run with `NODE_ENV=test` and use `DB_TEST_NAME` (default: `${DB_NAME}_test`) to isolate test data from development data.
-- SMS delivery is scaffolded. With `SMS_DRIVER=plivo`, `/api/workspace/sms/send` returns a `not_implemented` provider result until transport wiring is added.
+- SMS delivery is scaffolded. With `SMS_DRIVER=plivo`, `/api/v1/workspace/sms/send` returns a `not_implemented` provider result until transport wiring is added.
 - Email delivery is scaffolded. With any non-empty `EMAIL_PROVIDER`, sends still return `not_implemented` until provider transport wiring is added.
 
 ## Database setup
@@ -325,7 +325,7 @@ npm start
 
 Open `http://localhost:3000`.
 
-Swagger UI is available at `http://localhost:3000/api/docs` in non-production mode.
+Swagger UI is available at `http://localhost:3000/api/v1/docs` in non-production mode.
 
 ## Client build profiles
 
@@ -361,7 +361,7 @@ Use `docs/operations/release-checklist.md` before shipping.
 
 ## Observability
 
-- Prometheus-style metrics endpoint: `GET /api/metrics`
+- Prometheus-style metrics endpoint: `GET /api/v1/metrics`
 - Metrics can be disabled with `METRICS_ENABLED=false`
 - Protect endpoint with `METRICS_BEARER_TOKEN` in shared environments
 - Metrics/alerts/dashboard queries: `docs/operations/observability.md`
@@ -450,123 +450,123 @@ npm run docs:api-contracts
 
 Realtime note:
 
-- `/api/realtime` is a Socket.IO websocket transport path (not a REST `GET` contract), so it is intentionally outside the generated API contracts inventory (`buildRoutes` path).
+- `/api/v1/realtime` is a Socket.IO websocket transport path (not a REST `GET` contract), so it is intentionally outside the generated API contracts inventory (`buildRoutes` path).
 - Realtime protocol, auth model, correlation, and limits are documented in `WS_ARCHITECTURE.md`.
 
 <!-- API_CONTRACTS_START -->
-- `GET /api/health`
-- `GET /api/ready`
-- `GET /api/metrics`
-- `POST /api/register`
-- `POST /api/login`
-- `POST /api/login/otp/request`
-- `POST /api/login/otp/verify`
-- `GET /api/oauth/:provider/start`
-- `POST /api/oauth/complete`
-- `POST /api/password/forgot`
-- `POST /api/password/recovery`
-- `POST /api/password/reset`
-- `POST /api/logout`
-- `GET /api/session`
-- `GET /api/bootstrap`
-- `GET /api/workspaces`
-- `POST /api/workspaces/select`
-- `GET /api/workspace/invitations/pending`
-- `POST /api/workspace/invitations/redeem`
-- `GET /api/workspace/settings`
-- `PATCH /api/workspace/settings`
-- `GET /api/workspace/roles`
-- `GET /api/workspace/ai/transcripts`
-- `GET /api/workspace/ai/transcripts/:conversationId/messages`
-- `GET /api/workspace/ai/transcripts/:conversationId/export`
-- `GET /api/workspace/members`
-- `PATCH /api/workspace/members/:memberUserId/role`
-- `GET /api/workspace/invites`
-- `POST /api/workspace/invites`
-- `DELETE /api/workspace/invites/:inviteId`
-- `GET /api/console/bootstrap`
-- `GET /api/console/roles`
-- `GET /api/console/settings`
-- `PATCH /api/console/settings`
-- `GET /api/console/members`
-- `PATCH /api/console/members/:memberUserId/role`
-- `GET /api/console/invites`
-- `GET /api/console/ai/transcripts`
-- `GET /api/console/billing/plans`
-- `GET /api/console/billing/products`
-- `GET /api/console/billing/settings`
-- `PATCH /api/console/billing/settings`
-- `GET /api/console/billing/provider-prices`
-- `POST /api/console/billing/plans`
-- `POST /api/console/billing/products`
-- `PATCH /api/console/billing/plans/:planId`
-- `PATCH /api/console/billing/products/:productId`
-- `GET /api/console/billing/events`
-- `GET /api/console/ai/transcripts/:conversationId/messages`
-- `GET /api/console/ai/transcripts/export`
-- `POST /api/console/invites`
-- `DELETE /api/console/invites/:inviteId`
-- `GET /api/console/invitations/pending`
-- `POST /api/console/invitations/redeem`
-- `GET /api/console/errors/browser`
-- `GET /api/console/errors/browser/:errorId`
-- `GET /api/console/errors/server`
-- `GET /api/console/errors/server/:errorId`
-- `POST /api/console/errors/browser`
-- `POST /api/console/simulate/server-error`
-- `POST /api/workspace/sms/send`
-- `GET /api/workspace/projects`
-- `GET /api/workspace/projects/:projectId`
-- `POST /api/workspace/projects`
-- `PATCH /api/workspace/projects/:projectId`
-- `PUT /api/workspace/projects/:projectId`
-- `POST /api/chat/workspace/ensure`
-- `POST /api/chat/dm/ensure`
-- `GET /api/chat/dm/candidates`
-- `GET /api/chat/inbox`
-- `GET /api/chat/threads/:threadId`
-- `GET /api/chat/threads/:threadId/messages`
-- `POST /api/chat/threads/:threadId/messages`
-- `POST /api/chat/threads/:threadId/attachments/reserve`
-- `POST /api/chat/threads/:threadId/attachments/upload`
-- `DELETE /api/chat/threads/:threadId/attachments/:attachmentId`
-- `GET /api/chat/attachments/:attachmentId/content`
-- `POST /api/chat/threads/:threadId/read`
-- `POST /api/chat/threads/:threadId/typing`
-- `POST /api/chat/threads/:threadId/reactions`
-- `DELETE /api/chat/threads/:threadId/reactions`
-- `GET /api/billing/plans`
-- `GET /api/billing/products`
-- `GET /api/billing/purchases`
-- `GET /api/billing/plan-state`
-- `GET /api/billing/payment-methods`
-- `POST /api/billing/payment-methods/sync`
-- `GET /api/billing/limitations`
-- `GET /api/billing/timeline`
-- `POST /api/billing/checkout`
-- `POST /api/billing/plan-change`
-- `POST /api/billing/plan-change/cancel`
-- `POST /api/billing/portal`
-- `POST /api/billing/payment-links`
-- `POST /api/billing/webhooks/stripe`
-- `POST /api/billing/webhooks/paddle`
-- `POST /api/workspace/ai/chat/stream`
-- `GET /api/workspace/ai/conversations`
-- `GET /api/workspace/ai/conversations/:conversationId/messages`
-- `GET /api/settings`
-- `PATCH /api/settings/profile`
-- `POST /api/settings/profile/avatar`
-- `DELETE /api/settings/profile/avatar`
-- `PATCH /api/settings/preferences`
-- `PATCH /api/settings/notifications`
-- `PATCH /api/settings/chat`
-- `POST /api/settings/security/change-password`
-- `PATCH /api/settings/security/methods/password`
-- `GET /api/settings/security/oauth/:provider/start`
-- `DELETE /api/settings/security/oauth/:provider`
-- `POST /api/settings/security/logout-others`
-- `GET /api/history`
-- `POST /api/deg2rad`
+- `GET /api/v1/health`
+- `GET /api/v1/ready`
+- `GET /api/v1/metrics`
+- `POST /api/v1/register`
+- `POST /api/v1/login`
+- `POST /api/v1/login/otp/request`
+- `POST /api/v1/login/otp/verify`
+- `GET /api/v1/oauth/:provider/start`
+- `POST /api/v1/oauth/complete`
+- `POST /api/v1/password/forgot`
+- `POST /api/v1/password/recovery`
+- `POST /api/v1/password/reset`
+- `POST /api/v1/logout`
+- `GET /api/v1/session`
+- `GET /api/v1/bootstrap`
+- `GET /api/v1/workspaces`
+- `POST /api/v1/workspaces/select`
+- `GET /api/v1/workspace/invitations/pending`
+- `POST /api/v1/workspace/invitations/redeem`
+- `GET /api/v1/workspace/settings`
+- `PATCH /api/v1/workspace/settings`
+- `GET /api/v1/workspace/roles`
+- `GET /api/v1/workspace/ai/transcripts`
+- `GET /api/v1/workspace/ai/transcripts/:conversationId/messages`
+- `GET /api/v1/workspace/ai/transcripts/:conversationId/export`
+- `GET /api/v1/workspace/members`
+- `PATCH /api/v1/workspace/members/:memberUserId/role`
+- `GET /api/v1/workspace/invites`
+- `POST /api/v1/workspace/invites`
+- `DELETE /api/v1/workspace/invites/:inviteId`
+- `GET /api/v1/console/bootstrap`
+- `GET /api/v1/console/roles`
+- `GET /api/v1/console/settings`
+- `PATCH /api/v1/console/settings`
+- `GET /api/v1/console/members`
+- `PATCH /api/v1/console/members/:memberUserId/role`
+- `GET /api/v1/console/invites`
+- `GET /api/v1/console/ai/transcripts`
+- `GET /api/v1/console/billing/plans`
+- `GET /api/v1/console/billing/products`
+- `GET /api/v1/console/billing/settings`
+- `PATCH /api/v1/console/billing/settings`
+- `GET /api/v1/console/billing/provider-prices`
+- `POST /api/v1/console/billing/plans`
+- `POST /api/v1/console/billing/products`
+- `PATCH /api/v1/console/billing/plans/:planId`
+- `PATCH /api/v1/console/billing/products/:productId`
+- `GET /api/v1/console/billing/events`
+- `GET /api/v1/console/ai/transcripts/:conversationId/messages`
+- `GET /api/v1/console/ai/transcripts/export`
+- `POST /api/v1/console/invites`
+- `DELETE /api/v1/console/invites/:inviteId`
+- `GET /api/v1/console/invitations/pending`
+- `POST /api/v1/console/invitations/redeem`
+- `GET /api/v1/console/errors/browser`
+- `GET /api/v1/console/errors/browser/:errorId`
+- `GET /api/v1/console/errors/server`
+- `GET /api/v1/console/errors/server/:errorId`
+- `POST /api/v1/console/errors/browser`
+- `POST /api/v1/console/simulate/server-error`
+- `POST /api/v1/workspace/sms/send`
+- `GET /api/v1/workspace/projects`
+- `GET /api/v1/workspace/projects/:projectId`
+- `POST /api/v1/workspace/projects`
+- `PATCH /api/v1/workspace/projects/:projectId`
+- `PUT /api/v1/workspace/projects/:projectId`
+- `POST /api/v1/chat/workspace/ensure`
+- `POST /api/v1/chat/dm/ensure`
+- `GET /api/v1/chat/dm/candidates`
+- `GET /api/v1/chat/inbox`
+- `GET /api/v1/chat/threads/:threadId`
+- `GET /api/v1/chat/threads/:threadId/messages`
+- `POST /api/v1/chat/threads/:threadId/messages`
+- `POST /api/v1/chat/threads/:threadId/attachments/reserve`
+- `POST /api/v1/chat/threads/:threadId/attachments/upload`
+- `DELETE /api/v1/chat/threads/:threadId/attachments/:attachmentId`
+- `GET /api/v1/chat/attachments/:attachmentId/content`
+- `POST /api/v1/chat/threads/:threadId/read`
+- `POST /api/v1/chat/threads/:threadId/typing`
+- `POST /api/v1/chat/threads/:threadId/reactions`
+- `DELETE /api/v1/chat/threads/:threadId/reactions`
+- `GET /api/v1/billing/plans`
+- `GET /api/v1/billing/products`
+- `GET /api/v1/billing/purchases`
+- `GET /api/v1/billing/plan-state`
+- `GET /api/v1/billing/payment-methods`
+- `POST /api/v1/billing/payment-methods/sync`
+- `GET /api/v1/billing/limitations`
+- `GET /api/v1/billing/timeline`
+- `POST /api/v1/billing/checkout`
+- `POST /api/v1/billing/plan-change`
+- `POST /api/v1/billing/plan-change/cancel`
+- `POST /api/v1/billing/portal`
+- `POST /api/v1/billing/payment-links`
+- `POST /api/v1/billing/webhooks/stripe`
+- `POST /api/v1/billing/webhooks/paddle`
+- `POST /api/v1/workspace/ai/chat/stream`
+- `GET /api/v1/workspace/ai/conversations`
+- `GET /api/v1/workspace/ai/conversations/:conversationId/messages`
+- `GET /api/v1/settings`
+- `PATCH /api/v1/settings/profile`
+- `POST /api/v1/settings/profile/avatar`
+- `DELETE /api/v1/settings/profile/avatar`
+- `PATCH /api/v1/settings/preferences`
+- `PATCH /api/v1/settings/notifications`
+- `PATCH /api/v1/settings/chat`
+- `POST /api/v1/settings/security/change-password`
+- `PATCH /api/v1/settings/security/methods/password`
+- `GET /api/v1/settings/security/oauth/:provider/start`
+- `DELETE /api/v1/settings/security/oauth/:provider`
+- `POST /api/v1/settings/security/logout-others`
+- `GET /api/v1/history`
+- `POST /api/v1/deg2rad`
 <!-- API_CONTRACTS_END -->
 
 Auth/security behavior:
@@ -586,11 +586,11 @@ Auth/security behavior:
 
 CSRF notes:
 
-- `GET /api/session` returns `csrfToken`.
+- `GET /api/v1/session` returns `csrfToken`.
 - Unsafe requests must send `csrf-token` header.
 - The shipped frontend handles this automatically.
 
-AI stream contract (`POST /api/workspace/ai/chat/stream`):
+AI stream contract (`POST /api/v1/workspace/ai/chat/stream`):
 
 - Response content type is `application/x-ndjson`.
 - Each line is one JSON event with `type` in:
@@ -605,7 +605,7 @@ AI stream contract (`POST /api/workspace/ai/chat/stream`):
   - Pre-stream failures (auth, permissions, validation, disabled route) return normal HTTP errors (`4xx/5xx`).
   - In-stream failures (provider/tool/runtime after stream starts) emit NDJSON `type:"error"` events while HTTP status remains `200`.
 
-`/api/deg2rad` supports server-side DEG2RAD conversion:
+`/api/v1/deg2rad` supports server-side DEG2RAD conversion:
 
 ```json
 {
@@ -619,7 +619,7 @@ Validation errors return HTTP 400 with `fieldErrors`.
 Password reset flow:
 
 1. User clicks `Forgot password?` on `/login`.
-2. Frontend calls `POST /api/password/forgot` with email.
+2. Frontend calls `POST /api/v1/password/forgot` with email.
 3. Supabase sends recovery link to `${APP_PUBLIC_URL}/reset-password`.
-4. `/reset-password` exchanges recovery link data via `POST /api/password/recovery`.
-5. User submits new password to `POST /api/password/reset`.
+4. `/reset-password` exchanges recovery link data via `POST /api/v1/password/recovery`.
+5. User submits new password to `POST /api/v1/password/reset`.

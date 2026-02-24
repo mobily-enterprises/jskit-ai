@@ -1,6 +1,6 @@
 # Observability Runbook
 
-This project exposes Prometheus-format metrics at `GET /api/metrics`.
+This project exposes Prometheus-format metrics at `GET /api/v1/metrics`.
 
 ## 1) Endpoint and environment
 
@@ -11,7 +11,7 @@ Environment variables:
 
 Behavior:
 
-- When `METRICS_ENABLED=false`, `/api/metrics` returns `404`.
+- When `METRICS_ENABLED=false`, `/api/v1/metrics` returns `404`.
 - When `METRICS_BEARER_TOKEN` is set, callers must send:
   - `Authorization: Bearer <token>`
 
@@ -35,7 +35,7 @@ Security and error ingestion:
 
 Notes:
 
-- `route` uses Fastify route templates (for example, `/api/workspace/invites/:inviteId`) to avoid high cardinality.
+- `route` uses Fastify route templates (for example, `/api/v1/workspace/invites/:inviteId`) to avoid high cardinality.
 - Do not add user identifiers or request IDs to labels.
 
 ## 3) Scrape configuration
@@ -45,7 +45,7 @@ Prometheus scrape job example:
 ```yaml
 scrape_configs:
   - job_name: jskit-app
-    metrics_path: /api/metrics
+    metrics_path: /api/v1/metrics
     scheme: https
     static_configs:
       - targets: ["your-host.example.com"]
@@ -67,7 +67,7 @@ Trigger when readiness is unavailable for 5 minutes:
 sum_over_time(up{job="jskit-app"}[5m]) == 0
 ```
 
-If your platform supports HTTP health checks directly, alert when `GET /api/ready` is non-200 for 5 minutes.
+If your platform supports HTTP health checks directly, alert when `GET /api/v1/ready` is non-200 for 5 minutes.
 
 ### Error-rate alert
 
@@ -90,7 +90,7 @@ sum(rate(app_http_requests_total[5m])) > 0.2
 ```promql
 histogram_quantile(
   0.95,
-  sum by (le) (rate(app_http_request_duration_seconds_bucket{route!="/api/metrics"}[5m]))
+  sum by (le) (rate(app_http_request_duration_seconds_bucket{route!="/api/v1/metrics"}[5m]))
 )
 ```
 

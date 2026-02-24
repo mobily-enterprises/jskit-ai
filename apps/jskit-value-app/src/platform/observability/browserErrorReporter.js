@@ -1,7 +1,8 @@
 import { createBrowserErrorPayloadTools } from "@jskit-ai/observability-core/browserPayload";
 import { createSurfacePaths, resolveSurfaceFromPathname } from "../../../shared/surfacePaths.js";
+import { buildVersionedApiPath } from "../../../shared/apiPaths.js";
 
-const REPORT_ENDPOINT = "/api/console/errors/browser";
+const REPORT_ENDPOINT = buildVersionedApiPath("/console/errors/browser");
 const MAX_REPORTS_IN_FLIGHT = 8;
 
 let installed = false;

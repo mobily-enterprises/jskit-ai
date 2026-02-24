@@ -1,67 +1,68 @@
 import { createHttpClient } from "@jskit-ai/http-client-runtime";
 
-const DEFAULT_API_PATH_PREFIX = "/api/";
-const DEFAULT_AI_STREAM_URL = "/api/workspace/ai/chat/stream";
+const DEFAULT_API_PATH_PREFIX = "/api/v1/";
+const DEFAULT_AI_STREAM_URL = "/api/v1/workspace/ai/chat/stream";
+const DEFAULT_CSRF_SESSION_PATH = "/api/v1/session";
 const DEFAULT_REALTIME_CORRELATED_WRITE_ROUTES = Object.freeze([
   {
     method: "POST",
-    pattern: /^\/api\/workspace\/projects$/
+    pattern: /^\/api\/v1\/workspace\/projects$/
   },
   {
     method: "PATCH",
-    pattern: /^\/api\/workspace\/projects\/[^/]+$/
+    pattern: /^\/api\/v1\/workspace\/projects\/[^/]+$/
   },
   {
     method: "PUT",
-    pattern: /^\/api\/workspace\/projects\/[^/]+$/
+    pattern: /^\/api\/v1\/workspace\/projects\/[^/]+$/
   },
   {
     method: "PATCH",
-    pattern: /^\/api\/workspace\/settings$/
+    pattern: /^\/api\/v1\/workspace\/settings$/
   },
   {
     method: "PATCH",
-    pattern: /^\/api\/workspace\/members\/[^/]+\/role$/
+    pattern: /^\/api\/v1\/workspace\/members\/[^/]+\/role$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/workspace\/invites$/
+    pattern: /^\/api\/v1\/workspace\/invites$/
   },
   {
     method: "DELETE",
-    pattern: /^\/api\/workspace\/invites\/[^/]+$/
+    pattern: /^\/api\/v1\/workspace\/invites\/[^/]+$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/chat\/workspace\/ensure$/
+    pattern: /^\/api\/v1\/chat\/workspace\/ensure$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/chat\/dm\/ensure$/
+    pattern: /^\/api\/v1\/chat\/dm\/ensure$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/chat\/threads\/[^/]+\/messages$/
+    pattern: /^\/api\/v1\/chat\/threads\/[^/]+\/messages$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/chat\/threads\/[^/]+\/attachments\/reserve$/
+    pattern: /^\/api\/v1\/chat\/threads\/[^/]+\/attachments\/reserve$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/chat\/threads\/[^/]+\/attachments\/upload$/
+    pattern: /^\/api\/v1\/chat\/threads\/[^/]+\/attachments\/upload$/
   },
   {
     method: "DELETE",
-    pattern: /^\/api\/chat\/threads\/[^/]+\/attachments\/[^/]+$/
+    pattern: /^\/api\/v1\/chat\/threads\/[^/]+\/attachments\/[^/]+$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/chat\/threads\/[^/]+\/read$/
+    pattern: /^\/api\/v1\/chat\/threads\/[^/]+\/read$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/chat\/threads\/[^/]+\/typing$/
+    pattern: /^\/api\/v1\/chat\/threads\/[^/]+\/typing$/
   }
 ]);
 
@@ -75,6 +76,34 @@ function createCommandIdGenerator() {
   };
 }
 
+function normalizePathname(pathname) {
+  const normalized = String(pathname || "").trim();
+  if (!normalized || normalized === "/") {
+    return normalized || "/";
+  }
+
+  return normalized.replace(/\/+$/, "") || "/";
+}
+
+function normalizeApiPathPrefix(prefix) {
+  const rawPrefix = String(prefix || "").trim();
+  const defaultPrefix = DEFAULT_API_PATH_PREFIX;
+  const source = rawPrefix || defaultPrefix;
+  const withLeadingSlash = source.startsWith("/") ? source : `/${source}`;
+  const squashed = withLeadingSlash.replace(/\/{2,}/g, "/");
+  return squashed.endsWith("/") ? squashed : `${squashed}/`;
+}
+
+function apiPrefixMatchesPathname(pathname, apiPathPrefix) {
+  const normalizedPathname = normalizePathname(pathname);
+  const normalizedApiPathPrefix = normalizeApiPathPrefix(apiPathPrefix);
+  const apiPathPrefixWithoutTrailingSlash = normalizedApiPathPrefix.slice(0, -1);
+  return (
+    normalizedPathname === apiPathPrefixWithoutTrailingSlash ||
+    normalizedPathname.startsWith(normalizedApiPathPrefix)
+  );
+}
+
 function createTransportRuntime({
   createSurfacePaths,
   resolveSurfaceFromPathname,
@@ -82,6 +111,7 @@ function createTransportRuntime({
   commandTracker,
   aiStreamUrl = DEFAULT_AI_STREAM_URL,
   apiPathPrefix = DEFAULT_API_PATH_PREFIX,
+  csrfSessionPath = DEFAULT_CSRF_SESSION_PATH,
   realtimeCorrelatedWriteRoutes = DEFAULT_REALTIME_CORRELATED_WRITE_ROUTES,
   generateCommandId = createCommandIdGenerator()
 } = {}) {
@@ -95,30 +125,37 @@ function createTransportRuntime({
     throw new Error("commandTracker is required.");
   }
 
-  function isAiStreamRequest(url) {
-    return String(url || "").includes(aiStreamUrl);
-  }
+  const normalizedApiPathPrefix = normalizeApiPathPrefix(apiPathPrefix);
 
-  function isApiRequestUrl(url) {
+  function resolvePathnameFromRequestUrl(url) {
     const rawUrl = String(url || "").trim();
     if (!rawUrl) {
-      return false;
-    }
-
-    if (rawUrl.startsWith("/")) {
-      return rawUrl.startsWith(apiPathPrefix);
-    }
-
-    if (typeof window === "undefined") {
-      return false;
+      return "";
     }
 
     try {
-      const parsed = new URL(rawUrl, window.location.origin);
-      return parsed.pathname.startsWith(apiPathPrefix);
+      const baseUrl = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+      return new URL(rawUrl, baseUrl).pathname;
     } catch {
+      return "";
+    }
+  }
+
+  const resolvedAiStreamPathname = normalizePathname(resolvePathnameFromRequestUrl(aiStreamUrl));
+  const resolvedCsrfSessionPath = String(csrfSessionPath || "").trim() || DEFAULT_CSRF_SESSION_PATH;
+
+  function isAiStreamRequest(url) {
+    const normalizedPathname = normalizePathname(resolvePathnameFromRequestUrl(url));
+    return Boolean(normalizedPathname && resolvedAiStreamPathname && normalizedPathname === resolvedAiStreamPathname);
+  }
+
+  function isApiRequestUrl(url) {
+    const pathname = normalizePathname(resolvePathnameFromRequestUrl(url));
+    if (!pathname) {
       return false;
     }
+
+    return apiPrefixMatchesPathname(pathname, normalizedApiPathPrefix);
   }
 
   function applySurfaceContextHeaders(url, headers) {
@@ -139,35 +176,12 @@ function createTransportRuntime({
     }
   }
 
-  function resolvePathnameFromRequestUrl(url) {
-    const rawUrl = String(url || "").trim();
-    if (!rawUrl) {
-      return "";
-    }
-
-    try {
-      const baseUrl = typeof window !== "undefined" ? window.location.origin : "http://localhost";
-      return new URL(rawUrl, baseUrl).pathname;
-    } catch {
-      return "";
-    }
-  }
-
-  function normalizePathname(pathname) {
-    const normalized = String(pathname || "").trim();
-    if (!normalized || normalized === "/") {
-      return normalized || "/";
-    }
-
-    return normalized.replace(/\/+$/, "") || "/";
-  }
-
   function isRealtimeCorrelatedCommandRequest(url, method) {
     const normalizedMethod = String(method || "")
       .trim()
       .toUpperCase();
     const pathname = normalizePathname(resolvePathnameFromRequestUrl(url));
-    if (!pathname.startsWith(apiPathPrefix)) {
+    if (!apiPrefixMatchesPathname(pathname, normalizedApiPathPrefix)) {
       return false;
     }
 
@@ -231,6 +245,9 @@ function createTransportRuntime({
   }
 
   const httpClient = createHttpClient({
+    csrf: {
+      sessionPath: resolvedCsrfSessionPath
+    },
     hooks: {
       decorateHeaders({ url, method, headers, state }) {
         applySurfaceContextHeaders(url, headers);
@@ -301,5 +318,6 @@ export {
   createTransportRuntime,
   DEFAULT_API_PATH_PREFIX,
   DEFAULT_AI_STREAM_URL,
+  DEFAULT_CSRF_SESSION_PATH,
   DEFAULT_REALTIME_CORRELATED_WRITE_ROUTES
 };

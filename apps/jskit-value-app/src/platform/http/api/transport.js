@@ -1,5 +1,6 @@
 import { createTransportRuntime } from "@jskit-ai/web-runtime-core/transportRuntime";
 import { createSurfacePaths, resolveSurfaceFromPathname } from "../../../../shared/surfacePaths.js";
+import { API_PREFIX_SLASH, buildVersionedApiPath } from "../../../../shared/apiPaths.js";
 import { getClientId, __testables as clientIdentityTestables } from "../../realtime/clientIdentity.js";
 import { commandTracker } from "../../realtime/commandTracker.js";
 
@@ -16,6 +17,9 @@ const transportRuntime = createTransportRuntime({
   resolveSurfaceFromPathname,
   getClientId,
   commandTracker,
+  apiPathPrefix: API_PREFIX_SLASH,
+  aiStreamUrl: buildVersionedApiPath("/workspace/ai/chat/stream"),
+  csrfSessionPath: buildVersionedApiPath("/session"),
   generateCommandId
 });
 

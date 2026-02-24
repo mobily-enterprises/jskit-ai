@@ -36,7 +36,7 @@ describe("client api transport", () => {
     const payload = await api.auth.session();
 
     expect(payload).toEqual({});
-    expect(global.fetch).toHaveBeenCalledWith("/api/session", {
+    expect(global.fetch).toHaveBeenCalledWith("/api/v1/session", {
       credentials: "same-origin",
       method: "GET",
       headers: {
@@ -51,7 +51,7 @@ describe("client api transport", () => {
     const token = await __testables.ensureCsrfToken(true);
 
     expect(token).toBe("");
-    expect(global.fetch).toHaveBeenCalledWith("/api/session", {
+    expect(global.fetch).toHaveBeenCalledWith("/api/v1/session", {
       method: "GET",
       credentials: "same-origin"
     });
@@ -76,19 +76,19 @@ describe("client api transport", () => {
       .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-a" } }))
       .mockResolvedValueOnce(mockResponse({ data: { ok: true } }));
 
-    const result = await __testables.request("/api/custom-unsafe", {
+    const result = await __testables.request("/api/v1/custom-unsafe", {
       method: "POST",
       body: { DEG2RAD_degrees: 180 }
     });
 
     expect(result).toEqual({ ok: true });
-    expect(global.fetch).toHaveBeenNthCalledWith(1, "/api/session", {
+    expect(global.fetch).toHaveBeenNthCalledWith(1, "/api/v1/session", {
       method: "GET",
       credentials: "same-origin"
     });
 
     const secondCall = global.fetch.mock.calls[1];
-    expect(secondCall[0]).toBe("/api/custom-unsafe");
+    expect(secondCall[0]).toBe("/api/v1/custom-unsafe");
     expect(secondCall[1].headers["Content-Type"]).toBe("application/json");
     expect(secondCall[1].headers["csrf-token"]).toBe("csrf-a");
     expect(secondCall[1].body).toBe(JSON.stringify({ DEG2RAD_degrees: 180 }));
@@ -97,7 +97,7 @@ describe("client api transport", () => {
   it("does not overwrite an explicit content-type header", async () => {
     global.fetch.mockResolvedValueOnce(mockResponse({ data: { ok: true } }));
 
-    const result = await __testables.request("/api/custom", {
+    const result = await __testables.request("/api/v1/custom", {
       method: "POST",
       headers: {
         "Content-Type": "application/custom+json",
@@ -121,7 +121,7 @@ describe("client api transport", () => {
     const formData = new FormData();
     formData.append("file", "data");
 
-    const result = await __testables.request("/api/custom-upload", {
+    const result = await __testables.request("/api/v1/custom-upload", {
       method: "POST",
       body: formData
     });
@@ -306,7 +306,7 @@ describe("client api transport", () => {
       json: vi.fn()
     });
 
-    const response = await __testables.request("/api/no-content-type", {
+    const response = await __testables.request("/api/v1/no-content-type", {
       method: "GET"
     });
 
@@ -349,12 +349,12 @@ describe("client api transport", () => {
     await api.auth.resetPassword({ password: "nextpassword123" });
 
     expect(global.fetch.mock.calls.map(([url]) => url)).toEqual([
-      "/api/session",
-      "/api/register",
-      "/api/login",
-      "/api/password/forgot",
-      "/api/password/recovery",
-      "/api/password/reset"
+      "/api/v1/session",
+      "/api/v1/register",
+      "/api/v1/login",
+      "/api/v1/password/forgot",
+      "/api/v1/password/recovery",
+      "/api/v1/password/reset"
     ]);
   });
 
@@ -406,16 +406,16 @@ describe("client api transport", () => {
     await api.settings.logoutOtherSessions();
 
     expect(global.fetch.mock.calls.map(([url]) => url)).toEqual([
-      "/api/settings",
-      "/api/session",
-      "/api/settings/profile",
-      "/api/settings/profile/avatar",
-      "/api/settings/profile/avatar",
-      "/api/settings/preferences",
-      "/api/settings/notifications",
-      "/api/settings/chat",
-      "/api/settings/security/change-password",
-      "/api/settings/security/logout-others"
+      "/api/v1/settings",
+      "/api/v1/session",
+      "/api/v1/settings/profile",
+      "/api/v1/settings/profile/avatar",
+      "/api/v1/settings/profile/avatar",
+      "/api/v1/settings/preferences",
+      "/api/v1/settings/notifications",
+      "/api/v1/settings/chat",
+      "/api/v1/settings/security/change-password",
+      "/api/v1/settings/security/logout-others"
     ]);
   });
 
@@ -433,12 +433,12 @@ describe("client api transport", () => {
     const history = await api.history.list(2, 25);
 
     expect(history).toEqual({ entries: [], page: 2, pageSize: 25, total: 0, totalPages: 1 });
-    expect(global.fetch.mock.calls[4][0]).toBe("/api/history?page=2&pageSize=25");
+    expect(global.fetch.mock.calls[4][0]).toBe("/api/v1/history?page=2&pageSize=25");
   });
 
   it("calls workspace and security wrapper endpoints and encodes identifiers", async () => {
     global.fetch.mockImplementation(async (url) => {
-      if (url === "/api/session") {
+      if (url === "/api/v1/session") {
         return mockResponse({
           data: { csrfToken: "workspace-token" }
         });
@@ -543,64 +543,64 @@ describe("client api transport", () => {
     await api.settings.unlinkOAuthProvider("Google ");
 
     const urls = global.fetch.mock.calls.map(([url]) => url);
-    expect(urls).toContain("/api/bootstrap");
-    expect(urls).toContain("/api/login/otp/request");
-    expect(urls).toContain("/api/login/otp/verify");
-    expect(urls).toContain("/api/oauth/complete");
-    expect(urls).toContain("/api/workspaces");
-    expect(urls).toContain("/api/workspaces/select");
-    expect(urls).toContain("/api/workspace/invitations/pending");
-    expect(urls).toContain("/api/workspace/invitations/redeem");
-    expect(urls).toContain("/api/workspace/settings");
-    expect(urls).toContain("/api/workspace/roles");
-    expect(urls).toContain("/api/workspace/members");
-    expect(urls).toContain("/api/workspace/members/user%2Fid/role");
-    expect(urls).toContain("/api/workspace/invites");
-    expect(urls).toContain("/api/workspace/invites/invite%20id%2F2");
-    expect(urls).toContain("/api/console/errors/browser?page=3&pageSize=25");
-    expect(urls).toContain("/api/console/errors/browser/101");
-    expect(urls).toContain("/api/console/errors/server?page=4&pageSize=20");
-    expect(urls).toContain("/api/console/errors/server/202");
-    expect(urls).toContain("/api/console/errors/browser");
-    expect(urls).toContain("/api/console/simulate/server-error");
+    expect(urls).toContain("/api/v1/bootstrap");
+    expect(urls).toContain("/api/v1/login/otp/request");
+    expect(urls).toContain("/api/v1/login/otp/verify");
+    expect(urls).toContain("/api/v1/oauth/complete");
+    expect(urls).toContain("/api/v1/workspaces");
+    expect(urls).toContain("/api/v1/workspaces/select");
+    expect(urls).toContain("/api/v1/workspace/invitations/pending");
+    expect(urls).toContain("/api/v1/workspace/invitations/redeem");
+    expect(urls).toContain("/api/v1/workspace/settings");
+    expect(urls).toContain("/api/v1/workspace/roles");
+    expect(urls).toContain("/api/v1/workspace/members");
+    expect(urls).toContain("/api/v1/workspace/members/user%2Fid/role");
+    expect(urls).toContain("/api/v1/workspace/invites");
+    expect(urls).toContain("/api/v1/workspace/invites/invite%20id%2F2");
+    expect(urls).toContain("/api/v1/console/errors/browser?page=3&pageSize=25");
+    expect(urls).toContain("/api/v1/console/errors/browser/101");
+    expect(urls).toContain("/api/v1/console/errors/server?page=4&pageSize=20");
+    expect(urls).toContain("/api/v1/console/errors/server/202");
+    expect(urls).toContain("/api/v1/console/errors/browser");
+    expect(urls).toContain("/api/v1/console/simulate/server-error");
     expect(urls).toContain(
-      "/api/console/billing/events?page=2&pageSize=25&workspaceSlug=acme-workspace&userId=8&billableEntityId=9&operationKey=op_123&providerEventId=evt_123&source=idempotency"
+      "/api/v1/console/billing/events?page=2&pageSize=25&workspaceSlug=acme-workspace&userId=8&billableEntityId=9&operationKey=op_123&providerEventId=evt_123&source=idempotency"
     );
-    expect(urls).toContain("/api/console/billing/plans");
-    expect(urls).toContain("/api/console/billing/products");
-    expect(urls).toContain("/api/console/billing/settings");
-    expect(urls).toContain("/api/console/billing/provider-prices?active=true&limit=50&target=plan");
+    expect(urls).toContain("/api/v1/console/billing/plans");
+    expect(urls).toContain("/api/v1/console/billing/products");
+    expect(urls).toContain("/api/v1/console/billing/settings");
+    expect(urls).toContain("/api/v1/console/billing/provider-prices?active=true&limit=50&target=plan");
     const createBillingPlanCall = global.fetch.mock.calls.find(
-      ([url, options]) => url === "/api/console/billing/plans" && String(options?.method || "").toUpperCase() === "POST"
+      ([url, options]) => url === "/api/v1/console/billing/plans" && String(options?.method || "").toUpperCase() === "POST"
     );
     expect(Boolean(createBillingPlanCall)).toBe(true);
     const updateBillingPlanCall = global.fetch.mock.calls.find(
       ([url, options]) =>
-        url === "/api/console/billing/plans/12" && String(options?.method || "").toUpperCase() === "PATCH"
+        url === "/api/v1/console/billing/plans/12" && String(options?.method || "").toUpperCase() === "PATCH"
     );
     expect(Boolean(updateBillingPlanCall)).toBe(true);
     const createBillingProductCall = global.fetch.mock.calls.find(
       ([url, options]) =>
-        url === "/api/console/billing/products" && String(options?.method || "").toUpperCase() === "POST"
+        url === "/api/v1/console/billing/products" && String(options?.method || "").toUpperCase() === "POST"
     );
     expect(Boolean(createBillingProductCall)).toBe(true);
     const updateBillingProductCall = global.fetch.mock.calls.find(
       ([url, options]) =>
-        url === "/api/console/billing/products/21" && String(options?.method || "").toUpperCase() === "PATCH"
+        url === "/api/v1/console/billing/products/21" && String(options?.method || "").toUpperCase() === "PATCH"
     );
     expect(Boolean(updateBillingProductCall)).toBe(true);
     expect(urls).toContain(
-      "/api/billing/timeline?page=3&pageSize=20&source=payment&operationKey=op_456&providerEventId=evt_456"
+      "/api/v1/billing/timeline?page=3&pageSize=20&source=payment&operationKey=op_456&providerEventId=evt_456"
     );
-    expect(urls).toContain("/api/billing/purchases");
-    expect(urls).toContain("/api/billing/plan-state");
-    expect(urls).toContain("/api/billing/plan-change");
-    expect(urls).toContain("/api/billing/plan-change/cancel");
-    expect(urls).toContain("/api/workspace/projects?page=2&pageSize=25");
-    expect(urls).toContain("/api/workspace/projects/project%2Fid");
-    expect(urls).toContain("/api/workspace/projects");
-    expect(urls).toContain("/api/settings/security/methods/password");
-    expect(urls).toContain("/api/settings/security/oauth/google");
+    expect(urls).toContain("/api/v1/billing/purchases");
+    expect(urls).toContain("/api/v1/billing/plan-state");
+    expect(urls).toContain("/api/v1/billing/plan-change");
+    expect(urls).toContain("/api/v1/billing/plan-change/cancel");
+    expect(urls).toContain("/api/v1/workspace/projects?page=2&pageSize=25");
+    expect(urls).toContain("/api/v1/workspace/projects/project%2Fid");
+    expect(urls).toContain("/api/v1/workspace/projects");
+    expect(urls).toContain("/api/v1/settings/security/methods/password");
+    expect(urls).toContain("/api/v1/settings/security/oauth/google");
   });
 
   it("applies command-correlation headers only to project write requests and keeps command id stable across csrf retries", async () => {
@@ -631,7 +631,7 @@ describe("client api transport", () => {
       .mockResolvedValueOnce(mockResponse({ data: { ok: true } }));
 
     await api.projects.update("project-1", { status: "active" });
-    await __testables.request("/api/workspace/invitations/redeem", {
+    await __testables.request("/api/v1/workspace/invitations/redeem", {
       method: "POST",
       headers: {
         "csrf-token": "provided-token"
@@ -669,7 +669,7 @@ describe("client api transport", () => {
     expect(response.project.id).toBe(202);
 
     const replaceCall = global.fetch.mock.calls[1];
-    expect(replaceCall[0]).toBe("/api/workspace/projects/202");
+    expect(replaceCall[0]).toBe("/api/v1/workspace/projects/202");
     expect(replaceCall[1].method).toBe("PUT");
     expect(replaceCall[1].headers["x-command-id"]).toBeTruthy();
     expect(replaceCall[1].headers["x-client-id"]).toBeTruthy();
@@ -685,7 +685,7 @@ describe("client api transport", () => {
       })
     );
 
-    await __testables.request("/api/workspace/settings", {
+    await __testables.request("/api/v1/workspace/settings", {
       method: "PATCH",
       headers: {
         "csrf-token": "provided-token"
@@ -694,7 +694,7 @@ describe("client api transport", () => {
         name: "Acme Prime"
       }
     });
-    await __testables.request("/api/workspace/members/19/role", {
+    await __testables.request("/api/v1/workspace/members/19/role", {
       method: "PATCH",
       headers: {
         "csrf-token": "provided-token"
@@ -703,7 +703,7 @@ describe("client api transport", () => {
         roleId: "admin"
       }
     });
-    await __testables.request("/api/workspace/invites", {
+    await __testables.request("/api/v1/workspace/invites", {
       method: "POST",
       headers: {
         "csrf-token": "provided-token"
@@ -712,13 +712,13 @@ describe("client api transport", () => {
         email: "invitee@example.com"
       }
     });
-    await __testables.request("/api/workspace/invites/42", {
+    await __testables.request("/api/v1/workspace/invites/42", {
       method: "DELETE",
       headers: {
         "csrf-token": "provided-token"
       }
     });
-    await __testables.request("/api/workspace/roles", {
+    await __testables.request("/api/v1/workspace/roles", {
       method: "GET"
     });
 
@@ -795,7 +795,7 @@ describe("client api transport", () => {
 
   it("calls chat wrapper endpoints and encodes thread identifiers", async () => {
     global.fetch.mockImplementation(async (url) => {
-      if (url === "/api/session") {
+      if (url === "/api/v1/session") {
         return mockResponse({
           data: { csrfToken: "chat-token" }
         });
@@ -835,48 +835,48 @@ describe("client api transport", () => {
     await api.chat.emitThreadTyping("thread/id");
 
     const urls = global.fetch.mock.calls.map(([url]) => url);
-    expect(urls).toContain("/api/chat/workspace/ensure");
-    expect(urls).toContain("/api/chat/dm/ensure");
-    expect(urls).toContain("/api/chat/dm/candidates?q=friend&limit=8");
-    expect(urls).toContain("/api/chat/inbox?cursor=cursor-1&limit=15");
-    expect(urls).toContain("/api/chat/threads/thread%2Fid");
-    expect(urls).toContain("/api/chat/threads/thread%2Fid/messages?cursor=cursor-2&limit=30");
-    expect(urls).toContain("/api/chat/threads/thread%2Fid/messages");
-    expect(urls).toContain("/api/chat/threads/thread%2Fid/attachments/reserve");
-    expect(urls).toContain("/api/chat/threads/thread%2Fid/attachments/upload");
-    expect(urls).toContain("/api/chat/threads/thread%2Fid/attachments/attachment%2Fid");
-    expect(urls).toContain("/api/chat/threads/thread%2Fid/read");
-    expect(urls).toContain("/api/chat/threads/thread%2Fid/typing");
+    expect(urls).toContain("/api/v1/chat/workspace/ensure");
+    expect(urls).toContain("/api/v1/chat/dm/ensure");
+    expect(urls).toContain("/api/v1/chat/dm/candidates?q=friend&limit=8");
+    expect(urls).toContain("/api/v1/chat/inbox?cursor=cursor-1&limit=15");
+    expect(urls).toContain("/api/v1/chat/threads/thread%2Fid");
+    expect(urls).toContain("/api/v1/chat/threads/thread%2Fid/messages?cursor=cursor-2&limit=30");
+    expect(urls).toContain("/api/v1/chat/threads/thread%2Fid/messages");
+    expect(urls).toContain("/api/v1/chat/threads/thread%2Fid/attachments/reserve");
+    expect(urls).toContain("/api/v1/chat/threads/thread%2Fid/attachments/upload");
+    expect(urls).toContain("/api/v1/chat/threads/thread%2Fid/attachments/attachment%2Fid");
+    expect(urls).toContain("/api/v1/chat/threads/thread%2Fid/read");
+    expect(urls).toContain("/api/v1/chat/threads/thread%2Fid/typing");
 
     const uploadCall = global.fetch.mock.calls.find(
-      ([url]) => url === "/api/chat/threads/thread%2Fid/attachments/upload"
+      ([url]) => url === "/api/v1/chat/threads/thread%2Fid/attachments/upload"
     );
     expect(uploadCall?.[1]?.body).toBe(uploadForm);
 
     const ensureWorkspaceCall = global.fetch.mock.calls.find(
-      ([url, options]) => url === "/api/chat/workspace/ensure" && String(options?.method || "").toUpperCase() === "POST"
+      ([url, options]) => url === "/api/v1/chat/workspace/ensure" && String(options?.method || "").toUpperCase() === "POST"
     );
     const ensureDmCall = global.fetch.mock.calls.find(
-      ([url, options]) => url === "/api/chat/dm/ensure" && String(options?.method || "").toUpperCase() === "POST"
+      ([url, options]) => url === "/api/v1/chat/dm/ensure" && String(options?.method || "").toUpperCase() === "POST"
     );
     const sendMessageCall = global.fetch.mock.calls.find(
-      ([url, options]) => url === "/api/chat/threads/thread%2Fid/messages" && String(options?.method || "").toUpperCase() === "POST"
+      ([url, options]) => url === "/api/v1/chat/threads/thread%2Fid/messages" && String(options?.method || "").toUpperCase() === "POST"
     );
     const reserveAttachmentCall = global.fetch.mock.calls.find(
       ([url, options]) =>
-        url === "/api/chat/threads/thread%2Fid/attachments/reserve" &&
+        url === "/api/v1/chat/threads/thread%2Fid/attachments/reserve" &&
         String(options?.method || "").toUpperCase() === "POST"
     );
     const deleteAttachmentCall = global.fetch.mock.calls.find(
       ([url, options]) =>
-        url === "/api/chat/threads/thread%2Fid/attachments/attachment%2Fid" &&
+        url === "/api/v1/chat/threads/thread%2Fid/attachments/attachment%2Fid" &&
         String(options?.method || "").toUpperCase() === "DELETE"
     );
     const markReadCall = global.fetch.mock.calls.find(
-      ([url, options]) => url === "/api/chat/threads/thread%2Fid/read" && String(options?.method || "").toUpperCase() === "POST"
+      ([url, options]) => url === "/api/v1/chat/threads/thread%2Fid/read" && String(options?.method || "").toUpperCase() === "POST"
     );
     const typingCall = global.fetch.mock.calls.find(
-      ([url, options]) => url === "/api/chat/threads/thread%2Fid/typing" && String(options?.method || "").toUpperCase() === "POST"
+      ([url, options]) => url === "/api/v1/chat/threads/thread%2Fid/typing" && String(options?.method || "").toUpperCase() === "POST"
     );
 
     expect(ensureWorkspaceCall?.[1]?.headers["x-command-id"]).toBeTruthy();
@@ -890,18 +890,18 @@ describe("client api transport", () => {
 
     const listDmCandidatesCall = global.fetch.mock.calls.find(
       ([url, options]) =>
-        url === "/api/chat/dm/candidates?q=friend&limit=8" && String(options?.method || "GET").toUpperCase() === "GET"
+        url === "/api/v1/chat/dm/candidates?q=friend&limit=8" && String(options?.method || "GET").toUpperCase() === "GET"
     );
     const listInboxCall = global.fetch.mock.calls.find(
       ([url, options]) =>
-        url === "/api/chat/inbox?cursor=cursor-1&limit=15" && String(options?.method || "GET").toUpperCase() === "GET"
+        url === "/api/v1/chat/inbox?cursor=cursor-1&limit=15" && String(options?.method || "GET").toUpperCase() === "GET"
     );
     const getThreadCall = global.fetch.mock.calls.find(
-      ([url, options]) => url === "/api/chat/threads/thread%2Fid" && String(options?.method || "GET").toUpperCase() === "GET"
+      ([url, options]) => url === "/api/v1/chat/threads/thread%2Fid" && String(options?.method || "GET").toUpperCase() === "GET"
     );
     const listThreadMessagesCall = global.fetch.mock.calls.find(
       ([url, options]) =>
-        url === "/api/chat/threads/thread%2Fid/messages?cursor=cursor-2&limit=30" &&
+        url === "/api/v1/chat/threads/thread%2Fid/messages?cursor=cursor-2&limit=30" &&
         String(options?.method || "GET").toUpperCase() === "GET"
     );
 
@@ -912,14 +912,14 @@ describe("client api transport", () => {
   });
 
   it("builds oauth URL helpers with and without returnTo", () => {
-    expect(api.auth.oauthStartUrl("Google")).toBe("/api/oauth/google/start");
+    expect(api.auth.oauthStartUrl("Google")).toBe("/api/v1/oauth/google/start");
     expect(api.auth.oauthStartUrl("Google", { returnTo: "/w/acme" })).toBe(
-      "/api/oauth/google/start?returnTo=%2Fw%2Facme"
+      "/api/v1/oauth/google/start?returnTo=%2Fw%2Facme"
     );
 
-    expect(api.settings.oauthLinkStartUrl("Google")).toBe("/api/settings/security/oauth/google/start");
+    expect(api.settings.oauthLinkStartUrl("Google")).toBe("/api/v1/settings/security/oauth/google/start");
     expect(api.settings.oauthLinkStartUrl("Google", { returnTo: "/account/settings" })).toBe(
-      "/api/settings/security/oauth/google/start?returnTo=%2Faccount%2Fsettings"
+      "/api/v1/settings/security/oauth/google/start?returnTo=%2Faccount%2Fsettings"
     );
   });
 
@@ -927,7 +927,7 @@ describe("client api transport", () => {
     window.history.replaceState({}, "", "/admin/w/acme/settings");
     global.fetch.mockResolvedValue(mockResponse({ data: { ok: true } }));
 
-    await __testables.request("/api/session");
+    await __testables.request("/api/v1/session");
     const apiCall = global.fetch.mock.calls[0];
     expect(apiCall[1].headers["x-surface-id"]).toBe("admin");
     expect(apiCall[1].headers["x-workspace-slug"]).toBe("acme");
@@ -937,7 +937,7 @@ describe("client api transport", () => {
     expect(nonApiCall[1].headers["x-surface-id"]).toBeUndefined();
     expect(nonApiCall[1].headers["x-workspace-slug"]).toBeUndefined();
 
-    await __testables.request("https://example.com/api/session");
+    await __testables.request("https://example.com/api/v1/session");
     const absoluteApiCall = global.fetch.mock.calls[2];
     expect(absoluteApiCall[1].headers["x-surface-id"]).toBe("admin");
     expect(absoluteApiCall[1].headers["x-workspace-slug"]).toBe("acme");
@@ -957,7 +957,7 @@ describe("client api transport", () => {
     const originalWindow = globalThis.window;
     vi.stubGlobal("window", undefined);
     try {
-      await __testables.request("https://example.com/api/session");
+      await __testables.request("https://example.com/api/v1/session");
       const call = global.fetch.mock.calls[0];
       expect(call[1].headers["x-surface-id"]).toBeUndefined();
       expect(call[1].headers["x-workspace-slug"]).toBeUndefined();
@@ -980,7 +980,7 @@ describe("client api transport", () => {
     vi.stubGlobal("window", nextWindow);
 
     try {
-      await __testables.request("/api/session");
+      await __testables.request("/api/v1/session");
       const firstCall = global.fetch.mock.calls[0];
       expect(firstCall[1].headers["x-surface-id"]).toBe("app");
       expect(firstCall[1].headers["x-workspace-slug"]).toBeUndefined();
@@ -988,8 +988,8 @@ describe("client api transport", () => {
       vi.stubGlobal("window", originalWindow);
     }
 
-    expect(api.auth.oauthStartUrl()).toBe("/api/oauth//start");
-    expect(api.settings.oauthLinkStartUrl()).toBe("/api/settings/security/oauth//start");
+    expect(api.auth.oauthStartUrl()).toBe("/api/v1/oauth/start");
+    expect(api.settings.oauthLinkStartUrl()).toBe("/api/v1/settings/security/oauth/start");
 
     await api.workspace.redeemInvite({ token: "", decision: "accept" });
     await api.workspace.updateMemberRole(undefined, { roleId: "member" });
@@ -1000,11 +1000,11 @@ describe("client api transport", () => {
     await api.settings.unlinkOAuthProvider(undefined);
 
     const urls = global.fetch.mock.calls.map(([url]) => url);
-    expect(urls).toContain("/api/workspace/invitations/redeem");
-    expect(urls).toContain("/api/workspace/members//role");
-    expect(urls).toContain("/api/workspace/invites/");
-    expect(urls).toContain("/api/workspace/projects?page=1&pageSize=10");
-    expect(urls).toContain("/api/workspace/projects/");
-    expect(urls).toContain("/api/settings/security/oauth/");
+    expect(urls).toContain("/api/v1/workspace/invitations/redeem");
+    expect(urls).toContain("/api/v1/workspace/members//role");
+    expect(urls).toContain("/api/v1/workspace/invites/");
+    expect(urls).toContain("/api/v1/workspace/projects?page=1&pageSize=10");
+    expect(urls).toContain("/api/v1/workspace/projects/");
+    expect(urls).toContain("/api/v1/settings/security/oauth/");
   });
 });

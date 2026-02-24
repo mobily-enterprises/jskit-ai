@@ -157,7 +157,7 @@ test("password forgot route rejects invalid email", async () => {
 
   const response = await app.inject({
     method: "POST",
-    url: "/api/password/forgot",
+    url: "/api/v1/password/forgot",
     payload: {
       email: "not-an-email"
     }
@@ -173,7 +173,7 @@ test("password recovery route accepts code payload", async () => {
 
   const response = await app.inject({
     method: "POST",
-    url: "/api/password/recovery",
+    url: "/api/v1/password/recovery",
     payload: {
       code: "recovery-code"
     }

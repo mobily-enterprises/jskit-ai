@@ -35,10 +35,10 @@ test("AppError and isAppError cover true/false branches", () => {
 test("safeRequestUrl and safePathnameFromRequest handle valid and invalid inputs", () => {
   const valid = safeRequestUrl({
     raw: {
-      url: "/api/history?page=2"
+      url: "/api/v1/history?page=2"
     }
   });
-  assert.equal(valid.pathname, "/api/history");
+  assert.equal(valid.pathname, "/api/v1/history");
 
   const fallbackFromInvalid = safeRequestUrl({
     raw: {

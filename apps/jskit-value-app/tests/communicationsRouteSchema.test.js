@@ -90,7 +90,7 @@ test("communications sms route accepts E.164 payload", async () => {
 
   const response = await app.inject({
     method: "POST",
-    url: "/api/workspace/sms/send",
+    url: "/api/v1/workspace/sms/send",
     payload: {
       to: "+15551234567",
       text: "Hello from scaffold"
@@ -111,7 +111,7 @@ test("communications sms route rejects invalid phone number payload", async () =
 
   const response = await app.inject({
     method: "POST",
-    url: "/api/workspace/sms/send",
+    url: "/api/v1/workspace/sms/send",
     payload: {
       to: "5551234",
       text: "Hello from scaffold"

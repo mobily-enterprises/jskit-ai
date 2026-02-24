@@ -1,61 +1,61 @@
 function createApi({ request }) {
   return {
     bootstrap() {
-      return request("/api/console/bootstrap");
+      return request("/api/v1/console/bootstrap");
     },
     listRoles() {
-      return request("/api/console/roles");
+      return request("/api/v1/console/roles");
     },
     getSettings() {
-      return request("/api/console/settings");
+      return request("/api/v1/console/settings");
     },
     updateSettings(payload) {
-      return request("/api/console/settings", { method: "PATCH", body: payload });
+      return request("/api/v1/console/settings", { method: "PATCH", body: payload });
     },
     listMembers() {
-      return request("/api/console/members");
+      return request("/api/v1/console/members");
     },
     updateMemberRole(memberUserId, payload) {
       const encodedUserId = encodeURIComponent(String(memberUserId || "").trim());
-      return request(`/api/console/members/${encodedUserId}/role`, { method: "PATCH", body: payload });
+      return request(`/api/v1/console/members/${encodedUserId}/role`, { method: "PATCH", body: payload });
     },
     listInvites() {
-      return request("/api/console/invites");
+      return request("/api/v1/console/invites");
     },
     createInvite(payload) {
-      return request("/api/console/invites", { method: "POST", body: payload });
+      return request("/api/v1/console/invites", { method: "POST", body: payload });
     },
     revokeInvite(inviteId) {
       const encodedInviteId = encodeURIComponent(String(inviteId || "").trim());
-      return request(`/api/console/invites/${encodedInviteId}`, { method: "DELETE" });
+      return request(`/api/v1/console/invites/${encodedInviteId}`, { method: "DELETE" });
     },
     listPendingInvites() {
-      return request("/api/console/invitations/pending");
+      return request("/api/v1/console/invitations/pending");
     },
     redeemInvite(payload) {
-      return request("/api/console/invitations/redeem", { method: "POST", body: payload });
+      return request("/api/v1/console/invitations/redeem", { method: "POST", body: payload });
     },
     listBrowserErrors(page, pageSize) {
       const params = new URLSearchParams({
         page: String(page),
         pageSize: String(pageSize)
       });
-      return request(`/api/console/errors/browser?${params.toString()}`);
+      return request(`/api/v1/console/errors/browser?${params.toString()}`);
     },
     getBrowserError(errorId) {
       const encodedErrorId = encodeURIComponent(String(errorId || "").trim());
-      return request(`/api/console/errors/browser/${encodedErrorId}`);
+      return request(`/api/v1/console/errors/browser/${encodedErrorId}`);
     },
     listServerErrors(page, pageSize) {
       const params = new URLSearchParams({
         page: String(page),
         pageSize: String(pageSize)
       });
-      return request(`/api/console/errors/server?${params.toString()}`);
+      return request(`/api/v1/console/errors/server?${params.toString()}`);
     },
     getServerError(errorId) {
       const encodedErrorId = encodeURIComponent(String(errorId || "").trim());
-      return request(`/api/console/errors/server/${encodedErrorId}`);
+      return request(`/api/v1/console/errors/server/${encodedErrorId}`);
     },
     listAiTranscripts(query = {}) {
       const params = new URLSearchParams();
@@ -78,7 +78,7 @@ function createApi({ request }) {
         params.set("status", String(query.status));
       }
       const queryString = params.toString();
-      return request(`/api/console/ai/transcripts${queryString ? `?${queryString}` : ""}`);
+      return request(`/api/v1/console/ai/transcripts${queryString ? `?${queryString}` : ""}`);
     },
     getAiTranscriptMessages(conversationId, query = {}) {
       const encodedConversationId = encodeURIComponent(String(conversationId || "").trim());
@@ -91,7 +91,7 @@ function createApi({ request }) {
       }
       const queryString = params.toString();
       return request(
-        `/api/console/ai/transcripts/${encodedConversationId}/messages${queryString ? `?${queryString}` : ""}`
+        `/api/v1/console/ai/transcripts/${encodedConversationId}/messages${queryString ? `?${queryString}` : ""}`
       );
     },
     exportAiTranscripts(query = {}) {
@@ -118,7 +118,7 @@ function createApi({ request }) {
         params.set("format", String(query.format));
       }
       const queryString = params.toString();
-      return request(`/api/console/ai/transcripts/export${queryString ? `?${queryString}` : ""}`);
+      return request(`/api/v1/console/ai/transcripts/export${queryString ? `?${queryString}` : ""}`);
     },
     listBillingEvents(query = {}) {
       const params = new URLSearchParams();
@@ -147,19 +147,19 @@ function createApi({ request }) {
         params.set("source", String(query.source));
       }
       const queryString = params.toString();
-      return request(`/api/console/billing/events${queryString ? `?${queryString}` : ""}`);
+      return request(`/api/v1/console/billing/events${queryString ? `?${queryString}` : ""}`);
     },
     listBillingPlans() {
-      return request("/api/console/billing/plans");
+      return request("/api/v1/console/billing/plans");
     },
     listBillingProducts() {
-      return request("/api/console/billing/products");
+      return request("/api/v1/console/billing/products");
     },
     getBillingSettings() {
-      return request("/api/console/billing/settings");
+      return request("/api/v1/console/billing/settings");
     },
     updateBillingSettings(payload) {
-      return request("/api/console/billing/settings", { method: "PATCH", body: payload });
+      return request("/api/v1/console/billing/settings", { method: "PATCH", body: payload });
     },
     listBillingProviderPrices(query = {}) {
       const params = new URLSearchParams();
@@ -173,33 +173,33 @@ function createApi({ request }) {
         params.set("target", String(query.target));
       }
       const queryString = params.toString();
-      return request(`/api/console/billing/provider-prices${queryString ? `?${queryString}` : ""}`);
+      return request(`/api/v1/console/billing/provider-prices${queryString ? `?${queryString}` : ""}`);
     },
     createBillingPlan(payload) {
-      return request("/api/console/billing/plans", { method: "POST", body: payload });
+      return request("/api/v1/console/billing/plans", { method: "POST", body: payload });
     },
     createBillingProduct(payload) {
-      return request("/api/console/billing/products", { method: "POST", body: payload });
+      return request("/api/v1/console/billing/products", { method: "POST", body: payload });
     },
     updateBillingPlan(planId, payload) {
       const encodedPlanId = encodeURIComponent(String(planId || "").trim());
-      return request(`/api/console/billing/plans/${encodedPlanId}`, {
+      return request(`/api/v1/console/billing/plans/${encodedPlanId}`, {
         method: "PATCH",
         body: payload
       });
     },
     updateBillingProduct(productId, payload) {
       const encodedProductId = encodeURIComponent(String(productId || "").trim());
-      return request(`/api/console/billing/products/${encodedProductId}`, {
+      return request(`/api/v1/console/billing/products/${encodedProductId}`, {
         method: "PATCH",
         body: payload
       });
     },
     simulateServerError(payload) {
-      return request("/api/console/simulate/server-error", { method: "POST", body: payload || {} });
+      return request("/api/v1/console/simulate/server-error", { method: "POST", body: payload || {} });
     },
     reportBrowserError(payload) {
-      return request("/api/console/errors/browser", { method: "POST", body: payload });
+      return request("/api/v1/console/errors/browser", { method: "POST", body: payload });
     }
   };
 }

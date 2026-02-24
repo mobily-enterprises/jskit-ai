@@ -13,6 +13,7 @@ import { buildRoutes as buildHealthRoutes } from "@jskit-ai/health-fastify-adapt
 import { buildRoutes as buildObservabilityRoutes } from "@jskit-ai/observability-fastify-adapter";
 import { buildRoutes as buildAiRoutes } from "../ai/index.js";
 import { buildRoutesFromManifest } from "@jskit-ai/server-runtime-core/runtimeAssembly";
+import { toVersionedApiPath } from "../../../shared/apiPaths.js";
 
 const ROUTE_MODULE_DEFINITIONS = Object.freeze([
   {
@@ -97,12 +98,17 @@ function createMissingHandler() {
 function buildRoutes(controllers, routeConfig = {}) {
   const missingHandler = createMissingHandler();
 
-  return buildRoutesFromManifest({
+  const routes = buildRoutesFromManifest({
     definitions: ROUTE_MODULE_DEFINITIONS,
     controllers,
     routeConfig,
     missingHandler
   });
+
+  return routes.map((route) => ({
+    ...route,
+    path: toVersionedApiPath(route.path)
+  }));
 }
 
 export { ROUTE_MODULE_DEFINITIONS, buildRoutes };

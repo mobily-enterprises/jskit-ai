@@ -14,27 +14,27 @@ function resolveIdempotencyKey(options = {}) {
 function createApi({ request }) {
   return {
     listPlans() {
-      return request("/api/billing/plans");
+      return request("/api/v1/billing/plans");
     },
     listProducts() {
-      return request("/api/billing/products");
+      return request("/api/v1/billing/products");
     },
     listPurchases() {
-      return request("/api/billing/purchases");
+      return request("/api/v1/billing/purchases");
     },
     getPlanState() {
-      return request("/api/billing/plan-state");
+      return request("/api/v1/billing/plan-state");
     },
     listPaymentMethods() {
-      return request("/api/billing/payment-methods");
+      return request("/api/v1/billing/payment-methods");
     },
     syncPaymentMethods() {
-      return request("/api/billing/payment-methods/sync", {
+      return request("/api/v1/billing/payment-methods/sync", {
         method: "POST"
       });
     },
     getLimitations() {
-      return request("/api/billing/limitations");
+      return request("/api/v1/billing/limitations");
     },
     getTimeline(query = {}) {
       const params = new URLSearchParams();
@@ -54,10 +54,10 @@ function createApi({ request }) {
         params.set("providerEventId", String(query.providerEventId));
       }
       const queryString = params.toString();
-      return request(`/api/billing/timeline${queryString ? `?${queryString}` : ""}`);
+      return request(`/api/v1/billing/timeline${queryString ? `?${queryString}` : ""}`);
     },
     startCheckout(payload, options = {}) {
-      return request("/api/billing/checkout", {
+      return request("/api/v1/billing/checkout", {
         method: "POST",
         body: payload,
         headers: {
@@ -66,7 +66,7 @@ function createApi({ request }) {
       });
     },
     requestPlanChange(payload, options = {}) {
-      return request("/api/billing/plan-change", {
+      return request("/api/v1/billing/plan-change", {
         method: "POST",
         body: payload,
         headers: {
@@ -75,7 +75,7 @@ function createApi({ request }) {
       });
     },
     cancelPendingPlanChange(options = {}) {
-      return request("/api/billing/plan-change/cancel", {
+      return request("/api/v1/billing/plan-change/cancel", {
         method: "POST",
         headers: {
           "Idempotency-Key": resolveIdempotencyKey(options)
@@ -83,7 +83,7 @@ function createApi({ request }) {
       });
     },
     createPortal(payload, options = {}) {
-      return request("/api/billing/portal", {
+      return request("/api/v1/billing/portal", {
         method: "POST",
         body: payload,
         headers: {
@@ -92,7 +92,7 @@ function createApi({ request }) {
       });
     },
     createPaymentLink(payload, options = {}) {
-      return request("/api/billing/payment-links", {
+      return request("/api/v1/billing/payment-links", {
         method: "POST",
         body: payload,
         headers: {

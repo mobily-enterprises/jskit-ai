@@ -17,48 +17,48 @@ function buildQueryString(query = {}) {
 function createApi({ request }) {
   return {
     ensureWorkspaceRoom(payload = {}) {
-      return request("/api/chat/workspace/ensure", {
+      return request("/api/v1/chat/workspace/ensure", {
         method: "POST",
         body: payload
       });
     },
     listDmCandidates(query = {}) {
-      return request(`/api/chat/dm/candidates${buildQueryString(query)}`);
+      return request(`/api/v1/chat/dm/candidates${buildQueryString(query)}`);
     },
     ensureDm(payload) {
-      return request("/api/chat/dm/ensure", {
+      return request("/api/v1/chat/dm/ensure", {
         method: "POST",
         body: payload
       });
     },
     listInbox(query = {}) {
-      return request(`/api/chat/inbox${buildQueryString(query)}`);
+      return request(`/api/v1/chat/inbox${buildQueryString(query)}`);
     },
     getThread(threadId) {
       const encodedThreadId = encodeURIComponent(String(threadId || "").trim());
-      return request(`/api/chat/threads/${encodedThreadId}`);
+      return request(`/api/v1/chat/threads/${encodedThreadId}`);
     },
     listThreadMessages(threadId, query = {}) {
       const encodedThreadId = encodeURIComponent(String(threadId || "").trim());
-      return request(`/api/chat/threads/${encodedThreadId}/messages${buildQueryString(query)}`);
+      return request(`/api/v1/chat/threads/${encodedThreadId}/messages${buildQueryString(query)}`);
     },
     sendThreadMessage(threadId, payload) {
       const encodedThreadId = encodeURIComponent(String(threadId || "").trim());
-      return request(`/api/chat/threads/${encodedThreadId}/messages`, {
+      return request(`/api/v1/chat/threads/${encodedThreadId}/messages`, {
         method: "POST",
         body: payload
       });
     },
     reserveThreadAttachment(threadId, payload) {
       const encodedThreadId = encodeURIComponent(String(threadId || "").trim());
-      return request(`/api/chat/threads/${encodedThreadId}/attachments/reserve`, {
+      return request(`/api/v1/chat/threads/${encodedThreadId}/attachments/reserve`, {
         method: "POST",
         body: payload
       });
     },
     uploadThreadAttachment(threadId, formData) {
       const encodedThreadId = encodeURIComponent(String(threadId || "").trim());
-      return request(`/api/chat/threads/${encodedThreadId}/attachments/upload`, {
+      return request(`/api/v1/chat/threads/${encodedThreadId}/attachments/upload`, {
         method: "POST",
         body: formData
       });
@@ -66,20 +66,20 @@ function createApi({ request }) {
     deleteThreadAttachment(threadId, attachmentId) {
       const encodedThreadId = encodeURIComponent(String(threadId || "").trim());
       const encodedAttachmentId = encodeURIComponent(String(attachmentId || "").trim());
-      return request(`/api/chat/threads/${encodedThreadId}/attachments/${encodedAttachmentId}`, {
+      return request(`/api/v1/chat/threads/${encodedThreadId}/attachments/${encodedAttachmentId}`, {
         method: "DELETE"
       });
     },
     markThreadRead(threadId, payload) {
       const encodedThreadId = encodeURIComponent(String(threadId || "").trim());
-      return request(`/api/chat/threads/${encodedThreadId}/read`, {
+      return request(`/api/v1/chat/threads/${encodedThreadId}/read`, {
         method: "POST",
         body: payload
       });
     },
     emitThreadTyping(threadId) {
       const encodedThreadId = encodeURIComponent(String(threadId || "").trim());
-      return request(`/api/chat/threads/${encodedThreadId}/typing`, {
+      return request(`/api/v1/chat/threads/${encodedThreadId}/typing`, {
         method: "POST"
       });
     }

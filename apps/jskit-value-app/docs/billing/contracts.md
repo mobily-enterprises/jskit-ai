@@ -59,7 +59,7 @@ If no billable-entity selector is provided, workspace selector precedence is:
 
 Endpoint:
 
-- `GET /api/billing/limitations`
+- `GET /api/v1/billing/limitations`
 
 Response shape:
 
@@ -151,9 +151,9 @@ Notes:
 
 Routes requiring `Idempotency-Key` request header:
 
-- `POST /api/billing/checkout`
-- `POST /api/billing/portal`
-- `POST /api/billing/payment-links`
+- `POST /api/v1/billing/checkout`
+- `POST /api/v1/billing/portal`
+- `POST /api/v1/billing/payment-links`
 
 Missing header behavior:
 
@@ -197,11 +197,11 @@ Error envelope:
 
 Endpoints:
 
-- `GET /api/billing/plan-state`
-- `POST /api/billing/plan-change`
-- `POST /api/billing/plan-change/cancel`
+- `GET /api/v1/billing/plan-state`
+- `POST /api/v1/billing/plan-change`
+- `POST /api/v1/billing/plan-change/cancel`
 
-`GET /api/billing/plan-state` response guarantees:
+`GET /api/v1/billing/plan-state` response guarantees:
 
 - `currentPlan`: active plan currently applied to the entity (or `null`).
 - `nextPlanChange`: pending scheduled change (or `null`).
@@ -211,7 +211,7 @@ Endpoints:
   - `required_now`
   - `allow_without_payment_method`
 
-`POST /api/billing/plan-change` request body:
+`POST /api/v1/billing/plan-change` request body:
 
 ```json
 {
@@ -229,7 +229,7 @@ Behavior contract:
 - If no active subscription exists and target is paid, response can require checkout (`mode: "checkout_required"` + `checkout` payload).
 - Free-plan moves do not require Stripe checkout and apply directly.
 
-`POST /api/billing/plan-change/cancel` behavior:
+`POST /api/v1/billing/plan-change/cancel` behavior:
 
 - Cancels only a pending scheduled change.
 - Returns `{ "canceled": true|false, "state": ... }`.

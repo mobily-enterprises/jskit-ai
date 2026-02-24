@@ -4,6 +4,7 @@ import { authPolicyPlugin } from "@jskit-ai/fastify-auth-policy";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { hasPermission } from "@jskit-ai/rbac-core";
 import { safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
+import { API_PREFIX_SLASH } from "../../shared/apiPaths.js";
 import { resolveSurfaceFromPathname } from "../../shared/surfacePaths.js";
 
 function resolveRequestSurface(request) {
@@ -74,6 +75,7 @@ async function authPlugin(fastify, options) {
     },
     {
       nodeEnv: options.nodeEnv,
+      apiPrefix: API_PREFIX_SLASH,
       rateLimitPluginOptions,
       createError(status, message) {
         return new AppError(status, message);

@@ -13,7 +13,7 @@ const WORKSPACE = {
   isAccessible: true
 };
 
-const CALCULATOR_ROUTE_GLOB = "**/api/deg2rad";
+const CALCULATOR_ROUTE_GLOB = "**/api/v1/deg2rad";
 
 function buildBootstrapResponse({ authenticated, csrfToken, username = "seed.user1" }) {
   const app = {
@@ -73,7 +73,7 @@ function buildBootstrapResponse({ authenticated, csrfToken, username = "seed.use
 async function mockBootstrap(page, payloadFactory) {
   let requestCount = 0;
 
-  await page.route("**/api/bootstrap", async (route) => {
+  await page.route("**/api/v1/bootstrap", async (route) => {
     requestCount += 1;
     const payload = typeof payloadFactory === "function" ? payloadFactory() : payloadFactory;
     await route.fulfill({
@@ -89,7 +89,7 @@ async function mockBootstrap(page, payloadFactory) {
 }
 
 async function mockSession(page, payloadFactory) {
-  await page.route("**/api/session", async (route) => {
+  await page.route("**/api/v1/session", async (route) => {
     const payload = typeof payloadFactory === "function" ? payloadFactory(route) : payloadFactory;
     await route.fulfill({
       status: 200,
@@ -117,7 +117,7 @@ test("login sends CSRF token and lands on calculator", async ({ page }) => {
     csrfToken: "csrf-token-1"
   }));
 
-  await page.route("**/api/login", async (route) => {
+  await page.route("**/api/v1/login", async (route) => {
     loginRequestCount += 1;
     loginCsrfHeader = route.request().headers()["csrf-token"] || null;
     loginCompleted = true;

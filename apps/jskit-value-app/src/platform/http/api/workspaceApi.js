@@ -1,45 +1,45 @@
 function createApi({ request }) {
   return {
     bootstrap() {
-      return request("/api/bootstrap");
+      return request("/api/v1/bootstrap");
     },
     list() {
-      return request("/api/workspaces");
+      return request("/api/v1/workspaces");
     },
     select(payload) {
-      return request("/api/workspaces/select", { method: "POST", body: payload });
+      return request("/api/v1/workspaces/select", { method: "POST", body: payload });
     },
     listPendingInvites() {
-      return request("/api/workspace/invitations/pending");
+      return request("/api/v1/workspace/invitations/pending");
     },
     redeemInvite(payload) {
-      return request("/api/workspace/invitations/redeem", { method: "POST", body: payload });
+      return request("/api/v1/workspace/invitations/redeem", { method: "POST", body: payload });
     },
     getSettings() {
-      return request("/api/workspace/settings");
+      return request("/api/v1/workspace/settings");
     },
     updateSettings(payload) {
-      return request("/api/workspace/settings", { method: "PATCH", body: payload });
+      return request("/api/v1/workspace/settings", { method: "PATCH", body: payload });
     },
     listRoles() {
-      return request("/api/workspace/roles");
+      return request("/api/v1/workspace/roles");
     },
     listMembers() {
-      return request("/api/workspace/members");
+      return request("/api/v1/workspace/members");
     },
     updateMemberRole(memberUserId, payload) {
       const encodedUserId = encodeURIComponent(String(memberUserId || "").trim());
-      return request(`/api/workspace/members/${encodedUserId}/role`, { method: "PATCH", body: payload });
+      return request(`/api/v1/workspace/members/${encodedUserId}/role`, { method: "PATCH", body: payload });
     },
     listInvites() {
-      return request("/api/workspace/invites");
+      return request("/api/v1/workspace/invites");
     },
     createInvite(payload) {
-      return request("/api/workspace/invites", { method: "POST", body: payload });
+      return request("/api/v1/workspace/invites", { method: "POST", body: payload });
     },
     revokeInvite(inviteId) {
       const encodedInviteId = encodeURIComponent(String(inviteId || "").trim());
-      return request(`/api/workspace/invites/${encodedInviteId}`, { method: "DELETE" });
+      return request(`/api/v1/workspace/invites/${encodedInviteId}`, { method: "DELETE" });
     },
     listAiTranscripts(query = {}) {
       const params = new URLSearchParams();
@@ -62,7 +62,7 @@ function createApi({ request }) {
         params.set("createdByUserId", String(query.createdByUserId));
       }
       const queryString = params.toString();
-      return request(`/api/workspace/ai/transcripts${queryString ? `?${queryString}` : ""}`);
+      return request(`/api/v1/workspace/ai/transcripts${queryString ? `?${queryString}` : ""}`);
     },
     getAiTranscriptMessages(conversationId, query = {}) {
       const encodedConversationId = encodeURIComponent(String(conversationId || "").trim());
@@ -75,7 +75,7 @@ function createApi({ request }) {
       }
       const queryString = params.toString();
       return request(
-        `/api/workspace/ai/transcripts/${encodedConversationId}/messages${queryString ? `?${queryString}` : ""}`
+        `/api/v1/workspace/ai/transcripts/${encodedConversationId}/messages${queryString ? `?${queryString}` : ""}`
       );
     },
     exportAiTranscript(conversationId, query = {}) {
@@ -95,7 +95,7 @@ function createApi({ request }) {
       }
       const queryString = params.toString();
       return request(
-        `/api/workspace/ai/transcripts/${encodedConversationId}/export${queryString ? `?${queryString}` : ""}`
+        `/api/v1/workspace/ai/transcripts/${encodedConversationId}/export${queryString ? `?${queryString}` : ""}`
       );
     }
   };

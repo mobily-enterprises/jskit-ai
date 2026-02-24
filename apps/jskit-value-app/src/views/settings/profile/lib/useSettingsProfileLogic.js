@@ -12,6 +12,7 @@ import {
   AVATAR_DEFAULT_SIZE,
   AVATAR_MAX_UPLOAD_BYTES
 } from "../../../../../shared/avatar.js";
+import { buildVersionedApiPath } from "../../../../../shared/apiPaths.js";
 import { api } from "../../../../platform/http/api/index.js";
 
 export function useSettingsProfileLogic({
@@ -96,7 +97,7 @@ export function useSettingsProfileLogic({
       limit: 1
     });
     uppy.use(XHRUpload, {
-      endpoint: "/api/settings/profile/avatar",
+      endpoint: buildVersionedApiPath("/settings/profile/avatar"),
       method: "POST",
       formData: true,
       fieldName: "avatar",

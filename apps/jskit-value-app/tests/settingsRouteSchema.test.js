@@ -204,7 +204,7 @@ test("settings get route returns expected payload", async () => {
 
   const response = await app.inject({
     method: "GET",
-    url: "/api/settings"
+    url: "/api/v1/settings"
   });
 
   assert.equal(response.statusCode, 200);
@@ -219,7 +219,7 @@ test("settings profile route validates display name input", async () => {
 
   const invalid = await app.inject({
     method: "PATCH",
-    url: "/api/settings/profile",
+    url: "/api/v1/settings/profile",
     payload: {
       displayName: ""
     }
@@ -228,7 +228,7 @@ test("settings profile route validates display name input", async () => {
 
   const valid = await app.inject({
     method: "PATCH",
-    url: "/api/settings/profile",
+    url: "/api/v1/settings/profile",
     payload: {
       displayName: "valid-name"
     }
@@ -243,7 +243,7 @@ test("settings security routes validate password payload and allow logout-others
 
   const invalidPassword = await app.inject({
     method: "POST",
-    url: "/api/settings/security/change-password",
+    url: "/api/v1/settings/security/change-password",
     payload: {
       currentPassword: "",
       newPassword: "short",
@@ -254,7 +254,7 @@ test("settings security routes validate password payload and allow logout-others
 
   const validPassword = await app.inject({
     method: "POST",
-    url: "/api/settings/security/change-password",
+    url: "/api/v1/settings/security/change-password",
     payload: {
       currentPassword: "old-password",
       newPassword: "new-password-123",
@@ -265,7 +265,7 @@ test("settings security routes validate password payload and allow logout-others
 
   const logoutOthers = await app.inject({
     method: "POST",
-    url: "/api/settings/security/logout-others"
+    url: "/api/v1/settings/security/logout-others"
   });
   assert.equal(logoutOthers.statusCode, 200);
 
@@ -278,7 +278,7 @@ test("settings chat route validates chat payload", async () => {
 
   const invalid = await app.inject({
     method: "PATCH",
-    url: "/api/settings/chat",
+    url: "/api/v1/settings/chat",
     payload: {
       allowGlobalDms: "yes"
     }
@@ -287,7 +287,7 @@ test("settings chat route validates chat payload", async () => {
 
   const valid = await app.inject({
     method: "PATCH",
-    url: "/api/settings/chat",
+    url: "/api/v1/settings/chat",
     payload: {
       publicChatId: "demo-user",
       allowWorkspaceDms: true,
@@ -307,7 +307,7 @@ test("oauth complete route accepts strict camelCase payload shape only", async (
 
   const valid = await app.inject({
     method: "POST",
-    url: "/api/oauth/complete",
+    url: "/api/v1/oauth/complete",
     payload: {
       provider: "google",
       accessToken: "access-token",
@@ -318,7 +318,7 @@ test("oauth complete route accepts strict camelCase payload shape only", async (
 
   const invalidSnakeCase = await app.inject({
     method: "POST",
-    url: "/api/oauth/complete",
+    url: "/api/v1/oauth/complete",
     payload: {
       provider: "google",
       access_token: "access-token",

@@ -68,7 +68,7 @@ function createAttachment() {
     width: null,
     height: null,
     durationMs: null,
-    deliveryPath: "/api/chat/attachments/3/content",
+    deliveryPath: "/api/v1/chat/attachments/3/content",
     previewDeliveryPath: null,
     createdAt: "2026-02-22T00:00:00.000Z",
     updatedAt: "2026-02-22T00:00:00.000Z"
@@ -210,14 +210,14 @@ test("chat dm ensure and message send schemas enforce required fields", async ()
 
   const validWorkspaceEnsure = await app.inject({
     method: "POST",
-    url: "/api/chat/workspace/ensure",
+    url: "/api/v1/chat/workspace/ensure",
     payload: {}
   });
   assert.equal(validWorkspaceEnsure.statusCode, 200);
 
   const invalidWorkspaceEnsure = await app.inject({
     method: "POST",
-    url: "/api/chat/workspace/ensure",
+    url: "/api/v1/chat/workspace/ensure",
     payload: {
       unexpected: true
     }
@@ -226,14 +226,14 @@ test("chat dm ensure and message send schemas enforce required fields", async ()
 
   const invalidEnsure = await app.inject({
     method: "POST",
-    url: "/api/chat/dm/ensure",
+    url: "/api/v1/chat/dm/ensure",
     payload: {}
   });
   assert.equal(invalidEnsure.statusCode, 400);
 
   const validEnsure = await app.inject({
     method: "POST",
-    url: "/api/chat/dm/ensure",
+    url: "/api/v1/chat/dm/ensure",
     payload: {
       targetPublicChatId: "target_1"
     }
@@ -242,19 +242,19 @@ test("chat dm ensure and message send schemas enforce required fields", async ()
 
   const invalidCandidates = await app.inject({
     method: "GET",
-    url: "/api/chat/dm/candidates?limit=0"
+    url: "/api/v1/chat/dm/candidates?limit=0"
   });
   assert.equal(invalidCandidates.statusCode, 400);
 
   const validCandidates = await app.inject({
     method: "GET",
-    url: "/api/chat/dm/candidates?q=u&limit=10"
+    url: "/api/v1/chat/dm/candidates?q=u&limit=10"
   });
   assert.equal(validCandidates.statusCode, 200);
 
   const invalidSend = await app.inject({
     method: "POST",
-    url: "/api/chat/threads/1/messages",
+    url: "/api/v1/chat/threads/1/messages",
     payload: {
       text: "hello"
     }
@@ -263,7 +263,7 @@ test("chat dm ensure and message send schemas enforce required fields", async ()
 
   const validSend = await app.inject({
     method: "POST",
-    url: "/api/chat/threads/1/messages",
+    url: "/api/v1/chat/threads/1/messages",
     payload: {
       clientMessageId: "cm_1",
       text: "hello"
@@ -273,14 +273,14 @@ test("chat dm ensure and message send schemas enforce required fields", async ()
 
   const invalidReserve = await app.inject({
     method: "POST",
-    url: "/api/chat/threads/1/attachments/reserve",
+    url: "/api/v1/chat/threads/1/attachments/reserve",
     payload: {}
   });
   assert.equal(invalidReserve.statusCode, 400);
 
   const validReserve = await app.inject({
     method: "POST",
-    url: "/api/chat/threads/1/attachments/reserve",
+    url: "/api/v1/chat/threads/1/attachments/reserve",
     payload: {
       clientAttachmentId: "ca_1",
       fileName: "note.txt",
@@ -306,14 +306,14 @@ test("chat read schema rejects empty cursor payload", async () => {
 
   const invalidRead = await app.inject({
     method: "POST",
-    url: "/api/chat/threads/1/read",
+    url: "/api/v1/chat/threads/1/read",
     payload: {}
   });
   assert.equal(invalidRead.statusCode, 400);
 
   const validRead = await app.inject({
     method: "POST",
-    url: "/api/chat/threads/1/read",
+    url: "/api/v1/chat/threads/1/read",
     payload: {
       threadSeq: 1
     }
@@ -322,19 +322,19 @@ test("chat read schema rejects empty cursor payload", async () => {
 
   const typing = await app.inject({
     method: "POST",
-    url: "/api/chat/threads/1/typing"
+    url: "/api/v1/chat/threads/1/typing"
   });
   assert.equal(typing.statusCode, 202);
 
   const deleteAttachment = await app.inject({
     method: "DELETE",
-    url: "/api/chat/threads/1/attachments/3"
+    url: "/api/v1/chat/threads/1/attachments/3"
   });
   assert.equal(deleteAttachment.statusCode, 204);
 
   const attachmentContent = await app.inject({
     method: "GET",
-    url: "/api/chat/attachments/3/content"
+    url: "/api/v1/chat/attachments/3/content"
   });
   assert.equal(attachmentContent.statusCode, 200);
 
