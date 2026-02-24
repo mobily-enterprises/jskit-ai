@@ -10,40 +10,22 @@ function readAssistantViewSource() {
   return readFileSync(assistantViewPath, "utf8");
 }
 
-describe("AssistantView template", () => {
-  it("renders conversation history above tool timeline in desktop column", () => {
+describe("AssistantView wrapper", () => {
+  it("imports and renders AssistantClientElement directly", () => {
     const source = readAssistantViewSource();
-    const historyTitleIndex = source.indexOf("Conversation History");
-    const toolTimelineIndex = source.indexOf("Tool Timeline");
 
-    expect(historyTitleIndex).toBeGreaterThan(-1);
-    expect(toolTimelineIndex).toBeGreaterThan(-1);
-    expect(historyTitleIndex).toBeLessThan(toolTimelineIndex);
+    expect(source.includes('from "@jskit-ai/assistant-client-element"')).toBe(true);
+    expect(source.includes("<AssistantClientElement :meta=\"meta\" :state=\"state\" :actions=\"actions\" :viewer=\"viewer\" />")).toBe(
+      true
+    );
   });
 
-  it("contains mobile conversations picker button and bottom sheet wiring", () => {
+  it("keeps thin wrapper behavior with viewer mapping and no package-owned markup", () => {
     const source = readAssistantViewSource();
 
-    expect(source.includes(">Conversations<")).toBe(true);
-    expect(source.includes("<v-bottom-sheet")).toBe(true);
-    expect(source.includes("selectConversationFromPicker")).toBe(true);
-    expect(source.includes("startNewConversationFromPicker")).toBe(true);
-  });
-
-  it("uses slim chat-style composer row without attachment affordance", () => {
-    const source = readAssistantViewSource();
-
-    expect(source.includes("assistant-composer-shell")).toBe(true);
-    expect(source.includes("assistant-composer-row")).toBe(true);
-    expect(source.includes("assistant-attach-button")).toBe(false);
-    expect(source.includes("Attachments are not supported for AI chat yet.")).toBe(false);
-  });
-
-  it("renders admin conversation lines with actor display-name metadata and autoscroll behavior", () => {
-    const source = readAssistantViewSource();
-
-    expect(source.includes("createdByUserDisplayName")).toBe(true);
-    expect(source.includes("messagesPanelRef")).toBe(true);
-    expect(source.includes("panel.scrollTop = panel.scrollHeight")).toBe(true);
+    expect(source.includes("profileDisplayName")).toBe(true);
+    expect(source.includes("assistant-history-card")).toBe(false);
+    expect(source.includes("Conversation History")).toBe(false);
+    expect(source.includes("Tool Timeline")).toBe(false);
   });
 });

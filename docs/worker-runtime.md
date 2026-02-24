@@ -1,11 +1,13 @@
 # Worker Runtime
 
-This project runs background jobs in a dedicated process (`npm run worker`) using BullMQ + Redis.
+Last validated: 2026-02-24 (UTC)
+
+This project runs background jobs in a dedicated process (`npm run -w apps/jskit-value-app worker`) using BullMQ + Redis.
 
 ## Topology
 
-- Web/API process: `npm run server`
-- Worker process: `npm run worker`
+- Web/API process: `npm run -w apps/jskit-value-app server`
+- Worker process: `npm run -w apps/jskit-value-app worker`
 - Queue backend: Redis (`REDIS_URL`)
 
 The web process does not start worker loops.

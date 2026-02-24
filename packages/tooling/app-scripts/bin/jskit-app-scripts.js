@@ -7,6 +7,8 @@ import process from "node:process";
 import { pathToFileURL } from "node:url";
 import { runProcessEnvGuardrail, createViolationReport } from "../src/guardrails/processEnv.js";
 import { runApiContractsGuardrail } from "../src/guardrails/apiContracts.js";
+import { runElementEjectCommand } from "../src/commands/elementEject.js";
+import { runElementDiffCommand } from "../src/commands/elementDiff.js";
 
 function shellQuote(value) {
   const raw = String(value ?? "");
@@ -125,7 +127,8 @@ function resolveGuardrailsConfig(config) {
 }
 
 async function runBuiltinTask({ builtinTaskId, task, extraArgs, appRoot, config }) {
-  if (extraArgs.length > 0) {
+  const builtinAllowsExtraArgs = builtinTaskId === "elements:eject" || builtinTaskId === "elements:diff";
+  if (!builtinAllowsExtraArgs && extraArgs.length > 0) {
     throw createCliError(`Task "${task}" does not accept extra arguments.`, {
       showUsage: false
     });
@@ -169,6 +172,46 @@ async function runBuiltinTask({ builtinTaskId, task, extraArgs, appRoot, config 
     if (!result.ok) {
       throw createCliError(result.errorMessage || "README API contracts are out of sync.", {
         showUsage: false
+      });
+    }
+
+    return;
+  }
+
+  if (builtinTaskId === "elements:eject") {
+    const result = await runElementEjectCommand({
+      appRoot,
+      args: extraArgs
+    });
+    process.stdout.write(
+      `Ejected ${result.sourceSpecifier} to ${path.relative(appRoot, result.targetPath)} (${result.packageName}@${result.packageVersion}).\\n`
+    );
+    return;
+  }
+
+  if (builtinTaskId === "elements:diff") {
+    const result = await runElementDiffCommand({
+      appRoot,
+      args: extraArgs
+    });
+    if (!result.drift) {
+      process.stdout.write(
+        `No drift: ${result.sourceSpecifier} matches ${path.relative(appRoot, result.targetPath)}.\\n`
+      );
+      return;
+    }
+
+    process.stdout.write(
+      `Drift detected: ${result.sourceSpecifier} vs ${path.relative(appRoot, result.targetPath)}\\n`
+    );
+    if (result.preview.length > 0) {
+      process.stdout.write(`${result.preview.join("\\n")}\\n`);
+    }
+
+    if (result.check) {
+      throw createCliError("Element drift detected.", {
+        showUsage: false,
+        exitCode: 1
       });
     }
 

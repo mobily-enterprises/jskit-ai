@@ -1,6 +1,6 @@
 # Billing Provider Insulation Contract
 
-Last updated: 2026-02-21
+Last updated: 2026-02-24
 
 This document freezes the provider-insulation contract for billing.
 
@@ -18,7 +18,7 @@ Core billing must depend only on provider-agnostic contracts.
 
 ### Provider adapter contract
 
-`server/modules/billing/providers/shared/providerAdapter.contract.js`
+`packages/billing/billing-provider-core/src/contracts/providerAdapter.js`
 
 Required adapter methods:
 
@@ -39,7 +39,7 @@ Required adapter methods:
 
 ### Webhook translation contract
 
-`server/modules/billing/providers/shared/webhookTranslation.contract.js`
+`packages/billing/billing-provider-core/src/contracts/webhookTranslator.js`
 
 Required translator methods:
 
@@ -50,7 +50,7 @@ Canonical event filter is shared and provider-agnostic; provider modules only tr
 
 ### Provider super-module contract
 
-`server/modules/billing/providers/index.js`
+`apps/jskit-value-app/server/modules/billing/lib/providers/index.js`
 
 The super-module constructs and returns:
 
@@ -64,15 +64,14 @@ The super-module constructs and returns:
 
 Provider-specific implementations live under:
 
-- `server/modules/billing/providers/stripe/*`
-- `server/modules/billing/providers/paddle/*`
-- `server/modules/billing/providers/shared/*`
-
-No compatibility shims remain under `server/modules/billing/*.js`; runtime and tests import provider modules directly.
+- `packages/billing/billing-provider-stripe/src/*`
+- `packages/billing/billing-provider-paddle/src/*`
+- `packages/billing/billing-provider-core/src/*`
+- App-local provider wiring wrappers: `apps/jskit-value-app/server/modules/billing/lib/providers/*`
 
 ## Phase 2: Runtime Adoption
 
-Runtime assembly (`server/runtime/services.js`) must construct provider wiring via the super-module only.
+Runtime assembly (`apps/jskit-value-app/server/runtime/services.js`) must construct provider wiring via the super-module only.
 
 Core billing services consume:
 
@@ -86,10 +85,10 @@ Core modules should not instantiate Stripe/Paddle SDK services directly.
 
 Webhook provider translation/mapping belongs in provider modules:
 
-- `server/modules/billing/providers/stripe/webhookTranslation.service.js`
-- `server/modules/billing/providers/paddle/webhookTranslation.service.js`
+- `packages/billing/billing-provider-stripe/src/webhookTranslation.service.js`
+- `packages/billing/billing-provider-paddle/src/webhookTranslation.service.js`
 
-Core webhook processing (`server/modules/billing/webhook.service.js`) is responsible for:
+Core webhook processing (`packages/billing/billing-service-core/src/webhook.service.js`) is responsible for:
 
 - provider signature verification dispatch
 - canonical event filtering
@@ -102,12 +101,12 @@ Core webhook processing must not contain provider-specific payload translation l
 
 Provider-specific SDK/API error mapping belongs only in provider modules:
 
-- `server/modules/billing/providers/stripe/errorMapping.js`
-- `server/modules/billing/providers/paddle/errorMapping.js`
+- `packages/billing/billing-provider-stripe/src/errorMapping.js`
+- `packages/billing/billing-provider-paddle/src/errorMapping.js`
 
 Core billing must consume only normalized provider errors and resolve behavior through:
 
-- `server/modules/billing/providerOutcomePolicy.js`
+- `packages/billing/billing-service-core/src/providerOutcomePolicy.js`
 
 `providerOutcomePolicy` decides deterministic terminal failures vs in-progress outcomes and emits operation-family guardrail codes. Core billing modules must not parse provider SDK literals.
 
@@ -115,11 +114,11 @@ Core billing must consume only normalized provider errors and resolve behavior t
 
 Provider-literal leakage in core billing is blocked by guard tests:
 
-- `tests/billingProviderBoundaryGuard.test.js`
+- `apps/jskit-value-app/tests/billingProviderBoundaryGuard.test.js`
 
 This test fails if provider SDK class/code literals appear in:
 
-- `server/modules/billing/service.js`
-- `server/modules/billing/checkoutOrchestrator.service.js`
-- `server/modules/billing/idempotency.service.js`
-- `server/modules/billing/providerOutcomePolicy.js`
+- `packages/billing/billing-service-core/src/service.js`
+- `packages/billing/billing-service-core/src/checkoutOrchestrator.service.js`
+- `packages/billing/billing-service-core/src/idempotency.service.js`
+- `packages/billing/billing-service-core/src/providerOutcomePolicy.js`

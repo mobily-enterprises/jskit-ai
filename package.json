@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "npm run -w apps/jskit-value-app dev --",
     "lint:architecture:client": "eslint --config eslint.architecture.client.mjs --no-error-on-unmatched-pattern \"packages/**/src/**/*.js\" \"apps/**/src/**/*.js\"",
-    "test:architecture:client": "node --test tests/architecture/client-architecture.guardrails.test.mjs"
+    "test:architecture:client": "node --test tests/architecture/client-architecture.guardrails.test.mjs",
+    "test:architecture:shared-ui": "node --test tests/architecture/client-shared-ui.guardrails.test.mjs"
   },
   "workspaces": ["apps/*", "packages/*", "packages/*/*"]
 }

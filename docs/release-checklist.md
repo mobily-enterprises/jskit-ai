@@ -14,27 +14,24 @@ Use this checklist before shipping changes to production.
 
 ## 2. Database safety
 
-- [ ] Backup production DB (or snapshot) before migration.
-- [ ] Backup artifact is created and checksum verified.
-- [ ] Restore drill completed to a temporary DB from the backup artifact.
-- [ ] Restore verification SQL queries passed before release.
-- [ ] Run migrations: `npm run db:migrate`.
+- [ ] Backup database before migration.
+- [ ] Run migrations: `npm run -w apps/jskit-value-app db:migrate`.
 - [ ] Verify new tables/columns/indexes exist as expected.
 - [ ] Do not run seed commands in production unless explicitly intended.
 
 ## 3. Quality gates
 
 - [ ] Install dependencies: `npm install`.
-- [ ] Run formatting check: `npm run format:check`.
-- [ ] Run lint: `npm run lint`.
-- [ ] Run unit/integration tests: `npm test`.
-- [ ] Run E2E auth/history tests: `npm run test:e2e`.
+- [ ] Run formatting check: `npm run -w apps/jskit-value-app format:check`.
+- [ ] Run lint: `npm run -w apps/jskit-value-app lint`.
+- [ ] Run unit/integration tests: `npm run -w apps/jskit-value-app test`.
+- [ ] Run E2E auth/history tests: `npm run -w apps/jskit-value-app test:e2e`.
 - [ ] Run vulnerability audit: `npm audit --omit=dev --audit-level=critical`.
 
 ## 4. Build and runtime checks
 
-- [ ] Build frontend: `npm run build`.
-- [ ] Start app with production env: `npm start`.
+- [ ] Build frontend: `npm run -w apps/jskit-value-app build`.
+- [ ] Start app with production env: `npm run -w apps/jskit-value-app start`.
 - [ ] Verify startup has no runtime errors.
 - [ ] Verify `GET /api/health` returns `200`.
 - [ ] Verify `GET /api/ready` returns `200` when dependencies are healthy.
@@ -66,6 +63,5 @@ Use this checklist before shipping changes to production.
 - [ ] Confirm error-rate alert is enabled (5xx ratio threshold over rolling window).
 - [ ] Confirm dashboard panels exist for p95 latency, error rate, auth failures, and invite redemption funnel.
 - [ ] Confirm `docs/observability.md` is current for this release.
-- [ ] Confirm `docs/backup-restore-runbook.md` is current for this release.
 - [ ] Confirm rollback procedure is documented and tested (previous image/artifact + DB plan).
 - [ ] Confirm on-call owner and release window are agreed.

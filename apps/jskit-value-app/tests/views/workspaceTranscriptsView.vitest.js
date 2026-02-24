@@ -12,18 +12,20 @@ function readSource(filePath) {
 }
 
 describe("WorkspaceTranscriptsView", () => {
-  it("shows actor metadata in transcript list subtitle", () => {
+  it("imports and renders transcript explorer package element directly", () => {
     const source = readSource(viewPath);
 
-    expect(source.includes("meta.formatConversationActor(entry)")).toBe(true);
+    expect(source.includes('from "@jskit-ai/assistant-transcript-explorer-client-element"')).toBe(true);
+    expect(source.includes("<AssistantTranscriptExplorerClientElement mode=\"workspace\" :meta=\"meta\" :state=\"state\" :actions=\"actions\" />")).toBe(
+      true
+    );
   });
 
-  it("renders a user filter control for member-based transcript filtering", () => {
+  it("does not reintroduce inline transcript list/detail markup in the wrapper", () => {
     const source = readSource(viewPath);
 
-    expect(source.includes('label="User"')).toBe(true);
-    expect(source.includes("state.memberFilterOptions")).toBe(true);
-    expect(source.includes("actions.setMemberFilter")).toBe(true);
+    expect(source.includes("transcript-list")).toBe(false);
+    expect(source.includes("transcript-timeline")).toBe(false);
   });
 
   it("provides actor formatting helper in view composable", () => {

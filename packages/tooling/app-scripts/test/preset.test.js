@@ -23,6 +23,12 @@ test("node/vue/fastify preset exposes expected canonical tasks", () => {
   assert.deepEqual(config.tasks["docs:api-contracts:check"], {
     builtin: "guardrails:api-contracts:check"
   });
+  assert.deepEqual(config.tasks["element:eject"], {
+    builtin: "elements:eject"
+  });
+  assert.deepEqual(config.tasks["element:diff"], {
+    builtin: "elements:diff"
+  });
   assert.equal(
     config.tasks["test:coverage:full"],
     "jskit-app-scripts docs:api-contracts:check && jskit-app-scripts test:coverage && jskit-app-scripts test:client:coverage && jskit-app-scripts test:client:views:coverage"

@@ -8,6 +8,12 @@ const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 const PACKAGES_DIR = path.join(ROOT_DIR, "packages");
 const APPS_DIR = path.join(ROOT_DIR, "apps");
 const JS_EXTENSIONS = new Set([".js", ".mjs", ".cjs"]);
+const CLIENT_ELEMENT_PACKAGE_SEGMENTS = Object.freeze([
+  "packages/ai-agent/assistant-client-element/",
+  "packages/chat/chat-client-element/",
+  "packages/billing/billing-plan-client-element/",
+  "packages/users/profile-client-element/"
+]);
 
 const STYLE_IMPORT_PATTERN = /\.(css|scss|sass|less|styl|stylus)(?:$|\?)/i;
 const FORBIDDEN_VISUAL_IMPORT_PATTERNS = [
@@ -176,12 +182,21 @@ test("client architecture guardrail: package index files forbid wildcard exports
   assert.deepEqual(violations, []);
 });
 
-test("client architecture guardrail: packages contain no Vue SFC files", () => {
+test("client architecture guardrail: only client-element packages may contain Vue SFC files", () => {
+  const violations = [];
   const vueFiles = listFilesRecursive(PACKAGES_DIR, (absolutePath) => absolutePath.endsWith(".vue")).map((filePath) =>
     toPosixPath(path.relative(ROOT_DIR, filePath))
   );
 
-  assert.deepEqual(vueFiles, []);
+  for (const relativePath of vueFiles) {
+    const normalizedPath = `${relativePath}/`;
+    const isClientElementFile = CLIENT_ELEMENT_PACKAGE_SEGMENTS.some((segment) => normalizedPath.startsWith(segment));
+    if (!isClientElementFile) {
+      violations.push(relativePath);
+    }
+  }
+
+  assert.deepEqual(violations, []);
 });
 
 test("client architecture guardrail: packages do not import style assets", () => {

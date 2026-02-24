@@ -1,23 +1,25 @@
 # Retention Jobs
 
+Last validated: 2026-02-24 (UTC)
+
 Retention sweep now supports queue + worker execution:
 
-- Start worker process: `npm run worker`
-- Enqueue dry-run job: `npm run worker:retention:enqueue:dry-run`
-- Enqueue execute job: `npm run worker:retention:enqueue`
-- Optional idempotency key: `npm run worker:retention:enqueue -- --idempotency-key=retention-2026-02-21`
+- Start worker process: `npm run -w apps/jskit-value-app worker`
+- Enqueue dry-run job: `npm run -w apps/jskit-value-app worker:retention:enqueue:dry-run`
+- Enqueue execute job: `npm run -w apps/jskit-value-app worker:retention:enqueue`
+- Optional idempotency key: `npm run -w apps/jskit-value-app worker:retention:enqueue -- --idempotency-key=retention-2026-02-24`
 
 Legacy direct execution is still available for emergency/manual operation:
 
-- Dry-run: `npm run ops:retention:dry-run`
-- Execute: `npm run ops:retention`
+- Dry-run: `npm run -w apps/jskit-value-app ops:retention:dry-run`
+- Execute: `npm run -w apps/jskit-value-app ops:retention`
 
 ## Dry-Run First Policy
 
 Always run a dry-run job in the target environment before enabling schedule automation:
 
-1. Start worker runtime: `npm run worker`.
-2. Enqueue dry-run: `npm run worker:retention:enqueue:dry-run`.
+1. Start worker runtime: `npm run -w apps/jskit-value-app worker`.
+2. Enqueue dry-run: `npm run -w apps/jskit-value-app worker:retention:enqueue:dry-run`.
 3. Verify cutoff dates and env vars.
 4. Enqueue one non-dry-run job and review deleted row counts.
 5. Enable scheduler only after steps 1-4 are complete.
@@ -60,7 +62,7 @@ Always run a dry-run job in the target environment before enabling schedule auto
 Run daily at 03:20 UTC:
 
 ```cron
-20 3 * * * cd /srv/jskit-ai && /usr/bin/npm run worker:retention:enqueue -- --trigger=cron >> /var/log/jskit-retention.log 2>&1
+20 3 * * * cd /srv/jskit-ai && /usr/bin/npm run -w apps/jskit-value-app worker:retention:enqueue -- --trigger=cron >> /var/log/jskit-retention.log 2>&1
 ```
 
 Keep worker process running continuously (systemd/Kubernetes/PM2/etc.).
@@ -77,7 +79,7 @@ After=network.target
 [Service]
 Type=oneshot
 WorkingDirectory=/srv/jskit-ai
-ExecStart=/usr/bin/npm run worker:retention:enqueue -- --trigger=cron
+ExecStart=/usr/bin/npm run -w apps/jskit-value-app worker:retention:enqueue -- --trigger=cron
 User=app
 Group=app
 ```

@@ -184,3 +184,105 @@ test("cli fails when app config is missing", async () => {
     assert.match(result.stderr, /Missing app\.scripts\.config\.mjs/);
   });
 });
+
+test("cli executes element:eject builtin and writes ejected file header", async () => {
+  await withTempAppDir(
+    `
+export default {
+  tasks: {
+    "element:eject": {
+      builtin: "elements:eject"
+    }
+  }
+};
+    `.trim(),
+    async (cwd) => {
+      await writeTextFile(cwd, "package.json", "{\"name\":\"temp-app\",\"private\":true}\n");
+      await writeTextFile(
+        cwd,
+        "node_modules/@jskit-ai/demo-element/package.json",
+        "{\"name\":\"@jskit-ai/demo-element\",\"version\":\"1.2.3\"}\n"
+      );
+      await writeTextFile(
+        cwd,
+        "node_modules/@jskit-ai/demo-element/src/DemoElement.vue",
+        "<template><div>Demo</div></template>\n"
+      );
+
+      const result = runCli({
+        cwd,
+        args: [
+          "element:eject",
+          "--",
+          "--source",
+          "@jskit-ai/demo-element/source/DemoElement.vue",
+          "--target",
+          "src/components/DemoElement.ejected.vue"
+        ]
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Ejected @jskit-ai\/demo-element\/source\/DemoElement\.vue/);
+
+      const written = await readFile(path.join(cwd, "src/components/DemoElement.ejected.vue"), "utf8");
+      assert.match(written, /<!-- EJECTED FROM: @jskit-ai\/demo-element@1\.2\.3 -->/);
+      assert.match(written, /<template><div>Demo<\/div><\/template>/);
+    }
+  );
+});
+
+test("cli executes element:diff builtin and fails with --check on drift", async () => {
+  await withTempAppDir(
+    `
+export default {
+  tasks: {
+    "element:diff": {
+      builtin: "elements:diff"
+    }
+  }
+};
+    `.trim(),
+    async (cwd) => {
+      await writeTextFile(cwd, "package.json", "{\"name\":\"temp-app\",\"private\":true}\n");
+      await writeTextFile(
+        cwd,
+        "node_modules/@jskit-ai/demo-element/package.json",
+        "{\"name\":\"@jskit-ai/demo-element\",\"version\":\"1.2.3\"}\n"
+      );
+      await writeTextFile(
+        cwd,
+        "node_modules/@jskit-ai/demo-element/src/DemoElement.vue",
+        "<template><div>Demo A</div></template>\n"
+      );
+      await writeTextFile(cwd, "src/components/DemoElement.ejected.vue", "<template><div>Demo B</div></template>\n");
+
+      const checkResult = runCli({
+        cwd,
+        args: [
+          "element:diff",
+          "--",
+          "--source",
+          "@jskit-ai/demo-element/source/DemoElement.vue",
+          "--target",
+          "src/components/DemoElement.ejected.vue",
+          "--check"
+        ]
+      });
+      assert.notEqual(checkResult.status, 0);
+      assert.match(checkResult.stderr, /Element drift detected/);
+
+      const nonCheckResult = runCli({
+        cwd,
+        args: [
+          "element:diff",
+          "--",
+          "--source",
+          "@jskit-ai/demo-element/source/DemoElement.vue",
+          "--target",
+          "src/components/DemoElement.ejected.vue"
+        ]
+      });
+      assert.equal(nonCheckResult.status, 0, nonCheckResult.stderr);
+      assert.match(nonCheckResult.stdout, /Drift detected/);
+    }
+  );
+});

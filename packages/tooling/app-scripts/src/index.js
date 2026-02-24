@@ -282,6 +282,12 @@ function createNodeVueFastifyScriptsConfig(options = {}) {
       "docs:api-contracts:check": {
         builtin: "guardrails:api-contracts:check"
       },
+      "element:eject": {
+        builtin: "elements:eject"
+      },
+      "element:diff": {
+        builtin: "elements:diff"
+      },
       "ops:retention": {
         command: "node",
         args: [config.retentionSweepEntry]

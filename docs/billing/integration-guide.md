@@ -1,17 +1,17 @@
 # Billing Integration Guide
 
-Last updated: 2026-02-22
+Last updated: 2026-02-24
 
 This guide defines how app features should integrate billing limitations and usage accounting.
 
 Primary references:
 
-- `server/modules/billing/service.js`
-- `server/modules/billing/appCapabilityLimits.js`
-- `src/services/api/billingApi.js`
-- `src/views/workspace-billing/useWorkspaceBillingView.js`
-- `STRIPE_PLAN.md`
-- `STRIPE_PLAN_MATRIX.md`
+- `packages/billing/billing-service-core/src/service.js`
+- `packages/billing/billing-service-core/src/appCapabilityLimits.js`
+- `apps/jskit-value-app/src/platform/http/api/billingApi.js`
+- `apps/jskit-value-app/src/views/workspace-billing/useWorkspaceBillingView.js`
+- `packages/billing/billing-core/src/catalogCore.js`
+- `packages/billing/billing-service-core/src/pricing.service.js`
 
 ## 1. Where Features Must Call `getLimitations`
 
@@ -26,7 +26,7 @@ Required call points:
 
 Client API entry point:
 
-- `api.billing.getLimitations()` in `src/services/api/billingApi.js`
+- `api.billing.getLimitations()` in `apps/jskit-value-app/src/platform/http/api/billingApi.js`
 
 ## 2. Where Usage Must Be Consumed
 
@@ -53,7 +53,7 @@ Recommended placement:
 - execute consumption in the same backend transaction that persists the billable action.
 - for batch operations, pass aggregate `amount`.
 - include metadata useful for audits (`metadataJson`).
-- use capability mapping as source of truth (`server/modules/billing/appCapabilityLimits.js`).
+- use capability mapping as source of truth (`packages/billing/billing-service-core/src/appCapabilityLimits.js`).
 
 ## 3. Expected Fail-Closed Behavior
 
@@ -70,7 +70,7 @@ Required fail-closed outcomes:
 
 ## 4. Integration Checklist for New Features
 
-1. Map feature actions to entitlement codes in `server/modules/billing/appCapabilityLimits.js`.
+1. Map feature actions to entitlement codes in `packages/billing/billing-service-core/src/appCapabilityLimits.js`.
 2. Add preflight `getLimitations` checks in client and backend guard points.
 3. Add server-side `executeWithEntitlementConsumption` on successful billable actions.
 4. Wire fail-closed responses for unavailable/uncertain billing state.
@@ -78,18 +78,18 @@ Required fail-closed outcomes:
 
 Current scaffold wiring example:
 
-- `projects.create` and `projects.unarchive` route through `billingService.executeWithEntitlementConsumption` in `server/modules/projects/controller.js`.
+- `projects.create` and `projects.unarchive` route through `billingService.executeWithEntitlementConsumption` in `apps/jskit-value-app/server/modules/projects/controller.js`.
 
 ## 5. Contract-Lock Tests
 
 Keep these tests passing and extend them when behavior changes:
 
-- `tests/billingPhase21Service.test.js`
-- `tests/billingPolicyServiceEntityScope.test.js`
-- `tests/billingIdempotencyService.test.js`
-- `tests/billingErrorCodeContract.test.js`
-- `tests/billingPricingService.test.js`
-- `tests/billingCheckoutOrchestratorBehavior.test.js`
+- `apps/jskit-value-app/tests/billingPhase21Service.test.js`
+- `apps/jskit-value-app/tests/billingPolicyServiceEntityScope.test.js`
+- `apps/jskit-value-app/tests/billingIdempotencyService.test.js`
+- `apps/jskit-value-app/tests/billingErrorCodeContract.test.js`
+- `apps/jskit-value-app/tests/billingPricingService.test.js`
+- `apps/jskit-value-app/tests/billingCheckoutOrchestratorBehavior.test.js`
 
 ## 6. Purchase UX Contract (Scaffold Level)
 

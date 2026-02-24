@@ -1,6 +1,6 @@
 # Billing Contract Reference
 
-Last updated: 2026-02-22
+Last updated: 2026-02-24
 
 This document freezes current billing contracts for:
 
@@ -11,12 +11,13 @@ This document freezes current billing contracts for:
 
 Primary implementation references:
 
-- `server/modules/billing/routes.js`
-- `server/modules/billing/schema.js`
-- `server/modules/billing/service.js`
-- `server/modules/billing/policy.service.js`
-- `server/modules/billing/idempotency.service.js`
-- `server/modules/billing/constants.js`
+- `packages/billing/billing-fastify-adapter/src/routes.js`
+- `packages/billing/billing-fastify-adapter/src/schema.js`
+- `packages/billing/billing-service-core/src/service.js`
+- `packages/billing/billing-service-core/src/policy.service.js`
+- `packages/billing/billing-service-core/src/idempotency.service.js`
+- `packages/billing/billing-service-core/src/constants.js`
+- `packages/billing/billing-service-core/src/appCapabilityLimits.js`
 
 ## 1. Billable-Entity Selection and Auth Contract
 
@@ -108,7 +109,7 @@ Runtime enforcement kernel contract (`billingService.executeWithEntitlementConsu
   - `usageEventKey` (optional dedupe key for retry-safe consumption writes).
   - `action` callback (the business operation to execute).
 - Capability mapping source:
-  - `server/modules/billing/appCapabilityLimits.js`
+  - `packages/billing/billing-service-core/src/appCapabilityLimits.js`
 - Behavior:
   - resolves billable entity through billing policy.
   - freshens projection-backed limitation balances.
