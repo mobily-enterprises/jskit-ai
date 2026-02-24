@@ -1,1 +1,1 @@
-export * from "./attachmentStorage.service.js";
+export { createService, __testables } from "./attachmentStorage.service.js";

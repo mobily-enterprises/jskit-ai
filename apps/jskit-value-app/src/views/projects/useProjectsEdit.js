@@ -3,7 +3,7 @@ import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { api } from "../../services/api/index.js";
 import { useAuthGuard } from "../../composables/useAuthGuard.js";
-import { useQueryErrorMessage } from "../../composables/useQueryErrorMessage.js";
+import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 import { mapProjectsError } from "../../features/projects/errors.js";
 import { createDefaultProjectForm, projectStatusOptions } from "../../features/projects/formModel.js";

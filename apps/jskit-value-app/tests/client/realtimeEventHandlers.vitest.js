@@ -3,8 +3,8 @@ import { REALTIME_TOPICS } from "../../shared/eventTypes.js";
 import {
   workspaceAiTranscriptsRootQueryKey,
   workspaceAiTranscriptsScopeQueryKey
-} from "../../src/features/aiTranscripts/queryKeys.js";
-import { chatRootQueryKey, chatScopeQueryKey } from "../../src/features/chat/queryKeys.js";
+} from "@jskit-ai/assistant-contracts";
+import { chatRootQueryKey, chatScopeQueryKey } from "@jskit-ai/chat-contracts";
 import { projectDetailQueryKey, projectsScopeQueryKey } from "../../src/features/projects/queryKeys.js";
 import {
   workspaceAdminRootQueryKey,

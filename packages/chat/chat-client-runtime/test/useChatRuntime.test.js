@@ -1,16 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { __testables } from "../src/useChatRuntime.js";
+import { createChatRuntime, chatRuntimeTestables } from "../src/useChatRuntime.js";
 
 test("chat runtime normalizes thread ids and public chat ids", () => {
-  assert.equal(__testables.normalizeThreadId(42), 42);
-  assert.equal(__testables.normalizeThreadId("x"), 0);
-  assert.equal(__testables.normalizePublicChatId("  USER-ABC  "), "user-abc");
-  assert.equal(__testables.normalizePublicChatId(""), "");
+  assert.equal(chatRuntimeTestables.normalizeThreadId(42), 42);
+  assert.equal(chatRuntimeTestables.normalizeThreadId("x"), 0);
+  assert.equal(chatRuntimeTestables.normalizePublicChatId("  USER-ABC  "), "user-abc");
+  assert.equal(chatRuntimeTestables.normalizePublicChatId(""), "");
 });
 
 test("chat runtime flattens thread pages without duplicate ids", () => {
-  const flattened = __testables.flattenThreadPages([
+  const flattened = chatRuntimeTestables.flattenThreadPages([
     {
       items: [{ id: 3 }, { id: 2 }]
     },
@@ -26,7 +26,7 @@ test("chat runtime flattens thread pages without duplicate ids", () => {
 });
 
 test("chat runtime flattens message pages chronologically and de-duplicates ids", () => {
-  const flattened = __testables.flattenMessagePagesChronologically([
+  const flattened = chatRuntimeTestables.flattenMessagePagesChronologically([
     {
       items: [{ id: 30 }, { id: 31 }]
     },
@@ -42,7 +42,7 @@ test("chat runtime flattens message pages chronologically and de-duplicates ids"
 });
 
 test("chat runtime buildMessageRows groups adjacent messages by sender and time window", () => {
-  const rows = __testables.buildMessageRows(
+  const rows = chatRuntimeTestables.buildMessageRows(
     [
       {
         id: 1,
@@ -75,4 +75,48 @@ test("chat runtime buildMessageRows groups adjacent messages by sender and time 
   assert.equal(rows[1].groupStart, false);
   assert.equal(rows[1].groupEnd, true);
   assert.equal(rows[2].isMine, false);
+});
+
+test("chat runtime factory returns isolated runtime instances", () => {
+  const createApi = (seed) => ({
+    chat: {
+      ensureDm: async () => ({ thread: { id: seed } }),
+      listInbox: async () => ({ items: [], nextCursor: null }),
+      listThreadMessages: async () => ({ items: [], nextCursor: null }),
+      sendThreadMessage: async () => ({ idempotencyStatus: "created" }),
+      markThreadRead: async () => ({ lastReadSeq: 1 }),
+      reserveThreadAttachment: async () => ({ attachment: { id: seed * 100 } }),
+      uploadThreadAttachment: async () => ({ attachment: { id: seed * 100 } }),
+      deleteThreadAttachment: async () => ({ ok: true })
+    }
+  });
+
+  const runtimeA = createChatRuntime({
+    api: createApi(1),
+    useAuthGuard: () => ({ handleUnauthorizedError: async () => false }),
+    useQueryErrorMessage: () => "",
+    useWorkspaceStore: () => ({ initialized: true, hasActiveWorkspace: true, can: () => true, activeWorkspaceSlug: "a" }),
+    subscribeRealtimeEvents: () => () => {},
+    realtimeEventTypes: {
+      CHAT_TYPING_STARTED: "chat.typing.started",
+      CHAT_TYPING_STOPPED: "chat.typing.stopped"
+    }
+  });
+  const runtimeB = createChatRuntime({
+    api: createApi(2),
+    useAuthGuard: () => ({ handleUnauthorizedError: async () => false }),
+    useQueryErrorMessage: () => "",
+    useWorkspaceStore: () => ({ initialized: true, hasActiveWorkspace: true, can: () => true, activeWorkspaceSlug: "b" }),
+    subscribeRealtimeEvents: () => () => {},
+    realtimeEventTypes: {
+      CHAT_TYPING_STARTED: "custom.started",
+      CHAT_TYPING_STOPPED: "custom.stopped"
+    }
+  });
+
+  assert.notEqual(runtimeA.useChatRuntime, runtimeB.useChatRuntime);
+  assert.equal(runtimeA.useChatView, runtimeA.useChatRuntime);
+  assert.equal(runtimeB.useChatView, runtimeB.useChatRuntime);
+  assert.equal(runtimeA.chatRuntimeTestables, chatRuntimeTestables);
+  assert.equal(runtimeB.chatRuntimeTestables, chatRuntimeTestables);
 });

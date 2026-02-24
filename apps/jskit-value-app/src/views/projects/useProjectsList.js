@@ -5,7 +5,7 @@ import { api } from "../../services/api/index.js";
 import { useAuthGuard } from "../../composables/useAuthGuard.js";
 import { useListQueryState } from "@jskit-ai/web-runtime-core/useListQueryState";
 import { useUrlListPagination } from "@jskit-ai/web-runtime-core/useUrlListPagination";
-import { useQueryErrorMessage } from "../../composables/useQueryErrorMessage.js";
+import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 import { mapProjectsError } from "../../features/projects/errors.js";
 import { projectPageSizeOptions } from "../../features/projects/formModel.js";

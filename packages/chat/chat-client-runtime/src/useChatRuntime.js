@@ -23,47 +23,16 @@ const DEFAULT_REALTIME_EVENT_TYPES = Object.freeze({
   CHAT_TYPING_STARTED: "chat.typing.started",
   CHAT_TYPING_STOPPED: "chat.typing.stopped"
 });
-
-let api = null;
-let subscribeRealtimeEvents = () => () => {};
-let useAuthGuard = () => ({
+const DEFAULT_SUBSCRIBE_REALTIME_EVENTS = () => () => {};
+const DEFAULT_USE_AUTH_GUARD = () => ({
   handleUnauthorizedError() {}
 });
-let useQueryErrorMessage = () => computed(() => "");
-let useWorkspaceStore = () => ({
+const DEFAULT_USE_QUERY_ERROR_MESSAGE = () => computed(() => "");
+const DEFAULT_USE_WORKSPACE_STORE = () => ({
   activeWorkspace: null,
   activeWorkspaceSlug: "",
   activeWorkspaceId: null
 });
-let REALTIME_EVENT_TYPES = DEFAULT_REALTIME_EVENT_TYPES;
-
-function configureChatRuntime({
-  api: nextApi,
-  subscribeRealtimeEvents: nextSubscribeRealtimeEvents,
-  useAuthGuard: nextUseAuthGuard,
-  useQueryErrorMessage: nextUseQueryErrorMessage,
-  useWorkspaceStore: nextUseWorkspaceStore,
-  realtimeEventTypes
-} = {}) {
-  if (nextApi && typeof nextApi === "object") {
-    api = nextApi;
-  }
-  if (typeof nextSubscribeRealtimeEvents === "function") {
-    subscribeRealtimeEvents = nextSubscribeRealtimeEvents;
-  }
-  if (typeof nextUseAuthGuard === "function") {
-    useAuthGuard = nextUseAuthGuard;
-  }
-  if (typeof nextUseQueryErrorMessage === "function") {
-    useQueryErrorMessage = nextUseQueryErrorMessage;
-  }
-  if (typeof nextUseWorkspaceStore === "function") {
-    useWorkspaceStore = nextUseWorkspaceStore;
-  }
-  if (realtimeEventTypes && typeof realtimeEventTypes === "object") {
-    REALTIME_EVENT_TYPES = realtimeEventTypes;
-  }
-}
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -393,7 +362,14 @@ function buildMessageRows(
   });
 }
 
-function useChatRuntime() {
+function useChatRuntime({
+  api,
+  subscribeRealtimeEvents,
+  useAuthGuard,
+  useQueryErrorMessage,
+  useWorkspaceStore,
+  realtimeEventTypes
+}) {
   const workspaceStore = useWorkspaceStore();
   const queryClient = useQueryClient();
   const { handleUnauthorizedError } = useAuthGuard();
@@ -654,8 +630,8 @@ function useChatRuntime() {
     const eventType = String(event?.eventType || "")
       .trim()
       .toLowerCase();
-    const isTypingStarted = eventType === String(REALTIME_EVENT_TYPES.CHAT_TYPING_STARTED || "").toLowerCase();
-    const isTypingStopped = eventType === String(REALTIME_EVENT_TYPES.CHAT_TYPING_STOPPED || "").toLowerCase();
+    const isTypingStarted = eventType === String(realtimeEventTypes.CHAT_TYPING_STARTED || "").toLowerCase();
+    const isTypingStopped = eventType === String(realtimeEventTypes.CHAT_TYPING_STOPPED || "").toLowerCase();
     if (!isTypingStarted && !isTypingStopped) {
       return;
     }
@@ -1477,9 +1453,7 @@ function useChatRuntime() {
   };
 }
 
-const useChatView = useChatRuntime;
-
-const __testables = {
+const chatRuntimeTestables = {
   INBOX_PAGE_SIZE,
   THREAD_MESSAGES_PAGE_SIZE,
   DM_CANDIDATES_PAGE_SIZE,
@@ -1493,4 +1467,59 @@ const __testables = {
   buildMessageRows
 };
 
-export { configureChatRuntime, useChatRuntime, useChatView, __testables };
+function resolveChatRuntimeDependencies(deps = {}) {
+  const source = deps && typeof deps === "object" ? deps : {};
+
+  return {
+    api: source.api && typeof source.api === "object" ? source.api : null,
+    subscribeRealtimeEvents:
+      typeof source.subscribeRealtimeEvents === "function"
+        ? source.subscribeRealtimeEvents
+        : DEFAULT_SUBSCRIBE_REALTIME_EVENTS,
+    useAuthGuard: typeof source.useAuthGuard === "function" ? source.useAuthGuard : DEFAULT_USE_AUTH_GUARD,
+    useQueryErrorMessage:
+      typeof source.useQueryErrorMessage === "function"
+        ? source.useQueryErrorMessage
+        : DEFAULT_USE_QUERY_ERROR_MESSAGE,
+    useWorkspaceStore:
+      typeof source.useWorkspaceStore === "function" ? source.useWorkspaceStore : DEFAULT_USE_WORKSPACE_STORE,
+    realtimeEventTypes:
+      source.realtimeEventTypes && typeof source.realtimeEventTypes === "object"
+        ? source.realtimeEventTypes
+        : DEFAULT_REALTIME_EVENT_TYPES
+  };
+}
+
+function assertChatRuntimeDependencies({ api }) {
+  const requiredMethods = [
+    "ensureDm",
+    "listInbox",
+    "listThreadMessages",
+    "sendThreadMessage",
+    "markThreadRead",
+    "reserveThreadAttachment",
+    "uploadThreadAttachment",
+    "deleteThreadAttachment"
+  ];
+  const missingMethods = requiredMethods.filter((methodName) => typeof api?.chat?.[methodName] !== "function");
+  if (missingMethods.length > 0) {
+    throw new Error(`chat-client-runtime missing required api.chat methods: ${missingMethods.join(", ")}`);
+  }
+}
+
+function createChatRuntime(deps = {}) {
+  const runtimeDeps = resolveChatRuntimeDependencies(deps);
+  assertChatRuntimeDependencies(runtimeDeps);
+
+  function useBoundChatRuntime() {
+    return useChatRuntime(runtimeDeps);
+  }
+
+  return {
+    useChatRuntime: useBoundChatRuntime,
+    useChatView: useBoundChatRuntime,
+    chatRuntimeTestables
+  };
+}
+
+export { createChatRuntime, chatRuntimeTestables };

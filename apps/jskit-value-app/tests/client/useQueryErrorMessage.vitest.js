@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { defineComponent, nextTick, ref } from "vue";
 import { describe, expect, it, vi } from "vitest";
-import { useQueryErrorMessage } from "../../src/composables/useQueryErrorMessage.js";
+import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 
 function mountHarness({ query, handleUnauthorizedError, mapError }) {
   const Harness = defineComponent({

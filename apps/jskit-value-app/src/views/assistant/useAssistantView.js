@@ -1,17 +1,4 @@
-import {
-  configureAssistantRuntime,
-  useAssistantRuntime,
-  assistantRuntimeTestables
-} from "@jskit-ai/assistant-client-runtime";
-import { resolveSurfaceFromPathname } from "../../../shared/surfacePaths.js";
-import { api } from "../../services/api/index.js";
-import { useWorkspaceStore } from "../../stores/workspaceStore.js";
+import { assistantRuntimeTestables } from "../../runtime/assistantRuntime.js";
 
-configureAssistantRuntime({
-  api,
-  useWorkspaceStore,
-  resolveSurfaceFromPathname
-});
-
-export const useAssistantView = useAssistantRuntime;
+export { useAssistantView } from "../../runtime/assistantRuntime.js";
 export const __testables = assistantRuntimeTestables;

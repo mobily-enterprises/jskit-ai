@@ -5,7 +5,7 @@ import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 import {
   workspaceAiTranscriptMessagesQueryKey,
   workspaceAiTranscriptsListQueryKey
-} from "../../features/aiTranscripts/queryKeys.js";
+} from "@jskit-ai/assistant-contracts";
 
 function formatDateTime(value) {
   const date = new Date(value);

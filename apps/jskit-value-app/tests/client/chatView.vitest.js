@@ -2,7 +2,7 @@ import { defineComponent, nextTick, ref } from "vue";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { REALTIME_TOPICS } from "../../shared/eventTypes.js";
-import { chatInboxInfiniteQueryKey, chatThreadMessagesInfiniteQueryKey } from "../../src/features/chat/queryKeys.js";
+import { chatInboxInfiniteQueryKey, chatThreadMessagesInfiniteQueryKey } from "@jskit-ai/chat-contracts";
 import {
   publishRealtimeEvent,
   __testables as realtimeEventBusTestables
@@ -64,9 +64,11 @@ vi.mock("../../src/composables/useAuthGuard.js", () => ({
   })
 }));
 
-vi.mock("../../src/composables/useQueryErrorMessage.js", async () => {
+vi.mock("@jskit-ai/web-runtime-core", async () => {
+  const actual = await vi.importActual("@jskit-ai/web-runtime-core");
   const vue = await import("vue");
   return {
+    ...actual,
     useQueryErrorMessage: () => vue.ref("")
   };
 });

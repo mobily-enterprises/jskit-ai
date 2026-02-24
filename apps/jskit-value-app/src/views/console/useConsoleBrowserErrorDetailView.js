@@ -3,7 +3,7 @@ import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useQuery } from "@tanstack/vue-query";
 import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";
 import { useAuthGuard } from "../../composables/useAuthGuard.js";
-import { useQueryErrorMessage } from "../../composables/useQueryErrorMessage.js";
+import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { api } from "../../services/api/index.js";
 
 function resolveErrorIdFromPath(pathname) {

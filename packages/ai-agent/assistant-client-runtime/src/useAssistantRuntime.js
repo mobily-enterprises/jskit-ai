@@ -14,29 +14,11 @@ const HISTORY_PAGE_SIZE = 50;
 const RESTORE_MESSAGES_PAGE = 1;
 const RESTORE_MESSAGES_PAGE_SIZE = 500;
 const REDACTED_CONTENT_PLACEHOLDER = "No content stored by policy.";
-
-let api = null;
-let useWorkspaceStore = () => ({
+const DEFAULT_USE_WORKSPACE_STORE = () => ({
   activeWorkspace: null,
   activeWorkspaceSlug: ""
 });
-let resolveSurfaceFromPathname = () => "app";
-
-function configureAssistantRuntime({
-  api: nextApi,
-  useWorkspaceStore: nextUseWorkspaceStore,
-  resolveSurfaceFromPathname: nextResolveSurfaceFromPathname
-} = {}) {
-  if (nextApi && typeof nextApi === "object") {
-    api = nextApi;
-  }
-  if (typeof nextUseWorkspaceStore === "function") {
-    useWorkspaceStore = nextUseWorkspaceStore;
-  }
-  if (typeof nextResolveSurfaceFromPathname === "function") {
-    resolveSurfaceFromPathname = nextResolveSurfaceFromPathname;
-  }
-}
+const DEFAULT_RESOLVE_SURFACE_FROM_PATHNAME = () => "app";
 
 function buildId(prefix = "id") {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -64,7 +46,7 @@ function normalizeDateTime(value) {
   return date.toLocaleString();
 }
 
-function resolveCurrentSurfaceId() {
+function resolveCurrentSurfaceId(resolveSurfaceFromPathname) {
   if (typeof window !== "undefined" && window?.location?.pathname) {
     return resolveSurfaceFromPathname(String(window.location.pathname));
   }
@@ -260,7 +242,7 @@ function mapTranscriptEntriesToAssistantState(entries) {
   };
 }
 
-function useAssistantRuntime() {
+function useAssistantRuntime({ api, useWorkspaceStore, resolveSurfaceFromPathname }) {
   const workspaceStore = useWorkspaceStore();
   const queryClient = useQueryClient();
   const messages = ref([]);
@@ -272,7 +254,7 @@ function useAssistantRuntime() {
   const pendingToolEvents = ref([]);
   const abortController = ref(null);
   const conversationId = ref(null);
-  const currentSurfaceId = ref(resolveCurrentSurfaceId());
+  const currentSurfaceId = ref(resolveCurrentSurfaceId(resolveSurfaceFromPathname));
 
   const workspaceSlug = computed(() => {
     return String(workspaceStore.activeWorkspace?.slug || workspaceStore.activeWorkspaceSlug || "").trim();
@@ -701,9 +683,7 @@ function useAssistantRuntime() {
   };
 }
 
-const useAssistantView = useAssistantRuntime;
-
-const __testables = {
+const assistantRuntimeTestables = {
   ASSISTANT_STREAM_TIMEOUT_MS,
   HISTORY_PAGE,
   HISTORY_PAGE_SIZE,
@@ -719,4 +699,43 @@ const __testables = {
   normalizeConversationStatus
 };
 
-export { configureAssistantRuntime, useAssistantRuntime, useAssistantView, __testables };
+function resolveAssistantRuntimeDependencies(deps = {}) {
+  const source = deps && typeof deps === "object" ? deps : {};
+
+  return {
+    api: source.api && typeof source.api === "object" ? source.api : null,
+    useWorkspaceStore:
+      typeof source.useWorkspaceStore === "function" ? source.useWorkspaceStore : DEFAULT_USE_WORKSPACE_STORE,
+    resolveSurfaceFromPathname:
+      typeof source.resolveSurfaceFromPathname === "function"
+        ? source.resolveSurfaceFromPathname
+        : DEFAULT_RESOLVE_SURFACE_FROM_PATHNAME
+  };
+}
+
+function assertAssistantRuntimeDependencies({ api }) {
+  const requiredMethods = ["listConversations", "getConversationMessages", "streamChat"];
+  const missingMethods = requiredMethods.filter((methodName) => typeof api?.ai?.[methodName] !== "function");
+  if (missingMethods.length > 0) {
+    throw new Error(
+      `assistant-client-runtime missing required api.ai methods: ${missingMethods.join(", ")}`
+    );
+  }
+}
+
+function createAssistantRuntime(deps = {}) {
+  const runtimeDeps = resolveAssistantRuntimeDependencies(deps);
+  assertAssistantRuntimeDependencies(runtimeDeps);
+
+  function useBoundAssistantRuntime() {
+    return useAssistantRuntime(runtimeDeps);
+  }
+
+  return {
+    useAssistantRuntime: useBoundAssistantRuntime,
+    useAssistantView: useBoundAssistantRuntime,
+    assistantRuntimeTestables
+  };
+}
+
+export { createAssistantRuntime, assistantRuntimeTestables };

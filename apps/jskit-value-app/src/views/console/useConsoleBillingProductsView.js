@@ -1,7 +1,7 @@
 import { computed, reactive, ref, watch } from "vue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useAuthGuard } from "../../composables/useAuthGuard.js";
-import { useQueryErrorMessage } from "../../composables/useQueryErrorMessage.js";
+import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { api } from "../../services/api/index.js";
 
 const CONSOLE_BILLING_PRODUCTS_QUERY_KEY = ["console-billing-products"];

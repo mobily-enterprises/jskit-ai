@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { __testables } from "../src/useAssistantRuntime.js";
+import { createAssistantRuntime, assistantRuntimeTestables } from "../src/useAssistantRuntime.js";
 
 test("assistant runtime buildHistory includes only done user/assistant chat messages", () => {
-  const history = __testables.buildHistory([
+  const history = assistantRuntimeTestables.buildHistory([
     { role: "user", kind: "chat", text: "hello", status: "done" },
     { role: "assistant", kind: "chat", text: "reply", status: "done" },
     { role: "assistant", kind: "tool_event", text: "Tool call: x", status: "tool_call" },
@@ -18,7 +18,7 @@ test("assistant runtime buildHistory includes only done user/assistant chat mess
 });
 
 test("assistant runtime normalizes transcript entries into messages and tool event state", () => {
-  const restored = __testables.mapTranscriptEntriesToAssistantState([
+  const restored = assistantRuntimeTestables.mapTranscriptEntriesToAssistantState([
     {
       id: 1,
       role: "user",
@@ -70,6 +70,40 @@ test("assistant runtime normalizes transcript entries into messages and tool eve
 });
 
 test("assistant runtime conversation status normalizer falls back to unknown", () => {
-  assert.equal(__testables.normalizeConversationStatus(" COMPLETED "), "completed");
-  assert.equal(__testables.normalizeConversationStatus(""), "unknown");
+  assert.equal(assistantRuntimeTestables.normalizeConversationStatus(" COMPLETED "), "completed");
+  assert.equal(assistantRuntimeTestables.normalizeConversationStatus(""), "unknown");
+});
+
+test("assistant runtime factory returns isolated runtime instances", () => {
+  const apiA = {
+    ai: {
+      listConversations: async () => ({ entries: [] }),
+      getConversationMessages: async () => ({ entries: [] }),
+      streamChat: async () => undefined
+    }
+  };
+  const apiB = {
+    ai: {
+      listConversations: async () => ({ entries: [{ id: 1 }] }),
+      getConversationMessages: async () => ({ entries: [{ id: 1 }] }),
+      streamChat: async () => undefined
+    }
+  };
+
+  const runtimeA = createAssistantRuntime({
+    api: apiA,
+    useWorkspaceStore: () => ({ activeWorkspaceSlug: "alpha" }),
+    resolveSurfaceFromPathname: () => "app"
+  });
+  const runtimeB = createAssistantRuntime({
+    api: apiB,
+    useWorkspaceStore: () => ({ activeWorkspaceSlug: "beta" }),
+    resolveSurfaceFromPathname: () => "admin"
+  });
+
+  assert.notEqual(runtimeA.useAssistantRuntime, runtimeB.useAssistantRuntime);
+  assert.equal(runtimeA.useAssistantView, runtimeA.useAssistantRuntime);
+  assert.equal(runtimeB.useAssistantView, runtimeB.useAssistantRuntime);
+  assert.equal(runtimeA.assistantRuntimeTestables, assistantRuntimeTestables);
+  assert.equal(runtimeB.assistantRuntimeTestables, assistantRuntimeTestables);
 });
