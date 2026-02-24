@@ -1,55 +1,15 @@
-import { randomUUID } from "node:crypto";
+import {
+  createRealtimeEventEnvelope,
+  createRealtimeEventsBus,
+  createTargetedChatEventEnvelope,
+  normalizeEntityId,
+  normalizePositiveIntegerArray,
+  normalizePositiveIntegerOrNull,
+  normalizeScopeKind,
+  normalizeStringifiedPositiveIntegerOrNull,
+  normalizeStringOrNull
+} from "@jskit-ai/server-runtime-core/realtimeEvents";
 import { REALTIME_TOPICS, REALTIME_EVENT_TYPES } from "../../../../shared/realtime/eventTypes.js";
-
-function normalizePositiveIntegerOrNull(value) {
-  const normalized = Number(value);
-  if (!Number.isInteger(normalized) || normalized < 1) {
-    return null;
-  }
-
-  return normalized;
-}
-
-function normalizeStringOrNull(value) {
-  const normalized = String(value || "").trim();
-  return normalized || null;
-}
-
-function normalizeEntityId(value) {
-  const normalized = String(value ?? "").trim();
-  return normalized || "none";
-}
-
-function normalizePositiveIntegerArray(value) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  const seen = new Set();
-  const normalized = [];
-  for (const item of value) {
-    const parsed = normalizePositiveIntegerOrNull(item);
-    if (!parsed || seen.has(parsed)) {
-      continue;
-    }
-    seen.add(parsed);
-    normalized.push(parsed);
-  }
-
-  return normalized;
-}
-
-function normalizeScopeKind(value) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
-  return normalized === "workspace" ? "workspace" : "global";
-}
-
-function normalizeStringifiedPositiveIntegerOrNull(value) {
-  const normalized = normalizePositiveIntegerOrNull(value);
-  return normalized ? String(normalized) : null;
-}
 
 function resolveChatTopic(eventType, topic) {
   const normalizedTopic = String(topic || "").trim();
@@ -67,88 +27,11 @@ function resolveChatTopic(eventType, topic) {
   return REALTIME_TOPICS.CHAT;
 }
 
-function createEventEnvelope({
-  eventType,
-  topic,
-  workspace,
-  entityType,
-  entityId,
-  commandId,
-  sourceClientId,
-  actorUserId,
-  payload
-}) {
-  return {
-    eventId: `evt_${randomUUID()}`,
-    occurredAt: new Date().toISOString(),
-    eventType: String(eventType || "").trim(),
-    topic: String(topic || "").trim(),
-    workspaceId: normalizePositiveIntegerOrNull(workspace?.id),
-    workspaceSlug: normalizeStringOrNull(workspace?.slug),
-    entityType: String(entityType || "").trim(),
-    entityId: normalizeEntityId(entityId),
-    commandId: normalizeStringOrNull(commandId),
-    sourceClientId: normalizeStringOrNull(sourceClientId),
-    actorUserId: normalizePositiveIntegerOrNull(actorUserId),
-    payload: payload && typeof payload === "object" ? { ...payload } : {}
-  };
-}
-
-function createChatEventEnvelope({
-  eventType,
-  threadId,
-  scopeKind,
-  workspaceId,
-  actorUserId,
-  targetUserIds,
-  commandId,
-  sourceClientId,
-  payload,
-  topic
-}) {
-  return {
-    eventId: `evt_${randomUUID()}`,
-    eventType: String(eventType || "").trim(),
-    eventVersion: 1,
-    occurredAt: new Date().toISOString(),
-    topic: resolveChatTopic(eventType, topic),
-    threadId: normalizeStringifiedPositiveIntegerOrNull(threadId),
-    scopeKind: normalizeScopeKind(scopeKind),
-    workspaceId: normalizeStringifiedPositiveIntegerOrNull(workspaceId),
-    actorUserId: normalizeStringifiedPositiveIntegerOrNull(actorUserId),
-    targetUserIds: normalizePositiveIntegerArray(targetUserIds),
-    commandId: normalizeStringOrNull(commandId),
-    sourceClientId: normalizeStringOrNull(sourceClientId),
-    payload: payload && typeof payload === "object" ? { ...payload } : {}
-  };
-}
-
 function createService() {
-  const listeners = new Set();
+  const realtimeEventsBus = createRealtimeEventsBus();
 
-  function subscribe(listener) {
-    if (typeof listener !== "function") {
-      return () => {};
-    }
-
-    listeners.add(listener);
-    return () => {
-      listeners.delete(listener);
-    };
-  }
-
-  function unsubscribe(listener) {
-    listeners.delete(listener);
-  }
-
-  function publish(eventEnvelope) {
-    for (const listener of listeners) {
-      try {
-        listener(eventEnvelope);
-      } catch {
-        // A broken listener must not interrupt fanout for others.
-      }
-    }
+  function createEventEnvelope(payload) {
+    return createRealtimeEventEnvelope(payload);
   }
 
   function publishProjectEvent({ operation, workspace, project, commandId, sourceClientId, actorUserId }) {
@@ -175,7 +58,7 @@ function createService() {
       }
     });
 
-    publish(envelope);
+    realtimeEventsBus.publish(envelope);
     return envelope;
   }
 
@@ -202,7 +85,7 @@ function createService() {
       payload
     });
 
-    publish(envelope);
+    realtimeEventsBus.publish(envelope);
     return envelope;
   }
 
@@ -219,8 +102,9 @@ function createService() {
     payload,
     topic
   }) {
-    const envelope = createChatEventEnvelope({
+    const envelope = createTargetedChatEventEnvelope({
       eventType,
+      topic: resolveChatTopic(eventType, topic),
       threadId,
       scopeKind,
       workspaceId,
@@ -229,26 +113,22 @@ function createService() {
       commandId,
       sourceClientId,
       payload,
-      topic
+      eventVersion: 1
     });
 
-    publish(envelope);
+    realtimeEventsBus.publish(envelope);
     return envelope;
-  }
-
-  function resetForTests() {
-    listeners.clear();
   }
 
   return {
     createEventEnvelope,
-    publish,
-    subscribe,
-    unsubscribe,
+    publish: realtimeEventsBus.publish,
+    subscribe: realtimeEventsBus.subscribe,
+    unsubscribe: realtimeEventsBus.unsubscribe,
     publishProjectEvent,
     publishWorkspaceEvent,
     publishChatEvent,
-    resetForTests
+    resetForTests: realtimeEventsBus.resetForTests
   };
 }
 

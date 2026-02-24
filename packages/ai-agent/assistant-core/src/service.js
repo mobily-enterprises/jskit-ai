@@ -2,6 +2,11 @@ import { randomUUID } from "node:crypto";
 import { AppError as SharedAppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import {
+  buildPublishRequestMeta,
+  publishSafely,
+  resolvePublishMethod
+} from "@jskit-ai/server-runtime-core/realtimePublish";
+import {
   resolveClientIpAddress,
   safePathnameFromRequest as defaultSafePathnameFromRequest
 } from "@jskit-ai/server-runtime-core/requestUrl";
@@ -18,50 +23,6 @@ const DEFAULT_REALTIME_EVENT_TYPES = Object.freeze({
 const DefaultAppError = SharedAppError;
 
 let AppError = DefaultAppError;
-
-function resolvePublishMethod(realtimeEventsService, methodName) {
-  if (!realtimeEventsService || typeof methodName !== "string") {
-    return null;
-  }
-
-  return typeof realtimeEventsService[methodName] === "function" ? realtimeEventsService[methodName] : null;
-}
-
-function normalizeHeaderValue(value) {
-  const normalized = String(value || "").trim();
-  return normalized || null;
-}
-
-function buildPublishRequestMeta(request) {
-  return {
-    commandId: normalizeHeaderValue(request?.headers?.["x-command-id"]),
-    sourceClientId: normalizeHeaderValue(request?.headers?.["x-client-id"]),
-    actorUserId: request?.user?.id
-  };
-}
-
-function publishSafely({ publishMethod, payload, request, logCode, logContext = {} } = {}) {
-  if (typeof publishMethod !== "function") {
-    return false;
-  }
-
-  try {
-    publishMethod(payload);
-    return true;
-  } catch (error) {
-    const warnLogger = request?.log && typeof request.log.warn === "function" ? request.log.warn.bind(request.log) : null;
-    if (warnLogger) {
-      warnLogger(
-        {
-          err: error,
-          ...(logContext && typeof logContext === "object" ? logContext : {})
-        },
-        String(logCode || "realtime.publish_failed")
-      );
-    }
-    return false;
-  }
-}
 
 function defaultResolvePublishWorkspaceEvent(realtimeEventsService) {
   return resolvePublishMethod(realtimeEventsService, "publishWorkspaceEvent");

@@ -19,7 +19,7 @@ function buildPublishRequestMeta(request) {
   };
 }
 
-function warnPublishFailure({ request, error, logCode, logContext = {} }) {
+function warnPublishFailure({ request, error, logCode, logContext = {} } = {}) {
   const warnLogger = request?.log && typeof request.log.warn === "function" ? request.log.warn.bind(request.log) : null;
   if (!warnLogger) {
     return;
@@ -53,4 +53,4 @@ function publishSafely({ publishMethod, payload, request, logCode, logContext = 
   }
 }
 
-export { buildPublishRequestMeta, normalizeHeaderValue, publishSafely, resolvePublishMethod };
+export { buildPublishRequestMeta, normalizeHeaderValue, publishSafely, resolvePublishMethod, warnPublishFailure };

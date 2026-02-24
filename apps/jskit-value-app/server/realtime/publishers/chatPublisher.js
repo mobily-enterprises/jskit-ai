@@ -1,4 +1,8 @@
-import { buildPublishRequestMeta, publishSafely, resolvePublishMethod } from "./shared.js";
+import {
+  buildPublishRequestMeta,
+  publishSafely,
+  resolvePublishMethod
+} from "@jskit-ai/server-runtime-core/realtimePublish";
 
 function resolvePublishChatEvent(realtimeEventsService) {
   return resolvePublishMethod(realtimeEventsService, "publishChatEvent");

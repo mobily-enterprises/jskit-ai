@@ -1,4 +1,8 @@
-import { buildPublishRequestMeta, publishSafely, resolvePublishMethod } from "./shared.js";
+import {
+  buildPublishRequestMeta,
+  publishSafely,
+  resolvePublishMethod
+} from "@jskit-ai/server-runtime-core/realtimePublish";
 
 function resolvePublishWorkspaceEvent(realtimeEventsService) {
   return resolvePublishMethod(realtimeEventsService, "publishWorkspaceEvent");

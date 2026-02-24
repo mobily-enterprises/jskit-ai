@@ -11,6 +11,8 @@
     "./errors": "./src/errors.js",
     "./integers": "./src/integers.js",
     "./requestUrl": "./src/requestUrl.js",
-    "./pagination": "./src/pagination.js"
+    "./pagination": "./src/pagination.js",
+    "./realtimePublish": "./src/realtimePublish.js",
+    "./realtimeEvents": "./src/realtimeEvents.js"
   }
 }

@@ -20,6 +20,26 @@ const IMPORT_GUARD_SCAN_DIRS = Object.freeze([
   path.join(ROOT_DIR, "bin")
 ]);
 const FORBIDDEN_TRANSCRIPT_MODE_IMPORT_SEGMENTS = Object.freeze(["aiTranscriptMode.js", "ai/transcripts/mode.js"]);
+const REALTIME_PUBLISHER_FILES = Object.freeze([
+  "server/realtime/publishers/projectPublisher.js",
+  "server/realtime/publishers/workspacePublisher.js",
+  "server/realtime/publishers/chatPublisher.js"
+]);
+const FORBIDDEN_REALTIME_PUBLISH_HELPER_FUNCTIONS = Object.freeze([
+  "normalizeHeaderValue",
+  "resolvePublishMethod",
+  "buildPublishRequestMeta",
+  "warnPublishFailure",
+  "publishSafely"
+]);
+const FORBIDDEN_REALTIME_EVENT_HELPER_FUNCTIONS = Object.freeze([
+  "normalizePositiveIntegerOrNull",
+  "normalizeStringOrNull",
+  "normalizeEntityId",
+  "normalizePositiveIntegerArray",
+  "normalizeScopeKind",
+  "normalizeStringifiedPositiveIntegerOrNull"
+]);
 
 function toPosixPath(value) {
   return String(value || "").replace(/\\/g, "/");
@@ -299,6 +319,52 @@ test("architecture guardrail: realtime events service import hygiene forbids cro
 
     if (importsModuleService || importsOtherDomainService) {
       violations.push(relativePath);
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+test("architecture guardrail: realtime publishers use shared realtime publish primitives", () => {
+  const violations = [];
+
+  for (const relativePath of REALTIME_PUBLISHER_FILES) {
+    const absolutePath = path.join(ROOT_DIR, relativePath);
+    const source = readFileSync(absolutePath, "utf8");
+
+    if (!source.includes("@jskit-ai/server-runtime-core/realtimePublish")) {
+      violations.push(`${relativePath}:missing_shared_import`);
+    }
+
+    for (const functionName of FORBIDDEN_REALTIME_PUBLISH_HELPER_FUNCTIONS) {
+      const functionPattern = new RegExp(`function\\s+${functionName}\\s*\\(`);
+      if (functionPattern.test(source)) {
+        violations.push(`${relativePath}:redefined_${functionName}`);
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+test("architecture guardrail: app-local realtime publish helper shim is removed", () => {
+  const sharedPublisherHelperPath = path.join(ROOT_DIR, "server/realtime/publishers/shared.js");
+  assert.equal(existsSync(sharedPublisherHelperPath), false);
+});
+
+test("architecture guardrail: realtime events service uses shared realtime event primitives", () => {
+  const realtimeServicePath = path.join(ROOT_DIR, "server/domain/realtime/services/events.service.js");
+  const source = readFileSync(realtimeServicePath, "utf8");
+  const violations = [];
+
+  if (!source.includes("@jskit-ai/server-runtime-core/realtimeEvents")) {
+    violations.push("missing_shared_realtime_events_import");
+  }
+
+  for (const functionName of FORBIDDEN_REALTIME_EVENT_HELPER_FUNCTIONS) {
+    const functionPattern = new RegExp(`function\\s+${functionName}\\s*\\(`);
+    if (functionPattern.test(source)) {
+      violations.push(`redefined_${functionName}`);
     }
   }
 
