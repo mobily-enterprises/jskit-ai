@@ -26,6 +26,7 @@ This package is pure business logic. It is designed to be called from app servic
 - `@jskit-ai/billing-core`
 - `@jskit-ai/billing-core/catalogCore`
 - `@jskit-ai/billing-core/providerPricingCore`
+- `@jskit-ai/billing-core/entitlementSchema`
 
 ## Main entry points
 
@@ -49,6 +50,18 @@ Factory for provider pricing snapshot validation helpers (currently Stripe-focus
 Real-life example:
 
 - Before accepting a submitted Stripe price id, the app verifies the id exists, is active, and matches expected billing rules.
+
+### `entitlementSchema`
+
+Shared entitlement payload schema validation helpers:
+
+- `resolveSchemaValidator(schemaVersion)`
+- `validateEntitlementValue({ schemaVersion, value })`
+- `assertEntitlementValueOrThrow({ schemaVersion, value, errorStatus })`
+
+Real-life example:
+
+- `jskit-value-app` uses `assertEntitlementValueOrThrow` in console billing catalog service to reject malformed entitlement values before persistence.
 
 ## `catalogCore` returned API (function by function)
 

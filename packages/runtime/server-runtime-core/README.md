@@ -35,15 +35,34 @@ Centralize app-agnostic server runtime helpers used across services, adapters, a
   - `normalizePositiveIntegerArray`
   - `normalizeScopeKind`
   - `normalizeStringifiedPositiveIntegerOrNull`
+- `@jskit-ai/server-runtime-core/securityAudit`
+  - `buildAuditEventBase`
+  - `buildAuditError`
+  - `recordAuditEvent`
+  - `withAuditEvent`
+- `@jskit-ai/server-runtime-core/composition`
+  - `createRepositoryRegistry`
+  - `createServiceRegistry`
+  - `createControllerRegistry`
+  - `selectRuntimeServices`
+- `@jskit-ai/server-runtime-core/fastifyBootstrap`
+  - `resolveLoggerLevel`
+  - `createFastifyLoggerOptions`
+  - `registerRequestLoggingHooks`
+  - `registerApiErrorHandler`
+  - `recordDbErrorBestEffort`
+  - `runGracefulShutdown`
 
 ## Examples
 
 ```js
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { createControllerRegistry } from "@jskit-ai/server-runtime-core/composition";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { createRealtimeEventsBus, createRealtimeEventEnvelope } from "@jskit-ai/server-runtime-core/realtimeEvents";
 import { safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
 import { buildPublishRequestMeta, publishSafely } from "@jskit-ai/server-runtime-core/realtimePublish";
+import { buildAuditEventBase } from "@jskit-ai/server-runtime-core/securityAudit";
 
 const workspaceId = parsePositiveInteger(request.params.workspaceId);
 if (!workspaceId) {
@@ -51,6 +70,7 @@ if (!workspaceId) {
 }
 
 const pathname = safePathnameFromRequest(request);
+const auditBase = buildAuditEventBase(request);
 
 publishSafely({
   publishMethod: realtimeEventsService?.publishWorkspaceEvent,
@@ -71,6 +91,21 @@ const envelope = createRealtimeEventEnvelope({
   entityId: 42
 });
 realtimeEventsBus.publish(envelope);
+
+const controllers = createControllerRegistry({
+  definitions: [
+    {
+      id: "health",
+      create: ({ services }) => ({ get: () => services.healthService.ping() })
+    }
+  ],
+  services: {
+    healthService: {
+      ping: () => "ok"
+    }
+  }
+});
+controllers.health.get();
 ```
 
 ## Non-goals

@@ -46,6 +46,15 @@ Future console capabilities (not yet implemented):
 | `server/lib/primitives/pagination.js` | `@jskit-ai/server-runtime-core/pagination` |
 | `server/realtime/publishers/shared.js` | `@jskit-ai/server-runtime-core/realtimePublish` |
 | `server/domain/realtime/services/events.service.js` (generic bus/envelope primitives) | `@jskit-ai/server-runtime-core/realtimeEvents` |
+| `server/lib/securityAudit.js` | `@jskit-ai/server-runtime-core/securityAudit` |
+| `server/runtime/{repositories,services,controllers,index}.js` generic assembly plumbing | `@jskit-ai/server-runtime-core/composition` |
+| `server.js` logger/request/error/shutdown bootstrap helpers | `@jskit-ai/server-runtime-core/fastifyBootstrap` |
+| `server/lib/logging/scopeLogger.js` | `@jskit-ai/observability-core/scopeLogger` |
+| `server/lib/billing/entitlementSchemaRegistry.js` | `@jskit-ai/billing-core/entitlementSchema` |
+| `server/lib/aiAssistantSystemPrompt.js` | `@jskit-ai/assistant-core/systemPrompt` |
+| `server/lib/appConfig.js` | `@jskit-ai/runtime-env-core/appRuntimePolicy` |
+| `server/lib/rbacManifest.js` | `@jskit-ai/rbac-core` |
+| `server/lib/realtimeEvents.js` | `server/realtime/publishers/{workspace,project,chat}Publisher.js` |
 | `server/lib/primitives/dateUtils.js` | `@jskit-ai/knex-mysql-core/dateUtils` |
 | `server/lib/primitives/mysqlErrors.js` | `@jskit-ai/knex-mysql-core/mysqlErrors` |
 | `server/lib/primitives/retention.js` | `@jskit-ai/knex-mysql-core/retention` |

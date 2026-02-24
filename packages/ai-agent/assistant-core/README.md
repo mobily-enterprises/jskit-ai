@@ -86,6 +86,18 @@ Why apps use this API:
 
 - Keeps orchestration rules in one place while letting each app control tool/policy surface.
 
+## `systemPrompt` helpers (`@jskit-ai/assistant-core/systemPrompt`)
+
+Shared assistant system-prompt utilities used by assistant, workspace, and console flows:
+
+- `AI_ASSISTANT_SYSTEM_PROMPT_MAX_LENGTH`
+- `normalizePromptValue(value)`
+- `resolveAssistantSystemPromptAppFromWorkspaceSettings(workspaceSettings)`
+- `resolveAssistantSystemPromptWorkspaceFromConsoleSettings(consoleSettings)`
+- `resolveAssistantSystemPromptsFromWorkspaceSettings(workspaceSettings)`
+- `applyAssistantSystemPromptAppToWorkspaceFeatures(features, promptValue)`
+- `applyAssistantSystemPromptWorkspaceToConsoleFeatures(features, promptValue)`
+
 ## Tool Registry API
 
 ## `buildAiToolRegistry({ tools })`

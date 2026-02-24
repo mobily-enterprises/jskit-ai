@@ -25,6 +25,7 @@ This keeps error and metrics data consistent across modules.
 - `@jskit-ai/observability-core/serverPayload`
 - `@jskit-ai/observability-core/metricsContracts`
 - `@jskit-ai/observability-core/metricsRegistry`
+- `@jskit-ai/observability-core/scopeLogger`
 
 ## Function and constant reference
 
@@ -110,6 +111,15 @@ Related constants:
   - Creates a Prometheus metrics registry with stable metric names, labels, and normalization rules.
   - Includes HTTP, DB error, auth failure, security audit, AI, and billing guardrail metrics.
   - Provides `renderPrometheusMetrics()` and record helpers (`observeHttpRequest`, `recordDbError`, etc.).
+
+### `scopeLogger`
+
+- `createScopeDebugMatcher(scopeRules)`
+  - Builds include/exclude matcher for scoped debug logs.
+  - Example: `billing,auth,-auth.tokens` enables `billing.*` and `auth.*` except `auth.tokens.*`.
+- `createScopedLogger({ logger, scope, isScopeDebugEnabled })`
+  - Wraps logger methods and prefixes scope for non-child loggers.
+  - Example: observability service creates `billing.checkout` scoped loggers for worker/checkout diagnostics.
 
 ## How it is used in apps (real terms, and why)
 
