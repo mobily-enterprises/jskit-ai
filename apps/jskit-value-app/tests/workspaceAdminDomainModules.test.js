@@ -7,12 +7,12 @@ import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import {
   normalizeWorkspaceColor,
   mapWorkspaceAdminSummary
-} from "../server/domain/workspace/mappers/workspaceMappers.js";
+} from "@jskit-ai/workspace-service-core/mappers/workspaceMappers";
 import {
   listRoleDescriptors,
   resolveAssignableRoleIds
 } from "@jskit-ai/workspace-console-core/workspaceRoleCatalog";
-import { parseWorkspaceSettingsPatch } from "../server/domain/workspace/policies/workspaceSettingsPatch.js";
+import { parseWorkspaceSettingsPatch } from "@jskit-ai/workspace-service-core/policies/workspaceSettingsPatch";
 
 test("workspace admin primitives normalize values", () => {
   assert.equal(normalizeEmail(" User@Example.com "), "user@example.com");

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { createService as createWorkspaceAdminService } from "../server/domain/workspace/services/admin.service.js";
+import { createService as createWorkspaceAdminService } from "@jskit-ai/workspace-service-core/services/admin";
 
 function hexHash(character) {
   return String(character || "0").repeat(64);

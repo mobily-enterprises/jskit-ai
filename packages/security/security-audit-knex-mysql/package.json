@@ -1,0 +1,17 @@
+{
+  "name": "@jskit-ai/security-audit-knex-mysql",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./repositories/auditEvents": "./src/repositories/auditEvents.repository.js"
+  },
+  "dependencies": {
+    "@jskit-ai/knex-mysql-core": "0.1.0",
+    "@jskit-ai/server-runtime-core": "0.1.0"
+  }
+}

@@ -19,7 +19,7 @@ import {
 } from "@jskit-ai/workspace-console-core/settingsModel";
 import { AVATAR_MAX_SIZE, AVATAR_MIN_SIZE } from "../../../shared/avatar/index.js";
 import { schema as authSchema } from "../auth/schema.js";
-import { enumSchema } from "../api/schema.js";
+import { enumSchema } from "@jskit-ai/http-contracts/errorResponses";
 import { buildSchema } from "@jskit-ai/workspace-console-core/settingsSchemaBuilder";
 
 const avatar = Type.Object(

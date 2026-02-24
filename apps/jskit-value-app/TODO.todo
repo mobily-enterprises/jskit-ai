@@ -38,25 +38,23 @@ X Improve UI for chats
   X Won't scroll down, give focus to message form, when new message arrives
   X Turn ALL of boilerplate code into packages in a monorepo with several packages
   X Turn even more boilerplate code into packages
-  What about:
-   SMS and EMAIL
-   lib functions
-   Anything else?
+  REORG:
+    - Merge no-domain with master
+    - Make sure server/lib is empty, server/domain is empty, and server/modules doesn't have any code that is remotely generic
+    - Make proper architecture for SMS and EMAIL (injection)
+    - Last check that only app-specific code is in the app, and that all generic code is in packages, and that the app is just a scaffolding with some specific code for projects and deg2rad
 
-  - Have proper entitlement configuration for projects, AI messages, and DEG2RAD calcs <---- !!!
-
-  - Add full abilities to AI chatbot (calculate DEG2RAD, add project, change plan, list users...) (Make sure chatbot has exact same permission as user chatting to it)
-
-
+  - Finish all READMEs in packages
+  - Sort out documentation for the rest of jskit, document all of the injection points
+  - Add info to RAILS.md: how to add CRUD pages, and have a pre-commit checklist that will run tests, make sure that packages are used, etc.
+  
+- Have proper entitlement configuration for projects, AI messages, and DEG2RAD calcs <---- !!!
+- Add full abilities to AI chatbot (calculate DEG2RAD, add project, change plan, list users...) (Make sure chatbot has exact same permission as user chatting to it)
 - Create an "alerts" system so that users can see their alerts
 - Improve redirect after login, admin or not?
-
 - Have proper DB seeding, so that it "starts" well and workspaces can be created
 
 - Security audit to the lot
-- Fix documentation, ML and human, and onboarding documents
-- Add rails for AI to add features
-
 
 - Do infrastructure deploy, easy way
 
@@ -80,6 +78,11 @@ Go through the code with a fine comb. Give me a list of HIGH RISK things you fin
 When you plan changes, or make changes, make DEAD SURE that whatever you do is a CLEAN BREAK from the past.
 No back compatibiity. No shims. No think API layers to make tests work.
 
+"deg2rad" and "projects" CRUD are the only "proper" section of the app -- that is, the
+  only part that should stand out of the scaffolding. They should use packages a lot, and then define some specific
+  code.
+  
+no_d
 ```
 
 

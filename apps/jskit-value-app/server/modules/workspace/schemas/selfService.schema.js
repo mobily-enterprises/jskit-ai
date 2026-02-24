@@ -1,5 +1,5 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { enumSchema } from "../../api/schema.js";
+import { enumSchema } from "@jskit-ai/http-contracts/errorResponses";
 import { schema as sharedSchema } from "./shared.schema.js";
 
 const pendingInvites = Type.Object(

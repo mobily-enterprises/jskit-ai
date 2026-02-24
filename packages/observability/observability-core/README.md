@@ -17,6 +17,7 @@ This keeps error and metrics data consistent across modules.
 - No database writes.
 - No HTTP controllers.
 - No alerting logic.
+- No metrics endpoint HTTP auth/response glue yet. Keep that app-local unless a second consumer appears, then extract a generic helper.
 
 ## Exports
 

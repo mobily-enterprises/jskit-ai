@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { createService as createWorkspaceService } from "../server/domain/workspace/services/workspace.service.js";
+import { createService as createWorkspaceService } from "@jskit-ai/workspace-service-core/services/workspace";
 
 function createWorkspaceServiceFixture(options = {}) {
   const workspace11 = {

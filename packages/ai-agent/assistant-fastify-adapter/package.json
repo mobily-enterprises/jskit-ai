@@ -10,6 +10,7 @@
     ".": "./src/index.js"
   },
   "dependencies": {
+    "@jskit-ai/http-contracts": "0.1.0",
     "@fastify/type-provider-typebox": "^6.1.0"
   }
 }

@@ -6,7 +6,7 @@ import {
   mapWorkspaceMemberSummary,
   mapWorkspaceInviteSummary,
   mapWorkspacePayloadSummary
-} from "../server/domain/workspace/mappers/workspaceAdminMappers.js";
+} from "@jskit-ai/workspace-service-core/mappers/workspaceAdminMappers";
 
 test("workspace admin mappers map settings/member/invite/payload shapes", () => {
   const workspace = {

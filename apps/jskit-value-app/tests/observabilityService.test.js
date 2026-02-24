@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createMetricsRegistry } from "@jskit-ai/observability-core";
-import { createService as createObservabilityService } from "../server/modules/observability/service.js";
+import { createService as createObservabilityService } from "@jskit-ai/observability-core/service";
 
-test("observability service records billing guardrail metrics and structured log payload", () => {
+test("observability service records guardrail metrics and structured log payload", () => {
   const registry = createMetricsRegistry();
   const warnings = [];
   const service = createObservabilityService({
     metricsRegistry: registry,
+    guardrailLogLabel: "billing.guardrail",
     logger: {
       warn(payload, message) {
         warnings.push({ payload, message });
@@ -16,8 +17,9 @@ test("observability service records billing guardrail metrics and structured log
     }
   });
 
-  service.recordBillingGuardrail({
+  service.recordGuardrail({
     code: "BILLING_CHECKOUT_PROVIDER_ERROR",
+    domain: "billing",
     operationKey: "op_123",
     providerEventId: "evt_123",
     billableEntityId: "42",
@@ -36,6 +38,7 @@ test("observability service records billing guardrail metrics and structured log
   assert.equal(warnings[0].message, "billing.guardrail");
   assert.deepEqual(warnings[0].payload, {
     code: "BILLING_CHECKOUT_PROVIDER_ERROR",
+    domain: "billing",
     operation_key: "op_123",
     provider_event_id: "evt_123",
     billable_entity_id: 42,
@@ -44,7 +47,7 @@ test("observability service records billing guardrail metrics and structured log
   });
 });
 
-test("observability service falls back to db error metric when billing guardrail hooks are unavailable", () => {
+test("observability service falls back to db error metric when guardrail hooks are unavailable", () => {
   const dbErrorCalls = [];
   const service = createObservabilityService({
     metricsRegistry: {
@@ -65,7 +68,7 @@ test("observability service falls back to db error metric when billing guardrail
     logger: null
   });
 
-  service.recordBillingGuardrail({
+  service.recordGuardrail({
     code: "BILLING_RECONCILIATION_REPAIR_FAILURE"
   });
 
@@ -88,12 +91,12 @@ test("observability service skips count guardrails when count is zero or negativ
     }
   });
 
-  service.recordBillingGuardrail({
+  service.recordGuardrail({
     code: "BILLING_PENDING_CHECKOUT_REPLAY_DEADLINE_NEARING",
     measure: "count",
     value: 0
   });
-  service.recordBillingGuardrail({
+  service.recordGuardrail({
     code: "BILLING_PENDING_CHECKOUT_REPLAY_DEADLINE_NEARING",
     measure: "count",
     value: -3
@@ -116,7 +119,7 @@ test("observability service records code-only guardrails without synthetic zero 
     }
   });
 
-  service.recordBillingGuardrail({
+  service.recordGuardrail({
     code: "BILLING_WEBHOOK_PROCESSING_FAILED",
     providerEventId: "evt_123"
   });
@@ -127,6 +130,7 @@ test("observability service records code-only guardrails without synthetic zero 
   assert.equal(warnings.length, 1);
   assert.deepEqual(warnings[0].payload, {
     code: "BILLING_WEBHOOK_PROCESSING_FAILED",
+    domain: "default",
     operation_key: null,
     provider_event_id: "evt_123",
     billable_entity_id: null,

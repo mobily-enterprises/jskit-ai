@@ -1,5 +1,5 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { enumSchema } from "../api/schema.js";
+import { enumSchema } from "@jskit-ai/http-contracts/errorResponses";
 
 const phoneNumber = Type.String({
   pattern: "^\\+[1-9][0-9]{7,14}$"

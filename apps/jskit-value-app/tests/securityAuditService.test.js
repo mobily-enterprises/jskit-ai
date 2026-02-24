@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createService as createAuditService, __testables } from "../server/domain/security/services/audit.service.js";
+import { createService as createAuditService, __testables } from "@jskit-ai/security-audit-core";
 
 test("security audit service normalizes events and redacts sensitive metadata", async () => {
   let insertedEvent = null;

@@ -1,4 +1,5 @@
 import { Type } from "@fastify/type-provider-typebox";
+import { registerTypeBoxFormats } from "@jskit-ai/http-contracts/typeboxFormats";
 
 function createSchema({
   messageMaxChars = 4000,
@@ -7,6 +8,8 @@ function createSchema({
   attachmentsMaxFilesPerMessage = 5,
   attachmentMaxUploadBytes = 20_000_000
 } = {}) {
+  registerTypeBoxFormats();
+
   const threadId = Type.Integer({ minimum: 1 });
   const messageId = Type.Integer({ minimum: 1 });
   const attachmentId = Type.Integer({ minimum: 1 });

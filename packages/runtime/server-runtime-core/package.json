@@ -14,8 +14,12 @@
     "./pagination": "./src/pagination.js",
     "./realtimePublish": "./src/realtimePublish.js",
     "./realtimeEvents": "./src/realtimeEvents.js",
+    "./realtimeEventsService": "./src/realtimeEventsService.js",
     "./securityAudit": "./src/securityAudit.js",
     "./composition": "./src/composition.js",
-    "./fastifyBootstrap": "./src/fastifyBootstrap.js"
+    "./fastifyBootstrap": "./src/fastifyBootstrap.js",
+    "./runtimeKernel": "./src/runtimeKernel.js",
+    "./runtimeAssembly": "./src/runtimeAssembly.js",
+    "./apiRouteRegistration": "./src/apiRouteRegistration.js"
   }
 }

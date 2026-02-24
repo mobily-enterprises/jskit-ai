@@ -1,0 +1,32 @@
+{
+  "name": "@jskit-ai/workspace-service-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./services/workspace": "./src/services/workspace.service.js",
+    "./services/admin": "./src/services/admin.service.js",
+    "./services/inviteEmail": "./src/services/inviteEmail.service.js",
+    "./policies/workspaceNaming": "./src/policies/workspaceNaming.js",
+    "./policies/workspacePolicyDefaults": "./src/policies/workspacePolicyDefaults.js",
+    "./policies/workspaceSettingsPatch": "./src/policies/workspaceSettingsPatch.js",
+    "./policies/workspaceInvitePolicy": "./src/policies/workspaceInvitePolicy.js",
+    "./mappers/workspaceMappers": "./src/mappers/workspaceMappers.js",
+    "./mappers/workspaceAdminMappers": "./src/mappers/workspaceAdminMappers.js",
+    "./lookups/workspaceMembershipLookup": "./src/lookups/workspaceMembershipLookup.js",
+    "./lookups/workspaceRequestContext": "./src/lookups/workspaceRequestContext.js"
+  },
+  "dependencies": {
+    "@jskit-ai/access-core": "0.1.0",
+    "@jskit-ai/assistant-core": "0.1.0",
+    "@jskit-ai/assistant-transcripts-core": "0.1.0",
+    "@jskit-ai/knex-mysql-core": "0.1.0",
+    "@jskit-ai/rbac-core": "0.1.0",
+    "@jskit-ai/server-runtime-core": "0.1.0",
+    "@jskit-ai/workspace-console-core": "0.1.0"
+  }
+}

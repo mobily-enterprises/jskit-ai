@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   DEFAULT_INVITE_EXPIRY_DAYS,
   resolveInviteExpiresAt
-} from "../server/domain/workspace/policies/workspaceInvitePolicy.js";
+} from "@jskit-ai/workspace-service-core/policies/workspaceInvitePolicy";
 import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
 
 test("workspace invite policy resolves default/custom invite expiry windows", () => {

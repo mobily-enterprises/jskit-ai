@@ -3,7 +3,7 @@ import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlError
 import { validators as authValidators } from "@jskit-ai/access-core/validators";
 import { SETTINGS_FIELD_SPECS } from "@jskit-ai/workspace-console-core/settingsModel";
 import { buildPatch } from "@jskit-ai/workspace-console-core/settingsPatchBuilder";
-import { resolveProfileIdentity } from "../../domain/users/profileIdentity.js";
+import { resolveProfileIdentity } from "@jskit-ai/user-profile-core/profileIdentity";
 import {
   isValidCurrencyCode,
   isValidLocale,

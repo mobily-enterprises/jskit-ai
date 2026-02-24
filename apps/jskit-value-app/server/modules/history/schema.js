@@ -1,8 +1,5 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { createPaginationQuerySchema } from "../api/schema/paginationQuery.schema.js";
-import { registerTypeBoxFormats } from "../api/schema/formats.schema.js";
-
-registerTypeBoxFormats();
+import { createPaginationQuerySchema } from "@jskit-ai/http-contracts/paginationQuery";
 
 const decimalStringPattern = "^-?\\d+(?:\\.\\d+)?$";
 

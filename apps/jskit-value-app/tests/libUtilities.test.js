@@ -3,7 +3,7 @@ import test from "node:test";
 import { AppError, isAppError } from "@jskit-ai/server-runtime-core/errors";
 import { safePathnameFromRequest, safeRequestUrl } from "@jskit-ai/server-runtime-core/requestUrl";
 import { toIsoString, toMysqlDateTimeUtc } from "@jskit-ai/knex-mysql-core/dateUtils";
-import { registerTypeBoxFormats, __testables as formatTestables } from "../server/modules/api/schema/formats.schema.js";
+import { registerTypeBoxFormats, __testables as formatTestables } from "@jskit-ai/http-contracts/typeboxFormats";
 
 test("AppError and isAppError cover true/false branches", () => {
   const error = new AppError(422, "Validation failed.", {

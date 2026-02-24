@@ -92,9 +92,51 @@ function selectRuntimeServices(services, selectedIds = []) {
   return runtimeServices;
 }
 
+function createRuntimeComposition({
+  repositoryDefinitions = [],
+  serviceDefinitions = [],
+  controllerDefinitions = [],
+  runtimeServiceIds = [],
+  repositoryDependencies = {},
+  serviceDependencies = {},
+  controllerDependencies = {}
+} = {}) {
+  const repositories = createRepositoryRegistry(repositoryDefinitions);
+  const services = createServiceRegistry({
+    definitions: serviceDefinitions,
+    dependencies: {
+      ...(repositoryDependencies || {}),
+      ...(serviceDependencies || {}),
+      repositories
+    }
+  });
+  const controllers = createControllerRegistry({
+    definitions: controllerDefinitions,
+    services,
+    dependencies: {
+      ...(controllerDependencies || {})
+    }
+  });
+  const runtimeServices = selectRuntimeServices(services, runtimeServiceIds);
+
+  return {
+    repositories,
+    services,
+    controllers,
+    runtimeServices
+  };
+}
+
 const __testables = {
   normalizeRegistryDefinitions,
   createRegistryFromDefinitions
 };
 
-export { createRepositoryRegistry, createServiceRegistry, createControllerRegistry, selectRuntimeServices, __testables };
+export {
+  createRepositoryRegistry,
+  createServiceRegistry,
+  createControllerRegistry,
+  selectRuntimeServices,
+  createRuntimeComposition,
+  __testables
+};

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { createService as createConsoleService } from "../server/domain/console/services/console.service.js";
+import { createService as createConsoleService } from "@jskit-ai/workspace-console-service-core/services/console";
 
 function createBillingRepositoryStub(overrides = {}) {
   return {

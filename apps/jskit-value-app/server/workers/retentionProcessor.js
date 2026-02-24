@@ -1,68 +1,15 @@
-import { randomUUID } from "node:crypto";
-import { createService as createRetentionService } from "../domain/operations/services/retention.service.js";
-import { createRepositories } from "../runtime/repositories.js";
-import { createRetentionSweepLockKey } from "@jskit-ai/redis-ops-core/workerConstants";
+import { createRepositoryRegistry } from "@jskit-ai/server-runtime-core/composition";
 import {
-  acquireDistributedLock,
-  releaseDistributedLock,
-  extendDistributedLock,
-  normalizeLockTtlMs
-} from "@jskit-ai/redis-ops-core/workerLocking";
-import { normalizeRetentionSweepPayload } from "@jskit-ai/redis-ops-core/retentionQueue";
+  createRetentionSweepProcessor as createRetentionSweepProcessorCore,
+  RetentionLockHeldError,
+  isRetentionLockHeldError,
+  __testables as coreTestables
+} from "@jskit-ai/redis-ops-core/retentionProcessor";
+import { createService as createRetentionService, resolveRetentionPolicyConfig } from "@jskit-ai/retention-core";
+import { PLATFORM_REPOSITORY_DEFINITIONS } from "../runtime/repositories.js";
 
-class RetentionLockHeldError extends Error {
-  constructor({ lockKey = "", jobId = "", trigger = "", idempotencyKey = "" } = {}) {
-    super("Retention sweep lock is already held.");
-    this.name = "RetentionLockHeldError";
-    this.code = "RETENTION_LOCK_HELD";
-    this.lockKey = String(lockKey || "");
-    this.jobId = String(jobId || "");
-    this.trigger = String(trigger || "");
-    this.idempotencyKey = String(idempotencyKey || "");
-  }
-}
-
-function isRetentionLockHeldError(error) {
-  return (
-    Boolean(error) &&
-    (String(error?.name || "") === "RetentionLockHeldError" || String(error?.code || "") === "RETENTION_LOCK_HELD")
-  );
-}
-
-function toPositiveInteger(value, fallback) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return fallback;
-  }
-
-  return parsed;
-}
-
-function toBoolean(value, fallback = false) {
-  if (typeof value === "boolean") {
-    return value;
-  }
-  if (value == null) {
-    return fallback;
-  }
-
-  const normalized = String(value).trim().toLowerCase();
-  if (!normalized) {
-    return fallback;
-  }
-  if (["1", "true", "yes", "y", "on"].includes(normalized)) {
-    return true;
-  }
-  if (["0", "false", "no", "n", "off"].includes(normalized)) {
-    return false;
-  }
-
-  return fallback;
-}
-
-function normalizeLockHeartbeatIntervalMs(lockTtlMs) {
-  const normalizedTtlMs = normalizeLockTtlMs(lockTtlMs, 30 * 60 * 1000);
-  return Math.min(Math.max(Math.floor(normalizedTtlMs / 3), 250), 60 * 1000);
+function createDefaultRepositories() {
+  return createRepositoryRegistry(PLATFORM_REPOSITORY_DEFINITIONS);
 }
 
 function createRetentionSweepProcessor({
@@ -71,15 +18,15 @@ function createRetentionSweepProcessor({
   redisNamespace,
   lockConnection = null,
   lockTtlMs = 30 * 60 * 1000,
-  acquireDistributedLockImpl = acquireDistributedLock,
-  releaseDistributedLockImpl = releaseDistributedLock,
-  extendDistributedLockImpl = extendDistributedLock,
-  createRepositoriesImpl = createRepositories,
-  createRetentionServiceImpl = createRetentionService
+  createRepositoriesImpl = createDefaultRepositories,
+  createRetentionServiceImpl = createRetentionService,
+  createRetentionSweepProcessorImpl = createRetentionSweepProcessorCore,
+  acquireDistributedLockImpl,
+  releaseDistributedLockImpl,
+  extendDistributedLockImpl
 } = {}) {
-  const lockKey = createRetentionSweepLockKey(redisNamespace);
-  const normalizedLockTtlMs = normalizeLockTtlMs(lockTtlMs, 30 * 60 * 1000);
   const repositories = createRepositoriesImpl();
+  const resolvedRetentionConfig = resolveRetentionPolicyConfig(retentionConfig);
   const retentionService = createRetentionServiceImpl({
     consoleErrorLogsRepository: repositories.consoleErrorLogsRepository,
     workspaceInvitesRepository: repositories.workspaceInvitesRepository,
@@ -93,202 +40,29 @@ function createRetentionSweepProcessor({
     chatIdempotencyTombstonesRepository: repositories.chatIdempotencyTombstonesRepository,
     chatAttachmentsRepository: repositories.chatAttachmentsRepository,
     billingRepository: repositories.billingRepository || null,
-    retentionConfig: {
-      errorLogRetentionDays: toPositiveInteger(retentionConfig.errorLogRetentionDays, 30),
-      inviteArtifactRetentionDays: toPositiveInteger(retentionConfig.inviteArtifactRetentionDays, 90),
-      securityAuditRetentionDays: toPositiveInteger(retentionConfig.securityAuditRetentionDays, 365),
-      aiTranscriptsRetentionDays: toPositiveInteger(retentionConfig.aiTranscriptsRetentionDays, 60),
-      billingIdempotencyRetentionDays: toPositiveInteger(retentionConfig.billingIdempotencyRetentionDays, 30),
-      billingWebhookPayloadRetentionDays: toPositiveInteger(retentionConfig.billingWebhookPayloadRetentionDays, 30),
-      chatMessagesRetentionDays: toPositiveInteger(retentionConfig.chatMessagesRetentionDays, 365),
-      chatAttachmentsRetentionDays: toPositiveInteger(retentionConfig.chatAttachmentsRetentionDays, 365),
-      chatUnattachedUploadsRetentionHours: toPositiveInteger(retentionConfig.chatUnattachedUploadsRetentionHours, 24),
-      chatMessageIdempotencyRetryWindowHours: toPositiveInteger(
-        retentionConfig.chatMessageIdempotencyRetryWindowHours,
-        72
-      ),
-      chatEmptyThreadCleanupEnabled: toBoolean(retentionConfig.chatEmptyThreadCleanupEnabled, false),
-      batchSize: toPositiveInteger(retentionConfig.batchSize, 1000)
-    }
+    retentionConfig: resolvedRetentionConfig
   });
 
-  return async function processRetentionSweep(job = {}) {
-    const payload = normalizeRetentionSweepPayload(job.data || {});
-    const jobId = String(job.id || "");
-    const lockToken = `retention:${jobId || "unknown"}:${randomUUID()}`;
-    let lockAcquired = false;
-    let lockExtensionFailed = false;
-    let lockHeartbeatPromise = null;
-    let lockHeartbeatTimer = null;
-
-    async function stopLockHeartbeat() {
-      if (lockHeartbeatTimer) {
-        clearInterval(lockHeartbeatTimer);
-        lockHeartbeatTimer = null;
-      }
-
-      if (lockHeartbeatPromise) {
-        try {
-          await lockHeartbeatPromise;
-        } catch {
-          // Lock extension errors are tracked via lockExtensionFailed flag.
-        }
-      }
-    }
-
-    if (logger && typeof logger.info === "function") {
-      logger.info(
-        {
-          jobId,
-          dryRun: payload.dryRun,
-          trigger: payload.trigger,
-          requestedBy: payload.requestedBy,
-          idempotencyKey: payload.idempotencyKey || ""
-        },
-        "worker.retention.started"
-      );
-    }
-
-    if (lockConnection) {
-      lockAcquired = await acquireDistributedLockImpl({
-        connection: lockConnection,
-        key: lockKey,
-        token: lockToken,
-        ttlMs: normalizedLockTtlMs
-      });
-      if (!lockAcquired) {
-        if (logger && typeof logger.warn === "function") {
-          logger.warn(
-            {
-              jobId,
-              lockKey
-            },
-            "worker.retention.lock_held_retrying"
-          );
-        }
-
-        throw new RetentionLockHeldError({
-          jobId,
-          lockKey,
-          trigger: payload.trigger,
-          idempotencyKey: payload.idempotencyKey || ""
-        });
-      }
-    }
-
-    if (lockConnection && lockAcquired && typeof extendDistributedLockImpl === "function") {
-      const lockHeartbeatIntervalMs = normalizeLockHeartbeatIntervalMs(normalizedLockTtlMs);
-      lockHeartbeatTimer = setInterval(() => {
-        if (lockExtensionFailed || lockHeartbeatPromise) {
-          return;
-        }
-
-        lockHeartbeatPromise = (async () => {
-          const extended = await extendDistributedLockImpl({
-            connection: lockConnection,
-            key: lockKey,
-            token: lockToken,
-            ttlMs: normalizedLockTtlMs
-          });
-          if (!extended) {
-            lockExtensionFailed = true;
-            if (logger && typeof logger.warn === "function") {
-              logger.warn(
-                {
-                  jobId,
-                  lockKey
-                },
-                "worker.retention.lock_extend_failed"
-              );
-            }
-          }
-        })()
-          .catch((error) => {
-            lockExtensionFailed = true;
-            if (logger && typeof logger.warn === "function") {
-              logger.warn(
-                {
-                  err: error,
-                  jobId,
-                  lockKey
-                },
-                "worker.retention.lock_extend_failed"
-              );
-            }
-          })
-          .finally(() => {
-            lockHeartbeatPromise = null;
-          });
-      }, lockHeartbeatIntervalMs);
-
-      if (typeof lockHeartbeatTimer.unref === "function") {
-        lockHeartbeatTimer.unref();
-      }
-    }
-
-    try {
-      const result = await retentionService.runSweep({
-        dryRun: payload.dryRun,
-        logger
-      });
-
-      await stopLockHeartbeat();
-
-      if (lockExtensionFailed) {
-        throw new Error("Retention lock extension failed during sweep execution.");
-      }
-
-      const totalDeletedRows = Number(result?.totalDeletedRows || 0);
-
-      if (logger && typeof logger.info === "function") {
-        logger.info(
-          {
-            jobId,
-            totalDeletedRows,
-            dryRun: payload.dryRun
-          },
-          "worker.retention.completed"
-        );
-      }
-
-      return {
-        ...result,
-        trigger: payload.trigger,
-        requestedBy: payload.requestedBy,
-        idempotencyKey: payload.idempotencyKey || ""
-      };
-    } finally {
-      await stopLockHeartbeat();
-
-      if (lockConnection && lockAcquired) {
-        try {
-          await releaseDistributedLockImpl({
-            connection: lockConnection,
-            key: lockKey,
-            token: lockToken
-          });
-        } catch (error) {
-          if (logger && typeof logger.warn === "function") {
-            logger.warn(
-              {
-                err: error,
-                jobId,
-                lockKey
-              },
-              "worker.retention.lock_release_failed"
-            );
-          }
-        }
-      }
-    }
-  };
+  return createRetentionSweepProcessorImpl({
+    logger,
+    redisNamespace,
+    lockConnection,
+    lockTtlMs,
+    acquireDistributedLockImpl,
+    releaseDistributedLockImpl,
+    extendDistributedLockImpl,
+    runSweep: ({ dryRun, logger: sweepLogger }) =>
+      retentionService.runSweep({
+        dryRun,
+        logger: sweepLogger
+      })
+  });
 }
 
 const __testables = {
-  toPositiveInteger,
-  toBoolean,
-  normalizeLockHeartbeatIntervalMs,
-  isRetentionLockHeldError
+  createDefaultRepositories,
+  resolveRetentionPolicyConfig,
+  ...coreTestables
 };
 
 export { createRetentionSweepProcessor, RetentionLockHeldError, isRetentionLockHeldError, __testables };

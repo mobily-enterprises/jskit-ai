@@ -1,0 +1,16 @@
+{
+  "name": "@jskit-ai/security-audit-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./service": "./src/service.js"
+  },
+  "dependencies": {
+    "@jskit-ai/server-runtime-core": "0.1.0"
+  }
+}

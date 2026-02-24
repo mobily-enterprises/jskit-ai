@@ -7,7 +7,7 @@ import {
 } from "../../../shared/avatar/index.js";
 import { schema as authSchema } from "../auth/schema.js";
 import { schema } from "./schema.js";
-import { withStandardErrorResponses } from "../api/schema.js";
+import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 
 function buildRoutes(controllers) {
   return [

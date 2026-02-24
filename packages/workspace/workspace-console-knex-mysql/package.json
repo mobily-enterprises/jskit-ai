@@ -1,0 +1,22 @@
+{
+  "name": "@jskit-ai/workspace-console-knex-mysql",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./repositories/memberships": "./src/repositories/memberships.repository.js",
+    "./repositories/invites": "./src/repositories/invites.repository.js",
+    "./repositories/root": "./src/repositories/root.repository.js",
+    "./repositories/settings": "./src/repositories/settings.repository.js",
+    "./repositories/errorLogs": "./src/repositories/errorLogs.repository.js"
+  },
+  "dependencies": {
+    "@jskit-ai/access-core": "0.1.0",
+    "@jskit-ai/knex-mysql-core": "0.1.0",
+    "@jskit-ai/server-runtime-core": "0.1.0"
+  }
+}

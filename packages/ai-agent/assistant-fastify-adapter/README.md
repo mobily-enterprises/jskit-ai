@@ -10,6 +10,7 @@ It owns:
 2. Route definitions.
 3. HTTP controllers.
 4. NDJSON stream writing helpers.
+5. Uses shared HTTP schema primitives from `@jskit-ai/http-contracts` (enum + pagination query helpers).
 
 It does not own assistant business rules.
 

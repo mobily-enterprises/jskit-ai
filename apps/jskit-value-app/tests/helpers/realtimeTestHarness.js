@@ -1,7 +1,8 @@
 import Fastify from "fastify";
 import { io as createSocketIoClient } from "socket.io-client";
 
-import { createService as createRealtimeEventsService } from "../../server/domain/realtime/services/events.service.js";
+import { createService as createRealtimeEventsService } from "@jskit-ai/server-runtime-core/realtimeEventsService";
+import { REALTIME_TOPICS, REALTIME_EVENT_TYPES } from "../../shared/realtime/eventTypes.js";
 import {
   registerSocketIoRealtime,
   SOCKET_IO_MESSAGE_EVENT,
@@ -166,7 +167,10 @@ async function createRealtimeTestApp({
       appDenyUserIdsBySlug,
       appDenyEmailsBySlug
     });
-  const realtimeEventsService = createRealtimeEventsService();
+  const realtimeEventsService = createRealtimeEventsService({
+    realtimeTopics: REALTIME_TOPICS,
+    realtimeEventTypes: REALTIME_EVENT_TYPES
+  });
 
   await registerSocketIoRealtime(app, {
     authService: authService || createRealtimeTestAuthService(),

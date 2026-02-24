@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   createControllerRegistry,
   createRepositoryRegistry,
+  createRuntimeComposition,
   createServiceRegistry,
   selectRuntimeServices
 } from "../src/composition.js";
@@ -102,4 +103,37 @@ test("registry helpers throw on duplicate ids and missing selected runtime servi
       ),
     /billingService/
   );
+});
+
+test("createRuntimeComposition builds repositories, services, controllers, and runtime exports", () => {
+  const composition = createRuntimeComposition({
+    repositoryDefinitions: [
+      {
+        id: "projectsRepository",
+        create: () => ({
+          list: () => ["demo-project"]
+        })
+      }
+    ],
+    serviceDefinitions: [
+      {
+        id: "projectsService",
+        create: ({ repositories }) => ({
+          list: () => repositories.projectsRepository.list()
+        })
+      }
+    ],
+    controllerDefinitions: [
+      {
+        id: "projects",
+        create: ({ services }) => ({
+          list: () => services.projectsService.list()
+        })
+      }
+    ],
+    runtimeServiceIds: ["projectsService"]
+  });
+
+  assert.deepEqual(composition.controllers.projects.list(), ["demo-project"]);
+  assert.deepEqual(Object.keys(composition.runtimeServices), ["projectsService"]);
 });

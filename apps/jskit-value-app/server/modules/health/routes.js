@@ -1,4 +1,4 @@
-import { withStandardErrorResponses } from "../api/schema.js";
+import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { schema } from "./schema.js";
 
 function defaultMissingHandler(_request, reply) {

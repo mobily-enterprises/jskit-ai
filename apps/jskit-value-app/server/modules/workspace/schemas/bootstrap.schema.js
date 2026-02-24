@@ -12,7 +12,7 @@ import {
   SETTINGS_THEME_OPTIONS
 } from "@jskit-ai/workspace-console-core/settingsModel";
 import { AVATAR_MAX_SIZE, AVATAR_MIN_SIZE } from "../../../../shared/avatar/index.js";
-import { enumSchema } from "../../api/schema.js";
+import { enumSchema } from "@jskit-ai/http-contracts/errorResponses";
 import { schema as sharedSchema } from "./shared.schema.js";
 
 const bootstrap = Type.Object(

@@ -3,7 +3,7 @@ import test from "node:test";
 import { Readable } from "node:stream";
 import sharp from "sharp";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { createService as createUserAvatarService, __testables } from "../server/domain/users/avatar.service.js";
+import { createService as createUserAvatarService, __testables } from "@jskit-ai/user-profile-core/avatarService";
 
 function createProfile(overrides = {}) {
   return {

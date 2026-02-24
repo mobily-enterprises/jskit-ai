@@ -6,12 +6,16 @@
   "scripts": {
     "test": "node --test"
   },
+  "dependencies": {
+    "@jskit-ai/server-runtime-core": "0.1.0"
+  },
   "exports": {
     ".": "./src/index.js",
     "./browserPayload": "./src/browserPayload.js",
     "./serverPayload": "./src/serverPayload.js",
     "./metricsContracts": "./src/metricsContracts.js",
     "./metricsRegistry": "./src/metricsRegistry.js",
-    "./scopeLogger": "./src/scopeLogger.js"
+    "./scopeLogger": "./src/scopeLogger.js",
+    "./service": "./src/service.js"
   }
 }

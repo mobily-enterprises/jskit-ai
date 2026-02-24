@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { createService as createOutboxWorkerService } from "../server/modules/billing/outboxWorker.service.js";
 
-function createWorkerFixture({ updateOutboxJobByLease, expireCheckoutSession, recordBillingGuardrail, provider } = {}) {
+function createWorkerFixture({ updateOutboxJobByLease, expireCheckoutSession, recordGuardrail, provider } = {}) {
   const billingRepository = {
     async leaseNextOutboxJob() {
       return null;
@@ -23,9 +23,9 @@ function createWorkerFixture({ updateOutboxJobByLease, expireCheckoutSession, re
     }
   };
 
-  const observabilityService = recordBillingGuardrail
+  const observabilityService = recordGuardrail
     ? {
-        recordBillingGuardrail
+        recordGuardrail
       }
     : null;
 
@@ -64,7 +64,7 @@ test("outbox worker records orphan checkout cleanup attempt for expire_checkout_
     async expireCheckoutSession(payload) {
       expireCalls.push(payload);
     },
-    recordBillingGuardrail(payload) {
+    recordGuardrail(payload) {
       guardrailCalls.push(payload);
     }
   });
@@ -114,7 +114,7 @@ test("outbox worker records orphan checkout cleanup failure on retry for expire_
         status: "failed"
       };
     },
-    recordBillingGuardrail(payload) {
+    recordGuardrail(payload) {
       guardrailCalls.push(payload);
     }
   });
@@ -203,7 +203,7 @@ test("outbox worker dead-letters jobs when retry attempts reach max threshold", 
         finishedAt: params.patch.finishedAt
       };
     },
-    recordBillingGuardrail(payload) {
+    recordGuardrail(payload) {
       guardrailCalls.push(payload);
     }
   });
@@ -251,7 +251,7 @@ test("outbox worker retry path fails closed when lease is fenced during state pa
 
       return null;
     },
-    recordBillingGuardrail(payload) {
+    recordGuardrail(payload) {
       guardrailCalls.push(payload);
     }
   });

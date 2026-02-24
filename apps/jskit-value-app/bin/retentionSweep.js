@@ -3,10 +3,11 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createPlatformRuntimeEnv } from "@jskit-ai/runtime-env-core/platformRuntimeEnv";
+import { createRepositoryRegistry } from "@jskit-ai/server-runtime-core/composition";
+import { createService as createRetentionService, buildRetentionPolicyFromRepositoryConfig } from "@jskit-ai/retention-core";
 import { repositoryConfig } from "../config/index.js";
 import { closeDatabase } from "../db/knex.js";
-import { createService as createRetentionService } from "../server/domain/operations/services/retention.service.js";
-import { createRepositories } from "../server/runtime/repositories.js";
+import { PLATFORM_REPOSITORY_DEFINITIONS } from "../server/runtime/repositories.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,7 +24,11 @@ function parseCliArgs(argv) {
 
 async function main() {
   const { dryRun } = parseCliArgs(process.argv.slice(2));
-  const repositories = createRepositories();
+  const repositories = createRepositoryRegistry(PLATFORM_REPOSITORY_DEFINITIONS);
+  const retentionPolicy = buildRetentionPolicyFromRepositoryConfig({
+    repositoryConfig,
+    batchSize: runtimeEnv.RETENTION_BATCH_SIZE
+  });
   const retentionService = createRetentionService({
     consoleErrorLogsRepository: repositories.consoleErrorLogsRepository,
     workspaceInvitesRepository: repositories.workspaceInvitesRepository,
@@ -37,20 +42,7 @@ async function main() {
     chatIdempotencyTombstonesRepository: repositories.chatIdempotencyTombstonesRepository,
     chatAttachmentsRepository: repositories.chatAttachmentsRepository,
     billingRepository: repositories.billingRepository,
-    retentionConfig: {
-      errorLogRetentionDays: repositoryConfig.retention.errorLogDays,
-      inviteArtifactRetentionDays: repositoryConfig.retention.inviteArtifactDays,
-      securityAuditRetentionDays: repositoryConfig.retention.securityAuditDays,
-      aiTranscriptsRetentionDays: repositoryConfig.retention.aiTranscriptsDays,
-      billingIdempotencyRetentionDays: repositoryConfig.billing.retention.idempotencyDays,
-      billingWebhookPayloadRetentionDays: repositoryConfig.billing.retention.webhookPayloadDays,
-      chatMessagesRetentionDays: repositoryConfig.retention.chat.messagesDays,
-      chatAttachmentsRetentionDays: repositoryConfig.retention.chat.attachmentsDays,
-      chatUnattachedUploadsRetentionHours: repositoryConfig.chat.unattachedUploadRetentionHours,
-      chatMessageIdempotencyRetryWindowHours: repositoryConfig.retention.chat.messageIdempotencyRetryWindowHours,
-      chatEmptyThreadCleanupEnabled: repositoryConfig.retention.chat.emptyThreadCleanupEnabled,
-      batchSize: runtimeEnv.RETENTION_BATCH_SIZE
-    }
+    retentionConfig: retentionPolicy
   });
 
   const summary = await retentionService.runSweep({

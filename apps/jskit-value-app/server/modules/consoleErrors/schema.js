@@ -1,5 +1,5 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { createPaginationQuerySchema } from "../api/schema/paginationQuery.schema.js";
+import { createPaginationQuerySchema } from "@jskit-ai/http-contracts/paginationQuery";
 
 const query = createPaginationQuerySchema({
   defaultPage: 1,

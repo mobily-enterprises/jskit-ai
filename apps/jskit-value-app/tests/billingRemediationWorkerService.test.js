@@ -6,7 +6,7 @@ import { createService as createRemediationWorkerService } from "../server/modul
 function createRemediationFixture({
   updateRemediationByLease,
   cancelSubscription,
-  recordBillingGuardrail,
+  recordGuardrail,
   provider = "stripe"
 } = {}) {
   const billingRepository = {
@@ -28,9 +28,9 @@ function createRemediationFixture({
     }
   };
 
-  const observabilityService = recordBillingGuardrail
+  const observabilityService = recordGuardrail
     ? {
-        recordBillingGuardrail
+        recordGuardrail
       }
     : null;
 
@@ -105,7 +105,7 @@ test("remediation worker dead-letters retries when max attempt threshold is reac
         resolvedAt: params.patch.resolvedAt
       };
     },
-    recordBillingGuardrail(payload) {
+    recordGuardrail(payload) {
       guardrailCalls.push(payload);
     }
   });
@@ -146,7 +146,7 @@ test("remediation worker retry path fails closed when lease is fenced during sta
 
       return null;
     },
-    recordBillingGuardrail(payload) {
+    recordGuardrail(payload) {
       guardrailCalls.push(payload);
     }
   });

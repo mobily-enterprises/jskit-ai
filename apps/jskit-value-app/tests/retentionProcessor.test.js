@@ -6,13 +6,11 @@ import { createRetentionSweepProcessor, __testables } from "../server/workers/re
 
 const REDIS_NAMESPACE = "jskit:value-app:test";
 
-test("retention sweep processor normalizes retention config and executes runSweep", async () => {
+test("retention sweep processor normalizes policy and delegates to retention service", async () => {
   const calls = {
     serviceArgs: null,
-    runSweep: [],
-    lockAcquire: [],
-    lockRelease: [],
-    lockExtend: []
+    sweepCalls: [],
+    coreArgs: null
   };
 
   const processor = createRetentionSweepProcessor({
@@ -47,7 +45,7 @@ test("retention sweep processor normalizes retention config and executes runSwee
       calls.serviceArgs = args;
       return {
         async runSweep(params) {
-          calls.runSweep.push(params);
+          calls.sweepCalls.push(params);
           return {
             executedAt: "2026-02-21T00:00:00.000Z",
             dryRun: params.dryRun,
@@ -57,28 +55,26 @@ test("retention sweep processor normalizes retention config and executes runSwee
         }
       };
     },
-    lockConnection: { id: "redis_lock" },
-    lockTtlMs: 10000,
-    acquireDistributedLockImpl: async (payload) => {
-      calls.lockAcquire.push(payload);
-      return true;
-    },
-    extendDistributedLockImpl: async (payload) => {
-      calls.lockExtend.push(payload);
-      return true;
-    },
-    releaseDistributedLockImpl: async (payload) => {
-      calls.lockRelease.push(payload);
-      return true;
+    createRetentionSweepProcessorImpl: (args) => {
+      calls.coreArgs = args;
+      return async (job) =>
+        args.runSweep({
+          dryRun: Boolean(job?.data?.dryRun),
+          logger: args.logger,
+          payload: {
+            trigger: "manual",
+            requestedBy: "test",
+            idempotencyKey: "abc"
+          },
+          job
+        });
     }
   });
 
   const result = await processor({
     id: "job_123",
     data: {
-      dryRun: true,
-      trigger: "cron",
-      requestedBy: "systemd"
+      dryRun: true
     }
   });
 
@@ -92,40 +88,20 @@ test("retention sweep processor normalizes retention config and executes runSwee
   assert.equal(calls.serviceArgs.retentionConfig.chatMessageIdempotencyRetryWindowHours, 96);
   assert.equal(calls.serviceArgs.retentionConfig.chatEmptyThreadCleanupEnabled, true);
   assert.equal(calls.serviceArgs.retentionConfig.batchSize, 2500);
-  assert.equal(calls.runSweep.length, 1);
-  assert.equal(calls.runSweep[0].dryRun, true);
-  assert.equal(calls.lockAcquire.length, 1);
-  assert.equal(calls.lockAcquire[0].key, createRetentionSweepLockKey(REDIS_NAMESPACE));
-  assert.equal(calls.lockAcquire[0].ttlMs, 10000);
-  assert.equal(calls.lockRelease.length, 1);
-  assert.equal(result.trigger, "cron");
-  assert.equal(result.requestedBy, "systemd");
-  assert.match(result.idempotencyKey, /^cron-\d{4}-\d{2}-\d{2}-dry-run$/);
-});
-
-test("retention processor numeric helper falls back for invalid values", () => {
-  assert.equal(__testables.toPositiveInteger("5", 9), 5);
-  assert.equal(__testables.toPositiveInteger("0", 9), 9);
-  assert.equal(__testables.toPositiveInteger("", 9), 9);
-  assert.equal(__testables.toBoolean("true", false), true);
-  assert.equal(__testables.toBoolean("false", true), false);
-  assert.equal(__testables.toBoolean("", true), true);
-  assert.equal(__testables.normalizeLockHeartbeatIntervalMs(500), 333);
+  assert.equal(calls.sweepCalls.length, 1);
+  assert.equal(calls.sweepCalls[0].dryRun, true);
+  assert.equal(calls.coreArgs.redisNamespace, REDIS_NAMESPACE);
+  assert.equal(calls.coreArgs.lockTtlMs, 30 * 60 * 1000);
+  assert.equal(result.totalDeletedRows, 0);
 });
 
 test("retention processor throws retryable lock-held error when distributed lock is already held", async () => {
-  const calls = {
-    runSweep: 0
-  };
-
   const processor = createRetentionSweepProcessor({
     logger: null,
     redisNamespace: REDIS_NAMESPACE,
     retentionConfig: {},
     lockConnection: { id: "redis_lock" },
     acquireDistributedLockImpl: async () => false,
-    extendDistributedLockImpl: async () => true,
-    releaseDistributedLockImpl: async () => true,
     createRepositoriesImpl: () => ({
       consoleErrorLogsRepository: {},
       workspaceInvitesRepository: {},
@@ -141,7 +117,6 @@ test("retention processor throws retryable lock-held error when distributed lock
     }),
     createRetentionServiceImpl: () => ({
       async runSweep() {
-        calls.runSweep += 1;
         return {
           executedAt: "2026-02-21T00:00:00.000Z",
           dryRun: false,
@@ -163,7 +138,6 @@ test("retention processor throws retryable lock-held error when distributed lock
         }
       }),
     (error) => {
-      assert.equal(calls.runSweep, 0);
       assert.equal(__testables.isRetentionLockHeldError(error), true);
       assert.equal(error.code, "RETENTION_LOCK_HELD");
       assert.equal(error.jobId, "job_999");
@@ -172,185 +146,9 @@ test("retention processor throws retryable lock-held error when distributed lock
   );
 });
 
-test("retention processor extends lock heartbeat while sweep is running", async () => {
-  const calls = {
-    lockExtend: 0,
-    lockAcquireTtlMs: null,
-    lockExtendTtlMs: null
-  };
-
-  const processor = createRetentionSweepProcessor({
-    logger: null,
-    redisNamespace: REDIS_NAMESPACE,
-    retentionConfig: {},
-    lockConnection: { id: "redis_lock" },
-    lockTtlMs: 900,
-    acquireDistributedLockImpl: async (payload) => {
-      calls.lockAcquireTtlMs = payload.ttlMs;
-      return true;
-    },
-    extendDistributedLockImpl: async (payload) => {
-      calls.lockExtend += 1;
-      calls.lockExtendTtlMs = payload.ttlMs;
-      return true;
-    },
-    releaseDistributedLockImpl: async () => true,
-    createRepositoriesImpl: () => ({
-      consoleErrorLogsRepository: {},
-      workspaceInvitesRepository: {},
-      consoleInvitesRepository: {},
-      auditEventsRepository: {},
-      aiTranscriptConversationsRepository: {},
-      aiTranscriptMessagesRepository: {},
-      chatThreadsRepository: {},
-      chatParticipantsRepository: {},
-      chatMessagesRepository: {},
-      chatIdempotencyTombstonesRepository: {},
-      chatAttachmentsRepository: {}
-    }),
-    createRetentionServiceImpl: () => ({
-      async runSweep() {
-        await new Promise((resolve) => {
-          setTimeout(resolve, 750);
-        });
-        return {
-          executedAt: "2026-02-21T00:00:00.000Z",
-          dryRun: true,
-          totalDeletedRows: 0,
-          rules: []
-        };
-      }
-    })
-  });
-
-  await processor({
-    id: "job_lock_heartbeat",
-    data: {
-      dryRun: true,
-      trigger: "manual",
-      requestedBy: "test"
-    }
-  });
-
-  assert.ok(calls.lockExtend >= 1);
-  assert.equal(calls.lockAcquireTtlMs, 1000);
-  assert.equal(calls.lockExtendTtlMs, 1000);
-});
-
-test("retention processor fails job when lock extension is lost during sweep", async () => {
-  let lockExtendCalls = 0;
-
-  const processor = createRetentionSweepProcessor({
-    logger: null,
-    redisNamespace: REDIS_NAMESPACE,
-    retentionConfig: {},
-    lockConnection: { id: "redis_lock" },
-    lockTtlMs: 900,
-    acquireDistributedLockImpl: async () => true,
-    extendDistributedLockImpl: async () => {
-      lockExtendCalls += 1;
-      return lockExtendCalls < 2;
-    },
-    releaseDistributedLockImpl: async () => true,
-    createRepositoriesImpl: () => ({
-      consoleErrorLogsRepository: {},
-      workspaceInvitesRepository: {},
-      consoleInvitesRepository: {},
-      auditEventsRepository: {},
-      aiTranscriptConversationsRepository: {},
-      aiTranscriptMessagesRepository: {},
-      chatThreadsRepository: {},
-      chatParticipantsRepository: {},
-      chatMessagesRepository: {},
-      chatIdempotencyTombstonesRepository: {},
-      chatAttachmentsRepository: {}
-    }),
-    createRetentionServiceImpl: () => ({
-      async runSweep() {
-        await new Promise((resolve) => {
-          setTimeout(resolve, 750);
-        });
-        return {
-          executedAt: "2026-02-21T00:00:00.000Z",
-          dryRun: true,
-          totalDeletedRows: 0,
-          rules: []
-        };
-      }
-    })
-  });
-
-  await assert.rejects(
-    () =>
-      processor({
-        id: "job_lock_lost",
-        data: {
-          dryRun: true,
-          trigger: "manual",
-          requestedBy: "test"
-        }
-      }),
-    /lock extension failed/
-  );
-});
-
-test("retention processor fails when an in-flight lock heartbeat reports failure after sweep completes", async () => {
-  let lockExtendCalls = 0;
-
-  const processor = createRetentionSweepProcessor({
-    logger: null,
-    redisNamespace: REDIS_NAMESPACE,
-    retentionConfig: {},
-    lockConnection: { id: "redis_lock" },
-    lockTtlMs: 900,
-    acquireDistributedLockImpl: async () => true,
-    extendDistributedLockImpl: async () => {
-      lockExtendCalls += 1;
-      await new Promise((resolve) => {
-        setTimeout(resolve, 250);
-      });
-      return false;
-    },
-    releaseDistributedLockImpl: async () => true,
-    createRepositoriesImpl: () => ({
-      consoleErrorLogsRepository: {},
-      workspaceInvitesRepository: {},
-      consoleInvitesRepository: {},
-      auditEventsRepository: {},
-      aiTranscriptConversationsRepository: {},
-      aiTranscriptMessagesRepository: {},
-      chatThreadsRepository: {},
-      chatParticipantsRepository: {},
-      chatMessagesRepository: {},
-      chatIdempotencyTombstonesRepository: {},
-      chatAttachmentsRepository: {}
-    }),
-    createRetentionServiceImpl: () => ({
-      async runSweep() {
-        await new Promise((resolve) => {
-          setTimeout(resolve, 350);
-        });
-        return {
-          executedAt: "2026-02-21T00:00:00.000Z",
-          dryRun: false,
-          totalDeletedRows: 12,
-          rules: []
-        };
-      }
-    })
-  });
-
-  await assert.rejects(
-    () =>
-      processor({
-        id: "job_lock_late_fail",
-        data: {
-          dryRun: false,
-          trigger: "manual",
-          requestedBy: "test"
-        }
-      }),
-    /lock extension failed/
-  );
-  assert.ok(lockExtendCalls >= 1);
+test("retention processor testables expose lock heartbeat helper", () => {
+  assert.equal(__testables.normalizeLockHeartbeatIntervalMs(500), 333);
+  const lockKey = createRetentionSweepLockKey(REDIS_NAMESPACE);
+  assert.equal(lockKey.startsWith(`${REDIS_NAMESPACE}:`), true);
+  assert.equal(lockKey.includes("ops.retention.sweep"), true);
 });

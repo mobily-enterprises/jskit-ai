@@ -6,3 +6,5 @@ export * from "./workerRedisConnection.js";
 export * from "./retentionQueue.js";
 export * from "./deadLetterQueue.js";
 export * from "./workerRuntime.js";
+export * from "./retentionOrchestrator.js";
+export * from "./retentionProcessor.js";

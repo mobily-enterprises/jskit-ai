@@ -1,0 +1,32 @@
+{
+  "name": "@jskit-ai/workspace-console-service-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./services/console": "./src/services/console.service.js",
+    "./services/errors": "./src/services/errors.service.js",
+    "./services/consoleAccess": "./src/services/consoleAccess.service.js",
+    "./services/consoleMembers": "./src/services/consoleMembers.service.js",
+    "./services/consoleInvites": "./src/services/consoleInvites.service.js",
+    "./services/consoleBilling": "./src/services/consoleBilling.service.js",
+    "./services/billingSettings": "./src/services/billingSettings.service.js",
+    "./services/billingCatalog": "./src/services/billingCatalog.service.js",
+    "./services/billingCatalogProviderPricing": "./src/services/billingCatalogProviderPricing.service.js",
+    "./mappers/consoleMappers": "./src/mappers/consoleMappers.js",
+    "./policies/invitePolicy": "./src/policies/invitePolicy.js"
+  },
+  "dependencies": {
+    "@jskit-ai/access-core": "0.1.0",
+    "@jskit-ai/assistant-core": "0.1.0",
+    "@jskit-ai/billing-core": "0.1.0",
+    "@jskit-ai/knex-mysql-core": "0.1.0",
+    "@jskit-ai/observability-core": "0.1.0",
+    "@jskit-ai/server-runtime-core": "0.1.0",
+    "@jskit-ai/workspace-console-core": "0.1.0"
+  }
+}

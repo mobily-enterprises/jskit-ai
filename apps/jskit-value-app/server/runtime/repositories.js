@@ -1,16 +1,6 @@
-import * as userProfilesRepository from "../domain/users/profile.repository.js";
+import { db } from "../../db/knex.js";
 import * as calculationLogsRepository from "../modules/history/repository.js";
 import * as userSettingsRepository from "../modules/settings/repository.js";
-import * as workspacesRepository from "../domain/workspace/repositories/workspaces.repository.js";
-import * as workspaceMembershipsRepository from "../domain/workspace/repositories/memberships.repository.js";
-import * as workspaceSettingsRepository from "../domain/workspace/repositories/settings.repository.js";
-import * as workspaceInvitesRepository from "../domain/workspace/repositories/invites.repository.js";
-import * as consoleMembershipsRepository from "../domain/console/repositories/memberships.repository.js";
-import * as consoleInvitesRepository from "../domain/console/repositories/invites.repository.js";
-import * as consoleRootRepository from "../domain/console/repositories/root.repository.js";
-import * as consoleSettingsRepository from "../domain/console/repositories/settings.repository.js";
-import * as consoleErrorLogsRepository from "../domain/console/repositories/errorLogs.repository.js";
-import * as auditEventsRepository from "../domain/security/repositories/auditEvents.repository.js";
 import * as aiTranscriptConversationsRepository from "../modules/ai/repositories/conversations.repository.js";
 import * as aiTranscriptMessagesRepository from "../modules/ai/repositories/messages.repository.js";
 import * as chatThreadsRepository from "../modules/chat/repositories/threads.repository.js";
@@ -24,9 +14,31 @@ import * as chatBlocksRepository from "../modules/chat/repositories/blocks.repos
 import * as projectsRepository from "../modules/projects/repository.js";
 import * as healthRepository from "../modules/health/repository.js";
 import * as billingRepository from "../modules/billing/repository.js";
-import { createRepositoryRegistry } from "@jskit-ai/server-runtime-core/composition";
+import { createRepository as createUserProfilesRepository } from "@jskit-ai/user-profile-knex-mysql";
+import { createRepository as createWorkspacesRepository } from "@jskit-ai/workspace-knex-mysql/repositories/workspaces";
+import { createRepository as createWorkspaceMembershipsRepository } from "@jskit-ai/workspace-knex-mysql/repositories/memberships";
+import { createRepository as createWorkspaceSettingsRepository } from "@jskit-ai/workspace-knex-mysql/repositories/settings";
+import { createRepository as createWorkspaceInvitesRepository } from "@jskit-ai/workspace-knex-mysql/repositories/invites";
+import { createRepository as createConsoleMembershipsRepository } from "@jskit-ai/workspace-console-knex-mysql/repositories/memberships";
+import { createRepository as createConsoleInvitesRepository } from "@jskit-ai/workspace-console-knex-mysql/repositories/invites";
+import { createRepository as createConsoleRootRepository } from "@jskit-ai/workspace-console-knex-mysql/repositories/root";
+import { createRepository as createConsoleSettingsRepository } from "@jskit-ai/workspace-console-knex-mysql/repositories/settings";
+import { createRepository as createConsoleErrorLogsRepository } from "@jskit-ai/workspace-console-knex-mysql/repositories/errorLogs";
+import { createRepository as createAuditEventsRepository } from "@jskit-ai/security-audit-knex-mysql/repositories/auditEvents";
 
-const REPOSITORY_DEFINITIONS = Object.freeze([
+const userProfilesRepository = createUserProfilesRepository(db);
+const workspacesRepository = createWorkspacesRepository(db);
+const workspaceMembershipsRepository = createWorkspaceMembershipsRepository(db);
+const workspaceSettingsRepository = createWorkspaceSettingsRepository(db);
+const workspaceInvitesRepository = createWorkspaceInvitesRepository(db);
+const consoleMembershipsRepository = createConsoleMembershipsRepository(db);
+const consoleInvitesRepository = createConsoleInvitesRepository(db);
+const consoleRootRepository = createConsoleRootRepository(db);
+const consoleSettingsRepository = createConsoleSettingsRepository(db);
+const consoleErrorLogsRepository = createConsoleErrorLogsRepository(db);
+const auditEventsRepository = createAuditEventsRepository(db);
+
+const PLATFORM_REPOSITORY_DEFINITIONS = Object.freeze([
   {
     id: "userProfilesRepository",
     create: () => userProfilesRepository
@@ -133,8 +145,4 @@ const REPOSITORY_DEFINITIONS = Object.freeze([
   }
 ]);
 
-function createRepositories() {
-  return createRepositoryRegistry(REPOSITORY_DEFINITIONS);
-}
-
-export { createRepositories };
+export { PLATFORM_REPOSITORY_DEFINITIONS };

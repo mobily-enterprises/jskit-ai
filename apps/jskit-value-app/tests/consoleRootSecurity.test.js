@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createService as createConsoleService } from "../server/domain/console/services/console.service.js";
-import { __testables as rootRepositoryTestables } from "../server/domain/console/repositories/root.repository.js";
+import { createService as createConsoleService } from "@jskit-ai/workspace-console-service-core/services/console";
+import { __testables as rootRepositoryTestables } from "@jskit-ai/workspace-console-knex-mysql/repositories/root";
 
 function createRootIdentityDbStub(initialRow = null) {
   const state = {

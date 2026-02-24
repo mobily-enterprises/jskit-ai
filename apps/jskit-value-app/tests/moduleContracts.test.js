@@ -56,7 +56,7 @@ test("server controllers expose createController contract", async () => {
 
 test("server services expose createService contract", async () => {
   const modules = [
-    "../server/domain/communications/services/sms.service.js",
+    "@jskit-ai/sms-core",
     "../server/modules/ai/service.js",
     "../server/modules/auth/service.js",
     "../server/modules/communications/service.js",
@@ -64,16 +64,16 @@ test("server services expose createService contract", async () => {
     "../server/modules/health/service.js",
     "../server/modules/projects/service.js",
     "../server/modules/settings/service.js",
-    "../server/modules/observability/service.js",
-    "../server/domain/console/services/console.service.js",
-    "../server/domain/console/services/errors.service.js",
-    "../server/domain/security/services/audit.service.js",
-    "../server/domain/operations/services/retention.service.js",
-    "../server/domain/workspace/services/workspace.service.js",
-    "../server/domain/workspace/services/admin.service.js",
-    "../server/domain/workspace/services/inviteEmail.service.js",
-    "../server/domain/users/avatar.service.js",
-    "../server/domain/users/avatarStorage.service.js"
+    "@jskit-ai/observability-core/service",
+    "@jskit-ai/workspace-console-service-core/services/console",
+    "@jskit-ai/workspace-console-service-core/services/errors",
+    "@jskit-ai/security-audit-core",
+    "@jskit-ai/retention-core",
+    "@jskit-ai/workspace-service-core/services/workspace",
+    "@jskit-ai/workspace-service-core/services/admin",
+    "@jskit-ai/workspace-service-core/services/inviteEmail",
+    "@jskit-ai/user-profile-core/avatarService",
+    "@jskit-ai/user-profile-core/avatarStorageService"
   ];
 
   for (const modulePath of modules) {

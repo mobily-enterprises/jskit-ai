@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createService as createChatRealtimeService } from "../server/domain/chat/services/realtime.service.js";
+import { createService as createChatRealtimeService } from "../server/modules/chat/realtime.service.js";
 import { REALTIME_EVENT_TYPES } from "../shared/realtime/eventTypes.js";
 
 test("chat realtime service publishes durable message events via realtimeEventsService", () => {

@@ -1,0 +1,20 @@
+{
+  "name": "@jskit-ai/user-profile-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./avatarService": "./src/avatar.service.js",
+    "./avatarStorageService": "./src/avatarStorage.service.js",
+    "./profileIdentity": "./src/profileIdentity.js"
+  },
+  "dependencies": {
+    "@jskit-ai/server-runtime-core": "0.1.0",
+    "sharp": "^0.34.4",
+    "unstorage": "^1.17.0"
+  }
+}

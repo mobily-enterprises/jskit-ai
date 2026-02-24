@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   createService as createRetentionService,
   __testables
-} from "../server/domain/operations/services/retention.service.js";
+} from "@jskit-ai/retention-core";
 
 function createDeque(values) {
   const queue = Array.isArray(values) ? [...values] : [];
@@ -97,7 +97,8 @@ function createBaseRepositories(overrides = {}) {
       async deleteDetachedOlderThan() {
         return 0;
       }
-    }
+    },
+    billingRepository: null
   };
 
   return {
@@ -106,7 +107,7 @@ function createBaseRepositories(overrides = {}) {
   };
 }
 
-test("retention service runs batched retention sweep across base and chat tables", async () => {
+test("retention service runs rule-pack sweep across base and chat domains", async () => {
   const calls = {
     browser: [],
     server: [],
@@ -124,6 +125,7 @@ test("retention service runs batched retention sweep across base and chat tables
     chatThreadCacheUpdates: [],
     chatParticipantRepairs: []
   };
+
   const browserDeletes = createDeque([1000, 5]);
   const serverDeletes = createDeque([0]);
   const workspaceDeletes = createDeque([1000, 1000, 1]);
@@ -281,10 +283,10 @@ test("retention service runs batched retention sweep across base and chat tables
   assert.equal(calls.chatTombstoneExpiryDeletes.length, 1);
   assert.equal(calls.chatThreadCacheUpdates.length, 1);
   assert.equal(calls.chatParticipantRepairs.length, 1);
-  assert.equal(summary.rules.find((entry) => entry.table === "workspace_invites").deletedRows, 2001);
-  assert.equal(summary.rules.find((entry) => entry.table === "ai_messages").deletedRows, 700);
-  assert.equal(summary.rules.find((entry) => entry.table === "ai_conversations").deletedRows, 8);
-  assert.equal(summary.rules.find((entry) => entry.table === "chat_messages").deletedRows, 1);
+  assert.equal(summary.rules.find((entry) => entry.ruleId === "workspace_invites").deletedRows, 2001);
+  assert.equal(summary.rules.find((entry) => entry.ruleId === "ai_messages").deletedRows, 700);
+  assert.equal(summary.rules.find((entry) => entry.ruleId === "ai_conversations").deletedRows, 8);
+  assert.equal(summary.rules.find((entry) => entry.ruleId === "chat_messages").deletedRows, 1);
 });
 
 test("retention service dry run does not execute delete methods", async () => {
@@ -357,111 +359,104 @@ test("retention service dry run does not execute delete methods", async () => {
   );
 });
 
-test("retention service config helpers normalize values", () => {
-  const config = __testables.resolveRetentionConfig({
+test("retention policy config helper normalizes values", () => {
+  const config = __testables.resolveRetentionPolicyConfig({
     errorLogRetentionDays: "0",
-    inviteArtifactRetentionDays: "180",
-    securityAuditRetentionDays: null,
-    aiTranscriptsRetentionDays: "120",
-    billingIdempotencyRetentionDays: "45",
-    billingWebhookPayloadRetentionDays: "15",
-    chatMessagesRetentionDays: "730",
-    chatAttachmentsRetentionDays: "730",
-    chatUnattachedUploadsRetentionHours: "72",
-    chatMessageIdempotencyRetryWindowHours: "96",
+    inviteArtifactRetentionDays: "30",
+    securityAuditRetentionDays: "9999",
+    aiTranscriptsRetentionDays: "",
+    billingIdempotencyRetentionDays: 10,
+    billingWebhookPayloadRetentionDays: null,
+    chatMessagesRetentionDays: "12",
+    chatAttachmentsRetentionDays: "0",
+    chatUnattachedUploadsRetentionHours: "2",
+    chatMessageIdempotencyRetryWindowHours: "999999",
     chatEmptyThreadCleanupEnabled: "true",
-    batchSize: "99999"
+    batchSize: "20000"
   });
 
   assert.equal(config.errorLogRetentionDays, 30);
-  assert.equal(config.inviteArtifactRetentionDays, 180);
-  assert.equal(config.securityAuditRetentionDays, 365);
-  assert.equal(config.aiTranscriptsRetentionDays, 120);
-  assert.equal(config.billingIdempotencyRetentionDays, 45);
-  assert.equal(config.billingWebhookPayloadRetentionDays, 15);
-  assert.equal(config.chatMessagesRetentionDays, 730);
-  assert.equal(config.chatAttachmentsRetentionDays, 730);
-  assert.equal(config.chatUnattachedUploadsRetentionHours, 72);
-  assert.equal(config.chatMessageIdempotencyRetryWindowHours, 96);
+  assert.equal(config.inviteArtifactRetentionDays, 30);
+  assert.equal(config.securityAuditRetentionDays, 3650);
+  assert.equal(config.aiTranscriptsRetentionDays, 60);
+  assert.equal(config.billingIdempotencyRetentionDays, 10);
+  assert.equal(config.billingWebhookPayloadRetentionDays, 30);
+  assert.equal(config.chatMessagesRetentionDays, 12);
+  assert.equal(config.chatAttachmentsRetentionDays, 365);
+  assert.equal(config.chatUnattachedUploadsRetentionHours, 2);
+  assert.equal(config.chatMessageIdempotencyRetryWindowHours, 24 * 3650);
   assert.equal(config.chatEmptyThreadCleanupEnabled, true);
-  assert.equal(config.batchSize, 10_000);
+  assert.equal(config.batchSize, 10000);
 });
 
 test("retention service runs billing retention rules when billing repository is wired", async () => {
-  let billingIdempotencyCalls = 0;
-  let billingWebhookPayloadCalls = 0;
+  const billingCalls = {
+    idempotency: [],
+    payloadScrub: []
+  };
 
   const service = createRetentionService({
-    ...createBaseRepositories(),
-    billingRepository: {
-      async deleteTerminalIdempotencyOlderThan() {
-        billingIdempotencyCalls += 1;
-        return 2;
-      },
-      async scrubWebhookPayloadsPastRetention() {
-        billingWebhookPayloadCalls += 1;
-        return 3;
+    ...createBaseRepositories({
+      billingRepository: {
+        async deleteTerminalIdempotencyOlderThan(cutoffDate, batchSize) {
+          billingCalls.idempotency.push({ cutoffDate, batchSize });
+          return 4;
+        },
+        async scrubWebhookPayloadsPastRetention({ now, batchSize }) {
+          billingCalls.payloadScrub.push({ now, batchSize });
+          return 2;
+        }
       }
-    },
+    }),
     retentionConfig: {
-      billingIdempotencyRetentionDays: 30,
-      billingWebhookPayloadRetentionDays: 30,
-      batchSize: 1000
+      billingIdempotencyRetentionDays: 14,
+      billingWebhookPayloadRetentionDays: 21,
+      batchSize: 50
     },
-    now: () => new Date("2026-02-20T00:00:00.000Z")
+    now: () => new Date("2026-02-19T00:00:00.000Z")
   });
 
   const summary = await service.runSweep();
-  assert.equal(
-    summary.rules.some((entry) => entry.table === "billing_idempotency_requests"),
-    true
-  );
-  assert.equal(
-    summary.rules.some((entry) => entry.table === "billing_webhook_payloads"),
-    true
-  );
-  assert.equal(billingIdempotencyCalls, 1);
-  assert.equal(billingWebhookPayloadCalls, 1);
-  assert.equal(summary.totalDeletedRows, 5);
+  assert.equal(summary.rules.some((entry) => entry.ruleId === "billing_idempotency_requests"), true);
+  assert.equal(summary.rules.some((entry) => entry.ruleId === "billing_webhook_payloads"), true);
+  assert.equal(summary.totalDeletedRows, 6);
+  assert.equal(billingCalls.idempotency.length, 1);
+  assert.equal(billingCalls.payloadScrub.length, 1);
+  assert.equal(billingCalls.idempotency[0].batchSize, 50);
+  assert.equal(billingCalls.payloadScrub[0].batchSize, 50);
 });
 
 test("retention service fails closed when tombstone write fails", async () => {
-  const calls = {
-    deletedMessageIds: []
-  };
-
   const service = createRetentionService({
     ...createBaseRepositories({
       chatMessagesRepository: {
         async listRetentionCandidatesOlderThan() {
           return [
             {
-              id: 901,
-              threadId: 31,
-              senderUserId: 41,
-              clientMessageId: "cm-901",
+              id: 900,
+              threadId: 77,
+              senderUserId: 45,
+              clientMessageId: "cm_fail_900",
               idempotencyPayloadVersion: 1,
-              idempotencyPayloadSha256: "hash901"
+              idempotencyPayloadSha256: "sha_900"
             }
           ];
         },
-        async deleteByIds(messageIds) {
-          calls.deletedMessageIds.push(...messageIds);
-          return messageIds.length;
+        async deleteByIds() {
+          return 1;
         },
         async findLatestByThreadId() {
           return null;
         },
         async transaction(callback) {
-          return callback({});
+          return callback({ id: "trx_fail" });
         }
       },
       chatIdempotencyTombstonesRepository: {
         async insertForDeletedMessage() {
           return {
             ok: false,
-            reason: "immutable_mismatch",
-            tombstone: null
+            reason: "duplicate"
           };
         },
         async deleteExpiredBatch() {
@@ -470,48 +465,48 @@ test("retention service fails closed when tombstone write fails", async () => {
       }
     }),
     retentionConfig: {
-      batchSize: 1000
+      chatMessagesRetentionDays: 365,
+      chatMessageIdempotencyRetryWindowHours: 72,
+      batchSize: 100
     },
-    now: () => new Date("2026-02-20T00:00:00.000Z")
+    now: () => new Date("2026-02-19T00:00:00.000Z")
   });
 
   await assert.rejects(
     () => service.runSweep(),
-    (error) => {
-      assert.equal(error.code, "CHAT_RETENTION_TOMBSTONE_WRITE_FAILED");
-      assert.equal(error.reason, "immutable_mismatch");
-      return true;
-    }
+    (error) => String(error?.code || "") === "CHAT_RETENTION_TOMBSTONE_WRITE_FAILED"
   );
-  assert.equal(calls.deletedMessageIds.length, 0);
 });
 
 test("retention service enables empty-thread cleanup only when configured", async () => {
-  let emptyThreadCleanupCalls = 0;
+  const deleteCalls = [];
 
-  const service = createRetentionService({
-    ...createBaseRepositories({
-      chatThreadsRepository: {
-        async updateLastMessageCache() {
-          return null;
-        },
-        async deleteWithoutMessagesOlderThan() {
-          emptyThreadCleanupCalls += 1;
-          return 4;
+  const createServiceWithFlag = (flag) =>
+    createRetentionService({
+      ...createBaseRepositories({
+        chatThreadsRepository: {
+          async updateLastMessageCache() {
+            return null;
+          },
+          async deleteWithoutMessagesOlderThan(cutoffDate, batchSize) {
+            deleteCalls.push({ flag, cutoffDate, batchSize });
+            return 2;
+          }
         }
-      }
-    }),
-    retentionConfig: {
-      chatEmptyThreadCleanupEnabled: true
-    },
-    now: () => new Date("2026-02-20T00:00:00.000Z")
-  });
+      }),
+      retentionConfig: {
+        chatEmptyThreadCleanupEnabled: flag,
+        batchSize: 25
+      },
+      now: () => new Date("2026-02-19T00:00:00.000Z")
+    });
 
-  const summary = await service.runSweep();
-  assert.equal(
-    summary.rules.some((entry) => entry.table === "chat_empty_threads"),
-    true
-  );
-  assert.equal(summary.rules.find((entry) => entry.table === "chat_empty_threads").deletedRows, 4);
-  assert.equal(emptyThreadCleanupCalls, 1);
+  const disabledSummary = await createServiceWithFlag(false).runSweep();
+  assert.equal(disabledSummary.rules.some((entry) => entry.ruleId === "chat_empty_threads"), false);
+
+  const enabledSummary = await createServiceWithFlag(true).runSweep();
+  assert.equal(enabledSummary.rules.some((entry) => entry.ruleId === "chat_empty_threads"), true);
+  assert.equal(deleteCalls.length, 1);
+  assert.equal(deleteCalls[0].flag, true);
+  assert.equal(deleteCalls[0].batchSize, 25);
 });

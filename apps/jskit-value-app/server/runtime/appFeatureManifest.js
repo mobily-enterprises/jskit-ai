@@ -1,4 +1,4 @@
-import { createService as createDeg2radService } from "../domain/deg2rad/calculator.service.js";
+import { createService as createDeg2radService } from "../modules/deg2rad/service.js";
 import { createService as createProjectsService } from "../modules/projects/service.js";
 import { createController as createDeg2radController } from "../modules/deg2rad/controller.js";
 import { createController as createProjectsController } from "../modules/projects/controller.js";
@@ -43,4 +43,9 @@ const APP_FEATURE_CONTROLLER_DEFINITIONS = Object.freeze([
   }
 ]);
 
-export { APP_FEATURE_SERVICE_DEFINITIONS, APP_FEATURE_CONTROLLER_DEFINITIONS };
+const APP_FEATURE_RUNTIME_BUNDLE = Object.freeze({
+  serviceDefinitions: APP_FEATURE_SERVICE_DEFINITIONS,
+  controllerDefinitions: APP_FEATURE_CONTROLLER_DEFINITIONS
+});
+
+export { APP_FEATURE_SERVICE_DEFINITIONS, APP_FEATURE_CONTROLLER_DEFINITIONS, APP_FEATURE_RUNTIME_BUNDLE };

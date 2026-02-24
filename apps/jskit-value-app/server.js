@@ -8,6 +8,7 @@ import fastifyStatic from "@fastify/static";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
 import { TypeBoxValidatorCompiler } from "@fastify/type-provider-typebox";
+import { registerTypeBoxFormats } from "@jskit-ai/http-contracts/typeboxFormats";
 import { resolveRepositoryConfigForRuntime } from "./config/index.js";
 import { createPlatformRuntimeEnv } from "@jskit-ai/runtime-env-core/platformRuntimeEnv";
 import { resolveAppConfig, toBrowserConfig } from "@jskit-ai/runtime-env-core/appRuntimePolicy";
@@ -507,6 +508,7 @@ export async function buildServer({ frontendBuildAvailable }) {
   app.decorate("browserConfig", APP_CONFIG_BROWSER);
   app.decorate("rbacManifest", RBAC_MANIFEST);
 
+  registerTypeBoxFormats();
   registerErrorHandler(app, { observabilityService });
   app.setValidatorCompiler(TypeBoxValidatorCompiler);
 

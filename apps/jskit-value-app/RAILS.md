@@ -48,7 +48,7 @@ Repository mapper pattern:
 API schema naming:
 
 - Feature-specific API schemas live in `server/modules/<feature>/schema.js`.
-- Shared backend API schema helpers live in `server/modules/api/schema/`.
+- Shared backend API schema helpers live in `@jskit-ai/http-contracts`.
 - Module schema files should export a `schema` object.
 - Group route contracts under explicit keys (`query`, `params`, `body`, `response`).
 - Include reusable module-level entities/fields only when actually shared by multiple route contracts.

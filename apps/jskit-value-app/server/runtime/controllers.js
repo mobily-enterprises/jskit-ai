@@ -10,10 +10,8 @@ import { createController as createChatController } from "../modules/chat/contro
 import { createController as createHealthController } from "../modules/health/controller.js";
 import { createController as createAiController } from "../modules/ai/controller.js";
 import { createController as createBillingController } from "../modules/billing/controller.js";
-import { createControllerRegistry } from "@jskit-ai/server-runtime-core/composition";
-import { APP_FEATURE_CONTROLLER_DEFINITIONS } from "./appFeatureManifest.js";
 
-const CORE_CONTROLLER_DEFINITIONS = Object.freeze([
+const PLATFORM_CONTROLLER_DEFINITIONS = Object.freeze([
   {
     id: "auth",
     create: ({ services }) =>
@@ -112,11 +110,4 @@ const CORE_CONTROLLER_DEFINITIONS = Object.freeze([
   }
 ]);
 
-function createControllers({ services }) {
-  return createControllerRegistry({
-    definitions: [...CORE_CONTROLLER_DEFINITIONS, ...APP_FEATURE_CONTROLLER_DEFINITIONS],
-    services
-  });
-}
-
-export { createControllers };
+export { PLATFORM_CONTROLLER_DEFINITIONS };

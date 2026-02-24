@@ -1,12 +1,9 @@
 import { Type } from "@fastify/type-provider-typebox";
+import { enumSchema } from "@jskit-ai/http-contracts/errorResponses";
+import { createPaginationQuerySchema } from "@jskit-ai/http-contracts/paginationQuery";
 
 const DEFAULT_MAX_INPUT_CHARS = 8000;
 const DEFAULT_MAX_HISTORY_MESSAGES = 20;
-
-function enumSchema(values) {
-  const source = Array.isArray(values) ? values : [];
-  return Type.Union(source.map((value) => Type.Literal(value)));
-}
 
 function toPositiveInteger(value, fallback) {
   const parsed = Number(value);
@@ -27,6 +24,16 @@ function createSchema({
   const transcriptMode = enumSchema(["standard", "restricted", "disabled"]);
   const transcriptStatus = enumSchema(["active", "completed", "failed", "aborted"]);
   const transcriptMetadata = Type.Record(Type.String(), Type.Unknown());
+  const conversationsPaginationQuery = createPaginationQuerySchema({
+    defaultPage: 1,
+    defaultPageSize: 20,
+    maxPageSize: 200
+  });
+  const conversationMessagesPaginationQuery = createPaginationQuerySchema({
+    defaultPage: 1,
+    defaultPageSize: 500,
+    maxPageSize: 500
+  });
 
   const historyMessage = Type.Object(
     {
@@ -230,8 +237,7 @@ function createSchema({
     query: {
       conversations: Type.Object(
         {
-          page: Type.Optional(Type.Integer({ minimum: 1, default: 1 })),
-          pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 200, default: 20 })),
+          ...conversationsPaginationQuery.properties,
           from: Type.Optional(Type.String({ maxLength: 64 })),
           to: Type.Optional(Type.String({ maxLength: 64 })),
           status: Type.Optional(transcriptStatus)
@@ -240,15 +246,7 @@ function createSchema({
           additionalProperties: false
         }
       ),
-      conversationMessages: Type.Object(
-        {
-          page: Type.Optional(Type.Integer({ minimum: 1, default: 1 })),
-          pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 500, default: 500 }))
-        },
-        {
-          additionalProperties: false
-        }
-      )
+      conversationMessages: conversationMessagesPaginationQuery
     },
     params: {
       conversation: Type.Object(

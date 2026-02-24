@@ -7,11 +7,20 @@ import { fileURLToPath } from "node:url";
 const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SERVER_DIR = path.join(ROOT_DIR, "server");
 const SERVER_DOMAIN_DIR = path.join(SERVER_DIR, "domain");
+const REALTIME_EVENTS_SERVICE_PACKAGE_FILE = path.resolve(
+  ROOT_DIR,
+  "../../packages/runtime/server-runtime-core/src/realtimeEventsService.js"
+);
 const ARCHITECTURE_SCAN_DIRS = [path.join(SERVER_DIR, "domain"), path.join(SERVER_DIR, "modules")];
 const APP_SPECIFIC_SERVER_FEATURE_ALLOWLIST = Object.freeze([
   // Domain/business uniqueness is intentionally restricted to these app-local features.
   "deg2rad",
   "projects"
+]);
+const REMOVED_APP_LOCAL_API_SCHEMA_HELPER_FILES = Object.freeze([
+  "server/modules/api/schema.js",
+  "server/modules/api/schema/formats.schema.js",
+  "server/modules/api/schema/paginationQuery.schema.js"
 ]);
 const TEMPORARY_SERVER_LIB_IMPORT_ALLOWLIST = Object.freeze([]);
 const LEGACY_TRANSCRIPT_MODE_FILES = Object.freeze([
@@ -46,6 +55,12 @@ const FORBIDDEN_REALTIME_EVENT_HELPER_FUNCTIONS = Object.freeze([
   "normalizeScopeKind",
   "normalizeStringifiedPositiveIntegerOrNull"
 ]);
+const OBSERVABILITY_APP_SERVICE_FILE = "server/modules/observability/service.js";
+const RUNTIME_INDEX_FILE = "server/runtime/index.js";
+const RETENTION_SERVICE_PACKAGE_FILE = path.resolve(ROOT_DIR, "../../packages/operations/retention-core/src/service.js");
+const RETENTION_PROCESSOR_FILE = "server/workers/retentionProcessor.js";
+const RETENTION_RULES_PACKAGE_DIR = path.resolve(ROOT_DIR, "../../packages/operations/retention-core/src/rules");
+const APP_RETENTION_DOMAIN_DIR = "server/domain/operations";
 
 function toPosixPath(value) {
   return String(value || "").replace(/\\/g, "/");
@@ -226,6 +241,13 @@ test("architecture guardrail: app-specific server feature allowlist only contain
   assert.deepEqual(APP_SPECIFIC_SERVER_FEATURE_ALLOWLIST, ["deg2rad", "projects"]);
 });
 
+test("architecture guardrail: app-local API schema helper files stay package-owned and removed", () => {
+  const existingLegacyFiles = REMOVED_APP_LOCAL_API_SCHEMA_HELPER_FILES.filter((relativePath) =>
+    existsSync(path.resolve(ROOT_DIR, relativePath))
+  );
+  assert.deepEqual(existingLegacyFiles, []);
+});
+
 test("architecture guardrail: legacy transcript mode modules are removed", () => {
   const existingLegacyFiles = LEGACY_TRANSCRIPT_MODE_FILES.filter((relativePath) =>
     existsSync(path.resolve(ROOT_DIR, relativePath))
@@ -347,7 +369,7 @@ test("architecture guardrail: server domain/modules import graph must be acyclic
 });
 
 test("architecture guardrail: realtime events service import hygiene forbids cross-feature services", () => {
-  const realtimeServicePath = path.join(ROOT_DIR, "server/domain/realtime/services/events.service.js");
+  const realtimeServicePath = REALTIME_EVENTS_SERVICE_PACKAGE_FILE;
   const importSpecifiers = parseImportSpecifiers(realtimeServicePath);
   const violations = [];
 
@@ -399,7 +421,7 @@ test("architecture guardrail: app-local realtime publish helper shim is removed"
 });
 
 test("architecture guardrail: realtime events service uses shared realtime event primitives", () => {
-  const realtimeServicePath = path.join(ROOT_DIR, "server/domain/realtime/services/events.service.js");
+  const realtimeServicePath = REALTIME_EVENTS_SERVICE_PACKAGE_FILE;
   const source = readFileSync(realtimeServicePath, "utf8");
   const violations = [];
 
@@ -415,4 +437,67 @@ test("architecture guardrail: realtime events service uses shared realtime event
   }
 
   assert.deepEqual(violations, []);
+});
+
+test("architecture guardrail: runtime composition is package-assembled and manifest-driven", () => {
+  const runtimeIndexSource = readFileSync(path.resolve(ROOT_DIR, RUNTIME_INDEX_FILE), "utf8");
+  assert.match(runtimeIndexSource, /@jskit-ai\/server-runtime-core\/runtimeAssembly/);
+  assert.doesNotMatch(runtimeIndexSource, /\bcreateRepositories\s*\(/);
+  assert.doesNotMatch(runtimeIndexSource, /\bcreateServices\s*\(/);
+  assert.doesNotMatch(runtimeIndexSource, /\bcreateControllers\s*\(/);
+
+  const repositoriesSource = readFileSync(path.resolve(ROOT_DIR, "server/runtime/repositories.js"), "utf8");
+  const servicesSource = readFileSync(path.resolve(ROOT_DIR, "server/runtime/services.js"), "utf8");
+  const controllersSource = readFileSync(path.resolve(ROOT_DIR, "server/runtime/controllers.js"), "utf8");
+
+  assert.doesNotMatch(repositoriesSource, /function\s+createRepositories\s*\(/);
+  assert.doesNotMatch(servicesSource, /function\s+createServices\s*\(/);
+  assert.doesNotMatch(controllersSource, /function\s+createControllers\s*\(/);
+});
+
+test("architecture guardrail: app-local observability glue is package-owned and removed", () => {
+  const appObservabilityServicePath = path.resolve(ROOT_DIR, OBSERVABILITY_APP_SERVICE_FILE);
+  assert.equal(existsSync(appObservabilityServicePath), false);
+
+  const runtimeServicesSource = readFileSync(path.resolve(ROOT_DIR, "server/runtime/services.js"), "utf8");
+  assert.match(runtimeServicesSource, /@jskit-ai\/observability-core\/service/);
+
+  const violations = [];
+  for (const scanDir of IMPORT_GUARD_SCAN_DIRS) {
+    if (!existsSync(scanDir)) {
+      continue;
+    }
+
+    const files = listFilesRecursive(scanDir, (filePath) => /\.(js|mjs|cjs)$/.test(filePath));
+    for (const filePath of files) {
+      const importSpecifiers = parseImportSpecifiers(filePath);
+      for (const importSpecifier of importSpecifiers) {
+        if (toPosixPath(importSpecifier).includes("modules/observability/service.js")) {
+          violations.push({
+            source: toPosixPath(path.relative(ROOT_DIR, filePath)),
+            specifier: toPosixPath(importSpecifier)
+          });
+        }
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+test("architecture guardrail: retention orchestration is package-owned and rule-pack based", () => {
+  const retentionServiceSource = readFileSync(RETENTION_SERVICE_PACKAGE_FILE, "utf8");
+  const retentionProcessorSource = readFileSync(path.resolve(ROOT_DIR, RETENTION_PROCESSOR_FILE), "utf8");
+  const retentionRulesDirPath = RETENTION_RULES_PACKAGE_DIR;
+  const appRetentionDomainDirPath = path.resolve(ROOT_DIR, APP_RETENTION_DOMAIN_DIR);
+
+  assert.match(retentionServiceSource, /@jskit-ai\/redis-ops-core\/retentionOrchestrator/);
+  assert.match(retentionServiceSource, /createRetentionRulePack/);
+  assert.doesNotMatch(retentionServiceSource, /function\s+runBatchedDeletion\s*\(/);
+  assert.doesNotMatch(retentionServiceSource, /function\s+runChatMessageRetention\s*\(/);
+  assert.match(retentionProcessorSource, /@jskit-ai\/retention-core/);
+  assert.match(retentionProcessorSource, /@jskit-ai\/redis-ops-core\/retentionProcessor/);
+  assert.doesNotMatch(retentionProcessorSource, /@jskit-ai\/redis-ops-core\/workerLocking/);
+  assert.equal(existsSync(retentionRulesDirPath), true);
+  assert.equal(existsSync(appRetentionDomainDirPath), false);
 });

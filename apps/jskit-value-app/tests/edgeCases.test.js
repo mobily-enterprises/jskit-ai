@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { toIsoString } from "@jskit-ai/knex-mysql-core/dateUtils";
-import { __testables as profileTestables } from "../server/domain/users/profile.repository.js";
+import { __testables as profileTestables } from "@jskit-ai/user-profile-knex-mysql";
 import { __testables as calcTestables } from "../server/modules/history/repository.js";
 
 test("toIsoString throws on invalid date input", () => {

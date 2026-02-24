@@ -5,7 +5,7 @@ import fs from "node:fs/promises";
 import {
   createService as createAvatarStorageService,
   __testables
-} from "../server/domain/users/avatarStorage.service.js";
+} from "@jskit-ai/user-profile-core/avatarStorageService";
 
 test("avatar storage helpers normalize config and keys", () => {
   assert.equal(__testables.normalizePublicBasePath(""), "/uploads");

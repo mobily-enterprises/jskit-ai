@@ -11,6 +11,7 @@ Client/server DEG2RAD calculator with Supabase authentication and MySQL persiste
 - `controllers/`: HTTP concerns (status codes, request/response)
 - `services/`: business logic (auth, DEG2RAD conversion, history)
 - `repositories/`: DB queries only
+- App-specific server domain code is intentionally limited to `deg2rad` and `projects`; scaffolding contract helpers are package-owned.
 
 Frontend surfaces:
 
@@ -58,6 +59,9 @@ Future console capabilities (not yet implemented):
 | `server/lib/primitives/dateUtils.js` | `@jskit-ai/knex-mysql-core/dateUtils` |
 | `server/lib/primitives/mysqlErrors.js` | `@jskit-ai/knex-mysql-core/mysqlErrors` |
 | `server/lib/primitives/retention.js` | `@jskit-ai/knex-mysql-core/retention` |
+| `server/modules/api/schema.js` + `server/modules/api/schema/*` helpers | `@jskit-ai/http-contracts/{errorResponses,paginationQuery,typeboxFormats}` |
+
+Note: metrics endpoint HTTP auth/response glue stays app-local in `server/modules/observability/service.js` for now because it still carries app-specific billing guardrail behavior.
 
 ### Adding new shared primitives
 

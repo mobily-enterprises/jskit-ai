@@ -12,6 +12,79 @@ import { buildRoutes as buildDeg2radRoutes } from "../deg2rad/routes.js";
 import { buildRoutes as buildHealthRoutes } from "../health/routes.js";
 import { buildRoutes as buildObservabilityRoutes } from "../observability/routes.js";
 import { buildRoutes as buildAiRoutes } from "../ai/routes.js";
+import { buildRoutesFromManifest } from "@jskit-ai/server-runtime-core/runtimeAssembly";
+
+const ROUTE_MODULE_DEFINITIONS = Object.freeze([
+  {
+    id: "health",
+    buildRoutes: buildHealthRoutes
+  },
+  {
+    id: "observability",
+    buildRoutes: buildObservabilityRoutes
+  },
+  {
+    id: "auth",
+    buildRoutes: buildAuthRoutes
+  },
+  {
+    id: "workspace",
+    buildRoutes: buildWorkspaceRoutes
+  },
+  {
+    id: "console",
+    buildRoutes: buildConsoleRoutes
+  },
+  {
+    id: "consoleErrors",
+    buildRoutes: buildConsoleErrorsRoutes
+  },
+  {
+    id: "communications",
+    buildRoutes: buildCommunicationsRoutes
+  },
+  {
+    id: "projects",
+    buildRoutes: buildProjectsRoutes
+  },
+  {
+    id: "chat",
+    buildRoutes: buildChatRoutes,
+    resolveOptions: (routeConfig = {}) => ({
+      messageMaxChars: routeConfig.chatMessageMaxTextChars,
+      messagePageSizeMax: routeConfig.chatMessagesPageSizeMax,
+      threadPageSizeMax: routeConfig.chatThreadsPageSizeMax,
+      attachmentsMaxFilesPerMessage: routeConfig.chatAttachmentsMaxFilesPerMessage,
+      attachmentMaxUploadBytes: routeConfig.chatAttachmentMaxUploadBytes
+    })
+  },
+  {
+    id: "billing",
+    buildRoutes: buildBillingRoutes
+  },
+  {
+    id: "ai",
+    buildRoutes: buildAiRoutes,
+    resolveOptions: (routeConfig = {}) => ({
+      aiEnabled: routeConfig.aiEnabled,
+      aiRequiredPermission: routeConfig.aiRequiredPermission,
+      aiMaxInputChars: routeConfig.aiMaxInputChars,
+      aiMaxHistoryMessages: routeConfig.aiMaxHistoryMessages
+    })
+  },
+  {
+    id: "settings",
+    buildRoutes: buildSettingsRoutes
+  },
+  {
+    id: "history",
+    buildRoutes: buildHistoryRoutes
+  },
+  {
+    id: "deg2rad",
+    buildRoutes: buildDeg2radRoutes
+  }
+]);
 
 function createMissingHandler() {
   return async (_request, reply) => {
@@ -24,35 +97,12 @@ function createMissingHandler() {
 function buildDefaultRoutes(controllers, routeConfig = {}) {
   const missingHandler = createMissingHandler();
 
-  return [
-    ...buildHealthRoutes(controllers, { missingHandler }),
-    ...buildObservabilityRoutes(controllers, { missingHandler }),
-    ...buildAuthRoutes(controllers),
-    ...buildWorkspaceRoutes(controllers, { missingHandler }),
-    ...buildConsoleRoutes(controllers, { missingHandler }),
-    ...buildConsoleErrorsRoutes(controllers, { missingHandler }),
-    ...buildCommunicationsRoutes(controllers, { missingHandler }),
-    ...buildProjectsRoutes(controllers, { missingHandler }),
-    ...buildChatRoutes(controllers, {
-      missingHandler,
-      messageMaxChars: routeConfig.chatMessageMaxTextChars,
-      messagePageSizeMax: routeConfig.chatMessagesPageSizeMax,
-      threadPageSizeMax: routeConfig.chatThreadsPageSizeMax,
-      attachmentsMaxFilesPerMessage: routeConfig.chatAttachmentsMaxFilesPerMessage,
-      attachmentMaxUploadBytes: routeConfig.chatAttachmentMaxUploadBytes
-    }),
-    ...buildBillingRoutes(controllers, { missingHandler }),
-    ...buildAiRoutes(controllers, {
-      missingHandler,
-      aiEnabled: routeConfig.aiEnabled,
-      aiRequiredPermission: routeConfig.aiRequiredPermission,
-      aiMaxInputChars: routeConfig.aiMaxInputChars,
-      aiMaxHistoryMessages: routeConfig.aiMaxHistoryMessages
-    }),
-    ...buildSettingsRoutes(controllers),
-    ...buildHistoryRoutes(controllers),
-    ...buildDeg2radRoutes(controllers)
-  ];
+  return buildRoutesFromManifest({
+    definitions: ROUTE_MODULE_DEFINITIONS,
+    controllers,
+    routeConfig,
+    missingHandler
+  });
 }
 
-export { buildDefaultRoutes };
+export { ROUTE_MODULE_DEFINITIONS, buildDefaultRoutes };

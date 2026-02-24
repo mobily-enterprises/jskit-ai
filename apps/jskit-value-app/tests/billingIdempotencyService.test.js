@@ -258,7 +258,7 @@ test("assertReplayProvenanceCompatible records baseline drift guardrail before m
     operationKeySecret: "op_secret",
     providerIdempotencyKeySecret: "provider_secret",
     observabilityService: {
-      recordBillingGuardrail(payload) {
+      recordGuardrail(payload) {
         guardrails.push(payload);
       }
     }
@@ -307,7 +307,7 @@ test("assertReplayProvenanceCompatible does not emit stripe-specific drift guard
     operationKeySecret: "op_secret",
     providerIdempotencyKeySecret: "provider_secret",
     observabilityService: {
-      recordBillingGuardrail(payload) {
+      recordGuardrail(payload) {
         guardrails.push(payload);
       }
     }

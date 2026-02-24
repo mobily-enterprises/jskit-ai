@@ -1,25 +1,6 @@
-import { createRepositories } from "./repositories.js";
-import { createServices } from "./services.js";
-import { createControllers } from "./controllers.js";
-import { selectRuntimeServices } from "@jskit-ai/server-runtime-core/composition";
-
-const RUNTIME_SERVICE_EXPORT_IDS = Object.freeze([
-  "authService",
-  "workspaceService",
-  "consoleService",
-  "consoleErrorsService",
-  "realtimeEventsService",
-  "observabilityService",
-  "avatarStorageService",
-  "chatAttachmentStorageService",
-  "aiService",
-  "billingService",
-  "billingWebhookService",
-  "billingOutboxWorkerService",
-  "billingRemediationWorkerService",
-  "billingReconciliationService",
-  "billingWorkerRuntimeService"
-]);
+import { createRuntimeAssembly } from "@jskit-ai/server-runtime-core/runtimeAssembly";
+import { PLATFORM_RUNTIME_BUNDLE } from "./platformModuleManifest.js";
+import { APP_FEATURE_RUNTIME_BUNDLE } from "./appFeatureManifest.js";
 
 function createServerRuntime({
   runtimeEnv,
@@ -31,24 +12,19 @@ function createServerRuntime({
   supabasePublishableKey,
   observabilityRegistry
 }) {
-  const repositories = createRepositories();
-  const services = createServices({
-    repositories,
-    env: runtimeEnv,
-    repositoryConfig,
-    nodeEnv,
-    appConfig,
-    rbacManifest,
-    rootDir,
-    supabasePublishableKey,
-    observabilityRegistry
+  return createRuntimeAssembly({
+    bundles: [PLATFORM_RUNTIME_BUNDLE, APP_FEATURE_RUNTIME_BUNDLE],
+    dependencies: {
+      env: runtimeEnv,
+      repositoryConfig,
+      nodeEnv,
+      appConfig,
+      rbacManifest,
+      rootDir,
+      supabasePublishableKey,
+      observabilityRegistry
+    }
   });
-  const controllers = createControllers({ services });
-
-  return {
-    controllers,
-    runtimeServices: selectRuntimeServices(services, RUNTIME_SERVICE_EXPORT_IDS)
-  };
 }
 
 export { createServerRuntime };

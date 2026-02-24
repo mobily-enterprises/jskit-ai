@@ -15,7 +15,9 @@
     "./workerRedisConnection": "./src/workerRedisConnection.js",
     "./retentionQueue": "./src/retentionQueue.js",
     "./deadLetterQueue": "./src/deadLetterQueue.js",
-    "./workerRuntime": "./src/workerRuntime.js"
+    "./workerRuntime": "./src/workerRuntime.js",
+    "./retentionOrchestrator": "./src/retentionOrchestrator.js",
+    "./retentionProcessor": "./src/retentionProcessor.js"
   },
   "dependencies": {
     "@jskit-ai/server-runtime-core": "0.1.0",

@@ -9,6 +9,7 @@ It owns transport concerns:
 1. Route definitions.
 2. Request/response schemas.
 3. Controller request parsing (including multipart upload parsing).
+4. Registers shared TypeBox formats via `@jskit-ai/http-contracts/typeboxFormats`.
 
 It does not own chat business rules.
 

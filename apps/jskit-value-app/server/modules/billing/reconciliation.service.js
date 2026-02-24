@@ -140,8 +140,8 @@ function createService(options = {}) {
       ...(context && typeof context === "object" ? context : {})
     };
 
-    if (observabilityService && typeof observabilityService.recordBillingGuardrail === "function") {
-      observabilityService.recordBillingGuardrail(payload);
+    if (observabilityService && typeof observabilityService.recordGuardrail === "function") {
+      observabilityService.recordGuardrail(payload);
       return;
     }
 

@@ -4,12 +4,17 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createPlatformRuntimeEnv } from "@jskit-ai/runtime-env-core/platformRuntimeEnv";
 import { repositoryConfig } from "../config/index.js";
+import { buildRetentionPolicyFromRepositoryConfig } from "@jskit-ai/retention-core";
 import { createWorkerRuntime } from "../server/workers/runtime.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const runtimeEnv = createPlatformRuntimeEnv({
   rootDir: path.resolve(__dirname, "..")
+});
+const retentionPolicy = buildRetentionPolicyFromRepositoryConfig({
+  repositoryConfig,
+  batchSize: runtimeEnv.RETENTION_BATCH_SIZE
 });
 
 const runtime = createWorkerRuntime({
@@ -18,20 +23,7 @@ const runtime = createWorkerRuntime({
   workerConcurrency: runtimeEnv.WORKER_CONCURRENCY,
   lockHeldRequeueMax: runtimeEnv.WORKER_LOCK_HELD_REQUEUE_MAX,
   retentionLockTtlMs: runtimeEnv.WORKER_RETENTION_LOCK_TTL_MS,
-  retentionConfig: {
-    errorLogRetentionDays: repositoryConfig.retention.errorLogDays,
-    inviteArtifactRetentionDays: repositoryConfig.retention.inviteArtifactDays,
-    securityAuditRetentionDays: repositoryConfig.retention.securityAuditDays,
-    aiTranscriptsRetentionDays: repositoryConfig.retention.aiTranscriptsDays,
-    billingIdempotencyRetentionDays: repositoryConfig.billing.retention.idempotencyDays,
-    billingWebhookPayloadRetentionDays: repositoryConfig.billing.retention.webhookPayloadDays,
-    chatMessagesRetentionDays: repositoryConfig.retention.chat.messagesDays,
-    chatAttachmentsRetentionDays: repositoryConfig.retention.chat.attachmentsDays,
-    chatUnattachedUploadsRetentionHours: repositoryConfig.chat.unattachedUploadRetentionHours,
-    chatMessageIdempotencyRetryWindowHours: repositoryConfig.retention.chat.messageIdempotencyRetryWindowHours,
-    chatEmptyThreadCleanupEnabled: repositoryConfig.retention.chat.emptyThreadCleanupEnabled,
-    batchSize: runtimeEnv.RETENTION_BATCH_SIZE
-  },
+  retentionConfig: retentionPolicy,
   logger: console
 });
 

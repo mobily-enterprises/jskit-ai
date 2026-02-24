@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   createService as createWorkspaceInviteEmailService,
   __testables
-} from "../server/domain/workspace/services/inviteEmail.service.js";
+} from "@jskit-ai/workspace-service-core/services/inviteEmail";
 
 test("workspace invite email service validates configured driver", () => {
   assert.throws(

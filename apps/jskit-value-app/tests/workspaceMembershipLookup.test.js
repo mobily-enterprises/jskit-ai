@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   collectInviteWorkspaceIds,
   listInviteMembershipsByWorkspaceId
-} from "../server/domain/workspace/lookups/workspaceMembershipLookup.js";
+} from "@jskit-ai/workspace-service-core/lookups/workspaceMembershipLookup";
 
 test("workspace membership lookup collects workspace ids from invites", () => {
   const ids = collectInviteWorkspaceIds([

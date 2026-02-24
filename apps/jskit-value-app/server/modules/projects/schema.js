@@ -1,6 +1,6 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { createPaginationQuerySchema } from "../api/schema/paginationQuery.schema.js";
-import { enumSchema } from "../api/schema.js";
+import { createPaginationQuerySchema } from "@jskit-ai/http-contracts/paginationQuery";
+import { enumSchema } from "@jskit-ai/http-contracts/errorResponses";
 
 const query = createPaginationQuerySchema({
   defaultPage: 1,

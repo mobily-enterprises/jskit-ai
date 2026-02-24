@@ -5,7 +5,7 @@ import {
   buildWorkspaceBaseSlug,
   buildWorkspaceName,
   toSlugPart
-} from "../server/domain/workspace/policies/workspaceNaming.js";
+} from "@jskit-ai/workspace-service-core/policies/workspaceNaming";
 import {
   createMembershipIndexes,
   mapMembershipSummary,
@@ -14,18 +14,18 @@ import {
   resolveMembershipRoleId,
   resolveMembershipStatus
 } from "@jskit-ai/workspace-console-core/workspaceAccess";
-import { createWorkspaceSettingsDefaults } from "../server/domain/workspace/policies/workspacePolicyDefaults.js";
+import { createWorkspaceSettingsDefaults } from "@jskit-ai/workspace-service-core/policies/workspacePolicyDefaults";
 import {
   mapPendingInviteSummary,
   mapUserSettingsPublic,
   mapWorkspaceSettingsPublic,
   mapWorkspaceMembershipSummary,
   normalizeWorkspaceColor
-} from "../server/domain/workspace/mappers/workspaceMappers.js";
+} from "@jskit-ai/workspace-service-core/mappers/workspaceMappers";
 import {
   resolveRequestedWorkspaceSlug,
   resolveRequestSurfaceId
-} from "../server/domain/workspace/lookups/workspaceRequestContext.js";
+} from "@jskit-ai/workspace-service-core/lookups/workspaceRequestContext";
 
 test("workspace naming primitives normalize text and slug/name fallback behavior", () => {
   assert.equal(toSlugPart("  Chiara Mobily  "), "chiara-mobily");
