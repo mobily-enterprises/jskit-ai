@@ -133,7 +133,7 @@ Practical example:
 
 ## How It Is Used In Real App Flow
 
-1. App composition root (`apps/jskit-value-app/src/runtime/assistantRuntime.js`) instantiates runtime dependencies once.
+1. App composition root (`apps/jskit-value-app/src/modules/assistant/runtime.js`) instantiates runtime dependencies once.
 2. `AssistantView.vue` calls `useAssistantView()`.
 3. User sends input -> `sendMessage()` calls `api.streamChat(...)`.
 4. Stream events update timeline/tool state in real time.

@@ -1,11 +1,11 @@
 import { computed, reactive, ref } from "vue";
 import { useMutation } from "@tanstack/vue-query";
-import { api } from "../../services/api/index.js";
-import { useAuthGuard } from "../../composables/useAuthGuard.js";
-import { createDefaultDeg2radForm } from "../../features/deg2rad/formModel.js";
-import { buildDeg2radPayload, validateDeg2radForm } from "../../features/deg2rad/request.js";
-import { mapCalculationError } from "../../features/deg2rad/errors.js";
-import { resultSummary } from "../../features/deg2rad/presentation.js";
+import { api } from "../../platform/http/api/index.js";
+import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
+import { createDefaultDeg2radForm } from "../../modules/deg2rad/formModel.js";
+import { buildDeg2radPayload, validateDeg2radForm } from "../../modules/deg2rad/request.js";
+import { mapCalculationError } from "../../modules/deg2rad/errors.js";
+import { resultSummary } from "../../modules/deg2rad/presentation.js";
 
 const DEG2RAD_MUTATION_META = "deg2rad";
 

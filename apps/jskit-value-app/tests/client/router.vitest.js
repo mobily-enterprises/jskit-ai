@@ -8,29 +8,29 @@ const mocks = vi.hoisted(() => ({
   }
 }));
 
-vi.mock("../../src/shells/admin/AdminShell.vue", () => ({
+vi.mock("../../src/app/shells/admin/AdminShell.vue", () => ({
   default: {
     name: "AppShellMock"
   }
 }));
 
-vi.mock("../../src/shells/app/AppShell.vue", () => ({
+vi.mock("../../src/app/shells/app/AppShell.vue", () => ({
   default: {
     name: "AppShellMock"
   }
 }));
 
-vi.mock("../../src/shells/console/ConsoleShell.vue", () => ({
+vi.mock("../../src/app/shells/console/ConsoleShell.vue", () => ({
   default: {
     name: "ConsoleShellMock"
   }
 }));
 
-vi.mock("../../src/services/api/index.js", () => ({
+vi.mock("../../src/platform/http/api/index.js", () => ({
   api: mocks.api
 }));
 
-import { createAppRouter, createRouterForCurrentPath, createRouterForSurface, __testables } from "../../src/router.js";
+import { createAppRouter, createRouterForCurrentPath, createRouterForSurface, __testables } from "../../src/app/router/index.js";
 
 function buildStores({
   authInitialized = false,

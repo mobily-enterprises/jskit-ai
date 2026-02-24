@@ -710,7 +710,7 @@ Typical structure in an app:
 5. Keep endpoint-specific modules app-local.
 
 In this repo:
-`apps/jskit-value-app/src/services/api/transport.js` uses this package as runtime core.
+`apps/jskit-value-app/src/platform/http/api/transport.js` uses this package as runtime core.
 
 Real app behaviors implemented there:
 

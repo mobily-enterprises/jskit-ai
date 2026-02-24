@@ -7,15 +7,15 @@ const mocks = vi.hoisted(() => ({
   }
 }));
 
-vi.mock("../../src/routerFactory.js", () => ({
+vi.mock("../../src/app/router/factory.js", () => ({
   createSurfaceRouter: (...args) => mocks.createSurfaceRouter(...args)
 }));
 
-vi.mock("../../src/shells/app/AppShell.vue", () => ({
+vi.mock("../../src/app/shells/app/AppShell.vue", () => ({
   default: mocks.appShell
 }));
 
-import { createAppRouter } from "../../src/router.app.js";
+import { createAppRouter } from "../../src/app/router/app.js";
 
 describe("createAppRouter", () => {
   beforeEach(() => {

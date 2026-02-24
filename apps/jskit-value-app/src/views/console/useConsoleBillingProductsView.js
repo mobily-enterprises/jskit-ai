@@ -1,8 +1,8 @@
 import { computed, reactive, ref, watch } from "vue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
-import { useAuthGuard } from "../../composables/useAuthGuard.js";
+import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
-import { api } from "../../services/api/index.js";
+import { api } from "../../platform/http/api/index.js";
 
 const CONSOLE_BILLING_PRODUCTS_QUERY_KEY = ["console-billing-products"];
 const CONSOLE_BILLING_PROVIDER_PRICES_QUERY_KEY = ["console-billing-provider-prices", "product"];

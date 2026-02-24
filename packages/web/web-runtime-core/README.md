@@ -113,14 +113,12 @@ Related constants:
 
 Current `jskit-value-app` usage:
 
-- wrappers for shared composables:
-  - `apps/jskit-value-app/src/composables/useListPagination.js`
-  - `apps/jskit-value-app/src/composables/useListQueryState.js`
-  - `apps/jskit-value-app/src/composables/useUrlListPagination.js`
-  - `apps/jskit-value-app/src/composables/useQueryErrorMessage.js`
-  - `apps/jskit-value-app/src/utils/pagination.js`
+- direct composable usage in app views/modules:
+  - `apps/jskit-value-app/src/views/projects/useProjectsList.js`
+  - `apps/jskit-value-app/src/views/workspace-transcripts/useWorkspaceTranscriptsView.js`
+  - `apps/jskit-value-app/src/views/console/useConsoleBrowserErrorsView.js`
 - transport wiring:
-  - `apps/jskit-value-app/src/services/api/transport.js`
+  - `apps/jskit-value-app/src/platform/http/api/transport.js`
   - injects surface path resolver, client identity, and realtime command tracker
 
 Why this matters:

@@ -40,18 +40,18 @@ vi.mock("@tanstack/vue-query", () => ({
   useQueryClient: () => mocks.queryClient
 }));
 
-vi.mock("../../src/services/api/index.js", () => ({
+vi.mock("../../src/platform/http/api/index.js", () => ({
   api: mocks.api
 }));
 
-vi.mock("../../src/stores/workspaceStore.js", () => ({
+vi.mock("../../src/app/state/workspaceStore.js", () => ({
   useWorkspaceStore: () => mocks.workspaceStore
 }));
 
 import {
   useAssistantView,
   assistantRuntimeTestables as assistantViewTestables
-} from "../../src/runtime/assistantRuntime.js";
+} from "../../src/modules/assistant/runtime.js";
 
 const Harness = defineComponent({
   name: "AssistantViewHarness",

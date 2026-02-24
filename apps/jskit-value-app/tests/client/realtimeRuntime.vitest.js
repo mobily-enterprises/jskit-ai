@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { REALTIME_TOPICS } from "../../shared/eventTypes.js";
 import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "@jskit-ai/realtime-contracts";
-import { projectsScopeQueryKey } from "../../src/features/projects/queryKeys.js";
-import { workspaceAdminRootQueryKey } from "../../src/features/workspaceAdmin/queryKeys.js";
-import { commandTracker, __testables as trackerTestables } from "../../src/services/realtime/commandTracker.js";
-import { createRealtimeRuntime } from "../../src/services/realtime/realtimeRuntime.js";
+import { projectsScopeQueryKey } from "../../src/modules/projects/queryKeys.js";
+import { workspaceAdminRootQueryKey } from "../../src/modules/workspaceAdmin/queryKeys.js";
+import { commandTracker, __testables as trackerTestables } from "../../src/platform/realtime/commandTracker.js";
+import { createRealtimeRuntime } from "../../src/platform/realtime/realtimeRuntime.js";
 
 const SOCKET_IO_MESSAGE_EVENT = "realtime:message";
 

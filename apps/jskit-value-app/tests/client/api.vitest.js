@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api, __testables } from "../../src/services/api/index.js";
+import { api, __testables } from "../../src/platform/http/api/index.js";
 
 function mockResponse({
   status = 200,

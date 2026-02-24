@@ -8,7 +8,7 @@ import {
   readPendingOAuthContext,
   stripOAuthCallbackParamsFromLocation,
   writePendingOAuthContext
-} from "../../src/utils/oauthCallback.js";
+} from "../../src/modules/auth/oauthCallback.js";
 
 describe("oauthCallback utilities", () => {
   beforeEach(() => {

@@ -1,4 +1,4 @@
-import { SETTINGS_PREFERENCES_OPTIONS } from "../../../../domain/settings/model.js";
+import { SETTINGS_PREFERENCES_OPTIONS } from "../../../../modules/settings/settingsCatalog.js";
 
 export const themeOptions = [...SETTINGS_PREFERENCES_OPTIONS.theme];
 

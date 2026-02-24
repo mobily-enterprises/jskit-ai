@@ -2,9 +2,9 @@ import { computed, reactive } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useQuery } from "@tanstack/vue-query";
 import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";
-import { useAuthGuard } from "../../composables/useAuthGuard.js";
+import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
-import { api } from "../../services/api/index.js";
+import { api } from "../../platform/http/api/index.js";
 
 function resolveErrorIdFromPath(pathname) {
   const match = String(pathname || "").match(/\/errors\/server\/([0-9]+)/i);

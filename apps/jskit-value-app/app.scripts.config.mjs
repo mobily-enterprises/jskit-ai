@@ -3,6 +3,8 @@ import { createNodeVueFastifyScriptsConfig } from "@jskit-ai/app-scripts";
 const ARTIFACTS_DIR = ".artifacts";
 
 export default createNodeVueFastifyScriptsConfig({
+  mainClientEntry: "app/bootstrap/main.js",
+  publicClientEntry: "app/bootstrap/main.public.js",
   internalDistDir: `${ARTIFACTS_DIR}/dist/internal`,
   publicDistDir: `${ARTIFACTS_DIR}/dist/public`,
   guardrails: {

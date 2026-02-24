@@ -1,8 +1,8 @@
 import { computed, reactive, ref, watch } from "vue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
-import { useAuthGuard } from "../../composables/useAuthGuard.js";
-import { api } from "../../services/api/index.js";
-import { useConsoleStore } from "../../stores/consoleStore.js";
+import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
+import { api } from "../../platform/http/api/index.js";
+import { useConsoleStore } from "../../app/state/consoleStore.js";
 
 const CONSOLE_SETTINGS_QUERY_KEY = ["console-settings"];
 

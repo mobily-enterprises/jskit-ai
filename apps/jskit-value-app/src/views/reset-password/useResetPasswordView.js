@@ -2,8 +2,8 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useNavigate } from "@tanstack/vue-router";
 import { useMutation } from "@tanstack/vue-query";
 import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";
-import { api } from "../../services/api/index.js";
-import { useAuthStore } from "../../stores/authStore.js";
+import { api } from "../../platform/http/api/index.js";
+import { useAuthStore } from "../../app/state/authStore.js";
 import { validators } from "@jskit-ai/access-core/validators";
 
 function toSingleMessage(error, fallback) {

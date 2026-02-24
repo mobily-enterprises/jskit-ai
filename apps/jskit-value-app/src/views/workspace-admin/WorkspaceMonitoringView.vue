@@ -36,7 +36,7 @@
 <script setup>
 import { computed } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
-import { useWorkspaceStore } from "../../stores/workspaceStore.js";
+import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 import WorkspaceTranscriptsView from "../workspace-transcripts/WorkspaceTranscriptsView.vue";
 import WorkspaceAuditActivityLogsView from "./WorkspaceAuditActivityLogsView.vue";
 

@@ -1,11 +1,11 @@
 import { computed, reactive, ref } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useQuery } from "@tanstack/vue-query";
-import { useAuthGuard } from "../../composables/useAuthGuard.js";
+import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useListQueryState } from "@jskit-ai/web-runtime-core/useListQueryState";
 import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { useUrlListPagination } from "@jskit-ai/web-runtime-core/useUrlListPagination";
-import { api } from "../../services/api/index.js";
+import { api } from "../../platform/http/api/index.js";
 import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";
 
 const CONSOLE_SERVER_ERRORS_QUERY_KEY_PREFIX = ["console-server-errors"];

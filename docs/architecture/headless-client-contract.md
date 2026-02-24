@@ -29,7 +29,7 @@ See also: [app variability matrix](./app-variability-matrix.md).
 
 - Package client runtimes must use factory APIs with closure-scoped dependencies.
 - Mutable module-level runtime configuration is not allowed.
-- App-specific dependency wiring belongs in app composition roots (for example `apps/*/src/runtime/*`).
+- App-specific dependency wiring belongs in app composition roots (for example `apps/*/src/modules/*/runtime.js`).
 
 ## Wrapper Rule
 

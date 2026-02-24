@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { commandTracker, __testables } from "../../src/services/realtime/commandTracker.js";
+import { commandTracker, __testables } from "../../src/platform/realtime/commandTracker.js";
 
 describe("commandTracker", () => {
   beforeEach(() => {

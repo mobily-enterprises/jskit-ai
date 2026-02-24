@@ -1,13 +1,13 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
-import { useWorkspaceStore } from "../../stores/workspaceStore.js";
-import { useAuthGuard } from "../../composables/useAuthGuard.js";
-import { api } from "../../services/api/index.js";
+import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
+import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
+import { api } from "../../platform/http/api/index.js";
 import {
   workspaceInvitesQueryKey,
   workspaceMembersQueryKey,
   workspaceSettingsQueryKey
-} from "../../features/workspaceAdmin/queryKeys.js";
+} from "../../modules/workspaceAdmin/queryKeys.js";
 
 const transcriptModeOptions = [
   { title: "Standard logging", value: "standard" },

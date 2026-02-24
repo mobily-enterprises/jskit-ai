@@ -1,7 +1,7 @@
 import { reactive, ref } from "vue";
 import { useMutation } from "@tanstack/vue-query";
-import { api } from "../../../services/api/index.js";
-import { SETTINGS_CHAT_DEFAULTS } from "../../../domain/settings/model.js";
+import { api } from "../../../platform/http/api/index.js";
+import { SETTINGS_CHAT_DEFAULTS } from "../../../modules/settings/settingsCatalog.js";
 import { SETTINGS_QUERY_KEY } from "../lib/useSettingsPageConfig.js";
 import { useSettingsContext } from "../lib/useSettingsContext.js";
 import { useSettingsChatLogic } from "./lib/useSettingsChatLogic.js";

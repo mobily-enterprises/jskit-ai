@@ -1,5 +1,5 @@
 import { computed } from "vue";
-import { api } from "../../../../services/api/index.js";
+import { api } from "../../../../platform/http/api/index.js";
 import {
   AUTH_METHOD_DEFINITIONS,
   AUTH_METHOD_KIND_OAUTH,
@@ -11,8 +11,8 @@ import {
 import {
   APP_OAUTH_PROVIDER_METADATA,
   normalizeAppOAuthProvider
-} from "../../../../features/auth/oauthProviders.js";
-import { writePendingOAuthContext } from "../../../../utils/oauthCallback.js";
+} from "../../../../modules/auth/oauthProviders.js";
+import { writePendingOAuthContext } from "../../../../modules/auth/oauthCallback.js";
 
 export function useSettingsSecurityLogic({
   settingsQuery,

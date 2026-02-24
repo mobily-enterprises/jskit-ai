@@ -7,15 +7,15 @@ const mocks = vi.hoisted(() => ({
   }
 }));
 
-vi.mock("../../src/routerFactory.js", () => ({
+vi.mock("../../src/app/router/factory.js", () => ({
   createSurfaceRouter: (...args) => mocks.createSurfaceRouter(...args)
 }));
 
-vi.mock("../../src/shells/admin/AdminShell.vue", () => ({
+vi.mock("../../src/app/shells/admin/AdminShell.vue", () => ({
   default: mocks.adminShell
 }));
 
-import { createAdminRouter } from "../../src/router.admin.js";
+import { createAdminRouter } from "../../src/app/router/admin.js";
 
 describe("createAdminRouter", () => {
   beforeEach(() => {

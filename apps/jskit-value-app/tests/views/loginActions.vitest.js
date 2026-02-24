@@ -36,10 +36,10 @@ const mocks = vi.hoisted(() => ({
   }
 }));
 
-vi.mock("../../src/services/api/index.js", () => ({
+vi.mock("../../src/platform/http/api/index.js", () => ({
   api: mocks.api
 }));
-vi.mock("../../src/utils/oauthCallback.js", () => mocks.oauthUtils);
+vi.mock("../../src/modules/auth/oauthCallback.js", () => mocks.oauthUtils);
 vi.mock("../../src/views/login/lib/loginRememberedAccountStorage.js", () => mocks.storage);
 vi.mock("../../src/views/login/lib/loginRecoveryLink.js", () => mocks.recovery);
 vi.mock("../../src/views/login/lib/loginOtpCallbackState.js", () => mocks.otpCallback);

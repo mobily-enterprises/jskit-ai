@@ -139,7 +139,7 @@ Related constants:
 Current `jskit-value-app` usage:
 
 - browser capture:
-  - `apps/jskit-value-app/src/services/browserErrorReporter.js`
+  - `apps/jskit-value-app/src/platform/observability/browserErrorReporter.js`
   - uses `createBrowserErrorPayloadTools` to build payloads for browser error reporting endpoint
 - console error service normalization:
   - `apps/jskit-value-app/server/domain/console/services/errors.service.js`

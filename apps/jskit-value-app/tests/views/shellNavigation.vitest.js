@@ -2,7 +2,7 @@ import { defineComponent, nextTick, ref } from "vue";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useShellNavigation } from "../../src/shells/shared/useShellNavigation.js";
+import { useShellNavigation } from "../../src/app/shells/shared/useShellNavigation.js";
 
 function mountHarness({ initialPath = "/w/acme", isMobile = false, showShell = true } = {}) {
   const currentPath = ref(initialPath);

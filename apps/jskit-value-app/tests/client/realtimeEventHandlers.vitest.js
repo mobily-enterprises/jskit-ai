@@ -5,19 +5,19 @@ import {
   workspaceAiTranscriptsScopeQueryKey
 } from "@jskit-ai/assistant-contracts";
 import { chatRootQueryKey, chatScopeQueryKey } from "@jskit-ai/chat-contracts";
-import { projectDetailQueryKey, projectsScopeQueryKey } from "../../src/features/projects/queryKeys.js";
+import { projectDetailQueryKey, projectsScopeQueryKey } from "../../src/modules/projects/queryKeys.js";
 import {
   workspaceAdminRootQueryKey,
   workspaceBillingLimitationsQueryKey,
   workspaceBillingPlanStateQueryKey,
   workspaceBillingPurchasesQueryKey
-} from "../../src/features/workspaceAdmin/queryKeys.js";
-import { commandTracker, __testables as trackerTestables } from "../../src/services/realtime/commandTracker.js";
-import { createRealtimeEventHandlers } from "../../src/services/realtime/realtimeEventHandlers.js";
+} from "../../src/modules/workspaceAdmin/queryKeys.js";
+import { commandTracker, __testables as trackerTestables } from "../../src/platform/realtime/commandTracker.js";
+import { createRealtimeEventHandlers } from "../../src/platform/realtime/realtimeEventHandlers.js";
 import {
   subscribeRealtimeEvents,
   __testables as realtimeEventBusTestables
-} from "../../src/services/realtime/realtimeEventBus.js";
+} from "../../src/platform/realtime/realtimeEventBus.js";
 
 describe("realtimeEventHandlers", () => {
   const queryClient = {

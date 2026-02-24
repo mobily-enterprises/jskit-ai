@@ -2,10 +2,10 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useNavigate } from "@tanstack/vue-router";
 import { useMutation } from "@tanstack/vue-query";
 import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";
-import { appOAuthProviders } from "../../features/auth/oauthProviders.js";
-import { api } from "../../services/api/index.js";
-import { useAuthStore } from "../../stores/authStore.js";
-import { useWorkspaceStore } from "../../stores/workspaceStore.js";
+import { appOAuthProviders } from "../../modules/auth/oauthProviders.js";
+import { api } from "../../platform/http/api/index.js";
+import { useAuthStore } from "../../app/state/authStore.js";
+import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 import { useLoginActions } from "./lib/useLoginActions.js";
 import { useLoginDerivedState } from "./lib/useLoginDerivedState.js";
 

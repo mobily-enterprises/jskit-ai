@@ -1,13 +1,13 @@
 import { computed, reactive, ref, watch } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import { api } from "../../services/api/index.js";
-import { useWorkspaceStore } from "../../stores/workspaceStore.js";
+import { api } from "../../platform/http/api/index.js";
+import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 import {
   workspaceBillingLimitationsQueryKey,
   workspaceBillingPlanStateQueryKey,
   workspaceBillingProductsQueryKey,
   workspaceBillingPurchasesQueryKey
-} from "../../features/workspaceAdmin/queryKeys.js";
+} from "../../modules/workspaceAdmin/queryKeys.js";
 
 function formatDateOnly(value) {
   const date = new Date(value);

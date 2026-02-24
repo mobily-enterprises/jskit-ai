@@ -72,7 +72,7 @@
 
 <script setup>
 import { useProjectsList } from "./useProjectsList";
-import { formatProjectDate, projectStatusLabel } from "../../features/projects/presentation";
+import { formatProjectDate, projectStatusLabel } from "../../modules/projects/presentation";
 
 const { meta, state, actions } = useProjectsList();
 </script>

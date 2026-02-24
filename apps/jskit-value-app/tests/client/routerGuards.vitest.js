@@ -9,12 +9,12 @@ const mocks = vi.hoisted(() => ({
   }
 }));
 
-vi.mock("../../src/services/api/index.js", () => ({
+vi.mock("../../src/platform/http/api/index.js", () => ({
   api: mocks.api
 }));
 
-import { createSurfaceRouteGuards, resolveRuntimeState } from "../../src/routerGuards.js";
-import { useWorkspaceStore } from "../../src/stores/workspaceStore.js";
+import { createSurfaceRouteGuards, resolveRuntimeState } from "../../src/app/router/guards.js";
+import { useWorkspaceStore } from "../../src/app/state/workspaceStore.js";
 
 function buildStores({
   authInitialized = true,

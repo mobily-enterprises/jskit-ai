@@ -38,7 +38,7 @@
 
 <script setup>
 import { useProjectsView } from "./useProjectsView";
-import { formatProjectDate, projectStatusLabel } from "../../features/projects/presentation";
+import { formatProjectDate, projectStatusLabel } from "../../modules/projects/presentation";
 
 const { state, actions } = useProjectsView();
 </script>

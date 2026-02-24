@@ -60,7 +60,7 @@
 
 <script setup>
 import { watch } from "vue";
-import { formatDate, formatRadians, inputSummary, typeLabel } from "../../features/deg2rad/presentation";
+import { formatDate, formatRadians, inputSummary, typeLabel } from "../../modules/deg2rad/presentation";
 import { useDeg2radHistoryList } from "./useDeg2radHistoryList";
 
 const props = defineProps({

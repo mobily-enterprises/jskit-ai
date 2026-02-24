@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   sessionApi: vi.fn()
 }));
 
-vi.mock("../../src/queryClient", () => ({
+vi.mock("../../src/app/queryClient", () => ({
   queryClient: {
     ensureQueryData: mocks.ensureQueryData,
     setQueryData: mocks.setQueryData,
@@ -16,7 +16,7 @@ vi.mock("../../src/queryClient", () => ({
   }
 }));
 
-vi.mock("../../src/services/api/index.js", () => ({
+vi.mock("../../src/platform/http/api/index.js", () => ({
   api: {
     auth: {
       session: mocks.sessionApi
@@ -24,7 +24,7 @@ vi.mock("../../src/services/api/index.js", () => ({
   }
 }));
 
-import { SESSION_QUERY_KEY, useAuthStore } from "../../src/stores/authStore.js";
+import { SESSION_QUERY_KEY, useAuthStore } from "../../src/app/state/authStore.js";
 
 describe("authStore", () => {
   beforeEach(() => {

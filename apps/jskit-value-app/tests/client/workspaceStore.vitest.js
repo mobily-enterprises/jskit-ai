@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   redeemWorkspaceInviteApi: vi.fn()
 }));
 
-vi.mock("../../src/services/api/index.js", () => ({
+vi.mock("../../src/platform/http/api/index.js", () => ({
   api: {
     workspace: {
       bootstrap: mocks.bootstrapApi,
@@ -19,7 +19,7 @@ vi.mock("../../src/services/api/index.js", () => ({
   }
 }));
 
-import { useWorkspaceStore } from "../../src/stores/workspaceStore.js";
+import { useWorkspaceStore } from "../../src/app/state/workspaceStore.js";
 
 describe("workspaceStore", () => {
   beforeEach(() => {

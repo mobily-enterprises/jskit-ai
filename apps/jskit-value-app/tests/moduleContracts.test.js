@@ -357,14 +357,14 @@ function assertNoLegacyFactoryNames(exportKeys, allowed) {
 
 test("client API modules expose createApi contract", async () => {
   const modules = [
-    "../src/services/api/authApi.js",
-    "../src/services/api/billingApi.js",
-    "../src/services/api/deg2radApi.js",
-    "../src/services/api/workspaceApi.js",
-    "../src/services/api/consoleApi.js",
-    "../src/services/api/projectsApi.js",
-    "../src/services/api/settingsApi.js",
-    "../src/services/api/historyApi.js"
+    "../src/platform/http/api/authApi.js",
+    "../src/platform/http/api/billingApi.js",
+    "../src/platform/http/api/deg2radApi.js",
+    "../src/platform/http/api/workspaceApi.js",
+    "../src/platform/http/api/consoleApi.js",
+    "../src/platform/http/api/projectsApi.js",
+    "../src/platform/http/api/settingsApi.js",
+    "../src/platform/http/api/historyApi.js"
   ];
 
   for (const modulePath of modules) {
@@ -377,10 +377,10 @@ test("client API modules expose createApi contract", async () => {
 
 test("client route packs expose createRoutes contract", async () => {
   const modules = [
-    "../src/routes/assistantRoutes.js",
-    "../src/routes/coreRoutes.js",
-    "../src/routes/workspaceRoutes.js",
-    "../src/routes/projectsRoutes.js"
+    "../src/app/router/routes/assistantRoutes.js",
+    "../src/app/router/routes/coreRoutes.js",
+    "../src/app/router/routes/workspaceRoutes.js",
+    "../src/app/router/routes/projectsRoutes.js"
   ];
 
   for (const modulePath of modules) {

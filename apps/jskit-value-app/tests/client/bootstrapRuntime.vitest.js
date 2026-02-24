@@ -107,11 +107,11 @@ vi.mock("@mdi/js", async (importOriginal) => {
 
 vi.mock("vuetify/styles", () => ({}));
 
-vi.mock("../../src/queryClient", () => ({
+vi.mock("../../src/app/queryClient", () => ({
   queryClient: mocks.queryClient
 }));
 
-vi.mock("../../src/services/api/index.js", () => ({
+vi.mock("../../src/platform/http/api/index.js", () => ({
   api: {
     workspace: {
       bootstrap: mocks.bootstrapApi
@@ -119,27 +119,27 @@ vi.mock("../../src/services/api/index.js", () => ({
   }
 }));
 
-vi.mock("../../src/services/browserErrorReporter.js", () => ({
+vi.mock("../../src/platform/observability/browserErrorReporter.js", () => ({
   installBrowserErrorReporter: mocks.installBrowserErrorReporter
 }));
 
-vi.mock("../../src/services/realtime/realtimeRuntime.js", () => ({
+vi.mock("../../src/platform/realtime/realtimeRuntime.js", () => ({
   createRealtimeRuntime: (...args) => mocks.createRealtimeRuntime(...args)
 }));
 
-vi.mock("../../src/stores/authStore", () => ({
+vi.mock("../../src/app/state/authStore", () => ({
   useAuthStore: (pinia) => mocks.authStoreFactory(pinia)
 }));
 
-vi.mock("../../src/stores/workspaceStore", () => ({
+vi.mock("../../src/app/state/workspaceStore", () => ({
   useWorkspaceStore: (pinia) => mocks.workspaceStoreFactory(pinia)
 }));
 
-vi.mock("../../src/stores/consoleStore", () => ({
+vi.mock("../../src/app/state/consoleStore", () => ({
   useConsoleStore: (pinia) => mocks.consoleStoreFactory(pinia)
 }));
 
-import { mountSurfaceApplication } from "../../src/bootstrapRuntime.js";
+import { mountSurfaceApplication } from "../../src/app/bootstrap/runtime.js";
 
 describe("bootstrapRuntime", () => {
   beforeEach(() => {

@@ -23,19 +23,19 @@ vi.mock("@tanstack/vue-router", () => ({
   }
 }));
 
-vi.mock("../../src/stores/authStore.js", () => ({
+vi.mock("../../src/app/state/authStore.js", () => ({
   useAuthStore: () => mocks.authStore
 }));
 
-vi.mock("../../src/stores/workspaceStore.js", () => ({
+vi.mock("../../src/app/state/workspaceStore.js", () => ({
   useWorkspaceStore: () => mocks.workspaceStore
 }));
 
-vi.mock("../../src/stores/consoleStore.js", () => ({
+vi.mock("../../src/app/state/consoleStore.js", () => ({
   useConsoleStore: () => mocks.consoleStore
 }));
 
-import { isUnauthorizedError, useAuthGuard } from "../../src/composables/useAuthGuard.js";
+import { isUnauthorizedError, useAuthGuard } from "../../src/modules/auth/useAuthGuard.js";
 
 describe("useAuthGuard", () => {
   beforeEach(() => {

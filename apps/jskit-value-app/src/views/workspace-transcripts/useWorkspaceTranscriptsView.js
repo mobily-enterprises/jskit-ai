@@ -1,7 +1,7 @@
 import { computed, reactive, ref, watch } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import { api } from "../../services/api/index.js";
-import { useWorkspaceStore } from "../../stores/workspaceStore.js";
+import { api } from "../../platform/http/api/index.js";
+import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 import {
   workspaceAiTranscriptMessagesQueryKey,
   workspaceAiTranscriptsListQueryKey

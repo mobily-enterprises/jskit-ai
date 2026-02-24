@@ -5,11 +5,11 @@ const mocks = vi.hoisted(() => ({
   mountAppApplication: vi.fn()
 }));
 
-vi.mock("../../src/main.admin.public", () => ({
+vi.mock("../../src/app/bootstrap/main.admin.public.js", () => ({
   mountAdminApplication: mocks.mountAdminApplication
 }));
 
-vi.mock("../../src/main.app.public", () => ({
+vi.mock("../../src/app/bootstrap/main.app.public.js", () => ({
   mountAppApplication: mocks.mountAppApplication
 }));
 
@@ -22,7 +22,7 @@ describe("main public bootstrap", () => {
   });
 
   it("boots app surface for non-admin paths", async () => {
-    await import("../../src/main.public.js");
+    await import("../../src/app/bootstrap/main.public.js");
 
     expect(mocks.mountAppApplication).toHaveBeenCalledTimes(1);
     expect(mocks.mountAdminApplication).not.toHaveBeenCalled();
@@ -31,7 +31,7 @@ describe("main public bootstrap", () => {
   it("boots admin surface for /admin paths", async () => {
     window.history.replaceState({}, "", "/admin/login");
 
-    await import("../../src/main.public.js");
+    await import("../../src/app/bootstrap/main.public.js");
 
     expect(mocks.mountAdminApplication).toHaveBeenCalledTimes(1);
     expect(mocks.mountAppApplication).not.toHaveBeenCalled();
@@ -40,7 +40,7 @@ describe("main public bootstrap", () => {
   it("routes /console paths to app login flow", async () => {
     window.history.replaceState({}, "", "/console/login");
 
-    await import("../../src/main.public.js");
+    await import("../../src/app/bootstrap/main.public.js");
 
     expect(window.location.pathname).toBe("/login");
     expect(mocks.mountAppApplication).toHaveBeenCalledTimes(1);

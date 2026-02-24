@@ -1,5 +1,5 @@
 import { computed, onMounted, reactive, ref } from "vue";
-import { api } from "../../services/api/index.js";
+import { api } from "../../platform/http/api/index.js";
 
 function formatDateTime(value) {
   const date = new Date(value);

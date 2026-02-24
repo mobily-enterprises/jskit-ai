@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createConsoleRouteGuards } from "../../src/routerGuards.console.js";
+import { createConsoleRouteGuards } from "../../src/app/router/guards.console.js";
 
 function buildStores({
   authInitialized = true,

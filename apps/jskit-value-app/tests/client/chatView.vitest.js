@@ -6,7 +6,7 @@ import { chatInboxInfiniteQueryKey, chatThreadMessagesInfiniteQueryKey } from "@
 import {
   publishRealtimeEvent,
   __testables as realtimeEventBusTestables
-} from "../../src/services/realtime/realtimeEventBus.js";
+} from "../../src/platform/realtime/realtimeEventBus.js";
 
 const mocks = vi.hoisted(() => ({
   api: {
@@ -50,15 +50,15 @@ vi.mock("@tanstack/vue-query", () => ({
   useQueryClient: () => mocks.queryClient
 }));
 
-vi.mock("../../src/services/api/index.js", () => ({
+vi.mock("../../src/platform/http/api/index.js", () => ({
   api: mocks.api
 }));
 
-vi.mock("../../src/stores/workspaceStore.js", () => ({
+vi.mock("../../src/app/state/workspaceStore.js", () => ({
   useWorkspaceStore: () => mocks.workspaceStore
 }));
 
-vi.mock("../../src/composables/useAuthGuard.js", () => ({
+vi.mock("../../src/modules/auth/useAuthGuard.js", () => ({
   useAuthGuard: () => ({
     handleUnauthorizedError: (...args) => mocks.handleUnauthorizedError(...args)
   })
@@ -73,7 +73,7 @@ vi.mock("@jskit-ai/web-runtime-core", async () => {
   };
 });
 
-import { useChatView } from "../../src/runtime/chatRuntime.js";
+import { useChatView } from "../../src/modules/chat/runtime.js";
 
 function createInfiniteQueryState({ pages = [{ items: [], nextCursor: null }], hasNextPage = false } = {}) {
   return {

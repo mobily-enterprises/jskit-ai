@@ -1,14 +1,14 @@
-import { normalizeAppOAuthProvider } from "../../../features/auth/oauthProviders.js";
+import { normalizeAppOAuthProvider } from "../../../modules/auth/oauthProviders.js";
 import { validators } from "@jskit-ai/access-core/validators";
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
-import { api } from "../../../services/api/index.js";
+import { api } from "../../../platform/http/api/index.js";
 import {
   clearPendingOAuthContext,
   readOAuthCallbackStateFromLocation,
   readPendingOAuthContext,
   stripOAuthCallbackParamsFromLocation,
   writePendingOAuthContext
-} from "../../../utils/oauthCallback.js";
+} from "../../../modules/auth/oauthCallback.js";
 import {
   clearRememberedAccountHint,
   readRememberedAccountHint,

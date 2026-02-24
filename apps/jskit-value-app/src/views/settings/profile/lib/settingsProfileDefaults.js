@@ -1,4 +1,4 @@
-import { SETTINGS_DEFAULTS } from "../../../../domain/settings/model.js";
+import { SETTINGS_DEFAULTS } from "../../../../modules/settings/settingsCatalog.js";
 
 export function createDefaultAvatar() {
   return {

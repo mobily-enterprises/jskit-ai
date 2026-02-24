@@ -31,7 +31,7 @@ vi.mock("@tanstack/vue-router", () => ({
   }
 }));
 
-vi.mock("../../src/stores/workspaceStore.js", () => ({
+vi.mock("../../src/app/state/workspaceStore.js", () => ({
   useWorkspaceStore: () => mocks.workspaceStore
 }));
 

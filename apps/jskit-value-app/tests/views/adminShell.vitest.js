@@ -58,30 +58,30 @@ vi.mock("vuetify", () => ({
   })
 }));
 
-vi.mock("../../src/shells/shared/useShellNavigation.js", () => ({
+vi.mock("../../src/app/shells/shared/useShellNavigation.js", () => ({
   useShellNavigation: () => ({
     state: mocks.shellState,
     actions: mocks.shellActions
   })
 }));
 
-vi.mock("../../src/stores/authStore.js", () => ({
+vi.mock("../../src/app/state/authStore.js", () => ({
   useAuthStore: () => mocks.authStore
 }));
 
-vi.mock("../../src/stores/workspaceStore.js", () => ({
+vi.mock("../../src/app/state/workspaceStore.js", () => ({
   useWorkspaceStore: () => mocks.workspaceStore
 }));
 
-vi.mock("../../src/stores/consoleStore.js", () => ({
+vi.mock("../../src/app/state/consoleStore.js", () => ({
   useConsoleStore: () => mocks.consoleStore
 }));
 
-vi.mock("../../src/services/api/index.js", () => ({
+vi.mock("../../src/platform/http/api/index.js", () => ({
   api: mocks.api
 }));
 
-import { useAdminShell } from "../../src/shells/admin/useAdminShell.js";
+import { useAdminShell } from "../../src/app/shells/admin/useAdminShell.js";
 
 function createWorkspaceStore() {
   return reactive({

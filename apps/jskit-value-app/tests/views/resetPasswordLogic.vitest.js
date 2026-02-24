@@ -29,11 +29,11 @@ vi.mock("@tanstack/vue-query", () => ({
   })
 }));
 
-vi.mock("../../src/services/api/index.js", () => ({
+vi.mock("../../src/platform/http/api/index.js", () => ({
   api: mocks.api
 }));
 
-vi.mock("../../src/stores/authStore.js", () => ({
+vi.mock("../../src/app/state/authStore.js", () => ({
   useAuthStore: () => mocks.authStore
 }));
 

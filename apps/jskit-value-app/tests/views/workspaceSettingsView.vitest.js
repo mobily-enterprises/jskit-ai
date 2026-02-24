@@ -175,17 +175,17 @@ vi.mock("@tanstack/vue-query", () => ({
   })
 }));
 
-vi.mock("../../src/stores/workspaceStore.js", () => ({
+vi.mock("../../src/app/state/workspaceStore.js", () => ({
   useWorkspaceStore: () => mocks.workspaceStore
 }));
 
-vi.mock("../../src/composables/useAuthGuard.js", () => ({
+vi.mock("../../src/modules/auth/useAuthGuard.js", () => ({
   useAuthGuard: () => ({
     handleUnauthorizedError: mocks.handleUnauthorizedError
   })
 }));
 
-vi.mock("../../src/services/api/index.js", () => ({
+vi.mock("../../src/platform/http/api/index.js", () => ({
   api: mocks.api
 }));
 

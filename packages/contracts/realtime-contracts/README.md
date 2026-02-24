@@ -386,7 +386,7 @@ In client runtime, use:
 
 In this repo:
 
-1. `apps/jskit-value-app/src/services/realtime/realtimeRuntime.js`
+1. `apps/jskit-value-app/src/platform/realtime/realtimeRuntime.js`
 
 Why:
 Client avoids noisy invalid subscriptions and keeps behavior aligned with server model.
@@ -395,8 +395,8 @@ Client avoids noisy invalid subscriptions and keeps behavior aligned with server
 
 Keep constants local to app:
 
-1. `apps/jskit-value-app/shared/realtime/eventTypes.js` (topics/events vocabulary)
-2. `apps/jskit-value-app/shared/realtime/topicRegistry.js` (app-specific rules)
+1. `apps/jskit-value-app/shared/eventTypes.js` (topics/events vocabulary)
+2. `apps/jskit-value-app/shared/topicRegistry.js` (app-specific rules)
 
 Why:
 This prevents shared package from becoming app-specific and hard to reuse.

@@ -354,7 +354,7 @@
 
 <script setup>
 import { computed, nextTick, ref, watch } from "vue";
-import { useChatView } from "../../runtime/chatRuntime.js";
+import { useChatView } from "../../modules/chat/runtime.js";
 
 const SCROLL_BOTTOM_THRESHOLD_PX = 30;
 

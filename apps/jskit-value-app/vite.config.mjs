@@ -30,15 +30,13 @@ export default defineConfig(({ mode }) => {
         reporter: ["text-summary", "lcov"],
         all: true,
         include: [
-          "src/*.js",
+          "src/app/**/*.js",
+          "src/modules/**/*.js",
+          "src/platform/**/*.js",
           "src/components/**/*.js",
-          "src/composables/**/*.js",
-          "src/features/**/*.js",
-          "src/services/**/*.js",
-          "src/stores/**/*.js",
-          "src/utils/**/*.js"
+          "src/views/**/*.js"
         ],
-        exclude: ["src/main.admin.js", "src/main.app.js"],
+        exclude: ["src/app/bootstrap/main.admin.js", "src/app/bootstrap/main.app.js"],
         reportsDirectory: "./.artifacts/coverage/client",
         thresholds: {
           lines: 85,

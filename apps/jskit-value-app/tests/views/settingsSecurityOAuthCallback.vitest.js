@@ -15,11 +15,11 @@ const mocks = vi.hoisted(() => ({
   refreshSession: vi.fn(async () => ({ authenticated: true }))
 }));
 
-vi.mock("../../src/services/api/index.js", () => ({
+vi.mock("../../src/platform/http/api/index.js", () => ({
   api: mocks.api
 }));
 
-vi.mock("../../src/utils/oauthCallback.js", () => ({
+vi.mock("../../src/modules/auth/oauthCallback.js", () => ({
   readPendingOAuthContext: () => mocks.readPendingOAuthContext(),
   readOAuthCallbackStateFromLocation: (options) => mocks.readOAuthCallbackStateFromLocation(options),
   stripOAuthCallbackParamsFromLocation: (options) => mocks.stripOAuthCallbackParamsFromLocation(options),

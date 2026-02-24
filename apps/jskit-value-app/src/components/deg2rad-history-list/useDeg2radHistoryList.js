@@ -1,13 +1,13 @@
 import { computed, reactive } from "vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
-import { api } from "../../services/api/index.js";
-import { useAuthGuard } from "../../composables/useAuthGuard.js";
+import { api } from "../../platform/http/api/index.js";
+import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useListQueryState } from "@jskit-ai/web-runtime-core/useListQueryState";
 import { useUrlListPagination } from "@jskit-ai/web-runtime-core/useUrlListPagination";
 import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
-import { useWorkspaceStore } from "../../stores/workspaceStore.js";
-import { mapHistoryError } from "../../features/deg2rad/errors.js";
-import { pageSizeOptions } from "../../features/deg2rad/formModel.js";
+import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
+import { mapHistoryError } from "../../modules/deg2rad/errors.js";
+import { pageSizeOptions } from "../../modules/deg2rad/formModel.js";
 
 export const HISTORY_QUERY_KEY_PREFIX = ["history"];
 export const HISTORY_PAGE_QUERY_KEY = "historyPage";

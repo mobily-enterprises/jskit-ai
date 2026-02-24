@@ -17,11 +17,11 @@ const mocks = vi.hoisted(() => ({
   writePendingOAuthContext: vi.fn()
 }));
 
-vi.mock("../../src/services/api/index.js", () => ({
+vi.mock("../../src/platform/http/api/index.js", () => ({
   api: mocks.api
 }));
 
-vi.mock("../../src/utils/oauthCallback.js", () => ({
+vi.mock("../../src/modules/auth/oauthCallback.js", () => ({
   writePendingOAuthContext: mocks.writePendingOAuthContext
 }));
 

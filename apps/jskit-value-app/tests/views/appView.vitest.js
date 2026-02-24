@@ -53,19 +53,19 @@ vi.mock("vuetify", () => ({
   })
 }));
 
-vi.mock("../../src/stores/authStore.js", () => ({
+vi.mock("../../src/app/state/authStore.js", () => ({
   useAuthStore: () => mocks.authStore
 }));
 
-vi.mock("../../src/stores/workspaceStore.js", () => ({
+vi.mock("../../src/app/state/workspaceStore.js", () => ({
   useWorkspaceStore: () => mocks.workspaceStore
 }));
 
-vi.mock("../../src/services/api/index.js", () => ({
+vi.mock("../../src/platform/http/api/index.js", () => ({
   api: mocks.api
 }));
 
-import App from "../../src/shells/admin/AdminShell.vue";
+import App from "../../src/app/shells/admin/AdminShell.vue";
 
 function mountApp() {
   return mount(App, {

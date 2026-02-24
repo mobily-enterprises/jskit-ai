@@ -6,15 +6,15 @@ const mocks = vi.hoisted(() => ({
   mountConsoleApplication: vi.fn()
 }));
 
-vi.mock("../../src/main.admin", () => ({
+vi.mock("../../src/app/bootstrap/main.admin.js", () => ({
   mountAdminApplication: mocks.mountAdminApplication
 }));
 
-vi.mock("../../src/main.app", () => ({
+vi.mock("../../src/app/bootstrap/main.app.js", () => ({
   mountAppApplication: mocks.mountAppApplication
 }));
 
-vi.mock("../../src/main.console", () => ({
+vi.mock("../../src/app/bootstrap/main.console.js", () => ({
   mountConsoleApplication: mocks.mountConsoleApplication
 }));
 
@@ -28,7 +28,7 @@ describe("main bootstrap", () => {
   });
 
   it("boots app surface for non-admin paths", async () => {
-    await import("../../src/main.js");
+    await import("../../src/app/bootstrap/main.js");
 
     expect(mocks.mountAppApplication).toHaveBeenCalledTimes(1);
     expect(mocks.mountAdminApplication).not.toHaveBeenCalled();
@@ -37,7 +37,7 @@ describe("main bootstrap", () => {
   it("boots admin surface for /admin paths", async () => {
     window.history.replaceState({}, "", "/admin/login");
 
-    await import("../../src/main.js");
+    await import("../../src/app/bootstrap/main.js");
 
     expect(mocks.mountAdminApplication).toHaveBeenCalledTimes(1);
     expect(mocks.mountAppApplication).not.toHaveBeenCalled();
@@ -46,7 +46,7 @@ describe("main bootstrap", () => {
   it("boots console surface for /console paths", async () => {
     window.history.replaceState({}, "", "/console/login");
 
-    await import("../../src/main.js");
+    await import("../../src/app/bootstrap/main.js");
 
     expect(mocks.mountConsoleApplication).toHaveBeenCalledTimes(1);
     expect(mocks.mountAppApplication).not.toHaveBeenCalled();

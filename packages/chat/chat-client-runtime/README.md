@@ -13,7 +13,7 @@ It intentionally does not include UI components. Your app still owns `ChatView.v
 
 ## Why Apps Use It
 
-In `apps/jskit-value-app`, this package is wired by the app composition root (`src/runtime/chatRuntime.js`) that injects app dependencies (API, auth guard, workspace store, realtime bus).
+In `apps/jskit-value-app`, this package is wired by the app composition root (`src/modules/chat/runtime.js`) that injects app dependencies (API, auth guard, workspace store, realtime bus).
 
 This keeps shared behavior reusable while allowing app-specific policy/UI choices.
 
@@ -166,7 +166,7 @@ Real-life example:
 
 ## How It Is Used In Real App Flow
 
-1. App composition root (`apps/jskit-value-app/src/runtime/chatRuntime.js`) creates a runtime instance with `createChatRuntime(...)`.
+1. App composition root (`apps/jskit-value-app/src/modules/chat/runtime.js`) creates a runtime instance with `createChatRuntime(...)`.
 2. `ChatView.vue` calls `useChatView()`.
 3. UI binds to `state` fields.
 4. UI triggers `actions` on clicks/keyboard/file events.

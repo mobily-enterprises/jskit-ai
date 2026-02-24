@@ -1,9 +1,9 @@
 import { computed, reactive, ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import { useAuthGuard } from "../../composables/useAuthGuard.js";
+import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { useUrlListPagination } from "@jskit-ai/web-runtime-core/useUrlListPagination";
-import { api } from "../../services/api/index.js";
+import { api } from "../../platform/http/api/index.js";
 
 const CONSOLE_BILLING_EVENTS_QUERY_KEY_PREFIX = ["console-billing-events"];
 const CONSOLE_BILLING_EVENTS_PAGE_SIZE_OPTIONS = [25, 50, 100];

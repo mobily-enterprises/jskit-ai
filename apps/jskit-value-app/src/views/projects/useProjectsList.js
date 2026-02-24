@@ -1,20 +1,20 @@
 import { computed, reactive } from "vue";
 import { useNavigate } from "@tanstack/vue-router";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
-import { api } from "../../services/api/index.js";
-import { useAuthGuard } from "../../composables/useAuthGuard.js";
+import { api } from "../../platform/http/api/index.js";
+import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useListQueryState } from "@jskit-ai/web-runtime-core/useListQueryState";
 import { useUrlListPagination } from "@jskit-ai/web-runtime-core/useUrlListPagination";
 import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
-import { useWorkspaceStore } from "../../stores/workspaceStore.js";
-import { mapProjectsError } from "../../features/projects/errors.js";
-import { projectPageSizeOptions } from "../../features/projects/formModel.js";
+import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
+import { mapProjectsError } from "../../modules/projects/errors.js";
+import { projectPageSizeOptions } from "../../modules/projects/formModel.js";
 import {
   PROJECTS_PAGE_QUERY_KEY,
   PROJECTS_PAGE_SIZE_QUERY_KEY,
   projectsListQueryKey,
   projectsScopeQueryKey
-} from "../../features/projects/queryKeys.js";
+} from "../../modules/projects/queryKeys.js";
 
 export function useProjectsList({ initialPageSize = projectPageSizeOptions[0] } = {}) {
   const navigate = useNavigate();

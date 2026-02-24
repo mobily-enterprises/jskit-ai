@@ -83,7 +83,7 @@ vi.mock("@uppy/compressor", () => ({
 vi.mock("@uppy/xhr-upload", () => ({
   default: mocks.XHRUpload
 }));
-vi.mock("../../src/services/api/index.js", () => ({
+vi.mock("../../src/platform/http/api/index.js", () => ({
   api: mocks.api
 }));
 

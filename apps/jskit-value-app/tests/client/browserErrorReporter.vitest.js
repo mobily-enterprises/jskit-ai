@@ -12,7 +12,7 @@ describe("browserErrorReporter", () => {
   });
 
   it("builds browser error payload from ErrorEvent-like input", async () => {
-    const { __testables } = await import("../../src/services/browserErrorReporter.js");
+    const { __testables } = await import("../../src/platform/observability/browserErrorReporter.js");
 
     const payload = __testables.createPayloadFromErrorEvent({
       message: "Boom",
@@ -38,7 +38,7 @@ describe("browserErrorReporter", () => {
   });
 
   it("sends reports as best-effort POST requests", async () => {
-    const { __testables } = await import("../../src/services/browserErrorReporter.js");
+    const { __testables } = await import("../../src/platform/observability/browserErrorReporter.js");
 
     await __testables.sendBrowserErrorReport({
       source: "window.error",
@@ -55,7 +55,7 @@ describe("browserErrorReporter", () => {
   });
 
   it("installs global listeners and forwards runtime errors", async () => {
-    const reporter = await import("../../src/services/browserErrorReporter.js");
+    const reporter = await import("../../src/platform/observability/browserErrorReporter.js");
     reporter.installBrowserErrorReporter();
 
     const error = new Error("Runtime failure");

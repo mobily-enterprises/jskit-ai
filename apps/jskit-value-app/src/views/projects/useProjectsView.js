@@ -1,12 +1,12 @@
 import { computed, reactive } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useQuery } from "@tanstack/vue-query";
-import { api } from "../../services/api/index.js";
-import { useAuthGuard } from "../../composables/useAuthGuard.js";
+import { api } from "../../platform/http/api/index.js";
+import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
-import { useWorkspaceStore } from "../../stores/workspaceStore.js";
-import { mapProjectsError } from "../../features/projects/errors.js";
-import { projectDetailQueryKey } from "../../features/projects/queryKeys.js";
+import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
+import { mapProjectsError } from "../../modules/projects/errors.js";
+import { projectDetailQueryKey } from "../../modules/projects/queryKeys.js";
 
 function resolveProjectIdFromPath(pathname) {
   const match = String(pathname || "").match(/\/projects\/([^/]+)/i);

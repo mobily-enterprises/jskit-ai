@@ -10,7 +10,7 @@ const ROOT_DIR = path.resolve(__dirname, "..");
 
 const SOCKET_IMPORT_ALLOWLIST = new Set([
   path.resolve(ROOT_DIR, "server/realtime/registerSocketIoRealtime.js"),
-  path.resolve(ROOT_DIR, "src/services/realtime/realtimeRuntime.js")
+  path.resolve(ROOT_DIR, "src/platform/realtime/realtimeRuntime.js")
 ]);
 
 const FEATURE_REALTIME_FILES = [
