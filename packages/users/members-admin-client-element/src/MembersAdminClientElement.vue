@@ -9,51 +9,56 @@
           </v-card-item>
           <v-divider />
           <v-card-text>
-            <v-alert
-              v-if="isWorkspaceMode && workspaceInvitePolicyLoaded && !workspaceInvitesAvailable"
-              type="warning"
-              variant="tonal"
-              class="mb-3"
-            >
-              {{ copyText.workspaceInvitesUnavailable }}
-            </v-alert>
-            <v-alert
-              v-else-if="isWorkspaceMode && workspaceInvitePolicyLoaded && !workspaceInvitesEnabled"
-              type="info"
-              variant="tonal"
-              class="mb-3"
-            >
-              {{ copyText.workspaceInvitesDisabled }}
-            </v-alert>
+            <template v-if="showWorkspaceInviteLoadingSkeleton">
+              <v-skeleton-loader type="text@2, paragraph, button" class="mb-3" />
+            </template>
+            <template v-else>
+              <v-alert
+                v-if="isWorkspaceMode && workspaceInvitePolicyLoaded && !workspaceInvitesAvailable"
+                type="warning"
+                variant="tonal"
+                class="mb-3"
+              >
+                {{ copyText.workspaceInvitesUnavailable }}
+              </v-alert>
+              <v-alert
+                v-else-if="isWorkspaceMode && workspaceInvitePolicyLoaded && !workspaceInvitesEnabled"
+                type="info"
+                variant="tonal"
+                class="mb-3"
+              >
+                {{ copyText.workspaceInvitesDisabled }}
+              </v-alert>
 
-            <v-alert v-if="!canInviteMembers" type="info" variant="tonal" class="mb-3">
-              {{ copyText.noInvitePermission }}
-            </v-alert>
+              <v-alert v-if="!canInviteMembers" type="info" variant="tonal" class="mb-3">
+                {{ copyText.noInvitePermission }}
+              </v-alert>
 
-            <template v-else-if="canShowInviteForm">
-              <v-form @submit.prevent="onSubmitInvite" novalidate>
-                <v-text-field
-                  v-model="inviteForm.email"
-                  :label="copyText.emailLabel"
-                  variant="outlined"
-                  density="comfortable"
-                  type="email"
-                  autocomplete="email"
-                  class="mb-3"
-                />
-                <v-select
-                  v-model="inviteForm.roleId"
-                  :label="copyText.roleLabel"
-                  :items="inviteRoleOptions"
-                  item-title="title"
-                  item-value="value"
-                  variant="outlined"
-                  density="comfortable"
-                  class="mb-3"
-                />
-                <slot name="invite-form-extra" :forms="forms" :options="options" :collections="collections" :permissions="permissions" :feedback="feedback" :status="status" :actions="actions" :mode="resolvedMode" />
-                <v-btn type="submit" color="primary" :loading="isCreatingInvite">{{ copyText.sendInvite }}</v-btn>
-              </v-form>
+              <template v-else-if="canShowInviteForm">
+                <v-form @submit.prevent="onSubmitInvite" novalidate>
+                  <v-text-field
+                    v-model="inviteForm.email"
+                    :label="copyText.emailLabel"
+                    variant="outlined"
+                    density="comfortable"
+                    type="email"
+                    autocomplete="email"
+                    class="mb-3"
+                  />
+                  <v-select
+                    v-model="inviteForm.roleId"
+                    :label="copyText.roleLabel"
+                    :items="inviteRoleOptions"
+                    item-title="title"
+                    item-value="value"
+                    variant="outlined"
+                    density="comfortable"
+                    class="mb-3"
+                  />
+                  <slot name="invite-form-extra" :forms="forms" :options="options" :collections="collections" :permissions="permissions" :feedback="feedback" :status="status" :actions="actions" :mode="resolvedMode" />
+                  <v-btn type="submit" color="primary" :loading="isCreatingInvite">{{ copyText.sendInvite }}</v-btn>
+                </v-form>
+              </template>
             </template>
 
             <v-alert v-if="inviteMessage" :type="inviteMessageType" variant="tonal" class="mt-3 mb-0">
@@ -71,80 +76,87 @@
           </v-card-item>
           <v-divider />
           <v-card-text>
-            <v-alert v-if="membersMessage" :type="membersMessageType" variant="tonal" class="mb-3">
-              {{ membersMessage }}
-            </v-alert>
-
-            <v-alert v-if="!canViewMembers" type="info" variant="tonal" class="mb-0">
-              {{ copyText.noViewPermission }}
-            </v-alert>
-
-            <template v-else>
-              <div class="text-caption text-medium-emphasis mb-2">{{ copyText.membersSectionTitle }}</div>
-              <v-list density="comfortable" class="pa-0 mb-3">
-                <v-list-item v-for="member in memberRows" :key="member.userId" class="px-0">
-                  <template #title>
-                    <div class="d-flex align-center ga-2">
-                      <span>{{ member.displayName || member.email }}</span>
-                      <v-chip v-if="showOwnerChip(member)" size="x-small" label color="secondary">{{ copyText.ownerChip }}</v-chip>
-                      <v-chip v-if="showConsoleChip(member)" size="x-small" label color="secondary">{{ copyText.consoleChip }}</v-chip>
-                    </div>
-                  </template>
-                  <template #subtitle>
-                    {{ member.email }}
-                  </template>
-
-                  <template #append>
-                    <v-select
-                      v-model="member.roleId"
-                      :items="memberRoleOptions"
-                      item-title="title"
-                      item-value="value"
-                      density="compact"
-                      variant="outlined"
-                      hide-details
-                      class="member-role-select"
-                      :disabled="isMemberRoleLocked(member)"
-                      @update:model-value="(value) => onMemberRoleUpdate(member, value)"
-                    />
-                  </template>
-                </v-list-item>
-              </v-list>
-
-              <slot name="members-list-extra" :forms="forms" :options="options" :collections="collections" :permissions="permissions" :feedback="feedback" :status="status" :actions="actions" :mode="resolvedMode" />
-
+            <template v-if="showMembersLoadingSkeleton">
+              <v-skeleton-loader type="text@2, list-item-avatar-two-line@3" class="mb-3" />
               <v-divider class="mb-3" />
-
-              <div class="text-caption text-medium-emphasis mb-2">{{ copyText.invitesSectionTitle }}</div>
-              <v-list density="comfortable" class="pa-0">
-                <v-list-item v-for="invite in inviteRows" :key="invite.id" class="px-0">
-                  <template #title>
-                    {{ invite.email }}
-                  </template>
-                  <template #subtitle>
-                    {{ copyText.rolePrefix }} {{ invite.roleId }} • {{ copyText.expiresPrefix }}
-                    {{ formatDateTime(invite.expiresAt) }}
-                  </template>
-                  <template #append>
-                    <v-btn
-                      v-if="canRevokeInvites"
-                      variant="text"
-                      color="error"
-                      :loading="isRevokeInviteLoading(invite.id)"
-                      @click="onRevokeInvite(invite.id)"
-                    >
-                      {{ copyText.revoke }}
-                    </v-btn>
-                  </template>
-                </v-list-item>
-                <p v-if="inviteRows.length < 1" class="text-body-2 text-medium-emphasis mb-0">{{ copyText.noPendingInvites }}</p>
-              </v-list>
-
-              <slot name="invites-list-extra" :forms="forms" :options="options" :collections="collections" :permissions="permissions" :feedback="feedback" :status="status" :actions="actions" :mode="resolvedMode" />
-
-              <v-alert v-if="teamMessage" :type="teamMessageType" variant="tonal" class="mt-3 mb-0">
-                {{ teamMessage }}
+              <v-skeleton-loader type="text, list-item-two-line@2" />
+            </template>
+            <template v-else>
+              <v-alert v-if="membersMessage" :type="membersMessageType" variant="tonal" class="mb-3">
+                {{ membersMessage }}
               </v-alert>
+
+              <v-alert v-if="!canViewMembers" type="info" variant="tonal" class="mb-0">
+                {{ copyText.noViewPermission }}
+              </v-alert>
+
+              <template v-else>
+                <div class="text-caption text-medium-emphasis mb-2">{{ copyText.membersSectionTitle }}</div>
+                <v-list density="comfortable" class="pa-0 mb-3">
+                  <v-list-item v-for="member in memberRows" :key="member.userId" class="px-0">
+                    <template #title>
+                      <div class="d-flex align-center ga-2">
+                        <span>{{ member.displayName || member.email }}</span>
+                        <v-chip v-if="showOwnerChip(member)" size="x-small" label color="secondary">{{ copyText.ownerChip }}</v-chip>
+                        <v-chip v-if="showConsoleChip(member)" size="x-small" label color="secondary">{{ copyText.consoleChip }}</v-chip>
+                      </div>
+                    </template>
+                    <template #subtitle>
+                      {{ member.email }}
+                    </template>
+
+                    <template #append>
+                      <v-select
+                        v-model="member.roleId"
+                        :items="memberRoleOptions"
+                        item-title="title"
+                        item-value="value"
+                        density="compact"
+                        variant="outlined"
+                        hide-details
+                        class="member-role-select"
+                        :disabled="isMemberRoleLocked(member)"
+                        @update:model-value="(value) => onMemberRoleUpdate(member, value)"
+                      />
+                    </template>
+                  </v-list-item>
+                </v-list>
+
+                <slot name="members-list-extra" :forms="forms" :options="options" :collections="collections" :permissions="permissions" :feedback="feedback" :status="status" :actions="actions" :mode="resolvedMode" />
+
+                <v-divider class="mb-3" />
+
+                <div class="text-caption text-medium-emphasis mb-2">{{ copyText.invitesSectionTitle }}</div>
+                <v-list density="comfortable" class="pa-0">
+                  <v-list-item v-for="invite in inviteRows" :key="invite.id" class="px-0">
+                    <template #title>
+                      {{ invite.email }}
+                    </template>
+                    <template #subtitle>
+                      {{ copyText.rolePrefix }} {{ invite.roleId }} • {{ copyText.expiresPrefix }}
+                      {{ formatDateTime(invite.expiresAt) }}
+                    </template>
+                    <template #append>
+                      <v-btn
+                        v-if="canRevokeInvites"
+                        variant="text"
+                        color="error"
+                        :loading="isRevokeInviteLoading(invite.id)"
+                        @click="onRevokeInvite(invite.id)"
+                      >
+                        {{ copyText.revoke }}
+                      </v-btn>
+                    </template>
+                  </v-list-item>
+                  <p v-if="inviteRows.length < 1" class="text-body-2 text-medium-emphasis mb-0">{{ copyText.noPendingInvites }}</p>
+                </v-list>
+
+                <slot name="invites-list-extra" :forms="forms" :options="options" :collections="collections" :permissions="permissions" :feedback="feedback" :status="status" :actions="actions" :mode="resolvedMode" />
+
+                <v-alert v-if="teamMessage" :type="teamMessageType" variant="tonal" class="mt-3 mb-0">
+                  {{ teamMessage }}
+                </v-alert>
+              </template>
             </template>
           </v-card-text>
         </v-card>
@@ -246,6 +258,14 @@ function toRecord(value) {
     return {};
   }
   return value;
+}
+
+function resolveLoadedState(value) {
+  const resolved = unref(value);
+  if (typeof resolved === "boolean") {
+    return resolved;
+  }
+  return true;
 }
 
 function normalizeVariantValue(value, supported, fallback) {
@@ -361,13 +381,15 @@ const canManageMembers = computed(() => Boolean(unref(permissions.canManageMembe
 const canRevokeInvites = computed(() => Boolean(unref(permissions.canRevokeInvites)));
 const isCreatingInvite = computed(() => Boolean(unref(status.isCreatingInvite)));
 const isRevokingInvite = computed(() => Boolean(unref(status.isRevokingInvite)));
-const workspaceInvitePolicyLoaded = computed(() => {
-  const value = unref(status.hasLoadedWorkspaceSettings);
-  if (typeof value === "boolean") {
-    return value;
-  }
-  return true;
-});
+const workspaceInvitePolicyLoaded = computed(() => resolveLoadedState(status.hasLoadedWorkspaceSettings));
+const showWorkspaceInviteLoadingSkeleton = computed(
+  () => isWorkspaceMode.value && canInviteMembers.value && !workspaceInvitePolicyLoaded.value
+);
+const showMembersLoadingSkeleton = computed(
+  () =>
+    canViewMembers.value &&
+    (!resolveLoadedState(status.hasLoadedMembersList) || !resolveLoadedState(status.hasLoadedInviteList))
+);
 
 const inviteMessage = computed(() => String(unref(feedback.inviteMessage) || ""));
 const inviteMessageType = computed(() => String(unref(feedback.inviteMessageType) || "success"));

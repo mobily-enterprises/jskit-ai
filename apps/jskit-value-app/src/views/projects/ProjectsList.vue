@@ -23,7 +23,10 @@
           {{ state.error }}
         </v-alert>
 
-        <div class="projects-table-wrap">
+        <div v-if="state.loading && !state.entries.length" class="projects-table-wrap pa-4">
+          <AppContentSkeleton variant="table" />
+        </div>
+        <div v-else class="projects-table-wrap">
           <v-table density="comfortable">
             <thead>
               <tr>
@@ -73,6 +76,7 @@
 <script setup>
 import { useProjectsList } from "./useProjectsList";
 import { formatProjectDate, projectStatusLabel } from "../../modules/projects/presentation";
+import AppContentSkeleton from "../../components/loading/AppContentSkeleton.vue";
 
 const { meta, state, actions } = useProjectsList();
 </script>

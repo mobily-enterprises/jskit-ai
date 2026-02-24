@@ -9,7 +9,7 @@
       </v-card-title>
       <v-divider />
       <v-card-text>
-        <div v-if="state.loading && !state.project" class="text-body-2 text-medium-emphasis">Loading project...</div>
+        <AppContentSkeleton v-if="state.loading && !state.project" variant="form" />
 
         <v-form v-else @submit.prevent="actions.save" novalidate>
           <v-row>
@@ -73,6 +73,7 @@
 
 <script setup>
 import { useProjectsEdit } from "./useProjectsEdit";
+import AppContentSkeleton from "../../components/loading/AppContentSkeleton.vue";
 
 const { meta, state, actions } = useProjectsEdit();
 </script>

@@ -171,6 +171,18 @@ export function useWorkspaceSettingsView(options = {}) {
   const isCreatingInvite = computed(() => createInviteMutation.isPending.value);
   const isRevokingInvite = computed(() => revokeInviteMutation.isPending.value);
   const hasLoadedWorkspaceSettings = computed(() => workspaceSettingsQuery.data.value != null);
+  const hasLoadedMembersList = computed(() => {
+    if (!includeMembersSection || !canViewMembers.value) {
+      return true;
+    }
+    return membersQuery.data.value != null;
+  });
+  const hasLoadedInviteList = computed(() => {
+    if (!includeMembersSection || !canViewMembers.value) {
+      return true;
+    }
+    return invitesQuery.data.value != null;
+  });
 
   function applyWorkspaceSettingsData(data) {
     if (!data || typeof data !== "object") {
@@ -469,7 +481,9 @@ export function useWorkspaceSettingsView(options = {}) {
       isSavingWorkspaceSettings,
       isCreatingInvite,
       isRevokingInvite,
-      hasLoadedWorkspaceSettings
+      hasLoadedWorkspaceSettings,
+      hasLoadedMembersList,
+      hasLoadedInviteList
     }),
     actions: {
       submitWorkspaceSettings,

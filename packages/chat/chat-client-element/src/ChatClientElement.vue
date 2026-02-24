@@ -93,7 +93,7 @@
           v-else-if="state.messagesLoading && state.messageRows.length < 1 && !state.composerError"
           class="chat-empty-state"
         >
-          {{ copyText.loadingMessages }}
+          <v-skeleton-loader type="list-item-avatar-two-line@4" />
         </div>
         <div v-else-if="state.messageRows.length < 1 && !state.composerError" class="chat-empty-state">
           <slot name="empty-state" :meta="meta" :state="state" :actions="actions" :helpers="helpers">
@@ -345,10 +345,12 @@
           </div>
 
           <div class="chat-dm-candidates">
-            <v-list density="comfortable" nav class="pa-0">
-              <v-list-item v-if="state.dmCandidatesLoading" :title="copyText.loadingPeople" />
+            <template v-if="state.dmCandidatesLoading">
+              <v-skeleton-loader type="list-item-avatar-two-line@4" />
+            </template>
+            <v-list v-else density="comfortable" nav class="pa-0">
               <v-list-item
-                v-else-if="dmFilteredCandidates.length < 1"
+                v-if="dmFilteredCandidates.length < 1"
                 :title="copyText.noPeople"
                 :subtitle="copyText.noPeopleHint"
               />

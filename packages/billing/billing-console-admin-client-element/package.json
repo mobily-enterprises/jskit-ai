@@ -12,6 +12,7 @@
     "./source/ConsoleBillingProductsClientElement.vue": "./src/ConsoleBillingProductsClientElement.vue"
   },
   "dependencies": {
+    "@koumoul/vjsf": "^3.26.1",
     "vue": "^3.5.13"
   },
   "devDependencies": {

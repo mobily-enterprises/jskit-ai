@@ -1,5 +1,7 @@
 <template>
   <v-app class="bg-background" :style="workspaceThemeStyle">
+    <GlobalNetworkActivityBar />
+
     <template v-if="showApplicationShell">
       <v-app-bar border density="comfortable" elevation="0" class="app-bar bg-surface">
         <v-app-bar-nav-icon
@@ -83,12 +85,14 @@
 
 <script>
 import { Outlet } from "@tanstack/vue-router";
+import GlobalNetworkActivityBar from "../../components/GlobalNetworkActivityBar.vue";
 import { useAppShell } from "./useAppShell";
 
 export default {
   name: "AppShell",
   components: {
-    Outlet
+    Outlet,
+    GlobalNetworkActivityBar
   },
   setup() {
     const { layout, user, navigation, actions } = useAppShell();

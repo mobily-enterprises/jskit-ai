@@ -28,6 +28,7 @@ This package keeps app views and stores small while preserving consistent reques
 - `@jskit-ai/web-runtime-core/useListQueryState`
 - `@jskit-ai/web-runtime-core/useUrlListPagination`
 - `@jskit-ai/web-runtime-core/useQueryErrorMessage`
+- `@jskit-ai/web-runtime-core/useGlobalNetworkActivity`
 - `@jskit-ai/web-runtime-core/transportRuntime`
 
 ## Function reference
@@ -79,6 +80,14 @@ This package keeps app views and stores small while preserving consistent reques
 Related constant:
 
 - `DEFAULT_ERROR_MESSAGE`
+
+### `useGlobalNetworkActivity`
+
+- `useGlobalNetworkActivity({ delayMs, minVisibleMs, includeRefetches })`
+  - Derives global network activity state from Vue Query fetches and mutations.
+  - Adds delay and minimum-visible smoothing to prevent UI flicker for short requests.
+  - Returns `fetchingCount`, `mutatingCount`, `isBusy`, and `isVisible`.
+  - Example: app shells render one top loading bar whenever route-level data is pending.
 
 ### `useUrlListPagination`
 

@@ -61,6 +61,8 @@ Purpose: this file is the operating contract for LLM sessions working in this re
 5. App code must not import package internals (`@jskit-ai/*/src`, `lib`, `test`, or relative deep paths into `packages`).
 6. App thin pass-through wrappers are disallowed.
 7. Runtime composition pattern is factory-based (`createAssistantRuntime`, `createChatRuntime`); avoid mutable global configure patterns.
+8. Always prefer implementing behavior with existing stack capabilities before adding custom solutions.
+9. For UI work, prefer Vuetify components, variants, and utility classes first; avoid raw CSS whenever possible and add custom CSS only when no built-in option can express the requirement.
 
 ## 5) Surface + policy rails
 

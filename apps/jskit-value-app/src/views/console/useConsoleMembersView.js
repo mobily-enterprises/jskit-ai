@@ -91,6 +91,8 @@ export function useConsoleMembersView() {
   const isCreatingInvite = computed(() => createInviteMutation.isPending.value);
   const isRevokingInvite = computed(() => revokeInviteMutation.isPending.value);
   const isUpdatingMemberRole = computed(() => updateMemberRoleMutation.isPending.value);
+  const hasLoadedMembersList = computed(() => !canViewMembers.value || membersQuery.data.value != null);
+  const hasLoadedInviteList = computed(() => !canViewMembers.value || invitesQuery.data.value != null);
 
   function applyMembersData(data) {
     members.value = Array.isArray(data?.members) ? data.members.map((member) => ({ ...member })) : [];
@@ -288,7 +290,9 @@ export function useConsoleMembersView() {
     status: reactive({
       isCreatingInvite,
       isRevokingInvite,
-      isUpdatingMemberRole
+      isUpdatingMemberRole,
+      hasLoadedMembersList,
+      hasLoadedInviteList
     }),
     actions: {
       submitInvite,

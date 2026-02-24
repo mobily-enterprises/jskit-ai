@@ -20,7 +20,10 @@
           {{ state.error }}
         </v-alert>
 
-        <div v-if="state.loading" class="text-medium-emphasis py-8">{{ copyText.loadingMessage }}</div>
+        <template v-if="state.loading">
+          <v-skeleton-loader type="text@2" class="mb-3" />
+          <v-skeleton-loader type="text@6" />
+        </template>
 
         <template v-else-if="state.entry">
           <dl class="detail-grid">

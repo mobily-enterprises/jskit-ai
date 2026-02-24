@@ -84,7 +84,10 @@
 
             <slot name="filters-extra" :meta="meta" :state="state" :actions="actions" :mode="resolvedMode" />
 
-            <v-list density="comfortable" class="pa-0 transcript-list" :class="uiClasses.transcriptList">
+            <template v-if="state.loading && state.entries.length < 1">
+              <v-skeleton-loader type="list-item-two-line@4" />
+            </template>
+            <v-list v-else density="comfortable" class="pa-0 transcript-list" :class="uiClasses.transcriptList">
               <v-list-item v-if="!state.entries.length" :title="copyText.emptyList" />
               <v-list-item
                 v-for="entry in state.entries"
@@ -161,7 +164,9 @@
               {{ state.messagesError }}
             </v-alert>
 
-            <div v-if="state.messagesLoading" class="text-body-2 text-medium-emphasis">{{ copyText.loadingConversation }}</div>
+            <template v-if="state.messagesLoading">
+              <v-skeleton-loader type="text, list-item-two-line@3" />
+            </template>
             <v-timeline v-else-if="state.messages.length > 0" density="compact" side="end" class="transcript-timeline" :class="uiClasses.timeline">
               <v-timeline-item
                 v-for="message in state.messages"

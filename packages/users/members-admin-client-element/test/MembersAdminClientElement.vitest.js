@@ -131,6 +131,7 @@ describe("MembersAdminClientElement", () => {
       })
     });
 
+    expect(wrapper.html().includes("v-skeleton-loader")).toBe(true);
     expect(wrapper.text()).not.toContain("Invites are disabled by app policy or role manifest.");
   });
 
@@ -156,5 +157,36 @@ describe("MembersAdminClientElement", () => {
     });
 
     expect(wrapper.text()).toContain("Invites are disabled by app policy or role manifest.");
+  });
+
+  it("shows members skeleton while members data is loading", () => {
+    const wrapper = mountElement({
+      props: createBaseProps({
+        status: {
+          isCreatingInvite: false,
+          isRevokingInvite: false,
+          hasLoadedMembersList: false,
+          hasLoadedInviteList: false
+        }
+      })
+    });
+
+    expect(wrapper.html().includes("v-skeleton-loader")).toBe(true);
+    expect(wrapper.text()).not.toContain("No pending invites.");
+  });
+
+  it("hides members skeleton once members data is loaded", () => {
+    const wrapper = mountElement({
+      props: createBaseProps({
+        status: {
+          isCreatingInvite: false,
+          isRevokingInvite: false,
+          hasLoadedMembersList: true,
+          hasLoadedInviteList: true
+        }
+      })
+    });
+
+    expect(wrapper.text()).toContain("Pending invites");
   });
 });

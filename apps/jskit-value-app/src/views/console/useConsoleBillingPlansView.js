@@ -9,17 +9,125 @@ const CONSOLE_BILLING_PLANS_QUERY_KEY = ["console-billing-plans"];
 const CONSOLE_BILLING_PROVIDER_PRICES_QUERY_KEY = ["console-billing-provider-prices", "plan"];
 const CONSOLE_BILLING_SETTINGS_QUERY_KEY = ["console-billing-settings"];
 
-function parseEntitlementsJson(value) {
-  const normalized = String(value || "").trim();
-  if (!normalized) {
-    return [];
-  }
+const PLAN_ENTITLEMENTS_EDITOR_SCHEMA = Object.freeze({
+  type: "object",
+  properties: {
+    entitlements: {
+      type: "array",
+      title: "Entitlements",
+      default: [],
+      items: {
+        type: "object",
+        required: ["code", "schemaVersion", "valueJson"],
+        properties: {
+          code: {
+            type: "string",
+            title: "Code",
+            minLength: 1,
+            maxLength: 120
+          },
+          schemaVersion: {
+            type: "string",
+            title: "Schema version",
+            minLength: 1,
+            maxLength: 120
+          },
+          valueJson: {
+            type: "object",
+            title: "Value",
+            additionalProperties: true,
+            properties: {
+              limit: {
+                type: "integer",
+                title: "Limit",
+                minimum: 0
+              },
+              interval: {
+                type: "string",
+                title: "Interval",
+                enum: ["day", "week", "month", "year"]
+              },
+              enforcement: {
+                type: "string",
+                title: "Enforcement",
+                enum: ["hard", "soft"]
+              },
+              enabled: {
+                type: "boolean",
+                title: "Enabled"
+              },
+              values: {
+                type: "array",
+                title: "Values",
+                uniqueItems: true,
+                items: {
+                  type: "string",
+                  minLength: 1
+                }
+              }
+            }
+          },
+          grantKind: {
+            type: "string",
+            title: "Grant kind",
+            enum: ["plan_base", "plan_bonus"]
+          },
+          effectivePolicy: {
+            type: "string",
+            title: "Effective policy",
+            enum: ["on_assignment_current", "on_period_paid"]
+          },
+          durationPolicy: {
+            type: "string",
+            title: "Duration policy",
+            enum: ["while_current", "period_window", "fixed_duration"]
+          },
+          durationDays: {
+            type: "integer",
+            title: "Duration days",
+            minimum: 1
+          },
+          metadataJson: {
+            type: "object",
+            title: "Metadata",
+            additionalProperties: true
+          }
+        },
+        additionalProperties: false
+      }
+    }
+  },
+  additionalProperties: false
+});
 
-  const parsed = JSON.parse(normalized);
-  if (!Array.isArray(parsed)) {
-    throw new Error("Entitlements JSON must be an array.");
+const PLAN_ENTITLEMENTS_EDITOR_OPTIONS = Object.freeze({
+  density: "compact"
+});
+
+function cloneJson(value, fallback) {
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return fallback;
   }
-  return parsed;
+}
+
+function normalizeEntitlementsEntries(value) {
+  const source = Array.isArray(value) ? value : [];
+  return source
+    .filter((entry) => Boolean(entry) && typeof entry === "object" && !Array.isArray(entry))
+    .map((entry) => cloneJson(entry, {}));
+}
+
+function createEntitlementsEditorModel(entries = []) {
+  return {
+    entitlements: normalizeEntitlementsEntries(entries)
+  };
+}
+
+function collectEntitlementsFromEditorModel(value) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return normalizeEntitlementsEntries(source.entitlements);
 }
 
 function formatMoneyMinor(amountMinor, currency) {
@@ -90,7 +198,7 @@ function createDefaultCreateForm() {
     isActive: true,
     billingMode: "paid",
     providerPriceId: "",
-    entitlementsJson: "[]"
+    entitlementsModel: createEntitlementsEditorModel()
   };
 }
 
@@ -102,7 +210,7 @@ function createDefaultEditForm() {
     isActive: true,
     billingMode: "paid",
     providerPriceId: "",
-    entitlementsJson: "[]"
+    entitlementsModel: createEntitlementsEditorModel()
   };
 }
 
@@ -445,7 +553,7 @@ export function useConsoleBillingPlansView() {
     editForm.billingMode = resolvePlanBillingMode(plan);
     editInitialProviderPriceId.value = String(targetPrice?.providerPriceId || "").trim();
     editForm.providerPriceId = editInitialProviderPriceId.value;
-    editForm.entitlementsJson = JSON.stringify(Array.isArray(plan.entitlements) ? plan.entitlements : [], null, 2);
+    editForm.entitlementsModel = createEntitlementsEditorModel(plan.entitlements);
     editFieldErrors.value = {};
     editError.value = "";
     editDialogOpen.value = true;
@@ -481,14 +589,7 @@ export function useConsoleBillingPlansView() {
     clearMessages();
     createError.value = "";
     createFieldErrors.value = {};
-
-    let entitlements;
-    try {
-      entitlements = parseEntitlementsJson(createForm.entitlementsJson);
-    } catch (error) {
-      createError.value = String(error?.message || "Entitlements JSON must be a valid JSON array.");
-      return;
-    }
+    const entitlements = collectEntitlementsFromEditorModel(createForm.entitlementsModel);
 
     if (
       createForm.billingMode === "paid" &&
@@ -550,13 +651,7 @@ export function useConsoleBillingPlansView() {
       return;
     }
 
-    let entitlements;
-    try {
-      entitlements = parseEntitlementsJson(editForm.entitlementsJson);
-    } catch (error) {
-      editError.value = String(error?.message || "Entitlements JSON must be a valid JSON array.");
-      return;
-    }
+    const entitlements = collectEntitlementsFromEditorModel(editForm.entitlementsModel);
 
     editSaving.value = true;
     const payload = {
@@ -640,7 +735,9 @@ export function useConsoleBillingPlansView() {
       formatPriceSummary,
       shortenProviderPriceId,
       billingPolicyOptions,
-      planBillingModeOptions
+      planBillingModeOptions,
+      entitlementsEditorSchema: PLAN_ENTITLEMENTS_EDITOR_SCHEMA,
+      entitlementsEditorOptions: PLAN_ENTITLEMENTS_EDITOR_OPTIONS
     },
     state: reactive({
       provider,

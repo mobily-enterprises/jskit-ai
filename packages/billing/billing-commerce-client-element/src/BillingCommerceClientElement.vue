@@ -65,7 +65,9 @@
             <div v-if="state.purchasesError" class="text-body-2 text-error mb-2">
               {{ state.purchasesError }}
             </div>
-            <div v-if="state.purchasesLoading" class="text-body-2 text-medium-emphasis">{{ copyText.loadingPurchases }}</div>
+            <template v-if="state.purchasesLoading">
+              <v-skeleton-loader type="text, list-item-two-line@3" />
+            </template>
             <v-list v-else-if="state.purchaseItems.length > 0" density="compact" lines="two" class="pa-0">
               <v-list-item v-for="purchase in state.purchaseItems" :key="purchase.id">
                 <template #title>{{ purchase.title }}</template>
@@ -107,7 +109,9 @@
         <div v-if="state.limitationsError" class="text-body-2 text-error mb-2">
           {{ state.limitationsError }}
         </div>
-        <div v-if="state.limitationsLoading" class="text-body-2 text-medium-emphasis">{{ copyText.loadingLimits }}</div>
+        <template v-if="state.limitationsLoading">
+          <v-skeleton-loader type="text@7" />
+        </template>
         <div v-else-if="state.limitationItems.length > 0" class="limit-grid d-grid ga-3">
           <v-card v-for="limit in state.limitationItems" :key="limit.code" rounded="lg" variant="tonal" class="limit-card">
             <v-card-item class="pb-1">

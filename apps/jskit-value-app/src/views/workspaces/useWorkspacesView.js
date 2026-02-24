@@ -20,6 +20,7 @@ export function useWorkspacesView() {
   const message = ref("");
   const messageType = ref("error");
   const selectingWorkspaceSlug = ref("");
+  const isBootstrapping = ref(true);
   const inviteAction = ref({
     token: "",
     decision: ""
@@ -108,6 +109,11 @@ export function useWorkspacesView() {
     } catch (error) {
       messageType.value = "error";
       message.value = String(error?.message || "Unable to load workspaces.");
+    } finally {
+      isBootstrapping.value = false;
+    }
+
+    if (message.value) {
       return;
     }
 
@@ -136,6 +142,9 @@ export function useWorkspacesView() {
     selection: reactive({
       selectingWorkspaceSlug,
       inviteAction
+    }),
+    status: reactive({
+      isBootstrapping
     }),
     collections: reactive({
       workspaceItems,

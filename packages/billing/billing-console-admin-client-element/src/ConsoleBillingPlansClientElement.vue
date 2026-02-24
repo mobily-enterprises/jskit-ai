@@ -242,14 +242,12 @@
 
           <v-row dense>
             <v-col cols="12">
-              <v-textarea
-                v-model="state.createForm.entitlementsJson"
-                label="Entitlements JSON array"
-                variant="outlined"
-                density="compact"
-                rows="5"
-                auto-grow
-                :error-messages="state.createFieldErrors['entitlements[0].valueJson']"
+              <div class="text-caption text-medium-emphasis mb-2">Entitlements</div>
+              <Vjsf
+                v-model="state.createForm.entitlementsModel"
+                :schema="entitlementsEditorSchema"
+                :options="entitlementsEditorOptions"
+                class="entitlements-editor"
               />
               <v-alert
                 v-if="state.createEntitlementErrors.length"
@@ -525,14 +523,12 @@
           </v-alert>
           <v-row dense class="mt-2">
             <v-col cols="12">
-              <v-textarea
-                v-model="state.editForm.entitlementsJson"
-                label="Entitlements JSON array"
-                variant="outlined"
-                density="compact"
-                rows="5"
-                auto-grow
-                :error-messages="state.editFieldErrors['entitlements[0].valueJson']"
+              <div class="text-caption text-medium-emphasis mb-2">Entitlements</div>
+              <Vjsf
+                v-model="state.editForm.entitlementsModel"
+                :schema="entitlementsEditorSchema"
+                :options="entitlementsEditorOptions"
+                class="entitlements-editor"
               />
               <v-alert
                 v-if="state.editEntitlementErrors.length"
@@ -559,6 +555,9 @@
 </template>
 
 <script setup>
+import { computed } from "vue";
+import { Vjsf } from "@koumoul/vjsf";
+
 const props = defineProps({
   meta: {
     type: Object,
@@ -577,6 +576,23 @@ const props = defineProps({
 const meta = props.meta;
 const state = props.state;
 const actions = props.actions;
+
+const fallbackEntitlementsEditorSchema = Object.freeze({
+  type: "object",
+  properties: {
+    entitlements: {
+      type: "array",
+      items: {
+        type: "object"
+      }
+    }
+  }
+});
+
+const entitlementsEditorSchema = computed(
+  () => meta.entitlementsEditorSchema || fallbackEntitlementsEditorSchema
+);
+const entitlementsEditorOptions = computed(() => meta.entitlementsEditorOptions || null);
 </script>
 
 <style scoped>
@@ -636,6 +652,12 @@ const actions = props.actions;
 .price-grid {
   display: grid;
   gap: 6px;
+}
+
+.entitlements-editor {
+  border: 1px solid rgba(54, 66, 58, 0.14);
+  border-radius: 8px;
+  padding: 10px;
 }
 
 .code-sheet pre {

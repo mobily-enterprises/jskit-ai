@@ -15,7 +15,7 @@
           {{ state.error }}
         </v-alert>
 
-        <div v-if="state.loading && !state.project" class="text-body-2 text-medium-emphasis">Loading project...</div>
+        <AppContentSkeleton v-if="state.loading && !state.project" variant="detail" />
 
         <template v-else-if="state.project">
           <v-row>
@@ -39,6 +39,7 @@
 <script setup>
 import { useProjectsView } from "./useProjectsView";
 import { formatProjectDate, projectStatusLabel } from "../../modules/projects/presentation";
+import AppContentSkeleton from "../../components/loading/AppContentSkeleton.vue";
 
 const { state, actions } = useProjectsView();
 </script>

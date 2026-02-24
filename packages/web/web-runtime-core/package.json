@@ -13,10 +13,12 @@
     "./useListQueryState": "./src/useListQueryState.js",
     "./useUrlListPagination": "./src/useUrlListPagination.js",
     "./useQueryErrorMessage": "./src/useQueryErrorMessage.js",
+    "./useGlobalNetworkActivity": "./src/useGlobalNetworkActivity.js",
     "./transportRuntime": "./src/transportRuntime.js"
   },
   "dependencies": {
     "@jskit-ai/http-client-runtime": "0.1.0",
+    "@tanstack/vue-query": "^5.90.5",
     "@tanstack/vue-router": "^1.159.10",
     "vue": "^3.5.13"
   }

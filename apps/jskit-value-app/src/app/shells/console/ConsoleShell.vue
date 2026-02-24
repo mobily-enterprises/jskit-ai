@@ -1,5 +1,7 @@
 <template>
   <v-app class="bg-background">
+    <GlobalNetworkActivityBar />
+
     <template v-if="showApplicationShell">
       <v-app-bar border density="comfortable" elevation="0" class="console-bar bg-surface">
         <v-app-bar-nav-icon
@@ -114,12 +116,14 @@
 
 <script>
 import { Outlet } from "@tanstack/vue-router";
+import GlobalNetworkActivityBar from "../../components/GlobalNetworkActivityBar.vue";
 import { useConsoleShell } from "./useConsoleShell";
 
 export default {
   name: "ConsoleShell",
   components: {
-    Outlet
+    Outlet,
+    GlobalNetworkActivityBar
   },
   setup() {
     const { layout, user, permissions, navigation, actions } = useConsoleShell();
