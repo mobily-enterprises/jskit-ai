@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { RETENTION_QUEUE_NAME, RETENTION_SWEEP_JOB_NAME } from "../server/workers/constants.js";
+import {
+  RETENTION_QUEUE_NAME,
+  RETENTION_SWEEP_JOB_NAME,
+  createWorkerRedisPrefix
+} from "../server/workers/constants.js";
 import { createRetentionQueue, enqueueRetentionSweep, __testables } from "../server/workers/retentionQueue.js";
 
 test("retention queue payload normalizers enforce stable defaults", () => {
@@ -46,6 +50,7 @@ test("idempotency key normalization avoids collisions for overlong keys", () => 
 });
 
 test("createRetentionQueue requires connection and configures BullMQ queue name", () => {
+  const redisNamespace = "jskit:value-app:test";
   const calls = {
     name: "",
     options: null
@@ -59,15 +64,26 @@ test("createRetentionQueue requires connection and configures BullMQ queue name"
   }
 
   assert.throws(() => createRetentionQueue({ queueCtor: FakeQueue }), /connection is required/);
+  assert.throws(
+    () =>
+      createRetentionQueue({
+        connection: { id: "conn_1" },
+        redisNamespace: "",
+        queueCtor: FakeQueue
+      }),
+    /REDIS_NAMESPACE is required/
+  );
 
   const queue = createRetentionQueue({
     connection: { id: "conn_1" },
+    redisNamespace,
     queueCtor: FakeQueue
   });
 
   assert.ok(queue);
   assert.equal(calls.name, RETENTION_QUEUE_NAME);
   assert.equal(calls.options.connection.id, "conn_1");
+  assert.equal(calls.options.prefix, createWorkerRedisPrefix(redisNamespace));
 });
 
 test("enqueueRetentionSweep pushes normalized payload with retry/backoff defaults", async () => {

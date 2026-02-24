@@ -42,6 +42,7 @@ export const runtimeEnv = cleanEnv(
       default: "memory"
     }),
     REDIS_URL: str({ default: "" }),
+    REDIS_NAMESPACE: str(),
     WORKER_CONCURRENCY: num({ default: 2 }),
     WORKER_LOCK_HELD_REQUEUE_MAX: num({ default: 3 }),
     WORKER_RETENTION_LOCK_TTL_MS: num({ default: 1800000 }),

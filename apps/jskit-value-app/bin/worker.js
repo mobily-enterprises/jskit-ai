@@ -6,6 +6,7 @@ import { createWorkerRuntime } from "../server/workers/runtime.js";
 
 const runtime = createWorkerRuntime({
   redisUrl: runtimeEnv.REDIS_URL,
+  redisNamespace: runtimeEnv.REDIS_NAMESPACE,
   workerConcurrency: runtimeEnv.WORKER_CONCURRENCY,
   lockHeldRequeueMax: runtimeEnv.WORKER_LOCK_HELD_REQUEUE_MAX,
   retentionLockTtlMs: runtimeEnv.WORKER_RETENTION_LOCK_TTL_MS,

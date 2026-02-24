@@ -1,5 +1,9 @@
 import { Queue } from "bullmq";
-import { RETENTION_DEAD_LETTER_JOB_NAME, RETENTION_DEAD_LETTER_QUEUE_NAME } from "./constants.js";
+import {
+  RETENTION_DEAD_LETTER_JOB_NAME,
+  RETENTION_DEAD_LETTER_QUEUE_NAME,
+  createWorkerRedisPrefix
+} from "./constants.js";
 
 const DEFAULT_DEAD_LETTER_JOB_OPTIONS = Object.freeze({
   attempts: 1,
@@ -37,13 +41,15 @@ function buildDeadLetterPayload({ job, error }) {
   };
 }
 
-function createRetentionDeadLetterQueue({ connection, queueCtor = Queue } = {}) {
+function createRetentionDeadLetterQueue({ connection, redisNamespace, queueCtor = Queue } = {}) {
   if (!connection) {
     throw new Error("BullMQ connection is required.");
   }
 
+  const prefix = createWorkerRedisPrefix(redisNamespace);
   return new queueCtor(RETENTION_DEAD_LETTER_QUEUE_NAME, {
-    connection
+    connection,
+    prefix
   });
 }
 

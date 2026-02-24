@@ -55,9 +55,11 @@ test("rate-limit helper normalizes modes and resolves key material", () => {
 });
 
 test("rate-limit plugin options support memory and redis modes", () => {
+  const redisNamespace = "jskit:value-app:test";
   const memoryOptions = createRateLimitPluginOptions({
     mode: "memory",
-    redisUrl: ""
+    redisUrl: "",
+    redisNamespace
   });
   assert.equal(memoryOptions.global, false);
   assert.equal(typeof memoryOptions.keyGenerator, "function");
@@ -66,8 +68,19 @@ test("rate-limit plugin options support memory and redis modes", () => {
   assert.throws(
     () =>
       createRateLimitPluginOptions({
+        mode: "memory",
+        redisUrl: "",
+        redisNamespace: ""
+      }),
+    /REDIS_NAMESPACE is required/
+  );
+
+  assert.throws(
+    () =>
+      createRateLimitPluginOptions({
         mode: "redis",
-        redisUrl: ""
+        redisUrl: "",
+        redisNamespace
       }),
     /REDIS_URL is required/
   );
@@ -79,6 +92,7 @@ test("rate-limit plugin options support memory and redis modes", () => {
   const redisOptions = createRateLimitPluginOptions({
     mode: "redis",
     redisUrl: "redis://localhost:6379",
+    redisNamespace,
     redisClientFactory({ redisUrl }) {
       redisFactoryCalls += 1;
       assert.equal(redisUrl, "redis://localhost:6379");
@@ -88,13 +102,17 @@ test("rate-limit plugin options support memory and redis modes", () => {
   assert.equal(redisFactoryCalls, 1);
   assert.equal(redisOptions.global, false);
   assert.equal(redisOptions.redis, fakeRedisClient);
-  assert.equal(redisOptions.nameSpace, rateLimitTestables.RATE_LIMIT_REDIS_NAMESPACE);
+  assert.equal(
+    redisOptions.nameSpace,
+    `${rateLimitTestables.buildRedisScopedKey(redisNamespace, rateLimitTestables.RATE_LIMIT_REDIS_NAMESPACE_SEGMENT)}:`
+  );
 
   assert.throws(
     () =>
       createRateLimitPluginOptions({
         mode: "redis",
         redisUrl: "redis://localhost:6379",
+        redisNamespace,
         redisClientFactory() {
           return null;
         }

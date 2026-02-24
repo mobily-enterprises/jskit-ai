@@ -1,8 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { RETENTION_QUEUE_NAME } from "../server/workers/constants.js";
+import { RETENTION_QUEUE_NAME, createWorkerRedisPrefix } from "../server/workers/constants.js";
 import { createWorkerRuntime, __testables } from "../server/workers/runtime.js";
+
+test("worker runtime requires a redis namespace", () => {
+  assert.throws(
+    () =>
+      createWorkerRuntime({
+        redisUrl: "redis://localhost:6379/1"
+      }),
+    /REDIS_NAMESPACE is required/
+  );
+});
 
 test("worker runtime starts/stops BullMQ worker with normalized concurrency", async () => {
   const events = {};
@@ -46,6 +56,7 @@ test("worker runtime starts/stops BullMQ worker with normalized concurrency", as
 
   const runtime = createWorkerRuntime({
     redisUrl: "redis://localhost:6379/1",
+    redisNamespace: "jskit:value-app:test",
     workerConcurrency: "5",
     retentionLockTtlMs: 12000,
     retentionConfig: {
@@ -78,6 +89,7 @@ test("worker runtime starts/stops BullMQ worker with normalized concurrency", as
   assert.equal(calls.workerCtor[0].queueName, RETENTION_QUEUE_NAME);
   assert.equal(calls.workerCtor[0].options.connection, fakeConnection);
   assert.equal(calls.workerCtor[0].options.concurrency, 5);
+  assert.equal(calls.workerCtor[0].options.prefix, createWorkerRedisPrefix("jskit:value-app:test"));
   assert.ok(calls.processorArgs);
   assert.equal(calls.processorArgs.lockConnection, fakeConnection);
   assert.equal(calls.processorArgs.lockTtlMs, 12000);
@@ -132,6 +144,7 @@ test("worker runtime coalesces concurrent starts into a single worker instance",
 
   const runtime = createWorkerRuntime({
     redisUrl: "redis://localhost:6379/1",
+    redisNamespace: "jskit:value-app:test",
     workerCtor: FakeWorker,
     connectionFactory: () => ({
       async quit() {},
@@ -178,6 +191,7 @@ test("worker runtime retries lock-held job failures without dead-lettering", asy
 
   const runtime = createWorkerRuntime({
     redisUrl: "redis://localhost:6379/1",
+    redisNamespace: "jskit:value-app:test",
     workerCtor: FakeWorker,
     logger: {
       warn(_payload, message) {
@@ -258,6 +272,7 @@ test("worker runtime only auto-requeues lock-held failures after attempts are ex
 
   const runtime = createWorkerRuntime({
     redisUrl: "redis://localhost:6379/1",
+    redisNamespace: "jskit:value-app:test",
     workerCtor: FakeWorker,
     connectionFactory: () => ({
       async quit() {},
@@ -317,6 +332,7 @@ test("worker runtime dead-letters lock-held failures when lock-held requeue budg
 
   const runtime = createWorkerRuntime({
     redisUrl: "redis://localhost:6379/1",
+    redisNamespace: "jskit:value-app:test",
     lockHeldRequeueMax: 0,
     workerCtor: FakeWorker,
     logger: {
@@ -395,6 +411,7 @@ test("worker runtime dead-letters terminal lock-held failures when auto-requeue 
 
   const runtime = createWorkerRuntime({
     redisUrl: "redis://localhost:6379/1",
+    redisNamespace: "jskit:value-app:test",
     workerCtor: FakeWorker,
     logger: {
       warn(_payload, message) {
@@ -464,6 +481,7 @@ test("worker runtime dead-letters terminal lock-held failures when auto-requeue 
 
   const runtime = createWorkerRuntime({
     redisUrl: "redis://localhost:6379/1",
+    redisNamespace: "jskit:value-app:test",
     workerCtor: FakeWorker,
     logger: {
       warn(_payload, message) {
@@ -541,6 +559,7 @@ test("worker runtime drains in-flight dead-letter enqueues before closing queue 
 
   const runtime = createWorkerRuntime({
     redisUrl: "redis://localhost:6379/1",
+    redisNamespace: "jskit:value-app:test",
     workerCtor: FakeWorker,
     connectionFactory: () => ({
       async quit() {},
@@ -641,6 +660,7 @@ test("worker runtime stop aborts pending lock-held requeue delay and dead-letter
 
   const runtime = createWorkerRuntime({
     redisUrl: "redis://localhost:6379/1",
+    redisNamespace: "jskit:value-app:test",
     workerCtor: FakeWorker,
     connectionFactory: () => ({
       async quit() {},
@@ -710,6 +730,7 @@ test("worker runtime stop continues closing resources when worker close fails", 
 
   const runtime = createWorkerRuntime({
     redisUrl: "redis://localhost:6379/1",
+    redisNamespace: "jskit:value-app:test",
     workerCtor: FakeWorker,
     connectionFactory: () => ({
       async quit() {
@@ -754,6 +775,7 @@ test("worker runtime start cleanup closes remaining resources even if worker clo
 
   const runtime = createWorkerRuntime({
     redisUrl: "redis://localhost:6379/1",
+    redisNamespace: "jskit:value-app:test",
     workerCtor: FakeWorker,
     connectionFactory: () => ({
       async quit() {
@@ -795,6 +817,7 @@ test("worker runtime stop continues redis close when dead-letter queue close fai
 
   const runtime = createWorkerRuntime({
     redisUrl: "redis://localhost:6379/1",
+    redisNamespace: "jskit:value-app:test",
     workerCtor: FakeWorker,
     connectionFactory: () => ({
       async quit() {
@@ -840,6 +863,7 @@ test("worker runtime start times out and closes resources when worker never beco
 
   const runtime = createWorkerRuntime({
     redisUrl: "redis://localhost:6379/1",
+    redisNamespace: "jskit:value-app:test",
     workerCtor: FakeWorker,
     workerStartupTimeoutMs: 1000,
     connectionFactory: () => ({
@@ -886,6 +910,7 @@ test("worker runtime logs startup errors only once before ready", async () => {
 
   const runtime = createWorkerRuntime({
     redisUrl: "redis://localhost:6379/1",
+    redisNamespace: "jskit:value-app:test",
     workerCtor: FakeWorker,
     logger: {
       error(_payload, message) {

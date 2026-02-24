@@ -17,7 +17,8 @@ async function main() {
     redisUrl: runtimeEnv.REDIS_URL
   });
   const queue = createRetentionQueue({
-    connection
+    connection,
+    redisNamespace: runtimeEnv.REDIS_NAMESPACE
   });
 
   try {

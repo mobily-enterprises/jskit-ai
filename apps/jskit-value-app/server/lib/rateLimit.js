@@ -1,9 +1,10 @@
 import { createRequire } from "node:module";
 import { resolveClientIpAddress } from "./primitives/requestUrl.js";
+import { buildRedisScopedKey, normalizeRedisNamespace } from "./redisNamespace.js";
 
 const RATE_LIMIT_MODE_MEMORY = "memory";
 const RATE_LIMIT_MODE_REDIS = "redis";
-const RATE_LIMIT_REDIS_NAMESPACE = "jskit-rate-limit-";
+const RATE_LIMIT_REDIS_NAMESPACE_SEGMENT = "rate-limit";
 const require = createRequire(import.meta.url);
 
 function normalizeRateLimitMode(value) {
@@ -53,8 +54,9 @@ function createRedisRateLimitClient({ redisUrl, redisCtor } = {}) {
   });
 }
 
-function createRateLimitPluginOptions({ mode, redisUrl, redisClientFactory } = {}) {
+function createRateLimitPluginOptions({ mode, redisUrl, redisNamespace, redisClientFactory } = {}) {
   const resolvedMode = normalizeRateLimitMode(mode);
+  const normalizedRedisNamespace = normalizeRedisNamespace(redisNamespace);
   const baseOptions = {
     global: false,
     keyGenerator: defaultRateLimitKeyGenerator
@@ -75,7 +77,7 @@ function createRateLimitPluginOptions({ mode, redisUrl, redisClientFactory } = {
     return {
       ...baseOptions,
       redis: redisClient,
-      nameSpace: RATE_LIMIT_REDIS_NAMESPACE,
+      nameSpace: `${buildRedisScopedKey(normalizedRedisNamespace, RATE_LIMIT_REDIS_NAMESPACE_SEGMENT)}:`,
       skipOnError: false
     };
   }
@@ -96,7 +98,7 @@ function resolveRateLimitStartupError({ mode, nodeEnv }) {
   if (resolvedMode !== RATE_LIMIT_MODE_REDIS) {
     return (
       "RATE_LIMIT_MODE=redis is required in production. " +
-      "Configure REDIS_URL and run with a shared Redis-backed rate-limit store."
+      "Configure REDIS_URL and REDIS_NAMESPACE, and run with a shared Redis-backed rate-limit store."
     );
   }
 
@@ -121,8 +123,10 @@ function resolveRateLimitStartupWarning({ mode, nodeEnv }) {
 const __testables = {
   RATE_LIMIT_MODE_MEMORY,
   RATE_LIMIT_MODE_REDIS,
-  RATE_LIMIT_REDIS_NAMESPACE,
+  RATE_LIMIT_REDIS_NAMESPACE_SEGMENT,
   normalizeRateLimitMode,
+  normalizeRedisNamespace,
+  buildRedisScopedKey,
   resolveClientIpAddress,
   defaultRateLimitKeyGenerator,
   resolveRedisClientConstructor,
@@ -132,7 +136,7 @@ const __testables = {
 export {
   RATE_LIMIT_MODE_MEMORY,
   RATE_LIMIT_MODE_REDIS,
-  RATE_LIMIT_REDIS_NAMESPACE,
+  RATE_LIMIT_REDIS_NAMESPACE_SEGMENT,
   createRateLimitPluginOptions,
   resolveRateLimitStartupError,
   resolveRateLimitStartupWarning,

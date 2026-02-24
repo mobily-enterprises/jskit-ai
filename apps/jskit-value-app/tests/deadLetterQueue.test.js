@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { RETENTION_DEAD_LETTER_JOB_NAME, RETENTION_DEAD_LETTER_QUEUE_NAME } from "../server/workers/constants.js";
+import {
+  RETENTION_DEAD_LETTER_JOB_NAME,
+  RETENTION_DEAD_LETTER_QUEUE_NAME,
+  createWorkerRedisPrefix
+} from "../server/workers/constants.js";
 import {
   createRetentionDeadLetterQueue,
   enqueueRetentionDeadLetterJob,
@@ -33,6 +37,7 @@ test("dead-letter queue payload mapper serializes job and error details", () => 
 });
 
 test("createRetentionDeadLetterQueue validates connection and queue name", () => {
+  const redisNamespace = "jskit:value-app:test";
   class FakeQueue {
     constructor(name, options) {
       this.name = name;
@@ -41,16 +46,29 @@ test("createRetentionDeadLetterQueue validates connection and queue name", () =>
   }
 
   assert.throws(() => createRetentionDeadLetterQueue({ queueCtor: FakeQueue }), /connection is required/);
+  assert.throws(
+    () =>
+      createRetentionDeadLetterQueue({
+        connection: {
+          id: "conn_1"
+        },
+        redisNamespace: "",
+        queueCtor: FakeQueue
+      }),
+    /REDIS_NAMESPACE is required/
+  );
 
   const queue = createRetentionDeadLetterQueue({
     connection: {
       id: "conn_1"
     },
+    redisNamespace,
     queueCtor: FakeQueue
   });
 
   assert.equal(queue.name, RETENTION_DEAD_LETTER_QUEUE_NAME);
   assert.equal(queue.options.connection.id, "conn_1");
+  assert.equal(queue.options.prefix, createWorkerRedisPrefix(redisNamespace));
 });
 
 test("enqueueRetentionDeadLetterJob adds stable failed-job payload with deterministic id", async () => {

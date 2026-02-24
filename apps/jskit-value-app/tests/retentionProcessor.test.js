@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { createRetentionSweepLockKey } from "../server/workers/constants.js";
 import { createRetentionSweepProcessor, __testables } from "../server/workers/retentionProcessor.js";
+
+const REDIS_NAMESPACE = "jskit:value-app:test";
 
 test("retention sweep processor normalizes retention config and executes runSweep", async () => {
   const calls = {
@@ -14,6 +17,7 @@ test("retention sweep processor normalizes retention config and executes runSwee
 
   const processor = createRetentionSweepProcessor({
     logger: null,
+    redisNamespace: REDIS_NAMESPACE,
     retentionConfig: {
       errorLogRetentionDays: "45",
       inviteArtifactRetentionDays: "120",
@@ -54,7 +58,6 @@ test("retention sweep processor normalizes retention config and executes runSwee
       };
     },
     lockConnection: { id: "redis_lock" },
-    lockKey: "lock:test.retention",
     lockTtlMs: 10000,
     acquireDistributedLockImpl: async (payload) => {
       calls.lockAcquire.push(payload);
@@ -92,7 +95,7 @@ test("retention sweep processor normalizes retention config and executes runSwee
   assert.equal(calls.runSweep.length, 1);
   assert.equal(calls.runSweep[0].dryRun, true);
   assert.equal(calls.lockAcquire.length, 1);
-  assert.equal(calls.lockAcquire[0].key, "lock:test.retention");
+  assert.equal(calls.lockAcquire[0].key, createRetentionSweepLockKey(REDIS_NAMESPACE));
   assert.equal(calls.lockAcquire[0].ttlMs, 10000);
   assert.equal(calls.lockRelease.length, 1);
   assert.equal(result.trigger, "cron");
@@ -117,6 +120,7 @@ test("retention processor throws retryable lock-held error when distributed lock
 
   const processor = createRetentionSweepProcessor({
     logger: null,
+    redisNamespace: REDIS_NAMESPACE,
     retentionConfig: {},
     lockConnection: { id: "redis_lock" },
     acquireDistributedLockImpl: async () => false,
@@ -177,6 +181,7 @@ test("retention processor extends lock heartbeat while sweep is running", async 
 
   const processor = createRetentionSweepProcessor({
     logger: null,
+    redisNamespace: REDIS_NAMESPACE,
     retentionConfig: {},
     lockConnection: { id: "redis_lock" },
     lockTtlMs: 900,
@@ -237,6 +242,7 @@ test("retention processor fails job when lock extension is lost during sweep", a
 
   const processor = createRetentionSweepProcessor({
     logger: null,
+    redisNamespace: REDIS_NAMESPACE,
     retentionConfig: {},
     lockConnection: { id: "redis_lock" },
     lockTtlMs: 900,
@@ -293,6 +299,7 @@ test("retention processor fails when an in-flight lock heartbeat reports failure
 
   const processor = createRetentionSweepProcessor({
     logger: null,
+    redisNamespace: REDIS_NAMESPACE,
     retentionConfig: {},
     lockConnection: { id: "redis_lock" },
     lockTtlMs: 900,

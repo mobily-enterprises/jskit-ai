@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Queue } from "bullmq";
-import { RETENTION_QUEUE_NAME, RETENTION_SWEEP_JOB_NAME } from "./constants.js";
+import { RETENTION_QUEUE_NAME, RETENTION_SWEEP_JOB_NAME, createWorkerRedisPrefix } from "./constants.js";
 
 const DEFAULT_RETENTION_JOB_OPTIONS = Object.freeze({
   attempts: 3,
@@ -95,13 +95,15 @@ function normalizeRequestedIdempotencyKey(value) {
   return String(value || "").trim();
 }
 
-function createRetentionQueue({ connection, queueCtor = Queue } = {}) {
+function createRetentionQueue({ connection, redisNamespace, queueCtor = Queue } = {}) {
   if (!connection) {
     throw new Error("BullMQ connection is required.");
   }
 
+  const prefix = createWorkerRedisPrefix(redisNamespace);
   return new queueCtor(RETENTION_QUEUE_NAME, {
-    connection
+    connection,
+    prefix
   });
 }
 

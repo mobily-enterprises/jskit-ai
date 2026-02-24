@@ -615,7 +615,8 @@ function registerPageGuardHook(app) {
 export async function buildServer({ frontendBuildAvailable }) {
   const rateLimitPluginOptions = createRateLimitPluginOptions({
     mode: runtimeEnv.RATE_LIMIT_MODE,
-    redisUrl: runtimeEnv.REDIS_URL
+    redisUrl: runtimeEnv.REDIS_URL,
+    redisNamespace: runtimeEnv.REDIS_NAMESPACE
   });
 
   const loggerOptions = NODE_ENV === "test" ? false : createFastifyLoggerOptions();

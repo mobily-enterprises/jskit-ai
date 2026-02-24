@@ -84,6 +84,8 @@ export PLIVO_SOURCE_NUMBER=""
 export RATE_LIMIT_MODE="memory"
 # required when RATE_LIMIT_MODE=redis
 export REDIS_URL=""
+# required for all modes; must be unique per app/environment (example: jskit:value-app:development)
+export REDIS_NAMESPACE=""
 # set true behind a trusted reverse proxy / load balancer
 export TRUST_PROXY="false"
 # Prometheus metrics endpoint toggle
@@ -434,6 +436,7 @@ Auth/security behavior:
 - Password reset routes are rate-limited and return generic forgot-password responses.
 - Rate-limit mode defaults to in-memory (`RATE_LIMIT_MODE=memory`) for local/dev.
 - Production startup requires shared Redis mode (`RATE_LIMIT_MODE=redis`) with `REDIS_URL`.
+- `REDIS_NAMESPACE` is required and app/environment-scoped; it isolates rate-limit keys, BullMQ keys, and worker locks.
 - Console root identity is persisted once assigned; only root can modify root membership, and root profile deletion is DB-protected.
 - Set `TRUST_PROXY=true` when deploying behind a trusted reverse proxy/load balancer so client IP resolution is correct.
 - All unsafe API methods (`POST/PUT/PATCH/DELETE`) enforce CSRF token checks.

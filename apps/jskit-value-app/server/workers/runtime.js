@@ -1,5 +1,5 @@
 import { Worker } from "bullmq";
-import { RETENTION_QUEUE_NAME } from "./constants.js";
+import { RETENTION_QUEUE_NAME, createWorkerRedisPrefix } from "./constants.js";
 import { createRetentionDeadLetterQueue, enqueueRetentionDeadLetterJob } from "./deadLetterQueue.js";
 import { createWorkerRedisConnection, closeWorkerRedisConnection } from "./redisConnection.js";
 import { createRetentionSweepProcessor, isRetentionLockHeldError } from "./retentionProcessor.js";
@@ -202,6 +202,7 @@ function createLogger(logger = null) {
 
 function createWorkerRuntime({
   redisUrl,
+  redisNamespace,
   workerConcurrency = 2,
   workerStartupTimeoutMs = 15_000,
   lockHeldRequeueMax = DEFAULT_LOCK_HELD_REQUEUE_MAX,
@@ -215,6 +216,7 @@ function createWorkerRuntime({
   enqueueRetentionDeadLetterJobImpl = enqueueRetentionDeadLetterJob
 } = {}) {
   const appLogger = createLogger(logger);
+  const workerRedisPrefix = createWorkerRedisPrefix(redisNamespace);
   const concurrency = normalizeConcurrency(workerConcurrency, 2);
   const startupTimeoutMs = normalizeStartupTimeoutMs(workerStartupTimeoutMs, 15_000);
   const maxLockHeldRequeues = normalizeLockHeldRequeueMax(lockHeldRequeueMax, DEFAULT_LOCK_HELD_REQUEUE_MAX);
@@ -522,18 +524,21 @@ function createWorkerRuntime({
 
       try {
         deadLetterQueue = createRetentionDeadLetterQueueImpl({
-          connection
+          connection,
+          redisNamespace
         });
         const processor = createRetentionSweepProcessorImpl({
           logger: appLogger,
           retentionConfig,
+          redisNamespace,
           lockConnection: connection,
           lockTtlMs: retentionLockTtlMs
         });
 
         worker = new workerCtor(RETENTION_QUEUE_NAME, processor, {
           connection,
-          concurrency
+          concurrency,
+          prefix: workerRedisPrefix
         });
 
         worker.on("failed", (job, error) => {

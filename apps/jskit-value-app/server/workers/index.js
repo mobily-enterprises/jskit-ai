@@ -3,7 +3,8 @@ export {
   RETENTION_SWEEP_JOB_NAME,
   RETENTION_DEAD_LETTER_QUEUE_NAME,
   RETENTION_DEAD_LETTER_JOB_NAME,
-  RETENTION_SWEEP_LOCK_KEY
+  createWorkerRedisPrefix,
+  createRetentionSweepLockKey
 } from "./constants.js";
 export { createWorkerRedisConnection, closeWorkerRedisConnection } from "./redisConnection.js";
 export { createRetentionQueue, enqueueRetentionSweep } from "./retentionQueue.js";

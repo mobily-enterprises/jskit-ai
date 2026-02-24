@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createService as createRetentionService } from "../domain/operations/services/retention.service.js";
 import { createRepositories } from "../runtime/repositories.js";
-import { RETENTION_SWEEP_LOCK_KEY } from "./constants.js";
+import { createRetentionSweepLockKey } from "./constants.js";
 import {
   acquireDistributedLock,
   releaseDistributedLock,
@@ -68,8 +68,8 @@ function normalizeLockHeartbeatIntervalMs(lockTtlMs) {
 function createRetentionSweepProcessor({
   logger = null,
   retentionConfig = {},
+  redisNamespace,
   lockConnection = null,
-  lockKey = RETENTION_SWEEP_LOCK_KEY,
   lockTtlMs = 30 * 60 * 1000,
   acquireDistributedLockImpl = acquireDistributedLock,
   releaseDistributedLockImpl = releaseDistributedLock,
@@ -77,6 +77,7 @@ function createRetentionSweepProcessor({
   createRepositoriesImpl = createRepositories,
   createRetentionServiceImpl = createRetentionService
 } = {}) {
+  const lockKey = createRetentionSweepLockKey(redisNamespace);
   const normalizedLockTtlMs = normalizeLockTtlMs(lockTtlMs, 30 * 60 * 1000);
   const repositories = createRepositoriesImpl();
   const retentionService = createRetentionServiceImpl({
