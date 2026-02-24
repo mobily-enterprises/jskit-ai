@@ -32,6 +32,28 @@ Future console capabilities (not yet implemented):
 
 - moderation tools and policy workflows
 
+## Shared Primitive Migration
+
+`server/lib` primitives used by `jskit-value-app` were moved to shared runtime packages.
+
+### Import mapping
+
+| Old app-local import | New shared import |
+| --- | --- |
+| `server/lib/errors.js` | `@jskit-ai/server-runtime-core/errors` |
+| `server/lib/primitives/integers.js` | `@jskit-ai/server-runtime-core/integers` |
+| `server/lib/primitives/requestUrl.js` | `@jskit-ai/server-runtime-core/requestUrl` |
+| `server/lib/primitives/pagination.js` | `@jskit-ai/server-runtime-core/pagination` |
+| `server/lib/primitives/dateUtils.js` | `@jskit-ai/knex-mysql-core/dateUtils` |
+| `server/lib/primitives/mysqlErrors.js` | `@jskit-ai/knex-mysql-core/mysqlErrors` |
+| `server/lib/primitives/retention.js` | `@jskit-ai/knex-mysql-core/retention` |
+
+### Adding new shared primitives
+
+1. Add helper + tests to the correct runtime package (`server-runtime-core` or `knex-mysql-core`) and export it.
+2. Add the package dependency to consumers in `package.json`.
+3. Migrate imports from app-local copies to shared package exports, then delete the duplicate local helper.
+
 ## Stack
 
 - Backend: Fastify
