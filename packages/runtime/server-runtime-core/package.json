@@ -1,0 +1,16 @@
+{
+  "name": "@jskit-ai/server-runtime-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./errors": "./src/errors.js",
+    "./integers": "./src/integers.js",
+    "./requestUrl": "./src/requestUrl.js",
+    "./pagination": "./src/pagination.js"
+  }
+}
