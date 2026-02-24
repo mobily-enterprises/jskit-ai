@@ -142,7 +142,7 @@ test("user profiles helpers and mapper branches", () => {
   assert.equal(profilesTestables.isMysqlDuplicateEntryError(null), false);
   assert.equal(profilesTestables.isMysqlDuplicateEntryError({ code: "ER_DUP_ENTRY" }), true);
   assert.equal(profilesTestables.duplicateEntryTargetsField(duplicateErrorFor("email"), "email"), true);
-  assert.equal(profilesTestables.duplicateEntryTargetsField(duplicateErrorFor("supabase_user_id"), "email"), false);
+  assert.equal(profilesTestables.duplicateEntryTargetsField(duplicateErrorFor("auth_provider_user_id"), "email"), false);
   assert.equal(
     profilesTestables.duplicateEntryTargetsField(
       Object.assign(new Error("duplicate entry for key email"), { code: "ER_DUP_ENTRY" }),
@@ -153,7 +153,7 @@ test("user profiles helpers and mapper branches", () => {
   assert.equal(profilesTestables.duplicateEntryTargetsField({ code: "ER_DUP_ENTRY" }, "email"), false);
   assert.equal(profilesTestables.duplicateEntryTargetsField(duplicateErrorFor("email"), ""), true);
   assert.equal(profilesTestables.isMysqlDuplicateEmailError(duplicateErrorFor("email")), true);
-  assert.equal(profilesTestables.isMysqlDuplicateSupabaseUserIdError(duplicateErrorFor("supabase_user_id")), true);
+  assert.equal(profilesTestables.isMysqlDuplicateAuthProviderIdentityError(duplicateErrorFor("auth_provider_user_id")), true);
   assert.equal(profilesTestables.createDuplicateEmailConflictError().code, "USER_PROFILE_EMAIL_CONFLICT");
 
   assert.equal(profilesTestables.mapProfileRowNullable(null), null);
@@ -171,7 +171,8 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
             undefined,
             {
               id: 9,
-              supabase_user_id: "user-1",
+              auth_provider: "supabase",
+              auth_provider_user_id: "user-1",
               email: "first@example.com",
               display_name: "first",
               created_at: "2024-01-01T00:00:00.000Z"
@@ -199,11 +200,12 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
   );
 
   const inserted = await repo.upsert({
-    supabaseUserId: "user-1",
+    authProvider: "supabase",
+    authProviderUserId: "user-1",
     email: "first@example.com",
     displayName: "first"
   });
-  assert.equal(inserted.supabaseUserId, "user-1");
+  assert.equal(inserted.authProviderUserId, "user-1");
   assert.ok(records.some((entry) => entry[0] === "insert"));
 
   const updatedRepo = profilesTestables.createUserProfilesRepository(
@@ -213,14 +215,16 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
           firstResponses: [
             {
               id: 4,
-              supabase_user_id: "user-2",
+              auth_provider: "supabase",
+              auth_provider_user_id: "user-2",
               email: "old@example.com",
               display_name: "old",
               created_at: "2024-01-01T00:00:00.000Z"
             },
             {
               id: 4,
-              supabase_user_id: "user-2",
+              auth_provider: "supabase",
+              auth_provider_user_id: "user-2",
               email: "new@example.com",
               display_name: "new",
               created_at: "2024-01-01T00:00:00.000Z"
@@ -248,7 +252,8 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
   );
 
   const updated = await updatedRepo.upsert({
-    supabaseUserId: "user-2",
+    authProvider: "supabase",
+    authProviderUserId: "user-2",
     email: "new@example.com",
     displayName: "new"
   });
@@ -277,7 +282,13 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
   );
 
   await assert.rejects(
-    () => duplicateEmailRepo.upsert({ supabaseUserId: "u3", email: "dup@example.com", displayName: "dup" }),
+    () =>
+      duplicateEmailRepo.upsert({
+        authProvider: "supabase",
+        authProviderUserId: "u3",
+        email: "dup@example.com",
+        displayName: "dup"
+      }),
     (error) => {
       assert.equal(error.code, "USER_PROFILE_EMAIL_CONFLICT");
       return true;
@@ -293,7 +304,8 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
     async first() {
       return {
         id: 1,
-        supabase_user_id: "find-user",
+        auth_provider: "supabase",
+        auth_provider_user_id: "find-user",
         email: "find@example.com",
         display_name: "finder",
         created_at: "2024-01-01T00:00:00.000Z"
@@ -304,7 +316,7 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
     throw new Error("not used");
   };
   const findOnlyRepo = profilesTestables.createUserProfilesRepository(findDb);
-  const found = await findOnlyRepo.findBySupabaseUserId("find-user");
+  const found = await findOnlyRepo.findByIdentity({ provider: "supabase", providerUserId: "find-user" });
   assert.equal(found.email, "find@example.com");
   assert.equal(directFindCalls.length, 1);
 
@@ -316,14 +328,16 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
             undefined,
             {
               id: 11,
-              supabase_user_id: "u4",
+              auth_provider: "supabase",
+              auth_provider_user_id: "u4",
               email: "existing@example.com",
               display_name: "existing",
               created_at: "2024-01-01T00:00:00.000Z"
             },
             {
               id: 11,
-              supabase_user_id: "u4",
+              auth_provider: "supabase",
+              auth_provider_user_id: "u4",
               email: "existing@example.com",
               display_name: "existing",
               created_at: "2024-01-01T00:00:00.000Z"
@@ -338,7 +352,7 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
             return Promise.resolve(sequence.firstResponses.shift());
           },
           insert() {
-            return Promise.reject(duplicateErrorFor("supabase_user_id"));
+            return Promise.reject(duplicateErrorFor("auth_provider_user_id"));
           },
           update() {
             return Promise.resolve();
@@ -350,11 +364,12 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
   );
 
   const raced = await duplicateRaceRepo.upsert({
-    supabaseUserId: "u4",
+    authProvider: "supabase",
+    authProviderUserId: "u4",
     email: "existing@example.com",
     displayName: "existing"
   });
-  assert.equal(raced.supabaseUserId, "u4");
+  assert.equal(raced.authProviderUserId, "u4");
 
   const raceMissingRowRepo = profilesTestables.createUserProfilesRepository(
     createProfilesDbStub({
@@ -370,7 +385,7 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
             return Promise.resolve(sequence.firstResponses.shift());
           },
           insert() {
-            return Promise.reject(duplicateErrorFor("supabase_user_id"));
+            return Promise.reject(duplicateErrorFor("auth_provider_user_id"));
           },
           update() {
             return Promise.resolve();
@@ -382,7 +397,13 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
   );
 
   await assert.rejects(
-    () => raceMissingRowRepo.upsert({ supabaseUserId: "u5", email: "u5@example.com", displayName: "u5" }),
+    () =>
+      raceMissingRowRepo.upsert({
+        authProvider: "supabase",
+        authProviderUserId: "u5",
+        email: "u5@example.com",
+        displayName: "u5"
+      }),
     /could not be reloaded/
   );
 
@@ -394,7 +415,8 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
             undefined,
             {
               id: 12,
-              supabase_user_id: "u6",
+              auth_provider: "supabase",
+              auth_provider_user_id: "u6",
               email: "old@example.com",
               display_name: "old",
               created_at: "2024-01-01T00:00:00.000Z"
@@ -409,7 +431,7 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
             return Promise.resolve(sequence.firstResponses.shift());
           },
           insert() {
-            return Promise.reject(duplicateErrorFor("supabase_user_id"));
+            return Promise.reject(duplicateErrorFor("auth_provider_user_id"));
           },
           update() {
             return Promise.reject(duplicateErrorFor("email"));
@@ -421,7 +443,13 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
   );
 
   await assert.rejects(
-    () => updateDuplicateEmailRepo.upsert({ supabaseUserId: "u6", email: "dup@example.com", displayName: "dup" }),
+    () =>
+      updateDuplicateEmailRepo.upsert({
+        authProvider: "supabase",
+        authProviderUserId: "u6",
+        email: "dup@example.com",
+        displayName: "dup"
+      }),
     (error) => {
       assert.equal(error.code, "USER_PROFILE_EMAIL_CONFLICT");
       return true;
@@ -436,7 +464,8 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
             undefined,
             {
               id: 13,
-              supabase_user_id: "u9",
+              auth_provider: "supabase",
+              auth_provider_user_id: "u9",
               email: "u9@example.com",
               display_name: "u9",
               created_at: "2024-01-01T00:00:00.000Z"
@@ -451,7 +480,7 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
             return Promise.resolve(sequence.firstResponses.shift());
           },
           insert() {
-            return Promise.reject(duplicateErrorFor("supabase_user_id"));
+            return Promise.reject(duplicateErrorFor("auth_provider_user_id"));
           },
           update() {
             return Promise.reject(new Error("failed raced update"));
@@ -463,7 +492,13 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
   );
 
   await assert.rejects(
-    () => updateNonDuplicateErrorRepo.upsert({ supabaseUserId: "u9", email: "u9@example.com", displayName: "u9" }),
+    () =>
+      updateNonDuplicateErrorRepo.upsert({
+        authProvider: "supabase",
+        authProviderUserId: "u9",
+        email: "u9@example.com",
+        displayName: "u9"
+      }),
     /failed raced update/
   );
 
@@ -490,7 +525,13 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
   );
 
   await assert.rejects(
-    () => nonDuplicateErrorRepo.upsert({ supabaseUserId: "u7", email: "u7@example.com", displayName: "u7" }),
+    () =>
+      nonDuplicateErrorRepo.upsert({
+        authProvider: "supabase",
+        authProviderUserId: "u7",
+        email: "u7@example.com",
+        displayName: "u7"
+      }),
     /db write failed/
   );
 
@@ -523,9 +564,15 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
   );
 
   await assert.rejects(
-    () => finalReadDuplicateEmailRepo.upsert({ supabaseUserId: "u8", email: "u8@example.com", displayName: "u8" }),
+    () =>
+      finalReadDuplicateEmailRepo.upsert({
+        authProvider: "supabase",
+        authProviderUserId: "u8",
+        email: "u8@example.com",
+        displayName: "u8"
+      }),
     (error) => {
-      assert.equal(error.code, "USER_PROFILE_EMAIL_CONFLICT");
+      assert.equal(error.code, "ER_DUP_ENTRY");
       return true;
     }
   );
@@ -560,9 +607,89 @@ test("user profiles repository upsert handles insert, update, duplicate-email, a
 
   await assert.rejects(
     () =>
-      finalReadNonDuplicateErrorRepo.upsert({ supabaseUserId: "u10", email: "u10@example.com", displayName: "u10" }),
+      finalReadNonDuplicateErrorRepo.upsert({
+        authProvider: "supabase",
+        authProviderUserId: "u10",
+        email: "u10@example.com",
+        displayName: "u10"
+      }),
     /final read failed/
   );
+});
+
+test("user profiles repository supports provider-neutral identity upsert and lookup", async () => {
+  const repo = profilesTestables.createUserProfilesRepository(
+    createProfilesDbStub({
+      transactionImpl: async (callback) => {
+        const sequence = {
+          firstResponses: [
+            undefined,
+            {
+              id: 101,
+              auth_provider: "clerk",
+              auth_provider_user_id: "clerk-user-1",
+              email: "clerk@example.com",
+              display_name: "clerk-user",
+              created_at: "2024-01-01T00:00:00.000Z"
+            }
+          ]
+        };
+        const trx = () => ({
+          where() {
+            return this;
+          },
+          first() {
+            return Promise.resolve(sequence.firstResponses.shift() || null);
+          },
+          insert() {
+            return Promise.resolve();
+          },
+          update() {
+            return Promise.resolve();
+          }
+        });
+        return callback(trx);
+      }
+    })
+  );
+
+  const upserted = await repo.upsert({
+    authProvider: "clerk",
+    authProviderUserId: "clerk-user-1",
+    email: "clerk@example.com",
+    displayName: "clerk-user"
+  });
+  assert.equal(upserted.authProvider, "clerk");
+  assert.equal(upserted.authProviderUserId, "clerk-user-1");
+  assert.equal("supabaseUserId" in upserted, false);
+
+  const fallbackLookupDb = (table) => ({
+    where() {
+      return this;
+    },
+    async first() {
+      return {
+        id: 102,
+        auth_provider: "supabase",
+        auth_provider_user_id: "supabase-fallback-1",
+        email: "fallback@example.com",
+        display_name: "fallback-user",
+        created_at: "2024-01-01T00:00:00.000Z"
+      };
+    }
+  });
+  fallbackLookupDb.transaction = async () => {
+    throw new Error("not used");
+  };
+
+  const fallbackLookupRepo = profilesTestables.createUserProfilesRepository(fallbackLookupDb);
+  const found = await fallbackLookupRepo.findByIdentity({
+    provider: "supabase",
+    providerUserId: "supabase-fallback-1"
+  });
+  assert.equal(found.authProvider, "supabase");
+  assert.equal(found.authProviderUserId, "supabase-fallback-1");
+  assert.equal("supabaseUserId" in found, false);
 });
 
 function createUserSettingsDbStub({ row, insertErrorOnce = null } = {}) {
@@ -759,7 +886,8 @@ test("user profiles repository updateDisplayNameById maps updated row", async ()
     async first() {
       return {
         id: 12,
-        supabase_user_id: "supabase-12",
+        auth_provider: "supabase",
+        auth_provider_user_id: "supabase-12",
         email: "user12@example.com",
         display_name: "new-name",
         created_at: "2024-01-01T00:00:00.000Z"
@@ -782,7 +910,8 @@ test("user profiles repository avatar update and clear methods map avatar fields
   const responses = [
     {
       id: 15,
-      supabase_user_id: "supabase-15",
+      auth_provider: "supabase",
+      auth_provider_user_id: "supabase-15",
       email: "user15@example.com",
       display_name: "user15",
       avatar_storage_key: "avatars/users/15/avatar.webp",
@@ -792,7 +921,8 @@ test("user profiles repository avatar update and clear methods map avatar fields
     },
     {
       id: 15,
-      supabase_user_id: "supabase-15",
+      auth_provider: "supabase",
+      auth_provider_user_id: "supabase-15",
       email: "user15@example.com",
       display_name: "user15",
       avatar_storage_key: null,

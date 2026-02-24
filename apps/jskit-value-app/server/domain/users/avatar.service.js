@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import sharp from "sharp";
 import { AppError } from "../../lib/errors.js";
+import { resolveProfileIdentity } from "./profileIdentity.js";
 import {
   AVATAR_ALLOWED_MIME_TYPES,
   AVATAR_DEFAULT_SIZE,
@@ -169,7 +170,15 @@ function createService({ userProfilesRepository, avatarStorageService }) {
   }
 
   async function clearForUser(user) {
-    const profile = await userProfilesRepository.findBySupabaseUserId(user.supabaseUserId);
+    const identity = resolveProfileIdentity(user);
+    if (!identity) {
+      throw new AppError(404, "User profile was not found.");
+    }
+    if (typeof userProfilesRepository.findByIdentity !== "function") {
+      throw new Error("userProfilesRepository.findByIdentity is required.");
+    }
+    const profile = await userProfilesRepository.findByIdentity(identity);
+
     if (!profile) {
       throw new AppError(404, "User profile was not found.");
     }

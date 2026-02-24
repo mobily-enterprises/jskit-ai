@@ -67,10 +67,11 @@ export LOG_LEVEL="info"
 # note: set LOG_LEVEL=debug (or trace) for scoped debug logs to emit
 export LOG_DEBUG_SCOPES=""
 
-export SUPABASE_URL="https://YOUR-PROJECT.supabase.co"
-export SUPABASE_PUBLISHABLE_KEY="YOUR_SUPABASE_PUBLISHABLE_KEY"
+export AUTH_PROVIDER="supabase"
+export AUTH_SUPABASE_URL="https://YOUR-PROJECT.supabase.co"
+export AUTH_SUPABASE_PUBLISHABLE_KEY="YOUR_SUPABASE_PUBLISHABLE_KEY"
 # optional; defaults to "authenticated"
-export SUPABASE_JWT_AUDIENCE="authenticated"
+export AUTH_JWT_AUDIENCE="authenticated"
 # optional but recommended; reset links use: APP_PUBLIC_URL + /reset-password
 export APP_PUBLIC_URL="http://localhost:5173"
 # SMS delivery mode (scaffold): none (default) or plivo

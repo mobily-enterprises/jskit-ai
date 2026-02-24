@@ -41,7 +41,7 @@ function createUnsignedJwt(payloadOverrides = {}) {
 }
 
 function createProfilesRepository({
-  findBySupabaseUserId = async () => null,
+  findByIdentity = async () => null,
   upsert = async (profile) => ({
     id: 1,
     ...profile,
@@ -49,17 +49,24 @@ function createProfilesRepository({
   })
 } = {}) {
   return {
-    findBySupabaseUserId,
+    findByIdentity,
     upsert
   };
 }
 
 function createAuthServiceForTest(options = {}) {
+  const authProvider = {
+    id: "supabase",
+    supabaseUrl: options.authProvider?.supabaseUrl ?? SUPABASE_URL,
+    supabasePublishableKey: options.authProvider?.supabasePublishableKey ?? SUPABASE_PUBLISHABLE_KEY,
+    jwtAudience: options.authProvider?.jwtAudience ?? "authenticated",
+    emailManagedBy: options.authProvider?.emailManagedBy ?? "supabase",
+    emailChangeFlow: options.authProvider?.emailChangeFlow ?? "supabase"
+  };
+
   return createAuthService({
-    supabaseUrl: options.supabaseUrl ?? SUPABASE_URL,
-    supabasePublishableKey: options.supabasePublishableKey ?? SUPABASE_PUBLISHABLE_KEY,
+    authProvider,
     appPublicUrl: options.appPublicUrl ?? APP_PUBLIC_URL,
-    jwtAudience: options.jwtAudience ?? "authenticated",
     userProfilesRepository: options.userProfilesRepository ?? createProfilesRepository(),
     userSettingsRepository: options.userSettingsRepository ?? null,
     nodeEnv: options.nodeEnv ?? "test"
@@ -394,8 +401,11 @@ test("createAuthService validates APP_PUBLIC_URL and supports cookie helpers", (
   assert.throws(
     () =>
       createAuthService({
-        supabaseUrl: SUPABASE_URL,
-        supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY,
+        authProvider: {
+          id: "supabase",
+          supabaseUrl: SUPABASE_URL,
+          supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY
+        },
         appPublicUrl: "",
         userProfilesRepository: createProfilesRepository(),
         nodeEnv: "test"
@@ -406,8 +416,11 @@ test("createAuthService validates APP_PUBLIC_URL and supports cookie helpers", (
   assert.throws(
     () =>
       createAuthService({
-        supabaseUrl: SUPABASE_URL,
-        supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY,
+        authProvider: {
+          id: "supabase",
+          supabaseUrl: SUPABASE_URL,
+          supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY
+        },
         appPublicUrl: "invalid-url",
         userProfilesRepository: createProfilesRepository(),
         nodeEnv: "test"
@@ -454,7 +467,7 @@ test("createAuthService validates APP_PUBLIC_URL and supports cookie helpers", (
 test("authService register/login/reset/recovery flows and error mapping", async () => {
   const upsertedProfiles = [];
   const repository = createProfilesRepository({
-    async findBySupabaseUserId() {
+    async findByIdentity() {
       return null;
     },
     async upsert(profile) {
@@ -869,7 +882,8 @@ test("authenticateRequest handles jwt verify, supabase fallback, and refresh bra
       "supabase-user-existing",
       {
         id: 9,
-        supabaseUserId: "supabase-user-existing",
+        authProvider: "supabase",
+        authProviderUserId: "supabase-user-existing",
         email: "existing@example.com",
         displayName: "existing",
         createdAt: "2024-01-01T00:00:00.000Z"
@@ -879,7 +893,8 @@ test("authenticateRequest handles jwt verify, supabase fallback, and refresh bra
       "supabase-user-same",
       {
         id: 10,
-        supabaseUserId: "supabase-user-same",
+        authProvider: "supabase",
+        authProviderUserId: "supabase-user-same",
         email: "same@example.com",
         displayName: "same-user",
         createdAt: "2024-01-01T00:00:00.000Z"
@@ -889,7 +904,8 @@ test("authenticateRequest handles jwt verify, supabase fallback, and refresh bra
       "supabase-user-changed",
       {
         id: 11,
-        supabaseUserId: "supabase-user-changed",
+        authProvider: "supabase",
+        authProviderUserId: "supabase-user-changed",
         email: "old@example.com",
         displayName: "old-name",
         createdAt: "2024-01-01T00:00:00.000Z"
@@ -898,8 +914,8 @@ test("authenticateRequest handles jwt verify, supabase fallback, and refresh bra
   ]);
 
   const repository = createProfilesRepository({
-    async findBySupabaseUserId(supabaseUserId) {
-      return profiles.get(supabaseUserId) || null;
+    async findByIdentity(identity) {
+      return profiles.get(identity?.providerUserId) || null;
     },
     async upsert(profile) {
       if (profile.email === "dup@example.com") {
@@ -923,7 +939,7 @@ test("authenticateRequest handles jwt verify, supabase fallback, and refresh bra
         ...profile,
         createdAt: "2024-01-01T00:00:00.000Z"
       };
-      profiles.set(profile.supabaseUserId, result);
+      profiles.set(profile.authProviderUserId, result);
       return result;
     }
   });
@@ -1327,8 +1343,11 @@ test("authenticateRequest handles jwt verify, supabase fallback, and refresh bra
 
 test("authService ensureConfigured guard applies to methods", async () => {
   const service = createAuthServiceForTest({
-    supabaseUrl: "",
-    supabasePublishableKey: "",
+    authProvider: {
+      id: "supabase",
+      supabaseUrl: "",
+      supabasePublishableKey: ""
+    },
     appPublicUrl: APP_PUBLIC_URL
   });
 
@@ -2738,7 +2757,7 @@ test("authService setPasswordSignInEnabled syncs profile when password secret ro
     assert.ok(upsertCalls.length >= 2);
     assert.equal(
       upsertCalls.some(
-        (profile) => profile.supabaseUserId === "supabase-user-sync" && profile.displayName === "rotated-user"
+        (profile) => profile.authProviderUserId === "supabase-user-sync" && profile.displayName === "rotated-user"
       ),
       true
     );

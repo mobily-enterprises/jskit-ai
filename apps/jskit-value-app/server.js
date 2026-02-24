@@ -54,7 +54,12 @@ const PORT = Number(runtimeEnv.PORT) || 3000;
 const FRONTEND_DIST_DIR = String(runtimeEnv.FRONTEND_DIST_DIR || "dist").trim() || "dist";
 const PUBLIC_DIR = path.resolve(__dirname, FRONTEND_DIST_DIR);
 const INDEX_FILE_NAME = "index.html";
-const SUPABASE_PUBLISHABLE_KEY = String(runtimeEnv.SUPABASE_PUBLISHABLE_KEY || "");
+const AUTH_PROVIDER_ID =
+  String(runtimeEnv.AUTH_PROVIDER || "")
+    .trim()
+    .toLowerCase() || "supabase";
+const AUTH_SUPABASE_URL = String(runtimeEnv.AUTH_SUPABASE_URL || "").trim();
+const AUTH_SUPABASE_PUBLISHABLE_KEY = String(runtimeEnv.AUTH_SUPABASE_PUBLISHABLE_KEY || "").trim();
 const SCRIPT_SRC_POLICY = NODE_ENV === "production" ? ["'self'"] : ["'self'", "'unsafe-inline'"];
 const LOG_LEVEL = String(runtimeEnv.LOG_LEVEL || "")
   .trim()
@@ -97,7 +102,7 @@ const {
   appConfig: APP_CONFIG,
   rbacManifest: RBAC_MANIFEST,
   rootDir: __dirname,
-  supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY,
+  supabasePublishableKey: AUTH_SUPABASE_PUBLISHABLE_KEY,
   observabilityRegistry: OBSERVABILITY_REGISTRY
 });
 
@@ -162,8 +167,14 @@ function validateRuntimeConfig() {
       throw new Error("DB_USER must not be root in production.");
     }
 
-    if (!runtimeEnv.SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-      throw new Error("SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are required in production.");
+    if (AUTH_PROVIDER_ID === "supabase") {
+      if (!AUTH_SUPABASE_URL || !AUTH_SUPABASE_PUBLISHABLE_KEY) {
+        throw new Error(
+          "AUTH_SUPABASE_URL and AUTH_SUPABASE_PUBLISHABLE_KEY are required in production when AUTH_PROVIDER=supabase."
+        );
+      }
+    } else {
+      throw new Error(`Unsupported AUTH_PROVIDER "${AUTH_PROVIDER_ID}".`);
     }
   }
 }

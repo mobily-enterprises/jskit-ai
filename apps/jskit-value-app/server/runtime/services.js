@@ -148,6 +148,22 @@ function hasNonEmptyEnvValue(value) {
   return String(value || "").trim().length > 0;
 }
 
+function resolveAuthProviderId(env) {
+  return (
+    String(env.AUTH_PROVIDER || "")
+      .trim()
+      .toLowerCase() || "supabase"
+  );
+}
+
+function resolveSupabaseAuthUrl(env) {
+  return String(env.AUTH_SUPABASE_URL || "").trim();
+}
+
+function resolveAuthJwtAudience(env) {
+  return String(env.AUTH_JWT_AUDIENCE || "authenticated").trim();
+}
+
 function throwEnabledSubsystemStartupPreflightError({ env, aiPolicyConfig, billingPolicyConfig }) {
   const issues = [];
   const hints = [];
@@ -262,11 +278,20 @@ function createServices({
     debugScopes: env.LOG_DEBUG_SCOPES
   });
 
+  const authProviderId = resolveAuthProviderId(env);
+  const supabaseAuthUrl = resolveSupabaseAuthUrl(env);
+  const authJwtAudience = resolveAuthJwtAudience(env);
+
   const authService = createAuthService({
-    supabaseUrl: env.SUPABASE_URL,
-    supabasePublishableKey,
+    authProvider: {
+      id: authProviderId,
+      supabaseUrl: supabaseAuthUrl,
+      supabasePublishableKey,
+      jwtAudience: authJwtAudience,
+      emailManagedBy: authProviderId,
+      emailChangeFlow: authProviderId
+    },
     appPublicUrl: env.APP_PUBLIC_URL,
-    jwtAudience: env.SUPABASE_JWT_AUDIENCE,
     userProfilesRepository,
     userSettingsRepository,
     nodeEnv

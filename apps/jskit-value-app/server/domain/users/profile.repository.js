@@ -15,14 +15,42 @@ function isMysqlDuplicateEmailError(error) {
   return duplicateEntryTargetsField(error, "email");
 }
 
-function isMysqlDuplicateSupabaseUserIdError(error) {
-  return duplicateEntryTargetsField(error, "supabase_user_id");
+function isMysqlDuplicateAuthProviderIdentityError(error) {
+  return (
+    duplicateEntryTargetsField(error, "auth_provider_user_id") ||
+    duplicateEntryTargetsField(error, "uq_user_profiles_auth_provider_user_id")
+  );
 }
 
 function createDuplicateEmailConflictError() {
   const error = new Error("Email is already linked to a different profile.");
   error.code = "USER_PROFILE_EMAIL_CONFLICT";
   return error;
+}
+
+function normalizeProviderId(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeProviderUserId(value) {
+  return String(value || "").trim();
+}
+
+function normalizeIdentity(identityLike) {
+  const source = identityLike && typeof identityLike === "object" ? identityLike : {};
+  const provider = normalizeProviderId(source.provider || source.authProvider);
+  const providerUserId = normalizeProviderUserId(source.providerUserId || source.authProviderUserId);
+
+  if (!provider || !providerUserId) {
+    return null;
+  }
+
+  return {
+    provider,
+    providerUserId
+  };
 }
 
 function mapProfileRowRequired(row) {
@@ -32,7 +60,8 @@ function mapProfileRowRequired(row) {
 
   return {
     id: Number(row.id),
-    supabaseUserId: row.supabase_user_id,
+    authProvider: String(row.auth_provider || "").trim().toLowerCase(),
+    authProviderUserId: String(row.auth_provider_user_id || ""),
     email: row.email,
     displayName: row.display_name,
     avatarStorageKey: row.avatar_storage_key || null,
@@ -48,6 +77,28 @@ function mapProfileRowNullable(row) {
   }
 
   return mapProfileRowRequired(row);
+}
+
+function assertProfileUpsertPayload(profileLike) {
+  const source = profileLike && typeof profileLike === "object" ? profileLike : {};
+  const identity = normalizeIdentity(source);
+  if (!identity) {
+    throw new TypeError("upsert requires authProvider/provider and authProviderUserId/providerUserId.");
+  }
+
+  const email = String(source.email || "")
+    .trim()
+    .toLowerCase();
+  const displayName = String(source.displayName || "").trim();
+  if (!email || !displayName) {
+    throw new TypeError("upsert requires email and displayName.");
+  }
+
+  return {
+    identity,
+    email,
+    displayName
+  };
 }
 
 function createUserProfilesRepository(dbClient) {
@@ -68,8 +119,19 @@ function createUserProfilesRepository(dbClient) {
     return mapProfileRowNullable(row);
   }
 
-  async function repoFindBySupabaseUserId(supabaseUserId) {
-    const row = await dbClient("user_profiles").where({ supabase_user_id: supabaseUserId }).first();
+  async function repoFindByIdentity(identityLike) {
+    const identity = normalizeIdentity(identityLike);
+    if (!identity) {
+      return null;
+    }
+
+    const row = await dbClient("user_profiles")
+      .where({
+        auth_provider: identity.provider,
+        auth_provider_user_id: identity.providerUserId
+      })
+      .first();
+
     return mapProfileRowNullable(row);
   }
 
@@ -106,46 +168,54 @@ function createUserProfilesRepository(dbClient) {
     return mapProfileRowRequired(row);
   }
 
-  async function repoUpsert(profile) {
-    return dbClient.transaction(async (trx) => {
-      const existing = await trx("user_profiles").where({ supabase_user_id: profile.supabaseUserId }).first();
+  async function repoUpsert(profileLike) {
+    const normalizedProfile = assertProfileUpsertPayload(profileLike);
+    const { identity } = normalizedProfile;
 
-      let duplicateSupabaseUserIdObserved = false;
+    return dbClient.transaction(async (trx) => {
+      const whereByIdentity = {
+        auth_provider: identity.provider,
+        auth_provider_user_id: identity.providerUserId
+      };
+
+      const existing = await trx("user_profiles").where(whereByIdentity).first();
+      let duplicateIdentityObserved = false;
 
       try {
         if (existing) {
           await trx("user_profiles").where({ id: existing.id }).update({
-            email: profile.email,
-            display_name: profile.displayName
+            email: normalizedProfile.email,
+            display_name: normalizedProfile.displayName
           });
         } else {
           await trx("user_profiles").insert({
-            supabase_user_id: profile.supabaseUserId,
-            email: profile.email,
-            display_name: profile.displayName
+            auth_provider: identity.provider,
+            auth_provider_user_id: identity.providerUserId,
+            email: normalizedProfile.email,
+            display_name: normalizedProfile.displayName
           });
         }
       } catch (error) {
         if (isMysqlDuplicateEmailError(error)) {
           throw createDuplicateEmailConflictError();
         }
-        if (isMysqlDuplicateSupabaseUserIdError(error)) {
-          duplicateSupabaseUserIdObserved = true;
+        if (isMysqlDuplicateAuthProviderIdentityError(error)) {
+          duplicateIdentityObserved = true;
         } else {
           throw error;
         }
       }
 
-      if (duplicateSupabaseUserIdObserved) {
-        const racedRow = await trx("user_profiles").where({ supabase_user_id: profile.supabaseUserId }).first();
+      if (duplicateIdentityObserved) {
+        const racedRow = await trx("user_profiles").where(whereByIdentity).first();
         if (!racedRow) {
-          throw new Error("Duplicate supabase_user_id detected but row could not be reloaded.");
+          throw new Error("Duplicate auth provider identity detected but row could not be reloaded.");
         }
 
         try {
           await trx("user_profiles").where({ id: racedRow.id }).update({
-            email: profile.email,
-            display_name: profile.displayName
+            email: normalizedProfile.email,
+            display_name: normalizedProfile.displayName
           });
         } catch (error) {
           if (isMysqlDuplicateEmailError(error)) {
@@ -155,22 +225,15 @@ function createUserProfilesRepository(dbClient) {
         }
       }
 
-      try {
-        const row = await trx("user_profiles").where({ supabase_user_id: profile.supabaseUserId }).first();
-        return mapProfileRowRequired(row);
-      } catch (error) {
-        if (isMysqlDuplicateEmailError(error)) {
-          throw createDuplicateEmailConflictError();
-        }
-        throw error;
-      }
+      const row = await trx("user_profiles").where(whereByIdentity).first();
+      return mapProfileRowRequired(row);
     });
   }
 
   return {
     findById: repoFindById,
     findByEmail: repoFindByEmail,
-    findBySupabaseUserId: repoFindBySupabaseUserId,
+    findByIdentity: repoFindByIdentity,
     updateDisplayNameById: repoUpdateDisplayNameById,
     updateAvatarById: repoUpdateAvatarById,
     clearAvatarById: repoClearAvatarById,
@@ -186,18 +249,14 @@ const __testables = {
   isMysqlDuplicateEntryError,
   duplicateEntryTargetsField,
   isMysqlDuplicateEmailError,
-  isMysqlDuplicateSupabaseUserIdError,
+  isMysqlDuplicateAuthProviderIdentityError,
   createDuplicateEmailConflictError,
+  normalizeProviderId,
+  normalizeProviderUserId,
+  normalizeIdentity,
   createUserProfilesRepository
 };
 
-export const {
-  findById,
-  findByEmail,
-  findBySupabaseUserId,
-  updateDisplayNameById,
-  updateAvatarById,
-  clearAvatarById,
-  upsert
-} = repository;
+export const { findById, findByEmail, findByIdentity, updateDisplayNameById, updateAvatarById, clearAvatarById, upsert } =
+  repository;
 export { __testables };

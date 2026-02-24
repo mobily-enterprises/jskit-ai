@@ -31,7 +31,7 @@ function buildRoutes(controllers) {
       auth: "public",
       schema: {
         tags: ["auth"],
-        summary: "Log in with Supabase credentials",
+        summary: "Log in with configured credentials",
         body: schema.login.body,
         response: withStandardErrorResponses(
           {
@@ -95,7 +95,7 @@ function buildRoutes(controllers) {
       csrfProtection: false,
       schema: {
         tags: ["auth"],
-        summary: "Start OAuth login with Supabase provider",
+        summary: "Start OAuth login with configured provider",
         params: schema.oauthStart.params,
         querystring: schema.oauthStart.query,
         response: withStandardErrorResponses(

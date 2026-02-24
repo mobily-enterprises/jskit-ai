@@ -57,14 +57,53 @@ import { createPasswordSecurityFlows } from "./lib/passwordSecurityFlows.js";
 const ACCESS_TOKEN_COOKIE = "sb_access_token";
 const REFRESH_TOKEN_COOKIE = "sb_refresh_token";
 const DEFAULT_AUDIENCE = "authenticated";
+const DEFAULT_AUTH_PROVIDER_ID = "supabase";
+const AUTH_PROVIDER_ID_PATTERN = /^[a-z][a-z0-9_-]{1,63}$/;
 const PERSISTENT_SESSION_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 400;
+
+function normalizeAuthProviderId(value, { fallback = DEFAULT_AUTH_PROVIDER_ID } = {}) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (AUTH_PROVIDER_ID_PATTERN.test(normalized)) {
+    return normalized;
+  }
+
+  const fallbackNormalized = String(fallback || "")
+    .trim()
+    .toLowerCase();
+  if (AUTH_PROVIDER_ID_PATTERN.test(fallbackNormalized)) {
+    return fallbackNormalized;
+  }
+
+  return DEFAULT_AUTH_PROVIDER_ID;
+}
+
+function normalizeProviderUserId(value) {
+  return String(value || "").trim();
+}
+
 function createService(options) {
-  const supabaseUrl = String(options.supabaseUrl || "");
-  const supabasePublishableKey = String(options.supabasePublishableKey || "");
+  const authProvider = options.authProvider && typeof options.authProvider === "object" ? options.authProvider : null;
+  if (!authProvider) {
+    throw new Error("authProvider is required.");
+  }
+
+  const authProviderId = normalizeAuthProviderId(authProvider.id);
+  if (authProviderId !== DEFAULT_AUTH_PROVIDER_ID) {
+    throw new Error(`Unsupported auth provider "${authProviderId}".`);
+  }
+
+  const supabaseUrl = String(authProvider.supabaseUrl || "").trim();
+  const supabasePublishableKey = String(authProvider.supabasePublishableKey || "").trim();
   const userProfilesRepository = options.userProfilesRepository;
   const userSettingsRepository = options.userSettingsRepository || null;
   const isProduction = options.nodeEnv === "production";
-  const jwtAudience = String(options.jwtAudience || DEFAULT_AUDIENCE);
+  const jwtAudience = String(authProvider.jwtAudience || DEFAULT_AUDIENCE).trim();
+  const settingsProfileAuthInfo = Object.freeze({
+    emailManagedBy: normalizeAuthProviderId(authProvider.emailManagedBy || authProviderId, { fallback: authProviderId }),
+    emailChangeFlow: normalizeAuthProviderId(authProvider.emailChangeFlow || authProviderId, { fallback: authProviderId })
+  });
   const passwordResetRedirectUrl = buildPasswordResetRedirectUrl({
     appPublicUrl: options.appPublicUrl
   });
@@ -80,7 +119,7 @@ function createService(options) {
 
   function ensureConfigured() {
     if (!supabaseUrl || !supabasePublishableKey) {
-      throw new AppError(500, "Supabase auth is not configured. Set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY.");
+      throw new AppError(500, "Auth provider is not configured.");
     }
   }
 
@@ -285,7 +324,12 @@ function createService(options) {
       return true;
     }
 
-    return existing.email !== nextProfile.email || existing.displayName !== nextProfile.displayName;
+    return (
+      existing.email !== nextProfile.email ||
+      existing.displayName !== nextProfile.displayName ||
+      existing.authProvider !== nextProfile.authProvider ||
+      existing.authProviderUserId !== nextProfile.authProviderUserId
+    );
   }
 
   function requireSynchronizedProfile(profile) {
@@ -296,14 +340,83 @@ function createService(options) {
     throw new AppError(500, "Authentication profile synchronization failed. Please retry.");
   }
 
+  function buildNormalizedIdentityKey(identityLike) {
+    const source = identityLike && typeof identityLike === "object" ? identityLike : {};
+    const authProvider = normalizeAuthProviderId(source.authProvider || authProviderId, {
+      fallback: authProviderId
+    });
+    const authProviderUserId = normalizeProviderUserId(source.authProviderUserId);
+
+    if (!authProviderUserId) {
+      throw new TypeError("Profile identity is missing required fields.");
+    }
+
+    return {
+      authProvider,
+      authProviderUserId
+    };
+  }
+
+  function buildNormalizedIdentityProfile(profileLike) {
+    const source = profileLike && typeof profileLike === "object" ? profileLike : {};
+    const identity = buildNormalizedIdentityKey(source);
+    const email = normalizeEmail(source.email || "");
+    const displayName = String(source.displayName || "").trim();
+
+    if (!email || !displayName) {
+      throw new TypeError("Profile identity is missing required fields.");
+    }
+
+    return {
+      authProvider: identity.authProvider,
+      authProviderUserId: identity.authProviderUserId,
+      email,
+      displayName
+    };
+  }
+
+  async function findProfileByIdentity(identityProfile) {
+    const normalized = buildNormalizedIdentityKey(identityProfile);
+    if (typeof userProfilesRepository.findByIdentity !== "function") {
+      throw new Error("userProfilesRepository.findByIdentity is required.");
+    }
+
+    return userProfilesRepository.findByIdentity({
+      provider: normalized.authProvider,
+      providerUserId: normalized.authProviderUserId
+    });
+  }
+
+  async function upsertProfileByIdentity(identityProfile) {
+    const normalized = buildNormalizedIdentityProfile(identityProfile);
+    if (typeof userProfilesRepository.upsert !== "function") {
+      throw new Error("userProfilesRepository.upsert is required.");
+    }
+
+    return userProfilesRepository.upsert({
+      authProvider: normalized.authProvider,
+      authProviderUserId: normalized.authProviderUserId,
+      email: normalized.email,
+      displayName: normalized.displayName
+    });
+  }
+
+  function getSettingsProfileAuthInfo() {
+    return {
+      emailManagedBy: settingsProfileAuthInfo.emailManagedBy,
+      emailChangeFlow: settingsProfileAuthInfo.emailChangeFlow
+    };
+  }
+
   async function syncProfileMirror(nextProfile) {
     try {
-      const existing = await userProfilesRepository.findBySupabaseUserId(nextProfile.supabaseUserId);
-      if (!profileNeedsUpdate(existing, nextProfile)) {
+      const normalized = buildNormalizedIdentityProfile(nextProfile);
+      const existing = await findProfileByIdentity(normalized);
+      if (!profileNeedsUpdate(existing, normalized)) {
         return requireSynchronizedProfile(existing);
       }
 
-      const upserted = await userProfilesRepository.upsert(nextProfile);
+      const upserted = await upsertProfileByIdentity(normalized);
       return requireSynchronizedProfile(upserted);
     } catch (error) {
       if (String(error?.code || "") === "USER_PROFILE_EMAIL_CONFLICT") {
@@ -318,27 +431,31 @@ function createService(options) {
   }
 
   async function syncProfileFromSupabaseUser(supabaseUser, fallbackEmail) {
-    const supabaseUserId = String(supabaseUser?.id || "").trim();
+    const supabaseUserId = normalizeProviderUserId(supabaseUser?.id);
     const email = normalizeEmail(supabaseUser?.email || fallbackEmail);
 
     if (!supabaseUserId || !email) {
-      throw new AppError(500, "Supabase user payload is missing required fields.");
+      throw new AppError(500, "Auth provider user payload is missing required fields.");
     }
 
     return syncProfileMirror({
-      supabaseUserId,
+      authProvider: authProviderId,
+      authProviderUserId: supabaseUserId,
       email,
       displayName: resolveDisplayName(supabaseUser, email)
     });
   }
 
   async function syncProfileFromJwtClaims(claims) {
-    const supabaseUserId = String(claims?.sub || "").trim();
+    const supabaseUserId = normalizeProviderUserId(claims?.sub);
     if (!supabaseUserId) {
       throw new AppError(401, "Token is missing subject claim.");
     }
 
-    const existing = await userProfilesRepository.findBySupabaseUserId(supabaseUserId);
+    const existing = await findProfileByIdentity({
+      authProvider: authProviderId,
+      authProviderUserId: supabaseUserId
+    });
     const emailFromToken = normalizeEmail(claims?.email || "");
 
     if (!emailFromToken) {
@@ -349,7 +466,8 @@ function createService(options) {
     }
 
     return syncProfileMirror({
-      supabaseUserId,
+      authProvider: authProviderId,
+      authProviderUserId: supabaseUserId,
       email: emailFromToken,
       displayName: resolveDisplayNameFromClaims(claims, emailFromToken)
     });
@@ -641,6 +759,7 @@ function createService(options) {
     unlinkProvider,
     signOutOtherSessions,
     getSecurityStatus,
+    getSettingsProfileAuthInfo,
     authenticateRequest,
     hasAccessTokenCookie,
     hasSessionCookie,

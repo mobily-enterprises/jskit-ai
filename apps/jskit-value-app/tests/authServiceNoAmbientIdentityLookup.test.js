@@ -28,7 +28,7 @@ function parseFetchInput(input, init) {
 
 test("getSecurityStatus uses explicit-token user lookup and never calls identities endpoint", async () => {
   const repository = {
-    async findBySupabaseUserId() {
+    async findByIdentity() {
       return null;
     },
     async upsert(profile) {
@@ -41,8 +41,11 @@ test("getSecurityStatus uses explicit-token user lookup and never calls identiti
   };
 
   const service = createAuthService({
-    supabaseUrl: SUPABASE_URL,
-    supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY,
+    authProvider: {
+      id: "supabase",
+      supabaseUrl: SUPABASE_URL,
+      supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY
+    },
     appPublicUrl: APP_PUBLIC_URL,
     userProfilesRepository: repository,
     userSettingsRepository: null,

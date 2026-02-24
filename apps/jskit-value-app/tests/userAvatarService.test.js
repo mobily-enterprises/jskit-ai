@@ -8,7 +8,8 @@ import { createService as createUserAvatarService, __testables } from "../server
 function createProfile(overrides = {}) {
   return {
     id: 7,
-    supabaseUserId: "supabase-7",
+    authProvider: "supabase",
+    authProviderUserId: "supabase-7",
     email: "user@example.com",
     displayName: "user",
     avatarStorageKey: null,
@@ -74,8 +75,8 @@ test("user avatar service uploads and clears avatars", async () => {
           avatarUpdatedAt: avatar.avatarUpdatedAt.toISOString()
         });
       },
-      async findBySupabaseUserId(supabaseUserId) {
-        calls.push(["findBySupabaseUserId", supabaseUserId]);
+      async findByIdentity(identity) {
+        calls.push(["findByIdentity", identity]);
         return createProfile({
           avatarStorageKey: "avatars/users/7/avatar.webp",
           avatarVersion: "999"
@@ -117,7 +118,8 @@ test("user avatar service uploads and clears avatars", async () => {
   const uploaded = await service.uploadForUser(
     {
       id: 7,
-      supabaseUserId: "supabase-7",
+      authProvider: "supabase",
+      authProviderUserId: "supabase-7",
       email: "user@example.com"
     },
     {
@@ -133,7 +135,8 @@ test("user avatar service uploads and clears avatars", async () => {
 
   const cleared = await service.clearForUser({
     id: 7,
-    supabaseUserId: "supabase-7"
+    authProvider: "supabase",
+    authProviderUserId: "supabase-7"
   });
   assert.equal(cleared.avatarStorageKey, null);
 
@@ -150,7 +153,7 @@ test("user avatar service maps validation and not-found branches", async () => {
       async updateAvatarById() {
         throw new Error("not used");
       },
-      async findBySupabaseUserId() {
+      async findByIdentity() {
         return null;
       },
       async clearAvatarById() {
@@ -171,7 +174,7 @@ test("user avatar service maps validation and not-found branches", async () => {
   await assert.rejects(
     () =>
       service.uploadForUser(
-        { id: 7, supabaseUserId: "supabase-7", email: "user@example.com" },
+        { id: 7, authProvider: "supabase", authProviderUserId: "supabase-7", email: "user@example.com" },
         {
           stream: Readable.from([Buffer.from("abc")]),
           mimeType: "text/plain",
@@ -188,7 +191,7 @@ test("user avatar service maps validation and not-found branches", async () => {
   await assert.rejects(
     () =>
       service.uploadForUser(
-        { id: 7, supabaseUserId: "supabase-7", email: "user@example.com" },
+        { id: 7, authProvider: "supabase", authProviderUserId: "supabase-7", email: "user@example.com" },
         {
           stream: Readable.from([Buffer.from("abc")])
         }
@@ -203,7 +206,7 @@ test("user avatar service maps validation and not-found branches", async () => {
   await assert.rejects(
     () =>
       service.uploadForUser(
-        { id: 7, supabaseUserId: "supabase-7", email: "user@example.com" },
+        { id: 7, authProvider: "supabase", authProviderUserId: "supabase-7", email: "user@example.com" },
         {
           stream: Readable.from([Buffer.from("not-an-image")]),
           mimeType: "image/png",
@@ -218,7 +221,7 @@ test("user avatar service maps validation and not-found branches", async () => {
   );
 
   await assert.rejects(
-    () => service.clearForUser({ id: 7, supabaseUserId: "missing" }),
+    () => service.clearForUser({ id: 7, authProvider: "supabase", authProviderUserId: "missing" }),
     (error) => {
       assert.ok(error instanceof AppError);
       assert.equal(error.status, 404);

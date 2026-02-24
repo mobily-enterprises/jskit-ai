@@ -40,6 +40,28 @@ function buildChatSettings(overrides = {}) {
   };
 }
 
+function buildUserProfile(overrides = {}) {
+  return {
+    id: 7,
+    authProvider: "supabase",
+    authProviderUserId: "supabase-7",
+    email: "user@example.com",
+    displayName: "user",
+    avatarStorageKey: null,
+    avatarVersion: null,
+    avatarUpdatedAt: null,
+    createdAt: "2024-01-01T00:00:00.000Z",
+    ...overrides
+  };
+}
+
+function getDefaultSettingsProfileAuthInfo() {
+  return {
+    emailManagedBy: "supabase",
+    emailChangeFlow: "supabase"
+  };
+}
+
 test("user settings service helper validators cover success and failure branches", () => {
   assert.equal(__testables.isValidLocale("en-US"), true);
   assert.equal(__testables.isValidLocale("bad-@@"), false);
@@ -276,7 +298,8 @@ test("user settings service helper validators cover success and failure branches
       publicChatId: "demo-user",
       allowGlobalDms: true,
       discoverableByPublicChatId: true
-    })
+    }),
+    getDefaultSettingsProfileAuthInfo()
   );
   assert.equal(response.security.mfa.status, "enabled");
   assert.equal(response.chat.publicChatId, "demo-user");
@@ -318,16 +341,10 @@ test("user settings service orchestrates repositories and auth service", async (
     userProfilesRepository: {
       async updateDisplayNameById(userId, displayName) {
         calls.push(["updateDisplayNameById", userId, displayName]);
-        return {
+        return buildUserProfile({
           id: userId,
-          supabaseUserId: "supabase-7",
-          email: "user@example.com",
-          displayName,
-          avatarStorageKey: null,
-          avatarVersion: null,
-          avatarUpdatedAt: null,
-          createdAt: "2024-01-01T00:00:00.000Z"
-        };
+          displayName
+        });
       }
     },
     userAvatarService: {
@@ -352,6 +369,9 @@ test("user settings service orchestrates repositories and auth service", async (
       }
     },
     authService: {
+      getSettingsProfileAuthInfo() {
+        return getDefaultSettingsProfileAuthInfo();
+      },
       async getSecurityStatus(request) {
         calls.push(["getSecurityStatus", request.marker]);
         return {
@@ -379,16 +399,10 @@ test("user settings service orchestrates repositories and auth service", async (
       async updateDisplayName(request, displayName) {
         calls.push(["updateDisplayName", request.marker, displayName]);
         return {
-          profile: {
+          profile: buildUserProfile({
             id: 7,
-            supabaseUserId: "supabase-7",
-            email: "user@example.com",
-            displayName,
-            avatarStorageKey: null,
-            avatarVersion: null,
-            avatarUpdatedAt: null,
-            createdAt: "2024-01-01T00:00:00.000Z"
-          },
+            displayName
+          }),
           session: null
         };
       },
@@ -410,7 +424,8 @@ test("user settings service orchestrates repositories and auth service", async (
 
   const user = {
     id: 7,
-    supabaseUserId: "supabase-7",
+    authProvider: "supabase",
+    authProviderUserId: "supabase-7",
     email: "user@example.com",
     displayName: "user"
   };
@@ -493,16 +508,12 @@ test("user settings service falls back when auth service omits profile/session",
     },
     userProfilesRepository: {
       async updateDisplayNameById(userId, displayName) {
-        return {
+        return buildUserProfile({
           id: userId,
-          supabaseUserId: "supabase-fallback",
+          authProviderUserId: "supabase-fallback",
           email: "fallback@example.com",
-          displayName,
-          avatarStorageKey: null,
-          avatarVersion: null,
-          avatarUpdatedAt: null,
-          createdAt: "2024-01-01T00:00:00.000Z"
-        };
+          displayName
+        });
       }
     },
     userAvatarService: {
@@ -524,6 +535,9 @@ test("user settings service falls back when auth service omits profile/session",
       }
     },
     authService: {
+      getSettingsProfileAuthInfo() {
+        return getDefaultSettingsProfileAuthInfo();
+      },
       async getSecurityStatus() {
         return {};
       },
@@ -542,7 +556,8 @@ test("user settings service falls back when auth service omits profile/session",
 
   const user = {
     id: 7,
-    supabaseUserId: "supabase-7",
+    authProvider: "supabase",
+    authProviderUserId: "supabase-7",
     email: "user@example.com",
     displayName: "user"
   };
@@ -633,6 +648,9 @@ test("user settings service handles avatar upload and delete flows", async () =>
       }
     },
     authService: {
+      getSettingsProfileAuthInfo() {
+        return getDefaultSettingsProfileAuthInfo();
+      },
       async getSecurityStatus() {
         return { mfa: { status: "not_enabled", enrolled: false, methods: [] } };
       },
@@ -648,7 +666,8 @@ test("user settings service handles avatar upload and delete flows", async () =>
 
   const user = {
     id: 7,
-    supabaseUserId: "supabase-7",
+    authProvider: "supabase",
+    authProviderUserId: "supabase-7",
     email: "user@example.com",
     displayName: "user"
   };
@@ -731,18 +750,15 @@ test("user settings service orchestrates password method toggle and oauth link/u
       }
     },
     userProfilesRepository: {
-      async findBySupabaseUserId(supabaseUserId) {
-        calls.push(["findBySupabaseUserId", supabaseUserId]);
-        return {
+      async findByIdentity(identity) {
+        calls.push(["findByIdentity", identity]);
+        return buildUserProfile({
           id: 7,
-          supabaseUserId,
+          authProvider: String(identity?.provider || "supabase"),
+          authProviderUserId: String(identity?.providerUserId || "supabase-7"),
           email: "fresh@example.com",
-          displayName: "fresh-user",
-          avatarStorageKey: null,
-          avatarVersion: null,
-          avatarUpdatedAt: null,
-          createdAt: "2024-01-01T00:00:00.000Z"
-        };
+          displayName: "fresh-user"
+        });
       },
       async updateDisplayNameById() {
         throw new Error("not used");
@@ -768,6 +784,9 @@ test("user settings service orchestrates password method toggle and oauth link/u
       }
     },
     authService: {
+      getSettingsProfileAuthInfo() {
+        return getDefaultSettingsProfileAuthInfo();
+      },
       async getSecurityStatus(request) {
         calls.push(["getSecurityStatus", request.marker]);
         return securityStatus;
@@ -796,7 +815,8 @@ test("user settings service orchestrates password method toggle and oauth link/u
 
   const user = {
     id: 7,
-    supabaseUserId: "supabase-7",
+    authProvider: "supabase",
+    authProviderUserId: "supabase-7",
     email: "user@example.com",
     displayName: "user"
   };
@@ -887,6 +907,9 @@ test("user settings service throws validation errors for invalid payloads", asyn
       }
     },
     authService: {
+      getSettingsProfileAuthInfo() {
+        return getDefaultSettingsProfileAuthInfo();
+      },
       async getSecurityStatus() {
         return { mfa: { status: "not_enabled", enrolled: false, methods: [] } };
       },
@@ -902,7 +925,8 @@ test("user settings service throws validation errors for invalid payloads", asyn
 
   const user = {
     id: 7,
-    supabaseUserId: "supabase-7",
+    authProvider: "supabase",
+    authProviderUserId: "supabase-7",
     email: "user@example.com",
     displayName: "user"
   };
@@ -1009,6 +1033,9 @@ test("user settings service maps duplicate public chat id conflicts to validatio
       }
     },
     authService: {
+      getSettingsProfileAuthInfo() {
+        return getDefaultSettingsProfileAuthInfo();
+      },
       async getSecurityStatus() {
         return { mfa: { status: "not_enabled", enrolled: false, methods: [] } };
       },
@@ -1024,7 +1051,8 @@ test("user settings service maps duplicate public chat id conflicts to validatio
 
   const user = {
     id: 7,
-    supabaseUserId: "supabase-7",
+    authProvider: "supabase",
+    authProviderUserId: "supabase-7",
     email: "user@example.com",
     displayName: "user"
   };
@@ -1075,7 +1103,7 @@ test("user settings service supports password fallback mode and user-profile fal
       }
     },
     userProfilesRepository: {
-      async findBySupabaseUserId() {
+      async findByIdentity() {
         profileLookupCalls += 1;
         return null;
       },
@@ -1102,6 +1130,9 @@ test("user settings service supports password fallback mode and user-profile fal
       }
     },
     authService: {
+      getSettingsProfileAuthInfo() {
+        return getDefaultSettingsProfileAuthInfo();
+      },
       async getSecurityStatus() {
         return {
           authMethods: [

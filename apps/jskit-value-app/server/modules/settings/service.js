@@ -3,6 +3,7 @@ import { isMysqlDuplicateEntryError } from "../../lib/primitives/mysqlErrors.js"
 import { validators as authValidators } from "../../../shared/auth/validators.js";
 import { SETTINGS_FIELD_SPECS } from "../../../shared/settings/model.js";
 import { buildPatch } from "@jskit-ai/workspace-console-core/settingsPatchBuilder";
+import { resolveProfileIdentity } from "../../domain/users/profileIdentity.js";
 import {
   isValidCurrencyCode,
   isValidLocale,
@@ -191,13 +192,37 @@ function normalizeChatSettings(chatSettings) {
   };
 }
 
-function buildSettingsResponse(userProfile, settings, securityStatus, avatar, chatSettings) {
+function resolveAuthProfileContract(authService) {
+  if (!authService || typeof authService.getSettingsProfileAuthInfo !== "function") {
+    throw new Error("authService.getSettingsProfileAuthInfo is required.");
+  }
+
+  const rawContract = authService.getSettingsProfileAuthInfo();
+  const source = rawContract && typeof rawContract === "object" ? rawContract : {};
+  const emailManagedBy = String(source.emailManagedBy || "")
+    .trim()
+    .toLowerCase();
+  const emailChangeFlow = String(source.emailChangeFlow || "")
+    .trim()
+    .toLowerCase();
+
+  if (!emailManagedBy || !emailChangeFlow) {
+    throw new Error("authService.getSettingsProfileAuthInfo must return emailManagedBy and emailChangeFlow.");
+  }
+
+  return {
+    emailManagedBy,
+    emailChangeFlow
+  };
+}
+
+function buildSettingsResponse(userProfile, settings, securityStatus, avatar, chatSettings, authProfileContract) {
   return {
     profile: {
       displayName: userProfile.displayName,
       email: userProfile.email,
-      emailManagedBy: "supabase",
-      emailChangeFlow: "supabase",
+      emailManagedBy: authProfileContract.emailManagedBy,
+      emailChangeFlow: authProfileContract.emailChangeFlow,
       avatar
     },
     security: normalizeSecurityStatus(securityStatus),
@@ -236,16 +261,40 @@ function createService({
   ) {
     throw new Error("chatUserSettingsRepository is required.");
   }
+  const authProfileContract = resolveAuthProfileContract(authService);
+
+  async function resolveLatestProfileByIdentity(user) {
+    const identity = resolveProfileIdentity(user);
+    if (!identity) {
+      return null;
+    }
+    if (typeof userProfilesRepository.findByIdentity !== "function") {
+      throw new Error("userProfilesRepository.findByIdentity is required.");
+    }
+
+    return userProfilesRepository.findByIdentity(identity);
+  }
 
   function resolveAvatar(profile, settings) {
     return userAvatarService.buildAvatarResponse(profile, { avatarSize: settings.avatarSize });
+  }
+
+  function buildResponse(userProfile, settings, securityStatus, chatSettings) {
+    return buildSettingsResponse(
+      userProfile,
+      settings,
+      securityStatus,
+      resolveAvatar(userProfile, settings),
+      chatSettings,
+      authProfileContract
+    );
   }
 
   async function getForUser(request, user) {
     const settings = await userSettingsRepository.ensureForUserId(user.id);
     const chatSettings = await chatUserSettingsRepository.ensureForUserId(user.id);
     const securityStatus = await authService.getSecurityStatus(request);
-    return buildSettingsResponse(user, settings, securityStatus, resolveAvatar(user, settings), chatSettings);
+    return buildResponse(user, settings, securityStatus, chatSettings);
   }
 
   async function updateProfile(request, user, payload) {
@@ -262,13 +311,7 @@ function createService({
     const securityStatus = await authService.getSecurityStatus(request);
 
     return {
-      settings: buildSettingsResponse(
-        profile,
-        settings,
-        securityStatus,
-        resolveAvatar(profile, settings),
-        chatSettings
-      ),
+      settings: buildResponse(profile, settings, securityStatus, chatSettings),
       session: updated.session || null
     };
   }
@@ -282,7 +325,7 @@ function createService({
     const settings = await userSettingsRepository.updatePreferences(user.id, parsed.patch);
     const chatSettings = await chatUserSettingsRepository.ensureForUserId(user.id);
     const securityStatus = await authService.getSecurityStatus(request);
-    return buildSettingsResponse(user, settings, securityStatus, resolveAvatar(user, settings), chatSettings);
+    return buildResponse(user, settings, securityStatus, chatSettings);
   }
 
   async function updateNotifications(request, user, payload) {
@@ -294,7 +337,7 @@ function createService({
     const settings = await userSettingsRepository.updateNotifications(user.id, parsed.patch);
     const chatSettings = await chatUserSettingsRepository.ensureForUserId(user.id);
     const securityStatus = await authService.getSecurityStatus(request);
-    return buildSettingsResponse(user, settings, securityStatus, resolveAvatar(user, settings), chatSettings);
+    return buildResponse(user, settings, securityStatus, chatSettings);
   }
 
   async function updateChat(request, user, payload) {
@@ -317,7 +360,7 @@ function createService({
 
     const settings = await userSettingsRepository.ensureForUserId(user.id);
     const securityStatus = await authService.getSecurityStatus(request);
-    return buildSettingsResponse(user, settings, securityStatus, resolveAvatar(user, settings), chatSettings);
+    return buildResponse(user, settings, securityStatus, chatSettings);
   }
 
   async function uploadAvatar(request, user, payload) {
@@ -326,13 +369,7 @@ function createService({
     const chatSettings = await chatUserSettingsRepository.ensureForUserId(user.id);
     const securityStatus = await authService.getSecurityStatus(request);
 
-    return buildSettingsResponse(
-      upload.profile,
-      settings,
-      securityStatus,
-      resolveAvatar(upload.profile, settings),
-      chatSettings
-    );
+    return buildResponse(upload.profile, settings, securityStatus, chatSettings);
   }
 
   async function deleteAvatar(request, user) {
@@ -341,7 +378,7 @@ function createService({
     const chatSettings = await chatUserSettingsRepository.ensureForUserId(user.id);
     const securityStatus = await authService.getSecurityStatus(request);
 
-    return buildSettingsResponse(profile, settings, securityStatus, resolveAvatar(profile, settings), chatSettings);
+    return buildResponse(profile, settings, securityStatus, chatSettings);
   }
 
   async function changePassword(request, payload) {
@@ -370,15 +407,13 @@ function createService({
     await userSettingsRepository.ensureForUserId(user.id);
     await authService.setPasswordSignInEnabled(request, payload);
 
-    const maybeLatestProfile = user.supabaseUserId
-      ? await userProfilesRepository.findBySupabaseUserId(user.supabaseUserId)
-      : null;
+    const maybeLatestProfile = await resolveLatestProfileByIdentity(user);
     const profile = maybeLatestProfile || user;
     const settings = await userSettingsRepository.ensureForUserId(user.id);
     const chatSettings = await chatUserSettingsRepository.ensureForUserId(user.id);
     const securityStatus = await authService.getSecurityStatus(request);
 
-    return buildSettingsResponse(profile, settings, securityStatus, resolveAvatar(profile, settings), chatSettings);
+    return buildResponse(profile, settings, securityStatus, chatSettings);
   }
 
   async function startOAuthProviderLink(request, user, payload) {
@@ -389,15 +424,13 @@ function createService({
   async function unlinkOAuthProvider(request, user, payload) {
     await authService.unlinkProvider(request, payload);
 
-    const maybeLatestProfile = user.supabaseUserId
-      ? await userProfilesRepository.findBySupabaseUserId(user.supabaseUserId)
-      : null;
+    const maybeLatestProfile = await resolveLatestProfileByIdentity(user);
     const profile = maybeLatestProfile || user;
     const settings = await userSettingsRepository.ensureForUserId(user.id);
     const chatSettings = await chatUserSettingsRepository.ensureForUserId(user.id);
     const securityStatus = await authService.getSecurityStatus(request);
 
-    return buildSettingsResponse(profile, settings, securityStatus, resolveAvatar(profile, settings), chatSettings);
+    return buildResponse(profile, settings, securityStatus, chatSettings);
   }
 
   async function logoutOtherSessions(request) {
@@ -435,6 +468,7 @@ const __testables = {
   normalizeSecurityStatus,
   normalizeChatSettings,
   duplicateEntryTargetsPublicChatId,
+  resolveAuthProfileContract,
   buildSettingsResponse,
   isValidLocale,
   isValidTimeZone,

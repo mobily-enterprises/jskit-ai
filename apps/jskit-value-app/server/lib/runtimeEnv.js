@@ -25,9 +25,10 @@ export const runtimeEnv = cleanEnv(
     DB_NAME: str({ default: "material-app" }),
     DB_TEST_NAME: str({ default: "" }),
     DB_POOL_MAX: num({ default: 10 }),
-    SUPABASE_URL: str({ default: "" }),
-    SUPABASE_PUBLISHABLE_KEY: str({ default: "" }),
-    SUPABASE_JWT_AUDIENCE: str({ default: "authenticated" }),
+    AUTH_PROVIDER: str({ default: "supabase" }),
+    AUTH_SUPABASE_URL: str({ default: "" }),
+    AUTH_SUPABASE_PUBLISHABLE_KEY: str({ default: "" }),
+    AUTH_JWT_AUDIENCE: str({ default: "authenticated" }),
     APP_PUBLIC_URL: str({ default: "" }),
     SMS_DRIVER: str({
       choices: ["none", "plivo"],

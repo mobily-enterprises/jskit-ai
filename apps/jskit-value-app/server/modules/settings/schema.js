@@ -36,6 +36,8 @@ const avatar = Type.Object(
   }
 );
 
+const AUTH_PROVIDER_ID_PATTERN = "^[a-z][a-z0-9_-]{1,63}$";
+
 const profile = Type.Object(
   {
     displayName: Type.String({ minLength: 1, maxLength: 120 }),
@@ -44,8 +46,8 @@ const profile = Type.Object(
       maxLength: AUTH_EMAIL_MAX_LENGTH,
       pattern: AUTH_EMAIL_PATTERN
     }),
-    emailManagedBy: Type.Literal("supabase"),
-    emailChangeFlow: Type.Literal("supabase"),
+    emailManagedBy: Type.String({ minLength: 2, maxLength: 64, pattern: AUTH_PROVIDER_ID_PATTERN }),
+    emailChangeFlow: Type.String({ minLength: 2, maxLength: 64, pattern: AUTH_PROVIDER_ID_PATTERN }),
     avatar
   },
   {
