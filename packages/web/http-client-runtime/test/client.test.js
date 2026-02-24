@@ -25,7 +25,7 @@ test("request serializes json body and injects csrf token for unsafe methods", a
   const calls = [];
   const fetchImpl = async (url, options) => {
     calls.push([url, options]);
-    if (url === "/api/session") {
+    if (url === "/api/v1/session") {
       return mockResponse({
         data: {
           csrfToken: "csrf-a"
@@ -41,7 +41,7 @@ test("request serializes json body and injects csrf token for unsafe methods", a
   };
 
   const client = createHttpClient({ fetchImpl });
-  const payload = await client.request("/api/custom", {
+  const payload = await client.request("/api/v1/custom", {
     method: "POST",
     body: {
       demo: true
@@ -50,7 +50,7 @@ test("request serializes json body and injects csrf token for unsafe methods", a
 
   assert.deepEqual(payload, { ok: true });
   assert.equal(calls.length, 2);
-  assert.equal(calls[0][0], "/api/session");
+  assert.equal(calls[0][0], "/api/v1/session");
   assert.equal(calls[1][1].headers["csrf-token"], "csrf-a");
   assert.equal(calls[1][1].headers["Content-Type"], "application/json");
   assert.equal(calls[1][1].body, JSON.stringify({ demo: true }));
@@ -60,7 +60,7 @@ test("request retries once on retryable csrf failure and preserves stateful head
   const calls = [];
   const fetchImpl = async (url, options) => {
     calls.push([url, options]);
-    if (url === "/api/session") {
+    if (url === "/api/v1/session") {
       return mockResponse({
         data: {
           csrfToken: calls.length < 3 ? "csrf-1" : "csrf-2"
@@ -99,7 +99,7 @@ test("request retries once on retryable csrf failure and preserves stateful head
 
   const state = {};
   const payload = await client.request(
-    "/api/workspace/projects/1",
+    "/api/v1/workspace/projects/1",
     {
       method: "PATCH",
       body: {
@@ -148,7 +148,7 @@ test("requestStream parses ndjson and supports fallback hook", async () => {
   });
 
   await client.requestStream(
-    "/api/stream",
+    "/api/v1/stream",
     {
       method: "POST",
       headers: {
@@ -177,7 +177,7 @@ test("request maps network errors to normalized transport error", async () => {
   const client = createHttpClient({ fetchImpl });
 
   await assert.rejects(
-    () => client.request("/api/session"),
+    () => client.request("/api/v1/session"),
     (error) => error.status === 0 && error.message === "Network request failed." && error.cause === networkFailure
   );
 });
