@@ -12,7 +12,7 @@ import { BILLING_FAILURE_CODES } from "@jskit-ai/billing-service-core/constants"
 import {
   PROVIDER_ERROR_CATEGORIES,
   createBillingProviderError
-} from "../server/modules/billing/index.js";
+} from "../server/modules/billing/lib/providers/shared/providerError.contract.js";
 
 test("provider error classification treats deterministic 4xx and invalid-request codes as terminal", () => {
   assert.equal(isDeterministicProviderRejection({ statusCode: 400 }), true);

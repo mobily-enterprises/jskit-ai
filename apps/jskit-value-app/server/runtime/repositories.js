@@ -1,8 +1,8 @@
 import { db } from "../../db/knex.js";
-import { calculationLogsRepository } from "../modules/history/index.js";
-import { userSettingsRepository } from "../modules/settings/index.js";
-import { projectsRepository } from "../modules/projects/index.js";
-import { healthRepository } from "../modules/health/index.js";
+import { createRepository as createCalculationLogsRepository } from "../modules/history/index.js";
+import { createRepository as createUserSettingsRepository } from "../modules/settings/index.js";
+import { createRepository as createProjectsRepository } from "../modules/projects/index.js";
+import { createRepository as createHealthRepository } from "../modules/health/index.js";
 import { createRepository as createAiTranscriptConversationsRepository } from "@jskit-ai/assistant-transcripts-knex-mysql/repositories/conversations";
 import { createRepository as createAiTranscriptMessagesRepository } from "@jskit-ai/assistant-transcripts-knex-mysql/repositories/messages";
 import { createRepository as createBillingRepository } from "@jskit-ai/billing-knex-mysql/repository";
@@ -48,6 +48,10 @@ const chatReactionsRepository = createChatReactionsRepository(db);
 const chatUserSettingsRepository = createChatUserSettingsRepository(db);
 const chatBlocksRepository = createChatBlocksRepository(db);
 const billingRepository = createBillingRepository(db);
+const calculationLogsRepository = createCalculationLogsRepository();
+const userSettingsRepository = createUserSettingsRepository();
+const projectsRepository = createProjectsRepository();
+const healthRepository = createHealthRepository();
 
 const PLATFORM_REPOSITORY_DEFINITIONS = Object.freeze([
   {

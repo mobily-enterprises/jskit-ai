@@ -1,8 +1,12 @@
-import { checkDatabase, __testables as healthRepositoryTestables } from "./repository.js";
+import { checkDatabase } from "./repository.js";
 
-const healthRepository = Object.freeze({
+const repository = Object.freeze({
   checkDatabase
 });
 
-export { createService, __testables as healthServiceTestables } from "./service.js";
-export { checkDatabase, healthRepository, healthRepositoryTestables };
+function createRepository() {
+  return repository;
+}
+
+export { createService } from "./service.js";
+export { createRepository };

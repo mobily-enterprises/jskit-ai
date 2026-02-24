@@ -1,13 +1,6 @@
-import {
-  insert,
-  countForWorkspaceUser,
-  listForWorkspaceUser,
-  countForWorkspace,
-  listForWorkspace,
-  __testables as calculationLogsRepositoryTestables
-} from "./repository.js";
+import { insert, countForWorkspaceUser, listForWorkspaceUser, countForWorkspace, listForWorkspace } from "./repository.js";
 
-const calculationLogsRepository = Object.freeze({
+const repository = Object.freeze({
   insert,
   countForWorkspaceUser,
   listForWorkspaceUser,
@@ -15,16 +8,12 @@ const calculationLogsRepository = Object.freeze({
   listForWorkspace
 });
 
+function createRepository() {
+  return repository;
+}
+
 export { createController } from "./controller.js";
 export { buildRoutes } from "./routes.js";
 export { schema } from "./schema.js";
-export { createService, __testables as historyServiceTestables } from "./service.js";
-export {
-  insert,
-  countForWorkspaceUser,
-  listForWorkspaceUser,
-  countForWorkspace,
-  listForWorkspace,
-  calculationLogsRepository,
-  calculationLogsRepositoryTestables
-};
+export { createService } from "./service.js";
+export { createRepository };

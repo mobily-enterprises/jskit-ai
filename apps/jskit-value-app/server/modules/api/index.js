@@ -1,1 +1,1 @@
-export { ROUTE_MODULE_DEFINITIONS, buildDefaultRoutes } from "./routes.js";
+export { buildDefaultRoutes } from "./routes.js";

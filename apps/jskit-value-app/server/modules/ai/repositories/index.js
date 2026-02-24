@@ -1,5 +1,8 @@
-import * as conversationsRepository from "./conversations.repository.js";
-import * as messagesRepository from "./messages.repository.js";
+import * as conversationsRepositoryModule from "./conversations.repository.js";
+import * as messagesRepositoryModule from "./messages.repository.js";
+
+const { __testables: _conversationsTestables, ...conversationsRepository } = conversationsRepositoryModule;
+const { __testables: _messagesTestables, ...messagesRepository } = messagesRepositoryModule;
 
 function createRepositories() {
   return {
@@ -8,4 +11,4 @@ function createRepositories() {
   };
 }
 
-export { createRepositories, conversationsRepository, messagesRepository };
+export { createRepositories };

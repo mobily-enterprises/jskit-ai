@@ -9,10 +9,27 @@ function assertNoDefaultExport(modulePath, mod) {
   assert.equal(Object.hasOwn(mod, "default"), false, `${modulePath} must not expose a default export.`);
 }
 
+function assertExactExportContract(modulePath, mod, requiredExports) {
+  const expectedExportNames = Object.keys(requiredExports).sort();
+  const actualExportNames = Object.keys(mod).sort();
+  assert.deepEqual(
+    actualExportNames,
+    expectedExportNames,
+    `${modulePath} export contract drifted.\nexpected: ${expectedExportNames.join(", ")}\nactual: ${actualExportNames.join(", ")}`
+  );
+}
+
 function assertRequiredExports(modulePath, mod, requiredExports) {
   for (const [exportName, expectedType] of Object.entries(requiredExports)) {
     assert.equal(typeof mod[exportName], expectedType, `${modulePath} missing ${exportName}`);
   }
+}
+
+function assertRepositoryObjectContract(label, value) {
+  assert.equal(Array.isArray(value), false, `${label} must return an object contract (not an array).`);
+  assert.equal(typeof value, "object", `${label} must return an object contract.`);
+  assert.notEqual(value, null, `${label} must return an object contract.`);
+  assert.equal(Object.hasOwn(value, "__testables"), false, `${label} must not expose __testables.`);
 }
 
 test("server module indexes expose expected seams", async () => {
@@ -45,8 +62,7 @@ test("server module indexes expose expected seams", async () => {
       modulePath: "../server/modules/billing/index.js",
       requiredExports: {
         createBillingProvidersModule: "function",
-        createBillingProviderRegistryService: "function",
-        createBillingWebhookTranslationRegistryService: "function"
+        createRepository: "function"
       }
     },
     {
@@ -84,7 +100,7 @@ test("server module indexes expose expected seams", async () => {
       modulePath: "../server/modules/health/index.js",
       requiredExports: {
         createService: "function",
-        healthRepository: "object"
+        createRepository: "function"
       }
     },
     {
@@ -94,7 +110,7 @@ test("server module indexes expose expected seams", async () => {
         buildRoutes: "function",
         createService: "function",
         schema: "object",
-        calculationLogsRepository: "object"
+        createRepository: "function"
       }
     },
     {
@@ -104,7 +120,7 @@ test("server module indexes expose expected seams", async () => {
         buildRoutes: "function",
         createService: "function",
         schema: "object",
-        projectsRepository: "object"
+        createRepository: "function"
       }
     },
     {
@@ -113,7 +129,7 @@ test("server module indexes expose expected seams", async () => {
         createController: "function",
         buildRoutes: "function",
         createService: "function",
-        userSettingsRepository: "object"
+        createRepository: "function"
       }
     },
     {
@@ -129,8 +145,93 @@ test("server module indexes expose expected seams", async () => {
   for (const expectation of moduleExpectations) {
     const mod = await loadExports(expectation.modulePath);
     assertNoDefaultExport(expectation.modulePath, mod);
+    assertExactExportContract(expectation.modulePath, mod, expectation.requiredExports);
     assertRequiredExports(expectation.modulePath, mod, expectation.requiredExports);
   }
+});
+
+test("repository factory seams return object contracts", async () => {
+  const chatRepositoriesModule = await loadExports("../server/modules/chat/repositories/index.js");
+  const aiRepositoriesModule = await loadExports("../server/modules/ai/repositories/index.js");
+  const billingModule = await loadExports("../server/modules/billing/index.js");
+  const healthModule = await loadExports("../server/modules/health/index.js");
+  const historyModule = await loadExports("../server/modules/history/index.js");
+  const projectsModule = await loadExports("../server/modules/projects/index.js");
+  const settingsModule = await loadExports("../server/modules/settings/index.js");
+
+  const chatRepositories = chatRepositoriesModule.createRepositories();
+  assertRepositoryObjectContract("chat.repositories.createRepositories()", chatRepositories);
+  assert.deepEqual(Object.keys(chatRepositories).sort(), [
+    "attachmentsRepository",
+    "blocksRepository",
+    "idempotencyTombstonesRepository",
+    "messagesRepository",
+    "participantsRepository",
+    "reactionsRepository",
+    "threadsRepository",
+    "userSettingsRepository"
+  ]);
+  for (const [repositoryName, repository] of Object.entries(chatRepositories)) {
+    assertRepositoryObjectContract(`chat.repositories.createRepositories().${repositoryName}`, repository);
+  }
+
+  const aiRepositories = aiRepositoriesModule.createRepositories();
+  assertRepositoryObjectContract("ai.repositories.createRepositories()", aiRepositories);
+  assert.deepEqual(Object.keys(aiRepositories).sort(), ["conversationsRepository", "messagesRepository"]);
+  for (const [repositoryName, repository] of Object.entries(aiRepositories)) {
+    assertRepositoryObjectContract(`ai.repositories.createRepositories().${repositoryName}`, repository);
+  }
+
+  const billingRepository = billingModule.createRepository();
+  assertRepositoryObjectContract("billing.createRepository()", billingRepository);
+  assert.deepEqual(Object.keys(billingRepository).sort(), [
+    "ensureBillableEntity",
+    "ensureBillableEntityByScope",
+    "findBillableEntityById",
+    "findBillableEntityByTypeRef",
+    "findBillableEntityByWorkspaceId",
+    "findWorkspaceContextForBillableEntity",
+    "transaction"
+  ]);
+
+  const healthRepository = healthModule.createRepository();
+  assertRepositoryObjectContract("health.createRepository()", healthRepository);
+  assert.deepEqual(Object.keys(healthRepository).sort(), ["checkDatabase"]);
+
+  const historyRepository = historyModule.createRepository();
+  assertRepositoryObjectContract("history.createRepository()", historyRepository);
+  assert.deepEqual(Object.keys(historyRepository).sort(), [
+    "countForWorkspace",
+    "countForWorkspaceUser",
+    "insert",
+    "listForWorkspace",
+    "listForWorkspaceUser"
+  ]);
+
+  const projectsRepository = projectsModule.createRepository();
+  assertRepositoryObjectContract("projects.createRepository()", projectsRepository);
+  assert.deepEqual(Object.keys(projectsRepository).sort(), [
+    "countActiveForWorkspace",
+    "countForWorkspace",
+    "findByIdForWorkspace",
+    "insert",
+    "listForWorkspace",
+    "transaction",
+    "updateByIdForWorkspace"
+  ]);
+
+  const settingsRepository = settingsModule.createRepository();
+  assertRepositoryObjectContract("settings.createRepository()", settingsRepository);
+  assert.deepEqual(Object.keys(settingsRepository).sort(), [
+    "ensureForUserId",
+    "findByUserId",
+    "findByUserIdForUpdate",
+    "updateLastActiveWorkspaceId",
+    "updateNotifications",
+    "updatePasswordSetupRequired",
+    "updatePasswordSignInEnabled",
+    "updatePreferences"
+  ]);
 });
 
 test("projects schema uses strict CRUD contract", async () => {

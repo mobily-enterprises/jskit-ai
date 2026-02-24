@@ -6,11 +6,10 @@ import {
   updatePasswordSignInEnabled,
   updatePasswordSetupRequired,
   findByUserIdForUpdate,
-  updateLastActiveWorkspaceId,
-  __testables as userSettingsRepositoryTestables
+  updateLastActiveWorkspaceId
 } from "./repository.js";
 
-const userSettingsRepository = Object.freeze({
+const repository = Object.freeze({
   findByUserId,
   ensureForUserId,
   updatePreferences,
@@ -21,18 +20,11 @@ const userSettingsRepository = Object.freeze({
   updateLastActiveWorkspaceId
 });
 
+function createRepository() {
+  return repository;
+}
+
 export { createController } from "./controller.js";
 export { buildRoutes } from "./routes.js";
-export { createService, __testables as userSettingsServiceTestables } from "./service.js";
-export {
-  findByUserId,
-  ensureForUserId,
-  updatePreferences,
-  updateNotifications,
-  updatePasswordSignInEnabled,
-  updatePasswordSetupRequired,
-  findByUserIdForUpdate,
-  updateLastActiveWorkspaceId,
-  userSettingsRepository,
-  userSettingsRepositoryTestables
-};
+export { createService } from "./service.js";
+export { createRepository };
