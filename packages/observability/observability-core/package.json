@@ -11,6 +11,7 @@
     "./browserPayload": "./src/browserPayload.js",
     "./serverPayload": "./src/serverPayload.js",
     "./metricsContracts": "./src/metricsContracts.js",
-    "./metricsRegistry": "./src/metricsRegistry.js"
+    "./metricsRegistry": "./src/metricsRegistry.js",
+    "./scopeLogger": "./src/scopeLogger.js"
   }
 }

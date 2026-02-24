@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createScopeDebugMatcher, createScopedLogger } from "@jskit-ai/observability-core/scopeLogger";
+import { createScopeDebugMatcher, createScopedLogger } from "../src/scopeLogger.js";
 
 test("createScopeDebugMatcher supports include/exclude scope prefixes", () => {
   const isEnabled = createScopeDebugMatcher("billing,auth,-auth.tokens");

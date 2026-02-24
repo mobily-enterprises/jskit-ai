@@ -17,7 +17,6 @@ const TEMPORARY_SERVER_LIB_IMPORT_ALLOWLIST = Object.freeze([
   "server/lib/appConfig.js",
   "server/lib/securityAudit.js",
   "server/lib/aiAssistantSystemPrompt.js",
-  "server/lib/logging/scopeLogger.js",
   "server/lib/billing/entitlementSchemaRegistry.js"
 ]);
 const LEGACY_TRANSCRIPT_MODE_FILES = Object.freeze([

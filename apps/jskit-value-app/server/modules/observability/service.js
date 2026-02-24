@@ -1,6 +1,6 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { createMetricsRegistry, PROMETHEUS_CONTENT_TYPE } from "@jskit-ai/observability-core";
-import { createScopeDebugMatcher, createScopedLogger } from "../../lib/logging/scopeLogger.js";
+import { createScopeDebugMatcher, createScopedLogger } from "@jskit-ai/observability-core/scopeLogger";
 
 function normalizeBearerToken(value) {
   return String(value || "").trim();
