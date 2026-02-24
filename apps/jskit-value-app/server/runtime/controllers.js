@@ -1,14 +1,14 @@
 import { createController as createAuthController } from "@jskit-ai/auth-fastify-adapter";
-import { createController as createHistoryController } from "../modules/history/controller.js";
+import { createController as createHistoryController } from "../modules/history/index.js";
 import { createController as createCommunicationsController } from "@jskit-ai/communications-fastify-adapter";
-import { createController as createSettingsController } from "../modules/settings/controller.js";
-import { createController as createWorkspaceController } from "../modules/workspace/controller.js";
-import { createController as createConsoleController } from "../modules/console/controller.js";
+import { createController as createSettingsController } from "../modules/settings/index.js";
+import { createController as createWorkspaceController } from "../modules/workspace/index.js";
+import { createController as createConsoleController } from "../modules/console/index.js";
 import { createController as createConsoleErrorsController } from "@jskit-ai/console-errors-fastify-adapter";
 import { createController as createObservabilityController } from "@jskit-ai/observability-fastify-adapter";
-import { createController as createChatController } from "../modules/chat/controller.js";
+import { createController as createChatController } from "../modules/chat/index.js";
 import { createController as createHealthController } from "@jskit-ai/health-fastify-adapter";
-import { createController as createAiController } from "../modules/ai/controller.js";
+import { createController as createAiController } from "../modules/ai/index.js";
 import { createController as createBillingController } from "@jskit-ai/billing-fastify-adapter/controller";
 
 const PLATFORM_CONTROLLER_DEFINITIONS = Object.freeze([

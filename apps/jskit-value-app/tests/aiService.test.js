@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createService as createAiService } from "../server/modules/ai/service.js";
+import { createAiService } from "../server/modules/ai/index.js";
 
 function createStream(chunks) {
   return {

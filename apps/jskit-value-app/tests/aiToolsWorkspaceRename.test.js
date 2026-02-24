@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createWorkspaceRenameTool } from "../server/modules/ai/tools/workspaceRename.tool.js";
+import { createWorkspaceRenameTool } from "../server/modules/ai/index.js";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../shared/eventTypes.js";
 
 test("workspace rename tool updates workspace settings and publishes workspace events", async () => {

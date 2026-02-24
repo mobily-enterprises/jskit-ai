@@ -6,9 +6,9 @@ import {
   REQUIRED_PROVIDER_ADAPTER_METHODS,
   normalizeProviderCode,
   validateProviderAdapter,
-  assertProviderAdapter
-} from "../server/modules/billing/providers/shared/providerAdapter.contract.js";
-import { createService as createBillingProviderRegistryService } from "../server/modules/billing/providers/shared/providerRegistry.service.js";
+  assertProviderAdapter,
+  createBillingProviderRegistryService
+} from "../server/modules/billing/index.js";
 import { createService as createStripeBillingProviderAdapterService } from "@jskit-ai/billing-provider-stripe/adapterService";
 import { createService as createPaddleBillingProviderAdapterService } from "@jskit-ai/billing-provider-paddle/adapterService";
 

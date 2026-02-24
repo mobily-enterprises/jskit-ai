@@ -1,7 +1,5 @@
-import { createService as createDeg2radService } from "../modules/deg2rad/service.js";
-import { createService as createProjectsService } from "../modules/projects/service.js";
-import { createController as createDeg2radController } from "../modules/deg2rad/controller.js";
-import { createController as createProjectsController } from "../modules/projects/controller.js";
+import { createService as createDeg2radService, createController as createDeg2radController } from "../modules/deg2rad/index.js";
+import { createService as createProjectsService, createController as createProjectsController } from "../modules/projects/index.js";
 
 const APP_FEATURE_SERVICE_DEFINITIONS = Object.freeze([
   {

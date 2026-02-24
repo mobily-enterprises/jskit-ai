@@ -1,8 +1,8 @@
 import { db } from "../../db/knex.js";
-import * as calculationLogsRepository from "../modules/history/repository.js";
-import * as userSettingsRepository from "../modules/settings/repository.js";
-import * as projectsRepository from "../modules/projects/repository.js";
-import * as healthRepository from "../modules/health/repository.js";
+import { calculationLogsRepository } from "../modules/history/index.js";
+import { userSettingsRepository } from "../modules/settings/index.js";
+import { projectsRepository } from "../modules/projects/index.js";
+import { healthRepository } from "../modules/health/index.js";
 import { createRepository as createAiTranscriptConversationsRepository } from "@jskit-ai/assistant-transcripts-knex-mysql/repositories/conversations";
 import { createRepository as createAiTranscriptMessagesRepository } from "@jskit-ai/assistant-transcripts-knex-mysql/repositories/messages";
 import { createRepository as createBillingRepository } from "@jskit-ai/billing-knex-mysql/repository";

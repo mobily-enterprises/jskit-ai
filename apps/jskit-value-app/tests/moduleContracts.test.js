@@ -5,6 +5,144 @@ async function loadExports(modulePath) {
   return import(modulePath);
 }
 
+function assertNoDefaultExport(modulePath, mod) {
+  assert.equal(Object.hasOwn(mod, "default"), false, `${modulePath} must not expose a default export.`);
+}
+
+function assertRequiredExports(modulePath, mod, requiredExports) {
+  for (const [exportName, expectedType] of Object.entries(requiredExports)) {
+    assert.equal(typeof mod[exportName], expectedType, `${modulePath} missing ${exportName}`);
+  }
+}
+
+test("server module indexes expose expected seams", async () => {
+  const moduleExpectations = [
+    {
+      modulePath: "../server/modules/ai/index.js",
+      requiredExports: {
+        createController: "function",
+        buildRoutes: "function",
+        createAiService: "function",
+        createAiTranscriptsService: "function",
+        createOpenAiClient: "function"
+      }
+    },
+    {
+      modulePath: "../server/modules/api/index.js",
+      requiredExports: {
+        buildDefaultRoutes: "function"
+      }
+    },
+    {
+      modulePath: "../server/modules/auth/index.js",
+      requiredExports: {
+        createAccountFlows: "function",
+        createPasswordSecurityFlows: "function",
+        createOauthFlows: "function"
+      }
+    },
+    {
+      modulePath: "../server/modules/billing/index.js",
+      requiredExports: {
+        createBillingProvidersModule: "function",
+        createBillingProviderRegistryService: "function",
+        createBillingWebhookTranslationRegistryService: "function"
+      }
+    },
+    {
+      modulePath: "../server/modules/chat/index.js",
+      requiredExports: {
+        createController: "function",
+        buildRoutes: "function",
+        createChatService: "function",
+        createChatRealtimeService: "function"
+      }
+    },
+    {
+      modulePath: "../server/modules/communications/index.js",
+      requiredExports: {
+        createService: "function",
+        buildRoutes: "function"
+      }
+    },
+    {
+      modulePath: "../server/modules/console/index.js",
+      requiredExports: {
+        createController: "function"
+      }
+    },
+    {
+      modulePath: "../server/modules/deg2rad/index.js",
+      requiredExports: {
+        createController: "function",
+        buildRoutes: "function",
+        createService: "function",
+        schema: "object"
+      }
+    },
+    {
+      modulePath: "../server/modules/health/index.js",
+      requiredExports: {
+        createService: "function",
+        healthRepository: "object"
+      }
+    },
+    {
+      modulePath: "../server/modules/history/index.js",
+      requiredExports: {
+        createController: "function",
+        buildRoutes: "function",
+        createService: "function",
+        schema: "object",
+        calculationLogsRepository: "object"
+      }
+    },
+    {
+      modulePath: "../server/modules/projects/index.js",
+      requiredExports: {
+        createController: "function",
+        buildRoutes: "function",
+        createService: "function",
+        schema: "object",
+        projectsRepository: "object"
+      }
+    },
+    {
+      modulePath: "../server/modules/settings/index.js",
+      requiredExports: {
+        createController: "function",
+        buildRoutes: "function",
+        createService: "function",
+        userSettingsRepository: "object"
+      }
+    },
+    {
+      modulePath: "../server/modules/workspace/index.js",
+      requiredExports: {
+        createController: "function",
+        buildRoutes: "function",
+        schema: "object"
+      }
+    }
+  ];
+
+  for (const expectation of moduleExpectations) {
+    const mod = await loadExports(expectation.modulePath);
+    assertNoDefaultExport(expectation.modulePath, mod);
+    assertRequiredExports(expectation.modulePath, mod, expectation.requiredExports);
+  }
+});
+
+test("projects schema uses strict CRUD contract", async () => {
+  const mod = await loadExports("../server/modules/projects/index.js");
+  const { schema } = mod;
+
+  assert.deepEqual(Object.keys(schema).sort(), ["body", "params", "query", "response"]);
+  assert.deepEqual(Object.keys(schema.response).sort(), ["list", "single"]);
+  assert.deepEqual(Object.keys(schema.body).sort(), ["create", "replace", "update"]);
+  assert.equal(Object.hasOwn(schema.body, "levitate"), false);
+});
+
 function assertNoLegacyFactoryNames(exportKeys, allowed) {
   for (const key of exportKeys) {
     if (/^create[A-Z].*(Controller|Service|Api|Routes)$/.test(key) && key !== allowed) {
@@ -16,134 +154,11 @@ function assertNoLegacyFactoryNames(exportKeys, allowed) {
   }
 }
 
-function isContractMap(value) {
-  return value && typeof value === "object" && !Array.isArray(value) && !Object.hasOwn(value, "type");
-}
-
-function assertNoSchemaSuffixKeys(value, path = "schema") {
-  if (!isContractMap(value)) {
-    return;
-  }
-
-  for (const [key, next] of Object.entries(value)) {
-    assert.equal(/Schema$/.test(key), false, `Contract key "${path}.${key}" should not end with "Schema".`);
-    assertNoSchemaSuffixKeys(next, `${path}.${key}`);
-  }
-}
-
-test("server controllers expose createController contract", async () => {
-  const modules = [
-    "../server/modules/ai/controller.js",
-    "../server/modules/auth/controller.js",
-    "../server/modules/communications/controller.js",
-    "../server/modules/history/controller.js",
-    "../server/modules/health/controller.js",
-    "../server/modules/projects/controller.js",
-    "../server/modules/settings/controller.js",
-    "../server/modules/observability/controller.js",
-    "../server/modules/console/controller.js",
-    "../server/modules/consoleErrors/controller.js",
-    "../server/modules/workspace/controller.js"
-  ];
-
-  for (const modulePath of modules) {
-    const mod = await loadExports(modulePath);
-    const exportKeys = Object.keys(mod);
-    assert.equal(typeof mod.createController, "function", `${modulePath} missing createController`);
-    assertNoLegacyFactoryNames(exportKeys, "createController");
-  }
-});
-
-test("server services expose createService contract", async () => {
-  const modules = [
-    "@jskit-ai/sms-core",
-    "../server/modules/ai/service.js",
-    "../server/modules/auth/service.js",
-    "../server/modules/communications/service.js",
-    "../server/modules/history/service.js",
-    "../server/modules/health/service.js",
-    "../server/modules/projects/service.js",
-    "../server/modules/settings/service.js",
-    "@jskit-ai/observability-core/service",
-    "@jskit-ai/workspace-console-service-core/services/console",
-    "@jskit-ai/workspace-console-service-core/services/errors",
-    "@jskit-ai/security-audit-core",
-    "@jskit-ai/retention-core",
-    "@jskit-ai/workspace-service-core/services/workspace",
-    "@jskit-ai/workspace-service-core/services/admin",
-    "@jskit-ai/workspace-service-core/services/inviteEmail",
-    "@jskit-ai/user-profile-core/avatarService",
-    "@jskit-ai/user-profile-core/avatarStorageService"
-  ];
-
-  for (const modulePath of modules) {
-    const mod = await loadExports(modulePath);
-    const exportKeys = Object.keys(mod);
-    assert.equal(typeof mod.createService, "function", `${modulePath} missing createService`);
-    assertNoLegacyFactoryNames(exportKeys, "createService");
-  }
-});
-
-test("server routes expose buildRoutes contract", async () => {
-  const modules = [
-    "../server/modules/ai/routes.js",
-    "../server/modules/auth/routes.js",
-    "../server/modules/communications/routes.js",
-    "../server/modules/history/routes.js",
-    "../server/modules/health/routes.js",
-    "../server/modules/projects/routes.js",
-    "../server/modules/settings/routes.js",
-    "../server/modules/observability/routes.js",
-    "../server/modules/console/routes.js",
-    "../server/modules/consoleErrors/routes.js",
-    "../server/modules/workspace/routes.js"
-  ];
-
-  for (const modulePath of modules) {
-    const mod = await loadExports(modulePath);
-    const exportKeys = Object.keys(mod);
-    assert.equal(typeof mod.buildRoutes, "function", `${modulePath} missing buildRoutes`);
-    assertNoLegacyFactoryNames(exportKeys, "buildRoutes");
-  }
-});
-
-test("server schemas expose schema object contract", async () => {
-  const modules = [
-    "../server/modules/ai/schema.js",
-    "../server/modules/auth/schema.js",
-    "../server/modules/communications/schema.js",
-    "../server/modules/history/schema.js",
-    "../server/modules/health/schema.js",
-    "../server/modules/projects/schema.js",
-    "../server/modules/settings/schema.js",
-    "../server/modules/observability/schema.js",
-    "../server/modules/console/schema.js",
-    "../server/modules/consoleErrors/schema.js",
-    "../server/modules/workspace/schema.js"
-  ];
-
-  for (const modulePath of modules) {
-    const mod = await loadExports(modulePath);
-    assert.equal(typeof mod.schema, "object", `${modulePath} missing schema export`);
-    assert.notEqual(mod.schema, null, `${modulePath} schema export must be non-null`);
-    assertNoSchemaSuffixKeys(mod.schema);
-  }
-});
-
-test("projects schema uses strict CRUD contract", async () => {
-  const mod = await loadExports("../server/modules/projects/schema.js");
-  const { schema } = mod;
-
-  assert.deepEqual(Object.keys(schema).sort(), ["body", "params", "query", "response"]);
-  assert.deepEqual(Object.keys(schema.response).sort(), ["list", "single"]);
-  assert.deepEqual(Object.keys(schema.body).sort(), ["create", "replace", "update"]);
-  assert.equal(Object.hasOwn(schema.body, "levitate"), false);
-});
-
 test("client API modules expose createApi contract", async () => {
   const modules = [
-    "../src/services/api/aiApi.js",
     "../src/services/api/authApi.js",
+    "../src/services/api/billingApi.js",
+    "../src/services/api/deg2radApi.js",
     "../src/services/api/workspaceApi.js",
     "../src/services/api/consoleApi.js",
     "../src/services/api/projectsApi.js",

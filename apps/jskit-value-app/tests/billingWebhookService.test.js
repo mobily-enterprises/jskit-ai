@@ -4,7 +4,7 @@ import test from "node:test";
 import { createService as createBillingWebhookService } from "@jskit-ai/billing-service-core/webhookService";
 import { createService as createStripeWebhookTranslationService } from "@jskit-ai/billing-provider-stripe/webhookTranslationService";
 import { createService as createPaddleWebhookTranslationService } from "@jskit-ai/billing-provider-paddle/webhookTranslationService";
-import { createService as createBillingWebhookTranslationRegistryService } from "../server/modules/billing/providers/shared/webhookTranslationRegistry.service.js";
+import { createBillingWebhookTranslationRegistryService } from "../server/modules/billing/index.js";
 
 function createWebhookTranslationRegistry() {
   return createBillingWebhookTranslationRegistryService({

@@ -8,16 +8,16 @@ import { safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUr
 import {
   publishWorkspaceEventSafely,
   resolvePublishWorkspaceEvent
-} from "../../realtime/publishers/workspacePublisher.js";
+} from "../../../realtime/publishers/workspacePublisher.js";
 import { buildAuditEventBase } from "@jskit-ai/server-runtime-core/securityAudit";
-import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/eventTypes.js";
-import { resolveSurfaceFromPathname } from "../../../shared/surfacePaths.js";
-import { normalizeSurfaceId } from "../../../shared/surfaceRegistry.js";
+import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../../shared/eventTypes.js";
+import { resolveSurfaceFromPathname } from "../../../../shared/surfacePaths.js";
+import { normalizeSurfaceId } from "../../../../shared/surfaceRegistry.js";
 import {
   resolveAssistantSystemPromptAppFromWorkspaceSettings,
   resolveAssistantSystemPromptWorkspaceFromConsoleSettings
 } from "@jskit-ai/assistant-core/systemPrompt";
-import { createWorkspaceRenameTool } from "./tools/workspaceRename.tool.js";
+import { createWorkspaceRenameTool } from "../lib/tools/workspaceRename.tool.js";
 
 const DEFAULT_ASSISTANT_TOOL_SURFACE_ALLOWLIST = Object.freeze({
   app: Object.freeze([]),

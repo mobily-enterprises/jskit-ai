@@ -29,10 +29,22 @@ Rules:
 
 ## 3) Backend naming and placement
 
-- `server/modules/*/routes.js`: route definitions and schema wiring per feature.
-- `server/modules/*/controller.js`: HTTP handlers only.
-- `server/modules/*/service.js`: module-level business/use-case orchestration.
-- `server/modules/*/repository.js`: module-level DB access where persistence is module-owned.
+- Every module under `server/modules/<module>/` must expose a single public seam at `index.js`.
+- Production code outside a module must import that module via `server/modules/<module>/index.js` only.
+- Module `index.js` uses explicit named exports only. `export *` is forbidden.
+- Module top-level files are restricted to:
+  `index.js`, `controller.js`, `routes.js`, `schema.js`, `service.js`, `repository.js`.
+- Module top-level directories are restricted to:
+  `controllers/`, `routes/`, `schemas/`, `services/`, `repositories/`, `lib/`.
+- For each role, choose file or directory form, never both in one module:
+  `controller.js|controllers/`, `routes.js|routes/`, `schema.js|schemas/`, `service.js|services/`, `repository.js|repositories/`.
+- Role-directory naming rules:
+  - `controllers/index.js`, `controllers/<name>.controller.js`
+  - `routes/index.js`, `routes/<name>.routes.js`
+  - `schemas/index.js`, `schemas/<name>.schema.js`
+  - `services/index.js`, `services/<name>.service.js`
+  - `repositories/index.js`, `repositories/<name>.repository.js` (+ optional `repositories/shared.js`)
+- Non-role implementation code belongs under `server/modules/<module>/lib/**` and is private by default.
 - `server/domain/**/services/*.service.js`: domain business/use-case orchestration.
 - `server/domain/**/repositories/*.repository.js`: domain persistence access.
 - `server/fastify/registerApiRoutes.js`: Fastify route registration/wiring.
@@ -47,7 +59,7 @@ Repository mapper pattern:
 
 API schema naming:
 
-- Feature-specific API schemas live in `server/modules/<feature>/schema.js`.
+- Feature-specific API schemas live in `server/modules/<feature>/schema.js` or `server/modules/<feature>/schemas/*.schema.js`.
 - Shared backend API schema helpers live in `@jskit-ai/http-contracts`.
 - Module schema files should export a `schema` object.
 - Group route contracts under explicit keys (`query`, `params`, `body`, `response`).

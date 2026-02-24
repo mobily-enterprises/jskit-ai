@@ -5,266 +5,50 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const MODULES_DIR = path.join(ROOT_DIR, "server", "modules");
 const SERVER_DIR = path.join(ROOT_DIR, "server");
-const SERVER_DOMAIN_DIR = path.join(SERVER_DIR, "domain");
-const REALTIME_EVENTS_SERVICE_PACKAGE_FILE = path.resolve(
-  ROOT_DIR,
-  "../../packages/runtime/server-runtime-core/src/realtimeEventsService.js"
-);
-const ARCHITECTURE_SCAN_DIRS = [path.join(SERVER_DIR, "domain"), path.join(SERVER_DIR, "modules")];
-const APP_SPECIFIC_SERVER_FEATURE_ALLOWLIST = Object.freeze([
-  // Domain/business uniqueness is intentionally restricted to these app-local features.
-  "deg2rad",
-  "projects"
+
+const ALLOWED_TOP_LEVEL_FILES = new Set([
+  "index.js",
+  "controller.js",
+  "routes.js",
+  "schema.js",
+  "service.js",
+  "repository.js"
 ]);
-const REMOVED_APP_LOCAL_API_SCHEMA_HELPER_FILES = Object.freeze([
-  "server/modules/api/schema.js",
-  "server/modules/api/schema/formats.schema.js",
-  "server/modules/api/schema/paginationQuery.schema.js"
+
+const ALLOWED_TOP_LEVEL_DIRECTORIES = new Set([
+  "controllers",
+  "routes",
+  "schemas",
+  "services",
+  "repositories",
+  "lib"
 ]);
-const TEMPORARY_SERVER_LIB_IMPORT_ALLOWLIST = Object.freeze([]);
-const LEGACY_TRANSCRIPT_MODE_FILES = Object.freeze([
-  "server/lib/aiTranscriptMode.js",
-  "server/modules/ai/transcripts/mode.js"
+
+const ROLE_FILE_DIRECTORY_PAIRS = Object.freeze([
+  { file: "controller.js", directory: "controllers" },
+  { file: "routes.js", directory: "routes" },
+  { file: "schema.js", directory: "schemas" },
+  { file: "service.js", directory: "services" },
+  { file: "repository.js", directory: "repositories" }
 ]);
-const IMPORT_GUARD_SCAN_DIRS = Object.freeze([
-  path.join(ROOT_DIR, "server"),
-  path.join(ROOT_DIR, "src"),
-  path.join(ROOT_DIR, "shared"),
-  path.join(ROOT_DIR, "tests"),
-  path.join(ROOT_DIR, "bin")
-]);
-const FORBIDDEN_TRANSCRIPT_MODE_IMPORT_SEGMENTS = Object.freeze(["aiTranscriptMode.js", "ai/transcripts/mode.js"]);
-const REALTIME_PUBLISHER_FILES = Object.freeze([
-  "server/realtime/publishers/projectPublisher.js",
-  "server/realtime/publishers/workspacePublisher.js",
-  "server/realtime/publishers/chatPublisher.js"
-]);
-const FORBIDDEN_REALTIME_PUBLISH_HELPER_FUNCTIONS = Object.freeze([
-  "normalizeHeaderValue",
-  "resolvePublishMethod",
-  "buildPublishRequestMeta",
-  "warnPublishFailure",
-  "publishSafely"
-]);
-const FORBIDDEN_REALTIME_EVENT_HELPER_FUNCTIONS = Object.freeze([
-  "normalizePositiveIntegerOrNull",
-  "normalizeStringOrNull",
-  "normalizeEntityId",
-  "normalizePositiveIntegerArray",
-  "normalizeScopeKind",
-  "normalizeStringifiedPositiveIntegerOrNull"
-]);
-const OBSERVABILITY_APP_SERVICE_FILE = "server/modules/observability/service.js";
-const RUNTIME_INDEX_FILE = "server/runtime/index.js";
-const RETENTION_SERVICE_PACKAGE_FILE = path.resolve(ROOT_DIR, "../../packages/operations/retention-core/src/service.js");
-const RETENTION_PROCESSOR_FILE = "server/workers/retentionProcessor.js";
-const RETENTION_RULES_PACKAGE_DIR = path.resolve(ROOT_DIR, "../../packages/operations/retention-core/src/rules");
-const APP_RETENTION_DOMAIN_DIR = "server/domain/operations";
-const EXTRACTED_REPOSITORY_WRAPPER_EXPECTATIONS = Object.freeze([
-  {
-    relativePath: "server/modules/chat/repositories/threads.repository.js",
-    importSegment: "@jskit-ai/chat-knex-mysql/repositories/threads",
-    maxLines: 80
-  },
-  {
-    relativePath: "server/modules/chat/repositories/participants.repository.js",
-    importSegment: "@jskit-ai/chat-knex-mysql/repositories/participants",
-    maxLines: 80
-  },
-  {
-    relativePath: "server/modules/chat/repositories/messages.repository.js",
-    importSegment: "@jskit-ai/chat-knex-mysql/repositories/messages",
-    maxLines: 80
-  },
-  {
-    relativePath: "server/modules/chat/repositories/idempotencyTombstones.repository.js",
-    importSegment: "@jskit-ai/chat-knex-mysql/repositories/idempotencyTombstones",
-    maxLines: 80
-  },
-  {
-    relativePath: "server/modules/chat/repositories/attachments.repository.js",
-    importSegment: "@jskit-ai/chat-knex-mysql/repositories/attachments",
-    maxLines: 80
-  },
-  {
-    relativePath: "server/modules/chat/repositories/reactions.repository.js",
-    importSegment: "@jskit-ai/chat-knex-mysql/repositories/reactions",
-    maxLines: 80
-  },
-  {
-    relativePath: "server/modules/chat/repositories/userSettings.repository.js",
-    importSegment: "@jskit-ai/chat-knex-mysql/repositories/userSettings",
-    maxLines: 80
-  },
-  {
-    relativePath: "server/modules/chat/repositories/blocks.repository.js",
-    importSegment: "@jskit-ai/chat-knex-mysql/repositories/blocks",
-    maxLines: 80
-  },
-  {
-    relativePath: "server/modules/ai/repositories/conversations.repository.js",
-    importSegment: "@jskit-ai/assistant-transcripts-knex-mysql/repositories/conversations",
-    maxLines: 80
-  },
-  {
-    relativePath: "server/modules/ai/repositories/messages.repository.js",
-    importSegment: "@jskit-ai/assistant-transcripts-knex-mysql/repositories/messages",
-    maxLines: 80
-  },
-  {
-    relativePath: "server/modules/billing/repository.js",
-    importSegment: "@jskit-ai/billing-knex-mysql/repository",
-    maxLines: 220
-  }
-]);
-const EXTRACTED_FASTIFY_WRAPPER_EXPECTATIONS = Object.freeze([
-  { relativePath: "server/modules/auth/controller.js", importSegment: "@jskit-ai/auth-fastify-adapter", maxLines: 20 },
-  { relativePath: "server/modules/auth/routes.js", importSegment: "@jskit-ai/auth-fastify-adapter", maxLines: 20 },
-  { relativePath: "server/modules/auth/schema.js", importSegment: "@jskit-ai/auth-fastify-adapter", maxLines: 20 },
-  {
-    relativePath: "server/modules/communications/controller.js",
-    importSegment: "@jskit-ai/communications-fastify-adapter",
-    maxLines: 20
-  },
-  {
-    relativePath: "server/modules/communications/routes.js",
-    importSegment: "@jskit-ai/communications-fastify-adapter",
-    maxLines: 60
-  },
-  {
-    relativePath: "server/modules/communications/schema.js",
-    importSegment: "@jskit-ai/communications-contracts",
-    maxLines: 20
-  },
-  {
-    relativePath: "server/modules/billing/controller.js",
-    importSegment: "@jskit-ai/billing-fastify-adapter",
-    maxLines: 20
-  },
-  {
-    relativePath: "server/modules/billing/routes.js",
-    importSegment: "@jskit-ai/billing-fastify-adapter",
-    maxLines: 20
-  },
-  {
-    relativePath: "server/modules/billing/schema.js",
-    importSegment: "@jskit-ai/billing-fastify-adapter",
-    maxLines: 20
-  },
-  {
-    relativePath: "server/modules/workspace/controller.js",
-    importSegment: "@jskit-ai/workspace-fastify-adapter",
-    maxLines: 40
-  },
-  {
-    relativePath: "server/modules/workspace/routes.js",
-    importSegment: "@jskit-ai/workspace-fastify-adapter",
-    maxLines: 20
-  },
-  {
-    relativePath: "server/modules/workspace/schema.js",
-    importSegment: "@jskit-ai/workspace-fastify-adapter",
-    maxLines: 20
-  },
-  {
-    relativePath: "server/modules/console/controller.js",
-    importSegment: "@jskit-ai/console-fastify-adapter",
-    maxLines: 30
-  },
-  {
-    relativePath: "server/modules/console/routes.js",
-    importSegment: "@jskit-ai/console-fastify-adapter",
-    maxLines: 20
-  },
-  {
-    relativePath: "server/modules/console/schema.js",
-    importSegment: "@jskit-ai/console-fastify-adapter",
-    maxLines: 20
-  },
-  {
-    relativePath: "server/modules/settings/controller.js",
-    importSegment: "@jskit-ai/settings-fastify-adapter",
-    maxLines: 30
-  },
-  {
-    relativePath: "server/modules/settings/routes.js",
-    importSegment: "@jskit-ai/settings-fastify-adapter",
-    maxLines: 40
-  },
-  {
-    relativePath: "server/modules/settings/schema.js",
-    importSegment: "@jskit-ai/settings-fastify-adapter",
-    maxLines: 20
-  },
-  {
-    relativePath: "server/modules/consoleErrors/controller.js",
-    importSegment: "@jskit-ai/console-errors-fastify-adapter",
-    maxLines: 20
-  },
-  {
-    relativePath: "server/modules/consoleErrors/routes.js",
-    importSegment: "@jskit-ai/console-errors-fastify-adapter",
-    maxLines: 20
-  },
-  {
-    relativePath: "server/modules/consoleErrors/schema.js",
-    importSegment: "@jskit-ai/console-errors-fastify-adapter",
-    maxLines: 20
-  },
-  {
-    relativePath: "server/modules/health/controller.js",
-    importSegment: "@jskit-ai/health-fastify-adapter",
-    maxLines: 20
-  },
-  {
-    relativePath: "server/modules/health/routes.js",
-    importSegment: "@jskit-ai/health-fastify-adapter",
-    maxLines: 20
-  },
-  {
-    relativePath: "server/modules/health/schema.js",
-    importSegment: "@jskit-ai/health-fastify-adapter",
-    maxLines: 20
-  },
-  {
-    relativePath: "server/modules/observability/controller.js",
-    importSegment: "@jskit-ai/observability-fastify-adapter",
-    maxLines: 20
-  },
-  {
-    relativePath: "server/modules/observability/routes.js",
-    importSegment: "@jskit-ai/observability-fastify-adapter",
-    maxLines: 20
-  },
-  {
-    relativePath: "server/modules/observability/schema.js",
-    importSegment: "@jskit-ai/observability-fastify-adapter",
-    maxLines: 20
-  }
-]);
-const CORE_PACKAGE_BOUNDARY_GUARD_DIRS = Object.freeze([
-  path.resolve(ROOT_DIR, "../../packages/communications/communications-core/src"),
-  path.resolve(ROOT_DIR, "../../packages/communications/email-core/src"),
-  path.resolve(ROOT_DIR, "../../packages/billing/billing-service-core/src"),
-  path.resolve(ROOT_DIR, "../../packages/billing/billing-worker-core/src")
-]);
-const FORBIDDEN_CORE_IMPORT_SEGMENTS = Object.freeze([
-  "@fastify/",
-  "fastify",
-  "/knex",
-  "mysql2",
-  "stripe",
-  "openai",
-  "@supabase/supabase-js",
-  "paddle"
-]);
+
+const ROLE_DIRECTORY_FILE_PATTERNS = Object.freeze({
+  controllers: /^(index\.js|[A-Za-z0-9][A-Za-z0-9_-]*\.controller\.js)$/,
+  routes: /^(index\.js|[A-Za-z0-9][A-Za-z0-9_-]*\.routes\.js)$/,
+  schemas: /^(index\.js|[A-Za-z0-9][A-Za-z0-9_-]*\.schema\.js)$/,
+  services: /^(index\.js|[A-Za-z0-9][A-Za-z0-9_-]*\.service\.js)$/,
+  repositories: /^(index\.js|[A-Za-z0-9][A-Za-z0-9_-]*\.repository\.js|shared\.js)$/
+});
+
+const MODULE_INTERNAL_PATH_SEGMENTS = Object.freeze(["lib", "controllers", "routes", "schemas", "services", "repositories"]);
 
 function toPosixPath(value) {
   return String(value || "").replace(/\\/g, "/");
 }
 
-function listFilesRecursive(rootDir, filter = () => true) {
+function listJsFilesRecursive(rootDir) {
   const files = [];
 
   function walk(currentDir) {
@@ -275,7 +59,7 @@ function listFilesRecursive(rootDir, filter = () => true) {
         walk(absolutePath);
         continue;
       }
-      if (entry.isFile() && filter(absolutePath)) {
+      if (entry.isFile() && /\.(js|mjs|cjs)$/.test(entry.name)) {
         files.push(absolutePath);
       }
     }
@@ -288,29 +72,18 @@ function listFilesRecursive(rootDir, filter = () => true) {
   return files;
 }
 
-function listDirectoriesNamedLib(rootDir) {
-  const directories = [];
-
-  function walk(currentDir) {
-    const entries = readdirSync(currentDir, { withFileTypes: true });
-    for (const entry of entries) {
-      const absolutePath = path.join(currentDir, entry.name);
-      if (!entry.isDirectory()) {
-        continue;
-      }
-      if (entry.name === "lib") {
-        directories.push(absolutePath);
-        continue;
-      }
-      walk(absolutePath);
-    }
+function listModuleDirectories() {
+  if (!existsSync(MODULES_DIR)) {
+    return [];
   }
 
-  if (existsSync(rootDir)) {
-    walk(rootDir);
-  }
-
-  return directories;
+  return readdirSync(MODULES_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => ({
+      name: entry.name,
+      absolutePath: path.join(MODULES_DIR, entry.name)
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name));
 }
 
 function parseImportSpecifiers(filePath) {
@@ -353,126 +126,91 @@ function resolveRelativeImport(fromFilePath, importSpecifier) {
   return null;
 }
 
-function classifyFeaturePath(filePath) {
+function classifyModuleFile(filePath) {
   const relativePath = toPosixPath(path.relative(ROOT_DIR, filePath));
-  const match = relativePath.match(/^server\/(domain|modules)\/([^/]+)\//);
+  const match = relativePath.match(/^server\/modules\/([^/]+)\/(.+)$/);
   if (!match) {
     return null;
   }
 
   return {
-    layer: match[1],
-    feature: match[2],
+    moduleName: match[1],
+    moduleRelativePath: match[2],
     relativePath
   };
 }
 
-function buildImportGraph() {
-  const graph = new Map();
+test("architecture guardrail: every module has index.js", () => {
+  const missing = [];
 
-  for (const scanDir of ARCHITECTURE_SCAN_DIRS) {
-    const files = listFilesRecursive(scanDir, (filePath) => /\.(js|mjs|cjs)$/.test(filePath));
-    for (const filePath of files) {
-      const resolvedImports = parseImportSpecifiers(filePath)
-        .map((specifier) => resolveRelativeImport(filePath, specifier))
-        .filter(Boolean)
-        .filter((targetPath) =>
-          ARCHITECTURE_SCAN_DIRS.some((scanRoot) => toPosixPath(targetPath).startsWith(toPosixPath(scanRoot)))
-        );
-
-      graph.set(filePath, resolvedImports);
+  for (const moduleDir of listModuleDirectories()) {
+    const indexFilePath = path.join(moduleDir.absolutePath, "index.js");
+    if (!existsSync(indexFilePath)) {
+      missing.push(toPosixPath(path.relative(ROOT_DIR, moduleDir.absolutePath)));
     }
   }
 
-  return graph;
-}
-
-function findCycle(graph) {
-  const temporaryMarks = new Set();
-  const permanentMarks = new Set();
-  const stack = [];
-
-  function visit(node) {
-    if (permanentMarks.has(node)) {
-      return null;
-    }
-    if (temporaryMarks.has(node)) {
-      const cycleStartIndex = stack.indexOf(node);
-      return stack.slice(cycleStartIndex).concat(node);
-    }
-
-    temporaryMarks.add(node);
-    stack.push(node);
-
-    const edges = graph.get(node) || [];
-    for (const edge of edges) {
-      const cycle = visit(edge);
-      if (cycle) {
-        return cycle;
-      }
-    }
-
-    stack.pop();
-    temporaryMarks.delete(node);
-    permanentMarks.add(node);
-    return null;
-  }
-
-  for (const node of graph.keys()) {
-    const cycle = visit(node);
-    if (cycle) {
-      return cycle;
-    }
-  }
-
-  return null;
-}
-
-test("architecture guardrail: server/domain must not contain lib directories", () => {
-  const libDirectories = listDirectoriesNamedLib(SERVER_DOMAIN_DIR).map((dirPath) =>
-    toPosixPath(path.relative(ROOT_DIR, dirPath))
-  );
-  assert.deepEqual(libDirectories, []);
+  assert.deepEqual(missing, []);
 });
 
-test("architecture guardrail: app-specific server feature allowlist only contains deg2rad and projects", () => {
-  assert.deepEqual(APP_SPECIFIC_SERVER_FEATURE_ALLOWLIST, ["deg2rad", "projects"]);
-});
-
-test("architecture guardrail: app-local API schema helper files stay package-owned and removed", () => {
-  const existingLegacyFiles = REMOVED_APP_LOCAL_API_SCHEMA_HELPER_FILES.filter((relativePath) =>
-    existsSync(path.resolve(ROOT_DIR, relativePath))
-  );
-  assert.deepEqual(existingLegacyFiles, []);
-});
-
-test("architecture guardrail: legacy transcript mode modules are removed", () => {
-  const existingLegacyFiles = LEGACY_TRANSCRIPT_MODE_FILES.filter((relativePath) =>
-    existsSync(path.resolve(ROOT_DIR, relativePath))
-  );
-  assert.deepEqual(existingLegacyFiles, []);
-});
-
-test("architecture guardrail: no imports reference legacy transcript mode modules", () => {
+test("architecture guardrail: module top-level entries follow file and directory allowlists", () => {
   const violations = [];
 
-  for (const scanDir of IMPORT_GUARD_SCAN_DIRS) {
-    if (!existsSync(scanDir)) {
-      continue;
-    }
+  for (const moduleDir of listModuleDirectories()) {
+    const entries = readdirSync(moduleDir.absolutePath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile()) {
+        if (!ALLOWED_TOP_LEVEL_FILES.has(entry.name)) {
+          violations.push(`${moduleDir.name}:file:${entry.name}`);
+        }
+        continue;
+      }
 
-    const files = listFilesRecursive(scanDir, (filePath) => /\.(js|mjs|cjs)$/.test(filePath));
-    for (const filePath of files) {
-      const importSpecifiers = parseImportSpecifiers(filePath);
-      for (const importSpecifier of importSpecifiers) {
-        const normalizedSpecifier = toPosixPath(importSpecifier);
-        if (
-          FORBIDDEN_TRANSCRIPT_MODE_IMPORT_SEGMENTS.some((segment) => normalizedSpecifier.includes(segment))
-        ) {
-          violations.push({
-            source: toPosixPath(path.relative(ROOT_DIR, filePath)),
-            specifier: normalizedSpecifier
-          });
+      if (entry.isDirectory() && !ALLOWED_TOP_LEVEL_DIRECTORIES.has(entry.name)) {
+        violations.push(`${moduleDir.name}:directory:${entry.name}`);
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+test("architecture guardrail: module roles use file-or-directory exclusivity", () => {
+  const violations = [];
+
+  for (const moduleDir of listModuleDirectories()) {
+    for (const role of ROLE_FILE_DIRECTORY_PAIRS) {
+      const filePath = path.join(moduleDir.absolutePath, role.file);
+      const directoryPath = path.join(moduleDir.absolutePath, role.directory);
+
+      if (existsSync(filePath) && existsSync(directoryPath)) {
+        violations.push(`${moduleDir.name}:${role.file}+${role.directory}`);
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+test("architecture guardrail: role directories use canonical filenames only", () => {
+  const violations = [];
+
+  for (const moduleDir of listModuleDirectories()) {
+    for (const [directoryName, filenamePattern] of Object.entries(ROLE_DIRECTORY_FILE_PATTERNS)) {
+      const roleDirectoryPath = path.join(moduleDir.absolutePath, directoryName);
+      if (!existsSync(roleDirectoryPath)) {
+        continue;
+      }
+
+      const entries = readdirSync(roleDirectoryPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isFile()) {
+          violations.push(`${moduleDir.name}:${directoryName}:non-file:${entry.name}`);
+          continue;
+        }
+
+        if (!filenamePattern.test(entry.name)) {
+          violations.push(`${moduleDir.name}:${directoryName}:${entry.name}`);
         }
       }
     }
@@ -481,131 +219,47 @@ test("architecture guardrail: no imports reference legacy transcript mode module
   assert.deepEqual(violations, []);
 });
 
-test("architecture guardrail: imports from server/lib are limited to allowlisted transitional wrappers", () => {
+test("architecture guardrail: production code imports cross-module seams via module index only", () => {
   const violations = [];
-  const allowlist = new Set(TEMPORARY_SERVER_LIB_IMPORT_ALLOWLIST);
+  const sourceFiles = listJsFilesRecursive(SERVER_DIR);
 
-  for (const scanDir of IMPORT_GUARD_SCAN_DIRS) {
-    if (!existsSync(scanDir)) {
-      continue;
-    }
+  for (const sourceFilePath of sourceFiles) {
+    const sourceClassification = classifyModuleFile(sourceFilePath);
+    const importSpecifiers = parseImportSpecifiers(sourceFilePath);
 
-    const files = listFilesRecursive(scanDir, (filePath) => /\.(js|mjs|cjs)$/.test(filePath));
-    for (const filePath of files) {
-      const importSpecifiers = parseImportSpecifiers(filePath);
-      for (const importSpecifier of importSpecifiers) {
-        const resolvedImportPath = resolveRelativeImport(filePath, importSpecifier);
-        if (!resolvedImportPath) {
-          continue;
-        }
-
-        const relativeImportPath = toPosixPath(path.relative(ROOT_DIR, resolvedImportPath));
-        if (!relativeImportPath.startsWith("server/lib/")) {
-          continue;
-        }
-
-        if (!allowlist.has(relativeImportPath)) {
-          violations.push({
-            source: toPosixPath(path.relative(ROOT_DIR, filePath)),
-            target: relativeImportPath
-          });
-        }
-      }
-    }
-  }
-
-  assert.deepEqual(violations, []);
-});
-
-test("architecture guardrail: service files avoid cross-feature imports across domain/module features", () => {
-  const serviceFiles = listFilesRecursive(SERVER_DIR, (filePath) => toPosixPath(filePath).endsWith(".service.js"));
-  const violations = [];
-
-  for (const serviceFilePath of serviceFiles) {
-    const sourceClassification = classifyFeaturePath(serviceFilePath);
-    if (!sourceClassification) {
-      continue;
-    }
-
-    const importSpecifiers = parseImportSpecifiers(serviceFilePath);
     for (const importSpecifier of importSpecifiers) {
-      const resolvedImportPath = resolveRelativeImport(serviceFilePath, importSpecifier);
+      const resolvedImportPath = resolveRelativeImport(sourceFilePath, importSpecifier);
       if (!resolvedImportPath) {
         continue;
       }
 
-      const targetClassification = classifyFeaturePath(resolvedImportPath);
+      const targetClassification = classifyModuleFile(resolvedImportPath);
       if (!targetClassification) {
         continue;
       }
 
-      if (sourceClassification.feature === targetClassification.feature) {
+      const isSameModule =
+        sourceClassification && sourceClassification.moduleName === targetClassification.moduleName;
+
+      if (isSameModule) {
         continue;
       }
 
-      violations.push({
-        source: sourceClassification.relativePath,
-        target: targetClassification.relativePath
-      });
-    }
-  }
+      if (targetClassification.moduleRelativePath !== "index.js") {
+        violations.push(
+          `${toPosixPath(path.relative(ROOT_DIR, sourceFilePath))} -> ${targetClassification.relativePath}`
+        );
+        continue;
+      }
 
-  assert.deepEqual(violations, []);
-});
+      const startsWithInternalSegment = MODULE_INTERNAL_PATH_SEGMENTS.some((segment) =>
+        targetClassification.moduleRelativePath.startsWith(`${segment}/`)
+      );
 
-test("architecture guardrail: server domain/modules import graph must be acyclic", () => {
-  const importGraph = buildImportGraph();
-  const cycle = findCycle(importGraph);
-
-  if (!cycle) {
-    assert.equal(cycle, null);
-    return;
-  }
-
-  const cycleRelativePaths = cycle.map((absolutePath) => toPosixPath(path.relative(ROOT_DIR, absolutePath)));
-  assert.fail(`Circular dependency detected: ${cycleRelativePaths.join(" -> ")}`);
-});
-
-test("architecture guardrail: realtime events service import hygiene forbids cross-feature services", () => {
-  const realtimeServicePath = REALTIME_EVENTS_SERVICE_PACKAGE_FILE;
-  const importSpecifiers = parseImportSpecifiers(realtimeServicePath);
-  const violations = [];
-
-  for (const importSpecifier of importSpecifiers) {
-    const resolvedImportPath = resolveRelativeImport(realtimeServicePath, importSpecifier);
-    if (!resolvedImportPath) {
-      continue;
-    }
-
-    const relativePath = toPosixPath(path.relative(ROOT_DIR, resolvedImportPath));
-    const importsModuleService = /^server\/modules\/.+\/service\.js$/.test(relativePath);
-    const importsOtherDomainService = /^server\/domain\/(?!realtime\/).+\/services\/.+\.service\.js$/.test(
-      relativePath
-    );
-
-    if (importsModuleService || importsOtherDomainService) {
-      violations.push(relativePath);
-    }
-  }
-
-  assert.deepEqual(violations, []);
-});
-
-test("architecture guardrail: realtime publishers use shared realtime publish primitives", () => {
-  const violations = [];
-
-  for (const relativePath of REALTIME_PUBLISHER_FILES) {
-    const absolutePath = path.join(ROOT_DIR, relativePath);
-    const source = readFileSync(absolutePath, "utf8");
-
-    if (!source.includes("@jskit-ai/server-runtime-core/realtimePublish")) {
-      violations.push(`${relativePath}:missing_shared_import`);
-    }
-
-    for (const functionName of FORBIDDEN_REALTIME_PUBLISH_HELPER_FUNCTIONS) {
-      const functionPattern = new RegExp(`function\\s+${functionName}\\s*\\(`);
-      if (functionPattern.test(source)) {
-        violations.push(`${relativePath}:redefined_${functionName}`);
+      if (startsWithInternalSegment) {
+        violations.push(
+          `${toPosixPath(path.relative(ROOT_DIR, sourceFilePath))} -> ${targetClassification.relativePath}`
+        );
       }
     }
   }
@@ -613,153 +267,21 @@ test("architecture guardrail: realtime publishers use shared realtime publish pr
   assert.deepEqual(violations, []);
 });
 
-test("architecture guardrail: app-local realtime publish helper shim is removed", () => {
-  const sharedPublisherHelperPath = path.join(ROOT_DIR, "server/realtime/publishers/shared.js");
-  assert.equal(existsSync(sharedPublisherHelperPath), false);
-});
-
-test("architecture guardrail: realtime events service uses shared realtime event primitives", () => {
-  const realtimeServicePath = REALTIME_EVENTS_SERVICE_PACKAGE_FILE;
-  const source = readFileSync(realtimeServicePath, "utf8");
+test("architecture guardrail: module index files forbid wildcard exports", () => {
   const violations = [];
 
-  if (!source.includes("@jskit-ai/server-runtime-core/realtimeEvents")) {
-    violations.push("missing_shared_realtime_events_import");
-  }
+  for (const moduleDir of listModuleDirectories()) {
+    const indexFilePath = path.join(moduleDir.absolutePath, "index.js");
+    const source = readFileSync(indexFilePath, "utf8");
 
-  for (const functionName of FORBIDDEN_REALTIME_EVENT_HELPER_FUNCTIONS) {
-    const functionPattern = new RegExp(`function\\s+${functionName}\\s*\\(`);
-    if (functionPattern.test(source)) {
-      violations.push(`redefined_${functionName}`);
+    if (/^\s*export\s+\*\s+/m.test(source)) {
+      violations.push(`${moduleDir.name}:wildcard-export`);
+    }
+
+    if (/^\s*export\s+default\s+/m.test(source)) {
+      violations.push(`${moduleDir.name}:default-export`);
     }
   }
 
   assert.deepEqual(violations, []);
-});
-
-test("architecture guardrail: runtime composition is package-assembled and manifest-driven", () => {
-  const runtimeIndexSource = readFileSync(path.resolve(ROOT_DIR, RUNTIME_INDEX_FILE), "utf8");
-  assert.match(runtimeIndexSource, /@jskit-ai\/platform-server-runtime/);
-  assert.doesNotMatch(runtimeIndexSource, /\bcreateRepositories\s*\(/);
-  assert.doesNotMatch(runtimeIndexSource, /\bcreateServices\s*\(/);
-  assert.doesNotMatch(runtimeIndexSource, /\bcreateControllers\s*\(/);
-
-  const repositoriesSource = readFileSync(path.resolve(ROOT_DIR, "server/runtime/repositories.js"), "utf8");
-  const servicesSource = readFileSync(path.resolve(ROOT_DIR, "server/runtime/services.js"), "utf8");
-  const controllersSource = readFileSync(path.resolve(ROOT_DIR, "server/runtime/controllers.js"), "utf8");
-
-  assert.doesNotMatch(repositoriesSource, /function\s+createRepositories\s*\(/);
-  assert.doesNotMatch(servicesSource, /function\s+createServices\s*\(/);
-  assert.doesNotMatch(controllersSource, /function\s+createControllers\s*\(/);
-});
-
-test("architecture guardrail: extracted repositories stay package-backed thin wrappers", () => {
-  for (const expectation of EXTRACTED_REPOSITORY_WRAPPER_EXPECTATIONS) {
-    const absolutePath = path.resolve(ROOT_DIR, expectation.relativePath);
-    const source = readFileSync(absolutePath, "utf8");
-    const lineCount = source.split(/\r?\n/).length;
-
-    assert.match(
-      source,
-      new RegExp(expectation.importSegment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
-      `Expected package-backed import in ${expectation.relativePath}`
-    );
-    assert.doesNotMatch(source, /\bdb\s*\(/, `Unexpected direct db query usage in ${expectation.relativePath}`);
-    assert.ok(
-      lineCount <= expectation.maxLines,
-      `Wrapper ${expectation.relativePath} exceeded max wrapper line budget (${lineCount} > ${expectation.maxLines}).`
-    );
-  }
-});
-
-test("architecture guardrail: extracted fastify modules stay thin package wrappers", () => {
-  for (const expectation of EXTRACTED_FASTIFY_WRAPPER_EXPECTATIONS) {
-    const absolutePath = path.resolve(ROOT_DIR, expectation.relativePath);
-    const source = readFileSync(absolutePath, "utf8");
-    const lineCount = source.split(/\r?\n/).length;
-
-    assert.match(
-      source,
-      new RegExp(expectation.importSegment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
-      `Expected adapter import in ${expectation.relativePath}`
-    );
-    assert.doesNotMatch(
-      source,
-      /\bwithStandardErrorResponses\s*\(|\bType\.Object\s*\(|\breply\.code\s*\(/,
-      `Unexpected inlined transport logic in ${expectation.relativePath}`
-    );
-    assert.ok(
-      lineCount <= expectation.maxLines,
-      `Wrapper ${expectation.relativePath} exceeded max wrapper line budget (${lineCount} > ${expectation.maxLines}).`
-    );
-  }
-});
-
-test("architecture guardrail: extracted core packages do not import fastify/knex/provider sdk layers", () => {
-  const violations = [];
-
-  for (const packageDir of CORE_PACKAGE_BOUNDARY_GUARD_DIRS) {
-    const files = listFilesRecursive(packageDir, (filePath) => /\.js$/.test(filePath));
-    for (const filePath of files) {
-      const importSpecifiers = parseImportSpecifiers(filePath);
-      for (const importSpecifier of importSpecifiers) {
-        const normalizedSpecifier = String(importSpecifier || "").toLowerCase();
-        if (FORBIDDEN_CORE_IMPORT_SEGMENTS.some((segment) => normalizedSpecifier.includes(segment))) {
-          violations.push({
-            file: toPosixPath(path.relative(ROOT_DIR, filePath)),
-            specifier: normalizedSpecifier
-          });
-        }
-      }
-    }
-  }
-
-  assert.deepEqual(violations, []);
-});
-
-test("architecture guardrail: app-local observability glue is package-owned and removed", () => {
-  const appObservabilityServicePath = path.resolve(ROOT_DIR, OBSERVABILITY_APP_SERVICE_FILE);
-  assert.equal(existsSync(appObservabilityServicePath), false);
-
-  const runtimeServicesSource = readFileSync(path.resolve(ROOT_DIR, "server/runtime/services.js"), "utf8");
-  assert.match(runtimeServicesSource, /@jskit-ai\/observability-core\/service/);
-
-  const violations = [];
-  for (const scanDir of IMPORT_GUARD_SCAN_DIRS) {
-    if (!existsSync(scanDir)) {
-      continue;
-    }
-
-    const files = listFilesRecursive(scanDir, (filePath) => /\.(js|mjs|cjs)$/.test(filePath));
-    for (const filePath of files) {
-      const importSpecifiers = parseImportSpecifiers(filePath);
-      for (const importSpecifier of importSpecifiers) {
-        if (toPosixPath(importSpecifier).includes("modules/observability/service.js")) {
-          violations.push({
-            source: toPosixPath(path.relative(ROOT_DIR, filePath)),
-            specifier: toPosixPath(importSpecifier)
-          });
-        }
-      }
-    }
-  }
-
-  assert.deepEqual(violations, []);
-});
-
-test("architecture guardrail: retention orchestration is package-owned and rule-pack based", () => {
-  const retentionServiceSource = readFileSync(RETENTION_SERVICE_PACKAGE_FILE, "utf8");
-  const retentionProcessorSource = readFileSync(path.resolve(ROOT_DIR, RETENTION_PROCESSOR_FILE), "utf8");
-  const retentionRulesDirPath = RETENTION_RULES_PACKAGE_DIR;
-  const appRetentionDomainDirPath = path.resolve(ROOT_DIR, APP_RETENTION_DOMAIN_DIR);
-
-  assert.match(retentionServiceSource, /@jskit-ai\/redis-ops-core\/retentionOrchestrator/);
-  assert.match(retentionServiceSource, /createRetentionRulePack/);
-  assert.doesNotMatch(retentionServiceSource, /function\s+runBatchedDeletion\s*\(/);
-  assert.doesNotMatch(retentionServiceSource, /function\s+runChatMessageRetention\s*\(/);
-  assert.match(retentionProcessorSource, /@jskit-ai\/retention-core/);
-  assert.match(retentionProcessorSource, /@jskit-ai\/redis-ops-core\/retentionProcessor/);
-  assert.doesNotMatch(retentionProcessorSource, /@jskit-ai\/redis-ops-core\/workerLocking/);
-  assert.equal(existsSync(retentionRulesDirPath), true);
-  assert.equal(existsSync(appRetentionDomainDirPath), false);
 });

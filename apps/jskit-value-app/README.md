@@ -5,12 +5,13 @@ Client/server DEG2RAD calculator with Supabase authentication and MySQL persiste
 ## Architecture
 
 - `server.js`: Fastify bootstrap + static file serving
-- `server/modules/api/routes.js`: API route composition (domain route packs)
+- `server/modules/<module>/index.js`: module public seam (required for every module)
+- `server/modules/api/routes.js`: API route manifest composition
 - `server/fastify/registerApiRoutes.js`: Fastify route registration/wiring
 - `server/fastify/auth.plugin.js`: auth policy + CSRF + rate-limit wiring
-- `controllers/`: HTTP concerns (status codes, request/response)
-- `services/`: business logic (auth, DEG2RAD conversion, history)
-- `repositories/`: DB queries only
+- `server/modules/<module>/{controller.js|routes.js|schema.js|service.js|repository.js}`: single-file role seams
+- `server/modules/<module>/{controllers|routes|schemas|services|repositories}/`: multi-file role seams (with role `index.js`)
+- `server/modules/<module>/lib/**`: module-private internals (not imported cross-module)
 - App-specific server domain code is intentionally limited to `deg2rad` and `projects`; scaffolding contract helpers are package-owned.
 
 Frontend surfaces:

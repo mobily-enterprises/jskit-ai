@@ -2,7 +2,7 @@ import { mergeAuthPolicy } from "@jskit-ai/fastify-auth-policy";
 
 import { safeRequestUrl } from "@jskit-ai/server-runtime-core/requestUrl";
 import { registerApiRouteDefinitions } from "@jskit-ai/server-runtime-core/apiRouteRegistration";
-import { buildDefaultRoutes } from "../modules/api/routes.js";
+import { buildDefaultRoutes } from "../modules/api/index.js";
 
 function registerApiRoutes(fastify, { controllers, routes, routeConfig } = {}) {
   const routeList =

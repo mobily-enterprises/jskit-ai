@@ -16,8 +16,8 @@ const SOCKET_IMPORT_ALLOWLIST = new Set([
 const FEATURE_REALTIME_FILES = [
   "server/modules/projects/controller.js",
   "server/modules/workspace/controller.js",
-  "server/modules/ai/service.js",
-  "server/modules/ai/tools/workspaceRename.tool.js"
+  "server/modules/ai/services/ai.service.js",
+  "server/modules/ai/lib/tools/workspaceRename.tool.js"
 ];
 
 async function collectJsFiles(dir) {

@@ -1,9 +1,9 @@
 import { createService as createAuthService } from "@jskit-ai/auth-provider-supabase-core";
-import { createService as createDeg2radHistoryService } from "../modules/history/service.js";
+import { createService as createDeg2radHistoryService } from "../modules/history/index.js";
 import { createService as createSmsService } from "@jskit-ai/sms-core";
 import { createService as createEmailService } from "@jskit-ai/email-core";
 import { createService as createCommunicationsService } from "@jskit-ai/communications-core";
-import { createService as createUserSettingsService } from "../modules/settings/service.js";
+import { createService as createUserSettingsService } from "../modules/settings/index.js";
 import { createService as createAvatarStorageService } from "@jskit-ai/user-profile-core/avatarStorageService";
 import { createService as createUserAvatarService } from "@jskit-ai/user-profile-core/avatarService";
 import { createService as createWorkspaceService } from "@jskit-ai/workspace-service-core/services/workspace";
@@ -13,12 +13,9 @@ import { createService as createChatAttachmentStorageService } from "@jskit-ai/c
 import { createService as createConsoleService } from "@jskit-ai/workspace-console-service-core/services/console";
 import { createService as createConsoleErrorsService } from "@jskit-ai/workspace-console-service-core/services/errors";
 import { createService as createAuditService } from "@jskit-ai/security-audit-core";
-import { createService as createChatRealtimeService } from "../modules/chat/realtime.service.js";
-import { createService as createChatService } from "../modules/chat/service.js";
-import { createService as createHealthService } from "../modules/health/service.js";
-import { createService as createAiService } from "../modules/ai/service.js";
-import { createService as createAiTranscriptsService } from "../modules/ai/transcripts/service.js";
-import { createOpenAiClient } from "../modules/ai/provider/openaiClient.js";
+import { createChatRealtimeService, createChatService } from "../modules/chat/index.js";
+import { createService as createHealthService } from "../modules/health/index.js";
+import { createAiService, createAiTranscriptsService, createOpenAiClient } from "../modules/ai/index.js";
 import {
   createBillingService,
   createBillingPolicyService,
@@ -35,7 +32,7 @@ import {
   createBillingReconciliationService,
   createBillingWorkerRuntimeService
 } from "@jskit-ai/billing-worker-core";
-import { createService as createBillingProvidersModule } from "../modules/billing/providers/index.js";
+import { createBillingProvidersModule } from "../modules/billing/index.js";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { createService as createRealtimeEventsService } from "@jskit-ai/server-runtime-core/realtimeEventsService";
 import { createService as createObservabilityService } from "@jskit-ai/observability-core/service";

@@ -8,7 +8,7 @@ import {
   PROVIDER_ERROR_CATEGORIES,
   createBillingProviderError,
   isBillingProviderError
-} from "../server/modules/billing/providers/shared/providerError.contract.js";
+} from "../server/modules/billing/index.js";
 
 test("stripe provider error mapping normalizes sdk network failures", () => {
   const source = new Error("Connection timed out while calling Stripe");

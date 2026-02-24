@@ -2,7 +2,7 @@ import {
   createChatRealtimeService as createChatRealtimeCoreService,
   chatRealtimeServiceTestables as chatRealtimeCoreTestables
 } from "@jskit-ai/chat-core";
-import { REALTIME_EVENT_TYPES } from "../../../shared/eventTypes.js";
+import { REALTIME_EVENT_TYPES } from "../../../../shared/eventTypes.js";
 
 function createService(options = {}) {
   return createChatRealtimeCoreService({
