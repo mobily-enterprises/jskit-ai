@@ -663,7 +663,7 @@ test("user profiles repository supports provider-neutral identity upsert and loo
   assert.equal(upserted.authProviderUserId, "clerk-user-1");
   assert.equal("supabaseUserId" in upserted, false);
 
-  const fallbackLookupDb = (table) => ({
+  const fallbackLookupDb = () => ({
     where() {
       return this;
     },

@@ -9,7 +9,7 @@ import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
 import { TypeBoxValidatorCompiler } from "@fastify/type-provider-typebox";
 import { resolveRepositoryConfigForRuntime } from "./config/index.js";
-import { runtimeEnv } from "./server/lib/runtimeEnv.js";
+import { createPlatformRuntimeEnv } from "@jskit-ai/runtime-env-core/platformRuntimeEnv";
 import { resolveAppConfig, toBrowserConfig } from "./server/lib/appConfig.js";
 import { listManifestPermissions, loadRbacManifest, manifestIncludesPermission } from "./server/lib/rbacManifest.js";
 import { initDatabase, closeDatabase } from "./db/knex.js";
@@ -32,6 +32,9 @@ import { createServerRuntime } from "./server/runtime/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const runtimeEnv = createPlatformRuntimeEnv({
+  rootDir: __dirname
+});
 const REPOSITORY_CONFIG = resolveRepositoryConfigForRuntime({
   nodeEnv: runtimeEnv.NODE_ENV
 });

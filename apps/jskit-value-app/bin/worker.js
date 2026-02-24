@@ -1,8 +1,16 @@
 #!/usr/bin/env node
 
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { createPlatformRuntimeEnv } from "@jskit-ai/runtime-env-core/platformRuntimeEnv";
 import { repositoryConfig } from "../config/index.js";
-import { runtimeEnv } from "../server/lib/runtimeEnv.js";
 import { createWorkerRuntime } from "../server/workers/runtime.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const runtimeEnv = createPlatformRuntimeEnv({
+  rootDir: path.resolve(__dirname, "..")
+});
 
 const runtime = createWorkerRuntime({
   redisUrl: runtimeEnv.REDIS_URL,

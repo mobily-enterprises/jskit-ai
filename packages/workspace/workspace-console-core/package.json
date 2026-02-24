@@ -15,6 +15,7 @@
     "./consoleRoles": "./src/consoleRoles.js",
     "./settingsInfra": "./src/settingsInfra.js",
     "./settingsValidation": "./src/settingsValidation.js",
+    "./settingsModel": "./src/settingsModel.js",
     "./settingsPatchBuilder": "./src/settingsPatchBuilder.js",
     "./settingsSchemaBuilder": "./src/settingsSchemaBuilder.js",
     "./avatarValidation": "./src/avatarValidation.js"

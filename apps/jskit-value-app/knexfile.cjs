@@ -22,9 +22,9 @@ function toStringOrFallback(value, fallback) {
 
 const dbHost = toStringOrFallback(process.env.DB_HOST, "127.0.0.1");
 const dbPort = toPositiveInteger(process.env.DB_PORT, 3306);
-const dbUser = toStringOrFallback(process.env.DB_USER, "jskit-app");
+const dbUser = toStringOrFallback(process.env.DB_USER, "app");
 const dbPassword = String(process.env.DB_PASSWORD ?? "");
-const dbName = toStringOrFallback(process.env.DB_NAME, "material-app");
+const dbName = toStringOrFallback(process.env.DB_NAME, "app");
 const dbTestName = toStringOrFallback(process.env.DB_TEST_NAME, `${dbName}_test`);
 const dbPoolMax = toPositiveInteger(process.env.DB_POOL_MAX, 10);
 

@@ -20,7 +20,6 @@ const EXCLUDED_DIR_NAMES = new Set([
 // Keep this list short and explicit. These files are infrastructure/runtime config entry points.
 const ALLOWED_FILES = new Set([
   "bin/checkProcessEnvUsage.js",
-  "server/lib/runtimeEnv.js",
   "knexfile.cjs",
   "vite.config.mjs",
   "playwright.config.mjs"

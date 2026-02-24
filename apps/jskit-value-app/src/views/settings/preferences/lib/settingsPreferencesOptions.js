@@ -1,4 +1,4 @@
-import { SETTINGS_PREFERENCES_OPTIONS } from "../../../../../shared/settings/model.js";
+import { SETTINGS_PREFERENCES_OPTIONS } from "@jskit-ai/workspace-console-core/settingsModel";
 
 export const themeOptions = [...SETTINGS_PREFERENCES_OPTIONS.theme];
 

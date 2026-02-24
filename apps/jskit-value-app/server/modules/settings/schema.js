@@ -16,7 +16,7 @@ import {
   SETTINGS_LOCALE_PATTERN,
   SETTINGS_NUMBER_FORMAT_OPTIONS,
   SETTINGS_THEME_OPTIONS
-} from "../../../shared/settings/index.js";
+} from "@jskit-ai/workspace-console-core/settingsModel";
 import { AVATAR_MAX_SIZE, AVATAR_MIN_SIZE } from "../../../shared/avatar/index.js";
 import { schema as authSchema } from "../auth/schema.js";
 import { enumSchema } from "../api/schema.js";

@@ -1,4 +1,4 @@
-# SELF-DEVOP
+ # SELF-DEVOP
 
 Detailed blueprint for building a small, reliable, low-cost self-hosted deployment platform for multiple SaaS apps.
 

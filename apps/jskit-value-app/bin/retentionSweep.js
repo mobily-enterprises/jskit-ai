@@ -1,10 +1,18 @@
 #!/usr/bin/env node
 
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { createPlatformRuntimeEnv } from "@jskit-ai/runtime-env-core/platformRuntimeEnv";
 import { repositoryConfig } from "../config/index.js";
 import { closeDatabase } from "../db/knex.js";
-import { runtimeEnv } from "../server/lib/runtimeEnv.js";
 import { createService as createRetentionService } from "../server/domain/operations/services/retention.service.js";
 import { createRepositories } from "../server/runtime/repositories.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const runtimeEnv = createPlatformRuntimeEnv({
+  rootDir: path.resolve(__dirname, "..")
+});
 
 function parseCliArgs(argv) {
   const args = Array.isArray(argv) ? argv : [];

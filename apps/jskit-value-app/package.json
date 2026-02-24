@@ -64,6 +64,7 @@
     "@jskit-ai/realtime-client-runtime": "0.1.0",
     "@jskit-ai/realtime-contracts": "0.1.0",
     "@jskit-ai/realtime-server-socketio": "0.1.0",
+    "@jskit-ai/runtime-env-core": "0.1.0",
     "@jskit-ai/rbac-core": "0.1.0",
     "@jskit-ai/web-runtime-core": "0.1.0",
     "@jskit-ai/workspace-console-core": "0.1.0",

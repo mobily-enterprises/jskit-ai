@@ -1,0 +1,18 @@
+{
+  "name": "@jskit-ai/runtime-env-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./platformRuntimeEnv": "./src/platformRuntimeEnv.js",
+    "./platformRuntimeEnvSpecs": "./src/platformRuntimeEnvSpecs.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "envalid": "^8.1.1"
+  }
+}

@@ -2,7 +2,7 @@
 
 This repository uses three configuration/state buckets. A value must have exactly one canonical source.
 
-## 1) `server/lib/runtimeEnv.js` (runtime/deployment inputs only)
+## 1) `@jskit-ai/runtime-env-core` (runtime/deployment inputs only)
 
 Use runtime env vars for:
 
@@ -46,7 +46,7 @@ Do not move entitlement data into `/config` or env vars.
 
 ## Enforcement
 
-Repository-owned behavior now lives in `/config/*.js`; runtime env validation in `server/lib/runtimeEnv.js` is limited to declared runtime env vars.
+Repository-owned behavior now lives in `/config/*.js`; runtime env validation is centralized in `@jskit-ai/runtime-env-core` and loaded directly by runtime entry points (`server.js`, `db/knex.js`, `bin/*.js`).
 
 ## Test-Only Repository Config Overrides
 

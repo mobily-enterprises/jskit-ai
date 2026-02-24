@@ -1,6 +1,14 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import knex from "knex";
 import knexEnvironments from "../knexfile.cjs";
-import { runtimeEnv } from "../server/lib/runtimeEnv.js";
+import { createPlatformRuntimeEnv } from "@jskit-ai/runtime-env-core/platformRuntimeEnv";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const runtimeEnv = createPlatformRuntimeEnv({
+  rootDir: path.resolve(__dirname, "..")
+});
 
 function resolveRuntimeEnv(nodeEnv) {
   if (nodeEnv === "production") {

@@ -25,6 +25,7 @@ X AI integration (actions abstraction etc.)
 X Check why pending invites don't appear
 X Payments
 X User chats
+X CI policy gate: fail build when any `workspaceSurface: "admin"` route lacks `permission` (explicit allowlist for exceptions)
 
 DAY #1
 X Merge chats and permissions trees
@@ -35,39 +36,55 @@ X Improve UI for chats
   X New message form
   X DMs button and UI
   X Won't scroll down, give focus to message form, when new message arrives
+  X Turn ALL of boilerplate code into packages in a monorepo with several packages
+  X Turn even more boilerplate code into packages
+  What about:
+   SMS and EMAIL
+   lib functions
+   Anything else?
 
-- Add full abilities to AI chatbot (calculate DEG2RAD, add project, change plan, list users...)
-- Make sure chatbot has exact same permission as user chatting to it
+  - Have proper entitlement configuration for projects, AI messages, and DEG2RAD calcs <---- !!!
 
-DAY #2
-- Have proper entitlement configuration for projects and DEG2RAD calcs <---- !!!
+  - Add full abilities to AI chatbot (calculate DEG2RAD, add project, change plan, list users...) (Make sure chatbot has exact same permission as user chatting to it)
 
-DAY #3
-- Have proper DB seeding, so that it "starts" well and workspaces can be created
-- Security audit to the lot
 
-DAY #4
 - Create an "alerts" system so that users can see their alerts
 - Improve redirect after login, admin or not?
 
-DAY #5
-- Add proper SMTP and SMS abilities, not stubs
-- Fix documentation, ML and human, and onboarding documents
+- Have proper DB seeding, so that it "starts" well and workspaces can be created
 
-DAY #6
+- Security audit to the lot
+- Fix documentation, ML and human, and onboarding documents
 - Add rails for AI to add features
 
-DAY #7
-- Do infrastructure, management mini-app, deploy
 
-DAY #8-#1000
-- !!!STUDY THE LOT!!!
+- Do infrastructure deploy, easy way
 
-- Is this done? CI policy gate: fail build when any `workspaceSurface: "admin"` route lacks `permission` (explicit allowlist for exceptions)
+```md
+ I want you to do this:
+
+* Go through the code of the app itself (jskit-value-app), but fully understand that this is only a scaffolding
+app: it's NOT a meaningful example of what the app should be in the first place. There will be 22 more of them,
+each one totally different (a kid's app, a kennel-management app, and so on). The questions I have are the
+following:
+
+* Is jskit-value-app including parts that could, and should, belong to a package. The main rule of "should belong
+to a package" is essentially "Could different apps all need that code, which would end up being repeated over and
+over again"
+
+* Is any one of the modules including code that is NOT generic, and is assuming that jskit-value-app is "the" app,
+meaning that the other 22 apps will find it difficult to actually se it.
+
+Go through the code with a fine comb. Give me a list of HIGH RISK things you find.
+
+When you plan changes, or make changes, make DEAD SURE that whatever you do is a CLEAN BREAK from the past.
+No back compatibiity. No shims. No think API layers to make tests work.
+
+```
 
 
 LATER:
-
+- management/deployment mini-app
 - Make db-agnostic (now MySql)
 - DB-level audit trail [1]
 - SMS/EMAIL

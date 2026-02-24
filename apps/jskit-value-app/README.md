@@ -58,9 +58,9 @@ npm install
 ```bash
 export DB_HOST="127.0.0.1"
 export DB_PORT="3306"
-export DB_NAME="material-app"
-export DB_TEST_NAME="material-app_test"
-export DB_USER="jskit-app"
+export DB_NAME="app"
+export DB_TEST_NAME="app_test"
+export DB_USER="app"
 export DB_PASSWORD="replace-with-a-strong-password"
 export LOG_LEVEL="info"
 # optional; comma-separated debug scopes (example: billing.checkout,auth,-auth.tokens)
@@ -84,7 +84,8 @@ export PLIVO_SOURCE_NUMBER=""
 export RATE_LIMIT_MODE="memory"
 # required when RATE_LIMIT_MODE=redis
 export REDIS_URL=""
-# required for all modes; must be unique per app/environment (example: jskit:value-app:development)
+# required for Redis-backed features (example: RATE_LIMIT_MODE=redis or worker runtime);
+# must be unique per app/environment (example: jskit:value-app:development)
 export REDIS_NAMESPACE=""
 # set true behind a trusted reverse proxy / load balancer
 export TRUST_PROXY="false"
@@ -128,7 +129,7 @@ Notes:
 Create DB once:
 
 ```bash
-node -e "const mysql=require('mysql2/promise'); (async()=>{const dbName=(process.env.DB_NAME||'material-app').replace(/`/g,''); const c=await mysql.createConnection({host:process.env.DB_HOST||'127.0.0.1',port:Number(process.env.DB_PORT||3306),user:process.env.DB_USER,password:process.env.DB_PASSWORD,database:'mysql'}); await c.query('CREATE DATABASE IF NOT EXISTS `'+dbName+'` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'); await c.end();})()"
+node -e "const mysql=require('mysql2/promise'); (async()=>{const dbName=(process.env.DB_NAME||'app').replace(/`/g,''); const c=await mysql.createConnection({host:process.env.DB_HOST||'127.0.0.1',port:Number(process.env.DB_PORT||3306),user:process.env.DB_USER,password:process.env.DB_PASSWORD,database:'mysql'}); await c.query('CREATE DATABASE IF NOT EXISTS `'+dbName+'` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'); await c.end();})()"
 ```
 
 Run migrations:

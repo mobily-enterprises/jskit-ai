@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
-import { runtimeEnv } from "../server/lib/runtimeEnv.js";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { createPlatformRuntimeEnv } from "@jskit-ai/runtime-env-core/platformRuntimeEnv";
 import {
   RETENTION_QUEUE_NAME,
   createRetentionQueue,
@@ -9,6 +11,12 @@ import {
   closeWorkerRedisConnection
 } from "../server/workers/index.js";
 import { buildEnqueueOutput, parseCliArgs } from "../server/workers/enqueueRetentionSweepCli.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const runtimeEnv = createPlatformRuntimeEnv({
+  rootDir: path.resolve(__dirname, "..")
+});
 
 async function main() {
   const { dryRun, trigger, requestedBy, idempotencyKey } = parseCliArgs(process.argv.slice(2));
