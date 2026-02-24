@@ -1,7 +1,7 @@
 import { computed, reactive } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useQuery } from "@tanstack/vue-query";
-import { resolveSurfacePaths } from "../../../shared/routing/surfacePaths.js";
+import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";
 import { useAuthGuard } from "../../composables/useAuthGuard.js";
 import { useQueryErrorMessage } from "../../composables/useQueryErrorMessage.js";
 import { api } from "../../services/api/index.js";

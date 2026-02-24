@@ -1,5 +1,5 @@
 import { createTransportRuntime } from "@jskit-ai/web-runtime-core/transportRuntime";
-import { createSurfacePaths, resolveSurfaceFromPathname } from "../../../shared/routing/surfacePaths.js";
+import { createSurfacePaths, resolveSurfaceFromPathname } from "../../../shared/surfacePaths.js";
 import { getClientId, __testables as clientIdentityTestables } from "../realtime/clientIdentity.js";
 import { commandTracker } from "../realtime/commandTracker.js";
 

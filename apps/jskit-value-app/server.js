@@ -27,9 +27,9 @@ import authPlugin from "./server/fastify/auth.plugin.js";
 import billingWebhookRawBodyPlugin from "./server/fastify/billingWebhookRawBody.plugin.js";
 import { registerSocketIoRealtime } from "./server/realtime/registerSocketIoRealtime.js";
 import { safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
-import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar/index.js";
-import { createSurfacePaths, resolveSurfaceFromPathname, resolveSurfacePaths } from "./shared/routing/surfacePaths.js";
-import { surfaceRequiresWorkspace } from "./shared/routing/surfaceRegistry.js";
+import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar.js";
+import { createSurfacePaths, resolveSurfaceFromPathname, resolveSurfacePaths } from "./shared/surfacePaths.js";
+import { surfaceRequiresWorkspace } from "./shared/surfaceRegistry.js";
 import {
   createRateLimitPluginOptions,
   resolveRateLimitStartupError,
@@ -41,9 +41,11 @@ import { createServerRuntime } from "./server/runtime/index.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DEFAULT_STORAGE_BASE_PATH = ".artifacts/storage";
+const DEFAULT_RBAC_MANIFEST_PATH = "./shared/rbac.manifest.json";
 const runtimeEnv = createPlatformRuntimeEnv({
   rootDir: __dirname,
   defaults: {
+    RBAC_MANIFEST_PATH: DEFAULT_RBAC_MANIFEST_PATH,
     AVATAR_STORAGE_FS_BASE_PATH: DEFAULT_STORAGE_BASE_PATH,
     CHAT_ATTACHMENT_STORAGE_FS_BASE_PATH: DEFAULT_STORAGE_BASE_PATH
   }

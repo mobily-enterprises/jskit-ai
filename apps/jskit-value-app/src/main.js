@@ -1,5 +1,5 @@
-import { resolveSurfaceFromPathname } from "../shared/routing/surfacePaths.js";
-import { DEFAULT_SURFACE_ID } from "../shared/routing/surfaceRegistry.js";
+import { resolveSurfaceFromPathname } from "../shared/surfacePaths.js";
+import { DEFAULT_SURFACE_ID } from "../shared/surfaceRegistry.js";
 import { mountAdminApplication } from "./main.admin.js";
 import { mountAppApplication } from "./main.app.js";
 import { mountConsoleApplication } from "./main.console.js";

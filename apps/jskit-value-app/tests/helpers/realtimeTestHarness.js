@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import { io as createSocketIoClient } from "socket.io-client";
 
 import { createService as createRealtimeEventsService } from "@jskit-ai/server-runtime-core/realtimeEventsService";
-import { REALTIME_TOPICS, REALTIME_EVENT_TYPES } from "../../shared/realtime/eventTypes.js";
+import { REALTIME_TOPICS, REALTIME_EVENT_TYPES } from "../../shared/eventTypes.js";
 import {
   registerSocketIoRealtime,
   SOCKET_IO_MESSAGE_EVENT,

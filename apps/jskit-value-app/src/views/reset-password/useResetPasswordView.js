@@ -1,7 +1,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useNavigate } from "@tanstack/vue-router";
 import { useMutation } from "@tanstack/vue-query";
-import { resolveSurfacePaths } from "../../../shared/routing/surfacePaths.js";
+import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";
 import { api } from "../../services/api/index.js";
 import { useAuthStore } from "../../stores/authStore.js";
 import { validators } from "@jskit-ai/access-core/validators";

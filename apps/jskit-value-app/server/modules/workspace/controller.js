@@ -6,8 +6,8 @@ import {
   publishWorkspaceEventSafely,
   resolvePublishWorkspaceEvent
 } from "../../realtime/publishers/workspacePublisher.js";
-import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/realtime/eventTypes.js";
-import { resolveSurfaceFromPathname } from "../../../shared/routing/surfacePaths.js";
+import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/eventTypes.js";
+import { resolveSurfaceFromPathname } from "../../../shared/surfacePaths.js";
 
 function normalizeText(value) {
   return String(value || "").trim();

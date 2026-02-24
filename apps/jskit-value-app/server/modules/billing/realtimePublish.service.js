@@ -1,4 +1,4 @@
-import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/realtime/eventTypes.js";
+import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/eventTypes.js";
 
 const BILLING_LIMIT_CHANGE_SOURCES = new Set([
   "purchase_grant",

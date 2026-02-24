@@ -44,7 +44,7 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
     X Merge no-domain with master
     X Make sure server/lib is empty, server/domain is empty
     - Make sure server/modules doesn't have any code that is remotely generic
-    - Make CAREFULLY sure src (client side) also doesn't have any code that is remotely generic
+o    - Make CAREFULLY sure src (client side) also doesn't have any code that is remotely generic
     - Make proper architecture for SMS and EMAIL (injection)
     - Last checks that only app-specific code is in the app, and that all generic code is in packages, and that the app is just a scaffolding with some specific code for projects and deg2rad
     - A few check passes in packages to make sure there is nothing app-only there

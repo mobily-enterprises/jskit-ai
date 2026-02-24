@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { withAuditEvent as withRuntimeAuditEvent } from "@jskit-ai/server-runtime-core/securityAudit";
-import { resolveSurfaceFromPathname } from "../shared/routing/surfacePaths.js";
+import { resolveSurfaceFromPathname } from "../shared/surfacePaths.js";
 
 function withAuditEvent(options) {
   return withRuntimeAuditEvent({

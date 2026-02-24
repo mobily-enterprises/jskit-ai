@@ -4,7 +4,7 @@ import {
   AVATAR_DEFAULT_UPLOAD_DIMENSION,
   AVATAR_MAX_UPLOAD_BYTES,
   AVATAR_UPLOAD_DIMENSION_OPTIONS
-} from "../../../shared/avatar/index.js";
+} from "../../../shared/avatar.js";
 import { schema as authSchema } from "../auth/schema.js";
 import { schema } from "./schema.js";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";

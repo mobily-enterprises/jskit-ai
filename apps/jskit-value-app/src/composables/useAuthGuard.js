@@ -1,6 +1,6 @@
 import { computed } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
-import { resolveSurfacePaths } from "../../shared/routing/surfacePaths.js";
+import { resolveSurfacePaths } from "../../shared/surfacePaths.js";
 import { useAuthStore } from "../stores/authStore.js";
 import { useConsoleStore } from "../stores/consoleStore.js";
 import { useWorkspaceStore } from "../stores/workspaceStore.js";

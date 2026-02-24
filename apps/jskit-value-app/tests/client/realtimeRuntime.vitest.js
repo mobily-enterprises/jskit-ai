@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { REALTIME_TOPICS } from "../../shared/realtime/eventTypes.js";
-import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "../../shared/realtime/protocolTypes.js";
+import { REALTIME_TOPICS } from "../../shared/eventTypes.js";
+import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "../../shared/protocolTypes.js";
 import { projectsScopeQueryKey } from "../../src/features/projects/queryKeys.js";
 import { workspaceAdminRootQueryKey } from "../../src/features/workspaceAdmin/queryKeys.js";
 import { commandTracker, __testables as trackerTestables } from "../../src/services/realtime/commandTracker.js";

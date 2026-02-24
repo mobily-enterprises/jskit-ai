@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { REALTIME_TOPICS } from "../../shared/realtime/eventTypes.js";
+import { REALTIME_TOPICS } from "../../shared/eventTypes.js";
 import {
   workspaceAiTranscriptsRootQueryKey,
   workspaceAiTranscriptsScopeQueryKey

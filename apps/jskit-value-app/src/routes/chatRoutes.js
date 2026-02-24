@@ -1,5 +1,5 @@
 import { createRoute, lazyRouteComponent, redirect } from "@tanstack/vue-router";
-import { createSurfacePaths } from "../../shared/routing/surfacePaths.js";
+import { createSurfacePaths } from "../../shared/surfacePaths.js";
 
 /* c8 ignore start -- lazy Vue SFC loaders require full Vite CSS handling and are exercised in browser/E2E paths. */
 /* v8 ignore start -- lazy Vue SFC loaders require full Vite CSS handling and are exercised in browser/E2E paths. */

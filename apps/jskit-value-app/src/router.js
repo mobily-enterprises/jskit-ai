@@ -1,5 +1,5 @@
-import { resolveSurfaceFromPathname } from "../shared/routing/surfacePaths.js";
-import { DEFAULT_SURFACE_ID, normalizeSurfaceId } from "../shared/routing/surfaceRegistry.js";
+import { resolveSurfaceFromPathname } from "../shared/surfacePaths.js";
+import { DEFAULT_SURFACE_ID, normalizeSurfaceId } from "../shared/surfaceRegistry.js";
 import { createAdminRouter } from "./router.admin.js";
 import { createAppRouter as createAppSurfaceRouter } from "./router.app.js";
 import { createConsoleRouter } from "./router.console.js";

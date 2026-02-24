@@ -1,6 +1,6 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
-import { createSurfacePaths, resolveSurfacePaths } from "../../../shared/routing/surfacePaths.js";
+import { createSurfacePaths, resolveSurfacePaths } from "../../../shared/surfacePaths.js";
 import { useConsoleStore } from "../../stores/consoleStore.js";
 
 export function useConsoleInvitationsView() {

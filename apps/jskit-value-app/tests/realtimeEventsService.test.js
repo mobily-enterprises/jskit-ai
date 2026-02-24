@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createService, __testables } from "@jskit-ai/server-runtime-core/realtimeEventsService";
-import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../shared/realtime/eventTypes.js";
+import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../shared/eventTypes.js";
 
 test("realtime events service builds normalized project event envelopes", () => {
   const service = createService();

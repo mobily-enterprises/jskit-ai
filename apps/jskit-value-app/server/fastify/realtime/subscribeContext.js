@@ -1,4 +1,4 @@
-import { SURFACE_REGISTRY } from "../../../shared/routing/surfaceRegistry.js";
+import { SURFACE_REGISTRY } from "../../../shared/surfaceRegistry.js";
 
 const WORKSPACE_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,118}[a-z0-9])?$/;
 

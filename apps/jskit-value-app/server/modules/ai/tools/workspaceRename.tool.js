@@ -4,7 +4,7 @@ import {
   publishWorkspaceEventSafely,
   resolvePublishWorkspaceEvent
 } from "../../../realtime/publishers/workspacePublisher.js";
-import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../../shared/realtime/eventTypes.js";
+import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../../shared/eventTypes.js";
 
 function normalizeWorkspaceName(value) {
   const normalized = String(value || "").trim();

@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
-import { createSurfacePaths, resolveSurfaceFromPathname } from "../../shared/routing/surfacePaths.js";
-import { DEFAULT_SURFACE_ID, normalizeSurfaceId } from "../../shared/routing/surfaceRegistry.js";
+import { createSurfacePaths, resolveSurfaceFromPathname } from "../../shared/surfacePaths.js";
+import { DEFAULT_SURFACE_ID, normalizeSurfaceId } from "../../shared/surfaceRegistry.js";
 import { coerceWorkspaceColor } from "@jskit-ai/workspace-console-core/workspaceColors";
 import { api } from "../services/api/index.js";
 

@@ -11,7 +11,7 @@ import {
   SETTINGS_NUMBER_FORMAT_OPTIONS,
   SETTINGS_THEME_OPTIONS
 } from "@jskit-ai/workspace-console-core/settingsModel";
-import { AVATAR_MAX_SIZE, AVATAR_MIN_SIZE } from "../../../../shared/avatar/index.js";
+import { AVATAR_MAX_SIZE, AVATAR_MIN_SIZE } from "../../../../shared/avatar.js";
 import { enumSchema } from "@jskit-ai/http-contracts/errorResponses";
 import { schema as sharedSchema } from "./shared.schema.js";
 

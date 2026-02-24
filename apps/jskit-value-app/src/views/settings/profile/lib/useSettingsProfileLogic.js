@@ -11,7 +11,7 @@ import {
   AVATAR_ALLOWED_MIME_TYPES,
   AVATAR_DEFAULT_SIZE,
   AVATAR_MAX_UPLOAD_BYTES
-} from "../../../../../shared/avatar/index.js";
+} from "../../../../../shared/avatar.js";
 import { api } from "../../../../services/api/index.js";
 
 export function useSettingsProfileLogic({

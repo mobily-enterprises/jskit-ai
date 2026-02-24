@@ -10,9 +10,9 @@ import {
   resolvePublishWorkspaceEvent
 } from "../../realtime/publishers/workspacePublisher.js";
 import { buildAuditEventBase } from "@jskit-ai/server-runtime-core/securityAudit";
-import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/realtime/eventTypes.js";
-import { resolveSurfaceFromPathname } from "../../../shared/routing/surfacePaths.js";
-import { normalizeSurfaceId } from "../../../shared/routing/surfaceRegistry.js";
+import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/eventTypes.js";
+import { resolveSurfaceFromPathname } from "../../../shared/surfacePaths.js";
+import { normalizeSurfaceId } from "../../../shared/surfaceRegistry.js";
 import {
   resolveAssistantSystemPromptAppFromWorkspaceSettings,
   resolveAssistantSystemPromptWorkspaceFromConsoleSettings

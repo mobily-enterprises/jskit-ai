@@ -3,8 +3,8 @@ import {
   createSocketIoTransport
 } from "@jskit-ai/realtime-client-runtime";
 
-import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "../../../shared/realtime/protocolTypes.js";
-import { getTopicRule, listRealtimeTopicsForSurface } from "../../../shared/realtime/topicRegistry.js";
+import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "../../../shared/protocolTypes.js";
+import { getTopicRule, listRealtimeTopicsForSurface } from "../../../shared/topicRegistry.js";
 import { projectsScopeQueryKey } from "../../features/projects/queryKeys.js";
 import { getClientId } from "./clientIdentity.js";
 import { commandTracker } from "./commandTracker.js";

@@ -6,7 +6,7 @@ import { useListQueryState } from "../../composables/useListQueryState.js";
 import { useQueryErrorMessage } from "../../composables/useQueryErrorMessage.js";
 import { useUrlListPagination } from "../../composables/useUrlListPagination.js";
 import { api } from "../../services/api/index.js";
-import { resolveSurfacePaths } from "../../../shared/routing/surfacePaths.js";
+import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";
 
 const CONSOLE_BROWSER_ERRORS_QUERY_KEY_PREFIX = ["console-browser-errors"];
 const BROWSER_ERRORS_PAGE_SIZE_OPTIONS = [20, 50, 100];

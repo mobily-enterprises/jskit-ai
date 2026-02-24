@@ -15,7 +15,7 @@ import {
   resolveSurfacePaths,
   resolveSurfacePrefix,
   withSurfacePrefix
-} from "../shared/routing/surfacePaths.js";
+} from "../shared/surfacePaths.js";
 import {
   DEFAULT_SURFACE_ID,
   listSurfaceDefinitions,
@@ -23,7 +23,7 @@ import {
   resolveSurfacePrefix as resolveSurfacePrefixFromRegistry,
   surfaceRequiresWorkspace,
   SURFACE_REGISTRY
-} from "../shared/routing/surfaceRegistry.js";
+} from "../shared/surfaceRegistry.js";
 import { resolveSurfaceById, SURFACES } from "../server/surfaces/index.js";
 import { canAccessWorkspace as canAccessAdminWorkspace } from "../server/surfaces/adminSurface.js";
 

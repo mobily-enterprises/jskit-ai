@@ -1,5 +1,5 @@
 import { computed, ref, watch } from "vue";
-import { surfaceRequiresWorkspace } from "../../../../shared/routing/surfaceRegistry.js";
+import { surfaceRequiresWorkspace } from "../../../../shared/surfaceRegistry.js";
 import { SETTINGS_SECTION_QUERY_KEY, VALID_SETTINGS_TABS } from "./useSettingsPageConfig.js";
 import { resolveTabFromSearch } from "./useSettingsSharedHelpers.js";
 

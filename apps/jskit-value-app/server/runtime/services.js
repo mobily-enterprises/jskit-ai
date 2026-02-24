@@ -34,9 +34,9 @@ import { createService as createBillingRealtimePublishService } from "../modules
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { createService as createRealtimeEventsService } from "@jskit-ai/server-runtime-core/realtimeEventsService";
 import { createService as createObservabilityService } from "@jskit-ai/observability-core/service";
-import { AVATAR_POLICY } from "../../shared/avatar/index.js";
-import { createSurfacePaths, resolveSurfaceFromPathname } from "../../shared/routing/surfacePaths.js";
-import { REALTIME_TOPICS, REALTIME_EVENT_TYPES } from "../../shared/realtime/eventTypes.js";
+import { AVATAR_POLICY } from "../../shared/avatar.js";
+import { createSurfacePaths, resolveSurfaceFromPathname } from "../../shared/surfacePaths.js";
+import { REALTIME_TOPICS, REALTIME_EVENT_TYPES } from "../../shared/eventTypes.js";
 import { normalizeSurfaceId, resolveSurfaceById } from "../surfaces/index.js";
 
 function createBillingDisabledServices() {

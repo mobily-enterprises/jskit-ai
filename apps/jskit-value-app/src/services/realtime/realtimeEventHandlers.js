@@ -1,4 +1,4 @@
-import { REALTIME_TOPICS } from "../../../shared/realtime/eventTypes.js";
+import { REALTIME_TOPICS } from "../../../shared/eventTypes.js";
 import {
   workspaceAiTranscriptsRootQueryKey,
   workspaceAiTranscriptsScopeQueryKey

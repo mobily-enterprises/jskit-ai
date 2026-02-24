@@ -6,7 +6,7 @@ import {
   registerRealtimeServerSocketio
 } from "@jskit-ai/realtime-server-socketio";
 
-import { hasTopicPermission, isSupportedTopic, isTopicAllowedForSurface } from "../../shared/realtime/topicRegistry.js";
+import { hasTopicPermission, isSupportedTopic, isTopicAllowedForSurface } from "../../shared/topicRegistry.js";
 import {
   buildSubscribeContextRequest,
   normalizeConnectionSurface,

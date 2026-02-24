@@ -1,6 +1,6 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
-import { resolveSurfacePaths } from "../../../shared/routing/surfacePaths.js";
+import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";
 import { coerceWorkspaceColor } from "@jskit-ai/workspace-console-core/workspaceColors";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 

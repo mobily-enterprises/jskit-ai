@@ -1,4 +1,4 @@
-import { resolveSurfaceFromPathname } from "../shared/routing/surfacePaths.js";
+import { resolveSurfaceFromPathname } from "../shared/surfacePaths.js";
 import { mountAdminApplication } from "./main.admin.public.js";
 import { mountAppApplication } from "./main.app.public.js";
 

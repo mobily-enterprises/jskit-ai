@@ -11,8 +11,12 @@ import { PLATFORM_REPOSITORY_DEFINITIONS } from "../server/runtime/repositories.
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const DEFAULT_RBAC_MANIFEST_PATH = "./shared/rbac.manifest.json";
 const runtimeEnv = createPlatformRuntimeEnv({
-  rootDir: path.resolve(__dirname, "..")
+  rootDir: path.resolve(__dirname, ".."),
+  defaults: {
+    RBAC_MANIFEST_PATH: DEFAULT_RBAC_MANIFEST_PATH
+  }
 });
 
 function parseCliArgs(argv) {

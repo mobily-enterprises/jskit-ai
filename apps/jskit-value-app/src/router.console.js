@@ -1,5 +1,5 @@
 import { createBrowserHistory, createRootRoute, createRouter } from "@tanstack/vue-router";
-import { createSurfacePaths } from "../shared/routing/surfacePaths.js";
+import { createSurfacePaths } from "../shared/surfacePaths.js";
 import ConsoleShell from "./shells/console/ConsoleShell.vue";
 import { createConsoleRouteGuards } from "./routerGuards.console.js";
 import { createRoutes as createConsoleCoreRoutes } from "./routes/consoleCoreRoutes.js";

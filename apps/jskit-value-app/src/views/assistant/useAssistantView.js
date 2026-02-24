@@ -3,7 +3,7 @@ import {
   useAssistantRuntime,
   assistantRuntimeTestables
 } from "@jskit-ai/assistant-client-runtime";
-import { resolveSurfaceFromPathname } from "../../../shared/routing/surfacePaths.js";
+import { resolveSurfaceFromPathname } from "../../../shared/surfacePaths.js";
 import { api } from "../../services/api/index.js";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 

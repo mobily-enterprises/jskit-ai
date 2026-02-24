@@ -1,5 +1,5 @@
 import { createBrowserHistory, createRootRoute, createRouter } from "@tanstack/vue-router";
-import { createSurfacePaths } from "../shared/routing/surfacePaths.js";
+import { createSurfacePaths } from "../shared/surfacePaths.js";
 import { createSurfaceRouteGuards } from "./routerGuards.js";
 import { createRoutes as createCoreRoutes } from "./routes/coreRoutes.js";
 import { createRoutes as createAssistantRoutes } from "./routes/assistantRoutes.js";

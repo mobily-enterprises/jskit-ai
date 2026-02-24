@@ -1,7 +1,7 @@
 import { defineComponent, nextTick, ref } from "vue";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { REALTIME_TOPICS } from "../../shared/realtime/eventTypes.js";
+import { REALTIME_TOPICS } from "../../shared/eventTypes.js";
 import { chatInboxInfiniteQueryKey, chatThreadMessagesInfiniteQueryKey } from "../../src/features/chat/queryKeys.js";
 import {
   publishRealtimeEvent,

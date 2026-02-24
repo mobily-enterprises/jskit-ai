@@ -1,7 +1,7 @@
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { withAuditEvent as withRuntimeAuditEvent } from "@jskit-ai/server-runtime-core/securityAudit";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { resolveSurfaceFromPathname } from "../../../shared/routing/surfacePaths.js";
+import { resolveSurfaceFromPathname } from "../../../shared/surfacePaths.js";
 
 function normalizeText(value) {
   return String(value || "").trim();
