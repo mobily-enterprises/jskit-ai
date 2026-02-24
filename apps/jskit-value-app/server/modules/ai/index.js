@@ -2,15 +2,10 @@ import { createService as createAiService } from "./services/ai.service.js";
 import { createService as createAiTranscriptsService } from "./services/transcripts.service.js";
 import { createRepository as createAiRepository } from "./repositories/index.js";
 import { createOpenAiClient } from "./lib/provider/openaiClient.js";
+import { resolveScopedServiceOptions } from "./lib/scopedServiceOptions.js";
 
 function createService(options = {}) {
-  const source = options && typeof options === "object" ? options : {};
-  const aiServiceOptions =
-    source.aiServiceOptions && typeof source.aiServiceOptions === "object" ? source.aiServiceOptions : source;
-  const aiTranscriptsServiceOptions =
-    source.aiTranscriptsServiceOptions && typeof source.aiTranscriptsServiceOptions === "object"
-      ? source.aiTranscriptsServiceOptions
-      : source;
+  const { source, aiServiceOptions, aiTranscriptsServiceOptions } = resolveScopedServiceOptions(options);
   const aiTranscriptsService = source.aiTranscriptsService ?? createAiTranscriptsService(aiTranscriptsServiceOptions);
   const aiService =
     source.aiService ??

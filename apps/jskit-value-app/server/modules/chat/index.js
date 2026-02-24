@@ -1,15 +1,10 @@
 import { createService as createChatService } from "./services/chat.service.js";
 import { createService as createChatRealtimeService } from "./services/realtime.service.js";
 import { createRepository as createChatRepository } from "./repositories/index.js";
+import { resolveScopedServiceOptions } from "./lib/scopedServiceOptions.js";
 
 function createService(options = {}) {
-  const source = options && typeof options === "object" ? options : {};
-  const chatServiceOptions =
-    source.chatServiceOptions && typeof source.chatServiceOptions === "object" ? source.chatServiceOptions : source;
-  const chatRealtimeServiceOptions =
-    source.chatRealtimeServiceOptions && typeof source.chatRealtimeServiceOptions === "object"
-      ? source.chatRealtimeServiceOptions
-      : source;
+  const { source, chatServiceOptions, chatRealtimeServiceOptions } = resolveScopedServiceOptions(options);
   const chatRealtimeService = source.chatRealtimeService ?? createChatRealtimeService(chatRealtimeServiceOptions);
   const chatService =
     source.chatService ??

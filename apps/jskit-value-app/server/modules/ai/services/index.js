@@ -3,15 +3,10 @@ import {
   createService as createAiTranscriptsService,
   __testables as aiTranscriptsServiceTestables
 } from "./transcripts.service.js";
+import { resolveScopedServiceOptions } from "../lib/scopedServiceOptions.js";
 
 function createService(options = {}) {
-  const source = options && typeof options === "object" ? options : {};
-  const aiServiceOptions =
-    source.aiServiceOptions && typeof source.aiServiceOptions === "object" ? source.aiServiceOptions : source;
-  const aiTranscriptsServiceOptions =
-    source.aiTranscriptsServiceOptions && typeof source.aiTranscriptsServiceOptions === "object"
-      ? source.aiTranscriptsServiceOptions
-      : source;
+  const { source, aiServiceOptions, aiTranscriptsServiceOptions } = resolveScopedServiceOptions(options);
   const aiTranscriptsService = source.aiTranscriptsService ?? createAiTranscriptsService(aiTranscriptsServiceOptions);
   const aiService =
     source.aiService ??
