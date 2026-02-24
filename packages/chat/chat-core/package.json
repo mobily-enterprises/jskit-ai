@@ -10,6 +10,8 @@
     ".": "./src/index.js"
   },
   "dependencies": {
-    "@jskit-ai/rbac-core": "0.1.0"
+    "@jskit-ai/knex-mysql-core": "0.1.0",
+    "@jskit-ai/rbac-core": "0.1.0",
+    "@jskit-ai/server-runtime-core": "0.1.0"
   }
 }

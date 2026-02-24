@@ -1,26 +1,17 @@
 import fastifyCookie from "@fastify/cookie";
 import fastifyCsrfProtection from "@fastify/csrf-protection";
 import fastifyRateLimit from "@fastify/rate-limit";
+import { safeRequestUrl } from "@jskit-ai/server-runtime-core/requestUrl";
 
 import { assertAuthPolicyDeps, normalizeActorResolution } from "./contracts.js";
 import { AUTH_POLICY_DENY_REASONS, createAuthPolicyError } from "./errors.js";
 import { AUTH_POLICIES, resolveAuthPolicyMeta, WORKSPACE_POLICIES } from "./routeMeta.js";
 
-const LOCAL_BASE_URL = "http://localhost";
 const DEFAULT_API_PREFIX = "/api/";
 const DEFAULT_RATE_LIMIT_PLUGIN_OPTIONS = Object.freeze({
   global: false
 });
 const DEFAULT_UNSAFE_METHODS = Object.freeze(["POST", "PUT", "PATCH", "DELETE"]);
-
-function safeRequestUrl(request) {
-  const rawUrl = request?.raw?.url || request?.url || "/";
-  try {
-    return new URL(rawUrl, LOCAL_BASE_URL);
-  } catch {
-    return new URL("/", LOCAL_BASE_URL);
-  }
-}
 
 function normalizeUnsafeMethods(methodsValue) {
   const source = Array.isArray(methodsValue) ? methodsValue : DEFAULT_UNSAFE_METHODS;

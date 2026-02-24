@@ -1,33 +1,11 @@
 import { createRequire } from "node:module";
+import { resolveClientIpAddress } from "@jskit-ai/server-runtime-core/requestUrl";
 import { buildRedisScopedKey, normalizeRedisNamespace } from "./redisNamespace.js";
 
 const RATE_LIMIT_MODE_MEMORY = "memory";
 const RATE_LIMIT_MODE_REDIS = "redis";
 const RATE_LIMIT_REDIS_NAMESPACE_SEGMENT = "rate-limit";
 const require = createRequire(import.meta.url);
-
-function resolveClientIpAddress(request) {
-  const forwardedFor = String(request?.headers?.["x-forwarded-for"] || "").trim();
-  if (forwardedFor) {
-    const [firstHop] = forwardedFor.split(",");
-    const candidate = String(firstHop || "").trim();
-    if (candidate) {
-      return candidate;
-    }
-  }
-
-  const requestIp = String(request?.ip || "").trim();
-  if (requestIp) {
-    return requestIp;
-  }
-
-  const socketAddress = String(request?.socket?.remoteAddress || request?.raw?.socket?.remoteAddress || "").trim();
-  if (socketAddress) {
-    return socketAddress;
-  }
-
-  return "unknown";
-}
 
 function normalizeRateLimitMode(value) {
   const normalized = String(value || "")

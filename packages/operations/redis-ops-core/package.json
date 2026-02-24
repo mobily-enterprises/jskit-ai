@@ -18,6 +18,7 @@
     "./workerRuntime": "./src/workerRuntime.js"
   },
   "dependencies": {
+    "@jskit-ai/server-runtime-core": "0.1.0",
     "bullmq": "^5.69.4",
     "ioredis": "^5.9.3"
   }

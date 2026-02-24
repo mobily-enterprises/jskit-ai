@@ -10,5 +10,8 @@
     ".": "./src/index.js",
     "./catalogCore": "./src/catalogCore.js",
     "./providerPricingCore": "./src/providerPricingCore.js"
+  },
+  "dependencies": {
+    "@jskit-ai/server-runtime-core": "0.1.0"
   }
 }

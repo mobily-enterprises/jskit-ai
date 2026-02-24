@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { AppError as SharedAppError } from "@jskit-ai/server-runtime-core/errors";
+import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { redactSecrets } from "./redactSecrets.js";
 import {
   TRANSCRIPT_MODE_DISABLED,
@@ -17,28 +19,9 @@ const MAX_CONVERSATION_TITLE_LENGTH = 160;
 const DEFAULT_CONSOLE_READ_PERMISSION = "";
 const DEFAULT_CONSOLE_EXPORT_PERMISSION = "";
 
-class DefaultAppError extends Error {
-  constructor(status, message, options = {}) {
-    super(message);
-    this.name = "AppError";
-    this.status = Number(status) || 500;
-    this.statusCode = this.status;
-    this.code = options.code || "APP_ERROR";
-    this.details = options.details;
-    this.headers = options.headers || {};
-  }
-}
+const DefaultAppError = SharedAppError;
 
 let AppError = DefaultAppError;
-
-function parsePositiveInteger(value) {
-  const numeric = Number(value);
-  if (!Number.isInteger(numeric) || numeric < 1) {
-    return null;
-  }
-
-  return numeric;
-}
 
 function defaultResolveRolePermissions() {
   return [];

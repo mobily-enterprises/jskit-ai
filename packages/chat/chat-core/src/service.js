@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
 import { hasPermission, manifestIncludesPermission, resolveRolePermissions } from "@jskit-ai/rbac-core";
+import { AppError as SharedAppError } from "@jskit-ai/server-runtime-core/errors";
+import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
+import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
 import { toCanonicalJson, toSha256Hex } from "./canonicalJson.js";
 
 const IDEMPOTENCY_VERSION = 1;
@@ -17,36 +20,9 @@ const DEFAULT_REALTIME_EVENT_TYPES = Object.freeze({
   CHAT_ATTACHMENT_UPDATED: "chat.attachment.updated"
 });
 
-class DefaultAppError extends Error {
-  constructor(status, message, options = {}) {
-    super(message);
-    this.name = "AppError";
-    this.status = Number(status) || 500;
-    this.statusCode = this.status;
-    this.code = options.code || "APP_ERROR";
-    this.details = options.details;
-    this.headers = options.headers || {};
-  }
-}
+const DefaultAppError = SharedAppError;
 
 let AppError = DefaultAppError;
-
-function parsePositiveInteger(value) {
-  const numeric = Number(value);
-  if (!Number.isInteger(numeric) || numeric < 1) {
-    return null;
-  }
-
-  return numeric;
-}
-
-function isMysqlDuplicateEntryError(error) {
-  if (!error) {
-    return false;
-  }
-
-  return String(error.code || "") === "ER_DUP_ENTRY";
-}
 
 function createChatError(status, message, code, { fieldErrors = null, details = {} } = {}) {
   const payloadDetails = {

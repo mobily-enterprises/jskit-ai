@@ -1,4 +1,4 @@
-
+import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 
 function createBillingCatalogProviderPricingCore({
 createError: createErrorOverride
@@ -35,14 +35,6 @@ function toValidationError(fieldPath, message) {
 function parseNonNegativeInteger(value) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 0) {
-    return null;
-  }
-  return parsed;
-}
-
-function parsePositiveInteger(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
     return null;
   }
   return parsed;

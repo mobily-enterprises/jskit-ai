@@ -1,4 +1,10 @@
 import { randomUUID } from "node:crypto";
+import { AppError as SharedAppError } from "@jskit-ai/server-runtime-core/errors";
+import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
+import {
+  resolveClientIpAddress,
+  safePathnameFromRequest as defaultSafePathnameFromRequest
+} from "@jskit-ai/server-runtime-core/requestUrl";
 import { buildAiToolRegistry, executeToolCall, listToolSchemas } from "./toolRegistry.js";
 
 const DEFAULT_REALTIME_TOPICS = Object.freeze({
@@ -9,67 +15,9 @@ const DEFAULT_REALTIME_EVENT_TYPES = Object.freeze({
   WORKSPACE_AI_TRANSCRIPTS_UPDATED: "workspace.ai.transcripts.updated"
 });
 
-class DefaultAppError extends Error {
-  constructor(status, message, options = {}) {
-    super(message);
-    this.name = "AppError";
-    this.status = Number(status) || 500;
-    this.statusCode = this.status;
-    this.code = options.code || "APP_ERROR";
-    this.details = options.details;
-    this.headers = options.headers || {};
-  }
-}
+const DefaultAppError = SharedAppError;
 
 let AppError = DefaultAppError;
-
-function parsePositiveInteger(value) {
-  const numeric = Number(value);
-  if (!Number.isInteger(numeric) || numeric < 1) {
-    return null;
-  }
-
-  return numeric;
-}
-
-const LOCAL_BASE_URL = "http://localhost";
-
-function safeRequestUrl(request) {
-  const rawUrl = request?.raw?.url || request?.url || "/";
-
-  try {
-    return new URL(rawUrl, LOCAL_BASE_URL);
-  } catch {
-    return new URL("/", LOCAL_BASE_URL);
-  }
-}
-
-function defaultSafePathnameFromRequest(request) {
-  return safeRequestUrl(request).pathname;
-}
-
-function resolveClientIpAddress(request) {
-  const forwardedFor = String(request?.headers?.["x-forwarded-for"] || "").trim();
-  if (forwardedFor) {
-    const [firstHop] = forwardedFor.split(",");
-    const candidate = String(firstHop || "").trim();
-    if (candidate) {
-      return candidate;
-    }
-  }
-
-  const requestIp = String(request?.ip || "").trim();
-  if (requestIp) {
-    return requestIp;
-  }
-
-  const socketAddress = String(request?.socket?.remoteAddress || request?.raw?.socket?.remoteAddress || "").trim();
-  if (socketAddress) {
-    return socketAddress;
-  }
-
-  return "unknown";
-}
 
 function resolvePublishMethod(realtimeEventsService, methodName) {
   if (!realtimeEventsService || typeof methodName !== "string") {
