@@ -4,7 +4,7 @@ import {
   listToolSchemas
 } from "@jskit-ai/assistant-core";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { hasPermission } from "../../../lib/rbacManifest.js";
+import { hasPermission } from "@jskit-ai/rbac-core";
 import { createWorkspaceRenameTool } from "./workspaceRename.tool.js";
 
 function buildAiToolRegistry(deps = {}) {

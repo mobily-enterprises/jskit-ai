@@ -3,9 +3,12 @@ import {
   assistantServiceTestables as assistantCoreTestables
 } from "@jskit-ai/assistant-core";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { hasPermission } from "../../lib/rbacManifest.js";
+import { hasPermission } from "@jskit-ai/rbac-core";
 import { safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
-import { publishWorkspaceEventSafely, resolvePublishWorkspaceEvent } from "../../lib/realtimeEvents.js";
+import {
+  publishWorkspaceEventSafely,
+  resolvePublishWorkspaceEvent
+} from "../../realtime/publishers/workspacePublisher.js";
 import { buildAuditEventBase } from "../../lib/securityAudit.js";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/realtime/eventTypes.js";
 import { resolveSurfaceFromPathname } from "../../../shared/routing/surfacePaths.js";

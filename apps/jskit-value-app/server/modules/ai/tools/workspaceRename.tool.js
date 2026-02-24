@@ -1,6 +1,9 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
-import { publishWorkspaceEventSafely, resolvePublishWorkspaceEvent } from "../../../lib/realtimeEvents.js";
+import {
+  publishWorkspaceEventSafely,
+  resolvePublishWorkspaceEvent
+} from "../../../realtime/publishers/workspacePublisher.js";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../../shared/realtime/eventTypes.js";
 
 function normalizeWorkspaceName(value) {

@@ -1,5 +1,5 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { OWNER_ROLE_ID, resolveRolePermissions } from "../../../lib/rbacManifest.js";
+import { OWNER_ROLE_ID, resolveRolePermissions } from "@jskit-ai/rbac-core";
 import { normalizeSurfaceId, resolveSurfaceById } from "../../../surfaces/index.js";
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
 import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";

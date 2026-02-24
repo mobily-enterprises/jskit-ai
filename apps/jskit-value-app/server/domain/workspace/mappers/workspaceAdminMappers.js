@@ -1,4 +1,4 @@
-import { OWNER_ROLE_ID } from "../../../lib/rbacManifest.js";
+import { OWNER_ROLE_ID } from "@jskit-ai/rbac-core";
 import { extractAppSurfacePolicy } from "../../../surfaces/appSurface.js";
 import { coerceWorkspaceColor } from "@jskit-ai/workspace-console-core/workspaceColors";
 import { resolveTranscriptModeFromWorkspaceSettings } from "@jskit-ai/assistant-transcripts-core";

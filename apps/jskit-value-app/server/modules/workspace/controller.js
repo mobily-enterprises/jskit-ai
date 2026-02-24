@@ -1,8 +1,11 @@
-import { hasPermission } from "../../lib/rbacManifest.js";
+import { hasPermission } from "@jskit-ai/rbac-core";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { withAuditEvent } from "../../lib/securityAudit.js";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { publishWorkspaceEventSafely, resolvePublishWorkspaceEvent } from "../../lib/realtimeEvents.js";
+import {
+  publishWorkspaceEventSafely,
+  resolvePublishWorkspaceEvent
+} from "../../realtime/publishers/workspacePublisher.js";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/realtime/eventTypes.js";
 
 function normalizeText(value) {
