@@ -16,7 +16,7 @@ test("chatApi listInbox appends query params", async () => {
     limit: 25
   });
 
-  assert.equal(requestCalls[0][0], "/api/chat/inbox?cursor=abc&limit=25");
+  assert.equal(requestCalls[0][0], "/api/v1/chat/inbox?cursor=abc&limit=25");
   assert.equal(requestCalls[0][1], undefined);
 });
 
@@ -33,7 +33,7 @@ test("chatApi sendThreadMessage encodes thread id and sends payload", async () =
     text: "hello"
   });
 
-  assert.equal(requestCalls[0][0], "/api/chat/threads/thread%2F42/messages");
+  assert.equal(requestCalls[0][0], "/api/v1/chat/threads/thread%2F42/messages");
   assert.deepEqual(requestCalls[0][1], {
     method: "POST",
     body: {
@@ -55,7 +55,7 @@ test("chatApi uploadThreadAttachment sends FormData payload", async () => {
 
   await api.uploadThreadAttachment(12, formData);
 
-  assert.equal(requestCalls[0][0], "/api/chat/threads/12/attachments/upload");
+  assert.equal(requestCalls[0][0], "/api/v1/chat/threads/12/attachments/upload");
   assert.equal(requestCalls[0][1].method, "POST");
   assert.equal(requestCalls[0][1].body, formData);
 });

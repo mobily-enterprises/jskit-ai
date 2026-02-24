@@ -82,8 +82,8 @@ test("assistantApi builds list/get routes with query params", async () => {
     pageSize: 500
   });
 
-  assert.equal(calls[0], "/api/workspace/ai/conversations?page=2&pageSize=25&status=completed");
-  assert.equal(calls[1], "/api/workspace/ai/conversations/abc%2F42/messages?page=1&pageSize=500");
+  assert.equal(calls[0], "/api/v1/workspace/ai/conversations?page=2&pageSize=25&status=completed");
+  assert.equal(calls[1], "/api/v1/workspace/ai/conversations/abc%2F42/messages?page=1&pageSize=500");
 });
 
 test("buildStreamEventError normalizes event payload into Error", () => {
