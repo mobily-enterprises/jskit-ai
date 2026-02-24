@@ -7,7 +7,6 @@ import { fileURLToPath } from "node:url";
 const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const REMOVED_APP_LOCAL_BILLING_CORE_FILES = Object.freeze([
-  "server/modules/billing/service.js",
   "server/modules/billing/checkoutOrchestrator.service.js",
   "server/modules/billing/idempotency.service.js",
   "server/modules/billing/providerOutcomePolicy.js",

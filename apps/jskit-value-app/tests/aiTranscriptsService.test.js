@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createAiTranscriptsService } from "../server/modules/ai/index.js";
+import { createService as createAiModuleService } from "../server/modules/ai/index.js";
+
+function createAiTranscriptsService(options = {}) {
+  const { aiTranscriptsService } = createAiModuleService({
+    ...(options || {}),
+    aiService: {}
+  });
+  return aiTranscriptsService;
+}
 
 function createDependencies(overrides = {}) {
   const calls = {

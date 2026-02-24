@@ -4,11 +4,11 @@ import * as messagesRepositoryModule from "./messages.repository.js";
 const { __testables: _conversationsTestables, ...conversationsRepository } = conversationsRepositoryModule;
 const { __testables: _messagesTestables, ...messagesRepository } = messagesRepositoryModule;
 
-function createRepositories() {
+function createRepository() {
   return {
     conversationsRepository,
     messagesRepository
   };
 }
 
-export { createRepositories };
+export { createRepository };

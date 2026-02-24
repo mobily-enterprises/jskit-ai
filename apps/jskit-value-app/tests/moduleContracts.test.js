@@ -25,124 +25,292 @@ function assertRequiredExports(modulePath, mod, requiredExports) {
   }
 }
 
-function assertRepositoryObjectContract(label, value) {
-  assert.equal(Array.isArray(value), false, `${label} must return an object contract (not an array).`);
-  assert.equal(typeof value, "object", `${label} must return an object contract.`);
-  assert.notEqual(value, null, `${label} must return an object contract.`);
+function assertNoTestablesLeak(label, value) {
   assert.equal(Object.hasOwn(value, "__testables"), false, `${label} must not expose __testables.`);
 }
 
-test("server module indexes expose expected seams", async () => {
-  const moduleExpectations = [
-    {
-      modulePath: "../server/modules/ai/index.js",
-      requiredExports: {
-        createController: "function",
-        buildRoutes: "function",
-        createAiService: "function",
-        createAiTranscriptsService: "function",
-        createOpenAiClient: "function"
-      }
-    },
-    {
-      modulePath: "../server/modules/api/index.js",
-      requiredExports: {
-        buildDefaultRoutes: "function"
-      }
-    },
-    {
-      modulePath: "../server/modules/auth/index.js",
-      requiredExports: {
-        createAccountFlows: "function",
-        createPasswordSecurityFlows: "function",
-        createOauthFlows: "function"
-      }
-    },
-    {
-      modulePath: "../server/modules/billing/index.js",
-      requiredExports: {
-        createBillingProvidersModule: "function",
-        createRepository: "function"
-      }
-    },
-    {
-      modulePath: "../server/modules/chat/index.js",
-      requiredExports: {
-        createController: "function",
-        buildRoutes: "function",
-        createChatService: "function",
-        createChatRealtimeService: "function"
-      }
-    },
-    {
-      modulePath: "../server/modules/communications/index.js",
-      requiredExports: {
-        createService: "function",
-        buildRoutes: "function"
-      }
-    },
-    {
-      modulePath: "../server/modules/console/index.js",
-      requiredExports: {
-        createController: "function"
-      }
-    },
-    {
-      modulePath: "../server/modules/deg2rad/index.js",
-      requiredExports: {
-        createController: "function",
-        buildRoutes: "function",
-        createService: "function",
-        schema: "object"
-      }
-    },
-    {
-      modulePath: "../server/modules/health/index.js",
-      requiredExports: {
-        createService: "function",
-        createRepository: "function"
-      }
-    },
-    {
-      modulePath: "../server/modules/history/index.js",
-      requiredExports: {
-        createController: "function",
-        buildRoutes: "function",
-        createService: "function",
-        schema: "object",
-        createRepository: "function"
-      }
-    },
-    {
-      modulePath: "../server/modules/projects/index.js",
-      requiredExports: {
-        createController: "function",
-        buildRoutes: "function",
-        createService: "function",
-        schema: "object",
-        createRepository: "function"
-      }
-    },
-    {
-      modulePath: "../server/modules/settings/index.js",
-      requiredExports: {
-        createController: "function",
-        buildRoutes: "function",
-        createService: "function",
-        createRepository: "function"
-      }
-    },
-    {
-      modulePath: "../server/modules/workspace/index.js",
-      requiredExports: {
-        createController: "function",
-        buildRoutes: "function",
-        schema: "object"
+function assertKeyedObjectContract(label, value, expectedKeys) {
+  assert.equal(Array.isArray(value), false, `${label} must return an object contract (not an array).`);
+  assert.equal(typeof value, "object", `${label} must return an object contract.`);
+  assert.notEqual(value, null, `${label} must return an object contract.`);
+  assertNoTestablesLeak(label, value);
+
+  const actualKeys = Object.keys(value).sort();
+  const normalizedExpectedKeys = [...expectedKeys].sort();
+  assert.deepEqual(actualKeys, normalizedExpectedKeys, `${label} returned unexpected keys.`);
+
+  for (const [key, item] of Object.entries(value)) {
+    assert.equal(Array.isArray(item), false, `${label}.${key} must not be an array.`);
+    assert.notEqual(item, undefined, `${label}.${key} must be defined.`);
+
+    if (item && typeof item === "object") {
+      assertNoTestablesLeak(`${label}.${key}`, item);
+    }
+  }
+}
+
+const MODULE_EXPORT_EXPECTATIONS = Object.freeze([
+  {
+    modulePath: "../server/modules/ai/index.js",
+    requiredExports: {
+      createController: "function",
+      buildRoutes: "function",
+      createService: "function",
+      createRepository: "function"
+    }
+  },
+  {
+    modulePath: "../server/modules/api/index.js",
+    requiredExports: {
+      buildRoutes: "function"
+    }
+  },
+  {
+    modulePath: "../server/modules/auth/index.js",
+    requiredExports: {
+      createService: "function"
+    }
+  },
+  {
+    modulePath: "../server/modules/billing/index.js",
+    requiredExports: {
+      createService: "function",
+      createRepository: "function"
+    }
+  },
+  {
+    modulePath: "../server/modules/chat/index.js",
+    requiredExports: {
+      createController: "function",
+      buildRoutes: "function",
+      createService: "function",
+      createRepository: "function"
+    }
+  },
+  {
+    modulePath: "../server/modules/communications/index.js",
+    requiredExports: {
+      createService: "function",
+      buildRoutes: "function"
+    }
+  },
+  {
+    modulePath: "../server/modules/console/index.js",
+    requiredExports: {
+      createController: "function"
+    }
+  },
+  {
+    modulePath: "../server/modules/deg2rad/index.js",
+    requiredExports: {
+      createController: "function",
+      buildRoutes: "function",
+      schema: "object",
+      createService: "function"
+    }
+  },
+  {
+    modulePath: "../server/modules/health/index.js",
+    requiredExports: {
+      createService: "function",
+      createRepository: "function"
+    }
+  },
+  {
+    modulePath: "../server/modules/history/index.js",
+    requiredExports: {
+      createController: "function",
+      buildRoutes: "function",
+      schema: "object",
+      createService: "function",
+      createRepository: "function"
+    }
+  },
+  {
+    modulePath: "../server/modules/projects/index.js",
+    requiredExports: {
+      createController: "function",
+      buildRoutes: "function",
+      schema: "object",
+      createService: "function",
+      createRepository: "function"
+    }
+  },
+  {
+    modulePath: "../server/modules/settings/index.js",
+    requiredExports: {
+      createController: "function",
+      buildRoutes: "function",
+      createService: "function",
+      createRepository: "function"
+    }
+  },
+  {
+    modulePath: "../server/modules/workspace/index.js",
+    requiredExports: {
+      createController: "function",
+      buildRoutes: "function",
+      schema: "object"
+    }
+  }
+]);
+
+const SERVICE_FACTORY_EXPECTATIONS = Object.freeze([
+  {
+    modulePath: "../server/modules/ai/index.js",
+    expectedKeys: ["aiService", "aiTranscriptsService"],
+    options: {
+      aiService: {},
+      aiTranscriptsService: {}
+    }
+  },
+  {
+    modulePath: "../server/modules/auth/index.js",
+    expectedKeys: ["accountFlowsService", "oauthFlowsService", "passwordSecurityService"],
+    options: {}
+  },
+  {
+    modulePath: "../server/modules/billing/index.js",
+    expectedKeys: ["billingProvidersService"],
+    options: {
+      defaultProvider: "stripe"
+    }
+  },
+  {
+    modulePath: "../server/modules/chat/index.js",
+    expectedKeys: ["chatService", "chatRealtimeService"],
+    options: {
+      chatService: {},
+      chatRealtimeService: {}
+    }
+  },
+  {
+    modulePath: "../server/modules/communications/index.js",
+    expectedKeys: ["service"],
+    options: {
+      smsService: {
+        async sendSms() {}
+      },
+      emailService: {
+        async sendEmail() {}
       }
     }
-  ];
+  },
+  {
+    modulePath: "../server/modules/deg2rad/index.js",
+    expectedKeys: ["service"],
+    options: {}
+  },
+  {
+    modulePath: "../server/modules/health/index.js",
+    expectedKeys: ["service"],
+    options: {
+      healthRepository: {
+        async checkDatabase() {}
+      }
+    }
+  },
+  {
+    modulePath: "../server/modules/history/index.js",
+    expectedKeys: ["service"],
+    options: {
+      calculationLogsRepository: {
+        async insert() {},
+        async countForWorkspaceUser() {
+          return 0;
+        },
+        async listForWorkspaceUser() {
+          return [];
+        },
+        async countForWorkspace() {
+          return 0;
+        },
+        async listForWorkspace() {
+          return [];
+        }
+      }
+    }
+  },
+  {
+    modulePath: "../server/modules/projects/index.js",
+    expectedKeys: ["service"],
+    options: {
+      projectsRepository: {}
+    }
+  },
+  {
+    modulePath: "../server/modules/settings/index.js",
+    expectedKeys: ["service"],
+    options: {
+      userSettingsRepository: {},
+      chatUserSettingsRepository: {
+        async ensureForUserId() {
+          return {};
+        },
+        async updateByUserId() {
+          return {};
+        }
+      },
+      userProfilesRepository: {},
+      authService: {
+        getSettingsProfileAuthInfo() {
+          return {
+            emailManagedBy: "supabase",
+            emailChangeFlow: "supabase"
+          };
+        }
+      },
+      userAvatarService: {
+        buildAvatarResponse() {
+          return null;
+        }
+      }
+    }
+  }
+]);
 
-  for (const expectation of moduleExpectations) {
+const REPOSITORY_FACTORY_EXPECTATIONS = Object.freeze([
+  {
+    modulePath: "../server/modules/ai/index.js",
+    expectedKeys: ["conversationsRepository", "messagesRepository"]
+  },
+  {
+    modulePath: "../server/modules/billing/index.js",
+    expectedKeys: ["repository"]
+  },
+  {
+    modulePath: "../server/modules/chat/index.js",
+    expectedKeys: [
+      "threadsRepository",
+      "participantsRepository",
+      "messagesRepository",
+      "idempotencyTombstonesRepository",
+      "attachmentsRepository",
+      "reactionsRepository",
+      "userSettingsRepository",
+      "blocksRepository"
+    ]
+  },
+  {
+    modulePath: "../server/modules/health/index.js",
+    expectedKeys: ["repository"]
+  },
+  {
+    modulePath: "../server/modules/history/index.js",
+    expectedKeys: ["repository"]
+  },
+  {
+    modulePath: "../server/modules/projects/index.js",
+    expectedKeys: ["repository"]
+  },
+  {
+    modulePath: "../server/modules/settings/index.js",
+    expectedKeys: ["repository"]
+  }
+]);
+
+test("server module indexes expose exact V2 seams", async () => {
+  for (const expectation of MODULE_EXPORT_EXPECTATIONS) {
     const mod = await loadExports(expectation.modulePath);
     assertNoDefaultExport(expectation.modulePath, mod);
     assertExactExportContract(expectation.modulePath, mod, expectation.requiredExports);
@@ -150,88 +318,20 @@ test("server module indexes expose expected seams", async () => {
   }
 });
 
-test("repository factory seams return object contracts", async () => {
-  const chatRepositoriesModule = await loadExports("../server/modules/chat/repositories/index.js");
-  const aiRepositoriesModule = await loadExports("../server/modules/ai/repositories/index.js");
-  const billingModule = await loadExports("../server/modules/billing/index.js");
-  const healthModule = await loadExports("../server/modules/health/index.js");
-  const historyModule = await loadExports("../server/modules/history/index.js");
-  const projectsModule = await loadExports("../server/modules/projects/index.js");
-  const settingsModule = await loadExports("../server/modules/settings/index.js");
-
-  const chatRepositories = chatRepositoriesModule.createRepositories();
-  assertRepositoryObjectContract("chat.repositories.createRepositories()", chatRepositories);
-  assert.deepEqual(Object.keys(chatRepositories).sort(), [
-    "attachmentsRepository",
-    "blocksRepository",
-    "idempotencyTombstonesRepository",
-    "messagesRepository",
-    "participantsRepository",
-    "reactionsRepository",
-    "threadsRepository",
-    "userSettingsRepository"
-  ]);
-  for (const [repositoryName, repository] of Object.entries(chatRepositories)) {
-    assertRepositoryObjectContract(`chat.repositories.createRepositories().${repositoryName}`, repository);
+test("createService seams return exact keyed object contracts", async () => {
+  for (const expectation of SERVICE_FACTORY_EXPECTATIONS) {
+    const mod = await loadExports(expectation.modulePath);
+    const value = mod.createService(expectation.options);
+    assertKeyedObjectContract(`${expectation.modulePath}.createService()`, value, expectation.expectedKeys);
   }
+});
 
-  const aiRepositories = aiRepositoriesModule.createRepositories();
-  assertRepositoryObjectContract("ai.repositories.createRepositories()", aiRepositories);
-  assert.deepEqual(Object.keys(aiRepositories).sort(), ["conversationsRepository", "messagesRepository"]);
-  for (const [repositoryName, repository] of Object.entries(aiRepositories)) {
-    assertRepositoryObjectContract(`ai.repositories.createRepositories().${repositoryName}`, repository);
+test("createRepository seams return exact keyed object contracts", async () => {
+  for (const expectation of REPOSITORY_FACTORY_EXPECTATIONS) {
+    const mod = await loadExports(expectation.modulePath);
+    const value = mod.createRepository();
+    assertKeyedObjectContract(`${expectation.modulePath}.createRepository()`, value, expectation.expectedKeys);
   }
-
-  const billingRepository = billingModule.createRepository();
-  assertRepositoryObjectContract("billing.createRepository()", billingRepository);
-  assert.deepEqual(Object.keys(billingRepository).sort(), [
-    "ensureBillableEntity",
-    "ensureBillableEntityByScope",
-    "findBillableEntityById",
-    "findBillableEntityByTypeRef",
-    "findBillableEntityByWorkspaceId",
-    "findWorkspaceContextForBillableEntity",
-    "transaction"
-  ]);
-
-  const healthRepository = healthModule.createRepository();
-  assertRepositoryObjectContract("health.createRepository()", healthRepository);
-  assert.deepEqual(Object.keys(healthRepository).sort(), ["checkDatabase"]);
-
-  const historyRepository = historyModule.createRepository();
-  assertRepositoryObjectContract("history.createRepository()", historyRepository);
-  assert.deepEqual(Object.keys(historyRepository).sort(), [
-    "countForWorkspace",
-    "countForWorkspaceUser",
-    "insert",
-    "listForWorkspace",
-    "listForWorkspaceUser"
-  ]);
-
-  const projectsRepository = projectsModule.createRepository();
-  assertRepositoryObjectContract("projects.createRepository()", projectsRepository);
-  assert.deepEqual(Object.keys(projectsRepository).sort(), [
-    "countActiveForWorkspace",
-    "countForWorkspace",
-    "findByIdForWorkspace",
-    "insert",
-    "listForWorkspace",
-    "transaction",
-    "updateByIdForWorkspace"
-  ]);
-
-  const settingsRepository = settingsModule.createRepository();
-  assertRepositoryObjectContract("settings.createRepository()", settingsRepository);
-  assert.deepEqual(Object.keys(settingsRepository).sort(), [
-    "ensureForUserId",
-    "findByUserId",
-    "findByUserIdForUpdate",
-    "updateLastActiveWorkspaceId",
-    "updateNotifications",
-    "updatePasswordSetupRequired",
-    "updatePasswordSignInEnabled",
-    "updatePreferences"
-  ]);
 });
 
 test("projects schema uses strict CRUD contract", async () => {

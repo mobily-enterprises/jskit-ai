@@ -1,19 +1,27 @@
-import { createService as createDeg2radService, createController as createDeg2radController } from "../modules/deg2rad/index.js";
-import { createService as createProjectsService, createController as createProjectsController } from "../modules/projects/index.js";
+import {
+  createService as createDeg2radModuleService,
+  createController as createDeg2radController
+} from "../modules/deg2rad/index.js";
+import {
+  createService as createProjectsModuleService,
+  createController as createProjectsController
+} from "../modules/projects/index.js";
 
 const APP_FEATURE_SERVICE_DEFINITIONS = Object.freeze([
   {
     id: "deg2radService",
     create() {
-      return createDeg2radService();
+      const { service } = createDeg2radModuleService();
+      return service;
     }
   },
   {
     id: "projectsService",
     create({ repositories }) {
-      return createProjectsService({
+      const { service } = createProjectsModuleService({
         projectsRepository: repositories.projectsRepository
       });
+      return service;
     }
   }
 ]);

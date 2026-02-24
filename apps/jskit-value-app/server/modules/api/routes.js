@@ -94,7 +94,7 @@ function createMissingHandler() {
   };
 }
 
-function buildDefaultRoutes(controllers, routeConfig = {}) {
+function buildRoutes(controllers, routeConfig = {}) {
   const missingHandler = createMissingHandler();
 
   return buildRoutesFromManifest({
@@ -105,4 +105,4 @@ function buildDefaultRoutes(controllers, routeConfig = {}) {
   });
 }
 
-export { ROUTE_MODULE_DEFINITIONS, buildDefaultRoutes };
+export { ROUTE_MODULE_DEFINITIONS, buildRoutes };

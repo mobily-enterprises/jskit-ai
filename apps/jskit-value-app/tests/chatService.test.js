@@ -2,8 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { createChatService } from "../server/modules/chat/index.js";
+import { createService as createChatModuleService } from "../server/modules/chat/index.js";
 import { __testables } from "../server/modules/chat/services/chat.service.js";
+
+function createChatService(options = {}) {
+  const { chatService } = createChatModuleService(options);
+  return chatService;
+}
 
 function createChatServiceFixture(options = {}) {
   const state = {

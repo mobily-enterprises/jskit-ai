@@ -1,9 +1,9 @@
 import { createService as createAuthService } from "@jskit-ai/auth-provider-supabase-core";
-import { createService as createDeg2radHistoryService } from "../modules/history/index.js";
+import { createService as createHistoryModuleService } from "../modules/history/index.js";
 import { createService as createSmsService } from "@jskit-ai/sms-core";
 import { createService as createEmailService } from "@jskit-ai/email-core";
-import { createService as createCommunicationsService } from "@jskit-ai/communications-core";
-import { createService as createUserSettingsService } from "../modules/settings/index.js";
+import { createService as createCommunicationsModuleService } from "../modules/communications/index.js";
+import { createService as createSettingsModuleService } from "../modules/settings/index.js";
 import { createService as createAvatarStorageService } from "@jskit-ai/user-profile-core/avatarStorageService";
 import { createService as createUserAvatarService } from "@jskit-ai/user-profile-core/avatarService";
 import { createService as createWorkspaceService } from "@jskit-ai/workspace-service-core/services/workspace";
@@ -13,9 +13,9 @@ import { createService as createChatAttachmentStorageService } from "@jskit-ai/c
 import { createService as createConsoleService } from "@jskit-ai/workspace-console-service-core/services/console";
 import { createService as createConsoleErrorsService } from "@jskit-ai/workspace-console-service-core/services/errors";
 import { createService as createAuditService } from "@jskit-ai/security-audit-core";
-import { createChatRealtimeService, createChatService } from "../modules/chat/index.js";
-import { createService as createHealthService } from "../modules/health/index.js";
-import { createAiService, createAiTranscriptsService, createOpenAiClient } from "../modules/ai/index.js";
+import { createService as createChatModuleService } from "../modules/chat/index.js";
+import { createService as createHealthModuleService } from "../modules/health/index.js";
+import { createService as createAiModuleService } from "../modules/ai/index.js";
 import {
   createBillingService,
   createBillingPolicyService,
@@ -32,7 +32,7 @@ import {
   createBillingReconciliationService,
   createBillingWorkerRuntimeService
 } from "@jskit-ai/billing-worker-core";
-import { createBillingProvidersModule } from "../modules/billing/index.js";
+import { createService as createBillingModuleService } from "../modules/billing/index.js";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { createService as createRealtimeEventsService } from "@jskit-ai/server-runtime-core/realtimeEventsService";
 import { createService as createObservabilityService } from "@jskit-ai/observability-core/service";
@@ -442,9 +442,10 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
   {
     id: "deg2radHistoryService",
     create({ repositories }) {
-      return createDeg2radHistoryService({
+      const { service } = createHistoryModuleService({
         calculationLogsRepository: repositories.calculationLogsRepository
       });
+      return service;
     }
   },
   {
@@ -469,10 +470,11 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
   {
     id: "communicationsService",
     create({ services }) {
-      return createCommunicationsService({
+      const { service } = createCommunicationsModuleService({
         smsService: services.smsService,
         emailService: services.emailService
       });
+      return service;
     }
   },
   {
@@ -509,13 +511,14 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
   {
     id: "userSettingsService",
     create({ repositories, services }) {
-      return createUserSettingsService({
+      const { service } = createSettingsModuleService({
         userSettingsRepository: repositories.userSettingsRepository,
         chatUserSettingsRepository: repositories.chatUserSettingsRepository,
         userProfilesRepository: repositories.userProfilesRepository,
         authService: services.authService,
         userAvatarService: services.userAvatarService
       });
+      return service;
     }
   },
   {
@@ -593,96 +596,101 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
     id: "chatService",
     create({ repositories, services, repositoryConfig, rbacManifest }) {
       const chatPolicyConfig = repositoryConfig?.chat || {};
-      const chatRealtimeService = createChatRealtimeService({
-        realtimeEventsService: services.realtimeEventsService
+      const { chatService } = createChatModuleService({
+        chatRealtimeServiceOptions: {
+          realtimeEventsService: services.realtimeEventsService
+        },
+        chatServiceOptions: {
+          chatThreadsRepository: repositories.chatThreadsRepository,
+          chatParticipantsRepository: repositories.chatParticipantsRepository,
+          chatMessagesRepository: repositories.chatMessagesRepository,
+          chatAttachmentsRepository: repositories.chatAttachmentsRepository,
+          chatReactionsRepository: repositories.chatReactionsRepository,
+          chatIdempotencyTombstonesRepository: repositories.chatIdempotencyTombstonesRepository,
+          chatUserSettingsRepository: repositories.chatUserSettingsRepository,
+          chatBlocksRepository: repositories.chatBlocksRepository,
+          chatAttachmentStorageService: services.chatAttachmentStorageService,
+          workspaceMembershipsRepository: repositories.workspaceMembershipsRepository,
+          userSettingsRepository: repositories.userSettingsRepository,
+          userProfilesRepository: repositories.userProfilesRepository,
+          userAvatarService: services.userAvatarService,
+          rbacManifest,
+          config: {
+            chatEnabled: chatPolicyConfig.enabled,
+            chatWorkspaceThreadsEnabled: chatPolicyConfig.workspaceThreadsEnabled,
+            chatGlobalDmsEnabled: chatPolicyConfig.globalDmsEnabled,
+            chatGlobalDmsRequireSharedWorkspace: chatPolicyConfig.globalDmsRequireSharedWorkspace,
+            chatMessageMaxTextChars: chatPolicyConfig.messageMaxTextChars,
+            chatMessagesPageSizeMax: chatPolicyConfig.messagesPageSizeMax,
+            chatThreadsPageSizeMax: chatPolicyConfig.threadsPageSizeMax,
+            chatAttachmentsEnabled: chatPolicyConfig.attachmentsEnabled,
+            chatAttachmentsMaxFilesPerMessage: chatPolicyConfig.attachmentsMaxFilesPerMessage,
+            chatAttachmentMaxUploadBytes: chatPolicyConfig.attachmentMaxUploadBytes,
+            chatUnattachedUploadRetentionHours: chatPolicyConfig.unattachedUploadRetentionHours
+          }
+        }
       });
-
-      return createChatService({
-        chatThreadsRepository: repositories.chatThreadsRepository,
-        chatParticipantsRepository: repositories.chatParticipantsRepository,
-        chatMessagesRepository: repositories.chatMessagesRepository,
-        chatAttachmentsRepository: repositories.chatAttachmentsRepository,
-        chatReactionsRepository: repositories.chatReactionsRepository,
-        chatIdempotencyTombstonesRepository: repositories.chatIdempotencyTombstonesRepository,
-        chatUserSettingsRepository: repositories.chatUserSettingsRepository,
-        chatBlocksRepository: repositories.chatBlocksRepository,
-        chatRealtimeService,
-        chatAttachmentStorageService: services.chatAttachmentStorageService,
-        workspaceMembershipsRepository: repositories.workspaceMembershipsRepository,
-        userSettingsRepository: repositories.userSettingsRepository,
-        userProfilesRepository: repositories.userProfilesRepository,
-        userAvatarService: services.userAvatarService,
-        rbacManifest,
-        config: {
-          chatEnabled: chatPolicyConfig.enabled,
-          chatWorkspaceThreadsEnabled: chatPolicyConfig.workspaceThreadsEnabled,
-          chatGlobalDmsEnabled: chatPolicyConfig.globalDmsEnabled,
-          chatGlobalDmsRequireSharedWorkspace: chatPolicyConfig.globalDmsRequireSharedWorkspace,
-          chatMessageMaxTextChars: chatPolicyConfig.messageMaxTextChars,
-          chatMessagesPageSizeMax: chatPolicyConfig.messagesPageSizeMax,
-          chatThreadsPageSizeMax: chatPolicyConfig.threadsPageSizeMax,
-          chatAttachmentsEnabled: chatPolicyConfig.attachmentsEnabled,
-          chatAttachmentsMaxFilesPerMessage: chatPolicyConfig.attachmentsMaxFilesPerMessage,
-          chatAttachmentMaxUploadBytes: chatPolicyConfig.attachmentMaxUploadBytes,
-          chatUnattachedUploadRetentionHours: chatPolicyConfig.unattachedUploadRetentionHours
+      return chatService;
+    }
+  },
+  {
+    id: "aiModuleServices",
+    create({ repositories, services, repositoryConfig, env }) {
+      const aiPolicyConfig = repositoryConfig?.ai || {};
+      return createAiModuleService({
+        aiTranscriptsServiceOptions: {
+          conversationsRepository: repositories.aiTranscriptConversationsRepository,
+          messagesRepository: repositories.aiTranscriptMessagesRepository,
+          workspaceSettingsRepository: repositories.workspaceSettingsRepository,
+          consoleMembershipsRepository: repositories.consoleMembershipsRepository,
+          observabilityService: services.observabilityService
+        },
+        aiServiceOptions: {
+          enabled: aiPolicyConfig.enabled,
+          provider: env.AI_PROVIDER,
+          apiKey: env.AI_API_KEY,
+          baseUrl: env.AI_BASE_URL,
+          timeoutMs: env.AI_TIMEOUT_MS,
+          workspaceAdminService: services.workspaceAdminService,
+          workspaceSettingsRepository: repositories.workspaceSettingsRepository,
+          consoleSettingsRepository: repositories.consoleSettingsRepository,
+          realtimeEventsService: services.realtimeEventsService,
+          auditService: services.auditService,
+          observabilityService: services.observabilityService,
+          aiModel: aiPolicyConfig.model,
+          aiMaxInputChars: aiPolicyConfig.maxInputChars,
+          aiMaxHistoryMessages: aiPolicyConfig.maxHistoryMessages,
+          aiMaxToolCallsPerTurn: aiPolicyConfig.maxToolCallsPerTurn
         }
       });
     }
   },
   {
     id: "aiTranscriptsService",
-    create({ repositories, services }) {
-      return createAiTranscriptsService({
-        conversationsRepository: repositories.aiTranscriptConversationsRepository,
-        messagesRepository: repositories.aiTranscriptMessagesRepository,
-        workspaceSettingsRepository: repositories.workspaceSettingsRepository,
-        consoleMembershipsRepository: repositories.consoleMembershipsRepository,
-        observabilityService: services.observabilityService
-      });
+    create({ services }) {
+      return services.aiModuleServices.aiTranscriptsService;
     }
   },
   {
     id: "aiService",
-    create({ repositories, services, repositoryConfig, env }) {
-      const aiPolicyConfig = repositoryConfig?.ai || {};
-      const aiProviderClient = createOpenAiClient({
-        enabled: aiPolicyConfig.enabled,
-        provider: env.AI_PROVIDER,
-        apiKey: env.AI_API_KEY,
-        baseUrl: env.AI_BASE_URL,
-        timeoutMs: env.AI_TIMEOUT_MS
-      });
-
-      return createAiService({
-        providerClient: aiProviderClient,
-        workspaceAdminService: services.workspaceAdminService,
-        workspaceSettingsRepository: repositories.workspaceSettingsRepository,
-        consoleSettingsRepository: repositories.consoleSettingsRepository,
-        realtimeEventsService: services.realtimeEventsService,
-        aiTranscriptsService: services.aiTranscriptsService,
-        auditService: services.auditService,
-        observabilityService: services.observabilityService,
-        aiModel: aiPolicyConfig.model,
-        aiMaxInputChars: aiPolicyConfig.maxInputChars,
-        aiMaxHistoryMessages: aiPolicyConfig.maxHistoryMessages,
-        aiMaxToolCallsPerTurn: aiPolicyConfig.maxToolCallsPerTurn
-      });
+    create({ services }) {
+      return services.aiModuleServices.aiService;
     }
   },
   {
     id: "healthService",
     create({ repositories }) {
-      return createHealthService({
+      const { service } = createHealthModuleService({
         healthRepository: repositories.healthRepository
       });
+      return service;
     }
   },
   {
     id: "billingProvidersModule",
     create({ repositoryConfig, env }) {
       const billingPolicyConfig = repositoryConfig?.billing || {};
-
-      return createBillingProvidersModule({
+      const { billingProvidersService } = createBillingModuleService({
         enabled: billingPolicyConfig.enabled,
         defaultProvider: billingPolicyConfig.provider,
         stripe: {
@@ -697,6 +705,7 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
           timeoutMs: env.BILLING_PADDLE_TIMEOUT_MS
         }
       });
+      return billingProvidersService;
     }
   },
   {

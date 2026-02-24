@@ -1,8 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createChatRealtimeService } from "../server/modules/chat/index.js";
+import { createService as createChatModuleService } from "../server/modules/chat/index.js";
 import { REALTIME_EVENT_TYPES } from "../shared/eventTypes.js";
+
+function createChatRealtimeService(options = {}) {
+  const { chatRealtimeService } = createChatModuleService({
+    ...(options || {}),
+    chatService: {}
+  });
+  return chatRealtimeService;
+}
 
 test("chat realtime service publishes durable message events via realtimeEventsService", () => {
   const published = [];

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildDefaultRoutes } from "../server/modules/api/index.js";
+import { buildRoutes } from "../server/modules/api/index.js";
 
 const ADMIN_SURFACE_PERMISSION_ALLOWLIST = new Set([
   // Add explicit exceptions in "METHOD /path" format.
@@ -40,7 +40,7 @@ function toRouteKey(route) {
 }
 
 test("admin-surface routes require explicit permissions unless allowlisted", () => {
-  const routes = buildDefaultRoutes(createNoopControllers());
+  const routes = buildRoutes(createNoopControllers());
   const adminRoutes = routes.filter((route) => String(route.workspaceSurface || "").trim() === "admin");
   const adminRouteKeys = new Set(adminRoutes.map(toRouteKey));
 

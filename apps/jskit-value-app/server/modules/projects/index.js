@@ -7,6 +7,7 @@ import {
   updateByIdForWorkspace,
   transaction
 } from "./repository.js";
+import { createService as createProjectsService } from "./service.js";
 
 const repository = Object.freeze({
   insert,
@@ -18,12 +19,20 @@ const repository = Object.freeze({
   transaction
 });
 
+function createService(options = {}) {
+  const service = createProjectsService(options);
+  return {
+    service
+  };
+}
+
 function createRepository() {
-  return repository;
+  return {
+    repository
+  };
 }
 
 export { createController } from "./controller.js";
 export { buildRoutes } from "./routes.js";
 export { schema } from "./schema.js";
-export { createService } from "./service.js";
-export { createRepository };
+export { createService, createRepository };

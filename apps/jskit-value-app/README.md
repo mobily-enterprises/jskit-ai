@@ -14,6 +14,19 @@ Client/server DEG2RAD calculator with Supabase authentication and MySQL persiste
 - `server/modules/<module>/lib/**`: module-private internals (not imported cross-module)
 - App-specific server domain code is intentionally limited to `deg2rad` and `projects`; scaffolding contract helpers are package-owned.
 
+### Module seam contract (V2)
+
+- The only module public seam is `server/modules/<module>/index.js`.
+- Allowed index exports are `createController`, `buildRoutes`, `schema`, `createService`, and `createRepository`.
+- No module index exports `default`, wildcard re-exports, or compatibility aliases.
+- `createService()` always returns a keyed object.
+  - Single-role service modules return `{ service }`.
+  - Multi-role service modules return descriptive `...Service` keys (for example, `{ aiService, aiTranscriptsService }`).
+- `createRepository()` always returns a keyed object.
+  - Single-role repository modules return `{ repository }`.
+  - Multi-role repository modules return descriptive `...Repository` keys (for example, `{ threadsRepository, messagesRepository }`).
+- Runtime code outside a module imports that module through its `index.js` seam only.
+
 Frontend surfaces:
 
 - `app` at `/` (workspace-bound)
@@ -357,7 +370,7 @@ npm run docs:api-contracts
 
 Realtime note:
 
-- `/api/realtime` is a Socket.IO websocket transport path (not a REST `GET` contract), so it is intentionally outside the generated API contracts inventory (`buildDefaultRoutes` path).
+- `/api/realtime` is a Socket.IO websocket transport path (not a REST `GET` contract), so it is intentionally outside the generated API contracts inventory (`buildRoutes` path).
 - Realtime protocol, auth model, correlation, and limits are documented in `WS_ARCHITECTURE.md`.
 
 <!-- API_CONTRACTS_START -->

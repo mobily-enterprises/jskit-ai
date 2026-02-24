@@ -1,7 +1,25 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createAiService } from "../server/modules/ai/index.js";
+import { createService as createAiModuleService } from "../server/modules/ai/index.js";
+
+const NOOP_AI_TRANSCRIPTS_SERVICE = new Proxy(
+  {},
+  {
+    get() {
+      return async () => null;
+    }
+  }
+);
+
+function createAiService(options = {}) {
+  const source = options && typeof options === "object" ? options : {};
+  const { aiService } = createAiModuleService({
+    ...source,
+    aiTranscriptsService: source.aiTranscriptsService ?? NOOP_AI_TRANSCRIPTS_SERVICE
+  });
+  return aiService;
+}
 
 function createStream(chunks) {
   return {

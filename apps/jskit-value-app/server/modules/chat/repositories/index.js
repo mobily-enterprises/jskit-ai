@@ -17,7 +17,7 @@ const { __testables: _reactionsTestables, ...reactionsRepository } = reactionsRe
 const { __testables: _userSettingsTestables, ...userSettingsRepository } = userSettingsRepositoryModule;
 const { __testables: _blocksTestables, ...blocksRepository } = blocksRepositoryModule;
 
-function createRepositories() {
+function createRepository() {
   return {
     threadsRepository,
     participantsRepository,
@@ -30,4 +30,4 @@ function createRepositories() {
   };
 }
 
-export { createRepositories };
+export { createRepository };

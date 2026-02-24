@@ -6,6 +6,11 @@ export default createNodeVueFastifyScriptsConfig({
   internalDistDir: `${ARTIFACTS_DIR}/dist/internal`,
   publicDistDir: `${ARTIFACTS_DIR}/dist/public`,
   guardrails: {
+    apiContracts: {
+      routeProvider: {
+        exportName: "buildRoutes"
+      }
+    },
     processEnv: {
       excludedDirNames: [
         ".git",

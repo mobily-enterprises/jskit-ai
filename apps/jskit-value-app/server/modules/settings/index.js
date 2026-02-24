@@ -8,6 +8,7 @@ import {
   findByUserIdForUpdate,
   updateLastActiveWorkspaceId
 } from "./repository.js";
+import { createService as createSettingsService } from "./service.js";
 
 const repository = Object.freeze({
   findByUserId,
@@ -20,11 +21,19 @@ const repository = Object.freeze({
   updateLastActiveWorkspaceId
 });
 
+function createService(options = {}) {
+  const service = createSettingsService(options);
+  return {
+    service
+  };
+}
+
 function createRepository() {
-  return repository;
+  return {
+    repository
+  };
 }
 
 export { createController } from "./controller.js";
 export { buildRoutes } from "./routes.js";
-export { createService } from "./service.js";
-export { createRepository };
+export { createService, createRepository };

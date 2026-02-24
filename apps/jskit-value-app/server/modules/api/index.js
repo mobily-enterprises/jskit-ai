@@ -1,1 +1,1 @@
-export { buildDefaultRoutes } from "./routes.js";
+export { buildRoutes } from "./routes.js";

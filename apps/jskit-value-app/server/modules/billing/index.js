@@ -1,26 +1,12 @@
-import {
-  transaction,
-  findBillableEntityById,
-  findBillableEntityByWorkspaceId,
-  findBillableEntityByTypeRef,
-  ensureBillableEntity,
-  ensureBillableEntityByScope,
-  findWorkspaceContextForBillableEntity
-} from "./repository.js";
+import * as billingRepositoryModule from "./repository.js";
 
-const billingRepository = Object.freeze({
-  transaction,
-  findBillableEntityById,
-  findBillableEntityByWorkspaceId,
-  findBillableEntityByTypeRef,
-  ensureBillableEntity,
-  ensureBillableEntityByScope,
-  findWorkspaceContextForBillableEntity
-});
+const { __testables: _billingRepositoryTestables, ...repository } = billingRepositoryModule;
 
 function createRepository() {
-  return billingRepository;
+  return {
+    repository
+  };
 }
 
+export { createService } from "./service.js";
 export { createRepository };
-export { createService as createBillingProvidersModule } from "./lib/providers/index.js";

@@ -43,6 +43,13 @@ const ROLE_DIRECTORY_FILE_PATTERNS = Object.freeze({
 });
 
 const MODULE_INTERNAL_PATH_SEGMENTS = Object.freeze(["lib", "controllers", "routes", "schemas", "services", "repositories"]);
+const MODULE_INDEX_EXPORT_ALLOWLIST = new Set([
+  "createController",
+  "buildRoutes",
+  "schema",
+  "createService",
+  "createRepository"
+]);
 
 function toPosixPath(value) {
   return String(value || "").replace(/\\/g, "/");
@@ -101,6 +108,29 @@ function parseImportSpecifiers(filePath) {
   }
 
   return specifiers;
+}
+
+function parseIndexNamedExportNames(indexSource) {
+  const exportNames = [];
+  const namedExportPattern = /^\s*export\s*\{([^}]+)\}\s*(?:from\s+["'][^"']+["'])?\s*;?/gm;
+
+  for (const match of indexSource.matchAll(namedExportPattern)) {
+    const rawSpecifiers = String(match[1] || "").split(",");
+    for (const rawSpecifier of rawSpecifiers) {
+      const specifier = rawSpecifier.trim();
+      if (!specifier) {
+        continue;
+      }
+
+      const aliasMatch = specifier.match(/^([A-Za-z_$][A-Za-z0-9_$]*)(?:\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*))?$/);
+      if (!aliasMatch) {
+        continue;
+      }
+      exportNames.push(aliasMatch[2] || aliasMatch[1]);
+    }
+  }
+
+  return exportNames;
 }
 
 function resolveRelativeImport(fromFilePath, importSpecifier) {
@@ -284,4 +314,52 @@ test("architecture guardrail: module index files forbid wildcard exports", () =>
   }
 
   assert.deepEqual(violations, []);
+});
+
+test("architecture guardrail: module index named exports use canonical allowlist only", () => {
+  const violations = [];
+
+  for (const moduleDir of listModuleDirectories()) {
+    const indexFilePath = path.join(moduleDir.absolutePath, "index.js");
+    const source = readFileSync(indexFilePath, "utf8");
+    const exportNames = parseIndexNamedExportNames(source);
+
+    for (const exportName of exportNames) {
+      if (!MODULE_INDEX_EXPORT_ALLOWLIST.has(exportName)) {
+        violations.push(`${moduleDir.name}:${exportName}`);
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+test("architecture guardrail: module role presence requires canonical createService/createRepository seams", () => {
+  const missing = [];
+
+  for (const moduleDir of listModuleDirectories()) {
+    const indexFilePath = path.join(moduleDir.absolutePath, "index.js");
+    const source = readFileSync(indexFilePath, "utf8");
+    const exportNames = new Set(parseIndexNamedExportNames(source));
+
+    const hasServiceRole = existsSync(path.join(moduleDir.absolutePath, "service.js")) || existsSync(path.join(moduleDir.absolutePath, "services"));
+    const hasRepositoryRole =
+      existsSync(path.join(moduleDir.absolutePath, "repository.js")) || existsSync(path.join(moduleDir.absolutePath, "repositories"));
+
+    if (hasServiceRole && !exportNames.has("createService")) {
+      missing.push(`${moduleDir.name}:missing:createService`);
+    }
+    if (!hasServiceRole && exportNames.has("createService")) {
+      missing.push(`${moduleDir.name}:unexpected:createService`);
+    }
+
+    if (hasRepositoryRole && !exportNames.has("createRepository")) {
+      missing.push(`${moduleDir.name}:missing:createRepository`);
+    }
+    if (!hasRepositoryRole && exportNames.has("createRepository")) {
+      missing.push(`${moduleDir.name}:unexpected:createRepository`);
+    }
+  }
+
+  assert.deepEqual(missing, []);
 });
