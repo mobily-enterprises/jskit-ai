@@ -57,6 +57,10 @@ What it does:
   - `api`
   - `useWorkspaceStore`
   - `resolveSurfaceFromPathname`
+  - `policy`
+    - `streamTimeoutMs`
+    - `historyPageSize`
+    - `restoreMessagesPageSize`
 
 Practical example:
 
@@ -66,7 +70,12 @@ import { createAssistantRuntime } from "@jskit-ai/assistant-client-runtime";
 const { useAssistantView, assistantRuntimeTestables } = createAssistantRuntime({
   api,
   useWorkspaceStore,
-  resolveSurfaceFromPathname
+  resolveSurfaceFromPathname,
+  policy: {
+    streamTimeoutMs: 90_000,
+    historyPageSize: 100,
+    restoreMessagesPageSize: 200
+  }
 });
 ```
 
@@ -126,6 +135,7 @@ What it does:
   - history builder
   - transcript-to-runtime mapping
   - tool summary generation
+- Runtime-bound policy values (`ASSISTANT_STREAM_TIMEOUT_MS`, `HISTORY_PAGE_SIZE`, `RESTORE_MESSAGES_PAGE_SIZE`) on the object returned from `createAssistantRuntime(...)`.
 
 Practical example:
 

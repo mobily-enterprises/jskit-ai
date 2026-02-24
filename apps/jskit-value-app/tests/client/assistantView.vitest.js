@@ -1,6 +1,7 @@
 import { defineComponent, ref } from "vue";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { aiConfig } from "../../config/ai.js";
 
 const mocks = vi.hoisted(() => ({
   api: {
@@ -81,6 +82,12 @@ describe("useAssistantView", () => {
     mocks.queryClient.fetchQuery.mockImplementation(async ({ queryFn }) => queryFn());
     mocks.queryClient.invalidateQueries.mockReset();
     mocks.queryClient.invalidateQueries.mockResolvedValue(undefined);
+  });
+
+  it("uses assistant runtime policy values from app config", () => {
+    expect(assistantViewTestables.ASSISTANT_STREAM_TIMEOUT_MS).toBe(aiConfig.streamTimeoutMs);
+    expect(assistantViewTestables.HISTORY_PAGE_SIZE).toBe(aiConfig.historyPageSize);
+    expect(assistantViewTestables.RESTORE_MESSAGES_PAGE_SIZE).toBe(aiConfig.restoreMessagesPageSize);
   });
 
   it("transitions from send to delta to done state", async () => {

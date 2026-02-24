@@ -75,6 +75,10 @@ What it does:
   - `useQueryErrorMessage`
   - `useWorkspaceStore`
   - `realtimeEventTypes`
+  - `policy` (required)
+    - `messageMaxChars` (positive integer)
+    - `attachmentMaxFilesPerMessage` (positive integer)
+    - `attachmentMaxUploadBytes` (positive integer)
 
 Real-life example:
 
@@ -87,7 +91,12 @@ const { useChatView, chatRuntimeTestables } = createChatRuntime({
   useAuthGuard,
   useQueryErrorMessage,
   useWorkspaceStore,
-  realtimeEventTypes: REALTIME_EVENT_TYPES
+  realtimeEventTypes: REALTIME_EVENT_TYPES,
+  policy: {
+    messageMaxChars: 4000,
+    attachmentMaxFilesPerMessage: 5,
+    attachmentMaxUploadBytes: 20_000_000
+  }
 });
 ```
 

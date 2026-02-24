@@ -2,7 +2,7 @@ import { computed, reactive, ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
-import { useUrlListPagination } from "@jskit-ai/web-runtime-core/useUrlListPagination";
+import { useStandardListPagination } from "../../modules/pagination/useStandardListPagination.js";
 import { api } from "../../platform/http/api/index.js";
 
 const CONSOLE_BILLING_EVENTS_QUERY_KEY_PREFIX = ["console-billing-events"];
@@ -31,11 +31,9 @@ function stringifyDetails(value) {
 
 export function useConsoleBillingEventsView() {
   const { handleUnauthorizedError } = useAuthGuard();
-  const pagination = useUrlListPagination({
-    pageKey: "page",
-    pageSizeKey: "pageSize",
+  const pagination = useStandardListPagination({
+    keyPrefix: "consoleBillingEvents",
     initialPageSize: CONSOLE_BILLING_EVENTS_PAGE_SIZE_OPTIONS[0],
-    defaultPageSize: CONSOLE_BILLING_EVENTS_PAGE_SIZE_OPTIONS[0],
     pageSizeOptions: CONSOLE_BILLING_EVENTS_PAGE_SIZE_OPTIONS
   });
   const workspaceSlugFilter = ref("");

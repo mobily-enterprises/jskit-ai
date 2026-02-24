@@ -9,9 +9,6 @@ import {
 const INBOX_PAGE_SIZE = 20;
 const THREAD_MESSAGES_PAGE_SIZE = 50;
 const DM_CANDIDATES_PAGE_SIZE = 100;
-const CHAT_MESSAGE_MAX_TEXT_CHARS = 4000;
-const CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE = 5;
-const CHAT_ATTACHMENT_MAX_UPLOAD_BYTES = 20_000_000;
 const WORKSPACE_ROOM_THREAD_KIND = "workspace_room";
 const MARK_READ_DEBOUNCE_MS = 180;
 const DM_PUBLIC_CHAT_ID_MAX_CHARS = 64;
@@ -36,6 +33,14 @@ const DEFAULT_USE_WORKSPACE_STORE = () => ({
 
 function normalizeText(value) {
   return String(value || "").trim();
+}
+
+function toPositiveInteger(value) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return 0;
+  }
+  return parsed;
 }
 
 function normalizeThreadId(value) {
@@ -368,8 +373,12 @@ function useChatRuntime({
   useAuthGuard,
   useQueryErrorMessage,
   useWorkspaceStore,
-  realtimeEventTypes
+  realtimeEventTypes,
+  policy
 }) {
+  const messageMaxChars = Number(policy.messageMaxChars);
+  const attachmentMaxFilesPerMessage = Number(policy.attachmentMaxFilesPerMessage);
+  const attachmentMaxUploadBytes = Number(policy.attachmentMaxUploadBytes);
   const workspaceStore = useWorkspaceStore();
   const queryClient = useQueryClient();
   const { handleUnauthorizedError } = useAuthGuard();
@@ -760,10 +769,10 @@ function useChatRuntime({
     }
 
     const sizeBytes = Math.max(0, Number(attachment.sizeBytes || 0));
-    if (sizeBytes < 1 || sizeBytes > CHAT_ATTACHMENT_MAX_UPLOAD_BYTES) {
+    if (sizeBytes < 1 || sizeBytes > attachmentMaxUploadBytes) {
       patchComposerAttachment(localId, {
         status: "failed",
-        errorMessage: `Attachment must be between 1 byte and ${CHAT_ATTACHMENT_MAX_UPLOAD_BYTES} bytes.`
+        errorMessage: `Attachment must be between 1 byte and ${attachmentMaxUploadBytes} bytes.`
       });
       return 0;
     }
@@ -835,22 +844,22 @@ function useChatRuntime({
 
     composerError.value = "";
 
-    const availableSlots = Math.max(0, CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE - composerAttachments.value.length);
+    const availableSlots = Math.max(0, attachmentMaxFilesPerMessage - composerAttachments.value.length);
     if (availableSlots < 1) {
-      composerError.value = `You can add up to ${CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE} attachments per message.`;
+      composerError.value = `You can add up to ${attachmentMaxFilesPerMessage} attachments per message.`;
       return 0;
     }
 
     const acceptedFiles = incomingFiles.slice(0, availableSlots);
     if (acceptedFiles.length < incomingFiles.length) {
-      composerError.value = `Only ${CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE} attachments are allowed per message.`;
+      composerError.value = `Only ${attachmentMaxFilesPerMessage} attachments are allowed per message.`;
     }
 
     const drafts = [];
     for (const file of acceptedFiles) {
       const sizeBytes = Math.max(0, Number(file?.size || 0));
-      if (sizeBytes < 1 || sizeBytes > CHAT_ATTACHMENT_MAX_UPLOAD_BYTES) {
-        composerError.value = `Each attachment must be between 1 byte and ${CHAT_ATTACHMENT_MAX_UPLOAD_BYTES} bytes.`;
+      if (sizeBytes < 1 || sizeBytes > attachmentMaxUploadBytes) {
+        composerError.value = `Each attachment must be between 1 byte and ${attachmentMaxUploadBytes} bytes.`;
         continue;
       }
       drafts.push(createComposerAttachmentDraft(file));
@@ -1099,8 +1108,8 @@ function useChatRuntime({
     const trimmed = normalizeText(text);
     const attachmentIds = composerUploadedAttachmentIds.value;
 
-    if (trimmed.length > CHAT_MESSAGE_MAX_TEXT_CHARS) {
-      composerError.value = `Message must be ${CHAT_MESSAGE_MAX_TEXT_CHARS} characters or fewer.`;
+    if (trimmed.length > messageMaxChars) {
+      composerError.value = `Message must be ${messageMaxChars} characters or fewer.`;
       return;
     }
 
@@ -1166,7 +1175,7 @@ function useChatRuntime({
 
     const hasText =
       normalizeText(composerText.value).length > 0 &&
-      normalizeText(composerText.value).length <= CHAT_MESSAGE_MAX_TEXT_CHARS;
+      normalizeText(composerText.value).length <= messageMaxChars;
     const hasUploadedAttachments = composerUploadedAttachmentIds.value.length > 0;
     if (
       !(
@@ -1376,9 +1385,9 @@ function useChatRuntime({
       inboxPageSize: INBOX_PAGE_SIZE,
       messagePageSize: THREAD_MESSAGES_PAGE_SIZE,
       dmCandidatesPageSize: DM_CANDIDATES_PAGE_SIZE,
-      messageMaxChars: CHAT_MESSAGE_MAX_TEXT_CHARS,
-      attachmentMaxFilesPerMessage: CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE,
-      attachmentMaxUploadBytes: CHAT_ATTACHMENT_MAX_UPLOAD_BYTES
+      messageMaxChars,
+      attachmentMaxFilesPerMessage,
+      attachmentMaxUploadBytes
     },
     state: reactive({
       enabled,
@@ -1422,7 +1431,7 @@ function useChatRuntime({
           !sendPending.value &&
           !composerHasBlockingAttachments.value &&
           ((normalizeText(composerText.value).length > 0 &&
-            normalizeText(composerText.value).length <= CHAT_MESSAGE_MAX_TEXT_CHARS) ||
+            normalizeText(composerText.value).length <= messageMaxChars) ||
             composerUploadedAttachmentIds.value.length > 0)
         )
       )
@@ -1457,14 +1466,12 @@ const chatRuntimeTestables = {
   INBOX_PAGE_SIZE,
   THREAD_MESSAGES_PAGE_SIZE,
   DM_CANDIDATES_PAGE_SIZE,
-  CHAT_MESSAGE_MAX_TEXT_CHARS,
-  CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE,
-  CHAT_ATTACHMENT_MAX_UPLOAD_BYTES,
   normalizeThreadId,
   normalizePublicChatId,
   flattenThreadPages,
   flattenMessagePagesChronologically,
-  buildMessageRows
+  buildMessageRows,
+  resolveChatRuntimePolicy
 };
 
 function resolveChatRuntimeDependencies(deps = {}) {
@@ -1507,12 +1514,39 @@ function assertChatRuntimeDependencies({ api }) {
   }
 }
 
+function resolveChatRuntimePolicy(policy) {
+  const source = policy && typeof policy === "object" ? policy : null;
+  if (!source) {
+    throw new Error("chat-client-runtime missing required policy object.");
+  }
+
+  const normalized = {
+    messageMaxChars: toPositiveInteger(source.messageMaxChars),
+    attachmentMaxFilesPerMessage: toPositiveInteger(source.attachmentMaxFilesPerMessage),
+    attachmentMaxUploadBytes: toPositiveInteger(source.attachmentMaxUploadBytes)
+  };
+
+  const invalidFields = Object.entries(normalized)
+    .filter(([, value]) => value < 1)
+    .map(([key]) => key);
+  if (invalidFields.length > 0) {
+    throw new Error(`chat-client-runtime policy fields must be positive integers: ${invalidFields.join(", ")}`);
+  }
+
+  return Object.freeze(normalized);
+}
+
 function createChatRuntime(deps = {}) {
   const runtimeDeps = resolveChatRuntimeDependencies(deps);
+  const runtimePolicy = resolveChatRuntimePolicy(deps?.policy);
   assertChatRuntimeDependencies(runtimeDeps);
+  const runtimeOptions = {
+    ...runtimeDeps,
+    policy: runtimePolicy
+  };
 
   function useBoundChatRuntime() {
-    return useChatRuntime(runtimeDeps);
+    return useChatRuntime(runtimeOptions);
   }
 
   return {

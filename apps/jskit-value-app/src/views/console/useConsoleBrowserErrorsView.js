@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/vue-query";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useListQueryState } from "@jskit-ai/web-runtime-core/useListQueryState";
 import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
-import { useUrlListPagination } from "@jskit-ai/web-runtime-core/useUrlListPagination";
+import { useStandardListPagination } from "../../modules/pagination/useStandardListPagination.js";
 import { api } from "../../platform/http/api/index.js";
 import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";
 
@@ -74,11 +74,9 @@ export function useConsoleBrowserErrorsView({ initialPageSize = BROWSER_ERRORS_P
   const simulationMessage = ref("");
   const simulationMessageType = ref("info");
 
-  const pagination = useUrlListPagination({
-    pageKey: "page",
-    pageSizeKey: "pageSize",
+  const pagination = useStandardListPagination({
+    keyPrefix: "consoleBrowserErrors",
     initialPageSize,
-    defaultPageSize: BROWSER_ERRORS_PAGE_SIZE_OPTIONS[0],
     pageSizeOptions: BROWSER_ERRORS_PAGE_SIZE_OPTIONS
   });
 

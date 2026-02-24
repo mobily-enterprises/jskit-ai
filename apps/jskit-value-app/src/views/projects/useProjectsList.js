@@ -4,14 +4,12 @@ import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { api } from "../../platform/http/api/index.js";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useListQueryState } from "@jskit-ai/web-runtime-core/useListQueryState";
-import { useUrlListPagination } from "@jskit-ai/web-runtime-core/useUrlListPagination";
+import { useStandardListPagination } from "../../modules/pagination/useStandardListPagination.js";
 import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 import { mapProjectsError } from "../../modules/projects/errors.js";
 import { projectPageSizeOptions } from "../../modules/projects/formModel.js";
 import {
-  PROJECTS_PAGE_QUERY_KEY,
-  PROJECTS_PAGE_SIZE_QUERY_KEY,
   projectsListQueryKey,
   projectsScopeQueryKey
 } from "../../modules/projects/queryKeys.js";
@@ -24,11 +22,9 @@ export function useProjectsList({ initialPageSize = projectPageSizeOptions[0] } 
 
   const enabled = computed(() => Boolean(workspaceStore.initialized && workspaceStore.activeWorkspaceSlug));
 
-  const pagination = useUrlListPagination({
-    pageKey: PROJECTS_PAGE_QUERY_KEY,
-    pageSizeKey: PROJECTS_PAGE_SIZE_QUERY_KEY,
+  const pagination = useStandardListPagination({
+    keyPrefix: "projects",
     initialPageSize,
-    defaultPageSize: projectPageSizeOptions[0],
     pageSizeOptions: projectPageSizeOptions
   });
 

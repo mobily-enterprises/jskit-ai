@@ -3,26 +3,22 @@ import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { api } from "../../platform/http/api/index.js";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useListQueryState } from "@jskit-ai/web-runtime-core/useListQueryState";
-import { useUrlListPagination } from "@jskit-ai/web-runtime-core/useUrlListPagination";
+import { useStandardListPagination } from "../../modules/pagination/useStandardListPagination.js";
 import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 import { mapHistoryError } from "../../modules/deg2rad/errors.js";
 import { pageSizeOptions } from "../../modules/deg2rad/formModel.js";
 
 export const HISTORY_QUERY_KEY_PREFIX = ["history"];
-export const HISTORY_PAGE_QUERY_KEY = "historyPage";
-export const HISTORY_PAGE_SIZE_QUERY_KEY = "historyPageSize";
 
 export function useDeg2radHistoryList({ initialPageSize = pageSizeOptions[0] } = {}) {
   const queryClient = useQueryClient();
   const { handleUnauthorizedError } = useAuthGuard();
   const workspaceStore = useWorkspaceStore();
   const enabled = computed(() => Boolean(workspaceStore.initialized && workspaceStore.activeWorkspaceSlug));
-  const pagination = useUrlListPagination({
-    pageKey: HISTORY_PAGE_QUERY_KEY,
-    pageSizeKey: HISTORY_PAGE_SIZE_QUERY_KEY,
+  const pagination = useStandardListPagination({
+    keyPrefix: "history",
     initialPageSize,
-    defaultPageSize: pageSizeOptions[0],
     pageSizeOptions
   });
 

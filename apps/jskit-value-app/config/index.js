@@ -54,6 +54,9 @@ function validateAiConfig(config) {
   expectPositiveInteger("ai.maxInputChars", config.maxInputChars);
   expectPositiveInteger("ai.maxHistoryMessages", config.maxHistoryMessages);
   expectPositiveInteger("ai.maxToolCallsPerTurn", config.maxToolCallsPerTurn);
+  expectPositiveInteger("ai.streamTimeoutMs", config.streamTimeoutMs);
+  expectPositiveInteger("ai.historyPageSize", config.historyPageSize);
+  expectPositiveInteger("ai.restoreMessagesPageSize", config.restoreMessagesPageSize);
   expectString("ai.requiredPermission", config.requiredPermission, { allowEmpty: true });
 }
 

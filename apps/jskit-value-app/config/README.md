@@ -72,6 +72,9 @@ Repository config has exactly these top-level slices:
 | `ai.maxInputChars` | integer | `>= 1` | `8000` | Max chars accepted as AI input payload. | Integer only; no upper bound in validator. |
 | `ai.maxHistoryMessages` | integer | `>= 1` | `20` | Max history messages included in AI context. | Integer only; no upper bound in validator. |
 | `ai.maxToolCallsPerTurn` | integer | `>= 1` | `4` | Max tool calls allowed in one AI turn. | Integer only; no upper bound in validator. |
+| `ai.streamTimeoutMs` | integer | `>= 1` | `90000` | Client runtime timeout for one assistant stream request. | Consumed by `assistant-client-runtime` policy injection. |
+| `ai.historyPageSize` | integer | `>= 1` | `100` | Client runtime page size when listing conversation history. | Consumed by `assistant-client-runtime` policy injection. |
+| `ai.restoreMessagesPageSize` | integer | `>= 1` | `200` | Client runtime page size when restoring one conversation timeline. | Consumed by `assistant-client-runtime` policy injection. |
 | `ai.requiredPermission` | string | Any string, including `""` | `""` | Optional RBAC permission required to use AI. | Empty string means no explicit permission gate at config level. |
 
 ## `billing` Domain

@@ -2,6 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createAssistantRuntime, assistantRuntimeTestables } from "../src/useAssistantRuntime.js";
 
+function createPolicy(seed = 0) {
+  return {
+    streamTimeoutMs: 60_000 + seed,
+    historyPageSize: 50 + seed,
+    restoreMessagesPageSize: 500 + seed
+  };
+}
+
 test("assistant runtime buildHistory includes only done user/assistant chat messages", () => {
   const history = assistantRuntimeTestables.buildHistory([
     { role: "user", kind: "chat", text: "hello", status: "done" },
@@ -74,6 +82,34 @@ test("assistant runtime conversation status normalizer falls back to unknown", (
   assert.equal(assistantRuntimeTestables.normalizeConversationStatus(""), "unknown");
 });
 
+test("assistant runtime policy resolver requires positive integer fields", () => {
+  const policy = assistantRuntimeTestables.resolveAssistantRuntimePolicy({
+    streamTimeoutMs: "90000",
+    historyPageSize: 100,
+    restoreMessagesPageSize: "200"
+  });
+  assert.deepEqual(policy, {
+    streamTimeoutMs: 90_000,
+    historyPageSize: 100,
+    restoreMessagesPageSize: 200
+  });
+  assert.equal(Object.isFrozen(policy), true);
+
+  assert.throws(
+    () => assistantRuntimeTestables.resolveAssistantRuntimePolicy(null),
+    /missing required policy object/i
+  );
+  assert.throws(
+    () =>
+      assistantRuntimeTestables.resolveAssistantRuntimePolicy({
+        streamTimeoutMs: 0,
+        historyPageSize: 100,
+        restoreMessagesPageSize: 200
+      }),
+    /policy fields must be positive integers: streamTimeoutMs/i
+  );
+});
+
 test("assistant runtime factory returns isolated runtime instances", () => {
   const apiA = {
     ai: {
@@ -93,17 +129,48 @@ test("assistant runtime factory returns isolated runtime instances", () => {
   const runtimeA = createAssistantRuntime({
     api: apiA,
     useWorkspaceStore: () => ({ activeWorkspaceSlug: "alpha" }),
-    resolveSurfaceFromPathname: () => "app"
+    resolveSurfaceFromPathname: () => "app",
+    policy: createPolicy(0)
   });
   const runtimeB = createAssistantRuntime({
     api: apiB,
     useWorkspaceStore: () => ({ activeWorkspaceSlug: "beta" }),
-    resolveSurfaceFromPathname: () => "admin"
+    resolveSurfaceFromPathname: () => "admin",
+    policy: createPolicy(25)
   });
 
   assert.notEqual(runtimeA.useAssistantRuntime, runtimeB.useAssistantRuntime);
   assert.equal(runtimeA.useAssistantView, runtimeA.useAssistantRuntime);
   assert.equal(runtimeB.useAssistantView, runtimeB.useAssistantRuntime);
-  assert.equal(runtimeA.assistantRuntimeTestables, assistantRuntimeTestables);
-  assert.equal(runtimeB.assistantRuntimeTestables, assistantRuntimeTestables);
+  assert.notEqual(runtimeA.assistantRuntimeTestables, runtimeB.assistantRuntimeTestables);
+  assert.notEqual(runtimeA.assistantRuntimeTestables, assistantRuntimeTestables);
+  assert.notEqual(runtimeB.assistantRuntimeTestables, assistantRuntimeTestables);
+  assert.equal(runtimeA.assistantRuntimeTestables.ASSISTANT_STREAM_TIMEOUT_MS, 60_000);
+  assert.equal(runtimeA.assistantRuntimeTestables.HISTORY_PAGE_SIZE, 50);
+  assert.equal(runtimeA.assistantRuntimeTestables.RESTORE_MESSAGES_PAGE_SIZE, 500);
+  assert.equal(runtimeB.assistantRuntimeTestables.ASSISTANT_STREAM_TIMEOUT_MS, 60_025);
+  assert.equal(runtimeB.assistantRuntimeTestables.HISTORY_PAGE_SIZE, 75);
+  assert.equal(runtimeB.assistantRuntimeTestables.RESTORE_MESSAGES_PAGE_SIZE, 525);
+  assert.equal(runtimeA.assistantRuntimeTestables.buildHistory, assistantRuntimeTestables.buildHistory);
+  assert.equal(runtimeB.assistantRuntimeTestables.buildHistory, assistantRuntimeTestables.buildHistory);
+  assert.equal(runtimeA.assistantRuntimeTestables.policy.streamTimeoutMs, 60_000);
+  assert.equal(runtimeB.assistantRuntimeTestables.policy.streamTimeoutMs, 60_025);
+});
+
+test("assistant runtime factory requires policy", () => {
+  assert.throws(
+    () =>
+      createAssistantRuntime({
+        api: {
+          ai: {
+            listConversations: async () => ({ entries: [] }),
+            getConversationMessages: async () => ({ entries: [] }),
+            streamChat: async () => undefined
+          }
+        },
+        useWorkspaceStore: () => ({ activeWorkspaceSlug: "alpha" }),
+        resolveSurfaceFromPathname: () => "app"
+      }),
+    /missing required policy object/i
+  );
 });

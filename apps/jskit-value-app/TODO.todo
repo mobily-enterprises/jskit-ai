@@ -48,8 +48,8 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
     X Make proper architecture for SMS and EMAIL (injection)
     X Last checks that only app-specific code is in the app, and that all generic code is in packages, and that the app is just a scaffolding with some specific code for projects and deg2rad
     X A few check passes in packages to make sure there is nothing app-only there
-    - Run generic "check the log" prompts to see if there are any problems in the codebase
-  - Sort out documentation for the rest of jskit, document all of the injection points
+    - Do sweep check on client files (plus packages)
+    - Do sweep check on server files (plus packages)
   - Add info to RAILS.md: how to add CRUD pages, and have a pre-commit checklist that will run tests, make sure that packages are used, etc.
   
 - Have proper entitlement configuration for projects, AI messages, and DEG2RAD calcs <---- !!!

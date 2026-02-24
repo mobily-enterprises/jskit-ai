@@ -8,11 +8,8 @@ import {
   normalizeAssistantStreamEventType
 } from "@jskit-ai/assistant-contracts";
 
-const ASSISTANT_STREAM_TIMEOUT_MS = 60_000;
 const HISTORY_PAGE = 1;
-const HISTORY_PAGE_SIZE = 50;
 const RESTORE_MESSAGES_PAGE = 1;
-const RESTORE_MESSAGES_PAGE_SIZE = 500;
 const REDACTED_CONTENT_PLACEHOLDER = "No content stored by policy.";
 const DEFAULT_USE_WORKSPACE_STORE = () => ({
   activeWorkspace: null,
@@ -35,6 +32,15 @@ function normalizeText(value) {
 function normalizeToolName(value) {
   const normalized = normalizeText(value);
   return normalized || "tool";
+}
+
+function toPositiveInteger(value) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return 0;
+  }
+
+  return parsed;
 }
 
 function normalizeDateTime(value) {
@@ -242,7 +248,10 @@ function mapTranscriptEntriesToAssistantState(entries) {
   };
 }
 
-function useAssistantRuntime({ api, useWorkspaceStore, resolveSurfaceFromPathname }) {
+function useAssistantRuntime({ api, useWorkspaceStore, resolveSurfaceFromPathname }, { policy } = {}) {
+  const streamTimeoutMs = Number(policy.streamTimeoutMs);
+  const historyPageSize = Number(policy.historyPageSize);
+  const restoreMessagesPageSize = Number(policy.restoreMessagesPageSize);
   const workspaceStore = useWorkspaceStore();
   const queryClient = useQueryClient();
   const messages = ref([]);
@@ -276,13 +285,13 @@ function useAssistantRuntime({ api, useWorkspaceStore, resolveSurfaceFromPathnam
     queryKey: computed(() =>
       assistantConversationsListQueryKey(workspaceScope.value, {
         page: HISTORY_PAGE,
-        pageSize: HISTORY_PAGE_SIZE
+        pageSize: historyPageSize
       })
     ),
     queryFn: () =>
       api.ai.listConversations({
         page: HISTORY_PAGE,
-        pageSize: HISTORY_PAGE_SIZE
+        pageSize: historyPageSize
       }),
     enabled: computed(() => hasWorkspaceScope.value),
     refetchOnWindowFocus: false
@@ -465,12 +474,12 @@ function useAssistantRuntime({ api, useWorkspaceStore, resolveSurfaceFromPathnam
       const response = await queryClient.fetchQuery({
         queryKey: assistantConversationMessagesQueryKey(workspaceScope.value, parsedConversationId, {
           page: RESTORE_MESSAGES_PAGE,
-          pageSize: RESTORE_MESSAGES_PAGE_SIZE
+          pageSize: restoreMessagesPageSize
         }),
         queryFn: () =>
           api.ai.getConversationMessages(parsedConversationId, {
             page: RESTORE_MESSAGES_PAGE,
-            pageSize: RESTORE_MESSAGES_PAGE_SIZE
+            pageSize: restoreMessagesPageSize
           })
       });
 
@@ -545,7 +554,7 @@ function useAssistantRuntime({ api, useWorkspaceStore, resolveSurfaceFromPathnam
         ? setTimeout(() => {
             streamTimedOut = true;
             streamAbortController.abort();
-          }, ASSISTANT_STREAM_TIMEOUT_MS)
+          }, streamTimeoutMs)
         : null;
 
     try {
@@ -684,11 +693,8 @@ function useAssistantRuntime({ api, useWorkspaceStore, resolveSurfaceFromPathnam
 }
 
 const assistantRuntimeTestables = {
-  ASSISTANT_STREAM_TIMEOUT_MS,
   HISTORY_PAGE,
-  HISTORY_PAGE_SIZE,
   RESTORE_MESSAGES_PAGE,
-  RESTORE_MESSAGES_PAGE_SIZE,
   REDACTED_CONTENT_PLACEHOLDER,
   buildHistory,
   buildId,
@@ -696,7 +702,8 @@ const assistantRuntimeTestables = {
   buildToolCallSummary,
   buildToolResultSummary,
   mapTranscriptEntriesToAssistantState,
-  normalizeConversationStatus
+  normalizeConversationStatus,
+  resolveAssistantRuntimePolicy
 };
 
 function resolveAssistantRuntimeDependencies(deps = {}) {
@@ -723,18 +730,54 @@ function assertAssistantRuntimeDependencies({ api }) {
   }
 }
 
+function resolveAssistantRuntimePolicy(policy) {
+  const source = policy && typeof policy === "object" ? policy : null;
+  if (!source) {
+    throw new Error("assistant-client-runtime missing required policy object.");
+  }
+
+  const normalized = {
+    streamTimeoutMs: toPositiveInteger(source.streamTimeoutMs),
+    historyPageSize: toPositiveInteger(source.historyPageSize),
+    restoreMessagesPageSize: toPositiveInteger(source.restoreMessagesPageSize)
+  };
+
+  const invalidFields = Object.entries(normalized)
+    .filter(([, value]) => value < 1)
+    .map(([key]) => key);
+  if (invalidFields.length > 0) {
+    throw new Error(`assistant-client-runtime policy fields must be positive integers: ${invalidFields.join(", ")}`);
+  }
+
+  return Object.freeze(normalized);
+}
+
+function buildBoundAssistantRuntimeTestables(policy) {
+  return Object.freeze({
+    ...assistantRuntimeTestables,
+    ASSISTANT_STREAM_TIMEOUT_MS: policy.streamTimeoutMs,
+    HISTORY_PAGE_SIZE: policy.historyPageSize,
+    RESTORE_MESSAGES_PAGE_SIZE: policy.restoreMessagesPageSize,
+    policy
+  });
+}
+
 function createAssistantRuntime(deps = {}) {
   const runtimeDeps = resolveAssistantRuntimeDependencies(deps);
+  const runtimePolicy = resolveAssistantRuntimePolicy(deps?.policy);
   assertAssistantRuntimeDependencies(runtimeDeps);
+  const runtimeTestables = buildBoundAssistantRuntimeTestables(runtimePolicy);
 
   function useBoundAssistantRuntime() {
-    return useAssistantRuntime(runtimeDeps);
+    return useAssistantRuntime(runtimeDeps, {
+      policy: runtimePolicy
+    });
   }
 
   return {
     useAssistantRuntime: useBoundAssistantRuntime,
     useAssistantView: useBoundAssistantRuntime,
-    assistantRuntimeTestables
+    assistantRuntimeTestables: runtimeTestables
   };
 }
 
