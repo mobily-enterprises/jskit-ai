@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test, { afterEach, beforeEach, mock } from "node:test";
 import { SignJWT, exportJWK, generateKeyPair } from "jose";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { __testables, createService as createAuthService } from "../server/modules/auth/service.js";
+import { __testables, createService as createAuthService } from "@jskit-ai/auth-provider-supabase-core";
 
 const SUPABASE_URL = "http://supabase.local";
 const SUPABASE_PUBLISHABLE_KEY = "pk_test_123";

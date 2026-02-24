@@ -2,7 +2,7 @@ import { computed, reactive, ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { useAuthGuard } from "../../composables/useAuthGuard.js";
 import { useQueryErrorMessage } from "../../composables/useQueryErrorMessage.js";
-import { useUrlListPagination } from "../../composables/useUrlListPagination.js";
+import { useUrlListPagination } from "@jskit-ai/web-runtime-core/useUrlListPagination";
 import { api } from "../../services/api/index.js";
 
 const CONSOLE_BILLING_EVENTS_QUERY_KEY_PREFIX = ["console-billing-events"];

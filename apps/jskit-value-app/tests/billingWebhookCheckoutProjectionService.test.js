@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createService as createWebhookCheckoutProjectionService } from "../server/modules/billing/webhookCheckoutProjection.service.js";
+import { createService as createWebhookCheckoutProjectionService } from "@jskit-ai/billing-service-core/webhookCheckoutProjectionService";
 
 test("checkout projection reconciles one_off checkout.session.completed without blocking pending-subscription state", async () => {
   let upsertPayload = null;

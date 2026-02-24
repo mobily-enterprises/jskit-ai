@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { BILLING_FAILURE_CODES } from "../server/modules/billing/constants.js";
-import { createService as createBillingIdempotencyService } from "../server/modules/billing/idempotency.service.js";
+import { BILLING_FAILURE_CODES } from "@jskit-ai/billing-service-core/constants";
+import { createService as createBillingIdempotencyService } from "@jskit-ai/billing-service-core/idempotencyService";
 
 function createRepository(overrides = {}) {
   return {

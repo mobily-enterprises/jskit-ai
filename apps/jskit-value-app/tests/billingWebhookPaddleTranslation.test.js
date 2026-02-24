@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   mapPaddleEventType,
   normalizePaddleEventToCanonical
-} from "../server/modules/billing/providers/paddle/webhookTranslation.service.js";
+} from "@jskit-ai/billing-provider-paddle/webhookTranslationService";
 
 test("billing webhook paddle translation maps supported event types to canonical billing events", () => {
   assert.equal(mapPaddleEventType("transaction.completed"), "invoice.paid");

@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { mapPaddleProviderError } from "../server/modules/billing/providers/paddle/errorMapping.js";
-import { mapStripeProviderError } from "../server/modules/billing/providers/stripe/errorMapping.js";
+import { mapPaddleProviderError } from "@jskit-ai/billing-provider-paddle/errorMapping";
+import { mapStripeProviderError } from "@jskit-ai/billing-provider-stripe/errorMapping";
 import {
   PROVIDER_ERROR_CATEGORIES,
   createBillingProviderError,

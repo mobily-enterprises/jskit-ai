@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapChatError } from "../../src/features/chat/errors.js";
+import { mapChatError } from "@jskit-ai/chat-contracts";
 
 describe("mapChatError", () => {
   it("maps known chat attachment error codes to deterministic copy", () => {

@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { defineComponent, nextTick, ref } from "vue";
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { useUrlListPagination } from "../../src/composables/useUrlListPagination.js";
+import { useUrlListPagination } from "@jskit-ai/web-runtime-core/useUrlListPagination";
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(async () => undefined)

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createService as createReconciliationService } from "../server/modules/billing/reconciliation.service.js";
+import { createService as createReconciliationService } from "@jskit-ai/billing-worker-core/reconciliationService";
 
 test("reconciliation pending_recent replays only active-provider failed webhooks with explicit provider", async () => {
   const replayCalls = [];

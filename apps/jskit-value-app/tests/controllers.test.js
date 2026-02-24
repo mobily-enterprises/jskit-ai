@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createController as createAuthController } from "../server/modules/auth/controller.js";
+import { createController as createAuthController } from "@jskit-ai/auth-fastify-adapter";
 import { createController as createSettingsController } from "../server/modules/settings/controller.js";
 
 function createReplyDouble() {

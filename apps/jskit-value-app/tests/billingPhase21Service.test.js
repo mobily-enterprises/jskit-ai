@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createService as createBillingService } from "../server/modules/billing/service.js";
-import { APP_CAPABILITY_LIMIT_CONFIG } from "../server/modules/billing/appCapabilityLimits.js";
+import { createService as createBillingService } from "@jskit-ai/billing-service-core/service";
+import { APP_CAPABILITY_LIMIT_CONFIG } from "@jskit-ai/billing-service-core/appCapabilityLimits";
 
 const DEG2RAD_CAPABILITY =
   Object.keys(APP_CAPABILITY_LIMIT_CONFIG).find((capability) =>

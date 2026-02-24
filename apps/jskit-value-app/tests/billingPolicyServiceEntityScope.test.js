@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   createService as createBillingPolicyService,
   BILLING_MANAGE_PERMISSION
-} from "../server/modules/billing/policy.service.js";
+} from "@jskit-ai/billing-service-core/policyService";
 
 function createPolicyService({ findBillableEntityById, listByUserId, resolvePermissions } = {}) {
   return createBillingPolicyService({

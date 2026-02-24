@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildRoutes } from "../server/modules/billing/routes.js";
+import { buildRoutes } from "@jskit-ai/billing-fastify-adapter/routes";
 
 function buildRouteMap() {
   const routes = buildRoutes(

@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { BILLING_FAILURE_CODES } from "../server/modules/billing/constants.js";
-import { createService as createCheckoutOrchestratorService } from "../server/modules/billing/checkoutOrchestrator.service.js";
+import { BILLING_FAILURE_CODES } from "@jskit-ai/billing-service-core/constants";
+import { createService as createCheckoutOrchestratorService } from "@jskit-ai/billing-service-core/checkoutOrchestratorService";
 
 test("checkout recovery hash mismatch fails closed and marks idempotency failed", async () => {
   const now = new Date("2026-02-20T13:00:00.000Z");

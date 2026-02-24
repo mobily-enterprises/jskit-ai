@@ -2,7 +2,7 @@ import { Transform } from "node:stream";
 import fp from "fastify-plugin";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
-import { BILLING_RUNTIME_DEFAULTS } from "../modules/billing/constants.js";
+import { BILLING_RUNTIME_DEFAULTS } from "@jskit-ai/billing-service-core/constants";
 
 const BILLING_WEBHOOK_PATH_SET = new Set(["/api/billing/webhooks/stripe", "/api/billing/webhooks/paddle"]);
 

@@ -2,9 +2,9 @@ import { computed, reactive, ref } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useQuery } from "@tanstack/vue-query";
 import { useAuthGuard } from "../../composables/useAuthGuard.js";
-import { useListQueryState } from "../../composables/useListQueryState.js";
+import { useListQueryState } from "@jskit-ai/web-runtime-core/useListQueryState";
 import { useQueryErrorMessage } from "../../composables/useQueryErrorMessage.js";
-import { useUrlListPagination } from "../../composables/useUrlListPagination.js";
+import { useUrlListPagination } from "@jskit-ai/web-runtime-core/useUrlListPagination";
 import { api } from "../../services/api/index.js";
 import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";
 

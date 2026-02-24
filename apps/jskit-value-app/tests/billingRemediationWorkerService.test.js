@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createService as createRemediationWorkerService } from "../server/modules/billing/remediationWorker.service.js";
+import { createService as createRemediationWorkerService } from "@jskit-ai/billing-worker-core/remediationWorkerService";
 
 function createRemediationFixture({
   updateRemediationByLease,

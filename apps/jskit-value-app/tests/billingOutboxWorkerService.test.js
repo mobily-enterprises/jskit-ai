@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createService as createOutboxWorkerService } from "../server/modules/billing/outboxWorker.service.js";
+import { createService as createOutboxWorkerService } from "@jskit-ai/billing-worker-core/outboxWorkerService";
 
 function createWorkerFixture({ updateOutboxJobByLease, expireCheckoutSession, recordGuardrail, provider } = {}) {
   const billingRepository = {

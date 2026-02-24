@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { BILLING_PROVIDER_STRIPE } from "../server/modules/billing/constants.js";
+import { BILLING_PROVIDER_STRIPE } from "@jskit-ai/billing-service-core/constants";
 import {
   REQUIRED_PROVIDER_ADAPTER_METHODS,
   normalizeProviderCode,
@@ -9,8 +9,8 @@ import {
   assertProviderAdapter
 } from "../server/modules/billing/providers/shared/providerAdapter.contract.js";
 import { createService as createBillingProviderRegistryService } from "../server/modules/billing/providers/shared/providerRegistry.service.js";
-import { createService as createStripeBillingProviderAdapterService } from "../server/modules/billing/providers/stripe/adapter.service.js";
-import { createService as createPaddleBillingProviderAdapterService } from "../server/modules/billing/providers/paddle/adapter.service.js";
+import { createService as createStripeBillingProviderAdapterService } from "@jskit-ai/billing-provider-stripe/adapterService";
+import { createService as createPaddleBillingProviderAdapterService } from "@jskit-ai/billing-provider-paddle/adapterService";
 
 function createStubProviderAdapter(provider = "stub") {
   const adapter = {

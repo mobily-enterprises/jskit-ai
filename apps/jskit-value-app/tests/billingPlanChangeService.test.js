@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createService as createBillingService } from "../server/modules/billing/service.js";
+import { createService as createBillingService } from "@jskit-ai/billing-service-core/service";
 
 function toIso(value) {
   const date = value instanceof Date ? value : new Date(value);

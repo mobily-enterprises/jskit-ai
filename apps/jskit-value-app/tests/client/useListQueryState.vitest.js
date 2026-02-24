@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import { describe, expect, it } from "vitest";
-import { useListQueryState } from "../../src/composables/useListQueryState.js";
+import { useListQueryState } from "@jskit-ai/web-runtime-core/useListQueryState";
 
 function createQueryState() {
   return {

@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { defineComponent } from "vue";
 import { describe, expect, it } from "vitest";
-import { useListPagination } from "../../src/composables/useListPagination.js";
+import { useListPagination } from "@jskit-ai/web-runtime-core/useListPagination";
 
 function mountHarness(options) {
   const Harness = defineComponent({

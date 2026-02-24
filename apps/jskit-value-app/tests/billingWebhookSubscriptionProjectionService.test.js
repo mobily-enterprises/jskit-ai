@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createService as createWebhookSubscriptionProjectionService } from "../server/modules/billing/webhookSubscriptionProjection.service.js";
+import { createService as createWebhookSubscriptionProjectionService } from "@jskit-ai/billing-service-core/webhookSubscriptionProjectionService";
 
 test("subscription projection service projects one_off invoice/payment rows without subscription", async () => {
   const lockCalls = [];

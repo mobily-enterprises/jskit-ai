@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createService as createCheckoutOrchestratorService } from "../server/modules/billing/checkoutOrchestrator.service.js";
+import { createService as createCheckoutOrchestratorService } from "@jskit-ai/billing-service-core/checkoutOrchestratorService";
 
 function createOrchestrator() {
   return createCheckoutOrchestratorService({

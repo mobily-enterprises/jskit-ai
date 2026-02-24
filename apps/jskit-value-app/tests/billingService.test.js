@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { toCanonicalJson, toSha256Hex } from "../server/modules/billing/canonicalJson.js";
-import { BILLING_FAILURE_CODES } from "../server/modules/billing/constants.js";
-import { createService as createBillingService } from "../server/modules/billing/service.js";
+import { toCanonicalJson, toSha256Hex } from "@jskit-ai/billing-service-core/canonicalJson";
+import { BILLING_FAILURE_CODES } from "@jskit-ai/billing-service-core/constants";
+import { createService as createBillingService } from "@jskit-ai/billing-service-core/service";
 
 function createCatalogProductStub({
   id = 1,

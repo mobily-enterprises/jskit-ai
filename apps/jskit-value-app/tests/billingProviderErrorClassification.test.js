@@ -7,8 +7,8 @@ import {
   isDeterministicProviderRejection,
   isIndeterminateProviderOutcome,
   resolveProviderErrorOutcome
-} from "../server/modules/billing/providerOutcomePolicy.js";
-import { BILLING_FAILURE_CODES } from "../server/modules/billing/constants.js";
+} from "@jskit-ai/billing-service-core/providerOutcomePolicy";
+import { BILLING_FAILURE_CODES } from "@jskit-ai/billing-service-core/constants";
 import {
   PROVIDER_ERROR_CATEGORIES,
   createBillingProviderError

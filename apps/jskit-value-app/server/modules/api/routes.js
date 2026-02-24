@@ -1,16 +1,16 @@
-import { buildRoutes as buildAuthRoutes } from "../auth/routes.js";
-import { buildRoutes as buildWorkspaceRoutes } from "../workspace/routes.js";
-import { buildRoutes as buildConsoleRoutes } from "../console/routes.js";
-import { buildRoutes as buildConsoleErrorsRoutes } from "../consoleErrors/routes.js";
+import { buildRoutes as buildAuthRoutes } from "@jskit-ai/auth-fastify-adapter";
+import { buildRoutes as buildWorkspaceRoutes } from "@jskit-ai/workspace-fastify-adapter";
+import { buildRoutes as buildConsoleRoutes } from "@jskit-ai/console-fastify-adapter";
+import { buildRoutes as buildConsoleErrorsRoutes } from "@jskit-ai/console-errors-fastify-adapter";
 import { buildRoutes as buildCommunicationsRoutes } from "../communications/routes.js";
 import { buildRoutes as buildProjectsRoutes } from "../projects/routes.js";
 import { buildRoutes as buildChatRoutes } from "../chat/routes.js";
-import { buildRoutes as buildBillingRoutes } from "../billing/routes.js";
+import { buildRoutes as buildBillingRoutes } from "@jskit-ai/billing-fastify-adapter/routes";
 import { buildRoutes as buildSettingsRoutes } from "../settings/routes.js";
 import { buildRoutes as buildHistoryRoutes } from "../history/routes.js";
 import { buildRoutes as buildDeg2radRoutes } from "../deg2rad/routes.js";
-import { buildRoutes as buildHealthRoutes } from "../health/routes.js";
-import { buildRoutes as buildObservabilityRoutes } from "../observability/routes.js";
+import { buildRoutes as buildHealthRoutes } from "@jskit-ai/health-fastify-adapter";
+import { buildRoutes as buildObservabilityRoutes } from "@jskit-ai/observability-fastify-adapter";
 import { buildRoutes as buildAiRoutes } from "../ai/routes.js";
 import { buildRoutesFromManifest } from "@jskit-ai/server-runtime-core/runtimeAssembly";
 

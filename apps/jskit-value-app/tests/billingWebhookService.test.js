@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createService as createBillingWebhookService } from "../server/modules/billing/webhook.service.js";
-import { createService as createStripeWebhookTranslationService } from "../server/modules/billing/providers/stripe/webhookTranslation.service.js";
-import { createService as createPaddleWebhookTranslationService } from "../server/modules/billing/providers/paddle/webhookTranslation.service.js";
+import { createService as createBillingWebhookService } from "@jskit-ai/billing-service-core/webhookService";
+import { createService as createStripeWebhookTranslationService } from "@jskit-ai/billing-provider-stripe/webhookTranslationService";
+import { createService as createPaddleWebhookTranslationService } from "@jskit-ai/billing-provider-paddle/webhookTranslationService";
 import { createService as createBillingWebhookTranslationRegistryService } from "../server/modules/billing/providers/shared/webhookTranslationRegistry.service.js";
 
 function createWebhookTranslationRegistry() {

@@ -5,7 +5,7 @@ import test from "node:test";
 import {
   createService as createPaddleSdkService,
   __testables
-} from "../server/modules/billing/providers/paddle/sdk.service.js";
+} from "@jskit-ai/billing-provider-paddle/sdkService";
 
 test("paddle sdk verifyWebhookEvent validates signature and normalizes event envelope", async () => {
   const service = createPaddleSdkService({

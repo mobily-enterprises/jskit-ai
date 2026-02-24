@@ -4,7 +4,7 @@ import Fastify from "fastify";
 
 import { registerApiRoutes } from "../server/fastify/registerApiRoutes.js";
 import { buildRoutes as buildAiRoutes } from "../server/modules/ai/routes.js";
-import { createSchema } from "../server/modules/ai/schema.js";
+import { createSchema } from "@jskit-ai/assistant-fastify-adapter";
 
 function createMissingHandler() {
   return async (_request, reply) => {
