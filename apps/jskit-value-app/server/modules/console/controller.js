@@ -1,6 +1,7 @@
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
-import { withAuditEvent } from "../../lib/securityAudit.js";
+import { withAuditEvent as withRuntimeAuditEvent } from "@jskit-ai/server-runtime-core/securityAudit";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { resolveSurfaceFromPathname } from "../../../shared/routing/surfacePaths.js";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -13,6 +14,13 @@ function normalizeDecision(value) {
 function createController({ consoleService, aiTranscriptsService = null, auditService }) {
   if (!consoleService || !auditService || typeof auditService.recordSafe !== "function") {
     throw new Error("consoleService and auditService.recordSafe are required.");
+  }
+
+  function withAuditEvent(options) {
+    return withRuntimeAuditEvent({
+      ...(options || {}),
+      resolveSurfaceFromPathname
+    });
   }
 
   async function bootstrap(request, reply) {

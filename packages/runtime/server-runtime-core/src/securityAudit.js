@@ -1,26 +1,36 @@
-import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
-import { safePathnameFromRequest, resolveClientIpAddress } from "@jskit-ai/server-runtime-core/requestUrl";
-import { resolveSurfaceFromPathname } from "../../shared/routing/surfacePaths.js";
+import { parsePositiveInteger } from "./integers.js";
+import { safePathnameFromRequest, resolveClientIpAddress } from "./requestUrl.js";
 
-function resolveAuditSurface(pathnameValue, explicitSurface = "") {
-  const normalizedExplicit = String(explicitSurface || "")
+function normalizeSurfaceId(value) {
+  return String(value || "")
     .trim()
     .toLowerCase();
+}
+
+function resolveAuditSurface(pathnameValue, explicitSurface = "", resolveSurfaceFromPathname = null) {
+  const normalizedExplicit = normalizeSurfaceId(explicitSurface);
   if (normalizedExplicit) {
     return normalizedExplicit;
   }
 
-  return resolveSurfaceFromPathname(pathnameValue);
+  if (typeof resolveSurfaceFromPathname === "function") {
+    const resolvedSurface = normalizeSurfaceId(resolveSurfaceFromPathname(pathnameValue));
+    if (resolvedSurface) {
+      return resolvedSurface;
+    }
+  }
+
+  return "app";
 }
 
-function buildAuditEventBase(request) {
+function buildAuditEventBase(request, { resolveSurfaceFromPathname = null } = {}) {
   const pathnameValue = safePathnameFromRequest(request);
   return {
     actorUserId: parsePositiveInteger(request?.user?.id),
     actorEmail: String(request?.user?.email || "")
       .trim()
       .toLowerCase(),
-    surface: resolveAuditSurface(pathnameValue, request?.surface),
+    surface: resolveAuditSurface(pathnameValue, request?.surface, resolveSurfaceFromPathname),
     requestId: String(request?.id || "").trim(),
     method: String(request?.method || "")
       .trim()
@@ -134,22 +144,25 @@ function safeBuildEventPayload({ request, action, outcome, shared, event, metada
   }
 }
 
-async function recordAuditEvent({ auditService, request, event }) {
+async function recordAuditEvent({ auditService, request, event, resolveSurfaceFromPathname = null }) {
   await auditService.recordSafe(
     {
-      ...buildAuditEventBase(request),
+      ...buildAuditEventBase(request, {
+        resolveSurfaceFromPathname
+      }),
       ...event
     },
     request?.log
   );
 }
 
-async function safeRecordAuditEvent({ auditService, request, event }) {
+async function safeRecordAuditEvent({ auditService, request, event, resolveSurfaceFromPathname = null }) {
   try {
     await recordAuditEvent({
       auditService,
       request,
-      event
+      event,
+      resolveSurfaceFromPathname
     });
   } catch (error) {
     logAuditFailure(
@@ -164,7 +177,17 @@ async function safeRecordAuditEvent({ auditService, request, event }) {
   }
 }
 
-async function withAuditEvent({ auditService, request, action, execute, shared, metadata, onSuccess, onFailure }) {
+async function withAuditEvent({
+  auditService,
+  request,
+  action,
+  execute,
+  shared,
+  metadata,
+  onSuccess,
+  onFailure,
+  resolveSurfaceFromPathname = null
+}) {
   if (!auditService || typeof auditService.recordSafe !== "function") {
     throw new TypeError("withAuditEvent auditService.recordSafe is required.");
   }
@@ -192,7 +215,8 @@ async function withAuditEvent({ auditService, request, action, execute, shared, 
     await safeRecordAuditEvent({
       auditService,
       request,
-      event: successEvent
+      event: successEvent,
+      resolveSurfaceFromPathname
     });
     return result;
   } catch (error) {
@@ -218,13 +242,15 @@ async function withAuditEvent({ auditService, request, action, execute, shared, 
       event: {
         ...failureEvent,
         metadata: mergeFailureMetadata(error, failureEvent.metadata)
-      }
+      },
+      resolveSurfaceFromPathname
     });
     throw error;
   }
 }
 
 const __testables = {
+  normalizeSurfaceId,
   resolveAuditSurface,
   buildAuditEventBase,
   buildAuditError,

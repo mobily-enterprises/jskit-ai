@@ -9,7 +9,7 @@ import {
   publishWorkspaceEventSafely,
   resolvePublishWorkspaceEvent
 } from "../../realtime/publishers/workspacePublisher.js";
-import { buildAuditEventBase } from "../../lib/securityAudit.js";
+import { buildAuditEventBase } from "@jskit-ai/server-runtime-core/securityAudit";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/realtime/eventTypes.js";
 import { resolveSurfaceFromPathname } from "../../../shared/routing/surfacePaths.js";
 import { normalizeSurfaceId } from "../../../shared/routing/surfaceRegistry.js";
@@ -32,6 +32,10 @@ function createService(options = {}) {
     source.assistantToolSurfaceAllowlist && typeof source.assistantToolSurfaceAllowlist === "object"
       ? source.assistantToolSurfaceAllowlist
       : DEFAULT_ASSISTANT_TOOL_SURFACE_ALLOWLIST;
+  const buildAuditEventBaseWithSurface = (request) =>
+    buildAuditEventBase(request, {
+      resolveSurfaceFromPathname
+    });
 
   return createAssistantCoreService({
     ...source,
@@ -42,7 +46,7 @@ function createService(options = {}) {
     safePathnameFromRequestFn: safePathnameFromRequest,
     publishWorkspaceEventSafelyFn: publishWorkspaceEventSafely,
     resolvePublishWorkspaceEventFn: resolvePublishWorkspaceEvent,
-    buildAuditEventBaseFn: buildAuditEventBase,
+    buildAuditEventBaseFn: buildAuditEventBaseWithSurface,
     realtimeEventTypes: REALTIME_EVENT_TYPES,
     realtimeTopics: REALTIME_TOPICS,
     resolveSurfaceFromPathnameFn: resolveSurfaceFromPathname,

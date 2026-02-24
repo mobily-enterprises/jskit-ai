@@ -13,6 +13,7 @@
     "./requestUrl": "./src/requestUrl.js",
     "./pagination": "./src/pagination.js",
     "./realtimePublish": "./src/realtimePublish.js",
-    "./realtimeEvents": "./src/realtimeEvents.js"
+    "./realtimeEvents": "./src/realtimeEvents.js",
+    "./securityAudit": "./src/securityAudit.js"
   }
 }

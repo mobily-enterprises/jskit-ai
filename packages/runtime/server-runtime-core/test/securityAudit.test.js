@@ -1,17 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { withAuditEvent as withRuntimeAuditEvent } from "@jskit-ai/server-runtime-core/securityAudit";
-import { resolveSurfaceFromPathname } from "../shared/routing/surfacePaths.js";
+import { withAuditEvent } from "../src/securityAudit.js";
 
-function withAuditEvent(options) {
-  return withRuntimeAuditEvent({
-    ...(options || {}),
-    resolveSurfaceFromPathname
-  });
+function resolveSurfaceFromPathname(pathnameValue) {
+  const pathname = String(pathnameValue || "").trim().toLowerCase();
+  if (pathname.startsWith("/api/console/")) {
+    return "console";
+  }
+  if (pathname.startsWith("/api/admin/")) {
+    return "admin";
+  }
+  return "app";
 }
 
-test("withAuditEvent applies shared fields and shared metadata across success/failure", async () => {
+test("withAuditEvent applies shared fields and metadata on success/failure", async () => {
   const events = [];
   const auditService = {
     async recordSafe(event) {
@@ -25,7 +28,7 @@ test("withAuditEvent applies shared fields and shared metadata across success/fa
     url: "/api/console/invites/1",
     headers: {
       "x-forwarded-for": "198.51.100.10, 203.0.113.7",
-      "user-agent": "audit-lib-test"
+      "user-agent": "security-audit-test"
     },
     user: {
       id: 11,
@@ -36,6 +39,7 @@ test("withAuditEvent applies shared fields and shared metadata across success/fa
   const successResult = await withAuditEvent({
     auditService,
     request,
+    resolveSurfaceFromPathname,
     action: "console.invite.revoked",
     execute: async () => ({ inviteId: 99 }),
     shared: () => ({
@@ -64,6 +68,7 @@ test("withAuditEvent applies shared fields and shared metadata across success/fa
       withAuditEvent({
         auditService,
         request,
+        resolveSurfaceFromPathname,
         action: "console.invite.revoked",
         execute: async () => {
           throw Object.assign(new Error("conflict"), {
@@ -89,7 +94,7 @@ test("withAuditEvent applies shared fields and shared metadata across success/fa
   assert.equal(events[1].metadata.error.code, "INVITE_CONFLICT");
 });
 
-test("withAuditEvent does not break business flow when audit callbacks throw", async () => {
+test("withAuditEvent tolerates callback failures and keeps business flow intact", async () => {
   const events = [];
   const warnings = [];
   const auditService = {
@@ -102,7 +107,7 @@ test("withAuditEvent does not break business flow when audit callbacks throw", a
     method: "POST",
     url: "/api/admin/users/1",
     headers: {
-      "user-agent": "audit-lib-test-2"
+      "user-agent": "security-audit-test-2"
     },
     user: {
       id: 7,
@@ -118,6 +123,7 @@ test("withAuditEvent does not break business flow when audit callbacks throw", a
   const successResult = await withAuditEvent({
     auditService,
     request,
+    resolveSurfaceFromPathname,
     action: "admin.user.updated",
     execute: async () => ({ ok: true }),
     metadata: () => {
@@ -135,6 +141,7 @@ test("withAuditEvent does not break business flow when audit callbacks throw", a
       withAuditEvent({
         auditService,
         request,
+        resolveSurfaceFromPathname,
         action: "admin.user.updated",
         execute: async () => {
           throw Object.assign(new Error("domain failure"), {

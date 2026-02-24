@@ -15,7 +15,6 @@ const APP_SPECIFIC_SERVER_FEATURE_ALLOWLIST = Object.freeze([
 ]);
 const TEMPORARY_SERVER_LIB_IMPORT_ALLOWLIST = Object.freeze([
   "server/lib/appConfig.js",
-  "server/lib/securityAudit.js",
   "server/lib/aiAssistantSystemPrompt.js",
   "server/lib/billing/entitlementSchemaRegistry.js"
 ]);

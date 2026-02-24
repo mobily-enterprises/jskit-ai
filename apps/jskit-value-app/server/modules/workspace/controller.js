@@ -1,12 +1,13 @@
 import { hasPermission } from "@jskit-ai/rbac-core";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
-import { withAuditEvent } from "../../lib/securityAudit.js";
+import { withAuditEvent as withRuntimeAuditEvent } from "@jskit-ai/server-runtime-core/securityAudit";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import {
   publishWorkspaceEventSafely,
   resolvePublishWorkspaceEvent
 } from "../../realtime/publishers/workspacePublisher.js";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/realtime/eventTypes.js";
+import { resolveSurfaceFromPathname } from "../../../shared/routing/surfacePaths.js";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -32,6 +33,13 @@ function createController({
   }
   if (typeof auditService.recordSafe !== "function") {
     throw new Error("auditService.recordSafe is required.");
+  }
+
+  function withAuditEvent(options) {
+    return withRuntimeAuditEvent({
+      ...(options || {}),
+      resolveSurfaceFromPathname
+    });
   }
 
   const publishWorkspaceEvent = resolvePublishWorkspaceEvent(realtimeEventsService);
