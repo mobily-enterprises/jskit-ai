@@ -48,72 +48,45 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
     X Make proper architecture for SMS and EMAIL (injection)
     X Last checks that only app-specific code is in the app, and that all generic code is in packages, and that the app is just a scaffolding with some specific code for projects and deg2rad
     X A few check passes in packages to make sure there is nothing app-only there
+    X Organise documentation, delete old stuff, prepare new one
   - Add info to RAILS.md: how to add CRUD pages, and have a pre-commit checklist that will run tests, make sure that packages are used, etc.
   
-  - Organise documentation, delete old stuff, prepare new one
-  - Have proper entitlement configuration for projects, AI messages, and DEG2RAD calcs <---- !!!
+   - Have proper entitlement configuration for projects, AI messages, and DEG2RAD calcs <---- !!!
   - Add full abilities to AI chatbot (calculate DEG2RAD, add project, change plan, list users...) (Make sure chatbot has exact same permission as user chatting to it)
   - Create an "alerts" system so that users can see their alerts
   - Improve redirect after login, admin or not?
   
+  
+  - Do infrastructure deploy, easy way
+  
+  RECURRENT:
   - Do sweep checks (several) on (1) client files (2) server files (3) security/permissions
 
-- Do infrastructure deploy, easy way
-
-```md
- I want you to do this:
-
-* Go through the code of the app itself (jskit-value-app), but fully understand that this is only a scaffolding
-app: it's NOT a meaningful example of what the app should be in the first place. There will be 22 more of them,
-each one totally different (a kid's app, a kennel-management app, and so on). The questions I have are the
-following:
-
-* Is jskit-value-app including parts that could, and should, belong to a package. The main rule of "should belong
-to a package" is essentially "Could different apps all need that code, which would end up being repeated over and
-over again"
-
-* Is any one of the modules including code that is NOT generic, and is assuming that jskit-value-app is "the" app,
-meaning that the other 22 apps will find it difficult to actually se it.
-
-Go through the code with a fine comb. Give me a list of HIGH RISK things you find.
-
-When you plan changes, or make changes, make DEAD SURE that whatever you do is a CLEAN BREAK from the past.
-No back compatibiity. No shims. No think API layers to make tests work.
-
-"deg2rad" and "projects" CRUD are the only "proper" section of the app -- that is, the
-  only part that should stand out of the scaffolding. They should use packages a lot, and then define some specific
-  code.
-  
-no_d
-```
-
-
 LATER:
-- management/deployment mini-app
-- Make db-agnostic (now MySql)
-- DB-level audit trail [1]
-- SMS/EMAIL
-  - Medium: invite-email failures are fully swallowed, so delivery/config issues are invisible in ops. (server/domain/workspace/services/admin.service.js:315)
-  - Medium: SMS send permission is coupled to invite permission (workspace.members.invite), which is workable now but not ideal least-privilege for future comms features. (server/modules/communications/routes.js:12)
-  - Low: SMS text is trim()'d before send, which mutates payload content (can matter for OTP formatting/messages with intentional whitespace). (server/domain/communications/services/sms.service.js:27)
-  - Low: SMTP from currently requires a normalized bare email; common Display Name <email@...> formats would be treated as unconfigured. (server/domain/workspace/services/inviteEmail.service.js:42)
+X SMS/EMAIL
+  X Medium: invite-email failures are fully swallowed, so delivery/config issues are invisible in ops. (server/domain/workspace/services/admin.service.js:315)
+  X Medium: SMS send permission is coupled to invite permission (workspace.members.invite), which is workable now but not ideal least-privilege for future comms features. (server/modules/communications/routes.js:12)
+  X Low: SMS text is trim()'d before send, which mutates payload content (can matter for OTP formatting/messages with intentional whitespace). (server/domain/communications/services/sms.service.js:27)
+  X Low: SMTP from currently requires a normalized bare email; common Display Name <email@...> formats would be treated as unconfigured. (server/domain/workspace/services/inviteEmail.service.js:42)
 
 LATER LATER:
-  0. Finish monitorability system
-  1. Real delivery integrations: SMTP/SMS are scaffolded but not implemented (not_implemented paths).
+  
+  X Real delivery integrations: SMTP/SMS are scaffolded but not implemented (not_implemented paths).
   X Billing-to-entitlement enforcement: billing exists, but plan entitlements need hard gating across features/limits.
   X Production-grade async/distributed layer: queue/locking/pubsub strategy for multi-instance scale and worker durability.
-  4. Enterprise auth/security: MFA/passkeys, SSO/SAML, SCIM, stronger session/device controls.
-  5. Compliance workflows: GDPR/CCPA data export/delete, audit export APIs, stricter secret/data handling controls.
-  6. Tenant lifecycle ops: suspension/reactivation, support impersonation, stronger admin tooling, feature flags.
-  7. Public platform surface: API keys, customer webhooks, API versioning + compatibility policy.
-  8. End-to-end operational confidence: fix failing Playwright flows and add full cross-surface user journeys.
+  - API versioning + compatibility policy.
+  - Tenant lifecycle ops: suspension/reactivation, support impersonation, stronger admin tooling, feature flags.
+  - Make db-agnostic (now MySql-only)
+  - DB-level audit trail [1]
+  - Enterprise auth/security: MFA/passkeys, SSO/SAML, SCIM, stronger session/device controls.
+  - Compliance workflows: GDPR/CCPA data export/delete, audit export APIs, stricter secret/data handling controls.
+  - Public platform surface: API keys, customer webhooks,
+  - End-to-end operational confidence: fix failing Playwright flows and add full cross-surface user journeys.
 
   Appendices:
 
-  [1]
-
-    Two variants:
+  [1] 
+  Two variants:
 
   1. Fully transparent to app code
 

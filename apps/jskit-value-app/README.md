@@ -270,20 +270,20 @@ FRONTEND_DIST_DIR=.artifacts/dist/public npm start
 
 ## Release process
 
-Use `docs/release-checklist.md` before shipping.
+Use `docs/operations/release-checklist.md` before shipping.
 
 ## Observability
 
 - Prometheus-style metrics endpoint: `GET /api/metrics`
 - Metrics can be disabled with `METRICS_ENABLED=false`
 - Protect endpoint with `METRICS_BEARER_TOKEN` in shared environments
-- Metrics/alerts/dashboard queries: `docs/observability.md`
+- Metrics/alerts/dashboard queries: `docs/operations/observability.md`
 
 ## Billing Contracts and Integration
 
-- Billing docs entry point: `docs/billing/README.md`
+- Billing docs entry point: `docs/README.md`
 - Contracts: `docs/billing/contracts.md`
-- Integration guide: `docs/billing/integration-guide.md`
+- Integration guide: `docs/billing/integration.md`
 
 ## End-to-End Tests
 

@@ -2,7 +2,7 @@
 
 Last validated: 2026-02-24 (UTC)
 
-This is the canonical runbook for retention job processing and worker runtime behavior.
+This is the canonical runbook for retention sweep jobs and worker runtime behavior.
 
 ## Runtime Topology
 
@@ -34,13 +34,13 @@ Legacy emergency direct execution:
 
 ## Dry-Run First Policy
 
-Run this sequence before enabling scheduled automation in an environment:
+Run this sequence before enabling scheduled automation in any environment:
 
-1. Start worker runtime: `npm run -w apps/jskit-value-app worker`.
-2. Enqueue dry-run: `npm run -w apps/jskit-value-app worker:retention:enqueue:dry-run`.
-3. Verify cutoff dates and env vars.
-4. Enqueue one non-dry-run job and review deleted row counts.
-5. Enable scheduler only after steps 1-4 are complete.
+1. Start worker runtime.
+2. Enqueue a dry-run sweep.
+3. Verify cutoff dates and retention env values.
+4. Enqueue one non-dry-run sweep and review deleted row counts.
+5. Enable scheduler only after steps 1-4 pass.
 
 ## Runtime Guarantees and Failure Policy
 
@@ -48,29 +48,28 @@ Run this sequence before enabling scheduled automation in an environment:
 - Worker Redis reconnect uses bounded backoff (250ms to 5000ms).
 - Distributed lock key: `lock:ops.retention.sweep`.
 - Lock contention returns retryable code `RETENTION_LOCK_HELD` while attempts remain.
-- After attempt budget exhaustion for lock contention, worker auto-requeues the same job (bounded by `WORKER_LOCK_HELD_REQUEUE_MAX`).
+- After lock-held attempt exhaustion, worker auto-requeues the same job (bounded by `WORKER_LOCK_HELD_REQUEUE_MAX`).
 - If lock-held auto-requeue budget is exhausted, worker dead-letters with `RETENTION_LOCK_HELD_REQUEUE_EXHAUSTED`.
 - If shutdown interrupts terminal lock-held delay, worker dead-letters with `RETENTION_LOCK_HELD_REQUEUE_ABORTED`.
 - If terminal auto-requeue is unavailable/fails, worker dead-letters with `RETENTION_LOCK_HELD_REQUEUE_UNAVAILABLE` or `RETENTION_LOCK_HELD_REQUEUE_FAILED`.
 
-Idempotency behavior:
+## Idempotency Contract
 
 - `--idempotency-key=...` maps to BullMQ `jobId` (`retention-<normalized-key>`).
-- Key normalization: lowercase, non `[a-z0-9_-]` replaced with `-`, collapsed, capped to 160 chars; overlong keys include deterministic hash suffix to avoid collisions.
-- Explicit keys that normalize to empty are rejected.
+- Key normalization:
+  - lowercase,
+  - non `[a-z0-9_-]` replaced with `-`,
+  - collapsed runs,
+  - capped to 160 chars,
+  - overlong keys get deterministic hash suffix to avoid collisions.
+- Explicit keys that normalize to empty are rejected at enqueue time.
 - `trigger=cron` without explicit key auto-generates one per UTC day (`cron-YYYY-MM-DD-run|dry-run`).
-
-Operational notes:
-
-- If worker is down, enqueued jobs remain in Redis until worker resumes.
-- Monitor DLQ volume as a signal of persistent failures.
-- Keep worker process lifecycle separate from web deploy lifecycle.
 
 ## Environment Variables
 
-- `REDIS_URL` required for worker + queue mode.
+- `REDIS_URL` required for queue mode.
 - `WORKER_CONCURRENCY` default `2`.
-- `WORKER_LOCK_HELD_REQUEUE_MAX` default `3` (set `0` to disable lock-held auto-requeue).
+- `WORKER_LOCK_HELD_REQUEUE_MAX` default `3` (`0` disables lock-held auto-requeue).
 - `WORKER_RETENTION_LOCK_TTL_MS` default `1800000` (30 minutes).
 - `ERROR_LOG_RETENTION_DAYS` default `30`.
 - `INVITE_ARTIFACT_RETENTION_DAYS` default `90`.
@@ -85,7 +84,7 @@ Operational notes:
 
 ## Scheduling Examples
 
-Cron enqueue example (03:20 UTC daily):
+Cron (03:20 UTC daily enqueue):
 
 ```cron
 20 3 * * * cd /srv/jskit-ai && /usr/bin/npm run -w apps/jskit-value-app worker:retention:enqueue -- --trigger=cron >> /var/log/jskit-retention.log 2>&1
@@ -127,3 +126,9 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now jskit-retention-enqueue.timer
 sudo systemctl list-timers --all | grep jskit-retention-enqueue
 ```
+
+## Operational Notes
+
+- If worker is down, enqueued jobs remain in Redis until worker resumes.
+- Monitor DLQ volume as a signal of persistent failures.
+- Keep worker lifecycle separate from web deploy lifecycle.
