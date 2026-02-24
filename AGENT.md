@@ -1,108 +1,28 @@
 # AGENT.md
 
-These instructions govern all commits in this repository.
+This file is intentionally minimal.
+It defines read order and precedence only.
+All technical rules live in `RAILS.md` and `LLM_CHECKLIST.md`.
 
 ## Mandatory read first
 
-- Read and follow `RAILS.md` before making changes.
-- `RAILS.md` is the source of truth for:
-  - naming conventions
-  - file placement
-  - layer boundaries
-- If this file and `RAILS.md` conflict, follow `RAILS.md`.
+- Read root `RAILS.md` and root `LLM_CHECKLIST.md` before making changes.
+- Root `RAILS.md` + root `LLM_CHECKLIST.md` are immutable baseline rails/checklists for this repository.
+- If touching `apps/jskit-value-app/**`, also read:
+  - `apps/jskit-value-app/RAILS.md`
+  - `apps/jskit-value-app/LLM_CHECKLIST.md` (when present)
+- Precedence order is:
+  - user instruction
+  - `apps/jskit-value-app/RAILS.md` (for app-local changes)
+  - root `RAILS.md`
+  - app-local checklist (if present)
+  - root `LLM_CHECKLIST.md`
+  - `AGENT.md`
 
-## Architecture rules
+## Duplication policy
 
-- Respect strict layer separation:
-  - `server.js` + `server/fastify/*` + `server/modules/*/routes.js`: transport wiring, routing, schema registration.
-  - `server/modules/*/controller.js`: HTTP concerns only (parsing, status codes, response shaping).
-  - `server/modules/*/service.js` and `server/domain/**/services/*.service.js`: business rules, validation, aggregation.
-  - `server/modules/*/repository.js` and `server/domain/**/repositories/*.repository.js`: database access (Knex queries, row mapping).
-- Never leak SQL/Knex calls into controllers or services.
-- Keep business rules out of repositories; they should only return mapped data.
-
-## Surface architecture (app/admin/...)
-
-- Surface IDs and URL prefixes are defined in `shared/routing/surfaceRegistry.js`.
-- Route/path helpers read from that registry in `shared/routing/surfacePaths.js`.
-- Workspace access policies per surface live in `server/surfaces/` and are registered in `server/surfaces/index.js`.
-- Client runtime dispatch is map-based (not if/else):
-  - app bootstrap dispatch: `src/main.js`
-  - router factory dispatch: `src/router.js`
-
-### Adding a new surface
-
-1. Add surface id + prefix in `shared/routing/surfaceRegistry.js`.
-2. Add workspace access policy in `server/surfaces/<newSurface>Surface.js`.
-3. Register that policy in `server/surfaces/index.js` (`SURFACE_ACCESS_RULES`).
-4. Add router for the new surface (usually `src/router.<newSurface>.js`).
-5. Add mount entrypoint if needed (usually `src/main.<newSurface>.js`).
-6. Register router in `src/router.js` (`ROUTER_BY_SURFACE`).
-7. Register mount in `src/main.js` (`SURFACE_BOOTSTRAP`).
-8. Add/update shell + routes for the new surface as needed.
-
-## Repository pattern guide
-
-1. **File naming**: use `<entity>.repository.js` (e.g. `payments.repository.js`).
-2. **Dependencies**:
-   - Import `db` from `db/knex.js`.
-   - Reuse shared helpers (e.g. `toIsoString` from `server/lib/primitives/dateUtils.js`).
-3. **Mappers**:
-   - Provide one strict mapper (`map<Entity>RowRequired` that throws when `row` is falsy).
-   - Provide a nullable helper (`map<Entity>RowNullable` that returns `null` or delegates to the strict mapper).
-   - Keep snake_case → camelCase conversions inside the mapper only.
-4. **Queries**:
-   - Export explicit methods (`findById`, `findBySupabaseUserId`, `insert`, etc.).
-   - Always use parameterized Knex queries.
-   - Return mapper-backed objects; do not expose raw rows.
-5. **Data hygiene**:
-   - Convert integer/count fields with `Number(...)`.
-   - Keep financial decimal fields as strings unless a caller explicitly asks for numeric conversion.
-   - Append-only tables (`calculation_logs`) do not require update/delete unless requested.
-6. **Exports**: expose only repository functions (and mapper helpers only when another module consumes them).
-
-### Repository starter template
-
-```js
-import { db } from "../db/knex.js";
-import { toIsoString } from "../server/lib/primitives/dateUtils.js";
-
-function mapThingRowRequired(row) {
-  if (!row) {
-    throw new TypeError("mapThingRowRequired expected a row object.");
-  }
-
-  return {
-    id: Number(row.id),
-    createdAt: toIsoString(row.created_at)
-  };
-}
-
-function mapThingRowNullable(row) {
-  if (!row) {
-    return null;
-  }
-  return mapThingRowRequired(row);
-}
-
-async function findById(id) {
-  const row = await db("things").where({ id }).first();
-  return mapThingRowNullable(row);
-}
-
-async function list() {
-  const rows = await db("things").orderBy("created_at", "desc");
-  return rows.map(mapThingRowRequired);
-}
-
-export { findById, list };
-```
-
-## PR & change hygiene
-
-- Keep API contracts stable (versions) for:
-  - `GET /api/session`
-  - `GET /api/history`
-  - `POST /api/deg2rad`
-- If an API contract changes, bump a versioned path/field and document it.
-- Add or refresh tests covering repository behavior and service regressions when touching those layers.
+- Do not add project architecture/pattern rules to `AGENT.md` when they already exist in `RAILS.md`.
+- Add or update technical rules in:
+  - root `RAILS.md` for baseline rules
+  - `apps/jskit-value-app/RAILS.md` for app-local overlays
+  - corresponding checklist files for execution gates

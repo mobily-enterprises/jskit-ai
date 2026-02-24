@@ -1,129 +1,110 @@
-# RAILS.md
+# RAILS.md (App Overlay)
 
-This file defines naming, placement, and layering rules for this codebase.
-Treat it as the source of truth for project structure.
+Purpose: app-local rails for `apps/jskit-value-app`.
 
-## 1) Core intent
+This file is an overlay on top of root `RAILS.md`.
+Do not duplicate baseline rules here; this file only adds app-specific constraints and overrides.
 
-- Keep architecture predictable.
-- Keep naming explicit.
-- Avoid duplicate patterns and accidental one-off conventions.
-- Optimize for least surprise for future contributors.
+## 1) Inheritance and precedence
 
-## 2) Backend layer flow
+1. Read root `RAILS.md` first.
+2. Then read this file for `apps/jskit-value-app/**` work.
+3. If rules conflict:
+- user instruction wins
+- this app overlay wins over root `RAILS.md`
+- root `RAILS.md` wins over `AGENT.md`
 
-Request flow is always:
+## 2) Scope
 
-1. `routes` (transport policy, route schema, URL mapping)
-2. `controllers` (HTTP input/output, status codes, error shaping)
-3. `services` (business logic and validation orchestration)
-4. `repositories` (Knex queries + row mapping)
-5. DB
+This file applies to:
+- `apps/jskit-value-app/src/**`
+- `apps/jskit-value-app/server/**`
+- `apps/jskit-value-app/shared/**`
+- `apps/jskit-value-app/config/**`
+- `apps/jskit-value-app/tests/**`
+- docs under `apps/jskit-value-app/docs/**`
 
-Rules:
+## 3) Canonical app docs
 
-- Controllers do not run SQL.
-- Services do not access Knex directly.
-- Repositories do not contain business rules.
-- Keep contracts stable for `/api/session`, `/api/history`, `/api/deg2rad`.
+Use only `apps/jskit-value-app/docs/**` as canonical app docs.
 
-## 3) Backend naming and placement
+Required docs entry points before contract changes:
+- `apps/jskit-value-app/docs/README.md`
+- `apps/jskit-value-app/docs/architecture/client-boundaries.md`
+- `apps/jskit-value-app/docs/architecture/workspace-and-surfaces.md`
+- `apps/jskit-value-app/docs/billing/contracts.md`
+- `apps/jskit-value-app/docs/billing/integration.md`
+- `apps/jskit-value-app/docs/billing/provider-insulation.md`
+- `apps/jskit-value-app/docs/database/schema-areas.md`
+- `apps/jskit-value-app/docs/database/billing-live-schema.md`
+- `apps/jskit-value-app/docs/operations/release-checklist.md`
+- `apps/jskit-value-app/docs/operations/retention-worker.md`
 
-- Every module under `server/modules/<module>/` must expose a single public seam at `index.js`.
-- Production code outside a module must import that module via `server/modules/<module>/index.js` only.
-- Module `index.js` uses explicit named exports only. `export *` is forbidden.
-- Module top-level files are restricted to:
-  `index.js`, `controller.js`, `routes.js`, `schema.js`, `service.js`, `repository.js`.
-- Module top-level directories are restricted to:
-  `controllers/`, `routes/`, `schemas/`, `services/`, `repositories/`, `lib/`.
-- For each role, choose file or directory form, never both in one module:
-  `controller.js|controllers/`, `routes.js|routes/`, `schema.js|schemas/`, `service.js|services/`, `repository.js|repositories/`.
-- Role-directory naming rules:
-  - `controllers/index.js`, `controllers/<name>.controller.js`
-  - `routes/index.js`, `routes/<name>.routes.js`
-  - `schemas/index.js`, `schemas/<name>.schema.js`
-  - `services/index.js`, `services/<name>.service.js`
-  - `repositories/index.js`, `repositories/<name>.repository.js` (+ optional `repositories/shared.js`)
-- Non-role implementation code belongs under `server/modules/<module>/lib/**` and is private by default.
-- `server/domain/**/services/*.service.js`: domain business/use-case orchestration.
-- `server/domain/**/repositories/*.repository.js`: domain persistence access.
-- `server/fastify/registerApiRoutes.js`: Fastify route registration/wiring.
-- `server/runtime/{repositories,services,controllers}.js`: composition/wiring only.
-- `migrations/*.cjs`: schema changes.
-- `seeds/*.cjs`: initial/sample data only.
+## 4) App-specific architecture rails
 
-Repository mapper pattern:
+1. Surfaces are fixed to `app`, `admin`, `console`.
+2. Surface registry is app-owned in `apps/jskit-value-app/shared/surfaceRegistry.js`.
+3. Path helpers are app-owned in `apps/jskit-value-app/shared/surfacePaths.js`.
+4. Topic policy is app-owned in `apps/jskit-value-app/shared/topicRegistry.js`.
+5. API path versioning uses `apps/jskit-value-app/shared/apiPaths.js`.
 
-- `map<Entity>RowRequired(row)` throws when `row` is missing.
-- `map<Entity>RowNullable(row)` returns `null` or delegates to required mapper.
+Client composition roots:
+- `apps/jskit-value-app/src/app/bootstrap/main.js`
+- `apps/jskit-value-app/src/app/bootstrap/runtime.js`
+- `apps/jskit-value-app/src/app/router/index.js`
 
-API schema naming:
+Server composition roots:
+- `apps/jskit-value-app/server/runtime/index.js`
+- `apps/jskit-value-app/server/runtime/platformModuleManifest.js`
+- `apps/jskit-value-app/server/modules/api/routes.js`
+- `apps/jskit-value-app/server/fastify/registerApiRoutes.js`
 
-- Feature-specific API schemas live in `server/modules/<feature>/schema.js` or `server/modules/<feature>/schemas/*.schema.js`.
-- Shared backend API schema helpers live in `@jskit-ai/http-contracts`.
-- Module schema files should export a `schema` object.
-- Group route contracts under explicit keys (`query`, `params`, `body`, `response`).
-- Include reusable module-level entities/fields only when actually shared by multiple route contracts.
-- Params schemas are required only for routes that include path params (example: `/users/:userId`).
-- Define only schema surfaces a route actually uses.
-- Shared error response schemas must live in a dedicated shared schema module (for example `commonErrors.response.js`) and be reused by routes.
+## 5) App-specific seam and routing rails
 
-## 4) Frontend naming and placement
+1. Keep server module seam contract strict (`server/modules/<module>/index.js`).
+2. Keep route metadata explicit for auth/workspace policy:
+- `auth`
+- `workspacePolicy`
+- `workspaceSurface`
+- `permission`
+3. Do not add ad-hoc auth logic that bypasses policy metadata + plugin wiring.
+4. Keep client route guards and server policy behavior aligned per surface.
 
-View-level components:
+## 6) Billing and realtime rails (app ownership)
 
-- Route screens live under `src/views/<feature>/`.
-- Primary screens may use `*View.vue`; CRUD/detail screens may use explicit names like `*List.vue`, `*Add.vue`, `*Edit.vue`, `*View.vue`.
+1. Billing feature behavior must remain aligned with `docs/billing/contracts.md`.
+2. Billing provider insulation must remain aligned with `docs/billing/provider-insulation.md`.
+3. Realtime subscribe policy must remain aligned across:
+- `shared/topicRegistry.js`
+- `server/fastify/realtime/subscribeContext.js`
+- `server/realtime/registerSocketIoRealtime.js`
 
-UI component types:
+## 7) App-local check defaults
 
-- `*Form.vue` for input/edit workflows.
-- `*List.vue` for collection rendering and paging.
-- `*Panel.vue` only when it is not specifically a form or list.
+When changing app behavior in this app, default checks are:
 
-Colocation rule (default):
+```bash
+npm run -w apps/jskit-value-app lint
+npm run -w apps/jskit-value-app test
+npm run -w apps/jskit-value-app test:client
+```
 
-- If a composable is single-consumer and UI-specific, colocate with component:
-  - `src/components/<feature-kebab>/<ComponentName>.vue`
-  - `src/components/<feature-kebab>/use<ComponentName>.js`
+If route/API contract changed:
 
-Examples in this repo:
+```bash
+npm run -w apps/jskit-value-app docs:api-contracts:check
+```
 
-- `src/components/deg2rad-calculator-form/Deg2radCalculatorForm.vue`
-- `src/components/deg2rad-calculator-form/useDeg2radCalculatorForm.js`
-- `src/components/deg2rad-history-list/Deg2radHistoryList.vue`
-- `src/components/deg2rad-history-list/useDeg2radHistoryList.js`
+If architecture boundary changed, also run root architecture guardrails:
 
-Shared client utilities:
+```bash
+npm run lint:architecture:client
+npm run test:architecture:client
+npm run test:architecture:shared-ui
+```
 
-- `src/features/<domain>/*.js` for domain modules (request/presentation/errors/model).
-- `src/utils/*.js` for generic helpers.
-- `src/composables/*.js` only for genuinely cross-feature composables.
+## 8) Documentation update rails
 
-## 5) Shared code between client/server
-
-- Use `shared/` for runtime-shared JS modules.
-- Keep these modules framework-agnostic and side-effect-free.
-- Export plain functions/constants only.
-
-## 6) Tests and naming
-
-- Keep tests near behavior type:
-  - `tests/client/*` for client modules/composables.
-  - `tests/views/*` for Vue view/component behavior.
-  - `tests/*.test.js` (Node test runner) for backend/service/repository/server.
-- Test file names should mirror module names where practical.
-
-## 7) Imports and module format
-
-- Project is ESM-first (`"type": "module"`).
-- Use explicit relative imports with `.js` where required by runtime/tooling.
-- Keep `knexfile.cjs` as CommonJS (Knex CLI compatibility).
-
-## 8) Change checklist (must pass)
-
-- Naming follows this file.
-- Layer boundaries are respected.
-- Lint passes.
-- Relevant tests pass.
-- No dead files left from renamed/moved modules.
+1. If behavior changed, update the exact canonical doc in `apps/jskit-value-app/docs/**`.
+2. Do not add duplicate or overlapping docs for the same contract.
+3. Keep release/operations docs aligned with runtime behavior, not aspirational behavior.
