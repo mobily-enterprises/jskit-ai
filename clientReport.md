@@ -1,191 +1,107 @@
-# Client-Side Report: `apps/jskit-value-app/src`
+# Client-Side Applicability Recheck: `apps/jskit-value-app/src`
 
 ## Scope
-This report answers:
-1. What web components and supporting composables/libraries exist on the client side.
-2. Which used elements come from `packages/`, and what customization opportunities are currently missed.
-
-It focuses on `apps/jskit-value-app/src` and package code under `packages/` that is imported by that client.
+This report contains only the applicability recheck of the previous client report.  
+For each item, it documents:
+1. What the code looks like now (package side + app usage).
+2. Whether the previous advice is still applicable.
+3. What it would look like after applying the advice (when applicable).
 
 ---
 
-## 1) Inventory: Web Components and Supporting Client Libraries
+## 1) Still Applicable
 
-### 1.1 Rendered UI Components (what is actually on screen)
-Current state:
-1. The app renders **Vue SFC views/components** in `apps/jskit-value-app/src`.
-2. UI primitives are primarily **Vuetify components** (`v-app`, `v-card`, `v-btn`, `v-list`, `v-dialog`, etc.).
-3. There are no package-provided Vue UI components in `packages/` right now (no `.vue` files there).
+### 1.1 UI Inventory Remains Correct (old `1.1`)
 
-Representative app usage:
+#### Current library code (package side)
+There is still no package-provided Vue component library:
+
+```bash
+# repo root
+rg --files packages -g '*.vue'
+# no results
+```
+
+#### Current app usage
+The visual layer remains app-local Vue SFCs + Vuetify primitives:
 
 ```vue
 <!-- apps/jskit-value-app/src/shells/app/AppShell.vue -->
 <v-app class="bg-background" :style="workspaceThemeStyle">
-  <v-app-bar ... />
-  <v-navigation-drawer ... />
-  <v-main ...>
-    <Outlet />
-  </v-main>
+  ...
+  <Outlet />
 </v-app>
 ```
 
-What it would look like after applying advice (if you want reusable UI in `packages/`):
-1. Extract repeated shell/chat/assistant layout primitives into a package like `@jskit-ai/ui-vue`.
-2. Keep app-level composition and permissions, but consume shared visual building blocks.
+#### Applicability verdict
+Still applicable.
 
-Example target usage:
+#### After applying advice
+If shared UI primitives are desired, app usage would move to package components:
 
 ```vue
-<!-- apps/jskit-value-app/src/shells/app/AppShell.vue -->
-<template>
-  <WorkspaceShellLayout
-    :workspace-theme-style="workspaceThemeStyle"
-    :navigation-items="navigationItems"
-    :destination-title="destinationTitle"
-    @navigate="goToNavigationItem"
-  >
-    <Outlet />
-  </WorkspaceShellLayout>
-</template>
+<!-- hypothetical usage -->
+<WorkspaceShellLayout
+  :workspace-theme-style="workspaceThemeStyle"
+  :navigation-items="navigationItems"
+  :destination-title="destinationTitle"
+  @navigate="goToNavigationItem"
+>
+  <Outlet />
+</WorkspaceShellLayout>
 ```
 
 ---
 
-### 1.2 Supporting Client Libraries in Use
-
-The client currently relies on:
-1. Vue (`vue`) + Pinia (`pinia`)
-2. TanStack Vue Router / Query
-3. Vuetify + MDI icons
-4. Uppy (avatar uploads)
-5. `@jskit-ai/*` package runtimes/contracts:
-   - `@jskit-ai/web-runtime-core`
-   - `@jskit-ai/realtime-client-runtime`
-   - `@jskit-ai/chat-client-runtime`, `@jskit-ai/chat-contracts`
-   - `@jskit-ai/assistant-client-runtime`, `@jskit-ai/assistant-contracts`
-   - `@jskit-ai/workspace-console-core`
-   - `@jskit-ai/access-core`
-   - `@jskit-ai/observability-core`
-
----
-
-## 2) Package-Backed Elements: Current vs Improved
-
-Each section includes:
-1. What the package code looks like now (library side).
-2. How this app uses it now.
-3. Missing customization.
-4. What it should look like after applying advice.
-
----
-
-### 2.0 UI Layer Not in `packages/` (important baseline)
-
-#### Current library code (package side)
-No package-side Vue component library currently exists.
+### 1.2 Supporting Library Inventory Is Still Informative (old `1.2`)
 
 #### Current app usage
-Visual components are local SFCs (`AppShell.vue`, `AdminShell.vue`, `ConsoleShell.vue`, `ChatView.vue`, `AssistantView.vue`, settings forms, etc.) plus Vuetify.
+The client still uses the listed libraries and package runtimes/contracts:
 
-#### Missing customization
-1. Cross-app UI consistency cannot be tuned centrally from `packages/`.
-2. Repeated shell/composer/timeline patterns are maintained separately per app.
-3. Design-system-level variant controls are app-local, not package policy.
+```js
+// apps/jskit-value-app/src/runtime/chatRuntime.js
+import { createChatRuntime } from "@jskit-ai/chat-client-runtime";
+import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
+
+// apps/jskit-value-app/src/services/realtime/commandTracker.js
+import { createCommandTracker } from "@jskit-ai/realtime-client-runtime";
+```
+
+```js
+// apps/jskit-value-app/src/views/login/useLoginView.js
+import { AUTH_OAUTH_PROVIDER_METADATA, AUTH_OAUTH_PROVIDERS } from "@jskit-ai/access-core/oauthProviders";
+```
+
+#### Applicability verdict
+Still applicable as informational inventory.
 
 #### After applying advice
-Create shared UI package(s) for repeated high-value primitives:
-1. Shell layout (`WorkspaceShellLayout`)
-2. Conversation composer (`ConversationComposer`)
-3. Message timeline row (`MessageTimelineRow`)
-
-Use package components for structure; keep app-specific policy/state in composables.
+No required change. This section is descriptive, not a remediation item.
 
 ---
 
-### 2.1 `@jskit-ai/web-runtime-core` Pagination and Query State Composables
-
-#### Current library code (package side)
-
-```js
-// packages/web/web-runtime-core/src/useUrlListPagination.js
-function useUrlListPagination({
-  pageKey = "page",
-  pageSizeKey = "pageSize",
-  initialPageSize,
-  defaultPageSize,
-  pageSizeOptions
-} = {}) { ... }
-```
-
-```js
-// packages/web/web-runtime-core/src/useListQueryState.js
-function useListQueryState(query, { resolveTotalPages } = {}) { ... }
-```
+### 1.3 No Package UI Layer Baseline Remains Correct (old `2.0`)
 
 #### Current app usage
-Thin pass-through wrappers:
+Layout and feature UIs are still local SFCs:
+1. `shells/app/AppShell.vue`
+2. `shells/admin/AdminShell.vue`
+3. `views/chat/ChatView.vue`
+4. `views/assistant/AssistantView.vue`
+5. settings views/forms in `views/settings/**`
 
-```js
-// apps/jskit-value-app/src/composables/useUrlListPagination.js
-export { useUrlListPagination } from "@jskit-ai/web-runtime-core/useUrlListPagination";
-```
-
-Repeated per-view config:
-
-```js
-// apps/jskit-value-app/src/views/projects/useProjectsList.js
-const pagination = useUrlListPagination({
-  pageKey: PROJECTS_PAGE_QUERY_KEY,
-  pageSizeKey: PROJECTS_PAGE_SIZE_QUERY_KEY,
-  initialPageSize,
-  defaultPageSize: projectPageSizeOptions[0],
-  pageSizeOptions: projectPageSizeOptions
-});
-```
-
-#### Missing customization
-1. No app-level pagination presets, so keys/options are repeated in many views.
-2. Inconsistent key naming strategy risk across features.
-3. No app-level telemetry hook for pagination changes.
+#### Applicability verdict
+Still applicable.
 
 #### After applying advice
-Add app-level wrappers with domain presets.
-
-```js
-// apps/jskit-value-app/src/composables/useStandardListPagination.js
-import { useUrlListPagination } from "@jskit-ai/web-runtime-core/useUrlListPagination";
-
-export function useStandardListPagination({
-  keyPrefix,
-  initialPageSize,
-  pageSizeOptions
-}) {
-  return useUrlListPagination({
-    pageKey: `${keyPrefix}Page`,
-    pageSizeKey: `${keyPrefix}PageSize`,
-    initialPageSize,
-    defaultPageSize: pageSizeOptions[0],
-    pageSizeOptions
-  });
-}
-```
-
-Then usage becomes:
-
-```js
-const pagination = useStandardListPagination({
-  keyPrefix: "projects",
-  initialPageSize,
-  pageSizeOptions: projectPageSizeOptions
-});
-```
+If centralization is needed, extract high-reuse primitives to a package (`shell`, `composer`, `timeline row`) and keep app policy/state local.
 
 ---
 
-### 2.2 `@jskit-ai/web-runtime-core` Transport Runtime and Command Correlation
+### 1.4 Transport Runtime Customization Gap Remains Applicable (old `2.2`)
 
 #### Current library code (package side)
+`createTransportRuntime` still supports customization hooks:
 
 ```js
 // packages/web/web-runtime-core/src/transportRuntime.js
@@ -194,15 +110,15 @@ function createTransportRuntime({
   resolveSurfaceFromPathname,
   getClientId,
   commandTracker,
-  aiStreamUrl = "/api/workspace/ai/chat/stream",
-  apiPathPrefix = "/api/",
-  realtimeCorrelatedWriteRoutes = DEFAULT_REALTIME_CORRELATED_WRITE_ROUTES
+  aiStreamUrl = DEFAULT_AI_STREAM_URL,
+  apiPathPrefix = DEFAULT_API_PATH_PREFIX,
+  realtimeCorrelatedWriteRoutes = DEFAULT_REALTIME_CORRELATED_WRITE_ROUTES,
+  generateCommandId = createCommandIdGenerator()
 } = {}) { ... }
 ```
 
-Default correlated routes include projects/settings/invites/member role updates.
-
 #### Current app usage
+The app still wires transport with defaults:
 
 ```js
 // apps/jskit-value-app/src/services/api/transport.js
@@ -214,13 +130,11 @@ const transportRuntime = createTransportRuntime({
 });
 ```
 
-#### Missing customization
-1. Correlated write routes are default-only; chat writes are not included by default.
-2. No custom command-id strategy or policy per surface.
-3. No app-specific extension of stream endpoint detection if endpoints evolve.
+#### Applicability verdict
+Still applicable.
 
 #### After applying advice
-Explicitly pass route extensions and any custom ID policy.
+Extend correlated routes for chat write endpoints and define explicit command-id policy:
 
 ```js
 import {
@@ -238,37 +152,35 @@ const transportRuntime = createTransportRuntime({
     { method: "POST", pattern: /^\/api\/chat\/threads\/[^/]+\/messages$/ },
     { method: "POST", pattern: /^\/api\/chat\/threads\/[^/]+\/read$/ },
     { method: "POST", pattern: /^\/api\/chat\/threads\/[^/]+\/typing$/ }
-  ]
+  ],
+  generateCommandId() {
+    return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? `cmd_app_${crypto.randomUUID()}`
+      : `cmd_app_${Date.now()}`;
+  }
 });
 ```
 
 ---
 
-### 2.3 `@jskit-ai/realtime-client-runtime` Runtime and Command Tracker Policies
+### 1.5 Realtime Tracker/Runtime Tuning Gap Remains Applicable (old `2.3`)
 
 #### Current library code (package side)
+The package still exposes policy hooks:
 
 ```js
 // packages/realtime/realtime-client-runtime/src/commandTracker.js
-const DEFAULT_COMMAND_TRACKER_OPTIONS = {
-  commandTtlMs: 30_000,
-  finalizedTtlMs: 60_000,
-  seenEventTtlMs: 120_000,
-  ...
-};
-
 function createCommandTracker(options = {}) { ... }
-```
 
-```js
 // packages/realtime/realtime-client-runtime/src/runtime.js
 function createRealtimeRuntime(options = {}) {
-  // supports reconnectPolicy, replayPolicy, maintenanceIntervalMs,
-  // onConnectionStateChange, transport overrides, etc.
+  // reconnectPolicy, replayPolicy, maintenanceIntervalMs,
+  // onConnectionStateChange, socketPath/transports/query, etc.
 }
 ```
 
 #### Current app usage
+App runtime still uses default tracker options and default runtime policy settings:
 
 ```js
 // apps/jskit-value-app/src/services/realtime/commandTracker.js
@@ -292,14 +204,11 @@ return createRealtimeClientRuntime({
 });
 ```
 
-#### Missing customization
-1. Tracker TTL/capacity uses defaults only.
-2. Reconnect/replay policy not tuned for app traffic patterns.
-3. No connection-state telemetry callback in app runtime wiring.
-4. Socket transport path/event/transports use defaults.
+#### Applicability verdict
+Still applicable.
 
 #### After applying advice
-Tune tracker/runtime policies explicitly.
+Set explicit tracker/runtime policies and connection-state callbacks:
 
 ```js
 // services/realtime/commandTracker.js
@@ -314,15 +223,20 @@ const commandTracker = createCommandTracker({
 
 ```js
 // services/realtime/realtimeRuntime.js
-import { createReconnectPolicy, createReplayPolicy } from "@jskit-ai/realtime-client-runtime";
+import {
+  createRealtimeRuntime as createRealtimeClientRuntime,
+  createReconnectPolicy,
+  createReplayPolicy,
+  createSocketIoTransport
+} from "@jskit-ai/realtime-client-runtime";
 
 return createRealtimeClientRuntime({
-  ...existing,
+  ...existingOptions,
   reconnectPolicy: createReconnectPolicy({ baseDelayMs: 800, maxDelayMs: 20_000 }),
   replayPolicy: createReplayPolicy({ maxEventsPerCommand: 40, maxEventsPerTick: 120 }),
   maintenanceIntervalMs: 1500,
   onConnectionStateChange(state) {
-    // send to metrics/logger
+    // metrics/logging hook
   },
   transport: createSocketIoTransport({
     socketFactory,
@@ -334,158 +248,18 @@ return createRealtimeClientRuntime({
 
 ---
 
-### 2.4 `@jskit-ai/chat-client-runtime` Headless Chat Runtime
+### 1.6 Settings Model Extension Gap Remains Applicable (old `2.6`)
 
 #### Current library code (package side)
-Chat runtime behavior is driven by internal constants:
-
-```js
-// packages/chat/chat-client-runtime/src/useChatRuntime.js
-const INBOX_PAGE_SIZE = 20;
-const THREAD_MESSAGES_PAGE_SIZE = 50;
-const DM_CANDIDATES_PAGE_SIZE = 100;
-const CHAT_MESSAGE_MAX_TEXT_CHARS = 4000;
-const CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE = 5;
-const CHAT_ATTACHMENT_MAX_UPLOAD_BYTES = 20_000_000;
-```
-
-Configured via dependency injection only:
-
-```js
-function configureChatRuntime({
-  api, subscribeRealtimeEvents, useAuthGuard, useQueryErrorMessage, useWorkspaceStore, realtimeEventTypes
-} = {}) { ... }
-```
-
-#### Current app usage
-
-```js
-// apps/jskit-value-app/src/views/chat/useChatView.js
-configureChatRuntime({
-  api,
-  subscribeRealtimeEvents,
-  useAuthGuard,
-  useQueryErrorMessage,
-  useWorkspaceStore,
-  realtimeEventTypes: REALTIME_EVENT_TYPES
-});
-```
-
-#### Missing customization
-1. No per-app/per-surface policy for chat limits (message length, attachment limits, page sizes).
-2. No app-controlled typing timing thresholds.
-3. These behaviors are effectively fixed until package code changes.
-
-#### After applying advice
-Recommended package API extension:
-
-```js
-// package: add optional policy
-function configureChatRuntime({ ..., policy } = {}) {
-  if (policy && typeof policy === "object") {
-    CHAT_POLICY = { ...DEFAULT_CHAT_POLICY, ...policy };
-  }
-}
-```
-
-App usage after:
-
-```js
-configureChatRuntime({
-  api,
-  subscribeRealtimeEvents,
-  useAuthGuard,
-  useQueryErrorMessage,
-  useWorkspaceStore,
-  realtimeEventTypes: REALTIME_EVENT_TYPES,
-  policy: {
-    messageMaxChars: 6000,
-    attachmentsMaxFilesPerMessage: 8,
-    attachmentMaxUploadBytes: 25_000_000
-  }
-});
-```
-
----
-
-### 2.5 `@jskit-ai/assistant-client-runtime` Assistant Runtime
-
-#### Current library code (package side)
-Internal fixed policy values:
-
-```js
-// packages/ai-agent/assistant-client-runtime/src/useAssistantRuntime.js
-const ASSISTANT_STREAM_TIMEOUT_MS = 60_000;
-const HISTORY_PAGE_SIZE = 50;
-const RESTORE_MESSAGES_PAGE_SIZE = 500;
-```
-
-Configuration currently injects only dependencies:
-
-```js
-function configureAssistantRuntime({
-  api, useWorkspaceStore, resolveSurfaceFromPathname
-} = {}) { ... }
-```
-
-#### Current app usage
-
-```js
-// apps/jskit-value-app/src/views/assistant/useAssistantView.js
-configureAssistantRuntime({
-  api,
-  useWorkspaceStore,
-  resolveSurfaceFromPathname
-});
-```
-
-#### Missing customization
-1. No app-level stream timeout tuning.
-2. No app-level history page-size policy.
-3. No easy way to adapt policy by surface (admin vs app).
-
-#### After applying advice
-Recommended package API extension:
-
-```js
-function configureAssistantRuntime({ api, useWorkspaceStore, resolveSurfaceFromPathname, policy } = {}) {
-  if (policy) {
-    ASSISTANT_POLICY = { ...DEFAULT_ASSISTANT_POLICY, ...policy };
-  }
-}
-```
-
-App usage after:
-
-```js
-configureAssistantRuntime({
-  api,
-  useWorkspaceStore,
-  resolveSurfaceFromPathname,
-  policy: {
-    streamTimeoutMs: 90_000,
-    historyPageSize: 100,
-    restoreMessagesPageSize: 800
-  }
-});
-```
-
----
-
-### 2.6 `@jskit-ai/workspace-console-core` Settings Model and Preferences Options
-
-#### Current library code (package side)
-The package already supports extension:
+The package still supports extension via `createSettingsModel`:
 
 ```js
 // packages/workspace/workspace-console-core/src/settingsModel.js
 function createSettingsModel({ avatar = {}, modelExtension = {} } = {}) { ... }
 ```
 
-It also exports a platform default model/constants.
-
 #### Current app usage
-The app imports static constants directly:
+The app still consumes static defaults/options directly:
 
 ```js
 // apps/jskit-value-app/src/views/settings/preferences/lib/settingsPreferencesOptions.js
@@ -498,13 +272,11 @@ export const localeOptions = [...SETTINGS_PREFERENCES_OPTIONS.locale];
 import { SETTINGS_DEFAULTS } from "@jskit-ai/workspace-console-core/settingsModel";
 ```
 
-#### Missing customization
-1. App is not using `createSettingsModel` despite package support.
-2. Locale/timezone/currency option sets are fixed to platform defaults.
-3. Hard to create product-specific settings profile without editing package defaults.
+#### Applicability verdict
+Still applicable.
 
 #### After applying advice
-Create an app-local model module built from `createSettingsModel`.
+Create an app-local model and consume that model everywhere:
 
 ```js
 // apps/jskit-value-app/src/domain/settings/model.js
@@ -527,29 +299,260 @@ export const APP_SETTINGS_MODEL = createSettingsModel({
 });
 ```
 
-Then replace direct platform constant imports:
-
 ```js
+// example usage
 import { APP_SETTINGS_MODEL } from "../../../domain/settings/model.js";
-
 const { SETTINGS_DEFAULTS, SETTINGS_PREFERENCES_OPTIONS } = APP_SETTINGS_MODEL;
 ```
 
 ---
 
-### 2.7 `@jskit-ai/access-core` OAuth Providers and Auth Method Catalog
+### 1.7 Browser Error Payload Enrichment Gap Remains Applicable (old `2.9`)
 
 #### Current library code (package side)
-Provider catalog is static:
+The package currently produces base payload from path/surface/UA:
 
 ```js
-// packages/auth/access-core/src/oauthProviders.js
-const AUTH_OAUTH_PROVIDER_METADATA = {
-  google: { id: "google", label: "Google" }
-};
+// packages/observability/observability-core/src/browserPayload.js
+function createBrowserErrorPayloadTools({ resolveSurfaceFromPathname } = {}) { ... }
 ```
 
 #### Current app usage
+The app currently sends package-created payload directly:
+
+```js
+// apps/jskit-value-app/src/services/browserErrorReporter.js
+const payload = createPayloadFromErrorEvent(event);
+void sendBrowserErrorReport(payload);
+```
+
+#### Applicability verdict
+Still applicable.
+
+#### After applying advice
+Enrich payload before sending (workspace/user context):
+
+```js
+function enrichPayload(payload) {
+  const workspaceSlug = String(window.location.pathname.split("/")[2] || "").trim();
+  const userId = String(window.__APP_CONTEXT__?.userId || "").trim();
+  return {
+    ...payload,
+    metadata: {
+      ...(payload.metadata || {}),
+      workspaceSlug,
+      userId
+    }
+  };
+}
+
+const payload = enrichPayload(createPayloadFromErrorEvent(event));
+void sendBrowserErrorReport(payload);
+```
+
+---
+
+## 2) Partially Applicable (Core Recommendation Still Valid, Old Examples Stale)
+
+### 2.1 Pagination Recommendation Is Still Valid, Wrapper Example Is Stale (old `2.1`)
+
+#### Current library code (package side)
+Composables are unchanged:
+
+```js
+// packages/web/web-runtime-core/src/useUrlListPagination.js
+function useUrlListPagination({ pageKey, pageSizeKey, initialPageSize, defaultPageSize, pageSizeOptions } = {}) { ... }
+```
+
+```js
+// packages/web/web-runtime-core/src/useListQueryState.js
+function useListQueryState(query, { resolveTotalPages } = {}) { ... }
+```
+
+#### Current app usage
+App now imports directly in feature/view composables:
+
+```js
+// apps/jskit-value-app/src/views/projects/useProjectsList.js
+import { useListQueryState } from "@jskit-ai/web-runtime-core/useListQueryState";
+import { useUrlListPagination } from "@jskit-ai/web-runtime-core/useUrlListPagination";
+```
+
+The old report's pass-through wrapper example in `src/composables` is no longer current (those wrapper files were removed).
+
+#### Applicability verdict
+Partially applicable: recommendation is valid, old "current usage" example is stale.
+
+#### After applying advice
+If standardization is desired, reintroduce meaningful app presets (not pass-through):
+
+```js
+// apps/jskit-value-app/src/composables/useStandardListPagination.js
+import { useUrlListPagination } from "@jskit-ai/web-runtime-core/useUrlListPagination";
+
+export function useStandardListPagination({ keyPrefix, initialPageSize, pageSizeOptions }) {
+  return useUrlListPagination({
+    pageKey: `${keyPrefix}Page`,
+    pageSizeKey: `${keyPrefix}PageSize`,
+    initialPageSize,
+    defaultPageSize: pageSizeOptions[0],
+    pageSizeOptions
+  });
+}
+```
+
+---
+
+### 2.2 Chat Runtime Policy Recommendation Is Valid, API References Were Stale (old `2.4`)
+
+#### Current library code (package side)
+Runtime is now factory-based (`createChatRuntime`), not `configureChatRuntime`:
+
+```js
+// packages/chat/chat-client-runtime/src/useChatRuntime.js
+const CHAT_MESSAGE_MAX_TEXT_CHARS = 4000;
+const CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE = 5;
+const CHAT_ATTACHMENT_MAX_UPLOAD_BYTES = 20_000_000;
+
+function createChatRuntime(deps = {}) { ... }
+```
+
+#### Current app usage
+The app now configures chat runtime in `src/runtime/chatRuntime.js`:
+
+```js
+// apps/jskit-value-app/src/runtime/chatRuntime.js
+const chatRuntime = createChatRuntime({
+  api,
+  subscribeRealtimeEvents,
+  useAuthGuard,
+  useQueryErrorMessage,
+  useWorkspaceStore,
+  realtimeEventTypes: REALTIME_EVENT_TYPES
+});
+```
+
+#### Applicability verdict
+Partially applicable: policy-injection gap is still valid, but old file/API references are outdated.
+
+#### After applying advice
+Extend package runtime factory to accept optional policy, then pass app policy:
+
+```js
+// package-side sketch
+function createChatRuntime(deps = {}) {
+  const runtimeDeps = resolveChatRuntimeDependencies(deps);
+  const policy = {
+    messageMaxChars: Number(deps.policy?.messageMaxChars || CHAT_MESSAGE_MAX_TEXT_CHARS),
+    attachmentMaxFilesPerMessage: Number(
+      deps.policy?.attachmentMaxFilesPerMessage || CHAT_ATTACHMENTS_MAX_FILES_PER_MESSAGE
+    ),
+    attachmentMaxUploadBytes: Number(deps.policy?.attachmentMaxUploadBytes || CHAT_ATTACHMENT_MAX_UPLOAD_BYTES)
+  };
+  function useBoundChatRuntime() {
+    return useChatRuntime(runtimeDeps, { policy });
+  }
+  return { useChatRuntime: useBoundChatRuntime, useChatView: useBoundChatRuntime, chatRuntimeTestables };
+}
+```
+
+```js
+// app-side usage
+const chatRuntime = createChatRuntime({
+  ...deps,
+  policy: {
+    messageMaxChars: 6000,
+    attachmentMaxFilesPerMessage: 8,
+    attachmentMaxUploadBytes: 25_000_000
+  }
+});
+```
+
+---
+
+### 2.3 Assistant Runtime Policy Recommendation Is Valid, API References Were Stale (old `2.5`)
+
+#### Current library code (package side)
+Runtime is now factory-based (`createAssistantRuntime`), not `configureAssistantRuntime`:
+
+```js
+// packages/ai-agent/assistant-client-runtime/src/useAssistantRuntime.js
+const ASSISTANT_STREAM_TIMEOUT_MS = 60_000;
+const HISTORY_PAGE_SIZE = 50;
+const RESTORE_MESSAGES_PAGE_SIZE = 500;
+
+function createAssistantRuntime(deps = {}) { ... }
+```
+
+#### Current app usage
+The app configures assistant runtime in `src/runtime/assistantRuntime.js`:
+
+```js
+// apps/jskit-value-app/src/runtime/assistantRuntime.js
+const assistantRuntime = createAssistantRuntime({
+  api,
+  useWorkspaceStore,
+  resolveSurfaceFromPathname
+});
+```
+
+#### Applicability verdict
+Partially applicable: tuning gap remains, old file/API references were outdated.
+
+#### After applying advice
+Add optional `policy` injection in package runtime factory:
+
+```js
+// package-side sketch
+function createAssistantRuntime(deps = {}) {
+  const runtimeDeps = resolveAssistantRuntimeDependencies(deps);
+  const policy = {
+    streamTimeoutMs: Number(deps.policy?.streamTimeoutMs || ASSISTANT_STREAM_TIMEOUT_MS),
+    historyPageSize: Number(deps.policy?.historyPageSize || HISTORY_PAGE_SIZE),
+    restoreMessagesPageSize: Number(deps.policy?.restoreMessagesPageSize || RESTORE_MESSAGES_PAGE_SIZE)
+  };
+  function useBoundAssistantRuntime() {
+    return useAssistantRuntime(runtimeDeps, { policy });
+  }
+  return {
+    useAssistantRuntime: useBoundAssistantRuntime,
+    useAssistantView: useBoundAssistantRuntime,
+    assistantRuntimeTestables
+  };
+}
+```
+
+```js
+// app-side usage
+const assistantRuntime = createAssistantRuntime({
+  ...deps,
+  policy: {
+    streamTimeoutMs: 90_000,
+    historyPageSize: 100,
+    restoreMessagesPageSize: 800
+  }
+});
+```
+
+---
+
+## 3) Low-Impact Caveat
+
+### 3.1 OAuth Provider Catalog Staticness Is Technically Applicable, Low Immediate Impact (old `2.7`)
+
+#### Current library code (package side)
+Provider metadata remains static and currently only contains `google`:
+
+```js
+// packages/auth/access-core/src/oauthProviders.js
+const AUTH_OAUTH_PROVIDER_METADATA = Object.freeze({
+  google: Object.freeze({ id: "google", label: "Google" })
+});
+const AUTH_OAUTH_PROVIDERS = Object.freeze(Object.keys(AUTH_OAUTH_PROVIDER_METADATA));
+```
+
+#### Current app usage
+Login and security views still map package providers directly:
 
 ```js
 // apps/jskit-value-app/src/views/login/useLoginView.js
@@ -558,135 +561,28 @@ const oauthProviders = AUTH_OAUTH_PROVIDERS
   .filter(Boolean);
 ```
 
-Security settings also rely on this metadata for provider labels and actions.
-
-#### Missing customization
-1. No app/deployment-level provider allowlist or ordering.
-2. Enabling another provider requires package-level code change first.
+#### Applicability verdict
+Still technically applicable, but low priority right now because only one provider is present.
 
 #### After applying advice
-Immediate app-level improvement: add a local provider filter layer.
+Optional app-level filter layer for rollout/order control:
 
 ```js
 // apps/jskit-value-app/src/features/auth/oauthProviders.js
 import { AUTH_OAUTH_PROVIDER_METADATA, AUTH_OAUTH_PROVIDERS } from "@jskit-ai/access-core/oauthProviders";
 
-const ENABLED = new Set((import.meta.env.VITE_ENABLED_OAUTH_PROVIDERS || "google").split(",").map((v) => v.trim()));
+const enabled = new Set((import.meta.env.VITE_ENABLED_OAUTH_PROVIDERS || "google").split(",").map((v) => v.trim()));
 
 export const appOAuthProviders = AUTH_OAUTH_PROVIDERS
-  .filter((id) => ENABLED.has(id))
+  .filter((id) => enabled.has(id))
   .map((id) => AUTH_OAUTH_PROVIDER_METADATA[id])
   .filter(Boolean);
 ```
 
-Then use this in login/security views instead of raw package list.
-
-Longer-term package improvement: introduce `createOAuthProviderRegistry(...)` so provider catalogs are not compile-time static.
-
 ---
 
-### 2.8 Contract Wrappers (`chat-contracts`, `assistant-contracts`, `web-runtime-core/pagination`)
+## 4) Status Summary
 
-#### Current library code (package side)
-Contracts are reusable query key builders and error mappers.
-
-#### Current app usage
-Current wrappers are pass-through only:
-
-```js
-// apps/jskit-value-app/src/features/chat/queryKeys.js
-export { chatInboxInfiniteQueryKey, ... } from "@jskit-ai/chat-contracts";
-```
-
-```js
-// apps/jskit-value-app/src/features/assistant/queryKeys.js
-export { assistantConversationsListQueryKey, ... } from "@jskit-ai/assistant-contracts";
-```
-
-#### Missing customization
-1. Wrapper layer currently adds almost no behavior.
-2. No app-level query-key versioning or namespace policy.
-
-#### After applying advice
-Choose one of two clear approaches:
-1. Remove wrapper layer and import package contracts directly.
-2. Keep wrappers but make them meaningful (add app query namespace/version).
-
-Example meaningful wrapper:
-
-```js
-const APP_QUERY_VERSION = "v1";
-export function appChatInboxKey(workspaceSlug, options) {
-  return ["jskit-value-app", APP_QUERY_VERSION, ...chatInboxInfiniteQueryKey(workspaceSlug, options)];
-}
-```
-
----
-
-### 2.9 `@jskit-ai/observability-core/browserPayload` Browser Error Context
-
-#### Current library code (package side)
-
-```js
-// packages/observability/observability-core/src/browserPayload.js
-function createBrowserErrorPayloadTools({ resolveSurfaceFromPathname } = {}) { ... }
-```
-
-#### Current app usage
-
-```js
-// apps/jskit-value-app/src/services/browserErrorReporter.js
-const browserPayloadTools = createBrowserErrorPayloadTools({
-  resolveSurfaceFromPathname
-});
-```
-
-#### Missing customization
-1. Error payload includes surface/path but not richer client context (workspace slug, current user id if available).
-2. Harder triage in multi-workspace environments.
-
-#### After applying advice
-Add context enrichment before sending payload (app-only now), or extend package API with `resolveContext`.
-
-App-only enrichment example:
-
-```js
-function enrichPayload(payload) {
-  const workspaceSlug = window.location.pathname.split("/")[2] || "";
-  return {
-    ...payload,
-    metadata: {
-      ...(payload.metadata || {}),
-      workspaceSlug
-    }
-  };
-}
-
-const payload = enrichPayload(createPayloadFromErrorEvent(event));
-```
-
----
-
-## 3) Direct Answers to Your Original Questions
-
-### Q1. What web components and supporting composables/libraries are there?
-1. Visual layer: app-local Vue SFCs + Vuetify components.
-2. No package-hosted Vue web components in `packages/` currently.
-3. Supporting shared client behavior comes from `@jskit-ai/*` runtimes/contracts/composables listed above.
-
-### Q2. In which cases are used elements in `packages/`, and when they are there, what customization are we missing?
-1. Package-backed today: pagination/query composables, transport runtime, realtime runtime/tracker, chat runtime/API, assistant runtime/API, auth/provider catalog, settings model constants, contracts/query keys, browser payload tools.
-2. Main missed opportunities:
-   - using defaults where package exposes policy hooks (transport/realtime/tracker),
-   - not using extension APIs that already exist (`createSettingsModel`),
-   - depending on package-fixed constants where policy should be app-configurable (chat/assistant limits, OAuth provider catalog),
-   - keeping pass-through wrappers that do not encode app policy.
-
----
-
-## 4) Recommended Implementation Order
-1. **High impact, low risk:** transport route extensions + realtime policy tuning.
-2. **High impact, low risk:** app-local settings model via `createSettingsModel`.
-3. **Medium impact:** app-level OAuth provider filter wrapper.
-4. **Medium impact:** standard pagination wrapper presets.
-5. **Higher effort (package changes):** chat/assistant runtime policy injection APIs.
+1. **Still applicable:** old `1.1`, `1.2`, `2.0`, `2.2`, `2.3`, `2.6`, `2.9`
+2. **Partially applicable (update examples/API references):** old `2.1`, `2.4`, `2.5`
+3. **Technically applicable but low immediate ROI:** old `2.7`

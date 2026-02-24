@@ -67,6 +67,21 @@ function listAppSourceJsFiles() {
   });
 }
 
+function listAppBoundaryJsFiles() {
+  return listFilesRecursive(APPS_DIR, (absolutePath) => {
+    const isJsFile = JS_EXTENSIONS.has(path.extname(absolutePath));
+    if (!isJsFile) {
+      return false;
+    }
+
+    return (
+      absolutePath.includes(`${path.sep}src${path.sep}`) ||
+      absolutePath.includes(`${path.sep}server${path.sep}`) ||
+      absolutePath.includes(`${path.sep}shared${path.sep}`)
+    );
+  });
+}
+
 function listPackageIndexFiles() {
   return listFilesRecursive(PACKAGES_DIR, (absolutePath) => {
     return absolutePath.endsWith(`${path.sep}src${path.sep}index.js`);
@@ -87,6 +102,29 @@ function parseImportSpecifiers(sourceText) {
   }
 
   return specifiers;
+}
+
+function resolveRelativeImport(fromFilePath, importSpecifier) {
+  if (!String(importSpecifier || "").startsWith(".")) {
+    return null;
+  }
+
+  const resolvedBasePath = path.resolve(path.dirname(fromFilePath), importSpecifier);
+  const candidatePaths = [
+    resolvedBasePath,
+    `${resolvedBasePath}.js`,
+    `${resolvedBasePath}.mjs`,
+    `${resolvedBasePath}.cjs`,
+    path.join(resolvedBasePath, "index.js")
+  ];
+
+  for (const candidatePath of candidatePaths) {
+    if (existsSync(candidatePath)) {
+      return candidatePath;
+    }
+  }
+
+  return null;
 }
 
 function isPassThroughWrapper(sourceText) {
@@ -211,6 +249,37 @@ test("client architecture guardrail: app thin wrappers must be removed or allowl
     }
 
     violations.push(relativePath);
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+test("client architecture guardrail: app code does not import package internals", () => {
+  const violations = [];
+  const appFiles = listAppBoundaryJsFiles();
+
+  for (const filePath of appFiles) {
+    const source = readFileSync(filePath, "utf8");
+    const relativeFilePath = toPosixPath(path.relative(ROOT_DIR, filePath));
+
+    for (const importSpecifier of parseImportSpecifiers(source)) {
+      if (/^@jskit-ai\/[^/]+\/(?:src|test|tests|lib)(?:\/|$)/.test(importSpecifier)) {
+        violations.push(`${relativeFilePath} -> ${importSpecifier}`);
+        continue;
+      }
+
+      const resolvedImportPath = resolveRelativeImport(filePath, importSpecifier);
+      if (!resolvedImportPath) {
+        continue;
+      }
+
+      const normalizedResolvedPath = path.resolve(resolvedImportPath);
+      if (!normalizedResolvedPath.startsWith(PACKAGES_DIR)) {
+        continue;
+      }
+
+      violations.push(`${relativeFilePath} -> ${importSpecifier}`);
+    }
   }
 
   assert.deepEqual(violations, []);

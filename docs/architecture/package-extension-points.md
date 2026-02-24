@@ -9,3 +9,5 @@ Use package configuration, not code copy:
 5. Runtime: compose bundles via `@jskit-ai/platform-server-runtime`; keep app-specific features in app feature bundle only.
 
 Rule: app layer should be configuration + wiring only.
+
+See also: [app variability matrix](./app-variability-matrix.md).

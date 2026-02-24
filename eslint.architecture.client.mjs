@@ -63,5 +63,29 @@ export default [
         }
       ]
     }
+  },
+  {
+    files: ["apps/**/src/**/*.js", "apps/**/server/**/*.js", "apps/**/shared/**/*.js"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module"
+    },
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@jskit-ai/*/src/*", "@jskit-ai/*/test/*", "@jskit-ai/*/tests/*", "@jskit-ai/*/lib/*"],
+              message: "Import through package export seams only (package root or documented public subpaths)."
+            },
+            {
+              group: ["**/packages/**"],
+              message: "Import through package export seams only (no relative path leakage into /packages)."
+            }
+          ]
+        }
+      ]
+    }
   }
 ];

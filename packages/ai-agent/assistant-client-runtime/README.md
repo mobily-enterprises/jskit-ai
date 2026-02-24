@@ -13,7 +13,7 @@ It does not include visual components. Your app still owns `AssistantView.vue` a
 
 ## Why Apps Use It
 
-In `apps/jskit-value-app`, wrapper files configure this runtime with app-owned transport/store/routing dependencies.
+In `apps/jskit-value-app`, the app composition root instantiates this runtime with app-owned transport/store/routing dependencies.
 
 This allows shared behavior while preserving app-specific UI decisions.
 
@@ -49,11 +49,11 @@ Practical example:
 
 - Stream emits provider error -> runtime catches normalized Error and shows user-safe message.
 
-## `configureAssistantRuntime(deps)`
+## `createAssistantRuntime(deps)`
 
 What it does:
 
-- Injects app-specific dependencies:
+- Creates a factory-created runtime instance with app-specific dependencies:
   - `api`
   - `useWorkspaceStore`
   - `resolveSurfaceFromPathname`
@@ -61,7 +61,9 @@ What it does:
 Practical example:
 
 ```js
-configureAssistantRuntime({
+import { createAssistantRuntime } from "@jskit-ai/assistant-client-runtime";
+
+const { useAssistantView, assistantRuntimeTestables } = createAssistantRuntime({
   api,
   useWorkspaceStore,
   resolveSurfaceFromPathname
@@ -131,7 +133,7 @@ Practical example:
 
 ## How It Is Used In Real App Flow
 
-1. App wrapper configures runtime dependencies once.
+1. App composition root (`apps/jskit-value-app/src/runtime/assistantRuntime.js`) instantiates runtime dependencies once.
 2. `AssistantView.vue` calls `useAssistantView()`.
 3. User sends input -> `sendMessage()` calls `api.streamChat(...)`.
 4. Stream events update timeline/tool state in real time.

@@ -2,6 +2,8 @@
 
 This contract defines what code in `packages/**` may and may not do for client/runtime concerns.
 
+See also: [app variability matrix](./app-variability-matrix.md).
+
 ## Scope
 
 - Applies to every package source file under `packages/**/src/**`.
@@ -40,7 +42,7 @@ This contract defines what code in `packages/**` may and may not do for client/r
 
 ## Enforcement
 
-- `node --test tests/architecture/client-architecture.guardrails.test.js`
+- `node --test tests/architecture/client-architecture.guardrails.test.mjs`
 - `npm run lint:architecture:client`
 
 CI must run both checks as required merge gates.
