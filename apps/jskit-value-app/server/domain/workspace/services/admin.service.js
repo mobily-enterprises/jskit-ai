@@ -22,7 +22,7 @@ import {
 } from "../mappers/workspaceAdminMappers.js";
 import { resolveInviteExpiresAt } from "../policies/workspaceInvitePolicy.js";
 import { listInviteMembershipsByWorkspaceId } from "../lookups/workspaceMembershipLookup.js";
-import { applyTranscriptModeToWorkspaceFeatures } from "../../../lib/aiTranscriptMode.js";
+import { applyTranscriptModeToWorkspaceFeatures } from "@jskit-ai/assistant-transcripts-core";
 import { applyAssistantSystemPromptAppToWorkspaceFeatures } from "../../../lib/aiAssistantSystemPrompt.js";
 
 function createService({

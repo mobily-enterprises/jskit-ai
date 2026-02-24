@@ -1,4 +1,4 @@
-import { TRANSCRIPT_MODE_STANDARD } from "../../../lib/aiTranscriptMode.js";
+import { TRANSCRIPT_MODE_STANDARD } from "@jskit-ai/assistant-transcripts-core";
 
 function createWorkspaceSettingsDefaults(invitesEnabled = false) {
   return {

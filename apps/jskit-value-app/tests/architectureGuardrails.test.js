@@ -8,6 +8,18 @@ const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const SERVER_DIR = path.join(ROOT_DIR, "server");
 const SERVER_DOMAIN_DIR = path.join(SERVER_DIR, "domain");
 const ARCHITECTURE_SCAN_DIRS = [path.join(SERVER_DIR, "domain"), path.join(SERVER_DIR, "modules")];
+const LEGACY_TRANSCRIPT_MODE_FILES = Object.freeze([
+  "server/lib/aiTranscriptMode.js",
+  "server/modules/ai/transcripts/mode.js"
+]);
+const IMPORT_GUARD_SCAN_DIRS = Object.freeze([
+  path.join(ROOT_DIR, "server"),
+  path.join(ROOT_DIR, "src"),
+  path.join(ROOT_DIR, "shared"),
+  path.join(ROOT_DIR, "tests"),
+  path.join(ROOT_DIR, "bin")
+]);
+const FORBIDDEN_TRANSCRIPT_MODE_IMPORT_SEGMENTS = Object.freeze(["aiTranscriptMode.js", "ai/transcripts/mode.js"]);
 
 function toPosixPath(value) {
   return String(value || "").replace(/\\/g, "/");
@@ -182,6 +194,41 @@ test("architecture guardrail: server/domain must not contain lib directories", (
     toPosixPath(path.relative(ROOT_DIR, dirPath))
   );
   assert.deepEqual(libDirectories, []);
+});
+
+test("architecture guardrail: legacy transcript mode modules are removed", () => {
+  const existingLegacyFiles = LEGACY_TRANSCRIPT_MODE_FILES.filter((relativePath) =>
+    existsSync(path.resolve(ROOT_DIR, relativePath))
+  );
+  assert.deepEqual(existingLegacyFiles, []);
+});
+
+test("architecture guardrail: no imports reference legacy transcript mode modules", () => {
+  const violations = [];
+
+  for (const scanDir of IMPORT_GUARD_SCAN_DIRS) {
+    if (!existsSync(scanDir)) {
+      continue;
+    }
+
+    const files = listFilesRecursive(scanDir, (filePath) => /\.(js|mjs|cjs)$/.test(filePath));
+    for (const filePath of files) {
+      const importSpecifiers = parseImportSpecifiers(filePath);
+      for (const importSpecifier of importSpecifiers) {
+        const normalizedSpecifier = toPosixPath(importSpecifier);
+        if (
+          FORBIDDEN_TRANSCRIPT_MODE_IMPORT_SEGMENTS.some((segment) => normalizedSpecifier.includes(segment))
+        ) {
+          violations.push({
+            source: toPosixPath(path.relative(ROOT_DIR, filePath)),
+            specifier: normalizedSpecifier
+          });
+        }
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
 });
 
 test("architecture guardrail: service files avoid cross-feature imports across domain/module features", () => {

@@ -1,5 +1,5 @@
 import { coerceWorkspaceColor } from "@jskit-ai/workspace-console-core/workspaceColors";
-import { resolveTranscriptModeFromWorkspaceSettings } from "../../../lib/aiTranscriptMode.js";
+import { resolveTranscriptModeFromWorkspaceSettings } from "@jskit-ai/assistant-transcripts-core";
 
 function normalizeWorkspaceColor(value) {
   return coerceWorkspaceColor(value);

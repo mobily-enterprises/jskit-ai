@@ -2,7 +2,7 @@ import { createWorkspaceSettingsPatchPolicy } from "@jskit-ai/workspace-console-
 import { AppError } from "../../../lib/errors.js";
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
 import { isWorkspaceColor } from "@jskit-ai/workspace-console-core/workspaceColors";
-import { TRANSCRIPT_MODE_VALUES } from "../../../lib/aiTranscriptMode.js";
+import { TRANSCRIPT_MODE_VALUES } from "@jskit-ai/assistant-transcripts-core";
 import { AI_ASSISTANT_SYSTEM_PROMPT_MAX_LENGTH } from "../../../lib/aiAssistantSystemPrompt.js";
 
 const { parseWorkspaceSettingsPatch } = createWorkspaceSettingsPatchPolicy({
