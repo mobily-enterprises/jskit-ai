@@ -153,15 +153,8 @@ export AI_API_KEY=""
 export AI_BASE_URL=""
 # Provider timeout for each assistant turn (milliseconds)
 export AI_TIMEOUT_MS="45000"
-# workspace invite email delivery (scaffold mode)
-export WORKSPACE_INVITE_EMAIL_DRIVER="none"
-# required when WORKSPACE_INVITE_EMAIL_DRIVER=smtp
-export SMTP_HOST=""
-export SMTP_PORT="587"
-export SMTP_SECURE="false"
-export SMTP_USERNAME=""
-export SMTP_PASSWORD=""
-export SMTP_FROM=""
+# app-level email delivery mode (scaffold)
+export EMAIL_PROVIDER="none"
 ```
 
 The server loads `.env` via `dotenv`, so you can place the same key/value pairs in that file instead of exporting them manually before each command.
@@ -173,7 +166,7 @@ Notes:
 - Runtime/application code is ESM. Knex CLI files stay as `.cjs` by design.
 - Backend tests run with `NODE_ENV=test` and use `DB_TEST_NAME` (default: `${DB_NAME}_test`) to isolate test data from development data.
 - SMS delivery is scaffolded. With `SMS_DRIVER=plivo`, `/api/workspace/sms/send` returns a `not_implemented` provider result until transport wiring is added.
-- Workspace invite email delivery is scaffolded. With `WORKSPACE_INVITE_EMAIL_DRIVER=smtp`, invite calls will build a message payload and return a `not_implemented` delivery result until SMTP transport wiring is added.
+- Email delivery is scaffolded. With any non-empty `EMAIL_PROVIDER`, sends still return `not_implemented` until provider transport wiring is added.
 
 ## Database setup
 

@@ -41,8 +41,8 @@ Spec builder functions:
 - `createRedisRuntimeSpec(defaults?)`
 - `createWorkerRuntimeSpec(defaults?)`
 - `createSmsRuntimeSpec(defaults?)`
+- `createEmailRuntimeSpec(defaults?)`
 - `createStorageRuntimeSpec(defaults?)`
-- `createInviteEmailRuntimeSpec(defaults?)`
 - `createObservabilityRuntimeSpec(defaults?)`
 - `createAiRuntimeSpec(defaults?)`
 - `createBillingRuntimeSpec(defaults?)`

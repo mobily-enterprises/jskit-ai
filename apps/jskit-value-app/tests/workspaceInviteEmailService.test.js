@@ -6,19 +6,8 @@ import {
   __testables
 } from "@jskit-ai/workspace-service-core/services/inviteEmail";
 
-test("workspace invite email service validates configured driver", () => {
-  assert.throws(
-    () => createWorkspaceInviteEmailService({ driver: "postal" }),
-    /Unsupported WORKSPACE_INVITE_EMAIL_DRIVER/
-  );
-  assert.equal(__testables.normalizeDriver("none"), "none");
-  assert.equal(__testables.normalizeDriver("smtp"), "smtp");
-});
-
 test("workspace invite email service skips delivery when not configured", async () => {
-  const service = createWorkspaceInviteEmailService({
-    driver: "none"
-  });
+  const service = createWorkspaceInviteEmailService({});
 
   const invalidRecipient = await service.sendWorkspaceInviteEmail({ email: "" });
   assert.deepEqual(invalidRecipient, {
@@ -34,25 +23,32 @@ test("workspace invite email service skips delivery when not configured", async 
     invitedBy: {
       displayName: "Owner"
     },
-    roleId: "member"
+    roleId: "member",
+    metadata: "invalid"
   });
 
-  assert.deepEqual(result, {
-    delivered: false,
-    reason: "not_configured"
-  });
+  assert.equal(result.delivered, false);
+  assert.equal(result.reason, "not_configured");
+  assert.equal(result.provider, null);
+  assert.equal(result.messageId, null);
+  assert.equal(result.message.subject.includes("Acme Workspace"), true);
+  assert.equal(result.message.text.includes("Role: member"), true);
+  assert.equal(result.message.text.includes("Invited by: Owner"), true);
 });
 
-test("workspace invite email service returns not-implemented payload for smtp scaffold", async () => {
+test("workspace invite email service delegates sends through injected email sender", async () => {
+  const calls = [];
   const service = createWorkspaceInviteEmailService({
-    driver: "smtp",
     appPublicUrl: "http://localhost:5173",
-    smtpHost: "smtp.example.com",
-    smtpPort: 587,
-    smtpSecure: false,
-    smtpUsername: "mailer",
-    smtpPassword: "secret",
-    smtpFrom: "mailer@example.com"
+    sendEmail: async (payload) => {
+      calls.push(payload);
+      return {
+        sent: false,
+        reason: "not_implemented",
+        provider: "none",
+        messageId: null
+      };
+    }
   });
 
   const result = await service.sendWorkspaceInviteEmail({
@@ -63,14 +59,57 @@ test("workspace invite email service returns not-implemented payload for smtp sc
     invitedBy: {
       displayName: "Owner"
     },
-    roleId: "admin"
+    roleId: "admin",
+    metadata: {
+      source: "workspace_invites"
+    }
   });
 
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].to, "invitee@example.com");
+  assert.equal(calls[0].subject.includes("Acme Workspace"), true);
+  assert.equal(calls[0].text.includes("Role: admin"), true);
+  assert.deepEqual(calls[0].metadata, {
+    source: "workspace_invites"
+  });
   assert.equal(result.delivered, false);
   assert.equal(result.reason, "not_implemented");
-  assert.equal(result.driver, "smtp");
+  assert.equal(result.provider, "none");
+  assert.equal(result.messageId, null);
   assert.equal(result.message.subject.includes("Acme Workspace"), true);
   assert.equal(result.message.text.includes("Role: admin"), true);
   assert.equal(result.message.text.includes("Invited by: Owner"), true);
   assert.equal(result.message.text.includes("http://localhost:5173/workspaces"), true);
+});
+
+test("workspace invite email service marks sender exceptions as provider_error", async () => {
+  const service = createWorkspaceInviteEmailService({
+    sendEmail: async () => {
+      throw new Error("provider down");
+    }
+  });
+
+  const result = await service.sendWorkspaceInviteEmail({
+    email: "invitee@example.com",
+    workspace: {
+      name: "Acme Workspace"
+    }
+  });
+
+  assert.equal(result.delivered, false);
+  assert.equal(result.reason, "provider_error");
+});
+
+test("workspace invite email service testables expose sender resolver", () => {
+  const fakeCommunicationsService = {
+    async sendEmail() {
+      return { sent: true };
+    }
+  };
+
+  const resolvedSendEmail = __testables.resolveSendEmail({
+    communicationsService: fakeCommunicationsService
+  });
+  assert.equal(typeof resolvedSendEmail, "function");
+  assert.equal(__testables.normalizeReason(" NOT_CONFIGURED "), "not_configured");
 });

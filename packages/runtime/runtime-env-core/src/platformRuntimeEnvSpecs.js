@@ -18,9 +18,6 @@ const PLATFORM_RUNTIME_DEFAULTS = Object.freeze({
   EMAIL_PROVIDER: "none",
   AVATAR_STORAGE_DRIVER: "fs",
   AVATAR_PUBLIC_BASE_PATH: "/uploads",
-  WORKSPACE_INVITE_EMAIL_DRIVER: "none",
-  SMTP_PORT: 587,
-  SMTP_SECURE: false,
   METRICS_ENABLED: true,
   CHAT_ATTACHMENT_STORAGE_DRIVER: "fs",
   AI_PROVIDER: "openai",
@@ -198,25 +195,6 @@ function createStorageRuntimeSpec(defaults = {}) {
   };
 }
 
-function createInviteEmailRuntimeSpec(defaults = {}) {
-  return {
-    WORKSPACE_INVITE_EMAIL_DRIVER: str({
-      choices: ["none", "smtp"],
-      default: resolveStringDefault(
-        defaults,
-        "WORKSPACE_INVITE_EMAIL_DRIVER",
-        PLATFORM_RUNTIME_DEFAULTS.WORKSPACE_INVITE_EMAIL_DRIVER
-      )
-    }),
-    SMTP_HOST: str({ default: resolveStringDefault(defaults, "SMTP_HOST", "") }),
-    SMTP_PORT: port({ default: resolveNumberDefault(defaults, "SMTP_PORT", PLATFORM_RUNTIME_DEFAULTS.SMTP_PORT) }),
-    SMTP_SECURE: bool({ default: resolveBooleanDefault(defaults, "SMTP_SECURE", PLATFORM_RUNTIME_DEFAULTS.SMTP_SECURE) }),
-    SMTP_USERNAME: str({ default: resolveStringDefault(defaults, "SMTP_USERNAME", "") }),
-    SMTP_PASSWORD: str({ default: resolveStringDefault(defaults, "SMTP_PASSWORD", "") }),
-    SMTP_FROM: str({ default: resolveStringDefault(defaults, "SMTP_FROM", "") })
-  };
-}
-
 function createObservabilityRuntimeSpec(defaults = {}) {
   return {
     METRICS_ENABLED: bool({
@@ -286,7 +264,6 @@ function createPlatformRuntimeEnvSpec({ defaults = {} } = {}) {
     ...createSmsRuntimeSpec(defaults),
     ...createEmailRuntimeSpec(defaults),
     ...createStorageRuntimeSpec(defaults),
-    ...createInviteEmailRuntimeSpec(defaults),
     ...createObservabilityRuntimeSpec(defaults),
     ...createAiRuntimeSpec(defaults),
     ...createBillingRuntimeSpec(defaults)
@@ -303,7 +280,6 @@ export {
   createSmsRuntimeSpec,
   createEmailRuntimeSpec,
   createStorageRuntimeSpec,
-  createInviteEmailRuntimeSpec,
   createObservabilityRuntimeSpec,
   createAiRuntimeSpec,
   createBillingRuntimeSpec,

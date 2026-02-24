@@ -73,7 +73,7 @@ vi.mock("@jskit-ai/web-runtime-core", async () => {
   };
 });
 
-import { useChatView } from "../../src/views/chat/useChatView.js";
+import { useChatView } from "../../src/runtime/chatRuntime.js";
 
 function createInfiniteQueryState({ pages = [{ items: [], nextCursor: null }], hasNextPage = false } = {}) {
   return {

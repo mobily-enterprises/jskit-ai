@@ -35,3 +35,4 @@ This document defines the extraction target architecture for reusable server cod
 ## Future App Guidance
 
 - [package extension points](./package-extension-points.md)
+- [headless client contract](./headless-client-contract.md)

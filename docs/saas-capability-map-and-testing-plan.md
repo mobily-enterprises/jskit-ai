@@ -58,12 +58,12 @@ This repository is not just a DEG2RAD demo. It is a broad SaaS scaffold with mul
 - Workspace settings read/update
 - role catalog + member role updates
 - workspace invites (create/revoke/redeem)
-- workspace invite email service scaffold
+- workspace invite email message composition + delegated delivery
 - app-surface deny list policy (`surfaceAccess.app.denyUserIds/denyEmails`)
 - Key files:
   - `server/modules/workspace/routes/admin.route.js`
-  - `server/domain/workspace/services/admin.service.js`
-  - `server/domain/workspace/services/inviteEmail.service.js`
+  - `packages/workspace/workspace-service-core/src/services/admin.service.js`
+  - `packages/workspace/workspace-service-core/src/services/inviteEmail.service.js`
 
 ### 1.6 Console governance and ops views
 
@@ -220,10 +220,10 @@ Interpretation: end-to-end expectations are currently out of sync with runtime b
 
 - SMS delivery:
   - `SMS_DRIVER=plivo` currently returns `not_implemented`
-  - file: `server/domain/communications/services/sms.service.js`
-- Workspace invite SMTP delivery:
-  - `WORKSPACE_INVITE_EMAIL_DRIVER=smtp` currently returns `not_implemented`
-  - file: `server/domain/workspace/services/inviteEmail.service.js`
+  - file: `packages/communications/sms-core/src/service.js`
+- Email delivery:
+  - app-level `EMAIL_PROVIDER` transport currently returns `not_implemented`
+  - file: `packages/communications/email-core/src/service.js`
 - Console moderation feature set is still placeholder-level (roles/policy scaffolding exists, feature workflows are not built yet).
 
 ## 6) "Test The Hell Out Of It" Plan (Risk-First)

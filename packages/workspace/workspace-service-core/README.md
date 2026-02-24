@@ -127,14 +127,14 @@ Practical example:
 #### `services/inviteEmail`
 
 - `createService(options)` returns:
-  - `driver`
   - `sendWorkspaceInviteEmail(payload)`
 
 Behavior:
 
 - validates recipient email
-- supports `none` and `smtp` driver modes
-- currently returns `not_implemented` for SMTP send path but returns fully built message payload
+- builds workspace-invite subject/text in one place
+- delegates delivery through injected email sender (`sendEmail` or `communicationsService.sendEmail`)
+- returns normalized delivery metadata (`delivered`, `reason`, provider/message id when available)
 
 Practical example:
 

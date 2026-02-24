@@ -1,19 +1,5 @@
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
 
-const SUPPORTED_DRIVERS = new Set(["none", "smtp"]);
-
-function normalizeDriver(value) {
-  const normalized = String(value || "none")
-    .trim()
-    .toLowerCase();
-
-  if (!SUPPORTED_DRIVERS.has(normalized)) {
-    throw new Error(`Unsupported WORKSPACE_INVITE_EMAIL_DRIVER "${normalized}". Supported: none, smtp.`);
-  }
-
-  return normalized;
-}
-
 function normalizeBaseUrl(value) {
   const raw = String(value || "").trim();
   if (!raw) {
@@ -29,23 +15,6 @@ function normalizeBaseUrl(value) {
   } catch {
     return "";
   }
-}
-
-function normalizeSmtpConfig(options = {}) {
-  return {
-    host: String(options.smtpHost || "").trim(),
-    port: Number(options.smtpPort) || 0,
-    secure: options.smtpSecure === true,
-    username: String(options.smtpUsername || "").trim(),
-    password: String(options.smtpPassword || "").trim(),
-    from: normalizeEmail(options.smtpFrom)
-  };
-}
-
-function hasSmtpTransportConfig(smtpConfig) {
-  return Boolean(
-    smtpConfig.host && smtpConfig.port > 0 && smtpConfig.username && smtpConfig.password && smtpConfig.from
-  );
 }
 
 function createDefaultSurfacePaths(surfaceId) {
@@ -96,10 +65,46 @@ function buildWorkspaceInviteMessage(payload = {}, { appPublicUrl, createSurface
   };
 }
 
+function normalizeMetadata(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value;
+}
+
+function resolveSendEmail(options = {}) {
+  if (typeof options.sendEmail === "function") {
+    return options.sendEmail;
+  }
+
+  if (options.communicationsService && typeof options.communicationsService.sendEmail === "function") {
+    return options.communicationsService.sendEmail.bind(options.communicationsService);
+  }
+
+  return null;
+}
+
+function normalizeReason(value, fallback = "provider_error") {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  return normalized || fallback;
+}
+
+function normalizeResultProvider(value) {
+  const normalized = String(value || "").trim();
+  return normalized || null;
+}
+
+function normalizeResultMessageId(value) {
+  const normalized = String(value || "").trim();
+  return normalized || null;
+}
+
 function createService(options = {}) {
-  const driver = normalizeDriver(options.driver);
   const appPublicUrl = normalizeBaseUrl(options.appPublicUrl);
-  const smtpConfig = normalizeSmtpConfig(options);
+  const sendEmail = resolveSendEmail(options);
   const createSurfacePaths =
     typeof options.createSurfacePaths === "function" ? options.createSurfacePaths : createDefaultSurfacePaths;
 
@@ -112,45 +117,63 @@ function createService(options = {}) {
       };
     }
 
-    if (driver === "none") {
+    const message = buildWorkspaceInviteMessage(payload, {
+      appPublicUrl,
+      createSurfacePaths
+    });
+
+    if (!sendEmail) {
       return {
         delivered: false,
-        reason: "not_configured"
+        reason: "not_configured",
+        provider: null,
+        messageId: null,
+        message
       };
     }
 
-    if (!hasSmtpTransportConfig(smtpConfig)) {
+    let result = null;
+    try {
+      result = await sendEmail({
+        to: recipientEmail,
+        subject: message.subject,
+        text: message.text,
+        metadata: normalizeMetadata(payload.metadata)
+      });
+    } catch {
       return {
         delivered: false,
-        reason: "not_configured"
+        reason: "provider_error",
+        provider: null,
+        messageId: null,
+        message
       };
     }
 
+    const delivered = result?.sent === true;
     return {
-      delivered: false,
-      reason: "not_implemented",
-      driver,
-      message: buildWorkspaceInviteMessage(payload, {
-        appPublicUrl,
-        createSurfacePaths
-      })
+      delivered,
+      reason: delivered ? "sent" : normalizeReason(result?.reason),
+      provider: normalizeResultProvider(result?.provider),
+      messageId: normalizeResultMessageId(result?.messageId),
+      message
     };
   }
 
   return {
-    driver,
     sendWorkspaceInviteEmail
   };
 }
 
 const __testables = {
-  SUPPORTED_DRIVERS,
-  normalizeDriver,
   normalizeBaseUrl,
-  normalizeSmtpConfig,
-  hasSmtpTransportConfig,
   buildWorkspaceInvitesUrl,
-  buildWorkspaceInviteMessage
+  buildWorkspaceInviteMessage,
+  normalizeMetadata,
+  resolveSendEmail,
+  normalizeReason,
+  normalizeResultProvider,
+  normalizeResultMessageId
 };
 
 export { createService, __testables };

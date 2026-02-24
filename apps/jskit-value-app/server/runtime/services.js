@@ -523,16 +523,10 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
   },
   {
     id: "workspaceInviteEmailService",
-    create({ env }) {
+    create({ env, services }) {
       return createWorkspaceInviteEmailService({
-        driver: env.WORKSPACE_INVITE_EMAIL_DRIVER,
         appPublicUrl: env.APP_PUBLIC_URL,
-        smtpHost: env.SMTP_HOST,
-        smtpPort: env.SMTP_PORT,
-        smtpSecure: env.SMTP_SECURE,
-        smtpUsername: env.SMTP_USERNAME,
-        smtpPassword: env.SMTP_PASSWORD,
-        smtpFrom: env.SMTP_FROM,
+        communicationsService: services.communicationsService,
         createSurfacePaths
       });
     }

@@ -1,5 +1,5 @@
 import { createAssistantRuntime } from "@jskit-ai/assistant-client-runtime";
-import { resolveSurfaceFromPathname } from "../shared/surfacePaths.js";
+import { resolveSurfaceFromPathname } from "../../shared/surfacePaths.js";
 import { api } from "../services/api/index.js";
 import { useWorkspaceStore } from "../stores/workspaceStore.js";
 

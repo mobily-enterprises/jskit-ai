@@ -1,5 +1,5 @@
 import { createChatRuntime } from "@jskit-ai/chat-client-runtime";
-import { REALTIME_EVENT_TYPES } from "../shared/eventTypes.js";
+import { REALTIME_EVENT_TYPES } from "../../shared/eventTypes.js";
 import { useAuthGuard } from "../composables/useAuthGuard.js";
 import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { api } from "../services/api/index.js";

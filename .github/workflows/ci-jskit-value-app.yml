@@ -44,6 +44,12 @@ jobs:
       - name: Lint
         run: npm run -w apps/jskit-value-app lint
 
+      - name: Client architecture lint guardrails
+        run: npm run lint:architecture:client
+
+      - name: Client architecture test guardrails
+        run: npm run test:architecture:client
+
       - name: API contract docs check
         run: npm run -w apps/jskit-value-app docs:api-contracts:check
 
