@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRetentionSweepLockKey } from "../server/workers/constants.js";
+import { createRetentionSweepLockKey } from "@jskit-ai/redis-ops-core/workerConstants";
 import { createRetentionSweepProcessor, __testables } from "../server/workers/retentionProcessor.js";
 
 const REDIS_NAMESPACE = "jskit:value-app:test";

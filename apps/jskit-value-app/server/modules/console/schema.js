@@ -3,7 +3,7 @@ import {
   AUTH_EMAIL_MAX_LENGTH,
   AUTH_EMAIL_MIN_LENGTH,
   AUTH_EMAIL_PATTERN
-} from "../../../shared/auth/authConstraints.js";
+} from "@jskit-ai/access-core/authConstraints";
 import { enumSchema } from "../api/schema.js";
 import { createPaginationQuerySchema } from "../api/schema/paginationQuery.schema.js";
 

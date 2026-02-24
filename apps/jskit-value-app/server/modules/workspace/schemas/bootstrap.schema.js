@@ -3,7 +3,7 @@ import {
   AUTH_EMAIL_MAX_LENGTH,
   AUTH_EMAIL_MIN_LENGTH,
   AUTH_EMAIL_PATTERN
-} from "../../../../shared/auth/authConstraints.js";
+} from "@jskit-ai/access-core/authConstraints";
 import {
   SETTINGS_CURRENCY_CODE_PATTERN,
   SETTINGS_DATE_FORMAT_OPTIONS,

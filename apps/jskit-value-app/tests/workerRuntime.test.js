@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { RETENTION_QUEUE_NAME, createWorkerRedisPrefix } from "../server/workers/constants.js";
+import { RETENTION_QUEUE_NAME, createWorkerRedisPrefix } from "@jskit-ai/redis-ops-core/workerConstants";
 import { createWorkerRuntime, __testables } from "../server/workers/runtime.js";
 
 test("worker runtime requires a redis namespace", () => {

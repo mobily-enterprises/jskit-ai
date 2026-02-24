@@ -7,7 +7,7 @@ import {
   CONSOLE_AI_TRANSCRIPTS_PERMISSIONS,
   hasPermission,
   resolveRolePermissions
-} from "../../../domain/console/policies/roles.js";
+} from "@jskit-ai/workspace-console-core/consoleRoles";
 
 function createService(options = {}) {
   return createAssistantTranscriptsCoreService({

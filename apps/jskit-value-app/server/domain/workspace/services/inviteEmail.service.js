@@ -1,4 +1,4 @@
-import { normalizeEmail } from "../../../../shared/auth/utils.js";
+import { normalizeEmail } from "@jskit-ai/access-core/utils";
 import { createSurfacePaths } from "../../../../shared/routing/surfacePaths.js";
 
 const SUPPORTED_DRIVERS = new Set(["none", "smtp"]);

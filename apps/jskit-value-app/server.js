@@ -26,7 +26,7 @@ import {
   createRateLimitPluginOptions,
   resolveRateLimitStartupError,
   resolveRateLimitStartupWarning
-} from "./server/lib/rateLimit.js";
+} from "@jskit-ai/redis-ops-core/rateLimit";
 import { createMetricsRegistry } from "./server/lib/observability/metrics.js";
 import { createServerRuntime } from "./server/runtime/index.js";
 

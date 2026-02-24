@@ -28,7 +28,7 @@ import {
   AUTH_ACCESS_TOKEN_MAX_LENGTH,
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,
   AUTH_REFRESH_TOKEN_MAX_LENGTH
-} from "../shared/auth/authConstraints.js";
+} from "@jskit-ai/access-core/authConstraints";
 
 test("auth helper error mapping covers provider-linking edge cases", () => {
   const alreadyLinked = mapAuthError(

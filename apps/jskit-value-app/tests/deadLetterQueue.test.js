@@ -5,12 +5,12 @@ import {
   RETENTION_DEAD_LETTER_JOB_NAME,
   RETENTION_DEAD_LETTER_QUEUE_NAME,
   createWorkerRedisPrefix
-} from "../server/workers/constants.js";
+} from "@jskit-ai/redis-ops-core/workerConstants";
 import {
   createRetentionDeadLetterQueue,
   enqueueRetentionDeadLetterJob,
   __testables
-} from "../server/workers/deadLetterQueue.js";
+} from "@jskit-ai/redis-ops-core/deadLetterQueue";
 
 test("dead-letter queue payload mapper serializes job and error details", () => {
   const payload = __testables.buildDeadLetterPayload({

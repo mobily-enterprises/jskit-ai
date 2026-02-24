@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeEmail } from "../shared/auth/utils.js";
+import { normalizeEmail } from "@jskit-ai/access-core/utils";
 import {
   buildWorkspaceBaseSlug,
   buildWorkspaceName,
@@ -13,7 +13,7 @@ import {
   normalizePermissions,
   resolveMembershipRoleId,
   resolveMembershipStatus
-} from "../server/domain/workspace/policies/workspaceAccess.js";
+} from "@jskit-ai/workspace-console-core/workspaceAccess";
 import { createWorkspaceSettingsDefaults } from "../server/domain/workspace/policies/workspacePolicyDefaults.js";
 import {
   mapPendingInviteSummary,

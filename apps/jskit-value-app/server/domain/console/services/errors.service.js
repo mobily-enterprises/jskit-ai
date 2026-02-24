@@ -2,7 +2,7 @@ import { AppError } from "../../../lib/errors.js";
 import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
 import { normalizePagination } from "../../../lib/primitives/pagination.js";
 import { createConsoleErrorPayloadNormalizer, SERVER_SIMULATION_KINDS } from "@jskit-ai/observability-core/serverPayload";
-import { hasPermission, resolveRolePermissions } from "../policies/roles.js";
+import { hasPermission, resolveRolePermissions } from "@jskit-ai/workspace-console-core/consoleRoles";
 
 const BROWSER_ERRORS_READ_PERMISSION = "console.errors.browser.read";
 const SERVER_ERRORS_READ_PERMISSION = "console.errors.server.read";

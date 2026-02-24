@@ -5,7 +5,7 @@ import {
   normalizeBatchSize,
   normalizeCutoffDateOrThrow
 } from "../../../lib/primitives/retention.js";
-import { normalizeEmail } from "../../../../shared/auth/utils.js";
+import { normalizeEmail } from "@jskit-ai/access-core/utils";
 
 function mapInviteRowRequired(row) {
   if (!row) {

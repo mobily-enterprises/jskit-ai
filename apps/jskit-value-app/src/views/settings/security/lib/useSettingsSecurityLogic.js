@@ -7,8 +7,8 @@ import {
   AUTH_METHOD_KIND_PASSWORD,
   AUTH_METHOD_PASSWORD_ID,
   buildOAuthMethodId
-} from "../../../../../shared/auth/authMethods.js";
-import { AUTH_OAUTH_PROVIDER_METADATA, normalizeOAuthProvider } from "../../../../../shared/auth/oauthProviders.js";
+} from "@jskit-ai/access-core/authMethods";
+import { AUTH_OAUTH_PROVIDER_METADATA, normalizeOAuthProvider } from "@jskit-ai/access-core/oauthProviders";
 import { writePendingOAuthContext } from "../../../../utils/oauthCallback.js";
 
 export function useSettingsSecurityLogic({

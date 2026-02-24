@@ -1,7 +1,7 @@
 import { AppError } from "../../../lib/errors.js";
 import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
 import { mapMember } from "../mappers/consoleMappers.js";
-import { CONSOLE_MANAGEMENT_PERMISSIONS, CONSOLE_ROLE_ID, normalizeRoleId } from "../policies/roles.js";
+import { CONSOLE_MANAGEMENT_PERMISSIONS, CONSOLE_ROLE_ID, normalizeRoleId } from "@jskit-ai/workspace-console-core/consoleRoles";
 
 function createConsoleMembersService({
   requirePermission,

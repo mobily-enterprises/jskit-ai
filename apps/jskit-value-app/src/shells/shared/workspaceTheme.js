@@ -1,4 +1,4 @@
-import { coerceWorkspaceColor as normalizeWorkspaceColor } from "../../../shared/workspace/colors.js";
+import { coerceWorkspaceColor as normalizeWorkspaceColor } from "@jskit-ai/workspace-console-core/workspaceColors";
 
 function workspaceColorToRgb(color) {
   const normalized = normalizeWorkspaceColor(color).replace(/^#/, "");

@@ -1,6 +1,6 @@
 import { db } from "../../../../db/knex.js";
 import { toIsoString, toMysqlDateTimeUtc } from "../../../lib/primitives/dateUtils.js";
-import { coerceWorkspaceColor } from "../../../../shared/workspace/colors.js";
+import { coerceWorkspaceColor } from "@jskit-ai/workspace-console-core/workspaceColors";
 
 function mapWorkspaceRowRequired(row) {
   if (!row) {

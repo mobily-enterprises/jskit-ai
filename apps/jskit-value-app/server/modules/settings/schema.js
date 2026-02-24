@@ -6,9 +6,9 @@ import {
   AUTH_LOGIN_PASSWORD_MAX_LENGTH,
   AUTH_PASSWORD_MAX_LENGTH,
   AUTH_PASSWORD_MIN_LENGTH
-} from "../../../shared/auth/authConstraints.js";
-import { AUTH_METHOD_PASSWORD_PROVIDER } from "../../../shared/auth/authMethods.js";
-import { AUTH_OAUTH_PROVIDERS } from "../../../shared/auth/oauthProviders.js";
+} from "@jskit-ai/access-core/authConstraints";
+import { AUTH_METHOD_PASSWORD_PROVIDER } from "@jskit-ai/access-core/authMethods";
+import { AUTH_OAUTH_PROVIDERS } from "@jskit-ai/access-core/oauthProviders";
 import {
   SETTINGS_CURRENCY_CODE_PATTERN,
   SETTINGS_DATE_FORMAT_OPTIONS,

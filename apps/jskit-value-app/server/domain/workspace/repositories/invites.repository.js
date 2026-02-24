@@ -6,8 +6,8 @@ import {
   normalizeBatchSize,
   normalizeCutoffDateOrThrow
 } from "../../../lib/primitives/retention.js";
-import { normalizeEmail } from "../../../../shared/auth/utils.js";
-import { coerceWorkspaceColor } from "../../../../shared/workspace/colors.js";
+import { normalizeEmail } from "@jskit-ai/access-core/utils";
+import { coerceWorkspaceColor } from "@jskit-ai/workspace-console-core/workspaceColors";
 
 function mapWorkspaceInviteRowRequired(row) {
   if (!row) {

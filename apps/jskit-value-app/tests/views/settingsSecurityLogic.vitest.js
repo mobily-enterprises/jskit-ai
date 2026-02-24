@@ -6,7 +6,7 @@ import {
   AUTH_METHOD_KIND_PASSWORD,
   AUTH_METHOD_PASSWORD_ID,
   buildOAuthMethodId
-} from "../../shared/auth/authMethods.js";
+} from "@jskit-ai/access-core/authMethods";
 
 const mocks = vi.hoisted(() => ({
   api: {

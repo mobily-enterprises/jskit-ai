@@ -1,7 +1,7 @@
 import { AppError } from "../../../lib/errors.js";
 import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
 import { normalizePagination } from "../../../lib/primitives/pagination.js";
-import { CONSOLE_BILLING_PERMISSIONS } from "../policies/roles.js";
+import { CONSOLE_BILLING_PERMISSIONS } from "@jskit-ai/workspace-console-core/consoleRoles";
 import {
   normalizeBillingCatalogPlanCreatePayload,
   normalizeBillingCatalogPlanUpdatePayload,

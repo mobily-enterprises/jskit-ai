@@ -12,7 +12,7 @@ import {
   buildOAuthMethodId,
   findAuthMethodDefinition,
   parseAuthMethodId
-} from "../shared/auth/authMethods.js";
+} from "@jskit-ai/access-core/authMethods";
 
 function createOauthFixture(overrides = {}) {
   const calls = {

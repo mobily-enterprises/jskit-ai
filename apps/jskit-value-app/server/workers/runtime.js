@@ -2,9 +2,11 @@ import {
   createWorkerRuntime as createWorkerRuntimeCore,
   __testables
 } from "@jskit-ai/redis-ops-core/workerRuntime";
-
-import { createRetentionDeadLetterQueue, enqueueRetentionDeadLetterJob } from "./deadLetterQueue.js";
-import { createWorkerRedisConnection } from "./redisConnection.js";
+import {
+  createRetentionDeadLetterQueue,
+  enqueueRetentionDeadLetterJob
+} from "@jskit-ai/redis-ops-core/deadLetterQueue";
+import { createWorkerRedisConnection } from "@jskit-ai/redis-ops-core/workerRedisConnection";
 import { createRetentionSweepProcessor, isRetentionLockHeldError } from "./retentionProcessor.js";
 
 function createWorkerRuntime(options = {}) {

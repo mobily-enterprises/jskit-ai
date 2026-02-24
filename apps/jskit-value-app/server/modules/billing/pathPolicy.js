@@ -1,4 +1,4 @@
-import { normalizeReturnToPath } from "../../../shared/auth/utils.js";
+import { normalizeReturnToPath } from "@jskit-ai/access-core/utils";
 import { AppError } from "../../lib/errors.js";
 
 function normalizeBillingPath(value, { fieldName }) {

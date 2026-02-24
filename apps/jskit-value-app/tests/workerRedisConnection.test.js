@@ -5,7 +5,7 @@ import {
   createWorkerRedisConnection,
   closeWorkerRedisConnection,
   __testables
-} from "../server/workers/redisConnection.js";
+} from "@jskit-ai/redis-ops-core/workerRedisConnection";
 
 test("worker redis connection normalizes URL and validates required redis URL", () => {
   assert.equal(__testables.normalizeRedisUrl("  redis://localhost:6379/1 "), "redis://localhost:6379/1");

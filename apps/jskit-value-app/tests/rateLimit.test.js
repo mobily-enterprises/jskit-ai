@@ -6,7 +6,7 @@ import {
   resolveRateLimitStartupError,
   resolveRateLimitStartupWarning,
   __testables as rateLimitTestables
-} from "../server/lib/rateLimit.js";
+} from "@jskit-ai/redis-ops-core/rateLimit";
 
 test("rate-limit helper normalizes modes and resolves key material", () => {
   assert.equal(rateLimitTestables.normalizeRateLimitMode(""), "memory");

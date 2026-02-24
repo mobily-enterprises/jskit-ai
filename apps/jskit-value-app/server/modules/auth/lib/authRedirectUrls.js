@@ -1,13 +1,13 @@
 import {
   AUTH_OAUTH_PROVIDERS,
   normalizeOAuthProvider as normalizeSupportedOAuthProvider
-} from "../../../../shared/auth/oauthProviders.js";
+} from "@jskit-ai/access-core/oauthProviders";
 import {
   OAUTH_QUERY_PARAM_INTENT,
   OAUTH_QUERY_PARAM_PROVIDER,
   OAUTH_QUERY_PARAM_RETURN_TO
-} from "../../../../shared/auth/oauthCallbackParams.js";
-import { normalizeOAuthIntent, normalizeReturnToPath } from "../../../../shared/auth/utils.js";
+} from "@jskit-ai/access-core/oauthCallbackParams";
+import { normalizeOAuthIntent, normalizeReturnToPath } from "@jskit-ai/access-core/utils";
 
 const PASSWORD_RESET_PATH = "reset-password";
 const OAUTH_LOGIN_PATH = "login";

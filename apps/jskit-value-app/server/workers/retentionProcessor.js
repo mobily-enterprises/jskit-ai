@@ -1,14 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { createService as createRetentionService } from "../domain/operations/services/retention.service.js";
 import { createRepositories } from "../runtime/repositories.js";
-import { createRetentionSweepLockKey } from "./constants.js";
+import { createRetentionSweepLockKey } from "@jskit-ai/redis-ops-core/workerConstants";
 import {
   acquireDistributedLock,
   releaseDistributedLock,
   extendDistributedLock,
   normalizeLockTtlMs
-} from "./locking.js";
-import { normalizeRetentionSweepPayload } from "./retentionQueue.js";
+} from "@jskit-ai/redis-ops-core/workerLocking";
+import { normalizeRetentionSweepPayload } from "@jskit-ai/redis-ops-core/retentionQueue";
 
 class RetentionLockHeldError extends Error {
   constructor({ lockKey = "", jobId = "", trigger = "", idempotencyKey = "" } = {}) {

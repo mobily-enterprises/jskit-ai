@@ -10,7 +10,7 @@ import {
   getRoleCatalog,
   normalizeRoleId,
   resolveAssignableRoleIds
-} from "../policies/roles.js";
+} from "@jskit-ai/workspace-console-core/consoleRoles";
 import { DEFAULT_BILLING_PROVIDER, resolveBillingProvider } from "./billingCatalog.service.js";
 import { createConsoleAccessService } from "./consoleAccess.service.js";
 import { createConsoleBillingService } from "./consoleBilling.service.js";

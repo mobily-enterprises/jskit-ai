@@ -6,7 +6,7 @@ import {
   releaseDistributedLock,
   extendDistributedLock,
   __testables
-} from "../server/workers/locking.js";
+} from "@jskit-ai/redis-ops-core/workerLocking";
 
 test("worker locking helpers normalize lock primitives", () => {
   assert.equal(__testables.normalizeLockTtlMs(500, 9000), 1000);

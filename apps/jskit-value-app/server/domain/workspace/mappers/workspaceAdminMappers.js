@@ -1,6 +1,6 @@
 import { OWNER_ROLE_ID } from "../../../lib/rbacManifest.js";
 import { extractAppSurfacePolicy } from "../../../surfaces/appSurface.js";
-import { coerceWorkspaceColor } from "../../../../shared/workspace/colors.js";
+import { coerceWorkspaceColor } from "@jskit-ai/workspace-console-core/workspaceColors";
 import { resolveTranscriptModeFromWorkspaceSettings } from "../../../lib/aiTranscriptMode.js";
 import { resolveAssistantSystemPromptsFromWorkspaceSettings } from "../../../lib/aiAssistantSystemPrompt.js";
 import { mapWorkspaceAdminSummary } from "./workspaceMappers.js";

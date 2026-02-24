@@ -14,7 +14,7 @@ import {
   AUTH_METHOD_KIND_OAUTH,
   AUTH_METHOD_KIND_OTP,
   AUTH_METHOD_KIND_PASSWORD
-} from "../../../../shared/auth/authMethods.js";
+} from "@jskit-ai/access-core/authMethods";
 
 export function useSettingsSecurityForm(options) {
   if (!options) {

@@ -4,10 +4,10 @@ import {
   AUTH_METHOD_PASSWORD_ID,
   AUTH_METHOD_PASSWORD_PROVIDER,
   buildOAuthMethodId
-} from "../../../shared/auth/authMethods.js";
-import { AUTH_OAUTH_DEFAULT_PROVIDER } from "../../../shared/auth/oauthProviders.js";
-import { normalizeEmail } from "../../../shared/auth/utils.js";
-import { validators } from "../../../shared/auth/validators.js";
+} from "@jskit-ai/access-core/authMethods";
+import { AUTH_OAUTH_DEFAULT_PROVIDER } from "@jskit-ai/access-core/oauthProviders";
+import { normalizeEmail } from "@jskit-ai/access-core/utils";
+import { validators } from "@jskit-ai/access-core/validators";
 import {
   isTransientAuthMessage,
   isTransientSupabaseError,

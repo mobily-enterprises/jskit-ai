@@ -1,6 +1,6 @@
 import { AppError } from "../../lib/errors.js";
 import { isMysqlDuplicateEntryError } from "../../lib/primitives/mysqlErrors.js";
-import { validators as authValidators } from "../../../shared/auth/validators.js";
+import { validators as authValidators } from "@jskit-ai/access-core/validators";
 import { SETTINGS_FIELD_SPECS } from "../../../shared/settings/model.js";
 import { buildPatch } from "@jskit-ai/workspace-console-core/settingsPatchBuilder";
 import { resolveProfileIdentity } from "../../domain/users/profileIdentity.js";

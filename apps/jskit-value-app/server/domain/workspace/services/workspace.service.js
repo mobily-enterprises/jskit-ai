@@ -1,7 +1,7 @@
 import { AppError } from "../../../lib/errors.js";
 import { OWNER_ROLE_ID, resolveRolePermissions } from "../../../lib/rbacManifest.js";
 import { normalizeSurfaceId, resolveSurfaceById } from "../../../surfaces/index.js";
-import { normalizeEmail } from "../../../../shared/auth/utils.js";
+import { normalizeEmail } from "@jskit-ai/access-core/utils";
 import { isMysqlDuplicateEntryError } from "../../../lib/primitives/mysqlErrors.js";
 import { toSlugPart, buildWorkspaceName, buildWorkspaceBaseSlug } from "../policies/workspaceNaming.js";
 import {
@@ -17,9 +17,9 @@ import {
   mapMembershipSummary,
   normalizePermissions,
   createMembershipIndexes
-} from "../policies/workspaceAccess.js";
+} from "@jskit-ai/workspace-console-core/workspaceAccess";
 import { createWorkspaceSettingsDefaults } from "../policies/workspacePolicyDefaults.js";
-import { encodeInviteTokenHash } from "../policies/inviteTokens.js";
+import { encodeInviteTokenHash } from "@jskit-ai/access-core/inviteTokens";
 import { listInviteMembershipsByWorkspaceId } from "../lookups/workspaceMembershipLookup.js";
 
 function createService({

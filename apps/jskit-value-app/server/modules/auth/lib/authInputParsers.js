@@ -3,13 +3,13 @@ import {
   AUTH_ACCESS_TOKEN_MAX_LENGTH,
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,
   AUTH_REFRESH_TOKEN_MAX_LENGTH
-} from "../../../../shared/auth/authConstraints.js";
+} from "@jskit-ai/access-core/authConstraints";
 import {
   AUTH_OAUTH_DEFAULT_PROVIDER,
   AUTH_OAUTH_PROVIDERS,
   normalizeOAuthProvider as normalizeSupportedOAuthProvider
-} from "../../../../shared/auth/oauthProviders.js";
-import { validators } from "../../../../shared/auth/validators.js";
+} from "@jskit-ai/access-core/oauthProviders";
+import { validators } from "@jskit-ai/access-core/validators";
 import { validationError } from "./authErrorMappers.js";
 
 const OTP_VERIFY_TYPE = "email";

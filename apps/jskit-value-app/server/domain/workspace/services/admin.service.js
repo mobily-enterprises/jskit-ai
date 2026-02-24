@@ -1,6 +1,6 @@
 import { AppError } from "../../../lib/errors.js";
 import { OWNER_ROLE_ID } from "../../../lib/rbacManifest.js";
-import { normalizeEmail } from "../../../../shared/auth/utils.js";
+import { normalizeEmail } from "@jskit-ai/access-core/utils";
 import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
 import { isMysqlDuplicateEntryError } from "../../../lib/primitives/mysqlErrors.js";
 import {
@@ -9,8 +9,8 @@ import {
   hashInviteToken,
   normalizeInviteToken,
   resolveInviteTokenHash
-} from "../policies/inviteTokens.js";
-import { listRoleDescriptors, resolveAssignableRoleIds } from "../policies/workspaceRoleCatalog.js";
+} from "@jskit-ai/access-core/inviteTokens";
+import { listRoleDescriptors, resolveAssignableRoleIds } from "@jskit-ai/workspace-console-core/workspaceRoleCatalog";
 import { createWorkspaceSettingsDefaults } from "../policies/workspacePolicyDefaults.js";
 import { parseWorkspaceSettingsPatch } from "../policies/workspaceSettingsPatch.js";
 import { mapWorkspaceAdminSummary } from "../mappers/workspaceMappers.js";

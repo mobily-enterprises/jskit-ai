@@ -1,5 +1,5 @@
 import { AppError } from "../../../lib/errors.js";
-import { CONSOLE_BILLING_PERMISSIONS } from "../policies/roles.js";
+import { CONSOLE_BILLING_PERMISSIONS } from "@jskit-ai/workspace-console-core/consoleRoles";
 
 const PAID_PLAN_CHANGE_POLICY_REQUIRED_NOW = "required_now";
 const PAID_PLAN_CHANGE_POLICY_ALLOW_WITHOUT_PAYMENT_METHOD = "allow_without_payment_method";

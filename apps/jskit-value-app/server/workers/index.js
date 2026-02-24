@@ -5,10 +5,20 @@ export {
   RETENTION_DEAD_LETTER_JOB_NAME,
   createWorkerRedisPrefix,
   createRetentionSweepLockKey
-} from "./constants.js";
-export { createWorkerRedisConnection, closeWorkerRedisConnection } from "./redisConnection.js";
-export { createRetentionQueue, enqueueRetentionSweep } from "./retentionQueue.js";
-export { createRetentionDeadLetterQueue, enqueueRetentionDeadLetterJob } from "./deadLetterQueue.js";
-export { acquireDistributedLock, releaseDistributedLock, extendDistributedLock } from "./locking.js";
+} from "@jskit-ai/redis-ops-core/workerConstants";
+export {
+  createWorkerRedisConnection,
+  closeWorkerRedisConnection
+} from "@jskit-ai/redis-ops-core/workerRedisConnection";
+export { createRetentionQueue, enqueueRetentionSweep } from "@jskit-ai/redis-ops-core/retentionQueue";
+export {
+  createRetentionDeadLetterQueue,
+  enqueueRetentionDeadLetterJob
+} from "@jskit-ai/redis-ops-core/deadLetterQueue";
+export {
+  acquireDistributedLock,
+  releaseDistributedLock,
+  extendDistributedLock
+} from "@jskit-ai/redis-ops-core/workerLocking";
 export { createRetentionSweepProcessor } from "./retentionProcessor.js";
 export { createWorkerRuntime } from "./runtime.js";

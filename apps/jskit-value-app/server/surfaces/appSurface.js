@@ -1,4 +1,4 @@
-import { normalizeEmail } from "../../shared/auth/utils.js";
+import { normalizeEmail } from "@jskit-ai/access-core/utils";
 
 function normalizeDenyUserIds(rawUserIds) {
   if (!Array.isArray(rawUserIds)) {

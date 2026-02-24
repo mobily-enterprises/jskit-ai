@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "../server/lib/errors.js";
-import { normalizeEmail } from "../shared/auth/utils.js";
+import { normalizeEmail } from "@jskit-ai/access-core/utils";
 import { parsePositiveInteger } from "../server/lib/primitives/integers.js";
 import {
   normalizeWorkspaceColor,
@@ -11,7 +11,7 @@ import {
 import {
   listRoleDescriptors,
   resolveAssignableRoleIds
-} from "../server/domain/workspace/policies/workspaceRoleCatalog.js";
+} from "@jskit-ai/workspace-console-core/workspaceRoleCatalog";
 import { parseWorkspaceSettingsPatch } from "../server/domain/workspace/policies/workspaceSettingsPatch.js";
 
 test("workspace admin primitives normalize values", () => {

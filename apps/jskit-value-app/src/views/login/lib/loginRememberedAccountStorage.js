@@ -1,4 +1,4 @@
-import { normalizeEmail } from "../../../../shared/auth/utils.js";
+import { normalizeEmail } from "@jskit-ai/access-core/utils";
 
 const REMEMBERED_ACCOUNT_STORAGE_KEY = "auth.rememberedAccount";
 

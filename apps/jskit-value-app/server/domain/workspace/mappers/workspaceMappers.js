@@ -1,4 +1,4 @@
-import { coerceWorkspaceColor } from "../../../../shared/workspace/colors.js";
+import { coerceWorkspaceColor } from "@jskit-ai/workspace-console-core/workspaceColors";
 import { resolveTranscriptModeFromWorkspaceSettings } from "../../../lib/aiTranscriptMode.js";
 
 function normalizeWorkspaceColor(value) {

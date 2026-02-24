@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as constraints from "../shared/auth/authConstraints.js";
-import { normalizeEmail, normalizeOAuthIntent, normalizeReturnToPath } from "../shared/auth/utils.js";
-import { validators } from "../shared/auth/validators.js";
+import * as constraints from "@jskit-ai/access-core/authConstraints";
+import { normalizeEmail, normalizeOAuthIntent, normalizeReturnToPath } from "@jskit-ai/access-core/utils";
+import { validators } from "@jskit-ai/access-core/validators";
 
 test("shared auth constraints expose expected defaults", () => {
   assert.equal(constraints.AUTH_EMAIL_MIN_LENGTH, 3);

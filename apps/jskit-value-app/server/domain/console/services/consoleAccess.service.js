@@ -2,7 +2,7 @@ import { AppError } from "../../../lib/errors.js";
 import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
 import { isMysqlDuplicateEntryError } from "../../../lib/primitives/mysqlErrors.js";
 import { mapMembershipSummary } from "../mappers/consoleMappers.js";
-import { CONSOLE_ROLE_ID, hasPermission, normalizeRoleId, resolveRolePermissions } from "../policies/roles.js";
+import { CONSOLE_ROLE_ID, hasPermission, normalizeRoleId, resolveRolePermissions } from "@jskit-ai/workspace-console-core/consoleRoles";
 
 function createConsoleAccessService({
   consoleMembershipsRepository,

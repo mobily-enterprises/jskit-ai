@@ -5,8 +5,8 @@ import {
   RETENTION_QUEUE_NAME,
   RETENTION_SWEEP_JOB_NAME,
   createWorkerRedisPrefix
-} from "../server/workers/constants.js";
-import { createRetentionQueue, enqueueRetentionSweep, __testables } from "../server/workers/retentionQueue.js";
+} from "@jskit-ai/redis-ops-core/workerConstants";
+import { createRetentionQueue, enqueueRetentionSweep, __testables } from "@jskit-ai/redis-ops-core/retentionQueue";
 
 test("retention queue payload normalizers enforce stable defaults", () => {
   assert.equal(__testables.normalizeLabel("  CrOn ", "manual"), "cron");

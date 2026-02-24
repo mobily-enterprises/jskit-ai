@@ -9,7 +9,7 @@ import {
   AUTH_METHOD_PASSWORD_ID,
   AUTH_METHOD_PASSWORD_PROVIDER,
   buildOAuthMethodId
-} from "../../../../shared/auth/authMethods.js";
+} from "@jskit-ai/access-core/authMethods";
 
 function normalizeIdentityProviderId(value) {
   return String(value || "")

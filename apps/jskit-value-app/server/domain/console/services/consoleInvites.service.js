@@ -1,7 +1,7 @@
 import { AppError } from "../../../lib/errors.js";
 import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
 import { isMysqlDuplicateEntryError } from "../../../lib/primitives/mysqlErrors.js";
-import { normalizeEmail } from "../../../../shared/auth/utils.js";
+import { normalizeEmail } from "@jskit-ai/access-core/utils";
 import { mapInvite, mapPendingInvite } from "../mappers/consoleMappers.js";
 import { resolveInviteExpiresAt } from "../policies/invitePolicy.js";
 import {
@@ -10,8 +10,8 @@ import {
   hashInviteToken,
   normalizeInviteToken,
   resolveInviteTokenHash
-} from "../policies/inviteTokens.js";
-import { CONSOLE_MANAGEMENT_PERMISSIONS } from "../policies/roles.js";
+} from "@jskit-ai/access-core/inviteTokens";
+import { CONSOLE_MANAGEMENT_PERMISSIONS } from "@jskit-ai/workspace-console-core/consoleRoles";
 
 function createConsoleInvitesService({
   requirePermission,
