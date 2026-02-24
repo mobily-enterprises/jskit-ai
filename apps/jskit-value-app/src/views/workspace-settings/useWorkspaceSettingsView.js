@@ -170,6 +170,7 @@ export function useWorkspaceSettingsView(options = {}) {
   const isSavingWorkspaceSettings = computed(() => updateWorkspaceSettingsMutation.isPending.value);
   const isCreatingInvite = computed(() => createInviteMutation.isPending.value);
   const isRevokingInvite = computed(() => revokeInviteMutation.isPending.value);
+  const hasLoadedWorkspaceSettings = computed(() => workspaceSettingsQuery.data.value != null);
 
   function applyWorkspaceSettingsData(data) {
     if (!data || typeof data !== "object") {
@@ -467,7 +468,8 @@ export function useWorkspaceSettingsView(options = {}) {
     status: reactive({
       isSavingWorkspaceSettings,
       isCreatingInvite,
-      isRevokingInvite
+      isRevokingInvite,
+      hasLoadedWorkspaceSettings
     }),
     actions: {
       submitWorkspaceSettings,

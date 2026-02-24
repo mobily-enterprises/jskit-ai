@@ -9,11 +9,16 @@
           </v-card-item>
           <v-divider />
           <v-card-text>
-            <v-alert v-if="isWorkspaceMode && !workspaceInvitesAvailable" type="warning" variant="tonal" class="mb-3">
+            <v-alert
+              v-if="isWorkspaceMode && workspaceInvitePolicyLoaded && !workspaceInvitesAvailable"
+              type="warning"
+              variant="tonal"
+              class="mb-3"
+            >
               {{ copyText.workspaceInvitesUnavailable }}
             </v-alert>
             <v-alert
-              v-else-if="isWorkspaceMode && !workspaceInvitesEnabled"
+              v-else-if="isWorkspaceMode && workspaceInvitePolicyLoaded && !workspaceInvitesEnabled"
               type="info"
               variant="tonal"
               class="mb-3"
@@ -356,6 +361,13 @@ const canManageMembers = computed(() => Boolean(unref(permissions.canManageMembe
 const canRevokeInvites = computed(() => Boolean(unref(permissions.canRevokeInvites)));
 const isCreatingInvite = computed(() => Boolean(unref(status.isCreatingInvite)));
 const isRevokingInvite = computed(() => Boolean(unref(status.isRevokingInvite)));
+const workspaceInvitePolicyLoaded = computed(() => {
+  const value = unref(status.hasLoadedWorkspaceSettings);
+  if (typeof value === "boolean") {
+    return value;
+  }
+  return true;
+});
 
 const inviteMessage = computed(() => String(unref(feedback.inviteMessage) || ""));
 const inviteMessageType = computed(() => String(unref(feedback.inviteMessageType) || "success"));

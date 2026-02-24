@@ -109,4 +109,52 @@ describe("MembersAdminClientElement", () => {
 
     expect(wrapper.get('[data-testid="members-extra-slot"]').exists()).toBe(true);
   });
+
+  it("does not show workspace invite policy warning while settings are loading", () => {
+    const wrapper = mountElement({
+      props: createBaseProps({
+        forms: {
+          invite: {
+            email: "",
+            roleId: "member"
+          },
+          workspace: {
+            invitesAvailable: false,
+            invitesEnabled: true
+          }
+        },
+        status: {
+          isCreatingInvite: false,
+          isRevokingInvite: false,
+          hasLoadedWorkspaceSettings: false
+        }
+      })
+    });
+
+    expect(wrapper.text()).not.toContain("Invites are disabled by app policy or role manifest.");
+  });
+
+  it("shows workspace invite policy warning once settings are loaded", () => {
+    const wrapper = mountElement({
+      props: createBaseProps({
+        forms: {
+          invite: {
+            email: "",
+            roleId: "member"
+          },
+          workspace: {
+            invitesAvailable: false,
+            invitesEnabled: true
+          }
+        },
+        status: {
+          isCreatingInvite: false,
+          isRevokingInvite: false,
+          hasLoadedWorkspaceSettings: true
+        }
+      })
+    });
+
+    expect(wrapper.text()).toContain("Invites are disabled by app policy or role manifest.");
+  });
 });
