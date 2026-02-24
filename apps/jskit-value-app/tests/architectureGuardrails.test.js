@@ -13,7 +13,7 @@ const APP_SPECIFIC_SERVER_FEATURE_ALLOWLIST = Object.freeze([
   "deg2rad",
   "projects"
 ]);
-const TEMPORARY_SERVER_LIB_IMPORT_ALLOWLIST = Object.freeze(["server/lib/appConfig.js"]);
+const TEMPORARY_SERVER_LIB_IMPORT_ALLOWLIST = Object.freeze([]);
 const LEGACY_TRANSCRIPT_MODE_FILES = Object.freeze([
   "server/lib/aiTranscriptMode.js",
   "server/modules/ai/transcripts/mode.js"

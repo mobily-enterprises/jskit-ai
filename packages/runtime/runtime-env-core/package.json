@@ -9,7 +9,8 @@
   "exports": {
     ".": "./src/index.js",
     "./platformRuntimeEnv": "./src/platformRuntimeEnv.js",
-    "./platformRuntimeEnvSpecs": "./src/platformRuntimeEnvSpecs.js"
+    "./platformRuntimeEnvSpecs": "./src/platformRuntimeEnvSpecs.js",
+    "./appRuntimePolicy": "./src/appRuntimePolicy.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

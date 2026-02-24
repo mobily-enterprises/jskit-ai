@@ -80,4 +80,9 @@ function toBrowserConfig(appConfig) {
   };
 }
 
-export { resolveAppConfig, toBrowserConfig };
+const __testables = {
+  toPositiveInteger,
+  resolveManifestPath
+};
+
+export { resolveAppConfig, toBrowserConfig, __testables };

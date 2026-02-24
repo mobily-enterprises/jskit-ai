@@ -10,7 +10,7 @@ import fastifySwaggerUi from "@fastify/swagger-ui";
 import { TypeBoxValidatorCompiler } from "@fastify/type-provider-typebox";
 import { resolveRepositoryConfigForRuntime } from "./config/index.js";
 import { createPlatformRuntimeEnv } from "@jskit-ai/runtime-env-core/platformRuntimeEnv";
-import { resolveAppConfig, toBrowserConfig } from "./server/lib/appConfig.js";
+import { resolveAppConfig, toBrowserConfig } from "@jskit-ai/runtime-env-core/appRuntimePolicy";
 import { listManifestPermissions, loadRbacManifest, manifestIncludesPermission } from "@jskit-ai/rbac-core";
 import { initDatabase, closeDatabase } from "./db/knex.js";
 import { isAppError } from "@jskit-ai/server-runtime-core/errors";

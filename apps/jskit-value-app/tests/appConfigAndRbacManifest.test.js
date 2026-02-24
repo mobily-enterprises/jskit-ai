@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-import { resolveAppConfig, toBrowserConfig } from "../server/lib/appConfig.js";
+import { resolveAppConfig, toBrowserConfig } from "@jskit-ai/runtime-env-core/appRuntimePolicy";
 import {
   OWNER_ROLE_ID,
   createOwnerOnlyManifest,
