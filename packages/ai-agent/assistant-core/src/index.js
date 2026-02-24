@@ -5,3 +5,13 @@ export {
   executeToolCall,
   __testables as assistantToolRegistryTestables
 } from "./toolRegistry.js";
+export {
+  AI_ASSISTANT_SYSTEM_PROMPT_MAX_LENGTH,
+  normalizePromptValue,
+  resolveAssistantSystemPromptAppFromWorkspaceSettings,
+  resolveAssistantSystemPromptWorkspaceFromConsoleSettings,
+  resolveAssistantSystemPromptsFromWorkspaceSettings,
+  applyAssistantSystemPromptAppToWorkspaceFeatures,
+  applyAssistantSystemPromptsToWorkspaceFeatures,
+  applyAssistantSystemPromptWorkspaceToConsoleFeatures
+} from "./systemPrompt.js";

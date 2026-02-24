@@ -2,7 +2,7 @@ import { OWNER_ROLE_ID } from "@jskit-ai/rbac-core";
 import { extractAppSurfacePolicy } from "../../../surfaces/appSurface.js";
 import { coerceWorkspaceColor } from "@jskit-ai/workspace-console-core/workspaceColors";
 import { resolveTranscriptModeFromWorkspaceSettings } from "@jskit-ai/assistant-transcripts-core";
-import { resolveAssistantSystemPromptsFromWorkspaceSettings } from "../../../lib/aiAssistantSystemPrompt.js";
+import { resolveAssistantSystemPromptsFromWorkspaceSettings } from "@jskit-ai/assistant-core/systemPrompt";
 import { mapWorkspaceAdminSummary } from "./workspaceMappers.js";
 
 function mapWorkspaceSettingsResponse(workspace, workspaceSettings, options = {}) {

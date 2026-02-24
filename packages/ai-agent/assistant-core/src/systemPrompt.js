@@ -91,6 +91,12 @@ function applyAssistantSystemPromptWorkspaceToConsoleFeatures(features, promptVa
   };
 }
 
+const __testables = {
+  normalizeText,
+  resolveFeatures,
+  resolveAiSystemPrompts
+};
+
 export {
   AI_ASSISTANT_SYSTEM_PROMPT_MAX_LENGTH,
   normalizePromptValue,
@@ -99,5 +105,6 @@ export {
   resolveAssistantSystemPromptsFromWorkspaceSettings,
   applyAssistantSystemPromptAppToWorkspaceFeatures,
   applyAssistantSystemPromptsToWorkspaceFeatures,
-  applyAssistantSystemPromptWorkspaceToConsoleFeatures
+  applyAssistantSystemPromptWorkspaceToConsoleFeatures,
+  __testables
 };

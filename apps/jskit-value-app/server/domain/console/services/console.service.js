@@ -3,7 +3,7 @@ import {
   AI_ASSISTANT_SYSTEM_PROMPT_MAX_LENGTH,
   applyAssistantSystemPromptWorkspaceToConsoleFeatures,
   resolveAssistantSystemPromptWorkspaceFromConsoleSettings
-} from "../../../lib/aiAssistantSystemPrompt.js";
+} from "@jskit-ai/assistant-core/systemPrompt";
 import {
   CONSOLE_ASSISTANT_SETTINGS_PERMISSIONS,
   CONSOLE_MANAGEMENT_PERMISSIONS,

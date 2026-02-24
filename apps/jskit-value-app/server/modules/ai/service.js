@@ -16,7 +16,7 @@ import { normalizeSurfaceId } from "../../../shared/routing/surfaceRegistry.js";
 import {
   resolveAssistantSystemPromptAppFromWorkspaceSettings,
   resolveAssistantSystemPromptWorkspaceFromConsoleSettings
-} from "../../lib/aiAssistantSystemPrompt.js";
+} from "@jskit-ai/assistant-core/systemPrompt";
 import { createWorkspaceRenameTool } from "./tools/workspaceRename.tool.js";
 
 const DEFAULT_ASSISTANT_TOOL_SURFACE_ALLOWLIST = Object.freeze({

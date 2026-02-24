@@ -3,7 +3,7 @@ import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
 import { isWorkspaceColor } from "@jskit-ai/workspace-console-core/workspaceColors";
 import { TRANSCRIPT_MODE_VALUES } from "@jskit-ai/assistant-transcripts-core";
-import { AI_ASSISTANT_SYSTEM_PROMPT_MAX_LENGTH } from "../../../lib/aiAssistantSystemPrompt.js";
+import { AI_ASSISTANT_SYSTEM_PROMPT_MAX_LENGTH } from "@jskit-ai/assistant-core/systemPrompt";
 
 const { parseWorkspaceSettingsPatch } = createWorkspaceSettingsPatchPolicy({
   createValidationError(status, message, options = {}) {

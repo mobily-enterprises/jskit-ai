@@ -11,6 +11,10 @@ import {
   safePathnameFromRequest as defaultSafePathnameFromRequest
 } from "@jskit-ai/server-runtime-core/requestUrl";
 import { buildAiToolRegistry, executeToolCall, listToolSchemas } from "./toolRegistry.js";
+import {
+  resolveAssistantSystemPromptAppFromWorkspaceSettings as defaultResolveAssistantSystemPromptAppFromWorkspaceSettings,
+  resolveAssistantSystemPromptWorkspaceFromConsoleSettings as defaultResolveAssistantSystemPromptWorkspaceFromConsoleSettings
+} from "./systemPrompt.js";
 
 const DEFAULT_REALTIME_TOPICS = Object.freeze({
   WORKSPACE_AI_TRANSCRIPTS: "workspace_ai_transcripts"
@@ -82,41 +86,6 @@ function defaultResolveSurfaceFromPathname(pathnameValue) {
     return "console";
   }
   return "app";
-}
-
-function normalizePromptValue(value) {
-  const normalized = String(value || "").trim();
-  if (!normalized) {
-    return "";
-  }
-
-  return normalized.length <= 4000 ? normalized : normalized.slice(0, 4000);
-}
-
-function resolveFeatures(value) {
-  if (!value || typeof value !== "object") {
-    return {};
-  }
-
-  return value;
-}
-
-function resolveAiSystemPrompts(features) {
-  const normalizedFeatures = resolveFeatures(features);
-  const ai = resolveFeatures(normalizedFeatures.ai);
-  return resolveFeatures(ai.systemPrompts);
-}
-
-function defaultResolveAssistantSystemPromptAppFromWorkspaceSettings(workspaceSettings) {
-  const features = resolveFeatures(workspaceSettings?.features);
-  const prompts = resolveAiSystemPrompts(features);
-  return normalizePromptValue(prompts.app);
-}
-
-function defaultResolveAssistantSystemPromptWorkspaceFromConsoleSettings(consoleSettings) {
-  const features = resolveFeatures(consoleSettings?.features);
-  const prompts = resolveAiSystemPrompts(features);
-  return normalizePromptValue(prompts.workspace);
 }
 
 function defaultBuildAuditEventBase(request) {
