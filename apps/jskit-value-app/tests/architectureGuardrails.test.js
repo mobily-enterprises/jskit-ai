@@ -8,6 +8,20 @@ const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const SERVER_DIR = path.join(ROOT_DIR, "server");
 const SERVER_DOMAIN_DIR = path.join(SERVER_DIR, "domain");
 const ARCHITECTURE_SCAN_DIRS = [path.join(SERVER_DIR, "domain"), path.join(SERVER_DIR, "modules")];
+const APP_SPECIFIC_SERVER_FEATURE_ALLOWLIST = Object.freeze([
+  // Domain/business uniqueness is intentionally restricted to these app-local features.
+  "deg2rad",
+  "projects"
+]);
+const TEMPORARY_SERVER_LIB_IMPORT_ALLOWLIST = Object.freeze([
+  "server/lib/appConfig.js",
+  "server/lib/securityAudit.js",
+  "server/lib/aiAssistantSystemPrompt.js",
+  "server/lib/logging/scopeLogger.js",
+  "server/lib/billing/entitlementSchemaRegistry.js",
+  "server/lib/rbacManifest.js",
+  "server/lib/realtimeEvents.js"
+]);
 const LEGACY_TRANSCRIPT_MODE_FILES = Object.freeze([
   "server/lib/aiTranscriptMode.js",
   "server/modules/ai/transcripts/mode.js"
@@ -216,6 +230,10 @@ test("architecture guardrail: server/domain must not contain lib directories", (
   assert.deepEqual(libDirectories, []);
 });
 
+test("architecture guardrail: app-specific server feature allowlist only contains deg2rad and projects", () => {
+  assert.deepEqual(APP_SPECIFIC_SERVER_FEATURE_ALLOWLIST, ["deg2rad", "projects"]);
+});
+
 test("architecture guardrail: legacy transcript mode modules are removed", () => {
   const existingLegacyFiles = LEGACY_TRANSCRIPT_MODE_FILES.filter((relativePath) =>
     existsSync(path.resolve(ROOT_DIR, relativePath))
@@ -242,6 +260,42 @@ test("architecture guardrail: no imports reference legacy transcript mode module
           violations.push({
             source: toPosixPath(path.relative(ROOT_DIR, filePath)),
             specifier: normalizedSpecifier
+          });
+        }
+      }
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+test("architecture guardrail: imports from server/lib are limited to allowlisted transitional wrappers", () => {
+  const violations = [];
+  const allowlist = new Set(TEMPORARY_SERVER_LIB_IMPORT_ALLOWLIST);
+
+  for (const scanDir of IMPORT_GUARD_SCAN_DIRS) {
+    if (!existsSync(scanDir)) {
+      continue;
+    }
+
+    const files = listFilesRecursive(scanDir, (filePath) => /\.(js|mjs|cjs)$/.test(filePath));
+    for (const filePath of files) {
+      const importSpecifiers = parseImportSpecifiers(filePath);
+      for (const importSpecifier of importSpecifiers) {
+        const resolvedImportPath = resolveRelativeImport(filePath, importSpecifier);
+        if (!resolvedImportPath) {
+          continue;
+        }
+
+        const relativeImportPath = toPosixPath(path.relative(ROOT_DIR, resolvedImportPath));
+        if (!relativeImportPath.startsWith("server/lib/")) {
+          continue;
+        }
+
+        if (!allowlist.has(relativeImportPath)) {
+          violations.push({
+            source: toPosixPath(path.relative(ROOT_DIR, filePath)),
+            target: relativeImportPath
           });
         }
       }
