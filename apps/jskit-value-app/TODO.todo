@@ -39,15 +39,16 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X Won't scroll down, give focus to message form, when new message arrives
   X Turn ALL of boilerplate code into packages in a monorepo with several packages
   X Turn even more boilerplate code into packages
+  X Finish all READMEs in packages
   REORG:
     X Merge no-domain with master
     X Make sure server/lib is empty, server/domain is empty
     - Make sure server/modules doesn't have any code that is remotely generic
     - Make CAREFULLY sure src (client side) also doesn't have any code that is remotely generic
     - Make proper architecture for SMS and EMAIL (injection)
-    - Last check that only app-specific code is in the app, and that all generic code is in packages, and that the app is just a scaffolding with some specific code for projects and deg2rad
+    - Last checks that only app-specific code is in the app, and that all generic code is in packages, and that the app is just a scaffolding with some specific code for projects and deg2rad
+    - A few check passes in packages to make sure there is nothing app-only there
 
-  - Finish all READMEs in packages
   - Sort out documentation for the rest of jskit, document all of the injection points
   - Add info to RAILS.md: how to add CRUD pages, and have a pre-commit checklist that will run tests, make sure that packages are used, etc.
   

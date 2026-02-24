@@ -39,7 +39,7 @@ export default defineConfig(({ mode }) => {
           "src/utils/**/*.js"
         ],
         exclude: ["src/main.admin.js", "src/main.app.js"],
-        reportsDirectory: "./coverage-client",
+        reportsDirectory: "./.artifacts/coverage/client",
         thresholds: {
           lines: 85,
           functions: 79,

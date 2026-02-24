@@ -40,8 +40,13 @@ import { createServerRuntime } from "./server/runtime/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const DEFAULT_STORAGE_BASE_PATH = ".artifacts/storage";
 const runtimeEnv = createPlatformRuntimeEnv({
-  rootDir: __dirname
+  rootDir: __dirname,
+  defaults: {
+    AVATAR_STORAGE_FS_BASE_PATH: DEFAULT_STORAGE_BASE_PATH,
+    CHAT_ATTACHMENT_STORAGE_FS_BASE_PATH: DEFAULT_STORAGE_BASE_PATH
+  }
 });
 const REPOSITORY_CONFIG = resolveRepositoryConfigForRuntime({
   nodeEnv: runtimeEnv.NODE_ENV

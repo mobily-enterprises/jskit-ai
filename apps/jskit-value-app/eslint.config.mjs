@@ -8,6 +8,7 @@ export default [
       "node_modules/**",
       "playwright-report/**",
       "test-results/**",
+      ".artifacts/**",
       "coverage/**",
       "coverage-client/**",
       "coverage-vue/**"

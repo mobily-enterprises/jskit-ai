@@ -10,7 +10,7 @@ import {
   expectString,
   expectOneOf,
   expectPlainObject
-} from "./helpers.js";
+} from "./lib/helpers.js";
 
 const TENANCY_MODES = ["personal", "team-single", "multi-workspace"];
 const WORKSPACE_PROVISIONING_MODES = ["self-serve", "governed"];

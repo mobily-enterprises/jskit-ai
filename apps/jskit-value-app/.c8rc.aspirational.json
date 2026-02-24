@@ -7,7 +7,10 @@
   "lines": 100,
   "statements": 100,
   "reporter": ["text-summary", "lcov"],
+  "report-dir": ".artifacts/coverage/backend",
+  "temp-directory": ".artifacts/coverage/backend/tmp",
   "exclude": [
+    ".artifacts/**",
     "coverage/**",
     "coverage-client/**",
     "coverage-vue/**",

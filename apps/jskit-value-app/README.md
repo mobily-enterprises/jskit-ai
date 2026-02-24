@@ -250,15 +250,15 @@ npm run build:client:public
 `index.html` uses `%VITE_CLIENT_ENTRY%`, and scripts set the entry value per target.
 Outputs:
 
-- `build:client:internal` -> `dist-internal/`
-- `build:client:public` -> `dist-public/`
+- `build:client:internal` -> `.artifacts/dist/internal/`
+- `build:client:public` -> `.artifacts/dist/public/`
 
 Server static hosting target is controlled by `FRONTEND_DIST_DIR` (default `dist`).
 Examples:
 
 ```bash
-FRONTEND_DIST_DIR=dist-internal npm start
-FRONTEND_DIST_DIR=dist-public npm start
+FRONTEND_DIST_DIR=.artifacts/dist/internal npm start
+FRONTEND_DIST_DIR=.artifacts/dist/public npm start
 ```
 
 ## Release process
@@ -326,6 +326,12 @@ Coverage policy is split:
 
 - `.c8rc.json` controls backend coverage scope (includes an explicit `src/**` exclusion)
 - `vite.config.mjs` test coverage controls frontend `src/**/*.js` scope
+
+Coverage report outputs are grouped under `.artifacts/coverage/`:
+
+- backend (`c8`): `.artifacts/coverage/backend/`
+- client (`vitest`): `.artifacts/coverage/client/`
+- views (`vitest.vue`): `.artifacts/coverage/vue/`
 
 Run informational coverage summary without failing thresholds:
 

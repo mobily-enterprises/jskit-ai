@@ -1,6 +1,7 @@
 dist
 dist-internal
 dist-public
+.artifacts
 .vite
 node_modules
 playwright-report

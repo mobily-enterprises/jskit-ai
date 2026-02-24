@@ -11,7 +11,7 @@ export default defineConfig({
       reporter: ["text-summary", "lcov"],
       all: true,
       include: ["src/shells/**/*.js", "src/views/**/*.js"],
-      reportsDirectory: "./coverage-vue",
+      reportsDirectory: "./.artifacts/coverage/vue",
       thresholds: {
         lines: 62,
         statements: 62,
