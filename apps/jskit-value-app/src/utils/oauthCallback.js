@@ -1,4 +1,7 @@
-import { AUTH_OAUTH_DEFAULT_PROVIDER, normalizeOAuthProvider } from "@jskit-ai/access-core/oauthProviders";
+import {
+  APP_OAUTH_DEFAULT_PROVIDER,
+  normalizeAppOAuthProvider
+} from "../features/auth/oauthProviders.js";
 import {
   OAUTH_QUERY_PARAM_INTENT,
   OAUTH_QUERY_PARAM_PROVIDER,
@@ -60,7 +63,7 @@ function writePendingOAuthContext(context) {
     return;
   }
 
-  const provider = normalizeOAuthProvider(context?.provider, { fallback: null });
+  const provider = normalizeAppOAuthProvider(context?.provider, { fallback: null });
   if (!provider) {
     return;
   }
@@ -91,7 +94,7 @@ function readPendingOAuthContext() {
     }
 
     const parsed = JSON.parse(raw);
-    const provider = normalizeOAuthProvider(parsed?.provider, { fallback: null });
+    const provider = normalizeAppOAuthProvider(parsed?.provider, { fallback: null });
     if (!provider) {
       return null;
     }
@@ -125,7 +128,7 @@ function readOAuthCallbackStateFromLocation(options = {}) {
   }
 
   const pendingContext = options.pendingContext || null;
-  const defaultProvider = options.defaultProvider || AUTH_OAUTH_DEFAULT_PROVIDER;
+  const defaultProvider = options.defaultProvider || APP_OAUTH_DEFAULT_PROVIDER;
   const defaultIntent = options.defaultIntent || "login";
   const defaultReturnTo = options.defaultReturnTo || "/";
 
@@ -143,13 +146,13 @@ function readOAuthCallbackStateFromLocation(options = {}) {
     return null;
   }
 
-  const providerFromQuery = normalizeOAuthProvider(search.get(OAUTH_QUERY_PARAM_PROVIDER), {
+  const providerFromQuery = normalizeAppOAuthProvider(search.get(OAUTH_QUERY_PARAM_PROVIDER), {
     fallback: null
   });
-  const providerFromContext = normalizeOAuthProvider(pendingContext?.provider, {
+  const providerFromContext = normalizeAppOAuthProvider(pendingContext?.provider, {
     fallback: null
   });
-  const provider = normalizeOAuthProvider(providerFromQuery || providerFromContext || defaultProvider, {
+  const provider = normalizeAppOAuthProvider(providerFromQuery || providerFromContext || defaultProvider, {
     fallback: defaultProvider
   });
 

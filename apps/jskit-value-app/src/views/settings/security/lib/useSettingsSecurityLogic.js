@@ -8,7 +8,10 @@ import {
   AUTH_METHOD_PASSWORD_ID,
   buildOAuthMethodId
 } from "@jskit-ai/access-core/authMethods";
-import { AUTH_OAUTH_PROVIDER_METADATA, normalizeOAuthProvider } from "@jskit-ai/access-core/oauthProviders";
+import {
+  APP_OAUTH_PROVIDER_METADATA,
+  normalizeAppOAuthProvider
+} from "../../../../features/auth/oauthProviders.js";
 import { writePendingOAuthContext } from "../../../../utils/oauthCallback.js";
 
 export function useSettingsSecurityLogic({
@@ -182,12 +185,12 @@ export function useSettingsSecurityLogic({
   });
 
   function providerLabel(providerId) {
-    const normalized = normalizeOAuthProvider(providerId, { fallback: null });
+    const normalized = normalizeAppOAuthProvider(providerId, { fallback: null });
     if (!normalized) {
       return String(providerId || "Provider");
     }
 
-    return String(AUTH_OAUTH_PROVIDER_METADATA[normalized]?.label || normalized);
+    return String(APP_OAUTH_PROVIDER_METADATA[normalized]?.label || normalized);
   }
 
   function authMethodStatusText(method) {
@@ -350,7 +353,7 @@ export function useSettingsSecurityLogic({
   }
 
   async function startProviderLink(providerId) {
-    const provider = normalizeOAuthProvider(providerId, { fallback: null });
+    const provider = normalizeAppOAuthProvider(providerId, { fallback: null });
     if (!provider) {
       providerMessageType.value = "error";
       providerMessage.value = "OAuth provider is not supported.";
@@ -375,7 +378,7 @@ export function useSettingsSecurityLogic({
   }
 
   async function submitProviderUnlink(providerId) {
-    const provider = normalizeOAuthProvider(providerId, { fallback: null });
+    const provider = normalizeAppOAuthProvider(providerId, { fallback: null });
     if (!provider) {
       providerMessageType.value = "error";
       providerMessage.value = "OAuth provider is not supported.";

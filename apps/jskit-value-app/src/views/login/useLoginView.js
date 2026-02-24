@@ -2,7 +2,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useNavigate } from "@tanstack/vue-router";
 import { useMutation } from "@tanstack/vue-query";
 import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";
-import { AUTH_OAUTH_PROVIDER_METADATA, AUTH_OAUTH_PROVIDERS } from "@jskit-ai/access-core/oauthProviders";
+import { appOAuthProviders } from "../../features/auth/oauthProviders.js";
 import { api } from "../../services/api/index.js";
 import { useAuthStore } from "../../stores/authStore.js";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
@@ -36,9 +36,7 @@ export function useLoginView() {
   const useRememberedAccount = ref(false);
   const oauthCallbackInFlight = ref(false);
 
-  const oauthProviders = AUTH_OAUTH_PROVIDERS.map((providerId) => AUTH_OAUTH_PROVIDER_METADATA[providerId]).filter(
-    Boolean
-  );
+  const oauthProviders = appOAuthProviders;
 
   const registerMutation = useMutation({
     mutationFn: (payload) => api.auth.register(payload)

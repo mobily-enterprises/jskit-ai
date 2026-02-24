@@ -1,4 +1,4 @@
-import { normalizeOAuthProvider } from "@jskit-ai/access-core/oauthProviders";
+import { normalizeAppOAuthProvider } from "../../../features/auth/oauthProviders.js";
 import { validators } from "@jskit-ai/access-core/validators";
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
 import { api } from "../../../services/api/index.js";
@@ -186,7 +186,7 @@ export function useLoginActions({
   }
 
   async function startOAuthSignIn(providerId) {
-    const provider = normalizeOAuthProvider(providerId, { fallback: null });
+    const provider = normalizeAppOAuthProvider(providerId, { fallback: null });
     if (!provider) {
       errorMessage.value = "OAuth provider is not supported.";
       return;

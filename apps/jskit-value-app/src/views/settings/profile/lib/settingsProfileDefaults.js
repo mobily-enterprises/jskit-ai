@@ -1,4 +1,4 @@
-import { SETTINGS_DEFAULTS } from "@jskit-ai/workspace-console-core/settingsModel";
+import { SETTINGS_DEFAULTS } from "../../../../domain/settings/model.js";
 
 export function createDefaultAvatar() {
   return {

@@ -48,7 +48,10 @@ vi.mock("../../src/stores/workspaceStore.js", () => ({
   useWorkspaceStore: () => mocks.workspaceStore
 }));
 
-import { useAssistantView, __testables as assistantViewTestables } from "../../src/views/assistant/useAssistantView.js";
+import {
+  useAssistantView,
+  assistantRuntimeTestables as assistantViewTestables
+} from "../../src/runtime/assistantRuntime.js";
 
 const Harness = defineComponent({
   name: "AssistantViewHarness",

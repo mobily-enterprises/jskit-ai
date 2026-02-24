@@ -29,6 +29,12 @@ describe("browserErrorReporter", () => {
     expect(payload.path).toBe("/admin/w/acme/settings");
     expect(payload.surface).toBe("admin");
     expect(payload.metadata.filename).toBe("https://example.com/app.js");
+
+    const enriched = __testables.enrichBrowserErrorPayload(payload);
+    expect(enriched.metadata.surfaceId).toBe("admin");
+    expect(enriched.metadata.workspaceSlug).toBe("acme");
+    expect(enriched.metadata.routePath).toBe("/admin/w/acme/settings");
+    expect(enriched.metadata.visibilityState).toBeTruthy();
   });
 
   it("sends reports as best-effort POST requests", async () => {
@@ -73,6 +79,10 @@ describe("browserErrorReporter", () => {
 
     await flushMicrotasks();
     expect(global.fetch).toHaveBeenCalled();
+
+    const firstPayload = JSON.parse(String(global.fetch.mock.calls[0][1].body || "{}"));
+    expect(firstPayload.metadata.workspaceSlug).toBe("acme");
+    expect(firstPayload.metadata.routePath).toBe("/admin/w/acme/settings");
 
     const rejectionEvent = Object.assign(new Event("unhandledrejection"), { reason: new Error("Rejected") });
     window.dispatchEvent(rejectionEvent);

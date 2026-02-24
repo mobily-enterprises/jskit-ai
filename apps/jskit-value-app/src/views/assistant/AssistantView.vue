@@ -200,7 +200,7 @@
 
 <script setup>
 import { computed, nextTick, ref, watch } from "vue";
-import { useAssistantView } from "./useAssistantView.js";
+import { useAssistantView } from "../../runtime/assistantRuntime.js";
 import { useWorkspaceStore } from "../../stores/workspaceStore.js";
 
 const SCROLL_BOTTOM_THRESHOLD_PX = 30;

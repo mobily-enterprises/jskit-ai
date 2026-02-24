@@ -1,5 +1,5 @@
 import { createBrowserErrorPayloadTools } from "@jskit-ai/observability-core/browserPayload";
-import { resolveSurfaceFromPathname } from "../../shared/surfacePaths.js";
+import { createSurfacePaths, resolveSurfaceFromPathname } from "../../shared/surfacePaths.js";
 
 const REPORT_ENDPOINT = "/api/console/errors/browser";
 const MAX_REPORTS_IN_FLIGHT = 8;
@@ -49,6 +49,40 @@ async function sendBrowserErrorReport(payload) {
   }
 }
 
+function enrichBrowserErrorPayload(payload) {
+  const normalizedPayload = payload && typeof payload === "object" ? payload : {};
+  if (typeof window === "undefined") {
+    return normalizedPayload;
+  }
+
+  const pathname = String(window.location?.pathname || "/");
+  const surfaceId = resolveSurfaceFromPathname(pathname);
+  const workspaceSlug = createSurfacePaths(surfaceId).extractWorkspaceSlug(pathname);
+  const search = String(window.location?.search || "");
+  const hash = String(window.location?.hash || "");
+  const visibilityState =
+    typeof document !== "undefined" ? String(document.visibilityState || "unknown") : "unknown";
+  const language = typeof navigator !== "undefined" ? String(navigator.language || "") : "";
+  const online = typeof navigator !== "undefined" ? Boolean(navigator.onLine) : null;
+  const metadata =
+    normalizedPayload.metadata && typeof normalizedPayload.metadata === "object" ? normalizedPayload.metadata : {};
+
+  return {
+    ...normalizedPayload,
+    metadata: {
+      ...metadata,
+      surfaceId,
+      workspaceSlug,
+      routePath: pathname,
+      routeSearch: search,
+      routeHash: hash,
+      visibilityState,
+      language,
+      online
+    }
+  };
+}
+
 function installBrowserErrorReporter() {
   if (installed || typeof window === "undefined") {
     return;
@@ -65,7 +99,7 @@ function installBrowserErrorReporter() {
 
       suppressReporting = true;
       try {
-        const payload = createPayloadFromErrorEvent(event);
+        const payload = enrichBrowserErrorPayload(createPayloadFromErrorEvent(event));
         void sendBrowserErrorReport(payload);
       } finally {
         suppressReporting = false;
@@ -81,7 +115,7 @@ function installBrowserErrorReporter() {
 
     suppressReporting = true;
     try {
-      const payload = createPayloadFromRejectionEvent(event);
+      const payload = enrichBrowserErrorPayload(createPayloadFromRejectionEvent(event));
       void sendBrowserErrorReport(payload);
     } finally {
       suppressReporting = false;
@@ -95,6 +129,7 @@ const __testables = {
   buildBasePayload,
   createPayloadFromErrorEvent,
   createPayloadFromRejectionEvent,
+  enrichBrowserErrorPayload,
   sendBrowserErrorReport
 };
 

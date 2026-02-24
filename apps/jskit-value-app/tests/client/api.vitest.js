@@ -741,6 +741,58 @@ describe("client api transport", () => {
     expect(rolesReadHeaders["x-client-id"]).toBeUndefined();
   });
 
+  it("applies command-correlation headers to chat write routes and keeps command id stable across csrf retries", async () => {
+    window.history.replaceState({}, "", "/w/acme/chat");
+    global.fetch
+      .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-chat-1" } }))
+      .mockResolvedValueOnce(
+        mockResponse({
+          status: 403,
+          data: {
+            error: "forbidden",
+            details: {
+              code: "FST_CSRF_INVALID_TOKEN"
+            }
+          }
+        })
+      )
+      .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-chat-2" } }))
+      .mockResolvedValueOnce(
+        mockResponse({
+          data: {
+            ok: true
+          }
+        })
+      )
+      .mockResolvedValueOnce(
+        mockResponse({
+          data: {
+            entries: []
+          }
+        })
+      );
+
+    await api.chat.sendThreadMessage("thread-1", {
+      clientMessageId: "msg_1",
+      text: "hello"
+    });
+    await api.chat.listThreadMessages("thread-1", {
+      cursor: "cursor-1",
+      limit: 20
+    });
+
+    const firstWriteHeaders = global.fetch.mock.calls[1][1].headers;
+    const retryWriteHeaders = global.fetch.mock.calls[3][1].headers;
+    const readHeaders = global.fetch.mock.calls[4][1].headers;
+
+    expect(firstWriteHeaders["x-command-id"]).toBeTruthy();
+    expect(firstWriteHeaders["x-client-id"]).toBeTruthy();
+    expect(retryWriteHeaders["x-command-id"]).toBe(firstWriteHeaders["x-command-id"]);
+    expect(retryWriteHeaders["x-client-id"]).toBe(firstWriteHeaders["x-client-id"]);
+    expect(readHeaders["x-command-id"]).toBeUndefined();
+    expect(readHeaders["x-client-id"]).toBeUndefined();
+  });
+
   it("calls chat wrapper endpoints and encodes thread identifiers", async () => {
     global.fetch.mockImplementation(async (url) => {
       if (url === "/api/session") {
@@ -800,6 +852,63 @@ describe("client api transport", () => {
       ([url]) => url === "/api/chat/threads/thread%2Fid/attachments/upload"
     );
     expect(uploadCall?.[1]?.body).toBe(uploadForm);
+
+    const ensureWorkspaceCall = global.fetch.mock.calls.find(
+      ([url, options]) => url === "/api/chat/workspace/ensure" && String(options?.method || "").toUpperCase() === "POST"
+    );
+    const ensureDmCall = global.fetch.mock.calls.find(
+      ([url, options]) => url === "/api/chat/dm/ensure" && String(options?.method || "").toUpperCase() === "POST"
+    );
+    const sendMessageCall = global.fetch.mock.calls.find(
+      ([url, options]) => url === "/api/chat/threads/thread%2Fid/messages" && String(options?.method || "").toUpperCase() === "POST"
+    );
+    const reserveAttachmentCall = global.fetch.mock.calls.find(
+      ([url, options]) =>
+        url === "/api/chat/threads/thread%2Fid/attachments/reserve" &&
+        String(options?.method || "").toUpperCase() === "POST"
+    );
+    const deleteAttachmentCall = global.fetch.mock.calls.find(
+      ([url, options]) =>
+        url === "/api/chat/threads/thread%2Fid/attachments/attachment%2Fid" &&
+        String(options?.method || "").toUpperCase() === "DELETE"
+    );
+    const markReadCall = global.fetch.mock.calls.find(
+      ([url, options]) => url === "/api/chat/threads/thread%2Fid/read" && String(options?.method || "").toUpperCase() === "POST"
+    );
+    const typingCall = global.fetch.mock.calls.find(
+      ([url, options]) => url === "/api/chat/threads/thread%2Fid/typing" && String(options?.method || "").toUpperCase() === "POST"
+    );
+
+    expect(ensureWorkspaceCall?.[1]?.headers["x-command-id"]).toBeTruthy();
+    expect(ensureDmCall?.[1]?.headers["x-command-id"]).toBeTruthy();
+    expect(sendMessageCall?.[1]?.headers["x-command-id"]).toBeTruthy();
+    expect(reserveAttachmentCall?.[1]?.headers["x-command-id"]).toBeTruthy();
+    expect(uploadCall?.[1]?.headers["x-command-id"]).toBeTruthy();
+    expect(deleteAttachmentCall?.[1]?.headers["x-command-id"]).toBeTruthy();
+    expect(markReadCall?.[1]?.headers["x-command-id"]).toBeTruthy();
+    expect(typingCall?.[1]?.headers["x-command-id"]).toBeTruthy();
+
+    const listDmCandidatesCall = global.fetch.mock.calls.find(
+      ([url, options]) =>
+        url === "/api/chat/dm/candidates?q=friend&limit=8" && String(options?.method || "GET").toUpperCase() === "GET"
+    );
+    const listInboxCall = global.fetch.mock.calls.find(
+      ([url, options]) =>
+        url === "/api/chat/inbox?cursor=cursor-1&limit=15" && String(options?.method || "GET").toUpperCase() === "GET"
+    );
+    const getThreadCall = global.fetch.mock.calls.find(
+      ([url, options]) => url === "/api/chat/threads/thread%2Fid" && String(options?.method || "GET").toUpperCase() === "GET"
+    );
+    const listThreadMessagesCall = global.fetch.mock.calls.find(
+      ([url, options]) =>
+        url === "/api/chat/threads/thread%2Fid/messages?cursor=cursor-2&limit=30" &&
+        String(options?.method || "GET").toUpperCase() === "GET"
+    );
+
+    expect(listDmCandidatesCall?.[1]?.headers["x-command-id"]).toBeUndefined();
+    expect(listInboxCall?.[1]?.headers["x-command-id"]).toBeUndefined();
+    expect(getThreadCall?.[1]?.headers["x-command-id"]).toBeUndefined();
+    expect(listThreadMessagesCall?.[1]?.headers["x-command-id"]).toBeUndefined();
   });
 
   it("builds oauth URL helpers with and without returnTo", () => {

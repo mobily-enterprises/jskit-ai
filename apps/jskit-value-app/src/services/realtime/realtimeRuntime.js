@@ -1,5 +1,7 @@
 import {
   createRealtimeRuntime as createRealtimeClientRuntime,
+  createReconnectPolicy,
+  createReplayPolicy,
   createSocketIoTransport
 } from "@jskit-ai/realtime-client-runtime";
 
@@ -9,6 +11,19 @@ import { projectsScopeQueryKey } from "../../features/projects/queryKeys.js";
 import { getClientId } from "./clientIdentity.js";
 import { commandTracker } from "./commandTracker.js";
 import { createRealtimeEventHandlers } from "./realtimeEventHandlers.js";
+
+const RECONNECT_POLICY = createReconnectPolicy({
+  baseDelayMs: 800,
+  maxDelayMs: 20_000,
+  jitterRatio: 0.2
+});
+
+const REPLAY_POLICY = createReplayPolicy({
+  maxEventsPerCommand: 40,
+  maxEventsPerTick: 120
+});
+
+const MAINTENANCE_INTERVAL_MS = 1_000;
 
 function normalizeSurface(surface) {
   return String(surface || "")
@@ -129,6 +144,19 @@ async function reconcileSubscribe({ eventHandlers, queryClient, workspaceSlug, t
   });
 }
 
+function onConnectionStateChange(state) {
+  if (import.meta?.env?.MODE !== "development") {
+    return;
+  }
+
+  if (typeof console === "undefined" || typeof console.debug !== "function") {
+    return;
+  }
+
+  const summary = String(state?.state || "unknown");
+  console.debug("[realtime-runtime]", summary, state);
+}
+
 function createRealtimeRuntime({
   authStore,
   workspaceStore,
@@ -184,6 +212,10 @@ function createRealtimeRuntime({
         topics: normalizeTopics(subscribePayload?.topics)
       });
     },
+    reconnectPolicy: RECONNECT_POLICY,
+    replayPolicy: REPLAY_POLICY,
+    maintenanceIntervalMs: MAINTENANCE_INTERVAL_MS,
+    onConnectionStateChange,
     isSubscribeAckMatch({ message, tracking }) {
       const trackedWorkspaceSlug = String(tracking?.subscribePayload?.workspaceSlug || "").trim();
       const ackWorkspaceSlug = String(message?.workspaceSlug || "").trim();
@@ -196,7 +228,9 @@ function createRealtimeRuntime({
     surface: normalizedSurface,
     buildRealtimeUrl,
     transport: createSocketIoTransport({
-      socketFactory
+      socketFactory,
+      path: "/api/realtime",
+      transports: ["websocket"]
     }),
     messageTypes: REALTIME_MESSAGE_TYPES,
     errorCodes: REALTIME_ERROR_CODES
