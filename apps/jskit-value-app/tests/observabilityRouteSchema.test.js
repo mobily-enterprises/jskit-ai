@@ -6,7 +6,7 @@ import { registerApiRoutes } from "../server/fastify/registerApiRoutes.js";
 import { buildRoutes as buildObservabilityRoutes } from "../server/modules/observability/routes.js";
 import { createController as createObservabilityController } from "../server/modules/observability/controller.js";
 import { createService as createObservabilityService } from "../server/modules/observability/service.js";
-import { createMetricsRegistry } from "../server/lib/observability/metrics.js";
+import { createMetricsRegistry } from "@jskit-ai/observability-core";
 
 function installErrorHandler(app) {
   app.setErrorHandler((error, _request, reply) => {

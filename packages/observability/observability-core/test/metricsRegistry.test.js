@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMetricsRegistry } from "@jskit-ai/observability-core";
+import { createMetricsRegistry } from "../src/index.js";
 
 test("metrics registry records HTTP request counters and latency histogram", () => {
   const registry = createMetricsRegistry({

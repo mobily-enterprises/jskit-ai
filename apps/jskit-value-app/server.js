@@ -27,7 +27,7 @@ import {
   resolveRateLimitStartupError,
   resolveRateLimitStartupWarning
 } from "@jskit-ai/redis-ops-core/rateLimit";
-import { createMetricsRegistry } from "./server/lib/observability/metrics.js";
+import { createMetricsRegistry } from "@jskit-ai/observability-core";
 import { createServerRuntime } from "./server/runtime/index.js";
 
 const __filename = fileURLToPath(import.meta.url);

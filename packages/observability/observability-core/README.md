@@ -1,6 +1,6 @@
 # @jskit-ai/observability-core
 
-Shared observability payload helpers for browser error reporting, server-side error payload normalization, and metrics label contracts.
+Shared observability primitives for browser error reporting, server-side error payload normalization, and Prometheus metrics registry behavior.
 
 ## What this package is for
 
@@ -8,7 +8,7 @@ Use this package to standardize observability data before it is stored or export
 
 - build browser error payloads from `window.error` and `unhandledrejection`
 - normalize console error payloads on server ingestion
-- provide common metrics content type and label normalization helpers
+- provide metrics contracts and `createMetricsRegistry` used by apps
 
 This keeps error and metrics data consistent across modules.
 
@@ -16,7 +16,6 @@ This keeps error and metrics data consistent across modules.
 
 - No database writes.
 - No HTTP controllers.
-- No metrics registry implementation.
 - No alerting logic.
 
 ## Exports
@@ -25,6 +24,7 @@ This keeps error and metrics data consistent across modules.
 - `@jskit-ai/observability-core/browserPayload`
 - `@jskit-ai/observability-core/serverPayload`
 - `@jskit-ai/observability-core/metricsContracts`
+- `@jskit-ai/observability-core/metricsRegistry`
 
 ## Function and constant reference
 
@@ -104,6 +104,13 @@ Related constants:
 - `PROMETHEUS_CONTENT_TYPE`
 - `DEFAULT_HTTP_DURATION_BUCKETS_SECONDS`
 
+### `metricsRegistry`
+
+- `createMetricsRegistry({ httpDurationBuckets })`
+  - Creates a Prometheus metrics registry with stable metric names, labels, and normalization rules.
+  - Includes HTTP, DB error, auth failure, security audit, AI, and billing guardrail metrics.
+  - Provides `renderPrometheusMetrics()` and record helpers (`observeHttpRequest`, `recordDbError`, etc.).
+
 ## How it is used in apps (real terms, and why)
 
 Current `jskit-value-app` usage:
@@ -114,6 +121,10 @@ Current `jskit-value-app` usage:
 - console error service normalization:
   - `apps/jskit-value-app/server/domain/console/services/errors.service.js`
   - uses `createConsoleErrorPayloadNormalizer` for browser and server payload ingestion, and simulation helpers
+- metrics registry:
+  - `apps/jskit-value-app/server.js`
+  - `apps/jskit-value-app/server/modules/observability/service.js`
+  - uses package `createMetricsRegistry` and `PROMETHEUS_CONTENT_TYPE` directly
 
 Why this matters:
 
@@ -128,7 +139,7 @@ Practical ingestion flow:
 3. API receives payload.
 4. `normalizeBrowserPayload` sanitizes and bounds fields before repository insert.
 
-Note on metrics contracts:
+Note on metrics ownership:
 
-- `metricsContracts` exports are available for shared metrics implementations.
-- In current app state, some metrics plumbing still exists in app-local modules; this package provides shared contracts for migration and reuse.
+- Metrics registry behavior is centralized in this package.
+- Apps should not define parallel Prometheus metric registries.

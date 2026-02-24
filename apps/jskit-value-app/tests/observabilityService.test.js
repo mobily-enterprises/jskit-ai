@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMetricsRegistry } from "../server/lib/observability/metrics.js";
+import { createMetricsRegistry } from "@jskit-ai/observability-core";
 import { createService as createObservabilityService } from "../server/modules/observability/service.js";
 
 test("observability service records billing guardrail metrics and structured log payload", () => {

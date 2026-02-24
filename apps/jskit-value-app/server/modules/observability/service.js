@@ -1,5 +1,5 @@
 import { AppError } from "../../lib/errors.js";
-import { createMetricsRegistry, PROMETHEUS_CONTENT_TYPE } from "../../lib/observability/metrics.js";
+import { createMetricsRegistry, PROMETHEUS_CONTENT_TYPE } from "@jskit-ai/observability-core";
 import { createScopeDebugMatcher, createScopedLogger } from "../../lib/logging/scopeLogger.js";
 
 function normalizeBearerToken(value) {
