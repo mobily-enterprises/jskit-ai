@@ -1,8 +1,8 @@
 import { createBillingCatalogCore } from "@jskit-ai/billing-core/catalogCore";
+import { assertEntitlementValueOrThrow } from "@jskit-ai/billing-core/entitlementSchema";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
-import { assertEntitlementValueOrThrow } from "../../../lib/billing/entitlementSchemaRegistry.js";
 
 const billingCatalogCore = createBillingCatalogCore({
   createError(status, message, options = {}) {

@@ -9,7 +9,8 @@
   "exports": {
     ".": "./src/index.js",
     "./catalogCore": "./src/catalogCore.js",
-    "./providerPricingCore": "./src/providerPricingCore.js"
+    "./providerPricingCore": "./src/providerPricingCore.js",
+    "./entitlementSchema": "./src/entitlementSchema.js"
   },
   "dependencies": {
     "@jskit-ai/server-runtime-core": "0.1.0"
