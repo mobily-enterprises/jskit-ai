@@ -148,7 +148,9 @@ function createWorkspaceServiceFixture(options = {}) {
         isPersonal: Boolean(payload.isPersonal)
       };
       state.allWorkspaces.push(workspace);
-      state.personalWorkspaceByOwnerId.set(Number(payload.ownerUserId), workspace);
+      if (workspace.isPersonal) {
+        state.personalWorkspaceByOwnerId.set(Number(payload.ownerUserId), workspace);
+      }
       return workspace;
     },
     async listByUserId(userId) {
@@ -159,12 +161,37 @@ function createWorkspaceServiceFixture(options = {}) {
   const workspaceMembershipsRepository = {
     async ensureOwnerMembership(workspaceId, userId) {
       state.calls.ensureOwnerMembership += 1;
+      const numericWorkspaceId = Number(workspaceId);
+      const numericUserId = Number(userId);
       state.membershipsLookup.set(`${workspaceId}:${userId}`, {
-        workspaceId: Number(workspaceId),
-        userId: Number(userId),
+        workspaceId: numericWorkspaceId,
+        userId: numericUserId,
         roleId: "owner",
         status: "active"
       });
+
+      const workspace = state.allWorkspaces.find(
+        (workspaceEntry) => Number(workspaceEntry.id) === numericWorkspaceId
+      );
+      if (!workspace) {
+        return;
+      }
+
+      const memberships = [...(state.membershipsByUserId.get(numericUserId) || [])];
+      const membershipWorkspace = {
+        ...workspace,
+        roleId: "owner",
+        membershipStatus: "active"
+      };
+      const existingIndex = memberships.findIndex(
+        (membershipWorkspaceEntry) => Number(membershipWorkspaceEntry.id) === numericWorkspaceId
+      );
+      if (existingIndex >= 0) {
+        memberships[existingIndex] = membershipWorkspace;
+      } else {
+        memberships.push(membershipWorkspace);
+      }
+      state.membershipsByUserId.set(numericUserId, memberships);
     },
     async findByWorkspaceIdAndUserId(workspaceId, userId) {
       state.calls.findByWorkspaceIdAndUserId += 1;
@@ -253,6 +280,7 @@ function createWorkspaceServiceFixture(options = {}) {
 
   const appConfig = {
     tenancyMode: "multi-workspace",
+    workspaceProvisioningMode: "self-serve",
     features: {
       workspaceInvites: true,
       workspaceSwitching: true,
@@ -452,6 +480,7 @@ test("workspace service ensures personal workspace transactionally and recovers 
   const service = createWorkspaceService({
     appConfig: {
       tenancyMode: "multi-workspace",
+      workspaceProvisioningMode: "governed",
       features: {
         workspaceInvites: true,
         workspaceSwitching: true,
@@ -494,6 +523,85 @@ test("workspace service ensures personal workspace transactionally and recovers 
   assert.equal(calls.ensureWorkspaceSettings[0].options.trx.marker, "trx-object");
   assert.equal(calls.ensureForUserId[0].options.trx.marker, "trx-object");
   assert.equal(calls.updateLastActiveWorkspaceId[0].options.trx.marker, "trx-object");
+});
+
+test("workspace service auto-provisions an initial owner workspace in self-serve non-personal tenancy", async () => {
+  const { service, state } = createWorkspaceServiceFixture({
+    appConfig: {
+      tenancyMode: "team-single",
+      workspaceProvisioningMode: "self-serve",
+      features: {
+        workspaceInvites: true,
+        workspaceSwitching: false,
+        workspaceCreateEnabled: true
+      }
+    }
+  });
+  const user = {
+    id: 42,
+    email: "first@example.com",
+    displayName: "First User"
+  };
+  state.membershipsByUserId.set(42, []);
+  const beforeWorkspaceCount = state.allWorkspaces.length;
+
+  const firstContext = await service.resolveRequestContext({
+    user,
+    request: {
+      headers: {
+        "x-surface-id": "app"
+      }
+    },
+    workspacePolicy: "optional"
+  });
+  const createdWorkspace = state.allWorkspaces.find((workspace) => Number(workspace.ownerUserId) === 42);
+  assert.ok(createdWorkspace);
+  assert.equal(firstContext.workspace.id, Number(createdWorkspace.id));
+  assert.equal(firstContext.membership.roleId, "owner");
+  assert.equal(createdWorkspace.isPersonal, false);
+  assert.equal(state.allWorkspaces.length, beforeWorkspaceCount + 1);
+
+  const secondContext = await service.resolveRequestContext({
+    user,
+    request: {
+      headers: {
+        "x-surface-id": "app"
+      }
+    },
+    workspacePolicy: "optional"
+  });
+  assert.equal(secondContext.workspace.id, Number(createdWorkspace.id));
+  assert.equal(state.allWorkspaces.length, beforeWorkspaceCount + 1);
+});
+
+test("workspace service does not auto-provision workspace in governed tenancy", async () => {
+  const { service, state } = createWorkspaceServiceFixture({
+    appConfig: {
+      tenancyMode: "team-single",
+      workspaceProvisioningMode: "governed"
+    }
+  });
+  const user = {
+    id: 43,
+    email: "governed@example.com",
+    displayName: "Governed User"
+  };
+  state.membershipsByUserId.set(43, []);
+  const beforeWorkspaceCount = state.allWorkspaces.length;
+
+  const context = await service.resolveRequestContext({
+    user,
+    request: {
+      headers: {
+        "x-surface-id": "app"
+      }
+    },
+    workspacePolicy: "optional"
+  });
+
+  assert.equal(context.workspace, null);
+  assert.deepEqual(context.workspaces, []);
+  assert.equal(state.allWorkspaces.length, beforeWorkspaceCount);
 });
 
 test("workspace service list/select methods enforce auth, access rules, and workspace selector resolution", async () => {
@@ -582,7 +690,7 @@ test("workspace service list/select methods enforce auth, access rules, and work
 });
 
 test("workspace service resolves request context and workspace policy branches", async () => {
-  const { service, state } = createWorkspaceServiceFixture();
+  const { service } = createWorkspaceServiceFixture();
 
   const anonymousContext = await service.resolveRequestContext({
     user: null,
@@ -633,7 +741,12 @@ test("workspace service resolves request context and workspace policy branches",
     (error) => error instanceof AppError && error.statusCode === 403
   );
 
-  state.userSettingsByUserId.set(5, {
+  const governedFixture = createWorkspaceServiceFixture({
+    appConfig: {
+      workspaceProvisioningMode: "governed"
+    }
+  });
+  governedFixture.state.userSettingsByUserId.set(5, {
     theme: "system",
     locale: "en-US",
     timeZone: "UTC",
@@ -643,11 +756,11 @@ test("workspace service resolves request context and workspace policy branches",
     avatarSize: 64,
     lastActiveWorkspaceId: null
   });
-  state.membershipsByUserId.set(5, []);
+  governedFixture.state.membershipsByUserId.set(5, []);
 
   await assert.rejects(
     () =>
-      service.resolveRequestContext({
+      governedFixture.service.resolveRequestContext({
         user: {
           id: 5,
           email: "user@example.com"
@@ -934,6 +1047,7 @@ test("workspace service handles sparse workspace payloads and fallback branches"
   const service = createWorkspaceService({
     appConfig: {
       tenancyMode: "multi-workspace",
+      workspaceProvisioningMode: "governed",
       features: {
         workspaceInvites: true,
         workspaceSwitching: true,

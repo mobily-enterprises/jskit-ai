@@ -20,6 +20,7 @@ test("resolveAppConfig normalizes tenancy, limits, feature gates, and manifest p
     repositoryConfig: {
       app: {
         tenancyMode: "unknown",
+        workspaceProvisioningMode: "invalid-mode",
         features: {
           workspaceSwitching: true,
           workspaceInvites: true,
@@ -39,6 +40,7 @@ test("resolveAppConfig normalizes tenancy, limits, feature gates, and manifest p
   });
 
   assert.equal(personal.tenancyMode, "personal");
+  assert.equal(personal.workspaceProvisioningMode, "self-serve");
   assert.equal(personal.features.workspaceSwitching, true);
   assert.equal(personal.features.workspaceInvites, false);
   assert.equal(personal.features.workspaceCreateEnabled, false);
@@ -51,6 +53,7 @@ test("resolveAppConfig normalizes tenancy, limits, feature gates, and manifest p
     repositoryConfig: {
       app: {
         tenancyMode: "multi-workspace",
+        workspaceProvisioningMode: "governed",
         features: {
           workspaceSwitching: false,
           workspaceInvites: false,
@@ -72,6 +75,7 @@ test("resolveAppConfig normalizes tenancy, limits, feature gates, and manifest p
   });
 
   assert.equal(multiWorkspace.tenancyMode, "multi-workspace");
+  assert.equal(multiWorkspace.workspaceProvisioningMode, "governed");
   assert.equal(multiWorkspace.features.workspaceSwitching, true);
   assert.equal(multiWorkspace.features.workspaceInvites, false);
   assert.equal(multiWorkspace.features.workspaceCreateEnabled, false);
@@ -84,6 +88,7 @@ test("resolveAppConfig normalizes tenancy, limits, feature gates, and manifest p
     repositoryConfig: {
       app: {
         tenancyMode: "team-single",
+        workspaceProvisioningMode: "self-serve",
         features: {
           workspaceSwitching: false,
           workspaceInvites: true,

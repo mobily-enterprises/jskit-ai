@@ -1,6 +1,7 @@
 import path from "node:path";
 
 const TENANCY_MODES = new Set(["personal", "team-single", "multi-workspace"]);
+const WORKSPACE_PROVISIONING_MODES = new Set(["self-serve", "governed"]);
 
 function toPositiveInteger(value, fallback) {
   const parsed = Number(value);
@@ -23,6 +24,16 @@ function resolveManifestPath(manifestPath, rootDir) {
   return path.resolve(rootDir, raw);
 }
 
+function normalizeWorkspaceProvisioningMode(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (WORKSPACE_PROVISIONING_MODES.has(normalized)) {
+    return normalized;
+  }
+  return "self-serve";
+}
+
 function resolveAppConfig({ repositoryConfig, runtimeEnv, rootDir = process.cwd() } = {}) {
   if (!repositoryConfig || typeof repositoryConfig !== "object") {
     throw new Error("repositoryConfig is required.");
@@ -34,6 +45,9 @@ function resolveAppConfig({ repositoryConfig, runtimeEnv, rootDir = process.cwd(
 
   const tenancyMode = String(appRepositoryConfig.tenancyMode || "personal").trim();
   const normalizedTenancyMode = TENANCY_MODES.has(tenancyMode) ? tenancyMode : "personal";
+  const workspaceProvisioningMode = normalizeWorkspaceProvisioningMode(
+    appRepositoryConfig.workspaceProvisioningMode
+  );
 
   const maxWorkspacesPerUserFallback = normalizedTenancyMode === "multi-workspace" ? 20 : 1;
   const maxWorkspacesPerUser = toPositiveInteger(
@@ -53,6 +67,7 @@ function resolveAppConfig({ repositoryConfig, runtimeEnv, rootDir = process.cwd(
 
   return {
     tenancyMode: normalizedTenancyMode,
+    workspaceProvisioningMode,
     features: {
       workspaceSwitching: workspaceSwitchingDefault,
       workspaceInvites: workspaceInvitesDefault,
@@ -82,7 +97,8 @@ function toBrowserConfig(appConfig) {
 
 const __testables = {
   toPositiveInteger,
-  resolveManifestPath
+  resolveManifestPath,
+  normalizeWorkspaceProvisioningMode
 };
 
 export { resolveAppConfig, toBrowserConfig, __testables };

@@ -2,13 +2,17 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const baselineMigration = require("../migrations/20260224000000_baseline_schema.cjs");
 
 const MYSQL_IDENTIFIER_LIMIT = 64;
 const BILLING_MIGRATION_FILES = [
-  "migrations/20260221090000_create_billing_phase1_tables.cjs",
-  "migrations/20260221110000_add_billing_phase2_1_tables.cjs",
-  "migrations/20260222230000_create_billing_entitlements_engine_tables.cjs",
-  "migrations/20260222232000_backfill_billing_entitlements_engine.cjs"
+  "migration-baseline-steps/20260221090000_create_billing_phase1_tables.cjs",
+  "migration-baseline-steps/20260221110000_add_billing_phase2_1_tables.cjs",
+  "migration-baseline-steps/20260222230000_create_billing_entitlements_engine_tables.cjs",
+  "migration-baseline-steps/20260222232000_backfill_billing_entitlements_engine.cjs"
 ];
 
 function readMigrationSource(filePath) {
@@ -28,6 +32,14 @@ function collectSchemaIdentifierNames(source) {
 
   return [...names];
 }
+
+test("baseline migration includes billing step files", () => {
+  const { BASELINE_STEP_FILES } = baselineMigration.__testables;
+  for (const filePath of BILLING_MIGRATION_FILES) {
+    const fileName = path.basename(filePath);
+    assert.ok(BASELINE_STEP_FILES.includes(fileName), `Missing billing baseline step: ${fileName}`);
+  }
+});
 
 test("billing migrations keep schema identifier names within MySQL limits", () => {
   for (const migrationFile of BILLING_MIGRATION_FILES) {

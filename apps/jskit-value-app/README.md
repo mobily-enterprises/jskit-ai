@@ -185,6 +185,8 @@ npm run db:seed
 
 Always run `npm run db:migrate` before any seed command.
 
+Current scaffold seed files are intentionally no-op so a fresh environment starts with no user/project/calculation history records.
+
 Seed files:
 
 - `seeds/01_user_profiles_seed.cjs`

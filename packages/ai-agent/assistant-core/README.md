@@ -96,6 +96,7 @@ Shared assistant system-prompt utilities used by assistant, workspace, and conso
 - `resolveAssistantSystemPromptWorkspaceFromConsoleSettings(consoleSettings)`
 - `resolveAssistantSystemPromptsFromWorkspaceSettings(workspaceSettings)`
 - `applyAssistantSystemPromptAppToWorkspaceFeatures(features, promptValue)`
+- `applyAssistantSystemPromptsToWorkspaceFeatures(features, promptPatch)`
 - `applyAssistantSystemPromptWorkspaceToConsoleFeatures(features, promptValue)`
 
 ## Tool Registry API

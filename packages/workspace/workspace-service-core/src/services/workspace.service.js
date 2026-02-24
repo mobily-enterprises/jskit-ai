@@ -23,6 +23,7 @@ import { listInviteMembershipsByWorkspaceId } from "../lookups/workspaceMembersh
 
 const DEFAULT_SURFACE_ID = "app";
 const SUPPORTED_SURFACE_IDS = new Set(["app", "admin", "console"]);
+const WORKSPACE_PROVISIONING_MODES = new Set(["self-serve", "governed"]);
 
 function normalizeSupportedSurfaceId(value) {
   const normalized = String(value || "")
@@ -32,6 +33,16 @@ function normalizeSupportedSurfaceId(value) {
     return normalized;
   }
   return DEFAULT_SURFACE_ID;
+}
+
+function normalizeWorkspaceProvisioningMode(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (WORKSPACE_PROVISIONING_MODES.has(normalized)) {
+    return normalized;
+  }
+  return "self-serve";
 }
 
 function normalizeDenyUserIds(rawUserIds) {
@@ -210,6 +221,7 @@ function createService({
     normalizeSurfaceId: effectiveSurfaceResolver.normalizeSurfaceId,
     resolveSurfaceFromPathname
   };
+  const workspaceProvisioningMode = normalizeWorkspaceProvisioningMode(appConfig.workspaceProvisioningMode);
 
   async function ensureUniqueWorkspaceSlug(baseSlug, options = {}) {
     let candidate = toSlugPart(baseSlug) || "workspace";
@@ -318,8 +330,120 @@ function createService({
     return workspace;
   }
 
-  async function listMembershipWorkspacesForUser(userId) {
-    return workspacesRepository.listByUserId(userId);
+  function findOwnedWorkspaceForUser(memberships, userId) {
+    const numericUserId = Number(userId);
+    return (Array.isArray(memberships) ? memberships : []).find(
+      (membershipWorkspace) => Number(membershipWorkspace?.ownerUserId) === numericUserId
+    );
+  }
+
+  async function listMembershipWorkspacesForUser(userId, options = {}) {
+    return workspacesRepository.listByUserId(userId, options);
+  }
+
+  async function lockWorkspaceProvisioningForUser(userId, options = {}) {
+    await userSettingsRepository.ensureForUserId(userId, options);
+    if (typeof userSettingsRepository.findByUserIdForUpdate === "function") {
+      await userSettingsRepository.findByUserIdForUpdate(userId, options?.trx || null);
+    }
+  }
+
+  async function createOwnedWorkspaceWithRetry(userProfile, userId, options = {}) {
+    const maxAttempts = 10;
+    const baseSlug = buildWorkspaceBaseSlug(userProfile);
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await workspacesRepository.insert(
+          {
+            slug: await ensureUniqueWorkspaceSlug(baseSlug, options),
+            name: buildWorkspaceName(userProfile),
+            ownerUserId: userId,
+            isPersonal: false,
+            avatarUrl: ""
+          },
+          options
+        );
+      } catch (error) {
+        if (!isMysqlDuplicateEntryError(error)) {
+          throw error;
+        }
+
+        const memberships = await listMembershipWorkspacesForUser(userId, options);
+        const existingWorkspace = findOwnedWorkspaceForUser(memberships, userId);
+        if (existingWorkspace) {
+          return existingWorkspace;
+        }
+      }
+    }
+
+    throw new AppError(500, "Unable to provision initial workspace. Please retry.");
+  }
+
+  async function ensureInitialWorkspaceForUser(userProfile) {
+    const userId = Number(userProfile?.id);
+    if (!Number.isInteger(userId) || userId < 1) {
+      throw new AppError(400, "Cannot ensure workspace without a valid user id.");
+    }
+
+    if (appConfig.tenancyMode === "personal") {
+      return ensurePersonalWorkspaceForUser(userProfile);
+    }
+
+    if (workspaceProvisioningMode !== "self-serve") {
+      return null;
+    }
+
+    const provisioningResult = await runInTransaction(async (trx) => {
+      const transactionOptions = trx ? { trx } : {};
+      await lockWorkspaceProvisioningForUser(userId, transactionOptions);
+
+      const memberships = await listMembershipWorkspacesForUser(userId, transactionOptions);
+      const existingWorkspace = findOwnedWorkspaceForUser(memberships, userId);
+      if (existingWorkspace) {
+        return {
+          workspace: existingWorkspace,
+          created: false
+        };
+      }
+
+      if (memberships.length > 0) {
+        return {
+          workspace: null,
+          created: false
+        };
+      }
+
+      const workspace = await createOwnedWorkspaceWithRetry(userProfile, userId, transactionOptions);
+      await workspaceMembershipsRepository.ensureOwnerMembership(workspace.id, userId, transactionOptions);
+      await ensureWorkspaceSettingsForWorkspace(workspace.id, transactionOptions);
+
+      const userSettings = await userSettingsRepository.ensureForUserId(userId, transactionOptions);
+      if (!userSettings.lastActiveWorkspaceId) {
+        await userSettingsRepository.updateLastActiveWorkspaceId(userId, workspace.id, transactionOptions);
+      }
+
+      return {
+        workspace,
+        created: true
+      };
+    });
+
+    if (provisioningResult?.created) {
+      const billingProvisioner = typeof getBillingPromoProvisioner === "function" ? getBillingPromoProvisioner() : null;
+      if (typeof billingProvisioner === "function") {
+        try {
+          await billingProvisioner({
+            workspaceId: provisioningResult.workspace.id,
+            ownerUserId: userId
+          });
+        } catch {
+          // Workspace bootstrap should not fail when billing promo bootstrap fails.
+        }
+      }
+    }
+
+    return provisioningResult?.workspace || null;
   }
 
   async function preloadWorkspaceSettingsForWorkspaceIds(workspaceIds, workspaceSettingsCache) {
@@ -651,9 +775,7 @@ function createService({
       };
     }
 
-    if (appConfig.tenancyMode === "personal") {
-      await ensurePersonalWorkspaceForUser(user);
-    }
+    await ensureInitialWorkspaceForUser(user);
 
     const surfaceId = resolveRequestSurfaceId(request, workspaceSurface, resolveRequestSurfaceIdOptions);
     const requestedWorkspaceSlug = resolveRequestedWorkspaceSlug(request);
@@ -788,9 +910,7 @@ function createService({
       throw new AppError(401, "Authentication required.");
     }
 
-    if (appConfig.tenancyMode === "personal") {
-      await ensurePersonalWorkspaceForUser(user);
-    }
+    await ensureInitialWorkspaceForUser(user);
 
     const rawSelector = String(workspaceSelector || "").trim();
     if (!rawSelector) {
@@ -849,9 +969,7 @@ function createService({
       throw new AppError(401, "Authentication required.");
     }
 
-    if (appConfig.tenancyMode === "personal") {
-      await ensurePersonalWorkspaceForUser(user);
-    }
+    await ensureInitialWorkspaceForUser(user);
 
     const surfaceId = resolveRequestSurfaceId(options.request, "", resolveRequestSurfaceIdOptions);
     const memberships = await listMembershipWorkspacesForUser(userId);

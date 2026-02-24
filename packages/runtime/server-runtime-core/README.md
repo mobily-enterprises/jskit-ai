@@ -35,6 +35,8 @@ Centralize app-agnostic server runtime helpers used across services, adapters, a
   - `normalizePositiveIntegerArray`
   - `normalizeScopeKind`
   - `normalizeStringifiedPositiveIntegerOrNull`
+- `@jskit-ai/server-runtime-core/realtimeEventsService`
+  - `createService`
 - `@jskit-ai/server-runtime-core/securityAudit`
   - `buildAuditEventBase`
   - `buildAuditError`
@@ -45,11 +47,22 @@ Centralize app-agnostic server runtime helpers used across services, adapters, a
   - `createServiceRegistry`
   - `createControllerRegistry`
   - `selectRuntimeServices`
+  - `createRuntimeComposition`
+- `@jskit-ai/server-runtime-core/runtimeKernel`
+  - `normalizeRuntimeBundle`
+  - `createRuntimeKernel`
+- `@jskit-ai/server-runtime-core/runtimeAssembly`
+  - `mergeRuntimeBundles`
+  - `createRuntimeAssembly`
+  - `buildRoutesFromManifest`
+- `@jskit-ai/server-runtime-core/apiRouteRegistration`
+  - `registerApiRouteDefinitions`
 - `@jskit-ai/server-runtime-core/fastifyBootstrap`
   - `resolveLoggerLevel`
   - `createFastifyLoggerOptions`
   - `registerRequestLoggingHooks`
   - `registerApiErrorHandler`
+  - `resolveDatabaseErrorCode`
   - `recordDbErrorBestEffort`
   - `runGracefulShutdown`
 
@@ -107,6 +120,13 @@ const controllers = createControllerRegistry({
 });
 controllers.health.get();
 ```
+
+Additional practical examples:
+
+- `createRuntimeAssembly(...)`: merge multiple feature runtime bundles into one composition output during app boot.
+- `buildRoutesFromManifest(...)`: derive route arrays from declarative module manifest.
+- `registerApiRouteDefinitions(...)`: register route definitions on Fastify without duplicating per-route registration glue.
+- `resolveDatabaseErrorCode(error)`: classify DB failure codes before recording observability metrics.
 
 ## Non-goals
 

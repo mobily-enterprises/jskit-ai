@@ -1,5 +1,6 @@
 const appConfig = {
   tenancyMode: "team-single",
+  workspaceProvisioningMode: "self-serve",
   features: {
     workspaceSwitching: false,
     workspaceInvites: true,

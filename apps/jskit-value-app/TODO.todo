@@ -32,15 +32,18 @@ X Merge chats and permissions trees
 X Have "configs" in JSON files rather than .env for everything
 X have proper workspace chats
 X Improve UI for chats
-  X Full layout, less wasted vertical space at the top
+X Full layout, less wasted vertical space at the top
+X Have proper DB seeding, so that it "starts" well and workspaces can be created
   X New message form
   X DMs button and UI
   X Won't scroll down, give focus to message form, when new message arrives
   X Turn ALL of boilerplate code into packages in a monorepo with several packages
   X Turn even more boilerplate code into packages
   REORG:
-    - Merge no-domain with master
-    - Make sure server/lib is empty, server/domain is empty, and server/modules doesn't have any code that is remotely generic
+    X Merge no-domain with master
+    X Make sure server/lib is empty, server/domain is empty
+    - Make sure server/modules doesn't have any code that is remotely generic
+    - Make CAREFULLY sure src (client side) also doesn't have any code that is remotely generic
     - Make proper architecture for SMS and EMAIL (injection)
     - Last check that only app-specific code is in the app, and that all generic code is in packages, and that the app is just a scaffolding with some specific code for projects and deg2rad
 
@@ -52,7 +55,6 @@ X Improve UI for chats
 - Add full abilities to AI chatbot (calculate DEG2RAD, add project, change plan, list users...) (Make sure chatbot has exact same permission as user chatting to it)
 - Create an "alerts" system so that users can see their alerts
 - Improve redirect after login, admin or not?
-- Have proper DB seeding, so that it "starts" well and workspaces can be created
 
 - Security audit to the lot
 

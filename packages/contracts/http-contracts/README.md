@@ -43,6 +43,28 @@ Subpath exports:
 2. `@jskit-ai/http-contracts/paginationQuery`
 3. `@jskit-ai/http-contracts/typeboxFormats`
 
+## Error schema exports (`errorResponses`)
+
+Functions:
+
+1. `withStandardErrorResponses(successResponses, { includeValidation400 })`
+2. `enumSchema(values)`
+
+Constants and schemas:
+
+1. `STANDARD_ERROR_STATUS_CODES`
+2. `fieldErrorsSchema`
+3. `apiErrorDetailsSchema`
+4. `apiErrorResponseSchema`
+5. `apiValidationErrorResponseSchema`
+6. `fastifyDefaultErrorResponseSchema`
+
+Practical real-life examples:
+
+1. Reuse `apiValidationErrorResponseSchema` for endpoints that return field-level form errors.
+2. Reuse `fastifyDefaultErrorResponseSchema` so uncaught errors still conform to a documented response shape.
+3. Use `STANDARD_ERROR_STATUS_CODES` when generating consistent OpenAPI response maps across many routes.
+
 ## Examples
 
 Standard error responses:

@@ -13,11 +13,17 @@ import {
 } from "./helpers.js";
 
 const TENANCY_MODES = ["personal", "team-single", "multi-workspace"];
+const WORKSPACE_PROVISIONING_MODES = ["self-serve", "governed"];
 const BILLING_PROVIDERS = ["stripe", "paddle"];
 
 function validateAppConfig(config) {
   expectPlainObject("app", config);
   expectOneOf("app.tenancyMode", config.tenancyMode, TENANCY_MODES);
+  expectOneOf(
+    "app.workspaceProvisioningMode",
+    config.workspaceProvisioningMode,
+    WORKSPACE_PROVISIONING_MODES
+  );
   expectPlainObject("app.features", config.features);
   expectBoolean("app.features.workspaceSwitching", config.features.workspaceSwitching);
   expectBoolean("app.features.workspaceInvites", config.features.workspaceInvites);

@@ -1,0 +1,228 @@
+# Final Commit Attribution
+
+- Finalized by: `INSTANCE A`
+- Commit: `af29b6a`
+- Branch inspected: `maybe`
+- Perspective normalization:
+- `INSTANCE A` is the party called "other instance" in the prior draft.
+- `INSTANCE B` is the party called "mine" in the prior draft.
+
+## High-Confidence Instance A (Domain Elimination / Package Extractions)
+- `apps/jskit-value-app/server/domain/operations/services/retention.service.js`
+- `apps/jskit-value-app/server/domain/workspace/lookups/workspaceRequestContext.js`
+- `apps/jskit-value-app/server/modules/deg2rad/service.js`
+- `apps/jskit-value-app/bin/retentionSweep.js`
+- `apps/jskit-value-app/bin/worker.js`
+- `apps/jskit-value-app/server/runtime/appFeatureManifest.js`
+- `apps/jskit-value-app/server/workers/retentionProcessor.js`
+- `no_domain.txt`
+- `packages/chat/chat-storage-core/package.json`
+- `packages/chat/chat-storage-core/src/attachmentStorage.service.js`
+- `packages/chat/chat-storage-core/src/index.js`
+- `packages/communications/sms-core/package.json`
+- `packages/communications/sms-core/src/index.js`
+- `packages/communications/sms-core/src/service.js`
+- `packages/contracts/http-contracts/README.md`
+- `packages/contracts/http-contracts/package.json`
+- `packages/contracts/http-contracts/src/errorResponses.js`
+- `packages/contracts/http-contracts/src/index.js`
+- `packages/contracts/http-contracts/src/paginationQuery.js`
+- `packages/contracts/http-contracts/src/typeboxFormats.js`
+- `packages/contracts/http-contracts/test/errorResponses.test.js`
+- `packages/contracts/http-contracts/test/paginationQuery.test.js`
+- `packages/contracts/http-contracts/test/typeboxFormats.test.js`
+- `packages/security/security-audit-core/package.json`
+- `packages/security/security-audit-core/src/index.js`
+- `packages/security/security-audit-core/src/service.js`
+- `packages/security/security-audit-knex-mysql/package.json`
+- `packages/security/security-audit-knex-mysql/src/index.js`
+- `packages/security/security-audit-knex-mysql/src/repositories/auditEvents.repository.js`
+- `packages/users/user-profile-core/package.json`
+- `packages/users/user-profile-core/src/avatar.service.js`
+- `packages/users/user-profile-core/src/avatarStorage.service.js`
+- `packages/users/user-profile-core/src/index.js`
+- `packages/users/user-profile-core/src/profileIdentity.js`
+- `packages/users/user-profile-knex-mysql/package.json`
+- `packages/users/user-profile-knex-mysql/src/index.js`
+- `packages/users/user-profile-knex-mysql/src/repositories/profile.repository.js`
+- `packages/workspace/workspace-console-knex-mysql/package.json`
+- `packages/workspace/workspace-console-knex-mysql/src/index.js`
+- `packages/workspace/workspace-console-knex-mysql/src/repositories/errorLogs.repository.js`
+- `packages/workspace/workspace-console-knex-mysql/src/repositories/invites.repository.js`
+- `packages/workspace/workspace-console-knex-mysql/src/repositories/memberships.repository.js`
+- `packages/workspace/workspace-console-knex-mysql/src/repositories/root.repository.js`
+- `packages/workspace/workspace-console-knex-mysql/src/repositories/settings.repository.js`
+- `packages/workspace/workspace-console-service-core/package.json`
+- `packages/workspace/workspace-console-service-core/src/index.js`
+- `packages/workspace/workspace-console-service-core/src/mappers/consoleMappers.js`
+- `packages/workspace/workspace-console-service-core/src/policies/invitePolicy.js`
+- `packages/workspace/workspace-console-service-core/src/services/billingCatalog.service.js`
+- `packages/workspace/workspace-console-service-core/src/services/billingCatalogProviderPricing.service.js`
+- `packages/workspace/workspace-console-service-core/src/services/billingSettings.service.js`
+- `packages/workspace/workspace-console-service-core/src/services/console.service.js`
+- `packages/workspace/workspace-console-service-core/src/services/consoleAccess.service.js`
+- `packages/workspace/workspace-console-service-core/src/services/consoleBilling.service.js`
+- `packages/workspace/workspace-console-service-core/src/services/consoleInvites.service.js`
+- `packages/workspace/workspace-console-service-core/src/services/consoleMembers.service.js`
+- `packages/workspace/workspace-console-service-core/src/services/errors.service.js`
+- `packages/workspace/workspace-knex-mysql/package.json`
+- `packages/workspace/workspace-knex-mysql/src/index.js`
+- `packages/workspace/workspace-knex-mysql/src/repositories/invites.repository.js`
+- `packages/workspace/workspace-knex-mysql/src/repositories/memberships.repository.js`
+- `packages/workspace/workspace-knex-mysql/src/repositories/settings.repository.js`
+- `packages/workspace/workspace-knex-mysql/src/repositories/workspaces.repository.js`
+- `packages/workspace/workspace-service-core/package.json`
+- `packages/workspace/workspace-service-core/src/index.js`
+- `packages/workspace/workspace-service-core/src/lookups/workspaceMembershipLookup.js`
+- `packages/workspace/workspace-service-core/src/lookups/workspaceRequestContext.js`
+- `packages/workspace/workspace-service-core/src/mappers/workspaceAdminMappers.js`
+- `packages/workspace/workspace-service-core/src/mappers/workspaceMappers.js`
+- `packages/workspace/workspace-service-core/src/policies/workspaceInvitePolicy.js`
+- `packages/workspace/workspace-service-core/src/policies/workspaceNaming.js`
+- `packages/workspace/workspace-service-core/src/policies/workspacePolicyDefaults.js`
+- `packages/workspace/workspace-service-core/src/policies/workspaceSettingsPatch.js`
+- `packages/workspace/workspace-service-core/src/services/admin.service.js`
+- `packages/workspace/workspace-service-core/src/services/inviteEmail.service.js`
+- `packages/workspace/workspace-service-core/src/services/workspace.service.js`
+- `packages/operations/retention-core/package.json`
+- `packages/operations/retention-core/src/index.js`
+- `packages/operations/retention-core/src/policy.js`
+- `packages/operations/retention-core/src/rules/aiTranscripts.rules.js`
+- `packages/operations/retention-core/src/rules/audit.rules.js`
+- `packages/operations/retention-core/src/rules/billing.rules.js`
+- `packages/operations/retention-core/src/rules/chat.rules.js`
+- `packages/operations/retention-core/src/rules/consoleErrors.rules.js`
+- `packages/operations/retention-core/src/rules/index.js`
+- `packages/operations/retention-core/src/rules/invites.rules.js`
+- `packages/operations/retention-core/src/service.js`
+
+## Medium-Confidence Instance A (Step 7/8/9 Test Rewires)
+- `apps/jskit-value-app/tests/architectureGuardrails.test.js`
+- `apps/jskit-value-app/tests/moduleContracts.test.js`
+- `apps/jskit-value-app/tests/retentionService.test.js`
+- `apps/jskit-value-app/tests/consoleErrorLogsRepository.test.js`
+- `apps/jskit-value-app/tests/consoleErrorsService.test.js`
+- `apps/jskit-value-app/tests/consoleRootSecurity.test.js`
+- `apps/jskit-value-app/tests/consoleServiceBillingEvents.test.js`
+
+## High-Confidence Instance B (Runtime/Observability Scope)
+- `apps/jskit-value-app/server.js`
+- `apps/jskit-value-app/server/fastify/registerApiRoutes.js`
+- `apps/jskit-value-app/server/modules/api/routes.js`
+- `apps/jskit-value-app/server/modules/observability/routes.js`
+- `apps/jskit-value-app/server/runtime/controllers.js`
+- `apps/jskit-value-app/server/runtime/index.js`
+- `apps/jskit-value-app/server/runtime/platformModuleManifest.js`
+- `apps/jskit-value-app/server/runtime/repositories.js`
+- `apps/jskit-value-app/server/runtime/services.js`
+- `packages/observability/observability-core/README.md`
+- `packages/observability/observability-core/package.json`
+- `packages/observability/observability-core/src/index.js`
+- `packages/observability/observability-core/src/service.js`
+- `packages/observability/observability-core/test/service.test.js`
+- `packages/operations/redis-ops-core/package.json`
+- `packages/operations/redis-ops-core/src/index.js`
+- `packages/operations/redis-ops-core/src/retentionOrchestrator.js`
+- `packages/operations/redis-ops-core/src/retentionProcessor.js`
+- `packages/operations/redis-ops-core/test/retentionOrchestrator.test.js`
+- `packages/operations/redis-ops-core/test/retentionProcessor.test.js`
+- `packages/runtime/server-runtime-core/package.json`
+- `packages/runtime/server-runtime-core/src/apiRouteRegistration.js`
+- `packages/runtime/server-runtime-core/src/composition.js`
+- `packages/runtime/server-runtime-core/src/index.js`
+- `packages/runtime/server-runtime-core/src/realtimeEventsService.js`
+- `packages/runtime/server-runtime-core/src/runtimeAssembly.js`
+- `packages/runtime/server-runtime-core/src/runtimeKernel.js`
+- `packages/runtime/server-runtime-core/test/apiRouteRegistration.test.js`
+- `packages/runtime/server-runtime-core/test/composition.test.js`
+- `packages/runtime/server-runtime-core/test/runtimeAssembly.test.js`
+
+## Medium-Confidence Instance B (Touched Tests In Scope)
+- `apps/jskit-value-app/tests/observabilityRouteSchema.test.js`
+- `apps/jskit-value-app/tests/observabilityService.test.js`
+- `apps/jskit-value-app/tests/retentionProcessor.test.js`
+
+## Likely Instance A (Scope-Inferred Rewires)
+- `apps/jskit-value-app/server/modules/ai/routes.js`
+- `apps/jskit-value-app/server/modules/auth/routes.js`
+- `apps/jskit-value-app/server/modules/auth/schema.js`
+- `apps/jskit-value-app/server/modules/chat/realtime.service.js`
+- `apps/jskit-value-app/server/modules/chat/routes.js`
+- `apps/jskit-value-app/server/modules/communications/routes.js`
+- `apps/jskit-value-app/server/modules/communications/schema.js`
+- `apps/jskit-value-app/server/modules/console/routes.js`
+- `apps/jskit-value-app/server/modules/console/schema.js`
+- `apps/jskit-value-app/server/modules/consoleErrors/routes.js`
+- `apps/jskit-value-app/server/modules/consoleErrors/schema.js`
+- `apps/jskit-value-app/server/modules/deg2rad/routes.js`
+- `apps/jskit-value-app/server/modules/deg2rad/schema.js`
+- `apps/jskit-value-app/server/modules/health/routes.js`
+- `apps/jskit-value-app/server/modules/history/routes.js`
+- `apps/jskit-value-app/server/modules/history/schema.js`
+- `apps/jskit-value-app/server/modules/projects/routes.js`
+- `apps/jskit-value-app/server/modules/projects/schema.js`
+- `apps/jskit-value-app/server/modules/settings/routes.js`
+- `apps/jskit-value-app/server/modules/settings/schema.js`
+- `apps/jskit-value-app/server/modules/settings/service.js`
+- `apps/jskit-value-app/server/modules/workspace/routes/admin.route.js`
+- `apps/jskit-value-app/server/modules/workspace/routes/bootstrap.route.js`
+- `apps/jskit-value-app/server/modules/workspace/routes/selfService.route.js`
+- `apps/jskit-value-app/server/modules/workspace/schemas/admin.schema.js`
+- `apps/jskit-value-app/server/modules/workspace/schemas/bootstrap.schema.js`
+- `apps/jskit-value-app/server/modules/workspace/schemas/selfService.schema.js`
+- `apps/jskit-value-app/server/modules/workspace/schemas/shared.schema.js`
+- `apps/jskit-value-app/tests/avatarStorageService.test.js`
+- `apps/jskit-value-app/tests/chatRealtimeService.test.js`
+- `apps/jskit-value-app/tests/edgeCases.test.js`
+- `apps/jskit-value-app/tests/repositoriesBehavior.test.js`
+- `apps/jskit-value-app/tests/securityAuditService.test.js`
+- `apps/jskit-value-app/tests/smsService.test.js`
+- `apps/jskit-value-app/tests/userAvatarService.test.js`
+- `apps/jskit-value-app/tests/workspaceAdminDomainModules.test.js`
+- `apps/jskit-value-app/tests/workspaceAdminMappers.test.js`
+- `apps/jskit-value-app/tests/workspaceAdminService.test.js`
+- `apps/jskit-value-app/tests/workspaceDomainModules.test.js`
+- `apps/jskit-value-app/tests/workspaceInviteEmailService.test.js`
+- `apps/jskit-value-app/tests/workspaceInvitePolicy.test.js`
+- `apps/jskit-value-app/tests/workspaceMembershipLookup.test.js`
+- `apps/jskit-value-app/tests/workspaceRepositories.test.js`
+- `apps/jskit-value-app/tests/workspaceService.test.js`
+- `apps/jskit-value-app/tests/workspaceServicePerformance.test.js`
+- `apps/jskit-value-app/tests/workspaceServiceSurfacePolicy.test.js`
+- `packages/ai-agent/assistant-fastify-adapter/README.md`
+- `packages/ai-agent/assistant-fastify-adapter/package.json`
+- `packages/ai-agent/assistant-fastify-adapter/src/schema.js`
+- `packages/chat/chat-fastify-adapter/README.md`
+- `packages/chat/chat-fastify-adapter/package.json`
+- `packages/chat/chat-fastify-adapter/src/schema.js`
+
+## Likely Instance B (Scope-Inferred Runtime/Billing Rewires)
+- `apps/jskit-value-app/server/modules/billing/checkoutOrchestrator.service.js`
+- `apps/jskit-value-app/server/modules/billing/idempotency.service.js`
+- `apps/jskit-value-app/server/modules/billing/outboxWorker.service.js`
+- `apps/jskit-value-app/server/modules/billing/reconciliation.service.js`
+- `apps/jskit-value-app/server/modules/billing/remediationWorker.service.js`
+- `apps/jskit-value-app/server/modules/billing/routes.js`
+- `apps/jskit-value-app/server/modules/billing/service.js`
+- `apps/jskit-value-app/server/modules/billing/webhook.service.js`
+- `apps/jskit-value-app/server/modules/billing/webhookCheckoutProjection.service.js`
+- `apps/jskit-value-app/server/modules/billing/webhookSubscriptionProjection.service.js`
+- `apps/jskit-value-app/tests/billingIdempotencyService.test.js`
+- `apps/jskit-value-app/tests/billingOutboxWorkerService.test.js`
+- `apps/jskit-value-app/tests/billingRemediationWorkerService.test.js`
+- `apps/jskit-value-app/tests/helpers/realtimeTestHarness.js`
+- `apps/jskit-value-app/tests/libUtilities.test.js`
+- `apps/jskit-value-app/tests/realtimeEventsService.test.js`
+
+## Residual Ambiguous Or Mixed
+- `apps/jskit-value-app/RAILS.md`
+- `apps/jskit-value-app/README.md`
+- `apps/jskit-value-app/TODO.todo`
+- `apps/jskit-value-app/package.json`
+- `package-lock.json`
+
+## Notes
+- This is commit-level inference only (single combined commit), not line-authorship proof.
+- Step 7/8/9 ownership was corrected toward `INSTANCE A` from the prior draft.
+- `Likely` buckets are scope-based inference from migration-step ownership and dependency rewires.
+- Residual ambiguous files are project-wide docs/manifest updates with blended edits.

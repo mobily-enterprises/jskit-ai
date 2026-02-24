@@ -2,5 +2,8 @@
   "name": "jskit-monorepo",
   "version": "1.0.0",
   "private": true,
+  "scripts": {
+    "dev": "npm run -w apps/jskit-value-app dev --"
+  },
   "workspaces": ["apps/*", "packages/*", "packages/*/*"]
 }

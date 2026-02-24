@@ -27,6 +27,7 @@ This keeps error and metrics data consistent across modules.
 - `@jskit-ai/observability-core/metricsContracts`
 - `@jskit-ai/observability-core/metricsRegistry`
 - `@jskit-ai/observability-core/scopeLogger`
+- `@jskit-ai/observability-core/service`
 
 ## Function and constant reference
 
@@ -121,6 +122,17 @@ Related constants:
 - `createScopedLogger({ logger, scope, isScopeDebugEnabled })`
   - Wraps logger methods and prefixes scope for non-child loggers.
   - Example: observability service creates `billing.checkout` scoped loggers for worker/checkout diagnostics.
+
+### `service`
+
+- `createService(options)`
+  - Creates high-level observability service facade.
+  - Provides:
+    - metrics endpoint payload helper with optional bearer-token protection (`getMetricsPayload`)
+    - metric recorders (`observeHttpRequest`, `recordDbError`, `recordConsoleErrorIngestion`, `recordAuthFailure`, `recordSecurityAuditEvent`, `recordAiTurn`, `recordAiToolCall`)
+    - guardrail recorder (`recordGuardrail`)
+    - scoped logger factory (`createScopedLogger`)
+  - Example: app startup creates one observability service and injects it into HTTP hooks, billing domain, and audit domain.
 
 ## How it is used in apps (real terms, and why)
 
