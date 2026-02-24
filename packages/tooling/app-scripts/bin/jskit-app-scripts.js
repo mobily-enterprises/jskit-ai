@@ -5,6 +5,8 @@ import { access } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
+import { runProcessEnvGuardrail, createViolationReport } from "../src/guardrails/processEnv.js";
+import { runApiContractsGuardrail } from "../src/guardrails/apiContracts.js";
 
 function shellQuote(value) {
   const raw = String(value ?? "");
@@ -24,6 +26,13 @@ function printUsageAndExit(message) {
   }
   console.error("Usage: jskit-app-scripts <task> [-- <extra args>]");
   process.exit(1);
+}
+
+function createCliError(message, { showUsage = false, exitCode = 1 } = {}) {
+  const error = new Error(String(message || "Task failed."));
+  error.showUsage = Boolean(showUsage);
+  error.exitCode = Number.isInteger(exitCode) ? exitCode : 1;
+  return error;
 }
 
 function parseTaskArguments(argv) {
@@ -111,10 +120,91 @@ function runCommand(taskDefinition, extraArgs, options) {
   return spawn(command, [...args, ...extraArgs], options);
 }
 
+function resolveGuardrailsConfig(config) {
+  return config?.guardrails && typeof config.guardrails === "object" ? config.guardrails : {};
+}
+
+async function runBuiltinTask({ builtinTaskId, task, extraArgs, appRoot, config }) {
+  if (extraArgs.length > 0) {
+    throw createCliError(`Task "${task}" does not accept extra arguments.`, {
+      showUsage: false
+    });
+  }
+
+  const guardrailsConfig = resolveGuardrailsConfig(config);
+
+  if (builtinTaskId === "guardrails:process-env") {
+    const processEnvConfig =
+      guardrailsConfig.processEnv && typeof guardrailsConfig.processEnv === "object" ? guardrailsConfig.processEnv : {};
+    const result = await runProcessEnvGuardrail({
+      rootDir: appRoot,
+      ...processEnvConfig
+    });
+
+    if (!result.ok) {
+      throw createCliError(
+        createViolationReport({
+          allowedFiles: result.allowedFiles,
+          violations: result.violations
+        }),
+        { showUsage: false }
+      );
+    }
+
+    process.stdout.write("OK: no disallowed process.env usage found.\n");
+    return;
+  }
+
+  if (builtinTaskId === "guardrails:api-contracts:sync" || builtinTaskId === "guardrails:api-contracts:check") {
+    const apiContractsConfig =
+      guardrailsConfig.apiContracts && typeof guardrailsConfig.apiContracts === "object"
+        ? guardrailsConfig.apiContracts
+        : {};
+    const result = await runApiContractsGuardrail({
+      appRoot,
+      config: apiContractsConfig,
+      checkOnly: builtinTaskId === "guardrails:api-contracts:check"
+    });
+
+    if (!result.ok) {
+      throw createCliError(result.errorMessage || "README API contracts are out of sync.", {
+        showUsage: false
+      });
+    }
+
+    return;
+  }
+
+  throw createCliError(`Unknown builtin task "${builtinTaskId}".`, {
+    showUsage: true
+  });
+}
+
+function isBuiltinTaskDefinition(taskDefinition) {
+  return (
+    Boolean(taskDefinition) &&
+    typeof taskDefinition === "object" &&
+    !Array.isArray(taskDefinition) &&
+    typeof taskDefinition.builtin === "string" &&
+    String(taskDefinition.builtin || "").trim().length > 0
+  );
+}
+
 async function main() {
   const { task, extraArgs } = parseTaskArguments(process.argv.slice(2));
   const { appRoot, config } = await loadConfigFromCwd();
   const taskDefinition = resolveTaskDefinition(config, task);
+
+  if (isBuiltinTaskDefinition(taskDefinition)) {
+    await runBuiltinTask({
+      builtinTaskId: String(taskDefinition.builtin || "").trim(),
+      task,
+      extraArgs,
+      appRoot,
+      config
+    });
+    return;
+  }
 
   let child;
   if (typeof taskDefinition === "string") {
@@ -146,5 +236,11 @@ async function main() {
 }
 
 main().catch((error) => {
+  if (error?.showUsage === false) {
+    console.error(String(error?.message || error));
+    process.exit(Number(error?.exitCode || 1));
+    return;
+  }
+
   printUsageAndExit(String(error?.message || error));
 });

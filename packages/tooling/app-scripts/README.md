@@ -34,9 +34,24 @@ Creates a default task config object:
 
 ```js
 {
+  guardrails: {
+    processEnv: {
+      allowFiles: ["server/lib/runtimeEnv.js", "knexfile.cjs", "vite.config.mjs", "playwright.config.mjs"]
+    },
+    apiContracts: {
+      readmePath: "README.md",
+      routeProvider: {
+        modulePath: "server/modules/api/routes.js",
+        exportName: "buildDefaultRoutes"
+      }
+    }
+  },
   tasks: {
     dev: { command: "vite", env: { VITE_CLIENT_ENTRY: "main.js" } },
     lint: "jskit-app-scripts lint:process-env && eslint .",
+    "lint:process-env": { builtin: "guardrails:process-env" },
+    "docs:api-contracts": { builtin: "guardrails:api-contracts:sync" },
+    "docs:api-contracts:check": { builtin: "guardrails:api-contracts:check" },
     test: { command: "node", args: ["--test"], env: { NODE_ENV: "test" } },
     ...
   }
@@ -66,6 +81,12 @@ Creates a default task config object:
   - Example: app with custom knexfile and seed filenames.
 - `testCoverageConfig`, `testCoverageAspirationalConfig`
   - Example: use app-specific coverage policy files.
+- `guardrails.processEnv`
+  - `extensions`, `excludedDirNames`, `allowFiles`
+  - Example: allow a single runtime file in a custom folder.
+- `guardrails.apiContracts`
+  - `readmePath`, `markers.start`, `markers.end`, `routeProvider.modulePath`, `routeProvider.exportName`
+  - Example: route inventory sourced from a custom route composer.
 
 Practical example:
 
@@ -105,6 +126,14 @@ That config must default-export an object containing `tasks`.
   - example:
     ```js
     test: { command: "node", args: ["--test"], env: { NODE_ENV: "test" } }
+    ```
+- Builtin task:
+  - `{ builtin: string }`
+  - examples:
+    ```js
+    "lint:process-env": { builtin: "guardrails:process-env" },
+    "docs:api-contracts": { builtin: "guardrails:api-contracts:sync" },
+    "docs:api-contracts:check": { builtin: "guardrails:api-contracts:check" }
     ```
 
 ### Internal CLI function behavior (important for maintainers)
@@ -173,4 +202,3 @@ Files:
 
 - `packages/tooling/app-scripts/test/cli.test.js`
 - `packages/tooling/app-scripts/test/preset.test.js`
-

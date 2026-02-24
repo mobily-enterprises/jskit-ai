@@ -1,11 +1,102 @@
+const DEFAULT_PROCESS_ENV_JS_EXTENSIONS = Object.freeze([".js", ".cjs", ".mjs"]);
+const DEFAULT_PROCESS_ENV_EXCLUDED_DIR_NAMES = Object.freeze([
+  ".git",
+  "node_modules",
+  "tests",
+  "dist",
+  "dist-internal",
+  "dist-public",
+  "coverage",
+  ".vite"
+]);
+const DEFAULT_PROCESS_ENV_ALLOWED_FILES = Object.freeze([
+  "server/lib/runtimeEnv.js",
+  "knexfile.cjs",
+  "vite.config.mjs",
+  "playwright.config.mjs"
+]);
+
+const DEFAULT_API_CONTRACTS_README_PATH = "README.md";
+const DEFAULT_API_CONTRACTS_MARKERS = Object.freeze({
+  start: "<!-- API_CONTRACTS_START -->",
+  end: "<!-- API_CONTRACTS_END -->"
+});
+const DEFAULT_API_CONTRACTS_ROUTE_PROVIDER = Object.freeze({
+  modulePath: "server/modules/api/routes.js",
+  exportName: "buildDefaultRoutes"
+});
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function toNonEmptyString(value, fallback = "") {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    return fallback;
+  }
+
+  return normalized;
+}
+
+function toStringArray(value, fallback = []) {
+  if (!Array.isArray(value)) {
+    return [...fallback];
+  }
+
+  const output = value
+    .map((entry) => String(entry || "").trim())
+    .filter((entry) => entry.length > 0);
+
+  if (output.length < 1) {
+    return [...fallback];
+  }
+
+  return output;
+}
+
+function normalizeProcessEnvExtensions(value, fallback = DEFAULT_PROCESS_ENV_JS_EXTENSIONS) {
+  return toStringArray(value, fallback)
+    .map((entry) => {
+      const normalized = entry.toLowerCase();
+      return normalized.startsWith(".") ? normalized : `.${normalized}`;
+    })
+    .filter((entry, index, all) => all.indexOf(entry) === index);
+}
+
+function normalizeGuardrailsConfig(guardrails) {
+  const source = isPlainObject(guardrails) ? guardrails : {};
+  const processEnvSource = isPlainObject(source.processEnv) ? source.processEnv : {};
+  const apiContractsSource = isPlainObject(source.apiContracts) ? source.apiContracts : {};
+  const markersSource = isPlainObject(apiContractsSource.markers) ? apiContractsSource.markers : {};
+  const routeProviderSource = isPlainObject(apiContractsSource.routeProvider) ? apiContractsSource.routeProvider : {};
+
+  return {
+    processEnv: {
+      extensions: normalizeProcessEnvExtensions(processEnvSource.extensions),
+      excludedDirNames: toStringArray(processEnvSource.excludedDirNames, DEFAULT_PROCESS_ENV_EXCLUDED_DIR_NAMES),
+      allowFiles: toStringArray(processEnvSource.allowFiles, DEFAULT_PROCESS_ENV_ALLOWED_FILES)
+    },
+    apiContracts: {
+      readmePath: toNonEmptyString(apiContractsSource.readmePath, DEFAULT_API_CONTRACTS_README_PATH),
+      markers: {
+        start: toNonEmptyString(markersSource.start, DEFAULT_API_CONTRACTS_MARKERS.start),
+        end: toNonEmptyString(markersSource.end, DEFAULT_API_CONTRACTS_MARKERS.end)
+      },
+      routeProvider: {
+        modulePath: toNonEmptyString(routeProviderSource.modulePath, DEFAULT_API_CONTRACTS_ROUTE_PROVIDER.modulePath),
+        exportName: toNonEmptyString(routeProviderSource.exportName, DEFAULT_API_CONTRACTS_ROUTE_PROVIDER.exportName)
+      }
+    }
+  };
+}
+
 function createNodeVueFastifyScriptsConfig(options = {}) {
   const config = {
     serverEntry: "bin/server.js",
     workerEntry: "bin/worker.js",
     retentionEnqueueEntry: "bin/enqueueRetentionSweep.js",
     retentionSweepEntry: "bin/retentionSweep.js",
-    processEnvLintEntry: "bin/checkProcessEnvUsage.js",
-    docsApiContractsEntry: "bin/syncApiContractsReadme.js",
     knexfile: "knexfile.cjs",
     mainClientEntry: "main.js",
     publicClientEntry: "main.public.js",
@@ -17,8 +108,10 @@ function createNodeVueFastifyScriptsConfig(options = {}) {
     calculatorSeedFile: "02_calculation_logs_seed.cjs",
     ...options
   };
+  config.guardrails = normalizeGuardrailsConfig(options.guardrails);
 
   return {
+    guardrails: config.guardrails,
     tasks: {
       server: {
         command: "node",
@@ -73,8 +166,7 @@ function createNodeVueFastifyScriptsConfig(options = {}) {
       },
       lint: "jskit-app-scripts lint:process-env && eslint .",
       "lint:process-env": {
-        command: "node",
-        args: [config.processEnvLintEntry]
+        builtin: "guardrails:process-env"
       },
       "lint:fix": {
         command: "eslint",
@@ -185,12 +277,10 @@ function createNodeVueFastifyScriptsConfig(options = {}) {
         args: ["install", "chromium"]
       },
       "docs:api-contracts": {
-        command: "node",
-        args: [config.docsApiContractsEntry]
+        builtin: "guardrails:api-contracts:sync"
       },
       "docs:api-contracts:check": {
-        command: "node",
-        args: [config.docsApiContractsEntry, "--check"]
+        builtin: "guardrails:api-contracts:check"
       },
       "ops:retention": {
         command: "node",
