@@ -15,6 +15,7 @@
     "./realtimePublish": "./src/realtimePublish.js",
     "./realtimeEvents": "./src/realtimeEvents.js",
     "./securityAudit": "./src/securityAudit.js",
-    "./composition": "./src/composition.js"
+    "./composition": "./src/composition.js",
+    "./fastifyBootstrap": "./src/fastifyBootstrap.js"
   }
 }

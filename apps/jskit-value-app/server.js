@@ -14,6 +14,13 @@ import { resolveAppConfig, toBrowserConfig } from "@jskit-ai/runtime-env-core/ap
 import { listManifestPermissions, loadRbacManifest, manifestIncludesPermission } from "@jskit-ai/rbac-core";
 import { initDatabase, closeDatabase } from "./db/knex.js";
 import { isAppError } from "@jskit-ai/server-runtime-core/errors";
+import {
+  createFastifyLoggerOptions,
+  registerApiErrorHandler,
+  registerRequestLoggingHooks,
+  recordDbErrorBestEffort,
+  runGracefulShutdown
+} from "@jskit-ai/server-runtime-core/fastifyBootstrap";
 import { registerApiRoutes } from "./server/fastify/registerApiRoutes.js";
 import authPlugin from "./server/fastify/auth.plugin.js";
 import billingWebhookRawBodyPlugin from "./server/fastify/billingWebhookRawBody.plugin.js";
@@ -184,70 +191,6 @@ function validateRuntimeConfig() {
 
 function hasPathExtension(pathnameValue) {
   return path.extname(pathnameValue) !== "";
-}
-
-function resolveLoggerLevel() {
-  if (ALLOWED_LOG_LEVELS.has(LOG_LEVEL)) {
-    return LOG_LEVEL;
-  }
-
-  return NODE_ENV === "production" ? "info" : "debug";
-}
-
-function createFastifyLoggerOptions() {
-  return {
-    level: resolveLoggerLevel(),
-    redact: {
-      paths: LOG_REDACT_PATHS,
-      censor: "[REDACTED]"
-    }
-  };
-}
-
-function registerRequestLoggingHooks(
-  app,
-  { observabilityService: instrumentationService, enableRequestLogs = true } = {}
-) {
-  app.addHook("onRequest", async (request) => {
-    request[REQUEST_STARTED_AT_SYMBOL] = process.hrtime.bigint();
-  });
-
-  app.addHook("onResponse", async (request, reply) => {
-    const startedAt = request[REQUEST_STARTED_AT_SYMBOL];
-    const durationMs =
-      typeof startedAt === "bigint" ? Number(process.hrtime.bigint() - startedAt) / 1_000_000 : Number.NaN;
-    const pathnameValue = safePathnameFromRequest(request);
-    const routeUrl = String(request?.routeOptions?.url || "").trim();
-    const surface = resolveSurfaceFromPathname(pathnameValue);
-    const userId = Number(request?.user?.id);
-    const logPayload = {
-      requestId: String(request?.id || ""),
-      method: String(request?.method || ""),
-      path: pathnameValue,
-      routeUrl,
-      surface,
-      statusCode: Number(reply?.statusCode || 0),
-      durationMs: Number.isFinite(durationMs) ? Number(durationMs.toFixed(3)) : null
-    };
-
-    if (Number.isInteger(userId) && userId > 0) {
-      logPayload.userId = userId;
-    }
-
-    if (instrumentationService && typeof instrumentationService.observeHttpRequest === "function") {
-      instrumentationService.observeHttpRequest({
-        method: logPayload.method,
-        route: routeUrl || pathnameValue,
-        surface,
-        statusCode: logPayload.statusCode,
-        durationMs
-      });
-    }
-
-    if (enableRequestLogs) {
-      request.log.info(logPayload, "request.completed");
-    }
-  });
 }
 
 async function guardPageRoute(request, reply) {
@@ -431,48 +374,6 @@ async function hasFrontendBuild() {
   }
 }
 
-function resolveDatabaseErrorCode(error) {
-  const errorCode = String(error?.code || "")
-    .trim()
-    .toUpperCase();
-  if (errorCode && (errorCode.startsWith("ER_") || errorCode.startsWith("SQLITE_") || errorCode.startsWith("PG"))) {
-    return errorCode;
-  }
-
-  const sqlState = String(error?.sqlState || error?.sqlstate || "")
-    .trim()
-    .toUpperCase();
-  if (sqlState) {
-    return `SQLSTATE_${sqlState}`;
-  }
-
-  const errno = Number(error?.errno);
-  if (Number.isInteger(errno)) {
-    return `ERRNO_${errno}`;
-  }
-
-  const message = String(error?.message || "").toLowerCase();
-  const name = String(error?.name || "").toLowerCase();
-  if (message.includes("mysql") || message.includes("sql") || message.includes("knex") || name.includes("mysql")) {
-    return "DB_UNKNOWN";
-  }
-
-  return "";
-}
-
-function recordDbErrorBestEffort(observabilityService, error) {
-  if (!observabilityService || typeof observabilityService.recordDbError !== "function") {
-    return;
-  }
-
-  const code = resolveDatabaseErrorCode(error);
-  if (!code) {
-    return;
-  }
-
-  observabilityService.recordDbError({ code });
-}
-
 function registerErrorHandler(app, { observabilityService: instrumentationService } = {}) {
   function recordServerErrorBestEffort(request, error, statusCode) {
     if (!consoleErrorsService || statusCode < 500) {
@@ -515,84 +416,12 @@ function registerErrorHandler(app, { observabilityService: instrumentationServic
       });
   }
 
-  app.setErrorHandler((error, _request, reply) => {
-    const request = _request;
-    const normalizedErrorCode = String(error?.code || "").trim();
-    const isCsrfErrorCode = normalizedErrorCode.startsWith("FST_CSRF_");
-    const statusFromError = Number(error?.statusCode || error?.status);
-    const statusCode =
-      Number.isInteger(statusFromError) && statusFromError >= 400 && statusFromError <= 599 ? statusFromError : 500;
-
-    if (error?.validation && Array.isArray(error.validation)) {
-      const fieldErrors = {};
-      for (const issue of error.validation) {
-        const fieldFromPath = String(issue.instancePath || "")
-          .replace(/^\//, "")
-          .replace(/\//g, ".");
-        const field =
-          fieldFromPath ||
-          String(issue.params?.missingProperty || issue.params?.additionalProperty || "request").trim();
-
-        if (!fieldErrors[field]) {
-          fieldErrors[field] = issue.message || "Invalid value.";
-        }
-      }
-
-      reply.code(400).send({
-        error: "Validation failed.",
-        fieldErrors,
-        details: {
-          fieldErrors
-        }
-      });
-      return;
-    }
-
-    if (isAppError(error)) {
-      if (error.status >= 500) {
-        recordDbErrorBestEffort(instrumentationService, error);
-        recordServerErrorBestEffort(request, error, error.status);
-        app.log.error({ err: error }, "AppError 5xx");
-      }
-
-      const payload = { error: error.message };
-      if (error.details) {
-        payload.details = error.details;
-        if (error.details.fieldErrors) {
-          payload.fieldErrors = error.details.fieldErrors;
-        }
-      }
-
-      if (error.headers && typeof error.headers === "object") {
-        Object.entries(error.headers).forEach(([name, value]) => {
-          reply.header(name, value);
-        });
-      }
-
-      reply.code(error.status).send(payload);
-      return;
-    }
-
-    if (error.headers && typeof error.headers === "object") {
-      Object.entries(error.headers).forEach(([name, value]) => {
-        reply.header(name, value);
-      });
-    }
-
-    if (statusCode >= 500) {
+  registerApiErrorHandler(app, {
+    isAppError,
+    onRecordDbError(error) {
       recordDbErrorBestEffort(instrumentationService, error);
-    }
-    recordServerErrorBestEffort(request, error, statusCode);
-    app.log.error({ err: error }, "Unhandled error");
-
-    const message = statusCode >= 500 ? "Internal server error." : String(error?.message || "Request failed.");
-    const payload = { error: message };
-    if (isCsrfErrorCode) {
-      payload.details = {
-        code: normalizedErrorCode
-      };
-    }
-    reply.code(statusCode).send(payload);
+    },
+    onCaptureServerError: recordServerErrorBestEffort
   });
 }
 
@@ -622,7 +451,16 @@ export async function buildServer({ frontendBuildAvailable }) {
     redisNamespace: runtimeEnv.REDIS_NAMESPACE
   });
 
-  const loggerOptions = NODE_ENV === "test" ? false : createFastifyLoggerOptions();
+  const loggerOptions =
+    NODE_ENV === "test"
+      ? false
+      : createFastifyLoggerOptions({
+          configuredLevel: LOG_LEVEL,
+          nodeEnv: NODE_ENV,
+          allowedLevels: ALLOWED_LOG_LEVELS,
+          redactPaths: LOG_REDACT_PATHS,
+          redactCensor: "[REDACTED]"
+        });
   const app = Fastify({
     logger: loggerOptions,
     disableRequestLogging: NODE_ENV !== "test",
@@ -648,7 +486,13 @@ export async function buildServer({ frontendBuildAvailable }) {
   }
 
   registerRequestLoggingHooks(app, {
-    observabilityService,
+    requestStartedAtSymbol: REQUEST_STARTED_AT_SYMBOL,
+    getPathname: safePathnameFromRequest,
+    getSurface: resolveSurfaceFromPathname,
+    observeRequest:
+      observabilityService && typeof observabilityService.observeHttpRequest === "function"
+        ? observabilityService.observeHttpRequest.bind(observabilityService)
+        : null,
     enableRequestLogs: NODE_ENV !== "test"
   });
 
@@ -872,50 +716,22 @@ export async function shutdownServer({ signal = "", exitProcess = false, exitCod
     return;
   }
   isShuttingDown = true;
-  let forcedExitTimer = null;
-
-  if (signal) {
-    console.log(`Received ${signal}. Shutting down.`);
-  }
-
-  stopBackgroundRuntimesForShutdown();
-
-  if (exitProcess) {
-    forcedExitTimer = setTimeout(() => {
-      try {
-        appInstance?.server?.closeIdleConnections?.();
-        appInstance?.server?.closeAllConnections?.();
-      } catch {
-        // Ignore best-effort force-close failures.
-      }
-
-      console.error(`Graceful shutdown timed out after ${GRACEFUL_SHUTDOWN_TIMEOUT_MS}ms. Forcing process exit.`);
-      process.exit(1);
-    }, GRACEFUL_SHUTDOWN_TIMEOUT_MS);
-    forcedExitTimer.unref?.();
-  }
+  const appToClose = appInstance;
+  appInstance = null;
 
   try {
-    if (appInstance) {
-      await appInstance.close();
-      appInstance = null;
-    }
-    await closeDatabase();
-  } catch (error) {
-    console.error("Failed to close server cleanly:", error);
-    if (exitProcess) {
-      process.exit(1);
-    }
-    throw error;
+    await runGracefulShutdown({
+      signal,
+      exitProcess,
+      exitCode,
+      timeoutMs: GRACEFUL_SHUTDOWN_TIMEOUT_MS,
+      appInstance: appToClose,
+      stopBackgroundRuntimes: stopBackgroundRuntimesForShutdown,
+      closeDatabase,
+      logger: console
+    });
   } finally {
-    if (forcedExitTimer) {
-      clearTimeout(forcedExitTimer);
-    }
     isShuttingDown = false;
-  }
-
-  if (exitProcess) {
-    process.exit(exitCode);
   }
 }
 
