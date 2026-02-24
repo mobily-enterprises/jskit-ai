@@ -1,97 +1,122 @@
 import { createController as createAuthController } from "../modules/auth/controller.js";
 import { createController as createHistoryController } from "../modules/history/controller.js";
-import { createController as createDeg2radController } from "../modules/deg2rad/controller.js";
 import { createController as createCommunicationsController } from "../modules/communications/controller.js";
 import { createController as createSettingsController } from "../modules/settings/controller.js";
 import { createController as createWorkspaceController } from "../modules/workspace/controller.js";
 import { createController as createConsoleController } from "../modules/console/controller.js";
 import { createController as createConsoleErrorsController } from "../modules/consoleErrors/controller.js";
 import { createController as createObservabilityController } from "../modules/observability/controller.js";
-import { createController as createProjectsController } from "../modules/projects/controller.js";
 import { createController as createChatController } from "../modules/chat/controller.js";
 import { createController as createHealthController } from "../modules/health/controller.js";
 import { createController as createAiController } from "../modules/ai/controller.js";
 import { createController as createBillingController } from "../modules/billing/controller.js";
+import { createControllerRegistry } from "@jskit-ai/server-runtime-core/composition";
+import { APP_FEATURE_CONTROLLER_DEFINITIONS } from "./appFeatureManifest.js";
+
+const CORE_CONTROLLER_DEFINITIONS = Object.freeze([
+  {
+    id: "auth",
+    create: ({ services }) =>
+      createAuthController({
+        authService: services.authService
+      })
+  },
+  {
+    id: "history",
+    create: ({ services }) =>
+      createHistoryController({
+        deg2radHistoryService: services.deg2radHistoryService
+      })
+  },
+  {
+    id: "communications",
+    create: ({ services }) =>
+      createCommunicationsController({
+        communicationsService: services.communicationsService
+      })
+  },
+  {
+    id: "settings",
+    create: ({ services }) =>
+      createSettingsController({
+        userSettingsService: services.userSettingsService,
+        authService: services.authService,
+        auditService: services.auditService
+      })
+  },
+  {
+    id: "health",
+    create: ({ services }) =>
+      createHealthController({
+        healthService: services.healthService
+      })
+  },
+  {
+    id: "billing",
+    create: ({ services }) =>
+      createBillingController({
+        billingService: services.billingService,
+        billingWebhookService: services.billingWebhookService
+      })
+  },
+  {
+    id: "chat",
+    create: ({ services }) =>
+      createChatController({
+        chatService: services.chatService
+      })
+  },
+  {
+    id: "ai",
+    create: ({ services }) =>
+      createAiController({
+        aiService: services.aiService,
+        aiTranscriptsService: services.aiTranscriptsService
+      })
+  },
+  {
+    id: "workspace",
+    create: ({ services }) =>
+      createWorkspaceController({
+        authService: services.authService,
+        workspaceService: services.workspaceService,
+        workspaceAdminService: services.workspaceAdminService,
+        aiTranscriptsService: services.aiTranscriptsService,
+        consoleService: services.consoleService,
+        auditService: services.auditService,
+        realtimeEventsService: services.realtimeEventsService
+      })
+  },
+  {
+    id: "console",
+    create: ({ services }) =>
+      createConsoleController({
+        consoleService: services.consoleService,
+        aiTranscriptsService: services.aiTranscriptsService,
+        auditService: services.auditService
+      })
+  },
+  {
+    id: "consoleErrors",
+    create: ({ services }) =>
+      createConsoleErrorsController({
+        consoleErrorsService: services.consoleErrorsService
+      })
+  },
+  {
+    id: "observability",
+    create: ({ services }) =>
+      createObservabilityController({
+        observabilityService: services.observabilityService
+      })
+  }
+]);
 
 function createControllers({ services }) {
-  const {
-    authService,
-    deg2radHistoryService,
-    deg2radService,
-    communicationsService,
-    userSettingsService,
-    projectsService,
-    chatService,
-    aiService,
-    aiTranscriptsService,
-    realtimeEventsService,
-    healthService,
-    billingService,
-    billingWebhookService,
-    workspaceService,
-    workspaceAdminService,
-    consoleService,
-    consoleErrorsService,
-    observabilityService,
-    auditService
-  } = services;
-
-  return {
-    auth: createAuthController({ authService }),
-    history: createHistoryController({ deg2radHistoryService }),
-    deg2rad: createDeg2radController({
-      deg2radService,
-      deg2radHistoryService,
-      billingService
-    }),
-    communications: createCommunicationsController({
-      communicationsService
-    }),
-    settings: createSettingsController({
-      userSettingsService,
-      authService,
-      auditService
-    }),
-    health: createHealthController({
-      healthService
-    }),
-    billing: createBillingController({
-      billingService,
-      billingWebhookService
-    }),
-    projects: createProjectsController({
-      projectsService,
-      realtimeEventsService,
-      billingService
-    }),
-    chat: createChatController({
-      chatService
-    }),
-    ai: createAiController({
-      aiService,
-      aiTranscriptsService
-    }),
-    workspace: createWorkspaceController({
-      authService,
-      workspaceService,
-      workspaceAdminService,
-      aiTranscriptsService,
-      consoleService,
-      auditService,
-      realtimeEventsService
-    }),
-    console: createConsoleController({
-      consoleService,
-      aiTranscriptsService,
-      auditService
-    }),
-    consoleErrors: createConsoleErrorsController({
-      consoleErrorsService
-    }),
-    observability: createObservabilityController({
-      observabilityService
-    })
-  };
+  return createControllerRegistry({
+    definitions: [...CORE_CONTROLLER_DEFINITIONS, ...APP_FEATURE_CONTROLLER_DEFINITIONS],
+    services
+  });
 }
 
 export { createControllers };

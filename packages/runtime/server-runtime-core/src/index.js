@@ -5,3 +5,4 @@ export * from "./pagination.js";
 export * from "./realtimePublish.js";
 export * from "./realtimeEvents.js";
 export * from "./securityAudit.js";
+export * from "./composition.js";

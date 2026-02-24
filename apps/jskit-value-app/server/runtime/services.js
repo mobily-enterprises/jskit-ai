@@ -1,5 +1,4 @@
 import { createService as createAuthService } from "../modules/auth/service.js";
-import { createService as createDeg2radService } from "../domain/deg2rad/calculator.service.js";
 import { createService as createDeg2radHistoryService } from "../modules/history/service.js";
 import { createService as createSmsService } from "../domain/communications/services/sms.service.js";
 import { createService as createCommunicationsService } from "../modules/communications/service.js";
@@ -16,7 +15,6 @@ import { createService as createAuditService } from "../domain/security/services
 import { createService as createRealtimeEventsService } from "../domain/realtime/services/events.service.js";
 import { createService as createChatRealtimeService } from "../domain/chat/services/realtime.service.js";
 import { createService as createObservabilityService } from "../modules/observability/service.js";
-import { createService as createProjectsService } from "../modules/projects/service.js";
 import { createService as createChatService } from "../modules/chat/service.js";
 import { createService as createHealthService } from "../modules/health/service.js";
 import { createService as createAiService } from "../modules/ai/service.js";
@@ -36,6 +34,8 @@ import { createService as createBillingReconciliationService } from "../modules/
 import { createService as createBillingWorkerRuntimeService } from "../modules/billing/workerRuntime.service.js";
 import { createService as createBillingRealtimePublishService } from "../modules/billing/realtimePublish.service.js";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { createServiceRegistry } from "@jskit-ai/server-runtime-core/composition";
+import { APP_FEATURE_SERVICE_DEFINITIONS } from "./appFeatureManifest.js";
 
 function createBillingDisabledServices() {
   const throwBillingDisabled = async () => {
@@ -254,7 +254,6 @@ function createServices({
     chatReactionsRepository,
     chatUserSettingsRepository,
     chatBlocksRepository,
-    projectsRepository,
     healthRepository,
     billingRepository
   } = repositories;
@@ -300,7 +299,13 @@ function createServices({
   const deg2radHistoryService = createDeg2radHistoryService({
     calculationLogsRepository
   });
-  const deg2radService = createDeg2radService();
+  const appFeatureServices = createServiceRegistry({
+    definitions: APP_FEATURE_SERVICE_DEFINITIONS,
+    dependencies: {
+      repositories
+    }
+  });
+  const { deg2radService, projectsService } = appFeatureServices;
   const smsService = createSmsService({
     driver: env.SMS_DRIVER,
     plivoAuthId: env.PLIVO_AUTH_ID,
@@ -378,10 +383,6 @@ function createServices({
   const auditService = createAuditService({
     auditEventsRepository,
     observabilityService
-  });
-
-  const projectsService = createProjectsService({
-    projectsRepository
   });
 
   const realtimeEventsService = createRealtimeEventsService();

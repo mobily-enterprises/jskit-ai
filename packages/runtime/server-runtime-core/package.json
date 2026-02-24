@@ -14,6 +14,7 @@
     "./pagination": "./src/pagination.js",
     "./realtimePublish": "./src/realtimePublish.js",
     "./realtimeEvents": "./src/realtimeEvents.js",
-    "./securityAudit": "./src/securityAudit.js"
+    "./securityAudit": "./src/securityAudit.js",
+    "./composition": "./src/composition.js"
   }
 }

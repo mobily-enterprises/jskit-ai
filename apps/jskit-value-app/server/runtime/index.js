@@ -1,6 +1,25 @@
 import { createRepositories } from "./repositories.js";
 import { createServices } from "./services.js";
 import { createControllers } from "./controllers.js";
+import { selectRuntimeServices } from "@jskit-ai/server-runtime-core/composition";
+
+const RUNTIME_SERVICE_EXPORT_IDS = Object.freeze([
+  "authService",
+  "workspaceService",
+  "consoleService",
+  "consoleErrorsService",
+  "realtimeEventsService",
+  "observabilityService",
+  "avatarStorageService",
+  "chatAttachmentStorageService",
+  "aiService",
+  "billingService",
+  "billingWebhookService",
+  "billingOutboxWorkerService",
+  "billingRemediationWorkerService",
+  "billingReconciliationService",
+  "billingWorkerRuntimeService"
+]);
 
 function createServerRuntime({
   runtimeEnv,
@@ -28,23 +47,7 @@ function createServerRuntime({
 
   return {
     controllers,
-    runtimeServices: {
-      authService: services.authService,
-      workspaceService: services.workspaceService,
-      consoleService: services.consoleService,
-      consoleErrorsService: services.consoleErrorsService,
-      realtimeEventsService: services.realtimeEventsService,
-      observabilityService: services.observabilityService,
-      avatarStorageService: services.avatarStorageService,
-      chatAttachmentStorageService: services.chatAttachmentStorageService,
-      aiService: services.aiService,
-      billingService: services.billingService,
-      billingWebhookService: services.billingWebhookService,
-      billingOutboxWorkerService: services.billingOutboxWorkerService,
-      billingRemediationWorkerService: services.billingRemediationWorkerService,
-      billingReconciliationService: services.billingReconciliationService,
-      billingWorkerRuntimeService: services.billingWorkerRuntimeService
-    }
+    runtimeServices: selectRuntimeServices(services, RUNTIME_SERVICE_EXPORT_IDS)
   };
 }
 

@@ -24,36 +24,117 @@ import * as chatBlocksRepository from "../modules/chat/repositories/blocks.repos
 import * as projectsRepository from "../modules/projects/repository.js";
 import * as healthRepository from "../modules/health/repository.js";
 import * as billingRepository from "../modules/billing/repository.js";
+import { createRepositoryRegistry } from "@jskit-ai/server-runtime-core/composition";
+
+const REPOSITORY_DEFINITIONS = Object.freeze([
+  {
+    id: "userProfilesRepository",
+    create: () => userProfilesRepository
+  },
+  {
+    id: "calculationLogsRepository",
+    create: () => calculationLogsRepository
+  },
+  {
+    id: "userSettingsRepository",
+    create: () => userSettingsRepository
+  },
+  {
+    id: "workspacesRepository",
+    create: () => workspacesRepository
+  },
+  {
+    id: "workspaceMembershipsRepository",
+    create: () => workspaceMembershipsRepository
+  },
+  {
+    id: "workspaceSettingsRepository",
+    create: () => workspaceSettingsRepository
+  },
+  {
+    id: "workspaceInvitesRepository",
+    create: () => workspaceInvitesRepository
+  },
+  {
+    id: "consoleMembershipsRepository",
+    create: () => consoleMembershipsRepository
+  },
+  {
+    id: "consoleInvitesRepository",
+    create: () => consoleInvitesRepository
+  },
+  {
+    id: "consoleRootRepository",
+    create: () => consoleRootRepository
+  },
+  {
+    id: "consoleSettingsRepository",
+    create: () => consoleSettingsRepository
+  },
+  {
+    id: "consoleErrorLogsRepository",
+    create: () => consoleErrorLogsRepository
+  },
+  {
+    id: "auditEventsRepository",
+    create: () => auditEventsRepository
+  },
+  {
+    id: "aiTranscriptConversationsRepository",
+    create: () => aiTranscriptConversationsRepository
+  },
+  {
+    id: "aiTranscriptMessagesRepository",
+    create: () => aiTranscriptMessagesRepository
+  },
+  {
+    id: "chatThreadsRepository",
+    create: () => chatThreadsRepository
+  },
+  {
+    id: "chatParticipantsRepository",
+    create: () => chatParticipantsRepository
+  },
+  {
+    id: "chatMessagesRepository",
+    create: () => chatMessagesRepository
+  },
+  {
+    id: "chatIdempotencyTombstonesRepository",
+    create: () => chatIdempotencyTombstonesRepository
+  },
+  {
+    id: "chatAttachmentsRepository",
+    create: () => chatAttachmentsRepository
+  },
+  {
+    id: "chatReactionsRepository",
+    create: () => chatReactionsRepository
+  },
+  {
+    id: "chatUserSettingsRepository",
+    create: () => chatUserSettingsRepository
+  },
+  {
+    id: "chatBlocksRepository",
+    create: () => chatBlocksRepository
+  },
+  {
+    id: "projectsRepository",
+    create: () => projectsRepository
+  },
+  {
+    id: "healthRepository",
+    create: () => healthRepository
+  },
+  {
+    id: "billingRepository",
+    create: () => billingRepository
+  }
+]);
 
 function createRepositories() {
-  return {
-    userProfilesRepository,
-    calculationLogsRepository,
-    userSettingsRepository,
-    workspacesRepository,
-    workspaceMembershipsRepository,
-    workspaceSettingsRepository,
-    workspaceInvitesRepository,
-    consoleMembershipsRepository,
-    consoleInvitesRepository,
-    consoleRootRepository,
-    consoleSettingsRepository,
-    consoleErrorLogsRepository,
-    auditEventsRepository,
-    aiTranscriptConversationsRepository,
-    aiTranscriptMessagesRepository,
-    chatThreadsRepository,
-    chatParticipantsRepository,
-    chatMessagesRepository,
-    chatIdempotencyTombstonesRepository,
-    chatAttachmentsRepository,
-    chatReactionsRepository,
-    chatUserSettingsRepository,
-    chatBlocksRepository,
-    projectsRepository,
-    healthRepository,
-    billingRepository
-  };
+  return createRepositoryRegistry(REPOSITORY_DEFINITIONS);
 }
 
 export { createRepositories };
