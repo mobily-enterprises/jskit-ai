@@ -1,0 +1,24 @@
+{
+  "name": "@jskit-ai/redis-ops-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./redisNamespace": "./src/redisNamespace.js",
+    "./rateLimit": "./src/rateLimit.js",
+    "./workerConstants": "./src/workerConstants.js",
+    "./workerLocking": "./src/workerLocking.js",
+    "./workerRedisConnection": "./src/workerRedisConnection.js",
+    "./retentionQueue": "./src/retentionQueue.js",
+    "./deadLetterQueue": "./src/deadLetterQueue.js",
+    "./workerRuntime": "./src/workerRuntime.js"
+  },
+  "dependencies": {
+    "bullmq": "^5.69.4",
+    "ioredis": "^5.9.3"
+  }
+}
