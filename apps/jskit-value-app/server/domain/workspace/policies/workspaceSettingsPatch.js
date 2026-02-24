@@ -1,5 +1,5 @@
 import { createWorkspaceSettingsPatchPolicy } from "@jskit-ai/workspace-console-core/workspaceSettingsPatch";
-import { AppError } from "../../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
 import { isWorkspaceColor } from "@jskit-ai/workspace-console-core/workspaceColors";
 import { TRANSCRIPT_MODE_VALUES } from "@jskit-ai/assistant-transcripts-core";

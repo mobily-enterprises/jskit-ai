@@ -1,7 +1,7 @@
 import { db } from "../../../db/knex.js";
 import { createEntitlementsKnexRepository } from "@jskit-ai/entitlements-knex-mysql";
-import { toIsoString, toMysqlDateTimeUtc } from "../../lib/primitives/dateUtils.js";
-import { isMysqlDuplicateEntryError } from "../../lib/primitives/mysqlErrors.js";
+import { toIsoString, toMysqlDateTimeUtc } from "@jskit-ai/knex-mysql-core/dateUtils";
+import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
 import {
   BILLING_CHECKOUT_SESSION_STATUS,
   BILLING_DEFAULT_PROVIDER,

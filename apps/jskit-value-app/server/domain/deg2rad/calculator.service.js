@@ -1,5 +1,5 @@
 import DecimalBase from "decimal.js";
-import { AppError } from "../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 
 const Decimal = DecimalBase.clone({
   precision: 50,

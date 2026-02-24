@@ -1,5 +1,5 @@
 import { createBillingCatalogProviderPricingCore } from "@jskit-ai/billing-core/providerPricingCore";
-import { AppError } from "../../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 
 const billingCatalogProviderPricingCore = createBillingCatalogProviderPricingCore({
   createError(status, message, options = {}) {

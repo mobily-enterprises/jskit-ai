@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { AppError } from "../../../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { BILLING_PROVIDER_PADDLE } from "../../constants.js";
 import { isBillingProviderError } from "../shared/providerError.contract.js";
 import { mapPaddleProviderError } from "./errorMapping.js";

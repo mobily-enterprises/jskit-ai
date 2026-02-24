@@ -1,6 +1,6 @@
 import { mergeAuthPolicy } from "@jskit-ai/fastify-auth-policy";
 
-import { safeRequestUrl } from "../lib/primitives/requestUrl.js";
+import { safeRequestUrl } from "@jskit-ai/server-runtime-core/requestUrl";
 import { buildDefaultRoutes } from "../modules/api/routes.js";
 
 function registerApiRoutes(fastify, { controllers, routes, routeConfig } = {}) {

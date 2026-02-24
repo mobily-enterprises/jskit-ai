@@ -1,5 +1,5 @@
 import { createController as createChatAdapterController } from "@jskit-ai/chat-fastify-adapter";
-import { AppError } from "../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 
 function createController(options = {}) {
   return createChatAdapterController({

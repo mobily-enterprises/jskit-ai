@@ -1,5 +1,5 @@
-import { AppError } from "../../../lib/errors.js";
-import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { mapMember } from "../mappers/consoleMappers.js";
 import { CONSOLE_MANAGEMENT_PERMISSIONS, CONSOLE_ROLE_ID, normalizeRoleId } from "@jskit-ai/workspace-console-core/consoleRoles";
 

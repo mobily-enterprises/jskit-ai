@@ -1,6 +1,6 @@
-import { AppError } from "../../../lib/errors.js";
-import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
-import { normalizePagination } from "../../../lib/primitives/pagination.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
+import { normalizePagination } from "@jskit-ai/server-runtime-core/pagination";
 import { createConsoleErrorPayloadNormalizer, SERVER_SIMULATION_KINDS } from "@jskit-ai/observability-core/serverPayload";
 import { hasPermission, resolveRolePermissions } from "@jskit-ai/workspace-console-core/consoleRoles";
 

@@ -1,4 +1,4 @@
-import { AppError } from "../../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { CONSOLE_BILLING_PERMISSIONS } from "@jskit-ai/workspace-console-core/consoleRoles";
 
 const PAID_PLAN_CHANGE_POLICY_REQUIRED_NOW = "required_now";

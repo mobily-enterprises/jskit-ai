@@ -1,4 +1,4 @@
-import { AppError } from "../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 
 const BILLING_MANAGE_PERMISSION = "workspace.billing.manage";
 const BILLABLE_ENTITY_ID_HEADER = "x-billable-entity-id";

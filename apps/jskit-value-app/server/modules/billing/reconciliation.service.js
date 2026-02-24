@@ -1,5 +1,5 @@
 /* eslint-disable max-lines */
-import { AppError } from "../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import {
   BILLING_ACTIONS,
   BILLING_CHECKOUT_SESSION_STATUS,

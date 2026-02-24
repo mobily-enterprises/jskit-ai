@@ -1,4 +1,4 @@
-import { AppError } from "../../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import {
   AI_ASSISTANT_SYSTEM_PROMPT_MAX_LENGTH,
   applyAssistantSystemPromptWorkspaceToConsoleFeatures,

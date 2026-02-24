@@ -1,4 +1,4 @@
-import { AppError } from "../../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 
 const TRANSIENT_AUTH_MESSAGE_PARTS = [
   "network",

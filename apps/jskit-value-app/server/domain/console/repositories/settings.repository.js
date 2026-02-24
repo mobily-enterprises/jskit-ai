@@ -1,6 +1,6 @@
 import { db } from "../../../../db/knex.js";
-import { toIsoString, toMysqlDateTimeUtc } from "../../../lib/primitives/dateUtils.js";
-import { isMysqlDuplicateEntryError } from "../../../lib/primitives/mysqlErrors.js";
+import { toIsoString, toMysqlDateTimeUtc } from "@jskit-ai/knex-mysql-core/dateUtils";
+import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
 
 const CONSOLE_SETTINGS_SINGLETON_ID = 1;
 

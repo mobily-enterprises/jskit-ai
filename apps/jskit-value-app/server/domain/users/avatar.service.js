@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import sharp from "sharp";
-import { AppError } from "../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { resolveProfileIdentity } from "./profileIdentity.js";
 import {
   AVATAR_ALLOWED_MIME_TYPES,

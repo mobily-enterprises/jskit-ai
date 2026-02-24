@@ -35,7 +35,7 @@ import { createService as createBillingRemediationWorkerService } from "../modul
 import { createService as createBillingReconciliationService } from "../modules/billing/reconciliation.service.js";
 import { createService as createBillingWorkerRuntimeService } from "../modules/billing/workerRuntime.service.js";
 import { createService as createBillingRealtimePublishService } from "../modules/billing/realtimePublish.service.js";
-import { AppError } from "../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 
 function createBillingDisabledServices() {
   const throwBillingDisabled = async () => {

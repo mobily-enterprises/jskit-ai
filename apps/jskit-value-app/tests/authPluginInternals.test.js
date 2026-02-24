@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import authPlugin from "../server/fastify/auth.plugin.js";
-import { AppError } from "../server/lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 
 function createFakeFastify({ csrfHandler } = {}) {
   const state = {

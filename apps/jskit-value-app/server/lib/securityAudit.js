@@ -1,5 +1,5 @@
-import { parsePositiveInteger } from "./primitives/integers.js";
-import { safePathnameFromRequest, resolveClientIpAddress } from "./primitives/requestUrl.js";
+import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
+import { safePathnameFromRequest, resolveClientIpAddress } from "@jskit-ai/server-runtime-core/requestUrl";
 import { resolveSurfaceFromPathname } from "../../shared/routing/surfacePaths.js";
 
 function resolveAuditSurface(pathnameValue, explicitSurface = "") {

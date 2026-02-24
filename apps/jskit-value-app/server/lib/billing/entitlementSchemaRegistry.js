@@ -1,4 +1,4 @@
-import { AppError } from "../errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 
 function isObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);

@@ -1,4 +1,4 @@
-import { safePathnameFromRequest } from "../../../lib/primitives/requestUrl.js";
+import { safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
 import { normalizeSurfaceId } from "../../../surfaces/index.js";
 import { resolveSurfaceFromPathname } from "../../../../shared/routing/surfacePaths.js";
 

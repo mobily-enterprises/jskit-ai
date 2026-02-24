@@ -2,9 +2,9 @@ import {
   createAssistantService as createAssistantCoreService,
   assistantServiceTestables as assistantCoreTestables
 } from "@jskit-ai/assistant-core";
-import { AppError } from "../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { hasPermission } from "../../lib/rbacManifest.js";
-import { safePathnameFromRequest } from "../../lib/primitives/requestUrl.js";
+import { safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
 import { publishWorkspaceEventSafely, resolvePublishWorkspaceEvent } from "../../lib/realtimeEvents.js";
 import { buildAuditEventBase } from "../../lib/securityAudit.js";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/realtime/eventTypes.js";

@@ -1,4 +1,4 @@
-import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
+import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 
 const SENSITIVE_METADATA_KEY_PATTERN = /(pass(word)?|token|secret|authorization|cookie|api[-_]?key|credential)/i;
 const MAX_OBJECT_KEYS = 60;

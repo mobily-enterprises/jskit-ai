@@ -1,4 +1,4 @@
-import { AppError } from "../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { createMetricsRegistry, PROMETHEUS_CONTENT_TYPE } from "@jskit-ai/observability-core";
 import { createScopeDebugMatcher, createScopedLogger } from "../../lib/logging/scopeLogger.js";
 

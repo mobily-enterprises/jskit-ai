@@ -1,4 +1,4 @@
-import { AppError } from "../../../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { BILLING_PROVIDER_STRIPE } from "../../constants.js";
 import {
   PROVIDER_ERROR_CATEGORIES,

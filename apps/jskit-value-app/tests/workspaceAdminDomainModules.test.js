@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AppError } from "../server/lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
-import { parsePositiveInteger } from "../server/lib/primitives/integers.js";
+import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import {
   normalizeWorkspaceColor,
   mapWorkspaceAdminSummary

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Readable } from "node:stream";
 import sharp from "sharp";
-import { AppError } from "../server/lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { createService as createUserAvatarService, __testables } from "../server/domain/users/avatar.service.js";
 
 function createProfile(overrides = {}) {

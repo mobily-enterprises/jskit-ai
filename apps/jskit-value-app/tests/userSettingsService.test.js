@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AppError } from "../server/lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { createService as createUserSettingsService, __testables } from "../server/modules/settings/service.js";
 
 function buildSettings(overrides = {}) {

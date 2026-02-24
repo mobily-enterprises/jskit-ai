@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AppError } from "../server/lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { __testables as billingControllerTestables } from "../server/modules/billing/controller.js";
 import { BILLING_FAILURE_CODES, statusFromFailureCode } from "../server/modules/billing/constants.js";
 

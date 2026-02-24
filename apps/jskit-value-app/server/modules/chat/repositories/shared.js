@@ -1,4 +1,4 @@
-import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
+import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 
 function parseJsonObject(value) {
   const source = String(value || "").trim();

@@ -1,5 +1,5 @@
 import { normalizeReturnToPath } from "@jskit-ai/access-core/utils";
-import { AppError } from "../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 
 function normalizeBillingPath(value, { fieldName }) {
   const fallback = "__invalid__";

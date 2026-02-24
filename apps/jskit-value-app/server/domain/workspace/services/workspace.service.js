@@ -1,8 +1,8 @@
-import { AppError } from "../../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { OWNER_ROLE_ID, resolveRolePermissions } from "../../../lib/rbacManifest.js";
 import { normalizeSurfaceId, resolveSurfaceById } from "../../../surfaces/index.js";
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
-import { isMysqlDuplicateEntryError } from "../../../lib/primitives/mysqlErrors.js";
+import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
 import { toSlugPart, buildWorkspaceName, buildWorkspaceBaseSlug } from "../policies/workspaceNaming.js";
 import {
   normalizeWorkspaceColor,

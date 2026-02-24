@@ -3,7 +3,7 @@ import {
   executeToolCall as executeAssistantCoreToolCall,
   listToolSchemas
 } from "@jskit-ai/assistant-core";
-import { AppError } from "../../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { hasPermission } from "../../../lib/rbacManifest.js";
 import { createWorkspaceRenameTool } from "./workspaceRename.tool.js";
 

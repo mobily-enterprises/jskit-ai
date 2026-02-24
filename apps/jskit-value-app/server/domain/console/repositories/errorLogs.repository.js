@@ -1,10 +1,10 @@
 import { db } from "../../../../db/knex.js";
-import { toIsoString, toMysqlDateTimeUtc } from "../../../lib/primitives/dateUtils.js";
+import { toIsoString, toMysqlDateTimeUtc } from "@jskit-ai/knex-mysql-core/dateUtils";
 import {
   deleteRowsOlderThan,
   normalizeBatchSize,
   normalizeCutoffDateOrThrow
-} from "../../../lib/primitives/retention.js";
+} from "@jskit-ai/knex-mysql-core/retention";
 
 function parseMetadata(value) {
   const source = String(value || "").trim();

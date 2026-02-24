@@ -1,7 +1,7 @@
 import { db } from "../../../../db/knex.js";
-import { toIsoString, toMysqlDateTimeUtc } from "../../../lib/primitives/dateUtils.js";
-import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
-import { normalizeBatchSize, normalizeCutoffDateOrThrow } from "../../../lib/primitives/retention.js";
+import { toIsoString, toMysqlDateTimeUtc } from "@jskit-ai/knex-mysql-core/dateUtils";
+import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
+import { normalizeBatchSize, normalizeCutoffDateOrThrow } from "@jskit-ai/knex-mysql-core/retention";
 
 function parseJsonObject(value) {
   const source = String(value || "").trim();

@@ -1,5 +1,5 @@
-import { AppError } from "../../lib/errors.js";
-import { isMysqlDuplicateEntryError } from "../../lib/primitives/mysqlErrors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
 import { BILLING_DEFAULT_PROVIDER, BILLING_PROVIDER_PADDLE, BILLING_PROVIDER_STRIPE } from "./constants.js";
 import { createService as createWebhookProjectionService, parseUnixEpochSeconds } from "./webhookProjection.service.js";
 import { normalizeWebhookProvider } from "./providers/shared/webhookTranslation.contract.js";

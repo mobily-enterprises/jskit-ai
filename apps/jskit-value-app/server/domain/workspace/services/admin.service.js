@@ -1,8 +1,8 @@
-import { AppError } from "../../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { OWNER_ROLE_ID } from "../../../lib/rbacManifest.js";
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
-import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
-import { isMysqlDuplicateEntryError } from "../../../lib/primitives/mysqlErrors.js";
+import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
+import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
 import {
   buildInviteToken,
   encodeInviteTokenHash,

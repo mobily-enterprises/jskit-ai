@@ -1,5 +1,5 @@
-import { AppError } from "../../lib/errors.js";
-import { isMysqlDuplicateEntryError } from "../../lib/primitives/mysqlErrors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
 import { validators as authValidators } from "@jskit-ai/access-core/validators";
 import { SETTINGS_FIELD_SPECS } from "@jskit-ai/workspace-console-core/settingsModel";
 import { buildPatch } from "@jskit-ai/workspace-console-core/settingsPatchBuilder";

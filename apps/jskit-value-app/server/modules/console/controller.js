@@ -1,6 +1,6 @@
-import { parsePositiveInteger } from "../../lib/primitives/integers.js";
+import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { withAuditEvent } from "../../lib/securityAudit.js";
-import { AppError } from "../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 
 function normalizeText(value) {
   return String(value || "").trim();

@@ -1,5 +1,5 @@
-import { AppError } from "../../lib/errors.js";
-import { parsePositiveInteger } from "../../lib/primitives/integers.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 
 const PROJECT_STATUS_SET = new Set(["draft", "active", "archived"]);
 

@@ -13,12 +13,12 @@ import { createPlatformRuntimeEnv } from "@jskit-ai/runtime-env-core/platformRun
 import { resolveAppConfig, toBrowserConfig } from "./server/lib/appConfig.js";
 import { listManifestPermissions, loadRbacManifest, manifestIncludesPermission } from "./server/lib/rbacManifest.js";
 import { initDatabase, closeDatabase } from "./db/knex.js";
-import { isAppError } from "./server/lib/errors.js";
+import { isAppError } from "@jskit-ai/server-runtime-core/errors";
 import { registerApiRoutes } from "./server/fastify/registerApiRoutes.js";
 import authPlugin from "./server/fastify/auth.plugin.js";
 import billingWebhookRawBodyPlugin from "./server/fastify/billingWebhookRawBody.plugin.js";
 import { registerSocketIoRealtime } from "./server/realtime/registerSocketIoRealtime.js";
-import { safePathnameFromRequest } from "./server/lib/primitives/requestUrl.js";
+import { safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
 import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar/index.js";
 import { createSurfacePaths, resolveSurfaceFromPathname, resolveSurfacePaths } from "./shared/routing/surfacePaths.js";
 import { surfaceRequiresWorkspace } from "./shared/routing/surfaceRegistry.js";

@@ -1,5 +1,5 @@
 import { db } from "../../../db/knex.js";
-import { toIsoString, toMysqlDateTimeUtc } from "../../lib/primitives/dateUtils.js";
+import { toIsoString, toMysqlDateTimeUtc } from "@jskit-ai/knex-mysql-core/dateUtils";
 
 const PROJECT_STATUS_SET = new Set(["draft", "active", "archived"]);
 

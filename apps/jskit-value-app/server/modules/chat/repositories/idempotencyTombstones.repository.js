@@ -1,8 +1,8 @@
 import { db } from "../../../../db/knex.js";
-import { toIsoString, toMysqlDateTimeUtc } from "../../../lib/primitives/dateUtils.js";
-import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
-import { isMysqlDuplicateEntryError } from "../../../lib/primitives/mysqlErrors.js";
-import { normalizeBatchSize } from "../../../lib/primitives/retention.js";
+import { toIsoString, toMysqlDateTimeUtc } from "@jskit-ai/knex-mysql-core/dateUtils";
+import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
+import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
+import { normalizeBatchSize } from "@jskit-ai/knex-mysql-core/retention";
 import { normalizeClientKey, parseJsonObject, resolveClient, stringifyJsonObject } from "./shared.js";
 
 function mapTombstoneRowRequired(row) {

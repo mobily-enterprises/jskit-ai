@@ -1,4 +1,4 @@
-import { AppError } from "../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 
 function normalizeIdempotencyKey(value) {
   const normalized = String(value || "").trim();

@@ -1,5 +1,5 @@
-import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
-import { normalizeBatchSize as normalizeRetentionBatchSize } from "../../../lib/primitives/retention.js";
+import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
+import { normalizeBatchSize as normalizeRetentionBatchSize } from "@jskit-ai/knex-mysql-core/retention";
 
 const DEFAULT_ERROR_LOG_RETENTION_DAYS = 30;
 const DEFAULT_INVITE_ARTIFACT_RETENTION_DAYS = 90;

@@ -1,9 +1,9 @@
 import fp from "fastify-plugin";
 import { authPolicyPlugin } from "@jskit-ai/fastify-auth-policy";
 
-import { AppError } from "../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { hasPermission } from "../lib/rbacManifest.js";
-import { safePathnameFromRequest } from "../lib/primitives/requestUrl.js";
+import { safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
 import { resolveSurfaceFromPathname } from "../../shared/routing/surfacePaths.js";
 
 function resolveRequestSurface(request) {

@@ -5,7 +5,7 @@ import {
   DEFAULT_INVITE_EXPIRY_DAYS,
   resolveInviteExpiresAt
 } from "../server/domain/workspace/policies/workspaceInvitePolicy.js";
-import { isMysqlDuplicateEntryError } from "../server/lib/primitives/mysqlErrors.js";
+import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
 
 test("workspace invite policy resolves default/custom invite expiry windows", () => {
   const now = Date.now();

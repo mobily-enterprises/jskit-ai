@@ -1,4 +1,4 @@
-import { AppError } from "../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import {
   BILLING_CHECKOUT_SESSION_STATUS,
   BILLING_DEFAULT_PROVIDER,

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AppError } from "../server/lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { mapAuthError } from "../server/modules/auth/lib/authErrorMappers.js";
 import {
   buildOtpLoginRedirectUrl,

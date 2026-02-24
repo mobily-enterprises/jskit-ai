@@ -1,4 +1,4 @@
-import { AppError } from "../../../lib/errors.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import {
   AUTH_ACCESS_TOKEN_MAX_LENGTH,
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,

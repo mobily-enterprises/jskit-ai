@@ -1,5 +1,5 @@
-import { AppError } from "../../../lib/errors.js";
-import { parsePositiveInteger } from "../../../lib/primitives/integers.js";
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { publishWorkspaceEventSafely, resolvePublishWorkspaceEvent } from "../../../lib/realtimeEvents.js";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../../shared/realtime/eventTypes.js";
 
