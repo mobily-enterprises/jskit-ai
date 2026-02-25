@@ -17,10 +17,12 @@ function createActionContributors({ services, repositories, repositoryConfig, ap
     }),
     createWorkspaceActionContributor({
       workspaceService: services?.workspaceService,
-      workspaceAdminService: services?.workspaceAdminService
+      workspaceAdminService: services?.workspaceAdminService,
+      aiTranscriptsService: services?.aiTranscriptsService
     }),
     createConsoleActionContributor({
-      consoleService: services?.consoleService
+      consoleService: services?.consoleService,
+      aiTranscriptsService: services?.aiTranscriptsService
     }),
     createChatActionContributor({
       chatService: services?.chatService
@@ -34,14 +36,17 @@ function createActionContributors({ services, repositories, repositoryConfig, ap
       authService: services?.authService
     }),
     createProjectsActionContributor({
+      projectsService: services?.projectsService,
       projectsRepository: repositories?.projectsRepository
     }),
     createDeg2radHistoryActionContributor({
-      deg2radHistoryService: services?.deg2radHistoryService
+      deg2radHistoryService: services?.deg2radHistoryService,
+      billingService: services?.billingService
     }),
     createAssistantActionContributor({
       aiService: services?.aiService,
       aiTranscriptsService: services?.aiTranscriptsService,
+      workspaceAdminService: services?.workspaceAdminService,
       actionsConfig: actionConfig.assistant,
       appConfig,
       rbacManifest

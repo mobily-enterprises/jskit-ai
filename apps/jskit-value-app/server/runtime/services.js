@@ -112,6 +112,7 @@ function createBillingDisabledServices() {
       ensureBillableEntity: throwBillingDisabled,
       seedSignupPromoPlan: throwBillingDisabled,
       listPlans: throwBillingDisabled,
+      listProducts: throwBillingDisabled,
       listPurchases: throwBillingDisabled,
       getPlanState: throwBillingDisabled,
       requestPlanChange: throwBillingDisabled,

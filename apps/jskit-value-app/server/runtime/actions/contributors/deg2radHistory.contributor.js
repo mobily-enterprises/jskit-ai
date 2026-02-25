@@ -1,8 +1,163 @@
-function createDeg2radHistoryActionContributor() {
+import { createService as createDeg2radModuleService } from "../../../modules/deg2rad/index.js";
+
+function normalizeObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value;
+}
+
+function normalizeHeaderValue(value) {
+  const normalized = String(value || "").trim();
+  return normalized || null;
+}
+
+function toPositiveInteger(value) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return 0;
+  }
+
+  return parsed;
+}
+
+function requireServiceMethod(service, methodName, contributorId) {
+  if (!service || typeof service[methodName] !== "function") {
+    throw new Error(`${contributorId} requires ${methodName}().`);
+  }
+}
+
+function resolveRequest(context) {
+  return context?.requestMeta?.request || null;
+}
+
+function resolveUser(context, input) {
+  const payload = normalizeObject(input);
+  return payload.user || resolveRequest(context)?.user || context?.actor || null;
+}
+
+function resolveWorkspaceId(context, input) {
+  const payload = normalizeObject(input);
+  const workspace = payload.workspace || resolveRequest(context)?.workspace || context?.workspace || null;
+  return toPositiveInteger(workspace?.id);
+}
+
+function resolveUsageEventKey(context) {
+  return normalizeHeaderValue(context?.requestMeta?.idempotencyKey) || normalizeHeaderValue(context?.requestMeta?.commandId);
+}
+
+function resolveRequestId(context) {
+  return normalizeHeaderValue(context?.requestMeta?.commandId) || normalizeHeaderValue(context?.requestMeta?.idempotencyKey);
+}
+
+const OBJECT_INPUT_SCHEMA = Object.freeze({
+  parse(value) {
+    return normalizeObject(value);
+  }
+});
+
+function createDeg2radHistoryActionContributor({
+  deg2radService = null,
+  deg2radHistoryService,
+  billingService = null
+} = {}) {
+  const contributorId = "app.deg2rad_history";
+  const resolvedDeg2radService =
+    deg2radService && typeof deg2radService === "object" ? deg2radService : createDeg2radModuleService().service;
+
+  requireServiceMethod(resolvedDeg2radService, "validateAndNormalizeInput", contributorId);
+  requireServiceMethod(resolvedDeg2radService, "calculateDeg2rad", contributorId);
+  requireServiceMethod(deg2radHistoryService, "appendCalculation", contributorId);
+  requireServiceMethod(deg2radHistoryService, "listForUser", contributorId);
+
+  const executeWithEntitlementConsumption =
+    billingService && typeof billingService.executeWithEntitlementConsumption === "function"
+      ? billingService.executeWithEntitlementConsumption.bind(billingService)
+      : null;
+
   return {
-    contributorId: "app.deg2rad_history",
+    contributorId,
     domain: "deg2rad_history",
-    actions: Object.freeze([])
+    actions: Object.freeze([
+      {
+        id: "deg2rad.calculate",
+        version: 1,
+        kind: "command",
+        channels: ["api", "internal"],
+        surfaces: ["app"],
+        visibility: "public",
+        inputSchema: OBJECT_INPUT_SCHEMA,
+        permission: ["history.write"],
+        idempotency: "optional",
+        audit: {
+          actionName: "deg2rad.calculate"
+        },
+        observability: {},
+        async execute(input, context) {
+          const user = resolveUser(context, input);
+          const workspaceId = resolveWorkspaceId(context, input);
+          const normalizedInput = resolvedDeg2radService.validateAndNormalizeInput(normalizeObject(input));
+
+          const runCalculation = async ({ trx = null } = {}) => {
+            const result = resolvedDeg2radService.calculateDeg2rad(normalizedInput);
+            const historyEntry = await deg2radHistoryService.appendCalculation(
+              workspaceId,
+              user?.id,
+              result,
+              trx ? { trx } : {}
+            );
+
+            return {
+              result: {
+                ...result,
+                historyId: historyEntry.id
+              }
+            };
+          };
+
+          const execution = executeWithEntitlementConsumption
+            ? await executeWithEntitlementConsumption({
+                request: resolveRequest(context),
+                user,
+                capability: "deg2rad.calculate",
+                usageEventKey: resolveUsageEventKey(context),
+                requestId: resolveRequestId(context),
+                metadataJson: {
+                  capability: "deg2rad.calculate",
+                  workspaceId: workspaceId || null,
+                  calculator: "DEG2RAD"
+                },
+                action: ({ trx } = {}) => runCalculation({ trx })
+              })
+            : await runCalculation();
+
+          return execution.result;
+        }
+      },
+      {
+        id: "history.list",
+        version: 1,
+        kind: "query",
+        channels: ["api", "internal"],
+        surfaces: ["app"],
+        visibility: "public",
+        inputSchema: OBJECT_INPUT_SCHEMA,
+        permission: ["history.read"],
+        idempotency: "none",
+        audit: {
+          actionName: "history.list"
+        },
+        observability: {},
+        async execute(input, context) {
+          const payload = normalizeObject(input);
+          return deg2radHistoryService.listForUser(resolveWorkspaceId(context, payload), resolveUser(context, payload), {
+            page: Number(payload.page || 1),
+            pageSize: Number(payload.pageSize || 10)
+          });
+        }
+      }
+    ])
   };
 }
 
