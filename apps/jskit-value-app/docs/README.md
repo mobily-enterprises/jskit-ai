@@ -81,3 +81,5 @@ Last reorganized: 2026-02-25 (UTC)
   - Merge-time anti-pattern checklist to prevent architectural drift.
 - `playbooks/03.testing-minimums.md`
   - Minimum test expectations by change type.
+- `playbooks/04.mega-saas-prompt.md`
+  - A playful, exhaustive prompt template that enumerates the full SaaS capability surface for generation/bootstrap experiments.
