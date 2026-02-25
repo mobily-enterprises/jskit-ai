@@ -594,6 +594,7 @@ export async function buildServer({ frontendBuildAvailable }) {
   await app.register(authPlugin, {
     authService,
     workspaceService,
+    consoleService,
     observabilityService,
     nodeEnv: NODE_ENV,
     rateLimitPluginOptions

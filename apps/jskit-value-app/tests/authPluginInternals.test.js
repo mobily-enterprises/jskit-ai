@@ -201,3 +201,65 @@ test("auth plugin internal branches: own policy resolver nulls and ownerParam ty
     /Route owner could not be resolved/
   );
 });
+
+test("auth plugin resolves console context permissions when console surface is requested", async () => {
+  const { fastify, state } = createFakeFastify();
+  const workspaceServiceCalls = [];
+  const consoleServiceCalls = [];
+
+  await plugin(fastify, {
+    authService: {
+      async authenticateRequest() {
+        return {
+          authenticated: true,
+          profile: { id: 42 },
+          clearSession: false,
+          session: null,
+          transientFailure: false
+        };
+      },
+      writeSessionCookies() {},
+      clearSessionCookies() {}
+    },
+    workspaceService: {
+      async resolveRequestContext(input) {
+        workspaceServiceCalls.push(input);
+        return {
+          workspace: null,
+          membership: null,
+          permissions: []
+        };
+      }
+    },
+    consoleService: {
+      async resolveRequestContext(input) {
+        consoleServiceCalls.push(input);
+        return {
+          membership: { roleId: "console", status: "active" },
+          permissions: ["*"]
+        };
+      }
+    },
+    nodeEnv: "test"
+  });
+
+  const request = {
+    method: "GET",
+    raw: { url: "/api/v1/console/billing/purchases" },
+    headers: {},
+    routeOptions: {
+      config: {
+        authPolicy: "required",
+        workspacePolicy: "optional",
+        workspaceSurface: "console"
+      }
+    }
+  };
+
+  await state.preHandler(request, {});
+
+  assert.equal(consoleServiceCalls.length, 1);
+  assert.equal(workspaceServiceCalls.length, 0);
+  assert.deepEqual(request.membership, { roleId: "console", status: "active" });
+  assert.deepEqual(request.permissions, ["*"]);
+});

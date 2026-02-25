@@ -92,6 +92,19 @@ const ROUTE_MODULE_DEFINITIONS = Object.freeze([
   }
 ]);
 
+function withConsoleRoutePolicy(route) {
+  const pathValue = String(route?.path || "");
+  if (!pathValue.startsWith("/api/console")) {
+    return route;
+  }
+
+  return {
+    ...route,
+    workspacePolicy: route.workspacePolicy || "optional",
+    workspaceSurface: route.workspaceSurface || "console"
+  };
+}
+
 function createMissingHandler() {
   return async (_request, reply) => {
     reply.code(501).send({
@@ -108,7 +121,7 @@ function buildRoutes(controllers, routeConfig = {}) {
     controllers,
     routeConfig,
     missingHandler
-  });
+  }).map(withConsoleRoutePolicy);
 
   return routes.map((route) => ({
     ...route,

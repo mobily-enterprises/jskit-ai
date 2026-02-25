@@ -26,6 +26,7 @@ function recordAuthFailure(observabilityService, request, reason) {
 async function authPlugin(fastify, options) {
   const authService = options.authService;
   const workspaceService = options.workspaceService || null;
+  const consoleService = options.consoleService || null;
   const observabilityService = options.observabilityService || null;
   const rateLimitPluginOptions =
     options.rateLimitPluginOptions && typeof options.rateLimitPluginOptions === "object"
@@ -55,6 +56,27 @@ async function authPlugin(fastify, options) {
         };
       },
       async resolveContext({ request, actor, meta }) {
+        const requestedSurface = String(meta?.workspaceSurface || resolveRequestSurface(request))
+          .trim()
+          .toLowerCase();
+
+        if (requestedSurface === "console" && consoleService) {
+          const resolveConsoleContext =
+            typeof consoleService.resolveRequestContext === "function"
+              ? consoleService.resolveRequestContext.bind(consoleService)
+              : null;
+          if (resolveConsoleContext) {
+            const context = await resolveConsoleContext({
+              user: actor
+            });
+            return {
+              workspace: null,
+              membership: context?.membership || null,
+              permissions: Array.isArray(context?.permissions) ? context.permissions : []
+            };
+          }
+        }
+
         if (!workspaceService) {
           return null;
         }
