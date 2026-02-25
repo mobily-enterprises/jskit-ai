@@ -10,8 +10,13 @@ const APPS_DIR = path.join(ROOT_DIR, "apps");
 const JS_EXTENSIONS = new Set([".js", ".mjs", ".cjs"]);
 const CLIENT_ELEMENT_PACKAGE_SEGMENTS = Object.freeze([
   "packages/ai-agent/assistant-client-element/",
+  "packages/ai-agent/assistant-transcript-explorer-client-element/",
   "packages/chat/chat-client-element/",
+  "packages/billing/billing-commerce-client-element/",
+  "packages/billing/billing-console-admin-client-element/",
   "packages/billing/billing-plan-client-element/",
+  "packages/observability/console-errors-client-element/",
+  "packages/users/members-admin-client-element/",
   "packages/users/profile-client-element/"
 ]);
 
