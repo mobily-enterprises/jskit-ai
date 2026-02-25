@@ -13,6 +13,8 @@ test("repositoryConfig exposes expected subsystem slices and is deeply frozen", 
   assert.equal(Object.isFrozen(repositoryConfig.social), true);
   assert.equal(Object.isFrozen(repositoryConfig.social.limits), true);
   assert.equal(Object.isFrozen(repositoryConfig.social.retry), true);
+  assert.equal(Object.isFrozen(repositoryConfig.social.workers), true);
+  assert.equal(Object.isFrozen(repositoryConfig.social.identity), true);
   assert.equal(Object.isFrozen(repositoryConfig.social.moderation), true);
   assert.equal(Object.isFrozen(repositoryConfig.ai), true);
   assert.equal(Object.isFrozen(repositoryConfig.billing), true);

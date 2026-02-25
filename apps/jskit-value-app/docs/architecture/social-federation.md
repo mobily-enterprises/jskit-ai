@@ -74,6 +74,7 @@ Federation endpoints are public and sessionless:
 - `GET /ap/actors/:username`
 - `GET /ap/actors/:username/followers`
 - `GET /ap/actors/:username/following`
+- `GET /ap/actors/:username/outbox`
 - `GET /ap/objects/:objectId`
 - `POST /ap/inbox`
 - `POST /ap/actors/:username/inbox`
@@ -108,10 +109,12 @@ Controllers are transport-only and delegate to `actionExecutor`.
 ### Outbound
 
 1. Enqueue outbound activity in `social_outbox_deliveries`.
-2. Delivery worker leases ready batch rows.
-3. Sign request with local actor key.
-4. Deliver with retry/backoff/jitter policy.
-5. Mark delivered/retry/dead.
+2. App runtime `socialOutboxWorkerRuntimeService` polls ready workspace ids.
+3. Worker executes canonical action `social.federation.outbox.deliveries.process`.
+4. Delivery action leases ready batch rows.
+5. Sign request with local actor key.
+6. Deliver with retry/backoff/jitter policy.
+7. Mark delivered/retry/dead.
 
 ## Security and abuse controls
 
@@ -143,6 +146,8 @@ Runtime knobs include:
 - `SOCIAL_FEDERATION_DELIVERY_BATCH_SIZE`
 - `SOCIAL_FEDERATION_DELIVERY_MAX_ATTEMPTS`
 - `SOCIAL_FEDERATION_RETRY_BASE_MS`
+- `SOCIAL_FEDERATION_OUTBOX_POLL_SECONDS`
+- `SOCIAL_FEDERATION_OUTBOX_MAX_WORKSPACES_PER_TICK`
 - `SOCIAL_FEDERATION_ALLOW_PRIVATE_HOSTS`
 - `SOCIAL_FEDERATION_DEFAULT_WORKSPACE_ID` (optional fallback)
 

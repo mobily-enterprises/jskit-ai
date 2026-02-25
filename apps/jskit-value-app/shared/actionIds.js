@@ -39,6 +39,7 @@ const ACTION_IDS = Object.freeze({
   SOCIAL_FEDERATION_FOLLOWING_GET: "social.federation.following.get",
   SOCIAL_FEDERATION_INBOX_PROCESS: "social.federation.inbox.process",
   SOCIAL_FEDERATION_OBJECT_GET: "social.federation.object.get",
+  SOCIAL_FEDERATION_OUTBOX_GET: "social.federation.outbox.get",
   SOCIAL_FEDERATION_OUTBOX_DELIVERIES_PROCESS: "social.federation.outbox.deliveries.process",
   SOCIAL_FEDERATION_WEBFINGER_GET: "social.federation.webfinger.get",
   SOCIAL_FEED_READ: "social.feed.read",

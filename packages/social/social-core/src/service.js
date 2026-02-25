@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+import dns from "node:dns/promises";
+import net from "node:net";
 import { URL } from "node:url";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 
@@ -13,7 +15,9 @@ const DEFAULT_DELIVERY_BATCH_SIZE = 25;
 const DEFAULT_DELIVERY_MAX_ATTEMPTS = 8;
 const DEFAULT_RETRY_BASE_MS = 30_000;
 const HTTP_SIGNATURE_HEADER_PATTERN = /(\w+)="([^"]*)"/g;
-const PRIVATE_NETWORK_HOSTNAME_PATTERN = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.|169\.254\.|::1$)/i;
+const DEFAULT_OUTBOX_POLL_SECONDS = 10;
+const DEFAULT_OUTBOX_WORKSPACE_BATCH_SIZE = 25;
+const LOCALHOST_HOSTNAME_SET = new Set(["localhost", "localhost.localdomain"]);
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -21,6 +25,19 @@ function normalizeText(value) {
 
 function normalizeLowerText(value) {
   return normalizeText(value).toLowerCase();
+}
+
+function normalizeHostname(value) {
+  const normalized = normalizeLowerText(value).replace(/\.$/, "");
+  if (!normalized) {
+    return "";
+  }
+
+  if (normalized.startsWith("[") && normalized.endsWith("]")) {
+    return normalized.slice(1, -1);
+  }
+
+  return normalized;
 }
 
 function toPositiveInteger(value) {
@@ -97,10 +114,49 @@ function normalizeArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function normalizeStringArray(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => normalizeText(entry))
+    .filter(Boolean);
+}
+
+function isTruthyBoolean(value, fallback = false) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (value == null) {
+    return fallback;
+  }
+
+  const normalized = normalizeLowerText(value);
+  if (normalized === "true" || normalized === "1") {
+    return true;
+  }
+  if (normalized === "false" || normalized === "0") {
+    return false;
+  }
+
+  return fallback;
+}
+
 function resolveRuntimePolicy({ repositoryConfig = {}, env = {} } = {}) {
   const socialConfig = repositoryConfig?.social && typeof repositoryConfig.social === "object" ? repositoryConfig.social : {};
   const retryConfig = socialConfig.retry && typeof socialConfig.retry === "object" ? socialConfig.retry : {};
   const limitsConfig = socialConfig.limits && typeof socialConfig.limits === "object" ? socialConfig.limits : {};
+  const moderationConfig =
+    socialConfig.moderation && typeof socialConfig.moderation === "object" ? socialConfig.moderation : {};
+  const identityConfig = socialConfig.identity && typeof socialConfig.identity === "object" ? socialConfig.identity : {};
+  const workersConfig = socialConfig.workers && typeof socialConfig.workers === "object" ? socialConfig.workers : {};
+  const normalizedModerationAccessMode =
+    normalizeLowerText(moderationConfig.accessMode || "permission") === "operator" ? "operator" : "permission";
+  const defaultBlockedDomains = new Set(
+    normalizeStringArray(moderationConfig.defaultBlockedDomains).map((entry) => normalizeHostname(entry))
+  );
 
   return {
     enabled: Boolean(socialConfig.enabled),
@@ -117,22 +173,52 @@ function resolveRuntimePolicy({ repositoryConfig = {}, env = {} } = {}) {
     retryJitterRatio: Math.max(0, Math.min(1, Number(retryConfig.jitterRatio || 0.2))),
     maxAttempts: Math.max(1, Number(retryConfig.maxAttempts || env.SOCIAL_FEDERATION_DELIVERY_MAX_ATTEMPTS || DEFAULT_DELIVERY_MAX_ATTEMPTS)),
     deliveryBatchSize: Math.max(1, Number(env.SOCIAL_FEDERATION_DELIVERY_BATCH_SIZE || DEFAULT_DELIVERY_BATCH_SIZE)),
+    outboxPollSeconds: Math.max(
+      1,
+      Number(env.SOCIAL_FEDERATION_OUTBOX_POLL_SECONDS || workersConfig.outboxPollSeconds || DEFAULT_OUTBOX_POLL_SECONDS)
+    ),
+    outboxWorkspaceBatchSize: Math.max(
+      1,
+      Number(
+        env.SOCIAL_FEDERATION_OUTBOX_MAX_WORKSPACES_PER_TICK ||
+          workersConfig.outboxWorkspaceBatchSize ||
+          DEFAULT_OUTBOX_WORKSPACE_BATCH_SIZE
+      )
+    ),
     federationHttpTimeoutMs: Math.max(1000, Number(env.SOCIAL_FEDERATION_HTTP_TIMEOUT_MS || DEFAULT_FEDERATION_TIMEOUT_MS)),
-    allowPrivateHosts: Boolean(env.SOCIAL_FEDERATION_ALLOW_PRIVATE_HOSTS),
-    signingSecret: normalizeText(env.SOCIAL_FEDERATION_SIGNING_SECRET)
+    allowPrivateHosts: isTruthyBoolean(env.SOCIAL_FEDERATION_ALLOW_PRIVATE_HOSTS, false),
+    signingSecret: normalizeText(env.SOCIAL_FEDERATION_SIGNING_SECRET),
+    moderation: {
+      accessMode: normalizedModerationAccessMode,
+      requireManualApprovalForRemoteFollows: isTruthyBoolean(
+        moderationConfig.requireManualApprovalForRemoteFollows,
+        false
+      ),
+      autoSuspendOnRepeatedSignatureFailures: isTruthyBoolean(
+        moderationConfig.autoSuspendOnRepeatedSignatureFailures,
+        true
+      ),
+      signatureFailureSuspendThreshold: Math.max(1, Number(moderationConfig.signatureFailureSuspendThreshold || 5)),
+      defaultBlockedDomains
+    },
+    identity: {
+      treatHandleWithDomainAsRemote: isTruthyBoolean(identityConfig.treatHandleWithDomainAsRemote, true),
+      allowRemoteLookupForLocalHandles: isTruthyBoolean(identityConfig.allowRemoteLookupForLocalHandles, false)
+    }
   };
 }
 
-function buildObjectUri(appPublicUrl, workspaceSlug, objectType, objectId) {
+function buildObjectUri(appPublicUrl, objectId) {
   const normalizedBase = String(appPublicUrl || "").trim().replace(/\/+$/, "");
   if (!normalizedBase) {
     throw new Error("appPublicUrl is required for social object URI generation.");
   }
 
-  const normalizedWorkspaceSlug = normalizeText(workspaceSlug) || "default";
-  const normalizedObjectType = normalizeLowerText(objectType) || "objects";
   const normalizedObjectId = normalizeText(objectId);
-  return `${normalizedBase}/ap/${normalizedWorkspaceSlug}/${normalizedObjectType}/${encodeURIComponent(normalizedObjectId)}`;
+  if (!normalizedObjectId) {
+    throw new Error("objectId is required for social object URI generation.");
+  }
+  return `${normalizedBase}/ap/objects/${encodeURIComponent(normalizedObjectId)}`;
 }
 
 function buildActivityUri(appPublicUrl, workspaceSlug, activityType, seed) {
@@ -148,6 +234,11 @@ function resolveWorkspaceSlug(workspace, fallback = "") {
   return normalized || "workspace";
 }
 
+function buildActorOutboxUrl(appPublicUrl, username) {
+  const normalizedBase = String(appPublicUrl || "").trim().replace(/\/+$/, "");
+  return `${normalizedBase}/ap/actors/${encodeURIComponent(String(username || "").trim())}/outbox`;
+}
+
 function buildActorHandle(publicChatId, fallbackUserId) {
   const normalizedPublicChatId = normalizeLowerText(publicChatId);
   if (normalizedPublicChatId) {
@@ -155,6 +246,90 @@ function buildActorHandle(publicChatId, fallbackUserId) {
   }
 
   return `user-${toPositiveInteger(fallbackUserId) || "unknown"}`;
+}
+
+function canonicalizeLimitedUsername(value, { maxLength = 64, fallbackPrefix = "user" } = {}) {
+  const normalized = normalizeLowerText(value).replace(/\s+/g, "");
+  if (normalized && normalized.length <= maxLength) {
+    return normalized;
+  }
+  if (normalized) {
+    const hash = crypto.createHash("sha256").update(normalized).digest("hex").slice(0, 8);
+    const prefixMaxLength = Math.max(1, maxLength - hash.length - 1);
+    return `${normalized.slice(0, prefixMaxLength)}-${hash}`;
+  }
+  const fallbackHash = crypto
+    .createHash("sha256")
+    .update(`${fallbackPrefix}:${Date.now()}:${Math.random()}`)
+    .digest("hex")
+    .slice(0, 8);
+  return `${fallbackPrefix}-${fallbackHash}`;
+}
+
+function parseRemoteHandleParts(value) {
+  const normalized = normalizeLowerText(value).replace(/^@+/, "");
+  if (!normalized || !normalized.includes("@")) {
+    return null;
+  }
+
+  const parts = normalized.split("@");
+  if (parts.length !== 2) {
+    return null;
+  }
+
+  const username = normalizeLowerText(parts[0]);
+  const domain = normalizeHostname(parts[1]);
+  if (!username || !domain) {
+    return null;
+  }
+
+  return {
+    username,
+    domain
+  };
+}
+
+function buildRemoteUsername(preferredUsername, actorUri) {
+  const normalizedBase = canonicalizeLimitedUsername(preferredUsername, {
+    maxLength: 48,
+    fallbackPrefix: "remote"
+  });
+  const domain = extractDomainFromActorUri(actorUri);
+  if (!domain) {
+    return canonicalizeLimitedUsername(normalizedBase, {
+      maxLength: 64,
+      fallbackPrefix: "remote"
+    });
+  }
+
+  return canonicalizeLimitedUsername(`${normalizedBase}@${domain}`, {
+    maxLength: 64,
+    fallbackPrefix: "remote"
+  });
+}
+
+function resolveObjectUriCandidates(rawObjectId, normalizedAppPublicUrl) {
+  const normalizedObjectId = normalizeText(rawObjectId);
+  if (!normalizedObjectId) {
+    return [];
+  }
+
+  const normalizedBase = String(normalizedAppPublicUrl || "").trim().replace(/\/+$/, "");
+  const encodedObjectId = encodeURIComponent(normalizedObjectId);
+  const decodedObjectId = (() => {
+    try {
+      return decodeURIComponent(normalizedObjectId);
+    } catch {
+      return normalizedObjectId;
+    }
+  })();
+
+  return [
+    normalizedObjectId,
+    decodedObjectId,
+    `${normalizedBase}/ap/objects/${encodedObjectId}`,
+    `${normalizedBase}/ap/objects/${encodeURIComponent(decodedObjectId)}`
+  ].filter((value, index, list) => Boolean(value) && list.indexOf(value) === index);
 }
 
 function extractDomainFromActorUri(actorUri) {
@@ -325,35 +500,133 @@ function withTimeout(timeoutMs) {
   };
 }
 
-function isSafeFederationUrl(urlValue, { allowPrivateHosts = false } = {}) {
+function isPrivateIpv4Address(ipAddress) {
+  const octets = String(ipAddress || "")
+    .split(".")
+    .map((value) => Number(value));
+  if (octets.length !== 4 || octets.some((value) => !Number.isInteger(value) || value < 0 || value > 255)) {
+    return true;
+  }
+
+  const [a, b] = octets;
+  if (a === 10 || a === 127 || a === 0) {
+    return true;
+  }
+  if (a === 169 && b === 254) {
+    return true;
+  }
+  if (a === 192 && b === 168) {
+    return true;
+  }
+  if (a === 172 && b >= 16 && b <= 31) {
+    return true;
+  }
+
+  return false;
+}
+
+function isPrivateIpv6Address(ipAddress) {
+  const normalized = normalizeHostname(ipAddress);
+  if (!normalized) {
+    return true;
+  }
+
+  if (normalized === "::1") {
+    return true;
+  }
+  if (normalized.startsWith("fe8:") || normalized.startsWith("fe9:") || normalized.startsWith("fea:") || normalized.startsWith("feb:")) {
+    return true;
+  }
+  if (normalized.startsWith("fc") || normalized.startsWith("fd")) {
+    return true;
+  }
+
+  if (normalized.startsWith("::ffff:")) {
+    const mappedIpv4 = normalized.slice("::ffff:".length);
+    if (net.isIP(mappedIpv4) === 4) {
+      return isPrivateIpv4Address(mappedIpv4);
+    }
+  }
+
+  return false;
+}
+
+function isPrivateIpAddress(ipAddress) {
+  const normalized = normalizeHostname(ipAddress);
+  const ipVersion = net.isIP(normalized);
+  if (ipVersion === 4) {
+    return isPrivateIpv4Address(normalized);
+  }
+  if (ipVersion === 6) {
+    return isPrivateIpv6Address(normalized);
+  }
+  return true;
+}
+
+function createBlockedRemoteHostError() {
+  return new AppError(400, "Blocked remote host.", {
+    details: {
+      code: "SOCIAL_FEDERATION_FETCH_BLOCKED"
+    }
+  });
+}
+
+async function assertSafeFederationUrl(urlValue, { allowPrivateHosts = false, dnsLookup = dns.lookup } = {}) {
   let parsed;
   try {
     parsed = new URL(String(urlValue || ""));
   } catch {
-    return false;
+    throw createBlockedRemoteHostError();
   }
 
   const protocol = normalizeLowerText(parsed.protocol);
   if (protocol !== "https:" && protocol !== "http:") {
-    return false;
+    throw createBlockedRemoteHostError();
+  }
+
+  if (normalizeText(parsed.username) || normalizeText(parsed.password)) {
+    throw createBlockedRemoteHostError();
   }
 
   if (allowPrivateHosts) {
-    return true;
+    return parsed;
   }
 
-  const hostname = normalizeLowerText(parsed.hostname);
-  return !PRIVATE_NETWORK_HOSTNAME_PATTERN.test(hostname);
+  const hostname = normalizeHostname(parsed.hostname);
+  if (!hostname || LOCALHOST_HOSTNAME_SET.has(hostname) || hostname.endsWith(".local")) {
+    throw createBlockedRemoteHostError();
+  }
+
+  if (net.isIP(hostname)) {
+    if (isPrivateIpAddress(hostname)) {
+      throw createBlockedRemoteHostError();
+    }
+    return parsed;
+  }
+
+  let resolved;
+  try {
+    resolved = await dnsLookup(hostname, { all: true, verbatim: true });
+  } catch {
+    throw createBlockedRemoteHostError();
+  }
+
+  if (!Array.isArray(resolved) || resolved.length < 1) {
+    throw createBlockedRemoteHostError();
+  }
+
+  for (const entry of resolved) {
+    const ipAddress = normalizeHostname(entry?.address);
+    if (!ipAddress || isPrivateIpAddress(ipAddress)) {
+      throw createBlockedRemoteHostError();
+    }
+  }
+
+  return parsed;
 }
 
 async function fetchJson(urlValue, { timeoutMs = DEFAULT_FEDERATION_TIMEOUT_MS, allowPrivateHosts = false, headers = {} } = {}) {
-  if (!isSafeFederationUrl(urlValue, { allowPrivateHosts })) {
-    throw new AppError(400, "Blocked remote host.", {
-      details: {
-        code: "SOCIAL_FEDERATION_FETCH_BLOCKED"
-      }
-    });
-  }
+  await assertSafeFederationUrl(urlValue, { allowPrivateHosts });
 
   const timeout = withTimeout(timeoutMs);
   try {
@@ -524,6 +797,21 @@ function computeBackoffMs({ attemptCount, retryBaseMs, retryMaxDelayMs, jitterRa
   return rawDelay + jitter;
 }
 
+function buildDeliveryDedupeKey({ workspaceId, activityId, activityType, seed = "" }) {
+  const normalizedSeed = normalizeText(seed) || `${normalizeLowerText(activityType) || "activity"}:${workspaceId}`;
+  const normalizedActivityId = normalizeText(activityId) || `${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 10)}`;
+  const activityHash = crypto.createHash("sha256").update(normalizedActivityId).digest("hex").slice(0, 16);
+  const normalizedKey = `${normalizedSeed}:${activityHash}`
+    .replace(/\s+/g, "")
+    .replace(/[^a-zA-Z0-9:_-]/g, "-");
+  if (normalizedKey.length <= 255) {
+    return normalizedKey;
+  }
+
+  const overflowHash = crypto.createHash("sha256").update(normalizedKey).digest("hex").slice(0, 8);
+  return `${normalizedKey.slice(0, 246)}:${overflowHash}`;
+}
+
 function createService({
   socialRepository,
   chatUserSettingsRepository,
@@ -622,7 +910,7 @@ function createService({
 
   async function resolveFederationWorkspace(
     workspace,
-    { hintUsername = "", hintObjectId = "", hintActorUri = "" } = {}
+    { hintUsername = "", hintObjectId = "", hintActorUri = "", hintActivityId = "" } = {}
   ) {
     const directWorkspaceId = toPositiveInteger(workspace?.id);
     if (directWorkspaceId) {
@@ -657,14 +945,25 @@ function createService({
       }
     }
 
-    const normalizedHintObjectId = normalizeText(hintObjectId);
-    if (normalizedHintObjectId) {
+    const objectUriCandidates = resolveObjectUriCandidates(hintObjectId, normalizedAppPublicUrl);
+    if (objectUriCandidates.length > 0) {
       let post = null;
       if (typeof socialRepository.posts.findByObjectUriAnyWorkspace === "function") {
-        post = await socialRepository.posts.findByObjectUriAnyWorkspace(normalizedHintObjectId);
+        for (const objectUriCandidate of objectUriCandidates) {
+          post = await socialRepository.posts.findByObjectUriAnyWorkspace(objectUriCandidate);
+          if (post) {
+            break;
+          }
+        }
+      }
+      if (!post && typeof socialRepository.posts.findByActivityUriAnyWorkspace === "function") {
+        post = await socialRepository.posts.findByActivityUriAnyWorkspace(objectUriCandidates[0]);
       }
       if (!post && typeof socialRepository.posts.findByIdAnyWorkspace === "function") {
-        post = await socialRepository.posts.findByIdAnyWorkspace(normalizedHintObjectId);
+        const numericObjectId = toPositiveInteger(objectUriCandidates[0]);
+        if (numericObjectId) {
+          post = await socialRepository.posts.findByIdAnyWorkspace(numericObjectId);
+        }
       }
       if (post?.workspaceId) {
         const postWorkspace = await resolveWorkspaceByIdOrNull(post.workspaceId);
@@ -672,6 +971,31 @@ function createService({
           workspaceId: post.workspaceId,
           workspace: postWorkspace || { id: post.workspaceId, slug: `workspace-${post.workspaceId}` }
         };
+      }
+    }
+
+    const normalizedHintActivityId = normalizeText(hintActivityId);
+    if (normalizedHintActivityId) {
+      if (typeof socialRepository.outboxDeliveries.findByActivityIdAnyWorkspace === "function") {
+        const delivery = await socialRepository.outboxDeliveries.findByActivityIdAnyWorkspace(normalizedHintActivityId);
+        if (delivery?.workspaceId) {
+          const deliveryWorkspace = await resolveWorkspaceByIdOrNull(delivery.workspaceId);
+          return {
+            workspaceId: delivery.workspaceId,
+            workspace: deliveryWorkspace || { id: delivery.workspaceId, slug: `workspace-${delivery.workspaceId}` }
+          };
+        }
+      }
+
+      if (typeof socialRepository.posts.findByActivityUriAnyWorkspace === "function") {
+        const postByActivity = await socialRepository.posts.findByActivityUriAnyWorkspace(normalizedHintActivityId);
+        if (postByActivity?.workspaceId) {
+          const postWorkspace = await resolveWorkspaceByIdOrNull(postByActivity.workspaceId);
+          return {
+            workspaceId: postByActivity.workspaceId,
+            workspace: postWorkspace || { id: postByActivity.workspaceId, slug: `workspace-${postByActivity.workspaceId}` }
+          };
+        }
       }
     }
 
@@ -707,6 +1031,27 @@ function createService({
 
     const existingLocalActor = await socialRepository.actors.findLocalByUserId(workspaceId, userId);
     if (existingLocalActor) {
+      const canonicalOutboxUrl = buildActorOutboxUrl(normalizedAppPublicUrl, existingLocalActor.username);
+      if (normalizeText(existingLocalActor.outboxUrl) !== canonicalOutboxUrl) {
+        return socialRepository.actors.upsert(workspaceId, {
+          userId: existingLocalActor.userId,
+          publicChatId: existingLocalActor.publicChatId,
+          username: existingLocalActor.username,
+          displayName: existingLocalActor.displayName,
+          summaryText: existingLocalActor.summaryText,
+          actorUri: existingLocalActor.actorUri,
+          inboxUrl: existingLocalActor.inboxUrl,
+          sharedInboxUrl: existingLocalActor.sharedInboxUrl,
+          outboxUrl: canonicalOutboxUrl,
+          followersUrl: existingLocalActor.followersUrl,
+          followingUrl: existingLocalActor.followingUrl,
+          objectUri: existingLocalActor.objectUri,
+          isLocal: true,
+          isSuspended: existingLocalActor.isSuspended,
+          lastFetchedAt: existingLocalActor.lastFetchedAt,
+          raw: existingLocalActor.raw || {}
+        });
+      }
       return existingLocalActor;
     }
 
@@ -715,7 +1060,6 @@ function createService({
 
     const publicChatId = normalizeLowerText(chatSettings?.publicChatId || chatSettings?.public_chat_id);
     const username = buildActorHandle(publicChatId, userId);
-    const workspaceSlug = resolveWorkspaceSlug(workspace, `workspace-${workspaceId}`);
     const actorUri = `${normalizedAppPublicUrl}/ap/actors/${encodeURIComponent(username)}`;
 
     return socialRepository.actors.upsert(workspaceId, {
@@ -727,7 +1071,7 @@ function createService({
       actorUri,
       inboxUrl: `${normalizedAppPublicUrl}/ap/actors/${encodeURIComponent(username)}/inbox`,
       sharedInboxUrl: `${normalizedAppPublicUrl}/ap/inbox`,
-      outboxUrl: `${normalizedAppPublicUrl}/ap/${workspaceSlug}/outbox/${encodeURIComponent(username)}`,
+      outboxUrl: buildActorOutboxUrl(normalizedAppPublicUrl, username),
       followersUrl: `${normalizedAppPublicUrl}/ap/actors/${encodeURIComponent(username)}/followers`,
       followingUrl: `${normalizedAppPublicUrl}/ap/actors/${encodeURIComponent(username)}/following`,
       objectUri: actorUri,
@@ -771,9 +1115,8 @@ function createService({
 
   async function fetchRemoteActorByHandle(workspaceId, handle) {
     assertFederationEnabled();
-    const normalizedHandle = normalizeLowerText(handle).replace(/^@+/, "");
-    const parts = normalizedHandle.split("@");
-    if (parts.length !== 2) {
+    const parsedHandle = parseRemoteHandleParts(handle);
+    if (!parsedHandle) {
       throw new AppError(400, "Validation failed.", {
         details: {
           code: "SOCIAL_VALIDATION_FAILED",
@@ -784,8 +1127,15 @@ function createService({
       });
     }
 
-    const username = parts[0];
-    const domain = parts[1];
+    const { username, domain } = parsedHandle;
+    if (policy.moderation.defaultBlockedDomains.has(domain)) {
+      throw new AppError(403, "Blocked by moderation policy.", {
+        details: {
+          code: "SOCIAL_MODERATION_BLOCKED"
+        }
+      });
+    }
+
     const webfingerUrl = `https://${domain}/.well-known/webfinger?resource=${encodeURIComponent(`acct:${username}@${domain}`)}`;
     const webfinger = await fetchJson(webfingerUrl, {
       timeoutMs: policy.federationHttpTimeoutMs,
@@ -824,9 +1174,18 @@ function createService({
       });
     }
 
+    const actorDomain = extractDomainFromActorUri(normalizedActorUri);
+    if (actorDomain && policy.moderation.defaultBlockedDomains.has(actorDomain)) {
+      throw new AppError(403, "Blocked by moderation policy.", {
+        details: {
+          code: "SOCIAL_MODERATION_BLOCKED"
+        }
+      });
+    }
+
     const blockedRule = await socialRepository.moderation.findBlockingRuleForActor(workspaceId, {
       actorUri: normalizedActorUri,
-      domain: extractDomainFromActorUri(normalizedActorUri)
+      domain: actorDomain
     });
     if (blockedRule) {
       throw new AppError(403, "Blocked by moderation policy.", {
@@ -843,8 +1202,12 @@ function createService({
 
     const inboxUrl = normalizeText(actorDocument.inbox);
     const sharedInboxUrl = normalizeText(actorDocument?.endpoints?.sharedInbox);
+    const remoteUsername = buildRemoteUsername(
+      actorDocument.preferredUsername || actorDocument.username,
+      normalizedActorUri
+    );
     const cachedActor = await socialRepository.actors.upsert(workspaceId, {
-      username: normalizeLowerText(actorDocument.preferredUsername),
+      username: remoteUsername,
       displayName: normalizeText(actorDocument.name),
       summaryText: normalizeText(actorDocument.summary),
       actorUri: normalizedActorUri,
@@ -862,13 +1225,13 @@ function createService({
     return cachedActor;
   }
 
-  async function listFeed({ workspace, actor }) {
+  async function listFeed({ workspace, actor, query = {} }) {
     assertEnabled();
     resolveActorUserId(actor);
 
     const workspaceId = resolveWorkspaceId(workspace);
-    const limit = Math.max(1, Math.min(policy.feedPageSizeMax, Number(actor?.request?.query?.limit || 20) || 20));
-    const cursor = normalizeText(actor?.request?.query?.cursor || "");
+    const limit = Math.max(1, Math.min(policy.feedPageSizeMax, Number(query.limit || 20) || 20));
+    const cursor = normalizeText(query.cursor || "");
 
     const posts = await socialRepository.posts.listFeed(workspaceId, { limit, cursor });
     const commentsByPostId = new Map();
@@ -961,7 +1324,7 @@ function createService({
     const visibility = normalizePostVisibility(payload.visibility);
     const workspaceSlug = resolveWorkspaceSlug(workspace, `workspace-${workspaceId}`);
     const seed = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-    const objectUri = buildObjectUri(normalizedAppPublicUrl, workspaceSlug, "objects", seed);
+    const objectUri = buildObjectUri(normalizedAppPublicUrl, seed);
     const activityUri = buildActivityUri(normalizedAppPublicUrl, workspaceSlug, "create", seed);
 
     const post = await socialRepository.posts.create(workspaceId, {
@@ -1119,7 +1482,7 @@ function createService({
 
     const workspaceSlug = resolveWorkspaceSlug(workspace, `workspace-${workspaceId}`);
     const seed = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-    const objectUri = buildObjectUri(normalizedAppPublicUrl, workspaceSlug, "objects", `comment-${seed}`);
+    const objectUri = buildObjectUri(normalizedAppPublicUrl, `comment-${seed}`);
     const activityUri = buildActivityUri(normalizedAppPublicUrl, workspaceSlug, "create", `comment-${seed}`);
 
     const comment = await socialRepository.posts.create(workspaceId, {
@@ -1296,7 +1659,18 @@ function createService({
       }
     }
     if (!targetActor && payload.handle) {
-      targetActor = await fetchRemoteActorByHandle(workspaceId, payload.handle);
+      const normalizedHandle = normalizeLowerText(payload.handle).replace(/^@+/, "");
+      if (policy.identity.treatHandleWithDomainAsRemote && normalizedHandle.includes("@")) {
+        targetActor = await fetchRemoteActorByHandle(workspaceId, normalizedHandle);
+      } else {
+        targetActor =
+          (await socialRepository.actors.findLocalByPublicChatId(workspaceId, normalizedHandle)) ||
+          (await socialRepository.actors.findByUsername(workspaceId, normalizedHandle));
+
+        if (!targetActor && policy.federationEnabled && policy.identity.allowRemoteLookupForLocalHandles) {
+          targetActor = await fetchRemoteActorByHandle(workspaceId, normalizedHandle);
+        }
+      }
     }
 
     if (!targetActor) {
@@ -1576,7 +1950,6 @@ function createService({
   }
 
   async function enqueueOutboundActivity({
-    workspace,
     workspaceId,
     actor,
     targetActor,
@@ -1590,6 +1963,13 @@ function createService({
       return null;
     }
 
+    const resolvedDedupeKey = buildDeliveryDedupeKey({
+      workspaceId,
+      activityId,
+      activityType,
+      seed: dedupeKey
+    });
+
     return socialRepository.outboxDeliveries.enqueue(workspaceId, {
       actorId: actor.id,
       targetActorId: targetActor.id,
@@ -1597,7 +1977,7 @@ function createService({
       activityId,
       activityType,
       payload: activityPayload,
-      dedupeKey,
+      dedupeKey: resolvedDedupeKey,
       maxAttempts: policy.maxAttempts,
       status: "queued",
       nextAttemptAt: new Date().toISOString()
@@ -1834,16 +2214,9 @@ function createService({
     const bodyBuffer = Buffer.from(body, "utf8");
     const digestHeader = computeDigestHeader(bodyBuffer);
     const targetInboxUrl = normalizeText(delivery.targetInboxUrl);
-
-    if (!isSafeFederationUrl(targetInboxUrl, { allowPrivateHosts: policy.allowPrivateHosts })) {
-      throw new AppError(400, "Blocked remote host.", {
-        details: {
-          code: "SOCIAL_FEDERATION_FETCH_BLOCKED"
-        }
-      });
-    }
-
-    const parsedTargetUrl = new URL(targetInboxUrl);
+    const parsedTargetUrl = await assertSafeFederationUrl(targetInboxUrl, {
+      allowPrivateHosts: policy.allowPrivateHosts
+    });
     const dateHeader = new Date().toUTCString();
     const signingString = [
       `(request-target): post ${parsedTargetUrl.pathname}${parsedTargetUrl.search}`,
@@ -1915,6 +2288,67 @@ function createService({
     return publicKeyPem || null;
   }
 
+  async function applyAutomaticSignatureFailurePolicy({ workspaceId, actorUri }) {
+    if (!policy.moderation.autoSuspendOnRepeatedSignatureFailures) {
+      return;
+    }
+
+    const normalizedActorUri = normalizeText(actorUri);
+    if (!normalizedActorUri || typeof socialRepository.inboxEvents.countSignatureFailures !== "function") {
+      return;
+    }
+
+    const failureCount = await socialRepository.inboxEvents.countSignatureFailures(workspaceId, {
+      actorUri: normalizedActorUri,
+      processingError: "signature_or_digest_invalid"
+    });
+
+    if (failureCount < policy.moderation.signatureFailureSuspendThreshold) {
+      return;
+    }
+
+    const actorDomain = extractDomainFromActorUri(normalizedActorUri);
+    const existingRule = await socialRepository.moderation.findBlockingRuleForActor(workspaceId, {
+      actorUri: normalizedActorUri,
+      domain: actorDomain
+    });
+
+    if (!existingRule) {
+      await socialRepository.moderation.createRule(workspaceId, {
+        ruleScope: "actor",
+        actorUri: normalizedActorUri,
+        domain: actorDomain || null,
+        decision: "block",
+        reason: "automatic_signature_failures",
+        createdByUserId: null
+      });
+    }
+
+    const existingActor = await socialRepository.actors.findByActorUri(workspaceId, normalizedActorUri);
+    if (!existingActor) {
+      return;
+    }
+
+    await socialRepository.actors.upsert(workspaceId, {
+      userId: existingActor.userId,
+      publicChatId: existingActor.publicChatId,
+      username: existingActor.username,
+      displayName: existingActor.displayName,
+      summaryText: existingActor.summaryText,
+      actorUri: existingActor.actorUri,
+      inboxUrl: existingActor.inboxUrl,
+      sharedInboxUrl: existingActor.sharedInboxUrl,
+      outboxUrl: existingActor.outboxUrl,
+      followersUrl: existingActor.followersUrl,
+      followingUrl: existingActor.followingUrl,
+      objectUri: existingActor.objectUri,
+      isLocal: existingActor.isLocal,
+      isSuspended: true,
+      lastFetchedAt: existingActor.lastFetchedAt,
+      raw: existingActor.raw || {}
+    });
+  }
+
   async function processInboxActivity({ workspace, targetUsername = "", payload = {}, requestMeta = {} }) {
     assertFederationEnabled();
 
@@ -1936,7 +2370,8 @@ function createService({
     const resolvedWorkspace = await resolveFederationWorkspace(workspace, {
       hintUsername: normalizedTargetUsername,
       hintObjectId: activityObjectId,
-      hintActorUri: actorUri
+      hintActorUri: actorUri,
+      hintActivityId: activityId
     });
     const workspaceId = resolvedWorkspace.workspaceId;
     const workspaceContext = resolvedWorkspace.workspace;
@@ -1951,6 +2386,7 @@ function createService({
       : Buffer.from(JSON.stringify(normalizedPayload), "utf8");
 
     const parsedSignature = parseSignatureHeader(signatureHeader);
+    const signatureOwnerActorUri = normalizeText(parsedSignature?.keyId?.split("#")[0] || "");
     const publicKeyPem = await resolvePublicKeyForSignature({
       workspaceId,
       keyId: parsedSignature?.keyId || ""
@@ -1963,6 +2399,8 @@ function createService({
       pathname,
       headers
     });
+    const signatureActorMatches =
+      !signatureOwnerActorUri || normalizeLowerText(signatureOwnerActorUri) === normalizeLowerText(actorUri);
 
     const digestValid = verifyDigestHeader({
       rawBodyBuffer,
@@ -1974,21 +2412,89 @@ function createService({
       activityType,
       actorUri,
       signatureKeyId: signatureVerification.keyId,
-      signatureValid: signatureVerification.signatureValid,
+      signatureValid: signatureVerification.signatureValid && signatureActorMatches,
       digestValid,
       payload: normalizedPayload,
-      processingStatus: "received"
+      processingStatus: "processing"
     });
+
+    if (!inboxEvent.wasCreated) {
+      const existingStatus = normalizeLowerText(inboxEvent.processingStatus);
+      if (existingStatus === "processed" || existingStatus === "ignored") {
+        return {
+          accepted: true,
+          replayed: true,
+          eventId: inboxEvent.id,
+          activityId,
+          activityType
+        };
+      }
+
+      if (existingStatus === "failed") {
+        if (
+          inboxEvent.processingError === "signature_or_digest_invalid" ||
+          inboxEvent.processingError === "signature_actor_mismatch"
+        ) {
+          throw new AppError(401, "Federation signature validation failed.", {
+            details: {
+              code: "SOCIAL_FEDERATION_SIGNATURE_INVALID"
+            }
+          });
+        }
+
+        return {
+          accepted: true,
+          replayed: true,
+          eventId: inboxEvent.id,
+          activityId,
+          activityType
+        };
+      }
+
+      return {
+        accepted: true,
+        replayed: true,
+        eventId: inboxEvent.id,
+        activityId,
+        activityType
+      };
+    }
+
+    if (!signatureActorMatches) {
+      await socialRepository.inboxEvents.markProcessed(workspaceId, inboxEvent.id, {
+        processingStatus: "failed",
+        processingError: "signature_actor_mismatch"
+      });
+      throw new AppError(401, "Federation signature validation failed.", {
+        details: {
+          code: "SOCIAL_FEDERATION_SIGNATURE_INVALID"
+        }
+      });
+    }
 
     if (!signatureVerification.signatureValid || !digestValid) {
       await socialRepository.inboxEvents.markProcessed(workspaceId, inboxEvent.id, {
         processingStatus: "failed",
         processingError: "signature_or_digest_invalid"
       });
+      await applyAutomaticSignatureFailurePolicy({ workspaceId, actorUri });
 
       throw new AppError(401, "Federation signature validation failed.", {
         details: {
           code: "SOCIAL_FEDERATION_SIGNATURE_INVALID"
+        }
+      });
+    }
+
+    const actorDomain = extractDomainFromActorUri(actorUri);
+    if (actorDomain && policy.moderation.defaultBlockedDomains.has(actorDomain)) {
+      await socialRepository.inboxEvents.markProcessed(workspaceId, inboxEvent.id, {
+        processingStatus: "failed",
+        processingError: "blocked_by_moderation"
+      });
+      throw new AppError(403, "Blocked by moderation policy.", {
+        details: {
+          code: "SOCIAL_MODERATION_BLOCKED"
         }
       });
     }
@@ -1998,7 +2504,7 @@ function createService({
       ? await socialRepository.actors.findByUsername(workspaceId, normalizedTargetUsername)
       : null;
 
-    await processActivityType({
+    const processingStatus = await processActivityType({
       workspace: workspaceContext,
       workspaceId,
       remoteActor,
@@ -2007,7 +2513,7 @@ function createService({
     });
 
     await socialRepository.inboxEvents.markProcessed(workspaceId, inboxEvent.id, {
-      processingStatus: "processed"
+      processingStatus
     });
 
     return {
@@ -2023,41 +2529,35 @@ function createService({
 
     if (type === "Follow") {
       await processInboundFollow({ workspace, workspaceId, remoteActor, targetActor, activity });
-      return;
+      return "processed";
     }
 
     if (type === "Accept") {
       await processInboundAccept({ workspaceId, activity });
-      return;
+      return "processed";
     }
 
     if (type === "Undo") {
       await processInboundUndo({ workspaceId, activity });
-      return;
+      return "processed";
     }
 
     if (type === "Create") {
       await processInboundCreate({ workspace, workspaceId, remoteActor, activity });
-      return;
+      return "processed";
     }
 
     if (type === "Delete") {
       await processInboundDelete({ workspace, workspaceId, remoteActor, activity });
-      return;
+      return "processed";
     }
 
     if (type === "Like" || type === "Announce") {
       await processInboundReaction({ workspace, workspaceId, remoteActor, activity });
-      return;
+      return "processed";
     }
 
-    await socialRepository.inboxEvents.insertOrFetch(workspaceId, {
-      activityId: normalizeText(activity.id),
-      activityType: type,
-      actorUri: normalizeText(activity.actor),
-      payload: activity,
-      processingStatus: "ignored"
-    });
+    return "ignored";
   }
 
   async function processInboundFollow({ workspace, workspaceId, remoteActor, targetActor, activity }) {
@@ -2080,13 +2580,15 @@ function createService({
     }
 
     const followUri = normalizeText(activity.id);
+    const autoAcceptRemoteFollow = !policy.moderation.requireManualApprovalForRemoteFollows;
+    const followStatus = autoAcceptRemoteFollow ? FOLLOW_STATUS_ACCEPTED : FOLLOW_STATUS_PENDING;
     const follow = await socialRepository.follows.createOrUpdate(workspaceId, {
       followerActorId: remoteActor.id,
       targetActorId: resolvedTargetActor.id,
       followUri,
-      status: FOLLOW_STATUS_ACCEPTED,
+      status: followStatus,
       isLocalInitiated: false,
-      acceptedAt: new Date().toISOString()
+      acceptedAt: autoAcceptRemoteFollow ? new Date().toISOString() : null
     });
 
     if (resolvedTargetActor.userId) {
@@ -2102,15 +2604,15 @@ function createService({
       publishSocialNotificationsUpdated({ workspace, userId: resolvedTargetActor.userId });
     }
 
-    const acceptActivityId = buildActivityUri(
-      normalizedAppPublicUrl,
-      resolveWorkspaceSlug(workspace),
-      "accept",
-      `${follow.id}-${Date.now().toString(36)}`
-    );
+    if (autoAcceptRemoteFollow) {
+      const acceptActivityId = buildActivityUri(
+        normalizedAppPublicUrl,
+        resolveWorkspaceSlug(workspace),
+        "accept",
+        `${follow.id}-${Date.now().toString(36)}`
+      );
 
-    await enqueueOutboundActivity({
-        workspace,
+      await enqueueOutboundActivity({
         workspaceId,
         actor: resolvedTargetActor,
         targetActor: remoteActor,
@@ -2126,6 +2628,7 @@ function createService({
         },
         dedupeKey: `inbound-follow-accept:${workspaceId}:${follow.id}`
       });
+    }
   }
 
   async function processInboundAccept({ workspaceId, activity }) {
@@ -2338,7 +2841,7 @@ function createService({
       name: actor.displayName || actor.username,
       summary: actor.summaryText || "",
       inbox: actor.inboxUrl,
-      outbox: actor.outboxUrl,
+      outbox: buildActorOutboxUrl(normalizedAppPublicUrl, actor.username),
       followers: actor.followersUrl,
       following: actor.followingUrl,
       publicKey: createPublicKeyDocument({
@@ -2409,6 +2912,72 @@ function createService({
     });
   }
 
+  async function getOutboxCollection({ workspace, username }) {
+    assertFederationEnabled();
+    const normalizedUsername = normalizeLowerText(username);
+    const resolvedWorkspace = await resolveFederationWorkspace(workspace, {
+      hintUsername: normalizedUsername
+    });
+    const workspaceId = resolvedWorkspace.workspaceId;
+    const actor = await socialRepository.actors.findByUsername(workspaceId, normalizedUsername);
+    if (!actor || !actor.isLocal) {
+      throw new AppError(404, "Not found.");
+    }
+
+    const posts = typeof socialRepository.posts.listByActor === "function"
+      ? await socialRepository.posts.listByActor(workspaceId, actor.id, { limit: 100, includeDeleted: true })
+      : [];
+
+    const orderedItems = posts
+      .filter((post) => post && post.isLocal)
+      .map((post) => {
+        const activityId =
+          normalizeText(post.activityUri) ||
+          buildActivityUri(
+            normalizedAppPublicUrl,
+            resolveWorkspaceSlug(resolvedWorkspace.workspace, `workspace-${workspaceId}`),
+            post.isDeleted ? "delete" : "create",
+            `post-${post.id}`
+          );
+        if (post.isDeleted) {
+          return {
+            "@context": "https://www.w3.org/ns/activitystreams",
+            id: activityId,
+            type: "Delete",
+            actor: actor.actorUri,
+            object: post.objectUri,
+            published: post.deletedAt || post.editedAt || post.publishedAt
+          };
+        }
+
+        return {
+          "@context": "https://www.w3.org/ns/activitystreams",
+          id: activityId,
+          type: "Create",
+          actor: actor.actorUri,
+          object: {
+            id: post.objectUri,
+            type: "Note",
+            attributedTo: actor.actorUri,
+            content: post.contentHtml || post.contentText,
+            published: post.publishedAt,
+            inReplyTo: post.inReplyToObjectUri || undefined,
+            to: ["https://www.w3.org/ns/activitystreams#Public"],
+            cc: actor.followersUrl ? [actor.followersUrl] : []
+          },
+          published: post.publishedAt,
+          to: ["https://www.w3.org/ns/activitystreams#Public"],
+          cc: actor.followersUrl ? [actor.followersUrl] : []
+        };
+      });
+
+    return createOrderedCollection({
+      id: buildActorOutboxUrl(normalizedAppPublicUrl, actor.username),
+      totalItems: orderedItems.length,
+      items: orderedItems
+    });
+  }
+
   async function getObjectDocument({ workspace, objectId }) {
     assertFederationEnabled();
     const rawObjectId = normalizeText(objectId);
@@ -2422,12 +2991,19 @@ function createService({
         return rawObjectId;
       }
     })();
+    const objectUriCandidates = resolveObjectUriCandidates(normalizedObjectId, normalizedAppPublicUrl);
     const resolvedWorkspace = await resolveFederationWorkspace(workspace, {
       hintObjectId: normalizedObjectId
     });
     const workspaceId = resolvedWorkspace.workspaceId;
 
-    let post = await socialRepository.posts.findByObjectUri(workspaceId, normalizedObjectId);
+    let post = null;
+    for (const objectUriCandidate of objectUriCandidates) {
+      post = await socialRepository.posts.findByObjectUri(workspaceId, objectUriCandidate);
+      if (post) {
+        break;
+      }
+    }
     if (!post && toPositiveInteger(normalizedObjectId)) {
       post = await socialRepository.posts.findById(workspaceId, normalizedObjectId);
     }
@@ -2487,6 +3063,7 @@ function createService({
     getActorDocument,
     getFollowersCollection,
     getFollowingCollection,
+    getOutboxCollection,
     getObjectDocument,
     fetchAndCacheRemoteActor,
     fetchRemoteActorByHandle
@@ -2507,7 +3084,7 @@ const __testables = {
   encryptPrivateKey,
   decryptPrivateKey,
   resolveRuntimePolicy,
-  isSafeFederationUrl,
+  assertSafeFederationUrl,
   computeBackoffMs
 };
 

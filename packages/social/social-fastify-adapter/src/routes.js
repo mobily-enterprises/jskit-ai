@@ -400,6 +400,22 @@ function buildRoutes(
       handler: controllers.social?.getFollowingCollection || missingHandler
     },
     {
+      path: "/ap/actors/:username/outbox",
+      method: "GET",
+      auth: "public",
+      workspacePolicy: "none",
+      csrfProtection: false,
+      schema: {
+        tags: ["social-federation"],
+        summary: "Resolve ActivityPub outbox collection",
+        params: schema.params.actorUsername,
+        response: withErrors({
+          200: schema.response.activity
+        })
+      },
+      handler: controllers.social?.getOutboxCollection || missingHandler
+    },
+    {
       path: "/ap/objects/:objectId",
       method: "GET",
       auth: "public",

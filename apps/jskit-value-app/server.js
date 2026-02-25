@@ -114,6 +114,22 @@ function isPathPrefixMatch(pathname, prefix) {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
+function startBackgroundRuntime(runtimeService) {
+  if (!runtimeService || typeof runtimeService.start !== "function") {
+    return;
+  }
+
+  runtimeService.start();
+}
+
+function stopBackgroundRuntime(runtimeService) {
+  if (!runtimeService || typeof runtimeService.stop !== "function") {
+    return;
+  }
+
+  runtimeService.stop();
+}
+
 const {
   controllers,
   runtimeServices: {
@@ -125,7 +141,8 @@ const {
     avatarStorageService,
     chatAttachmentStorageService,
     observabilityService,
-    billingWorkerRuntimeService
+    billingWorkerRuntimeService,
+    socialOutboxWorkerRuntimeService
   }
 } = createServerRuntime({
   runtimeEnv,
@@ -661,15 +678,13 @@ export async function buildServer({ frontendBuildAvailable }) {
   }
 
   app.addHook("onReady", async () => {
-    if (billingWorkerRuntimeService && typeof billingWorkerRuntimeService.start === "function") {
-      billingWorkerRuntimeService.start();
-    }
+    startBackgroundRuntime(billingWorkerRuntimeService);
+    startBackgroundRuntime(socialOutboxWorkerRuntimeService);
   });
 
   app.addHook("onClose", async () => {
-    if (billingWorkerRuntimeService && typeof billingWorkerRuntimeService.stop === "function") {
-      billingWorkerRuntimeService.stop();
-    }
+    stopBackgroundRuntime(billingWorkerRuntimeService);
+    stopBackgroundRuntime(socialOutboxWorkerRuntimeService);
   });
 
   app.setNotFoundHandler(async (request, reply) => {
@@ -713,14 +728,16 @@ let isShuttingDown = false;
 let signalHandlersRegistered = false;
 
 function stopBackgroundRuntimesForShutdown() {
-  if (!billingWorkerRuntimeService || typeof billingWorkerRuntimeService.stop !== "function") {
-    return;
+  try {
+    stopBackgroundRuntime(billingWorkerRuntimeService);
+  } catch (error) {
+    console.warn("Failed to stop billing worker runtime during shutdown:", error);
   }
 
   try {
-    billingWorkerRuntimeService.stop();
+    stopBackgroundRuntime(socialOutboxWorkerRuntimeService);
   } catch (error) {
-    console.warn("Failed to stop billing worker runtime during shutdown:", error);
+    console.warn("Failed to stop social outbox worker runtime during shutdown:", error);
   }
 }
 

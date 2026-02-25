@@ -501,6 +501,11 @@ function createServiceStubs() {
           orderedItems: []
         };
       },
+      async getOutboxCollection() {
+        return {
+          orderedItems: []
+        };
+      },
       async getObjectDocument() {
         return {
           id: "https://example.com/ap/objects/1"
@@ -857,6 +862,7 @@ test("action runtime services scaffold action registry and executor", async () =
   assert.equal(actionIds.has(ACTION_IDS.SOCIAL_NOTIFICATIONS_LIST), true);
   assert.equal(actionIds.has(ACTION_IDS.SOCIAL_MODERATION_RULE_CREATE), true);
   assert.equal(actionIds.has(ACTION_IDS.SOCIAL_FEDERATION_INBOX_PROCESS), true);
+  assert.equal(actionIds.has(ACTION_IDS.SOCIAL_FEDERATION_OUTBOX_GET), true);
   assert.equal(actionIds.has(ACTION_IDS.PROJECTS_CREATE), true);
   assert.equal(actionIds.has(ACTION_IDS.PROJECTS_UPDATE), true);
   assert.equal(actionIds.has(ACTION_IDS.DEG2RAD_CALCULATE), true);
@@ -902,4 +908,36 @@ test("action runtime services scaffold action registry and executor", async () =
     },
     settings: {}
   });
+});
+
+test("social moderation actions can be configured as operator-only visibility", async () => {
+  const repositoryConfig = createRepositoryConfig();
+  repositoryConfig.social = {
+    moderation: {
+      accessMode: "operator"
+    }
+  };
+
+  const runtime = createActionRuntimeServices({
+    services: createServiceStubs(),
+    repositories: {},
+    repositoryConfig,
+    appConfig: {},
+    rbacManifest: {}
+  });
+
+  const definitions = runtime.actionRegistry.listDefinitions();
+  const definitionsById = new Map(definitions.map((definition) => [definition.id, definition]));
+  const moderationActionIds = [
+    ACTION_IDS.SOCIAL_MODERATION_RULES_LIST,
+    ACTION_IDS.SOCIAL_MODERATION_RULE_CREATE,
+    ACTION_IDS.SOCIAL_MODERATION_RULE_DELETE
+  ];
+
+  for (const actionId of moderationActionIds) {
+    const definition = definitionsById.get(actionId);
+    assert.equal(definition?.visibility, "operator");
+    assert.equal(typeof definition?.permission, "function");
+    assert.equal(await definition.permission({ permissions: [] }, {}), true);
+  }
 });

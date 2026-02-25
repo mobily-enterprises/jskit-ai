@@ -1,4 +1,5 @@
 import { toIsoString, toMysqlDateTimeUtc } from "@jskit-ai/knex-mysql-core/dateUtils";
+import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import {
   normalizeIdList,
@@ -553,6 +554,23 @@ function createRepository(dbClient) {
       }
       return posts.findById(workspaceId, row.id, options);
     },
+    async findByActivityUri(workspaceId, activityUri, options = {}) {
+      const client = resolveClient(dbClient, options);
+      const normalizedActivityUri = String(activityUri || "").trim();
+      if (!normalizedActivityUri) {
+        return null;
+      }
+      const row = await client("social_posts")
+        .where({
+          workspace_id: parsePositiveInteger(workspaceId),
+          activity_uri: normalizedActivityUri
+        })
+        .first();
+      if (!row) {
+        return null;
+      }
+      return posts.findById(workspaceId, row.id, options);
+    },
     async findByObjectUriAnyWorkspace(objectUri, options = {}) {
       const client = resolveClient(dbClient, options);
       const normalizedObjectUri = String(objectUri || "").trim();
@@ -563,6 +581,26 @@ function createRepository(dbClient) {
       const row = await client("social_posts")
         .where({
           object_uri: normalizedObjectUri
+        })
+        .orderBy("workspace_id", "asc")
+        .orderBy("id", "asc")
+        .first();
+      if (!row) {
+        return null;
+      }
+
+      return posts.findById(Number(row.workspace_id), row.id, options);
+    },
+    async findByActivityUriAnyWorkspace(activityUri, options = {}) {
+      const client = resolveClient(dbClient, options);
+      const normalizedActivityUri = String(activityUri || "").trim();
+      if (!normalizedActivityUri) {
+        return null;
+      }
+
+      const row = await client("social_posts")
+        .where({
+          activity_uri: normalizedActivityUri
         })
         .orderBy("workspace_id", "asc")
         .orderBy("id", "asc")
@@ -592,6 +630,48 @@ function createRepository(dbClient) {
       }
       if (normalizedCursor) {
         query = query.andWhere("id", "<", normalizedCursor);
+      }
+
+      const rows = await query;
+      const postIds = rows.map((row) => Number(row.id));
+      const attachments = postIds.length
+        ? await client("social_post_attachments")
+            .where({ workspace_id: normalizedWorkspaceId })
+            .whereIn("post_id", postIds)
+            .orderBy("sort_order", "asc")
+            .orderBy("id", "asc")
+        : [];
+
+      const attachmentsByPostId = new Map();
+      for (const row of attachments) {
+        const key = Number(row.post_id);
+        if (!attachmentsByPostId.has(key)) {
+          attachmentsByPostId.set(key, []);
+        }
+        attachmentsByPostId.get(key).push(mapAttachmentRow(row));
+      }
+
+      return rows.map((row) => ({
+        ...mapPostRowNullable(row),
+        attachments: attachmentsByPostId.get(Number(row.id)) || []
+      }));
+    },
+    async listByActor(workspaceId, actorId, { limit = 100, includeDeleted = false } = {}, options = {}) {
+      const client = resolveClient(dbClient, options);
+      const normalizedWorkspaceId = parsePositiveInteger(workspaceId);
+      const normalizedActorId = parsePositiveInteger(actorId);
+      const normalizedLimit = Math.max(1, Math.min(500, Number(limit) || 100));
+
+      let query = client("social_posts")
+        .where({
+          workspace_id: normalizedWorkspaceId,
+          actor_id: normalizedActorId
+        })
+        .orderBy("id", "desc")
+        .limit(normalizedLimit);
+
+      if (!includeDeleted) {
+        query = query.andWhere({ is_deleted: 0 });
       }
 
       const rows = await query;
@@ -1108,30 +1188,56 @@ function createRepository(dbClient) {
         })
         .first();
       if (existing) {
-        return mapInboxEventRow(existing);
+        return {
+          ...mapInboxEventRow(existing),
+          wasCreated: false
+        };
       }
 
-      const [id] = await client("social_inbox_events").insert({
-        workspace_id: normalizedWorkspaceId,
-        activity_id: normalizedActivityId,
-        activity_type: String(payload.activityType || "").trim(),
-        actor_uri: String(payload.actorUri || "").trim(),
-        signature_key_id: normalizeNullableString(payload.signatureKeyId),
-        signature_valid: payload.signatureValid ? 1 : 0,
-        digest_valid: payload.digestValid ? 1 : 0,
-        payload_json: stringifyJsonObject(payload.payload || {}),
-        received_at: now,
-        processed_at: payload.processedAt ? toMysqlDateTimeUtc(new Date(payload.processedAt)) : null,
-        processing_status: String(payload.processingStatus || "received").trim() || "received",
-        processing_error: normalizeNullableString(payload.processingError),
-        created_at: now,
-        updated_at: now
-      });
+      let id = null;
+      try {
+        [id] = await client("social_inbox_events").insert({
+          workspace_id: normalizedWorkspaceId,
+          activity_id: normalizedActivityId,
+          activity_type: String(payload.activityType || "").trim(),
+          actor_uri: String(payload.actorUri || "").trim(),
+          signature_key_id: normalizeNullableString(payload.signatureKeyId),
+          signature_valid: payload.signatureValid ? 1 : 0,
+          digest_valid: payload.digestValid ? 1 : 0,
+          payload_json: stringifyJsonObject(payload.payload || {}),
+          received_at: now,
+          processed_at: payload.processedAt ? toMysqlDateTimeUtc(new Date(payload.processedAt)) : null,
+          processing_status: String(payload.processingStatus || "received").trim() || "received",
+          processing_error: normalizeNullableString(payload.processingError),
+          created_at: now,
+          updated_at: now
+        });
+      } catch (error) {
+        if (!isMysqlDuplicateEntryError(error)) {
+          throw error;
+        }
+        const duplicateRow = await client("social_inbox_events")
+          .where({
+            workspace_id: normalizedWorkspaceId,
+            activity_id: normalizedActivityId
+          })
+          .first();
+        if (!duplicateRow) {
+          throw error;
+        }
+        return {
+          ...mapInboxEventRow(duplicateRow),
+          wasCreated: false
+        };
+      }
 
       const row = await client("social_inbox_events")
         .where({ workspace_id: normalizedWorkspaceId, id })
         .first();
-      return mapInboxEventRow(row);
+      return {
+        ...mapInboxEventRow(row),
+        wasCreated: true
+      };
     },
     async markProcessed(workspaceId, eventId, payload = {}, options = {}) {
       const client = resolveClient(dbClient, options);
@@ -1149,6 +1255,25 @@ function createRepository(dbClient) {
           updated_at: toMysqlDateTimeUtc(new Date())
         });
       return true;
+    },
+    async countSignatureFailures(workspaceId, { actorUri = "", processingError = "signature_or_digest_invalid" } = {}, options = {}) {
+      const client = resolveClient(dbClient, options);
+      const normalizedWorkspaceId = parsePositiveInteger(workspaceId);
+      const normalizedActorUri = String(actorUri || "").trim();
+      if (!normalizedWorkspaceId || !normalizedActorUri) {
+        return 0;
+      }
+
+      const row = await client("social_inbox_events")
+        .where({
+          workspace_id: normalizedWorkspaceId,
+          actor_uri: normalizedActorUri,
+          processing_status: "failed",
+          processing_error: String(processingError || "").trim() || "signature_or_digest_invalid"
+        })
+        .count({ count: "*" })
+        .first();
+      return Number(row?.count || 0);
     }
   };
 
@@ -1156,31 +1281,98 @@ function createRepository(dbClient) {
     async enqueue(workspaceId, payload = {}, options = {}) {
       const client = resolveClient(dbClient, options);
       const now = toMysqlDateTimeUtc(new Date());
-      const [id] = await client("social_outbox_deliveries").insert({
-        workspace_id: parsePositiveInteger(workspaceId),
-        actor_id: parsePositiveInteger(payload.actorId),
-        target_actor_id: normalizeNullablePositiveInteger(payload.targetActorId),
-        target_inbox_url: String(payload.targetInboxUrl || "").trim(),
-        activity_id: String(payload.activityId || "").trim(),
-        activity_type: String(payload.activityType || "").trim(),
-        payload_json: stringifyJsonObject(payload.payload || {}),
-        dedupe_key: String(payload.dedupeKey || "").trim(),
-        status: String(payload.status || "queued").trim() || "queued",
-        attempt_count: Math.max(0, Number(payload.attemptCount || 0)),
-        max_attempts: Math.max(1, Number(payload.maxAttempts || 8)),
-        next_attempt_at: payload.nextAttemptAt ? toMysqlDateTimeUtc(new Date(payload.nextAttemptAt)) : now,
-        last_attempt_at: payload.lastAttemptAt ? toMysqlDateTimeUtc(new Date(payload.lastAttemptAt)) : null,
-        delivered_at: payload.deliveredAt ? toMysqlDateTimeUtc(new Date(payload.deliveredAt)) : null,
-        last_http_status: payload.lastHttpStatus == null ? null : Number(payload.lastHttpStatus),
-        last_error: normalizeNullableString(payload.lastError),
-        created_at: now,
-        updated_at: now
-      });
+      const normalizedWorkspaceId = parsePositiveInteger(workspaceId);
+      const normalizedDedupeKey = String(payload.dedupeKey || "").trim();
+      let id = null;
+      try {
+        [id] = await client("social_outbox_deliveries").insert({
+          workspace_id: normalizedWorkspaceId,
+          actor_id: parsePositiveInteger(payload.actorId),
+          target_actor_id: normalizeNullablePositiveInteger(payload.targetActorId),
+          target_inbox_url: String(payload.targetInboxUrl || "").trim(),
+          activity_id: String(payload.activityId || "").trim(),
+          activity_type: String(payload.activityType || "").trim(),
+          payload_json: stringifyJsonObject(payload.payload || {}),
+          dedupe_key: normalizedDedupeKey,
+          status: String(payload.status || "queued").trim() || "queued",
+          attempt_count: Math.max(0, Number(payload.attemptCount || 0)),
+          max_attempts: Math.max(1, Number(payload.maxAttempts || 8)),
+          next_attempt_at: payload.nextAttemptAt ? toMysqlDateTimeUtc(new Date(payload.nextAttemptAt)) : now,
+          last_attempt_at: payload.lastAttemptAt ? toMysqlDateTimeUtc(new Date(payload.lastAttemptAt)) : null,
+          delivered_at: payload.deliveredAt ? toMysqlDateTimeUtc(new Date(payload.deliveredAt)) : null,
+          last_http_status: payload.lastHttpStatus == null ? null : Number(payload.lastHttpStatus),
+          last_error: normalizeNullableString(payload.lastError),
+          created_at: now,
+          updated_at: now
+        });
+      } catch (error) {
+        if (!isMysqlDuplicateEntryError(error)) {
+          throw error;
+        }
+        const duplicate = await client("social_outbox_deliveries")
+          .where({
+            workspace_id: normalizedWorkspaceId,
+            dedupe_key: normalizedDedupeKey
+          })
+          .first();
+        if (!duplicate) {
+          throw error;
+        }
+        return mapOutboxRow(duplicate);
+      }
 
       const row = await client("social_outbox_deliveries")
-        .where({ workspace_id: parsePositiveInteger(workspaceId), id })
+        .where({ workspace_id: normalizedWorkspaceId, id })
         .first();
       return mapOutboxRow(row);
+    },
+    async findByActivityId(workspaceId, activityId, options = {}) {
+      const client = resolveClient(dbClient, options);
+      const normalizedWorkspaceId = parsePositiveInteger(workspaceId);
+      const normalizedActivityId = String(activityId || "").trim();
+      if (!normalizedWorkspaceId || !normalizedActivityId) {
+        return null;
+      }
+
+      const row = await client("social_outbox_deliveries")
+        .where({
+          workspace_id: normalizedWorkspaceId,
+          activity_id: normalizedActivityId
+        })
+        .orderBy("id", "asc")
+        .first();
+      return row ? mapOutboxRow(row) : null;
+    },
+    async findByActivityIdAnyWorkspace(activityId, options = {}) {
+      const client = resolveClient(dbClient, options);
+      const normalizedActivityId = String(activityId || "").trim();
+      if (!normalizedActivityId) {
+        return null;
+      }
+
+      const row = await client("social_outbox_deliveries")
+        .where({
+          activity_id: normalizedActivityId
+        })
+        .orderBy("workspace_id", "asc")
+        .orderBy("id", "asc")
+        .first();
+      return row ? mapOutboxRow(row) : null;
+    },
+    async listReadyWorkspaceIds({ now = new Date(), limit = 25 } = {}, options = {}) {
+      const client = resolveClient(dbClient, options);
+      const normalizedNow = toMysqlDateTimeUtc(new Date(now));
+      const normalizedLimit = Math.max(1, Math.min(500, Number(limit) || 25));
+
+      const rows = await client("social_outbox_deliveries")
+        .select("workspace_id")
+        .whereIn("status", ["queued", "retrying"])
+        .andWhere("next_attempt_at", "<=", normalizedNow)
+        .groupBy("workspace_id")
+        .orderBy("workspace_id", "asc")
+        .limit(normalizedLimit);
+
+      return rows.map((row) => Number(row.workspace_id)).filter((value) => Number.isInteger(value) && value > 0);
     },
     async leaseReadyBatch(
       workspaceId,

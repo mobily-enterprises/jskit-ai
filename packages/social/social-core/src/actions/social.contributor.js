@@ -15,10 +15,6 @@ function requireServiceMethod(service, methodName, contributorId) {
   }
 }
 
-function resolveRequest(context) {
-  return context?.requestMeta?.request || null;
-}
-
 function requireAuthenticated(context) {
   return Number(context?.actor?.id) > 0;
 }
@@ -37,8 +33,25 @@ const OBJECT_INPUT_SCHEMA = Object.freeze({
   }
 });
 
-function createSocialActionContributor({ socialService } = {}) {
+function resolveModerationVisibility(moderationAccessMode) {
+  const normalized = normalizeText(moderationAccessMode).toLowerCase();
+  if (normalized === "operator") {
+    return "operator";
+  }
+  return "public";
+}
+
+function resolveModerationPermission(moderationVisibility) {
+  if (moderationVisibility === "operator") {
+    return () => true;
+  }
+  return ["social.moderate"];
+}
+
+function createSocialActionContributor({ socialService, moderationAccessMode = "permission" } = {}) {
   const contributorId = "social.core";
+  const moderationVisibility = resolveModerationVisibility(moderationAccessMode);
+  const moderationPermission = resolveModerationPermission(moderationVisibility);
 
   requireServiceMethod(socialService, "listFeed", contributorId);
   requireServiceMethod(socialService, "getPost", contributorId);
@@ -64,6 +77,7 @@ function createSocialActionContributor({ socialService } = {}) {
   requireServiceMethod(socialService, "getActorDocument", contributorId);
   requireServiceMethod(socialService, "getFollowersCollection", contributorId);
   requireServiceMethod(socialService, "getFollowingCollection", contributorId);
+  requireServiceMethod(socialService, "getOutboxCollection", contributorId);
   requireServiceMethod(socialService, "getObjectDocument", contributorId);
 
   return {
@@ -85,12 +99,11 @@ function createSocialActionContributor({ socialService } = {}) {
         },
         observability: {},
         async execute(input, context) {
+          const query = normalizeObject(input);
           return socialService.listFeed({
             workspace: context.workspace,
-            actor: {
-              ...context.actor,
-              request: resolveRequest(context)
-            }
+            actor: context.actor,
+            query
           });
         }
       },
@@ -490,9 +503,9 @@ function createSocialActionContributor({ socialService } = {}) {
         kind: "query",
         channels: ["api", "internal"],
         surfaces: ["admin"],
-        visibility: "operator",
+        visibility: moderationVisibility,
         inputSchema: OBJECT_INPUT_SCHEMA,
-        permission: ["social.moderate"],
+        permission: moderationPermission,
         idempotency: "none",
         audit: {
           actionName: "social.moderation.rules.list"
@@ -512,9 +525,9 @@ function createSocialActionContributor({ socialService } = {}) {
         kind: "command",
         channels: ["api", "internal"],
         surfaces: ["admin"],
-        visibility: "operator",
+        visibility: moderationVisibility,
         inputSchema: OBJECT_INPUT_SCHEMA,
-        permission: ["social.moderate"],
+        permission: moderationPermission,
         idempotency: "optional",
         audit: {
           actionName: "social.moderation.rule.create"
@@ -534,9 +547,9 @@ function createSocialActionContributor({ socialService } = {}) {
         kind: "command",
         channels: ["api", "internal"],
         surfaces: ["admin"],
-        visibility: "operator",
+        visibility: moderationVisibility,
         inputSchema: OBJECT_INPUT_SCHEMA,
-        permission: ["social.moderate"],
+        permission: moderationPermission,
         idempotency: "optional",
         audit: {
           actionName: "social.moderation.rule.delete"
@@ -634,6 +647,28 @@ function createSocialActionContributor({ socialService } = {}) {
         async execute(input, context) {
           const payload = normalizeObject(input);
           return socialService.getFollowingCollection({
+            workspace: context.workspace,
+            username: payload.username
+          });
+        }
+      },
+      {
+        id: "social.federation.outbox.get",
+        version: 1,
+        kind: "query",
+        channels: ["api", "internal"],
+        surfaces: ["app", "admin", "console"],
+        visibility: "public",
+        inputSchema: OBJECT_INPUT_SCHEMA,
+        permission: () => true,
+        idempotency: "none",
+        audit: {
+          actionName: "social.federation.outbox.get"
+        },
+        observability: {},
+        async execute(input, context) {
+          const payload = normalizeObject(input);
+          return socialService.getOutboxCollection({
             workspace: context.workspace,
             username: payload.username
           });

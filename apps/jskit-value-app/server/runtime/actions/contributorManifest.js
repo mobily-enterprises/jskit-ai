@@ -31,7 +31,8 @@ function createActionContributors({ services, repositories, repositoryConfig, ap
       chatService: services?.chatService
     }),
     createSocialActionContributor({
-      socialService: services?.socialService
+      socialService: services?.socialService,
+      moderationAccessMode: repositoryConfig?.social?.moderation?.accessMode
     }),
     createWorkspaceBillingActionContributor({
       billingService: services?.billingService,

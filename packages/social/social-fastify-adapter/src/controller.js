@@ -19,6 +19,7 @@ const SOCIAL_ACTION_IDS = Object.freeze({
   FEDERATION_ACTOR_GET: "social.federation.actor.get",
   FEDERATION_FOLLOWERS_GET: "social.federation.followers.get",
   FEDERATION_FOLLOWING_GET: "social.federation.following.get",
+  FEDERATION_OUTBOX_GET: "social.federation.outbox.get",
   FEDERATION_OBJECT_GET: "social.federation.object.get",
   FEDERATION_INBOX_PROCESS: "social.federation.inbox.process"
 });
@@ -304,6 +305,19 @@ function createController({ actionExecutor }) {
     reply.code(200).send(response);
   }
 
+  async function getOutboxCollection(request, reply) {
+    const response = await executeAction(actionExecutor, {
+      actionId: SOCIAL_ACTION_IDS.FEDERATION_OUTBOX_GET,
+      request,
+      input: {
+        username: request.params?.username
+      }
+    });
+
+    reply.type("application/activity+json; charset=utf-8");
+    reply.code(200).send(response);
+  }
+
   async function processSharedInbox(request, reply) {
     const response = await executeAction(actionExecutor, {
       actionId: SOCIAL_ACTION_IDS.FEDERATION_INBOX_PROCESS,
@@ -367,6 +381,7 @@ function createController({ actionExecutor }) {
     getActorDocument,
     getFollowersCollection,
     getFollowingCollection,
+    getOutboxCollection,
     getObjectDocument,
     processSharedInbox,
     processActorInbox

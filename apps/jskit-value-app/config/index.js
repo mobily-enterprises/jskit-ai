@@ -83,7 +83,14 @@ function validateSocialConfig(config) {
     min: 0,
     max: 1
   });
+  expectPlainObject("social.workers", config.workers);
+  expectPositiveInteger("social.workers.outboxPollSeconds", config.workers.outboxPollSeconds);
+  expectPositiveInteger("social.workers.outboxWorkspaceBatchSize", config.workers.outboxWorkspaceBatchSize);
+  expectPlainObject("social.identity", config.identity);
+  expectBoolean("social.identity.treatHandleWithDomainAsRemote", config.identity.treatHandleWithDomainAsRemote);
+  expectBoolean("social.identity.allowRemoteLookupForLocalHandles", config.identity.allowRemoteLookupForLocalHandles);
   expectPlainObject("social.moderation", config.moderation);
+  expectOneOf("social.moderation.accessMode", config.moderation.accessMode, ["permission", "operator"]);
   expectBoolean(
     "social.moderation.requireManualApprovalForRemoteFollows",
     config.moderation.requireManualApprovalForRemoteFollows

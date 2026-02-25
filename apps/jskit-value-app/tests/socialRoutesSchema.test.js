@@ -107,6 +107,9 @@ function buildControllers() {
       async getFollowingCollection(_request, reply) {
         reply.code(200).send({});
       },
+      async getOutboxCollection(_request, reply) {
+        reply.code(200).send({});
+      },
       async getObjectDocument(_request, reply) {
         reply.code(200).send({});
       },
@@ -143,7 +146,7 @@ test("social routes enforce workspace/app/admin/public policy metadata", () => {
     missingHandler: createMissingHandler()
   });
 
-  assert.equal(routes.length, 23);
+  assert.equal(routes.length, 24);
 
   for (const route of routes) {
     const path = String(route.path || "");
@@ -257,6 +260,12 @@ test("social route schemas validate expected payloads and query params", async (
     url: "/.well-known/webfinger?resource=acct:alice@example.test"
   });
   assert.equal(validWebfinger.statusCode, 200);
+
+  const validOutbox = await app.inject({
+    method: "GET",
+    url: "/ap/actors/alice/outbox"
+  });
+  assert.equal(validOutbox.statusCode, 200);
 
   const validInbox = await app.inject({
     method: "POST",

@@ -555,6 +555,7 @@ Realtime note:
 - `GET /ap/actors/:username`
 - `GET /ap/actors/:username/followers`
 - `GET /ap/actors/:username/following`
+- `GET /ap/actors/:username/outbox`
 - `GET /ap/objects/:objectId`
 - `POST /ap/inbox`
 - `POST /ap/actors/:username/inbox`
