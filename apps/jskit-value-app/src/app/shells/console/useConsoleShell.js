@@ -99,7 +99,7 @@ export function useConsoleShell() {
     return items;
   });
 
-  const billingNavigationItems = computed(() => {
+  const billingConfigNavigationItems = computed(() => {
     const paths = surfacePaths.value;
     const items = [];
 
@@ -108,6 +108,13 @@ export function useConsoleShell() {
       items.push({ title: "Billing products", to: `${paths.prefix}/billing/products`, icon: "$consoleServerErrors" });
       items.push({ title: "Entitlements", to: `${paths.prefix}/billing/entitlements`, icon: "$consoleServerErrors" });
     }
+
+    return items;
+  });
+
+  const billingReportsNavigationItems = computed(() => {
+    const paths = surfacePaths.value;
+    const items = [];
 
     if (canManageBillingOperations.value) {
       items.push({ title: "Purchases", to: `${paths.prefix}/billing/purchases`, icon: "$consoleServerErrors" });
@@ -335,7 +342,8 @@ export function useConsoleShell() {
       navigationItems,
       aiNavigationItems,
       errorNavigationItems,
-      billingNavigationItems
+      billingConfigNavigationItems,
+      billingReportsNavigationItems
     },
     actions: {
       toggleDrawer,

@@ -172,6 +172,17 @@ describe("useConsoleShell", () => {
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
       { title: "Members", to: "/console/members", icon: "$consoleMembers" }
     ]);
+    expect(wrapper.vm.shell.navigation.billingConfigNavigationItems.value).toEqual([
+      { title: "Billing plans", to: "/console/billing/plans", icon: "$consoleServerErrors" },
+      { title: "Billing products", to: "/console/billing/products", icon: "$consoleServerErrors" },
+      { title: "Entitlements", to: "/console/billing/entitlements", icon: "$consoleServerErrors" }
+    ]);
+    expect(wrapper.vm.shell.navigation.billingReportsNavigationItems.value).toEqual([
+      { title: "Purchases", to: "/console/billing/purchases", icon: "$consoleServerErrors" },
+      { title: "Plan assignments", to: "/console/billing/plan-assignments", icon: "$consoleServerErrors" },
+      { title: "Subscriptions", to: "/console/billing/subscriptions", icon: "$consoleServerErrors" },
+      { title: "Billing events", to: "/console/billing/events", icon: "$consoleServerErrors" }
+    ]);
   });
 
   it("routes alerts menu action to /console/alerts and delegates alert click", async () => {

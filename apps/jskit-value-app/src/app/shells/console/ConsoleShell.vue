@@ -125,22 +125,39 @@
             />
           </template>
 
-          <template v-if="billingNavigationItems.length">
+          <template v-if="billingConfigNavigationItems.length || billingReportsNavigationItems.length">
             <v-divider
               v-if="navigationItems.length || aiNavigationItems.length || errorNavigationItems.length"
               class="my-2"
             />
-            <v-list-subheader class="console-nav-section text-uppercase">Billing</v-list-subheader>
-            <v-list-item
-              v-for="item in billingNavigationItems"
-              :key="item.to"
-              :title="item.title"
-              :prepend-icon="item.icon"
-              :active="isNavigationItemActive(item.to)"
-              rounded="lg"
-              class="ms-2"
-              @click="goToNavigationItem(item)"
-            />
+            <template v-if="billingConfigNavigationItems.length">
+              <v-list-subheader class="console-nav-section text-uppercase">Billing config</v-list-subheader>
+              <v-list-item
+                v-for="item in billingConfigNavigationItems"
+                :key="item.to"
+                :title="item.title"
+                :prepend-icon="item.icon"
+                :active="isNavigationItemActive(item.to)"
+                rounded="lg"
+                class="ms-2"
+                @click="goToNavigationItem(item)"
+              />
+            </template>
+
+            <template v-if="billingReportsNavigationItems.length">
+              <v-divider v-if="billingConfigNavigationItems.length" class="my-2" />
+              <v-list-subheader class="console-nav-section text-uppercase">Billing reports</v-list-subheader>
+              <v-list-item
+                v-for="item in billingReportsNavigationItems"
+                :key="item.to"
+                :title="item.title"
+                :prepend-icon="item.icon"
+                :active="isNavigationItemActive(item.to)"
+                rounded="lg"
+                class="ms-2"
+                @click="goToNavigationItem(item)"
+              />
+            </template>
           </template>
         </v-list>
       </v-navigation-drawer>
