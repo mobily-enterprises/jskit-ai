@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from "vite";
 import vue from "@vitejs/plugin-vue";
 import vuetify from "vite-plugin-vuetify";
+import { commonjsDeps } from "@koumoul/vjsf/utils/build.js";
 
 function resolvePositiveInt(value, fallback) {
   const parsed = Number.parseInt(String(value || "").trim(), 10);
@@ -21,6 +22,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [vue(), vuetify({ autoImport: true })],
+    optimizeDeps: {
+      exclude: ["@json-layout/core", "@json-layout/vocabulary"],
+      include: commonjsDeps
+    },
     test: {
       environment: "jsdom",
       css: true,
@@ -62,6 +67,9 @@ export default defineConfig(({ mode }) => {
       }
     },
     build: {
+      commonjsOptions: {
+        transformMixedEsModules: true
+      },
       outDir: "dist",
       emptyOutDir: true,
       chunkSizeWarningLimit: 800
