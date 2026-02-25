@@ -292,6 +292,20 @@ function createLogger(logger = null) {
   };
 }
 
+function createRealtimeObserver(observer = null) {
+  if (typeof observer !== "function") {
+    return () => {};
+  }
+
+  return (payload) => {
+    try {
+      observer(payload && typeof payload === "object" ? payload : {});
+    } catch {
+      // Observability callbacks are best-effort.
+    }
+  };
+}
+
 function normalizeRedisQuitTimeoutMs(value, fallback = REDIS_QUIT_TIMEOUT_MS) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1) {
@@ -422,7 +436,8 @@ async function registerRealtimeServerSocketio(
     redisQuitTimeoutMs = REDIS_QUIT_TIMEOUT_MS,
     redisConnectTimeoutMs = REDIS_CONNECT_TIMEOUT_MS,
     redisClientFactory = createRedisClient,
-    redisStreamsAdapterFactory = createRedisStreamsAdapter
+    redisStreamsAdapterFactory = createRedisStreamsAdapter,
+    observeRealtimeEvent = null
   }
 ) {
   if (!authService || typeof authService.authenticateRequest !== "function") {
@@ -457,6 +472,29 @@ async function registerRealtimeServerSocketio(
   }
 
   const appLogger = createLogger(logger || fastify?.log || null);
+  const realtimeObserver = createRealtimeObserver(observeRealtimeEvent);
+  function recordRealtimeEvent({ event, outcome = "success", surface = "", phase = "", code = "" } = {}) {
+    const normalizedEvent = String(event || "").trim();
+    if (!normalizedEvent) {
+      return;
+    }
+
+    realtimeObserver({
+      event: normalizedEvent,
+      outcome: String(outcome || "success")
+        .trim()
+        .toLowerCase(),
+      surface: String(surface || "")
+        .trim()
+        .toLowerCase(),
+      phase: String(phase || "")
+        .trim()
+        .toLowerCase(),
+      code: String(code || "")
+        .trim()
+        .toLowerCase()
+    });
+  }
   const normalizedRedisUrl = String(redisUrl || "").trim();
   if (requireRedisAdapter && !normalizedRedisUrl) {
     throw new Error("REDIS_URL is required to run Socket.IO realtime with the Redis Streams adapter.");
@@ -499,6 +537,12 @@ async function registerRealtimeServerSocketio(
         },
         "realtime.socketio.started"
       );
+      recordRealtimeEvent({
+        event: "server_started",
+        outcome: "success",
+        phase: "startup",
+        code: "redis_streams"
+      });
     } catch (error) {
       await closeRedisClientWithTimeout(redisClient, {
         timeoutMs: redisQuitTimeoutMs
@@ -520,6 +564,12 @@ async function registerRealtimeServerSocketio(
         },
         "realtime.socketio.redis_unavailable_falling_back_to_memory"
       );
+      recordRealtimeEvent({
+        event: "adapter_fallback_memory",
+        outcome: "failure",
+        phase: "startup",
+        code: String(error?.code || "redis_connect_failed")
+      });
     }
   }
 
@@ -530,6 +580,11 @@ async function registerRealtimeServerSocketio(
       },
       "realtime.socketio.started_without_redis"
     );
+    recordRealtimeEvent({
+      event: "server_started_without_redis",
+      outcome: "success",
+      phase: "startup"
+    });
   }
 
   async function resolveSubscribeAuthorization(socket, workspaceSlug, surfaceId) {
@@ -760,6 +815,13 @@ async function registerRealtimeServerSocketio(
         },
         "realtime.socketio.event_authorization_failed"
       );
+      recordRealtimeEvent({
+        event: "event_authorization_failed",
+        outcome: "failure",
+        surface: socket?.data?.surface,
+        phase: "fanout_auth",
+        code: String(error?.code || error?.statusCode || error?.status || "unknown")
+      });
       return {
         allowed: false,
         evict: false
@@ -781,8 +843,15 @@ async function registerRealtimeServerSocketio(
     }
   }
 
-  function validateTopicsOrError(socket, requestId, topics) {
+  function validateTopicsOrError(socket, requestId, topics, phase = "protocol") {
     if (!Array.isArray(topics) || topics.length < 1) {
+      recordRealtimeEvent({
+        event: `${phase}_error`,
+        outcome: "failure",
+        surface: socket?.data?.surface,
+        phase,
+        code: REALTIME_ERROR_CODES.INVALID_MESSAGE
+      });
       emitProtocolError(socket, {
         requestId,
         code: REALTIME_ERROR_CODES.INVALID_MESSAGE
@@ -792,6 +861,13 @@ async function registerRealtimeServerSocketio(
 
     for (const topic of topics) {
       if (!isSupportedTopic(topic)) {
+        recordRealtimeEvent({
+          event: `${phase}_error`,
+          outcome: "failure",
+          surface: socket?.data?.surface,
+          phase,
+          code: REALTIME_ERROR_CODES.UNSUPPORTED_TOPIC
+        });
         emitProtocolError(socket, {
           requestId,
           code: REALTIME_ERROR_CODES.UNSUPPORTED_TOPIC
@@ -803,9 +879,16 @@ async function registerRealtimeServerSocketio(
     return true;
   }
 
-  function validateTopicSurfacesOrError(socket, requestId, topics) {
+  function validateTopicSurfacesOrError(socket, requestId, topics, phase = "protocol") {
     for (const topic of topics) {
       if (!isTopicAllowedForSurface(topic, socket?.data?.surface || "")) {
+        recordRealtimeEvent({
+          event: `${phase}_error`,
+          outcome: "failure",
+          surface: socket?.data?.surface,
+          phase,
+          code: REALTIME_ERROR_CODES.FORBIDDEN
+        });
         emitProtocolError(socket, {
           requestId,
           code: REALTIME_ERROR_CODES.FORBIDDEN
@@ -817,9 +900,16 @@ async function registerRealtimeServerSocketio(
     return true;
   }
 
-  function validateTopicPermissionsOrError(socket, requestId, topics, permissions) {
+  function validateTopicPermissionsOrError(socket, requestId, topics, permissions, phase = "protocol") {
     for (const topic of topics) {
       if (!hasTopicPermission(topic, permissions, socket?.data?.surface || "")) {
+        recordRealtimeEvent({
+          event: `${phase}_error`,
+          outcome: "failure",
+          surface: socket?.data?.surface,
+          phase,
+          code: REALTIME_ERROR_CODES.FORBIDDEN
+        });
         emitProtocolError(socket, {
           requestId,
           code: REALTIME_ERROR_CODES.FORBIDDEN
@@ -829,6 +919,26 @@ async function registerRealtimeServerSocketio(
     }
 
     return true;
+  }
+
+  function recordSubscribeError(socket, code) {
+    recordRealtimeEvent({
+      event: "subscribe_error",
+      outcome: "failure",
+      surface: socket?.data?.surface,
+      phase: "subscribe",
+      code
+    });
+  }
+
+  function recordUnsubscribeError(socket, code) {
+    recordRealtimeEvent({
+      event: "unsubscribe_error",
+      outcome: "failure",
+      surface: socket?.data?.surface,
+      phase: "unsubscribe",
+      code
+    });
   }
 
   async function handleSubscribe(socket, message) {
@@ -836,15 +946,16 @@ async function registerRealtimeServerSocketio(
     const workspaceSlug = normalizeWorkspaceSlug(message?.workspaceSlug);
     const topics = normalizeTopics(message?.topics);
 
-    if (!validateTopicsOrError(socket, requestId, topics)) {
+    if (!validateTopicsOrError(socket, requestId, topics, "subscribe")) {
       return;
     }
-    if (!validateTopicSurfacesOrError(socket, requestId, topics)) {
+    if (!validateTopicSurfacesOrError(socket, requestId, topics, "subscribe")) {
       return;
     }
 
     const { workspaceTopics, userTopics } = partitionTopicsByScope(topics);
     if (workspaceTopics.length > 0 && !workspaceSlug) {
+      recordSubscribeError(socket, REALTIME_ERROR_CODES.WORKSPACE_REQUIRED);
       emitProtocolError(socket, {
         requestId,
         code: REALTIME_ERROR_CODES.WORKSPACE_REQUIRED
@@ -859,6 +970,7 @@ async function registerRealtimeServerSocketio(
       } catch (error) {
         const statusCode = Number(error?.statusCode || error?.status);
         if (statusCode === 401) {
+          recordSubscribeError(socket, REALTIME_ERROR_CODES.UNAUTHORIZED);
           emitProtocolError(socket, {
             requestId,
             code: REALTIME_ERROR_CODES.UNAUTHORIZED
@@ -866,6 +978,7 @@ async function registerRealtimeServerSocketio(
           return;
         }
         if (statusCode === 403 || statusCode === 409) {
+          recordSubscribeError(socket, REALTIME_ERROR_CODES.FORBIDDEN);
           emitProtocolError(socket, {
             requestId,
             code: REALTIME_ERROR_CODES.FORBIDDEN
@@ -873,6 +986,7 @@ async function registerRealtimeServerSocketio(
           return;
         }
 
+        recordSubscribeError(socket, REALTIME_ERROR_CODES.INTERNAL_ERROR);
         emitProtocolError(socket, {
           requestId,
           code: REALTIME_ERROR_CODES.INTERNAL_ERROR
@@ -881,6 +995,7 @@ async function registerRealtimeServerSocketio(
       }
 
       if (!resolvedContext) {
+        recordSubscribeError(socket, REALTIME_ERROR_CODES.FORBIDDEN);
         emitProtocolError(socket, {
           requestId,
           code: REALTIME_ERROR_CODES.FORBIDDEN
@@ -890,15 +1005,16 @@ async function registerRealtimeServerSocketio(
     }
 
     const permissions = Array.isArray(resolvedContext?.permissions) ? resolvedContext.permissions : [];
-    if (!validateTopicPermissionsOrError(socket, requestId, workspaceTopics, permissions)) {
+    if (!validateTopicPermissionsOrError(socket, requestId, workspaceTopics, permissions, "subscribe")) {
       return;
     }
-    if (!validateTopicPermissionsOrError(socket, requestId, userTopics, permissions)) {
+    if (!validateTopicPermissionsOrError(socket, requestId, userTopics, permissions, "subscribe")) {
       return;
     }
 
     const subscriptions = socket?.data?.subscriptions;
     if (!(subscriptions instanceof Map)) {
+      recordSubscribeError(socket, REALTIME_ERROR_CODES.INTERNAL_ERROR);
       emitProtocolError(socket, {
         requestId,
         code: REALTIME_ERROR_CODES.INTERNAL_ERROR
@@ -908,6 +1024,7 @@ async function registerRealtimeServerSocketio(
 
     const socketUserId = Number(socket?.data?.user?.id);
     if (userTopics.length > 0 && (!Number.isInteger(socketUserId) || socketUserId < 1)) {
+      recordSubscribeError(socket, REALTIME_ERROR_CODES.UNAUTHORIZED);
       emitProtocolError(socket, {
         requestId,
         code: REALTIME_ERROR_CODES.UNAUTHORIZED
@@ -954,6 +1071,12 @@ async function registerRealtimeServerSocketio(
         topics
       })
     );
+    recordRealtimeEvent({
+      event: "subscribe_success",
+      outcome: "success",
+      surface: socket?.data?.surface,
+      phase: "subscribe"
+    });
   }
 
   async function handleUnsubscribe(socket, message) {
@@ -961,15 +1084,16 @@ async function registerRealtimeServerSocketio(
     const workspaceSlug = normalizeWorkspaceSlug(message?.workspaceSlug);
     const topics = normalizeTopics(message?.topics);
 
-    if (!validateTopicsOrError(socket, requestId, topics)) {
+    if (!validateTopicsOrError(socket, requestId, topics, "unsubscribe")) {
       return;
     }
-    if (!validateTopicSurfacesOrError(socket, requestId, topics)) {
+    if (!validateTopicSurfacesOrError(socket, requestId, topics, "unsubscribe")) {
       return;
     }
 
     const { workspaceTopics, userTopics } = partitionTopicsByScope(topics);
     if (workspaceTopics.length > 0 && !workspaceSlug) {
+      recordUnsubscribeError(socket, REALTIME_ERROR_CODES.WORKSPACE_REQUIRED);
       emitProtocolError(socket, {
         requestId,
         code: REALTIME_ERROR_CODES.WORKSPACE_REQUIRED
@@ -979,6 +1103,7 @@ async function registerRealtimeServerSocketio(
 
     const subscriptions = socket?.data?.subscriptions;
     if (!(subscriptions instanceof Map)) {
+      recordUnsubscribeError(socket, REALTIME_ERROR_CODES.INTERNAL_ERROR);
       emitProtocolError(socket, {
         requestId,
         code: REALTIME_ERROR_CODES.INTERNAL_ERROR
@@ -990,6 +1115,7 @@ async function registerRealtimeServerSocketio(
     const userTopicsToRemove = new Set(userTopics);
     const socketUserId = Number(socket?.data?.user?.id);
     if (userTopicsToRemove.size > 0 && (!Number.isInteger(socketUserId) || socketUserId < 1)) {
+      recordUnsubscribeError(socket, REALTIME_ERROR_CODES.UNAUTHORIZED);
       emitProtocolError(socket, {
         requestId,
         code: REALTIME_ERROR_CODES.UNAUTHORIZED
@@ -1035,11 +1161,24 @@ async function registerRealtimeServerSocketio(
         topics
       })
     );
+    recordRealtimeEvent({
+      event: "unsubscribe_success",
+      outcome: "success",
+      surface: socket?.data?.surface,
+      phase: "unsubscribe"
+    });
   }
 
   async function handleInboundMessage(socket, messagePayload) {
     const byteLength = getMessageByteLength(messagePayload);
     if (byteLength > maxInboundMessageBytes) {
+      recordRealtimeEvent({
+        event: "protocol_error",
+        outcome: "failure",
+        surface: socket?.data?.surface,
+        phase: "inbound",
+        code: REALTIME_ERROR_CODES.PAYLOAD_TOO_LARGE
+      });
       emitProtocolError(socket, {
         requestId: null,
         code: REALTIME_ERROR_CODES.PAYLOAD_TOO_LARGE
@@ -1049,6 +1188,13 @@ async function registerRealtimeServerSocketio(
     }
 
     if (!messagePayload || typeof messagePayload !== "object" || Array.isArray(messagePayload)) {
+      recordRealtimeEvent({
+        event: "protocol_error",
+        outcome: "failure",
+        surface: socket?.data?.surface,
+        phase: "inbound",
+        code: REALTIME_ERROR_CODES.INVALID_MESSAGE
+      });
       emitProtocolError(socket, {
         requestId: null,
         code: REALTIME_ERROR_CODES.INVALID_MESSAGE
@@ -1082,11 +1228,24 @@ async function registerRealtimeServerSocketio(
       requestId: messagePayload.requestId,
       code: REALTIME_ERROR_CODES.INVALID_MESSAGE
     });
+    recordRealtimeEvent({
+      event: "protocol_error",
+      outcome: "failure",
+      surface: socket?.data?.surface,
+      phase: "inbound",
+      code: REALTIME_ERROR_CODES.INVALID_MESSAGE
+    });
   }
 
   io.use(async (socket, next) => {
     const connectionSurface = resolveConnectionSurface(socket, normalizeConnectionSurface);
     if (!connectionSurface) {
+      recordRealtimeEvent({
+        event: "handshake_rejected",
+        outcome: "failure",
+        phase: "handshake",
+        code: REALTIME_ERROR_CODES.UNSUPPORTED_SURFACE
+      });
       next(createSocketMiddlewareError(REALTIME_ERROR_CODES.UNSUPPORTED_SURFACE));
       return;
     }
@@ -1097,16 +1256,37 @@ async function registerRealtimeServerSocketio(
     try {
       authResult = await authService.authenticateRequest(requestContext);
     } catch {
+      recordRealtimeEvent({
+        event: "handshake_rejected",
+        outcome: "failure",
+        surface: connectionSurface,
+        phase: "handshake",
+        code: REALTIME_ERROR_CODES.INTERNAL_ERROR
+      });
       next(createSocketMiddlewareError(REALTIME_ERROR_CODES.INTERNAL_ERROR));
       return;
     }
 
     if (authResult?.transientFailure) {
+      recordRealtimeEvent({
+        event: "handshake_rejected",
+        outcome: "failure",
+        surface: connectionSurface,
+        phase: "handshake",
+        code: REALTIME_ERROR_CODES.INTERNAL_ERROR
+      });
       next(createSocketMiddlewareError(REALTIME_ERROR_CODES.INTERNAL_ERROR));
       return;
     }
 
     if (!authResult?.authenticated || !authResult?.profile) {
+      recordRealtimeEvent({
+        event: "handshake_rejected",
+        outcome: "failure",
+        surface: connectionSurface,
+        phase: "handshake",
+        code: REALTIME_ERROR_CODES.UNAUTHORIZED
+      });
       next(createSocketMiddlewareError(REALTIME_ERROR_CODES.UNAUTHORIZED));
       return;
     }
@@ -1119,6 +1299,13 @@ async function registerRealtimeServerSocketio(
   });
 
   io.on("connection", (socket) => {
+    recordRealtimeEvent({
+      event: "socket_connected",
+      outcome: "success",
+      surface: socket?.data?.surface,
+      phase: "transport"
+    });
+
     const socketUserId = Number(socket?.data?.user?.id);
     if (Number.isInteger(socketUserId) && socketUserId > 0) {
       socket.join(buildUserRoomName(socketUserId));
@@ -1126,6 +1313,13 @@ async function registerRealtimeServerSocketio(
 
     socket.on(SOCKET_IO_MESSAGE_EVENT, (messagePayload) => {
       void handleInboundMessage(socket, messagePayload).catch(() => {
+        recordRealtimeEvent({
+          event: "protocol_error",
+          outcome: "failure",
+          surface: socket?.data?.surface,
+          phase: "inbound",
+          code: REALTIME_ERROR_CODES.INTERNAL_ERROR
+        });
         emitProtocolError(socket, {
           requestId: null,
           code: REALTIME_ERROR_CODES.INTERNAL_ERROR
@@ -1133,7 +1327,14 @@ async function registerRealtimeServerSocketio(
       });
     });
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", (reason) => {
+      recordRealtimeEvent({
+        event: "socket_disconnected",
+        outcome: "success",
+        surface: socket?.data?.surface,
+        phase: "transport",
+        code: String(reason || "")
+      });
       removeConnectionSubscriptions(socket);
     });
   });
@@ -1166,7 +1367,13 @@ async function registerRealtimeServerSocketio(
     return subscriptions.has(buildWorkspaceSubscriptionKey(workspaceId, topic));
   }
 
-  async function collectTargetSockets(targetUserIds, buildRoomName, failureLogCode, logContext = {}) {
+  async function collectTargetSockets(
+    targetUserIds,
+    buildRoomName,
+    failureLogCode,
+    logContext = {},
+    failureEvent = "fanout_socket_lookup_failed"
+  ) {
     const socketById = new Map();
 
     try {
@@ -1188,6 +1395,12 @@ async function registerRealtimeServerSocketio(
         },
         failureLogCode
       );
+      recordRealtimeEvent({
+        event: failureEvent,
+        outcome: "failure",
+        phase: "fanout",
+        code: String(error?.code || "socket_lookup_failed")
+      });
       return null;
     }
 
@@ -1199,7 +1412,8 @@ async function registerRealtimeServerSocketio(
       targetUserIds,
       (targetUserId) => buildUserTopicRoomName(targetUserId, topic),
       "realtime.socketio.targeted_topic_fanout_socket_lookup_failed",
-      { topic }
+      { topic },
+      "targeted_topic_socket_lookup_failed"
     );
     if (!socketById) {
       return;
@@ -1214,6 +1428,13 @@ async function registerRealtimeServerSocketio(
             await evictUserTopicSocketSubscription(socket, {
               userId: socketUserId,
               topic
+            });
+            recordRealtimeEvent({
+              event: "subscription_evicted",
+              outcome: "failure",
+              surface: socket?.data?.surface,
+              phase: "fanout",
+              code: topic
             });
           }
           return;
@@ -1235,6 +1456,12 @@ async function registerRealtimeServerSocketio(
         },
         "realtime.socketio.event_missing_workspace_slug"
       );
+      recordRealtimeEvent({
+        event: "event_missing_workspace_slug",
+        outcome: "failure",
+        phase: "fanout",
+        code: topic || "unknown_topic"
+      });
       return;
     }
 
@@ -1242,7 +1469,8 @@ async function registerRealtimeServerSocketio(
       targetUserIds,
       (targetUserId) => buildUserRoomName(targetUserId),
       "realtime.socketio.targeted_fanout_socket_lookup_failed",
-      { topic, workspaceId, workspaceSlug }
+      { topic, workspaceId, workspaceSlug },
+      "targeted_socket_lookup_failed"
     );
     if (!socketById) {
       return;
@@ -1277,6 +1505,13 @@ async function registerRealtimeServerSocketio(
             },
             "realtime.socketio.subscription_evicted"
           );
+          recordRealtimeEvent({
+            event: "subscription_evicted",
+            outcome: "failure",
+            surface: socket?.data?.surface,
+            phase: "fanout",
+            code: topic
+          });
           return;
         }
 
@@ -1290,7 +1525,8 @@ async function registerRealtimeServerSocketio(
       targetUserIds,
       (targetUserId) => buildUserRoomName(targetUserId),
       "realtime.socketio.targeted_fanout_socket_lookup_failed",
-      { topic }
+      { topic },
+      "targeted_socket_lookup_failed"
     );
     if (!socketById) {
       return;
@@ -1343,6 +1579,12 @@ async function registerRealtimeServerSocketio(
         },
         "realtime.socketio.user_topic_event_missing_targets"
       );
+      recordRealtimeEvent({
+        event: "user_topic_event_missing_targets",
+        outcome: "failure",
+        phase: "fanout",
+        code: topic || "unknown_topic"
+      });
       return;
     }
 
@@ -1356,6 +1598,12 @@ async function registerRealtimeServerSocketio(
           },
           "realtime.socketio.event_missing_workspace_slug"
         );
+        recordRealtimeEvent({
+          event: "event_missing_workspace_slug",
+          outcome: "failure",
+          phase: "fanout",
+          code: topic || "unknown_topic"
+        });
       }
       return;
     }
@@ -1374,6 +1622,12 @@ async function registerRealtimeServerSocketio(
         },
         "realtime.socketio.fanout_socket_lookup_failed"
       );
+      recordRealtimeEvent({
+        event: "fanout_socket_lookup_failed",
+        outcome: "failure",
+        phase: "fanout",
+        code: String(error?.code || "socket_lookup_failed")
+      });
       return;
     }
 
@@ -1402,6 +1656,13 @@ async function registerRealtimeServerSocketio(
             },
             "realtime.socketio.subscription_evicted"
           );
+          recordRealtimeEvent({
+            event: "subscription_evicted",
+            outcome: "failure",
+            surface: socket?.data?.surface,
+            phase: "fanout",
+            code: topic
+          });
           return;
         }
 
@@ -1418,6 +1679,12 @@ async function registerRealtimeServerSocketio(
         },
         "realtime.socketio.fanout_failed"
       );
+      recordRealtimeEvent({
+        event: "fanout_failed",
+        outcome: "failure",
+        phase: "fanout",
+        code: String(error?.code || "unknown")
+      });
     });
   });
 

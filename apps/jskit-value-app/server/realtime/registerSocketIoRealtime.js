@@ -46,6 +46,7 @@ async function registerSocketIoRealtime(
     authService,
     realtimeEventsService,
     workspaceService,
+    observabilityService = null,
     redisUrl = "",
     requireRedisAdapter = false,
     logger = null,
@@ -82,7 +83,11 @@ async function registerSocketIoRealtime(
     redisQuitTimeoutMs,
     redisConnectTimeoutMs,
     redisClientFactory,
-    redisStreamsAdapterFactory
+    redisStreamsAdapterFactory,
+    observeRealtimeEvent:
+      observabilityService && typeof observabilityService.recordRealtimeEvent === "function"
+        ? observabilityService.recordRealtimeEvent.bind(observabilityService)
+        : null
   };
 
   return registerRealtimeServerSocketio(fastify, {

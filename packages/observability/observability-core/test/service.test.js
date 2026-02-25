@@ -26,12 +26,23 @@ test("observability service records guardrail metrics and structured log payload
     measure: "age_seconds",
     value: 75
   });
+  service.recordRealtimeEvent({
+    event: "subscription_evicted",
+    outcome: "failure",
+    surface: "admin",
+    phase: "fanout",
+    code: "forbidden"
+  });
 
   const output = registry.renderPrometheusMetrics();
   assert.match(output, /app_billing_guardrail_events_total\{code="BILLING_CHECKOUT_PROVIDER_ERROR"\} 1/);
   assert.match(
     output,
     /app_billing_guardrail_measurement_sum\{code="BILLING_CHECKOUT_PROVIDER_ERROR",measure="age_seconds"\} 75/
+  );
+  assert.match(
+    output,
+    /app_realtime_events_total\{event="subscription_evicted",outcome="failure",surface="admin",phase="fanout",code="forbidden"\} 1/
   );
 
   assert.equal(warnings.length, 1);

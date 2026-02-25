@@ -53,6 +53,13 @@ test("metrics registry records db, auth, ingestion, and audit event counters", (
     tool: "workspace_rename",
     outcome: "forbidden"
   });
+  registry.recordRealtimeEvent({
+    event: "subscribe_error",
+    outcome: "failure",
+    surface: "console",
+    phase: "subscribe",
+    code: "workspace_required"
+  });
   registry.recordBillingGuardrailEvent({
     code: "billing_checkout_provider_error"
   });
@@ -83,6 +90,10 @@ test("metrics registry records db, auth, ingestion, and audit event counters", (
   assert.match(output, /app_ai_turns_total\{surface="app",provider="openai",outcome="timeout"\} 1/);
   assert.match(output, /app_ai_turn_duration_seconds_sum\{surface="app",provider="openai",outcome="timeout"\} 2.1/);
   assert.match(output, /app_ai_tool_calls_total\{tool="workspace_rename",outcome="forbidden"\} 1/);
+  assert.match(
+    output,
+    /app_realtime_events_total\{event="subscribe_error",outcome="failure",surface="console",phase="subscribe",code="workspace_required"\} 1/
+  );
   assert.match(output, /app_billing_guardrail_events_total\{code="BILLING_CHECKOUT_PROVIDER_ERROR"\} 1/);
   assert.match(
     output,

@@ -177,6 +177,14 @@ function createService({
     registry.recordAiToolCall(payload || {});
   }
 
+  function recordRealtimeEvent(payload) {
+    if (!registry || typeof registry.recordRealtimeEvent !== "function") {
+      return;
+    }
+
+    registry.recordRealtimeEvent(payload || {});
+  }
+
   function recordGuardrail(payload) {
     const normalizedPayload = payload && typeof payload === "object" ? payload : {};
     const code = normalizedPayload.code;
@@ -234,6 +242,7 @@ function createService({
     recordSecurityAuditEvent,
     recordAiTurn,
     recordAiToolCall,
+    recordRealtimeEvent,
     recordGuardrail
   };
 }

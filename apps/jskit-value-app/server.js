@@ -640,6 +640,7 @@ export async function buildServer({ frontendBuildAvailable }) {
     authService,
     realtimeEventsService,
     workspaceService,
+    observabilityService,
     path: API_REALTIME_PATH,
     redisUrl: runtimeEnv.REDIS_URL,
     requireRedisAdapter: NODE_ENV === "production",

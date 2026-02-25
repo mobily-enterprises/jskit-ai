@@ -155,6 +155,7 @@ async function createRealtimeTestApp({
   appDenyEmailsBySlug,
   workspaceService,
   authService,
+  observeRealtimeEvent = null,
   requireRedisAdapter = false
 } = {}) {
   const app = Fastify();
@@ -176,6 +177,12 @@ async function createRealtimeTestApp({
     authService: authService || createRealtimeTestAuthService(),
     realtimeEventsService,
     workspaceService: effectiveWorkspaceService,
+    observabilityService:
+      typeof observeRealtimeEvent === "function"
+        ? {
+            recordRealtimeEvent: observeRealtimeEvent
+          }
+        : null,
     redisUrl: "",
     requireRedisAdapter
   });

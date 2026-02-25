@@ -300,6 +300,15 @@ function normalizeReasonLabel(value) {
   return normalized.replace(/[^a-z0-9_.:-]/g, "_");
 }
 
+function normalizeRealtimeEventLabel(value) {
+  const normalized = sanitizeLabelValue(value, {
+    fallback: "unknown",
+    maxLength: 64
+  }).toLowerCase();
+
+  return normalized.replace(/[^a-z0-9_.:-]/g, "_");
+}
+
 function normalizeBillingMeasureLabel(value) {
   const normalized = sanitizeLabelValue(value, {
     fallback: "value",
@@ -376,6 +385,11 @@ function createMetricsRegistry({ httpDurationBuckets = DEFAULT_HTTP_DURATION_BUC
       name: "app_ai_tool_calls_total",
       help: "Total AI tool calls grouped by tool name and outcome.",
       labelNames: ["tool", "outcome"]
+    }),
+    realtimeEventsTotal: new CounterMetric({
+      name: "app_realtime_events_total",
+      help: "Total realtime runtime events grouped by event, outcome, surface, phase, and code.",
+      labelNames: ["event", "outcome", "surface", "phase", "code"]
     }),
     billingGuardrailEventsTotal: new CounterMetric({
       name: "app_billing_guardrail_events_total",
@@ -481,6 +495,16 @@ function createMetricsRegistry({ httpDurationBuckets = DEFAULT_HTTP_DURATION_BUC
     });
   }
 
+  function recordRealtimeEvent({ event, outcome, surface, phase, code }) {
+    metrics.realtimeEventsTotal.increment({
+      event: normalizeRealtimeEventLabel(event),
+      outcome: normalizeOutcomeLabel(outcome),
+      surface: normalizeSurfaceLabel(surface),
+      phase: normalizeReasonLabel(phase),
+      code: normalizeReasonLabel(code)
+    });
+  }
+
   function recordBillingGuardrailEvent({ code }) {
     metrics.billingGuardrailEventsTotal.increment({
       code: normalizeErrorCodeLabel(code)
@@ -522,6 +546,7 @@ function createMetricsRegistry({ httpDurationBuckets = DEFAULT_HTTP_DURATION_BUC
       metrics.aiTurnsTotal.toLines(),
       metrics.aiTurnDurationSeconds.toLines(),
       metrics.aiToolCallsTotal.toLines(),
+      metrics.realtimeEventsTotal.toLines(),
       metrics.billingGuardrailEventsTotal.toLines(),
       metrics.billingGuardrailMeasurement.toLines()
     ];
@@ -538,6 +563,7 @@ function createMetricsRegistry({ httpDurationBuckets = DEFAULT_HTTP_DURATION_BUC
     recordSecurityAuditEvent,
     recordAiTurn,
     recordAiToolCall,
+    recordRealtimeEvent,
     recordBillingGuardrailEvent,
     recordBillingGuardrailMeasurement,
     renderPrometheusMetrics
@@ -560,6 +586,7 @@ const __testables = {
   normalizeErrorCodeLabel,
   normalizeActionLabel,
   normalizeReasonLabel,
+  normalizeRealtimeEventLabel,
   normalizeBillingMeasureLabel,
   normalizeDurationSeconds,
   formatMetricLabels,

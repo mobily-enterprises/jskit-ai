@@ -141,7 +141,7 @@ function createConsoleRouteGuards(stores, options) {
     throw redirect({ to: fallbackPath });
   }
 
-  async function beforeLoadPublic(context) {
+  async function beforeLoadPublic() {
     const state = await resolveConsoleRuntimeState(resolvedStores);
     if (state.sessionUnavailable) {
       return;
