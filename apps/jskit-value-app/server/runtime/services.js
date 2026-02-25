@@ -15,6 +15,7 @@ import { createService as createConsoleService } from "@jskit-ai/workspace-conso
 import { createService as createConsoleErrorsService } from "@jskit-ai/workspace-console-service-core/services/errors";
 import { createService as createAuditService } from "@jskit-ai/security-audit-core";
 import { createService as createChatModuleService } from "../modules/chat/index.js";
+import { createService as createSocialModuleService } from "../modules/social/index.js";
 import { createService as createHealthModuleService } from "../modules/health/index.js";
 import { createService as createAiModuleService } from "../modules/ai/index.js";
 import {
@@ -41,6 +42,7 @@ import { createService as createObservabilityService } from "@jskit-ai/observabi
 import { AVATAR_POLICY } from "../../shared/avatar.js";
 import { createSurfacePaths, resolveSurfaceFromPathname } from "../../shared/surfacePaths.js";
 import { REALTIME_TOPICS, REALTIME_EVENT_TYPES } from "../../shared/eventTypes.js";
+import { ACTION_IDS } from "../../shared/actionIds.js";
 import { normalizeSurfaceId, resolveSurfaceById } from "../surfaces/index.js";
 
 function createBillingDisabledServices() {
@@ -158,6 +160,158 @@ function hasNonEmptyEnvValue(value) {
   return String(value || "").trim().length > 0;
 }
 
+function toMs(seconds, fallbackSeconds = 1) {
+  const normalizedSeconds = Math.max(1, Number(seconds) || Number(fallbackSeconds) || 1);
+  return normalizedSeconds * 1000;
+}
+
+function createSocialOutboxWorkerRuntimeService({
+  enabled = false,
+  federationEnabled = false,
+  actionExecutor = null,
+  socialRepository = null,
+  logger = console,
+  pollSeconds = 10,
+  workspaceBatchSize = 25
+} = {}) {
+  const workerEnabled = enabled === true && federationEnabled === true;
+  if (!workerEnabled) {
+    return {
+      start() {},
+      stop() {},
+      isStarted() {
+        return false;
+      }
+    };
+  }
+
+  if (!actionExecutor || typeof actionExecutor.execute !== "function") {
+    throw new Error("actionExecutor.execute is required for social outbox worker runtime.");
+  }
+  if (typeof socialRepository?.outboxDeliveries?.listReadyWorkspaceIds !== "function") {
+    throw new Error("socialRepository.outboxDeliveries.listReadyWorkspaceIds is required for social outbox worker runtime.");
+  }
+
+  let started = false;
+  let timer = null;
+  let isTickRunning = false;
+
+  function logInfo(payload, message) {
+    if (logger && typeof logger.info === "function") {
+      logger.info(payload, message);
+    }
+  }
+
+  function logWarn(payload, message) {
+    if (logger && typeof logger.warn === "function") {
+      logger.warn(payload, message);
+    }
+  }
+
+  async function tick() {
+    if (isTickRunning) {
+      return;
+    }
+
+    isTickRunning = true;
+    try {
+      const readyWorkspaceIds = await socialRepository.outboxDeliveries.listReadyWorkspaceIds({
+        now: new Date(),
+        limit: Math.max(1, Number(workspaceBatchSize) || 25)
+      });
+
+      for (const workspaceIdValue of readyWorkspaceIds) {
+        const workspaceId = Number(workspaceIdValue);
+        if (!Number.isInteger(workspaceId) || workspaceId < 1) {
+          continue;
+        }
+
+        try {
+          await actionExecutor.execute({
+            actionId: ACTION_IDS.SOCIAL_FEDERATION_OUTBOX_DELIVERIES_PROCESS,
+            input: {
+              workspaceId
+            },
+            context: {
+              channel: "worker",
+              surface: "app",
+              workspace: {
+                id: workspaceId,
+                slug: `workspace-${workspaceId}`
+              }
+            }
+          });
+        } catch (error) {
+          logWarn(
+            {
+              workspaceId,
+              error: String(error?.message || error)
+            },
+            "social.worker.outbox.workspace_failed"
+          );
+        }
+      }
+    } catch (error) {
+      logWarn(
+        {
+          error: String(error?.message || error)
+        },
+        "social.worker.outbox.tick_failed"
+      );
+    } finally {
+      isTickRunning = false;
+    }
+  }
+
+  function start() {
+    if (started) {
+      return;
+    }
+
+    const run = () => {
+      void tick();
+    };
+
+    timer = setInterval(run, toMs(pollSeconds, 10));
+    timer.unref?.();
+    run();
+    started = true;
+
+    logInfo(
+      {
+        pollSeconds: Math.max(1, Number(pollSeconds) || 10),
+        workspaceBatchSize: Math.max(1, Number(workspaceBatchSize) || 25)
+      },
+      "social.worker.outbox.started"
+    );
+  }
+
+  function stop() {
+    if (!started) {
+      return;
+    }
+
+    if (timer) {
+      clearInterval(timer);
+    }
+    timer = null;
+    started = false;
+    isTickRunning = false;
+
+    logInfo({}, "social.worker.outbox.stopped");
+  }
+
+  function isStarted() {
+    return started;
+  }
+
+  return {
+    start,
+    stop,
+    isStarted
+  };
+}
+
 function resolveAuthProviderId(env) {
   return (
     String(env.AUTH_PROVIDER || "")
@@ -174,7 +328,7 @@ function resolveAuthJwtAudience(env) {
   return String(env.AUTH_JWT_AUDIENCE || "authenticated").trim();
 }
 
-function throwEnabledSubsystemStartupPreflightError({ env, aiPolicyConfig, billingPolicyConfig }) {
+function throwEnabledSubsystemStartupPreflightError({ env, aiPolicyConfig, billingPolicyConfig, socialPolicyConfig }) {
   const issues = [];
   const hints = [];
 
@@ -218,6 +372,19 @@ function throwEnabledSubsystemStartupPreflightError({ env, aiPolicyConfig, billi
     }
 
     hints.push("Disable billing in config/billing.js (billing.enabled = false) if you are not using it yet.");
+  }
+
+  if (socialPolicyConfig?.enabled === true && socialPolicyConfig?.federationEnabled === true) {
+    if (!hasNonEmptyEnvValue(env.APP_PUBLIC_URL)) {
+      issues.push("APP_PUBLIC_URL is required when social federation is enabled in config/social.js.");
+    }
+    if (!hasNonEmptyEnvValue(env.SOCIAL_FEDERATION_SIGNING_SECRET)) {
+      issues.push("SOCIAL_FEDERATION_SIGNING_SECRET is required when social federation is enabled.");
+    }
+
+    hints.push(
+      "Disable social federation in config/social.js (social.federationEnabled = false) if you are not using federation yet."
+    );
   }
 
   if (issues.length < 1) {
@@ -392,6 +559,7 @@ const RUNTIME_SERVICE_EXPORT_IDS = Object.freeze([
   "workspaceService",
   "consoleService",
   "consoleErrorsService",
+  "socialService",
   "realtimeEventsService",
   "observabilityService",
   "avatarStorageService",
@@ -404,7 +572,8 @@ const RUNTIME_SERVICE_EXPORT_IDS = Object.freeze([
   "billingOutboxWorkerService",
   "billingRemediationWorkerService",
   "billingReconciliationService",
-  "billingWorkerRuntimeService"
+  "billingWorkerRuntimeService",
+  "socialOutboxWorkerRuntimeService"
 ]);
 
 const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
@@ -414,7 +583,8 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
       throwEnabledSubsystemStartupPreflightError({
         env,
         aiPolicyConfig: repositoryConfig?.ai || {},
-        billingPolicyConfig: repositoryConfig?.billing || {}
+        billingPolicyConfig: repositoryConfig?.billing || {},
+        socialPolicyConfig: repositoryConfig?.social || {}
       });
 
       return createObservabilityService({
@@ -648,6 +818,28 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
     }
   },
   {
+    id: "socialService",
+    create({ repositories, services, repositoryConfig, env }) {
+      const { socialService } = createSocialModuleService({
+        socialServiceOptions: {
+          socialRepository: repositories.socialRepository,
+          chatUserSettingsRepository: repositories.chatUserSettingsRepository,
+          userProfilesRepository: repositories.userProfilesRepository,
+          workspacesRepository: repositories.workspacesRepository,
+          realtimeEventsService: services.realtimeEventsService,
+          realtimeTopics: REALTIME_TOPICS,
+          realtimeEventTypes: REALTIME_EVENT_TYPES,
+          appPublicUrl: env.APP_PUBLIC_URL,
+          observabilityService: services.observabilityService,
+          repositoryConfig,
+          env
+        }
+      });
+
+      return socialService;
+    }
+  },
+  {
     id: "aiModuleServices",
     create({ repositories, services, repositoryConfig, env }) {
       const aiPolicyConfig = repositoryConfig?.ai || {};
@@ -823,12 +1015,38 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
     create({ services }) {
       return services.actionRuntimeServices.actionExecutor;
     }
+  },
+  {
+    id: "socialOutboxWorkerRuntimeService",
+    create({ repositories, services, repositoryConfig }) {
+      const socialPolicyConfig =
+        repositoryConfig?.social && typeof repositoryConfig.social === "object" ? repositoryConfig.social : {};
+      const workersConfig =
+        socialPolicyConfig?.workers && typeof socialPolicyConfig.workers === "object" ? socialPolicyConfig.workers : {};
+
+      const workerLogger =
+        services?.observabilityService && typeof services.observabilityService.createScopedLogger === "function"
+          ? services.observabilityService.createScopedLogger("social.worker")
+          : console;
+
+      return createSocialOutboxWorkerRuntimeService({
+        enabled: socialPolicyConfig.enabled === true,
+        federationEnabled: socialPolicyConfig.federationEnabled === true,
+        actionExecutor: services.actionExecutor,
+        socialRepository: repositories.socialRepository,
+        logger: workerLogger,
+        pollSeconds: workersConfig.outboxPollSeconds,
+        workspaceBatchSize: workersConfig.outboxWorkspaceBatchSize
+      });
+    }
   }
 ]);
 
 const __testables = {
   createBillingDisabledServices,
   hasNonEmptyEnvValue,
+  toMs,
+  createSocialOutboxWorkerRuntimeService,
   resolveAuthProviderId,
   resolveSupabaseAuthUrl,
   resolveAuthJwtAudience,

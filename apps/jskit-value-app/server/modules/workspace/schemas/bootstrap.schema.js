@@ -68,7 +68,9 @@ const bootstrap = Type.Object(
             workspaceInvites: Type.Boolean(),
             workspaceCreateEnabled: Type.Boolean(),
             assistantEnabled: Type.Boolean(),
-            assistantRequiredPermission: Type.String({ maxLength: 120 })
+            assistantRequiredPermission: Type.String({ maxLength: 120 }),
+            socialEnabled: Type.Boolean(),
+            socialFederationEnabled: Type.Boolean()
           },
           {
             additionalProperties: false

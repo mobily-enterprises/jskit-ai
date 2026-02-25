@@ -1,0 +1,16 @@
+{
+  "name": "@jskit-ai/social-knex-mysql",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "dependencies": {
+    "@jskit-ai/knex-mysql-core": "0.1.0",
+    "@jskit-ai/server-runtime-core": "0.1.0"
+  }
+}

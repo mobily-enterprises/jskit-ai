@@ -25,6 +25,7 @@ import {
 import { registerApiRoutes } from "./server/fastify/registerApiRoutes.js";
 import authPlugin from "./server/fastify/auth.plugin.js";
 import billingWebhookRawBodyPlugin from "./server/fastify/billingWebhookRawBody.plugin.js";
+import activityPubRawBodyPlugin from "./server/fastify/activityPubRawBody.plugin.js";
 import { registerSocketIoRealtime } from "./server/realtime/registerSocketIoRealtime.js";
 import { buildLoginRedirectPathFromRequest, safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
 import { normalizeReturnToPath } from "@jskit-ai/access-core/utils";
@@ -114,6 +115,22 @@ function isPathPrefixMatch(pathname, prefix) {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
+function startBackgroundRuntime(runtimeService) {
+  if (!runtimeService || typeof runtimeService.start !== "function") {
+    return;
+  }
+
+  runtimeService.start();
+}
+
+function stopBackgroundRuntime(runtimeService) {
+  if (!runtimeService || typeof runtimeService.stop !== "function") {
+    return;
+  }
+
+  runtimeService.stop();
+}
+
 const {
   controllers,
   runtimeServices: {
@@ -125,7 +142,8 @@ const {
     avatarStorageService,
     chatAttachmentStorageService,
     observabilityService,
-    billingWorkerRuntimeService
+    billingWorkerRuntimeService,
+    socialOutboxWorkerRuntimeService
   }
 } = createServerRuntime({
   runtimeEnv,
@@ -225,8 +243,21 @@ function redirectToSurfaceLogin(request, reply, surfacePaths) {
   reply.redirect(redirectPath);
 }
 
+function isPublicFederationPath(pathnameValue) {
+  const normalizedPath = String(pathnameValue || "").trim();
+  if (!normalizedPath) {
+    return false;
+  }
+
+  return normalizedPath === "/.well-known/webfinger" || normalizedPath.startsWith("/ap/");
+}
+
 async function guardPageRoute(request, reply) {
   const pathnameValue = safePathnameFromRequest(request);
+  if (isPublicFederationPath(pathnameValue)) {
+    return true;
+  }
+
   const surfacePaths = resolveSurfacePaths(pathnameValue);
   const appSurfacePaths = createSurfacePaths("app");
   const requiresWorkspace = surfaceRequiresWorkspace(surfacePaths.surface);
@@ -463,6 +494,9 @@ function registerPageGuardHook(app) {
     if (isApiPath(pathnameValue)) {
       return;
     }
+    if (isPublicFederationPath(pathnameValue)) {
+      return;
+    }
 
     if (request.method !== "GET") {
       reply.code(405).send({ error: "Method not allowed." });
@@ -544,6 +578,9 @@ export async function buildServer({ frontendBuildAvailable }) {
   app.setValidatorCompiler(TypeBoxValidatorCompiler);
 
   await app.register(billingWebhookRawBodyPlugin);
+  await app.register(activityPubRawBodyPlugin, {
+    maxPayloadBytes: REPOSITORY_CONFIG.social.limits.inboxMaxPayloadBytes
+  });
 
   await app.register(fastifyHelmet, {
     contentSecurityPolicy: {
@@ -639,7 +676,13 @@ export async function buildServer({ frontendBuildAvailable }) {
       chatMessagesPageSizeMax: REPOSITORY_CONFIG.chat.messagesPageSizeMax,
       chatThreadsPageSizeMax: REPOSITORY_CONFIG.chat.threadsPageSizeMax,
       chatAttachmentsMaxFilesPerMessage: REPOSITORY_CONFIG.chat.attachmentsMaxFilesPerMessage,
-      chatAttachmentMaxUploadBytes: REPOSITORY_CONFIG.chat.attachmentMaxUploadBytes
+      chatAttachmentMaxUploadBytes: REPOSITORY_CONFIG.chat.attachmentMaxUploadBytes,
+      socialPostMaxChars: REPOSITORY_CONFIG.social.limits.postMaxChars,
+      socialCommentMaxChars: REPOSITORY_CONFIG.social.limits.commentMaxChars,
+      socialFeedPageSizeMax: REPOSITORY_CONFIG.social.limits.feedPageSizeMax,
+      socialNotificationsPageSizeMax: REPOSITORY_CONFIG.social.limits.notificationsPageSizeMax,
+      socialActorSearchLimitMax: REPOSITORY_CONFIG.social.limits.actorSearchLimitMax,
+      socialInboxMaxPayloadBytes: REPOSITORY_CONFIG.social.limits.inboxMaxPayloadBytes
     }
   });
   if (frontendBuildAvailable) {
@@ -647,21 +690,23 @@ export async function buildServer({ frontendBuildAvailable }) {
   }
 
   app.addHook("onReady", async () => {
-    if (billingWorkerRuntimeService && typeof billingWorkerRuntimeService.start === "function") {
-      billingWorkerRuntimeService.start();
-    }
+    startBackgroundRuntime(billingWorkerRuntimeService);
+    startBackgroundRuntime(socialOutboxWorkerRuntimeService);
   });
 
   app.addHook("onClose", async () => {
-    if (billingWorkerRuntimeService && typeof billingWorkerRuntimeService.stop === "function") {
-      billingWorkerRuntimeService.stop();
-    }
+    stopBackgroundRuntime(billingWorkerRuntimeService);
+    stopBackgroundRuntime(socialOutboxWorkerRuntimeService);
   });
 
   app.setNotFoundHandler(async (request, reply) => {
     const pathnameValue = safePathnameFromRequest(request);
 
     if (isApiPath(pathnameValue)) {
+      reply.code(404).send({ error: "Not found." });
+      return;
+    }
+    if (isPublicFederationPath(pathnameValue)) {
       reply.code(404).send({ error: "Not found." });
       return;
     }
@@ -695,14 +740,16 @@ let isShuttingDown = false;
 let signalHandlersRegistered = false;
 
 function stopBackgroundRuntimesForShutdown() {
-  if (!billingWorkerRuntimeService || typeof billingWorkerRuntimeService.stop !== "function") {
-    return;
+  try {
+    stopBackgroundRuntime(billingWorkerRuntimeService);
+  } catch (error) {
+    console.warn("Failed to stop billing worker runtime during shutdown:", error);
   }
 
   try {
-    billingWorkerRuntimeService.stop();
+    stopBackgroundRuntime(socialOutboxWorkerRuntimeService);
   } catch (error) {
-    console.warn("Failed to stop billing worker runtime during shutdown:", error);
+    console.warn("Failed to stop social outbox worker runtime during shutdown:", error);
   }
 }
 

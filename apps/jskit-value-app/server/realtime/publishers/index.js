@@ -9,3 +9,9 @@ export {
   resolvePublishProjectEvent
 } from "./projectPublisher.js";
 export { createChatEventPublisher, publishChatEventSafely, resolvePublishChatEvent } from "./chatPublisher.js";
+export {
+  createSocialEventPublisher,
+  publishSocialFeedUpdatedSafely,
+  publishSocialNotificationsUpdatedSafely,
+  resolvePublishWorkspaceEvent as resolvePublishSocialWorkspaceEvent
+} from "./socialPublisher.js";

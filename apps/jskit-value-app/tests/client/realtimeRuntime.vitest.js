@@ -291,6 +291,35 @@ describe("realtimeRuntime", () => {
     runtime.stop();
   });
 
+  it("subscribes to social topics on app surface when social.read permission is available", () => {
+    const stores = createStores();
+    stores.workspaceStore.can = vi.fn((permission) => String(permission || "") === "social.read");
+    const runtime = createRealtimeRuntime({
+      authStore: stores.authStore,
+      workspaceStore: stores.workspaceStore,
+      queryClient,
+      surface: "app",
+      socketFactory: createSocketFactory()
+    });
+
+    runtime.start();
+    expect(FakeSocket.instances).toHaveLength(1);
+
+    const socket = FakeSocket.instances[0];
+    expect(socket.sent[0].type).toBe(REALTIME_MESSAGE_TYPES.SUBSCRIBE);
+    expect(socket.sent[0].topics).toEqual([
+      REALTIME_TOPICS.ALERTS,
+      REALTIME_TOPICS.SETTINGS,
+      REALTIME_TOPICS.SOCIAL_FEED,
+      REALTIME_TOPICS.SOCIAL_NOTIFICATIONS,
+      REALTIME_TOPICS.WORKSPACE_AI_TRANSCRIPTS,
+      REALTIME_TOPICS.WORKSPACE_BILLING_LIMITS,
+      REALTIME_TOPICS.WORKSPACE_META
+    ]);
+
+    runtime.stop();
+  });
+
   it("reconciles workspace topic subscriptions on subscribe acknowledgement", async () => {
     const stores = createStores();
     stores.workspaceStore.can = vi.fn((permission) => String(permission || "") === "workspace.settings.view");

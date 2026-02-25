@@ -27,6 +27,12 @@ function expectPositiveInteger(name, value, { min = 1 } = {}) {
   }
 }
 
+function expectNumber(name, value, { min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY } = {}) {
+  if (!Number.isFinite(value) || value < min || value > max) {
+    throw new Error(`config.${name} must be a finite number between ${min} and ${max}.`);
+  }
+}
+
 function expectString(name, value, { allowEmpty = false } = {}) {
   if (typeof value !== "string") {
     throw new Error(`config.${name} must be a string.`);
@@ -48,4 +54,4 @@ function expectPlainObject(name, value) {
   }
 }
 
-export { deepFreeze, expectBoolean, expectPositiveInteger, expectString, expectOneOf, expectPlainObject };
+export { deepFreeze, expectBoolean, expectPositiveInteger, expectNumber, expectString, expectOneOf, expectPlainObject };

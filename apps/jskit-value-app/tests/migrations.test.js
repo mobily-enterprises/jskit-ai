@@ -72,6 +72,9 @@ function createMigrationKnexDouble(existingTables = []) {
       async hasTable(tableName) {
         return tableSet.has(tableName);
       },
+      async hasColumn(tableName, columnName) {
+        return tableSet.has(tableName) && String(columnName || "").trim() === "updated_at";
+      },
       async createTable(tableName, callback) {
         createdTables.push(tableName);
         tableSet.add(tableName);
@@ -93,11 +96,13 @@ function createMigrationKnexDouble(existingTables = []) {
 
 test("baseline migration contains the full historical step sequence in order", () => {
   assert.equal(BASELINE_STEP_FILES[0], "20260215120000_create_user_profiles.cjs");
-  assert.equal(BASELINE_STEP_FILES[BASELINE_STEP_FILES.length - 1], "20260224010000_create_user_alerts.cjs");
+  assert.equal(BASELINE_STEP_FILES[BASELINE_STEP_FILES.length - 1], "20260225100000_create_social_federation_tables.cjs");
   assert.ok(BASELINE_STEP_FILES.includes("20260219120000_create_workspace_projects.cjs"));
   assert.ok(BASELINE_STEP_FILES.includes("20260223100000_add_deg2rad_columns_to_calculation_logs.cjs"));
   assert.ok(BASELINE_STEP_FILES.includes("20260223090000_enforce_unique_workspace_room_thread.cjs"));
+  assert.ok(BASELINE_STEP_FILES.includes("20260223170000_add_billing_purchase_adjustments.cjs"));
   assert.ok(BASELINE_STEP_FILES.includes("20260224010000_create_user_alerts.cjs"));
+  assert.ok(BASELINE_STEP_FILES.includes("20260225100000_create_social_federation_tables.cjs"));
 });
 
 test("baseline runner invokes each migration up step in order", async () => {
@@ -160,7 +165,7 @@ test("alerts forward migration creates alerts tables when missing", async () => 
   assert.deepEqual(createdTables, ["user_alerts", "user_alert_states"]);
   const alterStatements = rawStatements.filter((statement) => /ALTER TABLE user_alert_states/i.test(statement));
   assert.equal(alterStatements.length, 1);
-  assert.match(alterStatements[0], /ON UPDATE UTC_TIMESTAMP\(3\)/i);
+  assert.match(alterStatements[0], /ON UPDATE CURRENT_TIMESTAMP\(3\)/i);
 });
 
 test("alerts forward migration is idempotent when alerts tables already exist", async () => {
@@ -169,7 +174,8 @@ test("alerts forward migration is idempotent when alerts tables already exist", 
   await alertsForwardMigration.up(knex);
 
   assert.deepEqual(createdTables, []);
-  assert.deepEqual(rawStatements, []);
+  const alterStatements = rawStatements.filter((statement) => /ALTER TABLE user_alert_states/i.test(statement));
+  assert.equal(alterStatements.length, 1);
 });
 
 test("alerts forward migration down is irreversible", async () => {

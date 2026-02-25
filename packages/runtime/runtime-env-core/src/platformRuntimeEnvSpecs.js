@@ -22,6 +22,13 @@ const PLATFORM_RUNTIME_DEFAULTS = Object.freeze({
   CHAT_ATTACHMENT_STORAGE_DRIVER: "fs",
   AI_PROVIDER: "openai",
   AI_TIMEOUT_MS: 45000,
+  SOCIAL_FEDERATION_HTTP_TIMEOUT_MS: 10000,
+  SOCIAL_FEDERATION_DELIVERY_BATCH_SIZE: 25,
+  SOCIAL_FEDERATION_DELIVERY_MAX_ATTEMPTS: 8,
+  SOCIAL_FEDERATION_RETRY_BASE_MS: 30000,
+  SOCIAL_FEDERATION_OUTBOX_POLL_SECONDS: 10,
+  SOCIAL_FEDERATION_OUTBOX_MAX_WORKSPACES_PER_TICK: 25,
+  SOCIAL_FEDERATION_ALLOW_PRIVATE_HOSTS: false,
   BILLING_STRIPE_MAX_NETWORK_RETRIES: 2,
   BILLING_STRIPE_TIMEOUT_MS: 30000,
   BILLING_PADDLE_API_BASE_URL: "https://api.paddle.com",
@@ -254,6 +261,63 @@ function createBillingRuntimeSpec(defaults = {}) {
   };
 }
 
+function createSocialRuntimeSpec(defaults = {}) {
+  return {
+    SOCIAL_FEDERATION_SIGNING_SECRET: str({
+      default: resolveStringDefault(defaults, "SOCIAL_FEDERATION_SIGNING_SECRET", "")
+    }),
+    SOCIAL_FEDERATION_HTTP_TIMEOUT_MS: num({
+      default: resolveNumberDefault(
+        defaults,
+        "SOCIAL_FEDERATION_HTTP_TIMEOUT_MS",
+        PLATFORM_RUNTIME_DEFAULTS.SOCIAL_FEDERATION_HTTP_TIMEOUT_MS
+      )
+    }),
+    SOCIAL_FEDERATION_DELIVERY_BATCH_SIZE: num({
+      default: resolveNumberDefault(
+        defaults,
+        "SOCIAL_FEDERATION_DELIVERY_BATCH_SIZE",
+        PLATFORM_RUNTIME_DEFAULTS.SOCIAL_FEDERATION_DELIVERY_BATCH_SIZE
+      )
+    }),
+    SOCIAL_FEDERATION_DELIVERY_MAX_ATTEMPTS: num({
+      default: resolveNumberDefault(
+        defaults,
+        "SOCIAL_FEDERATION_DELIVERY_MAX_ATTEMPTS",
+        PLATFORM_RUNTIME_DEFAULTS.SOCIAL_FEDERATION_DELIVERY_MAX_ATTEMPTS
+      )
+    }),
+    SOCIAL_FEDERATION_RETRY_BASE_MS: num({
+      default: resolveNumberDefault(
+        defaults,
+        "SOCIAL_FEDERATION_RETRY_BASE_MS",
+        PLATFORM_RUNTIME_DEFAULTS.SOCIAL_FEDERATION_RETRY_BASE_MS
+      )
+    }),
+    SOCIAL_FEDERATION_OUTBOX_POLL_SECONDS: num({
+      default: resolveNumberDefault(
+        defaults,
+        "SOCIAL_FEDERATION_OUTBOX_POLL_SECONDS",
+        PLATFORM_RUNTIME_DEFAULTS.SOCIAL_FEDERATION_OUTBOX_POLL_SECONDS
+      )
+    }),
+    SOCIAL_FEDERATION_OUTBOX_MAX_WORKSPACES_PER_TICK: num({
+      default: resolveNumberDefault(
+        defaults,
+        "SOCIAL_FEDERATION_OUTBOX_MAX_WORKSPACES_PER_TICK",
+        PLATFORM_RUNTIME_DEFAULTS.SOCIAL_FEDERATION_OUTBOX_MAX_WORKSPACES_PER_TICK
+      )
+    }),
+    SOCIAL_FEDERATION_ALLOW_PRIVATE_HOSTS: bool({
+      default: resolveBooleanDefault(
+        defaults,
+        "SOCIAL_FEDERATION_ALLOW_PRIVATE_HOSTS",
+        PLATFORM_RUNTIME_DEFAULTS.SOCIAL_FEDERATION_ALLOW_PRIVATE_HOSTS
+      )
+    })
+  };
+}
+
 function createPlatformRuntimeEnvSpec({ defaults = {} } = {}) {
   return {
     ...createCoreRuntimeSpec(defaults),
@@ -266,6 +330,7 @@ function createPlatformRuntimeEnvSpec({ defaults = {} } = {}) {
     ...createStorageRuntimeSpec(defaults),
     ...createObservabilityRuntimeSpec(defaults),
     ...createAiRuntimeSpec(defaults),
+    ...createSocialRuntimeSpec(defaults),
     ...createBillingRuntimeSpec(defaults)
   };
 }
@@ -282,6 +347,7 @@ export {
   createStorageRuntimeSpec,
   createObservabilityRuntimeSpec,
   createAiRuntimeSpec,
+  createSocialRuntimeSpec,
   createBillingRuntimeSpec,
   createPlatformRuntimeEnvSpec
 };

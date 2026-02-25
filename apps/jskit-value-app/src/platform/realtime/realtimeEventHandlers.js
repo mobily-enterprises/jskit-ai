@@ -13,6 +13,7 @@ import {
   workspaceBillingPlanStateQueryKey,
   workspaceBillingPurchasesQueryKey
 } from "../../modules/workspaceAdmin/queryKeys.js";
+import { socialRootQueryKey, socialScopeQueryKey } from "@jskit-ai/social-contracts";
 import { publishRealtimeEvent } from "./realtimeEventBus.js";
 
 function normalizeEventEnvelope(eventEnvelope) {
@@ -207,6 +208,16 @@ async function invalidateForConsoleErrorsEvent(queryClient) {
   });
 }
 
+const invalidateForSocialFeedEvent = createWorkspaceScopeInvalidator({
+  rootQueryKey: socialRootQueryKey,
+  scopeQueryKey: socialScopeQueryKey
+});
+
+const invalidateForSocialNotificationsEvent = createWorkspaceScopeInvalidator({
+  rootQueryKey: socialRootQueryKey,
+  scopeQueryKey: socialScopeQueryKey
+});
+
 async function invalidateNoop() {
   return undefined;
 }
@@ -284,6 +295,14 @@ const TOPIC_STRATEGY_REGISTRY = Object.freeze({
   }),
   [REALTIME_TOPICS.TYPING]: Object.freeze({
     invalidate: invalidateNoop,
+    refreshBootstrap: false
+  }),
+  [REALTIME_TOPICS.SOCIAL_FEED]: Object.freeze({
+    invalidate: invalidateForSocialFeedEvent,
+    refreshBootstrap: false
+  }),
+  [REALTIME_TOPICS.SOCIAL_NOTIFICATIONS]: Object.freeze({
+    invalidate: invalidateForSocialNotificationsEvent,
     refreshBootstrap: false
   })
 });

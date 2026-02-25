@@ -44,7 +44,8 @@ function buildStores({
     app: {
       features: {
         assistantEnabled: true,
-        assistantRequiredPermission: ""
+        assistantRequiredPermission: "",
+        socialEnabled: true
       }
     },
     applyBootstrap: vi.fn((payload) => {
@@ -455,6 +456,35 @@ describe("routerGuards", () => {
     allowedStores.workspaceStore.app.features.assistantEnabled = true;
     allowedStores.workspaceStore.can.mockReturnValue(false);
     await expect(guards.beforeLoadAssistant({ params: { workspaceSlug: "acme" } })).rejects.toMatchObject({
+      options: { to: "/w/acme" }
+    });
+  });
+
+  it("enforces social feature and social.read permission route guard", async () => {
+    const stores = buildStores({
+      authenticated: true,
+      hasWorkspace: true,
+      workspaceSlug: "acme",
+      canPermissions: ["social.read"]
+    });
+    stores.workspaceStore.app.features.socialEnabled = true;
+
+    const guards = createSurfaceRouteGuards(stores, {
+      loginPath: "/login",
+      workspacesPath: "/workspaces",
+      workspaceHomePath: (slug) => `/w/${slug}`
+    });
+
+    await expect(guards.beforeLoadSocial({ params: { workspaceSlug: "acme" } })).resolves.toBeUndefined();
+
+    stores.workspaceStore.app.features.socialEnabled = false;
+    await expect(guards.beforeLoadSocial({ params: { workspaceSlug: "acme" } })).rejects.toMatchObject({
+      options: { to: "/w/acme" }
+    });
+
+    stores.workspaceStore.app.features.socialEnabled = true;
+    stores.workspaceStore.can.mockReturnValue(false);
+    await expect(guards.beforeLoadSocial({ params: { workspaceSlug: "acme" } })).rejects.toMatchObject({
       options: { to: "/w/acme" }
     });
   });

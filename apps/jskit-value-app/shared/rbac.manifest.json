@@ -24,16 +24,28 @@
         "chat.read",
         "chat.write",
         "projects.read",
-        "projects.write"
+        "projects.write",
+        "social.read",
+        "social.write",
+        "social.moderate"
       ]
     },
     "member": {
       "assignable": true,
-      "permissions": ["history.read", "history.write", "chat.read", "chat.write", "projects.read", "projects.write"]
+      "permissions": [
+        "history.read",
+        "history.write",
+        "chat.read",
+        "chat.write",
+        "projects.read",
+        "projects.write",
+        "social.read",
+        "social.write"
+      ]
     },
     "viewer": {
       "assignable": true,
-      "permissions": ["history.read", "projects.read"]
+      "permissions": ["history.read", "projects.read", "social.read"]
     }
   }
 }

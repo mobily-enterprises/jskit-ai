@@ -13,6 +13,8 @@ Use this checklist before shipping changes to production.
 - [ ] Confirm `SUPABASE_JWT_AUDIENCE` is set (or default `authenticated` is intended).
 - [ ] Confirm `APP_PUBLIC_URL` is set to the public app origin (for password reset links).
 - [ ] Confirm Supabase redirect allow-list includes `${APP_PUBLIC_URL}/reset-password`.
+- [ ] If federation is enabled: confirm `SOCIAL_FEDERATION_SIGNING_SECRET` is set.
+- [ ] If federation is enabled: confirm `SOCIAL_FEDERATION_HTTP_TIMEOUT_MS` and retry knobs are set to production-safe values.
 
 ## 2. Database safety
 
@@ -66,6 +68,11 @@ Use this checklist before shipping changes to production.
 - [ ] Confirm billing mutator action path works: `workspace.billing.plan_change.request`.
 - [ ] Confirm chat mutator action path works: `chat.thread.message.send` (and attachment upload where enabled).
 - [ ] On app surface, confirm assistant tool catalog does not include admin/console-only actions.
+- [ ] Confirm workspace social feed can create a post and inline comment.
+- [ ] Confirm DM handoff from social user card opens the correct chat thread.
+- [ ] If federation is enabled: confirm `/.well-known/webfinger` resolves a local actor.
+- [ ] If federation is enabled: confirm `/ap/actors/:username` and `/ap/objects/:objectId` return valid ActivityPub JSON.
+- [ ] If federation is enabled: confirm inbox signature failures fail closed and are logged.
 
 ## 7. Deployment and rollback readiness
 

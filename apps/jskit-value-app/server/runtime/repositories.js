@@ -7,6 +7,7 @@ import { createRepository as createHealthRepository } from "../modules/health/in
 import { createRepository as createAiRepository } from "../modules/ai/index.js";
 import { createRepository as createBillingRepository } from "../modules/billing/index.js";
 import { createRepository as createChatRepository } from "../modules/chat/index.js";
+import { createRepository as createSocialRepository } from "../modules/social/index.js";
 import { createRepository as createUserProfilesRepository } from "@jskit-ai/user-profile-knex-mysql";
 import { createRepository as createWorkspacesRepository } from "@jskit-ai/workspace-knex-mysql/repositories/workspaces";
 import { createRepository as createWorkspaceMembershipsRepository } from "@jskit-ai/workspace-knex-mysql/repositories/memberships";
@@ -43,6 +44,7 @@ const {
   blocksRepository: chatBlocksRepository
 } = createChatRepository();
 const { repository: billingRepository } = createBillingRepository();
+const { repository: socialRepository } = createSocialRepository();
 const { repository: calculationLogsRepository } = createHistoryRepository();
 const { repository: userSettingsRepository } = createUserSettingsRepository();
 const { repository: projectsRepository } = createProjectsRepository();
@@ -157,6 +159,10 @@ const PLATFORM_REPOSITORY_DEFINITIONS = Object.freeze([
   {
     id: "billingRepository",
     create: () => billingRepository
+  },
+  {
+    id: "socialRepository",
+    create: () => socialRepository
   }
 ]);
 

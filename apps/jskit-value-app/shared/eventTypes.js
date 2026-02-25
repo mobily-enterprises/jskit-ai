@@ -15,7 +15,9 @@ const REALTIME_TOPICS = Object.freeze({
   CONSOLE_BILLING: "console_billing",
   CONSOLE_ERRORS: "console_errors",
   CHAT: "chat",
-  TYPING: "typing"
+  TYPING: "typing",
+  SOCIAL_FEED: "social_feed",
+  SOCIAL_NOTIFICATIONS: "social_notifications"
 });
 
 const REALTIME_EVENT_TYPES = Object.freeze({
@@ -45,7 +47,9 @@ const REALTIME_EVENT_TYPES = Object.freeze({
   CHAT_THREAD_READ_UPDATED: "chat.thread.read.updated",
   CHAT_ATTACHMENT_UPDATED: "chat.attachment.updated",
   CHAT_TYPING_STARTED: "chat.typing.started",
-  CHAT_TYPING_STOPPED: "chat.typing.stopped"
+  CHAT_TYPING_STOPPED: "chat.typing.stopped",
+  SOCIAL_FEED_UPDATED: "social.feed.updated",
+  SOCIAL_NOTIFICATIONS_UPDATED: "social.notifications.updated"
 });
 
 export { REALTIME_TOPICS, REALTIME_EVENT_TYPES };

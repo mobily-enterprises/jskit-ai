@@ -56,6 +56,18 @@ Sources:
 - `chat_message_idempotency_tombstones`
 - `chat_message_reactions`
 
+## Social Federation Domain
+
+- `social_actors`
+- `social_actor_keys`
+- `social_posts`
+- `social_post_attachments`
+- `social_follows`
+- `social_inbox_events`
+- `social_outbox_deliveries`
+- `social_notifications`
+- `social_moderation_rules`
+
 ## Security and Audit
 
 - `security_audit_events`

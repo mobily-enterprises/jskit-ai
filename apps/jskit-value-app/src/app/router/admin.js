@@ -9,6 +9,8 @@ export function createAdminRouter({ authStore, workspaceStore }) {
     shellComponent: AdminShell,
     includeWorkspaceSettings: true,
     includeAssistantRoute: true,
-    includeChatRoute: true
+    includeChatRoute: true,
+    includeSocialRoute: true,
+    includeSocialModerationRoute: true
   });
 }

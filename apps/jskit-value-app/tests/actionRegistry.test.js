@@ -496,6 +496,167 @@ function createServiceStubs() {
         };
       }
     },
+    socialService: {
+      async listFeed() {
+        return {
+          items: []
+        };
+      },
+      async getPost() {
+        return {
+          post: {
+            id: 1
+          },
+          comments: []
+        };
+      },
+      async createPost() {
+        return {
+          post: {
+            id: 1
+          }
+        };
+      },
+      async updatePost() {
+        return {
+          post: {
+            id: 1
+          }
+        };
+      },
+      async deletePost() {
+        return {
+          deleted: true
+        };
+      },
+      async createComment() {
+        return {
+          comment: {
+            id: 1
+          }
+        };
+      },
+      async deleteComment() {
+        return {
+          deleted: true
+        };
+      },
+      async requestFollow() {
+        return {
+          follow: {
+            id: 1
+          }
+        };
+      },
+      async acceptFollow() {
+        return {
+          follow: {
+            id: 1
+          }
+        };
+      },
+      async rejectFollow() {
+        return {
+          follow: {
+            id: 1
+          }
+        };
+      },
+      async undoFollow() {
+        return {
+          follow: {
+            id: 1
+          }
+        };
+      },
+      async searchActors() {
+        return {
+          items: []
+        };
+      },
+      async getActorProfile() {
+        return {
+          actor: {
+            id: 1
+          },
+          counts: {
+            followers: 0,
+            following: 0
+          }
+        };
+      },
+      async listNotifications() {
+        return {
+          items: []
+        };
+      },
+      async markNotificationsRead() {
+        return {
+          updated: true,
+          notificationIds: []
+        };
+      },
+      async listModerationRules() {
+        return {
+          items: []
+        };
+      },
+      async createModerationRule() {
+        return {
+          rule: {
+            id: 1
+          }
+        };
+      },
+      async deleteModerationRule() {
+        return {
+          deleted: true
+        };
+      },
+      async processInboxActivity() {
+        return {
+          accepted: true,
+          eventId: 1
+        };
+      },
+      async deliverOutboxBatch() {
+        return {
+          processedCount: 0,
+          results: []
+        };
+      },
+      async getWebFinger() {
+        return {
+          subject: "acct:user@example.com",
+          links: []
+        };
+      },
+      async getActorDocument() {
+        return {
+          id: "https://example.com/ap/actors/user"
+        };
+      },
+      async getFollowersCollection() {
+        return {
+          orderedItems: []
+        };
+      },
+      async getFollowingCollection() {
+        return {
+          orderedItems: []
+        };
+      },
+      async getOutboxCollection() {
+        return {
+          orderedItems: []
+        };
+      },
+      async getObjectDocument() {
+        return {
+          id: "https://example.com/ap/objects/1"
+        };
+      }
+    },
     billingService: {
       async listPlans() {
         return {
@@ -904,6 +1065,13 @@ test("action runtime services scaffold action registry and executor", async () =
     ACTION_IDS.WORKSPACE_BILLING_PAYMENT_METHODS_REMOVE,
     ACTION_IDS.CHAT_THREAD_MESSAGE_SEND,
     ACTION_IDS.CHAT_ATTACHMENT_UPLOAD,
+    ACTION_IDS.SOCIAL_FEED_READ,
+    ACTION_IDS.SOCIAL_POST_CREATE,
+    ACTION_IDS.SOCIAL_FOLLOW_REQUEST,
+    ACTION_IDS.SOCIAL_NOTIFICATIONS_LIST,
+    ACTION_IDS.SOCIAL_MODERATION_RULE_CREATE,
+    ACTION_IDS.SOCIAL_FEDERATION_INBOX_PROCESS,
+    ACTION_IDS.SOCIAL_FEDERATION_OUTBOX_GET,
     ACTION_IDS.SETTINGS_ALERTS_LIST,
     ACTION_IDS.SETTINGS_ALERTS_READ_ALL,
     ACTION_IDS.PROJECTS_CREATE,
@@ -1003,4 +1171,36 @@ test("action runtime services scaffold action registry and executor", async () =
 test("ACTION_IDS does not contain duplicate action identifiers", () => {
   const uniqueActionIdValues = new Set(ACTION_ID_VALUES);
   assert.equal(uniqueActionIdValues.size, ACTION_ID_VALUES.length);
+});
+
+test("social moderation actions can be configured as operator-only visibility", async () => {
+  const repositoryConfig = createRepositoryConfig();
+  repositoryConfig.social = {
+    moderation: {
+      accessMode: "operator"
+    }
+  };
+
+  const runtime = createActionRuntimeServices({
+    services: createServiceStubs(),
+    repositories: {},
+    repositoryConfig,
+    appConfig: {},
+    rbacManifest: {}
+  });
+
+  const definitions = runtime.actionRegistry.listDefinitions();
+  const definitionsById = new Map(definitions.map((definition) => [definition.id, definition]));
+  const moderationActionIds = [
+    ACTION_IDS.SOCIAL_MODERATION_RULES_LIST,
+    ACTION_IDS.SOCIAL_MODERATION_RULE_CREATE,
+    ACTION_IDS.SOCIAL_MODERATION_RULE_DELETE
+  ];
+
+  for (const actionId of moderationActionIds) {
+    const definition = definitionsById.get(actionId);
+    assert.equal(definition?.visibility, "operator");
+    assert.equal(typeof definition?.permission, "function");
+    assert.equal(await definition.permission({ permissions: [] }, {}), true);
+  }
 });

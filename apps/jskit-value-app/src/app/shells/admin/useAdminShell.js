@@ -94,6 +94,9 @@ export function useAdminShell() {
       assistantFeatureEnabled.value &&
       (!assistantRequiredPermission.value || workspaceStore.can(assistantRequiredPermission.value))
   );
+  const socialFeatureEnabled = computed(() => Boolean(workspaceStore.app?.features?.socialEnabled));
+  const canUseSocial = computed(() => socialFeatureEnabled.value && workspaceStore.can("social.read"));
+  const canModerateSocial = computed(() => socialFeatureEnabled.value && workspaceStore.can("social.moderate"));
   const canUseChat = computed(() => workspaceStore.can("chat.read"));
   const canOpenWorkspaceControlMenu = computed(
     () => canViewWorkspaceSettings.value || canViewMonitoring.value || canViewMembersAdmin.value
@@ -110,6 +113,18 @@ export function useAdminShell() {
       items.push({ title: "Workspace chat", to: workspacePath("/chat"), icon: "$workspaceChat" });
     }
 
+    if (canUseSocial.value) {
+      items.push({ title: "Social", to: workspacePath("/social"), icon: "$workspaceSocial" });
+    }
+
+    if (canModerateSocial.value) {
+      items.push({
+        title: "Social moderation",
+        to: workspacePath("/social/moderation"),
+        icon: "$workspaceModeration"
+      });
+    }
+
     if (canUseAssistant.value) {
       items.push({ title: "Assistant", to: workspacePath("/assistant"), icon: "$navChoice2" });
     }
@@ -117,6 +132,12 @@ export function useAdminShell() {
   });
 
   const destinationTitle = computed(() => {
+    if (currentPath.value.endsWith("/social/moderation")) {
+      return "Social moderation";
+    }
+    if (currentPath.value.endsWith("/social")) {
+      return "Social";
+    }
     if (currentPath.value.endsWith("/assistant")) {
       return "Assistant";
     }

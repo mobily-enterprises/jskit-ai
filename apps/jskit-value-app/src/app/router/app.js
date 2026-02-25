@@ -10,6 +10,8 @@ export function createAppRouter({ authStore, workspaceStore }) {
     includeWorkspaceSettings: false,
     includeAssistantRoute: true,
     includeChatRoute: true,
+    includeSocialRoute: true,
+    includeSocialModerationRoute: false,
     includeChoiceTwoRoute: false
   });
 }

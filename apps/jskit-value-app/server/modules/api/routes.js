@@ -5,6 +5,7 @@ import { buildRoutes as buildConsoleErrorsRoutes } from "@jskit-ai/console-error
 import { buildRoutes as buildCommunicationsRoutes } from "../communications/index.js";
 import { buildRoutes as buildProjectsRoutes } from "../projects/index.js";
 import { buildRoutes as buildChatRoutes } from "../chat/index.js";
+import { buildRoutes as buildSocialRoutes } from "../social/index.js";
 import { buildRoutes as buildBillingRoutes } from "@jskit-ai/billing-fastify-adapter/routes";
 import { buildRoutes as buildSettingsRoutes } from "../settings/index.js";
 import { buildRoutes as buildAlertsRoutes } from "../alerts/index.js";
@@ -58,6 +59,18 @@ const ROUTE_MODULE_DEFINITIONS = Object.freeze([
       threadPageSizeMax: routeConfig.chatThreadsPageSizeMax,
       attachmentsMaxFilesPerMessage: routeConfig.chatAttachmentsMaxFilesPerMessage,
       attachmentMaxUploadBytes: routeConfig.chatAttachmentMaxUploadBytes
+    })
+  },
+  {
+    id: "social",
+    buildRoutes: buildSocialRoutes,
+    resolveOptions: (routeConfig = {}) => ({
+      postMaxChars: routeConfig.socialPostMaxChars,
+      commentMaxChars: routeConfig.socialCommentMaxChars,
+      feedPageSizeMax: routeConfig.socialFeedPageSizeMax,
+      notificationsPageSizeMax: routeConfig.socialNotificationsPageSizeMax,
+      actorSearchLimitMax: routeConfig.socialActorSearchLimitMax,
+      inboxMaxPayloadBytes: routeConfig.socialInboxMaxPayloadBytes
     })
   },
   {

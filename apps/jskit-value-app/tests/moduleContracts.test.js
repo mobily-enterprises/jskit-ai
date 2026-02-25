@@ -156,6 +156,15 @@ const MODULE_EXPORT_EXPECTATIONS = Object.freeze([
     }
   },
   {
+    modulePath: "../server/modules/social/index.js",
+    requiredExports: {
+      createController: "function",
+      buildRoutes: "function",
+      createService: "function",
+      createRepository: "function"
+    }
+  },
+  {
     modulePath: "../server/modules/workspace/index.js",
     requiredExports: {
       createController: "function",
@@ -283,6 +292,13 @@ const SERVICE_FACTORY_EXPECTATIONS = Object.freeze([
         }
       }
     }
+  },
+  {
+    modulePath: "../server/modules/social/index.js",
+    expectedKeys: ["socialService"],
+    options: {
+      socialService: {}
+    }
   }
 ]);
 
@@ -326,6 +342,10 @@ const REPOSITORY_FACTORY_EXPECTATIONS = Object.freeze([
   },
   {
     modulePath: "../server/modules/settings/index.js",
+    expectedKeys: ["repository"]
+  },
+  {
+    modulePath: "../server/modules/social/index.js",
     expectedKeys: ["repository"]
   }
 ]);

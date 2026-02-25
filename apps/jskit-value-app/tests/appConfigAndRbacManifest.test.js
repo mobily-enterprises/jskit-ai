@@ -33,6 +33,10 @@ test("resolveAppConfig normalizes tenancy, limits, feature gates, and manifest p
       ai: {
         enabled: false,
         requiredPermission: ""
+      },
+      social: {
+        enabled: true,
+        federationEnabled: false
       }
     },
     runtimeEnv: {},
@@ -46,6 +50,8 @@ test("resolveAppConfig normalizes tenancy, limits, feature gates, and manifest p
   assert.equal(personal.features.workspaceCreateEnabled, false);
   assert.equal(personal.features.assistantEnabled, false);
   assert.equal(personal.features.assistantRequiredPermission, "");
+  assert.equal(personal.features.socialEnabled, true);
+  assert.equal(personal.features.socialFederationEnabled, false);
   assert.equal(personal.limits.maxWorkspacesPerUser, 1);
   assert.equal(personal.rbacManifestPath, path.resolve("/repo-root", "shared", "auth", "rbac.manifest.json"));
 
@@ -66,6 +72,10 @@ test("resolveAppConfig normalizes tenancy, limits, feature gates, and manifest p
       ai: {
         enabled: true,
         requiredPermission: " workspace.ai.use "
+      },
+      social: {
+        enabled: true,
+        federationEnabled: true
       }
     },
     runtimeEnv: {
@@ -81,6 +91,8 @@ test("resolveAppConfig normalizes tenancy, limits, feature gates, and manifest p
   assert.equal(multiWorkspace.features.workspaceCreateEnabled, false);
   assert.equal(multiWorkspace.features.assistantEnabled, true);
   assert.equal(multiWorkspace.features.assistantRequiredPermission, "workspace.ai.use");
+  assert.equal(multiWorkspace.features.socialEnabled, true);
+  assert.equal(multiWorkspace.features.socialFederationEnabled, true);
   assert.equal(multiWorkspace.limits.maxWorkspacesPerUser, 33);
   assert.equal(multiWorkspace.rbacManifestPath, path.resolve("/repo-root", "config/rbac.json"));
 
@@ -101,6 +113,10 @@ test("resolveAppConfig normalizes tenancy, limits, feature gates, and manifest p
       ai: {
         enabled: false,
         requiredPermission: ""
+      },
+      social: {
+        enabled: false,
+        federationEnabled: false
       }
     },
     runtimeEnv: {
@@ -120,7 +136,9 @@ test("toBrowserConfig returns only browser-safe feature state", () => {
       workspaceInvites: "",
       workspaceCreateEnabled: true,
       assistantEnabled: 1,
-      assistantRequiredPermission: " workspace.ai.use "
+      assistantRequiredPermission: " workspace.ai.use ",
+      socialEnabled: 1,
+      socialFederationEnabled: 0
     }
   });
 
@@ -131,7 +149,9 @@ test("toBrowserConfig returns only browser-safe feature state", () => {
       workspaceInvites: false,
       workspaceCreateEnabled: true,
       assistantEnabled: true,
-      assistantRequiredPermission: "workspace.ai.use"
+      assistantRequiredPermission: "workspace.ai.use",
+      socialEnabled: true,
+      socialFederationEnabled: false
     }
   });
 });

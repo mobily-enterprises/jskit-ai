@@ -7,6 +7,7 @@ Last reorganized: 2026-02-25 (UTC)
 - Changing package/runtime/UI boundaries: `architecture/client-boundaries.md`
 - Working on workspace, tenancy, or surface splits: `architecture/workspace-and-surfaces.md`
 - Understanding action runtime execution and contributor ownership: `architecture/action-runtime-and-contributors.md`
+- Working on social feed/federation architecture: `architecture/social-federation.md`
 - Changing canonical action IDs, ownership, or versioning: `architecture/action-catalog-governance.md`
 - Learning end-to-end request/data flow through runtime: `flows/0.index.md`
 - Following implementation checklists (humans + AI): `playbooks/0.index.md`
@@ -35,6 +36,8 @@ Last reorganized: 2026-02-25 (UTC)
   - Deep-dive for the canonical action execution path: contracts, registry pipeline, context shaping, contributor ownership, assistant tool derivation, and data examples.
 - `architecture/action-catalog-governance.md`
   - Canonical governance for action inventory and naming: how `actions_map.md`, `shared/actionIds.js`, contributors, and tests stay in lockstep.
+- `architecture/social-federation.md`
+  - Social domain architecture for local feed entities, moderation ownership, public ActivityPub endpoints, signature handling, and delivery retry model.
 
 ### Billing
 

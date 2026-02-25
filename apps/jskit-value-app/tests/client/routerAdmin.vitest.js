@@ -23,7 +23,7 @@ describe("createAdminRouter", () => {
     mocks.createSurfaceRouter.mockReturnValue({ marker: "admin-router" });
   });
 
-  it("builds an admin surface router with workspace settings, assistant, and chat routes enabled", () => {
+  it("builds an admin surface router with workspace settings, assistant, chat, and social routes enabled", () => {
     const authStore = { id: "auth" };
     const workspaceStore = { id: "workspace" };
 
@@ -36,7 +36,9 @@ describe("createAdminRouter", () => {
       shellComponent: mocks.adminShell,
       includeWorkspaceSettings: true,
       includeAssistantRoute: true,
-      includeChatRoute: true
+      includeChatRoute: true,
+      includeSocialRoute: true,
+      includeSocialModerationRoute: true
     });
     expect(router).toEqual({ marker: "admin-router" });
   });

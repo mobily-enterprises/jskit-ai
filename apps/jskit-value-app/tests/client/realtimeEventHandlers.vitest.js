@@ -7,6 +7,7 @@ import {
   workspaceAiTranscriptsScopeQueryKey
 } from "@jskit-ai/assistant-contracts";
 import { chatRootQueryKey, chatScopeQueryKey } from "@jskit-ai/chat-contracts";
+import { socialRootQueryKey, socialScopeQueryKey } from "@jskit-ai/social-contracts";
 import { projectDetailQueryKey, projectsScopeQueryKey } from "../../src/modules/projects/queryKeys.js";
 import {
   workspaceAdminRootQueryKey,
@@ -587,5 +588,47 @@ describe("realtimeEventHandlers", () => {
     expect(receivedEvents).toHaveLength(1);
     expect(receivedEvents[0].topic).toBe(REALTIME_TOPICS.ALERTS);
     expect(receivedEvents[0].payload.alertId).toBe(23);
+  });
+
+  it("invalidates social scope on social feed events with workspace context", async () => {
+    const handlers = createRealtimeEventHandlers({
+      queryClient,
+      commandTracker,
+      clientId: "cli-local"
+    });
+
+    const event = {
+      eventId: "evt-social-feed-scope",
+      topic: REALTIME_TOPICS.SOCIAL_FEED,
+      workspaceSlug: "acme",
+      sourceClientId: "cli-remote"
+    };
+
+    const result = await handlers.processEvent(event);
+    expect(result.status).toBe("processed");
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: socialScopeQueryKey("acme")
+    });
+  });
+
+  it("invalidates social root on social notifications events without workspace context", async () => {
+    const handlers = createRealtimeEventHandlers({
+      queryClient,
+      commandTracker,
+      clientId: "cli-local"
+    });
+
+    const event = {
+      eventId: "evt-social-notifications-root",
+      topic: REALTIME_TOPICS.SOCIAL_NOTIFICATIONS,
+      workspaceSlug: "",
+      sourceClientId: "cli-remote"
+    };
+
+    const result = await handlers.processEvent(event);
+    expect(result.status).toBe("processed");
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: socialRootQueryKey()
+    });
   });
 });
