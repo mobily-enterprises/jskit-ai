@@ -44,7 +44,8 @@ function createActionContributors({ services, repositories, repositoryConfig, ap
     createProjectsActionContributor({
       projectsService: services?.projectsService,
       projectsRepository: repositories?.projectsRepository,
-      billingService: services?.billingService
+      billingService: services?.billingService,
+      realtimeEventsService: services?.realtimeEventsService
     }),
     createDeg2radHistoryActionContributor({
       deg2radHistoryService: services?.deg2radHistoryService,

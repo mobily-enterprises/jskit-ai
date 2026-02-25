@@ -19,6 +19,8 @@ Last reorganized: 2026-02-25 (UTC)
 - Preparing a release: `operations/release-checklist.md`
 - Setting up metrics and alerts: `operations/observability.md`
 - Operating retention jobs/worker: `operations/retention-worker.md`
+- Realtime envelope field requirements: `realtime/contracts.md`
+- Realtime mutation sync status by domain: `realtime/coverage-matrix.md`
 
 ## Document Guide
 
@@ -70,6 +72,13 @@ Last reorganized: 2026-02-25 (UTC)
   - Deep flow tutorial for where permissions are defined, assigned, resolved, and enforced at both route and action levels.
 - `flows/07.realtime.md`
   - Full socket lifecycle tutorial: connect, subscribe, publish, and fanout with surface-aware authorization.
+
+### Realtime
+
+- `realtime/contracts.md`
+  - Required envelope fields and runtime delivery rules for workspace broadcast, workspace-targeted, global-targeted, and user-scoped topic events.
+- `realtime/coverage-matrix.md`
+  - Current mutation-to-realtime sync status across major domains, including correlation-header guardrails for event-producing writes.
 
 ### Playbooks
 

@@ -1,4 +1,8 @@
 import { createService as createProjectsModuleService } from "../../../modules/projects/index.js";
+import {
+  publishProjectEventSafely,
+  resolvePublishProjectEvent
+} from "../../../realtime/publishers/projectPublisher.js";
 
 const PROJECTS_CREATE_CAPABILITY = "projects.create";
 const PROJECTS_UNARCHIVE_CAPABILITY = "projects.unarchive";
@@ -54,7 +58,10 @@ function resolveProjectId(input) {
 
 function resolveUsageEventKey(context, input) {
   const payload = normalizeObject(input);
+  const payloadRequestMeta = normalizeObject(payload.requestMeta);
   return (
+    normalizeHeaderValue(payloadRequestMeta.commandId) ||
+    normalizeHeaderValue(payloadRequestMeta.idempotencyKey) ||
     normalizeHeaderValue(payload.idempotencyKey) ||
     normalizeHeaderValue(payload.commandId) ||
     normalizeHeaderValue(context?.requestMeta?.idempotencyKey) ||
@@ -65,13 +72,51 @@ function resolveUsageEventKey(context, input) {
 
 function resolveRequestCommandId(context, input) {
   const payload = normalizeObject(input);
+  const payloadRequestMeta = normalizeObject(payload.requestMeta);
   return (
+    normalizeHeaderValue(payloadRequestMeta.commandId) ||
+    normalizeHeaderValue(payloadRequestMeta.idempotencyKey) ||
     normalizeHeaderValue(payload.commandId) ||
     normalizeHeaderValue(payload.idempotencyKey) ||
     normalizeHeaderValue(context?.requestMeta?.commandId) ||
     normalizeHeaderValue(context?.requestMeta?.idempotencyKey) ||
     null
   );
+}
+
+function resolveRequestSourceClientId(context, input) {
+  const payload = normalizeObject(input);
+  const payloadRequestMeta = normalizeObject(payload.requestMeta);
+  const request = resolveRequest(context);
+  return (
+    normalizeHeaderValue(payloadRequestMeta.sourceClientId) ||
+    normalizeHeaderValue(payload.sourceClientId) ||
+    normalizeHeaderValue(context?.requestMeta?.sourceClientId) ||
+    normalizeHeaderValue(request?.headers?.["x-client-id"]) ||
+    null
+  );
+}
+
+function buildRealtimePublishRequest(context, input, workspace, user) {
+  const request = resolveRequest(context);
+  const commandId = resolveRequestCommandId(context, input);
+  const sourceClientId = resolveRequestSourceClientId(context, input);
+  const headers = {
+    ...(request?.headers || {})
+  };
+  if (commandId) {
+    headers["x-command-id"] = commandId;
+  }
+  if (sourceClientId) {
+    headers["x-client-id"] = sourceClientId;
+  }
+
+  return {
+    ...(request && typeof request === "object" ? request : {}),
+    headers,
+    user: user || request?.user || context?.actor || null,
+    workspace: workspace || request?.workspace || context?.workspace || null
+  };
 }
 
 function resolvePatchPayload(input) {
@@ -180,7 +225,12 @@ const PROJECTS_UPDATE_TOOL_SCHEMA = Object.freeze({
   }
 });
 
-function createProjectsActionContributor({ projectsService = null, projectsRepository = null, billingService = null } = {}) {
+function createProjectsActionContributor({
+  projectsService = null,
+  projectsRepository = null,
+  billingService = null,
+  realtimeEventsService = null
+} = {}) {
   const contributorId = "app.projects";
   const resolvedProjectsService =
     projectsService && typeof projectsService === "object"
@@ -210,12 +260,23 @@ function createProjectsActionContributor({ projectsService = null, projectsRepos
     billingService && typeof billingService.refreshDueLimitationsForSubject === "function"
       ? billingService.refreshDueLimitationsForSubject.bind(billingService)
       : null;
+  const publishProjectEvent = resolvePublishProjectEvent(realtimeEventsService);
 
   function buildCapacityResolvers(workspace) {
     return {
       [PROJECTS_CAPACITY_LIMITATION_CODE]: async ({ trx = null } = {}) =>
         resolvedProjectsService.countActiveForWorkspace(workspace, trx ? { trx } : {})
     };
+  }
+
+  function publishProjectRealtimeEvent({ context, input, workspace, user, project, operation }) {
+    return publishProjectEventSafely({
+      publishProjectEvent,
+      request: buildRealtimePublishRequest(context, input, workspace, user),
+      workspace,
+      project,
+      operation
+    });
   }
 
   async function refreshProjectCapacityLimit({ request, user, workspace }) {
@@ -325,10 +386,19 @@ function createProjectsActionContributor({ projectsService = null, projectsRepos
             resolvedProjectsService.create(workspace, payload, trx ? { trx } : {});
 
           if (!executeWithEntitlementConsumption) {
-            return runCreate();
+            const response = await runCreate();
+            publishProjectRealtimeEvent({
+              context,
+              input: payload,
+              workspace,
+              user,
+              project: response?.project,
+              operation: "created"
+            });
+            return response;
           }
 
-          return executeWithEntitlementConsumption({
+          const response = await executeWithEntitlementConsumption({
             request,
             user,
             capability: PROJECTS_CREATE_CAPABILITY,
@@ -341,6 +411,15 @@ function createProjectsActionContributor({ projectsService = null, projectsRepos
             capacityResolvers: buildCapacityResolvers(workspace),
             action: ({ trx }) => runCreate({ trx })
           });
+          publishProjectRealtimeEvent({
+            context,
+            input: payload,
+            workspace,
+            user,
+            project: response?.project,
+            operation: "created"
+          });
+          return response;
         }
       },
       {
@@ -416,6 +495,15 @@ function createProjectsActionContributor({ projectsService = null, projectsRepos
               workspace
             });
           }
+
+          publishProjectRealtimeEvent({
+            context,
+            input: payload,
+            workspace,
+            user,
+            project: response?.project,
+            operation: "updated"
+          });
 
           return response;
         }

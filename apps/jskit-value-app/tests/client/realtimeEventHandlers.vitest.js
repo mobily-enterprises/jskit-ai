@@ -408,4 +408,36 @@ describe("realtimeEventHandlers", () => {
     expect(receivedEvents[0].topic).toBe(REALTIME_TOPICS.TYPING);
     expect(receivedEvents[0].payload.threadId).toBe("11");
   });
+
+  it("processes alerts topic events explicitly without query invalidation and emits them on event bus", async () => {
+    const handlers = createRealtimeEventHandlers({
+      queryClient,
+      commandTracker,
+      clientId: "cli-local"
+    });
+
+    const receivedEvents = [];
+    const unsubscribe = subscribeRealtimeEvents((eventEnvelope) => {
+      receivedEvents.push(eventEnvelope);
+    });
+
+    const event = {
+      eventId: "evt-alert-1",
+      eventType: "user.alert.created",
+      topic: REALTIME_TOPICS.ALERTS,
+      sourceClientId: "cli-remote",
+      payload: {
+        alertId: 23
+      }
+    };
+
+    const result = await handlers.processEvent(event);
+    unsubscribe();
+
+    expect(result.status).toBe("processed");
+    expect(queryClient.invalidateQueries).not.toHaveBeenCalled();
+    expect(receivedEvents).toHaveLength(1);
+    expect(receivedEvents[0].topic).toBe(REALTIME_TOPICS.ALERTS);
+    expect(receivedEvents[0].payload.alertId).toBe(23);
+  });
 });

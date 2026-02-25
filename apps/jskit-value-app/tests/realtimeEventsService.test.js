@@ -140,6 +140,7 @@ test("realtime events service builds targeted chat event envelopes", () => {
   assert.equal(envelope.threadId, "42");
   assert.equal(envelope.scopeKind, "global");
   assert.equal(envelope.workspaceId, null);
+  assert.equal(envelope.workspaceSlug, null);
   assert.equal(envelope.actorUserId, "7");
   assert.deepEqual(envelope.targetUserIds, [7, 8]);
   assert.equal(envelope.commandId, "cmd_chat");
@@ -148,4 +149,27 @@ test("realtime events service builds targeted chat event envelopes", () => {
     threadId: 42
   });
   assert.equal(__testables.resolveChatTopic("chat.typing.started"), REALTIME_TOPICS.TYPING);
+});
+
+test("realtime events service includes workspace slug for workspace-scoped targeted chat events", () => {
+  const service = createService();
+
+  const envelope = service.publishChatEvent({
+    eventType: "chat.message.created",
+    thread: {
+      id: 51,
+      scopeKind: "workspace",
+      workspaceId: 11,
+      workspaceSlug: "acme"
+    },
+    actorUserId: 7,
+    targetUserIds: [7, 8],
+    payload: {
+      threadId: 51
+    }
+  });
+
+  assert.equal(envelope.scopeKind, "workspace");
+  assert.equal(envelope.workspaceId, "11");
+  assert.equal(envelope.workspaceSlug, "acme");
 });

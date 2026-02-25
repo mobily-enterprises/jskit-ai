@@ -179,11 +179,13 @@ function normalizeRequestMeta(metaValue) {
   const source = metaValue && typeof metaValue === "object" ? metaValue : {};
   const commandId = String(source.commandId || "").trim();
   const sourceClientId = String(source.sourceClientId || "").trim();
+  const workspaceSlug = String(source.workspaceSlug || "").trim();
   const logger = source.logger && typeof source.logger.warn === "function" ? source.logger : null;
 
   return {
     commandId: commandId || null,
     sourceClientId: sourceClientId || null,
+    workspaceSlug: workspaceSlug || null,
     logger
   };
 }
@@ -1874,7 +1876,8 @@ function createService({
             actorUserId,
             targetUserIds,
             commandId: requestMeta.commandId,
-            sourceClientId: requestMeta.sourceClientId
+            sourceClientId: requestMeta.sourceClientId,
+            workspaceSlug: requestMeta.workspaceSlug
           });
         }
 
@@ -1888,7 +1891,8 @@ function createService({
             attachment
           },
           commandId: requestMeta.commandId,
-          sourceClientId: requestMeta.sourceClientId
+          sourceClientId: requestMeta.sourceClientId,
+          workspaceSlug: requestMeta.workspaceSlug
         });
       },
       {
@@ -2528,7 +2532,8 @@ function createService({
           actorUserId: userId,
           targetUserIds: participantUserIds,
           commandId: normalizedRequestMeta.commandId,
-          sourceClientId: normalizedRequestMeta.sourceClientId
+          sourceClientId: normalizedRequestMeta.sourceClientId,
+          workspaceSlug: normalizedRequestMeta.workspaceSlug
         }),
       {
         requestMeta: normalizedRequestMeta,
@@ -2615,7 +2620,8 @@ function createService({
           actorUserId: userId,
           targetUserIds: participantUserIds,
           commandId: normalizedRequestMeta.commandId,
-          sourceClientId: normalizedRequestMeta.sourceClientId
+          sourceClientId: normalizedRequestMeta.sourceClientId,
+          workspaceSlug: normalizedRequestMeta.workspaceSlug
         }),
       {
         requestMeta: normalizedRequestMeta,
@@ -2686,7 +2692,8 @@ function createService({
           actorUserId: userId,
           targetUserIds: participantUserIds,
           commandId: normalizedRequestMeta.commandId,
-          sourceClientId: normalizedRequestMeta.sourceClientId
+          sourceClientId: normalizedRequestMeta.sourceClientId,
+          workspaceSlug: normalizedRequestMeta.workspaceSlug
         }),
       {
         requestMeta: normalizedRequestMeta,
@@ -2744,7 +2751,8 @@ function createService({
           actorUserId: userId,
           targetUserIds: participantUserIds,
           commandId: normalizedRequestMeta.commandId,
-          sourceClientId: normalizedRequestMeta.sourceClientId
+          sourceClientId: normalizedRequestMeta.sourceClientId,
+          workspaceSlug: normalizedRequestMeta.workspaceSlug
         }),
       {
         requestMeta: normalizedRequestMeta,
@@ -2833,7 +2841,8 @@ function createService({
             state: "stopped",
             expiresAt: new Date(expiresAtMs).toISOString(),
             commandId: normalizedRequestMeta.commandId,
-            sourceClientId: normalizedRequestMeta.sourceClientId
+            sourceClientId: normalizedRequestMeta.sourceClientId,
+            workspaceSlug: normalizedRequestMeta.workspaceSlug
           }),
         {
           requestMeta: normalizedRequestMeta,
@@ -2861,7 +2870,8 @@ function createService({
             state: "started",
             expiresAt: new Date(expiresAtMs).toISOString(),
             commandId: normalizedRequestMeta.commandId,
-            sourceClientId: normalizedRequestMeta.sourceClientId
+            sourceClientId: normalizedRequestMeta.sourceClientId,
+            workspaceSlug: normalizedRequestMeta.workspaceSlug
           }),
         {
           requestMeta: normalizedRequestMeta,

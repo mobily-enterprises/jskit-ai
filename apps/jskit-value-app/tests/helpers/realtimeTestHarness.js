@@ -90,7 +90,7 @@ function createRealtimeTestWorkspaceService({
     permissionsBySlug && typeof permissionsBySlug === "object"
       ? permissionsBySlug
       : {
-          acme: ["projects.read", "workspace.settings.view", "workspace.members.view"]
+          acme: ["projects.read", "workspace.settings.view", "workspace.members.view", "chat.read"]
         };
   const denyUserIdsMap = appDenyUserIdsBySlug && typeof appDenyUserIdsBySlug === "object" ? appDenyUserIdsBySlug : {};
   const denyEmailsMap = appDenyEmailsBySlug && typeof appDenyEmailsBySlug === "object" ? appDenyEmailsBySlug : {};

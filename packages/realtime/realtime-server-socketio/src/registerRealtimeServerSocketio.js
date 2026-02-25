@@ -13,6 +13,10 @@ const TOPIC_SCOPES = Object.freeze({
   WORKSPACE: "workspace",
   USER: "user"
 });
+const TARGETED_EVENT_SCOPES = Object.freeze({
+  WORKSPACE: "workspace",
+  GLOBAL: "global"
+});
 
 function normalizeRequestId(requestIdValue) {
   const requestId = String(requestIdValue || "").trim();
@@ -1134,13 +1138,41 @@ async function registerRealtimeServerSocketio(
     });
   });
 
-  async function fanoutTargetedEvent(eventEnvelope, targetUserIds) {
+  function normalizeTargetedScopeKind(eventEnvelope) {
+    const explicitScope = String(eventEnvelope?.scopeKind || "")
+      .trim()
+      .toLowerCase();
+    if (explicitScope === TARGETED_EVENT_SCOPES.GLOBAL) {
+      return TARGETED_EVENT_SCOPES.GLOBAL;
+    }
+    if (explicitScope === TARGETED_EVENT_SCOPES.WORKSPACE) {
+      return TARGETED_EVENT_SCOPES.WORKSPACE;
+    }
+
+    const workspaceId = Number(eventEnvelope?.workspaceId);
+    if (Number.isInteger(workspaceId) && workspaceId > 0) {
+      return TARGETED_EVENT_SCOPES.WORKSPACE;
+    }
+
+    return TARGETED_EVENT_SCOPES.GLOBAL;
+  }
+
+  function hasWorkspaceTopicSubscription(socket, { workspaceId, topic }) {
+    const subscriptions = socket?.data?.subscriptions;
+    if (!(subscriptions instanceof Map)) {
+      return false;
+    }
+
+    return subscriptions.has(buildWorkspaceSubscriptionKey(workspaceId, topic));
+  }
+
+  async function collectTargetSockets(targetUserIds, buildRoomName, failureLogCode, logContext = {}) {
     const socketById = new Map();
 
     try {
       await Promise.all(
         targetUserIds.map(async (targetUserId) => {
-          const roomName = buildUserRoomName(targetUserId);
+          const roomName = buildRoomName(targetUserId);
           const sockets = await io.in(roomName).fetchSockets();
           for (const socket of sockets) {
             socketById.set(String(socket?.id || ""), socket);
@@ -1151,42 +1183,25 @@ async function registerRealtimeServerSocketio(
       appLogger.warn(
         {
           err: error,
-          targetUserIds
+          targetUserIds,
+          ...(logContext && typeof logContext === "object" ? logContext : {})
         },
-        "realtime.socketio.targeted_fanout_socket_lookup_failed"
+        failureLogCode
       );
-      return;
+      return null;
     }
 
-    await Promise.all(
-      Array.from(socketById.values()).map(async (socket) => {
-        await emitEventMessage(socket, eventEnvelope);
-      })
-    );
+    return socketById;
   }
 
   async function fanoutUserScopedTargetedEvent(eventEnvelope, targetUserIds, topic) {
-    const socketById = new Map();
-
-    try {
-      await Promise.all(
-        targetUserIds.map(async (targetUserId) => {
-          const roomName = buildUserTopicRoomName(targetUserId, topic);
-          const sockets = await io.in(roomName).fetchSockets();
-          for (const socket of sockets) {
-            socketById.set(String(socket?.id || ""), socket);
-          }
-        })
-      );
-    } catch (error) {
-      appLogger.warn(
-        {
-          err: error,
-          topic,
-          targetUserIds
-        },
-        "realtime.socketio.targeted_topic_fanout_socket_lookup_failed"
-      );
+    const socketById = await collectTargetSockets(
+      targetUserIds,
+      (targetUserId) => buildUserTopicRoomName(targetUserId, topic),
+      "realtime.socketio.targeted_topic_fanout_socket_lookup_failed",
+      { topic }
+    );
+    if (!socketById) {
       return;
     }
 
@@ -1209,6 +1224,92 @@ async function registerRealtimeServerSocketio(
     );
   }
 
+  async function fanoutWorkspaceScopedTargetedEvent(eventEnvelope, targetUserIds, topic) {
+    const workspaceId = Number(eventEnvelope?.workspaceId);
+    const workspaceSlug = normalizeWorkspaceSlug(eventEnvelope?.workspaceSlug);
+    if (!Number.isInteger(workspaceId) || workspaceId < 1 || !topic || !workspaceSlug) {
+      appLogger.warn(
+        {
+          workspaceId,
+          topic
+        },
+        "realtime.socketio.event_missing_workspace_slug"
+      );
+      return;
+    }
+
+    const socketById = await collectTargetSockets(
+      targetUserIds,
+      (targetUserId) => buildUserRoomName(targetUserId),
+      "realtime.socketio.targeted_fanout_socket_lookup_failed",
+      { topic, workspaceId, workspaceSlug }
+    );
+    if (!socketById) {
+      return;
+    }
+
+    await Promise.all(
+      Array.from(socketById.values()).map(async (socket) => {
+        if (!hasWorkspaceTopicSubscription(socket, { workspaceId, topic })) {
+          return;
+        }
+
+        const receiveDecision = await canSocketReceiveEvent(socket, {
+          workspaceId,
+          workspaceSlug,
+          topic
+        });
+
+        if (!receiveDecision?.allowed) {
+          if (!receiveDecision?.evict) {
+            return;
+          }
+          await evictWorkspaceSocketSubscription(socket, {
+            workspaceId,
+            topic
+          });
+          appLogger.warn(
+            {
+              socketId: String(socket?.id || ""),
+              workspaceId,
+              workspaceSlug,
+              topic
+            },
+            "realtime.socketio.subscription_evicted"
+          );
+          return;
+        }
+
+        await emitEventMessage(socket, eventEnvelope);
+      })
+    );
+  }
+
+  async function fanoutGlobalTargetedEvent(eventEnvelope, targetUserIds, topic) {
+    const socketById = await collectTargetSockets(
+      targetUserIds,
+      (targetUserId) => buildUserRoomName(targetUserId),
+      "realtime.socketio.targeted_fanout_socket_lookup_failed",
+      { topic }
+    );
+    if (!socketById) {
+      return;
+    }
+
+    await Promise.all(
+      Array.from(socketById.values()).map(async (socket) => {
+        if (topic) {
+          const surfaceId = normalizeSocketSurface(socket?.data?.surface);
+          if (!surfaceId || !isTopicAllowedForSurface(topic, surfaceId)) {
+            return;
+          }
+        }
+
+        await emitEventMessage(socket, eventEnvelope);
+      })
+    );
+  }
+
   async function fanoutEvent(eventEnvelope) {
     const topic = String(eventEnvelope?.topic || "").trim();
     let topicScope = TOPIC_SCOPES.WORKSPACE;
@@ -1223,7 +1324,14 @@ async function registerRealtimeServerSocketio(
         await fanoutUserScopedTargetedEvent(eventEnvelope, targetUserIds, topic);
         return;
       }
-      await fanoutTargetedEvent(eventEnvelope, targetUserIds);
+
+      const targetedScope = normalizeTargetedScopeKind(eventEnvelope);
+      if (targetedScope === TARGETED_EVENT_SCOPES.WORKSPACE) {
+        await fanoutWorkspaceScopedTargetedEvent(eventEnvelope, targetUserIds, topic);
+        return;
+      }
+
+      await fanoutGlobalTargetedEvent(eventEnvelope, targetUserIds, topic);
       return;
     }
 

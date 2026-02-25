@@ -150,6 +150,22 @@ test("realtime envelope helpers clone payload objects instead of mutating input"
   assert.equal(chatEnvelope.threadId, "9");
   assert.equal(chatEnvelope.scopeKind, "workspace");
   assert.equal(chatEnvelope.workspaceId, "11");
+  assert.equal(chatEnvelope.workspaceSlug, null);
   assert.equal(chatEnvelope.actorUserId, "7");
   assert.deepEqual(chatEnvelope.targetUserIds, [7, 8]);
+});
+
+test("createTargetedChatEventEnvelope normalizes workspace slug", () => {
+  const chatEnvelope = createTargetedChatEventEnvelope({
+    eventType: "chat.message.created",
+    topic: "chat",
+    threadId: 9,
+    scopeKind: "workspace",
+    workspaceId: 11,
+    workspaceSlug: " acme ",
+    actorUserId: 7,
+    targetUserIds: [7]
+  });
+
+  assert.equal(chatEnvelope.workspaceSlug, "acme");
 });

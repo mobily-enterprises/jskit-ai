@@ -57,7 +57,8 @@ function normalizeThreadRef(thread) {
   return {
     id,
     scopeKind: normalizeScopeKind(thread.scopeKind),
-    workspaceId: normalizePositiveIntegerOrNull(thread.workspaceId)
+    workspaceId: normalizePositiveIntegerOrNull(thread.workspaceId),
+    workspaceSlug: String(thread.workspaceSlug || thread.workspace?.slug || "").trim() || null
   };
 }
 
@@ -100,7 +101,8 @@ function createService({ realtimeEventsService = null, realtimeEventTypes = null
     targetUserIds,
     payload,
     commandId,
-    sourceClientId
+    sourceClientId,
+    workspaceSlug
   } = {}) {
     if (!publishChatEvent) {
       return null;
@@ -117,11 +119,17 @@ function createService({ realtimeEventsService = null, realtimeEventTypes = null
       return null;
     }
 
+    const normalizedWorkspaceSlug =
+      String(workspaceSlug || normalizedThread.workspaceSlug || "")
+        .trim()
+        .toLowerCase() || null;
+
     return publishChatEvent({
       eventType,
       threadId: normalizedThread.id,
       scopeKind: normalizedThread.scopeKind,
       workspaceId: normalizedThread.workspaceId,
+      workspaceSlug: normalizedWorkspaceSlug,
       actorUserId: normalizedActorUserId,
       targetUserIds: normalizedTargetUserIds,
       payload: normalizePayload(payload),
@@ -137,7 +145,8 @@ function createService({ realtimeEventsService = null, realtimeEventTypes = null
     actorUserId,
     targetUserIds,
     commandId,
-    sourceClientId
+    sourceClientId,
+    workspaceSlug
   } = {}) {
     return publishThreadEvent({
       thread,
@@ -149,7 +158,8 @@ function createService({ realtimeEventsService = null, realtimeEventTypes = null
         idempotencyStatus: normalizeIdempotencyStatus(idempotencyStatus)
       },
       commandId,
-      sourceClientId
+      sourceClientId,
+      workspaceSlug
     });
   }
 
@@ -161,7 +171,8 @@ function createService({ realtimeEventsService = null, realtimeEventTypes = null
     actorUserId,
     targetUserIds,
     commandId,
-    sourceClientId
+    sourceClientId,
+    workspaceSlug
   } = {}) {
     const normalizedUserId = normalizePositiveIntegerOrNull(userId);
     const normalizedLastReadSeq = Math.max(0, Number(lastReadSeq || 0));
@@ -179,7 +190,8 @@ function createService({ realtimeEventsService = null, realtimeEventTypes = null
         lastReadMessageId: normalizedLastReadMessageId
       },
       commandId,
-      sourceClientId
+      sourceClientId,
+      workspaceSlug
     });
   }
 
@@ -190,7 +202,8 @@ function createService({ realtimeEventsService = null, realtimeEventTypes = null
     actorUserId,
     targetUserIds,
     commandId,
-    sourceClientId
+    sourceClientId,
+    workspaceSlug
   } = {}) {
     return publishThreadEvent({
       thread,
@@ -203,7 +216,8 @@ function createService({ realtimeEventsService = null, realtimeEventTypes = null
         reactions: Array.isArray(reactions) ? reactions : []
       },
       commandId,
-      sourceClientId
+      sourceClientId,
+      workspaceSlug
     });
   }
 
@@ -213,7 +227,8 @@ function createService({ realtimeEventsService = null, realtimeEventTypes = null
     actorUserId,
     targetUserIds,
     commandId,
-    sourceClientId
+    sourceClientId,
+    workspaceSlug
   } = {}) {
     return publishThreadEvent({
       thread,
@@ -225,11 +240,21 @@ function createService({ realtimeEventsService = null, realtimeEventTypes = null
         attachment: attachment && typeof attachment === "object" ? { ...attachment } : null
       },
       commandId,
-      sourceClientId
+      sourceClientId,
+      workspaceSlug
     });
   }
 
-  function emitTyping({ thread, actorUserId, targetUserIds, state, expiresAt, commandId, sourceClientId } = {}) {
+  function emitTyping({
+    thread,
+    actorUserId,
+    targetUserIds,
+    state,
+    expiresAt,
+    commandId,
+    sourceClientId,
+    workspaceSlug
+  } = {}) {
     const normalizedActorUserId = normalizePositiveIntegerOrNull(actorUserId);
     const normalizedState = String(state || "")
       .trim()
@@ -252,7 +277,8 @@ function createService({ realtimeEventsService = null, realtimeEventTypes = null
         expiresAt: String(expiresAt || "") || null
       },
       commandId,
-      sourceClientId
+      sourceClientId,
+      workspaceSlug
     });
   }
 

@@ -58,6 +58,17 @@ export function useLoginActions({
   otpRequestMutation,
   otpVerifyMutation
 }) {
+  function isConsoleSurfaceContext() {
+    const paths = surfacePaths?.value && typeof surfacePaths.value === "object" ? surfacePaths.value : {};
+    const prefix = String(paths.prefix || "").trim().toLowerCase();
+    if (prefix === "/console") {
+      return true;
+    }
+
+    const loginPath = String(paths.loginPath || "").trim().toLowerCase();
+    return loginPath === "/console/login" || loginPath.startsWith("/console/");
+  }
+
   function resetValidationState() {
     emailTouched.value = false;
     passwordTouched.value = false;
@@ -171,6 +182,23 @@ export function useLoginActions({
   }
 
   async function refreshPostAuthContext() {
+    if (isConsoleSurfaceContext()) {
+      const sessionPayload = await api.auth.session();
+      const session = sessionPayload && typeof sessionPayload === "object" ? sessionPayload : null;
+      if (!session?.authenticated) {
+        throw new Error("Login succeeded but the session is not active yet. Please retry.");
+      }
+
+      authStore.applySession({
+        authenticated: true,
+        username: session.username || null
+      });
+      if (workspaceStore && typeof workspaceStore.clearWorkspaceState === "function") {
+        workspaceStore.clearWorkspaceState();
+      }
+      return session;
+    }
+
     const bootstrapPayload = await api.workspace.bootstrap();
     const session =
       bootstrapPayload?.session && typeof bootstrapPayload.session === "object" ? bootstrapPayload.session : null;

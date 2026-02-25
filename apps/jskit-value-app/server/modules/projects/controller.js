@@ -1,5 +1,3 @@
-import { createProjectEventPublisher } from "../../realtime/publishers/projectPublisher.js";
-
 const PROJECT_ACTION_IDS = Object.freeze({
   LIST: "projects.list",
   GET: "projects.get",
@@ -18,15 +16,10 @@ async function executeAction(actionExecutor, { actionId, request, input = {} }) 
   });
 }
 
-function createController({ realtimeEventsService = null, actionExecutor }) {
+function createController({ actionExecutor }) {
   if (!actionExecutor || typeof actionExecutor.execute !== "function") {
     throw new Error("actionExecutor.execute is required.");
   }
-
-  const publishProjectEventForRequest = createProjectEventPublisher({
-    realtimeEventsService,
-    logCode: "projects.realtime.publish_failed"
-  });
 
   async function list(request, reply) {
     const response = await executeAction(actionExecutor, {
@@ -54,12 +47,6 @@ function createController({ realtimeEventsService = null, actionExecutor }) {
       request,
       input: request.body || {}
     });
-    publishProjectEventForRequest({
-      request,
-      workspace: request.workspace,
-      project: response?.project,
-      operation: "created"
-    });
     reply.code(200).send(response);
   }
 
@@ -73,12 +60,6 @@ function createController({ realtimeEventsService = null, actionExecutor }) {
       }
     });
 
-    publishProjectEventForRequest({
-      request,
-      workspace: request.workspace,
-      project: response?.project,
-      operation: "updated"
-    });
     reply.code(200).send(response);
   }
 
@@ -93,12 +74,6 @@ function createController({ realtimeEventsService = null, actionExecutor }) {
       }
     });
 
-    publishProjectEventForRequest({
-      request,
-      workspace: request.workspace,
-      project: response?.project,
-      operation: "updated"
-    });
     reply.code(200).send(response);
   }
 

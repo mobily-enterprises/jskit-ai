@@ -131,6 +131,10 @@ async function invalidateNoop() {
 
 // New topics are typically one strategy entry plus a query-key invalidator helper.
 const TOPIC_STRATEGY_REGISTRY = Object.freeze({
+  [REALTIME_TOPICS.ALERTS]: Object.freeze({
+    invalidate: invalidateNoop,
+    refreshBootstrap: false
+  }),
   [REALTIME_TOPICS.PROJECTS]: Object.freeze({
     invalidate: invalidateForProjectEvent,
     refreshBootstrap: false

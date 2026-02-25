@@ -57,12 +57,12 @@ const REALTIME_TOPIC_REGISTRY = createTopicCatalog({
   }),
   [REALTIME_TOPICS.CHAT]: Object.freeze({
     scope: TOPIC_SCOPES.WORKSPACE,
-    subscribeSurfaces: Object.freeze(["app"]),
+    subscribeSurfaces: Object.freeze(["app", "admin"]),
     requiredAnyPermission: Object.freeze(["chat.read"])
   }),
   [REALTIME_TOPICS.TYPING]: Object.freeze({
     scope: TOPIC_SCOPES.WORKSPACE,
-    subscribeSurfaces: Object.freeze(["app"]),
+    subscribeSurfaces: Object.freeze(["app", "admin"]),
     requiredAnyPermission: Object.freeze(["chat.read"])
   })
 });

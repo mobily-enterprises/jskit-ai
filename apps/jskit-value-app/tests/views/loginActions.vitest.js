@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   api: {
     auth: {
+      session: vi.fn(),
       oauthComplete: vi.fn(),
       oauthStartUrl: vi.fn((provider, { returnTo }) => `/api/v1/oauth/${provider}/start?returnTo=${returnTo}`)
     },
@@ -94,7 +95,8 @@ function createHarness({ initialMode = "login", canSubmitInitial = true } = {}) 
     applySession: vi.fn()
   };
   const workspaceStore = {
-    applyBootstrap: vi.fn()
+    applyBootstrap: vi.fn(),
+    clearWorkspaceState: vi.fn()
   };
 
   const registerMutation = {
@@ -189,6 +191,7 @@ function createHarness({ initialMode = "login", canSubmitInitial = true } = {}) 
 
 describe("useLoginActions", () => {
   beforeEach(() => {
+    mocks.api.auth.session.mockReset();
     mocks.api.workspace.bootstrap.mockReset();
     mocks.api.auth.oauthComplete.mockReset();
     mocks.api.auth.oauthStartUrl.mockReset();
@@ -438,6 +441,35 @@ describe("useLoginActions", () => {
     } finally {
       vi.stubGlobal("window", originalWindow);
     }
+  });
+
+  it("uses session refresh instead of workspace bootstrap on console login", async () => {
+    const harness = createHarness();
+    harness.surfacePaths.value = {
+      prefix: "/console",
+      rootPath: "/console",
+      resetPasswordPath: "/console/reset-password",
+      loginPath: "/console/login"
+    };
+    harness.loginMutation.mutateAsync.mockResolvedValue({
+      ok: true
+    });
+    mocks.api.auth.session.mockResolvedValue({
+      authenticated: true,
+      username: "Tony"
+    });
+
+    await harness.actions.submitAuth();
+
+    expect(mocks.api.auth.session).toHaveBeenCalledTimes(1);
+    expect(mocks.api.workspace.bootstrap).not.toHaveBeenCalled();
+    expect(harness.authStore.applySession).toHaveBeenCalledWith({
+      authenticated: true,
+      username: "Tony"
+    });
+    expect(harness.workspaceStore.clearWorkspaceState).toHaveBeenCalledTimes(1);
+    expect(harness.workspaceStore.applyBootstrap).not.toHaveBeenCalled();
+    expect(harness.navigate).toHaveBeenCalledWith({ to: "/console", replace: true });
   });
 
   it("short-circuits submit when canSubmit is false and surfaces submit errors", async () => {

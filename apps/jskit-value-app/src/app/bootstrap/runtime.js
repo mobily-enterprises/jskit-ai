@@ -115,7 +115,43 @@ function applyThemePreference(vuetifyInstance, themePreference) {
 }
 
 async function bootstrapRuntime({ authStore, workspaceStore, consoleStore, vuetify, surface }) {
+  const normalizedSurface = String(surface || "")
+    .trim()
+    .toLowerCase();
+
   try {
+    if (normalizedSurface === "console") {
+      const sessionPayload = await api.auth.session();
+      const session =
+        sessionPayload && typeof sessionPayload === "object" ? sessionPayload : { authenticated: false };
+      authStore.applySession({
+        authenticated: Boolean(session.authenticated),
+        username: session.username || null
+      });
+
+      workspaceStore.clearWorkspaceState();
+      applyThemePreference(vuetify, "system");
+
+      if (authStore.isAuthenticated) {
+        try {
+          await consoleStore.refreshBootstrap();
+        } catch (error) {
+          if (Number(error?.status) === 403) {
+            consoleStore.setForbidden();
+          } else if (Number(error?.status) === 401) {
+            authStore.setSignedOut();
+            workspaceStore.clearWorkspaceState();
+            consoleStore.clearConsoleState();
+          } else {
+            throw error;
+          }
+        }
+      } else {
+        consoleStore.clearConsoleState();
+      }
+      return;
+    }
+
     const bootstrapPayload = await api.workspace.bootstrap();
     const session =
       bootstrapPayload?.session && typeof bootstrapPayload.session === "object" ? bootstrapPayload.session : {};
@@ -127,23 +163,7 @@ async function bootstrapRuntime({ authStore, workspaceStore, consoleStore, vueti
 
     applyThemePreference(vuetify, workspaceStore.userSettings?.theme);
 
-    if (String(surface || "").trim() === "console" && authStore.isAuthenticated) {
-      try {
-        await consoleStore.refreshBootstrap();
-      } catch (error) {
-        if (Number(error?.status) === 403) {
-          consoleStore.setForbidden();
-        } else if (Number(error?.status) === 401) {
-          authStore.setSignedOut();
-          workspaceStore.clearWorkspaceState();
-          consoleStore.clearConsoleState();
-        } else {
-          throw error;
-        }
-      }
-    } else {
-      consoleStore.clearConsoleState();
-    }
+    consoleStore.clearConsoleState();
   } catch {
     authStore.setSignedOut();
     workspaceStore.clearWorkspaceState();

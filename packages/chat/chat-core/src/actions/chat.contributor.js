@@ -54,10 +54,14 @@ function buildRequestMeta(context, input) {
   const payload = normalizeObject(input);
   const request = resolveRequest(context);
   const requestMeta = normalizeObject(payload.requestMeta);
+  const workspaceSlug = String(
+    requestMeta.workspaceSlug || request?.headers?.["x-workspace-slug"] || request?.workspace?.slug || ""
+  ).trim();
 
   return {
     commandId: requestMeta.commandId || context?.requestMeta?.commandId || request?.headers?.["x-command-id"] || null,
     sourceClientId: requestMeta.sourceClientId || request?.headers?.["x-client-id"] || null,
+    workspaceSlug: workspaceSlug || null,
     logger: request?.log || null
   };
 }

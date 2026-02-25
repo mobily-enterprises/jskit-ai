@@ -717,7 +717,7 @@ describe("client api transport", () => {
     expect(urls).toContain("/api/v1/settings/security/oauth/google");
   });
 
-  it("applies command-correlation headers only to project write requests and keeps command id stable across csrf retries", async () => {
+  it("applies command-correlation headers to correlated write routes and keeps command id stable across csrf retries", async () => {
     window.history.replaceState({}, "", "/admin/w/acme/projects");
     global.fetch
       .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "csrf-1" } }))
@@ -742,6 +742,9 @@ describe("client api transport", () => {
           }
         })
       )
+      .mockResolvedValueOnce(mockResponse({ data: { ok: true } }))
+      .mockResolvedValueOnce(mockResponse({ data: { ok: true } }))
+      .mockResolvedValueOnce(mockResponse({ data: { ok: true } }))
       .mockResolvedValueOnce(mockResponse({ data: { ok: true } }));
 
     await api.projects.update("project-1", { status: "active" });
@@ -755,17 +758,49 @@ describe("client api transport", () => {
         decision: "accept"
       }
     });
+    await __testables.request("/api/v1/chat/threads/thread-1/reactions", {
+      method: "POST",
+      headers: {
+        "csrf-token": "provided-token"
+      },
+      body: {
+        messageId: 91,
+        reaction: "thumbs_up"
+      }
+    });
+    await __testables.request("/api/v1/chat/threads/thread-1/reactions", {
+      method: "DELETE",
+      headers: {
+        "csrf-token": "provided-token"
+      },
+      body: {
+        messageId: 91,
+        reaction: "thumbs_up"
+      }
+    });
+    await __testables.request("/api/v1/workspace/roles", {
+      method: "GET"
+    });
 
     const firstWriteHeaders = global.fetch.mock.calls[1][1].headers;
     const retryWriteHeaders = global.fetch.mock.calls[3][1].headers;
-    const nonProjectWriteHeaders = global.fetch.mock.calls[4][1].headers;
+    const inviteRedeemHeaders = global.fetch.mock.calls[4][1].headers;
+    const addReactionHeaders = global.fetch.mock.calls[5][1].headers;
+    const removeReactionHeaders = global.fetch.mock.calls[6][1].headers;
+    const readHeaders = global.fetch.mock.calls[7][1].headers;
 
     expect(firstWriteHeaders["x-command-id"]).toBeTruthy();
     expect(firstWriteHeaders["x-client-id"]).toBeTruthy();
     expect(retryWriteHeaders["x-command-id"]).toBe(firstWriteHeaders["x-command-id"]);
     expect(retryWriteHeaders["x-client-id"]).toBe(firstWriteHeaders["x-client-id"]);
-    expect(nonProjectWriteHeaders["x-command-id"]).toBeUndefined();
-    expect(nonProjectWriteHeaders["x-client-id"]).toBeUndefined();
+    expect(inviteRedeemHeaders["x-command-id"]).toBeTruthy();
+    expect(inviteRedeemHeaders["x-client-id"]).toBeTruthy();
+    expect(addReactionHeaders["x-command-id"]).toBeTruthy();
+    expect(addReactionHeaders["x-client-id"]).toBeTruthy();
+    expect(removeReactionHeaders["x-command-id"]).toBeTruthy();
+    expect(removeReactionHeaders["x-client-id"]).toBeTruthy();
+    expect(readHeaders["x-command-id"]).toBeUndefined();
+    expect(readHeaders["x-client-id"]).toBeUndefined();
   });
 
   it("sends put replace requests through projects api", async () => {

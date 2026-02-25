@@ -19,6 +19,12 @@ This document replaces the previous `multihome.md` transcript with a decision re
 5. User config is user-owned and persisted per user.
 6. `/api/v1/bootstrap` is the first-load runtime context contract.
 
+Realtime scope alignment:
+
+1. Workspace-scoped realtime topics require workspace context (`workspaceSlug`) at subscribe time.
+2. User-scoped realtime topics can be subscribed from `app`, `admin`, or `console` without workspace context.
+3. `console` realtime behavior is user-scoped by default; workspace topic subscriptions are not required for console routing.
+
 ## Mode Profiles
 
 | Profile | Workspaces/User | Invites | Workspace Switcher | Typical Use |

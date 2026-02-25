@@ -63,6 +63,18 @@ const DEFAULT_REALTIME_CORRELATED_WRITE_ROUTES = Object.freeze([
   {
     method: "POST",
     pattern: /^\/api\/v1\/chat\/threads\/[^/]+\/typing$/
+  },
+  {
+    method: "POST",
+    pattern: /^\/api\/v1\/chat\/threads\/[^/]+\/reactions$/
+  },
+  {
+    method: "DELETE",
+    pattern: /^\/api\/v1\/chat\/threads\/[^/]+\/reactions$/
+  },
+  {
+    method: "POST",
+    pattern: /^\/api\/v1\/workspace\/invitations\/redeem$/
   }
 ]);
 

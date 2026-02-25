@@ -52,11 +52,46 @@ test("targeted chat events fan out only to requested user rooms", async () => {
     }
   });
 
+  recipientOne.send(
+    JSON.stringify({
+      type: "subscribe",
+      requestId: "req-chat-subscribe-u11",
+      workspaceSlug: "acme",
+      topics: [REALTIME_TOPICS.CHAT]
+    })
+  );
+  recipientTwo.send(
+    JSON.stringify({
+      type: "subscribe",
+      requestId: "req-chat-subscribe-u12",
+      workspaceSlug: "acme",
+      topics: [REALTIME_TOPICS.CHAT]
+    })
+  );
+  nonRecipient.send(
+    JSON.stringify({
+      type: "subscribe",
+      requestId: "req-chat-subscribe-u13",
+      workspaceSlug: "acme",
+      topics: [REALTIME_TOPICS.CHAT]
+    })
+  );
+
+  const subscribeMessages = await Promise.all([
+    waitForRealtimeMessage(recipientOne),
+    waitForRealtimeMessage(recipientTwo),
+    waitForRealtimeMessage(nonRecipient)
+  ]);
+  assert.equal(subscribeMessages[0].type, "subscribed");
+  assert.equal(subscribeMessages[1].type, "subscribed");
+  assert.equal(subscribeMessages[2].type, "subscribed");
+
   realtimeEventsService.publishChatEvent({
     eventType: "chat.message.created",
     threadId: 501,
     scopeKind: "workspace",
     workspaceId: 11,
+    workspaceSlug: "acme",
     actorUserId: 11,
     targetUserIds: [11, 12],
     payload: {
@@ -387,6 +422,101 @@ test("existing subscriptions are evicted when topic permissions are revoked", as
 
   const postRestoreEvent = await waitForOptionalRealtimeMessage(socket, 500);
   assert.equal(postRestoreEvent, null);
+
+  socket.close();
+  await app.close();
+});
+
+test("workspace-scoped targeted chat fanout re-checks authorization and evicts stale subscriptions", async () => {
+  const permissionsBySlug = {
+    acme: ["chat.read"]
+  };
+  const { app, port, realtimeEventsService } = await createRealtimeTestApp({
+    permissionsBySlug
+  });
+  const url = `ws://127.0.0.1:${port}/api/v1/realtime?surface=admin`;
+
+  const socket = await openRealtimeWebSocket(url, {
+    headers: {
+      cookie: "sid=ok"
+    }
+  });
+
+  socket.send(
+    JSON.stringify({
+      type: "subscribe",
+      requestId: "req-chat-evict-subscribe",
+      workspaceSlug: "acme",
+      topics: [REALTIME_TOPICS.CHAT]
+    })
+  );
+
+  const subscribed = await waitForRealtimeMessage(socket);
+  assert.equal(subscribed.type, "subscribed");
+  assert.deepEqual(subscribed.topics, [REALTIME_TOPICS.CHAT]);
+
+  realtimeEventsService.publishChatEvent({
+    eventType: "chat.message.created",
+    threadId: 77,
+    scopeKind: "workspace",
+    workspaceId: 11,
+    workspaceSlug: "acme",
+    actorUserId: 8,
+    targetUserIds: [7],
+    payload: {
+      threadId: 77,
+      message: {
+        id: 701
+      }
+    }
+  });
+
+  const initialEvent = await waitForRealtimeMessage(socket);
+  assert.equal(initialEvent.type, "event");
+  assert.equal(initialEvent.event.topic, REALTIME_TOPICS.CHAT);
+  assert.equal(initialEvent.event.workspaceSlug, "acme");
+
+  permissionsBySlug.acme = [];
+
+  realtimeEventsService.publishChatEvent({
+    eventType: "chat.message.created",
+    threadId: 77,
+    scopeKind: "workspace",
+    workspaceId: 11,
+    workspaceSlug: "acme",
+    actorUserId: 8,
+    targetUserIds: [7],
+    payload: {
+      threadId: 77,
+      message: {
+        id: 702
+      }
+    }
+  });
+
+  const revokedEvent = await waitForOptionalRealtimeMessage(socket, 500);
+  assert.equal(revokedEvent, null);
+
+  permissionsBySlug.acme = ["chat.read"];
+
+  realtimeEventsService.publishChatEvent({
+    eventType: "chat.message.created",
+    threadId: 77,
+    scopeKind: "workspace",
+    workspaceId: 11,
+    workspaceSlug: "acme",
+    actorUserId: 8,
+    targetUserIds: [7],
+    payload: {
+      threadId: 77,
+      message: {
+        id: 703
+      }
+    }
+  });
+
+  const afterRestoreEvent = await waitForOptionalRealtimeMessage(socket, 500);
+  assert.equal(afterRestoreEvent, null);
 
   socket.close();
   await app.close();

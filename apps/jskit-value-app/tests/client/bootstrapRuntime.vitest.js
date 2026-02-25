@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
     start: vi.fn(),
     stop: vi.fn()
   },
+  authSessionApi: vi.fn(),
   bootstrapApi: vi.fn(),
   queryClient: {
     marker: "query-client"
@@ -114,6 +115,9 @@ vi.mock("../../src/app/queryClient", () => ({
 
 vi.mock("../../src/platform/http/api/index.js", () => ({
   api: {
+    auth: {
+      session: mocks.authSessionApi
+    },
     workspace: {
       bootstrap: mocks.bootstrapApi
     }
@@ -150,6 +154,7 @@ describe("bootstrapRuntime", () => {
     mocks.h.mockReset();
     mocks.authStoreFactory.mockReset();
     mocks.workspaceStoreFactory.mockReset();
+    mocks.authSessionApi.mockReset();
     mocks.bootstrapApi.mockReset();
     mocks.installBrowserErrorReporter.mockReset();
     mocks.createRealtimeRuntime.mockReset();
@@ -331,18 +336,15 @@ describe("bootstrapRuntime", () => {
 
   it("refreshes console bootstrap when mounting console surface with authenticated session", async () => {
     const createRouter = vi.fn(() => ({ id: "router-5" }));
-    mocks.bootstrapApi.mockResolvedValue({
-      session: {
-        authenticated: true,
-        username: "zeus"
-      },
-      userSettings: {
-        theme: "dark"
-      }
+    mocks.authSessionApi.mockResolvedValue({
+      authenticated: true,
+      username: "zeus"
     });
 
     await mountSurfaceApplication({ createRouter, surface: "console" });
 
+    expect(mocks.bootstrapApi).not.toHaveBeenCalled();
+    expect(mocks.workspaceStore.clearWorkspaceState).toHaveBeenCalledTimes(1);
     expect(mocks.consoleStore.refreshBootstrap).toHaveBeenCalledTimes(1);
     expect(mocks.consoleStore.clearConsoleState).not.toHaveBeenCalled();
   });
