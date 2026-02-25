@@ -32,13 +32,16 @@ exports.up = async function up(knex) {
 
       table.foreign("user_id").references("id").inTable("user_profiles").onDelete("CASCADE");
     });
+  }
 
+  const hasUserAlertStatesUpdatedAt = await knex.schema.hasColumn("user_alert_states", "updated_at");
+  if (hasUserAlertStatesUpdatedAt) {
     await knex.raw(`
       ALTER TABLE user_alert_states
       MODIFY COLUMN updated_at DATETIME(3)
       NOT NULL
-      DEFAULT UTC_TIMESTAMP(3)
-      ON UPDATE UTC_TIMESTAMP(3)
+      DEFAULT CURRENT_TIMESTAMP(3)
+      ON UPDATE CURRENT_TIMESTAMP(3)
     `);
   }
 };
