@@ -27,9 +27,8 @@ function resolveRequest(context) {
   return context?.requestMeta?.request || null;
 }
 
-function resolveUser(context, input) {
-  const payload = normalizeObject(input);
-  return payload.user || resolveRequest(context)?.user || context?.actor || null;
+function resolveUser(context) {
+  return resolveRequest(context)?.user || context?.actor || null;
 }
 
 function requireAuthenticated(context) {
@@ -68,7 +67,7 @@ function createAlertsActionContributor({ alertsService } = {}) {
         observability: {},
         async execute(input, context) {
           const payload = normalizeObject(input);
-          return alertsService.listForUser(resolveUser(context, payload), {
+          return alertsService.listForUser(resolveUser(context), {
             page: Number(payload.page || 1),
             pageSize: Number(payload.pageSize || 20)
           });
@@ -90,7 +89,7 @@ function createAlertsActionContributor({ alertsService } = {}) {
         observability: {},
         async execute(input, context) {
           void input;
-          return alertsService.markAllReadForUser(resolveUser(context, {}));
+          return alertsService.markAllReadForUser(resolveUser(context));
         }
       }
     ])
