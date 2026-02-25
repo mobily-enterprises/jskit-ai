@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { createService as createAiModuleService } from "../server/modules/ai/index.js";
 
 const NOOP_AI_TRANSCRIPTS_SERVICE = new Proxy(
@@ -14,8 +15,54 @@ const NOOP_AI_TRANSCRIPTS_SERVICE = new Proxy(
 
 function createAiService(options = {}) {
   const source = options && typeof options === "object" ? options : {};
+  const defaultActionExecutor = {
+    listDefinitions() {
+      return [
+        {
+          id: "workspace.settings.update",
+          version: 1,
+          kind: "command",
+          channels: ["assistant_tool"],
+          surfaces: ["admin"],
+          visibility: "public"
+        }
+      ];
+    },
+    async execute({ actionId, input = {}, context = {} } = {}) {
+      if (actionId !== "workspace.settings.update") {
+        throw new AppError(404, "Not found.", {
+          code: "ACTION_NOT_FOUND"
+        });
+      }
+
+      const permissions = Array.isArray(context?.permissions) ? context.permissions : [];
+      if (!permissions.includes("*") && !permissions.includes("workspace.settings.update")) {
+        throw new AppError(403, "Forbidden.", {
+          code: "ACTION_PERMISSION_DENIED"
+        });
+      }
+
+      if (!source.workspaceAdminService || typeof source.workspaceAdminService.updateWorkspaceSettings !== "function") {
+        throw new AppError(500, "workspaceAdminService.updateWorkspaceSettings is required.");
+      }
+
+      return source.workspaceAdminService.updateWorkspaceSettings(context?.workspace || context?.request?.workspace, input);
+    }
+  };
+
+  const resolveActionExecutor =
+    typeof source.resolveActionExecutor === "function"
+      ? source.resolveActionExecutor
+      : () => source.actionExecutor || defaultActionExecutor;
+
   const { aiService } = createAiModuleService({
     ...source,
+    resolveActionExecutor,
+    actionsConfig: source.actionsConfig || {
+      enabled: true,
+      exposedActionIds: [],
+      blockedActionIds: []
+    },
     aiTranscriptsService: source.aiTranscriptsService ?? NOOP_AI_TRANSCRIPTS_SERVICE
   });
   return aiService;
@@ -571,7 +618,7 @@ test("ai service records observability metrics for turns and tool calls", async 
                         index: 0,
                         id: "call_1",
                         function: {
-                          name: "workspace_rename",
+                          name: "workspace_settings_update",
                           arguments: '{"name":"Renamed"}'
                         }
                       }
@@ -642,7 +689,7 @@ test("ai service records observability metrics for turns and tool calls", async 
 
   assert.deepEqual(aiToolMetrics, [
     {
-      tool: "workspace_rename",
+      tool: "workspace_settings_update",
       outcome: "success"
     }
   ]);
@@ -653,7 +700,6 @@ test("ai service executes workspace rename tool and continues to final response"
   const audits = [];
   const providerCalls = [];
   const updateCalls = [];
-  const realtimeEvents = [];
 
   const service = createAiService({
     providerClient: {
@@ -673,7 +719,7 @@ test("ai service executes workspace rename tool and continues to final response"
                         index: 0,
                         id: "call_1",
                         function: {
-                          name: "workspace_rename",
+                          name: "workspace_settings_update",
                           arguments: '{"name":"New'
                         }
                       }
@@ -727,9 +773,7 @@ test("ai service executes workspace rename tool and continues to final response"
       }
     },
     realtimeEventsService: {
-      publishWorkspaceEvent(payload) {
-        realtimeEvents.push(payload);
-      }
+      publishWorkspaceEvent() {}
     },
     auditService: {
       async recordSafe(event) {
@@ -753,7 +797,6 @@ test("ai service executes workspace rename tool and continues to final response"
   assert.deepEqual(updateCalls[0].payload, {
     name: "New Workspace"
   });
-  assert.equal(realtimeEvents.length, 2);
 
   const eventTypes = events.map((event) => event.type);
   assert.equal(eventTypes.includes("tool_call"), true);
@@ -791,7 +834,7 @@ test("ai service app-surface assistant does not expose admin tools", async () =>
                         index: 0,
                         id: "call_app_forbidden",
                         function: {
-                          name: "workspace_rename",
+                          name: "workspace_settings_update",
                           arguments: '{"name":"Blocked in app"}'
                         }
                       }
@@ -944,7 +987,7 @@ test("ai service enforces max tool calls across a single response", async () => 
                       index: 0,
                       id: "call_1",
                       function: {
-                        name: "workspace_rename",
+                        name: "workspace_settings_update",
                         arguments: '{"name":"One"}'
                       }
                     },
@@ -952,7 +995,7 @@ test("ai service enforces max tool calls across a single response", async () => 
                       index: 1,
                       id: "call_2",
                       function: {
-                        name: "workspace_rename",
+                        name: "workspace_settings_update",
                         arguments: '{"name":"Two"}'
                       }
                     }
@@ -1083,7 +1126,7 @@ test("ai service handles tool permission denied and records tool_failed audit", 
                         index: 0,
                         id: "call_forbidden",
                         function: {
-                          name: "workspace_rename",
+                          name: "workspace_settings_update",
                           arguments: '{"name":"Blocked"}'
                         }
                       }
@@ -1214,7 +1257,7 @@ test("ai service retries once when provider returns empty completion and then su
   assert.equal(providerCalls.length, 2);
   assert.deepEqual(
     providerCalls[0].tools.map((tool) => tool?.function?.name),
-    ["workspace_rename"]
+    ["workspace_settings_update"]
   );
   assert.deepEqual(providerCalls[1].tools, []);
   assert.equal(events.find((event) => event.type === "assistant_message")?.text, "Hello after retry.");

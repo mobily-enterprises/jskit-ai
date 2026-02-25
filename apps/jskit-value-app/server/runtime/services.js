@@ -649,6 +649,8 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
           apiKey: env.AI_API_KEY,
           baseUrl: env.AI_BASE_URL,
           timeoutMs: env.AI_TIMEOUT_MS,
+          actionsConfig: repositoryConfig?.actions?.assistant || {},
+          resolveActionExecutor: () => services.actionExecutor || null,
           workspaceAdminService: services.workspaceAdminService,
           workspaceSettingsRepository: repositories.workspaceSettingsRepository,
           consoleSettingsRepository: repositories.consoleSettingsRepository,

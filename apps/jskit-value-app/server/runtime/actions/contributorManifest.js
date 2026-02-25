@@ -49,7 +49,6 @@ function createActionContributors({ services, repositories, repositoryConfig, ap
     createAssistantActionContributor({
       aiService: services?.aiService,
       aiTranscriptsService: services?.aiTranscriptsService,
-      workspaceAdminService: services?.workspaceAdminService,
       actionsConfig: actionConfig.assistant,
       appConfig,
       rbacManifest

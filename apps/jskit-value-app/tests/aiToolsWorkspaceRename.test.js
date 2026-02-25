@@ -1,84 +1,195 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createWorkspaceRenameTool } from "../server/modules/ai/lib/tools/workspaceRename.tool.js";
-import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../shared/eventTypes.js";
+import { createAssistantActionToolsResolver } from "../server/modules/ai/lib/tools/actionTools.js";
 
-test("workspace rename tool updates workspace settings and publishes workspace events", async () => {
-  const calls = {
-    update: [],
-    events: []
-  };
-
-  const tool = createWorkspaceRenameTool({
-    workspaceAdminService: {
-      async updateWorkspaceSettings(workspace, payload) {
-        calls.update.push({ workspace, payload });
-        return {
-          workspace: {
-            id: workspace.id,
-            slug: workspace.slug,
-            name: payload.name
-          }
-        };
-      }
+function createRequest(overrides = {}) {
+  return {
+    id: "req_tools_1",
+    headers: {
+      "x-surface-id": "admin",
+      "x-command-id": "cmd_tools_1"
     },
-    realtimeEventsService: {
-      publishWorkspaceEvent(payload) {
-        calls.events.push(payload);
-      }
-    }
-  });
-
-  const context = {
+    surface: "admin",
     workspace: {
-      id: 12,
+      id: 17,
       slug: "acme"
     },
-    request: {
-      headers: {
-        "x-command-id": "cmd_1",
-        "x-client-id": "client_1"
-      },
-      user: {
-        id: 33
-      }
-    }
+    user: {
+      id: 9,
+      email: "owner@example.com"
+    },
+    permissions: ["workspace.settings.update"],
+    ...overrides
   };
+}
 
-  const result = await tool.execute({
+test("assistant action tools resolver builds catalog from assistant_tool action definitions", async () => {
+  const resolver = createAssistantActionToolsResolver({
+    resolveActionExecutor: () => ({
+      listDefinitions() {
+        return [
+          {
+            id: "workspace.settings.update",
+            version: 1,
+            kind: "command",
+            channels: ["api", "assistant_tool"],
+            surfaces: ["admin"],
+            visibility: "public"
+          },
+          {
+            id: "workspace.invite.create",
+            version: 1,
+            kind: "command",
+            channels: ["api"],
+            surfaces: ["admin"],
+            visibility: "public"
+          },
+          {
+            id: "chat.thread.message.send",
+            version: 1,
+            kind: "command",
+            channels: ["assistant_tool"],
+            surfaces: ["app"],
+            visibility: "public"
+          }
+        ];
+      },
+      async execute() {
+        return {
+          ok: true
+        };
+      }
+    })
+  });
+
+  const adminCatalog = await resolver({
+    surfaceId: "admin",
+    request: createRequest()
+  });
+
+  assert.deepEqual(
+    adminCatalog.providerTools.map((entry) => entry?.function?.name),
+    ["workspace_settings_update"]
+  );
+  assert.equal(adminCatalog.allowedToolNames.includes("workspace_settings_update"), true);
+
+  const appCatalog = await resolver({
+    surfaceId: "app",
+    request: createRequest({
+      surface: "app",
+      headers: {
+        "x-surface-id": "app"
+      }
+    })
+  });
+
+  assert.deepEqual(
+    appCatalog.providerTools.map((entry) => entry?.function?.name),
+    ["chat_thread_message_send"]
+  );
+});
+
+test("assistant action tools resolver executes via action executor with assistant_tool context", async () => {
+  const calls = [];
+  const resolver = createAssistantActionToolsResolver({
+    resolveActionExecutor: () => ({
+      listDefinitions() {
+        return [
+          {
+            id: "workspace.settings.update",
+            version: 1,
+            kind: "command",
+            channels: ["assistant_tool"],
+            surfaces: ["admin"],
+            visibility: "public"
+          }
+        ];
+      },
+      async execute(payload) {
+        calls.push(payload);
+        return {
+          workspaceId: 17,
+          workspaceSlug: "acme",
+          name: payload.input?.name || ""
+        };
+      }
+    })
+  });
+
+  const request = createRequest();
+  const catalog = await resolver({
+    surfaceId: "admin",
+    request
+  });
+  const tool = catalog.toolRegistry.workspace_settings_update;
+  const response = await tool.execute({
     args: {
       name: "Renamed Workspace"
     },
-    context
-  });
-
-  assert.deepEqual(calls.update, [
-    {
-      workspace: context.workspace,
-      payload: {
-        name: "Renamed Workspace"
+    context: {
+      request,
+      workspace: request.workspace,
+      user: request.user,
+      permissions: request.permissions,
+      assistantMeta: {
+        conversationId: "conv_1",
+        toolCallId: "tool_call_1"
       }
     }
-  ]);
-
-  assert.equal(calls.events.length, 2);
-  assert.equal(calls.events[0].topic, REALTIME_TOPICS.WORKSPACE_SETTINGS);
-  assert.equal(calls.events[0].eventType, REALTIME_EVENT_TYPES.WORKSPACE_SETTINGS_UPDATED);
-  assert.equal(calls.events[1].topic, REALTIME_TOPICS.WORKSPACE_META);
-  assert.equal(calls.events[1].eventType, REALTIME_EVENT_TYPES.WORKSPACE_META_UPDATED);
-
-  for (const event of calls.events) {
-    assert.equal(event.commandId, "cmd_1");
-    assert.equal(event.sourceClientId, "client_1");
-    assert.equal(event.actorUserId, 33);
-    assert.equal(event.payload.workspaceId, 12);
-    assert.equal(event.payload.workspaceSlug, "acme");
-  }
-
-  assert.deepEqual(result, {
-    workspaceId: 12,
-    workspaceSlug: "acme",
-    name: "Renamed Workspace"
   });
+
+  assert.equal(response.name, "Renamed Workspace");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].actionId, "workspace.settings.update");
+  assert.equal(calls[0].context.channel, "assistant_tool");
+  assert.equal(calls[0].context.surface, "admin");
+  assert.equal(String(calls[0].context.requestMeta.idempotencyKey).startsWith("assist:conv_1:tool_call_1:"), true);
+});
+
+test("assistant action tools resolver enforces assistant action exposure config", async () => {
+  const resolver = createAssistantActionToolsResolver({
+    actionsConfig: {
+      enabled: true,
+      exposedActionIds: ["chat.thread.message.send"],
+      blockedActionIds: []
+    },
+    resolveActionExecutor: () => ({
+      listDefinitions() {
+        return [
+          {
+            id: "workspace.settings.update",
+            version: 1,
+            kind: "command",
+            channels: ["assistant_tool"],
+            surfaces: ["admin"],
+            visibility: "public"
+          },
+          {
+            id: "chat.thread.message.send",
+            version: 1,
+            kind: "command",
+            channels: ["assistant_tool"],
+            surfaces: ["admin"],
+            visibility: "public"
+          }
+        ];
+      },
+      async execute() {
+        return {
+          ok: true
+        };
+      }
+    })
+  });
+
+  const catalog = await resolver({
+    surfaceId: "admin",
+    request: createRequest()
+  });
+
+  assert.deepEqual(
+    catalog.providerTools.map((entry) => entry?.function?.name),
+    ["chat_thread_message_send"]
+  );
 });

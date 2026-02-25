@@ -805,6 +805,7 @@ function createService({
   assistantToolSurfaceAllowlist = DEFAULT_ASSISTANT_TOOL_SURFACE_ALLOWLIST,
   appErrorClass = null,
   tools = [],
+  resolveToolsForSurfaceFn = null,
   hasPermissionFn = null,
   realtimeEventTypes = null,
   realtimeTopics = null,
@@ -893,7 +894,7 @@ function createService({
   const surfaceToolAllowlist = normalizeSurfaceToolAllowlist(assistantToolSurfaceAllowlist);
   const publishWorkspaceEvent = resolvePublishWorkspaceEvent(realtimeEventsService);
 
-  function resolveToolsForSurface(surfaceId) {
+  function resolveStaticToolsForSurface(surfaceId) {
     const normalizedSurfaceId = normalizeSurfaceId(surfaceId);
     const allowedToolNames = Array.isArray(surfaceToolAllowlist[normalizedSurfaceId])
       ? surfaceToolAllowlist[normalizedSurfaceId]
@@ -913,6 +914,50 @@ function createService({
       providerTools: listToolSchemas(scopedRegistry),
       allowedToolNames: Object.keys(scopedRegistry)
     };
+  }
+
+  async function resolveToolsForSurface(surfaceId, request = null) {
+    if (typeof resolveToolsForSurfaceFn !== "function") {
+      return resolveStaticToolsForSurface(surfaceId);
+    }
+
+    try {
+      const resolved = await resolveToolsForSurfaceFn({
+        surfaceId: normalizeSurfaceId(surfaceId),
+        request
+      });
+      if (!resolved || typeof resolved !== "object") {
+        return resolveStaticToolsForSurface(surfaceId);
+      }
+
+      const toolRegistry =
+        resolved.toolRegistry && typeof resolved.toolRegistry === "object" ? resolved.toolRegistry : {};
+      const providerTools = Array.isArray(resolved.providerTools) ? resolved.providerTools : listToolSchemas(toolRegistry);
+      const allowedToolNames = Array.isArray(resolved.allowedToolNames)
+        ? resolved.allowedToolNames
+            .map((entry) => normalizeText(entry))
+            .filter(Boolean)
+            .filter((entry, index, list) => list.indexOf(entry) === index)
+        : Object.keys(toolRegistry);
+
+      return {
+        toolRegistry,
+        providerTools,
+        allowedToolNames
+      };
+    } catch (error) {
+      if (request?.log && typeof request.log.warn === "function") {
+        request.log.warn(
+          {
+            err: error,
+            surfaceId: normalizeSurfaceId(surfaceId)
+          },
+          "ai.tools.resolver_failed"
+        );
+      }
+
+      return resolveStaticToolsForSurface(surfaceId);
+    }
   }
 
   function validateChatTurnInput({ body } = {}) {
@@ -1002,13 +1047,14 @@ function createService({
       });
     }
 
-    function recordToolCallMetric({ tool, outcome }) {
+    function recordToolCallMetric({ tool, outcome, knownTools = null }) {
       if (!observabilityService || typeof observabilityService.recordAiToolCall !== "function") {
         return;
       }
 
+      const knownToolSet = knownTools instanceof Set ? knownTools : knownToolNames;
       observabilityService.recordAiToolCall({
-        tool: knownToolNames.has(tool) ? tool : "unknown",
+        tool: knownToolSet.has(tool) ? tool : "unknown",
         outcome
       });
     }
@@ -1165,7 +1211,8 @@ function createService({
         toolRegistry: scopedToolRegistry,
         providerTools: scopedProviderTools,
         allowedToolNames
-      } = resolveToolsForSurface(assistantSurfaceId);
+      } = await resolveToolsForSurface(assistantSurfaceId, request);
+      const knownToolNamesForTurn = new Set(Object.keys(scopedToolRegistry));
       let workspaceCustomPrompt = "";
       if (assistantSurfaceId === "app" && workspaceSettingsRepository && workspaceId) {
         try {
@@ -1411,6 +1458,14 @@ function createService({
           totalToolCalls += 1;
           const toolName = normalizeText(toolCall.name);
           const toolCallId = normalizeToolCallId(toolCall.id, totalToolCalls);
+          const toolCallContext = {
+            ...toolContext,
+            assistantMeta: {
+              conversationId: transcriptConversationId ? String(transcriptConversationId) : "",
+              toolCallId,
+              toolName
+            }
+          };
 
           streamWriter.sendToolCall({
             toolCallId,
@@ -1435,7 +1490,7 @@ function createService({
             const toolResult = await executeToolCall(scopedToolRegistry, {
               name: toolName,
               args: parsedArgs,
-              context: toolContext,
+              context: toolCallContext,
               appErrorClass: AppError,
               hasPermissionFn: permissionCheck
             });
@@ -1468,7 +1523,8 @@ function createService({
             });
             recordToolCallMetric({
               tool: toolName,
-              outcome: "success"
+              outcome: "success",
+              knownTools: knownToolNamesForTurn
             });
           } catch (error) {
             const mappedToolError = mapErrorToEvent(error, {
@@ -1510,7 +1566,8 @@ function createService({
             });
             recordToolCallMetric({
               tool: toolName,
-              outcome: mapToolErrorToOutcome(mappedToolError)
+              outcome: mapToolErrorToOutcome(mappedToolError),
+              knownTools: knownToolNamesForTurn
             });
           }
 

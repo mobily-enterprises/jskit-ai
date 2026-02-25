@@ -4,7 +4,6 @@ const ACTION_IDS = Object.freeze({
   ASSISTANT_CONVERSATION_START_NEW: "assistant.conversation.start_new",
   ASSISTANT_CONVERSATIONS_LIST: "assistant.conversations.list",
   ASSISTANT_STREAM_CANCEL: "assistant.stream.cancel",
-  ASSISTANT_TOOL_WORKSPACE_RENAME: "assistant.tool.workspace_rename",
   AUTH_LOGIN_OAUTH_COMPLETE: "auth.login.oauth.complete",
   AUTH_LOGIN_OAUTH_START: "auth.login.oauth.start",
   AUTH_LOGIN_OTP_REQUEST: "auth.login.otp.request",

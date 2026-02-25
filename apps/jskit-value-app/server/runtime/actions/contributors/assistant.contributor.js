@@ -122,7 +122,6 @@ const OBJECT_INPUT_SCHEMA = Object.freeze({
 function createAssistantActionContributor({
   aiService,
   aiTranscriptsService = null,
-  workspaceAdminService = null,
   actionsConfig = {},
   appConfig = {}
 } = {}) {
@@ -308,36 +307,6 @@ function createAssistantActionContributor({
       }
     }
   ];
-
-  if (workspaceAdminService && typeof workspaceAdminService.updateWorkspaceSettings === "function") {
-    actions.push({
-      id: "assistant.tool.workspace_rename",
-      version: 1,
-      kind: "command",
-      channels: ["assistant_tool", "internal"],
-      surfaces: ["admin"],
-      visibility: "public",
-      inputSchema: OBJECT_INPUT_SCHEMA,
-      permission: ["workspace.settings.update"],
-      idempotency: "optional",
-      audit: {
-        actionName: "assistant.tool.workspace_rename"
-      },
-      observability: {},
-      async execute(input, context) {
-        const payload = normalizeObject(input);
-        const response = await workspaceAdminService.updateWorkspaceSettings(resolveWorkspace(context, payload), {
-          name: payload.name
-        });
-
-        return {
-          workspaceId: toPositiveInteger(response?.workspace?.id || context?.workspace?.id) || null,
-          workspaceSlug: normalizeText(response?.workspace?.slug || context?.workspace?.slug),
-          name: normalizeText(response?.workspace?.name || payload.name)
-        };
-      }
-    });
-  }
 
   return {
     contributorId,
