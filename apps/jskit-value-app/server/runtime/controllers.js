@@ -2,6 +2,7 @@ import { createController as createAuthController } from "@jskit-ai/auth-fastify
 import { createController as createHistoryController } from "../modules/history/index.js";
 import { createController as createCommunicationsController } from "@jskit-ai/communications-fastify-adapter";
 import { createController as createSettingsController } from "../modules/settings/index.js";
+import { createController as createAlertsController } from "../modules/alerts/index.js";
 import { createController as createWorkspaceController } from "../modules/workspace/index.js";
 import { createController as createConsoleController } from "../modules/console/index.js";
 import { createController as createConsoleErrorsController } from "@jskit-ai/console-errors-fastify-adapter";
@@ -43,6 +44,13 @@ const PLATFORM_CONTROLLER_DEFINITIONS = Object.freeze([
         userSettingsService: services.userSettingsService,
         authService: services.authService,
         auditService: services.auditService,
+        actionExecutor: services.actionExecutor
+      })
+  },
+  {
+    id: "alerts",
+    create: ({ services }) =>
+      createAlertsController({
         actionExecutor: services.actionExecutor
       })
   },

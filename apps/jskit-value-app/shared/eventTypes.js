@@ -1,4 +1,5 @@
 const REALTIME_TOPICS = Object.freeze({
+  ALERTS: "alerts",
   PROJECTS: "projects",
   WORKSPACE_META: "workspace_meta",
   WORKSPACE_SETTINGS: "workspace_settings",
@@ -11,6 +12,7 @@ const REALTIME_TOPICS = Object.freeze({
 });
 
 const REALTIME_EVENT_TYPES = Object.freeze({
+  USER_ALERT_CREATED: "user.alert.created",
   WORKSPACE_PROJECT_CREATED: "workspace.project.created",
   WORKSPACE_PROJECT_UPDATED: "workspace.project.updated",
   WORKSPACE_META_UPDATED: "workspace.meta.updated",

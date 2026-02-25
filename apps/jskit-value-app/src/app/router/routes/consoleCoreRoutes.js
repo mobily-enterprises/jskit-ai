@@ -30,6 +30,7 @@ const ConsoleBillingPlanAssignmentsView = lazyRouteComponent(
 const ConsoleBillingSubscriptionsView = lazyRouteComponent(
   () => import("../../../views/console/ConsoleBillingSubscriptionsView.vue")
 );
+const AlertsView = lazyRouteComponent(() => import("../../../views/alerts/AlertsView.vue"));
 /* v8 ignore stop */
 /* c8 ignore stop */
 
@@ -45,6 +46,12 @@ function createRoutes({ rootRoute, surfacePaths, guards }) {
       getParentRoute: () => rootRoute,
       path: surfacePaths.accountSettingsPath,
       component: AccountSettingsView,
+      beforeLoad: guards.beforeLoadAuthenticated
+    }),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: `${surfacePaths.prefix}/alerts`,
+      component: AlertsView,
       beforeLoad: guards.beforeLoadAuthenticated
     }),
     createRoute({

@@ -20,8 +20,43 @@ function createConsoleInvitesService({
   consoleMembershipsRepository,
   userProfilesRepository,
   roleCatalog,
-  normalizeRoleForAssignment
+  normalizeRoleForAssignment,
+  alertsService = null
 } = {}) {
+  async function sendConsoleInviteAlertBestEffort({ existingUser, roleId, actorUserId } = {}) {
+    const recipientUserId = parsePositiveInteger(existingUser?.id);
+    if (!recipientUserId || !alertsService) {
+      return;
+    }
+
+    try {
+      if (typeof alertsService.createConsoleInviteAlert === "function") {
+        await alertsService.createConsoleInviteAlert({
+          userId: recipientUserId,
+          roleId,
+          actorUserId
+        });
+        return;
+      }
+
+      if (typeof alertsService.createAlert === "function") {
+        await alertsService.createAlert({
+          userId: recipientUserId,
+          type: "console.invite.received",
+          title: "Console invite",
+          message: `You were invited to the console as ${roleId}.`,
+          targetUrl: "/console/invitations",
+          payloadJson: {
+            roleId
+          },
+          actorUserId: parsePositiveInteger(actorUserId) || null
+        });
+      }
+    } catch {
+      // Invite creation should not fail when alert creation fails.
+    }
+  }
+
   async function listPendingInvitesForUser(user) {
     const email = normalizeEmail(user?.email);
     if (!email) {
@@ -104,6 +139,12 @@ function createConsoleInvitesService({
 
         throw error;
       }
+    });
+
+    await sendConsoleInviteAlertBestEffort({
+      existingUser,
+      roleId,
+      actorUserId: Number(user?.id) || null
     });
 
     const response = await listInvites(user);

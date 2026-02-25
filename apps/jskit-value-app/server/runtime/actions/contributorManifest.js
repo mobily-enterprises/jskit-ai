@@ -4,6 +4,7 @@ import { createConsoleActionContributor } from "@jskit-ai/workspace-console-serv
 import { createChatActionContributor } from "@jskit-ai/chat-core";
 import { createWorkspaceBillingActionContributor } from "@jskit-ai/billing-service-core";
 import { createSettingsActionContributor } from "./contributors/settings.contributor.js";
+import { createAlertsActionContributor } from "./contributors/alerts.contributor.js";
 import { createProjectsActionContributor } from "./contributors/projects.contributor.js";
 import { createDeg2radHistoryActionContributor } from "./contributors/deg2radHistory.contributor.js";
 import { createAssistantActionContributor } from "./contributors/assistant.contributor.js";
@@ -36,6 +37,9 @@ function createActionContributors({ services, repositories, repositoryConfig, ap
     createSettingsActionContributor({
       userSettingsService: services?.userSettingsService,
       authService: services?.authService
+    }),
+    createAlertsActionContributor({
+      alertsService: services?.alertsService
     }),
     createProjectsActionContributor({
       projectsService: services?.projectsService,

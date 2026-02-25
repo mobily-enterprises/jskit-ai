@@ -647,6 +647,25 @@ function createServiceStubs() {
         };
       }
     },
+    alertsService: {
+      async listForUser() {
+        return {
+          entries: [],
+          page: 1,
+          pageSize: 20,
+          total: 0,
+          totalPages: 1,
+          unreadCount: 0,
+          readThroughAlertId: null
+        };
+      },
+      async markAllReadForUser() {
+        return {
+          unreadCount: 0,
+          readThroughAlertId: null
+        };
+      }
+    },
     projectsService: {
       async list() {
         return {
@@ -885,6 +904,8 @@ test("action runtime services scaffold action registry and executor", async () =
     ACTION_IDS.WORKSPACE_BILLING_PAYMENT_METHODS_REMOVE,
     ACTION_IDS.CHAT_THREAD_MESSAGE_SEND,
     ACTION_IDS.CHAT_ATTACHMENT_UPLOAD,
+    ACTION_IDS.SETTINGS_ALERTS_LIST,
+    ACTION_IDS.SETTINGS_ALERTS_READ_ALL,
     ACTION_IDS.PROJECTS_CREATE,
     ACTION_IDS.PROJECTS_UPDATE,
     ACTION_IDS.DEG2RAD_CALCULATE,

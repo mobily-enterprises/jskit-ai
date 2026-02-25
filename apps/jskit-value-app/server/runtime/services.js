@@ -4,6 +4,7 @@ import { createService as createSmsService } from "@jskit-ai/sms-core";
 import { createService as createEmailService } from "@jskit-ai/email-core";
 import { createService as createCommunicationsModuleService } from "../modules/communications/index.js";
 import { createService as createSettingsModuleService } from "../modules/settings/index.js";
+import { createService as createAlertsModuleService } from "../modules/alerts/index.js";
 import { createService as createAvatarStorageService } from "@jskit-ai/user-profile-core/avatarStorageService";
 import { createService as createUserAvatarService } from "@jskit-ai/user-profile-core/avatarService";
 import { createService as createWorkspaceService } from "@jskit-ai/workspace-service-core/services/workspace";
@@ -387,6 +388,7 @@ const BILLING_SUBSYSTEM_EXPORT_IDS = Object.freeze([
 
 const RUNTIME_SERVICE_EXPORT_IDS = Object.freeze([
   "authService",
+  "alertsService",
   "workspaceService",
   "consoleService",
   "consoleErrorsService",
@@ -529,6 +531,16 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
     }
   },
   {
+    id: "alertsService",
+    create({ repositories, services }) {
+      const { service } = createAlertsModuleService({
+        alertsRepository: repositories.alertsRepository,
+        resolveRealtimeEventsService: () => services.realtimeEventsService || null
+      });
+      return service;
+    }
+  },
+  {
     id: "workspaceInviteEmailService",
     create({ env, services }) {
       return createWorkspaceInviteEmailService({
@@ -571,7 +583,8 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
         workspaceInvitesRepository: repositories.workspaceInvitesRepository,
         userProfilesRepository: repositories.userProfilesRepository,
         userSettingsRepository: repositories.userSettingsRepository,
-        workspaceInviteEmailService: services.workspaceInviteEmailService
+        workspaceInviteEmailService: services.workspaceInviteEmailService,
+        alertsService: services.alertsService
       });
     }
   },
@@ -755,7 +768,8 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
         billingRepository: repositories.billingRepository,
         billingProviderAdapter: services.billingProviderAdapter,
         billingEnabled: billingPolicyConfig.enabled,
-        billingProvider: billingPolicyConfig.provider
+        billingProvider: billingPolicyConfig.provider,
+        alertsService: services.alertsService
       });
     }
   },

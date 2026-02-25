@@ -142,7 +142,8 @@ function createWorkspaceAdminFixture(overrides = {}) {
     inviteTransactions: 0,
     findByWorkspaceIdAndUserId: 0,
     listByUserIdAndWorkspaceIds: 0,
-    inviteEmailDispatches: 0
+    inviteEmailDispatches: 0,
+    inviteAlertDispatches: 0
   };
 
   function cloneWorkspace() {
@@ -480,6 +481,15 @@ function createWorkspaceAdminFixture(overrides = {}) {
     }
   };
 
+  const alertsService = overrides.alertsService || {
+    async createWorkspaceInviteAlert() {
+      counters.inviteAlertDispatches += 1;
+      return {
+        ok: true
+      };
+    }
+  };
+
   const appConfig = {
     features: {
       workspaceInvites: true
@@ -515,7 +525,8 @@ function createWorkspaceAdminFixture(overrides = {}) {
     workspaceInvitesRepository,
     userProfilesRepository,
     userSettingsRepository,
-    workspaceInviteEmailService
+    workspaceInviteEmailService,
+    alertsService
   });
 
   return {
@@ -684,6 +695,7 @@ test("workspace admin service manages members, invites, and pending invite respo
   assert.equal(typeof createdInviteResponse.createdInvite?.token, "string");
   assert.equal(createdInviteResponse.createdInvite.token.length > 0, true);
   assert.equal(counters.inviteEmailDispatches, 1);
+  assert.equal(counters.inviteAlertDispatches, 0);
 
   const existingWorkspaceInviteResponse = await service.createInvite(
     { id: 11 },
@@ -695,6 +707,7 @@ test("workspace admin service manages members, invites, and pending invite respo
     true
   );
   assert.equal(counters.inviteEmailDispatches, 1);
+  assert.equal(counters.inviteAlertDispatches, 1);
 
   const recreatedExpiredInviteResponse = await service.createInvite(
     { id: 11 },
@@ -1600,4 +1613,27 @@ test("workspace admin service normalizes sparse member/invite data and fallback 
     decision: "accept"
   });
   assert.equal(acceptedNullWorkspace.workspace, null);
+});
+
+test("workspace admin invite creation keeps success response when alert emission fails", async () => {
+  const fixture = createWorkspaceAdminFixture({
+    alertsService: {
+      async createWorkspaceInviteAlert() {
+        throw new Error("alerts unavailable");
+      }
+    }
+  });
+
+  const response = await fixture.service.createInvite(
+    { id: 11 },
+    { id: 5 },
+    { email: "existing@example.com", roleId: "member" }
+  );
+
+  assert.equal(
+    response.invites.some((invite) => invite.email === "existing@example.com"),
+    true
+  );
+  assert.equal(typeof response.createdInvite?.token, "string");
+  assert.equal(response.createdInvite.token.length > 0, true);
 });

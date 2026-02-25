@@ -582,6 +582,8 @@ Realtime note:
 - `GET /api/v1/settings/security/oauth/:provider/start`
 - `DELETE /api/v1/settings/security/oauth/:provider`
 - `POST /api/v1/settings/security/logout-others`
+- `GET /api/v1/alerts`
+- `POST /api/v1/alerts/read-all`
 - `GET /api/v1/history`
 - `POST /api/v1/deg2rad`
 <!-- API_CONTRACTS_END -->

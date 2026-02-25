@@ -26,7 +26,8 @@ function createService({
   billingRepository = null,
   billingProviderAdapter = null,
   billingEnabled = true,
-  billingProvider = DEFAULT_BILLING_PROVIDER
+  billingProvider = DEFAULT_BILLING_PROVIDER,
+  alertsService = null
 }) {
   if (
     !consoleMembershipsRepository ||
@@ -140,7 +141,8 @@ function createService({
       consoleMembershipsRepository,
       userProfilesRepository,
       roleCatalog,
-      normalizeRoleForAssignment
+      normalizeRoleForAssignment,
+      alertsService
     });
   resolvePendingInvitesForUser = listPendingInvitesForUser;
 

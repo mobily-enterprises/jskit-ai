@@ -1121,4 +1121,35 @@ describe("client api transport", () => {
     expect(urls).toContain("/api/v1/workspace/projects/");
     expect(urls).toContain("/api/v1/settings/security/oauth/");
   });
+
+  it("calls alerts endpoints through wrapper methods", async () => {
+    global.fetch
+      .mockResolvedValueOnce(
+        mockResponse({
+          data: {
+            entries: [],
+            page: 1,
+            pageSize: 20,
+            total: 0,
+            totalPages: 1,
+            unreadCount: 0,
+            readThroughAlertId: null
+          }
+        })
+      )
+      .mockResolvedValueOnce(mockResponse({ data: { csrfToken: "alerts-token" } }))
+      .mockResolvedValueOnce(mockResponse({ data: { unreadCount: 0, readThroughAlertId: 3 } }));
+
+    await api.alerts.list({
+      page: 2,
+      pageSize: 50
+    });
+    await api.alerts.markAllRead();
+
+    expect(global.fetch.mock.calls.map(([url]) => url)).toEqual([
+      "/api/v1/alerts?page=2&pageSize=50",
+      "/api/v1/session",
+      "/api/v1/alerts/read-all"
+    ]);
+  });
 });

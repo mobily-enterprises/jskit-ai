@@ -91,6 +91,7 @@ vi.mock("@mdi/js", async (importOriginal) => {
     mdiAlertCircleOutline: "mdi-alert-circle-outline",
     mdiArrowLeftTopBold: "mdi-arrow-left-top-bold",
     mdiAccountOutline: "mdi-account-outline",
+    mdiBellOutline: "mdi-bell-outline",
     mdiChatOutline: "mdi-chat-outline",
     mdiCogOutline: "mdi-cog-outline",
     mdiGoogle: "mdi-google",

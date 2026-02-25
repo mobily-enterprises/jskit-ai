@@ -112,6 +112,49 @@
 
         <v-menu location="bottom end" offset="8">
           <template #activator="{ props }">
+            <v-badge :model-value="hasUnreadAlerts" :content="unreadAlertsBadge" color="error" location="top end">
+              <v-btn
+                v-bind="props"
+                icon="$menuAlerts"
+                variant="text"
+                class="mr-1 alert-bell-button"
+                :class="{ 'alert-bell-button--blinking': hasUnreadAlerts }"
+                aria-label="Open alerts"
+              />
+            </v-badge>
+          </template>
+
+          <v-list density="comfortable" min-width="340">
+            <v-list-subheader>Alerts</v-list-subheader>
+            <v-list-item v-if="alertsPreviewLoading" title="Loading alerts..." />
+            <v-list-item v-else-if="alertsPreviewError" :subtitle="alertsPreviewError">
+              <template #title>
+                <span>Unable to load alerts.</span>
+              </template>
+              <template #append>
+                <v-btn size="small" variant="text" @click="refreshAlertsPreview">Retry</v-btn>
+              </template>
+            </v-list-item>
+            <v-list-item v-else-if="!alertPreviewEntries.length" title="No alerts yet." />
+            <v-list-item
+              v-for="alert in alertPreviewEntries"
+              :key="alert.id"
+              :title="alert.title"
+              :subtitle="alert.message || alert.type"
+              @click="openAlertFromBell(alert)"
+            >
+              <template #append>
+                <v-chip v-if="isAlertUnread(alert)" size="x-small" color="error" label>New</v-chip>
+                <span v-else class="text-caption text-medium-emphasis">{{ formatAlertDateTime(alert.createdAt) }}</span>
+              </template>
+            </v-list-item>
+            <v-divider class="my-1" />
+            <v-list-item prepend-icon="$menuAlerts" title="View all alerts" @click="goToAlerts" />
+          </v-list>
+        </v-menu>
+
+        <v-menu location="bottom end" offset="8">
+          <template #activator="{ props }">
             <v-btn
               v-bind="props"
               variant="text"
@@ -134,6 +177,7 @@
 
           <v-list density="comfortable" min-width="240">
             <v-list-item prepend-icon="$menuSettings" title="Account settings" @click="goToAccountSettings" />
+            <v-list-item prepend-icon="$menuAlerts" title="Alerts" @click="goToAlerts" />
             <v-list-item prepend-icon="$menuBackToApp" title="Back to App" @click="goToAppSurface" />
             <v-list-item
               prepend-icon="$menuHelp"
@@ -229,12 +273,13 @@ export default {
     GlobalNetworkActivityBar
   },
   setup() {
-    const { formatters, layout, workspace, user, navigation, dialogs, feedback, actions } = useAdminShell();
+    const { formatters, layout, workspace, user, alerts, navigation, dialogs, feedback, actions } = useAdminShell();
     return {
       ...formatters,
       ...layout,
       ...workspace,
       ...user,
+      ...alerts,
       ...navigation,
       ...dialogs,
       ...feedback,
@@ -252,6 +297,21 @@ export default {
 .workspace-switcher-button {
   max-width: 320px;
   border: 1px solid var(--workspace-color-soft);
+}
+
+.alert-bell-button--blinking {
+  animation: alert-bell-pulse 1s ease-in-out infinite;
+  color: rgb(var(--v-theme-error));
+}
+
+@keyframes alert-bell-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
 }
 
 .accent-pill {

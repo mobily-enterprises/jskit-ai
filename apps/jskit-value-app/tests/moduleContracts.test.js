@@ -72,6 +72,16 @@ const MODULE_EXPORT_EXPECTATIONS = Object.freeze([
     }
   },
   {
+    modulePath: "../server/modules/alerts/index.js",
+    requiredExports: {
+      createController: "function",
+      buildRoutes: "function",
+      schema: "object",
+      createService: "function",
+      createRepository: "function"
+    }
+  },
+  {
     modulePath: "../server/modules/billing/index.js",
     requiredExports: {
       createService: "function",
@@ -162,6 +172,13 @@ const SERVICE_FACTORY_EXPECTATIONS = Object.freeze([
     options: {
       aiService: {},
       aiTranscriptsService: {}
+    }
+  },
+  {
+    modulePath: "../server/modules/alerts/index.js",
+    expectedKeys: ["service"],
+    options: {
+      alertsRepository: {}
     }
   },
   {
@@ -271,6 +288,10 @@ const SERVICE_FACTORY_EXPECTATIONS = Object.freeze([
 
 const REPOSITORY_FACTORY_EXPECTATIONS = Object.freeze([
   {
+    modulePath: "../server/modules/alerts/index.js",
+    expectedKeys: ["repository"]
+  },
+  {
     modulePath: "../server/modules/ai/index.js",
     expectedKeys: ["conversationsRepository", "messagesRepository"]
   },
@@ -358,6 +379,7 @@ function assertNoLegacyFactoryNames(exportKeys, allowed) {
 test("client API modules expose createApi contract", async () => {
   const modules = [
     "../src/platform/http/api/authApi.js",
+    "../src/platform/http/api/alertsApi.js",
     "../src/platform/http/api/billingApi.js",
     "../src/platform/http/api/deg2radApi.js",
     "../src/platform/http/api/workspaceApi.js",

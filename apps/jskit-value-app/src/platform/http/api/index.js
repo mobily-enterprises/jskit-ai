@@ -4,6 +4,7 @@ import { createApi as createWorkspaceApi } from "./workspaceApi.js";
 import { createApi as createConsoleApi } from "./consoleApi.js";
 import { createApi as createProjectsApi } from "./projectsApi.js";
 import { createApi as createSettingsApi } from "./settingsApi.js";
+import { createApi as createAlertsApi } from "./alertsApi.js";
 import { createApi as createDeg2radApi } from "./deg2radApi.js";
 import { createApi as createHistoryApi } from "./historyApi.js";
 import { createApi as createBillingApi } from "./billingApi.js";
@@ -17,6 +18,7 @@ const api = {
   console: createConsoleApi({ request }),
   projects: createProjectsApi({ request }),
   settings: createSettingsApi({ request }),
+  alerts: createAlertsApi({ request }),
   deg2rad: createDeg2radApi({ request }),
   history: createHistoryApi({ request }),
   billing: createBillingApi({ request }),

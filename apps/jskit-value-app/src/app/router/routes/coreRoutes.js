@@ -7,6 +7,7 @@ const Deg2radCalculatorView = lazyRouteComponent(() => import("../../../views/de
 const ChoiceTwoView = lazyRouteComponent(() => import("../../../views/choice-two/ChoiceTwoView.vue"));
 const ResetPasswordView = lazyRouteComponent(() => import("../../../views/reset-password/ResetPasswordView.vue"));
 const AccountSettingsView = lazyRouteComponent(() => import("../../../views/settings/SettingsView.vue"));
+const AlertsView = lazyRouteComponent(() => import("../../../views/alerts/AlertsView.vue"));
 const WorkspacesView = lazyRouteComponent(() => import("../../../views/workspaces/WorkspacesView.vue"));
 /* v8 ignore stop */
 /* c8 ignore stop */
@@ -62,10 +63,18 @@ function createRoutes({ rootRoute, surfacePaths, workspaceRoutePrefix, guards, i
     beforeLoad: guards.beforeLoadAuthenticated
   });
 
+  const alertsRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: `${surfacePaths.prefix}/alerts`,
+    component: AlertsView,
+    beforeLoad: guards.beforeLoadAuthenticated
+  });
+
   return [
     rootRedirectRoute,
     calculatorRoute,
     ...(choiceTwoRoute ? [choiceTwoRoute] : []),
+    alertsRoute,
     accountSettingsRoute,
     workspacesRoute,
     loginRoute,

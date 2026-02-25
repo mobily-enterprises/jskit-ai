@@ -2,6 +2,7 @@ import { db } from "../../db/knex.js";
 import { createRepository as createHistoryRepository } from "../modules/history/index.js";
 import { createRepository as createUserSettingsRepository } from "../modules/settings/index.js";
 import { createRepository as createProjectsRepository } from "../modules/projects/index.js";
+import { createRepository as createAlertsRepository } from "../modules/alerts/index.js";
 import { createRepository as createHealthRepository } from "../modules/health/index.js";
 import { createRepository as createAiRepository } from "../modules/ai/index.js";
 import { createRepository as createBillingRepository } from "../modules/billing/index.js";
@@ -45,6 +46,7 @@ const { repository: billingRepository } = createBillingRepository();
 const { repository: calculationLogsRepository } = createHistoryRepository();
 const { repository: userSettingsRepository } = createUserSettingsRepository();
 const { repository: projectsRepository } = createProjectsRepository();
+const { repository: alertsRepository } = createAlertsRepository();
 const { repository: healthRepository } = createHealthRepository();
 
 const PLATFORM_REPOSITORY_DEFINITIONS = Object.freeze([
@@ -143,6 +145,10 @@ const PLATFORM_REPOSITORY_DEFINITIONS = Object.freeze([
   {
     id: "projectsRepository",
     create: () => projectsRepository
+  },
+  {
+    id: "alertsRepository",
+    create: () => alertsRepository
   },
   {
     id: "healthRepository",

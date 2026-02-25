@@ -91,6 +91,8 @@ const ACTION_IDS = Object.freeze({
   PROJECTS_LIST: "projects.list",
   PROJECTS_UPDATE: "projects.update",
   SETTINGS_CHAT_UPDATE: "settings.chat.update",
+  SETTINGS_ALERTS_LIST: "settings.alerts.list",
+  SETTINGS_ALERTS_READ_ALL: "settings.alerts.read_all",
   SETTINGS_NOTIFICATIONS_UPDATE: "settings.notifications.update",
   SETTINGS_PREFERENCES_UPDATE: "settings.preferences.update",
   SETTINGS_PROFILE_AVATAR_DELETE: "settings.profile.avatar.delete",

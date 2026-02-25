@@ -19,8 +19,22 @@ const mocks = vi.hoisted(() => ({
   },
   authStore: {
     username: "Tony",
+    isAuthenticated: true,
     setSignedOut: vi.fn(),
     invalidateSession: vi.fn(async () => undefined)
+  },
+  alertsStore: {
+    previewEntries: [],
+    unreadCount: 0,
+    readThroughAlertId: null,
+    previewLoading: false,
+    markAllReadLoading: false,
+    previewError: "",
+    markAllReadError: "",
+    startPolling: vi.fn(async () => undefined),
+    stopPolling: vi.fn(),
+    refreshPreview: vi.fn(async () => undefined),
+    handleAlertClick: vi.fn(async () => undefined)
   },
   consoleStore: {
     clearConsoleState: vi.fn()
@@ -93,6 +107,10 @@ vi.mock("../../src/app/state/authStore.js", () => ({
   useAuthStore: () => mocks.authStore
 }));
 
+vi.mock("../../src/app/state/alertsStore.js", () => ({
+  useAlertsStore: () => mocks.alertsStore
+}));
+
 vi.mock("../../src/app/state/workspaceStore.js", () => ({
   useWorkspaceStore: () => mocks.workspaceStore
 }));
@@ -137,9 +155,24 @@ describe("useAppShell", () => {
     mocks.shellState.drawerModel.value = true;
 
     mocks.authStore.username = "Tony";
+    mocks.authStore.isAuthenticated = true;
     mocks.authStore.setSignedOut.mockReset();
     mocks.authStore.invalidateSession.mockReset();
     mocks.authStore.invalidateSession.mockResolvedValue(undefined);
+    mocks.alertsStore.previewEntries = [];
+    mocks.alertsStore.unreadCount = 0;
+    mocks.alertsStore.readThroughAlertId = null;
+    mocks.alertsStore.previewLoading = false;
+    mocks.alertsStore.markAllReadLoading = false;
+    mocks.alertsStore.previewError = "";
+    mocks.alertsStore.markAllReadError = "";
+    mocks.alertsStore.startPolling.mockReset();
+    mocks.alertsStore.startPolling.mockResolvedValue(undefined);
+    mocks.alertsStore.stopPolling.mockReset();
+    mocks.alertsStore.refreshPreview.mockReset();
+    mocks.alertsStore.refreshPreview.mockResolvedValue(undefined);
+    mocks.alertsStore.handleAlertClick.mockReset();
+    mocks.alertsStore.handleAlertClick.mockResolvedValue(undefined);
     mocks.consoleStore.clearConsoleState.mockReset();
 
     mocks.workspaceStore.activeWorkspaceSlug = "acme";
@@ -172,6 +205,7 @@ describe("useAppShell", () => {
     const wrapper = mountHarness();
     await nextTick();
 
+    expect(mocks.alertsStore.startPolling).toHaveBeenCalledTimes(1);
     expect(wrapper.vm.shell.layout.showApplicationShell.value).toBe(true);
     expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("JSKIT app");
     expect(wrapper.vm.shell.layout.activeWorkspaceColor.value).toBe("#336699");
@@ -208,6 +242,11 @@ describe("useAppShell", () => {
 
     await wrapper.vm.shell.actions.goToAdminSurface();
     expect(mocks.shellActions.hardNavigate).not.toHaveBeenCalled();
+
+    await wrapper.vm.shell.actions.goToAlerts();
+    expect(mocks.navigate).toHaveBeenCalledWith({
+      to: "/alerts"
+    });
   });
 
   it("hides assistant navigation when feature is disabled", async () => {
@@ -276,6 +315,31 @@ describe("useAppShell", () => {
       to: "/login",
       replace: true
     });
+  });
+
+  it("exposes alerts helpers and delegates alert click handling", async () => {
+    mocks.alertsStore.unreadCount = 3;
+    mocks.alertsStore.readThroughAlertId = 1;
+    mocks.alertsStore.previewEntries = [
+      {
+        id: 2,
+        title: "A",
+        message: "B",
+        type: "workspace.invite.received",
+        targetUrl: "/workspaces",
+        createdAt: "2026-02-25T00:00:00.000Z"
+      }
+    ];
+
+    const wrapper = mountHarness();
+    await nextTick();
+
+    expect(wrapper.vm.shell.alerts.unreadAlertsCount.value).toBe(3);
+    expect(wrapper.vm.shell.alerts.hasUnreadAlerts.value).toBe(true);
+    expect(wrapper.vm.shell.actions.isAlertUnread(wrapper.vm.shell.alerts.alertPreviewEntries.value[0])).toBe(true);
+
+    await wrapper.vm.shell.actions.openAlertFromBell(wrapper.vm.shell.alerts.alertPreviewEntries.value[0]);
+    expect(mocks.alertsStore.handleAlertClick).toHaveBeenCalledTimes(1);
   });
 
   it("keeps cleanup behavior when logout fails", async () => {

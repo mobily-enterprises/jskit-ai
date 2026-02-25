@@ -1,9 +1,10 @@
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useDisplay } from "vuetify";
 import { createSurfacePaths, resolveSurfacePaths } from "../../../../shared/surfacePaths.js";
 import { api } from "../../../platform/http/api/index.js";
 import { useAuthStore } from "../../state/authStore.js";
+import { useAlertsStore } from "../../state/alertsStore.js";
 import { useConsoleStore } from "../../state/consoleStore.js";
 import { useWorkspaceStore } from "../../state/workspaceStore.js";
 import { useShellNavigation } from "../shared/useShellNavigation.js";
@@ -25,6 +26,7 @@ function formatDateTime(value) {
 
 export function useAdminShell() {
   const authStore = useAuthStore();
+  const alertsStore = useAlertsStore();
   const workspaceStore = useWorkspaceStore();
   const navigate = useNavigate();
   const display = useDisplay();
@@ -149,6 +151,9 @@ export function useAdminShell() {
     if (currentPath.value.endsWith("/settings")) {
       return "Settings";
     }
+    if (currentPath.value.endsWith("/alerts")) {
+      return "Alerts";
+    }
     if (currentPath.value.endsWith("/transcripts")) {
       return "AI transcripts";
     }
@@ -197,6 +202,70 @@ export function useAdminShell() {
   const userDisplayName = computed(() =>
     String(workspaceStore.profileDisplayName || authStore.username || "Account").trim()
   );
+  const alertPreviewEntries = computed(() =>
+    (Array.isArray(alertsStore.previewEntries) ? alertsStore.previewEntries : []).slice(0, 20)
+  );
+  const unreadAlertsCount = computed(() => Math.max(0, Number(alertsStore.unreadCount) || 0));
+  const hasUnreadAlerts = computed(() => unreadAlertsCount.value > 0);
+  const unreadAlertsBadge = computed(() => (unreadAlertsCount.value > 99 ? "99+" : String(unreadAlertsCount.value)));
+  const alertsPreviewLoading = computed(() => alertsStore.previewLoading || alertsStore.markAllReadLoading);
+  const alertsPreviewError = computed(() => alertsStore.previewError || alertsStore.markAllReadError || "");
+  const alertsPath = computed(() => `${surfacePaths.value.prefix}/alerts`);
+
+  watch(
+    () => authStore.isAuthenticated,
+    (isAuthenticated) => {
+      if (isAuthenticated) {
+        void alertsStore.startPolling();
+        return;
+      }
+
+      alertsStore.stopPolling();
+    },
+    {
+      immediate: true
+    }
+  );
+
+  onBeforeUnmount(() => {
+    alertsStore.stopPolling();
+  });
+
+  function isAlertUnread(alert) {
+    const id = Number(alert?.id || 0);
+    const readThroughAlertId = Number(alertsStore.readThroughAlertId || 0);
+    return id > readThroughAlertId;
+  }
+
+  function formatAlertDateTime(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return "unknown";
+    }
+
+    return date.toLocaleString();
+  }
+
+  async function refreshAlertsPreview() {
+    try {
+      await alertsStore.refreshPreview({
+        silent: true,
+        broadcast: false
+      });
+    } catch {
+      // Alerts refresh in shell is best-effort.
+    }
+  }
+
+  async function openAlertFromBell(alert) {
+    await alertsStore.handleAlertClick(alert, hardNavigate);
+  }
+
+  async function goToAlerts() {
+    await navigate({
+      to: alertsPath.value
+    });
+  }
 
   watch(
     () => pendingInvitesCount.value,
@@ -393,6 +462,14 @@ export function useAdminShell() {
       canViewMembersAdmin,
       canOpenWorkspaceControlMenu
     },
+    alerts: {
+      alertPreviewEntries,
+      unreadAlertsCount,
+      hasUnreadAlerts,
+      unreadAlertsBadge,
+      alertsPreviewLoading,
+      alertsPreviewError
+    },
     navigation: {
       navigationItems,
       workspaceAvatarStyle,
@@ -420,6 +497,11 @@ export function useAdminShell() {
       goToWorkspaceBilling,
       goToWorkspaceMembers,
       goToAppSurface,
+      goToAlerts,
+      refreshAlertsPreview,
+      openAlertFromBell,
+      isAlertUnread,
+      formatAlertDateTime,
       handleMenuNotice,
       signOut,
       isCurrentPath,

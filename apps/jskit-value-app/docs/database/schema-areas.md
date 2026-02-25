@@ -1,6 +1,6 @@
 # Database Schema Areas
 
-Last validated: 2026-02-24 (UTC)
+Last validated: 2026-02-25 (UTC)
 
 This document maps the database by functional area so `docs/database` covers the full schema surface, not just billing.
 
@@ -57,6 +57,11 @@ Sources:
 ## Security and Audit
 
 - `security_audit_events`
+
+## Alerts and Notifications
+
+- `user_alerts`
+- `user_alert_states`
 
 ## Billing and Entitlements
 

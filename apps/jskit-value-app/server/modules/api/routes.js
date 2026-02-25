@@ -7,6 +7,7 @@ import { buildRoutes as buildProjectsRoutes } from "../projects/index.js";
 import { buildRoutes as buildChatRoutes } from "../chat/index.js";
 import { buildRoutes as buildBillingRoutes } from "@jskit-ai/billing-fastify-adapter/routes";
 import { buildRoutes as buildSettingsRoutes } from "../settings/index.js";
+import { buildRoutes as buildAlertsRoutes } from "../alerts/index.js";
 import { buildRoutes as buildHistoryRoutes } from "../history/index.js";
 import { buildRoutes as buildDeg2radRoutes } from "../deg2rad/index.js";
 import { buildRoutes as buildHealthRoutes } from "@jskit-ai/health-fastify-adapter";
@@ -76,6 +77,10 @@ const ROUTE_MODULE_DEFINITIONS = Object.freeze([
   {
     id: "settings",
     buildRoutes: buildSettingsRoutes
+  },
+  {
+    id: "alerts",
+    buildRoutes: buildAlertsRoutes
   },
   {
     id: "history",

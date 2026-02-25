@@ -34,7 +34,8 @@ function createService({
   workspaceInvitesRepository,
   userProfilesRepository,
   userSettingsRepository,
-  workspaceInviteEmailService
+  workspaceInviteEmailService,
+  alertsService = null
 }) {
   if (
     !workspacesRepository ||
@@ -338,6 +339,51 @@ function createService({
     }
   }
 
+  async function sendInviteAlertBestEffort({
+    recipientUser,
+    roleId,
+    workspace,
+    actorUserId = null
+  } = {}) {
+    const recipientUserId = parsePositiveInteger(recipientUser?.id);
+    if (!recipientUserId || !alertsService) {
+      return;
+    }
+
+    try {
+      if (typeof alertsService.createWorkspaceInviteAlert === "function") {
+        await alertsService.createWorkspaceInviteAlert({
+          userId: recipientUserId,
+          workspaceId: workspace?.id || null,
+          workspaceName: workspace?.name || workspace?.slug || "workspace",
+          roleId,
+          actorUserId
+        });
+        return;
+      }
+
+      if (typeof alertsService.createAlert === "function") {
+        await alertsService.createAlert({
+          userId: recipientUserId,
+          type: "workspace.invite.received",
+          title: "Workspace invite",
+          message: `You were invited to ${workspace?.name || workspace?.slug || "a workspace"} as ${roleId}.`,
+          targetUrl: "/workspaces",
+          payloadJson: {
+            workspaceId: workspace?.id || null,
+            workspaceSlug: workspace?.slug || "",
+            workspaceName: workspace?.name || "",
+            roleId
+          },
+          actorUserId: parsePositiveInteger(actorUserId) || null,
+          workspaceId: workspace?.id || null
+        });
+      }
+    } catch {
+      // Invite creation should not fail when alert creation fails.
+    }
+  }
+
   async function createInvite(workspaceContext, actorUser, payload) {
     const workspace = await requireWorkspace(workspaceContext);
     const settings = await ensureWorkspaceSettings(workspace.id);
@@ -399,6 +445,13 @@ function createService({
 
         throw error;
       }
+    });
+
+    await sendInviteAlertBestEffort({
+      recipientUser: existingProfile,
+      roleId,
+      workspace,
+      actorUserId: Number(actorUser?.id) || null
     });
 
     if (shouldSendInviteEmail) {

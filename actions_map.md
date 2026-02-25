@@ -286,6 +286,24 @@ Surfaces: app, admin, console.
 Payload: none.
 Status: Implemented.
 
+## Alerts
+
+### `settings.alerts.list`
+UI: shell bell dropdown preview (latest 20), Alerts page list/pagination.
+Business action: `settings.alerts.list`
+Required permission: authenticated user (self-service).
+Surfaces: app, admin, console.
+Payload: `page`, `pageSize`.
+Status: Implemented.
+
+### `settings.alerts.read_all`
+UI: shell bell alert click flow, Alerts page alert click flow.
+Business action: `settings.alerts.read_all`
+Required permission: authenticated user (self-service).
+Surfaces: app, admin, console.
+Payload: none.
+Status: Implemented.
+
 ## Deg2rad and History
 
 ### `deg2rad.calculate`
@@ -875,4 +893,3 @@ To satisfy the requirement "everything possible in UI must be possible as assist
 - plus existing `assistant.tool.workspace_rename`.
 
 Current built-in assistant tool coverage is only `assistant.tool.workspace_rename` on admin surface.
-
