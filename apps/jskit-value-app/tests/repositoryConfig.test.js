@@ -4,7 +4,7 @@ import test from "node:test";
 import { buildRepositoryConfig, repositoryConfig } from "../config/index.js";
 
 test("repositoryConfig exposes expected subsystem slices and is deeply frozen", () => {
-  assert.deepEqual(Object.keys(repositoryConfig), ["app", "chat", "ai", "billing", "retention"]);
+  assert.deepEqual(Object.keys(repositoryConfig), ["app", "chat", "ai", "billing", "retention", "actions"]);
 
   assert.equal(Object.isFrozen(repositoryConfig), true);
   assert.equal(Object.isFrozen(repositoryConfig.app), true);
@@ -15,6 +15,9 @@ test("repositoryConfig exposes expected subsystem slices and is deeply frozen", 
   assert.equal(Object.isFrozen(repositoryConfig.billing.checkout), true);
   assert.equal(Object.isFrozen(repositoryConfig.retention), true);
   assert.equal(Object.isFrozen(repositoryConfig.retention.chat), true);
+  assert.equal(Object.isFrozen(repositoryConfig.actions), true);
+  assert.equal(Object.isFrozen(repositoryConfig.actions.assistant), true);
+  assert.equal(Object.isFrozen(repositoryConfig.actions.internal), true);
 });
 
 test("buildRepositoryConfig returns a fresh frozen copy", () => {

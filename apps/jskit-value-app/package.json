@@ -87,6 +87,7 @@
     "@jskit-ai/console-errors-client-element": "0.1.0",
     "@jskit-ai/observability-fastify-adapter": "0.1.0",
     "@jskit-ai/platform-server-runtime": "0.1.0",
+    "@jskit-ai/action-runtime-core": "0.1.0",
     "@jskit-ai/realtime-client-runtime": "0.1.0",
     "@jskit-ai/realtime-contracts": "0.1.0",
     "@jskit-ai/realtime-server-socketio": "0.1.0",

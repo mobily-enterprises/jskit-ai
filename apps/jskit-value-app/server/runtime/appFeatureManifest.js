@@ -33,7 +33,8 @@ const APP_FEATURE_CONTROLLER_DEFINITIONS = Object.freeze([
       return createDeg2radController({
         deg2radService: services.deg2radService,
         deg2radHistoryService: services.deg2radHistoryService,
-        billingService: services.billingService
+        billingService: services.billingService,
+        actionExecutor: services.actionExecutor
       });
     }
   },
@@ -43,7 +44,8 @@ const APP_FEATURE_CONTROLLER_DEFINITIONS = Object.freeze([
       return createProjectsController({
         projectsService: services.projectsService,
         realtimeEventsService: services.realtimeEventsService,
-        billingService: services.billingService
+        billingService: services.billingService,
+        actionExecutor: services.actionExecutor
       });
     }
   }

@@ -3,6 +3,7 @@ import { chatConfig as chatDefaults } from "./chat.js";
 import { aiConfig as aiDefaults } from "./ai.js";
 import { billingConfig as billingDefaults } from "./billing.js";
 import { retentionConfig as retentionDefaults } from "./retention.js";
+import { actionsConfig as actionsDefaults } from "./actions.js";
 import {
   deepFreeze,
   expectBoolean,
@@ -103,6 +104,33 @@ function validateRetentionConfig(config) {
   expectBoolean("retention.chat.emptyThreadCleanupEnabled", config.chat.emptyThreadCleanupEnabled);
 }
 
+function validateActionExposureConfig(config, pathName) {
+  expectPlainObject(pathName, config);
+  expectBoolean(`${pathName}.enabled`, config.enabled);
+
+  const exposedActionIds = Array.isArray(config.exposedActionIds) ? config.exposedActionIds : null;
+  if (!exposedActionIds) {
+    throw new Error(`${pathName}.exposedActionIds must be an array.`);
+  }
+  for (let index = 0; index < exposedActionIds.length; index += 1) {
+    expectString(`${pathName}.exposedActionIds[${index}]`, exposedActionIds[index]);
+  }
+
+  const blockedActionIds = Array.isArray(config.blockedActionIds) ? config.blockedActionIds : null;
+  if (!blockedActionIds) {
+    throw new Error(`${pathName}.blockedActionIds must be an array.`);
+  }
+  for (let index = 0; index < blockedActionIds.length; index += 1) {
+    expectString(`${pathName}.blockedActionIds[${index}]`, blockedActionIds[index]);
+  }
+}
+
+function validateActionsConfig(config) {
+  expectPlainObject("actions", config);
+  validateActionExposureConfig(config.assistant, "actions.assistant");
+  validateActionExposureConfig(config.internal, "actions.internal");
+}
+
 function mergePlainObjectOverrides(baseValue, overrideValue, pathName = "config") {
   if (overrideValue == null) {
     return baseValue;
@@ -149,6 +177,7 @@ function validateRepositoryConfig(config) {
   validateAiConfig(config.ai);
   validateBillingConfig(config.billing);
   validateRetentionConfig(config.retention);
+  validateActionsConfig(config.actions);
 }
 
 function buildRepositoryConfig({ overrides = null } = {}) {
@@ -157,7 +186,8 @@ function buildRepositoryConfig({ overrides = null } = {}) {
     chat: structuredClone(chatDefaults),
     ai: structuredClone(aiDefaults),
     billing: structuredClone(billingDefaults),
-    retention: structuredClone(retentionDefaults)
+    retention: structuredClone(retentionDefaults),
+    actions: structuredClone(actionsDefaults)
   };
 
   const mergedConfig = overrides ? mergePlainObjectOverrides(config, overrides, "config") : config;

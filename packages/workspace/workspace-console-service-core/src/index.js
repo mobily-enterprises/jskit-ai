@@ -8,3 +8,4 @@ export { DEFAULT_BILLING_PROVIDER, resolveBillingProvider, normalizeBillingCatal
 export { resolveStripeCatalogPriceSnapshot, resolveCatalogCorePriceForCreate, resolveCatalogCorePriceForUpdate, resolveStripeCatalogProductPriceSnapshot, resolveCatalogProductPriceForCreate, resolveCatalogProductPriceForUpdate } from "./services/billingCatalogProviderPricing.service.js";
 export { mapMembershipSummary, mapMember, mapInvite, mapPendingInvite } from "./mappers/consoleMappers.js";
 export { DEFAULT_INVITE_TTL_HOURS, resolveInviteExpiresAt } from "./policies/invitePolicy.js";
+export { createConsoleActionContributor } from "./actions/console.contributor.js";

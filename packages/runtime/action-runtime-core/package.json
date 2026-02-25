@@ -1,0 +1,20 @@
+{
+  "name": "@jskit-ai/action-runtime-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./contracts": "./src/contracts.js",
+    "./registry": "./src/registry.js",
+    "./executionContext": "./src/executionContext.js",
+    "./pipeline": "./src/pipeline.js",
+    "./policies": "./src/policies.js",
+    "./idempotency": "./src/idempotency.js",
+    "./audit": "./src/audit.js",
+    "./observability": "./src/observability.js"
+  }
+}

@@ -7,3 +7,4 @@ export { normalizeWorkspaceColor, mapWorkspaceMembershipSummary, mapWorkspaceAdm
 export { mapWorkspaceSettingsResponse, mapWorkspaceMemberSummary, mapWorkspaceInviteSummary, mapWorkspacePayloadSummary } from "./mappers/workspaceAdminMappers.js";
 export { collectInviteWorkspaceIds, listInviteMembershipsByWorkspaceId } from "./lookups/workspaceMembershipLookup.js";
 export { resolveRequestSurfaceId, resolveRequestedWorkspaceSlug } from "./lookups/workspaceRequestContext.js";
+export { createWorkspaceActionContributor } from "./actions/workspace.contributor.js";

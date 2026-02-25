@@ -177,126 +177,1001 @@ LATER LATER:
 
 
 
+FINAL FOR RESTRUCTURE:
 
-  You are a staff/principal backend architect. Your task is to produce a **full, implementation-ready plan** (no
-      code changes yet) for introducing a canonical business action system in this repo using this pattern:
+   1. Executive summary
 
-      1. Packages/domains export action contributors (definitions + handlers).
-      2. App registry imports and mounts those contributors explicitly.
+  You should implement this as a clean-slate cutover, not a compatibility migration. The target state is one
+  canonical action execution path for all business operations, and every channel (API routes, assistant tools,
+  internal jobs) must use that path directly. No dual-mode routing, no legacy fallbacks, no compatibility aliases.
 
-      ## Goal
-      Design how to make assistant/API/UI/other channels execute the same server-side business actions with shared
-      policy enforcement (permissions, auditability, idempotency where needed), while preserving current behavior.
+  The architecture should introduce a new dedicated runtime package, @jskit-ai/action-runtime-core, and keep @jskit-
+  ai/server-runtime-core focused on generic server primitives. Domain packages/modules will own their action
+  contributors (definitions + handlers), and the app composition root will explicitly mount contributors into a
+  central registry. This aligns with your existing composition pattern in server/runtime/services.js (/home/merc/
+  Development/current/jskit-ai/apps/jskit-value-app/server/runtime/services.js) and server/runtime/
+  platformModuleManifest.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/runtime/
+  platformModuleManifest.js).
 
-      ## Repository context (use this as authoritative snapshot)
-      - Repo root: `/home/merc/Development/current/jskit-ai`
-      - App: `apps/jskit-value-app`
-      - Action inventory already prepared: `/home/merc/Development/current/jskit-ai/actions_map.md`
-        - This file is the current capability map and naming baseline (e.g. `auth.register`,
-    `settings.profile.update`,
-      `workspace.invite.create`, `chat.thread.message.send`, `console.billing.plan.update`, etc.).
-      - Existing assistant tool situation:
-        - `apps/jskit-value-app/server/modules/ai/services/ai.service.js`
-          - current assistant tool allowlist by surface: app `[]`, admin `["workspace_rename"]`
-        - `apps/jskit-value-app/server/modules/ai/lib/tools/workspaceRename.tool.js`
-          - built-in tool `workspace_rename` currently requires `workspace.settings.update`
-        - `apps/jskit-value-app/config/ai.js`
-          - assistant route-level `requiredPermission` currently empty
-      - Existing RBAC/permissions:
-        - `apps/jskit-value-app/shared/rbac.manifest.json`
-        - workspace permissions include things like `workspace.settings.update`, `workspace.members.manage`,
-      `chat.write`, `projects.write`, etc.
-      - Existing route guard boundaries:
-        - `apps/jskit-value-app/src/app/router/guards.js`
-        - `apps/jskit-value-app/src/app/router/guards.console.js`
-        - workspace/admin/console route files under `src/app/router/routes/*`
-      - Surface model:
-        - app/admin/console from `shared/surfaceRegistry.js` and `shared/surfacePaths.js`
-      - API namespaces currently visible in client wiring:
-        - `auth`, `workspace`, `console`, `projects`, `settings`, `deg2rad`, `history`, `billing`, `chat`, `ai`
-        - see `apps/jskit-value-app/src/platform/http/api/index.js`
-      - Current UI + route behavior has already been mapped into `actions_map.md`; do not redo discovery from
-    scratch.
+  Current behavior is fragmented across controllers/services/tools (for example workspaceRename.tool.js (/home/merc/
+  Development/current/jskit-ai/apps/jskit-value-app/server/modules/ai/lib/tools/workspaceRename.tool.js), direct
+  controller audit wrappers in package adapters, and route-level policy metadata). The new plan centralizes
+  permission checks, audit emission, idempotency, validation, and observability in the action pipeline itself. Route
+  policy remains as defense-in-depth, but action policy is authoritative.
 
-      ## What “domain” should mean for this plan
-      Treat domain as **server-side business boundary** (not UI page), roughly:
-      - auth
-      - settings
-      - workspace (settings/members/invites/transcripts)
-      - projects
-      - chat
-      - billing (workspace + console catalog/admin)
-      - console administration
-      - assistant orchestration/tooling
-      - deg2rad/history (if kept as separate capability domain)
+  This plan uses actions_map.md (/home/merc/Development/current/jskit-ai/actions_map.md) as canonical action
+  inventory and naming baseline, and assumes your explicit constraints: no backward compatibility paths and a new
+  action-runtime-core package.
 
-      ## Hard requirements
-      - Action definitions and handlers live with domain ownership.
-      - Central action registry lives in app composition root and explicitly mounts contributors.
-      - No hidden side-effect auto-registration.
-      - Removing a package/domain contributor should remove its actions by composition choice.
-      - Permission checks must happen in action execution path, not only routes.
-      - Plan must preserve backward compatibility during migration.
-      - Include strategy for assistant parity with UI capabilities using shared actions.
-      - Include audit + idempotency policy recommendations for mutating actions.
-      - No tables in your output.
+  2. Proposed architecture model
 
-      ## Deliverable format (must follow this structure)
-      1. Executive summary (2-4 paragraphs)
-      2. Proposed architecture model
-         - action definition contract
-         - action contributor contract
-         - registry contract
-         - execution context contract
-      3. Domain decomposition and ownership
-         - explicit domain list and why each exists
-         - mapping to current modules/packages
-      4. Concrete file/module layout proposal
-         - exact proposed directories/files (app and packages)
-         - where registry should live
-         - where contributor exports should live
-      5. Composition strategy
-         - how app imports/mounts contributors
-         - feature flags/surface/channel gating model
-         - dependency injection pattern to avoid circular deps
-      6. Migration plan (phase-by-phase)
-         - phase 0 baseline checks
-         - phase 1 scaffolding contracts + registry
-         - phase 2 pilot domains
-         - phase 3 broad migration
-         - phase 4 assistant integration expansion
-         - phase 5 cleanup/deprecation
-         - include rollback points per phase
-      7. Action mapping rollout
-         - use `actions_map.md` and specify which action groups migrate first
-         - identify “high-risk/high-value” actions first
-      8. Policy enforcement plan
-         - permission enforcement pattern
-         - audit logging integration point
-         - idempotency strategy for mutating actions
-         - validation schema strategy
-      9. Testing plan
-         - unit tests for definitions/handlers
-         - integration tests for registry execution
-         - permission parity tests (route vs action)
-         - regression tests for assistant + API flows
-      10. Risks, tradeoffs, and open questions
-      11. Definition of done checklist
+  Action definition contract
 
-      ## Additional expectations
-      - Be concrete, not generic.
-      - Reference specific repository paths when proposing changes.
-      - Explicitly call out how current assistant tooling (`workspace_rename` only) evolves to full action
-  coverage.
-      - Explicitly describe how API routes/controllers should transition from direct service calls to action
-    execution.
-      - Explicitly define the boundary between business actions and UI-only interactions.
-      - Include a suggested naming convention and versioning strategy for action IDs.
-      - Include how to handle non-UI-exposed but implemented actions noted in `actions_map.md` (e.g., ad-hoc
-  payment
-      link creation).
-      - Include suggested observability metrics/events for action execution (latency, failure, authz deny,
-  idempotent
-      replay).
+  - id: canonical ID from actions_map.md (/home/merc/Development/current/jskit-ai/actions_map.md), example
+    workspace.invite.create.
+  - version: integer, start at 1 for all initial actions.
+  - domain: auth | settings | workspace | projects | chat | billing | console | assistant | deg2rad_history.
+  - kind: query | command | stream.
+  - channels: explicit channel allowlist, example ["api","assistant_tool","internal"].
+  - surfaces: explicit surface allowlist, example ["app","admin"] or ["console"].
+  - visibility: public | internal | operator.
+  - inputSchema: canonical schema used by action runtime (code-defined; not DB/JSON file driven).
+  - outputSchema: optional response contract schema for action-level validation/consistency.
+  - permission: static permission list or dynamic resolver (context, input) => boolean/deny.
+  - idempotency: none | optional | required | domain_native.
+  - audit: { actionName, metadataBuilder, piiTags }.
+  - observability: metric tags and sampling hints.
+  - execute: handler (input, context, deps) => result.
 
-      Now produce the full plan.
+  Action contributor contract
+
+  - Contributor factory is explicit and pure: createXActionContributor(deps).
+  - Returns { contributorId, domain, actions }.
+  - No side-effect registration at import time.
+  - Contributor boot validation fails on malformed definitions.
+  - Duplicate action IDs across contributors are hard startup errors.
+
+  Registry contract
+
+  - createActionRegistry({ contributors, permissionEvaluator, idempotencyAdapter, auditAdapter,
+    observabilityAdapter, logger }).
+  - execute({ actionId, version, input, context }).
+  - executeStream(...) for streaming actions like assistant.chat.stream.
+  - listDefinitions() and getDefinition(actionId, version?).
+  - Pipeline order:
+  - resolve action definition
+  - enforce channel and surface gates
+  - validate input
+  - enforce permission policy
+  - resolve idempotency claim/replay
+  - execute handler
+  - emit audit and metrics
+  - return normalized result
+  - No route/controller bypass API is exposed.
+
+  Execution context contract
+
+  - actor: normalized identity from request/user/session.
+  - workspace: normalized workspace context, nullable.
+  - membership: membership summary when workspace-scoped.
+  - permissions: resolved permission set for actor+surface+workspace.
+  - surface: app | admin | console.
+  - channel: api | assistant_tool | assistant_chat | internal | worker.
+  - requestMeta: requestId, commandId, idempotencyKey, ip, user-agent.
+  - assistantMeta: conversationId, toolCallId, provider, turnId when relevant.
+  - timeMeta: now, timezone/locale hints if needed.
+  - Build this via one shared adapter so API and assistant contexts are structurally identical.
+
+  3. Domain decomposition and ownership
+
+  - auth: identity/session/password/OAuth lifecycle.
+  - Owned by auth-provider-supabase-core/src/service.js (/home/merc/Development/current/jskit-ai/packages/auth/auth-
+    provider-supabase-core/src/service.js) and auth-fastify-adapter/src/controller.js (/home/merc/Development/
+    current/jskit-ai/packages/auth/auth-fastify-adapter/src/controller.js).
+  - settings: user self-service profile/preferences/security/chat settings.
+  - Owned by settings-fastify-adapter/src/controller.js (/home/merc/Development/current/jskit-ai/packages/workspace/
+    settings-fastify-adapter/src/controller.js) + app settings service.
+  - workspace: workspace bootstrap/select/settings/members/invites/transcripts.
+  - Owned by workspace.service.js (/home/merc/Development/current/jskit-ai/packages/workspace/workspace-service-
+    core/src/services/workspace.service.js) and admin.service.js (/home/merc/Development/current/jskit-ai/packages/
+    workspace/workspace-service-core/src/services/admin.service.js).
+  - projects: workspace project CRUD and project billing-capacity interactions.
+  - Owned app-locally in server/modules/projects (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/
+    server/modules/projects).
+  - chat: thread, messages, attachments, reactions, read/typing, DM/workspace-room.
+  - Owned by chat-core/src/service.js (/home/merc/Development/current/jskit-ai/packages/chat/chat-core/src/
+    service.js).
+  - billing: workspace billable entity, plans, purchases, checkout, portal, payment links.
+  - Owned by billing-service-core/src/service.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-
+    service-core/src/service.js) + policy.service.js (/home/merc/Development/current/jskit-ai/packages/billing/
+    billing-service-core/src/policy.service.js).
+  - console administration: console membership/invite/settings/errors/transcripts/billing admin.
+  - Owned by workspace-console-service-core/src/services/console.service.js (/home/merc/Development/current/jskit-
+    ai/packages/workspace/workspace-console-service-core/src/services/console.service.js).
+  - assistant orchestration: conversations, streaming, tool invocation policies.
+  - Owned by assistant-core/src/service.js (/home/merc/Development/current/jskit-ai/packages/ai-agent/assistant-
+    core/src/service.js) and app AI module wiring.
+  - deg2rad_history: calculator and calculation history.
+  - Owned app-locally in server/modules/deg2rad (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/
+    server/modules/deg2rad) and server/modules/history (/home/merc/Development/current/jskit-ai/apps/jskit-value-
+    app/server/modules/history).
+
+  4. Concrete file/module layout proposal
+
+  New package (required): action runtime core
+
+  - packages/runtime/action-runtime-core/package.json (/home/merc/Development/current/jskit-ai/packages/runtime/
+    action-runtime-core/package.json)
+  - packages/runtime/action-runtime-core/README.md (/home/merc/Development/current/jskit-ai/packages/runtime/action-
+    runtime-core/README.md)
+  - packages/runtime/action-runtime-core/src/index.js (/home/merc/Development/current/jskit-ai/packages/runtime/
+    action-runtime-core/src/index.js)
+  - packages/runtime/action-runtime-core/src/contracts.js (/home/merc/Development/current/jskit-ai/packages/runtime/
+    action-runtime-core/src/contracts.js)
+  - packages/runtime/action-runtime-core/src/registry.js (/home/merc/Development/current/jskit-ai/packages/runtime/
+    action-runtime-core/src/registry.js)
+  - packages/runtime/action-runtime-core/src/executionContext.js (/home/merc/Development/current/jskit-ai/packages/
+    runtime/action-runtime-core/src/executionContext.js)
+  - packages/runtime/action-runtime-core/src/pipeline.js (/home/merc/Development/current/jskit-ai/packages/runtime/
+    action-runtime-core/src/pipeline.js)
+  - packages/runtime/action-runtime-core/src/policies.js (/home/merc/Development/current/jskit-ai/packages/runtime/
+    action-runtime-core/src/policies.js)
+  - packages/runtime/action-runtime-core/src/idempotency.js (/home/merc/Development/current/jskit-ai/packages/
+    runtime/action-runtime-core/src/idempotency.js)
+  - packages/runtime/action-runtime-core/src/audit.js (/home/merc/Development/current/jskit-ai/packages/runtime/
+    action-runtime-core/src/audit.js)
+  - packages/runtime/action-runtime-core/src/observability.js (/home/merc/Development/current/jskit-ai/packages/
+    runtime/action-runtime-core/src/observability.js)
+
+  App composition root wiring
+
+  - shared/actionIds.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/shared/actionIds.js)
+  - server/runtime/actions/createActionRegistry.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/
+    server/runtime/actions/createActionRegistry.js)
+  - server/runtime/actions/contributorManifest.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/
+    server/runtime/actions/contributorManifest.js)
+  - server/runtime/actions/buildExecutionContext.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/
+    server/runtime/actions/buildExecutionContext.js)
+  - server/runtime/actions/idempotencyAdapters.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/
+    server/runtime/actions/idempotencyAdapters.js)
+  - server/runtime/actions/observabilityAdapters.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/
+    server/runtime/actions/observabilityAdapters.js)
+  - server/runtime/actions/auditAdapters.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/
+    runtime/actions/auditAdapters.js)
+  - server/runtime/actions/index.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/runtime/
+    actions/index.js)
+
+  Domain contributor exports
+
+  - packages/auth/auth-provider-supabase-core/src/actions/auth.contributor.js (/home/merc/Development/current/jskit-
+    ai/packages/auth/auth-provider-supabase-core/src/actions/auth.contributor.js)
+  - packages/workspace/workspace-service-core/src/actions/workspace.contributor.js (/home/merc/Development/current/
+    jskit-ai/packages/workspace/workspace-service-core/src/actions/workspace.contributor.js)
+  - packages/workspace/workspace-console-service-core/src/actions/console.contributor.js (/home/merc/Development/
+    current/jskit-ai/packages/workspace/workspace-console-service-core/src/actions/console.contributor.js)
+  - packages/chat/chat-core/src/actions/chat.contributor.js (/home/merc/Development/current/jskit-ai/packages/chat/
+    chat-core/src/actions/chat.contributor.js)
+  - packages/billing/billing-service-core/src/actions/workspaceBilling.contributor.js (/home/merc/Development/
+    current/jskit-ai/packages/billing/billing-service-core/src/actions/workspaceBilling.contributor.js)
+  - apps/jskit-value-app/server/runtime/actions/contributors/settings.contributor.js (/home/merc/Development/
+    current/jskit-ai/apps/jskit-value-app/server/runtime/actions/contributors/settings.contributor.js)
+  - apps/jskit-value-app/server/runtime/actions/contributors/projects.contributor.js (/home/merc/Development/
+    current/jskit-ai/apps/jskit-value-app/server/runtime/actions/contributors/projects.contributor.js)
+  - apps/jskit-value-app/server/runtime/actions/contributors/deg2radHistory.contributor.js (/home/merc/Development/
+    current/jskit-ai/apps/jskit-value-app/server/runtime/actions/contributors/deg2radHistory.contributor.js)
+  - apps/jskit-value-app/server/runtime/actions/contributors/assistant.contributor.js (/home/merc/Development/
+    current/jskit-ai/apps/jskit-value-app/server/runtime/actions/contributors/assistant.contributor.js)
+
+  Registry location and runtime integration
+
+  - Registry instantiated in server/runtime/services.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-
+    app/server/runtime/services.js) as actionRegistry and actionExecutor.
+  - Controllers consume actionExecutor through server/runtime/controllers.js (/home/merc/Development/current/jskit-
+    ai/apps/jskit-value-app/server/runtime/controllers.js) dependency injection.
+  - API route assembly stays in server/modules/api/routes.js (/home/merc/Development/current/jskit-ai/apps/jskit-
+    value-app/server/modules/api/routes.js); handlers switch to action execution.
+
+  5. Composition strategy
+
+  How app imports and mounts contributors
+
+  - contributorManifest.js explicitly imports contributor factories and calls them with DI dependencies.
+  - No autodiscovery, no side-effect registration, no global singleton mutation.
+  - Removing one import removes that contributor’s actions from runtime.
+
+  Feature flags and channel/surface gating model
+
+  - Add config/actions.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/config/actions.js) for
+    exposure and policy toggles only.
+  - No legacy/dual-path flags.
+  - Suggested config:
+  - actions.assistant.enabled
+  - actions.assistant.exposedActionIds
+  - actions.assistant.blockedActionIds
+  - actions.internal.enabled
+  - actions.internal.exposedActionIds
+  - Surface and channel checks enforced by registry using shared/surfacePaths.js (/home/merc/Development/current/
+    jskit-ai/apps/jskit-value-app/shared/surfacePaths.js) and route/request context.
+
+  Dependency injection pattern to avoid circular dependencies
+
+  - Build domain services first in runtime service definitions.
+  - Build action contributors from domain services/repositories.
+  - Build action registry after contributor creation.
+  - Inject only actionExecutor into controllers and assistant orchestration layer.
+  - Keep action handlers pure against service dependencies, not controller dependencies.
+
+  API/controller transition from direct service calls to action execution
+
+  - Replace direct service invocations in controllers with actionExecutor.execute(...).
+  - Keep transport concerns in controllers: request parsing, status code, headers, stream framing.
+  - Move business logic, permission enforcement, audit, idempotency into actions.
+  - Applies to adapters/controllers currently used by:
+  - auth
+  - workspace
+  - console
+  - settings
+  - chat
+  - billing
+  - assistant
+  - projects/deg2rad/history
+  - TanStack Query behavior remains valid because client still talks to existing HTTP routes; internals behind
+    routes change to action execution.
+
+  Assistant evolution from workspace_rename only
+
+  - Remove hardcoded tool file path usage in workspaceRename.tool.js (/home/merc/Development/current/jskit-ai/apps/
+    jskit-value-app/server/modules/ai/lib/tools/workspaceRename.tool.js).
+  - Build assistant tool descriptors from action definitions filtered by channel=assistant_tool and surface policy.
+  - Keep tool names deterministic and provider-safe, mapped to canonical action IDs internally.
+  - No legacy alias retention; workspace_rename is replaced by canonical action tool mapping.
+
+  6. Migration plan (phase-by-phase, no legacy compatibility)
+
+  Phase 0 baseline checks
+
+  - Freeze canonical IDs from actions_map.md (/home/merc/Development/current/jskit-ai/actions_map.md) into shared/
+    actionIds.js.
+  - Build route-to-action binding map from server/modules/api/routes.js (/home/merc/Development/current/jskit-ai/
+    apps/jskit-value-app/server/modules/api/routes.js) and package route modules.
+  - Identify every controller method that currently performs business logic side effects outside services.
+  - Rollback point: tag action-cutover-phase0; no runtime changes yet.
+
+  Phase 1 scaffolding contracts + registry
+
+  - Create packages/runtime/action-runtime-core.
+  - Add action runtime wiring under server/runtime/actions.
+  - Register actionRegistry and actionExecutor in runtime services.
+  - Rollback point: revert to phase0 tag; no legacy branch retained in code.
+
+  Phase 2 domain contributor implementation
+
+  - Implement contributors for all domains using actions_map.md coverage.
+  - Keep handlers using existing domain services first, then refactor internals later if needed.
+  - Enforce action-level permission declarations for every action.
+  - Rollback point: revert to phase1 tag.
+
+  Phase 3 full API/controller cutover
+
+  - Refactor all API controllers/adapters to call actionExecutor only.
+  - Remove direct controller-side business logic that duplicates action pipeline concerns.
+  - Keep route schemas for transport validation/docs.
+  - Rollback point: revert to phase2 tag and redeploy previous release artifact.
+
+  Phase 4 assistant integration expansion
+
+  - Replace ad-hoc assistant tool wiring in ai.service.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-
+    app/server/modules/ai/services/ai.service.js) with action-derived tool catalog.
+  - Enforce assistant channel policies through action definitions.
+  - Remove workspace_rename-only allowlist model.
+  - Rollback point: revert to phase3 tag.
+
+  Phase 5 cleanup and hardening
+
+  - Delete obsolete tool wrappers and controller-side duplicated audit/idempotency logic.
+  - Remove dead code paths and stale tests tied to pre-action execution.
+  - Update docs and operational runbooks for action metrics/events.
+  - Rollback point: revert to phase4 tag.
+
+  7. Action mapping rollout
+
+  Use actions_map.md (/home/merc/Development/current/jskit-ai/actions_map.md) as source of truth.
+
+  High-risk/high-value actions to implement first
+
+  - workspace.member.role.update
+  - workspace.invite.create
+  - workspace.settings.update
+  - console.member.role.update
+  - console.invite.create
+  - workspace.billing.plan_change.request
+  - workspace.billing.payment_link.create.catalog
+  - workspace.billing.payment_link.create.ad_hoc
+  - console.billing.plan.create
+  - console.billing.plan.update
+  - console.billing.product.create
+  - console.billing.product.update
+  - chat.thread.message.send
+  - chat.attachment.upload
+
+  Rollout waves
+
+  - Wave A: identity/session + bootstrap/read actions.
+  - Wave B: workspace/settings/projects/deg2rad/history.
+  - Wave C: workspace admin + console admin + transcript actions.
+  - Wave D: billing workspace + billing console catalog/admin.
+  - Wave E: chat mutators + assistant action tools.
+  - Wave F: internal/operator-only and non-UI-exposed actions.
+
+  Handling non-UI-exposed implemented actions
+
+  - Keep workspace.billing.payment_link.create.ad_hoc as canonical action with visibility=internal.
+  - Expose only on api channel initially.
+  - Do not expose to assistant unless explicitly allowlisted and separately approved.
+
+  8. Policy enforcement plan
+
+  Permission enforcement pattern
+
+  - Every action definition must declare permission policy.
+  - Registry enforces permission policy for every channel.
+  - Route-level permission metadata remains a pre-check, not the source of truth.
+  - Console/service-level permission checks move into action policy declarations.
+
+  Audit logging integration point
+
+  - Emit audit events from action pipeline using securityAudit.js (/home/merc/Development/current/jskit-ai/packages/
+    runtime/server-runtime-core/src/securityAudit.js) + security-audit-core service (/home/merc/Development/current/
+    jskit-ai/packages/security/security-audit-core/src/service.js).
+  - Action definition owns audit.actionName and metadata mapper.
+  - Ensure single-write audit semantics from action pipeline only.
+
+  Idempotency strategy for mutating actions
+
+  - required: billing mutators (checkout, portal, payment-links, plan-change family).
+  - domain_native: chat send path using clientMessageId and tombstones.
+  - optional: selected workspace/settings/projects commands using x-command-id.
+  - Assistant tool calls generate deterministic idempotency keys from conversationId + toolCallId + actionId +
+    argsHash.
+
+  Validation schema strategy
+
+  - Action input schema is canonical business-validation source.
+  - Route schemas remain for transport validation and OpenAPI.
+  - Controller normalizes transport payload, then action runtime validates business payload.
+
+  Observability metrics/events
+
+  - Add app_action_executions_total{action,channel,surface,outcome}.
+  - Add app_action_duration_seconds{action,channel,surface,outcome}.
+  - Add app_action_authz_denied_total{action,channel,surface}.
+  - Add app_action_validation_failed_total{action,channel,surface}.
+  - Add app_action_idempotent_replay_total{action,channel}.
+  - Emit structured log action.execution with requestId, action, version, channel, surface, latencyMs, outcome,
+    errorCode, idempotencyReplay.
+  - Keep label cardinality bounded; never include user/workspace IDs in metric labels.
+
+  9. Testing plan
+
+  Unit tests for definitions and handlers
+
+  - Add package-level contributor tests in each owning domain package.
+  - Validate action ID uniqueness, schema validity, permission declarations, channel/surface constraints, handler
+    semantics.
+  - Extend existing domain tests where handlers rely on existing services.
+
+  Integration tests for registry execution
+
+  - Add app tests:
+  - tests/actionRegistry.test.js
+  - tests/actionExecutionContext.test.js
+  - tests/actionContributorManifest.test.js
+  - Verify pipeline order, duplicate ID startup failures, stream action behavior, audit/idempotency hooks.
+
+  Permission parity tests (route vs action)
+
+  - Add tests/actionPermissionParity.test.js.
+  - Assert route metadata and action permission policy alignment for equivalent operations.
+  - Include high-risk console/chat/billing paths where current checks are distributed across route/service/
+    controller.
+
+  Regression tests for assistant + API flows
+
+  - Replace workspace-rename-only tests with action-tool catalog tests.
+  - Extend:
+  - tests/aiService.test.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/aiService.test.js)
+  - tests/aiToolsWorkspaceRename.test.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/
+    aiToolsWorkspaceRename.test.js)
+  - tests/aiRoutesAuth.test.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/
+    aiRoutesAuth.test.js)
+  - Add compatibility assertions for API response contracts where still required by clients.
+  - Run required rails checks and app test suites before cutover merge.
+
+  10. Risks, tradeoffs, and open questions
+
+  - Risk: big-bang cutover increases blast radius.
+  - Mitigation: strict phase tags, exhaustive integration tests, pre-prod canary, release rollback runbook.
+  - Tradeoff: keeping route-level policy and action-level policy duplicates checks.
+  - Benefit: defense-in-depth and clearer transport-level docs.
+  - Risk: contributor sprawl and cross-domain ownership confusion.
+  - Mitigation: contributor naming convention and ownership rules by package.
+  - Risk: action IDs drift from actions_map.md.
+  - Mitigation: generated/validated action catalog check in CI.
+  - Open question: explicit tool naming convention for provider constraints vs direct canonical IDs.
+  - Open question: standard shared idempotency store for non-billing domains vs per-domain adapters.
+  - Open question: which console simulation or UI-only interactions should remain non-actions permanently.
+
+  11. Definition of done checklist
+
+  - All implemented business capabilities from actions_map.md (/home/merc/Development/current/jskit-ai/
+    actions_map.md) exist as canonical action definitions with explicit version and domain.
+  - @jskit-ai/action-runtime-core exists and is consumed by app runtime.
+  - App mounts contributors explicitly in contributor manifest.
+  - All API controllers execute through actionExecutor only.
+  - No legacy direct-service controller paths remain.
+  - Assistant tooling is action-derived, not hardcoded to workspace_rename.
+  - Action pipeline enforces permissions for every migrated action/channel.
+  - Action pipeline is the single source of audit emission for action executions.
+  - Mutating actions have declared idempotency policy and tested behavior.
+  - Non-UI internal actions (including ad-hoc payment link creation) have explicit visibility/channel policy.
+  - Action execution metrics are exposed via /api/v1/metrics and validated.
+  - Unit/integration/parity/regression suites for action system pass.
+  - Release rollback procedure is documented and tested as deploy-level rollback, not in-code legacy fallback.
+
+IN A NUTSHELL:
+
+• It does, and the core outline is clear:
+
+  1. New shared runtime package: @jskit-ai/action-runtime-core owns contracts, registry, pipeline, context builder,
+     and adapters (audit/idempotency/observability).
+  2. Domain-owned contributors: each domain exports explicit action definitions + handlers, with no auto-
+     registration side effects.
+  3. App composition root: apps/jskit-value-app/server/runtime/actions/* explicitly imports and mounts contributors
+     into one registry.
+  4. Single execution path: API controllers, assistant tools, and internal/worker callers all use
+     actionExecutor.execute(...).
+  5. One policy pipeline: resolve action, validate input, enforce channel/surface, enforce permission, handle
+     idempotency, execute, emit audit + metrics.
+  6. No legacy behavior: no dual mode, no compatibility branch, no fallback path.
+  7. Clear boundary: UI-only interactions stay out of business actions; server state-changing business capabilities
+     become actions.
+
+  If you want, I can add a dedicated “Target System Blueprint” section to the plan that shows this as a one-page
+  flow (request -> context -> registry -> policy pipeline -> handler -> result/events).
+
+
+• ### Appendix: Target System Blueprint
+
+  #### 1. System shape (clean-slate)
+
+  - Every server-side business capability is an action.
+  - Every action is owned by exactly one domain contributor.
+  - The app composition root mounts all contributors into one registry.
+  - Every channel executes through the same registry pipeline.
+  - No legacy execution path exists.
+
+  #### 2. Core runtime pieces
+
+  - @jskit-ai/action-runtime-core provides:
+  - action contracts (definition, contributor, registry, executionContext)
+  - registry + pipeline execution engine
+  - policy hooks (permission, idempotency, audit, observability)
+  - App wiring in:
+  - createActionRegistry.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/runtime/actions/
+    createActionRegistry.js)
+  - contributorManifest.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/runtime/actions/
+    contributorManifest.js)
+  - buildExecutionContext.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/runtime/actions/
+    buildExecutionContext.js)
+
+  #### 3. Execution flow (single path)
+
+  1. Caller submits actionId + input + channel.
+  2. Context builder creates canonical execution context.
+  3. Registry resolves action definition (id + version).
+  4. Pipeline enforces channel/surface/visibility gates.
+  5. Pipeline validates input schema.
+  6. Pipeline enforces permission policy.
+  7. Pipeline runs idempotency policy (claim/replay when applicable).
+  8. Handler executes with injected domain dependencies.
+  9. Pipeline emits audit event and observability metrics.
+  10. Result returns to caller in normalized shape.
+
+  #### 4. Channel integration model
+
+  - API controllers call actionExecutor.execute({ channel: "api", ... }).
+  - Assistant tool execution calls actionExecutor.execute({ channel: "assistant_tool", ... }).
+  - Assistant chat orchestration calls actions for business side effects only.
+  - Workers/CLI/internal jobs call actionExecutor.execute({ channel: "worker" | "internal", ... }).
+
+  #### 5. Ownership model
+
+  - Domain package/module owns action definitions and handlers for its domain.
+  - App owns composition only (which contributors are mounted).
+  - Removing a contributor import removes that domain’s actions from runtime.
+
+  #### 6. Policy model (authoritative)
+
+  - Permission checks are mandatory in action execution.
+  - Route metadata is defense-in-depth, not the source of truth.
+  - Audit is emitted once by pipeline, not duplicated in controllers.
+  - Idempotency policy is declared per action (required, optional, domain_native, none).
+
+  #### 7. Naming and versioning
+
+  - Action ID format: domain.resource.verb (dot notation).
+  - Example: workspace.invite.create, chat.thread.message.send.
+  - Version is integer on definition, starting at 1.
+  - Route/tool bindings reference action ID and pinned version.
+
+  #### 8. Boundary rule
+
+  - In scope: server-executed business reads/writes with policy/audit requirements.
+  - Out of scope: UI-only interactions (navigation, local filters, placeholders) with no business-state mutation.
+
+  #### 9. What “done” looks like operationally
+
+  - You can pick any capability in actions_map.md and execute it the same way from API, assistant, or worker.
+  - Permission outcomes are identical across channels for the same actor/context.
+  - Audit and metrics are emitted consistently for every action execution.
+  - No controller contains business-policy logic that bypasses the action registry.
+
+
+  Rules:
+  1. At each gate, output only:
+  - `CHECKPOINT <n>: <title>`
+  - `Completed:` (3-7 bullets)
+  - `Decision needed:` `1) Continue 2) Revise 3) Abort`
+  2. Then STOP and wait for my reply.
+  3. Do not proceed to the next section until I explicitly approve.
+  4. Do not produce the final full plan until all required checkpoints are approved.
+
+  Required checkpoints:
+  - CHECKPOINT 1: Context and assumptions validated
+  - CHECKPOINT 2: Architecture contracts drafted (definition/contributor/registry/context)
+  - CHECKPOINT 3: Domain ownership + file/module layout drafted
+  - CHECKPOINT 4: Migration + policy + testing + risks drafted (pre-final review)
+
+  After CHECKPOINT 4 approval, produce the final consolidated output.
+
+  If you want, I can also give you a stricter variant that forces exactly 4 stops (not 5+).
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ----------------------------------
+  › There are gaps in the console UI:
+
+      1. Entitlement definitions are missing C/U/D (and currently no dedicated R endpoint either).
+
+        - Right now they’re only exposed indirectly in GET /api/console/billing/plans (for your new select):
+          consoleBilling.service.js (/home/merc/Development/current/jskit-ai/packages/workspace/workspace-console-
+      service-
+          core/src/services/consoleBilling.service.js:161)
+        - Console routes have no /api/console/billing/entitlement-definitions POST/PATCH/DELETE: routes.js (/home/
+    merc/
+          Development/current/jskit-ai/packages/workspace/console-fastify-adapter/src/routes.js:124)
+        - Source of truth today is migration seeds: 20260222232000_backfill_billing_entitlements_engine.cjs (/home/
+      merc/
+          Development/current/jskit-ai/apps/jskit-value-app/migration-baseline-
+          steps/20260222232000_backfill_billing_entitlements_engine.cjs:58)
+
+        2. Plans and Products are missing hard delete/archive endpoints.
+
+        - Plans: GET/POST/PATCH only: routes.js (/home/merc/Development/current/jskit-ai/packages/
+  workspace/console-
+          fastify-adapter/src/routes.js:124), routes.js (/home/merc/Development/current/jskit-ai/packages/
+  workspace/
+          console-fastify-adapter/src/routes.js:197), routes.js (/home/merc/Development/current/jskit-ai/packages/
+          workspace/console-fastify-adapter/src/routes.js:231)
+        - Products: GET/POST/PATCH only: routes.js (/home/merc/Development/current/jskit-ai/packages/
+    workspace/console-
+          fastify-adapter/src/routes.js:137), routes.js (/home/merc/Development/current/jskit-ai/packages/
+  workspace/
+          console-fastify-adapter/src/routes.js:214), routes.js (/home/merc/Development/current/jskit-ai/packages/
+          workspace/console-fastify-adapter/src/routes.js:249)
+
+        3. Payment methods are missing operational mutations (set default/detach/remove).
+
+        - Only list + sync exist: billing routes.js (/home/merc/Development/current/jskit-ai/packages/
+    billing/billing-
+          fastify-adapter/src/routes.js:64), billing routes.js (/home/merc/Development/current/jskit-ai/packages/
+      billing/
+          billing-fastify-adapter/src/routes.js:78)
+
+        4. Purchases are read-only (no refund/void/admin correction endpoints).
+
+        - Only GET purchases: billing routes.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-
+      fastify-
+          adapter/src/routes.js:36)
+
+        5. Plan assignment/subscription admin ops are limited.
+
+        - End-user flow has plan-change/cancel, but no console-level CRUD for assignment/subscription records
+  across
+          entities: billing routes.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-fastify-
+      adapter/
+          src/routes.js:142), billing routes.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-
+      fastify-
+          adapter/src/routes.js:160)
+
+THIS WAS THE ORIGINAL PLAN TO IMPLEMENT IT:
+
+    Phase 1: Contract and permission design (no behavior yet)
+
+  1. Lock API semantics first, especially for destructive operations.
+     Resource semantics:
+
+  - Entitlement definitions: archive = is_active=false; delete = hard delete only when no FK dependencies.
+  - Plans/products: archive = is_active=false; delete = hard delete only when dependency checks pass.
+  - Purchases: refund/void are financial operations, correction is internal ledger/admin correction.
+  - Payment methods: set default, detach, remove are separate operations.
+
+  2. Add console permission split.
+
+  - Keep console.billing.catalog.manage for definitions/plans/products.
+  - Add console.billing.operations.manage for purchases/subscription admin operations.
+
+  3. Keep workspace self-service and console admin separated.
+
+  - Workspace/user operations stay under /api/v1/billing/*.
+  - Cross-entity admin operations go under /api/v1/console/billing/*.
+
+  Primary permission file:
+
+  - consoleRoles.js (/home/merc/Development/current/jskit-ai/packages/workspace/workspace-console-core/src/
+    consoleRoles.js)
+
+  Phase 2: API surface additions
+
+  1. Console catalog/admin endpoints.
+
+  - GET /api/v1/console/billing/entitlement-definitions
+  - GET /api/v1/console/billing/entitlement-definitions/:definitionId
+  - POST /api/v1/console/billing/entitlement-definitions
+  - PATCH /api/v1/console/billing/entitlement-definitions/:definitionId
+  - DELETE /api/v1/console/billing/entitlement-definitions/:definitionId
+  - POST /api/v1/console/billing/plans/:planId/archive
+  - POST /api/v1/console/billing/plans/:planId/unarchive
+  - DELETE /api/v1/console/billing/plans/:planId
+  - POST /api/v1/console/billing/products/:productId/archive
+  - POST /api/v1/console/billing/products/:productId/unarchive
+  - DELETE /api/v1/console/billing/products/:productId
+
+  2. Workspace billing endpoint additions.
+
+  - POST /api/v1/billing/payment-methods/:paymentMethodId/default
+  - POST /api/v1/billing/payment-methods/:paymentMethodId/detach
+  - DELETE /api/v1/billing/payment-methods/:paymentMethodId
+
+  3. Console operations endpoints.
+
+  - GET /api/v1/console/billing/purchases
+  - POST /api/v1/console/billing/purchases/:purchaseId/refund
+  - POST /api/v1/console/billing/purchases/:purchaseId/void
+  - POST /api/v1/console/billing/purchases/:purchaseId/corrections
+  - GET /api/v1/console/billing/plan-assignments
+  - POST /api/v1/console/billing/plan-assignments
+  - PATCH /api/v1/console/billing/plan-assignments/:assignmentId
+  - POST /api/v1/console/billing/plan-assignments/:assignmentId/cancel
+  - GET /api/v1/console/billing/subscriptions
+  - POST /api/v1/console/billing/subscriptions/:providerSubscriptionId/change-plan
+  - POST /api/v1/console/billing/subscriptions/:providerSubscriptionId/cancel
+  - POST /api/v1/console/billing/subscriptions/:providerSubscriptionId/cancel-at-period-end
+
+  Adapter files for this phase:
+
+  - routes.js (/home/merc/Development/current/jskit-ai/packages/workspace/console-fastify-adapter/src/routes.js)
+  - schema.js (/home/merc/Development/current/jskit-ai/packages/workspace/console-fastify-adapter/src/schema.js)
+  - controller.js (/home/merc/Development/current/jskit-ai/packages/workspace/console-fastify-adapter/src/
+    controller.js)
+  - routes.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-fastify-adapter/src/routes.js)
+  - schema.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-fastify-adapter/src/schema.js)
+  - controller.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-fastify-adapter/src/
+    controller.js)
+
+  Phase 3: Server-side service/repository implementation
+
+  1. Console billing service implementation.
+
+  - Add entitlement definition CRUD service functions.
+  - Add plan/product archive/unarchive/delete service functions.
+  - Add purchases and assignment/subscription admin functions.
+  - Keep permission checks at service boundary with requirePermission(...).
+    Files:
+  - consoleBilling.service.js (/home/merc/Development/current/jskit-ai/packages/workspace/workspace-console-service-
+    core/src/services/consoleBilling.service.js)
+  - console.service.js (/home/merc/Development/current/jskit-ai/packages/workspace/workspace-console-service-core/
+    src/services/console.service.js)
+
+  2. Billing service core implementation.
+
+  - Add payment method mutation methods (default/detach/remove).
+  - Add admin purchase operations (refund/void/correction).
+  - Add admin assignment/subscription ops, reusing existing plan-change internals where possible, but with explicit
+    admin entrypoints.
+    File:
+  - service.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-service-core/src/service.js)
+
+  3. Repository changes.
+
+  - Add entitlement definition create/update/delete and dependency-count checks.
+  - Add plan/product archive/unarchive helpers.
+  - Add plan/product hard-delete helpers with dependency checks and conflict mapping.
+  - Add payment method row-by-id operations and default-switch helper.
+  - Add purchase adjustment persistence and purchase-status update helpers.
+  - Add assignment/subscription listing helpers for console filters.
+    Files:
+  - repository.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-knex-mysql/src/repository.js)
+  - repository.js (/home/merc/Development/current/jskit-ai/packages/billing/entitlements-knex-mysql/src/
+    repository.js)
+  - repository.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/billing/
+    repository.js)
+
+  4. Provider insulation changes.
+
+  - Extend provider adapter contract for payment-method mutation and refund/void capabilities.
+  - Implement Stripe SDK adapter methods.
+  - Implement Paddle methods or explicit 501 where unsupported.
+    Files:
+  - providerAdapter.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-provider-core/src/
+    contracts/providerAdapter.js)
+  - adapter.service.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-provider-stripe/src/
+    adapter.service.js)
+  - sdk.service.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-provider-stripe/src/
+    sdk.service.js)
+  - adapter.service.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-provider-paddle/src/
+    adapter.service.js)
+  - sdk.service.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-provider-paddle/src/
+    sdk.service.js)
+
+  Phase 4: Database/migration work
+
+  1. Add purchase adjustments table for auditable mutation history.
+
+  - Suggested table: billing_purchase_adjustments.
+  - Columns: purchase_id, action_type, status, amount_minor, reason_code, provider_reference, requested_by_user_id,
+    metadata_json, timestamps.
+
+  2. Keep entitlement definition table as-is, rely on existing FK RESTRICT constraints and pre-delete checks.
+  3. Keep plan/product archive as is_active toggles (no new archive columns needed unless you want audit timestamps
+     later).
+
+  Migration location:
+
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/migration-baseline-steps
+
+  Phase 5: UI implementation (Vuetify-first, minimal CSS)
+
+  1. Console IA and routes.
+
+  - Add console pages for:
+      - Entitlement Definitions
+      - Purchases
+      - Subscriptions/Assignments
+  - Keep existing Plans/Products pages and add archive/delete actions there.
+    Files:
+  - consoleCoreRoutes.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/app/router/routes/
+    consoleCoreRoutes.js)
+  - guards.console.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/app/router/
+    guards.console.js)
+  - useConsoleShell.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/app/shells/console/
+    useConsoleShell.js)
+
+  2. API clients.
+
+  - Add all console mutation/list methods and payment-method mutation methods.
+    Files:
+  - consoleApi.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/platform/http/api/consoleApi.js)
+  - billingApi.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/platform/http/api/billingApi.js)
+
+  3. Console view/composable pattern.
+
+  - Follow existing pattern: thin *.vue wrappers + logic in use*.js.
+  - Use Vue Query for list/mutate + query invalidation.
+    Files:
+  - useConsoleBillingPlansView.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/
+    useConsoleBillingPlansView.js)
+  - useConsoleBillingProductsView.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/
+    console/useConsoleBillingProductsView.js)
+  - New useConsoleBillingEntitlementsView.js
+  - New useConsoleBillingPurchasesView.js
+  - New useConsoleBillingSubscriptionsView.js
+
+  4. Client element package updates.
+
+  - Reuse existing client-element package for visual components.
+  - Add new client elements and export from index.
+    Files:
+  - ConsoleBillingPlansClientElement.vue (/home/merc/Development/current/jskit-ai/packages/billing/billing-console-
+    admin-client-element/src/ConsoleBillingPlansClientElement.vue)
+  - ConsoleBillingProductsClientElement.vue (/home/merc/Development/current/jskit-ai/packages/billing/billing-
+    console-admin-client-element/src/ConsoleBillingProductsClientElement.vue)
+  - New ConsoleBillingEntitlementsClientElement.vue
+  - New ConsoleBillingPurchasesClientElement.vue
+  - New ConsoleBillingSubscriptionsClientElement.vue
+  - index.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-console-admin-client-element/src/
+    index.js)
+
+  5. Workspace billing UI for payment methods.
+
+  - Add payment methods card with actions: set default, detach, remove.
+  - Use v-list, v-btn, v-chip, v-dialog, v-alert.
+    Files:
+  - useWorkspaceBillingView.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-
+    billing/useWorkspaceBillingView.js)
+  - BillingCommerceClientElement.vue (/home/merc/Development/current/jskit-ai/packages/billing/billing-commerce-
+    client-element/src/BillingCommerceClientElement.vue)
+
+  Vuetify-only UI rule for this work:
+
+  - Prefer v-data-table/v-table, v-dialog, v-form, v-select, v-text-field, v-switch, v-menu, v-chip.
+  - Use utility classes (d-flex, ga-*, pa-*) instead of custom CSS.
+  - Add CSS only for unavoidable layout edge cases.
+
+  Phase 6: Tests, docs, rollout
+
+  1. Server tests to add/update.
+
+  - Console service billing tests for new operations.
+  - Billing service tests for payment method/purchase/admin ops.
+  - Route policy tests for new routes.
+  - Console controller audit tests for new audit actions.
+    Files to update:
+  - consoleServiceBillingEvents.test.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/
+    consoleServiceBillingEvents.test.js)
+  - billingRoutesPolicy.test.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/
+    billingRoutesPolicy.test.js)
+  - consoleControllerAudit.test.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/
+    consoleControllerAudit.test.js)
+
+  2. Client tests to add/update.
+
+  - API URL/method coverage.
+  - Router guard permission coverage for new console routes.
+  - Role permission tests for new billing operations permission.
+    Files:
+  - api.vitest.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/api.vitest.js)
+  - routerGuardsConsole.vitest.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/
+    routerGuardsConsole.vitest.js)
+  - consoleRolesPermissions.test.js (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/
+    consoleRolesPermissions.test.js)
+
+  3. Provider contract tests.
+
+  - Update adapter-contract tests for any newly required methods.
+
+  4. Docs updates.
+
+  - Update billing contracts and DB docs.
+    Files:
+  - contracts.md (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/docs/billing/contracts.md)
+  - billing-live-schema.md (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/docs/database/billing-live-
+    schema.md)
+
+  Validation run sequence after implementation:
+
+  1. npm --prefix ../.. run lint:architecture:client
+  2. npm --prefix ../.. run test:architecture:client
+  3. npm --prefix ../.. run test:architecture:shared-ui
+  4. npm run lint
+  5. npm run test
+  6. npm run test:client
+  7. npm run docs:api-contracts:check
+  8. npm run test -- billing
+
+  Important implementation guardrails
+
+  1. Hard delete on plans/definitions must return clear 409 dependency errors, not generic DB failures.
+  2. Financial mutations must be auditable and idempotent.
+  3. Provider-specific behavior remains in provider packages only.
+  4. Console admin flows must never weaken workspace auth semantics in /api/v1/billing/*.
+  5. Keep all new UI controls permission-gated in both router guards and server checks.
+
+  If you want, I can now turn this into an execution plan with exact PR slices and acceptance criteria per slice (so
+  each merge is independently deployable).
+
+
+› DISCUSSION ONLY. Question: I’ve confirmed the repository and provider contract limitations. I’m now extracting
+  the existing console/client UI patterns
+
+  ...what limitations?
+
+
+• Limitations I meant
+
+  - Entitlement definitions are read-only at repository/service level today.
+      - repository.js (/home/merc/Development/current/jskit-ai/packages/billing/entitlements-knex-mysql/src/
+        repository.js) only has list/find for definitions, no create/update/delete.
+  - Billing catalog repos have create/update/list flows, but no explicit hard-delete APIs or dependency-check
+    helpers for plans/products.
+      - repository.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-knex-mysql/src/
+        repository.js)
+  - Purchases are modeled as append/read (upsertBillingPurchase, listBillingPurchasesForEntity), with no refund/
+    void/correction primitives.
+      - repository.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-knex-mysql/src/
+        repository.js)
+  - Payment methods support list/sync/upsert/deactivate-missing, but not operational mutations like setDefault,
+    detach, or admin remove.
+      - service.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-service-core/src/service.js)
+      - repository.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-knex-mysql/src/
+        repository.js)
+  - Provider adapter contract does not currently require refund/void/payment-method mutation methods.
+      - providerAdapter.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-provider-core/src/
+        contracts/providerAdapter.js)
+  - Stripe adapter exposes subscription + payment-method listing, but no contracted methods for set-default/detach/
+    refund/void yet.
+      - adapter.service.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-provider-stripe/src/
+        adapter.service.js)
+      - sdk.service.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-provider-stripe/src/
+        sdk.service.js)
+  - Paddle is more constrained: updateSubscriptionPlan is explicitly 501 not implemented, and payment-method
+    defaults are not surfaced.
+      - sdk.service.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-provider-paddle/src/
+        sdk.service.js)
+  - Architectural limitation: billing core must stay provider-agnostic, so any new provider-specific capability must
+    be added via the provider contract first, not directly in core.
+      - provider-insulation.md (/home/merc/Development/current/jskit-ai/apps/jskit-value-app/docs/billing/provider-
+        insulation.md)
+
+
+HOWEVER, SINCE THEN THE SYSTEM HAS CHANGED QUITE A LOT, ESPECIALLY IN TERMS OF packages/server-runtime-core
+WHICH IS THE NEW WAY ACTIONS ARE ORGANISED. UPDATE THIS PLAN TO USE THE NEW INFRASTRUCTURE, WHICH WILL ALSO
+MEAN THAT THE AI ASSISTANT WILL BE ABLE TO RUN ALL OF THE NEW ACTIONS.

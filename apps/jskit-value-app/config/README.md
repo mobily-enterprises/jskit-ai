@@ -4,7 +4,7 @@ Canonical reference for repository-owned config defaults and validation rules.
 
 ## Sources
 
-- Defaults: `app.js`, `chat.js`, `ai.js`, `billing.js`, `retention.js`
+- Defaults: `app.js`, `chat.js`, `ai.js`, `billing.js`, `retention.js`, `actions.js`
 - Validation and merge rules: `index.js`
 - Validator semantics: `lib/helpers.js`
 
@@ -31,8 +31,22 @@ Repository config has exactly these top-level slices:
 - `ai`
 - `billing`
 - `retention`
+- `actions`
 
 `buildRepositoryConfig(...)` loads defaults, merges optional overrides, validates, then deep-freezes.
+
+## `actions` Domain
+
+| Key path | Type | Allowed values | Default | Meaning | Notable constraints/interactions |
+| --- | --- | --- | --- | --- | --- |
+| `actions.assistant` | object | Plain object | `{...}` | Assistant-channel action exposure policy. | Required object; cannot be array/null. |
+| `actions.assistant.enabled` | boolean | `true` or `false` | `true` | Enables assistant action exposure at runtime composition level. | Must be boolean. |
+| `actions.assistant.exposedActionIds` | string[] | Array of strings | `[]` | Explicit allowlist override for assistant action IDs. | Each entry must be string. |
+| `actions.assistant.blockedActionIds` | string[] | Array of strings | `[]` | Explicit denylist for assistant action IDs. | Each entry must be string. |
+| `actions.internal` | object | Plain object | `{...}` | Internal-channel action exposure policy. | Required object; cannot be array/null. |
+| `actions.internal.enabled` | boolean | `true` or `false` | `true` | Enables internal action execution channel policy gates. | Must be boolean. |
+| `actions.internal.exposedActionIds` | string[] | Array of strings | `[]` | Explicit allowlist override for internal action IDs. | Each entry must be string. |
+| `actions.internal.blockedActionIds` | string[] | Array of strings | `[]` | Explicit denylist for internal action IDs. | Each entry must be string. |
 
 ## `app` Domain
 

@@ -16,21 +16,24 @@ const PLATFORM_CONTROLLER_DEFINITIONS = Object.freeze([
     id: "auth",
     create: ({ services }) =>
       createAuthController({
-        authService: services.authService
+        authService: services.authService,
+        actionExecutor: services.actionExecutor
       })
   },
   {
     id: "history",
     create: ({ services }) =>
       createHistoryController({
-        deg2radHistoryService: services.deg2radHistoryService
+        deg2radHistoryService: services.deg2radHistoryService,
+        actionExecutor: services.actionExecutor
       })
   },
   {
     id: "communications",
     create: ({ services }) =>
       createCommunicationsController({
-        communicationsService: services.communicationsService
+        communicationsService: services.communicationsService,
+        actionExecutor: services.actionExecutor
       })
   },
   {
@@ -39,14 +42,16 @@ const PLATFORM_CONTROLLER_DEFINITIONS = Object.freeze([
       createSettingsController({
         userSettingsService: services.userSettingsService,
         authService: services.authService,
-        auditService: services.auditService
+        auditService: services.auditService,
+        actionExecutor: services.actionExecutor
       })
   },
   {
     id: "health",
     create: ({ services }) =>
       createHealthController({
-        healthService: services.healthService
+        healthService: services.healthService,
+        actionExecutor: services.actionExecutor
       })
   },
   {
@@ -54,14 +59,16 @@ const PLATFORM_CONTROLLER_DEFINITIONS = Object.freeze([
     create: ({ services }) =>
       createBillingController({
         billingService: services.billingService,
-        billingWebhookService: services.billingWebhookService
+        billingWebhookService: services.billingWebhookService,
+        actionExecutor: services.actionExecutor
       })
   },
   {
     id: "chat",
     create: ({ services }) =>
       createChatController({
-        chatService: services.chatService
+        chatService: services.chatService,
+        actionExecutor: services.actionExecutor
       })
   },
   {
@@ -69,7 +76,8 @@ const PLATFORM_CONTROLLER_DEFINITIONS = Object.freeze([
     create: ({ services }) =>
       createAiController({
         aiService: services.aiService,
-        aiTranscriptsService: services.aiTranscriptsService
+        aiTranscriptsService: services.aiTranscriptsService,
+        actionExecutor: services.actionExecutor
       })
   },
   {
@@ -82,7 +90,8 @@ const PLATFORM_CONTROLLER_DEFINITIONS = Object.freeze([
         aiTranscriptsService: services.aiTranscriptsService,
         consoleService: services.consoleService,
         auditService: services.auditService,
-        realtimeEventsService: services.realtimeEventsService
+        realtimeEventsService: services.realtimeEventsService,
+        actionExecutor: services.actionExecutor
       })
   },
   {
@@ -91,21 +100,24 @@ const PLATFORM_CONTROLLER_DEFINITIONS = Object.freeze([
       createConsoleController({
         consoleService: services.consoleService,
         aiTranscriptsService: services.aiTranscriptsService,
-        auditService: services.auditService
+        auditService: services.auditService,
+        actionExecutor: services.actionExecutor
       })
   },
   {
     id: "consoleErrors",
     create: ({ services }) =>
       createConsoleErrorsController({
-        consoleErrorsService: services.consoleErrorsService
+        consoleErrorsService: services.consoleErrorsService,
+        actionExecutor: services.actionExecutor
       })
   },
   {
     id: "observability",
     create: ({ services }) =>
       createObservabilityController({
-        observabilityService: services.observabilityService
+        observabilityService: services.observabilityService,
+        actionExecutor: services.actionExecutor
       })
   }
 ]);

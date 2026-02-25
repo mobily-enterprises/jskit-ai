@@ -33,6 +33,7 @@ import {
   createBillingWorkerRuntimeService
 } from "@jskit-ai/billing-worker-core";
 import { createService as createBillingModuleService } from "../modules/billing/index.js";
+import { createActionRuntimeServices } from "./actions/index.js";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { createService as createRealtimeEventsService } from "@jskit-ai/server-runtime-core/realtimeEventsService";
 import { createService as createObservabilityService } from "@jskit-ai/observability-core/service";
@@ -390,6 +391,8 @@ const RUNTIME_SERVICE_EXPORT_IDS = Object.freeze([
   "avatarStorageService",
   "chatAttachmentStorageService",
   "aiService",
+  "actionRegistry",
+  "actionExecutor",
   "billingService",
   "billingWebhookService",
   "billingOutboxWorkerService",
@@ -776,7 +779,31 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
     create({ services }) {
       return services.billingSubsystem[id];
     }
-  }))
+  })),
+  {
+    id: "actionRuntimeServices",
+    create({ services, repositories, repositoryConfig, appConfig, rbacManifest }) {
+      return createActionRuntimeServices({
+        services,
+        repositories,
+        repositoryConfig,
+        appConfig,
+        rbacManifest
+      });
+    }
+  },
+  {
+    id: "actionRegistry",
+    create({ services }) {
+      return services.actionRuntimeServices.actionRegistry;
+    }
+  },
+  {
+    id: "actionExecutor",
+    create({ services }) {
+      return services.actionRuntimeServices.actionExecutor;
+    }
+  }
 ]);
 
 const __testables = {
