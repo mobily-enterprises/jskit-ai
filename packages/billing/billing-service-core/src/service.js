@@ -2857,6 +2857,265 @@ function createService(options = {}) {
     }
   }
 
+  function createPaymentMethodProviderUnsupportedError(operation) {
+    const normalizedOperation = toNonEmptyString(operation) || "unknown_operation";
+    return new AppError(501, "Billing payment-method mutation is not available for the active provider.", {
+      code: "PAYMENT_METHOD_PROVIDER_UNSUPPORTED",
+      details: {
+        code: "PAYMENT_METHOD_PROVIDER_UNSUPPORTED",
+        operation: normalizedOperation
+      }
+    });
+  }
+
+  function createPaymentMethodNotFoundError(paymentMethodId) {
+    return new AppError(404, "Billing payment method not found.", {
+      code: "PAYMENT_METHOD_NOT_FOUND",
+      details: {
+        code: "PAYMENT_METHOD_NOT_FOUND",
+        paymentMethodId: toPositiveInteger(paymentMethodId)
+      }
+    });
+  }
+
+  function createPaymentMethodOwnershipError({ paymentMethodId, billableEntityId }) {
+    return new AppError(409, "Billing payment method does not belong to the selected billable entity.", {
+      code: "PAYMENT_METHOD_NOT_OWNED_BY_ENTITY",
+      details: {
+        code: "PAYMENT_METHOD_NOT_OWNED_BY_ENTITY",
+        paymentMethodId: toPositiveInteger(paymentMethodId),
+        billableEntityId: toPositiveInteger(billableEntityId)
+      }
+    });
+  }
+
+  function resolveProviderCustomerIdForPaymentMethod(paymentMethod, customer) {
+    const methodMetadata =
+      paymentMethod?.metadataJson && typeof paymentMethod.metadataJson === "object" ? paymentMethod.metadataJson : {};
+    return (
+      toNonEmptyString(customer?.providerCustomerId) ||
+      toNonEmptyString(methodMetadata.providerCustomerId || methodMetadata.provider_customer_id) ||
+      null
+    );
+  }
+
+  async function listActivePaymentMethodsForEntity({ billableEntityId }) {
+    if (typeof billingRepository.listPaymentMethodsForEntity !== "function") {
+      return [];
+    }
+
+    return billingRepository.listPaymentMethodsForEntity({
+      billableEntityId,
+      provider: activeProvider,
+      includeInactive: false,
+      limit: 50
+    });
+  }
+
+  async function runProviderPaymentMethodMutation({
+    operation,
+    providerMethodName,
+    paymentMethod,
+    customerId,
+    clientIdempotencyKey
+  }) {
+    const providerMethod = providerAdapter?.[providerMethodName];
+    if (typeof providerMethod !== "function") {
+      throw createPaymentMethodProviderUnsupportedError(operation);
+    }
+
+    try {
+      await providerMethod({
+        customerId: toNonEmptyString(customerId) || null,
+        paymentMethodId: toNonEmptyString(paymentMethod?.providerPaymentMethodId) || null,
+        providerPaymentMethodId: toNonEmptyString(paymentMethod?.providerPaymentMethodId) || null,
+        idempotencyKey: toNonEmptyString(clientIdempotencyKey) || null
+      });
+    } catch (error) {
+      const statusCode = Number(error?.statusCode || error?.status);
+      const errorCode = toNonEmptyString(error?.code || error?.details?.code).toUpperCase();
+      if (
+        statusCode === 501 ||
+        errorCode === "PROVIDER_OPERATION_NOT_SUPPORTED" ||
+        errorCode === "PAYMENT_METHOD_PROVIDER_UNSUPPORTED"
+      ) {
+        throw createPaymentMethodProviderUnsupportedError(operation);
+      }
+
+      throw error;
+    }
+  }
+
+  function validatePaymentMethodMutationId(paymentMethodId) {
+    const normalizedId = toPositiveInteger(paymentMethodId);
+    if (!normalizedId) {
+      throw new AppError(400, "Validation failed.", {
+        details: {
+          fieldErrors: {
+            paymentMethodId: "paymentMethodId is required."
+          }
+        }
+      });
+    }
+
+    return normalizedId;
+  }
+
+  async function resolvePaymentMethodForWrite({
+    request,
+    user,
+    paymentMethodId
+  }) {
+    const normalizedPaymentMethodId = validatePaymentMethodMutationId(paymentMethodId);
+    const { billableEntity } = await billingPolicyService.resolveBillableEntityForWriteRequest({
+      request,
+      user
+    });
+
+    if (typeof billingRepository.findPaymentMethodById !== "function") {
+      throw new AppError(501, "Billing payment-method mutation storage is not available.");
+    }
+
+    const paymentMethod = await billingRepository.findPaymentMethodById(normalizedPaymentMethodId);
+    if (!paymentMethod) {
+      throw createPaymentMethodNotFoundError(normalizedPaymentMethodId);
+    }
+    if (Number(paymentMethod.billableEntityId) !== Number(billableEntity.id)) {
+      throw createPaymentMethodOwnershipError({
+        paymentMethodId: normalizedPaymentMethodId,
+        billableEntityId: billableEntity.id
+      });
+    }
+
+    const customer =
+      typeof billingRepository.findCustomerById === "function"
+        ? await billingRepository.findCustomerById(paymentMethod.billingCustomerId)
+        : null;
+    const providerCustomerId = resolveProviderCustomerIdForPaymentMethod(paymentMethod, customer);
+
+    return {
+      billableEntity,
+      paymentMethod,
+      providerCustomerId
+    };
+  }
+
+  async function setDefaultPaymentMethod({ request, user, paymentMethodId, payload = {}, clientIdempotencyKey } = {}) {
+    void payload;
+    const { billableEntity, paymentMethod, providerCustomerId } = await resolvePaymentMethodForWrite({
+      request,
+      user,
+      paymentMethodId
+    });
+
+    if (typeof billingRepository.setDefaultPaymentMethodForEntity !== "function") {
+      throw new AppError(501, "Billing payment-method mutation storage is not available.");
+    }
+
+    if (!paymentMethod.isDefault) {
+      await runProviderPaymentMethodMutation({
+        operation: "workspace.billing.payment_methods.default.set",
+        providerMethodName: "setDefaultCustomerPaymentMethod",
+        paymentMethod,
+        customerId: providerCustomerId,
+        clientIdempotencyKey
+      });
+    }
+
+    const updatedPaymentMethod = await billingRepository.setDefaultPaymentMethodForEntity({
+      billableEntityId: billableEntity.id,
+      paymentMethodId: paymentMethod.id,
+      provider: paymentMethod.provider
+    });
+
+    return {
+      billableEntity,
+      operation: "default_set",
+      paymentMethod: updatedPaymentMethod || paymentMethod,
+      paymentMethods: await listActivePaymentMethodsForEntity({
+        billableEntityId: billableEntity.id
+      })
+    };
+  }
+
+  async function detachPaymentMethod({ request, user, paymentMethodId, payload = {}, clientIdempotencyKey } = {}) {
+    void payload;
+    const { billableEntity, paymentMethod, providerCustomerId } = await resolvePaymentMethodForWrite({
+      request,
+      user,
+      paymentMethodId
+    });
+
+    if (typeof billingRepository.detachPaymentMethodById !== "function") {
+      throw new AppError(501, "Billing payment-method mutation storage is not available.");
+    }
+
+    if (String(paymentMethod.status || "").toLowerCase() !== "detached") {
+      await runProviderPaymentMethodMutation({
+        operation: "workspace.billing.payment_methods.detach",
+        providerMethodName: "detachCustomerPaymentMethod",
+        paymentMethod,
+        customerId: providerCustomerId,
+        clientIdempotencyKey
+      });
+    }
+
+    const updatedPaymentMethod = await billingRepository.detachPaymentMethodById({
+      id: paymentMethod.id
+    });
+
+    return {
+      billableEntity,
+      operation: "detached",
+      paymentMethod: updatedPaymentMethod || {
+        ...paymentMethod,
+        status: "detached",
+        isDefault: false
+      },
+      paymentMethods: await listActivePaymentMethodsForEntity({
+        billableEntityId: billableEntity.id
+      })
+    };
+  }
+
+  async function removePaymentMethod({ request, user, paymentMethodId, payload = {}, clientIdempotencyKey } = {}) {
+    void payload;
+    const { billableEntity, paymentMethod, providerCustomerId } = await resolvePaymentMethodForWrite({
+      request,
+      user,
+      paymentMethodId
+    });
+
+    if (typeof billingRepository.removePaymentMethodById !== "function") {
+      throw new AppError(501, "Billing payment-method mutation storage is not available.");
+    }
+
+    await runProviderPaymentMethodMutation({
+      operation: "workspace.billing.payment_methods.remove",
+      providerMethodName: "removeCustomerPaymentMethod",
+      paymentMethod,
+      customerId: providerCustomerId,
+      clientIdempotencyKey
+    });
+
+    await billingRepository.removePaymentMethodById({
+      id: paymentMethod.id
+    });
+
+    return {
+      billableEntity,
+      operation: "removed",
+      paymentMethod: {
+        ...paymentMethod,
+        status: "removed",
+        isDefault: false
+      },
+      paymentMethods: await listActivePaymentMethodsForEntity({
+        billableEntityId: billableEntity.id
+      })
+    };
+  }
+
   async function getLimitations({ request, user, now = new Date() }) {
     const { billableEntity } = await billingPolicyService.resolveBillableEntityForReadRequest({
       request,
@@ -4008,6 +4267,9 @@ function createService(options = {}) {
     processDuePlanChanges,
     listPaymentMethods,
     syncPaymentMethods,
+    setDefaultPaymentMethod,
+    detachPaymentMethod,
+    removePaymentMethod,
     getLimitations,
     resolveEffectiveLimitations,
     consumeEntitlement,

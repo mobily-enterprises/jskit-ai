@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createActionRuntimeServices } from "../server/runtime/actions/index.js";
-import { ACTION_IDS } from "../shared/actionIds.js";
+import { ACTION_IDS, ACTION_ID_VALUES } from "../shared/actionIds.js";
 
 function createRepositoryConfig() {
   return {
@@ -266,6 +266,151 @@ function createServiceStubs() {
             id: 1
           }
         };
+      },
+      async listEntitlementDefinitions() {
+        return {
+          entries: []
+        };
+      },
+      async getEntitlementDefinition() {
+        return {
+          definition: null
+        };
+      },
+      async createEntitlementDefinition() {
+        return {
+          definition: {
+            id: 1
+          }
+        };
+      },
+      async updateEntitlementDefinition() {
+        return {
+          definition: {
+            id: 1
+          }
+        };
+      },
+      async deleteEntitlementDefinition() {
+        return {
+          deleted: true
+        };
+      },
+      async archiveBillingPlan() {
+        return {
+          plan: {
+            id: 1
+          }
+        };
+      },
+      async unarchiveBillingPlan() {
+        return {
+          plan: {
+            id: 1
+          }
+        };
+      },
+      async deleteBillingPlan() {
+        return {
+          deleted: true
+        };
+      },
+      async archiveBillingProduct() {
+        return {
+          product: {
+            id: 1
+          }
+        };
+      },
+      async unarchiveBillingProduct() {
+        return {
+          product: {
+            id: 1
+          }
+        };
+      },
+      async deleteBillingProduct() {
+        return {
+          deleted: true
+        };
+      },
+      async listPurchasesForConsole() {
+        return {
+          purchases: []
+        };
+      },
+      async refundPurchaseForConsole() {
+        return {
+          purchase: {
+            id: 1
+          }
+        };
+      },
+      async voidPurchaseForConsole() {
+        return {
+          purchase: {
+            id: 1
+          }
+        };
+      },
+      async createPurchaseCorrectionForConsole() {
+        return {
+          correction: {
+            id: 1
+          }
+        };
+      },
+      async listPlanAssignmentsForConsole() {
+        return {
+          entries: []
+        };
+      },
+      async createPlanAssignmentForConsole() {
+        return {
+          assignment: {
+            id: 1
+          }
+        };
+      },
+      async updatePlanAssignmentForConsole() {
+        return {
+          assignment: {
+            id: 1
+          }
+        };
+      },
+      async cancelPlanAssignmentForConsole() {
+        return {
+          assignment: {
+            id: 1
+          }
+        };
+      },
+      async listSubscriptionsForConsole() {
+        return {
+          entries: []
+        };
+      },
+      async changeSubscriptionPlanForConsole() {
+        return {
+          subscription: {
+            id: "sub_1"
+          }
+        };
+      },
+      async cancelSubscriptionForConsole() {
+        return {
+          subscription: {
+            id: "sub_1"
+          }
+        };
+      },
+      async cancelSubscriptionAtPeriodEndForConsole() {
+        return {
+          subscription: {
+            id: "sub_1"
+          }
+        };
       }
     },
     chatService: {
@@ -378,6 +523,21 @@ function createServiceStubs() {
         };
       },
       async syncPaymentMethods() {
+        return {
+          paymentMethods: []
+        };
+      },
+      async setDefaultPaymentMethod() {
+        return {
+          paymentMethods: []
+        };
+      },
+      async detachPaymentMethod() {
+        return {
+          paymentMethods: []
+        };
+      },
+      async removePaymentMethod() {
         return {
           paymentMethods: []
         };
@@ -681,24 +841,72 @@ test("action runtime services scaffold action registry and executor", async () =
   assert.ok(definitions.length > 0);
 
   const actionIds = new Set(definitions.map((definition) => definition.id));
+  const versionKeys = definitions.map((definition) => `${definition.id}@v${definition.version}`);
   const definitionsById = new Map(definitions.map((definition) => [definition.id, definition]));
-  assert.equal(actionIds.has(ACTION_IDS.WORKSPACE_SETTINGS_UPDATE), true);
-  assert.equal(actionIds.has(ACTION_IDS.WORKSPACE_INVITE_CREATE), true);
-  assert.equal(actionIds.has(ACTION_IDS.WORKSPACE_MEMBER_ROLE_UPDATE), true);
-  assert.equal(actionIds.has(ACTION_IDS.CONSOLE_INVITE_CREATE), true);
-  assert.equal(actionIds.has(ACTION_IDS.CONSOLE_MEMBER_ROLE_UPDATE), true);
-  assert.equal(actionIds.has(ACTION_IDS.WORKSPACE_BILLING_PLAN_CHANGE_REQUEST), true);
-  assert.equal(actionIds.has(ACTION_IDS.WORKSPACE_BILLING_PAYMENT_LINK_CREATE), true);
-  assert.equal(actionIds.has(ACTION_IDS.CONSOLE_BILLING_PLAN_CREATE), true);
-  assert.equal(actionIds.has(ACTION_IDS.CONSOLE_BILLING_PLAN_UPDATE), true);
-  assert.equal(actionIds.has(ACTION_IDS.CONSOLE_BILLING_PRODUCT_CREATE), true);
-  assert.equal(actionIds.has(ACTION_IDS.CONSOLE_BILLING_PRODUCT_UPDATE), true);
-  assert.equal(actionIds.has(ACTION_IDS.CHAT_THREAD_MESSAGE_SEND), true);
-  assert.equal(actionIds.has(ACTION_IDS.CHAT_ATTACHMENT_UPLOAD), true);
-  assert.equal(actionIds.has(ACTION_IDS.PROJECTS_CREATE), true);
-  assert.equal(actionIds.has(ACTION_IDS.PROJECTS_UPDATE), true);
-  assert.equal(actionIds.has(ACTION_IDS.DEG2RAD_CALCULATE), true);
-  assert.equal(actionIds.has(ACTION_IDS.HISTORY_LIST), true);
+  assert.equal(new Set(versionKeys).size, versionKeys.length);
+
+  const expectedActionIds = [
+    ACTION_IDS.WORKSPACE_SETTINGS_UPDATE,
+    ACTION_IDS.WORKSPACE_INVITE_CREATE,
+    ACTION_IDS.WORKSPACE_MEMBER_ROLE_UPDATE,
+    ACTION_IDS.CONSOLE_INVITE_CREATE,
+    ACTION_IDS.CONSOLE_MEMBER_ROLE_UPDATE,
+    ACTION_IDS.WORKSPACE_BILLING_PLAN_CHANGE_REQUEST,
+    ACTION_IDS.WORKSPACE_BILLING_PAYMENT_LINK_CREATE,
+    ACTION_IDS.CONSOLE_BILLING_PLAN_CREATE,
+    ACTION_IDS.CONSOLE_BILLING_PLAN_UPDATE,
+    ACTION_IDS.CONSOLE_BILLING_PRODUCT_CREATE,
+    ACTION_IDS.CONSOLE_BILLING_PRODUCT_UPDATE,
+    ACTION_IDS.CONSOLE_BILLING_ENTITLEMENT_DEFINITIONS_LIST,
+    ACTION_IDS.CONSOLE_BILLING_ENTITLEMENT_DEFINITION_GET,
+    ACTION_IDS.CONSOLE_BILLING_ENTITLEMENT_DEFINITION_CREATE,
+    ACTION_IDS.CONSOLE_BILLING_ENTITLEMENT_DEFINITION_UPDATE,
+    ACTION_IDS.CONSOLE_BILLING_ENTITLEMENT_DEFINITION_DELETE,
+    ACTION_IDS.CONSOLE_BILLING_PLAN_ARCHIVE,
+    ACTION_IDS.CONSOLE_BILLING_PLAN_UNARCHIVE,
+    ACTION_IDS.CONSOLE_BILLING_PLAN_DELETE,
+    ACTION_IDS.CONSOLE_BILLING_PRODUCT_ARCHIVE,
+    ACTION_IDS.CONSOLE_BILLING_PRODUCT_UNARCHIVE,
+    ACTION_IDS.CONSOLE_BILLING_PRODUCT_DELETE,
+    ACTION_IDS.CONSOLE_BILLING_PURCHASES_LIST,
+    ACTION_IDS.CONSOLE_BILLING_PURCHASE_REFUND,
+    ACTION_IDS.CONSOLE_BILLING_PURCHASE_VOID,
+    ACTION_IDS.CONSOLE_BILLING_PURCHASE_CORRECTION_CREATE,
+    ACTION_IDS.CONSOLE_BILLING_PLAN_ASSIGNMENTS_LIST,
+    ACTION_IDS.CONSOLE_BILLING_PLAN_ASSIGNMENT_CREATE,
+    ACTION_IDS.CONSOLE_BILLING_PLAN_ASSIGNMENT_UPDATE,
+    ACTION_IDS.CONSOLE_BILLING_PLAN_ASSIGNMENT_CANCEL,
+    ACTION_IDS.CONSOLE_BILLING_SUBSCRIPTIONS_LIST,
+    ACTION_IDS.CONSOLE_BILLING_SUBSCRIPTION_CHANGE_PLAN,
+    ACTION_IDS.CONSOLE_BILLING_SUBSCRIPTION_CANCEL,
+    ACTION_IDS.CONSOLE_BILLING_SUBSCRIPTION_CANCEL_AT_PERIOD_END,
+    ACTION_IDS.WORKSPACE_BILLING_PAYMENT_METHODS_DEFAULT_SET,
+    ACTION_IDS.WORKSPACE_BILLING_PAYMENT_METHODS_DETACH,
+    ACTION_IDS.WORKSPACE_BILLING_PAYMENT_METHODS_REMOVE,
+    ACTION_IDS.CHAT_THREAD_MESSAGE_SEND,
+    ACTION_IDS.CHAT_ATTACHMENT_UPLOAD,
+    ACTION_IDS.PROJECTS_CREATE,
+    ACTION_IDS.PROJECTS_UPDATE,
+    ACTION_IDS.DEG2RAD_CALCULATE,
+    ACTION_IDS.HISTORY_LIST
+  ];
+
+  for (const actionId of expectedActionIds) {
+    assert.equal(actionIds.has(actionId), true, `${actionId} should be registered.`);
+  }
+
+  assert.equal(definitionsById.get(ACTION_IDS.CONSOLE_BILLING_PLAN_DELETE)?.idempotency, "required");
+  assert.equal(definitionsById.get(ACTION_IDS.CONSOLE_BILLING_PURCHASE_REFUND)?.idempotency, "required");
+  assert.equal(definitionsById.get(ACTION_IDS.CONSOLE_BILLING_ENTITLEMENT_DEFINITION_CREATE)?.idempotency, "optional");
+  assert.equal(
+    definitionsById.get(ACTION_IDS.WORKSPACE_BILLING_PAYMENT_METHODS_DEFAULT_SET)?.idempotency,
+    "required"
+  );
+  assert.equal(definitionsById.get(ACTION_IDS.CONSOLE_BILLING_SUBSCRIPTIONS_LIST)?.surfaces.includes("console"), true);
+  assert.equal(
+    definitionsById.get(ACTION_IDS.WORKSPACE_BILLING_PAYMENT_METHODS_REMOVE)?.surfaces.includes("admin"),
+    true
+  );
 
   assert.equal(definitionsById.get(ACTION_IDS.WORKSPACE_INVITE_CREATE)?.channels.includes("assistant_tool"), true);
   assert.equal(definitionsById.get(ACTION_IDS.PROJECTS_LIST)?.channels.includes("assistant_tool"), true);
@@ -707,6 +915,19 @@ test("action runtime services scaffold action registry and executor", async () =
   assert.equal(definitionsById.get(ACTION_IDS.PROJECTS_UPDATE)?.channels.includes("assistant_tool"), true);
   assert.equal(definitionsById.get(ACTION_IDS.DEG2RAD_CALCULATE)?.channels.includes("assistant_tool"), true);
   assert.equal(definitionsById.get(ACTION_IDS.HISTORY_LIST)?.channels.includes("assistant_tool"), true);
+  assert.equal(definitionsById.get(ACTION_IDS.CONSOLE_BILLING_PURCHASE_REFUND)?.channels.includes("assistant_tool"), true);
+  assert.equal(
+    definitionsById.get(ACTION_IDS.CONSOLE_BILLING_SUBSCRIPTION_CHANGE_PLAN)?.channels.includes("assistant_tool"),
+    true
+  );
+  assert.equal(
+    definitionsById.get(ACTION_IDS.WORKSPACE_BILLING_PAYMENT_METHODS_DEFAULT_SET)?.channels.includes("assistant_tool"),
+    true
+  );
+  assert.equal(
+    definitionsById.get(ACTION_IDS.WORKSPACE_BILLING_PAYMENT_METHODS_REMOVE)?.channels.includes("assistant_tool"),
+    true
+  );
   assert.equal(
     typeof definitionsById.get(ACTION_IDS.PROJECTS_CREATE)?.assistantTool?.inputJsonSchema,
     "object"
@@ -714,6 +935,22 @@ test("action runtime services scaffold action registry and executor", async () =
   assert.equal(
     typeof definitionsById.get(ACTION_IDS.DEG2RAD_CALCULATE)?.assistantTool?.inputJsonSchema,
     "object"
+  );
+  assert.equal(
+    typeof definitionsById.get(ACTION_IDS.CONSOLE_BILLING_PURCHASE_REFUND)?.assistantTool?.inputJsonSchema,
+    "object"
+  );
+  assert.equal(
+    definitionsById.get(ACTION_IDS.CONSOLE_BILLING_PURCHASE_REFUND)?.assistantTool?.inputJsonSchema?.required.includes(
+      "confirm"
+    ),
+    true
+  );
+  assert.equal(
+    definitionsById
+      .get(ACTION_IDS.WORKSPACE_BILLING_PAYMENT_METHODS_REMOVE)
+      ?.assistantTool?.inputJsonSchema?.required.includes("reason"),
+    true
   );
 
   const response = await runtime.actionExecutor.execute({
@@ -740,4 +977,9 @@ test("action runtime services scaffold action registry and executor", async () =
     },
     settings: {}
   });
+});
+
+test("ACTION_IDS does not contain duplicate action identifiers", () => {
+  const uniqueActionIdValues = new Set(ACTION_ID_VALUES);
+  assert.equal(uniqueActionIdValues.size, ACTION_ID_VALUES.length);
 });

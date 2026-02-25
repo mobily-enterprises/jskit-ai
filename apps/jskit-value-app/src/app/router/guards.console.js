@@ -309,6 +309,41 @@ function createConsoleRouteGuards(stores, options) {
     }
   }
 
+  async function beforeLoadBillingEntitlements() {
+    return beforeLoadBillingPlans();
+  }
+
+  async function beforeLoadBillingPurchases() {
+    const state = await resolveConsoleRuntimeState(resolvedStores);
+    if (state.sessionUnavailable) {
+      return;
+    }
+
+    if (!state.authenticated) {
+      throw redirect({ to: loginPath });
+    }
+
+    if (!state.hasConsoleAccess) {
+      if (state.hasPendingInvites) {
+        throw redirect({ to: invitationsPath });
+      }
+
+      throw redirect({ to: fallbackPath });
+    }
+
+    if (!resolvedStores.consoleStore.can("console.billing.operations.manage")) {
+      throw redirect({ to: rootPath });
+    }
+  }
+
+  async function beforeLoadBillingPlanAssignments() {
+    return beforeLoadBillingPurchases();
+  }
+
+  async function beforeLoadBillingSubscriptions() {
+    return beforeLoadBillingPurchases();
+  }
+
   return {
     beforeLoadRoot,
     beforeLoadPublic,
@@ -321,7 +356,11 @@ function createConsoleRouteGuards(stores, options) {
     beforeLoadServerErrorDetails,
     beforeLoadAiTranscripts,
     beforeLoadBillingEvents,
-    beforeLoadBillingPlans
+    beforeLoadBillingPlans,
+    beforeLoadBillingEntitlements,
+    beforeLoadBillingPurchases,
+    beforeLoadBillingPlanAssignments,
+    beforeLoadBillingSubscriptions
   };
 }
 

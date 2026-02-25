@@ -294,6 +294,42 @@ const billingProductParams = Type.Object(
   }
 );
 
+const billingEntitlementDefinitionParams = Type.Object(
+  {
+    definitionId: Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPurchaseParams = Type.Object(
+  {
+    purchaseId: Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPlanAssignmentParams = Type.Object(
+  {
+    assignmentId: Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingSubscriptionParams = Type.Object(
+  {
+    providerSubscriptionId: Type.String({ minLength: 1, maxLength: 191 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const transcriptMode = enumSchema(["standard", "restricted", "disabled"]);
 const transcriptStatus = enumSchema(["active", "completed", "failed", "aborted"]);
 const transcriptExportFormat = enumSchema(["json", "ndjson"]);
@@ -433,6 +469,170 @@ const billingEvents = Type.Object(
   }
 );
 
+const billingPurchase = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    billableEntityId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    workspaceId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    provider: Type.String({ minLength: 1, maxLength: 32 }),
+    purchaseKind: Type.String({ minLength: 1, maxLength: 64 }),
+    status: Type.String({ minLength: 1, maxLength: 32 }),
+    amountMinor: Type.Integer(),
+    currency: Type.String({ minLength: 3, maxLength: 3 }),
+    quantity: Type.Integer({ minimum: 1 }),
+    operationKey: Type.Union([Type.String({ minLength: 1, maxLength: 64 }), Type.Null()]),
+    providerPaymentId: Type.Union([Type.String({ minLength: 1, maxLength: 191 }), Type.Null()]),
+    providerInvoiceId: Type.Union([Type.String({ minLength: 1, maxLength: 191 }), Type.Null()]),
+    displayName: Type.Union([Type.String(), Type.Null()]),
+    metadataJson: Type.Unknown(),
+    purchasedAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()])
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPurchaseAdjustment = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    purchaseId: Type.Integer({ minimum: 1 }),
+    actionType: Type.String({ minLength: 1, maxLength: 64 }),
+    status: Type.String({ minLength: 1, maxLength: 32 }),
+    amountMinor: Type.Union([Type.Integer(), Type.Null()]),
+    currency: Type.Union([Type.String({ minLength: 3, maxLength: 3 }), Type.Null()]),
+    reasonCode: Type.Union([Type.String({ minLength: 1, maxLength: 120 }), Type.Null()]),
+    providerReference: Type.Union([Type.String({ minLength: 1, maxLength: 191 }), Type.Null()]),
+    requestedByUserId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    requestIdempotencyKey: Type.Union([Type.String({ minLength: 1, maxLength: 191 }), Type.Null()]),
+    metadataJson: Type.Unknown(),
+    createdAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()])
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPurchases = Type.Object(
+  {
+    entries: Type.Array(billingPurchase),
+    page: Type.Integer({ minimum: 1 }),
+    pageSize: Type.Integer({ minimum: 1, maximum: 100 }),
+    hasMore: Type.Boolean()
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPurchaseMutationResponse = Type.Object(
+  {
+    purchase: Type.Union([billingPurchase, Type.Null()]),
+    adjustment: Type.Union([billingPurchaseAdjustment, Type.Null()]),
+    adjustments: Type.Array(billingPurchaseAdjustment)
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPlanAssignment = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    billableEntityId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    workspaceId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    workspaceSlug: Type.Union([Type.String({ minLength: 1, maxLength: 191 }), Type.Null()]),
+    planId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    planCode: Type.Union([Type.String({ minLength: 1, maxLength: 120 }), Type.Null()]),
+    planName: Type.Union([Type.String({ minLength: 1, maxLength: 160 }), Type.Null()]),
+    source: Type.String({ minLength: 1, maxLength: 32 }),
+    status: Type.String({ minLength: 1, maxLength: 32 }),
+    periodStartAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
+    periodEndAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
+    provider: Type.Union([Type.String({ minLength: 1, maxLength: 32 }), Type.Null()]),
+    providerSubscriptionId: Type.Union([Type.String({ minLength: 1, maxLength: 191 }), Type.Null()]),
+    providerStatus: Type.Union([Type.String({ minLength: 1, maxLength: 64 }), Type.Null()]),
+    currentPeriodEnd: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
+    cancelAtPeriodEnd: Type.Union([Type.Boolean(), Type.Null()]),
+    metadataJson: Type.Unknown(),
+    createdAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
+    updatedAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()])
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPlanAssignments = Type.Object(
+  {
+    entries: Type.Array(billingPlanAssignment),
+    page: Type.Integer({ minimum: 1 }),
+    pageSize: Type.Integer({ minimum: 1, maximum: 100 }),
+    hasMore: Type.Boolean()
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPlanAssignmentMutationResponse = Type.Object(
+  {
+    assignment: billingPlanAssignment
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingSubscription = Type.Object(
+  {
+    provider: Type.String({ minLength: 1, maxLength: 32 }),
+    providerSubscriptionId: Type.String({ minLength: 1, maxLength: 191 }),
+    providerCustomerId: Type.Union([Type.String({ minLength: 1, maxLength: 191 }), Type.Null()]),
+    status: Type.String({ minLength: 1, maxLength: 64 }),
+    providerSubscriptionCreatedAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
+    currentPeriodEnd: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
+    trialEnd: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
+    canceledAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
+    cancelAtPeriodEnd: Type.Boolean(),
+    endedAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
+    assignmentId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    assignmentStatus: Type.String({ minLength: 1, maxLength: 32 }),
+    assignmentPeriodStartAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
+    assignmentPeriodEndAt: Type.Union([Type.String({ format: "iso-utc-date-time" }), Type.Null()]),
+    billableEntityId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    workspaceId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    workspaceSlug: Type.Union([Type.String({ minLength: 1, maxLength: 191 }), Type.Null()]),
+    planId: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+    planCode: Type.Union([Type.String({ minLength: 1, maxLength: 120 }), Type.Null()]),
+    planName: Type.Union([Type.String({ minLength: 1, maxLength: 160 }), Type.Null()]),
+    metadataJson: Type.Unknown()
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingSubscriptions = Type.Object(
+  {
+    entries: Type.Array(billingSubscription),
+    page: Type.Integer({ minimum: 1 }),
+    pageSize: Type.Integer({ minimum: 1, maximum: 100 }),
+    hasMore: Type.Boolean()
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingSubscriptionMutationResponse = Type.Object(
+  {
+    subscription: billingSubscription
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const billingPlanCorePrice = Type.Object(
   {
     provider: Type.String({ minLength: 1, maxLength: 32 }),
@@ -533,6 +733,24 @@ const billingPlans = Type.Object(
     provider: Type.String({ minLength: 1, maxLength: 32 }),
     plans: Type.Array(billingPlan),
     entitlementDefinitions: Type.Array(billingEntitlementDefinition)
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingEntitlementDefinitions = Type.Object(
+  {
+    entries: Type.Array(billingEntitlementDefinition)
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingEntitlementDefinitionResponse = Type.Object(
+  {
+    definition: billingEntitlementDefinition
   },
   {
     additionalProperties: false
@@ -842,6 +1060,157 @@ const billingProviderPricesQuery = Type.Object(
   }
 );
 
+const billingPurchasesQuery = Type.Object(
+  {
+    page: Type.Optional(Type.Integer({ minimum: 1, default: 1 })),
+    pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 25 })),
+    workspaceSlug: Type.Optional(Type.String({ minLength: 1, maxLength: 191 })),
+    userId: Type.Optional(Type.Integer({ minimum: 1 })),
+    billableEntityId: Type.Optional(Type.Integer({ minimum: 1 })),
+    status: Type.Optional(Type.String({ minLength: 1, maxLength: 32 })),
+    provider: Type.Optional(Type.String({ minLength: 1, maxLength: 32 })),
+    operationKey: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+    purchaseKind: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+    from: Type.Optional(Type.String({ maxLength: 64 })),
+    to: Type.Optional(Type.String({ maxLength: 64 }))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPlanAssignmentsQuery = Type.Object(
+  {
+    page: Type.Optional(Type.Integer({ minimum: 1, default: 1 })),
+    pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 25 })),
+    billableEntityId: Type.Optional(Type.Integer({ minimum: 1 })),
+    workspaceSlug: Type.Optional(Type.String({ minLength: 1, maxLength: 191 })),
+    status: Type.Optional(Type.String({ minLength: 1, maxLength: 32 })),
+    statuses: Type.Optional(Type.String({ minLength: 1, maxLength: 255 })),
+    source: Type.Optional(Type.String({ minLength: 1, maxLength: 32 })),
+    planCode: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
+    from: Type.Optional(Type.String({ maxLength: 64 })),
+    to: Type.Optional(Type.String({ maxLength: 64 }))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingSubscriptionsQuery = Type.Object(
+  {
+    page: Type.Optional(Type.Integer({ minimum: 1, default: 1 })),
+    pageSize: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 25 })),
+    provider: Type.Optional(Type.String({ minLength: 1, maxLength: 32 })),
+    providerSubscriptionId: Type.Optional(Type.String({ minLength: 1, maxLength: 191 })),
+    billableEntityId: Type.Optional(Type.Integer({ minimum: 1 })),
+    workspaceSlug: Type.Optional(Type.String({ minLength: 1, maxLength: 191 })),
+    status: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+    planCode: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
+    from: Type.Optional(Type.String({ maxLength: 64 })),
+    to: Type.Optional(Type.String({ maxLength: 64 }))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPurchaseMutationBody = Type.Object(
+  {
+    reasonCode: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
+    metadataJson: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPlanAssignmentCreateBody = Type.Object(
+  {
+    billableEntityId: Type.Integer({ minimum: 1 }),
+    planId: Type.Integer({ minimum: 1 }),
+    source: Type.Optional(enumSchema(["internal", "promo", "manual"])),
+    status: Type.Optional(enumSchema(["current", "upcoming", "past", "canceled"])),
+    periodStartAt: Type.Optional(Type.String({ maxLength: 64 })),
+    periodEndAt: Type.Optional(Type.Union([Type.String({ maxLength: 64 }), Type.Null()])),
+    metadataJson: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPlanAssignmentUpdateBody = Type.Object(
+  {
+    planId: Type.Optional(Type.Integer({ minimum: 1 })),
+    source: Type.Optional(enumSchema(["internal", "promo", "manual"])),
+    status: Type.Optional(enumSchema(["current", "upcoming", "past", "canceled"])),
+    periodStartAt: Type.Optional(Type.String({ maxLength: 64 })),
+    periodEndAt: Type.Optional(Type.Union([Type.String({ maxLength: 64 }), Type.Null()])),
+    metadataJson: Type.Optional(Type.Union([Type.Record(Type.String(), Type.Unknown()), Type.Null()]))
+  },
+  {
+    additionalProperties: false,
+    minProperties: 1
+  }
+);
+
+const billingPlanAssignmentCancelBody = Type.Object(
+  {
+    reasonCode: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
+    metadataJson: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingSubscriptionChangePlanBody = Type.Object(
+  {
+    planId: Type.Optional(Type.Integer({ minimum: 1 })),
+    planCode: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
+    prorationBehavior: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+    billingCycleAnchor: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+    metadataJson: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
+  },
+  {
+    additionalProperties: false,
+    minProperties: 1
+  }
+);
+
+const billingSubscriptionCancelBody = Type.Object(
+  {
+    reasonCode: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
+    metadataJson: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingSubscriptionCancelAtPeriodEndBody = Type.Object(
+  {
+    reasonCode: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
+    metadataJson: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const billingPurchaseCorrectionCreateBody = Type.Object(
+  {
+    amountMinor: Type.Integer(),
+    currency: Type.Optional(Type.String({ minLength: 3, maxLength: 3 })),
+    reasonCode: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
+    metadataJson: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const aiTranscriptMessagesQuery = createPaginationQuerySchema({
   defaultPage: 1,
   defaultPageSize: 100,
@@ -877,8 +1246,16 @@ const schema = {
     aiTranscriptMessages,
     aiTranscriptExport,
     billingEvents,
+    billingPurchases,
+    billingPurchaseMutation: billingPurchaseMutationResponse,
+    billingPlanAssignments,
+    billingPlanAssignmentMutation: billingPlanAssignmentMutationResponse,
+    billingSubscriptions,
+    billingSubscriptionMutation: billingSubscriptionMutationResponse,
     billingPlans,
     billingProducts,
+    billingEntitlementDefinitions,
+    billingEntitlementDefinition: billingEntitlementDefinitionResponse,
     billingPlanCreate: billingPlanCreateResponse,
     billingProductCreate: billingProductCreateResponse,
     billingProviderPrices,
@@ -891,6 +1268,14 @@ const schema = {
     assistantSettingsUpdate,
     billingSettingsUpdate,
     redeemInvite,
+    billingPurchaseMutation: billingPurchaseMutationBody,
+    billingPurchaseCorrectionCreate: billingPurchaseCorrectionCreateBody,
+    billingPlanAssignmentCreate: billingPlanAssignmentCreateBody,
+    billingPlanAssignmentUpdate: billingPlanAssignmentUpdateBody,
+    billingPlanAssignmentCancel: billingPlanAssignmentCancelBody,
+    billingSubscriptionChangePlan: billingSubscriptionChangePlanBody,
+    billingSubscriptionCancel: billingSubscriptionCancelBody,
+    billingSubscriptionCancelAtPeriodEnd: billingSubscriptionCancelAtPeriodEndBody,
     billingPlanCreate: billingPlanCreateBody,
     billingPlanUpdate: billingPlanUpdateBody,
     billingProductCreate: billingProductCreateBody,
@@ -901,6 +1286,9 @@ const schema = {
     aiTranscriptMessages: aiTranscriptMessagesQuery,
     aiTranscriptExport: aiTranscriptExportQuery,
     billingEvents: billingEventsQuery,
+    billingPurchases: billingPurchasesQuery,
+    billingPlanAssignments: billingPlanAssignmentsQuery,
+    billingSubscriptions: billingSubscriptionsQuery,
     billingProviderPrices: billingProviderPricesQuery
   },
   params: {
@@ -908,7 +1296,11 @@ const schema = {
     invite,
     conversation,
     billingPlan: billingPlanParams,
-    billingProduct: billingProductParams
+    billingProduct: billingProductParams,
+    billingEntitlementDefinition: billingEntitlementDefinitionParams,
+    billingPurchase: billingPurchaseParams,
+    billingPlanAssignment: billingPlanAssignmentParams,
+    billingSubscription: billingSubscriptionParams
   }
 };
 

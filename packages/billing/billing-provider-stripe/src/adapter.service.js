@@ -58,6 +58,21 @@ function createService({ stripeSdkService } = {}) {
     async listCustomerPaymentMethods(payload) {
       return stripeSdkService.listCustomerPaymentMethods(payload);
     },
+    async setDefaultCustomerPaymentMethod(payload) {
+      return stripeSdkService.setDefaultCustomerPaymentMethod(payload);
+    },
+    async detachCustomerPaymentMethod(payload) {
+      return stripeSdkService.detachCustomerPaymentMethod(payload);
+    },
+    async removeCustomerPaymentMethod(payload) {
+      return stripeSdkService.removeCustomerPaymentMethod(payload);
+    },
+    async refundPurchase(payload) {
+      return stripeSdkService.refundPurchase(payload);
+    },
+    async voidPurchase(payload) {
+      return stripeSdkService.voidPurchase(payload);
+    },
     async listCheckoutSessionsByOperationKey(payload) {
       return stripeSdkService.listCheckoutSessionsByOperationKey(payload);
     },

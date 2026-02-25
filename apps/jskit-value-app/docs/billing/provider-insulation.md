@@ -34,8 +34,18 @@ Required adapter methods:
 - `cancelSubscription`
 - `updateSubscriptionPlan`
 - `listCustomerPaymentMethods`
+- `setDefaultCustomerPaymentMethod`
+- `detachCustomerPaymentMethod`
+- `removeCustomerPaymentMethod`
+- `refundPurchase`
+- `voidPurchase`
 - `listCheckoutSessionsByOperationKey`
 - `getSdkProvenance`
+
+Provider capability notes:
+
+- Stripe implements all required methods above with normalized envelopes.
+- Paddle currently returns explicit `501` (`PROVIDER_OPERATION_NOT_SUPPORTED`) for payment-method mutation and purchase financial mutation operations.
 
 ### Webhook translation contract
 

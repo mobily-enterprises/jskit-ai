@@ -18,6 +18,7 @@ Notes:
 - `billing_plan_assignments`
 - `billing_plans`
 - `billing_purchases`
+- `billing_purchase_adjustments`
 - `billing_request_idempotency`
 
 ## `billable_entities`
@@ -307,6 +308,35 @@ Fields:
 - `created_at` (`datetime(3)`, not null, default `utc_timestamp(3)`): Row creation timestamp.
 - `updated_at` (`datetime(3)`, not null, default `utc_timestamp(3)`): Row update timestamp.
 
+## `billing_purchase_adjustments`
+
+General:
+- Console/admin purchase-mutation audit table (refund, void, correction).
+- Stores one adjustment record per command attempt and doubles as durable idempotency replay source.
+
+Important fields:
+- `purchase_id`: target purchase row.
+- `action_type`: operation family (`refund`, `void`, `correction`).
+- `status`: outcome (`recorded`, `succeeded`, `failed`, `noop`).
+- `request_idempotency_key`: unique dedupe key for retry-safe mutation commands.
+- `requested_by_user_id`: actor attribution for auditability.
+- `metadata_json`: machine/operator diagnostics for failure/no-op details.
+
+Fields:
+- `id` (`bigint unsigned`, PK, auto-increment): Internal adjustment row ID.
+- `purchase_id` (`bigint unsigned`, not null): FK to `billing_purchases.id`.
+- `action_type` (`varchar(64)`, not null): Purchase operation family.
+- `status` (`varchar(32)`, not null, default `recorded`): Adjustment outcome status.
+- `amount_minor` (`bigint`, nullable): Adjusted amount in minor units (signed; corrections may be negative).
+- `currency` (`varchar(3)`, nullable): ISO currency code associated with the adjustment amount.
+- `reason_code` (`varchar(120)`, nullable): Machine-readable reason for the adjustment outcome.
+- `provider_reference` (`varchar(191)`, nullable): Provider-side reference id when applicable.
+- `requested_by_user_id` (`bigint unsigned`, nullable): FK to `user_profiles.id`; set null on user delete.
+- `request_idempotency_key` (`varchar(191)`, not null): Unique mutation idempotency key.
+- `metadata_json` (`longtext`, nullable): JSON metadata payload for diagnostics and operator notes.
+- `created_at` (`datetime(3)`, not null, default `utc_timestamp(3)`): Row creation timestamp.
+- `updated_at` (`datetime(3)`, not null, default `utc_timestamp(3)`): Row update timestamp.
+
 ## `billing_request_idempotency`
 
 General:
@@ -358,4 +388,3 @@ Fields:
 - `created_at` (`datetime(3)`, not null, default `utc_timestamp(3)`): Row creation timestamp.
 - `updated_at` (`datetime(3)`, not null, default `utc_timestamp(3)`): Row update timestamp.
 - `active_checkout_pending_key` (`bigint unsigned`, nullable, STORED GENERATED): Generated as `billable_entity_id` only when `action = 'checkout'` and `status = 'pending'`; used to enforce at most one pending checkout idempotency row per entity.
-

@@ -13,6 +13,11 @@ const REQUIRED_PROVIDER_ADAPTER_METHODS = Object.freeze([
   "cancelSubscription",
   "updateSubscriptionPlan",
   "listCustomerPaymentMethods",
+  "setDefaultCustomerPaymentMethod",
+  "detachCustomerPaymentMethod",
+  "removeCustomerPaymentMethod",
+  "refundPurchase",
+  "voidPurchase",
   "listCheckoutSessionsByOperationKey",
   "getSdkProvenance"
 ]);

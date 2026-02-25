@@ -7,7 +7,8 @@ const CONSOLE_AI_TRANSCRIPTS_PERMISSIONS = Object.freeze({
 });
 const CONSOLE_BILLING_PERMISSIONS = Object.freeze({
   READ_ALL: "console.billing.events.read_all",
-  CATALOG_MANAGE: "console.billing.catalog.manage"
+  CATALOG_MANAGE: "console.billing.catalog.manage",
+  OPERATIONS_MANAGE: "console.billing.operations.manage"
 });
 const CONSOLE_ASSISTANT_SETTINGS_PERMISSIONS = Object.freeze({
   MANAGE: "console.assistant.settings.manage"
@@ -25,6 +26,7 @@ const CONSOLE_ROLE_DEFINITIONS = Object.freeze({
       "console.errors.server.read",
       CONSOLE_BILLING_PERMISSIONS.READ_ALL,
       CONSOLE_BILLING_PERMISSIONS.CATALOG_MANAGE,
+      CONSOLE_BILLING_PERMISSIONS.OPERATIONS_MANAGE,
       CONSOLE_ASSISTANT_SETTINGS_PERMISSIONS.MANAGE,
       CONSOLE_AI_TRANSCRIPTS_PERMISSIONS.READ_ALL,
       CONSOLE_AI_TRANSCRIPTS_PERMISSIONS.EXPORT_ALL

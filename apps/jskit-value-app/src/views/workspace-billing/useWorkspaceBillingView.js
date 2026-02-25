@@ -5,6 +5,7 @@ import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 import {
   workspaceBillingLimitationsQueryKey,
   workspaceBillingPlanStateQueryKey,
+  workspaceBillingPaymentMethodsQueryKey,
   workspaceBillingProductsQueryKey,
   workspaceBillingPurchasesQueryKey
 } from "../../modules/workspaceAdmin/queryKeys.js";
@@ -120,6 +121,25 @@ function normalizePurchase(entry) {
   };
 }
 
+function normalizePaymentMethod(entry) {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+
+  const card = entry.card && typeof entry.card === "object" ? entry.card : {};
+  return {
+    id: Number(entry.id || 0),
+    providerPaymentMethodId: String(entry.providerPaymentMethodId || ""),
+    status: String(entry.status || "active"),
+    isDefault: Boolean(entry.isDefault),
+    type: String(entry.type || "card"),
+    brand: String(card.brand || entry.brand || ""),
+    last4: String(card.last4 || entry.last4 || ""),
+    expMonth: Number(card.expMonth || card.exp_month || entry.expMonth || entry.exp_month || 0),
+    expYear: Number(card.expYear || card.exp_year || entry.expYear || entry.exp_year || 0)
+  };
+}
+
 function normalizeLimitation(entry) {
   if (!entry || typeof entry !== "object") {
     return null;
@@ -202,6 +222,9 @@ export function useWorkspaceBillingView() {
   const adHocQuantity = ref(1);
   const paymentLinkLoading = ref(false);
   const buyingCatalogPriceId = ref("");
+  const paymentMethodMutationLoading = ref(false);
+  const mutatingPaymentMethodId = ref("");
+  const paymentMethodMutationKind = ref("");
 
   const actionError = ref("");
   const actionSuccess = ref("");
@@ -232,6 +255,11 @@ export function useWorkspaceBillingView() {
   const purchasesQuery = useQuery({
     queryKey: computed(() => workspaceBillingPurchasesQueryKey(workspaceSlug.value)),
     queryFn: () => api.billing.listPurchases(),
+    enabled: computed(() => Boolean(workspaceSlug.value))
+  });
+  const paymentMethodsQuery = useQuery({
+    queryKey: computed(() => workspaceBillingPaymentMethodsQueryKey(workspaceSlug.value)),
+    queryFn: () => api.billing.listPaymentMethods(),
     enabled: computed(() => Boolean(workspaceSlug.value))
   });
 
@@ -344,6 +372,16 @@ export function useWorkspaceBillingView() {
   const limitationsError = computed(() => String(limitationsQuery.error.value?.message || ""));
   const limitationsGeneratedAt = computed(() => String(limitationsQuery.data.value?.generatedAt || "").trim());
   const limitationsStale = computed(() => Boolean(limitationsQuery.data.value?.stale));
+  const paymentMethodItems = computed(() => {
+    const entries = Array.isArray(paymentMethodsQuery.data.value?.paymentMethods)
+      ? paymentMethodsQuery.data.value.paymentMethods
+      : [];
+    return entries.map(normalizePaymentMethod).filter(Boolean);
+  });
+  const paymentMethodsLoading = computed(() =>
+    Boolean(paymentMethodsQuery.isPending.value || paymentMethodsQuery.isFetching.value)
+  );
+  const paymentMethodsError = computed(() => String(paymentMethodsQuery.error.value?.message || ""));
 
   watch(
     planOptions,
@@ -406,7 +444,61 @@ export function useWorkspaceBillingView() {
   }
 
   async function refresh() {
-    await Promise.all([planStateQuery.refetch(), purchasesQuery.refetch(), limitationsQuery.refetch()]);
+    await Promise.all([
+      planStateQuery.refetch(),
+      purchasesQuery.refetch(),
+      limitationsQuery.refetch(),
+      paymentMethodsQuery.refetch()
+    ]);
+  }
+
+  async function refreshPaymentMethods() {
+    await Promise.all([paymentMethodsQuery.refetch(), planStateQuery.refetch()]);
+  }
+
+  async function withPaymentMethodMutation(paymentMethodId, mutationKind, callback) {
+    const normalizedPaymentMethodId = String(paymentMethodId || "").trim();
+    if (!normalizedPaymentMethodId) {
+      actionError.value = "Payment method id is required.";
+      return;
+    }
+
+    resetActionFeedback();
+    paymentMethodMutationLoading.value = true;
+    mutatingPaymentMethodId.value = normalizedPaymentMethodId;
+    paymentMethodMutationKind.value = String(mutationKind || "");
+
+    try {
+      await callback();
+      await refreshPaymentMethods();
+    } catch (errorValue) {
+      actionError.value = String(errorValue?.message || "Payment method update failed.");
+    } finally {
+      paymentMethodMutationLoading.value = false;
+      mutatingPaymentMethodId.value = "";
+      paymentMethodMutationKind.value = "";
+    }
+  }
+
+  async function setDefaultPaymentMethod(paymentMethodId) {
+    await withPaymentMethodMutation(paymentMethodId, "default", async () => {
+      await api.billing.setDefaultPaymentMethod(paymentMethodId, {});
+      actionSuccess.value = "Default payment method updated.";
+    });
+  }
+
+  async function detachPaymentMethod(paymentMethodId) {
+    await withPaymentMethodMutation(paymentMethodId, "detach", async () => {
+      await api.billing.detachPaymentMethod(paymentMethodId, {});
+      actionSuccess.value = "Payment method detached.";
+    });
+  }
+
+  async function removePaymentMethod(paymentMethodId) {
+    await withPaymentMethodMutation(paymentMethodId, "remove", async () => {
+      await api.billing.removePaymentMethod(paymentMethodId);
+      actionSuccess.value = "Payment method removed.";
+    });
   }
 
   async function submitPlanChange() {
@@ -640,6 +732,9 @@ export function useWorkspaceBillingView() {
       purchaseItems,
       purchasesLoading,
       purchasesError,
+      paymentMethodItems,
+      paymentMethodsLoading,
+      paymentMethodsError,
       limitationItems,
       limitationsLoading,
       limitationsError,
@@ -653,6 +748,9 @@ export function useWorkspaceBillingView() {
       adHocQuantity,
       paymentLinkLoading,
       buyingCatalogPriceId,
+      paymentMethodMutationLoading,
+      mutatingPaymentMethodId,
+      paymentMethodMutationKind,
       actionError,
       actionSuccess,
       lastCheckoutUrl,
@@ -667,7 +765,10 @@ export function useWorkspaceBillingView() {
       cancelPendingPlanChange,
       createCatalogPaymentLink,
       buyCatalogItem,
-      createAdHocPaymentLink
+      createAdHocPaymentLink,
+      setDefaultPaymentMethod,
+      detachPaymentMethod,
+      removePaymentMethod
     }
   };
 }

@@ -52,6 +52,9 @@ export function useConsoleShell() {
   const canManageBillingPlans = computed(
     () => consoleStore.can("console.billing.catalog.manage") && consoleStore.hasAccess
   );
+  const canManageBillingOperations = computed(
+    () => consoleStore.can("console.billing.operations.manage") && consoleStore.hasAccess
+  );
 
   const navigationItems = computed(() => {
     const paths = surfacePaths.value;
@@ -101,6 +104,17 @@ export function useConsoleShell() {
     if (canManageBillingPlans.value) {
       items.push({ title: "Billing plans", to: `${paths.prefix}/billing/plans`, icon: "$consoleServerErrors" });
       items.push({ title: "Billing products", to: `${paths.prefix}/billing/products`, icon: "$consoleServerErrors" });
+      items.push({ title: "Entitlements", to: `${paths.prefix}/billing/entitlements`, icon: "$consoleServerErrors" });
+    }
+
+    if (canManageBillingOperations.value) {
+      items.push({ title: "Purchases", to: `${paths.prefix}/billing/purchases`, icon: "$consoleServerErrors" });
+      items.push({
+        title: "Plan assignments",
+        to: `${paths.prefix}/billing/plan-assignments`,
+        icon: "$consoleServerErrors"
+      });
+      items.push({ title: "Subscriptions", to: `${paths.prefix}/billing/subscriptions`, icon: "$consoleServerErrors" });
     }
 
     if (canViewBillingEvents.value) {
@@ -137,6 +151,22 @@ export function useConsoleShell() {
 
     if (currentPath.value.endsWith("/billing/products")) {
       return "Billing products";
+    }
+
+    if (currentPath.value.endsWith("/billing/entitlements")) {
+      return "Entitlements";
+    }
+
+    if (currentPath.value.endsWith("/billing/purchases")) {
+      return "Purchases";
+    }
+
+    if (currentPath.value.endsWith("/billing/plan-assignments")) {
+      return "Plan assignments";
+    }
+
+    if (currentPath.value.endsWith("/billing/subscriptions")) {
+      return "Subscriptions";
     }
 
     if (currentPath.value === surfacePaths.value.rootPath) {
@@ -209,7 +239,8 @@ export function useConsoleShell() {
       canViewAiTranscripts,
       canViewAiSystemPrompt,
       canViewBillingEvents,
-      canManageBillingPlans
+      canManageBillingPlans,
+      canManageBillingOperations
     },
     navigation: {
       navigationItems,

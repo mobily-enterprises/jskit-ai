@@ -53,8 +53,7 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   
   X Have proper entitlement configuration for projects, AI messages, and DEG2RAD calcs <---- !!!
   X Add full abilities to AI chatbot (calculate DEG2RAD, add project, change plan, list users...) (Make sure chatbot has exact same permission as user chatting to it)
- 
-  - Make sure that realtime works well, it doesn't demand too much boilerplate, and it fits the whole system
+  X Make sure that realtime works well, it doesn't demand too much boilerplate, and it fits the whole system
 
   - Create an "alerts" system so that users can see their alerts
   - Improve redirect after login, admin or not?

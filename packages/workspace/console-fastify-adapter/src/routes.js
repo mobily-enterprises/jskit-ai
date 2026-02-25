@@ -147,6 +147,245 @@ function buildRoutes(controllers, { missingHandler }) {
       handler: controllers.console?.listBillingProducts || missingHandler
     },
     {
+      path: "/api/console/billing/purchases",
+      method: "GET",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "List billing purchases across workspaces/entities for console operations",
+        querystring: schema.query.billingPurchases,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.billingPurchases
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.listBillingPurchases || missingHandler
+    },
+    {
+      path: "/api/console/billing/purchases/:purchaseId/refund",
+      method: "POST",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "Refund a billing purchase with idempotent console command semantics",
+        params: schema.params.billingPurchase,
+        body: schema.body.billingPurchaseMutation,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.billingPurchaseMutation
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.refundBillingPurchase || missingHandler
+    },
+    {
+      path: "/api/console/billing/purchases/:purchaseId/void",
+      method: "POST",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "Void a billing purchase with idempotent console command semantics",
+        params: schema.params.billingPurchase,
+        body: schema.body.billingPurchaseMutation,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.billingPurchaseMutation
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.voidBillingPurchase || missingHandler
+    },
+    {
+      path: "/api/console/billing/purchases/:purchaseId/corrections",
+      method: "POST",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "Record a billing purchase correction entry",
+        params: schema.params.billingPurchase,
+        body: schema.body.billingPurchaseCorrectionCreate,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.billingPurchaseMutation
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.createBillingPurchaseCorrection || missingHandler
+    },
+    {
+      path: "/api/console/billing/plan-assignments",
+      method: "GET",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "List billing plan assignments across entities for console operations",
+        querystring: schema.query.billingPlanAssignments,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.billingPlanAssignments
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.listBillingPlanAssignments || missingHandler
+    },
+    {
+      path: "/api/console/billing/plan-assignments",
+      method: "POST",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "Create a plan assignment for a target billable entity",
+        body: schema.body.billingPlanAssignmentCreate,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.billingPlanAssignmentMutation
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.createBillingPlanAssignment || missingHandler
+    },
+    {
+      path: "/api/console/billing/plan-assignments/:assignmentId",
+      method: "PATCH",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "Update a plan assignment for a target billable entity",
+        params: schema.params.billingPlanAssignment,
+        body: schema.body.billingPlanAssignmentUpdate,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.billingPlanAssignmentMutation
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.updateBillingPlanAssignment || missingHandler
+    },
+    {
+      path: "/api/console/billing/plan-assignments/:assignmentId/cancel",
+      method: "POST",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "Cancel a plan assignment for a target billable entity",
+        params: schema.params.billingPlanAssignment,
+        body: schema.body.billingPlanAssignmentCancel,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.billingPlanAssignmentMutation
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.cancelBillingPlanAssignment || missingHandler
+    },
+    {
+      path: "/api/console/billing/subscriptions",
+      method: "GET",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "List provider subscriptions across entities for console operations",
+        querystring: schema.query.billingSubscriptions,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.billingSubscriptions
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.listBillingSubscriptions || missingHandler
+    },
+    {
+      path: "/api/console/billing/subscriptions/:providerSubscriptionId/change-plan",
+      method: "POST",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "Change provider subscription plan mapping",
+        params: schema.params.billingSubscription,
+        body: schema.body.billingSubscriptionChangePlan,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.billingSubscriptionMutation
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.changeBillingSubscriptionPlan || missingHandler
+    },
+    {
+      path: "/api/console/billing/subscriptions/:providerSubscriptionId/cancel",
+      method: "POST",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "Cancel a provider subscription immediately",
+        params: schema.params.billingSubscription,
+        body: schema.body.billingSubscriptionCancel,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.billingSubscriptionMutation
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.cancelBillingSubscription || missingHandler
+    },
+    {
+      path: "/api/console/billing/subscriptions/:providerSubscriptionId/cancel-at-period-end",
+      method: "POST",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "Set provider subscription to cancel at current period end",
+        params: schema.params.billingSubscription,
+        body: schema.body.billingSubscriptionCancelAtPeriodEnd,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.billingSubscriptionMutation
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.console?.cancelBillingSubscriptionAtPeriodEnd || missingHandler
+    },
+    {
+      path: "/api/console/billing/entitlement-definitions",
+      method: "GET",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "List entitlement definitions available to console billing catalog management",
+        response: withStandardErrorResponses({
+          200: schema.response.billingEntitlementDefinitions
+        })
+      },
+      handler: controllers.console?.listBillingEntitlementDefinitions || missingHandler
+    },
+    {
+      path: "/api/console/billing/entitlement-definitions/:definitionId",
+      method: "GET",
+      auth: "required",
+      schema: {
+        tags: ["console-billing"],
+        summary: "Get one entitlement definition by id",
+        params: schema.params.billingEntitlementDefinition,
+        response: withStandardErrorResponses({
+          200: schema.response.billingEntitlementDefinition
+        })
+      },
+      handler: controllers.console?.getBillingEntitlementDefinition || missingHandler
+    },
+    {
       path: "/api/console/billing/settings",
       method: "GET",
       auth: "required",

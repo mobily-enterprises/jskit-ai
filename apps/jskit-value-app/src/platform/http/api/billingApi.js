@@ -33,6 +33,35 @@ function createApi({ request }) {
         method: "POST"
       });
     },
+    setDefaultPaymentMethod(paymentMethodId, payload = {}, options = {}) {
+      const encodedPaymentMethodId = encodeURIComponent(String(paymentMethodId || "").trim());
+      return request(`/api/v1/billing/payment-methods/${encodedPaymentMethodId}/default`, {
+        method: "POST",
+        body: payload,
+        headers: {
+          "Idempotency-Key": resolveIdempotencyKey(options)
+        }
+      });
+    },
+    detachPaymentMethod(paymentMethodId, payload = {}, options = {}) {
+      const encodedPaymentMethodId = encodeURIComponent(String(paymentMethodId || "").trim());
+      return request(`/api/v1/billing/payment-methods/${encodedPaymentMethodId}/detach`, {
+        method: "POST",
+        body: payload,
+        headers: {
+          "Idempotency-Key": resolveIdempotencyKey(options)
+        }
+      });
+    },
+    removePaymentMethod(paymentMethodId, options = {}) {
+      const encodedPaymentMethodId = encodeURIComponent(String(paymentMethodId || "").trim());
+      return request(`/api/v1/billing/payment-methods/${encodedPaymentMethodId}`, {
+        method: "DELETE",
+        headers: {
+          "Idempotency-Key": resolveIdempotencyKey(options)
+        }
+      });
+    },
     getLimitations() {
       return request("/api/v1/billing/limitations");
     },

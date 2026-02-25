@@ -236,3 +236,86 @@ test("assistant action tools resolver enforces assistant action exposure config"
     ["chat_thread_message_send"]
   );
 });
+
+test("assistant action tools resolver isolates console/admin billing tools by surface", async () => {
+  const resolver = createAssistantActionToolsResolver({
+    resolveActionExecutor: () => ({
+      listDefinitions() {
+        return [
+          {
+            id: "workspace.billing.payment_methods.default.set",
+            version: 1,
+            kind: "command",
+            channels: ["assistant_tool"],
+            surfaces: ["admin"],
+            visibility: "public",
+            assistantTool: {
+              description: "Set default payment method for a workspace billable entity.",
+              inputJsonSchema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["paymentMethodId", "reason", "confirm"],
+                properties: {
+                  paymentMethodId: { type: "string" },
+                  reason: { type: "string" },
+                  confirm: { type: "boolean", const: true }
+                }
+              }
+            }
+          },
+          {
+            id: "console.billing.purchase.refund",
+            version: 1,
+            kind: "command",
+            channels: ["assistant_tool"],
+            surfaces: ["console"],
+            visibility: "public",
+            assistantTool: {
+              description: "Refund a purchase from console operations.",
+              inputJsonSchema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["purchaseId", "reason", "confirm"],
+                properties: {
+                  purchaseId: { type: "string" },
+                  reason: { type: "string" },
+                  confirm: { type: "boolean", const: true }
+                }
+              }
+            }
+          }
+        ];
+      },
+      async execute() {
+        return {
+          ok: true
+        };
+      }
+    })
+  });
+
+  const adminCatalog = await resolver({
+    surfaceId: "admin",
+    request: createRequest()
+  });
+  assert.deepEqual(
+    adminCatalog.providerTools.map((entry) => entry?.function?.name),
+    ["workspace_billing_payment_methods_default_set"]
+  );
+  assert.equal(adminCatalog.allowedToolNames.includes("console_billing_purchase_refund"), false);
+
+  const consoleCatalog = await resolver({
+    surfaceId: "console",
+    request: createRequest({
+      surface: "console",
+      headers: {
+        "x-surface-id": "console"
+      }
+    })
+  });
+  assert.deepEqual(
+    consoleCatalog.providerTools.map((entry) => entry?.function?.name),
+    ["console_billing_purchase_refund"]
+  );
+  assert.equal(consoleCatalog.allowedToolNames.includes("workspace_billing_payment_methods_default_set"), false);
+});

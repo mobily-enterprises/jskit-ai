@@ -1,5 +1,7 @@
 # Release Checklist
 
+Last updated: 2026-02-25 (UTC)
+
 Use this checklist before shipping changes to production.
 
 ## 1. Environment and secrets
@@ -26,6 +28,9 @@ Use this checklist before shipping changes to production.
 - [ ] Run lint: `npm run -w apps/jskit-value-app lint`.
 - [ ] Run unit/integration tests: `npm run -w apps/jskit-value-app test`.
 - [ ] Run E2E auth/history tests: `npm run -w apps/jskit-value-app test:e2e`.
+- [ ] Run action registry contract tests: `npm run -w apps/jskit-value-app test -- actionRegistry.test.js`.
+- [ ] Run assistant surface/tool isolation tests: `npm run -w apps/jskit-value-app test -- aiService.test.js`.
+- [ ] Run permission/surface policy tests: `npm run -w apps/jskit-value-app test -- workspaceServiceSurfacePolicy.test.js`.
 - [ ] Run vulnerability audit: `npm audit --omit=dev --audit-level=critical`.
 
 ## 4. Build and runtime checks
@@ -33,6 +38,7 @@ Use this checklist before shipping changes to production.
 - [ ] Build frontend: `npm run -w apps/jskit-value-app build`.
 - [ ] Start app with production env: `npm run -w apps/jskit-value-app start`.
 - [ ] Verify startup has no runtime errors.
+- [ ] Verify action registry initialization has no `ACTION_DEFINITION_DUPLICATE` or definition validation startup errors.
 - [ ] Verify `GET /api/v1/health` returns `200`.
 - [ ] Verify `GET /api/v1/ready` returns `200` when dependencies are healthy.
 - [ ] Verify `/api/v1/docs` availability policy matches environment expectations (disabled in production by default).
@@ -53,6 +59,13 @@ Use this checklist before shipping changes to production.
 - [ ] Confirm DEG2RAD conversion works for positive, negative, and decimal inputs.
 - [ ] Confirm DEG2RAD validation and warnings behave correctly.
 - [ ] Confirm calculation history appends and paginates correctly.
+- [ ] Confirm high-risk admin action path works: `workspace.member.role.update`.
+- [ ] Confirm high-risk admin action path works: `workspace.invite.create`.
+- [ ] Confirm high-risk console action path works: `console.member.role.update`.
+- [ ] Confirm high-risk console action path works: `console.invite.create`.
+- [ ] Confirm billing mutator action path works: `workspace.billing.plan_change.request`.
+- [ ] Confirm chat mutator action path works: `chat.thread.message.send` (and attachment upload where enabled).
+- [ ] On app surface, confirm assistant tool catalog does not include admin/console-only actions.
 
 ## 7. Deployment and rollback readiness
 
@@ -63,5 +76,13 @@ Use this checklist before shipping changes to production.
 - [ ] Confirm error-rate alert is enabled (5xx ratio threshold over rolling window).
 - [ ] Confirm dashboard panels exist for p95 latency, error rate, auth failures, and invite redemption funnel.
 - [ ] Confirm `apps/jskit-value-app/docs/operations/observability.md` is current for this release.
+- [ ] Confirm `apps/jskit-value-app/docs/architecture/action-catalog-governance.md` is current if action IDs/policies changed.
 - [ ] Confirm rollback procedure is documented and tested (previous image/artifact + DB plan).
 - [ ] Confirm on-call owner and release window are agreed.
+
+## 8. Action-catalog and no-compatibility gates
+
+- [ ] If action inventory changed, confirm `actions_map.md` and `shared/actionIds.js` were updated in the same change.
+- [ ] Confirm all changed business endpoints still execute through `actionExecutor` only.
+- [ ] Confirm no legacy compatibility aliases/wrappers/fallback routes were introduced.
+- [ ] Confirm action definitions declare explicit channel/surface/permission/idempotency metadata.

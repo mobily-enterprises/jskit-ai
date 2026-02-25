@@ -89,6 +89,59 @@ function buildRoutes(controllers, { missingHandler } = {}) {
       handler: controllers.billing?.syncPaymentMethods || missingHandler
     },
     {
+      path: "/api/billing/payment-methods/:paymentMethodId/default",
+      method: "POST",
+      auth: "required",
+      workspacePolicy: "optional",
+      schema: {
+        tags: ["billing"],
+        summary: "Set the default billing payment method for the selected billable entity",
+        params: schema.params.paymentMethod,
+        body: schema.body.paymentMethodMutation,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.paymentMethodMutation
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.billing?.setDefaultPaymentMethod || missingHandler
+    },
+    {
+      path: "/api/billing/payment-methods/:paymentMethodId/detach",
+      method: "POST",
+      auth: "required",
+      workspacePolicy: "optional",
+      schema: {
+        tags: ["billing"],
+        summary: "Detach a billing payment method for the selected billable entity",
+        params: schema.params.paymentMethod,
+        body: schema.body.paymentMethodMutation,
+        response: withStandardErrorResponses(
+          {
+            200: schema.response.paymentMethodMutation
+          },
+          { includeValidation400: true }
+        )
+      },
+      handler: controllers.billing?.detachPaymentMethod || missingHandler
+    },
+    {
+      path: "/api/billing/payment-methods/:paymentMethodId",
+      method: "DELETE",
+      auth: "required",
+      workspacePolicy: "optional",
+      schema: {
+        tags: ["billing"],
+        summary: "Remove a billing payment method for the selected billable entity",
+        params: schema.params.paymentMethod,
+        response: withStandardErrorResponses({
+          200: schema.response.paymentMethodMutation
+        })
+      },
+      handler: controllers.billing?.removePaymentMethod || missingHandler
+    },
+    {
       path: "/api/billing/limitations",
       method: "GET",
       auth: "required",

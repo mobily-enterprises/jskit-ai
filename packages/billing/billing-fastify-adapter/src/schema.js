@@ -122,6 +122,15 @@ const paymentMethod = Type.Object(
   }
 );
 
+const paymentMethodParams = Type.Object(
+  {
+    paymentMethodId: Type.String({ minLength: 1, maxLength: 32, pattern: "^[0-9]+$" })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const limitation = Type.Object(
   {
     code: Type.String({ minLength: 1 }),
@@ -375,6 +384,28 @@ const paymentMethodSyncResponse = Type.Object(
   }
 );
 
+const paymentMethodMutationBody = Type.Object(
+  {
+    reason: Type.Optional(Type.String({ maxLength: 255 })),
+    metadataJson: Type.Optional(Type.Record(Type.String(), Type.Unknown()))
+  },
+  {
+    additionalProperties: false
+  }
+);
+
+const paymentMethodMutationResponse = Type.Object(
+  {
+    billableEntity,
+    operation: Type.String({ minLength: 1 }),
+    paymentMethod: Type.Union([paymentMethod, Type.Null()]),
+    paymentMethods: Type.Array(paymentMethod)
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const limitationsResponse = Type.Object(
   {
     billableEntity,
@@ -508,7 +539,11 @@ const schema = {
     checkout: checkoutBody,
     portal: portalBody,
     paymentLink: paymentLinkBody,
-    planChange: planChangeBody
+    planChange: planChangeBody,
+    paymentMethodMutation: paymentMethodMutationBody
+  },
+  params: {
+    paymentMethod: paymentMethodParams
   },
   query: {
     timeline: timelineQuery
@@ -519,6 +554,7 @@ const schema = {
     purchases: purchasesResponse,
     paymentMethods: paymentMethodsResponse,
     paymentMethodSync: paymentMethodSyncResponse,
+    paymentMethodMutation: paymentMethodMutationResponse,
     limitations: limitationsResponse,
     timeline: timelineResponse,
     planState: planStateResponse,

@@ -12,7 +12,8 @@ const BILLING_MIGRATION_FILES = [
   "migration-baseline-steps/20260221090000_create_billing_phase1_tables.cjs",
   "migration-baseline-steps/20260221110000_add_billing_phase2_1_tables.cjs",
   "migration-baseline-steps/20260222230000_create_billing_entitlements_engine_tables.cjs",
-  "migration-baseline-steps/20260222232000_backfill_billing_entitlements_engine.cjs"
+  "migration-baseline-steps/20260222232000_backfill_billing_entitlements_engine.cjs",
+  "migration-baseline-steps/20260223170000_add_billing_purchase_adjustments.cjs"
 ];
 
 function readMigrationSource(filePath) {

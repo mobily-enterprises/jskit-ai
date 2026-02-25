@@ -618,6 +618,64 @@ function mapPlanAssignmentProviderDetailsRowNullable(row) {
   };
 }
 
+function mapConsolePlanAssignmentRowNullable(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: Number(row.id),
+    billableEntityId: Number(row.billable_entity_id),
+    workspaceId: row.workspace_id == null ? null : Number(row.workspace_id),
+    workspaceSlug: row.workspace_slug == null ? null : String(row.workspace_slug),
+    planId: Number(row.plan_id),
+    planCode: row.plan_code == null ? null : String(row.plan_code),
+    planName: row.plan_name == null ? null : String(row.plan_name),
+    source: String(row.source || "internal"),
+    status: String(row.status || "past"),
+    periodStartAt: toIsoString(row.period_start_at),
+    periodEndAt: toNullableIsoString(row.period_end_at),
+    provider: row.provider == null ? null : normalizeProvider(row.provider),
+    providerSubscriptionId: row.provider_subscription_id == null ? null : String(row.provider_subscription_id),
+    providerStatus: row.provider_status == null ? null : String(row.provider_status),
+    currentPeriodEnd: toNullableIsoString(row.current_period_end),
+    cancelAtPeriodEnd: row.cancel_at_period_end == null ? null : Boolean(row.cancel_at_period_end),
+    metadataJson: parseJsonValue(row.metadata_json, {}),
+    createdAt: toIsoString(row.created_at),
+    updatedAt: toIsoString(row.updated_at)
+  };
+}
+
+function mapConsoleSubscriptionRowNullable(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    provider: normalizeProvider(row.provider),
+    providerSubscriptionId: String(row.provider_subscription_id || ""),
+    providerCustomerId: row.provider_customer_id == null ? null : String(row.provider_customer_id),
+    status: row.provider_status == null ? null : String(row.provider_status),
+    providerSubscriptionCreatedAt: toNullableIsoString(row.provider_subscription_created_at),
+    currentPeriodEnd: toNullableIsoString(row.current_period_end),
+    trialEnd: toNullableIsoString(row.trial_end),
+    canceledAt: toNullableIsoString(row.canceled_at),
+    cancelAtPeriodEnd: Boolean(row.cancel_at_period_end),
+    endedAt: toNullableIsoString(row.ended_at),
+    assignmentId: Number(row.assignment_id),
+    assignmentStatus: String(row.assignment_status || "past"),
+    assignmentPeriodStartAt: toIsoString(row.assignment_period_start_at),
+    assignmentPeriodEndAt: toNullableIsoString(row.assignment_period_end_at),
+    billableEntityId: Number(row.billable_entity_id),
+    workspaceId: row.workspace_id == null ? null : Number(row.workspace_id),
+    workspaceSlug: row.workspace_slug == null ? null : String(row.workspace_slug),
+    planId: Number(row.plan_id),
+    planCode: row.plan_code == null ? null : String(row.plan_code),
+    planName: row.plan_name == null ? null : String(row.plan_name),
+    metadataJson: parseJsonValue(row.metadata_json, {})
+  };
+}
+
 function mapBillingPurchaseRowNullable(row) {
   if (!row) {
     return null;
@@ -644,6 +702,28 @@ function mapBillingPurchaseRowNullable(row) {
     metadataJson: parseJsonValue(row.metadata_json, {}),
     dedupeKey: String(row.dedupe_key || ""),
     purchasedAt: toIsoString(row.purchased_at),
+    createdAt: toIsoString(row.created_at),
+    updatedAt: toIsoString(row.updated_at)
+  };
+}
+
+function mapPurchaseAdjustmentRowNullable(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: Number(row.id),
+    purchaseId: Number(row.purchase_id),
+    actionType: String(row.action_type || ""),
+    status: String(row.status || ""),
+    amountMinor: row.amount_minor == null ? null : Number(row.amount_minor),
+    currency: row.currency == null ? null : String(row.currency || "").toUpperCase(),
+    reasonCode: row.reason_code == null ? null : String(row.reason_code),
+    providerReference: row.provider_reference == null ? null : String(row.provider_reference),
+    requestedByUserId: row.requested_by_user_id == null ? null : Number(row.requested_by_user_id),
+    requestIdempotencyKey: row.request_idempotency_key == null ? null : String(row.request_idempotency_key),
+    metadataJson: parseJsonValue(row.metadata_json, {}),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at)
   };
@@ -2169,6 +2249,270 @@ function createBillingRepository(dbClient) {
     return rows.map(mapBillingPurchaseRowNullable).filter(Boolean);
   }
 
+  async function findBillingPurchaseById(id, options = {}) {
+    const normalizedId = toPositiveInteger(id);
+    if (!normalizedId) {
+      return null;
+    }
+
+    const client = resolveClient(options);
+    const query = client("billing_purchases")
+      .where({ id: normalizedId })
+      .first();
+    const row = await applyForUpdate(query, options);
+    return mapBillingPurchaseRowNullable(row);
+  }
+
+  async function listBillingPurchasesForConsole(
+    {
+      billableEntityId = null,
+      workspaceSlug = null,
+      ownerUserId = null,
+      status = null,
+      provider = null,
+      operationKey = null,
+      purchaseKind = null,
+      from = null,
+      to = null,
+      limit = 100,
+      offset = 0
+    } = {},
+    options = {}
+  ) {
+    const client = resolveClient(options);
+    const normalizedLimit = Math.max(1, Math.min(500, Number(limit) || 100));
+    const normalizedOffset = Math.max(0, Number(offset) || 0);
+    const normalizedBillableEntityId = toPositiveInteger(billableEntityId);
+    const normalizedOwnerUserId = toPositiveInteger(ownerUserId);
+    const normalizedWorkspaceSlug = toNullableString(workspaceSlug);
+    const normalizedStatus = toNullableString(status);
+    const normalizedProvider = toNullableString(provider);
+    const normalizedOperationKey = toNullableString(operationKey);
+    const normalizedPurchaseKind = toNullableString(purchaseKind);
+    const fromDate = toNullableDateTime(from);
+    const toDate = toNullableDateTime(to);
+
+    let query = client("billing_purchases as bp")
+      .leftJoin("billable_entities as be", "be.id", "bp.billable_entity_id")
+      .leftJoin("workspaces as w", "w.id", "be.workspace_id")
+      .select("bp.*")
+      .orderBy("bp.purchased_at", "desc")
+      .orderBy("bp.id", "desc")
+      .limit(normalizedLimit)
+      .offset(normalizedOffset);
+
+    if (normalizedBillableEntityId) {
+      query = query.where("bp.billable_entity_id", normalizedBillableEntityId);
+    }
+    if (normalizedOwnerUserId) {
+      query = query.andWhere("be.owner_user_id", normalizedOwnerUserId);
+    }
+    if (normalizedWorkspaceSlug) {
+      query = query.andWhere("w.slug", normalizedWorkspaceSlug);
+    }
+    if (normalizedStatus) {
+      query = query.andWhere("bp.status", normalizedStatus);
+    }
+    if (normalizedProvider) {
+      query = query.andWhere("bp.provider", normalizeProvider(normalizedProvider));
+    }
+    if (normalizedOperationKey) {
+      query = query.andWhere("bp.operation_key", normalizedOperationKey);
+    }
+    if (normalizedPurchaseKind) {
+      query = query.andWhere("bp.purchase_kind", normalizedPurchaseKind);
+    }
+    if (fromDate) {
+      query = query.andWhere("bp.purchased_at", ">=", fromDate);
+    }
+    if (toDate) {
+      query = query.andWhere("bp.purchased_at", "<=", toDate);
+    }
+
+    const rows = await query;
+    return rows.map(mapBillingPurchaseRowNullable).filter(Boolean);
+  }
+
+  async function listPlanAssignmentsForConsole(
+    {
+      assignmentId = null,
+      billableEntityId = null,
+      workspaceSlug = null,
+      statuses = null,
+      source = null,
+      planCode = null,
+      from = null,
+      to = null,
+      limit = 100,
+      offset = 0
+    } = {},
+    options = {}
+  ) {
+    const client = resolveClient(options);
+    const normalizedLimit = Math.max(1, Math.min(500, Number(limit) || 100));
+    const normalizedOffset = Math.max(0, Number(offset) || 0);
+    const normalizedAssignmentId = toPositiveInteger(assignmentId);
+    const normalizedBillableEntityId = toPositiveInteger(billableEntityId);
+    const normalizedWorkspaceSlug = toNullableString(workspaceSlug);
+    const normalizedSource = toNullableString(source);
+    const normalizedPlanCode = toNullableString(planCode);
+    const fromDate = toNullableDateTime(from);
+    const toDate = toNullableDateTime(to);
+    const normalizedStatuses = Array.isArray(statuses)
+      ? statuses.map((entry) => toNullableString(entry)).filter(Boolean)
+      : toNullableString(statuses)
+        ? [toNullableString(statuses)]
+        : [];
+
+    let query = client("billing_plan_assignments as bpa")
+      .leftJoin("billable_entities as be", "be.id", "bpa.billable_entity_id")
+      .leftJoin("workspaces as w", "w.id", "be.workspace_id")
+      .leftJoin("billing_plans as bp", "bp.id", "bpa.plan_id")
+      .leftJoin("billing_plan_assignment_provider_details as bpad", "bpad.billing_plan_assignment_id", "bpa.id")
+      .select(
+        "bpa.id",
+        "bpa.billable_entity_id",
+        "be.workspace_id",
+        "w.slug as workspace_slug",
+        "bpa.plan_id",
+        "bp.code as plan_code",
+        "bp.name as plan_name",
+        "bpa.source",
+        "bpa.status",
+        "bpa.period_start_at",
+        "bpa.period_end_at",
+        "bpad.provider",
+        "bpad.provider_subscription_id",
+        "bpad.provider_status",
+        "bpad.current_period_end",
+        "bpad.cancel_at_period_end",
+        "bpa.metadata_json",
+        "bpa.created_at",
+        "bpa.updated_at"
+      )
+      .orderBy("bpa.period_start_at", "desc")
+      .orderBy("bpa.id", "desc")
+      .limit(normalizedLimit)
+      .offset(normalizedOffset);
+
+    if (normalizedAssignmentId) {
+      query = query.where("bpa.id", normalizedAssignmentId);
+    }
+    if (normalizedBillableEntityId) {
+      query = query.andWhere("bpa.billable_entity_id", normalizedBillableEntityId);
+    }
+    if (normalizedWorkspaceSlug) {
+      query = query.andWhere("w.slug", normalizedWorkspaceSlug);
+    }
+    if (normalizedStatuses.length > 0) {
+      query = query.whereIn("bpa.status", normalizedStatuses);
+    }
+    if (normalizedSource) {
+      query = query.andWhere("bpa.source", normalizedSource);
+    }
+    if (normalizedPlanCode) {
+      query = query.andWhere("bp.code", normalizedPlanCode);
+    }
+    if (fromDate) {
+      query = query.andWhere("bpa.period_start_at", ">=", fromDate);
+    }
+    if (toDate) {
+      query = query.andWhere("bpa.period_start_at", "<=", toDate);
+    }
+
+    const rows = await query;
+    return rows.map(mapConsolePlanAssignmentRowNullable).filter(Boolean);
+  }
+
+  async function listSubscriptionsForConsole(
+    {
+      provider = null,
+      providerSubscriptionId = null,
+      billableEntityId = null,
+      workspaceSlug = null,
+      status = null,
+      planCode = null,
+      from = null,
+      to = null,
+      limit = 100,
+      offset = 0
+    } = {},
+    options = {}
+  ) {
+    const client = resolveClient(options);
+    const normalizedLimit = Math.max(1, Math.min(500, Number(limit) || 100));
+    const normalizedOffset = Math.max(0, Number(offset) || 0);
+    const normalizedProvider = toNullableString(provider);
+    const normalizedProviderSubscriptionId = toNullableString(providerSubscriptionId);
+    const normalizedBillableEntityId = toPositiveInteger(billableEntityId);
+    const normalizedWorkspaceSlug = toNullableString(workspaceSlug);
+    const normalizedStatus = toNullableString(status);
+    const normalizedPlanCode = toNullableString(planCode);
+    const fromDate = toNullableDateTime(from);
+    const toDate = toNullableDateTime(to);
+
+    let query = client("billing_plan_assignment_provider_details as bpad")
+      .join("billing_plan_assignments as bpa", "bpa.id", "bpad.billing_plan_assignment_id")
+      .leftJoin("billable_entities as be", "be.id", "bpa.billable_entity_id")
+      .leftJoin("workspaces as w", "w.id", "be.workspace_id")
+      .leftJoin("billing_plans as bp", "bp.id", "bpa.plan_id")
+      .select(
+        "bpad.provider",
+        "bpad.provider_subscription_id",
+        "bpad.provider_customer_id",
+        "bpad.provider_status",
+        "bpad.provider_subscription_created_at",
+        "bpad.current_period_end",
+        "bpad.trial_end",
+        "bpad.canceled_at",
+        "bpad.cancel_at_period_end",
+        "bpad.ended_at",
+        "bpad.metadata_json",
+        "bpa.id as assignment_id",
+        "bpa.status as assignment_status",
+        "bpa.period_start_at as assignment_period_start_at",
+        "bpa.period_end_at as assignment_period_end_at",
+        "bpa.billable_entity_id",
+        "be.workspace_id",
+        "w.slug as workspace_slug",
+        "bpa.plan_id",
+        "bp.code as plan_code",
+        "bp.name as plan_name"
+      )
+      .orderBy("bpad.updated_at", "desc")
+      .orderBy("bpa.id", "desc")
+      .limit(normalizedLimit)
+      .offset(normalizedOffset);
+
+    if (normalizedProvider) {
+      query = query.where("bpad.provider", normalizeProvider(normalizedProvider));
+    }
+    if (normalizedProviderSubscriptionId) {
+      query = query.andWhere("bpad.provider_subscription_id", normalizedProviderSubscriptionId);
+    }
+    if (normalizedBillableEntityId) {
+      query = query.andWhere("bpa.billable_entity_id", normalizedBillableEntityId);
+    }
+    if (normalizedWorkspaceSlug) {
+      query = query.andWhere("w.slug", normalizedWorkspaceSlug);
+    }
+    if (normalizedStatus) {
+      query = query.andWhere("bpad.provider_status", normalizedStatus);
+    }
+    if (normalizedPlanCode) {
+      query = query.andWhere("bp.code", normalizedPlanCode);
+    }
+    if (fromDate) {
+      query = query.andWhere("bpad.provider_subscription_created_at", ">=", fromDate);
+    }
+    if (toDate) {
+      query = query.andWhere("bpad.provider_subscription_created_at", "<=", toDate);
+    }
+
+    const rows = await query;
+    return rows.map(mapConsoleSubscriptionRowNullable).filter(Boolean);
+  }
+
   async function listPaymentMethodsForEntity(
     { billableEntityId, provider, includeInactive = false, limit = 20 },
     options = {}
@@ -2190,6 +2534,20 @@ function createBillingRepository(dbClient) {
       .limit(Math.max(1, Math.min(200, Number(limit) || 20)));
 
     return rows.map(mapPaymentMethodRowNullable).filter(Boolean);
+  }
+
+  async function findPaymentMethodById(id, options = {}) {
+    const normalizedId = toPositiveInteger(id);
+    if (!normalizedId) {
+      return null;
+    }
+
+    const client = resolveClient(options);
+    const query = client("billing_payment_methods")
+      .where({ id: normalizedId })
+      .first();
+    const row = await applyForUpdate(query, options);
+    return mapPaymentMethodRowNullable(row);
   }
 
   async function findPaymentMethodByProviderPaymentMethodId({ provider, providerPaymentMethodId }, options = {}) {
@@ -2294,6 +2652,218 @@ function createBillingRepository(dbClient) {
     });
 
     return Number(affectedRows || 0);
+  }
+
+  async function setDefaultPaymentMethodForEntity(
+    { billableEntityId, paymentMethodId, provider = null, now = new Date() } = {},
+    options = {}
+  ) {
+    const normalizedBillableEntityId = toPositiveInteger(billableEntityId);
+    const normalizedPaymentMethodId = toPositiveInteger(paymentMethodId);
+    if (!normalizedBillableEntityId || !normalizedPaymentMethodId) {
+      return null;
+    }
+
+    const client = resolveClient(options);
+    const targetQuery = client("billing_payment_methods")
+      .where({
+        id: normalizedPaymentMethodId,
+        billable_entity_id: normalizedBillableEntityId
+      })
+      .first();
+    const targetRow = await applyForUpdate(targetQuery, {
+      ...options,
+      forUpdate: true
+    });
+    const target = mapPaymentMethodRowNullable(targetRow);
+    if (!target) {
+      return null;
+    }
+
+    const scopedProvider = normalizeProvider(provider || target.provider);
+    const updatedAt = toInsertDateTime(now, now);
+    await client("billing_payment_methods")
+      .where({
+        billable_entity_id: normalizedBillableEntityId,
+        provider: scopedProvider
+      })
+      .update({
+        is_default: false,
+        updated_at: updatedAt
+      });
+
+    await client("billing_payment_methods")
+      .where({ id: normalizedPaymentMethodId })
+      .update({
+        is_default: true,
+        status: "active",
+        last_provider_synced_at: updatedAt,
+        updated_at: updatedAt
+      });
+
+    return findPaymentMethodById(normalizedPaymentMethodId, {
+      ...options,
+      trx: client
+    });
+  }
+
+  async function detachPaymentMethodById({ id, now = new Date() } = {}, options = {}) {
+    const normalizedId = toPositiveInteger(id);
+    if (!normalizedId) {
+      return null;
+    }
+
+    const client = resolveClient(options);
+    const existing = await findPaymentMethodById(normalizedId, {
+      ...options,
+      trx: client,
+      forUpdate: true
+    });
+    if (!existing) {
+      return null;
+    }
+
+    const updatedAt = toInsertDateTime(now, now);
+    await client("billing_payment_methods")
+      .where({ id: normalizedId })
+      .update({
+        status: "detached",
+        is_default: false,
+        last_provider_synced_at: updatedAt,
+        updated_at: updatedAt
+      });
+
+    return findPaymentMethodById(normalizedId, {
+      ...options,
+      trx: client
+    });
+  }
+
+  async function removePaymentMethodById({ id } = {}, options = {}) {
+    const normalizedId = toPositiveInteger(id);
+    if (!normalizedId) {
+      return null;
+    }
+
+    const client = resolveClient(options);
+    const existing = await findPaymentMethodById(normalizedId, {
+      ...options,
+      trx: client,
+      forUpdate: true
+    });
+    if (!existing) {
+      return null;
+    }
+
+    await client("billing_payment_methods")
+      .where({ id: normalizedId })
+      .del();
+
+    return existing;
+  }
+
+  async function insertPurchaseAdjustment(payload = {}, options = {}) {
+    const normalizedPurchaseId = toPositiveInteger(payload.purchaseId || payload.purchase_id);
+    if (!normalizedPurchaseId) {
+      throw new Error("purchaseId must be a positive integer.");
+    }
+
+    const actionType = String(payload.actionType || payload.action_type || "")
+      .trim()
+      .toLowerCase();
+    if (!actionType) {
+      throw new Error("actionType is required.");
+    }
+
+    const now = new Date();
+    const client = resolveClient(options);
+    const [id] = await client("billing_purchase_adjustments").insert({
+      purchase_id: normalizedPurchaseId,
+      action_type: actionType,
+      status: String(payload.status || "recorded").trim().toLowerCase() || "recorded",
+      amount_minor:
+        payload.amountMinor == null && payload.amount_minor == null
+          ? null
+          : Number(payload.amountMinor ?? payload.amount_minor),
+      currency:
+        payload.currency == null
+          ? null
+          : String(payload.currency || "")
+              .trim()
+              .toUpperCase() || null,
+      reason_code: toNullableString(payload.reasonCode ?? payload.reason_code),
+      provider_reference: toNullableString(payload.providerReference ?? payload.provider_reference),
+      requested_by_user_id: toPositiveInteger(payload.requestedByUserId ?? payload.requested_by_user_id),
+      request_idempotency_key: toNullableString(payload.requestIdempotencyKey ?? payload.request_idempotency_key),
+      metadata_json:
+        payload.metadataJson == null && payload.metadata_json == null
+          ? null
+          : JSON.stringify(payload.metadataJson ?? payload.metadata_json),
+      created_at: toInsertDateTime(payload.createdAt, now),
+      updated_at: toInsertDateTime(payload.updatedAt, now)
+    });
+
+    const row = await client("billing_purchase_adjustments")
+      .where({ id })
+      .first();
+    return mapPurchaseAdjustmentRowNullable(row);
+  }
+
+  async function findPurchaseAdjustmentByIdempotencyKey(requestIdempotencyKey, options = {}) {
+    const normalizedKey = toNullableString(requestIdempotencyKey);
+    if (!normalizedKey) {
+      return null;
+    }
+
+    const client = resolveClient(options);
+    const query = client("billing_purchase_adjustments")
+      .where({ request_idempotency_key: normalizedKey })
+      .first();
+    const row = await applyForUpdate(query, options);
+    return mapPurchaseAdjustmentRowNullable(row);
+  }
+
+  async function listPurchaseAdjustmentsByPurchaseId({ purchaseId, limit = 100 } = {}, options = {}) {
+    const normalizedPurchaseId = toPositiveInteger(purchaseId);
+    if (!normalizedPurchaseId) {
+      return [];
+    }
+
+    const client = resolveClient(options);
+    const rows = await client("billing_purchase_adjustments")
+      .where({ purchase_id: normalizedPurchaseId })
+      .orderBy("created_at", "desc")
+      .orderBy("id", "desc")
+      .limit(Math.max(1, Math.min(500, Number(limit) || 100)));
+
+    return rows.map(mapPurchaseAdjustmentRowNullable).filter(Boolean);
+  }
+
+  async function updateBillingPurchaseStatusById(id, patch = {}, options = {}) {
+    const normalizedId = toPositiveInteger(id);
+    if (!normalizedId) {
+      return null;
+    }
+
+    const client = resolveClient(options);
+    const dbPatch = {};
+    if (Object.hasOwn(patch, "status")) {
+      dbPatch.status = String(patch.status || "").trim() || "confirmed";
+    }
+    if (Object.hasOwn(patch, "metadataJson")) {
+      dbPatch.metadata_json = patch.metadataJson == null ? null : JSON.stringify(patch.metadataJson);
+    }
+    if (Object.keys(dbPatch).length > 0) {
+      dbPatch.updated_at = toInsertDateTime(patch.updatedAt, new Date());
+      await client("billing_purchases")
+        .where({ id: normalizedId })
+        .update(dbPatch);
+    }
+
+    return findBillingPurchaseById(normalizedId, {
+      ...options,
+      trx: client
+    });
   }
 
   async function insertPaymentMethodSyncEvent(payload, options = {}) {
@@ -3336,9 +3906,21 @@ function createBillingRepository(dbClient) {
     clearCurrentSubscriptionFlagsForEntity,
     upsertSubscription,
     upsertBillingPurchase,
+    findBillingPurchaseById,
     listBillingPurchasesForEntity,
+    listBillingPurchasesForConsole,
+    listPlanAssignmentsForConsole,
+    listSubscriptionsForConsole,
+    insertPurchaseAdjustment,
+    findPurchaseAdjustmentByIdempotencyKey,
+    listPurchaseAdjustmentsByPurchaseId,
+    updateBillingPurchaseStatusById,
     listPaymentMethodsForEntity,
+    findPaymentMethodById,
     findPaymentMethodByProviderPaymentMethodId,
+    setDefaultPaymentMethodForEntity,
+    detachPaymentMethodById,
+    removePaymentMethodById,
     upsertPaymentMethod,
     deactivateMissingPaymentMethods,
     insertPaymentMethodSyncEvent,
@@ -3403,6 +3985,7 @@ const __testables = {
   mapPlanAssignmentProviderDetailsRowNullable,
   mapPlanChangeHistoryRowNullable,
   mapBillingPurchaseRowNullable,
+  mapPurchaseAdjustmentRowNullable,
   toInsertDateTime,
   toNullableDateTime,
   createBillingRepository

@@ -35,6 +35,35 @@ function createCatalogProductStub({
   };
 }
 
+function createPaymentMethodStub({
+  id = 7,
+  billableEntityId = 41,
+  billingCustomerId = 501,
+  provider = "stripe",
+  providerPaymentMethodId = "pm_stub",
+  status = "active",
+  isDefault = false
+} = {}) {
+  return {
+    id,
+    billableEntityId,
+    billingCustomerId,
+    provider,
+    providerPaymentMethodId,
+    type: "card",
+    brand: "visa",
+    last4: "4242",
+    expMonth: 1,
+    expYear: 2030,
+    isDefault,
+    status,
+    lastProviderSyncedAt: "2026-02-21T00:00:00.000Z",
+    metadataJson: {},
+    createdAt: "2026-02-21T00:00:00.000Z",
+    updatedAt: "2026-02-21T00:00:00.000Z"
+  };
+}
+
 function createBaseBillingService(overrides = {}) {
   return createBillingService({
     billingRepository: {
@@ -229,6 +258,210 @@ test("billing service listPlans returns plan entries with core price mapping", a
   assert.equal(response.plans[0].entitlements.length, 1);
   assert.equal(response.plans[0].entitlements[0].code, "projects.max");
   assert.equal(response.plans[0].entitlements[0].valueJson.amount, 25);
+});
+
+test("billing service setDefaultPaymentMethod validates payment-method ownership for selected entity", async () => {
+  const service = createBaseBillingService({
+    billingRepository: {
+      async findPaymentMethodById() {
+        return createPaymentMethodStub({
+          id: 19,
+          billableEntityId: 999,
+          providerPaymentMethodId: "pm_foreign"
+        });
+      }
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      service.setDefaultPaymentMethod({
+        request: {
+          headers: {}
+        },
+        user: {
+          id: 11
+        },
+        paymentMethodId: 19,
+        clientIdempotencyKey: "idem_payment_method_ownership"
+      }),
+    (error) =>
+      error instanceof AppError &&
+      Number(error.statusCode) === 409 &&
+      String(error.code || "") === "PAYMENT_METHOD_NOT_OWNED_BY_ENTITY"
+  );
+});
+
+test("billing service setDefaultPaymentMethod switches default method and returns updated list", async () => {
+  const providerCalls = [];
+  const repositoryCalls = [];
+  const method = createPaymentMethodStub({
+    id: 27,
+    providerPaymentMethodId: "pm_set_default_27",
+    isDefault: false
+  });
+
+  const service = createBaseBillingService({
+    billingRepository: {
+      async findPaymentMethodById(id) {
+        assert.equal(id, 27);
+        return method;
+      },
+      async findCustomerById(id) {
+        assert.equal(id, 501);
+        return {
+          id: 501,
+          provider: "stripe",
+          providerCustomerId: "cus_set_default_27"
+        };
+      },
+      async setDefaultPaymentMethodForEntity(payload) {
+        repositoryCalls.push(payload);
+        return {
+          ...method,
+          isDefault: true
+        };
+      },
+      async listPaymentMethodsForEntity(payload) {
+        repositoryCalls.push(payload);
+        return [
+          {
+            ...method,
+            isDefault: true
+          }
+        ];
+      }
+    },
+    billingProviderAdapter: {
+      async setDefaultCustomerPaymentMethod(payload) {
+        providerCalls.push(payload);
+        return {
+          ok: true
+        };
+      }
+    }
+  });
+
+  const response = await service.setDefaultPaymentMethod({
+    request: {
+      headers: {}
+    },
+    user: {
+      id: 11
+    },
+    paymentMethodId: 27,
+    clientIdempotencyKey: "idem_set_default_27"
+  });
+
+  assert.equal(providerCalls.length, 1);
+  assert.equal(providerCalls[0].customerId, "cus_set_default_27");
+  assert.equal(providerCalls[0].paymentMethodId, "pm_set_default_27");
+  assert.equal(providerCalls[0].idempotencyKey, "idem_set_default_27");
+  assert.equal(repositoryCalls[0].billableEntityId, 41);
+  assert.equal(repositoryCalls[0].paymentMethodId, 27);
+  assert.equal(response.operation, "default_set");
+  assert.equal(response.paymentMethod?.isDefault, true);
+  assert.equal(response.paymentMethods.length, 1);
+});
+
+test("billing service detachPaymentMethod calls provider detach and marks method detached", async () => {
+  const providerCalls = [];
+  const method = createPaymentMethodStub({
+    id: 33,
+    providerPaymentMethodId: "pm_detach_33"
+  });
+
+  const service = createBaseBillingService({
+    billingRepository: {
+      async findPaymentMethodById(id) {
+        assert.equal(id, 33);
+        return method;
+      },
+      async findCustomerById() {
+        return {
+          id: 501,
+          providerCustomerId: "cus_detach_33"
+        };
+      },
+      async detachPaymentMethodById({ id }) {
+        assert.equal(id, 33);
+        return {
+          ...method,
+          status: "detached",
+          isDefault: false
+        };
+      },
+      async listPaymentMethodsForEntity() {
+        return [];
+      }
+    },
+    billingProviderAdapter: {
+      async detachCustomerPaymentMethod(payload) {
+        providerCalls.push(payload);
+        return {
+          ok: true
+        };
+      }
+    }
+  });
+
+  const response = await service.detachPaymentMethod({
+    request: {
+      headers: {}
+    },
+    user: {
+      id: 11
+    },
+    paymentMethodId: 33,
+    clientIdempotencyKey: "idem_detach_33"
+  });
+
+  assert.equal(providerCalls.length, 1);
+  assert.equal(providerCalls[0].customerId, "cus_detach_33");
+  assert.equal(providerCalls[0].paymentMethodId, "pm_detach_33");
+  assert.equal(response.operation, "detached");
+  assert.equal(response.paymentMethod?.status, "detached");
+});
+
+test("billing service removePaymentMethod maps provider unsupported operations to deterministic 501", async () => {
+  const service = createBaseBillingService({
+    billingRepository: {
+      async findPaymentMethodById(id) {
+        assert.equal(id, 44);
+        return createPaymentMethodStub({
+          id: 44,
+          providerPaymentMethodId: "pm_remove_44"
+        });
+      },
+      async findCustomerById() {
+        return {
+          id: 501,
+          providerCustomerId: "cus_remove_44"
+        };
+      },
+      async removePaymentMethodById() {
+        return null;
+      }
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      service.removePaymentMethod({
+        request: {
+          headers: {}
+        },
+        user: {
+          id: 11
+        },
+        paymentMethodId: 44,
+        clientIdempotencyKey: "idem_remove_44"
+      }),
+    (error) =>
+      error instanceof AppError &&
+      Number(error.statusCode) === 501 &&
+      String(error.code || "") === "PAYMENT_METHOD_PROVIDER_UNSUPPORTED"
+  );
 });
 
 test("billing service createPortalSession recovers recover_pending idempotency rows", async () => {

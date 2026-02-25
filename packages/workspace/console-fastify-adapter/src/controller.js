@@ -20,12 +20,42 @@ const CONSOLE_ACTION_IDS = Object.freeze({
   BILLING_EVENTS_LIST: "console.billing.events.list",
   BILLING_PLANS_LIST: "console.billing.plans.list",
   BILLING_PRODUCTS_LIST: "console.billing.products.list",
+  BILLING_PURCHASES_LIST: "console.billing.purchases.list",
+  BILLING_PURCHASE_REFUND: "console.billing.purchase.refund",
+  BILLING_PURCHASE_VOID: "console.billing.purchase.void",
+  BILLING_PURCHASE_CORRECTION_CREATE: "console.billing.purchase.correction.create",
+  BILLING_PLAN_ASSIGNMENTS_LIST: "console.billing.plan_assignments.list",
+  BILLING_PLAN_ASSIGNMENT_CREATE: "console.billing.plan_assignment.create",
+  BILLING_PLAN_ASSIGNMENT_UPDATE: "console.billing.plan_assignment.update",
+  BILLING_PLAN_ASSIGNMENT_CANCEL: "console.billing.plan_assignment.cancel",
+  BILLING_SUBSCRIPTIONS_LIST: "console.billing.subscriptions.list",
+  BILLING_SUBSCRIPTION_CHANGE_PLAN: "console.billing.subscription.change_plan",
+  BILLING_SUBSCRIPTION_CANCEL: "console.billing.subscription.cancel",
+  BILLING_SUBSCRIPTION_CANCEL_AT_PERIOD_END: "console.billing.subscription.cancel_at_period_end",
+  BILLING_ENTITLEMENT_DEFINITIONS_LIST: "console.billing.entitlement_definitions.list",
+  BILLING_ENTITLEMENT_DEFINITION_GET: "console.billing.entitlement_definition.get",
   BILLING_PROVIDER_PRICES_LIST: "console.billing.provider_prices.list",
   BILLING_PLAN_CREATE: "console.billing.plan.create",
   BILLING_PRODUCT_CREATE: "console.billing.product.create",
   BILLING_PLAN_UPDATE: "console.billing.plan.update",
   BILLING_PRODUCT_UPDATE: "console.billing.product.update"
 });
+
+function normalizeIdempotencyKey(value) {
+  const normalized = String(value || "").trim();
+  return normalized || "";
+}
+
+function requireIdempotencyKey(request) {
+  const idempotencyKey = normalizeIdempotencyKey(request?.headers?.["idempotency-key"]);
+  if (!idempotencyKey) {
+    throw new AppError(400, "Idempotency-Key header is required.", {
+      code: "IDEMPOTENCY_KEY_REQUIRED"
+    });
+  }
+
+  return idempotencyKey;
+}
 
 async function executeAction(actionExecutor, { actionId, request, input = {} }) {
   return actionExecutor.execute({
@@ -248,6 +278,214 @@ function createController({ aiTranscriptsService = null, actionExecutor }) {
     reply.code(200).send(response);
   }
 
+  async function listBillingPurchases(request, reply) {
+    const query = request.query || {};
+    const response = await executeAction(actionExecutor, {
+      actionId: CONSOLE_ACTION_IDS.BILLING_PURCHASES_LIST,
+      request,
+      input: query
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function refundBillingPurchase(request, reply) {
+    const idempotencyKey = requireIdempotencyKey(request);
+    const params = request.params || {};
+    const payload = request.body || {};
+    const response = await executeAction(actionExecutor, {
+      actionId: CONSOLE_ACTION_IDS.BILLING_PURCHASE_REFUND,
+      request,
+      input: {
+        ...payload,
+        purchaseId: params.purchaseId,
+        idempotencyKey
+      }
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function voidBillingPurchase(request, reply) {
+    const idempotencyKey = requireIdempotencyKey(request);
+    const params = request.params || {};
+    const payload = request.body || {};
+    const response = await executeAction(actionExecutor, {
+      actionId: CONSOLE_ACTION_IDS.BILLING_PURCHASE_VOID,
+      request,
+      input: {
+        ...payload,
+        purchaseId: params.purchaseId,
+        idempotencyKey
+      }
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function createBillingPurchaseCorrection(request, reply) {
+    const idempotencyKey = requireIdempotencyKey(request);
+    const params = request.params || {};
+    const payload = request.body || {};
+    const response = await executeAction(actionExecutor, {
+      actionId: CONSOLE_ACTION_IDS.BILLING_PURCHASE_CORRECTION_CREATE,
+      request,
+      input: {
+        ...payload,
+        purchaseId: params.purchaseId,
+        idempotencyKey
+      }
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function listBillingPlanAssignments(request, reply) {
+    const query = request.query || {};
+    const response = await executeAction(actionExecutor, {
+      actionId: CONSOLE_ACTION_IDS.BILLING_PLAN_ASSIGNMENTS_LIST,
+      request,
+      input: query
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function createBillingPlanAssignment(request, reply) {
+    const idempotencyKey = requireIdempotencyKey(request);
+    const payload = request.body || {};
+    const response = await executeAction(actionExecutor, {
+      actionId: CONSOLE_ACTION_IDS.BILLING_PLAN_ASSIGNMENT_CREATE,
+      request,
+      input: {
+        ...payload,
+        idempotencyKey
+      }
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function updateBillingPlanAssignment(request, reply) {
+    const idempotencyKey = requireIdempotencyKey(request);
+    const params = request.params || {};
+    const payload = request.body || {};
+    const response = await executeAction(actionExecutor, {
+      actionId: CONSOLE_ACTION_IDS.BILLING_PLAN_ASSIGNMENT_UPDATE,
+      request,
+      input: {
+        ...payload,
+        assignmentId: params.assignmentId,
+        idempotencyKey
+      }
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function cancelBillingPlanAssignment(request, reply) {
+    const idempotencyKey = requireIdempotencyKey(request);
+    const params = request.params || {};
+    const payload = request.body || {};
+    const response = await executeAction(actionExecutor, {
+      actionId: CONSOLE_ACTION_IDS.BILLING_PLAN_ASSIGNMENT_CANCEL,
+      request,
+      input: {
+        ...payload,
+        assignmentId: params.assignmentId,
+        idempotencyKey
+      }
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function listBillingSubscriptions(request, reply) {
+    const query = request.query || {};
+    const response = await executeAction(actionExecutor, {
+      actionId: CONSOLE_ACTION_IDS.BILLING_SUBSCRIPTIONS_LIST,
+      request,
+      input: query
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function changeBillingSubscriptionPlan(request, reply) {
+    const idempotencyKey = requireIdempotencyKey(request);
+    const params = request.params || {};
+    const payload = request.body || {};
+    const response = await executeAction(actionExecutor, {
+      actionId: CONSOLE_ACTION_IDS.BILLING_SUBSCRIPTION_CHANGE_PLAN,
+      request,
+      input: {
+        ...payload,
+        providerSubscriptionId: params.providerSubscriptionId,
+        idempotencyKey
+      }
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function cancelBillingSubscription(request, reply) {
+    const idempotencyKey = requireIdempotencyKey(request);
+    const params = request.params || {};
+    const payload = request.body || {};
+    const response = await executeAction(actionExecutor, {
+      actionId: CONSOLE_ACTION_IDS.BILLING_SUBSCRIPTION_CANCEL,
+      request,
+      input: {
+        ...payload,
+        providerSubscriptionId: params.providerSubscriptionId,
+        idempotencyKey
+      }
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function cancelBillingSubscriptionAtPeriodEnd(request, reply) {
+    const idempotencyKey = requireIdempotencyKey(request);
+    const params = request.params || {};
+    const payload = request.body || {};
+    const response = await executeAction(actionExecutor, {
+      actionId: CONSOLE_ACTION_IDS.BILLING_SUBSCRIPTION_CANCEL_AT_PERIOD_END,
+      request,
+      input: {
+        ...payload,
+        providerSubscriptionId: params.providerSubscriptionId,
+        idempotencyKey
+      }
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function listBillingEntitlementDefinitions(request, reply) {
+    const query = request.query || {};
+    const response = await executeAction(actionExecutor, {
+      actionId: CONSOLE_ACTION_IDS.BILLING_ENTITLEMENT_DEFINITIONS_LIST,
+      request,
+      input: query
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function getBillingEntitlementDefinition(request, reply) {
+    const params = request.params || {};
+    const response = await executeAction(actionExecutor, {
+      actionId: CONSOLE_ACTION_IDS.BILLING_ENTITLEMENT_DEFINITION_GET,
+      request,
+      input: {
+        definitionId: params.definitionId
+      }
+    });
+
+    reply.code(200).send(response);
+  }
+
   async function listBillingProviderPrices(request, reply) {
     const query = request.query || {};
     const response = await executeAction(actionExecutor, {
@@ -331,6 +569,20 @@ function createController({ aiTranscriptsService = null, actionExecutor }) {
     listBillingEvents,
     listBillingPlans,
     listBillingProducts,
+    listBillingPurchases,
+    refundBillingPurchase,
+    voidBillingPurchase,
+    createBillingPurchaseCorrection,
+    listBillingPlanAssignments,
+    createBillingPlanAssignment,
+    updateBillingPlanAssignment,
+    cancelBillingPlanAssignment,
+    listBillingSubscriptions,
+    changeBillingSubscriptionPlan,
+    cancelBillingSubscription,
+    cancelBillingSubscriptionAtPeriodEnd,
+    listBillingEntitlementDefinitions,
+    getBillingEntitlementDefinition,
     createBillingPlan,
     createBillingProduct,
     listBillingProviderPrices,

@@ -264,3 +264,27 @@ test("paddle sdk testables normalize checkout/subscription/invoice payloads", ()
   assert.equal(invoice.amount_paid, 999);
   assert.equal(invoice.amount_remaining, 0);
 });
+
+test("paddle sdk returns explicit 501 for unsupported payment-method and purchase mutations", async () => {
+  const service = createPaddleSdkService({
+    enabled: true,
+    apiKey: "pdl_test_key"
+  });
+
+  const operations = [
+    () => service.setDefaultCustomerPaymentMethod({ customerId: "ctm_1", paymentMethodId: "pm_1" }),
+    () => service.detachCustomerPaymentMethod({ paymentMethodId: "pm_1" }),
+    () => service.removeCustomerPaymentMethod({ paymentMethodId: "pm_1" }),
+    () => service.refundPurchase({ purchaseId: 11 }),
+    () => service.voidPurchase({ purchaseId: 11 })
+  ];
+
+  for (const operation of operations) {
+    await assert.rejects(operation, (error) => {
+      assert.equal(Number(error?.status || error?.statusCode), 501);
+      assert.equal(String(error?.code || ""), "PROVIDER_OPERATION_NOT_SUPPORTED");
+      assert.equal(String(error?.details?.code || ""), "PROVIDER_OPERATION_NOT_SUPPORTED");
+      return true;
+    });
+  }
+});

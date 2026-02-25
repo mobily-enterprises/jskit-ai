@@ -20,6 +20,16 @@ const ConsoleAiTranscriptsView = lazyRouteComponent(() => import("../../../views
 const ConsoleBillingEventsView = lazyRouteComponent(() => import("../../../views/console/ConsoleBillingEventsView.vue"));
 const ConsoleBillingPlansView = lazyRouteComponent(() => import("../../../views/console/ConsoleBillingPlansView.vue"));
 const ConsoleBillingProductsView = lazyRouteComponent(() => import("../../../views/console/ConsoleBillingProductsView.vue"));
+const ConsoleBillingEntitlementsView = lazyRouteComponent(
+  () => import("../../../views/console/ConsoleBillingEntitlementsView.vue")
+);
+const ConsoleBillingPurchasesView = lazyRouteComponent(() => import("../../../views/console/ConsoleBillingPurchasesView.vue"));
+const ConsoleBillingPlanAssignmentsView = lazyRouteComponent(
+  () => import("../../../views/console/ConsoleBillingPlanAssignmentsView.vue")
+);
+const ConsoleBillingSubscriptionsView = lazyRouteComponent(
+  () => import("../../../views/console/ConsoleBillingSubscriptionsView.vue")
+);
 /* v8 ignore stop */
 /* c8 ignore stop */
 
@@ -90,6 +100,30 @@ function createRoutes({ rootRoute, surfacePaths, guards }) {
       path: `${surfacePaths.prefix}/billing/products`,
       component: ConsoleBillingProductsView,
       beforeLoad: guards.beforeLoadBillingPlans
+    }),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: `${surfacePaths.prefix}/billing/entitlements`,
+      component: ConsoleBillingEntitlementsView,
+      beforeLoad: guards.beforeLoadBillingEntitlements
+    }),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: `${surfacePaths.prefix}/billing/purchases`,
+      component: ConsoleBillingPurchasesView,
+      beforeLoad: guards.beforeLoadBillingPurchases
+    }),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: `${surfacePaths.prefix}/billing/plan-assignments`,
+      component: ConsoleBillingPlanAssignmentsView,
+      beforeLoad: guards.beforeLoadBillingPlanAssignments
+    }),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: `${surfacePaths.prefix}/billing/subscriptions`,
+      component: ConsoleBillingSubscriptionsView,
+      beforeLoad: guards.beforeLoadBillingSubscriptions
     }),
     createRoute({
       getParentRoute: () => rootRoute,

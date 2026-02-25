@@ -49,6 +49,21 @@ function createService({ paddleSdkService } = {}) {
     async listCustomerPaymentMethods(payload) {
       return paddleSdkService.listCustomerPaymentMethods(payload);
     },
+    async setDefaultCustomerPaymentMethod(payload) {
+      return paddleSdkService.setDefaultCustomerPaymentMethod(payload);
+    },
+    async detachCustomerPaymentMethod(payload) {
+      return paddleSdkService.detachCustomerPaymentMethod(payload);
+    },
+    async removeCustomerPaymentMethod(payload) {
+      return paddleSdkService.removeCustomerPaymentMethod(payload);
+    },
+    async refundPurchase(payload) {
+      return paddleSdkService.refundPurchase(payload);
+    },
+    async voidPurchase(payload) {
+      return paddleSdkService.voidPurchase(payload);
+    },
     async listCheckoutSessionsByOperationKey(payload) {
       return paddleSdkService.listCheckoutSessionsByOperationKey(payload);
     },

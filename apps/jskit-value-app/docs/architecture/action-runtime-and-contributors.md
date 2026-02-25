@@ -501,6 +501,12 @@ Current policy knobs:
 
 Canonical action id constants used across adapters/controllers/tests.
 
+### Catalog governance
+
+For lifecycle rules (add/rename/remove/version/sync process), use:
+
+- `docs/architecture/action-catalog-governance.md`
+
 ## Testing state
 
 Current action-runtime integration coverage includes:
@@ -597,4 +603,3 @@ Checks:
 - Actions own business policy and business side effects.
 - Route policy metadata remains useful defense-in-depth, but does not replace action policy.
 - No auto-discovery contributor registration; composition is explicit.
-

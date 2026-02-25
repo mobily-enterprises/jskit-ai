@@ -360,6 +360,19 @@ function buildPaddleError(responseBody, fallbackMessage = "Paddle API request fa
   return error;
 }
 
+function createProviderOperationNotSupportedError(operation, details = {}) {
+  const normalizedOperation = toNullableString(operation) || "unknown_operation";
+  return new AppError(501, "Provider operation is not supported by Paddle.", {
+    code: "PROVIDER_OPERATION_NOT_SUPPORTED",
+    details: {
+      code: "PROVIDER_OPERATION_NOT_SUPPORTED",
+      provider: BILLING_PROVIDER_PADDLE,
+      operation: normalizedOperation,
+      ...details
+    }
+  });
+}
+
 function createService({
   enabled = false,
   apiKey = "",
@@ -704,6 +717,30 @@ function createService({
     };
   }
 
+  async function setDefaultCustomerPaymentMethod() {
+    throw createProviderOperationNotSupportedError("set_default_customer_payment_method");
+  }
+
+  async function detachCustomerPaymentMethod() {
+    throw createProviderOperationNotSupportedError("detach_customer_payment_method");
+  }
+
+  async function removeCustomerPaymentMethod() {
+    throw createProviderOperationNotSupportedError("remove_customer_payment_method");
+  }
+
+  async function refundPurchase(payload = {}) {
+    throw createProviderOperationNotSupportedError("refund_purchase", {
+      purchaseId: toNullableString(payload?.purchaseId || payload?.purchase?.id)
+    });
+  }
+
+  async function voidPurchase(payload = {}) {
+    throw createProviderOperationNotSupportedError("void_purchase", {
+      purchaseId: toNullableString(payload?.purchaseId || payload?.purchase?.id)
+    });
+  }
+
   async function listCheckoutSessionsByOperationKey({ operationKey, limit = 5 }) {
     const normalizedOperationKey = String(operationKey || "").trim();
     if (!normalizedOperationKey) {
@@ -748,6 +785,11 @@ function createService({
     cancelSubscription,
     updateSubscriptionPlan,
     listCustomerPaymentMethods,
+    setDefaultCustomerPaymentMethod,
+    detachCustomerPaymentMethod,
+    removeCustomerPaymentMethod,
+    refundPurchase,
+    voidPurchase,
     listCheckoutSessionsByOperationKey,
     getSdkProvenance
   };

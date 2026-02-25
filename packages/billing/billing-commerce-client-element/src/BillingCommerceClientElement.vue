@@ -94,6 +94,95 @@
     </v-row>
 
     <v-card
+      v-if="resolvedFeatures.paymentMethods"
+      rounded="lg"
+      border
+      class="mt-4 billing-commerce-payment-methods-card"
+      :class="uiClasses.paymentMethodsCard"
+      :data-testid="uiTestIds.paymentMethodsCard"
+    >
+      <v-card-item>
+        <v-card-title class="text-subtitle-2 font-weight-bold">{{ copyText.paymentMethodsTitle }}</v-card-title>
+        <v-card-subtitle>{{ copyText.paymentMethodsSubtitle }}</v-card-subtitle>
+      </v-card-item>
+      <v-card-text>
+        <div v-if="state.paymentMethodsError" class="text-body-2 text-error mb-2">
+          {{ state.paymentMethodsError }}
+        </div>
+        <template v-if="state.paymentMethodsLoading">
+          <v-skeleton-loader type="list-item-two-line@3" />
+        </template>
+        <v-list v-else-if="state.paymentMethodItems.length > 0" density="comfortable" lines="two" class="pa-0">
+          <v-list-item v-for="method in state.paymentMethodItems" :key="method.id">
+            <template #title>
+              {{ method.brand || method.type || copyText.paymentMethodFallback }}
+              <span v-if="method.last4"> •••• {{ method.last4 }}</span>
+            </template>
+            <template #subtitle>
+              <span> {{ copyText.paymentMethodStatusLabel }} {{ method.status || copyText.noneValue }} </span>
+              <span v-if="method.expMonth && method.expYear"> · {{ method.expMonth }}/{{ method.expYear }} </span>
+            </template>
+            <template #append>
+              <div class="d-flex flex-wrap ga-2 align-center justify-end">
+                <v-chip v-if="method.isDefault" size="x-small" color="primary" variant="tonal" label>
+                  {{ copyText.defaultBadge }}
+                </v-chip>
+                <v-btn
+                  v-if="!method.isDefault && method.status === 'active'"
+                  size="x-small"
+                  variant="outlined"
+                  :disabled="state.paymentMethodMutationLoading"
+                  @click="onSetDefaultPaymentMethod(method)"
+                >
+                  {{
+                    state.paymentMethodMutationLoading &&
+                    state.mutatingPaymentMethodId === String(method.id) &&
+                    state.paymentMethodMutationKind === "default"
+                      ? copyText.workingLabel
+                      : copyText.makeDefaultLabel
+                  }}
+                </v-btn>
+                <v-btn
+                  v-if="method.status === 'active'"
+                  size="x-small"
+                  variant="outlined"
+                  color="warning"
+                  :disabled="state.paymentMethodMutationLoading"
+                  @click="onDetachPaymentMethod(method)"
+                >
+                  {{
+                    state.paymentMethodMutationLoading &&
+                    state.mutatingPaymentMethodId === String(method.id) &&
+                    state.paymentMethodMutationKind === "detach"
+                      ? copyText.workingLabel
+                      : copyText.detachLabel
+                  }}
+                </v-btn>
+                <v-btn
+                  size="x-small"
+                  variant="outlined"
+                  color="error"
+                  :disabled="state.paymentMethodMutationLoading"
+                  @click="onRemovePaymentMethod(method)"
+                >
+                  {{
+                    state.paymentMethodMutationLoading &&
+                    state.mutatingPaymentMethodId === String(method.id) &&
+                    state.paymentMethodMutationKind === "remove"
+                      ? copyText.workingLabel
+                      : copyText.removeLabel
+                  }}
+                </v-btn>
+              </div>
+            </template>
+          </v-list-item>
+        </v-list>
+        <div v-else class="text-body-2 text-medium-emphasis">{{ copyText.paymentMethodsEmpty }}</div>
+      </v-card-text>
+      <slot name="payment-methods-extra" :meta="meta" :state="state" :actions="actions" />
+    </v-card>
+
+    <v-card
       v-if="resolvedFeatures.usageLimits"
       rounded="lg"
       border
@@ -181,6 +270,16 @@ const DEFAULT_COPY = Object.freeze({
   purchaseHistorySubtitle: "Confirmed charges, including plan invoices and one-off purchases.",
   loadingPurchases: "Loading purchases...",
   purchaseHistoryEmpty: "No confirmed purchases yet.",
+  paymentMethodsTitle: "Payment methods",
+  paymentMethodsSubtitle: "Default, detach, and remove saved methods.",
+  paymentMethodsEmpty: "No payment methods are available.",
+  paymentMethodFallback: "Payment method",
+  paymentMethodStatusLabel: "Status:",
+  defaultBadge: "Default",
+  makeDefaultLabel: "Make default",
+  detachLabel: "Detach",
+  removeLabel: "Remove",
+  workingLabel: "Working...",
   usageLimitsTitle: "Usage limits",
   usageLimitsSubtitle: "Effective entitlement balances for this workspace.",
   loadingLimits: "Loading limits...",
@@ -309,6 +408,7 @@ const resolvedFeatures = computed(() => {
   return {
     oneOffPurchases: features.oneOffPurchases !== false,
     purchaseHistory: features.purchaseHistory !== false,
+    paymentMethods: features.paymentMethods !== false,
     usageLimits: features.usageLimits !== false,
     paymentLink: features.paymentLink !== false
   };
@@ -320,6 +420,7 @@ const uiClasses = computed(() => {
     row: String(classes.row || "").trim(),
     oneOffCard: String(classes.oneOffCard || "").trim(),
     purchaseHistoryCard: String(classes.purchaseHistoryCard || "").trim(),
+    paymentMethodsCard: String(classes.paymentMethodsCard || "").trim(),
     usageLimitsCard: String(classes.usageLimitsCard || "").trim()
   };
 });
@@ -330,6 +431,7 @@ const uiTestIds = computed(() => {
     root: String(testIds.root || "billing-commerce-client-element"),
     oneOffCard: String(testIds.oneOffCard || "billing-commerce-one-off-card"),
     purchaseHistoryCard: String(testIds.purchaseHistoryCard || "billing-commerce-purchase-history-card"),
+    paymentMethodsCard: String(testIds.paymentMethodsCard || "billing-commerce-payment-methods-card"),
     usageLimitsCard: String(testIds.usageLimitsCard || "billing-commerce-usage-limits-card")
   };
 });
@@ -398,6 +500,30 @@ async function onBuyCatalogItem(item) {
     ...payload
   });
   await invokeAction("buyCatalogItem", payload, () => actions.buyCatalogItem(item));
+}
+
+async function onSetDefaultPaymentMethod(method) {
+  const payload = {
+    paymentMethodId: String(method?.id || "")
+  };
+  emitInteraction("payment-method:set-default", payload);
+  await invokeAction("setDefaultPaymentMethod", payload, () => actions.setDefaultPaymentMethod(method.id));
+}
+
+async function onDetachPaymentMethod(method) {
+  const payload = {
+    paymentMethodId: String(method?.id || "")
+  };
+  emitInteraction("payment-method:detach", payload);
+  await invokeAction("detachPaymentMethod", payload, () => actions.detachPaymentMethod(method.id));
+}
+
+async function onRemovePaymentMethod(method) {
+  const payload = {
+    paymentMethodId: String(method?.id || "")
+  };
+  emitInteraction("payment-method:remove", payload);
+  await invokeAction("removePaymentMethod", payload, () => actions.removePaymentMethod(method.id));
 }
 
 function onPaymentLinkOpen() {

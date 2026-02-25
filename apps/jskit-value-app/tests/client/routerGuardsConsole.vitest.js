@@ -154,6 +154,18 @@ describe("routerGuards.console", () => {
     await expect(deniedGuards.beforeLoadBillingPlans()).rejects.toMatchObject({
       options: { to: "/console" }
     });
+    await expect(deniedGuards.beforeLoadBillingEntitlements()).rejects.toMatchObject({
+      options: { to: "/console" }
+    });
+    await expect(deniedGuards.beforeLoadBillingPurchases()).rejects.toMatchObject({
+      options: { to: "/console" }
+    });
+    await expect(deniedGuards.beforeLoadBillingPlanAssignments()).rejects.toMatchObject({
+      options: { to: "/console" }
+    });
+    await expect(deniedGuards.beforeLoadBillingSubscriptions()).rejects.toMatchObject({
+      options: { to: "/console" }
+    });
 
     const allowedGuards = createConsoleRouteGuards(
       buildStores({
@@ -203,6 +215,9 @@ describe("routerGuards.console", () => {
     );
 
     await expect(allowedGuards.beforeLoadBillingEvents()).resolves.toBeUndefined();
+    await expect(allowedGuards.beforeLoadBillingPlans()).rejects.toMatchObject({
+      options: { to: "/console" }
+    });
 
     const billingCatalogGuards = createConsoleRouteGuards(
       buildStores({
@@ -217,5 +232,22 @@ describe("routerGuards.console", () => {
     );
 
     await expect(billingCatalogGuards.beforeLoadBillingPlans()).resolves.toBeUndefined();
+    await expect(billingCatalogGuards.beforeLoadBillingEntitlements()).resolves.toBeUndefined();
+
+    const billingOperationsGuards = createConsoleRouteGuards(
+      buildStores({
+        authenticated: true,
+        hasConsoleAccess: true,
+        permissions: ["console.billing.operations.manage"]
+      }),
+      {
+        loginPath: "/console/login",
+        rootPath: "/console"
+      }
+    );
+
+    await expect(billingOperationsGuards.beforeLoadBillingPurchases()).resolves.toBeUndefined();
+    await expect(billingOperationsGuards.beforeLoadBillingPlanAssignments()).resolves.toBeUndefined();
+    await expect(billingOperationsGuards.beforeLoadBillingSubscriptions()).resolves.toBeUndefined();
   });
 });

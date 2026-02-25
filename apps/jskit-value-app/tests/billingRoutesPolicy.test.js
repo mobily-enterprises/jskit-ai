@@ -46,6 +46,9 @@ test("billing API routes are selector-compatible with optional workspace policy"
     "GET /api/v1/billing/plan-state",
     "GET /api/v1/billing/payment-methods",
     "POST /api/v1/billing/payment-methods/sync",
+    "POST /api/v1/billing/payment-methods/:paymentMethodId/default",
+    "POST /api/v1/billing/payment-methods/:paymentMethodId/detach",
+    "DELETE /api/v1/billing/payment-methods/:paymentMethodId",
     "GET /api/v1/billing/limitations",
     "GET /api/v1/billing/timeline",
     "POST /api/v1/billing/checkout",
@@ -67,6 +70,9 @@ test("billing write routes do not depend on prehandler workspace permission chec
   const routeMap = buildRouteMap();
   const writeRoutes = [
     "POST /api/v1/billing/payment-methods/sync",
+    "POST /api/v1/billing/payment-methods/:paymentMethodId/default",
+    "POST /api/v1/billing/payment-methods/:paymentMethodId/detach",
+    "DELETE /api/v1/billing/payment-methods/:paymentMethodId",
     "POST /api/v1/billing/checkout",
     "POST /api/v1/billing/plan-change",
     "POST /api/v1/billing/plan-change/cancel",

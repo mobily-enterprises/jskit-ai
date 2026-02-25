@@ -519,6 +519,73 @@ describe("client api transport", () => {
         providerPriceId: "price_setup_fee"
       }
     });
+    await api.console.listEntitlementDefinitions({
+      includeInactive: true,
+      code: "workspace.project.monthly"
+    });
+    await api.console.getEntitlementDefinition(3);
+    await api.console.createEntitlementDefinition({
+      code: "workspace.project.monthly",
+      name: "Projects / month",
+      entitlementType: "metered_quota",
+      unit: "project",
+      enforcementMode: "hard_deny"
+    });
+    await api.console.updateEntitlementDefinition(3, {
+      name: "Projects per month"
+    });
+    await api.console.deleteEntitlementDefinition(3, {
+      reason: "cleanup"
+    });
+    await api.console.archiveBillingPlan(12, { reason: "catalog_cleanup" });
+    await api.console.unarchiveBillingPlan(12, { reason: "catalog_restore" });
+    await api.console.deleteBillingPlan(12, { reason: "hard_delete" });
+    await api.console.archiveBillingProduct(21, { reason: "catalog_cleanup" });
+    await api.console.unarchiveBillingProduct(21, { reason: "catalog_restore" });
+    await api.console.deleteBillingProduct(21, { reason: "hard_delete" });
+    await api.console.listPurchases({
+      page: 1,
+      pageSize: 20,
+      status: "confirmed",
+      provider: "stripe",
+      purchaseKind: "subscription_invoice"
+    });
+    await api.console.refundPurchase(44, { reasonCode: "operator_refund" });
+    await api.console.voidPurchase(44, { reasonCode: "operator_void" });
+    await api.console.createPurchaseCorrection(44, {
+      amountMinor: 100,
+      currency: "USD",
+      reasonCode: "manual_adjustment"
+    });
+    await api.console.listPlanAssignments({
+      page: 1,
+      pageSize: 20,
+      status: "current"
+    });
+    await api.console.createPlanAssignment({
+      workspaceSlug: "acme",
+      planCode: "pro_monthly"
+    });
+    await api.console.updatePlanAssignment(55, {
+      status: "upcoming"
+    });
+    await api.console.cancelPlanAssignment(55, {
+      reason: "operator_cancel"
+    });
+    await api.console.listSubscriptions({
+      page: 1,
+      pageSize: 20,
+      status: "active"
+    });
+    await api.console.changeSubscriptionPlan("sub_123", {
+      planCode: "pro_annual"
+    });
+    await api.console.cancelSubscription("sub_123", {
+      reason: "operator_cancel"
+    });
+    await api.console.cancelSubscriptionAtPeriodEnd("sub_123", {
+      reason: "operator_cancel_period_end"
+    });
     await api.billing.getTimeline({
       page: 3,
       pageSize: 20,
@@ -528,6 +595,14 @@ describe("client api transport", () => {
     });
     await api.billing.listPurchases();
     await api.billing.getPlanState();
+    await api.billing.listPaymentMethods();
+    await api.billing.setDefaultPaymentMethod(31, {
+      reason: "set_default"
+    });
+    await api.billing.detachPaymentMethod(31, {
+      reason: "detach_method"
+    });
+    await api.billing.removePaymentMethod(31);
     await api.billing.requestPlanChange({
       planCode: "pro",
       successPath: "/admin/w/acme/billing?checkout=success",
@@ -570,6 +645,26 @@ describe("client api transport", () => {
     expect(urls).toContain("/api/v1/console/billing/products");
     expect(urls).toContain("/api/v1/console/billing/settings");
     expect(urls).toContain("/api/v1/console/billing/provider-prices?active=true&limit=50&target=plan");
+    expect(urls).toContain("/api/v1/console/billing/entitlement-definitions?includeInactive=true&code=workspace.project.monthly");
+    expect(urls).toContain("/api/v1/console/billing/entitlement-definitions/3");
+    expect(urls).toContain("/api/v1/console/billing/plans/12/archive");
+    expect(urls).toContain("/api/v1/console/billing/plans/12/unarchive");
+    expect(urls).toContain("/api/v1/console/billing/products/21/archive");
+    expect(urls).toContain("/api/v1/console/billing/products/21/unarchive");
+    expect(urls).toContain(
+      "/api/v1/console/billing/purchases?page=1&pageSize=20&status=confirmed&provider=stripe&purchaseKind=subscription_invoice"
+    );
+    expect(urls).toContain("/api/v1/console/billing/purchases/44/refund");
+    expect(urls).toContain("/api/v1/console/billing/purchases/44/void");
+    expect(urls).toContain("/api/v1/console/billing/purchases/44/corrections");
+    expect(urls).toContain("/api/v1/console/billing/plan-assignments?page=1&pageSize=20&status=current");
+    expect(urls).toContain("/api/v1/console/billing/plan-assignments");
+    expect(urls).toContain("/api/v1/console/billing/plan-assignments/55");
+    expect(urls).toContain("/api/v1/console/billing/plan-assignments/55/cancel");
+    expect(urls).toContain("/api/v1/console/billing/subscriptions?page=1&pageSize=20&status=active");
+    expect(urls).toContain("/api/v1/console/billing/subscriptions/sub_123/change-plan");
+    expect(urls).toContain("/api/v1/console/billing/subscriptions/sub_123/cancel");
+    expect(urls).toContain("/api/v1/console/billing/subscriptions/sub_123/cancel-at-period-end");
     const createBillingPlanCall = global.fetch.mock.calls.find(
       ([url, options]) => url === "/api/v1/console/billing/plans" && String(options?.method || "").toUpperCase() === "POST"
     );
@@ -589,11 +684,30 @@ describe("client api transport", () => {
         url === "/api/v1/console/billing/products/21" && String(options?.method || "").toUpperCase() === "PATCH"
     );
     expect(Boolean(updateBillingProductCall)).toBe(true);
+    const consoleRefundCall = global.fetch.mock.calls.find(
+      ([url, options]) =>
+        url === "/api/v1/console/billing/purchases/44/refund" && String(options?.method || "").toUpperCase() === "POST"
+    );
+    expect(Boolean(consoleRefundCall?.[1]?.headers?.["Idempotency-Key"])).toBe(true);
+    const workspaceDefaultPaymentMethodCall = global.fetch.mock.calls.find(
+      ([url, options]) =>
+        url === "/api/v1/billing/payment-methods/31/default" && String(options?.method || "").toUpperCase() === "POST"
+    );
+    expect(Boolean(workspaceDefaultPaymentMethodCall?.[1]?.headers?.["Idempotency-Key"])).toBe(true);
+    const workspaceRemovePaymentMethodCall = global.fetch.mock.calls.find(
+      ([url, options]) =>
+        url === "/api/v1/billing/payment-methods/31" && String(options?.method || "").toUpperCase() === "DELETE"
+    );
+    expect(Boolean(workspaceRemovePaymentMethodCall?.[1]?.headers?.["Idempotency-Key"])).toBe(true);
     expect(urls).toContain(
       "/api/v1/billing/timeline?page=3&pageSize=20&source=payment&operationKey=op_456&providerEventId=evt_456"
     );
     expect(urls).toContain("/api/v1/billing/purchases");
     expect(urls).toContain("/api/v1/billing/plan-state");
+    expect(urls).toContain("/api/v1/billing/payment-methods");
+    expect(urls).toContain("/api/v1/billing/payment-methods/31/default");
+    expect(urls).toContain("/api/v1/billing/payment-methods/31/detach");
+    expect(urls).toContain("/api/v1/billing/payment-methods/31");
     expect(urls).toContain("/api/v1/billing/plan-change");
     expect(urls).toContain("/api/v1/billing/plan-change/cancel");
     expect(urls).toContain("/api/v1/workspace/projects?page=2&pageSize=25");

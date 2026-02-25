@@ -1,6 +1,6 @@
 # Billing Contract Reference
 
-Last updated: 2026-02-24
+Last updated: 2026-02-25
 
 This document freezes current billing contracts for:
 
@@ -233,3 +233,111 @@ Behavior contract:
 
 - Cancels only a pending scheduled change.
 - Returns `{ "canceled": true|false, "state": ... }`.
+
+## 5. Console Purchase Operations Contract
+
+Console purchase operations are global-surface admin endpoints and are separate from workspace self-service billing routes.
+
+Endpoints:
+
+- `GET /api/v1/console/billing/purchases`
+- `POST /api/v1/console/billing/purchases/:purchaseId/refund`
+- `POST /api/v1/console/billing/purchases/:purchaseId/void`
+- `POST /api/v1/console/billing/purchases/:purchaseId/corrections`
+
+Idempotency contract:
+
+- `Idempotency-Key` is required for all purchase mutation endpoints (`refund`, `void`, `corrections`).
+- Missing key returns HTTP `400` with code `IDEMPOTENCY_KEY_REQUIRED`.
+- Durable replay source is `billing_purchase_adjustments.request_idempotency_key`.
+- Reusing an idempotency key for a different purchase or different action returns HTTP `409` with `PURCHASE_ADJUSTMENT_DUPLICATE`.
+
+Mutation response contract:
+
+- All purchase mutation endpoints return:
+  - `purchase`: current purchase projection (or `null` in replay edge cases).
+  - `adjustment`: the adjustment row matching the command/replay.
+  - `adjustments`: recent adjustment history for the purchase (newest first).
+
+Adjustment audit contract:
+
+- Every attempted purchase mutation writes an adjustment row with outcome status:
+  - `succeeded`
+  - `failed`
+  - `noop`
+  - `recorded` (manual correction recorded without provider mutation)
+
+Deterministic error codes:
+
+- `PURCHASE_NOT_FOUND` -> HTTP `404`
+- `PURCHASE_REFUND_NOT_ALLOWED` -> HTTP `409`
+- `PURCHASE_VOID_NOT_ALLOWED` -> HTTP `409`
+- `PURCHASE_ADJUSTMENT_DUPLICATE` -> HTTP `409`
+- `PROVIDER_OPERATION_NOT_SUPPORTED` -> HTTP `501`
+
+As with other billing routes, machine-readable error code is available at `details.code`.
+
+## 6. Console Assignment and Subscription Admin Contract
+
+Console assignment/subscription admin endpoints are global-surface operations and are separate from workspace self-service billing flows.
+
+Plan assignment endpoints:
+
+- `GET /api/v1/console/billing/plan-assignments`
+- `POST /api/v1/console/billing/plan-assignments`
+- `PATCH /api/v1/console/billing/plan-assignments/:assignmentId`
+- `POST /api/v1/console/billing/plan-assignments/:assignmentId/cancel`
+
+Subscription endpoints:
+
+- `GET /api/v1/console/billing/subscriptions`
+- `POST /api/v1/console/billing/subscriptions/:providerSubscriptionId/change-plan`
+- `POST /api/v1/console/billing/subscriptions/:providerSubscriptionId/cancel`
+- `POST /api/v1/console/billing/subscriptions/:providerSubscriptionId/cancel-at-period-end`
+
+Idempotency contract:
+
+- `Idempotency-Key` is required for all assignment and subscription mutation endpoints listed above.
+- Missing key returns HTTP `400` with code `IDEMPOTENCY_KEY_REQUIRED`.
+
+Response contract:
+
+- Plan assignment mutations return `{ "assignment": ... }`.
+- Subscription mutations return `{ "subscription": ... }`.
+- List endpoints return paginated envelopes with `entries`, `page`, `pageSize`, and `hasMore`.
+
+Deterministic error codes:
+
+- `PLAN_ASSIGNMENT_NOT_FOUND` -> HTTP `404`
+- `SUBSCRIPTION_NOT_FOUND` -> HTTP `404`
+- `PROVIDER_OPERATION_NOT_SUPPORTED` -> HTTP `501`
+- `BILLING_DEPENDENCY_CONFLICT` -> HTTP `409`
+
+## 7. Workspace Payment-Method Mutation Contract
+
+Workspace billing payment-method endpoints:
+
+- `POST /api/v1/billing/payment-methods/:paymentMethodId/default`
+- `POST /api/v1/billing/payment-methods/:paymentMethodId/detach`
+- `DELETE /api/v1/billing/payment-methods/:paymentMethodId`
+
+Idempotency contract:
+
+- `Idempotency-Key` is required for all three mutation endpoints.
+- Missing key returns HTTP `400` with code `IDEMPOTENCY_KEY_REQUIRED`.
+
+Deterministic error codes:
+
+- `PAYMENT_METHOD_NOT_FOUND` -> HTTP `404`
+- `PAYMENT_METHOD_NOT_OWNED_BY_ENTITY` -> HTTP `409`
+- `PAYMENT_METHOD_PROVIDER_UNSUPPORTED` -> HTTP `501`
+- `PROVIDER_OPERATION_NOT_SUPPORTED` -> HTTP `501`
+
+## 8. Assistant Tool Contract and Surface Limitation
+
+New billing actions in console/workspace contributors include `assistant_tool` channel metadata with explicit `assistantTool.description` and strict `assistantTool.inputJsonSchema`.
+
+Current transport limitation:
+
+- Assistant HTTP endpoints are currently workspace-scoped (`/api/workspace/ai/*`).
+- Console-surface billing tools are available to internal/non-HTTP assistant contexts, but are not currently reachable through a dedicated console assistant HTTP transport.

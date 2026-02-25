@@ -7,6 +7,9 @@ const BILLING_ACTION_IDS = Object.freeze({
   PLAN_STATE_GET: "workspace.billing.plan_state.get",
   PAYMENT_METHODS_LIST: "workspace.billing.payment_methods.list",
   PAYMENT_METHODS_SYNC: "workspace.billing.payment_methods.sync",
+  PAYMENT_METHOD_DEFAULT_SET: "workspace.billing.payment_methods.default.set",
+  PAYMENT_METHOD_DETACH: "workspace.billing.payment_methods.detach",
+  PAYMENT_METHOD_REMOVE: "workspace.billing.payment_methods.remove",
   LIMITATIONS_GET: "workspace.billing.limitations.get",
   TIMELINE_LIST: "workspace.billing.timeline.list",
   CHECKOUT_START: "workspace.billing.checkout.start",
@@ -100,6 +103,51 @@ function createController({ billingWebhookService, actionExecutor }) {
     const response = await executeAction(actionExecutor, {
       actionId: BILLING_ACTION_IDS.PAYMENT_METHODS_SYNC,
       request
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function setDefaultPaymentMethod(request, reply) {
+    const idempotencyKey = requireIdempotencyKey(request);
+    const response = await executeAction(actionExecutor, {
+      actionId: BILLING_ACTION_IDS.PAYMENT_METHOD_DEFAULT_SET,
+      request,
+      input: {
+        ...(request.body || {}),
+        paymentMethodId: request.params?.paymentMethodId,
+        idempotencyKey
+      }
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function detachPaymentMethod(request, reply) {
+    const idempotencyKey = requireIdempotencyKey(request);
+    const response = await executeAction(actionExecutor, {
+      actionId: BILLING_ACTION_IDS.PAYMENT_METHOD_DETACH,
+      request,
+      input: {
+        ...(request.body || {}),
+        paymentMethodId: request.params?.paymentMethodId,
+        idempotencyKey
+      }
+    });
+
+    reply.code(200).send(response);
+  }
+
+  async function removePaymentMethod(request, reply) {
+    const idempotencyKey = requireIdempotencyKey(request);
+    const response = await executeAction(actionExecutor, {
+      actionId: BILLING_ACTION_IDS.PAYMENT_METHOD_REMOVE,
+      request,
+      input: {
+        ...(request.body || {}),
+        paymentMethodId: request.params?.paymentMethodId,
+        idempotencyKey
+      }
     });
 
     reply.code(200).send(response);
@@ -218,6 +266,9 @@ function createController({ billingWebhookService, actionExecutor }) {
     getPlanState,
     listPaymentMethods,
     syncPaymentMethods,
+    setDefaultPaymentMethod,
+    detachPaymentMethod,
+    removePaymentMethod,
     getLimitations,
     getTimeline,
     startCheckout,

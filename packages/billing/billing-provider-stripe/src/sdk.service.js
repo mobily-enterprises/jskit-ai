@@ -35,6 +35,91 @@ function toNullableString(value) {
   return normalized || null;
 }
 
+function normalizeMetadata(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  const output = {};
+  for (const [key, entry] of Object.entries(value)) {
+    const normalizedKey = String(key || "").trim();
+    if (!normalizedKey) {
+      continue;
+    }
+    output[normalizedKey] = String(entry == null ? "" : entry);
+  }
+  return output;
+}
+
+function resolveStripeObjectId(value) {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === "string" || typeof value === "number") {
+    return toNullableString(value);
+  }
+  if (typeof value === "object") {
+    return toNullableString(value.id);
+  }
+  return null;
+}
+
+function resolveProviderPaymentMethodId(payload = {}) {
+  return toNullableString(payload?.paymentMethodId || payload?.providerPaymentMethodId);
+}
+
+function normalizeStripeRefundReason(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (normalized === "duplicate" || normalized === "fraudulent" || normalized === "requested_by_customer") {
+    return normalized;
+  }
+  return null;
+}
+
+function normalizeStripePaymentIntentCancellationReason(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (
+    normalized === "duplicate" ||
+    normalized === "fraudulent" ||
+    normalized === "requested_by_customer" ||
+    normalized === "abandoned"
+  ) {
+    return normalized;
+  }
+  return null;
+}
+
+function resolveRefundReferenceFromProviderPaymentId(providerPaymentId) {
+  const normalized = toNullableString(providerPaymentId);
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.startsWith("pi_")) {
+    return {
+      payment_intent: normalized
+    };
+  }
+
+  return {
+    charge: normalized
+  };
+}
+
+function createStripePurchaseActionError(statusCode, message, code, details = {}) {
+  return new AppError(statusCode, message, {
+    code,
+    details: {
+      code,
+      ...details
+    }
+  });
+}
+
 function mapStripePriceRecord(price) {
   const recurring = price?.recurring && typeof price.recurring === "object" ? price.recurring : null;
   const product = price?.product && typeof price.product === "object" ? price.product : null;
@@ -403,6 +488,225 @@ function createService({
     });
   }
 
+  async function setDefaultCustomerPaymentMethod({
+    customerId,
+    paymentMethodId,
+    providerPaymentMethodId,
+    idempotencyKey = null
+  } = {}) {
+    const normalizedCustomerId = toNullableString(customerId);
+    if (!normalizedCustomerId) {
+      throw new AppError(400, "Stripe customer id is required.");
+    }
+    const normalizedPaymentMethodId = resolveProviderPaymentMethodId({
+      paymentMethodId,
+      providerPaymentMethodId
+    });
+    if (!normalizedPaymentMethodId) {
+      throw new AppError(400, "Stripe payment method id is required.");
+    }
+
+    return runStripeOperation("payment_method_set_default", async () => {
+      const client = await getClient();
+      const customer = await client.customers.update(
+        normalizedCustomerId,
+        {
+          invoice_settings: {
+            default_payment_method: normalizedPaymentMethodId
+          }
+        },
+        idempotencyKey
+          ? {
+              idempotencyKey
+            }
+          : undefined
+      );
+
+      return {
+        customerId: normalizedCustomerId,
+        paymentMethodId: normalizedPaymentMethodId,
+        defaultPaymentMethodId: resolveDefaultPaymentMethodId(customer) || normalizedPaymentMethodId,
+        providerReference: resolveStripeObjectId(customer) || normalizedCustomerId
+      };
+    });
+  }
+
+  async function detachCustomerPaymentMethod({
+    paymentMethodId,
+    providerPaymentMethodId,
+    idempotencyKey = null
+  } = {}) {
+    const normalizedPaymentMethodId = resolveProviderPaymentMethodId({
+      paymentMethodId,
+      providerPaymentMethodId
+    });
+    if (!normalizedPaymentMethodId) {
+      throw new AppError(400, "Stripe payment method id is required.");
+    }
+
+    return runStripeOperation("payment_method_detach", async () => {
+      const client = await getClient();
+      const detached = await client.paymentMethods.detach(
+        normalizedPaymentMethodId,
+        {},
+        idempotencyKey
+          ? {
+              idempotencyKey
+            }
+          : undefined
+      );
+      return {
+        paymentMethodId: normalizedPaymentMethodId,
+        detached: true,
+        providerReference: resolveStripeObjectId(detached) || normalizedPaymentMethodId
+      };
+    });
+  }
+
+  async function removeCustomerPaymentMethod(payload = {}) {
+    return detachCustomerPaymentMethod(payload);
+  }
+
+  async function refundPurchase({
+    purchase = null,
+    purchaseId = null,
+    providerPaymentId = null,
+    providerInvoiceId = null,
+    amountMinor = null,
+    reasonCode = null,
+    metadataJson = {},
+    idempotencyKey = null
+  } = {}) {
+    const normalizedProviderPaymentId = toNullableString(providerPaymentId || purchase?.providerPaymentId);
+    const normalizedProviderInvoiceId = toNullableString(providerInvoiceId || purchase?.providerInvoiceId);
+    const normalizedAmountMinor = toNullableInteger(amountMinor, { minimum: 1 });
+    const normalizedReason = normalizeStripeRefundReason(reasonCode);
+
+    return runStripeOperation("purchase_refund", async () => {
+      const client = await getClient();
+      let referenceParams = resolveRefundReferenceFromProviderPaymentId(normalizedProviderPaymentId);
+      if (!referenceParams && normalizedProviderInvoiceId) {
+        const invoice = await client.invoices.retrieve(normalizedProviderInvoiceId, {
+          expand: ["payment_intent", "charge"]
+        });
+        referenceParams = resolveRefundReferenceFromProviderPaymentId(resolveStripeObjectId(invoice?.payment_intent));
+        if (!referenceParams) {
+          referenceParams = resolveRefundReferenceFromProviderPaymentId(resolveStripeObjectId(invoice?.charge));
+        }
+      }
+
+      if (!referenceParams) {
+        throw createStripePurchaseActionError(
+          409,
+          "Stripe refund is not allowed because no payment reference is available.",
+          "PURCHASE_REFUND_NOT_ALLOWED",
+          {
+            purchaseId: toNullableInteger(purchaseId || purchase?.id, { minimum: 1 }),
+            providerPaymentId: normalizedProviderPaymentId,
+            providerInvoiceId: normalizedProviderInvoiceId
+          }
+        );
+      }
+
+      const metadata = normalizeMetadata(metadataJson);
+      const normalizedPurchaseId = toNullableInteger(purchaseId || purchase?.id, { minimum: 1 });
+      if (normalizedPurchaseId && !metadata.purchase_id) {
+        metadata.purchase_id = String(normalizedPurchaseId);
+      }
+
+      const params = {
+        ...referenceParams,
+        ...(normalizedAmountMinor ? { amount: normalizedAmountMinor } : {}),
+        ...(normalizedReason ? { reason: normalizedReason } : {}),
+        ...(Object.keys(metadata).length > 0 ? { metadata } : {})
+      };
+      const refund = await client.refunds.create(
+        params,
+        idempotencyKey
+          ? {
+              idempotencyKey
+            }
+          : undefined
+      );
+
+      return {
+        id: resolveStripeObjectId(refund),
+        providerReference: resolveStripeObjectId(refund),
+        status: toNullableString(refund?.status),
+        paymentIntentId: resolveStripeObjectId(refund?.payment_intent),
+        chargeId: resolveStripeObjectId(refund?.charge),
+        amountMinor: toNullableInteger(refund?.amount, { minimum: 0 }),
+        currency: toNullableString(refund?.currency)?.toUpperCase() || null
+      };
+    });
+  }
+
+  async function voidPurchase({
+    purchase = null,
+    purchaseId = null,
+    providerPaymentId = null,
+    providerInvoiceId = null,
+    reasonCode = null,
+    idempotencyKey = null
+  } = {}) {
+    const normalizedProviderPaymentId = toNullableString(providerPaymentId || purchase?.providerPaymentId);
+    const normalizedProviderInvoiceId = toNullableString(providerInvoiceId || purchase?.providerInvoiceId);
+
+    return runStripeOperation("purchase_void", async () => {
+      const client = await getClient();
+      if (normalizedProviderInvoiceId) {
+        const invoice = await client.invoices.voidInvoice(
+          normalizedProviderInvoiceId,
+          idempotencyKey
+            ? {
+                idempotencyKey
+              }
+            : undefined
+        );
+        return {
+          id: resolveStripeObjectId(invoice),
+          providerReference: resolveStripeObjectId(invoice),
+          status: toNullableString(invoice?.status) || "void",
+          voidType: "invoice"
+        };
+      }
+
+      const paymentReference = resolveRefundReferenceFromProviderPaymentId(normalizedProviderPaymentId);
+      if (!paymentReference || !paymentReference.payment_intent) {
+        throw createStripePurchaseActionError(
+          409,
+          "Stripe void is only supported for invoices or payment intents.",
+          "PURCHASE_VOID_NOT_ALLOWED",
+          {
+            purchaseId: toNullableInteger(purchaseId || purchase?.id, { minimum: 1 }),
+            providerPaymentId: normalizedProviderPaymentId,
+            providerInvoiceId: normalizedProviderInvoiceId
+          }
+        );
+      }
+
+      const cancellationReason = normalizeStripePaymentIntentCancellationReason(reasonCode);
+      const paymentIntent = await client.paymentIntents.cancel(
+        paymentReference.payment_intent,
+        {
+          ...(cancellationReason ? { cancellation_reason: cancellationReason } : {})
+        },
+        idempotencyKey
+          ? {
+              idempotencyKey
+            }
+          : undefined
+      );
+
+      return {
+        id: resolveStripeObjectId(paymentIntent),
+        providerReference: resolveStripeObjectId(paymentIntent),
+        status: toNullableString(paymentIntent?.status) || "canceled",
+        voidType: "payment_intent"
+      };
+    });
+  }
+
   async function listCheckoutSessionsByOperationKey({ operationKey, limit = 5 }) {
     return runStripeOperation("checkout_sessions_list", async () => {
       const client = await getClient();
@@ -458,6 +762,11 @@ function createService({
     setSubscriptionCancelAtPeriodEnd,
     updateSubscriptionPlan,
     listCustomerPaymentMethods,
+    setDefaultCustomerPaymentMethod,
+    detachCustomerPaymentMethod,
+    removeCustomerPaymentMethod,
+    refundPurchase,
+    voidPurchase,
     listCheckoutSessionsByOperationKey,
     getSdkProvenance
   };

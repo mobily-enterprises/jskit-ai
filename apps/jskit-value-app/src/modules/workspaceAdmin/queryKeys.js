@@ -43,6 +43,10 @@ function workspaceBillingPurchasesQueryKey(scopeValue) {
   return [...workspaceAdminScopeQueryKey(scopeValue), "billing", "purchases"];
 }
 
+function workspaceBillingPaymentMethodsQueryKey(scopeValue) {
+  return [...workspaceAdminScopeQueryKey(scopeValue), "billing", "payment-methods"];
+}
+
 function workspaceBillingLimitationsQueryKey(scopeValue) {
   return [...workspaceAdminScopeQueryKey(scopeValue), "billing", "limitations"];
 }
@@ -63,6 +67,7 @@ export {
   workspaceBillingPlanStateQueryKey,
   workspaceBillingProductsQueryKey,
   workspaceBillingPurchasesQueryKey,
+  workspaceBillingPaymentMethodsQueryKey,
   workspaceBillingLimitationsQueryKey,
   workspaceBillingTimelineQueryKey
 };
