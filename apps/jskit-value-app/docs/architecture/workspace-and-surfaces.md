@@ -161,6 +161,7 @@ Boundary requirements:
 2. Separate API namespaces (`/api/v1/admin/*`, `/api/v1/app/*`).
 3. `app` surface must not expose staff role/invite/settings-admin actions.
 4. Shared business logic should remain single-source in services/repositories.
+5. Action runtime and assistant tool catalogs must be surface-scoped so non-target-surface actions are not exposed to the model/tool list.
 
 ## Login Clarification
 
