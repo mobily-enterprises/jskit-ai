@@ -7,7 +7,12 @@ import {
 } from "@jskit-ai/realtime-server-socketio";
 import { API_REALTIME_PATH } from "../../shared/apiPaths.js";
 
-import { hasTopicPermission, isSupportedTopic, isTopicAllowedForSurface } from "../../shared/topicRegistry.js";
+import {
+  getTopicScope,
+  hasTopicPermission,
+  isSupportedTopic,
+  isTopicAllowedForSurface
+} from "../../shared/topicRegistry.js";
 import {
   buildSubscribeContextRequest,
   normalizeConnectionSurface,
@@ -60,6 +65,7 @@ async function registerSocketIoRealtime(
 
   const appPolicyCallbacks = {
     isSupportedTopic,
+    getTopicScope,
     isTopicAllowedForSurface,
     hasTopicPermission,
     buildSubscribeContextRequest,

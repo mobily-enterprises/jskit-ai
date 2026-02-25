@@ -100,9 +100,13 @@ Imports:
 import {
   REALTIME_MESSAGE_TYPES,
   REALTIME_ERROR_CODES,
+  TOPIC_SCOPES,
   createTopicCatalog,
   listTopics,
   getTopicRule,
+  resolveTopicScope,
+  isWorkspaceScopedTopic,
+  isUserScopedTopic,
   isSupportedTopic,
   isTopicAllowedForSurface,
   listTopicsForSurface,
@@ -170,25 +174,28 @@ Input:
 
 Rule shape per topic:
 
-1. `subscribeSurfaces: string[]` (optional)
-2. `requiredAnyPermission: string[]` (optional)
-3. `requiredAnyPermissionBySurface: Record<string, string[]>` (optional)
+1. `scope: "workspace" | "user"` (optional, default: `"workspace"`)
+2. `subscribeSurfaces: string[]` (optional)
+3. `requiredAnyPermission: string[]` (optional)
+4. `requiredAnyPermissionBySurface: Record<string, string[]>` (optional)
 
 Behavior:
 
 1. Throws if `definition` is not an object (or is an array).
 2. Normalizes topic keys with `trim()`.
 3. Drops blank topic keys.
-4. Normalizes surfaces with `trim().toLowerCase()`.
-5. Normalizes permission strings with `trim()`.
-6. De-duplicates arrays.
-7. Freezes final catalog and rule objects.
+4. Normalizes `scope` to `workspace` or `user` (`workspace` fallback).
+5. Normalizes surfaces with `trim().toLowerCase()`.
+6. Normalizes permission strings with `trim()`.
+7. De-duplicates arrays.
+8. Freezes final catalog and rule objects.
 
 Real example:
 
 ```js
 const messyDefinition = {
   " projects ": {
+    scope: " USER ",
     subscribeSurfaces: [" APP ", "admin", "admin", " "],
     requiredAnyPermission: ["projects.read", " projects.read ", ""],
     requiredAnyPermissionBySurface: {
@@ -206,6 +213,7 @@ Normalized output/result:
 ```js
 {
   projects: {
+    scope: "user",
     subscribeSurfaces: ["app", "admin"],
     requiredAnyPermission: ["projects.read"],
     requiredAnyPermissionBySurface: {
@@ -314,6 +322,35 @@ const adminTopics = listTopicsForSurface(catalog, "admin");
 Why this matters:
 Client runtime can subscribe only to eligible topics for active surface.
 
+### `TOPIC_SCOPES`
+
+Topic scope constants:
+
+1. `TOPIC_SCOPES.WORKSPACE` -> `"workspace"`
+2. `TOPIC_SCOPES.USER` -> `"user"`
+
+Why this matters:
+Use constants to avoid string drift when declaring or checking topic scope.
+
+### `resolveTopicScope(catalog, topicValue)`
+
+Returns the normalized scope for a known topic (`"workspace"` or `"user"`), or `""` when topic is unsupported.
+
+Real example:
+
+```js
+resolveTopicScope(catalog, "alerts");
+// => "user"
+```
+
+### `isWorkspaceScopedTopic(catalog, topicValue)`
+
+Returns `true` when the topic exists and scope resolves to `"workspace"`.
+
+### `isUserScopedTopic(catalog, topicValue)`
+
+Returns `true` when the topic exists and scope resolves to `"user"`.
+
 ### `resolveRequiredPermissions(catalog, topicValue, surfaceValue)`
 
 Returns the effective permission list required for a topic on a surface.
@@ -368,7 +405,7 @@ Server-side subscribe authorization can be expressed as one deterministic call.
 In realtime server code, use:
 
 1. `REALTIME_MESSAGE_TYPES` / `REALTIME_ERROR_CODES` for protocol payloads.
-2. `isSupportedTopic`, `isTopicAllowedForSurface`, `hasTopicPermission` for subscribe checks.
+2. `isSupportedTopic`, `isTopicAllowedForSurface`, `resolveTopicScope`, `hasTopicPermission` for subscribe checks.
 
 In this repo that happens via app shims consumed by:
 
@@ -383,6 +420,7 @@ In client runtime, use:
 
 1. `listRealtimeTopicsForSurface` for topic eligibility by surface.
 2. `getTopicRule` when local permission checks need topic metadata.
+3. `resolveTopicScope` when connect eligibility depends on user-scoped topics.
 
 In this repo:
 
@@ -463,20 +501,30 @@ Check:
 import {
   REALTIME_MESSAGE_TYPES,
   REALTIME_ERROR_CODES,
+  TOPIC_SCOPES,
   createTopicCatalog,
   isSupportedTopic,
+  resolveTopicScope,
   isTopicAllowedForSurface,
   hasTopicPermission
 } from "@jskit-ai/realtime-contracts";
 
 const catalog = createTopicCatalog({
   chat: {
+    scope: TOPIC_SCOPES.WORKSPACE,
     subscribeSurfaces: ["app"],
     requiredAnyPermission: ["chat.read"]
+  },
+  alerts: {
+    scope: TOPIC_SCOPES.USER,
+    subscribeSurfaces: ["app", "admin", "console"],
+    requiredAnyPermission: []
   }
 });
 
 function authorizeSubscribe({ topic, surface, permissions }) {
+  const scope = resolveTopicScope(catalog, topic);
+
   if (!isSupportedTopic(catalog, topic)) {
     return {
       ok: false,
@@ -498,7 +546,7 @@ function authorizeSubscribe({ topic, surface, permissions }) {
     };
   }
 
-  return { ok: true };
+  return { ok: true, scope };
 }
 ```
 
@@ -510,11 +558,15 @@ From `@jskit-ai/realtime-contracts`:
 
 1. `REALTIME_MESSAGE_TYPES`
 2. `REALTIME_ERROR_CODES`
-3. `createTopicCatalog`
-4. `listTopics`
-5. `getTopicRule`
-6. `isSupportedTopic`
-7. `isTopicAllowedForSurface`
-8. `listTopicsForSurface`
-9. `resolveRequiredPermissions`
-10. `hasTopicPermission`
+3. `TOPIC_SCOPES`
+4. `createTopicCatalog`
+5. `listTopics`
+6. `getTopicRule`
+7. `resolveTopicScope`
+8. `isWorkspaceScopedTopic`
+9. `isUserScopedTopic`
+10. `isSupportedTopic`
+11. `isTopicAllowedForSurface`
+12. `listTopicsForSurface`
+13. `resolveRequiredPermissions`
+14. `hasTopicPermission`

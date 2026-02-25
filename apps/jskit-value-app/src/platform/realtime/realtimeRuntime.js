@@ -5,8 +5,8 @@ import {
   createSocketIoTransport
 } from "@jskit-ai/realtime-client-runtime";
 
-import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "@jskit-ai/realtime-contracts";
-import { getTopicRule, listRealtimeTopicsForSurface } from "../../../shared/topicRegistry.js";
+import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES, TOPIC_SCOPES } from "@jskit-ai/realtime-contracts";
+import { getTopicRule, getTopicScope, listRealtimeTopicsForSurface } from "../../../shared/topicRegistry.js";
 import { API_REALTIME_PATH } from "../../../shared/apiPaths.js";
 import { projectsScopeQueryKey } from "../../modules/projects/queryKeys.js";
 import { getClientId } from "./clientIdentity.js";
@@ -84,6 +84,11 @@ function resolveEligibleTopics(workspaceStore, surface) {
   return listRealtimeTopicsForSurface(surface).filter((topic) =>
     hasAnyTopicPermission({ workspaceStore, topic, surface })
   );
+}
+
+function hasUserScopedTopic(topics) {
+  const normalizedTopics = normalizeTopics(topics);
+  return normalizedTopics.some((topic) => getTopicScope(topic) === TOPIC_SCOPES.USER);
 }
 
 function resolveConfiguredRealtimeUrl() {
@@ -183,10 +188,11 @@ function createRealtimeRuntime({
     resolveEligibility() {
       const workspaceSlug = String(workspaceStore?.activeWorkspaceSlug || "").trim();
       const authenticated = Boolean(authStore?.isAuthenticated);
-      const topics = resolveEligibleTopics(workspaceStore, normalizedSurface);
+      const topics = normalizeTopics(resolveEligibleTopics(workspaceStore, normalizedSurface));
+      const canConnectWithoutWorkspace = hasUserScopedTopic(topics);
 
       return {
-        eligible: Boolean(authenticated && workspaceSlug && topics.length > 0),
+        eligible: Boolean(authenticated && topics.length > 0 && (workspaceSlug || canConnectWithoutWorkspace)),
         fingerprint: resolveRuntimeFingerprint({
           surface: normalizedSurface,
           authenticated,
@@ -195,7 +201,7 @@ function createRealtimeRuntime({
         }),
         subscribePayload: {
           workspaceSlug,
-          topics: normalizeTopics(topics)
+          topics
         }
       };
     },

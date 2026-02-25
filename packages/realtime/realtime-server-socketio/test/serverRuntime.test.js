@@ -61,6 +61,13 @@ function createRequiredDeps(overrides = {}) {
     isSupportedTopic(topic) {
       return String(topic || "").trim() === "projects";
     },
+    getTopicScope(topic) {
+      if (String(topic || "").trim() === "projects") {
+        return "workspace";
+      }
+
+      return "";
+    },
     isTopicAllowedForSurface(topic, surface) {
       if (String(topic || "").trim() !== "projects") {
         return false;
@@ -166,4 +173,3 @@ test("registers server runtime and tears down listener on close hook", async () 
 
   assert.equal(unsubscribed, true);
 });
-

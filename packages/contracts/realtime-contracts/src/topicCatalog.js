@@ -2,6 +2,11 @@ function normalizeTopic(topicValue) {
   return String(topicValue || "").trim();
 }
 
+const TOPIC_SCOPES = Object.freeze({
+  WORKSPACE: "workspace",
+  USER: "user"
+});
+
 function normalizePermission(permissionValue) {
   return String(permissionValue || "").trim();
 }
@@ -15,6 +20,17 @@ function normalizeSurface(surfaceValue) {
 function normalizeStringArray(values, normalizer) {
   const source = Array.isArray(values) ? values : [];
   return [...new Set(source.map((value) => normalizer(value)).filter(Boolean))];
+}
+
+function normalizeTopicScope(scopeValue) {
+  const normalizedScope = String(scopeValue || "")
+    .trim()
+    .toLowerCase();
+  if (normalizedScope === TOPIC_SCOPES.USER) {
+    return TOPIC_SCOPES.USER;
+  }
+
+  return TOPIC_SCOPES.WORKSPACE;
 }
 
 function normalizeRequiredPermissionBySurface(value) {
@@ -39,6 +55,7 @@ function normalizeRequiredPermissionBySurface(value) {
 function normalizeTopicRule(topicRule) {
   const source = topicRule && typeof topicRule === "object" ? topicRule : {};
   return Object.freeze({
+    scope: normalizeTopicScope(source.scope),
     subscribeSurfaces: Object.freeze(normalizeStringArray(source.subscribeSurfaces, normalizeSurface)),
     requiredAnyPermission: Object.freeze(normalizeStringArray(source.requiredAnyPermission, normalizePermission)),
     requiredAnyPermissionBySurface: normalizeRequiredPermissionBySurface(source.requiredAnyPermissionBySurface)
@@ -76,6 +93,23 @@ function getTopicRule(catalog, topicValue) {
     return null;
   }
   return catalog?.[topic] || null;
+}
+
+function resolveTopicScope(catalog, topicValue) {
+  const topicRule = getTopicRule(catalog, topicValue);
+  if (!topicRule || typeof topicRule !== "object") {
+    return "";
+  }
+
+  return normalizeTopicScope(topicRule.scope);
+}
+
+function isWorkspaceScopedTopic(catalog, topicValue) {
+  return resolveTopicScope(catalog, topicValue) === TOPIC_SCOPES.WORKSPACE;
+}
+
+function isUserScopedTopic(catalog, topicValue) {
+  return resolveTopicScope(catalog, topicValue) === TOPIC_SCOPES.USER;
 }
 
 function isSupportedTopic(catalog, topicValue) {
@@ -147,9 +181,13 @@ function hasTopicPermission(catalog, topicValue, permissions, surfaceValue = "")
 }
 
 export {
+  TOPIC_SCOPES,
   createTopicCatalog,
   listTopics,
   getTopicRule,
+  resolveTopicScope,
+  isWorkspaceScopedTopic,
+  isUserScopedTopic,
   isSupportedTopic,
   isTopicAllowedForSurface,
   listTopicsForSurface,

@@ -123,18 +123,21 @@ Message phase:
 
 1. Runtime reads inbound messages on `realtime:message`.
 2. It validates payload size and shape.
-3. For `subscribe`, it validates topic/surface/workspace + permissions.
-4. It joins workspace/topic room `w:{workspaceId}:t:{topic}`.
-5. For `unsubscribe`, it removes matching room memberships.
-6. For `ping`, it sends `pong`.
+3. For `subscribe`, it validates topic scope/surface/permissions.
+4. It resolves workspace context only when any requested topic is workspace-scoped.
+5. It joins workspace/topic room `w:{workspaceId}:t:{topic}` for workspace topics.
+6. It joins user/topic room `u:{userId}:t:{topic}` for user-scoped topics.
+7. For `unsubscribe`, it removes matching room memberships.
+8. For `ping`, it sends `pong`.
 
 Fanout phase:
 
 1. Runtime listens to `realtimeEventsService.subscribe(listener)`.
-2. If event has `targetUserIds`, emits to user rooms.
-3. Otherwise emits by workspace/topic room.
-4. Before delivery, runtime re-checks authorization per socket.
-5. If a socket is no longer allowed, runtime evicts that subscription.
+2. If event has `targetUserIds` and topic scope is `user`, emits to user/topic rooms.
+3. If event has `targetUserIds` and topic scope is not `user`, emits to user rooms.
+4. Otherwise emits by workspace/topic room.
+5. Before workspace-topic delivery, runtime re-checks authorization per socket.
+6. If a socket is no longer allowed, runtime evicts that workspace subscription.
 
 Shutdown phase:
 
@@ -232,11 +235,12 @@ const io = await registerRealtimeServerSocketio(fastify, options);
 2. `realtimeEventsService` object with `subscribe(listener)`.
 3. `workspaceService` object with `resolveRequestContext(input)`.
 4. `isSupportedTopic(topic)`.
-5. `isTopicAllowedForSurface(topic, surfaceId)`.
-6. `hasTopicPermission(topic, permissions, surfaceId)`.
-7. `buildSubscribeContextRequest(baseRequest, workspaceSlug, surfaceId)`.
-8. `normalizeConnectionSurface(value)`.
-9. `normalizeWorkspaceSlug(value)`.
+5. `getTopicScope(topic)`.
+6. `isTopicAllowedForSurface(topic, surfaceId)`.
+7. `hasTopicPermission(topic, permissions, surfaceId)`.
+8. `buildSubscribeContextRequest(baseRequest, workspaceSlug, surfaceId)`.
+9. `normalizeConnectionSurface(value)`.
+10. `normalizeWorkspaceSlug(value)`.
 
 ### Optional `options` keys
 
@@ -376,6 +380,29 @@ function isSupportedTopic(topic) {
 Why apps need this:
 
 1. Prevents unknown/typo topic subscriptions.
+
+### `getTopicScope(topic)`
+
+What it does:
+
+1. Resolves topic subscription scope (`"workspace"` or `"user"`).
+2. Controls whether subscribe/unsubscribe requires workspace context.
+
+Practical real-life example:
+
+```js
+function getTopicScope(topic) {
+  if (String(topic || "").trim() === "alerts") {
+    return "user";
+  }
+
+  return "workspace";
+}
+```
+
+Why apps need this:
+
+1. Shared runtime is app-agnostic and cannot infer topic tenancy scope.
 
 ### `isTopicAllowedForSurface(topic, surfaceId)`
 
@@ -739,7 +766,8 @@ Server to client:
 
 Note about targeted fanout:
 
-1. Targeted events use user rooms and do not require topic-room subscription.
+1. User-scoped targeted events are delivered only to subscribed user/topic rooms.
+2. Non-user-scoped targeted events continue to use user rooms.
 
 ---
 
@@ -760,7 +788,7 @@ What `registerSocketIoRealtime(...)` does, exactly:
 1. Accepts app runtime dependencies.
 These are things like `authService`, `workspaceService`, `realtimeEventsService`, and Redis/runtime options.
 2. Injects app policy callbacks into shared runtime.
-These are app-specific rules: `isSupportedTopic`, `isTopicAllowedForSurface`, `hasTopicPermission`, `buildSubscribeContextRequest`, `normalizeConnectionSurface`, `normalizeWorkspaceSlug`.
+These are app-specific rules: `isSupportedTopic`, `getTopicScope`, `isTopicAllowedForSurface`, `hasTopicPermission`, `buildSubscribeContextRequest`, `normalizeConnectionSurface`, `normalizeWorkspaceSlug`.
 3. Delegates to the shared runtime entrypoint (`registerRealtimeServerSocketio(...)`).
 
 What `registerSocketIoRealtime(...)` does NOT do:
@@ -801,9 +829,16 @@ await registerRealtimeServerSocketio(fastify, {
   realtimeEventsService,
   workspaceService,
 
-  isSupportedTopic: (topic) => ["projects", "workspace_meta", "chat"].includes(String(topic || "").trim()),
+  isSupportedTopic: (topic) =>
+    ["alerts", "projects", "workspace_meta", "chat"].includes(String(topic || "").trim()),
+
+  getTopicScope: (topic) => (String(topic || "").trim() === "alerts" ? "user" : "workspace"),
 
   isTopicAllowedForSurface: (topic, surfaceId) => {
+    if (topic === "alerts") {
+      return surfaceId === "app" || surfaceId === "admin" || surfaceId === "console";
+    }
+
     if (topic === "workspace_meta") {
       return surfaceId === "app" || surfaceId === "admin";
     }
@@ -821,6 +856,10 @@ await registerRealtimeServerSocketio(fastify, {
 
   hasTopicPermission: (topic, permissions, surfaceId) => {
     const set = new Set(Array.isArray(permissions) ? permissions : []);
+
+    if (topic === "alerts") {
+      return true;
+    }
 
     if (topic === "workspace_meta") {
       return true;
@@ -880,7 +919,9 @@ Check client query (`surface=...`) and `normalizeConnectionSurface` behavior.
 Check `isTopicAllowedForSurface`, workspace membership resolution, and `hasTopicPermission`.
 
 4. **Events do not arrive**
-Check that event envelope has valid `workspaceId`, `workspaceSlug`, and `topic` for non-targeted events.
+Check that:
+- user-scoped targeted events include `targetUserIds` and clients subscribed to the user topic.
+- workspace events include valid `workspaceId`, `workspaceSlug`, and `topic`.
 
 5. **Redis adapter fails on startup**
 Check Redis connectivity; consider `requireRedisAdapter: false` in non-critical environments.

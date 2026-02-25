@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { REALTIME_TOPICS } from "../shared/eventTypes.js";
 import {
   createRealtimeTestApp,
   openRealtimeWebSocket,
@@ -129,6 +130,89 @@ test("targeted chat fanout works for global DM events without workspace subscrip
 
   leftSocket.close();
   rightSocket.close();
+  await app.close();
+});
+
+test("user-scoped alerts require explicit topic subscription but do not require workspaceSlug", async () => {
+  const { app, port, workspaceService, realtimeEventsService } = await createRealtimeTestApp();
+  const url = `ws://127.0.0.1:${port}/api/v1/realtime?surface=console`;
+
+  const socket = await openRealtimeWebSocket(url, {
+    headers: {
+      cookie: "sid=ok"
+    }
+  });
+
+  realtimeEventsService.publish({
+    eventId: "evt-alert-before-subscribe",
+    eventType: "user.alert.created",
+    topic: REALTIME_TOPICS.ALERTS,
+    targetUserIds: [7],
+    payload: {
+      alertId: 1001
+    }
+  });
+
+  const beforeSubscribe = await waitForOptionalRealtimeMessage(socket, 350);
+  assert.equal(beforeSubscribe, null);
+
+  socket.send(
+    JSON.stringify({
+      type: "subscribe",
+      requestId: "req-alert-subscribe",
+      topics: [REALTIME_TOPICS.ALERTS]
+    })
+  );
+
+  const subscribed = await waitForRealtimeMessage(socket);
+  assert.equal(subscribed.type, "subscribed");
+  assert.equal(subscribed.requestId, "req-alert-subscribe");
+  assert.equal(subscribed.workspaceSlug, "");
+  assert.deepEqual(subscribed.topics, [REALTIME_TOPICS.ALERTS]);
+  assert.equal(workspaceService.calls.length, 0);
+
+  realtimeEventsService.publish({
+    eventId: "evt-alert-after-subscribe",
+    eventType: "user.alert.created",
+    topic: REALTIME_TOPICS.ALERTS,
+    targetUserIds: [7],
+    payload: {
+      alertId: 1002
+    }
+  });
+
+  const delivered = await waitForRealtimeMessage(socket);
+  assert.equal(delivered.type, "event");
+  assert.equal(delivered.event.topic, REALTIME_TOPICS.ALERTS);
+  assert.deepEqual(delivered.event.targetUserIds, [7]);
+
+  socket.send(
+    JSON.stringify({
+      type: "unsubscribe",
+      requestId: "req-alert-unsubscribe",
+      topics: [REALTIME_TOPICS.ALERTS]
+    })
+  );
+
+  const unsubscribed = await waitForRealtimeMessage(socket);
+  assert.equal(unsubscribed.type, "unsubscribed");
+  assert.equal(unsubscribed.requestId, "req-alert-unsubscribe");
+  assert.deepEqual(unsubscribed.topics, [REALTIME_TOPICS.ALERTS]);
+
+  realtimeEventsService.publish({
+    eventId: "evt-alert-after-unsubscribe",
+    eventType: "user.alert.created",
+    topic: REALTIME_TOPICS.ALERTS,
+    targetUserIds: [7],
+    payload: {
+      alertId: 1003
+    }
+  });
+
+  const afterUnsubscribe = await waitForOptionalRealtimeMessage(socket, 350);
+  assert.equal(afterUnsubscribe, null);
+
+  socket.close();
   await app.close();
 });
 

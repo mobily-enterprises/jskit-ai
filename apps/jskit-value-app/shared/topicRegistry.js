@@ -1,39 +1,53 @@
 import { REALTIME_TOPICS } from "./eventTypes.js";
 import {
+  TOPIC_SCOPES,
   createTopicCatalog,
   listTopics,
   getTopicRule as lookupTopicRule,
+  resolveTopicScope as resolveCatalogTopicScope,
   isSupportedTopic as catalogSupportsTopic,
   isTopicAllowedForSurface as catalogTopicAllowedForSurface,
   hasTopicPermission as catalogHasTopicPermission
 } from "@jskit-ai/realtime-contracts";
 
 const REALTIME_TOPIC_REGISTRY = createTopicCatalog({
+  [REALTIME_TOPICS.ALERTS]: Object.freeze({
+    scope: TOPIC_SCOPES.USER,
+    subscribeSurfaces: Object.freeze(["app", "admin", "console"]),
+    requiredAnyPermission: Object.freeze([])
+  }),
   [REALTIME_TOPICS.PROJECTS]: Object.freeze({
+    scope: TOPIC_SCOPES.WORKSPACE,
     subscribeSurfaces: Object.freeze(["app", "admin"]),
     requiredAnyPermission: Object.freeze(["projects.read"])
   }),
   [REALTIME_TOPICS.WORKSPACE_META]: Object.freeze({
+    scope: TOPIC_SCOPES.WORKSPACE,
     subscribeSurfaces: Object.freeze(["app"]),
     requiredAnyPermission: Object.freeze([])
   }),
   [REALTIME_TOPICS.WORKSPACE_SETTINGS]: Object.freeze({
+    scope: TOPIC_SCOPES.WORKSPACE,
     subscribeSurfaces: Object.freeze(["admin"]),
     requiredAnyPermission: Object.freeze(["workspace.settings.view", "workspace.settings.update"])
   }),
   [REALTIME_TOPICS.WORKSPACE_MEMBERS]: Object.freeze({
+    scope: TOPIC_SCOPES.WORKSPACE,
     subscribeSurfaces: Object.freeze(["admin"]),
     requiredAnyPermission: Object.freeze(["workspace.members.view"])
   }),
   [REALTIME_TOPICS.WORKSPACE_INVITES]: Object.freeze({
+    scope: TOPIC_SCOPES.WORKSPACE,
     subscribeSurfaces: Object.freeze(["admin"]),
     requiredAnyPermission: Object.freeze(["workspace.members.view"])
   }),
   [REALTIME_TOPICS.WORKSPACE_AI_TRANSCRIPTS]: Object.freeze({
+    scope: TOPIC_SCOPES.WORKSPACE,
     subscribeSurfaces: Object.freeze(["admin"]),
     requiredAnyPermission: Object.freeze(["workspace.ai.transcripts.read"])
   }),
   [REALTIME_TOPICS.WORKSPACE_BILLING_LIMITS]: Object.freeze({
+    scope: TOPIC_SCOPES.WORKSPACE,
     subscribeSurfaces: Object.freeze(["app", "admin"]),
     requiredAnyPermission: Object.freeze([]),
     requiredAnyPermissionBySurface: Object.freeze({
@@ -42,10 +56,12 @@ const REALTIME_TOPIC_REGISTRY = createTopicCatalog({
     })
   }),
   [REALTIME_TOPICS.CHAT]: Object.freeze({
+    scope: TOPIC_SCOPES.WORKSPACE,
     subscribeSurfaces: Object.freeze(["app"]),
     requiredAnyPermission: Object.freeze(["chat.read"])
   }),
   [REALTIME_TOPICS.TYPING]: Object.freeze({
+    scope: TOPIC_SCOPES.WORKSPACE,
     subscribeSurfaces: Object.freeze(["app"]),
     requiredAnyPermission: Object.freeze(["chat.read"])
   })
@@ -57,6 +73,14 @@ function listRealtimeTopics() {
 
 function getTopicRule(topicValue) {
   return lookupTopicRule(REALTIME_TOPIC_REGISTRY, topicValue);
+}
+
+function getTopicScope(topicValue) {
+  return resolveCatalogTopicScope(REALTIME_TOPIC_REGISTRY, topicValue);
+}
+
+function isUserScopedTopic(topicValue) {
+  return getTopicScope(topicValue) === TOPIC_SCOPES.USER;
 }
 
 function isSupportedTopic(topicValue) {
@@ -80,6 +104,8 @@ export {
   listRealtimeTopics,
   listRealtimeTopicsForSurface,
   getTopicRule,
+  getTopicScope,
+  isUserScopedTopic,
   isSupportedTopic,
   isTopicAllowedForSurface,
   hasTopicPermission

@@ -9,6 +9,10 @@ const SOCKET_IO_MESSAGE_EVENT = "realtime:message";
 const MAX_INBOUND_MESSAGE_BYTES = 8192;
 const REDIS_QUIT_TIMEOUT_MS = 5000;
 const REDIS_CONNECT_TIMEOUT_MS = 5000;
+const TOPIC_SCOPES = Object.freeze({
+  WORKSPACE: "workspace",
+  USER: "user"
+});
 
 function normalizeRequestId(requestIdValue) {
   const requestId = String(requestIdValue || "").trim();
@@ -23,16 +27,34 @@ function normalizeTopics(topicsValue) {
   return [...new Set(topicsValue.map((topic) => String(topic || "").trim()).filter(Boolean))];
 }
 
-function buildSubscriptionKey(workspaceId, topic) {
-  return `${Number(workspaceId)}:${String(topic || "").trim()}`;
+function normalizeTopicScope(scopeValue) {
+  const normalizedScope = String(scopeValue || "")
+    .trim()
+    .toLowerCase();
+  if (normalizedScope === TOPIC_SCOPES.USER) {
+    return TOPIC_SCOPES.USER;
+  }
+  return TOPIC_SCOPES.WORKSPACE;
 }
 
-function buildRoomName(workspaceId, topic) {
+function buildWorkspaceSubscriptionKey(workspaceId, topic) {
+  return `workspace:${Number(workspaceId)}:${String(topic || "").trim()}`;
+}
+
+function buildWorkspaceRoomName(workspaceId, topic) {
   return `w:${Number(workspaceId)}:t:${String(topic || "").trim()}`;
 }
 
 function buildUserRoomName(userId) {
   return `u:${Number(userId)}`;
+}
+
+function buildUserTopicSubscriptionKey(userId, topic) {
+  return `user:${Number(userId)}:${String(topic || "").trim()}`;
+}
+
+function buildUserTopicRoomName(userId, topic) {
+  return `u:${Number(userId)}:t:${String(topic || "").trim()}`;
 }
 
 function normalizeTargetUserIds(value) {
@@ -382,6 +404,7 @@ async function registerRealtimeServerSocketio(
     realtimeEventsService,
     workspaceService,
     isSupportedTopic,
+    getTopicScope,
     isTopicAllowedForSurface,
     hasTopicPermission,
     buildSubscribeContextRequest,
@@ -409,6 +432,9 @@ async function registerRealtimeServerSocketio(
   }
   if (typeof isSupportedTopic !== "function") {
     throw new Error("isSupportedTopic is required.");
+  }
+  if (typeof getTopicScope !== "function") {
+    throw new Error("getTopicScope is required.");
   }
   if (typeof isTopicAllowedForSurface !== "function") {
     throw new Error("isTopicAllowedForSurface is required.");
@@ -519,6 +545,54 @@ async function registerRealtimeServerSocketio(
     return context;
   }
 
+  function partitionTopicsByScope(topics) {
+    const workspaceTopics = [];
+    const userTopics = [];
+
+    for (const topic of topics) {
+      let normalizedScope = TOPIC_SCOPES.WORKSPACE;
+      try {
+        normalizedScope = normalizeTopicScope(getTopicScope(topic));
+      } catch {
+        normalizedScope = TOPIC_SCOPES.WORKSPACE;
+      }
+
+      if (normalizedScope === TOPIC_SCOPES.USER) {
+        userTopics.push(topic);
+        continue;
+      }
+
+      workspaceTopics.push(topic);
+    }
+
+    return {
+      workspaceTopics,
+      userTopics
+    };
+  }
+
+  function resolveSubscriptionRoomName(subscription) {
+    const topic = String(subscription?.topic || "").trim();
+    if (!topic) {
+      return "";
+    }
+
+    const scope = normalizeTopicScope(subscription?.scope);
+    if (scope === TOPIC_SCOPES.USER) {
+      const userId = Number(subscription?.userId);
+      if (!Number.isInteger(userId) || userId < 1) {
+        return "";
+      }
+      return buildUserTopicRoomName(userId, topic);
+    }
+
+    const workspaceId = Number(subscription?.workspaceId);
+    if (!Number.isInteger(workspaceId) || workspaceId < 1) {
+      return "";
+    }
+    return buildWorkspaceRoomName(workspaceId, topic);
+  }
+
   function removeConnectionSubscriptions(socket) {
     const subscriptions = socket?.data?.subscriptions;
     if (!(subscriptions instanceof Map)) {
@@ -526,7 +600,10 @@ async function registerRealtimeServerSocketio(
     }
 
     for (const [subscriptionKey, subscription] of subscriptions.entries()) {
-      socket.leave(buildRoomName(subscription.workspaceId, subscription.topic));
+      const roomName = resolveSubscriptionRoomName(subscription);
+      if (roomName) {
+        socket.leave(roomName);
+      }
       subscriptions.delete(subscriptionKey);
     }
   }
@@ -577,11 +654,25 @@ async function registerRealtimeServerSocketio(
     return buildSubscribeContextRequest(baseRequest, workspaceSlug, surfaceId);
   }
 
-  async function evictSocketSubscription(socket, { workspaceId, topic }) {
-    const roomName = buildRoomName(workspaceId, topic);
+  async function evictWorkspaceSocketSubscription(socket, { workspaceId, topic }) {
+    const roomName = buildWorkspaceRoomName(workspaceId, topic);
     const subscriptions = socket?.data?.subscriptions;
     if (subscriptions instanceof Map) {
-      subscriptions.delete(buildSubscriptionKey(workspaceId, topic));
+      subscriptions.delete(buildWorkspaceSubscriptionKey(workspaceId, topic));
+    }
+
+    try {
+      await Promise.resolve(socket.leave(roomName));
+    } catch {
+      // Best-effort room eviction.
+    }
+  }
+
+  async function evictUserTopicSocketSubscription(socket, { userId, topic }) {
+    const roomName = buildUserTopicRoomName(userId, topic);
+    const subscriptions = socket?.data?.subscriptions;
+    if (subscriptions instanceof Map) {
+      subscriptions.delete(buildUserTopicSubscriptionKey(userId, topic));
     }
 
     try {
@@ -741,14 +832,6 @@ async function registerRealtimeServerSocketio(
     const workspaceSlug = normalizeWorkspaceSlug(message?.workspaceSlug);
     const topics = normalizeTopics(message?.topics);
 
-    if (!workspaceSlug) {
-      emitProtocolError(socket, {
-        requestId,
-        code: REALTIME_ERROR_CODES.WORKSPACE_REQUIRED
-      });
-      return;
-    }
-
     if (!validateTopicsOrError(socket, requestId, topics)) {
       return;
     }
@@ -756,26 +839,62 @@ async function registerRealtimeServerSocketio(
       return;
     }
 
+    const { workspaceTopics, userTopics } = partitionTopicsByScope(topics);
+    if (workspaceTopics.length > 0 && !workspaceSlug) {
+      emitProtocolError(socket, {
+        requestId,
+        code: REALTIME_ERROR_CODES.WORKSPACE_REQUIRED
+      });
+      return;
+    }
+
     let resolvedContext;
-    try {
-      resolvedContext = await resolveSubscribeAuthorization(socket, workspaceSlug, socket?.data?.surface || "");
-    } catch (error) {
-      const statusCode = Number(error?.statusCode || error?.status);
-      if (statusCode === 401) {
+    if (workspaceTopics.length > 0) {
+      try {
+        resolvedContext = await resolveSubscribeAuthorization(socket, workspaceSlug, socket?.data?.surface || "");
+      } catch (error) {
+        const statusCode = Number(error?.statusCode || error?.status);
+        if (statusCode === 401) {
+          emitProtocolError(socket, {
+            requestId,
+            code: REALTIME_ERROR_CODES.UNAUTHORIZED
+          });
+          return;
+        }
+        if (statusCode === 403 || statusCode === 409) {
+          emitProtocolError(socket, {
+            requestId,
+            code: REALTIME_ERROR_CODES.FORBIDDEN
+          });
+          return;
+        }
+
         emitProtocolError(socket, {
           requestId,
-          code: REALTIME_ERROR_CODES.UNAUTHORIZED
+          code: REALTIME_ERROR_CODES.INTERNAL_ERROR
         });
         return;
       }
-      if (statusCode === 403 || statusCode === 409) {
+
+      if (!resolvedContext) {
         emitProtocolError(socket, {
           requestId,
           code: REALTIME_ERROR_CODES.FORBIDDEN
         });
         return;
       }
+    }
 
+    const permissions = Array.isArray(resolvedContext?.permissions) ? resolvedContext.permissions : [];
+    if (!validateTopicPermissionsOrError(socket, requestId, workspaceTopics, permissions)) {
+      return;
+    }
+    if (!validateTopicPermissionsOrError(socket, requestId, userTopics, permissions)) {
+      return;
+    }
+
+    const subscriptions = socket?.data?.subscriptions;
+    if (!(subscriptions instanceof Map)) {
       emitProtocolError(socket, {
         requestId,
         code: REALTIME_ERROR_CODES.INTERNAL_ERROR
@@ -783,31 +902,43 @@ async function registerRealtimeServerSocketio(
       return;
     }
 
-    if (!resolvedContext) {
+    const socketUserId = Number(socket?.data?.user?.id);
+    if (userTopics.length > 0 && (!Number.isInteger(socketUserId) || socketUserId < 1)) {
       emitProtocolError(socket, {
         requestId,
-        code: REALTIME_ERROR_CODES.FORBIDDEN
+        code: REALTIME_ERROR_CODES.UNAUTHORIZED
       });
       return;
     }
 
-    if (!validateTopicPermissionsOrError(socket, requestId, topics, resolvedContext.permissions)) {
-      return;
+    if (workspaceTopics.length > 0) {
+      const workspaceId = Number(resolvedContext?.workspace?.id);
+      for (const topic of workspaceTopics) {
+        const subscriptionKey = buildWorkspaceSubscriptionKey(workspaceId, topic);
+        if (!subscriptions.has(subscriptionKey)) {
+          subscriptions.set(subscriptionKey, {
+            scope: TOPIC_SCOPES.WORKSPACE,
+            workspaceId,
+            workspaceSlug,
+            topic
+          });
+        }
+
+        socket.join(buildWorkspaceRoomName(workspaceId, topic));
+      }
     }
 
-    const subscriptions = socket?.data?.subscriptions;
-    const workspaceId = Number(resolvedContext.workspace.id);
-    for (const topic of topics) {
-      const subscriptionKey = buildSubscriptionKey(workspaceId, topic);
+    for (const topic of userTopics) {
+      const subscriptionKey = buildUserTopicSubscriptionKey(socketUserId, topic);
       if (!subscriptions.has(subscriptionKey)) {
         subscriptions.set(subscriptionKey, {
-          workspaceId,
-          workspaceSlug,
+          scope: TOPIC_SCOPES.USER,
+          userId: socketUserId,
           topic
         });
       }
 
-      socket.join(buildRoomName(workspaceId, topic));
+      socket.join(buildUserTopicRoomName(socketUserId, topic));
     }
 
     emitMessage(
@@ -826,18 +957,19 @@ async function registerRealtimeServerSocketio(
     const workspaceSlug = normalizeWorkspaceSlug(message?.workspaceSlug);
     const topics = normalizeTopics(message?.topics);
 
-    if (!workspaceSlug) {
-      emitProtocolError(socket, {
-        requestId,
-        code: REALTIME_ERROR_CODES.WORKSPACE_REQUIRED
-      });
-      return;
-    }
-
     if (!validateTopicsOrError(socket, requestId, topics)) {
       return;
     }
     if (!validateTopicSurfacesOrError(socket, requestId, topics)) {
+      return;
+    }
+
+    const { workspaceTopics, userTopics } = partitionTopicsByScope(topics);
+    if (workspaceTopics.length > 0 && !workspaceSlug) {
+      emitProtocolError(socket, {
+        requestId,
+        code: REALTIME_ERROR_CODES.WORKSPACE_REQUIRED
+      });
       return;
     }
 
@@ -850,18 +982,43 @@ async function registerRealtimeServerSocketio(
       return;
     }
 
-    const topicsToRemove = new Set(topics);
+    const workspaceTopicsToRemove = new Set(workspaceTopics);
+    const userTopicsToRemove = new Set(userTopics);
+    const socketUserId = Number(socket?.data?.user?.id);
+    if (userTopicsToRemove.size > 0 && (!Number.isInteger(socketUserId) || socketUserId < 1)) {
+      emitProtocolError(socket, {
+        requestId,
+        code: REALTIME_ERROR_CODES.UNAUTHORIZED
+      });
+      return;
+    }
+
     for (const [subscriptionKey, subscription] of subscriptions.entries()) {
-      const subscriptionWorkspaceSlug = normalizeWorkspaceSlug(subscription?.workspaceSlug);
+      const subscriptionScope = normalizeTopicScope(subscription?.scope);
       const subscriptionTopic = String(subscription?.topic || "").trim();
-      if (subscriptionWorkspaceSlug !== workspaceSlug || !topicsToRemove.has(subscriptionTopic)) {
+
+      if (subscriptionScope === TOPIC_SCOPES.USER) {
+        const subscriptionUserId = Number(subscription?.userId);
+        if (subscriptionUserId !== socketUserId || !userTopicsToRemove.has(subscriptionTopic)) {
+          continue;
+        }
+
+        subscriptions.delete(subscriptionKey);
+        if (Number.isInteger(subscriptionUserId) && subscriptionUserId > 0) {
+          socket.leave(buildUserTopicRoomName(subscriptionUserId, subscriptionTopic));
+        }
+        continue;
+      }
+
+      const subscriptionWorkspaceSlug = normalizeWorkspaceSlug(subscription?.workspaceSlug);
+      if (subscriptionWorkspaceSlug !== workspaceSlug || !workspaceTopicsToRemove.has(subscriptionTopic)) {
         continue;
       }
 
       subscriptions.delete(subscriptionKey);
       const workspaceId = Number(subscription.workspaceId);
       if (Number.isInteger(workspaceId) && workspaceId > 0) {
-        socket.leave(buildRoomName(workspaceId, subscriptionTopic));
+        socket.leave(buildWorkspaceRoomName(workspaceId, subscriptionTopic));
       }
     }
 
@@ -1008,15 +1165,79 @@ async function registerRealtimeServerSocketio(
     );
   }
 
+  async function fanoutUserScopedTargetedEvent(eventEnvelope, targetUserIds, topic) {
+    const socketById = new Map();
+
+    try {
+      await Promise.all(
+        targetUserIds.map(async (targetUserId) => {
+          const roomName = buildUserTopicRoomName(targetUserId, topic);
+          const sockets = await io.in(roomName).fetchSockets();
+          for (const socket of sockets) {
+            socketById.set(String(socket?.id || ""), socket);
+          }
+        })
+      );
+    } catch (error) {
+      appLogger.warn(
+        {
+          err: error,
+          topic,
+          targetUserIds
+        },
+        "realtime.socketio.targeted_topic_fanout_socket_lookup_failed"
+      );
+      return;
+    }
+
+    await Promise.all(
+      Array.from(socketById.values()).map(async (socket) => {
+        const surfaceId = normalizeSocketSurface(socket?.data?.surface);
+        const socketUserId = Number(socket?.data?.user?.id);
+        if (!surfaceId || !isTopicAllowedForSurface(topic, surfaceId)) {
+          if (Number.isInteger(socketUserId) && socketUserId > 0) {
+            await evictUserTopicSocketSubscription(socket, {
+              userId: socketUserId,
+              topic
+            });
+          }
+          return;
+        }
+
+        await emitEventMessage(socket, eventEnvelope);
+      })
+    );
+  }
+
   async function fanoutEvent(eventEnvelope) {
+    const topic = String(eventEnvelope?.topic || "").trim();
+    let topicScope = TOPIC_SCOPES.WORKSPACE;
+    try {
+      topicScope = normalizeTopicScope(getTopicScope(topic));
+    } catch {
+      topicScope = TOPIC_SCOPES.WORKSPACE;
+    }
     const targetUserIds = normalizeTargetUserIds(eventEnvelope?.targetUserIds);
     if (targetUserIds.length > 0) {
+      if (topic && topicScope === TOPIC_SCOPES.USER) {
+        await fanoutUserScopedTargetedEvent(eventEnvelope, targetUserIds, topic);
+        return;
+      }
       await fanoutTargetedEvent(eventEnvelope, targetUserIds);
       return;
     }
 
     const workspaceId = Number(eventEnvelope?.workspaceId);
-    const topic = String(eventEnvelope?.topic || "").trim();
+    if (topicScope === TOPIC_SCOPES.USER) {
+      appLogger.warn(
+        {
+          topic
+        },
+        "realtime.socketio.user_topic_event_missing_targets"
+      );
+      return;
+    }
+
     const workspaceSlug = normalizeWorkspaceSlug(eventEnvelope?.workspaceSlug);
     if (!Number.isInteger(workspaceId) || workspaceId < 1 || !topic || !workspaceSlug) {
       if (Number.isInteger(workspaceId) && workspaceId > 0 && topic) {
@@ -1031,7 +1252,7 @@ async function registerRealtimeServerSocketio(
       return;
     }
 
-    const roomName = buildRoomName(workspaceId, topic);
+    const roomName = buildWorkspaceRoomName(workspaceId, topic);
     let sockets = [];
     try {
       sockets = await io.in(roomName).fetchSockets();
@@ -1060,7 +1281,7 @@ async function registerRealtimeServerSocketio(
           if (!receiveDecision?.evict) {
             return;
           }
-          await evictSocketSubscription(socket, {
+          await evictWorkspaceSocketSubscription(socket, {
             workspaceId,
             topic
           });
