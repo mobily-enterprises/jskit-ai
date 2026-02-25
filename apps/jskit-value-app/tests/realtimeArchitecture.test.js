@@ -17,7 +17,7 @@ const FEATURE_REALTIME_FILES = [
   "server/modules/projects/controller.js",
   "server/modules/workspace/controller.js",
   "server/modules/ai/services/ai.service.js",
-  "server/modules/ai/lib/tools/workspaceRename.tool.js"
+  "server/modules/ai/lib/tools/actionTools.js"
 ];
 
 async function collectJsFiles(dir) {
