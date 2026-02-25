@@ -1,6 +1,6 @@
 # Database Migrations and Seeds
 
-Last validated: 2026-02-24 (UTC)
+Last validated: 2026-02-25 (UTC)
 
 ## Commands
 
@@ -16,6 +16,8 @@ Last validated: 2026-02-24 (UTC)
   - `apps/jskit-value-app/migrations/20260224000000_baseline_schema.cjs`
 - Baseline migration step files:
   - `apps/jskit-value-app/migration-baseline-steps/`
+- Forward migration entries:
+  - `apps/jskit-value-app/migrations/*.cjs` after baseline (for example, `20260225000000_create_user_alerts_forward.cjs`)
 - Seed files:
   - `apps/jskit-value-app/seeds/`
 

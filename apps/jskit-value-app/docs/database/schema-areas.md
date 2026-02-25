@@ -9,6 +9,8 @@ Sources:
 - Baseline migration step set:
   - `apps/jskit-value-app/migrations/20260224000000_baseline_schema.cjs`
   - `apps/jskit-value-app/migration-baseline-steps/`
+- Forward migration entries:
+  - `apps/jskit-value-app/migrations/*.cjs` after baseline
 - Billing live-schema inventory:
   - `apps/jskit-value-app/docs/database/billing-live-schema.md`
 

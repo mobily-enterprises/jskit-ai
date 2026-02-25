@@ -5,7 +5,91 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 
 const baselineMigration = require("../migrations/20260224000000_baseline_schema.cjs");
+const alertsForwardMigration = require("../migrations/20260225000000_create_user_alerts_forward.cjs");
 const { BASELINE_STEP_FILES, createBaselineRunner } = baselineMigration.__testables;
+
+function createNoopColumnBuilder() {
+  const builder = {
+    unsigned() {
+      return builder;
+    },
+    notNullable() {
+      return builder;
+    },
+    nullable() {
+      return builder;
+    },
+    primary() {
+      return builder;
+    },
+    defaultTo() {
+      return builder;
+    },
+    references() {
+      return builder;
+    },
+    inTable() {
+      return builder;
+    },
+    onDelete() {
+      return builder;
+    }
+  };
+  return builder;
+}
+
+function createNoopTableBuilder() {
+  return {
+    bigIncrements() {
+      return createNoopColumnBuilder();
+    },
+    bigInteger() {
+      return createNoopColumnBuilder();
+    },
+    string() {
+      return createNoopColumnBuilder();
+    },
+    json() {
+      return createNoopColumnBuilder();
+    },
+    dateTime() {
+      return createNoopColumnBuilder();
+    },
+    foreign() {
+      return createNoopColumnBuilder();
+    },
+    index() {}
+  };
+}
+
+function createMigrationKnexDouble(existingTables = []) {
+  const tableSet = new Set(existingTables);
+  const createdTables = [];
+  const rawStatements = [];
+
+  const knex = {
+    schema: {
+      async hasTable(tableName) {
+        return tableSet.has(tableName);
+      },
+      async createTable(tableName, callback) {
+        createdTables.push(tableName);
+        tableSet.add(tableName);
+        callback(createNoopTableBuilder());
+      }
+    },
+    raw(statement) {
+      rawStatements.push(String(statement || ""));
+      return statement;
+    }
+  };
+
+  return {
+    knex,
+    createdTables,
+    rawStatements
+  };
+}
 
 test("baseline migration contains the full historical step sequence in order", () => {
   assert.equal(BASELINE_STEP_FILES[0], "20260215120000_create_user_profiles.cjs");
@@ -65,5 +149,32 @@ test("baseline migration down is irreversible", async () => {
   await assert.rejects(
     () => baselineMigration.down({}),
     /Migration 20260224000000_baseline_schema is irreversible\./
+  );
+});
+
+test("alerts forward migration creates alerts tables when missing", async () => {
+  const { knex, createdTables, rawStatements } = createMigrationKnexDouble();
+
+  await alertsForwardMigration.up(knex);
+
+  assert.deepEqual(createdTables, ["user_alerts", "user_alert_states"]);
+  const alterStatements = rawStatements.filter((statement) => /ALTER TABLE user_alert_states/i.test(statement));
+  assert.equal(alterStatements.length, 1);
+  assert.match(alterStatements[0], /ON UPDATE UTC_TIMESTAMP\(3\)/i);
+});
+
+test("alerts forward migration is idempotent when alerts tables already exist", async () => {
+  const { knex, createdTables, rawStatements } = createMigrationKnexDouble(["user_alerts", "user_alert_states"]);
+
+  await alertsForwardMigration.up(knex);
+
+  assert.deepEqual(createdTables, []);
+  assert.deepEqual(rawStatements, []);
+});
+
+test("alerts forward migration down is irreversible", async () => {
+  await assert.rejects(
+    () => alertsForwardMigration.down({}),
+    /Migration 20260225000000_create_user_alerts_forward is irreversible\./
   );
 });
