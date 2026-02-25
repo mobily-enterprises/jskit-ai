@@ -1,4 +1,5 @@
 import { redirect } from "@tanstack/vue-router";
+import { normalizeReturnToPath } from "@jskit-ai/access-core/utils";
 import { api } from "../../platform/http/api/index.js";
 
 async function resolveRuntimeState({ authStore, workspaceStore }) {
@@ -45,14 +46,44 @@ function createSurfaceRouteGuards(stores, options) {
       ? options.workspaceHomePath
       : (workspaceSlug) => `/w/${workspaceSlug}`;
 
-  async function beforeLoadRoot() {
+  function splitPathname(pathValue) {
+    const [withoutHash] = String(pathValue || "").split("#");
+    const [pathnameOnly] = withoutHash.split("?");
+    return pathnameOnly || "";
+  }
+
+  function resolveReturnToPath(context) {
+    const locationPathname = String(context?.location?.pathname || "");
+    const locationSearch = String(context?.location?.search || "");
+    const fallbackPathname = typeof window !== "undefined" ? String(window.location?.pathname || "") : "";
+    const fallbackSearch = typeof window !== "undefined" ? String(window.location?.search || "") : "";
+    const candidatePath = `${locationPathname || fallbackPathname}${locationSearch || fallbackSearch}`;
+
+    return normalizeReturnToPath(candidatePath, { fallback: "" });
+  }
+
+  function loginRedirectOptions(context) {
+    const returnTo = resolveReturnToPath(context);
+    if (!returnTo || splitPathname(returnTo) === loginPath) {
+      return { to: loginPath };
+    }
+
+    return {
+      to: loginPath,
+      search: {
+        returnTo
+      }
+    };
+  }
+
+  async function beforeLoadRoot(context) {
     const state = await resolveRuntimeState(stores);
     if (state.sessionUnavailable) {
       return;
     }
 
     if (!state.authenticated) {
-      throw redirect({ to: loginPath });
+      throw redirect(loginRedirectOptions(context));
     }
 
     if (!state.hasActiveWorkspace) {
@@ -79,14 +110,14 @@ function createSurfaceRouteGuards(stores, options) {
     throw redirect({ to: workspacesPath });
   }
 
-  async function beforeLoadAuthenticatedNoWorkspace() {
+  async function beforeLoadAuthenticatedNoWorkspace(context) {
     const state = await resolveRuntimeState(stores);
     if (state.sessionUnavailable) {
       return;
     }
 
     if (!state.authenticated) {
-      throw redirect({ to: loginPath });
+      throw redirect(loginRedirectOptions(context));
     }
 
     if (state.hasActiveWorkspace) {
@@ -94,14 +125,14 @@ function createSurfaceRouteGuards(stores, options) {
     }
   }
 
-  async function beforeLoadAuthenticated() {
+  async function beforeLoadAuthenticated(context) {
     const state = await resolveRuntimeState(stores);
     if (state.sessionUnavailable) {
       return;
     }
 
     if (!state.authenticated) {
-      throw redirect({ to: loginPath });
+      throw redirect(loginRedirectOptions(context));
     }
   }
 
@@ -114,7 +145,7 @@ function createSurfaceRouteGuards(stores, options) {
     }
 
     if (!state.authenticated) {
-      throw redirect({ to: loginPath });
+      throw redirect(loginRedirectOptions(context));
     }
 
     if (!state.hasActiveWorkspace) {

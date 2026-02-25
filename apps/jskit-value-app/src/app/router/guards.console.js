@@ -1,4 +1,5 @@
 import { redirect } from "@tanstack/vue-router";
+import { normalizeReturnToPath } from "@jskit-ai/access-core/utils";
 
 function resolveConsoleStore(consoleStore) {
   if (consoleStore && typeof consoleStore === "object") {
@@ -89,14 +90,44 @@ function createConsoleRouteGuards(stores, options) {
   const invitationsPath = String(options?.invitationsPath || "/invitations");
   const fallbackPath = String(options?.fallbackPath || "/");
 
-  async function beforeLoadRoot() {
+  function splitPathname(pathValue) {
+    const [withoutHash] = String(pathValue || "").split("#");
+    const [pathnameOnly] = withoutHash.split("?");
+    return pathnameOnly || "";
+  }
+
+  function resolveReturnToPath(context) {
+    const locationPathname = String(context?.location?.pathname || "");
+    const locationSearch = String(context?.location?.search || "");
+    const fallbackPathname = typeof window !== "undefined" ? String(window.location?.pathname || "") : "";
+    const fallbackSearch = typeof window !== "undefined" ? String(window.location?.search || "") : "";
+    const candidatePath = `${locationPathname || fallbackPathname}${locationSearch || fallbackSearch}`;
+
+    return normalizeReturnToPath(candidatePath, { fallback: "" });
+  }
+
+  function loginRedirectOptions(context) {
+    const returnTo = resolveReturnToPath(context);
+    if (!returnTo || splitPathname(returnTo) === loginPath) {
+      return { to: loginPath };
+    }
+
+    return {
+      to: loginPath,
+      search: {
+        returnTo
+      }
+    };
+  }
+
+  async function beforeLoadRoot(context) {
     const state = await resolveConsoleRuntimeState(resolvedStores);
     if (state.sessionUnavailable) {
       return;
     }
 
     if (!state.authenticated) {
-      throw redirect({ to: loginPath });
+      throw redirect(loginRedirectOptions(context));
     }
 
     if (state.hasConsoleAccess) {
@@ -110,7 +141,7 @@ function createConsoleRouteGuards(stores, options) {
     throw redirect({ to: fallbackPath });
   }
 
-  async function beforeLoadPublic() {
+  async function beforeLoadPublic(context) {
     const state = await resolveConsoleRuntimeState(resolvedStores);
     if (state.sessionUnavailable) {
       return;
@@ -131,14 +162,14 @@ function createConsoleRouteGuards(stores, options) {
     throw redirect({ to: fallbackPath });
   }
 
-  async function beforeLoadInvitations() {
+  async function beforeLoadInvitations(context) {
     const state = await resolveConsoleRuntimeState(resolvedStores);
     if (state.sessionUnavailable) {
       return;
     }
 
     if (!state.authenticated) {
-      throw redirect({ to: loginPath });
+      throw redirect(loginRedirectOptions(context));
     }
 
     if (state.hasConsoleAccess) {
@@ -152,25 +183,25 @@ function createConsoleRouteGuards(stores, options) {
     throw redirect({ to: fallbackPath });
   }
 
-  async function beforeLoadAuthenticated() {
+  async function beforeLoadAuthenticated(context) {
     const state = await resolveConsoleRuntimeState(resolvedStores);
     if (state.sessionUnavailable) {
       return;
     }
 
     if (!state.authenticated) {
-      throw redirect({ to: loginPath });
+      throw redirect(loginRedirectOptions(context));
     }
   }
 
-  async function beforeLoadMembers() {
+  async function beforeLoadMembers(context) {
     const state = await resolveConsoleRuntimeState(resolvedStores);
     if (state.sessionUnavailable) {
       return;
     }
 
     if (!state.authenticated) {
-      throw redirect({ to: loginPath });
+      throw redirect(loginRedirectOptions(context));
     }
 
     if (!state.hasConsoleAccess) {
@@ -186,14 +217,14 @@ function createConsoleRouteGuards(stores, options) {
     }
   }
 
-  async function beforeLoadBrowserErrors() {
+  async function beforeLoadBrowserErrors(context) {
     const state = await resolveConsoleRuntimeState(resolvedStores);
     if (state.sessionUnavailable) {
       return;
     }
 
     if (!state.authenticated) {
-      throw redirect({ to: loginPath });
+      throw redirect(loginRedirectOptions(context));
     }
 
     if (!state.hasConsoleAccess) {
@@ -209,18 +240,18 @@ function createConsoleRouteGuards(stores, options) {
     }
   }
 
-  async function beforeLoadBrowserErrorDetails() {
-    return beforeLoadBrowserErrors();
+  async function beforeLoadBrowserErrorDetails(context) {
+    return beforeLoadBrowserErrors(context);
   }
 
-  async function beforeLoadServerErrors() {
+  async function beforeLoadServerErrors(context) {
     const state = await resolveConsoleRuntimeState(resolvedStores);
     if (state.sessionUnavailable) {
       return;
     }
 
     if (!state.authenticated) {
-      throw redirect({ to: loginPath });
+      throw redirect(loginRedirectOptions(context));
     }
 
     if (!state.hasConsoleAccess) {
@@ -236,18 +267,18 @@ function createConsoleRouteGuards(stores, options) {
     }
   }
 
-  async function beforeLoadServerErrorDetails() {
-    return beforeLoadServerErrors();
+  async function beforeLoadServerErrorDetails(context) {
+    return beforeLoadServerErrors(context);
   }
 
-  async function beforeLoadAiTranscripts() {
+  async function beforeLoadAiTranscripts(context) {
     const state = await resolveConsoleRuntimeState(resolvedStores);
     if (state.sessionUnavailable) {
       return;
     }
 
     if (!state.authenticated) {
-      throw redirect({ to: loginPath });
+      throw redirect(loginRedirectOptions(context));
     }
 
     if (!state.hasConsoleAccess) {
@@ -263,14 +294,14 @@ function createConsoleRouteGuards(stores, options) {
     }
   }
 
-  async function beforeLoadBillingEvents() {
+  async function beforeLoadBillingEvents(context) {
     const state = await resolveConsoleRuntimeState(resolvedStores);
     if (state.sessionUnavailable) {
       return;
     }
 
     if (!state.authenticated) {
-      throw redirect({ to: loginPath });
+      throw redirect(loginRedirectOptions(context));
     }
 
     if (!state.hasConsoleAccess) {
@@ -286,14 +317,14 @@ function createConsoleRouteGuards(stores, options) {
     }
   }
 
-  async function beforeLoadBillingPlans() {
+  async function beforeLoadBillingPlans(context) {
     const state = await resolveConsoleRuntimeState(resolvedStores);
     if (state.sessionUnavailable) {
       return;
     }
 
     if (!state.authenticated) {
-      throw redirect({ to: loginPath });
+      throw redirect(loginRedirectOptions(context));
     }
 
     if (!state.hasConsoleAccess) {
@@ -309,18 +340,18 @@ function createConsoleRouteGuards(stores, options) {
     }
   }
 
-  async function beforeLoadBillingEntitlements() {
-    return beforeLoadBillingPlans();
+  async function beforeLoadBillingEntitlements(context) {
+    return beforeLoadBillingPlans(context);
   }
 
-  async function beforeLoadBillingPurchases() {
+  async function beforeLoadBillingPurchases(context) {
     const state = await resolveConsoleRuntimeState(resolvedStores);
     if (state.sessionUnavailable) {
       return;
     }
 
     if (!state.authenticated) {
-      throw redirect({ to: loginPath });
+      throw redirect(loginRedirectOptions(context));
     }
 
     if (!state.hasConsoleAccess) {
@@ -336,12 +367,12 @@ function createConsoleRouteGuards(stores, options) {
     }
   }
 
-  async function beforeLoadBillingPlanAssignments() {
-    return beforeLoadBillingPurchases();
+  async function beforeLoadBillingPlanAssignments(context) {
+    return beforeLoadBillingPurchases(context);
   }
 
-  async function beforeLoadBillingSubscriptions() {
-    return beforeLoadBillingPurchases();
+  async function beforeLoadBillingSubscriptions(context) {
+    return beforeLoadBillingPurchases(context);
   }
 
   return {

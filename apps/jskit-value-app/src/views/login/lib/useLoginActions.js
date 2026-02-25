@@ -21,6 +21,7 @@ import {
   stripOtpLoginCallbackParamsFromLocation
 } from "./loginOtpCallbackState.js";
 import { toErrorMessage } from "./loginErrorMessage.js";
+import { resolvePostAuthReturnTo, resolveRequestedLoginReturnTo } from "./loginReturnTo.js";
 
 export function useLoginActions({
   mode,
@@ -185,6 +186,17 @@ export function useLoginActions({
     return session;
   }
 
+  function resolveRequestedReturnTo() {
+    return resolveRequestedLoginReturnTo();
+  }
+
+  function resolvePostAuthDestination() {
+    return resolvePostAuthReturnTo({
+      surfacePaths: surfacePaths.value,
+      fallbackPath: surfacePaths.value.rootPath
+    });
+  }
+
   async function startOAuthSignIn(providerId) {
     const provider = normalizeAppOAuthProvider(providerId, { fallback: null });
     if (!provider) {
@@ -194,15 +206,16 @@ export function useLoginActions({
 
     errorMessage.value = "";
     infoMessage.value = "";
+    const returnTo = resolvePostAuthDestination();
     writePendingOAuthContext({
       provider,
       intent: "login",
-      returnTo: surfacePaths.value.rootPath,
+      returnTo,
       rememberAccountOnDevice: rememberAccountOnDevice.value
     });
 
     if (typeof window !== "undefined") {
-      window.location.assign(api.auth.oauthStartUrl(provider, { returnTo: surfacePaths.value.rootPath }));
+      window.location.assign(api.auth.oauthStartUrl(provider, { returnTo }));
     }
   }
 
@@ -239,7 +252,7 @@ export function useLoginActions({
       });
 
       stripOtpLoginCallbackParamsFromLocation();
-      await navigate({ to: surfacePaths.value.rootPath, replace: true });
+      await navigate({ to: resolvePostAuthDestination(), replace: true });
     } catch (error) {
       errorMessage.value = toErrorMessage(error, "Unable to complete email one-time login.");
       stripOtpLoginCallbackParamsFromLocation();
@@ -299,8 +312,10 @@ export function useLoginActions({
     }
 
     try {
+      const requestedReturnTo = resolveRequestedReturnTo();
       const response = await otpRequestMutation.mutateAsync({
-        email: cleanEmail
+        email: cleanEmail,
+        ...(requestedReturnTo ? { returnTo: requestedReturnTo } : {})
       });
       infoMessage.value = String(
         response?.message || "If an account exists for that email, a one-time code has been sent."
@@ -358,7 +373,7 @@ export function useLoginActions({
         shouldRemember: rememberAccountOnDevice.value
       });
 
-      await navigate({ to: surfacePaths.value.rootPath, replace: true });
+      await navigate({ to: resolvePostAuthDestination(), replace: true });
     } catch (error) {
       errorMessage.value = toErrorMessage(error, "Unable to complete authentication.");
     }

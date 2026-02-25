@@ -1,5 +1,18 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 
+function normalizeLocalReturnToPath(value, { fallback = "" } = {}) {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    return fallback;
+  }
+
+  if (!normalized.startsWith("/") || normalized.startsWith("//")) {
+    return fallback;
+  }
+
+  return normalized;
+}
+
 function createAccountFlows(deps) {
   const {
     ensureConfigured,
@@ -11,13 +24,42 @@ function createAccountFlows(deps) {
     syncProfileFromSupabaseUser,
     resolvePasswordSignInPolicyForUserId,
     otpLoginRedirectUrl,
+    buildOtpLoginRedirectUrl,
+    appPublicUrl,
     isTransientSupabaseError,
     isUserNotFoundLikeAuthError,
     parseOtpLoginVerifyPayload,
     mapOtpVerifyError,
     setSessionFromRequestCookies,
-    mapProfileUpdateError
+    mapProfileUpdateError,
+    normalizeReturnToPath = normalizeLocalReturnToPath
   } = deps;
+
+  function resolveOtpEmailRedirectTo(returnToValue) {
+    const returnTo = normalizeReturnToPath(returnToValue, { fallback: "" });
+    if (!returnTo) {
+      return otpLoginRedirectUrl;
+    }
+
+    if (typeof buildOtpLoginRedirectUrl === "function") {
+      try {
+        return buildOtpLoginRedirectUrl({
+          appPublicUrl,
+          returnTo
+        });
+      } catch {
+        // Fall through to the pre-built URL fallback below.
+      }
+    }
+
+    try {
+      const redirectUrl = new URL(String(otpLoginRedirectUrl || ""));
+      redirectUrl.searchParams.set("returnTo", returnTo);
+      return redirectUrl.toString();
+    } catch {
+      return otpLoginRedirectUrl;
+    }
+  }
 
   async function register(payload) {
     ensureConfigured();
@@ -102,6 +144,7 @@ function createAccountFlows(deps) {
       throw validationError(parsed.fieldErrors);
     }
 
+    const emailRedirectTo = resolveOtpEmailRedirectTo(payload?.returnTo);
     const supabase = getSupabaseClient();
     let response;
     try {
@@ -109,7 +152,7 @@ function createAccountFlows(deps) {
         email: parsed.email,
         options: {
           shouldCreateUser: false,
-          emailRedirectTo: otpLoginRedirectUrl
+          emailRedirectTo
         }
       });
     } catch (error) {

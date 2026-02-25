@@ -47,6 +47,7 @@ function buildPasswordResetRedirectUrl(options) {
 
 function buildOtpLoginRedirectUrl(options) {
   const appPublicUrl = String(options.appPublicUrl || "").trim();
+  const returnTo = normalizeReturnToPath(options.returnTo, { fallback: "" });
 
   if (!appPublicUrl) {
     throw new Error("APP_PUBLIC_URL is required to build OTP login redirects.");
@@ -58,7 +59,11 @@ function buildOtpLoginRedirectUrl(options) {
   }
   baseUrl.search = "";
   baseUrl.hash = "";
-  return new URL(OAUTH_LOGIN_PATH, baseUrl).toString();
+  const redirectUrl = new URL(OAUTH_LOGIN_PATH, baseUrl);
+  if (returnTo) {
+    redirectUrl.searchParams.set("returnTo", returnTo);
+  }
+  return redirectUrl.toString();
 }
 
 function buildOAuthRedirectUrl(options) {

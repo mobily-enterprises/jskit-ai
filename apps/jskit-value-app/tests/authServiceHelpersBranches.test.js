@@ -71,6 +71,20 @@ test("oauth redirect helpers validate intent, returnTo, provider, and callback p
     buildOtpLoginRedirectUrl({ appPublicUrl: "http://localhost:5173/app" }),
     "http://localhost:5173/app/login"
   );
+  assert.equal(
+    buildOtpLoginRedirectUrl({
+      appPublicUrl: "http://localhost:5173/app",
+      returnTo: "/w/acme/choice-2?tab=summary"
+    }),
+    "http://localhost:5173/app/login?returnTo=%2Fw%2Facme%2Fchoice-2%3Ftab%3Dsummary"
+  );
+  assert.equal(
+    buildOtpLoginRedirectUrl({
+      appPublicUrl: "http://localhost:5173/app",
+      returnTo: "https://evil.test"
+    }),
+    "http://localhost:5173/app/login"
+  );
 
   assert.equal(normalizeOAuthIntent("LINK"), "link");
   assert.equal(normalizeOAuthIntent("unknown"), "login");

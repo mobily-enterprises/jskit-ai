@@ -94,6 +94,83 @@ test("updateDisplayName uses the same per-request Supabase client for setSession
   assert.equal(result.profile.displayName, "Updated Name");
 });
 
+test("requestOtpLogin builds request-scoped email redirect URLs from returnTo", async () => {
+  const calls = {
+    signInWithOtp: []
+  };
+
+  const supabaseClient = {
+    auth: {
+      async signInWithOtp(payload) {
+        calls.signInWithOtp.push(payload);
+        return {
+          data: {},
+          error: null
+        };
+      }
+    }
+  };
+
+  const flows = createAccountFlows({
+    ensureConfigured() {},
+    validators: {
+      registerInput: () => ({ fieldErrors: {} }),
+      loginInput: () => ({ fieldErrors: {} }),
+      forgotPasswordInput: (payload) => ({
+        email: String(payload?.email || "").trim(),
+        fieldErrors: {}
+      })
+    },
+    validationError: createValidationError,
+    getSupabaseClient: () => supabaseClient,
+    displayNameFromEmail: (email) => String(email || "").split("@")[0] || "user",
+    mapAuthError: (error, statusCode = 400) => new AppError(statusCode, String(error?.message || "auth error")),
+    syncProfileFromSupabaseUser: async () => ({
+      id: 1,
+      supabaseUserId: "supabase-user-1",
+      email: "user@example.com",
+      displayName: "User"
+    }),
+    resolvePasswordSignInPolicyForUserId: async () => ({
+      passwordSignInEnabled: true,
+      passwordSetupRequired: false
+    }),
+    otpLoginRedirectUrl: "http://localhost:5173/login",
+    buildOtpLoginRedirectUrl: ({ appPublicUrl, returnTo }) => {
+      const baseUrl = String(appPublicUrl || "");
+      const normalizedBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+      return `${normalizedBase}/login?returnTo=${encodeURIComponent(returnTo)}`;
+    },
+    appPublicUrl: "http://localhost:5173",
+    normalizeReturnToPath: (value, { fallback = "" } = {}) => {
+      const normalized = String(value || "").trim();
+      if (!normalized.startsWith("/") || normalized.startsWith("//")) {
+        return fallback;
+      }
+      return normalized;
+    },
+    isTransientSupabaseError: () => false,
+    isUserNotFoundLikeAuthError: () => false,
+    parseOtpLoginVerifyPayload: () => ({ fieldErrors: {} }),
+    mapOtpVerifyError: (error) => new AppError(400, String(error?.message || "otp error")),
+    setSessionFromRequestCookies: async () => ({ data: { session: null, user: null } }),
+    mapProfileUpdateError: (error) => new AppError(400, String(error?.message || "profile update error"))
+  });
+
+  await flows.requestOtpLogin({
+    email: "user@example.com",
+    returnTo: "/w/acme/choice-2"
+  });
+  await flows.requestOtpLogin({
+    email: "user@example.com",
+    returnTo: "https://evil.test"
+  });
+
+  assert.equal(calls.signInWithOtp.length, 2);
+  assert.equal(calls.signInWithOtp[0].options.emailRedirectTo, "http://localhost:5173/login?returnTo=%2Fw%2Facme%2Fchoice-2");
+  assert.equal(calls.signInWithOtp[1].options.emailRedirectTo, "http://localhost:5173/login");
+});
+
 test("setPasswordSignInEnabled reuses one per-request client across session and auth-context resolution", async () => {
   const calls = {
     setSessionFromRequestCookies: [],

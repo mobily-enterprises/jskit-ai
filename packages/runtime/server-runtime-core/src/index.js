@@ -1,6 +1,6 @@
 export { isAppError, AppError } from "./errors.js";
 export { parsePositiveInteger } from "./integers.js";
-export { safeRequestUrl, safePathnameFromRequest, resolveClientIpAddress } from "./requestUrl.js";
+export { safeRequestUrl, safePathnameFromRequest, buildLoginRedirectPathFromRequest, resolveClientIpAddress } from "./requestUrl.js";
 export { normalizePagination } from "./pagination.js";
 export { buildPublishRequestMeta, normalizeHeaderValue, publishSafely, resolvePublishMethod, warnPublishFailure } from "./realtimePublish.js";
 export { createRealtimeEventEnvelope, createRealtimeEventsBus, createTargetedChatEventEnvelope, normalizeEntityId, normalizePositiveIntegerArray, normalizePositiveIntegerOrNull, normalizeScopeKind, normalizeStringifiedPositiveIntegerOrNull, normalizeStringOrNull } from "./realtimeEvents.js";

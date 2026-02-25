@@ -115,6 +115,20 @@ const emailOnly = Type.Object(
   }
 );
 
+const otpRequestBody = Type.Object(
+  {
+    email: Type.String({
+      minLength: AUTH_EMAIL_MIN_LENGTH,
+      maxLength: AUTH_EMAIL_MAX_LENGTH,
+      pattern: AUTH_EMAIL_PATTERN
+    }),
+    returnTo: Type.Optional(oauthReturnTo)
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const passwordOnly = Type.Object(
   {
     password: Type.String({ minLength: AUTH_PASSWORD_MIN_LENGTH, maxLength: AUTH_PASSWORD_MAX_LENGTH })
@@ -265,7 +279,7 @@ const schema = {
     response: loginResponse
   },
   otpRequest: {
-    body: emailOnly,
+    body: otpRequestBody,
     response: okMessageResponse
   },
   otpVerify: {

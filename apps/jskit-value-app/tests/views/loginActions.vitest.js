@@ -286,6 +286,7 @@ describe("useLoginActions", () => {
     const originalWindow = globalThis.window;
     vi.stubGlobal("window", {
       location: {
+        search: "?returnTo=%2Fw%2Facme%2Fchoice-2%3Ftab%3Dsummary",
         assign
       }
     });
@@ -294,10 +295,10 @@ describe("useLoginActions", () => {
       expect(mocks.oauthUtils.writePendingOAuthContext).toHaveBeenCalledWith({
         provider: "google",
         intent: "login",
-        returnTo: "/",
+        returnTo: "/w/acme/choice-2?tab=summary",
         rememberAccountOnDevice: true
       });
-      expect(assign).toHaveBeenCalledWith("/api/v1/oauth/google/start?returnTo=/");
+      expect(assign).toHaveBeenCalledWith("/api/v1/oauth/google/start?returnTo=/w/acme/choice-2?tab=summary");
     } finally {
       vi.stubGlobal("window", originalWindow);
     }
@@ -313,11 +314,23 @@ describe("useLoginActions", () => {
     harness.otpRequestMutation.mutateAsync.mockResolvedValue({
       message: "OTP sent."
     });
-    await harness.actions.requestOtpCode();
-    expect(harness.otpRequestMutation.mutateAsync).toHaveBeenCalledWith({
-      email: "user@example.com"
+    const originalWindow = globalThis.window;
+    vi.stubGlobal("window", {
+      location: {
+        search: "?returnTo=%2Fw%2Facme%2Fchoice-2"
+      }
     });
-    expect(harness.infoMessage.value).toBe("OTP sent.");
+
+    try {
+      await harness.actions.requestOtpCode();
+      expect(harness.otpRequestMutation.mutateAsync).toHaveBeenCalledWith({
+        email: "user@example.com",
+        returnTo: "/w/acme/choice-2"
+      });
+      expect(harness.infoMessage.value).toBe("OTP sent.");
+    } finally {
+      vi.stubGlobal("window", originalWindow);
+    }
 
     harness.otpRequestMutation.mutateAsync.mockRejectedValue(new Error("otp failed"));
     await harness.actions.requestOtpCode();
@@ -358,14 +371,24 @@ describe("useLoginActions", () => {
       }
     });
 
-    await harness.actions.submitAuth();
-    expect(harness.authStore.applySession).toHaveBeenCalledWith({
-      authenticated: true,
-      username: "Chiara"
+    const originalWindow = globalThis.window;
+    vi.stubGlobal("window", {
+      location: {
+        search: "?returnTo=%2Fw%2Facme%2Fsettings"
+      }
     });
-    expect(harness.workspaceStore.applyBootstrap).toHaveBeenCalled();
-    expect(mocks.storage.writeRememberedAccountHint).toHaveBeenCalled();
-    expect(harness.navigate).toHaveBeenCalledWith({ to: "/", replace: true });
+    try {
+      await harness.actions.submitAuth();
+      expect(harness.authStore.applySession).toHaveBeenCalledWith({
+        authenticated: true,
+        username: "Chiara"
+      });
+      expect(harness.workspaceStore.applyBootstrap).toHaveBeenCalled();
+      expect(mocks.storage.writeRememberedAccountHint).toHaveBeenCalled();
+      expect(harness.navigate).toHaveBeenCalledWith({ to: "/w/acme/settings", replace: true });
+    } finally {
+      vi.stubGlobal("window", originalWindow);
+    }
   });
 
   it("submits otp/login auth flows and applies remembered-account preference", async () => {
@@ -380,30 +403,41 @@ describe("useLoginActions", () => {
         username: "Tony"
       }
     });
-    await otpHarness.actions.submitAuth();
-    expect(otpHarness.otpVerifyMutation.mutateAsync).toHaveBeenCalledWith({
-      email: "user@example.com",
-      token: "123456"
-    });
-    expect(otpHarness.navigate).toHaveBeenCalledWith({ to: "/", replace: true });
-
-    const loginHarness = createHarness();
-    loginHarness.rememberAccountOnDevice.value = false;
-    loginHarness.loginMutation.mutateAsync.mockResolvedValue({
-      ok: true
-    });
-    mocks.api.workspace.bootstrap.mockResolvedValue({
-      session: {
-        authenticated: true,
-        username: "Tony"
+    const originalWindow = globalThis.window;
+    vi.stubGlobal("window", {
+      location: {
+        search: "?returnTo=%2Fw%2Facme%2Fchoice-2"
       }
     });
-    await loginHarness.actions.submitAuth();
-    expect(loginHarness.loginMutation.mutateAsync).toHaveBeenCalledWith({
-      email: "user@example.com",
-      password: "password123"
-    });
-    expect(mocks.storage.clearRememberedAccountHint).toHaveBeenCalled();
+    try {
+      await otpHarness.actions.submitAuth();
+      expect(otpHarness.otpVerifyMutation.mutateAsync).toHaveBeenCalledWith({
+        email: "user@example.com",
+        token: "123456"
+      });
+      expect(otpHarness.navigate).toHaveBeenCalledWith({ to: "/w/acme/choice-2", replace: true });
+
+      const loginHarness = createHarness();
+      loginHarness.rememberAccountOnDevice.value = false;
+      loginHarness.loginMutation.mutateAsync.mockResolvedValue({
+        ok: true
+      });
+      mocks.api.workspace.bootstrap.mockResolvedValue({
+        session: {
+          authenticated: true,
+          username: "Tony"
+        }
+      });
+      await loginHarness.actions.submitAuth();
+      expect(loginHarness.loginMutation.mutateAsync).toHaveBeenCalledWith({
+        email: "user@example.com",
+        password: "password123"
+      });
+      expect(mocks.storage.clearRememberedAccountHint).toHaveBeenCalled();
+      expect(loginHarness.navigate).toHaveBeenCalledWith({ to: "/w/acme/choice-2", replace: true });
+    } finally {
+      vi.stubGlobal("window", originalWindow);
+    }
   });
 
   it("short-circuits submit when canSubmit is false and surfaces submit errors", async () => {
@@ -462,24 +496,34 @@ describe("useLoginActions", () => {
     });
     mocks.oauthUtils.readOAuthCallbackStateFromLocation.mockReturnValue(null);
 
-    await harness.actions.initializeLoginView();
-
-    expect(harness.oauthCallbackInFlight.value).toBe(false);
-    expect(harness.otpVerifyMutation.mutateAsync).toHaveBeenCalledWith({
-      tokenHash: "hash-token",
-      type: "magiclink"
+    const originalWindow = globalThis.window;
+    vi.stubGlobal("window", {
+      location: {
+        search: "?returnTo=%2Fw%2Facme"
+      }
     });
-    expect(mocks.otpCallback.stripOtpLoginCallbackParamsFromLocation).toHaveBeenCalled();
-    expect(harness.navigate).toHaveBeenCalledWith({ to: "/", replace: true });
+    try {
+      await harness.actions.initializeLoginView();
 
-    const errorHarness = createHarness();
-    mocks.otpCallback.readOtpLoginCallbackStateFromLocation.mockReturnValue({
-      errorCode: "access_denied",
-      errorDescription: "Denied by provider"
-    });
-    mocks.oauthUtils.readOAuthCallbackStateFromLocation.mockReturnValue(null);
-    await errorHarness.actions.initializeLoginView();
-    expect(errorHarness.errorMessage.value).toContain("Denied by provider");
+      expect(harness.oauthCallbackInFlight.value).toBe(false);
+      expect(harness.otpVerifyMutation.mutateAsync).toHaveBeenCalledWith({
+        tokenHash: "hash-token",
+        type: "magiclink"
+      });
+      expect(mocks.otpCallback.stripOtpLoginCallbackParamsFromLocation).toHaveBeenCalled();
+      expect(harness.navigate).toHaveBeenCalledWith({ to: "/w/acme", replace: true });
+
+      const errorHarness = createHarness();
+      mocks.otpCallback.readOtpLoginCallbackStateFromLocation.mockReturnValue({
+        errorCode: "access_denied",
+        errorDescription: "Denied by provider"
+      });
+      mocks.oauthUtils.readOAuthCallbackStateFromLocation.mockReturnValue(null);
+      await errorHarness.actions.initializeLoginView();
+      expect(errorHarness.errorMessage.value).toContain("Denied by provider");
+    } finally {
+      vi.stubGlobal("window", originalWindow);
+    }
   });
 
   it("handles oauth callback success and oauth callback failures", async () => {

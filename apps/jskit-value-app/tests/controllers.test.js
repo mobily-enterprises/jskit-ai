@@ -139,7 +139,10 @@ test("auth controller covers register/login/logout/session/password flows via ac
   assert.equal(loginReply.payload.username, "logged-user");
 
   const otpRequestReply = createReplyDouble();
-  await controller.requestOtpLogin({ body: { email: "otp@example.com" } }, otpRequestReply);
+  await controller.requestOtpLogin(
+    { body: { email: "otp@example.com", returnTo: "/w/acme/choice-2" } },
+    otpRequestReply
+  );
   assert.equal(otpRequestReply.statusCode, 200);
   assert.deepEqual(otpRequestReply.payload, { ok: true });
 
@@ -207,6 +210,9 @@ test("auth controller covers register/login/logout/session/password flows via ac
   assert.equal(logoutReply.statusCode, 200);
   assert.deepEqual(logoutReply.payload, { ok: true });
   assert.equal(logoutReply.cookies[0][0], "clear");
+
+  const otpRequestActionCall = actionCalls.find((call) => call.actionId === "auth.login.otp.request");
+  assert.equal(otpRequestActionCall?.input?.returnTo, "/w/acme/choice-2");
 
   assert.ok(actionCalls.length >= 12);
 });

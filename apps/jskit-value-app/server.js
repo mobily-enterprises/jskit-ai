@@ -26,7 +26,8 @@ import { registerApiRoutes } from "./server/fastify/registerApiRoutes.js";
 import authPlugin from "./server/fastify/auth.plugin.js";
 import billingWebhookRawBodyPlugin from "./server/fastify/billingWebhookRawBody.plugin.js";
 import { registerSocketIoRealtime } from "./server/realtime/registerSocketIoRealtime.js";
-import { safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
+import { buildLoginRedirectPathFromRequest, safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
+import { normalizeReturnToPath } from "@jskit-ai/access-core/utils";
 import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar.js";
 import { createSurfacePaths, resolveSurfaceFromPathname, resolveSurfacePaths } from "./shared/surfacePaths.js";
 import { surfaceRequiresWorkspace } from "./shared/surfaceRegistry.js";
@@ -214,6 +215,16 @@ function hasPathExtension(pathnameValue) {
   return path.extname(pathnameValue) !== "";
 }
 
+function redirectToSurfaceLogin(request, reply, surfacePaths) {
+  const redirectPath = buildLoginRedirectPathFromRequest({
+    request,
+    loginPath: surfacePaths?.loginPath,
+    isPublicPath: (pathname) => surfacePaths?.isPublicAuthPath?.(pathname),
+    normalizeReturnToPath
+  });
+  reply.redirect(redirectPath);
+}
+
 async function guardPageRoute(request, reply) {
   const pathnameValue = safePathnameFromRequest(request);
   const surfacePaths = resolveSurfacePaths(pathnameValue);
@@ -229,7 +240,7 @@ async function guardPageRoute(request, reply) {
       : authService.hasAccessTokenCookie(request);
   if (!hasCookieHint) {
     if (!surfacePaths.isPublicAuthPath(pathnameValue)) {
-      reply.redirect(surfacePaths.loginPath);
+      redirectToSurfaceLogin(request, reply, surfacePaths);
       return false;
     }
 
@@ -250,7 +261,7 @@ async function guardPageRoute(request, reply) {
     }
 
     if (!surfacePaths.isPublicAuthPath(pathnameValue) && !authResult.authenticated) {
-      reply.redirect(surfacePaths.loginPath);
+      redirectToSurfaceLogin(request, reply, surfacePaths);
       return false;
     }
 
@@ -377,7 +388,7 @@ async function guardPageRoute(request, reply) {
         reply.redirect(surfacePaths.workspacesPath);
         return false;
       }
-      reply.redirect(surfacePaths.loginPath);
+      redirectToSurfaceLogin(request, reply, surfacePaths);
       return false;
     }
 

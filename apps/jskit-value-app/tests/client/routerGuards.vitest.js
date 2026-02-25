@@ -265,6 +265,38 @@ describe("routerGuards", () => {
     await expect(hasWorkspaceGuards.beforeLoadAuthenticated()).resolves.toBeUndefined();
   });
 
+  it("adds returnTo query when redirecting unauthenticated users to login", async () => {
+    const guards = createSurfaceRouteGuards(
+      buildStores({
+        authenticated: false
+      }),
+      {
+        loginPath: "/custom/login",
+        workspacesPath: "/custom/workspaces",
+        workspaceHomePath: (slug) => `/custom/w/${slug}`
+      }
+    );
+
+    await expect(
+      guards.beforeLoadWorkspaceRequired({
+        location: {
+          pathname: "/custom/w/acme/projects",
+          search: "?tab=members"
+        },
+        params: {
+          workspaceSlug: "acme"
+        }
+      })
+    ).rejects.toMatchObject({
+      options: {
+        to: "/custom/login",
+        search: {
+          returnTo: "/custom/w/acme/projects?tab=members"
+        }
+      }
+    });
+  });
+
   it("validates workspace-required guard and switching behavior", async () => {
     const unauthenticated = createSurfaceRouteGuards(
       buildStores({

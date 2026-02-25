@@ -533,12 +533,15 @@ function createService(options) {
     syncProfileFromSupabaseUser,
     resolvePasswordSignInPolicyForUserId,
     otpLoginRedirectUrl,
+    buildOtpLoginRedirectUrl,
+    appPublicUrl,
     isTransientSupabaseError,
     isUserNotFoundLikeAuthError,
     parseOtpLoginVerifyPayload,
     mapOtpVerifyError,
     setSessionFromRequestCookies,
-    mapProfileUpdateError
+    mapProfileUpdateError,
+    normalizeReturnToPath
   });
 
   const { oauthStart, startProviderLink, oauthComplete, unlinkProvider } = createOauthFlows({

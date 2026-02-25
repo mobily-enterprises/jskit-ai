@@ -64,6 +64,29 @@ describe("routerGuards.console", () => {
     });
   });
 
+  it("preserves returnTo query when console guards redirect to login", async () => {
+    const guards = createConsoleRouteGuards(buildStores({ authenticated: false }), {
+      loginPath: "/console/login",
+      rootPath: "/console"
+    });
+
+    await expect(
+      guards.beforeLoadAuthenticated({
+        location: {
+          pathname: "/console/members",
+          search: "?filter=pending"
+        }
+      })
+    ).rejects.toMatchObject({
+      options: {
+        to: "/console/login",
+        search: {
+          returnTo: "/console/members?filter=pending"
+        }
+      }
+    });
+  });
+
   it("redirects authenticated /console/login requests to /console", async () => {
     const guards = createConsoleRouteGuards(
       buildStores({
