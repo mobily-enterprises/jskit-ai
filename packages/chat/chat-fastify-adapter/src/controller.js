@@ -1,3 +1,21 @@
+const CHAT_ACTION_IDS = Object.freeze({
+  WORKSPACE_ROOM_ENSURE: "chat.workspace_room.ensure",
+  DM_ENSURE: "chat.dm.ensure",
+  DM_CANDIDATES_LIST: "chat.dm.candidates.list",
+  INBOX_LIST: "chat.inbox.list",
+  THREAD_GET: "chat.thread.get",
+  THREAD_MESSAGES_LIST: "chat.thread.messages.list",
+  THREAD_MESSAGE_SEND: "chat.thread.message.send",
+  ATTACHMENT_RESERVE: "chat.attachment.reserve",
+  ATTACHMENT_UPLOAD: "chat.attachment.upload",
+  ATTACHMENT_DELETE: "chat.attachment.delete",
+  ATTACHMENT_CONTENT_GET: "chat.attachment.content.get",
+  THREAD_READ_MARK: "chat.thread.read.mark",
+  THREAD_REACTION_ADD: "chat.thread.reaction.add",
+  THREAD_REACTION_REMOVE: "chat.thread.reaction.remove",
+  THREAD_TYPING_EMIT: "chat.thread.typing.emit"
+});
+
 const CHAT_ATTACHMENT_MAX_UPLOAD_BYTES = 20_000_000;
 
 class DefaultAppError extends Error {
@@ -76,99 +94,114 @@ async function readOneMultipartAttachment(request, maxUploadBytes, AppErrorClass
   };
 }
 
-function createController({ chatService, appErrorClass = null }) {
-  if (!chatService) {
-    throw new Error("chatService is required.");
+async function executeAction(actionExecutor, { actionId, request, input = {} }) {
+  return actionExecutor.execute({
+    actionId,
+    input,
+    context: {
+      request,
+      channel: "api"
+    }
+  });
+}
+
+function createController({ actionExecutor, appErrorClass = null }) {
+  if (!actionExecutor || typeof actionExecutor.execute !== "function") {
+    throw new Error("actionExecutor.execute is required.");
   }
   const AppErrorClass = typeof appErrorClass === "function" ? appErrorClass : DefaultAppError;
 
-  function buildRequestMeta(request) {
-    return {
-      commandId: request?.headers?.["x-command-id"],
-      sourceClientId: request?.headers?.["x-client-id"],
-      logger: request?.log || null
-    };
-  }
-
   async function ensureDm(request, reply) {
-    const result = await chatService.ensureDm({
-      user: request.user,
-      targetPublicChatId: request.body?.targetPublicChatId
+    const result = await executeAction(actionExecutor, {
+      actionId: CHAT_ACTION_IDS.DM_ENSURE,
+      request,
+      input: {
+        targetPublicChatId: request.body?.targetPublicChatId
+      }
     });
 
     reply.code(200).send(result);
   }
 
   async function ensureWorkspaceRoom(request, reply) {
-    const result = await chatService.ensureWorkspaceRoom({
-      user: request.user,
-      surfaceId: request.headers?.["x-surface-id"]
+    const result = await executeAction(actionExecutor, {
+      actionId: CHAT_ACTION_IDS.WORKSPACE_ROOM_ENSURE,
+      request
     });
 
     reply.code(200).send(result);
   }
 
   async function listDmCandidates(request, reply) {
-    const result = await chatService.listDmCandidates({
-      user: request.user,
-      query: request.query || {}
+    const result = await executeAction(actionExecutor, {
+      actionId: CHAT_ACTION_IDS.DM_CANDIDATES_LIST,
+      request,
+      input: request.query || {}
     });
 
     reply.code(200).send(result);
   }
 
   async function listInbox(request, reply) {
-    const result = await chatService.listInbox({
-      user: request.user,
-      surfaceId: request.headers?.["x-surface-id"],
-      cursor: request.query?.cursor,
-      limit: request.query?.limit
+    const result = await executeAction(actionExecutor, {
+      actionId: CHAT_ACTION_IDS.INBOX_LIST,
+      request,
+      input: {
+        cursor: request.query?.cursor,
+        limit: request.query?.limit
+      }
     });
 
     reply.code(200).send(result);
   }
 
   async function getThread(request, reply) {
-    const result = await chatService.getThread({
-      user: request.user,
-      threadId: request.params?.threadId,
-      surfaceId: request.headers?.["x-surface-id"]
+    const result = await executeAction(actionExecutor, {
+      actionId: CHAT_ACTION_IDS.THREAD_GET,
+      request,
+      input: {
+        threadId: request.params?.threadId
+      }
     });
 
     reply.code(200).send(result);
   }
 
   async function listThreadMessages(request, reply) {
-    const result = await chatService.listThreadMessages({
-      user: request.user,
-      threadId: request.params?.threadId,
-      surfaceId: request.headers?.["x-surface-id"],
-      cursor: request.query?.cursor,
-      limit: request.query?.limit
+    const result = await executeAction(actionExecutor, {
+      actionId: CHAT_ACTION_IDS.THREAD_MESSAGES_LIST,
+      request,
+      input: {
+        threadId: request.params?.threadId,
+        cursor: request.query?.cursor,
+        limit: request.query?.limit
+      }
     });
 
     reply.code(200).send(result);
   }
 
   async function sendThreadMessage(request, reply) {
-    const result = await chatService.sendThreadMessage({
-      user: request.user,
-      threadId: request.params?.threadId,
-      surfaceId: request.headers?.["x-surface-id"],
-      payload: request.body || {},
-      requestMeta: buildRequestMeta(request)
+    const result = await executeAction(actionExecutor, {
+      actionId: CHAT_ACTION_IDS.THREAD_MESSAGE_SEND,
+      request,
+      input: {
+        threadId: request.params?.threadId,
+        payload: request.body || {}
+      }
     });
 
     reply.code(200).send(result);
   }
 
   async function reserveThreadAttachment(request, reply) {
-    const result = await chatService.reserveThreadAttachment({
-      user: request.user,
-      threadId: request.params?.threadId,
-      surfaceId: request.headers?.["x-surface-id"],
-      payload: request.body || {},
-      requestMeta: buildRequestMeta(request)
+    const result = await executeAction(actionExecutor, {
+      actionId: CHAT_ACTION_IDS.ATTACHMENT_RESERVE,
+      request,
+      input: {
+        threadId: request.params?.threadId,
+        payload: request.body || {}
+      }
     });
 
     reply.code(200).send(result);
@@ -177,35 +210,39 @@ function createController({ chatService, appErrorClass = null }) {
   async function uploadThreadAttachment(request, reply) {
     const maxUploadBytes = Number(request.routeOptions?.bodyLimit || 0) || CHAT_ATTACHMENT_MAX_UPLOAD_BYTES;
     const uploadPayload = await readOneMultipartAttachment(request, maxUploadBytes, AppErrorClass);
-    const result = await chatService.uploadThreadAttachment({
-      user: request.user,
-      threadId: request.params?.threadId,
-      surfaceId: request.headers?.["x-surface-id"],
-      attachmentId: uploadPayload.attachmentId,
-      payload: uploadPayload,
-      requestMeta: buildRequestMeta(request)
+    const result = await executeAction(actionExecutor, {
+      actionId: CHAT_ACTION_IDS.ATTACHMENT_UPLOAD,
+      request,
+      input: {
+        threadId: request.params?.threadId,
+        attachmentId: uploadPayload.attachmentId,
+        payload: uploadPayload
+      }
     });
 
     reply.code(200).send(result);
   }
 
   async function deleteThreadAttachment(request, reply) {
-    await chatService.deleteThreadAttachment({
-      user: request.user,
-      threadId: request.params?.threadId,
-      attachmentId: request.params?.attachmentId,
-      surfaceId: request.headers?.["x-surface-id"],
-      requestMeta: buildRequestMeta(request)
+    await executeAction(actionExecutor, {
+      actionId: CHAT_ACTION_IDS.ATTACHMENT_DELETE,
+      request,
+      input: {
+        threadId: request.params?.threadId,
+        attachmentId: request.params?.attachmentId
+      }
     });
 
     reply.code(204).send();
   }
 
   async function getAttachmentContent(request, reply) {
-    const result = await chatService.getAttachmentContent({
-      user: request.user,
-      attachmentId: request.params?.attachmentId,
-      surfaceId: request.headers?.["x-surface-id"]
+    const result = await executeAction(actionExecutor, {
+      actionId: CHAT_ACTION_IDS.ATTACHMENT_CONTENT_GET,
+      request,
+      input: {
+        attachmentId: request.params?.attachmentId
+      }
     });
 
     reply.header("Cache-Control", "private, no-store");
@@ -217,47 +254,51 @@ function createController({ chatService, appErrorClass = null }) {
   }
 
   async function markThreadRead(request, reply) {
-    const result = await chatService.markThreadRead({
-      user: request.user,
-      threadId: request.params?.threadId,
-      surfaceId: request.headers?.["x-surface-id"],
-      payload: request.body || {},
-      requestMeta: buildRequestMeta(request)
+    const result = await executeAction(actionExecutor, {
+      actionId: CHAT_ACTION_IDS.THREAD_READ_MARK,
+      request,
+      input: {
+        threadId: request.params?.threadId,
+        payload: request.body || {}
+      }
     });
 
     reply.code(200).send(result);
   }
 
   async function addReaction(request, reply) {
-    const result = await chatService.addReaction({
-      user: request.user,
-      threadId: request.params?.threadId,
-      surfaceId: request.headers?.["x-surface-id"],
-      payload: request.body || {},
-      requestMeta: buildRequestMeta(request)
+    const result = await executeAction(actionExecutor, {
+      actionId: CHAT_ACTION_IDS.THREAD_REACTION_ADD,
+      request,
+      input: {
+        threadId: request.params?.threadId,
+        payload: request.body || {}
+      }
     });
 
     reply.code(200).send(result);
   }
 
   async function removeReaction(request, reply) {
-    const result = await chatService.removeReaction({
-      user: request.user,
-      threadId: request.params?.threadId,
-      surfaceId: request.headers?.["x-surface-id"],
-      payload: request.body || {},
-      requestMeta: buildRequestMeta(request)
+    const result = await executeAction(actionExecutor, {
+      actionId: CHAT_ACTION_IDS.THREAD_REACTION_REMOVE,
+      request,
+      input: {
+        threadId: request.params?.threadId,
+        payload: request.body || {}
+      }
     });
 
     reply.code(200).send(result);
   }
 
   async function emitThreadTyping(request, reply) {
-    const result = await chatService.emitThreadTyping({
-      user: request.user,
-      threadId: request.params?.threadId,
-      surfaceId: request.headers?.["x-surface-id"],
-      requestMeta: buildRequestMeta(request)
+    const result = await executeAction(actionExecutor, {
+      actionId: CHAT_ACTION_IDS.THREAD_TYPING_EMIT,
+      request,
+      input: {
+        threadId: request.params?.threadId
+      }
     });
 
     reply.code(202).send(result);

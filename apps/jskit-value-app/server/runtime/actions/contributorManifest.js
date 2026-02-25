@@ -7,6 +7,8 @@ import { createSettingsActionContributor } from "./contributors/settings.contrib
 import { createProjectsActionContributor } from "./contributors/projects.contributor.js";
 import { createDeg2radHistoryActionContributor } from "./contributors/deg2radHistory.contributor.js";
 import { createAssistantActionContributor } from "./contributors/assistant.contributor.js";
+import { createConsoleErrorsActionContributor } from "./contributors/consoleErrors.contributor.js";
+import { createCommunicationsActionContributor } from "./contributors/communications.contributor.js";
 
 function createActionContributors({ services, repositories, repositoryConfig, appConfig, rbacManifest } = {}) {
   const actionConfig = repositoryConfig?.actions || {};
@@ -37,7 +39,8 @@ function createActionContributors({ services, repositories, repositoryConfig, ap
     }),
     createProjectsActionContributor({
       projectsService: services?.projectsService,
-      projectsRepository: repositories?.projectsRepository
+      projectsRepository: repositories?.projectsRepository,
+      billingService: services?.billingService
     }),
     createDeg2radHistoryActionContributor({
       deg2radHistoryService: services?.deg2radHistoryService,
@@ -50,6 +53,12 @@ function createActionContributors({ services, repositories, repositoryConfig, ap
       actionsConfig: actionConfig.assistant,
       appConfig,
       rbacManifest
+    }),
+    createConsoleErrorsActionContributor({
+      consoleErrorsService: services?.consoleErrorsService
+    }),
+    createCommunicationsActionContributor({
+      communicationsService: services?.communicationsService
     })
   ]);
 }

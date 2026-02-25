@@ -1,6 +1,7 @@
 import * as billingRepositoryModule from "./repository.js";
 
-const { __testables: _billingRepositoryTestables, ...repository } = billingRepositoryModule;
+const repository = { ...billingRepositoryModule };
+delete repository.__testables;
 
 function createRepository() {
   return {

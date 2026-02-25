@@ -1,5 +1,21 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 
+const BILLING_ACTION_IDS = Object.freeze({
+  PLANS_LIST: "workspace.billing.plans.list",
+  PRODUCTS_LIST: "workspace.billing.products.list",
+  PURCHASES_LIST: "workspace.billing.purchases.list",
+  PLAN_STATE_GET: "workspace.billing.plan_state.get",
+  PAYMENT_METHODS_LIST: "workspace.billing.payment_methods.list",
+  PAYMENT_METHODS_SYNC: "workspace.billing.payment_methods.sync",
+  LIMITATIONS_GET: "workspace.billing.limitations.get",
+  TIMELINE_LIST: "workspace.billing.timeline.list",
+  CHECKOUT_START: "workspace.billing.checkout.start",
+  PLAN_CHANGE_REQUEST: "workspace.billing.plan_change.request",
+  PLAN_CHANGE_CANCEL_PENDING: "workspace.billing.plan_change.cancel_pending",
+  PORTAL_CREATE: "workspace.billing.portal.create",
+  PAYMENT_LINK_CREATE: "workspace.billing.payment_link.create"
+});
+
 function normalizeIdempotencyKey(value) {
   const normalized = String(value || "").trim();
   return normalized || "";
@@ -16,135 +32,146 @@ function requireIdempotencyKey(request) {
   return idempotencyKey;
 }
 
-function createController({ billingService, billingWebhookService }) {
-  if (!billingService) {
-    throw new Error("billingService is required.");
+async function executeAction(actionExecutor, { actionId, request, input = {} }) {
+  return actionExecutor.execute({
+    actionId,
+    input,
+    context: {
+      request,
+      channel: "api"
+    }
+  });
+}
+
+function createController({ billingWebhookService, actionExecutor }) {
+  if (!actionExecutor || typeof actionExecutor.execute !== "function") {
+    throw new Error("actionExecutor.execute is required.");
   }
   if (!billingWebhookService) {
     throw new Error("billingWebhookService is required.");
   }
 
   async function listPlans(request, reply) {
-    const response = await billingService.listPlans({
-      request,
-      user: request.user
+    const response = await executeAction(actionExecutor, {
+      actionId: BILLING_ACTION_IDS.PLANS_LIST,
+      request
     });
 
     reply.code(200).send(response);
   }
 
   async function listProducts(request, reply) {
-    const response = await billingService.listProducts({
-      request,
-      user: request.user
+    const response = await executeAction(actionExecutor, {
+      actionId: BILLING_ACTION_IDS.PRODUCTS_LIST,
+      request
     });
 
     reply.code(200).send(response);
   }
 
   async function listPurchases(request, reply) {
-    const response = await billingService.listPurchases({
-      request,
-      user: request.user
+    const response = await executeAction(actionExecutor, {
+      actionId: BILLING_ACTION_IDS.PURCHASES_LIST,
+      request
     });
 
     reply.code(200).send(response);
   }
 
   async function getPlanState(request, reply) {
-    const response = await billingService.getPlanState({
-      request,
-      user: request.user
+    const response = await executeAction(actionExecutor, {
+      actionId: BILLING_ACTION_IDS.PLAN_STATE_GET,
+      request
     });
 
     reply.code(200).send(response);
   }
 
   async function listPaymentMethods(request, reply) {
-    const response = await billingService.listPaymentMethods({
-      request,
-      user: request.user
+    const response = await executeAction(actionExecutor, {
+      actionId: BILLING_ACTION_IDS.PAYMENT_METHODS_LIST,
+      request
     });
 
     reply.code(200).send(response);
   }
 
   async function syncPaymentMethods(request, reply) {
-    const response = await billingService.syncPaymentMethods({
-      request,
-      user: request.user
+    const response = await executeAction(actionExecutor, {
+      actionId: BILLING_ACTION_IDS.PAYMENT_METHODS_SYNC,
+      request
     });
 
     reply.code(200).send(response);
   }
 
   async function getLimitations(request, reply) {
-    const response = await billingService.getLimitations({
-      request,
-      user: request.user
+    const response = await executeAction(actionExecutor, {
+      actionId: BILLING_ACTION_IDS.LIMITATIONS_GET,
+      request
     });
 
     reply.code(200).send(response);
   }
 
   async function getTimeline(request, reply) {
-    const response = await billingService.listTimeline({
+    const response = await executeAction(actionExecutor, {
+      actionId: BILLING_ACTION_IDS.TIMELINE_LIST,
       request,
-      user: request.user,
-      query: request.query || {}
+      input: request.query || {}
     });
 
     reply.code(200).send(response);
   }
 
   async function startCheckout(request, reply) {
-    const response = await billingService.startCheckout({
+    requireIdempotencyKey(request);
+    const response = await executeAction(actionExecutor, {
+      actionId: BILLING_ACTION_IDS.CHECKOUT_START,
       request,
-      user: request.user,
-      payload: request.body || {},
-      clientIdempotencyKey: requireIdempotencyKey(request)
+      input: request.body || {}
     });
 
     reply.code(200).send(response);
   }
 
   async function requestPlanChange(request, reply) {
-    const response = await billingService.requestPlanChange({
+    requireIdempotencyKey(request);
+    const response = await executeAction(actionExecutor, {
+      actionId: BILLING_ACTION_IDS.PLAN_CHANGE_REQUEST,
       request,
-      user: request.user,
-      payload: request.body || {},
-      clientIdempotencyKey: requireIdempotencyKey(request)
+      input: request.body || {}
     });
 
     reply.code(200).send(response);
   }
 
   async function cancelPendingPlanChange(request, reply) {
-    const response = await billingService.cancelPendingPlanChange({
-      request,
-      user: request.user
+    const response = await executeAction(actionExecutor, {
+      actionId: BILLING_ACTION_IDS.PLAN_CHANGE_CANCEL_PENDING,
+      request
     });
 
     reply.code(200).send(response);
   }
 
   async function createPortalSession(request, reply) {
-    const response = await billingService.createPortalSession({
+    requireIdempotencyKey(request);
+    const response = await executeAction(actionExecutor, {
+      actionId: BILLING_ACTION_IDS.PORTAL_CREATE,
       request,
-      user: request.user,
-      payload: request.body || {},
-      clientIdempotencyKey: requireIdempotencyKey(request)
+      input: request.body || {}
     });
 
     reply.code(200).send(response);
   }
 
   async function createPaymentLink(request, reply) {
-    const response = await billingService.createPaymentLink({
+    requireIdempotencyKey(request);
+    const response = await executeAction(actionExecutor, {
+      actionId: BILLING_ACTION_IDS.PAYMENT_LINK_CREATE,
       request,
-      user: request.user,
-      payload: request.body || {},
-      clientIdempotencyKey: requireIdempotencyKey(request)
+      input: request.body || {}
     });
 
     reply.code(200).send(response);

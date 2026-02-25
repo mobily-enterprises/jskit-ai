@@ -1,12 +1,30 @@
-import { hasPermission } from "@jskit-ai/rbac-core";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
-import { withAuditEvent as withRuntimeAuditEvent } from "@jskit-ai/server-runtime-core/securityAudit";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import {
   buildPublishRequestMeta,
   publishSafely,
   resolvePublishMethod
 } from "@jskit-ai/server-runtime-core/realtimePublish";
+
+const WORKSPACE_ACTION_IDS = Object.freeze({
+  AUTH_SESSION_READ: "auth.session.read",
+  BOOTSTRAP_READ: "workspace.bootstrap.read",
+  WORKSPACES_LIST: "workspace.workspaces.list",
+  SELECT: "workspace.select",
+  INVITATIONS_PENDING_LIST: "workspace.invitations.pending.list",
+  INVITE_REDEEM: "workspace.invite.redeem",
+  ROLES_LIST: "workspace.roles.list",
+  SETTINGS_READ: "workspace.settings.read",
+  SETTINGS_UPDATE: "workspace.settings.update",
+  MEMBERS_LIST: "workspace.members.list",
+  MEMBER_ROLE_UPDATE: "workspace.member.role.update",
+  INVITES_LIST: "workspace.invites.list",
+  INVITE_CREATE: "workspace.invite.create",
+  INVITE_REVOKE: "workspace.invite.revoke",
+  AI_TRANSCRIPTS_LIST: "workspace.ai.transcripts.list",
+  AI_TRANSCRIPT_MESSAGES_GET: "workspace.ai.transcript.messages.get",
+  AI_TRANSCRIPT_EXPORT: "workspace.ai.transcript.export"
+});
 
 const DEFAULT_REALTIME_TOPICS = Object.freeze({
   WORKSPACE_META: "workspace_meta",
@@ -22,10 +40,6 @@ const DEFAULT_REALTIME_EVENT_TYPES = Object.freeze({
   WORKSPACE_INVITES_UPDATED: "workspace.invites.updated"
 });
 
-function defaultResolveSurfaceFromPathname() {
-  return "app";
-}
-
 function normalizeText(value) {
   return String(value || "").trim();
 }
@@ -34,32 +48,32 @@ function normalizeDecision(value) {
   return normalizeText(value).toLowerCase();
 }
 
+async function executeAction(actionExecutor, { actionId, request, input = {}, context = {} }) {
+  return actionExecutor.execute({
+    actionId,
+    input,
+    context: {
+      request,
+      channel: "api",
+      ...(context && typeof context === "object" ? context : {})
+    }
+  });
+}
+
 function createController({
   authService,
-  workspaceService,
-  workspaceAdminService,
-  aiTranscriptsService = null,
   consoleService,
-  auditService,
+  aiTranscriptsService = null,
   realtimeEventsService = null,
-  resolveSurfaceFromPathname = defaultResolveSurfaceFromPathname,
   realtimeTopics = DEFAULT_REALTIME_TOPICS,
-  realtimeEventTypes = DEFAULT_REALTIME_EVENT_TYPES
+  realtimeEventTypes = DEFAULT_REALTIME_EVENT_TYPES,
+  actionExecutor
 }) {
-  if (!authService || !workspaceService || !workspaceAdminService || !consoleService || !auditService) {
-    throw new Error(
-      "authService, workspaceService, workspaceAdminService, consoleService, and auditService are required."
-    );
+  if (!authService || !consoleService) {
+    throw new Error("authService and consoleService are required.");
   }
-  if (typeof auditService.recordSafe !== "function") {
-    throw new Error("auditService.recordSafe is required.");
-  }
-
-  function withAuditEvent(options) {
-    return withRuntimeAuditEvent({
-      ...(options || {}),
-      resolveSurfaceFromPathname
-    });
+  if (!actionExecutor || typeof actionExecutor.execute !== "function") {
+    throw new Error("actionExecutor.execute is required.");
   }
 
   const publishWorkspaceEvent = resolvePublishMethod(realtimeEventsService, "publishWorkspaceEvent");
@@ -84,7 +98,10 @@ function createController({
   }
 
   async function bootstrap(request, reply) {
-    const authResult = await authService.authenticateRequest(request);
+    const authResult = await executeAction(actionExecutor, {
+      actionId: WORKSPACE_ACTION_IDS.AUTH_SESSION_READ,
+      request
+    });
     if (authResult.clearSession) {
       authService.clearSessionCookies(reply);
     }
@@ -103,28 +120,34 @@ function createController({
       await consoleService.ensureInitialConsoleMember(authResult.profile.id);
     }
 
-    const payload = await workspaceService.buildBootstrapPayload({
+    const payload = await executeAction(actionExecutor, {
+      actionId: WORKSPACE_ACTION_IDS.BOOTSTRAP_READ,
       request,
-      user: authResult.authenticated ? authResult.profile : null
+      input: {
+        user: authResult.authenticated ? authResult.profile : null
+      },
+      context: {
+        actor: authResult.authenticated ? authResult.profile : null
+      }
     });
 
     reply.code(200).send(payload);
   }
 
   async function listWorkspaces(request, reply) {
-    const workspaces = await workspaceService.listWorkspacesForUser(request.user, {
+    const response = await executeAction(actionExecutor, {
+      actionId: WORKSPACE_ACTION_IDS.WORKSPACES_LIST,
       request
     });
-    reply.code(200).send({
-      workspaces
-    });
+    reply.code(200).send(response);
   }
 
   async function selectWorkspace(request, reply) {
     const payload = request.body || {};
-    const workspaceSlug = payload.workspaceSlug || payload.slug || payload.workspaceId;
-    const context = await workspaceService.selectWorkspaceForUser(request.user, workspaceSlug, {
-      request
+    const context = await executeAction(actionExecutor, {
+      actionId: WORKSPACE_ACTION_IDS.SELECT,
+      request,
+      input: payload
     });
     reply.code(200).send({
       ok: true,
@@ -133,14 +156,20 @@ function createController({
   }
 
   async function getWorkspaceSettings(request, reply) {
-    const response = await workspaceAdminService.getWorkspaceSettings(request.workspace, {
-      includeAppSurfaceDenyLists: hasPermission(request.permissions, "workspace.settings.update")
+    const response = await executeAction(actionExecutor, {
+      actionId: WORKSPACE_ACTION_IDS.SETTINGS_READ,
+      request
     });
     reply.code(200).send(response);
   }
 
   async function updateWorkspaceSettings(request, reply) {
-    const response = await workspaceAdminService.updateWorkspaceSettings(request.workspace, request.body || {});
+    const response = await executeAction(actionExecutor, {
+      actionId: WORKSPACE_ACTION_IDS.SETTINGS_UPDATE,
+      request,
+      input: request.body || {}
+    });
+
     publishWorkspaceEventForRequest({
       request,
       topic: REALTIME_TOPICS.WORKSPACE_SETTINGS,
@@ -168,37 +197,32 @@ function createController({
     reply.code(200).send(response);
   }
 
-  async function listWorkspaceRoles(_request, reply) {
-    const roleCatalog = workspaceAdminService.getRoleCatalog();
-    reply.code(200).send({
-      roleCatalog
+  async function listWorkspaceRoles(request, reply) {
+    const response = await executeAction(actionExecutor, {
+      actionId: WORKSPACE_ACTION_IDS.ROLES_LIST,
+      request
     });
+    reply.code(200).send(response);
   }
 
   async function listWorkspaceMembers(request, reply) {
-    const response = await workspaceAdminService.listMembers(request.workspace);
+    const response = await executeAction(actionExecutor, {
+      actionId: WORKSPACE_ACTION_IDS.MEMBERS_LIST,
+      request
+    });
     reply.code(200).send(response);
   }
 
   async function updateWorkspaceMemberRole(request, reply) {
     const memberUserId = request.params?.memberUserId;
     const roleId = request.body?.roleId;
-    const response = await withAuditEvent({
-      auditService,
+    const response = await executeAction(actionExecutor, {
+      actionId: WORKSPACE_ACTION_IDS.MEMBER_ROLE_UPDATE,
       request,
-      action: "workspace.member.role.updated",
-      execute: () =>
-        workspaceAdminService.updateMemberRole(request.workspace, {
-          memberUserId,
-          roleId
-        }),
-      shared: () => ({
-        workspaceId: parsePositiveInteger(request.workspace?.id),
-        targetUserId: parsePositiveInteger(memberUserId)
-      }),
-      metadata: () => ({
-        roleId: normalizeText(roleId)
-      })
+      input: {
+        memberUserId,
+        roleId
+      }
     });
 
     publishWorkspaceEventForRequest({
@@ -219,29 +243,19 @@ function createController({
   }
 
   async function listWorkspaceInvites(request, reply) {
-    const response = await workspaceAdminService.listInvites(request.workspace);
+    const response = await executeAction(actionExecutor, {
+      actionId: WORKSPACE_ACTION_IDS.INVITES_LIST,
+      request
+    });
     reply.code(200).send(response);
   }
 
   async function createWorkspaceInvite(request, reply) {
     const payload = request.body || {};
-    const response = await withAuditEvent({
-      auditService,
+    const response = await executeAction(actionExecutor, {
+      actionId: WORKSPACE_ACTION_IDS.INVITE_CREATE,
       request,
-      action: "workspace.invite.created",
-      execute: () => workspaceAdminService.createInvite(request.workspace, request.user, payload),
-      shared: () => ({
-        workspaceId: parsePositiveInteger(request.workspace?.id)
-      }),
-      metadata: () => ({
-        email: normalizeText(payload.email).toLowerCase(),
-        roleId: normalizeText(payload.roleId)
-      }),
-      onSuccess: (context) => ({
-        metadata: {
-          inviteId: parsePositiveInteger(context?.result?.createdInvite?.inviteId)
-        }
-      })
+      input: payload
     });
 
     publishWorkspaceEventForRequest({
@@ -264,17 +278,12 @@ function createController({
 
   async function revokeWorkspaceInvite(request, reply) {
     const inviteId = request.params?.inviteId;
-    const response = await withAuditEvent({
-      auditService,
+    const response = await executeAction(actionExecutor, {
+      actionId: WORKSPACE_ACTION_IDS.INVITE_REVOKE,
       request,
-      action: "workspace.invite.revoked",
-      execute: () => workspaceAdminService.revokeInvite(request.workspace, inviteId),
-      shared: () => ({
-        workspaceId: parsePositiveInteger(request.workspace?.id)
-      }),
-      metadata: () => ({
-        inviteId: parsePositiveInteger(inviteId)
-      })
+      input: {
+        inviteId
+      }
     });
 
     publishWorkspaceEventForRequest({
@@ -294,37 +303,19 @@ function createController({
   }
 
   async function listPendingInvites(request, reply) {
-    const pendingInvites = await workspaceService.listPendingInvitesForUser(request.user);
-    reply.code(200).send({
-      pendingInvites
+    const response = await executeAction(actionExecutor, {
+      actionId: WORKSPACE_ACTION_IDS.INVITATIONS_PENDING_LIST,
+      request
     });
+    reply.code(200).send(response);
   }
 
   async function respondToPendingInviteByToken(request, reply) {
     const payload = request.body || {};
-    const response = await withAuditEvent({
-      auditService,
+    const response = await executeAction(actionExecutor, {
+      actionId: WORKSPACE_ACTION_IDS.INVITE_REDEEM,
       request,
-      action: "workspace.invite.redeemed",
-      execute: () =>
-        workspaceAdminService.respondToPendingInviteByToken({
-          user: request.user,
-          inviteToken: payload.token,
-          decision: payload.decision
-        }),
-      shared: (context) => ({
-        workspaceId:
-          parsePositiveInteger(context?.result?.workspace?.id) || parsePositiveInteger(request.workspace?.id),
-        targetUserId: parsePositiveInteger(request.user?.id)
-      }),
-      metadata: () => ({
-        decision: normalizeDecision(payload.decision)
-      }),
-      onSuccess: (context) => ({
-        metadata: {
-          inviteId: parsePositiveInteger(context?.result?.inviteId)
-        }
-      })
+      input: payload
     });
 
     publishWorkspaceEventForRequest({
@@ -354,28 +345,10 @@ function createController({
     ensureAiTranscriptsService();
     const query = request.query || {};
 
-    const response = await withAuditEvent({
-      auditService,
+    const response = await executeAction(actionExecutor, {
+      actionId: WORKSPACE_ACTION_IDS.AI_TRANSCRIPTS_LIST,
       request,
-      action: "ai.transcripts.list.viewed",
-      execute: () => aiTranscriptsService.listWorkspaceConversations(request.workspace, query),
-      shared: () => ({
-        workspaceId: parsePositiveInteger(request.workspace?.id)
-      }),
-      metadata: () => ({
-        page: parsePositiveInteger(query.page) || 1,
-        pageSize: parsePositiveInteger(query.pageSize) || 20,
-        from: normalizeText(query.from),
-        to: normalizeText(query.to),
-        status: normalizeText(query.status).toLowerCase(),
-        createdByUserId: parsePositiveInteger(query.createdByUserId) || null
-      }),
-      onSuccess: (context) => ({
-        metadata: {
-          returnedCount: Array.isArray(context?.result?.entries) ? context.result.entries.length : 0,
-          total: Number(context?.result?.total || 0)
-        }
-      })
+      input: query
     });
 
     reply.code(200).send(response);
@@ -383,29 +356,16 @@ function createController({
 
   async function getWorkspaceAiTranscriptMessages(request, reply) {
     ensureAiTranscriptsService();
-    const params = request.params || {};
     const query = request.query || {};
-    const conversationId = params.conversationId;
+    const conversationId = request.params?.conversationId;
 
-    const response = await withAuditEvent({
-      auditService,
+    const response = await executeAction(actionExecutor, {
+      actionId: WORKSPACE_ACTION_IDS.AI_TRANSCRIPT_MESSAGES_GET,
       request,
-      action: "ai.transcripts.messages.viewed",
-      execute: () => aiTranscriptsService.getWorkspaceConversationMessages(request.workspace, conversationId, query),
-      shared: () => ({
-        workspaceId: parsePositiveInteger(request.workspace?.id)
-      }),
-      metadata: () => ({
-        conversationId: parsePositiveInteger(conversationId),
-        page: parsePositiveInteger(query.page) || 1,
-        pageSize: parsePositiveInteger(query.pageSize) || 100
-      }),
-      onSuccess: (context) => ({
-        metadata: {
-          returnedCount: Array.isArray(context?.result?.entries) ? context.result.entries.length : 0,
-          total: Number(context?.result?.total || 0)
-        }
-      })
+      input: {
+        ...query,
+        conversationId
+      }
     });
 
     reply.code(200).send(response);
@@ -413,28 +373,16 @@ function createController({
 
   async function exportWorkspaceAiTranscript(request, reply) {
     ensureAiTranscriptsService();
-    const params = request.params || {};
     const query = request.query || {};
-    const conversationId = params.conversationId;
+    const conversationId = request.params?.conversationId;
 
-    const response = await withAuditEvent({
-      auditService,
+    const response = await executeAction(actionExecutor, {
+      actionId: WORKSPACE_ACTION_IDS.AI_TRANSCRIPT_EXPORT,
       request,
-      action: "ai.transcripts.exported",
-      execute: () => aiTranscriptsService.exportWorkspaceConversation(request.workspace, conversationId, query),
-      shared: () => ({
-        workspaceId: parsePositiveInteger(request.workspace?.id)
-      }),
-      metadata: () => ({
-        conversationId: parsePositiveInteger(conversationId),
-        format: normalizeText(query.format).toLowerCase() || "json",
-        limit: parsePositiveInteger(query.limit) || null
-      }),
-      onSuccess: (context) => ({
-        metadata: {
-          exportedCount: Array.isArray(context?.result?.entries) ? context.result.entries.length : 0
-        }
-      })
+      input: {
+        ...query,
+        conversationId
+      }
     });
 
     reply.code(200).send(response);

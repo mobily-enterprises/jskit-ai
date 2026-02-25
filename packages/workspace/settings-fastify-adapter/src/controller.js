@@ -1,40 +1,54 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
-import { withAuditEvent as withRuntimeAuditEvent } from "@jskit-ai/server-runtime-core/securityAudit";
 
-function defaultResolveSurfaceFromPathname() {
-  return "app";
+const SETTINGS_ACTION_IDS = Object.freeze({
+  READ: "settings.read",
+  PROFILE_UPDATE: "settings.profile.update",
+  PROFILE_AVATAR_UPLOAD: "settings.profile.avatar.upload",
+  PROFILE_AVATAR_DELETE: "settings.profile.avatar.delete",
+  PREFERENCES_UPDATE: "settings.preferences.update",
+  NOTIFICATIONS_UPDATE: "settings.notifications.update",
+  CHAT_UPDATE: "settings.chat.update",
+  PASSWORD_CHANGE: "settings.security.password.change",
+  PASSWORD_METHOD_TOGGLE: "settings.security.password_method.toggle",
+  OAUTH_LINK_START: "settings.security.oauth.link.start",
+  OAUTH_UNLINK: "settings.security.oauth.unlink",
+  SESSIONS_LOGOUT_OTHERS: "settings.security.sessions.logout_others"
+});
+
+async function executeAction(actionExecutor, { actionId, request, input = {} }) {
+  return actionExecutor.execute({
+    actionId,
+    input,
+    context: {
+      request,
+      channel: "api"
+    }
+  });
 }
 
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-function createController({
-  userSettingsService,
-  authService,
-  auditService,
-  resolveSurfaceFromPathname = defaultResolveSurfaceFromPathname
-}) {
-  if (!userSettingsService || !authService || !auditService || typeof auditService.recordSafe !== "function") {
-    throw new Error("userSettingsService, authService, and auditService.recordSafe are required.");
+function createController({ authService, actionExecutor }) {
+  if (!authService) {
+    throw new Error("authService is required.");
   }
-
-  function withAuditEvent(options) {
-    return withRuntimeAuditEvent({
-      ...(options || {}),
-      resolveSurfaceFromPathname
-    });
+  if (!actionExecutor || typeof actionExecutor.execute !== "function") {
+    throw new Error("actionExecutor.execute is required.");
   }
 
   async function get(request, reply) {
-    const response = await userSettingsService.getForUser(request, request.user);
+    const response = await executeAction(actionExecutor, {
+      actionId: SETTINGS_ACTION_IDS.READ,
+      request
+    });
     reply.code(200).send(response);
   }
 
   async function updateProfile(request, reply) {
     const payload = request.body || {};
-    const result = await userSettingsService.updateProfile(request, request.user, payload);
+    const result = await executeAction(actionExecutor, {
+      actionId: SETTINGS_ACTION_IDS.PROFILE_UPDATE,
+      request,
+      input: payload
+    });
 
     if (result.session) {
       authService.writeSessionCookies(reply, result.session);
@@ -45,19 +59,31 @@ function createController({
 
   async function updatePreferences(request, reply) {
     const payload = request.body || {};
-    const response = await userSettingsService.updatePreferences(request, request.user, payload);
+    const response = await executeAction(actionExecutor, {
+      actionId: SETTINGS_ACTION_IDS.PREFERENCES_UPDATE,
+      request,
+      input: payload
+    });
     reply.code(200).send(response);
   }
 
   async function updateNotifications(request, reply) {
     const payload = request.body || {};
-    const response = await userSettingsService.updateNotifications(request, request.user, payload);
+    const response = await executeAction(actionExecutor, {
+      actionId: SETTINGS_ACTION_IDS.NOTIFICATIONS_UPDATE,
+      request,
+      input: payload
+    });
     reply.code(200).send(response);
   }
 
   async function updateChat(request, reply) {
     const payload = request.body || {};
-    const response = await userSettingsService.updateChat(request, request.user, payload);
+    const response = await executeAction(actionExecutor, {
+      actionId: SETTINGS_ACTION_IDS.CHAT_UPDATE,
+      request,
+      input: payload
+    });
     reply.code(200).send(response);
   }
 
@@ -75,23 +101,34 @@ function createController({
 
     const uploadDimension = filePart.fields?.uploadDimension?.value;
 
-    const response = await userSettingsService.uploadAvatar(request, request.user, {
-      stream: filePart.file,
-      mimeType: filePart.mimetype,
-      fileName: filePart.filename,
-      uploadDimension
+    const response = await executeAction(actionExecutor, {
+      actionId: SETTINGS_ACTION_IDS.PROFILE_AVATAR_UPLOAD,
+      request,
+      input: {
+        stream: filePart.file,
+        mimeType: filePart.mimetype,
+        fileName: filePart.filename,
+        uploadDimension
+      }
     });
     reply.code(200).send(response);
   }
 
   async function deleteAvatar(request, reply) {
-    const response = await userSettingsService.deleteAvatar(request, request.user);
+    const response = await executeAction(actionExecutor, {
+      actionId: SETTINGS_ACTION_IDS.PROFILE_AVATAR_DELETE,
+      request
+    });
     reply.code(200).send(response);
   }
 
   async function changePassword(request, reply) {
     const payload = request.body || {};
-    const result = await userSettingsService.changePassword(request, payload);
+    const result = await executeAction(actionExecutor, {
+      actionId: SETTINGS_ACTION_IDS.PASSWORD_CHANGE,
+      request,
+      input: payload
+    });
 
     if (result.session) {
       authService.writeSessionCookies(reply, result.session);
@@ -105,17 +142,10 @@ function createController({
 
   async function setPasswordMethodEnabled(request, reply) {
     const payload = request.body || {};
-    const response = await withAuditEvent({
-      auditService,
+    const response = await executeAction(actionExecutor, {
+      actionId: SETTINGS_ACTION_IDS.PASSWORD_METHOD_TOGGLE,
       request,
-      action: "auth.password_method.toggled",
-      execute: () => userSettingsService.setPasswordMethodEnabled(request, request.user, payload),
-      shared: () => ({
-        targetUserId: parsePositiveInteger(request.user?.id)
-      }),
-      metadata: () => ({
-        enabled: Boolean(payload.enabled)
-      })
+      input: payload
     });
 
     reply.code(200).send(response);
@@ -124,36 +154,35 @@ function createController({
   async function startOAuthProviderLink(request, reply) {
     const provider = request.params?.provider;
     const returnTo = request.query?.returnTo;
-    const result = await userSettingsService.startOAuthProviderLink(request, request.user, {
-      provider,
-      returnTo
+    const result = await executeAction(actionExecutor, {
+      actionId: SETTINGS_ACTION_IDS.OAUTH_LINK_START,
+      request,
+      input: {
+        provider,
+        returnTo
+      }
     });
     reply.redirect(result.url);
   }
 
   async function unlinkOAuthProvider(request, reply) {
     const provider = request.params?.provider;
-    const response = await withAuditEvent({
-      auditService,
+    const response = await executeAction(actionExecutor, {
+      actionId: SETTINGS_ACTION_IDS.OAUTH_UNLINK,
       request,
-      action: "auth.oauth_provider.unlinked",
-      execute: () =>
-        userSettingsService.unlinkOAuthProvider(request, request.user, {
-          provider
-        }),
-      shared: () => ({
-        targetUserId: parsePositiveInteger(request.user?.id)
-      }),
-      metadata: () => ({
-        provider: normalizeText(provider).toLowerCase()
-      })
+      input: {
+        provider
+      }
     });
 
     reply.code(200).send(response);
   }
 
   async function logoutOtherSessions(request, reply) {
-    const response = await userSettingsService.logoutOtherSessions(request);
+    const response = await executeAction(actionExecutor, {
+      actionId: SETTINGS_ACTION_IDS.SESSIONS_LOGOUT_OTHERS,
+      request
+    });
     reply.code(200).send(response);
   }
 

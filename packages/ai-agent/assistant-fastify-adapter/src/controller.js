@@ -1,5 +1,11 @@
 import { endNdjson, safeStreamError, setNdjsonHeaders, writeNdjson } from "./ndjson.js";
 
+const ASSISTANT_ACTION_IDS = Object.freeze({
+  CHAT_STREAM: "assistant.chat.stream",
+  CONVERSATIONS_LIST: "assistant.conversations.list",
+  CONVERSATION_MESSAGES_LIST: "assistant.conversation.messages.list"
+});
+
 class DefaultAppError extends Error {
   constructor(status, message, options = {}) {
     super(message);
@@ -72,64 +78,44 @@ function buildStreamErrorPayload(error, AppErrorClass = DefaultAppError) {
   };
 }
 
-function createController({ aiService, aiTranscriptsService = null, appErrorClass = null, hasPermissionFn = null }) {
-  if (!aiService || typeof aiService.streamChatTurn !== "function") {
-    throw new Error("aiService.streamChatTurn is required.");
-  }
-  if (aiTranscriptsService && typeof aiTranscriptsService.listWorkspaceConversations !== "function") {
-    throw new Error("aiTranscriptsService.listWorkspaceConversations is required when provided.");
-  }
-  if (aiTranscriptsService && typeof aiTranscriptsService.listWorkspaceConversationsForUser !== "function") {
-    throw new Error("aiTranscriptsService.listWorkspaceConversationsForUser is required when provided.");
-  }
-  if (aiTranscriptsService && typeof aiTranscriptsService.getWorkspaceConversationMessages !== "function") {
-    throw new Error("aiTranscriptsService.getWorkspaceConversationMessages is required when provided.");
-  }
-  if (aiTranscriptsService && typeof aiTranscriptsService.getWorkspaceConversationMessagesForUser !== "function") {
-    throw new Error("aiTranscriptsService.getWorkspaceConversationMessagesForUser is required when provided.");
+async function executeAction(actionExecutor, { actionId, request, input = {} }) {
+  return actionExecutor.execute({
+    actionId,
+    input,
+    context: {
+      request,
+      channel: "api"
+    }
+  });
+}
+
+async function executeStreamAction(actionExecutor, { actionId, request, input = {}, deps = {} }) {
+  return actionExecutor.executeStream({
+    actionId,
+    input,
+    context: {
+      request,
+      channel: "api"
+    },
+    deps
+  });
+}
+
+function createController({ actionExecutor, appErrorClass = null }) {
+  if (!actionExecutor || typeof actionExecutor.execute !== "function" || typeof actionExecutor.executeStream !== "function") {
+    throw new Error("actionExecutor.execute and actionExecutor.executeStream are required.");
   }
   const AppErrorClass = typeof appErrorClass === "function" ? appErrorClass : DefaultAppError;
-  const permissionCheck = typeof hasPermissionFn === "function" ? hasPermissionFn : defaultHasPermission;
-
-  function ensureAiTranscriptsService() {
-    if (!aiTranscriptsService) {
-      throw new AppErrorClass(501, "AI transcripts service is not available.");
-    }
-  }
-
-  function isAdminWorkspaceTranscriptViewAllowed(request) {
-    const surfaceId = String(request?.headers?.["x-surface-id"] || "")
-      .trim()
-      .toLowerCase();
-    if (surfaceId !== "admin") {
-      return false;
-    }
-
-    const permissions = Array.isArray(request?.permissions) ? request.permissions : [];
-    return permissionCheck(permissions, "workspace.ai.transcripts.read");
-  }
 
   async function chatStream(request, reply) {
     let streamStarted = false;
     const abortController = new AbortController();
     const body = request.body || {};
 
-    const closeListener = () => {
-      abortController.abort();
-    };
-
-    try {
-      if (typeof aiService.isEnabled === "function" && aiService.isEnabled() !== true) {
-        throw new AppErrorClass(404, "Not found.");
+    function startStream() {
+      if (streamStarted) {
+        return;
       }
-      const validatedInput =
-        typeof aiService.validateChatTurnInput === "function"
-          ? aiService.validateChatTurnInput({
-              request,
-              body
-            })
-          : null;
-
       setNdjsonHeaders(reply);
       reply.code(200);
       reply.hijack();
@@ -137,47 +123,60 @@ function createController({ aiService, aiTranscriptsService = null, appErrorClas
         reply.raw.flushHeaders();
       }
       streamStarted = true;
+    }
 
+    const closeListener = () => {
+      abortController.abort();
+    };
+
+    try {
       request.raw.on("close", closeListener);
 
       const streamWriter = {
         sendMeta(payload) {
+          startStream();
           writeNdjson(reply, {
             type: "meta",
             ...(payload || {})
           });
         },
         sendAssistantDelta(delta) {
+          startStream();
           writeNdjson(reply, {
             type: "assistant_delta",
             delta: String(delta || "")
           });
         },
         sendAssistantMessage(text) {
+          startStream();
           writeNdjson(reply, {
             type: "assistant_message",
             text: String(text || "")
           });
         },
         sendToolCall(payload) {
+          startStream();
           writeNdjson(reply, {
             type: "tool_call",
             ...(payload || {})
           });
         },
         sendToolResult(payload) {
+          startStream();
           writeNdjson(reply, {
             type: "tool_result",
             ...(payload || {})
           });
         },
         sendError(payload) {
+          startStream();
           writeNdjson(reply, {
             type: "error",
             ...(payload || {})
           });
         },
         sendDone(payload) {
+          startStream();
           writeNdjson(reply, {
             type: "done",
             ...(payload || {})
@@ -185,14 +184,21 @@ function createController({ aiService, aiTranscriptsService = null, appErrorClas
         }
       };
 
-      await aiService.streamChatTurn({
+      await executeStreamAction(actionExecutor, {
+        actionId: ASSISTANT_ACTION_IDS.CHAT_STREAM,
         request,
-        body,
-        streamWriter,
-        abortSignal: abortController.signal,
-        validatedInput
+        input: {
+          body
+        },
+        deps: {
+          streamWriter,
+          abortSignal: abortController.signal
+        }
       });
 
+      if (!streamStarted) {
+        startStream();
+      }
       endNdjson(reply);
     } catch (error) {
       if (!streamStarted) {
@@ -213,26 +219,25 @@ function createController({ aiService, aiTranscriptsService = null, appErrorClas
   }
 
   async function listConversations(request, reply) {
-    ensureAiTranscriptsService();
-    const query = request.query || {};
-    const response = isAdminWorkspaceTranscriptViewAllowed(request)
-      ? await aiTranscriptsService.listWorkspaceConversations(request.workspace, query)
-      : await aiTranscriptsService.listWorkspaceConversationsForUser(request.workspace, request.user, query);
+    const response = await executeAction(actionExecutor, {
+      actionId: ASSISTANT_ACTION_IDS.CONVERSATIONS_LIST,
+      request,
+      input: request.query || {}
+    });
     reply.code(200).send(response);
   }
 
   async function getConversationMessages(request, reply) {
-    ensureAiTranscriptsService();
     const query = request.query || {};
     const params = request.params || {};
-    const response = isAdminWorkspaceTranscriptViewAllowed(request)
-      ? await aiTranscriptsService.getWorkspaceConversationMessages(request.workspace, params.conversationId, query)
-      : await aiTranscriptsService.getWorkspaceConversationMessagesForUser(
-          request.workspace,
-          request.user,
-          params.conversationId,
-          query
-        );
+    const response = await executeAction(actionExecutor, {
+      actionId: ASSISTANT_ACTION_IDS.CONVERSATION_MESSAGES_LIST,
+      request,
+      input: {
+        ...query,
+        conversationId: params.conversationId
+      }
+    });
     reply.code(200).send(response);
   }
 

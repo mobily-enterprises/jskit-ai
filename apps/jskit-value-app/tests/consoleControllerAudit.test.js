@@ -25,7 +25,7 @@ function createBaseRequest(overrides = {}) {
     url: "/api/v1/console/invites",
     headers: {
       "x-forwarded-for": "198.51.100.10, 203.0.113.4",
-      "user-agent": "console-audit-test"
+      "user-agent": "console-action-test"
     },
     user: {
       id: 5,
@@ -35,42 +35,33 @@ function createBaseRequest(overrides = {}) {
   };
 }
 
-test("console controller emits success security audit events for critical actions", async () => {
-  const auditEvents = [];
+test("console controller delegates critical writes to canonical actions", async () => {
+  const calls = [];
   const controller = createConsoleController({
-    consoleService: {
-      async updateMemberRole() {
-        return { members: [{ userId: 22, roleId: "moderator" }] };
-      },
-      async createInvite() {
-        return {
-          invites: [],
-          createdInvite: {
-            inviteId: 401
-          }
-        };
-      },
-      async updateAssistantSettings() {
-        return {
-          settings: {
-            assistantSystemPromptWorkspace: "Use concise language."
-          }
-        };
-      },
-      async revokeInvite() {
-        return { invites: [] };
-      },
-      async respondToPendingInviteByToken() {
-        return {
-          ok: true,
-          decision: "accept",
-          inviteId: 902
-        };
-      }
-    },
-    auditService: {
-      async recordSafe(event) {
-        auditEvents.push(event);
+    actionExecutor: {
+      async execute({ actionId, input, context }) {
+        calls.push({
+          actionId,
+          input,
+          context
+        });
+
+        if (actionId === "console.member.role.update") {
+          return { members: [{ userId: 22, roleId: "moderator" }] };
+        }
+        if (actionId === "console.invite.create") {
+          return { invites: [], createdInvite: { inviteId: 401 } };
+        }
+        if (actionId === "console.settings.update") {
+          return { settings: { assistantSystemPromptWorkspace: "Use concise language." } };
+        }
+        if (actionId === "console.invite.revoke") {
+          return { invites: [] };
+        }
+        if (actionId === "console.invite.redeem") {
+          return { ok: true, decision: "accept", inviteId: 902 };
+        }
+        throw new Error(`Unexpected action: ${actionId}`);
       }
     }
   });
@@ -134,37 +125,30 @@ test("console controller emits success security audit events for critical action
   assert.equal(redeemReply.statusCode, 200);
 
   assert.deepEqual(
-    auditEvents.map((event) => [event.action, event.outcome]),
+    calls.map((entry) => entry.actionId),
     [
-      ["console.member.role.updated", "success"],
-      ["console.invite.created", "success"],
-      ["console.assistant.settings.updated", "success"],
-      ["console.invite.revoked", "success"],
-      ["console.invite.redeemed", "success"]
+      "console.member.role.update",
+      "console.invite.create",
+      "console.settings.update",
+      "console.invite.revoke",
+      "console.invite.redeem"
     ]
   );
-  assert.equal(auditEvents[0].targetUserId, 22);
-  assert.equal(auditEvents[1].metadata.inviteId, 401);
-  assert.equal(auditEvents[3].metadata.inviteId, 401);
-  assert.equal(auditEvents[4].metadata.decision, "accept");
-  assert.equal(Object.hasOwn(auditEvents[4].metadata, "token"), false);
+  for (const call of calls) {
+    assert.equal(call.context.channel, "api");
+  }
 });
 
-test("console controller emits failure security audit events and rethrows", async () => {
-  const auditEvents = [];
+test("console controller rethrows action errors", async () => {
   const expectedError = Object.assign(new Error("not found"), {
     status: 404,
     code: "INVITE_NOT_FOUND"
   });
   const controller = createConsoleController({
-    consoleService: {
-      async revokeInvite() {
+    actionExecutor: {
+      async execute({ actionId }) {
+        assert.equal(actionId, "console.invite.revoke");
         throw expectedError;
-      }
-    },
-    auditService: {
-      async recordSafe(event) {
-        auditEvents.push(event);
       }
     }
   });
@@ -185,10 +169,4 @@ test("console controller emits failure security audit events and rethrows", asyn
       return true;
     }
   );
-
-  assert.equal(auditEvents.length, 1);
-  assert.equal(auditEvents[0].action, "console.invite.revoked");
-  assert.equal(auditEvents[0].outcome, "failure");
-  assert.equal(auditEvents[0].metadata.error.status, 404);
-  assert.equal(auditEvents[0].metadata.error.code, "INVITE_NOT_FOUND");
 });

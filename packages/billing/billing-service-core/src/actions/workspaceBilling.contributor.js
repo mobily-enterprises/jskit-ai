@@ -107,11 +107,17 @@ function createWorkspaceBillingActionContributor({ billingService } = {}) {
   const contributorId = "billing.workspace";
 
   requireServiceMethod(billingService, "getPlanState", contributorId);
+  requireServiceMethod(billingService, "listPlans", contributorId);
   requireServiceMethod(billingService, "listProducts", contributorId);
   requireServiceMethod(billingService, "listPurchases", contributorId);
+  requireServiceMethod(billingService, "listPaymentMethods", contributorId);
+  requireServiceMethod(billingService, "syncPaymentMethods", contributorId);
   requireServiceMethod(billingService, "getLimitations", contributorId);
+  requireServiceMethod(billingService, "listTimeline", contributorId);
+  requireServiceMethod(billingService, "startCheckout", contributorId);
   requireServiceMethod(billingService, "requestPlanChange", contributorId);
   requireServiceMethod(billingService, "cancelPendingPlanChange", contributorId);
+  requireServiceMethod(billingService, "createPortalSession", contributorId);
   requireServiceMethod(billingService, "createPaymentLink", contributorId);
 
   return {
@@ -134,6 +140,27 @@ function createWorkspaceBillingActionContributor({ billingService } = {}) {
         observability: {},
         async execute(input, context) {
           return billingService.getPlanState({
+            request: resolveRequest(context, input),
+            user: resolveUser(context, input)
+          });
+        }
+      },
+      {
+        id: "workspace.billing.plans.list",
+        version: 1,
+        kind: "query",
+        channels: ["api", "internal"],
+        surfaces: ["admin"],
+        visibility: "public",
+        inputSchema: OBJECT_INPUT_SCHEMA,
+        permission: requireWorkspaceBillingManageOrSelf,
+        idempotency: "none",
+        audit: {
+          actionName: "workspace.billing.plans.list"
+        },
+        observability: {},
+        async execute(input, context) {
+          return billingService.listPlans({
             request: resolveRequest(context, input),
             user: resolveUser(context, input)
           });
@@ -182,6 +209,48 @@ function createWorkspaceBillingActionContributor({ billingService } = {}) {
         }
       },
       {
+        id: "workspace.billing.payment_methods.list",
+        version: 1,
+        kind: "query",
+        channels: ["api", "internal"],
+        surfaces: ["admin"],
+        visibility: "public",
+        inputSchema: OBJECT_INPUT_SCHEMA,
+        permission: requireWorkspaceBillingManageOrSelf,
+        idempotency: "none",
+        audit: {
+          actionName: "workspace.billing.payment_methods.list"
+        },
+        observability: {},
+        async execute(input, context) {
+          return billingService.listPaymentMethods({
+            request: resolveRequest(context, input),
+            user: resolveUser(context, input)
+          });
+        }
+      },
+      {
+        id: "workspace.billing.payment_methods.sync",
+        version: 1,
+        kind: "command",
+        channels: ["api", "internal"],
+        surfaces: ["admin"],
+        visibility: "public",
+        inputSchema: OBJECT_INPUT_SCHEMA,
+        permission: requireWorkspaceBillingManageOrSelf,
+        idempotency: "optional",
+        audit: {
+          actionName: "workspace.billing.payment_methods.sync"
+        },
+        observability: {},
+        async execute(input, context) {
+          return billingService.syncPaymentMethods({
+            request: resolveRequest(context, input),
+            user: resolveUser(context, input)
+          });
+        }
+      },
+      {
         id: "workspace.billing.limitations.get",
         version: 1,
         kind: "query",
@@ -199,6 +268,51 @@ function createWorkspaceBillingActionContributor({ billingService } = {}) {
           return billingService.getLimitations({
             request: resolveRequest(context, input),
             user: resolveUser(context, input)
+          });
+        }
+      },
+      {
+        id: "workspace.billing.timeline.list",
+        version: 1,
+        kind: "query",
+        channels: ["api", "internal"],
+        surfaces: ["admin"],
+        visibility: "public",
+        inputSchema: OBJECT_INPUT_SCHEMA,
+        permission: requireWorkspaceBillingManageOrSelf,
+        idempotency: "none",
+        audit: {
+          actionName: "workspace.billing.timeline.list"
+        },
+        observability: {},
+        async execute(input, context) {
+          return billingService.listTimeline({
+            request: resolveRequest(context, input),
+            user: resolveUser(context, input),
+            query: normalizeObject(input)
+          });
+        }
+      },
+      {
+        id: "workspace.billing.checkout.start",
+        version: 1,
+        kind: "command",
+        channels: ["api", "internal"],
+        surfaces: ["admin"],
+        visibility: "public",
+        inputSchema: OBJECT_INPUT_SCHEMA,
+        permission: requireWorkspaceBillingManageOrSelf,
+        idempotency: "required",
+        audit: {
+          actionName: "workspace.billing.checkout.start"
+        },
+        observability: {},
+        async execute(input, context) {
+          return billingService.startCheckout({
+            request: resolveRequest(context, input),
+            user: resolveUser(context, input),
+            payload: normalizeObject(input),
+            clientIdempotencyKey: resolveIdempotencyKey(context, input)
           });
         }
       },
@@ -243,6 +357,29 @@ function createWorkspaceBillingActionContributor({ billingService } = {}) {
           return billingService.cancelPendingPlanChange({
             request: resolveRequest(context, input),
             user: resolveUser(context, input)
+          });
+        }
+      },
+      {
+        id: "workspace.billing.portal.create",
+        version: 1,
+        kind: "command",
+        channels: ["api", "internal"],
+        surfaces: ["admin"],
+        visibility: "public",
+        inputSchema: OBJECT_INPUT_SCHEMA,
+        permission: requireWorkspaceBillingManageOrSelf,
+        idempotency: "required",
+        audit: {
+          actionName: "workspace.billing.portal.create"
+        },
+        observability: {},
+        async execute(input, context) {
+          return billingService.createPortalSession({
+            request: resolveRequest(context, input),
+            user: resolveUser(context, input),
+            payload: normalizeObject(input),
+            clientIdempotencyKey: resolveIdempotencyKey(context, input)
           });
         }
       },

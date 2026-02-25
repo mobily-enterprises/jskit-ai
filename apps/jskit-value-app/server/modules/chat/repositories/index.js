@@ -7,15 +7,22 @@ import * as reactionsRepositoryModule from "./reactions.repository.js";
 import * as userSettingsRepositoryModule from "./userSettings.repository.js";
 import * as blocksRepositoryModule from "./blocks.repository.js";
 
-const { __testables: _threadsTestables, ...threadsRepository } = threadsRepositoryModule;
-const { __testables: _participantsTestables, ...participantsRepository } = participantsRepositoryModule;
-const { __testables: _messagesTestables, ...messagesRepository } = messagesRepositoryModule;
-const { __testables: _idempotencyTombstonesTestables, ...idempotencyTombstonesRepository } =
-  idempotencyTombstonesRepositoryModule;
-const { __testables: _attachmentsTestables, ...attachmentsRepository } = attachmentsRepositoryModule;
-const { __testables: _reactionsTestables, ...reactionsRepository } = reactionsRepositoryModule;
-const { __testables: _userSettingsTestables, ...userSettingsRepository } = userSettingsRepositoryModule;
-const { __testables: _blocksTestables, ...blocksRepository } = blocksRepositoryModule;
+const threadsRepository = { ...threadsRepositoryModule };
+delete threadsRepository.__testables;
+const participantsRepository = { ...participantsRepositoryModule };
+delete participantsRepository.__testables;
+const messagesRepository = { ...messagesRepositoryModule };
+delete messagesRepository.__testables;
+const idempotencyTombstonesRepository = { ...idempotencyTombstonesRepositoryModule };
+delete idempotencyTombstonesRepository.__testables;
+const attachmentsRepository = { ...attachmentsRepositoryModule };
+delete attachmentsRepository.__testables;
+const reactionsRepository = { ...reactionsRepositoryModule };
+delete reactionsRepository.__testables;
+const userSettingsRepository = { ...userSettingsRepositoryModule };
+delete userSettingsRepository.__testables;
+const blocksRepository = { ...blocksRepositoryModule };
+delete blocksRepository.__testables;
 
 function createRepository() {
   return {

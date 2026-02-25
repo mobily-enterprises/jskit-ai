@@ -25,7 +25,7 @@ function createBaseRequest(overrides = {}) {
     url: "/api/v1/workspace/acme/invites",
     headers: {
       "x-forwarded-for": "203.0.113.11, 198.51.100.4",
-      "user-agent": "workspace-audit-test"
+      "user-agent": "workspace-action-test"
     },
     user: {
       id: 9,
@@ -39,43 +39,52 @@ function createBaseRequest(overrides = {}) {
   };
 }
 
-test("workspace controller emits success security audit events for critical actions", async () => {
-  const auditEvents = [];
-  const controller = createWorkspaceController({
-    authService: {},
-    workspaceService: {},
-    workspaceAdminService: {
-      async updateMemberRole() {
-        return { members: [{ userId: 22, roleId: "admin" }] };
-      },
-      async createInvite() {
-        return {
-          invites: [],
-          createdInvite: {
-            inviteId: 501
-          }
-        };
-      },
-      async revokeInvite() {
-        return { invites: [] };
-      },
-      async respondToPendingInviteByToken() {
-        return {
-          ok: true,
-          decision: "accept",
-          inviteId: 777,
-          workspace: {
-            id: 11
-          }
-        };
-      }
+function createWorkspaceControllerWithActionExecutor(execute) {
+  return createWorkspaceController({
+    authService: {
+      clearSessionCookies() {},
+      writeSessionCookies() {}
     },
-    consoleService: {},
-    auditService: {
-      async recordSafe(event) {
-        auditEvents.push(event);
+    consoleService: {
+      async ensureInitialConsoleMember() {}
+    },
+    actionExecutor: {
+      async execute(payload) {
+        return execute(payload);
       }
     }
+  });
+}
+
+test("workspace controller delegates critical writes to canonical actions", async () => {
+  const calls = [];
+  const controller = createWorkspaceControllerWithActionExecutor(async ({ actionId, input, context }) => {
+    calls.push({
+      actionId,
+      input,
+      context
+    });
+
+    if (actionId === "workspace.member.role.update") {
+      return { members: [{ userId: 22, roleId: "admin" }] };
+    }
+    if (actionId === "workspace.invite.create") {
+      return { invites: [], createdInvite: { inviteId: 501 } };
+    }
+    if (actionId === "workspace.invite.revoke") {
+      return { invites: [] };
+    }
+    if (actionId === "workspace.invite.redeem") {
+      return {
+        ok: true,
+        decision: "accept",
+        inviteId: 777,
+        workspace: {
+          id: 11
+        }
+      };
+    }
+    throw new Error(`Unexpected action: ${actionId}`);
   });
 
   const updateReply = createReplyDouble();
@@ -124,40 +133,27 @@ test("workspace controller emits success security audit events for critical acti
   assert.equal(redeemReply.statusCode, 200);
 
   assert.deepEqual(
-    auditEvents.map((event) => [event.action, event.outcome]),
+    calls.map((entry) => entry.actionId),
     [
-      ["workspace.member.role.updated", "success"],
-      ["workspace.invite.created", "success"],
-      ["workspace.invite.revoked", "success"],
-      ["workspace.invite.redeemed", "success"]
+      "workspace.member.role.update",
+      "workspace.invite.create",
+      "workspace.invite.revoke",
+      "workspace.invite.redeem"
     ]
   );
-  assert.equal(auditEvents[0].targetUserId, 22);
-  assert.equal(auditEvents[1].metadata.inviteId, 501);
-  assert.equal(auditEvents[3].metadata.decision, "accept");
-  assert.equal(Object.hasOwn(auditEvents[3].metadata, "token"), false);
+  for (const call of calls) {
+    assert.equal(call.context.channel, "api");
+  }
 });
 
-test("workspace controller emits failure security audit events and rethrows", async () => {
-  const auditEvents = [];
+test("workspace controller rethrows action failures", async () => {
   const expectedError = Object.assign(new Error("failed"), {
     status: 409,
     code: "INVITE_CONFLICT"
   });
-  const controller = createWorkspaceController({
-    authService: {},
-    workspaceService: {},
-    workspaceAdminService: {
-      async createInvite() {
-        throw expectedError;
-      }
-    },
-    consoleService: {},
-    auditService: {
-      async recordSafe(event) {
-        auditEvents.push(event);
-      }
-    }
+  const controller = createWorkspaceControllerWithActionExecutor(async ({ actionId }) => {
+    assert.equal(actionId, "workspace.invite.create");
+    throw expectedError;
   });
 
   const reply = createReplyDouble();
@@ -174,10 +170,4 @@ test("workspace controller emits failure security audit events and rethrows", as
       return true;
     }
   );
-
-  assert.equal(auditEvents.length, 1);
-  assert.equal(auditEvents[0].action, "workspace.invite.created");
-  assert.equal(auditEvents[0].outcome, "failure");
-  assert.equal(auditEvents[0].metadata.error.status, 409);
-  assert.equal(auditEvents[0].metadata.error.code, "INVITE_CONFLICT");
 });

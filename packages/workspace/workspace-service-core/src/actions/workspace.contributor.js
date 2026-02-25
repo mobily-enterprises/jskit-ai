@@ -49,6 +49,10 @@ function requireAuthenticated(context) {
   return toPositiveInteger(context?.actor?.id) > 0;
 }
 
+function allowPublic() {
+  return true;
+}
+
 function requireWorkspaceSettingsReadPermission(context) {
   return (
     hasPermission(context?.permissions, "workspace.settings.view") ||
@@ -70,7 +74,10 @@ function createWorkspaceActionContributor({
   const contributorId = "workspace.core";
 
   requireServiceMethod(workspaceService, "buildBootstrapPayload", contributorId);
+  requireServiceMethod(workspaceService, "listWorkspacesForUser", contributorId);
+  requireServiceMethod(workspaceService, "listPendingInvitesForUser", contributorId);
   requireServiceMethod(workspaceService, "selectWorkspaceForUser", contributorId);
+  requireServiceMethod(workspaceAdminService, "getRoleCatalog", contributorId);
   requireServiceMethod(workspaceAdminService, "getWorkspaceSettings", contributorId);
   requireServiceMethod(workspaceAdminService, "updateWorkspaceSettings", contributorId);
   requireServiceMethod(workspaceAdminService, "listMembers", contributorId);
@@ -89,7 +96,7 @@ function createWorkspaceActionContributor({
       surfaces: ["app", "admin"],
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
-      permission: requireAuthenticated,
+      permission: allowPublic,
       idempotency: "none",
       audit: {
         actionName: "workspace.bootstrap.read"
@@ -100,6 +107,28 @@ function createWorkspaceActionContributor({
           request: resolveRequest(context),
           user: resolveUser(context, input)
         });
+      }
+    },
+    {
+      id: "workspace.workspaces.list",
+      version: 1,
+      kind: "query",
+      channels: ["api", "internal"],
+      surfaces: ["app", "admin"],
+      visibility: "public",
+      inputSchema: OBJECT_INPUT_SCHEMA,
+      permission: requireAuthenticated,
+      idempotency: "none",
+      audit: {
+        actionName: "workspace.workspaces.list"
+      },
+      observability: {},
+      async execute(input, context) {
+        return {
+          workspaces: await workspaceService.listWorkspacesForUser(resolveUser(context, input), {
+            request: resolveRequest(context)
+          })
+        };
       }
     },
     {
@@ -123,6 +152,46 @@ function createWorkspaceActionContributor({
         return workspaceService.selectWorkspaceForUser(resolveUser(context, payload), workspaceSelector, {
           request: resolveRequest(context)
         });
+      }
+    },
+    {
+      id: "workspace.invitations.pending.list",
+      version: 1,
+      kind: "query",
+      channels: ["api", "internal"],
+      surfaces: ["app", "admin"],
+      visibility: "public",
+      inputSchema: OBJECT_INPUT_SCHEMA,
+      permission: requireAuthenticated,
+      idempotency: "none",
+      audit: {
+        actionName: "workspace.invitations.pending.list"
+      },
+      observability: {},
+      async execute(input, context) {
+        return {
+          pendingInvites: await workspaceService.listPendingInvitesForUser(resolveUser(context, input))
+        };
+      }
+    },
+    {
+      id: "workspace.roles.list",
+      version: 1,
+      kind: "query",
+      channels: ["api", "internal"],
+      surfaces: ["admin"],
+      visibility: "public",
+      inputSchema: OBJECT_INPUT_SCHEMA,
+      permission: ["workspace.roles.view"],
+      idempotency: "none",
+      audit: {
+        actionName: "workspace.roles.list"
+      },
+      observability: {},
+      async execute() {
+        return {
+          roleCatalog: workspaceAdminService.getRoleCatalog()
+        };
       }
     },
     {

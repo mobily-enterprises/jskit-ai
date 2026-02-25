@@ -77,6 +77,7 @@ function createConsoleActionContributor({ consoleService, aiTranscriptsService =
   const contributorId = "workspace.console";
 
   requireServiceMethod(consoleService, "buildBootstrapPayload", contributorId);
+  requireServiceMethod(consoleService, "listRoles", contributorId);
   requireServiceMethod(consoleService, "getAssistantSettings", contributorId);
   requireServiceMethod(consoleService, "updateAssistantSettings", contributorId);
   requireServiceMethod(consoleService, "listMembers", contributorId);
@@ -84,6 +85,7 @@ function createConsoleActionContributor({ consoleService, aiTranscriptsService =
   requireServiceMethod(consoleService, "listInvites", contributorId);
   requireServiceMethod(consoleService, "createInvite", contributorId);
   requireServiceMethod(consoleService, "revokeInvite", contributorId);
+  requireServiceMethod(consoleService, "listPendingInvitesForUser", contributorId);
   requireServiceMethod(consoleService, "respondToPendingInviteByToken", contributorId);
   requireServiceMethod(consoleService, "getBillingSettings", contributorId);
   requireServiceMethod(consoleService, "updateBillingSettings", contributorId);
@@ -115,6 +117,24 @@ function createConsoleActionContributor({ consoleService, aiTranscriptsService =
         return consoleService.buildBootstrapPayload({
           user: resolveUser(context, input)
         });
+      }
+    },
+    {
+      id: "console.roles.list",
+      version: 1,
+      kind: "query",
+      channels: ["api", "internal"],
+      surfaces: ["console"],
+      visibility: "public",
+      inputSchema: OBJECT_INPUT_SCHEMA,
+      permission: requireAuthenticated,
+      idempotency: "none",
+      audit: {
+        actionName: "console.roles.list"
+      },
+      observability: {},
+      async execute(input, context) {
+        return consoleService.listRoles(resolveUser(context, input));
       }
     },
     {
@@ -246,6 +266,26 @@ function createConsoleActionContributor({ consoleService, aiTranscriptsService =
       async execute(input, context) {
         const payload = normalizeObject(input);
         return consoleService.revokeInvite(resolveUser(context, payload), payload.inviteId || payload.params?.inviteId);
+      }
+    },
+    {
+      id: "console.invitations.pending.list",
+      version: 1,
+      kind: "query",
+      channels: ["api", "internal"],
+      surfaces: ["console"],
+      visibility: "public",
+      inputSchema: OBJECT_INPUT_SCHEMA,
+      permission: requireAuthenticated,
+      idempotency: "none",
+      audit: {
+        actionName: "console.invitations.pending.list"
+      },
+      observability: {},
+      async execute(input, context) {
+        return {
+          pendingInvites: await consoleService.listPendingInvitesForUser(resolveUser(context, input))
+        };
       }
     },
     {

@@ -18,79 +18,80 @@ function createReplyDouble() {
   };
 }
 
+function createWorkspaceControllerWithExecutor(execute, overrides = {}) {
+  return createWorkspaceController({
+    authService: {
+      clearSessionCookies(reply) {
+        reply.cleared = true;
+      },
+      writeSessionCookies(reply) {
+        reply.written = true;
+      }
+    },
+    consoleService: {
+      async ensureInitialConsoleMember() {}
+    },
+    actionExecutor: {
+      async execute(payload) {
+        return execute(payload);
+      }
+    },
+    ...overrides
+  });
+}
+
 test("workspace controller requires all dependencies", () => {
   assert.throws(() => createWorkspaceController({}), /required/);
 });
 
 test("workspace controller bootstrap handles transient, cookie management, and payload mapping", async () => {
   const calls = [];
-  const authService = {
-    async authenticateRequest(request) {
-      calls.push(["authenticateRequest", request.state]);
-      if (request.state === "transient") {
+  const controller = createWorkspaceControllerWithExecutor(
+    async ({ actionId, input, context }) => {
+      calls.push([actionId, input, context]);
+      const state = context.request.state;
+      if (actionId === "auth.session.read") {
+        if (state === "transient") {
+          return {
+            authenticated: false,
+            clearSession: false,
+            session: null,
+            transientFailure: true
+          };
+        }
+        if (state === "signed-out") {
+          return {
+            authenticated: false,
+            clearSession: true,
+            session: null,
+            transientFailure: false
+          };
+        }
         return {
-          authenticated: false,
+          authenticated: true,
           clearSession: false,
-          session: null,
-          transientFailure: true
+          session: { access_token: "at" },
+          transientFailure: false,
+          profile: { id: 9, displayName: "Tony", email: "tony@example.com" }
         };
       }
 
-      if (request.state === "signed-out") {
-        return {
-          authenticated: false,
-          clearSession: true,
-          session: null,
-          transientFailure: false
-        };
-      }
-
-      return {
-        authenticated: true,
-        clearSession: false,
-        session: { access_token: "at" },
-        transientFailure: false,
-        profile: { id: 9, displayName: "Tony", email: "tony@example.com" }
-      };
-    },
-    clearSessionCookies(reply) {
-      calls.push(["clearSessionCookies"]);
-      reply.cleared = true;
-    },
-    writeSessionCookies(reply, session) {
-      calls.push(["writeSessionCookies", session.access_token]);
-      reply.written = true;
-    }
-  };
-  const workspaceService = {
-    async buildBootstrapPayload({ user }) {
-      calls.push(["buildBootstrapPayload", user ? user.id : null]);
+      assert.equal(actionId, "workspace.bootstrap.read");
       return {
         session: {
-          authenticated: Boolean(user)
+          authenticated: Boolean(input.user)
         },
         workspaces: []
       };
+    },
+    {
+      consoleService: {
+        async ensureInitialConsoleMember(userId) {
+          calls.push(["ensureInitialConsoleMember", Number(userId)]);
+        }
+      }
     }
-  };
-  const workspaceAdminService = {};
-  const consoleService = {
-    async ensureInitialConsoleMember(userId) {
-      calls.push(["ensureInitialConsoleMember", Number(userId)]);
-      return null;
-    }
-  };
-  const auditService = {
-    async recordSafe() {}
-  };
-
-  const controller = createWorkspaceController({
-    authService,
-    workspaceService,
-    workspaceAdminService,
-    consoleService,
-    auditService
-  });
+  );
 
   const transientReply = createReplyDouble();
   await controller.bootstrap({ state: "transient" }, transientReply);
@@ -109,125 +110,42 @@ test("workspace controller bootstrap handles transient, cookie management, and p
   assert.equal(signedInReply.payload.session.authenticated, true);
   assert.equal(signedInReply.written, true);
 
-  assert.equal(
-    calls.some((entry) => entry[0] === "buildBootstrapPayload"),
-    true
-  );
-  assert.equal(
-    calls.some((entry) => entry[0] === "ensureInitialConsoleMember" && entry[1] === 9),
-    true
-  );
+  assert.equal(calls.some(([actionId]) => actionId === "workspace.bootstrap.read"), true);
+  assert.equal(calls.some(([kind, userId]) => kind === "ensureInitialConsoleMember" && userId === 9), true);
 });
 
-test("workspace controller delegates workspace and admin routes to services", async () => {
+test("workspace controller delegates routes to action executor", async () => {
   const calls = [];
-  const authService = {
-    async authenticateRequest() {
-      return {
-        authenticated: false,
-        clearSession: false,
-        session: null,
-        transientFailure: false
-      };
-    },
-    clearSessionCookies() {},
-    writeSessionCookies() {}
-  };
-  const workspaceService = {
-    async buildBootstrapPayload() {
-      return { session: { authenticated: false } };
-    },
-    async listWorkspacesForUser(user, options) {
-      calls.push(["listWorkspacesForUser", user.id, options.request.marker]);
-      return [{ slug: "acme" }];
-    },
-    async selectWorkspaceForUser(user, selector, options) {
-      calls.push(["selectWorkspaceForUser", user.id, selector, options.request.marker]);
+  const controller = createWorkspaceControllerWithExecutor(async ({ actionId, input, context }) => {
+    calls.push({
+      actionId,
+      input,
+      context
+    });
+    if (actionId === "workspace.workspaces.list") {
+      return { workspaces: [{ slug: "acme" }] };
+    }
+    if (actionId === "workspace.select") {
       return {
         workspace: { id: 1, slug: "acme" },
         membership: { roleId: "member", status: "active" },
         permissions: ["history.read"],
         workspaceSettings: { invitesEnabled: true }
       };
-    },
-    async listPendingInvitesForUser(user) {
-      calls.push(["listPendingInvitesForUser", user.id]);
-      return [
-        {
-          id: 15,
-          workspaceId: 11,
-          token: "inviteh_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          workspaceSlug: "acme",
-          workspaceName: "Acme",
-          workspaceAvatarUrl: "",
-          roleId: "member",
-          status: "pending",
-          expiresAt: "2030-01-01T00:00:00.000Z",
-          invitedByDisplayName: "Owner",
-          invitedByEmail: "owner@example.com"
-        }
-      ];
     }
-  };
-  const workspaceAdminService = {
-    getRoleCatalog() {
-      calls.push(["getRoleCatalog"]);
-      return { roles: [] };
-    },
-    async getWorkspaceSettings(workspace, options) {
-      calls.push(["getWorkspaceSettings", workspace.id, options.includeAppSurfaceDenyLists]);
-      return { workspace: { id: workspace.id }, settings: {} };
-    },
-    async updateWorkspaceSettings(workspace, payload) {
-      calls.push(["updateWorkspaceSettings", workspace.id, payload.name]);
-      return { workspace: { id: workspace.id }, settings: payload };
-    },
-    async listMembers(workspace) {
-      calls.push(["listMembers", workspace.id]);
-      return { members: [] };
-    },
-    async updateMemberRole(workspace, payload) {
-      calls.push(["updateMemberRole", workspace.id, payload.memberUserId, payload.roleId]);
-      return { members: [{ userId: Number(payload.memberUserId), roleId: payload.roleId }] };
-    },
-    async listInvites(workspace) {
-      calls.push(["listInvites", workspace.id]);
-      return { invites: [] };
-    },
-    async createInvite(workspace, user, payload) {
-      calls.push(["createInvite", workspace.id, user.id, payload.email]);
-      return { invites: [{ id: 1 }] };
-    },
-    async revokeInvite(workspace, inviteId) {
-      calls.push(["revokeInvite", workspace.id, inviteId]);
-      return { invites: [] };
-    },
-    async respondToPendingInviteByToken({ user, inviteToken, decision }) {
-      calls.push(["respondToPendingInviteByToken", user.id, inviteToken, decision]);
-      return { ok: true, decision };
+    if (actionId === "workspace.roles.list") {
+      return { roleCatalog: { roles: [] } };
     }
-  };
-  const consoleService = {
-    async ensureInitialConsoleMember() {
-      return null;
+    if (actionId === "workspace.invitations.pending.list") {
+      return { pendingInvites: [] };
     }
-  };
-  const auditService = {
-    async recordSafe() {}
-  };
-  const controller = createWorkspaceController({
-    authService,
-    workspaceService,
-    workspaceAdminService,
-    consoleService,
-    auditService
+    return { ok: true, invites: [], members: [], settings: {}, workspace: { id: 11 } };
   });
 
-  const user = { id: 7, email: "user@example.com" };
   const workspace = { id: 11, slug: "acme" };
 
   const listReply = createReplyDouble();
-  await controller.listWorkspaces({ marker: "list", user }, listReply);
+  await controller.listWorkspaces({ marker: "list" }, listReply);
   assert.equal(listReply.statusCode, 200);
   assert.deepEqual(listReply.payload, { workspaces: [{ slug: "acme" }] });
 
@@ -235,7 +153,6 @@ test("workspace controller delegates workspace and admin routes to services", as
   await controller.selectWorkspace(
     {
       marker: "select",
-      user,
       body: {
         workspaceSlug: "acme"
       }
@@ -246,254 +163,46 @@ test("workspace controller delegates workspace and admin routes to services", as
   assert.equal(selectReply.payload.ok, true);
   assert.equal(selectReply.payload.workspace.slug, "acme");
 
-  const selectFallbackReply = createReplyDouble();
-  await controller.selectWorkspace(
-    {
-      marker: "select-fallback",
-      user,
-      body: {
-        slug: "acme-slug"
-      }
-    },
-    selectFallbackReply
-  );
-  assert.equal(selectFallbackReply.statusCode, 200);
-
-  const selectWorkspaceIdReply = createReplyDouble();
-  await controller.selectWorkspace(
-    {
-      marker: "select-id",
-      user,
-      body: {
-        workspaceId: "22"
-      }
-    },
-    selectWorkspaceIdReply
-  );
-  assert.equal(selectWorkspaceIdReply.statusCode, 200);
-
-  const settingsReply = createReplyDouble();
-  await controller.getWorkspaceSettings(
-    {
-      workspace,
-      permissions: ["workspace.settings.update"]
-    },
-    settingsReply
-  );
-  assert.equal(settingsReply.statusCode, 200);
-
-  const settingsViewOnlyReply = createReplyDouble();
-  await controller.getWorkspaceSettings(
-    {
-      workspace,
-      permissions: ["workspace.settings.view"]
-    },
-    settingsViewOnlyReply
-  );
-  assert.equal(settingsViewOnlyReply.statusCode, 200);
-
-  const updateReply = createReplyDouble();
-  await controller.updateWorkspaceSettings(
-    {
-      workspace,
-      body: {
-        name: "Acme Prime"
-      }
-    },
-    updateReply
-  );
-  assert.equal(updateReply.statusCode, 200);
-
-  const updateFallbackReply = createReplyDouble();
-  await controller.updateWorkspaceSettings({ workspace }, updateFallbackReply);
-  assert.equal(updateFallbackReply.statusCode, 200);
-
   const rolesReply = createReplyDouble();
-  await controller.listWorkspaceRoles({}, rolesReply);
+  await controller.listWorkspaceRoles({ workspace }, rolesReply);
   assert.equal(rolesReply.statusCode, 200);
   assert.deepEqual(rolesReply.payload, {
     roleCatalog: { roles: [] }
   });
 
-  const membersReply = createReplyDouble();
-  await controller.listWorkspaceMembers({ workspace }, membersReply);
-  assert.equal(membersReply.statusCode, 200);
-
-  const updateMemberReply = createReplyDouble();
-  await controller.updateWorkspaceMemberRole(
-    {
-      workspace,
-      params: {
-        memberUserId: "19"
-      },
-      body: {
-        roleId: "admin"
-      }
-    },
-    updateMemberReply
-  );
-  assert.equal(updateMemberReply.statusCode, 200);
-
-  const invitesReply = createReplyDouble();
-  await controller.listWorkspaceInvites({ workspace }, invitesReply);
-  assert.equal(invitesReply.statusCode, 200);
-
-  const createInviteReply = createReplyDouble();
-  await controller.createWorkspaceInvite(
-    {
-      workspace,
-      user,
-      body: {
-        email: "invitee@example.com"
-      }
-    },
-    createInviteReply
-  );
-  assert.equal(createInviteReply.statusCode, 200);
-
-  const createInviteFallbackReply = createReplyDouble();
-  await controller.createWorkspaceInvite(
-    {
-      workspace,
-      user
-    },
-    createInviteFallbackReply
-  );
-  assert.equal(createInviteFallbackReply.statusCode, 200);
-
-  const revokeReply = createReplyDouble();
-  await controller.revokeWorkspaceInvite(
-    {
-      workspace,
-      params: {
-        inviteId: "77"
-      }
-    },
-    revokeReply
-  );
-  assert.equal(revokeReply.statusCode, 200);
-
   const pendingReply = createReplyDouble();
-  await controller.listPendingInvites({ user }, pendingReply);
+  await controller.listPendingInvites({ workspace }, pendingReply);
   assert.equal(pendingReply.statusCode, 200);
-  assert.deepEqual(pendingReply.payload, {
-    pendingInvites: [
-      {
-        id: 15,
-        workspaceId: 11,
-        token: "inviteh_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        workspaceSlug: "acme",
-        workspaceName: "Acme",
-        workspaceAvatarUrl: "",
-        roleId: "member",
-        status: "pending",
-        expiresAt: "2030-01-01T00:00:00.000Z",
-        invitedByDisplayName: "Owner",
-        invitedByEmail: "owner@example.com"
-      }
-    ]
-  });
+  assert.deepEqual(pendingReply.payload, { pendingInvites: [] });
 
-  const respondByTokenReply = createReplyDouble();
-  await controller.respondToPendingInviteByToken(
-    {
-      user,
-      body: {
-        token: "invite-token",
-        decision: "accept"
-      }
-    },
-    respondByTokenReply
-  );
-  assert.equal(respondByTokenReply.statusCode, 200);
-  assert.equal(respondByTokenReply.payload.ok, true);
-
-  assert.equal(
-    calls.some((entry) => entry[0] === "listWorkspacesForUser"),
-    true
-  );
-  assert.equal(
-    calls.some((entry) => entry[0] === "respondToPendingInviteByToken"),
-    true
-  );
+  assert.equal(calls.every((entry) => entry.context.channel === "api"), true);
+  assert.equal(calls.some((entry) => entry.actionId === "workspace.select"), true);
 });
 
 test("workspace controller publishes realtime events for workspace admin writes", async () => {
   const publishCalls = [];
-  const controller = createWorkspaceController({
-    authService: {
-      async authenticateRequest() {
-        return {
-          authenticated: false,
-          clearSession: false,
-          session: null,
-          transientFailure: false
-        };
-      },
-      clearSessionCookies() {},
-      writeSessionCookies() {}
-    },
-    workspaceService: {
-      async buildBootstrapPayload() {
-        return { session: { authenticated: false } };
-      },
-      async listPendingInvitesForUser() {
-        return [];
-      },
-      async listWorkspacesForUser() {
-        return [];
-      },
-      async selectWorkspaceForUser() {
-        return {};
-      }
-    },
-    workspaceAdminService: {
-      async updateWorkspaceSettings(workspace) {
-        return {
-          workspace: { id: workspace.id },
-          settings: { name: "Acme Prime" }
-        };
-      },
-      async updateMemberRole(_workspace, payload) {
-        return {
-          members: [{ userId: Number(payload.memberUserId), roleId: payload.roleId }]
-        };
-      },
-      async createInvite() {
-        return { createdInvite: { inviteId: 42 }, invites: [{ id: 42 }] };
-      },
-      async revokeInvite() {
-        return { invites: [] };
-      },
-      async respondToPendingInviteByToken() {
-        return {
-          ok: true,
-          decision: "accepted",
-          inviteId: 42,
-          workspace: { id: 11 }
-        };
-      },
-      async getWorkspaceSettings() {
-        return {};
-      },
-      async listMembers() {
-        return { members: [] };
-      },
-      async listInvites() {
-        return { invites: [] };
-      },
-      getRoleCatalog() {
-        return { roles: [] };
-      }
-    },
-    consoleService: {
-      async ensureInitialConsoleMember() {
-        return null;
-      }
-    },
-    auditService: {
-      async recordSafe() {}
-    },
+  const controller = createWorkspaceControllerWithExecutor(async ({ actionId }) => {
+    if (actionId === "workspace.invite.create") {
+      return { createdInvite: { inviteId: 42 }, invites: [{ id: 42 }] };
+    }
+    if (actionId === "workspace.invite.redeem") {
+      return {
+        ok: true,
+        inviteId: 42,
+        workspace: { id: 11 }
+      };
+    }
+    if (actionId === "workspace.member.role.update") {
+      return { members: [{ userId: 22, roleId: "admin" }] };
+    }
+    if (actionId === "workspace.settings.update") {
+      return {
+        workspace: { id: 11 },
+        settings: { name: "Acme Prime" }
+      };
+    }
+    return { invites: [] };
+  }, {
     realtimeEventsService: {
       publishWorkspaceEvent(payload) {
         publishCalls.push(payload);
@@ -503,7 +212,6 @@ test("workspace controller publishes realtime events for workspace admin writes"
 
   const requestBase = {
     workspace: { id: 11, slug: "acme" },
-    user: { id: 7 },
     headers: {
       "x-command-id": "cmd_w_1",
       "x-client-id": "cli_w_1"

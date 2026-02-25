@@ -79,13 +79,17 @@ function createChatActionContributor({ chatService } = {}) {
   requireServiceMethod(chatService, "ensureDm", contributorId);
   requireServiceMethod(chatService, "listDmCandidates", contributorId);
   requireServiceMethod(chatService, "listInbox", contributorId);
+  requireServiceMethod(chatService, "getThread", contributorId);
   requireServiceMethod(chatService, "listThreadMessages", contributorId);
   requireServiceMethod(chatService, "sendThreadMessage", contributorId);
   requireServiceMethod(chatService, "markThreadRead", contributorId);
+  requireServiceMethod(chatService, "addReaction", contributorId);
+  requireServiceMethod(chatService, "removeReaction", contributorId);
   requireServiceMethod(chatService, "emitThreadTyping", contributorId);
   requireServiceMethod(chatService, "reserveThreadAttachment", contributorId);
   requireServiceMethod(chatService, "uploadThreadAttachment", contributorId);
   requireServiceMethod(chatService, "deleteThreadAttachment", contributorId);
+  requireServiceMethod(chatService, "getAttachmentContent", contributorId);
 
   return {
     contributorId,
@@ -180,6 +184,29 @@ function createChatActionContributor({ chatService } = {}) {
         }
       },
       {
+        id: "chat.thread.get",
+        version: 1,
+        kind: "query",
+        channels: ["api", "internal"],
+        surfaces: ["app", "admin", "console"],
+        visibility: "public",
+        inputSchema: OBJECT_INPUT_SCHEMA,
+        permission: requireAuthenticated,
+        idempotency: "none",
+        audit: {
+          actionName: "chat.thread.get"
+        },
+        observability: {},
+        async execute(input, context) {
+          const payload = normalizeObject(input);
+          return chatService.getThread({
+            user: resolveUser(context, payload),
+            threadId: resolveThreadId(payload),
+            surfaceId: resolveSurfaceId(context, payload)
+          });
+        }
+      },
+      {
         id: "chat.thread.messages.list",
         version: 1,
         kind: "query",
@@ -256,6 +283,66 @@ function createChatActionContributor({ chatService } = {}) {
               : payload;
 
           return chatService.markThreadRead({
+            user: resolveUser(context, payload),
+            threadId: resolveThreadId(payload),
+            surfaceId: resolveSurfaceId(context, payload),
+            payload: body,
+            requestMeta: buildRequestMeta(context, payload)
+          });
+        }
+      },
+      {
+        id: "chat.thread.reaction.add",
+        version: 1,
+        kind: "command",
+        channels: ["api", "internal"],
+        surfaces: ["app", "admin", "console"],
+        visibility: "public",
+        inputSchema: OBJECT_INPUT_SCHEMA,
+        permission: requireAuthenticated,
+        idempotency: "optional",
+        audit: {
+          actionName: "chat.thread.reaction.add"
+        },
+        observability: {},
+        async execute(input, context) {
+          const payload = normalizeObject(input);
+          const body =
+            payload.payload && typeof payload.payload === "object" && !Array.isArray(payload.payload)
+              ? payload.payload
+              : payload;
+
+          return chatService.addReaction({
+            user: resolveUser(context, payload),
+            threadId: resolveThreadId(payload),
+            surfaceId: resolveSurfaceId(context, payload),
+            payload: body,
+            requestMeta: buildRequestMeta(context, payload)
+          });
+        }
+      },
+      {
+        id: "chat.thread.reaction.remove",
+        version: 1,
+        kind: "command",
+        channels: ["api", "internal"],
+        surfaces: ["app", "admin", "console"],
+        visibility: "public",
+        inputSchema: OBJECT_INPUT_SCHEMA,
+        permission: requireAuthenticated,
+        idempotency: "optional",
+        audit: {
+          actionName: "chat.thread.reaction.remove"
+        },
+        observability: {},
+        async execute(input, context) {
+          const payload = normalizeObject(input);
+          const body =
+            payload.payload && typeof payload.payload === "object" && !Array.isArray(payload.payload)
+              ? payload.payload
+              : payload;
+
+          return chatService.removeReaction({
             user: resolveUser(context, payload),
             threadId: resolveThreadId(payload),
             surfaceId: resolveSurfaceId(context, payload),
@@ -346,6 +433,29 @@ function createChatActionContributor({ chatService } = {}) {
             attachmentId: resolveAttachmentId(payload),
             payload: uploadPayload,
             requestMeta: buildRequestMeta(context, payload)
+          });
+        }
+      },
+      {
+        id: "chat.attachment.content.get",
+        version: 1,
+        kind: "query",
+        channels: ["api", "internal"],
+        surfaces: ["app", "admin", "console"],
+        visibility: "public",
+        inputSchema: OBJECT_INPUT_SCHEMA,
+        permission: requireAuthenticated,
+        idempotency: "none",
+        audit: {
+          actionName: "chat.attachment.content.get"
+        },
+        observability: {},
+        async execute(input, context) {
+          const payload = normalizeObject(input);
+          return chatService.getAttachmentContent({
+            user: resolveUser(context, payload),
+            attachmentId: resolveAttachmentId(payload),
+            surfaceId: resolveSurfaceId(context, payload)
           });
         }
       },

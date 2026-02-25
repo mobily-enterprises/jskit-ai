@@ -60,16 +60,27 @@ function parseNdjsonLines(rawWrites) {
     .map((line) => JSON.parse(line));
 }
 
-test("ai controller returns normal 404 payload when ai service is disabled", async () => {
+function createActionExecutorDouble({
+  execute = async () => {
+    throw new Error("execute handler not configured");
+  },
+  executeStream = async () => {
+    throw new Error("executeStream handler not configured");
+  }
+} = {}) {
+  return {
+    execute,
+    executeStream
+  };
+}
+
+test("ai controller returns normal 404 payload when assistant stream action is disabled", async () => {
   const controller = createAiController({
-    aiService: {
-      isEnabled() {
-        return false;
-      },
-      async streamChatTurn() {
-        throw new Error("should not run");
+    actionExecutor: createActionExecutorDouble({
+      async executeStream() {
+        throw new AppError(404, "Not found.");
       }
-    }
+    })
   });
 
   const request = createRequestDouble();
@@ -84,13 +95,10 @@ test("ai controller returns normal 404 payload when ai service is disabled", asy
   });
 });
 
-test("ai controller returns pre-stream validation errors from ai service helper", async () => {
+test("ai controller returns pre-stream validation errors from action pipeline", async () => {
   const controller = createAiController({
-    aiService: {
-      isEnabled() {
-        return true;
-      },
-      validateChatTurnInput() {
+    actionExecutor: createActionExecutorDouble({
+      async executeStream() {
         throw new AppError(400, "Validation failed.", {
           details: {
             fieldErrors: {
@@ -98,11 +106,8 @@ test("ai controller returns pre-stream validation errors from ai service helper"
             }
           }
         });
-      },
-      async streamChatTurn() {
-        throw new Error("should not run");
       }
-    }
+    })
   });
 
   const request = createRequestDouble();
@@ -125,19 +130,17 @@ test("ai controller returns pre-stream validation errors from ai service helper"
   });
 });
 
-test("ai controller streams ndjson responses", async () => {
+test("ai controller streams ndjson responses from executeStream deps writer", async () => {
   const controller = createAiController({
-    aiService: {
-      isEnabled() {
-        return true;
-      },
-      async streamChatTurn({ streamWriter }) {
-        streamWriter.sendMeta({ messageId: "m1" });
-        streamWriter.sendAssistantDelta("Hello");
-        streamWriter.sendAssistantMessage("Hello");
-        streamWriter.sendDone({ messageId: "m1" });
+    actionExecutor: createActionExecutorDouble({
+      async executeStream({ actionId, deps }) {
+        assert.equal(actionId, "assistant.chat.stream");
+        deps.streamWriter.sendMeta({ messageId: "m1" });
+        deps.streamWriter.sendAssistantDelta("Hello");
+        deps.streamWriter.sendAssistantMessage("Hello");
+        deps.streamWriter.sendDone({ messageId: "m1" });
       }
-    }
+    })
   });
 
   const request = createRequestDouble();
@@ -157,16 +160,14 @@ test("ai controller streams ndjson responses", async () => {
   );
 });
 
-test("ai controller emits stream error event when service throws after stream starts", async () => {
+test("ai controller emits stream error event when executeStream fails after stream start", async () => {
   const controller = createAiController({
-    aiService: {
-      isEnabled() {
-        return true;
-      },
-      async streamChatTurn() {
+    actionExecutor: createActionExecutorDouble({
+      async executeStream({ deps }) {
+        deps.streamWriter.sendMeta({ started: true });
         throw new Error("provider failed");
       }
-    }
+    })
   });
 
   const request = createRequestDouble();
@@ -176,22 +177,20 @@ test("ai controller emits stream error event when service throws after stream st
 
   assert.equal(reply.statusCode, 200);
   const lines = parseNdjsonLines(reply.raw.writes);
-  assert.equal(lines.length, 1);
-  assert.equal(lines[0].type, "error");
-  assert.equal(lines[0].code, "stream_failure");
+  assert.equal(lines.length, 2);
+  assert.equal(lines[0].type, "meta");
+  assert.equal(lines[1].type, "error");
+  assert.equal(lines[1].code, "stream_failure");
   assert.equal(reply.raw.ended, true);
 });
 
-test("ai controller aborts active service call when request socket closes", async () => {
+test("ai controller aborts active stream action when request socket closes", async () => {
   let aborted = false;
   const controller = createAiController({
-    aiService: {
-      isEnabled() {
-        return true;
-      },
-      async streamChatTurn({ abortSignal }) {
+    actionExecutor: createActionExecutorDouble({
+      async executeStream({ deps }) {
         await new Promise((resolve) => {
-          abortSignal.addEventListener("abort", () => {
+          deps.abortSignal.addEventListener("abort", () => {
             aborted = true;
             resolve();
           });
@@ -199,7 +198,7 @@ test("ai controller aborts active service call when request socket closes", asyn
           setTimeout(resolve, 30);
         });
       }
-    }
+    })
   });
 
   const request = createRequestDouble();
@@ -216,22 +215,13 @@ test("ai controller aborts active service call when request socket closes", asyn
   assert.equal(request.raw.listenerCount("close"), 0);
 });
 
-test("ai controller lists assistant conversations for current user", async () => {
+test("ai controller delegates conversation list to assistant action", async () => {
   const controller = createAiController({
-    aiService: {
-      async streamChatTurn() {},
-      isEnabled() {
-        return true;
-      }
-    },
-    aiTranscriptsService: {
-      async listWorkspaceConversations() {
-        throw new Error("not used");
-      },
-      async listWorkspaceConversationsForUser(workspace, user, query) {
-        assert.equal(workspace.id, 11);
-        assert.equal(user.id, 7);
-        assert.equal(query.page, "2");
+    actionExecutor: createActionExecutorDouble({
+      async execute({ actionId, input, context }) {
+        assert.equal(actionId, "assistant.conversations.list");
+        assert.equal(input.page, "2");
+        assert.equal(context.channel, "api");
         return {
           entries: [{ id: 42 }],
           page: 2,
@@ -239,19 +229,11 @@ test("ai controller lists assistant conversations for current user", async () =>
           total: 1,
           totalPages: 1
         };
-      },
-      async getWorkspaceConversationMessages() {
-        throw new Error("not used");
-      },
-      async getWorkspaceConversationMessagesForUser() {
-        throw new Error("not used");
       }
-    }
+    })
   });
 
   const request = createRequestDouble({
-    workspace: { id: 11 },
-    user: { id: 7 },
     query: {
       page: "2"
     }
@@ -270,86 +252,13 @@ test("ai controller lists assistant conversations for current user", async () =>
   });
 });
 
-test("ai controller lists workspace-wide conversations in admin surface when transcript permission is present", async () => {
+test("ai controller delegates message list to assistant conversation messages action", async () => {
   const controller = createAiController({
-    aiService: {
-      async streamChatTurn() {},
-      isEnabled() {
-        return true;
-      }
-    },
-    aiTranscriptsService: {
-      async listWorkspaceConversations(workspace, query) {
-        assert.equal(workspace.id, 11);
-        assert.equal(query.pageSize, "50");
-        return {
-          entries: [{ id: 99, createdByUserDisplayName: "Alex Admin" }],
-          page: 1,
-          pageSize: 50,
-          total: 1,
-          totalPages: 1
-        };
-      },
-      async listWorkspaceConversationsForUser() {
-        throw new Error("not used");
-      },
-      async getWorkspaceConversationMessages() {
-        throw new Error("not used");
-      },
-      async getWorkspaceConversationMessagesForUser() {
-        throw new Error("not used");
-      }
-    }
-  });
-
-  const request = createRequestDouble({
-    workspace: { id: 11 },
-    user: { id: 7 },
-    headers: {
-      "x-surface-id": "admin"
-    },
-    permissions: ["workspace.ai.transcripts.read"],
-    query: {
-      pageSize: "50"
-    }
-  });
-  const reply = createReplyDouble();
-
-  await controller.listConversations(request, reply);
-
-  assert.equal(reply.statusCode, 200);
-  assert.deepEqual(reply.payload, {
-    entries: [{ id: 99, createdByUserDisplayName: "Alex Admin" }],
-    page: 1,
-    pageSize: 50,
-    total: 1,
-    totalPages: 1
-  });
-});
-
-test("ai controller loads messages for one assistant conversation", async () => {
-  const controller = createAiController({
-    aiService: {
-      async streamChatTurn() {},
-      isEnabled() {
-        return true;
-      }
-    },
-    aiTranscriptsService: {
-      async listWorkspaceConversations() {
-        throw new Error("not used");
-      },
-      async listWorkspaceConversationsForUser() {
-        throw new Error("not used");
-      },
-      async getWorkspaceConversationMessages() {
-        throw new Error("not used");
-      },
-      async getWorkspaceConversationMessagesForUser(workspace, user, conversationId, query) {
-        assert.equal(workspace.id, 11);
-        assert.equal(user.id, 7);
-        assert.equal(conversationId, "19");
-        assert.equal(query.pageSize, "100");
+    actionExecutor: createActionExecutorDouble({
+      async execute({ actionId, input }) {
+        assert.equal(actionId, "assistant.conversation.messages.list");
+        assert.equal(input.conversationId, "19");
+        assert.equal(input.pageSize, "100");
         return {
           conversation: { id: 19 },
           entries: [],
@@ -359,12 +268,10 @@ test("ai controller loads messages for one assistant conversation", async () => 
           totalPages: 1
         };
       }
-    }
+    })
   });
 
   const request = createRequestDouble({
-    workspace: { id: 11 },
-    user: { id: 7 },
     params: {
       conversationId: "19"
     },
@@ -385,90 +292,4 @@ test("ai controller loads messages for one assistant conversation", async () => 
     total: 0,
     totalPages: 1
   });
-});
-
-test("ai controller loads workspace-wide conversation messages in admin surface with transcript permission", async () => {
-  const controller = createAiController({
-    aiService: {
-      async streamChatTurn() {},
-      isEnabled() {
-        return true;
-      }
-    },
-    aiTranscriptsService: {
-      async listWorkspaceConversations() {
-        throw new Error("not used");
-      },
-      async listWorkspaceConversationsForUser() {
-        throw new Error("not used");
-      },
-      async getWorkspaceConversationMessages(workspace, conversationId, query) {
-        assert.equal(workspace.id, 11);
-        assert.equal(conversationId, "200");
-        assert.equal(query.page, "1");
-        return {
-          conversation: { id: 200 },
-          entries: [{ id: 1 }],
-          page: 1,
-          pageSize: 500,
-          total: 1,
-          totalPages: 1
-        };
-      },
-      async getWorkspaceConversationMessagesForUser() {
-        throw new Error("not used");
-      }
-    }
-  });
-
-  const request = createRequestDouble({
-    workspace: { id: 11 },
-    user: { id: 7 },
-    headers: {
-      "x-surface-id": "admin"
-    },
-    permissions: ["workspace.ai.transcripts.read"],
-    params: {
-      conversationId: "200"
-    },
-    query: {
-      page: "1"
-    }
-  });
-  const reply = createReplyDouble();
-
-  await controller.getConversationMessages(request, reply);
-
-  assert.equal(reply.statusCode, 200);
-  assert.deepEqual(reply.payload, {
-    conversation: { id: 200 },
-    entries: [{ id: 1 }],
-    page: 1,
-    pageSize: 500,
-    total: 1,
-    totalPages: 1
-  });
-});
-
-test("ai controller returns 501 when transcripts service is not wired for list routes", async () => {
-  const controller = createAiController({
-    aiService: {
-      async streamChatTurn() {},
-      isEnabled() {
-        return true;
-      }
-    }
-  });
-
-  const request = createRequestDouble();
-  const reply = createReplyDouble();
-
-  await assert.rejects(
-    () => controller.listConversations(request, reply),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.message, "AI transcripts service is not available.");
-      return true;
-    }
-  );
 });

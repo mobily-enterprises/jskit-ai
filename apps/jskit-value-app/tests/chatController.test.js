@@ -29,28 +29,32 @@ function createReplyDouble() {
   };
 }
 
+function createActionExecutorDouble(execute) {
+  return {
+    async execute(payload) {
+      return execute(payload);
+    }
+  };
+}
+
 test("chat controller content endpoint sets attachment security headers", async () => {
   const controller = createChatController({
-    chatService: {
-      async getAttachmentContent() {
-        return {
-          contentBuffer: Buffer.from("hello"),
-          contentType: "text/plain",
-          contentDisposition: 'inline; filename="note.txt"'
-        };
-      }
-    }
+    actionExecutor: createActionExecutorDouble(async ({ actionId, input }) => {
+      assert.equal(actionId, "chat.attachment.content.get");
+      assert.equal(input.attachmentId, "3");
+      return {
+        contentBuffer: Buffer.from("hello"),
+        contentType: "text/plain",
+        contentDisposition: 'inline; filename="note.txt"'
+      };
+    })
   });
 
   const reply = createReplyDouble();
   await controller.getAttachmentContent(
     {
-      user: { id: 5 },
       params: {
         attachmentId: "3"
-      },
-      headers: {
-        "x-surface-id": "app"
       }
     },
     reply
@@ -65,17 +69,19 @@ test("chat controller content endpoint sets attachment security headers", async 
   assert.equal(reply.payload.toString("utf8"), "hello");
 });
 
-test("chat controller dm candidates endpoint forwards query payload", async () => {
-  const calls = [];
+test("chat controller dm candidates endpoint delegates query payload to action executor", async () => {
   const controller = createChatController({
-    chatService: {
-      async listDmCandidates(payload) {
-        calls.push(payload);
-        return {
-          items: []
-        };
-      }
-    }
+    actionExecutor: createActionExecutorDouble(async ({ actionId, input, context }) => {
+      assert.equal(actionId, "chat.dm.candidates.list");
+      assert.deepEqual(input, {
+        q: "ali",
+        limit: 8
+      });
+      assert.equal(context.channel, "api");
+      return {
+        items: []
+      };
+    })
   });
 
   const reply = createReplyDouble();
@@ -92,37 +98,25 @@ test("chat controller dm candidates endpoint forwards query payload", async () =
 
   assert.equal(reply.statusCode, 200);
   assert.deepEqual(reply.payload, { items: [] });
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].user.id, 5);
-  assert.deepEqual(calls[0].query, {
-    q: "ali",
-    limit: 8
-  });
 });
 
-test("chat controller workspace ensure endpoint forwards user context", async () => {
-  const calls = [];
+test("chat controller workspace ensure endpoint delegates to action executor", async () => {
   const controller = createChatController({
-    chatService: {
-      async ensureWorkspaceRoom(payload) {
-        calls.push(payload);
-        return {
-          thread: {
-            id: 77
-          },
-          created: false
-        };
-      }
-    }
+    actionExecutor: createActionExecutorDouble(async ({ actionId }) => {
+      assert.equal(actionId, "chat.workspace_room.ensure");
+      return {
+        thread: {
+          id: 77
+        },
+        created: false
+      };
+    })
   });
 
   const reply = createReplyDouble();
   await controller.ensureWorkspaceRoom(
     {
-      user: { id: 5 },
-      headers: {
-        "x-surface-id": "app"
-      }
+      user: { id: 5 }
     },
     reply
   );
@@ -130,37 +124,33 @@ test("chat controller workspace ensure endpoint forwards user context", async ()
   assert.equal(reply.statusCode, 200);
   assert.equal(reply.payload.thread.id, 77);
   assert.equal(reply.payload.created, false);
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].user.id, 5);
 });
 
-test("chat controller upload endpoint parses multipart payload and forwards to service", async () => {
-  const calls = [];
+test("chat controller upload endpoint parses multipart payload and delegates to action executor", async () => {
   const controller = createChatController({
-    chatService: {
-      async uploadThreadAttachment(payload) {
-        calls.push(payload);
-        return {
-          attachment: {
-            id: 3
-          }
-        };
-      }
-    }
+    actionExecutor: createActionExecutorDouble(async ({ actionId, input }) => {
+      assert.equal(actionId, "chat.attachment.upload");
+      assert.equal(input.threadId, "11");
+      assert.equal(input.attachmentId, "3");
+      assert.equal(input.payload.uploadFileName, "note.txt");
+      assert.equal(input.payload.uploadMimeType, "text/plain");
+      assert.equal(input.payload.fileBuffer.toString("utf8"), "hello");
+      return {
+        attachment: {
+          id: 3
+        }
+      };
+    })
   });
 
   const reply = createReplyDouble();
   await controller.uploadThreadAttachment(
     {
-      user: { id: 5 },
       params: {
         threadId: "11"
       },
       routeOptions: {
         bodyLimit: 20_000_000
-      },
-      headers: {
-        "x-surface-id": "app"
       },
       async file() {
         return {
@@ -185,39 +175,26 @@ test("chat controller upload endpoint parses multipart payload and forwards to s
 
   assert.equal(reply.statusCode, 200);
   assert.equal(reply.payload.attachment.id, 3);
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].attachmentId, "3");
-  assert.equal(calls[0].payload.uploadFileName, "note.txt");
-  assert.equal(calls[0].payload.uploadMimeType, "text/plain");
-  assert.equal(calls[0].payload.fileBuffer.toString("utf8"), "hello");
 });
 
 test("chat controller upload endpoint returns validation error when multipart file is missing", async () => {
   const controller = createChatController({
-    chatService: {
-      async uploadThreadAttachment() {
-        return {
-          attachment: {
-            id: 3
-          }
-        };
+    actionExecutor: createActionExecutorDouble(async () => ({
+      attachment: {
+        id: 3
       }
-    }
+    }))
   });
 
   await assert.rejects(
     () =>
       controller.uploadThreadAttachment(
         {
-          user: { id: 5 },
           params: {
             threadId: "11"
           },
           routeOptions: {
             bodyLimit: 20_000_000
-          },
-          headers: {
-            "x-surface-id": "app"
           },
           async file() {
             return null;

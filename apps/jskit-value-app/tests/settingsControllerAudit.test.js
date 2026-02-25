@@ -25,7 +25,7 @@ function createBaseRequest(overrides = {}) {
     url: "/api/v1/settings/security/methods/password",
     headers: {
       "x-forwarded-for": "203.0.113.21",
-      "user-agent": "settings-audit-test"
+      "user-agent": "settings-action-test"
     },
     user: {
       id: 44,
@@ -35,23 +35,20 @@ function createBaseRequest(overrides = {}) {
   };
 }
 
-test("settings controller emits success security audit events", async () => {
-  const auditEvents = [];
+test("settings controller delegates security writes to canonical actions", async () => {
+  const calls = [];
   const controller = createSettingsController({
-    userSettingsService: {
-      async setPasswordMethodEnabled() {
-        return { ok: true };
-      },
-      async unlinkOAuthProvider() {
-        return { ok: true };
-      }
-    },
     authService: {
       writeSessionCookies() {}
     },
-    auditService: {
-      async recordSafe(event) {
-        auditEvents.push(event);
+    actionExecutor: {
+      async execute({ actionId, input, context }) {
+        calls.push({
+          actionId,
+          input,
+          context
+        });
+        return { ok: true };
       }
     }
   });
@@ -79,35 +76,27 @@ test("settings controller emits success security audit events", async () => {
   assert.equal(unlinkReply.statusCode, 200);
 
   assert.deepEqual(
-    auditEvents.map((event) => [event.action, event.outcome]),
-    [
-      ["auth.password_method.toggled", "success"],
-      ["auth.oauth_provider.unlinked", "success"]
-    ]
+    calls.map((entry) => entry.actionId),
+    ["settings.security.password_method.toggle", "settings.security.oauth.unlink"]
   );
-  assert.equal(auditEvents[0].targetUserId, 44);
-  assert.equal(auditEvents[0].metadata.enabled, true);
-  assert.equal(auditEvents[1].metadata.provider, "google");
+  assert.equal(calls[0].context.channel, "api");
+  assert.deepEqual(calls[0].input, { enabled: true });
+  assert.deepEqual(calls[1].input, { provider: "google" });
 });
 
-test("settings controller emits failure audit event and rethrows", async () => {
-  const auditEvents = [];
+test("settings controller rethrows action failures", async () => {
   const expectedError = Object.assign(new Error("validation"), {
     status: 400,
     code: "VALIDATION_ERROR"
   });
   const controller = createSettingsController({
-    userSettingsService: {
-      async setPasswordMethodEnabled() {
-        throw expectedError;
-      }
-    },
     authService: {
       writeSessionCookies() {}
     },
-    auditService: {
-      async recordSafe(event) {
-        auditEvents.push(event);
+    actionExecutor: {
+      async execute({ actionId }) {
+        assert.equal(actionId, "settings.security.password_method.toggle");
+        throw expectedError;
       }
     }
   });
@@ -126,10 +115,4 @@ test("settings controller emits failure audit event and rethrows", async () => {
       return true;
     }
   );
-
-  assert.equal(auditEvents.length, 1);
-  assert.equal(auditEvents[0].action, "auth.password_method.toggled");
-  assert.equal(auditEvents[0].outcome, "failure");
-  assert.equal(auditEvents[0].metadata.error.status, 400);
-  assert.equal(auditEvents[0].metadata.error.code, "VALIDATION_ERROR");
 });

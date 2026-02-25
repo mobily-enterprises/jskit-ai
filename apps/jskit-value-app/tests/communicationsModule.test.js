@@ -41,11 +41,13 @@ test("communications service normalizes metadata and delegates to sms service", 
 });
 
 test("communications controller delegates sendSms and responds with 200", async () => {
-  const serviceCalls = [];
+  const actionCalls = [];
   const controller = createCommunicationsController({
-    communicationsService: {
-      async sendSms(payload) {
-        serviceCalls.push(payload);
+    actionExecutor: {
+      async execute({ actionId, input, context }) {
+        actionCalls.push({ actionId, input, context });
+        assert.equal(actionId, "workspace.sms.send");
+        assert.equal(context.channel, "api");
         return {
           sent: false,
           reason: "not_implemented",
@@ -79,7 +81,7 @@ test("communications controller delegates sendSms and responds with 200", async 
     reply
   );
 
-  assert.equal(serviceCalls.length, 1);
+  assert.equal(actionCalls.length, 1);
   assert.equal(reply.statusCode, 200);
   assert.equal(reply.payload.reason, "not_implemented");
 });

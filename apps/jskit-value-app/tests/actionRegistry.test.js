@@ -92,6 +92,12 @@ function createServiceStubs() {
           ok: true
         };
       },
+      async listWorkspacesForUser() {
+        return [];
+      },
+      async listPendingInvitesForUser() {
+        return [];
+      },
       async selectWorkspaceForUser() {
         return {
           ok: true
@@ -99,6 +105,9 @@ function createServiceStubs() {
       }
     },
     workspaceAdminService: {
+      getRoleCatalog() {
+        return {};
+      },
       async getWorkspaceSettings() {
         return {
           workspace: {
@@ -152,6 +161,11 @@ function createServiceStubs() {
           ok: true
         };
       },
+      async listRoles() {
+        return {
+          roleCatalog: {}
+        };
+      },
       async getAssistantSettings() {
         return {
           settings: {}
@@ -186,6 +200,9 @@ function createServiceStubs() {
         return {
           invites: []
         };
+      },
+      async listPendingInvitesForUser() {
+        return [];
       },
       async respondToPendingInviteByToken() {
         return {
@@ -272,6 +289,13 @@ function createServiceStubs() {
           entries: []
         };
       },
+      async getThread() {
+        return {
+          thread: {
+            id: 1
+          }
+        };
+      },
       async listThreadMessages() {
         return {
           entries: []
@@ -285,6 +309,16 @@ function createServiceStubs() {
         };
       },
       async markThreadRead() {
+        return {
+          ok: true
+        };
+      },
+      async addReaction() {
+        return {
+          ok: true
+        };
+      },
+      async removeReaction() {
         return {
           ok: true
         };
@@ -308,9 +342,21 @@ function createServiceStubs() {
           }
         };
       },
-      async deleteThreadAttachment() {}
+      async deleteThreadAttachment() {},
+      async getAttachmentContent() {
+        return {
+          contentType: "text/plain",
+          contentDisposition: "inline",
+          contentBuffer: Buffer.from("ok")
+        };
+      }
     },
     billingService: {
+      async listPlans() {
+        return {
+          plans: []
+        };
+      },
       async getPlanState() {
         return {
           currentPlan: null
@@ -326,9 +372,29 @@ function createServiceStubs() {
           purchases: []
         };
       },
+      async listPaymentMethods() {
+        return {
+          paymentMethods: []
+        };
+      },
+      async syncPaymentMethods() {
+        return {
+          paymentMethods: []
+        };
+      },
       async getLimitations() {
         return {
           limitations: []
+        };
+      },
+      async listTimeline() {
+        return {
+          entries: []
+        };
+      },
+      async startCheckout() {
+        return {
+          checkoutUrl: "https://example.test/checkout"
         };
       },
       async requestPlanChange() {
@@ -339,6 +405,11 @@ function createServiceStubs() {
       async cancelPendingPlanChange() {
         return {
           canceled: true
+        };
+      },
+      async createPortalSession() {
+        return {
+          url: "https://example.test/portal"
         };
       },
       async createPaymentLink() {
@@ -449,6 +520,9 @@ function createServiceStubs() {
             id: 1
           }
         };
+      },
+      async countActiveForWorkspace() {
+        return 0;
       }
     },
     deg2radService: {
@@ -542,6 +616,45 @@ function createServiceStubs() {
       async exportConsoleMessages() {
         return {
           entries: []
+        };
+      }
+    },
+    consoleErrorsService: {
+      async listBrowserErrors() {
+        return {
+          entries: []
+        };
+      },
+      async getBrowserError() {
+        return {
+          entry: null
+        };
+      },
+      async listServerErrors() {
+        return {
+          entries: []
+        };
+      },
+      async getServerError() {
+        return {
+          entry: null
+        };
+      },
+      async recordBrowserError() {
+        return {
+          ok: true
+        };
+      },
+      async simulateServerError() {
+        return {
+          ok: true
+        };
+      }
+    },
+    communicationsService: {
+      async sendSms() {
+        return {
+          ok: true
         };
       }
     }
