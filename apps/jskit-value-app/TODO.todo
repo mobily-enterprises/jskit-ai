@@ -53,6 +53,9 @@ X Have proper DB seeding, so that it "starts" well and workspaces can be created
   
   - Have proper entitlement configuration for projects, AI messages, and DEG2RAD calcs <---- !!!
   - Add full abilities to AI chatbot (calculate DEG2RAD, add project, change plan, list users...) (Make sure chatbot has exact same permission as user chatting to it)
+ 
+  - Make sure that realtime works well, it doesn't demand too much boilerplate, and it fits the whole system
+
   - Create an "alerts" system so that users can see their alerts
   - Improve redirect after login, admin or not?
   
@@ -107,3 +110,193 @@ LATER LATER:
   there must be at least a small central app hook to pass request context into
   DB session variables.
 
+
+
+
+
+
+
+
+  There are gaps in the console UI:
+
+  1. Entitlement definitions are missing C/U/D (and currently no dedicated R endpoint either).
+
+    - Right now they’re only exposed indirectly in GET /api/console/billing/plans (for your new select):
+      consoleBilling.service.js (/home/merc/Development/current/jskit-ai/packages/workspace/workspace-console-
+  service-
+      core/src/services/consoleBilling.service.js:161)
+    - Console routes have no /api/console/billing/entitlement-definitions POST/PATCH/DELETE: routes.js (/home/merc/
+      Development/current/jskit-ai/packages/workspace/console-fastify-adapter/src/routes.js:124)
+    - Source of truth today is migration seeds: 20260222232000_backfill_billing_entitlements_engine.cjs (/home/
+  merc/
+      Development/current/jskit-ai/apps/jskit-value-app/migration-baseline-
+      steps/20260222232000_backfill_billing_entitlements_engine.cjs:58)
+
+    2. Plans and Products are missing hard delete/archive endpoints.
+
+    - Plans: GET/POST/PATCH only: routes.js (/home/merc/Development/current/jskit-ai/packages/workspace/console-
+      fastify-adapter/src/routes.js:124), routes.js (/home/merc/Development/current/jskit-ai/packages/workspace/
+      console-fastify-adapter/src/routes.js:197), routes.js (/home/merc/Development/current/jskit-ai/packages/
+      workspace/console-fastify-adapter/src/routes.js:231)
+    - Products: GET/POST/PATCH only: routes.js (/home/merc/Development/current/jskit-ai/packages/workspace/console-
+      fastify-adapter/src/routes.js:137), routes.js (/home/merc/Development/current/jskit-ai/packages/workspace/
+      console-fastify-adapter/src/routes.js:214), routes.js (/home/merc/Development/current/jskit-ai/packages/
+      workspace/console-fastify-adapter/src/routes.js:249)
+
+    3. Payment methods are missing operational mutations (set default/detach/remove).
+
+    - Only list + sync exist: billing routes.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-
+      fastify-adapter/src/routes.js:64), billing routes.js (/home/merc/Development/current/jskit-ai/packages/
+  billing/
+      billing-fastify-adapter/src/routes.js:78)
+
+    4. Purchases are read-only (no refund/void/admin correction endpoints).
+
+    - Only GET purchases: billing routes.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-
+  fastify-
+      adapter/src/routes.js:36)
+
+    5. Plan assignment/subscription admin ops are limited.
+
+    - End-user flow has plan-change/cancel, but no console-level CRUD for assignment/subscription records across
+      entities: billing routes.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-fastify-
+  adapter/
+      src/routes.js:142), billing routes.js (/home/merc/Development/current/jskit-ai/packages/billing/billing-
+  fastify-
+      adapter/src/routes.js:160)
+
+
+  I want you to write a very very VERY VERY VERY detailed plan explaining how you would approach it, from a UI and
+  from a server side perspective. Do everything so that it follows the app's structure, and use vuetify for
+  elements (as little css as possible) and reuses exiting coding standards for client and server side.
+
+
+
+
+  ------------------------
+
+
+
+
+  You are a staff/principal backend architect. Your task is to produce a **full, implementation-ready plan** (no
+      code changes yet) for introducing a canonical business action system in this repo using this pattern:
+
+      1. Packages/domains export action contributors (definitions + handlers).
+      2. App registry imports and mounts those contributors explicitly.
+
+      ## Goal
+      Design how to make assistant/API/UI/other channels execute the same server-side business actions with shared
+      policy enforcement (permissions, auditability, idempotency where needed), while preserving current behavior.
+
+      ## Repository context (use this as authoritative snapshot)
+      - Repo root: `/home/merc/Development/current/jskit-ai`
+      - App: `apps/jskit-value-app`
+      - Action inventory already prepared: `/home/merc/Development/current/jskit-ai/actions_map.md`
+        - This file is the current capability map and naming baseline (e.g. `auth.register`,
+    `settings.profile.update`,
+      `workspace.invite.create`, `chat.thread.message.send`, `console.billing.plan.update`, etc.).
+      - Existing assistant tool situation:
+        - `apps/jskit-value-app/server/modules/ai/services/ai.service.js`
+          - current assistant tool allowlist by surface: app `[]`, admin `["workspace_rename"]`
+        - `apps/jskit-value-app/server/modules/ai/lib/tools/workspaceRename.tool.js`
+          - built-in tool `workspace_rename` currently requires `workspace.settings.update`
+        - `apps/jskit-value-app/config/ai.js`
+          - assistant route-level `requiredPermission` currently empty
+      - Existing RBAC/permissions:
+        - `apps/jskit-value-app/shared/rbac.manifest.json`
+        - workspace permissions include things like `workspace.settings.update`, `workspace.members.manage`,
+      `chat.write`, `projects.write`, etc.
+      - Existing route guard boundaries:
+        - `apps/jskit-value-app/src/app/router/guards.js`
+        - `apps/jskit-value-app/src/app/router/guards.console.js`
+        - workspace/admin/console route files under `src/app/router/routes/*`
+      - Surface model:
+        - app/admin/console from `shared/surfaceRegistry.js` and `shared/surfacePaths.js`
+      - API namespaces currently visible in client wiring:
+        - `auth`, `workspace`, `console`, `projects`, `settings`, `deg2rad`, `history`, `billing`, `chat`, `ai`
+        - see `apps/jskit-value-app/src/platform/http/api/index.js`
+      - Current UI + route behavior has already been mapped into `actions_map.md`; do not redo discovery from
+    scratch.
+
+      ## What “domain” should mean for this plan
+      Treat domain as **server-side business boundary** (not UI page), roughly:
+      - auth
+      - settings
+      - workspace (settings/members/invites/transcripts)
+      - projects
+      - chat
+      - billing (workspace + console catalog/admin)
+      - console administration
+      - assistant orchestration/tooling
+      - deg2rad/history (if kept as separate capability domain)
+
+      ## Hard requirements
+      - Action definitions and handlers live with domain ownership.
+      - Central action registry lives in app composition root and explicitly mounts contributors.
+      - No hidden side-effect auto-registration.
+      - Removing a package/domain contributor should remove its actions by composition choice.
+      - Permission checks must happen in action execution path, not only routes.
+      - Plan must preserve backward compatibility during migration.
+      - Include strategy for assistant parity with UI capabilities using shared actions.
+      - Include audit + idempotency policy recommendations for mutating actions.
+      - No tables in your output.
+
+      ## Deliverable format (must follow this structure)
+      1. Executive summary (2-4 paragraphs)
+      2. Proposed architecture model
+         - action definition contract
+         - action contributor contract
+         - registry contract
+         - execution context contract
+      3. Domain decomposition and ownership
+         - explicit domain list and why each exists
+         - mapping to current modules/packages
+      4. Concrete file/module layout proposal
+         - exact proposed directories/files (app and packages)
+         - where registry should live
+         - where contributor exports should live
+      5. Composition strategy
+         - how app imports/mounts contributors
+         - feature flags/surface/channel gating model
+         - dependency injection pattern to avoid circular deps
+      6. Migration plan (phase-by-phase)
+         - phase 0 baseline checks
+         - phase 1 scaffolding contracts + registry
+         - phase 2 pilot domains
+         - phase 3 broad migration
+         - phase 4 assistant integration expansion
+         - phase 5 cleanup/deprecation
+         - include rollback points per phase
+      7. Action mapping rollout
+         - use `actions_map.md` and specify which action groups migrate first
+         - identify “high-risk/high-value” actions first
+      8. Policy enforcement plan
+         - permission enforcement pattern
+         - audit logging integration point
+         - idempotency strategy for mutating actions
+         - validation schema strategy
+      9. Testing plan
+         - unit tests for definitions/handlers
+         - integration tests for registry execution
+         - permission parity tests (route vs action)
+         - regression tests for assistant + API flows
+      10. Risks, tradeoffs, and open questions
+      11. Definition of done checklist
+
+      ## Additional expectations
+      - Be concrete, not generic.
+      - Reference specific repository paths when proposing changes.
+      - Explicitly call out how current assistant tooling (`workspace_rename` only) evolves to full action
+  coverage.
+      - Explicitly describe how API routes/controllers should transition from direct service calls to action
+    execution.
+      - Explicitly define the boundary between business actions and UI-only interactions.
+      - Include a suggested naming convention and versioning strategy for action IDs.
+      - Include how to handle non-UI-exposed but implemented actions noted in `actions_map.md` (e.g., ad-hoc
+  payment
+      link creation).
+      - Include suggested observability metrics/events for action execution (latency, failure, authz deny,
+  idempotent
+      replay).
+
+      Now produce the full plan.

@@ -511,10 +511,28 @@ const billingPlan = Type.Object(
   }
 );
 
+const billingEntitlementDefinition = Type.Object(
+  {
+    id: Type.Integer({ minimum: 1 }),
+    code: Type.String({ minLength: 1, maxLength: 120 }),
+    name: Type.String({ minLength: 1, maxLength: 191 }),
+    description: Type.Union([Type.String(), Type.Null()]),
+    entitlementType: Type.String({ minLength: 1, maxLength: 64 }),
+    unit: Type.String({ minLength: 1, maxLength: 64 }),
+    windowInterval: Type.Union([Type.String({ minLength: 1, maxLength: 32 }), Type.Null()]),
+    enforcementMode: Type.String({ minLength: 1, maxLength: 64 }),
+    isActive: Type.Boolean()
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const billingPlans = Type.Object(
   {
     provider: Type.String({ minLength: 1, maxLength: 32 }),
-    plans: Type.Array(billingPlan)
+    plans: Type.Array(billingPlan),
+    entitlementDefinitions: Type.Array(billingEntitlementDefinition)
   },
   {
     additionalProperties: false

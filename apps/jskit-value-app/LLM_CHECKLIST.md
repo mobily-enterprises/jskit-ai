@@ -1,65 +1,100 @@
-# LLM_CHECKLIST.md (App Overlay)
+# LLM_CHECKLIST.md
 
-Purpose: app-local checklist for `apps/jskit-value-app`.
+Use this checklist before and after any modification.
 
-Read root `LLM_CHECKLIST.md` first. This overlay adds app-specific execution gates.
+Path convention for this file:
+- Current session cwd is `.` (repo-root path: `apps/jskit-value-app`).
+- Monorepo root is `../..`.
+- Shared packages live under `../../packages`.
+
+## BOOTSTRAP gate (required first, fail-closed)
+
+1. Read RAILS.md in your project if not done yet.
+
 
 ## BEFORE changes
 
-1. Confirm touched app surfaces (`app`, `admin`, `console`).
-2. Confirm whether change affects:
-- API contracts
-- workspace/auth policy
-- billing contracts
-- realtime topic policy
-- schema/migrations
-3. Read relevant docs in `apps/jskit-value-app/docs/**`.
+1. Confirm task scope and touched paths.
+- Identify whether change is in `src`, `server`, `shared`, `config`, or `../../packages`.
+2. Identify affected surface(s).
+- `app`, `admin`, `console`, or multi-surface.
+3. Read mandatory context.
+- `README.md` (app)
+- `../../README.md` (monorepo)
+- Task-relevant docs in `docs/*`
+4. Identify contract boundaries.
+- Module seam contract (`server/modules/<module>/index.js`).
+- Route policy metadata (`auth`, `workspacePolicy`, `workspaceSurface`, `permission`).
+- Client boundary rules (no package-internal imports, no thin wrappers).
+5. Define acceptance criteria in concrete terms.
+- Behavior expected.
+- Tests to run.
+- Docs/files that must be updated.
 
 ## DURING changes
 
-1. Keep app policy/config in app-owned files (`shared/*`, app router/guards, runtime wiring).
-2. Keep package internals isolated; no deep imports from app into package internals.
-3. Keep route metadata and permission policy explicit.
-4. Keep error response shape stable for clients.
+1. Keep changes inside owning layer.
+- Package logic in packages.
+- App policy/composition in app.
+2. Preserve API/versioning rules.
+- Use versioned API paths and existing route assembly patterns.
+3. Preserve auth/workspace/surface alignment.
+- Update both server policy and client guards when needed.
+4. Preserve billing/realtime boundaries.
+- Provider logic stays provider-side.
+- Topic/surface permission logic stays in topic registry + server policy callbacks.
+5. Keep error contracts stable.
+- `AppError` + expected field error shape.
 
-## AFTER changes (app gates)
+## AFTER changes (required sequence)
 
-1. Run core app gates:
+1. Sanity scan diff.
+- Confirm no accidental seam breaks, no package-internal imports from app, no contract drift.
+2. Run architecture guardrails.
 ```bash
-npm run -w apps/jskit-value-app lint
-npm run -w apps/jskit-value-app test
-npm run -w apps/jskit-value-app test:client
+npm --prefix ../.. run lint:architecture:client
+npm --prefix ../.. run test:architecture:client
+npm --prefix ../.. run test:architecture:shared-ui
 ```
-
-2. If route/API contracts changed:
+3. Run app lint + tests for changed behavior.
 ```bash
-npm run -w apps/jskit-value-app docs:api-contracts:check
+npm run lint
+npm run test
+npm run test:client
 ```
-
-3. If architecture boundaries changed:
+4. If API route manifest changed, run API contract check.
 ```bash
-npm run lint:architecture:client
-npm run test:architecture:client
-npm run test:architecture:shared-ui
+npm run docs:api-contracts:check
 ```
-
-4. If migration/schema changed:
+5. If schema/migrations changed, verify migration discipline.
 ```bash
-npm run -w apps/jskit-value-app db:migrate
+npm run db:migrate
 ```
-
-5. If worker/retention changed:
+6. If worker/retention logic changed, verify worker flows.
 ```bash
-npm run -w apps/jskit-value-app worker:retention:enqueue:dry-run
+npm run worker:retention:enqueue:dry-run
 ```
+7. If realtime policy changed, run realtime-focused tests.
+```bash
+npm run test -- realtimeRoutes.test.js
+```
+8. If workspace/surface/auth policy changed, run policy-focused tests.
+```bash
+npm run test -- workspaceService.test.js
+npm run test -- surfacePathsAndRegistry.test.js
+npm run test -- authPermissions.test.js
+```
+9. If billing changed, run billing-focused tests.
+```bash
+npm run test -- billing
+```
+10. Update docs for any contract/runtime behavior change.
+- Update canonical docs in `docs`.
+- Do not add overlapping duplicate docs.
 
-6. If billing changed, run billing-focused tests; if realtime changed, run realtime-focused tests.
+## FINAL verification gate
 
-## FINAL gate
-
-1. Confirm alignment with:
-- root `RAILS.md`
-- this app `RAILS.md`
-- root `LLM_CHECKLIST.md`
-- this app `LLM_CHECKLIST.md`
-2. Confirm docs in `apps/jskit-value-app/docs/**` were updated if contracts changed.
+1. Confirm the change is aligned with `RAILS.md`.
+2. Confirm no unresolved TODOs or temporary hacks remain.
+3. Confirm all required checks were either run or explicitly reported as not run.
+4. Confirm user-facing behavior and docs are consistent.

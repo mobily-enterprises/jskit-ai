@@ -124,22 +124,56 @@
             <v-col cols="12" md="4">
               <v-text-field
                 v-model="state.createForm.code"
-                label="Plan code"
                 variant="outlined"
                 density="compact"
                 :error-messages="state.createFieldErrors.code"
-              />
+              >
+                <template #label>
+                  <span class="field-label-with-help">
+                    <span>Plan code</span>
+                    <v-tooltip v-if="fieldHelp.code" location="top" max-width="360" open-delay="120">
+                      <template #activator="{ props: tooltipProps }">
+                        <v-icon
+                          v-bind="tooltipProps"
+                          icon="mdi-information"
+                          size="13"
+                          color="info"
+                          class="field-help-icon"
+                        />
+                      </template>
+                      <div class="field-help-content">{{ fieldHelp.code }}</div>
+                    </v-tooltip>
+                  </span>
+                </template>
+              </v-text-field>
             </v-col>
             <v-col cols="12" md="5">
               <v-text-field
                 v-model="state.createForm.name"
-                label="Plan name"
                 variant="outlined"
                 density="compact"
                 :error-messages="state.createFieldErrors.name"
-              />
+              >
+                <template #label>
+                  <span class="field-label-with-help">
+                    <span>Plan name</span>
+                    <v-tooltip v-if="fieldHelp.name" location="top" max-width="360" open-delay="120">
+                      <template #activator="{ props: tooltipProps }">
+                        <v-icon
+                          v-bind="tooltipProps"
+                          icon="mdi-information"
+                          size="13"
+                          color="info"
+                          class="field-help-icon"
+                        />
+                      </template>
+                      <div class="field-help-content">{{ fieldHelp.name }}</div>
+                    </v-tooltip>
+                  </span>
+                </template>
+              </v-text-field>
             </v-col>
-            <v-col cols="12" md="3" class="d-flex align-center">
+            <v-col cols="12" md="3" class="d-flex align-center ga-1">
               <v-switch
                 v-model="state.createForm.isActive"
                 color="primary"
@@ -147,6 +181,12 @@
                 hide-details
                 density="compact"
               />
+              <v-tooltip v-if="fieldHelp.isActive" location="top" max-width="360" open-delay="120">
+                <template #activator="{ props: tooltipProps }">
+                  <v-icon v-bind="tooltipProps" icon="mdi-information" size="13" color="info" class="field-help-icon" />
+                </template>
+                <div class="field-help-content">{{ fieldHelp.isActive }}</div>
+              </v-tooltip>
             </v-col>
             <v-col cols="12" md="4">
               <v-select
@@ -154,22 +194,56 @@
                 :items="meta.planBillingModeOptions"
                 item-title="title"
                 item-value="value"
-                label="Plan billing mode"
                 variant="outlined"
                 density="compact"
                 hide-details
-              />
+              >
+                <template #label>
+                  <span class="field-label-with-help">
+                    <span>Plan billing mode</span>
+                    <v-tooltip v-if="fieldHelp.billingMode" location="top" max-width="360" open-delay="120">
+                      <template #activator="{ props: tooltipProps }">
+                        <v-icon
+                          v-bind="tooltipProps"
+                          icon="mdi-information"
+                          size="13"
+                          color="info"
+                          class="field-help-icon"
+                        />
+                      </template>
+                      <div class="field-help-content">{{ fieldHelp.billingMode }}</div>
+                    </v-tooltip>
+                  </span>
+                </template>
+              </v-select>
             </v-col>
             <v-col cols="12">
               <v-textarea
                 v-model="state.createForm.description"
-                label="Description"
                 variant="outlined"
                 density="compact"
                 rows="2"
                 auto-grow
                 :error-messages="state.createFieldErrors.description"
-              />
+              >
+                <template #label>
+                  <span class="field-label-with-help">
+                    <span>Description</span>
+                    <v-tooltip v-if="fieldHelp.description" location="top" max-width="360" open-delay="120">
+                      <template #activator="{ props: tooltipProps }">
+                        <v-icon
+                          v-bind="tooltipProps"
+                          icon="mdi-information"
+                          size="13"
+                          color="info"
+                          class="field-help-icon"
+                        />
+                      </template>
+                      <div class="field-help-content">{{ fieldHelp.description }}</div>
+                    </v-tooltip>
+                  </span>
+                </template>
+              </v-textarea>
             </v-col>
           </v-row>
 
@@ -185,7 +259,6 @@
                   :items="state.providerPriceOptions"
                   item-title="title"
                   item-value="value"
-                  :label="state.ui.catalogPriceLabel"
                   variant="outlined"
                   density="compact"
                   :loading="state.providerPricesLoading"
@@ -195,7 +268,25 @@
                   :hint="state.ui.catalogPriceHint"
                   persistent-hint
                   :error-messages="state.createFieldErrors['corePrice.providerPriceId']"
-                />
+                >
+                  <template #label>
+                    <span class="field-label-with-help">
+                      <span>{{ state.ui.catalogPriceLabel }}</span>
+                      <v-tooltip v-if="fieldHelp.providerPriceId" location="top" max-width="360" open-delay="120">
+                        <template #activator="{ props: tooltipProps }">
+                          <v-icon
+                            v-bind="tooltipProps"
+                            icon="mdi-information"
+                            size="13"
+                            color="info"
+                            class="field-help-icon"
+                          />
+                        </template>
+                        <div class="field-help-content">{{ fieldHelp.providerPriceId }}</div>
+                      </v-tooltip>
+                    </span>
+                  </template>
+                </v-select>
               </v-col>
             </v-row>
 
@@ -243,12 +334,19 @@
           <v-row dense>
             <v-col cols="12">
               <div class="text-caption text-medium-emphasis mb-2">Entitlements</div>
-              <Vjsf
-                v-model="state.createForm.entitlementsModel"
-                :schema="entitlementsEditorSchema"
-                :options="entitlementsEditorOptions"
-                class="entitlements-editor"
-              />
+              <div class="entitlements-editor-shell">
+                <div class="text-caption text-medium-emphasis mb-2 entitlements-editor-help">
+                  Entries are editable immediately. Add, sort, duplicate, or delete rows as needed.
+                </div>
+                <v-defaults-provider :defaults="entitlementsEditorDefaultProps">
+                  <Vjsf
+                    v-model="state.createForm.entitlementsModel"
+                    :schema="entitlementsEditorSchema"
+                    :options="entitlementsEditorOptions"
+                    class="entitlements-editor"
+                  />
+                </v-defaults-provider>
+              </div>
               <v-alert
                 v-if="state.createEntitlementErrors.length"
                 type="error"
@@ -411,22 +509,56 @@
             <v-col cols="12" md="4">
               <v-text-field
                 v-model="state.editForm.code"
-                label="Plan code"
                 variant="outlined"
                 density="compact"
                 readonly
-              />
+              >
+                <template #label>
+                  <span class="field-label-with-help">
+                    <span>Plan code</span>
+                    <v-tooltip v-if="fieldHelp.code" location="top" max-width="360" open-delay="120">
+                      <template #activator="{ props: tooltipProps }">
+                        <v-icon
+                          v-bind="tooltipProps"
+                          icon="mdi-information"
+                          size="13"
+                          color="info"
+                          class="field-help-icon"
+                        />
+                      </template>
+                      <div class="field-help-content">{{ fieldHelp.code }}</div>
+                    </v-tooltip>
+                  </span>
+                </template>
+              </v-text-field>
             </v-col>
             <v-col cols="12" md="5">
               <v-text-field
                 v-model="state.editForm.name"
-                label="Plan name"
                 variant="outlined"
                 density="compact"
                 :error-messages="state.editFieldErrors.name"
-              />
+              >
+                <template #label>
+                  <span class="field-label-with-help">
+                    <span>Plan name</span>
+                    <v-tooltip v-if="fieldHelp.name" location="top" max-width="360" open-delay="120">
+                      <template #activator="{ props: tooltipProps }">
+                        <v-icon
+                          v-bind="tooltipProps"
+                          icon="mdi-information"
+                          size="13"
+                          color="info"
+                          class="field-help-icon"
+                        />
+                      </template>
+                      <div class="field-help-content">{{ fieldHelp.name }}</div>
+                    </v-tooltip>
+                  </span>
+                </template>
+              </v-text-field>
             </v-col>
-            <v-col cols="12" md="3" class="d-flex align-center">
+            <v-col cols="12" md="3" class="d-flex align-center ga-1">
               <v-switch
                 v-model="state.editForm.isActive"
                 color="primary"
@@ -434,6 +566,12 @@
                 hide-details
                 density="compact"
               />
+              <v-tooltip v-if="fieldHelp.isActive" location="top" max-width="360" open-delay="120">
+                <template #activator="{ props: tooltipProps }">
+                  <v-icon v-bind="tooltipProps" icon="mdi-information" size="13" color="info" class="field-help-icon" />
+                </template>
+                <div class="field-help-content">{{ fieldHelp.isActive }}</div>
+              </v-tooltip>
             </v-col>
             <v-col cols="12" md="4">
               <v-select
@@ -441,22 +579,56 @@
                 :items="meta.planBillingModeOptions"
                 item-title="title"
                 item-value="value"
-                label="Plan billing mode"
                 variant="outlined"
                 density="compact"
                 hide-details
-              />
+              >
+                <template #label>
+                  <span class="field-label-with-help">
+                    <span>Plan billing mode</span>
+                    <v-tooltip v-if="fieldHelp.billingMode" location="top" max-width="360" open-delay="120">
+                      <template #activator="{ props: tooltipProps }">
+                        <v-icon
+                          v-bind="tooltipProps"
+                          icon="mdi-information"
+                          size="13"
+                          color="info"
+                          class="field-help-icon"
+                        />
+                      </template>
+                      <div class="field-help-content">{{ fieldHelp.billingMode }}</div>
+                    </v-tooltip>
+                  </span>
+                </template>
+              </v-select>
             </v-col>
             <v-col cols="12">
               <v-textarea
                 v-model="state.editForm.description"
-                label="Description"
                 variant="outlined"
                 density="compact"
                 rows="2"
                 auto-grow
                 :error-messages="state.editFieldErrors.description"
-              />
+              >
+                <template #label>
+                  <span class="field-label-with-help">
+                    <span>Description</span>
+                    <v-tooltip v-if="fieldHelp.description" location="top" max-width="360" open-delay="120">
+                      <template #activator="{ props: tooltipProps }">
+                        <v-icon
+                          v-bind="tooltipProps"
+                          icon="mdi-information"
+                          size="13"
+                          color="info"
+                          class="field-help-icon"
+                        />
+                      </template>
+                      <div class="field-help-content">{{ fieldHelp.description }}</div>
+                    </v-tooltip>
+                  </span>
+                </template>
+              </v-textarea>
             </v-col>
             <v-col v-if="state.editForm.billingMode === 'paid'" cols="12">
               <v-select
@@ -464,7 +636,6 @@
                 :items="state.providerPriceOptions"
                 item-title="title"
                 item-value="value"
-                :label="state.ui.catalogPriceLabel"
                 variant="outlined"
                 density="compact"
                 :loading="state.providerPricesLoading"
@@ -474,7 +645,25 @@
                 :hint="state.ui.catalogPriceHint"
                 persistent-hint
                 :error-messages="state.editFieldErrors['corePrice.providerPriceId']"
-              />
+              >
+                <template #label>
+                  <span class="field-label-with-help">
+                    <span>{{ state.ui.catalogPriceLabel }}</span>
+                    <v-tooltip v-if="fieldHelp.providerPriceId" location="top" max-width="360" open-delay="120">
+                      <template #activator="{ props: tooltipProps }">
+                        <v-icon
+                          v-bind="tooltipProps"
+                          icon="mdi-information"
+                          size="13"
+                          color="info"
+                          class="field-help-icon"
+                        />
+                      </template>
+                      <div class="field-help-content">{{ fieldHelp.providerPriceId }}</div>
+                    </v-tooltip>
+                  </span>
+                </template>
+              </v-select>
             </v-col>
           </v-row>
 
@@ -524,12 +713,19 @@
           <v-row dense class="mt-2">
             <v-col cols="12">
               <div class="text-caption text-medium-emphasis mb-2">Entitlements</div>
-              <Vjsf
-                v-model="state.editForm.entitlementsModel"
-                :schema="entitlementsEditorSchema"
-                :options="entitlementsEditorOptions"
-                class="entitlements-editor"
-              />
+              <div class="entitlements-editor-shell">
+                <div class="text-caption text-medium-emphasis mb-2 entitlements-editor-help">
+                  Entries are editable immediately. Add, sort, duplicate, or delete rows as needed.
+                </div>
+                <v-defaults-provider :defaults="entitlementsEditorDefaultProps">
+                  <Vjsf
+                    v-model="state.editForm.entitlementsModel"
+                    :schema="entitlementsEditorSchema"
+                    :options="entitlementsEditorOptions"
+                    class="entitlements-editor"
+                  />
+                </v-defaults-provider>
+              </div>
               <v-alert
                 v-if="state.editEntitlementErrors.length"
                 type="error"
@@ -593,6 +789,12 @@ const entitlementsEditorSchema = computed(
   () => meta.entitlementsEditorSchema || fallbackEntitlementsEditorSchema
 );
 const entitlementsEditorOptions = computed(() => meta.entitlementsEditorOptions || null);
+const fieldHelp = computed(() => (meta.fieldHelp && typeof meta.fieldHelp === "object" ? meta.fieldHelp : {}));
+const entitlementsEditorDefaultProps = computed(() =>
+  meta.entitlementsEditorDefaultProps && typeof meta.entitlementsEditorDefaultProps === "object"
+    ? meta.entitlementsEditorDefaultProps
+    : {}
+);
 </script>
 
 <style scoped>
@@ -654,10 +856,78 @@ const entitlementsEditorOptions = computed(() => meta.entitlementsEditorOptions 
   gap: 6px;
 }
 
+.field-label-with-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.field-help-icon {
+  cursor: help;
+}
+
+.field-help-content {
+  max-width: 300px;
+  line-height: 1.35;
+  white-space: pre-line;
+}
+
 .entitlements-editor {
+  border: 1px solid rgba(54, 66, 58, 0.16);
+  border-radius: 12px;
+  background: #fff;
+  padding: 6px;
+}
+
+.entitlements-editor-shell {
   border: 1px solid rgba(54, 66, 58, 0.14);
-  border-radius: 8px;
+  border-radius: 12px;
+  background: rgba(46, 90, 74, 0.035);
   padding: 10px;
+}
+
+.entitlements-editor-help {
+  padding: 0 4px;
+}
+
+.entitlements-editor :deep(.vjsf-list-item) {
+  border-radius: 10px;
+  border: 1px solid rgba(54, 66, 58, 0.26) !important;
+  background: rgba(255, 255, 255, 0.82);
+  margin-bottom: 14px;
+  box-shadow: 0 1px 0 rgba(54, 66, 58, 0.08);
+}
+
+.entitlements-editor :deep(.vjsf-list-item .v-list-item__content) {
+  padding-top: 2px;
+}
+
+.entitlements-editor :deep(.vjsf-list-item .v-list-item__append) {
+  align-self: flex-start;
+  margin-left: 8px;
+}
+
+.entitlements-editor :deep(.vjsf-list-item-actions-wrapper .v-btn) {
+  opacity: 0.92;
+}
+
+.entitlements-editor :deep(.vjsf-help-message .vjsf-help-message-toggle) {
+  transform: scale(0.82);
+  transform-origin: top right;
+}
+
+.entitlements-editor :deep(.vjsf-node-list .v-divider) {
+  display: none;
+}
+
+.entitlements-editor :deep(.vjsf-node-list .v-list-item.py-2) {
+  border-top: 1px dashed rgba(54, 66, 58, 0.2);
+  margin-top: 10px;
+  padding-top: 14px;
+}
+
+.entitlements-editor :deep(.vjsf-node-section > .v-row) {
+  row-gap: 4px;
 }
 
 .code-sheet pre {
@@ -665,5 +935,21 @@ const entitlementsEditorOptions = computed(() => meta.entitlementsEditorOptions 
   font-size: 12px;
   line-height: 1.45;
   overflow-x: auto;
+}
+</style>
+
+<style>
+.vjsf-help-message-tooltip.v-overlay .v-overlay__content {
+  max-width: min(380px, 82vw) !important;
+  width: fit-content !important;
+}
+
+.vjsf-help-message-tooltip .v-alert {
+  max-width: 100%;
+}
+
+.vjsf-help-message-tooltip .v-alert__content {
+  white-space: pre-line;
+  line-height: 1.35;
 }
 </style>

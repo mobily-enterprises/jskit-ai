@@ -56,6 +56,26 @@ function filterProviderPricesByTarget(prices, target) {
   return entries;
 }
 
+function mapEntitlementDefinitionToConsole(entry = {}) {
+  const id = parsePositiveInteger(entry?.id);
+  const code = normalizeOptionalString(entry?.code);
+  if (!id || !code) {
+    return null;
+  }
+
+  return {
+    id,
+    code,
+    name: normalizeOptionalString(entry?.name),
+    description: entry?.description == null ? null : String(entry.description || ""),
+    entitlementType: normalizeOptionalString(entry?.entitlementType),
+    unit: normalizeOptionalString(entry?.unit),
+    windowInterval: entry?.windowInterval == null ? null : normalizeOptionalString(entry?.windowInterval),
+    enforcementMode: normalizeOptionalString(entry?.enforcementMode),
+    isActive: entry?.isActive !== false
+  };
+}
+
 function createConsoleBillingService({
   requirePermission,
   ensureConsoleSettings,
@@ -133,10 +153,21 @@ function createConsoleBillingService({
     }
 
     ensureBillingCatalogRepository(billingRepository);
-    return buildConsoleBillingPlanCatalog({
+    const catalog = await buildConsoleBillingPlanCatalog({
       billingRepository,
       activeBillingProvider
     });
+
+    const definitions = await billingRepository.listEntitlementDefinitions({
+      includeInactive: true
+    });
+
+    return {
+      ...catalog,
+      entitlementDefinitions: (Array.isArray(definitions) ? definitions : [])
+        .map((entry) => mapEntitlementDefinitionToConsole(entry))
+        .filter(Boolean)
+    };
   }
 
   async function listBillingProducts(user) {

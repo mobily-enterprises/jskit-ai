@@ -174,6 +174,21 @@ test("console billing plans list returns catalog entries for active provider", a
           }
         ];
       },
+      async listEntitlementDefinitions() {
+        return [
+          {
+            id: 7,
+            code: "projects.max",
+            name: "Projects Capacity",
+            description: "Maximum active projects allowed.",
+            entitlementType: "capacity",
+            unit: "project",
+            windowInterval: null,
+            enforcementMode: "hard_deny",
+            isActive: true
+          }
+        ];
+      },
       async listPlanEntitlementsForPlan(planId) {
         assert.equal(planId, 11);
         return [];
@@ -188,6 +203,8 @@ test("console billing plans list returns catalog entries for active provider", a
   assert.equal(response.provider, "stripe");
   assert.equal(response.plans.length, 1);
   assert.equal(response.plans[0].corePrice.providerPriceId, "price_pro_monthly");
+  assert.equal(response.entitlementDefinitions.length, 1);
+  assert.equal(response.entitlementDefinitions[0].code, "projects.max");
 });
 
 test("console billing products list returns catalog entries for active provider", async () => {
