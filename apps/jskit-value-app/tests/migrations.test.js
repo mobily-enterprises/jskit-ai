@@ -9,10 +9,11 @@ const { BASELINE_STEP_FILES, createBaselineRunner } = baselineMigration.__testab
 
 test("baseline migration contains the full historical step sequence in order", () => {
   assert.equal(BASELINE_STEP_FILES[0], "20260215120000_create_user_profiles.cjs");
-  assert.equal(BASELINE_STEP_FILES[BASELINE_STEP_FILES.length - 1], "20260223150000_remove_workspace_default_calculation_policy.cjs");
+  assert.equal(BASELINE_STEP_FILES[BASELINE_STEP_FILES.length - 1], "20260225100000_create_social_federation_tables.cjs");
   assert.ok(BASELINE_STEP_FILES.includes("20260219120000_create_workspace_projects.cjs"));
   assert.ok(BASELINE_STEP_FILES.includes("20260223100000_add_deg2rad_columns_to_calculation_logs.cjs"));
   assert.ok(BASELINE_STEP_FILES.includes("20260223090000_enforce_unique_workspace_room_thread.cjs"));
+  assert.ok(BASELINE_STEP_FILES.includes("20260225100000_create_social_federation_tables.cjs"));
 });
 
 test("baseline runner invokes each migration up step in order", async () => {

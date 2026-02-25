@@ -151,7 +151,9 @@ export const useWorkspaceStore = defineStore("workspace", {
         workspaceInvites: false,
         workspaceCreateEnabled: false,
         assistantEnabled: false,
-        assistantRequiredPermission: ""
+        assistantRequiredPermission: "",
+        socialEnabled: false,
+        socialFederationEnabled: false
       }
     },
     workspaces: [],
@@ -197,7 +199,9 @@ export const useWorkspaceStore = defineStore("workspace", {
           workspaceInvites: Boolean(app.features?.workspaceInvites),
           workspaceCreateEnabled: Boolean(app.features?.workspaceCreateEnabled),
           assistantEnabled: Boolean(app.features?.assistantEnabled),
-          assistantRequiredPermission: String(app.features?.assistantRequiredPermission || "").trim()
+          assistantRequiredPermission: String(app.features?.assistantRequiredPermission || "").trim(),
+          socialEnabled: Boolean(app.features?.socialEnabled),
+          socialFederationEnabled: Boolean(app.features?.socialFederationEnabled)
         }
       };
 
@@ -347,7 +351,9 @@ export const useWorkspaceStore = defineStore("workspace", {
           workspaceInvites: false,
           workspaceCreateEnabled: false,
           assistantEnabled: false,
-          assistantRequiredPermission: ""
+          assistantRequiredPermission: "",
+          socialEnabled: false,
+          socialFederationEnabled: false
         }
       };
       this.workspaces = [];

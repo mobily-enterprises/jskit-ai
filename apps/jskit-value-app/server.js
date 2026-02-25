@@ -25,6 +25,7 @@ import {
 import { registerApiRoutes } from "./server/fastify/registerApiRoutes.js";
 import authPlugin from "./server/fastify/auth.plugin.js";
 import billingWebhookRawBodyPlugin from "./server/fastify/billingWebhookRawBody.plugin.js";
+import activityPubRawBodyPlugin from "./server/fastify/activityPubRawBody.plugin.js";
 import { registerSocketIoRealtime } from "./server/realtime/registerSocketIoRealtime.js";
 import { safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
 import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar.js";
@@ -214,8 +215,21 @@ function hasPathExtension(pathnameValue) {
   return path.extname(pathnameValue) !== "";
 }
 
+function isPublicFederationPath(pathnameValue) {
+  const normalizedPath = String(pathnameValue || "").trim();
+  if (!normalizedPath) {
+    return false;
+  }
+
+  return normalizedPath === "/.well-known/webfinger" || normalizedPath.startsWith("/ap/");
+}
+
 async function guardPageRoute(request, reply) {
   const pathnameValue = safePathnameFromRequest(request);
+  if (isPublicFederationPath(pathnameValue)) {
+    return true;
+  }
+
   const surfacePaths = resolveSurfacePaths(pathnameValue);
   const appSurfacePaths = createSurfacePaths("app");
   const requiresWorkspace = surfaceRequiresWorkspace(surfacePaths.surface);
@@ -452,6 +466,9 @@ function registerPageGuardHook(app) {
     if (isApiPath(pathnameValue)) {
       return;
     }
+    if (isPublicFederationPath(pathnameValue)) {
+      return;
+    }
 
     if (request.method !== "GET") {
       reply.code(405).send({ error: "Method not allowed." });
@@ -533,6 +550,9 @@ export async function buildServer({ frontendBuildAvailable }) {
   app.setValidatorCompiler(TypeBoxValidatorCompiler);
 
   await app.register(billingWebhookRawBodyPlugin);
+  await app.register(activityPubRawBodyPlugin, {
+    maxPayloadBytes: REPOSITORY_CONFIG.social.limits.inboxMaxPayloadBytes
+  });
 
   await app.register(fastifyHelmet, {
     contentSecurityPolicy: {
@@ -627,7 +647,13 @@ export async function buildServer({ frontendBuildAvailable }) {
       chatMessagesPageSizeMax: REPOSITORY_CONFIG.chat.messagesPageSizeMax,
       chatThreadsPageSizeMax: REPOSITORY_CONFIG.chat.threadsPageSizeMax,
       chatAttachmentsMaxFilesPerMessage: REPOSITORY_CONFIG.chat.attachmentsMaxFilesPerMessage,
-      chatAttachmentMaxUploadBytes: REPOSITORY_CONFIG.chat.attachmentMaxUploadBytes
+      chatAttachmentMaxUploadBytes: REPOSITORY_CONFIG.chat.attachmentMaxUploadBytes,
+      socialPostMaxChars: REPOSITORY_CONFIG.social.limits.postMaxChars,
+      socialCommentMaxChars: REPOSITORY_CONFIG.social.limits.commentMaxChars,
+      socialFeedPageSizeMax: REPOSITORY_CONFIG.social.limits.feedPageSizeMax,
+      socialNotificationsPageSizeMax: REPOSITORY_CONFIG.social.limits.notificationsPageSizeMax,
+      socialActorSearchLimitMax: REPOSITORY_CONFIG.social.limits.actorSearchLimitMax,
+      socialInboxMaxPayloadBytes: REPOSITORY_CONFIG.social.limits.inboxMaxPayloadBytes
     }
   });
   if (frontendBuildAvailable) {
@@ -650,6 +676,10 @@ export async function buildServer({ frontendBuildAvailable }) {
     const pathnameValue = safePathnameFromRequest(request);
 
     if (isApiPath(pathnameValue)) {
+      reply.code(404).send({ error: "Not found." });
+      return;
+    }
+    if (isPublicFederationPath(pathnameValue)) {
       reply.code(404).send({ error: "Not found." });
       return;
     }

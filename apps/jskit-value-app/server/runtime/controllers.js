@@ -7,6 +7,7 @@ import { createController as createConsoleController } from "../modules/console/
 import { createController as createConsoleErrorsController } from "@jskit-ai/console-errors-fastify-adapter";
 import { createController as createObservabilityController } from "@jskit-ai/observability-fastify-adapter";
 import { createController as createChatController } from "../modules/chat/index.js";
+import { createController as createSocialController } from "../modules/social/index.js";
 import { createController as createHealthController } from "@jskit-ai/health-fastify-adapter";
 import { createController as createAiController } from "../modules/ai/index.js";
 import { createController as createBillingController } from "@jskit-ai/billing-fastify-adapter/controller";
@@ -68,6 +69,14 @@ const PLATFORM_CONTROLLER_DEFINITIONS = Object.freeze([
     create: ({ services }) =>
       createChatController({
         chatService: services.chatService,
+        actionExecutor: services.actionExecutor
+      })
+  },
+  {
+    id: "social",
+    create: ({ services }) =>
+      createSocialController({
+        socialService: services.socialService,
         actionExecutor: services.actionExecutor
       })
   },

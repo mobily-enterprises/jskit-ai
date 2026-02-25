@@ -1,5 +1,6 @@
 import { appConfig as appDefaults } from "./app.js";
 import { chatConfig as chatDefaults } from "./chat.js";
+import { socialConfig as socialDefaults } from "./social.js";
 import { aiConfig as aiDefaults } from "./ai.js";
 import { billingConfig as billingDefaults } from "./billing.js";
 import { retentionConfig as retentionDefaults } from "./retention.js";
@@ -8,6 +9,7 @@ import {
   deepFreeze,
   expectBoolean,
   expectPositiveInteger,
+  expectNumber,
   expectString,
   expectOneOf,
   expectPlainObject
@@ -59,6 +61,51 @@ function validateAiConfig(config) {
   expectPositiveInteger("ai.historyPageSize", config.historyPageSize);
   expectPositiveInteger("ai.restoreMessagesPageSize", config.restoreMessagesPageSize);
   expectString("ai.requiredPermission", config.requiredPermission, { allowEmpty: true });
+}
+
+function validateSocialConfig(config) {
+  expectPlainObject("social", config);
+  expectBoolean("social.enabled", config.enabled);
+  expectBoolean("social.federationEnabled", config.federationEnabled);
+  expectPlainObject("social.limits", config.limits);
+  expectPositiveInteger("social.limits.feedPageSizeMax", config.limits.feedPageSizeMax);
+  expectPositiveInteger("social.limits.commentsPageSizeMax", config.limits.commentsPageSizeMax);
+  expectPositiveInteger("social.limits.notificationsPageSizeMax", config.limits.notificationsPageSizeMax);
+  expectPositiveInteger("social.limits.actorSearchLimitMax", config.limits.actorSearchLimitMax);
+  expectPositiveInteger("social.limits.postMaxChars", config.limits.postMaxChars);
+  expectPositiveInteger("social.limits.commentMaxChars", config.limits.commentMaxChars);
+  expectPositiveInteger("social.limits.inboxMaxPayloadBytes", config.limits.inboxMaxPayloadBytes);
+  expectPlainObject("social.retry", config.retry);
+  expectPositiveInteger("social.retry.baseDelayMs", config.retry.baseDelayMs);
+  expectPositiveInteger("social.retry.maxDelayMs", config.retry.maxDelayMs);
+  expectPositiveInteger("social.retry.maxAttempts", config.retry.maxAttempts);
+  expectNumber("social.retry.jitterRatio", config.retry.jitterRatio, {
+    min: 0,
+    max: 1
+  });
+  expectPlainObject("social.moderation", config.moderation);
+  expectBoolean(
+    "social.moderation.requireManualApprovalForRemoteFollows",
+    config.moderation.requireManualApprovalForRemoteFollows
+  );
+  expectBoolean(
+    "social.moderation.autoSuspendOnRepeatedSignatureFailures",
+    config.moderation.autoSuspendOnRepeatedSignatureFailures
+  );
+  expectPositiveInteger(
+    "social.moderation.signatureFailureSuspendThreshold",
+    config.moderation.signatureFailureSuspendThreshold
+  );
+
+  if (!Array.isArray(config.moderation.defaultBlockedDomains)) {
+    throw new Error("social.moderation.defaultBlockedDomains must be an array.");
+  }
+  for (let index = 0; index < config.moderation.defaultBlockedDomains.length; index += 1) {
+    expectString(
+      `social.moderation.defaultBlockedDomains[${index}]`,
+      config.moderation.defaultBlockedDomains[index]
+    );
+  }
 }
 
 function validateBillingConfig(config) {
@@ -174,6 +221,7 @@ function validateRepositoryConfig(config) {
   expectPlainObject("root", config);
   validateAppConfig(config.app);
   validateChatConfig(config.chat);
+  validateSocialConfig(config.social);
   validateAiConfig(config.ai);
   validateBillingConfig(config.billing);
   validateRetentionConfig(config.retention);
@@ -184,6 +232,7 @@ function buildRepositoryConfig({ overrides = null } = {}) {
   const config = {
     app: structuredClone(appDefaults),
     chat: structuredClone(chatDefaults),
+    social: structuredClone(socialDefaults),
     ai: structuredClone(aiDefaults),
     billing: structuredClone(billingDefaults),
     retention: structuredClone(retentionDefaults),

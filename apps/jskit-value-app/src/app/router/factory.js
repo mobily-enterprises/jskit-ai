@@ -4,6 +4,7 @@ import { createSurfaceRouteGuards } from "./guards.js";
 import { createRoutes as createCoreRoutes } from "./routes/coreRoutes.js";
 import { createRoutes as createAssistantRoutes } from "./routes/assistantRoutes.js";
 import { createRoutes as createChatRoutes } from "./routes/chatRoutes.js";
+import { createRoutes as createSocialRoutes } from "./routes/socialRoutes.js";
 import { createRoutes as createWorkspaceRoutes } from "./routes/workspaceRoutes.js";
 import { createRoutes as createProjectsRoutes } from "./routes/projectsRoutes.js";
 
@@ -15,6 +16,8 @@ function createSurfaceRouter({
   includeWorkspaceSettings = false,
   includeAssistantRoute = false,
   includeChatRoute = false,
+  includeSocialRoute = false,
+  includeSocialModerationRoute = false,
   includeChoiceTwoRoute = true
 }) {
   const stores = { authStore, workspaceStore };
@@ -39,48 +42,70 @@ function createSurfaceRouter({
     includeChoiceTwoRoute
   });
 
+  let insertIndex = 3;
+
   if (includeAssistantRoute) {
-    routes.splice(
-      3,
-      0,
-      ...createAssistantRoutes({
-        rootRoute,
-        workspaceRoutePrefix,
-        guards
-      })
-    );
-  }
-
-  if (includeChatRoute) {
-    routes.splice(
-      includeAssistantRoute ? 4 : 3,
-      0,
-      ...createChatRoutes({
-        rootRoute,
-        workspaceRoutePrefix,
-        guards,
-        surface
-      })
-    );
-  }
-
-  if (includeWorkspaceSettings) {
-    const insertIndex =
-      includeAssistantRoute && includeChatRoute ? 5 : includeAssistantRoute || includeChatRoute ? 4 : 3;
+    const assistantRoutes = createAssistantRoutes({
+      rootRoute,
+      workspaceRoutePrefix,
+      guards
+    });
     routes.splice(
       insertIndex,
       0,
-      ...createWorkspaceRoutes({
-        rootRoute,
-        workspaceRoutePrefix,
-        guards
-      }),
-      ...createProjectsRoutes({
-        rootRoute,
-        workspaceRoutePrefix,
-        guards
-      })
+      ...assistantRoutes
     );
+    insertIndex += assistantRoutes.length;
+  }
+
+  if (includeChatRoute) {
+    const chatRoutes = createChatRoutes({
+      rootRoute,
+      workspaceRoutePrefix,
+      guards,
+      surface
+    });
+    routes.splice(
+      insertIndex,
+      0,
+      ...chatRoutes
+    );
+    insertIndex += chatRoutes.length;
+  }
+
+  if (includeSocialRoute) {
+    const socialRoutes = createSocialRoutes({
+      rootRoute,
+      workspaceRoutePrefix,
+      guards,
+      includeModerationRoute: includeSocialModerationRoute
+    });
+    routes.splice(
+      insertIndex,
+      0,
+      ...socialRoutes
+    );
+    insertIndex += socialRoutes.length;
+  }
+
+  if (includeWorkspaceSettings) {
+    const workspaceRoutes = createWorkspaceRoutes({
+      rootRoute,
+      workspaceRoutePrefix,
+      guards
+    });
+    const projectRoutes = createProjectsRoutes({
+      rootRoute,
+      workspaceRoutePrefix,
+      guards
+    });
+    routes.splice(
+      insertIndex,
+      0,
+      ...workspaceRoutes,
+      ...projectRoutes
+    );
+    insertIndex += workspaceRoutes.length + projectRoutes.length;
   }
 
   const routeTree = rootRoute.addChildren(routes);

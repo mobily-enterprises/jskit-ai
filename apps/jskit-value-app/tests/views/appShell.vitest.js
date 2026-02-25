@@ -210,6 +210,28 @@ describe("useAppShell", () => {
     expect(mocks.shellActions.hardNavigate).not.toHaveBeenCalled();
   });
 
+  it("shows social navigation when feature is enabled and social.read is granted", async () => {
+    mocks.routerPathname = "/w/acme/social";
+    mocks.workspaceStore.app.features.socialEnabled = true;
+    mocks.workspaceStore.can.mockImplementation(
+      (permission) =>
+        permission === "workspace.settings.view" ||
+        permission === "workspace.settings.update" ||
+        permission === "workspace.ai.use" ||
+        permission === "social.read"
+    );
+
+    const wrapper = mountHarness();
+    await nextTick();
+
+    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Social");
+    expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
+      { title: "Deg2rad", to: "/w/acme", icon: "$navChoice1" },
+      { title: "Social", to: "/w/acme/social", icon: "$workspaceSocial" },
+      { title: "Assistant", to: "/w/acme/assistant", icon: "$navChoice2" }
+    ]);
+  });
+
   it("hides assistant navigation when feature is disabled", async () => {
     mocks.workspaceStore.app.features.assistantEnabled = false;
 

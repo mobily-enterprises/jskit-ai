@@ -351,6 +351,162 @@ function createServiceStubs() {
         };
       }
     },
+    socialService: {
+      async listFeed() {
+        return {
+          items: []
+        };
+      },
+      async getPost() {
+        return {
+          post: {
+            id: 1
+          },
+          comments: []
+        };
+      },
+      async createPost() {
+        return {
+          post: {
+            id: 1
+          }
+        };
+      },
+      async updatePost() {
+        return {
+          post: {
+            id: 1
+          }
+        };
+      },
+      async deletePost() {
+        return {
+          deleted: true
+        };
+      },
+      async createComment() {
+        return {
+          comment: {
+            id: 1
+          }
+        };
+      },
+      async deleteComment() {
+        return {
+          deleted: true
+        };
+      },
+      async requestFollow() {
+        return {
+          follow: {
+            id: 1
+          }
+        };
+      },
+      async acceptFollow() {
+        return {
+          follow: {
+            id: 1
+          }
+        };
+      },
+      async rejectFollow() {
+        return {
+          follow: {
+            id: 1
+          }
+        };
+      },
+      async undoFollow() {
+        return {
+          follow: {
+            id: 1
+          }
+        };
+      },
+      async searchActors() {
+        return {
+          items: []
+        };
+      },
+      async getActorProfile() {
+        return {
+          actor: {
+            id: 1
+          },
+          counts: {
+            followers: 0,
+            following: 0
+          }
+        };
+      },
+      async listNotifications() {
+        return {
+          items: []
+        };
+      },
+      async markNotificationsRead() {
+        return {
+          updated: true,
+          notificationIds: []
+        };
+      },
+      async listModerationRules() {
+        return {
+          items: []
+        };
+      },
+      async createModerationRule() {
+        return {
+          rule: {
+            id: 1
+          }
+        };
+      },
+      async deleteModerationRule() {
+        return {
+          deleted: true
+        };
+      },
+      async processInboxActivity() {
+        return {
+          accepted: true,
+          eventId: 1
+        };
+      },
+      async deliverOutboxBatch() {
+        return {
+          processedCount: 0,
+          results: []
+        };
+      },
+      async getWebFinger() {
+        return {
+          subject: "acct:user@example.com",
+          links: []
+        };
+      },
+      async getActorDocument() {
+        return {
+          id: "https://example.com/ap/actors/user"
+        };
+      },
+      async getFollowersCollection() {
+        return {
+          orderedItems: []
+        };
+      },
+      async getFollowingCollection() {
+        return {
+          orderedItems: []
+        };
+      },
+      async getObjectDocument() {
+        return {
+          id: "https://example.com/ap/objects/1"
+        };
+      }
+    },
     billingService: {
       async listPlans() {
         return {
@@ -695,6 +851,12 @@ test("action runtime services scaffold action registry and executor", async () =
   assert.equal(actionIds.has(ACTION_IDS.CONSOLE_BILLING_PRODUCT_UPDATE), true);
   assert.equal(actionIds.has(ACTION_IDS.CHAT_THREAD_MESSAGE_SEND), true);
   assert.equal(actionIds.has(ACTION_IDS.CHAT_ATTACHMENT_UPLOAD), true);
+  assert.equal(actionIds.has(ACTION_IDS.SOCIAL_FEED_READ), true);
+  assert.equal(actionIds.has(ACTION_IDS.SOCIAL_POST_CREATE), true);
+  assert.equal(actionIds.has(ACTION_IDS.SOCIAL_FOLLOW_REQUEST), true);
+  assert.equal(actionIds.has(ACTION_IDS.SOCIAL_NOTIFICATIONS_LIST), true);
+  assert.equal(actionIds.has(ACTION_IDS.SOCIAL_MODERATION_RULE_CREATE), true);
+  assert.equal(actionIds.has(ACTION_IDS.SOCIAL_FEDERATION_INBOX_PROCESS), true);
   assert.equal(actionIds.has(ACTION_IDS.PROJECTS_CREATE), true);
   assert.equal(actionIds.has(ACTION_IDS.PROJECTS_UPDATE), true);
   assert.equal(actionIds.has(ACTION_IDS.DEG2RAD_CALCULATE), true);

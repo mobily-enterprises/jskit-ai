@@ -23,7 +23,7 @@ describe("createAppRouter", () => {
     mocks.createSurfaceRouter.mockReturnValue({ marker: "app-router" });
   });
 
-  it("builds an app surface router with assistant and chat routes enabled", () => {
+  it("builds an app surface router with assistant, chat, and social routes enabled", () => {
     const authStore = { id: "auth" };
     const workspaceStore = { id: "workspace" };
 
@@ -37,6 +37,8 @@ describe("createAppRouter", () => {
       includeWorkspaceSettings: false,
       includeAssistantRoute: true,
       includeChatRoute: true,
+      includeSocialRoute: true,
+      includeSocialModerationRoute: false,
       includeChoiceTwoRoute: false
     });
     expect(router).toEqual({ marker: "app-router" });

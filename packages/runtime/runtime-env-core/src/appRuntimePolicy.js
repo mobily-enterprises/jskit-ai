@@ -42,6 +42,8 @@ function resolveAppConfig({ repositoryConfig, runtimeEnv, rootDir = process.cwd(
   const appRepositoryConfig =
     repositoryConfig.app && typeof repositoryConfig.app === "object" ? repositoryConfig.app : {};
   const aiRepositoryConfig = repositoryConfig.ai && typeof repositoryConfig.ai === "object" ? repositoryConfig.ai : {};
+  const socialRepositoryConfig =
+    repositoryConfig.social && typeof repositoryConfig.social === "object" ? repositoryConfig.social : {};
 
   const tenancyMode = String(appRepositoryConfig.tenancyMode || "personal").trim();
   const normalizedTenancyMode = TENANCY_MODES.has(tenancyMode) ? tenancyMode : "personal";
@@ -62,6 +64,8 @@ function resolveAppConfig({ repositoryConfig, runtimeEnv, rootDir = process.cwd(
     normalizedTenancyMode === "personal" ? false : Boolean(appRepositoryConfig?.features?.workspaceCreateEnabled);
   const assistantEnabled = Boolean(aiRepositoryConfig.enabled);
   const assistantRequiredPermission = String(aiRepositoryConfig.requiredPermission || "").trim();
+  const socialEnabled = Boolean(socialRepositoryConfig.enabled);
+  const socialFederationEnabled = socialEnabled && Boolean(socialRepositoryConfig.federationEnabled);
 
   const rbacManifestPath = resolveManifestPath(runtimeEnv?.RBAC_MANIFEST_PATH, rootDir);
 
@@ -73,7 +77,9 @@ function resolveAppConfig({ repositoryConfig, runtimeEnv, rootDir = process.cwd(
       workspaceInvites: workspaceInvitesDefault,
       workspaceCreateEnabled,
       assistantEnabled,
-      assistantRequiredPermission
+      assistantRequiredPermission,
+      socialEnabled,
+      socialFederationEnabled
     },
     limits: {
       maxWorkspacesPerUser
@@ -90,7 +96,9 @@ function toBrowserConfig(appConfig) {
       workspaceInvites: Boolean(appConfig.features?.workspaceInvites),
       workspaceCreateEnabled: Boolean(appConfig.features?.workspaceCreateEnabled),
       assistantEnabled: Boolean(appConfig.features?.assistantEnabled),
-      assistantRequiredPermission: String(appConfig.features?.assistantRequiredPermission || "").trim()
+      assistantRequiredPermission: String(appConfig.features?.assistantRequiredPermission || "").trim(),
+      socialEnabled: Boolean(appConfig.features?.socialEnabled),
+      socialFederationEnabled: Boolean(appConfig.features?.socialFederationEnabled)
     }
   };
 }

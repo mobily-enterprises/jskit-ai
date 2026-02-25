@@ -54,11 +54,13 @@ export function useAppShell() {
   const assistantRequiredPermission = computed(() =>
     String(workspaceStore.app?.features?.assistantRequiredPermission || "").trim()
   );
+  const socialFeatureEnabled = computed(() => Boolean(workspaceStore.app?.features?.socialEnabled));
   const canUseAssistant = computed(
     () =>
       assistantFeatureEnabled.value &&
       (!assistantRequiredPermission.value || workspaceStore.can(assistantRequiredPermission.value))
   );
+  const canUseSocial = computed(() => socialFeatureEnabled.value && workspaceStore.can("social.read"));
   const canOpenAdminSurface = computed(() => activeWorkspaceHasMembership.value && canViewWorkspaceAdminSettings.value);
   const activeWorkspaceColor = computed(() => normalizeWorkspaceColor(workspaceStore.activeWorkspace?.color));
   const workspaceThemeStyle = computed(() => buildWorkspaceThemeStyle(activeWorkspaceColor.value));
@@ -79,6 +81,10 @@ export function useAppShell() {
   const navigationItems = computed(() => {
     const items = [{ title: "Deg2rad", to: workspacePath("/"), icon: "$navChoice1" }];
 
+    if (canUseSocial.value) {
+      items.push({ title: "Social", to: workspacePath("/social"), icon: "$workspaceSocial" });
+    }
+
     if (canUseAssistant.value) {
       items.push({ title: "Assistant", to: workspacePath("/assistant"), icon: "$navChoice2" });
     }
@@ -87,6 +93,9 @@ export function useAppShell() {
   });
 
   const destinationTitle = computed(() => {
+    if (currentPath.value.endsWith("/social")) {
+      return "Social";
+    }
     if (currentPath.value.endsWith("/assistant")) {
       return "Assistant";
     }

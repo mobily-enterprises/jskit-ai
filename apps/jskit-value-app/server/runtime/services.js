@@ -14,6 +14,7 @@ import { createService as createConsoleService } from "@jskit-ai/workspace-conso
 import { createService as createConsoleErrorsService } from "@jskit-ai/workspace-console-service-core/services/errors";
 import { createService as createAuditService } from "@jskit-ai/security-audit-core";
 import { createService as createChatModuleService } from "../modules/chat/index.js";
+import { createService as createSocialModuleService } from "../modules/social/index.js";
 import { createService as createHealthModuleService } from "../modules/health/index.js";
 import { createService as createAiModuleService } from "../modules/ai/index.js";
 import {
@@ -170,7 +171,7 @@ function resolveAuthJwtAudience(env) {
   return String(env.AUTH_JWT_AUDIENCE || "authenticated").trim();
 }
 
-function throwEnabledSubsystemStartupPreflightError({ env, aiPolicyConfig, billingPolicyConfig }) {
+function throwEnabledSubsystemStartupPreflightError({ env, aiPolicyConfig, billingPolicyConfig, socialPolicyConfig }) {
   const issues = [];
   const hints = [];
 
@@ -214,6 +215,19 @@ function throwEnabledSubsystemStartupPreflightError({ env, aiPolicyConfig, billi
     }
 
     hints.push("Disable billing in config/billing.js (billing.enabled = false) if you are not using it yet.");
+  }
+
+  if (socialPolicyConfig?.enabled === true && socialPolicyConfig?.federationEnabled === true) {
+    if (!hasNonEmptyEnvValue(env.APP_PUBLIC_URL)) {
+      issues.push("APP_PUBLIC_URL is required when social federation is enabled in config/social.js.");
+    }
+    if (!hasNonEmptyEnvValue(env.SOCIAL_FEDERATION_SIGNING_SECRET)) {
+      issues.push("SOCIAL_FEDERATION_SIGNING_SECRET is required when social federation is enabled.");
+    }
+
+    hints.push(
+      "Disable social federation in config/social.js (social.federationEnabled = false) if you are not using federation yet."
+    );
   }
 
   if (issues.length < 1) {
@@ -387,6 +401,7 @@ const RUNTIME_SERVICE_EXPORT_IDS = Object.freeze([
   "workspaceService",
   "consoleService",
   "consoleErrorsService",
+  "socialService",
   "realtimeEventsService",
   "observabilityService",
   "avatarStorageService",
@@ -409,7 +424,8 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
       throwEnabledSubsystemStartupPreflightError({
         env,
         aiPolicyConfig: repositoryConfig?.ai || {},
-        billingPolicyConfig: repositoryConfig?.billing || {}
+        billingPolicyConfig: repositoryConfig?.billing || {},
+        socialPolicyConfig: repositoryConfig?.social || {}
       });
 
       return createObservabilityService({
@@ -629,6 +645,28 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
         }
       });
       return chatService;
+    }
+  },
+  {
+    id: "socialService",
+    create({ repositories, services, repositoryConfig, env }) {
+      const { socialService } = createSocialModuleService({
+        socialServiceOptions: {
+          socialRepository: repositories.socialRepository,
+          chatUserSettingsRepository: repositories.chatUserSettingsRepository,
+          userProfilesRepository: repositories.userProfilesRepository,
+          workspacesRepository: repositories.workspacesRepository,
+          realtimeEventsService: services.realtimeEventsService,
+          realtimeTopics: REALTIME_TOPICS,
+          realtimeEventTypes: REALTIME_EVENT_TYPES,
+          appPublicUrl: env.APP_PUBLIC_URL,
+          observabilityService: services.observabilityService,
+          repositoryConfig,
+          env
+        }
+      });
+
+      return socialService;
     }
   },
   {

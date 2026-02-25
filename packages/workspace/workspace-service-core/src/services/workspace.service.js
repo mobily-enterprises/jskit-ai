@@ -829,7 +829,9 @@ function createService({
             workspaceInvites: Boolean(appConfig.features.workspaceInvites),
             workspaceCreateEnabled: Boolean(appConfig.features.workspaceCreateEnabled),
             assistantEnabled: Boolean(appConfig.features.assistantEnabled),
-            assistantRequiredPermission: String(appConfig.features.assistantRequiredPermission || "").trim()
+            assistantRequiredPermission: String(appConfig.features.assistantRequiredPermission || "").trim(),
+            socialEnabled: Boolean(appConfig.features.socialEnabled),
+            socialFederationEnabled: Boolean(appConfig.features.socialFederationEnabled)
           }
         },
         workspaces: [],
@@ -883,7 +885,9 @@ function createService({
           workspaceInvites: Boolean(appConfig.features.workspaceInvites),
           workspaceCreateEnabled: Boolean(appConfig.features.workspaceCreateEnabled),
           assistantEnabled: Boolean(appConfig.features.assistantEnabled),
-          assistantRequiredPermission: String(appConfig.features.assistantRequiredPermission || "").trim()
+          assistantRequiredPermission: String(appConfig.features.assistantRequiredPermission || "").trim(),
+          socialEnabled: Boolean(appConfig.features.socialEnabled),
+          socialFederationEnabled: Boolean(appConfig.features.socialFederationEnabled)
         }
       },
       workspaces: context.workspaces,

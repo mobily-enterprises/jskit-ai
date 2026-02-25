@@ -20,7 +20,9 @@ import {
   mdiMessageTextOutline,
   mdiServer,
   mdiShieldCrownOutline,
+  mdiShieldOutline,
   mdiShapeOutline,
+  mdiShareVariantOutline,
   mdiViewDashboardOutline
 } from "@mdi/js";
 import "vuetify/styles";
@@ -37,6 +39,8 @@ const iconAliases = {
   navChoice1: mdiViewDashboardOutline,
   navChoice2: mdiShapeOutline,
   workspaceChat: mdiChatOutline,
+  workspaceSocial: mdiShareVariantOutline,
+  workspaceModeration: mdiShieldOutline,
   menuProfile: mdiAccountOutline,
   menuSettings: mdiCogOutline,
   menuMonitoring: mdiChartBoxOutline,

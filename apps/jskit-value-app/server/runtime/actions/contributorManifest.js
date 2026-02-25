@@ -2,6 +2,7 @@ import { createAuthActionContributor } from "@jskit-ai/auth-provider-supabase-co
 import { createWorkspaceActionContributor } from "@jskit-ai/workspace-service-core";
 import { createConsoleActionContributor } from "@jskit-ai/workspace-console-service-core";
 import { createChatActionContributor } from "@jskit-ai/chat-core";
+import { createSocialActionContributor } from "@jskit-ai/social-core";
 import { createWorkspaceBillingActionContributor } from "@jskit-ai/billing-service-core";
 import { createSettingsActionContributor } from "./contributors/settings.contributor.js";
 import { createProjectsActionContributor } from "./contributors/projects.contributor.js";
@@ -28,6 +29,9 @@ function createActionContributors({ services, repositories, repositoryConfig, ap
     }),
     createChatActionContributor({
       chatService: services?.chatService
+    }),
+    createSocialActionContributor({
+      socialService: services?.socialService
     }),
     createWorkspaceBillingActionContributor({
       billingService: services?.billingService,

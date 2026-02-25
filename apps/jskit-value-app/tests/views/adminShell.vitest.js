@@ -213,6 +213,39 @@ describe("useAdminShell", () => {
     expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Assistant");
   });
 
+  it("shows social navigation entries and titles when social feature is enabled", async () => {
+    mocks.workspaceStore.app.features.socialEnabled = true;
+    mocks.workspaceStore.can.mockImplementation(
+      (permission) =>
+        [
+          "workspace.ai.use",
+          "chat.read",
+          "projects.read",
+          "social.read",
+          "social.moderate"
+        ].includes(permission)
+    );
+
+    mocks.routerPathname = "/admin/w/acme/social";
+    window.history.replaceState({}, "", "/admin/w/acme/social");
+    const wrapper = mountHarness();
+    await nextTick();
+
+    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Social");
+    expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
+      { title: "Projects", to: "/admin/w/acme/projects", icon: "$navChoice2" },
+      { title: "Workspace chat", to: "/admin/w/acme/chat", icon: "$workspaceChat" },
+      { title: "Social", to: "/admin/w/acme/social", icon: "$workspaceSocial" },
+      { title: "Social moderation", to: "/admin/w/acme/social/moderation", icon: "$workspaceModeration" },
+      { title: "Assistant", to: "/admin/w/acme/assistant", icon: "$navChoice2" }
+    ]);
+
+    mocks.routerPathname = "/admin/w/acme/social/moderation";
+    window.history.replaceState({}, "", "/admin/w/acme/social/moderation");
+    await nextTick();
+    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Social moderation");
+  });
+
   it("maps workspace chat destination title", async () => {
     mocks.routerPathname = "/admin/w/acme/chat";
     window.history.replaceState({}, "", "/admin/w/acme/chat");

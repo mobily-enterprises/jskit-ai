@@ -38,6 +38,17 @@ Notes:
 - `route` uses Fastify route templates (for example, `/api/v1/workspace/invites/:inviteId`) to avoid high cardinality.
 - Do not add user identifiers or request IDs to labels.
 
+Social/federation operational usage:
+
+- Track social API health with route filters such as:
+  - `/api/v1/workspace/social/*`
+  - `/api/v1/workspace/admin/social/*`
+- Track federation ingress/lookup endpoint behavior via:
+  - `/.well-known/webfinger`
+  - `/ap/inbox`
+  - `/ap/actors/:username/inbox`
+  - `/ap/actors/:username`
+
 ## 3) Scrape configuration
 
 Prometheus scrape job example:
@@ -135,4 +146,12 @@ sum(increase(app_security_audit_events_total{
   action=~"workspace.invite.redeemed|console.invite.redeemed",
   outcome="failure"
 }[24h]))
+```
+
+### Social + federation error-rate slice (5m)
+
+```promql
+sum(rate(app_http_5xx_total{route=~"/api/v1/workspace/social.*|/api/v1/workspace/admin/social.*|/ap.*|/.well-known/webfinger"}[5m]))
+/
+clamp_min(sum(rate(app_http_requests_total{route=~"/api/v1/workspace/social.*|/api/v1/workspace/admin/social.*|/ap.*|/.well-known/webfinger"}[5m])), 1)
 ```

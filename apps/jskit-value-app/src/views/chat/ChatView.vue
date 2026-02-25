@@ -4,7 +4,7 @@
 
 <script setup>
 import { ChatClientElement } from "@jskit-ai/chat-client-element";
-import { useChatView } from "../../modules/chat/runtime.js";
+import { useWorkspaceChatView } from "./useWorkspaceChatView.js";
 
-const { meta, state, helpers, actions } = useChatView();
+const { meta, state, helpers, actions } = useWorkspaceChatView();
 </script>

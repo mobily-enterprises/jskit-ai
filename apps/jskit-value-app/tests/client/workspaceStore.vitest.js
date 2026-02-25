@@ -131,7 +131,9 @@ describe("workspaceStore", () => {
       workspaceInvites: true,
       workspaceCreateEnabled: true,
       assistantEnabled: true,
-      assistantRequiredPermission: "workspace.ai.use"
+      assistantRequiredPermission: "workspace.ai.use",
+      socialEnabled: false,
+      socialFederationEnabled: false
     });
     expect(store.workspaces[0].color).toBe("#AA11CC");
     expect(store.pendingInvitesCount).toBe(1);
@@ -569,7 +571,9 @@ describe("workspaceStore", () => {
       workspaceInvites: false,
       workspaceCreateEnabled: false,
       assistantEnabled: false,
-      assistantRequiredPermission: ""
+      assistantRequiredPermission: "",
+      socialEnabled: false,
+      socialFederationEnabled: false
     });
     expect(store.profileDisplayName).toBe("");
     expect(store.profileAvatarUrl).toBe("");

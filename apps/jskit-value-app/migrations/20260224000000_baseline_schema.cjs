@@ -53,7 +53,8 @@ const BASELINE_STEP_FILES = Object.freeze([
   "20260223090000_enforce_unique_workspace_room_thread.cjs",
   "20260223100000_add_deg2rad_columns_to_calculation_logs.cjs",
   "20260223113000_rename_annuity_entitlement_codes_to_deg2rad.cjs",
-  "20260223150000_remove_workspace_default_calculation_policy.cjs"
+  "20260223150000_remove_workspace_default_calculation_policy.cjs",
+  "20260225100000_create_social_federation_tables.cjs"
 ]);
 
 function defaultLoadMigration(stepFile) {

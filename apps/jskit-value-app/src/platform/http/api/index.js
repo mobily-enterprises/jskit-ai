@@ -8,6 +8,7 @@ import { createApi as createDeg2radApi } from "./deg2radApi.js";
 import { createApi as createHistoryApi } from "./historyApi.js";
 import { createApi as createBillingApi } from "./billingApi.js";
 import { createApi as createChatApi } from "@jskit-ai/chat-client-runtime";
+import { createApi as createSocialApi } from "@jskit-ai/social-client-runtime";
 import { request, requestStream, clearCsrfTokenCache, __testables } from "./transport.js";
 
 const api = {
@@ -21,6 +22,7 @@ const api = {
   history: createHistoryApi({ request }),
   billing: createBillingApi({ request }),
   chat: createChatApi({ request }),
+  social: createSocialApi({ request }),
   clearCsrfTokenCache
 };
 
