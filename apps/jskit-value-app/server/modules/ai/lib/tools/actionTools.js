@@ -26,8 +26,12 @@ function toLowerSet(values) {
   return new Set(values.map((entry) => normalizeLowerText(entry)).filter(Boolean));
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 function normalizeObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isPlainObject(value)) {
     return {};
   }
 
@@ -180,12 +184,32 @@ function normalizeToolDefinitions(definitions, { surfaceId, actionsConfig }) {
 }
 
 function createToolDescription(definition) {
+  const assistantTool = isPlainObject(definition?.assistantTool) ? definition.assistantTool : null;
+  const explicitDescription = normalizeText(assistantTool?.description);
+  if (explicitDescription) {
+    return explicitDescription;
+  }
+
   const actionId = normalizeText(definition?.id);
   if (!actionId) {
     return "Execute an assistant action.";
   }
 
   return `Execute action ${actionId}.`;
+}
+
+function resolveToolInputJsonSchema(definition) {
+  const assistantTool = isPlainObject(definition?.assistantTool) ? definition.assistantTool : null;
+  if (isPlainObject(assistantTool?.inputJsonSchema)) {
+    return assistantTool.inputJsonSchema;
+  }
+
+  const inputSchema = definition?.inputSchema;
+  if (isPlainObject(inputSchema) && typeof inputSchema.type === "string") {
+    return inputSchema;
+  }
+
+  return DEFAULT_INPUT_JSON_SCHEMA;
 }
 
 function buildAssistantToolIdempotencyKey({ assistantMeta, actionId, args }) {
@@ -259,7 +283,7 @@ function createAssistantActionToolsResolver({
       return {
         name: toolName,
         description: createToolDescription(definition),
-        inputJsonSchema: DEFAULT_INPUT_JSON_SCHEMA,
+        inputJsonSchema: resolveToolInputJsonSchema(definition),
         requiredPermissions: [],
         async execute({ args, context }) {
           const requestObject = context?.request || request || null;
@@ -331,6 +355,7 @@ const __testables = {
   selectLatestActionDefinitions,
   normalizeToolDefinitions,
   createToolDescription,
+  resolveToolInputJsonSchema,
   buildAssistantToolIdempotencyKey
 };
 

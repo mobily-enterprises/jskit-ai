@@ -681,6 +681,7 @@ test("action runtime services scaffold action registry and executor", async () =
   assert.ok(definitions.length > 0);
 
   const actionIds = new Set(definitions.map((definition) => definition.id));
+  const definitionsById = new Map(definitions.map((definition) => [definition.id, definition]));
   assert.equal(actionIds.has(ACTION_IDS.WORKSPACE_SETTINGS_UPDATE), true);
   assert.equal(actionIds.has(ACTION_IDS.WORKSPACE_INVITE_CREATE), true);
   assert.equal(actionIds.has(ACTION_IDS.WORKSPACE_MEMBER_ROLE_UPDATE), true);
@@ -694,6 +695,26 @@ test("action runtime services scaffold action registry and executor", async () =
   assert.equal(actionIds.has(ACTION_IDS.CONSOLE_BILLING_PRODUCT_UPDATE), true);
   assert.equal(actionIds.has(ACTION_IDS.CHAT_THREAD_MESSAGE_SEND), true);
   assert.equal(actionIds.has(ACTION_IDS.CHAT_ATTACHMENT_UPLOAD), true);
+  assert.equal(actionIds.has(ACTION_IDS.PROJECTS_CREATE), true);
+  assert.equal(actionIds.has(ACTION_IDS.PROJECTS_UPDATE), true);
+  assert.equal(actionIds.has(ACTION_IDS.DEG2RAD_CALCULATE), true);
+  assert.equal(actionIds.has(ACTION_IDS.HISTORY_LIST), true);
+
+  assert.equal(definitionsById.get(ACTION_IDS.WORKSPACE_INVITE_CREATE)?.channels.includes("assistant_tool"), true);
+  assert.equal(definitionsById.get(ACTION_IDS.PROJECTS_LIST)?.channels.includes("assistant_tool"), true);
+  assert.equal(definitionsById.get(ACTION_IDS.PROJECTS_GET)?.channels.includes("assistant_tool"), true);
+  assert.equal(definitionsById.get(ACTION_IDS.PROJECTS_CREATE)?.channels.includes("assistant_tool"), true);
+  assert.equal(definitionsById.get(ACTION_IDS.PROJECTS_UPDATE)?.channels.includes("assistant_tool"), true);
+  assert.equal(definitionsById.get(ACTION_IDS.DEG2RAD_CALCULATE)?.channels.includes("assistant_tool"), true);
+  assert.equal(definitionsById.get(ACTION_IDS.HISTORY_LIST)?.channels.includes("assistant_tool"), true);
+  assert.equal(
+    typeof definitionsById.get(ACTION_IDS.PROJECTS_CREATE)?.assistantTool?.inputJsonSchema,
+    "object"
+  );
+  assert.equal(
+    typeof definitionsById.get(ACTION_IDS.DEG2RAD_CALCULATE)?.assistantTool?.inputJsonSchema,
+    "object"
+  );
 
   const response = await runtime.actionExecutor.execute({
     actionId: ACTION_IDS.WORKSPACE_SETTINGS_READ,

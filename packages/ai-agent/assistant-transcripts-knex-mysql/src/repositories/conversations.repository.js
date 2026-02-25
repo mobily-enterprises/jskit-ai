@@ -91,6 +91,13 @@ function applyListFilters(query, filters = {}) {
     query.where("c.status", status);
   }
 
+  const surfaceId = String(filters.surfaceId || "")
+    .trim()
+    .toLowerCase();
+  if (surfaceId) {
+    query.whereRaw("JSON_UNQUOTE(JSON_EXTRACT(c.metadata_json, '$.surfaceId')) = ?", [surfaceId]);
+  }
+
   if (filters.from) {
     query.where("c.started_at", ">=", toMysqlDateTimeUtc(normalizeCutoffDateOrThrow(filters.from)));
   }

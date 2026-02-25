@@ -66,6 +66,37 @@ const OBJECT_INPUT_SCHEMA = Object.freeze({
   }
 });
 
+const WORKSPACE_SETTINGS_UPDATE_TOOL_SCHEMA = Object.freeze({
+  type: "object",
+  additionalProperties: true,
+  properties: {
+    name: {
+      type: "string",
+      minLength: 1,
+      maxLength: 160,
+      description: "Workspace display name."
+    }
+  }
+});
+
+const WORKSPACE_INVITE_CREATE_TOOL_SCHEMA = Object.freeze({
+  type: "object",
+  additionalProperties: true,
+  required: ["email", "roleId"],
+  properties: {
+    email: {
+      type: "string",
+      format: "email",
+      description: "Email address to invite."
+    },
+    roleId: {
+      type: "string",
+      minLength: 1,
+      description: "Workspace role id to grant."
+    }
+  }
+});
+
 function createWorkspaceActionContributor({
   workspaceService,
   workspaceAdminService,
@@ -228,6 +259,10 @@ function createWorkspaceActionContributor({
         actionName: "workspace.settings.update"
       },
       observability: {},
+      assistantTool: {
+        description: "Update workspace settings.",
+        inputJsonSchema: WORKSPACE_SETTINGS_UPDATE_TOOL_SCHEMA
+      },
       async execute(input, context) {
         return workspaceAdminService.updateWorkspaceSettings(resolveWorkspace(context, input), normalizeObject(input));
       }
@@ -294,7 +329,7 @@ function createWorkspaceActionContributor({
       id: "workspace.invite.create",
       version: 1,
       kind: "command",
-      channels: ["api", "internal"],
+      channels: ["api", "assistant_tool", "internal"],
       surfaces: ["admin"],
       visibility: "public",
       inputSchema: OBJECT_INPUT_SCHEMA,
@@ -304,6 +339,10 @@ function createWorkspaceActionContributor({
         actionName: "workspace.invite.create"
       },
       observability: {},
+      assistantTool: {
+        description: "Invite a person to the workspace.",
+        inputJsonSchema: WORKSPACE_INVITE_CREATE_TOOL_SCHEMA
+      },
       async execute(input, context) {
         return workspaceAdminService.createInvite(
           resolveWorkspace(context, input),

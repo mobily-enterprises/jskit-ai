@@ -72,6 +72,33 @@ const OBJECT_INPUT_SCHEMA = Object.freeze({
   }
 });
 
+const CHAT_THREAD_MESSAGE_SEND_TOOL_SCHEMA = Object.freeze({
+  type: "object",
+  additionalProperties: true,
+  required: ["threadId", "text"],
+  properties: {
+    threadId: {
+      anyOf: [
+        { type: "string", minLength: 1 },
+        { type: "integer", minimum: 1 }
+      ],
+      description: "Thread id that will receive the message."
+    },
+    text: {
+      type: "string",
+      minLength: 1,
+      maxLength: 4000,
+      description: "Message text."
+    },
+    clientMessageId: {
+      type: "string",
+      minLength: 1,
+      maxLength: 120,
+      description: "Client idempotency key for this message."
+    }
+  }
+});
+
 function createChatActionContributor({ chatService } = {}) {
   const contributorId = "chat.core";
 
@@ -245,6 +272,10 @@ function createChatActionContributor({ chatService } = {}) {
           actionName: "chat.thread.message.send"
         },
         observability: {},
+        assistantTool: {
+          description: "Send a chat message to a thread.",
+          inputJsonSchema: CHAT_THREAD_MESSAGE_SEND_TOOL_SCHEMA
+        },
         async execute(input, context) {
           const payload = normalizeObject(input);
           const body =

@@ -16,7 +16,7 @@ It also provides generic tool-registry mechanics.
 
 ## Why Apps Use It
 
-In `apps/jskit-value-app`, app wrappers inject app-owned behavior (permissions, prompt sources, route/surface mapping, realtime constants, and tool list) into this package.
+In `apps/jskit-value-app`, app composition injects app-owned behavior (permissions, prompt sources, route/surface mapping, realtime constants, and action-derived tool catalog) into this package.
 
 That means:
 
@@ -40,7 +40,7 @@ Typical injected dependencies:
 3. `aiTranscriptsService`.
 4. `realtimeEventsService`.
 5. `hasPermissionFn`.
-6. app-local tool descriptors.
+6. app-local action-derived tool descriptors.
 
 Returned methods:
 
@@ -77,8 +77,8 @@ Practical example:
 
 Practical example:
 
-- User asks "Rename workspace to ACME".
-- Assistant calls `workspace_rename` tool.
+- User asks "Update workspace name to ACME".
+- Assistant calls `workspace_settings_update` tool.
 - Tool result is streamed.
 - Assistant final response is streamed and persisted.
 
@@ -110,7 +110,7 @@ What it does:
 
 Practical example:
 
-- App passes `[workspaceRenameTool, exportTool]` to create fast lookup by tool name.
+- App passes action-derived descriptors to create fast lookup by tool name.
 
 ## `listToolSchemas(registry)`
 
@@ -132,7 +132,7 @@ What it does:
 
 Practical example:
 
-- Assistant requests `workspace_rename`; permission check fails -> throws 403 `AI_TOOL_FORBIDDEN`.
+- Assistant requests a blocked tool; permission check fails -> throws 403 `AI_TOOL_FORBIDDEN`.
 
 Why apps use tool APIs:
 

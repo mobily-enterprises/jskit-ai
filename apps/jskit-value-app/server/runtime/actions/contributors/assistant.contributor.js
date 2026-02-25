@@ -53,6 +53,19 @@ function resolveWorkspace(context, input) {
   return payload.workspace || resolveRequest(context)?.workspace || context?.workspace || null;
 }
 
+function resolveSurfaceId(context, input) {
+  const payload = normalizeObject(input);
+  const requestSurface = normalizeLowerText(resolveRequest(context)?.headers?.["x-surface-id"] || resolveRequest(context)?.surface);
+  const contextSurface = normalizeLowerText(context?.surface);
+  const explicitSurface = normalizeLowerText(payload.surfaceId);
+  const resolved = explicitSurface || contextSurface || requestSurface || "app";
+  if (resolved === "app" || resolved === "admin" || resolved === "console") {
+    return resolved;
+  }
+
+  return "app";
+}
+
 function requireAuthenticated(context) {
   return toPositiveInteger(context?.actor?.id) > 0;
 }
@@ -214,11 +227,16 @@ function createAssistantActionContributor({
         const payload = normalizeObject(input);
         const workspace = resolveWorkspace(context, payload);
         const user = resolveUser(context, payload);
+        const surfaceId = resolveSurfaceId(context, payload);
+        const transcriptQuery = {
+          ...payload,
+          surfaceId
+        };
         if (canReadWorkspaceAdminTranscripts(context)) {
-          return aiTranscriptsService.listWorkspaceConversations(workspace, payload);
+          return aiTranscriptsService.listWorkspaceConversations(workspace, transcriptQuery);
         }
 
-        return aiTranscriptsService.listWorkspaceConversationsForUser(workspace, user, payload);
+        return aiTranscriptsService.listWorkspaceConversationsForUser(workspace, user, transcriptQuery);
       }
     },
     {
@@ -248,12 +266,22 @@ function createAssistantActionContributor({
         const workspace = resolveWorkspace(context, payload);
         const user = resolveUser(context, payload);
         const conversationId = payload.conversationId || payload.params?.conversationId;
+        const surfaceId = resolveSurfaceId(context, payload);
+        const transcriptQuery = {
+          ...payload,
+          surfaceId
+        };
 
         if (canReadWorkspaceAdminTranscripts(context)) {
-          return aiTranscriptsService.getWorkspaceConversationMessages(workspace, conversationId, payload);
+          return aiTranscriptsService.getWorkspaceConversationMessages(workspace, conversationId, transcriptQuery);
         }
 
-        return aiTranscriptsService.getWorkspaceConversationMessagesForUser(workspace, user, conversationId, payload);
+        return aiTranscriptsService.getWorkspaceConversationMessagesForUser(
+          workspace,
+          user,
+          conversationId,
+          transcriptQuery
+        );
       }
     },
     {

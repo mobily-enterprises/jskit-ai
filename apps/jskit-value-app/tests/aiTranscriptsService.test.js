@@ -194,12 +194,14 @@ test("ai transcripts service creates new conversation with default title and sup
     workspace: { id: 11 },
     user: { id: 7 },
     messageId: "msg_1",
+    surfaceId: "app",
     provider: "openai",
     model: "gpt-4.1-mini"
   });
 
   assert.equal(insertedPayloads.length, 1);
   assert.equal(insertedPayloads[0].title, "New conversation");
+  assert.equal(insertedPayloads[0].metadata.surfaceId, "app");
   assert.equal(started.conversation?.title, "New conversation");
 
   const updated = await service.updateConversationTitle(started.conversation, "Rename workspace");
@@ -245,7 +247,7 @@ test("ai transcripts service lists workspace conversations scoped to current own
   const response = await service.listWorkspaceConversationsForUser(
     { id: 11 },
     { id: 7 },
-    { page: 2, pageSize: 25, status: "completed" }
+    { page: 2, pageSize: 25, status: "completed", surfaceId: "app" }
   );
 
   assert.equal(response.total, 1);
@@ -253,8 +255,10 @@ test("ai transcripts service lists workspace conversations scoped to current own
   assert.equal(calls.countFilters[0].workspaceId, 11);
   assert.equal(calls.countFilters[0].createdByUserId, 7);
   assert.equal(calls.countFilters[0].status, "completed");
+  assert.equal(calls.countFilters[0].surfaceId, "app");
   assert.equal(calls.listFilters[0].workspaceId, 11);
   assert.equal(calls.listFilters[0].createdByUserId, 7);
+  assert.equal(calls.listFilters[0].surfaceId, "app");
   assert.equal(calls.listPagination[0].page, 1);
   assert.equal(calls.listPagination[0].pageSize, 25);
 });
@@ -304,6 +308,40 @@ test("ai transcripts service rejects foreign conversation id for user-scoped mes
       service.getWorkspaceConversationMessagesForUser({ id: 11 }, { id: 7 }, 99, {
         page: 1,
         pageSize: 100
+      }),
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.message, "Conversation not found.");
+      return true;
+    }
+  );
+
+  assert.equal(calls.countMessages, 0);
+  assert.equal(calls.listMessages, 0);
+});
+
+test("ai transcripts service rejects conversation ids from a different surface", async () => {
+  const { service, calls } = createDependencies({
+    conversationsRepository: {
+      async findByIdForWorkspaceAndUser() {
+        return {
+          id: 91,
+          workspaceId: 11,
+          createdByUserId: 7,
+          metadata: {
+            surfaceId: "admin"
+          }
+        };
+      }
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      service.getWorkspaceConversationMessagesForUser({ id: 11 }, { id: 7 }, 91, {
+        page: 1,
+        pageSize: 20,
+        surfaceId: "app"
       }),
     (error) => {
       assert.equal(error.status, 404);

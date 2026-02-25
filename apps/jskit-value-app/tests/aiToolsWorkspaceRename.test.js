@@ -35,7 +35,19 @@ test("assistant action tools resolver builds catalog from assistant_tool action 
             kind: "command",
             channels: ["api", "assistant_tool"],
             surfaces: ["admin"],
-            visibility: "public"
+            visibility: "public",
+            assistantTool: {
+              description: "Update workspace settings.",
+              inputJsonSchema: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  name: {
+                    type: "string"
+                  }
+                }
+              }
+            }
           },
           {
             id: "workspace.invite.create",
@@ -51,7 +63,18 @@ test("assistant action tools resolver builds catalog from assistant_tool action 
             kind: "command",
             channels: ["assistant_tool"],
             surfaces: ["app"],
-            visibility: "public"
+            visibility: "public",
+            assistantTool: {
+              description: "Send a chat message to a thread.",
+              inputJsonSchema: {
+                type: "object",
+                required: ["threadId", "text"],
+                properties: {
+                  threadId: { type: "string" },
+                  text: { type: "string" }
+                }
+              }
+            }
           }
         ];
       },
@@ -72,6 +95,16 @@ test("assistant action tools resolver builds catalog from assistant_tool action 
     adminCatalog.providerTools.map((entry) => entry?.function?.name),
     ["workspace_settings_update"]
   );
+  assert.equal(adminCatalog.providerTools[0]?.function?.description, "Update workspace settings.");
+  assert.deepEqual(adminCatalog.providerTools[0]?.function?.parameters, {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      name: {
+        type: "string"
+      }
+    }
+  });
   assert.equal(adminCatalog.allowedToolNames.includes("workspace_settings_update"), true);
 
   const appCatalog = await resolver({
@@ -88,6 +121,16 @@ test("assistant action tools resolver builds catalog from assistant_tool action 
     appCatalog.providerTools.map((entry) => entry?.function?.name),
     ["chat_thread_message_send"]
   );
+  assert.equal(appCatalog.allowedToolNames.includes("workspace_settings_update"), false);
+  assert.equal(appCatalog.providerTools[0]?.function?.description, "Send a chat message to a thread.");
+  assert.deepEqual(appCatalog.providerTools[0]?.function?.parameters, {
+    type: "object",
+    required: ["threadId", "text"],
+    properties: {
+      threadId: { type: "string" },
+      text: { type: "string" }
+    }
+  });
 });
 
 test("assistant action tools resolver executes via action executor with assistant_tool context", async () => {

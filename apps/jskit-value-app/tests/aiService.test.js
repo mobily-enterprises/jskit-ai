@@ -193,6 +193,87 @@ test("ai service streams a plain assistant response without tools", async () => 
   );
 });
 
+test("ai service starts transcript conversations with the current surface id", async () => {
+  const events = [];
+  const transcriptStartCalls = [];
+
+  const service = createAiService({
+    providerClient: {
+      enabled: true,
+      provider: "openai",
+      async createChatCompletionStream() {
+        return createStream([
+          {
+            choices: [
+              {
+                delta: {
+                  content: "Surface scoped."
+                }
+              }
+            ]
+          }
+        ]);
+      }
+    },
+    workspaceAdminService: {
+      async updateWorkspaceSettings() {
+        throw new Error("not used");
+      }
+    },
+    aiTranscriptsService: {
+      async startConversationForTurn(payload) {
+        transcriptStartCalls.push(payload);
+        return {
+          transcriptMode: "standard",
+          conversation: {
+            id: 71,
+            workspaceId: 22,
+            status: "active",
+            transcriptMode: "standard",
+            title: "New conversation",
+            metadata: {}
+          }
+        };
+      },
+      async appendMessage() {
+        return {
+          id: 1,
+          kind: "chat"
+        };
+      },
+      async completeConversation(conversation, patch = {}) {
+        return {
+          ...conversation,
+          status: patch.status || conversation.status
+        };
+      }
+    },
+    auditService: {
+      async recordSafe() {}
+    }
+  });
+
+  await service.streamChatTurn({
+    request: createBaseRequest({
+      surface: "app",
+      headers: {
+        "x-command-id": "cmd-ai",
+        "x-client-id": "client-ai",
+        "x-surface-id": "app"
+      }
+    }),
+    body: {
+      messageId: "msg_surface_1",
+      input: "hello"
+    },
+    streamWriter: createWriter(events),
+    abortSignal: new AbortController().signal
+  });
+
+  assert.equal(transcriptStartCalls.length, 1);
+  assert.equal(transcriptStartCalls[0].surfaceId, "app");
+});
+
 test("ai service generates and persists conversation title after first user turn", async () => {
   const events = [];
   const titleGenerationCalls = [];
@@ -509,6 +590,9 @@ test("ai service uses workspace-admin configured prompt for app surface", async 
   const systemPrompt = String(providerCalls[0]?.messages?.[0]?.content || "");
   assert.equal(systemPrompt.includes("Workspace-specific assistant instructions: App prompt instruction"), true);
   assert.equal(systemPrompt.includes("Workspace prompt instruction"), false);
+  assert.equal(systemPrompt.includes("Tools available in this turn: none."), true);
+  assert.equal(systemPrompt.includes("workspace_settings_update"), false);
+  assert.equal(systemPrompt.includes("workspace admin operations"), false);
 });
 
 test("ai service uses console-configured prompt for admin surface", async () => {

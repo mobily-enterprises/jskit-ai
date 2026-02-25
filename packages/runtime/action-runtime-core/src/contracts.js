@@ -43,6 +43,10 @@ function normalizeText(value) {
   return String(value || "").trim();
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 function normalizePositiveInteger(value, fallback = 1) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1) {
@@ -165,6 +169,31 @@ function normalizeObservabilityConfig(observability) {
   });
 }
 
+function normalizeAssistantToolConfig(assistantTool) {
+  if (assistantTool == null) {
+    return null;
+  }
+
+  if (!isPlainObject(assistantTool)) {
+    throw createActionRuntimeError(500, "Action definition assistantTool must be an object when provided.", {
+      code: "ACTION_DEFINITION_INVALID"
+    });
+  }
+
+  const description = normalizeText(assistantTool.description);
+  const inputJsonSchema = assistantTool.inputJsonSchema;
+  if (inputJsonSchema != null && !isPlainObject(inputJsonSchema)) {
+    throw createActionRuntimeError(500, "Action definition assistantTool.inputJsonSchema must be an object.", {
+      code: "ACTION_DEFINITION_INVALID"
+    });
+  }
+
+  return Object.freeze({
+    description,
+    inputJsonSchema: inputJsonSchema ? Object.freeze({ ...inputJsonSchema }) : null
+  });
+}
+
 function normalizeActionDefinition(definition, { contributorId = "", contributorDomain = "" } = {}) {
   const source = definition && typeof definition === "object" ? definition : {};
 
@@ -248,6 +277,7 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
       actionId: id
     }),
     observability: normalizeObservabilityConfig(source.observability),
+    assistantTool: normalizeAssistantToolConfig(source.assistantTool),
     execute: source.execute,
     contributorId: normalizeText(contributorId)
   });
@@ -290,13 +320,15 @@ function createActionVersionKey(actionId, version) {
 
 const __testables = {
   normalizeText,
+  isPlainObject,
   normalizePositiveInteger,
   normalizeStringArray,
   isSchemaContract,
   normalizeSchemaContract,
   normalizePermissionPolicy,
   normalizeAuditConfig,
-  normalizeObservabilityConfig
+  normalizeObservabilityConfig,
+  normalizeAssistantToolConfig
 };
 
 export {

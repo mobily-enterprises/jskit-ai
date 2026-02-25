@@ -18,6 +18,8 @@ const DEFAULT_CONVERSATION_TITLE = "New conversation";
 const MAX_CONVERSATION_TITLE_LENGTH = 160;
 const DEFAULT_CONSOLE_READ_PERMISSION = "";
 const DEFAULT_CONSOLE_EXPORT_PERMISSION = "";
+const TRANSCRIPT_SURFACE_IDS = Object.freeze(["app", "admin", "console"]);
+const TRANSCRIPT_SURFACE_ID_SET = new Set(TRANSCRIPT_SURFACE_IDS);
 
 const DefaultAppError = SharedAppError;
 
@@ -51,6 +53,56 @@ function normalizeObject(value) {
 
 function normalizeText(value) {
   return String(value || "").trim();
+}
+
+function normalizeTranscriptSurfaceId(value, { required = false } = {}) {
+  const normalized = normalizeText(value).toLowerCase();
+  if (!normalized) {
+    if (!required) {
+      return "";
+    }
+
+    throw new AppError(400, "Validation failed.", {
+      details: {
+        fieldErrors: {
+          surfaceId: "surfaceId is required."
+        }
+      }
+    });
+  }
+
+  if (!TRANSCRIPT_SURFACE_ID_SET.has(normalized)) {
+    throw new AppError(400, "Validation failed.", {
+      details: {
+        fieldErrors: {
+          surfaceId: "surfaceId must be one of: app, admin, console."
+        }
+      }
+    });
+  }
+
+  return normalized;
+}
+
+function resolveConversationSurfaceId(conversation) {
+  const metadata = normalizeObject(conversation?.metadata);
+  return normalizeTranscriptSurfaceId(metadata.surfaceId, {
+    required: false
+  });
+}
+
+function assertConversationSurfaceMatch(conversation, requestedSurfaceId) {
+  const requiredSurfaceId = normalizeTranscriptSurfaceId(requestedSurfaceId, {
+    required: false
+  });
+  if (!requiredSurfaceId) {
+    return;
+  }
+
+  const conversationSurfaceId = resolveConversationSurfaceId(conversation);
+  if (conversationSurfaceId !== requiredSurfaceId) {
+    throw new AppError(404, "Conversation not found.");
+  }
 }
 
 function normalizePagination(pagination = {}) {
@@ -305,10 +357,13 @@ function createService({
     return parsePositiveInteger(conversation.createdByUserId) === actorUserId ? conversation : null;
   }
 
-  async function startConversationForTurn({ workspace, user, conversationId, messageId, provider, model } = {}) {
+  async function startConversationForTurn({ workspace, user, conversationId, messageId, provider, model, surfaceId } = {}) {
     const workspaceId = normalizeWorkspaceId(workspace);
     const transcriptMode = await resolveWorkspaceTranscriptMode(workspaceId);
     const actorUserId = resolveActorUserId(user);
+    const normalizedSurfaceId = normalizeTranscriptSurfaceId(surfaceId || "app", {
+      required: true
+    });
 
     if (transcriptMode === TRANSCRIPT_MODE_DISABLED) {
       return {
@@ -327,6 +382,7 @@ function createService({
       if (!existingConversation) {
         throw new AppError(404, "Conversation not found.");
       }
+      assertConversationSurfaceMatch(existingConversation, normalizedSurfaceId);
 
       if (existingConversation.transcriptMode !== transcriptMode || existingConversation.status !== "active") {
         const updatedConversation = await conversationsRepository.updateById(existingConversation.id, {
@@ -355,7 +411,8 @@ function createService({
       provider: normalizeText(provider),
       model: normalizeText(model),
       metadata: {
-        firstMessageId: normalizeText(messageId)
+        firstMessageId: normalizeText(messageId),
+        surfaceId: normalizedSurfaceId
       }
     });
 
@@ -453,10 +510,14 @@ function createService({
   async function listWorkspaceConversations(workspace, query = {}) {
     const workspaceId = normalizeWorkspaceId(workspace);
     const pagination = normalizePagination(query);
+    const requestedSurfaceId = normalizeTranscriptSurfaceId(query.surfaceId, {
+      required: false
+    });
     const filters = {
       workspaceId,
       createdByUserId: parsePositiveInteger(query.createdByUserId),
       status: query.status,
+      surfaceId: requestedSurfaceId,
       from: normalizeDateInput(query.from),
       to: normalizeDateInput(query.to)
     };
@@ -482,10 +543,14 @@ function createService({
     const workspaceId = normalizeWorkspaceId(workspace);
     const actorUserId = resolveActorUserId(user, { required: true });
     const pagination = normalizePagination(query);
+    const requestedSurfaceId = normalizeTranscriptSurfaceId(query.surfaceId, {
+      required: false
+    });
     const filters = {
       workspaceId,
       createdByUserId: actorUserId,
       status: query.status,
+      surfaceId: requestedSurfaceId,
       from: normalizeDateInput(query.from),
       to: normalizeDateInput(query.to)
     };
@@ -510,10 +575,14 @@ function createService({
   async function getWorkspaceConversationMessages(workspace, conversationIdValue, query = {}) {
     const workspaceId = normalizeWorkspaceId(workspace);
     const conversationId = normalizeConversationId(conversationIdValue);
+    const requestedSurfaceId = normalizeTranscriptSurfaceId(query.surfaceId, {
+      required: false
+    });
     const conversation = await conversationsRepository.findByIdForWorkspace(conversationId, workspaceId);
     if (!conversation) {
       throw new AppError(404, "Conversation not found.");
     }
+    assertConversationSurfaceMatch(conversation, requestedSurfaceId);
 
     const pagination = normalizePagination(query);
     const total = await messagesRepository.countByConversationIdForWorkspace(conversationId, workspaceId);
@@ -538,10 +607,14 @@ function createService({
     const workspaceId = normalizeWorkspaceId(workspace);
     const actorUserId = resolveActorUserId(user, { required: true });
     const conversationId = normalizeConversationId(conversationIdValue);
+    const requestedSurfaceId = normalizeTranscriptSurfaceId(query.surfaceId, {
+      required: false
+    });
     const conversation = await findWorkspaceConversationForUser(workspaceId, actorUserId, conversationId);
     if (!conversation) {
       throw new AppError(404, "Conversation not found.");
     }
+    assertConversationSurfaceMatch(conversation, requestedSurfaceId);
 
     const pagination = normalizePagination(query);
     const total = await messagesRepository.countByConversationIdForWorkspace(conversationId, workspaceId);
@@ -565,10 +638,14 @@ function createService({
   async function exportWorkspaceConversation(workspace, conversationIdValue, query = {}) {
     const workspaceId = normalizeWorkspaceId(workspace);
     const conversationId = normalizeConversationId(conversationIdValue);
+    const requestedSurfaceId = normalizeTranscriptSurfaceId(query.surfaceId, {
+      required: false
+    });
     const conversation = await conversationsRepository.findByIdForWorkspace(conversationId, workspaceId);
     if (!conversation) {
       throw new AppError(404, "Conversation not found.");
     }
+    assertConversationSurfaceMatch(conversation, requestedSurfaceId);
 
     const format = normalizeExportFormat(query.format);
     const limit = normalizeExportLimit(query.limit);
@@ -742,7 +819,10 @@ const __testables = {
   normalizeWorkspaceId,
   normalizeConversationStatus,
   normalizeExportFormat,
-  preparePersistedContent
+  preparePersistedContent,
+  normalizeTranscriptSurfaceId,
+  resolveConversationSurfaceId,
+  assertConversationSurfaceMatch
 };
 
 export { createService, __testables };

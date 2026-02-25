@@ -342,15 +342,15 @@ function buildSurfaceCapabilityPrompt(surfaceId, toolNames = []) {
   if (normalizedSurfaceId === "admin") {
     return [
       "Surface scope: admin.",
-      "Use only tools explicitly provided for this admin surface.",
-      `Admin-surface tools available in this turn: ${toolSegment}.`
+      "Use only tools explicitly provided for this surface.",
+      `Tools available in this turn: ${toolSegment}.`
     ].join(" ");
   }
 
   return [
     "Surface scope: app.",
-    "Do not perform workspace admin operations (settings, members, invites, transcript export).",
-    `App-surface tools available in this turn: ${toolSegment}.`
+    "Use only tools explicitly provided for this surface.",
+    `Tools available in this turn: ${toolSegment}.`
   ].join(" ");
 }
 
@@ -1254,6 +1254,7 @@ function createService({
           user: request.user,
           conversationId: requestedConversationId,
           messageId,
+          surfaceId: assistantSurfaceId,
           provider: String(providerClient.provider || "openai"),
           model: providerModel
         });

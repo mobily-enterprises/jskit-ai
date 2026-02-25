@@ -98,6 +98,88 @@ const OBJECT_INPUT_SCHEMA = Object.freeze({
   }
 });
 
+const PROJECTS_LIST_TOOL_SCHEMA = Object.freeze({
+  type: "object",
+  additionalProperties: true,
+  properties: {
+    page: {
+      type: "integer",
+      minimum: 1
+    },
+    pageSize: {
+      type: "integer",
+      minimum: 1,
+      maximum: 200
+    }
+  }
+});
+
+const PROJECTS_GET_TOOL_SCHEMA = Object.freeze({
+  type: "object",
+  additionalProperties: true,
+  required: ["projectId"],
+  properties: {
+    projectId: {
+      anyOf: [
+        { type: "string", minLength: 1 },
+        { type: "integer", minimum: 1 }
+      ]
+    }
+  }
+});
+
+const PROJECTS_CREATE_TOOL_SCHEMA = Object.freeze({
+  type: "object",
+  additionalProperties: true,
+  required: ["name"],
+  properties: {
+    name: {
+      type: "string",
+      minLength: 1,
+      maxLength: 160
+    },
+    description: {
+      type: "string",
+      maxLength: 1000
+    },
+    status: {
+      type: "string",
+      enum: ["draft", "active", "archived"]
+    }
+  }
+});
+
+const PROJECTS_UPDATE_TOOL_SCHEMA = Object.freeze({
+  type: "object",
+  additionalProperties: true,
+  required: ["projectId"],
+  properties: {
+    projectId: {
+      anyOf: [
+        { type: "string", minLength: 1 },
+        { type: "integer", minimum: 1 }
+      ]
+    },
+    mode: {
+      type: "string",
+      enum: ["update", "replace"]
+    },
+    name: {
+      type: "string",
+      minLength: 1,
+      maxLength: 160
+    },
+    description: {
+      type: "string",
+      maxLength: 1000
+    },
+    status: {
+      type: "string",
+      enum: ["draft", "active", "archived"]
+    }
+  }
+});
+
 function createProjectsActionContributor({ projectsService = null, projectsRepository = null, billingService = null } = {}) {
   const contributorId = "app.projects";
   const resolvedProjectsService =
@@ -172,7 +254,7 @@ function createProjectsActionContributor({ projectsService = null, projectsRepos
         id: "projects.list",
         version: 1,
         kind: "query",
-        channels: ["api", "internal"],
+        channels: ["api", "assistant_tool", "internal"],
         surfaces: ["admin"],
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
@@ -182,6 +264,10 @@ function createProjectsActionContributor({ projectsService = null, projectsRepos
           actionName: "projects.list"
         },
         observability: {},
+        assistantTool: {
+          description: "List projects in the active workspace.",
+          inputJsonSchema: PROJECTS_LIST_TOOL_SCHEMA
+        },
         async execute(input, context) {
           const payload = normalizeObject(input);
           return resolvedProjectsService.list(resolveWorkspace(context, payload), {
@@ -194,7 +280,7 @@ function createProjectsActionContributor({ projectsService = null, projectsRepos
         id: "projects.get",
         version: 1,
         kind: "query",
-        channels: ["api", "internal"],
+        channels: ["api", "assistant_tool", "internal"],
         surfaces: ["admin"],
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
@@ -204,6 +290,10 @@ function createProjectsActionContributor({ projectsService = null, projectsRepos
           actionName: "projects.get"
         },
         observability: {},
+        assistantTool: {
+          description: "Get one project by id.",
+          inputJsonSchema: PROJECTS_GET_TOOL_SCHEMA
+        },
         async execute(input, context) {
           return resolvedProjectsService.get(resolveWorkspace(context, input), resolveProjectId(input));
         }
@@ -212,7 +302,7 @@ function createProjectsActionContributor({ projectsService = null, projectsRepos
         id: "projects.create",
         version: 1,
         kind: "command",
-        channels: ["api", "internal"],
+        channels: ["api", "assistant_tool", "internal"],
         surfaces: ["admin"],
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
@@ -222,6 +312,10 @@ function createProjectsActionContributor({ projectsService = null, projectsRepos
           actionName: "projects.create"
         },
         observability: {},
+        assistantTool: {
+          description: "Create a new project.",
+          inputJsonSchema: PROJECTS_CREATE_TOOL_SCHEMA
+        },
         async execute(input, context) {
           const payload = normalizeObject(input);
           const workspace = resolveWorkspace(context, payload);
@@ -253,7 +347,7 @@ function createProjectsActionContributor({ projectsService = null, projectsRepos
         id: "projects.update",
         version: 1,
         kind: "command",
-        channels: ["api", "internal"],
+        channels: ["api", "assistant_tool", "internal"],
         surfaces: ["admin"],
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
@@ -263,6 +357,10 @@ function createProjectsActionContributor({ projectsService = null, projectsRepos
           actionName: "projects.update"
         },
         observability: {},
+        assistantTool: {
+          description: "Update or replace a project.",
+          inputJsonSchema: PROJECTS_UPDATE_TOOL_SCHEMA
+        },
         async execute(input, context) {
           const payload = normalizeObject(input);
           const workspace = resolveWorkspace(context, payload);

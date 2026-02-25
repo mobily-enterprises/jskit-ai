@@ -57,6 +57,34 @@ const OBJECT_INPUT_SCHEMA = Object.freeze({
   }
 });
 
+const DEG2RAD_CALCULATE_TOOL_SCHEMA = Object.freeze({
+  type: "object",
+  additionalProperties: true,
+  required: ["degrees"],
+  properties: {
+    degrees: {
+      anyOf: [{ type: "number" }, { type: "string" }],
+      description: "Degree value to convert to radians."
+    }
+  }
+});
+
+const HISTORY_LIST_TOOL_SCHEMA = Object.freeze({
+  type: "object",
+  additionalProperties: true,
+  properties: {
+    page: {
+      type: "integer",
+      minimum: 1
+    },
+    pageSize: {
+      type: "integer",
+      minimum: 1,
+      maximum: 100
+    }
+  }
+});
+
 function createDeg2radHistoryActionContributor({
   deg2radService = null,
   deg2radHistoryService,
@@ -84,7 +112,7 @@ function createDeg2radHistoryActionContributor({
         id: "deg2rad.calculate",
         version: 1,
         kind: "command",
-        channels: ["api", "internal"],
+        channels: ["api", "assistant_tool", "internal"],
         surfaces: ["app"],
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
@@ -94,6 +122,10 @@ function createDeg2radHistoryActionContributor({
           actionName: "deg2rad.calculate"
         },
         observability: {},
+        assistantTool: {
+          description: "Convert degrees to radians and store the calculation in history.",
+          inputJsonSchema: DEG2RAD_CALCULATE_TOOL_SCHEMA
+        },
         async execute(input, context) {
           const user = resolveUser(context, input);
           const workspaceId = resolveWorkspaceId(context, input);
@@ -139,7 +171,7 @@ function createDeg2radHistoryActionContributor({
         id: "history.list",
         version: 1,
         kind: "query",
-        channels: ["api", "internal"],
+        channels: ["api", "assistant_tool", "internal"],
         surfaces: ["app"],
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
@@ -149,6 +181,10 @@ function createDeg2radHistoryActionContributor({
           actionName: "history.list"
         },
         observability: {},
+        assistantTool: {
+          description: "List recent DEG2RAD calculation history.",
+          inputJsonSchema: HISTORY_LIST_TOOL_SCHEMA
+        },
         async execute(input, context) {
           const payload = normalizeObject(input);
           return deg2radHistoryService.listForUser(resolveWorkspaceId(context, payload), resolveUser(context, payload), {

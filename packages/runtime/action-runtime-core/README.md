@@ -8,6 +8,7 @@ This package provides:
 - Central action registry and execution pipeline.
 - Shared execution context normalization.
 - Policy hooks for permission, idempotency, audit, and observability.
+- Optional `assistantTool` metadata on action definitions for tool description/schema publishing.
 
 Design intent:
 
