@@ -6,6 +6,7 @@ import { api } from "../../../platform/http/api/index.js";
 import { useAuthStore } from "../../state/authStore.js";
 import { useAlertsStore } from "../../state/alertsStore.js";
 import { useConsoleStore } from "../../state/consoleStore.js";
+import { useRealtimeStore } from "../../state/realtimeStore.js";
 import { useWorkspaceStore } from "../../state/workspaceStore.js";
 import { useShellNavigation } from "../shared/useShellNavigation.js";
 import { buildWorkspaceThemeStyle, normalizeWorkspaceColor } from "../shared/workspaceTheme.js";
@@ -14,6 +15,7 @@ export function useAppShell() {
   const authStore = useAuthStore();
   const alertsStore = useAlertsStore();
   const consoleStore = useConsoleStore();
+  const realtimeStore = useRealtimeStore();
   const workspaceStore = useWorkspaceStore();
   const navigate = useNavigate();
   const display = useDisplay();
@@ -119,6 +121,8 @@ export function useAppShell() {
   const alertsPreviewLoading = computed(() => alertsStore.previewLoading || alertsStore.markAllReadLoading);
   const alertsPreviewError = computed(() => alertsStore.previewError || alertsStore.markAllReadError || "");
   const alertsPath = computed(() => `${surfacePaths.value.prefix}/alerts`);
+  const realtimeHealthLabel = computed(() => String(realtimeStore.healthLabel || "Realtime: idle"));
+  const realtimeHealthColor = computed(() => String(realtimeStore.healthColor || "secondary"));
 
   watch(
     () => authStore.isAuthenticated,
@@ -218,6 +222,8 @@ export function useAppShell() {
       activeWorkspaceColor,
       destinationTitle,
       isConversationDestination,
+      realtimeHealthLabel,
+      realtimeHealthColor,
       drawerModel
     },
     user: {

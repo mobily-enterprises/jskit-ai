@@ -39,6 +39,10 @@ const mocks = vi.hoisted(() => ({
   consoleStore: {
     clearConsoleState: vi.fn()
   },
+  realtimeStore: {
+    healthLabel: "Realtime: live",
+    healthColor: "success"
+  },
   workspaceStore: null,
   api: {
     auth: {
@@ -93,6 +97,10 @@ vi.mock("../../src/app/state/workspaceStore.js", () => ({
 
 vi.mock("../../src/app/state/consoleStore.js", () => ({
   useConsoleStore: () => mocks.consoleStore
+}));
+
+vi.mock("../../src/app/state/realtimeStore.js", () => ({
+  useRealtimeStore: () => mocks.realtimeStore
 }));
 
 vi.mock("../../src/platform/http/api/index.js", () => ({
@@ -196,6 +204,8 @@ describe("useAdminShell", () => {
     mocks.alertsStore.handleAlertClick.mockReset();
     mocks.alertsStore.handleAlertClick.mockResolvedValue(undefined);
     mocks.consoleStore.clearConsoleState.mockReset();
+    mocks.realtimeStore.healthLabel = "Realtime: live";
+    mocks.realtimeStore.healthColor = "success";
 
     mocks.workspaceStore = createWorkspaceStore();
 
@@ -214,6 +224,7 @@ describe("useAdminShell", () => {
     expect(mocks.alertsStore.startPolling).toHaveBeenCalledTimes(1);
     expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Settings");
     expect(wrapper.vm.shell.layout.activeWorkspaceColor.value).toBe("#336699");
+    expect(wrapper.vm.shell.layout.realtimeHealthLabel.value).toBe("Realtime: live");
     expect(wrapper.vm.shell.workspace.activeWorkspaceName.value).toBe("Acme");
     expect(wrapper.vm.shell.workspace.activeWorkspaceInitials.value).toBe("AC");
     expect(wrapper.vm.shell.formatters.workspaceInitials({ name: "Bravo" })).toBe("BR");

@@ -1,3 +1,6 @@
+import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../../shared/eventTypes.js";
+import { publishUserScopedRealtimeEvent } from "./realtimePublishHelpers.js";
+
 function normalizeObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -40,7 +43,27 @@ const OBJECT_INPUT_SCHEMA = Object.freeze({
   }
 });
 
-function createSettingsActionContributor({ userSettingsService, authService } = {}) {
+const REALTIME_SYNC_ACTION_IDS = Object.freeze(
+  new Set([
+    "settings.profile.update",
+    "settings.profile.avatar.upload",
+    "settings.profile.avatar.delete",
+    "settings.preferences.update",
+    "settings.notifications.update",
+    "settings.chat.update",
+    "settings.security.password.change",
+    "settings.security.password_method.toggle",
+    "settings.security.oauth.link.complete",
+    "settings.security.oauth.unlink",
+    "settings.security.sessions.logout_others"
+  ])
+);
+
+function shouldPublishRealtimeForAction(actionId) {
+  return REALTIME_SYNC_ACTION_IDS.has(String(actionId || "").trim());
+}
+
+function createSettingsActionContributor({ userSettingsService, authService, realtimeEventsService = null } = {}) {
   const contributorId = "app.settings";
 
   requireServiceMethod(userSettingsService, "getForUser", contributorId);
@@ -57,10 +80,7 @@ function createSettingsActionContributor({ userSettingsService, authService } = 
   requireServiceMethod(userSettingsService, "logoutOtherSessions", contributorId);
   requireServiceMethod(authService, "oauthComplete", contributorId);
 
-  return {
-    contributorId,
-    domain: "settings",
-    actions: Object.freeze([
+  const actions = [
       {
         id: "settings.read",
         version: 1,
@@ -335,7 +355,44 @@ function createSettingsActionContributor({ userSettingsService, authService } = 
           };
         }
       }
-    ])
+    ];
+
+  for (let index = 0; index < actions.length; index += 1) {
+    const action = actions[index];
+    if (action?.kind !== "command" || typeof action.execute !== "function") {
+      continue;
+    }
+
+    if (!shouldPublishRealtimeForAction(action.id)) {
+      continue;
+    }
+
+    const baseExecute = action.execute;
+    actions[index] = {
+      ...action,
+      async execute(input, context) {
+        const result = await baseExecute(input, context);
+        publishUserScopedRealtimeEvent({
+          realtimeEventsService,
+          context,
+          input,
+          topic: REALTIME_TOPICS.SETTINGS,
+          eventType: REALTIME_EVENT_TYPES.USER_SETTINGS_UPDATED,
+          entityType: "user_settings",
+          entityId: toPositiveInteger(resolveUser(context, input)?.id) || "none",
+          payload: {
+            actionId: action.id
+          }
+        });
+        return result;
+      }
+    };
+  }
+
+  return {
+    contributorId,
+    domain: "settings",
+    actions: Object.freeze(actions)
   };
 }
 

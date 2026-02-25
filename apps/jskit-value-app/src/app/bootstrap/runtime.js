@@ -31,6 +31,7 @@ import { installBrowserErrorReporter } from "../../platform/observability/browse
 import { createRealtimeRuntime } from "../../platform/realtime/realtimeRuntime.js";
 import { useAuthStore } from "../state/authStore.js";
 import { useConsoleStore } from "../state/consoleStore.js";
+import { useRealtimeStore } from "../state/realtimeStore.js";
 import { useWorkspaceStore } from "../state/workspaceStore.js";
 
 const iconAliases = {
@@ -178,6 +179,7 @@ async function mountSurfaceApplication({ createRouter, surface }) {
   const pinia = createPinia();
   const authStore = useAuthStore(pinia);
   const consoleStore = useConsoleStore(pinia);
+  const realtimeStore = useRealtimeStore(pinia);
   const workspaceStore = useWorkspaceStore(pinia);
   const vuetify = createVuetifyInstance();
 
@@ -188,9 +190,14 @@ async function mountSurfaceApplication({ createRouter, surface }) {
   realtimeRuntimeInstance = createRealtimeRuntime({
     authStore,
     workspaceStore,
+    consoleStore,
     queryClient,
-    surface
+    surface,
+    onConnectionStateChange(connectionState) {
+      realtimeStore.applyConnectionState(connectionState);
+    }
   });
+  realtimeStore.resetConnectionState();
   realtimeRuntimeInstance.start();
   const router = createRouter({ authStore, workspaceStore, consoleStore });
 

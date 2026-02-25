@@ -24,6 +24,7 @@ Realtime scope alignment:
 1. Workspace-scoped realtime topics require workspace context (`workspaceSlug`) at subscribe time.
 2. User-scoped realtime topics can be subscribed from `app`, `admin`, or `console` without workspace context.
 3. `console` realtime behavior is user-scoped by default; workspace topic subscriptions are not required for console routing.
+4. Current console user-scoped topics include settings, members, invites, billing, errors, and alerts.
 
 ## Mode Profiles
 

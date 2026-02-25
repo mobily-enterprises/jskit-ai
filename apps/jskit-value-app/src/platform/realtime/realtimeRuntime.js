@@ -152,23 +152,26 @@ async function reconcileSubscribe({ eventHandlers, queryClient, workspaceSlug, t
 
 function onConnectionStateChange(state) {
   if (import.meta?.env?.MODE !== "development") {
-    return;
+    return undefined;
   }
 
   if (typeof console === "undefined" || typeof console.debug !== "function") {
-    return;
+    return undefined;
   }
 
   const summary = String(state?.state || "unknown");
   console.debug("[realtime-runtime]", summary, state);
+  return undefined;
 }
 
 function createRealtimeRuntime({
   authStore,
   workspaceStore,
+  consoleStore = null,
   queryClient,
   surface,
-  socketFactory
+  socketFactory,
+  onConnectionStateChange: onConnectionStateChangeHook = null
 }) {
   if (!authStore || !workspaceStore || !queryClient) {
     throw new Error("authStore, workspaceStore, and queryClient are required.");
@@ -179,7 +182,8 @@ function createRealtimeRuntime({
     queryClient,
     commandTracker,
     clientId,
-    workspaceStore
+    workspaceStore,
+    consoleStore
   });
   const normalizedSurface = normalizeSurface(surface);
 
@@ -222,7 +226,18 @@ function createRealtimeRuntime({
     reconnectPolicy: RECONNECT_POLICY,
     replayPolicy: REPLAY_POLICY,
     maintenanceIntervalMs: MAINTENANCE_INTERVAL_MS,
-    onConnectionStateChange,
+    onConnectionStateChange(nextState) {
+      onConnectionStateChange(nextState);
+      if (typeof onConnectionStateChangeHook !== "function") {
+        return;
+      }
+
+      try {
+        onConnectionStateChangeHook(nextState);
+      } catch {
+        // external connection-state observers are best-effort.
+      }
+    },
     isSubscribeAckMatch({ message, tracking }) {
       const trackedWorkspaceSlug = String(tracking?.subscribePayload?.workspaceSlug || "").trim();
       const ackWorkspaceSlug = String(message?.workspaceSlug || "").trim();

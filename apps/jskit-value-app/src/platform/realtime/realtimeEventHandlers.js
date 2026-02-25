@@ -1,5 +1,7 @@
 import { REALTIME_TOPICS } from "../../../shared/eventTypes.js";
 import {
+  assistantRootQueryKey,
+  assistantWorkspaceScopeQueryKey,
   workspaceAiTranscriptsRootQueryKey,
   workspaceAiTranscriptsScopeQueryKey
 } from "@jskit-ai/assistant-contracts";
@@ -44,6 +46,20 @@ function normalizeBillingLimitChangeSource(value) {
     .trim()
     .toLowerCase();
 }
+
+const SETTINGS_QUERY_KEY = Object.freeze(["settings"]);
+const HISTORY_QUERY_KEY_PREFIX = Object.freeze(["history"]);
+const CONSOLE_SETTINGS_QUERY_KEY = Object.freeze(["console-settings"]);
+const CONSOLE_MEMBERS_QUERY_KEY = Object.freeze(["console-members"]);
+const CONSOLE_INVITES_QUERY_KEY = Object.freeze(["console-invites"]);
+const CONSOLE_BILLING_PLANS_QUERY_KEY = Object.freeze(["console-billing-plans"]);
+const CONSOLE_BILLING_PRODUCTS_QUERY_KEY = Object.freeze(["console-billing-products"]);
+const CONSOLE_BILLING_PROVIDER_PRICES_QUERY_KEY = Object.freeze(["console-billing-provider-prices"]);
+const CONSOLE_BILLING_SETTINGS_QUERY_KEY = Object.freeze(["console-billing-settings"]);
+const CONSOLE_BILLING_EVENTS_QUERY_KEY = Object.freeze(["console-billing-events"]);
+const CONSOLE_BILLING_SFC_ROOT_QUERY_KEY = Object.freeze(["console", "billing"]);
+const CONSOLE_BROWSER_ERRORS_QUERY_KEY = Object.freeze(["console-browser-errors"]);
+const CONSOLE_SERVER_ERRORS_QUERY_KEY = Object.freeze(["console-server-errors"]);
 
 function createStaticQueryInvalidator({ queryKey }) {
   return async function invalidateByStaticQuery(queryClient) {
@@ -115,15 +131,81 @@ const invalidateForWorkspaceAdminEvent = createStaticQueryInvalidator({
   queryKey: workspaceAdminRootQueryKey
 });
 
-const invalidateForWorkspaceAiTranscriptsEvent = createWorkspaceScopeInvalidator({
-  rootQueryKey: workspaceAiTranscriptsRootQueryKey,
-  scopeQueryKey: workspaceAiTranscriptsScopeQueryKey
+const invalidateForSettingsEvent = createStaticQueryInvalidator({
+  queryKey: SETTINGS_QUERY_KEY
 });
+
+async function invalidateForHistoryEvent(queryClient, eventEnvelope) {
+  const workspaceSlug = normalizeWorkspaceSlugFromEvent(eventEnvelope);
+  await queryClient.invalidateQueries({
+    queryKey: workspaceSlug ? [...HISTORY_QUERY_KEY_PREFIX, workspaceSlug] : HISTORY_QUERY_KEY_PREFIX
+  });
+}
+
+async function invalidateForWorkspaceAiTranscriptsEvent(queryClient, eventEnvelope) {
+  const workspaceSlug = normalizeWorkspaceSlugFromEvent(eventEnvelope);
+
+  await queryClient.invalidateQueries({
+    queryKey: workspaceSlug ? workspaceAiTranscriptsScopeQueryKey(workspaceSlug) : workspaceAiTranscriptsRootQueryKey()
+  });
+
+  await queryClient.invalidateQueries({
+    queryKey: workspaceSlug
+      ? assistantWorkspaceScopeQueryKey({
+          workspaceSlug
+        })
+      : assistantRootQueryKey()
+  });
+}
 
 const invalidateForChatEvent = createWorkspaceScopeInvalidator({
   rootQueryKey: chatRootQueryKey,
   scopeQueryKey: chatScopeQueryKey
 });
+
+async function invalidateForConsoleMembersEvent(queryClient) {
+  await queryClient.invalidateQueries({
+    queryKey: CONSOLE_MEMBERS_QUERY_KEY
+  });
+}
+
+async function invalidateForConsoleSettingsEvent(queryClient) {
+  await queryClient.invalidateQueries({
+    queryKey: CONSOLE_SETTINGS_QUERY_KEY
+  });
+}
+
+async function invalidateForConsoleInvitesEvent(queryClient) {
+  await queryClient.invalidateQueries({
+    queryKey: CONSOLE_INVITES_QUERY_KEY
+  });
+}
+
+async function invalidateForConsoleBillingEvent(queryClient) {
+  const queryKeys = [
+    CONSOLE_BILLING_PLANS_QUERY_KEY,
+    CONSOLE_BILLING_PRODUCTS_QUERY_KEY,
+    CONSOLE_BILLING_PROVIDER_PRICES_QUERY_KEY,
+    CONSOLE_BILLING_SETTINGS_QUERY_KEY,
+    CONSOLE_BILLING_EVENTS_QUERY_KEY,
+    CONSOLE_BILLING_SFC_ROOT_QUERY_KEY
+  ];
+
+  for (const queryKey of queryKeys) {
+    await queryClient.invalidateQueries({
+      queryKey
+    });
+  }
+}
+
+async function invalidateForConsoleErrorsEvent(queryClient) {
+  await queryClient.invalidateQueries({
+    queryKey: CONSOLE_BROWSER_ERRORS_QUERY_KEY
+  });
+  await queryClient.invalidateQueries({
+    queryKey: CONSOLE_SERVER_ERRORS_QUERY_KEY
+  });
+}
 
 async function invalidateNoop() {
   return undefined;
@@ -133,6 +215,14 @@ async function invalidateNoop() {
 const TOPIC_STRATEGY_REGISTRY = Object.freeze({
   [REALTIME_TOPICS.ALERTS]: Object.freeze({
     invalidate: invalidateNoop,
+    refreshBootstrap: false
+  }),
+  [REALTIME_TOPICS.SETTINGS]: Object.freeze({
+    invalidate: invalidateForSettingsEvent,
+    refreshBootstrap: false
+  }),
+  [REALTIME_TOPICS.HISTORY]: Object.freeze({
+    invalidate: invalidateForHistoryEvent,
     refreshBootstrap: false
   }),
   [REALTIME_TOPICS.PROJECTS]: Object.freeze({
@@ -163,6 +253,31 @@ const TOPIC_STRATEGY_REGISTRY = Object.freeze({
     invalidate: invalidateForWorkspaceBillingLimitsEvent,
     refreshBootstrap: false
   }),
+  [REALTIME_TOPICS.CONSOLE_MEMBERS]: Object.freeze({
+    invalidate: invalidateForConsoleMembersEvent,
+    refreshBootstrap: false,
+    refreshConsoleBootstrap: true
+  }),
+  [REALTIME_TOPICS.CONSOLE_SETTINGS]: Object.freeze({
+    invalidate: invalidateForConsoleSettingsEvent,
+    refreshBootstrap: false,
+    refreshConsoleBootstrap: false
+  }),
+  [REALTIME_TOPICS.CONSOLE_INVITES]: Object.freeze({
+    invalidate: invalidateForConsoleInvitesEvent,
+    refreshBootstrap: false,
+    refreshConsoleBootstrap: true
+  }),
+  [REALTIME_TOPICS.CONSOLE_BILLING]: Object.freeze({
+    invalidate: invalidateForConsoleBillingEvent,
+    refreshBootstrap: false,
+    refreshConsoleBootstrap: false
+  }),
+  [REALTIME_TOPICS.CONSOLE_ERRORS]: Object.freeze({
+    invalidate: invalidateForConsoleErrorsEvent,
+    refreshBootstrap: false,
+    refreshConsoleBootstrap: false
+  }),
   [REALTIME_TOPICS.CHAT]: Object.freeze({
     invalidate: invalidateForChatEvent,
     refreshBootstrap: false
@@ -185,6 +300,18 @@ async function refreshWorkspaceBootstrap(workspaceStore) {
   }
 }
 
+async function refreshConsoleBootstrap(consoleStore) {
+  if (!consoleStore || typeof consoleStore.refreshBootstrap !== "function") {
+    return;
+  }
+
+  try {
+    await consoleStore.refreshBootstrap();
+  } catch {
+    // console bootstrap refresh is best-effort for realtime fanout.
+  }
+}
+
 function resolveTopicStrategy(topic) {
   const normalizedTopic = String(topic || "").trim();
   if (!normalizedTopic) {
@@ -194,7 +321,7 @@ function resolveTopicStrategy(topic) {
   return TOPIC_STRATEGY_REGISTRY[normalizedTopic] || null;
 }
 
-function createRealtimeEventHandlers({ queryClient, commandTracker, clientId, workspaceStore = null }) {
+function createRealtimeEventHandlers({ queryClient, commandTracker, clientId, workspaceStore = null, consoleStore = null }) {
   if (!queryClient || typeof queryClient.invalidateQueries !== "function") {
     throw new Error("queryClient is required.");
   }
@@ -258,6 +385,9 @@ function createRealtimeEventHandlers({ queryClient, commandTracker, clientId, wo
     if (topicStrategy.refreshBootstrap) {
       await refreshWorkspaceBootstrap(workspaceStore);
     }
+    if (topicStrategy.refreshConsoleBootstrap) {
+      await refreshConsoleBootstrap(consoleStore);
+    }
 
     return {
       status: "processed"
@@ -280,6 +410,7 @@ function createRealtimeEventHandlers({ queryClient, commandTracker, clientId, wo
     const normalizedWorkspaceSlug = String(workspaceSlug || "").trim();
     const normalizedTopics = normalizeTopics(topics);
     let shouldRefreshBootstrap = false;
+    let shouldRefreshConsoleBootstrap = false;
 
     for (const topic of normalizedTopics) {
       const topicStrategy = resolveTopicStrategy(topic);
@@ -293,10 +424,14 @@ function createRealtimeEventHandlers({ queryClient, commandTracker, clientId, wo
         payload: {}
       });
       shouldRefreshBootstrap = shouldRefreshBootstrap || topicStrategy.refreshBootstrap;
+      shouldRefreshConsoleBootstrap = shouldRefreshConsoleBootstrap || topicStrategy.refreshConsoleBootstrap;
     }
 
     if (shouldRefreshBootstrap) {
       await refreshWorkspaceBootstrap(workspaceStore);
+    }
+    if (shouldRefreshConsoleBootstrap) {
+      await refreshConsoleBootstrap(consoleStore);
     }
   }
 

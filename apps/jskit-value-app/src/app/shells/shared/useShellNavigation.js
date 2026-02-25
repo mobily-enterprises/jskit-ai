@@ -1,7 +1,8 @@
 import { computed, ref, watch } from "vue";
 
 const DESKTOP_DRAWER_BEHAVIOR = (() => {
-  const rawMode = String(import.meta.env.VITE_DESKTOP_DRAWER_BEHAVIOR || "collapsible").toLowerCase();
+  const env = import.meta?.env || {};
+  const rawMode = String(env.VITE_DESKTOP_DRAWER_BEHAVIOR || "collapsible").toLowerCase();
   return rawMode === "permanent" ? "permanent" : "collapsible";
 })();
 

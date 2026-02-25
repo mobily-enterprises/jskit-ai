@@ -171,8 +171,8 @@ async function executeActionPipeline({
           idempotencyReplay: true
         });
 
-        if (logger && typeof logger.info === "function") {
-          logger.info(
+        if (logger && typeof logger.debug === "function") {
+          logger.debug(
             buildActionLogPayload({
               definition,
               context: normalizedContext,
@@ -227,8 +227,8 @@ async function executeActionPipeline({
       idempotencyReplay: false
     });
 
-    if (logger && typeof logger.info === "function") {
-      logger.info(
+    if (logger && typeof logger.debug === "function") {
+      logger.debug(
         buildActionLogPayload({
           definition,
           context: normalizedContext,
@@ -294,8 +294,8 @@ async function executeActionPipeline({
       idempotencyReplay: false
     });
 
-    if (logger && typeof logger.info === "function") {
-      logger.info(
+    if (logger && typeof logger.debug === "function") {
+      logger.debug(
         buildActionLogPayload({
           definition,
           context: normalizedContext,

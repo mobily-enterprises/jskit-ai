@@ -1,3 +1,6 @@
+import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../../shared/eventTypes.js";
+import { publishUserScopedRealtimeEvent, toPositiveInteger } from "./realtimePublishHelpers.js";
+
 function normalizeObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -36,7 +39,7 @@ const OBJECT_INPUT_SCHEMA = Object.freeze({
   }
 });
 
-function createConsoleErrorsActionContributor({ consoleErrorsService } = {}) {
+function createConsoleErrorsActionContributor({ consoleErrorsService, realtimeEventsService = null } = {}) {
   const contributorId = "app.console_errors";
 
   requireServiceMethod(consoleErrorsService, "listBrowserErrors", contributorId);
@@ -145,9 +148,24 @@ function createConsoleErrorsActionContributor({ consoleErrorsService } = {}) {
         },
         observability: {},
         async execute(input, context) {
+          const payload = normalizeObject(input);
           await consoleErrorsService.recordBrowserError({
-            payload: normalizeObject(input),
+            payload,
             user: resolveUser(context, input)
+          });
+          const actorUserId = toPositiveInteger(resolveUser(context, payload)?.id);
+          publishUserScopedRealtimeEvent({
+            realtimeEventsService,
+            context,
+            input: payload,
+            topic: REALTIME_TOPICS.CONSOLE_ERRORS,
+            eventType: REALTIME_EVENT_TYPES.CONSOLE_ERRORS_UPDATED,
+            entityType: "console_error",
+            entityId: "browser",
+            targetUserId: actorUserId || null,
+            payload: {
+              actionId: "console.errors.browser.record"
+            }
           });
 
           return {
@@ -170,10 +188,25 @@ function createConsoleErrorsActionContributor({ consoleErrorsService } = {}) {
         },
         observability: {},
         async execute(input, context) {
-          return consoleErrorsService.simulateServerError({
+          const payload = normalizeObject(input);
+          const result = await consoleErrorsService.simulateServerError({
             user: resolveUser(context, input),
-            payload: normalizeObject(input)
+            payload
           });
+          publishUserScopedRealtimeEvent({
+            realtimeEventsService,
+            context,
+            input: payload,
+            topic: REALTIME_TOPICS.CONSOLE_ERRORS,
+            eventType: REALTIME_EVENT_TYPES.CONSOLE_ERRORS_UPDATED,
+            entityType: "console_error",
+            entityId: "server",
+            targetUserId: toPositiveInteger(resolveUser(context, payload)?.id) || null,
+            payload: {
+              actionId: "console.errors.server.simulate"
+            }
+          });
+          return result;
         }
       }
     ])

@@ -1,4 +1,6 @@
 import { createService as createDeg2radModuleService } from "../../../modules/deg2rad/index.js";
+import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../../shared/eventTypes.js";
+import { publishUserScopedRealtimeEvent } from "./realtimePublishHelpers.js";
 
 function normalizeObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -41,6 +43,19 @@ function resolveWorkspaceId(context, input) {
   const payload = normalizeObject(input);
   const workspace = payload.workspace || resolveRequest(context)?.workspace || context?.workspace || null;
   return toPositiveInteger(workspace?.id);
+}
+
+function resolveWorkspace(context, input) {
+  const payload = normalizeObject(input);
+  const workspace = payload.workspace || resolveRequest(context)?.workspace || context?.workspace || null;
+  if (!workspace || typeof workspace !== "object") {
+    return null;
+  }
+
+  return {
+    id: toPositiveInteger(workspace.id) || null,
+    slug: String(workspace.slug || "").trim() || null
+  };
 }
 
 function resolveUsageEventKey(context) {
@@ -88,7 +103,8 @@ const HISTORY_LIST_TOOL_SCHEMA = Object.freeze({
 function createDeg2radHistoryActionContributor({
   deg2radService = null,
   deg2radHistoryService,
-  billingService = null
+  billingService = null,
+  realtimeEventsService = null
 } = {}) {
   const contributorId = "app.deg2rad_history";
   const resolvedDeg2radService =
@@ -129,6 +145,7 @@ function createDeg2radHistoryActionContributor({
         async execute(input, context) {
           const user = resolveUser(context, input);
           const workspaceId = resolveWorkspaceId(context, input);
+          const workspace = resolveWorkspace(context, input);
           const normalizedInput = resolvedDeg2radService.validateAndNormalizeInput(normalizeObject(input));
 
           const runCalculation = async ({ trx = null } = {}) => {
@@ -164,7 +181,24 @@ function createDeg2radHistoryActionContributor({
               })
             : await runCalculation();
 
-          return execution.result;
+          const result = execution.result;
+          publishUserScopedRealtimeEvent({
+            realtimeEventsService,
+            context,
+            input,
+            topic: REALTIME_TOPICS.HISTORY,
+            eventType: REALTIME_EVENT_TYPES.USER_HISTORY_UPDATED,
+            entityType: "history",
+            entityId: Number(result?.historyId || 0) > 0 ? String(result.historyId) : "none",
+            workspace,
+            targetUserId: toPositiveInteger(user?.id),
+            payload: {
+              actionId: "deg2rad.calculate",
+              historyId: Number(result?.historyId || 0) || null
+            }
+          });
+
+          return result;
         }
       },
       {

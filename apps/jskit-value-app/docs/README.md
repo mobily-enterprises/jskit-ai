@@ -21,6 +21,7 @@ Last reorganized: 2026-02-25 (UTC)
 - Operating retention jobs/worker: `operations/retention-worker.md`
 - Realtime envelope field requirements: `realtime/contracts.md`
 - Realtime mutation sync status by domain: `realtime/coverage-matrix.md`
+- Realtime operations + troubleshooting: `realtime/operations.md`
 
 ## Document Guide
 
@@ -79,6 +80,8 @@ Last reorganized: 2026-02-25 (UTC)
   - Required envelope fields and runtime delivery rules for workspace broadcast, workspace-targeted, global-targeted, and user-scoped topic events.
 - `realtime/coverage-matrix.md`
   - Current mutation-to-realtime sync status across major domains, including correlation-header guardrails for event-producing writes.
+- `realtime/operations.md`
+  - Production runbook for realtime reliability model, health signals, thresholds, and triage.
 
 ### Playbooks
 

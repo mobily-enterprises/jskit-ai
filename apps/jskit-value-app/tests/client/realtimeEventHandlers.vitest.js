@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { REALTIME_TOPICS } from "../../shared/eventTypes.js";
 import {
+  assistantRootQueryKey,
+  assistantWorkspaceScopeQueryKey,
   workspaceAiTranscriptsRootQueryKey,
   workspaceAiTranscriptsScopeQueryKey
 } from "@jskit-ai/assistant-contracts";
@@ -219,8 +221,13 @@ describe("realtimeEventHandlers", () => {
 
     const result = await handlers.processEvent(event);
     expect(result.status).toBe("processed");
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+    expect(queryClient.invalidateQueries).toHaveBeenNthCalledWith(1, {
       queryKey: workspaceAiTranscriptsScopeQueryKey("acme")
+    });
+    expect(queryClient.invalidateQueries).toHaveBeenNthCalledWith(2, {
+      queryKey: assistantWorkspaceScopeQueryKey({
+        workspaceSlug: "acme"
+      })
     });
   });
 
@@ -241,8 +248,149 @@ describe("realtimeEventHandlers", () => {
 
     const result = await handlers.processEvent(event);
     expect(result.status).toBe("processed");
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+    expect(queryClient.invalidateQueries).toHaveBeenNthCalledWith(1, {
       queryKey: workspaceAiTranscriptsRootQueryKey()
+    });
+    expect(queryClient.invalidateQueries).toHaveBeenNthCalledWith(2, {
+      queryKey: assistantRootQueryKey()
+    });
+  });
+
+  it("invalidates settings query for settings topic events", async () => {
+    const handlers = createRealtimeEventHandlers({
+      queryClient,
+      commandTracker,
+      clientId: "cli-local"
+    });
+
+    const result = await handlers.processEvent({
+      eventId: "evt-settings-1",
+      topic: REALTIME_TOPICS.SETTINGS,
+      sourceClientId: "cli-remote"
+    });
+
+    expect(result.status).toBe("processed");
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["settings"]
+    });
+  });
+
+  it("invalidates workspace-scoped history query key for history topic events", async () => {
+    const handlers = createRealtimeEventHandlers({
+      queryClient,
+      commandTracker,
+      clientId: "cli-local"
+    });
+
+    const result = await handlers.processEvent({
+      eventId: "evt-history-1",
+      topic: REALTIME_TOPICS.HISTORY,
+      workspaceSlug: "acme",
+      sourceClientId: "cli-remote"
+    });
+
+    expect(result.status).toBe("processed");
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["history", "acme"]
+    });
+  });
+
+  it("invalidates console members and refreshes console bootstrap on console-members topic events", async () => {
+    const consoleStore = {
+      refreshBootstrap: vi.fn().mockResolvedValue(undefined)
+    };
+    const handlers = createRealtimeEventHandlers({
+      queryClient,
+      commandTracker,
+      clientId: "cli-local",
+      consoleStore
+    });
+
+    const result = await handlers.processEvent({
+      eventId: "evt-console-members-1",
+      topic: REALTIME_TOPICS.CONSOLE_MEMBERS,
+      sourceClientId: "cli-remote"
+    });
+
+    expect(result.status).toBe("processed");
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["console-members"]
+    });
+    expect(consoleStore.refreshBootstrap).toHaveBeenCalledTimes(1);
+  });
+
+  it("invalidates console settings query family for console-settings topic events", async () => {
+    const handlers = createRealtimeEventHandlers({
+      queryClient,
+      commandTracker,
+      clientId: "cli-local"
+    });
+
+    const result = await handlers.processEvent({
+      eventId: "evt-console-settings-1",
+      topic: REALTIME_TOPICS.CONSOLE_SETTINGS,
+      sourceClientId: "cli-remote"
+    });
+
+    expect(result.status).toBe("processed");
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["console-settings"]
+    });
+  });
+
+  it("invalidates console billing query families for console-billing topic events", async () => {
+    const handlers = createRealtimeEventHandlers({
+      queryClient,
+      commandTracker,
+      clientId: "cli-local"
+    });
+
+    const result = await handlers.processEvent({
+      eventId: "evt-console-billing-1",
+      topic: REALTIME_TOPICS.CONSOLE_BILLING,
+      sourceClientId: "cli-remote"
+    });
+
+    expect(result.status).toBe("processed");
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["console-billing-plans"]
+    });
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["console-billing-products"]
+    });
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["console-billing-provider-prices"]
+    });
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["console-billing-settings"]
+    });
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["console-billing-events"]
+    });
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["console", "billing"]
+    });
+  });
+
+  it("invalidates console error query families for console-errors topic events", async () => {
+    const handlers = createRealtimeEventHandlers({
+      queryClient,
+      commandTracker,
+      clientId: "cli-local"
+    });
+
+    const result = await handlers.processEvent({
+      eventId: "evt-console-errors-1",
+      topic: REALTIME_TOPICS.CONSOLE_ERRORS,
+      sourceClientId: "cli-remote"
+    });
+
+    expect(result.status).toBe("processed");
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["console-browser-errors"]
+    });
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["console-server-errors"]
     });
   });
 

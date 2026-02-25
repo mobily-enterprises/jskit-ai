@@ -15,6 +15,9 @@
           {{ destinationTitle }}
         </v-toolbar-title>
         <v-spacer />
+        <v-chip size="small" :color="realtimeHealthColor" variant="tonal" class="mr-2">
+          {{ realtimeHealthLabel }}
+        </v-chip>
 
         <v-menu location="bottom end" offset="8">
           <template #activator="{ props }">

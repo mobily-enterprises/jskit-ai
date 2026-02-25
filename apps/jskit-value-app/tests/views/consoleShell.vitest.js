@@ -39,6 +39,10 @@ const mocks = vi.hoisted(() => ({
     can: vi.fn(() => true),
     clearConsoleState: vi.fn()
   },
+  realtimeStore: {
+    healthLabel: "Realtime: live",
+    healthColor: "success"
+  },
   workspaceStore: {
     clearWorkspaceState: vi.fn()
   },
@@ -91,6 +95,10 @@ vi.mock("../../src/app/state/alertsStore.js", () => ({
 
 vi.mock("../../src/app/state/consoleStore.js", () => ({
   useConsoleStore: () => mocks.consoleStore
+}));
+
+vi.mock("../../src/app/state/realtimeStore.js", () => ({
+  useRealtimeStore: () => mocks.realtimeStore
 }));
 
 vi.mock("../../src/app/state/workspaceStore.js", () => ({
@@ -155,6 +163,8 @@ describe("useConsoleShell", () => {
     mocks.consoleStore.can.mockReset();
     mocks.consoleStore.can.mockImplementation(() => true);
     mocks.consoleStore.clearConsoleState.mockReset();
+    mocks.realtimeStore.healthLabel = "Realtime: live";
+    mocks.realtimeStore.healthColor = "success";
     mocks.workspaceStore.clearWorkspaceState.mockReset();
 
     mocks.api.auth.logout.mockReset();
@@ -169,6 +179,7 @@ describe("useConsoleShell", () => {
     expect(mocks.alertsStore.startPolling).toHaveBeenCalledTimes(1);
     expect(wrapper.vm.shell.layout.showApplicationShell.value).toBe(true);
     expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("AI System prompt");
+    expect(wrapper.vm.shell.layout.realtimeHealthLabel.value).toBe("Realtime: live");
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
       { title: "Members", to: "/console/members", icon: "$consoleMembers" }
     ]);

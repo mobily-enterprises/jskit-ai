@@ -39,6 +39,10 @@ const mocks = vi.hoisted(() => ({
   consoleStore: {
     clearConsoleState: vi.fn()
   },
+  realtimeStore: {
+    healthLabel: "Realtime: live",
+    healthColor: "success"
+  },
   workspaceStore: {
     app: {
       features: {
@@ -119,6 +123,10 @@ vi.mock("../../src/app/state/consoleStore.js", () => ({
   useConsoleStore: () => mocks.consoleStore
 }));
 
+vi.mock("../../src/app/state/realtimeStore.js", () => ({
+  useRealtimeStore: () => mocks.realtimeStore
+}));
+
 vi.mock("../../src/platform/http/api/index.js", () => ({
   api: mocks.api
 }));
@@ -174,6 +182,8 @@ describe("useAppShell", () => {
     mocks.alertsStore.handleAlertClick.mockReset();
     mocks.alertsStore.handleAlertClick.mockResolvedValue(undefined);
     mocks.consoleStore.clearConsoleState.mockReset();
+    mocks.realtimeStore.healthLabel = "Realtime: live";
+    mocks.realtimeStore.healthColor = "success";
 
     mocks.workspaceStore.activeWorkspaceSlug = "acme";
     mocks.workspaceStore.activeWorkspace = { color: "#336699" };
@@ -209,6 +219,7 @@ describe("useAppShell", () => {
     expect(wrapper.vm.shell.layout.showApplicationShell.value).toBe(true);
     expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("JSKIT app");
     expect(wrapper.vm.shell.layout.activeWorkspaceColor.value).toBe("#336699");
+    expect(wrapper.vm.shell.layout.realtimeHealthLabel.value).toBe("Realtime: live");
     expect(wrapper.vm.shell.user.userInitials.value).toBe("TO");
     expect(wrapper.vm.shell.user.canOpenAdminSurface.value).toBe(true);
 

@@ -10,6 +10,7 @@ import { createDeg2radHistoryActionContributor } from "./contributors/deg2radHis
 import { createAssistantActionContributor } from "./contributors/assistant.contributor.js";
 import { createConsoleErrorsActionContributor } from "./contributors/consoleErrors.contributor.js";
 import { createCommunicationsActionContributor } from "./contributors/communications.contributor.js";
+import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/eventTypes.js";
 
 function createActionContributors({ services, repositories, repositoryConfig, appConfig, rbacManifest } = {}) {
   const actionConfig = repositoryConfig?.actions || {};
@@ -25,7 +26,10 @@ function createActionContributors({ services, repositories, repositoryConfig, ap
     }),
     createConsoleActionContributor({
       consoleService: services?.consoleService,
-      aiTranscriptsService: services?.aiTranscriptsService
+      aiTranscriptsService: services?.aiTranscriptsService,
+      realtimeEventsService: services?.realtimeEventsService,
+      realtimeTopics: REALTIME_TOPICS,
+      realtimeEventTypes: REALTIME_EVENT_TYPES
     }),
     createChatActionContributor({
       chatService: services?.chatService
@@ -36,7 +40,8 @@ function createActionContributors({ services, repositories, repositoryConfig, ap
     }),
     createSettingsActionContributor({
       userSettingsService: services?.userSettingsService,
-      authService: services?.authService
+      authService: services?.authService,
+      realtimeEventsService: services?.realtimeEventsService
     }),
     createAlertsActionContributor({
       alertsService: services?.alertsService
@@ -49,7 +54,8 @@ function createActionContributors({ services, repositories, repositoryConfig, ap
     }),
     createDeg2radHistoryActionContributor({
       deg2radHistoryService: services?.deg2radHistoryService,
-      billingService: services?.billingService
+      billingService: services?.billingService,
+      realtimeEventsService: services?.realtimeEventsService
     }),
     createAssistantActionContributor({
       aiService: services?.aiService,
@@ -59,7 +65,8 @@ function createActionContributors({ services, repositories, repositoryConfig, ap
       rbacManifest
     }),
     createConsoleErrorsActionContributor({
-      consoleErrorsService: services?.consoleErrorsService
+      consoleErrorsService: services?.consoleErrorsService,
+      realtimeEventsService: services?.realtimeEventsService
     }),
     createCommunicationsActionContributor({
       communicationsService: services?.communicationsService

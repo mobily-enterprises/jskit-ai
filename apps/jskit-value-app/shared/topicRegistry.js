@@ -16,6 +16,16 @@ const REALTIME_TOPIC_REGISTRY = createTopicCatalog({
     subscribeSurfaces: Object.freeze(["app", "admin", "console"]),
     requiredAnyPermission: Object.freeze([])
   }),
+  [REALTIME_TOPICS.SETTINGS]: Object.freeze({
+    scope: TOPIC_SCOPES.USER,
+    subscribeSurfaces: Object.freeze(["app", "admin", "console"]),
+    requiredAnyPermission: Object.freeze([])
+  }),
+  [REALTIME_TOPICS.HISTORY]: Object.freeze({
+    scope: TOPIC_SCOPES.USER,
+    subscribeSurfaces: Object.freeze(["app"]),
+    requiredAnyPermission: Object.freeze(["history.read"])
+  }),
   [REALTIME_TOPICS.PROJECTS]: Object.freeze({
     scope: TOPIC_SCOPES.WORKSPACE,
     subscribeSurfaces: Object.freeze(["app", "admin"]),
@@ -43,8 +53,12 @@ const REALTIME_TOPIC_REGISTRY = createTopicCatalog({
   }),
   [REALTIME_TOPICS.WORKSPACE_AI_TRANSCRIPTS]: Object.freeze({
     scope: TOPIC_SCOPES.WORKSPACE,
-    subscribeSurfaces: Object.freeze(["admin"]),
-    requiredAnyPermission: Object.freeze(["workspace.ai.transcripts.read"])
+    subscribeSurfaces: Object.freeze(["app", "admin"]),
+    requiredAnyPermission: Object.freeze([]),
+    requiredAnyPermissionBySurface: Object.freeze({
+      app: Object.freeze([]),
+      admin: Object.freeze(["workspace.ai.transcripts.read"])
+    })
   }),
   [REALTIME_TOPICS.WORKSPACE_BILLING_LIMITS]: Object.freeze({
     scope: TOPIC_SCOPES.WORKSPACE,
@@ -54,6 +68,31 @@ const REALTIME_TOPIC_REGISTRY = createTopicCatalog({
       app: Object.freeze([]),
       admin: Object.freeze(["workspace.billing.manage"])
     })
+  }),
+  [REALTIME_TOPICS.CONSOLE_SETTINGS]: Object.freeze({
+    scope: TOPIC_SCOPES.USER,
+    subscribeSurfaces: Object.freeze(["console"]),
+    requiredAnyPermission: Object.freeze([])
+  }),
+  [REALTIME_TOPICS.CONSOLE_MEMBERS]: Object.freeze({
+    scope: TOPIC_SCOPES.USER,
+    subscribeSurfaces: Object.freeze(["console"]),
+    requiredAnyPermission: Object.freeze([])
+  }),
+  [REALTIME_TOPICS.CONSOLE_INVITES]: Object.freeze({
+    scope: TOPIC_SCOPES.USER,
+    subscribeSurfaces: Object.freeze(["console"]),
+    requiredAnyPermission: Object.freeze([])
+  }),
+  [REALTIME_TOPICS.CONSOLE_BILLING]: Object.freeze({
+    scope: TOPIC_SCOPES.USER,
+    subscribeSurfaces: Object.freeze(["console"]),
+    requiredAnyPermission: Object.freeze([])
+  }),
+  [REALTIME_TOPICS.CONSOLE_ERRORS]: Object.freeze({
+    scope: TOPIC_SCOPES.USER,
+    subscribeSurfaces: Object.freeze(["console"]),
+    requiredAnyPermission: Object.freeze([])
   }),
   [REALTIME_TOPICS.CHAT]: Object.freeze({
     scope: TOPIC_SCOPES.WORKSPACE,

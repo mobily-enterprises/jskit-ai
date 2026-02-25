@@ -6,6 +6,7 @@ import { api } from "../../../platform/http/api/index.js";
 import { useAuthStore } from "../../state/authStore.js";
 import { useAlertsStore } from "../../state/alertsStore.js";
 import { useConsoleStore } from "../../state/consoleStore.js";
+import { useRealtimeStore } from "../../state/realtimeStore.js";
 import { useWorkspaceStore } from "../../state/workspaceStore.js";
 import { useShellNavigation } from "../shared/useShellNavigation.js";
 
@@ -13,6 +14,7 @@ export function useConsoleShell() {
   const authStore = useAuthStore();
   const alertsStore = useAlertsStore();
   const consoleStore = useConsoleStore();
+  const realtimeStore = useRealtimeStore();
   const workspaceStore = useWorkspaceStore();
   const navigate = useNavigate();
   const display = useDisplay();
@@ -216,6 +218,8 @@ export function useConsoleShell() {
   const alertsPreviewLoading = computed(() => alertsStore.previewLoading || alertsStore.markAllReadLoading);
   const alertsPreviewError = computed(() => alertsStore.previewError || alertsStore.markAllReadError || "");
   const alertsPath = computed(() => `${surfacePaths.value.prefix}/alerts`);
+  const realtimeHealthLabel = computed(() => String(realtimeStore.healthLabel || "Realtime: idle"));
+  const realtimeHealthColor = computed(() => String(realtimeStore.healthColor || "secondary"));
 
   watch(
     () => authStore.isAuthenticated,
@@ -315,7 +319,9 @@ export function useConsoleShell() {
       isDesktopPermanentDrawer,
       isDesktopCollapsible,
       drawerModel,
-      destinationTitle
+      destinationTitle,
+      realtimeHealthLabel,
+      realtimeHealthColor
     },
     user: {
       userDisplayName

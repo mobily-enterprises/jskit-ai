@@ -166,7 +166,7 @@ describe("realtimeRuntime", () => {
       type: REALTIME_MESSAGE_TYPES.SUBSCRIBED,
       requestId: socket.sent[0].requestId,
       workspaceSlug: "acme",
-      topics: [REALTIME_TOPICS.ALERTS, REALTIME_TOPICS.PROJECTS]
+      topics: [REALTIME_TOPICS.ALERTS, REALTIME_TOPICS.PROJECTS, REALTIME_TOPICS.SETTINGS]
     });
 
     await flushMicrotasks();
@@ -196,6 +196,8 @@ describe("realtimeRuntime", () => {
     expect(socket.sent[0].type).toBe(REALTIME_MESSAGE_TYPES.SUBSCRIBE);
     expect(socket.sent[0].topics).toEqual([
       REALTIME_TOPICS.ALERTS,
+      REALTIME_TOPICS.SETTINGS,
+      REALTIME_TOPICS.WORKSPACE_AI_TRANSCRIPTS,
       REALTIME_TOPICS.WORKSPACE_BILLING_LIMITS,
       REALTIME_TOPICS.WORKSPACE_META
     ]);
@@ -221,7 +223,15 @@ describe("realtimeRuntime", () => {
     const socket = FakeSocket.instances[0];
     expect(socket.sent[0].type).toBe(REALTIME_MESSAGE_TYPES.SUBSCRIBE);
     expect(socket.sent[0].workspaceSlug).toBe("");
-    expect(socket.sent[0].topics).toEqual([REALTIME_TOPICS.ALERTS]);
+    expect(socket.sent[0].topics).toEqual([
+      REALTIME_TOPICS.ALERTS,
+      REALTIME_TOPICS.CONSOLE_BILLING,
+      REALTIME_TOPICS.CONSOLE_ERRORS,
+      REALTIME_TOPICS.CONSOLE_INVITES,
+      REALTIME_TOPICS.CONSOLE_MEMBERS,
+      REALTIME_TOPICS.CONSOLE_SETTINGS,
+      REALTIME_TOPICS.SETTINGS
+    ]);
 
     runtime.stop();
   });
@@ -245,7 +255,9 @@ describe("realtimeRuntime", () => {
     expect(socket.sent[0].topics).toEqual([
       REALTIME_TOPICS.ALERTS,
       REALTIME_TOPICS.CHAT,
+      REALTIME_TOPICS.SETTINGS,
       REALTIME_TOPICS.TYPING,
+      REALTIME_TOPICS.WORKSPACE_AI_TRANSCRIPTS,
       REALTIME_TOPICS.WORKSPACE_BILLING_LIMITS,
       REALTIME_TOPICS.WORKSPACE_META
     ]);
@@ -269,7 +281,12 @@ describe("realtimeRuntime", () => {
 
     const socket = FakeSocket.instances[0];
     expect(socket.sent[0].type).toBe(REALTIME_MESSAGE_TYPES.SUBSCRIBE);
-    expect(socket.sent[0].topics).toEqual([REALTIME_TOPICS.ALERTS, REALTIME_TOPICS.CHAT, REALTIME_TOPICS.TYPING]);
+    expect(socket.sent[0].topics).toEqual([
+      REALTIME_TOPICS.ALERTS,
+      REALTIME_TOPICS.CHAT,
+      REALTIME_TOPICS.SETTINGS,
+      REALTIME_TOPICS.TYPING
+    ]);
 
     runtime.stop();
   });
@@ -291,17 +308,25 @@ describe("realtimeRuntime", () => {
     const socket = FakeSocket.instances[0];
 
     expect(socket.sent[0].type).toBe(REALTIME_MESSAGE_TYPES.SUBSCRIBE);
-    expect(socket.sent[0].topics).toEqual([REALTIME_TOPICS.ALERTS, REALTIME_TOPICS.WORKSPACE_SETTINGS]);
+    expect(socket.sent[0].topics).toEqual([
+      REALTIME_TOPICS.ALERTS,
+      REALTIME_TOPICS.SETTINGS,
+      REALTIME_TOPICS.WORKSPACE_SETTINGS
+    ]);
 
     socket.receive({
       type: REALTIME_MESSAGE_TYPES.SUBSCRIBED,
       requestId: socket.sent[0].requestId,
       workspaceSlug: "acme",
-      topics: [REALTIME_TOPICS.ALERTS, REALTIME_TOPICS.WORKSPACE_SETTINGS]
+      topics: [REALTIME_TOPICS.ALERTS, REALTIME_TOPICS.SETTINGS, REALTIME_TOPICS.WORKSPACE_SETTINGS]
     });
 
     await flushMicrotasks();
+    await flushMicrotasks();
 
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["settings"]
+    });
     expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
       queryKey: workspaceAdminRootQueryKey()
     });
@@ -326,7 +351,7 @@ describe("realtimeRuntime", () => {
       type: REALTIME_MESSAGE_TYPES.SUBSCRIBED,
       requestId: firstSocket.sent[0].requestId,
       workspaceSlug: "acme",
-      topics: [REALTIME_TOPICS.ALERTS, REALTIME_TOPICS.PROJECTS]
+      topics: [REALTIME_TOPICS.ALERTS, REALTIME_TOPICS.PROJECTS, REALTIME_TOPICS.SETTINGS]
     });
     await flushMicrotasks();
 
@@ -340,11 +365,17 @@ describe("realtimeRuntime", () => {
       type: REALTIME_MESSAGE_TYPES.SUBSCRIBED,
       requestId: secondSocket.sent[0].requestId,
       workspaceSlug: "acme",
-      topics: [REALTIME_TOPICS.ALERTS, REALTIME_TOPICS.PROJECTS]
+      topics: [REALTIME_TOPICS.ALERTS, REALTIME_TOPICS.PROJECTS, REALTIME_TOPICS.SETTINGS]
     });
     await flushMicrotasks();
 
-    expect(queryClient.invalidateQueries).toHaveBeenCalledTimes(2);
+    expect(queryClient.invalidateQueries).toHaveBeenCalledTimes(4);
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: projectsScopeQueryKey("acme")
+    });
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["settings"]
+    });
     runtime.stop();
   });
 
@@ -395,7 +426,7 @@ describe("realtimeRuntime", () => {
       type: REALTIME_MESSAGE_TYPES.SUBSCRIBED,
       requestId: firstSocket.sent[0].requestId,
       workspaceSlug: "acme",
-      topics: [REALTIME_TOPICS.ALERTS, REALTIME_TOPICS.PROJECTS]
+      topics: [REALTIME_TOPICS.ALERTS, REALTIME_TOPICS.PROJECTS, REALTIME_TOPICS.SETTINGS]
     });
     await flushMicrotasks();
 

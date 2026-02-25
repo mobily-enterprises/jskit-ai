@@ -15,9 +15,10 @@ Legend:
 | Alerts create (`user.alert.created`) | Synced | User-scoped targeted alerts + explicit alerts event-handler strategy. |
 | Alerts mark-all-read | Partial | Same-browser tabs sync immediately via local broadcast; cross-session relies on fetch refresh cadence. |
 | Assistant transcript list updates | Partial | Transcript topic invalidates transcript query family; live stream remains local-tab runtime. |
-| Settings/profile/security mutations | Missing | No dedicated realtime topic + publish + client invalidation strategy yet. |
-| DEG2RAD/history writes | Missing | No dedicated realtime topic + publish + client invalidation strategy yet. |
-| Console members/invites/billing/errors writes | Missing | Console domains still rely primarily on explicit refresh/invalidation paths. |
+| Settings/profile/security mutations | Synced | `settings` user-scoped topic + action-layer publish + `["settings"]` invalidation strategy. |
+| DEG2RAD/history writes | Synced | `history` user-scoped topic + `deg2rad.calculate` publish + history query invalidation. |
+| Console settings writes (`console.settings.update`) | Synced | `console_settings` user-scoped topic + console-settings query invalidation. |
+| Console members/invites/billing/errors writes | Synced | User-scoped console topics publish from command actions + console query-family invalidation strategies. |
 
 ## Correlation guardrail (write routes)
 

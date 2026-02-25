@@ -56,6 +56,12 @@ Optional fields:
 
 Used for user-topic room fanout (`u:<userId>:t:<topic>`).
 
+Examples:
+- `alerts`
+- `settings`
+- `console_settings`
+- other console user topics (`console_members`, `console_invites`, `console_billing`, `console_errors`)
+
 Required fields:
 - `eventId`
 - `eventType`

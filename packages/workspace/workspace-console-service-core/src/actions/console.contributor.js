@@ -77,6 +77,11 @@ function resolveIdempotencyKey(context, input) {
   return fromCommand || "";
 }
 
+function normalizeHeaderValue(value) {
+  const normalized = String(value || "").trim();
+  return normalized || null;
+}
+
 function splitUpdateInput(input, idField) {
   const payload = normalizeObject(input);
 
@@ -138,6 +143,20 @@ const CONSOLE_BILLING_ACTION_IDEMPOTENCY = Object.freeze({
   "console.billing.subscription.change_plan": "required",
   "console.billing.subscription.cancel": "required",
   "console.billing.subscription.cancel_at_period_end": "required"
+});
+
+const DEFAULT_REALTIME_TOPICS = Object.freeze({
+  CONSOLE_SETTINGS: "console_settings",
+  CONSOLE_MEMBERS: "console_members",
+  CONSOLE_INVITES: "console_invites",
+  CONSOLE_BILLING: "console_billing"
+});
+
+const DEFAULT_REALTIME_EVENT_TYPES = Object.freeze({
+  CONSOLE_SETTINGS_UPDATED: "console.settings.updated",
+  CONSOLE_MEMBERS_UPDATED: "console.members.updated",
+  CONSOLE_INVITES_UPDATED: "console.invites.updated",
+  CONSOLE_BILLING_UPDATED: "console.billing.updated"
 });
 
 function buildAssistantInputJsonSchema({ properties = {}, required = [] } = {}) {
@@ -485,7 +504,163 @@ function applyConsoleBillingAssistantToolConfig(action) {
   };
 }
 
-function createConsoleActionContributor({ consoleService, aiTranscriptsService = null } = {}) {
+function resolveCommandId(context, input) {
+  const payload = normalizeObject(input);
+  const requestMeta = normalizeObject(payload.requestMeta);
+  return (
+    normalizeHeaderValue(requestMeta.commandId) ||
+    normalizeHeaderValue(requestMeta.idempotencyKey) ||
+    normalizeHeaderValue(payload.commandId) ||
+    normalizeHeaderValue(payload.idempotencyKey) ||
+    normalizeHeaderValue(context?.requestMeta?.commandId) ||
+    normalizeHeaderValue(context?.requestMeta?.idempotencyKey) ||
+    normalizeHeaderValue(resolveRequest(context)?.headers?.["x-command-id"]) ||
+    null
+  );
+}
+
+function resolveSourceClientId(context, input) {
+  const payload = normalizeObject(input);
+  const requestMeta = normalizeObject(payload.requestMeta);
+  return (
+    normalizeHeaderValue(requestMeta.sourceClientId) ||
+    normalizeHeaderValue(payload.sourceClientId) ||
+    normalizeHeaderValue(context?.requestMeta?.sourceClientId) ||
+    normalizeHeaderValue(resolveRequest(context)?.headers?.["x-client-id"]) ||
+    null
+  );
+}
+
+function resolveRealtimePublishConfig(actionId, { realtimeTopics, realtimeEventTypes }) {
+  const normalizedActionId = String(actionId || "").trim();
+  if (!normalizedActionId) {
+    return null;
+  }
+
+  if (normalizedActionId.startsWith("console.member.")) {
+    return {
+      topic: String(realtimeTopics?.CONSOLE_MEMBERS || ""),
+      eventType: String(realtimeEventTypes?.CONSOLE_MEMBERS_UPDATED || "")
+    };
+  }
+
+  if (normalizedActionId.startsWith("console.settings.")) {
+    return {
+      topic: String(realtimeTopics?.CONSOLE_SETTINGS || ""),
+      eventType: String(realtimeEventTypes?.CONSOLE_SETTINGS_UPDATED || "")
+    };
+  }
+
+  if (normalizedActionId.startsWith("console.invite.") || normalizedActionId.startsWith("console.invitations.")) {
+    return {
+      topic: String(realtimeTopics?.CONSOLE_INVITES || ""),
+      eventType: String(realtimeEventTypes?.CONSOLE_INVITES_UPDATED || "")
+    };
+  }
+
+  if (normalizedActionId.startsWith("console.billing.")) {
+    return {
+      topic: String(realtimeTopics?.CONSOLE_BILLING || ""),
+      eventType: String(realtimeEventTypes?.CONSOLE_BILLING_UPDATED || "")
+    };
+  }
+
+  return null;
+}
+
+function publishConsoleRealtimeEvent({
+  realtimeEventsService,
+  realtimeTopics,
+  realtimeEventTypes,
+  actionId,
+  input,
+  context
+} = {}) {
+  if (!realtimeEventsService || typeof realtimeEventsService.publish !== "function") {
+    return false;
+  }
+
+  const publishConfig = resolveRealtimePublishConfig(actionId, {
+    realtimeTopics,
+    realtimeEventTypes
+  });
+  if (!publishConfig?.topic || !publishConfig?.eventType) {
+    return false;
+  }
+
+  const actorUserId = toPositiveInteger(resolveUser(context, input)?.id);
+  if (!actorUserId) {
+    return false;
+  }
+
+  const envelopeInput = {
+    eventType: publishConfig.eventType,
+    topic: publishConfig.topic,
+    entityType: "console",
+    entityId: String(actionId || "none"),
+    commandId: resolveCommandId(context, input),
+    sourceClientId: resolveSourceClientId(context, input),
+    actorUserId,
+    payload: {
+      actionId: String(actionId || "")
+    }
+  };
+  const createEventEnvelope =
+    typeof realtimeEventsService.createEventEnvelope === "function"
+      ? realtimeEventsService.createEventEnvelope.bind(realtimeEventsService)
+      : null;
+  const eventEnvelope = createEventEnvelope
+    ? {
+        ...createEventEnvelope(envelopeInput),
+        targetUserIds: [actorUserId]
+      }
+    : {
+        ...envelopeInput,
+        targetUserIds: [actorUserId]
+      };
+
+  try {
+    realtimeEventsService.publish(eventEnvelope);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function applyRealtimePublishToCommandAction(action, options = {}) {
+  const definition = action && typeof action === "object" ? action : null;
+  if (!definition || definition.kind !== "command" || typeof definition.execute !== "function") {
+    return definition;
+  }
+
+  const publishConfig = resolveRealtimePublishConfig(definition.id, options);
+  if (!publishConfig?.topic || !publishConfig?.eventType) {
+    return definition;
+  }
+
+  const baseExecute = definition.execute;
+  return {
+    ...definition,
+    async execute(input, context) {
+      const result = await baseExecute(input, context);
+      publishConsoleRealtimeEvent({
+        ...options,
+        actionId: definition.id,
+        input,
+        context
+      });
+      return result;
+    }
+  };
+}
+
+function createConsoleActionContributor({
+  consoleService,
+  aiTranscriptsService = null,
+  realtimeEventsService = null,
+  realtimeTopics = null,
+  realtimeEventTypes = null
+} = {}) {
   const contributorId = "workspace.console";
 
   requireServiceMethod(consoleService, "buildBootstrapPayload", contributorId);
@@ -1459,8 +1634,22 @@ function createConsoleActionContributor({ consoleService, aiTranscriptsService =
     }
   ];
 
+  const resolvedRealtimeTopics = {
+    ...DEFAULT_REALTIME_TOPICS,
+    ...(realtimeTopics && typeof realtimeTopics === "object" ? realtimeTopics : {})
+  };
+  const resolvedRealtimeEventTypes = {
+    ...DEFAULT_REALTIME_EVENT_TYPES,
+    ...(realtimeEventTypes && typeof realtimeEventTypes === "object" ? realtimeEventTypes : {})
+  };
+
   for (let index = 0; index < actions.length; index += 1) {
     actions[index] = applyConsoleBillingAssistantToolConfig(actions[index]);
+    actions[index] = applyRealtimePublishToCommandAction(actions[index], {
+      realtimeEventsService,
+      realtimeTopics: resolvedRealtimeTopics,
+      realtimeEventTypes: resolvedRealtimeEventTypes
+    });
   }
 
   if (
