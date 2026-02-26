@@ -5,11 +5,11 @@ Purpose: this file is the operating contract for LLM sessions working in this re
 ## 1) Canonical docs and scope
 
 1. Session cwd for this file is `.` (repo-root path: `apps/jskit-value-app`).
-2. Canonical app docs live in `docs` (repo-root path: `apps/jskit-value-app/docs`).
+2. Canonical framework docs live in `../../docs` (repo-root path: `docs`).
 3. Monorepo root from this cwd is `../..`; shared packages live in `../../packages`.
 4. Before any substantive response or repository action, read `LLM_CHECKLIST.md` and satisfy its BOOTSTRAP gate.
 5. Start every task by reading `README.md`.
-6. Read files in `docs/` that are relevant to your task.
+6. Read files in `../../docs/` that are relevant to your task.
 
 ## 2) Architecture truths (do not violate)
 
@@ -62,7 +62,7 @@ Purpose: this file is the operating contract for LLM sessions working in this re
 
 ## 6) Billing rails
 
-1. Billing contract behavior is fixed by docs in `docs/billing/*` (repo-root path: `apps/jskit-value-app/docs/billing/*`) and existing tests.
+1. Billing contract behavior is fixed by docs in `../../docs/billing/*` (repo-root path: `docs/billing/*`) and existing tests.
 2. Feature usage consumption is server-side only.
 3. When billing state is uncertain, fail closed.
 4. Provider-specific SDK logic stays in provider packages (`billing-provider-stripe`, `billing-provider-paddle`).
@@ -82,8 +82,8 @@ Purpose: this file is the operating contract for LLM sessions working in this re
 3. If schema behavior changes, update:
 - migrations
 - tests
-- relevant docs in `docs/database/*` (repo-root path: `apps/jskit-value-app/docs/database/*`)
-4. Billing schema semantics in `docs/database/billing-live-schema.md` are operational references; do not drift behavior silently.
+- relevant docs in `../../docs/database/*` (repo-root path: `docs/database/*`)
+4. Billing schema semantics in `../../docs/database/billing-live-schema.md` are operational references; do not drift behavior silently.
 
 ## 9) Error handling + validation rails
 
@@ -95,7 +95,7 @@ Purpose: this file is the operating contract for LLM sessions working in this re
 ## 10) Worker rails
 
 1. Worker runtime is separate from web runtime lifecycle.
-2. Retention queue topology and lock semantics must remain consistent with `docs/operations/retention-worker.md`.
+2. Retention queue topology and lock semantics must remain consistent with `../../docs/operations/retention-worker.md`.
 3. CLI enqueue behavior (`idempotency-key`, `trigger`, dry-run) is contract behavior.
 
 ## 11) Testing + quality rails

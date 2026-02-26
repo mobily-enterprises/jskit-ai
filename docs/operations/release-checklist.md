@@ -1,6 +1,6 @@
 # Release Checklist
 
-Last updated: 2026-02-25 (UTC)
+Last updated: 2026-02-26 (UTC)
 
 Use this checklist before shipping changes to production.
 
@@ -82,8 +82,8 @@ Use this checklist before shipping changes to production.
 - [ ] Confirm uptime alert is enabled (`/api/v1/ready` non-200 for sustained window).
 - [ ] Confirm error-rate alert is enabled (5xx ratio threshold over rolling window).
 - [ ] Confirm dashboard panels exist for p95 latency, error rate, auth failures, and invite redemption funnel.
-- [ ] Confirm `apps/jskit-value-app/docs/operations/observability.md` is current for this release.
-- [ ] Confirm `apps/jskit-value-app/docs/architecture/action-catalog-governance.md` is current if action IDs/policies changed.
+- [ ] Confirm `docs/operations/observability.md` is current for this release.
+- [ ] Confirm `docs/architecture/action-catalog-governance.md` is current if action IDs/policies changed.
 - [ ] Confirm rollback procedure is documented and tested (previous image/artifact + DB plan).
 - [ ] Confirm on-call owner and release window are agreed.
 

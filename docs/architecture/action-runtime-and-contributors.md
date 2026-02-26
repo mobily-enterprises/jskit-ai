@@ -1,10 +1,10 @@
 # Action Runtime and Contributors Deep Dive
 
-Last updated: 2026-02-25 (UTC)
+Last updated: 2026-02-26 (UTC)
 
 ## Audience and goal
 
-This document explains how the action runtime architecture works in `apps/jskit-value-app`, from top-level request flow down to concrete data shapes.
+This document explains how the action runtime architecture works across framework packages and the reference app composition in `apps/jskit-value-app`, from top-level request flow down to concrete data shapes.
 
 It is written for:
 
@@ -36,7 +36,7 @@ There is no business-logic bypass path in controllers for migrated capabilities.
 ### 1) Main runtime package (core)
 
 - Package: `@jskit-ai/action-runtime-core`
-- Path: `../../packages/runtime/action-runtime-core`
+- Path: `packages/runtime/action-runtime-core`
 - Purpose: canonical contracts + execution pipeline, independent of app-specific services.
 
 Core files:
@@ -67,7 +67,7 @@ Core files:
 
 ### 2) App composition root for actions
 
-- Path: `server/runtime/actions`
+- Path: `apps/jskit-value-app/server/runtime/actions`
 - Purpose: app-specific wiring (DI, adapters, contributor list, context builder).
 
 Files:
@@ -85,42 +85,42 @@ Files:
 
 ### 3) Runtime service assembly
 
-- Path: `server/runtime/services.js`
+- Path: `apps/jskit-value-app/server/runtime/services.js`
 - Key services:
   - `actionRuntimeServices`
   - `actionRegistry`
   - `actionExecutor`
 
-These are injected into controllers through `server/runtime/controllers.js`.
+These are injected into controllers through `apps/jskit-value-app/server/runtime/controllers.js`.
 
 ### 4) Domain-owned contributors
 
 Contributors are domain-owned and exported from domain packages/modules.
 
-- `auth`: `../../packages/auth/auth-provider-supabase-core/src/actions/auth.contributor.js`
-- `workspace`: `../../packages/workspace/workspace-service-core/src/actions/workspace.contributor.js`
-- `console`: `../../packages/workspace/workspace-console-service-core/src/actions/console.contributor.js`
-- `chat`: `../../packages/chat/chat-core/src/actions/chat.contributor.js`
-- `billing`: `../../packages/billing/billing-service-core/src/actions/workspaceBilling.contributor.js`
-- `settings` (app-owned): `server/runtime/actions/contributors/settings.contributor.js`
-- `projects` (app-owned): `server/runtime/actions/contributors/projects.contributor.js`
-- `deg2rad_history` (app-owned): `server/runtime/actions/contributors/deg2radHistory.contributor.js`
-- `assistant` (app-owned): `server/runtime/actions/contributors/assistant.contributor.js`
-- `console errors` (app-owned): `server/runtime/actions/contributors/consoleErrors.contributor.js`
-- `communications` (app-owned): `server/runtime/actions/contributors/communications.contributor.js`
+- `auth`: `packages/auth/auth-provider-supabase-core/src/actions/auth.contributor.js`
+- `workspace`: `packages/workspace/workspace-service-core/src/actions/workspace.contributor.js`
+- `console`: `packages/workspace/workspace-console-service-core/src/actions/console.contributor.js`
+- `chat`: `packages/chat/chat-core/src/actions/chat.contributor.js`
+- `billing`: `packages/billing/billing-service-core/src/actions/workspaceBilling.contributor.js`
+- `settings` (app-owned): `apps/jskit-value-app/server/runtime/actions/contributors/settings.contributor.js`
+- `projects` (app-owned): `apps/jskit-value-app/server/runtime/actions/contributors/projects.contributor.js`
+- `deg2rad_history` (app-owned): `apps/jskit-value-app/server/runtime/actions/contributors/deg2radHistory.contributor.js`
+- `assistant` (app-owned): `apps/jskit-value-app/server/runtime/actions/contributors/assistant.contributor.js`
+- `console errors` (app-owned): `apps/jskit-value-app/server/runtime/actions/contributors/consoleErrors.contributor.js`
+- `communications` (app-owned): `apps/jskit-value-app/server/runtime/actions/contributors/communications.contributor.js`
 
 ### 5) Transport adapters/controllers
 
 HTTP and assistant routes call actions via controller/adapters:
 
-- auth adapter/controller: `../../packages/auth/auth-fastify-adapter/src/controller.js`
-- workspace adapter/controller: `../../packages/workspace/workspace-fastify-adapter/src/controller.js`
-- settings adapter/controller: `../../packages/workspace/settings-fastify-adapter/src/controller.js`
-- console adapter/controller: `../../packages/workspace/console-fastify-adapter/src/controller.js`
-- chat adapter/controller: `../../packages/chat/chat-fastify-adapter/src/controller.js`
-- billing adapter/controller: `../../packages/billing/billing-fastify-adapter/src/controller.js`
-- assistant adapter/controller: `../../packages/ai-agent/assistant-fastify-adapter/src/controller.js`
-- app-local controllers (`projects`, `deg2rad`, `history`) under `server/modules/*/controller.js`
+- auth adapter/controller: `packages/auth/auth-fastify-adapter/src/controller.js`
+- workspace adapter/controller: `packages/workspace/workspace-fastify-adapter/src/controller.js`
+- settings adapter/controller: `packages/workspace/settings-fastify-adapter/src/controller.js`
+- console adapter/controller: `packages/workspace/console-fastify-adapter/src/controller.js`
+- chat adapter/controller: `packages/chat/chat-fastify-adapter/src/controller.js`
+- billing adapter/controller: `packages/billing/billing-fastify-adapter/src/controller.js`
+- assistant adapter/controller: `packages/ai-agent/assistant-fastify-adapter/src/controller.js`
+- app-local controllers (`projects`, `deg2rad`, `history`) under `apps/jskit-value-app/server/modules/*/controller.js`
 
 ## Contracts in detail
 
@@ -299,7 +299,7 @@ If the current execution context is not in allowlist, pipeline fails with `403`.
 
 ### 2) Assistant tool catalog filtering
 
-`server/modules/ai/lib/tools/actionTools.js` filters candidate actions by:
+`apps/jskit-value-app/server/modules/ai/lib/tools/actionTools.js` filters candidate actions by:
 
 - `channels` includes `assistant_tool`
 - `surfaces` includes current surface
@@ -366,7 +366,7 @@ Runtime contract supports:
 - `required`
 - `domain_native`
 
-Current app adapter (`server/runtime/actions/idempotencyAdapters.js`) is still a noop adapter bridge.
+Current app adapter (`apps/jskit-value-app/server/runtime/actions/idempotencyAdapters.js`) is still a noop adapter bridge.
 That means:
 
 - idempotency policy and key enforcement are active for `required`,
@@ -378,7 +378,7 @@ Assistant tool invocations still generate deterministic per-tool-call idempotenc
 
 Audit events are emitted from action pipeline via app audit adapter:
 
-- adapter file: `server/runtime/actions/auditAdapters.js`
+- adapter file: `apps/jskit-value-app/server/runtime/actions/auditAdapters.js`
 - transport-level request data comes from `requestMeta.request` when available,
 - fallback actor/surface metadata comes from normalized execution context.
 
@@ -497,7 +497,7 @@ Current policy knobs:
 - `actions.internal.exposedActionIds`
 - `actions.internal.blockedActionIds`
 
-### `shared/actionIds.js`
+### `apps/jskit-value-app/shared/actionIds.js`
 
 Canonical action id constants used across adapters/controllers/tests.
 
@@ -511,7 +511,7 @@ For lifecycle rules (add/rename/remove/version/sync process), use:
 
 Current action-runtime integration coverage includes:
 
-- `tests/actionRegistry.test.js`
+- `apps/jskit-value-app/tests/actionRegistry.test.js`
   - runtime scaffold validation
   - action registry and executor availability
   - presence checks for high-value actions
@@ -519,9 +519,9 @@ Current action-runtime integration coverage includes:
 
 Assistant-focused coverage includes:
 
-- `tests/aiToolsWorkspaceRename.test.js`
-- `tests/aiService.test.js`
-- `tests/aiTranscriptsService.test.js`
+- `apps/jskit-value-app/tests/aiToolsWorkspaceRename.test.js`
+- `apps/jskit-value-app/tests/aiService.test.js`
+- `apps/jskit-value-app/tests/aiTranscriptsService.test.js`
 
 These verify:
 
@@ -544,7 +544,7 @@ These verify:
 4. If assistant-callable:
    - include `assistant_tool` in channels,
    - add optional `assistantTool` metadata (`description`, `inputJsonSchema`).
-5. Ensure action id is in `shared/actionIds.js`.
+5. Ensure action id is in `apps/jskit-value-app/shared/actionIds.js`.
 6. Call action from adapter/controller via `actionExecutor`.
 7. Add/update tests.
 
@@ -561,7 +561,7 @@ Common causes:
 Checks:
 
 - inspect `actionExecutor.listDefinitions()`,
-- verify `server/runtime/actions/contributorManifest.js`.
+- verify `apps/jskit-value-app/server/runtime/actions/contributorManifest.js`.
 
 ### `ACTION_SURFACE_FORBIDDEN` or `ACTION_CHANNEL_FORBIDDEN`
 

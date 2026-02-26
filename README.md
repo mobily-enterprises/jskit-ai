@@ -1,47 +1,50 @@
 # jskit-ai Monorepo
 
-This repository contains the JSKit monorepo, with `apps/jskit-value-app` as the active application surface.
+This repository contains the JSKit framework monorepo.
 
-If you are jumping in fresh, start with the app docs index:
+- Core framework and platform capabilities live in `packages/*` (80+ packages).
+- `apps/jskit-value-app` is a small reference app used to exercise framework composition end to end.
 
-- `apps/jskit-value-app/docs/README.md`
+If you are jumping in fresh, start with the framework docs index:
 
-## Documentation Map (JSKit Value App)
+- `docs/README.md`
 
-These are the current canonical docs for the app, with a quick explanation of why each one exists.
+## Documentation Map (Framework)
+
+These are the current canonical docs for the framework and reference app integration points.
 
 ### Architecture
 
-- `apps/jskit-value-app/docs/architecture/client-boundaries.md`
+- `docs/architecture/client-boundaries.md`
   - Read this when you are changing shared packages, client runtimes, or UI wrappers. It defines what belongs in packages vs app code, plus guardrails and shared-element ownership.
-- `apps/jskit-value-app/docs/architecture/workspace-and-surfaces.md`
+- `docs/architecture/workspace-and-surfaces.md`
   - Read this when working on tenancy, workspace flows, or admin/app surface separation. It captures the major architecture decisions and the execution backlog.
 
 ### Billing
 
-- `apps/jskit-value-app/docs/billing/contracts.md`
+- `docs/billing/contracts.md`
   - The hard API and error-code contract for billing. Use this before changing endpoints, idempotency, or billing failure behavior.
-- `apps/jskit-value-app/docs/billing/integration.md`
+- `docs/billing/integration.md`
   - Practical guide for wiring billing into features. It explains where to check limitations, where to consume usage, and what fail-closed behavior is expected.
-- `apps/jskit-value-app/docs/billing/provider-insulation.md`
+- `docs/billing/provider-insulation.md`
   - Boundary contract for provider isolation (Stripe/Paddle and future providers). Use this when changing provider wiring, webhook translation, or error normalization.
 
 ### Database
 
-- `apps/jskit-value-app/docs/database/schema-areas.md`
+- `docs/database/schema-areas.md`
   - High-level map of the database by domain area. Use this first when orienting yourself to tables outside billing.
-- `apps/jskit-value-app/docs/database/billing-live-schema.md`
+- `docs/database/billing-live-schema.md`
   - Detailed field-level billing schema reference captured from the live schema. Use this for exact column semantics and reconciliation/debug work.
-- `apps/jskit-value-app/docs/database/migrations-and-seeds.md`
+- `docs/database/migrations-and-seeds.md`
   - Operational migration/seed commands and conventions. Use this when preparing local setup, migration rollouts, or seed runs.
 
 ### Operations
 
-- `apps/jskit-value-app/docs/operations/release-checklist.md`
+- `docs/operations/release-checklist.md`
   - Pre-release gate checklist. Use this before shipping to make sure env, quality, runtime, and rollback readiness checks are covered.
-- `apps/jskit-value-app/docs/operations/observability.md`
+- `docs/operations/observability.md`
   - Metrics/alerts/dashboard runbook. Use this when setting up `/api/metrics`, Prometheus scraping, and alert rules.
-- `apps/jskit-value-app/docs/operations/retention-worker.md`
+- `docs/operations/retention-worker.md`
   - Canonical runbook for the retention queue and worker lifecycle. Use this for dry-runs, scheduling, lock contention handling, and DLQ operations.
 
 ## Shared UI Ownership Status
@@ -57,4 +60,4 @@ This table tracks the core shared client elements and ownership.
 
 ## Shared UI Reference
 
-- `apps/jskit-value-app/docs/architecture/client-boundaries.md`
+- `docs/architecture/client-boundaries.md`

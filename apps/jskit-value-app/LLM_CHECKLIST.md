@@ -6,6 +6,7 @@ Path convention for this file:
 - Current session cwd is `.` (repo-root path: `apps/jskit-value-app`).
 - Monorepo root is `../..`.
 - Shared packages live under `../../packages`.
+- Canonical framework docs live under `../../docs`.
 
 ## BOOTSTRAP gate (required first, fail-closed)
 
@@ -21,7 +22,7 @@ Path convention for this file:
 3. Read mandatory context.
 - `README.md` (app)
 - `../../README.md` (monorepo)
-- Task-relevant docs in `docs/*`
+- Task-relevant docs in `../../docs/*`
 4. Identify contract boundaries.
 - Module seam contract (`server/modules/<module>/index.js`).
 - Route policy metadata (`auth`, `workspacePolicy`, `workspaceSurface`, `permission`).

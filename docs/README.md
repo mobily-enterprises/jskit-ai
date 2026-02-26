@@ -1,6 +1,8 @@
-# JSKit Value App Docs
+# JSKit Framework Docs
 
-Last reorganized: 2026-02-25 (UTC)
+Last reorganized: 2026-02-26 (UTC)
+
+Scope note: core framework code lives in `packages/*`; `apps/jskit-value-app` is a small reference app used for composition examples and runtime verification.
 
 ## Quick Start By Task
 

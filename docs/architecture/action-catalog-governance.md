@@ -1,19 +1,19 @@
 # Action Catalog Governance
 
-Last updated: 2026-02-25 (UTC)
+Last updated: 2026-02-26 (UTC)
 
 Purpose: keep action inventory, naming, ownership, and runtime registration consistent after the action-runtime cutover.
 
-This app uses one canonical business execution path. There are no compatibility aliases, no legacy wrappers, and no bypass path for controller business operations.
+The reference app uses one canonical business execution path. There are no compatibility aliases, no legacy wrappers, and no bypass path for controller business operations.
 
 ## 1) Canonical sources of truth
 
 When actions change, these artifacts must stay synchronized:
 
-1. Inventory baseline: `../../actions_map.md` (from app working directory).
-2. App constants: `shared/actionIds.js`.
-3. Runtime definitions: contributor files mounted by `server/runtime/actions/contributorManifest.js`.
-4. Runtime validation: `tests/actionRegistry.test.js` and affected domain tests.
+1. Inventory baseline: `actions_map.md` (repo root).
+2. App constants: `apps/jskit-value-app/shared/actionIds.js`.
+3. Runtime definitions: contributor files mounted by `apps/jskit-value-app/server/runtime/actions/contributorManifest.js`.
+4. Runtime validation: `apps/jskit-value-app/tests/actionRegistry.test.js` and affected domain tests.
 
 If these diverge, assume docs/code drift and fix before merge.
 
@@ -31,7 +31,7 @@ If these diverge, assume docs/code drift and fix before merge.
 
 - Domain packages own their contributors (auth/workspace/chat/billing/console).
 - App-local modules own app-specific contributors (settings/projects/deg2rad/history/assistant wiring).
-- App runtime composition (`server/runtime/actions/*`) owns mounting order and adapters only.
+- App runtime composition (`apps/jskit-value-app/server/runtime/actions/*`) owns mounting order and adapters only.
 
 Ownership means the owning contributor is the one place where definition metadata is edited.
 
@@ -40,7 +40,7 @@ Ownership means the owning contributor is the one place where definition metadat
 ### A) Add a new action
 
 1. Add entry to `actions_map.md`.
-2. Add constant to `shared/actionIds.js`.
+2. Add constant to `apps/jskit-value-app/shared/actionIds.js`.
 3. Implement definition in owning contributor with explicit policy metadata.
 4. Wire controller/adapter call sites to use the canonical action ID.
 5. Add or update tests (`actionRegistry`, route/service behavior, permission checks).
@@ -48,7 +48,7 @@ Ownership means the owning contributor is the one place where definition metadat
 
 ### B) Rename or split an action
 
-1. Update `actions_map.md` and `shared/actionIds.js` to new canonical ID.
+1. Update `actions_map.md` and `apps/jskit-value-app/shared/actionIds.js` to new canonical ID.
 2. Update contributor definition and all call sites in the same change.
 3. Update assistant tool behavior indirectly through definition metadata.
 4. Update tests and remove old ID references.
@@ -59,7 +59,7 @@ Do not keep old-name aliases.
 
 1. Remove or replace call sites first.
 2. Remove definition from owning contributor.
-3. Remove constant from `shared/actionIds.js`.
+3. Remove constant from `apps/jskit-value-app/shared/actionIds.js`.
 4. Remove inventory entry from `actions_map.md`.
 5. Update tests and flow docs.
 
@@ -84,7 +84,7 @@ Plus standard rails checks from `LLM_CHECKLIST.md`.
 ## 6) Practical review checklist
 
 - Action appears in `actions_map.md`.
-- ID exists in `shared/actionIds.js`.
+- ID exists in `apps/jskit-value-app/shared/actionIds.js`.
 - Exactly one owning contributor definition exists.
 - Definition has explicit `channels` and `surfaces`.
 - Definition has permission policy and idempotency policy.

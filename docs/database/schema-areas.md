@@ -1,6 +1,6 @@
 # Database Schema Areas
 
-Last validated: 2026-02-25 (UTC)
+Last validated: 2026-02-26 (UTC)
 
 This document maps the database by functional area so `docs/database` covers the full schema surface, not just billing.
 
@@ -12,7 +12,7 @@ Sources:
 - Forward migration entries:
   - `apps/jskit-value-app/migrations/*.cjs` after baseline
 - Billing live-schema inventory:
-  - `apps/jskit-value-app/docs/database/billing-live-schema.md`
+  - `docs/database/billing-live-schema.md`
 
 ## Identity and User Profile
 
@@ -81,7 +81,7 @@ Sources:
 
 Detailed billing schema coverage is maintained separately in:
 
-- `apps/jskit-value-app/docs/database/billing-live-schema.md`
+- `docs/database/billing-live-schema.md`
 
 Billing/entitlements tables covered there:
 
