@@ -180,6 +180,10 @@ export function useConsoleMembersView() {
   );
 
   async function submitInvite() {
+    if (!canInviteMembers.value) {
+      return;
+    }
+
     inviteMessage.value = "";
 
     try {
@@ -199,6 +203,10 @@ export function useConsoleMembersView() {
   }
 
   async function submitRevokeInvite(inviteId) {
+    if (!canRevokeInvites.value) {
+      return;
+    }
+
     teamMessage.value = "";
     revokeInviteId.value = Number(inviteId);
 

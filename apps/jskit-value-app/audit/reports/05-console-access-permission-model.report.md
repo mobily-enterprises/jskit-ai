@@ -1,26 +1,5 @@
 ## Broken things
 
-### [05-ISSUE-001] Members invite/revoke actions do not fail closed on missing client permissions
-- Severity: P2
-- Confidence: high
-- Contract area: policy
-- First seen: 2026-02-26
-- Last seen: 2026-02-26
-- Evidence:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleMembersView.js:50
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleMembersView.js:51
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleMembersView.js:53
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleMembersView.js:182
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleMembersView.js:201
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleMembersView.js:218
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/app/router/guards.console.js:215
-- Why this is broken:
-  - The view computes `canInviteMembers` and `canRevokeInvites`, but `submitInvite` and `submitRevokeInvite` execute mutations without checking those permissions. `submitMemberRoleUpdate` already enforces `canManageMembers`, so mutation-level fail-closed handling is inconsistent. If UI wiring regresses (or actions are invoked programmatically), view-only members can still trigger privileged API mutation attempts.
-- Suggested fix:
-  - Add early permission guards in `submitInvite` and `submitRevokeInvite` (matching the existing `submitMemberRoleUpdate` pattern), and return before mutation when permission is missing.
-- Suggested tests:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/useConsoleMembersView.vitest.js
-
 ### [05-ISSUE-002] Console billing/transcript views bypass centralized unauthorized-session handling
 - Severity: P2
 - Confidence: high
@@ -65,5 +44,18 @@
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js
 
 ## Fixed things
+
+### [05-ISSUE-001] Members invite/revoke actions do not fail closed on missing client permissions
+- Fixed on: 2026-02-26
+- How fixed:
+  - Added explicit fail-closed checks in `submitInvite` and `submitRevokeInvite` so both mutations return immediately when the caller lacks `console.members.invite` or `console.invites.revoke`.
+  - Added targeted composable tests that verify invite/revoke API mutations are not invoked when permissions are missing and still execute when permissions are granted.
+- Validation:
+  - `npm run test:client:views -- tests/views/useConsoleMembersView.vitest.js` (pass)
+  - `npm run test:client:views -- tests/views/consoleMembersView.vitest.js` (pass)
+- Evidence:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleMembersView.js:182
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleMembersView.js:205
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/useConsoleMembersView.vitest.js:188
 
 ## Won't fix things
