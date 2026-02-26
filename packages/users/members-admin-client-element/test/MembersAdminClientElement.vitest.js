@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { h } from "vue";
+import { describe, expect, it, vi } from "vitest";
 import MembersAdminClientElement from "../src/MembersAdminClientElement.vue";
 
 const componentSourcePath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../src/MembersAdminClientElement.vue");
@@ -78,9 +79,9 @@ describe("MembersAdminClientElement", () => {
     expect(source.includes('"invite:submit"')).toBe(true);
     expect(source.includes('"invite:revoke"')).toBe(true);
     expect(source.includes('"member:role-update"')).toBe(true);
-    expect(source.includes('slot name="invite-form-extra"')).toBe(true);
-    expect(source.includes('slot name="members-list-extra"')).toBe(true);
-    expect(source.includes('slot name="invites-list-extra"')).toBe(true);
+    expect(source.includes('name="invite-form-extra"')).toBe(true);
+    expect(source.includes('name="members-list-extra"')).toBe(true);
+    expect(source.includes('name="invites-list-extra"')).toBe(true);
   });
 
   it("applies variant classes", () => {
@@ -188,5 +189,132 @@ describe("MembersAdminClientElement", () => {
     });
 
     expect(wrapper.text()).toContain("Pending invites");
+  });
+
+  it("blocks slot-invoked invite and revoke actions when permissions are missing", async () => {
+    const submitInvite = vi.fn(async () => {});
+    const submitRevokeInvite = vi.fn(async () => {});
+    const wrapper = mountElement({
+      props: createBaseProps({
+        permissions: {
+          canViewMembers: true,
+          canInviteMembers: false,
+          canManageMembers: true,
+          canRevokeInvites: false
+        },
+        actions: {
+          submitInvite,
+          submitRevokeInvite,
+          submitMemberRoleUpdate: vi.fn(async () => {})
+        }
+      }),
+      slots: {
+        "members-list-extra": ({ actions }) =>
+          h(
+            "button",
+            {
+              "data-testid": "slot-submit-invite",
+              onClick: () => actions.submitInvite()
+            },
+            "Submit invite from slot"
+          ),
+        "invites-list-extra": ({ actions }) =>
+          h(
+            "button",
+            {
+              "data-testid": "slot-submit-revoke",
+              onClick: () => actions.submitRevokeInvite(1)
+            },
+            "Submit revoke from slot"
+          )
+      }
+    });
+
+    await wrapper.get('[data-testid="slot-submit-invite"]').trigger("click");
+    await wrapper.get('[data-testid="slot-submit-revoke"]').trigger("click");
+
+    expect(submitInvite).not.toHaveBeenCalled();
+    expect(submitRevokeInvite).not.toHaveBeenCalled();
+  });
+
+  it("allows slot-invoked invite and revoke actions when permissions are granted", async () => {
+    const submitInvite = vi.fn(async () => {});
+    const submitRevokeInvite = vi.fn(async () => {});
+    const wrapper = mountElement({
+      props: createBaseProps({
+        actions: {
+          submitInvite,
+          submitRevokeInvite,
+          submitMemberRoleUpdate: vi.fn(async () => {})
+        }
+      }),
+      slots: {
+        "members-list-extra": ({ actions }) =>
+          h(
+            "button",
+            {
+              "data-testid": "slot-submit-invite",
+              onClick: () => actions.submitInvite()
+            },
+            "Submit invite from slot"
+          ),
+        "invites-list-extra": ({ actions }) =>
+          h(
+            "button",
+            {
+              "data-testid": "slot-submit-revoke",
+              onClick: () => actions.submitRevokeInvite(7)
+            },
+            "Submit revoke from slot"
+          )
+      }
+    });
+
+    await wrapper.get('[data-testid="slot-submit-invite"]').trigger("click");
+    await wrapper.get('[data-testid="slot-submit-revoke"]').trigger("click");
+
+    expect(submitInvite).toHaveBeenCalledTimes(1);
+    expect(submitRevokeInvite).toHaveBeenCalledTimes(1);
+    expect(submitRevokeInvite).toHaveBeenCalledWith(7);
+  });
+
+  it("blocks locked member role updates even when invoked from slot actions", async () => {
+    const submitMemberRoleUpdate = vi.fn(async () => {});
+    const wrapper = mountElement({
+      props: createBaseProps({
+        actions: {
+          submitInvite: vi.fn(async () => {}),
+          submitRevokeInvite: vi.fn(async () => {}),
+          submitMemberRoleUpdate
+        }
+      }),
+      slots: {
+        "members-list-extra": ({ actions }) =>
+          h("div", [
+            h(
+              "button",
+              {
+                "data-testid": "slot-submit-locked-role",
+                onClick: () => actions.submitMemberRoleUpdate({ userId: 3, isOwner: true }, "admin")
+              },
+              "Submit locked role update"
+            ),
+            h(
+              "button",
+              {
+                "data-testid": "slot-submit-open-role",
+                onClick: () => actions.submitMemberRoleUpdate({ userId: 4, isOwner: false }, "admin")
+              },
+              "Submit open role update"
+            )
+          ])
+      }
+    });
+
+    await wrapper.get('[data-testid="slot-submit-locked-role"]').trigger("click");
+    await wrapper.get('[data-testid="slot-submit-open-role"]').trigger("click");
+
+    expect(submitMemberRoleUpdate).toHaveBeenCalledTimes(1);
+    expect(submitMemberRoleUpdate).toHaveBeenCalledWith({ userId: 4, isOwner: false }, "admin");
   });
 });

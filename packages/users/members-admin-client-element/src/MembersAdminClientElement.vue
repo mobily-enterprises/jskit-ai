@@ -55,7 +55,17 @@
                     density="comfortable"
                     class="mb-3"
                   />
-                  <slot name="invite-form-extra" :forms="forms" :options="options" :collections="collections" :permissions="permissions" :feedback="feedback" :status="status" :actions="actions" :mode="resolvedMode" />
+                  <slot
+                    name="invite-form-extra"
+                    :forms="forms"
+                    :options="options"
+                    :collections="collections"
+                    :permissions="permissions"
+                    :feedback="feedback"
+                    :status="status"
+                    :actions="guardedActions"
+                    :mode="resolvedMode"
+                  />
                   <v-btn type="submit" color="primary" :loading="isCreatingInvite">{{ copyText.sendInvite }}</v-btn>
                 </v-form>
               </template>
@@ -122,7 +132,17 @@
                   </v-list-item>
                 </v-list>
 
-                <slot name="members-list-extra" :forms="forms" :options="options" :collections="collections" :permissions="permissions" :feedback="feedback" :status="status" :actions="actions" :mode="resolvedMode" />
+                <slot
+                  name="members-list-extra"
+                  :forms="forms"
+                  :options="options"
+                  :collections="collections"
+                  :permissions="permissions"
+                  :feedback="feedback"
+                  :status="status"
+                  :actions="guardedActions"
+                  :mode="resolvedMode"
+                />
 
                 <v-divider class="mb-3" />
 
@@ -151,7 +171,17 @@
                   <p v-if="inviteRows.length < 1" class="text-body-2 text-medium-emphasis mb-0">{{ copyText.noPendingInvites }}</p>
                 </v-list>
 
-                <slot name="invites-list-extra" :forms="forms" :options="options" :collections="collections" :permissions="permissions" :feedback="feedback" :status="status" :actions="actions" :mode="resolvedMode" />
+                <slot
+                  name="invites-list-extra"
+                  :forms="forms"
+                  :options="options"
+                  :collections="collections"
+                  :permissions="permissions"
+                  :feedback="feedback"
+                  :status="status"
+                  :actions="guardedActions"
+                  :mode="resolvedMode"
+                />
 
                 <v-alert v-if="teamMessage" :type="teamMessageType" variant="tonal" class="mt-3 mb-0">
                   {{ teamMessage }}
@@ -163,7 +193,17 @@
       </v-col>
     </v-row>
 
-    <slot name="footer-extra" :forms="forms" :options="options" :collections="collections" :permissions="permissions" :feedback="feedback" :status="status" :actions="actions" :mode="resolvedMode" />
+    <slot
+      name="footer-extra"
+      :forms="forms"
+      :options="options"
+      :collections="collections"
+      :permissions="permissions"
+      :feedback="feedback"
+      :status="status"
+      :actions="guardedActions"
+      :mode="resolvedMode"
+    />
   </section>
 </template>
 
@@ -414,6 +454,18 @@ const canShowInviteForm = computed(() => {
   return workspaceInvitesAvailable.value && workspaceInvitesEnabled.value;
 });
 
+function canInvokeInviteAction() {
+  if (!canInviteMembers.value) {
+    return false;
+  }
+
+  if (isWorkspaceMode.value) {
+    return canShowInviteForm.value;
+  }
+
+  return true;
+}
+
 function emitInteraction(type, payload = {}) {
   emit("interaction", {
     type,
@@ -480,7 +532,48 @@ function isRevokeInviteLoading(inviteId) {
   return isRevokingInvite.value && revokeInviteId.value === Number(inviteId || 0);
 }
 
+async function guardedSubmitInvite() {
+  if (!canInvokeInviteAction()) {
+    return;
+  }
+
+  if (typeof actions.submitInvite === "function") {
+    await actions.submitInvite();
+  }
+}
+
+async function guardedSubmitRevokeInvite(inviteId) {
+  if (!canRevokeInvites.value) {
+    return;
+  }
+
+  if (typeof actions.submitRevokeInvite === "function") {
+    await actions.submitRevokeInvite(inviteId);
+  }
+}
+
+async function guardedSubmitMemberRoleUpdate(member, roleId) {
+  if (isMemberRoleLocked(member)) {
+    return;
+  }
+
+  if (typeof actions.submitMemberRoleUpdate === "function") {
+    await actions.submitMemberRoleUpdate(member, roleId);
+  }
+}
+
+const guardedActions = computed(() => ({
+  ...actions,
+  submitInvite: guardedSubmitInvite,
+  submitRevokeInvite: guardedSubmitRevokeInvite,
+  submitMemberRoleUpdate: guardedSubmitMemberRoleUpdate
+}));
+
 async function onSubmitInvite() {
+  if (!canInvokeInviteAction()) {
+    return;
+  }
+
   emit("invite:submit", {
     mode: resolvedMode.value,
     email: String(inviteForm.value.email || "")
@@ -488,26 +581,34 @@ async function onSubmitInvite() {
   emitInteraction("invite:submit", {
     email: String(inviteForm.value.email || "")
   });
-  await invokeAction("submitInvite", {}, () => actions.submitInvite());
+  await invokeAction("submitInvite", {}, () => guardedSubmitInvite());
 }
 
 async function onRevokeInvite(inviteId) {
+  if (!canRevokeInvites.value) {
+    return;
+  }
+
   const payload = {
     inviteId: Number(inviteId || 0)
   };
   emit("invite:revoke", payload);
   emitInteraction("invite:revoke", payload);
-  await invokeAction("submitRevokeInvite", payload, () => actions.submitRevokeInvite(inviteId));
+  await invokeAction("submitRevokeInvite", payload, () => guardedSubmitRevokeInvite(inviteId));
 }
 
 async function onMemberRoleUpdate(member, roleId) {
+  if (isMemberRoleLocked(member)) {
+    return;
+  }
+
   const payload = {
     memberUserId: Number(member?.userId || 0),
     roleId: String(roleId || "")
   };
   emit("member:role-update", payload);
   emitInteraction("member:role-update", payload);
-  await invokeAction("submitMemberRoleUpdate", payload, () => actions.submitMemberRoleUpdate(member, roleId));
+  await invokeAction("submitMemberRoleUpdate", payload, () => guardedSubmitMemberRoleUpdate(member, roleId));
 }
 </script>
 
