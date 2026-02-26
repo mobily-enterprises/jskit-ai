@@ -29,17 +29,21 @@ describe("createAdminRouter", () => {
 
     const router = createAdminRouter({ authStore, workspaceStore });
 
-    expect(mocks.createSurfaceRouter).toHaveBeenCalledWith({
-      authStore,
-      workspaceStore,
-      surface: "admin",
-      shellComponent: mocks.adminShell,
-      includeWorkspaceSettings: true,
-      includeAssistantRoute: true,
-      includeChatRoute: true,
-      includeSocialRoute: true,
-      includeSocialModerationRoute: true
-    });
+    expect(mocks.createSurfaceRouter).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authStore,
+        workspaceStore,
+        surface: "admin",
+        shellComponent: mocks.adminShell,
+        includeWorkspaceSettings: true,
+        includeAssistantRoute: true,
+        includeChatRoute: true,
+        includeSocialRoute: true,
+        includeSocialModerationRoute: true,
+        routeFragments: expect.any(Array),
+        guardPolicies: expect.any(Object)
+      })
+    );
     expect(router).toEqual({ marker: "admin-router" });
   });
 });

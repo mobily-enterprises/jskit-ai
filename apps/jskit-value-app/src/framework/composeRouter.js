@@ -47,4 +47,46 @@ function composeSurfaceRouterOptions(surface, { enabledModuleIds } = {}) {
   return base;
 }
 
-export { composeSurfaceRouterOptions };
+function composeSurfaceRouteFragments(surface, { enabledModuleIds } = {}) {
+  const normalizedSurface = String(surface || "").trim().toLowerCase();
+  const fragments = [];
+  const claimedFragmentIds = new Set();
+
+  for (const moduleEntry of resolveActiveClientModules(enabledModuleIds)) {
+    const contributedFragments = moduleEntry?.client?.routeFragments?.[normalizedSurface];
+    for (const contribution of Array.isArray(contributedFragments) ? contributedFragments : []) {
+      if (!contribution || typeof contribution !== "object") {
+        continue;
+      }
+
+      const id = String(contribution.id || "").trim();
+      if (!id) {
+        continue;
+      }
+      if (claimedFragmentIds.has(id)) {
+        throw new Error(`Duplicate client route fragment "${id}" on surface "${normalizedSurface}".`);
+      }
+
+      if (typeof contribution.createRoutes !== "function") {
+        throw new TypeError(`Route fragment "${id}" must define createRoutes().`);
+      }
+
+      claimedFragmentIds.add(id);
+      fragments.push(
+        Object.freeze({
+          id,
+          order: Number.isFinite(contribution.order) ? Number(contribution.order) : 100,
+          createRoutes: contribution.createRoutes,
+          options:
+            contribution.options && typeof contribution.options === "object" && !Array.isArray(contribution.options)
+              ? Object.freeze({ ...contribution.options })
+              : Object.freeze({})
+        })
+      );
+    }
+  }
+
+  return Object.freeze(fragments.sort((left, right) => left.order - right.order || left.id.localeCompare(right.id)));
+}
+
+export { composeSurfaceRouterOptions, composeSurfaceRouteFragments };

@@ -1,6 +1,7 @@
 import { redirect } from "@tanstack/vue-router";
 import { normalizeReturnToPath } from "@jskit-ai/access-core/utils";
 import { api } from "../../platform/http/api/index.js";
+import { composeGuardPolicies } from "../../framework/composeGuards.js";
 
 async function resolveRuntimeState({ authStore, workspaceStore }) {
   let authenticated = authStore.isAuthenticated;
@@ -45,6 +46,8 @@ function createSurfaceRouteGuards(stores, options) {
     typeof options?.workspaceHomePath === "function"
       ? options.workspaceHomePath
       : (workspaceSlug) => `/w/${workspaceSlug}`;
+  const guardPolicies =
+    options?.guardPolicies && typeof options.guardPolicies === "object" ? options.guardPolicies : composeGuardPolicies();
 
   function splitPathname(pathValue) {
     const [withoutHash] = String(pathValue || "").split("#");
@@ -192,25 +195,33 @@ function createSurfaceRouteGuards(stores, options) {
   }
 
   function resolveAssistantAccessPolicy() {
+    const policy =
+      guardPolicies.assistant && typeof guardPolicies.assistant === "object" ? guardPolicies.assistant : {};
     const appFeatures =
       stores.workspaceStore?.app && typeof stores.workspaceStore.app === "object"
         ? stores.workspaceStore.app.features || {}
         : {};
+    const featureFlag = String(policy.featureFlag || "assistantEnabled").trim() || "assistantEnabled";
+    const permissionField =
+      String(policy.requiredFeaturePermissionKey || "assistantRequiredPermission").trim() ||
+      "assistantRequiredPermission";
 
     return {
-      assistantEnabled: Boolean(appFeatures.assistantEnabled),
-      assistantRequiredPermission: String(appFeatures.assistantRequiredPermission || "").trim()
+      assistantEnabled: Boolean(appFeatures[featureFlag]),
+      assistantRequiredPermission: String(appFeatures[permissionField] || "").trim()
     };
   }
 
   function resolveSocialAccessPolicy() {
+    const policy = guardPolicies.social && typeof guardPolicies.social === "object" ? guardPolicies.social : {};
     const appFeatures =
       stores.workspaceStore?.app && typeof stores.workspaceStore.app === "object"
         ? stores.workspaceStore.app.features || {}
         : {};
+    const featureFlag = String(policy.featureFlag || "socialEnabled").trim() || "socialEnabled";
 
     return {
-      socialEnabled: Boolean(appFeatures.socialEnabled)
+      socialEnabled: Boolean(appFeatures[featureFlag])
     };
   }
 

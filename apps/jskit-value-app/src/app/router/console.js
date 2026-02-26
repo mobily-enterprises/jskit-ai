@@ -3,6 +3,7 @@ import { createSurfacePaths } from "../../../shared/surfacePaths.js";
 import ConsoleShell from "../shells/console/ConsoleShell.vue";
 import { createConsoleRouteGuards } from "./guards.console.js";
 import { createRoutes as createConsoleCoreRoutes } from "./routes/consoleCoreRoutes.js";
+import { composeSurfaceRouteFragments } from "../../framework/composeRouter.js";
 
 function createConsoleRouter({ authStore, workspaceStore, consoleStore }) {
   const stores = { authStore, workspaceStore, consoleStore };
@@ -19,13 +20,41 @@ function createConsoleRouter({ authStore, workspaceStore, consoleStore }) {
     component: ConsoleShell
   });
 
-  const routeTree = rootRoute.addChildren(
-    createConsoleCoreRoutes({
+  const routeFragments = composeSurfaceRouteFragments("console");
+  const normalizedRouteFragments =
+    routeFragments.length > 0
+      ? routeFragments
+      : [
+          {
+            id: "core",
+            order: 0,
+            createRoutes: createConsoleCoreRoutes,
+            options: {}
+          }
+        ];
+
+  const routeChildren = [];
+  const sortedFragments = [...normalizedRouteFragments].sort(
+    (left, right) =>
+      Number(left?.order || 100) - Number(right?.order || 100) ||
+      String(left?.id || "").localeCompare(String(right?.id || ""))
+  );
+
+  for (const fragment of sortedFragments) {
+    if (!fragment || typeof fragment.createRoutes !== "function") {
+      continue;
+    }
+
+    const fragmentRoutes = fragment.createRoutes({
       rootRoute,
       surfacePaths,
-      guards
-    })
-  );
+      guards,
+      ...(fragment.options && typeof fragment.options === "object" ? fragment.options : {})
+    });
+    routeChildren.push(...(Array.isArray(fragmentRoutes) ? fragmentRoutes : []));
+  }
+
+  const routeTree = rootRoute.addChildren(routeChildren);
 
   return createRouter({
     routeTree,

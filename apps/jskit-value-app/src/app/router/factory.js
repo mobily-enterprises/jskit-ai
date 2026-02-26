@@ -13,6 +13,8 @@ function createSurfaceRouter({
   workspaceStore,
   surface,
   shellComponent,
+  routeFragments = [],
+  guardPolicies = {},
   includeWorkspaceSettings = false,
   includeAssistantRoute = false,
   includeChatRoute = false,
@@ -25,7 +27,8 @@ function createSurfaceRouter({
   const guards = createSurfaceRouteGuards(stores, {
     loginPath: surfacePaths.loginPath,
     workspacesPath: surfacePaths.workspacesPath,
-    workspaceHomePath: (workspaceSlug) => surfacePaths.workspaceHomePath(workspaceSlug)
+    workspaceHomePath: (workspaceSlug) => surfacePaths.workspaceHomePath(workspaceSlug),
+    guardPolicies
   });
 
   const rootRoute = createRootRoute({
@@ -42,70 +45,81 @@ function createSurfaceRouter({
     includeChoiceTwoRoute
   });
 
+  const normalizedRouteFragments = Array.isArray(routeFragments) && routeFragments.length > 0
+    ? routeFragments
+    : [
+        ...(includeAssistantRoute
+          ? [
+              {
+                id: "assistant",
+                order: 10,
+                createRoutes: createAssistantRoutes,
+                options: {}
+              }
+            ]
+          : []),
+        ...(includeChatRoute
+          ? [
+              {
+                id: "chat",
+                order: 20,
+                createRoutes: createChatRoutes,
+                options: {}
+              }
+            ]
+          : []),
+        ...(includeSocialRoute
+          ? [
+              {
+                id: "social",
+                order: 30,
+                createRoutes: createSocialRoutes,
+                options: {
+                  includeModerationRoute: includeSocialModerationRoute
+                }
+              }
+            ]
+          : []),
+        ...(includeWorkspaceSettings
+          ? [
+              {
+                id: "workspace",
+                order: 40,
+                createRoutes: createWorkspaceRoutes,
+                options: {}
+              },
+              {
+                id: "projects",
+                order: 50,
+                createRoutes: createProjectsRoutes,
+                options: {}
+              }
+            ]
+          : [])
+      ];
+
   let insertIndex = 3;
+  const sortedRouteFragments = [...normalizedRouteFragments].sort(
+    (left, right) =>
+      Number(left?.order || 100) - Number(right?.order || 100) ||
+      String(left?.id || "").localeCompare(String(right?.id || ""))
+  );
 
-  if (includeAssistantRoute) {
-    const assistantRoutes = createAssistantRoutes({
-      rootRoute,
-      workspaceRoutePrefix,
-      guards
-    });
-    routes.splice(
-      insertIndex,
-      0,
-      ...assistantRoutes
-    );
-    insertIndex += assistantRoutes.length;
-  }
+  for (const fragment of sortedRouteFragments) {
+    if (!fragment || typeof fragment.createRoutes !== "function") {
+      continue;
+    }
 
-  if (includeChatRoute) {
-    const chatRoutes = createChatRoutes({
+    const fragmentRoutes = fragment.createRoutes({
       rootRoute,
       workspaceRoutePrefix,
       guards,
-      surface
+      surface,
+      ...(fragment.options && typeof fragment.options === "object" ? fragment.options : {})
     });
-    routes.splice(
-      insertIndex,
-      0,
-      ...chatRoutes
-    );
-    insertIndex += chatRoutes.length;
-  }
 
-  if (includeSocialRoute) {
-    const socialRoutes = createSocialRoutes({
-      rootRoute,
-      workspaceRoutePrefix,
-      guards,
-      includeModerationRoute: includeSocialModerationRoute
-    });
-    routes.splice(
-      insertIndex,
-      0,
-      ...socialRoutes
-    );
-    insertIndex += socialRoutes.length;
-  }
-
-  if (includeWorkspaceSettings) {
-    const workspaceRoutes = createWorkspaceRoutes({
-      rootRoute,
-      workspaceRoutePrefix,
-      guards
-    });
-    const projectRoutes = createProjectsRoutes({
-      rootRoute,
-      workspaceRoutePrefix,
-      guards
-    });
-    routes.splice(
-      insertIndex,
-      0,
-      ...workspaceRoutes,
-      ...projectRoutes
-    );
-    insertIndex += workspaceRoutes.length + projectRoutes.length;
+    routes.splice(insertIndex, 0, ...(Array.isArray(fragmentRoutes) ? fragmentRoutes : []));
+    insertIndex += Array.isArray(fragmentRoutes) ? fragmentRoutes.length : 0;
   }
 
   const routeTree = rootRoute.addChildren(routes);

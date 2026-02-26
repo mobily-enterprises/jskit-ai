@@ -10,6 +10,7 @@ import { useRealtimeStore } from "../../state/realtimeStore.js";
 import { useWorkspaceStore } from "../../state/workspaceStore.js";
 import { useShellNavigation } from "../shared/useShellNavigation.js";
 import { buildWorkspaceThemeStyle, normalizeWorkspaceColor } from "../shared/workspaceTheme.js";
+import { composeNavigationFragments, resolveNavigationDestinationTitle } from "../../../framework/composeNavigation.js";
 
 export function useAppShell() {
   const authStore = useAuthStore();
@@ -47,6 +48,39 @@ export function useAppShell() {
     return surfacePaths.value.workspacePath(workspaceStore.activeWorkspaceSlug, pathname);
   }
 
+  function hasAnyWorkspacePermission(requiredPermissions) {
+    const permissions = Array.isArray(requiredPermissions) ? requiredPermissions : [];
+    const normalizedPermissions = permissions.map((permission) => String(permission || "").trim()).filter(Boolean);
+    if (normalizedPermissions.length < 1) {
+      return true;
+    }
+
+    return normalizedPermissions.some((permission) => workspaceStore.can(permission));
+  }
+
+  function isNavigationFragmentVisible(fragment) {
+    const normalizedFragment = fragment && typeof fragment === "object" ? fragment : {};
+    const appFeatures =
+      workspaceStore.app && typeof workspaceStore.app === "object" && workspaceStore.app.features
+        ? workspaceStore.app.features
+        : {};
+
+    const featureFlag = String(normalizedFragment.featureFlag || "").trim();
+    if (featureFlag && !appFeatures[featureFlag]) {
+      return false;
+    }
+
+    const requiredFeaturePermissionKey = String(normalizedFragment.requiredFeaturePermissionKey || "").trim();
+    if (requiredFeaturePermissionKey) {
+      const requiredFeaturePermission = String(appFeatures[requiredFeaturePermissionKey] || "").trim();
+      if (requiredFeaturePermission && !workspaceStore.can(requiredFeaturePermission)) {
+        return false;
+      }
+    }
+
+    return hasAnyWorkspacePermission(normalizedFragment.requiredAnyPermission);
+  }
+
   const memberWorkspaces = computed(() => (Array.isArray(workspaceStore.workspaces) ? workspaceStore.workspaces : []));
   const activeWorkspaceHasMembership = computed(
     () => Boolean(workspaceStore.activeWorkspaceSlug) && Boolean(workspaceStore.membership?.roleId)
@@ -54,17 +88,6 @@ export function useAppShell() {
   const canViewWorkspaceAdminSettings = computed(
     () => workspaceStore.can("workspace.settings.view") || workspaceStore.can("workspace.settings.update")
   );
-  const assistantFeatureEnabled = computed(() => Boolean(workspaceStore.app?.features?.assistantEnabled));
-  const assistantRequiredPermission = computed(() =>
-    String(workspaceStore.app?.features?.assistantRequiredPermission || "").trim()
-  );
-  const socialFeatureEnabled = computed(() => Boolean(workspaceStore.app?.features?.socialEnabled));
-  const canUseAssistant = computed(
-    () =>
-      assistantFeatureEnabled.value &&
-      (!assistantRequiredPermission.value || workspaceStore.can(assistantRequiredPermission.value))
-  );
-  const canUseSocial = computed(() => socialFeatureEnabled.value && workspaceStore.can("social.read"));
   const canOpenAdminSurface = computed(() => activeWorkspaceHasMembership.value && canViewWorkspaceAdminSettings.value);
   const activeWorkspaceColor = computed(() => normalizeWorkspaceColor(workspaceStore.activeWorkspace?.color));
   const workspaceThemeStyle = computed(() => buildWorkspaceThemeStyle(activeWorkspaceColor.value));
@@ -79,30 +102,27 @@ export function useAppShell() {
       return adminSurfacePaths.workspacesPath;
     }
 
-    return adminSurfacePaths.loginPath;
+      return adminSurfacePaths.loginPath;
   });
+  const appNavigationFragments = composeNavigationFragments("app");
 
   const navigationItems = computed(() => {
-    const items = [{ title: "Deg2rad", to: workspacePath("/"), icon: "$navChoice1" }];
-
-    if (canUseSocial.value) {
-      items.push({ title: "Social", to: workspacePath("/social"), icon: "$workspaceSocial" });
-    }
-
-    if (canUseAssistant.value) {
-      items.push({ title: "Assistant", to: workspacePath("/assistant"), icon: "$navChoice2" });
-    }
-
-    return items;
+    return appNavigationFragments
+      .filter(isNavigationFragmentVisible)
+      .map((fragment) => ({
+        title: String(fragment.title || "").trim(),
+        destinationTitle: String(fragment.destinationTitle || fragment.title || "").trim(),
+        to: workspacePath(fragment.path || "/"),
+        icon: String(fragment.icon || "$navChoice1").trim() || "$navChoice1"
+      }));
   });
 
   const destinationTitle = computed(() => {
-    if (currentPath.value.endsWith("/social")) {
-      return "Social";
+    const navigationDestination = resolveNavigationDestinationTitle(currentPath.value, navigationItems.value);
+    if (navigationDestination) {
+      return navigationDestination;
     }
-    if (currentPath.value.endsWith("/assistant")) {
-      return "Assistant";
-    }
+
     return "JSKIT app";
   });
   const isConversationDestination = computed(() => {

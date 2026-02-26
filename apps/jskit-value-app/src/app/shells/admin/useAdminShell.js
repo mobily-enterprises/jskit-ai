@@ -10,6 +10,7 @@ import { useRealtimeStore } from "../../state/realtimeStore.js";
 import { useWorkspaceStore } from "../../state/workspaceStore.js";
 import { useShellNavigation } from "../shared/useShellNavigation.js";
 import { buildWorkspaceThemeStyle, normalizeWorkspaceColor } from "../shared/workspaceTheme.js";
+import { composeNavigationFragments, resolveNavigationDestinationTitle } from "../../../framework/composeNavigation.js";
 
 function workspaceInitials(workspace) {
   const source = String(workspace?.name || workspace?.slug || "W").trim();
@@ -63,6 +64,39 @@ export function useAdminShell() {
   const { toggleDrawer, isCurrentPath, hardNavigate, goToNavigationItem } = shellActions;
   const workspacePath = (suffix = "/") => workspaceStore.workspacePath(suffix, { surface: surfacePaths.value.surface });
 
+  function hasAnyWorkspacePermission(requiredPermissions) {
+    const permissions = Array.isArray(requiredPermissions) ? requiredPermissions : [];
+    const normalizedPermissions = permissions.map((permission) => String(permission || "").trim()).filter(Boolean);
+    if (normalizedPermissions.length < 1) {
+      return true;
+    }
+
+    return normalizedPermissions.some((permission) => workspaceStore.can(permission));
+  }
+
+  function isNavigationFragmentVisible(fragment) {
+    const normalizedFragment = fragment && typeof fragment === "object" ? fragment : {};
+    const appFeatures =
+      workspaceStore.app && typeof workspaceStore.app === "object" && workspaceStore.app.features
+        ? workspaceStore.app.features
+        : {};
+
+    const featureFlag = String(normalizedFragment.featureFlag || "").trim();
+    if (featureFlag && !appFeatures[featureFlag]) {
+      return false;
+    }
+
+    const requiredFeaturePermissionKey = String(normalizedFragment.requiredFeaturePermissionKey || "").trim();
+    if (requiredFeaturePermissionKey) {
+      const requiredFeaturePermission = String(appFeatures[requiredFeaturePermissionKey] || "").trim();
+      if (requiredFeaturePermission && !workspaceStore.can(requiredFeaturePermission)) {
+        return false;
+      }
+    }
+
+    return hasAnyWorkspacePermission(normalizedFragment.requiredAnyPermission);
+  }
+
   const appSurfaceTargetPath = computed(() => {
     const activeWorkspaceSlug = String(workspaceStore.activeWorkspaceSlug || "").trim();
     if (activeWorkspaceSlug) {
@@ -85,19 +119,6 @@ export function useAdminShell() {
       workspaceStore.can("workspace.invites.revoke")
   );
   const canViewMonitoring = computed(() => canViewAiTranscripts.value || canViewBilling.value);
-  const assistantFeatureEnabled = computed(() => Boolean(workspaceStore.app?.features?.assistantEnabled));
-  const assistantRequiredPermission = computed(() =>
-    String(workspaceStore.app?.features?.assistantRequiredPermission || "").trim()
-  );
-  const canUseAssistant = computed(
-    () =>
-      assistantFeatureEnabled.value &&
-      (!assistantRequiredPermission.value || workspaceStore.can(assistantRequiredPermission.value))
-  );
-  const socialFeatureEnabled = computed(() => Boolean(workspaceStore.app?.features?.socialEnabled));
-  const canUseSocial = computed(() => socialFeatureEnabled.value && workspaceStore.can("social.read"));
-  const canModerateSocial = computed(() => socialFeatureEnabled.value && workspaceStore.can("social.moderate"));
-  const canUseChat = computed(() => workspaceStore.can("chat.read"));
   const canOpenWorkspaceControlMenu = computed(
     () => canViewWorkspaceSettings.value || canViewMonitoring.value || canViewMembersAdmin.value
   );
@@ -105,48 +126,20 @@ export function useAdminShell() {
   const workspaceMonitoringPath = computed(() => workspacePath("/admin/monitoring"));
   const workspaceBillingPath = computed(() => workspacePath("/admin/billing"));
   const workspaceMembersPath = computed(() => workspacePath("/admin/members"));
+  const adminNavigationFragments = composeNavigationFragments("admin");
 
   const navigationItems = computed(() => {
-    const items = [{ title: "Projects", to: workspacePath("/projects"), icon: "$navChoice2" }];
-
-    if (canUseChat.value) {
-      items.push({ title: "Workspace chat", to: workspacePath("/chat"), icon: "$workspaceChat" });
-    }
-
-    if (canUseSocial.value) {
-      items.push({ title: "Social", to: workspacePath("/social"), icon: "$workspaceSocial" });
-    }
-
-    if (canModerateSocial.value) {
-      items.push({
-        title: "Social moderation",
-        to: workspacePath("/social/moderation"),
-        icon: "$workspaceModeration"
-      });
-    }
-
-    if (canUseAssistant.value) {
-      items.push({ title: "Assistant", to: workspacePath("/assistant"), icon: "$navChoice2" });
-    }
-    return items;
+    return adminNavigationFragments
+      .filter(isNavigationFragmentVisible)
+      .map((fragment) => ({
+        title: String(fragment.title || "").trim(),
+        destinationTitle: String(fragment.destinationTitle || fragment.title || "").trim(),
+        to: workspacePath(fragment.path || "/"),
+        icon: String(fragment.icon || "$navChoice2").trim() || "$navChoice2"
+      }));
   });
 
   const destinationTitle = computed(() => {
-    if (currentPath.value.endsWith("/social/moderation")) {
-      return "Social moderation";
-    }
-    if (currentPath.value.endsWith("/social")) {
-      return "Social";
-    }
-    if (currentPath.value.endsWith("/assistant")) {
-      return "Assistant";
-    }
-    if (currentPath.value.endsWith("/chat") || currentPath.value.endsWith("/workspace-chat")) {
-      return "Workspace chat";
-    }
-    if (currentPath.value.endsWith("/projects")) {
-      return "Projects";
-    }
     if (currentPath.value.endsWith("/projects/add")) {
       return "Add Project";
     }
@@ -155,6 +148,10 @@ export function useAdminShell() {
     }
     if (currentPath.value.includes("/projects/")) {
       return "Project";
+    }
+    const navigationDestination = resolveNavigationDestinationTitle(currentPath.value, navigationItems.value);
+    if (navigationDestination) {
+      return navigationDestination;
     }
     if (currentPath.value.endsWith("/choice-2")) {
       return "Choice 2";

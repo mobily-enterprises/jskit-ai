@@ -31,4 +31,37 @@ function composeRealtimeTopicContributions({ enabledModuleIds } = {}) {
   };
 }
 
-export { composeRealtimeTopicContributions };
+function composeRealtimeInvalidationDefinitions({ enabledModuleIds } = {}) {
+  const invalidationDefinitions = {};
+
+  for (const moduleEntry of resolveActiveClientModules(enabledModuleIds)) {
+    const contributions = moduleEntry?.client?.realtimeInvalidation;
+    for (const contribution of Array.isArray(contributions) ? contributions : []) {
+      if (!contribution || typeof contribution !== "object") {
+        continue;
+      }
+
+      const topic = String(contribution.topic || "").trim();
+      const invalidatorId = String(contribution.invalidatorId || "").trim();
+      if (!topic || !invalidatorId) {
+        continue;
+      }
+
+      if (Object.hasOwn(invalidationDefinitions, topic)) {
+        throw new Error(`Duplicate realtime invalidation strategy for topic "${topic}".`);
+      }
+
+      invalidationDefinitions[topic] = Object.freeze({
+        topic,
+        invalidatorId,
+        refreshBootstrap: Boolean(contribution.refreshBootstrap),
+        refreshConsoleBootstrap: Boolean(contribution.refreshConsoleBootstrap),
+        moduleId: moduleEntry.id
+      });
+    }
+  }
+
+  return Object.freeze(invalidationDefinitions);
+}
+
+export { composeRealtimeTopicContributions, composeRealtimeInvalidationDefinitions };

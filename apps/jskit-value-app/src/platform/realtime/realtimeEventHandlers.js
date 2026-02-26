@@ -1,4 +1,3 @@
-import { REALTIME_TOPICS } from "../../../shared/eventTypes.js";
 import {
   assistantRootQueryKey,
   assistantWorkspaceScopeQueryKey,
@@ -15,6 +14,7 @@ import {
 } from "../../modules/workspaceAdmin/queryKeys.js";
 import { socialRootQueryKey, socialScopeQueryKey } from "@jskit-ai/social-contracts";
 import { publishRealtimeEvent } from "./realtimeEventBus.js";
+import { composeRealtimeInvalidationDefinitions } from "../../framework/composeRealtimeClient.js";
 
 function normalizeEventEnvelope(eventEnvelope) {
   if (!eventEnvelope || typeof eventEnvelope !== "object") {
@@ -213,99 +213,53 @@ const invalidateForSocialFeedEvent = createWorkspaceScopeInvalidator({
   scopeQueryKey: socialScopeQueryKey
 });
 
-const invalidateForSocialNotificationsEvent = createWorkspaceScopeInvalidator({
-  rootQueryKey: socialRootQueryKey,
-  scopeQueryKey: socialScopeQueryKey
-});
-
 async function invalidateNoop() {
   return undefined;
 }
 
-// New topics are typically one strategy entry plus a query-key invalidator helper.
-const TOPIC_STRATEGY_REGISTRY = Object.freeze({
-  [REALTIME_TOPICS.ALERTS]: Object.freeze({
-    invalidate: invalidateNoop,
-    refreshBootstrap: false
-  }),
-  [REALTIME_TOPICS.SETTINGS]: Object.freeze({
-    invalidate: invalidateForSettingsEvent,
-    refreshBootstrap: false
-  }),
-  [REALTIME_TOPICS.HISTORY]: Object.freeze({
-    invalidate: invalidateForHistoryEvent,
-    refreshBootstrap: false
-  }),
-  [REALTIME_TOPICS.PROJECTS]: Object.freeze({
-    invalidate: invalidateForProjectEvent,
-    refreshBootstrap: false
-  }),
-  [REALTIME_TOPICS.WORKSPACE_SETTINGS]: Object.freeze({
-    invalidate: invalidateForWorkspaceAdminEvent,
-    refreshBootstrap: true
-  }),
-  [REALTIME_TOPICS.WORKSPACE_META]: Object.freeze({
-    invalidate: invalidateNoop,
-    refreshBootstrap: true
-  }),
-  [REALTIME_TOPICS.WORKSPACE_MEMBERS]: Object.freeze({
-    invalidate: invalidateForWorkspaceAdminEvent,
-    refreshBootstrap: true
-  }),
-  [REALTIME_TOPICS.WORKSPACE_INVITES]: Object.freeze({
-    invalidate: invalidateForWorkspaceAdminEvent,
-    refreshBootstrap: false
-  }),
-  [REALTIME_TOPICS.WORKSPACE_AI_TRANSCRIPTS]: Object.freeze({
-    invalidate: invalidateForWorkspaceAiTranscriptsEvent,
-    refreshBootstrap: false
-  }),
-  [REALTIME_TOPICS.WORKSPACE_BILLING_LIMITS]: Object.freeze({
-    invalidate: invalidateForWorkspaceBillingLimitsEvent,
-    refreshBootstrap: false
-  }),
-  [REALTIME_TOPICS.CONSOLE_MEMBERS]: Object.freeze({
-    invalidate: invalidateForConsoleMembersEvent,
-    refreshBootstrap: false,
-    refreshConsoleBootstrap: true
-  }),
-  [REALTIME_TOPICS.CONSOLE_SETTINGS]: Object.freeze({
-    invalidate: invalidateForConsoleSettingsEvent,
-    refreshBootstrap: false,
-    refreshConsoleBootstrap: false
-  }),
-  [REALTIME_TOPICS.CONSOLE_INVITES]: Object.freeze({
-    invalidate: invalidateForConsoleInvitesEvent,
-    refreshBootstrap: false,
-    refreshConsoleBootstrap: true
-  }),
-  [REALTIME_TOPICS.CONSOLE_BILLING]: Object.freeze({
-    invalidate: invalidateForConsoleBillingEvent,
-    refreshBootstrap: false,
-    refreshConsoleBootstrap: false
-  }),
-  [REALTIME_TOPICS.CONSOLE_ERRORS]: Object.freeze({
-    invalidate: invalidateForConsoleErrorsEvent,
-    refreshBootstrap: false,
-    refreshConsoleBootstrap: false
-  }),
-  [REALTIME_TOPICS.CHAT]: Object.freeze({
-    invalidate: invalidateForChatEvent,
-    refreshBootstrap: false
-  }),
-  [REALTIME_TOPICS.TYPING]: Object.freeze({
-    invalidate: invalidateNoop,
-    refreshBootstrap: false
-  }),
-  [REALTIME_TOPICS.SOCIAL_FEED]: Object.freeze({
-    invalidate: invalidateForSocialFeedEvent,
-    refreshBootstrap: false
-  }),
-  [REALTIME_TOPICS.SOCIAL_NOTIFICATIONS]: Object.freeze({
-    invalidate: invalidateForSocialNotificationsEvent,
-    refreshBootstrap: false
-  })
+const INVALIDATION_CALLBACKS = Object.freeze({
+  noop: invalidateNoop,
+  settings: invalidateForSettingsEvent,
+  history: invalidateForHistoryEvent,
+  projects: invalidateForProjectEvent,
+  workspaceAdmin: invalidateForWorkspaceAdminEvent,
+  workspaceAiTranscripts: invalidateForWorkspaceAiTranscriptsEvent,
+  workspaceBillingLimits: invalidateForWorkspaceBillingLimitsEvent,
+  consoleMembers: invalidateForConsoleMembersEvent,
+  consoleSettings: invalidateForConsoleSettingsEvent,
+  consoleInvites: invalidateForConsoleInvitesEvent,
+  consoleBilling: invalidateForConsoleBillingEvent,
+  consoleErrors: invalidateForConsoleErrorsEvent,
+  chat: invalidateForChatEvent,
+  socialScope: invalidateForSocialFeedEvent
 });
+
+function composeTopicStrategyRegistry() {
+  const topicDefinitions = composeRealtimeInvalidationDefinitions();
+  const strategyRegistry = {};
+
+  for (const [topic, definition] of Object.entries(topicDefinitions)) {
+    const callbackId = String(definition?.invalidatorId || "").trim();
+    const invalidate = INVALIDATION_CALLBACKS[callbackId];
+    if (typeof invalidate !== "function") {
+      throw new Error(`Realtime invalidation strategy "${callbackId}" is not registered for topic "${topic}".`);
+    }
+
+    if (Object.hasOwn(strategyRegistry, topic)) {
+      throw new Error(`Duplicate realtime topic strategy "${topic}".`);
+    }
+
+    strategyRegistry[topic] = Object.freeze({
+      invalidate,
+      refreshBootstrap: Boolean(definition.refreshBootstrap),
+      refreshConsoleBootstrap: Boolean(definition.refreshConsoleBootstrap)
+    });
+  }
+
+  return Object.freeze(strategyRegistry);
+}
+
+const TOPIC_STRATEGY_REGISTRY = composeTopicStrategyRegistry();
 
 async function refreshWorkspaceBootstrap(workspaceStore) {
   if (!workspaceStore || typeof workspaceStore.refreshBootstrap !== "function") {

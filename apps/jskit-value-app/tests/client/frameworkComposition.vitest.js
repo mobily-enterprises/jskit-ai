@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { composeClientApi } from "../../src/framework/composeApi.js";
-import { composeSurfaceRouterOptions } from "../../src/framework/composeRouter.js";
+import { composeSurfaceRouteFragments, composeSurfaceRouterOptions } from "../../src/framework/composeRouter.js";
+import { composeGuardPolicies } from "../../src/framework/composeGuards.js";
 import { composeNavigationFragments } from "../../src/framework/composeNavigation.js";
-import { composeRealtimeTopicContributions } from "../../src/framework/composeRealtimeClient.js";
+import {
+  composeRealtimeInvalidationDefinitions,
+  composeRealtimeTopicContributions
+} from "../../src/framework/composeRealtimeClient.js";
 import { CLIENT_MODULE_IDS } from "../../src/framework/moduleRegistry.js";
 import { REALTIME_TOPICS } from "../../shared/eventTypes.js";
 
@@ -77,6 +81,38 @@ describe("framework client composition", () => {
     });
   });
 
+  it("composeSurfaceRouteFragments returns ordered route fragment definitions", () => {
+    expect(composeSurfaceRouteFragments("app").map((fragment) => fragment.id)).toEqual([
+      "assistant",
+      "chat",
+      "social"
+    ]);
+
+    expect(composeSurfaceRouteFragments("admin").map((fragment) => fragment.id)).toEqual([
+      "assistant",
+      "chat",
+      "social",
+      "workspace",
+      "projects"
+    ]);
+
+    expect(composeSurfaceRouteFragments("console").map((fragment) => fragment.id)).toEqual(["core"]);
+  });
+
+  it("composeGuardPolicies returns module-provided guard policy metadata", () => {
+    const guardPolicies = composeGuardPolicies();
+
+    expect(guardPolicies.assistant).toMatchObject({
+      featureFlag: "assistantEnabled",
+      requiredFeaturePermissionKey: "assistantRequiredPermission",
+      moduleId: "ai"
+    });
+    expect(guardPolicies.social).toMatchObject({
+      featureFlag: "socialEnabled",
+      moduleId: "social"
+    });
+  });
+
   it("composeNavigationFragments exposes module-tagged navigation entries", () => {
     const appFragments = composeNavigationFragments("app");
     const adminFragments = composeNavigationFragments("admin");
@@ -100,5 +136,24 @@ describe("framework client composition", () => {
       REALTIME_TOPICS.SOCIAL_FEED,
       REALTIME_TOPICS.SOCIAL_NOTIFICATIONS
     ]);
+  });
+
+  it("composeRealtimeInvalidationDefinitions maps realtime topics to invalidator strategies", () => {
+    const definitions = composeRealtimeInvalidationDefinitions();
+
+    expect(definitions[REALTIME_TOPICS.PROJECTS]).toMatchObject({
+      invalidatorId: "projects",
+      moduleId: "projects"
+    });
+    expect(definitions[REALTIME_TOPICS.WORKSPACE_META]).toMatchObject({
+      invalidatorId: "noop",
+      refreshBootstrap: true,
+      moduleId: "workspace"
+    });
+    expect(definitions[REALTIME_TOPICS.CONSOLE_MEMBERS]).toMatchObject({
+      invalidatorId: "consoleMembers",
+      refreshConsoleBootstrap: true,
+      moduleId: "console"
+    });
   });
 });

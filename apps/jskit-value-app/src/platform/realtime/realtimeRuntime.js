@@ -6,12 +6,13 @@ import {
 } from "@jskit-ai/realtime-client-runtime";
 
 import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES, TOPIC_SCOPES } from "@jskit-ai/realtime-contracts";
-import { getTopicRule, getTopicScope, listRealtimeTopicsForSurface } from "../../../shared/topicRegistry.js";
+import { getTopicRule, getTopicScope, isTopicAllowedForSurface } from "../../../shared/topicRegistry.js";
 import { API_REALTIME_PATH } from "../../../shared/apiPaths.js";
 import { projectsScopeQueryKey } from "../../modules/projects/queryKeys.js";
 import { getClientId } from "./clientIdentity.js";
 import { commandTracker } from "./commandTracker.js";
 import { createRealtimeEventHandlers } from "./realtimeEventHandlers.js";
+import { composeRealtimeTopicContributions } from "../../framework/composeRealtimeClient.js";
 
 const RECONNECT_POLICY = createReconnectPolicy({
   baseDelayMs: 800,
@@ -81,8 +82,9 @@ function hasAnyTopicPermission({ workspaceStore, topic, surface = "" }) {
 }
 
 function resolveEligibleTopics(workspaceStore, surface) {
-  return listRealtimeTopicsForSurface(surface).filter((topic) =>
-    hasAnyTopicPermission({ workspaceStore, topic, surface })
+  const composedRealtimeTopics = composeRealtimeTopicContributions().topics;
+  return composedRealtimeTopics.filter(
+    (topic) => isTopicAllowedForSurface(topic, surface) && hasAnyTopicPermission({ workspaceStore, topic, surface })
   );
 }
 

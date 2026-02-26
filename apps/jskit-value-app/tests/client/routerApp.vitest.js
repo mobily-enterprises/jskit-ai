@@ -29,18 +29,22 @@ describe("createAppRouter", () => {
 
     const router = createAppRouter({ authStore, workspaceStore });
 
-    expect(mocks.createSurfaceRouter).toHaveBeenCalledWith({
-      authStore,
-      workspaceStore,
-      surface: "app",
-      shellComponent: mocks.appShell,
-      includeWorkspaceSettings: false,
-      includeAssistantRoute: true,
-      includeChatRoute: true,
-      includeSocialRoute: true,
-      includeSocialModerationRoute: false,
-      includeChoiceTwoRoute: false
-    });
+    expect(mocks.createSurfaceRouter).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authStore,
+        workspaceStore,
+        surface: "app",
+        shellComponent: mocks.appShell,
+        includeWorkspaceSettings: false,
+        includeAssistantRoute: true,
+        includeChatRoute: true,
+        includeSocialRoute: true,
+        includeSocialModerationRoute: false,
+        includeChoiceTwoRoute: false,
+        routeFragments: expect.any(Array),
+        guardPolicies: expect.any(Object)
+      })
+    );
     expect(router).toEqual({ marker: "app-router" });
   });
 });

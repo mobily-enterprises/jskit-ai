@@ -10,6 +10,12 @@ import { createApi as createHistoryApi } from "../platform/http/api/historyApi.j
 import { createApi as createBillingApi } from "../platform/http/api/billingApi.js";
 import { createApi as createChatApi } from "@jskit-ai/chat-client-runtime";
 import { createApi as createSocialApi } from "@jskit-ai/social-client-runtime";
+import { createRoutes as createAssistantRoutes } from "../app/router/routes/assistantRoutes.js";
+import { createRoutes as createChatRoutes } from "../app/router/routes/chatRoutes.js";
+import { createRoutes as createSocialRoutes } from "../app/router/routes/socialRoutes.js";
+import { createRoutes as createWorkspaceRoutes } from "../app/router/routes/workspaceRoutes.js";
+import { createRoutes as createProjectsRoutes } from "../app/router/routes/projectsRoutes.js";
+import { createRoutes as createConsoleCoreRoutes } from "../app/router/routes/consoleCoreRoutes.js";
 import { REALTIME_TOPICS } from "../../shared/eventTypes.js";
 
 const CLIENT_MODULE_REGISTRY = Object.freeze([
@@ -33,11 +39,59 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
         app: { includeAssistantRoute: true },
         admin: { includeAssistantRoute: true }
       },
-      navigation: {
-        app: [{ id: "assistant", title: "Assistant", path: "/assistant" }],
-        admin: [{ id: "assistant", title: "Assistant", path: "/assistant" }]
+      routeFragments: {
+        app: [
+          {
+            id: "assistant",
+            order: 10,
+            createRoutes: createAssistantRoutes
+          }
+        ],
+        admin: [
+          {
+            id: "assistant",
+            order: 10,
+            createRoutes: createAssistantRoutes
+          }
+        ]
       },
-      realtimeTopics: [REALTIME_TOPICS.WORKSPACE_AI_TRANSCRIPTS]
+      guardPolicies: {
+        assistant: {
+          featureFlag: "assistantEnabled",
+          requiredFeaturePermissionKey: "assistantRequiredPermission"
+        }
+      },
+      navigation: {
+        app: [
+          {
+            id: "assistant",
+            title: "Assistant",
+            destinationTitle: "Assistant",
+            path: "/assistant",
+            icon: "$navChoice2",
+            featureFlag: "assistantEnabled",
+            requiredFeaturePermissionKey: "assistantRequiredPermission"
+          }
+        ],
+        admin: [
+          {
+            id: "assistant",
+            title: "Assistant",
+            destinationTitle: "Assistant",
+            path: "/assistant",
+            icon: "$navChoice2",
+            featureFlag: "assistantEnabled",
+            requiredFeaturePermissionKey: "assistantRequiredPermission"
+          }
+        ]
+      },
+      realtimeTopics: [REALTIME_TOPICS.WORKSPACE_AI_TRANSCRIPTS],
+      realtimeInvalidation: [
+        {
+          topic: REALTIME_TOPICS.WORKSPACE_AI_TRANSCRIPTS,
+          invalidatorId: "workspaceAiTranscripts"
+        }
+      ]
     }
   },
   {
@@ -50,11 +104,41 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
       router: {
         admin: { includeWorkspaceSettings: true }
       },
+      routeFragments: {
+        admin: [
+          {
+            id: "workspace",
+            order: 40,
+            createRoutes: createWorkspaceRoutes
+          }
+        ]
+      },
       realtimeTopics: [
         REALTIME_TOPICS.WORKSPACE_META,
         REALTIME_TOPICS.WORKSPACE_SETTINGS,
         REALTIME_TOPICS.WORKSPACE_MEMBERS,
         REALTIME_TOPICS.WORKSPACE_INVITES
+      ],
+      realtimeInvalidation: [
+        {
+          topic: REALTIME_TOPICS.WORKSPACE_META,
+          invalidatorId: "noop",
+          refreshBootstrap: true
+        },
+        {
+          topic: REALTIME_TOPICS.WORKSPACE_SETTINGS,
+          invalidatorId: "workspaceAdmin",
+          refreshBootstrap: true
+        },
+        {
+          topic: REALTIME_TOPICS.WORKSPACE_MEMBERS,
+          invalidatorId: "workspaceAdmin",
+          refreshBootstrap: true
+        },
+        {
+          topic: REALTIME_TOPICS.WORKSPACE_INVITES,
+          invalidatorId: "workspaceAdmin"
+        }
       ]
     }
   },
@@ -65,12 +149,45 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
         key: "console",
         createApi: ({ request }) => createConsoleApi({ request })
       },
+      routeFragments: {
+        console: [
+          {
+            id: "core",
+            order: 0,
+            createRoutes: createConsoleCoreRoutes
+          }
+        ]
+      },
       realtimeTopics: [
         REALTIME_TOPICS.CONSOLE_MEMBERS,
         REALTIME_TOPICS.CONSOLE_SETTINGS,
         REALTIME_TOPICS.CONSOLE_INVITES,
         REALTIME_TOPICS.CONSOLE_BILLING,
         REALTIME_TOPICS.CONSOLE_ERRORS
+      ],
+      realtimeInvalidation: [
+        {
+          topic: REALTIME_TOPICS.CONSOLE_MEMBERS,
+          invalidatorId: "consoleMembers",
+          refreshConsoleBootstrap: true
+        },
+        {
+          topic: REALTIME_TOPICS.CONSOLE_SETTINGS,
+          invalidatorId: "consoleSettings"
+        },
+        {
+          topic: REALTIME_TOPICS.CONSOLE_INVITES,
+          invalidatorId: "consoleInvites",
+          refreshConsoleBootstrap: true
+        },
+        {
+          topic: REALTIME_TOPICS.CONSOLE_BILLING,
+          invalidatorId: "consoleBilling"
+        },
+        {
+          topic: REALTIME_TOPICS.CONSOLE_ERRORS,
+          invalidatorId: "consoleErrors"
+        }
       ]
     }
   },
@@ -81,10 +198,33 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
         key: "projects",
         createApi: ({ request }) => createProjectsApi({ request })
       },
-      navigation: {
-        admin: [{ id: "projects", title: "Projects", path: "/projects" }]
+      routeFragments: {
+        admin: [
+          {
+            id: "projects",
+            order: 50,
+            createRoutes: createProjectsRoutes
+          }
+        ]
       },
-      realtimeTopics: [REALTIME_TOPICS.PROJECTS]
+      navigation: {
+        admin: [
+          {
+            id: "projects",
+            title: "Projects",
+            destinationTitle: "Projects",
+            path: "/projects",
+            icon: "$navChoice2"
+          }
+        ]
+      },
+      realtimeTopics: [REALTIME_TOPICS.PROJECTS],
+      realtimeInvalidation: [
+        {
+          topic: REALTIME_TOPICS.PROJECTS,
+          invalidatorId: "projects"
+        }
+      ]
     }
   },
   {
@@ -94,7 +234,13 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
         key: "settings",
         createApi: ({ request }) => createSettingsApi({ request })
       },
-      realtimeTopics: [REALTIME_TOPICS.SETTINGS]
+      realtimeTopics: [REALTIME_TOPICS.SETTINGS],
+      realtimeInvalidation: [
+        {
+          topic: REALTIME_TOPICS.SETTINGS,
+          invalidatorId: "settings"
+        }
+      ]
     }
   },
   {
@@ -104,7 +250,13 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
         key: "alerts",
         createApi: ({ request }) => createAlertsApi({ request })
       },
-      realtimeTopics: [REALTIME_TOPICS.ALERTS]
+      realtimeTopics: [REALTIME_TOPICS.ALERTS],
+      realtimeInvalidation: [
+        {
+          topic: REALTIME_TOPICS.ALERTS,
+          invalidatorId: "noop"
+        }
+      ]
     }
   },
   {
@@ -115,7 +267,15 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
         createApi: ({ request }) => createDeg2radApi({ request })
       },
       navigation: {
-        app: [{ id: "deg2rad", title: "Deg2rad", path: "/" }]
+        app: [
+          {
+            id: "deg2rad",
+            title: "Deg2rad",
+            destinationTitle: "JSKIT app",
+            path: "/",
+            icon: "$navChoice1"
+          }
+        ]
       }
     }
   },
@@ -126,7 +286,13 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
         key: "history",
         createApi: ({ request }) => createHistoryApi({ request })
       },
-      realtimeTopics: [REALTIME_TOPICS.HISTORY]
+      realtimeTopics: [REALTIME_TOPICS.HISTORY],
+      realtimeInvalidation: [
+        {
+          topic: REALTIME_TOPICS.HISTORY,
+          invalidatorId: "history"
+        }
+      ]
     }
   },
   {
@@ -136,7 +302,13 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
         key: "billing",
         createApi: ({ request }) => createBillingApi({ request })
       },
-      realtimeTopics: [REALTIME_TOPICS.WORKSPACE_BILLING_LIMITS, REALTIME_TOPICS.CONSOLE_BILLING]
+      realtimeTopics: [REALTIME_TOPICS.WORKSPACE_BILLING_LIMITS, REALTIME_TOPICS.CONSOLE_BILLING],
+      realtimeInvalidation: [
+        {
+          topic: REALTIME_TOPICS.WORKSPACE_BILLING_LIMITS,
+          invalidatorId: "workspaceBillingLimits"
+        }
+      ]
     }
   },
   {
@@ -150,10 +322,45 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
         app: { includeChatRoute: true },
         admin: { includeChatRoute: true }
       },
-      navigation: {
-        admin: [{ id: "workspace-chat", title: "Workspace chat", path: "/chat" }]
+      routeFragments: {
+        app: [
+          {
+            id: "chat",
+            order: 20,
+            createRoutes: createChatRoutes
+          }
+        ],
+        admin: [
+          {
+            id: "chat",
+            order: 20,
+            createRoutes: createChatRoutes
+          }
+        ]
       },
-      realtimeTopics: [REALTIME_TOPICS.CHAT, REALTIME_TOPICS.TYPING]
+      navigation: {
+        admin: [
+          {
+            id: "workspace-chat",
+            title: "Workspace chat",
+            destinationTitle: "Workspace chat",
+            path: "/chat",
+            icon: "$workspaceChat",
+            requiredAnyPermission: ["chat.read"]
+          }
+        ]
+      },
+      realtimeTopics: [REALTIME_TOPICS.CHAT, REALTIME_TOPICS.TYPING],
+      realtimeInvalidation: [
+        {
+          topic: REALTIME_TOPICS.CHAT,
+          invalidatorId: "chat"
+        },
+        {
+          topic: REALTIME_TOPICS.TYPING,
+          invalidatorId: "noop"
+        }
+      ]
     }
   },
   {
@@ -167,14 +374,77 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
         app: { includeSocialRoute: true, includeSocialModerationRoute: false },
         admin: { includeSocialRoute: true, includeSocialModerationRoute: true }
       },
-      navigation: {
-        app: [{ id: "social", title: "Social", path: "/social" }],
+      routeFragments: {
+        app: [
+          {
+            id: "social",
+            order: 30,
+            createRoutes: createSocialRoutes,
+            options: {
+              includeModerationRoute: false
+            }
+          }
+        ],
         admin: [
-          { id: "social", title: "Social", path: "/social" },
-          { id: "social-moderation", title: "Social moderation", path: "/social/moderation" }
+          {
+            id: "social",
+            order: 30,
+            createRoutes: createSocialRoutes,
+            options: {
+              includeModerationRoute: true
+            }
+          }
         ]
       },
-      realtimeTopics: [REALTIME_TOPICS.SOCIAL_FEED, REALTIME_TOPICS.SOCIAL_NOTIFICATIONS]
+      guardPolicies: {
+        social: {
+          featureFlag: "socialEnabled"
+        }
+      },
+      navigation: {
+        app: [
+          {
+            id: "social",
+            title: "Social",
+            destinationTitle: "Social",
+            path: "/social",
+            icon: "$workspaceSocial",
+            featureFlag: "socialEnabled",
+            requiredAnyPermission: ["social.read"]
+          }
+        ],
+        admin: [
+          {
+            id: "social",
+            title: "Social",
+            destinationTitle: "Social",
+            path: "/social",
+            icon: "$workspaceSocial",
+            featureFlag: "socialEnabled",
+            requiredAnyPermission: ["social.read"]
+          },
+          {
+            id: "social-moderation",
+            title: "Social moderation",
+            destinationTitle: "Social moderation",
+            path: "/social/moderation",
+            icon: "$workspaceModeration",
+            featureFlag: "socialEnabled",
+            requiredAnyPermission: ["social.moderate"]
+          }
+        ]
+      },
+      realtimeTopics: [REALTIME_TOPICS.SOCIAL_FEED, REALTIME_TOPICS.SOCIAL_NOTIFICATIONS],
+      realtimeInvalidation: [
+        {
+          topic: REALTIME_TOPICS.SOCIAL_FEED,
+          invalidatorId: "socialScope"
+        },
+        {
+          topic: REALTIME_TOPICS.SOCIAL_NOTIFICATIONS,
+          invalidatorId: "socialScope"
+        }
+      ]
     }
   }
 ]);
