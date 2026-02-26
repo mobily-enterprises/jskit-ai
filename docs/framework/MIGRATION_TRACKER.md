@@ -4,33 +4,33 @@ Track each of the 83 JSKit packages that must gain a `package.descriptor.mjs` an
 
 | Domain | Package ID | Status | Notes |
 | --- | --- | --- | --- |
-| ai-agent | @jskit-ai/assistant-client-element | P0 | Pending Stage 0 |
-| ai-agent | @jskit-ai/assistant-client-runtime | P0 | Pending Stage 0 |
-| ai-agent | @jskit-ai/assistant-contracts | P0 | Pending Stage 0 |
-| ai-agent | @jskit-ai/assistant-core | P0 | Pending Stage 0 |
-| ai-agent | @jskit-ai/assistant-fastify-adapter | P0 | Pending Stage 0 |
-| ai-agent | @jskit-ai/assistant-provider-openai | P0 | Pending Stage 0 |
-| ai-agent | @jskit-ai/assistant-transcript-explorer-client-element | P0 | Pending Stage 0 |
-| ai-agent | @jskit-ai/assistant-transcripts-core | P0 | Pending Stage 0 |
-| ai-agent | @jskit-ai/assistant-transcripts-knex-mysql | P0 | Pending Stage 0 |
+| ai-agent | @jskit-ai/assistant-client-element | S9 | Descriptor + domain bundle mapping added |
+| ai-agent | @jskit-ai/assistant-client-runtime | S9 | Descriptor + domain bundle mapping added |
+| ai-agent | @jskit-ai/assistant-contracts | S9 | Descriptor + domain bundle mapping added |
+| ai-agent | @jskit-ai/assistant-core | S9 | Descriptor + domain bundle mapping added |
+| ai-agent | @jskit-ai/assistant-fastify-adapter | S9 | Descriptor + domain bundle mapping added |
+| ai-agent | @jskit-ai/assistant-provider-openai | S9 | Descriptor + domain bundle mapping added |
+| ai-agent | @jskit-ai/assistant-transcript-explorer-client-element | S9 | Descriptor + domain bundle mapping added |
+| ai-agent | @jskit-ai/assistant-transcripts-core | S9 | Descriptor + domain bundle mapping added |
+| ai-agent | @jskit-ai/assistant-transcripts-knex-mysql | S9 | Descriptor + domain bundle mapping added |
 | auth | @jskit-ai/access-core | S6 | Descriptor + domain bundle mapping added |
 | auth | @jskit-ai/auth-fastify-adapter | S6 | Descriptor + domain bundle mapping added |
 | auth | @jskit-ai/auth-provider-supabase-core | S6 | Descriptor + domain bundle mapping added |
 | auth | @jskit-ai/fastify-auth-policy | S6 | Descriptor + domain bundle mapping added |
 | auth | @jskit-ai/rbac-core | S6 | Descriptor + domain bundle mapping added |
-| billing | @jskit-ai/billing-commerce-client-element | P0 | Pending Stage 0 |
-| billing | @jskit-ai/billing-console-admin-client-element | P0 | Pending Stage 0 |
-| billing | @jskit-ai/billing-core | P0 | Pending Stage 0 |
-| billing | @jskit-ai/billing-fastify-adapter | P0 | Pending Stage 0 |
-| billing | @jskit-ai/billing-knex-mysql | P0 | Pending Stage 0 |
-| billing | @jskit-ai/billing-plan-client-element | P0 | Pending Stage 0 |
-| billing | @jskit-ai/billing-provider-core | P0 | Pending Stage 0 |
-| billing | @jskit-ai/billing-provider-paddle | P0 | Pending Stage 0 |
-| billing | @jskit-ai/billing-provider-stripe | P0 | Pending Stage 0 |
-| billing | @jskit-ai/billing-service-core | P0 | Pending Stage 0 |
-| billing | @jskit-ai/billing-worker-core | P0 | Pending Stage 0 |
-| billing | @jskit-ai/entitlements-core | P0 | Pending Stage 0 |
-| billing | @jskit-ai/entitlements-knex-mysql | P0 | Pending Stage 0 |
+| billing | @jskit-ai/billing-commerce-client-element | S9 | Descriptor + domain bundle mapping added |
+| billing | @jskit-ai/billing-console-admin-client-element | S9 | Descriptor + domain bundle mapping added |
+| billing | @jskit-ai/billing-core | S9 | Descriptor + domain bundle mapping added |
+| billing | @jskit-ai/billing-fastify-adapter | S9 | Descriptor + domain bundle mapping added |
+| billing | @jskit-ai/billing-knex-mysql | S9 | Descriptor + domain bundle mapping added |
+| billing | @jskit-ai/billing-plan-client-element | S9 | Descriptor + domain bundle mapping added |
+| billing | @jskit-ai/billing-provider-core | S9 | Descriptor + domain bundle mapping added |
+| billing | @jskit-ai/billing-provider-paddle | S9 | Descriptor + domain bundle mapping added |
+| billing | @jskit-ai/billing-provider-stripe | S9 | Descriptor + domain bundle mapping added |
+| billing | @jskit-ai/billing-service-core | S9 | Descriptor + domain bundle mapping added |
+| billing | @jskit-ai/billing-worker-core | S9 | Descriptor + domain bundle mapping added |
+| billing | @jskit-ai/entitlements-core | S9 | Descriptor + domain bundle mapping added |
+| billing | @jskit-ai/entitlements-knex-mysql | S9 | Descriptor + domain bundle mapping added |
 | chat | @jskit-ai/chat-client-element | S7 | Descriptor + domain bundle mapping added |
 | chat | @jskit-ai/chat-client-runtime | S7 | Descriptor + domain bundle mapping added |
 | chat | @jskit-ai/chat-contracts | S7 | Descriptor + domain bundle mapping added |

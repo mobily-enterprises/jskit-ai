@@ -1,0 +1,40 @@
+export default Object.freeze({
+  "packageVersion": 1,
+  "packageId": "@jskit-ai/billing-service-core",
+  "version": "0.1.0",
+  "dependsOn": [
+    "@jskit-ai/access-core",
+    "@jskit-ai/billing-provider-core",
+    "@jskit-ai/entitlements-core",
+    "@jskit-ai/server-runtime-core",
+    "@jskit-ai/billing-core"
+  ],
+  "capabilities": {
+    "provides": [
+      "billing.service"
+    ],
+    "requires": [
+      "auth.access",
+      "billing.provider",
+      "billing.entitlements.core",
+      "runtime.server",
+      "billing.core"
+    ]
+  },
+  "mutations": {
+    "dependencies": {
+      "runtime": {
+        "@jskit-ai/access-core": "0.1.0",
+        "@jskit-ai/billing-provider-core": "0.1.0",
+        "@jskit-ai/entitlements-core": "0.1.0",
+        "@jskit-ai/server-runtime-core": "0.1.0"
+      },
+      "dev": {}
+    },
+    "packageJson": {
+      "scripts": {}
+    },
+    "procfile": {},
+    "files": []
+  }
+});

@@ -84,6 +84,33 @@ Capability declarations are enforced by `jskit` during add/update/remove operati
 | `workspace.service` | `@jskit-ai/workspace-service-core` | `@jskit-ai/workspace-fastify-adapter` |
 | `workspace.routes` | `@jskit-ai/workspace-fastify-adapter` | Workspace core/admin bundles |
 
+## Domain Wave D (AI Agent + Billing)
+
+| Capability | Providers | Common Consumers |
+| --- | --- | --- |
+| `contracts.assistant` | `@jskit-ai/assistant-contracts` | Assistant runtime and adapters |
+| `assistant.core` | `@jskit-ai/assistant-core` | Assistant adapters/providers/transcripts |
+| `assistant.routes` | `@jskit-ai/assistant-fastify-adapter` | Assistant bundles |
+| `assistant.provider` | `@jskit-ai/assistant-provider-openai` | Assistant provider bundles |
+| `assistant.transcripts.core` | `@jskit-ai/assistant-transcripts-core` | Transcript storage/client packages |
+| `assistant.transcripts.store.mysql` | `@jskit-ai/assistant-transcripts-knex-mysql` | Assistant transcript persistence bundles |
+| `assistant.client-runtime` | `@jskit-ai/assistant-client-runtime` | `@jskit-ai/assistant-client-element` |
+| `assistant.client-element` | `@jskit-ai/assistant-client-element` | Assistant UI bundles |
+| `assistant.transcripts.explorer.client` | `@jskit-ai/assistant-transcript-explorer-client-element` | Assistant transcript UX bundles |
+| `billing.provider` | `@jskit-ai/billing-provider-core` | Billing core/services/providers |
+| `billing.provider.stripe` | `@jskit-ai/billing-provider-stripe` | Stripe billing bundle |
+| `billing.provider.paddle` | `@jskit-ai/billing-provider-paddle` | Paddle billing bundle |
+| `billing.core` | `@jskit-ai/billing-core` | Billing service/routes/client packages |
+| `billing.service` | `@jskit-ai/billing-service-core` | Billing adapter/worker |
+| `billing.routes` | `@jskit-ai/billing-fastify-adapter` | Billing API bundles |
+| `billing.worker` | `@jskit-ai/billing-worker-core` | Billing worker bundles |
+| `billing.store.mysql` | `@jskit-ai/billing-knex-mysql` | Billing persistence bundles |
+| `billing.entitlements.core` | `@jskit-ai/entitlements-core` | Billing service/storage |
+| `billing.entitlements.store.mysql` | `@jskit-ai/entitlements-knex-mysql` | Billing persistence bundles |
+| `billing.plan.client` | `@jskit-ai/billing-plan-client-element` | Billing UI bundles |
+| `billing.commerce.client` | `@jskit-ai/billing-commerce-client-element` | Billing UI bundles |
+| `billing.console.admin.client` | `@jskit-ai/billing-console-admin-client-element` | Billing admin UI bundles |
+
 ## Tooling Capabilities
 
 | Capability | Providers |
