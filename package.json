@@ -16,7 +16,14 @@
     "framework:lint-descriptors": "node ./scripts/framework/validate-descriptors.mjs",
     "framework:generate-descriptors": "node ./scripts/framework/generate-package-descriptor.mjs --dry-run",
     "framework:sync-descriptor-deps": "node ./scripts/framework/sync-descriptor-deps.mjs --dry-run",
-    "framework:check-descriptor-drift": "node ./scripts/framework/check-descriptor-drift.mjs"
+    "framework:check-descriptor-drift": "node ./scripts/framework/check-descriptor-drift.mjs",
+    "framework:check-runtime-layout": "node ./scripts/framework/check-package-runtime-layout.mjs",
+    "framework:check-runtime-layout:strict": "node ./scripts/framework/check-package-runtime-layout.mjs --strict",
+    "framework:check-import-boundaries": "node ./scripts/framework/check-import-boundaries.mjs",
+    "framework:check-import-boundaries:strict": "node ./scripts/framework/check-import-boundaries.mjs --strict",
+    "framework:check-app-ownership": "node ./scripts/framework/check-app-ownership.mjs",
+    "framework:check-app-ownership:strict": "node ./scripts/framework/check-app-ownership.mjs --strict",
+    "framework:stage1-checks": "npm run framework:check-runtime-layout && npm run framework:check-import-boundaries && npm run framework:check-app-ownership"
   },
   "workspaces": [
     "apps/*",
