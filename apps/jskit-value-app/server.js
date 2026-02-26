@@ -24,8 +24,11 @@ import {
 } from "@jskit-ai/server-runtime-core/fastifyBootstrap";
 import { registerApiRoutes } from "./server/fastify/registerApiRoutes.js";
 import authPlugin from "./server/fastify/auth.plugin.js";
-import billingWebhookRawBodyPlugin from "./server/fastify/billingWebhookRawBody.plugin.js";
-import activityPubRawBodyPlugin from "./server/fastify/activityPubRawBody.plugin.js";
+import { registerComposedFastifyPlugins } from "./server/framework/composeFastifyPlugins.js";
+import {
+  startComposedBackgroundRuntimes,
+  stopComposedBackgroundRuntimes
+} from "./server/framework/composeBackgroundRuntimes.js";
 import { registerSocketIoRealtime } from "./server/realtime/registerSocketIoRealtime.js";
 import { buildLoginRedirectPathFromRequest, safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
 import { normalizeReturnToPath } from "@jskit-ai/access-core/utils";
@@ -115,36 +118,9 @@ function isPathPrefixMatch(pathname, prefix) {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
-function startBackgroundRuntime(runtimeService) {
-  if (!runtimeService || typeof runtimeService.start !== "function") {
-    return;
-  }
-
-  runtimeService.start();
-}
-
-function stopBackgroundRuntime(runtimeService) {
-  if (!runtimeService || typeof runtimeService.stop !== "function") {
-    return;
-  }
-
-  runtimeService.stop();
-}
-
 const {
   controllers,
-  runtimeServices: {
-    authService,
-    workspaceService,
-    consoleService,
-    consoleErrorsService,
-    realtimeEventsService,
-    avatarStorageService,
-    chatAttachmentStorageService,
-    observabilityService,
-    billingWorkerRuntimeService,
-    socialOutboxWorkerRuntimeService
-  }
+  runtimeServices
 } = createServerRuntime({
   runtimeEnv,
   repositoryConfig: REPOSITORY_CONFIG,
@@ -155,6 +131,16 @@ const {
   supabasePublishableKey: AUTH_SUPABASE_PUBLISHABLE_KEY,
   observabilityRegistry: OBSERVABILITY_REGISTRY
 });
+const {
+  authService,
+  workspaceService,
+  consoleService,
+  consoleErrorsService,
+  realtimeEventsService,
+  avatarStorageService,
+  chatAttachmentStorageService,
+  observabilityService
+} = runtimeServices;
 
 function validateRuntimeConfig() {
   const tenancyMode = String(APP_CONFIG.tenancyMode || "").trim();
@@ -577,9 +563,8 @@ export async function buildServer({ frontendBuildAvailable }) {
   registerErrorHandler(app, { observabilityService });
   app.setValidatorCompiler(TypeBoxValidatorCompiler);
 
-  await app.register(billingWebhookRawBodyPlugin);
-  await app.register(activityPubRawBodyPlugin, {
-    maxPayloadBytes: REPOSITORY_CONFIG.social.limits.inboxMaxPayloadBytes
+  await registerComposedFastifyPlugins(app, {
+    repositoryConfig: REPOSITORY_CONFIG
   });
 
   await app.register(fastifyHelmet, {
@@ -691,13 +676,11 @@ export async function buildServer({ frontendBuildAvailable }) {
   }
 
   app.addHook("onReady", async () => {
-    startBackgroundRuntime(billingWorkerRuntimeService);
-    startBackgroundRuntime(socialOutboxWorkerRuntimeService);
+    startComposedBackgroundRuntimes(runtimeServices);
   });
 
   app.addHook("onClose", async () => {
-    stopBackgroundRuntime(billingWorkerRuntimeService);
-    stopBackgroundRuntime(socialOutboxWorkerRuntimeService);
+    stopComposedBackgroundRuntimes(runtimeServices);
   });
 
   app.setNotFoundHandler(async (request, reply) => {
@@ -742,15 +725,9 @@ let signalHandlersRegistered = false;
 
 function stopBackgroundRuntimesForShutdown() {
   try {
-    stopBackgroundRuntime(billingWorkerRuntimeService);
+    stopComposedBackgroundRuntimes(runtimeServices);
   } catch (error) {
-    console.warn("Failed to stop billing worker runtime during shutdown:", error);
-  }
-
-  try {
-    stopBackgroundRuntime(socialOutboxWorkerRuntimeService);
-  } catch (error) {
-    console.warn("Failed to stop social outbox worker runtime during shutdown:", error);
+    console.warn("Failed to stop composed background runtimes during shutdown:", error);
   }
 }
 

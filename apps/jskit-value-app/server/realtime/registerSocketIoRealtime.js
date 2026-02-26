@@ -6,13 +6,7 @@ import {
   registerRealtimeServerSocketio
 } from "@jskit-ai/realtime-server-socketio";
 import { API_REALTIME_PATH } from "../../shared/apiPaths.js";
-
-import {
-  getTopicScope,
-  hasTopicPermission,
-  isSupportedTopic,
-  isTopicAllowedForSurface
-} from "../../shared/topicRegistry.js";
+import { composeRealtimePolicy } from "../framework/composeRealtime.js";
 import {
   buildSubscribeContextRequest,
   normalizeConnectionSurface,
@@ -63,12 +57,13 @@ async function registerSocketIoRealtime(
     realtimeEventsService,
     workspaceService
   };
+  const realtimePolicy = composeRealtimePolicy();
 
   const appPolicyCallbacks = {
-    isSupportedTopic,
-    getTopicScope,
-    isTopicAllowedForSurface,
-    hasTopicPermission,
+    isSupportedTopic: realtimePolicy.isSupportedTopic,
+    getTopicScope: realtimePolicy.getTopicScope,
+    isTopicAllowedForSurface: realtimePolicy.isTopicAllowedForSurface,
+    hasTopicPermission: realtimePolicy.hasTopicPermission,
     buildSubscribeContextRequest,
     normalizeConnectionSurface,
     normalizeWorkspaceSlug

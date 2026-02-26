@@ -80,6 +80,7 @@ Adding/removing a feature module currently requires touching many core files, wh
 6. Preserve existing seam contracts while introducing framework composition.
 7. Backward-compatible migration by phases, no flag day rewrite.
 8. Optional modules vanish structurally when disabled.
+9. Compatibility adapters/shims/surfaces are temporary migration scaffolding only and must be fully removed by final cutover.
 
 ---
 
@@ -561,12 +562,14 @@ Exit criteria:
 
 1. remove obsolete static composition code
 2. remove dead feature-specific branch logic in core files
-3. lock new contribution rules
-4. update architecture docs as source of truth
+3. remove all migration-era compatibility adapters/shims/surfaces
+4. lock new contribution rules
+5. update architecture docs as source of truth
 
 Exit criteria:
 
 - all module additions/removals happen via registry + descriptor only
+- zero compatibility adapters/shims/surfaces remain
 
 ---
 
@@ -1122,7 +1125,7 @@ This initiative is done when all statements are true:
 4. Dependency failures are deterministic with strict/permissive behavior.
 5. Core/foundation profile rules are enforced at startup.
 6. Third-party module SDK exists with validation tooling.
-7. Legacy static composition paths are removed or frozen behind compatibility shims slated for deletion.
+7. Legacy static composition paths and all migration compatibility shims are removed.
 8. Architecture docs and CI guardrails enforce the new model.
 
 ---
@@ -2378,7 +2381,7 @@ Must create/update these docs during implementation:
 
 - [ ] Module framework package published and adopted by app.
 - [ ] All 80 packages represented with descriptors or mapped module contracts.
-- [ ] Static composition hotspots removed or compatibility-wrapped.
+- [ ] Static composition hotspots and migration compatibility wrappers are removed.
 - [ ] URL mount overrides verified on server and client.
 - [ ] Dependency and capability checks enforced.
 - [ ] Profile required module checks enforced.
@@ -2449,4 +2452,3 @@ Use these issue templates for initial work:
 The migration is complete only when a module author can add, remove, or disable a feature module by editing module descriptors and registry/profile configuration, without patching app core composition files.
 
 That remains the standard for this repository to credibly operate as a framework.
-

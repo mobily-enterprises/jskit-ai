@@ -1,12 +1,35 @@
-import { buildRoutes as buildLegacyRoutes } from "../modules/api/index.js";
+import { buildRoutesFromManifest } from "@jskit-ai/server-runtime-core/runtimeAssembly";
+import { toVersionedApiPath } from "../../shared/apiPaths.js";
 import { composeServerRuntimeArtifacts } from "./composeRuntime.js";
+import { ROUTE_MODULE_DEFINITIONS, withConsoleRoutePolicy, createMissingHandler } from "./routeModuleCatalog.js";
 
 function composeRouteModuleDefinitions(options = {}) {
   return composeServerRuntimeArtifacts(options).routeModuleIds;
 }
 
-function buildRoutesFromComposedModules({ controllers, routeConfig = {} } = {}) {
-  return buildLegacyRoutes(controllers, routeConfig);
+function composeRouteModules(options = {}) {
+  const includedIds = new Set(composeRouteModuleDefinitions(options));
+  if (includedIds.size < 1) {
+    return [];
+  }
+
+  return ROUTE_MODULE_DEFINITIONS.filter((definition) => includedIds.has(definition.id));
 }
 
-export { composeRouteModuleDefinitions, buildRoutesFromComposedModules };
+function buildRoutesFromComposedModules({ controllers, routeConfig = {}, enabledModuleIds } = {}) {
+  const routes = buildRoutesFromManifest({
+    definitions: composeRouteModules({
+      enabledModuleIds
+    }),
+    controllers,
+    routeConfig,
+    missingHandler: createMissingHandler()
+  }).map(withConsoleRoutePolicy);
+
+  return routes.map((route) => ({
+    ...route,
+    path: toVersionedApiPath(route.path)
+  }));
+}
+
+export { ROUTE_MODULE_DEFINITIONS, composeRouteModuleDefinitions, composeRouteModules, buildRoutesFromComposedModules };

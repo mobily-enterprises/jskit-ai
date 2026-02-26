@@ -4,26 +4,10 @@ import { PLATFORM_REPOSITORY_DEFINITIONS } from "../runtime/repositories.js";
 import { PLATFORM_SERVICE_DEFINITIONS, RUNTIME_SERVICE_EXPORT_IDS } from "../runtime/services.js";
 import { PLATFORM_CONTROLLER_DEFINITIONS } from "../runtime/controllers.js";
 import { APP_FEATURE_SERVICE_DEFINITIONS, APP_FEATURE_CONTROLLER_DEFINITIONS } from "../runtime/appFeatureManifest.js";
+import { ROUTE_MODULE_DEFINITIONS } from "./routeModuleCatalog.js";
 import { resolveServerModuleRegistry } from "./moduleRegistry.js";
 
-const LEGACY_ROUTE_MODULE_ORDER = Object.freeze([
-  "health",
-  "observability",
-  "auth",
-  "workspace",
-  "console",
-  "consoleErrors",
-  "communications",
-  "projects",
-  "chat",
-  "social",
-  "billing",
-  "ai",
-  "settings",
-  "alerts",
-  "history",
-  "deg2rad"
-]);
+const LEGACY_ROUTE_MODULE_ORDER = Object.freeze(ROUTE_MODULE_DEFINITIONS.map((entry) => entry.id));
 
 function normalizeEnabledModuleIds(enabledModuleIds) {
   if (!Array.isArray(enabledModuleIds) || enabledModuleIds.length < 1) {

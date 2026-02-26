@@ -1,5 +1,5 @@
-import { createActionContributors as createLegacyActionContributors } from "../runtime/actions/contributorManifest.js";
 import { resolveServerModuleRegistry } from "./moduleRegistry.js";
+import { ACTION_CONTRIBUTOR_DEFINITIONS, createActionContributorsFromDefinitions } from "./actionContributorFragments.js";
 
 function resolveActionContributorModuleIds({ enabledModuleIds } = {}) {
   const enabledSet = Array.isArray(enabledModuleIds)
@@ -28,20 +28,14 @@ function resolveActionContributorModuleIds({ enabledModuleIds } = {}) {
 
 function composeActionContributors(dependencies = {}, { enabledModuleIds } = {}) {
   const contributorModuleIds = resolveActionContributorModuleIds({ enabledModuleIds });
-  const contributors = createLegacyActionContributors(dependencies);
-
-  if (contributorModuleIds.size < 1) {
-    return contributors;
-  }
-
-  return contributors.filter((contributor) => {
-    const moduleId = String(contributor?.moduleId || contributor?.id || "").trim();
-    if (!moduleId) {
+  const filteredDefinitions = ACTION_CONTRIBUTOR_DEFINITIONS.filter((definition) => {
+    if (!definition?.moduleId) {
       return true;
     }
-
-    return contributorModuleIds.has(moduleId);
+    return contributorModuleIds.has(String(definition.moduleId || "").trim());
   });
+
+  return createActionContributorsFromDefinitions(filteredDefinitions, dependencies);
 }
 
 function createActionContributorFactory(options = {}) {

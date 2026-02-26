@@ -1,3 +1,5 @@
+import { REALTIME_TOPICS } from "../../shared/eventTypes.js";
+
 const SERVER_MODULE_TIERS = Object.freeze({
   foundation: "foundation",
   feature: "feature"
@@ -34,6 +36,7 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       services: ["deg2radHistoryService"],
       controllers: ["history"],
       routes: ["history"],
+      realtimeTopics: [REALTIME_TOPICS.HISTORY],
       actionContributorModules: ["history"]
     }
   },
@@ -55,6 +58,7 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       services: ["avatarStorageService", "chatAttachmentStorageService", "userAvatarService", "userSettingsService"],
       controllers: ["settings"],
       routes: ["settings"],
+      realtimeTopics: [REALTIME_TOPICS.SETTINGS],
       runtimeServices: ["avatarStorageService", "chatAttachmentStorageService"],
       actionContributorModules: ["settings"]
     }
@@ -67,6 +71,7 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       services: ["alertsService"],
       controllers: ["alerts"],
       routes: ["alerts"],
+      realtimeTopics: [REALTIME_TOPICS.ALERTS],
       runtimeServices: ["alertsService"],
       actionContributorModules: ["alerts"]
     }
@@ -90,6 +95,12 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       ],
       controllers: ["workspace"],
       routes: ["workspace"],
+      realtimeTopics: [
+        REALTIME_TOPICS.WORKSPACE_META,
+        REALTIME_TOPICS.WORKSPACE_SETTINGS,
+        REALTIME_TOPICS.WORKSPACE_MEMBERS,
+        REALTIME_TOPICS.WORKSPACE_INVITES
+      ],
       runtimeServices: ["workspaceService", "realtimeEventsService"],
       actionContributorModules: ["workspace"]
     }
@@ -107,6 +118,7 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       services: ["consoleService"],
       controllers: ["console"],
       routes: ["console"],
+      realtimeTopics: [REALTIME_TOPICS.CONSOLE_SETTINGS, REALTIME_TOPICS.CONSOLE_MEMBERS, REALTIME_TOPICS.CONSOLE_INVITES],
       runtimeServices: ["consoleService"],
       actionContributorModules: ["console"]
     }
@@ -119,6 +131,7 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       services: ["consoleErrorsService"],
       controllers: ["consoleErrors"],
       routes: ["consoleErrors"],
+      realtimeTopics: [REALTIME_TOPICS.CONSOLE_ERRORS],
       runtimeServices: ["consoleErrorsService"],
       actionContributorModules: ["consoleErrors"]
     }
@@ -138,6 +151,7 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       services: ["aiModuleServices", "aiTranscriptsService", "aiService"],
       controllers: ["ai"],
       routes: ["ai"],
+      realtimeTopics: [REALTIME_TOPICS.WORKSPACE_AI_TRANSCRIPTS],
       runtimeServices: ["aiService"],
       actionContributorModules: ["ai"]
     }
@@ -159,6 +173,7 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       services: ["chatService"],
       controllers: ["chat"],
       routes: ["chat"],
+      realtimeTopics: [REALTIME_TOPICS.CHAT, REALTIME_TOPICS.TYPING],
       actionContributorModules: ["chat"]
     }
   },
@@ -168,6 +183,7 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
     contributions: {
       repositories: ["projectsRepository"],
       routes: ["projects"],
+      realtimeTopics: [REALTIME_TOPICS.PROJECTS],
       appFeatureServices: ["projectsService"],
       appFeatureControllers: ["projects"],
       actionContributorModules: ["projects"]
@@ -211,6 +227,8 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       ],
       controllers: ["billing"],
       routes: ["billing"],
+      realtimeTopics: [REALTIME_TOPICS.WORKSPACE_BILLING_LIMITS, REALTIME_TOPICS.CONSOLE_BILLING],
+      fastifyPlugins: ["billingWebhookRawBody"],
       runtimeServices: [
         "billingService",
         "billingWebhookService",
@@ -219,6 +237,7 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
         "billingReconciliationService",
         "billingWorkerRuntimeService"
       ],
+      backgroundRuntimeServices: ["billingWorkerRuntimeService"],
       actionContributorModules: ["billing"]
     }
   },
@@ -230,7 +249,10 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       services: ["socialService", "socialOutboxWorkerRuntimeService"],
       controllers: ["social"],
       routes: ["social"],
+      realtimeTopics: [REALTIME_TOPICS.SOCIAL_FEED, REALTIME_TOPICS.SOCIAL_NOTIFICATIONS],
+      fastifyPlugins: ["activityPubRawBody"],
       runtimeServices: ["socialService", "socialOutboxWorkerRuntimeService"],
+      backgroundRuntimeServices: ["socialOutboxWorkerRuntimeService"],
       actionContributorModules: ["social"]
     }
   },
