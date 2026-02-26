@@ -26,6 +26,33 @@
 - Related:
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/05-console-access-permission-model.report.md [05-ISSUE-001]
 
+### [04-ISSUE-005] Workspace surface tests miss non-app redirect and console-global assertions
+- Status: OPEN
+- Severity: P3
+- Confidence: medium
+- Contract area: tests
+- First seen: 2026-02-26
+- Last seen: 2026-02-26
+- Evidence:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/docs/architecture/workspace-and-surfaces.md:25
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/docs/architecture/workspace-and-surfaces.md:27
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/shared/surfaceRegistry.js:22
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/shared/surfaceRegistry.js:25
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspacesView.vitest.js:96
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspacesView.vitest.js:118
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspacesView.vitest.js:164
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/workspaceStore.vitest.js:556
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/workspaceStore.vitest.js:558
+- Why this is broken:
+  - Surface contracts require explicit app/admin routing behavior and a global (non-workspace-required) console surface. The current workspace chooser/store tests only lock app-path redirects and app/admin workspace path generation. They do not assert admin chooser redirect behavior or explicit console-global path behavior, leaving high-value surface-policy invariants unguarded against regression.
+- Suggested fix:
+  - Extend `workspacesView.vitest.js` with admin-surface redirect assertions and extend `workspaceStore.vitest.js` with explicit console-surface assertions that match the intended global console contract.
+- Suggested tests:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspacesView.vitest.js
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/workspaceStore.vitest.js
+- Related:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/05-console-access-permission-model.report.md [05-ISSUE-003]
+
 ## Fixed things
 
 ### [04-ISSUE-001] Path-based surface resolution misclassified admin workspace APIs as `app`
