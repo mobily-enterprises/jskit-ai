@@ -338,6 +338,10 @@ export function useWorkspaceSettingsView(options = {}) {
   );
 
   async function submitWorkspaceSettings() {
+    if (!canManageWorkspaceSettings.value) {
+      return;
+    }
+
     workspaceMessage.value = "";
 
     try {
@@ -365,6 +369,10 @@ export function useWorkspaceSettingsView(options = {}) {
   }
 
   async function submitInvite() {
+    if (!canInviteMembers.value) {
+      return;
+    }
+
     inviteMessage.value = "";
 
     try {
@@ -386,6 +394,10 @@ export function useWorkspaceSettingsView(options = {}) {
   }
 
   async function submitRevokeInvite(inviteId) {
+    if (!canRevokeInvites.value) {
+      return;
+    }
+
     teamMessage.value = "";
     revokeInviteId.value = Number(inviteId);
 

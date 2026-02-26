@@ -425,6 +425,27 @@ describe("useWorkspaceSettingsView", () => {
     expect(mocks.handleUnauthorizedError).toHaveBeenCalled();
   });
 
+  it("fails closed for workspace settings and invite mutations when permissions are missing", async () => {
+    const wrapper = mountHarness();
+    await flush();
+
+    mocks.permissions.delete("workspace.settings.update");
+    await wrapper.vm.vm.actions.submitWorkspaceSettings();
+    expect(mocks.api.workspace.updateSettings).not.toHaveBeenCalled();
+    expect(mocks.workspaceStore.refreshBootstrap).not.toHaveBeenCalled();
+
+    wrapper.vm.vm.forms.invite.email = "new-user@example.com";
+    wrapper.vm.vm.forms.invite.roleId = "admin";
+    mocks.permissions.delete("workspace.members.invite");
+    await wrapper.vm.vm.actions.submitInvite();
+    expect(mocks.api.workspace.createInvite).not.toHaveBeenCalled();
+
+    mocks.permissions.delete("workspace.invites.revoke");
+    await wrapper.vm.vm.actions.submitRevokeInvite(15);
+    expect(mocks.api.workspace.revokeInvite).not.toHaveBeenCalled();
+    expect(wrapper.vm.vm.feedback.revokeInviteId).toBe(0);
+  });
+
   it("creates invites and handles invite error branch", async () => {
     const wrapper = mountHarness();
     await flush();
