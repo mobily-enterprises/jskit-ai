@@ -31,13 +31,13 @@ Track each of the 83 JSKit packages that must gain a `package.descriptor.mjs` an
 | billing | @jskit-ai/billing-worker-core | P0 | Pending Stage 0 |
 | billing | @jskit-ai/entitlements-core | P0 | Pending Stage 0 |
 | billing | @jskit-ai/entitlements-knex-mysql | P0 | Pending Stage 0 |
-| chat | @jskit-ai/chat-client-element | P0 | Pending Stage 0 |
-| chat | @jskit-ai/chat-client-runtime | P0 | Pending Stage 0 |
-| chat | @jskit-ai/chat-contracts | P0 | Pending Stage 0 |
-| chat | @jskit-ai/chat-core | P0 | Pending Stage 0 |
-| chat | @jskit-ai/chat-fastify-adapter | P0 | Pending Stage 0 |
-| chat | @jskit-ai/chat-knex-mysql | P0 | Pending Stage 0 |
-| chat | @jskit-ai/chat-storage-core | P0 | Pending Stage 0 |
+| chat | @jskit-ai/chat-client-element | S7 | Descriptor + domain bundle mapping added |
+| chat | @jskit-ai/chat-client-runtime | S7 | Descriptor + domain bundle mapping added |
+| chat | @jskit-ai/chat-contracts | S7 | Descriptor + domain bundle mapping added |
+| chat | @jskit-ai/chat-core | S7 | Descriptor + domain bundle mapping added |
+| chat | @jskit-ai/chat-fastify-adapter | S7 | Descriptor + domain bundle mapping added |
+| chat | @jskit-ai/chat-knex-mysql | S7 | Descriptor + domain bundle mapping added |
+| chat | @jskit-ai/chat-storage-core | S7 | Descriptor + domain bundle mapping added |
 | communications | @jskit-ai/communications-contracts | S6 | Descriptor + domain bundle mapping added |
 | communications | @jskit-ai/communications-core | S6 | Descriptor + domain bundle mapping added |
 | communications | @jskit-ai/communications-fastify-adapter | S6 | Descriptor + domain bundle mapping added |
@@ -62,20 +62,20 @@ Track each of the 83 JSKit packages that must gain a `package.descriptor.mjs` an
 | runtime | @jskit-ai/server-runtime-core | S4 | Descriptor + shell bundle mapping added |
 | security | @jskit-ai/security-audit-core | S5 | Descriptor + infrastructure bundle mapping added |
 | security | @jskit-ai/security-audit-knex-mysql | S5 | Descriptor + infrastructure bundle mapping added |
-| social | @jskit-ai/social-client-runtime | P0 | Pending Stage 0 |
-| social | @jskit-ai/social-contracts | P0 | Pending Stage 0 |
-| social | @jskit-ai/social-core | P0 | Pending Stage 0 |
-| social | @jskit-ai/social-fastify-adapter | P0 | Pending Stage 0 |
-| social | @jskit-ai/social-knex-mysql | P0 | Pending Stage 0 |
+| social | @jskit-ai/social-client-runtime | S7 | Descriptor + domain bundle mapping added |
+| social | @jskit-ai/social-contracts | S7 | Descriptor + domain bundle mapping added |
+| social | @jskit-ai/social-core | S7 | Descriptor + domain bundle mapping added |
+| social | @jskit-ai/social-fastify-adapter | S7 | Descriptor + domain bundle mapping added |
+| social | @jskit-ai/social-knex-mysql | S7 | Descriptor + domain bundle mapping added |
 | surface-routing | @jskit-ai/surface-routing | S4 | Descriptor + shell bundle mapping added |
 | tooling | @jskit-ai/app-scripts | S4 | Descriptor + shell bundle mapping added |
 | tooling | @jskit-ai/config-eslint | S4 | Descriptor + shell bundle mapping added |
 | tooling | @jskit-ai/create-app | S4 | Descriptor + shell bundle mapping added |
 | tooling | @jskit-ai/jskit | S4 | Descriptor + shell bundle mapping added |
-| users | @jskit-ai/members-admin-client-element | P0 | Pending Stage 0 |
-| users | @jskit-ai/profile-client-element | P0 | Pending Stage 0 |
-| users | @jskit-ai/user-profile-core | P0 | Pending Stage 0 |
-| users | @jskit-ai/user-profile-knex-mysql | P0 | Pending Stage 0 |
+| users | @jskit-ai/members-admin-client-element | S7 | Descriptor + domain bundle mapping added |
+| users | @jskit-ai/profile-client-element | S7 | Descriptor + domain bundle mapping added |
+| users | @jskit-ai/user-profile-core | S7 | Descriptor + domain bundle mapping added |
+| users | @jskit-ai/user-profile-knex-mysql | S7 | Descriptor + domain bundle mapping added |
 | web | @jskit-ai/http-client-runtime | S4 | Descriptor + shell bundle mapping added |
 | web | @jskit-ai/web-runtime-core | S4 | Descriptor + shell bundle mapping added |
 | workspace | @jskit-ai/console-errors-fastify-adapter | P0 | Pending Stage 0 |

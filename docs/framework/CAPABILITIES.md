@@ -49,6 +49,27 @@ Capability declarations are enforced by `jskit` during add/update/remove operati
 | `observability.routes` | `@jskit-ai/observability-fastify-adapter` | Observability bundle consumers |
 | `observability.console-errors-client` | `@jskit-ai/console-errors-client-element` | Observability bundle consumers |
 
+## Domain Wave B (Chat, Social, Users)
+
+| Capability | Providers | Common Consumers |
+| --- | --- | --- |
+| `contracts.chat` | `@jskit-ai/chat-contracts` | `@jskit-ai/chat-client-runtime`, `@jskit-ai/chat-core`, `@jskit-ai/chat-fastify-adapter` |
+| `chat.storage` | `@jskit-ai/chat-storage-core` | `@jskit-ai/chat-core`, `@jskit-ai/chat-knex-mysql` |
+| `chat.storage.mysql` | `@jskit-ai/chat-knex-mysql` | Chat bundle consumers |
+| `chat.core` | `@jskit-ai/chat-core` | `@jskit-ai/chat-fastify-adapter` |
+| `chat.routes` | `@jskit-ai/chat-fastify-adapter` | Chat/API composition bundles |
+| `chat.client-runtime` | `@jskit-ai/chat-client-runtime` | `@jskit-ai/chat-client-element` |
+| `chat.client-element` | `@jskit-ai/chat-client-element` | Chat UI bundles |
+| `contracts.social` | `@jskit-ai/social-contracts` | `@jskit-ai/social-client-runtime`, `@jskit-ai/social-core`, `@jskit-ai/social-fastify-adapter` |
+| `social.core` | `@jskit-ai/social-core` | `@jskit-ai/social-fastify-adapter`, `@jskit-ai/social-knex-mysql` |
+| `social.storage.mysql` | `@jskit-ai/social-knex-mysql` | Social bundle consumers |
+| `social.routes` | `@jskit-ai/social-fastify-adapter` | Social/API composition bundles |
+| `social.client-runtime` | `@jskit-ai/social-client-runtime` | Social UI bundles |
+| `users.profile.core` | `@jskit-ai/user-profile-core` | `@jskit-ai/user-profile-knex-mysql`, `@jskit-ai/profile-client-element`, `@jskit-ai/members-admin-client-element` |
+| `users.profile.store.mysql` | `@jskit-ai/user-profile-knex-mysql` | Users profile bundles |
+| `users.profile.client` | `@jskit-ai/profile-client-element` | Users profile bundles |
+| `users.members-admin.client` | `@jskit-ai/members-admin-client-element` | Users profile bundles |
+
 ## Tooling Capabilities
 
 | Capability | Providers |
