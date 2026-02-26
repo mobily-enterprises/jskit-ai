@@ -30,6 +30,25 @@ Capability declarations are enforced by `jskit` during add/update/remove operati
 | `security.audit.core` | `@jskit-ai/security-audit-core` | `@jskit-ai/security-audit-knex-mysql` |
 | `security.audit.store` | `@jskit-ai/security-audit-knex-mysql` | Security audit bundle consumers |
 
+## Domain Wave A (Auth, Communications, Observability)
+
+| Capability | Providers | Common Consumers |
+| --- | --- | --- |
+| `auth.access` | `@jskit-ai/access-core` | `@jskit-ai/rbac-core`, `@jskit-ai/auth-fastify-adapter`, `@jskit-ai/auth-provider-supabase-core` |
+| `auth.rbac` | `@jskit-ai/rbac-core` | `@jskit-ai/fastify-auth-policy` |
+| `auth.policy` | `@jskit-ai/fastify-auth-policy` | `@jskit-ai/auth-fastify-adapter` |
+| `auth.routes` | `@jskit-ai/auth-fastify-adapter` | Auth bundle consumers |
+| `auth.provider` | `@jskit-ai/auth-provider-supabase-core` | Auth provider bundles |
+| `contracts.communications` | `@jskit-ai/communications-contracts` | `@jskit-ai/communications-core`, `@jskit-ai/communications-fastify-adapter` |
+| `communications.provider` | `@jskit-ai/communications-provider-core` | `@jskit-ai/communications-core`, `@jskit-ai/email-core`, `@jskit-ai/sms-core` |
+| `communications.core` | `@jskit-ai/communications-core` | `@jskit-ai/communications-fastify-adapter` |
+| `communications.routes` | `@jskit-ai/communications-fastify-adapter` | Communications bundle consumers |
+| `communications.email` | `@jskit-ai/email-core` | Communications bundle consumers |
+| `communications.sms` | `@jskit-ai/sms-core` | Communications bundle consumers |
+| `observability.core` | `@jskit-ai/observability-core` | `@jskit-ai/observability-fastify-adapter`, `@jskit-ai/console-errors-client-element` |
+| `observability.routes` | `@jskit-ai/observability-fastify-adapter` | Observability bundle consumers |
+| `observability.console-errors-client` | `@jskit-ai/console-errors-client-element` | Observability bundle consumers |
+
 ## Tooling Capabilities
 
 | Capability | Providers |

@@ -1,0 +1,101 @@
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { access, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import process from "node:process";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+
+const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
+const WAVE_A_PACKS = ["auth-base", "auth-supabase", "communications-base", "observability-base"];
+
+function runCli({ cwd, args = [] }) {
+  return spawnSync(process.execPath, [CLI_PATH, ...args], {
+    cwd,
+    encoding: "utf8"
+  });
+}
+
+async function writeJsonFile(absolutePath, value) {
+  await mkdir(path.dirname(absolutePath), { recursive: true });
+  await writeFile(absolutePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+async function withTempApp(run) {
+  const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-wave-a-"));
+
+  try {
+    await writeJsonFile(path.join(appRoot, "package.json"), {
+      name: "wave-a-app",
+      version: "0.1.0",
+      private: true,
+      type: "module",
+      scripts: {
+        start: "jskit-app-scripts start"
+      },
+      dependencies: {
+        "@jskit-ai/app-scripts": "0.1.0"
+      }
+    });
+    await writeFile(path.join(appRoot, "Procfile"), "web: npm run start\n", "utf8");
+
+    await run(appRoot);
+  } finally {
+    await rm(appRoot, { recursive: true, force: true });
+  }
+}
+
+for (const packId of WAVE_A_PACKS) {
+  test(`domain wave A pack ${packId} installs and removes cleanly`, async () => {
+    await withTempApp(async (appRoot) => {
+      const addResult = runCli({
+        cwd: appRoot,
+        args: ["add", packId, "--no-install"]
+      });
+      assert.equal(addResult.status, 0, addResult.stderr);
+
+      const doctorResult = runCli({
+        cwd: appRoot,
+        args: ["doctor"]
+      });
+      assert.equal(doctorResult.status, 0, doctorResult.stderr);
+
+      const removeResult = runCli({
+        cwd: appRoot,
+        args: ["remove", packId]
+      });
+      assert.equal(removeResult.status, 0, removeResult.stderr);
+
+      await assert.rejects(access(path.join(appRoot, ".jskit", "lock.json")), /ENOENT/);
+    });
+  });
+}
+
+test("combined auth + observability + db install passes doctor", async () => {
+  await withTempApp(async (appRoot) => {
+    const addDb = runCli({
+      cwd: appRoot,
+      args: ["add", "db", "--provider", "mysql", "--no-install"]
+    });
+    assert.equal(addDb.status, 0, addDb.stderr);
+
+    const addAuth = runCli({
+      cwd: appRoot,
+      args: ["add", "auth-base", "--no-install"]
+    });
+    assert.equal(addAuth.status, 0, addAuth.stderr);
+
+    const addObservability = runCli({
+      cwd: appRoot,
+      args: ["add", "observability-base", "--no-install"]
+    });
+    assert.equal(addObservability.status, 0, addObservability.stderr);
+
+    const doctorResult = runCli({
+      cwd: appRoot,
+      args: ["doctor"]
+    });
+    assert.equal(doctorResult.status, 0, doctorResult.stderr);
+  });
+});

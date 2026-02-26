@@ -13,11 +13,11 @@ Track each of the 83 JSKit packages that must gain a `package.descriptor.mjs` an
 | ai-agent | @jskit-ai/assistant-transcript-explorer-client-element | P0 | Pending Stage 0 |
 | ai-agent | @jskit-ai/assistant-transcripts-core | P0 | Pending Stage 0 |
 | ai-agent | @jskit-ai/assistant-transcripts-knex-mysql | P0 | Pending Stage 0 |
-| auth | @jskit-ai/access-core | P0 | Pending Stage 0 |
-| auth | @jskit-ai/auth-fastify-adapter | P0 | Pending Stage 0 |
-| auth | @jskit-ai/auth-provider-supabase-core | P0 | Pending Stage 0 |
-| auth | @jskit-ai/fastify-auth-policy | P0 | Pending Stage 0 |
-| auth | @jskit-ai/rbac-core | P0 | Pending Stage 0 |
+| auth | @jskit-ai/access-core | S6 | Descriptor + domain bundle mapping added |
+| auth | @jskit-ai/auth-fastify-adapter | S6 | Descriptor + domain bundle mapping added |
+| auth | @jskit-ai/auth-provider-supabase-core | S6 | Descriptor + domain bundle mapping added |
+| auth | @jskit-ai/fastify-auth-policy | S6 | Descriptor + domain bundle mapping added |
+| auth | @jskit-ai/rbac-core | S6 | Descriptor + domain bundle mapping added |
 | billing | @jskit-ai/billing-commerce-client-element | P0 | Pending Stage 0 |
 | billing | @jskit-ai/billing-console-admin-client-element | P0 | Pending Stage 0 |
 | billing | @jskit-ai/billing-core | P0 | Pending Stage 0 |
@@ -38,17 +38,17 @@ Track each of the 83 JSKit packages that must gain a `package.descriptor.mjs` an
 | chat | @jskit-ai/chat-fastify-adapter | P0 | Pending Stage 0 |
 | chat | @jskit-ai/chat-knex-mysql | P0 | Pending Stage 0 |
 | chat | @jskit-ai/chat-storage-core | P0 | Pending Stage 0 |
-| communications | @jskit-ai/communications-contracts | P0 | Pending Stage 0 |
-| communications | @jskit-ai/communications-core | P0 | Pending Stage 0 |
-| communications | @jskit-ai/communications-fastify-adapter | P0 | Pending Stage 0 |
-| communications | @jskit-ai/communications-provider-core | P0 | Pending Stage 0 |
-| communications | @jskit-ai/email-core | P0 | Pending Stage 0 |
-| communications | @jskit-ai/sms-core | P0 | Pending Stage 0 |
+| communications | @jskit-ai/communications-contracts | S6 | Descriptor + domain bundle mapping added |
+| communications | @jskit-ai/communications-core | S6 | Descriptor + domain bundle mapping added |
+| communications | @jskit-ai/communications-fastify-adapter | S6 | Descriptor + domain bundle mapping added |
+| communications | @jskit-ai/communications-provider-core | S6 | Descriptor + domain bundle mapping added |
+| communications | @jskit-ai/email-core | S6 | Descriptor + domain bundle mapping added |
+| communications | @jskit-ai/sms-core | S6 | Descriptor + domain bundle mapping added |
 | contracts | @jskit-ai/http-contracts | S4 | Descriptor + shell bundle mapping added |
 | contracts | @jskit-ai/realtime-contracts | S4 | Descriptor + shell bundle mapping added |
-| observability | @jskit-ai/console-errors-client-element | P0 | Pending Stage 0 |
-| observability | @jskit-ai/observability-core | P0 | Pending Stage 0 |
-| observability | @jskit-ai/observability-fastify-adapter | P0 | Pending Stage 0 |
+| observability | @jskit-ai/console-errors-client-element | S6 | Descriptor + domain bundle mapping added |
+| observability | @jskit-ai/observability-core | S6 | Descriptor + domain bundle mapping added |
+| observability | @jskit-ai/observability-fastify-adapter | S6 | Descriptor + domain bundle mapping added |
 | operations | @jskit-ai/redis-ops-core | S5 | Descriptor + infrastructure bundle mapping added |
 | operations | @jskit-ai/retention-core | S5 | Descriptor + infrastructure bundle mapping added |
 | realtime | @jskit-ai/realtime-client-runtime | S5 | Descriptor + infrastructure bundle mapping added |
