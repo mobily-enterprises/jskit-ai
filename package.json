@@ -13,7 +13,10 @@
     "test:architecture:client": "node --test tests/architecture/client-architecture.guardrails.test.mjs",
     "test:architecture:shared-ui": "node --test tests/architecture/client-shared-ui.guardrails.test.mjs",
     "test:framework": "node --test tests/framework/*.test.mjs",
-    "framework:lint-descriptors": "node ./scripts/framework/validate-descriptors.mjs"
+    "framework:lint-descriptors": "node ./scripts/framework/validate-descriptors.mjs",
+    "framework:generate-descriptors": "node ./scripts/framework/generate-package-descriptor.mjs --dry-run",
+    "framework:sync-descriptor-deps": "node ./scripts/framework/sync-descriptor-deps.mjs --dry-run",
+    "framework:check-descriptor-drift": "node ./scripts/framework/check-descriptor-drift.mjs"
   },
   "workspaces": [
     "apps/*",
