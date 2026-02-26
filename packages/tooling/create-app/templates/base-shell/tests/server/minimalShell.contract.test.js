@@ -23,12 +23,14 @@ const EXPECTED_DEV_DEPENDENCIES = Object.freeze([
 ]);
 
 const EXPECTED_TOP_LEVEL_ENTRIES = Object.freeze([
+  "Procfile",
   "README.md",
   "app.scripts.config.mjs",
   "bin",
   "eslint.config.mjs",
   "favicon.svg",
   "framework",
+  "gitignore",
   "index.html",
   "package.json",
   "server.js",

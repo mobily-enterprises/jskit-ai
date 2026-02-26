@@ -1,8 +1,16 @@
 {
   "name": "@jskit-ai/config-eslint",
   "version": "0.1.0",
-  "private": true,
+  "description": "Shared flat ESLint presets for JSKIT projects.",
   "type": "module",
+  "files": [
+    "base.js",
+    "index.js",
+    "node.js",
+    "web.js",
+    "vue.js",
+    "README.md"
+  ],
   "scripts": {
     "test": "node --test"
   },
@@ -13,12 +21,36 @@
     "./web": "./web.js",
     "./vue": "./vue.js"
   },
-  "peerDependencies": {
-    "eslint": "^9.39.1"
-  },
-  "devDependencies": {
+  "dependencies": {
     "@eslint/js": "^9.39.1",
     "eslint-plugin-vue": "^10.5.1",
     "globals": "^16.5.0"
+  },
+  "peerDependencies": {
+    "eslint": "^9.39.1"
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mobily-enterprises/jskit-ai.git",
+    "directory": "packages/tooling/config-eslint"
+  },
+  "bugs": {
+    "url": "https://github.com/mobily-enterprises/jskit-ai/issues"
+  },
+  "homepage": "https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/tooling/config-eslint#readme",
+  "keywords": [
+    "jskit",
+    "eslint",
+    "config",
+    "lint"
+  ],
+  "devDependencies": {
+    "eslint": "^9.39.1"
   }
 }

@@ -1,15 +1,42 @@
 {
   "name": "@jskit-ai/create-app",
   "version": "0.1.0",
-  "private": true,
+  "description": "Scaffold minimal JSKIT app shells.",
   "type": "module",
+  "files": [
+    "bin",
+    "src",
+    "templates",
+    "README.md"
+  ],
   "scripts": {
     "test": "node --test"
   },
   "bin": {
-    "jskit-create-app": "./bin/jskit-create-app.js"
+    "jskit-create-app": "bin/jskit-create-app.js"
   },
   "exports": {
     ".": "./src/index.js"
-  }
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mobily-enterprises/jskit-ai.git",
+    "directory": "packages/tooling/create-app"
+  },
+  "bugs": {
+    "url": "https://github.com/mobily-enterprises/jskit-ai/issues"
+  },
+  "homepage": "https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/tooling/create-app#readme",
+  "keywords": [
+    "jskit",
+    "scaffold",
+    "cli",
+    "starter"
+  ]
 }

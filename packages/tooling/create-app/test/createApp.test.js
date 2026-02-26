@@ -40,6 +40,9 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(readme, /npm run dev/);
     assert.doesNotMatch(readme, /-w apps/);
 
+    const gitignore = await readFile(path.join(appRoot, ".gitignore"), "utf8");
+    assert.match(gitignore, /node_modules\//);
+
     const indexHtml = await readFile(path.join(appRoot, "index.html"), "utf8");
     assert.match(indexHtml, /<title>Sample App<\/title>/);
     assert.match(indexHtml, /href="\/favicon\.svg"/);

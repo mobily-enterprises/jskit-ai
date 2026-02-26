@@ -244,6 +244,13 @@ function sortEntriesByName(entries) {
   return [...entries].sort((left, right) => left.name.localeCompare(right.name));
 }
 
+function mapTemplatePathToTargetPath(relativePath) {
+  const pathSegments = String(relativePath || "")
+    .split(path.sep)
+    .map((segment) => (segment === "gitignore" ? ".gitignore" : segment));
+  return pathSegments.join(path.sep);
+}
+
 async function writeTemplateFile(sourcePath, targetPath, replacements) {
   const sourceBody = await readFile(sourcePath, "utf8");
   const targetBody = applyPlaceholders(sourceBody, replacements);
@@ -264,8 +271,9 @@ async function copyTemplateDirectory({ templateDirectory, targetDirectory, repla
 
     for (const entry of sourceEntries) {
       const entryRelativePath = relativePath ? path.join(relativePath, entry.name) : entry.name;
+      const targetRelativePath = mapTemplatePathToTargetPath(entryRelativePath);
       const sourcePath = path.join(templateDirectory, entryRelativePath);
-      const targetPath = path.join(targetDirectory, entryRelativePath);
+      const targetPath = path.join(targetDirectory, targetRelativePath);
 
       if (entry.isDirectory()) {
         if (!dryRun) {
@@ -276,7 +284,7 @@ async function copyTemplateDirectory({ templateDirectory, targetDirectory, repla
       }
 
       if (entry.isFile()) {
-        touchedFiles.push(entryRelativePath);
+        touchedFiles.push(targetRelativePath);
         if (!dryRun) {
           await writeTemplateFile(sourcePath, targetPath, replacements);
         }
