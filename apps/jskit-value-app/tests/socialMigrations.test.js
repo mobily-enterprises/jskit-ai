@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 
-const socialMigration = require("../migration-baseline-steps/20260225100000_create_social_federation_tables.cjs");
+const socialMigration = require("../migrations/baseline-steps/20260225100000_create_social_federation_tables.cjs");
 
 function createSchemaStub() {
   const calls = [];

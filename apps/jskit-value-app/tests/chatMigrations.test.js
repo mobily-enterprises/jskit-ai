@@ -4,12 +4,12 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 
-const userSettingsAndBlocksMigration = require("../migration-baseline-steps/20260222190000_create_chat_user_settings_and_blocks.cjs");
-const threadsAndParticipantsMigration = require("../migration-baseline-steps/20260222190100_create_chat_threads_and_participants.cjs");
-const messagesAndAttachmentsMigration = require("../migration-baseline-steps/20260222190200_create_chat_messages_and_attachments.cjs");
-const tombstonesMigration = require("../migration-baseline-steps/20260222190300_create_chat_message_idempotency_tombstones.cjs");
-const reactionsMigration = require("../migration-baseline-steps/20260222190400_create_chat_reactions_and_indexes.cjs");
-const workspaceRoomUniquenessMigration = require("../migration-baseline-steps/20260223090000_enforce_unique_workspace_room_thread.cjs");
+const userSettingsAndBlocksMigration = require("../migrations/baseline-steps/20260222190000_create_chat_user_settings_and_blocks.cjs");
+const threadsAndParticipantsMigration = require("../migrations/baseline-steps/20260222190100_create_chat_threads_and_participants.cjs");
+const messagesAndAttachmentsMigration = require("../migrations/baseline-steps/20260222190200_create_chat_messages_and_attachments.cjs");
+const tombstonesMigration = require("../migrations/baseline-steps/20260222190300_create_chat_message_idempotency_tombstones.cjs");
+const reactionsMigration = require("../migrations/baseline-steps/20260222190400_create_chat_reactions_and_indexes.cjs");
+const workspaceRoomUniquenessMigration = require("../migrations/baseline-steps/20260223090000_enforce_unique_workspace_room_thread.cjs");
 
 function createSchemaStub() {
   const calls = [];

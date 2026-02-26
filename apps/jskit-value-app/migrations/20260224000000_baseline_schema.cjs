@@ -60,7 +60,7 @@ const BASELINE_STEP_FILES = Object.freeze([
 ]);
 
 function defaultLoadMigration(stepFile) {
-  return require(path.resolve(__dirname, "..", "migration-baseline-steps", stepFile));
+  return require(path.resolve(__dirname, "baseline-steps", stepFile));
 }
 
 function createBaselineRunner({
