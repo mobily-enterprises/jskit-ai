@@ -27,7 +27,6 @@ X Payments
 X User chats
 X CI policy gate: fail build when any `workspaceSurface: "admin"` route lacks `permission` (explicit allowlist for exceptions)
 
-DAY #1
 X Merge chats and permissions trees
 X Have "configs" in JSON files rather than .env for everything
 X have proper workspace chats
@@ -109,4 +108,39 @@ LATER LATER:
   DB session variables.
 
 
+[2]
+Good prompt:
+```
+Task:
+      Perform a strict code-review pass on code in the current "changes" (unstaged).
+ 
+      Required context first:
+      1) Read project standards/docs under:
+         - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/docs/
+      2) Prioritize architecture/runtime/workspace-surfaces/db-migrations/observability/release-checklist docs.
+      3) Treat docs as source of truth for conventions and boundaries.
+ 
+      What to check:
+      - Obvious bugs/regressions
+      - Security issues (auth/public routes, signature verification, SSRF, CSRF, unsafe defaults)
+      - Violations of architecture boundaries/module seams
+      - Workspace/surface policy mismatches
+      - Coding-standard or bad-practice issues
+      - Missing/weak tests for critical behavior
+      - Docs/code inconsistencies
+ 
+      Output format:
+      1) Findings first, ordered by severity: Critical, High, Medium, Low.
+      2) For each finding include:
+         - file path + line reference
+         - what is wrong
+         - why it is risky or violates standards/docs
+         - concrete fix recommendation
+      3) Then include:
+         - Open questions/assumptions
+         - Non-blocking cleanup suggestions
+      4) If nothing material is found, explicitly state:
+         - “No material issues found”
+         - residual risks/testing gaps
 
+```
