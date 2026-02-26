@@ -1,6 +1,6 @@
 ## Broken things
 
-None.
+None. Re-audited 2026-02-26; no currently open issues found in required scope.
 
 ## Fixed things
 
