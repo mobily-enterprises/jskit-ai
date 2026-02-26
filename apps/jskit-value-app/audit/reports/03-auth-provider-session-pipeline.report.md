@@ -1,28 +1,6 @@
 ## Broken things
 
-### [ISSUE-001] Unmapped auth-provider client errors are returned verbatim to API callers
-- Severity: P2
-- Confidence: high
-- Contract area: security
-- First seen: 2026-02-26
-- Last seen: 2026-02-26
-- Evidence:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/auth/lib/authErrorMappers.js:90
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/auth/lib/authErrorMappers.js:97
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/auth/lib/accountFlows.js:181
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/auth/lib/oauthFlows.js:187
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/RAILS.md:93
-- Why this is broken:
-  - `mapAuthError` forwards provider-supplied 4xx messages directly (`new AppError(status, message)`) when no explicit mapping matches. Multiple auth/session flows route provider errors through this mapper, so internal/provider messages can leak to API consumers, violating the project error-handling rail.
-- Suggested fix:
-  - Replace fallback message pass-through with a strict allowlist of safe user-facing messages and default to a generic error string for unmapped provider responses.
-- Suggested tests:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authService.test.js
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authServiceHelpersBranches.test.js
-- Related:
-  - None.
-
-### [ISSUE-002] Auth helper tests target app-local auth copies instead of the runtime-wired package seam
+### [03-ISSUE-002] Auth helper tests target app-local auth copies instead of the runtime-wired package seam
 - Severity: P3
 - Confidence: high
 - Contract area: tests
@@ -42,9 +20,28 @@
 - Suggested tests:
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authService.test.js
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authRequestScopedSupabaseClient.test.js
+- Status in this pass:
+  - No code changes were applied yet. The issue remains open and still needs a consolidation pass.
 - Related:
   - None.
 
 ## Fixed things
+
+### [03-ISSUE-001] Unmapped auth-provider client errors are returned verbatim to API callers
+- Fixed on: 2026-02-26
+- How fixed:
+  - Removed the fallback branch that echoed unmapped provider 4xx error messages and now return a generic safe message while preserving mapped statuses.
+  - Applied the same change to both the runtime auth-provider package mapper and the app-local mirror to keep behavior aligned.
+  - Updated `mapAuthError` fallback handling to stop returning provider/raw 4xx message strings and instead return `Authentication request could not be processed.` for unmapped 4xx errors.
+  - Code changes were applied in:
+    - `/home/merc/Development/current/jskit-ai/packages/auth/auth-provider-supabase-core/src/lib/authErrorMappers.js`
+    - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/auth/lib/authErrorMappers.js`
+- Validation:
+  - `npm test -- tests/authService.test.js` (pass, 19 passed / 0 failed)
+  - `npm test -- tests/authServiceHelpersBranches.test.js` (pass, 4 passed / 0 failed)
+  - `npm test -- tests/authPermissions.test.js` (pass, 13 passed / 0 failed)
+- Evidence:
+  - /home/merc/Development/current/jskit-ai/packages/auth/auth-provider-supabase-core/src/lib/authErrorMappers.js:97
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/auth/lib/authErrorMappers.js:97
 
 ## Won't fix things

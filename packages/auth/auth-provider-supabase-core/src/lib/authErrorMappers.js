@@ -94,8 +94,8 @@ function mapAuthError(error, fallbackStatus) {
   if (status === 401) {
     return new AppError(401, "Invalid email or password.");
   }
-  if (status >= 400 && status < 500 && message && message !== "Authentication failed.") {
-    return new AppError(status, message);
+  if (status >= 400 && status < 500) {
+    return new AppError(status, "Authentication request could not be processed.");
   }
 
   return new AppError(status, "Authentication request could not be processed.");
