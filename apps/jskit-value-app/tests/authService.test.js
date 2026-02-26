@@ -325,7 +325,7 @@ test("authService helpers cover validation, mapping, URL parsing, and jwt classi
   assert.equal(__testables.mapOAuthCallbackError("access_denied").status, 401);
   assert.equal(
     __testables.mapOAuthCallbackError("server_error", "bad gateway").message,
-    "OAuth sign-in failed: bad gateway"
+    "OAuth sign-in failed."
   );
   assert.equal(__testables.mapOAuthCallbackError("server_error").message, "OAuth sign-in failed.");
 

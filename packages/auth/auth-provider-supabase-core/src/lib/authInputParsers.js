@@ -184,18 +184,13 @@ function parseOtpLoginVerifyPayload(payload = {}) {
   };
 }
 
-function mapOAuthCallbackError(errorCode, errorDescription) {
+function mapOAuthCallbackError(errorCode) {
   const normalizedCode = String(errorCode || "")
     .trim()
     .toLowerCase();
 
   if (normalizedCode === "access_denied") {
     return new AppError(401, "OAuth sign-in was cancelled.");
-  }
-
-  const description = String(errorDescription || "").trim();
-  if (description) {
-    return new AppError(401, `OAuth sign-in failed: ${description}`);
   }
 
   return new AppError(401, "OAuth sign-in failed.");

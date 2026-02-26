@@ -182,7 +182,14 @@ test("oauth payload parsers cover token limits and mixed token/email branches", 
   assert.equal(cancelled.message.includes("cancelled"), true);
 
   const withDescription = mapOAuthCallbackError("server_error", "bad gateway");
-  assert.equal(withDescription.message, "OAuth sign-in failed: bad gateway");
+  assert.equal(withDescription.message, "OAuth sign-in failed.");
+
+  const withUntrustedDescription = mapOAuthCallbackError(
+    "server_error",
+    "<script>alert('provider detail')</script>"
+  );
+  assert.equal(withUntrustedDescription.message, "OAuth sign-in failed.");
+  assert.equal(withUntrustedDescription.message.includes("provider detail"), false);
 });
 
 test("auth-method status helpers cover non-array inputs and fallback lookups", () => {

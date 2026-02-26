@@ -1,32 +1,29 @@
 ## Broken things
 
+## Fixed things
+
 ### [03-ISSUE-003] OAuth callback error descriptions are echoed directly to API callers
-- Status: OPEN
-- Severity: P2
-- Confidence: high
-- Contract area: security
-- First seen: 2026-02-26
-- Last seen: 2026-02-26
+- Fixed on: 2026-02-26
+- How fixed:
+  - Removed callback-description echoing from OAuth callback error mapping and now always return stable client-safe messages.
+  - Kept `access_denied` mapped to `OAuth sign-in was cancelled.` and map all other callback failures to `OAuth sign-in failed.`.
+  - Applied the same mapper hardening to both the runtime package seam and the app-local mirror to prevent seam drift.
+  - Updated auth tests to assert the generic message path and added an explicit regression assertion that untrusted callback text is not reflected in returned messages.
+  - Code changes were applied in:
+    - `/home/merc/Development/current/jskit-ai/packages/auth/auth-provider-supabase-core/src/lib/authInputParsers.js`
+    - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/auth/lib/authInputParsers.js`
+    - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authService.test.js`
+    - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authServiceHelpersBranches.test.js`
+- Validation:
+  - `npm test -- tests/authService.test.js tests/authServiceHelpersBranches.test.js tests/oauthFlowsAndAuthMethods.test.js tests/authTestSeamContract.test.js` (pass, 30 passed / 0 failed)
 - Evidence:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/runtime/services.js:1
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/runtime/services.js:605
-  - /home/merc/Development/current/jskit-ai/packages/auth/auth-provider-supabase-core/src/lib/authInputParsers.js:198
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authServiceHelpersBranches.test.js:188
+  - /home/merc/Development/current/jskit-ai/packages/auth/auth-provider-supabase-core/src/lib/authInputParsers.js:187
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/auth/lib/authInputParsers.js:187
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authService.test.js:327
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authServiceHelpersBranches.test.js:187
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/docs/flows/14.error-handling.md:78
-- Why this is broken:
-  - `mapOAuthCallbackError` formats `OAuth sign-in failed: ${description}` from callback payload values. That returns provider-supplied or user-controlled `errorDescription` text directly in API error messages, which violates the safe error contract and can leak provider/internal details.
-- Suggested fix:
-  - Return a stable generic message for non-cancelled OAuth callback failures (for example `OAuth sign-in failed.`), and keep raw callback detail only in server-side telemetry/logging.
-- Suggested tests:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authService.test.js
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authServiceHelpersBranches.test.js
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/oauthFlowsAndAuthMethods.test.js
-- Status in this pass:
-  - No code changes were applied yet. The issue remains open.
 - Related:
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/03-auth-provider-session-pipeline.report.md [03-ISSUE-001]
-
-## Fixed things
 
 ### [03-ISSUE-002] Auth helper tests target app-local auth copies instead of the runtime-wired package seam
 - Fixed on: 2026-02-26
