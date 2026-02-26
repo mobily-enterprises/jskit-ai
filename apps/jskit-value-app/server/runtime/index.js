@@ -1,6 +1,5 @@
 import { createServerRuntimeWithPlatformBundle } from "@jskit-ai/platform-server-runtime";
-import { PLATFORM_RUNTIME_BUNDLE } from "./platformModuleManifest.js";
-import { APP_FEATURE_RUNTIME_BUNDLE } from "./appFeatureManifest.js";
+import { createComposedLegacyRuntimeBundles } from "../framework/composeRuntime.js";
 
 function createServerRuntime({
   runtimeEnv,
@@ -12,9 +11,11 @@ function createServerRuntime({
   supabasePublishableKey,
   observabilityRegistry
 }) {
+  const { platformBundle, appFeatureBundle } = createComposedLegacyRuntimeBundles();
+
   return createServerRuntimeWithPlatformBundle({
-    platformBundle: PLATFORM_RUNTIME_BUNDLE,
-    appFeatureBundle: APP_FEATURE_RUNTIME_BUNDLE,
+    platformBundle,
+    appFeatureBundle,
     dependencies: {
       env: runtimeEnv,
       repositoryConfig,

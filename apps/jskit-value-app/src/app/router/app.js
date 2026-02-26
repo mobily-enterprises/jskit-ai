@@ -1,17 +1,15 @@
 import AppShell from "../shells/app/AppShell.vue";
 import { createSurfaceRouter } from "./factory.js";
+import { composeSurfaceRouterOptions } from "../../framework/composeRouter.js";
 
 export function createAppRouter({ authStore, workspaceStore }) {
+  const surfaceOptions = composeSurfaceRouterOptions("app");
+
   return createSurfaceRouter({
     authStore,
     workspaceStore,
     surface: "app",
     shellComponent: AppShell,
-    includeWorkspaceSettings: false,
-    includeAssistantRoute: true,
-    includeChatRoute: true,
-    includeSocialRoute: true,
-    includeSocialModerationRoute: false,
-    includeChoiceTwoRoute: false
+    ...surfaceOptions
   });
 }
