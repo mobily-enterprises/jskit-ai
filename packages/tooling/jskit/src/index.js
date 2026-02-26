@@ -12,6 +12,7 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { createInterface } from "node:readline/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createCliError, normalizeRelativePath } from "./schemas/validationHelpers.mjs";
 import { ensureUniqueDescriptor } from "./schemas/descriptorRegistry.mjs";
@@ -37,6 +38,78 @@ function toSortedUniqueStrings(values) {
 
 function hashString(content) {
   return createHash("sha256").update(String(content || "")).digest("hex");
+}
+
+function createConflictError(conflictClass, message, issues = []) {
+  const detailLines = Array.isArray(issues) && issues.length > 0
+    ? `\n- ${issues.map((issue) => issue.message).join("\n- ")}`
+    : "";
+  return createCliError(`[${conflictClass}] ${message}${detailLines}`);
+}
+
+async function promptForRequiredOption({
+  packId,
+  optionName,
+  optionSchema,
+  stdin = process.stdin,
+  stdout = process.stdout
+}) {
+  if (!stdin?.isTTY || !stdout?.isTTY) {
+    const valuesSuffix = optionSchema.values.length > 0 ? ` (${optionSchema.values.join(" | ")})` : "";
+    throw createCliError(
+      `Pack ${packId} requires option ${optionName}. Non-interactive mode requires --${optionName} <value>${valuesSuffix}.`
+    );
+  }
+
+  const valuesHint = optionSchema.values.length > 0 ? ` (${optionSchema.values.join(" / ")})` : "";
+  const rl = createInterface({
+    input: stdin,
+    output: stdout
+  });
+
+  try {
+    const answer = String(await rl.question(`Select ${optionName} for pack ${packId}${valuesHint}: `)).trim();
+    if (!answer) {
+      throw createCliError(`Pack ${packId} requires option ${optionName}.`);
+    }
+    return answer;
+  } finally {
+    rl.close();
+  }
+}
+
+function getInstalledPackageDependents(lock, packageId, availablePackages, { excluding = new Set() } = {}) {
+  const dependents = [];
+
+  for (const installedPackageId of Object.keys(ensurePlainObjectRecord(lock.installedPackages))) {
+    if (installedPackageId === packageId || excluding.has(installedPackageId)) {
+      continue;
+    }
+
+    const installedPackageEntry = availablePackages.get(installedPackageId);
+    if (!installedPackageEntry) {
+      continue;
+    }
+
+    if (installedPackageEntry.descriptor.dependsOn.includes(packageId)) {
+      dependents.push(installedPackageId);
+    }
+  }
+
+  return dependents.sort((left, right) => left.localeCompare(right));
+}
+
+function getPackReferencesForPackage(lock, packageId) {
+  const referencedBy = [];
+
+  for (const [packId, state] of Object.entries(ensurePlainObjectRecord(lock.installedPacks))) {
+    const packageIds = Array.isArray(state?.packageIds) ? state.packageIds : [];
+    if (packageIds.includes(packageId)) {
+      referencedBy.push(packId);
+    }
+  }
+
+  return referencedBy.sort((left, right) => left.localeCompare(right));
 }
 
 
@@ -134,6 +207,9 @@ function printUsage(stream = process.stderr) {
   stream.write("  update <packId>           Re-apply one installed pack\n");
   stream.write("  update --all              Re-apply all installed packs\n");
   stream.write("  remove <packId>           Remove one installed pack\n");
+  stream.write("  add-package <packageId>   Add one package to current app\n");
+  stream.write("  update-package <packageId> Re-apply one installed package\n");
+  stream.write("  remove-package <packageId> Remove one installed package\n");
   stream.write("  doctor                    Validate lockfile + managed files\n");
   stream.write("\n");
   stream.write("Options:\n");
@@ -517,14 +593,28 @@ function buildPackageJsonMutationPlan({ packageJson, packageDescriptor, lock, pa
     managed[section.packageJsonKey] = {};
 
     for (const [name, desiredValue] of Object.entries(section.descriptorMap)) {
+      const desiredString = String(desiredValue);
+      const hasCurrentValue = Object.prototype.hasOwnProperty.call(currentSection, name);
+      const currentValue = hasCurrentValue ? String(currentSection[name]) : null;
+      const previousManaged = getManagedPackageJsonEntry(previousState, section.packageJsonKey, name);
+
+      if (previousManaged && currentValue !== String(previousManaged.value)) {
+        conflicts.push(
+          createIssue(
+            `Cannot set ${section.packageJsonKey}.${name}; value changed since install (expected ${previousManaged.value}, found ${currentValue ?? "<missing>"}).`
+          )
+        );
+        continue;
+      }
+
       const otherPackageManager = isKeyManagedByOtherPackage(
         lock,
         packageId,
         section.packageJsonKey,
         name,
-        String(desiredValue)
+        desiredString
       );
-      if (otherPackageManager && String(currentSection[name] ?? "") !== String(desiredValue)) {
+      if (otherPackageManager && currentValue !== desiredString) {
         conflicts.push(
           createIssue(
             `Cannot set ${section.packageJsonKey}.${name} to ${desiredValue}; managed by package ${otherPackageManager}.`
@@ -533,22 +623,19 @@ function buildPackageJsonMutationPlan({ packageJson, packageDescriptor, lock, pa
         continue;
       }
 
-      const previousManaged = getManagedPackageJsonEntry(previousState, section.packageJsonKey, name);
       const hadPrevious = previousManaged
         ? Boolean(previousManaged.hadPrevious)
-        : Object.prototype.hasOwnProperty.call(currentSection, name);
+        : otherPackageManager
+          ? false
+          : hasCurrentValue;
       const previousValue = previousManaged
         ? previousManaged.previousValue
         : hadPrevious
           ? String(currentSection[name])
           : "";
 
-      const currentValue = Object.prototype.hasOwnProperty.call(currentSection, name)
-        ? String(currentSection[name])
-        : null;
-
-      if (currentValue !== String(desiredValue)) {
-        currentSection[name] = String(desiredValue);
+      if (currentValue !== desiredString) {
+        currentSection[name] = desiredString;
         changed = true;
         if (section.packageJsonKey === "dependencies" || section.packageJsonKey === "devDependencies") {
           dependenciesTouched = true;
@@ -556,7 +643,7 @@ function buildPackageJsonMutationPlan({ packageJson, packageDescriptor, lock, pa
       }
 
       managed[section.packageJsonKey][name] = {
-        value: String(desiredValue),
+        value: desiredString,
         hadPrevious,
         previousValue: hadPrevious ? previousValue : ""
       };
@@ -597,11 +684,30 @@ function buildProcfileMutationPlan({ procfileSource, packageDescriptor, lock, pa
   let nextSource = String(procfileSource || "");
   let changed = false;
   const managed = {};
+  const conflicts = [];
 
   for (const [processType, command] of Object.entries(packageDescriptor.mutations.procfile)) {
     const existingCommand = findProcfileCommand(nextSource, processType);
     const previousManagedEntry = previousState?.managed?.procfile?.[processType] || null;
-    const hadPrevious = previousManagedEntry ? Boolean(previousManagedEntry.hadPrevious) : existingCommand !== null;
+    if (previousManagedEntry && existingCommand !== String(previousManagedEntry.value)) {
+      conflicts.push(
+        createIssue(
+          `Cannot set Procfile ${processType}; value changed since install (expected ${previousManagedEntry.value}, found ${existingCommand ?? "<missing>"}).`
+        )
+      );
+      continue;
+    }
+
+    const otherPackageManager = isManagedByOtherPackage(lock, packageId, (state) => {
+      const entry = state?.managed?.procfile?.[processType];
+      return Boolean(entry && String(entry.value) === String(command));
+    });
+
+    const hadPrevious = previousManagedEntry
+      ? Boolean(previousManagedEntry.hadPrevious)
+      : otherPackageManager
+        ? false
+        : existingCommand !== null;
     const previousValue = previousManagedEntry
       ? previousManagedEntry.previousValue
       : hadPrevious
@@ -623,7 +729,8 @@ function buildProcfileMutationPlan({ procfileSource, packageDescriptor, lock, pa
   return {
     source: nextSource,
     changed,
-    managed
+    managed,
+    conflicts
   };
 }
 
@@ -804,7 +911,13 @@ async function rollbackTransaction(transaction) {
   }
 }
 
-function resolvePackSelection({ packDescriptor, installedPackState, providedOptions }) {
+async function resolvePackSelection({
+  packDescriptor,
+  installedPackState,
+  providedOptions,
+  stdin,
+  stdout
+}) {
   const optionsSchema = ensurePlainObjectRecord(packDescriptor.options);
   const selectedOptions = {};
 
@@ -824,12 +937,15 @@ function resolvePackSelection({ packDescriptor, installedPackState, providedOpti
   }
 
   for (const [optionName, schema] of Object.entries(optionsSchema)) {
-    const value = String(selectedOptions[optionName] || "").trim();
+    let value = String(selectedOptions[optionName] || "").trim();
     if (!value && schema.required) {
-      const valuesSuffix = schema.values.length > 0 ? ` (${schema.values.join(" | ")})` : "";
-      throw createCliError(
-        `Pack ${packDescriptor.packId} requires option ${optionName}. Provide --${optionName} <value>${valuesSuffix}.`
-      );
+      value = await promptForRequiredOption({
+        packId: packDescriptor.packId,
+        optionName,
+        optionSchema: schema,
+        stdin,
+        stdout
+      });
     }
     if (value && schema.values.length > 0 && !schema.values.includes(value)) {
       throw createCliError(
@@ -876,12 +992,18 @@ function resolvePackageInstallOrder(rootPackageIds, availablePackages) {
       return;
     }
     if (visiting.has(packageId)) {
-      throw createCliError(`Package dependency cycle detected: ${[...lineage, packageId].join(" -> ")}`);
+      throw createConflictError(
+        "unresolved-dependency",
+        `Package dependency cycle detected: ${[...lineage, packageId].join(" -> ")}`
+      );
     }
 
     const packageEntry = availablePackages.get(packageId);
     if (!packageEntry) {
-      throw createCliError(`Unknown package in dependency graph: ${packageId}`);
+      throw createConflictError(
+        "unresolved-dependency",
+        `Unknown package in dependency graph: ${packageId}`
+      );
     }
 
     visiting.add(packageId);
@@ -949,8 +1071,10 @@ function getCapabilityIssues(lock, availablePackages) {
 function assertCapabilitiesSatisfied(lock, availablePackages, contextMessage) {
   const issues = getCapabilityIssues(lock, availablePackages);
   if (issues.length > 0) {
-    throw createCliError(
-      `${contextMessage} violates capability requirements:\n- ${issues.map((issue) => issue.message).join("\n- ")}`
+    throw createConflictError(
+      "capability-violation",
+      `${contextMessage} violates capability requirements.`,
+      issues
     );
   }
 }
@@ -992,9 +1116,28 @@ async function applyPackage({
     mode: filePlanMode
   });
 
-  const conflicts = [...packagePlan.conflicts, ...filesPlan.conflicts];
-  if (conflicts.length > 0) {
-    throw createCliError(`Package ${packageId} has conflicts:\n- ${conflicts.map((issue) => issue.message).join("\n- ")}`);
+  if (packagePlan.conflicts.length > 0) {
+    throw createConflictError(
+      "managed-script-drift",
+      `Package ${packageId} has package.json mutation conflicts.`,
+      packagePlan.conflicts
+    );
+  }
+
+  if (procfilePlan.conflicts.length > 0) {
+    throw createConflictError(
+      "managed-script-drift",
+      `Package ${packageId} has Procfile mutation conflicts.`,
+      procfilePlan.conflicts
+    );
+  }
+
+  if (filesPlan.conflicts.length > 0) {
+    throw createConflictError(
+      "managed-file-drift",
+      `Package ${packageId} has file mutation conflicts.`,
+      filesPlan.conflicts
+    );
   }
 
   const managedFiles = await applyFileMutationPlan({
@@ -1045,6 +1188,14 @@ async function applyPackage({
     procfileChanged: procfilePlan.changed,
     filesTouched: filesPlan.operations.map((operation) => operation.relativeTargetPath),
     dependenciesTouched: packagePlan.dependenciesTouched,
+    journal: {
+      packageId,
+      mode: filePlanMode,
+      packageJsonChanged: packagePlan.changed,
+      procfileChanged: procfilePlan.changed,
+      filesTouched: filesPlan.operations.map((operation) => operation.relativeTargetPath),
+      dependenciesTouched: packagePlan.dependenciesTouched
+    },
     nextPackageJson: packagePlan.packageJson,
     nextLock
   };
@@ -1093,6 +1244,10 @@ async function removeInstalledPackage({
       dryRun,
       removedFiles: [],
       issues: [createIssue(`Package ${packageId} was not installed.`)],
+      journal: {
+        packageId,
+        removedFiles: []
+      },
       nextLock: lock,
       nextPackageJson: packageJson
     };
@@ -1222,6 +1377,11 @@ async function removeInstalledPackage({
     dryRun,
     removedFiles: toSortedUniqueStrings(removedFiles),
     issues: [...packageConflicts, ...procfileConflicts, ...fileConflicts],
+    journal: {
+      packageId,
+      removedFiles: toSortedUniqueStrings(removedFiles),
+      issues: [...packageConflicts, ...procfileConflicts, ...fileConflicts]
+    },
     nextLock,
     nextPackageJson
   };
@@ -1324,6 +1484,28 @@ function formatResult(result, { json, stdout }) {
     return;
   }
 
+  if (result.command === "add-package" || result.command === "update-package") {
+    const label = result.command === "add-package" ? "Added" : "Updated";
+    stdout.write(`${label} package ${result.packageId}${result.dryRun ? " [dry-run]" : ""}.\n`);
+    if (result.packageIds.length > 0) {
+      stdout.write(`Applied packages (${result.packageIds.length}):\n`);
+      for (const appliedPackageId of result.packageIds) {
+        stdout.write(`- ${appliedPackageId}\n`);
+      }
+    }
+    if (result.filesTouched.length > 0) {
+      stdout.write(`Touched files (${result.filesTouched.length}):\n`);
+      for (const file of result.filesTouched) {
+        stdout.write(`- ${file}\n`);
+      }
+    }
+    if (result.npmInstallRan) {
+      stdout.write("Dependencies installed via npm install.\n");
+    }
+    stdout.write(`Lock file: ${result.lockPath}\n`);
+    return;
+  }
+
   if (result.command === "remove") {
     stdout.write(`Removed pack ${result.packId}${result.dryRun ? " [dry-run]" : ""}.\n`);
     if (result.removedPackages.length > 0) {
@@ -1353,6 +1535,18 @@ function formatResult(result, { json, stdout }) {
     return;
   }
 
+  if (result.command === "remove-package") {
+    stdout.write(`Removed package ${result.packageId}${result.dryRun ? " [dry-run]" : ""}.\n`);
+    if (result.removedFiles.length > 0) {
+      stdout.write(`Removed files (${result.removedFiles.length}):\n`);
+      for (const file of result.removedFiles) {
+        stdout.write(`- ${file}\n`);
+      }
+    }
+    stdout.write(`Lock file: ${result.lockPath}\n`);
+    return;
+  }
+
   if (result.command === "doctor") {
     if (result.ok) {
       stdout.write("OK: no lockfile or managed-file issues detected.\n");
@@ -1378,6 +1572,7 @@ async function applyPackOperation({
   dryRun,
   noInstall,
   packOptions,
+  stdin,
   stdout
 }) {
   const packId = pack.descriptor.packId;
@@ -1390,10 +1585,12 @@ async function applyPackOperation({
     throw createCliError(`Pack ${packId} is not installed. Use jskit add ${packId}.`);
   }
 
-  const selection = resolvePackSelection({
+  const selection = await resolvePackSelection({
     packDescriptor: pack.descriptor,
     installedPackState: existingState,
-    providedOptions: packOptions
+    providedOptions: packOptions,
+    stdin,
+    stdout
   });
 
   const packageIds = resolvePackageInstallOrder(selection.rootPackageIds, availablePackages);
@@ -1503,9 +1700,199 @@ async function applyPackOperation({
         ...packageResults.flatMap((entry) => entry.filesTouched)
       ]),
       npmInstallRan: dependenciesTouched && !noInstall && !dryRun,
+      journal: {
+        operation: mode,
+        packId,
+        packageApplyOrder: packageIds,
+        removedPackages: toSortedUniqueStrings(removedPackages),
+        packageOperations: packageResults.map((entry) => entry.journal)
+      },
       lockPath: LOCK_RELATIVE_PATH,
       nextPackageJson,
       nextLock: nextLockWithPack
+    };
+  } catch (error) {
+    await rollbackTransaction(transaction);
+    throw error;
+  }
+}
+
+function throwOnRemovalIssues(packageId, issues, contextMessage) {
+  if (!Array.isArray(issues) || issues.length === 0) {
+    return;
+  }
+
+  const hasFileConflict = issues.some((issue) => String(issue?.message || "").includes("file "));
+  throw createConflictError(
+    hasFileConflict ? "managed-file-drift" : "managed-script-drift",
+    `${contextMessage} for package ${packageId} has conflicts.`,
+    issues
+  );
+}
+
+async function applySinglePackageOperation({
+  mode,
+  appRoot,
+  packageId,
+  availablePackages,
+  lock,
+  lockPath,
+  packageJson,
+  packageJsonPath,
+  dryRun,
+  noInstall,
+  stdout
+}) {
+  const packageEntry = availablePackages.get(packageId);
+  if (!packageEntry) {
+    throw createConflictError("unresolved-dependency", `Unknown package: ${packageId}`);
+  }
+
+  const existingState = getInstalledPackageState(lock, packageId);
+  if (mode === "add" && existingState) {
+    throw createCliError(`Package ${packageId} is already installed. Use jskit update-package ${packageId}.`);
+  }
+  if (mode === "update" && !existingState) {
+    throw createCliError(`Package ${packageId} is not installed. Use jskit add-package ${packageId}.`);
+  }
+
+  const packageIds = resolvePackageInstallOrder([packageId], availablePackages);
+  const packageResults = [];
+  let nextLock = lock;
+  let nextPackageJson = packageJson;
+  const transaction = dryRun ? null : createTransaction(appRoot);
+
+  try {
+    for (const targetPackageId of packageIds) {
+      const targetEntry = availablePackages.get(targetPackageId);
+      if (!targetEntry) {
+        throw createConflictError("unresolved-dependency", `Unknown package in apply list: ${targetPackageId}`);
+      }
+
+      const applyResult = await applyPackage({
+        appRoot,
+        packageEntry: targetEntry,
+        lock: nextLock,
+        packageJson: nextPackageJson,
+        packageJsonPath,
+        dryRun,
+        transaction
+      });
+
+      packageResults.push(applyResult);
+      nextLock = applyResult.nextLock;
+      nextPackageJson = applyResult.nextPackageJson;
+    }
+
+    assertCapabilitiesSatisfied(nextLock, availablePackages, `Package ${packageId} ${mode}`);
+
+    const dependenciesTouched = packageResults.some((entry) => entry.dependenciesTouched);
+    if (!dryRun && dependenciesTouched && !noInstall) {
+      await runNpmInstall(appRoot, { stdout });
+    }
+
+    if (!dryRun) {
+      await writeJsonFileWithTransaction(transaction, lockPath, nextLock);
+    }
+
+    return {
+      packageId,
+      mode,
+      dryRun,
+      noInstall,
+      packageIds,
+      packageJsonChanged: packageResults.some((entry) => entry.packageJsonChanged),
+      procfileChanged: packageResults.some((entry) => entry.procfileChanged),
+      filesTouched: toSortedUniqueStrings(packageResults.flatMap((entry) => entry.filesTouched)),
+      npmInstallRan: dependenciesTouched && !noInstall && !dryRun,
+      journal: {
+        operation: mode,
+        packageId,
+        packageApplyOrder: packageIds,
+        packageOperations: packageResults.map((entry) => entry.journal)
+      },
+      lockPath: LOCK_RELATIVE_PATH,
+      nextPackageJson,
+      nextLock
+    };
+  } catch (error) {
+    await rollbackTransaction(transaction);
+    throw error;
+  }
+}
+
+async function removeSinglePackageOperation({
+  appRoot,
+  packageId,
+  availablePackages,
+  lock,
+  lockPath,
+  packageJson,
+  packageJsonPath,
+  dryRun
+}) {
+  const installedState = getInstalledPackageState(lock, packageId);
+  if (!installedState) {
+    throw createCliError(`Package ${packageId} is not installed.`);
+  }
+
+  const packReferences = getPackReferencesForPackage(lock, packageId);
+  if (packReferences.length > 0) {
+    throw createConflictError(
+      "unresolved-dependency",
+      `Cannot remove package ${packageId}; referenced by installed packs.`,
+      packReferences.map((packId) => createIssue(`Referenced by pack ${packId}.`))
+    );
+  }
+
+  const dependents = getInstalledPackageDependents(lock, packageId, availablePackages);
+  if (dependents.length > 0) {
+    throw createConflictError(
+      "unresolved-dependency",
+      `Cannot remove package ${packageId}; required by installed packages.`,
+      dependents.map((dependentId) => createIssue(`Required by package ${dependentId}.`))
+    );
+  }
+
+  const transaction = dryRun ? null : createTransaction(appRoot);
+  try {
+    const removalResult = await removeInstalledPackage({
+      appRoot,
+      packageId,
+      lock,
+      packageJson,
+      packageJsonPath,
+      dryRun,
+      transaction
+    });
+
+    throwOnRemovalIssues(packageId, removalResult.issues, "Removing package");
+    const nextLock = removalResult.nextLock;
+    assertCapabilitiesSatisfied(nextLock, availablePackages, `Removing package ${packageId}`);
+
+    if (!dryRun) {
+      const hasPacks = Object.keys(ensurePlainObjectRecord(nextLock.installedPacks)).length > 0;
+      const hasPackages = Object.keys(ensurePlainObjectRecord(nextLock.installedPackages)).length > 0;
+      if (hasPacks || hasPackages) {
+        await writeJsonFileWithTransaction(transaction, lockPath, nextLock);
+      } else if (await fileExists(lockPath)) {
+        await rmFileWithTransaction(transaction, lockPath);
+      }
+    }
+
+    return {
+      packageId,
+      dryRun,
+      removedPackages: [packageId],
+      removedFiles: removalResult.removedFiles,
+      journal: {
+        operation: "remove",
+        packageId,
+        removedFiles: removalResult.removedFiles,
+        packageOperations: [removalResult.journal]
+      },
+      lockPath: LOCK_RELATIVE_PATH,
+      nextLock
     };
   } catch (error) {
     await rollbackTransaction(transaction);
@@ -1517,6 +1904,7 @@ export async function runCli(
   argv,
   {
     cwd = process.cwd(),
+    stdin = process.stdin,
     stdout = process.stdout,
     stderr = process.stderr
   } = {}
@@ -1545,8 +1933,14 @@ export async function runCli(
       return 0;
     }
 
-    if (Object.keys(parsed.options.packOptions).length > 0 && parsed.command !== "add" && parsed.command !== "update") {
-      throw createCliError(`Pack options are supported only for jskit add/update.`, {
+    if (
+      Object.keys(parsed.options.packOptions).length > 0 &&
+      parsed.command !== "add" &&
+      parsed.command !== "update" &&
+      parsed.command !== "add-package" &&
+      parsed.command !== "update-package"
+    ) {
+      throw createCliError(`Inline options are supported only for add/update and add-package/update-package.`, {
         showUsage: true
       });
     }
@@ -1607,9 +2001,78 @@ export async function runCli(
         dryRun: parsed.options.dryRun,
         noInstall: parsed.options.noInstall,
         packOptions: parsed.options.packOptions,
+        stdin,
         stdout
       });
       result.command = "add";
+
+      formatResult(result, {
+        json: parsed.options.json,
+        stdout
+      });
+      return 0;
+    }
+
+    if (parsed.command === "add-package") {
+      if (parsed.positional.length !== 1) {
+        throw createCliError("jskit add-package requires exactly one <packageId>.", {
+          showUsage: true
+        });
+      }
+      if (Object.keys(parsed.options.packOptions).length > 0) {
+        throw createCliError(
+          "Package options are not yet supported for add-package in the current descriptor contract."
+        );
+      }
+
+      result = await applySinglePackageOperation({
+        mode: "add",
+        appRoot,
+        packageId: parsed.positional[0],
+        availablePackages,
+        lock,
+        lockPath,
+        packageJson,
+        packageJsonPath,
+        dryRun: parsed.options.dryRun,
+        noInstall: parsed.options.noInstall,
+        stdout
+      });
+      result.command = "add-package";
+
+      formatResult(result, {
+        json: parsed.options.json,
+        stdout
+      });
+      return 0;
+    }
+
+    if (parsed.command === "update-package") {
+      if (parsed.positional.length !== 1) {
+        throw createCliError("jskit update-package requires exactly one <packageId>.", {
+          showUsage: true
+        });
+      }
+      if (Object.keys(parsed.options.packOptions).length > 0) {
+        throw createCliError(
+          "Package options are not yet supported for update-package in the current descriptor contract."
+        );
+      }
+
+      result = await applySinglePackageOperation({
+        mode: "update",
+        appRoot,
+        packageId: parsed.positional[0],
+        availablePackages,
+        lock,
+        lockPath,
+        packageJson,
+        packageJsonPath,
+        dryRun: parsed.options.dryRun,
+        noInstall: parsed.options.noInstall,
+        stdout
+      });
+      result.command = "update-package";
 
       formatResult(result, {
         json: parsed.options.json,
@@ -1666,6 +2129,7 @@ export async function runCli(
           dryRun: parsed.options.dryRun,
           noInstall: parsed.options.noInstall,
           packOptions: parsed.options.all ? {} : parsed.options.packOptions,
+          stdin,
           stdout
         });
 
@@ -1682,8 +2146,13 @@ export async function runCli(
           removedPackages: entry.removedPackages,
           filesTouched: entry.filesTouched,
           npmInstallRan: entry.npmInstallRan,
-          dryRun: entry.dryRun
-        }))
+          dryRun: entry.dryRun,
+          journal: entry.journal
+        })),
+        journal: {
+          operation: "update-packs",
+          packs: results.map((entry) => entry.journal)
+        }
       };
 
       if (parsed.options.json) {
@@ -1725,7 +2194,6 @@ export async function runCli(
       const removedPackages = [];
       const skippedSharedPackages = [];
       const removedFiles = [];
-      const issues = [];
 
       let nextLock = JSON.parse(JSON.stringify(lock));
       let nextPackageJson = packageJson;
@@ -1751,7 +2219,7 @@ export async function runCli(
 
           removedPackages.push(packageId);
           removedFiles.push(...removalResult.removedFiles);
-          issues.push(...removalResult.issues);
+          throwOnRemovalIssues(packageId, removalResult.issues, `Removing pack ${packId}`);
           nextLock = removalResult.nextLock;
           nextPackageJson = removalResult.nextPackageJson;
         }
@@ -1781,10 +2249,42 @@ export async function runCli(
         removedPackages: toSortedUniqueStrings(removedPackages),
         skippedSharedPackages: toSortedUniqueStrings(skippedSharedPackages),
         removedFiles: toSortedUniqueStrings(removedFiles),
-        issues,
+        issues: [],
+        journal: {
+          operation: "remove-pack",
+          packId,
+          removedPackages: toSortedUniqueStrings(removedPackages),
+          removedFiles: toSortedUniqueStrings(removedFiles)
+        },
         lockPath: LOCK_RELATIVE_PATH,
         nextLock
       };
+
+      formatResult(result, {
+        json: parsed.options.json,
+        stdout
+      });
+      return 0;
+    }
+
+    if (parsed.command === "remove-package") {
+      if (parsed.positional.length !== 1) {
+        throw createCliError("jskit remove-package requires exactly one <packageId>.", {
+          showUsage: true
+        });
+      }
+
+      result = await removeSinglePackageOperation({
+        appRoot,
+        packageId: parsed.positional[0],
+        availablePackages,
+        lock,
+        lockPath,
+        packageJson,
+        packageJsonPath,
+        dryRun: parsed.options.dryRun
+      });
+      result.command = "remove-package";
 
       formatResult(result, {
         json: parsed.options.json,
