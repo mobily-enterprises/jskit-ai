@@ -7,10 +7,9 @@ import { fileURLToPath } from "node:url";
 const FRAMEWORK_TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(FRAMEWORK_TEST_DIR, "../..");
 const FIXTURE_DIR = path.resolve(FRAMEWORK_TEST_DIR, "fixtures/extensions");
-const CLI_PATH = path.resolve(APP_ROOT, "bin/frameworkExtensionsValidate.js");
 
 test("frameworkExtensionsValidate CLI succeeds for compatible extension modules", () => {
-  const result = spawnSync("node", [CLI_PATH, "--module", path.join(FIXTURE_DIR, "sampleExtension.js")], {
+  const result = spawnSync("npm", ["run", "framework:extensions:validate", "--", "--module", path.join(FIXTURE_DIR, "sampleExtension.js")], {
     cwd: APP_ROOT,
     encoding: "utf8"
   });
@@ -21,10 +20,14 @@ test("frameworkExtensionsValidate CLI succeeds for compatible extension modules"
 });
 
 test("frameworkExtensionsValidate CLI reports strict dependency failures", () => {
-  const result = spawnSync("node", [CLI_PATH, "--module", path.join(FIXTURE_DIR, "brokenDependencyExtension.js")], {
-    cwd: APP_ROOT,
-    encoding: "utf8"
-  });
+  const result = spawnSync(
+    "npm",
+    ["run", "framework:extensions:validate", "--", "--module", path.join(FIXTURE_DIR, "brokenDependencyExtension.js")],
+    {
+      cwd: APP_ROOT,
+      encoding: "utf8"
+    }
+  );
 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /framework extensions validate: failed/);
@@ -32,7 +35,7 @@ test("frameworkExtensionsValidate CLI reports strict dependency failures", () =>
 });
 
 test("frameworkExtensionsValidate CLI requires extension module paths", () => {
-  const result = spawnSync("node", [CLI_PATH], {
+  const result = spawnSync("npm", ["run", "framework:extensions:validate"], {
     cwd: APP_ROOT,
     encoding: "utf8"
   });

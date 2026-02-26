@@ -9,6 +9,7 @@ import { runProcessEnvGuardrail, createViolationReport } from "../src/guardrails
 import { runApiContractsGuardrail } from "../src/guardrails/apiContracts.js";
 import { runElementEjectCommand } from "../src/commands/elementEject.js";
 import { runElementDiffCommand } from "../src/commands/elementDiff.js";
+import { RUNTIME_BUILTIN_IDS, runRuntimeBuiltinTask } from "../src/runtimeCommands.js";
 
 function shellQuote(value) {
   const raw = String(value ?? "");
@@ -127,7 +128,8 @@ function resolveGuardrailsConfig(config) {
 }
 
 async function runBuiltinTask({ builtinTaskId, task, extraArgs, appRoot, config }) {
-  const builtinAllowsExtraArgs = builtinTaskId === "elements:eject" || builtinTaskId === "elements:diff";
+  const builtinAllowsExtraArgs =
+    builtinTaskId === "elements:eject" || builtinTaskId === "elements:diff" || RUNTIME_BUILTIN_IDS.has(builtinTaskId);
   if (!builtinAllowsExtraArgs && extraArgs.length > 0) {
     throw createCliError(`Task "${task}" does not accept extra arguments.`, {
       showUsage: false
@@ -215,6 +217,16 @@ async function runBuiltinTask({ builtinTaskId, task, extraArgs, appRoot, config 
       });
     }
 
+    return;
+  }
+
+  if (RUNTIME_BUILTIN_IDS.has(builtinTaskId)) {
+    await runRuntimeBuiltinTask({
+      builtinTaskId,
+      appRoot,
+      config,
+      extraArgs
+    });
     return;
   }
 

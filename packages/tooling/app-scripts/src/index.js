@@ -109,9 +109,21 @@ function createNodeVueFastifyScriptsConfig(options = {}) {
     ...options
   };
   config.guardrails = normalizeGuardrailsConfig(options.guardrails);
+  config.runtime = {
+    frameworkDependencyCheckModulePath: "server/framework/dependencyCheck.js",
+    frameworkExtensionsValidationModulePath: "server/framework/extensionsValidation.js",
+    repositoryConfigModulePath: "config/index.js",
+    workerRuntimeModulePath: "server/workers/runtime.js",
+    workerQueueModulePath: "server/workers/index.js",
+    workerEnqueueCliModulePath: "server/workers/enqueueRetentionSweepCli.js",
+    runtimeRepositoryDefinitionsModulePath: "server/runtime/repositories.js",
+    dbModulePath: "db/knex.js",
+    ...(isPlainObject(options.runtime) ? options.runtime : {})
+  };
 
   return {
     guardrails: config.guardrails,
+    runtime: config.runtime,
     tasks: {
       server: {
         command: "node",
@@ -122,16 +134,13 @@ function createNodeVueFastifyScriptsConfig(options = {}) {
         args: [config.serverEntry]
       },
       worker: {
-        command: "node",
-        args: [config.workerEntry]
+        builtin: "runtime:worker"
       },
       "worker:retention:enqueue": {
-        command: "node",
-        args: [config.retentionEnqueueEntry]
+        builtin: "runtime:worker:retention:enqueue"
       },
       "worker:retention:enqueue:dry-run": {
-        command: "node",
-        args: [config.retentionEnqueueEntry, "--dry-run"]
+        builtin: "runtime:worker:retention:enqueue:dry-run"
       },
       dev: {
         command: "vite",
@@ -289,12 +298,16 @@ function createNodeVueFastifyScriptsConfig(options = {}) {
         builtin: "elements:diff"
       },
       "ops:retention": {
-        command: "node",
-        args: [config.retentionSweepEntry]
+        builtin: "runtime:ops:retention"
       },
       "ops:retention:dry-run": {
-        command: "node",
-        args: [config.retentionSweepEntry, "--dry-run"]
+        builtin: "runtime:ops:retention:dry-run"
+      },
+      "framework:deps:check": {
+        builtin: "framework:deps:check"
+      },
+      "framework:extensions:validate": {
+        builtin: "framework:extensions:validate"
       }
     }
   };
