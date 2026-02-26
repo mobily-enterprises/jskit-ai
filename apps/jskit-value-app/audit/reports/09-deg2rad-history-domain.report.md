@@ -43,6 +43,27 @@
 - Related:
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/07-action-catalog-governance-drift.report.md [07-ISSUE-003]
 
+### [09-ISSUE-003] Domain realtime test fixtures mask production DEG2RAD/history contracts
+- Status: OPEN
+- Severity: P2
+- Confidence: high
+- Contract area: tests
+- First seen: 2026-02-26
+- Last seen: 2026-02-26
+- Evidence:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/realtimeActionContributorPublish.test.js:119
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/realtimeActionContributorPublish.test.js:133
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/realtimeActionContributorPublish.test.js:187
+- Why this is broken:
+  - The DEG2RAD realtime contributor test uses a custom `deg2radService` that accepts `{ degrees }` and a numeric history ID (`55`). This diverges from production contracts (`DEG2RAD_*` payload + UUID history IDs), so it cannot detect the current assistant input mismatch or UUID metadata loss.
+- Suggested fix:
+  - Align test fixtures to production contracts (real deg2rad service shape and UUID history IDs), or add explicit contract tests that assert assistant input mapping + UUID-preserving realtime payload behavior.
+- Suggested tests:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/realtimeActionContributorPublish.test.js
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/actionRegistry.test.js
+- Related:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/07-action-catalog-governance-drift.report.md [07-ISSUE-003]
+
 ## Fixed things
 
 ## Won't fix things
