@@ -7,9 +7,7 @@ function createRuntimeActionRegistry({ contributors, services, logger = console 
   return createActionRegistry({
     contributors,
     permissionEvaluator: createPermissionEvaluator(),
-    idempotencyAdapter: createActionIdempotencyAdapter({
-      billingIdempotencyService: services?.billingIdempotencyService
-    }),
+    idempotencyAdapter: createActionIdempotencyAdapter(),
     auditAdapter: createActionAuditAdapter({
       auditService: services?.auditService,
       logger

@@ -19,7 +19,7 @@ function isActivityPubInboxPath(pathnameValue) {
 async function activityPubRawBodyPlugin(fastify, options = {}) {
   const maxPayloadBytes = Math.max(1024, Number(options.maxPayloadBytes || 1_000_000) || 1_000_000);
 
-  if (!Object.hasOwn(fastify, "rawBody")) {
+  if (!fastify.hasRequestDecorator("rawBody")) {
     fastify.decorateRequest("rawBody", null);
   }
 
