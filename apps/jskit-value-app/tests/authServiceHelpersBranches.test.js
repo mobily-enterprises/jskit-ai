@@ -2,28 +2,24 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { mapAuthError } from "../server/modules/auth/lib/authErrorMappers.js";
 import {
+  mapAuthError,
   buildOtpLoginRedirectUrl,
   normalizeOAuthIntent,
   normalizeReturnToPath,
   buildOAuthRedirectUrl,
   buildOAuthLoginRedirectUrl,
-  buildOAuthLinkRedirectUrl
-} from "../server/modules/auth/lib/authRedirectUrls.js";
-import {
+  buildOAuthLinkRedirectUrl,
   normalizeOAuthProviderInput,
   parseOAuthCompletePayload,
   parseOtpLoginVerifyPayload,
-  mapOAuthCallbackError
-} from "../server/modules/auth/lib/authInputParsers.js";
-import {
+  mapOAuthCallbackError,
   buildAuthMethodsStatusFromProviderIds,
   collectProviderIdsFromSupabaseUser,
   findAuthMethodById,
   findLinkedIdentityByProvider,
   buildSecurityStatusFromAuthMethodsStatus
-} from "../server/modules/auth/lib/authMethodStatus.js";
+} from "@jskit-ai/auth-provider-supabase-core/test-utils";
 import {
   AUTH_ACCESS_TOKEN_MAX_LENGTH,
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,

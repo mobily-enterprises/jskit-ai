@@ -1,31 +1,5 @@
 ## Broken things
 
-### [03-ISSUE-002] Auth helper tests target app-local auth copies instead of the runtime-wired package seam
-- Status: OPEN
-- Severity: P3
-- Confidence: high
-- Contract area: tests
-- First seen: 2026-02-26
-- Last seen: 2026-02-26
-- Evidence:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/runtime/services.js:1
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/runtime/services.js:605
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/auth/service.js:1
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authRequestScopedSupabaseClient.test.js:5
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/oauthFlowsAndAuthMethods.test.js:5
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authServiceHelpersBranches.test.js:5
-- Why this is broken:
-  - Runtime auth/session composition is wired to `@jskit-ai/auth-provider-supabase-core`, while several auth helper tests execute app-local duplicate implementations under `server/modules/auth/lib`. This creates drift risk where local helper tests can pass while runtime package behavior changes independently.
-- Suggested fix:
-  - Consolidate to one implementation seam: either remove app-local auth helper copies or move helper tests to target the package seam used by runtime composition.
-- Suggested tests:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authService.test.js
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authRequestScopedSupabaseClient.test.js
-- Status in this pass:
-  - No code changes were applied yet. The issue remains open and still needs a consolidation pass.
-- Related:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/04-workspace-surface-policy-core.report.md [04-ISSUE-002]
-
 ### [03-ISSUE-003] OAuth callback error descriptions are echoed directly to API callers
 - Status: OPEN
 - Severity: P2
@@ -53,6 +27,31 @@
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/03-auth-provider-session-pipeline.report.md [03-ISSUE-001]
 
 ## Fixed things
+
+### [03-ISSUE-002] Auth helper tests target app-local auth copies instead of the runtime-wired package seam
+- Fixed on: 2026-02-26
+- How fixed:
+  - Added a dedicated auth package test seam export at `@jskit-ai/auth-provider-supabase-core/test-utils` and mapped it in package exports.
+  - Repointed auth helper tests to import from the package seam instead of `../server/modules/auth/lib/*` app-local copies.
+  - Added a guardrail test that fails if these auth tests reintroduce app-local auth-lib imports.
+  - Code changes were applied in:
+    - `/home/merc/Development/current/jskit-ai/packages/auth/auth-provider-supabase-core/package.json`
+    - `/home/merc/Development/current/jskit-ai/packages/auth/auth-provider-supabase-core/src/test-utils.js`
+    - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authRequestScopedSupabaseClient.test.js`
+    - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/oauthFlowsAndAuthMethods.test.js`
+    - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authServiceHelpersBranches.test.js`
+    - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authTestSeamContract.test.js`
+- Validation:
+  - `npm test -- tests/authTestSeamContract.test.js tests/authRequestScopedSupabaseClient.test.js tests/oauthFlowsAndAuthMethods.test.js tests/authServiceHelpersBranches.test.js tests/authService.test.js` (pass, 34 passed / 0 failed)
+- Evidence:
+  - /home/merc/Development/current/jskit-ai/packages/auth/auth-provider-supabase-core/package.json:12
+  - /home/merc/Development/current/jskit-ai/packages/auth/auth-provider-supabase-core/src/test-utils.js:1
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authRequestScopedSupabaseClient.test.js:8
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/oauthFlowsAndAuthMethods.test.js:5
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authServiceHelpersBranches.test.js:22
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authTestSeamContract.test.js:13
+- Related:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/04-workspace-surface-policy-core.report.md [04-ISSUE-002]
 
 ### [03-ISSUE-001] Unmapped auth-provider client errors are returned verbatim to API callers
 - Fixed on: 2026-02-26

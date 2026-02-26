@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { createAccountFlows } from "../server/modules/auth/lib/accountFlows.js";
-import { createPasswordSecurityFlows } from "../server/modules/auth/lib/passwordSecurityFlows.js";
+import {
+  createAccountFlows,
+  createPasswordSecurityFlows
+} from "@jskit-ai/auth-provider-supabase-core/test-utils";
 
 function createValidationError(fieldErrors) {
   return new AppError(400, "Validation failed.", {

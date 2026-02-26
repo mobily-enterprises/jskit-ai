@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { createOauthFlows } from "../server/modules/auth/lib/oauthFlows.js";
+import { createOauthFlows } from "@jskit-ai/auth-provider-supabase-core/test-utils";
 import {
   AUTH_METHOD_DEFINITIONS,
   AUTH_METHOD_EMAIL_OTP_ID,

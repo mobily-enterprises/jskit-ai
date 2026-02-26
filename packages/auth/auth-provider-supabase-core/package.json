@@ -8,7 +8,8 @@
   },
   "exports": {
     ".": "./src/index.js",
-    "./service": "./src/service.js"
+    "./service": "./src/service.js",
+    "./test-utils": "./src/test-utils.js"
   },
   "dependencies": {
     "@jskit-ai/access-core": "0.1.0",
