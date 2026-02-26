@@ -1,6 +1,7 @@
 ## Broken things
 
 ### [07-ISSUE-001] `actions_map.md` still documents deprecated assistant action ID
+- Status: OPEN
 - Severity: P2
 - Confidence: high
 - Contract area: docs
@@ -21,6 +22,7 @@
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/actionCatalogGovernance.test.js
 
 ### [07-ISSUE-002] `ACTION_IDS` includes an ID that is not executable in runtime
+- Status: OPEN
 - Severity: P2
 - Confidence: high
 - Contract area: action-runtime
@@ -42,6 +44,7 @@
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/actionCatalogGovernance.test.js
 
 ### [07-ISSUE-003] No exhaustive parity test guards catalog synchronization
+- Status: OPEN
 - Severity: P2
 - Confidence: high
 - Contract area: tests

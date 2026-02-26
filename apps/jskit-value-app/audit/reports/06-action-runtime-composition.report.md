@@ -1,6 +1,7 @@
 ## Broken things
 
 ### [06-ISSUE-001] Assistant-tool arguments can override workspace/user context and cross tenant boundaries
+- Status: OPEN
 - Severity: P0
 - Confidence: high
 - Contract area: tenancy
@@ -25,6 +26,7 @@
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/assistantToolContextIntegrity.test.js
 
 ### [06-ISSUE-002] Billing idempotency adapter remains noop even when billing idempotency service is available
+- Status: OPEN
 - Severity: P1
 - Confidence: high
 - Contract area: action-runtime
@@ -49,6 +51,7 @@
     - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/runtime/actions/createActionRegistry.js
 
 ### [06-ISSUE-003] Action-runtime docs drift from mounted contributor composition
+- Status: OPEN
 - Severity: P3
 - Confidence: high
 - Contract area: docs

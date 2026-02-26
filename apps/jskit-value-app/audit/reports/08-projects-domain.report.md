@@ -1,6 +1,7 @@
 ## Broken things
 
-### [ISSUE-001] Projects actions trust caller-supplied workspace/user over execution context
+### [08-ISSUE-001] Projects actions trust caller-supplied workspace/user over execution context
+- Status: OPEN
 - Severity: P0
 - Confidence: high
 - Contract area: tenancy
@@ -23,7 +24,8 @@
 - Related:
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/06-action-runtime-composition.report.md [06-ISSUE-001]
 
-### [ISSUE-002] Projects assistant-tool schemas drift from the projects service contract
+### [08-ISSUE-002] Projects assistant-tool schemas drift from the projects service contract
+- Status: OPEN
 - Severity: P1
 - Confidence: high
 - Contract area: action-runtime
@@ -49,7 +51,8 @@
 - Related:
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/09-deg2rad-history-domain.report.md [09-ISSUE-001]
 
-### [ISSUE-003] Projects detail/edit view route parsing can throw on malformed encoded IDs
+### [08-ISSUE-003] Projects detail/edit view route parsing can throw on malformed encoded IDs
+- Status: OPEN
 - Severity: P2
 - Confidence: high
 - Contract area: security
@@ -67,7 +70,8 @@
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/projectsView.vitest.js
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/projectsEditView.vitest.js
 
-### [ISSUE-004] Projects mutating actions publish realtime events without enforcing correlation headers
+### [08-ISSUE-004] Projects mutating actions publish realtime events without enforcing correlation headers
+- Status: OPEN
 - Severity: P2
 - Confidence: high
 - Contract area: realtime
