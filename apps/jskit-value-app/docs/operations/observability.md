@@ -53,7 +53,7 @@ Billing guardrails:
 
 Notes:
 
-- `route` uses Fastify route templates (for example, `/api/v1/workspace/invites/:inviteId`) to avoid high cardinality.
+- `route` uses Fastify route templates (for example, `/api/v1/admin/workspace/invites/:inviteId`) to avoid high cardinality.
 - Do not add user identifiers or request IDs to labels.
 
 Social/federation operational usage:

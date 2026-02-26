@@ -626,12 +626,12 @@ describe("client api transport", () => {
     expect(urls).toContain("/api/v1/workspaces/select");
     expect(urls).toContain("/api/v1/workspace/invitations/pending");
     expect(urls).toContain("/api/v1/workspace/invitations/redeem");
-    expect(urls).toContain("/api/v1/workspace/settings");
-    expect(urls).toContain("/api/v1/workspace/roles");
-    expect(urls).toContain("/api/v1/workspace/members");
-    expect(urls).toContain("/api/v1/workspace/members/user%2Fid/role");
-    expect(urls).toContain("/api/v1/workspace/invites");
-    expect(urls).toContain("/api/v1/workspace/invites/invite%20id%2F2");
+    expect(urls).toContain("/api/v1/admin/workspace/settings");
+    expect(urls).toContain("/api/v1/admin/workspace/roles");
+    expect(urls).toContain("/api/v1/admin/workspace/members");
+    expect(urls).toContain("/api/v1/admin/workspace/members/user%2Fid/role");
+    expect(urls).toContain("/api/v1/admin/workspace/invites");
+    expect(urls).toContain("/api/v1/admin/workspace/invites/invite%20id%2F2");
     expect(urls).toContain("/api/v1/console/errors/browser?page=3&pageSize=25");
     expect(urls).toContain("/api/v1/console/errors/browser/101");
     expect(urls).toContain("/api/v1/console/errors/server?page=4&pageSize=20");
@@ -778,7 +778,7 @@ describe("client api transport", () => {
         reaction: "thumbs_up"
       }
     });
-    await __testables.request("/api/v1/workspace/roles", {
+    await __testables.request("/api/v1/admin/workspace/roles", {
       method: "GET"
     });
 
@@ -834,7 +834,7 @@ describe("client api transport", () => {
       })
     );
 
-    await __testables.request("/api/v1/workspace/settings", {
+    await __testables.request("/api/v1/admin/workspace/settings", {
       method: "PATCH",
       headers: {
         "csrf-token": "provided-token"
@@ -843,7 +843,7 @@ describe("client api transport", () => {
         name: "Acme Prime"
       }
     });
-    await __testables.request("/api/v1/workspace/members/19/role", {
+    await __testables.request("/api/v1/admin/workspace/members/19/role", {
       method: "PATCH",
       headers: {
         "csrf-token": "provided-token"
@@ -852,7 +852,7 @@ describe("client api transport", () => {
         roleId: "admin"
       }
     });
-    await __testables.request("/api/v1/workspace/invites", {
+    await __testables.request("/api/v1/admin/workspace/invites", {
       method: "POST",
       headers: {
         "csrf-token": "provided-token"
@@ -861,13 +861,13 @@ describe("client api transport", () => {
         email: "invitee@example.com"
       }
     });
-    await __testables.request("/api/v1/workspace/invites/42", {
+    await __testables.request("/api/v1/admin/workspace/invites/42", {
       method: "DELETE",
       headers: {
         "csrf-token": "provided-token"
       }
     });
-    await __testables.request("/api/v1/workspace/roles", {
+    await __testables.request("/api/v1/admin/workspace/roles", {
       method: "GET"
     });
 
@@ -1150,8 +1150,8 @@ describe("client api transport", () => {
 
     const urls = global.fetch.mock.calls.map(([url]) => url);
     expect(urls).toContain("/api/v1/workspace/invitations/redeem");
-    expect(urls).toContain("/api/v1/workspace/members//role");
-    expect(urls).toContain("/api/v1/workspace/invites/");
+    expect(urls).toContain("/api/v1/admin/workspace/members//role");
+    expect(urls).toContain("/api/v1/admin/workspace/invites/");
     expect(urls).toContain("/api/v1/workspace/projects?page=1&pageSize=10");
     expect(urls).toContain("/api/v1/workspace/projects/");
     expect(urls).toContain("/api/v1/settings/security/oauth/");

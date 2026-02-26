@@ -83,6 +83,7 @@ test("surface path helpers normalize paths and resolve surface by prefix", () =>
   assert.equal(resolveSurfaceFromPathname("/w/acme"), "app");
   assert.equal(resolveSurfaceFromPathname("/api/v1/console/members"), "console");
   assert.equal(resolveSurfaceFromPathname("/api/v1/admin/w/acme"), "admin");
+  assert.equal(resolveSurfaceFromPathname("/api/v1/admin/workspace/settings"), "admin");
   assert.equal(resolveSurfaceFromPathname("/api/v1/settings"), "app");
   assert.equal(resolveSurfacePrefix("admin"), "/admin");
   assert.equal(resolveSurfacePrefix("app"), "");

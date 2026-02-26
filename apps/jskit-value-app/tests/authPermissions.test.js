@@ -567,6 +567,17 @@ test("auth plugin emits auth failure observability events", async () => {
     },
     async () => ({ ok: true })
   );
+  app.get(
+    "/api/v1/workspace/settings",
+    {
+      config: {
+        authPolicy: "required",
+        workspacePolicy: "required",
+        workspaceSurface: "admin"
+      }
+    },
+    async () => ({ ok: true })
+  );
 
   const unauthenticated = await app.inject({
     method: "GET",
@@ -582,6 +593,11 @@ test("auth plugin emits auth failure observability events", async () => {
     }
   });
   assert.equal(transient.statusCode, 503);
+  const adminScoped = await app.inject({
+    method: "GET",
+    url: "/api/v1/workspace/settings"
+  });
+  assert.equal(adminScoped.statusCode, 401);
 
   assert.deepEqual(authFailures, [
     {
@@ -591,6 +607,10 @@ test("auth plugin emits auth failure observability events", async () => {
     {
       reason: "auth_upstream_unavailable",
       surface: "app"
+    },
+    {
+      reason: "unauthenticated",
+      surface: "admin"
     }
   ]);
 

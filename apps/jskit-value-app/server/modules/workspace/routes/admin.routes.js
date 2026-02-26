@@ -3,7 +3,7 @@ import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorRespon
 function buildRoutes(controllers, { missingHandler, schema }) {
   return [
     {
-      path: "/api/workspace/settings",
+      path: "/api/admin/workspace/settings",
       method: "GET",
       auth: "required",
       workspacePolicy: "required",
@@ -19,7 +19,7 @@ function buildRoutes(controllers, { missingHandler, schema }) {
       handler: controllers.workspace?.getWorkspaceSettings || missingHandler
     },
     {
-      path: "/api/workspace/settings",
+      path: "/api/admin/workspace/settings",
       method: "PATCH",
       auth: "required",
       workspacePolicy: "required",
@@ -39,7 +39,7 @@ function buildRoutes(controllers, { missingHandler, schema }) {
       handler: controllers.workspace?.updateWorkspaceSettings || missingHandler
     },
     {
-      path: "/api/workspace/roles",
+      path: "/api/admin/workspace/roles",
       method: "GET",
       auth: "required",
       workspacePolicy: "required",
@@ -55,7 +55,7 @@ function buildRoutes(controllers, { missingHandler, schema }) {
       handler: controllers.workspace?.listWorkspaceRoles || missingHandler
     },
     {
-      path: "/api/workspace/ai/transcripts",
+      path: "/api/admin/workspace/ai/transcripts",
       method: "GET",
       auth: "required",
       workspacePolicy: "required",
@@ -75,7 +75,7 @@ function buildRoutes(controllers, { missingHandler, schema }) {
       handler: controllers.workspace?.listWorkspaceAiTranscripts || missingHandler
     },
     {
-      path: "/api/workspace/ai/transcripts/:conversationId/messages",
+      path: "/api/admin/workspace/ai/transcripts/:conversationId/messages",
       method: "GET",
       auth: "required",
       workspacePolicy: "required",
@@ -96,7 +96,7 @@ function buildRoutes(controllers, { missingHandler, schema }) {
       handler: controllers.workspace?.getWorkspaceAiTranscriptMessages || missingHandler
     },
     {
-      path: "/api/workspace/ai/transcripts/:conversationId/export",
+      path: "/api/admin/workspace/ai/transcripts/:conversationId/export",
       method: "GET",
       auth: "required",
       workspacePolicy: "required",
@@ -117,7 +117,7 @@ function buildRoutes(controllers, { missingHandler, schema }) {
       handler: controllers.workspace?.exportWorkspaceAiTranscript || missingHandler
     },
     {
-      path: "/api/workspace/members",
+      path: "/api/admin/workspace/members",
       method: "GET",
       auth: "required",
       workspacePolicy: "required",
@@ -133,7 +133,7 @@ function buildRoutes(controllers, { missingHandler, schema }) {
       handler: controllers.workspace?.listWorkspaceMembers || missingHandler
     },
     {
-      path: "/api/workspace/members/:memberUserId/role",
+      path: "/api/admin/workspace/members/:memberUserId/role",
       method: "PATCH",
       auth: "required",
       workspacePolicy: "required",
@@ -154,7 +154,7 @@ function buildRoutes(controllers, { missingHandler, schema }) {
       handler: controllers.workspace?.updateWorkspaceMemberRole || missingHandler
     },
     {
-      path: "/api/workspace/invites",
+      path: "/api/admin/workspace/invites",
       method: "GET",
       auth: "required",
       workspacePolicy: "required",
@@ -170,7 +170,7 @@ function buildRoutes(controllers, { missingHandler, schema }) {
       handler: controllers.workspace?.listWorkspaceInvites || missingHandler
     },
     {
-      path: "/api/workspace/invites",
+      path: "/api/admin/workspace/invites",
       method: "POST",
       auth: "required",
       workspacePolicy: "required",
@@ -194,7 +194,7 @@ function buildRoutes(controllers, { missingHandler, schema }) {
       handler: controllers.workspace?.createWorkspaceInvite || missingHandler
     },
     {
-      path: "/api/workspace/invites/:inviteId",
+      path: "/api/admin/workspace/invites/:inviteId",
       method: "DELETE",
       auth: "required",
       workspacePolicy: "required",

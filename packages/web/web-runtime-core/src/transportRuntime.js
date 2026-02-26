@@ -18,19 +18,19 @@ const DEFAULT_REALTIME_CORRELATED_WRITE_ROUTES = Object.freeze([
   },
   {
     method: "PATCH",
-    pattern: /^\/api\/v1\/workspace\/settings$/
+    pattern: /^\/api\/v1\/admin\/workspace\/settings$/
   },
   {
     method: "PATCH",
-    pattern: /^\/api\/v1\/workspace\/members\/[^/]+\/role$/
+    pattern: /^\/api\/v1\/admin\/workspace\/members\/[^/]+\/role$/
   },
   {
     method: "POST",
-    pattern: /^\/api\/v1\/workspace\/invites$/
+    pattern: /^\/api\/v1\/admin\/workspace\/invites$/
   },
   {
     method: "DELETE",
-    pattern: /^\/api\/v1\/workspace\/invites\/[^/]+$/
+    pattern: /^\/api\/v1\/admin\/workspace\/invites\/[^/]+$/
   },
   {
     method: "POST",

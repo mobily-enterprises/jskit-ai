@@ -16,30 +16,30 @@ function createApi({ request }) {
       return request("/api/v1/workspace/invitations/redeem", { method: "POST", body: payload });
     },
     getSettings() {
-      return request("/api/v1/workspace/settings");
+      return request("/api/v1/admin/workspace/settings");
     },
     updateSettings(payload) {
-      return request("/api/v1/workspace/settings", { method: "PATCH", body: payload });
+      return request("/api/v1/admin/workspace/settings", { method: "PATCH", body: payload });
     },
     listRoles() {
-      return request("/api/v1/workspace/roles");
+      return request("/api/v1/admin/workspace/roles");
     },
     listMembers() {
-      return request("/api/v1/workspace/members");
+      return request("/api/v1/admin/workspace/members");
     },
     updateMemberRole(memberUserId, payload) {
       const encodedUserId = encodeURIComponent(String(memberUserId || "").trim());
-      return request(`/api/v1/workspace/members/${encodedUserId}/role`, { method: "PATCH", body: payload });
+      return request(`/api/v1/admin/workspace/members/${encodedUserId}/role`, { method: "PATCH", body: payload });
     },
     listInvites() {
-      return request("/api/v1/workspace/invites");
+      return request("/api/v1/admin/workspace/invites");
     },
     createInvite(payload) {
-      return request("/api/v1/workspace/invites", { method: "POST", body: payload });
+      return request("/api/v1/admin/workspace/invites", { method: "POST", body: payload });
     },
     revokeInvite(inviteId) {
       const encodedInviteId = encodeURIComponent(String(inviteId || "").trim());
-      return request(`/api/v1/workspace/invites/${encodedInviteId}`, { method: "DELETE" });
+      return request(`/api/v1/admin/workspace/invites/${encodedInviteId}`, { method: "DELETE" });
     },
     listAiTranscripts(query = {}) {
       const params = new URLSearchParams();
@@ -62,7 +62,7 @@ function createApi({ request }) {
         params.set("createdByUserId", String(query.createdByUserId));
       }
       const queryString = params.toString();
-      return request(`/api/v1/workspace/ai/transcripts${queryString ? `?${queryString}` : ""}`);
+      return request(`/api/v1/admin/workspace/ai/transcripts${queryString ? `?${queryString}` : ""}`);
     },
     getAiTranscriptMessages(conversationId, query = {}) {
       const encodedConversationId = encodeURIComponent(String(conversationId || "").trim());
@@ -75,7 +75,7 @@ function createApi({ request }) {
       }
       const queryString = params.toString();
       return request(
-        `/api/v1/workspace/ai/transcripts/${encodedConversationId}/messages${queryString ? `?${queryString}` : ""}`
+        `/api/v1/admin/workspace/ai/transcripts/${encodedConversationId}/messages${queryString ? `?${queryString}` : ""}`
       );
     },
     exportAiTranscript(conversationId, query = {}) {
@@ -95,7 +95,7 @@ function createApi({ request }) {
       }
       const queryString = params.toString();
       return request(
-        `/api/v1/workspace/ai/transcripts/${encodedConversationId}/export${queryString ? `?${queryString}` : ""}`
+        `/api/v1/admin/workspace/ai/transcripts/${encodedConversationId}/export${queryString ? `?${queryString}` : ""}`
       );
     }
   };

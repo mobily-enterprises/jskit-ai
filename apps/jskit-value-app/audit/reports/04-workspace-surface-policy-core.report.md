@@ -1,42 +1,46 @@
 ## Broken things
 
-### [04-ISSUE-001] Path-based surface resolution misclassifies admin workspace APIs as `app`
-- Severity: P2
-- Confidence: high
-- Contract area: policy
-- First seen: 2026-02-26
-- Last seen: 2026-02-26
-- Evidence:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/workspace/routes/admin.routes.js:6
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/workspace/routes/admin.routes.js:10
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/shared/surfacePaths.js:25
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/surfacePathsAndRegistry.test.js:76
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/fastify/auth.plugin.js:22
-- Why this is broken:
-  - Admin workspace routes are declared as `workspaceSurface: "admin"` but still mounted under `/api/v1/workspace/*` paths. `resolveSurfaceFromPathname` is prefix-based, so these paths resolve to `app`. Any callsite that infers surface from pathname (without route metadata override) will record/evaluate the wrong surface.
-- Suggested fix:
-  - Align one source of truth for surface resolution by either (a) moving admin APIs to an admin namespace, or (b) adding a metadata/header-aware resolver for API requests and using it consistently in policy/observability paths.
-- Suggested tests:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/surfacePathsAndRegistry.test.js
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authPluginInternals.test.js
-
-### [04-ISSUE-002] Workspace module wrapper passes an adapter option that is ignored
-- Severity: P3
-- Confidence: high
-- Contract area: seam
-- First seen: 2026-02-26
-- Last seen: 2026-02-26
-- Evidence:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/workspace/controller.js:3
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/workspace/controller.js:8
-  - /home/merc/Development/current/jskit-ai/packages/workspace/workspace-fastify-adapter/src/controller.js:63
-- Why this is broken:
-  - The app seam injects `resolveSurfaceFromPathname` into the workspace adapter controller factory, but the adapter factory signature does not consume that option. This creates dead wiring and a misleading seam contract for future surface-policy changes.
-- Suggested fix:
-  - Remove the unused option from the app wrapper, or formally add adapter support for it with explicit tests.
-- Suggested tests:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/workspaceController.test.js
+None.
 
 ## Fixed things
 
+### [04-ISSUE-001] Path-based surface resolution misclassified admin workspace APIs as `app`
+- Fixed on: 2026-02-26
+- How fixed:
+  - Moved workspace-admin HTTP routes to an explicit admin namespace (`/api/admin/workspace/*`, versioned to `/api/v1/admin/workspace/*` at registration time) so pathname-derived surface resolution is structurally correct.
+  - Updated app-side workspace admin API clients to call `/api/v1/admin/workspace/*` endpoints.
+  - Updated transport command-correlation route patterns for admin writes to the new namespace.
+  - Hardened auth-failure observability surface attribution to prefer route metadata (`meta.workspaceSurface`) first, then `x-surface-id`, then pathname fallback.
+  - Updated route examples/docs and policy/transport tests to the new contract.
+- Code changes were applied in:
+  - `/home/merc/Development/current/jskit-ai/packages/workspace/workspace-fastify-adapter/src/routes/admin.route.js`
+  - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/workspace/routes/admin.routes.js`
+  - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/platform/http/api/workspaceApi.js`
+  - `/home/merc/Development/current/jskit-ai/packages/web/web-runtime-core/src/transportRuntime.js`
+  - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/fastify/auth.plugin.js`
+  - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/api.vitest.js`
+  - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/surfacePathsAndRegistry.test.js`
+  - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/workspaceInvitesRouteSchema.test.js`
+  - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authPermissions.test.js`
+  - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/README.md`
+  - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/docs/operations/observability.md`
+  - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/docs/flows/05.permissions.md`
+- Validation:
+  - `npm run test -- tests/surfacePathsAndRegistry.test.js tests/authPermissions.test.js tests/workspaceController.test.js tests/workspaceInvitesRouteSchema.test.js tests/adminRoutePermissionPolicy.test.js` (pass, 24 passed / 0 failed)
+  - `npm run test:client -- tests/client/api.vitest.js` (pass, 30 passed / 0 failed)
+  - `npm run test -- tests/workspaceServiceSurfacePolicy.test.js` (pass, 2 passed / 0 failed)
+  - `npm run test -- tests/authPluginInternals.test.js` (pass, 4 passed / 0 failed)
+  - `npm run docs:api-contracts:check` (pass)
+
+### [04-ISSUE-002] Workspace module wrapper passed an adapter option that was ignored
+- Fixed on: 2026-02-26
+- How fixed:
+  - Removed the dead seam wiring of `resolveSurfaceFromPathname` from the app workspace controller wrapper so the seam contract only passes options consumed by the adapter.
+- Code changes were applied in:
+  - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/workspace/controller.js`
+- Validation:
+  - `npm run test -- tests/workspaceController.test.js` (included in targeted suite above, pass)
+
 ## Won't fix things
+
+None.

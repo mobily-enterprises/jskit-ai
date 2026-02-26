@@ -6,20 +6,42 @@ import { hasPermission } from "@jskit-ai/rbac-core";
 import { safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
 import { API_PREFIX_SLASH } from "../../shared/apiPaths.js";
 import { resolveSurfaceFromPathname } from "../../shared/surfacePaths.js";
+import { normalizeSurfaceId } from "../../shared/surfaceRegistry.js";
 
-function resolveRequestSurface(request) {
+function resolveExplicitSurface(surfaceValue) {
+  const rawSurface = String(surfaceValue || "").trim();
+  if (!rawSurface) {
+    return "";
+  }
+
+  return normalizeSurfaceId(rawSurface);
+}
+
+function resolveRequestSurface(request, { meta } = {}) {
+  const explicitSurface = resolveExplicitSurface(meta?.workspaceSurface);
+  if (explicitSurface) {
+    return explicitSurface;
+  }
+
+  const headerSurface = resolveExplicitSurface(request?.headers?.["x-surface-id"]);
+  if (headerSurface) {
+    return headerSurface;
+  }
+
   const pathnameValue = safePathnameFromRequest(request);
   return resolveSurfaceFromPathname(pathnameValue);
 }
 
-function recordAuthFailure(observabilityService, request, reason) {
+function recordAuthFailure(observabilityService, request, reason, meta) {
   if (!observabilityService || typeof observabilityService.recordAuthFailure !== "function") {
     return;
   }
 
   observabilityService.recordAuthFailure({
     reason,
-    surface: resolveRequestSurface(request)
+    surface: resolveRequestSurface(request, {
+      meta
+    })
   });
 }
 
@@ -91,8 +113,8 @@ async function authPlugin(fastify, options) {
       hasPermission({ permission, permissions }) {
         return hasPermission(permissions, permission);
       },
-      onPolicyDenied({ reason, request }) {
-        recordAuthFailure(observabilityService, request, reason);
+      onPolicyDenied({ reason, request, meta }) {
+        recordAuthFailure(observabilityService, request, reason, meta);
       }
     },
     {
