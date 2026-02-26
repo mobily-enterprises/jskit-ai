@@ -1125,6 +1125,14 @@ test("action runtime services scaffold action registry and executor", async () =
     typeof definitionsById.get(ACTION_IDS.DEG2RAD_CALCULATE)?.assistantTool?.inputJsonSchema,
     "object"
   );
+  assert.deepEqual(
+    definitionsById.get(ACTION_IDS.DEG2RAD_CALCULATE)?.assistantTool?.inputJsonSchema?.required,
+    ["DEG2RAD_operation", "DEG2RAD_degrees"]
+  );
+  assert.equal(
+    Object.hasOwn(definitionsById.get(ACTION_IDS.DEG2RAD_CALCULATE)?.assistantTool?.inputJsonSchema?.properties || {}, "degrees"),
+    false
+  );
   assert.equal(
     typeof definitionsById.get(ACTION_IDS.CONSOLE_BILLING_PURCHASE_REFUND)?.assistantTool?.inputJsonSchema,
     "object"

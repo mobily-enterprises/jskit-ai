@@ -119,20 +119,38 @@ test("deg2rad history contributor publishes realtime for calculate mutations", a
     deg2radService: {
       validateAndNormalizeInput(input) {
         return {
-          degrees: Number(input?.degrees || 0)
+          DEG2RAD_degrees: String(input?.DEG2RAD_degrees || "0"),
+          DEG2RAD_degreesDecimal: {
+            mul() {
+              return {
+                div() {
+                  return {
+                    isFinite() {
+                      return true;
+                    },
+                    toFixed() {
+                      return "3.141592653590";
+                    }
+                  };
+                }
+              };
+            }
+          }
         };
       },
       calculateDeg2rad(input) {
         return {
-          degrees: Number(input?.degrees || 0),
-          radians: Math.PI
+          DEG2RAD_operation: "DEG2RAD",
+          DEG2RAD_formula: "DEG2RAD(x) = x * PI / 180",
+          DEG2RAD_degrees: String(input?.DEG2RAD_degrees || "0"),
+          DEG2RAD_radians: "3.141592653590"
         };
       }
     },
     deg2radHistoryService: {
       async appendCalculation() {
         return {
-          id: 55
+          id: "00000000-0000-4000-8000-000000000055"
         };
       },
       async listForUser() {
@@ -159,7 +177,8 @@ test("deg2rad history contributor publishes realtime for calculate mutations", a
   const calculateAction = getAction(contributor, "deg2rad.calculate");
   await calculateAction.execute(
     {
-      degrees: 180
+      DEG2RAD_operation: "DEG2RAD",
+      DEG2RAD_degrees: 180
     },
     {
       actor: {
@@ -183,8 +202,9 @@ test("deg2rad history contributor publishes realtime for calculate mutations", a
   assert.equal(published[0].workspaceId, 33);
   assert.equal(published[0].commandId, "cmd_history_1");
   assert.equal(published[0].sourceClientId, "cli_history_1");
+  assert.equal(published[0].entityId, "00000000-0000-4000-8000-000000000055");
   assert.deepEqual(published[0].targetUserIds, [7]);
-  assert.equal(published[0].payload.historyId, 55);
+  assert.equal(published[0].payload.historyId, "00000000-0000-4000-8000-000000000055");
 });
 
 test("console errors contributor publishes realtime for command mutations", async () => {

@@ -66,6 +66,11 @@ function resolveRequestId(context) {
   return normalizeHeaderValue(context?.requestMeta?.commandId) || normalizeHeaderValue(context?.requestMeta?.idempotencyKey);
 }
 
+function normalizeHistoryId(value) {
+  const normalized = String(value ?? "").trim();
+  return normalized || null;
+}
+
 const OBJECT_INPUT_SCHEMA = Object.freeze({
   parse(value) {
     return normalizeObject(value);
@@ -74,10 +79,15 @@ const OBJECT_INPUT_SCHEMA = Object.freeze({
 
 const DEG2RAD_CALCULATE_TOOL_SCHEMA = Object.freeze({
   type: "object",
-  additionalProperties: true,
-  required: ["degrees"],
+  additionalProperties: false,
+  required: ["DEG2RAD_operation", "DEG2RAD_degrees"],
   properties: {
-    degrees: {
+    DEG2RAD_operation: {
+      type: "string",
+      const: "DEG2RAD",
+      description: "Must be the literal operation id DEG2RAD."
+    },
+    DEG2RAD_degrees: {
       anyOf: [{ type: "number" }, { type: "string" }],
       description: "Degree value to convert to radians."
     }
@@ -182,6 +192,7 @@ function createDeg2radHistoryActionContributor({
             : await runCalculation();
 
           const result = execution.result;
+          const historyId = normalizeHistoryId(result?.historyId);
           publishUserScopedRealtimeEvent({
             realtimeEventsService,
             context,
@@ -189,12 +200,12 @@ function createDeg2radHistoryActionContributor({
             topic: REALTIME_TOPICS.HISTORY,
             eventType: REALTIME_EVENT_TYPES.USER_HISTORY_UPDATED,
             entityType: "history",
-            entityId: Number(result?.historyId || 0) > 0 ? String(result.historyId) : "none",
+            entityId: historyId || "none",
             workspace,
             targetUserId: toPositiveInteger(user?.id),
             payload: {
               actionId: "deg2rad.calculate",
-              historyId: Number(result?.historyId || 0) || null
+              historyId
             }
           });
 
