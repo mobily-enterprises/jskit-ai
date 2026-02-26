@@ -27,6 +27,7 @@ const EXPECTED_TOP_LEVEL_ENTRIES = Object.freeze([
   "app.scripts.config.mjs",
   "bin",
   "eslint.config.mjs",
+  "favicon.svg",
   "framework",
   "index.html",
   "package.json",

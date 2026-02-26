@@ -42,6 +42,10 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
 
     const indexHtml = await readFile(path.join(appRoot, "index.html"), "utf8");
     assert.match(indexHtml, /<title>Sample App<\/title>/);
+    assert.match(indexHtml, /href="\/favicon\.svg"/);
+
+    const favicon = await readFile(path.join(appRoot, "favicon.svg"), "utf8");
+    assert.match(favicon, /<svg/);
 
     const serverSmoke = await readFile(path.join(appRoot, "tests/server/smoke.test.js"), "utf8");
     assert.match(serverSmoke, /app: "sample-app"/);
