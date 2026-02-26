@@ -1,24 +1,21 @@
 ## Broken things
 
-### [04-ISSUE-006] `bootstrapRuntime` workspace/surface tests fail before execution due Pinia mock contract drift
-- Status: OPEN
-- Severity: P2
-- Confidence: high
-- Contract area: tests
-- First seen: 2026-02-26
-- Last seen: 2026-02-26
-- Evidence:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/bootstrapRuntime.vitest.js:66
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/app/state/realtimeStore.js:1
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/app/state/realtimeStore.js:19
-- Why this is broken:
-  - `tests/client/bootstrapRuntime.vitest.js` mocks `pinia` with only `createPinia`, but runtime imports `useRealtimeStore` which requires `defineStore`; the suite errors during module load, so workspace/surface bootstrap assertions in that suite never execute.
-- Suggested fix:
-  - Update the `pinia` mock to preserve/define `defineStore` (for example, partial-mock `createPinia` while forwarding other real `pinia` exports).
-- Suggested tests:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/bootstrapRuntime.vitest.js
+None.
 
 ## Fixed things
+
+### [04-ISSUE-006] `bootstrapRuntime` workspace/surface tests failed before execution due Pinia mock contract drift
+- Fixed on: 2026-02-26
+- How fixed:
+  - Updated `tests/client/bootstrapRuntime.vitest.js` to use a partial `pinia` mock that preserves real `defineStore` behavior while still instrumenting `createPinia`.
+  - Added a structural guard test that verifies imported store modules remain compatible with the bootstrap runtime harness, including `useRealtimeStore`.
+  - Updated bootstrap runtime expectations to match current runtime wiring (`consoleStore` and `onConnectionStateChange` in realtime runtime options).
+- Code changes were applied in:
+  - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/bootstrapRuntime.vitest.js`
+- Validation:
+  - `npm run test:client -- tests/client/bootstrapRuntime.vitest.js` (pass, 6 passed / 0 failed)
+  - `npm run test:client -- tests/client/workspaceStore.vitest.js tests/client/router.vitest.js tests/client/bootstrapRuntime.vitest.js` (pass, 26 passed / 0 failed)
+  - `npm run test:client:views -- tests/views/workspacesView.vitest.js` (pass, 9 passed / 0 failed)
 
 ### [04-ISSUE-001] Path-based surface resolution misclassified admin workspace APIs as `app`
 - Fixed on: 2026-02-26

@@ -63,9 +63,17 @@ vi.mock("vue", () => ({
   h: (...args) => mocks.h(...args)
 }));
 
-vi.mock("pinia", () => ({
-  createPinia: () => mocks.createPinia()
-}));
+vi.mock("pinia", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    createPinia: (...args) => {
+      const pinia = actual.createPinia(...args);
+      mocks.createPinia(pinia);
+      return pinia;
+    }
+  };
+});
 
 vi.mock("@tanstack/vue-query", () => ({
   VueQueryPlugin: mocks.vueQueryPlugin
@@ -185,7 +193,6 @@ describe("bootstrapRuntime", () => {
       mocks.workspaceStore.userSettings = payload?.userSettings || null;
     });
 
-    mocks.createPinia.mockReturnValue(mocks.createdPinia);
     mocks.createVuetify.mockImplementation(() => ({
       theme: {
         global: {
@@ -227,11 +234,12 @@ describe("bootstrapRuntime", () => {
 
     await mountSurfaceApplication({ createRouter });
 
+    const createdPinia = mocks.createPinia.mock.calls[0][0];
     expect(mocks.createPinia).toHaveBeenCalledTimes(1);
     expect(mocks.installBrowserErrorReporter).toHaveBeenCalledTimes(1);
-    expect(mocks.authStoreFactory).toHaveBeenCalledWith(mocks.createdPinia);
-    expect(mocks.consoleStoreFactory).toHaveBeenCalledWith(mocks.createdPinia);
-    expect(mocks.workspaceStoreFactory).toHaveBeenCalledWith(mocks.createdPinia);
+    expect(mocks.authStoreFactory).toHaveBeenCalledWith(createdPinia);
+    expect(mocks.consoleStoreFactory).toHaveBeenCalledWith(createdPinia);
+    expect(mocks.workspaceStoreFactory).toHaveBeenCalledWith(createdPinia);
     expect(mocks.authStore.applySession).toHaveBeenCalledWith({
       authenticated: true,
       username: "tony"
@@ -249,13 +257,15 @@ describe("bootstrapRuntime", () => {
     expect(mocks.createRealtimeRuntime).toHaveBeenCalledWith({
       authStore: mocks.authStore,
       workspaceStore: mocks.workspaceStore,
+      consoleStore: mocks.consoleStore,
       queryClient: mocks.queryClient,
-      surface: undefined
+      surface: undefined,
+      onConnectionStateChange: expect.any(Function)
     });
     expect(mocks.realtimeRuntime.start).toHaveBeenCalledTimes(1);
 
     expect(mocks.createApp).toHaveBeenCalledTimes(1);
-    expect(mocks.appInstance.use).toHaveBeenNthCalledWith(1, mocks.createdPinia);
+    expect(mocks.appInstance.use).toHaveBeenNthCalledWith(1, createdPinia);
     expect(mocks.appInstance.use).toHaveBeenNthCalledWith(2, mocks.vueQueryPlugin, {
       queryClient: mocks.queryClient
     });
@@ -267,6 +277,21 @@ describe("bootstrapRuntime", () => {
     expect(mocks.h).toHaveBeenCalledWith(mocks.routerProvider, {
       router: { id: "router-1" }
     });
+  });
+
+  it("keeps test harness compatible with imported store modules (including realtime store)", async () => {
+    const piniaModule = await import("pinia");
+    const authStoreModule = await import("../../src/app/state/authStore.js");
+    const workspaceStoreModule = await import("../../src/app/state/workspaceStore.js");
+    const consoleStoreModule = await import("../../src/app/state/consoleStore.js");
+    const realtimeStoreModule = await import("../../src/app/state/realtimeStore.js");
+
+    expect(typeof piniaModule.createPinia).toBe("function");
+    expect(typeof piniaModule.defineStore).toBe("function");
+    expect(typeof authStoreModule.useAuthStore).toBe("function");
+    expect(typeof workspaceStoreModule.useWorkspaceStore).toBe("function");
+    expect(typeof consoleStoreModule.useConsoleStore).toBe("function");
+    expect(typeof realtimeStoreModule.useRealtimeStore).toBe("function");
   });
 
   it("applies light theme preference from bootstrap", async () => {
