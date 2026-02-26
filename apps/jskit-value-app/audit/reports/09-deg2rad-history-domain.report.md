@@ -1,5 +1,50 @@
 ## Broken things
 
+### [09-ISSUE-004] `history.service.listForUser` trusts raw user/pagination input and can violate API contract
+- Status: OPEN
+- Severity: P1
+- Confidence: high
+- Contract area: api
+- First seen: 2026-02-26
+- Last seen: 2026-02-26
+- Evidence:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/history/service.js:62
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/history/service.js:64
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/history/service.js:67
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/history/service.js:70
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/history/repository.js:83
+- Why this is broken:
+  - The service uses `user.id`, `user.displayName`, `pagination.page`, and `pagination.pageSize` without normalization. Runtime validation shows null users throw raw `TypeError`, and negative/NaN pagination can propagate invalid `page`/`totalPages` and negative offsets to repository reads. This bypasses the structured `AppError` contract and creates fail-open behavior for non-route callers (`assistant_tool`/`internal`) that do not benefit from route query validation.
+- Suggested fix:
+  - Add service-level guards that normalize/authenticate user identity and clamp pagination (`page >= 1`, `1 <= pageSize <= 100`) before repository access; throw structured `AppError` (`401`/`400`) when inputs are invalid.
+- Suggested tests:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/historyService.test.js
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/realtimeActionContributorPublish.test.js
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/actionRegistry.test.js
+- Related:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/06-action-runtime-composition.report.md [06-ISSUE-001]
+
+### [09-ISSUE-005] DEG2RAD/history UI flow lacks direct component/view regression coverage
+- Status: OPEN
+- Severity: P2
+- Confidence: high
+- Contract area: tests
+- First seen: 2026-02-26
+- Last seen: 2026-02-26
+- Evidence:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/e2e/auth-history.spec.js:16
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/e2e/auth-history.spec.js:147
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/historyRouteSchema.test.js:157
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/api.vitest.js:422
+- Why this is broken:
+  - Current tests cover route/query schema and low-level API client behavior, but there is no direct test coverage for `Deg2radCalculatorForm`, `Deg2radHistoryList`, or `Deg2radCalculatorView` wiring (refresh token propagation, pagination controls, and UI error rendering). Regressions in these required-scope client modules can ship without failing CI.
+- Suggested fix:
+  - Add focused client tests for the view + two components with mocked API/auth guard behavior, including successful calculation refresh, history pagination interactions, and error/unauthorized handling branches.
+- Suggested tests:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/deg2radCalculatorView.vitest.js
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/components/deg2radCalculatorForm.vitest.js
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/components/deg2radHistoryList.vitest.js
+
 ## Fixed things
 
 ### [09-ISSUE-001] `deg2rad.calculate` assistant-tool input schema is incompatible with service validation
