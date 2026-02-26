@@ -61,4 +61,31 @@
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js:180
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js:196
 
+### [05-ISSUE-004] Console module wrapper passes an adapter option that is ignored
+- Fixed on: 2026-02-26
+- How fixed:
+  - The app-level console seam no longer injects unused `resolveSurfaceFromPathname` wiring and now forwards normalized options directly to the adapter controller factory.
+  - This aligns the console seam contract with consumed adapter inputs and removes dead wrapper behavior.
+- Validation:
+  - `npm run test -- tests/consoleControllerAudit.test.js` (pass)
+- Evidence:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/console/controller.js:3
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/console/controller.js:4
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/04-workspace-surface-policy-core.report.md:48
+
+### [05-ISSUE-005] Console invitations view bypasses centralized unauthorized-session handling
+- Fixed on: 2026-02-26
+- How fixed:
+  - Added `useAuthGuard` integration to `useConsoleInvitationsView` and wired `handleUnauthorizedError` into all invitation bootstrap/mutation catch branches (`refreshBootstrap`, `acceptInvite`, `refuseInvite`) before local error messaging.
+  - Added a dedicated composable test file to lock fail-closed behavior for unauthorized invite flows.
+- Validation:
+  - `npm run test:client:views -- tests/views/useConsoleInvitationsView.vitest.js` (pass)
+- Evidence:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleInvitationsView.js:5
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleInvitationsView.js:10
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleInvitationsView.js:39
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleInvitationsView.js:64
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleInvitationsView.js:82
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/useConsoleInvitationsView.vitest.js:1
+
 ## Won't fix things

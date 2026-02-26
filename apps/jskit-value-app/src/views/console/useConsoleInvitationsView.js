@@ -2,10 +2,12 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { createSurfacePaths, resolveSurfacePaths } from "../../../shared/surfacePaths.js";
 import { useConsoleStore } from "../../app/state/consoleStore.js";
+import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 
 export function useConsoleInvitationsView() {
   const navigate = useNavigate();
   const consoleStore = useConsoleStore();
+  const { handleUnauthorizedError } = useAuthGuard();
   const routerPath = useRouterState({
     select: (state) => state.location.pathname
   });
@@ -35,6 +37,9 @@ export function useConsoleInvitationsView() {
         replace: true
       });
     } catch (error) {
+      if (await handleUnauthorizedError(error)) {
+        return;
+      }
       messageType.value = "error";
       message.value = String(error?.message || "Unable to accept invite.");
     } finally {
@@ -57,6 +62,9 @@ export function useConsoleInvitationsView() {
       messageType.value = "success";
       message.value = "Invitation refused.";
     } catch (error) {
+      if (await handleUnauthorizedError(error)) {
+        return;
+      }
       messageType.value = "error";
       message.value = String(error?.message || "Unable to refuse invite.");
     } finally {
@@ -71,6 +79,9 @@ export function useConsoleInvitationsView() {
     try {
       await consoleStore.refreshBootstrap();
     } catch (error) {
+      if (await handleUnauthorizedError(error)) {
+        return;
+      }
       messageType.value = "error";
       message.value = String(error?.message || "Unable to load console invitations.");
       return;
