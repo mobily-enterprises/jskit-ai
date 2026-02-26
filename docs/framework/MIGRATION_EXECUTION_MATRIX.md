@@ -1,0 +1,91 @@
+# Migration Execution Matrix
+
+Status: Stage 0 baseline policy
+
+Total packages tracked: 83
+
+| Package | Path | Batch Stage | Runtime Layout | Notes |
+| --- | --- | --- | --- | --- |
+| `@jskit-ai/access-core` | `packages/auth/access-core` | 10 | pending |  |
+| `@jskit-ai/action-runtime-core` | `packages/runtime/action-runtime-core` | 10 | pending |  |
+| `@jskit-ai/app-scripts` | `packages/tooling/app-scripts` | 10 | pending |  |
+| `@jskit-ai/assistant-client-element` | `packages/ai-agent/assistant-client-element` | 11 | pending |  |
+| `@jskit-ai/assistant-client-runtime` | `packages/ai-agent/assistant-client-runtime` | 11 | pending |  |
+| `@jskit-ai/assistant-contracts` | `packages/ai-agent/assistant-contracts` | 11 | pending |  |
+| `@jskit-ai/assistant-core` | `packages/ai-agent/assistant-core` | 11 | pending |  |
+| `@jskit-ai/assistant-fastify-adapter` | `packages/ai-agent/assistant-fastify-adapter` | 11 | pending |  |
+| `@jskit-ai/assistant-provider-openai` | `packages/ai-agent/assistant-provider-openai` | 11 | pending |  |
+| `@jskit-ai/assistant-transcript-explorer-client-element` | `packages/ai-agent/assistant-transcript-explorer-client-element` | 11 | pending |  |
+| `@jskit-ai/assistant-transcripts-core` | `packages/ai-agent/assistant-transcripts-core` | 11 | pending |  |
+| `@jskit-ai/assistant-transcripts-knex-mysql` | `packages/ai-agent/assistant-transcripts-knex-mysql` | 11 | pending |  |
+| `@jskit-ai/auth-fastify-adapter` | `packages/auth/auth-fastify-adapter` | 10 | pending |  |
+| `@jskit-ai/auth-provider-supabase-core` | `packages/auth/auth-provider-supabase-core` | 10 | pending |  |
+| `@jskit-ai/billing-commerce-client-element` | `packages/billing/billing-commerce-client-element` | 12 | pending |  |
+| `@jskit-ai/billing-console-admin-client-element` | `packages/billing/billing-console-admin-client-element` | 12 | pending |  |
+| `@jskit-ai/billing-core` | `packages/billing/billing-core` | 12 | pending |  |
+| `@jskit-ai/billing-fastify-adapter` | `packages/billing/billing-fastify-adapter` | 12 | pending |  |
+| `@jskit-ai/billing-knex-mysql` | `packages/billing/billing-knex-mysql` | 12 | pending |  |
+| `@jskit-ai/billing-plan-client-element` | `packages/billing/billing-plan-client-element` | 12 | pending |  |
+| `@jskit-ai/billing-provider-core` | `packages/billing/billing-provider-core` | 12 | pending |  |
+| `@jskit-ai/billing-provider-paddle` | `packages/billing/billing-provider-paddle` | 12 | pending |  |
+| `@jskit-ai/billing-provider-stripe` | `packages/billing/billing-provider-stripe` | 12 | pending |  |
+| `@jskit-ai/billing-service-core` | `packages/billing/billing-service-core` | 12 | pending |  |
+| `@jskit-ai/billing-worker-core` | `packages/billing/billing-worker-core` | 12 | pending |  |
+| `@jskit-ai/chat-client-element` | `packages/chat/chat-client-element` | 11 | pending |  |
+| `@jskit-ai/chat-client-runtime` | `packages/chat/chat-client-runtime` | 11 | pending |  |
+| `@jskit-ai/chat-contracts` | `packages/chat/chat-contracts` | 11 | pending |  |
+| `@jskit-ai/chat-core` | `packages/chat/chat-core` | 11 | pending |  |
+| `@jskit-ai/chat-fastify-adapter` | `packages/chat/chat-fastify-adapter` | 11 | pending |  |
+| `@jskit-ai/chat-knex-mysql` | `packages/chat/chat-knex-mysql` | 11 | pending |  |
+| `@jskit-ai/chat-storage-core` | `packages/chat/chat-storage-core` | 11 | pending |  |
+| `@jskit-ai/communications-contracts` | `packages/communications/communications-contracts` | 11 | pending |  |
+| `@jskit-ai/communications-core` | `packages/communications/communications-core` | 11 | pending |  |
+| `@jskit-ai/communications-fastify-adapter` | `packages/communications/communications-fastify-adapter` | 11 | pending |  |
+| `@jskit-ai/communications-provider-core` | `packages/communications/communications-provider-core` | 11 | pending |  |
+| `@jskit-ai/config-eslint` | `packages/tooling/config-eslint` | 10 | pending |  |
+| `@jskit-ai/console-errors-client-element` | `packages/observability/console-errors-client-element` | 12 | pending |  |
+| `@jskit-ai/console-errors-fastify-adapter` | `packages/workspace/console-errors-fastify-adapter` | 10 | pending |  |
+| `@jskit-ai/console-fastify-adapter` | `packages/workspace/console-fastify-adapter` | 10 | pending |  |
+| `@jskit-ai/create-app` | `packages/tooling/create-app` | 10 | pending |  |
+| `@jskit-ai/email-core` | `packages/communications/email-core` | 11 | pending |  |
+| `@jskit-ai/entitlements-core` | `packages/billing/entitlements-core` | 12 | pending |  |
+| `@jskit-ai/entitlements-knex-mysql` | `packages/billing/entitlements-knex-mysql` | 12 | pending |  |
+| `@jskit-ai/fastify-auth-policy` | `packages/auth/fastify-auth-policy` | 10 | pending |  |
+| `@jskit-ai/health-fastify-adapter` | `packages/runtime/health-fastify-adapter` | 10 | pending |  |
+| `@jskit-ai/http-client-runtime` | `packages/web/http-client-runtime` | 10 | pending |  |
+| `@jskit-ai/http-contracts` | `packages/contracts/http-contracts` | 10 | pending |  |
+| `@jskit-ai/jskit` | `packages/tooling/jskit` | 10 | pending |  |
+| `@jskit-ai/knex-mysql-core` | `packages/runtime/knex-mysql-core` | 10 | pending |  |
+| `@jskit-ai/members-admin-client-element` | `packages/users/members-admin-client-element` | 10 | pending |  |
+| `@jskit-ai/module-framework-core` | `packages/runtime/module-framework-core` | 10 | pending |  |
+| `@jskit-ai/observability-core` | `packages/observability/observability-core` | 12 | pending |  |
+| `@jskit-ai/observability-fastify-adapter` | `packages/observability/observability-fastify-adapter` | 12 | pending |  |
+| `@jskit-ai/platform-server-runtime` | `packages/runtime/platform-server-runtime` | 10 | pending |  |
+| `@jskit-ai/profile-client-element` | `packages/users/profile-client-element` | 10 | pending |  |
+| `@jskit-ai/rbac-core` | `packages/auth/rbac-core` | 10 | pending |  |
+| `@jskit-ai/realtime-client-runtime` | `packages/realtime/realtime-client-runtime` | 11 | pending |  |
+| `@jskit-ai/realtime-contracts` | `packages/contracts/realtime-contracts` | 11 | pending |  |
+| `@jskit-ai/realtime-server-socketio` | `packages/realtime/realtime-server-socketio` | 11 | pending |  |
+| `@jskit-ai/redis-ops-core` | `packages/operations/redis-ops-core` | 12 | pending |  |
+| `@jskit-ai/retention-core` | `packages/operations/retention-core` | 12 | pending |  |
+| `@jskit-ai/runtime-env-core` | `packages/runtime/runtime-env-core` | 10 | pending |  |
+| `@jskit-ai/security-audit-core` | `packages/security/security-audit-core` | 12 | pending |  |
+| `@jskit-ai/security-audit-knex-mysql` | `packages/security/security-audit-knex-mysql` | 12 | pending |  |
+| `@jskit-ai/server-runtime-core` | `packages/runtime/server-runtime-core` | 10 | pending |  |
+| `@jskit-ai/settings-fastify-adapter` | `packages/workspace/settings-fastify-adapter` | 10 | pending |  |
+| `@jskit-ai/sms-core` | `packages/communications/sms-core` | 11 | pending |  |
+| `@jskit-ai/social-client-runtime` | `packages/social/social-client-runtime` | 11 | pending |  |
+| `@jskit-ai/social-contracts` | `packages/social/social-contracts` | 11 | pending |  |
+| `@jskit-ai/social-core` | `packages/social/social-core` | 11 | pending |  |
+| `@jskit-ai/social-fastify-adapter` | `packages/social/social-fastify-adapter` | 11 | pending |  |
+| `@jskit-ai/social-knex-mysql` | `packages/social/social-knex-mysql` | 11 | pending |  |
+| `@jskit-ai/surface-routing` | `packages/surface-routing` | 10 | pending |  |
+| `@jskit-ai/user-profile-core` | `packages/users/user-profile-core` | 10 | pending |  |
+| `@jskit-ai/user-profile-knex-mysql` | `packages/users/user-profile-knex-mysql` | 10 | pending |  |
+| `@jskit-ai/web-runtime-core` | `packages/web/web-runtime-core` | 10 | pending |  |
+| `@jskit-ai/workspace-console-core` | `packages/workspace/workspace-console-core` | 10 | pending |  |
+| `@jskit-ai/workspace-console-knex-mysql` | `packages/workspace/workspace-console-knex-mysql` | 10 | pending |  |
+| `@jskit-ai/workspace-console-service-core` | `packages/workspace/workspace-console-service-core` | 10 | pending |  |
+| `@jskit-ai/workspace-fastify-adapter` | `packages/workspace/workspace-fastify-adapter` | 10 | pending |  |
+| `@jskit-ai/workspace-knex-mysql` | `packages/workspace/workspace-knex-mysql` | 10 | pending |  |
+| `@jskit-ai/workspace-service-core` | `packages/workspace/workspace-service-core` | 10 | pending |  |
