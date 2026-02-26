@@ -1,5 +1,29 @@
 ## Broken things
 
+### [03-ISSUE-004] Auth domain still carries a non-runtime app-local mirror seam that can drift from the runtime provider
+- Status: OPEN
+- Severity: P2
+- Confidence: high
+- Contract area: docs
+- First seen: 2026-02-26
+- Last seen: 2026-02-26
+- Evidence:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/auditList.md:47
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/auditList.md:48
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/runtime/services.js:1
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/runtime/services.js:605
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/auth/service.js:5
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/moduleContracts.test.js:69
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/moduleContracts.test.js:194
+- Why this is broken:
+  - Runtime auth/session behavior is created from `@jskit-ai/auth-provider-supabase-core`, while the app-local `server/modules/auth` seam remains separately scoped and contract-tested even though it is not runtime-wired. That split keeps duplicate seams in play, increases drift risk, and makes audit outcomes less precise because findings can land on non-runtime auth code.
+- Suggested fix:
+  - Consolidate to one authoritative seam: either compose runtime auth through `server/modules/auth` only, or retire the app-local auth mirror seam and remove its contract expectations so auth behavior and audits track the same runtime path.
+- Suggested tests:
+  - Add a runtime composition contract test that asserts the exact seam used to build `authService`, plus a guardrail test that fails if the non-runtime mirror seam diverges from the runtime seam contract.
+- Related:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/03-auth-provider-session-pipeline.report.md [03-ISSUE-002]
+
 ## Fixed things
 
 ### [03-ISSUE-003] OAuth callback error descriptions are echoed directly to API callers
