@@ -21,8 +21,8 @@ function mapCalculationRowRequired(row) {
       .trim()
       .toUpperCase() || "DEG2RAD";
   const formula = String(row.deg2rad_formula || "DEG2RAD(x) = x * PI / 180").trim() || "DEG2RAD(x) = x * PI / 180";
-  const degrees = row.deg2rad_degrees == null ? row.payment : row.deg2rad_degrees;
-  const radians = row.deg2rad_radians == null ? row.value : row.deg2rad_radians;
+  const degrees = row.deg2rad_degrees;
+  const radians = row.deg2rad_radians;
 
   return {
     id: row.id,

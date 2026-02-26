@@ -1,5 +1,5 @@
 <template>
-  <section class="workspace-chat-screen">
+  <section class="chat-screen">
     <ChatView />
   </section>
 </template>
@@ -9,7 +9,7 @@ import ChatView from "./ChatView.vue";
 </script>
 
 <style scoped>
-.workspace-chat-screen {
+.chat-screen {
   min-height: 100vh;
   padding: 0.85rem clamp(0.6rem, 2vw, 1.5rem) 1.1rem;
   background:

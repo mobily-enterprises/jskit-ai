@@ -183,7 +183,7 @@ describe("framework client composition", () => {
     expect(appFragments.some((entry) => entry.id === "assistant" && entry.moduleId === "ai")).toBe(true);
 
     expect(adminFragments.some((entry) => entry.id === "projects" && entry.moduleId === "projects")).toBe(true);
-    expect(adminFragments.some((entry) => entry.id === "workspace-chat" && entry.moduleId === "chat")).toBe(true);
+    expect(adminFragments.some((entry) => entry.id === "chat" && entry.moduleId === "chat")).toBe(true);
     expect(adminFragments.some((entry) => entry.id === "social-moderation" && entry.moduleId === "social")).toBe(true);
     expect(adminFragments.find((entry) => entry.id === "projects")?.path).toBe("/projects");
     expect(adminFragments.find((entry) => entry.id === "social-moderation")?.path).toBe("/social/moderation");

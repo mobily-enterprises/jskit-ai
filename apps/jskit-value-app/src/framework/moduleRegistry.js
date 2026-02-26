@@ -349,7 +349,7 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
       navigation: {
         admin: [
           {
-            id: "workspace-chat",
+            id: "chat",
             title: "Workspace chat",
             destinationTitle: "Workspace chat",
             path: "/chat",

@@ -111,15 +111,15 @@ test("calculation logs repository factory insert/count/list and mapper branches"
 
   assert.throws(() => calcTestables.mapCalculationRowRequired(null), /expected a row object/);
 
-  const mappedWithHorizon = calcTestables.mapCalculationRowRequired({
+  const mappedRow = calcTestables.mapCalculationRowRequired({
     id: "entry-2",
     created_at: "2024-01-01T00:00:00.000Z",
-    payment: "90.000000",
-    value: "1.570796326795"
+    deg2rad_degrees: "90.000000",
+    deg2rad_radians: "1.570796326795"
   });
-  assert.equal(mappedWithHorizon.DEG2RAD_operation, "DEG2RAD");
-  assert.equal(mappedWithHorizon.DEG2RAD_degrees, "90.000000");
-  assert.equal(mappedWithHorizon.DEG2RAD_radians, "1.570796326795");
+  assert.equal(mappedRow.DEG2RAD_operation, "DEG2RAD");
+  assert.equal(mappedRow.DEG2RAD_degrees, "90.000000");
+  assert.equal(mappedRow.DEG2RAD_radians, "1.570796326795");
 });
 
 function duplicateErrorFor(fieldName) {
