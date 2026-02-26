@@ -13,6 +13,10 @@ import {
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { createCliError, normalizeRelativePath } from "./schemas/validationHelpers.mjs";
+import { ensureUniqueDescriptor } from "./schemas/descriptorRegistry.mjs";
+import { normalizePackDescriptor } from "./schemas/packDescriptor.mjs";
+import { normalizePackageDescriptor } from "./schemas/packageDescriptor.mjs";
 
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PACKS_ROOT = path.join(PACKAGE_ROOT, "packs");
@@ -20,13 +24,6 @@ const PACKAGE_DESCRIPTORS_ROOT = path.join(PACKAGE_ROOT, "packages");
 const MONOREPO_PACKAGES_ROOT = path.resolve(PACKAGE_ROOT, "..", "..", "..", "packages");
 const LOCK_RELATIVE_PATH = ".jskit/lock.json";
 const LOCK_VERSION = 2;
-
-function createCliError(message, { showUsage = false, exitCode = 1 } = {}) {
-  const error = new Error(String(message || "Command failed."));
-  error.showUsage = Boolean(showUsage);
-  error.exitCode = Number.isInteger(exitCode) ? exitCode : 1;
-  return error;
-}
 
 function createIssue(message) {
   return {
@@ -42,47 +39,6 @@ function hashString(content) {
   return createHash("sha256").update(String(content || "")).digest("hex");
 }
 
-function normalizeRelativePath(value) {
-  const normalized = String(value || "").replaceAll("\\", "/").replace(/^\/+/, "");
-  if (!normalized || normalized === "." || normalized.includes("..")) {
-    throw createCliError(`Invalid relative path in descriptor: ${value}`);
-  }
-  return normalized;
-}
-
-function ensureObject(value, label) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw createCliError(`${label} must be an object.`);
-  }
-  return value;
-}
-
-function ensureRecord(value, label) {
-  if (!value) {
-    return {};
-  }
-  if (typeof value !== "object" || Array.isArray(value)) {
-    throw createCliError(`${label} must be an object map.`);
-  }
-  return value;
-}
-
-function ensurePackId(value, label) {
-  const normalized = String(value || "").trim();
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(normalized)) {
-    throw createCliError(`${label} is invalid: ${value}`);
-  }
-  return normalized;
-}
-
-function ensurePackageId(value, label) {
-  const normalized = String(value || "").trim();
-  const npmNamePattern = /^(?:@[a-z0-9-._~]+\/)?[a-z0-9-._~]+$/;
-  if (!npmNamePattern.test(normalized)) {
-    throw createCliError(`${label} is invalid: ${value}`);
-  }
-  return normalized;
-}
 
 function parseArgs(argv) {
   const args = Array.isArray(argv) ? [...argv] : [];
@@ -173,6 +129,7 @@ function printUsage(stream = process.stderr) {
   stream.write("Usage: jskit <command> [options]\n\n");
   stream.write("Commands:\n");
   stream.write("  list                      List available and installed packs\n");
+  stream.write("  lint-descriptors          Validate pack/package descriptor files\n");
   stream.write("  add <packId>              Add one pack to current app\n");
   stream.write("  update <packId>           Re-apply one installed pack\n");
   stream.write("  update --all              Re-apply all installed packs\n");
@@ -328,187 +285,6 @@ function removeProcfileCommand(source, processType) {
   return filtered.length > 0 ? `${filtered.join("\n")}\n` : "";
 }
 
-function ensurePackDescriptorShape(pack, descriptorPath) {
-  ensureObject(pack, `Pack descriptor at ${descriptorPath}`);
-
-  if (Number(pack.packVersion) !== 2) {
-    throw createCliError(`Pack descriptor ${descriptorPath} must set packVersion to 2.`);
-  }
-
-  const packId = ensurePackId(pack.packId, `Pack descriptor ${descriptorPath} packId`);
-  const version = String(pack.version || "").trim();
-  if (!version) {
-    throw createCliError(`Pack descriptor ${descriptorPath} must define version.`);
-  }
-
-  const optionsSource = ensureRecord(pack.options, `Pack ${packId} options`);
-  const options = {};
-
-  for (const [optionName, optionValue] of Object.entries(optionsSource)) {
-    const normalizedOptionName = String(optionName || "").trim();
-    if (!/^[a-z][a-z0-9-]*$/.test(normalizedOptionName)) {
-      throw createCliError(`Pack ${packId} has invalid option name: ${optionName}`);
-    }
-
-    const option = ensureObject(optionValue, `Pack ${packId} option ${normalizedOptionName}`);
-    const values = Array.isArray(option.values)
-      ? option.values.map((value) => String(value || "").trim()).filter((value) => value.length > 0)
-      : [];
-
-    options[normalizedOptionName] = {
-      required: Boolean(option.required),
-      values
-    };
-  }
-
-  const packagesSource = Array.isArray(pack.packages) ? pack.packages : [];
-  const packages = packagesSource.map((entry, index) => {
-    if (typeof entry === "string") {
-      return {
-        packageId: ensurePackageId(entry, `Pack ${packId} packages[${index}]`),
-        when: null
-      };
-    }
-
-    ensureObject(entry, `Pack ${packId} packages[${index}]`);
-    const packageId = ensurePackageId(entry.packageId, `Pack ${packId} packages[${index}].packageId`);
-
-    let when = null;
-    if (entry.when) {
-      const whenSource = ensureObject(entry.when, `Pack ${packId} packages[${index}].when`);
-      const option = String(whenSource.option || "").trim();
-      const equals = String(whenSource.equals || "").trim();
-      if (!option || !equals) {
-        throw createCliError(
-          `Pack ${packId} packages[${index}].when must define option and equals.`
-        );
-      }
-      when = {
-        option,
-        equals
-      };
-    }
-
-    return {
-      packageId,
-      when
-    };
-  });
-
-  if (packages.length < 1) {
-    throw createCliError(`Pack descriptor ${descriptorPath} must define at least one package mapping.`);
-  }
-
-  return {
-    packVersion: 2,
-    packId,
-    version,
-    description: String(pack.description || "").trim(),
-    options,
-    packages
-  };
-}
-
-function ensurePackageDescriptorShape(packaged, descriptorPath) {
-  ensureObject(packaged, `Package descriptor at ${descriptorPath}`);
-
-  if (Number(packaged.packageVersion) !== 1) {
-    throw createCliError(`Package descriptor ${descriptorPath} must set packageVersion to 1.`);
-  }
-
-  const packageId = ensurePackageId(packaged.packageId, `Package descriptor ${descriptorPath} packageId`);
-  const version = String(packaged.version || "").trim();
-  if (!version) {
-    throw createCliError(`Package descriptor ${descriptorPath} must define version.`);
-  }
-
-  const dependsOn = Array.isArray(packaged.dependsOn)
-    ? packaged.dependsOn.map((entry, index) => ensurePackageId(entry, `Package ${packageId} dependsOn[${index}]`))
-    : [];
-
-  const capabilitiesSource = ensureRecord(packaged.capabilities, `Package ${packageId} capabilities`);
-  const provides = Array.isArray(capabilitiesSource.provides)
-    ? capabilitiesSource.provides.map((value) => String(value || "").trim()).filter((value) => value.length > 0)
-    : [];
-  const requires = Array.isArray(capabilitiesSource.requires)
-    ? capabilitiesSource.requires.map((value) => String(value || "").trim()).filter((value) => value.length > 0)
-    : [];
-
-  const mutations = ensureRecord(packaged.mutations, `Package ${packageId} mutations`);
-  const dependencies = ensureRecord(mutations.dependencies, `Package ${packageId} mutations.dependencies`);
-  const runtimeDependencies = ensureRecord(
-    dependencies.runtime,
-    `Package ${packageId} mutations.dependencies.runtime`
-  );
-  const devDependencies = ensureRecord(dependencies.dev, `Package ${packageId} mutations.dependencies.dev`);
-
-  const packageJson = ensureRecord(mutations.packageJson, `Package ${packageId} mutations.packageJson`);
-  const scripts = ensureRecord(packageJson.scripts, `Package ${packageId} mutations.packageJson.scripts`);
-
-  const procfile = ensureRecord(mutations.procfile, `Package ${packageId} mutations.procfile`);
-  const files = Array.isArray(mutations.files) ? mutations.files : [];
-
-  for (const [dependencyName, range] of Object.entries({ ...runtimeDependencies, ...devDependencies })) {
-    if (!String(dependencyName || "").trim()) {
-      throw createCliError(`Package ${packageId} has an empty dependency key.`);
-    }
-    if (!String(range || "").trim()) {
-      throw createCliError(`Package ${packageId} dependency ${dependencyName} must define a range.`);
-    }
-  }
-
-  for (const [scriptName, command] of Object.entries(scripts)) {
-    if (!String(scriptName || "").trim()) {
-      throw createCliError(`Package ${packageId} has an empty script key.`);
-    }
-    if (!String(command || "").trim()) {
-      throw createCliError(`Package ${packageId} script ${scriptName} must define a command.`);
-    }
-  }
-
-  for (const [processType, command] of Object.entries(procfile)) {
-    normalizeProcessType(processType);
-    if (!String(command || "").trim()) {
-      throw createCliError(`Package ${packageId} Procfile entry ${processType} must define a command.`);
-    }
-  }
-
-  const normalizedFiles = files.map((entry, index) => {
-    ensureObject(entry, `Package ${packageId} files[${index}]`);
-
-    const from = normalizeRelativePath(entry.from);
-    const to = normalizeRelativePath(entry.to);
-
-    return {
-      from,
-      to
-    };
-  });
-
-  return {
-    packageVersion: 1,
-    packageId,
-    version,
-    description: String(packaged.description || "").trim(),
-    dependsOn,
-    capabilities: {
-      provides,
-      requires
-    },
-    mutations: {
-      dependencies: {
-        runtime: runtimeDependencies,
-        dev: devDependencies
-      },
-      packageJson: {
-        scripts
-      },
-      procfile,
-      files: normalizedFiles
-    }
-  };
-}
-
 async function discoverAvailablePacks() {
   const entries = await readdir(PACKS_ROOT, { withFileTypes: true });
   const packs = new Map();
@@ -525,11 +301,10 @@ async function discoverAvailablePacks() {
     }
 
     const module = await import(pathToFileURL(descriptorPath).href);
-    const descriptor = ensurePackDescriptorShape(module?.default, descriptorPath);
+    const descriptor = normalizePackDescriptor(module?.default, descriptorPath);
 
-    if (packs.has(descriptor.packId)) {
-      throw createCliError(`Duplicate packId discovered: ${descriptor.packId}`);
-    }
+    const existing = packs.get(descriptor.packId);
+    ensureUniqueDescriptor(existing, descriptor.packId, descriptorPath, "pack");
 
     packs.set(descriptor.packId, {
       descriptor,
@@ -599,15 +374,11 @@ async function discoverAvailablePackages(appRoot) {
 
   for (const descriptorPath of orderedDescriptorPaths) {
     const module = await import(pathToFileURL(descriptorPath).href);
-    const descriptor = ensurePackageDescriptorShape(module?.default, descriptorPath);
+    const descriptor = normalizePackageDescriptor(module?.default, descriptorPath);
     const packageRoot = path.dirname(descriptorPath);
 
     const existing = packages.get(descriptor.packageId);
-    if (existing && path.resolve(existing.descriptorPath) !== path.resolve(descriptorPath)) {
-      throw createCliError(
-        `Duplicate packageId discovered: ${descriptor.packageId}\n- ${existing.descriptorPath}\n- ${descriptorPath}`
-      );
-    }
+    ensureUniqueDescriptor(existing, descriptor.packageId, descriptorPath, "package");
 
     packages.set(descriptor.packageId, {
       descriptor,
@@ -617,6 +388,16 @@ async function discoverAvailablePackages(appRoot) {
   }
 
   return packages;
+}
+
+async function lintDescriptors({ appRoot }) {
+  const packs = await discoverAvailablePacks();
+  const packages = await discoverAvailablePackages(appRoot);
+  return {
+    command: "lint-descriptors",
+    packCount: packs.size,
+    packageCount: packages.size
+  };
 }
 
 function ensurePlainObjectRecord(value) {
@@ -1508,6 +1289,13 @@ function formatResult(result, { json, stdout }) {
     return;
   }
 
+  if (result.command === "lint-descriptors") {
+    stdout.write(
+      `Descriptor lint passed (${result.packCount} pack descriptors, ${result.packageCount} package descriptors).\n`
+    );
+    return;
+  }
+
   if (result.command === "add" || result.command === "update") {
     const label = result.command === "add" ? "Added" : "Updated";
     stdout.write(`${label} pack ${result.packId}${result.dryRun ? " [dry-run]" : ""}.\n`);
@@ -1735,9 +1523,25 @@ export async function runCli(
 ) {
   try {
     const parsed = parseArgs(argv);
+    const appRoot = path.resolve(cwd);
 
     if (parsed.options.help || parsed.command === "help") {
       printUsage(stdout);
+      return 0;
+    }
+
+    if (parsed.command === "lint-descriptors") {
+      if (parsed.positional.length > 0) {
+        throw createCliError("jskit lint-descriptors does not accept positional arguments.", {
+          showUsage: true
+        });
+      }
+
+      const result = await lintDescriptors({ appRoot });
+      formatResult(result, {
+        json: parsed.options.json,
+        stdout
+      });
       return 0;
     }
 
@@ -1747,7 +1551,6 @@ export async function runCli(
       });
     }
 
-    const appRoot = path.resolve(cwd);
     const { packageJson, packageJsonPath } = await loadAppPackageJson(appRoot);
     const { lock, lockPath } = await loadLockFile(appRoot);
     const availablePacks = await discoverAvailablePacks();
