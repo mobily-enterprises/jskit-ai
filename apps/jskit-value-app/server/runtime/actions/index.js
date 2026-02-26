@@ -45,7 +45,14 @@ function createActionExecutor({ actionRegistry, defaultDeps = {} } = {}) {
   });
 }
 
-function createActionRuntimeServices({ services, repositories, repositoryConfig, appConfig, rbacManifest } = {}) {
+function createActionRuntimeServices({
+  services,
+  repositories,
+  repositoryConfig,
+  appConfig,
+  rbacManifest,
+  frameworkCompositionMode
+} = {}) {
   const logger =
     services?.observabilityService && typeof services.observabilityService.createScopedLogger === "function"
       ? services.observabilityService.createScopedLogger("actions.runtime")
@@ -57,6 +64,8 @@ function createActionRuntimeServices({ services, repositories, repositoryConfig,
     repositoryConfig,
     appConfig,
     rbacManifest
+  }, {
+    mode: frameworkCompositionMode
   });
 
   const actionRegistry = createRuntimeActionRegistry({

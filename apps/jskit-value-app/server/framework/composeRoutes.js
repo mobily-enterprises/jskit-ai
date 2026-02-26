@@ -16,10 +16,11 @@ function composeRouteModules(options = {}) {
   return ROUTE_MODULE_DEFINITIONS.filter((definition) => includedIds.has(definition.id));
 }
 
-function buildRoutesFromComposedModules({ controllers, routeConfig = {}, enabledModuleIds } = {}) {
+function buildRoutesFromComposedModules({ controllers, routeConfig = {}, enabledModuleIds, mode } = {}) {
   const routes = buildRoutesFromManifest({
     definitions: composeRouteModules({
-      enabledModuleIds
+      enabledModuleIds,
+      mode
     }),
     controllers,
     routeConfig,

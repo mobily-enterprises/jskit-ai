@@ -49,7 +49,8 @@ async function registerSocketIoRealtime(
     redisQuitTimeoutMs,
     redisConnectTimeoutMs,
     redisClientFactory,
-    redisStreamsAdapterFactory
+    redisStreamsAdapterFactory,
+    frameworkCompositionMode
   }
 ) {
   const runtimeDeps = {
@@ -57,7 +58,9 @@ async function registerSocketIoRealtime(
     realtimeEventsService,
     workspaceService
   };
-  const realtimePolicy = composeRealtimePolicy();
+  const realtimePolicy = composeRealtimePolicy({
+    mode: frameworkCompositionMode
+  });
 
   const appPolicyCallbacks = {
     isSupportedTopic: realtimePolicy.isSupportedTopic,

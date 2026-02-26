@@ -1,24 +1,72 @@
 import { REALTIME_TOPICS } from "../../shared/eventTypes.js";
+import {
+  FRAMEWORK_CAPABILITY_IDS,
+  FRAMEWORK_CAPABILITY_VERSION,
+  frameworkCapability,
+  frameworkCapabilityRequirement
+} from "../../shared/framework/capabilities.js";
 
 const SERVER_MODULE_TIERS = Object.freeze({
   foundation: "foundation",
   feature: "feature"
 });
 
+const SERVER_MODULE_VERSION = "0.1.0";
+const SERVER_MODULE_DEPENDENCY_RANGE = "^0.1.0";
+const CAPABILITY_REQUIREMENT_RANGE = `^${FRAMEWORK_CAPABILITY_VERSION}`;
+
+function moduleDependency(moduleId, { range = SERVER_MODULE_DEPENDENCY_RANGE, optional = false } = {}) {
+  const dependency = {
+    id: String(moduleId || "").trim(),
+    optional: Boolean(optional)
+  };
+
+  const normalizedRange = String(range || "").trim();
+  if (normalizedRange) {
+    dependency.range = normalizedRange;
+  }
+
+  return Object.freeze(dependency);
+}
+
+function moduleCapabilityRequirement(capabilityId, options = {}) {
+  return frameworkCapabilityRequirement(capabilityId, {
+    range: CAPABILITY_REQUIREMENT_RANGE,
+    ...options
+  });
+}
+
+function createServerModule(definition = {}) {
+  return Object.freeze({
+    version: SERVER_MODULE_VERSION,
+    dependsOnModules: Object.freeze([]),
+    requiresCapabilities: Object.freeze([]),
+    providesCapabilities: Object.freeze([]),
+    ...definition
+  });
+}
+
 const SERVER_MODULE_REGISTRY = Object.freeze([
-  {
+  createServerModule({
     id: "observability",
     tier: SERVER_MODULE_TIERS.foundation,
+    providesCapabilities: Object.freeze([frameworkCapability(FRAMEWORK_CAPABILITY_IDS.httpContracts)]),
     contributions: {
       services: ["observabilityService"],
       controllers: ["observability"],
       routes: ["observability"],
       runtimeServices: ["observabilityService"]
     }
-  },
-  {
+  }),
+  createServerModule({
     id: "auth",
     tier: SERVER_MODULE_TIERS.foundation,
+    providesCapabilities: Object.freeze([
+      frameworkCapability(FRAMEWORK_CAPABILITY_IDS.authIdentity),
+      frameworkCapability(FRAMEWORK_CAPABILITY_IDS.authCookies),
+      frameworkCapability(FRAMEWORK_CAPABILITY_IDS.rbacPermissions),
+      frameworkCapability(FRAMEWORK_CAPABILITY_IDS.httpRoutePolicy)
+    ]),
     contributions: {
       repositories: ["userProfilesRepository"],
       services: ["authService"],
@@ -27,10 +75,15 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       runtimeServices: ["authService"],
       actionContributorModules: ["auth"]
     }
-  },
-  {
+  }),
+  createServerModule({
     id: "history",
     tier: SERVER_MODULE_TIERS.feature,
+    dependsOnModules: Object.freeze([moduleDependency("auth"), moduleDependency("workspace")]),
+    requiresCapabilities: Object.freeze([
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.workspaceSelection),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.actionRuntimeExecute)
+    ]),
     contributions: {
       repositories: ["calculationLogsRepository"],
       services: ["deg2radHistoryService"],
@@ -39,8 +92,8 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       realtimeTopics: [REALTIME_TOPICS.HISTORY],
       actionContributorModules: ["history"]
     }
-  },
-  {
+  }),
+  createServerModule({
     id: "communications",
     tier: SERVER_MODULE_TIERS.feature,
     contributions: {
@@ -49,10 +102,16 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       routes: ["communications"],
       actionContributorModules: ["communications"]
     }
-  },
-  {
+  }),
+  createServerModule({
     id: "settings",
     tier: SERVER_MODULE_TIERS.feature,
+    dependsOnModules: Object.freeze([moduleDependency("auth"), moduleDependency("workspace")]),
+    requiresCapabilities: Object.freeze([
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.workspaceSelection),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.actionRuntimeExecute),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.realtimePublish)
+    ]),
     contributions: {
       repositories: ["userSettingsRepository"],
       services: ["avatarStorageService", "chatAttachmentStorageService", "userAvatarService", "userSettingsService"],
@@ -62,10 +121,16 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       runtimeServices: ["avatarStorageService", "chatAttachmentStorageService"],
       actionContributorModules: ["settings"]
     }
-  },
-  {
+  }),
+  createServerModule({
     id: "alerts",
     tier: SERVER_MODULE_TIERS.feature,
+    dependsOnModules: Object.freeze([moduleDependency("auth"), moduleDependency("workspace")]),
+    requiresCapabilities: Object.freeze([
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.workspaceSelection),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.actionRuntimeExecute),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.realtimePublish)
+    ]),
     contributions: {
       repositories: ["alertsRepository"],
       services: ["alertsService"],
@@ -75,10 +140,22 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       runtimeServices: ["alertsService"],
       actionContributorModules: ["alerts"]
     }
-  },
-  {
+  }),
+  createServerModule({
     id: "workspace",
     tier: SERVER_MODULE_TIERS.foundation,
+    dependsOnModules: Object.freeze([moduleDependency("auth")]),
+    requiresCapabilities: Object.freeze([
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.authIdentity),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.authCookies),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.rbacPermissions)
+    ]),
+    providesCapabilities: Object.freeze([
+      frameworkCapability(FRAMEWORK_CAPABILITY_IDS.workspaceSelection),
+      frameworkCapability(FRAMEWORK_CAPABILITY_IDS.workspaceMembership),
+      frameworkCapability(FRAMEWORK_CAPABILITY_IDS.realtimePublish),
+      frameworkCapability(FRAMEWORK_CAPABILITY_IDS.realtimeSubscribe)
+    ]),
     contributions: {
       repositories: [
         "workspacesRepository",
@@ -104,10 +181,15 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       runtimeServices: ["workspaceService", "realtimeEventsService"],
       actionContributorModules: ["workspace"]
     }
-  },
-  {
+  }),
+  createServerModule({
     id: "console",
     tier: SERVER_MODULE_TIERS.foundation,
+    dependsOnModules: Object.freeze([moduleDependency("auth")]),
+    requiresCapabilities: Object.freeze([
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.authIdentity),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.rbacPermissions)
+    ]),
     contributions: {
       repositories: [
         "consoleMembershipsRepository",
@@ -122,10 +204,12 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       runtimeServices: ["consoleService"],
       actionContributorModules: ["console"]
     }
-  },
-  {
+  }),
+  createServerModule({
     id: "consoleErrors",
     tier: SERVER_MODULE_TIERS.feature,
+    dependsOnModules: Object.freeze([moduleDependency("auth"), moduleDependency("console")]),
+    requiresCapabilities: Object.freeze([moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.realtimePublish)]),
     contributions: {
       repositories: ["consoleErrorLogsRepository"],
       services: ["consoleErrorsService"],
@@ -135,17 +219,23 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       runtimeServices: ["consoleErrorsService"],
       actionContributorModules: ["consoleErrors"]
     }
-  },
-  {
+  }),
+  createServerModule({
     id: "securityAudit",
     tier: SERVER_MODULE_TIERS.foundation,
     contributions: {
       repositories: ["auditEventsRepository"]
     }
-  },
-  {
+  }),
+  createServerModule({
     id: "ai",
     tier: SERVER_MODULE_TIERS.feature,
+    dependsOnModules: Object.freeze([moduleDependency("auth"), moduleDependency("workspace")]),
+    requiresCapabilities: Object.freeze([
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.workspaceSelection),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.actionRuntimeExecute),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.realtimePublish)
+    ]),
     contributions: {
       repositories: ["aiTranscriptConversationsRepository", "aiTranscriptMessagesRepository"],
       services: ["aiModuleServices", "aiTranscriptsService", "aiService"],
@@ -155,10 +245,16 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       runtimeServices: ["aiService"],
       actionContributorModules: ["ai"]
     }
-  },
-  {
+  }),
+  createServerModule({
     id: "chat",
     tier: SERVER_MODULE_TIERS.feature,
+    dependsOnModules: Object.freeze([moduleDependency("auth"), moduleDependency("workspace")]),
+    requiresCapabilities: Object.freeze([
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.workspaceSelection),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.actionRuntimeExecute),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.realtimePublish)
+    ]),
     contributions: {
       repositories: [
         "chatThreadsRepository",
@@ -176,10 +272,17 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       realtimeTopics: [REALTIME_TOPICS.CHAT, REALTIME_TOPICS.TYPING],
       actionContributorModules: ["chat"]
     }
-  },
-  {
+  }),
+  createServerModule({
     id: "projects",
     tier: SERVER_MODULE_TIERS.feature,
+    dependsOnModules: Object.freeze([moduleDependency("auth"), moduleDependency("workspace")]),
+    requiresCapabilities: Object.freeze([
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.workspaceSelection),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.actionRuntimeExecute),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.realtimePublish),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.billingEntitlements, { optional: true })
+    ]),
     contributions: {
       repositories: ["projectsRepository"],
       routes: ["projects"],
@@ -188,8 +291,8 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       appFeatureControllers: ["projects"],
       actionContributorModules: ["projects"]
     }
-  },
-  {
+  }),
+  createServerModule({
     id: "health",
     tier: SERVER_MODULE_TIERS.foundation,
     contributions: {
@@ -198,10 +301,21 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       controllers: ["health"],
       routes: ["health"]
     }
-  },
-  {
+  }),
+  createServerModule({
     id: "billing",
     tier: SERVER_MODULE_TIERS.feature,
+    dependsOnModules: Object.freeze([
+      moduleDependency("auth"),
+      moduleDependency("workspace"),
+      moduleDependency("actionRuntime")
+    ]),
+    requiresCapabilities: Object.freeze([
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.workspaceSelection),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.actionRuntimeExecute),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.realtimePublish)
+    ]),
+    providesCapabilities: Object.freeze([frameworkCapability(FRAMEWORK_CAPABILITY_IDS.billingEntitlements)]),
     contributions: {
       repositories: ["billingRepository"],
       services: [
@@ -240,10 +354,16 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       backgroundRuntimeServices: ["billingWorkerRuntimeService"],
       actionContributorModules: ["billing"]
     }
-  },
-  {
+  }),
+  createServerModule({
     id: "social",
     tier: SERVER_MODULE_TIERS.feature,
+    dependsOnModules: Object.freeze([moduleDependency("auth"), moduleDependency("workspace")]),
+    requiresCapabilities: Object.freeze([
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.workspaceSelection),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.actionRuntimeExecute),
+      moduleCapabilityRequirement(FRAMEWORK_CAPABILITY_IDS.realtimePublish)
+    ]),
     contributions: {
       repositories: ["socialRepository"],
       services: ["socialService", "socialOutboxWorkerRuntimeService"],
@@ -255,16 +375,17 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       backgroundRuntimeServices: ["socialOutboxWorkerRuntimeService"],
       actionContributorModules: ["social"]
     }
-  },
-  {
+  }),
+  createServerModule({
     id: "actionRuntime",
     tier: SERVER_MODULE_TIERS.foundation,
+    providesCapabilities: Object.freeze([frameworkCapability(FRAMEWORK_CAPABILITY_IDS.actionRuntimeExecute)]),
     contributions: {
       services: ["actionRuntimeServices", "actionRegistry", "actionExecutor"],
       runtimeServices: ["actionRegistry", "actionExecutor"]
     }
-  },
-  {
+  }),
+  createServerModule({
     id: "deg2rad",
     tier: SERVER_MODULE_TIERS.feature,
     contributions: {
@@ -273,7 +394,7 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
       appFeatureControllers: ["deg2rad"],
       actionContributorModules: ["history"]
     }
-  }
+  })
 ]);
 
 const SERVER_MODULE_IDS = Object.freeze(SERVER_MODULE_REGISTRY.map((entry) => entry.id));
@@ -289,6 +410,7 @@ function resolveServerModuleById(moduleId) {
 
 export {
   SERVER_MODULE_TIERS,
+  SERVER_MODULE_VERSION,
   SERVER_MODULE_REGISTRY,
   SERVER_MODULE_IDS,
   resolveServerModuleRegistry,

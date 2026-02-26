@@ -36,6 +36,11 @@ Repository config has exactly these top-level slices:
 
 `buildRepositoryConfig(...)` loads defaults, merges optional overrides, validates, then deep-freezes.
 
+## Framework Composition Mode
+
+Server bootstrap uses `strict` module composition mode.
+Framework tooling (for example `npm run framework:deps:check -- --mode permissive`) can run permissive checks for diagnostics-only validation.
+
 ## `actions` Domain
 
 | Key path | Type | Allowed values | Default | Meaning | Notable constraints/interactions |

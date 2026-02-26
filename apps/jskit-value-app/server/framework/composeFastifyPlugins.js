@@ -1,6 +1,6 @@
 import billingWebhookRawBodyPlugin from "../fastify/billingWebhookRawBody.plugin.js";
 import activityPubRawBodyPlugin from "../fastify/activityPubRawBody.plugin.js";
-import { resolveServerModuleRegistry } from "./moduleRegistry.js";
+import { composeServerRuntimeArtifacts } from "./composeRuntime.js";
 
 const FASTIFY_PLUGIN_DEFINITIONS = Object.freeze([
   {
@@ -19,33 +19,8 @@ const FASTIFY_PLUGIN_DEFINITIONS = Object.freeze([
   }
 ]);
 
-function normalizeEnabledModuleIds(enabledModuleIds) {
-  if (!Array.isArray(enabledModuleIds) || enabledModuleIds.length < 1) {
-    return null;
-  }
-
-  return new Set(enabledModuleIds.map((entry) => String(entry || "").trim()).filter(Boolean));
-}
-
-function resolveFastifyPluginDefinitionIds({ enabledModuleIds } = {}) {
-  const enabledSet = normalizeEnabledModuleIds(enabledModuleIds);
-  const pluginIds = new Set();
-
-  for (const moduleEntry of resolveServerModuleRegistry()) {
-    if (enabledSet && !enabledSet.has(moduleEntry.id)) {
-      continue;
-    }
-
-    const modulePluginIds = moduleEntry?.contributions?.fastifyPlugins;
-    for (const pluginId of Array.isArray(modulePluginIds) ? modulePluginIds : []) {
-      const normalized = String(pluginId || "").trim();
-      if (normalized) {
-        pluginIds.add(normalized);
-      }
-    }
-  }
-
-  return pluginIds;
+function resolveFastifyPluginDefinitionIds(options = {}) {
+  return new Set(composeServerRuntimeArtifacts(options).fastifyPluginIds);
 }
 
 function composeFastifyPluginDefinitions(options = {}) {
@@ -66,7 +41,6 @@ async function registerComposedFastifyPlugins(app, options = {}) {
 
 const __testables = {
   FASTIFY_PLUGIN_DEFINITIONS,
-  normalizeEnabledModuleIds,
   resolveFastifyPluginDefinitionIds
 };
 

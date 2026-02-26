@@ -9,9 +9,12 @@ function createServerRuntime({
   rbacManifest,
   rootDir,
   supabasePublishableKey,
-  observabilityRegistry
+  observabilityRegistry,
+  frameworkCompositionMode
 }) {
-  const { platformBundle, appFeatureBundle } = createComposedLegacyRuntimeBundles();
+  const { platformBundle, appFeatureBundle } = createComposedLegacyRuntimeBundles({
+    mode: frameworkCompositionMode
+  });
 
   return createServerRuntimeWithPlatformBundle({
     platformBundle,
@@ -24,7 +27,8 @@ function createServerRuntime({
       rbacManifest,
       rootDir,
       supabasePublishableKey,
-      observabilityRegistry
+      observabilityRegistry,
+      frameworkCompositionMode
     }
   });
 }

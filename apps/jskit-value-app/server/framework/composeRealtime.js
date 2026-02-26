@@ -1,6 +1,6 @@
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../shared/eventTypes.js";
 import { REALTIME_TOPIC_REGISTRY } from "../../shared/topicRegistry.js";
-import { resolveServerModuleRegistry } from "./moduleRegistry.js";
+import { composeServerRuntimeArtifacts } from "./composeRuntime.js";
 import {
   createTopicCatalog,
   getTopicRule as lookupTopicRule,
@@ -11,42 +11,20 @@ import {
   resolveTopicScope as resolveCatalogTopicScope
 } from "@jskit-ai/realtime-contracts";
 
-function normalizeEnabledModuleIds(enabledModuleIds) {
-  if (!Array.isArray(enabledModuleIds) || enabledModuleIds.length < 1) {
-    return null;
-  }
-
-  return new Set(enabledModuleIds.map((entry) => String(entry || "").trim()).filter(Boolean));
-}
-
-function resolveActiveModuleEntries(enabledModuleIds) {
-  const enabledSet = normalizeEnabledModuleIds(enabledModuleIds);
-  const registry = resolveServerModuleRegistry();
-  if (!enabledSet) {
-    return registry;
-  }
-
-  return registry.filter((entry) => enabledSet.has(entry.id));
-}
-
-function collectRealtimeTopics(activeModuleEntries) {
+function collectRealtimeTopics(options = {}) {
   const topics = new Set();
-  for (const moduleEntry of activeModuleEntries) {
-    const moduleTopics = moduleEntry?.contributions?.realtimeTopics;
-    for (const topic of Array.isArray(moduleTopics) ? moduleTopics : []) {
-      const normalized = String(topic || "").trim();
-      if (normalized) {
-        topics.add(normalized);
-      }
+  for (const topic of composeServerRuntimeArtifacts(options).realtimeTopics) {
+    const normalized = String(topic || "").trim();
+    if (normalized) {
+      topics.add(normalized);
     }
   }
 
   return topics;
 }
 
-function composeTopicCatalog({ enabledModuleIds } = {}) {
-  const activeEntries = resolveActiveModuleEntries(enabledModuleIds);
-  const selectedTopics = collectRealtimeTopics(activeEntries);
+function composeTopicCatalog(options = {}) {
+  const selectedTopics = collectRealtimeTopics(options);
 
   if (selectedTopics.size < 1) {
     return createTopicCatalog({});
@@ -106,8 +84,6 @@ function composeRealtimePolicy({ surface, enabledModuleIds } = {}) {
 }
 
 const __testables = {
-  normalizeEnabledModuleIds,
-  resolveActiveModuleEntries,
   collectRealtimeTopics,
   composeTopicCatalog
 };

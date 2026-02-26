@@ -29,6 +29,7 @@ import {
   startComposedBackgroundRuntimes,
   stopComposedBackgroundRuntimes
 } from "./server/framework/composeBackgroundRuntimes.js";
+import { MODULE_ENABLEMENT_MODES } from "@jskit-ai/module-framework-core";
 import { registerSocketIoRealtime } from "./server/realtime/registerSocketIoRealtime.js";
 import { buildLoginRedirectPathFromRequest, safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
 import { normalizeReturnToPath } from "@jskit-ai/access-core/utils";
@@ -81,6 +82,7 @@ function resolveRuntimeEnv(nodeEnv) {
 }
 
 const NODE_ENV = resolveRuntimeEnv(runtimeEnv.NODE_ENV);
+const FRAMEWORK_COMPOSITION_MODE = MODULE_ENABLEMENT_MODES.strict;
 const PORT = Number(runtimeEnv.PORT) || 3000;
 const FRONTEND_DIST_DIR = String(runtimeEnv.FRONTEND_DIST_DIR || "dist").trim() || "dist";
 const PUBLIC_DIR = path.resolve(__dirname, FRONTEND_DIST_DIR);
@@ -129,7 +131,8 @@ const {
   rbacManifest: RBAC_MANIFEST,
   rootDir: __dirname,
   supabasePublishableKey: AUTH_SUPABASE_PUBLISHABLE_KEY,
-  observabilityRegistry: OBSERVABILITY_REGISTRY
+  observabilityRegistry: OBSERVABILITY_REGISTRY,
+  frameworkCompositionMode: FRAMEWORK_COMPOSITION_MODE
 });
 const {
   authService,
@@ -564,7 +567,8 @@ export async function buildServer({ frontendBuildAvailable }) {
   app.setValidatorCompiler(TypeBoxValidatorCompiler);
 
   await registerComposedFastifyPlugins(app, {
-    repositoryConfig: REPOSITORY_CONFIG
+    repositoryConfig: REPOSITORY_CONFIG,
+    mode: FRAMEWORK_COMPOSITION_MODE
   });
 
   await app.register(fastifyHelmet, {
@@ -629,7 +633,8 @@ export async function buildServer({ frontendBuildAvailable }) {
     path: API_REALTIME_PATH,
     redisUrl: runtimeEnv.REDIS_URL,
     requireRedisAdapter: NODE_ENV === "production",
-    logger: app.log
+    logger: app.log,
+    frameworkCompositionMode: FRAMEWORK_COMPOSITION_MODE
   });
   await app.register(fastifyMultipart, {
     limits: {
@@ -668,7 +673,8 @@ export async function buildServer({ frontendBuildAvailable }) {
       socialFeedPageSizeMax: REPOSITORY_CONFIG.social.limits.feedPageSizeMax,
       socialNotificationsPageSizeMax: REPOSITORY_CONFIG.social.limits.notificationsPageSizeMax,
       socialActorSearchLimitMax: REPOSITORY_CONFIG.social.limits.actorSearchLimitMax,
-      socialInboxMaxPayloadBytes: REPOSITORY_CONFIG.social.limits.inboxMaxPayloadBytes
+      socialInboxMaxPayloadBytes: REPOSITORY_CONFIG.social.limits.inboxMaxPayloadBytes,
+      frameworkCompositionMode: FRAMEWORK_COMPOSITION_MODE
     }
   });
   if (frontendBuildAvailable) {
@@ -676,11 +682,15 @@ export async function buildServer({ frontendBuildAvailable }) {
   }
 
   app.addHook("onReady", async () => {
-    startComposedBackgroundRuntimes(runtimeServices);
+    startComposedBackgroundRuntimes(runtimeServices, {
+      mode: FRAMEWORK_COMPOSITION_MODE
+    });
   });
 
   app.addHook("onClose", async () => {
-    stopComposedBackgroundRuntimes(runtimeServices);
+    stopComposedBackgroundRuntimes(runtimeServices, {
+      mode: FRAMEWORK_COMPOSITION_MODE
+    });
   });
 
   app.setNotFoundHandler(async (request, reply) => {
@@ -725,7 +735,9 @@ let signalHandlersRegistered = false;
 
 function stopBackgroundRuntimesForShutdown() {
   try {
-    stopComposedBackgroundRuntimes(runtimeServices);
+    stopComposedBackgroundRuntimes(runtimeServices, {
+      mode: FRAMEWORK_COMPOSITION_MODE
+    });
   } catch (error) {
     console.warn("Failed to stop composed background runtimes during shutdown:", error);
   }

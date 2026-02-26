@@ -16,7 +16,7 @@ test("composeFastifyPluginDefinitions resolves plugin contributions from module 
   assert.deepEqual(pluginIds, ["billingWebhookRawBody", "activityPubRawBody"]);
 
   const billingOnlyPluginIds = composeFastifyPluginDefinitions({
-    enabledModuleIds: ["billing"]
+    enabledModuleIds: ["auth", "workspace", "actionRuntime", "billing"]
   }).map((definition) => definition.id);
   assert.deepEqual(billingOnlyPluginIds, ["billingWebhookRawBody"]);
 
@@ -54,13 +54,13 @@ test("composed background runtime orchestration starts and stops only selected r
   assert.deepEqual(runtimeServiceIds, ["billingWorkerRuntimeService", "socialOutboxWorkerRuntimeService"]);
 
   startComposedBackgroundRuntimes(runtimeServices, {
-    enabledModuleIds: ["social"]
+    enabledModuleIds: ["auth", "workspace", "actionRuntime", "social"]
   });
   assert.equal(billingStartCount, 0);
   assert.equal(socialStartCount, 1);
 
   stopComposedBackgroundRuntimes(runtimeServices, {
-    enabledModuleIds: ["social"]
+    enabledModuleIds: ["auth", "workspace", "actionRuntime", "social"]
   });
   assert.equal(billingStopCount, 0);
   assert.equal(socialStopCount, 1);

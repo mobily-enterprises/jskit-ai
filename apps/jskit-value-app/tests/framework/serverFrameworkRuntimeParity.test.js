@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { resolveServerModuleRegistry } from "../../server/framework/moduleRegistry.js";
 import { composeServerRuntimeArtifacts, createComposedLegacyRuntimeBundles } from "../../server/framework/composeRuntime.js";
+import { resolveFrameworkDependencyCheck } from "../../server/framework/dependencyCheck.js";
 import { PLATFORM_REPOSITORY_DEFINITIONS } from "../../server/runtime/repositories.js";
 import { PLATFORM_SERVICE_DEFINITIONS, RUNTIME_SERVICE_EXPORT_IDS } from "../../server/runtime/services.js";
 import { PLATFORM_CONTROLLER_DEFINITIONS } from "../../server/runtime/controllers.js";
@@ -111,4 +112,71 @@ test("composeServerRuntimeArtifacts supports module filtering while preserving l
   assert.deepEqual(artifacts.routeModuleIds, ["health", "auth", "deg2rad"]);
   assert.deepEqual(artifacts.appFeatureServiceDefinitions.map((entry) => entry.id), ["deg2radService"]);
   assert.deepEqual(artifacts.appFeatureControllerDefinitions.map((entry) => entry.id), ["deg2rad"]);
+});
+
+test("composeServerRuntimeArtifacts throws in strict mode when required capability provider is missing", () => {
+  assert.throws(
+    () =>
+      composeServerRuntimeArtifacts({
+        mode: "strict",
+        enabledModuleIds: ["auth", "workspace", "history"]
+      }),
+    (error) => {
+      assert.equal(error?.code, "MODULE_FRAMEWORK_DIAGNOSTIC_ERROR");
+      assert.equal(Array.isArray(error?.diagnostics), true);
+      assert.equal(
+        error.diagnostics.some(
+          (entry) => entry.code === "MODULE_CAPABILITY_MISSING" && entry.moduleId === "history"
+        ),
+        true
+      );
+      return true;
+    }
+  );
+});
+
+test("composeServerRuntimeArtifacts disables missing-capability modules in permissive mode", () => {
+  const artifacts = composeServerRuntimeArtifacts({
+    mode: "permissive",
+    enabledModuleIds: ["auth", "workspace", "history"]
+  });
+
+  assert.deepEqual(artifacts.moduleOrder, ["auth", "workspace"]);
+  assert.equal(artifacts.routeModuleIds.includes("history"), false);
+  assert.equal(artifacts.disabledModules.some((entry) => entry.id === "history"), true);
+  assert.equal(
+    artifacts.diagnostics.some(
+      (entry) => entry.level === "warn" && entry.code === "MODULE_CAPABILITY_MISSING" && entry.moduleId === "history"
+    ),
+    true
+  );
+});
+
+test("framework dependency check reports strict module/capability composition status", () => {
+  const result = resolveFrameworkDependencyCheck();
+
+  assert.equal(result.ok, true);
+  assert.equal(result.mode, "strict");
+  assert.equal(result.moduleOrder.includes("auth"), true);
+  assert.equal(result.capabilityProviders.some((provider) => provider.capabilityId === "cap.auth.identity"), true);
+});
+
+test("framework dependency check throws on strict dependency violations", () => {
+  assert.throws(
+    () =>
+      resolveFrameworkDependencyCheck({
+        mode: "strict",
+        enabledModuleIds: ["billing"]
+      }),
+    (error) => {
+      assert.equal(error?.code, "MODULE_FRAMEWORK_DIAGNOSTIC_ERROR");
+      assert.equal(
+        error.diagnostics.some(
+          (entry) => entry.code === "MODULE_DEPENDENCY_MISSING" && entry.moduleId === "billing"
+        ),
+        true
+      );
+      return true;
+    }
+  );
 });
