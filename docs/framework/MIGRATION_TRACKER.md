@@ -78,12 +78,12 @@ Track each of the 83 JSKit packages that must gain a `package.descriptor.mjs` an
 | users | @jskit-ai/user-profile-knex-mysql | S7 | Descriptor + domain bundle mapping added |
 | web | @jskit-ai/http-client-runtime | S4 | Descriptor + shell bundle mapping added |
 | web | @jskit-ai/web-runtime-core | S4 | Descriptor + shell bundle mapping added |
-| workspace | @jskit-ai/console-errors-fastify-adapter | P0 | Pending Stage 0 |
-| workspace | @jskit-ai/console-fastify-adapter | P0 | Pending Stage 0 |
-| workspace | @jskit-ai/settings-fastify-adapter | P0 | Pending Stage 0 |
-| workspace | @jskit-ai/workspace-console-core | P0 | Pending Stage 0 |
-| workspace | @jskit-ai/workspace-console-knex-mysql | P0 | Pending Stage 0 |
-| workspace | @jskit-ai/workspace-console-service-core | P0 | Pending Stage 0 |
-| workspace | @jskit-ai/workspace-fastify-adapter | P0 | Pending Stage 0 |
-| workspace | @jskit-ai/workspace-knex-mysql | P0 | Pending Stage 0 |
-| workspace | @jskit-ai/workspace-service-core | P0 | Pending Stage 0 |
+| workspace | @jskit-ai/console-errors-fastify-adapter | S8 | Descriptor + domain bundle mapping added |
+| workspace | @jskit-ai/console-fastify-adapter | S8 | Descriptor + domain bundle mapping added |
+| workspace | @jskit-ai/settings-fastify-adapter | S8 | Descriptor + domain bundle mapping added |
+| workspace | @jskit-ai/workspace-console-core | S8 | Descriptor + domain bundle mapping added |
+| workspace | @jskit-ai/workspace-console-knex-mysql | S8 | Descriptor + domain bundle mapping added |
+| workspace | @jskit-ai/workspace-console-service-core | S8 | Descriptor + domain bundle mapping added |
+| workspace | @jskit-ai/workspace-fastify-adapter | S8 | Descriptor + domain bundle mapping added |
+| workspace | @jskit-ai/workspace-knex-mysql | S8 | Descriptor + domain bundle mapping added |
+| workspace | @jskit-ai/workspace-service-core | S8 | Descriptor + domain bundle mapping added |

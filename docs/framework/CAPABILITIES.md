@@ -70,6 +70,20 @@ Capability declarations are enforced by `jskit` during add/update/remove operati
 | `users.profile.client` | `@jskit-ai/profile-client-element` | Users profile bundles |
 | `users.members-admin.client` | `@jskit-ai/members-admin-client-element` | Users profile bundles |
 
+## Domain Wave C (Workspace + Console)
+
+| Capability | Providers | Common Consumers |
+| --- | --- | --- |
+| `workspace.console.core` | `@jskit-ai/workspace-console-core` | Most workspace adapters/services |
+| `workspace.console.store.mysql` | `@jskit-ai/workspace-console-knex-mysql` | `@jskit-ai/workspace-console-service-core` |
+| `workspace.console.service` | `@jskit-ai/workspace-console-service-core` | Console/admin bundle consumers |
+| `workspace.console.routes` | `@jskit-ai/console-fastify-adapter` | Workspace console bundle consumers |
+| `workspace.console-errors.routes` | `@jskit-ai/console-errors-fastify-adapter` | Workspace console bundle consumers |
+| `workspace.settings.routes` | `@jskit-ai/settings-fastify-adapter` | Workspace console bundle consumers |
+| `workspace.store.mysql` | `@jskit-ai/workspace-knex-mysql` | `@jskit-ai/workspace-service-core` |
+| `workspace.service` | `@jskit-ai/workspace-service-core` | `@jskit-ai/workspace-fastify-adapter` |
+| `workspace.routes` | `@jskit-ai/workspace-fastify-adapter` | Workspace core/admin bundles |
+
 ## Tooling Capabilities
 
 | Capability | Providers |
