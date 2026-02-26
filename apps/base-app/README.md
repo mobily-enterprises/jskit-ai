@@ -9,7 +9,6 @@ This is the smallest practical app host:
 - tiny Fastify server (`/api/v1/health`)
 - tiny Vue client shell
 - standardized scripts via `@jskit-ai/app-scripts`
-- framework composition seed file: `framework/app.manifest.mjs`
 
 ## What This Is Not
 

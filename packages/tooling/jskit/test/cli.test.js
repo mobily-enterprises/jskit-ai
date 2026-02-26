@@ -360,6 +360,25 @@ test("jskit doctor reports capability violations", async () => {
   });
 });
 
+test("jskit doctor reports legacy manifest surfaces", async () => {
+  await withTempApp(async (appRoot) => {
+    await mkdir(path.join(appRoot, "framework"), { recursive: true });
+    await writeFile(
+      path.join(appRoot, "framework", "app.manifest.mjs"),
+      "export default Object.freeze({ manifestVersion: 1 });\n",
+      "utf8"
+    );
+
+    const doctorResult = runCli({
+      cwd: appRoot,
+      args: ["doctor"]
+    });
+    assert.notEqual(doctorResult.status, 0);
+    assert.match(doctorResult.stdout + doctorResult.stderr, /\[legacy-surface\]/);
+    assert.match(doctorResult.stdout + doctorResult.stderr, /app\.manifest\.mjs/);
+  });
+});
+
 test("jskit update rollback restores state on failure", async () => {
   await withTempApp(async (appRoot) => {
     const addResult = runCli({

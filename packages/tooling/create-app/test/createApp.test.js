@@ -215,6 +215,7 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
 
     const procfile = await readFile(path.join(appRoot, "Procfile"), "utf8");
     assert.equal(procfile, "web: npm run start\n");
+    await assert.rejects(access(path.join(appRoot, "framework")), /ENOENT/);
   });
 });
 

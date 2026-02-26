@@ -1433,6 +1433,14 @@ async function removeInstalledPackage({
 
 async function validateDoctor({ appRoot, lock, availablePacks, availablePackages }) {
   const issues = [];
+  const legacyManifestPath = path.join(appRoot, "framework", "app.manifest.mjs");
+  if (await fileExists(legacyManifestPath)) {
+    issues.push(
+      createIssue(
+        "[legacy-surface] Legacy framework manifest detected (app.manifest.mjs). Remove it and install bundles via jskit add."
+      )
+    );
+  }
 
   for (const [packId, state] of Object.entries(ensurePlainObjectRecord(lock.installedPacks))) {
     if (!availablePacks.has(packId)) {

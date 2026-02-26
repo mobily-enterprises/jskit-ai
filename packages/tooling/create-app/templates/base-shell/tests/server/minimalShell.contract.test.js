@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { readdir, readFile } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,7 +29,6 @@ const EXPECTED_TOP_LEVEL_ENTRIES = Object.freeze([
   "bin",
   "eslint.config.mjs",
   "favicon.svg",
-  "framework",
   "gitignore",
   "index.html",
   "package.json",
@@ -88,14 +87,6 @@ test("starter shell keeps a strict top-level footprint", async () => {
   assert.deepEqual(sortStrings(entries), sortStrings(EXPECTED_TOP_LEVEL_ENTRIES));
 });
 
-test("manifest scaffold exists with strict core-only defaults", async () => {
-  const manifestModule = await import(path.join(APP_ROOT, "framework/app.manifest.mjs"));
-  const manifest = manifestModule?.default;
-
-  assert.equal(manifest.manifestVersion, 1);
-  assert.equal(manifest.appId, "__APP_NAME__");
-  assert.equal(manifest.profileId, "web-saas-default");
-  assert.equal(manifest.mode, "strict");
-  assert.equal(manifest.enforceProfileRequired, true);
-  assert.deepEqual(manifest.optionalModulePacks, ["core"]);
+test("legacy app.manifest scaffold is removed from starter shell", async () => {
+  await assert.rejects(access(path.join(APP_ROOT, "framework/app.manifest.mjs")), /ENOENT/);
 });

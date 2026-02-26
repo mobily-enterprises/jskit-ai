@@ -70,8 +70,8 @@ Track each of the 83 JSKit packages that must gain a `package.descriptor.mjs` an
 | surface-routing | @jskit-ai/surface-routing | S4 | Descriptor + shell bundle mapping added |
 | tooling | @jskit-ai/app-scripts | S4 | Descriptor + shell bundle mapping added |
 | tooling | @jskit-ai/config-eslint | S4 | Descriptor + shell bundle mapping added |
-| tooling | @jskit-ai/create-app | S4 | Descriptor + shell bundle mapping added |
-| tooling | @jskit-ai/jskit | S4 | Descriptor + shell bundle mapping added |
+| tooling | @jskit-ai/create-app | S12 | Starter cutover to descriptor-only bundles; legacy manifest removed |
+| tooling | @jskit-ai/jskit | S12 | No-legacy doctor guard and enforcement policy added |
 | users | @jskit-ai/members-admin-client-element | S7 | Descriptor + domain bundle mapping added |
 | users | @jskit-ai/profile-client-element | S7 | Descriptor + domain bundle mapping added |
 | users | @jskit-ai/user-profile-core | S7 | Descriptor + domain bundle mapping added |

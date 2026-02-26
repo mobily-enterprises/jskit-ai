@@ -36,10 +36,6 @@ export default Object.freeze({
         "to": "base-shell/favicon.svg"
       },
       {
-        "from": "templates/base-shell/framework/app.manifest.mjs",
-        "to": "base-shell/framework/app.manifest.mjs"
-      },
-      {
         "from": "templates/base-shell/gitignore",
         "to": "base-shell/gitignore"
       },
