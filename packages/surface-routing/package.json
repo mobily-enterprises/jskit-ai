@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.js"
+    ".": "./src/index.js",
+    "./apiPaths": "./src/apiPaths.js",
+    "./appSurfaces": "./src/appSurfaces.js",
+    "./paths": "./src/paths.js",
+    "./registry": "./src/registry.js"
   }
 }

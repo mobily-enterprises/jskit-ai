@@ -1,4 +1,4 @@
-import { createSurfaceRegistry } from "@jskit-ai/surface-routing";
+import { createDefaultAppSurfaceRegistry } from "@jskit-ai/surface-routing/appSurfaces";
 
 const {
   SURFACE_REGISTRY,
@@ -7,26 +7,7 @@ const {
   resolveSurfacePrefix,
   surfaceRequiresWorkspace,
   listSurfaceDefinitions
-} = createSurfaceRegistry({
-  surfaces: {
-    app: {
-      id: "app",
-      prefix: "",
-      requiresWorkspace: true
-    },
-    admin: {
-      id: "admin",
-      prefix: "/admin",
-      requiresWorkspace: true
-    },
-    console: {
-      id: "console",
-      prefix: "/console",
-      requiresWorkspace: false
-    }
-  },
-  defaultSurfaceId: "app"
-});
+} = createDefaultAppSurfaceRegistry();
 
 export {
   SURFACE_REGISTRY,
