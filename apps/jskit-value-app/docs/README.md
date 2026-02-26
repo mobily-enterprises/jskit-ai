@@ -9,6 +9,7 @@ Last reorganized: 2026-02-25 (UTC)
 - Customizing module URL mounts: `architecture/url-mount-customization.md`
 - Working on module dependency/capability compatibility: `architecture/module-capabilities.md`
 - Working on profile/module-pack composition rules: `architecture/module-profiles.md`
+- Authoring external framework modules/extensions: `architecture/module-authoring.md`
 - Understanding action runtime execution and contributor ownership: `architecture/action-runtime-and-contributors.md`
 - Working on social feed/federation architecture: `architecture/social-federation.md`
 - Changing canonical action IDs, ownership, or versioning: `architecture/action-catalog-governance.md`
@@ -41,6 +42,8 @@ Last reorganized: 2026-02-25 (UTC)
   - Server module dependency/capability contract, strict/permissive composition behavior, and dependency check command usage.
 - `architecture/module-profiles.md`
   - Profile contract (`web-saas-default`), required module enforcement, and optional module pack selection behavior.
+- `architecture/module-authoring.md`
+  - Extension descriptor contract, supported contribution keys, and extension validation/bootstrap loading workflow.
 - `architecture/action-runtime-and-contributors.md`
   - Deep-dive for the canonical action execution path: contracts, registry pipeline, context shaping, contributor ownership, assistant tool derivation, and data examples.
 - `architecture/action-catalog-governance.md`

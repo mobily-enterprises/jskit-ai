@@ -53,7 +53,8 @@ async function registerSocketIoRealtime(
     frameworkCompositionMode,
     frameworkProfileId,
     frameworkOptionalModulePacks,
-    frameworkEnforceProfileRequired
+    frameworkEnforceProfileRequired,
+    frameworkExtensionModules
   }
 ) {
   const runtimeDeps = {
@@ -65,7 +66,8 @@ async function registerSocketIoRealtime(
     mode: frameworkCompositionMode,
     profileId: frameworkProfileId,
     optionalModulePacks: frameworkOptionalModulePacks,
-    enforceProfileRequired: frameworkEnforceProfileRequired
+    enforceProfileRequired: frameworkEnforceProfileRequired,
+    extensionModules: frameworkExtensionModules
   });
 
   const appPolicyCallbacks = {

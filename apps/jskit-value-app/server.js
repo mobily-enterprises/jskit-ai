@@ -25,6 +25,7 @@ import {
 import { registerApiRoutes } from "./server/fastify/registerApiRoutes.js";
 import authPlugin from "./server/fastify/auth.plugin.js";
 import { registerComposedFastifyPlugins } from "./server/framework/composeFastifyPlugins.js";
+import { loadFrameworkExtensions } from "./server/framework/extensionsLoader.js";
 import {
   startComposedBackgroundRuntimes,
   stopComposedBackgroundRuntimes
@@ -87,6 +88,11 @@ const FRAMEWORK_COMPOSITION_MODE = MODULE_ENABLEMENT_MODES.strict;
 const FRAMEWORK_PROFILE_ID = FRAMEWORK_PROFILE_IDS.webSaasDefault;
 const FRAMEWORK_OPTIONAL_MODULE_PACKS = null;
 const FRAMEWORK_ENFORCE_PROFILE_REQUIRED = true;
+const FRAMEWORK_EXTENSION_MODULE_PATHS = runtimeEnv.FRAMEWORK_EXTENSION_MODULES;
+const FRAMEWORK_EXTENSION_MODULES = await loadFrameworkExtensions({
+  extensionModulePaths: FRAMEWORK_EXTENSION_MODULE_PATHS,
+  cwd: __dirname
+});
 const PORT = Number(runtimeEnv.PORT) || 3000;
 const FRONTEND_DIST_DIR = String(runtimeEnv.FRONTEND_DIST_DIR || "dist").trim() || "dist";
 const PUBLIC_DIR = path.resolve(__dirname, FRONTEND_DIST_DIR);
@@ -139,7 +145,8 @@ const {
   frameworkCompositionMode: FRAMEWORK_COMPOSITION_MODE,
   frameworkProfileId: FRAMEWORK_PROFILE_ID,
   frameworkOptionalModulePacks: FRAMEWORK_OPTIONAL_MODULE_PACKS,
-  frameworkEnforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED
+  frameworkEnforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED,
+  frameworkExtensionModules: FRAMEWORK_EXTENSION_MODULES
 });
 const {
   authService,
@@ -578,7 +585,8 @@ export async function buildServer({ frontendBuildAvailable }) {
     mode: FRAMEWORK_COMPOSITION_MODE,
     profileId: FRAMEWORK_PROFILE_ID,
     optionalModulePacks: FRAMEWORK_OPTIONAL_MODULE_PACKS,
-    enforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED
+    enforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED,
+    extensionModules: FRAMEWORK_EXTENSION_MODULES
   });
 
   await app.register(fastifyHelmet, {
@@ -647,7 +655,8 @@ export async function buildServer({ frontendBuildAvailable }) {
     frameworkCompositionMode: FRAMEWORK_COMPOSITION_MODE,
     frameworkProfileId: FRAMEWORK_PROFILE_ID,
     frameworkOptionalModulePacks: FRAMEWORK_OPTIONAL_MODULE_PACKS,
-    frameworkEnforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED
+    frameworkEnforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED,
+    frameworkExtensionModules: FRAMEWORK_EXTENSION_MODULES
   });
   await app.register(fastifyMultipart, {
     limits: {
@@ -690,7 +699,8 @@ export async function buildServer({ frontendBuildAvailable }) {
       frameworkCompositionMode: FRAMEWORK_COMPOSITION_MODE,
       frameworkProfileId: FRAMEWORK_PROFILE_ID,
       frameworkOptionalModulePacks: FRAMEWORK_OPTIONAL_MODULE_PACKS,
-      frameworkEnforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED
+      frameworkEnforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED,
+      frameworkExtensionModules: FRAMEWORK_EXTENSION_MODULES
     }
   });
   if (frontendBuildAvailable) {
@@ -702,7 +712,8 @@ export async function buildServer({ frontendBuildAvailable }) {
       mode: FRAMEWORK_COMPOSITION_MODE,
       profileId: FRAMEWORK_PROFILE_ID,
       optionalModulePacks: FRAMEWORK_OPTIONAL_MODULE_PACKS,
-      enforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED
+      enforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED,
+      extensionModules: FRAMEWORK_EXTENSION_MODULES
     });
   });
 
@@ -711,7 +722,8 @@ export async function buildServer({ frontendBuildAvailable }) {
       mode: FRAMEWORK_COMPOSITION_MODE,
       profileId: FRAMEWORK_PROFILE_ID,
       optionalModulePacks: FRAMEWORK_OPTIONAL_MODULE_PACKS,
-      enforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED
+      enforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED,
+      extensionModules: FRAMEWORK_EXTENSION_MODULES
     });
   });
 
@@ -761,7 +773,8 @@ function stopBackgroundRuntimesForShutdown() {
       mode: FRAMEWORK_COMPOSITION_MODE,
       profileId: FRAMEWORK_PROFILE_ID,
       optionalModulePacks: FRAMEWORK_OPTIONAL_MODULE_PACKS,
-      enforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED
+      enforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED,
+      extensionModules: FRAMEWORK_EXTENSION_MODULES
     });
   } catch (error) {
     console.warn("Failed to stop composed background runtimes during shutdown:", error);

@@ -45,6 +45,7 @@ Use:
 
 ```bash
 npm run framework:deps:check
+npm run framework:extensions:validate -- --module ./path/to/extension.js
 ```
 
 Optional flags:

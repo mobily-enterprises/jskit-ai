@@ -6,6 +6,7 @@ function buildRoutes(controllers, routeConfig = {}) {
     frameworkProfileId,
     frameworkOptionalModulePacks,
     frameworkEnforceProfileRequired,
+    frameworkExtensionModules,
     ...resolvedRouteConfig
   } = routeConfig || {};
 
@@ -15,7 +16,8 @@ function buildRoutes(controllers, routeConfig = {}) {
     mode: frameworkCompositionMode,
     profileId: frameworkProfileId,
     optionalModulePacks: frameworkOptionalModulePacks,
-    enforceProfileRequired: frameworkEnforceProfileRequired
+    enforceProfileRequired: frameworkEnforceProfileRequired,
+    extensionModules: frameworkExtensionModules
   });
 }
 

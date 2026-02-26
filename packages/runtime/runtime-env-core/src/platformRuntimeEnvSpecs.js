@@ -15,6 +15,7 @@ const PLATFORM_RUNTIME_DEFAULTS = Object.freeze({
   TRUST_PROXY: false,
   RBAC_MANIFEST_PATH: "./shared/auth/rbac.manifest.json",
   FRONTEND_DIST_DIR: "dist",
+  FRAMEWORK_EXTENSION_MODULES: "",
   EMAIL_PROVIDER: "none",
   AVATAR_STORAGE_DRIVER: "fs",
   AVATAR_PUBLIC_BASE_PATH: "/uploads",
@@ -97,6 +98,13 @@ function createCoreRuntimeSpec(defaults = {}) {
     }),
     FRONTEND_DIST_DIR: str({
       default: resolveStringDefault(defaults, "FRONTEND_DIST_DIR", PLATFORM_RUNTIME_DEFAULTS.FRONTEND_DIST_DIR)
+    }),
+    FRAMEWORK_EXTENSION_MODULES: str({
+      default: resolveStringDefault(
+        defaults,
+        "FRAMEWORK_EXTENSION_MODULES",
+        PLATFORM_RUNTIME_DEFAULTS.FRAMEWORK_EXTENSION_MODULES
+      )
     })
   };
 }

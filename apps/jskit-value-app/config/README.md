@@ -42,6 +42,7 @@ Server bootstrap uses `strict` module composition mode.
 Framework tooling (for example `npm run framework:deps:check -- --mode permissive`) can run permissive checks for diagnostics-only validation.
 
 Server bootstrap also enforces profile contracts using `web-saas-default` required modules.
+Server bootstrap can additionally load external module descriptors using `FRAMEWORK_EXTENSION_MODULES` (comma-separated paths).
 
 ## `actions` Domain
 

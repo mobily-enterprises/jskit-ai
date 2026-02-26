@@ -16,6 +16,7 @@ import { ROUTE_MODULE_DEFINITIONS } from "./routeModuleCatalog.js";
 import { resolveServerModuleRegistry } from "./moduleRegistry.js";
 
 const LEGACY_ROUTE_MODULE_ORDER = Object.freeze(ROUTE_MODULE_DEFINITIONS.map((entry) => entry.id));
+const EXTENSION_MODULE_TIER = "extension";
 
 function normalizeEnabledModuleIds(enabledModuleIds) {
   if (!Array.isArray(enabledModuleIds) || enabledModuleIds.length < 1) {
@@ -36,6 +37,98 @@ function normalizeCompositionMode(mode) {
 function normalizeProfileId(profileId) {
   const normalized = String(profileId || FRAMEWORK_PROFILE_IDS.webSaasDefault).trim();
   return normalized || FRAMEWORK_PROFILE_IDS.webSaasDefault;
+}
+
+function normalizeExtensionContributions(rawContributions, moduleId) {
+  if (rawContributions == null) {
+    return Object.freeze({});
+  }
+
+  if (typeof rawContributions !== "object" || Array.isArray(rawContributions)) {
+    throw new TypeError(`Extension module "${moduleId}" contributions must be an object.`);
+  }
+
+  const normalized = {};
+  for (const [key, rawIds] of Object.entries(rawContributions)) {
+    if (!Array.isArray(rawIds)) {
+      throw new TypeError(`Extension module "${moduleId}" contributions.${key} must be an array.`);
+    }
+
+    const normalizedIds = [];
+    const seen = new Set();
+    for (const rawId of rawIds) {
+      const id = String(rawId || "").trim();
+      if (!id || seen.has(id)) {
+        continue;
+      }
+      seen.add(id);
+      normalizedIds.push(id);
+    }
+
+    if (normalizedIds.length > 0) {
+      normalized[key] = Object.freeze(normalizedIds);
+    }
+  }
+
+  return Object.freeze(normalized);
+}
+
+function normalizeExtensionModules(extensionModules) {
+  if (extensionModules == null) {
+    return Object.freeze([]);
+  }
+
+  if (!Array.isArray(extensionModules)) {
+    throw new TypeError("extensionModules must be an array.");
+  }
+
+  const normalized = [];
+  const seenIds = new Set();
+
+  for (const rawEntry of extensionModules) {
+    if (!rawEntry || typeof rawEntry !== "object" || Array.isArray(rawEntry)) {
+      throw new TypeError("extensionModules entries must be objects.");
+    }
+
+    const moduleId = String(rawEntry.id || "").trim();
+    if (!moduleId) {
+      throw new TypeError("extensionModules entries must include a non-empty id.");
+    }
+    if (seenIds.has(moduleId)) {
+      throw new TypeError(`Duplicate extension module id "${moduleId}".`);
+    }
+    seenIds.add(moduleId);
+
+    normalized.push(
+      Object.freeze({
+        ...rawEntry,
+        id: moduleId,
+        contributions: normalizeExtensionContributions(rawEntry.contributions, moduleId)
+      })
+    );
+  }
+
+  return Object.freeze(normalized);
+}
+
+function resolveServerRegistry(extensionModules) {
+  const registry = [];
+  const seenIds = new Set();
+
+  for (const entry of [...resolveServerModuleRegistry(), ...normalizeExtensionModules(extensionModules)]) {
+    const moduleId = String(entry?.id || "").trim();
+    if (!moduleId) {
+      continue;
+    }
+
+    if (seenIds.has(moduleId)) {
+      throw new TypeError(`Duplicate server module id "${moduleId}" detected in framework registry.`);
+    }
+    seenIds.add(moduleId);
+    registry.push(entry);
+  }
+
+  return Object.freeze(registry);
 }
 
 function addDiagnosticForMode(diagnostics, mode, input) {
@@ -120,18 +213,24 @@ function resolveProfileConstrainedModules({
   profileId,
   optionalModulePacks,
   enforceProfileRequired,
+  extensionModules,
   diagnostics
 } = {}) {
   const normalizedProfileId = normalizeProfileId(profileId);
   const profile = resolveFrameworkProfile(normalizedProfileId);
-  const registry = resolveServerModuleRegistry();
+  const registry = resolveServerRegistry(extensionModules);
   const registryById = new Map(registry.map((entry) => [entry.id, entry]));
+  const extensionModuleIds = new Set(
+    registry
+      .filter((entry) => String(entry?.tier || "").trim() === EXTENSION_MODULE_TIER)
+      .map((entry) => entry.id)
+  );
 
   const requiredModuleIds = new Set(profile.requiredServerModules);
-  const allowedModuleIds = new Set([...profile.requiredServerModules, ...profile.optionalServerModules]);
+  const allowedModuleIds = new Set([...profile.requiredServerModules, ...profile.optionalServerModules, ...extensionModuleIds]);
   const explicitEnabledSet = normalizeEnabledModuleIds(enabledModuleIds);
   const profileSelectedModuleIds = resolveServerModuleIdsForProfile(profile, { optionalModulePacks });
-  const selectedModuleIds = explicitEnabledSet ? new Set(explicitEnabledSet) : new Set(profileSelectedModuleIds);
+  const selectedModuleIds = explicitEnabledSet ? new Set(explicitEnabledSet) : new Set([...profileSelectedModuleIds, ...extensionModuleIds]);
   const disabledModules = [];
 
   if (!explicitEnabledSet && optionalModulePacks != null) {
@@ -236,7 +335,8 @@ function resolveComposedServerModuleGraph({
   context,
   profileId = FRAMEWORK_PROFILE_IDS.webSaasDefault,
   optionalModulePacks = null,
-  enforceProfileRequired = false
+  enforceProfileRequired = false,
+  extensionModules = []
 } = {}) {
   const normalizedMode = normalizeCompositionMode(mode);
   const diagnostics = createDiagnosticsCollector();
@@ -248,6 +348,7 @@ function resolveComposedServerModuleGraph({
     profileId,
     optionalModulePacks,
     enforceProfileRequired,
+    extensionModules,
     diagnostics
   });
 
@@ -360,6 +461,9 @@ const __testables = {
   normalizeEnabledModuleIds,
   normalizeCompositionMode,
   normalizeProfileId,
+  normalizeExtensionContributions,
+  normalizeExtensionModules,
+  resolveServerRegistry,
   collectContributionIdSet,
   filterDefinitionsById,
   filterRuntimeIds,

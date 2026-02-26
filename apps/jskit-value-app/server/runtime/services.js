@@ -1003,7 +1003,8 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
       frameworkCompositionMode,
       frameworkProfileId,
       frameworkOptionalModulePacks,
-      frameworkEnforceProfileRequired
+      frameworkEnforceProfileRequired,
+      frameworkExtensionModules
     }) {
       return createActionRuntimeServices({
         services,
@@ -1014,7 +1015,8 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
         frameworkCompositionMode,
         frameworkProfileId,
         frameworkOptionalModulePacks,
-        frameworkEnforceProfileRequired
+        frameworkEnforceProfileRequired,
+        frameworkExtensionModules
       });
     }
   },

@@ -41,9 +41,22 @@ function composeTopicCatalog(options = {}) {
   return createTopicCatalog(composedRules);
 }
 
-function composeRealtimePolicy({ surface, enabledModuleIds } = {}) {
+function composeRealtimePolicy({
+  surface,
+  enabledModuleIds,
+  mode,
+  profileId,
+  optionalModulePacks,
+  enforceProfileRequired,
+  extensionModules
+} = {}) {
   const topicCatalog = composeTopicCatalog({
-    enabledModuleIds
+    enabledModuleIds,
+    mode,
+    profileId,
+    optionalModulePacks,
+    enforceProfileRequired,
+    extensionModules
   });
 
   const allTopics = listTopics(topicCatalog);

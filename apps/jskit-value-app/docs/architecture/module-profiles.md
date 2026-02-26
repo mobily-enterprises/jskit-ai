@@ -37,6 +37,9 @@ The profile defines optional packs for targeted composition (examples):
 
 Pack selection is available through framework composition options and `framework:deps:check`.
 
+Extension modules loaded through the Phase 8 extension loader are allowed by profile by default.
+They still participate in the same dependency/capability validation and can be disabled by explicit module selection or permissive diagnostics.
+
 ## Verification Commands
 
 ```bash

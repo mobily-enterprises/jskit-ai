@@ -23,7 +23,8 @@ function buildRoutesFromComposedModules({
   mode,
   profileId,
   optionalModulePacks,
-  enforceProfileRequired
+  enforceProfileRequired,
+  extensionModules
 } = {}) {
   const routes = buildRoutesFromManifest({
     definitions: composeRouteModules({
@@ -31,7 +32,8 @@ function buildRoutesFromComposedModules({
       mode,
       profileId,
       optionalModulePacks,
-      enforceProfileRequired
+      enforceProfileRequired,
+      extensionModules
     }),
     controllers,
     routeConfig,
