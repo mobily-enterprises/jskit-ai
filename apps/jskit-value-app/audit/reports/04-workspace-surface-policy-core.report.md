@@ -1,6 +1,22 @@
 ## Broken things
 
-None.
+### [04-ISSUE-006] `bootstrapRuntime` workspace/surface tests fail before execution due Pinia mock contract drift
+- Status: OPEN
+- Severity: P2
+- Confidence: high
+- Contract area: tests
+- First seen: 2026-02-26
+- Last seen: 2026-02-26
+- Evidence:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/bootstrapRuntime.vitest.js:66
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/app/state/realtimeStore.js:1
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/app/state/realtimeStore.js:19
+- Why this is broken:
+  - `tests/client/bootstrapRuntime.vitest.js` mocks `pinia` with only `createPinia`, but runtime imports `useRealtimeStore` which requires `defineStore`; the suite errors during module load, so workspace/surface bootstrap assertions in that suite never execute.
+- Suggested fix:
+  - Update the `pinia` mock to preserve/define `defineStore` (for example, partial-mock `createPinia` while forwarding other real `pinia` exports).
+- Suggested tests:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/bootstrapRuntime.vitest.js
 
 ## Fixed things
 
