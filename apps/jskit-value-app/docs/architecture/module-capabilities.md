@@ -51,4 +51,6 @@ Optional flags:
 
 - `--mode strict|permissive`
 - `--enabled moduleA,moduleB`
+- `--profile web-saas-default`
+- `--packs +social,+billing`
 - `--json`

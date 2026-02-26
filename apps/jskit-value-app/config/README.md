@@ -41,6 +41,8 @@ Repository config has exactly these top-level slices:
 Server bootstrap uses `strict` module composition mode.
 Framework tooling (for example `npm run framework:deps:check -- --mode permissive`) can run permissive checks for diagnostics-only validation.
 
+Server bootstrap also enforces profile contracts using `web-saas-default` required modules.
+
 ## `actions` Domain
 
 | Key path | Type | Allowed values | Default | Meaning | Notable constraints/interactions |

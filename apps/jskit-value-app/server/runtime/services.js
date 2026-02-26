@@ -994,13 +994,27 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
   })),
   {
     id: "actionRuntimeServices",
-    create({ services, repositories, repositoryConfig, appConfig, rbacManifest }) {
+    create({
+      services,
+      repositories,
+      repositoryConfig,
+      appConfig,
+      rbacManifest,
+      frameworkCompositionMode,
+      frameworkProfileId,
+      frameworkOptionalModulePacks,
+      frameworkEnforceProfileRequired
+    }) {
       return createActionRuntimeServices({
         services,
         repositories,
         repositoryConfig,
         appConfig,
-        rbacManifest
+        rbacManifest,
+        frameworkCompositionMode,
+        frameworkProfileId,
+        frameworkOptionalModulePacks,
+        frameworkEnforceProfileRequired
       });
     }
   },

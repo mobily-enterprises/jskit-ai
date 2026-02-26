@@ -3,9 +3,11 @@ import {
   MODULE_ENABLEMENT_MODES,
   resolveDependencyGraph,
   resolveCapabilityGraph,
-  createDiagnosticsCollector
+  createDiagnosticsCollector,
+  throwOnDiagnosticErrors
 } from "@jskit-ai/module-framework-core";
 
+import { FRAMEWORK_PROFILE_IDS, resolveFrameworkProfile, resolveServerModuleIdsForProfile } from "../../shared/framework/profile.js";
 import { PLATFORM_REPOSITORY_DEFINITIONS } from "../runtime/repositories.js";
 import { PLATFORM_SERVICE_DEFINITIONS, RUNTIME_SERVICE_EXPORT_IDS } from "../runtime/services.js";
 import { PLATFORM_CONTROLLER_DEFINITIONS } from "../runtime/controllers.js";
@@ -14,7 +16,6 @@ import { ROUTE_MODULE_DEFINITIONS } from "./routeModuleCatalog.js";
 import { resolveServerModuleRegistry } from "./moduleRegistry.js";
 
 const LEGACY_ROUTE_MODULE_ORDER = Object.freeze(ROUTE_MODULE_DEFINITIONS.map((entry) => entry.id));
-const FRAMEWORK_COMPOSITION_MODE_ENV_KEY = "FRAMEWORK_COMPOSITION_MODE";
 
 function normalizeEnabledModuleIds(enabledModuleIds) {
   if (!Array.isArray(enabledModuleIds) || enabledModuleIds.length < 1) {
@@ -32,15 +33,16 @@ function normalizeCompositionMode(mode) {
   return normalized;
 }
 
-function resolveActiveModules(enabledModuleIds) {
-  const enabledSet = normalizeEnabledModuleIds(enabledModuleIds);
-  const registry = resolveServerModuleRegistry();
+function normalizeProfileId(profileId) {
+  const normalized = String(profileId || FRAMEWORK_PROFILE_IDS.webSaasDefault).trim();
+  return normalized || FRAMEWORK_PROFILE_IDS.webSaasDefault;
+}
 
-  if (!enabledSet) {
-    return registry;
-  }
-
-  return registry.filter((entry) => enabledSet.has(entry.id));
+function addDiagnosticForMode(diagnostics, mode, input) {
+  diagnostics.add({
+    ...input,
+    level: mode === MODULE_ENABLEMENT_MODES.strict ? "error" : "warn"
+  });
 }
 
 function collectContributionIdSet(modules, contributionKey) {
@@ -112,13 +114,147 @@ function moduleSignature(modules) {
     .join("|");
 }
 
-function resolveComposedServerModuleGraph({ enabledModuleIds, mode, context } = {}) {
+function resolveProfileConstrainedModules({
+  enabledModuleIds,
+  mode,
+  profileId,
+  optionalModulePacks,
+  enforceProfileRequired,
+  diagnostics
+} = {}) {
+  const normalizedProfileId = normalizeProfileId(profileId);
+  const profile = resolveFrameworkProfile(normalizedProfileId);
+  const registry = resolveServerModuleRegistry();
+  const registryById = new Map(registry.map((entry) => [entry.id, entry]));
+
+  const requiredModuleIds = new Set(profile.requiredServerModules);
+  const allowedModuleIds = new Set([...profile.requiredServerModules, ...profile.optionalServerModules]);
+  const explicitEnabledSet = normalizeEnabledModuleIds(enabledModuleIds);
+  const profileSelectedModuleIds = resolveServerModuleIdsForProfile(profile, { optionalModulePacks });
+  const selectedModuleIds = explicitEnabledSet ? new Set(explicitEnabledSet) : new Set(profileSelectedModuleIds);
+  const disabledModules = [];
+
+  if (!explicitEnabledSet && optionalModulePacks != null) {
+    const packFilteredSet = new Set(profileSelectedModuleIds);
+    for (const moduleId of profile.optionalServerModules) {
+      if (!packFilteredSet.has(moduleId)) {
+        disabledModules.push({
+          id: moduleId,
+          reason: "profile-pack-filtered"
+        });
+      }
+    }
+  }
+
+  for (const moduleId of [...selectedModuleIds]) {
+    if (allowedModuleIds.has(moduleId)) {
+      continue;
+    }
+
+    addDiagnosticForMode(diagnostics, mode, {
+      code: "MODULE_PROFILE_FORBIDDEN_MODULE",
+      message: `Module "${moduleId}" is not allowed by profile "${profile.id}".`,
+      details: {
+        moduleId,
+        profileId: profile.id
+      }
+    });
+
+    if (mode !== MODULE_ENABLEMENT_MODES.strict) {
+      selectedModuleIds.delete(moduleId);
+      disabledModules.push({
+        id: moduleId,
+        reason: "profile-forbidden-module"
+      });
+    }
+  }
+
+  for (const moduleId of [...selectedModuleIds]) {
+    if (registryById.has(moduleId)) {
+      continue;
+    }
+
+    addDiagnosticForMode(diagnostics, mode, {
+      code: "MODULE_PROFILE_UNKNOWN_MODULE",
+      message: `Module "${moduleId}" is not registered in server module registry.`,
+      details: {
+        moduleId
+      }
+    });
+
+    if (mode !== MODULE_ENABLEMENT_MODES.strict) {
+      selectedModuleIds.delete(moduleId);
+      disabledModules.push({
+        id: moduleId,
+        reason: "profile-unknown-module"
+      });
+    }
+  }
+
+  if (enforceProfileRequired) {
+    for (const moduleId of requiredModuleIds) {
+      if (!selectedModuleIds.has(moduleId)) {
+        diagnostics.add({
+          code: "MODULE_PROFILE_REQUIRED_MODULE_MISSING",
+          level: "error",
+          message: `Required profile module "${moduleId}" is not selected for profile "${profile.id}".`,
+          details: {
+            moduleId,
+            profileId: profile.id
+          }
+        });
+      }
+
+      if (!registryById.has(moduleId)) {
+        diagnostics.add({
+          code: "MODULE_PROFILE_REQUIRED_MODULE_UNREGISTERED",
+          level: "error",
+          message: `Required profile module "${moduleId}" is not registered.`,
+          details: {
+            moduleId,
+            profileId: profile.id
+          }
+        });
+      }
+    }
+  }
+
+  throwOnDiagnosticErrors(diagnostics, "Server module profile validation failed.");
+
+  const activeModules = registry.filter((entry) => selectedModuleIds.has(entry.id));
+
+  return Object.freeze({
+    profile,
+    moduleEntries: Object.freeze(activeModules),
+    disabledModules: Object.freeze(disabledModules)
+  });
+}
+
+function resolveComposedServerModuleGraph({
+  enabledModuleIds,
+  mode,
+  context,
+  profileId = FRAMEWORK_PROFILE_IDS.webSaasDefault,
+  optionalModulePacks = null,
+  enforceProfileRequired = false
+} = {}) {
   const normalizedMode = normalizeCompositionMode(mode);
   const diagnostics = createDiagnosticsCollector();
   const disabledById = new Map();
 
-  let activeModules = resolveActiveModules(enabledModuleIds);
+  const profileResolution = resolveProfileConstrainedModules({
+    enabledModuleIds,
+    mode: normalizedMode,
+    profileId,
+    optionalModulePacks,
+    enforceProfileRequired,
+    diagnostics
+  });
+
+  let activeModules = profileResolution.moduleEntries.slice();
   let capabilityProviders = {};
+
+  mergeDisabled(disabledById, profileResolution.disabledModules);
 
   while (true) {
     const before = moduleSignature(activeModules);
@@ -148,6 +284,7 @@ function resolveComposedServerModuleGraph({ enabledModuleIds, mode, context } = 
 
   return Object.freeze({
     mode: normalizedMode,
+    profileId: profileResolution.profile.id,
     moduleEntries: Object.freeze(activeModules.slice()),
     moduleOrder: Object.freeze(activeModules.map((entry) => entry.id)),
     disabledModules: Object.freeze(
@@ -176,6 +313,7 @@ function composeServerRuntimeArtifacts(options = {}) {
 
   return Object.freeze({
     mode: moduleGraph.mode,
+    profileId: moduleGraph.profileId,
     moduleOrder: moduleGraph.moduleOrder,
     disabledModules: moduleGraph.disabledModules,
     capabilityProviders: moduleGraph.capabilityProviders,
@@ -219,22 +357,16 @@ function createComposedLegacyRuntimeBundles(options = {}) {
 }
 
 const __testables = {
-  FRAMEWORK_COMPOSITION_MODE_ENV_KEY,
   normalizeEnabledModuleIds,
   normalizeCompositionMode,
-  resolveActiveModules,
+  normalizeProfileId,
   collectContributionIdSet,
   filterDefinitionsById,
   filterRuntimeIds,
   filterRouteModuleIds,
   moduleSignature,
-  mergeDisabled
+  mergeDisabled,
+  resolveProfileConstrainedModules
 };
 
-export {
-  FRAMEWORK_COMPOSITION_MODE_ENV_KEY,
-  composeServerRuntimeArtifacts,
-  createComposedLegacyRuntimeBundles,
-  resolveComposedServerModuleGraph,
-  __testables
-};
+export { composeServerRuntimeArtifacts, createComposedLegacyRuntimeBundles, resolveComposedServerModuleGraph, __testables };

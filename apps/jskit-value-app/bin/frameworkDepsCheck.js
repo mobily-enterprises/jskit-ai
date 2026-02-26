@@ -10,6 +10,8 @@ function parseArgs(argv) {
   const output = {
     mode: undefined,
     enabledModuleIds: undefined,
+    profileId: undefined,
+    optionalModulePacks: undefined,
     json: false
   };
 
@@ -54,6 +56,36 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (rawArg === "--profile" || rawArg.startsWith("--profile=")) {
+      const value =
+        rawArg === "--profile"
+          ? String(argv[index + 1] || "").trim()
+          : String(rawArg.split("=")[1] || "").trim();
+      if (!value) {
+        throw new Error("Missing value for --profile.");
+      }
+      output.profileId = value;
+      if (rawArg === "--profile") {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (rawArg === "--packs" || rawArg.startsWith("--packs=")) {
+      const value =
+        rawArg === "--packs"
+          ? String(argv[index + 1] || "").trim()
+          : String(rawArg.split("=")[1] || "").trim();
+      if (!value) {
+        throw new Error("Missing value for --packs.");
+      }
+      output.optionalModulePacks = value;
+      if (rawArg === "--packs") {
+        index += 1;
+      }
+      continue;
+    }
+
     throw new Error(`Unsupported argument "${rawArg}".`);
   }
 
@@ -66,7 +98,9 @@ function run() {
   try {
     const result = resolveFrameworkDependencyCheck({
       mode: args.mode,
-      enabledModuleIds: args.enabledModuleIds
+      enabledModuleIds: args.enabledModuleIds,
+      profileId: args.profileId,
+      optionalModulePacks: args.optionalModulePacks
     });
 
     if (args.json) {

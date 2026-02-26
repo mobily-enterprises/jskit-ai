@@ -4,6 +4,7 @@ import test from "node:test";
 import { resolveServerModuleRegistry } from "../../server/framework/moduleRegistry.js";
 import { composeServerRuntimeArtifacts, createComposedLegacyRuntimeBundles } from "../../server/framework/composeRuntime.js";
 import { resolveFrameworkDependencyCheck } from "../../server/framework/dependencyCheck.js";
+import { FRAMEWORK_PROFILE_IDS } from "../../shared/framework/profile.js";
 import { PLATFORM_REPOSITORY_DEFINITIONS } from "../../server/runtime/repositories.js";
 import { PLATFORM_SERVICE_DEFINITIONS, RUNTIME_SERVICE_EXPORT_IDS } from "../../server/runtime/services.js";
 import { PLATFORM_CONTROLLER_DEFINITIONS } from "../../server/runtime/controllers.js";
@@ -152,13 +153,61 @@ test("composeServerRuntimeArtifacts disables missing-capability modules in permi
   );
 });
 
+test("composeServerRuntimeArtifacts enforces required server profile modules when configured", () => {
+  assert.throws(
+    () =>
+      composeServerRuntimeArtifacts({
+        mode: "strict",
+        profileId: FRAMEWORK_PROFILE_IDS.webSaasDefault,
+        enforceProfileRequired: true,
+        enabledModuleIds: ["auth", "health"]
+      }),
+    (error) => {
+      assert.equal(error?.code, "MODULE_FRAMEWORK_DIAGNOSTIC_ERROR");
+      assert.equal(
+        error.diagnostics.some((entry) => entry.code === "MODULE_PROFILE_REQUIRED_MODULE_MISSING"),
+        true
+      );
+      return true;
+    }
+  );
+});
+
+test("composeServerRuntimeArtifacts supports optional module pack filtering", () => {
+  const artifacts = composeServerRuntimeArtifacts({
+    mode: "strict",
+    profileId: FRAMEWORK_PROFILE_IDS.webSaasDefault,
+    optionalModulePacks: ["social"],
+    enforceProfileRequired: true
+  });
+
+  for (const requiredModuleId of ["observability", "auth", "workspace", "console", "health", "actionRuntime"]) {
+    assert.equal(artifacts.moduleOrder.includes(requiredModuleId), true, `Missing required module ${requiredModuleId}.`);
+  }
+  assert.equal(artifacts.moduleOrder.includes("social"), true);
+  assert.equal(artifacts.routeModuleIds.includes("social"), true);
+  assert.equal(artifacts.routeModuleIds.includes("billing"), false);
+  assert.equal(artifacts.disabledModules.some((entry) => entry.id === "billing"), true);
+});
+
 test("framework dependency check reports strict module/capability composition status", () => {
   const result = resolveFrameworkDependencyCheck();
 
   assert.equal(result.ok, true);
   assert.equal(result.mode, "strict");
+  assert.equal(result.profileId, FRAMEWORK_PROFILE_IDS.webSaasDefault);
   assert.equal(result.moduleOrder.includes("auth"), true);
   assert.equal(result.capabilityProviders.some((provider) => provider.capabilityId === "cap.auth.identity"), true);
+});
+
+test("framework dependency check supports optional module pack filtering", () => {
+  const result = resolveFrameworkDependencyCheck({
+    optionalModulePacks: "+social"
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.moduleOrder.includes("social"), true);
+  assert.equal(result.moduleOrder.includes("billing"), false);
 });
 
 test("framework dependency check throws on strict dependency violations", () => {
@@ -166,7 +215,8 @@ test("framework dependency check throws on strict dependency violations", () => 
     () =>
       resolveFrameworkDependencyCheck({
         mode: "strict",
-        enabledModuleIds: ["billing"]
+        enabledModuleIds: ["billing"],
+        enforceProfileRequired: false
       }),
     (error) => {
       assert.equal(error?.code, "MODULE_FRAMEWORK_DIAGNOSTIC_ERROR");

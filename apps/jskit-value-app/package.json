@@ -37,6 +37,7 @@
     "test:e2e": "jskit-app-scripts test:e2e",
     "test:e2e:install": "jskit-app-scripts test:e2e:install",
     "framework:deps:check": "node ./bin/frameworkDepsCheck.js",
+    "framework:profiles:test": "jskit-app-scripts test tests/framework/profile.test.js tests/framework/serverFrameworkRuntimeParity.test.js",
     "docs:api-contracts": "jskit-app-scripts docs:api-contracts",
     "docs:api-contracts:check": "jskit-app-scripts docs:api-contracts:check",
     "ops:retention": "jskit-app-scripts ops:retention",

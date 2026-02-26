@@ -30,6 +30,7 @@ import {
   stopComposedBackgroundRuntimes
 } from "./server/framework/composeBackgroundRuntimes.js";
 import { MODULE_ENABLEMENT_MODES } from "@jskit-ai/module-framework-core";
+import { FRAMEWORK_PROFILE_IDS } from "./shared/framework/profile.js";
 import { registerSocketIoRealtime } from "./server/realtime/registerSocketIoRealtime.js";
 import { buildLoginRedirectPathFromRequest, safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
 import { normalizeReturnToPath } from "@jskit-ai/access-core/utils";
@@ -83,6 +84,9 @@ function resolveRuntimeEnv(nodeEnv) {
 
 const NODE_ENV = resolveRuntimeEnv(runtimeEnv.NODE_ENV);
 const FRAMEWORK_COMPOSITION_MODE = MODULE_ENABLEMENT_MODES.strict;
+const FRAMEWORK_PROFILE_ID = FRAMEWORK_PROFILE_IDS.webSaasDefault;
+const FRAMEWORK_OPTIONAL_MODULE_PACKS = null;
+const FRAMEWORK_ENFORCE_PROFILE_REQUIRED = true;
 const PORT = Number(runtimeEnv.PORT) || 3000;
 const FRONTEND_DIST_DIR = String(runtimeEnv.FRONTEND_DIST_DIR || "dist").trim() || "dist";
 const PUBLIC_DIR = path.resolve(__dirname, FRONTEND_DIST_DIR);
@@ -132,7 +136,10 @@ const {
   rootDir: __dirname,
   supabasePublishableKey: AUTH_SUPABASE_PUBLISHABLE_KEY,
   observabilityRegistry: OBSERVABILITY_REGISTRY,
-  frameworkCompositionMode: FRAMEWORK_COMPOSITION_MODE
+  frameworkCompositionMode: FRAMEWORK_COMPOSITION_MODE,
+  frameworkProfileId: FRAMEWORK_PROFILE_ID,
+  frameworkOptionalModulePacks: FRAMEWORK_OPTIONAL_MODULE_PACKS,
+  frameworkEnforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED
 });
 const {
   authService,
@@ -568,7 +575,10 @@ export async function buildServer({ frontendBuildAvailable }) {
 
   await registerComposedFastifyPlugins(app, {
     repositoryConfig: REPOSITORY_CONFIG,
-    mode: FRAMEWORK_COMPOSITION_MODE
+    mode: FRAMEWORK_COMPOSITION_MODE,
+    profileId: FRAMEWORK_PROFILE_ID,
+    optionalModulePacks: FRAMEWORK_OPTIONAL_MODULE_PACKS,
+    enforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED
   });
 
   await app.register(fastifyHelmet, {
@@ -634,7 +644,10 @@ export async function buildServer({ frontendBuildAvailable }) {
     redisUrl: runtimeEnv.REDIS_URL,
     requireRedisAdapter: NODE_ENV === "production",
     logger: app.log,
-    frameworkCompositionMode: FRAMEWORK_COMPOSITION_MODE
+    frameworkCompositionMode: FRAMEWORK_COMPOSITION_MODE,
+    frameworkProfileId: FRAMEWORK_PROFILE_ID,
+    frameworkOptionalModulePacks: FRAMEWORK_OPTIONAL_MODULE_PACKS,
+    frameworkEnforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED
   });
   await app.register(fastifyMultipart, {
     limits: {
@@ -674,7 +687,10 @@ export async function buildServer({ frontendBuildAvailable }) {
       socialNotificationsPageSizeMax: REPOSITORY_CONFIG.social.limits.notificationsPageSizeMax,
       socialActorSearchLimitMax: REPOSITORY_CONFIG.social.limits.actorSearchLimitMax,
       socialInboxMaxPayloadBytes: REPOSITORY_CONFIG.social.limits.inboxMaxPayloadBytes,
-      frameworkCompositionMode: FRAMEWORK_COMPOSITION_MODE
+      frameworkCompositionMode: FRAMEWORK_COMPOSITION_MODE,
+      frameworkProfileId: FRAMEWORK_PROFILE_ID,
+      frameworkOptionalModulePacks: FRAMEWORK_OPTIONAL_MODULE_PACKS,
+      frameworkEnforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED
     }
   });
   if (frontendBuildAvailable) {
@@ -683,13 +699,19 @@ export async function buildServer({ frontendBuildAvailable }) {
 
   app.addHook("onReady", async () => {
     startComposedBackgroundRuntimes(runtimeServices, {
-      mode: FRAMEWORK_COMPOSITION_MODE
+      mode: FRAMEWORK_COMPOSITION_MODE,
+      profileId: FRAMEWORK_PROFILE_ID,
+      optionalModulePacks: FRAMEWORK_OPTIONAL_MODULE_PACKS,
+      enforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED
     });
   });
 
   app.addHook("onClose", async () => {
     stopComposedBackgroundRuntimes(runtimeServices, {
-      mode: FRAMEWORK_COMPOSITION_MODE
+      mode: FRAMEWORK_COMPOSITION_MODE,
+      profileId: FRAMEWORK_PROFILE_ID,
+      optionalModulePacks: FRAMEWORK_OPTIONAL_MODULE_PACKS,
+      enforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED
     });
   });
 
@@ -736,7 +758,10 @@ let signalHandlersRegistered = false;
 function stopBackgroundRuntimesForShutdown() {
   try {
     stopComposedBackgroundRuntimes(runtimeServices, {
-      mode: FRAMEWORK_COMPOSITION_MODE
+      mode: FRAMEWORK_COMPOSITION_MODE,
+      profileId: FRAMEWORK_PROFILE_ID,
+      optionalModulePacks: FRAMEWORK_OPTIONAL_MODULE_PACKS,
+      enforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED
     });
   } catch (error) {
     console.warn("Failed to stop composed background runtimes during shutdown:", error);

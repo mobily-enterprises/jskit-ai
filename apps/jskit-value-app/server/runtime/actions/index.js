@@ -51,7 +51,10 @@ function createActionRuntimeServices({
   repositoryConfig,
   appConfig,
   rbacManifest,
-  frameworkCompositionMode
+  frameworkCompositionMode,
+  frameworkProfileId,
+  frameworkOptionalModulePacks,
+  frameworkEnforceProfileRequired
 } = {}) {
   const logger =
     services?.observabilityService && typeof services.observabilityService.createScopedLogger === "function"
@@ -65,7 +68,10 @@ function createActionRuntimeServices({
     appConfig,
     rbacManifest
   }, {
-    mode: frameworkCompositionMode
+    mode: frameworkCompositionMode,
+    profileId: frameworkProfileId,
+    optionalModulePacks: frameworkOptionalModulePacks,
+    enforceProfileRequired: frameworkEnforceProfileRequired
   });
 
   const actionRegistry = createRuntimeActionRegistry({

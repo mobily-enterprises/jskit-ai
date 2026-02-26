@@ -1,12 +1,21 @@
 import { ROUTE_MODULE_DEFINITIONS, buildRoutesFromComposedModules } from "../../framework/composeRoutes.js";
 
 function buildRoutes(controllers, routeConfig = {}) {
-  const { frameworkCompositionMode, ...resolvedRouteConfig } = routeConfig || {};
+  const {
+    frameworkCompositionMode,
+    frameworkProfileId,
+    frameworkOptionalModulePacks,
+    frameworkEnforceProfileRequired,
+    ...resolvedRouteConfig
+  } = routeConfig || {};
 
   return buildRoutesFromComposedModules({
     controllers,
     routeConfig: resolvedRouteConfig,
-    mode: frameworkCompositionMode
+    mode: frameworkCompositionMode,
+    profileId: frameworkProfileId,
+    optionalModulePacks: frameworkOptionalModulePacks,
+    enforceProfileRequired: frameworkEnforceProfileRequired
   });
 }
 

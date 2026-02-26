@@ -10,10 +10,16 @@ function createServerRuntime({
   rootDir,
   supabasePublishableKey,
   observabilityRegistry,
-  frameworkCompositionMode
+  frameworkCompositionMode,
+  frameworkProfileId,
+  frameworkOptionalModulePacks,
+  frameworkEnforceProfileRequired
 }) {
   const { platformBundle, appFeatureBundle } = createComposedLegacyRuntimeBundles({
-    mode: frameworkCompositionMode
+    mode: frameworkCompositionMode,
+    profileId: frameworkProfileId,
+    optionalModulePacks: frameworkOptionalModulePacks,
+    enforceProfileRequired: frameworkEnforceProfileRequired
   });
 
   return createServerRuntimeWithPlatformBundle({
@@ -28,7 +34,10 @@ function createServerRuntime({
       rootDir,
       supabasePublishableKey,
       observabilityRegistry,
-      frameworkCompositionMode
+      frameworkCompositionMode,
+      frameworkProfileId,
+      frameworkOptionalModulePacks,
+      frameworkEnforceProfileRequired
     }
   });
 }

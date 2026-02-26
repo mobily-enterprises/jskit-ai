@@ -1,4 +1,5 @@
 import { MODULE_ENABLEMENT_MODES } from "@jskit-ai/module-framework-core";
+import { FRAMEWORK_PROFILE_IDS, normalizeOptionalModulePacks } from "../../shared/framework/profile.js";
 import { composeServerRuntimeArtifacts } from "./composeRuntime.js";
 
 function normalizeMode(mode) {
@@ -27,18 +28,36 @@ function normalizeEnabledModuleIds(enabledModuleIds) {
   return normalized.length > 0 ? normalized : undefined;
 }
 
-function resolveFrameworkDependencyCheck({ mode, enabledModuleIds } = {}) {
+function normalizeProfileId(profileId) {
+  const normalized = String(profileId || FRAMEWORK_PROFILE_IDS.webSaasDefault).trim();
+  return normalized || FRAMEWORK_PROFILE_IDS.webSaasDefault;
+}
+
+function resolveFrameworkDependencyCheck({
+  mode,
+  enabledModuleIds,
+  profileId,
+  optionalModulePacks,
+  enforceProfileRequired = true
+} = {}) {
   const normalizedMode = normalizeMode(mode);
   const normalizedEnabledModuleIds = normalizeEnabledModuleIds(enabledModuleIds);
+  const normalizedProfileId = normalizeProfileId(profileId);
+  const normalizedOptionalModulePacks = normalizeOptionalModulePacks(optionalModulePacks);
 
   const artifacts = composeServerRuntimeArtifacts({
     mode: normalizedMode,
-    enabledModuleIds: normalizedEnabledModuleIds
+    enabledModuleIds: normalizedEnabledModuleIds,
+    profileId: normalizedProfileId,
+    optionalModulePacks: normalizedOptionalModulePacks,
+    enforceProfileRequired: Boolean(enforceProfileRequired)
   });
 
   return Object.freeze({
     ok: true,
     mode: artifacts.mode,
+    profileId: artifacts.profileId,
+    optionalModulePacks: normalizedOptionalModulePacks,
     enabledModuleIds: normalizedEnabledModuleIds || null,
     moduleOrder: artifacts.moduleOrder,
     disabledModules: artifacts.disabledModules,
@@ -58,6 +77,10 @@ function resolveFrameworkDependencyCheck({ mode, enabledModuleIds } = {}) {
 function formatFrameworkDependencyCheckResult(result) {
   const output = [];
   output.push(`framework dependency check: ok (${result.mode})`);
+  output.push(`profile: ${result.profileId}`);
+  if (Array.isArray(result.optionalModulePacks) && result.optionalModulePacks.length > 0) {
+    output.push(`optional packs: ${result.optionalModulePacks.join(", ")}`);
+  }
   output.push(`active modules (${result.moduleOrder.length}): ${result.moduleOrder.join(", ")}`);
 
   if (result.disabledModules.length > 0) {
