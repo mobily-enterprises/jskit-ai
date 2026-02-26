@@ -6,6 +6,11 @@
 - Fixed on: 2026-02-26
 - How fixed:
   - Added a dedicated `tests/apiPaths.test.js` suite that verifies normalization and behavior for `toVersionedApiPath`, `toVersionedApiPrefix`, `buildVersionedApiPath`, `isVersionedApiPrefixMatch`, `isVersionedApiPath`, and `isApiPath`.
+  - Created `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/apiPaths.test.js` with focused cases for:
+    - API path normalization and versioning (`/api`, `/api/v1`, `/api/v2`, query/hash stripping).
+    - Prefix behavior (`toVersionedApiPrefix`) including slash-suffix guarantees.
+    - Suffix builder behavior (`buildVersionedApiPath`) for raw suffixes and already-versioned inputs.
+    - Boundary checks for `isVersionedApiPrefixMatch`, `isVersionedApiPath`, and `isApiPath` (for example rejecting `/api/v1x` and `/apiary`).
 - Validation:
   - `npm test -- tests/apiPaths.test.js tests/consoleRoutePolicyDefaults.test.js tests/apiRoutesRegistration.test.js tests/adminRoutePermissionPolicy.test.js tests/readmeApiContracts.test.js` (pass)
 - Evidence:
@@ -19,6 +24,13 @@
 - How fixed:
   - Updated console policy defaulting to a version-aware, segment-boundary-safe check (`/api/v1/console` exact or nested path), preventing false matches like `/api/consolex/*`.
   - Added a regression test that injects a synthetic `/api/consolex/*` route and verifies no console defaults are applied.
+  - In `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/api/routes.js`:
+    - Imported `API_PREFIX` and normalized incoming route paths through `toVersionedApiPath(...)`.
+    - Replaced `startsWith("/api/console")` with a boundary-safe predicate:
+      - exact match on `${API_PREFIX}/console`
+      - or nested match on `${API_PREFIX}/console/`
+  - In `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/consoleRoutePolicyDefaults.test.js`:
+    - Added `console defaults do not apply to console-like prefixes` regression coverage using `/api/consolex/synthetic`.
 - Validation:
   - `npm test -- tests/apiPaths.test.js tests/consoleRoutePolicyDefaults.test.js tests/apiRoutesRegistration.test.js tests/adminRoutePermissionPolicy.test.js tests/readmeApiContracts.test.js` (pass)
   - `npm run docs:api-contracts:check` (pass)

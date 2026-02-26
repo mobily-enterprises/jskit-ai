@@ -15,7 +15,7 @@ import { buildRoutes as buildHealthRoutes } from "@jskit-ai/health-fastify-adapt
 import { buildRoutes as buildObservabilityRoutes } from "@jskit-ai/observability-fastify-adapter";
 import { buildRoutes as buildAiRoutes } from "../ai/index.js";
 import { buildRoutesFromManifest } from "@jskit-ai/server-runtime-core/runtimeAssembly";
-import { toVersionedApiPath } from "../../../shared/apiPaths.js";
+import { API_PREFIX, toVersionedApiPath } from "../../../shared/apiPaths.js";
 
 const ROUTE_MODULE_DEFINITIONS = Object.freeze([
   {
@@ -106,8 +106,10 @@ const ROUTE_MODULE_DEFINITIONS = Object.freeze([
 ]);
 
 function withConsoleRoutePolicy(route) {
-  const pathValue = String(route?.path || "");
-  if (!pathValue.startsWith("/api/console")) {
+  const pathValue = toVersionedApiPath(route?.path);
+  const consoleApiPath = `${API_PREFIX}/console`;
+  const isConsoleApiPath = pathValue === consoleApiPath || pathValue.startsWith(`${consoleApiPath}/`);
+  if (!isConsoleApiPath) {
     return route;
   }
 
