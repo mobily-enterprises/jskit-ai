@@ -30,6 +30,7 @@ import {
   startComposedBackgroundRuntimes,
   stopComposedBackgroundRuntimes
 } from "./server/framework/composeBackgroundRuntimes.js";
+import { loadServerAppExtensions } from "./server/app/loadExtensions.server.js";
 import { MODULE_ENABLEMENT_MODES } from "@jskit-ai/module-framework-core";
 import { FRAMEWORK_PROFILE_IDS } from "./shared/framework/profile.js";
 import { registerSocketIoRealtime } from "./server/realtime/registerSocketIoRealtime.js";
@@ -93,6 +94,7 @@ const FRAMEWORK_EXTENSION_MODULES = await loadFrameworkExtensions({
   extensionModulePaths: FRAMEWORK_EXTENSION_MODULE_PATHS,
   cwd: __dirname
 });
+const APP_SERVER_EXTENSIONS = await loadServerAppExtensions();
 const PORT = Number(runtimeEnv.PORT) || 3000;
 const FRONTEND_DIST_DIR = String(runtimeEnv.FRONTEND_DIST_DIR || "dist").trim() || "dist";
 const PUBLIC_DIR = path.resolve(__dirname, FRONTEND_DIST_DIR);
@@ -146,7 +148,8 @@ const {
   frameworkProfileId: FRAMEWORK_PROFILE_ID,
   frameworkOptionalModulePacks: FRAMEWORK_OPTIONAL_MODULE_PACKS,
   frameworkEnforceProfileRequired: FRAMEWORK_ENFORCE_PROFILE_REQUIRED,
-  frameworkExtensionModules: FRAMEWORK_EXTENSION_MODULES
+  frameworkExtensionModules: FRAMEWORK_EXTENSION_MODULES,
+  appServerExtensions: APP_SERVER_EXTENSIONS
 });
 const {
   authService,

@@ -1,6 +1,6 @@
 # Migration Execution Matrix
 
-Status: Stage 0 baseline policy
+Status: Stage 2 foundations landed (drop-in infrastructure + stage-1 checks)
 
 Total packages tracked: 83
 

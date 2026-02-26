@@ -14,7 +14,8 @@ function createServerRuntime({
   frameworkProfileId,
   frameworkOptionalModulePacks,
   frameworkEnforceProfileRequired,
-  frameworkExtensionModules
+  frameworkExtensionModules,
+  appServerExtensions
 }) {
   const { platformBundle, appFeatureBundle } = createComposedRuntimeBundles({
     mode: frameworkCompositionMode,
@@ -40,7 +41,8 @@ function createServerRuntime({
       frameworkProfileId,
       frameworkOptionalModulePacks,
       frameworkEnforceProfileRequired,
-      frameworkExtensionModules
+      frameworkExtensionModules,
+      appServerExtensions
     }
   });
 }

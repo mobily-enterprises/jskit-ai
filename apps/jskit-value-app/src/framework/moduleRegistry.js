@@ -16,6 +16,7 @@ import { createRoutes as createSocialRoutes } from "../app/router/routes/socialR
 import { createRoutes as createWorkspaceRoutes } from "../app/router/routes/workspaceRoutes.js";
 import { createRoutes as createProjectsRoutes } from "../app/router/routes/projectsRoutes.js";
 import { createRoutes as createConsoleCoreRoutes } from "../app/router/routes/consoleCoreRoutes.js";
+import { getClientAppExtensions } from "../app/loadExtensions.client.js";
 import { REALTIME_TOPICS } from "../../shared/eventTypes.js";
 
 const CLIENT_MODULE_REGISTRY = Object.freeze([
@@ -466,13 +467,90 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
 
 const CLIENT_MODULE_IDS = Object.freeze(CLIENT_MODULE_REGISTRY.map((entry) => entry.id));
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function mergeClientValue(baseValue, contributionValue) {
+  if (contributionValue == null) {
+    return baseValue;
+  }
+
+  if (Array.isArray(baseValue) && Array.isArray(contributionValue)) {
+    return [...baseValue, ...contributionValue];
+  }
+
+  if (isPlainObject(baseValue) && isPlainObject(contributionValue)) {
+    const output = { ...baseValue };
+    for (const [key, value] of Object.entries(contributionValue)) {
+      output[key] = mergeClientValue(baseValue[key], value);
+    }
+    return output;
+  }
+
+  return contributionValue;
+}
+
+function applyClientModuleContribution(registry, contribution, sourceId) {
+  if (!isPlainObject(contribution)) {
+    throw new TypeError(`Client extension "${sourceId}" includes a non-object module contribution.`);
+  }
+
+  const moduleId = String(contribution.moduleId || contribution.id || "").trim();
+  if (!moduleId) {
+    throw new TypeError(`Client extension "${sourceId}" module contribution must define moduleId.`);
+  }
+
+  const contributionClient =
+    contribution.client && isPlainObject(contribution.client)
+      ? contribution.client
+      : (() => {
+          throw new TypeError(`Client extension "${sourceId}" module "${moduleId}" must provide client object.`);
+        })();
+
+  const existingIndex = registry.findIndex((entry) => entry.id === moduleId);
+  if (existingIndex < 0) {
+    registry.push(
+      Object.freeze({
+        id: moduleId,
+        client: Object.freeze(mergeClientValue({}, contributionClient))
+      })
+    );
+    return;
+  }
+
+  const existing = registry[existingIndex];
+  registry[existingIndex] = Object.freeze({
+    ...existing,
+    client: Object.freeze(mergeClientValue(existing.client, contributionClient))
+  });
+}
+
+function composeClientModuleRegistry() {
+  const registry = CLIENT_MODULE_REGISTRY.map((entry) =>
+    Object.freeze({
+      ...entry,
+      client: isPlainObject(entry.client) ? Object.freeze(mergeClientValue({}, entry.client)) : entry.client
+    })
+  );
+
+  const extensionBundle = getClientAppExtensions();
+  for (const extensionEntry of extensionBundle.entries) {
+    for (const contribution of extensionEntry.moduleContributions) {
+      applyClientModuleContribution(registry, contribution, extensionEntry.id);
+    }
+  }
+
+  return Object.freeze(registry);
+}
+
 function resolveClientModuleRegistry() {
-  return CLIENT_MODULE_REGISTRY;
+  return composeClientModuleRegistry();
 }
 
 function resolveClientModuleById(moduleId) {
   const normalized = String(moduleId || "").trim();
-  return CLIENT_MODULE_REGISTRY.find((entry) => entry.id === normalized) || null;
+  return composeClientModuleRegistry().find((entry) => entry.id === normalized) || null;
 }
 
 export { CLIENT_MODULE_REGISTRY, CLIENT_MODULE_IDS, resolveClientModuleRegistry, resolveClientModuleById };
