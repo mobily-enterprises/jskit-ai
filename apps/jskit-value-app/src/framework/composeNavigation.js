@@ -1,4 +1,5 @@
 import { resolveClientModuleRegistry } from "./moduleRegistry.js";
+import { composeSurfaceRouteMounts } from "./composeRouteMounts.js";
 
 function resolveActiveClientModules(enabledModuleIds) {
   if (!Array.isArray(enabledModuleIds) || enabledModuleIds.length < 1) {
@@ -11,19 +12,57 @@ function resolveActiveClientModules(enabledModuleIds) {
 
 function composeNavigationFragments(surface, { enabledModuleIds } = {}) {
   const normalizedSurface = String(surface || "").trim().toLowerCase();
+  const routeMounts = composeSurfaceRouteMounts(normalizedSurface, {
+    enabledModuleIds
+  });
   const fragments = [];
 
   for (const moduleEntry of resolveActiveClientModules(enabledModuleIds)) {
     const contributions = moduleEntry?.client?.navigation?.[normalizedSurface];
     for (const contribution of Array.isArray(contributions) ? contributions : []) {
+      const mountKey = String(contribution?.mountKey || "").trim();
+      const mount = mountKey ? routeMounts.mountsByKey[mountKey] : null;
+      if (mountKey && !mount) {
+        throw new Error(
+          `Navigation fragment "${String(contribution?.id || "").trim()}" requires unknown mount "${mountKey}" on "${normalizedSurface}".`
+        );
+      }
+
+      const mountPathSuffix = normalizeMountPathSuffix(contribution?.mountPathSuffix);
+      const path = mount ? joinMountPath(mount.path, mountPathSuffix) : contribution?.path;
       fragments.push({
         ...contribution,
+        path,
         moduleId: moduleEntry.id
       });
     }
   }
 
   return fragments;
+}
+
+function normalizeMountPathSuffix(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized || normalized === "/") {
+    return "";
+  }
+
+  const withLeadingSlash = normalized.startsWith("/") ? normalized : `/${normalized}`;
+  return withLeadingSlash.replace(/\/+/g, "/").replace(/\/+$/, "");
+}
+
+function joinMountPath(basePath, suffix = "") {
+  const normalizedBasePath = normalizePathname(basePath);
+  const normalizedSuffix = normalizeMountPathSuffix(suffix);
+  if (!normalizedSuffix) {
+    return normalizedBasePath;
+  }
+
+  if (normalizedBasePath === "/") {
+    return normalizedSuffix;
+  }
+
+  return normalizePathname(`${normalizedBasePath}${normalizedSuffix}`);
 }
 
 function normalizePathname(value) {

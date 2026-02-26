@@ -8,15 +8,7 @@ import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 import { mapProjectsError } from "../../modules/projects/errors.js";
 import { createDefaultProjectForm, projectStatusOptions } from "../../modules/projects/formModel.js";
 import { projectDetailQueryKey, projectsScopeQueryKey } from "../../modules/projects/queryKeys.js";
-
-function resolveProjectIdFromPath(pathname) {
-  const match = String(pathname || "").match(/\/projects\/([^/]+)/i);
-  if (!match) {
-    return "";
-  }
-
-  return decodeURIComponent(String(match[1] || "")).trim();
-}
+import { buildProjectsRouteSuffix, resolveProjectIdFromPath } from "./routePaths.js";
 
 export function useProjectsEdit() {
   const navigate = useNavigate();
@@ -129,12 +121,12 @@ export function useProjectsEdit() {
       goBack: () => {
         if (!projectId.value) {
           return navigate({
-            to: workspacePath("/projects")
+            to: workspacePath(buildProjectsRouteSuffix())
           });
         }
 
         return navigate({
-          to: workspacePath(`/projects/${encodeURIComponent(projectId.value)}`)
+          to: workspacePath(buildProjectsRouteSuffix(`/${encodeURIComponent(projectId.value)}`))
         });
       }
     }

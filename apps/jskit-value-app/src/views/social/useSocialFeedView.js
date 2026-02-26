@@ -5,6 +5,7 @@ import { createSurfacePaths, resolveSurfacePaths } from "../../../shared/surface
 import { api } from "../../platform/http/api/index.js";
 import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 import { useSocialView } from "../../modules/social/runtime.js";
+import { resolveRouteMountPathByKey } from "../../framework/composeRouteMounts.js";
 
 const SOCIAL_VISIBILITY_OPTIONS = Object.freeze([
   { title: "Public", value: "public" },
@@ -55,7 +56,13 @@ function canStartLocalDm(actor) {
 
 function buildAdminChatTarget({ workspaceSlug, threadId = 0, dmPublicChatId = "" } = {}) {
   const adminSurfacePaths = createSurfacePaths("admin");
-  const path = adminSurfacePaths.workspacePath(workspaceSlug, "/chat");
+  const path = adminSurfacePaths.workspacePath(
+    workspaceSlug,
+    resolveRouteMountPathByKey("admin", "chat.workspace", {
+      required: false,
+      fallbackPath: "/chat"
+    })
+  );
   const searchParams = new URLSearchParams();
   if (threadId > 0) {
     searchParams.set("threadId", String(threadId));
@@ -260,7 +267,11 @@ export function useSocialFeedView() {
     }
 
     const adminSurfacePaths = createSurfacePaths("admin");
-    const targetPath = adminSurfacePaths.workspacePath(workspaceSlug, "/social/moderation");
+    const socialMountPath = resolveRouteMountPathByKey("admin", "social.workspace", {
+      required: false,
+      fallbackPath: "/social"
+    });
+    const targetPath = adminSurfacePaths.workspacePath(workspaceSlug, `${socialMountPath}/moderation`);
     if (currentSurface.value === "admin") {
       await navigate({
         to: targetPath

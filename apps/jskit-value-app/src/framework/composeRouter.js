@@ -1,4 +1,5 @@
 import { resolveClientModuleRegistry } from "./moduleRegistry.js";
+import { composeSurfaceRouteMounts } from "./composeRouteMounts.js";
 
 const APP_SURFACE_DEFAULTS = Object.freeze({
   includeWorkspaceSettings: false,
@@ -49,6 +50,9 @@ function composeSurfaceRouterOptions(surface, { enabledModuleIds } = {}) {
 
 function composeSurfaceRouteFragments(surface, { enabledModuleIds } = {}) {
   const normalizedSurface = String(surface || "").trim().toLowerCase();
+  const routeMounts = composeSurfaceRouteMounts(normalizedSurface, {
+    enabledModuleIds
+  });
   const fragments = [];
   const claimedFragmentIds = new Set();
 
@@ -77,10 +81,26 @@ function composeSurfaceRouteFragments(surface, { enabledModuleIds } = {}) {
           id,
           order: Number.isFinite(contribution.order) ? Number(contribution.order) : 100,
           createRoutes: contribution.createRoutes,
-          options:
-            contribution.options && typeof contribution.options === "object" && !Array.isArray(contribution.options)
-              ? Object.freeze({ ...contribution.options })
-              : Object.freeze({})
+          options: (() => {
+            const mountKey = String(contribution.mountKey || "").trim();
+            const mount = mountKey ? routeMounts.mountsByKey[mountKey] : null;
+            if (mountKey && !mount) {
+              throw new Error(`Route fragment "${id}" requires unknown route mount "${mountKey}" on surface "${normalizedSurface}".`);
+            }
+
+            const baseOptions =
+              contribution.options && typeof contribution.options === "object" && !Array.isArray(contribution.options)
+                ? { ...contribution.options }
+                : {};
+
+            if (mount) {
+              baseOptions.mountKey = mount.key;
+              baseOptions.mountPath = mount.path;
+              baseOptions.mountAliases = [...mount.aliases];
+            }
+
+            return Object.freeze(baseOptions);
+          })()
         })
       );
     }

@@ -11,6 +11,10 @@ import { useWorkspaceStore } from "../../state/workspaceStore.js";
 import { useShellNavigation } from "../shared/useShellNavigation.js";
 import { buildWorkspaceThemeStyle, normalizeWorkspaceColor } from "../shared/workspaceTheme.js";
 import { composeNavigationFragments, resolveNavigationDestinationTitle } from "../../../framework/composeNavigation.js";
+import {
+  resolveRouteMountAliasesByKey,
+  resolveRouteMountPathByKey
+} from "../../../framework/composeRouteMounts.js";
 
 export function useAppShell() {
   const authStore = useAuthStore();
@@ -102,7 +106,18 @@ export function useAppShell() {
       return adminSurfacePaths.workspacesPath;
     }
 
-      return adminSurfacePaths.loginPath;
+    return adminSurfacePaths.loginPath;
+  });
+  const appChatMountPath = resolveRouteMountPathByKey("app", "chat.workspace", {
+    required: false,
+    fallbackPath: "/chat"
+  });
+  const appChatMountAliases = resolveRouteMountAliasesByKey("app", "chat.workspace", {
+    required: false
+  });
+  const appAssistantMountPath = resolveRouteMountPathByKey("app", "ai.workspace", {
+    required: false,
+    fallbackPath: "/assistant"
   });
   const appNavigationFragments = composeNavigationFragments("app");
 
@@ -129,7 +144,17 @@ export function useAppShell() {
     const pathname = String(currentPath.value || "")
       .trim()
       .toLowerCase();
-    return pathname.endsWith("/chat") || pathname.endsWith("/workspace-chat") || pathname.endsWith("/assistant");
+    const normalizedChatMountPath = String(appChatMountPath || "").trim().toLowerCase();
+    const normalizedAssistantMountPath = String(appAssistantMountPath || "").trim().toLowerCase();
+    const normalizedChatMountAliases = (Array.isArray(appChatMountAliases) ? appChatMountAliases : [])
+      .map((aliasPath) => String(aliasPath || "").trim().toLowerCase())
+      .filter(Boolean);
+
+    return (
+      (normalizedChatMountPath && pathname.endsWith(normalizedChatMountPath)) ||
+      normalizedChatMountAliases.some((aliasPath) => pathname.endsWith(aliasPath)) ||
+      (normalizedAssistantMountPath && pathname.endsWith(normalizedAssistantMountPath))
+    );
   });
 
   const userInitials = computed(() => {

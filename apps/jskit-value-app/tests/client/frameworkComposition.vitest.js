@@ -4,6 +4,7 @@ import { composeClientApi } from "../../src/framework/composeApi.js";
 import { composeSurfaceRouteFragments, composeSurfaceRouterOptions } from "../../src/framework/composeRouter.js";
 import { composeGuardPolicies } from "../../src/framework/composeGuards.js";
 import { composeNavigationFragments } from "../../src/framework/composeNavigation.js";
+import { composeSurfaceRouteMounts, resolveRouteMountPathByKey } from "../../src/framework/composeRouteMounts.js";
 import {
   composeRealtimeInvalidationDefinitions,
   composeRealtimeTopicContributions
@@ -82,11 +83,16 @@ describe("framework client composition", () => {
   });
 
   it("composeSurfaceRouteFragments returns ordered route fragment definitions", () => {
-    expect(composeSurfaceRouteFragments("app").map((fragment) => fragment.id)).toEqual([
-      "assistant",
-      "chat",
-      "social"
-    ]);
+    const appFragments = composeSurfaceRouteFragments("app");
+    expect(appFragments.map((fragment) => fragment.id)).toEqual(["assistant", "chat", "social"]);
+    expect(appFragments.find((fragment) => fragment.id === "assistant")?.options).toMatchObject({
+      mountKey: "ai.workspace",
+      mountPath: "/assistant"
+    });
+    expect(appFragments.find((fragment) => fragment.id === "chat")?.options).toMatchObject({
+      mountKey: "chat.workspace",
+      mountPath: "/chat"
+    });
 
     expect(composeSurfaceRouteFragments("admin").map((fragment) => fragment.id)).toEqual([
       "assistant",
@@ -97,6 +103,63 @@ describe("framework client composition", () => {
     ]);
 
     expect(composeSurfaceRouteFragments("console").map((fragment) => fragment.id)).toEqual(["core"]);
+  });
+
+  it("composeSurfaceRouteMounts resolves keys, aliases, and override paths", () => {
+    const adminMounts = composeSurfaceRouteMounts("admin");
+    expect(adminMounts.mountsByKey["projects.workspace"]).toMatchObject({
+      path: "/projects",
+      moduleId: "projects"
+    });
+    expect(adminMounts.mountsByKey["chat.workspace"]).toMatchObject({
+      path: "/chat"
+    });
+    expect(adminMounts.mountsByKey["chat.workspace"].aliases).toContain("/workspace-chat");
+
+    const overriddenMounts = composeSurfaceRouteMounts("admin", {
+      mountOverrides: {
+        "social.workspace": "/community",
+        "projects.workspace": "/customers"
+      }
+    });
+    expect(overriddenMounts.mountsByKey["social.workspace"]).toMatchObject({
+      path: "/community",
+      defaultPath: "/social"
+    });
+    expect(overriddenMounts.mountsByKey["social.workspace"].aliases).toContain("/social");
+    expect(overriddenMounts.mountsByKey["projects.workspace"]).toMatchObject({
+      path: "/customers",
+      defaultPath: "/projects"
+    });
+  });
+
+  it("composeSurfaceRouteMounts rejects collisions and reserved paths", () => {
+    expect(() =>
+      composeSurfaceRouteMounts("admin", {
+        mountOverrides: {
+          "social.workspace": "/dup",
+          "projects.workspace": "/dup"
+        }
+      })
+    ).toThrow(/collision/i);
+
+    expect(() =>
+      composeSurfaceRouteMounts("admin", {
+        mountOverrides: {
+          "projects.workspace": "/settings"
+        }
+      })
+    ).toThrow(/reserved/i);
+  });
+
+  it("resolveRouteMountPathByKey returns defaults and explicit fallback when missing", () => {
+    expect(resolveRouteMountPathByKey("admin", "projects.workspace")).toBe("/projects");
+    expect(
+      resolveRouteMountPathByKey("admin", "unknown.mount", {
+        required: false,
+        fallbackPath: "/fallback"
+      })
+    ).toBe("/fallback");
   });
 
   it("composeGuardPolicies returns module-provided guard policy metadata", () => {
@@ -124,6 +187,8 @@ describe("framework client composition", () => {
     expect(adminFragments.some((entry) => entry.id === "projects" && entry.moduleId === "projects")).toBe(true);
     expect(adminFragments.some((entry) => entry.id === "workspace-chat" && entry.moduleId === "chat")).toBe(true);
     expect(adminFragments.some((entry) => entry.id === "social-moderation" && entry.moduleId === "social")).toBe(true);
+    expect(adminFragments.find((entry) => entry.id === "projects")?.path).toBe("/projects");
+    expect(adminFragments.find((entry) => entry.id === "social-moderation")?.path).toBe("/social/moderation");
   });
 
   it("composeRealtimeTopicContributions aggregates realtime topics by module", () => {

@@ -13,6 +13,7 @@ import {
   projectsListQueryKey,
   projectsScopeQueryKey
 } from "../../modules/projects/queryKeys.js";
+import { buildProjectsRouteSuffix } from "./routePaths.js";
 
 export function useProjectsList({ initialPageSize = projectPageSizeOptions[0] } = {}) {
   const navigate = useNavigate();
@@ -85,15 +86,15 @@ export function useProjectsList({ initialPageSize = projectPageSizeOptions[0] } 
       onPageSizeChange: pagination.onPageSizeChange,
       goToAdd: () =>
         navigate({
-          to: workspacePath("/projects/add")
+          to: workspacePath(buildProjectsRouteSuffix("/add"))
         }),
       goToView: (projectId) =>
         navigate({
-          to: workspacePath(`/projects/${encodeURIComponent(String(projectId || ""))}`)
+          to: workspacePath(buildProjectsRouteSuffix(`/${encodeURIComponent(String(projectId || ""))}`))
         }),
       goToEdit: (projectId) =>
         navigate({
-          to: workspacePath(`/projects/${encodeURIComponent(String(projectId || ""))}/edit`)
+          to: workspacePath(buildProjectsRouteSuffix(`/${encodeURIComponent(String(projectId || ""))}/edit`))
         }),
       onProjectSaved
     }

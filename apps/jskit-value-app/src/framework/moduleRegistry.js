@@ -44,14 +44,16 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
           {
             id: "assistant",
             order: 10,
-            createRoutes: createAssistantRoutes
+            createRoutes: createAssistantRoutes,
+            mountKey: "ai.workspace"
           }
         ],
         admin: [
           {
             id: "assistant",
             order: 10,
-            createRoutes: createAssistantRoutes
+            createRoutes: createAssistantRoutes,
+            mountKey: "ai.workspace"
           }
         ]
       },
@@ -68,6 +70,7 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
             title: "Assistant",
             destinationTitle: "Assistant",
             path: "/assistant",
+            mountKey: "ai.workspace",
             icon: "$navChoice2",
             featureFlag: "assistantEnabled",
             requiredFeaturePermissionKey: "assistantRequiredPermission"
@@ -79,6 +82,7 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
             title: "Assistant",
             destinationTitle: "Assistant",
             path: "/assistant",
+            mountKey: "ai.workspace",
             icon: "$navChoice2",
             featureFlag: "assistantEnabled",
             requiredFeaturePermissionKey: "assistantRequiredPermission"
@@ -203,7 +207,8 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
           {
             id: "projects",
             order: 50,
-            createRoutes: createProjectsRoutes
+            createRoutes: createProjectsRoutes,
+            mountKey: "projects.workspace"
           }
         ]
       },
@@ -214,6 +219,7 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
             title: "Projects",
             destinationTitle: "Projects",
             path: "/projects",
+            mountKey: "projects.workspace",
             icon: "$navChoice2"
           }
         ]
@@ -327,14 +333,16 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
           {
             id: "chat",
             order: 20,
-            createRoutes: createChatRoutes
+            createRoutes: createChatRoutes,
+            mountKey: "chat.workspace"
           }
         ],
         admin: [
           {
             id: "chat",
             order: 20,
-            createRoutes: createChatRoutes
+            createRoutes: createChatRoutes,
+            mountKey: "chat.workspace"
           }
         ]
       },
@@ -345,6 +353,7 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
             title: "Workspace chat",
             destinationTitle: "Workspace chat",
             path: "/chat",
+            mountKey: "chat.workspace",
             icon: "$workspaceChat",
             requiredAnyPermission: ["chat.read"]
           }
@@ -380,6 +389,7 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
             id: "social",
             order: 30,
             createRoutes: createSocialRoutes,
+            mountKey: "social.workspace",
             options: {
               includeModerationRoute: false
             }
@@ -390,6 +400,7 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
             id: "social",
             order: 30,
             createRoutes: createSocialRoutes,
+            mountKey: "social.workspace",
             options: {
               includeModerationRoute: true
             }
@@ -408,6 +419,7 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
             title: "Social",
             destinationTitle: "Social",
             path: "/social",
+            mountKey: "social.workspace",
             icon: "$workspaceSocial",
             featureFlag: "socialEnabled",
             requiredAnyPermission: ["social.read"]
@@ -419,6 +431,7 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
             title: "Social",
             destinationTitle: "Social",
             path: "/social",
+            mountKey: "social.workspace",
             icon: "$workspaceSocial",
             featureFlag: "socialEnabled",
             requiredAnyPermission: ["social.read"]
@@ -428,6 +441,8 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
             title: "Social moderation",
             destinationTitle: "Social moderation",
             path: "/social/moderation",
+            mountKey: "social.workspace",
+            mountPathSuffix: "/moderation",
             icon: "$workspaceModeration",
             featureFlag: "socialEnabled",
             requiredAnyPermission: ["social.moderate"]

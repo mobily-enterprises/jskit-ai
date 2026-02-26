@@ -13,10 +13,40 @@ function normalizeSurfaceId(value) {
     .toLowerCase();
 }
 
-function createRoutes({ rootRoute, workspaceRoutePrefix, guards, surface }) {
+function normalizeMountPath(pathValue, fallbackPath = "/chat") {
+  const normalized = String(pathValue || "").trim();
+  const source = normalized || fallbackPath;
+  const withLeadingSlash = source.startsWith("/") ? source : `/${source}`;
+  const squashed = withLeadingSlash.replace(/\/+/g, "/");
+  if (squashed.length > 1 && squashed.endsWith("/")) {
+    return squashed.slice(0, -1);
+  }
+
+  return squashed || fallbackPath;
+}
+
+function normalizeMountAliases(mountAliases, mountPath) {
+  const aliases = [];
+  const seen = new Set();
+  for (const aliasValue of Array.isArray(mountAliases) ? mountAliases : []) {
+    const aliasPath = normalizeMountPath(aliasValue, mountPath);
+    if (aliasPath === mountPath || seen.has(aliasPath)) {
+      continue;
+    }
+    seen.add(aliasPath);
+    aliases.push(aliasPath);
+  }
+
+  return aliases;
+}
+
+function createRoutes({ rootRoute, workspaceRoutePrefix, guards, surface, mountPath = "/chat", mountAliases = [] }) {
   const normalizedSurface = normalizeSurfaceId(surface);
   const adminPaths = createSurfacePaths("admin");
-  const adminWorkspaceChatRoutePath = `${adminPaths.prefix}/w/$workspaceSlug/chat`;
+  const normalizedMountPath = normalizeMountPath(mountPath, "/chat");
+  const aliasPaths = normalizeMountAliases(mountAliases, normalizedMountPath);
+  const routePath = `${workspaceRoutePrefix}${normalizedMountPath}`;
+  const adminWorkspaceChatRoutePath = `${adminPaths.prefix}/w/$workspaceSlug${normalizedMountPath}`;
 
   const chatRouteBeforeLoad = async (context) => {
     await guards.beforeLoadWorkspacePermissionsRequired(context, ["chat.read"]);
@@ -35,25 +65,27 @@ function createRoutes({ rootRoute, workspaceRoutePrefix, guards, surface }) {
   return [
     createRoute({
       getParentRoute: () => rootRoute,
-      path: `${workspaceRoutePrefix}/chat`,
+      path: routePath,
       component: ChatView,
       beforeLoad: chatRouteBeforeLoad
     }),
-    createRoute({
-      getParentRoute: () => rootRoute,
-      path: `${workspaceRoutePrefix}/workspace-chat`,
-      component: ChatView,
-      beforeLoad: async (context) => {
-        await guards.beforeLoadWorkspacePermissionsRequired(context, ["chat.read"]);
-        throw redirect({
-          to: normalizedSurface === "admin" ? `${workspaceRoutePrefix}/chat` : adminWorkspaceChatRoutePath,
-          params: {
-            workspaceSlug: context?.params?.workspaceSlug
-          },
-          replace: true
-        });
-      }
-    })
+    ...aliasPaths.map((aliasPath) =>
+      createRoute({
+        getParentRoute: () => rootRoute,
+        path: `${workspaceRoutePrefix}${aliasPath}`,
+        component: ChatView,
+        beforeLoad: async (context) => {
+          await guards.beforeLoadWorkspacePermissionsRequired(context, ["chat.read"]);
+          throw redirect({
+            to: normalizedSurface === "admin" ? routePath : adminWorkspaceChatRoutePath,
+            params: {
+              workspaceSlug: context?.params?.workspaceSlug
+            },
+            replace: true
+          });
+        }
+      })
+    )
   ];
 }
 

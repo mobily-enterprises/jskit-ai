@@ -7,6 +7,7 @@ import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 import { mapProjectsError } from "../../modules/projects/errors.js";
 import { createDefaultProjectForm, projectStatusOptions } from "../../modules/projects/formModel.js";
 import { projectsScopeQueryKey } from "../../modules/projects/queryKeys.js";
+import { buildProjectsRouteSuffix } from "./routePaths.js";
 
 export function useProjectsAdd() {
   const navigate = useNavigate();
@@ -50,7 +51,7 @@ export function useProjectsAdd() {
 
       if (nextProjectId) {
         await navigate({
-          to: workspacePath(`/projects/${encodeURIComponent(nextProjectId)}`)
+          to: workspacePath(buildProjectsRouteSuffix(`/${encodeURIComponent(nextProjectId)}`))
         });
         return;
       }
@@ -86,7 +87,7 @@ export function useProjectsAdd() {
       reset,
       goBack: () =>
         navigate({
-          to: workspacePath("/projects")
+          to: workspacePath(buildProjectsRouteSuffix())
         })
     }
   };

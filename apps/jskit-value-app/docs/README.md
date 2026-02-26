@@ -6,6 +6,7 @@ Last reorganized: 2026-02-25 (UTC)
 
 - Changing package/runtime/UI boundaries: `architecture/client-boundaries.md`
 - Working on workspace, tenancy, or surface splits: `architecture/workspace-and-surfaces.md`
+- Customizing module URL mounts: `architecture/url-mount-customization.md`
 - Understanding action runtime execution and contributor ownership: `architecture/action-runtime-and-contributors.md`
 - Working on social feed/federation architecture: `architecture/social-federation.md`
 - Changing canonical action IDs, ownership, or versioning: `architecture/action-catalog-governance.md`
@@ -32,6 +33,8 @@ Last reorganized: 2026-02-25 (UTC)
   - The boundary contract for package code vs app code. It also captures variability seams, shared client-element ownership, and enforcement tests.
 - `architecture/workspace-and-surfaces.md`
   - The decision record for workspace-native architecture and the admin/app surface model. Includes accepted invariants, route/auth rules, and rollout backlog.
+- `architecture/url-mount-customization.md`
+  - Workspace route mount override contract (mount keys, aliases, collision rules, and route fragment expectations).
 - `architecture/action-runtime-and-contributors.md`
   - Deep-dive for the canonical action execution path: contracts, registry pipeline, context shaping, contributor ownership, assistant tool derivation, and data examples.
 - `architecture/action-catalog-governance.md`

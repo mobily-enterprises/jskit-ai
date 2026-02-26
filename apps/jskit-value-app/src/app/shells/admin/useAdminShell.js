@@ -11,6 +11,11 @@ import { useWorkspaceStore } from "../../state/workspaceStore.js";
 import { useShellNavigation } from "../shared/useShellNavigation.js";
 import { buildWorkspaceThemeStyle, normalizeWorkspaceColor } from "../shared/workspaceTheme.js";
 import { composeNavigationFragments, resolveNavigationDestinationTitle } from "../../../framework/composeNavigation.js";
+import { PROJECTS_MOUNT_PATH } from "../../../views/projects/routePaths.js";
+import {
+  resolveRouteMountAliasesByKey,
+  resolveRouteMountPathByKey
+} from "../../../framework/composeRouteMounts.js";
 
 function workspaceInitials(workspace) {
   const source = String(workspace?.name || workspace?.slug || "W").trim();
@@ -126,6 +131,18 @@ export function useAdminShell() {
   const workspaceMonitoringPath = computed(() => workspacePath("/admin/monitoring"));
   const workspaceBillingPath = computed(() => workspacePath("/admin/billing"));
   const workspaceMembersPath = computed(() => workspacePath("/admin/members"));
+  const projectsMountPath = PROJECTS_MOUNT_PATH;
+  const chatMountPath = resolveRouteMountPathByKey("admin", "chat.workspace", {
+    required: false,
+    fallbackPath: "/chat"
+  });
+  const chatMountAliases = resolveRouteMountAliasesByKey("admin", "chat.workspace", {
+    required: false
+  });
+  const assistantMountPath = resolveRouteMountPathByKey("admin", "ai.workspace", {
+    required: false,
+    fallbackPath: "/assistant"
+  });
   const adminNavigationFragments = composeNavigationFragments("admin");
 
   const navigationItems = computed(() => {
@@ -140,13 +157,13 @@ export function useAdminShell() {
   });
 
   const destinationTitle = computed(() => {
-    if (currentPath.value.endsWith("/projects/add")) {
+    if (currentPath.value.endsWith(`${projectsMountPath}/add`)) {
       return "Add Project";
     }
-    if (currentPath.value.endsWith("/edit") && currentPath.value.includes("/projects/")) {
+    if (currentPath.value.endsWith("/edit") && currentPath.value.includes(`${projectsMountPath}/`)) {
       return "Edit Project";
     }
-    if (currentPath.value.includes("/projects/")) {
+    if (currentPath.value.includes(`${projectsMountPath}/`)) {
       return "Project";
     }
     const navigationDestination = resolveNavigationDestinationTitle(currentPath.value, navigationItems.value);
@@ -186,7 +203,17 @@ export function useAdminShell() {
     const pathname = String(currentPath.value || "")
       .trim()
       .toLowerCase();
-    return pathname.endsWith("/chat") || pathname.endsWith("/workspace-chat") || pathname.endsWith("/assistant");
+    const normalizedChatMountPath = String(chatMountPath || "").trim().toLowerCase();
+    const normalizedAssistantMountPath = String(assistantMountPath || "").trim().toLowerCase();
+    const normalizedChatMountAliases = (Array.isArray(chatMountAliases) ? chatMountAliases : [])
+      .map((aliasPath) => String(aliasPath || "").trim().toLowerCase())
+      .filter(Boolean);
+
+    return (
+      (normalizedChatMountPath && pathname.endsWith(normalizedChatMountPath)) ||
+      normalizedChatMountAliases.some((aliasPath) => pathname.endsWith(aliasPath)) ||
+      (normalizedAssistantMountPath && pathname.endsWith(normalizedAssistantMountPath))
+    );
   });
 
   const workspaceItems = computed(() => (Array.isArray(workspaceStore.workspaces) ? workspaceStore.workspaces : []));

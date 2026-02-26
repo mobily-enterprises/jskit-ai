@@ -7,15 +7,7 @@ import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 import { mapProjectsError } from "../../modules/projects/errors.js";
 import { projectDetailQueryKey } from "../../modules/projects/queryKeys.js";
-
-function resolveProjectIdFromPath(pathname) {
-  const match = String(pathname || "").match(/\/projects\/([^/]+)/i);
-  if (!match) {
-    return "";
-  }
-
-  return decodeURIComponent(String(match[1] || "")).trim();
-}
+import { buildProjectsRouteSuffix, resolveProjectIdFromPath } from "./routePaths.js";
 
 export function useProjectsView() {
   const navigate = useNavigate();
@@ -68,7 +60,7 @@ export function useProjectsView() {
       refresh: () => query.refetch(),
       goBack: () =>
         navigate({
-          to: workspacePath("/projects")
+          to: workspacePath(buildProjectsRouteSuffix())
         }),
       goToEdit: () => {
         if (!projectId.value) {
@@ -76,7 +68,7 @@ export function useProjectsView() {
         }
 
         return navigate({
-          to: workspacePath(`/projects/${encodeURIComponent(projectId.value)}/edit`)
+          to: workspacePath(buildProjectsRouteSuffix(`/${encodeURIComponent(projectId.value)}/edit`))
         });
       }
     }

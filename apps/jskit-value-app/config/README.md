@@ -4,9 +4,10 @@ Canonical reference for repository-owned config defaults and validation rules.
 
 ## Sources
 
-- Defaults: `app.js`, `chat.js`, `ai.js`, `billing.js`, `retention.js`, `actions.js`
+- Defaults: `app.js`, `chat.js`, `ai.js`, `billing.js`, `retention.js`, `actions.js`, `urls.js`
 - Validation and merge rules: `index.js`
 - Validator semantics: `lib/helpers.js`
+- URL mount override contract: `urls.js` (consumed by framework composition)
 
 ## Global Rules (All Domains)
 
