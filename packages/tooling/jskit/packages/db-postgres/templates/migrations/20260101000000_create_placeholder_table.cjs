@@ -1,0 +1,15 @@
+/**
+ * JSKIT DB pack bootstrap migration.
+ * Replace this placeholder with app-specific schema migrations.
+ */
+exports.up = async function up(knex) {
+  await knex.schema.createTable("jskit_placeholder", (table) => {
+    table.increments("id").primary();
+    table.string("label", 255).notNullable();
+    table.timestamps(true, true);
+  });
+};
+
+exports.down = async function down(knex) {
+  await knex.schema.dropTableIfExists("jskit_placeholder");
+};

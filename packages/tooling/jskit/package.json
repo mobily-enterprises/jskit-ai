@@ -1,0 +1,43 @@
+{
+  "name": "@jskit-ai/jskit",
+  "version": "0.1.0",
+  "description": "Pack orchestration CLI for JSKIT apps.",
+  "type": "module",
+  "files": [
+    "bin",
+    "src",
+    "packs",
+    "packages",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "bin": {
+    "jskit": "bin/jskit.js"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mobily-enterprises/jskit-ai.git",
+    "directory": "packages/tooling/jskit"
+  },
+  "bugs": {
+    "url": "https://github.com/mobily-enterprises/jskit-ai/issues"
+  },
+  "homepage": "https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/tooling/jskit#readme",
+  "keywords": [
+    "jskit",
+    "cli",
+    "packs",
+    "framework"
+  ]
+}

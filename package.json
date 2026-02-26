@@ -6,6 +6,7 @@
     "dev": "npm run -w apps/jskit-value-app dev --",
     "app:create": "node ./packages/tooling/create-app/bin/jskit-create-app.js",
     "app:create:interactive": "node ./packages/tooling/create-app/bin/jskit-create-app.js --interactive",
+    "jskit": "node ./packages/tooling/jskit/bin/jskit.js",
     "cloc:actual": "cloc --vcs=git --include-ext=js,cjs,mjs,jsx,ts,tsx,vue,py,go,rs,java,kt,swift,rb,php,cs,cpp,c,h,sql,sh,bash,zsh,ps1,md,mdx,rst,adoc,txt --exclude-dir=node_modules,dist,build,coverage,.next,.nuxt,.turbo,.cache,storybook-static,vendor,tmp,temp,.output,.vercel .",
     "sloc:actual": "npm run cloc:actual",
     "lint:architecture:client": "eslint --config eslint.architecture.client.mjs --no-error-on-unmatched-pattern \"packages/**/src/**/*.js\" \"apps/**/src/**/*.js\"",
