@@ -41,31 +41,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
-import { useQuery } from "@tanstack/vue-query";
-import { api } from "../../platform/http/api/index.js";
+import { useConsoleBillingPlanAssignmentsView } from "./useConsoleBillingPlanAssignmentsView.js";
 
-function formatDate(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
-  return date.toLocaleString();
-}
-
-const query = useQuery({
-  queryKey: ["console", "billing", "plan-assignments"],
-  queryFn: () =>
-    api.console.listPlanAssignments({
-      page: 1,
-      pageSize: 50
-    })
-});
-
-const entries = computed(() => {
-  const value = Array.isArray(query.data.value?.entries) ? query.data.value.entries : [];
-  return value;
-});
-const queryPending = computed(() => Boolean(query.isPending.value || query.isFetching.value));
-const queryError = computed(() => String(query.error.value?.message || ""));
+const { entries, queryPending, queryError, formatDate } = useConsoleBillingPlanAssignmentsView();
 </script>

@@ -1,29 +1,6 @@
 ## Broken things
 
-### [05-ISSUE-002] Console billing/transcript views bypass centralized unauthorized-session handling
-- Severity: P2
-- Confidence: high
-- Contract area: security
-- First seen: 2026-02-26
-- Last seen: 2026-02-26
-- Evidence:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleAiTranscriptsView.js:1
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleAiTranscriptsView.js:77
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleAiTranscriptsView.js:100
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/ConsoleBillingEntitlementsView.vue:43
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/ConsoleBillingEntitlementsView.vue:56
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/ConsoleBillingPlanAssignmentsView.vue:45
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/ConsoleBillingPurchasesView.vue:45
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/ConsoleBillingSubscriptionsView.vue:43
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleBillingEventsView.js:3
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleBillingEventsView.js:78
-- Why this is broken:
-  - Several console views perform API calls and surface raw error strings without routing 401/403 through `handleUnauthorizedError`. Other console views already use `useAuthGuard` + `useQueryErrorMessage` for this. The inconsistency leaves session-expiry handling non-uniform and can keep stale authenticated UI state instead of fail-closed navigation/sign-out handling.
-- Suggested fix:
-  - Standardize console view data loaders on `useAuthGuard` + `useQueryErrorMessage` (or a shared wrapper composable) so all unauthorized responses follow one session-policy path.
-- Suggested tests:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/useConsoleAiTranscriptsView.vitest.js
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/consoleBillingQueriesAuthHandling.vitest.js
+- None.
 
 ## Fixed things
 
@@ -40,6 +17,31 @@
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleMembersView.js:205
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/useConsoleMembersView.vitest.js:188
 
+### [05-ISSUE-002] Console billing/transcript views bypass centralized unauthorized-session handling
+- Fixed on: 2026-02-26
+- How fixed:
+  - Added `useAuthGuard` handling to `useConsoleAiTranscriptsView` and fail-closed unauthorized checks in all transcript API error branches (`loadConversations`, `selectConversation`, `exportSelection`).
+  - Extracted console billing read views into dedicated composables so each query now routes through `useQueryErrorMessage` with `handleUnauthorizedError`.
+  - Updated billing SFCs to consume those composables while keeping template behavior stable.
+- Validation:
+  - `npm run test:client:views -- tests/views/useConsoleAiTranscriptsView.vitest.js` (pass)
+  - `npm run test:client:views -- tests/views/consoleBillingQueriesAuthHandling.vitest.js` (pass)
+- Evidence:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleAiTranscriptsView.js:37
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleAiTranscriptsView.js:80
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleAiTranscriptsView.js:106
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleAiTranscriptsView.js:139
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleBillingEntitlementsView.js:7
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleBillingPlanAssignmentsView.js:15
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleBillingPurchasesView.js:32
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleBillingSubscriptionsView.js:15
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/ConsoleBillingEntitlementsView.vue:42
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/ConsoleBillingPlanAssignmentsView.vue:44
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/ConsoleBillingPurchasesView.vue:44
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/ConsoleBillingSubscriptionsView.vue:42
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/useConsoleAiTranscriptsView.vitest.js:86
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/consoleBillingQueriesAuthHandling.vitest.js:71
+
 ### [05-ISSUE-003] Route-guard test suite misses AI transcript/member permission gate assertions
 - Fixed on: 2026-02-26
 - How fixed:
@@ -50,13 +52,13 @@
 - Code changes were applied in:
   - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js`
 - Validation:
-  - `npm run test:client -- tests/client/workspaceStore.vitest.js tests/client/routerGuardsConsole.vitest.js` (pass, 19 passed / 0 failed)
+  - `npm run test -- tests/client/routerGuardsConsole.vitest.js` (pass)
 - Evidence:
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/app/router/guards.console.js:197
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/app/router/guards.console.js:274
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js:330
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js:343
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js:346
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js:362
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js:149
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js:162
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js:180
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js:196
 
 ## Won't fix things

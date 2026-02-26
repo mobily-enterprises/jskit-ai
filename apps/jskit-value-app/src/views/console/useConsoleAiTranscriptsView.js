@@ -1,5 +1,6 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { api } from "../../platform/http/api/index.js";
+import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 
 function formatDateTime(value) {
   const date = new Date(value);
@@ -33,6 +34,7 @@ function normalizeWorkspaceIdFilter(value) {
 }
 
 export function useConsoleAiTranscriptsView() {
+  const { handleUnauthorizedError } = useAuthGuard();
   const entries = ref([]);
   const loading = ref(false);
   const error = ref("");
@@ -75,6 +77,9 @@ export function useConsoleAiTranscriptsView() {
         messages.value = [];
       }
     } catch (loadError) {
+      if (await handleUnauthorizedError(loadError)) {
+        return;
+      }
       error.value = String(loadError?.message || "Unable to load AI transcripts.");
     } finally {
       loading.value = false;
@@ -98,6 +103,9 @@ export function useConsoleAiTranscriptsView() {
       selectedConversation.value = response?.conversation || conversation;
       messages.value = Array.isArray(response?.entries) ? response.entries : [];
     } catch (loadError) {
+      if (await handleUnauthorizedError(loadError)) {
+        return;
+      }
       messages.value = [];
       messagesError.value = String(loadError?.message || "Unable to load transcript messages.");
     } finally {
@@ -128,6 +136,9 @@ export function useConsoleAiTranscriptsView() {
       anchor.click();
       URL.revokeObjectURL(objectUrl);
     } catch (exportError) {
+      if (await handleUnauthorizedError(exportError)) {
+        return;
+      }
       messagesError.value = String(exportError?.message || "Unable to export transcripts.");
     } finally {
       exportBusy.value = false;

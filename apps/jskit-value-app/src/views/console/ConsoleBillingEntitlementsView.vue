@@ -39,19 +39,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
-import { useQuery } from "@tanstack/vue-query";
-import { api } from "../../platform/http/api/index.js";
+import { useConsoleBillingEntitlementsView } from "./useConsoleBillingEntitlementsView.js";
 
-const query = useQuery({
-  queryKey: ["console", "billing", "entitlement-definitions"],
-  queryFn: () => api.console.listEntitlementDefinitions({ includeInactive: true })
-});
-
-const entries = computed(() => {
-  const value = Array.isArray(query.data.value?.entries) ? query.data.value.entries : [];
-  return value;
-});
-const queryPending = computed(() => Boolean(query.isPending.value || query.isFetching.value));
-const queryError = computed(() => String(query.error.value?.message || ""));
+const { entries, queryPending, queryError } = useConsoleBillingEntitlementsView();
 </script>
