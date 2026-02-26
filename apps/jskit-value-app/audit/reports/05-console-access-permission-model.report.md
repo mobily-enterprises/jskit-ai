@@ -25,24 +25,6 @@
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/useConsoleAiTranscriptsView.vitest.js
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/consoleBillingQueriesAuthHandling.vitest.js
 
-### [05-ISSUE-003] Route-guard test suite misses AI transcript/member permission gate assertions
-- Severity: P3
-- Confidence: high
-- Contract area: tests
-- First seen: 2026-02-26
-- Last seen: 2026-02-26
-- Evidence:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/app/router/guards.console.js:197
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/app/router/guards.console.js:274
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js:149
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js:211
-- Why this is broken:
-  - Permission checks exist for `beforeLoadMembers` and `beforeLoadAiTranscripts`, but the route-guard test file does not assert deny/allow behavior for those two guards. This creates a regression gap in the console permission model.
-- Suggested fix:
-  - Extend `routerGuardsConsole.vitest.js` with explicit denied/allowed assertions for `beforeLoadMembers` (`console.members.view`) and `beforeLoadAiTranscripts` (`console.ai.transcripts.read_all`).
-- Suggested tests:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js
-
 ## Fixed things
 
 ### [05-ISSUE-001] Members invite/revoke actions do not fail closed on missing client permissions
@@ -57,5 +39,24 @@
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleMembersView.js:182
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/useConsoleMembersView.js:205
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/useConsoleMembersView.vitest.js:188
+
+### [05-ISSUE-003] Route-guard test suite misses AI transcript/member permission gate assertions
+- Fixed on: 2026-02-26
+- How fixed:
+  - Extended console route-guard tests with explicit deny/allow assertions for:
+    - `beforeLoadMembers` (`console.members.view`)
+    - `beforeLoadAiTranscripts` (`console.ai.transcripts.read_all`)
+  - This locks regression coverage for both permission gates in the router guard contract.
+- Code changes were applied in:
+  - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js`
+- Validation:
+  - `npm run test:client -- tests/client/workspaceStore.vitest.js tests/client/routerGuardsConsole.vitest.js` (pass, 19 passed / 0 failed)
+- Evidence:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/app/router/guards.console.js:197
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/app/router/guards.console.js:274
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js:330
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js:343
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js:346
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/routerGuardsConsole.vitest.js:362
 
 ## Won't fix things

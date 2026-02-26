@@ -146,6 +146,59 @@ describe("routerGuards.console", () => {
     });
   });
 
+  it("enforces members and transcripts permissions on console routes", async () => {
+    const deniedGuards = createConsoleRouteGuards(
+      buildStores({
+        authenticated: true,
+        hasConsoleAccess: true,
+        permissions: []
+      }),
+      {
+        loginPath: "/console/login",
+        rootPath: "/console"
+      }
+    );
+
+    await expect(deniedGuards.beforeLoadMembers()).rejects.toMatchObject({
+      options: { to: "/console" }
+    });
+    await expect(deniedGuards.beforeLoadAiTranscripts()).rejects.toMatchObject({
+      options: { to: "/console" }
+    });
+
+    const membersAllowedGuards = createConsoleRouteGuards(
+      buildStores({
+        authenticated: true,
+        hasConsoleAccess: true,
+        permissions: ["console.members.view"]
+      }),
+      {
+        loginPath: "/console/login",
+        rootPath: "/console"
+      }
+    );
+    await expect(membersAllowedGuards.beforeLoadMembers()).resolves.toBeUndefined();
+    await expect(membersAllowedGuards.beforeLoadAiTranscripts()).rejects.toMatchObject({
+      options: { to: "/console" }
+    });
+
+    const transcriptsAllowedGuards = createConsoleRouteGuards(
+      buildStores({
+        authenticated: true,
+        hasConsoleAccess: true,
+        permissions: ["console.ai.transcripts.read_all"]
+      }),
+      {
+        loginPath: "/console/login",
+        rootPath: "/console"
+      }
+    );
+    await expect(transcriptsAllowedGuards.beforeLoadAiTranscripts()).resolves.toBeUndefined();
+    await expect(transcriptsAllowedGuards.beforeLoadMembers()).rejects.toMatchObject({
+      options: { to: "/console" }
+    });
+  });
+
   it("enforces console error read permissions on browser/server routes", async () => {
     const deniedGuards = createConsoleRouteGuards(
       buildStores({
@@ -273,4 +326,5 @@ describe("routerGuards.console", () => {
     await expect(billingOperationsGuards.beforeLoadBillingPlanAssignments()).resolves.toBeUndefined();
     await expect(billingOperationsGuards.beforeLoadBillingSubscriptions()).resolves.toBeUndefined();
   });
+
 });

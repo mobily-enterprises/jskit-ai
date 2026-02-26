@@ -556,9 +556,12 @@ describe("workspaceStore", () => {
     expect(store.workspacePath("/settings")).toBe("/admin/w/acme/settings");
     expect(store.workspacePath("/settings", { surface: "app" })).toBe("/w/acme/settings");
     expect(store.workspacePath("/", { surface: "admin" })).toBe("/admin/w/acme");
+    expect(store.workspacePath("/settings", { surface: "console" })).toBe("/console/w/acme/settings");
+    expect(store.workspacePath("/", { surface: "console" })).toBe("/console/w/acme");
 
     store.activeWorkspace = null;
     expect(store.workspacePath("/", { surface: "admin" })).toBe("/admin/workspaces");
+    expect(store.workspacePath("/", { surface: "console" })).toBe("/console/workspaces");
 
     store.clearWorkspaceState();
     expect(store.initialized).toBe(false);

@@ -1,57 +1,6 @@
 ## Broken things
 
-### [04-ISSUE-004] Workspace settings admin mutations do not fail closed on missing client permissions
-- Status: OPEN
-- Severity: P2
-- Confidence: high
-- Contract area: policy
-- First seen: 2026-02-26
-- Last seen: 2026-02-26
-- Evidence:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js:113
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js:115
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js:117
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js:340
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js:367
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js:388
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js:407
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspaceSettingsView.vitest.js:242
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspaceSettingsView.vitest.js:492
-- Why this is broken:
-  - The view computes permission gates for workspace settings update, invite creation, and invite revoke, but `submitWorkspaceSettings`, `submitInvite`, and `submitRevokeInvite` execute mutations without checking those gates. Only `submitMemberRoleUpdate` is fail-closed. If UI wiring regresses (or actions are called programmatically), users lacking those permissions can still trigger privileged API mutation attempts.
-- Suggested fix:
-  - Add early permission guards in `submitWorkspaceSettings`, `submitInvite`, and `submitRevokeInvite` aligned to `canManageWorkspaceSettings`, `canInviteMembers`, and `canRevokeInvites`.
-- Suggested tests:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspaceSettingsView.vitest.js
-- Related:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/05-console-access-permission-model.report.md [05-ISSUE-001]
-
-### [04-ISSUE-005] Workspace surface tests miss non-app redirect and console-global assertions
-- Status: OPEN
-- Severity: P3
-- Confidence: medium
-- Contract area: tests
-- First seen: 2026-02-26
-- Last seen: 2026-02-26
-- Evidence:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/docs/architecture/workspace-and-surfaces.md:25
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/docs/architecture/workspace-and-surfaces.md:27
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/shared/surfaceRegistry.js:22
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/shared/surfaceRegistry.js:25
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspacesView.vitest.js:96
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspacesView.vitest.js:118
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspacesView.vitest.js:164
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/workspaceStore.vitest.js:556
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/workspaceStore.vitest.js:558
-- Why this is broken:
-  - Surface contracts require explicit app/admin routing behavior and a global (non-workspace-required) console surface. The current workspace chooser/store tests only lock app-path redirects and app/admin workspace path generation. They do not assert admin chooser redirect behavior or explicit console-global path behavior, leaving high-value surface-policy invariants unguarded against regression.
-- Suggested fix:
-  - Extend `workspacesView.vitest.js` with admin-surface redirect assertions and extend `workspaceStore.vitest.js` with explicit console-surface assertions that match the intended global console contract.
-- Suggested tests:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspacesView.vitest.js
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/workspaceStore.vitest.js
-- Related:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/05-console-access-permission-model.report.md [05-ISSUE-003]
+None.
 
 ## Fixed things
 
@@ -112,6 +61,50 @@
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/workspace/routes/selfService.routes.js:49
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/workspaceRoutePolicyDefaults.test.js:31
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/workspaceRoutePolicyDefaults.test.js:49
+- Related:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/05-console-access-permission-model.report.md [05-ISSUE-003]
+
+### [04-ISSUE-004] Workspace settings admin mutations do not fail closed on missing client permissions
+- Fixed on: 2026-02-26
+- How fixed:
+  - Added explicit fail-closed permission guards to workspace settings mutations so the composable returns early for:
+    - `submitWorkspaceSettings` without `workspace.settings.update`
+    - `submitInvite` without `workspace.members.invite`
+    - `submitRevokeInvite` without `workspace.invites.revoke`
+  - Added targeted regression coverage to assert these API mutations are not called when permissions are missing.
+- Code changes were applied in:
+  - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js`
+  - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspaceSettingsView.vitest.js`
+- Validation:
+  - `npm run test:client:views -- tests/views/workspaceSettingsView.vitest.js` (pass, 9 passed / 0 failed)
+- Evidence:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js:340
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js:371
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js:396
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspaceSettingsView.vitest.js:428
+- Related:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/05-console-access-permission-model.report.md [05-ISSUE-001]
+
+### [04-ISSUE-005] Workspace surface tests miss non-app redirect and console-global assertions
+- Fixed on: 2026-02-26
+- How fixed:
+  - Extended workspace chooser tests to assert admin-surface routing behavior for:
+    - active workspace redirect
+    - single-workspace auto-open redirect
+    - invite-accept redirect
+  - Extended workspace store surface path tests with explicit console-surface assertions for both selected-workspace and no-active-workspace fallbacks.
+- Code changes were applied in:
+  - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspacesView.vitest.js`
+  - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/workspaceStore.vitest.js`
+- Validation:
+  - `npm run test:client:views -- tests/views/workspacesView.vitest.js` (pass, 9 passed / 0 failed)
+  - `npm run test:client -- tests/client/workspaceStore.vitest.js tests/client/routerGuardsConsole.vitest.js` (pass, 19 passed / 0 failed)
+- Evidence:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspacesView.vitest.js:103
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspacesView.vitest.js:140
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspacesView.vitest.js:223
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/workspaceStore.vitest.js:559
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/client/workspaceStore.vitest.js:564
 - Related:
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/05-console-access-permission-model.report.md [05-ISSUE-003]
 

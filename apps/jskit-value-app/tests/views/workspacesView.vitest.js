@@ -60,6 +60,7 @@ describe("useWorkspacesView", () => {
   beforeEach(() => {
     mocks.navigate.mockReset();
     mocks.routerPathname = "/workspaces";
+    window.history.replaceState({}, "", "/workspaces");
 
     mocks.workspaceStore.workspaces = [];
     mocks.workspaceStore.pendingInvites = [];
@@ -99,6 +100,21 @@ describe("useWorkspacesView", () => {
     });
   });
 
+  it("redirects to active workspace on admin surface using admin path", async () => {
+    window.history.replaceState({}, "", "/admin/workspaces");
+    mocks.routerPathname = "/admin/workspaces";
+    mocks.workspaceStore.hasActiveWorkspace = true;
+    mocks.workspaceStore.activeWorkspaceSlug = "acme";
+
+    mountHarness();
+    await flush();
+
+    expect(mocks.navigate).toHaveBeenCalledWith({
+      to: "/admin/w/acme",
+      replace: true
+    });
+  });
+
   it("auto-opens a single workspace when no pending invites exist", async () => {
     mocks.workspaceStore.workspaces = [
       {
@@ -117,6 +133,30 @@ describe("useWorkspacesView", () => {
     expect(mocks.workspaceStore.selectWorkspace).toHaveBeenCalledWith("solo");
     expect(mocks.navigate).toHaveBeenCalledWith({
       to: "/w/solo",
+      replace: true
+    });
+  });
+
+  it("auto-opens a single workspace on admin surface using admin path", async () => {
+    window.history.replaceState({}, "", "/admin/workspaces");
+    mocks.routerPathname = "/admin/workspaces";
+    mocks.workspaceStore.workspaces = [
+      {
+        id: 5,
+        slug: "solo",
+        name: "Solo",
+        color: "#123456",
+        isAccessible: true
+      }
+    ];
+    mocks.workspaceStore.selectWorkspace.mockResolvedValue({ workspace: { slug: "solo" } });
+
+    mountHarness();
+    await flush();
+
+    expect(mocks.workspaceStore.selectWorkspace).toHaveBeenCalledWith("solo");
+    expect(mocks.navigate).toHaveBeenCalledWith({
+      to: "/admin/w/solo",
       replace: true
     });
   });
@@ -178,6 +218,35 @@ describe("useWorkspacesView", () => {
     await wrapper.vm.vm.actions.refuseInvite(invite);
     expect(wrapper.vm.vm.feedback.messageType).toBe("error");
     expect(wrapper.vm.vm.feedback.message).toBe("Unable to refuse invite.");
+  });
+
+  it("navigates accepted invites to admin workspace path when on admin surface", async () => {
+    window.history.replaceState({}, "", "/admin/workspaces");
+    mocks.routerPathname = "/admin/workspaces";
+    const wrapper = mountHarness();
+    await flush();
+
+    const invite = {
+      id: 9,
+      token: "inviteh_9999999999999999999999999999999999999999999999999999999999999999",
+      workspaceSlug: "team-nine",
+      workspaceName: "Team Nine",
+      roleId: "member"
+    };
+
+    mocks.workspaceStore.respondToPendingInvite.mockResolvedValueOnce({
+      decision: "accepted",
+      workspace: {
+        slug: "joined"
+      }
+    });
+
+    await wrapper.vm.vm.actions.acceptInvite(invite);
+
+    expect(mocks.navigate).toHaveBeenCalledWith({
+      to: "/admin/w/joined",
+      replace: true
+    });
   });
 
   it("exposes workspace presentation helpers", async () => {
