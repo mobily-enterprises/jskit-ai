@@ -49,19 +49,19 @@ Track each of the 83 JSKit packages that must gain a `package.descriptor.mjs` an
 | observability | @jskit-ai/console-errors-client-element | P0 | Pending Stage 0 |
 | observability | @jskit-ai/observability-core | P0 | Pending Stage 0 |
 | observability | @jskit-ai/observability-fastify-adapter | P0 | Pending Stage 0 |
-| operations | @jskit-ai/redis-ops-core | P0 | Pending Stage 0 |
-| operations | @jskit-ai/retention-core | P0 | Pending Stage 0 |
-| realtime | @jskit-ai/realtime-client-runtime | P0 | Pending Stage 0 |
-| realtime | @jskit-ai/realtime-server-socketio | P0 | Pending Stage 0 |
+| operations | @jskit-ai/redis-ops-core | S5 | Descriptor + infrastructure bundle mapping added |
+| operations | @jskit-ai/retention-core | S5 | Descriptor + infrastructure bundle mapping added |
+| realtime | @jskit-ai/realtime-client-runtime | S5 | Descriptor + infrastructure bundle mapping added |
+| realtime | @jskit-ai/realtime-server-socketio | S5 | Descriptor + infrastructure bundle mapping added |
 | runtime | @jskit-ai/action-runtime-core | S4 | Descriptor + shell bundle mapping added |
 | runtime | @jskit-ai/health-fastify-adapter | S4 | Descriptor + shell bundle mapping added |
-| runtime | @jskit-ai/knex-mysql-core | P0 | Pending Stage 0 |
+| runtime | @jskit-ai/knex-mysql-core | S5 | Descriptor + infrastructure bundle mapping added |
 | runtime | @jskit-ai/module-framework-core | S4 | Descriptor + shell bundle mapping added |
 | runtime | @jskit-ai/platform-server-runtime | S4 | Descriptor + shell bundle mapping added |
 | runtime | @jskit-ai/runtime-env-core | S4 | Descriptor + shell bundle mapping added |
 | runtime | @jskit-ai/server-runtime-core | S4 | Descriptor + shell bundle mapping added |
-| security | @jskit-ai/security-audit-core | P0 | Pending Stage 0 |
-| security | @jskit-ai/security-audit-knex-mysql | P0 | Pending Stage 0 |
+| security | @jskit-ai/security-audit-core | S5 | Descriptor + infrastructure bundle mapping added |
+| security | @jskit-ai/security-audit-knex-mysql | S5 | Descriptor + infrastructure bundle mapping added |
 | social | @jskit-ai/social-client-runtime | P0 | Pending Stage 0 |
 | social | @jskit-ai/social-contracts | P0 | Pending Stage 0 |
 | social | @jskit-ai/social-core | P0 | Pending Stage 0 |
