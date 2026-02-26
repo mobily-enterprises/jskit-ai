@@ -5,6 +5,10 @@ import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 
 const DEFAULT_TEMPLATE = "base-shell";
+const DEFAULT_INITIAL_BUNDLES = "none";
+const DEFAULT_DB_PROVIDER = "mysql";
+const INITIAL_BUNDLE_PRESETS = new Set(["none", "db", "db-auth"]);
+const DB_PROVIDERS = new Set(["mysql", "postgres"]);
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TEMPLATES_ROOT = path.join(PACKAGE_ROOT, "templates");
 
@@ -34,6 +38,53 @@ function toAppTitle(appName) {
     .map((word) => `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`);
 
   return words.length > 0 ? words.join(" ") : "App";
+}
+
+function normalizeInitialBundlesPreset(value, { showUsage = true } = {}) {
+  const normalized = String(value || DEFAULT_INITIAL_BUNDLES).trim().toLowerCase();
+  if (INITIAL_BUNDLE_PRESETS.has(normalized)) {
+    return normalized;
+  }
+
+  throw createCliError(
+    `Invalid --initial-bundles value "${value}". Expected one of: none, db, db-auth.`,
+    { showUsage }
+  );
+}
+
+function normalizeDbProvider(value, { showUsage = true } = {}) {
+  const normalized = String(value || DEFAULT_DB_PROVIDER).trim().toLowerCase();
+  if (DB_PROVIDERS.has(normalized)) {
+    return normalized;
+  }
+
+  throw createCliError(
+    `Invalid --db-provider value "${value}". Expected one of: mysql, postgres.`,
+    { showUsage }
+  );
+}
+
+function buildInitialBundleCommands(initialBundles, dbProvider) {
+  const normalizedPreset = normalizeInitialBundlesPreset(initialBundles, { showUsage: false });
+  const normalizedProvider = normalizeDbProvider(dbProvider, { showUsage: false });
+
+  const commands = [];
+  if (normalizedPreset === "db" || normalizedPreset === "db-auth") {
+    commands.push(`npx @jskit-ai/jskit add db --provider ${normalizedProvider} --no-install`);
+  }
+  if (normalizedPreset === "db-auth") {
+    commands.push("npx @jskit-ai/jskit add auth-base --no-install");
+  }
+
+  return commands;
+}
+
+function buildProgressiveBundleCommands(dbProvider) {
+  const normalizedProvider = normalizeDbProvider(dbProvider, { showUsage: false });
+  return [
+    `npx @jskit-ai/jskit add db --provider ${normalizedProvider} --no-install`,
+    "npx @jskit-ai/jskit add auth-base --no-install"
+  ];
 }
 
 function validateAppName(appName, { showUsage = true } = {}) {
@@ -69,6 +120,8 @@ function parseCliArgs(argv) {
     appTitle: null,
     template: DEFAULT_TEMPLATE,
     target: null,
+    initialBundles: DEFAULT_INITIAL_BUNDLES,
+    dbProvider: DEFAULT_DB_PROVIDER,
     force: false,
     dryRun: false,
     help: false,
@@ -136,6 +189,30 @@ function parseCliArgs(argv) {
       continue;
     }
 
+    if (arg === "--initial-bundles") {
+      const { value, nextIndex } = parseOptionWithValue(args, index, "--initial-bundles");
+      options.initialBundles = value;
+      index = nextIndex;
+      continue;
+    }
+
+    if (arg.startsWith("--initial-bundles=")) {
+      options.initialBundles = arg.slice("--initial-bundles=".length);
+      continue;
+    }
+
+    if (arg === "--db-provider") {
+      const { value, nextIndex } = parseOptionWithValue(args, index, "--db-provider");
+      options.dbProvider = value;
+      index = nextIndex;
+      continue;
+    }
+
+    if (arg.startsWith("--db-provider=")) {
+      options.dbProvider = arg.slice("--db-provider=".length);
+      continue;
+    }
+
     if (arg.startsWith("-")) {
       throw createCliError(`Unknown option: ${arg}`, {
         showUsage: true
@@ -171,6 +248,8 @@ function printUsage(stream = process.stderr) {
   stream.write(`  --template <name>  Template folder under templates/ (default: ${DEFAULT_TEMPLATE})\n`);
   stream.write("  --title <text>     App title used for template replacements\n");
   stream.write("  --target <path>    Target directory (default: ./<app-name>)\n");
+  stream.write("  --initial-bundles <preset>  Optional bundle preset: none | db | db-auth (default: none)\n");
+  stream.write("  --db-provider <provider>    Database provider for db presets: mysql | postgres (default: mysql)\n");
   stream.write("  --force            Allow writing into a non-empty target directory\n");
   stream.write("  --dry-run          Print planned writes without changing the filesystem\n");
   stream.write("  --interactive      Prompt for app values instead of passing all flags\n");
@@ -335,10 +414,23 @@ async function askYesNoQuestion(readline, label, defaultValue) {
   }
 }
 
-async function collectInteractiveOptions({ parsed, stdout = process.stdout, stderr = process.stderr, stdin = process.stdin }) {
-  const readline = createInterface({
+function createReadlineInterface({ stdin = process.stdin, stdout = process.stdout } = {}) {
+  return createInterface({
     input: stdin,
     output: stdout
+  });
+}
+
+async function collectInteractiveOptions({
+  parsed,
+  stdout = process.stdout,
+  stderr = process.stderr,
+  stdin = process.stdin,
+  readlineFactory = createReadlineInterface
+}) {
+  const readline = readlineFactory({
+    stdin,
+    stdout
   });
 
   try {
@@ -368,12 +460,42 @@ async function collectInteractiveOptions({ parsed, stdout = process.stdout, stde
       Boolean(parsed.force)
     );
 
+    let initialBundles = normalizeInitialBundlesPreset(parsed.initialBundles, { showUsage: false });
+    while (true) {
+      const candidate = await askQuestion(
+        readline,
+        "Initial bundle preset (none|db|db-auth)",
+        initialBundles
+      );
+      try {
+        initialBundles = normalizeInitialBundlesPreset(candidate, { showUsage: false });
+        break;
+      } catch (error) {
+        stderr.write(`Error: ${error?.message || String(error)}\n`);
+      }
+    }
+
+    let dbProvider = normalizeDbProvider(parsed.dbProvider, { showUsage: false });
+    if (initialBundles === "db" || initialBundles === "db-auth") {
+      while (true) {
+        const candidate = await askQuestion(readline, "DB provider (mysql|postgres)", dbProvider);
+        try {
+          dbProvider = normalizeDbProvider(candidate, { showUsage: false });
+          break;
+        } catch (error) {
+          stderr.write(`Error: ${error?.message || String(error)}\n`);
+        }
+      }
+    }
+
     return {
       appName,
       appTitle,
       target,
       template,
-      force
+      force,
+      initialBundles,
+      dbProvider
     };
   } finally {
     readline.close();
@@ -385,6 +507,8 @@ export async function createApp({
   appTitle = null,
   template = DEFAULT_TEMPLATE,
   target = null,
+  initialBundles = DEFAULT_INITIAL_BUNDLES,
+  dbProvider = DEFAULT_DB_PROVIDER,
   force = false,
   dryRun = false,
   cwd = process.cwd()
@@ -393,6 +517,8 @@ export async function createApp({
   validateAppName(resolvedAppName);
 
   const resolvedAppTitle = String(appTitle || "").trim() || toAppTitle(resolvedAppName);
+  const resolvedInitialBundles = normalizeInitialBundlesPreset(initialBundles);
+  const resolvedDbProvider = normalizeDbProvider(dbProvider);
 
   const resolvedCwd = path.resolve(cwd);
   const targetDirectory = path.resolve(resolvedCwd, target ? String(target) : resolvedAppName);
@@ -419,6 +545,10 @@ export async function createApp({
     appName: resolvedAppName,
     appTitle: resolvedAppTitle,
     template: String(template),
+    initialBundles: resolvedInitialBundles,
+    dbProvider: resolvedDbProvider,
+    selectedBundleCommands: buildInitialBundleCommands(resolvedInitialBundles, resolvedDbProvider),
+    progressiveBundleCommands: buildProgressiveBundleCommands(resolvedDbProvider),
     targetDirectory,
     dryRun,
     touchedFiles
@@ -431,7 +561,8 @@ export async function runCli(
     stdout = process.stdout,
     stderr = process.stderr,
     stdin = process.stdin,
-    cwd = process.cwd()
+    cwd = process.cwd(),
+    readlineFactory = createReadlineInterface
   } = {}
 ) {
   try {
@@ -449,7 +580,8 @@ export async function runCli(
             parsed,
             stdout,
             stderr,
-            stdin
+            stdin,
+            readlineFactory
           }))
         }
       : parsed;
@@ -459,6 +591,8 @@ export async function runCli(
       appTitle: resolvedOptions.appTitle,
       template: resolvedOptions.template,
       target: resolvedOptions.target,
+      initialBundles: resolvedOptions.initialBundles,
+      dbProvider: resolvedOptions.dbProvider,
       force: resolvedOptions.force,
       dryRun: resolvedOptions.dryRun,
       cwd
@@ -484,6 +618,19 @@ export async function runCli(
       stdout.write(`- cd ${shellQuote(targetLabel)}\n`);
       stdout.write("- npm install\n");
       stdout.write("- npm run dev\n");
+
+      stdout.write("\n");
+      if (result.selectedBundleCommands.length > 0) {
+        stdout.write(`Initial framework bundle commands (${result.initialBundles}):\n`);
+        for (const command of result.selectedBundleCommands) {
+          stdout.write(`- ${command}\n`);
+        }
+      } else {
+        stdout.write("Add framework capabilities when ready:\n");
+        for (const command of result.progressiveBundleCommands) {
+          stdout.write(`- ${command}\n`);
+        }
+      }
     }
 
     return 0;

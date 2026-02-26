@@ -4,16 +4,42 @@ import { access, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promise
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+import { Writable } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { runCli as runCreateAppCli } from "../src/index.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit-create-app.js", import.meta.url));
+const JSKIT_CLI_PATH = fileURLToPath(new URL("../../jskit/bin/jskit.js", import.meta.url));
 
-function runCli({ cwd, args = [] }) {
+function runCli({ cwd, args = [], input = undefined }) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
+    cwd,
+    encoding: "utf8",
+    input
+  });
+}
+
+function runJskit({ cwd, args = [] }) {
+  return spawnSync(process.execPath, [JSKIT_CLI_PATH, ...args], {
     cwd,
     encoding: "utf8"
   });
+}
+
+function createCaptureWritable() {
+  let body = "";
+  return {
+    stream: new Writable({
+      write(chunk, _encoding, callback) {
+        body += chunk.toString("utf8");
+        callback();
+      }
+    }),
+    read() {
+      return body;
+    }
+  };
 }
 
 async function withTempDir(run) {
@@ -55,6 +81,53 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
 
     const clientSmoke = await readFile(path.join(appRoot, "tests/client/smoke.vitest.js"), "utf8");
     assert.match(clientSmoke, /sample-app client smoke/);
+
+    assert.match(result.stdout, /npx @jskit-ai\/jskit add db --provider mysql --no-install/);
+    assert.match(result.stdout, /npx @jskit-ai\/jskit add auth-base --no-install/);
+  });
+});
+
+test("create-app interactive flow captures initial bundle selection in guidance", async () => {
+  await withTempDir(async (cwd) => {
+    const stdoutCapture = createCaptureWritable();
+    const stderrCapture = createCaptureWritable();
+    const answers = [
+      "interactive-app",
+      "",
+      "",
+      "",
+      "",
+      "db-auth",
+      "postgres"
+    ];
+    const askedPrompts = [];
+    const readlineFactory = () => ({
+      async question(prompt) {
+        askedPrompts.push(prompt);
+        const answer = answers.shift();
+        if (answer === undefined) {
+          throw new Error(`Unexpected prompt without answer: ${prompt}`);
+        }
+        return answer;
+      },
+      close() {}
+    });
+
+    const exitCode = await runCreateAppCli(["--interactive"], {
+      cwd,
+      stdout: stdoutCapture.stream,
+      stderr: stderrCapture.stream,
+      readlineFactory
+    });
+
+    const stdout = stdoutCapture.read();
+    const stderr = stderrCapture.read();
+    assert.equal(exitCode, 0, stderr);
+    assert.deepEqual(answers, []);
+    assert.ok(askedPrompts.length >= 7);
+    assert.match(stdout, /Initial framework bundle commands \(db-auth\):/);
+    assert.match(stdout, /add db --provider postgres --no-install/);
+    assert.match(stdout, /add auth-base --no-install/);
   });
 });
 
@@ -128,5 +201,67 @@ test("create-app applies explicit app title when --title is provided", async () 
 
     const mainJs = await readFile(path.join(appRoot, "src/main.js"), "utf8");
     assert.match(mainJs, /<h1>Acme Starter<\/h1>/);
+  });
+});
+
+test("generated shell-only app passes jskit doctor and keeps minimal Procfile", async () => {
+  await withTempDir(async (cwd) => {
+    const createResult = runCli({ cwd, args: ["shell-only-app"] });
+    assert.equal(createResult.status, 0, createResult.stderr);
+
+    const appRoot = path.join(cwd, "shell-only-app");
+    const doctorResult = runJskit({ cwd: appRoot, args: ["doctor"] });
+    assert.equal(doctorResult.status, 0, doctorResult.stderr);
+
+    const procfile = await readFile(path.join(appRoot, "Procfile"), "utf8");
+    assert.equal(procfile, "web: npm run start\n");
+  });
+});
+
+test("generated app supports shell + db progressive installation", async () => {
+  await withTempDir(async (cwd) => {
+    const createResult = runCli({ cwd, args: ["shell-db-app"] });
+    assert.equal(createResult.status, 0, createResult.stderr);
+
+    const appRoot = path.join(cwd, "shell-db-app");
+    const addDbResult = runJskit({
+      cwd: appRoot,
+      args: ["add", "db", "--provider", "mysql", "--no-install"]
+    });
+    assert.equal(addDbResult.status, 0, addDbResult.stderr);
+
+    const doctorResult = runJskit({ cwd: appRoot, args: ["doctor"] });
+    assert.equal(doctorResult.status, 0, doctorResult.stderr);
+
+    const procfile = await readFile(path.join(appRoot, "Procfile"), "utf8");
+    assert.match(procfile, /^release: npm run db:migrate$/m);
+    assert.match(procfile, /^web: npm run start$/m);
+  });
+});
+
+test("generated app supports shell + db + auth progressive installation", async () => {
+  await withTempDir(async (cwd) => {
+    const createResult = runCli({ cwd, args: ["shell-db-auth-app"] });
+    assert.equal(createResult.status, 0, createResult.stderr);
+
+    const appRoot = path.join(cwd, "shell-db-auth-app");
+    const addDbResult = runJskit({
+      cwd: appRoot,
+      args: ["add", "db", "--provider", "mysql", "--no-install"]
+    });
+    assert.equal(addDbResult.status, 0, addDbResult.stderr);
+
+    const addAuthResult = runJskit({
+      cwd: appRoot,
+      args: ["add", "auth-base", "--no-install"]
+    });
+    assert.equal(addAuthResult.status, 0, addAuthResult.stderr);
+
+    const doctorResult = runJskit({ cwd: appRoot, args: ["doctor"] });
+    assert.equal(doctorResult.status, 0, doctorResult.stderr);
+
+    const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
+    assert.ok(lockfile.installedPacks["auth-base"]);
+    assert.ok(lockfile.installedPackages["@jskit-ai/auth-fastify-adapter"]);
   });
 });
