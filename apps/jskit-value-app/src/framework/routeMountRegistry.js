@@ -15,15 +15,13 @@ const CLIENT_ROUTE_MOUNT_REGISTRY = Object.freeze([
     moduleId: "chat",
     surface: "app",
     key: "chat.workspace",
-    defaultPath: "/chat",
-    aliases: ["/workspace-chat"]
+    defaultPath: "/chat"
   },
   {
     moduleId: "chat",
     surface: "admin",
     key: "chat.workspace",
-    defaultPath: "/chat",
-    aliases: ["/workspace-chat"]
+    defaultPath: "/chat"
   },
   {
     moduleId: "social",

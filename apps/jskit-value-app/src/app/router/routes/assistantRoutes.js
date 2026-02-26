@@ -1,4 +1,4 @@
-import { createRoute, lazyRouteComponent, redirect } from "@tanstack/vue-router";
+import { createRoute, lazyRouteComponent } from "@tanstack/vue-router";
 
 /* c8 ignore start -- lazy Vue SFC loaders require full Vite CSS handling and are exercised in browser/E2E paths. */
 /* v8 ignore start -- lazy Vue SFC loaders require full Vite CSS handling and are exercised in browser/E2E paths. */
@@ -18,24 +18,8 @@ function normalizeMountPath(pathValue, fallbackPath = "/assistant") {
   return squashed || fallbackPath;
 }
 
-function normalizeMountAliases(mountAliases, mountPath) {
-  const aliases = [];
-  const seen = new Set();
-  for (const aliasValue of Array.isArray(mountAliases) ? mountAliases : []) {
-    const aliasPath = normalizeMountPath(aliasValue, mountPath);
-    if (aliasPath === mountPath || seen.has(aliasPath)) {
-      continue;
-    }
-    seen.add(aliasPath);
-    aliases.push(aliasPath);
-  }
-
-  return aliases;
-}
-
-function createRoutes({ rootRoute, workspaceRoutePrefix, guards, mountPath = "/assistant", mountAliases = [] }) {
+function createRoutes({ rootRoute, workspaceRoutePrefix, guards, mountPath = "/assistant" }) {
   const normalizedMountPath = normalizeMountPath(mountPath, "/assistant");
-  const aliasPaths = normalizeMountAliases(mountAliases, normalizedMountPath);
   const routePath = `${workspaceRoutePrefix}${normalizedMountPath}`;
 
   return [
@@ -44,24 +28,7 @@ function createRoutes({ rootRoute, workspaceRoutePrefix, guards, mountPath = "/a
       path: routePath,
       component: AssistantView,
       beforeLoad: guards.beforeLoadAssistant
-    }),
-    ...aliasPaths.map((aliasPath) =>
-      createRoute({
-        getParentRoute: () => rootRoute,
-        path: `${workspaceRoutePrefix}${aliasPath}`,
-        component: AssistantView,
-        beforeLoad: async (context) => {
-          await guards.beforeLoadAssistant(context);
-          throw redirect({
-            to: routePath,
-            params: {
-              workspaceSlug: context?.params?.workspaceSlug
-            },
-            replace: true
-          });
-        }
-      })
-    )
+    })
   ];
 }
 

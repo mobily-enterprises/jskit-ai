@@ -12,10 +12,7 @@ import { useShellNavigation } from "../shared/useShellNavigation.js";
 import { buildWorkspaceThemeStyle, normalizeWorkspaceColor } from "../shared/workspaceTheme.js";
 import { composeNavigationFragments, resolveNavigationDestinationTitle } from "../../../framework/composeNavigation.js";
 import { PROJECTS_MOUNT_PATH } from "../../../views/projects/routePaths.js";
-import {
-  resolveRouteMountAliasesByKey,
-  resolveRouteMountPathByKey
-} from "../../../framework/composeRouteMounts.js";
+import { resolveRouteMountPathByKey } from "../../../framework/composeRouteMounts.js";
 
 function workspaceInitials(workspace) {
   const source = String(workspace?.name || workspace?.slug || "W").trim();
@@ -136,9 +133,6 @@ export function useAdminShell() {
     required: false,
     fallbackPath: "/chat"
   });
-  const chatMountAliases = resolveRouteMountAliasesByKey("admin", "chat.workspace", {
-    required: false
-  });
   const assistantMountPath = resolveRouteMountPathByKey("admin", "ai.workspace", {
     required: false,
     fallbackPath: "/assistant"
@@ -205,13 +199,9 @@ export function useAdminShell() {
       .toLowerCase();
     const normalizedChatMountPath = String(chatMountPath || "").trim().toLowerCase();
     const normalizedAssistantMountPath = String(assistantMountPath || "").trim().toLowerCase();
-    const normalizedChatMountAliases = (Array.isArray(chatMountAliases) ? chatMountAliases : [])
-      .map((aliasPath) => String(aliasPath || "").trim().toLowerCase())
-      .filter(Boolean);
 
     return (
       (normalizedChatMountPath && pathname.endsWith(normalizedChatMountPath)) ||
-      normalizedChatMountAliases.some((aliasPath) => pathname.endsWith(aliasPath)) ||
       (normalizedAssistantMountPath && pathname.endsWith(normalizedAssistantMountPath))
     );
   });

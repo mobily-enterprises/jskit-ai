@@ -1,4 +1,4 @@
-import { urlMountAliasOverrides, urlMountOverrides } from "../../config/urls.js";
+import { urlMountOverrides } from "../../config/urls.js";
 import { listClientRouteMounts } from "./routeMountRegistry.js";
 
 const RESERVED_ROUTE_MOUNT_PATHS = Object.freeze({
@@ -36,30 +36,7 @@ function resolveActiveClientModules(enabledModuleIds) {
   return routeMounts.filter((entry) => enabledSet.has(entry.moduleId));
 }
 
-function normalizeAliasList(aliasValues, fallbackPath) {
-  const aliases = [];
-  const seenAliases = new Set();
-
-  for (const aliasValue of Array.isArray(aliasValues) ? aliasValues : []) {
-    const normalizedAlias = normalizePath(aliasValue);
-    if (normalizedAlias === fallbackPath || seenAliases.has(normalizedAlias)) {
-      continue;
-    }
-    seenAliases.add(normalizedAlias);
-    aliases.push(normalizedAlias);
-  }
-
-  return aliases;
-}
-
-function composeSurfaceRouteMounts(
-  surface,
-  {
-    enabledModuleIds,
-    mountOverrides = urlMountOverrides,
-    mountAliasOverrides = urlMountAliasOverrides
-  } = {}
-) {
+function composeSurfaceRouteMounts(surface, { enabledModuleIds, mountOverrides = urlMountOverrides } = {}) {
   const normalizedSurface = normalizeString(surface).toLowerCase();
   const mountsByKey = {};
   const pathClaims = new Map();
@@ -112,33 +89,8 @@ function composeSurfaceRouteMounts(
       );
     }
 
-    const routeAliases = normalizeAliasList(
-      [
-        ...(path !== defaultPath ? [defaultPath] : []),
-        ...(Array.isArray(contribution.aliases) ? contribution.aliases : []),
-        ...(Array.isArray(mountAliasOverrides?.[key]) ? mountAliasOverrides[key] : [])
-      ],
-      path
-    );
-
-    for (const alias of routeAliases) {
-      if (reservedPaths.has(alias)) {
-        throw new Error(`Route mount alias "${alias}" for "${key}" is reserved on surface "${normalizedSurface}".`);
-      }
-
-      const existingAliasClaim = pathClaims.get(alias);
-      if (existingAliasClaim && existingAliasClaim !== key) {
-        throw new Error(
-          `Route mount alias collision on surface "${normalizedSurface}": "${alias}" claimed by "${existingAliasClaim}" and "${key}".`
-        );
-      }
-    }
-
     keyClaims.set(key, contribution.moduleId);
     pathClaims.set(path, key);
-    for (const alias of routeAliases) {
-      pathClaims.set(alias, key);
-    }
 
     mountsByKey[key] = Object.freeze({
       key,
@@ -146,8 +98,7 @@ function composeSurfaceRouteMounts(
       surface: normalizedSurface,
       defaultPath,
       path,
-      allowOverride,
-      aliases: Object.freeze(routeAliases)
+      allowOverride
     });
   }
 
@@ -193,24 +144,12 @@ function resolveRouteMountPathByKey(surface, mountKey, options = {}) {
   throw new Error(`Route mount "${normalizedMountKey}" is not defined for surface "${surface}".`);
 }
 
-function resolveRouteMountAliasesByKey(surface, mountKey, options = {}) {
-  const normalizedMountKey = normalizeString(mountKey);
-  if (!normalizedMountKey) {
-    return Object.freeze([]);
-  }
-
-  const mount = composeSurfaceRouteMounts(surface, options).mountsByKey[normalizedMountKey];
-  return Object.freeze(mount ? [...mount.aliases] : []);
-}
-
 const __testables = {
-  normalizePath,
-  normalizeAliasList
+  normalizePath
 };
 
 export {
   composeSurfaceRouteMounts,
   resolveRouteMountPathByKey,
-  resolveRouteMountAliasesByKey,
   __testables
 };

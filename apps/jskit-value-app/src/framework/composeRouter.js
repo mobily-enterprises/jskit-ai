@@ -96,7 +96,6 @@ function composeSurfaceRouteFragments(surface, { enabledModuleIds } = {}) {
             if (mount) {
               baseOptions.mountKey = mount.key;
               baseOptions.mountPath = mount.path;
-              baseOptions.mountAliases = [...mount.aliases];
             }
 
             return Object.freeze(baseOptions);

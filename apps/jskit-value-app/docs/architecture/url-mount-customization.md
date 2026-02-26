@@ -12,7 +12,7 @@ This document defines how workspace route mounts are customized without patching
 ## Supported Mount Keys (Current Phase)
 
 - `ai.workspace` (default: `/assistant`)
-- `chat.workspace` (default: `/chat`, built-in alias: `/workspace-chat`)
+- `chat.workspace` (default: `/chat`)
 - `social.workspace` (default: `/social`)
 - `projects.workspace` (default: `/projects`)
 
@@ -27,15 +27,7 @@ export const urlMountOverrides = {
 };
 ```
 
-Optional extra aliases are set with `urlMountAliasOverrides`:
-
-```js
-export const urlMountAliasOverrides = {
-  "social.workspace": ["/social"]
-};
-```
-
-When an override changes a mount path, the previous default path is automatically retained as an alias redirect.
+Only explicit mount overrides are supported. No alias mount configuration or fallback route redirects are applied.
 
 ## Validation Rules
 
@@ -43,14 +35,12 @@ Mount composition fails fast when:
 
 - two mount keys resolve to the same path
 - any mount resolves to a reserved workspace path
-- alias paths collide with reserved paths or another mount path
 - route/navigation fragments reference undefined mount keys
 
 ## Reserved Workspace Paths
 
 For the `admin`/`app` workspace surfaces, reserved paths are kept for core routes (`/`, `/settings`, `/admin`, `/billing`, `/transcripts`, `/choice-2`).
 
-## Alias Redirect Behavior
+## No Compatibility Layer
 
-Alias routes are explicit redirect routes that preserve `workspaceSlug` and route params where applicable.
-Current alias handling covers assistant/chat/social/projects route trees, including project detail/edit deep links.
+Route mount resolution is single-path only for each key. The runtime does not expose legacy mount aliases, compatibility redirects, or fallback route trees.

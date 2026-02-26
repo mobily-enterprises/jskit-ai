@@ -29,7 +29,7 @@ import {
  * It does NOT:
  * 1) Implement websocket protocol mechanics.
  * 2) Implement Redis adapter lifecycle logic.
- * 3) Provide compatibility translation for old APIs.
+ * 3) Provide translation layers between runtime contracts.
  *
  * Call flow:
  * server.js -> registerSocketIoRealtime(...) -> registerRealtimeServerSocketio(...)

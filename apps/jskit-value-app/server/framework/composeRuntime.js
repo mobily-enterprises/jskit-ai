@@ -15,7 +15,7 @@ import { APP_FEATURE_SERVICE_DEFINITIONS, APP_FEATURE_CONTROLLER_DEFINITIONS } f
 import { ROUTE_MODULE_DEFINITIONS } from "./routeModuleCatalog.js";
 import { resolveServerModuleRegistry } from "./moduleRegistry.js";
 
-const LEGACY_ROUTE_MODULE_ORDER = Object.freeze(ROUTE_MODULE_DEFINITIONS.map((entry) => entry.id));
+const ROUTE_MODULE_ORDER = Object.freeze(ROUTE_MODULE_DEFINITIONS.map((entry) => entry.id));
 const EXTENSION_MODULE_TIER = "extension";
 
 function normalizeEnabledModuleIds(enabledModuleIds) {
@@ -423,7 +423,7 @@ function composeServerRuntimeArtifacts(options = {}) {
     serviceDefinitions: Object.freeze(filterDefinitionsById(PLATFORM_SERVICE_DEFINITIONS, serviceIds)),
     controllerDefinitions: Object.freeze(filterDefinitionsById(PLATFORM_CONTROLLER_DEFINITIONS, controllerIds)),
     runtimeServiceIds: Object.freeze(filterRuntimeIds(RUNTIME_SERVICE_EXPORT_IDS, runtimeServiceIds)),
-    routeModuleIds: Object.freeze(filterRouteModuleIds(LEGACY_ROUTE_MODULE_ORDER, routeModuleIds)),
+    routeModuleIds: Object.freeze(filterRouteModuleIds(ROUTE_MODULE_ORDER, routeModuleIds)),
     appFeatureServiceDefinitions: Object.freeze(filterDefinitionsById(APP_FEATURE_SERVICE_DEFINITIONS, appFeatureServiceIds)),
     appFeatureControllerDefinitions: Object.freeze(
       filterDefinitionsById(APP_FEATURE_CONTROLLER_DEFINITIONS, appFeatureControllerIds)

@@ -54,7 +54,9 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@tanstack/vue-router", async () => {
   const vue = await import("vue");
+  const actual = await vi.importActual("@tanstack/vue-router");
   return {
+    ...actual,
     useNavigate: () => mocks.navigate,
     useRouterState: (options) => {
       const state = {
@@ -234,9 +236,9 @@ describe("useAdminShell", () => {
     expect(wrapper.vm.shell.user.userDisplayName.value).toBe("Tony");
 
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
-      { title: "Projects", to: "/admin/w/acme/projects", icon: "$navChoice2" },
-      { title: "Workspace chat", to: "/admin/w/acme/chat", icon: "$workspaceChat" },
-      { title: "Assistant", to: "/admin/w/acme/assistant", icon: "$navChoice2" }
+      { title: "Assistant", destinationTitle: "Assistant", to: "/admin/w/acme/assistant", icon: "$navChoice2" },
+      { title: "Projects", destinationTitle: "Projects", to: "/admin/w/acme/projects", icon: "$navChoice2" },
+      { title: "Workspace chat", destinationTitle: "Workspace chat", to: "/admin/w/acme/chat", icon: "$workspaceChat" }
     ]);
     expect(wrapper.vm.shell.user.canViewWorkspaceSettings.value).toBe(true);
     expect(wrapper.vm.shell.user.canOpenWorkspaceControlMenu.value).toBe(true);
@@ -278,17 +280,24 @@ describe("useAdminShell", () => {
 
     expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Social");
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
-      { title: "Projects", to: "/admin/w/acme/projects", icon: "$navChoice2" },
-      { title: "Workspace chat", to: "/admin/w/acme/chat", icon: "$workspaceChat" },
-      { title: "Social", to: "/admin/w/acme/social", icon: "$workspaceSocial" },
-      { title: "Social moderation", to: "/admin/w/acme/social/moderation", icon: "$workspaceModeration" },
-      { title: "Assistant", to: "/admin/w/acme/assistant", icon: "$navChoice2" }
+      { title: "Assistant", destinationTitle: "Assistant", to: "/admin/w/acme/assistant", icon: "$navChoice2" },
+      { title: "Projects", destinationTitle: "Projects", to: "/admin/w/acme/projects", icon: "$navChoice2" },
+      { title: "Workspace chat", destinationTitle: "Workspace chat", to: "/admin/w/acme/chat", icon: "$workspaceChat" },
+      { title: "Social", destinationTitle: "Social", to: "/admin/w/acme/social", icon: "$workspaceSocial" },
+      {
+        title: "Social moderation",
+        destinationTitle: "Social moderation",
+        to: "/admin/w/acme/social/moderation",
+        icon: "$workspaceModeration"
+      }
     ]);
 
     mocks.routerPathname = "/admin/w/acme/social/moderation";
     window.history.replaceState({}, "", "/admin/w/acme/social/moderation");
+    wrapper.unmount();
+    const moderationWrapper = mountHarness();
     await nextTick();
-    expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Social moderation");
+    expect(moderationWrapper.vm.shell.layout.destinationTitle.value).toBe("Social moderation");
   });
 
   it("maps workspace chat destination title", async () => {

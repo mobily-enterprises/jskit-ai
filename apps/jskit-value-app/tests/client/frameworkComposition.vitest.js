@@ -105,7 +105,7 @@ describe("framework client composition", () => {
     expect(composeSurfaceRouteFragments("console").map((fragment) => fragment.id)).toEqual(["core"]);
   });
 
-  it("composeSurfaceRouteMounts resolves keys, aliases, and override paths", () => {
+  it("composeSurfaceRouteMounts resolves keys and override paths", () => {
     const adminMounts = composeSurfaceRouteMounts("admin");
     expect(adminMounts.mountsByKey["projects.workspace"]).toMatchObject({
       path: "/projects",
@@ -114,7 +114,6 @@ describe("framework client composition", () => {
     expect(adminMounts.mountsByKey["chat.workspace"]).toMatchObject({
       path: "/chat"
     });
-    expect(adminMounts.mountsByKey["chat.workspace"].aliases).toContain("/workspace-chat");
 
     const overriddenMounts = composeSurfaceRouteMounts("admin", {
       mountOverrides: {
@@ -126,7 +125,6 @@ describe("framework client composition", () => {
       path: "/community",
       defaultPath: "/social"
     });
-    expect(overriddenMounts.mountsByKey["social.workspace"].aliases).toContain("/social");
     expect(overriddenMounts.mountsByKey["projects.workspace"]).toMatchObject({
       path: "/customers",
       defaultPath: "/projects"

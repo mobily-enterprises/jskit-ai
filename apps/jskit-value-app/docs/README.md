@@ -37,7 +37,7 @@ Last reorganized: 2026-02-25 (UTC)
 - `architecture/workspace-and-surfaces.md`
   - The decision record for workspace-native architecture and the admin/app surface model. Includes accepted invariants, route/auth rules, and rollout backlog.
 - `architecture/url-mount-customization.md`
-  - Workspace route mount override contract (mount keys, aliases, collision rules, and route fragment expectations).
+  - Workspace route mount override contract (mount keys, collision rules, and route fragment expectations).
 - `architecture/module-capabilities.md`
   - Server module dependency/capability contract, strict/permissive composition behavior, and dependency check command usage.
 - `architecture/module-profiles.md`

@@ -3,9 +3,4 @@ const urlMountOverrides = Object.freeze({
   // "social.workspace": "/community"
 });
 
-const urlMountAliasOverrides = Object.freeze({
-  // Example:
-  // "social.workspace": ["/social"]
-});
-
-export { urlMountOverrides, urlMountAliasOverrides };
+export { urlMountOverrides };

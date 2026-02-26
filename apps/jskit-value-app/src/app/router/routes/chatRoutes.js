@@ -25,26 +25,10 @@ function normalizeMountPath(pathValue, fallbackPath = "/chat") {
   return squashed || fallbackPath;
 }
 
-function normalizeMountAliases(mountAliases, mountPath) {
-  const aliases = [];
-  const seen = new Set();
-  for (const aliasValue of Array.isArray(mountAliases) ? mountAliases : []) {
-    const aliasPath = normalizeMountPath(aliasValue, mountPath);
-    if (aliasPath === mountPath || seen.has(aliasPath)) {
-      continue;
-    }
-    seen.add(aliasPath);
-    aliases.push(aliasPath);
-  }
-
-  return aliases;
-}
-
-function createRoutes({ rootRoute, workspaceRoutePrefix, guards, surface, mountPath = "/chat", mountAliases = [] }) {
+function createRoutes({ rootRoute, workspaceRoutePrefix, guards, surface, mountPath = "/chat" }) {
   const normalizedSurface = normalizeSurfaceId(surface);
   const adminPaths = createSurfacePaths("admin");
   const normalizedMountPath = normalizeMountPath(mountPath, "/chat");
-  const aliasPaths = normalizeMountAliases(mountAliases, normalizedMountPath);
   const routePath = `${workspaceRoutePrefix}${normalizedMountPath}`;
   const adminWorkspaceChatRoutePath = `${adminPaths.prefix}/w/$workspaceSlug${normalizedMountPath}`;
 
@@ -68,24 +52,7 @@ function createRoutes({ rootRoute, workspaceRoutePrefix, guards, surface, mountP
       path: routePath,
       component: ChatView,
       beforeLoad: chatRouteBeforeLoad
-    }),
-    ...aliasPaths.map((aliasPath) =>
-      createRoute({
-        getParentRoute: () => rootRoute,
-        path: `${workspaceRoutePrefix}${aliasPath}`,
-        component: ChatView,
-        beforeLoad: async (context) => {
-          await guards.beforeLoadWorkspacePermissionsRequired(context, ["chat.read"]);
-          throw redirect({
-            to: normalizedSurface === "admin" ? routePath : adminWorkspaceChatRoutePath,
-            params: {
-              workspaceSlug: context?.params?.workspaceSlug
-            },
-            replace: true
-          });
-        }
-      })
-    )
+    })
   ];
 }
 

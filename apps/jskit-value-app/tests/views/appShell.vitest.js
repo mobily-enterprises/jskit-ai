@@ -78,7 +78,9 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@tanstack/vue-router", async () => {
   const vue = await import("vue");
+  const actual = await vi.importActual("@tanstack/vue-router");
   return {
+    ...actual,
     useNavigate: () => mocks.navigate,
     useRouterState: (options) => {
       const state = {
@@ -224,8 +226,8 @@ describe("useAppShell", () => {
     expect(wrapper.vm.shell.user.canOpenAdminSurface.value).toBe(true);
 
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
-      { title: "Deg2rad", to: "/w/acme", icon: "$navChoice1" },
-      { title: "Assistant", to: "/w/acme/assistant", icon: "$navChoice2" }
+      { title: "Assistant", destinationTitle: "Assistant", to: "/w/acme/assistant", icon: "$navChoice2" },
+      { title: "Deg2rad", destinationTitle: "JSKIT app", to: "/w/acme", icon: "$navChoice1" }
     ]);
   });
 
@@ -239,7 +241,7 @@ describe("useAppShell", () => {
     expect(wrapper.vm.shell.layout.showApplicationShell.value).toBe(false);
     expect(wrapper.vm.shell.user.canOpenAdminSurface.value).toBe(false);
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
-      { title: "Deg2rad", to: "/w/acme", icon: "$navChoice1" }
+      { title: "Deg2rad", destinationTitle: "JSKIT app", to: "/w/acme", icon: "$navChoice1" }
     ]);
 
     await wrapper.vm.shell.actions.goToAccountSettings();
@@ -276,9 +278,9 @@ describe("useAppShell", () => {
 
     expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("Social");
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
-      { title: "Deg2rad", to: "/w/acme", icon: "$navChoice1" },
-      { title: "Social", to: "/w/acme/social", icon: "$workspaceSocial" },
-      { title: "Assistant", to: "/w/acme/assistant", icon: "$navChoice2" }
+      { title: "Assistant", destinationTitle: "Assistant", to: "/w/acme/assistant", icon: "$navChoice2" },
+      { title: "Deg2rad", destinationTitle: "JSKIT app", to: "/w/acme", icon: "$navChoice1" },
+      { title: "Social", destinationTitle: "Social", to: "/w/acme/social", icon: "$workspaceSocial" }
     ]);
   });
 
@@ -289,7 +291,7 @@ describe("useAppShell", () => {
     await nextTick();
 
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
-      { title: "Deg2rad", to: "/w/acme", icon: "$navChoice1" }
+      { title: "Deg2rad", destinationTitle: "JSKIT app", to: "/w/acme", icon: "$navChoice1" }
     ]);
   });
 
@@ -308,13 +310,13 @@ describe("useAppShell", () => {
 
     expect(wrapper.vm.shell.layout.destinationTitle.value).toBe("JSKIT app");
     expect(wrapper.vm.shell.navigation.navigationItems.value).toEqual([
-      { title: "Deg2rad", to: "/w/acme", icon: "$navChoice1" },
-      { title: "Assistant", to: "/w/acme/assistant", icon: "$navChoice2" }
+      { title: "Assistant", destinationTitle: "Assistant", to: "/w/acme/assistant", icon: "$navChoice2" },
+      { title: "Deg2rad", destinationTitle: "JSKIT app", to: "/w/acme", icon: "$navChoice1" }
     ]);
   });
 
-  it("keeps shell chrome for workspace chat compatibility route", async () => {
-    mocks.routerPathname = "/w/acme/workspace-chat";
+  it("keeps shell chrome for non-navigation workspace routes", async () => {
+    mocks.routerPathname = "/w/acme/chat/thread-42";
     mocks.workspaceStore.can.mockImplementation(
       (permission) =>
         permission === "workspace.settings.view" ||
