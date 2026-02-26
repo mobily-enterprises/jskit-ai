@@ -1,6 +1,30 @@
 ## Broken things
 
-None.
+### [04-ISSUE-004] Workspace settings admin mutations do not fail closed on missing client permissions
+- Status: OPEN
+- Severity: P2
+- Confidence: high
+- Contract area: policy
+- First seen: 2026-02-26
+- Last seen: 2026-02-26
+- Evidence:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js:113
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js:115
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js:117
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js:340
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js:367
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js:388
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js:407
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspaceSettingsView.vitest.js:242
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspaceSettingsView.vitest.js:492
+- Why this is broken:
+  - The view computes permission gates for workspace settings update, invite creation, and invite revoke, but `submitWorkspaceSettings`, `submitInvite`, and `submitRevokeInvite` execute mutations without checking those gates. Only `submitMemberRoleUpdate` is fail-closed. If UI wiring regresses (or actions are called programmatically), users lacking those permissions can still trigger privileged API mutation attempts.
+- Suggested fix:
+  - Add early permission guards in `submitWorkspaceSettings`, `submitInvite`, and `submitRevokeInvite` aligned to `canManageWorkspaceSettings`, `canInviteMembers`, and `canRevokeInvites`.
+- Suggested tests:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/workspaceSettingsView.vitest.js
+- Related:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/05-console-access-permission-model.report.md [05-ISSUE-001]
 
 ## Fixed things
 
