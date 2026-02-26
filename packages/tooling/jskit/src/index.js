@@ -1022,6 +1022,50 @@ function resolvePackageInstallOrder(rootPackageIds, availablePackages) {
   return ordered;
 }
 
+function buildPackMetadata(packDescriptor, availablePackages) {
+  const rootPackageIds = [];
+  for (const packageEntry of packDescriptor.packages) {
+    if (typeof packageEntry === "string") {
+      rootPackageIds.push(packageEntry);
+      continue;
+    }
+    if (packageEntry?.packageId) {
+      rootPackageIds.push(packageEntry.packageId);
+    }
+  }
+
+  const uniqueRootPackageIds = toSortedUniqueStrings(rootPackageIds);
+  let resolvedPackageIds = uniqueRootPackageIds;
+  try {
+    resolvedPackageIds = toSortedUniqueStrings(resolvePackageInstallOrder(uniqueRootPackageIds, availablePackages));
+  } catch {
+    resolvedPackageIds = uniqueRootPackageIds;
+  }
+
+  const requiredCapabilities = new Set();
+  const providedCapabilities = new Set();
+  for (const packageId of resolvedPackageIds) {
+    const packageEntry = availablePackages.get(packageId);
+    if (!packageEntry) {
+      continue;
+    }
+    for (const capabilityId of packageEntry.descriptor.capabilities.requires) {
+      requiredCapabilities.add(capabilityId);
+    }
+    for (const capabilityId of packageEntry.descriptor.capabilities.provides) {
+      providedCapabilities.add(capabilityId);
+    }
+  }
+
+  return {
+    packageCount: resolvedPackageIds.length,
+    packages: resolvedPackageIds,
+    options: packDescriptor.options,
+    requiredCapabilities: [...requiredCapabilities].sort((left, right) => left.localeCompare(right)),
+    providedCapabilities: [...providedCapabilities].sort((left, right) => left.localeCompare(right))
+  };
+}
+
 function buildCapabilityProviderIndex(installedPackageIds, availablePackages) {
   const providerIndex = new Map();
 
@@ -1966,7 +2010,8 @@ export async function runCli(
           packId: entry.descriptor.packId,
           version: entry.descriptor.version,
           description: entry.descriptor.description,
-          installed: installedPackIds.has(entry.descriptor.packId)
+          installed: installedPackIds.has(entry.descriptor.packId),
+          ...buildPackMetadata(entry.descriptor, availablePackages)
         }))
       };
       formatResult(result, {
