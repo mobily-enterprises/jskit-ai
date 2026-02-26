@@ -7,23 +7,8 @@ This file defines how to run a checking pass for one audit entry from `audit/aud
 Find current problems in the selected domain and persist them to the domain report file:
 - `audit/reports/<audit-name>.report.md`
 
+This pass is audit-only.
 Do not fix code in this pass.
-
-## Report State Machine
-
-Each report file has a state under `## Report state`:
-
-1. `WAITING_FOR_AUDIT`
-- No active fixing conversation is in progress.
-- Next action is an audit pass.
-
-2. `BEING_FIXED`
-- At least one broken issue exists and must be discussed/fixed with the user.
-- Do not run another audit pass while this state is active.
-
-State transition rules for auditing pass:
-1. If broken issues are found, set state to `BEING_FIXED`.
-2. If no broken issues are found, keep/set state to `WAITING_FOR_AUDIT`.
 
 ## Required Inputs
 
@@ -38,7 +23,7 @@ State transition rules for auditing pass:
 In every auditing pass, read domain-relevant tests before finalizing findings.
 
 Minimum rule:
-1. Read tests whose names/paths match the selected domain keywords.
+1. Read tests whose names/paths match selected domain keywords.
 2. Read cross-cutting policy tests when relevant (`auth`, `workspace`, `surface`, `realtime`, `billing`).
 3. If no related tests exist, record that as a `tests` contract-area finding.
 
@@ -51,8 +36,8 @@ Minimum rule:
 5. Do not invent behavior not present in code/docs.
 6. Keep findings scoped to the selected domain.
 7. Preserve history under `Fixed things` and `Won't fix things`.
-8. Ignore `audit/premade-prompts/**` files during code/domain auditing. They are orchestration assets, not product runtime code.
-9. If the report state is `BEING_FIXED`, stop and instruct the user to continue fixing flow first.
+8. Ignore `audit/premade-prompts/**` files during code/domain auditing.
+9. Always allow this pass even if `Broken things` already has items; append/refine findings.
 
 ## Severity and Confidence Rubric
 
@@ -113,11 +98,11 @@ Check these when applicable to the selected domain:
 
 Explicitly check, when relevant:
 
-1. authz bypass and IDOR risk (tenant/resource ownership checks)
+1. authz bypass and IDOR risk
 2. auth/session/cookie/CSRF misuse
 3. input validation gaps and injection risk
 4. unsafe file upload/content handling
-5. SSRF/open-redirect style request routing risks
+5. SSRF/open-redirect style routing risks
 6. sensitive data exposure in logs/errors/responses
 7. rate-limit and abuse-control gaps on public mutators
 8. privilege escalation via role/surface/policy drift
@@ -139,22 +124,12 @@ Explicitly check for:
 
 If report file does not exist, create it.
 
-The report must always contain exactly these headings:
+The report must contain exactly these headings:
 
 ```md
-## Report state
 ## Broken things
 ## Fixed things
 ## Won't fix things
-```
-
-The `Report state` section must follow this format:
-
-```md
-## Report state
-- State: WAITING_FOR_AUDIT|BEING_FIXED
-- Last updated: YYYY-MM-DD
-- Scope entry: ## NN) ...
 ```
 
 Do not delete `Fixed things` or `Won't fix things` history during an auditing pass.
@@ -189,7 +164,7 @@ Issue ID rules:
   - `###` = three-digit issue sequence within that same domain.
 - Stable per report file (`02-ISSUE-001`, `02-ISSUE-002`, ...).
 - Reuse same ID if the same issue is still open.
-- If a previously fixed issue regresses, add a new issue ID and reference the old one.
+- If a previously fixed issue regresses, add a new issue ID and reference old ID.
 
 ## Deduplication Rules
 
@@ -219,12 +194,9 @@ If runtime validation is not possible, explicitly state:
 
 1. Save report to the exact `Report file` path from `auditList.md`.
 2. Ensure `Broken things` contains all currently open issues found in this pass.
-3. If at least one broken issue exists, set state to `BEING_FIXED`.
-4. If no broken issues exist, set state to `WAITING_FOR_AUDIT`.
-5. Leave `Fixed things` and `Won't fix things` intact.
-6. Return a short summary with:
+3. Leave `Fixed things` and `Won't fix things` intact.
+4. Return a short summary with:
 - report path
-- report state after audit
 - broken issues count by severity
 - newly added issue IDs
 - coverage proof (paths audited, files read count, missing files if any)

@@ -9,9 +9,7 @@ For every item:
 2. Fixing pass moves resolved items to `Fixed things` or `Won't fix things`.
 3. Future audit passes append newly found issues without deleting historical fixed/won't-fix entries.
 4. Every audit pass must also review related `tests/**` and run targeted validation commands when feasible.
-5. Reports must track `## Report state` with `WAITING_FOR_AUDIT` or `BEING_FIXED`.
-6. While state is `BEING_FIXED`, human approval is required before any code edits.
-7. Each fixed issue requires exactly one commit (`one commit per issue`).
+5. Each fixed issue requires exactly one commit (`one commit per issue`).
 
 Do not pre-create report files. They are created by each audit execution.
 Issue ID format for all reports: `NN-ISSUE-###` (domain number + per-domain issue number).

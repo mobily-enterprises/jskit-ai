@@ -8,25 +8,13 @@ Resolve issues listed in `## Broken things` through user-approved fixes and move
 - `## Fixed things`, or
 - `## Won't fix things` (with explicit reason).
 
+Fixing is separate from shared audit prompts.
+
 ## Required Inputs
 
 1. One full audit entry copied from `audit/auditList.md`.
 2. Its report file in `audit/reports/*.report.md`.
 3. Current `Broken things` list.
-
-## Report State Machine Rules
-
-Fixing pass only applies when:
-- `## Report state` has `State: BEING_FIXED`.
-
-If report state is `WAITING_FOR_AUDIT`:
-1. Do not fix.
-2. Ask user to run/allow an audit pass first.
-
-When `Broken things` becomes empty:
-1. Set report state to `WAITING_FOR_AUDIT`.
-2. Do not run audit in the same execution.
-3. Stop and tell user the domain is ready for the next audit run.
 
 ## Human Approval Protocol (Mandatory)
 
@@ -51,10 +39,11 @@ If approval is not explicit, stop after presenting plan.
 6. Keep cross-domain issue links intact when present.
 7. Ignore `audit/premade-prompts/**` files unless task is explicitly prompt-asset maintenance.
 8. One commit per fixed issue.
+9. If new issues are discovered during fixing, add them to `Broken things` with new IDs.
 
 ## Fixing Workflow
 
-1. Read report file and confirm `State: BEING_FIXED`.
+1. Read report file.
 2. Pick a target issue and provide the fix plan.
 3. Wait for `APPROVE NN-ISSUE-###`.
 4. Set issue status to `IN_PROGRESS`.
@@ -152,11 +141,8 @@ When a fixed issue has related issues in other reports:
 ## End of Pass Requirements
 
 1. Save updated report file to same path.
-2. If `Broken things` still has items, keep state `BEING_FIXED`.
-3. If `Broken things` is empty, set state `WAITING_FOR_AUDIT`.
-4. Return a short summary with:
+2. Return a short summary with:
 - report path
-- report state after fixing
 - fixed issue IDs
 - won't-fix issue IDs
 - remaining broken issue count by severity
