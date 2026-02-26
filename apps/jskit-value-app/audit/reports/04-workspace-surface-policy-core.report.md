@@ -1,6 +1,6 @@
 ## Broken things
 
-### [ISSUE-001] Path-based surface resolution misclassifies admin workspace APIs as `app`
+### [04-ISSUE-001] Path-based surface resolution misclassifies admin workspace APIs as `app`
 - Severity: P2
 - Confidence: high
 - Contract area: policy
@@ -20,7 +20,7 @@
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/surfacePathsAndRegistry.test.js
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/authPluginInternals.test.js
 
-### [ISSUE-002] Workspace module wrapper passes an adapter option that is ignored
+### [04-ISSUE-002] Workspace module wrapper passes an adapter option that is ignored
 - Severity: P3
 - Confidence: high
 - Contract area: seam

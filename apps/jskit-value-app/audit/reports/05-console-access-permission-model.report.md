@@ -1,6 +1,6 @@
 ## Broken things
 
-### [ISSUE-001] Members invite/revoke actions do not fail closed on missing client permissions
+### [05-ISSUE-001] Members invite/revoke actions do not fail closed on missing client permissions
 - Severity: P2
 - Confidence: high
 - Contract area: policy
@@ -21,7 +21,7 @@
 - Suggested tests:
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/useConsoleMembersView.vitest.js
 
-### [ISSUE-002] Console billing/transcript views bypass centralized unauthorized-session handling
+### [05-ISSUE-002] Console billing/transcript views bypass centralized unauthorized-session handling
 - Severity: P2
 - Confidence: high
 - Contract area: security
@@ -46,7 +46,7 @@
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/useConsoleAiTranscriptsView.vitest.js
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/views/consoleBillingQueriesAuthHandling.vitest.js
 
-### [ISSUE-003] Route-guard test suite misses AI transcript/member permission gate assertions
+### [05-ISSUE-003] Route-guard test suite misses AI transcript/member permission gate assertions
 - Severity: P3
 - Confidence: high
 - Contract area: tests

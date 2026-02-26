@@ -7,7 +7,23 @@ This file defines how to run a checking pass for one audit entry from `audit/aud
 Find current problems in the selected domain and persist them to the domain report file:
 - `audit/reports/<audit-name>.report.md`
 
-Do not fix code in this pass unless explicitly requested.
+Do not fix code in this pass.
+
+## Report State Machine
+
+Each report file has a state under `## Report state`:
+
+1. `WAITING_FOR_AUDIT`
+- No active fixing conversation is in progress.
+- Next action is an audit pass.
+
+2. `BEING_FIXED`
+- At least one broken issue exists and must be discussed/fixed with the user.
+- Do not run another audit pass while this state is active.
+
+State transition rules for auditing pass:
+1. If broken issues are found, set state to `BEING_FIXED`.
+2. If no broken issues are found, keep/set state to `WAITING_FOR_AUDIT`.
 
 ## Required Inputs
 
@@ -36,6 +52,7 @@ Minimum rule:
 6. Keep findings scoped to the selected domain.
 7. Preserve history under `Fixed things` and `Won't fix things`.
 8. Ignore `audit/premade-prompts/**` files during code/domain auditing. They are orchestration assets, not product runtime code.
+9. If the report state is `BEING_FIXED`, stop and instruct the user to continue fixing flow first.
 
 ## Severity and Confidence Rubric
 
@@ -125,9 +142,19 @@ If report file does not exist, create it.
 The report must always contain exactly these headings:
 
 ```md
+## Report state
 ## Broken things
 ## Fixed things
 ## Won't fix things
+```
+
+The `Report state` section must follow this format:
+
+```md
+## Report state
+- State: WAITING_FOR_AUDIT|BEING_FIXED
+- Last updated: YYYY-MM-DD
+- Scope entry: ## NN) ...
 ```
 
 Do not delete `Fixed things` or `Won't fix things` history during an auditing pass.
@@ -137,7 +164,8 @@ Do not delete `Fixed things` or `Won't fix things` history during an auditing pa
 Use this block format for each broken item:
 
 ```md
-### [ISSUE-ID] Short title
+### [NN-ISSUE-###] Short title
+- Status: OPEN
 - Severity: P0|P1|P2|P3
 - Confidence: high|medium|low
 - Contract area: seam|policy|action-runtime|api|security|tenancy|realtime|billing|tests|docs|other
@@ -152,11 +180,14 @@ Use this block format for each broken item:
 - Suggested tests:
   - exact test file(s) to add/update
 - Related:
-  - optional cross-domain links, for example `/abs/path/other.report.md [ISSUE-00X]`
+  - optional cross-domain links, for example `/abs/path/other.report.md [02-ISSUE-004]`
 ```
 
 Issue ID rules:
-- Stable per report file (`ISSUE-001`, `ISSUE-002`, ...).
+- Format is `NN-ISSUE-###` where:
+  - `NN` = two-digit domain number from the audit entry/report filename.
+  - `###` = three-digit issue sequence within that same domain.
+- Stable per report file (`02-ISSUE-001`, `02-ISSUE-002`, ...).
 - Reuse same ID if the same issue is still open.
 - If a previously fixed issue regresses, add a new issue ID and reference the old one.
 
@@ -188,9 +219,12 @@ If runtime validation is not possible, explicitly state:
 
 1. Save report to the exact `Report file` path from `auditList.md`.
 2. Ensure `Broken things` contains all currently open issues found in this pass.
-3. Leave `Fixed things` and `Won't fix things` intact.
-4. Return a short summary with:
+3. If at least one broken issue exists, set state to `BEING_FIXED`.
+4. If no broken issues exist, set state to `WAITING_FOR_AUDIT`.
+5. Leave `Fixed things` and `Won't fix things` intact.
+6. Return a short summary with:
 - report path
+- report state after audit
 - broken issues count by severity
 - newly added issue IDs
 - coverage proof (paths audited, files read count, missing files if any)

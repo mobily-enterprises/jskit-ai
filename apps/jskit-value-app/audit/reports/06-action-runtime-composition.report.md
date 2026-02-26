@@ -1,6 +1,6 @@
 ## Broken things
 
-### [ISSUE-001] Assistant-tool arguments can override workspace/user context and cross tenant boundaries
+### [06-ISSUE-001] Assistant-tool arguments can override workspace/user context and cross tenant boundaries
 - Severity: P0
 - Confidence: high
 - Contract area: tenancy
@@ -24,7 +24,7 @@
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/actionRegistry.test.js
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/assistantToolContextIntegrity.test.js
 
-### [ISSUE-002] Billing idempotency adapter remains noop even when billing idempotency service is available
+### [06-ISSUE-002] Billing idempotency adapter remains noop even when billing idempotency service is available
 - Severity: P1
 - Confidence: high
 - Contract area: action-runtime
@@ -42,13 +42,13 @@
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/actionIdempotencyAdapters.test.js
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/actionRegistry.test.js
 - Related:
-  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/01-server-skeleton-runtime-composition.report.md [ISSUE-002]
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/01-server-skeleton-runtime-composition.report.md [01-ISSUE-002]
 - Linked status:
-  - 2026-02-26: Report `01-server-skeleton-runtime-composition` [ISSUE-002] moved to `Fixed things` after removing misleading billing-idempotency injection and codifying explicit noop adapter ownership in:
+  - 2026-02-26: Report `01-server-skeleton-runtime-composition` [01-ISSUE-002] moved to `Fixed things` after removing misleading billing-idempotency injection and codifying explicit noop adapter ownership in:
     - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/runtime/actions/idempotencyAdapters.js
     - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/runtime/actions/createActionRegistry.js
 
-### [ISSUE-003] Action-runtime docs drift from mounted contributor composition
+### [06-ISSUE-003] Action-runtime docs drift from mounted contributor composition
 - Severity: P3
 - Confidence: high
 - Contract area: docs

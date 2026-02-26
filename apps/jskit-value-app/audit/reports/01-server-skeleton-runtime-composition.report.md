@@ -2,7 +2,7 @@
 
 ## Fixed things
 
-### [ISSUE-001] Raw-body plugins double-decorate `request.rawBody` and crash bootstrap
+### [01-ISSUE-001] Raw-body plugins double-decorate `request.rawBody` and crash bootstrap
 - Fixed on: 2026-02-26
 - Applied solution:
   - Updated both raw-body plugins to guard request decoration with `fastify.hasRequestDecorator("rawBody")` so `decorateRequest("rawBody", null)` executes only once per Fastify instance.
@@ -15,7 +15,7 @@
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/fastify/activityPubRawBody.plugin.js:22
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/rawBodyPluginsRegistration.test.js:8
 
-### [ISSUE-002] Billing action idempotency adapter ignores billing idempotency service
+### [01-ISSUE-002] Billing action idempotency adapter ignores billing idempotency service
 - Fixed on: 2026-02-26
 - Applied solution:
   - Removed the implicit billing-service injection surface from `createActionIdempotencyAdapter` and made the adapter explicitly noop-only.
@@ -28,7 +28,7 @@
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/runtime/actions/createActionRegistry.js:10
   - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/actionIdempotencyAdapters.test.js:6
 
-### [ISSUE-003] Bootstrap smoke tests do not execute `buildServer`, missing real plugin registration failures
+### [01-ISSUE-003] Bootstrap smoke tests do not execute `buildServer`, missing real plugin registration failures
 - Fixed on: 2026-02-26
 - Applied solution:
   - Added `tests/serverBootstrapBuildServer.test.js` with a worker harness that imports `server.js`, executes `buildServer({ frontendBuildAvailable: false })`, and closes the app.
