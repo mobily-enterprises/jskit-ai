@@ -607,9 +607,9 @@ Create app integration seams:
 Create configuration/docs:
 
 - `apps/jskit-value-app/config/urls.js`
-- `apps/jskit-value-app/docs/architecture/module-framework.md`
-- `apps/jskit-value-app/docs/architecture/module-authoring.md`
-- `apps/jskit-value-app/docs/architecture/module-capabilities.md`
+- `docs/architecture/module-profiles.md`
+- `docs/architecture/module-authoring.md`
+- `docs/architecture/module-capabilities.md`
 
 ## 6.2 Existing files to refactor (high-impact)
 

@@ -1,10 +1,10 @@
-# Base App
+# __APP_TITLE__
 
-Minimal JSKIT starter shell in the monorepo.
+Minimal JSKIT starter shell.
 
 ## What This Is
 
-This is the smallest practical app host:
+This is the smallest practical JSKIT app host:
 
 - tiny Fastify server (`/api/v1/health`)
 - tiny Vue client shell
@@ -25,8 +25,9 @@ Those are layered in later as framework packs/modules.
 ## Run
 
 ```bash
-npm run -w apps/base-app dev
-npm run -w apps/base-app server
-npm run -w apps/base-app test
-npm run -w apps/base-app test:client
+npm install
+npm run dev
+npm run server
+npm run test
+npm run test:client
 ```

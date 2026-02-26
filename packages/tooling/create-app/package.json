@@ -1,0 +1,15 @@
+{
+  "name": "@jskit-ai/create-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "bin": {
+    "jskit-create-app": "./bin/jskit-create-app.js"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  }
+}

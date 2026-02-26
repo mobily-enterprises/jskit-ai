@@ -12,6 +12,9 @@ Scope note: core framework code lives in `packages/*`; `apps/jskit-value-app` is
 - Working on module dependency/capability compatibility: `architecture/module-capabilities.md`
 - Working on profile/module-pack composition rules: `architecture/module-profiles.md`
 - Authoring external framework modules/extensions: `architecture/module-authoring.md`
+- Defining app-level framework composition manifest: `architecture/app-manifest.md`
+- Defining reusable composition packs: `architecture/pack-descriptor.md`
+- Implementing framework CLI command contracts: `architecture/framework-cli-contracts.md`
 - Understanding action runtime execution and contributor ownership: `architecture/action-runtime-and-contributors.md`
 - Working on social feed/federation architecture: `architecture/social-federation.md`
 - Changing canonical action IDs, ownership, or versioning: `architecture/action-catalog-governance.md`
@@ -46,6 +49,12 @@ Scope note: core framework code lives in `packages/*`; `apps/jskit-value-app` is
   - Profile contract (`web-saas-default`), required module enforcement, and optional module pack selection behavior.
 - `architecture/module-authoring.md`
   - Extension descriptor contract, supported contribution keys, and extension validation/bootstrap loading workflow.
+- `architecture/app-manifest.md`
+  - Canonical `app.manifest` contract for profile/packs/module-selection/runtime-composition inputs.
+- `architecture/pack-descriptor.md`
+  - Canonical pack descriptor contract for module bundles, env requirements, dependency additions, and migration/seed sources.
+- `architecture/framework-cli-contracts.md`
+  - Proposed CLI command contracts for manifest validation, pack install/remove flows, and module-owned migration orchestration.
 - `architecture/action-runtime-and-contributors.md`
   - Deep-dive for the canonical action execution path: contracts, registry pipeline, context shaping, contributor ownership, assistant tool derivation, and data examples.
 - `architecture/action-catalog-governance.md`
