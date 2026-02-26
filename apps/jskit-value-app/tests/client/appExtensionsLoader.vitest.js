@@ -37,7 +37,7 @@ describe("client app extension loader", () => {
           "./extensions.d/20-two.client.js": { default: { id: "duplicate" } }
         }
       })
-    ).toThrow(/Duplicate client extension id "duplicate"/);
+    ).toThrow(/client extension id "duplicate" is duplicated/);
   });
 
   it("rejects unknown keys", () => {

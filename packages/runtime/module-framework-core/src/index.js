@@ -24,3 +24,4 @@ export {
   createDiagnosticsCollector,
   throwOnDiagnosticErrors
 } from "./diagnostics.js";
+export { loadServerAppDropins, loadClientAppDropinsFromModules, mergeClientModuleRegistry } from "./appDropins.js";

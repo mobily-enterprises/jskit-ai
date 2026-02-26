@@ -15,6 +15,7 @@
     "./conflicts": "./src/conflicts.js",
     "./composeServer": "./src/composeServer.js",
     "./composeClient": "./src/composeClient.js",
-    "./diagnostics": "./src/diagnostics.js"
+    "./diagnostics": "./src/diagnostics.js",
+    "./appDropins": "./src/appDropins.js"
   }
 }
