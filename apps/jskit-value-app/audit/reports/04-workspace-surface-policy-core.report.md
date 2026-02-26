@@ -41,6 +41,29 @@ None.
 - Validation:
   - `npm run test -- tests/workspaceController.test.js` (included in targeted suite above, pass)
 
+### [04-ISSUE-003] Workspace self-service route policy metadata lacked direct contract tests
+- Fixed on: 2026-02-26
+- How fixed:
+  - Added `tests/workspaceRoutePolicyDefaults.test.js` to assert route-manifest policy metadata for workspace self-service endpoints:
+    - `GET /api/v1/workspaces`
+    - `POST /api/v1/workspaces/select`
+    - `GET /api/v1/workspace/invitations/pending`
+    - `POST /api/v1/workspace/invitations/redeem`
+  - The new test locks expected selector-safe metadata (`auth: "required"` with no forced `workspacePolicy`, `workspaceSurface`, or `permission`) and also asserts that admin workspace routes remain explicitly workspace-scoped.
+- Code changes were applied in:
+  - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/workspaceRoutePolicyDefaults.test.js`
+- Validation:
+  - `npm run test -- tests/workspaceRoutePolicyDefaults.test.js tests/adminRoutePermissionPolicy.test.js tests/authPermissions.test.js` (pass, 16 passed / 0 failed)
+- Evidence:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/workspace/routes/selfService.routes.js:6
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/workspace/routes/selfService.routes.js:19
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/workspace/routes/selfService.routes.js:36
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/workspace/routes/selfService.routes.js:49
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/workspaceRoutePolicyDefaults.test.js:31
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/tests/workspaceRoutePolicyDefaults.test.js:49
+- Related:
+  - /home/merc/Development/current/jskit-ai/apps/jskit-value-app/audit/reports/05-console-access-permission-model.report.md [05-ISSUE-003]
+
 ## Won't fix things
 
 None.
