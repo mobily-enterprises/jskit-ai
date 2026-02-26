@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { resolveServerModuleRegistry } from "../../server/framework/moduleRegistry.js";
-import { composeServerRuntimeArtifacts, createComposedLegacyRuntimeBundles } from "../../server/framework/composeRuntime.js";
+import { composeServerRuntimeArtifacts, createComposedRuntimeBundles } from "../../server/framework/composeRuntime.js";
 import { resolveFrameworkDependencyCheck } from "../../server/framework/dependencyCheck.js";
 import { FRAMEWORK_PROFILE_IDS } from "../../shared/framework/profile.js";
 import { PLATFORM_REPOSITORY_DEFINITIONS } from "../../server/runtime/repositories.js";
@@ -37,7 +37,7 @@ test("server module registry includes all first-party route modules", () => {
   }
 });
 
-test("composeServerRuntimeArtifacts returns parity with legacy static manifests", () => {
+test("composeServerRuntimeArtifacts returns parity with static runtime manifests", () => {
   const artifacts = composeServerRuntimeArtifacts();
 
   assert.deepEqual(
@@ -64,8 +64,8 @@ test("composeServerRuntimeArtifacts returns parity with legacy static manifests"
   );
 });
 
-test("createComposedLegacyRuntimeBundles emits legacy-compatible platform and app-feature bundles", () => {
-  const { platformBundle, appFeatureBundle } = createComposedLegacyRuntimeBundles();
+test("createComposedRuntimeBundles emits platform and app-feature bundles", () => {
+  const { platformBundle, appFeatureBundle } = createComposedRuntimeBundles();
 
   assert.deepEqual(
     platformBundle.repositoryDefinitions.map((entry) => entry.id),
@@ -90,7 +90,7 @@ test("createComposedLegacyRuntimeBundles emits legacy-compatible platform and ap
   );
 });
 
-test("composeServerRuntimeArtifacts supports module filtering while preserving legacy definition order", () => {
+test("composeServerRuntimeArtifacts supports module filtering while preserving definition order", () => {
   const artifacts = composeServerRuntimeArtifacts({
     enabledModuleIds: ["auth", "health", "actionRuntime", "deg2rad"]
   });

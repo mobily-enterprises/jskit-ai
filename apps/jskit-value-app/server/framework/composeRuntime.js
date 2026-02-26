@@ -435,7 +435,7 @@ function composeServerRuntimeArtifacts(options = {}) {
   });
 }
 
-function createComposedLegacyRuntimeBundles(options = {}) {
+function createComposedRuntimeBundles(options = {}) {
   const artifacts = composeServerRuntimeArtifacts(options);
 
   const platformBundle = createPlatformRuntimeBundle({
@@ -473,4 +473,4 @@ const __testables = {
   resolveProfileConstrainedModules
 };
 
-export { composeServerRuntimeArtifacts, createComposedLegacyRuntimeBundles, resolveComposedServerModuleGraph, __testables };
+export { composeServerRuntimeArtifacts, createComposedRuntimeBundles, resolveComposedServerModuleGraph, __testables };

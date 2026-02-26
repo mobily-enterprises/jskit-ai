@@ -149,7 +149,7 @@ Package/module READMEs:
 | `server/realtime/publishers/shared.js` | `@jskit-ai/server-runtime-core/realtimePublish` |
 | `server/domain/realtime/services/events.service.js` (generic bus/envelope primitives) | `@jskit-ai/server-runtime-core/realtimeEvents` |
 | `server/lib/securityAudit.js` | `@jskit-ai/server-runtime-core/securityAudit` |
-| `server/runtime/{index,platformModuleManifest}.js` runtime assembly plumbing | `@jskit-ai/platform-server-runtime` |
+| `server/runtime/index.js` runtime assembly plumbing + `server/framework/composeRuntime.js` framework composition | `@jskit-ai/platform-server-runtime` |
 | `server.js` logger/request/error/shutdown bootstrap helpers | `@jskit-ai/server-runtime-core/fastifyBootstrap` |
 | `server/lib/logging/scopeLogger.js` | `@jskit-ai/observability-core/scopeLogger` |
 | `server/lib/billing/entitlementSchemaRegistry.js` | `@jskit-ai/billing-core/entitlementSchema` |

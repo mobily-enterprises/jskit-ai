@@ -19,7 +19,7 @@ Supported dependency fields:
 - `requiresCapabilities`
 - `providesCapabilities`
 
-Current app runtime composition also expects optional `contributions` for legacy artifact mapping.
+Current app runtime composition expects optional `contributions` so extension descriptors can participate in repository/service/controller/route/action/realtime/plugin/background assembly.
 Supported contribution keys:
 
 - `repositories`

@@ -6,7 +6,7 @@ import {
   composeRouteModules,
   buildRoutesFromComposedModules
 } from "../../server/framework/composeRoutes.js";
-import { buildRoutes as buildLegacyRoutes, ROUTE_MODULE_DEFINITIONS } from "../../server/modules/api/routes.js";
+import { buildRoutes as buildApiRoutes, ROUTE_MODULE_DEFINITIONS } from "../../server/modules/api/routes.js";
 
 function createControllerProxy() {
   const fallbackHandler = new Proxy(
@@ -35,19 +35,19 @@ function createControllerProxy() {
   );
 }
 
-test("composeRouteModuleDefinitions returns legacy route module id order", () => {
+test("composeRouteModuleDefinitions returns route module id order", () => {
   assert.deepEqual(composeRouteModuleDefinitions(), ROUTE_MODULE_DEFINITIONS.map((entry) => entry.id));
 });
 
-test("buildRoutesFromComposedModules preserves legacy route outputs", () => {
+test("buildRoutesFromComposedModules preserves API route outputs", () => {
   const controllers = createControllerProxy();
 
   const composedRoutes = buildRoutesFromComposedModules({ controllers });
-  const legacyRoutes = buildLegacyRoutes(controllers);
+  const apiRoutes = buildApiRoutes(controllers);
 
   assert.deepEqual(
     composedRoutes.map((route) => `${route.method} ${route.path}`),
-    legacyRoutes.map((route) => `${route.method} ${route.path}`)
+    apiRoutes.map((route) => `${route.method} ${route.path}`)
   );
 });
 

@@ -1,5 +1,5 @@
 import { createServerRuntimeWithPlatformBundle } from "@jskit-ai/platform-server-runtime";
-import { createComposedLegacyRuntimeBundles } from "../framework/composeRuntime.js";
+import { createComposedRuntimeBundles } from "../framework/composeRuntime.js";
 
 function createServerRuntime({
   runtimeEnv,
@@ -16,7 +16,7 @@ function createServerRuntime({
   frameworkEnforceProfileRequired,
   frameworkExtensionModules
 }) {
-  const { platformBundle, appFeatureBundle } = createComposedLegacyRuntimeBundles({
+  const { platformBundle, appFeatureBundle } = createComposedRuntimeBundles({
     mode: frameworkCompositionMode,
     profileId: frameworkProfileId,
     optionalModulePacks: frameworkOptionalModulePacks,
