@@ -18,10 +18,10 @@ export default Object.freeze({
     packageJson: {
       scripts: {
         "web-shell:generate": "node ./scripts/web-shell/generate-filesystem-manifest.mjs",
-        dev: "npm run web-shell:generate && VITE_CLIENT_ENTRY=main.web-shell.js jskit-app-scripts dev",
-        build: "npm run web-shell:generate && VITE_CLIENT_ENTRY=main.web-shell.js jskit-app-scripts build",
+        dev: "npm run web-shell:generate && VITE_CLIENT_ENTRY=main.web-shell.js vite",
+        build: "npm run web-shell:generate && VITE_CLIENT_ENTRY=main.web-shell.js vite build",
         "build:client:internal":
-          "npm run web-shell:generate && VITE_CLIENT_ENTRY=main.web-shell.js jskit-app-scripts build:client:internal"
+          "npm run web-shell:generate && VITE_CLIENT_ENTRY=main.web-shell.js vite build --outDir dist-internal"
       }
     },
     procfile: {},

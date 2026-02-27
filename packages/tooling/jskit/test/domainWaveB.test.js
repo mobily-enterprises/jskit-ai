@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const WAVE_B_BUNDLES = ["chat-base", "social-base", "users-profile", "community-suite"];
+const WAVE_B_REQUIRES_AUTH_PROVIDER = new Set(["chat-base", "community-suite"]);
 
 function runCli({ cwd, args = [] }) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
@@ -53,6 +54,14 @@ for (const bundleId of WAVE_B_BUNDLES) {
       });
       assert.equal(addDb.status, 0, addDb.stderr);
 
+      if (WAVE_B_REQUIRES_AUTH_PROVIDER.has(bundleId)) {
+        const addAuthProvider = runCli({
+          cwd: appRoot,
+          args: ["add", "bundle", "auth-supabase", "--no-install"]
+        });
+        assert.equal(addAuthProvider.status, 0, addAuthProvider.stderr);
+      }
+
       const addBundle = runCli({
         cwd: appRoot,
         args: ["add", "bundle", bundleId, "--no-install"]
@@ -75,6 +84,12 @@ test("removing optional chat client package keeps doctor clean", async () => {
       args: ["add", "bundle", "db-mysql", "--no-install"]
     });
     assert.equal(addDb.status, 0, addDb.stderr);
+
+    const addAuthProvider = runCli({
+      cwd: appRoot,
+      args: ["add", "bundle", "auth-supabase", "--no-install"]
+    });
+    assert.equal(addAuthProvider.status, 0, addAuthProvider.stderr);
 
     for (const bundleId of ["chat-base", "social-base", "users-profile"]) {
       const addBundle = runCli({

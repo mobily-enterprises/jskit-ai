@@ -11,7 +11,8 @@
     "README.md"
   ],
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "test:e2e:scaffold": "JSKIT_RUN_SCAFFOLD_E2E=1 node --test test/scaffoldE2eMatrix.test.js"
   },
   "bin": {
     "jskit": "bin/jskit.js"

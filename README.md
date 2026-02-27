@@ -46,6 +46,8 @@ These are the current canonical docs for the framework and reference app integra
   - Metrics/alerts/dashboard runbook. Use this when setting up `/api/metrics`, Prometheus scraping, and alert rules.
 - `docs/operations/retention-worker.md`
   - Canonical runbook for the retention queue and worker lifecycle. Use this for dry-runs, scheduling, lock contention handling, and DLQ operations.
+- `DOKKU_DEPLOY.md`
+  - Dokku deployment guide for JSKIT apps (git auth, `npm ci`, and internal package resolution via `@jskit-ai/jskit`).
 
 ## Shared UI Ownership Status
 

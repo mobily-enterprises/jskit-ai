@@ -129,11 +129,15 @@ test("web-shell bundle materializes host scaffold files and switches client entr
     const packageJson = await readJsonFile(path.join(appRoot, "package.json"));
     assert.equal(
       packageJson.scripts.dev,
-      "npm run web-shell:generate && VITE_CLIENT_ENTRY=main.web-shell.js jskit-app-scripts dev"
+      "npm run web-shell:generate && VITE_CLIENT_ENTRY=main.web-shell.js vite"
     );
     assert.equal(
       packageJson.scripts.build,
-      "npm run web-shell:generate && VITE_CLIENT_ENTRY=main.web-shell.js jskit-app-scripts build"
+      "npm run web-shell:generate && VITE_CLIENT_ENTRY=main.web-shell.js vite build"
+    );
+    assert.equal(
+      packageJson.scripts["build:client:internal"],
+      "npm run web-shell:generate && VITE_CLIENT_ENTRY=main.web-shell.js vite build --outDir dist-internal"
     );
     assert.equal(packageJson.scripts["web-shell:generate"], "node ./scripts/web-shell/generate-filesystem-manifest.mjs");
 

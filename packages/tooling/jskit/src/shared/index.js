@@ -23,6 +23,14 @@ const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 const BUNDLES_ROOT = path.join(PACKAGE_ROOT, "bundles");
 const PACKAGE_DESCRIPTORS_ROOT = path.join(PACKAGE_ROOT, "packages");
 const MONOREPO_PACKAGES_ROOT = path.resolve(PACKAGE_ROOT, "..", "..", "..", "packages");
+const MONOREPO_ROOT = path.resolve(PACKAGE_ROOT, "..", "..", "..");
+const JSKIT_LOCAL_PACKAGE_PREFIX = "file:node_modules/@jskit-ai/jskit/";
+const EXTERNAL_JSKIT_DEPENDENCY_IDS = new Set([
+  "@jskit-ai/app-scripts",
+  "@jskit-ai/config-eslint",
+  "@jskit-ai/create-app",
+  "@jskit-ai/jskit"
+]);
 const LOCK_RELATIVE_PATH = ".jskit/lock.json";
 const LOCK_VERSION = 3;
 
@@ -235,6 +243,26 @@ async function writeJsonFile(absolutePath, value) {
   await mkdir(path.dirname(absolutePath), { recursive: true });
   const source = `${JSON.stringify(value, null, 2)}\n`;
   await writeFile(absolutePath, source, "utf8");
+}
+
+async function resolveAppRootFromCwd(cwd) {
+  const startDirectory = path.resolve(String(cwd || process.cwd()));
+  let currentDirectory = startDirectory;
+
+  while (true) {
+    const packageJsonPath = path.join(currentDirectory, "package.json");
+    if (await fileExists(packageJsonPath)) {
+      return currentDirectory;
+    }
+
+    const parentDirectory = path.dirname(currentDirectory);
+    if (parentDirectory === currentDirectory) {
+      throw createCliError(
+        `Could not locate package.json starting from ${startDirectory}. Run jskit from an app directory (or a child directory of one).`
+      );
+    }
+    currentDirectory = parentDirectory;
+  }
 }
 
 async function loadAppPackageJson(appRoot) {
@@ -523,7 +551,53 @@ function isManagedByOtherPackage(lock, currentPackageId, matcher) {
   return null;
 }
 
-function buildPackageJsonMutationPlan({ packageJson, packageDescriptor, lock, packageId }) {
+function normalizeToPosixPath(value) {
+  return String(value || "").replaceAll("\\", "/");
+}
+
+function resolveLocalJskitDependencyTarget({ dependencyName, availablePackages }) {
+  const dependencyId = String(dependencyName || "").trim();
+  if (!dependencyId.startsWith("@jskit-ai/")) {
+    return null;
+  }
+  if (EXTERNAL_JSKIT_DEPENDENCY_IDS.has(dependencyId)) {
+    return null;
+  }
+
+  const packageEntry = availablePackages.get(dependencyId);
+  if (!packageEntry) {
+    return null;
+  }
+
+  const packageRoot = path.dirname(packageEntry.descriptorPath);
+  const relativeFromMonorepoRoot = normalizeToPosixPath(path.relative(MONOREPO_ROOT, packageRoot));
+  if (!relativeFromMonorepoRoot || relativeFromMonorepoRoot.startsWith("..")) {
+    return null;
+  }
+
+  return `${JSKIT_LOCAL_PACKAGE_PREFIX}${relativeFromMonorepoRoot}`;
+}
+
+function resolveLocalJskitDependencySpec({ dependencyName, desiredValue, availablePackages }) {
+  const desiredString = String(desiredValue || "").trim();
+  if (
+    desiredString.startsWith("file:") ||
+    desiredString.startsWith("git+") ||
+    desiredString.startsWith("github:") ||
+    desiredString.startsWith("http://") ||
+    desiredString.startsWith("https://")
+  ) {
+    return desiredString;
+  }
+
+  const localTarget = resolveLocalJskitDependencyTarget({
+    dependencyName,
+    availablePackages
+  });
+  return localTarget || desiredString;
+}
+
+function buildPackageJsonMutationPlan({ packageJson, packageDescriptor, lock, packageId, availablePackages }) {
   const clonedPackageJson = JSON.parse(JSON.stringify(packageJson));
   if (!clonedPackageJson.dependencies || typeof clonedPackageJson.dependencies !== "object") {
     clonedPackageJson.dependencies = {};
@@ -565,7 +639,14 @@ function buildPackageJsonMutationPlan({ packageJson, packageDescriptor, lock, pa
     managed[section.packageJsonKey] = {};
 
     for (const [name, desiredValue] of Object.entries(section.descriptorMap)) {
-      const desiredString = String(desiredValue);
+      let desiredString = String(desiredValue);
+      if (section.packageJsonKey === "dependencies" || section.packageJsonKey === "devDependencies") {
+        desiredString = resolveLocalJskitDependencySpec({
+          dependencyName: name,
+          desiredValue: desiredString,
+          availablePackages
+        });
+      }
       const hasCurrentValue = Object.prototype.hasOwnProperty.call(currentSection, name);
       const currentValue = hasCurrentValue ? String(currentSection[name]) : null;
       const previousManaged = getManagedPackageJsonEntry(previousState, section.packageJsonKey, name);
@@ -1370,6 +1451,7 @@ function assertCapabilitiesSatisfied(lock, availablePackages, contextMessage, { 
 async function applyPackage({
   appRoot,
   packageEntry,
+  availablePackages,
   lock,
   packageJson,
   packageJsonPath,
@@ -1394,7 +1476,8 @@ async function applyPackage({
     packageJson,
     packageDescriptor: packageEntry.descriptor,
     lock,
-    packageId
+    packageId,
+    availablePackages
   });
 
   const procfile = await readProcfile(appRoot);
@@ -1686,6 +1769,7 @@ async function removeInstalledPackage({
 
 async function validateDoctor({ appRoot, lock, availableBundles, availablePackages }) {
   const issues = [];
+  const { packageJson } = await loadAppPackageJson(appRoot);
   const legacyManifestPath = path.join(appRoot, "framework", "app.manifest.mjs");
   if (await fileExists(legacyManifestPath)) {
     issues.push(
@@ -1701,6 +1785,29 @@ async function validateDoctor({ appRoot, lock, availableBundles, availablePackag
       continue;
     }
 
+    const managedPackageJson = ensurePlainObjectRecord(state?.managed?.packageJson);
+    for (const sectionName of ["dependencies", "devDependencies", "scripts"]) {
+      const managedSection = ensurePlainObjectRecord(managedPackageJson[sectionName]);
+      if (Object.keys(managedSection).length < 1) {
+        continue;
+      }
+
+      const currentSection = ensurePlainObjectRecord(packageJson[sectionName]);
+      for (const [name, meta] of Object.entries(managedSection)) {
+        const expectedValue = String(meta?.value || "");
+        const hasCurrentValue = Object.prototype.hasOwnProperty.call(currentSection, name);
+        const currentValue = hasCurrentValue ? String(currentSection[name]) : "<missing>";
+
+        if (!hasCurrentValue || currentValue !== expectedValue) {
+          issues.push(
+            createIssue(
+              `Managed package.json drift detected: ${sectionName}.${name} (expected ${expectedValue}, found ${currentValue}).`
+            )
+          );
+        }
+      }
+    }
+
     const files = Array.isArray(state?.managed?.files) ? state.managed.files : [];
     for (const fileEntry of files) {
       const absolutePath = path.join(appRoot, normalizeRelativePath(fileEntry.path));
@@ -1714,6 +1821,30 @@ async function validateDoctor({ appRoot, lock, availableBundles, availablePackag
       if (hash !== String(fileEntry.hash)) {
         issues.push(createIssue(`Managed file drift detected: ${fileEntry.path}`));
       }
+    }
+  }
+
+  for (const sectionName of ["dependencies", "devDependencies"]) {
+    const section = ensurePlainObjectRecord(packageJson[sectionName]);
+    for (const [dependencyName, spec] of Object.entries(section)) {
+      const localTarget = resolveLocalJskitDependencyTarget({
+        dependencyName,
+        availablePackages
+      });
+      if (!localTarget) {
+        continue;
+      }
+
+      const currentSpec = String(spec || "").trim();
+      if (currentSpec === localTarget) {
+        continue;
+      }
+
+      issues.push(
+        createIssue(
+          `[distribution-policy] ${sectionName}.${dependencyName} must be ${localTarget} (found ${currentSpec || "<empty>"}). Run: npx jskit update --all --no-install && npm install.`
+        )
+      );
     }
   }
 
@@ -1901,7 +2032,7 @@ function formatResult(result, { json, stdout }) {
 
   if (result.command === "doctor") {
     if (result.ok) {
-      stdout.write("OK: no lockfile or managed-file issues detected.\n");
+      stdout.write("OK: no lockfile, managed-file, or dependency-policy issues detected.\n");
     } else {
       stdout.write("Doctor issues:\n");
       for (const issue of result.issues) {
@@ -1950,6 +2081,7 @@ async function applyBundleOperation({
       const packageResult = await applyPackage({
         appRoot,
         packageEntry,
+        availablePackages,
         lock: nextLock,
         packageJson: nextPackageJson,
         packageJsonPath,
@@ -2066,6 +2198,7 @@ async function applySinglePackageOperation({
       const applyResult = await applyPackage({
         appRoot,
         packageEntry: targetEntry,
+        availablePackages,
         lock: nextLock,
         packageJson: nextPackageJson,
         packageJsonPath,
@@ -2203,7 +2336,7 @@ export async function runCli(
 ) {
   try {
     const parsed = parseArgs(argv);
-    const appRoot = path.resolve(cwd);
+    const resolvedCwd = path.resolve(cwd);
 
     if (parsed.options.help || parsed.command === "help") {
       printUsage(stdout);
@@ -2217,7 +2350,7 @@ export async function runCli(
         });
       }
 
-      const result = await lintDescriptors({ appRoot });
+      const result = await lintDescriptors({ appRoot: resolvedCwd });
       formatResult(result, {
         json: parsed.options.json,
         stdout
@@ -2253,6 +2386,7 @@ export async function runCli(
       });
     }
 
+    const appRoot = await resolveAppRootFromCwd(resolvedCwd);
     const { packageJson, packageJsonPath } = await loadAppPackageJson(appRoot);
     const { lock, lockPath } = await loadLockFile(appRoot);
     const availableBundles = await discoverAvailableBundles();

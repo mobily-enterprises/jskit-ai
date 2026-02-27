@@ -8,6 +8,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
+const JSKIT_LOCAL_DEPENDENCY_PREFIX = "file:node_modules/@jskit-ai/jskit/packages/";
 
 function runCli({ cwd, args = [] }) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
@@ -141,7 +142,7 @@ test("jskit list bundles all marks db-provider requirement hints", async () => {
       args: ["list", "bundles", "all"]
     });
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /chat-base \(0\.1\.0\).* \[db-provider\]:/i);
+    assert.match(result.stdout, /chat-base \(0\.1\.0\).* \[[^\]]*db-provider[^\]]*supabase[^\]]*\]:/i);
   });
 });
 
@@ -345,6 +346,88 @@ test("doctor reports missing managed file drift", async () => {
   });
 });
 
+test("bundle add rewrites internal JSKIT dependencies to local file specs", async () => {
+  await withTempApp(async (appRoot) => {
+    const addDb = runCli({
+      cwd: appRoot,
+      args: ["add", "bundle", "db-mysql", "--no-install"]
+    });
+    assert.equal(addDb.status, 0, addDb.stderr);
+
+    const addAuthProvider = runCli({
+      cwd: appRoot,
+      args: ["add", "bundle", "auth-supabase", "--no-install"]
+    });
+    assert.equal(addAuthProvider.status, 0, addAuthProvider.stderr);
+
+    const addChat = runCli({
+      cwd: appRoot,
+      args: ["add", "bundle", "chat-base", "--no-install"]
+    });
+    assert.equal(addChat.status, 0, addChat.stderr);
+
+    const packageJson = await readJsonFile(path.join(appRoot, "package.json"));
+    const dependencyEntries = Object.entries(packageJson.dependencies || {}).filter(([dependencyName]) =>
+      dependencyName.startsWith("@jskit-ai/")
+    );
+
+    let checkedCount = 0;
+    for (const [dependencyName, dependencySpec] of dependencyEntries) {
+      if (dependencyName === "@jskit-ai/app-scripts") {
+        continue;
+      }
+      checkedCount += 1;
+      assert.ok(
+        String(dependencySpec).startsWith(JSKIT_LOCAL_DEPENDENCY_PREFIX),
+        `Expected ${dependencyName} to be rewritten to local file spec, found ${dependencySpec}.`
+      );
+    }
+
+    assert.ok(checkedCount > 0, "Expected at least one internal JSKIT dependency to be rewritten.");
+
+    const doctor = runCli({
+      cwd: appRoot,
+      args: ["doctor"]
+    });
+    assert.equal(doctor.status, 0, doctor.stderr);
+  });
+});
+
+test("doctor reports distribution-policy drift for internal dependency specs", async () => {
+  await withTempApp(async (appRoot) => {
+    const addDb = runCli({
+      cwd: appRoot,
+      args: ["add", "bundle", "db-mysql", "--no-install"]
+    });
+    assert.equal(addDb.status, 0, addDb.stderr);
+
+    const addAuthProvider = runCli({
+      cwd: appRoot,
+      args: ["add", "bundle", "auth-supabase", "--no-install"]
+    });
+    assert.equal(addAuthProvider.status, 0, addAuthProvider.stderr);
+
+    const addChat = runCli({
+      cwd: appRoot,
+      args: ["add", "bundle", "chat-base", "--no-install"]
+    });
+    assert.equal(addChat.status, 0, addChat.stderr);
+
+    const packageJsonPath = path.join(appRoot, "package.json");
+    const packageJson = await readJsonFile(packageJsonPath);
+    packageJson.dependencies["@jskit-ai/jskit-knex"] = "0.1.0";
+    await writeJsonFile(packageJsonPath, packageJson);
+
+    const doctor = runCli({
+      cwd: appRoot,
+      args: ["doctor"]
+    });
+    assert.notEqual(doctor.status, 0);
+    assert.match(doctor.stdout, /\[distribution-policy\]/);
+    assert.match(doctor.stdout, /dependencies\.\@jskit-ai\/jskit-knex/);
+  });
+});
+
 test("remove package fails when removal leaves required provider capability unresolved", async () => {
   await withTempApp(async (appRoot) => {
     const addDb = runCli({
@@ -362,5 +445,28 @@ test("remove package fails when removal leaves required provider capability unre
     assert.match(removeDb.stderr, /db-provider/i);
 
     await access(path.join(appRoot, ".jskit/lock.json"));
+  });
+});
+
+test("jskit resolves app root when command is run from a nested directory", async () => {
+  await withTempApp(async (appRoot) => {
+    const nestedDirectory = path.join(appRoot, "server", "modules");
+    await mkdir(nestedDirectory, { recursive: true });
+
+    const addDb = runCli({
+      cwd: nestedDirectory,
+      args: ["add", "bundle", "db-mysql", "--no-install"]
+    });
+    assert.equal(addDb.status, 0, addDb.stderr);
+
+    const lock = await readJsonFile(path.join(appRoot, ".jskit/lock.json"));
+    assert.ok(lock.installedPackages["@jskit-ai/db-mysql"]);
+
+    const listFromNested = runCli({
+      cwd: nestedDirectory,
+      args: ["list", "bundles"]
+    });
+    assert.equal(listFromNested.status, 0, listFromNested.stderr);
+    assert.match(listFromNested.stdout, /db-mysql \(0\.2\.0\).* \[installed\]/i);
   });
 });

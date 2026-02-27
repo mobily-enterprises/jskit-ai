@@ -18,6 +18,7 @@ export default Object.freeze({
     "requires": [
       "runtime.server",
       "auth.rbac",
+      "auth.provider",
       "chat.storage",
       "contracts.chat",
       "contracts.http",

@@ -29,6 +29,8 @@ const REQUIRES_DB = new Set([
 const REQUIRES_AUTH = new Set(["workspace-core", "workspace-console", "workspace-admin-suite"]);
 const REQUIRES_AUTH_PROVIDER = new Set([
   "auth-base",
+  "chat-base",
+  "community-suite",
   "workspace-core",
   "workspace-console",
   "workspace-admin-suite",

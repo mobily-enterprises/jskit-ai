@@ -251,7 +251,7 @@ test("generated app supports shell + db progressive installation", async () => {
     const appRoot = path.join(cwd, "shell-db-app");
     const addDbResult = runJskit({
       cwd: appRoot,
-      args: ["add", "db", "--provider", "mysql", "--no-install"]
+      args: ["add", "bundle", "db-mysql", "--no-install"]
     });
     assert.equal(addDbResult.status, 0, addDbResult.stderr);
 
@@ -272,13 +272,19 @@ test("generated app supports shell + db + auth progressive installation", async 
     const appRoot = path.join(cwd, "shell-db-auth-app");
     const addDbResult = runJskit({
       cwd: appRoot,
-      args: ["add", "db", "--provider", "mysql", "--no-install"]
+      args: ["add", "bundle", "db-mysql", "--no-install"]
     });
     assert.equal(addDbResult.status, 0, addDbResult.stderr);
 
+    const addAuthProviderResult = runJskit({
+      cwd: appRoot,
+      args: ["add", "bundle", "auth-supabase", "--no-install"]
+    });
+    assert.equal(addAuthProviderResult.status, 0, addAuthProviderResult.stderr);
+
     const addAuthResult = runJskit({
       cwd: appRoot,
-      args: ["add", "auth-base", "--no-install"]
+      args: ["add", "bundle", "auth-base", "--no-install"]
     });
     assert.equal(addAuthResult.status, 0, addAuthResult.stderr);
 
@@ -286,7 +292,7 @@ test("generated app supports shell + db + auth progressive installation", async 
     assert.equal(doctorResult.status, 0, doctorResult.stderr);
 
     const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
-    assert.ok(lockfile.installedPacks["auth-base"]);
     assert.ok(lockfile.installedPackages["@jskit-ai/auth-fastify-routes"]);
+    assert.ok(lockfile.installedPackages["@jskit-ai/auth-provider-supabase-core"]);
   });
 });

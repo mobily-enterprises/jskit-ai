@@ -1,13 +1,13 @@
-import { createApp, defineComponent, h } from "vue";
-import { RouterView } from "@tanstack/vue-router";
+import { createApp, h } from "vue";
+import { RouterProvider } from "@tanstack/vue-router";
 import { createShellRouter } from "./shell/router.js";
 
-const RootView = defineComponent({
+const RootView = {
   name: "WebShellRootView",
-  setup() {
-    return () => h(RouterView);
+  render() {
+    return h(RouterProvider, { router });
   }
-});
+};
 
 const router = createShellRouter();
-createApp(RootView).use(router).mount("#app");
+createApp(RootView).mount("#app");
