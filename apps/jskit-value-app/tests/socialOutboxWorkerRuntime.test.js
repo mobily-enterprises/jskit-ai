@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ACTION_IDS } from "../shared/actionIds.js";
-import { __testables } from "../server/runtime/services.js";
+import { ACTION_IDS } from "@jskit-ai/action-runtime-core/actionIds";
+import { createSocialOutboxWorkerRuntimeService } from "@jskit-ai/social-core/outboxWorkerRuntimeService";
 
 function delay(ms) {
   return new Promise((resolve) => {
@@ -21,7 +21,7 @@ async function waitFor(predicate, { timeoutMs = 300, intervalMs = 5 } = {}) {
 }
 
 test("social outbox worker runtime returns disabled no-op service when federation worker is off", () => {
-  const workerRuntime = __testables.createSocialOutboxWorkerRuntimeService({
+  const workerRuntime = createSocialOutboxWorkerRuntimeService({
     enabled: true,
     federationEnabled: false
   });
@@ -38,7 +38,7 @@ test("social outbox worker runtime returns disabled no-op service when federatio
 test("social outbox worker runtime validates required dependencies when enabled", () => {
   assert.throws(
     () =>
-      __testables.createSocialOutboxWorkerRuntimeService({
+      createSocialOutboxWorkerRuntimeService({
         enabled: true,
         federationEnabled: true,
         actionExecutor: null,
@@ -56,7 +56,7 @@ test("social outbox worker runtime validates required dependencies when enabled"
 
 test("social outbox worker runtime dispatches delivery action per ready workspace", async () => {
   const calls = [];
-  const workerRuntime = __testables.createSocialOutboxWorkerRuntimeService({
+  const workerRuntime = createSocialOutboxWorkerRuntimeService({
     enabled: true,
     federationEnabled: true,
     actionExecutor: {
@@ -97,7 +97,7 @@ test("social outbox worker runtime fails one workspace without blocking later wo
   const attemptedWorkspaceIds = [];
   const warningEntries = [];
 
-  const workerRuntime = __testables.createSocialOutboxWorkerRuntimeService({
+  const workerRuntime = createSocialOutboxWorkerRuntimeService({
     enabled: true,
     federationEnabled: true,
     actionExecutor: {

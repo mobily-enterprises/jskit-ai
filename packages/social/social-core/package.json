@@ -7,9 +7,11 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js"
+    ".": "./src/shared/index.js",
+    "./outboxWorkerRuntimeService": "./src/shared/outboxWorkerRuntime.service.js"
   },
   "dependencies": {
+    "@jskit-ai/action-runtime-core": "0.1.0",
     "@jskit-ai/server-runtime-core": "0.1.0"
   }
 }
