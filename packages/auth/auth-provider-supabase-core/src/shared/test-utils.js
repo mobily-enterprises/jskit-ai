@@ -33,6 +33,12 @@ export {
 } from "./lib/authInputParsers.js";
 
 export {
+  resolveSupabaseOAuthProviderCatalog,
+  resolveOAuthProviderQueryParams,
+  buildOAuthProviderCatalogResponse
+} from "./lib/oauthProviderCatalog.js";
+
+export {
   buildAuthMethodsStatusFromProviderIds,
   collectProviderIdsFromSupabaseUser,
   findAuthMethodById,

@@ -8,6 +8,7 @@ function createOauthFlows(deps) {
     buildOAuthLoginRedirectUrl,
     appPublicUrl,
     authOAuthDefaultProvider,
+    resolveOAuthProviderQueryParams = () => null,
     getSupabaseClient,
     mapAuthError,
     setSessionFromRequestCookies,
@@ -38,11 +39,12 @@ function createOauthFlows(deps) {
     const supabase = getSupabaseClient();
     let response;
     try {
+      const queryParams = resolveOAuthProviderQueryParams(provider);
       response = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo,
-          queryParams: provider === "google" ? { prompt: "select_account" } : undefined
+          queryParams: queryParams || undefined
         }
       });
     } catch (error) {
@@ -82,11 +84,12 @@ function createOauthFlows(deps) {
 
     let response;
     try {
+      const queryParams = resolveOAuthProviderQueryParams(provider);
       response = await supabase.auth.linkIdentity({
         provider,
         options: {
           redirectTo,
-          queryParams: provider === "google" ? { prompt: "select_account" } : undefined
+          queryParams: queryParams || undefined
         }
       });
     } catch (error) {

@@ -1,4 +1,4 @@
-import { reactive, ref, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { useRouterState } from "@tanstack/vue-router";
 import { useMutation, useQueryClient } from "@tanstack/vue-query";
 import { api } from "../../../platform/http/api/index.js";
@@ -133,6 +133,7 @@ export function useSettingsSecurityForm(options) {
     sessionsMessageType,
     queryClient,
     settingsQueryKey: SETTINGS_QUERY_KEY,
+    oauthProviders: computed(() => authStore.oauthProviders),
     clearFieldErrors,
     toErrorMessage,
     handleAuthError,

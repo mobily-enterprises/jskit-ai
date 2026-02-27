@@ -1,8 +1,8 @@
 # Bundle Catalog (Stage 10)
 
-This catalog documents each bundle in `packages/tooling/jskit/packs` with purpose, package set, capability requirements, options, and conflict notes.
+This catalog documents each bundle in `packages/tooling/jskit/bundles` with purpose, package set, capability requirements, options, and conflict notes.
 
-## api-shell
+## api-foundations
 
 - Purpose: Core shell with API contract packages.
 - Included packages:
@@ -28,26 +28,42 @@ This catalog documents each bundle in `packages/tooling/jskit/packs` with purpos
 
 - Purpose: Assistant runtime, API adapter, and transcript persistence base.
 - Included packages:
+  - `@jskit-ai/access-core`
   - `@jskit-ai/assistant-client-element`
   - `@jskit-ai/assistant-client-runtime`
   - `@jskit-ai/assistant-contracts`
   - `@jskit-ai/assistant-core`
   - `@jskit-ai/assistant-transcript-explorer-client-element`
   - `@jskit-ai/assistant-transcripts-core`
+  - `@jskit-ai/http-contracts`
+  - `@jskit-ai/jskit-knex`
+  - `@jskit-ai/module-framework-core`
+  - `@jskit-ai/rbac-core`
+  - `@jskit-ai/runtime-env-core`
+  - `@jskit-ai/server-runtime-core`
+  - `@jskit-ai/surface-routing`
+  - `@jskit-ai/workspace-console-core`
 - Required capabilities:
-  - `assistant.provider`
   - `assistant.client-runtime`
   - `assistant.core`
+  - `assistant.provider`
   - `assistant.transcripts.core`
+  - `auth.access`
+  - `auth.rbac`
   - `contracts.assistant`
   - `contracts.http`
   - `db-provider`
+  - `db.core`
+  - `runtime.env`
+  - `runtime.module-framework`
   - `runtime.server`
+  - `runtime.surface-routing`
+  - `workspace.console.core`
 - Options:
   - None
 - Conflict notes:
   - Requires assistant provider capability from `assistant-openai` or another provider bundle.
-  - Requires db provider capability from `db` or another provider bundle.
+  - Requires db provider capability from `db-mysql`, `db-postgres`, or another provider bundle.
 
 ## assistant-openai
 
@@ -68,37 +84,48 @@ This catalog documents each bundle in `packages/tooling/jskit/packs` with purpos
   - `@jskit-ai/access-core`
   - `@jskit-ai/auth-fastify-adapter`
   - `@jskit-ai/fastify-auth-policy`
+  - `@jskit-ai/http-contracts`
+  - `@jskit-ai/module-framework-core`
   - `@jskit-ai/rbac-core`
+  - `@jskit-ai/runtime-env-core`
+  - `@jskit-ai/server-runtime-core`
+  - `@jskit-ai/surface-routing`
 - Required capabilities:
   - `auth.access`
   - `auth.policy`
+  - `auth.provider`
   - `auth.rbac`
   - `contracts.http`
+  - `runtime.env`
+  - `runtime.module-framework`
   - `runtime.server`
+  - `runtime.surface-routing`
 - Options:
   - None
 - Conflict notes:
-  - No known hard conflicts beyond capability requirements.
+  - Requires auth provider capability from `auth-supabase` or another provider bundle.
 
 ## auth-supabase
 
-- Purpose: Supabase authentication provider overlay.
+- Purpose: Supabase provider for the `auth.provider` capability.
 - Included packages:
   - `@jskit-ai/access-core`
-  - `@jskit-ai/auth-fastify-adapter`
   - `@jskit-ai/auth-provider-supabase-core`
-  - `@jskit-ai/fastify-auth-policy`
-  - `@jskit-ai/rbac-core`
+  - `@jskit-ai/module-framework-core`
+  - `@jskit-ai/runtime-env-core`
+  - `@jskit-ai/server-runtime-core`
+  - `@jskit-ai/surface-routing`
 - Required capabilities:
   - `auth.access`
-  - `auth.policy`
-  - `auth.rbac`
-  - `contracts.http`
+  - `runtime.env`
+  - `runtime.module-framework`
   - `runtime.server`
+  - `runtime.surface-routing`
 - Options:
   - None
 - Conflict notes:
-  - No known hard conflicts beyond capability requirements.
+  - Provides `auth.provider` and `auth.provider.supabase`.
+  - Intended to be installed together with `auth-base`.
 
 ## billing-base
 
@@ -127,7 +154,7 @@ This catalog documents each bundle in `packages/tooling/jskit/packs` with purpos
 - Options:
   - None
 - Conflict notes:
-  - Requires db provider capability from `db` or another provider bundle.
+  - Requires db provider capability from `db-mysql`, `db-postgres`, or another provider bundle.
   - Requires auth capability providers such as `auth-base`.
 
 ## billing-paddle
@@ -158,7 +185,7 @@ This catalog documents each bundle in `packages/tooling/jskit/packs` with purpos
 - Options:
   - None
 - Conflict notes:
-  - Requires db provider capability from `db` or another provider bundle.
+  - Requires db provider capability from `db-mysql`, `db-postgres`, or another provider bundle.
   - Requires auth capability providers such as `auth-base`.
 
 ## billing-stripe
@@ -189,7 +216,7 @@ This catalog documents each bundle in `packages/tooling/jskit/packs` with purpos
 - Options:
   - None
 - Conflict notes:
-  - Requires db provider capability from `db` or another provider bundle.
+  - Requires db provider capability from `db-mysql`, `db-postgres`, or another provider bundle.
   - Requires auth capability providers such as `auth-base`.
 
 ## billing-worker
@@ -236,7 +263,7 @@ This catalog documents each bundle in `packages/tooling/jskit/packs` with purpos
 - Options:
   - None
 - Conflict notes:
-  - Requires db provider capability from `db` or another provider bundle.
+  - Requires db provider capability from `db-mysql`, `db-postgres`, or another provider bundle.
 
 ## communications-base
 
@@ -294,7 +321,7 @@ This catalog documents each bundle in `packages/tooling/jskit/packs` with purpos
 - Options:
   - None
 - Conflict notes:
-  - Requires db provider capability from `db` or another provider bundle.
+  - Requires db provider capability from `db-mysql`, `db-postgres`, or another provider bundle.
 
 ## core-shell
 
@@ -452,7 +479,7 @@ This catalog documents each bundle in `packages/tooling/jskit/packs` with purpos
 - Options:
   - None
 - Conflict notes:
-  - Requires db provider capability from `db` or another provider bundle.
+  - Requires db provider capability from `db-mysql`, `db-postgres`, or another provider bundle.
 
 ## social-base
 
@@ -472,7 +499,7 @@ This catalog documents each bundle in `packages/tooling/jskit/packs` with purpos
 - Options:
   - None
 - Conflict notes:
-  - Requires db provider capability from `db` or another provider bundle.
+  - Requires db provider capability from `db-mysql`, `db-postgres`, or another provider bundle.
 
 ## users-profile
 
@@ -489,7 +516,7 @@ This catalog documents each bundle in `packages/tooling/jskit/packs` with purpos
 - Options:
   - None
 - Conflict notes:
-  - Requires db provider capability from `db` or another provider bundle.
+  - Requires db provider capability from `db-mysql`, `db-postgres`, or another provider bundle.
 
 ## web-shell
 
@@ -544,7 +571,7 @@ This catalog documents each bundle in `packages/tooling/jskit/packs` with purpos
 - Options:
   - None
 - Conflict notes:
-  - Requires db provider capability from `db` or another provider bundle.
+  - Requires db provider capability from `db-mysql`, `db-postgres`, or another provider bundle.
   - Requires auth capability providers such as `auth-base`.
 
 ## workspace-console
@@ -570,7 +597,7 @@ This catalog documents each bundle in `packages/tooling/jskit/packs` with purpos
 - Options:
   - None
 - Conflict notes:
-  - Requires db provider capability from `db` or another provider bundle.
+  - Requires db provider capability from `db-mysql`, `db-postgres`, or another provider bundle.
   - Requires auth capability providers such as `auth-base`.
 
 ## workspace-core
@@ -592,5 +619,5 @@ This catalog documents each bundle in `packages/tooling/jskit/packs` with purpos
 - Options:
   - None
 - Conflict notes:
-  - Requires db provider capability from `db` or another provider bundle.
+  - Requires db provider capability from `db-mysql`, `db-postgres`, or another provider bundle.
   - Requires auth capability providers such as `auth-base`.

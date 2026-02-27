@@ -158,6 +158,9 @@ function createOauthFixture(overrides = {}) {
     },
     appPublicUrl: "http://localhost:5173",
     authOAuthDefaultProvider: "google",
+    resolveOAuthProviderQueryParams(provider) {
+      return provider === "google" ? { prompt: "select_account" } : null;
+    },
     getSupabaseClient() {
       return supabase;
     },
@@ -268,7 +271,7 @@ test("auth method helpers normalize ids and lookup definitions", () => {
 
   assert.equal(buildOAuthMethodId("google"), "oauth:google");
   assert.equal(buildOAuthMethodId(" GOOGLE "), "oauth:google");
-  assert.equal(buildOAuthMethodId("github"), null);
+  assert.equal(buildOAuthMethodId("github"), "oauth:github");
 
   assert.deepEqual(parseAuthMethodId("password"), {
     id: "password",
@@ -285,19 +288,30 @@ test("auth method helpers normalize ids and lookup definitions", () => {
     kind: "oauth",
     provider: "google"
   });
-  assert.equal(parseAuthMethodId("oauth:github"), null);
+  assert.deepEqual(parseAuthMethodId("oauth:github"), {
+    id: "oauth:github",
+    kind: "oauth",
+    provider: "github"
+  });
   assert.equal(parseAuthMethodId("unknown"), null);
 
-  const oauthGoogleDefinition = findAuthMethodDefinition("oauth:google");
+  const oauthGoogleDefinition = findAuthMethodDefinition("oauth:google", {
+    oauthProviders: [{ id: "google", label: "Google" }]
+  });
   assert.equal(oauthGoogleDefinition?.provider, "google");
   assert.equal(oauthGoogleDefinition?.label, "Google");
   assert.equal(oauthGoogleDefinition?.supportsSecretUpdate, false);
-  assert.equal(findAuthMethodDefinition("oauth:github"), null);
+  assert.equal(
+    findAuthMethodDefinition("oauth:github", {
+      oauthProviders: [{ id: "google", label: "Google" }]
+    }),
+    null
+  );
   assert.equal(findAuthMethodDefinition("nope"), null);
 
   assert.equal(AUTH_METHOD_IDS.includes("password"), true);
   assert.equal(AUTH_METHOD_IDS.includes("email_otp"), true);
-  assert.equal(AUTH_METHOD_DEFINITIONS.length >= 3, true);
+  assert.equal(AUTH_METHOD_DEFINITIONS.length >= 2, true);
 });
 
 test("oauthStart handles success and maps start errors", async () => {

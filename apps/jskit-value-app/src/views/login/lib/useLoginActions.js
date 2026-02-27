@@ -42,6 +42,8 @@ export function useLoginActions({
   rememberedAccount,
   useRememberedAccount,
   oauthCallbackInFlight,
+  oauthProviders,
+  oauthDefaultProvider,
   isRegister,
   isForgot,
   isOtp,
@@ -58,6 +60,17 @@ export function useLoginActions({
   otpRequestMutation,
   otpVerifyMutation
 }) {
+  function resolveOAuthProviders() {
+    return Array.isArray(oauthProviders?.value) ? oauthProviders.value : [];
+  }
+
+  function resolveOAuthDefaultProvider() {
+    return normalizeAppOAuthProvider(oauthDefaultProvider?.value, {
+      providers: resolveOAuthProviders(),
+      fallback: resolveOAuthProviders()[0]?.id || null
+    });
+  }
+
   function isConsoleSurfaceContext() {
     const paths = surfacePaths?.value && typeof surfacePaths.value === "object" ? surfacePaths.value : {};
     const prefix = String(paths.prefix || "").trim().toLowerCase();
@@ -189,10 +202,7 @@ export function useLoginActions({
         throw new Error("Login succeeded but the session is not active yet. Please retry.");
       }
 
-      authStore.applySession({
-        authenticated: true,
-        username: session.username || null
-      });
+      authStore.applySession(session);
       if (workspaceStore && typeof workspaceStore.clearWorkspaceState === "function") {
         workspaceStore.clearWorkspaceState();
       }
@@ -206,10 +216,7 @@ export function useLoginActions({
       throw new Error("Login succeeded but the session is not active yet. Please retry.");
     }
 
-    authStore.applySession({
-      authenticated: true,
-      username: session.username || null
-    });
+    authStore.applySession(session);
     workspaceStore.applyBootstrap(bootstrapPayload);
     return session;
   }
@@ -226,7 +233,10 @@ export function useLoginActions({
   }
 
   async function startOAuthSignIn(providerId) {
-    const provider = normalizeAppOAuthProvider(providerId, { fallback: null });
+    const provider = normalizeAppOAuthProvider(providerId, {
+      providers: resolveOAuthProviders(),
+      fallback: null
+    });
     if (!provider) {
       errorMessage.value = "OAuth provider is not supported.";
       return;
@@ -240,6 +250,9 @@ export function useLoginActions({
       intent: "login",
       returnTo,
       rememberAccountOnDevice: rememberAccountOnDevice.value
+    }, {
+      providers: resolveOAuthProviders(),
+      defaultProvider: resolveOAuthDefaultProvider()
     });
 
     if (typeof window !== "undefined") {
@@ -290,9 +303,16 @@ export function useLoginActions({
   }
 
   async function handleOAuthCallbackIfPresent() {
-    const pendingOAuthContext = readPendingOAuthContext();
+    const providers = resolveOAuthProviders();
+    const defaultProvider = resolveOAuthDefaultProvider();
+    const pendingOAuthContext = readPendingOAuthContext({
+      providers,
+      defaultProvider
+    });
     const callbackState = readOAuthCallbackStateFromLocation({
+      providers,
       pendingContext: pendingOAuthContext,
+      defaultProvider,
       defaultIntent: "login",
       defaultReturnTo: surfacePaths.value.rootPath
     });

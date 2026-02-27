@@ -129,10 +129,7 @@ async function bootstrapRuntime({ authStore, workspaceStore, consoleStore, vueti
       const sessionPayload = await api.auth.session();
       const session =
         sessionPayload && typeof sessionPayload === "object" ? sessionPayload : { authenticated: false };
-      authStore.applySession({
-        authenticated: Boolean(session.authenticated),
-        username: session.username || null
-      });
+      authStore.applySession(session);
 
       workspaceStore.clearWorkspaceState();
       applyThemePreference(vuetify, "system");
@@ -160,10 +157,7 @@ async function bootstrapRuntime({ authStore, workspaceStore, consoleStore, vueti
     const bootstrapPayload = await api.workspace.bootstrap();
     const session =
       bootstrapPayload?.session && typeof bootstrapPayload.session === "object" ? bootstrapPayload.session : {};
-    authStore.applySession({
-      authenticated: Boolean(session.authenticated),
-      username: session.username || null
-    });
+    authStore.applySession(session);
     workspaceStore.applyBootstrap(bootstrapPayload);
 
     applyThemePreference(vuetify, workspaceStore.userSettings?.theme);

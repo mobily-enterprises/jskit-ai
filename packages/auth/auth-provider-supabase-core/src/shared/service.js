@@ -5,7 +5,6 @@ import {
   AUTH_METHOD_PASSWORD_PROVIDER,
   buildOAuthMethodId
 } from "@jskit-ai/access-core/authMethods";
-import { AUTH_OAUTH_DEFAULT_PROVIDER } from "@jskit-ai/access-core/oauthProviders";
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
 import { validators } from "@jskit-ai/access-core/validators";
 import {
@@ -22,9 +21,9 @@ import {
 } from "./lib/authErrorMappers.js";
 import { displayNameFromEmail, resolveDisplayName, resolveDisplayNameFromClaims } from "./lib/authProfileNames.js";
 import {
-  normalizeOAuthProviderInput,
+  normalizeOAuthProviderInput as normalizeOAuthProviderInputFromCatalog,
   validatePasswordRecoveryPayload,
-  parseOAuthCompletePayload,
+  parseOAuthCompletePayload as parseOAuthCompletePayloadFromCatalog,
   parseOtpLoginVerifyPayload,
   mapOAuthCallbackError
 } from "./lib/authInputParsers.js";
@@ -53,6 +52,11 @@ import { buildDisabledPasswordSecret } from "./lib/authSecrets.js";
 import { createAccountFlows } from "./lib/accountFlows.js";
 import { createOauthFlows } from "./lib/oauthFlows.js";
 import { createPasswordSecurityFlows } from "./lib/passwordSecurityFlows.js";
+import {
+  buildOAuthProviderCatalogResponse,
+  resolveOAuthProviderQueryParams,
+  resolveSupabaseOAuthProviderCatalog
+} from "./lib/oauthProviderCatalog.js";
 
 const ACCESS_TOKEN_COOKIE = "sb_access_token";
 const REFRESH_TOKEN_COOKIE = "sb_refresh_token";
@@ -111,6 +115,51 @@ function createService(options) {
     appPublicUrl: options.appPublicUrl
   });
   const appPublicUrl = String(options.appPublicUrl || "");
+  const authOAuthCatalog = resolveSupabaseOAuthProviderCatalog({
+    oauthProviderCatalog: authProvider.oauthProviderCatalog || options.authOAuthProviderCatalog,
+    oauthProviders: authProvider.oauthProviders ?? options.authOAuthProviders,
+    oauthDefaultProvider: authProvider.oauthDefaultProvider ?? options.authOAuthDefaultProvider,
+    oauthProviderLabels: authProvider.oauthProviderLabels || options.authOAuthProviderLabels,
+    oauthProviderQueryParams: authProvider.oauthProviderQueryParams || options.authOAuthProviderQueryParams
+  });
+  const authOAuthProviders = authOAuthCatalog.providers;
+  const authOAuthProviderIds = authOAuthCatalog.providerIds;
+  const authOAuthDefaultProvider = authOAuthCatalog.defaultProvider;
+  const authOAuthCatalogResponse = Object.freeze(buildOAuthProviderCatalogResponse(authOAuthCatalog));
+
+  function normalizeOAuthProviderInput(value) {
+    return normalizeOAuthProviderInputFromCatalog(value, {
+      providerIds: authOAuthProviderIds,
+      defaultProvider: authOAuthDefaultProvider
+    });
+  }
+
+  function parseOAuthCompletePayload(payload) {
+    return parseOAuthCompletePayloadFromCatalog(payload, {
+      providerIds: authOAuthProviderIds,
+      defaultProvider: authOAuthDefaultProvider
+    });
+  }
+
+  function buildOAuthLoginRedirectUrlWithCatalog(payload) {
+    return buildOAuthLoginRedirectUrl({
+      ...payload,
+      providerIds: authOAuthProviderIds
+    });
+  }
+
+  function buildOAuthLinkRedirectUrlWithCatalog(payload) {
+    return buildOAuthLinkRedirectUrl({
+      ...payload,
+      providerIds: authOAuthProviderIds
+    });
+  }
+
+  function resolveOAuthProviderQueryParamsForProvider(providerId) {
+    return resolveOAuthProviderQueryParams(providerId, {
+      providerQueryParamsById: authOAuthCatalog.providerQueryParamsById
+    });
+  }
 
   const issuerUrl = supabaseUrl ? new URL("/auth/v1", supabaseUrl).toString().replace(/\/$/, "") : "";
   const jwksUrl = issuerUrl ? `${issuerUrl}/.well-known/jwks.json` : "";
@@ -512,7 +561,10 @@ function createService(options) {
     const current = await resolveCurrentSupabaseUser(request, options);
     const profile = await syncProfileFromSupabaseUser(current.user, current.user?.email || "");
     const passwordSignInPolicy = await resolvePasswordSignInPolicyForUserId(profile.id);
-    const authMethodsStatus = buildAuthMethodsStatusFromSupabaseUser(current.user, passwordSignInPolicy);
+    const authMethodsStatus = buildAuthMethodsStatusFromSupabaseUser(current.user, {
+      ...passwordSignInPolicy,
+      oauthProviders: authOAuthProviders
+    });
 
     return {
       ...current,
@@ -548,13 +600,14 @@ function createService(options) {
     ensureConfigured,
     normalizeOAuthProviderInput,
     normalizeReturnToPath,
-    buildOAuthLoginRedirectUrl,
+    buildOAuthLoginRedirectUrl: buildOAuthLoginRedirectUrlWithCatalog,
     appPublicUrl,
-    authOAuthDefaultProvider: AUTH_OAUTH_DEFAULT_PROVIDER,
+    authOAuthDefaultProvider,
+    resolveOAuthProviderQueryParams: resolveOAuthProviderQueryParamsForProvider,
     getSupabaseClient,
     mapAuthError,
     setSessionFromRequestCookies,
-    buildOAuthLinkRedirectUrl,
+    buildOAuthLinkRedirectUrl: buildOAuthLinkRedirectUrlWithCatalog,
     parseOAuthCompletePayload,
     validationError,
     mapOAuthCallbackError,
@@ -597,10 +650,18 @@ function createService(options) {
     authMethodPasswordId: AUTH_METHOD_PASSWORD_ID,
     buildDisabledPasswordSecret,
     setPasswordSignInEnabledForUserId,
-    buildAuthMethodsStatusFromSupabaseUser,
+    buildAuthMethodsStatusFromSupabaseUser: (user, statusOptions = {}) =>
+      buildAuthMethodsStatusFromSupabaseUser(user, {
+        ...statusOptions,
+        oauthProviders: authOAuthProviders
+      }),
     buildSecurityStatusFromAuthMethodsStatus,
     authMethodPasswordProvider: AUTH_METHOD_PASSWORD_PROVIDER,
-    buildAuthMethodsStatusFromProviderIds
+    buildAuthMethodsStatusFromProviderIds: (providerIds, statusOptions = {}) =>
+      buildAuthMethodsStatusFromProviderIds(providerIds, {
+        ...statusOptions,
+        oauthProviders: authOAuthProviders
+      })
   });
 
   async function authenticateRequest(request) {
@@ -745,6 +806,10 @@ function createService(options) {
     return Boolean(cookies[ACCESS_TOKEN_COOKIE] || cookies[REFRESH_TOKEN_COOKIE]);
   }
 
+  function getOAuthProviderCatalog() {
+    return authOAuthCatalogResponse;
+  }
+
   return {
     register,
     login,
@@ -763,6 +828,7 @@ function createService(options) {
     signOutOtherSessions,
     getSecurityStatus,
     getSettingsProfileAuthInfo,
+    getOAuthProviderCatalog,
     authenticateRequest,
     hasAccessTokenCookie,
     hasSessionCookie,
@@ -794,10 +860,13 @@ const __testables = {
   buildOAuthRedirectUrl,
   buildOAuthLoginRedirectUrl,
   buildOAuthLinkRedirectUrl,
-  normalizeOAuthProviderInput,
-  parseOAuthCompletePayload,
+  normalizeOAuthProviderInput: normalizeOAuthProviderInputFromCatalog,
+  parseOAuthCompletePayload: parseOAuthCompletePayloadFromCatalog,
   parseOtpLoginVerifyPayload,
   mapOAuthCallbackError,
+  resolveSupabaseOAuthProviderCatalog,
+  resolveOAuthProviderQueryParams,
+  buildOAuthProviderCatalogResponse,
   normalizeIdentityProviderId,
   collectProviderIdsFromSupabaseUser,
   buildAuthMethodsStatusFromProviderIds,

@@ -320,13 +320,13 @@ Deliverables:
 3. Add minimal bundle descriptors:
    - `core-shell`,
    - `web-shell`,
-   - `api-shell`.
+   - `api-foundations`.
 
 Tests to add:
 
 1. Boot test of starter app with `core-shell` only.
 2. Boot test with `web-shell`.
-3. Boot test with `api-shell`.
+3. Boot test with `api-foundations`.
 4. Doctor passes for each shell.
 
 Passing means:
@@ -663,7 +663,7 @@ Use this as the first concrete bundle set to implement and validate.
    - `@jskit-ai/http-client-runtime`
    - `@jskit-ai/surface-routing`
 
-3. `api-shell`
+3. `api-foundations`
    - `core-shell` packages
    - `@jskit-ai/http-contracts`
 
@@ -1130,4 +1130,3 @@ Passing means:
 3. Add Stage 2 package-level CLI commands.
 4. Start Stage 3 generator/drift scripts.
 5. Begin Stage 4 core runtime wave with full tests before moving to domain waves.
-

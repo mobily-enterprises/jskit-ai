@@ -1,6 +1,8 @@
 import {
   APP_OAUTH_DEFAULT_PROVIDER,
-  normalizeAppOAuthProvider
+  appOAuthProviders,
+  normalizeAppOAuthProvider,
+  normalizeOAuthProviderCatalog
 } from "./oauthProviders.js";
 import {
   OAUTH_QUERY_PARAM_INTENT,
@@ -43,6 +45,20 @@ const OAUTH_KNOWN_HASH_PARAMS = new Set([
   "sb"
 ]);
 
+function resolveOAuthProviderCatalog(options = {}) {
+  return normalizeOAuthProviderCatalog(options.providers, {
+    fallback: appOAuthProviders
+  });
+}
+
+function resolveOAuthDefaultProvider(options = {}) {
+  const providers = resolveOAuthProviderCatalog(options);
+  return normalizeAppOAuthProvider(options.defaultProvider, {
+    providers,
+    fallback: APP_OAUTH_DEFAULT_PROVIDER || providers[0]?.id || null
+  });
+}
+
 function isSessionStorageAvailable() {
   if (typeof window === "undefined" || !window.sessionStorage) {
     return false;
@@ -58,12 +74,16 @@ function isSessionStorageAvailable() {
   }
 }
 
-function writePendingOAuthContext(context) {
+function writePendingOAuthContext(context, options = {}) {
   if (!isSessionStorageAvailable()) {
     return;
   }
 
-  const provider = normalizeAppOAuthProvider(context?.provider, { fallback: null });
+  const providers = resolveOAuthProviderCatalog(options);
+  const provider = normalizeAppOAuthProvider(context?.provider, {
+    providers,
+    fallback: null
+  });
   if (!provider) {
     return;
   }
@@ -82,10 +102,12 @@ function writePendingOAuthContext(context) {
   }
 }
 
-function readPendingOAuthContext() {
+function readPendingOAuthContext(options = {}) {
   if (!isSessionStorageAvailable()) {
     return null;
   }
+
+  const providers = resolveOAuthProviderCatalog(options);
 
   try {
     const raw = window.sessionStorage.getItem(OAUTH_PENDING_CONTEXT_STORAGE_KEY);
@@ -94,7 +116,10 @@ function readPendingOAuthContext() {
     }
 
     const parsed = JSON.parse(raw);
-    const provider = normalizeAppOAuthProvider(parsed?.provider, { fallback: null });
+    const provider = normalizeAppOAuthProvider(parsed?.provider, {
+      providers,
+      fallback: null
+    });
     if (!provider) {
       return null;
     }
@@ -127,8 +152,13 @@ function readOAuthCallbackStateFromLocation(options = {}) {
     return null;
   }
 
+  const providers = resolveOAuthProviderCatalog(options);
   const pendingContext = options.pendingContext || null;
-  const defaultProvider = options.defaultProvider || APP_OAUTH_DEFAULT_PROVIDER;
+  const defaultProvider = resolveOAuthDefaultProvider({
+    ...options,
+    providers,
+    defaultProvider: options.defaultProvider || pendingContext?.defaultProvider
+  });
   const defaultIntent = options.defaultIntent || "login";
   const defaultReturnTo = options.defaultReturnTo || "/";
 
@@ -147,12 +177,15 @@ function readOAuthCallbackStateFromLocation(options = {}) {
   }
 
   const providerFromQuery = normalizeAppOAuthProvider(search.get(OAUTH_QUERY_PARAM_PROVIDER), {
+    providers,
     fallback: null
   });
   const providerFromContext = normalizeAppOAuthProvider(pendingContext?.provider, {
+    providers,
     fallback: null
   });
   const provider = normalizeAppOAuthProvider(providerFromQuery || providerFromContext || defaultProvider, {
+    providers,
     fallback: defaultProvider
   });
 

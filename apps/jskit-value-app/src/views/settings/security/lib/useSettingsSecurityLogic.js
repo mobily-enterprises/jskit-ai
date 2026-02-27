@@ -1,7 +1,7 @@
 import { computed } from "vue";
 import { api } from "../../../../platform/http/api/index.js";
 import {
-  AUTH_METHOD_DEFINITIONS,
+  buildAuthMethodDefinitions,
   AUTH_METHOD_KIND_OAUTH,
   AUTH_METHOD_KIND_OTP,
   AUTH_METHOD_KIND_PASSWORD,
@@ -9,7 +9,7 @@ import {
   buildOAuthMethodId
 } from "@jskit-ai/access-core/authMethods";
 import {
-  APP_OAUTH_PROVIDER_METADATA,
+  normalizeOAuthProviderCatalog,
   normalizeAppOAuthProvider
 } from "../../../../modules/auth/oauthProviders.js";
 import { writePendingOAuthContext } from "../../../../modules/auth/oauthCallback.js";
@@ -37,6 +37,7 @@ export function useSettingsSecurityLogic({
   sessionsMessageType,
   queryClient,
   settingsQueryKey,
+  oauthProviders,
   clearFieldErrors,
   toErrorMessage,
   handleAuthError,
@@ -50,8 +51,12 @@ export function useSettingsSecurityLogic({
     return security && typeof security === "object" ? security : {};
   });
 
+  function resolveOAuthProviders() {
+    return normalizeOAuthProviderCatalog(oauthProviders?.value, { fallback: [] });
+  }
+
   function createFallbackAuthMethods() {
-    return AUTH_METHOD_DEFINITIONS.map((definition) => {
+    return buildAuthMethodDefinitions({ oauthProviders: resolveOAuthProviders() }).map((definition) => {
       const alwaysAvailable = definition.kind === AUTH_METHOD_KIND_OTP;
       return {
         id: definition.id,
@@ -185,12 +190,17 @@ export function useSettingsSecurityLogic({
   });
 
   function providerLabel(providerId) {
-    const normalized = normalizeAppOAuthProvider(providerId, { fallback: null });
+    const providers = resolveOAuthProviders();
+    const normalized = normalizeAppOAuthProvider(providerId, {
+      providers,
+      fallback: null
+    });
     if (!normalized) {
       return String(providerId || "Provider");
     }
 
-    return String(APP_OAUTH_PROVIDER_METADATA[normalized]?.label || normalized);
+    const providerMetadata = providers.find((provider) => provider.id === normalized) || null;
+    return String(providerMetadata?.label || normalized);
   }
 
   function authMethodStatusText(method) {
@@ -353,7 +363,11 @@ export function useSettingsSecurityLogic({
   }
 
   async function startProviderLink(providerId) {
-    const provider = normalizeAppOAuthProvider(providerId, { fallback: null });
+    const providers = resolveOAuthProviders();
+    const provider = normalizeAppOAuthProvider(providerId, {
+      providers,
+      fallback: null
+    });
     if (!provider) {
       providerMessageType.value = "error";
       providerMessage.value = "OAuth provider is not supported.";
@@ -367,6 +381,8 @@ export function useSettingsSecurityLogic({
       provider,
       intent: "link",
       returnTo
+    }, {
+      providers
     });
 
     if (typeof window !== "undefined") {
@@ -378,7 +394,10 @@ export function useSettingsSecurityLogic({
   }
 
   async function submitProviderUnlink(providerId) {
-    const provider = normalizeAppOAuthProvider(providerId, { fallback: null });
+    const provider = normalizeAppOAuthProvider(providerId, {
+      providers: resolveOAuthProviders(),
+      fallback: null
+    });
     if (!provider) {
       providerMessageType.value = "error";
       providerMessage.value = "OAuth provider is not supported.";

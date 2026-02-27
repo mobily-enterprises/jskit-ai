@@ -27,6 +27,13 @@ const REQUIRES_DB = new Set([
 ]);
 
 const REQUIRES_AUTH = new Set(["workspace-core", "workspace-console", "workspace-admin-suite"]);
+const REQUIRES_AUTH_PROVIDER = new Set([
+  "auth-base",
+  "workspace-core",
+  "workspace-console",
+  "workspace-admin-suite",
+  "saas-full"
+]);
 // Bundle IDs that require the assistant provider capability to be installed first.
 const BUNDLES_REQUIRING_ASSISTANT_PROVIDER = new Set(["assistant", "saas-full"]);
 
@@ -114,6 +121,14 @@ test("every bundle add succeeds with prerequisites and passes doctor", async () 
           args: ["add", "bundle", "db-mysql", "--no-install"]
         });
         assert.equal(addDb.status, 0, addDb.stderr);
+      }
+
+      if (REQUIRES_AUTH_PROVIDER.has(bundle.bundleId) && bundle.bundleId !== "auth-supabase") {
+        const addAuthProvider = runCli({
+          cwd: appRoot,
+          args: ["add", "bundle", "auth-supabase", "--no-install"]
+        });
+        assert.equal(addAuthProvider.status, 0, addAuthProvider.stderr);
       }
 
       if (REQUIRES_AUTH.has(bundle.bundleId) && bundle.bundleId !== "auth-base") {

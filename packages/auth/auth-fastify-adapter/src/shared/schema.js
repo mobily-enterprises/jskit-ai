@@ -11,7 +11,7 @@ import {
   AUTH_REFRESH_TOKEN_MAX_LENGTH
 } from "@jskit-ai/access-core/authConstraints";
 import { AUTH_METHOD_IDS, AUTH_METHOD_KINDS } from "@jskit-ai/access-core/authMethods";
-import { AUTH_OAUTH_PROVIDERS } from "@jskit-ai/access-core/oauthProviders";
+import { OAUTH_PROVIDER_ID_PATTERN } from "@jskit-ai/access-core/oauthProviders";
 import { enumSchema } from "@jskit-ai/http-contracts/errorResponses";
 
 const registerCredentials = Type.Object(
@@ -61,8 +61,16 @@ const otpVerifyBody = Type.Object(
   }
 );
 
-const oauthProvider = enumSchema(AUTH_OAUTH_PROVIDERS);
-const authMethodId = enumSchema(AUTH_METHOD_IDS);
+const oauthProvider = Type.String({
+  minLength: 2,
+  maxLength: 32,
+  pattern: OAUTH_PROVIDER_ID_PATTERN
+});
+const authMethodId = Type.String({
+  minLength: 3,
+  maxLength: 38,
+  pattern: `^(?:${AUTH_METHOD_IDS.join("|")}|oauth:${OAUTH_PROVIDER_ID_PATTERN.slice(1, -1)})$`
+});
 const authMethodKind = enumSchema(AUTH_METHOD_KINDS);
 const oauthReturnTo = Type.String({
   minLength: 1,
@@ -242,11 +250,23 @@ const logoutResponse = Type.Object(
   }
 );
 
+const oauthProviderCatalogEntry = Type.Object(
+  {
+    id: oauthProvider,
+    label: Type.String({ minLength: 1, maxLength: 120 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const sessionResponse = Type.Object(
   {
     authenticated: Type.Boolean(),
     username: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })),
-    csrfToken: Type.String({ minLength: 1 })
+    csrfToken: Type.String({ minLength: 1 }),
+    oauthProviders: Type.Array(oauthProviderCatalogEntry),
+    oauthDefaultProvider: Type.Union([oauthProvider, Type.Null()])
   },
   {
     additionalProperties: false
@@ -256,7 +276,9 @@ const sessionResponse = Type.Object(
 const sessionErrorResponse = Type.Object(
   {
     error: Type.String({ minLength: 1 }),
-    csrfToken: Type.String({ minLength: 1 })
+    csrfToken: Type.String({ minLength: 1 }),
+    oauthProviders: Type.Array(oauthProviderCatalogEntry),
+    oauthDefaultProvider: Type.Union([oauthProvider, Type.Null()])
   },
   {
     additionalProperties: false

@@ -31,6 +31,30 @@ function createController({ authService, actionExecutor }) {
     throw new Error("actionExecutor.execute is required.");
   }
 
+  function getOAuthProviderCatalogPayload() {
+    const catalog =
+      typeof authService.getOAuthProviderCatalog === "function" ? authService.getOAuthProviderCatalog() : null;
+    const providers = Array.isArray(catalog?.providers)
+      ? catalog.providers
+          .map((provider) => ({
+            id: String(provider?.id || "")
+              .trim()
+              .toLowerCase(),
+            label: String(provider?.label || "")
+              .trim()
+          }))
+          .filter((provider) => provider.id && provider.label)
+      : [];
+    const defaultProvider = String(catalog?.defaultProvider || "")
+      .trim()
+      .toLowerCase();
+
+    return {
+      oauthProviders: providers,
+      oauthDefaultProvider: providers.some((provider) => provider.id === defaultProvider) ? defaultProvider : null
+    };
+  }
+
   async function register(request, reply) {
     const payload = request.body || {};
     const result = await executeAction(actionExecutor, {
@@ -148,6 +172,7 @@ function createController({ authService, actionExecutor }) {
 
   async function session(request, reply) {
     const csrfToken = await reply.generateCsrf();
+    const oauthCatalogPayload = getOAuthProviderCatalogPayload();
     const authResult = await executeAction(actionExecutor, {
       actionId: AUTH_ACTION_IDS.SESSION_READ,
       request
@@ -163,7 +188,8 @@ function createController({ authService, actionExecutor }) {
     if (authResult.transientFailure) {
       reply.code(503).send({
         error: "Authentication service temporarily unavailable. Please retry.",
-        csrfToken
+        csrfToken,
+        ...oauthCatalogPayload
       });
       return;
     }
@@ -171,7 +197,8 @@ function createController({ authService, actionExecutor }) {
     if (!authResult.authenticated) {
       reply.code(200).send({
         authenticated: false,
-        csrfToken
+        csrfToken,
+        ...oauthCatalogPayload
       });
       return;
     }
@@ -179,7 +206,8 @@ function createController({ authService, actionExecutor }) {
     reply.code(200).send({
       authenticated: true,
       username: authResult.profile.displayName,
-      csrfToken
+      csrfToken,
+      ...oauthCatalogPayload
     });
   }
 

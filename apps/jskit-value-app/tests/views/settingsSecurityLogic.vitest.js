@@ -85,6 +85,7 @@ function createHarness({ securityData = buildSecurityPayload(), mode = PASSWORD_
   const settingsQuery = {
     data: ref(securityData)
   };
+  const oauthProviders = ref([{ id: "google", label: "Google" }]);
 
   const passwordFormMode = ref(mode);
   const showPasswordForm = ref(false);
@@ -164,6 +165,7 @@ function createHarness({ securityData = buildSecurityPayload(), mode = PASSWORD_
     sessionsMessageType,
     queryClient,
     settingsQueryKey: ["settings"],
+    oauthProviders,
     clearFieldErrors,
     toErrorMessage,
     handleAuthError,
@@ -189,6 +191,7 @@ function createHarness({ securityData = buildSecurityPayload(), mode = PASSWORD_
     methodActionLoadingId,
     sessionsMessage,
     sessionsMessageType,
+    oauthProviders,
     passwordMutation,
     setPasswordMethodEnabledMutation,
     logoutOthersMutation,
@@ -576,11 +579,16 @@ describe("useSettingsSecurityLogic", () => {
     vi.stubGlobal("window", undefined);
     try {
       await harness.logic.startProviderLink("google");
-      expect(mocks.writePendingOAuthContext).toHaveBeenCalledWith({
-        provider: "google",
-        intent: "link",
-        returnTo: "/account/settings?section=security"
-      });
+      expect(mocks.writePendingOAuthContext).toHaveBeenCalledWith(
+        {
+          provider: "google",
+          intent: "link",
+          returnTo: "/account/settings?section=security"
+        },
+        {
+          providers: [{ id: "google", label: "Google" }]
+        }
+      );
       expect(harness.providerLinkStartInFlight.value).toBe(false);
     } finally {
       vi.stubGlobal("window", originalWindow);

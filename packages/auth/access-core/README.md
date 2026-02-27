@@ -7,8 +7,9 @@ Core authentication and access helpers shared across server and client code.
 Use this package for reusable auth and access primitives:
 
 - auth field constraints (email, password, token sizes)
-- supported sign-in methods (password, email otp, oauth)
-- oauth provider and callback param normalization
+- auth method identifiers and parsing (`password`, `email_otp`, `oauth:<providerId>`)
+- generic OAuth provider id normalization and validation
+- callback query key constants
 - input validation for register/login/reset flows
 - invite token generation and hashing
 - membership access normalization helpers
@@ -19,6 +20,7 @@ The goal is to keep auth rules in one place so app code does not duplicate valid
 
 - No database access.
 - No HTTP routing.
+- No provider-specific OAuth catalogs (that belongs to provider packages).
 - No UI components.
 - No app-specific permission policy decisions.
 
@@ -38,7 +40,7 @@ The goal is to keep auth rules in one place so app code does not duplicate valid
 
 ### `authConstraints`
 
-These are constants used by schema and validation layers.
+Constants used by schema and validation layers.
 
 - `AUTH_EMAIL_PATTERN`, `AUTH_EMAIL_REGEX`: email format checks.
 - `AUTH_EMAIL_MIN_LENGTH`, `AUTH_EMAIL_MAX_LENGTH`: accepted email length range.
@@ -46,21 +48,20 @@ These are constants used by schema and validation layers.
 - `AUTH_LOGIN_PASSWORD_MAX_LENGTH`: login input max guard.
 - `AUTH_RECOVERY_TOKEN_MAX_LENGTH`, `AUTH_ACCESS_TOKEN_MAX_LENGTH`, `AUTH_REFRESH_TOKEN_MAX_LENGTH`: token length guards.
 
-Real-life example:
-
-- If a user pastes a 20,000-character token in a form, schemas can reject it early using these constants.
-
 ### `authMethods`
 
-- `buildOAuthMethodId(provider)`
+- `buildOAuthMethodId(providerId)`
   - Builds canonical ids like `oauth:google`.
-  - Example: settings page stores enabled method ids as strings; this keeps provider ids consistent.
 - `parseAuthMethodId(value)`
-  - Parses and normalizes values like `password`, `email_otp`, `oauth:google`.
-  - Example: admin API receives `" OAuth:Google "` and converts it to normalized `oauth:google`.
-- `findAuthMethodDefinition(methodId)`
+  - Parses and normalizes values like `password`, `email_otp`, `oauth:github`.
+- `buildOAuthMethodDefinitions(oauthProviders)`
+  - Builds OAuth method definitions from provider ids or `{ id, label }` entries.
+- `buildAuthMethodDefinitions({ oauthProviders })`
+  - Returns base auth methods plus OAuth methods built from catalog input.
+- `buildAuthMethodIds({ oauthProviders })`
+  - Returns method ids from the built definitions.
+- `findAuthMethodDefinition(methodId, { oauthProviders })`
   - Returns method metadata (`kind`, `provider`, label, secret-update support), or `null`.
-  - Example: security settings view looks up label and whether password change is allowed.
 
 Related constants:
 
@@ -69,20 +70,26 @@ Related constants:
 - kinds: `AUTH_METHOD_KIND_PASSWORD`, `AUTH_METHOD_KIND_OTP`, `AUTH_METHOD_KIND_OAUTH`, `AUTH_METHOD_KINDS`
 - defaults: `AUTH_METHOD_MINIMUM_ENABLED`, `AUTH_METHOD_DEFINITIONS`, `AUTH_METHOD_IDS`
 
+Notes:
+
+- `AUTH_METHOD_DEFINITIONS` and `AUTH_METHOD_IDS` include only base methods (`password`, `email_otp`).
+- OAuth method definitions are runtime-built from provider catalogs supplied by provider packages.
+
 ### `oauthProviders`
 
-- `normalizeOAuthProvider(value, { fallback })`
-  - Canonicalizes provider input and applies fallback.
-  - Example: callback receives `Google` and normalizes to `google`.
-- `isSupportedOAuthProvider(value)`
-  - Returns true only for known providers.
-  - Example: reject unknown provider query params before redirecting to oauth.
+- `OAUTH_PROVIDER_ID_PATTERN`, `OAUTH_PROVIDER_ID_REGEX`
+  - Canonical provider id rule (`^[a-z0-9][a-z0-9_-]{1,31}$`).
+- `normalizeOAuthProviderId(value, { fallback })`
+  - Normalizes a provider id and applies fallback if valid.
+- `isValidOAuthProviderId(value)`
+  - Boolean validation helper for provider ids.
+- `normalizeOAuthProviderList(value, { fallback })`
+  - Normalizes provider lists from array/string input and removes duplicates.
 
-Related constants:
+Important:
 
-- `AUTH_OAUTH_PROVIDER_METADATA`
-- `AUTH_OAUTH_PROVIDERS`
-- `AUTH_OAUTH_DEFAULT_PROVIDER`
+- This module does not ship provider metadata lists (labels/icons/query params).
+- Provider catalogs belong to provider packages (for example Supabase provider module).
 
 ### `oauthCallbackParams`
 
@@ -92,74 +99,37 @@ Constants for callback URL query keys:
 - `OAUTH_QUERY_PARAM_INTENT`
 - `OAUTH_QUERY_PARAM_RETURN_TO`
 
-Real-life example:
-
-- OAuth callback parser and OAuth URL builder use the same key names to avoid mismatched query params.
-
 ### `utils`
 
 - `normalizeEmail(value)`
   - Trims and lowercases.
-  - Example: ` User@Example.com ` becomes `user@example.com` before login lookup.
 - `normalizeOAuthIntent(value, { fallback })`
   - Normalizes intent to `login` or `link`.
-  - Example: callback with `oauthIntent=LINK` becomes `link`.
 - `normalizeReturnToPath(value, { fallback })`
   - Accepts safe local paths only (starts with `/`, rejects `//`).
-  - Example: prevents open redirect from `https://evil.com` and falls back to `/`.
 
 ### `validators`
 
 `validators` is an object with these functions:
 
 - `validators.email(rawEmail)`
-  - Returns `""` if valid, otherwise message.
-  - Example: live form validation while user types.
 - `validators.registerPassword(rawPassword)`
-  - Registration password rules.
-  - Example: enforce 8 to 128 chars on sign-up.
 - `validators.loginPassword(rawPassword)`
-  - Login password rules with high max length guard.
-  - Example: avoid overly large payload attacks on login.
 - `validators.resetPassword(rawPassword)`
-  - Reset password rules (same policy as register).
-  - Example: reset-password form rejects short passwords before submit.
 - `validators.confirmPassword({ password, confirmPassword })`
-  - Confirms match.
-  - Example: prevent accidental mismatch before submit.
 - `validators.registerInput(payload)`
-  - Returns normalized `{ email, password, fieldErrors }`.
-  - Example: server parser can read normalized values directly.
 - `validators.loginInput(payload)`
-  - Returns normalized login input and field errors.
-  - Example: API handler can consume `{ email, password, fieldErrors }` directly.
 - `validators.forgotPasswordInput(payload)`
-  - Validates email-only payload.
-  - Example: forgot-password endpoint gets cleaned email and consistent field errors.
 - `validators.resetPasswordInput(payload)`
-  - Validates reset form password payload.
-  - Example: reset endpoint receives validated password and predictable error shape.
 
 ### `inviteTokens`
 
 - `normalizeInviteToken(token)`
-  - Trims token input.
-  - Example: remove whitespace copied from email.
 - `isSha256Hex(value)`
-  - Checks if value looks like a sha256 hex string.
-  - Example: detect whether stored token hash format is valid.
 - `buildInviteToken()`
-  - Creates a random invite token.
-  - Example: generate token for workspace invite email.
 - `hashInviteToken(token)`
-  - Hashes token with sha256.
-  - Example: store only hash in database, never raw token.
 - `encodeInviteTokenHash(tokenHash)`
-  - Adds opaque prefix `inviteh_` to a valid hash.
-  - Example: expose token references in API without leaking raw token.
 - `resolveInviteTokenHash(inviteToken)`
-  - Accepts either raw token or prefixed hash and resolves to hash.
-  - Example: invite acceptance endpoint accepts both formats during migration.
 
 Related constant:
 
@@ -168,48 +138,32 @@ Related constant:
 ### `membershipAccess`
 
 - `resolveMembershipRoleId(membershipLike)`
-  - Extracts normalized role id string.
-  - Example: membership row has `roleId`, service reads it safely.
 - `resolveMembershipStatus(membershipLike)`
-  - Resolves status with fallback to `active`.
-  - Example: handles objects using either `status` or `membershipStatus`.
 - `normalizeMembershipForAccess(membershipLike)`
-  - Returns `{ roleId, status }` only for active memberships, else `null`.
-  - Example: inactive memberships are ignored in permission checks.
 - `mapMembershipSummary(membershipLike)`
-  - Alias of access normalization for summary mapping.
-  - Example: workspace list serializer reuses the same active-membership filter logic.
 - `normalizePermissions(value)`
-  - Deduplicates and trims permission lists.
-  - Example: turns `["read", " read ", "", "read"]` into `["read"]`.
 - `createMembershipIndexes(memberships)`
-  - Builds `Map` indexes by workspace id and slug.
-  - Example: quickly find membership by slug during request routing.
 
-## How it is used in apps (real terms, and why)
+## How it is used in apps
 
-Current `jskit-value-app` usage:
+Current `jskit-value-app` examples:
 
-- Auth wrappers re-export this package:
-  - `apps/jskit-value-app/shared/auth/authConstraints.js`
-  - `apps/jskit-value-app/shared/auth/authMethods.js`
-  - `apps/jskit-value-app/shared/auth/oauthProviders.js`
-  - `apps/jskit-value-app/shared/auth/oauthCallbackParams.js`
-  - `apps/jskit-value-app/shared/auth/utils.js`
-  - `apps/jskit-value-app/shared/auth/validators.js`
-- Invite token wrappers re-export this package:
-  - `apps/jskit-value-app/server/domain/console/policies/inviteTokens.js`
-  - `apps/jskit-value-app/server/domain/workspace/policies/inviteTokens.js`
+- Server auth parsers and flows:
+  - `apps/jskit-value-app/server/modules/auth/lib/authInputParsers.js`
+  - `apps/jskit-value-app/server/modules/auth/lib/authRedirectUrls.js`
+  - `apps/jskit-value-app/server/modules/auth/lib/authMethodStatus.js`
+- Client auth flows:
+  - `apps/jskit-value-app/src/modules/auth/oauthProviders.js`
+  - `apps/jskit-value-app/src/modules/auth/oauthCallback.js`
+  - `apps/jskit-value-app/src/views/settings/security/useSettingsSecurityForm.js`
+- App/router/runtime auth helpers:
+  - `apps/jskit-value-app/src/app/router/guards.js`
+  - `apps/jskit-value-app/src/framework/moduleRegistry.base.js`
+  - `apps/jskit-value-app/server/surfaces/appSurface.js`
 
 Why this matters:
 
 - login/register/reset forms and server parsers apply identical validation rules
-- oauth flows use one canonical provider and callback normalization path
+- OAuth method ids stay canonical across server and client
+- provider-specific catalogs remain outside framework core
 - invite token generation/hashing is consistent across workspace and console domains
-
-Practical flow example:
-
-1. User submits login form with mixed-case email.
-2. `normalizeEmail` canonicalizes it.
-3. `validators.loginInput` returns field errors or clean input.
-4. Server auth service uses the same normalized values.

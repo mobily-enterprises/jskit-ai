@@ -71,6 +71,8 @@ function createHarness({ initialMode = "login", canSubmitInitial = true } = {}) 
   });
   const useRememberedAccount = ref(true);
   const oauthCallbackInFlight = ref(false);
+  const oauthProviders = ref([{ id: "google", label: "Google" }]);
+  const oauthDefaultProvider = ref("google");
 
   const isRegister = computed(() => mode.value === "register");
   const isForgot = computed(() => mode.value === "forgot");
@@ -134,6 +136,8 @@ function createHarness({ initialMode = "login", canSubmitInitial = true } = {}) 
     rememberedAccount,
     useRememberedAccount,
     oauthCallbackInFlight,
+    oauthProviders,
+    oauthDefaultProvider,
     isRegister,
     isForgot,
     isOtp,
@@ -170,6 +174,8 @@ function createHarness({ initialMode = "login", canSubmitInitial = true } = {}) 
     rememberedAccount,
     useRememberedAccount,
     oauthCallbackInFlight,
+    oauthProviders,
+    oauthDefaultProvider,
     isRegister,
     isForgot,
     isOtp,
@@ -295,12 +301,18 @@ describe("useLoginActions", () => {
     });
     try {
       await harness.actions.startOAuthSignIn("google");
-      expect(mocks.oauthUtils.writePendingOAuthContext).toHaveBeenCalledWith({
-        provider: "google",
-        intent: "login",
-        returnTo: "/w/acme/choice-2?tab=summary",
-        rememberAccountOnDevice: true
-      });
+      expect(mocks.oauthUtils.writePendingOAuthContext).toHaveBeenCalledWith(
+        {
+          provider: "google",
+          intent: "login",
+          returnTo: "/w/acme/choice-2?tab=summary",
+          rememberAccountOnDevice: true
+        },
+        {
+          providers: [{ id: "google", label: "Google" }],
+          defaultProvider: "google"
+        }
+      );
       expect(assign).toHaveBeenCalledWith("/api/v1/oauth/google/start?returnTo=/w/acme/choice-2?tab=summary");
     } finally {
       vi.stubGlobal("window", originalWindow);

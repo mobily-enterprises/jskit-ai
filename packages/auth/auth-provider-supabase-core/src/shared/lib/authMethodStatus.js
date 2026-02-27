@@ -1,5 +1,4 @@
 import {
-  AUTH_METHOD_DEFINITIONS,
   AUTH_METHOD_EMAIL_OTP_ID,
   AUTH_METHOD_EMAIL_OTP_PROVIDER,
   AUTH_METHOD_KIND_OAUTH,
@@ -8,6 +7,7 @@ import {
   AUTH_METHOD_MINIMUM_ENABLED,
   AUTH_METHOD_PASSWORD_ID,
   AUTH_METHOD_PASSWORD_PROVIDER,
+  buildAuthMethodDefinitions,
   buildOAuthMethodId
 } from "@jskit-ai/access-core/authMethods";
 
@@ -51,9 +51,11 @@ function buildAuthMethodsStatusFromProviderIds(providerIds, options = {}) {
   const uniqueProviders = new Set(normalizedProviders);
   const passwordSignInEnabled = options.passwordSignInEnabled !== false;
   const passwordSetupRequired = options.passwordSetupRequired === true;
+  const oauthProviders = Array.isArray(options.oauthProviders) ? options.oauthProviders : [];
+  const methodDefinitions = buildAuthMethodDefinitions({ oauthProviders });
   const methods = [];
 
-  for (const definition of AUTH_METHOD_DEFINITIONS) {
+  for (const definition of methodDefinitions) {
     if (definition.kind === AUTH_METHOD_KIND_PASSWORD) {
       const configured = uniqueProviders.has(AUTH_METHOD_PASSWORD_PROVIDER);
       const enabled = configured && passwordSignInEnabled;

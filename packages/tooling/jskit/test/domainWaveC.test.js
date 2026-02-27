@@ -53,6 +53,12 @@ for (const bundleId of WAVE_C_BUNDLES) {
       });
       assert.equal(addDb.status, 0, addDb.stderr);
 
+      const addAuthProvider = runCli({
+        cwd: appRoot,
+        args: ["add", "bundle", "auth-supabase", "--no-install"]
+      });
+      assert.equal(addAuthProvider.status, 0, addAuthProvider.stderr);
+
       const addAuth = runCli({
         cwd: appRoot,
         args: ["add", "bundle", "auth-base", "--no-install"]
@@ -81,6 +87,12 @@ test("removing required workspace package is blocked by dependency checks", asyn
       args: ["add", "bundle", "db-mysql", "--no-install"]
     });
     assert.equal(addDb.status, 0, addDb.stderr);
+
+    const addAuthProvider = runCli({
+      cwd: appRoot,
+      args: ["add", "bundle", "auth-supabase", "--no-install"]
+    });
+    assert.equal(addAuthProvider.status, 0, addAuthProvider.stderr);
 
     const addAuth = runCli({
       cwd: appRoot,

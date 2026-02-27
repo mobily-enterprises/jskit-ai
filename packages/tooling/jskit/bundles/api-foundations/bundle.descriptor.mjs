@@ -1,8 +1,8 @@
 export default Object.freeze({
   "bundleVersion": 1,
-  "bundleId": "api-shell",
+  "bundleId": "api-foundations",
   "version": "0.1.0",
-  "description": "Core shell with API contract packages.",
+  "description": "Core API/backend foundation packages.",
   "packages": [
     "@jskit-ai/module-framework-core",
     "@jskit-ai/runtime-env-core",

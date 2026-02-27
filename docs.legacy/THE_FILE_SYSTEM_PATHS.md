@@ -1260,7 +1260,7 @@ Add fixtures under `packages/tooling/jskit/test/fixtures/routes/` for:
 
 ## 21.1 Canonical module installation set
 
-The parity fixture must install the union used by `apps/jskit-value-app/package.json` and canonical packs (`web-shell`, `api-shell`, `saas-full`, `community-suite`, `realtime`, `communications-base`, `security-audit`, `ops-retention`).
+The parity fixture must install the union used by `apps/jskit-value-app/package.json` and canonical packs (`web-shell`, `api-foundations`, `saas-full`, `community-suite`, `realtime`, `communications-base`, `security-audit`, `ops-retention`).
 
 Output expectations:
 

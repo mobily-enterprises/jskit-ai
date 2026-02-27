@@ -49,6 +49,14 @@ async function withTempApp(run) {
 for (const bundleId of WAVE_A_BUNDLES) {
   test(`domain wave A bundle ${bundleId} installs cleanly`, async () => {
     await withTempApp(async (appRoot) => {
+      if (bundleId === "auth-base") {
+        const addAuthProvider = runCli({
+          cwd: appRoot,
+          args: ["add", "bundle", "auth-supabase", "--no-install"]
+        });
+        assert.equal(addAuthProvider.status, 0, addAuthProvider.stderr);
+      }
+
       const addResult = runCli({
         cwd: appRoot,
         args: ["add", "bundle", bundleId, "--no-install"]
@@ -71,6 +79,12 @@ test("combined auth + observability + db install passes doctor", async () => {
       args: ["add", "bundle", "db-mysql", "--no-install"]
     });
     assert.equal(addDb.status, 0, addDb.stderr);
+
+    const addAuthProvider = runCli({
+      cwd: appRoot,
+      args: ["add", "bundle", "auth-supabase", "--no-install"]
+    });
+    assert.equal(addAuthProvider.status, 0, addAuthProvider.stderr);
 
     const addAuth = runCli({
       cwd: appRoot,

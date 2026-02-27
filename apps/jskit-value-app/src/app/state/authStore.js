@@ -1,6 +1,11 @@
 import { defineStore } from "pinia";
 import { queryClient } from "../queryClient.js";
 import { api } from "../../platform/http/api/index.js";
+import {
+  APP_DEFAULT_OAUTH_PROVIDERS,
+  normalizeAppOAuthProvider,
+  normalizeOAuthProviderCatalog
+} from "../../modules/auth/oauthProviders.js";
 
 export const SESSION_QUERY_KEY = ["session"];
 
@@ -8,6 +13,11 @@ export const useAuthStore = defineStore("auth", {
   state: () => ({
     authenticated: false,
     username: null,
+    oauthProviders: normalizeOAuthProviderCatalog(APP_DEFAULT_OAUTH_PROVIDERS),
+    oauthDefaultProvider: normalizeAppOAuthProvider(null, {
+      providers: APP_DEFAULT_OAUTH_PROVIDERS,
+      fallback: APP_DEFAULT_OAUTH_PROVIDERS[0]?.id || null
+    }),
     initialized: false
   }),
   getters: {
@@ -17,8 +27,18 @@ export const useAuthStore = defineStore("auth", {
   },
   actions: {
     applySession(session) {
+      const nextOAuthProviders = normalizeOAuthProviderCatalog(session?.oauthProviders, {
+        fallback: this.oauthProviders.length > 0 ? this.oauthProviders : APP_DEFAULT_OAUTH_PROVIDERS
+      });
+      const nextOAuthDefaultProvider = normalizeAppOAuthProvider(session?.oauthDefaultProvider, {
+        providers: nextOAuthProviders,
+        fallback: nextOAuthProviders[0]?.id || null
+      });
+
       this.authenticated = Boolean(session?.authenticated);
       this.username = this.authenticated ? session?.username || null : null;
+      this.oauthProviders = nextOAuthProviders;
+      this.oauthDefaultProvider = nextOAuthDefaultProvider;
       this.initialized = true;
       return session;
     },
@@ -54,7 +74,11 @@ export const useAuthStore = defineStore("auth", {
       this.authenticated = false;
       this.username = null;
       this.initialized = true;
-      queryClient.setQueryData(SESSION_QUERY_KEY, { authenticated: false });
+      queryClient.setQueryData(SESSION_QUERY_KEY, {
+        authenticated: false,
+        oauthProviders: this.oauthProviders,
+        oauthDefaultProvider: this.oauthDefaultProvider
+      });
     },
     setUsername(username) {
       this.username = username ? String(username) : null;

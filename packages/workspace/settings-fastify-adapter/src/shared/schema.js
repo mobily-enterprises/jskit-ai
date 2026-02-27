@@ -7,8 +7,7 @@ import {
   AUTH_PASSWORD_MAX_LENGTH,
   AUTH_PASSWORD_MIN_LENGTH
 } from "@jskit-ai/access-core/authConstraints";
-import { AUTH_METHOD_PASSWORD_PROVIDER } from "@jskit-ai/access-core/authMethods";
-import { AUTH_OAUTH_PROVIDERS } from "@jskit-ai/access-core/oauthProviders";
+import { OAUTH_PROVIDER_ID_PATTERN } from "@jskit-ai/access-core/oauthProviders";
 import {
   PLATFORM_AVATAR_SETTINGS,
   SETTINGS_CURRENCY_CODE_PATTERN,
@@ -58,10 +57,11 @@ const profile = Type.Object(
   }
 );
 
-const authMethodProvider = Type.Union([
-  Type.Literal(AUTH_METHOD_PASSWORD_PROVIDER),
-  ...AUTH_OAUTH_PROVIDERS.map((provider) => Type.Literal(provider))
-]);
+const authMethodProvider = Type.String({
+  minLength: 2,
+  maxLength: 32,
+  pattern: OAUTH_PROVIDER_ID_PATTERN
+});
 
 const security = Type.Object(
   {

@@ -19,9 +19,16 @@ export function useSettingsSecurityOAuthCallback({
   toErrorMessage
 }) {
   async function handleOAuthCallbackIfPresent() {
-    const pendingOAuthContext = readPendingOAuthContext();
+    const providers = Array.isArray(authStore.oauthProviders) ? authStore.oauthProviders : [];
+    const defaultProvider = authStore.oauthDefaultProvider;
+    const pendingOAuthContext = readPendingOAuthContext({
+      providers,
+      defaultProvider
+    });
     const callbackState = readOAuthCallbackStateFromLocation({
+      providers,
       pendingContext: pendingOAuthContext,
+      defaultProvider,
       defaultIntent: "link",
       defaultReturnTo: buildSettingsPathWithTab("profile")
     });

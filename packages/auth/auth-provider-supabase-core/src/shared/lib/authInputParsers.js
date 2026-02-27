@@ -4,24 +4,35 @@ import {
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,
   AUTH_REFRESH_TOKEN_MAX_LENGTH
 } from "@jskit-ai/access-core/authConstraints";
-import {
-  AUTH_OAUTH_DEFAULT_PROVIDER,
-  AUTH_OAUTH_PROVIDERS,
-  normalizeOAuthProvider as normalizeSupportedOAuthProvider
-} from "@jskit-ai/access-core/oauthProviders";
+import { normalizeOAuthProviderList } from "@jskit-ai/access-core/oauthProviders";
 import { validators } from "@jskit-ai/access-core/validators";
+import { normalizeOAuthProviderFromCatalog } from "./oauthProviderCatalog.js";
 import { validationError } from "./authErrorMappers.js";
 
 const OTP_VERIFY_TYPE = "email";
 
-function normalizeOAuthProviderInput(value) {
-  const provider = normalizeSupportedOAuthProvider(value, { fallback: null });
+function resolveConfiguredOAuthProviders(options = {}) {
+  return normalizeOAuthProviderList(options.providerIds, { fallback: [] });
+}
+
+function normalizeOAuthProviderInput(value, options = {}) {
+  const providerIds = resolveConfiguredOAuthProviders(options);
+  if (providerIds.length < 1) {
+    throw validationError({
+      provider: "OAuth sign-in is not enabled."
+    });
+  }
+
+  const provider = normalizeOAuthProviderFromCatalog(value, {
+    providerIds,
+    fallback: options.defaultProvider
+  });
   if (provider) {
     return provider;
   }
 
   throw validationError({
-    provider: `OAuth provider must be one of: ${AUTH_OAUTH_PROVIDERS.join(", ")}.`
+    provider: `OAuth provider must be one of: ${providerIds.join(", ")}.`
   });
 }
 
@@ -86,13 +97,13 @@ function validatePasswordRecoveryPayload(payload) {
   };
 }
 
-function parseOAuthCompletePayload(payload = {}) {
-  const provider = normalizeOAuthProviderInput(payload.provider || AUTH_OAUTH_DEFAULT_PROVIDER);
+function parseOAuthCompletePayload(payload = {}, options = {}) {
+  const provider = normalizeOAuthProviderInput(payload.provider || options.defaultProvider, options);
   const code = String(payload.code || "").trim();
   const accessToken = String(payload.accessToken || "").trim();
   const refreshToken = String(payload.refreshToken || "").trim();
-  const errorCode = String(payload.error || "").trim();
-  const errorDescription = String(payload.errorDescription || "").trim();
+  const errorCode = String(payload.error || payload.error_code || "").trim();
+  const errorDescription = String(payload.errorDescription || payload.error_description || "").trim();
   const fieldErrors = {};
 
   if (code.length > AUTH_RECOVERY_TOKEN_MAX_LENGTH) {

@@ -81,14 +81,14 @@ test("jskit list bundles defaults to curated list and list bundles all shows ful
     });
     assert.equal(curated.status, 0, curated.stderr);
     assert.match(curated.stdout, /db-mysql \(0\.2\.0\)/);
-    assert.doesNotMatch(curated.stdout, /api-shell \(0\.1\.0\)/);
+    assert.doesNotMatch(curated.stdout, /api-foundations \(0\.1\.0\)/);
 
     const allBundles = runCli({
       cwd: appRoot,
       args: ["list", "bundles", "all"]
     });
     assert.equal(allBundles.status, 0, allBundles.stderr);
-    assert.match(allBundles.stdout, /api-shell \(0\.1\.0\)/);
+    assert.match(allBundles.stdout, /api-foundations \(0\.1\.0\)/);
     assert.match(allBundles.stdout, /db-postgres \(0\.2\.0\)/);
   });
 });
@@ -104,7 +104,19 @@ test("jskit list bundles --full prints package ids per bundle", async () => {
     assert.match(result.stdout, /@jskit-ai\/db-mysql\*/);
     assert.match(result.stdout, /@jskit-ai\/db-mysql\*: MySQL db-provider package/i);
     assert.match(result.stdout, /@jskit-ai\/jskit-knex: Capabilities: db\.core\./i);
+    assert.match(result.stdout, /@jskit-ai\/assistant-core \[openai\]:/i);
     assert.match(result.stdout, /\* provider package/i);
+  });
+});
+
+test("jskit list bundles marks bundle-level provider requirements", async () => {
+  await withTempApp(async (appRoot) => {
+    const result = runCli({
+      cwd: appRoot,
+      args: ["list", "bundles"]
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /assistant \(0\.1\.0\).* \[openai\]:/i);
   });
 });
 

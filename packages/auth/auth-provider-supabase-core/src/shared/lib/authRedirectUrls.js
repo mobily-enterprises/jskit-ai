@@ -1,12 +1,10 @@
 import {
-  AUTH_OAUTH_PROVIDERS,
-  normalizeOAuthProvider as normalizeSupportedOAuthProvider
-} from "@jskit-ai/access-core/oauthProviders";
-import {
   OAUTH_QUERY_PARAM_INTENT,
   OAUTH_QUERY_PARAM_PROVIDER,
   OAUTH_QUERY_PARAM_RETURN_TO
 } from "@jskit-ai/access-core/oauthCallbackParams";
+import { normalizeOAuthProviderList } from "@jskit-ai/access-core/oauthProviders";
+import { normalizeOAuthProviderFromCatalog } from "./oauthProviderCatalog.js";
 import { normalizeOAuthIntent, normalizeReturnToPath } from "@jskit-ai/access-core/utils";
 
 const PASSWORD_RESET_PATH = "reset-password";
@@ -68,7 +66,11 @@ function buildOtpLoginRedirectUrl(options) {
 
 function buildOAuthRedirectUrl(options) {
   const appPublicUrl = String(options.appPublicUrl || "").trim();
-  const provider = normalizeSupportedOAuthProvider(options.provider, { fallback: null });
+  const providerIds = normalizeOAuthProviderList(options.providerIds, { fallback: [] });
+  const provider = normalizeOAuthProviderFromCatalog(options.provider, {
+    providerIds,
+    fallback: null
+  });
   const intent = normalizeOAuthIntent(options.intent, { fallback: OAUTH_LOGIN_INTENT });
   const callbackPath = String(options.callbackPath || OAUTH_LOGIN_PATH).trim();
   const returnTo = normalizeReturnToPath(options.returnTo, { fallback: "/" });
@@ -77,8 +79,12 @@ function buildOAuthRedirectUrl(options) {
     throw new Error("APP_PUBLIC_URL is required to build OAuth login redirects.");
   }
 
+  if (providerIds.length < 1) {
+    throw new Error("OAuth providers are not configured.");
+  }
+
   if (!provider) {
-    throw new Error(`OAuth provider must be one of: ${AUTH_OAUTH_PROVIDERS.join(", ")}.`);
+    throw new Error(`OAuth provider must be one of: ${providerIds.join(", ")}.`);
   }
 
   if (!callbackPath) {

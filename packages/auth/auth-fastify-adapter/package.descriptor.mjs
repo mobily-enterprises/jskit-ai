@@ -13,6 +13,7 @@ export default Object.freeze({
     ],
     "requires": [
       "auth.access",
+      "auth.provider",
       "contracts.http",
       "auth.policy"
     ]

@@ -94,6 +94,8 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
           supabaseUrl: resolveSupabaseAuthUrl(env),
           supabasePublishableKey,
           jwtAudience: resolveAuthJwtAudience(env),
+          oauthProviders: env.AUTH_OAUTH_PROVIDERS,
+          oauthDefaultProvider: env.AUTH_OAUTH_DEFAULT_PROVIDER,
           emailManagedBy: authProviderId,
           emailChangeFlow: authProviderId
         },

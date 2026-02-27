@@ -941,6 +941,27 @@ function buildBundleMetadata(bundleDescriptor, availablePackages) {
     }
   }
 
+  const providerOptionsByFamily = (() => {
+    const index = new Map();
+    for (const packageEntry of availablePackages.values()) {
+      for (const capabilityId of packageEntry.descriptor.capabilities.provides) {
+        const family = getProviderFamilyFromOptionCapability(capabilityId);
+        if (!family) {
+          continue;
+        }
+        const option = capabilityId.slice(family.length + 1).trim();
+        if (!option) {
+          continue;
+        }
+        if (!index.has(family)) {
+          index.set(family, new Set());
+        }
+        index.get(family).add(option);
+      }
+    }
+    return index;
+  })();
+
   function isProviderCapability(capabilityId) {
     const normalized = String(capabilityId || "").trim();
     if (!normalized) {
@@ -965,6 +986,21 @@ function buildBundleMetadata(bundleDescriptor, availablePackages) {
     return (packageEntry.descriptor.capabilities.provides || []).some((capabilityId) =>
       isProviderCapability(capabilityId)
     );
+  }
+
+  function resolveProviderRequirementHints(requiredCapabilities) {
+    const hints = [];
+    for (const capabilityId of requiredCapabilities) {
+      const options = providerOptionsByFamily.get(capabilityId);
+      if (!options || options.size < 1) {
+        continue;
+      }
+      const label = toSortedUniqueStrings([...options]).join("|");
+      if (label) {
+        hints.push(label);
+      }
+    }
+    return toSortedUniqueStrings(hints);
   }
 
   function buildPackageExplanation(packageId) {
@@ -998,12 +1034,22 @@ function buildBundleMetadata(bundleDescriptor, availablePackages) {
     packages: resolvedPackageIds,
     packageEntries: resolvedPackageIds.map((packageId) => {
       const packageEntry = availablePackages.get(packageId);
+      const providerRequirementHints = resolveProviderRequirementHints(
+        packageEntry?.descriptor?.capabilities?.requires || []
+      );
       return {
         packageId,
         provider: isProviderPackage(packageEntry),
+        providerRequirementHints,
         description: buildPackageExplanation(packageId)
       };
     }),
+    providerRequirementHints: toSortedUniqueStrings(
+      resolvedPackageIds.flatMap((packageId) => {
+        const packageEntry = availablePackages.get(packageId);
+        return resolveProviderRequirementHints(packageEntry?.descriptor?.capabilities?.requires || []);
+      })
+    ),
     requiredCapabilities: [...requiredCapabilities].sort((left, right) => left.localeCompare(right)),
     providedCapabilities: [...providedCapabilities].sort((left, right) => left.localeCompare(right))
   };
@@ -1660,10 +1706,14 @@ function formatResult(result, { json, stdout }) {
 
   function formatBundleLine(entry) {
     const installedSuffix = entry.installed ? " [installed]" : "";
+    const providerRequirementSuffix =
+      Array.isArray(entry.providerRequirementHints) && entry.providerRequirementHints.length > 0
+        ? ` [${entry.providerRequirementHints.join(", ")}]`
+        : "";
     const description = String(entry.description || "").trim();
     return description.length > 0
-      ? `- ${entry.bundleId} (${entry.version})${installedSuffix}: ${gray(description)}\n`
-      : `- ${entry.bundleId} (${entry.version})${installedSuffix}\n`;
+      ? `- ${entry.bundleId} (${entry.version})${installedSuffix}${providerRequirementSuffix}: ${gray(description)}\n`
+      : `- ${entry.bundleId} (${entry.version})${installedSuffix}${providerRequirementSuffix}\n`;
   }
 
   if (json) {
@@ -1679,7 +1729,11 @@ function formatResult(result, { json, stdout }) {
         if (result.full) {
           stdout.write(`  packages (${entry.packages.length}):\n`);
           for (const packageEntry of entry.packageEntries || []) {
-            const packageId = `${packageEntry.packageId}${packageEntry.provider ? "*" : ""}`;
+            const providerRequirementSuffix =
+              Array.isArray(packageEntry.providerRequirementHints) && packageEntry.providerRequirementHints.length > 0
+                ? ` [${packageEntry.providerRequirementHints.join(", ")}]`
+                : "";
+            const packageId = `${packageEntry.packageId}${packageEntry.provider ? "*" : ""}${providerRequirementSuffix}`;
             const description = String(packageEntry.description || "").trim();
             if (description.length > 0) {
               stdout.write(`  - ${packageId}: ${gray(description)}\n`);
@@ -1696,7 +1750,11 @@ function formatResult(result, { json, stdout }) {
         if (result.full) {
           stdout.write(`  packages (${entry.packages.length}):\n`);
           for (const packageEntry of entry.packageEntries || []) {
-            const packageId = `${packageEntry.packageId}${packageEntry.provider ? "*" : ""}`;
+            const providerRequirementSuffix =
+              Array.isArray(packageEntry.providerRequirementHints) && packageEntry.providerRequirementHints.length > 0
+                ? ` [${packageEntry.providerRequirementHints.join(", ")}]`
+                : "";
+            const packageId = `${packageEntry.packageId}${packageEntry.provider ? "*" : ""}${providerRequirementSuffix}`;
             const description = String(packageEntry.description || "").trim();
             if (description.length > 0) {
               stdout.write(`  - ${packageId}: ${gray(description)}\n`);

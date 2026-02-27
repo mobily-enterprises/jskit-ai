@@ -8,7 +8,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
-const SHELL_BUNDLES = ["core-shell", "web-shell", "api-shell"];
+const SHELL_BUNDLES = ["core-shell", "web-shell", "api-foundations"];
 
 function runCli({ cwd, args = [] }) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {

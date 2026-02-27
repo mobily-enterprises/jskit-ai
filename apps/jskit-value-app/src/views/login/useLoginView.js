@@ -2,7 +2,6 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useNavigate } from "@tanstack/vue-router";
 import { useMutation } from "@tanstack/vue-query";
 import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";
-import { appOAuthProviders } from "../../modules/auth/oauthProviders.js";
 import { api } from "../../platform/http/api/index.js";
 import { useAuthStore } from "../../app/state/authStore.js";
 import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
@@ -36,7 +35,9 @@ export function useLoginView() {
   const useRememberedAccount = ref(false);
   const oauthCallbackInFlight = ref(false);
 
-  const oauthProviders = appOAuthProviders;
+  const oauthProviders = computed(() =>
+    Array.isArray(authStore.oauthProviders) ? authStore.oauthProviders : []
+  );
 
   const registerMutation = useMutation({
     mutationFn: (payload) => api.auth.register(payload)
@@ -126,6 +127,8 @@ export function useLoginView() {
     rememberedAccount,
     useRememberedAccount,
     oauthCallbackInFlight,
+    oauthProviders,
+    oauthDefaultProvider: computed(() => authStore.oauthDefaultProvider),
     isRegister,
     isForgot,
     isOtp,

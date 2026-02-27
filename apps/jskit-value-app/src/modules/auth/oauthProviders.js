@@ -1,65 +1,106 @@
-import {
-  AUTH_OAUTH_DEFAULT_PROVIDER,
-  AUTH_OAUTH_PROVIDER_METADATA,
-  AUTH_OAUTH_PROVIDERS,
-  normalizeOAuthProvider
-} from "@jskit-ai/access-core/oauthProviders";
+import { normalizeOAuthProviderId } from "@jskit-ai/access-core/oauthProviders";
 
-function parseConfiguredProviderList(rawValue) {
-  if (rawValue == null) {
-    return [];
+const APP_DEFAULT_OAUTH_PROVIDERS = Object.freeze([
+  Object.freeze({
+    id: "google",
+    label: "Google"
+  })
+]);
+
+function normalizeProviderLabel(value, fallback) {
+  const normalized = String(value || "").trim();
+  if (normalized.length > 0) {
+    return normalized;
   }
 
-  return String(rawValue)
-    .split(",")
-    .map((entry) => normalizeOAuthProvider(entry, { fallback: null }))
-    .filter(Boolean);
+  return String(fallback || "OAuth provider");
 }
 
-function resolveEnabledProviderIds() {
-  const configuredIds = parseConfiguredProviderList(import.meta?.env?.VITE_ENABLED_OAUTH_PROVIDERS);
-  if (configuredIds.length < 1) {
-    return [...AUTH_OAUTH_PROVIDERS];
-  }
+function normalizeOAuthProviderCatalog(catalog, { fallback = APP_DEFAULT_OAUTH_PROVIDERS } = {}) {
+  const source = Array.isArray(catalog) ? catalog : [];
+  const normalizedProviders = [];
 
-  const allowed = new Set(configuredIds);
-  const ordered = AUTH_OAUTH_PROVIDERS.filter((providerId) => allowed.has(providerId));
-  return ordered.length > 0 ? ordered : [AUTH_OAUTH_DEFAULT_PROVIDER];
-}
-
-const APP_OAUTH_PROVIDER_IDS = Object.freeze(resolveEnabledProviderIds());
-
-const APP_OAUTH_PROVIDER_METADATA = Object.freeze(
-  APP_OAUTH_PROVIDER_IDS.reduce((accumulator, providerId) => {
-    const metadata = AUTH_OAUTH_PROVIDER_METADATA[providerId];
-    if (metadata) {
-      accumulator[providerId] = metadata;
+  for (const entry of source) {
+    const providerId = normalizeOAuthProviderId(entry?.id ?? entry, { fallback: null });
+    if (!providerId || normalizedProviders.some((provider) => provider.id === providerId)) {
+      continue;
     }
-    return accumulator;
-  }, {})
-);
 
-const APP_OAUTH_DEFAULT_PROVIDER = APP_OAUTH_PROVIDER_IDS.includes(AUTH_OAUTH_DEFAULT_PROVIDER)
-  ? AUTH_OAUTH_DEFAULT_PROVIDER
-  : APP_OAUTH_PROVIDER_IDS[0] || AUTH_OAUTH_DEFAULT_PROVIDER;
-
-function normalizeAppOAuthProvider(value, { fallback = APP_OAUTH_DEFAULT_PROVIDER } = {}) {
-  const normalized = normalizeOAuthProvider(value, { fallback: null });
-  if (!normalized || !APP_OAUTH_PROVIDER_IDS.includes(normalized)) {
-    return fallback || null;
+    normalizedProviders.push(
+      Object.freeze({
+        id: providerId,
+        label: normalizeProviderLabel(entry?.label, providerId)
+      })
+    );
   }
 
-  return normalized;
+  if (normalizedProviders.length > 0) {
+    return Object.freeze(normalizedProviders);
+  }
+
+  if (!Array.isArray(fallback) || fallback.length < 1) {
+    return Object.freeze([]);
+  }
+
+  if (fallback === catalog) {
+    return Object.freeze([]);
+  }
+
+  return normalizeOAuthProviderCatalog(fallback, { fallback: [] });
 }
 
-const appOAuthProviders = Object.freeze(
-  APP_OAUTH_PROVIDER_IDS.map((providerId) => APP_OAUTH_PROVIDER_METADATA[providerId]).filter(Boolean)
-);
+function normalizeAppOAuthProvider(value, options = {}) {
+  const providersInput = Object.prototype.hasOwnProperty.call(options, "providers")
+    ? options.providers
+    : APP_DEFAULT_OAUTH_PROVIDERS;
+  const providerCatalog = normalizeOAuthProviderCatalog(providersInput, { fallback: [] });
+  if (providerCatalog.length < 1) {
+    return null;
+  }
+
+  const normalizedProvider = normalizeOAuthProviderId(value, { fallback: null });
+  if (normalizedProvider && providerCatalog.some((provider) => provider.id === normalizedProvider)) {
+    return normalizedProvider;
+  }
+
+  const fallback = Object.prototype.hasOwnProperty.call(options, "fallback")
+    ? options.fallback
+    : providerCatalog[0]?.id || null;
+  const normalizedFallback = normalizeOAuthProviderId(fallback, {
+    fallback: null
+  });
+  if (!normalizedFallback) {
+    return null;
+  }
+
+  return providerCatalog.some((provider) => provider.id === normalizedFallback) ? normalizedFallback : null;
+}
+
+function buildAppOAuthProviderMetadata(providers = APP_DEFAULT_OAUTH_PROVIDERS) {
+  const providerCatalog = normalizeOAuthProviderCatalog(providers, { fallback: [] });
+  return Object.freeze(
+    providerCatalog.reduce((accumulator, provider) => {
+      accumulator[provider.id] = provider;
+      return accumulator;
+    }, {})
+  );
+}
+
+const appOAuthProviders = normalizeOAuthProviderCatalog(APP_DEFAULT_OAUTH_PROVIDERS);
+const APP_OAUTH_PROVIDER_IDS = Object.freeze(appOAuthProviders.map((provider) => provider.id));
+const APP_OAUTH_PROVIDER_METADATA = buildAppOAuthProviderMetadata(appOAuthProviders);
+const APP_OAUTH_DEFAULT_PROVIDER = normalizeAppOAuthProvider(null, {
+  providers: appOAuthProviders,
+  fallback: APP_OAUTH_PROVIDER_IDS[0] || null
+});
 
 export {
+  APP_DEFAULT_OAUTH_PROVIDERS,
   APP_OAUTH_PROVIDER_METADATA,
   APP_OAUTH_PROVIDER_IDS,
   APP_OAUTH_DEFAULT_PROVIDER,
   appOAuthProviders,
-  normalizeAppOAuthProvider
+  normalizeOAuthProviderCatalog,
+  normalizeAppOAuthProvider,
+  buildAppOAuthProviderMetadata
 };

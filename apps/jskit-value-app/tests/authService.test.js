@@ -243,59 +243,96 @@ test("authService helpers cover validation, mapping, URL parsing, and jwt classi
   );
   assert.throws(() => __testables.buildPasswordResetRedirectUrl({ appPublicUrl: "" }), /APP_PUBLIC_URL is required/);
   assert.equal(
-    __testables.buildOAuthLoginRedirectUrl({ appPublicUrl: "http://localhost:5173/app", provider: "google" }),
+    __testables.buildOAuthLoginRedirectUrl({
+      appPublicUrl: "http://localhost:5173/app",
+      provider: "google",
+      providerIds: ["google"]
+    }),
     "http://localhost:5173/app/login?oauthProvider=google&oauthIntent=login&oauthReturnTo=%2F"
   );
-  assert.throws(() => __testables.buildOAuthLoginRedirectUrl({ appPublicUrl: "", provider: "google" }), /required/);
   assert.throws(
-    () => __testables.buildOAuthLoginRedirectUrl({ appPublicUrl: "http://localhost:5173", provider: "x" }),
+    () =>
+      __testables.buildOAuthLoginRedirectUrl({
+        appPublicUrl: "",
+        provider: "google",
+        providerIds: ["google"]
+      }),
+    /required/
+  );
+  assert.throws(
+    () =>
+      __testables.buildOAuthLoginRedirectUrl({
+        appPublicUrl: "http://localhost:5173",
+        provider: "x",
+        providerIds: ["google"]
+      }),
     /one of/
   );
 
-  const parsedOAuthCode = __testables.parseOAuthCompletePayload({
-    provider: "google",
-    code: "oauth-code"
-  });
+  const oauthCatalogOptions = {
+    providerIds: ["google"],
+    defaultProvider: "google"
+  };
+
+  const parsedOAuthCode = __testables.parseOAuthCompletePayload(
+    {
+      provider: "google",
+      code: "oauth-code"
+    },
+    oauthCatalogOptions
+  );
   assert.equal(parsedOAuthCode.provider, "google");
   assert.equal(parsedOAuthCode.code, "oauth-code");
   assert.equal(parsedOAuthCode.hasSessionPair, false);
   assert.equal(Object.keys(parsedOAuthCode.fieldErrors).length, 0);
 
-  const parsedOAuthPair = __testables.parseOAuthCompletePayload({
-    provider: "google",
-    accessToken: "oauth-access",
-    refreshToken: "oauth-refresh"
-  });
+  const parsedOAuthPair = __testables.parseOAuthCompletePayload(
+    {
+      provider: "google",
+      accessToken: "oauth-access",
+      refreshToken: "oauth-refresh"
+    },
+    oauthCatalogOptions
+  );
   assert.equal(parsedOAuthPair.hasSessionPair, true);
   assert.equal(parsedOAuthPair.accessToken, "oauth-access");
   assert.equal(parsedOAuthPair.refreshToken, "oauth-refresh");
   assert.equal(Object.keys(parsedOAuthPair.fieldErrors).length, 0);
 
-  const parsedOAuthPairMissing = __testables.parseOAuthCompletePayload({
-    provider: "google",
-    accessToken: "oauth-access"
-  });
+  const parsedOAuthPairMissing = __testables.parseOAuthCompletePayload(
+    {
+      provider: "google",
+      accessToken: "oauth-access"
+    },
+    oauthCatalogOptions
+  );
   assert.equal(
     parsedOAuthPairMissing.fieldErrors.refreshToken,
     "Refresh token is required when an access token is provided."
   );
 
-  const parsedOAuthMissing = __testables.parseOAuthCompletePayload({
-    provider: "google"
-  });
+  const parsedOAuthMissing = __testables.parseOAuthCompletePayload(
+    {
+      provider: "google"
+    },
+    oauthCatalogOptions
+  );
   assert.equal(
     parsedOAuthMissing.fieldErrors.code,
     "OAuth code is required when access/refresh tokens are not provided."
   );
 
-  const parsedOAuthSnakeCase = __testables.parseOAuthCompletePayload({
-    provider: "google",
-    access_token: "oauth-access",
-    refresh_token: "oauth-refresh",
-    error_description: "oauth-description"
-  });
+  const parsedOAuthSnakeCase = __testables.parseOAuthCompletePayload(
+    {
+      provider: "google",
+      access_token: "oauth-access",
+      refresh_token: "oauth-refresh",
+      error_description: "oauth-description"
+    },
+    oauthCatalogOptions
+  );
   assert.equal(parsedOAuthSnakeCase.hasSessionPair, false);
-  assert.equal(parsedOAuthSnakeCase.errorDescription, "");
+  assert.equal(parsedOAuthSnakeCase.errorDescription, "oauth-description");
   assert.equal(
     parsedOAuthSnakeCase.fieldErrors.code,
     "OAuth code is required when access/refresh tokens are not provided."
@@ -339,6 +376,7 @@ test("authService helpers cover validation, mapping, URL parsing, and jwt classi
   assert.deepEqual([...collectedProviderIds].sort(), ["email", "github", "google"]);
 
   const authMethodsStatus = __testables.buildAuthMethodsStatusFromProviderIds(["email", "google"], {
+    oauthProviders: [{ id: "google", label: "Google" }],
     passwordSignInEnabled: false,
     passwordSetupRequired: true
   });
