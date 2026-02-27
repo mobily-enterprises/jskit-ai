@@ -6,8 +6,6 @@ export default Object.freeze({
   "packages": [
     "@jskit-ai/social-contracts",
     "@jskit-ai/social-core",
-    "@jskit-ai/social-knex-mysql",
-    "@jskit-ai/social-fastify-adapter",
     "@jskit-ai/social-client-runtime"
   ]
 });

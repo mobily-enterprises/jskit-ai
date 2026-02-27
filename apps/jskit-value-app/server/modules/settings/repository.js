@@ -1,6 +1,6 @@
 import { db } from "../../../db/knex.js";
-import { toIsoString, toMysqlDateTimeUtc } from "@jskit-ai/knex-mysql-core/dateUtils";
-import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
+import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
+import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 
 function mapUserSettingsRowRequired(row) {
   if (!row) {
@@ -98,7 +98,7 @@ function buildNotificationsUpdatePatch(patch) {
 function withUpdatedAt(patch, now = new Date()) {
   return {
     ...patch,
-    updated_at: toMysqlDateTimeUtc(now)
+    updated_at: toDatabaseDateTimeUtc(now)
   };
 }
 
@@ -124,7 +124,7 @@ function createUserSettingsRepository(dbClient) {
     try {
       await client("user_settings").insert({ user_id: userId });
     } catch (error) {
-      if (!isMysqlDuplicateEntryError(error)) {
+      if (!isDuplicateEntryError(error)) {
         throw error;
       }
     }
@@ -228,7 +228,7 @@ function createUserSettingsRepository(dbClient) {
 const repository = createUserSettingsRepository(db);
 
 const __testables = {
-  isMysqlDuplicateEntryError,
+  isDuplicateEntryError,
   mapUserSettingsRowRequired,
   mapUserSettingsRowNullable,
   buildPreferencesUpdatePatch,

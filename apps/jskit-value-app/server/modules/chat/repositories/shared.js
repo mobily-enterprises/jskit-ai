@@ -9,4 +9,4 @@ export {
   parseJsonObject,
   resolveClient,
   stringifyJsonObject
-} from "@jskit-ai/chat-knex-mysql/repositories/shared";
+} from "@jskit-ai/chat-core/repositories/shared";

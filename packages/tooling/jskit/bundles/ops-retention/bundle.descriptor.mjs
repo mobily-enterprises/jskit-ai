@@ -3,6 +3,7 @@ export default Object.freeze({
   "bundleId": "ops-retention",
   "version": "0.1.0",
   "description": "Operational retention workers and Redis queue support.",
+  "curated": 1,
   "packages": [
     "@jskit-ai/redis-ops-core",
     "@jskit-ai/retention-core"

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { hasPermission, manifestIncludesPermission, resolveRolePermissions } from "@jskit-ai/rbac-core";
 import { AppError as SharedAppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
-import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
+import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 import { toCanonicalJson, toSha256Hex } from "./canonicalJson.js";
 
 const IDEMPOTENCY_VERSION = 1;
@@ -731,7 +731,7 @@ function buildAttachmentContentDisposition(fileName, mimeType) {
 }
 
 function isClientMessageDuplicateConflict(error) {
-  if (!isMysqlDuplicateEntryError(error)) {
+  if (!isDuplicateEntryError(error)) {
     return false;
   }
 
@@ -1462,7 +1462,7 @@ function createService({
           );
           created = true;
         } catch (error) {
-          if (!isMysqlDuplicateEntryError(error)) {
+          if (!isDuplicateEntryError(error)) {
             throw error;
           }
 
@@ -1515,7 +1515,7 @@ function createService({
               scopedOptions
             );
           } catch (error) {
-            if (!isMysqlDuplicateEntryError(error)) {
+            if (!isDuplicateEntryError(error)) {
               throw error;
             }
           }
@@ -1643,7 +1643,7 @@ function createService({
         await chatParticipantsRepository.upsertDmParticipants(inserted.id, [actorUserId, targetUserId], scopedOptions);
         return inserted;
       } catch (error) {
-        if (!isMysqlDuplicateEntryError(error)) {
+        if (!isDuplicateEntryError(error)) {
           throw error;
         }
 
@@ -1955,7 +1955,7 @@ function createService({
         storageDriver: chatAttachmentStorageService.driver
       });
     } catch (error) {
-      if (!isMysqlDuplicateEntryError(error)) {
+      if (!isDuplicateEntryError(error)) {
         throw error;
       }
 

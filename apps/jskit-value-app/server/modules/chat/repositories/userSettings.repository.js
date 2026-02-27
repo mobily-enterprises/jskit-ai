@@ -1,5 +1,5 @@
 import { db } from "../../../../db/knex.js";
-import { createRepository, __testables } from "@jskit-ai/chat-knex-mysql/repositories/userSettings";
+import { createRepository, __testables } from "@jskit-ai/chat-core/repositories/userSettings";
 
 const repository = createRepository(db);
 

@@ -1,5 +1,5 @@
 import { db } from "../../../../db/knex.js";
-import { createRepository as createSocialKnexRepository, socialRepositoryTestables } from "@jskit-ai/social-knex-mysql";
+import { createRepository as createSocialKnexRepository, socialRepositoryTestables } from "@jskit-ai/social-core";
 
 const repository = createSocialKnexRepository(db);
 

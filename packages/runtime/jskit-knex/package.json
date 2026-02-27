@@ -1,0 +1,17 @@
+{
+  "name": "@jskit-ai/jskit-knex",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/shared/index.js",
+    "./dateUtils": "./src/shared/dateUtils.js",
+    "./errors": "./src/shared/errors.js",
+    "./retention": "./src/shared/retention.js",
+    "./json": "./src/shared/json.js",
+    "./dialect": "./src/shared/dialect.js"
+  }
+}

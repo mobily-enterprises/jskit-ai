@@ -5,7 +5,6 @@ export default Object.freeze({
   "description": "Observability core, server adapter, and console client element.",
   "packages": [
     "@jskit-ai/observability-core",
-    "@jskit-ai/observability-fastify-adapter",
     "@jskit-ai/console-errors-client-element"
   ]
 });

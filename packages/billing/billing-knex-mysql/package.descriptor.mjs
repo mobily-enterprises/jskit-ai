@@ -4,7 +4,7 @@ export default Object.freeze({
   "version": "0.1.0",
   "dependsOn": [
     "@jskit-ai/entitlements-knex-mysql",
-    "@jskit-ai/knex-mysql-core",
+    "@jskit-ai/jskit-knex",
     "@jskit-ai/billing-core"
   ],
   "capabilities": {
@@ -21,7 +21,7 @@ export default Object.freeze({
     "dependencies": {
       "runtime": {
         "@jskit-ai/entitlements-knex-mysql": "0.1.0",
-        "@jskit-ai/knex-mysql-core": "0.1.0"
+        "@jskit-ai/jskit-knex": "0.1.0"
       },
       "dev": {}
     },

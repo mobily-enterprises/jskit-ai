@@ -3,4 +3,4 @@ export {
   writeNdjson,
   endNdjson,
   safeStreamError
-} from "@jskit-ai/assistant-fastify-adapter";
+} from "@jskit-ai/assistant-core";

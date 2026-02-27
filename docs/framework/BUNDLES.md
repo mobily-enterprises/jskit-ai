@@ -24,7 +24,7 @@ This catalog documents each bundle in `packages/tooling/jskit/packs` with purpos
 - Conflict notes:
   - No known hard conflicts beyond capability requirements.
 
-## assistant-base
+## assistant
 
 - Purpose: Assistant runtime, API adapter, and transcript persistence base.
 - Included packages:
@@ -32,11 +32,10 @@ This catalog documents each bundle in `packages/tooling/jskit/packs` with purpos
   - `@jskit-ai/assistant-client-runtime`
   - `@jskit-ai/assistant-contracts`
   - `@jskit-ai/assistant-core`
-  - `@jskit-ai/assistant-fastify-adapter`
   - `@jskit-ai/assistant-transcript-explorer-client-element`
   - `@jskit-ai/assistant-transcripts-core`
-  - `@jskit-ai/assistant-transcripts-knex-mysql`
 - Required capabilities:
+  - `assistant.provider`
   - `assistant.client-runtime`
   - `assistant.core`
   - `assistant.transcripts.core`
@@ -47,33 +46,20 @@ This catalog documents each bundle in `packages/tooling/jskit/packs` with purpos
 - Options:
   - None
 - Conflict notes:
+  - Requires assistant provider capability from `assistant-openai` or another provider bundle.
   - Requires db provider capability from `db` or another provider bundle.
 
 ## assistant-openai
 
-- Purpose: Assistant base plus OpenAI provider integration.
+- Purpose: OpenAI provider for assistant capability.
 - Included packages:
-  - `@jskit-ai/assistant-client-element`
-  - `@jskit-ai/assistant-client-runtime`
-  - `@jskit-ai/assistant-contracts`
-  - `@jskit-ai/assistant-core`
-  - `@jskit-ai/assistant-fastify-adapter`
   - `@jskit-ai/assistant-provider-openai`
-  - `@jskit-ai/assistant-transcript-explorer-client-element`
-  - `@jskit-ai/assistant-transcripts-core`
-  - `@jskit-ai/assistant-transcripts-knex-mysql`
 - Required capabilities:
-  - `assistant.client-runtime`
-  - `assistant.core`
-  - `assistant.transcripts.core`
-  - `contracts.assistant`
-  - `contracts.http`
-  - `db-provider`
-  - `runtime.server`
+  - None
 - Options:
   - None
 - Conflict notes:
-  - Requires db provider capability from `db` or another provider bundle.
+  - Provides `assistant.provider` and `assistant.provider.openai`.
 
 ## auth-base
 
@@ -608,4 +594,3 @@ This catalog documents each bundle in `packages/tooling/jskit/packs` with purpos
 - Conflict notes:
   - Requires db provider capability from `db` or another provider bundle.
   - Requires auth capability providers such as `auth-base`.
-

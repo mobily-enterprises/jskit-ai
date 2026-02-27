@@ -4,7 +4,7 @@ export default Object.freeze({
   "version": "0.1.0",
   "dependsOn": [
     "@jskit-ai/entitlements-core",
-    "@jskit-ai/knex-mysql-core"
+    "@jskit-ai/jskit-knex"
   ],
   "capabilities": {
     "provides": [

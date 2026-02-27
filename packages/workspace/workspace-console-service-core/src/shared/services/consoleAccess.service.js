@@ -1,6 +1,6 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
-import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
+import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 import { mapMembershipSummary } from "../mappers/consoleMappers.js";
 import { CONSOLE_ROLE_ID, hasPermission, normalizeRoleId, resolveRolePermissions } from "@jskit-ai/workspace-console-core/consoleRoles";
 
@@ -103,7 +103,7 @@ function createConsoleAccessService({
         await consoleRootRepository.assignRootUserIdIfUnset(numericUserId, transactionOptions);
         return membership;
       } catch (error) {
-        if (!isMysqlDuplicateEntryError(error)) {
+        if (!isDuplicateEntryError(error)) {
           throw error;
         }
       }

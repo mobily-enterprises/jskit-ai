@@ -3,7 +3,7 @@ export default Object.freeze({
   packageId: "@jskit-ai/db-mysql",
   version: "0.1.0",
   description: "MySQL db-provider package for JSKIT database capability.",
-  dependsOn: [],
+  dependsOn: ["@jskit-ai/jskit-knex-mysql"],
   capabilities: {
     provides: ["db-provider"],
     requires: []

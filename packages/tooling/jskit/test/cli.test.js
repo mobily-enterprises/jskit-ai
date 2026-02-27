@@ -73,6 +73,56 @@ test("jskit list shows built-in db bundles", async () => {
   });
 });
 
+test("jskit list bundles defaults to curated list and list bundles all shows full catalog", async () => {
+  await withTempApp(async (appRoot) => {
+    const curated = runCli({
+      cwd: appRoot,
+      args: ["list", "bundles"]
+    });
+    assert.equal(curated.status, 0, curated.stderr);
+    assert.match(curated.stdout, /db-mysql \(0\.2\.0\)/);
+    assert.doesNotMatch(curated.stdout, /api-shell \(0\.1\.0\)/);
+
+    const allBundles = runCli({
+      cwd: appRoot,
+      args: ["list", "bundles", "all"]
+    });
+    assert.equal(allBundles.status, 0, allBundles.stderr);
+    assert.match(allBundles.stdout, /api-shell \(0\.1\.0\)/);
+    assert.match(allBundles.stdout, /db-postgres \(0\.2\.0\)/);
+  });
+});
+
+test("jskit list bundles --full prints package ids per bundle", async () => {
+  await withTempApp(async (appRoot) => {
+    const result = runCli({
+      cwd: appRoot,
+      args: ["list", "bundles", "--full"]
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /packages \(\d+\):/);
+    assert.match(result.stdout, /@jskit-ai\/db-mysql\*/);
+    assert.match(result.stdout, /@jskit-ai\/db-mysql\*: MySQL db-provider package/i);
+    assert.match(result.stdout, /@jskit-ai\/jskit-knex: Capabilities: db\.core\./i);
+    assert.match(result.stdout, /\* provider package/i);
+  });
+});
+
+test("jskit show bundle prints full package list", async () => {
+  await withTempApp(async (appRoot) => {
+    const result = runCli({
+      cwd: appRoot,
+      args: ["show", "bundle", "db-mysql"]
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Bundle db-mysql \(0\.2\.0\)/);
+    assert.match(result.stdout, /Packages \(3\):/);
+    assert.match(result.stdout, /@jskit-ai\/db-mysql/);
+    assert.match(result.stdout, /@jskit-ai\/jskit-knex/);
+    assert.match(result.stdout, /@jskit-ai\/jskit-knex-mysql/);
+  });
+});
+
 test("jskit add bundle db-mysql applies package-owned mutations", async () => {
   await withTempApp(async (appRoot) => {
     const addResult = runCli({
@@ -82,8 +132,10 @@ test("jskit add bundle db-mysql applies package-owned mutations", async () => {
 
     assert.equal(addResult.status, 0, addResult.stderr);
     assert.match(addResult.stdout, /Added bundle db-mysql/);
-    assert.match(addResult.stdout, /Resolved packages \(1\)/);
+    assert.match(addResult.stdout, /Resolved packages \(3\)/);
     assert.match(addResult.stdout, /db-mysql/);
+    assert.match(addResult.stdout, /jskit-knex/);
+    assert.match(addResult.stdout, /jskit-knex-mysql/);
 
     const packageJson = await readJsonFile(path.join(appRoot, "package.json"));
     assert.equal(
@@ -214,7 +266,7 @@ test("doctor reports missing managed file drift", async () => {
   });
 });
 
-test("remove package cleans lock when last package is removed", async () => {
+test("remove package fails when removal leaves required provider capability unresolved", async () => {
   await withTempApp(async (appRoot) => {
     const addDb = runCli({
       cwd: appRoot,
@@ -226,8 +278,10 @@ test("remove package cleans lock when last package is removed", async () => {
       cwd: appRoot,
       args: ["remove", "package", "@jskit-ai/db-mysql"]
     });
-    assert.equal(removeDb.status, 0, removeDb.stderr);
+    assert.notEqual(removeDb.status, 0);
+    assert.match(removeDb.stderr, /\[capability-violation\]/);
+    assert.match(removeDb.stderr, /db-provider/i);
 
-    await assert.rejects(access(path.join(appRoot, ".jskit/lock.json")), /ENOENT/);
+    await access(path.join(appRoot, ".jskit/lock.json"));
   });
 });

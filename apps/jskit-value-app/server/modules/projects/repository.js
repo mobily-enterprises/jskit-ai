@@ -1,5 +1,5 @@
 import { db } from "../../../db/knex.js";
-import { toIsoString, toMysqlDateTimeUtc } from "@jskit-ai/knex-mysql-core/dateUtils";
+import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 
 const PROJECT_STATUS_SET = new Set(["draft", "active", "archived"]);
 
@@ -72,8 +72,8 @@ function createProjectsRepository(dbClient) {
       status: normalizeStatus(payload.status),
       owner: payload.owner || "",
       notes: payload.notes || "",
-      created_at: toMysqlDateTimeUtc(payload.createdAt ? new Date(payload.createdAt) : now),
-      updated_at: toMysqlDateTimeUtc(payload.updatedAt ? new Date(payload.updatedAt) : now)
+      created_at: toDatabaseDateTimeUtc(payload.createdAt ? new Date(payload.createdAt) : now),
+      updated_at: toDatabaseDateTimeUtc(payload.updatedAt ? new Date(payload.updatedAt) : now)
     });
 
     const row = await client("workspace_projects").where({ id, workspace_id: workspaceId }).first();
@@ -140,7 +140,7 @@ function createProjectsRepository(dbClient) {
     }
 
     if (Object.keys(dbPatch).length > 0) {
-      dbPatch.updated_at = toMysqlDateTimeUtc(new Date());
+      dbPatch.updated_at = toDatabaseDateTimeUtc(new Date());
       await client("workspace_projects").where({ id: projectId, workspace_id: workspaceId }).update(dbPatch);
     }
 

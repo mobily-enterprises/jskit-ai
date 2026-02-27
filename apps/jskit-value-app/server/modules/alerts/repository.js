@@ -1,5 +1,5 @@
 import { db } from "../../../db/knex.js";
-import { toIsoString, toMysqlDateTimeUtc } from "@jskit-ai/knex-mysql-core/dateUtils";
+import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 
 function normalizeCount(row) {
   const values = Object.values(row || {});
@@ -109,7 +109,7 @@ function createAlertsRepository(dbClient) {
       payload_json: alertInput.payloadJson == null ? null : alertInput.payloadJson,
       actor_user_id: normalizePositiveInteger(alertInput.actorUserId),
       workspace_id: normalizePositiveInteger(alertInput.workspaceId),
-      created_at: toMysqlDateTimeUtc(alertInput.createdAt ? new Date(alertInput.createdAt) : now)
+      created_at: toDatabaseDateTimeUtc(alertInput.createdAt ? new Date(alertInput.createdAt) : now)
     });
 
     const row = await client("user_alerts").where({ id }).first();
@@ -162,7 +162,7 @@ function createAlertsRepository(dbClient) {
 
   async function repoUpsertReadStateForUser(userId, readThroughAlertId, options = {}) {
     const client = resolveClient(options);
-    const now = toMysqlDateTimeUtc(new Date());
+    const now = toDatabaseDateTimeUtc(new Date());
     const normalizedReadThroughAlertId = normalizePositiveInteger(readThroughAlertId);
 
     await client("user_alert_states")

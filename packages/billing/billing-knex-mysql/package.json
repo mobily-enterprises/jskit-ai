@@ -12,6 +12,6 @@
   },
   "dependencies": {
     "@jskit-ai/entitlements-knex-mysql": "0.1.0",
-    "@jskit-ai/knex-mysql-core": "0.1.0"
+    "@jskit-ai/jskit-knex": "0.1.0"
   }
 }

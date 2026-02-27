@@ -107,6 +107,7 @@ function parseArgs(argv) {
   const options = {
     dryRun: false,
     noInstall: false,
+    full: false,
     json: false,
     all: false,
     help: false,
@@ -124,6 +125,10 @@ function parseArgs(argv) {
     }
     if (token === "--no-install") {
       options.noInstall = true;
+      continue;
+    }
+    if (token === "--full") {
+      options.full = true;
       continue;
     }
     if (token === "--json") {
@@ -188,10 +193,11 @@ function parseArgs(argv) {
 function printUsage(stream = process.stderr) {
   stream.write("Usage: jskit <command> [options]\n\n");
   stream.write("Commands:\n");
-  stream.write("  list [bundles|packages]   List available bundles/packages and installed status\n");
+  stream.write("  list [bundles [all]|packages] List available bundles/packages and installed status\n");
   stream.write("  lint-descriptors          Validate bundle/package descriptor files\n");
   stream.write("  add bundle <bundleId>     Add one bundle (bundle is a package shortcut)\n");
   stream.write("  add package <packageId>   Add one package to current app\n");
+  stream.write("  show bundle <bundleId>    Show bundle details (including package list)\n");
   stream.write("  update package <packageId> Re-apply one installed package\n");
   stream.write("  remove package <packageId> Remove one installed package\n");
   stream.write("  doctor                    Validate lockfile + managed files\n");
@@ -199,6 +205,7 @@ function printUsage(stream = process.stderr) {
   stream.write("Options:\n");
   stream.write("  --dry-run                 Print planned changes only\n");
   stream.write("  --no-install              Skip npm install during add/update\n");
+  stream.write("  --full                    Expand bundle lists with full package ids\n");
   stream.write("  --<option> <value>        Package option (for packages requiring input)\n");
   stream.write("  --json                    Print structured output\n");
   stream.write("  -h, --help                Show help\n");
@@ -934,32 +941,149 @@ function buildBundleMetadata(bundleDescriptor, availablePackages) {
     }
   }
 
+  function isProviderCapability(capabilityId) {
+    const normalized = String(capabilityId || "").trim();
+    if (!normalized) {
+      return false;
+    }
+    if (normalized === "db-provider") {
+      return true;
+    }
+    if (normalized.endsWith(".provider")) {
+      return true;
+    }
+    if (normalized.includes(".provider.")) {
+      return true;
+    }
+    return false;
+  }
+
+  function isProviderPackage(packageEntry) {
+    if (!packageEntry) {
+      return false;
+    }
+    return (packageEntry.descriptor.capabilities.provides || []).some((capabilityId) =>
+      isProviderCapability(capabilityId)
+    );
+  }
+
+  function buildPackageExplanation(packageId) {
+    const packageEntry = availablePackages.get(packageId);
+    if (!packageEntry) {
+      return "No package description.";
+    }
+
+    const explicitDescription = String(packageEntry.descriptor.description || "").trim();
+    if (explicitDescription.length > 0) {
+      return explicitDescription;
+    }
+
+    const provided = toSortedUniqueStrings(packageEntry.descriptor.capabilities.provides || []);
+    if (provided.length > 0) {
+      const preview = provided.slice(0, 3).join(", ");
+      return provided.length > 3 ? `Capabilities: ${preview}, ...` : `Capabilities: ${preview}.`;
+    }
+
+    const required = toSortedUniqueStrings(packageEntry.descriptor.capabilities.requires || []);
+    if (required.length > 0) {
+      const preview = required.slice(0, 3).join(", ");
+      return required.length > 3 ? `Requires: ${preview}, ...` : `Requires: ${preview}.`;
+    }
+
+    return "No package description.";
+  }
+
   return {
     packageCount: resolvedPackageIds.length,
     packages: resolvedPackageIds,
+    packageEntries: resolvedPackageIds.map((packageId) => {
+      const packageEntry = availablePackages.get(packageId);
+      return {
+        packageId,
+        provider: isProviderPackage(packageEntry),
+        description: buildPackageExplanation(packageId)
+      };
+    }),
     requiredCapabilities: [...requiredCapabilities].sort((left, right) => left.localeCompare(right)),
     providedCapabilities: [...providedCapabilities].sort((left, right) => left.localeCompare(right))
   };
 }
 
-function isProviderCapability(capabilityId) {
+function getProviderFamilyFromOptionCapability(capabilityId) {
   const normalized = String(capabilityId || "").trim();
   if (!normalized) {
-    return false;
+    return null;
   }
 
-  return normalized === "db-provider" || normalized.endsWith(".provider") || normalized.includes(".provider.");
+  const marker = ".provider.";
+  const markerIndex = normalized.indexOf(marker);
+  if (markerIndex < 1) {
+    return null;
+  }
+
+  return `${normalized.slice(0, markerIndex)}.provider`;
 }
 
-function splitBundleEntriesByProviderRole(bundleEntries) {
+function buildProviderChoiceContext(availablePackages) {
+  const dbProviderPackages = new Set();
+  const optionProvidersByFamily = new Map();
+
+  for (const packageEntry of availablePackages.values()) {
+    const packageId = packageEntry.descriptor.packageId;
+    for (const capabilityId of packageEntry.descriptor.capabilities.provides) {
+      if (capabilityId === "db-provider") {
+        dbProviderPackages.add(packageId);
+      }
+
+      const family = getProviderFamilyFromOptionCapability(capabilityId);
+      if (!family) {
+        continue;
+      }
+      if (!optionProvidersByFamily.has(family)) {
+        optionProvidersByFamily.set(family, new Set());
+      }
+      optionProvidersByFamily.get(family).add(packageId);
+    }
+  }
+
+  const choiceProviderFamilies = new Set();
+  for (const [family, providerPackages] of optionProvidersByFamily.entries()) {
+    if (providerPackages.size > 1) {
+      choiceProviderFamilies.add(family);
+    }
+  }
+
+  return {
+    hasDbProviderChoice: dbProviderPackages.size > 1,
+    choiceProviderFamilies
+  };
+}
+
+function isProviderBundleEntry(bundleEntry, providerChoiceContext) {
+  if (bundleEntry.provider === 1) {
+    return true;
+  }
+
+  for (const capabilityId of bundleEntry.providedCapabilities || []) {
+    if (capabilityId === "db-provider" && providerChoiceContext?.hasDbProviderChoice) {
+      return true;
+    }
+
+    const family = getProviderFamilyFromOptionCapability(capabilityId);
+    if (family && providerChoiceContext?.choiceProviderFamilies?.has(family)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function splitBundleEntriesByProviderRole(bundleEntries, providerChoiceContext) {
   const providerBundles = [];
   const standardBundles = [];
 
   for (const entry of bundleEntries) {
-    const providesProviderCapability = (entry.providedCapabilities || []).some((capabilityId) =>
-      isProviderCapability(capabilityId)
-    );
-    if (providesProviderCapability) {
+    if (isProviderBundleEntry(entry, providerChoiceContext)) {
       providerBundles.push(entry);
       continue;
     }
@@ -1531,6 +1655,17 @@ async function validateDoctor({ appRoot, lock, availableBundles, availablePackag
 }
 
 function formatResult(result, { json, stdout }) {
+  const supportsColor = Boolean(stdout?.isTTY) && !process.env.NO_COLOR;
+  const gray = (text) => (supportsColor ? `\x1b[90m${text}\x1b[0m` : text);
+
+  function formatBundleLine(entry) {
+    const installedSuffix = entry.installed ? " [installed]" : "";
+    const description = String(entry.description || "").trim();
+    return description.length > 0
+      ? `- ${entry.bundleId} (${entry.version})${installedSuffix}: ${gray(description)}\n`
+      : `- ${entry.bundleId} (${entry.version})${installedSuffix}\n`;
+  }
+
   if (json) {
     stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return;
@@ -1540,12 +1675,40 @@ function formatResult(result, { json, stdout }) {
     if (result.availableBundles) {
       stdout.write("\nBundles:\n");
       for (const entry of result.standardBundles || []) {
-        stdout.write(`- ${entry.bundleId} (${entry.version})${entry.installed ? " [installed]" : ""}\n`);
+        stdout.write(formatBundleLine(entry));
+        if (result.full) {
+          stdout.write(`  packages (${entry.packages.length}):\n`);
+          for (const packageEntry of entry.packageEntries || []) {
+            const packageId = `${packageEntry.packageId}${packageEntry.provider ? "*" : ""}`;
+            const description = String(packageEntry.description || "").trim();
+            if (description.length > 0) {
+              stdout.write(`  - ${packageId}: ${gray(description)}\n`);
+              continue;
+            }
+            stdout.write(`  - ${packageId}\n`);
+          }
+        }
       }
 
       stdout.write("\nProvider bundles:\n");
       for (const entry of result.providerBundles || []) {
-        stdout.write(`- ${entry.bundleId} (${entry.version})${entry.installed ? " [installed]" : ""}\n`);
+        stdout.write(formatBundleLine(entry));
+        if (result.full) {
+          stdout.write(`  packages (${entry.packages.length}):\n`);
+          for (const packageEntry of entry.packageEntries || []) {
+            const packageId = `${packageEntry.packageId}${packageEntry.provider ? "*" : ""}`;
+            const description = String(packageEntry.description || "").trim();
+            if (description.length > 0) {
+              stdout.write(`  - ${packageId}: ${gray(description)}\n`);
+              continue;
+            }
+            stdout.write(`  - ${packageId}\n`);
+          }
+        }
+      }
+
+      if (result.full) {
+        stdout.write("\n* provider package\n");
       }
     }
     if (result.availablePackages) {
@@ -1553,6 +1716,33 @@ function formatResult(result, { json, stdout }) {
       for (const entry of result.availablePackages) {
         stdout.write(`- ${entry.packageId} (${entry.version})${entry.installed ? " [installed]" : ""}\n`);
       }
+    }
+    return;
+  }
+
+  if (result.command === "show-bundle") {
+    const installedSuffix = result.installed ? " [installed]" : "";
+    stdout.write(`Bundle ${result.bundleId} (${result.version})${installedSuffix}\n`);
+    if (result.description) {
+      stdout.write(`Description: ${result.description}\n`);
+    }
+    stdout.write(`Curated: ${result.curated === 1 ? "yes" : "no"}\n`);
+    stdout.write(`Provider bundle: ${result.provider === 1 ? "yes" : "no"}\n`);
+    if (result.requiredCapabilities.length > 0) {
+      stdout.write("Requires capabilities:\n");
+      for (const capabilityId of result.requiredCapabilities) {
+        stdout.write(`- ${capabilityId}\n`);
+      }
+    }
+    if (result.providedCapabilities.length > 0) {
+      stdout.write("Provides capabilities:\n");
+      for (const capabilityId of result.providedCapabilities) {
+        stdout.write(`- ${capabilityId}\n`);
+      }
+    }
+    stdout.write(`Packages (${result.packages.length}):\n`);
+    for (const packageId of result.packages) {
+      stdout.write(`- ${packageId}\n`);
     }
     return;
   }
@@ -1951,6 +2141,12 @@ export async function runCli(
       });
     }
 
+    if (parsed.options.full && parsed.command !== "list") {
+      throw createCliError("--full is supported only for jskit list commands.", {
+        showUsage: true
+      });
+    }
+
     const inlineOptionCount = Object.keys(parsed.options.inlineOptions).length;
     const allowsInlineOptions =
       (parsed.command === "add" && parsed.positional[0] === "bundle") ||
@@ -1970,31 +2166,64 @@ export async function runCli(
     let result = null;
 
     if (parsed.command === "list") {
-      if (parsed.positional.length > 1) {
-        throw createCliError("jskit list accepts at most one selector: bundles or packages.", {
-          showUsage: true
-        });
+      let selector = "all";
+      let bundlesMode = "all";
+
+      if (parsed.positional.length > 0) {
+        selector = String(parsed.positional[0] || "").trim();
       }
 
-      const selector = String(parsed.positional[0] || "all").trim();
-      if (!["all", "bundles", "packages"].includes(selector)) {
-        throw createCliError(`Unknown list selector: ${selector}. Expected bundles or packages.`, {
+      if (selector === "all") {
+        if (parsed.positional.length > 1) {
+          throw createCliError("jskit list all does not accept extra selectors.", {
+            showUsage: true
+          });
+        }
+      } else if (selector === "bundles") {
+        if (parsed.positional.length === 1) {
+          bundlesMode = "curated";
+        } else if (parsed.positional.length === 2 && parsed.positional[1] === "all") {
+          bundlesMode = "all";
+        } else {
+          throw createCliError("jskit list bundles accepts optional trailing selector: all.", {
+            showUsage: true
+          });
+        }
+      } else if (selector === "packages") {
+        if (!(parsed.positional.length === 1 || (parsed.positional.length === 2 && parsed.positional[1] === "all"))) {
+          throw createCliError("jskit list packages accepts no additional selectors.", {
+            showUsage: true
+          });
+        }
+        if (parsed.options.full) {
+          throw createCliError("--full is supported only for bundle listings.", {
+            showUsage: true
+          });
+        }
+      } else {
+        throw createCliError(`Unknown list selector: ${selector}. Expected bundles, packages, or all.`, {
           showUsage: true
         });
       }
 
       const installedPackageIds = new Set(Object.keys(ensurePlainObjectRecord(lock.installedPackages)));
-      const availableBundleEntries = [...availableBundles.values()].map((entry) => {
+      const allBundleEntries = [...availableBundles.values()].map((entry) => {
         const metadata = buildBundleMetadata(entry.descriptor, availablePackages);
         const installed = metadata.packages.every((packageId) => installedPackageIds.has(packageId));
         return {
           bundleId: entry.descriptor.bundleId,
           version: entry.descriptor.version,
           description: entry.descriptor.description,
+          curated: entry.descriptor.curated,
+          provider: entry.descriptor.provider,
           installed,
           ...metadata
         };
       });
+      const availableBundleEntries =
+        selector === "bundles" && bundlesMode === "curated"
+          ? allBundleEntries.filter((entry) => entry.curated === 1)
+          : allBundleEntries;
 
       const availablePackageEntries = [...availablePackages.values()].map((entry) => ({
         packageId: entry.descriptor.packageId,
@@ -2007,15 +2236,50 @@ export async function runCli(
         providedCapabilities: entry.descriptor.capabilities.provides
       }));
 
-      const bundleSplit = splitBundleEntriesByProviderRole(availableBundleEntries);
+      const providerChoiceContext = buildProviderChoiceContext(availablePackages);
+      const bundleSplit = splitBundleEntriesByProviderRole(availableBundleEntries, providerChoiceContext);
 
       result = {
         command: "list",
+        full: parsed.options.full,
         availableBundles: selector === "all" || selector === "bundles" ? availableBundleEntries : null,
         providerBundles: selector === "all" || selector === "bundles" ? bundleSplit.providerBundles : null,
         standardBundles: selector === "all" || selector === "bundles" ? bundleSplit.standardBundles : null,
         availablePackages: selector === "all" || selector === "packages" ? availablePackageEntries : null
       };
+      formatResult(result, {
+        json: parsed.options.json,
+        stdout
+      });
+      return 0;
+    }
+
+    if (parsed.command === "show") {
+      if (parsed.positional.length !== 2 || parsed.positional[0] !== "bundle") {
+        throw createCliError("jskit show supports bundle scope only: show bundle <bundleId>.", {
+          showUsage: true
+        });
+      }
+
+      const bundleId = parsed.positional[1];
+      const bundleEntry = availableBundles.get(bundleId);
+      if (!bundleEntry) {
+        throw createCliError(`Unknown bundle: ${bundleId}`);
+      }
+
+      const metadata = buildBundleMetadata(bundleEntry.descriptor, availablePackages);
+      const installedPackageIds = new Set(Object.keys(ensurePlainObjectRecord(lock.installedPackages)));
+      result = {
+        command: "show-bundle",
+        bundleId: bundleEntry.descriptor.bundleId,
+        version: bundleEntry.descriptor.version,
+        description: bundleEntry.descriptor.description,
+        curated: bundleEntry.descriptor.curated,
+        provider: bundleEntry.descriptor.provider,
+        installed: metadata.packages.every((packageId) => installedPackageIds.has(packageId)),
+        ...metadata
+      };
+
       formatResult(result, {
         json: parsed.options.json,
         stdout

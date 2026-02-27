@@ -3,6 +3,7 @@ export default Object.freeze({
   "bundleId": "auth-supabase",
   "version": "0.1.0",
   "description": "Supabase authentication provider overlay.",
+  "curated": 1,
   "packages": [
     "@jskit-ai/access-core",
     "@jskit-ai/rbac-core",

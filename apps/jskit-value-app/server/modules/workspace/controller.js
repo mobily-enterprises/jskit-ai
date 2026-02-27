@@ -1,4 +1,4 @@
-import { createController as createWorkspaceAdapterController } from "@jskit-ai/workspace-fastify-adapter";
+import { createController as createWorkspaceAdapterController } from "@jskit-ai/workspace-service-core";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/eventTypes.js";
 
 function createController(options = {}) {

@@ -2,3 +2,14 @@ export { createService as createChatService, __testables as chatServiceTestables
 export { createService as createChatRealtimeService, __testables as chatRealtimeServiceTestables } from "./realtime.service.js";
 export { toCanonicalJson, toSha256Hex, __testables as canonicalJsonTestables } from "./canonicalJson.js";
 export { createChatActionContributor } from "./actions/chat.contributor.js";
+export { createSchema } from "./fastify/schema.js";
+export { buildRoutes } from "./fastify/routes.js";
+export { createController, __testables as chatControllerTestables } from "./fastify/controller.js";
+export { createRepository as createThreadsRepository } from "./repositories/threads.repository.js";
+export { createRepository as createParticipantsRepository } from "./repositories/participants.repository.js";
+export { createRepository as createMessagesRepository } from "./repositories/messages.repository.js";
+export { createRepository as createIdempotencyTombstonesRepository } from "./repositories/idempotencyTombstones.repository.js";
+export { createRepository as createAttachmentsRepository } from "./repositories/attachments.repository.js";
+export { createRepository as createReactionsRepository } from "./repositories/reactions.repository.js";
+export { createRepository as createUserSettingsRepository } from "./repositories/userSettings.repository.js";
+export { createRepository as createBlocksRepository } from "./repositories/blocks.repository.js";

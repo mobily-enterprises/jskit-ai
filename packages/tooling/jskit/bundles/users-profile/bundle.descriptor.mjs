@@ -5,7 +5,6 @@ export default Object.freeze({
   "description": "User profile core, storage, and client elements.",
   "packages": [
     "@jskit-ai/user-profile-core",
-    "@jskit-ai/user-profile-knex-mysql",
     "@jskit-ai/profile-client-element",
     "@jskit-ai/members-admin-client-element"
   ]

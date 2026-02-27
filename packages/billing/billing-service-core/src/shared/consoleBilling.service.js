@@ -144,7 +144,7 @@ function normalizeOptionalDateTime(value) {
   return date;
 }
 
-function isMysqlDuplicateEntryError(error) {
+function isDuplicateEntryError(error) {
   return String(error?.code || "").trim() === "ER_DUP_ENTRY";
 }
 
@@ -1097,7 +1097,7 @@ function createConsoleBillingService({
           metadataJson
         });
       } catch (error) {
-        if (!isMysqlDuplicateEntryError(error)) {
+        if (!isDuplicateEntryError(error)) {
           throw error;
         }
 
@@ -1707,7 +1707,7 @@ function createConsoleBillingService({
         metadataJson
       });
     } catch (error) {
-      if (!isMysqlDuplicateEntryError(error)) {
+      if (!isDuplicateEntryError(error)) {
         throw error;
       }
 
@@ -1878,7 +1878,7 @@ function createConsoleBillingService({
     try {
       updatedAssignment = await billingRepository.updatePlanAssignmentById(assignmentId, patch);
     } catch (error) {
-      if (!isMysqlDuplicateEntryError(error)) {
+      if (!isDuplicateEntryError(error)) {
         throw error;
       }
 
@@ -1987,7 +1987,7 @@ function createConsoleBillingService({
         metadataJson
       });
     } catch (error) {
-      if (!isMysqlDuplicateEntryError(error)) {
+      if (!isDuplicateEntryError(error)) {
         throw error;
       }
 

@@ -10,11 +10,13 @@
     ".": "./src/shared/index.js",
     "./avatarService": "./src/shared/avatar.service.js",
     "./avatarStorageService": "./src/shared/avatarStorage.service.js",
-    "./profileIdentity": "./src/shared/profileIdentity.js"
+    "./profileIdentity": "./src/shared/profileIdentity.js",
+    "./repositories/profile": "./src/shared/repositories/profile.repository.js"
   },
   "dependencies": {
     "@jskit-ai/server-runtime-core": "0.1.0",
     "sharp": "^0.34.4",
-    "unstorage": "^1.17.0"
+    "unstorage": "^1.17.0",
+    "@jskit-ai/jskit-knex": "0.1.0"
   }
 }

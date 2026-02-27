@@ -1,5 +1,5 @@
 import { db } from "../../../db/knex.js";
-import { toIsoString, toMysqlDateTimeUtc } from "@jskit-ai/knex-mysql-core/dateUtils";
+import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 
 function normalizeCount(row) {
   const values = Object.values(row || {});
@@ -49,7 +49,7 @@ function createCalculationLogsRepository(dbClient) {
       id: entry.id,
       workspace_id: workspaceId,
       user_id: userId,
-      created_at: toMysqlDateTimeUtc(entry.createdAt),
+      created_at: toDatabaseDateTimeUtc(entry.createdAt),
       mode: "pv",
       timing: "ordinary",
       payment: fallbackDegrees,

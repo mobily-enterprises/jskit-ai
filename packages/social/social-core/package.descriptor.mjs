@@ -5,23 +5,33 @@ export default Object.freeze({
   "dependsOn": [
     "@jskit-ai/action-runtime-core",
     "@jskit-ai/server-runtime-core",
-    "@jskit-ai/social-contracts"
+    "@jskit-ai/social-contracts",
+    "@jskit-ai/http-contracts",
+    "@jskit-ai/jskit-knex"
   ],
   "capabilities": {
     "provides": [
-      "social.core"
+      "social.core",
+      "social.routes",
+      "social.storage"
     ],
     "requires": [
       "runtime.actions",
       "runtime.server",
-      "contracts.social"
+      "contracts.social",
+      "contracts.http",
+      "social.core",
+      "db.core"
     ]
   },
   "mutations": {
     "dependencies": {
       "runtime": {
         "@jskit-ai/action-runtime-core": "0.1.0",
-        "@jskit-ai/server-runtime-core": "0.1.0"
+        "@jskit-ai/server-runtime-core": "0.1.0",
+        "@fastify/type-provider-typebox": "^6.1.0",
+        "@jskit-ai/http-contracts": "0.1.0",
+        "@jskit-ai/jskit-knex": "0.1.0"
       },
       "dev": {}
     },

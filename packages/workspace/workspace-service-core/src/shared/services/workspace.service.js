@@ -1,7 +1,7 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { OWNER_ROLE_ID, resolveRolePermissions } from "@jskit-ai/rbac-core";
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
-import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
+import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 import { toSlugPart, buildWorkspaceName, buildWorkspaceBaseSlug } from "../policies/workspaceNaming.js";
 import {
   normalizeWorkspaceColor,
@@ -272,7 +272,7 @@ function createService({
           options
         );
       } catch (error) {
-        if (!isMysqlDuplicateEntryError(error)) {
+        if (!isDuplicateEntryError(error)) {
           throw error;
         }
 
@@ -365,7 +365,7 @@ function createService({
           options
         );
       } catch (error) {
-        if (!isMysqlDuplicateEntryError(error)) {
+        if (!isDuplicateEntryError(error)) {
           throw error;
         }
 

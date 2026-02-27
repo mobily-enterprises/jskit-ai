@@ -5,7 +5,6 @@ export default Object.freeze({
   "description": "Workspace console routes, storage, and service packages.",
   "packages": [
     "@jskit-ai/workspace-console-core",
-    "@jskit-ai/workspace-console-knex-mysql",
     "@jskit-ai/workspace-console-service-core",
     "@jskit-ai/console-fastify-adapter",
     "@jskit-ai/console-errors-fastify-adapter",

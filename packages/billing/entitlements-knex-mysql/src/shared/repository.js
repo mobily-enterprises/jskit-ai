@@ -64,7 +64,7 @@ function toIsoString(value) {
   return normalized.toISOString();
 }
 
-function toMysqlDateTimeUtc(value) {
+function toDatabaseDateTimeUtc(value) {
   const normalized = normalizeDateInput(value);
   if (!normalized) {
     return null;
@@ -83,7 +83,7 @@ function toMysqlDateTimeUtc(value) {
 
 function toInsertDateTime(dateLike, fallback = new Date()) {
   const normalized = normalizeDateInput(dateLike) || normalizeDateInput(fallback) || new Date();
-  return toMysqlDateTimeUtc(normalized);
+  return toDatabaseDateTimeUtc(normalized);
 }
 
 function toNullableDateTime(value) {
@@ -91,7 +91,7 @@ function toNullableDateTime(value) {
   if (!normalized) {
     return null;
   }
-  return toMysqlDateTimeUtc(normalized);
+  return toDatabaseDateTimeUtc(normalized);
 }
 
 function toDateTimeQueryValue(value) {
@@ -153,7 +153,7 @@ function normalizeAmount(value, { allowNegative = false, requirePositive = false
   return parsed;
 }
 
-function isMysqlDuplicateEntryError(error) {
+function isDuplicateEntryError(error) {
   const code = String(error?.code || "").trim().toUpperCase();
   if (code === "ER_DUP_ENTRY") {
     return true;
@@ -513,7 +513,7 @@ export function createEntitlementsKnexRepository(options = {}) {
     try {
       await client(tableNames.entitlementGrants).insert(insertPayload);
     } catch (error) {
-      if (!isMysqlDuplicateEntryError(error)) {
+      if (!isDuplicateEntryError(error)) {
         throw error;
       }
 
@@ -576,7 +576,7 @@ export function createEntitlementsKnexRepository(options = {}) {
     try {
       await client(tableNames.entitlementConsumptions).insert(insertPayload);
     } catch (error) {
-      if (!isMysqlDuplicateEntryError(error)) {
+      if (!isDuplicateEntryError(error)) {
         throw error;
       }
 

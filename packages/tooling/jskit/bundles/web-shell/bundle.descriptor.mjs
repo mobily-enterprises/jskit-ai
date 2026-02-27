@@ -3,6 +3,7 @@ export default Object.freeze({
   "bundleId": "web-shell",
   "version": "0.1.0",
   "description": "Core shell with browser/runtime surface packages.",
+  "curated": 1,
   "packages": [
     "@jskit-ai/module-framework-core",
     "@jskit-ai/runtime-env-core",

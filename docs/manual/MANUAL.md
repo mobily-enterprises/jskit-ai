@@ -58,9 +58,9 @@ npm run jskit -- list
 Recommended baseline:
 
 ```bash
-npm run jskit -- add web-shell --no-install
-npm run jskit -- add db --provider mysql --no-install
-npm run jskit -- add auth-base --no-install
+npm run jskit -- add bundle web-shell --no-install
+npm run jskit -- add bundle db-mysql --no-install
+npm run jskit -- add bundle auth-base --no-install
 npm install
 npm run jskit -- doctor
 ```
@@ -74,17 +74,17 @@ Notes:
 Use this sequence to stage a broad feature set into the app while keeping dependency install deferred:
 
 ```bash
-npx jskit add saas-full --no-install
-npx jskit add community-suite --no-install
-npx jskit add web-shell --no-install
-npx jskit add communications-base --no-install
-npx jskit add realtime --no-install
-npx jskit add workspace-admin-suite --no-install
-npx jskit add ops-retention --no-install
-npx jskit add security-audit --no-install
-npx jskit add auth-supabase --no-install
-npx jskit add billing-paddle --no-install
-npx jskit add db --provider mysql --no-install
+npx jskit add bundle saas-full --no-install
+npx jskit add bundle community-suite --no-install
+npx jskit add bundle web-shell --no-install
+npx jskit add bundle communications-base --no-install
+npx jskit add bundle realtime --no-install
+npx jskit add bundle workspace-admin-suite --no-install
+npx jskit add bundle ops-retention --no-install
+npx jskit add bundle security-audit --no-install
+npx jskit add bundle auth-supabase --no-install
+npx jskit add bundle billing-paddle --no-install
+npx jskit add bundle db-mysql --no-install
 ```
 
 What each one does (briefly):
@@ -99,8 +99,25 @@ What each one does (briefly):
 - `security-audit`: Adds security audit core and persistence adapter package wiring.
 - `auth-supabase`: Adds Supabase auth provider integration on top of auth core.
 - `billing-paddle`: Adds Paddle billing provider integration on top of billing core.
-- `db --provider mysql`: Adds MySQL db provider wiring plus `knexfile`, migration, and seed scaffolding.
+- `db-mysql`: Adds MySQL db provider wiring plus `knexfile`, migration, and seed scaffolding.
 
 Notes:
 - Keep `--no-install` for each command while staging changes.
 - These packs overlap in places; this is intentional for fast convergence, but it is not the minimal set.
+
+## 6) DB Architecture (Current)
+
+- Feature modules depend only on `@jskit-ai/jskit-knex`.
+- Dialect/provider selection happens via bundle choice: `db-mysql` or `db-postgres`.
+- Do not import dialect packages directly in feature modules.
+
+Example:
+
+```bash
+npx jskit add bundle web-shell --no-install
+npx jskit add bundle assistant-openai --no-install
+npx jskit add bundle db-postgres --no-install
+npx jskit add bundle assistant --no-install
+npm install
+npx jskit doctor
+```

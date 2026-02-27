@@ -15,14 +15,19 @@
     "./services/consoleMembers": "./src/shared/services/consoleMembers.service.js",
     "./services/consoleInvites": "./src/shared/services/consoleInvites.service.js",
     "./mappers/consoleMappers": "./src/shared/mappers/consoleMappers.js",
-    "./policies/invitePolicy": "./src/shared/policies/invitePolicy.js"
+    "./policies/invitePolicy": "./src/shared/policies/invitePolicy.js",
+    "./repositories/memberships": "./src/shared/repositories/memberships.repository.js",
+    "./repositories/invites": "./src/shared/repositories/invites.repository.js",
+    "./repositories/root": "./src/shared/repositories/root.repository.js",
+    "./repositories/settings": "./src/shared/repositories/settings.repository.js",
+    "./repositories/errorLogs": "./src/shared/repositories/errorLogs.repository.js"
   },
   "dependencies": {
     "@jskit-ai/action-runtime-core": "0.1.0",
     "@jskit-ai/access-core": "0.1.0",
     "@jskit-ai/assistant-core": "0.1.0",
-    "@jskit-ai/knex-mysql-core": "0.1.0",
     "@jskit-ai/server-runtime-core": "0.1.0",
-    "@jskit-ai/workspace-console-core": "0.1.0"
+    "@jskit-ai/workspace-console-core": "0.1.0",
+    "@jskit-ai/jskit-knex": "0.1.0"
   }
 }

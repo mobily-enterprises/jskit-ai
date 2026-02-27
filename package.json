@@ -23,7 +23,8 @@
     "framework:check-import-boundaries:strict": "node ./scripts/framework/check-import-boundaries.mjs --strict",
     "framework:check-app-ownership": "node ./scripts/framework/check-app-ownership.mjs",
     "framework:check-app-ownership:strict": "node ./scripts/framework/check-app-ownership.mjs --strict",
-    "framework:stage1-checks": "npm run framework:check-runtime-layout && npm run framework:check-import-boundaries && npm run framework:check-app-ownership"
+    "framework:stage1-checks": "npm run framework:check-runtime-layout && npm run framework:check-import-boundaries && npm run framework:check-app-ownership",
+    "test:architecture:db": "node --test tests/architecture/server-db-architecture.guardrails.test.mjs"
   },
   "workspaces": [
     "apps/*",

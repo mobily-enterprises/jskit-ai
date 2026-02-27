@@ -11,8 +11,7 @@ const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 
 const REQUIRES_DB = new Set([
   "security-audit",
-  "assistant-base",
-  "assistant-openai",
+  "assistant",
   "billing-base",
   "billing-stripe",
   "billing-paddle",
@@ -28,6 +27,8 @@ const REQUIRES_DB = new Set([
 ]);
 
 const REQUIRES_AUTH = new Set(["workspace-core", "workspace-console", "workspace-admin-suite"]);
+// Bundle IDs that require the assistant provider capability to be installed first.
+const BUNDLES_REQUIRING_ASSISTANT_PROVIDER = new Set(["assistant", "saas-full"]);
 
 function runCli({ cwd, args = [] }) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
@@ -93,7 +94,7 @@ test("every bundle add succeeds with prerequisites and passes doctor", async () 
     await withTempApp(async (appRoot) => {
       const listResult = runCli({
         cwd: appRoot,
-        args: ["list", "bundles", "--json"]
+        args: ["list", "bundles", "all", "--json"]
       });
       assert.equal(listResult.status, 0, listResult.stderr);
       bundles = JSON.parse(listResult.stdout).availableBundles;
@@ -121,6 +122,14 @@ test("every bundle add succeeds with prerequisites and passes doctor", async () 
           args: ["add", "bundle", "auth-base", "--no-install"]
         });
         assert.equal(addAuth.status, 0, addAuth.stderr);
+      }
+
+      if (BUNDLES_REQUIRING_ASSISTANT_PROVIDER.has(bundle.bundleId) && bundle.bundleId !== "assistant-openai") {
+        const addAssistantProvider = runCli({
+          cwd: appRoot,
+          args: ["add", "bundle", "assistant-openai", "--no-install"]
+        });
+        assert.equal(addAssistantProvider.status, 0, addAssistantProvider.stderr);
       }
 
       const addResult = runCli({

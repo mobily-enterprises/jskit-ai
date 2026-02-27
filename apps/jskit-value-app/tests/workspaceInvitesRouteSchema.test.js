@@ -3,7 +3,7 @@ import test from "node:test";
 import Fastify from "fastify";
 
 import { registerApiRoutes } from "../server/fastify/registerApiRoutes.js";
-import { buildRoutes as buildWorkspaceRoutes } from "@jskit-ai/workspace-fastify-adapter";
+import { buildRoutes as buildWorkspaceRoutes } from "@jskit-ai/workspace-service-core";
 
 test("workspace invites route serializes invite workspace payload including color", async () => {
   const controllers = {

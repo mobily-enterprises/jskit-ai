@@ -5,7 +5,7 @@ import {
   DEFAULT_INVITE_EXPIRY_DAYS,
   resolveInviteExpiresAt
 } from "@jskit-ai/workspace-service-core/policies/workspaceInvitePolicy";
-import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
+import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 
 test("workspace invite policy resolves default/custom invite expiry windows", () => {
   const now = Date.now();
@@ -24,7 +24,7 @@ test("workspace invite policy resolves default/custom invite expiry windows", ()
 });
 
 test("mysql duplicate classifier recognizes ER_DUP_ENTRY only", () => {
-  assert.equal(isMysqlDuplicateEntryError({ code: "ER_DUP_ENTRY" }), true);
-  assert.equal(isMysqlDuplicateEntryError({ code: "ER_BAD_TABLE_ERROR" }), false);
-  assert.equal(isMysqlDuplicateEntryError(null), false);
+  assert.equal(isDuplicateEntryError({ code: "ER_DUP_ENTRY" }), true);
+  assert.equal(isDuplicateEntryError({ code: "ER_BAD_TABLE_ERROR" }), false);
+  assert.equal(isDuplicateEntryError(null), false);
 });

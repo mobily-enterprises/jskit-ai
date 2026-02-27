@@ -3,6 +3,7 @@ export default Object.freeze({
   "bundleId": "billing-stripe",
   "version": "0.1.0",
   "description": "Billing base with Stripe provider package.",
+  "curated": 1,
   "packages": [
     "@jskit-ai/billing-provider-core",
     "@jskit-ai/billing-provider-stripe",

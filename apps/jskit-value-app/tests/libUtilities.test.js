@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { AppError, isAppError } from "@jskit-ai/server-runtime-core/errors";
 import { safePathnameFromRequest, safeRequestUrl } from "@jskit-ai/server-runtime-core/requestUrl";
-import { toIsoString, toMysqlDateTimeUtc } from "@jskit-ai/knex-mysql-core/dateUtils";
+import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { registerTypeBoxFormats, __testables as formatTestables } from "@jskit-ai/http-contracts/typeboxFormats";
 
 test("AppError and isAppError cover true/false branches", () => {
@@ -58,10 +58,10 @@ test("toIsoString accepts Date objects and throws on invalid values", () => {
   assert.throws(() => toIsoString("not-a-date"), /Invalid date value/);
 });
 
-test("toMysqlDateTimeUtc formats UTC timestamp for MySQL DATETIME(3)", () => {
-  assert.equal(toMysqlDateTimeUtc("2024-01-01T00:00:00.000Z"), "2024-01-01 00:00:00.000");
-  assert.equal(toMysqlDateTimeUtc(new Date("2024-01-01T01:02:03.045Z")), "2024-01-01 01:02:03.045");
-  assert.throws(() => toMysqlDateTimeUtc("not-a-date"), /Invalid date value/);
+test("toDatabaseDateTimeUtc formats UTC timestamp for MySQL DATETIME(3)", () => {
+  assert.equal(toDatabaseDateTimeUtc("2024-01-01T00:00:00.000Z"), "2024-01-01 00:00:00.000");
+  assert.equal(toDatabaseDateTimeUtc(new Date("2024-01-01T01:02:03.045Z")), "2024-01-01 01:02:03.045");
+  assert.throws(() => toDatabaseDateTimeUtc("not-a-date"), /Invalid date value/);
 });
 
 test("registerTypeBoxFormats and strict format helpers validate inputs", () => {

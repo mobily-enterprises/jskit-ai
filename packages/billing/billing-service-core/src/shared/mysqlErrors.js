@@ -1,4 +1,4 @@
-function isMysqlDuplicateEntryError(error) {
+function isDuplicateEntryError(error) {
   if (!error) {
     return false;
   }
@@ -12,4 +12,4 @@ function isMysqlDuplicateEntryError(error) {
   return errno === 1062;
 }
 
-export { isMysqlDuplicateEntryError };
+export { isDuplicateEntryError };

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { __testables as calcTestables } from "../server/modules/history/repository.js";
-import { __testables as profilesTestables } from "@jskit-ai/user-profile-knex-mysql";
+import { __testables as profilesTestables } from "@jskit-ai/user-profile-core";
 import { __testables as settingsTestables } from "../server/modules/settings/repository.js";
 
 function createCalculationDbStub(options = {}) {
@@ -139,8 +139,8 @@ function createProfilesDbStub({ transactionImpl }) {
 }
 
 test("user profiles helpers and mapper branches", () => {
-  assert.equal(profilesTestables.isMysqlDuplicateEntryError(null), false);
-  assert.equal(profilesTestables.isMysqlDuplicateEntryError({ code: "ER_DUP_ENTRY" }), true);
+  assert.equal(profilesTestables.isDuplicateEntryError(null), false);
+  assert.equal(profilesTestables.isDuplicateEntryError({ code: "ER_DUP_ENTRY" }), true);
   assert.equal(profilesTestables.duplicateEntryTargetsField(duplicateErrorFor("email"), "email"), true);
   assert.equal(profilesTestables.duplicateEntryTargetsField(duplicateErrorFor("auth_provider_user_id"), "email"), false);
   assert.equal(
@@ -767,9 +767,9 @@ function createUserSettingsDbStub({ row, insertErrorOnce = null } = {}) {
 }
 
 test("user settings repository helpers and CRUD branches", async () => {
-  assert.equal(settingsTestables.isMysqlDuplicateEntryError(null), false);
-  assert.equal(settingsTestables.isMysqlDuplicateEntryError({ code: "ER_DUP_ENTRY" }), true);
-  assert.equal(settingsTestables.isMysqlDuplicateEntryError({ code: "ER_PARSE_ERROR" }), false);
+  assert.equal(settingsTestables.isDuplicateEntryError(null), false);
+  assert.equal(settingsTestables.isDuplicateEntryError({ code: "ER_DUP_ENTRY" }), true);
+  assert.equal(settingsTestables.isDuplicateEntryError({ code: "ER_PARSE_ERROR" }), false);
   assert.equal(settingsTestables.mapUserSettingsRowNullable(null), null);
   assert.throws(() => settingsTestables.mapUserSettingsRowRequired(null), /expected a row object/);
 

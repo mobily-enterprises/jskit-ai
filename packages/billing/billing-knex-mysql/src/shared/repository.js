@@ -1,6 +1,6 @@
 import { createEntitlementsKnexRepository } from "@jskit-ai/entitlements-knex-mysql";
-import { toIsoString, toMysqlDateTimeUtc } from "@jskit-ai/knex-mysql-core/dateUtils";
-import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
+import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
+import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 import {
   BILLING_CHECKOUT_SESSION_STATUS,
   BILLING_DEFAULT_PROVIDER,
@@ -759,7 +759,7 @@ function mapPlanChangeHistoryRowNullable(row) {
 
 function toInsertDateTime(dateLike, fallback = new Date()) {
   const normalized = normalizeDateInput(dateLike) || fallback;
-  return toMysqlDateTimeUtc(normalized);
+  return toDatabaseDateTimeUtc(normalized);
 }
 
 function toNullableDateTime(dateLike) {
@@ -768,7 +768,7 @@ function toNullableDateTime(dateLike) {
     return null;
   }
 
-  return toMysqlDateTimeUtc(normalized);
+  return toDatabaseDateTimeUtc(normalized);
 }
 
 function normalizeMetadataJsonInput(value) {
@@ -890,7 +890,7 @@ function createBillingRepository(dbClient) {
         trx: client
       });
     } catch (error) {
-      if (!isMysqlDuplicateEntryError(error)) {
+      if (!isDuplicateEntryError(error)) {
         throw error;
       }
 
@@ -958,7 +958,7 @@ function createBillingRepository(dbClient) {
         trx: client
       });
     } catch (error) {
-      if (!isMysqlDuplicateEntryError(error)) {
+      if (!isDuplicateEntryError(error)) {
         throw error;
       }
 

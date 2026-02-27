@@ -2,7 +2,7 @@ import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { OWNER_ROLE_ID } from "@jskit-ai/rbac-core";
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
-import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
+import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 import {
   buildInviteToken,
   encodeInviteTokenHash,
@@ -439,7 +439,7 @@ function createService({
           options
         );
       } catch (error) {
-        if (isMysqlDuplicateEntryError(error)) {
+        if (isDuplicateEntryError(error)) {
           throw new AppError(409, "A pending invite for this email already exists.");
         }
 

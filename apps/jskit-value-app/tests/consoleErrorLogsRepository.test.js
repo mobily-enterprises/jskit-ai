@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { __testables } from "@jskit-ai/workspace-console-knex-mysql/repositories/errorLogs";
+import { __testables } from "@jskit-ai/workspace-console-service-core/repositories/errorLogs";
 
 test("console error logs repository helpers normalize metadata and map rows", () => {
   assert.deepEqual(__testables.parseMetadata(""), {});

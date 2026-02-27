@@ -12,6 +12,27 @@ export function normalizeBundleDescriptor(bundle, descriptorPath) {
   if (!version) {
     throw createCliError(`Bundle descriptor ${descriptorPath} must define version.`);
   }
+  let curated = 0;
+  if (bundle.curated !== undefined) {
+    if (bundle.curated === true || bundle.curated === 1) {
+      curated = 1;
+    } else if (bundle.curated === false || bundle.curated === 0) {
+      curated = 0;
+    } else {
+      throw createCliError(`Bundle ${bundleId} curated must be 0 or 1.`);
+    }
+  }
+
+  let provider = 0;
+  if (bundle.provider !== undefined) {
+    if (bundle.provider === true || bundle.provider === 1) {
+      provider = 1;
+    } else if (bundle.provider === false || bundle.provider === 0) {
+      provider = 0;
+    } else {
+      throw createCliError(`Bundle ${bundleId} provider must be 0 or 1.`);
+    }
+  }
 
   if (bundle.options !== undefined) {
     throw createCliError(`Bundle ${bundleId} must not define options. Bundles are static package lists.`);
@@ -35,6 +56,8 @@ export function normalizeBundleDescriptor(bundle, descriptorPath) {
     bundleId,
     version,
     description: String(bundle.description || "").trim(),
+    curated,
+    provider,
     packages
   };
 }

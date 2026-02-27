@@ -1,8 +1,8 @@
 import { db } from "../../../db/knex.js";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
-import { toIsoString, toMysqlDateTimeUtc } from "@jskit-ai/knex-mysql-core/dateUtils";
-import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
+import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
+import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 
 const PROJECT_SETTINGS_TABLE = "user_project_settings";
 const PROJECT_VIEW_MODES = Object.freeze(["list", "board"]);
@@ -157,7 +157,7 @@ async function ensureProjectsSettingsRow(userId, { trx = null } = {}) {
   try {
     await client(PROJECT_SETTINGS_TABLE).insert({ user_id: userId });
   } catch (error) {
-    if (!isMysqlDuplicateEntryError(error)) {
+    if (!isDuplicateEntryError(error)) {
       throw error;
     }
   }
@@ -183,7 +183,7 @@ async function writeProjectsSettingsForUser(userLike, payload, { trx = null } = 
   await ensureProjectsSettingsRow(userId, { trx });
 
   const dbPatch = {
-    updated_at: toMysqlDateTimeUtc(new Date())
+    updated_at: toDatabaseDateTimeUtc(new Date())
   };
 
   if (Object.hasOwn(parsed.patch, "defaultView")) {

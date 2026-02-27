@@ -3,14 +3,18 @@ export default Object.freeze({
   "packageId": "@jskit-ai/user-profile-core",
   "version": "0.1.0",
   "dependsOn": [
-    "@jskit-ai/server-runtime-core"
+    "@jskit-ai/server-runtime-core",
+    "@jskit-ai/jskit-knex"
   ],
   "capabilities": {
     "provides": [
-      "users.profile.core"
+      "users.profile.core",
+      "users.profile.store"
     ],
     "requires": [
-      "runtime.server"
+      "runtime.server",
+      "db.core",
+      "users.profile.core"
     ]
   },
   "mutations": {
@@ -18,7 +22,8 @@ export default Object.freeze({
       "runtime": {
         "@jskit-ai/server-runtime-core": "0.1.0",
         "sharp": "^0.34.4",
-        "unstorage": "^1.17.0"
+        "unstorage": "^1.17.0",
+        "@jskit-ai/jskit-knex": "0.1.0"
       },
       "dev": {}
     },

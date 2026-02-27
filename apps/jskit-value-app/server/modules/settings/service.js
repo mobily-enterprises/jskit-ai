@@ -1,5 +1,5 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
+import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 import { validators as authValidators } from "@jskit-ai/access-core/validators";
 import { SETTINGS_FIELD_SPECS } from "@jskit-ai/workspace-console-core/settingsModel";
 import { buildPatch } from "@jskit-ai/workspace-console-core/settingsPatchBuilder";
@@ -25,7 +25,7 @@ function normalizeText(value) {
 }
 
 function duplicateEntryTargetsPublicChatId(error) {
-  if (!isMysqlDuplicateEntryError(error)) {
+  if (!isDuplicateEntryError(error)) {
     return false;
   }
 

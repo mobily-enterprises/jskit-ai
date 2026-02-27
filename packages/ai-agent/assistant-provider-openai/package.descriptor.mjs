@@ -2,17 +2,13 @@ export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/assistant-provider-openai",
   "version": "0.1.0",
-  "dependsOn": [
-    "@jskit-ai/assistant-core"
-  ],
+  "dependsOn": [],
   "capabilities": {
     "provides": [
       "assistant.provider.openai",
       "assistant.provider"
     ],
-    "requires": [
-      "assistant.core"
-    ]
+    "requires": []
   },
   "mutations": {
     "dependencies": {

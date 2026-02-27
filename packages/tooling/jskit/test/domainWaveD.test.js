@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const WAVE_D_BUNDLES = [
-  "assistant-base",
+  "assistant",
   "assistant-openai",
   "billing-base",
   "billing-stripe",
@@ -65,6 +65,14 @@ for (const bundleId of WAVE_D_BUNDLES) {
       });
       assert.equal(addDb.status, 0, addDb.stderr);
 
+      if (bundleId === "assistant") {
+        const addAssistantProvider = runCli({
+          cwd: appRoot,
+          args: ["add", "bundle", "assistant-openai", "--no-install"]
+        });
+        assert.equal(addAssistantProvider.status, 0, addAssistantProvider.stderr);
+      }
+
       const addBundle = runCli({
         cwd: appRoot,
         args: ["add", "bundle", bundleId, "--no-install"]
@@ -80,11 +88,29 @@ for (const bundleId of WAVE_D_BUNDLES) {
   });
 }
 
-test("assistant-base enforces transcript db-provider capability", async () => {
+test("assistant enforces assistant.provider capability", async () => {
   await withTempApp(async (appRoot) => {
     const addAssistant = runCli({
       cwd: appRoot,
-      args: ["add", "bundle", "assistant-base", "--no-install"]
+      args: ["add", "bundle", "assistant", "--no-install"]
+    });
+    assert.notEqual(addAssistant.status, 0);
+    assert.match(addAssistant.stderr, /\[capability-violation\]/);
+    assert.match(addAssistant.stderr, /assistant\.provider/i);
+  });
+});
+
+test("assistant enforces transcript db-provider capability", async () => {
+  await withTempApp(async (appRoot) => {
+    const addAssistantProvider = runCli({
+      cwd: appRoot,
+      args: ["add", "bundle", "assistant-openai", "--no-install"]
+    });
+    assert.equal(addAssistantProvider.status, 0, addAssistantProvider.stderr);
+
+    const addAssistant = runCli({
+      cwd: appRoot,
+      args: ["add", "bundle", "assistant", "--no-install"]
     });
     assert.notEqual(addAssistant.status, 0);
     assert.match(addAssistant.stderr, /\[capability-violation\]/);

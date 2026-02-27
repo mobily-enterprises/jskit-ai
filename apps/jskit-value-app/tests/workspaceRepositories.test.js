@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { __testables as workspacesTestables } from "@jskit-ai/workspace-knex-mysql/repositories/workspaces";
-import { __testables as workspaceSettingsTestables } from "@jskit-ai/workspace-knex-mysql/repositories/settings";
-import { __testables as workspaceMembershipsTestables } from "@jskit-ai/workspace-knex-mysql/repositories/memberships";
-import { __testables as workspaceInvitesTestables } from "@jskit-ai/workspace-knex-mysql/repositories/invites";
+import { __testables as workspacesTestables } from "@jskit-ai/workspace-service-core/repositories/workspaces";
+import { __testables as workspaceSettingsTestables } from "@jskit-ai/workspace-service-core/repositories/settings";
+import { __testables as workspaceMembershipsTestables } from "@jskit-ai/workspace-service-core/repositories/memberships";
+import { __testables as workspaceInvitesTestables } from "@jskit-ai/workspace-service-core/repositories/invites";
 
 function createKnexStub(options = {}) {
   const firstQueue = Array.isArray(options.firstQueue) ? [...options.firstQueue] : [];
@@ -364,8 +364,8 @@ test("workspace invites repository handles mapping, find/list, and status transi
   assert.throws(() => workspaceInvitesTestables.mapWorkspaceInviteRowRequired(null), /expected a row object/);
   assert.equal(workspaceInvitesTestables.mapWorkspaceInviteRowNullable(null), null);
   assert.equal(workspaceInvitesTestables.normalizeEmail(" User@Example.com "), "user@example.com");
-  assert.equal(workspaceInvitesTestables.isMysqlDuplicateEntryError({ code: "ER_DUP_ENTRY" }), true);
-  assert.equal(workspaceInvitesTestables.isMysqlDuplicateEntryError({ code: "OTHER" }), false);
+  assert.equal(workspaceInvitesTestables.isDuplicateEntryError({ code: "ER_DUP_ENTRY" }), true);
+  assert.equal(workspaceInvitesTestables.isDuplicateEntryError({ code: "OTHER" }), false);
 
   const mapped = workspaceInvitesTestables.mapWorkspaceInviteRowRequired(
     inviteRow({

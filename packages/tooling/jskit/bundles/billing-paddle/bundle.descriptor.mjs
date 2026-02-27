@@ -3,6 +3,7 @@ export default Object.freeze({
   "bundleId": "billing-paddle",
   "version": "0.1.0",
   "description": "Billing base with Paddle provider package.",
+  "curated": 1,
   "packages": [
     "@jskit-ai/billing-provider-core",
     "@jskit-ai/billing-provider-paddle",

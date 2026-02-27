@@ -2,14 +2,14 @@ import { createBillingCatalogCore } from "@jskit-ai/billing-core/catalogCore";
 import { assertEntitlementValueOrThrow } from "@jskit-ai/billing-core/entitlementSchema";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
-import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
+import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 
 const billingCatalogCore = createBillingCatalogCore({
   createError(status, message, options = {}) {
     return new AppError(status, message, options);
   },
   parsePositiveInteger,
-  isDuplicateEntryError: isMysqlDuplicateEntryError,
+  isDuplicateEntryError: isDuplicateEntryError,
   assertEntitlementValueOrThrow
 });
 

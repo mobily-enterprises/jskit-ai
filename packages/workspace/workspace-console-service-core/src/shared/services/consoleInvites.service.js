@@ -1,6 +1,6 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
-import { isMysqlDuplicateEntryError } from "@jskit-ai/knex-mysql-core/mysqlErrors";
+import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
 import { mapInvite, mapPendingInvite } from "../mappers/consoleMappers.js";
 import { resolveInviteExpiresAt } from "../policies/invitePolicy.js";
@@ -133,7 +133,7 @@ function createConsoleInvitesService({
           options
         );
       } catch (error) {
-        if (isMysqlDuplicateEntryError(error)) {
+        if (isDuplicateEntryError(error)) {
           throw new AppError(409, "A pending invite for this email already exists.");
         }
 

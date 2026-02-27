@@ -4,7 +4,7 @@ function toIsoNow() {
   return new Date().toISOString();
 }
 
-function toMysqlDateTimeUtc(dateLike = new Date()) {
+function toDatabaseDateTimeUtc(dateLike = new Date()) {
   const date = dateLike instanceof Date ? dateLike : new Date(dateLike);
   const valid = Number.isNaN(date.getTime()) ? new Date() : date;
   return valid.toISOString().slice(0, 23).replace("T", " ");
@@ -213,7 +213,7 @@ async function backfillCurrentAssignmentsFromSubscriptions(knex) {
           .where({ id: currentAssignment.id })
           .update({
             metadata_json: JSON.stringify(mergedMetadata),
-            updated_at: toMysqlDateTimeUtc(new Date())
+            updated_at: toDatabaseDateTimeUtc(new Date())
           });
         return;
       }
@@ -230,12 +230,12 @@ async function backfillCurrentAssignmentsFromSubscriptions(knex) {
         billable_entity_id: Number(row.billable_entity_id),
         plan_id: Number(row.plan_id),
         source: "internal",
-        period_start_at: toMysqlDateTimeUtc(periodStart),
-        period_end_at: toMysqlDateTimeUtc(periodEnd),
+        period_start_at: toDatabaseDateTimeUtc(periodStart),
+        period_end_at: toDatabaseDateTimeUtc(periodEnd),
         status: "current",
         metadata_json: JSON.stringify(metadataJson),
-        created_at: toMysqlDateTimeUtc(row.created_at || new Date()),
-        updated_at: toMysqlDateTimeUtc(row.updated_at || new Date())
+        created_at: toDatabaseDateTimeUtc(row.created_at || new Date()),
+        updated_at: toDatabaseDateTimeUtc(row.updated_at || new Date())
       });
     });
   }
@@ -264,7 +264,7 @@ async function backfillUpcomingAssignmentsFromSchedules(knex) {
       if (existingUpcoming) {
         const sameTarget =
           Number(existingUpcoming.plan_id) === Number(row.target_plan_id) &&
-          String(existingUpcoming.period_start_at) === String(toMysqlDateTimeUtc(effectiveAt));
+          String(existingUpcoming.period_start_at) === String(toDatabaseDateTimeUtc(effectiveAt));
         if (!sameTarget) {
           throw new Error(
             `Migration invariant failed: entity ${row.billable_entity_id} has conflicting upcoming assignment for schedule ${row.id}.`
@@ -282,7 +282,7 @@ async function backfillUpcomingAssignmentsFromSchedules(knex) {
           .where({ id: existingUpcoming.id })
           .update({
             metadata_json: JSON.stringify(mergedMetadata),
-            updated_at: toMysqlDateTimeUtc(new Date())
+            updated_at: toDatabaseDateTimeUtc(new Date())
           });
         return;
       }
@@ -301,12 +301,12 @@ async function backfillUpcomingAssignmentsFromSchedules(knex) {
         billable_entity_id: Number(row.billable_entity_id),
         plan_id: Number(row.target_plan_id),
         source: row.change_kind === "promo_fallback" ? "promo" : "manual",
-        period_start_at: toMysqlDateTimeUtc(effectiveAt),
-        period_end_at: toMysqlDateTimeUtc(derivedPeriodEnd),
+        period_start_at: toDatabaseDateTimeUtc(effectiveAt),
+        period_end_at: toDatabaseDateTimeUtc(derivedPeriodEnd),
         status: "upcoming",
         metadata_json: JSON.stringify(metadataJson),
-        created_at: toMysqlDateTimeUtc(row.created_at || new Date()),
-        updated_at: toMysqlDateTimeUtc(row.updated_at || new Date())
+        created_at: toDatabaseDateTimeUtc(row.created_at || new Date()),
+        updated_at: toDatabaseDateTimeUtc(row.updated_at || new Date())
       });
     });
   }
@@ -418,20 +418,20 @@ async function backfillAssignmentProviderDetails(knex) {
           provider_customer_id: providerCustomerId,
           provider_status: row.status == null ? null : String(row.status),
           provider_subscription_created_at: row.provider_subscription_created_at
-            ? toMysqlDateTimeUtc(row.provider_subscription_created_at)
+            ? toDatabaseDateTimeUtc(row.provider_subscription_created_at)
             : null,
-          current_period_end: row.current_period_end ? toMysqlDateTimeUtc(row.current_period_end) : null,
-          trial_end: row.trial_end ? toMysqlDateTimeUtc(row.trial_end) : null,
-          canceled_at: row.canceled_at ? toMysqlDateTimeUtc(row.canceled_at) : null,
+          current_period_end: row.current_period_end ? toDatabaseDateTimeUtc(row.current_period_end) : null,
+          trial_end: row.trial_end ? toDatabaseDateTimeUtc(row.trial_end) : null,
+          canceled_at: row.canceled_at ? toDatabaseDateTimeUtc(row.canceled_at) : null,
           cancel_at_period_end: Boolean(row.cancel_at_period_end),
-          ended_at: row.ended_at ? toMysqlDateTimeUtc(row.ended_at) : null,
+          ended_at: row.ended_at ? toDatabaseDateTimeUtc(row.ended_at) : null,
           last_provider_event_created_at: row.last_provider_event_created_at
-            ? toMysqlDateTimeUtc(row.last_provider_event_created_at)
+            ? toDatabaseDateTimeUtc(row.last_provider_event_created_at)
             : null,
           last_provider_event_id: row.last_provider_event_id == null ? null : String(row.last_provider_event_id),
           metadata_json: JSON.stringify(metadataJson),
-          created_at: toMysqlDateTimeUtc(row.created_at || new Date()),
-          updated_at: toMysqlDateTimeUtc(row.updated_at || new Date())
+          created_at: toDatabaseDateTimeUtc(row.created_at || new Date()),
+          updated_at: toDatabaseDateTimeUtc(row.updated_at || new Date())
         })
         .onConflict("billing_plan_assignment_id")
         .merge({
@@ -442,19 +442,19 @@ async function backfillAssignmentProviderDetails(knex) {
           provider_customer_id: providerCustomerId,
           provider_status: row.status == null ? null : String(row.status),
           provider_subscription_created_at: row.provider_subscription_created_at
-            ? toMysqlDateTimeUtc(row.provider_subscription_created_at)
+            ? toDatabaseDateTimeUtc(row.provider_subscription_created_at)
             : null,
-          current_period_end: row.current_period_end ? toMysqlDateTimeUtc(row.current_period_end) : null,
-          trial_end: row.trial_end ? toMysqlDateTimeUtc(row.trial_end) : null,
-          canceled_at: row.canceled_at ? toMysqlDateTimeUtc(row.canceled_at) : null,
+          current_period_end: row.current_period_end ? toDatabaseDateTimeUtc(row.current_period_end) : null,
+          trial_end: row.trial_end ? toDatabaseDateTimeUtc(row.trial_end) : null,
+          canceled_at: row.canceled_at ? toDatabaseDateTimeUtc(row.canceled_at) : null,
           cancel_at_period_end: Boolean(row.cancel_at_period_end),
-          ended_at: row.ended_at ? toMysqlDateTimeUtc(row.ended_at) : null,
+          ended_at: row.ended_at ? toDatabaseDateTimeUtc(row.ended_at) : null,
           last_provider_event_created_at: row.last_provider_event_created_at
-            ? toMysqlDateTimeUtc(row.last_provider_event_created_at)
+            ? toDatabaseDateTimeUtc(row.last_provider_event_created_at)
             : null,
           last_provider_event_id: row.last_provider_event_id == null ? null : String(row.last_provider_event_id),
           metadata_json: JSON.stringify(metadataJson),
-          updated_at: toMysqlDateTimeUtc(new Date())
+          updated_at: toDatabaseDateTimeUtc(new Date())
         });
     });
   }

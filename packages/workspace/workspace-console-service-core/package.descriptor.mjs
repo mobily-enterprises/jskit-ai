@@ -5,20 +5,22 @@ export default Object.freeze({
   "dependsOn": [
     "@jskit-ai/action-runtime-core",
     "@jskit-ai/workspace-console-core",
-    "@jskit-ai/workspace-console-knex-mysql",
     "@jskit-ai/access-core",
-    "@jskit-ai/server-runtime-core"
+    "@jskit-ai/server-runtime-core",
+    "@jskit-ai/jskit-knex"
   ],
   "capabilities": {
     "provides": [
-      "workspace.console.service"
+      "workspace.console.service",
+      "workspace.console.store"
     ],
     "requires": [
       "workspace.console.core",
-      "workspace.console.store.mysql",
+      "workspace.console.store",
       "auth.access",
       "runtime.server",
-      "runtime.actions"
+      "runtime.actions",
+      "db.core"
     ]
   },
   "mutations": {
@@ -27,7 +29,7 @@ export default Object.freeze({
         "@jskit-ai/action-runtime-core": "0.1.0",
         "@jskit-ai/access-core": "0.1.0",
         "@jskit-ai/assistant-core": "0.1.0",
-        "@jskit-ai/knex-mysql-core": "0.1.0",
+        "@jskit-ai/jskit-knex": "0.1.0",
         "@jskit-ai/server-runtime-core": "0.1.0",
         "@jskit-ai/workspace-console-core": "0.1.0"
       },

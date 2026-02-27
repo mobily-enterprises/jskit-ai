@@ -15,3 +15,7 @@ export {
   applyAssistantSystemPromptsToWorkspaceFeatures,
   applyAssistantSystemPromptWorkspaceToConsoleFeatures
 } from "./systemPrompt.js";
+export { createSchema, schema } from "./fastify/schema.js";
+export { buildRoutes } from "./fastify/routes.js";
+export { createController, __testables as assistantControllerTestables } from "./fastify/controller.js";
+export { setNdjsonHeaders, writeNdjson, endNdjson, safeStreamError } from "./fastify/ndjson.js";

@@ -19,15 +19,24 @@
     "./mappers/workspaceMappers": "./src/shared/mappers/workspaceMappers.js",
     "./mappers/workspaceAdminMappers": "./src/shared/mappers/workspaceAdminMappers.js",
     "./lookups/workspaceMembershipLookup": "./src/shared/lookups/workspaceMembershipLookup.js",
-    "./lookups/workspaceRequestContext": "./src/shared/lookups/workspaceRequestContext.js"
+    "./lookups/workspaceRequestContext": "./src/shared/lookups/workspaceRequestContext.js",
+    "./controller": "./src/shared/fastify/controller.js",
+    "./routes": "./src/shared/fastify/routes.js",
+    "./schema": "./src/shared/fastify/schema.js",
+    "./repositories/workspaces": "./src/shared/repositories/workspaces.repository.js",
+    "./repositories/memberships": "./src/shared/repositories/memberships.repository.js",
+    "./repositories/settings": "./src/shared/repositories/settings.repository.js",
+    "./repositories/invites": "./src/shared/repositories/invites.repository.js"
   },
   "dependencies": {
     "@jskit-ai/access-core": "0.1.0",
     "@jskit-ai/assistant-core": "0.1.0",
     "@jskit-ai/assistant-transcripts-core": "0.1.0",
-    "@jskit-ai/knex-mysql-core": "0.1.0",
     "@jskit-ai/rbac-core": "0.1.0",
     "@jskit-ai/server-runtime-core": "0.1.0",
-    "@jskit-ai/workspace-console-core": "0.1.0"
+    "@jskit-ai/workspace-console-core": "0.1.0",
+    "@jskit-ai/jskit-knex": "0.1.0",
+    "@jskit-ai/http-contracts": "0.1.0",
+    "@fastify/type-provider-typebox": "^6.1.0"
   }
 }
