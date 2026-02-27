@@ -82,6 +82,13 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const clientSmoke = await readFile(path.join(appRoot, "tests/client/smoke.vitest.js"), "utf8");
     assert.match(clientSmoke, /sample-app client smoke/);
 
+    const mainJs = await readFile(path.join(appRoot, "src/main.js"), "utf8");
+    assert.match(mainJs, /import App from "\.\/App\.vue";/);
+
+    const appVue = await readFile(path.join(appRoot, "src/App.vue"), "utf8");
+    assert.match(appVue, /<script setup>/);
+    assert.match(appVue, /const appTitle = "Sample App";/);
+
     assert.match(result.stdout, /npx jskit add db --provider mysql --no-install/);
     assert.match(result.stdout, /npx jskit add auth-base --no-install/);
   });
@@ -216,8 +223,8 @@ test("create-app applies explicit app title when --title is provided", async () 
     const indexHtml = await readFile(path.join(appRoot, "index.html"), "utf8");
     assert.match(indexHtml, /<title>Acme Starter<\/title>/);
 
-    const mainJs = await readFile(path.join(appRoot, "src/main.js"), "utf8");
-    assert.match(mainJs, /<h1>Acme Starter<\/h1>/);
+    const appVue = await readFile(path.join(appRoot, "src/App.vue"), "utf8");
+    assert.match(appVue, /const appTitle = "Acme Starter";/);
   });
 });
 
