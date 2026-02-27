@@ -11,9 +11,9 @@ import {
   normalizeRoleId,
   resolveAssignableRoleIds
 } from "@jskit-ai/workspace-console-core/consoleRoles";
-import { DEFAULT_BILLING_PROVIDER, resolveBillingProvider } from "./billingCatalog.service.js";
+import { DEFAULT_BILLING_PROVIDER, resolveBillingProvider } from "@jskit-ai/billing-service-core/services/billingCatalog";
 import { createConsoleAccessService } from "./consoleAccess.service.js";
-import { createConsoleBillingService } from "./consoleBilling.service.js";
+import { createConsoleBillingService } from "@jskit-ai/billing-service-core/services/consoleBilling";
 import { createConsoleMembersService } from "./consoleMembers.service.js";
 import { createConsoleInvitesService } from "./consoleInvites.service.js";
 

@@ -9,6 +9,41 @@ export { createService as createBillingWebhookService } from "./webhook.service.
 export { createService as createWebhookProjectionService, __testables as webhookProjectionServiceTestables } from "./webhookProjection.service.js";
 export { createApi as createWorkspaceBillingApi } from "./client/workspaceBillingApi.js";
 export { createApi as createConsoleBillingApi } from "./client/consoleBillingApi.js";
+export { createConsoleBillingService } from "./consoleBilling.service.js";
+export {
+  PAID_PLAN_CHANGE_POLICY_REQUIRED_NOW,
+  PAID_PLAN_CHANGE_POLICY_ALLOW_WITHOUT_PAYMENT_METHOD,
+  normalizePaidPlanChangePaymentMethodPolicy,
+  resolveBillingSettingsFromConsoleSettings,
+  mapBillingSettingsResponse,
+  createBillingSettingsService
+} from "./billingSettings.service.js";
+export {
+  DEFAULT_BILLING_PROVIDER,
+  resolveBillingProvider,
+  normalizeBillingCatalogPlanCreatePayload,
+  normalizeBillingCatalogPlanUpdatePayload,
+  normalizeBillingCatalogProductCreatePayload,
+  normalizeBillingCatalogProductUpdatePayload,
+  mapPlanEntitlementsToTemplates,
+  mapProductEntitlementsToTemplates,
+  mapPlanTemplatesToConsoleEntitlements,
+  mapProductTemplatesToConsoleEntitlements,
+  mapBillingPlanDuplicateError,
+  mapBillingProductDuplicateError,
+  ensureBillingCatalogRepository,
+  ensureBillingProductCatalogRepository,
+  buildConsoleBillingPlanCatalog,
+  buildConsoleBillingProductCatalog
+} from "./billingCatalog.service.js";
+export {
+  resolveStripeCatalogPriceSnapshot,
+  resolveCatalogCorePriceForCreate,
+  resolveCatalogCorePriceForUpdate,
+  resolveStripeCatalogProductPriceSnapshot,
+  resolveCatalogProductPriceForCreate,
+  resolveCatalogProductPriceForUpdate
+} from "./billingCatalogProviderPricing.service.js";
 export { toCanonicalJson, toSha256Hex, safeParseJson, __testables as canonicalJsonTestables } from "./canonicalJson.js";
 export {
   BILLING_PROVIDER_STRIPE,

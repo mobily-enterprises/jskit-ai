@@ -13,19 +13,14 @@
     "./services/consoleAccess": "./src/shared/services/consoleAccess.service.js",
     "./services/consoleMembers": "./src/shared/services/consoleMembers.service.js",
     "./services/consoleInvites": "./src/shared/services/consoleInvites.service.js",
-    "./services/consoleBilling": "./src/shared/services/consoleBilling.service.js",
-    "./services/billingSettings": "./src/shared/services/billingSettings.service.js",
-    "./services/billingCatalog": "./src/shared/services/billingCatalog.service.js",
-    "./services/billingCatalogProviderPricing": "./src/shared/services/billingCatalogProviderPricing.service.js",
     "./mappers/consoleMappers": "./src/shared/mappers/consoleMappers.js",
     "./policies/invitePolicy": "./src/shared/policies/invitePolicy.js"
   },
   "dependencies": {
     "@jskit-ai/access-core": "0.1.0",
     "@jskit-ai/assistant-core": "0.1.0",
-    "@jskit-ai/billing-core": "0.1.0",
+    "@jskit-ai/billing-service-core": "0.1.0",
     "@jskit-ai/knex-mysql-core": "0.1.0",
-    "@jskit-ai/observability-core": "0.1.0",
     "@jskit-ai/server-runtime-core": "0.1.0",
     "@jskit-ai/workspace-console-core": "0.1.0"
   }
