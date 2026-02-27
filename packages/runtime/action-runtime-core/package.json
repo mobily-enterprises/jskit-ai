@@ -15,6 +15,7 @@
     "./policies": "./src/policies.js",
     "./idempotency": "./src/idempotency.js",
     "./audit": "./src/audit.js",
-    "./observability": "./src/observability.js"
+    "./observability": "./src/observability.js",
+    "./actionIds": "./src/actionIds.js"
   }
 }
