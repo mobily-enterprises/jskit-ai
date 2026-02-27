@@ -287,6 +287,6 @@ test("generated app supports shell + db + auth progressive installation", async 
 
     const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
     assert.ok(lockfile.installedPacks["auth-base"]);
-    assert.ok(lockfile.installedPackages["@jskit-ai/auth-fastify-adapter"]);
+    assert.ok(lockfile.installedPackages["@jskit-ai/auth-fastify-routes"]);
   });
 });

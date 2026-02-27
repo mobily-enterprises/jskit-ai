@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildRoutes } from "@jskit-ai/billing-fastify-adapter/routes";
+import { buildRoutes } from "@jskit-ai/billing-fastify-routes/routes";
 import { toVersionedApiPath } from "../shared/apiPaths.js";
 
 function buildRouteMap() {

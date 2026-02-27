@@ -1,4 +1,4 @@
-import { createController as createAssistantAdapterController } from "@jskit-ai/assistant-core";
+import { createController as createAssistantAdapterController } from "@jskit-ai/assistant-fastify-routes";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { hasPermission } from "@jskit-ai/rbac-core";
 

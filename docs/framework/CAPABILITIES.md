@@ -8,10 +8,10 @@ Capability declarations are enforced by `jskit` during add/update/remove operati
 | --- | --- | --- |
 | `runtime.module-framework` | `@jskit-ai/module-framework-core` | `@jskit-ai/server-runtime-core`, `@jskit-ai/action-runtime-core` |
 | `runtime.env` | `@jskit-ai/runtime-env-core` | `@jskit-ai/server-runtime-core` |
-| `runtime.server` | `@jskit-ai/server-runtime-core` | `@jskit-ai/platform-server-runtime`, `@jskit-ai/health-fastify-adapter`, `@jskit-ai/redis-ops-core`, `@jskit-ai/security-audit-core`, `@jskit-ai/web-runtime-core` |
+| `runtime.server` | `@jskit-ai/server-runtime-core` | `@jskit-ai/platform-server-runtime`, `@jskit-ai/health-fastify-routes`, `@jskit-ai/redis-ops-core`, `@jskit-ai/security-audit-core`, `@jskit-ai/web-runtime-core` |
 | `runtime.platform-server` | `@jskit-ai/platform-server-runtime` | Shell bundles |
 | `runtime.actions` | `@jskit-ai/action-runtime-core` | Shell bundles |
-| `contracts.http` | `@jskit-ai/http-contracts` | `@jskit-ai/health-fastify-adapter`, `@jskit-ai/web-runtime-core` |
+| `contracts.http` | `@jskit-ai/http-contracts` | `@jskit-ai/health-fastify-routes`, `@jskit-ai/web-runtime-core` |
 | `contracts.realtime` | `@jskit-ai/realtime-contracts` | `@jskit-ai/realtime-server-socketio`, `@jskit-ai/realtime-client-runtime` |
 | `runtime.http-client` | `@jskit-ai/http-client-runtime` | `@jskit-ai/web-runtime-core` |
 | `runtime.surface-routing` | `@jskit-ai/surface-routing` | `@jskit-ai/web-runtime-core` |
@@ -34,13 +34,13 @@ Capability declarations are enforced by `jskit` during add/update/remove operati
 
 | Capability | Providers | Common Consumers |
 | --- | --- | --- |
-| `auth.access` | `@jskit-ai/access-core` | `@jskit-ai/rbac-core`, `@jskit-ai/auth-fastify-adapter`, `@jskit-ai/auth-provider-supabase-core` |
+| `auth.access` | `@jskit-ai/access-core` | `@jskit-ai/rbac-core`, `@jskit-ai/auth-fastify-routes`, `@jskit-ai/auth-provider-supabase-core` |
 | `auth.rbac` | `@jskit-ai/rbac-core` | `@jskit-ai/fastify-auth-policy` |
-| `auth.policy` | `@jskit-ai/fastify-auth-policy` | `@jskit-ai/auth-fastify-adapter` |
-| `auth.routes` | `@jskit-ai/auth-fastify-adapter` | Auth bundle consumers |
+| `auth.policy` | `@jskit-ai/fastify-auth-policy` | `@jskit-ai/auth-fastify-routes` |
+| `auth.server-routes` | `@jskit-ai/auth-fastify-routes` | Auth bundle consumers |
 | `auth.provider` | `@jskit-ai/auth-provider-supabase-core` | Auth provider bundles |
 | `contracts.communications` | `@jskit-ai/communications-contracts` | `@jskit-ai/communications-core`, `@jskit-ai/communications-fastify-adapter` |
-| `communications.provider` | `@jskit-ai/communications-provider-core` | `@jskit-ai/communications-core`, `@jskit-ai/email-core`, `@jskit-ai/sms-core` |
+| `communications.dispatch-contract` | `@jskit-ai/communications-provider-core` | `@jskit-ai/communications-core` |
 | `communications.core` | `@jskit-ai/communications-core` | `@jskit-ai/communications-fastify-adapter` |
 | `communications.routes` | `@jskit-ai/communications-fastify-adapter` | Communications bundle consumers |
 | `communications.email` | `@jskit-ai/email-core` | Communications bundle consumers |
@@ -77,9 +77,9 @@ Capability declarations are enforced by `jskit` during add/update/remove operati
 | `workspace.console.core` | `@jskit-ai/workspace-console-core` | Most workspace adapters/services |
 | `workspace.console.store.mysql` | `@jskit-ai/workspace-console-knex-mysql` | `@jskit-ai/workspace-console-service-core` |
 | `workspace.console.service` | `@jskit-ai/workspace-console-service-core` | Console/admin bundle consumers |
-| `workspace.console.routes` | `@jskit-ai/console-fastify-adapter` | Workspace console bundle consumers |
-| `workspace.console-errors.routes` | `@jskit-ai/console-errors-fastify-adapter` | Workspace console bundle consumers |
-| `workspace.settings.routes` | `@jskit-ai/settings-fastify-adapter` | Workspace console bundle consumers |
+| `workspace.console.server-routes` | `@jskit-ai/console-fastify-routes` | Workspace console bundle consumers |
+| `workspace.console-errors.server-routes` | `@jskit-ai/console-errors-fastify-routes` | Workspace console bundle consumers |
+| `workspace.settings.server-routes` | `@jskit-ai/settings-fastify-routes` | Workspace console bundle consumers |
 | `workspace.store.mysql` | `@jskit-ai/workspace-knex-mysql` | `@jskit-ai/workspace-service-core` |
 | `workspace.service` | `@jskit-ai/workspace-service-core` | `@jskit-ai/workspace-fastify-adapter` |
 | `workspace.routes` | `@jskit-ai/workspace-fastify-adapter` | Workspace core/admin bundles |
@@ -89,8 +89,8 @@ Capability declarations are enforced by `jskit` during add/update/remove operati
 | Capability | Providers | Common Consumers |
 | --- | --- | --- |
 | `contracts.assistant` | `@jskit-ai/assistant-contracts` | Assistant runtime and adapters |
-| `assistant.core` | `@jskit-ai/assistant-core` | Assistant adapters/providers/transcripts |
-| `assistant.routes` | `@jskit-ai/assistant-fastify-adapter` | Assistant bundles |
+| `assistant.core` | `@jskit-ai/assistant-core` | `@jskit-ai/assistant-fastify-routes`, assistant providers/transcripts |
+| `assistant.server-routes` | `@jskit-ai/assistant-fastify-routes` | Assistant bundles |
 | `assistant.provider` | `@jskit-ai/assistant-provider-openai` | Assistant provider bundles |
 | `assistant.transcripts.core` | `@jskit-ai/assistant-transcripts-core` | Transcript storage/client packages |
 | `assistant.transcripts.store.mysql` | `@jskit-ai/assistant-transcripts-knex-mysql` | Assistant transcript persistence bundles |
@@ -102,7 +102,7 @@ Capability declarations are enforced by `jskit` during add/update/remove operati
 | `billing.provider.paddle` | `@jskit-ai/billing-provider-paddle` | Paddle billing bundle |
 | `billing.core` | `@jskit-ai/billing-core` | Billing service/routes/client packages |
 | `billing.service` | `@jskit-ai/billing-service-core` | Billing adapter/worker |
-| `billing.routes` | `@jskit-ai/billing-fastify-adapter` | Billing API bundles |
+| `billing.server-routes` | `@jskit-ai/billing-fastify-routes` | Billing API bundles |
 | `billing.worker` | `@jskit-ai/billing-worker-core` | Billing worker bundles |
 | `billing.store.mysql` | `@jskit-ai/billing-knex-mysql` | Billing persistence bundles |
 | `billing.entitlements.core` | `@jskit-ai/entitlements-core` | Billing service/storage |

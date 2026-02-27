@@ -1,0 +1,9 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createController, buildRoutes, schema } from "../src/shared/index.js";
+
+test("assistant fastify routes exports controller/routes/schema", () => {
+  assert.equal(typeof createController, "function");
+  assert.equal(typeof buildRoutes, "function");
+  assert.ok(schema.response.stream);
+});

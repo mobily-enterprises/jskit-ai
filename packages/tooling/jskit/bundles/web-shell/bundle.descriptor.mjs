@@ -11,7 +11,7 @@ export default Object.freeze({
     "@jskit-ai/platform-server-runtime",
     "@jskit-ai/action-runtime-core",
     "@jskit-ai/http-contracts",
-    "@jskit-ai/health-fastify-adapter",
+    "@jskit-ai/health-fastify-routes",
     "@jskit-ai/http-client-runtime",
     "@jskit-ai/surface-routing",
     "@jskit-ai/web-runtime-core"

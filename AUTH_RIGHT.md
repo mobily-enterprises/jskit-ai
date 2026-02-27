@@ -46,13 +46,13 @@
 
   Stage 3: Make auth-fastify-adapter schema generic
 
-  1. Update schema.js (/home/merc/Development/current/jskit-ai/packages/auth/auth-fastify-adapter/src/shared/
+  1. Update schema.js (/home/merc/Development/current/jskit-ai/packages/auth/auth-fastify-routes/src/shared/
      schema.js):
      remove enum import of AUTH_OAUTH_PROVIDERS; validate provider by regex string.
   2. Keep authMethodKind enum static (password|otp|oauth), but make authMethodId generic pattern (password|
      email_otp|oauth:<providerId>).
-  3. Keep routes.js (/home/merc/Development/current/jskit-ai/packages/auth/auth-fastify-adapter/src/shared/
-     routes.js) and controller.js (/home/merc/Development/current/jskit-ai/packages/auth/auth-fastify-adapter/src/
+  3. Keep routes.js (/home/merc/Development/current/jskit-ai/packages/auth/auth-fastify-routes/src/shared/
+     routes.js) and controller.js (/home/merc/Development/current/jskit-ai/packages/auth/auth-fastify-routes/src/
      shared/controller.js) flow unchanged except for schema contract updates.
 
   Stage 4: Make provider requirement explicit in capabilities (recommended)
@@ -90,7 +90,7 @@
   Stage 8: Test matrix (must pass before merge)
 
   1. npm test --workspace @jskit-ai/access-core
-  2. npm test --workspace @jskit-ai/auth-fastify-adapter
+  2. npm test --workspace @jskit-ai/auth-fastify-routes
   3. npm test --workspace @jskit-ai/auth-provider-supabase-core
   4. npm test --workspace @jskit-ai/jskit
   5. apps/jskit-value-app auth unit/integration tests touching OAuth provider parsing, method status, and routes.

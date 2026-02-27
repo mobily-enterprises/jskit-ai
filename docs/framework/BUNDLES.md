@@ -7,7 +7,7 @@ This catalog documents each bundle in `packages/tooling/jskit/bundles` with purp
 - Purpose: Core shell with API contract packages.
 - Included packages:
   - `@jskit-ai/action-runtime-core`
-  - `@jskit-ai/health-fastify-adapter`
+  - `@jskit-ai/health-fastify-routes`
   - `@jskit-ai/http-contracts`
   - `@jskit-ai/module-framework-core`
   - `@jskit-ai/platform-server-runtime`
@@ -33,6 +33,7 @@ This catalog documents each bundle in `packages/tooling/jskit/bundles` with purp
   - `@jskit-ai/assistant-client-runtime`
   - `@jskit-ai/assistant-contracts`
   - `@jskit-ai/assistant-core`
+  - `@jskit-ai/assistant-fastify-routes`
   - `@jskit-ai/assistant-transcript-explorer-client-element`
   - `@jskit-ai/assistant-transcripts-core`
   - `@jskit-ai/http-contracts`
@@ -47,6 +48,7 @@ This catalog documents each bundle in `packages/tooling/jskit/bundles` with purp
   - `assistant.client-runtime`
   - `assistant.core`
   - `assistant.provider`
+  - `assistant.server-routes`
   - `assistant.transcripts.core`
   - `auth.access`
   - `auth.rbac`
@@ -82,7 +84,7 @@ This catalog documents each bundle in `packages/tooling/jskit/bundles` with purp
 - Purpose: Core authentication and policy packages.
 - Included packages:
   - `@jskit-ai/access-core`
-  - `@jskit-ai/auth-fastify-adapter`
+  - `@jskit-ai/auth-fastify-routes`
   - `@jskit-ai/fastify-auth-policy`
   - `@jskit-ai/http-contracts`
   - `@jskit-ai/module-framework-core`
@@ -134,7 +136,7 @@ This catalog documents each bundle in `packages/tooling/jskit/bundles` with purp
   - `@jskit-ai/billing-commerce-client-element`
   - `@jskit-ai/billing-console-admin-client-element`
   - `@jskit-ai/billing-core`
-  - `@jskit-ai/billing-fastify-adapter`
+  - `@jskit-ai/billing-fastify-routes`
   - `@jskit-ai/billing-knex-mysql`
   - `@jskit-ai/billing-plan-client-element`
   - `@jskit-ai/billing-provider-core`
@@ -164,7 +166,7 @@ This catalog documents each bundle in `packages/tooling/jskit/bundles` with purp
   - `@jskit-ai/billing-commerce-client-element`
   - `@jskit-ai/billing-console-admin-client-element`
   - `@jskit-ai/billing-core`
-  - `@jskit-ai/billing-fastify-adapter`
+  - `@jskit-ai/billing-fastify-routes`
   - `@jskit-ai/billing-knex-mysql`
   - `@jskit-ai/billing-plan-client-element`
   - `@jskit-ai/billing-provider-core`
@@ -195,7 +197,7 @@ This catalog documents each bundle in `packages/tooling/jskit/bundles` with purp
   - `@jskit-ai/billing-commerce-client-element`
   - `@jskit-ai/billing-console-admin-client-element`
   - `@jskit-ai/billing-core`
-  - `@jskit-ai/billing-fastify-adapter`
+  - `@jskit-ai/billing-fastify-routes`
   - `@jskit-ai/billing-knex-mysql`
   - `@jskit-ai/billing-plan-client-element`
   - `@jskit-ai/billing-provider-core`
@@ -277,7 +279,7 @@ This catalog documents each bundle in `packages/tooling/jskit/bundles` with purp
   - `@jskit-ai/sms-core`
 - Required capabilities:
   - `communications.core`
-  - `communications.provider`
+  - `communications.dispatch-contract`
   - `contracts.communications`
   - `contracts.http`
   - `runtime.server`
@@ -322,27 +324,6 @@ This catalog documents each bundle in `packages/tooling/jskit/bundles` with purp
   - None
 - Conflict notes:
   - Requires db provider capability from `db-mysql`, `db-postgres`, or another provider bundle.
-
-## core-shell
-
-- Purpose: Core runtime shell for JSKIT applications.
-- Included packages:
-  - `@jskit-ai/action-runtime-core`
-  - `@jskit-ai/health-fastify-adapter`
-  - `@jskit-ai/http-contracts`
-  - `@jskit-ai/module-framework-core`
-  - `@jskit-ai/platform-server-runtime`
-  - `@jskit-ai/runtime-env-core`
-  - `@jskit-ai/server-runtime-core`
-- Required capabilities:
-  - `contracts.http`
-  - `runtime.env`
-  - `runtime.module-framework`
-  - `runtime.server`
-- Options:
-  - None
-- Conflict notes:
-  - No known hard conflicts beyond capability requirements.
 
 ## db
 
@@ -411,16 +392,16 @@ This catalog documents each bundle in `packages/tooling/jskit/bundles` with purp
   - `@jskit-ai/assistant-client-runtime`
   - `@jskit-ai/assistant-contracts`
   - `@jskit-ai/assistant-core`
-  - `@jskit-ai/assistant-fastify-adapter`
+  - `@jskit-ai/assistant-fastify-routes`
   - `@jskit-ai/assistant-provider-openai`
   - `@jskit-ai/assistant-transcript-explorer-client-element`
   - `@jskit-ai/assistant-transcripts-core`
   - `@jskit-ai/assistant-transcripts-knex-mysql`
-  - `@jskit-ai/auth-fastify-adapter`
+  - `@jskit-ai/auth-fastify-routes`
   - `@jskit-ai/billing-commerce-client-element`
   - `@jskit-ai/billing-console-admin-client-element`
   - `@jskit-ai/billing-core`
-  - `@jskit-ai/billing-fastify-adapter`
+  - `@jskit-ai/billing-fastify-routes`
   - `@jskit-ai/billing-knex-mysql`
   - `@jskit-ai/billing-plan-client-element`
   - `@jskit-ai/billing-provider-core`
@@ -523,7 +504,7 @@ This catalog documents each bundle in `packages/tooling/jskit/bundles` with purp
 - Purpose: Core shell with browser/runtime surface packages.
 - Included packages:
   - `@jskit-ai/action-runtime-core`
-  - `@jskit-ai/health-fastify-adapter`
+  - `@jskit-ai/health-fastify-routes`
   - `@jskit-ai/http-client-runtime`
   - `@jskit-ai/http-contracts`
   - `@jskit-ai/module-framework-core`
@@ -548,9 +529,9 @@ This catalog documents each bundle in `packages/tooling/jskit/bundles` with purp
 
 - Purpose: Combined workspace service and console administration suite.
 - Included packages:
-  - `@jskit-ai/console-errors-fastify-adapter`
-  - `@jskit-ai/console-fastify-adapter`
-  - `@jskit-ai/settings-fastify-adapter`
+  - `@jskit-ai/console-errors-fastify-routes`
+  - `@jskit-ai/console-fastify-routes`
+  - `@jskit-ai/settings-fastify-routes`
   - `@jskit-ai/workspace-console-core`
   - `@jskit-ai/workspace-console-knex-mysql`
   - `@jskit-ai/workspace-console-service-core`
@@ -560,7 +541,7 @@ This catalog documents each bundle in `packages/tooling/jskit/bundles` with purp
 - Required capabilities:
   - `auth.access`
   - `auth.rbac`
-  - `auth.routes`
+  - `auth.server-routes`
   - `contracts.http`
   - `db-provider`
   - `observability.core`
@@ -578,16 +559,16 @@ This catalog documents each bundle in `packages/tooling/jskit/bundles` with purp
 
 - Purpose: Workspace console routes, storage, and service packages.
 - Included packages:
-  - `@jskit-ai/console-errors-fastify-adapter`
-  - `@jskit-ai/console-fastify-adapter`
-  - `@jskit-ai/settings-fastify-adapter`
+  - `@jskit-ai/console-errors-fastify-routes`
+  - `@jskit-ai/console-fastify-routes`
+  - `@jskit-ai/settings-fastify-routes`
   - `@jskit-ai/workspace-console-core`
   - `@jskit-ai/workspace-console-knex-mysql`
   - `@jskit-ai/workspace-console-service-core`
 - Required capabilities:
   - `auth.access`
   - `auth.rbac`
-  - `auth.routes`
+  - `auth.server-routes`
   - `contracts.http`
   - `db-provider`
   - `observability.core`

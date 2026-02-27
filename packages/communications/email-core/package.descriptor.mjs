@@ -2,22 +2,16 @@ export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/email-core",
   "version": "0.1.0",
-  "dependsOn": [
-    "@jskit-ai/communications-provider-core"
-  ],
+  "dependsOn": [],
   "capabilities": {
     "provides": [
       "communications.email"
     ],
-    "requires": [
-      "communications.provider"
-    ]
+    "requires": []
   },
   "mutations": {
     "dependencies": {
-      "runtime": {
-        "@jskit-ai/communications-provider-core": "0.1.0"
-      },
+      "runtime": {},
       "dev": {}
     },
     "packageJson": {

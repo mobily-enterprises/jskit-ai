@@ -108,6 +108,7 @@ function parseArgs(argv) {
     dryRun: false,
     noInstall: false,
     full: false,
+    expanded: false,
     json: false,
     all: false,
     help: false,
@@ -129,6 +130,10 @@ function parseArgs(argv) {
     }
     if (token === "--full") {
       options.full = true;
+      continue;
+    }
+    if (token === "--expanded") {
+      options.expanded = true;
       continue;
     }
     if (token === "--json") {
@@ -205,7 +210,8 @@ function printUsage(stream = process.stderr) {
   stream.write("Options:\n");
   stream.write("  --dry-run                 Print planned changes only\n");
   stream.write("  --no-install              Skip npm install during add/update\n");
-  stream.write("  --full                    Expand bundle lists with full package ids\n");
+  stream.write("  --full                    Show bundle package ids (declared packages)\n");
+  stream.write("  --expanded                Show expanded/transitive package ids\n");
   stream.write("  --<option> <value>        Package option (for packages requiring input)\n");
   stream.write("  --json                    Print structured output\n");
   stream.write("  -h, --help                Show help\n");
@@ -961,6 +967,19 @@ function buildBundleMetadata(bundleDescriptor, availablePackages) {
     }
     return index;
   })();
+  const providerPackagesByCapability = (() => {
+    const index = new Map();
+    for (const packageEntry of availablePackages.values()) {
+      const packageId = packageEntry.descriptor.packageId;
+      for (const capabilityId of packageEntry.descriptor.capabilities.provides) {
+        if (!index.has(capabilityId)) {
+          index.set(capabilityId, new Set());
+        }
+        index.get(capabilityId).add(packageId);
+      }
+    }
+    return index;
+  })();
 
   function isProviderCapability(capabilityId) {
     const normalized = String(capabilityId || "").trim();
@@ -992,12 +1011,17 @@ function buildBundleMetadata(bundleDescriptor, availablePackages) {
     const hints = [];
     for (const capabilityId of requiredCapabilities) {
       const options = providerOptionsByFamily.get(capabilityId);
-      if (!options || options.size < 1) {
+      if (options && options.size > 0) {
+        const label = toSortedUniqueStrings([...options]).join("|");
+        if (label) {
+          hints.push(label);
+        }
         continue;
       }
-      const label = toSortedUniqueStrings([...options]).join("|");
-      if (label) {
-        hints.push(label);
+
+      const providers = providerPackagesByCapability.get(capabilityId);
+      if (providers && providers.size > 1) {
+        hints.push(capabilityId);
       }
     }
     return toSortedUniqueStrings(hints);
@@ -1029,21 +1053,26 @@ function buildBundleMetadata(bundleDescriptor, availablePackages) {
     return "No package description.";
   }
 
+  function buildPackageEntry(packageId) {
+    const packageEntry = availablePackages.get(packageId);
+    const providerRequirementHints = resolveProviderRequirementHints(
+      packageEntry?.descriptor?.capabilities?.requires || []
+    );
+    return {
+      packageId,
+      provider: isProviderPackage(packageEntry),
+      providerRequirementHints,
+      description: buildPackageExplanation(packageId)
+    };
+  }
+
   return {
-    packageCount: resolvedPackageIds.length,
-    packages: resolvedPackageIds,
-    packageEntries: resolvedPackageIds.map((packageId) => {
-      const packageEntry = availablePackages.get(packageId);
-      const providerRequirementHints = resolveProviderRequirementHints(
-        packageEntry?.descriptor?.capabilities?.requires || []
-      );
-      return {
-        packageId,
-        provider: isProviderPackage(packageEntry),
-        providerRequirementHints,
-        description: buildPackageExplanation(packageId)
-      };
-    }),
+    packageCount: uniqueRootPackageIds.length,
+    packages: uniqueRootPackageIds,
+    packageEntries: uniqueRootPackageIds.map((packageId) => buildPackageEntry(packageId)),
+    expandedPackageCount: resolvedPackageIds.length,
+    expandedPackages: resolvedPackageIds,
+    expandedPackageEntries: resolvedPackageIds.map((packageId) => buildPackageEntry(packageId)),
     providerRequirementHints: resolveProviderRequirementHints(
       [...requiredCapabilities].filter((capabilityId) => !providedCapabilities.has(capabilityId))
     ),
@@ -1700,6 +1729,7 @@ async function validateDoctor({ appRoot, lock, availableBundles, availablePackag
 function formatResult(result, { json, stdout }) {
   const supportsColor = Boolean(stdout?.isTTY) && !process.env.NO_COLOR;
   const gray = (text) => (supportsColor ? `\x1b[90m${text}\x1b[0m` : text);
+  const showExpanded = result.expanded === true;
 
   function formatBundleLine(entry) {
     const installedSuffix = entry.installed ? " [installed]" : "";
@@ -1724,8 +1754,10 @@ function formatResult(result, { json, stdout }) {
       for (const entry of result.standardBundles || []) {
         stdout.write(formatBundleLine(entry));
         if (result.full) {
-          stdout.write(`  packages (${entry.packages.length}):\n`);
-          for (const packageEntry of entry.packageEntries || []) {
+          const packageIds = showExpanded ? entry.expandedPackages || entry.packages : entry.packages;
+          const packageEntries = showExpanded ? entry.expandedPackageEntries || entry.packageEntries : entry.packageEntries;
+          stdout.write(`  packages (${packageIds.length}):\n`);
+          for (const packageEntry of packageEntries || []) {
             const providerRequirementSuffix =
               Array.isArray(packageEntry.providerRequirementHints) && packageEntry.providerRequirementHints.length > 0
                 ? ` [${packageEntry.providerRequirementHints.join(", ")}]`
@@ -1745,8 +1777,10 @@ function formatResult(result, { json, stdout }) {
       for (const entry of result.providerBundles || []) {
         stdout.write(formatBundleLine(entry));
         if (result.full) {
-          stdout.write(`  packages (${entry.packages.length}):\n`);
-          for (const packageEntry of entry.packageEntries || []) {
+          const packageIds = showExpanded ? entry.expandedPackages || entry.packages : entry.packages;
+          const packageEntries = showExpanded ? entry.expandedPackageEntries || entry.packageEntries : entry.packageEntries;
+          stdout.write(`  packages (${packageIds.length}):\n`);
+          for (const packageEntry of packageEntries || []) {
             const providerRequirementSuffix =
               Array.isArray(packageEntry.providerRequirementHints) && packageEntry.providerRequirementHints.length > 0
                 ? ` [${packageEntry.providerRequirementHints.join(", ")}]`
@@ -1777,6 +1811,7 @@ function formatResult(result, { json, stdout }) {
 
   if (result.command === "show-bundle") {
     const installedSuffix = result.installed ? " [installed]" : "";
+    const packageIds = showExpanded ? result.expandedPackages || result.packages : result.packages;
     stdout.write(`Bundle ${result.bundleId} (${result.version})${installedSuffix}\n`);
     if (result.description) {
       stdout.write(`Description: ${result.description}\n`);
@@ -1795,8 +1830,8 @@ function formatResult(result, { json, stdout }) {
         stdout.write(`- ${capabilityId}\n`);
       }
     }
-    stdout.write(`Packages (${result.packages.length}):\n`);
-    for (const packageId of result.packages) {
+    stdout.write(`Packages (${packageIds.length}):\n`);
+    for (const packageId of packageIds) {
       stdout.write(`- ${packageId}\n`);
     }
     return;
@@ -2201,6 +2236,11 @@ export async function runCli(
         showUsage: true
       });
     }
+    if (parsed.options.expanded && !(parsed.command === "list" || parsed.command === "show")) {
+      throw createCliError("--expanded is supported only for jskit list/show commands.", {
+        showUsage: true
+      });
+    }
 
     const inlineOptionCount = Object.keys(parsed.options.inlineOptions).length;
     const allowsInlineOptions =
@@ -2250,8 +2290,8 @@ export async function runCli(
             showUsage: true
           });
         }
-        if (parsed.options.full) {
-          throw createCliError("--full is supported only for bundle listings.", {
+        if (parsed.options.full || parsed.options.expanded) {
+          throw createCliError("--full/--expanded are supported only for bundle listings.", {
             showUsage: true
           });
         }
@@ -2264,7 +2304,7 @@ export async function runCli(
       const installedPackageIds = new Set(Object.keys(ensurePlainObjectRecord(lock.installedPackages)));
       const allBundleEntries = [...availableBundles.values()].map((entry) => {
         const metadata = buildBundleMetadata(entry.descriptor, availablePackages);
-        const installed = metadata.packages.every((packageId) => installedPackageIds.has(packageId));
+        const installed = metadata.expandedPackages.every((packageId) => installedPackageIds.has(packageId));
         return {
           bundleId: entry.descriptor.bundleId,
           version: entry.descriptor.version,
@@ -2297,6 +2337,7 @@ export async function runCli(
       result = {
         command: "list",
         full: parsed.options.full,
+        expanded: parsed.options.expanded,
         availableBundles: selector === "all" || selector === "bundles" ? availableBundleEntries : null,
         providerBundles: selector === "all" || selector === "bundles" ? bundleSplit.providerBundles : null,
         standardBundles: selector === "all" || selector === "bundles" ? bundleSplit.standardBundles : null,
@@ -2326,12 +2367,13 @@ export async function runCli(
       const installedPackageIds = new Set(Object.keys(ensurePlainObjectRecord(lock.installedPackages)));
       result = {
         command: "show-bundle",
+        expanded: parsed.options.expanded,
         bundleId: bundleEntry.descriptor.bundleId,
         version: bundleEntry.descriptor.version,
         description: bundleEntry.descriptor.description,
         curated: bundleEntry.descriptor.curated,
         provider: bundleEntry.descriptor.provider,
-        installed: metadata.packages.every((packageId) => installedPackageIds.has(packageId)),
+        installed: metadata.expandedPackages.every((packageId) => installedPackageIds.has(packageId)),
         ...metadata
       };
 

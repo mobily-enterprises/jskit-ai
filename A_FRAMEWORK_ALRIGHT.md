@@ -306,7 +306,7 @@ Packages:
 7. `@jskit-ai/platform-server-runtime`
 8. `@jskit-ai/action-runtime-core`
 9. `@jskit-ai/runtime-env-core`
-10. `@jskit-ai/health-fastify-adapter`
+10. `@jskit-ai/health-fastify-routes`
 11. `@jskit-ai/web-runtime-core`
 12. `@jskit-ai/http-client-runtime`
 13. `@jskit-ai/http-contracts`
@@ -390,7 +390,7 @@ Goal:
 Packages:
 
 1. `@jskit-ai/access-core`
-2. `@jskit-ai/auth-fastify-adapter`
+2. `@jskit-ai/auth-fastify-routes`
 3. `@jskit-ai/auth-provider-supabase-core`
 4. `@jskit-ai/fastify-auth-policy`
 5. `@jskit-ai/rbac-core`
@@ -476,9 +476,9 @@ Goal:
 
 Packages:
 
-1. `@jskit-ai/console-errors-fastify-adapter`
-2. `@jskit-ai/console-fastify-adapter`
-3. `@jskit-ai/settings-fastify-adapter`
+1. `@jskit-ai/console-errors-fastify-routes`
+2. `@jskit-ai/console-fastify-routes`
+3. `@jskit-ai/settings-fastify-routes`
 4. `@jskit-ai/workspace-console-core`
 5. `@jskit-ai/workspace-console-knex-mysql`
 6. `@jskit-ai/workspace-console-service-core`
@@ -516,7 +516,7 @@ Packages (AI Agent):
 2. `@jskit-ai/assistant-client-runtime`
 3. `@jskit-ai/assistant-contracts`
 4. `@jskit-ai/assistant-core`
-5. `@jskit-ai/assistant-fastify-adapter`
+5. `@jskit-ai/assistant-fastify-routes`
 6. `@jskit-ai/assistant-provider-openai`
 7. `@jskit-ai/assistant-transcript-explorer-client-element`
 8. `@jskit-ai/assistant-transcripts-core`
@@ -527,7 +527,7 @@ Packages (Billing):
 1. `@jskit-ai/billing-commerce-client-element`
 2. `@jskit-ai/billing-console-admin-client-element`
 3. `@jskit-ai/billing-core`
-4. `@jskit-ai/billing-fastify-adapter`
+4. `@jskit-ai/billing-fastify-routes`
 5. `@jskit-ai/billing-knex-mysql`
 6. `@jskit-ai/billing-plan-client-element`
 7. `@jskit-ai/billing-provider-core`
@@ -655,7 +655,7 @@ Use this as the first concrete bundle set to implement and validate.
    - `@jskit-ai/server-runtime-core`
    - `@jskit-ai/platform-server-runtime`
    - `@jskit-ai/action-runtime-core`
-   - `@jskit-ai/health-fastify-adapter`
+   - `@jskit-ai/health-fastify-routes`
 
 2. `web-shell`
    - `core-shell` packages
@@ -674,7 +674,7 @@ Use this as the first concrete bundle set to implement and validate.
    - `@jskit-ai/access-core`
    - `@jskit-ai/rbac-core`
    - `@jskit-ai/fastify-auth-policy`
-   - `@jskit-ai/auth-fastify-adapter`
+   - `@jskit-ai/auth-fastify-routes`
 
 6. `auth-supabase`
    - `auth-base` packages
@@ -724,14 +724,14 @@ Use this as the first concrete bundle set to implement and validate.
     - `@jskit-ai/workspace-console-core`
     - `@jskit-ai/workspace-console-knex-mysql`
     - `@jskit-ai/workspace-console-service-core`
-    - `@jskit-ai/console-fastify-adapter`
-    - `@jskit-ai/console-errors-fastify-adapter`
-    - `@jskit-ai/settings-fastify-adapter`
+    - `@jskit-ai/console-fastify-routes`
+    - `@jskit-ai/console-errors-fastify-routes`
+    - `@jskit-ai/settings-fastify-routes`
 
 15. `assistant-base`
     - `@jskit-ai/assistant-contracts`
     - `@jskit-ai/assistant-core`
-    - `@jskit-ai/assistant-fastify-adapter`
+    - `@jskit-ai/assistant-fastify-routes`
     - `@jskit-ai/assistant-client-runtime`
     - `@jskit-ai/assistant-client-element`
     - `@jskit-ai/assistant-transcripts-core`
@@ -746,7 +746,7 @@ Use this as the first concrete bundle set to implement and validate.
     - `@jskit-ai/billing-core`
     - `@jskit-ai/billing-provider-core`
     - `@jskit-ai/billing-service-core`
-    - `@jskit-ai/billing-fastify-adapter`
+    - `@jskit-ai/billing-fastify-routes`
     - `@jskit-ai/entitlements-core`
     - `@jskit-ai/entitlements-knex-mysql`
     - `@jskit-ai/billing-knex-mysql`
@@ -792,7 +792,7 @@ Status legend:
 2. `@jskit-ai/assistant-client-runtime` - P0
 3. `@jskit-ai/assistant-contracts` - P0
 4. `@jskit-ai/assistant-core` - P0
-5. `@jskit-ai/assistant-fastify-adapter` - P0
+5. `@jskit-ai/assistant-fastify-routes` - P0
 6. `@jskit-ai/assistant-provider-openai` - P0
 7. `@jskit-ai/assistant-transcript-explorer-client-element` - P0
 8. `@jskit-ai/assistant-transcripts-core` - P0
@@ -801,7 +801,7 @@ Status legend:
 ### auth (5)
 
 1. `@jskit-ai/access-core` - P0
-2. `@jskit-ai/auth-fastify-adapter` - P0
+2. `@jskit-ai/auth-fastify-routes` - P0
 3. `@jskit-ai/auth-provider-supabase-core` - P0
 4. `@jskit-ai/fastify-auth-policy` - P0
 5. `@jskit-ai/rbac-core` - P0
@@ -811,7 +811,7 @@ Status legend:
 1. `@jskit-ai/billing-commerce-client-element` - P0
 2. `@jskit-ai/billing-console-admin-client-element` - P0
 3. `@jskit-ai/billing-core` - P0
-4. `@jskit-ai/billing-fastify-adapter` - P0
+4. `@jskit-ai/billing-fastify-routes` - P0
 5. `@jskit-ai/billing-knex-mysql` - P0
 6. `@jskit-ai/billing-plan-client-element` - P0
 7. `@jskit-ai/billing-provider-core` - P0
@@ -865,7 +865,7 @@ Status legend:
 ### runtime (7)
 
 1. `@jskit-ai/action-runtime-core` - P0
-2. `@jskit-ai/health-fastify-adapter` - P0
+2. `@jskit-ai/health-fastify-routes` - P0
 3. `@jskit-ai/knex-mysql-core` - P0
 4. `@jskit-ai/module-framework-core` - P0
 5. `@jskit-ai/platform-server-runtime` - P0
@@ -910,9 +910,9 @@ Status legend:
 
 ### workspace (9)
 
-1. `@jskit-ai/console-errors-fastify-adapter` - P0
-2. `@jskit-ai/console-fastify-adapter` - P0
-3. `@jskit-ai/settings-fastify-adapter` - P0
+1. `@jskit-ai/console-errors-fastify-routes` - P0
+2. `@jskit-ai/console-fastify-routes` - P0
+3. `@jskit-ai/settings-fastify-routes` - P0
 4. `@jskit-ai/workspace-console-core` - P0
 5. `@jskit-ai/workspace-console-knex-mysql` - P0
 6. `@jskit-ai/workspace-console-service-core` - P0

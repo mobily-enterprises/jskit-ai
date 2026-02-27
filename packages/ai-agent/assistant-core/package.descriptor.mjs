@@ -3,29 +3,21 @@ export default Object.freeze({
   "packageId": "@jskit-ai/assistant-core",
   "version": "0.1.0",
   "dependsOn": [
-    "@jskit-ai/server-runtime-core",
-    "@jskit-ai/assistant-contracts",
-    "@jskit-ai/http-contracts"
+    "@jskit-ai/server-runtime-core"
   ],
   "capabilities": {
     "provides": [
-      "assistant.core",
-      "assistant.routes"
+      "assistant.core"
     ],
     "requires": [
-      "runtime.server",
-      "contracts.assistant",
-      "assistant.core",
       "assistant.provider",
-      "contracts.http"
+      "runtime.server"
     ]
   },
   "mutations": {
     "dependencies": {
       "runtime": {
-        "@jskit-ai/server-runtime-core": "0.1.0",
-        "@fastify/type-provider-typebox": "^6.1.0",
-        "@jskit-ai/http-contracts": "0.1.0"
+        "@jskit-ai/server-runtime-core": "0.1.0"
       },
       "dev": {}
     },

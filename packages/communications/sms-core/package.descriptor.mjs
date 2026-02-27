@@ -2,16 +2,12 @@ export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/sms-core",
   "version": "0.1.0",
-  "dependsOn": [
-    "@jskit-ai/communications-provider-core"
-  ],
+  "dependsOn": [],
   "capabilities": {
     "provides": [
       "communications.sms"
     ],
-    "requires": [
-      "communications.provider"
-    ]
+    "requires": []
   },
   "mutations": {
     "dependencies": {

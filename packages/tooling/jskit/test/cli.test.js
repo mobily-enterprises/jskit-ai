@@ -16,6 +16,20 @@ function runCli({ cwd, args = [] }) {
   });
 }
 
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function extractBundleSection(output, bundleId) {
+  const source = String(output || "");
+  const bundlePattern = new RegExp(
+    `- ${escapeRegExp(bundleId)} \\([^)]+\\)[\\s\\S]*?(?=\\n- [a-z0-9-]+ \\(|\\nProvider bundles:|$)`,
+    "i"
+  );
+  const match = source.match(bundlePattern);
+  return match ? match[0] : "";
+}
+
 async function writeJsonFile(absolutePath, value) {
   await mkdir(path.dirname(absolutePath), { recursive: true });
   await writeFile(absolutePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
@@ -103,7 +117,7 @@ test("jskit list bundles --full prints package ids per bundle", async () => {
     assert.match(result.stdout, /packages \(\d+\):/);
     assert.match(result.stdout, /@jskit-ai\/db-mysql\*/);
     assert.match(result.stdout, /@jskit-ai\/db-mysql\*: MySQL db-provider package/i);
-    assert.match(result.stdout, /@jskit-ai\/jskit-knex: Capabilities: db\.core\./i);
+    assert.doesNotMatch(result.stdout, /@jskit-ai\/jskit-knex: Capabilities: db\.core\./i);
     assert.match(result.stdout, /@jskit-ai\/assistant-core \[openai\]:/i);
     assert.match(result.stdout, /\* provider package/i);
   });
@@ -116,11 +130,22 @@ test("jskit list bundles marks bundle-level provider requirements", async () => 
       args: ["list", "bundles"]
     });
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /assistant \(0\.1\.0\).* \[openai\]:/i);
+    assert.match(result.stdout, /assistant \(0\.1\.0\).* \[[^\]]*openai[^\]]*\]:/i);
   });
 });
 
-test("jskit show bundle prints full package list", async () => {
+test("jskit list bundles all marks db-provider requirement hints", async () => {
+  await withTempApp(async (appRoot) => {
+    const result = runCli({
+      cwd: appRoot,
+      args: ["list", "bundles", "all"]
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /chat-base \(0\.1\.0\).* \[db-provider\]:/i);
+  });
+});
+
+test("jskit show bundle prints declared package list by default", async () => {
   await withTempApp(async (appRoot) => {
     const result = runCli({
       cwd: appRoot,
@@ -128,10 +153,52 @@ test("jskit show bundle prints full package list", async () => {
     });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /Bundle db-mysql \(0\.2\.0\)/);
-    assert.match(result.stdout, /Packages \(3\):/);
+    assert.match(result.stdout, /Packages \(1\):/);
     assert.match(result.stdout, /@jskit-ai\/db-mysql/);
-    assert.match(result.stdout, /@jskit-ai\/jskit-knex/);
-    assert.match(result.stdout, /@jskit-ai\/jskit-knex-mysql/);
+    assert.doesNotMatch(result.stdout, /@jskit-ai\/jskit-knex/);
+    assert.doesNotMatch(result.stdout, /@jskit-ai\/jskit-knex-mysql/);
+  });
+});
+
+test("jskit list bundles --full shows declared packages unless --expanded is set", async () => {
+  await withTempApp(async (appRoot) => {
+    const declared = runCli({
+      cwd: appRoot,
+      args: ["list", "bundles", "all", "--full"]
+    });
+    assert.equal(declared.status, 0, declared.stderr);
+    const declaredBillingBase = extractBundleSection(declared.stdout, "billing-base");
+    assert.match(declaredBillingBase, /packages \(10\):/i);
+    assert.doesNotMatch(declaredBillingBase, /@jskit-ai\/module-framework-core/i);
+
+    const expanded = runCli({
+      cwd: appRoot,
+      args: ["list", "bundles", "all", "--full", "--expanded"]
+    });
+    assert.equal(expanded.status, 0, expanded.stderr);
+    const expandedBillingBase = extractBundleSection(expanded.stdout, "billing-base");
+    assert.match(expandedBillingBase, /packages \((?:1[1-9]|[2-9]\d)\):/i);
+    assert.match(expandedBillingBase, /@jskit-ai\/module-framework-core/i);
+  });
+});
+
+test("jskit show bundle defaults to declared packages and supports --expanded", async () => {
+  await withTempApp(async (appRoot) => {
+    const declared = runCli({
+      cwd: appRoot,
+      args: ["show", "bundle", "billing-base"]
+    });
+    assert.equal(declared.status, 0, declared.stderr);
+    assert.match(declared.stdout, /Packages \(10\):/);
+    assert.doesNotMatch(declared.stdout, /@jskit-ai\/module-framework-core/i);
+
+    const expanded = runCli({
+      cwd: appRoot,
+      args: ["show", "bundle", "billing-base", "--expanded"]
+    });
+    assert.equal(expanded.status, 0, expanded.stderr);
+    assert.match(expanded.stdout, /Packages \((?:1[1-9]|[2-9]\d)\):/i);
+    assert.match(expanded.stdout, /@jskit-ai\/module-framework-core/i);
   });
 });
 

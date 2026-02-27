@@ -11,8 +11,8 @@ This document freezes current billing contracts for:
 
 Primary implementation references:
 
-- `packages/billing/billing-fastify-adapter/src/routes.js`
-- `packages/billing/billing-fastify-adapter/src/schema.js`
+- `packages/billing/billing-fastify-routes/src/routes.js`
+- `packages/billing/billing-fastify-routes/src/schema.js`
 - `packages/billing/billing-service-core/src/service.js`
 - `packages/billing/billing-service-core/src/policy.service.js`
 - `packages/billing/billing-service-core/src/idempotency.service.js`

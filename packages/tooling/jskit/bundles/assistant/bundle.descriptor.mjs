@@ -7,6 +7,7 @@ export default Object.freeze({
   "packages": [
     "@jskit-ai/assistant-contracts",
     "@jskit-ai/assistant-core",
+    "@jskit-ai/assistant-fastify-routes",
     "@jskit-ai/assistant-client-runtime",
     "@jskit-ai/assistant-client-element",
     "@jskit-ai/assistant-transcripts-core",

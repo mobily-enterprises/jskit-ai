@@ -11,6 +11,6 @@ export default Object.freeze({
     "@jskit-ai/action-runtime-core",
     "@jskit-ai/http-contracts",
     "@jskit-ai/realtime-contracts",
-    "@jskit-ai/health-fastify-adapter"
+    "@jskit-ai/health-fastify-routes"
   ]
 });

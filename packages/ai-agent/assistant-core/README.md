@@ -145,12 +145,11 @@ Why apps use tool APIs:
 
 These are test-focused internals and not intended as stable app runtime surface.
 
-## How It Is Used In Real App Flow
+## Runtime Composition Note
 
-1. Fastify adapter receives stream request.
-2. Controller calls `validateChatTurnInput(...)`.
-3. Controller creates stream writer and calls `streamChatTurn(...)`.
-4. Core emits stream events and tool results.
-5. Client runtime consumes those events and updates UI state.
+`@jskit-ai/assistant-core` is transport-agnostic service logic.
 
-This package is the shared brain of assistant turn execution.
+- HTTP route/controller/schema wiring lives in `@jskit-ai/assistant-fastify-routes`.
+- Apps compose both packages together through module seams.
+
+This package remains the shared brain of assistant turn execution.

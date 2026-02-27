@@ -11,7 +11,7 @@ export default Object.freeze({
     "@jskit-ai/entitlements-knex-mysql",
     "@jskit-ai/billing-core",
     "@jskit-ai/billing-service-core",
-    "@jskit-ai/billing-fastify-adapter",
+    "@jskit-ai/billing-fastify-routes",
     "@jskit-ai/billing-knex-mysql",
     "@jskit-ai/billing-plan-client-element",
     "@jskit-ai/billing-commerce-client-element",

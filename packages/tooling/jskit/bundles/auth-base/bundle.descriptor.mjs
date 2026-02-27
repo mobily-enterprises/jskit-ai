@@ -7,6 +7,6 @@ export default Object.freeze({
     "@jskit-ai/access-core",
     "@jskit-ai/rbac-core",
     "@jskit-ai/fastify-auth-policy",
-    "@jskit-ai/auth-fastify-adapter"
+    "@jskit-ai/auth-fastify-routes"
   ]
 });

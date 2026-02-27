@@ -113,13 +113,13 @@ Contributors are domain-owned and exported from domain packages/modules.
 
 HTTP and assistant routes call actions via controller/adapters:
 
-- auth adapter/controller: `packages/auth/auth-fastify-adapter/src/controller.js`
+- auth adapter/controller: `packages/auth/auth-fastify-routes/src/controller.js`
 - workspace adapter/controller: `packages/workspace/workspace-fastify-adapter/src/controller.js`
-- settings adapter/controller: `packages/workspace/settings-fastify-adapter/src/controller.js`
-- console adapter/controller: `packages/workspace/console-fastify-adapter/src/controller.js`
+- settings adapter/controller: `packages/workspace/settings-fastify-routes/src/controller.js`
+- console adapter/controller: `packages/workspace/console-fastify-routes/src/controller.js`
 - chat adapter/controller: `packages/chat/chat-fastify-adapter/src/controller.js`
-- billing adapter/controller: `packages/billing/billing-fastify-adapter/src/controller.js`
-- assistant adapter/controller: `packages/ai-agent/assistant-fastify-adapter/src/controller.js`
+- billing adapter/controller: `packages/billing/billing-fastify-routes/src/controller.js`
+- assistant adapter/controller: `packages/ai-agent/assistant-fastify-routes/src/controller.js`
 - app-local controllers (`projects`, `deg2rad`, `history`) under `apps/jskit-value-app/server/modules/*/controller.js`
 
 ## Contracts in detail

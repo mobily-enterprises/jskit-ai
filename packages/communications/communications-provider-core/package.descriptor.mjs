@@ -5,7 +5,7 @@ export default Object.freeze({
   "dependsOn": [],
   "capabilities": {
     "provides": [
-      "communications.provider"
+      "communications.dispatch-contract"
     ],
     "requires": []
   },

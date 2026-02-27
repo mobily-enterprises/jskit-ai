@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { __testables as billingControllerTestables } from "@jskit-ai/billing-fastify-adapter/controller";
+import { __testables as billingControllerTestables } from "@jskit-ai/billing-fastify-routes/controller";
 import { BILLING_FAILURE_CODES, statusFromFailureCode } from "@jskit-ai/billing-service-core/constants";
 
 test("billing controller requireIdempotencyKey accepts trimmed header values", () => {

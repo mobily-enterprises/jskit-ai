@@ -752,7 +752,7 @@ Legend:
 | `@jskit-ai/assistant-client-runtime` | T | `assistant-client` | `client.api`, `client.realtime` | `web/http-client-runtime`, `assistant-contracts` | Export API/runtime fragment factory for module composer. |
 | `@jskit-ai/assistant-contracts` | F | `assistant-contracts` | none (contracts) | `contracts/http-contracts` | Keep contract-only; add capability declaration metadata. |
 | `@jskit-ai/assistant-core` | T | `assistant-core` | `server.services`, `server.actions` | `action-runtime-core`, provider capability | Replace direct env/policy assumptions with descriptor config schema. |
-| `@jskit-ai/assistant-fastify-adapter` | T | `assistant-api` | `server.controllers`, `server.routes` | `assistant-core`, `http-contracts` | Export route fragment using mount keys, no hardcoded `/api/...` literals. |
+| `@jskit-ai/assistant-fastify-routes` | T | `assistant-api` | `server.controllers`, `server.routes` | `assistant-core`, `http-contracts` | Export route fragment using mount keys, no hardcoded `/api/...` literals. |
 | `@jskit-ai/assistant-provider-openai` | T | `assistant-provider-openai` | `server.services` | provider core capability | Register as provider capability module; fail-fast when selected but missing key. |
 | `@jskit-ai/assistant-transcript-explorer-client-element` | T | `assistant-transcripts-ui` | `client.routes` | `assistant-transcripts-core` | Contribute route/view fragments and optional nav item metadata. |
 | `@jskit-ai/assistant-transcripts-core` | T | `assistant-transcripts-core` | `server.services`, `server.actions` | `assistant-transcripts-knex-mysql` | Convert to service/action hook contributor; expose migration/seed metadata if needed. |
@@ -763,7 +763,7 @@ Legend:
 | Package | Tier | Target Module | Hooks | Depends On | Migration Work |
 | --- | --- | --- | --- | --- | --- |
 | `@jskit-ai/access-core` | F | `access-core` | contracts/util only | none | Expose capability `cap.auth.identity` helpers; no direct app imports. |
-| `@jskit-ai/auth-fastify-adapter` | F | `auth-api` | `server.controllers`, `server.routes` | `auth-provider-*`, `http-contracts` | Register auth routes via module hook and mount-safe path resolver. |
+| `@jskit-ai/auth-fastify-routes` | F | `auth-api` | `server.controllers`, `server.routes` | `auth-provider-*`, `http-contracts` | Register auth routes via module hook and mount-safe path resolver. |
 | `@jskit-ai/auth-provider-supabase-core` | F | `auth-provider-supabase` | `server.services`, `server.actions` | env/runtime policy | Provide provider capability contract and startup checks. |
 | `@jskit-ai/fastify-auth-policy` | F | `auth-policy` | `server.fastifyPlugins` | route policy capability | Become policy plugin contributor; remove app-coupled assumptions. |
 | `@jskit-ai/rbac-core` | F | `rbac` | `server.services`, `diagnostics.startupChecks` | runtime-env-core | Expose manifest validation as startup diagnostics hook. |
@@ -775,7 +775,7 @@ Legend:
 | `@jskit-ai/billing-commerce-client-element` | T | `billing-commerce-ui` | `client.routes`, `client.nav` | `billing-service-core` | Provide UI fragments and capability requirements. |
 | `@jskit-ai/billing-console-admin-client-element` | T | `billing-console-ui` | `client.routes` | `billing-service-core` | Contribute console/admin billing views via module routes hook. |
 | `@jskit-ai/billing-core` | T | `billing-domain-core` | `server.services` | entitlements | Keep provider-agnostic logic; descriptor for config schema and capabilities. |
-| `@jskit-ai/billing-fastify-adapter` | T | `billing-api` | `server.controllers`, `server.routes` | `billing-service-core` | Migrate to mount-based route fragments and generated docs fragments. |
+| `@jskit-ai/billing-fastify-routes` | T | `billing-api` | `server.controllers`, `server.routes` | `billing-service-core` | Migrate to mount-based route fragments and generated docs fragments. |
 | `@jskit-ai/billing-knex-mysql` | T | `billing-db` | `server.repositories`, `server.migrations` | `knex-mysql-core` | Register repositories/migrations via module hooks. |
 | `@jskit-ai/billing-plan-client-element` | T | `billing-plan-ui` | `client.routes` | billing contracts | Route/nav fragment contributions only when billing enabled. |
 | `@jskit-ai/billing-provider-core` | T | `billing-provider-core` | `server.services` | billing-core | Define provider capability interface contract. |
@@ -843,7 +843,7 @@ Legend:
 | Package | Tier | Target Module | Hooks | Depends On | Migration Work |
 | --- | --- | --- | --- | --- | --- |
 | `@jskit-ai/action-runtime-core` | F | `action-runtime` | `server.services` | rbac, observability | Keep as core execution engine capability provider. |
-| `@jskit-ai/health-fastify-adapter` | F | `health-api` | `server.controllers`, `server.routes` | observability-core | Route fragments contributed by health module. |
+| `@jskit-ai/health-fastify-routes` | F | `health-api` | `server.controllers`, `server.routes` | observability-core | Route fragments contributed by health module. |
 | `@jskit-ai/knex-mysql-core` | F | `knex-core` | `server.services` | none | DB primitives capability provider. |
 | `@jskit-ai/platform-server-runtime` | F | `platform-runtime-bridge` | `server.services` | server-runtime-core | Refactor to consume module framework output instead of static bundles. |
 | `@jskit-ai/runtime-env-core` | F | `runtime-env` | `server.services`, `diagnostics.startupChecks` | none | Module config/env validation hooks; app feature projection contract. |
@@ -899,9 +899,9 @@ Legend:
 
 | Package | Tier | Target Module | Hooks | Depends On | Migration Work |
 | --- | --- | --- | --- | --- | --- |
-| `@jskit-ai/console-errors-fastify-adapter` | T | `console-errors-api` | `server.controllers`, `server.routes` | observability-core | Expose route fragments in console feature module. |
-| `@jskit-ai/console-fastify-adapter` | F | `console-api` | `server.controllers`, `server.routes` | workspace-console-service-core | Foundation console module route hooks. |
-| `@jskit-ai/settings-fastify-adapter` | F | `settings-api` | `server.controllers`, `server.routes` | workspace-service-core | Convert settings routes to mount-safe fragments. |
+| `@jskit-ai/console-errors-fastify-routes` | T | `console-errors-api` | `server.controllers`, `server.routes` | observability-core | Expose route fragments in console feature module. |
+| `@jskit-ai/console-fastify-routes` | F | `console-api` | `server.controllers`, `server.routes` | workspace-console-service-core | Foundation console module route hooks. |
+| `@jskit-ai/settings-fastify-routes` | F | `settings-api` | `server.controllers`, `server.routes` | workspace-service-core | Convert settings routes to mount-safe fragments. |
 | `@jskit-ai/workspace-console-core` | F | `workspace-console-core` | contracts/model | rbac | Capability provider for console settings/models. |
 | `@jskit-ai/workspace-console-knex-mysql` | F | `workspace-console-db` | `server.repositories`, `server.migrations` | knex | Register console repos via hooks. |
 | `@jskit-ai/workspace-console-service-core` | F | `workspace-console-service` | `server.services`, `server.actions` | workspace-console-db | Action contributor + service hooks. |
@@ -1793,7 +1793,7 @@ Each checklist includes concrete actions for that package.
 - Declare required capabilities: `cap.action-runtime.execute`, `cap.workspace.selection`.
 - Add startup checks for provider availability when enabled.
 
-#### 5) `@jskit-ai/assistant-fastify-adapter`
+#### 5) `@jskit-ai/assistant-fastify-routes`
 
 - Export route module fragments with mount keys.
 - Ensure route options are provided by composer context (limits/permissions).
@@ -1838,7 +1838,7 @@ Each checklist includes concrete actions for that package.
 - No runtime hooks except contract metadata.
 - Add compatibility tests for path/return-to normalization behavior.
 
-#### 11) `@jskit-ai/auth-fastify-adapter`
+#### 11) `@jskit-ai/auth-fastify-routes`
 
 - Export auth route fragments via `server.routes`.
 - Export controller hook.
@@ -1887,7 +1887,7 @@ Each checklist includes concrete actions for that package.
 - Declare required capabilities for providers and entitlements.
 - Add fail-closed behavior tests under missing provider.
 
-#### 18) `@jskit-ai/billing-fastify-adapter`
+#### 18) `@jskit-ai/billing-fastify-routes`
 
 - Export route/controller hooks.
 - Replace literal paths with mount keys.
@@ -2101,7 +2101,7 @@ Each checklist includes concrete actions for that package.
 - Add support for composed contributor array from modules.
 - Add duplicate action detection tests with module metadata context.
 
-#### 51) `@jskit-ai/health-fastify-adapter`
+#### 51) `@jskit-ai/health-fastify-routes`
 
 - Export route/controller hooks.
 - Add profile-aware enablement defaults.
@@ -2252,19 +2252,19 @@ Each checklist includes concrete actions for that package.
 
 ### 30.17 Workspace packages
 
-#### 72) `@jskit-ai/console-errors-fastify-adapter`
+#### 72) `@jskit-ai/console-errors-fastify-routes`
 
 - Export console errors route/controller hooks.
 - Add profile and permission metadata.
 - Add docs generation fragment tests.
 
-#### 73) `@jskit-ai/console-fastify-adapter`
+#### 73) `@jskit-ai/console-fastify-routes`
 
 - Export console routes/controller hooks.
 - Convert any path assumptions to mount keys.
 - Add policy alignment tests for console surfaces.
 
-#### 74) `@jskit-ai/settings-fastify-adapter`
+#### 74) `@jskit-ai/settings-fastify-routes`
 
 - Export settings routes/controller hooks.
 - Add mount template support.

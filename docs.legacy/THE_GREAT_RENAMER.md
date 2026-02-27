@@ -983,11 +983,11 @@ Suggested commit naming:
 - `@jskit-ai/access-core`
 - `@jskit-ai/action-runtime-core`
 - `@jskit-ai/app-scripts`
-- `@jskit-ai/auth-fastify-adapter`
+- `@jskit-ai/auth-fastify-routes`
 - `@jskit-ai/auth-provider-supabase-core`
 - `@jskit-ai/fastify-auth-policy`
 - `@jskit-ai/rbac-core`
-- `@jskit-ai/health-fastify-adapter`
+- `@jskit-ai/health-fastify-routes`
 - `@jskit-ai/http-client-runtime`
 - `@jskit-ai/http-contracts`
 - `@jskit-ai/knex-mysql-core`
@@ -1007,9 +1007,9 @@ Suggested commit naming:
 - `@jskit-ai/workspace-fastify-adapter`
 - `@jskit-ai/workspace-knex-mysql`
 - `@jskit-ai/workspace-service-core`
-- `@jskit-ai/console-fastify-adapter`
-- `@jskit-ai/console-errors-fastify-adapter`
-- `@jskit-ai/settings-fastify-adapter`
+- `@jskit-ai/console-fastify-routes`
+- `@jskit-ai/console-errors-fastify-routes`
+- `@jskit-ai/settings-fastify-routes`
 - `@jskit-ai/config-eslint`
 - `@jskit-ai/create-app`
 - `@jskit-ai/jskit`
@@ -1020,7 +1020,7 @@ Suggested commit naming:
 - `@jskit-ai/assistant-client-runtime`
 - `@jskit-ai/assistant-contracts`
 - `@jskit-ai/assistant-core`
-- `@jskit-ai/assistant-fastify-adapter`
+- `@jskit-ai/assistant-fastify-routes`
 - `@jskit-ai/assistant-provider-openai`
 - `@jskit-ai/assistant-transcript-explorer-client-element`
 - `@jskit-ai/assistant-transcripts-core`
@@ -1052,7 +1052,7 @@ Suggested commit naming:
 - `@jskit-ai/billing-commerce-client-element`
 - `@jskit-ai/billing-console-admin-client-element`
 - `@jskit-ai/billing-core`
-- `@jskit-ai/billing-fastify-adapter`
+- `@jskit-ai/billing-fastify-routes`
 - `@jskit-ai/billing-knex-mysql`
 - `@jskit-ai/billing-plan-client-element`
 - `@jskit-ai/billing-provider-core`

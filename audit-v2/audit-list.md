@@ -149,15 +149,15 @@ Required scope:
 Required docs:
 - /home/merc/Development/current/jskit-ai/packages/ai-agent/assistant-core/README.md
 
-## 020) Module: packages/ai-agent/assistant-fastify-adapter
+## 020) Module: packages/ai-agent/assistant-fastify-routes
 Report file:
-- /home/merc/Development/current/jskit-ai/audit-v2/reports/packages-ai-agent-assistant-fastify-adapter.report.md
+- /home/merc/Development/current/jskit-ai/audit-v2/reports/packages-ai-agent-assistant-fastify-routes.report.md
 
 Required scope:
-- /home/merc/Development/current/jskit-ai/packages/ai-agent/assistant-fastify-adapter
+- /home/merc/Development/current/jskit-ai/packages/ai-agent/assistant-fastify-routes
 
 Required docs:
-- /home/merc/Development/current/jskit-ai/packages/ai-agent/assistant-fastify-adapter/README.md
+- /home/merc/Development/current/jskit-ai/packages/ai-agent/assistant-fastify-routes/README.md
 
 ## 021) Module: packages/ai-agent/assistant-provider-openai
 Report file:
@@ -209,15 +209,15 @@ Required scope:
 Required docs:
 - /home/merc/Development/current/jskit-ai/packages/auth/access-core/README.md
 
-## 026) Module: packages/auth/auth-fastify-adapter
+## 026) Module: packages/auth/auth-fastify-routes
 Report file:
 - /home/merc/Development/current/jskit-ai/audit-v2/reports/packages-auth-auth-fastify-adapter.report.md
 
 Required scope:
-- /home/merc/Development/current/jskit-ai/packages/auth/auth-fastify-adapter
+- /home/merc/Development/current/jskit-ai/packages/auth/auth-fastify-routes
 
 Required docs:
-- /home/merc/Development/current/jskit-ai/packages/auth/auth-fastify-adapter/README.md
+- /home/merc/Development/current/jskit-ai/packages/auth/auth-fastify-routes/README.md
 
 ## 027) Module: packages/auth/auth-provider-supabase-core
 Report file:
@@ -279,15 +279,15 @@ Required scope:
 Required docs:
 - /home/merc/Development/current/jskit-ai/packages/billing/billing-core/README.md
 
-## 033) Module: packages/billing/billing-fastify-adapter
+## 033) Module: packages/billing/billing-fastify-routes
 Report file:
-- /home/merc/Development/current/jskit-ai/audit-v2/reports/packages-billing-billing-fastify-adapter.report.md
+- /home/merc/Development/current/jskit-ai/audit-v2/reports/packages-billing-billing-fastify-routes.report.md
 
 Required scope:
-- /home/merc/Development/current/jskit-ai/packages/billing/billing-fastify-adapter
+- /home/merc/Development/current/jskit-ai/packages/billing/billing-fastify-routes
 
 Required docs:
-- /home/merc/Development/current/jskit-ai/packages/billing/billing-fastify-adapter/README.md
+- /home/merc/Development/current/jskit-ai/packages/billing/billing-fastify-routes/README.md
 
 ## 034) Module: packages/billing/billing-knex-mysql
 Report file:
@@ -609,15 +609,15 @@ Required scope:
 Required docs:
 - /home/merc/Development/current/jskit-ai/packages/runtime/action-runtime-core/README.md
 
-## 066) Module: packages/runtime/health-fastify-adapter
+## 066) Module: packages/runtime/health-fastify-routes
 Report file:
-- /home/merc/Development/current/jskit-ai/audit-v2/reports/packages-runtime-health-fastify-adapter.report.md
+- /home/merc/Development/current/jskit-ai/audit-v2/reports/packages-runtime-health-fastify-routes.report.md
 
 Required scope:
-- /home/merc/Development/current/jskit-ai/packages/runtime/health-fastify-adapter
+- /home/merc/Development/current/jskit-ai/packages/runtime/health-fastify-routes
 
 Required docs:
-- /home/merc/Development/current/jskit-ai/packages/runtime/health-fastify-adapter/README.md
+- /home/merc/Development/current/jskit-ai/packages/runtime/health-fastify-routes/README.md
 
 ## 067) Module: packages/runtime/knex-mysql-core
 Report file:
@@ -829,35 +829,35 @@ Required scope:
 Required docs:
 - /home/merc/Development/current/jskit-ai/packages/web/web-runtime-core/README.md
 
-## 088) Module: packages/workspace/console-errors-fastify-adapter
+## 088) Module: packages/workspace/console-errors-fastify-routes
 Report file:
-- /home/merc/Development/current/jskit-ai/audit-v2/reports/packages-workspace-console-errors-fastify-adapter.report.md
+- /home/merc/Development/current/jskit-ai/audit-v2/reports/packages-workspace-console-errors-fastify-routes.report.md
 
 Required scope:
-- /home/merc/Development/current/jskit-ai/packages/workspace/console-errors-fastify-adapter
+- /home/merc/Development/current/jskit-ai/packages/workspace/console-errors-fastify-routes
 
 Required docs:
-- /home/merc/Development/current/jskit-ai/packages/workspace/console-errors-fastify-adapter/README.md
+- /home/merc/Development/current/jskit-ai/packages/workspace/console-errors-fastify-routes/README.md
 
-## 089) Module: packages/workspace/console-fastify-adapter
+## 089) Module: packages/workspace/console-fastify-routes
 Report file:
-- /home/merc/Development/current/jskit-ai/audit-v2/reports/packages-workspace-console-fastify-adapter.report.md
+- /home/merc/Development/current/jskit-ai/audit-v2/reports/packages-workspace-console-fastify-routes.report.md
 
 Required scope:
-- /home/merc/Development/current/jskit-ai/packages/workspace/console-fastify-adapter
+- /home/merc/Development/current/jskit-ai/packages/workspace/console-fastify-routes
 
 Required docs:
-- /home/merc/Development/current/jskit-ai/packages/workspace/console-fastify-adapter/README.md
+- /home/merc/Development/current/jskit-ai/packages/workspace/console-fastify-routes/README.md
 
-## 090) Module: packages/workspace/settings-fastify-adapter
+## 090) Module: packages/workspace/settings-fastify-routes
 Report file:
-- /home/merc/Development/current/jskit-ai/audit-v2/reports/packages-workspace-settings-fastify-adapter.report.md
+- /home/merc/Development/current/jskit-ai/audit-v2/reports/packages-workspace-settings-fastify-routes.report.md
 
 Required scope:
-- /home/merc/Development/current/jskit-ai/packages/workspace/settings-fastify-adapter
+- /home/merc/Development/current/jskit-ai/packages/workspace/settings-fastify-routes
 
 Required docs:
-- /home/merc/Development/current/jskit-ai/packages/workspace/settings-fastify-adapter/README.md
+- /home/merc/Development/current/jskit-ai/packages/workspace/settings-fastify-routes/README.md
 
 ## 091) Module: packages/workspace/workspace-console-core
 Report file:

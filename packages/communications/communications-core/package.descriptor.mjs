@@ -15,7 +15,7 @@ export default Object.freeze({
     ],
     "requires": [
       "contracts.communications",
-      "communications.provider",
+      "communications.dispatch-contract",
       "contracts.http",
       "communications.core",
       "runtime.server"

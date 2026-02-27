@@ -1,4 +1,4 @@
-import { buildRoutes as buildSettingsAdapterRoutes } from "@jskit-ai/settings-fastify-adapter";
+import { buildRoutes as buildSettingsAdapterRoutes } from "@jskit-ai/settings-fastify-routes";
 import { Type } from "@fastify/type-provider-typebox";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import {

@@ -1,0 +1,20 @@
+{
+  "name": "@jskit-ai/assistant-fastify-routes",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/shared/index.js",
+    "./controller": "./src/shared/controller.js",
+    "./routes": "./src/shared/routes.js",
+    "./schema": "./src/shared/schema.js",
+    "./ndjson": "./src/shared/ndjson.js"
+  },
+  "dependencies": {
+    "@fastify/type-provider-typebox": "^6.1.0",
+    "@jskit-ai/http-contracts": "0.1.0"
+  }
+}

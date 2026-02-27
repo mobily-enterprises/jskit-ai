@@ -8,15 +8,9 @@
   },
   "exports": {
     ".": "./src/shared/index.js",
-    "./systemPrompt": "./src/shared/systemPrompt.js",
-    "./schema": "./src/shared/fastify/schema.js",
-    "./routes": "./src/shared/fastify/routes.js",
-    "./controller": "./src/shared/fastify/controller.js",
-    "./ndjson": "./src/shared/fastify/ndjson.js"
+    "./systemPrompt": "./src/shared/systemPrompt.js"
   },
   "dependencies": {
-    "@jskit-ai/server-runtime-core": "0.1.0",
-    "@jskit-ai/http-contracts": "0.1.0",
-    "@fastify/type-provider-typebox": "^6.1.0"
+    "@jskit-ai/server-runtime-core": "0.1.0"
   }
 }

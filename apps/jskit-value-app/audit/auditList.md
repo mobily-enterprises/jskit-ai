@@ -181,7 +181,7 @@ Report file:
 
 Required scope:
 - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/billing`
-- `/home/merc/Development/current/jskit-ai/packages/billing/billing-fastify-adapter/src`
+- `/home/merc/Development/current/jskit-ai/packages/billing/billing-fastify-routes/src`
 - `/home/merc/Development/current/jskit-ai/packages/billing/billing-service-core/src`
 
 Required docs:
@@ -202,7 +202,7 @@ Required scope:
 - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/ConsoleBillingPurchasesView.vue`
 - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/views/console/ConsoleBillingSubscriptionsView.vue`
 - `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/src/app/router/routes/consoleCoreRoutes.js`
-- `/home/merc/Development/current/jskit-ai/packages/billing/billing-fastify-adapter/src`
+- `/home/merc/Development/current/jskit-ai/packages/billing/billing-fastify-routes/src`
 - `/home/merc/Development/current/jskit-ai/packages/billing/billing-service-core/src`
 
 ## 17) Billing provider insulation and webhooks
@@ -214,7 +214,7 @@ Required scope:
 - `/home/merc/Development/current/jskit-ai/packages/billing/billing-provider-core`
 - `/home/merc/Development/current/jskit-ai/packages/billing/billing-provider-stripe`
 - `/home/merc/Development/current/jskit-ai/packages/billing/billing-provider-paddle`
-- `/home/merc/Development/current/jskit-ai/packages/billing/billing-fastify-adapter/src`
+- `/home/merc/Development/current/jskit-ai/packages/billing/billing-fastify-routes/src`
 - `/home/merc/Development/current/jskit-ai/packages/billing/billing-service-core/src`
 
 Required docs:

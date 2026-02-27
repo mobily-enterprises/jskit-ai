@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildRoutes } from "@jskit-ai/console-fastify-adapter";
+import { buildRoutes } from "@jskit-ai/console-fastify-routes";
 import { toVersionedApiPath } from "../shared/apiPaths.js";
 
 function createNoopControllers() {
