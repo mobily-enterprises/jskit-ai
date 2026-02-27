@@ -23,7 +23,8 @@ const REQUIRES_DB = new Set([
   "community-suite",
   "workspace-core",
   "workspace-console",
-  "workspace-admin-suite"
+  "workspace-admin-suite",
+  "saas-full"
 ]);
 
 const REQUIRES_AUTH = new Set(["workspace-core", "workspace-console", "workspace-admin-suite"]);

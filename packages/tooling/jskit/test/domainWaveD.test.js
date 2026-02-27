@@ -118,18 +118,15 @@ test("billing bundles can install stripe and paddle providers in same app", asyn
   });
 });
 
-test("saas-full composed bundle installs and passes doctor", async () => {
+test("saas-full fails fast without provider intents", async () => {
   await withTempApp(async (appRoot) => {
     const addSaas = runCli({
       cwd: appRoot,
       args: ["add", "bundle", "saas-full", "--no-install"]
     });
-    assert.equal(addSaas.status, 0, addSaas.stderr);
-
-    const doctor = runCli({
-      cwd: appRoot,
-      args: ["doctor"]
-    });
-    assert.equal(doctor.status, 0, doctor.stderr);
+    assert.notEqual(addSaas.status, 0);
+    assert.match(addSaas.stderr, /\[capability-violation\]/);
+    assert.match(addSaas.stderr, /db-provider/i);
+    assert.match(addSaas.stderr, /install one provider bundle first/i);
   });
 });
