@@ -15,10 +15,19 @@
     "./useQueryErrorMessage": "./src/useQueryErrorMessage.js",
     "./useGlobalNetworkActivity": "./src/useGlobalNetworkActivity.js",
     "./transportRuntime": "./src/transportRuntime.js",
-    "./clientComposition": "./src/clientComposition.js"
+    "./clientComposition": "./src/clientComposition.js",
+    "./apiClients": "./src/apiClients/index.js",
+    "./apiClients/authApi": "./src/apiClients/authApi.js",
+    "./apiClients/workspaceApi": "./src/apiClients/workspaceApi.js",
+    "./apiClients/consoleApi": "./src/apiClients/consoleApi.js",
+    "./apiClients/settingsApi": "./src/apiClients/settingsApi.js",
+    "./apiClients/alertsApi": "./src/apiClients/alertsApi.js",
+    "./apiClients/historyApi": "./src/apiClients/historyApi.js",
+    "./apiClients/billingApi": "./src/apiClients/billingApi.js"
   },
   "dependencies": {
     "@jskit-ai/http-client-runtime": "0.1.0",
+    "@jskit-ai/surface-routing": "0.1.0",
     "@tanstack/vue-query": "^5.90.5",
     "@tanstack/vue-router": "^1.159.10",
     "vue": "^3.5.13"

@@ -18,3 +18,13 @@ export {
   composeNavigationFragmentsFromModules,
   resolveNavigationDestinationTitle
 } from "./clientComposition.js";
+export {
+  createAuthApi,
+  createWorkspaceApi,
+  createConsoleApi,
+  createSettingsApi,
+  createAlertsApi,
+  createHistoryApi,
+  createBillingApi,
+  billingApiTestables
+} from "./apiClients/index.js";

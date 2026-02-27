@@ -398,15 +398,15 @@ function assertNoLegacyFactoryNames(exportKeys, allowed) {
 
 test("client API modules expose createApi contract", async () => {
   const modules = [
-    "../src/platform/http/api/authApi.js",
-    "../src/platform/http/api/alertsApi.js",
-    "../src/platform/http/api/billingApi.js",
-    "../src/platform/http/api/deg2radApi.js",
-    "../src/platform/http/api/workspaceApi.js",
-    "../src/platform/http/api/consoleApi.js",
-    "../src/platform/http/api/projectsApi.js",
-    "../src/platform/http/api/settingsApi.js",
-    "../src/platform/http/api/historyApi.js"
+    "@jskit-ai/web-runtime-core/apiClients/authApi",
+    "@jskit-ai/web-runtime-core/apiClients/alertsApi",
+    "@jskit-ai/web-runtime-core/apiClients/billingApi",
+    "../src/modules/deg2rad/api.js",
+    "@jskit-ai/web-runtime-core/apiClients/workspaceApi",
+    "@jskit-ai/web-runtime-core/apiClients/consoleApi",
+    "../src/modules/projects/api.js",
+    "@jskit-ai/web-runtime-core/apiClients/settingsApi",
+    "@jskit-ai/web-runtime-core/apiClients/historyApi"
   ];
 
   for (const modulePath of modules) {

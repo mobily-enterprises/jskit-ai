@@ -1,13 +1,15 @@
-import { createApi as createAuthApi } from "../platform/http/api/authApi.js";
+import {
+  createAuthApi,
+  createWorkspaceApi,
+  createConsoleApi,
+  createSettingsApi,
+  createAlertsApi,
+  createHistoryApi,
+  createBillingApi
+} from "@jskit-ai/web-runtime-core/apiClients";
 import { createApi as createAiApi } from "@jskit-ai/assistant-client-runtime";
-import { createApi as createWorkspaceApi } from "../platform/http/api/workspaceApi.js";
-import { createApi as createConsoleApi } from "../platform/http/api/consoleApi.js";
-import { createApi as createProjectsApi } from "../platform/http/api/projectsApi.js";
-import { createApi as createSettingsApi } from "../platform/http/api/settingsApi.js";
-import { createApi as createAlertsApi } from "../platform/http/api/alertsApi.js";
-import { createApi as createDeg2radApi } from "../platform/http/api/deg2radApi.js";
-import { createApi as createHistoryApi } from "../platform/http/api/historyApi.js";
-import { createApi as createBillingApi } from "../platform/http/api/billingApi.js";
+import { createApi as createProjectsApi } from "../modules/projects/api.js";
+import { createApi as createDeg2radApi } from "../modules/deg2rad/api.js";
 import { createApi as createChatApi } from "@jskit-ai/chat-client-runtime";
 import { createApi as createSocialApi } from "@jskit-ai/social-client-runtime";
 import { createRoutes as createAssistantRoutes } from "../app/router/routes/assistantRoutes.js";
