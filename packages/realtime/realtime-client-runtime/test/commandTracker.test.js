@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createCommandTracker } from "../src/index.js";
+import { createCommandTracker } from "../src/shared/index.js";
 
 test("command tracker transitions pending commands to acked or failed once", () => {
   const tracker = createCommandTracker();

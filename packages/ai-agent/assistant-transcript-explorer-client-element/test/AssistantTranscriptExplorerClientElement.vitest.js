@@ -3,11 +3,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
-import AssistantTranscriptExplorerClientElement from "../src/AssistantTranscriptExplorerClientElement.vue";
+import AssistantTranscriptExplorerClientElement from "../src/shared/AssistantTranscriptExplorerClientElement.vue";
 
 const componentSourcePath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  "../src/AssistantTranscriptExplorerClientElement.vue"
+  "../src/shared/AssistantTranscriptExplorerClientElement.vue"
 );
 
 function readSource() {

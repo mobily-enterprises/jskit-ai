@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { __testables, mapChatError } from "../src/errors.js";
+import { __testables, mapChatError } from "../src/shared/errors.js";
 
 test("mapChatError prioritizes field errors then code map then fallback", () => {
   const fromFieldErrors = mapChatError({

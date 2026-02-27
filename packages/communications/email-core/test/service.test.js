@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createService } from "../src/index.js";
+import { createService } from "../src/shared/index.js";
 
 test("email core defaults to not implemented provider", async () => {
   const service = createService();

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildRoutes } from "../src/routes.js";
+import { buildRoutes } from "../src/shared/routes.js";
 
 test("buildRoutes maps chat handlers and applies configured upload body limit", () => {
   const wrappedResponses = [];

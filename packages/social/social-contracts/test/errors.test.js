@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { mapSocialError } from "../src/errors.js";
+import { mapSocialError } from "../src/shared/errors.js";
 
 test("mapSocialError prioritizes field errors and known social codes", () => {
   const fieldError = mapSocialError({

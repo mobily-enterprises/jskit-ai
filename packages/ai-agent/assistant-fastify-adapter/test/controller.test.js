@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { __testables, createController } from "../src/controller.js";
+import { __testables, createController } from "../src/shared/controller.js";
 
 test("controller routes admin transcript list to workspace-wide service when permission exists", async () => {
   const calls = [];

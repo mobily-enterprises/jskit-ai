@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { endNdjson, safeStreamError, setNdjsonHeaders, writeNdjson } from "../src/ndjson.js";
+import { endNdjson, safeStreamError, setNdjsonHeaders, writeNdjson } from "../src/shared/ndjson.js";
 
 test("ndjson helpers set headers, write payloads, and end stream safely", () => {
   const headers = {};

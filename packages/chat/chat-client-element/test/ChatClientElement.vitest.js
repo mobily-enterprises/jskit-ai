@@ -1,6 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import ChatClientElement from "../src/ChatClientElement.vue";
+import ChatClientElement from "../src/shared/ChatClientElement.vue";
 
 if (typeof HTMLElement !== "undefined" && typeof HTMLElement.prototype.scrollTo !== "function") {
   HTMLElement.prototype.scrollTo = function scrollTo() {};

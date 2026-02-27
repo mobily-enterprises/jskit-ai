@@ -7,9 +7,9 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./repositories/conversations": "./src/repositories/conversations.repository.js",
-    "./repositories/messages": "./src/repositories/messages.repository.js"
+    ".": "./src/shared/index.js",
+    "./repositories/conversations": "./src/shared/repositories/conversations.repository.js",
+    "./repositories/messages": "./src/shared/repositories/messages.repository.js"
   },
   "dependencies": {
     "@jskit-ai/knex-mysql-core": "0.1.0",

@@ -7,7 +7,7 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./service": "./src/service.js"
+    ".": "./src/shared/index.js",
+    "./service": "./src/shared/service.js"
   }
 }

@@ -7,7 +7,7 @@ import {
   chatScopeQueryKey,
   chatThreadMessagesInfiniteQueryKey,
   chatThreadQueryKey
-} from "../src/queryKeys.js";
+} from "../src/shared/queryKeys.js";
 
 test("chat query key helpers build normalized stable keys", () => {
   assert.deepEqual(CHAT_QUERY_KEY_PREFIX, ["chat"]);

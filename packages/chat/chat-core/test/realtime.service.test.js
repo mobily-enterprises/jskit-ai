@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createService } from "../src/realtime.service.js";
+import { createService } from "../src/shared/realtime.service.js";
 
 test("chat realtime service publishes normalized message events", () => {
   const published = [];

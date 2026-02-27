@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createApi } from "../src/socialApi.js";
+import { createApi } from "../src/shared/socialApi.js";
 
 test("socialApi maps workspace social endpoints and query parameters", async () => {
   const calls = [];

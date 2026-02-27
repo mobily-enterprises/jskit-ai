@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createController, buildRoutes } from "../src/index.js";
+import { createController, buildRoutes } from "../src/shared/index.js";
 
 test("communications fastify adapter controller delegates sendSms", async () => {
   const reply = {

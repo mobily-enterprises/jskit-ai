@@ -6,7 +6,7 @@ import {
   assistantConversationsListQueryKey,
   assistantRootQueryKey,
   assistantWorkspaceScopeQueryKey
-} from "../src/queryKeys.js";
+} from "../src/shared/queryKeys.js";
 
 test("assistant query keys normalize scope and paging values", () => {
   assert.deepEqual(ASSISTANT_QUERY_KEY_PREFIX, ["assistant"]);

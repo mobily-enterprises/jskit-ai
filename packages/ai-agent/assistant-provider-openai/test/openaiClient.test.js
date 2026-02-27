@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createOpenAiClient } from "../src/openaiClient.js";
+import { createOpenAiClient } from "../src/shared/openaiClient.js";
 
 test("createOpenAiClient returns disabled provider when feature flag is false", async () => {
   const client = createOpenAiClient({

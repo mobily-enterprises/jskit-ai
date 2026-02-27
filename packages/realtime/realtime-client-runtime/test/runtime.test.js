@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "@jskit-ai/realtime-contracts";
 
-import { createCommandTracker, createRealtimeRuntime, createSocketIoTransport } from "../src/index.js";
+import { createCommandTracker, createRealtimeRuntime, createSocketIoTransport } from "../src/shared/index.js";
 
 class FakeSocket {
   static instances = [];

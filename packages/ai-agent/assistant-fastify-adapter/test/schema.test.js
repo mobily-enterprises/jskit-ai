@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createSchema, schema } from "../src/schema.js";
+import { createSchema, schema } from "../src/shared/schema.js";
 
 test("assistant schema exports default and factory contracts", () => {
   assert.ok(schema);

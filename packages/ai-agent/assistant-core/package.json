@@ -7,8 +7,8 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./systemPrompt": "./src/systemPrompt.js"
+    ".": "./src/shared/index.js",
+    "./systemPrompt": "./src/shared/systemPrompt.js"
   },
   "dependencies": {
     "@jskit-ai/server-runtime-core": "0.1.0"

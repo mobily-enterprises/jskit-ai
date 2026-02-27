@@ -7,8 +7,8 @@
     "test": "vitest run --config vitest.config.mjs"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./source/AssistantClientElement.vue": "./src/AssistantClientElement.vue"
+    ".": "./src/shared/index.js",
+    "./source/AssistantClientElement.vue": "./src/shared/AssistantClientElement.vue"
   },
   "dependencies": {
     "vue": "^3.5.13"

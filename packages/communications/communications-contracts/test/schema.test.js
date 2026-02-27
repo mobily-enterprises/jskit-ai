@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { schema } from "../src/index.js";
+import { schema } from "../src/shared/index.js";
 
 test("communications contracts expose sms/email request and response schemas", () => {
   assert.ok(schema.body.sendSms);

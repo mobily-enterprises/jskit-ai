@@ -7,7 +7,7 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js"
+    ".": "./src/shared/index.js"
   },
   "dependencies": {
     "openai": "^6.22.0"

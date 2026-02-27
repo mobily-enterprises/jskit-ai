@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildRoutes } from "../src/routes.js";
+import { buildRoutes } from "../src/shared/routes.js";
 
 test("assistant buildRoutes emits stream/list/message routes and applies error-response wrapper", () => {
   const wrapped = [];

@@ -7,8 +7,8 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./attachmentStorageService": "./src/attachmentStorage.service.js"
+    ".": "./src/shared/index.js",
+    "./attachmentStorageService": "./src/shared/attachmentStorage.service.js"
   },
   "dependencies": {
     "unstorage": "^1.17.0"

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.js",
-    "./appTopics": "./src/appTopics.js"
+    ".": "./src/shared/index.js",
+    "./appTopics": "./src/shared/appTopics.js"
   }
 }
