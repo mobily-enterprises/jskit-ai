@@ -14,7 +14,8 @@
     "./useUrlListPagination": "./src/useUrlListPagination.js",
     "./useQueryErrorMessage": "./src/useQueryErrorMessage.js",
     "./useGlobalNetworkActivity": "./src/useGlobalNetworkActivity.js",
-    "./transportRuntime": "./src/transportRuntime.js"
+    "./transportRuntime": "./src/transportRuntime.js",
+    "./clientComposition": "./src/clientComposition.js"
   },
   "dependencies": {
     "@jskit-ai/http-client-runtime": "0.1.0",
