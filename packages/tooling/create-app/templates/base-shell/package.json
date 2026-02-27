@@ -7,6 +7,9 @@
   "engines": {
     "node": "20.x"
   },
+  "bin": {
+    "jskit": "node_modules/@jskit-ai/jskit/packages/tooling/jskit/bin/jskit.js"
+  },
   "scripts": {
     "server": "jskit-app-scripts server",
     "start": "jskit-app-scripts start",
@@ -25,6 +28,7 @@
   },
   "devDependencies": {
     "@jskit-ai/config-eslint": "0.1.0",
+    "@jskit-ai/jskit": "github:mobily-enterprises/jskit-ai",
     "@vitejs/plugin-vue": "^5.2.1",
     "eslint": "^9.39.1",
     "vite": "^6.1.0",

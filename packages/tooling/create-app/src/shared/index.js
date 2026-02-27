@@ -9,7 +9,8 @@ const DEFAULT_INITIAL_BUNDLES = "none";
 const DEFAULT_DB_PROVIDER = "mysql";
 const INITIAL_BUNDLE_PRESETS = new Set(["none", "db", "db-auth"]);
 const DB_PROVIDERS = new Set(["mysql", "postgres"]);
-const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const ALLOWED_EXISTING_TARGET_ENTRIES = new Set([".git"]);
+const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const TEMPLATES_ROOT = path.join(PACKAGE_ROOT, "templates");
 
 function createCliError(message, { showUsage = false, exitCode = 1 } = {}) {
@@ -70,10 +71,10 @@ function buildInitialBundleCommands(initialBundles, dbProvider) {
 
   const commands = [];
   if (normalizedPreset === "db" || normalizedPreset === "db-auth") {
-    commands.push(`npx @jskit-ai/jskit add db --provider ${normalizedProvider} --no-install`);
+    commands.push(`npx jskit add db --provider ${normalizedProvider} --no-install`);
   }
   if (normalizedPreset === "db-auth") {
-    commands.push("npx @jskit-ai/jskit add auth-base --no-install");
+    commands.push("npx jskit add auth-base --no-install");
   }
 
   return commands;
@@ -82,8 +83,8 @@ function buildInitialBundleCommands(initialBundles, dbProvider) {
 function buildProgressiveBundleCommands(dbProvider) {
   const normalizedProvider = normalizeDbProvider(dbProvider, { showUsage: false });
   return [
-    `npx @jskit-ai/jskit add db --provider ${normalizedProvider} --no-install`,
-    "npx @jskit-ai/jskit add auth-base --no-install"
+    `npx jskit add db --provider ${normalizedProvider} --no-install`,
+    "npx jskit add auth-base --no-install"
   ];
 }
 
@@ -312,7 +313,8 @@ async function ensureTargetDirectoryState(targetDirectory, { force = false, dryR
   }
 
   const entries = await readdir(targetDirectory);
-  if (entries.length > 0 && !force) {
+  const blockingEntries = entries.filter((entry) => !ALLOWED_EXISTING_TARGET_ENTRIES.has(entry));
+  if (blockingEntries.length > 0 && !force) {
     throw createCliError(
       `Target directory is not empty: ${targetDirectory}. Use --force to allow writing into it.`
     );

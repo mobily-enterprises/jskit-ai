@@ -34,6 +34,6 @@ npm run test:client
 ## Progressive Bundles
 
 ```bash
-npx @jskit-ai/jskit add db --provider mysql --no-install
-npx @jskit-ai/jskit add auth-base --no-install
+npx jskit add db --provider mysql --no-install
+npx jskit add auth-base --no-install
 ```

@@ -82,8 +82,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const clientSmoke = await readFile(path.join(appRoot, "tests/client/smoke.vitest.js"), "utf8");
     assert.match(clientSmoke, /sample-app client smoke/);
 
-    assert.match(result.stdout, /npx @jskit-ai\/jskit add db --provider mysql --no-install/);
-    assert.match(result.stdout, /npx @jskit-ai\/jskit add auth-base --no-install/);
+    assert.match(result.stdout, /npx jskit add db --provider mysql --no-install/);
+    assert.match(result.stdout, /npx jskit add auth-base --no-install/);
   });
 });
 
@@ -126,8 +126,8 @@ test("create-app interactive flow captures initial bundle selection in guidance"
     assert.deepEqual(answers, []);
     assert.ok(askedPrompts.length >= 7);
     assert.match(stdout, /Initial framework bundle commands \(db-auth\):/);
-    assert.match(stdout, /add db --provider postgres --no-install/);
-    assert.match(stdout, /add auth-base --no-install/);
+    assert.match(stdout, /npx jskit add db --provider postgres --no-install/);
+    assert.match(stdout, /npx jskit add auth-base --no-install/);
   });
 });
 
@@ -147,6 +147,23 @@ test("create-app refuses non-empty target directory without --force", async () =
 
     const persisted = await readFile(path.join(targetDirectory, "keep.txt"), "utf8");
     assert.equal(persisted, "keep\n");
+  });
+});
+
+test("create-app allows target directory that only contains .git", async () => {
+  await withTempDir(async (cwd) => {
+    const targetDirectory = path.join(cwd, "existing-app");
+    await mkdir(path.join(targetDirectory, ".git"), { recursive: true });
+
+    const result = runCli({
+      cwd,
+      args: ["git-only-app", "--target", "existing-app"]
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+
+    const packageJson = JSON.parse(await readFile(path.join(targetDirectory, "package.json"), "utf8"));
+    assert.equal(packageJson.name, "git-only-app");
   });
 });
 

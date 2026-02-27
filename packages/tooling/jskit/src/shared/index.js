@@ -19,7 +19,7 @@ import { ensureUniqueDescriptor } from "./schemas/descriptorRegistry.mjs";
 import { normalizePackDescriptor } from "./schemas/packDescriptor.mjs";
 import { normalizePackageDescriptor } from "./schemas/packageDescriptor.mjs";
 
-const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const PACKS_ROOT = path.join(PACKAGE_ROOT, "packs");
 const PACKAGE_DESCRIPTORS_ROOT = path.join(PACKAGE_ROOT, "packages");
 const MONOREPO_PACKAGES_ROOT = path.resolve(PACKAGE_ROOT, "..", "..", "..", "packages");
