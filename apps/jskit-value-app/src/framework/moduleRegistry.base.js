@@ -1,15 +1,17 @@
-import {
-  createAuthApi,
-  createWorkspaceApi,
-  createConsoleApi,
-  createSettingsApi,
-  createAlertsApi,
-  createHistoryApi,
-  createBillingApi
-} from "@jskit-ai/web-runtime-core/apiClients";
+import { createApi as createAuthApi } from "@jskit-ai/access-core/client/authApi";
+import { createApi as createWorkspaceApiCore } from "@jskit-ai/workspace-service-core/client/workspaceApi";
+import { createApi as createConsoleApiCore } from "@jskit-ai/workspace-console-service-core/client/consoleApi";
+import { createApi as createWorkspaceBillingApi } from "@jskit-ai/billing-service-core/client/workspaceBillingApi";
+import { createApi as createConsoleBillingApi } from "@jskit-ai/billing-service-core/client/consoleBillingApi";
+import { createApi as createConsoleErrorsApi } from "@jskit-ai/observability-core/client/consoleErrorsApi";
 import { createApi as createAiApi } from "@jskit-ai/assistant-client-runtime";
+import { createApi as createWorkspaceTranscriptsApi } from "@jskit-ai/assistant-client-runtime/workspaceTranscriptsApi";
+import { createApi as createConsoleTranscriptsApi } from "@jskit-ai/assistant-client-runtime/consoleTranscriptsApi";
 import { createApi as createProjectsApi } from "../modules/projects/api.js";
 import { createApi as createDeg2radApi } from "../modules/deg2rad/api.js";
+import { createApi as createSettingsApi } from "../modules/settings/api.js";
+import { createApi as createAlertsApi } from "../modules/alerts/api.js";
+import { createApi as createHistoryApi } from "../modules/history/api.js";
 import { createApi as createChatApi } from "@jskit-ai/chat-client-runtime";
 import { createApi as createSocialApi } from "@jskit-ai/social-client-runtime";
 import { createRoutes as createAssistantRoutes } from "../app/router/routes/assistantRoutes.js";
@@ -105,7 +107,10 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
     client: {
       api: {
         key: "workspace",
-        createApi: ({ request }) => createWorkspaceApi({ request })
+        createApi: ({ request }) => ({
+          ...createWorkspaceApiCore({ request }),
+          ...createWorkspaceTranscriptsApi({ request })
+        })
       },
       router: {
         admin: { includeWorkspaceSettings: true }
@@ -153,7 +158,12 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
     client: {
       api: {
         key: "console",
-        createApi: ({ request }) => createConsoleApi({ request })
+        createApi: ({ request }) => ({
+          ...createConsoleApiCore({ request }),
+          ...createConsoleErrorsApi({ request }),
+          ...createConsoleTranscriptsApi({ request }),
+          ...createConsoleBillingApi({ request })
+        })
       },
       routeFragments: {
         console: [
@@ -308,7 +318,7 @@ const CLIENT_MODULE_REGISTRY = Object.freeze([
     client: {
       api: {
         key: "billing",
-        createApi: ({ request }) => createBillingApi({ request })
+        createApi: ({ request }) => createWorkspaceBillingApi({ request })
       },
       realtimeTopics: [REALTIME_TOPICS.WORKSPACE_BILLING_LIMITS, REALTIME_TOPICS.CONSOLE_BILLING],
       realtimeInvalidation: [
