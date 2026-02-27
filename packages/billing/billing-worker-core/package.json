@@ -8,6 +8,7 @@
   },
   "exports": {
     ".": "./src/shared/index.js",
+    "./runtimeSubsystemFactory": "./src/shared/runtimeSubsystem.factory.js",
     "./outboxWorkerService": "./src/shared/outboxWorker.service.js",
     "./remediationWorkerService": "./src/shared/remediationWorker.service.js",
     "./reconciliationService": "./src/shared/reconciliation.service.js",

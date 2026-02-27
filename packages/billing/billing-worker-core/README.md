@@ -22,6 +22,19 @@ It handles:
 
 ## Public API
 
+## `createBillingSubsystem(options)` and `createBillingDisabledServices()`
+
+Creates the billing runtime subsystem object used by app composition roots.
+
+Returned shape includes:
+
+- policy/pricing/idempotency/checkout/webhook services
+- worker services + runtime service
+- `billingService`
+- `billingPromoProvisioner`
+
+`createBillingDisabledServices()` returns fail-closed no-op equivalents when billing is disabled.
+
 ## `createBillingOutboxWorkerService(options)`
 
 Creates outbox worker behavior.
