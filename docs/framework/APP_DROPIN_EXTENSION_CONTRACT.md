@@ -41,3 +41,14 @@ Client:
 - Loaders are permanent (`server/app/loadExtensions.server.js`, `src/app/loadExtensions.client.js`).
 - Package install/update/remove writes and manages files under `.d` directories.
 - Loaders are not patched during install/update/remove.
+
+## Reference implementation (value-app)
+
+- `apps/jskit-value-app/server/app/settings.extensions.d/20-projects.server.js`
+- `apps/jskit-value-app/server/app/settingsExtensions/projectsPreferences.server.js`
+- Runtime wiring:
+  - `apps/jskit-value-app/server/runtime/services.js` passes `appServerExtensions.settings` into `userSettingsService`.
+  - `apps/jskit-value-app/server/modules/settings/service.js` resolves and executes extension validators/persistence/projection.
+  - `apps/jskit-value-app/server/modules/settings/routes.js` exposes:
+    - `GET /api/v1/settings/extensions/:extensionId`
+    - `PATCH /api/v1/settings/extensions/:extensionId`
