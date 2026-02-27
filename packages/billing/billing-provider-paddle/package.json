@@ -7,11 +7,11 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./sdkService": "./src/sdk.service.js",
-    "./adapterService": "./src/adapter.service.js",
-    "./webhookTranslationService": "./src/webhookTranslation.service.js",
-    "./errorMapping": "./src/errorMapping.js"
+    ".": "./src/shared/index.js",
+    "./sdkService": "./src/shared/sdk.service.js",
+    "./adapterService": "./src/shared/adapter.service.js",
+    "./webhookTranslationService": "./src/shared/webhookTranslation.service.js",
+    "./errorMapping": "./src/shared/errorMapping.js"
   },
   "dependencies": {
     "@jskit-ai/billing-provider-core": "0.1.0",

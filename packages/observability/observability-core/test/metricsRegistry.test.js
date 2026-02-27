@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMetricsRegistry } from "../src/index.js";
+import { createMetricsRegistry } from "../src/shared/index.js";
 
 test("metrics registry records HTTP request counters and latency histogram", () => {
   const registry = createMetricsRegistry({

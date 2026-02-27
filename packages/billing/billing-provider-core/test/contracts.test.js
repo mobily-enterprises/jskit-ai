@@ -10,7 +10,7 @@ import {
   validateWebhookTranslator,
   assertWebhookTranslator,
   shouldProcessCanonicalWebhookEvent
-} from "../src/index.js";
+} from "../src/shared/index.js";
 
 function createStubAdapter(provider = "stripe") {
   const adapter = {

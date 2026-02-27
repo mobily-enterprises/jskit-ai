@@ -6,7 +6,7 @@ import {
   createBillingProviderError,
   isBillingProviderError,
   normalizeProviderErrorCategory
-} from "../src/index.js";
+} from "../src/shared/index.js";
 
 test("provider error category normalization falls back to unknown", () => {
   assert.equal(normalizeProviderErrorCategory("transient_network"), PROVIDER_ERROR_CATEGORIES.TRANSIENT_NETWORK);

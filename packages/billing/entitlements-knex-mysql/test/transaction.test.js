@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createEntitlementMigrations, createEntitlementsKnexRepository, withTransaction } from "../src/index.js";
+import { createEntitlementMigrations, createEntitlementsKnexRepository, withTransaction } from "../src/shared/index.js";
 
 test("withTransaction uses knex.transaction when available", async () => {
   const calls = [];

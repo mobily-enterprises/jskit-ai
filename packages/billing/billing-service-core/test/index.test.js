@@ -6,7 +6,7 @@ import {
   createBillingService,
   createBillingPricingService,
   createBillingWebhookService
-} from "../src/index.js";
+} from "../src/shared/index.js";
 
 test("billing service core exports domain services and constants", () => {
   assert.equal(BILLING_DEFAULT_PROVIDER, "stripe");

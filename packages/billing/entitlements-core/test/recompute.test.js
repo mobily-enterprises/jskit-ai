@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createEntitlementsService, EntitlementNotConfiguredError } from "../src/index.js";
+import { createEntitlementsService, EntitlementNotConfiguredError } from "../src/shared/index.js";
 
 function createComputedRepository() {
   const definitions = [

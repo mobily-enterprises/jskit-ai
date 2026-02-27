@@ -1,6 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import BillingPlanClientElement from "../src/BillingPlanClientElement.vue";
+import BillingPlanClientElement from "../src/shared/BillingPlanClientElement.vue";
 
 function mountElement(options) {
   return mount(BillingPlanClientElement, {

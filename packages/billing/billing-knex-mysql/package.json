@@ -7,8 +7,8 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./repository": "./src/repository.js"
+    ".": "./src/shared/index.js",
+    "./repository": "./src/shared/repository.js"
   },
   "dependencies": {
     "@jskit-ai/entitlements-knex-mysql": "0.1.0",

@@ -10,12 +10,12 @@
     "@jskit-ai/server-runtime-core": "0.1.0"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./browserPayload": "./src/browserPayload.js",
-    "./serverPayload": "./src/serverPayload.js",
-    "./metricsContracts": "./src/metricsContracts.js",
-    "./metricsRegistry": "./src/metricsRegistry.js",
-    "./scopeLogger": "./src/scopeLogger.js",
-    "./service": "./src/service.js"
+    ".": "./src/shared/index.js",
+    "./browserPayload": "./src/shared/browserPayload.js",
+    "./serverPayload": "./src/shared/serverPayload.js",
+    "./metricsContracts": "./src/shared/metricsContracts.js",
+    "./metricsRegistry": "./src/shared/metricsRegistry.js",
+    "./scopeLogger": "./src/shared/scopeLogger.js",
+    "./service": "./src/shared/service.js"
   }
 }

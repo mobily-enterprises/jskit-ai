@@ -7,10 +7,10 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./controller": "./src/controller.js",
-    "./routes": "./src/routes.js",
-    "./schema": "./src/schema.js"
+    ".": "./src/shared/index.js",
+    "./controller": "./src/shared/controller.js",
+    "./routes": "./src/shared/routes.js",
+    "./schema": "./src/shared/schema.js"
   },
   "dependencies": {
     "@jskit-ai/billing-service-core": "0.1.0",

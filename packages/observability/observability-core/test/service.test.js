@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMetricsRegistry } from "../src/metricsRegistry.js";
-import { createService as createObservabilityService } from "../src/service.js";
+import { createMetricsRegistry } from "../src/shared/metricsRegistry.js";
+import { createService as createObservabilityService } from "../src/shared/service.js";
 
 test("observability service records guardrail metrics and structured log payload", () => {
   const registry = createMetricsRegistry();

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createEntitlementsKnexRepository } from "../src/index.js";
+import { createEntitlementsKnexRepository } from "../src/shared/index.js";
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));

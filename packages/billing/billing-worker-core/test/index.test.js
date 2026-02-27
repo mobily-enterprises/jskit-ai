@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as billingWorker from "../src/index.js";
+import * as billingWorker from "../src/shared/index.js";
 
 test("billing worker core exports worker services", () => {
   assert.equal(typeof billingWorker.createBillingOutboxWorkerService, "function");

@@ -3,12 +3,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
-import ConsoleErrorListClientElement from "../src/ConsoleErrorListClientElement.vue";
-import ConsoleErrorDetailClientElement from "../src/ConsoleErrorDetailClientElement.vue";
+import ConsoleErrorListClientElement from "../src/shared/ConsoleErrorListClientElement.vue";
+import ConsoleErrorDetailClientElement from "../src/shared/ConsoleErrorDetailClientElement.vue";
 
 const baseDir = path.dirname(fileURLToPath(import.meta.url));
-const listSourcePath = path.resolve(baseDir, "../src/ConsoleErrorListClientElement.vue");
-const detailSourcePath = path.resolve(baseDir, "../src/ConsoleErrorDetailClientElement.vue");
+const listSourcePath = path.resolve(baseDir, "../src/shared/ConsoleErrorListClientElement.vue");
+const detailSourcePath = path.resolve(baseDir, "../src/shared/ConsoleErrorDetailClientElement.vue");
 
 function readSource(filePath) {
   return readFileSync(filePath, "utf8");

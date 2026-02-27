@@ -7,9 +7,9 @@
     "test": "vitest run --config vitest.config.mjs"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./source/ConsoleErrorListClientElement.vue": "./src/ConsoleErrorListClientElement.vue",
-    "./source/ConsoleErrorDetailClientElement.vue": "./src/ConsoleErrorDetailClientElement.vue"
+    ".": "./src/shared/index.js",
+    "./source/ConsoleErrorListClientElement.vue": "./src/shared/ConsoleErrorListClientElement.vue",
+    "./source/ConsoleErrorDetailClientElement.vue": "./src/shared/ConsoleErrorDetailClientElement.vue"
   },
   "dependencies": {
     "vue": "^3.5.13"

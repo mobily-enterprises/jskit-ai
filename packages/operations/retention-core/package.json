@@ -7,10 +7,10 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./service": "./src/service.js",
-    "./policy": "./src/policy.js",
-    "./rules": "./src/rules/index.js"
+    ".": "./src/shared/index.js",
+    "./service": "./src/shared/service.js",
+    "./policy": "./src/shared/policy.js",
+    "./rules": "./src/shared/rules/index.js"
   },
   "dependencies": {
     "@jskit-ai/redis-ops-core": "0.1.0"

@@ -7,11 +7,11 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./outboxWorkerService": "./src/outboxWorker.service.js",
-    "./remediationWorkerService": "./src/remediationWorker.service.js",
-    "./reconciliationService": "./src/reconciliation.service.js",
-    "./workerRuntimeService": "./src/workerRuntime.service.js"
+    ".": "./src/shared/index.js",
+    "./outboxWorkerService": "./src/shared/outboxWorker.service.js",
+    "./remediationWorkerService": "./src/shared/remediationWorker.service.js",
+    "./reconciliationService": "./src/shared/reconciliation.service.js",
+    "./workerRuntimeService": "./src/shared/workerRuntime.service.js"
   },
   "dependencies": {
     "@jskit-ai/billing-service-core": "0.1.0",

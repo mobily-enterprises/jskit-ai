@@ -7,8 +7,8 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./repositories/auditEvents": "./src/repositories/auditEvents.repository.js"
+    ".": "./src/shared/index.js",
+    "./repositories/auditEvents": "./src/shared/repositories/auditEvents.repository.js"
   },
   "dependencies": {
     "@jskit-ai/knex-mysql-core": "0.1.0",

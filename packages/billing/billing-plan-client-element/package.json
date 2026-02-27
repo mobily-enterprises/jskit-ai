@@ -7,8 +7,8 @@
     "test": "vitest run --config vitest.config.mjs"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./source/BillingPlanClientElement.vue": "./src/BillingPlanClientElement.vue"
+    ".": "./src/shared/index.js",
+    "./source/BillingPlanClientElement.vue": "./src/shared/BillingPlanClientElement.vue"
   },
   "dependencies": {
     "vue": "^3.5.13"
