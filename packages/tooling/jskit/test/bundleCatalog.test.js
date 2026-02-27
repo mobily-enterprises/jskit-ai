@@ -26,11 +26,7 @@ const REQUIRES_DB = new Set([
   "workspace-admin-suite"
 ]);
 
-const REQUIRES_AUTH = new Set([
-  "workspace-core",
-  "workspace-console",
-  "workspace-admin-suite"
-]);
+const REQUIRES_AUTH = new Set(["workspace-core", "workspace-console", "workspace-admin-suite"]);
 
 function runCli({ cwd, args = [] }) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
@@ -66,21 +62,7 @@ async function withTempApp(run) {
   }
 }
 
-function getRequiredOptionArgs(pack) {
-  const args = [];
-  for (const [optionName, optionSchema] of Object.entries(pack.options || {})) {
-    if (!optionSchema.required) {
-      continue;
-    }
-    const value = Array.isArray(optionSchema.values) && optionSchema.values.length > 0
-      ? optionSchema.values[0]
-      : "default";
-    args.push(`--${optionName}`, value);
-  }
-  return args;
-}
-
-test("jskit list --json returns enriched bundle metadata", async () => {
+test("jskit list --json returns enriched bundle and package metadata", async () => {
   await withTempApp(async (appRoot) => {
     const result = runCli({
       cwd: appRoot,
@@ -89,85 +71,81 @@ test("jskit list --json returns enriched bundle metadata", async () => {
     assert.equal(result.status, 0, result.stderr);
 
     const payload = JSON.parse(result.stdout);
-    const dbPack = payload.available.find((entry) => entry.packId === "db");
-    assert.ok(dbPack, "Expected db pack in list output.");
-    assert.ok(Number.isInteger(dbPack.packageCount));
-    assert.ok(Array.isArray(dbPack.packages));
-    assert.ok(Array.isArray(dbPack.requiredCapabilities));
-    assert.ok(Array.isArray(dbPack.providedCapabilities));
-    assert.ok(dbPack.options && typeof dbPack.options === "object");
+    const dbMySqlBundle = payload.availableBundles.find((entry) => entry.bundleId === "db-mysql");
+    assert.ok(dbMySqlBundle, "Expected db-mysql bundle in list output.");
+    assert.ok(Number.isInteger(dbMySqlBundle.packageCount));
+    assert.ok(Array.isArray(dbMySqlBundle.packages));
+    assert.ok(Array.isArray(dbMySqlBundle.requiredCapabilities));
+    assert.ok(Array.isArray(dbMySqlBundle.providedCapabilities));
+
+    const dbPackage = payload.availablePackages.find((entry) => entry.packageId === "@jskit-ai/db-mysql");
+    assert.ok(dbPackage, "Expected @jskit-ai/db-mysql package in list output.");
+    assert.ok(Array.isArray(dbPackage.dependsOn));
+    assert.ok(Array.isArray(dbPackage.requiredCapabilities));
+    assert.ok(Array.isArray(dbPackage.providedCapabilities));
   });
 });
 
-test("every bundle add/update/remove lifecycle succeeds with prerequisites", async () => {
+test("every bundle add succeeds with prerequisites and passes doctor", async () => {
   const available = await (async () => {
-    let packs = [];
+    let bundles = [];
     await withTempApp(async (appRoot) => {
       const listResult = runCli({
         cwd: appRoot,
-        args: ["list", "--json"]
+        args: ["list", "bundles", "--json"]
       });
       assert.equal(listResult.status, 0, listResult.stderr);
-      packs = JSON.parse(listResult.stdout).available;
+      bundles = JSON.parse(listResult.stdout).availableBundles;
     });
-    return packs;
+    return bundles;
   })();
 
-  for (const pack of available) {
-    if (pack.packId === "db") {
+  for (const bundle of available) {
+    if (bundle.bundleId === "db-postgres") {
       continue;
     }
 
     await withTempApp(async (appRoot) => {
-      if (REQUIRES_DB.has(pack.packId)) {
+      if (REQUIRES_DB.has(bundle.bundleId) && bundle.bundleId !== "db-mysql") {
         const addDb = runCli({
           cwd: appRoot,
-          args: ["add", "db", "--provider", "mysql", "--no-install"]
+          args: ["add", "bundle", "db-mysql", "--no-install"]
         });
         assert.equal(addDb.status, 0, addDb.stderr);
       }
 
-      if (REQUIRES_AUTH.has(pack.packId)) {
+      if (REQUIRES_AUTH.has(bundle.bundleId) && bundle.bundleId !== "auth-base") {
         const addAuth = runCli({
           cwd: appRoot,
-          args: ["add", "auth-base", "--no-install"]
+          args: ["add", "bundle", "auth-base", "--no-install"]
         });
         assert.equal(addAuth.status, 0, addAuth.stderr);
       }
 
-      const optionArgs = getRequiredOptionArgs(pack);
-      const addArgs = ["add", pack.packId, "--no-install", ...optionArgs];
-      const updateArgs = ["update", pack.packId, "--no-install", ...optionArgs];
+      const addResult = runCli({
+        cwd: appRoot,
+        args: ["add", "bundle", bundle.bundleId, "--no-install"]
+      });
+      assert.equal(addResult.status, 0, `add failed for ${bundle.bundleId}: ${addResult.stderr}`);
 
-      const addResult = runCli({ cwd: appRoot, args: addArgs });
-      assert.equal(addResult.status, 0, `add failed for ${pack.packId}: ${addResult.stderr}`);
-
-      const updateResult = runCli({ cwd: appRoot, args: updateArgs });
-      assert.equal(updateResult.status, 0, `update failed for ${pack.packId}: ${updateResult.stderr}`);
-
-      const removeResult = runCli({ cwd: appRoot, args: ["remove", pack.packId] });
-      assert.equal(removeResult.status, 0, `remove failed for ${pack.packId}: ${removeResult.stderr}`);
+      const doctorResult = runCli({ cwd: appRoot, args: ["doctor"] });
+      assert.equal(doctorResult.status, 0, `doctor failed for ${bundle.bundleId}: ${doctorResult.stderr}`);
     });
   }
 });
 
-test("bundle conflict checks fail for impossible capability combinations", async () => {
+test("bundle capability checks fail for missing providers", async () => {
   await withTempApp(async (appRoot) => {
-    const listResult = runCli({
-      cwd: appRoot,
-      args: ["list", "--json"]
-    });
-    assert.equal(listResult.status, 0, listResult.stderr);
     const securityWithoutDb = runCli({
       cwd: appRoot,
-      args: ["add", "security-audit", "--no-install"]
+      args: ["add", "bundle", "security-audit", "--no-install"]
     });
     assert.notEqual(securityWithoutDb.status, 0);
     assert.match(securityWithoutDb.stderr, /\[capability-violation\]/);
 
     const workspaceWithoutAuth = runCli({
       cwd: appRoot,
-      args: ["add", "workspace-console", "--no-install"]
+      args: ["add", "bundle", "workspace-console", "--no-install"]
     });
     assert.notEqual(workspaceWithoutAuth.status, 0);
     assert.match(workspaceWithoutAuth.stderr, /\[capability-violation\]/);

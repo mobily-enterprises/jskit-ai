@@ -6,8 +6,8 @@ import path from "node:path";
 import process from "node:process";
 import { PassThrough, Writable } from "node:stream";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
 import { runCli as runCliDirect } from "../src/shared/index.js";
+import { fileURLToPath } from "node:url";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 
@@ -31,6 +31,7 @@ async function readJsonFile(absolutePath) {
 function createPackageDescriptorSource({
   packageId,
   dependsOn = [],
+  options = {},
   provides = [],
   requires = [],
   runtimeDependencies = {},
@@ -44,6 +45,7 @@ function createPackageDescriptorSource({
     packageId,
     version: "0.0.1",
     dependsOn,
+    options,
     capabilities: {
       provides,
       requires
@@ -69,6 +71,7 @@ async function writeLocalPackage({
   folderName,
   packageId,
   dependsOn = [],
+  options = {},
   provides = [],
   requires = [],
   runtimeDependencies = {},
@@ -84,6 +87,7 @@ async function writeLocalPackage({
   const descriptorSource = createPackageDescriptorSource({
     packageId,
     dependsOn,
+    options,
     provides,
     requires,
     runtimeDependencies,
@@ -142,7 +146,7 @@ function createWritableTTY() {
   return stream;
 }
 
-test("add-package installs local package descriptor mutations", async () => {
+test("add package installs local package descriptor mutations", async () => {
   await withTempApp(async (appRoot) => {
     await writeLocalPackage({
       appRoot,
@@ -167,7 +171,7 @@ test("add-package installs local package descriptor mutations", async () => {
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add-package", "@test/basic-feature", "--no-install"]
+      args: ["add", "package", "@test/basic-feature", "--no-install"]
     });
 
     assert.equal(addResult.status, 0, addResult.stderr);
@@ -185,7 +189,7 @@ test("add-package installs local package descriptor mutations", async () => {
   });
 });
 
-test("remove-package keeps shared managed scripts until last owner is removed", async () => {
+test("remove package keeps shared managed scripts until last owner is removed", async () => {
   await withTempApp(async (appRoot) => {
     const sharedScript = {
       "shared:task": "node ./shared-task.js"
@@ -205,18 +209,18 @@ test("remove-package keeps shared managed scripts until last owner is removed", 
       scripts: sharedScript
     });
 
-    const addA = runCli({ cwd: appRoot, args: ["add-package", "@test/shared-a", "--no-install"] });
-    const addB = runCli({ cwd: appRoot, args: ["add-package", "@test/shared-b", "--no-install"] });
+    const addA = runCli({ cwd: appRoot, args: ["add", "package", "@test/shared-a", "--no-install"] });
+    const addB = runCli({ cwd: appRoot, args: ["add", "package", "@test/shared-b", "--no-install"] });
     assert.equal(addA.status, 0, addA.stderr);
     assert.equal(addB.status, 0, addB.stderr);
 
-    const removeA = runCli({ cwd: appRoot, args: ["remove-package", "@test/shared-a"] });
+    const removeA = runCli({ cwd: appRoot, args: ["remove", "package", "@test/shared-a"] });
     assert.equal(removeA.status, 0, removeA.stderr);
 
     let packageJson = await readJsonFile(path.join(appRoot, "package.json"));
     assert.equal(packageJson.scripts["shared:task"], "node ./shared-task.js");
 
-    const removeB = runCli({ cwd: appRoot, args: ["remove-package", "@test/shared-b"] });
+    const removeB = runCli({ cwd: appRoot, args: ["remove", "package", "@test/shared-b"] });
     assert.equal(removeB.status, 0, removeB.stderr);
 
     packageJson = await readJsonFile(path.join(appRoot, "package.json"));
@@ -224,7 +228,7 @@ test("remove-package keeps shared managed scripts until last owner is removed", 
   });
 });
 
-test("update-package reapplies descriptor changes", async () => {
+test("update package reapplies descriptor changes", async () => {
   await withTempApp(async (appRoot) => {
     await writeLocalPackage({
       appRoot,
@@ -241,7 +245,7 @@ test("update-package reapplies descriptor changes", async () => {
       }
     });
 
-    const addResult = runCli({ cwd: appRoot, args: ["add-package", "@test/reapply-package", "--no-install"] });
+    const addResult = runCli({ cwd: appRoot, args: ["add", "package", "@test/reapply-package", "--no-install"] });
     assert.equal(addResult.status, 0, addResult.stderr);
 
     await writeFile(
@@ -250,7 +254,7 @@ test("update-package reapplies descriptor changes", async () => {
       "utf8"
     );
 
-    const updateResult = runCli({ cwd: appRoot, args: ["update-package", "@test/reapply-package", "--no-install"] });
+    const updateResult = runCli({ cwd: appRoot, args: ["update", "package", "@test/reapply-package", "--no-install"] });
     assert.equal(updateResult.status, 0, updateResult.stderr);
     assert.match(updateResult.stdout, /Updated package @test\/reapply-package/);
 
@@ -259,9 +263,21 @@ test("update-package reapplies descriptor changes", async () => {
   });
 });
 
-test("required pack option fails in non-interactive mode and prompts in interactive mode", async () => {
+test("required package option fails in non-interactive mode and prompts in interactive mode", async () => {
   await withTempApp(async (appRoot) => {
-    const nonInteractiveResult = runCli({ cwd: appRoot, args: ["add", "db", "--no-install"] });
+    await writeLocalPackage({
+      appRoot,
+      folderName: "optioned-package",
+      packageId: "@test/optioned-package",
+      options: {
+        provider: {
+          required: true,
+          values: ["mysql", "postgres"]
+        }
+      }
+    });
+
+    const nonInteractiveResult = runCli({ cwd: appRoot, args: ["add", "package", "@test/optioned-package", "--no-install"] });
     assert.notEqual(nonInteractiveResult.status, 0);
     assert.match(nonInteractiveResult.stderr, /non-interactive mode requires --provider/i);
 
@@ -271,7 +287,7 @@ test("required pack option fails in non-interactive mode and prompts in interact
 
     const stdout = createWritableTTY();
     const stderr = createWritableTTY();
-    const exitCode = await runCliDirect(["add", "db", "--no-install"], {
+    const exitCode = await runCliDirect(["add", "package", "@test/optioned-package", "--no-install"], {
       cwd: appRoot,
       stdin,
       stdout,
@@ -279,14 +295,14 @@ test("required pack option fails in non-interactive mode and prompts in interact
     });
 
     assert.equal(exitCode, 0, stderr.getContents());
-    assert.match(stdout.getContents(), /Select provider for pack db/);
+    assert.match(stdout.getContents(), /Select provider for package @test\/optioned-package/);
 
     const lock = await readJsonFile(path.join(appRoot, ".jskit/lock.json"));
-    assert.equal(lock.installedPacks.db.options.provider, "mysql");
+    assert.equal(lock.installedPackages["@test/optioned-package"].options.provider, "mysql");
   });
 });
 
-test("managed-file-drift conflict rolls back update-package", async () => {
+test("managed-file-drift conflict rolls back update package", async () => {
   await withTempApp(async (appRoot) => {
     await writeLocalPackage({
       appRoot,
@@ -303,7 +319,7 @@ test("managed-file-drift conflict rolls back update-package", async () => {
       }
     });
 
-    const addResult = runCli({ cwd: appRoot, args: ["add-package", "@test/file-drift-package", "--no-install"] });
+    const addResult = runCli({ cwd: appRoot, args: ["add", "package", "@test/file-drift-package", "--no-install"] });
     assert.equal(addResult.status, 0, addResult.stderr);
 
     await writeFile(path.join(appRoot, "drift-file.txt"), "manual edit\n", "utf8");
@@ -313,7 +329,7 @@ test("managed-file-drift conflict rolls back update-package", async () => {
       "utf8"
     );
 
-    const updateResult = runCli({ cwd: appRoot, args: ["update-package", "@test/file-drift-package", "--no-install"] });
+    const updateResult = runCli({ cwd: appRoot, args: ["update", "package", "@test/file-drift-package", "--no-install"] });
     assert.notEqual(updateResult.status, 0);
     assert.match(updateResult.stderr, /\[managed-file-drift\]/);
 
@@ -322,7 +338,7 @@ test("managed-file-drift conflict rolls back update-package", async () => {
   });
 });
 
-test("managed-script-drift conflict rolls back update-package", async () => {
+test("managed-script-drift conflict rolls back update package", async () => {
   await withTempApp(async (appRoot) => {
     await writeLocalPackage({
       appRoot,
@@ -333,7 +349,7 @@ test("managed-script-drift conflict rolls back update-package", async () => {
       }
     });
 
-    const addResult = runCli({ cwd: appRoot, args: ["add-package", "@test/script-drift-package", "--no-install"] });
+    const addResult = runCli({ cwd: appRoot, args: ["add", "package", "@test/script-drift-package", "--no-install"] });
     assert.equal(addResult.status, 0, addResult.stderr);
 
     const packageJsonPath = path.join(appRoot, "package.json");
@@ -343,7 +359,7 @@ test("managed-script-drift conflict rolls back update-package", async () => {
 
     const updateResult = runCli({
       cwd: appRoot,
-      args: ["update-package", "@test/script-drift-package", "--no-install"]
+      args: ["update", "package", "@test/script-drift-package", "--no-install"]
     });
     assert.notEqual(updateResult.status, 0);
     assert.match(updateResult.stderr, /\[managed-script-drift\]/);
@@ -353,7 +369,7 @@ test("managed-script-drift conflict rolls back update-package", async () => {
   });
 });
 
-test("capability-violation conflict rolls back remove-package", async () => {
+test("capability-violation conflict rolls back remove package", async () => {
   await withTempApp(async (appRoot) => {
     await writeLocalPackage({
       appRoot,
@@ -369,18 +385,56 @@ test("capability-violation conflict rolls back remove-package", async () => {
       requires: ["cap.alpha"]
     });
 
-    const addProvider = runCli({ cwd: appRoot, args: ["add-package", "@test/provider-package", "--no-install"] });
-    const addConsumer = runCli({ cwd: appRoot, args: ["add-package", "@test/consumer-package", "--no-install"] });
+    const addProvider = runCli({ cwd: appRoot, args: ["add", "package", "@test/provider-package", "--no-install"] });
+    const addConsumer = runCli({ cwd: appRoot, args: ["add", "package", "@test/consumer-package", "--no-install"] });
     assert.equal(addProvider.status, 0, addProvider.stderr);
     assert.equal(addConsumer.status, 0, addConsumer.stderr);
 
-    const removeProvider = runCli({ cwd: appRoot, args: ["remove-package", "@test/provider-package"] });
+    const removeProvider = runCli({ cwd: appRoot, args: ["remove", "package", "@test/provider-package"] });
     assert.notEqual(removeProvider.status, 0);
     assert.match(removeProvider.stderr, /\[capability-violation\]/);
 
     const lock = await readJsonFile(path.join(appRoot, ".jskit/lock.json"));
     assert.ok(lock.installedPackages["@test/provider-package"]);
     assert.ok(lock.installedPackages["@test/consumer-package"]);
+  });
+});
+
+test("adding a consumer fails when multiple providers satisfy one required capability", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeLocalPackage({
+      appRoot,
+      folderName: "provider-a",
+      packageId: "@test/provider-a",
+      provides: ["cap.alpha"]
+    });
+
+    await writeLocalPackage({
+      appRoot,
+      folderName: "provider-b",
+      packageId: "@test/provider-b",
+      provides: ["cap.alpha"]
+    });
+
+    await writeLocalPackage({
+      appRoot,
+      folderName: "consumer-ambiguous",
+      packageId: "@test/consumer-ambiguous",
+      requires: ["cap.alpha"]
+    });
+
+    const addProviderA = runCli({ cwd: appRoot, args: ["add", "package", "@test/provider-a", "--no-install"] });
+    const addProviderB = runCli({ cwd: appRoot, args: ["add", "package", "@test/provider-b", "--no-install"] });
+    assert.equal(addProviderA.status, 0, addProviderA.stderr);
+    assert.equal(addProviderB.status, 0, addProviderB.stderr);
+
+    const addConsumer = runCli({ cwd: appRoot, args: ["add", "package", "@test/consumer-ambiguous", "--no-install"] });
+    assert.notEqual(addConsumer.status, 0);
+    assert.match(addConsumer.stderr, /\[capability-violation\]/);
+    assert.match(addConsumer.stderr, /multiple installed providers/i);
+
+    const lock = await readJsonFile(path.join(appRoot, ".jskit/lock.json"));
+    assert.equal(lock.installedPackages["@test/consumer-ambiguous"], undefined);
   });
 });
 
@@ -393,7 +447,7 @@ test("unresolved-dependency conflict is surfaced for missing package dependencie
       dependsOn: ["@test/not-installed"]
     });
 
-    const addResult = runCli({ cwd: appRoot, args: ["add-package", "@test/missing-dep-package", "--no-install"] });
+    const addResult = runCli({ cwd: appRoot, args: ["add", "package", "@test/missing-dep-package", "--no-install"] });
     assert.notEqual(addResult.status, 0);
     assert.match(addResult.stderr, /\[unresolved-dependency\]/);
 
@@ -401,7 +455,7 @@ test("unresolved-dependency conflict is surfaced for missing package dependencie
   });
 });
 
-test("add-package JSON output includes transaction journal", async () => {
+test("add package JSON output includes transaction journal", async () => {
   await withTempApp(async (appRoot) => {
     await writeLocalPackage({
       appRoot,
@@ -414,7 +468,7 @@ test("add-package JSON output includes transaction journal", async () => {
 
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add-package", "@test/json-journal-package", "--no-install", "--json"]
+      args: ["add", "package", "@test/json-journal-package", "--no-install", "--json"]
     });
     assert.equal(addResult.status, 0, addResult.stderr);
 

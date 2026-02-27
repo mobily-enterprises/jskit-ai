@@ -7,7 +7,7 @@ import process from "node:process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { ensureUniqueDescriptor } from "../src/shared/schemas/descriptorRegistry.mjs";
-import { normalizePackDescriptor } from "../src/shared/schemas/packDescriptor.mjs";
+import { normalizeBundleDescriptor } from "../src/shared/schemas/bundleDescriptor.mjs";
 import { normalizePackageDescriptor } from "../src/shared/schemas/packageDescriptor.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
@@ -95,36 +95,20 @@ test("normalizePackageDescriptor accepts valid descriptor shape", () => {
   assert.equal(normalized.mutations.files[0].to, "config/source.txt");
 });
 
-test("normalizePackDescriptor accepts valid descriptor shape", () => {
-  const normalized = normalizePackDescriptor(
+test("normalizeBundleDescriptor accepts valid descriptor shape", () => {
+  const normalized = normalizeBundleDescriptor(
     {
-      packVersion: 2,
-      packId: "db",
+      bundleVersion: 1,
+      bundleId: "db-mysql",
       version: "0.2.0",
-      options: {
-        provider: {
-          required: true,
-          values: ["mysql", "postgres"]
-        }
-      },
-      packages: [
-        {
-          packageId: "@jskit-ai/db-mysql",
-          when: {
-            option: "provider",
-            equals: "mysql"
-          }
-        }
-      ]
+      packages: ["@jskit-ai/db-mysql"]
     },
-    "/fixtures/valid-pack/pack.descriptor.mjs"
+    "/fixtures/valid-bundle/bundle.descriptor.mjs"
   );
 
-  assert.equal(normalized.packVersion, 2);
-  assert.equal(normalized.packId, "db");
-  assert.equal(normalized.options.provider.required, true);
-  assert.deepEqual(normalized.options.provider.values, ["mysql", "postgres"]);
-  assert.equal(normalized.packages[0].packageId, "@jskit-ai/db-mysql");
+  assert.equal(normalized.bundleVersion, 1);
+  assert.equal(normalized.bundleId, "db-mysql");
+  assert.deepEqual(normalized.packages, ["@jskit-ai/db-mysql"]);
 });
 
 test("bad package ID returns stable snapshot message", () => {
@@ -150,34 +134,28 @@ test("bad package ID returns stable snapshot message", () => {
   assert.equal(message, ERROR_SNAPSHOTS.badPackageId);
 });
 
-test("pack option when equals values are validated", () => {
+test("bundle conditional package entries are rejected", () => {
   const message = captureErrorMessage(() => {
-    normalizePackDescriptor(
+    normalizeBundleDescriptor(
       {
-        packVersion: 2,
-        packId: "db",
+        bundleVersion: 1,
+        bundleId: "db",
         version: "0.2.0",
-        options: {
-          provider: {
-            required: true,
-            values: ["mysql"]
-          }
-        },
         packages: [
           {
-            packageId: "@jskit-ai/db-postgres",
+            packageId: "@jskit-ai/db-mysql",
             when: {
               option: "provider",
-              equals: "postgres"
+              equals: "mysql"
             }
           }
         ]
       },
-      "/fixtures/unknown-option/pack.descriptor.mjs"
+      "/fixtures/no-conditional-support/bundle.descriptor.mjs"
     );
   });
 
-  assert.equal(message, ERROR_SNAPSHOTS.unknownOptionValue);
+  assert.equal(message, ERROR_SNAPSHOTS.conditionalPackagesNotSupported);
 });
 
 test("invalid relative file path returns stable snapshot message", () => {
@@ -225,15 +203,14 @@ test("duplicate descriptor IDs return stable snapshot message", () => {
 
 test("descriptor version mismatch returns stable snapshot message", () => {
   const message = captureErrorMessage(() => {
-    normalizePackDescriptor(
+    normalizeBundleDescriptor(
       {
-        packVersion: 99,
-        packId: "db",
+        bundleVersion: 99,
+        bundleId: "db-mysql",
         version: "0.2.0",
-        options: {},
         packages: ["@jskit-ai/db-mysql"]
       },
-      "/fixtures/version-mismatch/pack.descriptor.mjs"
+      "/fixtures/version-mismatch/bundle.descriptor.mjs"
     );
   });
 
@@ -248,7 +225,7 @@ test("jskit lint-descriptors succeeds on valid descriptor inventory", async () =
     });
 
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /Descriptor lint passed \(\d+ pack descriptors, \d+ package descriptors\)\./);
+    assert.match(result.stdout, /Descriptor lint passed \(\d+ bundle descriptors, \d+ package descriptors\)\./);
   });
 });
 

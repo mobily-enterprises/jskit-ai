@@ -8,7 +8,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
-const WAVE_D_PACKS = [
+const WAVE_D_BUNDLES = [
   "assistant-base",
   "assistant-openai",
   "billing-base",
@@ -56,20 +56,20 @@ async function withTempApp(run) {
   }
 }
 
-for (const packId of WAVE_D_PACKS) {
-  test(`domain wave D pack ${packId} installs with db provider and passes doctor`, async () => {
+for (const bundleId of WAVE_D_BUNDLES) {
+  test(`domain wave D bundle ${bundleId} installs with db provider and passes doctor`, async () => {
     await withTempApp(async (appRoot) => {
       const addDb = runCli({
         cwd: appRoot,
-        args: ["add", "db", "--provider", "mysql", "--no-install"]
+        args: ["add", "bundle", "db-mysql", "--no-install"]
       });
       assert.equal(addDb.status, 0, addDb.stderr);
 
-      const addPack = runCli({
+      const addBundle = runCli({
         cwd: appRoot,
-        args: ["add", packId, "--no-install"]
+        args: ["add", "bundle", bundleId, "--no-install"]
       });
-      assert.equal(addPack.status, 0, addPack.stderr);
+      assert.equal(addBundle.status, 0, addBundle.stderr);
 
       const doctorResult = runCli({
         cwd: appRoot,
@@ -84,7 +84,7 @@ test("assistant-base enforces transcript db-provider capability", async () => {
   await withTempApp(async (appRoot) => {
     const addAssistant = runCli({
       cwd: appRoot,
-      args: ["add", "assistant-base", "--no-install"]
+      args: ["add", "bundle", "assistant-base", "--no-install"]
     });
     assert.notEqual(addAssistant.status, 0);
     assert.match(addAssistant.stderr, /\[capability-violation\]/);
@@ -92,38 +92,29 @@ test("assistant-base enforces transcript db-provider capability", async () => {
   });
 });
 
-test("billing provider selection can switch from stripe to paddle bundles", async () => {
+test("billing bundles can install stripe and paddle providers in same app", async () => {
   await withTempApp(async (appRoot) => {
     const addDb = runCli({
       cwd: appRoot,
-      args: ["add", "db", "--provider", "mysql", "--no-install"]
+      args: ["add", "bundle", "db-mysql", "--no-install"]
     });
     assert.equal(addDb.status, 0, addDb.stderr);
 
     const addStripe = runCli({
       cwd: appRoot,
-      args: ["add", "billing-stripe", "--no-install"]
+      args: ["add", "bundle", "billing-stripe", "--no-install"]
     });
     assert.equal(addStripe.status, 0, addStripe.stderr);
 
-    let lock = await readJsonFile(path.join(appRoot, ".jskit", "lock.json"));
-    assert.ok(lock.installedPackages["@jskit-ai/billing-provider-stripe"]);
-
-    const removeStripe = runCli({
-      cwd: appRoot,
-      args: ["remove", "billing-stripe"]
-    });
-    assert.equal(removeStripe.status, 0, removeStripe.stderr);
-
     const addPaddle = runCli({
       cwd: appRoot,
-      args: ["add", "billing-paddle", "--no-install"]
+      args: ["add", "bundle", "billing-paddle", "--no-install"]
     });
     assert.equal(addPaddle.status, 0, addPaddle.stderr);
 
-    lock = await readJsonFile(path.join(appRoot, ".jskit", "lock.json"));
+    const lock = await readJsonFile(path.join(appRoot, ".jskit", "lock.json"));
     assert.ok(lock.installedPackages["@jskit-ai/billing-provider-paddle"]);
-    assert.equal(lock.installedPackages["@jskit-ai/billing-provider-stripe"], undefined);
+    assert.ok(lock.installedPackages["@jskit-ai/billing-provider-stripe"]);
   });
 });
 
@@ -131,7 +122,7 @@ test("saas-full composed bundle installs and passes doctor", async () => {
   await withTempApp(async (appRoot) => {
     const addSaas = runCli({
       cwd: appRoot,
-      args: ["add", "saas-full", "--no-install"]
+      args: ["add", "bundle", "saas-full", "--no-install"]
     });
     assert.equal(addSaas.status, 0, addSaas.stderr);
 

@@ -30,6 +30,14 @@ export function ensurePackId(value, label) {
   return normalized;
 }
 
+export function ensureBundleId(value, label) {
+  const normalized = String(value || "").trim();
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(normalized)) {
+    throw createCliError(`${label} is invalid: ${value}`);
+  }
+  return normalized;
+}
+
 export function ensurePackageId(value, label) {
   const normalized = String(value || "").trim();
   const npmNamePattern = /^(?:@[a-z0-9-._~]+\/)?[a-z0-9-._~]+$/;

@@ -16,15 +16,15 @@ import { createInterface } from "node:readline/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createCliError, normalizeRelativePath } from "./schemas/validationHelpers.mjs";
 import { ensureUniqueDescriptor } from "./schemas/descriptorRegistry.mjs";
-import { normalizePackDescriptor } from "./schemas/packDescriptor.mjs";
+import { normalizeBundleDescriptor } from "./schemas/bundleDescriptor.mjs";
 import { normalizePackageDescriptor } from "./schemas/packageDescriptor.mjs";
 
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const PACKS_ROOT = path.join(PACKAGE_ROOT, "packs");
+const BUNDLES_ROOT = path.join(PACKAGE_ROOT, "bundles");
 const PACKAGE_DESCRIPTORS_ROOT = path.join(PACKAGE_ROOT, "packages");
 const MONOREPO_PACKAGES_ROOT = path.resolve(PACKAGE_ROOT, "..", "..", "..", "packages");
 const LOCK_RELATIVE_PATH = ".jskit/lock.json";
-const LOCK_VERSION = 2;
+const LOCK_VERSION = 3;
 
 function createIssue(message) {
   return {
@@ -48,7 +48,8 @@ function createConflictError(conflictClass, message, issues = []) {
 }
 
 async function promptForRequiredOption({
-  packId,
+  ownerType,
+  ownerId,
   optionName,
   optionSchema,
   stdin = process.stdin,
@@ -57,7 +58,7 @@ async function promptForRequiredOption({
   if (!stdin?.isTTY || !stdout?.isTTY) {
     const valuesSuffix = optionSchema.values.length > 0 ? ` (${optionSchema.values.join(" | ")})` : "";
     throw createCliError(
-      `Pack ${packId} requires option ${optionName}. Non-interactive mode requires --${optionName} <value>${valuesSuffix}.`
+      `${ownerType} ${ownerId} requires option ${optionName}. Non-interactive mode requires --${optionName} <value>${valuesSuffix}.`
     );
   }
 
@@ -68,9 +69,9 @@ async function promptForRequiredOption({
   });
 
   try {
-    const answer = String(await rl.question(`Select ${optionName} for pack ${packId}${valuesHint}: `)).trim();
+    const answer = String(await rl.question(`Select ${optionName} for ${ownerType} ${ownerId}${valuesHint}: `)).trim();
     if (!answer) {
-      throw createCliError(`Pack ${packId} requires option ${optionName}.`);
+      throw createCliError(`${ownerType} ${ownerId} requires option ${optionName}.`);
     }
     return answer;
   } finally {
@@ -99,20 +100,6 @@ function getInstalledPackageDependents(lock, packageId, availablePackages, { exc
   return dependents.sort((left, right) => left.localeCompare(right));
 }
 
-function getPackReferencesForPackage(lock, packageId) {
-  const referencedBy = [];
-
-  for (const [packId, state] of Object.entries(ensurePlainObjectRecord(lock.installedPacks))) {
-    const packageIds = Array.isArray(state?.packageIds) ? state.packageIds : [];
-    if (packageIds.includes(packageId)) {
-      referencedBy.push(packId);
-    }
-  }
-
-  return referencedBy.sort((left, right) => left.localeCompare(right));
-}
-
-
 function parseArgs(argv) {
   const args = Array.isArray(argv) ? [...argv] : [];
   const command = String(args.shift() || "help").trim() || "help";
@@ -123,7 +110,7 @@ function parseArgs(argv) {
     json: false,
     all: false,
     help: false,
-    packOptions: {}
+    inlineOptions: {}
   };
 
   const positional = [];
@@ -178,7 +165,7 @@ function parseArgs(argv) {
         });
       }
 
-      options.packOptions[optionName] = optionValue;
+      options.inlineOptions[optionName] = optionValue;
       continue;
     }
 
@@ -201,22 +188,18 @@ function parseArgs(argv) {
 function printUsage(stream = process.stderr) {
   stream.write("Usage: jskit <command> [options]\n\n");
   stream.write("Commands:\n");
-  stream.write("  list                      List available and installed packs\n");
-  stream.write("  lint-descriptors          Validate pack/package descriptor files\n");
-  stream.write("  add <packId>              Add one pack to current app\n");
-  stream.write("  update <packId>           Re-apply one installed pack\n");
-  stream.write("  update --all              Re-apply all installed packs\n");
-  stream.write("  remove <packId>           Remove one installed pack\n");
-  stream.write("  add-package <packageId>   Add one package to current app\n");
-  stream.write("  update-package <packageId> Re-apply one installed package\n");
-  stream.write("  remove-package <packageId> Remove one installed package\n");
+  stream.write("  list [bundles|packages]   List available bundles/packages and installed status\n");
+  stream.write("  lint-descriptors          Validate bundle/package descriptor files\n");
+  stream.write("  add bundle <bundleId>     Add one bundle (bundle is a package shortcut)\n");
+  stream.write("  add package <packageId>   Add one package to current app\n");
+  stream.write("  update package <packageId> Re-apply one installed package\n");
+  stream.write("  remove package <packageId> Remove one installed package\n");
   stream.write("  doctor                    Validate lockfile + managed files\n");
   stream.write("\n");
   stream.write("Options:\n");
   stream.write("  --dry-run                 Print planned changes only\n");
   stream.write("  --no-install              Skip npm install during add/update\n");
-  stream.write("  --<option> <value>        Pack option (for example: --provider mysql)\n");
-  stream.write("  --all                     Used with update to target all packs\n");
+  stream.write("  --<option> <value>        Package option (for packages requiring input)\n");
   stream.write("  --json                    Print structured output\n");
   stream.write("  -h, --help                Show help\n");
 }
@@ -253,7 +236,6 @@ async function loadAppPackageJson(appRoot) {
 function createDefaultLock() {
   return {
     lockVersion: LOCK_VERSION,
-    installedPacks: {},
     installedPackages: {}
   };
 }
@@ -271,12 +253,8 @@ async function loadLockFile(appRoot) {
   if (Number(lock?.lockVersion) !== LOCK_VERSION) {
     throw createCliError(
       `Unsupported ${LOCK_RELATIVE_PATH} lockVersion ${lock?.lockVersion}. Expected ${LOCK_VERSION}.` +
-        " Remove the lock file and re-run jskit commands for a clean v2 lock."
+        " Remove the lock file and re-run jskit commands for a clean v3 lock."
     );
-  }
-
-  if (!lock?.installedPacks || typeof lock.installedPacks !== "object") {
-    throw createCliError(`Invalid ${LOCK_RELATIVE_PATH}: installedPacks must be an object.`);
   }
 
   if (!lock?.installedPackages || typeof lock.installedPackages !== "object") {
@@ -361,35 +339,35 @@ function removeProcfileCommand(source, processType) {
   return filtered.length > 0 ? `${filtered.join("\n")}\n` : "";
 }
 
-async function discoverAvailablePacks() {
-  const entries = await readdir(PACKS_ROOT, { withFileTypes: true });
-  const packs = new Map();
+async function discoverAvailableBundles() {
+  const entries = await readdir(BUNDLES_ROOT, { withFileTypes: true });
+  const bundles = new Map();
 
   for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
     if (!entry.isDirectory()) {
       continue;
     }
 
-    const packRoot = path.join(PACKS_ROOT, entry.name);
-    const descriptorPath = path.join(packRoot, "pack.descriptor.mjs");
+    const bundleRoot = path.join(BUNDLES_ROOT, entry.name);
+    const descriptorPath = path.join(bundleRoot, "bundle.descriptor.mjs");
     if (!(await fileExists(descriptorPath))) {
       continue;
     }
 
     const module = await import(pathToFileURL(descriptorPath).href);
-    const descriptor = normalizePackDescriptor(module?.default, descriptorPath);
+    const descriptor = normalizeBundleDescriptor(module?.default, descriptorPath);
 
-    const existing = packs.get(descriptor.packId);
-    ensureUniqueDescriptor(existing, descriptor.packId, descriptorPath, "pack");
+    const existing = bundles.get(descriptor.bundleId);
+    ensureUniqueDescriptor(existing, descriptor.bundleId, descriptorPath, "bundle");
 
-    packs.set(descriptor.packId, {
+    bundles.set(descriptor.bundleId, {
       descriptor,
-      packRoot,
+      bundleRoot,
       descriptorPath
     });
   }
 
-  return packs;
+  return bundles;
 }
 
 function getPackageDescriptorSearchRoots(appRoot) {
@@ -467,11 +445,11 @@ async function discoverAvailablePackages(appRoot) {
 }
 
 async function lintDescriptors({ appRoot }) {
-  const packs = await discoverAvailablePacks();
+  const bundles = await discoverAvailableBundles();
   const packages = await discoverAvailablePackages(appRoot);
   return {
     command: "lint-descriptors",
-    packCount: packs.size,
+    bundleCount: bundles.size,
     packageCount: packages.size
   };
 }
@@ -481,10 +459,6 @@ function ensurePlainObjectRecord(value) {
     return {};
   }
   return value;
-}
-
-function getInstalledPackState(lock, packId) {
-  return ensurePlainObjectRecord(lock.installedPacks)[packId] || null;
 }
 
 function getInstalledPackageState(lock, packageId) {
@@ -533,21 +507,6 @@ function isManagedByOtherPackage(lock, currentPackageId, matcher) {
       return packageId;
     }
   }
-  return null;
-}
-
-function isPackageReferencedByOtherPack(lock, currentPackId, packageId) {
-  for (const [packId, state] of Object.entries(ensurePlainObjectRecord(lock.installedPacks))) {
-    if (packId === currentPackId) {
-      continue;
-    }
-
-    const packageIds = Array.isArray(state?.packageIds) ? state.packageIds : [];
-    if (packageIds.includes(packageId)) {
-      return packId;
-    }
-  }
-
   return null;
 }
 
@@ -911,77 +870,6 @@ async function rollbackTransaction(transaction) {
   }
 }
 
-async function resolvePackSelection({
-  packDescriptor,
-  installedPackState,
-  providedOptions,
-  stdin,
-  stdout
-}) {
-  const optionsSchema = ensurePlainObjectRecord(packDescriptor.options);
-  const selectedOptions = {};
-
-  for (const [optionName] of Object.entries(optionsSchema)) {
-    const currentInstalledValue = String(installedPackState?.options?.[optionName] || "").trim();
-    if (currentInstalledValue) {
-      selectedOptions[optionName] = currentInstalledValue;
-    }
-  }
-
-  for (const [optionName, optionValue] of Object.entries(ensurePlainObjectRecord(providedOptions))) {
-    if (!Object.prototype.hasOwnProperty.call(optionsSchema, optionName)) {
-      throw createCliError(`Pack ${packDescriptor.packId} does not support option --${optionName}.`);
-    }
-
-    selectedOptions[optionName] = String(optionValue || "").trim();
-  }
-
-  for (const [optionName, schema] of Object.entries(optionsSchema)) {
-    let value = String(selectedOptions[optionName] || "").trim();
-    if (!value && schema.required) {
-      value = await promptForRequiredOption({
-        packId: packDescriptor.packId,
-        optionName,
-        optionSchema: schema,
-        stdin,
-        stdout
-      });
-    }
-    if (value && schema.values.length > 0 && !schema.values.includes(value)) {
-      throw createCliError(
-        `Invalid ${optionName} for pack ${packDescriptor.packId}: ${value}. Allowed: ${schema.values.join(", "
-        )}.`
-      );
-    }
-    if (value) {
-      selectedOptions[optionName] = value;
-    }
-  }
-
-  const rootPackageIds = [];
-  for (const packageEntry of packDescriptor.packages) {
-    if (!packageEntry.when) {
-      rootPackageIds.push(packageEntry.packageId);
-      continue;
-    }
-
-    const optionValue = String(selectedOptions[packageEntry.when.option] || "").trim();
-    if (optionValue === packageEntry.when.equals) {
-      rootPackageIds.push(packageEntry.packageId);
-    }
-  }
-
-  const uniqueRootPackageIds = [...new Set(rootPackageIds)];
-  if (uniqueRootPackageIds.length < 1) {
-    throw createCliError(`Pack ${packDescriptor.packId} resolved to zero packages with current options.`);
-  }
-
-  return {
-    options: selectedOptions,
-    rootPackageIds: uniqueRootPackageIds
-  };
-}
-
 function resolvePackageInstallOrder(rootPackageIds, availablePackages) {
   const visiting = new Set();
   const visited = new Set();
@@ -1022,19 +910,8 @@ function resolvePackageInstallOrder(rootPackageIds, availablePackages) {
   return ordered;
 }
 
-function buildPackMetadata(packDescriptor, availablePackages) {
-  const rootPackageIds = [];
-  for (const packageEntry of packDescriptor.packages) {
-    if (typeof packageEntry === "string") {
-      rootPackageIds.push(packageEntry);
-      continue;
-    }
-    if (packageEntry?.packageId) {
-      rootPackageIds.push(packageEntry.packageId);
-    }
-  }
-
-  const uniqueRootPackageIds = toSortedUniqueStrings(rootPackageIds);
+function buildBundleMetadata(bundleDescriptor, availablePackages) {
+  const uniqueRootPackageIds = toSortedUniqueStrings(bundleDescriptor.packages);
   let resolvedPackageIds = uniqueRootPackageIds;
   try {
     resolvedPackageIds = toSortedUniqueStrings(resolvePackageInstallOrder(uniqueRootPackageIds, availablePackages));
@@ -1060,10 +937,107 @@ function buildPackMetadata(packDescriptor, availablePackages) {
   return {
     packageCount: resolvedPackageIds.length,
     packages: resolvedPackageIds,
-    options: packDescriptor.options,
     requiredCapabilities: [...requiredCapabilities].sort((left, right) => left.localeCompare(right)),
     providedCapabilities: [...providedCapabilities].sort((left, right) => left.localeCompare(right))
   };
+}
+
+function buildOptionOwnerIndex(packageIds, availablePackages) {
+  const owners = new Map();
+  for (const packageId of packageIds) {
+    const packageEntry = availablePackages.get(packageId);
+    if (!packageEntry) {
+      continue;
+    }
+
+    for (const optionName of Object.keys(ensurePlainObjectRecord(packageEntry.descriptor.options))) {
+      if (!owners.has(optionName)) {
+        owners.set(optionName, []);
+      }
+      owners.get(optionName).push(packageId);
+    }
+  }
+  return owners;
+}
+
+function bindOptionsToPackages({ packageIds, availablePackages, providedOptions }) {
+  const provided = ensurePlainObjectRecord(providedOptions);
+  const optionOwners = buildOptionOwnerIndex(packageIds, availablePackages);
+  const packageOptionMap = new Map();
+
+  for (const packageId of packageIds) {
+    packageOptionMap.set(packageId, {});
+  }
+
+  for (const [optionName, optionValue] of Object.entries(provided)) {
+    const owners = optionOwners.get(optionName) || [];
+    if (owners.length < 1) {
+      throw createCliError(
+        `Unknown option --${optionName} for selected packages.`
+      );
+    }
+    if (owners.length > 1) {
+      throw createCliError(
+        `Ambiguous option --${optionName}: defined by multiple selected packages (${owners.join(", ")}).`
+      );
+    }
+
+    packageOptionMap.set(owners[0], {
+      ...ensurePlainObjectRecord(packageOptionMap.get(owners[0])),
+      [optionName]: String(optionValue || "").trim()
+    });
+  }
+
+  return packageOptionMap;
+}
+
+async function resolvePackageOptions({
+  packageDescriptor,
+  installedPackageState,
+  providedOptions,
+  stdin,
+  stdout
+}) {
+  const optionsSchema = ensurePlainObjectRecord(packageDescriptor.options);
+  const selectedOptions = {};
+
+  for (const [optionName] of Object.entries(optionsSchema)) {
+    const currentInstalledValue = String(installedPackageState?.options?.[optionName] || "").trim();
+    if (currentInstalledValue) {
+      selectedOptions[optionName] = currentInstalledValue;
+    }
+  }
+
+  for (const [optionName, optionValue] of Object.entries(ensurePlainObjectRecord(providedOptions))) {
+    if (!Object.prototype.hasOwnProperty.call(optionsSchema, optionName)) {
+      throw createCliError(`Package ${packageDescriptor.packageId} does not support option --${optionName}.`);
+    }
+    selectedOptions[optionName] = String(optionValue || "").trim();
+  }
+
+  for (const [optionName, schema] of Object.entries(optionsSchema)) {
+    let value = String(selectedOptions[optionName] || "").trim();
+    if (!value && schema.required) {
+      value = await promptForRequiredOption({
+        ownerType: "package",
+        ownerId: packageDescriptor.packageId,
+        optionName,
+        optionSchema: schema,
+        stdin,
+        stdout
+      });
+    }
+    if (value && schema.values.length > 0 && !schema.values.includes(value)) {
+      throw createCliError(
+        `Invalid ${optionName} for package ${packageDescriptor.packageId}: ${value}. Allowed: ${schema.values.join(", ")}.`
+      );
+    }
+    if (value) {
+      selectedOptions[optionName] = value;
+    }
+  }
+
+  return selectedOptions;
 }
 
 function buildCapabilityProviderIndex(installedPackageIds, availablePackages) {
@@ -1086,10 +1060,39 @@ function buildCapabilityProviderIndex(installedPackageIds, availablePackages) {
   return providerIndex;
 }
 
-function getCapabilityIssues(lock, availablePackages) {
+function buildBundleProviderIndex(availableBundles, availablePackages) {
+  const providerIndex = new Map();
+
+  for (const bundleEntry of availableBundles.values()) {
+    let resolvedPackageIds = [];
+    try {
+      resolvedPackageIds = resolvePackageInstallOrder(bundleEntry.descriptor.packages, availablePackages);
+    } catch {
+      resolvedPackageIds = [...bundleEntry.descriptor.packages];
+    }
+
+    for (const packageId of resolvedPackageIds) {
+      const packageEntry = availablePackages.get(packageId);
+      if (!packageEntry) {
+        continue;
+      }
+      for (const capabilityId of packageEntry.descriptor.capabilities.provides) {
+        if (!providerIndex.has(capabilityId)) {
+          providerIndex.set(capabilityId, new Set());
+        }
+        providerIndex.get(capabilityId).add(bundleEntry.descriptor.bundleId);
+      }
+    }
+  }
+
+  return providerIndex;
+}
+
+function getCapabilityIssues(lock, availablePackages, { availableBundles = new Map() } = {}) {
   const issues = [];
   const installedPackageIds = Object.keys(ensurePlainObjectRecord(lock.installedPackages));
   const providerIndex = buildCapabilityProviderIndex(installedPackageIds, availablePackages);
+  const bundleProviderIndex = buildBundleProviderIndex(availableBundles, availablePackages);
 
   for (const packageId of installedPackageIds) {
     const packageEntry = availablePackages.get(packageId);
@@ -1100,9 +1103,24 @@ function getCapabilityIssues(lock, availablePackages) {
     for (const requiredCapabilityId of packageEntry.descriptor.capabilities.requires) {
       const providers = providerIndex.get(requiredCapabilityId);
       if (!providers || providers.size < 1) {
+        const suggestedBundles = toSortedUniqueStrings([...(bundleProviderIndex.get(requiredCapabilityId) || new Set())]);
+        const suggestion =
+          suggestedBundles.length > 0
+            ? ` Install one provider bundle first: ${suggestedBundles.map((bundleId) => `jskit add bundle ${bundleId}`).join(" or ")}.`
+            : "";
         issues.push(
           createIssue(
-            `Package ${packageId} requires capability ${requiredCapabilityId}, but no installed package provides it.`
+            `Package ${packageId} requires capability ${requiredCapabilityId}, but no installed package provides it.${suggestion}`
+          )
+        );
+        continue;
+      }
+
+      if (providers.size > 1) {
+        const providerList = toSortedUniqueStrings([...providers]);
+        issues.push(
+          createIssue(
+            `Package ${packageId} requires capability ${requiredCapabilityId}, but multiple installed providers were found (${providerList.join(", ")}). Keep exactly one provider package.`
           )
         );
       }
@@ -1112,8 +1130,8 @@ function getCapabilityIssues(lock, availablePackages) {
   return issues;
 }
 
-function assertCapabilitiesSatisfied(lock, availablePackages, contextMessage) {
-  const issues = getCapabilityIssues(lock, availablePackages);
+function assertCapabilitiesSatisfied(lock, availablePackages, contextMessage, { availableBundles = new Map() } = {}) {
+  const issues = getCapabilityIssues(lock, availablePackages, { availableBundles });
   if (issues.length > 0) {
     throw createConflictError(
       "capability-violation",
@@ -1130,11 +1148,21 @@ async function applyPackage({
   packageJson,
   packageJsonPath,
   dryRun,
-  transaction
+  transaction,
+  packageOptions = {},
+  stdin = process.stdin,
+  stdout = process.stdout
 }) {
   const packageId = packageEntry.descriptor.packageId;
   const existingState = getInstalledPackageState(lock, packageId);
   const filePlanMode = existingState ? "update" : "add";
+  const selectedOptions = await resolvePackageOptions({
+    packageDescriptor: packageEntry.descriptor,
+    installedPackageState: existingState,
+    providedOptions: packageOptions,
+    stdin,
+    stdout
+  });
 
   const packagePlan = buildPackageJsonMutationPlan({
     packageJson,
@@ -1202,6 +1230,7 @@ async function applyPackage({
       procfile: procfilePlan.managed,
       files: managedFiles
     },
+    options: selectedOptions,
     installedAt: new Date().toISOString()
   };
 
@@ -1209,9 +1238,6 @@ async function applyPackage({
   nextLock.lockVersion = LOCK_VERSION;
   if (!nextLock.installedPackages || typeof nextLock.installedPackages !== "object") {
     nextLock.installedPackages = {};
-  }
-  if (!nextLock.installedPacks || typeof nextLock.installedPacks !== "object") {
-    nextLock.installedPacks = {};
   }
   nextLock.installedPackages[packageId] = nextInstalledState;
 
@@ -1235,6 +1261,7 @@ async function applyPackage({
     journal: {
       packageId,
       mode: filePlanMode,
+      options: selectedOptions,
       packageJsonChanged: packagePlan.changed,
       procfileChanged: procfilePlan.changed,
       filesTouched: filesPlan.operations.map((operation) => operation.relativeTargetPath),
@@ -1431,7 +1458,7 @@ async function removeInstalledPackage({
   };
 }
 
-async function validateDoctor({ appRoot, lock, availablePacks, availablePackages }) {
+async function validateDoctor({ appRoot, lock, availableBundles, availablePackages }) {
   const issues = [];
   const legacyManifestPath = path.join(appRoot, "framework", "app.manifest.mjs");
   if (await fileExists(legacyManifestPath)) {
@@ -1440,20 +1467,6 @@ async function validateDoctor({ appRoot, lock, availablePacks, availablePackages
         "[legacy-surface] Legacy framework manifest detected (app.manifest.mjs). Remove it and install bundles via jskit add."
       )
     );
-  }
-
-  for (const [packId, state] of Object.entries(ensurePlainObjectRecord(lock.installedPacks))) {
-    if (!availablePacks.has(packId)) {
-      issues.push(createIssue(`Installed pack ${packId} is not available in current catalog.`));
-      continue;
-    }
-
-    const packageIds = Array.isArray(state?.packageIds) ? state.packageIds : [];
-    for (const packageId of packageIds) {
-      if (!lock.installedPackages?.[packageId]) {
-        issues.push(createIssue(`Pack ${packId} references missing installed package ${packageId}.`));
-      }
-    }
   }
 
   for (const [packageId, state] of Object.entries(ensurePlainObjectRecord(lock.installedPackages))) {
@@ -1478,7 +1491,7 @@ async function validateDoctor({ appRoot, lock, availablePacks, availablePackages
     }
   }
 
-  const capabilityIssues = getCapabilityIssues(lock, availablePackages);
+  const capabilityIssues = getCapabilityIssues(lock, availablePackages, { availableBundles });
   issues.push(...capabilityIssues);
 
   return {
@@ -1494,32 +1507,33 @@ function formatResult(result, { json, stdout }) {
   }
 
   if (result.command === "list") {
-    stdout.write("Available packs:\n");
-    for (const entry of result.available) {
-      stdout.write(`- ${entry.packId} (${entry.version})${entry.installed ? " [installed]" : ""}\n`);
+    if (result.availableBundles) {
+      stdout.write("Available bundles:\n");
+      for (const entry of result.availableBundles) {
+        stdout.write(`- ${entry.bundleId} (${entry.version})${entry.installed ? " [installed]" : ""}\n`);
+      }
+    }
+    if (result.availablePackages) {
+      stdout.write("Available packages:\n");
+      for (const entry of result.availablePackages) {
+        stdout.write(`- ${entry.packageId} (${entry.version})${entry.installed ? " [installed]" : ""}\n`);
+      }
     }
     return;
   }
 
   if (result.command === "lint-descriptors") {
     stdout.write(
-      `Descriptor lint passed (${result.packCount} pack descriptors, ${result.packageCount} package descriptors).\n`
+      `Descriptor lint passed (${result.bundleCount} bundle descriptors, ${result.packageCount} package descriptors).\n`
     );
     return;
   }
 
-  if (result.command === "add" || result.command === "update") {
-    const label = result.command === "add" ? "Added" : "Updated";
-    stdout.write(`${label} pack ${result.packId}${result.dryRun ? " [dry-run]" : ""}.\n`);
+  if (result.command === "add-bundle") {
+    stdout.write(`Added bundle ${result.bundleId}${result.dryRun ? " [dry-run]" : ""}.\n`);
     if (result.packageIds.length > 0) {
       stdout.write(`Resolved packages (${result.packageIds.length}):\n`);
       for (const packageId of result.packageIds) {
-        stdout.write(`- ${packageId}\n`);
-      }
-    }
-    if (result.command === "update" && result.removedPackages && result.removedPackages.length > 0) {
-      stdout.write(`Removed packages (${result.removedPackages.length}):\n`);
-      for (const packageId of result.removedPackages) {
         stdout.write(`- ${packageId}\n`);
       }
     }
@@ -1558,35 +1572,6 @@ function formatResult(result, { json, stdout }) {
     return;
   }
 
-  if (result.command === "remove") {
-    stdout.write(`Removed pack ${result.packId}${result.dryRun ? " [dry-run]" : ""}.\n`);
-    if (result.removedPackages.length > 0) {
-      stdout.write(`Removed packages (${result.removedPackages.length}):\n`);
-      for (const packageId of result.removedPackages) {
-        stdout.write(`- ${packageId}\n`);
-      }
-    }
-    if (result.skippedSharedPackages.length > 0) {
-      stdout.write(`Kept shared packages (${result.skippedSharedPackages.length}):\n`);
-      for (const packageId of result.skippedSharedPackages) {
-        stdout.write(`- ${packageId}\n`);
-      }
-    }
-    if (result.removedFiles.length > 0) {
-      stdout.write(`Removed files (${result.removedFiles.length}):\n`);
-      for (const file of result.removedFiles) {
-        stdout.write(`- ${file}\n`);
-      }
-    }
-    if (result.issues.length > 0) {
-      stdout.write("Issues:\n");
-      for (const issue of result.issues) {
-        stdout.write(`- ${issue.message}\n`);
-      }
-    }
-    return;
-  }
-
   if (result.command === "remove-package") {
     stdout.write(`Removed package ${result.packageId}${result.dryRun ? " [dry-run]" : ""}.\n`);
     if (result.removedFiles.length > 0) {
@@ -1612,10 +1597,10 @@ function formatResult(result, { json, stdout }) {
   }
 }
 
-async function applyPackOperation({
-  mode,
+async function applyBundleOperation({
   appRoot,
-  pack,
+  bundle,
+  availableBundles,
   availablePackages,
   lock,
   lockPath,
@@ -1623,75 +1608,24 @@ async function applyPackOperation({
   packageJsonPath,
   dryRun,
   noInstall,
-  packOptions,
+  inlineOptions,
   stdin,
   stdout
 }) {
-  const packId = pack.descriptor.packId;
-  const existingState = getInstalledPackState(lock, packId);
-
-  if (mode === "add" && existingState) {
-    throw createCliError(`Pack ${packId} is already installed. Use jskit update ${packId}.`);
-  }
-  if (mode === "update" && !existingState) {
-    throw createCliError(`Pack ${packId} is not installed. Use jskit add ${packId}.`);
-  }
-
-  const selection = await resolvePackSelection({
-    packDescriptor: pack.descriptor,
-    installedPackState: existingState,
-    providedOptions: packOptions,
-    stdin,
-    stdout
+  const bundleId = bundle.descriptor.bundleId;
+  const packageIds = resolvePackageInstallOrder(bundle.descriptor.packages, availablePackages);
+  const packageOptionMap = bindOptionsToPackages({
+    packageIds,
+    availablePackages,
+    providedOptions: inlineOptions
   });
 
-  const packageIds = resolvePackageInstallOrder(selection.rootPackageIds, availablePackages);
-  const targetPackageIdSet = new Set(packageIds);
-  const previousPackageIds = Array.isArray(existingState?.packageIds) ? existingState.packageIds : [];
-  const removeOrder = [...previousPackageIds]
-    .reverse()
-    .filter((packageId) => !targetPackageIdSet.has(packageId));
-
   const packageResults = [];
-  const removedPackages = [];
-  const skippedSharedPackages = [];
-  const removedFiles = [];
   let nextLock = lock;
   let nextPackageJson = packageJson;
   const transaction = dryRun ? null : createTransaction(appRoot);
 
   try {
-    for (const packageId of removeOrder) {
-      const sharedByPackId = isPackageReferencedByOtherPack(nextLock, packId, packageId);
-      if (sharedByPackId) {
-        skippedSharedPackages.push(packageId);
-        continue;
-      }
-
-      const removalResult = await removeInstalledPackage({
-        appRoot,
-        packageId,
-        lock: nextLock,
-        packageJson: nextPackageJson,
-        packageJsonPath,
-        dryRun,
-        transaction
-      });
-
-      if (removalResult.issues.length > 0) {
-        throw createCliError(
-          `Cannot update pack ${packId}; failed to remove package ${packageId} cleanly:\n- ${removalResult.issues
-            .map((issue) => issue.message)
-            .join("\n- ")}`
-        );
-      }
-
-      removedPackages.push(packageId);
-      removedFiles.push(...removalResult.removedFiles);
-      nextLock = removalResult.nextLock;
-      nextPackageJson = removalResult.nextPackageJson;
-    }
-
     for (const packageId of packageIds) {
       const packageEntry = availablePackages.get(packageId);
       if (!packageEntry) {
@@ -1705,7 +1639,10 @@ async function applyPackOperation({
         packageJson: nextPackageJson,
         packageJsonPath,
         dryRun,
-        transaction
+        transaction,
+        packageOptions: packageOptionMap.get(packageId),
+        stdin,
+        stdout
       });
 
       packageResults.push(packageResult);
@@ -1713,20 +1650,9 @@ async function applyPackOperation({
       nextPackageJson = packageResult.nextPackageJson;
     }
 
-    const nextLockWithPack = JSON.parse(JSON.stringify(nextLock));
-    if (!nextLockWithPack.installedPacks || typeof nextLockWithPack.installedPacks !== "object") {
-      nextLockWithPack.installedPacks = {};
-    }
-    nextLockWithPack.installedPacks[packId] = {
-      packId,
-      version: pack.descriptor.version,
-      options: selection.options,
-      rootPackageIds: selection.rootPackageIds,
-      packageIds,
-      installedAt: new Date().toISOString()
-    };
-
-    assertCapabilitiesSatisfied(nextLockWithPack, availablePackages, `Pack ${packId} ${mode}`);
+    assertCapabilitiesSatisfied(nextLock, availablePackages, `Bundle ${bundleId} add`, {
+      availableBundles
+    });
 
     const dependenciesTouched = packageResults.some((entry) => entry.dependenciesTouched);
     if (!dryRun && dependenciesTouched && !noInstall) {
@@ -1734,34 +1660,27 @@ async function applyPackOperation({
     }
 
     if (!dryRun) {
-      await writeJsonFileWithTransaction(transaction, lockPath, nextLockWithPack);
+      await writeJsonFileWithTransaction(transaction, lockPath, nextLock);
     }
 
     return {
-      packId,
-      mode,
+      bundleId,
       dryRun,
       noInstall,
       packageIds,
-      removedPackages: toSortedUniqueStrings(removedPackages),
-      skippedSharedPackages: toSortedUniqueStrings(skippedSharedPackages),
       packageJsonChanged: packageResults.some((entry) => entry.packageJsonChanged),
       procfileChanged: packageResults.some((entry) => entry.procfileChanged),
-      filesTouched: toSortedUniqueStrings([
-        ...removedFiles,
-        ...packageResults.flatMap((entry) => entry.filesTouched)
-      ]),
+      filesTouched: toSortedUniqueStrings(packageResults.flatMap((entry) => entry.filesTouched)),
       npmInstallRan: dependenciesTouched && !noInstall && !dryRun,
       journal: {
-        operation: mode,
-        packId,
+        operation: "add-bundle",
+        bundleId,
         packageApplyOrder: packageIds,
-        removedPackages: toSortedUniqueStrings(removedPackages),
         packageOperations: packageResults.map((entry) => entry.journal)
       },
       lockPath: LOCK_RELATIVE_PATH,
       nextPackageJson,
-      nextLock: nextLockWithPack
+      nextLock
     };
   } catch (error) {
     await rollbackTransaction(transaction);
@@ -1786,6 +1705,7 @@ async function applySinglePackageOperation({
   mode,
   appRoot,
   packageId,
+  availableBundles,
   availablePackages,
   lock,
   lockPath,
@@ -1793,6 +1713,8 @@ async function applySinglePackageOperation({
   packageJsonPath,
   dryRun,
   noInstall,
+  inlineOptions,
+  stdin,
   stdout
 }) {
   const packageEntry = availablePackages.get(packageId);
@@ -1802,13 +1724,18 @@ async function applySinglePackageOperation({
 
   const existingState = getInstalledPackageState(lock, packageId);
   if (mode === "add" && existingState) {
-    throw createCliError(`Package ${packageId} is already installed. Use jskit update-package ${packageId}.`);
+    throw createCliError(`Package ${packageId} is already installed. Use jskit update package ${packageId}.`);
   }
   if (mode === "update" && !existingState) {
-    throw createCliError(`Package ${packageId} is not installed. Use jskit add-package ${packageId}.`);
+    throw createCliError(`Package ${packageId} is not installed. Use jskit add package ${packageId}.`);
   }
 
   const packageIds = resolvePackageInstallOrder([packageId], availablePackages);
+  const packageOptionMap = bindOptionsToPackages({
+    packageIds,
+    availablePackages,
+    providedOptions: inlineOptions
+  });
   const packageResults = [];
   let nextLock = lock;
   let nextPackageJson = packageJson;
@@ -1828,7 +1755,10 @@ async function applySinglePackageOperation({
         packageJson: nextPackageJson,
         packageJsonPath,
         dryRun,
-        transaction
+        transaction,
+        packageOptions: packageOptionMap.get(targetPackageId),
+        stdin,
+        stdout
       });
 
       packageResults.push(applyResult);
@@ -1836,7 +1766,9 @@ async function applySinglePackageOperation({
       nextPackageJson = applyResult.nextPackageJson;
     }
 
-    assertCapabilitiesSatisfied(nextLock, availablePackages, `Package ${packageId} ${mode}`);
+    assertCapabilitiesSatisfied(nextLock, availablePackages, `Package ${packageId} ${mode}`, {
+      availableBundles
+    });
 
     const dependenciesTouched = packageResults.some((entry) => entry.dependenciesTouched);
     if (!dryRun && dependenciesTouched && !noInstall) {
@@ -1876,6 +1808,7 @@ async function applySinglePackageOperation({
 async function removeSinglePackageOperation({
   appRoot,
   packageId,
+  availableBundles,
   availablePackages,
   lock,
   lockPath,
@@ -1886,15 +1819,6 @@ async function removeSinglePackageOperation({
   const installedState = getInstalledPackageState(lock, packageId);
   if (!installedState) {
     throw createCliError(`Package ${packageId} is not installed.`);
-  }
-
-  const packReferences = getPackReferencesForPackage(lock, packageId);
-  if (packReferences.length > 0) {
-    throw createConflictError(
-      "unresolved-dependency",
-      `Cannot remove package ${packageId}; referenced by installed packs.`,
-      packReferences.map((packId) => createIssue(`Referenced by pack ${packId}.`))
-    );
   }
 
   const dependents = getInstalledPackageDependents(lock, packageId, availablePackages);
@@ -1920,12 +1844,13 @@ async function removeSinglePackageOperation({
 
     throwOnRemovalIssues(packageId, removalResult.issues, "Removing package");
     const nextLock = removalResult.nextLock;
-    assertCapabilitiesSatisfied(nextLock, availablePackages, `Removing package ${packageId}`);
+    assertCapabilitiesSatisfied(nextLock, availablePackages, `Removing package ${packageId}`, {
+      availableBundles
+    });
 
     if (!dryRun) {
-      const hasPacks = Object.keys(ensurePlainObjectRecord(nextLock.installedPacks)).length > 0;
       const hasPackages = Object.keys(ensurePlainObjectRecord(nextLock.installedPackages)).length > 0;
-      if (hasPacks || hasPackages) {
+      if (hasPackages) {
         await writeJsonFileWithTransaction(transaction, lockPath, nextLock);
       } else if (await fileExists(lockPath)) {
         await rmFileWithTransaction(transaction, lockPath);
@@ -1985,42 +1910,72 @@ export async function runCli(
       return 0;
     }
 
-    if (
-      Object.keys(parsed.options.packOptions).length > 0 &&
-      parsed.command !== "add" &&
-      parsed.command !== "update" &&
-      parsed.command !== "add-package" &&
-      parsed.command !== "update-package"
-    ) {
-      throw createCliError(`Inline options are supported only for add/update and add-package/update-package.`, {
+    if (parsed.options.all) {
+      throw createCliError("The --all flag is not supported by the bundle/package command model.", {
+        showUsage: true
+      });
+    }
+
+    const inlineOptionCount = Object.keys(parsed.options.inlineOptions).length;
+    const allowsInlineOptions =
+      (parsed.command === "add" && parsed.positional[0] === "bundle") ||
+      (parsed.command === "add" && parsed.positional[0] === "package") ||
+      (parsed.command === "update" && parsed.positional[0] === "package");
+    if (inlineOptionCount > 0 && !allowsInlineOptions) {
+      throw createCliError("Inline options are supported only for add bundle/package and update package.", {
         showUsage: true
       });
     }
 
     const { packageJson, packageJsonPath } = await loadAppPackageJson(appRoot);
     const { lock, lockPath } = await loadLockFile(appRoot);
-    const availablePacks = await discoverAvailablePacks();
+    const availableBundles = await discoverAvailableBundles();
     const availablePackages = await discoverAvailablePackages(appRoot);
 
     let result = null;
 
     if (parsed.command === "list") {
-      if (parsed.positional.length > 0) {
-        throw createCliError("jskit list does not accept positional arguments.", {
+      if (parsed.positional.length > 1) {
+        throw createCliError("jskit list accepts at most one selector: bundles or packages.", {
           showUsage: true
         });
       }
 
-      const installedPackIds = new Set(Object.keys(ensurePlainObjectRecord(lock.installedPacks)));
-      result = {
-        command: "list",
-        available: [...availablePacks.values()].map((entry) => ({
-          packId: entry.descriptor.packId,
+      const selector = String(parsed.positional[0] || "all").trim();
+      if (!["all", "bundles", "packages"].includes(selector)) {
+        throw createCliError(`Unknown list selector: ${selector}. Expected bundles or packages.`, {
+          showUsage: true
+        });
+      }
+
+      const installedPackageIds = new Set(Object.keys(ensurePlainObjectRecord(lock.installedPackages)));
+      const availableBundleEntries = [...availableBundles.values()].map((entry) => {
+        const metadata = buildBundleMetadata(entry.descriptor, availablePackages);
+        const installed = metadata.packages.every((packageId) => installedPackageIds.has(packageId));
+        return {
+          bundleId: entry.descriptor.bundleId,
           version: entry.descriptor.version,
           description: entry.descriptor.description,
-          installed: installedPackIds.has(entry.descriptor.packId),
-          ...buildPackMetadata(entry.descriptor, availablePackages)
-        }))
+          installed,
+          ...metadata
+        };
+      });
+
+      const availablePackageEntries = [...availablePackages.values()].map((entry) => ({
+        packageId: entry.descriptor.packageId,
+        version: entry.descriptor.version,
+        description: entry.descriptor.description,
+        installed: installedPackageIds.has(entry.descriptor.packageId),
+        options: entry.descriptor.options,
+        dependsOn: entry.descriptor.dependsOn,
+        requiredCapabilities: entry.descriptor.capabilities.requires,
+        providedCapabilities: entry.descriptor.capabilities.provides
+      }));
+
+      result = {
+        command: "list",
+        availableBundles: selector === "all" || selector === "bundles" ? availableBundleEntries : null,
+        availablePackages: selector === "all" || selector === "packages" ? availablePackageEntries : null
       };
       formatResult(result, {
         json: parsed.options.json,
@@ -2030,34 +1985,60 @@ export async function runCli(
     }
 
     if (parsed.command === "add") {
-      if (parsed.positional.length !== 1) {
-        throw createCliError("jskit add requires exactly one <packId>.", {
+      if (parsed.positional.length !== 2) {
+        throw createCliError("jskit add requires a scope and id: bundle <bundleId> or package <packageId>.", {
           showUsage: true
         });
       }
 
-      const packId = parsed.positional[0];
-      const pack = availablePacks.get(packId);
-      if (!pack) {
-        throw createCliError(`Unknown pack: ${packId}`);
-      }
+      const scope = parsed.positional[0];
+      const targetId = parsed.positional[1];
 
-      result = await applyPackOperation({
-        mode: "add",
-        appRoot,
-        pack,
-        availablePackages,
-        lock,
-        lockPath,
-        packageJson,
-        packageJsonPath,
-        dryRun: parsed.options.dryRun,
-        noInstall: parsed.options.noInstall,
-        packOptions: parsed.options.packOptions,
-        stdin,
-        stdout
-      });
-      result.command = "add";
+      if (scope === "bundle") {
+        const bundle = availableBundles.get(targetId);
+        if (!bundle) {
+          throw createCliError(`Unknown bundle: ${targetId}`);
+        }
+
+        result = await applyBundleOperation({
+          appRoot,
+          bundle,
+          availableBundles,
+          availablePackages,
+          lock,
+          lockPath,
+          packageJson,
+          packageJsonPath,
+          dryRun: parsed.options.dryRun,
+          noInstall: parsed.options.noInstall,
+          inlineOptions: parsed.options.inlineOptions,
+          stdin,
+          stdout
+        });
+        result.command = "add-bundle";
+      } else if (scope === "package") {
+        result = await applySinglePackageOperation({
+          mode: "add",
+          appRoot,
+          packageId: targetId,
+          availableBundles,
+          availablePackages,
+          lock,
+          lockPath,
+          packageJson,
+          packageJsonPath,
+          dryRun: parsed.options.dryRun,
+          noInstall: parsed.options.noInstall,
+          inlineOptions: parsed.options.inlineOptions,
+          stdin,
+          stdout
+        });
+        result.command = "add-package";
+      } else {
+        throw createCliError(`Unknown add scope: ${scope}. Expected bundle or package.`, {
+          showUsage: true
+        });
+      }
 
       formatResult(result, {
         json: parsed.options.json,
@@ -2066,56 +2047,18 @@ export async function runCli(
       return 0;
     }
 
-    if (parsed.command === "add-package") {
-      if (parsed.positional.length !== 1) {
-        throw createCliError("jskit add-package requires exactly one <packageId>.", {
+    if (parsed.command === "update") {
+      if (parsed.positional.length !== 2 || parsed.positional[0] !== "package") {
+        throw createCliError("jskit update supports only package scope: update package <packageId>.", {
           showUsage: true
         });
-      }
-      if (Object.keys(parsed.options.packOptions).length > 0) {
-        throw createCliError(
-          "Package options are not yet supported for add-package in the current descriptor contract."
-        );
-      }
-
-      result = await applySinglePackageOperation({
-        mode: "add",
-        appRoot,
-        packageId: parsed.positional[0],
-        availablePackages,
-        lock,
-        lockPath,
-        packageJson,
-        packageJsonPath,
-        dryRun: parsed.options.dryRun,
-        noInstall: parsed.options.noInstall,
-        stdout
-      });
-      result.command = "add-package";
-
-      formatResult(result, {
-        json: parsed.options.json,
-        stdout
-      });
-      return 0;
-    }
-
-    if (parsed.command === "update-package") {
-      if (parsed.positional.length !== 1) {
-        throw createCliError("jskit update-package requires exactly one <packageId>.", {
-          showUsage: true
-        });
-      }
-      if (Object.keys(parsed.options.packOptions).length > 0) {
-        throw createCliError(
-          "Package options are not yet supported for update-package in the current descriptor contract."
-        );
       }
 
       result = await applySinglePackageOperation({
         mode: "update",
         appRoot,
-        packageId: parsed.positional[0],
+        packageId: parsed.positional[1],
+        availableBundles,
         availablePackages,
         lock,
         lockPath,
@@ -2123,6 +2066,8 @@ export async function runCli(
         packageJsonPath,
         dryRun: parsed.options.dryRun,
         noInstall: parsed.options.noInstall,
+        inlineOptions: parsed.options.inlineOptions,
+        stdin,
         stdout
       });
       result.command = "update-package";
@@ -2134,202 +2079,17 @@ export async function runCli(
       return 0;
     }
 
-    if (parsed.command === "update") {
-      if (parsed.options.all && parsed.positional.length > 0) {
-        throw createCliError("jskit update --all does not accept <packId>.", {
-          showUsage: true
-        });
-      }
-
-      if (parsed.options.all && Object.keys(parsed.options.packOptions).length > 0) {
-        throw createCliError("jskit update --all does not support pack options.", {
-          showUsage: true
-        });
-      }
-
-      const installedPackIds = Object.keys(ensurePlainObjectRecord(lock.installedPacks));
-      const targetPackIds = parsed.options.all
-        ? installedPackIds
-        : parsed.positional.length === 1
-          ? [parsed.positional[0]]
-          : [];
-
-      if (targetPackIds.length === 0) {
-        throw createCliError("jskit update requires <packId> or --all.", {
-          showUsage: true
-        });
-      }
-
-      const results = [];
-      let nextLock = lock;
-      let nextPackageJson = packageJson;
-
-      for (const packId of targetPackIds) {
-        const pack = availablePacks.get(packId);
-        if (!pack) {
-          throw createCliError(`Unknown pack: ${packId}`);
-        }
-
-        const updateResult = await applyPackOperation({
-          mode: "update",
-          appRoot,
-          pack,
-          availablePackages,
-          lock: nextLock,
-          lockPath,
-          packageJson: nextPackageJson,
-          packageJsonPath,
-          dryRun: parsed.options.dryRun,
-          noInstall: parsed.options.noInstall,
-          packOptions: parsed.options.all ? {} : parsed.options.packOptions,
-          stdin,
-          stdout
-        });
-
-        results.push(updateResult);
-        nextLock = updateResult.nextLock;
-        nextPackageJson = updateResult.nextPackageJson;
-      }
-
-      result = {
-        command: "update",
-        updated: results.map((entry) => ({
-          packId: entry.packId,
-          packageIds: entry.packageIds,
-          removedPackages: entry.removedPackages,
-          filesTouched: entry.filesTouched,
-          npmInstallRan: entry.npmInstallRan,
-          dryRun: entry.dryRun,
-          journal: entry.journal
-        })),
-        journal: {
-          operation: "update-packs",
-          packs: results.map((entry) => entry.journal)
-        }
-      };
-
-      if (parsed.options.json) {
-        formatResult(result, {
-          json: true,
-          stdout
-        });
-      } else {
-        for (const entry of results) {
-          formatResult(
-            {
-              ...entry,
-              command: "update"
-            },
-            { json: false, stdout }
-          );
-        }
-      }
-
-      return 0;
-    }
-
     if (parsed.command === "remove") {
-      if (parsed.positional.length !== 1) {
-        throw createCliError("jskit remove requires exactly one <packId>.", {
-          showUsage: true
-        });
-      }
-
-      const packId = parsed.positional[0];
-      const installedPack = getInstalledPackState(lock, packId);
-      if (!installedPack) {
-        throw createCliError(`Pack ${packId} is not installed.`);
-      }
-
-      const packPackageIds = Array.isArray(installedPack.packageIds) ? installedPack.packageIds : [];
-      const removeOrder = [...packPackageIds].reverse();
-
-      const removedPackages = [];
-      const skippedSharedPackages = [];
-      const removedFiles = [];
-
-      let nextLock = JSON.parse(JSON.stringify(lock));
-      let nextPackageJson = packageJson;
-      const transaction = parsed.options.dryRun ? null : createTransaction(appRoot);
-
-      try {
-        for (const packageId of removeOrder) {
-          const sharedByPackId = isPackageReferencedByOtherPack(nextLock, packId, packageId);
-          if (sharedByPackId) {
-            skippedSharedPackages.push(packageId);
-            continue;
-          }
-
-          const removalResult = await removeInstalledPackage({
-            appRoot,
-            packageId,
-            lock: nextLock,
-            packageJson: nextPackageJson,
-            packageJsonPath,
-            dryRun: parsed.options.dryRun,
-            transaction
-          });
-
-          removedPackages.push(packageId);
-          removedFiles.push(...removalResult.removedFiles);
-          throwOnRemovalIssues(packageId, removalResult.issues, `Removing pack ${packId}`);
-          nextLock = removalResult.nextLock;
-          nextPackageJson = removalResult.nextPackageJson;
-        }
-
-        delete nextLock.installedPacks[packId];
-        assertCapabilitiesSatisfied(nextLock, availablePackages, `Removing pack ${packId}`);
-
-        if (!parsed.options.dryRun) {
-          const hasPacks = Object.keys(ensurePlainObjectRecord(nextLock.installedPacks)).length > 0;
-          const hasPackages = Object.keys(ensurePlainObjectRecord(nextLock.installedPackages)).length > 0;
-
-          if (hasPacks || hasPackages) {
-            await writeJsonFileWithTransaction(transaction, lockPath, nextLock);
-          } else if (await fileExists(lockPath)) {
-            await rmFileWithTransaction(transaction, lockPath);
-          }
-        }
-      } catch (error) {
-        await rollbackTransaction(transaction);
-        throw error;
-      }
-
-      result = {
-        command: "remove",
-        packId,
-        dryRun: parsed.options.dryRun,
-        removedPackages: toSortedUniqueStrings(removedPackages),
-        skippedSharedPackages: toSortedUniqueStrings(skippedSharedPackages),
-        removedFiles: toSortedUniqueStrings(removedFiles),
-        issues: [],
-        journal: {
-          operation: "remove-pack",
-          packId,
-          removedPackages: toSortedUniqueStrings(removedPackages),
-          removedFiles: toSortedUniqueStrings(removedFiles)
-        },
-        lockPath: LOCK_RELATIVE_PATH,
-        nextLock
-      };
-
-      formatResult(result, {
-        json: parsed.options.json,
-        stdout
-      });
-      return 0;
-    }
-
-    if (parsed.command === "remove-package") {
-      if (parsed.positional.length !== 1) {
-        throw createCliError("jskit remove-package requires exactly one <packageId>.", {
+      if (parsed.positional.length !== 2 || parsed.positional[0] !== "package") {
+        throw createCliError("jskit remove supports only package scope: remove package <packageId>.", {
           showUsage: true
         });
       }
 
       result = await removeSinglePackageOperation({
         appRoot,
-        packageId: parsed.positional[0],
+        packageId: parsed.positional[1],
+        availableBundles,
         availablePackages,
         lock,
         lockPath,
@@ -2356,7 +2116,7 @@ export async function runCli(
       result = await validateDoctor({
         appRoot,
         lock,
-        availablePacks,
+        availableBundles,
         availablePackages
       });
       result.command = "doctor";

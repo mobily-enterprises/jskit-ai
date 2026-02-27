@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { access, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -8,7 +8,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
-const WAVE_A_PACKS = ["auth-base", "auth-supabase", "communications-base", "observability-base"];
+const WAVE_A_BUNDLES = ["auth-base", "auth-supabase", "communications-base", "observability-base"];
 
 function runCli({ cwd, args = [] }) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
@@ -46,12 +46,12 @@ async function withTempApp(run) {
   }
 }
 
-for (const packId of WAVE_A_PACKS) {
-  test(`domain wave A pack ${packId} installs and removes cleanly`, async () => {
+for (const bundleId of WAVE_A_BUNDLES) {
+  test(`domain wave A bundle ${bundleId} installs cleanly`, async () => {
     await withTempApp(async (appRoot) => {
       const addResult = runCli({
         cwd: appRoot,
-        args: ["add", packId, "--no-install"]
+        args: ["add", "bundle", bundleId, "--no-install"]
       });
       assert.equal(addResult.status, 0, addResult.stderr);
 
@@ -60,14 +60,6 @@ for (const packId of WAVE_A_PACKS) {
         args: ["doctor"]
       });
       assert.equal(doctorResult.status, 0, doctorResult.stderr);
-
-      const removeResult = runCli({
-        cwd: appRoot,
-        args: ["remove", packId]
-      });
-      assert.equal(removeResult.status, 0, removeResult.stderr);
-
-      await assert.rejects(access(path.join(appRoot, ".jskit", "lock.json")), /ENOENT/);
     });
   });
 }
@@ -76,19 +68,19 @@ test("combined auth + observability + db install passes doctor", async () => {
   await withTempApp(async (appRoot) => {
     const addDb = runCli({
       cwd: appRoot,
-      args: ["add", "db", "--provider", "mysql", "--no-install"]
+      args: ["add", "bundle", "db-mysql", "--no-install"]
     });
     assert.equal(addDb.status, 0, addDb.stderr);
 
     const addAuth = runCli({
       cwd: appRoot,
-      args: ["add", "auth-base", "--no-install"]
+      args: ["add", "bundle", "auth-base", "--no-install"]
     });
     assert.equal(addAuth.status, 0, addAuth.stderr);
 
     const addObservability = runCli({
       cwd: appRoot,
-      args: ["add", "observability-base", "--no-install"]
+      args: ["add", "bundle", "observability-base", "--no-install"]
     });
     assert.equal(addObservability.status, 0, addObservability.stderr);
 

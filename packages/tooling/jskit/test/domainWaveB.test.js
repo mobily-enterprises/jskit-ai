@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -8,7 +8,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
-const WAVE_B_PACKS = ["chat-base", "social-base", "users-profile", "community-suite"];
+const WAVE_B_BUNDLES = ["chat-base", "social-base", "users-profile", "community-suite"];
 
 function runCli({ cwd, args = [] }) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
@@ -20,11 +20,6 @@ function runCli({ cwd, args = [] }) {
 async function writeJsonFile(absolutePath, value) {
   await mkdir(path.dirname(absolutePath), { recursive: true });
   await writeFile(absolutePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-}
-
-async function readJsonFile(absolutePath) {
-  const source = await readFile(absolutePath, "utf8");
-  return JSON.parse(source);
 }
 
 async function withTempApp(run) {
@@ -49,62 +44,51 @@ async function withTempApp(run) {
   }
 }
 
-for (const packId of WAVE_B_PACKS) {
-  test(`domain wave B pack ${packId} installs and removes cleanly`, async () => {
+for (const bundleId of WAVE_B_BUNDLES) {
+  test(`domain wave B bundle ${bundleId} installs cleanly`, async () => {
     await withTempApp(async (appRoot) => {
       const addDb = runCli({
         cwd: appRoot,
-        args: ["add", "db", "--provider", "mysql", "--no-install"]
+        args: ["add", "bundle", "db-mysql", "--no-install"]
       });
       assert.equal(addDb.status, 0, addDb.stderr);
 
-      const addPack = runCli({
+      const addBundle = runCli({
         cwd: appRoot,
-        args: ["add", packId, "--no-install"]
+        args: ["add", "bundle", bundleId, "--no-install"]
       });
-      assert.equal(addPack.status, 0, addPack.stderr);
+      assert.equal(addBundle.status, 0, addBundle.stderr);
 
       const doctorResult = runCli({
         cwd: appRoot,
         args: ["doctor"]
       });
       assert.equal(doctorResult.status, 0, doctorResult.stderr);
-
-      const removePack = runCli({
-        cwd: appRoot,
-        args: ["remove", packId]
-      });
-      assert.equal(removePack.status, 0, removePack.stderr);
     });
   });
 }
 
-test("shared package ownership is preserved when removing chat-base from a combined install", async () => {
+test("removing optional chat client package keeps doctor clean", async () => {
   await withTempApp(async (appRoot) => {
     const addDb = runCli({
       cwd: appRoot,
-      args: ["add", "db", "--provider", "mysql", "--no-install"]
+      args: ["add", "bundle", "db-mysql", "--no-install"]
     });
     assert.equal(addDb.status, 0, addDb.stderr);
 
-    for (const packId of ["chat-base", "social-base", "users-profile"]) {
-      const addPack = runCli({
+    for (const bundleId of ["chat-base", "social-base", "users-profile"]) {
+      const addBundle = runCli({
         cwd: appRoot,
-        args: ["add", packId, "--no-install"]
+        args: ["add", "bundle", bundleId, "--no-install"]
       });
-      assert.equal(addPack.status, 0, addPack.stderr);
+      assert.equal(addBundle.status, 0, addBundle.stderr);
     }
 
-    const removeChat = runCli({
+    const removeChatClient = runCli({
       cwd: appRoot,
-      args: ["remove", "chat-base"]
+      args: ["remove", "package", "@jskit-ai/chat-client-element"]
     });
-    assert.equal(removeChat.status, 0, removeChat.stderr);
-
-    const lock = await readJsonFile(path.join(appRoot, ".jskit", "lock.json"));
-    assert.ok(lock.installedPacks["social-base"]);
-    assert.ok(lock.installedPacks["users-profile"]);
-    assert.equal(lock.installedPacks["chat-base"], undefined);
+    assert.equal(removeChatClient.status, 0, removeChatClient.stderr);
 
     const doctorResult = runCli({
       cwd: appRoot,

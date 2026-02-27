@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -8,7 +8,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
-const WAVE_C_PACKS = ["workspace-core", "workspace-console", "workspace-admin-suite"];
+const WAVE_C_BUNDLES = ["workspace-core", "workspace-console", "workspace-admin-suite"];
 
 function runCli({ cwd, args = [] }) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
@@ -20,11 +20,6 @@ function runCli({ cwd, args = [] }) {
 async function writeJsonFile(absolutePath, value) {
   await mkdir(path.dirname(absolutePath), { recursive: true });
   await writeFile(absolutePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-}
-
-async function readJsonFile(absolutePath) {
-  const source = await readFile(absolutePath, "utf8");
-  return JSON.parse(source);
 }
 
 async function withTempApp(run) {
@@ -49,26 +44,26 @@ async function withTempApp(run) {
   }
 }
 
-for (const packId of WAVE_C_PACKS) {
-  test(`domain wave C pack ${packId} installs with db+auth base and passes doctor`, async () => {
+for (const bundleId of WAVE_C_BUNDLES) {
+  test(`domain wave C bundle ${bundleId} installs with db+auth base and passes doctor`, async () => {
     await withTempApp(async (appRoot) => {
       const addDb = runCli({
         cwd: appRoot,
-        args: ["add", "db", "--provider", "mysql", "--no-install"]
+        args: ["add", "bundle", "db-mysql", "--no-install"]
       });
       assert.equal(addDb.status, 0, addDb.stderr);
 
       const addAuth = runCli({
         cwd: appRoot,
-        args: ["add", "auth-base", "--no-install"]
+        args: ["add", "bundle", "auth-base", "--no-install"]
       });
       assert.equal(addAuth.status, 0, addAuth.stderr);
 
-      const addPack = runCli({
+      const addBundle = runCli({
         cwd: appRoot,
-        args: ["add", packId, "--no-install"]
+        args: ["add", "bundle", bundleId, "--no-install"]
       });
-      assert.equal(addPack.status, 0, addPack.stderr);
+      assert.equal(addBundle.status, 0, addBundle.stderr);
 
       const doctorResult = runCli({
         cwd: appRoot,
@@ -79,41 +74,31 @@ for (const packId of WAVE_C_PACKS) {
   });
 }
 
-test("removing workspace-admin-suite preserves db/auth packs and keeps doctor clean", async () => {
+test("removing required workspace package is blocked by dependency checks", async () => {
   await withTempApp(async (appRoot) => {
     const addDb = runCli({
       cwd: appRoot,
-      args: ["add", "db", "--provider", "mysql", "--no-install"]
+      args: ["add", "bundle", "db-mysql", "--no-install"]
     });
     assert.equal(addDb.status, 0, addDb.stderr);
 
     const addAuth = runCli({
       cwd: appRoot,
-      args: ["add", "auth-base", "--no-install"]
+      args: ["add", "bundle", "auth-base", "--no-install"]
     });
     assert.equal(addAuth.status, 0, addAuth.stderr);
 
     const addSuite = runCli({
       cwd: appRoot,
-      args: ["add", "workspace-admin-suite", "--no-install"]
+      args: ["add", "bundle", "workspace-admin-suite", "--no-install"]
     });
     assert.equal(addSuite.status, 0, addSuite.stderr);
 
-    const removeSuite = runCli({
+    const removeRequired = runCli({
       cwd: appRoot,
-      args: ["remove", "workspace-admin-suite"]
+      args: ["remove", "package", "@jskit-ai/workspace-console-core"]
     });
-    assert.equal(removeSuite.status, 0, removeSuite.stderr);
-
-    const lock = await readJsonFile(path.join(appRoot, ".jskit", "lock.json"));
-    assert.ok(lock.installedPacks.db);
-    assert.ok(lock.installedPacks["auth-base"]);
-    assert.equal(lock.installedPacks["workspace-admin-suite"], undefined);
-
-    const doctorResult = runCli({
-      cwd: appRoot,
-      args: ["doctor"]
-    });
-    assert.equal(doctorResult.status, 0, doctorResult.stderr);
+    assert.notEqual(removeRequired.status, 0);
+    assert.match(removeRequired.stderr, /\[unresolved-dependency\]/);
   });
 });

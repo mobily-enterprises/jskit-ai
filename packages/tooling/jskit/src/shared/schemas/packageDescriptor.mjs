@@ -8,6 +8,15 @@ function normalizeProcessType(value) {
   return normalized;
 }
 
+function normalizeOptionValues(values) {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+  return values
+    .map((value) => String(value || "").trim())
+    .filter((value) => value.length > 0);
+}
+
 export function normalizePackageDescriptor(packaged, descriptorPath) {
   ensureObject(packaged, `Package descriptor at ${descriptorPath}`);
 
@@ -24,6 +33,23 @@ export function normalizePackageDescriptor(packaged, descriptorPath) {
   const dependsOn = (Array.isArray(packaged.dependsOn) ? packaged.dependsOn : []).map((entry, index) =>
     ensurePackageId(entry, `Package ${packageId} dependsOn[${index}]`)
   );
+
+  const optionsSource = ensureRecord(packaged.options, `Package ${packageId} options`);
+  const options = {};
+  for (const [optionName, optionValue] of Object.entries(optionsSource)) {
+    const normalizedOptionName = String(optionName || "").trim();
+    if (!/^[a-z][a-z0-9-]*$/.test(normalizedOptionName)) {
+      throw createCliError(`Package ${packageId} has invalid option name: ${optionName}`);
+    }
+
+    const option = ensureObject(optionValue, `Package ${packageId} option ${normalizedOptionName}`);
+    const values = normalizeOptionValues(option.values);
+
+    options[normalizedOptionName] = {
+      required: Boolean(option.required),
+      values
+    };
+  }
 
   const capabilitiesSource = ensureRecord(packaged.capabilities, `Package ${packageId} capabilities`);
   const provides = Array.isArray(capabilitiesSource.provides)
@@ -90,6 +116,7 @@ export function normalizePackageDescriptor(packaged, descriptorPath) {
     version,
     description: String(packaged.description || "").trim(),
     dependsOn,
+    options,
     capabilities: {
       provides,
       requires

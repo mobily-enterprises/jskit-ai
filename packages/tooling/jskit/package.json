@@ -1,12 +1,12 @@
 {
   "name": "@jskit-ai/jskit",
   "version": "0.1.0",
-  "description": "Pack orchestration CLI for JSKIT apps.",
+  "description": "Bundle and package orchestration CLI for JSKIT apps.",
   "type": "module",
   "files": [
     "bin",
     "src",
-    "packs",
+    "bundles",
     "packages",
     "README.md"
   ],
@@ -37,7 +37,7 @@
   "keywords": [
     "jskit",
     "cli",
-    "packs",
+    "bundles",
     "framework"
   ]
 }

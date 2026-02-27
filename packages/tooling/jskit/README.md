@@ -1,15 +1,15 @@
 # @jskit-ai/jskit
 
-Pack orchestration CLI for JSKIT apps.
+Bundle/package orchestration CLI for JSKIT apps.
 
 ## Commands
 
 ```bash
-jskit list
-jskit add <packId> [--<option> <value>]
-jskit update <packId> [--<option> <value>]
-jskit update --all
-jskit remove <packId>
+jskit list [bundles|packages]
+jskit add bundle <bundleId> [--<option> <value>]
+jskit add package <packageId> [--<option> <value>]
+jskit update package <packageId> [--<option> <value>]
+jskit remove package <packageId>
 jskit doctor
 ```
 
@@ -17,9 +17,10 @@ jskit doctor
 
 - `--dry-run` plan changes only
 - `--no-install` skip `npm install` during add/update
-- `--<option> <value>` pass pack options defined by a pack (for example `db --provider mysql`)
+- `--<option> <value>` pass package options for selected bundle/package graph
 - `--json` print structured output
 
-## Built-in packs
+## Built-in Bundles
 
-- `db`
+- `db-mysql`
+- `db-postgres`

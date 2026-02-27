@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { access, chmod, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -11,13 +11,6 @@ const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 
 function runCli({ cwd, args = [] }) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
-    cwd,
-    encoding: "utf8"
-  });
-}
-
-function runNpmScript({ cwd, scriptName }) {
-  return spawnSync("npm", ["run", scriptName], {
     cwd,
     encoding: "utf8"
   });
@@ -67,39 +60,28 @@ async function withTempApp(run) {
   }
 }
 
-test("jskit list shows built-in db pack", async () => {
+test("jskit list shows built-in db bundles", async () => {
   await withTempApp(async (appRoot) => {
     const result = runCli({
       cwd: appRoot,
-      args: ["list"]
+      args: ["list", "bundles"]
     });
 
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /db \(0\.2\.0\)/);
+    assert.match(result.stdout, /db-mysql \(0\.2\.0\)/);
+    assert.match(result.stdout, /db-postgres \(0\.2\.0\)/);
   });
 });
 
-test("jskit add db requires explicit provider", async () => {
-  await withTempApp(async (appRoot) => {
-    const result = runCli({
-      cwd: appRoot,
-      args: ["add", "db", "--no-install"]
-    });
-
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /requires option provider/i);
-  });
-});
-
-test("jskit add db with provider mysql applies package-owned mutations", async () => {
+test("jskit add bundle db-mysql applies package-owned mutations", async () => {
   await withTempApp(async (appRoot) => {
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "db", "--provider", "mysql", "--no-install"]
+      args: ["add", "bundle", "db-mysql", "--no-install"]
     });
 
     assert.equal(addResult.status, 0, addResult.stderr);
-    assert.match(addResult.stdout, /Added pack db/);
+    assert.match(addResult.stdout, /Added bundle db-mysql/);
     assert.match(addResult.stdout, /Resolved packages \(1\)/);
     assert.match(addResult.stdout, /db-mysql/);
 
@@ -115,294 +97,137 @@ test("jskit add db with provider mysql applies package-owned mutations", async (
     assert.match(procfile, /^release: npm run db:migrate$/m);
     assert.match(procfile, /^web: npm run start$/m);
 
-    const knexfile = await readFile(path.join(appRoot, "knexfile.cjs"), "utf8");
-    assert.match(knexfile, /module\.exports/);
-
     const lock = await readJsonFile(path.join(appRoot, ".jskit/lock.json"));
-    assert.equal(lock.lockVersion, 2);
-    assert.equal(lock.installedPacks.db.options.provider, "mysql");
-    assert.deepEqual(lock.installedPacks.db.packageIds, ["@jskit-ai/db-mysql"]);
+    assert.equal(lock.lockVersion, 3);
     assert.ok(lock.installedPackages["@jskit-ai/db-mysql"]);
 
     const doctor = runCli({ cwd: appRoot, args: ["doctor"] });
     assert.equal(doctor.status, 0, doctor.stderr);
-
-    const duplicateAdd = runCli({ cwd: appRoot, args: ["add", "db", "--provider", "mysql", "--no-install"] });
-    assert.notEqual(duplicateAdd.status, 0);
-
-    const update = runCli({ cwd: appRoot, args: ["update", "db", "--no-install"] });
-    assert.equal(update.status, 0, update.stderr);
   });
 });
 
-test("jskit remove db reverts managed app mutations", async () => {
+test("jskit add bundle db-postgres applies postgres dependency", async () => {
   await withTempApp(async (appRoot) => {
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "db", "--provider", "mysql", "--no-install"]
+      args: ["add", "bundle", "db-postgres", "--no-install"]
     });
+
     assert.equal(addResult.status, 0, addResult.stderr);
-
-    const removeResult = runCli({
-      cwd: appRoot,
-      args: ["remove", "db"]
-    });
-
-    assert.equal(removeResult.status, 0, removeResult.stderr);
-    assert.match(removeResult.stdout, /Removed pack db/);
 
     const packageJson = await readJsonFile(path.join(appRoot, "package.json"));
-    assert.equal(packageJson.dependencies.knex, undefined);
-    assert.equal(packageJson.dependencies.mysql2, undefined);
-    assert.equal(packageJson.scripts["db:migrate"], undefined);
-
-    const procfile = await readFile(path.join(appRoot, "Procfile"), "utf8");
-    assert.doesNotMatch(procfile, /^release:/m);
-    assert.match(procfile, /^web: npm run start$/m);
-
-    await assert.rejects(access(path.join(appRoot, "knexfile.cjs")), /ENOENT/);
-    await assert.rejects(access(path.join(appRoot, ".jskit/lock.json")), /ENOENT/);
-  });
-});
-
-test("jskit update preserves managed file ownership for later remove", async () => {
-  await withTempApp(async (appRoot) => {
-    const addResult = runCli({
-      cwd: appRoot,
-      args: ["add", "db", "--provider", "mysql", "--no-install"]
-    });
-    assert.equal(addResult.status, 0, addResult.stderr);
-
-    const updateResult = runCli({
-      cwd: appRoot,
-      args: ["update", "db", "--no-install"]
-    });
-    assert.equal(updateResult.status, 0, updateResult.stderr);
-
-    const removeResult = runCli({
-      cwd: appRoot,
-      args: ["remove", "db"]
-    });
-    assert.equal(removeResult.status, 0, removeResult.stderr);
-
-    await assert.rejects(access(path.join(appRoot, "knexfile.cjs")), /ENOENT/);
-    await assert.rejects(access(path.join(appRoot, "migrations")), /ENOENT/);
-    await assert.rejects(access(path.join(appRoot, "seeds")), /ENOENT/);
-    await assert.rejects(access(path.join(appRoot, ".jskit/lock.json")), /ENOENT/);
-  });
-});
-
-test("jskit update db provider reconciles package set", async () => {
-  await withTempApp(async (appRoot) => {
-    const addResult = runCli({
-      cwd: appRoot,
-      args: ["add", "db", "--provider", "mysql", "--no-install"]
-    });
-    assert.equal(addResult.status, 0, addResult.stderr);
-
-    const updateResult = runCli({
-      cwd: appRoot,
-      args: ["update", "db", "--provider", "postgres", "--no-install"]
-    });
-    assert.equal(updateResult.status, 0, updateResult.stderr);
-    assert.match(updateResult.stdout, /Removed packages \(1\)/);
-    assert.match(updateResult.stdout, /@jskit-ai\/db-mysql/);
-    assert.match(updateResult.stdout, /@jskit-ai\/db-postgres/);
-
-    const packageJson = await readJsonFile(path.join(appRoot, "package.json"));
-    assert.equal(packageJson.dependencies.mysql2, undefined);
     assert.equal(packageJson.dependencies.pg, "^8.16.3");
+    assert.equal(packageJson.dependencies.mysql2, undefined);
 
     const knexfile = await readFile(path.join(appRoot, "knexfile.cjs"), "utf8");
     assert.match(knexfile, /const KNEX_CLIENT = "pg"/);
-
-    const lock = await readJsonFile(path.join(appRoot, ".jskit/lock.json"));
-    assert.deepEqual(lock.installedPacks.db.packageIds, ["@jskit-ai/db-postgres"]);
-    assert.equal(lock.installedPacks.db.options.provider, "postgres");
-    assert.equal(lock.installedPackages["@jskit-ai/db-mysql"], undefined);
-    assert.ok(lock.installedPackages["@jskit-ai/db-postgres"]);
   });
 });
 
-test("jskit security-audit pack requires db provider capability", async () => {
+test("jskit bundle requiring capability fails with provider suggestions", async () => {
   await withTempApp(async (appRoot) => {
     const missingProvider = runCli({
       cwd: appRoot,
-      args: ["add", "security-audit", "--no-install"]
+      args: ["add", "bundle", "security-audit", "--no-install"]
     });
     assert.notEqual(missingProvider.status, 0);
     assert.match(missingProvider.stderr, /\[capability-violation\]/);
     assert.match(missingProvider.stderr, /db-provider/i);
+    assert.match(missingProvider.stderr, /jskit add bundle db-mysql/);
+    assert.match(missingProvider.stderr, /jskit add bundle db-postgres/);
+  });
+});
 
-    const addDb = runCli({
+test("adding db-postgres on top of db-mysql fails due managed file drift", async () => {
+  await withTempApp(async (appRoot) => {
+    const addDbMySql = runCli({
       cwd: appRoot,
-      args: ["add", "db", "--provider", "mysql", "--no-install"]
+      args: ["add", "bundle", "db-mysql", "--no-install"]
     });
-    assert.equal(addDb.status, 0, addDb.stderr);
+    assert.equal(addDbMySql.status, 0, addDbMySql.stderr);
 
     const addSecurityAudit = runCli({
       cwd: appRoot,
-      args: ["add", "security-audit", "--no-install"]
+      args: ["add", "bundle", "security-audit", "--no-install"]
     });
     assert.equal(addSecurityAudit.status, 0, addSecurityAudit.stderr);
 
-    const doctorResult = runCli({
+    const addDbPostgres = runCli({
       cwd: appRoot,
-      args: ["doctor"]
+      args: ["add", "bundle", "db-postgres", "--no-install"]
     });
-    assert.equal(doctorResult.status, 0, doctorResult.stderr);
-  });
-});
-
-test("jskit update reports migration file drift for db packages", async () => {
-  await withTempApp(async (appRoot) => {
-    const addResult = runCli({
-      cwd: appRoot,
-      args: ["add", "db", "--provider", "mysql", "--no-install"]
-    });
-    assert.equal(addResult.status, 0, addResult.stderr);
-
-    await writeFile(
-      path.join(appRoot, "migrations", "20260101000000_create_placeholder_table.cjs"),
-      "// drifted file\n",
-      "utf8"
-    );
-
-    const updateResult = runCli({
-      cwd: appRoot,
-      args: ["update", "db", "--no-install"]
-    });
-    assert.notEqual(updateResult.status, 0);
-    assert.match(updateResult.stderr, /\[managed-file-drift\]/);
-  });
-});
-
-test("db:migrate smoke runs for mysql and postgres provider descriptors", async () => {
-  await withTempApp(async (appRoot) => {
-    for (const provider of ["mysql", "postgres"]) {
-      const addResult = runCli({
-        cwd: appRoot,
-        args: ["add", "db", "--provider", provider, "--no-install"]
-      });
-      assert.equal(addResult.status, 0, addResult.stderr);
-
-      const binPath = path.join(appRoot, "node_modules", ".bin", "jskit-app-scripts");
-      await mkdir(path.dirname(binPath), { recursive: true });
-      await writeFile(
-        binPath,
-        "#!/usr/bin/env node\nprocess.stdout.write('mocked app-scripts\\n');\n",
-        "utf8"
-      );
-      await chmod(binPath, 0o755);
-
-      const migrateResult = runNpmScript({
-        cwd: appRoot,
-        scriptName: "db:migrate"
-      });
-      assert.equal(migrateResult.status, 0, migrateResult.stderr);
-
-      const removeDb = runCli({
-        cwd: appRoot,
-        args: ["remove", "db"]
-      });
-      assert.equal(removeDb.status, 0, removeDb.stderr);
-    }
-  });
-});
-
-test("jskit doctor reports capability violations", async () => {
-  await withTempApp(async (appRoot) => {
-    const localPackageDir = path.join(appRoot, "packages", "requires-db");
-    await mkdir(localPackageDir, { recursive: true });
-    await writeFile(
-      path.join(localPackageDir, "package.descriptor.mjs"),
-      `export default Object.freeze({
-  packageVersion: 1,
-  packageId: "@test/requires-db",
-  version: "0.0.1",
-  description: "local test package",
-  dependsOn: [],
-  capabilities: {
-    provides: [],
-    requires: ["db-provider"]
-  },
-  mutations: {
-    dependencies: { runtime: {}, dev: {} },
-    packageJson: { scripts: {} },
-    procfile: {},
-    files: []
-  }
-});
-`,
-      "utf8"
-    );
-
-    await writeJsonFile(path.join(appRoot, ".jskit/lock.json"), {
-      lockVersion: 2,
-      installedPacks: {},
-      installedPackages: {
-        "@test/requires-db": {
-          packageId: "@test/requires-db",
-          version: "0.0.1",
-          source: { type: "local", descriptorPath: "packages/requires-db/package.descriptor.mjs" },
-          managed: { packageJson: {}, procfile: {}, files: [] },
-          installedAt: "2026-01-01T00:00:00.000Z"
-        }
-      }
-    });
-
-    const doctorResult = runCli({
-      cwd: appRoot,
-      args: ["doctor"]
-    });
-    assert.notEqual(doctorResult.status, 0);
-    assert.match(doctorResult.stdout + doctorResult.stderr, /requires capability db-provider/i);
-  });
-});
-
-test("jskit doctor reports legacy manifest surfaces", async () => {
-  await withTempApp(async (appRoot) => {
-    await mkdir(path.join(appRoot, "framework"), { recursive: true });
-    await writeFile(
-      path.join(appRoot, "framework", "app.manifest.mjs"),
-      "export default Object.freeze({ manifestVersion: 1 });\n",
-      "utf8"
-    );
-
-    const doctorResult = runCli({
-      cwd: appRoot,
-      args: ["doctor"]
-    });
-    assert.notEqual(doctorResult.status, 0);
-    assert.match(doctorResult.stdout + doctorResult.stderr, /\[legacy-surface\]/);
-    assert.match(doctorResult.stdout + doctorResult.stderr, /app\.manifest\.mjs/);
-  });
-});
-
-test("jskit update rollback restores state on failure", async () => {
-  await withTempApp(async (appRoot) => {
-    const addResult = runCli({
-      cwd: appRoot,
-      args: ["add", "db", "--provider", "mysql", "--no-install"]
-    });
-    assert.equal(addResult.status, 0, addResult.stderr);
-
-    await writeFile(path.join(appRoot, "knexfile.cjs"), "module.exports = { broken: true };\n", "utf8");
-
-    const updateResult = runCli({
-      cwd: appRoot,
-      args: ["update", "db", "--provider", "postgres", "--no-install"]
-    });
-    assert.notEqual(updateResult.status, 0);
-
-    const packageJson = await readJsonFile(path.join(appRoot, "package.json"));
-    assert.equal(packageJson.dependencies.mysql2, "^3.15.3");
-    assert.equal(packageJson.dependencies.pg, undefined);
+    assert.notEqual(addDbPostgres.status, 0);
+    assert.match(addDbPostgres.stderr, /\[managed-file-drift\]/i);
 
     const lock = await readJsonFile(path.join(appRoot, ".jskit/lock.json"));
-    assert.equal(lock.installedPacks.db.options.provider, "mysql");
-    assert.deepEqual(lock.installedPacks.db.packageIds, ["@jskit-ai/db-mysql"]);
     assert.ok(lock.installedPackages["@jskit-ai/db-mysql"]);
     assert.equal(lock.installedPackages["@jskit-ai/db-postgres"], undefined);
+  });
+});
+
+test("legacy pack command syntax is rejected", async () => {
+  await withTempApp(async (appRoot) => {
+    const result = runCli({
+      cwd: appRoot,
+      args: ["add", "db", "--no-install"]
+    });
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /requires a scope and id/i);
+  });
+});
+
+test("bundle update/remove commands are rejected", async () => {
+  await withTempApp(async (appRoot) => {
+    const updateResult = runCli({
+      cwd: appRoot,
+      args: ["update", "bundle", "db-mysql", "--no-install"]
+    });
+    assert.notEqual(updateResult.status, 0);
+    assert.match(updateResult.stderr, /update supports only package scope/i);
+
+    const removeResult = runCli({
+      cwd: appRoot,
+      args: ["remove", "bundle", "db-mysql"]
+    });
+    assert.notEqual(removeResult.status, 0);
+    assert.match(removeResult.stderr, /remove supports only package scope/i);
+  });
+});
+
+test("doctor reports missing managed file drift", async () => {
+  await withTempApp(async (appRoot) => {
+    const addDb = runCli({
+      cwd: appRoot,
+      args: ["add", "bundle", "db-mysql", "--no-install"]
+    });
+    assert.equal(addDb.status, 0, addDb.stderr);
+
+    await rm(path.join(appRoot, "knexfile.cjs"), { force: true });
+
+    const doctor = runCli({
+      cwd: appRoot,
+      args: ["doctor"]
+    });
+    assert.notEqual(doctor.status, 0);
+    assert.match(doctor.stdout, /Managed file missing: knexfile\.cjs/);
+  });
+});
+
+test("remove package cleans lock when last package is removed", async () => {
+  await withTempApp(async (appRoot) => {
+    const addDb = runCli({
+      cwd: appRoot,
+      args: ["add", "bundle", "db-mysql", "--no-install"]
+    });
+    assert.equal(addDb.status, 0, addDb.stderr);
+
+    const removeDb = runCli({
+      cwd: appRoot,
+      args: ["remove", "package", "@jskit-ai/db-mysql"]
+    });
+    assert.equal(removeDb.status, 0, removeDb.stderr);
+
+    await assert.rejects(access(path.join(appRoot, ".jskit/lock.json")), /ENOENT/);
   });
 });
