@@ -6,7 +6,7 @@ import {
   publishSafely,
   resolvePublishMethod,
   warnPublishFailure
-} from "../src/realtimePublish.js";
+} from "../src/shared/realtimePublish.js";
 
 test("publishSafely returns false when publish method is missing", () => {
   const result = publishSafely({

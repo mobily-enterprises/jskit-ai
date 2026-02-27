@@ -4,6 +4,7 @@ export default [
   },
   {
     files: ["packages/**/src/**/*.js"],
+    ignores: ["packages/**/templates/**", "packages/tooling/create-app/src/**/*.js"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module"
@@ -60,6 +61,60 @@ export default [
         {
           selector: "CallExpression[callee.name='defineComponent']",
           message: "Headless packages must not call defineComponent."
+        }
+      ]
+    }
+  },
+  {
+    files: ["packages/tooling/create-app/src/**/*.js"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module"
+    },
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "*.css",
+                "*.scss",
+                "*.sass",
+                "*.less",
+                "*.styl",
+                "*.stylus",
+                "**/*.css",
+                "**/*.scss",
+                "**/*.sass",
+                "**/*.less",
+                "**/*.styl",
+                "**/*.stylus"
+              ],
+              message: "Headless packages must not import style assets."
+            },
+            {
+              group: [
+                "vuetify",
+                "vuetify/*",
+                "@mdi/*",
+                "@fortawesome/*",
+                "@heroicons/*",
+                "@chakra-ui/*",
+                "@mui/*",
+                "antd",
+                "antd/*"
+              ],
+              message: "Headless packages must not depend on visual UI frameworks or icon packs."
+            }
+          ]
+        }
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "ExportAllDeclaration",
+          message: "Use explicit named exports in package src/index.js files."
         }
       ]
     }

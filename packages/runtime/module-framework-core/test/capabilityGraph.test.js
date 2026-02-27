@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { MODULE_TIERS } from "../src/descriptor.js";
-import { resolveCapabilityGraph } from "../src/capabilityGraph.js";
+import { MODULE_TIERS } from "../src/shared/descriptor.js";
+import { resolveCapabilityGraph } from "../src/shared/capabilityGraph.js";
 
 function moduleDescriptor(overrides = {}) {
   return {

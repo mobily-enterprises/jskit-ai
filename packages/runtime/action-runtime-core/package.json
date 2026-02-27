@@ -7,15 +7,15 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./contracts": "./src/contracts.js",
-    "./registry": "./src/registry.js",
-    "./executionContext": "./src/executionContext.js",
-    "./pipeline": "./src/pipeline.js",
-    "./policies": "./src/policies.js",
-    "./idempotency": "./src/idempotency.js",
-    "./audit": "./src/audit.js",
-    "./observability": "./src/observability.js",
-    "./actionIds": "./src/actionIds.js"
+    ".": "./src/shared/index.js",
+    "./contracts": "./src/shared/contracts.js",
+    "./registry": "./src/shared/registry.js",
+    "./executionContext": "./src/shared/executionContext.js",
+    "./pipeline": "./src/shared/pipeline.js",
+    "./policies": "./src/shared/policies.js",
+    "./idempotency": "./src/shared/idempotency.js",
+    "./audit": "./src/shared/audit.js",
+    "./observability": "./src/shared/observability.js",
+    "./actionIds": "./src/shared/actionIds.js"
   }
 }

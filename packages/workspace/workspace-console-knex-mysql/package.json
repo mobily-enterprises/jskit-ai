@@ -7,12 +7,12 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./repositories/memberships": "./src/repositories/memberships.repository.js",
-    "./repositories/invites": "./src/repositories/invites.repository.js",
-    "./repositories/root": "./src/repositories/root.repository.js",
-    "./repositories/settings": "./src/repositories/settings.repository.js",
-    "./repositories/errorLogs": "./src/repositories/errorLogs.repository.js"
+    ".": "./src/shared/index.js",
+    "./repositories/memberships": "./src/shared/repositories/memberships.repository.js",
+    "./repositories/invites": "./src/shared/repositories/invites.repository.js",
+    "./repositories/root": "./src/shared/repositories/root.repository.js",
+    "./repositories/settings": "./src/shared/repositories/settings.repository.js",
+    "./repositories/errorLogs": "./src/shared/repositories/errorLogs.repository.js"
   },
   "dependencies": {
     "@jskit-ai/access-core": "0.1.0",

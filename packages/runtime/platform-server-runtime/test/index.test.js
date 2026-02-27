@@ -4,7 +4,7 @@ import {
   createPlatformRuntimeBundle,
   createServerRuntime,
   createServerRuntimeWithPlatformBundle
-} from "../src/index.js";
+} from "../src/shared/index.js";
 
 test("platform server runtime creates bundle and assembly", () => {
   const platformBundle = createPlatformRuntimeBundle({

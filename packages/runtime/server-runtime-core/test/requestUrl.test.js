@@ -5,7 +5,7 @@ import {
   resolveClientIpAddress,
   safePathnameFromRequest,
   safeRequestUrl
-} from "../src/requestUrl.js";
+} from "../src/shared/requestUrl.js";
 
 test("safeRequestUrl parses valid and malformed request URLs", () => {
   const valid = safeRequestUrl({ raw: { url: "/api/history?page=2" } });

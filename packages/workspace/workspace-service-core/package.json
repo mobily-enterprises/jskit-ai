@@ -7,18 +7,18 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./services/workspace": "./src/services/workspace.service.js",
-    "./services/admin": "./src/services/admin.service.js",
-    "./services/inviteEmail": "./src/services/inviteEmail.service.js",
-    "./policies/workspaceNaming": "./src/policies/workspaceNaming.js",
-    "./policies/workspacePolicyDefaults": "./src/policies/workspacePolicyDefaults.js",
-    "./policies/workspaceSettingsPatch": "./src/policies/workspaceSettingsPatch.js",
-    "./policies/workspaceInvitePolicy": "./src/policies/workspaceInvitePolicy.js",
-    "./mappers/workspaceMappers": "./src/mappers/workspaceMappers.js",
-    "./mappers/workspaceAdminMappers": "./src/mappers/workspaceAdminMappers.js",
-    "./lookups/workspaceMembershipLookup": "./src/lookups/workspaceMembershipLookup.js",
-    "./lookups/workspaceRequestContext": "./src/lookups/workspaceRequestContext.js"
+    ".": "./src/shared/index.js",
+    "./services/workspace": "./src/shared/services/workspace.service.js",
+    "./services/admin": "./src/shared/services/admin.service.js",
+    "./services/inviteEmail": "./src/shared/services/inviteEmail.service.js",
+    "./policies/workspaceNaming": "./src/shared/policies/workspaceNaming.js",
+    "./policies/workspacePolicyDefaults": "./src/shared/policies/workspacePolicyDefaults.js",
+    "./policies/workspaceSettingsPatch": "./src/shared/policies/workspaceSettingsPatch.js",
+    "./policies/workspaceInvitePolicy": "./src/shared/policies/workspaceInvitePolicy.js",
+    "./mappers/workspaceMappers": "./src/shared/mappers/workspaceMappers.js",
+    "./mappers/workspaceAdminMappers": "./src/shared/mappers/workspaceAdminMappers.js",
+    "./lookups/workspaceMembershipLookup": "./src/shared/lookups/workspaceMembershipLookup.js",
+    "./lookups/workspaceRequestContext": "./src/shared/lookups/workspaceRequestContext.js"
   },
   "dependencies": {
     "@jskit-ai/access-core": "0.1.0",

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildSchema, buildFieldSchema } from "../src/settingsSchemaBuilder.js";
+import { buildSchema, buildFieldSchema } from "../src/shared/settingsSchemaBuilder.js";
 
 test("settings schema builder generates patch object schemas", () => {
   const fieldSpecs = {

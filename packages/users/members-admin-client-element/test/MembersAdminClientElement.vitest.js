@@ -4,9 +4,9 @@ import { fileURLToPath } from "node:url";
 import { mount } from "@vue/test-utils";
 import { h } from "vue";
 import { describe, expect, it, vi } from "vitest";
-import MembersAdminClientElement from "../src/MembersAdminClientElement.vue";
+import MembersAdminClientElement from "../src/shared/MembersAdminClientElement.vue";
 
-const componentSourcePath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../src/MembersAdminClientElement.vue");
+const componentSourcePath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../src/shared/MembersAdminClientElement.vue");
 
 function readSource() {
   return readFileSync(componentSourcePath, "utf8");

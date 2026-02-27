@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createNodeVueFastifyScriptsConfig } from "../src/index.js";
+import { createNodeVueFastifyScriptsConfig } from "../src/shared/index.js";
 
 test("node/vue/fastify preset exposes expected canonical tasks", () => {
   const config = createNodeVueFastifyScriptsConfig();

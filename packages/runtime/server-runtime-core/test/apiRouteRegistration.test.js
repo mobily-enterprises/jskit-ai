@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import Fastify from "fastify";
 
-import { registerApiRouteDefinitions } from "../src/apiRouteRegistration.js";
+import { registerApiRouteDefinitions } from "../src/shared/apiRouteRegistration.js";
 
 test("registerApiRouteDefinitions registers route handlers and request URL resolver", async () => {
   const app = Fastify();

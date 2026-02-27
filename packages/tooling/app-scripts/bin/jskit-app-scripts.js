@@ -5,11 +5,11 @@ import { access } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
-import { runProcessEnvGuardrail, createViolationReport } from "../src/guardrails/processEnv.js";
-import { runApiContractsGuardrail } from "../src/guardrails/apiContracts.js";
-import { runElementEjectCommand } from "../src/commands/elementEject.js";
-import { runElementDiffCommand } from "../src/commands/elementDiff.js";
-import { RUNTIME_BUILTIN_IDS, runRuntimeBuiltinTask } from "../src/runtimeCommands.js";
+import { runProcessEnvGuardrail, createViolationReport } from "../src/shared/guardrails/processEnv.js";
+import { runApiContractsGuardrail } from "../src/shared/guardrails/apiContracts.js";
+import { runElementEjectCommand } from "../src/shared/commands/elementEject.js";
+import { runElementDiffCommand } from "../src/shared/commands/elementDiff.js";
+import { RUNTIME_BUILTIN_IDS, runRuntimeBuiltinTask } from "../src/shared/runtimeCommands.js";
 
 function shellQuote(value) {
   const raw = String(value ?? "");

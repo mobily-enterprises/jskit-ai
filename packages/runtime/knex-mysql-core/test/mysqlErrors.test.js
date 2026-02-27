@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isMysqlDuplicateEntryError } from "../src/mysqlErrors.js";
+import { isMysqlDuplicateEntryError } from "../src/shared/mysqlErrors.js";
 
 test("isMysqlDuplicateEntryError matches ER_DUP_ENTRY code", () => {
   assert.equal(isMysqlDuplicateEntryError({ code: "ER_DUP_ENTRY" }), true);

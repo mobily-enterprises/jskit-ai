@@ -15,7 +15,7 @@
     "jskit-app-scripts": "bin/jskit-app-scripts.js"
   },
   "exports": {
-    ".": "./src/index.js"
+    ".": "./src/shared/index.js"
   },
   "engines": {
     "node": "20.x"

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizePagination } from "../src/pagination.js";
+import { normalizePagination } from "../src/shared/pagination.js";
 
 test("normalizePagination uses defaults for invalid inputs", () => {
   assert.deepEqual(normalizePagination({}), {

@@ -6,7 +6,7 @@ import {
   createDiagnosticsCollector,
   throwOnDiagnosticErrors,
   DIAGNOSTIC_LEVELS
-} from "../src/diagnostics.js";
+} from "../src/shared/diagnostics.js";
 
 test("createDiagnostic normalizes required fields and defaults level", () => {
   const diagnostic = createDiagnostic({

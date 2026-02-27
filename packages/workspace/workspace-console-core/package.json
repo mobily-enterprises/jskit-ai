@@ -7,18 +7,18 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./workspaceAccess": "./src/workspaceAccess.js",
-    "./workspaceRoleCatalog": "./src/workspaceRoleCatalog.js",
-    "./workspaceSettingsPatch": "./src/workspaceSettingsPatch.js",
-    "./workspaceColors": "./src/workspaceColors.js",
-    "./consoleRoles": "./src/consoleRoles.js",
-    "./settingsInfra": "./src/settingsInfra.js",
-    "./settingsValidation": "./src/settingsValidation.js",
-    "./settingsModel": "./src/settingsModel.js",
-    "./settingsPatchBuilder": "./src/settingsPatchBuilder.js",
-    "./settingsSchemaBuilder": "./src/settingsSchemaBuilder.js",
-    "./avatarValidation": "./src/avatarValidation.js"
+    ".": "./src/shared/index.js",
+    "./workspaceAccess": "./src/shared/workspaceAccess.js",
+    "./workspaceRoleCatalog": "./src/shared/workspaceRoleCatalog.js",
+    "./workspaceSettingsPatch": "./src/shared/workspaceSettingsPatch.js",
+    "./workspaceColors": "./src/shared/workspaceColors.js",
+    "./consoleRoles": "./src/shared/consoleRoles.js",
+    "./settingsInfra": "./src/shared/settingsInfra.js",
+    "./settingsValidation": "./src/shared/settingsValidation.js",
+    "./settingsModel": "./src/shared/settingsModel.js",
+    "./settingsPatchBuilder": "./src/shared/settingsPatchBuilder.js",
+    "./settingsSchemaBuilder": "./src/shared/settingsSchemaBuilder.js",
+    "./avatarValidation": "./src/shared/avatarValidation.js"
   },
   "dependencies": {
     "@jskit-ai/rbac-core": "0.1.0"

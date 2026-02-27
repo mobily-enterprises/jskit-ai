@@ -7,7 +7,7 @@ import {
   createRuntimeComposition,
   createServiceRegistry,
   selectRuntimeServices
-} from "../src/composition.js";
+} from "../src/shared/composition.js";
 
 test("createRepositoryRegistry and createServiceRegistry assemble definitions in order", () => {
   const repositories = createRepositoryRegistry([

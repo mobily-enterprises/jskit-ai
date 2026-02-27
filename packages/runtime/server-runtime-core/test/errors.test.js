@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AppError, isAppError } from "../src/errors.js";
+import { AppError, isAppError } from "../src/shared/errors.js";
 
 test("AppError preserves configured fields", () => {
   const error = new AppError(422, "Validation failed.", {

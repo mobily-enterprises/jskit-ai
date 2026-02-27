@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { MODULE_TIERS } from "../src/descriptor.js";
+import { MODULE_TIERS } from "../src/shared/descriptor.js";
 import {
   detectRouteConflicts,
   detectActionConflicts,
   detectTopicConflicts,
   resolveConflicts
-} from "../src/conflicts.js";
+} from "../src/shared/conflicts.js";
 
 function moduleDescriptor(overrides = {}) {
   return {

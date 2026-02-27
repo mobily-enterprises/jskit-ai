@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { MODULE_TIERS } from "../src/descriptor.js";
-import { resolveDependencyGraph, satisfiesVersion } from "../src/dependencyGraph.js";
+import { MODULE_TIERS } from "../src/shared/descriptor.js";
+import { resolveDependencyGraph, satisfiesVersion } from "../src/shared/dependencyGraph.js";
 
 function moduleDescriptor(overrides = {}) {
   return {

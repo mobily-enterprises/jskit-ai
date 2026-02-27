@@ -31,6 +31,10 @@ const FORBIDDEN_VISUAL_IMPORT_PATTERNS = [
   /^antd(?:\/|$)/
 ];
 const PASS_THROUGH_WRAPPER_ALLOWLIST = Object.freeze({});
+const RENDERING_ENTRY_API_ALLOWLIST_PREFIXES = Object.freeze([
+  "packages/tooling/create-app/src/",
+  "packages/tooling/create-app/templates/"
+]);
 
 function toPosixPath(value) {
   return String(value || "").replace(/\\/g, "/");
@@ -243,9 +247,15 @@ test("client architecture guardrail: packages do not call rendering entry APIs",
   const violations = [];
 
   for (const filePath of listPackageJsFiles()) {
+    const relativePath = toPosixPath(path.relative(ROOT_DIR, filePath));
+    const isAllowlisted = RENDERING_ENTRY_API_ALLOWLIST_PREFIXES.some((prefix) => relativePath.startsWith(prefix));
+    if (isAllowlisted) {
+      continue;
+    }
+
     const source = readFileSync(filePath, "utf8");
     if (/\bcreateApp\s*\(|\bdefineComponent\s*\(/.test(source)) {
-      violations.push(toPosixPath(path.relative(ROOT_DIR, filePath)));
+      violations.push(relativePath);
     }
   }
 

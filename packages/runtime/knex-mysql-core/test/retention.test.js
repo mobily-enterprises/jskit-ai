@@ -6,7 +6,7 @@ import {
   normalizeBatchSize,
   normalizeCutoffDateOrThrow,
   normalizeDeletedRowCount
-} from "../src/retention.js";
+} from "../src/shared/retention.js";
 
 function createFakeClient({ ids = [{ id: 1 }, { id: 2 }], deleted = 2 } = {}) {
   const calls = {

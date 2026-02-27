@@ -6,9 +6,9 @@ import path from "node:path";
 import process from "node:process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { ensureUniqueDescriptor } from "../src/schemas/descriptorRegistry.mjs";
-import { normalizePackDescriptor } from "../src/schemas/packDescriptor.mjs";
-import { normalizePackageDescriptor } from "../src/schemas/packageDescriptor.mjs";
+import { ensureUniqueDescriptor } from "../src/shared/schemas/descriptorRegistry.mjs";
+import { normalizePackDescriptor } from "../src/shared/schemas/packDescriptor.mjs";
+import { normalizePackageDescriptor } from "../src/shared/schemas/packageDescriptor.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const SNAPSHOT_PATH = fileURLToPath(new URL("./fixtures/descriptor-error-snapshots.json", import.meta.url));

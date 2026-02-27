@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createHttpClient } from "../src/client.js";
+import { createHttpClient } from "../src/shared/client.js";
 
 function mockResponse({ status = 200, data = {}, contentType = "application/json; charset=utf-8", text = "" } = {}) {
   return {

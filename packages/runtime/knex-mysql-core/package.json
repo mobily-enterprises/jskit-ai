@@ -7,9 +7,9 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./dateUtils": "./src/dateUtils.js",
-    "./mysqlErrors": "./src/mysqlErrors.js",
-    "./retention": "./src/retention.js"
+    ".": "./src/shared/index.js",
+    "./dateUtils": "./src/shared/dateUtils.js",
+    "./mysqlErrors": "./src/shared/mysqlErrors.js",
+    "./retention": "./src/shared/retention.js"
   }
 }

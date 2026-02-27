@@ -7,19 +7,19 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./errors": "./src/errors.js",
-    "./integers": "./src/integers.js",
-    "./requestUrl": "./src/requestUrl.js",
-    "./pagination": "./src/pagination.js",
-    "./realtimePublish": "./src/realtimePublish.js",
-    "./realtimeEvents": "./src/realtimeEvents.js",
-    "./realtimeEventsService": "./src/realtimeEventsService.js",
-    "./securityAudit": "./src/securityAudit.js",
-    "./composition": "./src/composition.js",
-    "./fastifyBootstrap": "./src/fastifyBootstrap.js",
-    "./runtimeKernel": "./src/runtimeKernel.js",
-    "./runtimeAssembly": "./src/runtimeAssembly.js",
-    "./apiRouteRegistration": "./src/apiRouteRegistration.js"
+    ".": "./src/shared/index.js",
+    "./errors": "./src/shared/errors.js",
+    "./integers": "./src/shared/integers.js",
+    "./requestUrl": "./src/shared/requestUrl.js",
+    "./pagination": "./src/shared/pagination.js",
+    "./realtimePublish": "./src/shared/realtimePublish.js",
+    "./realtimeEvents": "./src/shared/realtimeEvents.js",
+    "./realtimeEventsService": "./src/shared/realtimeEventsService.js",
+    "./securityAudit": "./src/shared/securityAudit.js",
+    "./composition": "./src/shared/composition.js",
+    "./fastifyBootstrap": "./src/shared/fastifyBootstrap.js",
+    "./runtimeKernel": "./src/shared/runtimeKernel.js",
+    "./runtimeAssembly": "./src/shared/runtimeAssembly.js",
+    "./apiRouteRegistration": "./src/shared/apiRouteRegistration.js"
   }
 }

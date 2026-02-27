@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parsePositiveInteger } from "../src/integers.js";
+import { parsePositiveInteger } from "../src/shared/integers.js";
 
 test("parsePositiveInteger returns positive integers only", () => {
   assert.equal(parsePositiveInteger(1), 1);

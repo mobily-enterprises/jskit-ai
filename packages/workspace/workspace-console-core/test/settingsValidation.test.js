@@ -12,7 +12,7 @@ import {
   toPositiveInt,
   toTimeZone,
   toTrimmedString
-} from "../src/settingsValidation.js";
+} from "../src/shared/settingsValidation.js";
 
 test("settings validation normalizers parse and coerce expected values", () => {
   assert.equal(toTrimmedString("  hello  "), "hello");

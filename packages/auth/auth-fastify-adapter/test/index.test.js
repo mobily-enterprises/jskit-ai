@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createController, buildRoutes, schema } from "../src/index.js";
+import { createController, buildRoutes, schema } from "../src/shared/index.js";
 
 test("auth fastify adapter exports controller/routes/schema", () => {
   assert.equal(typeof createController, "function");

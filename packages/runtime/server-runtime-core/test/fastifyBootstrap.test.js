@@ -7,7 +7,7 @@ import {
   registerRequestLoggingHooks,
   resolveLoggerLevel,
   runGracefulShutdown
-} from "../src/fastifyBootstrap.js";
+} from "../src/shared/fastifyBootstrap.js";
 
 test("resolveLoggerLevel and createFastifyLoggerOptions respect configured level fallback", () => {
   assert.equal(

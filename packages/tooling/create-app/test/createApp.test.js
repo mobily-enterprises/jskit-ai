@@ -7,7 +7,7 @@ import process from "node:process";
 import { Writable } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { runCli as runCreateAppCli } from "../src/index.js";
+import { runCli as runCreateAppCli } from "../src/shared/index.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit-create-app.js", import.meta.url));
 const JSKIT_CLI_PATH = fileURLToPath(new URL("../../jskit/bin/jskit.js", import.meta.url));

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { toIsoString, toMysqlDateTimeUtc } from "../src/dateUtils.js";
+import { toIsoString, toMysqlDateTimeUtc } from "../src/shared/dateUtils.js";
 
 test("toIsoString returns ISO string for valid date", () => {
   assert.equal(toIsoString(new Date("2024-01-01T00:00:00.000Z")), "2024-01-01T00:00:00.000Z");

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { MODULE_TIERS } from "../src/descriptor.js";
-import { composeServerModules } from "../src/composeServer.js";
+import { MODULE_TIERS } from "../src/shared/descriptor.js";
+import { composeServerModules } from "../src/shared/composeServer.js";
 
 function moduleDescriptor(overrides = {}) {
   return {

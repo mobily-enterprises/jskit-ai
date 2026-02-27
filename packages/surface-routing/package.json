@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.js",
-    "./apiPaths": "./src/apiPaths.js",
-    "./appSurfaces": "./src/appSurfaces.js",
-    "./paths": "./src/paths.js",
-    "./registry": "./src/registry.js"
+    ".": "./src/shared/index.js",
+    "./apiPaths": "./src/shared/apiPaths.js",
+    "./appSurfaces": "./src/shared/appSurfaces.js",
+    "./paths": "./src/shared/paths.js",
+    "./registry": "./src/shared/registry.js"
   }
 }

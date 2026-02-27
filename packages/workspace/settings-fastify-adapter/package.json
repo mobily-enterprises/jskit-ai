@@ -7,11 +7,11 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./controller": "./src/controller.js",
-    "./routes": "./src/routes.js",
-    "./schema": "./src/schema.js",
-    "./avatarPolicy": "./src/avatarPolicy.js"
+    ".": "./src/shared/index.js",
+    "./controller": "./src/shared/controller.js",
+    "./routes": "./src/shared/routes.js",
+    "./schema": "./src/shared/schema.js",
+    "./avatarPolicy": "./src/shared/avatarPolicy.js"
   },
   "dependencies": {
     "@jskit-ai/access-core": "0.1.0",

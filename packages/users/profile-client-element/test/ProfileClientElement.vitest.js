@@ -1,6 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import ProfileClientElement from "../src/ProfileClientElement.vue";
+import ProfileClientElement from "../src/shared/ProfileClientElement.vue";
 
 function mountElement(options) {
   return mount(ProfileClientElement, {

@@ -16,7 +16,7 @@
     "jskit-create-app": "bin/jskit-create-app.js"
   },
   "exports": {
-    ".": "./src/index.js"
+    ".": "./src/shared/index.js"
   },
   "engines": {
     "node": "20.x"

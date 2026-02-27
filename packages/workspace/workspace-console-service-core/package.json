@@ -7,18 +7,18 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./services/console": "./src/services/console.service.js",
-    "./services/errors": "./src/services/errors.service.js",
-    "./services/consoleAccess": "./src/services/consoleAccess.service.js",
-    "./services/consoleMembers": "./src/services/consoleMembers.service.js",
-    "./services/consoleInvites": "./src/services/consoleInvites.service.js",
-    "./services/consoleBilling": "./src/services/consoleBilling.service.js",
-    "./services/billingSettings": "./src/services/billingSettings.service.js",
-    "./services/billingCatalog": "./src/services/billingCatalog.service.js",
-    "./services/billingCatalogProviderPricing": "./src/services/billingCatalogProviderPricing.service.js",
-    "./mappers/consoleMappers": "./src/mappers/consoleMappers.js",
-    "./policies/invitePolicy": "./src/policies/invitePolicy.js"
+    ".": "./src/shared/index.js",
+    "./services/console": "./src/shared/services/console.service.js",
+    "./services/errors": "./src/shared/services/errors.service.js",
+    "./services/consoleAccess": "./src/shared/services/consoleAccess.service.js",
+    "./services/consoleMembers": "./src/shared/services/consoleMembers.service.js",
+    "./services/consoleInvites": "./src/shared/services/consoleInvites.service.js",
+    "./services/consoleBilling": "./src/shared/services/consoleBilling.service.js",
+    "./services/billingSettings": "./src/shared/services/billingSettings.service.js",
+    "./services/billingCatalog": "./src/shared/services/billingCatalog.service.js",
+    "./services/billingCatalogProviderPricing": "./src/shared/services/billingCatalogProviderPricing.service.js",
+    "./mappers/consoleMappers": "./src/shared/mappers/consoleMappers.js",
+    "./policies/invitePolicy": "./src/shared/policies/invitePolicy.js"
   },
   "dependencies": {
     "@jskit-ai/access-core": "0.1.0",

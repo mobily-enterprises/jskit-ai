@@ -7,11 +7,11 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./repositories/workspaces": "./src/repositories/workspaces.repository.js",
-    "./repositories/memberships": "./src/repositories/memberships.repository.js",
-    "./repositories/settings": "./src/repositories/settings.repository.js",
-    "./repositories/invites": "./src/repositories/invites.repository.js"
+    ".": "./src/shared/index.js",
+    "./repositories/workspaces": "./src/shared/repositories/workspaces.repository.js",
+    "./repositories/memberships": "./src/shared/repositories/memberships.repository.js",
+    "./repositories/settings": "./src/shared/repositories/settings.repository.js",
+    "./repositories/invites": "./src/shared/repositories/invites.repository.js"
   },
   "dependencies": {
     "@jskit-ai/access-core": "0.1.0",

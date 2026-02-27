@@ -7,9 +7,9 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./service": "./src/service.js",
-    "./test-utils": "./src/test-utils.js"
+    ".": "./src/shared/index.js",
+    "./service": "./src/shared/service.js",
+    "./test-utils": "./src/shared/test-utils.js"
   },
   "dependencies": {
     "@jskit-ai/access-core": "0.1.0",

@@ -7,14 +7,14 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./authConstraints": "./src/authConstraints.js",
-    "./authMethods": "./src/authMethods.js",
-    "./oauthProviders": "./src/oauthProviders.js",
-    "./oauthCallbackParams": "./src/oauthCallbackParams.js",
-    "./utils": "./src/utils.js",
-    "./validators": "./src/validators.js",
-    "./inviteTokens": "./src/inviteTokens.js",
-    "./membershipAccess": "./src/membershipAccess.js"
+    ".": "./src/shared/index.js",
+    "./authConstraints": "./src/shared/authConstraints.js",
+    "./authMethods": "./src/shared/authMethods.js",
+    "./oauthProviders": "./src/shared/oauthProviders.js",
+    "./oauthCallbackParams": "./src/shared/oauthCallbackParams.js",
+    "./utils": "./src/shared/utils.js",
+    "./validators": "./src/shared/validators.js",
+    "./inviteTokens": "./src/shared/inviteTokens.js",
+    "./membershipAccess": "./src/shared/membershipAccess.js"
   }
 }

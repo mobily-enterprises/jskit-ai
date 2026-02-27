@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildPatch } from "../src/settingsPatchBuilder.js";
-import { toBoolean, toEnum, toPositiveInt, toTrimmedString } from "../src/settingsValidation.js";
+import { buildPatch } from "../src/shared/settingsPatchBuilder.js";
+import { toBoolean, toEnum, toPositiveInt, toTrimmedString } from "../src/shared/settingsValidation.js";
 
 function createValidationError(status, message, options = {}) {
   const error = new Error(message);

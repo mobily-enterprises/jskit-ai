@@ -7,15 +7,15 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./descriptor": "./src/descriptor.js",
-    "./dependencyGraph": "./src/dependencyGraph.js",
-    "./capabilityGraph": "./src/capabilityGraph.js",
-    "./mountResolver": "./src/mountResolver.js",
-    "./conflicts": "./src/conflicts.js",
-    "./composeServer": "./src/composeServer.js",
-    "./composeClient": "./src/composeClient.js",
-    "./diagnostics": "./src/diagnostics.js",
-    "./appDropins": "./src/appDropins.js"
+    ".": "./src/shared/index.js",
+    "./descriptor": "./src/shared/descriptor.js",
+    "./dependencyGraph": "./src/shared/dependencyGraph.js",
+    "./capabilityGraph": "./src/shared/capabilityGraph.js",
+    "./mountResolver": "./src/shared/mountResolver.js",
+    "./conflicts": "./src/shared/conflicts.js",
+    "./composeServer": "./src/shared/composeServer.js",
+    "./composeClient": "./src/shared/composeClient.js",
+    "./diagnostics": "./src/shared/diagnostics.js",
+    "./appDropins": "./src/shared/appDropins.js"
   }
 }

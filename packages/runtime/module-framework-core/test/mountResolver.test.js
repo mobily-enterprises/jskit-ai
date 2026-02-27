@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { MODULE_TIERS } from "../src/descriptor.js";
-import { resolveMounts } from "../src/mountResolver.js";
+import { MODULE_TIERS } from "../src/shared/descriptor.js";
+import { resolveMounts } from "../src/shared/mountResolver.js";
 
 function moduleDescriptor(overrides = {}) {
   return {

@@ -7,7 +7,7 @@ import process from "node:process";
 import { PassThrough, Writable } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { runCli as runCliDirect } from "../src/index.js";
+import { runCli as runCliDirect } from "../src/shared/index.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 

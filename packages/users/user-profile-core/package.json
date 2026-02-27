@@ -7,10 +7,10 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
-    "./avatarService": "./src/avatar.service.js",
-    "./avatarStorageService": "./src/avatarStorage.service.js",
-    "./profileIdentity": "./src/profileIdentity.js"
+    ".": "./src/shared/index.js",
+    "./avatarService": "./src/shared/avatar.service.js",
+    "./avatarStorageService": "./src/shared/avatarStorage.service.js",
+    "./profileIdentity": "./src/shared/profileIdentity.js"
   },
   "dependencies": {
     "@jskit-ai/server-runtime-core": "0.1.0",

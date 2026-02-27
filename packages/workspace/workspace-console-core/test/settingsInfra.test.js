@@ -5,7 +5,7 @@ import {
   createFieldErrorBag,
   hasFieldErrors,
   toValidationError
-} from "../src/settingsInfra.js";
+} from "../src/shared/settingsInfra.js";
 
 test("settings infra builds and validates field error bags", () => {
   const bag = createFieldErrorBag();

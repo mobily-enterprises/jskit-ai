@@ -3,7 +3,7 @@ import test from "node:test";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import * as workspaceConsoleCore from "../src/index.js";
+import * as workspaceConsoleCore from "../src/shared/index.js";
 
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PACKAGE_SRC_DIR = path.join(PACKAGE_ROOT, "src");
