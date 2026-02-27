@@ -2,6 +2,8 @@
 
 Shared frontend runtime helpers for list pagination state, query error messaging, URL-synced pagination, and API transport behavior.
 
+Runtime-only ownership: this package intentionally does not own or export domain API client factories.
+
 ## What this package is for
 
 Use this package for reusable web runtime logic that is not UI-specific:

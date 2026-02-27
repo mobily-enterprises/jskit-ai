@@ -15,15 +15,7 @@
     "./useQueryErrorMessage": "./src/shared/useQueryErrorMessage.js",
     "./useGlobalNetworkActivity": "./src/shared/useGlobalNetworkActivity.js",
     "./transportRuntime": "./src/shared/transportRuntime.js",
-    "./clientComposition": "./src/shared/clientComposition.js",
-    "./apiClients": "./src/shared/apiClients/index.js",
-    "./apiClients/authApi": "./src/shared/apiClients/authApi.js",
-    "./apiClients/workspaceApi": "./src/shared/apiClients/workspaceApi.js",
-    "./apiClients/consoleApi": "./src/shared/apiClients/consoleApi.js",
-    "./apiClients/settingsApi": "./src/shared/apiClients/settingsApi.js",
-    "./apiClients/alertsApi": "./src/shared/apiClients/alertsApi.js",
-    "./apiClients/historyApi": "./src/shared/apiClients/historyApi.js",
-    "./apiClients/billingApi": "./src/shared/apiClients/billingApi.js"
+    "./clientComposition": "./src/shared/clientComposition.js"
   },
   "dependencies": {
     "@jskit-ai/http-client-runtime": "0.1.0",
