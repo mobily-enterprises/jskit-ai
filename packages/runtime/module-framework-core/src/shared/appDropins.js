@@ -1,7 +1,3 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { pathToFileURL } from "node:url";
-
 const DEFAULT_ORDER = 100;
 const SERVER_EXTENSION_FILE_SUFFIX = ".server.js";
 const CLIENT_EXTENSION_FILE_SUFFIX = ".client.js";
@@ -82,7 +78,7 @@ function normalizeList(value, contextLabel) {
 }
 
 function toPosix(value) {
-  return String(value || "").replaceAll(path.sep, "/");
+  return String(value || "").replaceAll("\\", "/");
 }
 
 function sortExtensions(entries, pathSelector) {
@@ -215,7 +211,21 @@ function normalizeClientExtension(source, contextLabel) {
   });
 }
 
-async function readServerExtensionFiles(directoryPath) {
+async function loadNodeServerModules() {
+  const [fsModule, pathModule, urlModule] = await Promise.all([
+    import("node:fs/promises"),
+    import("node:path"),
+    import("node:url")
+  ]);
+
+  return {
+    fs: fsModule.default ?? fsModule,
+    path: pathModule.default ?? pathModule,
+    pathToFileURL: urlModule.pathToFileURL
+  };
+}
+
+async function readServerExtensionFiles({ fs, path, directoryPath }) {
   let directoryEntries;
   try {
     directoryEntries = await fs.readdir(directoryPath, { withFileTypes: true });
@@ -235,13 +245,14 @@ async function readServerExtensionFiles(directoryPath) {
     .sort((left, right) => left.fileName.localeCompare(right.fileName));
 }
 
-async function loadServerExtensionFamily({ appDir, directoryName, familyLabel, normalizer }) {
+async function loadServerExtensionFamily({ appDir, directoryName, familyLabel, normalizer, nodeModules }) {
+  const { fs, path, pathToFileURL } = nodeModules || (await loadNodeServerModules());
   const directoryPath = path.join(appDir, directoryName);
-  const files = await readServerExtensionFiles(directoryPath);
+  const files = await readServerExtensionFiles({ fs, path, directoryPath });
   const loaded = [];
 
   for (const file of files) {
-    const imported = await import(pathToFileURL(file.filePath).href);
+    const imported = await import(/* @vite-ignore */ pathToFileURL(file.filePath).href);
     const descriptor = imported?.default ?? imported;
     const relativePath = toPosix(path.relative(appDir, file.filePath));
     const normalized = normalizer(descriptor, `${familyLabel} extension "${relativePath}"`);
@@ -364,25 +375,30 @@ async function loadServerAppDropins({
     throw new TypeError("loadServerAppDropins requires appDir.");
   }
 
+  const nodeModules = await loadNodeServerModules();
+
   const serverExtensions = await loadServerExtensionFamily({
     appDir,
     directoryName: extensionDirectory,
     familyLabel: "server",
-    normalizer: normalizeServerExtension
+    normalizer: normalizeServerExtension,
+    nodeModules
   });
 
   const settingsExtensions = await loadServerExtensionFamily({
     appDir,
     directoryName: settingsDirectory,
     familyLabel: "settings",
-    normalizer: normalizeSettingsExtension
+    normalizer: normalizeSettingsExtension,
+    nodeModules
   });
 
   const workerExtensions = await loadServerExtensionFamily({
     appDir,
     directoryName: workersDirectory,
     familyLabel: "worker",
-    normalizer: normalizeWorkerExtension
+    normalizer: normalizeWorkerExtension,
+    nodeModules
   });
 
   return composeServerRuntimeBundle({

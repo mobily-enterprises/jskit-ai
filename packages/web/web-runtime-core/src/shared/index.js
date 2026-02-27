@@ -18,3 +18,12 @@ export {
   composeNavigationFragmentsFromModules,
   resolveNavigationDestinationTitle
 } from "./clientComposition.js";
+export {
+  KNOWN_SURFACES,
+  KNOWN_SLOTS,
+  parseRouteFilePath,
+  composeFilesystemRoutesFromModules,
+  parseShellEntryFilePath,
+  composeShellEntriesFromModules,
+  composeShellEntriesBySlotFromModules
+} from "./filesystemComposition.js";

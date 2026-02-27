@@ -501,25 +501,11 @@ This catalog documents each bundle in `packages/tooling/jskit/bundles` with purp
 
 ## web-shell
 
-- Purpose: Core shell with browser/runtime surface packages.
+- Purpose: Filesystem-driven web shell host scaffold.
 - Included packages:
-  - `@jskit-ai/action-runtime-core`
-  - `@jskit-ai/health-fastify-routes`
-  - `@jskit-ai/http-client-runtime`
-  - `@jskit-ai/http-contracts`
-  - `@jskit-ai/module-framework-core`
-  - `@jskit-ai/platform-server-runtime`
-  - `@jskit-ai/runtime-env-core`
-  - `@jskit-ai/server-runtime-core`
-  - `@jskit-ai/surface-routing`
-  - `@jskit-ai/web-runtime-core`
+  - `@jskit-ai/web-shell-host`
 - Required capabilities:
-  - `contracts.http`
-  - `runtime.env`
-  - `runtime.http-client`
-  - `runtime.module-framework`
-  - `runtime.server`
-  - `runtime.surface-routing`
+  - `runtime.web`
 - Options:
   - None
 - Conflict notes:

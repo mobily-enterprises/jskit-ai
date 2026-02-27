@@ -47,6 +47,20 @@ Then open:
 http://localhost:5173
 ```
 
+## Reset Fast (repeatable scaffold loop)
+
+From monorepo root (`jskit-ai`):
+
+```bash
+scripts/dev/reset-scaffold-app.sh /home/merc/Development/current/manual-app manual-app
+```
+
+Notes:
+- Keeps `.git` if present and wipes everything else.
+- Re-runs `npx @jskit-ai/create-app ... --target . --force`.
+- Reinstalls dependencies by default (`INSTALL_DEPS=1`).
+- Skip install for faster iteration: `INSTALL_DEPS=0 scripts/dev/reset-scaffold-app.sh ...`.
+
 ## 4) Install Framework Packs (real use)
 
 From `manual-app`:
@@ -91,7 +105,7 @@ What each one does (briefly):
 
 - `saas-full`: Adds a large baseline SaaS stack (auth, assistant, billing, observability, workspace core pieces).
 - `community-suite`: Adds chat + social + user profile community features.
-- `web-shell`: Adds shared web/runtime shell foundations (surface routing, web/http runtime, server runtime base).
+- `web-shell`: Scaffolds filesystem-driven shell host files (`src/pages/**`, `src/surfaces/**`, drawer/top/config menus) and wires generated TanStack routing.
 - `communications-base`: Adds communications core plus email/sms adapters.
 - `realtime`: Adds realtime contracts, server socket layer, and client runtime.
 - `workspace-admin-suite`: Adds admin/console workspace adapters and settings/console endpoints.
@@ -104,6 +118,29 @@ What each one does (briefly):
 Notes:
 - Keep `--no-install` for each command while staging changes.
 - These packs overlap in places; this is intentional for fast convergence, but it is not the minimal set.
+- After adding `web-shell`, routes/menus are generated from filesystem files via:
+  - `npm run web-shell:generate`
+  - (`dev`/`build` scripts already run this automatically when `web-shell` is installed)
+
+### Web-Shell Injection (Package Level)
+
+When a package needs to materialize UI/navigation, have it mutate real files into:
+
+- `src/pages/<surface>/**` (path is route)
+- `src/surfaces/<surface>/{drawer|top|config}/*.entry.js` (menu slots)
+
+Then run:
+
+```bash
+npm run web-shell:generate
+```
+
+This updates `src/shell/generated/filesystemManifest.generated.js`, which is what the shell router and menus consume.
+
+Optional guard hook:
+
+- Define `globalThis.__JSKIT_WEB_SHELL_GUARD_EVALUATOR__ = ({ guard, phase, context }) => ...`
+- The same evaluator is used for route gating and menu visibility.
 
 ## 6) DB Architecture (Current)
 

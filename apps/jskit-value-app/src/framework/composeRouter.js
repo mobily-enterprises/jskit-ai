@@ -4,6 +4,7 @@ import {
 } from "@jskit-ai/web-runtime-core/clientComposition";
 import { resolveClientModuleRegistry } from "./moduleRegistry.js";
 import { composeSurfaceRouteMounts } from "./composeRouteMounts.js";
+import { buildFilesystemRouteFragment } from "./filesystemContributions.js";
 
 const DEFAULTS_BY_SURFACE = Object.freeze({
   app: Object.freeze({
@@ -46,12 +47,29 @@ function composeSurfaceRouteFragments(surface, { enabledModuleIds } = {}) {
     enabledModuleIds
   });
 
-  return composeSurfaceRouteFragmentsFromModules({
+  const moduleFragments = composeSurfaceRouteFragmentsFromModules({
     moduleRegistry: resolveClientModuleRegistry(),
     surface: normalizedSurface,
     enabledModuleIds,
     routeMounts
   });
+
+  const filesystemFragment = buildFilesystemRouteFragment(normalizedSurface);
+  if (!filesystemFragment) {
+    return moduleFragments;
+  }
+
+  if (moduleFragments.some((entry) => String(entry?.id || "").trim() === filesystemFragment.id)) {
+    throw new Error(`Duplicate route fragment "${filesystemFragment.id}" on surface "${normalizedSurface}".`);
+  }
+
+  return Object.freeze(
+    [...moduleFragments, filesystemFragment].sort(
+      (left, right) =>
+        Number(left?.order || 100) - Number(right?.order || 100) ||
+        String(left?.id || "").localeCompare(String(right?.id || ""))
+    )
+  );
 }
 
 export { composeSurfaceRouterOptions, composeSurfaceRouteFragments };

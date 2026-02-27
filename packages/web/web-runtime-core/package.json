@@ -15,7 +15,8 @@
     "./useQueryErrorMessage": "./src/shared/useQueryErrorMessage.js",
     "./useGlobalNetworkActivity": "./src/shared/useGlobalNetworkActivity.js",
     "./transportRuntime": "./src/shared/transportRuntime.js",
-    "./clientComposition": "./src/shared/clientComposition.js"
+    "./clientComposition": "./src/shared/clientComposition.js",
+    "./filesystemComposition": "./src/shared/filesystemComposition.js"
   },
   "dependencies": {
     "@jskit-ai/http-client-runtime": "0.1.0",
