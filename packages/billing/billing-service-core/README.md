@@ -15,6 +15,12 @@ It coordinates repository operations, provider adapters, and policy decisions fo
 - processing provider webhooks
 - publishing realtime limit-change events
 
+Console billing ownership in this package:
+
+- console billing admin services (`consoleBilling`, `billingSettings`, `billingCatalog`, `billingCatalogProviderPricing`)
+- console billing client API (`client/consoleBillingApi`)
+- console billing action contributor (`actions/consoleBilling`)
+
 ## Key terms (plain language)
 
 - `domain service`: business logic that sits above raw DB calls.

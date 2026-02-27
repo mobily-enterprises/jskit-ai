@@ -7,7 +7,30 @@ import { fileURLToPath } from "node:url";
 const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const PACKAGES_DIR = path.join(ROOT_DIR, "packages");
 const APPS_DIR = path.join(ROOT_DIR, "apps");
+const TESTS_DIR = path.join(ROOT_DIR, "tests");
+const DOCS_DIR = path.join(ROOT_DIR, "docs");
 const JS_EXTENSIONS = new Set([".js", ".mjs", ".cjs"]);
+const GUARDRAIL_SCAN_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".ts", ".mts", ".cts", ".vue", ".md", ".json"]);
+const WEB_RUNTIME_CORE_DIR = path.join(PACKAGES_DIR, "web", "web-runtime-core");
+const WEB_RUNTIME_CORE_PACKAGE_JSON = path.join(WEB_RUNTIME_CORE_DIR, "package.json");
+const WEB_RUNTIME_CORE_API_CLIENTS_DIR = path.join(WEB_RUNTIME_CORE_DIR, "src", "shared", "apiClients");
+const WORKSPACE_CONSOLE_SERVICE_DIR = path.join(PACKAGES_DIR, "workspace", "workspace-console-service-core");
+const WORKSPACE_CONSOLE_PACKAGE_JSON = path.join(WORKSPACE_CONSOLE_SERVICE_DIR, "package.json");
+const WORKSPACE_CONSOLE_INDEX_FILE = path.join(WORKSPACE_CONSOLE_SERVICE_DIR, "src", "shared", "index.js");
+const WORKSPACE_CONSOLE_CORE_CONTRIBUTOR_FILE = path.join(
+  WORKSPACE_CONSOLE_SERVICE_DIR,
+  "src",
+  "shared",
+  "actions",
+  "consoleCore.contributor.js"
+);
+const APP_RUNTIME_SERVICES_FILE = path.join(APPS_DIR, "jskit-value-app", "server", "runtime", "services.js");
+const FORBIDDEN_WEB_RUNTIME_IMPORT = "@jskit-ai/web-runtime-core/apiClients";
+const MIGRATION_DOC_PATTERN = /(^|\/)THE_GREAT_TIDYING_UP(?:_BASELINE)?\.md$/i;
+const WEB_RUNTIME_CORE_IMPORT_GUARDRAIL_ALLOWLIST = new Set([
+  "tests/architecture/client-architecture.guardrails.test.mjs",
+  "packages/web/web-runtime-core/src/shared/runtimeOnlyGuardrails.test.js"
+]);
 const CLIENT_ELEMENT_PACKAGE_SEGMENTS = Object.freeze([
   "packages/ai-agent/assistant-client-element/",
   "packages/ai-agent/assistant-transcript-explorer-client-element/",
@@ -101,6 +124,33 @@ function listPackageIndexFiles() {
   return listFilesRecursive(PACKAGES_DIR, (absolutePath) => {
     return absolutePath.endsWith(`${path.sep}src${path.sep}index.js`);
   });
+}
+
+function listGuardrailScanFiles() {
+  const files = [];
+
+  for (const rootEntry of readdirSync(ROOT_DIR, { withFileTypes: true })) {
+    if (!rootEntry.isFile()) {
+      continue;
+    }
+
+    const absolutePath = path.join(ROOT_DIR, rootEntry.name);
+    if (!GUARDRAIL_SCAN_EXTENSIONS.has(path.extname(absolutePath))) {
+      continue;
+    }
+
+    files.push(absolutePath);
+  }
+
+  for (const scopedDir of [APPS_DIR, PACKAGES_DIR, TESTS_DIR, DOCS_DIR]) {
+    files.push(
+      ...listFilesRecursive(scopedDir, (absolutePath) => {
+        return GUARDRAIL_SCAN_EXTENSIONS.has(path.extname(absolutePath));
+      })
+    );
+  }
+
+  return files.sort((left, right) => left.localeCompare(right));
 }
 
 function parseImportSpecifiers(sourceText) {
@@ -311,6 +361,81 @@ test("client architecture guardrail: app code does not import package internals"
       violations.push(`${relativeFilePath} -> ${importSpecifier}`);
     }
   }
+
+  assert.deepEqual(violations, []);
+});
+
+test("client architecture guardrail: web-runtime-core has no apiClients exports or imports", () => {
+  const packageJson = JSON.parse(readFileSync(WEB_RUNTIME_CORE_PACKAGE_JSON, "utf8"));
+  const exportKeys = Object.keys(packageJson?.exports || {});
+  const forbiddenExportKeys = exportKeys.filter((entry) => entry === "./apiClients" || entry.startsWith("./apiClients/"));
+
+  assert.deepEqual(forbiddenExportKeys, []);
+  assert.equal(existsSync(WEB_RUNTIME_CORE_API_CLIENTS_DIR), false);
+
+  const offenders = [];
+  for (const filePath of listGuardrailScanFiles()) {
+    const relativePath = toPosixPath(path.relative(ROOT_DIR, filePath));
+    if (
+      MIGRATION_DOC_PATTERN.test(relativePath) ||
+      WEB_RUNTIME_CORE_IMPORT_GUARDRAIL_ALLOWLIST.has(relativePath)
+    ) {
+      continue;
+    }
+
+    const source = readFileSync(filePath, "utf8");
+    if (source.includes(FORBIDDEN_WEB_RUNTIME_IMPORT)) {
+      offenders.push(relativePath);
+    }
+  }
+
+  assert.deepEqual(offenders, []);
+});
+
+test("client architecture guardrail: workspace-console-service-core does not export moved billing/error services", () => {
+  const packageJson = JSON.parse(readFileSync(WORKSPACE_CONSOLE_PACKAGE_JSON, "utf8"));
+  const exportKeys = Object.keys(packageJson?.exports || {});
+  const forbiddenServiceExports = [
+    "./services/errors",
+    "./services/consoleBilling",
+    "./services/billingSettings",
+    "./services/billingCatalog",
+    "./services/billingCatalogProviderPricing"
+  ];
+  const exportViolations = forbiddenServiceExports.filter((entry) => exportKeys.includes(entry));
+
+  assert.deepEqual(exportViolations, []);
+  assert.equal(Object.hasOwn(packageJson?.dependencies || {}, "@jskit-ai/billing-service-core"), false);
+
+  const indexSource = readFileSync(WORKSPACE_CONSOLE_INDEX_FILE, "utf8");
+  const indexViolations = forbiddenServiceExports.filter((entry) => {
+    const serviceName = entry.replace("./services/", "");
+    return indexSource.includes(`${serviceName}.service.js`);
+  });
+
+  assert.deepEqual(indexViolations, []);
+});
+
+test("client architecture guardrail: workspace console core contributor excludes billing and transcript action ids", () => {
+  const source = readFileSync(WORKSPACE_CONSOLE_CORE_CONTRIBUTOR_FILE, "utf8");
+
+  assert.equal(/console\\.billing\\./.test(source), false);
+  assert.equal(/console\\.ai\\.transcripts?\\./.test(source), false);
+});
+
+test("client architecture guardrail: app runtime services file does not define extracted ownership helpers", () => {
+  const source = readFileSync(APP_RUNTIME_SERVICES_FILE, "utf8");
+  const forbiddenDefinitions = [
+    "createBillingDisabledServices",
+    "createBillingSubsystem",
+    "createSocialOutboxWorkerRuntimeService",
+    "throwEnabledSubsystemStartupPreflightError"
+  ];
+
+  const violations = forbiddenDefinitions.filter((name) => {
+    const pattern = new RegExp(`function\\s+${name}\\s*\\(`);
+    return pattern.test(source);
+  });
 
   assert.deepEqual(violations, []);
 });

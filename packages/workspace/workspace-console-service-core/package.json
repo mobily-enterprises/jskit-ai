@@ -21,7 +21,6 @@
     "@jskit-ai/action-runtime-core": "0.1.0",
     "@jskit-ai/access-core": "0.1.0",
     "@jskit-ai/assistant-core": "0.1.0",
-    "@jskit-ai/billing-service-core": "0.1.0",
     "@jskit-ai/knex-mysql-core": "0.1.0",
     "@jskit-ai/server-runtime-core": "0.1.0",
     "@jskit-ai/workspace-console-core": "0.1.0"

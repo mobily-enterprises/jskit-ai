@@ -1,27 +1,12 @@
 # @jskit-ai/observability-core
 
-Shared observability primitives for browser error reporting, server-side error payload normalization, and Prometheus metrics registry behavior.
-
-## What this package is for
-
-Use this package to standardize observability data before it is stored or exported:
-
-- build browser error payloads from `window.error` and `unhandledrejection`
-- normalize console error payloads on server ingestion
-- provide metrics contracts and `createMetricsRegistry` used by apps
-
-This keeps error and metrics data consistent across modules.
-
-## What this package is not for
-
-- No database writes.
-- No HTTP controllers.
-- No alerting logic.
-- No metrics endpoint HTTP auth/response glue yet. Keep that app-local unless a second consumer appears, then extract a generic helper.
+Shared observability primitives plus console error-domain services.
 
 ## Exports
 
 - `@jskit-ai/observability-core`
+- `@jskit-ai/observability-core/client/consoleErrorsApi`
+- `@jskit-ai/observability-core/services/consoleErrors`
 - `@jskit-ai/observability-core/browserPayload`
 - `@jskit-ai/observability-core/serverPayload`
 - `@jskit-ai/observability-core/metricsContracts`
@@ -29,140 +14,36 @@ This keeps error and metrics data consistent across modules.
 - `@jskit-ai/observability-core/scopeLogger`
 - `@jskit-ai/observability-core/service`
 
-## Function and constant reference
+## Ownership boundaries
 
-### `browserPayload`
+- Owns console error-domain API wrapper (`consoleErrorsApi`) and service (`consoleErrors.service`).
+- Owns browser/server error payload normalization helpers.
+- Owns metrics registry + scoped observability service primitives.
+- Does not register HTTP routes or perform direct SQL; repositories are injected.
 
-Entry point:
+## Primary APIs
 
-- `createBrowserErrorPayloadTools({ resolveSurfaceFromPathname })`
-  - Returns utility methods for browser error event payloads.
-  - Example: app bootstrapping code creates one toolset and reuses it for both `error` and `unhandledrejection` listeners.
+### `createConsoleErrorsService(deps)` (`services/consoleErrors`)
 
-Returned methods:
+Creates service methods for:
 
-- `stringifyReason(value)`
-  - Converts rejection reason to readable string.
-  - Example: promise rejects with object; this turns it into JSON-like text for logs.
-- `toStack(value)`
-  - Extracts stack string from `Error` or stack-like object.
-  - Example: keeps stack traces when available for debugging.
-- `buildBasePayload(source)`
-  - Builds shared payload fields (`occurredAt`, `url`, `path`, `surface`, `userAgent`).
-  - Example: every browser error report includes route and surface info.
-- `createPayloadFromErrorEvent(event)`
-  - Creates normalized payload from `window` error event.
-  - Example: captures filename/line/column when script error occurs.
-- `createPayloadFromRejectionEvent(event)`
-  - Creates normalized payload from unhandled rejection event.
-  - Example: captures rejection reason type and stack for async failures.
+- listing browser/server errors
+- fetching single browser/server errors
+- recording browser errors
+- simulating server errors
 
-### `serverPayload`
+### `createConsoleErrorsApi(httpClient)` (`client/consoleErrorsApi`)
 
-Entry point:
+Client API wrapper for `/api/v1/console/errors/*` and `/api/v1/console/simulate/server-error` endpoints.
 
-- `createConsoleErrorPayloadNormalizer({ parsePositiveInteger })`
-  - Returns payload normalization methods for server-side error ingestion.
-  - Example: console error service creates one normalizer instance and uses it before every repository write.
+### `createBrowserErrorPayloadTools(...)` (`browserPayload`)
 
-Returned methods:
+Normalizes browser `error` and `unhandledrejection` events into transport-safe payloads.
 
-- `normalizeString(value, maxLength = 0)`
-  - Trims and length-limits strings.
-  - Example: keeps giant exception messages from exploding storage.
-- `normalizeStack(value, maxLength = 16000)`
-  - Bounds stack trace size.
-  - Example: preserves useful stack while preventing oversized rows.
-- `normalizeObject(value)`
-  - Produces safe bounded metadata object.
-  - Example: large nested metadata becomes compact structured fields.
-- `normalizeIsoDate(value)`
-  - Converts date-like input to ISO string or `null`.
-  - Example: invalid client date does not break ingestion.
-- `normalizeBrowserPayload(payload, user)`
-  - Normalizes browser error payload plus user metadata.
-  - Example: browser report endpoint turns raw payload into DB-safe shape.
-- `normalizeServerPayload(payload)`
-  - Normalizes server error payload shape.
-  - Example: middleware error capture writes stable schema rows.
-- `normalizeSimulationKind(value)`
-  - Validates simulation kind or rotates through defaults for `auto`.
-  - Example: console error simulation endpoint cycles through failure modes.
-- `createSimulationId()`
-  - Creates unique simulation marker id.
-  - Example: correlate simulated error logs with a single trigger action.
+### `createConsoleErrorPayloadNormalizer(...)` (`serverPayload`)
 
-Related constant:
+Normalizes server/browser error payloads for ingestion and storage contracts.
 
-- `SERVER_SIMULATION_KINDS` (`app_error`, `type_error`, `range_error`, `async_rejection`)
+### `createMetricsRegistry(...)` and `createService(...)`
 
-### `metricsContracts`
-
-- `normalizeMetricLabel(value, { fallback = "unknown", maxLength = 64 })`
-  - Lowercases and sanitizes metric label values to safe characters.
-  - Example: route label `/Workspace/Acme` becomes stable safe metric label.
-
-Related constants:
-
-- `PROMETHEUS_CONTENT_TYPE`
-- `DEFAULT_HTTP_DURATION_BUCKETS_SECONDS`
-
-### `metricsRegistry`
-
-- `createMetricsRegistry({ httpDurationBuckets })`
-  - Creates a Prometheus metrics registry with stable metric names, labels, and normalization rules.
-  - Includes HTTP, DB error, auth failure, security audit, AI, and billing guardrail metrics.
-  - Provides `renderPrometheusMetrics()` and record helpers (`observeHttpRequest`, `recordDbError`, etc.).
-
-### `scopeLogger`
-
-- `createScopeDebugMatcher(scopeRules)`
-  - Builds include/exclude matcher for scoped debug logs.
-  - Example: `billing,auth,-auth.tokens` enables `billing.*` and `auth.*` except `auth.tokens.*`.
-- `createScopedLogger({ logger, scope, isScopeDebugEnabled })`
-  - Wraps logger methods and prefixes scope for non-child loggers.
-  - Example: observability service creates `billing.checkout` scoped loggers for worker/checkout diagnostics.
-
-### `service`
-
-- `createService(options)`
-  - Creates high-level observability service facade.
-  - Provides:
-    - metrics endpoint payload helper with optional bearer-token protection (`getMetricsPayload`)
-    - metric recorders (`observeHttpRequest`, `recordDbError`, `recordConsoleErrorIngestion`, `recordAuthFailure`, `recordSecurityAuditEvent`, `recordAiTurn`, `recordAiToolCall`)
-    - guardrail recorder (`recordGuardrail`)
-    - scoped logger factory (`createScopedLogger`)
-  - Example: app startup creates one observability service and injects it into HTTP hooks, billing domain, and audit domain.
-
-## How it is used in apps (real terms, and why)
-
-Current `jskit-value-app` usage:
-
-- browser capture:
-  - `apps/jskit-value-app/src/platform/observability/browserErrorReporter.js`
-  - uses `createBrowserErrorPayloadTools` to build payloads for browser error reporting endpoint
-- console error service normalization:
-  - `apps/jskit-value-app/server/domain/console/services/errors.service.js`
-  - uses `createConsoleErrorPayloadNormalizer` for browser and server payload ingestion, and simulation helpers
-- metrics registry:
-  - `apps/jskit-value-app/server.js`
-  - `apps/jskit-value-app/server/modules/observability/service.js`
-  - uses package `createMetricsRegistry` and `PROMETHEUS_CONTENT_TYPE` directly
-
-Why this matters:
-
-- ingestion endpoints receive predictable payload shape
-- dashboards and debugging tools can trust field formats
-- malformed or oversized metadata is sanitized before storage
-
-Practical ingestion flow:
-
-1. Browser runtime captures `window.error`.
-2. `createPayloadFromErrorEvent` builds payload with route and stack details.
-3. API receives payload.
-4. `normalizeBrowserPayload` sanitizes and bounds fields before repository insert.
-
-Note on metrics ownership:
-
-- Metrics registry behavior is centralized in this package.
-- Apps should not define parallel Prometheus metric registries.
+Provides Prometheus metric contracts, guardrail metrics, and scoped logger helpers used by runtime composition.

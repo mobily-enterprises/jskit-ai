@@ -7,8 +7,7 @@ export default Object.freeze({
     "@jskit-ai/workspace-console-core",
     "@jskit-ai/workspace-console-knex-mysql",
     "@jskit-ai/access-core",
-    "@jskit-ai/server-runtime-core",
-    "@jskit-ai/billing-service-core"
+    "@jskit-ai/server-runtime-core"
   ],
   "capabilities": {
     "provides": [
@@ -19,7 +18,6 @@ export default Object.freeze({
       "workspace.console.store.mysql",
       "auth.access",
       "runtime.server",
-      "billing.service",
       "runtime.actions"
     ]
   },
@@ -29,7 +27,6 @@ export default Object.freeze({
         "@jskit-ai/action-runtime-core": "0.1.0",
         "@jskit-ai/access-core": "0.1.0",
         "@jskit-ai/assistant-core": "0.1.0",
-        "@jskit-ai/billing-service-core": "0.1.0",
         "@jskit-ai/knex-mysql-core": "0.1.0",
         "@jskit-ai/server-runtime-core": "0.1.0",
         "@jskit-ai/workspace-console-core": "0.1.0"
