@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { createConsoleBillingService, resolveBillingProvider } from "@jskit-ai/billing-service-core";
 import { createService as createConsoleService } from "@jskit-ai/workspace-console-service-core/services/console";
 
 function createBillingRepositoryStub(overrides = {}) {
@@ -108,6 +109,19 @@ function createConsoleServiceHarness({
     status: "active"
   };
 
+  const consoleSettingsRepository = {
+    async ensure() {
+      return {
+        features: {}
+      };
+    },
+    async update(patch = {}) {
+      return {
+        features: patch?.features || {}
+      };
+    }
+  };
+
   return createConsoleService({
     consoleMembershipsRepository: {
       async transaction(work) {
@@ -139,23 +153,18 @@ function createConsoleServiceHarness({
         return 1;
       }
     },
-    consoleSettingsRepository: {
-      async ensure() {
-        return {
-          features: {}
-        };
-      },
-      async update(patch = {}) {
-        return {
-          features: patch?.features || {}
-        };
-      }
-    },
+    consoleSettingsRepository,
     userProfilesRepository: {},
-    billingRepository,
-    billingEnabled,
-    billingProvider,
-    billingProviderAdapter
+    consoleBillingServiceFactory: ({ requirePermission, ensureConsoleSettings }) =>
+      createConsoleBillingService({
+        requirePermission,
+        ensureConsoleSettings,
+        consoleSettingsRepository,
+        billingEnabled,
+        billingRepository,
+        billingProviderAdapter,
+        activeBillingProvider: resolveBillingProvider(billingProvider)
+      })
   });
 }
 

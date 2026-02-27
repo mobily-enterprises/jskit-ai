@@ -11,9 +11,7 @@ import {
   normalizeRoleId,
   resolveAssignableRoleIds
 } from "@jskit-ai/workspace-console-core/consoleRoles";
-import { DEFAULT_BILLING_PROVIDER, resolveBillingProvider } from "@jskit-ai/billing-service-core/services/billingCatalog";
 import { createConsoleAccessService } from "./consoleAccess.service.js";
-import { createConsoleBillingService } from "@jskit-ai/billing-service-core/services/consoleBilling";
 import { createConsoleMembersService } from "./consoleMembers.service.js";
 import { createConsoleInvitesService } from "./consoleInvites.service.js";
 
@@ -23,10 +21,7 @@ function createService({
   consoleRootRepository,
   consoleSettingsRepository,
   userProfilesRepository,
-  billingRepository = null,
-  billingProviderAdapter = null,
-  billingEnabled = true,
-  billingProvider = DEFAULT_BILLING_PROVIDER,
+  consoleBillingServiceFactory = null,
   alertsService = null
 }) {
   if (
@@ -41,7 +36,9 @@ function createService({
 
   const roleCatalog = getRoleCatalog();
   const assignableRoleIds = resolveAssignableRoleIds();
-  const activeBillingProvider = resolveBillingProvider(billingProvider);
+  if (typeof consoleBillingServiceFactory !== "function") {
+    throw new Error("consoleBillingServiceFactory must be a function.");
+  }
 
   async function runInInviteTransaction(work) {
     if (typeof consoleInvitesRepository.transaction === "function") {
@@ -146,6 +143,15 @@ function createService({
     });
   resolvePendingInvitesForUser = listPendingInvitesForUser;
 
+  const consoleBillingService = consoleBillingServiceFactory({
+    requirePermission,
+    ensureConsoleSettings,
+    consoleSettingsRepository
+  });
+  if (!consoleBillingService || typeof consoleBillingService !== "object") {
+    throw new Error("consoleBillingServiceFactory must return a service object.");
+  }
+
   const {
     getBillingSettings,
     updateBillingSettings,
@@ -180,15 +186,7 @@ function createService({
     changeSubscriptionPlanForConsole,
     cancelSubscriptionForConsole,
     cancelSubscriptionAtPeriodEndForConsole
-  } = createConsoleBillingService({
-    requirePermission,
-    ensureConsoleSettings,
-    consoleSettingsRepository,
-    billingEnabled,
-    billingRepository,
-    billingProviderAdapter,
-    activeBillingProvider
-  });
+  } = consoleBillingService;
 
   async function buildBootstrapPayload({ user }) {
     if (!user) {

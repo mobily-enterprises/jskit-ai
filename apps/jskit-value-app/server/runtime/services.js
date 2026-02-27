@@ -26,7 +26,9 @@ import {
   createBillingCheckoutSessionService,
   createBillingCheckoutOrchestratorService,
   createBillingWebhookService,
-  createBillingRealtimePublishService
+  createBillingRealtimePublishService,
+  createConsoleBillingService,
+  resolveBillingProvider
 } from "@jskit-ai/billing-service-core";
 import {
   createBillingOutboxWorkerService,
@@ -950,6 +952,7 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
     id: "consoleService",
     create({ repositories, services, repositoryConfig }) {
       const billingPolicyConfig = repositoryConfig?.billing || {};
+      const activeBillingProvider = resolveBillingProvider(billingPolicyConfig.provider);
 
       return createConsoleService({
         consoleMembershipsRepository: repositories.consoleMembershipsRepository,
@@ -957,10 +960,16 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
         consoleRootRepository: repositories.consoleRootRepository,
         consoleSettingsRepository: repositories.consoleSettingsRepository,
         userProfilesRepository: repositories.userProfilesRepository,
-        billingRepository: repositories.billingRepository,
-        billingProviderAdapter: services.billingProviderAdapter,
-        billingEnabled: billingPolicyConfig.enabled,
-        billingProvider: billingPolicyConfig.provider,
+        consoleBillingServiceFactory: ({ requirePermission, ensureConsoleSettings }) =>
+          createConsoleBillingService({
+            requirePermission,
+            ensureConsoleSettings,
+            consoleSettingsRepository: repositories.consoleSettingsRepository,
+            billingEnabled: billingPolicyConfig.enabled,
+            billingRepository: repositories.billingRepository,
+            billingProviderAdapter: services.billingProviderAdapter,
+            activeBillingProvider
+          }),
         alertsService: services.alertsService
       });
     }

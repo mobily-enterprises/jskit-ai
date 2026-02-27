@@ -288,7 +288,16 @@ function createConsoleServiceFixture({ rootUserId = null, memberships = [] } = {
       consoleInvitesRepository,
       consoleRootRepository,
       consoleSettingsRepository,
-      userProfilesRepository
+      userProfilesRepository,
+      consoleBillingServiceFactory: () =>
+        new Proxy(
+          {},
+          {
+            get() {
+              return async () => ({});
+            }
+          }
+        )
     })
   };
 }
