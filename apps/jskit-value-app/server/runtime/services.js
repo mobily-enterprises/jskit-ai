@@ -12,7 +12,7 @@ import { createService as createWorkspaceAdminService } from "@jskit-ai/workspac
 import { createService as createWorkspaceInviteEmailService } from "@jskit-ai/workspace-service-core/services/inviteEmail";
 import { createService as createChatAttachmentStorageService } from "@jskit-ai/chat-storage-core";
 import { createService as createConsoleService } from "@jskit-ai/workspace-console-service-core/services/console";
-import { createService as createConsoleErrorsService } from "@jskit-ai/workspace-console-service-core/services/errors";
+import { createService as createConsoleErrorsService } from "@jskit-ai/observability-core/services/consoleErrors";
 import { createService as createAuditService } from "@jskit-ai/security-audit-core";
 import { createService as createChatModuleService } from "../modules/chat/index.js";
 import { createService as createSocialModuleService } from "../modules/social/index.js";

@@ -3,20 +3,23 @@ export default Object.freeze({
   "packageId": "@jskit-ai/observability-core",
   "version": "0.1.0",
   "dependsOn": [
-    "@jskit-ai/server-runtime-core"
+    "@jskit-ai/server-runtime-core",
+    "@jskit-ai/workspace-console-core"
   ],
   "capabilities": {
     "provides": [
       "observability.core"
     ],
     "requires": [
-      "runtime.server"
+      "runtime.server",
+      "workspace.console.core"
     ]
   },
   "mutations": {
     "dependencies": {
       "runtime": {
-        "@jskit-ai/server-runtime-core": "0.1.0"
+        "@jskit-ai/server-runtime-core": "0.1.0",
+        "@jskit-ai/workspace-console-core": "0.1.0"
       },
       "dev": {}
     },

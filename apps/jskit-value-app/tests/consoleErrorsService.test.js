@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createService as createConsoleErrorsService } from "@jskit-ai/workspace-console-service-core/services/errors";
+import { createService as createConsoleErrorsService } from "@jskit-ai/observability-core/services/consoleErrors";
 
 function createFixture({ membership } = {}) {
   const calls = {
