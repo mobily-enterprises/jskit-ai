@@ -942,6 +942,36 @@ function buildBundleMetadata(bundleDescriptor, availablePackages) {
   };
 }
 
+function isProviderCapability(capabilityId) {
+  const normalized = String(capabilityId || "").trim();
+  if (!normalized) {
+    return false;
+  }
+
+  return normalized === "db-provider" || normalized.endsWith(".provider") || normalized.includes(".provider.");
+}
+
+function splitBundleEntriesByProviderRole(bundleEntries) {
+  const providerBundles = [];
+  const standardBundles = [];
+
+  for (const entry of bundleEntries) {
+    const providesProviderCapability = (entry.providedCapabilities || []).some((capabilityId) =>
+      isProviderCapability(capabilityId)
+    );
+    if (providesProviderCapability) {
+      providerBundles.push(entry);
+      continue;
+    }
+    standardBundles.push(entry);
+  }
+
+  return {
+    providerBundles,
+    standardBundles
+  };
+}
+
 function buildOptionOwnerIndex(packageIds, availablePackages) {
   const owners = new Map();
   for (const packageId of packageIds) {
@@ -1508,8 +1538,13 @@ function formatResult(result, { json, stdout }) {
 
   if (result.command === "list") {
     if (result.availableBundles) {
-      stdout.write("Available bundles:\n");
-      for (const entry of result.availableBundles) {
+      stdout.write("\nBundles:\n");
+      for (const entry of result.standardBundles || []) {
+        stdout.write(`- ${entry.bundleId} (${entry.version})${entry.installed ? " [installed]" : ""}\n`);
+      }
+
+      stdout.write("\nProvider bundles:\n");
+      for (const entry of result.providerBundles || []) {
         stdout.write(`- ${entry.bundleId} (${entry.version})${entry.installed ? " [installed]" : ""}\n`);
       }
     }
@@ -1972,9 +2007,13 @@ export async function runCli(
         providedCapabilities: entry.descriptor.capabilities.provides
       }));
 
+      const bundleSplit = splitBundleEntriesByProviderRole(availableBundleEntries);
+
       result = {
         command: "list",
         availableBundles: selector === "all" || selector === "bundles" ? availableBundleEntries : null,
+        providerBundles: selector === "all" || selector === "bundles" ? bundleSplit.providerBundles : null,
+        standardBundles: selector === "all" || selector === "bundles" ? bundleSplit.standardBundles : null,
         availablePackages: selector === "all" || selector === "packages" ? availablePackageEntries : null
       };
       formatResult(result, {
