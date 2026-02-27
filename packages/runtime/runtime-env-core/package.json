@@ -10,7 +10,8 @@
     ".": "./src/shared/index.js",
     "./platformRuntimeEnv": "./src/shared/platformRuntimeEnv.js",
     "./platformRuntimeEnvSpecs": "./src/shared/platformRuntimeEnvSpecs.js",
-    "./appRuntimePolicy": "./src/shared/appRuntimePolicy.js"
+    "./appRuntimePolicy": "./src/shared/appRuntimePolicy.js",
+    "./startupPreflight": "./src/shared/startupPreflight.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

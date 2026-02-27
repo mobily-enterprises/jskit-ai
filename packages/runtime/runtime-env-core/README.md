@@ -24,6 +24,7 @@ Use this package to:
 - `@jskit-ai/runtime-env-core/platformRuntimeEnv`
 - `@jskit-ai/runtime-env-core/platformRuntimeEnvSpecs`
 - `@jskit-ai/runtime-env-core/appRuntimePolicy`
+- `@jskit-ai/runtime-env-core/startupPreflight`
 
 ## Function reference
 
@@ -77,6 +78,19 @@ Practical example:
 - `toBrowserConfig(appConfig)`
   - returns frontend-safe subset (`tenancyMode` + non-secret feature flags).
   - Example: bootstrap response can include app capabilities without exposing secrets.
+
+### `startupPreflight`
+
+- `hasNonEmptyEnvValue(value)`
+  - returns true when an env value is non-empty after trimming.
+- `resolveAuthProviderId(env)`
+  - normalizes `AUTH_PROVIDER` and defaults to `supabase`.
+- `resolveSupabaseAuthUrl(env)`
+  - returns normalized `AUTH_SUPABASE_URL`.
+- `resolveAuthJwtAudience(env)`
+  - returns normalized `AUTH_JWT_AUDIENCE` and defaults to `authenticated`.
+- `assertEnabledSubsystemStartupPreflight({ env, aiPolicyConfig, billingPolicyConfig, socialPolicyConfig })`
+  - fails fast when required secrets for enabled AI/billing/social federation are missing.
 
 ## Practical usage example
 
