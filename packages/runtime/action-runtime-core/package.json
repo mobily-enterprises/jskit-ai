@@ -16,6 +16,7 @@
     "./idempotency": "./src/shared/idempotency.js",
     "./audit": "./src/shared/audit.js",
     "./observability": "./src/shared/observability.js",
-    "./actionIds": "./src/shared/actionIds.js"
+    "./actionIds": "./src/shared/actionIds.js",
+    "./realtimePublish": "./src/shared/realtimePublish.js"
   }
 }

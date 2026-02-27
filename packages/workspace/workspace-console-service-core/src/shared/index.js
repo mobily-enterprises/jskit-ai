@@ -4,4 +4,5 @@ export { createConsoleMembersService } from "./services/consoleMembers.service.j
 export { createConsoleInvitesService } from "./services/consoleInvites.service.js";
 export { mapMembershipSummary, mapMember, mapInvite, mapPendingInvite } from "./mappers/consoleMappers.js";
 export { DEFAULT_INVITE_TTL_HOURS, resolveInviteExpiresAt } from "./policies/invitePolicy.js";
+export { createConsoleCoreActionContributor } from "./actions/consoleCore.contributor.js";
 export { createConsoleActionContributor } from "./actions/console.contributor.js";

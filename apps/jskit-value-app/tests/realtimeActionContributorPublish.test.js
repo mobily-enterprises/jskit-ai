@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createConsoleActionContributor } from "@jskit-ai/workspace-console-service-core";
+import { createConsoleBillingActionContributor } from "@jskit-ai/billing-service-core";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../shared/eventTypes.js";
 import { createSettingsActionContributor } from "../server/runtime/actions/contributors/settings.contributor.js";
 import { createDeg2radHistoryActionContributor } from "../server/runtime/actions/contributors/deg2radHistory.contributor.js";
@@ -288,7 +289,7 @@ test("console errors contributor publishes realtime for command mutations", asyn
   assert.deepEqual(published[1].targetUserIds, [88]);
 });
 
-test("console contributor publishes realtime for settings, members, invites, and billing command actions", async () => {
+test("console contributors publish realtime for core and billing command actions", async () => {
   const published = [];
   const methods = [
     "buildBootstrapPayload",
@@ -342,28 +343,36 @@ test("console contributor publishes realtime for settings, members, invites, and
   }
   consoleService.listPendingInvitesForUser = async () => [];
 
-  const contributor = createConsoleActionContributor({
-    consoleService,
-    realtimeEventsService: {
-      createEventEnvelope(payload) {
-        return {
-          eventId: "evt_console",
-          ...payload
-        };
-      },
-      publish(payload) {
-        published.push(payload);
-      }
+  const realtimeEventsService = {
+    createEventEnvelope(payload) {
+      return {
+        eventId: "evt_console",
+        ...payload
+      };
     },
+    publish(payload) {
+      published.push(payload);
+    }
+  };
+
+  const coreContributor = createConsoleActionContributor({
+    consoleService,
+    realtimeEventsService,
+    realtimeTopics: REALTIME_TOPICS,
+    realtimeEventTypes: REALTIME_EVENT_TYPES
+  });
+  const billingContributor = createConsoleBillingActionContributor({
+    consoleService,
+    realtimeEventsService,
     realtimeTopics: REALTIME_TOPICS,
     realtimeEventTypes: REALTIME_EVENT_TYPES
   });
 
-  const memberUpdateAction = getAction(contributor, "console.member.role.update");
-  const inviteCreateAction = getAction(contributor, "console.invite.create");
-  const settingsUpdateAction = getAction(contributor, "console.settings.update");
-  const billingUpdateAction = getAction(contributor, "console.billing.settings.update");
-  const membersListAction = getAction(contributor, "console.members.list");
+  const memberUpdateAction = getAction(coreContributor, "console.member.role.update");
+  const inviteCreateAction = getAction(coreContributor, "console.invite.create");
+  const settingsUpdateAction = getAction(coreContributor, "console.settings.update");
+  const billingUpdateAction = getAction(billingContributor, "console.billing.settings.update");
+  const membersListAction = getAction(coreContributor, "console.members.list");
 
   await memberUpdateAction.execute(
     {

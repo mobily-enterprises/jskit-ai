@@ -30,3 +30,9 @@ export {
 export { createNoopAuditAdapter } from "./audit.js";
 export { createNoopObservabilityAdapter } from "./observability.js";
 export { ACTION_IDS, ACTION_ID_VALUES } from "./actionIds.js";
+export {
+  resolveCommandId,
+  resolveSourceClientId,
+  publishRealtimeCommandEvent,
+  applyRealtimePublishToCommandAction
+} from "./realtimePublish.js";

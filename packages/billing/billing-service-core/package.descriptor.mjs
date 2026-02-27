@@ -3,6 +3,7 @@ export default Object.freeze({
   "packageId": "@jskit-ai/billing-service-core",
   "version": "0.1.0",
   "dependsOn": [
+    "@jskit-ai/action-runtime-core",
     "@jskit-ai/access-core",
     "@jskit-ai/billing-provider-core",
     "@jskit-ai/entitlements-core",
@@ -16,6 +17,7 @@ export default Object.freeze({
       "billing.service"
     ],
     "requires": [
+      "runtime.actions",
       "auth.access",
       "billing.provider",
       "billing.entitlements.core",
@@ -28,6 +30,7 @@ export default Object.freeze({
   "mutations": {
     "dependencies": {
       "runtime": {
+        "@jskit-ai/action-runtime-core": "0.1.0",
         "@jskit-ai/access-core": "0.1.0",
         "@jskit-ai/billing-core": "0.1.0",
         "@jskit-ai/billing-provider-core": "0.1.0",

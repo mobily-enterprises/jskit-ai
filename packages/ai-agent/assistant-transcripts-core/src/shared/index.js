@@ -9,3 +9,4 @@ export {
   resolveTranscriptModeFromWorkspaceSettings,
   applyTranscriptModeToWorkspaceFeatures
 } from "./mode.js";
+export { createConsoleTranscriptsActionContributor } from "./actions/consoleTranscripts.contributor.js";

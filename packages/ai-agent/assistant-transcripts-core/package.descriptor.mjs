@@ -4,7 +4,8 @@ export default Object.freeze({
   "version": "0.1.0",
   "dependsOn": [
     "@jskit-ai/server-runtime-core",
-    "@jskit-ai/assistant-core"
+    "@jskit-ai/assistant-core",
+    "@jskit-ai/workspace-console-core"
   ],
   "capabilities": {
     "provides": [
@@ -12,13 +13,15 @@ export default Object.freeze({
     ],
     "requires": [
       "runtime.server",
-      "assistant.core"
+      "assistant.core",
+      "workspace.console.core"
     ]
   },
   "mutations": {
     "dependencies": {
       "runtime": {
-        "@jskit-ai/server-runtime-core": "0.1.0"
+        "@jskit-ai/server-runtime-core": "0.1.0",
+        "@jskit-ai/workspace-console-core": "0.1.0"
       },
       "dev": {}
     },

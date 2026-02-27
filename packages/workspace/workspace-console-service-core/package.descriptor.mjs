@@ -3,6 +3,7 @@ export default Object.freeze({
   "packageId": "@jskit-ai/workspace-console-service-core",
   "version": "0.1.0",
   "dependsOn": [
+    "@jskit-ai/action-runtime-core",
     "@jskit-ai/workspace-console-core",
     "@jskit-ai/workspace-console-knex-mysql",
     "@jskit-ai/access-core",
@@ -18,12 +19,14 @@ export default Object.freeze({
       "workspace.console.store.mysql",
       "auth.access",
       "runtime.server",
-      "billing.service"
+      "billing.service",
+      "runtime.actions"
     ]
   },
   "mutations": {
     "dependencies": {
       "runtime": {
+        "@jskit-ai/action-runtime-core": "0.1.0",
         "@jskit-ai/access-core": "0.1.0",
         "@jskit-ai/assistant-core": "0.1.0",
         "@jskit-ai/billing-service-core": "0.1.0",

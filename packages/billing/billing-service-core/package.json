@@ -14,6 +14,7 @@
     "./services/billingSettings": "./src/shared/billingSettings.service.js",
     "./services/billingCatalog": "./src/shared/billingCatalog.service.js",
     "./services/billingCatalogProviderPricing": "./src/shared/billingCatalogProviderPricing.service.js",
+    "./actions/consoleBilling": "./src/shared/actions/consoleBilling.contributor.js",
     "./constants": "./src/shared/constants.js",
     "./appCapabilityLimits": "./src/shared/appCapabilityLimits.js",
     "./canonicalJson": "./src/shared/canonicalJson.js",
@@ -34,6 +35,7 @@
     "./webhookSubscriptionProjectionService": "./src/shared/webhookSubscriptionProjection.service.js"
   },
   "dependencies": {
+    "@jskit-ai/action-runtime-core": "0.1.0",
     "@jskit-ai/access-core": "0.1.0",
     "@jskit-ai/billing-core": "0.1.0",
     "@jskit-ai/entitlements-core": "0.1.0",

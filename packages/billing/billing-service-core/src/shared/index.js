@@ -71,3 +71,4 @@ export {
   resolveProviderSdkName
 } from "./constants.js";
 export { createWorkspaceBillingActionContributor } from "./actions/workspaceBilling.contributor.js";
+export { createConsoleBillingActionContributor } from "./actions/consoleBilling.contributor.js";

@@ -1,9 +1,11 @@
 import { createAuthActionContributor } from "@jskit-ai/auth-provider-supabase-core";
 import { createWorkspaceActionContributor } from "@jskit-ai/workspace-service-core";
 import { createConsoleActionContributor } from "@jskit-ai/workspace-console-service-core";
+import { createConsoleBillingActionContributor } from "@jskit-ai/billing-service-core/actions/consoleBilling";
 import { createChatActionContributor } from "@jskit-ai/chat-core";
 import { createSocialActionContributor } from "@jskit-ai/social-core";
 import { createWorkspaceBillingActionContributor } from "@jskit-ai/billing-service-core";
+import { createConsoleTranscriptsActionContributor } from "@jskit-ai/assistant-transcripts-core/actions/consoleTranscripts";
 import { createSettingsActionContributor } from "../runtime/actions/contributors/settings.contributor.js";
 import { createAlertsActionContributor } from "../runtime/actions/contributors/alerts.contributor.js";
 import { createProjectsActionContributor } from "../runtime/actions/contributors/projects.contributor.js";
@@ -40,10 +42,30 @@ const ACTION_CONTRIBUTOR_DEFINITIONS = Object.freeze([
     create({ services }) {
       return createConsoleActionContributor({
         consoleService: services?.consoleService,
-        aiTranscriptsService: services?.aiTranscriptsService,
         realtimeEventsService: services?.realtimeEventsService,
         realtimeTopics: REALTIME_TOPICS,
         realtimeEventTypes: REALTIME_EVENT_TYPES
+      });
+    }
+  },
+  {
+    id: "consoleBilling",
+    moduleId: "console",
+    create({ services }) {
+      return createConsoleBillingActionContributor({
+        consoleService: services?.consoleService,
+        realtimeEventsService: services?.realtimeEventsService,
+        realtimeTopics: REALTIME_TOPICS,
+        realtimeEventTypes: REALTIME_EVENT_TYPES
+      });
+    }
+  },
+  {
+    id: "consoleTranscripts",
+    moduleId: "console",
+    create({ services }) {
+      return createConsoleTranscriptsActionContributor({
+        aiTranscriptsService: services?.aiTranscriptsService
       });
     }
   },

@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/shared/index.js",
     "./client/consoleApi": "./src/shared/client/consoleApi.js",
+    "./actions/consoleCore": "./src/shared/actions/consoleCore.contributor.js",
     "./services/console": "./src/shared/services/console.service.js",
     "./services/consoleAccess": "./src/shared/services/consoleAccess.service.js",
     "./services/consoleMembers": "./src/shared/services/consoleMembers.service.js",
@@ -17,6 +18,7 @@
     "./policies/invitePolicy": "./src/shared/policies/invitePolicy.js"
   },
   "dependencies": {
+    "@jskit-ai/action-runtime-core": "0.1.0",
     "@jskit-ai/access-core": "0.1.0",
     "@jskit-ai/assistant-core": "0.1.0",
     "@jskit-ai/billing-service-core": "0.1.0",
