@@ -19,6 +19,12 @@ test("settings action contributor publishes realtime for synced mutation actions
       async getForUser() {
         return {};
       },
+      async getExtension() {
+        return {};
+      },
+      async updateExtension() {
+        return { ok: true };
+      },
       async updateProfile() {
         return { ok: true };
       },

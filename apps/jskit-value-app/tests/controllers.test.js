@@ -227,6 +227,18 @@ test("settings controller covers get/update/security flows via action executor",
       switch (actionId) {
         case "settings.read":
           return { profile: { displayName: "user", email: "user@example.com" } };
+        case "settings.extensions.read":
+          return {
+            extensionId: "projects.preferences",
+            fields: [{ id: "projects.defaultView" }],
+            value: { defaultView: "list" }
+          };
+        case "settings.extensions.update":
+          return {
+            extensionId: "projects.preferences",
+            fields: [{ id: "projects.defaultView" }],
+            value: { defaultView: input.defaultView || "list" }
+          };
         case "settings.profile.update":
           return {
             settings: { profile: { displayName: "updated", email: "user@example.com" } },
@@ -277,6 +289,20 @@ test("settings controller covers get/update/security flows via action executor",
   await controller.get({ user: { id: 7 } }, getReply);
   assert.equal(getReply.statusCode, 200);
   assert.equal(getReply.payload.profile.displayName, "user");
+
+  const extensionReadReply = createReplyDouble();
+  await controller.getExtension({ params: { extensionId: "projects.preferences" }, user: { id: 7 } }, extensionReadReply);
+  assert.equal(extensionReadReply.statusCode, 200);
+  assert.equal(extensionReadReply.payload.extensionId, "projects.preferences");
+  assert.equal(extensionReadReply.payload.value.defaultView, "list");
+
+  const extensionUpdateReply = createReplyDouble();
+  await controller.updateExtension(
+    { params: { extensionId: "projects.preferences" }, body: { defaultView: "board" }, user: { id: 7 } },
+    extensionUpdateReply
+  );
+  assert.equal(extensionUpdateReply.statusCode, 200);
+  assert.equal(extensionUpdateReply.payload.value.defaultView, "board");
 
   const profileReply = createReplyDouble();
   await controller.updateProfile({ body: { displayName: "updated" }, user: { id: 7 } }, profileReply);
@@ -366,5 +392,5 @@ test("settings controller covers get/update/security flows via action executor",
     }
   );
 
-  assert.ok(actionCalls.length >= 12);
+  assert.ok(actionCalls.length >= 14);
 });

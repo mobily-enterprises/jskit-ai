@@ -1191,3 +1191,179 @@ test("user settings service supports password fallback mode and user-profile fal
 
   assert.equal(profileLookupCalls, 0);
 });
+
+test("user settings service executes configured settings extensions", async () => {
+  const extensionCalls = [];
+  const extensionState = {
+    defaultView: "list"
+  };
+
+  const service = createUserSettingsService({
+    userSettingsRepository: {
+      async ensureForUserId(userId) {
+        return buildSettings({ userId });
+      },
+      async updatePreferences() {
+        return buildSettings();
+      },
+      async updateNotifications() {
+        return buildSettings();
+      }
+    },
+    chatUserSettingsRepository: {
+      async ensureForUserId(userId) {
+        return buildChatSettings({ userId });
+      },
+      async updateByUserId(userId, patch) {
+        return buildChatSettings({ userId, ...patch });
+      }
+    },
+    userProfilesRepository: {
+      async findByIdentity() {
+        return null;
+      },
+      async updateDisplayNameById(userId, displayName) {
+        return buildUserProfile({ id: userId, displayName });
+      }
+    },
+    userAvatarService: {
+      buildAvatarResponse(_profile, { avatarSize }) {
+        return {
+          uploadedUrl: null,
+          gravatarUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+          effectiveUrl: "https://www.gravatar.com/avatar/hash?d=mp&s=64",
+          hasUploadedAvatar: false,
+          size: Number(avatarSize || 64),
+          version: null
+        };
+      },
+      async uploadForUser() {
+        throw new Error("not used");
+      },
+      async clearForUser() {
+        throw new Error("not used");
+      }
+    },
+    authService: {
+      getSettingsProfileAuthInfo() {
+        return getDefaultSettingsProfileAuthInfo();
+      },
+      async getSecurityStatus() {
+        return {
+          mfa: {
+            status: "not_enabled",
+            enrolled: false,
+            methods: []
+          },
+          authPolicy: {
+            minimumEnabledMethods: 1,
+            enabledMethodsCount: 1
+          },
+          authMethods: []
+        };
+      },
+      async updateDisplayName() {
+        return {
+          profile: null,
+          session: null
+        };
+      },
+      async changePassword() {
+        return {
+          session: null
+        };
+      },
+      async setPasswordSignInEnabled() {},
+      async startProviderLink() {
+        throw new Error("not used");
+      },
+      async unlinkProvider() {},
+      async signOutOtherSessions() {}
+    },
+    settingsExtensions: [
+      {
+        id: "projects.preferences",
+        fields: [{ id: "projects.defaultView" }],
+        validators: [
+          {
+            id: "defaultView",
+            validate({ payload }) {
+              const candidate = String(payload.defaultView || "")
+                .trim()
+                .toLowerCase();
+              if (!candidate) {
+                return {
+                  defaultView: "defaultView is required."
+                };
+              }
+              if (candidate !== "list" && candidate !== "board") {
+                return {
+                  defaultView: "defaultView must be list or board."
+                };
+              }
+              return null;
+            }
+          }
+        ],
+        persistence: {
+          async read() {
+            extensionCalls.push(["read"]);
+            return {
+              defaultView: extensionState.defaultView
+            };
+          },
+          async write({ payload }) {
+            extensionCalls.push(["write", payload.defaultView]);
+            extensionState.defaultView = String(payload.defaultView || "")
+              .trim()
+              .toLowerCase();
+            return {
+              defaultView: extensionState.defaultView
+            };
+          }
+        },
+        projection({ value }) {
+          return {
+            ...value,
+            projected: true
+          };
+        }
+      }
+    ]
+  });
+
+  const user = buildUserProfile({ id: 7 });
+
+  const firstRead = await service.getExtension({ marker: "ext-read-1" }, user, "projects.preferences");
+  assert.equal(firstRead.extensionId, "projects.preferences");
+  assert.equal(firstRead.value.defaultView, "list");
+  assert.equal(firstRead.value.projected, true);
+
+  const updated = await service.updateExtension(
+    { marker: "ext-update-1" },
+    user,
+    "projects.preferences",
+    { defaultView: "board" }
+  );
+  assert.equal(updated.value.defaultView, "board");
+  assert.equal(updated.value.projected, true);
+
+  await assert.rejects(
+    () => service.updateExtension({ marker: "ext-update-2" }, user, "projects.preferences", { defaultView: "table" }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.details.fieldErrors.defaultView, "defaultView must be list or board.");
+      return true;
+    }
+  );
+
+  await assert.rejects(
+    () => service.getExtension({ marker: "ext-read-2" }, user, "unknown.extension"),
+    (error) => {
+      assert.equal(error.status, 404);
+      return true;
+    }
+  );
+
+  assert.deepEqual(extensionCalls, [["read"], ["write", "board"]]);
+});

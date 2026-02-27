@@ -175,13 +175,14 @@ const PLATFORM_SERVICE_DEFINITIONS = Object.freeze([
   },
   {
     id: "userSettingsService",
-    create({ repositories, services }) {
+    create({ repositories, services, appServerExtensions }) {
       const { service } = createSettingsModuleService({
         userSettingsRepository: repositories.userSettingsRepository,
         chatUserSettingsRepository: repositories.chatUserSettingsRepository,
         userProfilesRepository: repositories.userProfilesRepository,
         authService: services.authService,
-        userAvatarService: services.userAvatarService
+        userAvatarService: services.userAvatarService,
+        settingsExtensions: appServerExtensions?.settings || []
       });
       return service;
     }

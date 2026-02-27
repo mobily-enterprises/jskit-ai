@@ -10,6 +10,7 @@ import {
   isValidTimeZone,
   toTrimmedString
 } from "@jskit-ai/workspace-console-core/settingsValidation";
+import { createSettingsExtensionsRuntime } from "./lib/extensionsRuntime.js";
 
 function validationError(fieldErrors) {
   return new AppError(400, "Validation failed.", {
@@ -249,7 +250,8 @@ function createService({
   chatUserSettingsRepository,
   userProfilesRepository,
   authService,
-  userAvatarService
+  userAvatarService,
+  settingsExtensions = []
 }) {
   if (!userAvatarService || typeof userAvatarService.buildAvatarResponse !== "function") {
     throw new Error("userAvatarService is required.");
@@ -262,6 +264,9 @@ function createService({
     throw new Error("chatUserSettingsRepository is required.");
   }
   const authProfileContract = resolveAuthProfileContract(authService);
+  const settingsExtensionsRuntime = createSettingsExtensionsRuntime({
+    settingsExtensions
+  });
 
   async function resolveLatestProfileByIdentity(user) {
     const identity = resolveProfileIdentity(user);
@@ -295,6 +300,20 @@ function createService({
     const chatSettings = await chatUserSettingsRepository.ensureForUserId(user.id);
     const securityStatus = await authService.getSecurityStatus(request);
     return buildResponse(user, settings, securityStatus, chatSettings);
+  }
+
+  async function getExtension(request, user, extensionId) {
+    return settingsExtensionsRuntime.read(extensionId, {
+      request,
+      user
+    });
+  }
+
+  async function updateExtension(request, user, extensionId, payload) {
+    return settingsExtensionsRuntime.update(extensionId, payload, {
+      request,
+      user
+    });
   }
 
   async function updateProfile(request, user, payload) {
@@ -444,6 +463,8 @@ function createService({
 
   return {
     getForUser,
+    getExtension,
+    updateExtension,
     updateProfile,
     updatePreferences,
     updateNotifications,

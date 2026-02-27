@@ -168,6 +168,24 @@ function buildStubControllers() {
         async updateChat(_request, reply) {
           reply.code(200).send(buildSettingsPayload());
         },
+        async getExtension(request, reply) {
+          reply.code(200).send({
+            extensionId: String(request.params?.extensionId || "projects.preferences"),
+            fields: [{ id: "projects.defaultView" }],
+            value: {
+              defaultView: "list"
+            }
+          });
+        },
+        async updateExtension(request, reply) {
+          reply.code(200).send({
+            extensionId: String(request.params?.extensionId || "projects.preferences"),
+            fields: [{ id: "projects.defaultView" }],
+            value: {
+              defaultView: String(request.body?.defaultView || "list")
+            }
+          });
+        },
         async changePassword(_request, reply) {
           reply.code(200).send({ ok: true, message: "Password changed." });
         },
@@ -297,6 +315,43 @@ test("settings chat route validates chat payload", async () => {
     }
   });
   assert.equal(valid.statusCode, 200);
+
+  await app.close();
+});
+
+test("settings extension routes validate extension id and payload", async () => {
+  const app = Fastify();
+  registerApiRoutes(app, { controllers: buildStubControllers() });
+
+  const invalidId = await app.inject({
+    method: "GET",
+    url: "/api/v1/settings/extensions/INVALID_ID"
+  });
+  assert.equal(invalidId.statusCode, 400);
+
+  const read = await app.inject({
+    method: "GET",
+    url: "/api/v1/settings/extensions/projects.preferences"
+  });
+  assert.equal(read.statusCode, 200);
+  assert.equal(JSON.parse(read.payload).extensionId, "projects.preferences");
+
+  const invalidPatch = await app.inject({
+    method: "PATCH",
+    url: "/api/v1/settings/extensions/projects.preferences",
+    payload: {}
+  });
+  assert.equal(invalidPatch.statusCode, 400);
+
+  const validPatch = await app.inject({
+    method: "PATCH",
+    url: "/api/v1/settings/extensions/projects.preferences",
+    payload: {
+      defaultView: "board"
+    }
+  });
+  assert.equal(validPatch.statusCode, 200);
+  assert.equal(JSON.parse(validPatch.payload).value.defaultView, "board");
 
   await app.close();
 });

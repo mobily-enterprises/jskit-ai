@@ -33,6 +33,24 @@ function resolveUser(context, input) {
   return payload.user || resolveRequest(context)?.user || context?.actor || null;
 }
 
+function resolveExtensionId(input) {
+  const payload = normalizeObject(input);
+  return payload.extensionId || payload.params?.extensionId || "";
+}
+
+function stripExtensionMeta(input) {
+  const payload = normalizeObject(input);
+  const sanitized = {
+    ...payload
+  };
+
+  delete sanitized.extensionId;
+  delete sanitized.params;
+  delete sanitized.user;
+
+  return sanitized;
+}
+
 function requireAuthenticated(context) {
   return toPositiveInteger(context?.actor?.id) > 0;
 }
@@ -48,6 +66,7 @@ const REALTIME_SYNC_ACTION_IDS = Object.freeze(
     "settings.profile.update",
     "settings.profile.avatar.upload",
     "settings.profile.avatar.delete",
+    "settings.extensions.update",
     "settings.preferences.update",
     "settings.notifications.update",
     "settings.chat.update",
@@ -67,6 +86,8 @@ function createSettingsActionContributor({ userSettingsService, authService, rea
   const contributorId = "app.settings";
 
   requireServiceMethod(userSettingsService, "getForUser", contributorId);
+  requireServiceMethod(userSettingsService, "getExtension", contributorId);
+  requireServiceMethod(userSettingsService, "updateExtension", contributorId);
   requireServiceMethod(userSettingsService, "updateProfile", contributorId);
   requireServiceMethod(userSettingsService, "uploadAvatar", contributorId);
   requireServiceMethod(userSettingsService, "deleteAvatar", contributorId);
@@ -97,6 +118,52 @@ function createSettingsActionContributor({ userSettingsService, authService, rea
         observability: {},
         async execute(input, context) {
           return userSettingsService.getForUser(resolveRequest(context), resolveUser(context, input));
+        }
+      },
+      {
+        id: "settings.extensions.read",
+        version: 1,
+        kind: "query",
+        channels: ["api", "internal"],
+        surfaces: ["app", "admin", "console"],
+        visibility: "public",
+        inputSchema: OBJECT_INPUT_SCHEMA,
+        permission: requireAuthenticated,
+        idempotency: "none",
+        audit: {
+          actionName: "settings.extensions.read"
+        },
+        observability: {},
+        async execute(input, context) {
+          return userSettingsService.getExtension(
+            resolveRequest(context),
+            resolveUser(context, input),
+            resolveExtensionId(input)
+          );
+        }
+      },
+      {
+        id: "settings.extensions.update",
+        version: 1,
+        kind: "command",
+        channels: ["api", "internal"],
+        surfaces: ["app", "admin", "console"],
+        visibility: "public",
+        inputSchema: OBJECT_INPUT_SCHEMA,
+        permission: requireAuthenticated,
+        idempotency: "optional",
+        audit: {
+          actionName: "settings.extensions.update"
+        },
+        observability: {},
+        async execute(input, context) {
+          const payload = normalizeObject(input);
+          return userSettingsService.updateExtension(
+            resolveRequest(context),
+            resolveUser(context, payload),
+            resolveExtensionId(payload),
+            stripExtensionMeta(payload)
+          );
         }
       },
       {
