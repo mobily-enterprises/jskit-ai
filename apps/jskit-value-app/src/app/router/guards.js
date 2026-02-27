@@ -12,10 +12,7 @@ async function resolveRuntimeState({ authStore, workspaceStore }) {
       const bootstrapPayload = await api.workspace.bootstrap();
       const session =
         bootstrapPayload?.session && typeof bootstrapPayload.session === "object" ? bootstrapPayload.session : {};
-      authStore.applySession({
-        authenticated: Boolean(session.authenticated),
-        username: session.username || null
-      });
+      authStore.applySession(session);
       workspaceStore.applyBootstrap(bootstrapPayload);
       authenticated = Boolean(session.authenticated);
     } else {

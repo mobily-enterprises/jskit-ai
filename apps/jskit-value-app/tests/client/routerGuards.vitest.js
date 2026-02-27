@@ -115,8 +115,7 @@ describe("routerGuards", () => {
 
     expect(mocks.api.workspace.bootstrap).toHaveBeenCalledTimes(1);
     expect(stores.authStore.applySession).toHaveBeenCalledWith({
-      authenticated: true,
-      username: null
+      authenticated: true
     });
     expect(stores.workspaceStore.applyBootstrap).toHaveBeenCalledTimes(1);
     expect(state.authenticated).toBe(true);

@@ -130,7 +130,9 @@ function createAuthRuntimeSpec(defaults = {}) {
     }),
     AUTH_JWT_AUDIENCE: str({
       default: resolveStringDefault(defaults, "AUTH_JWT_AUDIENCE", PLATFORM_RUNTIME_DEFAULTS.AUTH_JWT_AUDIENCE)
-    })
+    }),
+    AUTH_OAUTH_PROVIDERS: str({ default: resolveStringDefault(defaults, "AUTH_OAUTH_PROVIDERS", "") }),
+    AUTH_OAUTH_DEFAULT_PROVIDER: str({ default: resolveStringDefault(defaults, "AUTH_OAUTH_DEFAULT_PROVIDER", "") })
   };
 }
 

@@ -4,9 +4,7 @@ export default Object.freeze({
   "version": "0.1.0",
   "dependsOn": [],
   "capabilities": {
-    "provides": [
-      "billing.provider"
-    ],
+    "provides": [],
     "requires": []
   },
   "mutations": {

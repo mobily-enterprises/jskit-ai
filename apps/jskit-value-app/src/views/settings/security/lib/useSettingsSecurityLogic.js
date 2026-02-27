@@ -55,6 +55,21 @@ export function useSettingsSecurityLogic({
     return normalizeOAuthProviderCatalog(oauthProviders?.value, { fallback: [] });
   }
 
+  function resolveActionOAuthProviders() {
+    const configuredProviders = resolveOAuthProviders();
+    const providersFromMethods = securityAuthMethods.value
+      .filter((method) => method.kind === AUTH_METHOD_KIND_OAUTH)
+      .map((method) => ({
+        id: method.provider,
+        label: method.label
+      }))
+      .filter((provider) => Boolean(provider.id));
+
+    return normalizeOAuthProviderCatalog([...configuredProviders, ...providersFromMethods], {
+      fallback: configuredProviders
+    });
+  }
+
   function createFallbackAuthMethods() {
     return buildAuthMethodDefinitions({ oauthProviders: resolveOAuthProviders() }).map((definition) => {
       const alwaysAvailable = definition.kind === AUTH_METHOD_KIND_OTP;
@@ -190,7 +205,7 @@ export function useSettingsSecurityLogic({
   });
 
   function providerLabel(providerId) {
-    const providers = resolveOAuthProviders();
+    const providers = resolveActionOAuthProviders();
     const normalized = normalizeAppOAuthProvider(providerId, {
       providers,
       fallback: null
@@ -363,7 +378,7 @@ export function useSettingsSecurityLogic({
   }
 
   async function startProviderLink(providerId) {
-    const providers = resolveOAuthProviders();
+    const providers = resolveActionOAuthProviders();
     const provider = normalizeAppOAuthProvider(providerId, {
       providers,
       fallback: null
@@ -395,7 +410,7 @@ export function useSettingsSecurityLogic({
 
   async function submitProviderUnlink(providerId) {
     const provider = normalizeAppOAuthProvider(providerId, {
-      providers: resolveOAuthProviders(),
+      providers: resolveActionOAuthProviders(),
       fallback: null
     });
     if (!provider) {

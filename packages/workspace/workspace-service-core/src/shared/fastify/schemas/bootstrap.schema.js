@@ -4,6 +4,7 @@ import {
   AUTH_EMAIL_MIN_LENGTH,
   AUTH_EMAIL_PATTERN
 } from "@jskit-ai/access-core/authConstraints";
+import { OAUTH_PROVIDER_ID_PATTERN } from "@jskit-ai/access-core/oauthProviders";
 import {
   PLATFORM_AVATAR_SETTINGS,
   SETTINGS_CURRENCY_CODE_PATTERN,
@@ -17,6 +18,20 @@ import { schema as sharedSchema } from "./shared.schema.js";
 
 const AVATAR_MIN_SIZE = PLATFORM_AVATAR_SETTINGS.minSize;
 const AVATAR_MAX_SIZE = PLATFORM_AVATAR_SETTINGS.maxSize;
+const oauthProvider = Type.String({
+  minLength: 2,
+  maxLength: 32,
+  pattern: OAUTH_PROVIDER_ID_PATTERN
+});
+const oauthProviderCatalogEntry = Type.Object(
+  {
+    id: oauthProvider,
+    label: Type.String({ minLength: 1, maxLength: 120 })
+  },
+  {
+    additionalProperties: false
+  }
+);
 
 const bootstrap = Type.Object(
   {
@@ -24,7 +39,9 @@ const bootstrap = Type.Object(
       {
         authenticated: Type.Boolean(),
         userId: Type.Optional(Type.Integer({ minimum: 1 })),
-        username: Type.Optional(Type.Union([Type.String({ minLength: 1, maxLength: 120 }), Type.Null()]))
+        username: Type.Optional(Type.Union([Type.String({ minLength: 1, maxLength: 120 }), Type.Null()])),
+        oauthProviders: Type.Array(oauthProviderCatalogEntry),
+        oauthDefaultProvider: Type.Union([oauthProvider, Type.Null()])
       },
       {
         additionalProperties: false

@@ -15,6 +15,8 @@ test("createPlatformRuntimeEnv uses platform defaults with neutral db names", ()
   assert.equal(runtimeEnv.DB_USER, "app");
   assert.equal(runtimeEnv.DB_NAME, "app");
   assert.equal(runtimeEnv.AUTH_PROVIDER, "supabase");
+  assert.equal(runtimeEnv.AUTH_OAUTH_PROVIDERS, "");
+  assert.equal(runtimeEnv.AUTH_OAUTH_DEFAULT_PROVIDER, "");
   assert.equal(runtimeEnv.REDIS_NAMESPACE, "jskit:test");
 });
 

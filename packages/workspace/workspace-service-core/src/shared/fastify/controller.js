@@ -80,6 +80,29 @@ function createController({
   const REALTIME_TOPICS = realtimeTopics;
   const REALTIME_EVENT_TYPES = realtimeEventTypes;
 
+  function getOAuthProviderCatalogPayload() {
+    const catalog =
+      typeof authService.getOAuthProviderCatalog === "function" ? authService.getOAuthProviderCatalog() : null;
+    const providers = Array.isArray(catalog?.providers)
+      ? catalog.providers
+          .map((provider) => ({
+            id: String(provider?.id || "")
+              .trim()
+              .toLowerCase(),
+            label: String(provider?.label || "").trim()
+          }))
+          .filter((provider) => provider.id && provider.label)
+      : [];
+    const defaultProvider = String(catalog?.defaultProvider || "")
+      .trim()
+      .toLowerCase();
+
+    return {
+      oauthProviders: providers,
+      oauthDefaultProvider: providers.some((provider) => provider.id === defaultProvider) ? defaultProvider : null
+    };
+  }
+
   function publishWorkspaceEventForRequest({ request, topic, eventType, entityType, entityId, payload }) {
     publishSafely({
       publishMethod: publishWorkspaceEvent,
@@ -98,6 +121,7 @@ function createController({
   }
 
   async function bootstrap(request, reply) {
+    const oauthCatalogPayload = getOAuthProviderCatalogPayload();
     const authResult = await executeAction(actionExecutor, {
       actionId: WORKSPACE_ACTION_IDS.AUTH_SESSION_READ,
       request
@@ -131,7 +155,16 @@ function createController({
       }
     });
 
-    reply.code(200).send(payload);
+    const session =
+      payload?.session && typeof payload.session === "object" ? payload.session : { authenticated: false };
+
+    reply.code(200).send({
+      ...payload,
+      session: {
+        ...session,
+        ...oauthCatalogPayload
+      }
+    });
   }
 
   async function listWorkspaces(request, reply) {

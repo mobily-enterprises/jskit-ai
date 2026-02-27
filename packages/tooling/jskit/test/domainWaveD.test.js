@@ -16,6 +16,7 @@ const WAVE_D_BUNDLES = [
   "billing-paddle",
   "billing-worker"
 ];
+const REQUIRES_BILLING_PROVIDER = new Set(["billing-base", "billing-worker"]);
 
 function runCli({ cwd, args = [] }) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
@@ -73,6 +74,14 @@ for (const bundleId of WAVE_D_BUNDLES) {
         assert.equal(addAssistantProvider.status, 0, addAssistantProvider.stderr);
       }
 
+      if (REQUIRES_BILLING_PROVIDER.has(bundleId)) {
+        const addBillingProvider = runCli({
+          cwd: appRoot,
+          args: ["add", "bundle", "billing-stripe", "--no-install"]
+        });
+        assert.equal(addBillingProvider.status, 0, addBillingProvider.stderr);
+      }
+
       const addBundle = runCli({
         cwd: appRoot,
         args: ["add", "bundle", bundleId, "--no-install"]
@@ -118,7 +127,7 @@ test("assistant enforces transcript db-provider capability", async () => {
   });
 });
 
-test("billing bundles can install stripe and paddle providers in same app", async () => {
+test("billing bundles enforce a single provider package", async () => {
   await withTempApp(async (appRoot) => {
     const addDb = runCli({
       cwd: appRoot,
@@ -136,11 +145,13 @@ test("billing bundles can install stripe and paddle providers in same app", asyn
       cwd: appRoot,
       args: ["add", "bundle", "billing-paddle", "--no-install"]
     });
-    assert.equal(addPaddle.status, 0, addPaddle.stderr);
+    assert.notEqual(addPaddle.status, 0);
+    assert.match(addPaddle.stderr, /\[capability-violation\]/i);
+    assert.match(addPaddle.stderr, /multiple installed providers/i);
 
     const lock = await readJsonFile(path.join(appRoot, ".jskit", "lock.json"));
-    assert.ok(lock.installedPackages["@jskit-ai/billing-provider-paddle"]);
     assert.ok(lock.installedPackages["@jskit-ai/billing-provider-stripe"]);
+    assert.equal(lock.installedPackages["@jskit-ai/billing-provider-paddle"], undefined);
   });
 });
 

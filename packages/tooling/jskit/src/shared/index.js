@@ -1044,11 +1044,8 @@ function buildBundleMetadata(bundleDescriptor, availablePackages) {
         description: buildPackageExplanation(packageId)
       };
     }),
-    providerRequirementHints: toSortedUniqueStrings(
-      resolvedPackageIds.flatMap((packageId) => {
-        const packageEntry = availablePackages.get(packageId);
-        return resolveProviderRequirementHints(packageEntry?.descriptor?.capabilities?.requires || []);
-      })
+    providerRequirementHints: resolveProviderRequirementHints(
+      [...requiredCapabilities].filter((capabilityId) => !providedCapabilities.has(capabilityId))
     ),
     requiredCapabilities: [...requiredCapabilities].sort((left, right) => left.localeCompare(right)),
     providedCapabilities: [...providedCapabilities].sort((left, right) => left.localeCompare(right))

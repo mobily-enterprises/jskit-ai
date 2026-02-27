@@ -8,10 +8,10 @@ export default Object.freeze({
   ],
   "capabilities": {
     "provides": [
+      "billing.provider",
       "billing.provider.paddle"
     ],
     "requires": [
-      "billing.provider",
       "runtime.server"
     ]
   },

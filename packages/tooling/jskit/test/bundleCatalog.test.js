@@ -36,6 +36,8 @@ const REQUIRES_AUTH_PROVIDER = new Set([
 ]);
 // Bundle IDs that require the assistant provider capability to be installed first.
 const BUNDLES_REQUIRING_ASSISTANT_PROVIDER = new Set(["assistant", "saas-full"]);
+// Bundle IDs that require a billing provider capability to be installed first.
+const BUNDLES_REQUIRING_BILLING_PROVIDER = new Set(["billing-base", "billing-worker", "saas-full"]);
 
 function runCli({ cwd, args = [] }) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
@@ -145,6 +147,14 @@ test("every bundle add succeeds with prerequisites and passes doctor", async () 
           args: ["add", "bundle", "assistant-openai", "--no-install"]
         });
         assert.equal(addAssistantProvider.status, 0, addAssistantProvider.stderr);
+      }
+
+      if (BUNDLES_REQUIRING_BILLING_PROVIDER.has(bundle.bundleId)) {
+        const addBillingProvider = runCli({
+          cwd: appRoot,
+          args: ["add", "bundle", "billing-stripe", "--no-install"]
+        });
+        assert.equal(addBillingProvider.status, 0, addBillingProvider.stderr);
       }
 
       const addResult = runCli({

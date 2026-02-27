@@ -97,7 +97,7 @@ Capability declarations are enforced by `jskit` during add/update/remove operati
 | `assistant.client-runtime` | `@jskit-ai/assistant-client-runtime` | `@jskit-ai/assistant-client-element` |
 | `assistant.client-element` | `@jskit-ai/assistant-client-element` | Assistant UI bundles |
 | `assistant.transcripts.explorer.client` | `@jskit-ai/assistant-transcript-explorer-client-element` | Assistant transcript UX bundles |
-| `billing.provider` | `@jskit-ai/billing-provider-core` | Billing core/services/providers |
+| `billing.provider` | `@jskit-ai/billing-provider-stripe`, `@jskit-ai/billing-provider-paddle` | Billing core/services/providers |
 | `billing.provider.stripe` | `@jskit-ai/billing-provider-stripe` | Stripe billing bundle |
 | `billing.provider.paddle` | `@jskit-ai/billing-provider-paddle` | Paddle billing bundle |
 | `billing.core` | `@jskit-ai/billing-core` | Billing service/routes/client packages |

@@ -4,6 +4,7 @@ import {
   AUTH_EMAIL_MIN_LENGTH,
   AUTH_EMAIL_PATTERN
 } from "@jskit-ai/access-core/authConstraints";
+import { OAUTH_PROVIDER_ID_PATTERN } from "@jskit-ai/access-core/oauthProviders";
 import {
   SETTINGS_CURRENCY_CODE_PATTERN,
   SETTINGS_DATE_FORMAT_OPTIONS,
@@ -15,13 +16,30 @@ import { AVATAR_MAX_SIZE, AVATAR_MIN_SIZE } from "../../../../shared/avatar.js";
 import { enumSchema } from "@jskit-ai/http-contracts/errorResponses";
 import { schema as sharedSchema } from "./shared.schema.js";
 
+const oauthProvider = Type.String({
+  minLength: 2,
+  maxLength: 32,
+  pattern: OAUTH_PROVIDER_ID_PATTERN
+});
+const oauthProviderCatalogEntry = Type.Object(
+  {
+    id: oauthProvider,
+    label: Type.String({ minLength: 1, maxLength: 120 })
+  },
+  {
+    additionalProperties: false
+  }
+);
+
 const bootstrap = Type.Object(
   {
     session: Type.Object(
       {
         authenticated: Type.Boolean(),
         userId: Type.Optional(Type.Integer({ minimum: 1 })),
-        username: Type.Optional(Type.Union([Type.String({ minLength: 1, maxLength: 120 }), Type.Null()]))
+        username: Type.Optional(Type.Union([Type.String({ minLength: 1, maxLength: 120 }), Type.Null()])),
+        oauthProviders: Type.Array(oauthProviderCatalogEntry),
+        oauthDefaultProvider: Type.Union([oauthProvider, Type.Null()])
       },
       {
         additionalProperties: false
