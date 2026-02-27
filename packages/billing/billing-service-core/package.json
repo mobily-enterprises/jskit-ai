@@ -8,6 +8,8 @@
   },
   "exports": {
     ".": "./src/shared/index.js",
+    "./client/workspaceBillingApi": "./src/shared/client/workspaceBillingApi.js",
+    "./client/consoleBillingApi": "./src/shared/client/consoleBillingApi.js",
     "./constants": "./src/shared/constants.js",
     "./appCapabilityLimits": "./src/shared/appCapabilityLimits.js",
     "./canonicalJson": "./src/shared/canonicalJson.js",

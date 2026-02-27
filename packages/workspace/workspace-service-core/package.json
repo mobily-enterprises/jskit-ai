@@ -8,6 +8,7 @@
   },
   "exports": {
     ".": "./src/shared/index.js",
+    "./client/workspaceApi": "./src/shared/client/workspaceApi.js",
     "./services/workspace": "./src/shared/services/workspace.service.js",
     "./services/admin": "./src/shared/services/admin.service.js",
     "./services/inviteEmail": "./src/shared/services/inviteEmail.service.js",

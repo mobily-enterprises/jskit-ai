@@ -8,6 +8,7 @@
   },
   "exports": {
     ".": "./src/shared/index.js",
+    "./client/authApi": "./src/shared/client/authApi.js",
     "./authConstraints": "./src/shared/authConstraints.js",
     "./authMethods": "./src/shared/authMethods.js",
     "./oauthProviders": "./src/shared/oauthProviders.js",
@@ -16,5 +17,8 @@
     "./validators": "./src/shared/validators.js",
     "./inviteTokens": "./src/shared/inviteTokens.js",
     "./membershipAccess": "./src/shared/membershipAccess.js"
+  },
+  "dependencies": {
+    "@jskit-ai/surface-routing": "0.1.0"
   }
 }

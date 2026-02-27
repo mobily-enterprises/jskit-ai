@@ -8,6 +8,7 @@
   },
   "exports": {
     ".": "./src/shared/index.js",
+    "./client/consoleApi": "./src/shared/client/consoleApi.js",
     "./services/console": "./src/shared/services/console.service.js",
     "./services/errors": "./src/shared/services/errors.service.js",
     "./services/consoleAccess": "./src/shared/services/consoleAccess.service.js",

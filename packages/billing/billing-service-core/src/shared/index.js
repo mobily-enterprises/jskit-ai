@@ -7,6 +7,8 @@ export { createService as createBillingRealtimePublishService, __testables as bi
 export { createService as createBillingService } from "./service.js";
 export { createService as createBillingWebhookService } from "./webhook.service.js";
 export { createService as createWebhookProjectionService, __testables as webhookProjectionServiceTestables } from "./webhookProjection.service.js";
+export { createApi as createWorkspaceBillingApi } from "./client/workspaceBillingApi.js";
+export { createApi as createConsoleBillingApi } from "./client/consoleBillingApi.js";
 export { toCanonicalJson, toSha256Hex, safeParseJson, __testables as canonicalJsonTestables } from "./canonicalJson.js";
 export {
   BILLING_PROVIDER_STRIPE,

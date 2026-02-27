@@ -11,6 +11,7 @@
   },
   "exports": {
     ".": "./src/shared/index.js",
+    "./client/consoleErrorsApi": "./src/shared/client/consoleErrorsApi.js",
     "./browserPayload": "./src/shared/browserPayload.js",
     "./serverPayload": "./src/shared/serverPayload.js",
     "./metricsContracts": "./src/shared/metricsContracts.js",
