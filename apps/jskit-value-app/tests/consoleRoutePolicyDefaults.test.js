@@ -1,33 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildRoutes, ROUTE_MODULE_DEFINITIONS } from "../server/modules/api/routes.js";
-
-function createControllerProxy() {
-  const fallbackHandler = new Proxy(
-    async (_request, reply) => {
-      if (reply && typeof reply.code === "function") {
-        reply.code(200).send({ ok: true });
-      }
-    },
-    {
-      get() {
-        return fallbackHandler;
-      }
-    }
-  );
-
-  return new Proxy(
-    {},
-    {
-      get(target, prop, receiver) {
-        if (Reflect.has(target, prop)) {
-          return Reflect.get(target, prop, receiver);
-        }
-        return fallbackHandler;
-      }
-    }
-  );
-}
+import { createControllerProxy } from "./helpers/createControllerProxy.js";
 
 test("console API routes default to optional workspace policy on console surface", () => {
   const routes = buildRoutes(createControllerProxy());
