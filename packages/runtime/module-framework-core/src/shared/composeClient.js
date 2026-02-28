@@ -1,18 +1,11 @@
 import { MODULE_ENABLEMENT_MODES, validateModuleDescriptors } from "./descriptor.js";
+import { normalizeMode } from "./compositionMode.js";
 import { resolveDependencyGraph } from "./dependencyGraph.js";
 import { resolveCapabilityGraph } from "./capabilityGraph.js";
 import { resolveMounts } from "./mountResolver.js";
 import { createDiagnosticsCollector, throwOnDiagnosticErrors } from "./diagnostics.js";
 
 const CLIENT_HOOK_PHASES = Object.freeze(["api", "routes", "guards", "nav", "realtime", "featureFlags"]);
-
-function normalizeMode(mode) {
-  const normalized = String(mode || MODULE_ENABLEMENT_MODES.strict).trim().toLowerCase();
-  if (normalized !== MODULE_ENABLEMENT_MODES.strict && normalized !== MODULE_ENABLEMENT_MODES.permissive) {
-    throw new TypeError(`Unsupported composition mode \"${normalized}\".`);
-  }
-  return normalized;
-}
 
 function moduleSignature(modules) {
   return modules
