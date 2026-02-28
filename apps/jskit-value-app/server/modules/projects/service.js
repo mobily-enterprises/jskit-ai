@@ -1,5 +1,6 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
+import { PROJECTS_PAGINATION } from "./schema.js";
 
 const PROJECT_STATUS_SET = new Set(["draft", "active", "archived"]);
 
@@ -123,8 +124,14 @@ function createService({ projectsRepository }) {
 
   async function list(workspaceContext, pagination) {
     const workspaceId = normalizeWorkspaceId(workspaceContext);
-    const page = Math.max(1, Number(pagination?.page) || 1);
-    const pageSize = Math.max(1, Math.min(100, Number(pagination?.pageSize) || 10));
+    const page = Math.max(1, Number(pagination?.page) || PROJECTS_PAGINATION.defaultPage);
+    const pageSize = Math.max(
+      1,
+      Math.min(
+        PROJECTS_PAGINATION.maxPageSize,
+        Number(pagination?.pageSize) || PROJECTS_PAGINATION.defaultPageSize
+      )
+    );
 
     const total = await projectsRepository.countForWorkspace(workspaceId);
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
