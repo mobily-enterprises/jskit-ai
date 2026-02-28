@@ -2,13 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { ACTION_IDS } from "@jskit-ai/action-runtime-core/actionIds";
+import { delay } from "../../../tests/helpers/delay.js";
 import { createSocialOutboxWorkerRuntimeService } from "@jskit-ai/social-core/outboxWorkerRuntimeService";
-
-function delay(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
 
 async function waitFor(predicate, { timeoutMs = 300, intervalMs = 5 } = {}) {
   const startedAt = Date.now();
