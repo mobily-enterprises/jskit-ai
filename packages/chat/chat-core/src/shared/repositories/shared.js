@@ -1,5 +1,6 @@
 import {
   normalizeCountRow,
+  normalizeIdList as normalizeIdListBase,
   normalizeNullableString,
   parseJsonObject,
   stringifyJsonObject
@@ -26,11 +27,7 @@ function resolveClient(dbClient, options = {}) {
 }
 
 function normalizeIdList(values) {
-  if (!Array.isArray(values)) {
-    return [];
-  }
-
-  return Array.from(new Set(values.map((value) => parsePositiveInteger(value)).filter(Boolean)));
+  return normalizeIdListBase(values, { parseValue: parsePositiveInteger });
 }
 
 function normalizeNullablePositiveInteger(value) {

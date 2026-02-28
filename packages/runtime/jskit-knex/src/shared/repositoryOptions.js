@@ -94,6 +94,13 @@ function normalizeNullableString(value, { trim = true } = {}) {
   return normalized || null;
 }
 
+function normalizeIdList(values, { parseValue } = {}) {
+  const source = Array.isArray(values) ? values : [];
+  const parser = typeof parseValue === "function" ? parseValue : (value) => value;
+  const normalized = source.map((value) => parser(value)).filter(Boolean);
+  return Array.from(new Set(normalized));
+}
+
 function normalizeCountRow(row) {
   const values = Object.values(row || {});
   if (values.length < 1) {
@@ -158,6 +165,7 @@ export {
   stringifyJsonObject,
   normalizeMetadataJsonInput,
   normalizeNullableString,
+  normalizeIdList,
   normalizeCountRow,
   parseJsonValue,
   toDbJson

@@ -1,4 +1,10 @@
-import { normalizeCountRow, normalizeNullableString, parseJsonObject, stringifyJsonObject } from "@jskit-ai/jskit-knex";
+import {
+  normalizeCountRow,
+  normalizeIdList as normalizeIdListBase,
+  normalizeNullableString,
+  parseJsonObject,
+  stringifyJsonObject
+} from "@jskit-ai/jskit-knex";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 
 function resolveClient(dbClient, options = {}) {
@@ -11,11 +17,7 @@ function normalizeNullablePositiveInteger(value) {
 }
 
 function normalizeIdList(values) {
-  if (!Array.isArray(values)) {
-    return [];
-  }
-
-  return Array.from(new Set(values.map((value) => parsePositiveInteger(value)).filter(Boolean)));
+  return normalizeIdListBase(values, { parseValue: parsePositiveInteger });
 }
 
 export {
