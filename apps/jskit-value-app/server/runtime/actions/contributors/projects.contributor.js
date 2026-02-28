@@ -3,7 +3,7 @@ import {
   publishProjectEventSafely,
   resolvePublishProjectEvent
 } from "../../../realtime/publishers/projectPublisher.js";
-import { normalizeHeaderValue } from "@jskit-ai/action-runtime-core";
+import { normalizeHeaderValue, resolveCommandId, resolveSourceClientId } from "@jskit-ai/action-runtime-core";
 
 const PROJECTS_CREATE_CAPABILITY = "projects.create";
 const PROJECTS_UNARCHIVE_CAPABILITY = "projects.unarchive";
@@ -66,37 +66,10 @@ function resolveUsageEventKey(context, input) {
   );
 }
 
-function resolveRequestCommandId(context, input) {
-  const payload = normalizeObject(input);
-  const payloadRequestMeta = normalizeObject(payload.requestMeta);
-  return (
-    normalizeHeaderValue(payloadRequestMeta.commandId) ||
-    normalizeHeaderValue(payloadRequestMeta.idempotencyKey) ||
-    normalizeHeaderValue(payload.commandId) ||
-    normalizeHeaderValue(payload.idempotencyKey) ||
-    normalizeHeaderValue(context?.requestMeta?.commandId) ||
-    normalizeHeaderValue(context?.requestMeta?.idempotencyKey) ||
-    null
-  );
-}
-
-function resolveRequestSourceClientId(context, input) {
-  const payload = normalizeObject(input);
-  const payloadRequestMeta = normalizeObject(payload.requestMeta);
-  const request = resolveRequest(context);
-  return (
-    normalizeHeaderValue(payloadRequestMeta.sourceClientId) ||
-    normalizeHeaderValue(payload.sourceClientId) ||
-    normalizeHeaderValue(context?.requestMeta?.sourceClientId) ||
-    normalizeHeaderValue(request?.headers?.["x-client-id"]) ||
-    null
-  );
-}
-
 function buildRealtimePublishRequest(context, input, workspace, user) {
   const request = resolveRequest(context);
-  const commandId = resolveRequestCommandId(context, input);
-  const sourceClientId = resolveRequestSourceClientId(context, input);
+  const commandId = resolveCommandId(context, input);
+  const sourceClientId = resolveSourceClientId(context, input);
   const headers = {
     ...(request?.headers || {})
   };
