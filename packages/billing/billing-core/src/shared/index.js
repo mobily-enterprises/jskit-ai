@@ -8,6 +8,7 @@ export {
 export { createGuardrailRecorder, withLeaseFence } from "./guardrails.js";
 export {
   toNonEmptyString,
+  toDateOrNull,
   normalizeCurrency,
   normalizeAmountAllowZero,
   normalizeAmountRequireNonZero,

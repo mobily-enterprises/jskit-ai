@@ -9,6 +9,19 @@ function toNonEmptyString(value) {
   return normalized || "";
 }
 
+function toDateOrNull(value) {
+  if (!value) {
+    return null;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+}
+
 function normalizeAmountAllowZero(value, { allowNegative = false } = {}) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed)) {
@@ -41,6 +54,7 @@ function normalizeAmountRequirePositive(value) {
 
 export {
   toNonEmptyString,
+  toDateOrNull,
   normalizeCurrency,
   normalizeAmountAllowZero,
   normalizeAmountRequireNonZero,

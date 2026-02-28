@@ -2,6 +2,7 @@ import {
   normalizeAmountAllowZero,
   normalizeAmountRequireNonZero,
   normalizeAmountRequirePositive,
+  toDateOrNull,
   toNonEmptyString
 } from "@jskit-ai/billing-core";
 
@@ -45,18 +46,6 @@ export function normalizeSubjectType(value, fallback = DEFAULT_SUBJECT_TYPE) {
   return normalized || fallback;
 }
 
-export function toDateOrNull(value) {
-  if (!value) {
-    return null;
-  }
-
-  const candidate = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(candidate.getTime())) {
-    return null;
-  }
-  return candidate;
-}
-
 export function normalizeCodes(value) {
   if (!Array.isArray(value) || value.length < 1) {
     return null;
@@ -70,7 +59,13 @@ export function normalizeCodes(value) {
   return [...new Set(normalized)];
 }
 
-export { normalizeAmountAllowZero, normalizeAmountRequireNonZero, normalizeAmountRequirePositive, toNonEmptyString };
+export {
+  normalizeAmountAllowZero,
+  normalizeAmountRequireNonZero,
+  normalizeAmountRequirePositive,
+  toDateOrNull,
+  toNonEmptyString
+};
 
 export function normalizeAmount(value, { allowNegative = false, requireNonZero = true } = {}) {
   if (requireNonZero) {

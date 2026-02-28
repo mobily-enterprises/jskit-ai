@@ -1,4 +1,5 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { toDateOrNull } from "@jskit-ai/billing-core";
 import {
   BILLING_ACTIONS,
   BILLING_CHECKOUT_SESSION_STATUS,
@@ -32,19 +33,6 @@ function isLeaseExpired(idempotencyRow, now = new Date()) {
   }
 
   return expiresAt.getTime() <= now.getTime();
-}
-
-function toDateOrNull(value) {
-  if (!value) {
-    return null;
-  }
-
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return date;
 }
 
 function pickLaterDate(left, right) {
