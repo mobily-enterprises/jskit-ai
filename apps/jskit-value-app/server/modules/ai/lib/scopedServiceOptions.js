@@ -1,16 +1,7 @@
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
+import { resolveScopedServiceOptions as resolveScopedServiceOptionsBase } from "../../../shared/scopedServiceOptions.js";
 
 function resolveScopedServiceOptions(options = {}) {
-  const source = isPlainObject(options) ? options : {};
-  const { aiServiceOptions = source, aiTranscriptsServiceOptions = source } = source;
-
-  return {
-    source,
-    aiServiceOptions: isPlainObject(aiServiceOptions) ? aiServiceOptions : source,
-    aiTranscriptsServiceOptions: isPlainObject(aiTranscriptsServiceOptions) ? aiTranscriptsServiceOptions : source
-  };
+  return resolveScopedServiceOptionsBase(options, ["aiServiceOptions", "aiTranscriptsServiceOptions"]);
 }
 
 export { resolveScopedServiceOptions };
