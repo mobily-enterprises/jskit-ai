@@ -17,6 +17,21 @@ function normalizeOptionValues(values) {
     .filter((value) => value.length > 0);
 }
 
+function normalizeMutationId(value, label) {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    return "";
+  }
+  if (!/^[a-z0-9][a-z0-9._-]*$/.test(normalized)) {
+    throw createCliError(`${label} is invalid: ${value}`);
+  }
+  return normalized;
+}
+
+function normalizeOptionalLabel(value) {
+  return String(value || "").trim();
+}
+
 export function normalizePackageDescriptor(packaged, descriptorPath) {
   ensureObject(packaged, `Package descriptor at ${descriptorPath}`);
 
@@ -81,6 +96,7 @@ export function normalizePackageDescriptor(packaged, descriptorPath) {
   const scripts = ensureRecord(packageJson.scripts, `Package ${packageId} mutations.packageJson.scripts`);
 
   const procfile = ensureRecord(mutations.procfile, `Package ${packageId} mutations.procfile`);
+  const textMutations = Array.isArray(mutations.text) ? mutations.text : [];
   const files = Array.isArray(mutations.files) ? mutations.files : [];
 
   const metadata = ensureRecord(packaged.metadata, `Package ${packageId} metadata`);
@@ -89,6 +105,7 @@ export function normalizePackageDescriptor(packaged, descriptorPath) {
 
   const serverRoutes = Array.isArray(serverMetadata.routes) ? serverMetadata.routes : [];
   const uiElements = Array.isArray(uiMetadata.elements) ? uiMetadata.elements : [];
+  const uiRoutes = Array.isArray(uiMetadata.routes) ? uiMetadata.routes : [];
 
   for (const [dependencyName, range] of Object.entries({ ...runtimeDependencies, ...devDependencies })) {
     if (!String(dependencyName || "").trim()) {
@@ -115,15 +132,94 @@ export function normalizePackageDescriptor(packaged, descriptorPath) {
     }
   }
 
+  const normalizedTextFromProcfile = Object.entries(procfile).map(([processType, command]) => ({
+    file: "Procfile",
+    op: "upsert-line",
+    key: normalizeProcessType(processType),
+    line: `${normalizeProcessType(processType)}: ${String(command || "").trim()}`,
+    value: "",
+    reason: `Manage Procfile ${normalizeProcessType(processType)} command.`,
+    category: "procfile",
+    id: `procfile.${normalizeProcessType(processType)}`
+  }));
+
+  const normalizedTextMutations = textMutations.map((entry, index) => {
+    ensureObject(entry, `Package ${packageId} mutations.text[${index}]`);
+
+    const file = normalizeRelativePath(entry.file);
+    const op = String(entry.op || "").trim();
+    const key = String(entry.key || "").trim();
+    const line = String(entry.line || "").trim();
+    const value = String(entry.value || "").trim();
+    const reason = normalizeOptionalLabel(entry.reason);
+    const category = normalizeOptionalLabel(entry.category);
+    const id = normalizeMutationId(entry.id, `Package ${packageId} mutations.text[${index}] id`);
+
+    if (!op) {
+      throw createCliError(`Package ${packageId} mutations.text[${index}] must define op.`);
+    }
+    if (!["upsert-line", "append-once", "upsert-env"].includes(op)) {
+      throw createCliError(
+        `Package ${packageId} mutations.text[${index}] op must be one of upsert-line, append-once, upsert-env.`
+      );
+    }
+
+    if (op === "upsert-line") {
+      if (!key || !line) {
+        throw createCliError(
+          `Package ${packageId} mutations.text[${index}] with op upsert-line must define key and line.`
+        );
+      }
+    }
+
+    if (op === "append-once") {
+      if (!line) {
+        throw createCliError(
+          `Package ${packageId} mutations.text[${index}] with op append-once must define line.`
+        );
+      }
+    }
+
+    if (op === "upsert-env") {
+      if (!key || !value) {
+        throw createCliError(
+          `Package ${packageId} mutations.text[${index}] with op upsert-env must define key and value.`
+        );
+      }
+      if (!/^[A-Z][A-Z0-9_]*$/.test(key)) {
+        throw createCliError(
+          `Package ${packageId} mutations.text[${index}] has invalid env key ${key}.`
+        );
+      }
+    }
+
+    return {
+      file,
+      op,
+      key,
+      line,
+      value,
+      reason,
+      category,
+      id
+    };
+  });
+
   const normalizedFiles = files.map((entry, index) => {
     ensureObject(entry, `Package ${packageId} files[${index}]`);
 
     const from = normalizeRelativePath(entry.from);
     const to = normalizeRelativePath(entry.to);
+    const reason = normalizeOptionalLabel(entry.reason);
+    const category = normalizeOptionalLabel(entry.category);
+    const id = normalizeMutationId(entry.id, `Package ${packageId} files[${index}] id`);
 
     return {
       from,
-      to
+      to,
+      reason,
+      category,
+      id
     };
   });
 
@@ -157,6 +253,20 @@ export function normalizePackageDescriptor(packaged, descriptorPath) {
     };
   });
 
+  const normalizedUiRoutes = uiRoutes.map((entry, index) => {
+    ensureObject(entry, `Package ${packageId} metadata.ui.routes[${index}]`);
+    const routePath = String(entry.path || "").trim();
+    if (!routePath) {
+      throw createCliError(`Package ${packageId} metadata.ui.routes[${index}] must define path.`);
+    }
+    return {
+      path: routePath,
+      surface: String(entry.surface || "").trim(),
+      name: String(entry.name || "").trim(),
+      purpose: String(entry.purpose || "").trim()
+    };
+  });
+
   return {
     packageVersion: 1,
     packageId,
@@ -176,7 +286,8 @@ export function normalizePackageDescriptor(packaged, descriptorPath) {
         routes: normalizedServerRoutes
       },
       ui: {
-        elements: normalizedUiElements
+        elements: normalizedUiElements,
+        routes: normalizedUiRoutes
       }
     },
     mutations: {
@@ -187,7 +298,7 @@ export function normalizePackageDescriptor(packaged, descriptorPath) {
       packageJson: {
         scripts
       },
-      procfile,
+      text: [...normalizedTextFromProcfile, ...normalizedTextMutations],
       files: normalizedFiles
     }
   };

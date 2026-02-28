@@ -35,6 +35,7 @@ const EXTERNAL_JSKIT_DEPENDENCY_IDS = new Set([
 ]);
 const LOCK_RELATIVE_PATH = ".jskit/lock.json";
 const LOCK_VERSION = 3;
+const OPTION_INTERPOLATION_PATTERN = /\$\{(?:option:)?([a-z][a-z0-9-]*)\}/gi;
 
 function createIssue(message) {
   return {
@@ -112,7 +113,8 @@ function getInstalledPackageDependents(lock, packageId, availablePackages, { exc
 
 function parseArgs(argv) {
   const args = Array.isArray(argv) ? [...argv] : [];
-  const command = String(args.shift() || "help").trim() || "help";
+  const rawCommand = String(args.shift() || "help").trim() || "help";
+  const command = rawCommand === "view" ? "show" : rawCommand;
 
   const options = {
     dryRun: false,
@@ -213,6 +215,7 @@ function printUsage(stream = process.stderr) {
   stream.write("  add bundle <bundleId>     Add one bundle (bundle is a package shortcut)\n");
   stream.write("  add package <packageId>   Add one package to current app\n");
   stream.write("  show <id>                 Show details for bundle id or package id\n");
+  stream.write("  view <id>                 Alias of show <id>\n");
   stream.write("  update package <packageId> Re-apply one installed package\n");
   stream.write("  remove package <packageId> Remove one installed package\n");
   stream.write("  doctor                    Validate lockfile + managed files\n");
@@ -310,76 +313,155 @@ async function loadLockFile(appRoot) {
   };
 }
 
-function normalizeProcessType(value) {
-  const normalized = String(value || "").trim();
-  if (!normalized || !/^[A-Za-z0-9_-]+$/.test(normalized)) {
-    throw createCliError(`Invalid Procfile process type: ${value}`);
-  }
-  return normalized;
-}
-
-function parseProcfileLines(source) {
+function parseTextLines(source) {
   return String(source || "")
     .split(/\r?\n/)
     .filter((line) => line.length > 0);
 }
 
-function parseProcfileEntry(line) {
-  const match = String(line || "").match(/^\s*([A-Za-z0-9_-]+)\s*:\s*(.*)$/);
-  if (!match) {
-    return null;
-  }
-  return {
-    processType: match[1],
-    command: match[2]
-  };
+function ensureTextWithTrailingNewline(lines) {
+  return lines.length > 0 ? `${lines.join("\n")}\n` : "";
 }
 
-function findProcfileCommand(source, processType) {
-  const normalizedProcessType = normalizeProcessType(processType);
-  for (const line of parseProcfileLines(source)) {
-    const entry = parseProcfileEntry(line);
-    if (entry && entry.processType === normalizedProcessType) {
-      return entry.command;
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function findLineByKey(source, key) {
+  const normalizedKey = String(key || "").trim();
+  if (!normalizedKey) {
+    return null;
+  }
+  const pattern = new RegExp(`^\\s*${escapeRegExp(normalizedKey)}\\s*:\\s*(.*)$`);
+  for (const line of parseTextLines(source)) {
+    const match = line.match(pattern);
+    if (match) {
+      return `${normalizedKey}: ${String(match[1] || "").trim()}`;
     }
   }
   return null;
 }
 
-function upsertProcfileCommand(source, processType, command) {
-  const normalizedProcessType = normalizeProcessType(processType);
-  const lines = parseProcfileLines(source);
-  const replacement = `${normalizedProcessType}: ${String(command || "").trim()}`;
-
+function upsertLineByKey(source, key, line) {
+  const normalizedKey = String(key || "").trim();
+  const normalizedLine = String(line || "").trim();
+  if (!normalizedKey || !normalizedLine) {
+    return String(source || "");
+  }
+  const lines = parseTextLines(source);
+  const pattern = new RegExp(`^\\s*${escapeRegExp(normalizedKey)}\\s*:\\s*(.*)$`);
   let found = false;
   const updated = lines.map((line) => {
-    const entry = parseProcfileEntry(line);
-    if (entry && entry.processType === normalizedProcessType) {
+    if (pattern.test(line)) {
       found = true;
-      return replacement;
+      return normalizedLine;
     }
     return line;
   });
 
   if (!found) {
-    if (normalizedProcessType === "release") {
-      updated.unshift(replacement);
-    } else {
-      updated.push(replacement);
-    }
+    updated.push(normalizedLine);
   }
 
-  return `${updated.join("\n")}\n`;
+  return ensureTextWithTrailingNewline(updated);
 }
 
-function removeProcfileCommand(source, processType) {
-  const normalizedProcessType = normalizeProcessType(processType);
-  const lines = parseProcfileLines(source);
-  const filtered = lines.filter((line) => {
-    const entry = parseProcfileEntry(line);
-    return !entry || entry.processType !== normalizedProcessType;
+function removeLineByKey(source, key) {
+  const normalizedKey = String(key || "").trim();
+  if (!normalizedKey) {
+    return String(source || "");
+  }
+  const pattern = new RegExp(`^\\s*${escapeRegExp(normalizedKey)}\\s*:\\s*(.*)$`);
+  const lines = parseTextLines(source).filter((line) => !pattern.test(line));
+  return ensureTextWithTrailingNewline(lines);
+}
+
+function hasExactLine(source, line) {
+  const normalizedLine = String(line || "").trim();
+  if (!normalizedLine) {
+    return false;
+  }
+  return parseTextLines(source).includes(normalizedLine);
+}
+
+function appendLineOnce(source, line) {
+  const normalizedLine = String(line || "").trim();
+  if (!normalizedLine) {
+    return String(source || "");
+  }
+  const lines = parseTextLines(source);
+  if (lines.includes(normalizedLine)) {
+    return ensureTextWithTrailingNewline(lines);
+  }
+  lines.push(normalizedLine);
+  return ensureTextWithTrailingNewline(lines);
+}
+
+function removeExactLine(source, line) {
+  const normalizedLine = String(line || "").trim();
+  if (!normalizedLine) {
+    return String(source || "");
+  }
+  const lines = parseTextLines(source).filter((entry) => entry !== normalizedLine);
+  return ensureTextWithTrailingNewline(lines);
+}
+
+function parseEnvEntry(line) {
+  const match = String(line || "").match(/^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.*)$/);
+  if (!match) {
+    return null;
+  }
+  return {
+    key: match[1],
+    value: String(match[2] || "")
+  };
+}
+
+function findEnvValue(source, key) {
+  const normalizedKey = String(key || "").trim();
+  if (!normalizedKey) {
+    return null;
+  }
+  for (const line of parseTextLines(source)) {
+    const entry = parseEnvEntry(line);
+    if (entry && entry.key === normalizedKey) {
+      return entry.value;
+    }
+  }
+  return null;
+}
+
+function upsertEnvValue(source, key, value) {
+  const normalizedKey = String(key || "").trim();
+  const normalizedValue = String(value || "").trim();
+  if (!normalizedKey) {
+    return String(source || "");
+  }
+  const replacement = `${normalizedKey}=${normalizedValue}`;
+  const pattern = new RegExp(`^\\s*${escapeRegExp(normalizedKey)}\\s*=\\s*(.*)$`);
+  const lines = parseTextLines(source);
+  let found = false;
+  const updated = lines.map((line) => {
+    if (pattern.test(line)) {
+      found = true;
+      return replacement;
+    }
+    return line;
   });
-  return filtered.length > 0 ? `${filtered.join("\n")}\n` : "";
+  if (!found) {
+    updated.push(replacement);
+  }
+  return ensureTextWithTrailingNewline(updated);
+}
+
+function removeEnvKey(source, key) {
+  const normalizedKey = String(key || "").trim();
+  if (!normalizedKey) {
+    return String(source || "");
+  }
+  const pattern = new RegExp(`^\\s*${escapeRegExp(normalizedKey)}\\s*=\\s*(.*)$`);
+  const lines = parseTextLines(source).filter((line) => !pattern.test(line));
+  return ensureTextWithTrailingNewline(lines);
 }
 
 async function discoverAvailableBundles() {
@@ -487,6 +569,41 @@ async function discoverAvailablePackages(appRoot) {
   return packages;
 }
 
+function resolvePackageIdFromLookup(rawLookupId, availablePackages) {
+  const lookupId = String(rawLookupId || "").trim();
+  if (!lookupId) {
+    return null;
+  }
+
+  if (availablePackages.has(lookupId)) {
+    return lookupId;
+  }
+
+  if (lookupId.includes("/")) {
+    return null;
+  }
+
+  const matches = [];
+  for (const packageId of availablePackages.keys()) {
+    const normalized = String(packageId || "").trim();
+    const separatorIndex = normalized.lastIndexOf("/");
+    const baseId = separatorIndex >= 0 ? normalized.slice(separatorIndex + 1) : normalized;
+    if (baseId === lookupId) {
+      matches.push(normalized);
+    }
+  }
+
+  if (matches.length < 1) {
+    return null;
+  }
+  if (matches.length > 1) {
+    throw createCliError(
+      `Ambiguous package identifier ${lookupId}. Matches: ${toSortedUniqueStrings(matches).join(", ")}.`
+    );
+  }
+  return matches[0];
+}
+
 async function lintDescriptors({ appRoot }) {
   const bundles = await discoverAvailableBundles();
   const packages = await discoverAvailablePackages(appRoot);
@@ -511,6 +628,37 @@ function ensurePlainObjectRecord(value) {
     return {};
   }
   return value;
+}
+
+function getManagedTextEntries(installedPackageState) {
+  const managedText = ensurePlainObjectRecord(installedPackageState?.managed?.text);
+  if (Object.keys(managedText).length > 0) {
+    return managedText;
+  }
+
+  const legacyProcfile = ensurePlainObjectRecord(installedPackageState?.managed?.procfile);
+  const legacyText = {};
+  for (const [processType, meta] of Object.entries(legacyProcfile)) {
+    const normalizedProcessType = String(processType || "").trim();
+    if (!normalizedProcessType) {
+      continue;
+    }
+    const currentCommand = String(meta?.value || "").trim();
+    const previousCommand = String(meta?.previousValue || "").trim();
+    legacyText[`Procfile::upsert-line::${normalizedProcessType}`] = {
+      file: "Procfile",
+      op: "upsert-line",
+      key: normalizedProcessType,
+      line: `${normalizedProcessType}: ${currentCommand}`,
+      value: `${normalizedProcessType}: ${currentCommand}`,
+      hadPrevious: Boolean(meta?.hadPrevious),
+      previousValue: previousCommand ? `${normalizedProcessType}: ${previousCommand}` : "",
+      reason: "",
+      category: "procfile",
+      id: `procfile.${normalizedProcessType}`
+    };
+  }
+  return legacyText;
 }
 
 function getInstalledPackageState(lock, packageId) {
@@ -606,6 +754,95 @@ function resolveLocalJskitDependencySpec({ dependencyName, desiredValue, availab
     availablePackages
   });
   return localTarget || desiredString;
+}
+
+function interpolateOptionValue(template, { selectedOptions, packageId, label }) {
+  const rawTemplate = String(template || "");
+  if (!rawTemplate.includes("${")) {
+    return rawTemplate;
+  }
+
+  return rawTemplate.replace(OPTION_INTERPOLATION_PATTERN, (_, optionName) => {
+    const normalizedOptionName = String(optionName || "").trim();
+    const resolvedValue = String(selectedOptions?.[normalizedOptionName] || "").trim();
+    if (!resolvedValue) {
+      throw createCliError(
+        `Package ${packageId} ${label} references option ${normalizedOptionName}, but no value was provided. Pass --${normalizedOptionName} <value> or run interactively.`
+      );
+    }
+    return resolvedValue;
+  });
+}
+
+function resolveTextMutationEntries({ packageDescriptor, selectedOptions, packageId }) {
+  const entries = Array.isArray(packageDescriptor.mutations?.text) ? packageDescriptor.mutations.text : [];
+  return entries.map((entry, index) => {
+    const mutationLabel = `mutations.text[${index}]`;
+    return {
+      file: interpolateOptionValue(entry.file, {
+        selectedOptions,
+        packageId,
+        label: `${mutationLabel}.file`
+      }),
+      op: String(entry.op || "").trim(),
+      key: interpolateOptionValue(entry.key, {
+        selectedOptions,
+        packageId,
+        label: `${mutationLabel}.key`
+      }).trim(),
+      line: interpolateOptionValue(entry.line, {
+        selectedOptions,
+        packageId,
+        label: `${mutationLabel}.line`
+      }).trim(),
+      value: interpolateOptionValue(entry.value, {
+        selectedOptions,
+        packageId,
+        label: `${mutationLabel}.value`
+      }).trim(),
+      reason: interpolateOptionValue(entry.reason, {
+        selectedOptions,
+        packageId,
+        label: `${mutationLabel}.reason`
+      }).trim(),
+      category: interpolateOptionValue(entry.category, {
+        selectedOptions,
+        packageId,
+        label: `${mutationLabel}.category`
+      }).trim(),
+      id: String(entry.id || "").trim()
+    };
+  });
+}
+
+function resolveFileMutationEntries({ packageDescriptor, selectedOptions, packageId }) {
+  const entries = Array.isArray(packageDescriptor.mutations?.files) ? packageDescriptor.mutations.files : [];
+  return entries.map((entry, index) => {
+    const mutationLabel = `mutations.files[${index}]`;
+    return {
+      from: interpolateOptionValue(entry.from, {
+        selectedOptions,
+        packageId,
+        label: `${mutationLabel}.from`
+      }),
+      to: interpolateOptionValue(entry.to, {
+        selectedOptions,
+        packageId,
+        label: `${mutationLabel}.to`
+      }),
+      reason: interpolateOptionValue(entry.reason, {
+        selectedOptions,
+        packageId,
+        label: `${mutationLabel}.reason`
+      }).trim(),
+      category: interpolateOptionValue(entry.category, {
+        selectedOptions,
+        packageId,
+        label: `${mutationLabel}.category`
+      }).trim(),
+      id: String(entry.id || "").trim()
+    };
+  });
 }
 
 function buildPackageJsonMutationPlan({ packageJson, packageDescriptor, lock, packageId, availablePackages }) {
@@ -727,78 +964,190 @@ function buildPackageJsonMutationPlan({ packageJson, packageDescriptor, lock, pa
   };
 }
 
-async function readProcfile(appRoot) {
-  const procfilePath = path.join(appRoot, "Procfile");
-  if (!(await fileExists(procfilePath))) {
-    return {
-      procfilePath,
-      source: ""
-    };
+function buildTextMutationHandle(entry, index) {
+  const id = String(entry.id || "").trim();
+  if (id) {
+    return `${entry.file}::id::${id}`;
   }
-
-  const source = await readFile(procfilePath, "utf8");
-  return {
-    procfilePath,
-    source
-  };
+  const op = String(entry.op || "").trim();
+  const key = String(entry.key || "").trim();
+  const line = String(entry.line || "").trim();
+  if ((op === "upsert-line" || op === "upsert-env") && key) {
+    return `${entry.file}::${op}::${key}`;
+  }
+  if (op === "append-once" && key) {
+    return `${entry.file}::${op}::${key}`;
+  }
+  return `${entry.file}::${op}::${hashString(`${line}:${String(index)}`)}`;
 }
 
-function buildProcfileMutationPlan({ procfileSource, packageDescriptor, lock, packageId }) {
+function getTextMutationValueFromSource(source, entry) {
+  const op = String(entry.op || "").trim();
+  if (op === "upsert-line") {
+    return findLineByKey(source, entry.key);
+  }
+  if (op === "append-once") {
+    return hasExactLine(source, entry.line) ? String(entry.line || "").trim() : null;
+  }
+  if (op === "upsert-env") {
+    return findEnvValue(source, entry.key);
+  }
+  return null;
+}
+
+function applyTextMutationToSource(source, entry) {
+  const op = String(entry.op || "").trim();
+  if (op === "upsert-line") {
+    return upsertLineByKey(source, entry.key, entry.line);
+  }
+  if (op === "append-once") {
+    return appendLineOnce(source, entry.line);
+  }
+  if (op === "upsert-env") {
+    return upsertEnvValue(source, entry.key, entry.value);
+  }
+  throw createCliError(`Unsupported text mutation op: ${op}`);
+}
+
+function removeTextMutationFromSource(source, entry) {
+  const op = String(entry.op || "").trim();
+  if (op === "upsert-line") {
+    return removeLineByKey(source, entry.key);
+  }
+  if (op === "append-once") {
+    return removeExactLine(source, entry.line);
+  }
+  if (op === "upsert-env") {
+    return removeEnvKey(source, entry.key);
+  }
+  throw createCliError(`Unsupported text mutation op: ${op}`);
+}
+
+function reapplyTextMutationPreviousValue(source, entry, previousValue) {
+  const op = String(entry.op || "").trim();
+  const normalizedPreviousValue = String(previousValue || "");
+  if (op === "upsert-line") {
+    return upsertLineByKey(source, entry.key, normalizedPreviousValue);
+  }
+  if (op === "append-once") {
+    return appendLineOnce(source, normalizedPreviousValue);
+  }
+  if (op === "upsert-env") {
+    return upsertEnvValue(source, entry.key, normalizedPreviousValue);
+  }
+  throw createCliError(`Unsupported text mutation op: ${op}`);
+}
+
+async function loadTextMutationSourceMap(appRoot, textMutations) {
+  const sourceMap = new Map();
+  for (const entry of textMutations) {
+    const relativePath = normalizeRelativePath(entry.file);
+    if (sourceMap.has(relativePath)) {
+      continue;
+    }
+    const absolutePath = path.join(appRoot, relativePath);
+    if (!(await fileExists(absolutePath))) {
+      sourceMap.set(relativePath, "");
+      continue;
+    }
+    sourceMap.set(relativePath, await readFile(absolutePath, "utf8"));
+  }
+  return sourceMap;
+}
+
+async function buildTextMutationPlan({
+  appRoot,
+  textMutations,
+  lock,
+  packageId
+}) {
   const previousState = getInstalledPackageState(lock, packageId);
-  let nextSource = String(procfileSource || "");
-  let changed = false;
+  const previousManagedText = ensurePlainObjectRecord(previousState?.managed?.text);
+  const sourceMap = await loadTextMutationSourceMap(appRoot, textMutations);
+  const baseSourceMap = new Map(sourceMap);
+  const changedFiles = new Set();
   const managed = {};
   const conflicts = [];
 
-  for (const [processType, command] of Object.entries(packageDescriptor.mutations.procfile)) {
-    const existingCommand = findProcfileCommand(nextSource, processType);
-    const previousManagedEntry = previousState?.managed?.procfile?.[processType] || null;
-    if (previousManagedEntry && existingCommand !== String(previousManagedEntry.value)) {
+  for (const [index, rawEntry] of textMutations.entries()) {
+    const entry = {
+      ...rawEntry,
+      file: normalizeRelativePath(rawEntry.file)
+    };
+    const handle = buildTextMutationHandle(entry, index);
+    const currentSource = String(sourceMap.get(entry.file) || "");
+    const currentValue = getTextMutationValueFromSource(currentSource, entry);
+    const desiredValue = entry.op === "upsert-env" ? String(entry.value || "").trim() : String(entry.line || "").trim();
+    const previousManagedEntry = previousManagedText[handle] || null;
+
+    if (previousManagedEntry && currentValue !== String(previousManagedEntry.value || "")) {
       conflicts.push(
         createIssue(
-          `Cannot set Procfile ${processType}; value changed since install (expected ${previousManagedEntry.value}, found ${existingCommand ?? "<missing>"}).`
+          `Cannot apply text mutation ${entry.file} (${entry.op}): value changed since install (expected ${previousManagedEntry.value}, found ${currentValue ?? "<missing>"}).`
         )
       );
       continue;
     }
 
     const otherPackageManager = isManagedByOtherPackage(lock, packageId, (state) => {
-      const entry = state?.managed?.procfile?.[processType];
-      return Boolean(entry && String(entry.value) === String(command));
+      const managedText = ensurePlainObjectRecord(state?.managed?.text);
+      const otherEntry = managedText[handle];
+      return Boolean(otherEntry && String(otherEntry.value || "") === desiredValue);
     });
 
     const hadPrevious = previousManagedEntry
       ? Boolean(previousManagedEntry.hadPrevious)
       : otherPackageManager
         ? false
-        : existingCommand !== null;
+        : currentValue !== null;
     const previousValue = previousManagedEntry
-      ? previousManagedEntry.previousValue
-      : hadPrevious
-        ? String(existingCommand)
+      ? String(previousManagedEntry.previousValue || "")
+      : hadPrevious && currentValue !== null
+        ? String(currentValue)
         : "";
 
-    if (existingCommand !== String(command)) {
-      nextSource = upsertProcfileCommand(nextSource, processType, String(command));
-      changed = true;
+    const nextSource = applyTextMutationToSource(currentSource, entry);
+    const nextValue = getTextMutationValueFromSource(nextSource, entry);
+    if (nextSource !== currentSource) {
+      changedFiles.add(entry.file);
+      sourceMap.set(entry.file, nextSource);
     }
 
-    managed[processType] = {
-      value: String(command),
+    managed[handle] = {
+      file: entry.file,
+      op: entry.op,
+      key: entry.key,
+      line: entry.line,
+      value: nextValue !== null ? String(nextValue) : desiredValue,
       hadPrevious,
-      previousValue: hadPrevious ? previousValue : ""
+      previousValue: hadPrevious ? previousValue : "",
+      reason: String(entry.reason || ""),
+      category: String(entry.category || ""),
+      id: String(entry.id || "")
     };
   }
 
   return {
-    source: nextSource,
-    changed,
+    sourceMap,
+    baseSourceMap,
+    changedFiles: toSortedUniqueStrings([...changedFiles]),
+    changed: changedFiles.size > 0,
     managed,
     conflicts
   };
 }
 
-async function buildFileMutationPlan({ appRoot, packageDescriptor, packageRoot, lock, packageId, mode }) {
+async function applyTextMutationPlan({ appRoot, plan, dryRun, transaction }) {
+  for (const relativePath of plan.changedFiles || []) {
+    const absolutePath = path.join(appRoot, normalizeRelativePath(relativePath));
+    const source = String(plan.sourceMap.get(relativePath) || "");
+    if (!dryRun) {
+      await writeTextFileWithTransaction(transaction, absolutePath, source);
+    }
+  }
+}
+
+async function buildFileMutationPlan({ appRoot, fileMutations, packageRoot, lock, packageId, mode }) {
   const previousState = getInstalledPackageState(lock, packageId);
   const previousManagedFiles = new Map(
     (Array.isArray(previousState?.managed?.files) ? previousState.managed.files : []).map((entry) => [entry.path, entry])
@@ -807,7 +1156,7 @@ async function buildFileMutationPlan({ appRoot, packageDescriptor, packageRoot, 
   const conflicts = [];
   const operations = [];
 
-  for (const fileEntry of packageDescriptor.mutations.files) {
+  for (const fileEntry of fileMutations) {
     const relativeTargetPath = normalizeRelativePath(fileEntry.to);
     const targetPath = path.join(appRoot, relativeTargetPath);
     const sourcePath = path.join(packageRoot, normalizeRelativePath(fileEntry.from));
@@ -852,7 +1201,10 @@ async function buildFileMutationPlan({ appRoot, packageDescriptor, packageRoot, 
       relativeTargetPath,
       sourceHash,
       shouldWrite,
-      created: createdByPackage
+      created: createdByPackage,
+      reason: String(fileEntry.reason || "").trim(),
+      category: String(fileEntry.category || "").trim(),
+      id: String(fileEntry.id || "").trim()
     });
   }
 
@@ -873,7 +1225,10 @@ async function applyFileMutationPlan({ operations, dryRun, transaction }) {
     managedFiles.push({
       path: operation.relativeTargetPath,
       hash: operation.sourceHash,
-      created: operation.created
+      created: operation.created,
+      reason: String(operation.reason || ""),
+      category: String(operation.category || ""),
+      id: String(operation.id || "")
     });
   }
 
@@ -1252,7 +1607,10 @@ function buildFileContributionDetails(packageIds, availablePackages) {
       contributions.push({
         packageId,
         from: fileEntry.from,
-        to: fileEntry.to
+        to: fileEntry.to,
+        reason: String(fileEntry.reason || "").trim(),
+        category: String(fileEntry.category || "").trim(),
+        id: String(fileEntry.id || "").trim()
       });
     }
   }
@@ -1261,6 +1619,90 @@ function buildFileContributionDetails(packageIds, availablePackages) {
     const toDiff = String(left.to || "").localeCompare(String(right.to || ""));
     if (toDiff !== 0) {
       return toDiff;
+    }
+    return String(left.packageId || "").localeCompare(String(right.packageId || ""));
+  });
+}
+
+function buildTextMutationDetails(packageIds, availablePackages) {
+  const mutations = [];
+  for (const packageId of toSortedUniqueStrings(Array.isArray(packageIds) ? packageIds : [])) {
+    const packageEntry = availablePackages.get(packageId);
+    if (!packageEntry) {
+      continue;
+    }
+    for (const mutation of packageEntry.descriptor.mutations.text || []) {
+      mutations.push({
+        packageId,
+        file: String(mutation.file || "").trim(),
+        op: String(mutation.op || "").trim(),
+        key: String(mutation.key || "").trim(),
+        line: String(mutation.line || "").trim(),
+        value: String(mutation.value || "").trim(),
+        reason: String(mutation.reason || "").trim(),
+        category: String(mutation.category || "").trim(),
+        id: String(mutation.id || "").trim()
+      });
+    }
+  }
+
+  return mutations.sort((left, right) => {
+    const fileDiff = String(left.file || "").localeCompare(String(right.file || ""));
+    if (fileDiff !== 0) {
+      return fileDiff;
+    }
+    const opDiff = String(left.op || "").localeCompare(String(right.op || ""));
+    if (opDiff !== 0) {
+      return opDiff;
+    }
+    return String(left.packageId || "").localeCompare(String(right.packageId || ""));
+  });
+}
+
+function buildPackageJsonMutationDetails(packageIds, availablePackages) {
+  const details = [];
+  for (const packageId of toSortedUniqueStrings(Array.isArray(packageIds) ? packageIds : [])) {
+    const packageEntry = availablePackages.get(packageId);
+    if (!packageEntry) {
+      continue;
+    }
+    const runtimeDependencies = ensurePlainObjectRecord(packageEntry.descriptor.mutations?.dependencies?.runtime);
+    const devDependencies = ensurePlainObjectRecord(packageEntry.descriptor.mutations?.dependencies?.dev);
+    const scripts = ensurePlainObjectRecord(packageEntry.descriptor.mutations?.packageJson?.scripts);
+    for (const [dependencyName, versionSpec] of Object.entries(runtimeDependencies)) {
+      details.push({
+        packageId,
+        section: "dependencies",
+        key: dependencyName,
+        value: String(versionSpec || "").trim()
+      });
+    }
+    for (const [dependencyName, versionSpec] of Object.entries(devDependencies)) {
+      details.push({
+        packageId,
+        section: "devDependencies",
+        key: dependencyName,
+        value: String(versionSpec || "").trim()
+      });
+    }
+    for (const [scriptName, command] of Object.entries(scripts)) {
+      details.push({
+        packageId,
+        section: "scripts",
+        key: scriptName,
+        value: String(command || "").trim()
+      });
+    }
+  }
+
+  return details.sort((left, right) => {
+    const sectionDiff = String(left.section || "").localeCompare(String(right.section || ""));
+    if (sectionDiff !== 0) {
+      return sectionDiff;
+    }
+    const keyDiff = String(left.key || "").localeCompare(String(right.key || ""));
+    if (keyDiff !== 0) {
+      return keyDiff;
     }
     return String(left.packageId || "").localeCompare(String(right.packageId || ""));
   });
@@ -1288,6 +1730,33 @@ function buildUiElementDetails(packageIds, availablePackages) {
     const nameDiff = String(left.name || "").localeCompare(String(right.name || ""));
     if (nameDiff !== 0) {
       return nameDiff;
+    }
+    return String(left.packageId || "").localeCompare(String(right.packageId || ""));
+  });
+}
+
+function buildUiRouteDetails(packageIds, availablePackages) {
+  const routes = [];
+  for (const packageId of toSortedUniqueStrings(Array.isArray(packageIds) ? packageIds : [])) {
+    const packageEntry = availablePackages.get(packageId);
+    if (!packageEntry) {
+      continue;
+    }
+    for (const route of packageEntry.descriptor.metadata?.ui?.routes || []) {
+      routes.push({
+        packageId,
+        path: String(route.path || "").trim(),
+        name: String(route.name || "").trim(),
+        surface: String(route.surface || "").trim(),
+        purpose: String(route.purpose || "").trim()
+      });
+    }
+  }
+
+  return routes.sort((left, right) => {
+    const pathDiff = String(left.path || "").localeCompare(String(right.path || ""));
+    if (pathDiff !== 0) {
+      return pathDiff;
     }
     return String(left.packageId || "").localeCompare(String(right.packageId || ""));
   });
@@ -1365,7 +1834,10 @@ async function buildShowPackageBundleResult({
   const selectedPackageIds = expanded ? metadata.expandedPackages : metadata.packages;
   const capabilitySets = buildCapabilitySetsForPackages(selectedPackageIds, availablePackages);
   const serverRoutes = await buildServerRouteDetails(selectedPackageIds, availablePackages);
+  const clientRoutes = buildUiRouteDetails(selectedPackageIds, availablePackages);
   const fileContributions = buildFileContributionDetails(selectedPackageIds, availablePackages);
+  const textMutations = buildTextMutationDetails(selectedPackageIds, availablePackages);
+  const packageJsonMutations = buildPackageJsonMutationDetails(selectedPackageIds, availablePackages);
   const uiElements = buildUiElementDetails(selectedPackageIds, availablePackages);
 
   return {
@@ -1392,7 +1864,10 @@ async function buildShowPackageBundleResult({
       providedCapabilities: capabilitySets.providedCapabilities
     }),
     serverRoutes,
+    clientRoutes,
     fileContributions,
+    textMutations,
+    packageJsonMutations,
     uiElements
   };
 }
@@ -1408,7 +1883,10 @@ async function buildShowPackagePackageResult({
   const selectedPackageIds = expanded ? expandedPackageIds : [rootPackageId];
   const capabilitySets = buildCapabilitySetsForPackages(selectedPackageIds, availablePackages);
   const serverRoutes = await buildServerRouteDetails(selectedPackageIds, availablePackages);
+  const clientRoutes = buildUiRouteDetails(selectedPackageIds, availablePackages);
   const fileContributions = buildFileContributionDetails(selectedPackageIds, availablePackages);
+  const textMutations = buildTextMutationDetails(selectedPackageIds, availablePackages);
+  const packageJsonMutations = buildPackageJsonMutationDetails(selectedPackageIds, availablePackages);
   const uiElements = buildUiElementDetails(selectedPackageIds, availablePackages);
 
   return {
@@ -1441,7 +1919,10 @@ async function buildShowPackagePackageResult({
       providedCapabilities: capabilitySets.providedCapabilities
     }),
     serverRoutes,
+    clientRoutes,
     fileContributions,
+    textMutations,
+    packageJsonMutations,
     uiElements
   };
 }
@@ -1764,17 +2245,26 @@ async function applyPackage({
     availablePackages
   });
 
-  const procfile = await readProcfile(appRoot);
-  const procfilePlan = buildProcfileMutationPlan({
-    procfileSource: procfile.source,
+  const textMutations = resolveTextMutationEntries({
     packageDescriptor: packageEntry.descriptor,
+    selectedOptions,
+    packageId
+  });
+  const textPlan = await buildTextMutationPlan({
+    appRoot,
+    textMutations,
     lock,
+    packageId
+  });
+  const fileMutations = resolveFileMutationEntries({
+    packageDescriptor: packageEntry.descriptor,
+    selectedOptions,
     packageId
   });
 
   const filesPlan = await buildFileMutationPlan({
     appRoot,
-    packageDescriptor: packageEntry.descriptor,
+    fileMutations,
     packageRoot: packageEntry.packageRoot,
     lock,
     packageId,
@@ -1789,11 +2279,11 @@ async function applyPackage({
     );
   }
 
-  if (procfilePlan.conflicts.length > 0) {
+  if (textPlan.conflicts.length > 0) {
     throw createConflictError(
-      "managed-script-drift",
-      `Package ${packageId} has Procfile mutation conflicts.`,
-      procfilePlan.conflicts
+      "managed-text-drift",
+      `Package ${packageId} has text mutation conflicts.`,
+      textPlan.conflicts
     );
   }
 
@@ -1804,6 +2294,13 @@ async function applyPackage({
       filesPlan.conflicts
     );
   }
+
+  await applyTextMutationPlan({
+    appRoot,
+    plan: textPlan,
+    dryRun,
+    transaction
+  });
 
   const managedFiles = await applyFileMutationPlan({
     operations: filesPlan.operations,
@@ -1820,7 +2317,7 @@ async function applyPackage({
     },
     managed: {
       packageJson: packagePlan.managed,
-      procfile: procfilePlan.managed,
+      text: textPlan.managed,
       files: managedFiles
     },
     options: selectedOptions,
@@ -1838,26 +2335,27 @@ async function applyPackage({
     if (packagePlan.changed) {
       await writeJsonFileWithTransaction(transaction, packageJsonPath, packagePlan.packageJson);
     }
-
-    if (procfilePlan.changed) {
-      await writeTextFileWithTransaction(transaction, procfile.procfilePath, procfilePlan.source);
-    }
   }
+
+  const touchedFiles = toSortedUniqueStrings([
+    ...filesPlan.operations.map((operation) => operation.relativeTargetPath),
+    ...textPlan.changedFiles
+  ]);
 
   return {
     packageId,
     dryRun,
     packageJsonChanged: packagePlan.changed,
-    procfileChanged: procfilePlan.changed,
-    filesTouched: filesPlan.operations.map((operation) => operation.relativeTargetPath),
+    textChanged: textPlan.changed,
+    filesTouched: touchedFiles,
     dependenciesTouched: packagePlan.dependenciesTouched,
     journal: {
       packageId,
       mode: filePlanMode,
       options: selectedOptions,
       packageJsonChanged: packagePlan.changed,
-      procfileChanged: procfilePlan.changed,
-      filesTouched: filesPlan.operations.map((operation) => operation.relativeTargetPath),
+      textChanged: textPlan.changed,
+      filesTouched: touchedFiles,
       dependenciesTouched: packagePlan.dependenciesTouched
     },
     nextPackageJson: packagePlan.packageJson,
@@ -1957,33 +2455,53 @@ async function removeInstalledPackage({
     }
   }
 
-  const procfile = await readProcfile(appRoot);
-  let nextProcfileSource = procfile.source;
-  const procfileConflicts = [];
+  const textConflicts = [];
+  const managedText = getManagedTextEntries(installedState);
+  const textEntries = Object.entries(managedText).map(([handle, entry]) => ({
+    handle,
+    entry: {
+      ...entry,
+      file: normalizeRelativePath(entry.file)
+    }
+  }));
+  const textSourceMap = await loadTextMutationSourceMap(
+    appRoot,
+    textEntries.map((item) => item.entry)
+  );
+  const changedTextFiles = new Set();
 
-  const procfileManaged = ensurePlainObjectRecord(installedState?.managed?.procfile);
-  for (const [processType, meta] of Object.entries(procfileManaged)) {
-    const currentCommand = findProcfileCommand(nextProcfileSource, processType);
-    if (currentCommand !== String(meta.value)) {
-      procfileConflicts.push(
-        createIssue(`Skipped Procfile ${processType}: value changed from managed value ${meta.value}.`)
+  for (const { handle, entry } of textEntries) {
+    const currentSource = String(textSourceMap.get(entry.file) || "");
+    const currentValue = getTextMutationValueFromSource(currentSource, entry);
+    const expectedValue = String(entry.value || "");
+    if (currentValue !== expectedValue) {
+      textConflicts.push(
+        createIssue(
+          `Skipped text mutation ${entry.file} (${entry.op}): value changed from managed value ${expectedValue}.`
+        )
       );
       continue;
     }
 
     const otherPackageManager = isManagedByOtherPackage(lock, packageId, (state) => {
-      const entry = state?.managed?.procfile?.[processType];
-      return Boolean(entry && String(entry.value) === String(meta.value));
+      const otherEntries = getManagedTextEntries(state);
+      const otherEntry = otherEntries[handle];
+      return Boolean(otherEntry && String(otherEntry.value || "") === expectedValue);
     });
-
     if (otherPackageManager) {
       continue;
     }
 
-    if (meta.hadPrevious) {
-      nextProcfileSource = upsertProcfileCommand(nextProcfileSource, processType, String(meta.previousValue));
+    let nextSource = currentSource;
+    if (entry.hadPrevious) {
+      nextSource = reapplyTextMutationPreviousValue(nextSource, entry, String(entry.previousValue || ""));
     } else {
-      nextProcfileSource = removeProcfileCommand(nextProcfileSource, processType);
+      nextSource = removeTextMutationFromSource(nextSource, entry);
+    }
+
+    if (nextSource !== currentSource) {
+      textSourceMap.set(entry.file, nextSource);
+      changedTextFiles.add(entry.file);
     }
   }
 
@@ -2029,10 +2547,16 @@ async function removeInstalledPackage({
   if (!dryRun) {
     await writeJsonFileWithTransaction(transaction, packageJsonPath, nextPackageJson);
 
-    if (nextProcfileSource.trim().length > 0) {
-      await writeTextFileWithTransaction(transaction, procfile.procfilePath, nextProcfileSource);
-    } else if (await fileExists(procfile.procfilePath)) {
-      await rmFileWithTransaction(transaction, procfile.procfilePath);
+    for (const relativePath of toSortedUniqueStrings([...changedTextFiles])) {
+      const source = String(textSourceMap.get(relativePath) || "");
+      const absolutePath = path.join(appRoot, normalizeRelativePath(relativePath));
+      if (source.trim().length > 0) {
+        await writeTextFileWithTransaction(transaction, absolutePath, source);
+        continue;
+      }
+      if (await fileExists(absolutePath)) {
+        await rmFileWithTransaction(transaction, absolutePath);
+      }
     }
   }
 
@@ -2040,11 +2564,11 @@ async function removeInstalledPackage({
     packageId,
     dryRun,
     removedFiles: toSortedUniqueStrings(removedFiles),
-    issues: [...packageConflicts, ...procfileConflicts, ...fileConflicts],
+    issues: [...packageConflicts, ...textConflicts, ...fileConflicts],
     journal: {
       packageId,
       removedFiles: toSortedUniqueStrings(removedFiles),
-      issues: [...packageConflicts, ...procfileConflicts, ...fileConflicts]
+      issues: [...packageConflicts, ...textConflicts, ...fileConflicts]
     },
     nextLock,
     nextPackageJson
@@ -2086,6 +2610,26 @@ async function validateDoctor({ appRoot, lock, availableBundles, availablePackag
           issues.push(
             createIssue(
               `Managed package.json drift detected: ${sectionName}.${name} (expected ${expectedValue}, found ${currentValue}).`
+            )
+          );
+        }
+      }
+    }
+
+    const managedTextEntries = Object.values(getManagedTextEntries(state)).map((entry) => ({
+      ...entry,
+      file: normalizeRelativePath(entry.file)
+    }));
+    if (managedTextEntries.length > 0) {
+      const sourceMap = await loadTextMutationSourceMap(appRoot, managedTextEntries);
+      for (const textEntry of managedTextEntries) {
+        const source = String(sourceMap.get(textEntry.file) || "");
+        const currentValue = getTextMutationValueFromSource(source, textEntry);
+        const expectedValue = String(textEntry.value || "");
+        if (currentValue !== expectedValue) {
+          issues.push(
+            createIssue(
+              `Managed text drift detected: ${textEntry.file} (${textEntry.op}). Expected ${expectedValue || "<missing>"}, found ${currentValue ?? "<missing>"}.`
             )
           );
         }
@@ -2177,6 +2721,15 @@ function formatResult(result, { json, stdout }) {
     }
   }
 
+  function displayPackageId(packageId) {
+    const normalized = String(packageId || "").trim();
+    const prefix = "@jskit-ai/";
+    if (normalized.startsWith(prefix)) {
+      return normalized.slice(prefix.length);
+    }
+    return normalized;
+  }
+
   function colorMethod(method) {
     const normalized = String(method || "").trim().toUpperCase();
     if (normalized === "GET") {
@@ -2266,7 +2819,10 @@ function formatResult(result, { json, stdout }) {
   if (result.command === "show-package") {
     const installedSuffix = result.installed ? " (installed)" : "";
     const targetLabel = result.targetType === "bundle" ? "bundle shortcut" : "package";
-    stdout.write(`${bold(cyan(`Package ${result.packageId} (${result.version})${installedSuffix}`))}\n`);
+    const headlineLabel = result.targetType === "bundle" ? "Bundle" : "Package";
+    const displayedTargetId =
+      result.targetType === "package" ? displayPackageId(result.packageId) : String(result.packageId || "");
+    stdout.write(`${bold(cyan(`${headlineLabel} ${displayedTargetId} (${result.version})${installedSuffix}`))}\n`);
     stdout.write(`${bold("Type")}: ${targetLabel}\n`);
     if (result.description) {
       stdout.write(`${bold("Description")}: ${gray(result.description)}\n`);
@@ -2279,7 +2835,7 @@ function formatResult(result, { json, stdout }) {
       if (Array.isArray(result.dependsOn) && result.dependsOn.length > 0) {
         stdout.write(`${bold(blue("Depends on"))}:\n`);
         for (const dependencyId of result.dependsOn) {
-          stdout.write(`- ${cyan(dependencyId)}\n`);
+          stdout.write(`- ${cyan(displayPackageId(dependencyId))}\n`);
         }
       }
       const optionNames = Object.keys(result.options || {});
@@ -2336,7 +2892,7 @@ function formatResult(result, { json, stdout }) {
             : "";
         const providerSuffix = packageEntry.provider ? magenta("*") : "";
         const description = String(packageEntry.description || "").trim();
-        const packageIdLabel = cyan(packageEntry.packageId);
+        const packageIdLabel = cyan(displayPackageId(packageEntry.packageId));
         if (description) {
           stdout.write(`- ${packageIdLabel}${providerSuffix}${providerRequirementSuffix}: ${gray(description)}\n`);
           continue;
@@ -2349,7 +2905,7 @@ function formatResult(result, { json, stdout }) {
       const totalRouteCount = result.serverRoutes.reduce((sum, entry) => sum + ((entry.routes || []).length || 0), 0);
       stdout.write(`${bold(blue(`Server routes (${totalRouteCount})`))}:\n`);
       for (const routeGroup of result.serverRoutes) {
-        stdout.write(`- ${cyan(routeGroup.packageId)}:\n`);
+        stdout.write(`- ${cyan(displayPackageId(routeGroup.packageId))}:\n`);
         for (const route of routeGroup.routes || []) {
           const summary = String(route.summary || "").trim();
           const methodLabel = colorMethod(route.method);
@@ -2363,10 +2919,69 @@ function formatResult(result, { json, stdout }) {
       }
     }
 
+    if (Array.isArray(result.clientRoutes) && result.clientRoutes.length > 0) {
+      stdout.write(`${bold(blue(`Client routes (${result.clientRoutes.length})`))}:\n`);
+      for (const route of result.clientRoutes) {
+        const surfaceSuffix = String(route.surface || "").trim() ? ` ${yellow(`(${route.surface})`)}` : "";
+        const nameSuffix = String(route.name || "").trim() ? ` ${magenta(`[${route.name}]`)}` : "";
+        const purpose = String(route.purpose || "").trim();
+        if (purpose) {
+          stdout.write(
+            `- ${brightWhite(route.path)}${nameSuffix}${surfaceSuffix} ${gray(`(${displayPackageId(route.packageId)})`)}: ${gray(purpose)}\n`
+          );
+          continue;
+        }
+        stdout.write(`- ${brightWhite(route.path)}${nameSuffix}${surfaceSuffix} ${gray(`(${displayPackageId(route.packageId)})`)}\n`);
+      }
+    }
+
+    if (Array.isArray(result.packageJsonMutations) && result.packageJsonMutations.length > 0) {
+      stdout.write(`${bold(blue(`package.json mutations (${result.packageJsonMutations.length})`))}:\n`);
+      for (const mutation of result.packageJsonMutations) {
+        stdout.write(
+          `- ${yellow(`${mutation.section}.${mutation.key}`)} = ${brightWhite(mutation.value)} ${gray(`(${displayPackageId(mutation.packageId)})`)}\n`
+        );
+      }
+    }
+
+    if (Array.isArray(result.textMutations) && result.textMutations.length > 0) {
+      stdout.write(`${bold(blue(`Text mutations (${result.textMutations.length})`))}:\n`);
+      for (const mutation of result.textMutations) {
+        const keyLabel = String(mutation.key || "").trim() ? ` ${magenta(`[${mutation.key}]`)}` : "";
+        const idLabel = String(mutation.id || "").trim() ? ` ${yellow(`#${mutation.id}`)}` : "";
+        const categoryLabel = String(mutation.category || "").trim() ? ` ${gray(`(${mutation.category})`)}` : "";
+        const valueLabel =
+          mutation.op === "upsert-env"
+            ? `${mutation.key}=${mutation.value}`
+            : String(mutation.line || "").trim();
+        const reason = String(mutation.reason || "").trim();
+        if (reason) {
+          stdout.write(
+            `- ${brightWhite(mutation.file)} ${cyan(mutation.op)}${keyLabel}${idLabel}${categoryLabel} ${gray(`(${displayPackageId(mutation.packageId)})`)}: ${gray(`${valueLabel} | ${reason}`)}\n`
+          );
+          continue;
+        }
+        stdout.write(
+          `- ${brightWhite(mutation.file)} ${cyan(mutation.op)}${keyLabel}${idLabel}${categoryLabel} ${gray(`(${displayPackageId(mutation.packageId)})`)}: ${gray(valueLabel)}\n`
+        );
+      }
+    }
+
     if (Array.isArray(result.fileContributions) && result.fileContributions.length > 0) {
       stdout.write(`${bold(blue(`File contributions (${result.fileContributions.length})`))}:\n`);
       for (const fileEntry of result.fileContributions) {
-        stdout.write(`- ${brightWhite(fileEntry.to)} ${gray(`(${fileEntry.packageId})`)}\n`);
+        const idLabel = String(fileEntry.id || "").trim() ? ` ${yellow(`#${fileEntry.id}`)}` : "";
+        const categoryLabel = String(fileEntry.category || "").trim() ? ` ${gray(`(${fileEntry.category})`)}` : "";
+        const reasonLabel = String(fileEntry.reason || "").trim();
+        if (reasonLabel) {
+          stdout.write(
+            `- ${brightWhite(fileEntry.from)} ${gray("->")} ${brightWhite(fileEntry.to)}${idLabel}${categoryLabel} ${gray(`(${displayPackageId(fileEntry.packageId)})`)}: ${gray(reasonLabel)}\n`
+          );
+          continue;
+        }
+        stdout.write(
+          `- ${brightWhite(fileEntry.from)} ${gray("->")} ${brightWhite(fileEntry.to)}${idLabel}${categoryLabel} ${gray(`(${displayPackageId(fileEntry.packageId)})`)}\n`
+        );
       }
     }
 
@@ -2376,7 +2991,7 @@ function formatResult(result, { json, stdout }) {
         const capabilitySuffix = String(element.capability || "").trim() ? ` ${magenta(`[${element.capability}]`)}` : "";
         const surfaceSuffix = String(element.surface || "").trim() ? ` ${yellow(`(${element.surface})`)}` : "";
         stdout.write(
-          `- ${cyan(element.name)}${capabilitySuffix}${surfaceSuffix} ${gray(`(${element.packageId})`)}: ${gray(element.purpose)}\n`
+          `- ${cyan(element.name)}${capabilitySuffix}${surfaceSuffix} ${gray(`(${displayPackageId(element.packageId)})`)}: ${gray(element.purpose)}\n`
         );
       }
     }
@@ -2448,7 +3063,7 @@ function formatResult(result, { json, stdout }) {
 
   if (result.command === "doctor") {
     if (result.ok) {
-      stdout.write("OK: no lockfile, managed-file, or dependency-policy issues detected.\n");
+      stdout.write("OK: no lockfile, managed-file, managed-text, or dependency-policy issues detected.\n");
     } else {
       stdout.write("Doctor issues:\n");
       for (const issue of result.issues) {
@@ -2532,7 +3147,7 @@ async function applyBundleOperation({
       noInstall,
       packageIds,
       packageJsonChanged: packageResults.some((entry) => entry.packageJsonChanged),
-      procfileChanged: packageResults.some((entry) => entry.procfileChanged),
+      textChanged: packageResults.some((entry) => entry.textChanged),
       filesTouched: toSortedUniqueStrings(packageResults.flatMap((entry) => entry.filesTouched)),
       npmInstallRan: dependenciesTouched && !noInstall && !dryRun,
       journal: {
@@ -2557,8 +3172,9 @@ function throwOnRemovalIssues(packageId, issues, contextMessage) {
   }
 
   const hasFileConflict = issues.some((issue) => String(issue?.message || "").includes("file "));
+  const hasTextConflict = issues.some((issue) => String(issue?.message || "").includes("text mutation"));
   throw createConflictError(
-    hasFileConflict ? "managed-file-drift" : "managed-script-drift",
+    hasFileConflict ? "managed-file-drift" : hasTextConflict ? "managed-text-drift" : "managed-script-drift",
     `${contextMessage} for package ${packageId} has conflicts.`,
     issues
   );
@@ -2650,7 +3266,7 @@ async function applySinglePackageOperation({
       noInstall,
       packageIds,
       packageJsonChanged: packageResults.some((entry) => entry.packageJsonChanged),
-      procfileChanged: packageResults.some((entry) => entry.procfileChanged),
+      textChanged: packageResults.some((entry) => entry.textChanged),
       filesTouched: toSortedUniqueStrings(packageResults.flatMap((entry) => entry.filesTouched)),
       npmInstallRan: dependenciesTouched && !noInstall && !dryRun,
       journal: {
@@ -2910,7 +3526,12 @@ export async function runCli(
       const installedPackageIds = new Set(Object.keys(ensurePlainObjectRecord(lock.installedPackages)));
       const targetId = parsed.positional[0];
       const bundleEntry = availableBundles.get(targetId) || null;
-      const packageEntry = availablePackages.get(targetId) || null;
+      const exactPackageEntry = availablePackages.get(targetId) || null;
+      let packageEntry = exactPackageEntry;
+      if (!packageEntry && !bundleEntry) {
+        const resolvedPackageId = resolvePackageIdFromLookup(targetId, availablePackages);
+        packageEntry = resolvedPackageId ? availablePackages.get(resolvedPackageId) : null;
+      }
 
       if (bundleEntry && packageEntry) {
         throw createCliError(
@@ -2976,10 +3597,14 @@ export async function runCli(
         });
         result.command = "add-bundle";
       } else if (scope === "package") {
+        const resolvedPackageId = resolvePackageIdFromLookup(targetId, availablePackages);
+        if (!resolvedPackageId) {
+          throw createCliError(`Unknown package: ${targetId}`);
+        }
         result = await applySinglePackageOperation({
           mode: "add",
           appRoot,
-          packageId: targetId,
+          packageId: resolvedPackageId,
           availableBundles,
           availablePackages,
           lock,
@@ -3013,10 +3638,15 @@ export async function runCli(
         });
       }
 
+      const resolvedPackageId = resolvePackageIdFromLookup(parsed.positional[1], availablePackages);
+      if (!resolvedPackageId) {
+        throw createCliError(`Unknown package: ${parsed.positional[1]}`);
+      }
+
       result = await applySinglePackageOperation({
         mode: "update",
         appRoot,
-        packageId: parsed.positional[1],
+        packageId: resolvedPackageId,
         availableBundles,
         availablePackages,
         lock,
@@ -3045,9 +3675,14 @@ export async function runCli(
         });
       }
 
+      const resolvedPackageId = resolvePackageIdFromLookup(parsed.positional[1], availablePackages);
+      if (!resolvedPackageId) {
+        throw createCliError(`Unknown package: ${parsed.positional[1]}`);
+      }
+
       result = await removeSinglePackageOperation({
         appRoot,
-        packageId: parsed.positional[1],
+        packageId: resolvedPackageId,
         availableBundles,
         availablePackages,
         lock,

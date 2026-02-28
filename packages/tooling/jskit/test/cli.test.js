@@ -9,6 +9,30 @@ import { fileURLToPath } from "node:url";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const JSKIT_LOCAL_DEPENDENCY_PREFIX = "file:node_modules/@jskit-ai/jskit/packages/";
+const MYSQL_OPTION_ARGS = [
+  "--db-host",
+  "127.0.0.1",
+  "--db-port",
+  "3306",
+  "--db-name",
+  "app",
+  "--db-user",
+  "root",
+  "--db-password",
+  "secret"
+];
+const POSTGRES_OPTION_ARGS = [
+  "--db-host",
+  "127.0.0.1",
+  "--db-port",
+  "5432",
+  "--db-name",
+  "app",
+  "--db-user",
+  "postgres",
+  "--db-password",
+  "secret"
+];
 
 function runCli({ cwd, args = [] }) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
@@ -154,9 +178,10 @@ test("jskit show <id> resolves bundle ids", async () => {
       args: ["show", "db-mysql"]
     });
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /Package db-mysql \(0\.2\.0\)/);
+    assert.match(result.stdout, /Bundle db-mysql \(0\.2\.0\)/);
     assert.match(result.stdout, /Packages \(1\):/);
-    assert.match(result.stdout, /@jskit-ai\/db-mysql/);
+    assert.match(result.stdout, /\bdb-mysql\b/);
+    assert.doesNotMatch(result.stdout, /@jskit-ai\/db-mysql/);
     assert.doesNotMatch(result.stdout, /@jskit-ai\/jskit-knex/);
     assert.doesNotMatch(result.stdout, /@jskit-ai\/jskit-knex-mysql/);
   });
@@ -200,7 +225,8 @@ test("jskit show <id> defaults to declared packages and supports --expanded", as
     });
     assert.equal(expanded.status, 0, expanded.stderr);
     assert.match(expanded.stdout, /Packages \((?:1[1-9]|[2-9]\d)\) \[expanded\]:/i);
-    assert.match(expanded.stdout, /@jskit-ai\/module-framework-core/i);
+    assert.match(expanded.stdout, /\bmodule-framework-core\b/i);
+    assert.doesNotMatch(expanded.stdout, /@jskit-ai\/module-framework-core/i);
   });
 });
 
@@ -211,7 +237,7 @@ test("jskit show <id> prints grouped capabilities and routes for bundle ids", as
       args: ["show", "social-base"]
     });
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /Package social-base \(0\.1\.0\)/);
+    assert.match(result.stdout, /Bundle social-base \(0\.1\.0\)/);
     assert.match(result.stdout, /Type: bundle shortcut/);
     assert.match(result.stdout, /Requires capabilities:/);
     assert.match(result.stdout, /contracts \(http, social\)/i);
@@ -230,12 +256,42 @@ test("jskit show <id> resolves package ids", async () => {
       args: ["show", "@jskit-ai/social-fastify-routes"]
     });
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /Package @jskit-ai\/social-fastify-routes \(0\.1\.0\)/);
+    assert.match(result.stdout, /Package social-fastify-routes \(0\.1\.0\)/);
+    assert.doesNotMatch(result.stdout, /Package @jskit-ai\/social-fastify-routes \(0\.1\.0\)/);
     assert.match(result.stdout, /Type: package/);
     assert.match(result.stdout, /Provides capabilities:/);
     assert.match(result.stdout, /social \(server-routes\)/i);
     assert.match(result.stdout, /Server routes \(\d+\):/);
     assert.match(result.stdout, /DELETE \/api\/workspace\/social\/posts\/:postId/);
+  });
+});
+
+test("jskit show <id> resolves short package ids", async () => {
+  await withTempApp(async (appRoot) => {
+    const result = runCli({
+      cwd: appRoot,
+      args: ["show", "social-fastify-routes"]
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Package social-fastify-routes \(0\.1\.0\)/);
+    assert.match(result.stdout, /Type: package/);
+  });
+});
+
+test("jskit view <id> is an alias of show <id>", async () => {
+  await withTempApp(async (appRoot) => {
+    const showResult = runCli({
+      cwd: appRoot,
+      args: ["show", "social-base"]
+    });
+    const viewResult = runCli({
+      cwd: appRoot,
+      args: ["view", "social-base"]
+    });
+
+    assert.equal(showResult.status, 0, showResult.stderr);
+    assert.equal(viewResult.status, 0, viewResult.stderr);
+    assert.equal(viewResult.stdout, showResult.stdout);
   });
 });
 
@@ -250,11 +306,25 @@ test("jskit show rejects legacy scoped syntax", async () => {
   });
 });
 
+test("jskit add package accepts short package ids", async () => {
+  await withTempApp(async (appRoot) => {
+    const addResult = runCli({
+      cwd: appRoot,
+      args: ["add", "package", "module-framework-core", "--no-install"]
+    });
+    assert.equal(addResult.status, 0, addResult.stderr);
+    assert.match(addResult.stdout, /Added package @jskit-ai\/module-framework-core/);
+
+    const lock = await readJsonFile(path.join(appRoot, ".jskit/lock.json"));
+    assert.ok(lock.installedPackages["@jskit-ai/module-framework-core"]);
+  });
+});
+
 test("jskit add bundle db-mysql applies package-owned mutations", async () => {
   await withTempApp(async (appRoot) => {
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "bundle", "db-mysql", "--no-install"]
+      args: ["add", "bundle", "db-mysql", "--no-install", ...MYSQL_OPTION_ARGS]
     });
 
     assert.equal(addResult.status, 0, addResult.stderr);
@@ -275,6 +345,13 @@ test("jskit add bundle db-mysql applies package-owned mutations", async () => {
     const procfile = await readFile(path.join(appRoot, "Procfile"), "utf8");
     assert.match(procfile, /^release: npm run db:migrate$/m);
     assert.match(procfile, /^web: npm run start$/m);
+    const envFile = await readFile(path.join(appRoot, ".env"), "utf8");
+    assert.match(envFile, /^DB_CLIENT=mysql2$/m);
+    assert.match(envFile, /^DB_HOST=127\.0\.0\.1$/m);
+    assert.match(envFile, /^DB_PORT=3306$/m);
+    assert.match(envFile, /^DB_NAME=app$/m);
+    assert.match(envFile, /^DB_USER=root$/m);
+    assert.match(envFile, /^DB_PASSWORD=secret$/m);
 
     const lock = await readJsonFile(path.join(appRoot, ".jskit/lock.json"));
     assert.equal(lock.lockVersion, 3);
@@ -289,7 +366,7 @@ test("jskit add bundle db-postgres applies postgres dependency", async () => {
   await withTempApp(async (appRoot) => {
     const addResult = runCli({
       cwd: appRoot,
-      args: ["add", "bundle", "db-postgres", "--no-install"]
+      args: ["add", "bundle", "db-postgres", "--no-install", ...POSTGRES_OPTION_ARGS]
     });
 
     assert.equal(addResult.status, 0, addResult.stderr);
@@ -321,7 +398,7 @@ test("adding db-postgres on top of db-mysql fails due managed file drift", async
   await withTempApp(async (appRoot) => {
     const addDbMySql = runCli({
       cwd: appRoot,
-      args: ["add", "bundle", "db-mysql", "--no-install"]
+      args: ["add", "bundle", "db-mysql", "--no-install", ...MYSQL_OPTION_ARGS]
     });
     assert.equal(addDbMySql.status, 0, addDbMySql.stderr);
 
@@ -333,7 +410,7 @@ test("adding db-postgres on top of db-mysql fails due managed file drift", async
 
     const addDbPostgres = runCli({
       cwd: appRoot,
-      args: ["add", "bundle", "db-postgres", "--no-install"]
+      args: ["add", "bundle", "db-postgres", "--no-install", ...POSTGRES_OPTION_ARGS]
     });
     assert.notEqual(addDbPostgres.status, 0);
     assert.match(addDbPostgres.stderr, /\[managed-file-drift\]/i);
@@ -378,7 +455,7 @@ test("doctor reports missing managed file drift", async () => {
   await withTempApp(async (appRoot) => {
     const addDb = runCli({
       cwd: appRoot,
-      args: ["add", "bundle", "db-mysql", "--no-install"]
+      args: ["add", "bundle", "db-mysql", "--no-install", ...MYSQL_OPTION_ARGS]
     });
     assert.equal(addDb.status, 0, addDb.stderr);
 
@@ -397,7 +474,7 @@ test("bundle add rewrites internal JSKIT dependencies to local file specs", asyn
   await withTempApp(async (appRoot) => {
     const addDb = runCli({
       cwd: appRoot,
-      args: ["add", "bundle", "db-mysql", "--no-install"]
+      args: ["add", "bundle", "db-mysql", "--no-install", ...MYSQL_OPTION_ARGS]
     });
     assert.equal(addDb.status, 0, addDb.stderr);
 
@@ -444,7 +521,7 @@ test("doctor reports distribution-policy drift for internal dependency specs", a
   await withTempApp(async (appRoot) => {
     const addDb = runCli({
       cwd: appRoot,
-      args: ["add", "bundle", "db-mysql", "--no-install"]
+      args: ["add", "bundle", "db-mysql", "--no-install", ...MYSQL_OPTION_ARGS]
     });
     assert.equal(addDb.status, 0, addDb.stderr);
 
@@ -479,7 +556,7 @@ test("remove package fails when removal leaves required provider capability unre
   await withTempApp(async (appRoot) => {
     const addDb = runCli({
       cwd: appRoot,
-      args: ["add", "bundle", "db-mysql", "--no-install"]
+      args: ["add", "bundle", "db-mysql", "--no-install", ...MYSQL_OPTION_ARGS]
     });
     assert.equal(addDb.status, 0, addDb.stderr);
 
@@ -502,7 +579,7 @@ test("jskit resolves app root when command is run from a nested directory", asyn
 
     const addDb = runCli({
       cwd: nestedDirectory,
-      args: ["add", "bundle", "db-mysql", "--no-install"]
+      args: ["add", "bundle", "db-mysql", "--no-install", ...MYSQL_OPTION_ARGS]
     });
     assert.equal(addDb.status, 0, addDb.stderr);
 

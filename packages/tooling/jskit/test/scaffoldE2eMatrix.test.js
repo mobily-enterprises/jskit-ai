@@ -15,6 +15,18 @@ const JSKIT_CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url)
 const DEV_HOST = "127.0.0.1";
 const RUN_SCAFFOLD_E2E = process.env.JSKIT_RUN_SCAFFOLD_E2E === "1";
 const JSKIT_LOCAL_DEPENDENCY_PREFIX = "file:node_modules/@jskit-ai/jskit/packages/";
+const MYSQL_OPTION_ARGS = [
+  "--db-host",
+  "127.0.0.1",
+  "--db-port",
+  "3306",
+  "--db-name",
+  "app",
+  "--db-user",
+  "root",
+  "--db-password",
+  "secret"
+];
 
 function runNodeCli({ cwd, scriptPath, args = [] }) {
   return spawnSync(process.execPath, [scriptPath, ...args], {
@@ -362,9 +374,13 @@ async function runScenarioWebShellDbChat({ browser, rootDir }) {
   const appRoot = await createAppAt({ rootDir, appName: "matrix-web-shell-chat" });
 
   for (const bundleId of ["web-shell", "db-mysql", "auth-supabase", "chat-base"]) {
+    const args = ["add", "bundle", bundleId, "--no-install"];
+    if (bundleId === "db-mysql") {
+      args.push(...MYSQL_OPTION_ARGS);
+    }
     const addResult = runJskit({
       appRoot,
-      args: ["add", "bundle", bundleId, "--no-install"]
+      args
     });
     assert.equal(addResult.status, 0, addResult.stderr || addResult.stdout);
   }

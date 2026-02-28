@@ -4,6 +4,13 @@ export default Object.freeze({
   version: "0.1.0",
   description: "MySQL db-provider package for JSKIT database capability.",
   dependsOn: ["@jskit-ai/jskit-knex-mysql"],
+  options: {
+    "db-host": { required: true, values: [] },
+    "db-port": { required: true, values: [] },
+    "db-name": { required: true, values: [] },
+    "db-user": { required: true, values: [] },
+    "db-password": { required: true, values: [] }
+  },
   capabilities: {
     provides: ["db-provider"],
     requires: []
@@ -25,21 +32,92 @@ export default Object.freeze({
         "db:seed:calculator": "jskit-app-scripts db:seed:calculator"
       }
     },
-    procfile: {
-      release: "npm run db:migrate"
-    },
+    text: [
+      {
+        file: "Procfile",
+        op: "upsert-line",
+        key: "release",
+        line: "release: npm run db:migrate",
+        reason: "Run database migrations during release phase.",
+        category: "process-runtime",
+        id: "db-release-migrate"
+      },
+      {
+        file: ".env",
+        op: "upsert-env",
+        key: "DB_CLIENT",
+        value: "mysql2",
+        reason: "Set Knex SQL dialect for mysql provider.",
+        category: "runtime-config",
+        id: "db-client"
+      },
+      {
+        file: ".env",
+        op: "upsert-env",
+        key: "DB_HOST",
+        value: "${option:db-host}",
+        reason: "Set database host for mysql connection.",
+        category: "runtime-config",
+        id: "db-host"
+      },
+      {
+        file: ".env",
+        op: "upsert-env",
+        key: "DB_PORT",
+        value: "${option:db-port}",
+        reason: "Set database port for mysql connection.",
+        category: "runtime-config",
+        id: "db-port"
+      },
+      {
+        file: ".env",
+        op: "upsert-env",
+        key: "DB_NAME",
+        value: "${option:db-name}",
+        reason: "Set default database name.",
+        category: "runtime-config",
+        id: "db-name"
+      },
+      {
+        file: ".env",
+        op: "upsert-env",
+        key: "DB_USER",
+        value: "${option:db-user}",
+        reason: "Set database username for mysql connection.",
+        category: "runtime-config",
+        id: "db-user"
+      },
+      {
+        file: ".env",
+        op: "upsert-env",
+        key: "DB_PASSWORD",
+        value: "${option:db-password}",
+        reason: "Set database password for mysql connection.",
+        category: "runtime-config",
+        id: "db-password"
+      }
+    ],
     files: [
       {
         from: "templates/knexfile.cjs",
-        to: "knexfile.cjs"
+        to: "knexfile.cjs",
+        reason: "Provide Knex migration and seed configuration.",
+        category: "database-bootstrap",
+        id: "knexfile"
       },
       {
         from: "templates/migrations/20260101000000_create_placeholder_table.cjs",
-        to: "migrations/20260101000000_create_placeholder_table.cjs"
+        to: "migrations/20260101000000_create_placeholder_table.cjs",
+        reason: "Add starter migration for install validation.",
+        category: "database-bootstrap",
+        id: "migration-placeholder"
       },
       {
         from: "templates/seeds/000_placeholder_seed.cjs",
-        to: "seeds/000_placeholder_seed.cjs"
+        to: "seeds/000_placeholder_seed.cjs",
+        reason: "Add starter seed for install validation.",
+        category: "database-bootstrap",
+        id: "seed-placeholder"
       }
     ]
   }

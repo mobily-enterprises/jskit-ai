@@ -8,6 +8,18 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
+const MYSQL_OPTION_ARGS = [
+  "--db-host",
+  "127.0.0.1",
+  "--db-port",
+  "3306",
+  "--db-name",
+  "app",
+  "--db-user",
+  "root",
+  "--db-password",
+  "secret"
+];
 
 const REQUIRES_DB = new Set([
   "security-audit",
@@ -122,7 +134,7 @@ test("every bundle add succeeds with prerequisites and passes doctor", async () 
       if (REQUIRES_DB.has(bundle.bundleId) && bundle.bundleId !== "db-mysql") {
         const addDb = runCli({
           cwd: appRoot,
-          args: ["add", "bundle", "db-mysql", "--no-install"]
+          args: ["add", "bundle", "db-mysql", "--no-install", ...MYSQL_OPTION_ARGS]
         });
         assert.equal(addDb.status, 0, addDb.stderr);
       }
@@ -159,9 +171,13 @@ test("every bundle add succeeds with prerequisites and passes doctor", async () 
         assert.equal(addBillingProvider.status, 0, addBillingProvider.stderr);
       }
 
+      const addArgs = ["add", "bundle", bundle.bundleId, "--no-install"];
+      if (bundle.bundleId === "db-mysql") {
+        addArgs.push(...MYSQL_OPTION_ARGS);
+      }
       const addResult = runCli({
         cwd: appRoot,
-        args: ["add", "bundle", bundle.bundleId, "--no-install"]
+        args: addArgs
       });
       assert.equal(addResult.status, 0, `add failed for ${bundle.bundleId}: ${addResult.stderr}`);
 

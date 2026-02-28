@@ -9,6 +9,18 @@ import { fileURLToPath } from "node:url";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const WAVE_A_BUNDLES = ["auth-base", "auth-supabase", "communications-base", "observability-base"];
+const MYSQL_OPTION_ARGS = [
+  "--db-host",
+  "127.0.0.1",
+  "--db-port",
+  "3306",
+  "--db-name",
+  "app",
+  "--db-user",
+  "root",
+  "--db-password",
+  "secret"
+];
 
 function runCli({ cwd, args = [] }) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
@@ -76,7 +88,7 @@ test("combined auth + observability + db install passes doctor", async () => {
   await withTempApp(async (appRoot) => {
     const addDb = runCli({
       cwd: appRoot,
-      args: ["add", "bundle", "db-mysql", "--no-install"]
+      args: ["add", "bundle", "db-mysql", "--no-install", ...MYSQL_OPTION_ARGS]
     });
     assert.equal(addDb.status, 0, addDb.stderr);
 
