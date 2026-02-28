@@ -6,7 +6,9 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   CAPABILITY_CONTRACTS,
   CAPABILITY_CONTRACT_IDS,
+  getCapabilityContractApiEntries,
   getCapabilityContract,
+  getCapabilityContractRequiredSymbols,
   getCapabilityContractTestRelativePath
 } from "../contracts/capabilities/index.mjs";
 import { normalizePackageDescriptor } from "../src/shared/schemas/packageDescriptor.mjs";
@@ -64,23 +66,20 @@ async function loadAvailablePackages() {
   return availablePackages;
 }
 
-function buildDescriptorCapabilityIds(availablePackages) {
+function buildDescriptorRequiredCapabilityIds(availablePackages) {
   const capabilityIds = [];
   for (const packageEntry of availablePackages.values()) {
-    const provides = Array.isArray(packageEntry?.descriptor?.capabilities?.provides)
-      ? packageEntry.descriptor.capabilities.provides
-      : [];
     const requires = Array.isArray(packageEntry?.descriptor?.capabilities?.requires)
       ? packageEntry.descriptor.capabilities.requires
       : [];
-    capabilityIds.push(...provides, ...requires);
+    capabilityIds.push(...requires);
   }
   return toSortedUniqueStrings(capabilityIds);
 }
 
-test("central capability contracts cover descriptor capability IDs", async () => {
+test("central capability contracts cover descriptor required capability IDs", async () => {
   const availablePackages = await loadAvailablePackages();
-  const descriptorCapabilityIds = buildDescriptorCapabilityIds(availablePackages);
+  const descriptorCapabilityIds = buildDescriptorRequiredCapabilityIds(availablePackages);
 
   assert.deepEqual(CAPABILITY_CONTRACT_IDS, descriptorCapabilityIds);
   assert.equal(getCapabilityContractTestRelativePath("billing.provider"), "test/contracts/billing.provider.contract.test.js");
@@ -94,11 +93,17 @@ test("central capability contracts cover descriptor capability IDs", async () =>
     assert.equal(entry.kind.trim().length > 0, true);
     assert.equal(typeof entry.summary, "string");
     assert.equal(entry.summary.trim().length > 0, true);
-    assert.equal(typeof entry.entrypoint, "string");
-    assert.equal(entry.entrypoint.trim().length > 0, true);
-    assert.equal(Array.isArray(entry.symbols), true);
-    assert.equal(entry.symbols.length > 0, true);
-    assert.equal(entry.requireContractTest === 0 || entry.requireContractTest === 1, true);
+    const apiEntries = getCapabilityContractApiEntries(capabilityId);
+    assert.equal(Array.isArray(apiEntries), true);
+    assert.equal(apiEntries.length > 0, true);
+    for (const apiEntry of apiEntries) {
+      assert.equal(typeof apiEntry.entrypoint, "string");
+      assert.equal(apiEntry.entrypoint.trim().length > 0, true);
+      assert.equal(Array.isArray(apiEntry.functions), true);
+      assert.equal(Array.isArray(apiEntry.constants), true);
+      assert.equal(getCapabilityContractRequiredSymbols(apiEntry).length > 0, true);
+      assert.equal(apiEntry.requireContractTest === 0 || apiEntry.requireContractTest === 1, true);
+    }
     assert.equal(entry.providers, undefined);
     assert.equal(entry.consumers, undefined);
   }

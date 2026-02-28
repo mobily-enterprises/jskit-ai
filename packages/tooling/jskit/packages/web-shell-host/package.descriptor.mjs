@@ -5,8 +5,8 @@ export default Object.freeze({
   description: "Scaffolds filesystem-driven web shell host (drawer/top/config + route composition).",
   dependsOn: [],
   capabilities: {
-    provides: ["runtime.web", "runtime.web-shell-host"],
-    requires: []
+    provides: ["runtime.web-shell-host"],
+    requires: ["runtime.web"]
   },
   mutations: {
     dependencies: {

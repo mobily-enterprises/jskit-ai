@@ -3,6 +3,8 @@ import path from "node:path";
 import {
   CAPABILITY_CONTRACT_IDS,
   CAPABILITY_CONTRACTS,
+  getCapabilityContractApiEntries,
+  getCapabilityContractRequiredSymbols,
   getCapabilityContractTestRelativePath
 } from "../../contracts/capabilities/index.mjs";
 
@@ -176,15 +178,15 @@ async function loadEntrypointNamedExports(resolvedPath, moduleCache) {
 }
 
 async function validateProviderContractSymbols({
-  contract,
+  contractApiEntry,
   capabilityId,
   providerPackageId,
   packageEntry,
   packageJsonCache,
   moduleCache
 }) {
-  const entrypoint = String(contract.entrypoint || "").trim();
-  const symbols = toSortedUniqueStrings(contract.symbols || []);
+  const entrypoint = String(contractApiEntry.entrypoint || "").trim();
+  const symbols = getCapabilityContractRequiredSymbols(contractApiEntry);
   if (!entrypoint || symbols.length < 1) {
     return [];
   }
@@ -290,11 +292,14 @@ function listCapabilityUsage(availablePackages) {
 async function validateCapabilityContracts(availablePackages) {
   const issues = [];
   const usageByCapability = buildCapabilityUsageGraph(availablePackages);
-  const usedCapabilityIds = [...usageByCapability.keys()].sort((left, right) => left.localeCompare(right));
+  const requiredCapabilityIds = [...usageByCapability.entries()]
+    .filter(([, usage]) => usage && usage.consumers instanceof Set && usage.consumers.size > 0)
+    .map(([capabilityId]) => capabilityId)
+    .sort((left, right) => left.localeCompare(right));
   const packageJsonCache = new Map();
   const moduleCache = new Map();
 
-  for (const capabilityId of usedCapabilityIds) {
+  for (const capabilityId of requiredCapabilityIds) {
     const contract = CAPABILITY_CONTRACTS[capabilityId];
     if (!contract) {
       issues.push(`Capability ${capabilityId} is referenced in descriptors but missing from central contracts.`);
@@ -317,24 +322,55 @@ async function validateCapabilityContracts(availablePackages) {
       );
     }
 
-    const entrypoint = String(contract.entrypoint || "").trim();
-    if (!entrypoint) {
-      issues.push(`Capability ${capabilityId} contract entrypoint must be a non-empty export key.`);
+    const apiEntries = getCapabilityContractApiEntries(capabilityId);
+    if (apiEntries.length < 1) {
+      issues.push(`Capability ${capabilityId} contract must define at least one API entry.`);
     }
 
-    const symbols = toSortedUniqueStrings(contract.symbols || []);
-    if (symbols.length < 1) {
-      issues.push(`Capability ${capabilityId} contract must define at least one symbol.`);
+    const rawApiEntries = Array.isArray(contract.api) && contract.api.length > 0 ? contract.api : [contract];
+    for (const rawApiEntry of rawApiEntries) {
+      const rawEntrypoint = String(rawApiEntry?.entrypoint || contract.entrypoint || ".").trim() || ".";
+      for (const fieldName of ["symbols", "functions", "constants"]) {
+        const values = toSortedUniqueStrings(rawApiEntry?.[fieldName] || []);
+        if (values.includes("__testables")) {
+          issues.push(
+            `Capability ${capabilityId} contract entrypoint ${rawEntrypoint} must not explicitly list __testables in ${fieldName}; it is implicit.`
+          );
+        }
+      }
     }
 
-    const requireContractTest = Number(contract.requireContractTest || 0);
-    if (requireContractTest !== 0 && requireContractTest !== 1) {
-      issues.push(`Capability ${capabilityId} contract requireContractTest must be 0 or 1.`);
+    const seenEntrypoints = new Set();
+    for (const apiEntry of apiEntries) {
+      const entrypoint = String(apiEntry.entrypoint || "").trim();
+      if (!entrypoint) {
+        issues.push(`Capability ${capabilityId} contract entrypoint must be a non-empty export key.`);
+        continue;
+      }
+
+      if (seenEntrypoints.has(entrypoint)) {
+        issues.push(`Capability ${capabilityId} contract entrypoint ${entrypoint} is duplicated.`);
+      }
+      seenEntrypoints.add(entrypoint);
+
+      const functions = toSortedUniqueStrings(apiEntry.functions || []);
+      const constants = toSortedUniqueStrings(apiEntry.constants || []);
+      if (functions.length < 1 && constants.length < 1) {
+        issues.push(
+          `Capability ${capabilityId} contract entrypoint ${entrypoint} must define at least one function or constant.`
+        );
+      }
+
+      const requireContractTest = Number(apiEntry.requireContractTest || 0);
+      if (requireContractTest !== 0 && requireContractTest !== 1) {
+        issues.push(
+          `Capability ${capabilityId} contract entrypoint ${entrypoint} requireContractTest must be 0 or 1.`
+        );
+      }
     }
 
     const usage = usageByCapability.get(capabilityId);
     const providers = toSortedUniqueStrings([...(usage?.providers || new Set())]);
-
     for (const providerPackageId of providers) {
       const packageEntry = availablePackages.get(providerPackageId);
       if (!packageEntry) {
@@ -344,7 +380,8 @@ async function validateCapabilityContracts(availablePackages) {
         continue;
       }
 
-      if (requireContractTest === 1) {
+      const requiresContractTest = apiEntries.some((entry) => Number(entry.requireContractTest || 0) === 1);
+      if (requiresContractTest) {
         const relativeTestPath = getCapabilityContractTestRelativePath(capabilityId);
         if (!relativeTestPath) {
           issues.push(`Capability ${capabilityId} contract requires tests but has invalid test path.`);
@@ -358,11 +395,10 @@ async function validateCapabilityContracts(availablePackages) {
         }
       }
 
-      if (symbols.length > 0) {
+      for (const apiEntry of apiEntries) {
         const symbolIssues = await validateProviderContractSymbols({
-          contract: {
-            ...contract,
-            symbols
+          contractApiEntry: {
+            ...apiEntry
           },
           capabilityId,
           providerPackageId,
@@ -376,8 +412,8 @@ async function validateCapabilityContracts(availablePackages) {
   }
 
   for (const capabilityId of CAPABILITY_CONTRACT_IDS) {
-    if (!usageByCapability.has(capabilityId)) {
-      issues.push(`Capability ${capabilityId} exists in central contracts but is unused by descriptors.`);
+    if (!requiredCapabilityIds.includes(capabilityId)) {
+      issues.push(`Capability ${capabilityId} exists in central contracts but is unused by descriptor requirements.`);
     }
   }
 
@@ -385,7 +421,7 @@ async function validateCapabilityContracts(availablePackages) {
     ok: issues.length < 1,
     issues,
     contractCount: CAPABILITY_CONTRACT_IDS.length,
-    usedCapabilityCount: usedCapabilityIds.length
+    usedCapabilityCount: requiredCapabilityIds.length
   };
 }
 
