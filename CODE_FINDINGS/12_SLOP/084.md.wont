@@ -5,3 +5,8 @@
 - Why it can drift/fail: Identical helpers (`isAlertUnread`, `formatAlertDateTime`) are reimplemented in three shells. Any change to unread logic or formatting must be synchronized manually.
 - Concrete impact: Alerts preview behavior diverges between app, admin, and console shells.
 - Exact remediation: Extract these helpers into a shared alerts UI utility and reuse them.
+
+---
+WONT:
+- Skipping because this is client-side shell/UI work during the ongoing template rewrite.
+- Signal to revisit: UI shell templates stabilize and a shared alerts UI utility is ready for reuse.

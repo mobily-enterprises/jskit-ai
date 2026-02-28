@@ -1,0 +1,20 @@
+# Finding 087
+- Severity: Low
+- Pattern type: AI slop; Duplicate `normalizeProfileId` across framework utilities
+- File + line(s): `apps/jskit-value-app/server/framework/dependencyCheck.js:31-34`, `apps/jskit-value-app/server/framework/extensionsValidation.js:14-17`, `apps/jskit-value-app/server/framework/composeRuntime.js:37-40`
+- Why it can drift/fail: The same profile id normalization logic is repeated in multiple framework utilities. Any change to defaulting or validation must be synchronized manually.
+- Concrete impact: Inconsistent profile handling between dependency checks, extension validation, and compose runtime.
+- Exact remediation: Extract `normalizeProfileId` into a shared framework utility module.
+
+---
+Summary:
+- Added shared framework `profileUtils.js` for profile id normalization.
+- Reused the helper across dependency check, extension validation, and runtime composition utilities.
+Tests:
+- npm -ws --if-present test (fails: missing jskit-app-scripts, vitest, @jskit-ai/assistant-contracts, vue, @jskit-ai/server-runtime-core, @fastify/type-provider-typebox, openai, @supabase/supabase-js, @fastify/cookie, @jskit-ai/surface-routing, @jskit-ai/cli-entrypoint)
+- npm run test:framework (fails: migration tracker count mismatch; missing @jskit-ai/cli-entrypoint)
+- npm run test:architecture:client (fails: vuetify/@mdi imports in web-shell-host template)
+- npm run test:architecture:shared-ui
+- npm run test:architecture:db
+Commit:
+- 00fc3368e4de6b2df525de64b64d51b5655cbc06

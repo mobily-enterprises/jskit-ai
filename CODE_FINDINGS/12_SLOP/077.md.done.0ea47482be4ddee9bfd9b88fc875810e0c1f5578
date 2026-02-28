@@ -5,3 +5,16 @@
 - Why it can drift/fail: Provider SDK name resolution logic is duplicated across three billing packages. If provider defaults or naming rules change, they must be updated in multiple locations.
 - Concrete impact: Inconsistent provider SDK naming between provider core, service core, and storage layer.
 - Exact remediation: Centralize provider constants and helper functions in `billing-provider-core` and import them from service/knex packages.
+
+---
+Summary:
+- Replaced duplicated billing provider SDK naming map with re-export from billing-core constants.
+- Keeps provider naming centralized to avoid drift across billing packages.
+Tests:
+- npm -ws --if-present test (fails: missing jskit-app-scripts)
+- npm run test:framework (fails: missing vitest)
+- npm run test:architecture:client (fails: missing @jskit-ai/assistant-contracts)
+- npm run test:architecture:shared-ui (fails: missing vue)
+- npm run test:architecture:db (fails: missing @jskit-ai/server-runtime-core, @fastify/type-provider-typebox, openai, @supabase/supabase-js, @fastify/cookie, @jskit-ai/surface-routing, @jskit-ai/cli-entrypoint)
+Commit:
+- 0ea47482be4ddee9bfd9b88fc875810e0c1f5578

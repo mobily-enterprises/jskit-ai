@@ -1,0 +1,20 @@
+# Finding 078
+- Severity: Low
+- Pattern type: AI slop; Duplicate `resolveWorkspace` helper in action contributors
+- File + line(s): `packages/workspace/workspace-service-core/src/shared/actions/workspace.contributor.js:43-47`, `apps/jskit-value-app/server/runtime/actions/contributors/assistant.contributor.js:51-55`, `apps/jskit-value-app/server/runtime/actions/contributors/projects.contributor.js:49-53`
+- Why it can drift/fail: Workspace resolution logic is copy-pasted across contributors. If the resolution precedence changes (payload vs request vs context), these files will diverge.
+- Concrete impact: Inconsistent workspace resolution behavior between contributors.
+- Exact remediation: Extract `resolveWorkspace` into shared action-contributor helpers and reuse it.
+
+---
+Summary:
+- Centralized `resolveWorkspace` in action contributor helpers and reused it across workspace, assistant, and projects contributors.
+- Removes duplicated workspace-resolution logic to prevent drift in resolution precedence.
+Tests:
+- npm -ws --if-present test (fails: missing jskit-app-scripts, vitest, @jskit-ai/assistant-contracts, vue, @jskit-ai/server-runtime-core, @fastify/type-provider-typebox, openai, @supabase/supabase-js, @fastify/cookie, @jskit-ai/surface-routing, @jskit-ai/cli-entrypoint)
+- npm run test:framework (fails: migration tracker count mismatch; missing @jskit-ai/cli-entrypoint)
+- npm run test:architecture:client (fails: vuetify/@mdi imports in web-shell-host template)
+- npm run test:architecture:shared-ui
+- npm run test:architecture:db
+Commit:
+- 9eabc403128318e051f338b80372116ebed97dac

@@ -5,3 +5,8 @@
 - Why it can drift/fail: The same label normalization helper is implemented in multiple auth catalogs. Any change to label fallback or trimming rules must be applied in all locations.
 - Concrete impact: Inconsistent OAuth provider labeling between server and client catalogs.
 - Exact remediation: Centralize `normalizeProviderLabel` in a shared auth utility and reuse it in all catalogs.
+
+---
+WONT:
+- Skipping because this change requires updating a client-side auth catalog alongside server code, and client templates are in flux.
+- Signal to revisit: client auth module refactor completes and shared auth utilities can be introduced safely.

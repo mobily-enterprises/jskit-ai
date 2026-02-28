@@ -5,3 +5,8 @@
 - Why it can drift/fail: The same array-normalization helper is copied into multiple files. If normalization semantics change, updates must be duplicated manually.
 - Concrete impact: Inconsistent normalization between social core and UI stores.
 - Exact remediation: Extract `normalizeArray` into a shared utility (e.g., web runtime core) and reuse it.
+
+---
+WONT:
+- Skipping because this change targets client-side app stores and shared web runtime utilities while the client templates are being rewritten.
+- Signal to revisit: client template rewrite completes and app store helpers are stable enough to consolidate into shared client utilities.

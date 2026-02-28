@@ -1,0 +1,20 @@
+# Finding 080
+- Severity: Low
+- Pattern type: AI slop; Duplicate `delay` helper in async tests
+- File + line(s): `packages/realtime/realtime-client-runtime/test/runtime.test.js:92-95`, `packages/social/social-core/test/outboxWorkerRuntime.service.test.js:7-10`, `apps/jskit-value-app/tests/socialOutboxWorkerRuntime.test.js:7-10`
+- Why it can drift/fail: The same async delay helper is copy-pasted across tests. Any change to timing behavior or helper signature must be repeated manually.
+- Concrete impact: Inconsistent test utilities and extra maintenance in async tests.
+- Exact remediation: Extract `delay` into a shared test helper and import it in these tests.
+
+---
+Summary:
+- Added shared `tests/helpers/delay.js` for async test sleeps.
+- Updated realtime, social-core, and value-app outbox tests to import the shared delay helper.
+Tests:
+- npm -ws --if-present test (fails: missing jskit-app-scripts, vitest, @jskit-ai/assistant-contracts, vue, @jskit-ai/server-runtime-core, @fastify/type-provider-typebox, openai, @supabase/supabase-js, @fastify/cookie, @jskit-ai/surface-routing, @jskit-ai/cli-entrypoint)
+- npm run test:framework (fails: migration tracker count mismatch; missing @jskit-ai/cli-entrypoint)
+- npm run test:architecture:client (fails: vuetify/@mdi imports in web-shell-host template)
+- npm run test:architecture:shared-ui
+- npm run test:architecture:db
+Commit:
+- bfcbadc768286a10805f41261fb8a3ed6a402875

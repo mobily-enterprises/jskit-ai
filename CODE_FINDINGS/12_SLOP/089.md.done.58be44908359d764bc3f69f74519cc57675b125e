@@ -1,0 +1,20 @@
+# Finding 089
+- Severity: Low
+- Pattern type: AI slop; `toPosixPath` duplicated in architecture guardrail tests
+- File + line(s): `tests/architecture/client-architecture.guardrails.test.mjs:67-69`, `tests/architecture/server-db-architecture.guardrails.test.mjs:42-44`, `apps/jskit-value-app/tests/architectureGuardrails.test.js:54-56`
+- Why it can drift/fail: The same path-normalization helper is copied across multiple guardrail tests. Any change to path normalization rules must be updated manually in all tests.
+- Concrete impact: Inconsistent guardrail behavior between repo-level and app-level tests.
+- Exact remediation: Extract `toPosixPath` into a shared test helper and import it in these guardrail tests.
+
+---
+Summary:
+- Added shared guardrail path helper in `tests/helpers/pathUtils.mjs`.
+- Updated client, server-db, and app architecture guardrail tests to use the shared `toPosixPath` helper.
+Tests:
+- npm -ws --if-present test (fails: missing jskit-app-scripts, vitest, @jskit-ai/assistant-contracts, vue, @jskit-ai/server-runtime-core, @fastify/type-provider-typebox, openai, @supabase/supabase-js, @fastify/cookie, @jskit-ai/surface-routing, @jskit-ai/cli-entrypoint)
+- npm run test:framework (fails: migration tracker count mismatch; missing @jskit-ai/cli-entrypoint)
+- npm run test:architecture:client (fails: vuetify/@mdi imports in web-shell-host template)
+- npm run test:architecture:shared-ui
+- npm run test:architecture:db
+Commit:
+- 58be44908359d764bc3f69f74519cc57675b125e
