@@ -4,32 +4,7 @@ import test from "node:test";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { createController as createAuthController } from "@jskit-ai/auth-fastify-routes";
 import { createController as createSettingsController } from "../server/modules/settings/controller.js";
-
-function createReplyDouble() {
-  return {
-    statusCode: null,
-    payload: null,
-    redirectUrl: null,
-    cookies: [],
-    csrfToken: "csrf-token",
-    code(status) {
-      this.statusCode = status;
-      return this;
-    },
-    send(payload) {
-      this.payload = payload;
-      return this;
-    },
-    redirect(url) {
-      this.statusCode = 302;
-      this.redirectUrl = String(url || "");
-      return this;
-    },
-    async generateCsrf() {
-      return this.csrfToken;
-    }
-  };
-}
+import { createReplyDouble } from "./helpers/replyDouble.js";
 
 test("auth controller covers register/login/logout/session/password flows via action executor", async () => {
   const actionCalls = [];

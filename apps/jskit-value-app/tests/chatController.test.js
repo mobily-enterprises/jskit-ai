@@ -3,31 +3,7 @@ import test from "node:test";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { createController as createChatController } from "../server/modules/chat/controller.js";
-
-function createReplyDouble() {
-  return {
-    statusCode: null,
-    payload: null,
-    headers: {},
-    contentType: null,
-    code(status) {
-      this.statusCode = status;
-      return this;
-    },
-    header(name, value) {
-      this.headers[String(name)] = value;
-      return this;
-    },
-    type(value) {
-      this.contentType = value;
-      return this;
-    },
-    send(payload) {
-      this.payload = payload;
-      return this;
-    }
-  };
-}
+import { createReplyDouble } from "./helpers/replyDouble.js";
 
 function createActionExecutorDouble(execute) {
   return {

@@ -3,21 +3,7 @@ import test from "node:test";
 
 import { createController } from "../server/modules/alerts/controller.js";
 import { ACTION_IDS } from "../shared/actionIds.js";
-
-function createReplyDouble() {
-  return {
-    statusCode: null,
-    payload: null,
-    code(statusCode) {
-      this.statusCode = statusCode;
-      return this;
-    },
-    send(payload) {
-      this.payload = payload;
-      return this;
-    }
-  };
-}
+import { createReplyDouble } from "./helpers/replyDouble.js";
 
 test("alerts controller requires actionExecutor.execute", () => {
   assert.throws(() => createController({}), /required/);
@@ -86,4 +72,3 @@ test("alerts controller delegates list and read-all through action executor", as
   assert.deepEqual(calls[0].input, { page: "2", pageSize: "10" });
   assert.deepEqual(calls[1].input, {});
 });
-

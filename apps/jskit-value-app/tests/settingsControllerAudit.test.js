@@ -2,21 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createController as createSettingsController } from "../server/modules/settings/controller.js";
-
-function createReplyDouble() {
-  return {
-    statusCode: null,
-    payload: null,
-    code(status) {
-      this.statusCode = status;
-      return this;
-    },
-    send(payload) {
-      this.payload = payload;
-      return this;
-    }
-  };
-}
+import { createReplyDouble } from "./helpers/replyDouble.js";
 
 function createBaseRequest(overrides = {}) {
   return {

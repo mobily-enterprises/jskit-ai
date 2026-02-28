@@ -4,44 +4,7 @@ import { EventEmitter } from "node:events";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { createController as createAiController } from "../server/modules/ai/controller.js";
-
-function createReplyDouble() {
-  const raw = {
-    writes: [],
-    ended: false,
-    flushHeaders() {},
-    write(chunk) {
-      this.writes.push(String(chunk));
-    },
-    end() {
-      this.ended = true;
-    }
-  };
-
-  return {
-    statusCode: null,
-    payload: null,
-    headers: {},
-    hijacked: false,
-    raw,
-    header(name, value) {
-      this.headers[String(name || "").toLowerCase()] = value;
-      return this;
-    },
-    code(value) {
-      this.statusCode = value;
-      return this;
-    },
-    send(value) {
-      this.payload = value;
-      return this;
-    },
-    hijack() {
-      this.hijacked = true;
-      return this;
-    }
-  };
-}
+import { createReplyDouble } from "./helpers/replyDouble.js";
 
 function createRequestDouble(payload = {}) {
   return {
