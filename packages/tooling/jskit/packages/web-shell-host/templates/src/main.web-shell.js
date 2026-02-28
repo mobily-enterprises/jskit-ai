@@ -6,6 +6,7 @@ import { aliases as mdiAliases, mdi } from "vuetify/iconsets/mdi-svg";
 import * as components from "vuetify/components";
 import * as directives from "vuetify/directives";
 import {
+  mdiAccountMultipleOutline,
   mdiAlertCircleOutline,
   mdiCogOutline,
   mdiHomeOutline,
@@ -45,9 +46,14 @@ const vuetify = createVuetify({
       ...mdiAliases,
       consoleBrowserErrors: mdiAlertCircleOutline,
       consoleServerErrors: mdiServer,
+      console: mdiViewDashboardOutline,
+      dashboard: mdiViewDashboardOutline,
+      home: mdiHomeOutline,
       menuSettings: mdiCogOutline,
       navHome: mdiHomeOutline,
-      navDashboard: mdiViewDashboardOutline
+      navDashboard: mdiViewDashboardOutline,
+      settings: mdiCogOutline,
+      workspace: mdiAccountMultipleOutline
     },
     sets: {
       mdi
