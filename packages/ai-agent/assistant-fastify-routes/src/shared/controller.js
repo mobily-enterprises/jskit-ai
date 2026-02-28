@@ -1,3 +1,4 @@
+import { defaultHasPermission } from "@jskit-ai/assistant-core";
 import { endNdjson, safeStreamError, setNdjsonHeaders, writeNdjson } from "./ndjson.js";
 
 const ASSISTANT_ACTION_IDS = Object.freeze({
@@ -16,17 +17,6 @@ class DefaultAppError extends Error {
     this.details = options.details;
     this.headers = options.headers || {};
   }
-}
-
-function defaultHasPermission(permissionSet, permission) {
-  const required = String(permission || "").trim();
-  if (!required) {
-    return true;
-  }
-
-  const values = Array.isArray(permissionSet) ? permissionSet : [];
-  const normalized = values.map((value) => String(value || "").trim()).filter(Boolean);
-  return normalized.includes("*") || normalized.includes(required);
 }
 
 function buildPreStreamErrorPayload(error, AppErrorClass = DefaultAppError) {

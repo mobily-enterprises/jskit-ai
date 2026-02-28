@@ -13,6 +13,7 @@
     "./repositories/messages": "./src/shared/repositories/messages.repository.js"
   },
   "dependencies": {
+    "@jskit-ai/assistant-core": "0.1.0",
     "@jskit-ai/server-runtime-core": "0.1.0",
     "@jskit-ai/workspace-console-core": "0.1.0",
     "@jskit-ai/jskit-knex": "0.1.0"

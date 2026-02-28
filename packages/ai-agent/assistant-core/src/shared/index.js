@@ -5,6 +5,7 @@ export {
   executeToolCall,
   __testables as assistantToolRegistryTestables
 } from "./toolRegistry.js";
+export { defaultHasPermission } from "./permissions.js";
 export {
   AI_ASSISTANT_SYSTEM_PROMPT_MAX_LENGTH,
   normalizePromptValue,

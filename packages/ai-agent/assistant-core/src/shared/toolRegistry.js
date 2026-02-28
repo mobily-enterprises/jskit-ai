@@ -1,3 +1,5 @@
+import { defaultHasPermission } from "./permissions.js";
+
 class DefaultAppError extends Error {
   constructor(status, message, options = {}) {
     super(message);
@@ -8,17 +10,6 @@ class DefaultAppError extends Error {
     this.details = options.details;
     this.headers = options.headers || {};
   }
-}
-
-function defaultHasPermission(permissionSet, permission) {
-  const required = String(permission || "").trim();
-  if (!required) {
-    return true;
-  }
-
-  const values = Array.isArray(permissionSet) ? permissionSet : [];
-  const normalized = values.map((value) => String(value || "").trim()).filter(Boolean);
-  return normalized.includes("*") || normalized.includes(required);
 }
 
 function buildAiToolRegistry({ tools = [] } = {}) {

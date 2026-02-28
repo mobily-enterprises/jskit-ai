@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { defaultHasPermission } from "@jskit-ai/assistant-core";
 import { AppError as SharedAppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { normalizePagination as normalizePaginationBase } from "@jskit-ai/server-runtime-core/pagination";
@@ -28,17 +29,6 @@ let AppError = DefaultAppError;
 
 function defaultResolveRolePermissions() {
   return [];
-}
-
-function defaultHasPermission(permissionSet, permission) {
-  const required = String(permission || "").trim();
-  if (!required) {
-    return true;
-  }
-
-  const values = Array.isArray(permissionSet) ? permissionSet : [];
-  const normalized = values.map((value) => String(value || "").trim()).filter(Boolean);
-  return normalized.includes("*") || normalized.includes(required);
 }
 
 let resolveRolePermissions = defaultResolveRolePermissions;
