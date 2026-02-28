@@ -1,3 +1,5 @@
+import { normalizeText } from "./textNormalization.js";
+
 const ACTION_KINDS = Object.freeze(["query", "command", "stream"]);
 const ACTION_VISIBILITY_LEVELS = Object.freeze(["public", "internal", "operator"]);
 const ACTION_IDEMPOTENCY_POLICIES = Object.freeze(["none", "optional", "required", "domain_native"]);
@@ -38,10 +40,6 @@ class ActionRuntimeError extends Error {
 
 function createActionRuntimeError(status, message, options = {}) {
   return new ActionRuntimeError(status, message, options);
-}
-
-function normalizeText(value) {
-  return String(value || "").trim();
 }
 
 function isPlainObject(value) {

@@ -1,14 +1,6 @@
-import { normalizeExecutionContext } from "@jskit-ai/action-runtime-core";
+import { normalizeExecutionContext, normalizeLowerText, normalizeText } from "@jskit-ai/action-runtime-core";
 import { safePathnameFromRequest, resolveClientIpAddress } from "@jskit-ai/server-runtime-core/requestUrl";
 import { resolveSurfaceFromPathname } from "../../../shared/surfacePaths.js";
-
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-function normalizeLowerText(value) {
-  return normalizeText(value).toLowerCase();
-}
 
 function resolveSurface({ request, explicitSurface }) {
   const normalizedExplicitSurface = normalizeLowerText(explicitSurface);

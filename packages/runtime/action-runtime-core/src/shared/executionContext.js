@@ -1,10 +1,4 @@
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-function normalizeLowerText(value) {
-  return normalizeText(value).toLowerCase();
-}
+import { normalizeLowerText, normalizeText } from "./textNormalization.js";
 
 function normalizePermissions(value) {
   const source = Array.isArray(value) ? value : [];

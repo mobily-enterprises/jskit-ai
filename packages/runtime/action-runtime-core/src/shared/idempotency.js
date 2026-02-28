@@ -1,8 +1,5 @@
 import { createActionRuntimeError } from "./contracts.js";
-
-function normalizeText(value) {
-  return String(value || "").trim();
-}
+import { normalizeText } from "./textNormalization.js";
 
 function resolveRequestIdempotencyKey(context) {
   return normalizeText(context?.requestMeta?.idempotencyKey || context?.requestMeta?.commandId || "");

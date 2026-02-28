@@ -1,12 +1,5 @@
 import { createActionRuntimeError } from "./contracts.js";
-
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-function normalizeLowerText(value) {
-  return normalizeText(value).toLowerCase();
-}
+import { normalizeLowerText, normalizeText } from "./textNormalization.js";
 
 function defaultHasPermission(permissionSet, permission) {
   const requiredPermission = normalizeText(permission);
