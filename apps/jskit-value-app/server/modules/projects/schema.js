@@ -2,11 +2,13 @@ import { Type } from "@fastify/type-provider-typebox";
 import { createPaginationQuerySchema } from "@jskit-ai/http-contracts/paginationQuery";
 import { enumSchema } from "@jskit-ai/http-contracts/errorResponses";
 
-const query = createPaginationQuerySchema({
+const PROJECTS_PAGINATION = Object.freeze({
   defaultPage: 1,
   defaultPageSize: 10,
   maxPageSize: 100
 });
+
+const query = createPaginationQuerySchema(PROJECTS_PAGINATION);
 
 const status = enumSchema(["draft", "active", "archived"]);
 const projectId = Type.Integer({ minimum: 1 });
@@ -40,7 +42,7 @@ const list = Type.Object(
   {
     entries: Type.Array(entity),
     page: Type.Integer({ minimum: 1 }),
-    pageSize: Type.Integer({ minimum: 1, maximum: 100 }),
+    pageSize: Type.Integer({ minimum: 1, maximum: PROJECTS_PAGINATION.maxPageSize }),
     total: Type.Integer({ minimum: 0 }),
     totalPages: Type.Integer({ minimum: 1 })
   },
@@ -99,4 +101,4 @@ const schema = {
   }
 };
 
-export { schema };
+export { schema, PROJECTS_PAGINATION };

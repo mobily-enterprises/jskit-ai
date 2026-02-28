@@ -1,4 +1,4 @@
-import { createService as createProjectsModuleService } from "../../../modules/projects/index.js";
+import { createService as createProjectsModuleService, schema as projectsSchema } from "../../../modules/projects/index.js";
 import {
   publishProjectEventSafely,
   resolvePublishProjectEvent
@@ -112,6 +112,9 @@ const OBJECT_INPUT_SCHEMA = Object.freeze({
   }
 });
 
+const PROJECTS_MAX_PAGE_SIZE =
+  Number(projectsSchema?.query?.properties?.pageSize?.maximum) || 100;
+
 const PROJECTS_LIST_TOOL_SCHEMA = Object.freeze({
   type: "object",
   additionalProperties: true,
@@ -123,7 +126,7 @@ const PROJECTS_LIST_TOOL_SCHEMA = Object.freeze({
     pageSize: {
       type: "integer",
       minimum: 1,
-      maximum: 200
+      maximum: PROJECTS_MAX_PAGE_SIZE
     }
   }
 });
