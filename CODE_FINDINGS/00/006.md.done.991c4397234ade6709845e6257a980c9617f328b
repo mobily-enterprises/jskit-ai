@@ -1,0 +1,21 @@
+# Finding 006
+- Severity: Medium
+- Pattern type: 3 Data-model bypass
+- File + line(s): `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/app/settingsExtensions/projectsPreferences.server.js:1`, `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/settings/service.js:267`
+- Why it can drift/fail: extension logic writes directly to DB table semantics instead of repository/model seams.
+- Concrete impact: schema changes can bypass central persistence invariants and break extension behavior.
+- Exact remediation: move extension persistence through a dedicated repository seam and keep extension layer transport/validation focused.
+
+---
+Resolution summary:
+- Added projects settings persistence to the settings repository.
+- Routed the projects settings extension through that repository seam for read/write.
+
+Tests:
+- npm -ws --if-present test (fails: @jskit-ai/billing-commerce-client-element vitest TypeError at BillingCommerceClientElement.vue:115; @jskit-ai/create-app missing --db-host; @jskit-ai/web-runtime-core guardrail expects no apiClients imports; server bootstrap requires REDIS_NAMESPACE)
+- npm run test:framework (fails: migration tracker row count mismatch; stage12 inline options error)
+- npm run test:architecture:client (fails: client guardrail flags vuetify imports in packages/tooling/jskit/packages/web-shell-host/templates/src/main.web-shell.js)
+- npm run test:architecture:shared-ui
+- npm run test:architecture:db
+
+Commit: 991c4397234ade6709845e6257a980c9617f328b

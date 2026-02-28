@@ -1,0 +1,21 @@
+# Finding 041
+- Severity: Low
+- Pattern type: AI slop; isPlainObject helper duplication
+- File + line(s): `apps/jskit-value-app/config/lib/helpers.js:1-3`, `apps/jskit-value-app/server/modules/settings/lib/extensionsRuntime.js:3-5`, `apps/jskit-value-app/server/modules/ai/lib/tools/actionTools.js:29-31`, `packages/runtime/action-runtime-core/src/shared/contracts.js:47-49`
+- Why it can drift/fail: `isPlainObject` is re-implemented across many packages with identical behavior. This is shared utility logic that should be centralized.
+- Concrete impact: Divergent object validation semantics if one copy changes; unnecessary maintenance overhead.
+- Exact remediation: Move `isPlainObject` into a shared utility module and reuse across packages.
+
+---
+Resolution summary:
+- Exported `isPlainObject` from `@jskit-ai/action-runtime-core` and reused it in value app config, settings runtime, and AI action tools.
+- Removed local helper duplicates to ensure consistent object validation logic.
+
+Tests:
+- `npm -ws --if-present test` (fails: missing `jskit-app-scripts`/`vitest`, missing packages like `@jskit-ai/assistant-contracts`, `vue`, `@jskit-ai/server-runtime-core`, `@jskit-ai/communications-provider-core`, `@fastify/type-provider-typebox`, `fastify`, `@jskit-ai/action-runtime-core`, plus create-app assertions)
+- `npm run test:framework` (fails: migration tracker count mismatch, stage12 cutover inline options)
+- `npm run test:architecture:client`
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`
+
+Commit: 081770e724e61209302ba7c496c3462b8abc444a

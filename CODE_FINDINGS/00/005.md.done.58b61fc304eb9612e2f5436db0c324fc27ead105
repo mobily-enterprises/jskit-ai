@@ -1,0 +1,21 @@
+# Finding 005
+- Severity: Medium
+- Pattern type: 4 Hint/UX mismatch; 5 Validation vs execution mismatch
+- File + line(s): `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/runtime/actions/contributors/projects.contributor.js:154`, `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/projects/schema.js:43`, `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/modules/projects/service.js:127`
+- Why it can drift/fail: assistant tool schema advertises `pageSize` up to 200 while API/service enforce 100.
+- Concrete impact: tool callers receive misleading limits and inconsistent behavior.
+- Exact remediation: extract a shared max-page-size constant/schema and reuse it across tool schema, API schema, and service normalization.
+
+---
+Resolution summary:
+- Centralized projects pagination bounds in the module schema.
+- Reused the same limits in the service normalization and tool schema to remove mismatch.
+
+Tests:
+- npm -ws --if-present test (fails: @jskit-ai/billing-commerce-client-element vitest TypeError at BillingCommerceClientElement.vue:115; @jskit-ai/realtime-server-socketio missing redis package; @jskit-ai/create-app missing --db-host; @jskit-ai/web-runtime-core guardrail expects no apiClients imports; server bootstrap requires REDIS_NAMESPACE; @jskit-ai/jskit shellPacks test spawnSync is not defined)
+- npm run test:framework (fails: migration tracker row count mismatch; stage12 inline options error)
+- npm run test:architecture:client
+- npm run test:architecture:shared-ui
+- npm run test:architecture:db
+
+Commit: 58b61fc304eb9612e2f5436db0c324fc27ead105

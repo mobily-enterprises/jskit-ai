@@ -1,7 +1,0 @@
-# Finding 041
-- Severity: Low
-- Pattern type: AI slop; isPlainObject helper duplication
-- File + line(s): `apps/jskit-value-app/config/lib/helpers.js:1-3`, `apps/jskit-value-app/server/modules/settings/lib/extensionsRuntime.js:3-5`, `apps/jskit-value-app/server/modules/ai/lib/tools/actionTools.js:29-31`, `packages/runtime/action-runtime-core/src/shared/contracts.js:47-49`
-- Why it can drift/fail: `isPlainObject` is re-implemented across many packages with identical behavior. This is shared utility logic that should be centralized.
-- Concrete impact: Divergent object validation semantics if one copy changes; unnecessary maintenance overhead.
-- Exact remediation: Move `isPlainObject` into a shared utility module and reuse across packages.
