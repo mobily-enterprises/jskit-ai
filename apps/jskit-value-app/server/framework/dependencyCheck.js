@@ -1,6 +1,7 @@
 import { MODULE_ENABLEMENT_MODES } from "@jskit-ai/module-framework-core";
-import { FRAMEWORK_PROFILE_IDS, normalizeOptionalModulePacks } from "../../shared/framework/profile.js";
+import { normalizeOptionalModulePacks } from "../../shared/framework/profile.js";
 import { composeServerRuntimeArtifacts } from "./composeRuntime.js";
+import { normalizeProfileId } from "./profileUtils.js";
 
 function normalizeMode(mode) {
   const normalized = String(mode || MODULE_ENABLEMENT_MODES.strict).trim().toLowerCase();
@@ -26,11 +27,6 @@ function normalizeEnabledModuleIds(enabledModuleIds) {
     .filter(Boolean);
 
   return normalized.length > 0 ? normalized : undefined;
-}
-
-function normalizeProfileId(profileId) {
-  const normalized = String(profileId || FRAMEWORK_PROFILE_IDS.webSaasDefault).trim();
-  return normalized || FRAMEWORK_PROFILE_IDS.webSaasDefault;
 }
 
 function resolveFrameworkDependencyCheck({

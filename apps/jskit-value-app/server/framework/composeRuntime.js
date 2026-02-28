@@ -9,7 +9,7 @@ import {
 } from "@jskit-ai/module-framework-core";
 import { mergeDisabled, moduleSignature } from "@jskit-ai/module-framework-core/composeUtils";
 
-import { FRAMEWORK_PROFILE_IDS, resolveFrameworkProfile, resolveServerModuleIdsForProfile } from "../../shared/framework/profile.js";
+import { resolveFrameworkProfile, resolveServerModuleIdsForProfile } from "../../shared/framework/profile.js";
 import { PLATFORM_REPOSITORY_DEFINITIONS } from "../runtime/repositories.js";
 import { PLATFORM_SERVICE_DEFINITIONS, RUNTIME_SERVICE_EXPORT_IDS } from "../runtime/services.js";
 import { PLATFORM_CONTROLLER_DEFINITIONS } from "../runtime/controllers.js";
@@ -18,6 +18,7 @@ import { ACTION_CONTRIBUTOR_DEFINITIONS } from "./actionContributorFragments.js"
 import { FASTIFY_PLUGIN_DEFINITIONS } from "./fastifyPluginCatalog.js";
 import { ROUTE_MODULE_DEFINITIONS } from "./routeModuleCatalog.js";
 import { resolveServerModuleRegistry } from "./moduleRegistry.js";
+import { normalizeProfileId } from "./profileUtils.js";
 import { listRealtimeTopics } from "../../shared/topicRegistry.js";
 
 const ROUTE_MODULE_ORDER = Object.freeze(ROUTE_MODULE_DEFINITIONS.map((entry) => entry.id));
@@ -37,11 +38,6 @@ function normalizeCompositionMode(mode) {
     throw new TypeError(`Unsupported framework composition mode "${normalized}".`);
   }
   return normalized;
-}
-
-function normalizeProfileId(profileId) {
-  const normalized = String(profileId || FRAMEWORK_PROFILE_IDS.webSaasDefault).trim();
-  return normalized || FRAMEWORK_PROFILE_IDS.webSaasDefault;
 }
 
 function normalizeExtensionContributions(rawContributions, moduleId) {
