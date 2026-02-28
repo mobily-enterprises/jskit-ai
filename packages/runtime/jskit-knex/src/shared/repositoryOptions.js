@@ -84,6 +84,16 @@ function normalizeMetadataJsonInput(value, fallback = null) {
   }
 }
 
+function normalizeNullableString(value, { trim = true } = {}) {
+  if (value == null) {
+    return null;
+  }
+
+  const source = String(value);
+  const normalized = trim ? source.trim() : source;
+  return normalized || null;
+}
+
 function normalizeCountRow(row) {
   const values = Object.values(row || {});
   if (values.length < 1) {
@@ -147,6 +157,7 @@ export {
   parseJsonObject,
   stringifyJsonObject,
   normalizeMetadataJsonInput,
+  normalizeNullableString,
   normalizeCountRow,
   parseJsonValue,
   toDbJson

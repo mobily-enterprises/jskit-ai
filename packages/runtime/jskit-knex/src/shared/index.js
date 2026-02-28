@@ -12,6 +12,7 @@ export {
   parseJsonObject,
   stringifyJsonObject,
   normalizeMetadataJsonInput,
+  normalizeNullableString,
   normalizeCountRow,
   parseJsonValue,
   toDbJson

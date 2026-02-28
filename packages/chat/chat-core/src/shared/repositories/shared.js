@@ -1,4 +1,4 @@
-import { normalizeCountRow, parseJsonObject, stringifyJsonObject } from "@jskit-ai/jskit-knex";
+import { normalizeCountRow, normalizeNullableString, parseJsonObject, stringifyJsonObject } from "@jskit-ai/jskit-knex";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 
 function normalizePagination(pagination = {}, { defaultPageSize = 20, maxPageSize = 100 } = {}) {
@@ -22,16 +22,6 @@ function normalizeIdList(values) {
   }
 
   return Array.from(new Set(values.map((value) => parsePositiveInteger(value)).filter(Boolean)));
-}
-
-function normalizeNullableString(value, { trim = true } = {}) {
-  if (value == null) {
-    return null;
-  }
-
-  const source = String(value);
-  const normalized = trim ? source.trim() : source;
-  return normalized || null;
 }
 
 function normalizeNullablePositiveInteger(value) {
