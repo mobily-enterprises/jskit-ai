@@ -36,6 +36,10 @@ function resolveWorkspace(context, input) {
   return payload.workspace || resolveRequest(context)?.workspace || context?.workspace || null;
 }
 
+function allowPublic() {
+  return true;
+}
+
 function requireAuthenticated(context) {
   return toPositiveInteger(context?.actor?.id) > 0;
 }
@@ -53,6 +57,7 @@ export {
   resolveRequest,
   resolveUser,
   resolveWorkspace,
+  allowPublic,
   requireAuthenticated,
   OBJECT_INPUT_SCHEMA
 };

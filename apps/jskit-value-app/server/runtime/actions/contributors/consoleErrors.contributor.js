@@ -1,3 +1,4 @@
+import { allowPublic } from "@jskit-ai/action-runtime-core/actionContributorHelpers";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../../shared/eventTypes.js";
 import { publishUserScopedRealtimeEvent, toPositiveInteger } from "./realtimePublishHelpers.js";
 
@@ -27,10 +28,6 @@ function resolveUser(context, input) {
 function resolveErrorId(input) {
   const payload = normalizeObject(input);
   return payload.errorId || payload.params?.errorId || null;
-}
-
-function allowPublic() {
-  return true;
 }
 
 const OBJECT_INPUT_SCHEMA = Object.freeze({
