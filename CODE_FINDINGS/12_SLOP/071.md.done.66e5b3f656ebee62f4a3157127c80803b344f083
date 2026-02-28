@@ -1,0 +1,19 @@
+# Finding 071
+- Severity: Low
+- Pattern type: AI slop; Duplicate `passthroughErrorResponses` in fastify route packages
+- File + line(s): `packages/chat/chat-fastify-routes/src/shared/routes.js:4-6`, `packages/social/social-fastify-routes/src/shared/routes.js:4-6`, `packages/ai-agent/assistant-fastify-routes/src/shared/routes.js:3-5`
+- Why it can drift/fail: Each fastify routes package redefines the same no-op helper for error responses. If the default error handling changes, multiple packages must be edited.
+- Concrete impact: Divergent default error behavior between route packages.
+- Exact remediation: Move `passthroughErrorResponses` into a shared fastify routes utility and import it.
+
+---
+Summary:
+- Added `passthroughErrorResponses` to `@jskit-ai/http-contracts` and reused it in chat, social, and assistant fastify routes.
+- Centralizes default error response passthrough behavior to avoid drift across route packages.
+Tests:
+- npm -ws --if-present test (fails: missing jskit-app-scripts, vitest, @jskit-ai/assistant-contracts, vue, @jskit-ai/server-runtime-core, @fastify/type-provider-typebox, openai, @supabase/supabase-js, @fastify/cookie, @jskit-ai/surface-routing, @jskit-ai/http-contracts, @jskit-ai/cli-entrypoint)
+- npm run test:framework (fails: migration tracker count mismatch; stage12 cutover expects legacy-surface but hits missing @jskit-ai/cli-entrypoint)
+- npm run test:architecture:client (fails: vuetify imports in web shell template)
+- npm run test:architecture:shared-ui
+- npm run test:architecture:db
+Commit: 66e5b3f656ebee62f4a3157127c80803b344f083

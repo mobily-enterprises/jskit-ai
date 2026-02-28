@@ -1,0 +1,19 @@
+# Finding 073
+- Severity: Medium
+- Pattern type: AI slop; App surface deny-list helpers duplicated across modules
+- File + line(s): `packages/workspace/workspace-service-core/src/shared/services/workspace.service.js:48-74`, `packages/workspace/workspace-service-core/src/shared/mappers/workspaceAdminMappers.js:8-34`, `apps/jskit-value-app/server/surfaces/appSurface.js:3-29`
+- Why it can drift/fail: The same deny-list helpers (`normalizeDenyUserIds`, `normalizeDenyEmails`, `extractAppSurfacePolicy`) are copied across three modules. Any policy change must be repeated in all locations, or enforcement will diverge.
+- Concrete impact: Inconsistent access control behavior between the workspace service, admin mappers, and app surface enforcement.
+- Exact remediation: Centralize these helpers in a workspace access policy utility and reuse everywhere they are needed.
+
+---
+Summary:
+- Added a shared app surface policy helper in workspace-service-core and reused it across workspace service, admin mappers, and app surface access.
+- Centralizes deny-list normalization and surface policy extraction to prevent drift.
+Tests:
+- npm -ws --if-present test (fails: missing jskit-app-scripts, vitest, @jskit-ai/assistant-contracts, vue, @jskit-ai/server-runtime-core, @fastify/type-provider-typebox, openai, @supabase/supabase-js, @fastify/cookie, @jskit-ai/surface-routing, @jskit-ai/cli-entrypoint; web-runtime-core guardrail error; workspace-console-core missing module)
+- npm run test:framework (fails: migration tracker count mismatch; stage12 cutover expects legacy-surface but hits missing @jskit-ai/cli-entrypoint)
+- npm run test:architecture:client (fails: vuetify imports in web shell template)
+- npm run test:architecture:shared-ui
+- npm run test:architecture:db
+Commit: f74df06b28630b6fa794c9a9fa061ae10b2f2bdf

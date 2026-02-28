@@ -1,0 +1,11 @@
+# Finding 065
+- Severity: Low
+- Pattern type: AI slop; `workspacePath` helper duplicated across projects views
+- File + line(s): `apps/jskit-value-app/src/views/projects/useProjectsList.js:56-60`, `apps/jskit-value-app/src/views/projects/useProjectsView.js:46-50`, `apps/jskit-value-app/src/views/projects/useProjectsAdd.js:29-33`, `apps/jskit-value-app/src/views/projects/useProjectsEdit.js:72-76`
+- Why it can drift/fail: Each projects view redefines the same `workspacePath` wrapper with identical surface behavior. If the route surface or path logic changes, every file must be updated manually.
+- Concrete impact: Inconsistent navigation behavior between projects views if one file changes and others do not.
+- Exact remediation: Extract a shared `useProjectsWorkspacePath` helper (or move to `modules/projects`) and reuse in all projects view composables.
+
+## Resolution
+- Justification: Projects views are client-side and currently out of scope per instruction.
+- Revisit signal: When client-side work resumes, extract a shared projects workspace path helper and update the view composables.

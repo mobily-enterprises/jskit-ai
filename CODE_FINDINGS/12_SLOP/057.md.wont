@@ -1,0 +1,11 @@
+# Finding 057
+- Severity: Low
+- Pattern type: AI slop; Repeated `formatDateTime` view helper
+- File + line(s): `apps/jskit-value-app/src/views/alerts/useAlertsView.js:25-31`, `apps/jskit-value-app/src/views/console/useConsoleAiTranscriptsView.js:5-11`, `apps/jskit-value-app/src/views/console/useConsoleBillingEventsView.js:11-17`, `apps/jskit-value-app/src/views/console/useConsoleBrowserErrorDetailView.js:18-24`, `apps/jskit-value-app/src/views/console/useConsoleBrowserErrorsView.js:19-25`, `apps/jskit-value-app/src/views/console/useConsoleMembersView.js:19-25`, `apps/jskit-value-app/src/views/console/useConsoleServerErrorDetailView.js:18-24`, `apps/jskit-value-app/src/views/console/useConsoleServerErrorsView.js:20-26`, `apps/jskit-value-app/src/views/social/useSocialFeedView.js:30-36`, `apps/jskit-value-app/src/views/workspace-settings/useWorkspaceSettingsView.js:28-34`, `apps/jskit-value-app/src/views/workspace-transcripts/useWorkspaceTranscriptsView.js:10-16`
+- Why it can drift/fail: Identical date formatting logic is copy-pasted across many views. Any change to localization, formatting, or invalid-date behavior needs to be updated everywhere.
+- Concrete impact: Inconsistent date formatting in the UI if one view changes and others do not.
+- Exact remediation: Centralize date formatting in a shared helper (e.g., `@jskit-ai/web-runtime-core` or `src/views/lib/dateFormatters.js`).
+
+## Resolution
+- Justification: This is app-side UI view logic and templates are under active rewrite; per instruction, defer client-side consolidation work.
+- Revisit signal: Once UI templates stabilize and client-side changes are unblocked, factor a shared date formatter helper and update the views.

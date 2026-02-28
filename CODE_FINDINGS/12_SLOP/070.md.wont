@@ -1,0 +1,13 @@
+# Finding 070
+- Severity: Low
+- Pattern type: AI slop; `normalizeWorkspaceSlug` duplicated in query key helpers
+- File + line(s): `packages/chat/chat-contracts/src/shared/queryKeys.js:3-5`, `packages/social/social-contracts/src/shared/queryKeys.js:3-5`, `apps/jskit-value-app/src/modules/projects/queryKeys.js:4-6`
+- Why it can drift/fail: Identical workspace slug normalization logic is copied into multiple query-key modules. If slug normalization changes (fallback value, trimming rules), every module must be updated.
+- Concrete impact: Query-key mismatches across domains, leading to cache misses or incorrect data sharing.
+- Exact remediation: Provide a shared `normalizeWorkspaceSlug` helper in a contracts utilities package and import it in each module.
+
+---
+WONTFIX justification:
+- Skipping client-side/app module changes per current guidance to avoid app/template churn (finding touches `apps/jskit-value-app/src/modules/projects/queryKeys.js`).
+Signal to revisit:
+- After the client template rewrite lands and app module ownership is stable, or if normalization can be centralized without touching app client modules.

@@ -1,0 +1,18 @@
+# Finding 013
+- Severity: Medium
+- Pattern type: 3 Data-model bypass (manual inference)
+- File + line(s): `/home/merc/Development/current/jskit-ai/packages/runtime/module-framework-core/src/shared/dependencyGraph.js:12`, `/home/merc/Development/current/jskit-ai/packages/runtime/module-framework-core/src/shared/dependencyGraph.js:95`
+- Why it can drift/fail: custom semver parser intentionally handles narrow cases.
+- Concrete impact: valid range expressions can be misclassified as mismatches and disable modules.
+- Exact remediation: use a standard semver library and return explicit syntax diagnostics.
+
+## Summary
+- swapped custom semver parsing for the `semver` library and added explicit invalid range/version diagnostics
+- expanded dependency graph tests for OR ranges and invalid dependency metadata
+
+## Tests
+- `npm -ws --if-present test` (failed: validationError is not defined; billing element failures; cli-entrypoint missing)
+- `npm run test:framework` (failed: migration tracker mismatch; cli-entrypoint missing)
+- `npm run test:architecture:client` (failed: unexpected vuetify imports)
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`

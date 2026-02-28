@@ -1,0 +1,18 @@
+# Finding 010
+- Severity: High
+- Pattern type: 3 Data-model bypass
+- File + line(s): `/home/merc/Development/current/jskit-ai/packages/runtime/module-framework-core/src/shared/appDropins.js:515`, `/home/merc/Development/current/jskit-ai/packages/runtime/module-framework-core/src/shared/descriptor.js:270`
+- Why it can drift/fail: client module registry can inject module IDs via contributions without full descriptor/dependency validation.
+- Concrete impact: undeclared modules can appear active with incomplete contract checks.
+- Exact remediation: require injected modules to pass full descriptor validation or limit contributions to patching existing modules.
+
+## Summary
+- disallowed moduleContributions from introducing new module ids; only existing modules can be patched
+- added coverage for rejecting new module ids and merging contributions into existing modules
+
+## Tests
+- `npm -ws --if-present test` (failed: validationError is not defined; resolveClient missing; billing element test failures; cli-entrypoint missing; runtime guardrail)
+- `npm run test:framework` (failed: migration tracker mismatch; cli-entrypoint missing)
+- `npm run test:architecture:client` (failed: unexpected vuetify imports)
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`

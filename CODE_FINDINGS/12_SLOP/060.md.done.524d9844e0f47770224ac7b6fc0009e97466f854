@@ -1,0 +1,17 @@
+# Finding 060
+- Severity: Low
+- Pattern type: AI slop; Repeated `createRepository` boilerplate in app modules
+- File + line(s): `apps/jskit-value-app/server/modules/alerts/index.js:31-35`, `apps/jskit-value-app/server/modules/billing/index.js:6-10`, `apps/jskit-value-app/server/modules/health/index.js:15-19`, `apps/jskit-value-app/server/modules/history/index.js:19-23`, `apps/jskit-value-app/server/modules/projects/index.js:29-33`, `apps/jskit-value-app/server/modules/settings/index.js:31-35`, `apps/jskit-value-app/server/modules/social/index.js:18-22`
+- Why it can drift/fail: Each module defines the same `createRepository()` wrapper that just returns `{ repository }`. If repository exposure changes, every module must be updated manually.
+- Concrete impact: Boilerplate repetition and higher chance of missed updates across modules.
+- Exact remediation: Provide a shared helper (e.g., `createRepositoryExport(repository)`) or a module factory to standardize this pattern.
+
+## Resolution
+- Summary: introduced a shared `createRepositoryExport` helper and used it to standardize repository exports in app server modules.
+- Tests:
+  - npm -ws --if-present test (failed: missing workspace deps like jskit-app-scripts/vitest and multiple ERR_MODULE_NOT_FOUND)
+  - npm run test:framework (failed: migration tracker count mismatch and stage12 cutover due to missing @jskit-ai/cli-entrypoint in node_modules)
+  - npm run test:architecture:client (failed: vuetify imports in web-shell-host template)
+  - npm run test:architecture:shared-ui (passed)
+  - npm run test:architecture:db (passed)
+- Commit: 524d9844e0f47770224ac7b6fc0009e97466f854

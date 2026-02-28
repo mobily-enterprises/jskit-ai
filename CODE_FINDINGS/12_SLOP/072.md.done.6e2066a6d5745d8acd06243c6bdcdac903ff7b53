@@ -1,0 +1,19 @@
+# Finding 072
+- Severity: Low
+- Pattern type: AI slop; `normalizeMetadata` duplicated across communications services
+- File + line(s): `packages/communications/communications-core/src/shared/orchestrator.js:3-9`, `packages/communications/email-core/src/shared/service.js:1-7`, `packages/workspace/workspace-service-core/src/shared/services/inviteEmail.service.js:68-74`
+- Why it can drift/fail: The same metadata normalization helper is repeated across communications and workspace services. Any change to metadata acceptance rules must be manually synchronized.
+- Concrete impact: Inconsistent metadata handling between communications orchestrator, email service, and workspace invite email service.
+- Exact remediation: Extract `normalizeMetadata` into a shared communications utility package and import it.
+
+---
+Summary:
+- Added `normalizeMetadata` to `@jskit-ai/communications-provider-core` and reused it in communications orchestrator, email service, and workspace invite email service.
+- Centralizes metadata normalization to keep communications metadata handling consistent.
+Tests:
+- npm -ws --if-present test (fails: missing jskit-app-scripts, vitest, @jskit-ai/assistant-contracts, vue, @jskit-ai/server-runtime-core, @fastify/type-provider-typebox, openai, @supabase/supabase-js, @fastify/cookie, @jskit-ai/surface-routing, @jskit-ai/cli-entrypoint; web-runtime-core guardrail error; workspace-console-core missing module)
+- npm run test:framework (fails: migration tracker count mismatch; stage12 cutover expects legacy-surface but hits missing @jskit-ai/cli-entrypoint)
+- npm run test:architecture:client (fails: vuetify imports in web shell template)
+- npm run test:architecture:shared-ui
+- npm run test:architecture:db
+Commit: 6e2066a6d5745d8acd06243c6bdcdac903ff7b53

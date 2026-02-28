@@ -1,0 +1,13 @@
+# Finding 069
+- Severity: Low
+- Pattern type: AI slop; Duplicate `summarizeFieldErrors` helper
+- File + line(s): `packages/chat/chat-contracts/src/shared/errors.js:1-9`, `packages/social/social-contracts/src/shared/errors.js:1-9`, `apps/jskit-value-app/src/modules/projects/errors.js:1-9`
+- Why it can drift/fail: The same field-error summarization logic is reimplemented in three different domains. Any change to error formatting or normalization must be manually replicated.
+- Concrete impact: Inconsistent error messaging across chat, social, and projects modules.
+- Exact remediation: Extract a shared `summarizeFieldErrors` utility in a contracts/runtime helper package and reuse it.
+
+---
+WONTFIX justification:
+- Skipping client-side/app module changes per current guidance to avoid app/template churn (finding touches `apps/jskit-value-app/src/modules/projects/errors.js`).
+Signal to revisit:
+- After the client template rewrite lands and app module ownership is stable, or if a server-only shared helper can replace the duplicated logic without touching app client modules.

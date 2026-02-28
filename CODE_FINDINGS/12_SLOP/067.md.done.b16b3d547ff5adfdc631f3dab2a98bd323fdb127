@@ -1,0 +1,19 @@
+# Finding 067
+- Severity: Low
+- Pattern type: AI slop; `runCli` helper duplicated across tooling test suites
+- File + line(s): `packages/tooling/app-scripts/test/cli.test.js:29-33`, `packages/tooling/create-app/test/createApp.test.js:15-19`, `packages/tooling/jskit/test/bundleCatalog.test.js:56-60`, `packages/tooling/jskit/test/cli.test.js:37-41`, `packages/tooling/jskit/test/descriptorLint.test.js:17-21`, `packages/tooling/jskit/test/domainWaveA.test.js:25-29`, `packages/tooling/jskit/test/domainWaveB.test.js:26-30`, `packages/tooling/jskit/test/domainWaveC.test.js:25-29`, `packages/tooling/jskit/test/domainWaveD.test.js:33-37`, `packages/tooling/jskit/test/packageCommands.test.js:14-18`, `packages/tooling/jskit/test/shellPacks.test.js:13-17`
+- Why it can drift/fail: The same CLI spawn wrapper is copied across multiple tooling test suites. Any change to CLI invocation behavior (encoding, env, error handling) must be updated in many places.
+- Concrete impact: Divergent CLI test behavior and unnecessary maintenance in tooling tests.
+- Exact remediation: Add a shared CLI test helper (e.g., `packages/tooling/testUtils/runCli.js`) and reuse in all tooling tests.
+
+---
+Summary:
+- Added a shared tooling CLI runner helper and replaced duplicated `runCli` implementations across tooling tests (including jskit test helpers).
+- Centralizes CLI spawn behavior to avoid drift across app-scripts, create-app, and jskit test suites.
+Tests:
+- npm -ws --if-present test (fails: missing jskit-app-scripts, vitest, @jskit-ai/assistant-contracts, vue, @jskit-ai/server-runtime-core, @fastify/type-provider-typebox, openai, @supabase/supabase-js, @jskit-ai/cli-entrypoint)
+- npm run test:framework (fails: migration tracker count mismatch; stage12 cutover expects legacy-surface but hits missing @jskit-ai/cli-entrypoint)
+- npm run test:architecture:client (fails: vuetify imports in web shell template)
+- npm run test:architecture:shared-ui
+- npm run test:architecture:db
+Commit: b16b3d547ff5adfdc631f3dab2a98bd323fdb127
