@@ -50,6 +50,22 @@ function buildDefinitionIndex(contributors) {
   };
 }
 
+function normalizeRequestedVersion(version) {
+  const parsed = Number(version);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw createActionRuntimeError(400, "Validation failed.", {
+      code: "ACTION_VERSION_INVALID",
+      details: {
+        fieldErrors: {
+          version: "version must be an integer >= 1."
+        }
+      }
+    });
+  }
+
+  return parsed;
+}
+
 function resolveActionDefinition(index, actionId, version) {
   const normalizedActionId = String(actionId || "").trim();
   if (!normalizedActionId) {
@@ -77,14 +93,15 @@ function resolveActionDefinition(index, actionId, version) {
     return versions[0];
   }
 
-  const versionKey = createActionVersionKey(normalizedActionId, version);
+  const normalizedVersion = normalizeRequestedVersion(version);
+  const versionKey = createActionVersionKey(normalizedActionId, normalizedVersion);
   const definition = index.byVersionKey.get(versionKey);
   if (!definition) {
     throw createActionRuntimeError(404, "Not found.", {
       code: "ACTION_NOT_FOUND",
       details: {
         actionId: normalizedActionId,
-        version: Number(version)
+        version: normalizedVersion
       }
     });
   }

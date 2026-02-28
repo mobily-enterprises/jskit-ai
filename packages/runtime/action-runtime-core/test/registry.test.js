@@ -178,3 +178,56 @@ test("permission evaluator supports array and callback policies", async () => {
   });
   assert.equal(dynamicAllowed.allowed, true);
 });
+
+test("action registry rejects invalid version requests", async () => {
+  const registry = createActionRegistry({
+    contributors: [
+      {
+        contributorId: "tests.settings",
+        domain: "settings",
+        actions: [
+          {
+            id: "settings.read",
+            version: 1,
+            domain: "settings",
+            kind: "query",
+            channels: ["api"],
+            surfaces: ["app"],
+            visibility: "public",
+            inputSchema: createPassThroughSchema(),
+            permission: ["settings.read"],
+            idempotency: "none",
+            audit: {
+              actionName: "settings.read"
+            },
+            observability: {},
+            async execute() {
+              return {
+                ok: true
+              };
+            }
+          }
+        ]
+      }
+    ]
+  });
+
+  await assert.rejects(
+    () => registry.execute({ actionId: "settings.read", version: "invalid" }),
+    (error) => {
+      assert.equal(error.code, "ACTION_VERSION_INVALID");
+      assert.deepEqual(error.details?.fieldErrors, {
+        version: "version must be an integer >= 1."
+      });
+      return true;
+    }
+  );
+
+  await assert.rejects(
+    () => registry.execute({ actionId: "settings.read", version: 0 }),
+    (error) => {
+      assert.equal(error.code, "ACTION_VERSION_INVALID");
+      return true;
+    }
+  );
+});
