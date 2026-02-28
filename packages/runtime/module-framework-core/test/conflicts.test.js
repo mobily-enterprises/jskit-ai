@@ -48,25 +48,47 @@ test("resolveConflicts strict mode throws on duplicate contributions", () => {
   );
 });
 
-test("resolveConflicts permissive mode keeps first unique contributions", () => {
+test("resolveConflicts permissive mode throws on route conflicts", () => {
+  assert.throws(
+    () =>
+      resolveConflicts({
+        mode: "permissive",
+        modules: [moduleDescriptor({ id: "a" }), moduleDescriptor({ id: "b" })],
+        routes: [
+          { method: "GET", path: "/health", moduleId: "a" },
+          { method: "GET", path: "/health", moduleId: "b" }
+        ]
+      }),
+    (error) =>
+      error?.code === "MODULE_FRAMEWORK_DIAGNOSTIC_ERROR" &&
+      error.diagnostics.some((entry) => entry.code === "ROUTE_CONFLICT")
+  );
+});
+
+test("resolveConflicts permissive mode throws on action conflicts", () => {
+  assert.throws(
+    () =>
+      resolveConflicts({
+        mode: "permissive",
+        modules: [moduleDescriptor({ id: "a" }), moduleDescriptor({ id: "b" })],
+        actions: [{ id: "action.read", moduleId: "a" }, { id: "action.read", moduleId: "b" }]
+      }),
+    (error) =>
+      error?.code === "MODULE_FRAMEWORK_DIAGNOSTIC_ERROR" &&
+      error.diagnostics.some((entry) => entry.code === "ACTION_CONFLICT")
+  );
+});
+
+test("resolveConflicts permissive mode keeps first topic entry with warnings", () => {
   const result = resolveConflicts({
     mode: "permissive",
     modules: [moduleDescriptor({ id: "a" }), moduleDescriptor({ id: "b" })],
-    routes: [
-      { method: "GET", path: "/health", moduleId: "a" },
-      { method: "GET", path: "/health", moduleId: "b" }
-    ],
-    actions: [{ id: "action.read", moduleId: "a" }, { id: "action.read", moduleId: "b" }],
     topics: [
       { topic: "workspace.updated", moduleId: "a" },
       { topic: "workspace.updated", moduleId: "b" }
     ]
   });
 
-  assert.equal(result.routes.length, 1);
-  assert.equal(result.actions.length, 1);
   assert.equal(result.topics.length, 1);
-  assert.ok(result.diagnostics.toJSON().some((entry) => entry.code === "ROUTE_CONFLICT"));
-  assert.ok(result.diagnostics.toJSON().some((entry) => entry.code === "ACTION_CONFLICT"));
   assert.ok(result.diagnostics.toJSON().some((entry) => entry.code === "TOPIC_CONFLICT"));
 });

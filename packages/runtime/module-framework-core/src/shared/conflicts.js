@@ -1,5 +1,5 @@
 import { MODULE_ENABLEMENT_MODES } from "./descriptor.js";
-import { addDiagnosticForMode, normalizeMode } from "./compositionMode.js";
+import { normalizeMode } from "./compositionMode.js";
 import { createDiagnosticsCollector, throwOnDiagnosticErrors } from "./diagnostics.js";
 
 function normalizeString(value) {
@@ -100,6 +100,13 @@ function detectTopicConflicts(topics = []) {
   });
 }
 
+const SECURITY_SENSITIVE_CONFLICTS = new Set([
+  "ROUTE_KEY_MISSING",
+  "ROUTE_CONFLICT",
+  "ACTION_ID_MISSING",
+  "ACTION_CONFLICT"
+]);
+
 function resolveConflicts({
   modules = [],
   routes = [],
@@ -123,19 +130,22 @@ function resolveConflicts({
   const allConflicts = [...routeReport.conflicts, ...actionReport.conflicts, ...topicReport.conflicts];
 
   for (const conflict of allConflicts) {
-    addDiagnosticForMode(collector, normalizedMode, {
+    const level =
+      normalizedMode === MODULE_ENABLEMENT_MODES.strict || SECURITY_SENSITIVE_CONFLICTS.has(conflict.code)
+        ? "error"
+        : "warn";
+    collector.add({
       code: conflict.code,
       moduleId: conflict.contender?.moduleId,
       message: conflict.key
         ? `Conflict detected for key \"${conflict.key}\".`
         : `Conflict detected for ${conflict.code}.`,
-      details: conflict
+      details: conflict,
+      level
     });
   }
 
-  if (normalizedMode === MODULE_ENABLEMENT_MODES.strict) {
-    throwOnDiagnosticErrors(collector, "Conflict validation failed.");
-  }
+  throwOnDiagnosticErrors(collector, "Conflict validation failed.");
 
   return {
     mode: normalizedMode,
