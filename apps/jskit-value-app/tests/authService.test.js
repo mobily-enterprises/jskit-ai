@@ -108,6 +108,104 @@ function parseFetchInput(input, init) {
   };
 }
 
+function buildSupabaseUser({ id = "supabase-user-1", email = "user@example.com", displayName = "seed-user" } = {}) {
+  const user = {
+    id
+  };
+
+  if (email !== undefined) {
+    user.email = email;
+  }
+
+  if (displayName !== undefined) {
+    user.user_metadata = {
+      display_name: displayName
+    };
+  }
+
+  return user;
+}
+
+function buildSupabaseSession({
+  id = "supabase-user-1",
+  email = "user@example.com",
+  displayName = "seed-user",
+  accessToken,
+  refreshToken = "refresh-token",
+  expiresIn = 3600,
+  tokenType = "bearer"
+} = {}) {
+  return {
+    access_token: accessToken || createUnsignedJwt({ sub: id, email }),
+    refresh_token: refreshToken,
+    expires_in: expiresIn,
+    token_type: tokenType,
+    user: buildSupabaseUser({ id, email, displayName })
+  };
+}
+
+function resolveSupabaseMockResponse(response, request) {
+  if (typeof response === "function") {
+    return response(request);
+  }
+  if (response instanceof Error) {
+    throw response;
+  }
+  if (response && typeof response === "object" && Object.hasOwn(response, "status")) {
+    return jsonResponse(response.status, response.body);
+  }
+  return jsonResponse(200, response);
+}
+
+function createSupabaseFetchMock({
+  refreshToken,
+  passwordToken,
+  userGet,
+  userPut,
+  logout,
+  extraHandler
+} = {}) {
+  return async (input, init) => {
+    const request = parseFetchInput(input, init);
+
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
+      if (refreshToken !== undefined) {
+        return resolveSupabaseMockResponse(refreshToken, request);
+      }
+    }
+
+    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "password") {
+      if (passwordToken !== undefined) {
+        return resolveSupabaseMockResponse(passwordToken, request);
+      }
+    }
+
+    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
+      if (userGet !== undefined) {
+        return resolveSupabaseMockResponse(userGet, request);
+      }
+    }
+
+    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
+      if (userPut !== undefined) {
+        return resolveSupabaseMockResponse(userPut, request);
+      }
+    }
+
+    if (request.url.pathname === "/auth/v1/logout") {
+      if (logout !== undefined) {
+        return resolveSupabaseMockResponse(logout, request);
+      }
+    }
+
+    if (typeof extraHandler === "function") {
+      return extraHandler(request);
+    }
+
+    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
+  };
+}
+
 async function createJwtFixture({ issuer = `${SUPABASE_URL}/auth/v1`, audience = "authenticated" } = {}) {
   const { publicKey, privateKey } = await generateKeyPair("ES256");
   const jwk = await exportJWK(publicKey);
@@ -546,6 +644,37 @@ test("authService register/login/reset/recovery flows and error mapping", async 
     userProfilesRepository: repository
   });
 
+  const supabaseResetFetch = createSupabaseFetchMock({
+    refreshToken: {
+      access_token: createUnsignedJwt({ sub: "supabase-reset", email: "reset@example.com" }),
+      refresh_token: "rt-reset-next",
+      expires_in: 3600,
+      token_type: "bearer",
+      user: {
+        id: "supabase-reset",
+        email: "reset@example.com"
+      }
+    },
+    userGet: (request) => {
+      if (String(request.headers.Authorization || "").includes("bad-session-token")) {
+        return jsonResponse(401, { message: "invalid session" });
+      }
+      return jsonResponse(200, { id: "supabase-reset", email: "reset@example.com" });
+    },
+    userPut: (request) => {
+      if (request.body.password === "SamePassword123") {
+        return jsonResponse(400, { message: "same password" });
+      }
+      if (request.body.password === "BrokenPassword123") {
+        return jsonResponse(400, { message: "broken password" });
+      }
+      if (request.body.password === "ThrowUpdatePassword123") {
+        return jsonResponse(200, null);
+      }
+      return jsonResponse(200, { id: "supabase-reset", email: "reset@example.com" });
+    }
+  });
+
   const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
     const request = parseFetchInput(input, init);
 
@@ -646,33 +775,15 @@ test("authService register/login/reset/recovery flows and error mapping", async 
     }
 
     if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
-      return jsonResponse(200, {
-        access_token: createUnsignedJwt({ sub: "supabase-reset", email: "reset@example.com" }),
-        refresh_token: "rt-reset-next",
-        expires_in: 3600,
-        token_type: "bearer",
-        user: { id: "supabase-reset", email: "reset@example.com" }
-      });
+      return supabaseResetFetch(input, init);
     }
 
     if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
-      if (String(request.headers.Authorization || "").includes("bad-session-token")) {
-        return jsonResponse(401, { message: "invalid session" });
-      }
-      return jsonResponse(200, { id: "supabase-reset", email: "reset@example.com" });
+      return supabaseResetFetch(input, init);
     }
 
     if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
-      if (request.body.password === "SamePassword123") {
-        return jsonResponse(400, { message: "same password" });
-      }
-      if (request.body.password === "BrokenPassword123") {
-        return jsonResponse(400, { message: "broken password" });
-      }
-      if (request.body.password === "ThrowUpdatePassword123") {
-        return jsonResponse(200, null);
-      }
-      return jsonResponse(200, { id: "supabase-reset", email: "reset@example.com" });
+      return supabaseResetFetch(input, init);
     }
 
     throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
@@ -1500,89 +1611,57 @@ test("authService supports profile update, password change, and sign-out-other-s
     })
   });
 
-  const fetchMock = mock.method(globalThis, "fetch", async (input, init) => {
-    const request = parseFetchInput(input, init);
-
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
-      return jsonResponse(200, {
-        access_token: createUnsignedJwt({
-          sub: "supabase-user-1",
-          email: "user@example.com"
-        }),
-        refresh_token: "refresh-token",
-        expires_in: 3600,
-        token_type: "bearer",
-        user: {
-          id: "supabase-user-1",
-          email: "user@example.com",
-          user_metadata: {
-            display_name: "seed-user"
-          }
-        }
-      });
-    }
-
-    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
-      if (request.body?.data?.display_name) {
-        return jsonResponse(200, {
-          user: {
-            id: "supabase-user-1",
-            email: "user@example.com",
-            user_metadata: {
-              display_name: request.body.data.display_name
-            }
-          }
-        });
-      }
-
-      if (request.body?.password) {
-        return jsonResponse(200, {
-          user: {
-            id: "supabase-user-1",
-            email: "user@example.com",
-            user_metadata: {
-              display_name: "updated-user"
-            }
-          }
-        });
-      }
-    }
-
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
-      return jsonResponse(200, {
+  const fetchMock = mock.method(
+    globalThis,
+    "fetch",
+    createSupabaseFetchMock({
+      refreshToken: buildSupabaseSession({
         id: "supabase-user-1",
         email: "user@example.com",
-        user_metadata: {
-          display_name: "seed-user"
+        displayName: "seed-user",
+        refreshToken: "refresh-token"
+      }),
+      userGet: buildSupabaseUser({
+        id: "supabase-user-1",
+        email: "user@example.com",
+        displayName: "seed-user"
+      }),
+      userPut: (request) => {
+        if (request.body?.data?.display_name) {
+          return jsonResponse(200, {
+            user: {
+              id: "supabase-user-1",
+              email: "user@example.com",
+              user_metadata: {
+                display_name: request.body.data.display_name
+              }
+            }
+          });
         }
-      });
-    }
 
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "password") {
-      return jsonResponse(200, {
-        access_token: createUnsignedJwt({
-          sub: "supabase-user-1",
-          email: "user@example.com"
-        }),
-        refresh_token: "verified-refresh-token",
-        expires_in: 3600,
-        token_type: "bearer",
-        user: {
-          id: "supabase-user-1",
-          email: "user@example.com",
-          user_metadata: {
-            display_name: "updated-user"
-          }
+        if (request.body?.password) {
+          return jsonResponse(200, {
+            user: {
+              id: "supabase-user-1",
+              email: "user@example.com",
+              user_metadata: {
+                display_name: "updated-user"
+              }
+            }
+          });
         }
-      });
-    }
 
-    if (request.url.pathname === "/auth/v1/logout") {
-      return jsonResponse(200, {});
-    }
-
-    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
-  });
+        return jsonResponse(200, null);
+      },
+      passwordToken: buildSupabaseSession({
+        id: "supabase-user-1",
+        email: "user@example.com",
+        displayName: "updated-user",
+        refreshToken: "verified-refresh-token"
+      }),
+      logout: {}
+    })
+  );
 
   try {
     const profileResult = await service.updateDisplayName(
@@ -1733,28 +1812,24 @@ test("authService updateDisplayName covers validation, session, and update error
     }
   );
 
-  const setSessionThrowFetch = mock.method(globalThis, "fetch", async (input, init) => {
-    const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
-      return jsonResponse(200, {
+  const setSessionThrowFetch = mock.method(
+    globalThis,
+    "fetch",
+    createSupabaseFetchMock({
+      refreshToken: {
         access_token: createUnsignedJwt(),
         refresh_token: "refresh-token",
         expires_in: 3600,
         token_type: "bearer",
-        user: {
+        user: buildSupabaseUser({
           id: "supabase-user-1",
           email: "user@example.com",
-          user_metadata: {
-            display_name: "seed-user"
-          }
-        }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
-      return jsonResponse(200, null);
-    }
-    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
-  });
+          displayName: "seed-user"
+        })
+      },
+      userGet: null
+    })
+  );
   try {
     await assert.rejects(
       () => service.updateDisplayName({ cookies: createSessionCookies() }, "display-name"),
@@ -1767,32 +1842,29 @@ test("authService updateDisplayName covers validation, session, and update error
     setSessionThrowFetch.mock.restore();
   }
 
-  const setSessionUserFetch = mock.method(globalThis, "fetch", async (input, init) => {
-    const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
-      return jsonResponse(200, {
+  const setSessionUserFetch = mock.method(
+    globalThis,
+    "fetch",
+    createSupabaseFetchMock({
+      refreshToken: {
         access_token: createUnsignedJwt(),
         refresh_token: "refresh-token",
         expires_in: 3600,
         token_type: "bearer",
-        user: {
+        user: buildSupabaseUser({
           id: "supabase-user-1",
           email: "user@example.com",
-          user_metadata: {
-            display_name: "seed-user"
-          }
+          displayName: "seed-user"
+        })
+      },
+      userGet: {
+        status: 500,
+        body: {
+          message: "fetch user failed"
         }
-      });
-    }
-
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
-      return jsonResponse(500, {
-        message: "fetch user failed"
-      });
-    }
-
-    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
-  });
+      }
+    })
+  );
   try {
     await assert.rejects(
       () => service.updateDisplayName({ cookies: createSessionCookies() }, "display-name"),
@@ -1805,40 +1877,29 @@ test("authService updateDisplayName covers validation, session, and update error
     setSessionUserFetch.mock.restore();
   }
 
-  const updateThrowFetch = mock.method(globalThis, "fetch", async (input, init) => {
-    const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
-      return jsonResponse(200, {
+  const updateThrowFetch = mock.method(
+    globalThis,
+    "fetch",
+    createSupabaseFetchMock({
+      refreshToken: {
         access_token: createUnsignedJwt(),
         refresh_token: "refresh-token",
         expires_in: 3600,
         token_type: "bearer",
-        user: {
+        user: buildSupabaseUser({
           id: "supabase-user-1",
           email: "user@example.com",
-          user_metadata: {
-            display_name: "seed-user"
-          }
-        }
-      });
-    }
-
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
-      return jsonResponse(200, {
+          displayName: "seed-user"
+        })
+      },
+      userGet: buildSupabaseUser({
         id: "supabase-user-1",
         email: "user@example.com",
-        user_metadata: {
-          display_name: "seed-user"
-        }
-      });
-    }
-
-    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
-      return jsonResponse(200, null);
-    }
-
-    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
-  });
+        displayName: "seed-user"
+      }),
+      userPut: null
+    })
+  );
   try {
     await assert.rejects(
       () => service.updateDisplayName({ cookies: createSessionCookies() }, "display-name"),
@@ -1852,42 +1913,34 @@ test("authService updateDisplayName covers validation, session, and update error
     updateThrowFetch.mock.restore();
   }
 
-  const updateErrorFetch = mock.method(globalThis, "fetch", async (input, init) => {
-    const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
-      return jsonResponse(200, {
+  const updateErrorFetch = mock.method(
+    globalThis,
+    "fetch",
+    createSupabaseFetchMock({
+      refreshToken: {
         access_token: createUnsignedJwt(),
         refresh_token: "refresh-token",
         expires_in: 3600,
         token_type: "bearer",
-        user: {
+        user: buildSupabaseUser({
           id: "supabase-user-1",
           email: "user@example.com",
-          user_metadata: {
-            display_name: "seed-user"
-          }
-        }
-      });
-    }
-
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
-      return jsonResponse(200, {
+          displayName: "seed-user"
+        })
+      },
+      userGet: buildSupabaseUser({
         id: "supabase-user-1",
         email: "user@example.com",
-        user_metadata: {
-          display_name: "seed-user"
+        displayName: "seed-user"
+      }),
+      userPut: {
+        status: 400,
+        body: {
+          message: "failed to update profile"
         }
-      });
-    }
-
-    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
-      return jsonResponse(400, {
-        message: "failed to update profile"
-      });
-    }
-
-    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
-  });
+      }
+    })
+  );
   try {
     await assert.rejects(
       () => service.updateDisplayName({ cookies: createSessionCookies() }, "display-name"),
@@ -1901,36 +1954,27 @@ test("authService updateDisplayName covers validation, session, and update error
     updateErrorFetch.mock.restore();
   }
 
-  const updateWithSessionFetch = mock.method(globalThis, "fetch", async (input, init) => {
-    const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
-      return jsonResponse(200, {
+  const updateWithSessionFetch = mock.method(
+    globalThis,
+    "fetch",
+    createSupabaseFetchMock({
+      refreshToken: {
         access_token: createUnsignedJwt(),
         refresh_token: "refresh-token",
         expires_in: 3600,
         token_type: "bearer",
-        user: {
+        user: buildSupabaseUser({
           id: "supabase-user-1",
           email: "user@example.com",
-          user_metadata: {
-            display_name: "seed-user"
-          }
-        }
-      });
-    }
-
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
-      return jsonResponse(200, {
+          displayName: "seed-user"
+        })
+      },
+      userGet: buildSupabaseUser({
         id: "supabase-user-1",
         email: "user@example.com",
-        user_metadata: {
-          display_name: "seed-user"
-        }
-      });
-    }
-
-    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
-      return jsonResponse(200, {
+        displayName: "seed-user"
+      }),
+      userPut: {
         user: {
           id: "supabase-user-1",
           email: "user@example.com",
@@ -1944,11 +1988,9 @@ test("authService updateDisplayName covers validation, session, and update error
           expires_in: 3600,
           token_type: "bearer"
         }
-      });
-    }
-
-    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
-  });
+      }
+    })
+  );
   try {
     const result = await service.updateDisplayName({ cookies: createSessionCookies() }, "updated-name");
     assert.equal(result.profile.displayName, "updated-name");
@@ -1963,10 +2005,11 @@ test("authService changePassword covers verification, update, and session fallba
     userProfilesRepository: createProfilesRepository()
   });
 
-  const missingEmailFetch = mock.method(globalThis, "fetch", async (input, init) => {
-    const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
-      return jsonResponse(200, {
+  const missingEmailFetch = mock.method(
+    globalThis,
+    "fetch",
+    createSupabaseFetchMock({
+      refreshToken: {
         access_token: createUnsignedJwt(),
         refresh_token: "refresh-token",
         expires_in: 3600,
@@ -1974,18 +2017,15 @@ test("authService changePassword covers verification, update, and session fallba
         user: {
           id: "supabase-user-1"
         }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
-      return jsonResponse(200, {
+      },
+      userGet: {
         id: "supabase-user-1",
         user_metadata: {
           display_name: "seed-user"
         }
-      });
-    }
-    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
-  });
+      }
+    })
+  );
   try {
     await assert.rejects(
       () => service.changePassword({ cookies: createSessionCookies() }, undefined),
@@ -1995,34 +2035,24 @@ test("authService changePassword covers verification, update, and session fallba
     missingEmailFetch.mock.restore();
   }
 
-  const verifyThrowFetch = mock.method(globalThis, "fetch", async (input, init) => {
-    const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
-      return jsonResponse(200, {
-        access_token: createUnsignedJwt(),
-        refresh_token: "refresh-token",
-        expires_in: 3600,
-        token_type: "bearer",
-        user: {
-          id: "supabase-user-1",
-          email: "user@example.com"
-        }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
-      return jsonResponse(200, {
+  const verifyThrowFetch = mock.method(
+    globalThis,
+    "fetch",
+    createSupabaseFetchMock({
+      refreshToken: buildSupabaseSession({
         id: "supabase-user-1",
         email: "user@example.com",
-        user_metadata: {
-          display_name: "seed-user"
-        }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "password") {
-      return jsonResponse(200, null);
-    }
-    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
-  });
+        displayName: "seed-user",
+        refreshToken: "refresh-token"
+      }),
+      userGet: buildSupabaseUser({
+        id: "supabase-user-1",
+        email: "user@example.com",
+        displayName: "seed-user"
+      }),
+      passwordToken: null
+    })
+  );
   try {
     await assert.rejects(
       () =>
@@ -2043,36 +2073,29 @@ test("authService changePassword covers verification, update, and session fallba
     verifyThrowFetch.mock.restore();
   }
 
-  const verifyErrorFetch = mock.method(globalThis, "fetch", async (input, init) => {
-    const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
-      return jsonResponse(200, {
-        access_token: createUnsignedJwt(),
-        refresh_token: "refresh-token",
-        expires_in: 3600,
-        token_type: "bearer",
-        user: {
-          id: "supabase-user-1",
-          email: "user@example.com"
-        }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
-      return jsonResponse(200, {
+  const verifyErrorFetch = mock.method(
+    globalThis,
+    "fetch",
+    createSupabaseFetchMock({
+      refreshToken: buildSupabaseSession({
         id: "supabase-user-1",
         email: "user@example.com",
-        user_metadata: {
-          display_name: "seed-user"
+        displayName: "seed-user",
+        refreshToken: "refresh-token"
+      }),
+      userGet: buildSupabaseUser({
+        id: "supabase-user-1",
+        email: "user@example.com",
+        displayName: "seed-user"
+      }),
+      passwordToken: {
+        status: 401,
+        body: {
+          message: "Invalid current password"
         }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "password") {
-      return jsonResponse(401, {
-        message: "Invalid current password"
-      });
-    }
-    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
-  });
+      }
+    })
+  );
   try {
     await assert.rejects(
       () =>
@@ -2093,46 +2116,30 @@ test("authService changePassword covers verification, update, and session fallba
     verifyErrorFetch.mock.restore();
   }
 
-  const updateThrowFetch = mock.method(globalThis, "fetch", async (input, init) => {
-    const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
-      return jsonResponse(200, {
-        access_token: createUnsignedJwt(),
-        refresh_token: "refresh-token",
-        expires_in: 3600,
-        token_type: "bearer",
-        user: {
-          id: "supabase-user-1",
-          email: "user@example.com"
-        }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
-      return jsonResponse(200, {
+  const updateThrowFetch = mock.method(
+    globalThis,
+    "fetch",
+    createSupabaseFetchMock({
+      refreshToken: buildSupabaseSession({
         id: "supabase-user-1",
         email: "user@example.com",
-        user_metadata: {
-          display_name: "seed-user"
-        }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "password") {
-      return jsonResponse(200, {
-        access_token: createUnsignedJwt(),
-        refresh_token: "verify-refresh-token",
-        expires_in: 3600,
-        token_type: "bearer",
-        user: {
-          id: "supabase-user-1",
-          email: "user@example.com"
-        }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
-      return jsonResponse(200, null);
-    }
-    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
-  });
+        displayName: "seed-user",
+        refreshToken: "refresh-token"
+      }),
+      userGet: buildSupabaseUser({
+        id: "supabase-user-1",
+        email: "user@example.com",
+        displayName: "seed-user"
+      }),
+      passwordToken: buildSupabaseSession({
+        id: "supabase-user-1",
+        email: "user@example.com",
+        displayName: undefined,
+        refreshToken: "verify-refresh-token"
+      }),
+      userPut: null
+    })
+  );
   try {
     await assert.rejects(
       () =>
@@ -2153,48 +2160,35 @@ test("authService changePassword covers verification, update, and session fallba
     updateThrowFetch.mock.restore();
   }
 
-  const updateErrorFetch = mock.method(globalThis, "fetch", async (input, init) => {
-    const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
-      return jsonResponse(200, {
-        access_token: createUnsignedJwt(),
-        refresh_token: "refresh-token",
-        expires_in: 3600,
-        token_type: "bearer",
-        user: {
-          id: "supabase-user-1",
-          email: "user@example.com"
-        }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
-      return jsonResponse(200, {
+  const updateErrorFetch = mock.method(
+    globalThis,
+    "fetch",
+    createSupabaseFetchMock({
+      refreshToken: buildSupabaseSession({
         id: "supabase-user-1",
         email: "user@example.com",
-        user_metadata: {
-          display_name: "seed-user"
+        displayName: "seed-user",
+        refreshToken: "refresh-token"
+      }),
+      userGet: buildSupabaseUser({
+        id: "supabase-user-1",
+        email: "user@example.com",
+        displayName: "seed-user"
+      }),
+      passwordToken: buildSupabaseSession({
+        id: "supabase-user-1",
+        email: "user@example.com",
+        displayName: undefined,
+        refreshToken: "verify-refresh-token"
+      }),
+      userPut: {
+        status: 400,
+        body: {
+          message: "update failed"
         }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "password") {
-      return jsonResponse(200, {
-        access_token: createUnsignedJwt(),
-        refresh_token: "verify-refresh-token",
-        expires_in: 3600,
-        token_type: "bearer",
-        user: {
-          id: "supabase-user-1",
-          email: "user@example.com"
-        }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
-      return jsonResponse(400, {
-        message: "update failed"
-      });
-    }
-    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
-  });
+      }
+    })
+  );
   try {
     await assert.rejects(
       () =>
@@ -2215,43 +2209,28 @@ test("authService changePassword covers verification, update, and session fallba
     updateErrorFetch.mock.restore();
   }
 
-  const updateSuccessFetch = mock.method(globalThis, "fetch", async (input, init) => {
-    const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
-      return jsonResponse(200, {
-        access_token: createUnsignedJwt(),
-        refresh_token: "refresh-token",
-        expires_in: 3600,
-        token_type: "bearer",
-        user: {
-          id: "supabase-user-1",
-          email: "user@example.com"
-        }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
-      return jsonResponse(200, {
+  const updateSuccessFetch = mock.method(
+    globalThis,
+    "fetch",
+    createSupabaseFetchMock({
+      refreshToken: buildSupabaseSession({
         id: "supabase-user-1",
         email: "user@example.com",
-        user_metadata: {
-          display_name: "seed-user"
-        }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "password") {
-      return jsonResponse(200, {
-        access_token: createUnsignedJwt(),
-        refresh_token: "verify-refresh-token",
-        expires_in: 3600,
-        token_type: "bearer",
-        user: {
-          id: "supabase-user-1",
-          email: "user@example.com"
-        }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "PUT") {
-      return jsonResponse(200, {
+        displayName: "seed-user",
+        refreshToken: "refresh-token"
+      }),
+      userGet: buildSupabaseUser({
+        id: "supabase-user-1",
+        email: "user@example.com",
+        displayName: "seed-user"
+      }),
+      passwordToken: buildSupabaseSession({
+        id: "supabase-user-1",
+        email: "user@example.com",
+        displayName: undefined,
+        refreshToken: "verify-refresh-token"
+      }),
+      userPut: {
         user: {
           id: "supabase-user-1",
           email: "user@example.com",
@@ -2265,10 +2244,9 @@ test("authService changePassword covers verification, update, and session fallba
           expires_in: 3600,
           token_type: "bearer"
         }
-      });
-    }
-    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
-  });
+      }
+    })
+  );
   try {
     const result = await service.changePassword(
       { cookies: createSessionCookies() },
@@ -2289,34 +2267,24 @@ test("authService signOutOtherSessions covers thrown and response error branches
     userProfilesRepository: createProfilesRepository()
   });
 
-  const signOutThrowFetch = mock.method(globalThis, "fetch", async (input, init) => {
-    const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
-      return jsonResponse(200, {
-        access_token: createUnsignedJwt(),
-        refresh_token: "refresh-token",
-        expires_in: 3600,
-        token_type: "bearer",
-        user: {
-          id: "supabase-user-1",
-          email: "user@example.com"
-        }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
-      return jsonResponse(200, {
+  const signOutThrowFetch = mock.method(
+    globalThis,
+    "fetch",
+    createSupabaseFetchMock({
+      refreshToken: buildSupabaseSession({
         id: "supabase-user-1",
         email: "user@example.com",
-        user_metadata: {
-          display_name: "seed-user"
-        }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/logout") {
-      throw new Error("logout exploded");
-    }
-    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
-  });
+        displayName: "seed-user",
+        refreshToken: "refresh-token"
+      }),
+      userGet: buildSupabaseUser({
+        id: "supabase-user-1",
+        email: "user@example.com",
+        displayName: "seed-user"
+      }),
+      logout: new Error("logout exploded")
+    })
+  );
   try {
     await assert.rejects(
       () => service.signOutOtherSessions({ cookies: createSessionCookies() }),
@@ -2329,36 +2297,29 @@ test("authService signOutOtherSessions covers thrown and response error branches
     signOutThrowFetch.mock.restore();
   }
 
-  const signOutErrorFetch = mock.method(globalThis, "fetch", async (input, init) => {
-    const request = parseFetchInput(input, init);
-    if (request.url.pathname === "/auth/v1/token" && request.url.searchParams.get("grant_type") === "refresh_token") {
-      return jsonResponse(200, {
-        access_token: createUnsignedJwt(),
-        refresh_token: "refresh-token",
-        expires_in: 3600,
-        token_type: "bearer",
-        user: {
-          id: "supabase-user-1",
-          email: "user@example.com"
-        }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/user" && request.method === "GET") {
-      return jsonResponse(200, {
+  const signOutErrorFetch = mock.method(
+    globalThis,
+    "fetch",
+    createSupabaseFetchMock({
+      refreshToken: buildSupabaseSession({
         id: "supabase-user-1",
         email: "user@example.com",
-        user_metadata: {
-          display_name: "seed-user"
+        displayName: "seed-user",
+        refreshToken: "refresh-token"
+      }),
+      userGet: buildSupabaseUser({
+        id: "supabase-user-1",
+        email: "user@example.com",
+        displayName: "seed-user"
+      }),
+      logout: {
+        status: 500,
+        body: {
+          message: "session invalid"
         }
-      });
-    }
-    if (request.url.pathname === "/auth/v1/logout") {
-      return jsonResponse(500, {
-        message: "session invalid"
-      });
-    }
-    throw new Error(`Unexpected fetch call: ${request.method} ${request.url.toString()}`);
-  });
+      }
+    })
+  );
   try {
     await assert.rejects(
       () => service.signOutOtherSessions({ cookies: createSessionCookies() }),
