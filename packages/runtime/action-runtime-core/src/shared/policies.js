@@ -102,6 +102,25 @@ function ensureActionSurfaceAllowed(definition, context) {
 
 function ensureActionVisibilityAllowed(definition, context) {
   const visibility = normalizeLowerText(definition?.visibility || "public");
+  if (visibility === "internal") {
+    const actorIsOperator =
+      context?.actor?.isOperator === true ||
+      (Array.isArray(context?.permissions) &&
+        (context.permissions.includes("console.operator") || context.permissions.includes("*")));
+
+    if (actorIsOperator || !context?.actor) {
+      return;
+    }
+
+    throw createActionRuntimeError(403, "Forbidden.", {
+      code: "ACTION_VISIBILITY_FORBIDDEN",
+      details: {
+        actionId: definition?.id,
+        visibility
+      }
+    });
+  }
+
   if (visibility !== "operator") {
     return;
   }
