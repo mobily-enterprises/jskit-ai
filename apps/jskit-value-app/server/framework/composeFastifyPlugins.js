@@ -1,23 +1,5 @@
-import billingWebhookRawBodyPlugin from "../fastify/billingWebhookRawBody.plugin.js";
-import activityPubRawBodyPlugin from "../fastify/activityPubRawBody.plugin.js";
 import { composeServerRuntimeArtifacts } from "./composeRuntime.js";
-
-const FASTIFY_PLUGIN_DEFINITIONS = Object.freeze([
-  {
-    id: "billingWebhookRawBody",
-    async register(app) {
-      await app.register(billingWebhookRawBodyPlugin);
-    }
-  },
-  {
-    id: "activityPubRawBody",
-    async register(app, { repositoryConfig } = {}) {
-      await app.register(activityPubRawBodyPlugin, {
-        maxPayloadBytes: repositoryConfig?.social?.limits?.inboxMaxPayloadBytes
-      });
-    }
-  }
-]);
+import { FASTIFY_PLUGIN_DEFINITIONS } from "./fastifyPluginCatalog.js";
 
 function resolveFastifyPluginDefinitionIds(options = {}) {
   return new Set(composeServerRuntimeArtifacts(options).fastifyPluginIds);
