@@ -1,54 +1,13 @@
-function normalizeObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
-}
-
-function normalizeHeaderValue(value) {
-  const normalized = String(value || "").trim();
-  return normalized || null;
-}
-
-function toPositiveInteger(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return 0;
-  }
-
-  return parsed;
-}
+import {
+  normalizeHeaderValue,
+  normalizeObject,
+  resolveCommandId,
+  resolveSourceClientId,
+  toPositiveInteger
+} from "@jskit-ai/action-runtime-core";
 
 function resolveRequest(context) {
   return context?.requestMeta?.request || null;
-}
-
-function resolveCommandId(context, input) {
-  const payload = normalizeObject(input);
-  const requestMeta = normalizeObject(payload.requestMeta);
-  return (
-    normalizeHeaderValue(requestMeta.commandId) ||
-    normalizeHeaderValue(requestMeta.idempotencyKey) ||
-    normalizeHeaderValue(payload.commandId) ||
-    normalizeHeaderValue(payload.idempotencyKey) ||
-    normalizeHeaderValue(context?.requestMeta?.commandId) ||
-    normalizeHeaderValue(context?.requestMeta?.idempotencyKey) ||
-    normalizeHeaderValue(resolveRequest(context)?.headers?.["x-command-id"]) ||
-    null
-  );
-}
-
-function resolveSourceClientId(context, input) {
-  const payload = normalizeObject(input);
-  const requestMeta = normalizeObject(payload.requestMeta);
-  return (
-    normalizeHeaderValue(requestMeta.sourceClientId) ||
-    normalizeHeaderValue(payload.sourceClientId) ||
-    normalizeHeaderValue(context?.requestMeta?.sourceClientId) ||
-    normalizeHeaderValue(resolveRequest(context)?.headers?.["x-client-id"]) ||
-    null
-  );
 }
 
 function resolveActorUserId(context, input) {
