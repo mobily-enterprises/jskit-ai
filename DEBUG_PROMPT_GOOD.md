@@ -1,5 +1,5 @@
 
-    You are assigned bucket CODE_FINDINGS/12_SLOP
+    
 
     SAFETY — Worktree + Branch Isolation (HARD RULES)
     - You MUST start on `main` in the main worktree.
@@ -8,13 +8,16 @@
     - You MAY create or move your task branch only: `slop/<bucket>-<id>`.
     - You MUST NOT commit any rename of `CODE_FINDINGS/<bucket>/` files.
 
+    HARD RULE: Do NOT stop for prompt if you notice extra files in git, since that
+    is normal. If those files weren't relevant to you, keep working
+
     You are assigned to work ONLY in this bucket:
     - BUCKET = THE ONE ASSIGNED TO YOU
 
     FINDINGS QUEUE (TRACKED IN GIT):
     - Work items: `CODE_FINDINGS/<bucket>/<id>.md`
     - Ignore `QUESTION.md`
-    - State is tracked via renames using `git mv` on `main` only:
+    - State is tracked via renames using `mv` on `main` only:
       - available: `<id>.md`
       - in-progress: `<id>.md.locked`
       - complete: `<id>.md.done.<commit>` / `<id>.md.wont` / `<id>.md.mergeFail`
@@ -28,7 +31,7 @@
 
     PHASE 1 — Claim On Main (Uncommitted)
     3. Claim the finding by renaming it on `main`:
-       - `git mv CODE_FINDINGS/<bucket>/<id>.md CODE_FINDINGS/<bucket>/<id>.md.locked`
+       - `mv CODE_FINDINGS/<bucket>/<id>.md CODE_FINDINGS/<bucket>/<id>.md.locked`
     4. Do NOT commit this rename. Leave it uncommitted on `main`.
 
     PHASE 2 — Create Worktree + Fix
@@ -69,13 +72,13 @@
     15. Switch back to the primary worktree on `main`.
     16. Keep the original `.locked` rename uncommitted and rename it to the final state:
         - DONE path:
-          `git mv CODE_FINDINGS/<bucket>/<id>.md.locked CODE_FINDINGS/<bucket>/<id>.md.done.<commit>`
+          `mv CODE_FINDINGS/<bucket>/<id>.md.locked CODE_FINDINGS/<bucket>/<id>.md.done.<commit>`
           Append summary + tests + final commit hash.
         - WONT path:
-          `git mv CODE_FINDINGS/<bucket>/<id>.md.locked CODE_FINDINGS/<bucket>/<id>.md.wont`
+          `mv CODE_FINDINGS/<bucket>/<id>.md.locked CODE_FINDINGS/<bucket>/<id>.md.wont`
           Append justification + what signal would make it worth fixing later.
         - MERGE FAIL path:
-          `git mv CODE_FINDINGS/<bucket>/<id>.md.locked CODE_FINDINGS/<bucket>/<id>.md.mergeFail`
+          `mv CODE_FINDINGS/<bucket>/<id>.md.locked CODE_FINDINGS/<bucket>/<id>.md.mergeFail`
           Append a COMPLETE attempted-changes report:
           1. Branch name used
           2. Full list of files changed

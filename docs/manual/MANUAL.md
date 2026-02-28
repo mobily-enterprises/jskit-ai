@@ -48,6 +48,19 @@ http://localhost:5173
 ```
 
 
+## Sequence
+
+```
+  npx jskit add bundle auth-supabase --no-install
+  npx jskit add bundle auth-base --no-install
+  npm install
+  npm run web-shell:generate
+  npm run dev
+  npm run server
+```
+
+
+
 ```txt
 npx jskit add bundle --no-install api-foundations
 

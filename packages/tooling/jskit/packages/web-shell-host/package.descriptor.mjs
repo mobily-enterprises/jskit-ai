@@ -51,7 +51,10 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
-        "@tanstack/vue-router": "^1.159.10"
+        "@mdi/js": "^7.4.47",
+        "@tanstack/vue-query": "^5.90.5",
+        "@tanstack/vue-router": "^1.159.10",
+        "vuetify": "^3.7.5"
       },
       dev: {}
     },

@@ -3,7 +3,8 @@ export default Object.freeze({
   "packageId": "@jskit-ai/console-errors-client-element",
   "version": "0.1.0",
   "dependsOn": [
-    "@jskit-ai/observability-core"
+    "@jskit-ai/observability-core",
+    "@jskit-ai/console-errors-client-runtime"
   ],
   "capabilities": {
     "provides": [
@@ -109,6 +110,7 @@ export default Object.freeze({
   "mutations": {
     "dependencies": {
       "runtime": {
+        "@jskit-ai/console-errors-client-runtime": "0.1.0",
         "vue": "^3.5.13"
       },
       "dev": {
