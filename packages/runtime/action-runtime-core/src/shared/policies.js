@@ -138,13 +138,60 @@ function normalizeSchemaValidationErrors(schema) {
   return Object.keys(fieldErrors).length > 0 ? fieldErrors : null;
 }
 
+function buildSchemaContractError({ phase, definition } = {}) {
+  return createActionRuntimeError(400, "Validation failed.", {
+    code: "ACTION_VALIDATION_FAILED",
+    details: {
+      error: "Schema validator must return { ok, value, errors } or throw.",
+      phase,
+      actionId: definition?.id,
+      version: definition?.version
+    }
+  });
+}
+
+function normalizeFunctionSchemaResult(result, payload, { phase, definition } = {}) {
+  if (!result || typeof result !== "object" || Array.isArray(result) || typeof result.ok !== "boolean") {
+    throw buildSchemaContractError({ phase, definition });
+  }
+
+  if (result.ok) {
+    if (Object.prototype.hasOwnProperty.call(result, "value")) {
+      return result.value;
+    }
+    return payload;
+  }
+
+  const details = {};
+  if (Object.prototype.hasOwnProperty.call(result, "errors")) {
+    if (Array.isArray(result.errors)) {
+      const fieldErrors = normalizeSchemaValidationErrors({ errors: result.errors });
+      if (fieldErrors) {
+        details.fieldErrors = fieldErrors;
+      } else {
+        details.errors = result.errors;
+      }
+    } else if (result.errors && typeof result.errors === "object") {
+      details.fieldErrors = result.errors;
+    } else if (result.errors != null) {
+      details.error = String(result.errors);
+    }
+  }
+
+  throw createActionRuntimeError(400, "Validation failed.", {
+    code: "ACTION_VALIDATION_FAILED",
+    details: Object.keys(details).length > 0 ? details : undefined
+  });
+}
+
 async function validateSchemaPayload(schema, payload, { phase, definition }) {
   if (typeof schema === "function") {
-    return schema(payload, {
+    const result = await schema(payload, {
       phase,
       actionId: definition?.id,
       version: definition?.version
     });
+    return normalizeFunctionSchemaResult(result, payload, { phase, definition });
   }
 
   if (!schema || typeof schema !== "object") {
