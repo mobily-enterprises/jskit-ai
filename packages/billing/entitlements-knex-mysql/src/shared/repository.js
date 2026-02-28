@@ -1,6 +1,6 @@
 import { normalizeAmountAllowZero, normalizeAmountRequirePositive } from "@jskit-ai/billing-core";
 import { normalizeDateInput } from "@jskit-ai/jskit-knex/dateUtils";
-import { applyForUpdate, parseJsonValue, resolveRepoClient } from "@jskit-ai/jskit-knex";
+import { applyForUpdate, normalizeMetadataJsonInput, parseJsonValue, resolveRepoClient } from "@jskit-ai/jskit-knex";
 import { withTransaction } from "./transactions.js";
 
 const DEFAULT_TABLE_NAMES = Object.freeze({
@@ -97,16 +97,6 @@ function toDateTimeQueryValue(value) {
   }
 
   return toNullableDateTime(value);
-}
-
-function normalizeMetadataJsonInput(value) {
-  if (value == null) {
-    return null;
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  return JSON.stringify(value);
 }
 
 function normalizeSubjectType(value) {

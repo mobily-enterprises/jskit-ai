@@ -11,6 +11,7 @@ export {
   mapRowNullable,
   parseJsonObject,
   stringifyJsonObject,
+  normalizeMetadataJsonInput,
   normalizeCountRow,
   parseJsonValue,
   toDbJson

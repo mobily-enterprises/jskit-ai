@@ -1,7 +1,13 @@
 import { createEntitlementsKnexRepository } from "@jskit-ai/entitlements-knex-mysql";
 import { normalizeDateInput, toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
-import { applyForUpdate, parseJsonValue, resolveQueryOptions, resolveRepoClient } from "@jskit-ai/jskit-knex";
+import {
+  applyForUpdate,
+  normalizeMetadataJsonInput,
+  parseJsonValue,
+  resolveQueryOptions,
+  resolveRepoClient
+} from "@jskit-ai/jskit-knex";
 import {
   BILLING_CHECKOUT_SESSION_STATUS,
   BILLING_DEFAULT_PROVIDER,
@@ -748,16 +754,6 @@ function toNullableDateTime(dateLike) {
   }
 
   return toDatabaseDateTimeUtc(normalized);
-}
-
-function normalizeMetadataJsonInput(value) {
-  if (value == null) {
-    return null;
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  return JSON.stringify(value);
 }
 
 async function resolveWorkspaceIdForBillableEntity(client, billableEntityId) {
