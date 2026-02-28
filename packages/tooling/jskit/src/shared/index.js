@@ -132,7 +132,7 @@ function getInstalledPackageDependents(lock, packageId, availablePackages, { exc
 function parseArgs(argv) {
   const args = Array.isArray(argv) ? [...argv] : [];
   const rawCommand = String(args.shift() || "help").trim() || "help";
-  const command = rawCommand === "view" ? "show" : rawCommand;
+  const command = rawCommand === "view" ? "show" : rawCommand === "ls" ? "list" : rawCommand;
 
   const options = {
     dryRun: false,
@@ -789,6 +789,19 @@ function interpolateOptionValue(template, { selectedOptions, packageId, label })
       );
     }
     return resolvedValue;
+  });
+}
+
+function applyDefaultOptionInterpolation(template, defaultOptions) {
+  const rawTemplate = String(template || "");
+  if (!rawTemplate.includes("${")) {
+    return rawTemplate;
+  }
+  const resolvedDefaults = defaultOptions && typeof defaultOptions === "object" ? defaultOptions : {};
+  return rawTemplate.replace(OPTION_INTERPOLATION_PATTERN, (match, optionName) => {
+    const normalizedOptionName = String(optionName || "").trim();
+    const fallback = resolvedDefaults[normalizedOptionName];
+    return fallback ? String(fallback) : match;
   });
 }
 
@@ -1787,47 +1800,7 @@ function buildBundleMetadata(bundleDescriptor, availablePackages) {
 }
 
 function summarizeCapabilities(capabilityIds) {
-  const grouped = new Map();
-  for (const capabilityId of toSortedUniqueStrings(Array.isArray(capabilityIds) ? capabilityIds : [])) {
-    const normalized = String(capabilityId || "").trim();
-    if (!normalized) {
-      continue;
-    }
-    const parts = normalized.split(".");
-    const domain = String(parts.shift() || "").trim();
-    if (!domain) {
-      continue;
-    }
-    if (!grouped.has(domain)) {
-      grouped.set(domain, {
-        self: false,
-        leaves: new Set()
-      });
-    }
-    const suffix = parts.join(".").trim();
-    if (!suffix) {
-      grouped.get(domain).self = true;
-      continue;
-    }
-    grouped.get(domain).leaves.add(suffix);
-  }
-
-  const lines = [];
-  for (const domain of [...grouped.keys()].sort((left, right) => left.localeCompare(right))) {
-    const entry = grouped.get(domain);
-    if (!entry) {
-      continue;
-    }
-    if (entry.self) {
-      lines.push(domain);
-    }
-    const leaves = [...entry.leaves].sort((left, right) => left.localeCompare(right));
-    if (leaves.length > 0) {
-      lines.push(`${domain} (${leaves.join(", ")})`);
-    }
-  }
-
-  return lines;
+  return toSortedUniqueStrings(Array.isArray(capabilityIds) ? capabilityIds : []);
 }
 
 function buildCapabilitySetsForPackages(packageIds, availablePackages) {
@@ -1873,11 +1846,20 @@ function buildFileContributionDetails(packageIds, availablePackages) {
     }
 
     for (const uiElement of packageEntry.descriptor.metadata?.ui?.elements || []) {
+      const defaultOptions = {};
+      for (const pathOption of uiElement.pathOptions || []) {
+        const optionName = String(pathOption.option || "").trim();
+        const defaultValue = String(pathOption.defaultValue || "").trim();
+        if (optionName && defaultValue) {
+          defaultOptions[optionName] = defaultValue;
+        }
+      }
       for (const fileEntry of uiElement?.contributions?.files || []) {
         contributions.push({
           packageId,
           from: fileEntry.from,
           to: fileEntry.to,
+          resolvedTo: applyDefaultOptionInterpolation(fileEntry.to, defaultOptions),
           reason: String(fileEntry.reason || "").trim(),
           category: String(fileEntry.category || "").trim() || "ui-element",
           id: String(fileEntry.id || "").trim(),
@@ -2065,10 +2047,19 @@ function buildUiRouteDetails(packageIds, availablePackages) {
       });
     }
     for (const uiElement of packageEntry.descriptor.metadata?.ui?.elements || []) {
+      const defaultOptions = {};
+      for (const pathOption of uiElement.pathOptions || []) {
+        const optionName = String(pathOption.option || "").trim();
+        const defaultValue = String(pathOption.defaultValue || "").trim();
+        if (optionName && defaultValue) {
+          defaultOptions[optionName] = defaultValue;
+        }
+      }
       for (const route of uiElement?.contributions?.clientRoutes || []) {
         routes.push({
           packageId,
           path: String(route.path || "").trim(),
+          resolvedPath: applyDefaultOptionInterpolation(String(route.path || "").trim(), defaultOptions),
           name: String(route.name || "").trim(),
           surface: String(route.surface || "").trim(),
           purpose: String(route.purpose || "").trim(),
@@ -2095,7 +2086,16 @@ function buildShellEntryContributionDetails(packageIds, availablePackages) {
       continue;
     }
     for (const uiElement of packageEntry.descriptor.metadata?.ui?.elements || []) {
+      const defaultOptions = {};
+      for (const pathOption of uiElement.pathOptions || []) {
+        const optionName = String(pathOption.option || "").trim();
+        const defaultValue = String(pathOption.defaultValue || "").trim();
+        if (optionName && defaultValue) {
+          defaultOptions[optionName] = defaultValue;
+        }
+      }
       for (const shellEntry of uiElement?.contributions?.shellEntries || []) {
+        const route = String(shellEntry.route || "").trim();
         entries.push({
           packageId,
           elementId: String(uiElement.id || "").trim(),
@@ -2103,7 +2103,8 @@ function buildShellEntryContributionDetails(packageIds, availablePackages) {
           slot: String(shellEntry.slot || "").trim(),
           id: String(shellEntry.id || "").trim(),
           title: String(shellEntry.title || "").trim(),
-          route: String(shellEntry.route || "").trim(),
+          route,
+          resolvedRoute: applyDefaultOptionInterpolation(route, defaultOptions),
           icon: String(shellEntry.icon || "").trim(),
           group: String(shellEntry.group || "").trim(),
           description: String(shellEntry.description || "").trim(),
@@ -2138,6 +2139,14 @@ function buildElementContributionDetails(packageIds, availablePackages) {
       continue;
     }
     for (const uiElement of packageEntry.descriptor.metadata?.ui?.elements || []) {
+      const defaultOptions = {};
+      for (const pathOption of uiElement.pathOptions || []) {
+        const optionName = String(pathOption.option || "").trim();
+        const defaultValue = String(pathOption.defaultValue || "").trim();
+        if (optionName && defaultValue) {
+          defaultOptions[optionName] = defaultValue;
+        }
+      }
       elements.push({
         packageId,
         id: String(uiElement.id || "").trim(),
@@ -2163,6 +2172,7 @@ function buildElementContributionDetails(packageIds, availablePackages) {
         contributions: {
           clientRoutes: (uiElement?.contributions?.clientRoutes || []).map((entry) => ({
             path: String(entry.path || "").trim(),
+            resolvedPath: applyDefaultOptionInterpolation(String(entry.path || "").trim(), defaultOptions),
             surface: String(entry.surface || "").trim(),
             name: String(entry.name || "").trim(),
             purpose: String(entry.purpose || "").trim()
@@ -2173,6 +2183,7 @@ function buildElementContributionDetails(packageIds, availablePackages) {
             id: String(entry.id || "").trim(),
             title: String(entry.title || "").trim(),
             route: String(entry.route || "").trim(),
+            resolvedRoute: applyDefaultOptionInterpolation(String(entry.route || "").trim(), defaultOptions),
             icon: String(entry.icon || "").trim(),
             group: String(entry.group || "").trim(),
             description: String(entry.description || "").trim(),
@@ -2181,6 +2192,7 @@ function buildElementContributionDetails(packageIds, availablePackages) {
           files: (uiElement?.contributions?.files || []).map((entry) => ({
             from: String(entry.from || "").trim(),
             to: String(entry.to || "").trim(),
+            resolvedTo: applyDefaultOptionInterpolation(String(entry.to || "").trim(), defaultOptions),
             reason: String(entry.reason || "").trim(),
             category: String(entry.category || "").trim(),
             id: String(entry.id || "").trim()
@@ -2288,6 +2300,21 @@ async function buildShowPackageBundleResult({
   const uiElements = buildUiElementDetails(selectedPackageIds, availablePackages);
   const shellEntries = buildShellEntryContributionDetails(selectedPackageIds, availablePackages);
   const elementContributions = buildElementContributionDetails(selectedPackageIds, availablePackages);
+  const packageSections = [];
+  for (const packageId of selectedPackageIds) {
+    const packageEntry = availablePackages.get(packageId);
+    if (!packageEntry) {
+      continue;
+    }
+    packageSections.push(
+      await buildShowPackagePackageResult({
+        packageEntry,
+        availablePackages,
+        installedPackageIds,
+        expanded: false
+      })
+    );
+  }
 
   return {
     command: "show-package",
@@ -2319,7 +2346,8 @@ async function buildShowPackageBundleResult({
     packageJsonMutations,
     uiElements,
     shellEntries,
-    elementContributions
+    elementContributions,
+    packageSections
   };
 }
 
@@ -3259,10 +3287,8 @@ function formatResult(result, { json, stdout }) {
     if (!Array.isArray(groupedCapabilities) || groupedCapabilities.length < 1) {
       return;
     }
-    stdout.write(`${bold(blue(title))}:\n`);
-    for (const label of groupedCapabilities) {
-      stdout.write(`- ${colorize(label)}\n`);
-    }
+    const labels = groupedCapabilities.map((label) => colorize(label)).join(", ");
+    stdout.write(`${bold(blue(title))}: ${labels}\n`);
   }
 
   function displayPackageId(packageId) {
@@ -3361,293 +3387,376 @@ function formatResult(result, { json, stdout }) {
   }
 
   if (result.command === "show-package") {
-    const installedSuffix = result.installed ? " (installed)" : "";
-    const targetLabel = result.targetType === "bundle" ? "bundle shortcut" : "package";
-    const headlineLabel = result.targetType === "bundle" ? "Bundle" : "Package";
-    const displayedTargetId =
-      result.targetType === "package" ? displayPackageId(result.packageId) : String(result.packageId || "");
-    stdout.write(`${bold(cyan(`${headlineLabel} ${displayedTargetId} (${result.version})${installedSuffix}`))}\n`);
-    stdout.write(`${bold("Type")}: ${targetLabel}\n`);
-    if (result.description) {
-      stdout.write(`${bold("Description")}: ${gray(result.description)}\n`);
-    }
-    if (result.targetType === "bundle") {
-      stdout.write(`${bold("Curated")}: ${result.curated === 1 ? green("yes") : gray("no")}\n`);
-      stdout.write(`${bold("Provider bundle")}: ${result.provider === 1 ? yellow("yes") : gray("no")}\n`);
-    }
-    if (result.targetType === "package") {
-      if (Array.isArray(result.dependsOn) && result.dependsOn.length > 0) {
-        stdout.write(`${bold(blue("Depends on"))}:\n`);
-        for (const dependencyId of result.dependsOn) {
-          stdout.write(`- ${cyan(displayPackageId(dependencyId))}\n`);
+    const renderShowSection = ({ sectionResult, includeHeader = true, includePackageList = true, includeAggregates = true }) => {
+      const installedSuffix = sectionResult.installed ? " (installed)" : "";
+      const targetLabel = sectionResult.targetType === "bundle" ? "bundle shortcut" : "package";
+      const headlineLabel = sectionResult.targetType === "bundle" ? "Bundle" : "Package";
+      const displayedTargetId =
+        sectionResult.targetType === "package" ? displayPackageId(sectionResult.packageId) : String(sectionResult.packageId || "");
+
+      if (includeHeader) {
+        stdout.write(`${bold(cyan(`${headlineLabel} ${displayedTargetId} (${sectionResult.version})${installedSuffix}`))}\n`);
+        stdout.write(`${bold("Type")}: ${targetLabel}\n`);
+        if (sectionResult.description) {
+          stdout.write(`${bold("Description")}: ${gray(sectionResult.description)}\n`);
+        }
+        if (sectionResult.targetType === "bundle") {
+          stdout.write(`${bold("Curated")}: ${sectionResult.curated === 1 ? green("yes") : gray("no")}\n`);
+          stdout.write(`${bold("Provider bundle")}: ${sectionResult.provider === 1 ? yellow("yes") : gray("no")}\n`);
+        }
+        if (sectionResult.targetType === "package") {
+          if (Array.isArray(sectionResult.dependsOn) && sectionResult.dependsOn.length > 0) {
+            stdout.write(`${bold(blue("Depends on"))}:\n`);
+            for (const dependencyId of sectionResult.dependsOn) {
+              stdout.write(`- ${cyan(displayPackageId(dependencyId))}\n`);
+            }
+          }
+          const optionNames = Object.keys(sectionResult.options || {});
+          if (optionNames.length > 0) {
+            stdout.write(`${bold(blue("Options"))}:\n`);
+            for (const optionName of optionNames.sort((left, right) => left.localeCompare(right))) {
+              const option = sectionResult.options[optionName] || {};
+              const requiredSuffix = option.required ? ` ${red("(required)")}` : "";
+              const values = Array.isArray(option.values) && option.values.length > 0 ? `: ${option.values.join(" | ")}` : "";
+              const defaultSuffix = String(option.defaultValue || "").trim()
+                ? ` ${gray(`default=${String(option.defaultValue || "").trim()}`)}`
+                : "";
+              const promptSuffix = option.prompt ? ` ${gray("(prompt)")}` : "";
+              stdout.write(`- ${yellow(optionName)}${requiredSuffix}${gray(values)}${defaultSuffix}${promptSuffix}\n`);
+            }
+          }
         }
       }
-      const optionNames = Object.keys(result.options || {});
-      if (optionNames.length > 0) {
-        stdout.write(`${bold(blue("Options"))}:\n`);
-        for (const optionName of optionNames.sort((left, right) => left.localeCompare(right))) {
-          const option = result.options[optionName] || {};
-          const requiredSuffix = option.required ? ` ${red("(required)")}` : "";
-          const values = Array.isArray(option.values) && option.values.length > 0 ? `: ${option.values.join(" | ")}` : "";
-          const defaultSuffix = String(option.defaultValue || "").trim()
-            ? ` ${gray(`default=${String(option.defaultValue || "").trim()}`)}`
-            : "";
-          const promptSuffix = option.prompt ? ` ${gray("(prompt)")}` : "";
-          stdout.write(`- ${yellow(optionName)}${requiredSuffix}${gray(values)}${defaultSuffix}${promptSuffix}\n`);
-        }
-      }
-    }
 
-    writeCapabilitySection({
-      title: "Requires capabilities",
-      groupedCapabilities: result.requiredCapabilitySummary,
-      colorize: yellow
-    });
-    writeCapabilitySection({
-      title: "Provides capabilities",
-      groupedCapabilities: result.providedCapabilitySummary,
-      colorize: green
-    });
-
-    if (Array.isArray(result.capabilityContracts) && result.capabilityContracts.length > 0) {
-      stdout.write(`${bold(blue("Contracts"))}:\n`);
-      for (const contractEntry of result.capabilityContracts) {
-        const roles = Array.isArray(contractEntry.roles) && contractEntry.roles.length > 0
-          ? ` [${contractEntry.roles.join(", ")}]`
-          : "";
-        const kindLabel = String(contractEntry.kind || "").trim();
-        const summaryLabel = String(contractEntry.summary || "").trim();
-        const capabilityLabel = cyan(contractEntry.capabilityId);
-        const roleLabel = roles ? ` ${magenta(roles)}` : "";
-        if (kindLabel && summaryLabel) {
-          stdout.write(`- ${capabilityLabel}${roleLabel} (${yellow(kindLabel)}): ${gray(summaryLabel)}\n`);
-          continue;
-        }
-        if (summaryLabel) {
-          stdout.write(`- ${capabilityLabel}${roleLabel}: ${gray(summaryLabel)}\n`);
-          continue;
-        }
-        stdout.write(`- ${capabilityLabel}${roleLabel}\n`);
-      }
-    }
-
-    if (Array.isArray(result.packageEntries) && result.packageEntries.length > 0) {
-      stdout.write(`${bold(blue(`Packages (${result.packageEntries.length})${showExpanded ? " [expanded]" : ""}`))}:\n`);
-      for (const packageEntry of result.packageEntries) {
-        const providerRequirementSuffix =
-          Array.isArray(packageEntry.providerRequirementHints) && packageEntry.providerRequirementHints.length > 0
-            ? ` ${magenta(`[${packageEntry.providerRequirementHints.join(", ")}]`)}`
-            : "";
-        const providerSuffix = packageEntry.provider ? magenta("*") : "";
-        const description = String(packageEntry.description || "").trim();
-        const packageIdLabel = cyan(displayPackageId(packageEntry.packageId));
-        if (description) {
-          stdout.write(`- ${packageIdLabel}${providerSuffix}${providerRequirementSuffix}: ${gray(description)}\n`);
-          continue;
-        }
-        stdout.write(`- ${packageIdLabel}${providerSuffix}${providerRequirementSuffix}\n`);
-      }
-    }
-
-    if (Array.isArray(result.serverRoutes) && result.serverRoutes.length > 0) {
-      const totalRouteCount = result.serverRoutes.reduce((sum, entry) => sum + ((entry.routes || []).length || 0), 0);
-      stdout.write(`${bold(blue(`Server routes (${totalRouteCount})`))}:\n`);
-      for (const routeGroup of result.serverRoutes) {
-        stdout.write(`- ${cyan(displayPackageId(routeGroup.packageId))}:\n`);
-        for (const route of routeGroup.routes || []) {
-          const summary = String(route.summary || "").trim();
-          const methodLabel = colorMethod(route.method);
-          const pathLabel = brightWhite(route.path);
-          if (summary) {
-            stdout.write(`  ${methodLabel} ${pathLabel}: ${gray(summary)}\n`);
+      if (includePackageList && Array.isArray(sectionResult.packageEntries) && sectionResult.packageEntries.length > 0) {
+        stdout.write(`${bold(blue(`Packages (${sectionResult.packageEntries.length})${showExpanded ? " [expanded]" : ""}`))}:\n`);
+        for (const packageEntry of sectionResult.packageEntries) {
+          const providerRequirementSuffix =
+            Array.isArray(packageEntry.providerRequirementHints) && packageEntry.providerRequirementHints.length > 0
+              ? ` ${magenta(`[${packageEntry.providerRequirementHints.join(", ")}]`)}`
+              : "";
+          const providerSuffix = packageEntry.provider ? magenta("*") : "";
+          const description = String(packageEntry.description || "").trim();
+          const packageIdLabel = cyan(displayPackageId(packageEntry.packageId));
+          if (description) {
+            stdout.write(`- ${packageIdLabel}${providerSuffix}${providerRequirementSuffix}: ${gray(description)}\n`);
             continue;
           }
-          stdout.write(`  ${methodLabel} ${pathLabel}\n`);
+          stdout.write(`- ${packageIdLabel}${providerSuffix}${providerRequirementSuffix}\n`);
         }
       }
-    }
 
-    if (Array.isArray(result.clientRoutes) && result.clientRoutes.length > 0) {
-      stdout.write(`${bold(blue(`Client routes (${result.clientRoutes.length})`))}:\n`);
-      for (const route of result.clientRoutes) {
-        const surfaceSuffix = String(route.surface || "").trim() ? ` ${yellow(`(${route.surface})`)}` : "";
-        const nameSuffix = String(route.name || "").trim() ? ` ${magenta(`[${route.name}]`)}` : "";
-        const purpose = String(route.purpose || "").trim();
-        if (purpose) {
-          stdout.write(
-            `- ${brightWhite(route.path)}${nameSuffix}${surfaceSuffix} ${gray(`(${displayPackageId(route.packageId)})`)}: ${gray(purpose)}\n`
-          );
-          continue;
-        }
-        stdout.write(`- ${brightWhite(route.path)}${nameSuffix}${surfaceSuffix} ${gray(`(${displayPackageId(route.packageId)})`)}\n`);
-      }
-    }
+      if (includeAggregates) {
+        writeCapabilitySection({
+          title: "Requires capabilities",
+          groupedCapabilities: sectionResult.requiredCapabilitySummary,
+          colorize: yellow
+        });
+        writeCapabilitySection({
+          title: "Provides capabilities",
+          groupedCapabilities: sectionResult.providedCapabilitySummary,
+          colorize: green
+        });
 
-    if (Array.isArray(result.shellEntries) && result.shellEntries.length > 0) {
-      stdout.write(`${bold(blue(`Shell entries (${result.shellEntries.length})`))}:\n`);
-      for (const shellEntry of result.shellEntries) {
-        const surfaceSlot = `${shellEntry.surface || "unknown"}/${shellEntry.slot || "unknown"}`;
-        const iconSuffix = String(shellEntry.icon || "").trim() ? ` ${magenta(`[${shellEntry.icon}]`)}` : "";
-        const groupSuffix = String(shellEntry.group || "").trim() ? ` ${yellow(`(${shellEntry.group})`)}` : "";
-        const elementSuffix = String(shellEntry.elementId || "").trim() ? ` ${gray(`#${shellEntry.elementId}`)}` : "";
-        const description = String(shellEntry.description || "").trim();
-        if (description) {
-          stdout.write(
-            `- ${brightWhite(`${surfaceSlot}:${shellEntry.id}`)} ${gray("->")} ${brightWhite(shellEntry.route)}${iconSuffix}${groupSuffix}${elementSuffix} ${gray(`(${displayPackageId(shellEntry.packageId)})`)}: ${gray(description)}\n`
-          );
-          continue;
-        }
-        stdout.write(
-          `- ${brightWhite(`${surfaceSlot}:${shellEntry.id}`)} ${gray("->")} ${brightWhite(shellEntry.route)}${iconSuffix}${groupSuffix}${elementSuffix} ${gray(`(${displayPackageId(shellEntry.packageId)})`)}\n`
-        );
-      }
-    }
-
-    if (Array.isArray(result.elementContributions) && result.elementContributions.length > 0) {
-      stdout.write(`${bold(blue(`Element contributions (${result.elementContributions.length})`))}:\n`);
-      for (const element of result.elementContributions) {
-        const capabilitySuffix = String(element.capability || "").trim() ? ` ${magenta(`[${element.capability}]`)}` : "";
-        const surfaceSuffix = String(element.surface || "").trim() ? ` ${yellow(`(${element.surface})`)}` : "";
-        const purpose = String(element.purpose || "").trim();
-        const header = `- ${cyan(element.name || element.id || "element")}${capabilitySuffix}${surfaceSuffix} ${gray(
-          `(${displayPackageId(element.packageId)})`
-        )}`;
-        stdout.write(purpose ? `${header}: ${gray(purpose)}\n` : `${header}\n`);
-
-        if (element.availabilityImport && element.availabilityImport.module) {
-          const symbols = Array.isArray(element.availabilityImport.symbols) ? element.availabilityImport.symbols : [];
-          const symbolLabel = symbols.length > 0 ? symbols.join(", ") : "<module>";
-          stdout.write(
-            `  ${gray("availability")}: ${brightWhite(element.availabilityImport.module)} ${gray(`(${symbolLabel})`)}\n`
-          );
-        }
-
-        if (Array.isArray(element.pathOptions) && element.pathOptions.length > 0) {
-          stdout.write(`  ${gray("path options")}:\n`);
-          for (const option of element.pathOptions) {
-            const requiredSuffix = option.required ? ` ${red("(required)")}` : "";
-            const defaultSuffix = option.defaultValue ? ` ${gray(`default=${option.defaultValue}`)}` : "";
-            const valuesSuffix =
-              Array.isArray(option.values) && option.values.length > 0 ? ` ${gray(`values=${option.values.join("|")}`)}` : "";
-            stdout.write(`    - ${yellow(option.option)}${requiredSuffix}${defaultSuffix}${valuesSuffix}\n`);
+        if (Array.isArray(sectionResult.capabilityContracts) && sectionResult.capabilityContracts.length > 0) {
+          stdout.write(`${bold(blue("Contracts"))}:\n`);
+          const contractKindNotes = Object.freeze({
+            "service-contract": "service runtime API",
+            "schema-contract": "schema/type surface",
+            "client-runtime": "client runtime surface",
+            "client-element": "client UI element",
+            "provider-family": "provider selection family",
+            "runtime-primitive": "runtime infrastructure primitive",
+            "database-contract": "database adapter contract"
+          });
+          const providesLines = [];
+          const requiresLines = [];
+          const formatContractDetail = (capabilityLabel, kindLabel, kindNote, summaryLabel) => {
+            const parts = [];
+            if (kindLabel) {
+              parts.push(`kind=${kindLabel}`);
+            }
+            if (kindNote) {
+              parts.push(kindNote);
+            }
+            if (summaryLabel) {
+              parts.push(summaryLabel);
+            }
+            if (parts.length < 1) {
+              return capabilityLabel;
+            }
+            return `${capabilityLabel} — ${parts.join(" — ")}`;
+          };
+          for (const contractEntry of sectionResult.capabilityContracts) {
+            const kindLabel = String(contractEntry.kind || "").trim();
+            const kindNote = kindLabel ? String(contractKindNotes[kindLabel] || "").trim() : "";
+            const summaryLabel = String(contractEntry.summary || "").trim();
+            const capabilityLabel = cyan(contractEntry.capabilityId);
+            const roles = Array.isArray(contractEntry.roles) ? contractEntry.roles : [];
+            if (roles.includes("provides")) {
+              providesLines.push(`- ${green("Provides")}: ${capabilityLabel}`);
+            }
+            if (roles.includes("requires")) {
+              const detail = formatContractDetail(
+                capabilityLabel,
+                kindLabel ? yellow(kindLabel) : "",
+                kindNote ? gray(kindNote) : "",
+                summaryLabel ? gray(summaryLabel) : ""
+              );
+              requiresLines.push(`- ${yellow("Requires")}: ${detail}`);
+            }
+          }
+          for (const line of providesLines) {
+            stdout.write(`${line}\n`);
+          }
+          for (const line of requiresLines) {
+            stdout.write(`${line}\n`);
           }
         }
 
-        const contributions = element.contributions || {};
-        if (Array.isArray(contributions.clientRoutes) && contributions.clientRoutes.length > 0) {
-          stdout.write(`  ${gray("client routes")}:\n`);
-          for (const route of contributions.clientRoutes) {
-            const routeName = String(route.name || "").trim() ? ` ${magenta(`[${route.name}]`)}` : "";
-            const routeSurface = String(route.surface || "").trim() ? ` ${yellow(`(${route.surface})`)}` : "";
-            const routePurpose = String(route.purpose || "").trim();
-            if (routePurpose) {
-              stdout.write(`    - ${brightWhite(route.path)}${routeName}${routeSurface}: ${gray(routePurpose)}\n`);
+        if (Array.isArray(sectionResult.serverRoutes) && sectionResult.serverRoutes.length > 0) {
+          const totalRouteCount = sectionResult.serverRoutes.reduce((sum, entry) => sum + ((entry.routes || []).length || 0), 0);
+          stdout.write(`${bold(blue(`Server routes (${totalRouteCount})`))}:\n`);
+          for (const routeGroup of sectionResult.serverRoutes) {
+            stdout.write(`- ${cyan(displayPackageId(routeGroup.packageId))}:\n`);
+            for (const route of routeGroup.routes || []) {
+              const summary = String(route.summary || "").trim();
+              const methodLabel = colorMethod(route.method);
+              const pathLabel = brightWhite(route.path);
+              if (summary) {
+                stdout.write(`  ${methodLabel} ${pathLabel}: ${gray(summary)}\n`);
+                continue;
+              }
+              stdout.write(`  ${methodLabel} ${pathLabel}\n`);
+            }
+          }
+        }
+
+        if (Array.isArray(sectionResult.clientRoutes) && sectionResult.clientRoutes.length > 0) {
+          stdout.write(`${bold(blue(`Client routes (${sectionResult.clientRoutes.length})`))}:\n`);
+          for (const route of sectionResult.clientRoutes) {
+            const surfaceSuffix = String(route.surface || "").trim() ? ` ${yellow(`(${route.surface})`)}` : "";
+            const purpose = String(route.purpose || "").trim();
+            const pathLabel = String(route.resolvedPath || "").trim() || String(route.path || "").trim();
+            if (purpose) {
+              stdout.write(
+                `- ${brightWhite(pathLabel)}${surfaceSuffix} ${gray(`(${displayPackageId(route.packageId)})`)}: ${gray(purpose)}\n`
+              );
               continue;
             }
-            stdout.write(`    - ${brightWhite(route.path)}${routeName}${routeSurface}\n`);
+            stdout.write(`- ${brightWhite(pathLabel)}${surfaceSuffix} ${gray(`(${displayPackageId(route.packageId)})`)}\n`);
           }
         }
 
-        if (Array.isArray(contributions.shellEntries) && contributions.shellEntries.length > 0) {
-          stdout.write(`  ${gray("shell entries")}:\n`);
-          for (const shellEntry of contributions.shellEntries) {
-            const label = `${shellEntry.surface || "unknown"}/${shellEntry.slot || "unknown"}:${shellEntry.id || "entry"}`;
-            const detail = String(shellEntry.title || "").trim() ? ` ${gray(`(${shellEntry.title})`)}` : "";
-            stdout.write(`    - ${brightWhite(label)} ${gray("->")} ${brightWhite(shellEntry.route || "/")}${detail}\n`);
-          }
-        }
-
-        if (Array.isArray(contributions.files) && contributions.files.length > 0) {
-          stdout.write(`  ${gray("files")}:\n`);
-          for (const fileEntry of contributions.files) {
-            const reason = String(fileEntry.reason || "").trim();
-            if (reason) {
-              stdout.write(`    - ${brightWhite(fileEntry.from)} ${gray("->")} ${brightWhite(fileEntry.to)}: ${gray(reason)}\n`);
+        if (Array.isArray(sectionResult.shellEntries) && sectionResult.shellEntries.length > 0) {
+          stdout.write(`${bold(blue(`Shell entries (${sectionResult.shellEntries.length})`))}:\n`);
+          for (const shellEntry of sectionResult.shellEntries) {
+            const surfaceSlot = `${shellEntry.surface || "unknown"}/${shellEntry.slot || "unknown"}`;
+            const iconSuffix = String(shellEntry.icon || "").trim() ? ` ${magenta(`[${shellEntry.icon}]`)}` : "";
+            const groupSuffix = String(shellEntry.group || "").trim() ? ` ${yellow(`(${shellEntry.group})`)}` : "";
+            const elementSuffix = String(shellEntry.elementId || "").trim() ? ` ${gray(`#${shellEntry.elementId}`)}` : "";
+            const routeLabel = String(shellEntry.resolvedRoute || "").trim() || String(shellEntry.route || "").trim();
+            const description = String(shellEntry.description || "").trim();
+            if (description) {
+              stdout.write(
+                `- ${brightWhite(`${surfaceSlot}:${shellEntry.id}`)} ${gray("->")} ${brightWhite(routeLabel)}${iconSuffix}${groupSuffix}${elementSuffix} ${gray(`(${displayPackageId(shellEntry.packageId)})`)}: ${gray(description)}\n`
+              );
               continue;
             }
-            stdout.write(`    - ${brightWhite(fileEntry.from)} ${gray("->")} ${brightWhite(fileEntry.to)}\n`);
+            stdout.write(
+              `- ${brightWhite(`${surfaceSlot}:${shellEntry.id}`)} ${gray("->")} ${brightWhite(routeLabel)}${iconSuffix}${groupSuffix}${elementSuffix} ${gray(`(${displayPackageId(shellEntry.packageId)})`)}\n`
+            );
           }
         }
 
-        if (Array.isArray(contributions.text) && contributions.text.length > 0) {
-          stdout.write(`  ${gray("text")}:\n`);
-          for (const mutation of contributions.text) {
+        if (Array.isArray(sectionResult.elementContributions) && sectionResult.elementContributions.length > 0) {
+          stdout.write(`${bold(blue(`Element contributions (${sectionResult.elementContributions.length})`))}:\n`);
+          for (const element of sectionResult.elementContributions) {
+            const capabilitySuffix = String(element.capability || "").trim()
+              ? ` ${magenta(`[cap=${element.capability}]`)}`
+              : "";
+            const surfaceSuffix = String(element.surface || "").trim()
+              ? ` ${yellow(`(surface=${element.surface})`)}`
+              : "";
+            const purpose = String(element.purpose || "").trim();
+            const packageLabel = cyan(displayPackageId(element.packageId));
+            const elementLabel = brightWhite(element.name || element.id || "element");
+            const header = `- ${packageLabel}: ${elementLabel}${capabilitySuffix} ${surfaceSuffix}`;
+            stdout.write(purpose ? `${header}: ${gray(purpose)}\n` : `${header}\n`);
+
+            if (element.availabilityImport && element.availabilityImport.module) {
+              const symbols = Array.isArray(element.availabilityImport.symbols) ? element.availabilityImport.symbols : [];
+              const symbolLabel = symbols.length > 0 ? symbols.join(", ") : "<module>";
+              stdout.write(
+                `  ${gray("availability")}: ${brightWhite(element.availabilityImport.module)} ${gray(`(${symbolLabel})`)}\n`
+              );
+            }
+
+            if (Array.isArray(element.pathOptions) && element.pathOptions.length > 0) {
+              stdout.write(`  ${gray("generation (cmd line) options")}:\n`);
+              for (const option of element.pathOptions) {
+                const requiredSuffix = option.required ? ` ${red("(required)")}` : "";
+                const defaultSuffix = option.defaultValue ? ` ${gray(`default=${option.defaultValue}`)}` : "";
+                const valuesSuffix =
+                  Array.isArray(option.values) && option.values.length > 0 ? ` ${gray(`values=${option.values.join("|")}`)}` : "";
+                stdout.write(`    - ${yellow(option.option)}${requiredSuffix}${defaultSuffix}${valuesSuffix}\n`);
+              }
+            }
+
+            const contributions = element.contributions || {};
+            if (Array.isArray(contributions.clientRoutes) && contributions.clientRoutes.length > 0) {
+              stdout.write(`  ${gray("client routes")}:\n`);
+              for (const route of contributions.clientRoutes) {
+                const routeSurface = String(route.surface || "").trim() ? ` ${yellow(`(${route.surface})`)}` : "";
+                const routePurpose = String(route.purpose || "").trim();
+                const routeLabel = String(route.resolvedPath || "").trim() || String(route.path || "").trim();
+                if (routePurpose) {
+                  stdout.write(`    - ${brightWhite(routeLabel)}${routeSurface}: ${gray(routePurpose)}\n`);
+                  continue;
+                }
+                stdout.write(`    - ${brightWhite(routeLabel)}${routeSurface}\n`);
+              }
+            }
+
+            if (Array.isArray(contributions.shellEntries) && contributions.shellEntries.length > 0) {
+              stdout.write(`  ${gray("shell entries")}:\n`);
+              for (const shellEntry of contributions.shellEntries) {
+                const label = `${shellEntry.surface || "unknown"}/${shellEntry.slot || "unknown"}:${shellEntry.id || "entry"}`;
+                const detail = String(shellEntry.title || "").trim() ? ` ${gray(`(${shellEntry.title})`)}` : "";
+                const routeLabel = String(shellEntry.resolvedRoute || "").trim() || String(shellEntry.route || "").trim() || "/";
+                stdout.write(`    - ${brightWhite(label)} ${gray("->")} ${brightWhite(routeLabel)}${detail}\n`);
+              }
+            }
+
+            if (Array.isArray(contributions.files) && contributions.files.length > 0) {
+              stdout.write(`  ${gray("files")}:\n`);
+              for (const fileEntry of contributions.files) {
+                const reason = String(fileEntry.reason || "").trim();
+                const toLabel = String(fileEntry.resolvedTo || "").trim() || String(fileEntry.to || "").trim();
+                if (reason) {
+                  stdout.write(`    - ${brightWhite(fileEntry.from)} ${gray("->")} ${brightWhite(toLabel)}: ${gray(reason)}\n`);
+                  continue;
+                }
+                stdout.write(`    - ${brightWhite(fileEntry.from)} ${gray("->")} ${brightWhite(toLabel)}\n`);
+              }
+            }
+
+            if (Array.isArray(contributions.text) && contributions.text.length > 0) {
+              stdout.write(`  ${gray("text")}:\n`);
+              for (const mutation of contributions.text) {
+                const valueLabel =
+                  mutation.op === "upsert-env"
+                    ? `${mutation.key}=${mutation.value}`
+                    : String(mutation.line || "").trim();
+                const reason = String(mutation.reason || "").trim();
+                if (reason) {
+                  stdout.write(`    - ${brightWhite(mutation.file)} ${cyan(mutation.op)}: ${gray(`${valueLabel} | ${reason}`)}\n`);
+                  continue;
+                }
+                stdout.write(`    - ${brightWhite(mutation.file)} ${cyan(mutation.op)}: ${gray(valueLabel)}\n`);
+              }
+            }
+          }
+        }
+
+        if (Array.isArray(sectionResult.packageJsonMutations) && sectionResult.packageJsonMutations.length > 0) {
+          stdout.write(`${bold(blue(`package.json mutations (${sectionResult.packageJsonMutations.length})`))}:\n`);
+          for (const mutation of sectionResult.packageJsonMutations) {
+            stdout.write(
+              `- ${yellow(`${mutation.section}.${mutation.key}`)} = ${brightWhite(mutation.value)} ${gray(`(${displayPackageId(mutation.packageId)})`)}\n`
+            );
+          }
+        }
+
+        if (Array.isArray(sectionResult.textMutations) && sectionResult.textMutations.length > 0) {
+          stdout.write(`${bold(blue(`Text mutations (${sectionResult.textMutations.length})`))}:\n`);
+          for (const mutation of sectionResult.textMutations) {
+            const keyLabel = String(mutation.key || "").trim() ? ` ${magenta(`[${mutation.key}]`)}` : "";
+            const idLabel = String(mutation.id || "").trim() ? ` ${yellow(`#${mutation.id}`)}` : "";
+            const categoryLabel = String(mutation.category || "").trim() ? ` ${gray(`(${mutation.category})`)}` : "";
             const valueLabel =
               mutation.op === "upsert-env"
                 ? `${mutation.key}=${mutation.value}`
                 : String(mutation.line || "").trim();
             const reason = String(mutation.reason || "").trim();
             if (reason) {
-              stdout.write(`    - ${brightWhite(mutation.file)} ${cyan(mutation.op)}: ${gray(`${valueLabel} | ${reason}`)}\n`);
+              stdout.write(
+                `- ${brightWhite(mutation.file)} ${cyan(mutation.op)}${keyLabel}${idLabel}${categoryLabel} ${gray(`(${displayPackageId(mutation.packageId)})`)}: ${gray(`${valueLabel} | ${reason}`)}\n`
+              );
               continue;
             }
-            stdout.write(`    - ${brightWhite(mutation.file)} ${cyan(mutation.op)}: ${gray(valueLabel)}\n`);
+            stdout.write(
+              `- ${brightWhite(mutation.file)} ${cyan(mutation.op)}${keyLabel}${idLabel}${categoryLabel} ${gray(`(${displayPackageId(mutation.packageId)})`)}: ${gray(valueLabel)}\n`
+            );
+          }
+        }
+
+        if (Array.isArray(sectionResult.fileContributions) && sectionResult.fileContributions.length > 0) {
+          stdout.write(`${bold(blue(`File contributions (${sectionResult.fileContributions.length})`))}:\n`);
+          for (const fileEntry of sectionResult.fileContributions) {
+            const idLabel = String(fileEntry.id || "").trim() ? ` ${yellow(`#${fileEntry.id}`)}` : "";
+            const categoryLabel = String(fileEntry.category || "").trim() ? ` ${gray(`(${fileEntry.category})`)}` : "";
+            const reasonLabel = String(fileEntry.reason || "").trim();
+            const toLabel = String(fileEntry.resolvedTo || "").trim() || String(fileEntry.to || "").trim();
+            if (reasonLabel) {
+              stdout.write(
+                `- ${brightWhite(fileEntry.from)} ${gray("->")} ${brightWhite(toLabel)}${idLabel}${categoryLabel} ${gray(`(${displayPackageId(fileEntry.packageId)})`)}: ${gray(reasonLabel)}\n`
+              );
+              continue;
+            }
+            stdout.write(
+              `- ${brightWhite(fileEntry.from)} ${gray("->")} ${brightWhite(toLabel)}${idLabel}${categoryLabel} ${gray(`(${displayPackageId(fileEntry.packageId)})`)}\n`
+            );
+          }
+        }
+
+        if (Array.isArray(sectionResult.uiElements) && sectionResult.uiElements.length > 0) {
+          stdout.write(`${bold(blue(`UI elements (${sectionResult.uiElements.length})`))}:\n`);
+          for (const element of sectionResult.uiElements) {
+            const capabilitySuffix = String(element.capability || "").trim()
+              ? ` ${magenta(`[cap=${element.capability}]`)}`
+              : "";
+            const surfaceSuffix = String(element.surface || "").trim()
+              ? ` ${yellow(`(surface=${element.surface})`)}`
+              : "";
+            const packageLabel = cyan(displayPackageId(element.packageId));
+            const elementLabel = brightWhite(element.name || element.id || "element");
+            stdout.write(
+              `- ${packageLabel}: ${elementLabel}${capabilitySuffix} ${surfaceSuffix}: ${gray(element.purpose)}\n`
+            );
           }
         }
       }
-    }
+    };
 
-    if (Array.isArray(result.packageJsonMutations) && result.packageJsonMutations.length > 0) {
-      stdout.write(`${bold(blue(`package.json mutations (${result.packageJsonMutations.length})`))}:\n`);
-      for (const mutation of result.packageJsonMutations) {
-        stdout.write(
-          `- ${yellow(`${mutation.section}.${mutation.key}`)} = ${brightWhite(mutation.value)} ${gray(`(${displayPackageId(mutation.packageId)})`)}\n`
-        );
-      }
-    }
+    if (result.targetType === "bundle") {
+      renderShowSection({
+        sectionResult: result,
+        includeHeader: true,
+        includePackageList: true,
+        includeAggregates: false
+      });
 
-    if (Array.isArray(result.textMutations) && result.textMutations.length > 0) {
-      stdout.write(`${bold(blue(`Text mutations (${result.textMutations.length})`))}:\n`);
-      for (const mutation of result.textMutations) {
-        const keyLabel = String(mutation.key || "").trim() ? ` ${magenta(`[${mutation.key}]`)}` : "";
-        const idLabel = String(mutation.id || "").trim() ? ` ${yellow(`#${mutation.id}`)}` : "";
-        const categoryLabel = String(mutation.category || "").trim() ? ` ${gray(`(${mutation.category})`)}` : "";
-        const valueLabel =
-          mutation.op === "upsert-env"
-            ? `${mutation.key}=${mutation.value}`
-            : String(mutation.line || "").trim();
-        const reason = String(mutation.reason || "").trim();
-        if (reason) {
-          stdout.write(
-            `- ${brightWhite(mutation.file)} ${cyan(mutation.op)}${keyLabel}${idLabel}${categoryLabel} ${gray(`(${displayPackageId(mutation.packageId)})`)}: ${gray(`${valueLabel} | ${reason}`)}\n`
-          );
-          continue;
+      if (Array.isArray(result.packageSections) && result.packageSections.length > 0) {
+        for (const section of result.packageSections) {
+          stdout.write("\n");
+          renderShowSection({
+            sectionResult: section,
+            includeHeader: true,
+            includePackageList: false,
+            includeAggregates: true
+          });
         }
-        stdout.write(
-          `- ${brightWhite(mutation.file)} ${cyan(mutation.op)}${keyLabel}${idLabel}${categoryLabel} ${gray(`(${displayPackageId(mutation.packageId)})`)}: ${gray(valueLabel)}\n`
-        );
       }
+      return;
     }
 
-    if (Array.isArray(result.fileContributions) && result.fileContributions.length > 0) {
-      stdout.write(`${bold(blue(`File contributions (${result.fileContributions.length})`))}:\n`);
-      for (const fileEntry of result.fileContributions) {
-        const idLabel = String(fileEntry.id || "").trim() ? ` ${yellow(`#${fileEntry.id}`)}` : "";
-        const categoryLabel = String(fileEntry.category || "").trim() ? ` ${gray(`(${fileEntry.category})`)}` : "";
-        const reasonLabel = String(fileEntry.reason || "").trim();
-        if (reasonLabel) {
-          stdout.write(
-            `- ${brightWhite(fileEntry.from)} ${gray("->")} ${brightWhite(fileEntry.to)}${idLabel}${categoryLabel} ${gray(`(${displayPackageId(fileEntry.packageId)})`)}: ${gray(reasonLabel)}\n`
-          );
-          continue;
-        }
-        stdout.write(
-          `- ${brightWhite(fileEntry.from)} ${gray("->")} ${brightWhite(fileEntry.to)}${idLabel}${categoryLabel} ${gray(`(${displayPackageId(fileEntry.packageId)})`)}\n`
-        );
-      }
-    }
-
-    if (Array.isArray(result.uiElements) && result.uiElements.length > 0) {
-      stdout.write(`${bold(blue(`UI elements (${result.uiElements.length})`))}:\n`);
-      for (const element of result.uiElements) {
-        const capabilitySuffix = String(element.capability || "").trim() ? ` ${magenta(`[${element.capability}]`)}` : "";
-        const surfaceSuffix = String(element.surface || "").trim() ? ` ${yellow(`(${element.surface})`)}` : "";
-        stdout.write(
-          `- ${cyan(element.name)}${capabilitySuffix}${surfaceSuffix} ${gray(`(${displayPackageId(element.packageId)})`)}: ${gray(element.purpose)}\n`
-        );
-      }
-    }
-
+    renderShowSection({
+      sectionResult: result,
+      includeHeader: true,
+      includePackageList: true,
+      includeAggregates: true
+    });
     return;
   }
 
@@ -4080,7 +4189,6 @@ export async function runCli(
 
     if (parsed.command === "list") {
       let selector = "all";
-      let bundlesMode = "all";
 
       if (parsed.positional.length > 0) {
         selector = String(parsed.positional[0] || "").trim();
@@ -4094,9 +4202,9 @@ export async function runCli(
         }
       } else if (selector === "bundles") {
         if (parsed.positional.length === 1) {
-          bundlesMode = "curated";
+          // default bundles list is the full catalog
         } else if (parsed.positional.length === 2 && parsed.positional[1] === "all") {
-          bundlesMode = "all";
+          // legacy alias; no longer changes output
         } else {
           throw createCliError("jskit list bundles accepts optional trailing selector: all.", {
             showUsage: true
@@ -4133,10 +4241,7 @@ export async function runCli(
           ...metadata
         };
       });
-      const availableBundleEntries =
-        selector === "bundles" && bundlesMode === "curated"
-          ? allBundleEntries.filter((entry) => entry.curated === 1)
-          : allBundleEntries;
+      const availableBundleEntries = allBundleEntries;
 
       const availablePackageEntries = [...availablePackages.values()].map((entry) => ({
         packageId: entry.descriptor.packageId,

@@ -118,23 +118,22 @@ test("jskit list shows built-in db bundles", async () => {
   });
 });
 
-test("jskit list bundles defaults to curated list and list bundles all shows full catalog", async () => {
+test("jskit list bundles shows full catalog (all is a no-op alias)", async () => {
   await withTempApp(async (appRoot) => {
-    const curated = runCli({
+    const listResult = runCli({
       cwd: appRoot,
       args: ["list", "bundles"]
     });
-    assert.equal(curated.status, 0, curated.stderr);
-    assert.match(curated.stdout, /db-mysql \(0\.2\.0\)/);
-    assert.doesNotMatch(curated.stdout, /api-foundations \(0\.1\.0\)/);
+    assert.equal(listResult.status, 0, listResult.stderr);
+    assert.match(listResult.stdout, /db-mysql \(0\.2\.0\)/);
+    assert.match(listResult.stdout, /api-foundations \(0\.1\.0\)/);
 
     const allBundles = runCli({
       cwd: appRoot,
       args: ["list", "bundles", "all"]
     });
     assert.equal(allBundles.status, 0, allBundles.stderr);
-    assert.match(allBundles.stdout, /api-foundations \(0\.1\.0\)/);
-    assert.match(allBundles.stdout, /db-postgres \(0\.2\.0\)/);
+    assert.equal(allBundles.stdout, listResult.stdout);
   });
 });
 
@@ -236,7 +235,7 @@ test("jskit show <id> defaults to declared packages and supports --expanded", as
   });
 });
 
-test("jskit show <id> prints grouped capabilities and routes for bundle ids", async () => {
+test("jskit show <id> prints capabilities and routes for bundle ids", async () => {
   await withTempApp(async (appRoot) => {
     const result = runCli({
       cwd: appRoot,
@@ -246,10 +245,10 @@ test("jskit show <id> prints grouped capabilities and routes for bundle ids", as
     assert.match(result.stdout, /Bundle social-base \(0\.1\.0\)/);
     assert.match(result.stdout, /Type: bundle shortcut/);
     assert.match(result.stdout, /Requires capabilities:/);
-    assert.match(result.stdout, /contracts \(http, social\)/i);
-    assert.match(result.stdout, /db \(core\)/i);
-    assert.match(result.stdout, /Contracts:/);
-    assert.match(result.stdout, /social\.server-routes/i);
+    assert.match(result.stdout, /contracts\.http/i);
+    assert.match(result.stdout, /contracts\.social/i);
+    assert.match(result.stdout, /db\.core/i);
+    assert.match(result.stdout, /Package social-fastify-routes \(0\.1\.0\)/i);
     assert.match(result.stdout, /Server routes \(\d+\):/);
     assert.match(result.stdout, /GET \/api\/workspace\/social\/feed/);
   });
@@ -266,7 +265,7 @@ test("jskit show <id> resolves package ids", async () => {
     assert.doesNotMatch(result.stdout, /Package @jskit-ai\/social-fastify-routes \(0\.1\.0\)/);
     assert.match(result.stdout, /Type: package/);
     assert.match(result.stdout, /Provides capabilities:/);
-    assert.match(result.stdout, /social \(server-routes\)/i);
+    assert.match(result.stdout, /social\.server-routes/i);
     assert.match(result.stdout, /Server routes \(\d+\):/);
     assert.match(result.stdout, /DELETE \/api\/workspace\/social\/posts\/:postId/);
   });
@@ -298,6 +297,23 @@ test("jskit view <id> is an alias of show <id>", async () => {
     assert.equal(showResult.status, 0, showResult.stderr);
     assert.equal(viewResult.status, 0, viewResult.stderr);
     assert.equal(viewResult.stdout, showResult.stdout);
+  });
+});
+
+test("jskit ls is an alias of list", async () => {
+  await withTempApp(async (appRoot) => {
+    const listResult = runCli({
+      cwd: appRoot,
+      args: ["list", "bundles"]
+    });
+    const lsResult = runCli({
+      cwd: appRoot,
+      args: ["ls", "bundles"]
+    });
+
+    assert.equal(listResult.status, 0, listResult.stderr);
+    assert.equal(lsResult.status, 0, lsResult.stderr);
+    assert.equal(lsResult.stdout, listResult.stdout);
   });
 });
 
