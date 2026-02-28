@@ -69,6 +69,21 @@ function stringifyJsonObject(value, fallback = "{}") {
   }
 }
 
+function normalizeMetadataJsonInput(value, fallback = null) {
+  if (value == null) {
+    return fallback;
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return fallback;
+  }
+}
+
 function normalizeCountRow(row) {
   const values = Object.values(row || {});
   if (values.length < 1) {
@@ -131,6 +146,7 @@ export {
   mapRowNullable,
   parseJsonObject,
   stringifyJsonObject,
+  normalizeMetadataJsonInput,
   normalizeCountRow,
   parseJsonValue,
   toDbJson
