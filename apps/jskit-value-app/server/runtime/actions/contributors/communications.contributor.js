@@ -36,7 +36,7 @@ function createCommunicationsActionContributor({ communicationsService } = {}) {
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: ["workspace.members.invite"],
-        idempotency: "optional",
+        idempotency: "none",
         audit: {
           actionName: "workspace.sms.send"
         },

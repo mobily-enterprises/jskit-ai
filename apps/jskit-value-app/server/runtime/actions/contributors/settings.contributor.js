@@ -151,7 +151,7 @@ function createSettingsActionContributor({ userSettingsService, authService, rea
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: requireAuthenticated,
-        idempotency: "optional",
+        idempotency: "none",
         audit: {
           actionName: "settings.extensions.update"
         },
@@ -175,7 +175,7 @@ function createSettingsActionContributor({ userSettingsService, authService, rea
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: requireAuthenticated,
-        idempotency: "optional",
+        idempotency: "none",
         audit: {
           actionName: "settings.profile.update"
         },
@@ -193,7 +193,7 @@ function createSettingsActionContributor({ userSettingsService, authService, rea
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: requireAuthenticated,
-        idempotency: "optional",
+        idempotency: "none",
         audit: {
           actionName: "settings.profile.avatar.upload"
         },
@@ -211,7 +211,7 @@ function createSettingsActionContributor({ userSettingsService, authService, rea
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: requireAuthenticated,
-        idempotency: "optional",
+        idempotency: "none",
         audit: {
           actionName: "settings.profile.avatar.delete"
         },
@@ -229,7 +229,7 @@ function createSettingsActionContributor({ userSettingsService, authService, rea
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: requireAuthenticated,
-        idempotency: "optional",
+        idempotency: "none",
         audit: {
           actionName: "settings.preferences.update"
         },
@@ -251,7 +251,7 @@ function createSettingsActionContributor({ userSettingsService, authService, rea
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: requireAuthenticated,
-        idempotency: "optional",
+        idempotency: "none",
         audit: {
           actionName: "settings.notifications.update"
         },
@@ -273,7 +273,7 @@ function createSettingsActionContributor({ userSettingsService, authService, rea
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: requireAuthenticated,
-        idempotency: "optional",
+        idempotency: "none",
         audit: {
           actionName: "settings.chat.update"
         },
@@ -291,7 +291,7 @@ function createSettingsActionContributor({ userSettingsService, authService, rea
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: requireAuthenticated,
-        idempotency: "optional",
+        idempotency: "none",
         audit: {
           actionName: "settings.security.password.change"
         },
@@ -309,7 +309,7 @@ function createSettingsActionContributor({ userSettingsService, authService, rea
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: requireAuthenticated,
-        idempotency: "optional",
+        idempotency: "none",
         audit: {
           actionName: "settings.security.password_method.toggle"
         },
@@ -331,7 +331,7 @@ function createSettingsActionContributor({ userSettingsService, authService, rea
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: requireAuthenticated,
-        idempotency: "optional",
+        idempotency: "none",
         audit: {
           actionName: "settings.security.oauth.link.start"
         },
@@ -353,7 +353,7 @@ function createSettingsActionContributor({ userSettingsService, authService, rea
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: requireAuthenticated,
-        idempotency: "optional",
+        idempotency: "none",
         audit: {
           actionName: "settings.security.oauth.link.complete"
         },
@@ -371,7 +371,7 @@ function createSettingsActionContributor({ userSettingsService, authService, rea
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: requireAuthenticated,
-        idempotency: "optional",
+        idempotency: "none",
         audit: {
           actionName: "settings.security.oauth.unlink"
         },
@@ -392,7 +392,7 @@ function createSettingsActionContributor({ userSettingsService, authService, rea
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: requireAuthenticated,
-        idempotency: "optional",
+        idempotency: "none",
         audit: {
           actionName: "settings.security.sessions.logout_others"
         },

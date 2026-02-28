@@ -48,7 +48,7 @@ function createAlertsActionContributor({ alertsService } = {}) {
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: requireAuthenticated,
-        idempotency: "optional",
+        idempotency: "none",
         audit: {
           actionName: "settings.alerts.read_all"
         },

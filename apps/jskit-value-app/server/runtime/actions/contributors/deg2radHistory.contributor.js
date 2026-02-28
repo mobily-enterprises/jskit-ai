@@ -143,7 +143,7 @@ function createDeg2radHistoryActionContributor({
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: ["history.write"],
-        idempotency: "optional",
+        idempotency: "none",
         audit: {
           actionName: "deg2rad.calculate"
         },

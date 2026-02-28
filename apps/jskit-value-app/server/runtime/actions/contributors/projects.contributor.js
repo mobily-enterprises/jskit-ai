@@ -368,7 +368,7 @@ function createProjectsActionContributor({
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: ["projects.write"],
-        idempotency: "optional",
+        idempotency: "none",
         audit: {
           actionName: "projects.create"
         },
@@ -431,7 +431,7 @@ function createProjectsActionContributor({
         visibility: "public",
         inputSchema: OBJECT_INPUT_SCHEMA,
         permission: ["projects.write"],
-        idempotency: "optional",
+        idempotency: "none",
         audit: {
           actionName: "projects.update"
         },
