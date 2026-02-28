@@ -1,17 +1,9 @@
-import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { AppError, createValidationError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { normalizePagination as normalizePaginationBase } from "@jskit-ai/server-runtime-core/pagination";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/eventTypes.js";
 
 const ALERT_ENTITY_TYPE = "user_alert";
-
-function validationError(fieldErrors) {
-  return new AppError(400, "Validation failed.", {
-    details: {
-      fieldErrors
-    }
-  });
-}
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -25,7 +17,7 @@ function normalizeNullableText(value) {
 function normalizeRequiredPositiveInteger(value, fieldName) {
   const parsed = parsePositiveInteger(value);
   if (!parsed) {
-    throw validationError({
+    throw createValidationError({
       [fieldName]: `${fieldName} must be a positive integer.`
     });
   }
@@ -40,7 +32,7 @@ function normalizeOptionalPositiveInteger(value, fieldName) {
 
   const parsed = parsePositiveInteger(value);
   if (!parsed) {
-    throw validationError({
+    throw createValidationError({
       [fieldName]: `${fieldName} must be a positive integer.`
     });
   }
@@ -65,7 +57,7 @@ function normalizeTargetUrl(value) {
   }
 
   if (Object.keys(fieldErrors).length > 0) {
-    throw validationError(fieldErrors);
+    throw createValidationError(fieldErrors);
   }
 
   return targetUrl;
@@ -74,12 +66,12 @@ function normalizeTargetUrl(value) {
 function normalizeType(value) {
   const type = normalizeText(value).toLowerCase();
   if (!type) {
-    throw validationError({
+    throw createValidationError({
       type: "type is required."
     });
   }
   if (type.length > 80) {
-    throw validationError({
+    throw createValidationError({
       type: "type must be at most 80 characters."
     });
   }
@@ -90,12 +82,12 @@ function normalizeType(value) {
 function normalizeTitle(value) {
   const title = normalizeText(value);
   if (!title) {
-    throw validationError({
+    throw createValidationError({
       title: "title is required."
     });
   }
   if (title.length > 200) {
-    throw validationError({
+    throw createValidationError({
       title: "title must be at most 200 characters."
     });
   }
@@ -110,7 +102,7 @@ function normalizeMessage(value) {
   }
 
   if (message.length > 1000) {
-    throw validationError({
+    throw createValidationError({
       message: "message must be at most 1000 characters."
     });
   }
