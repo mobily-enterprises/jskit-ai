@@ -1,9 +1,18 @@
-import { normalizeCountRow, normalizeNullableString, parseJsonObject, stringifyJsonObject } from "@jskit-ai/jskit-knex";
+import {
+  normalizeCountRow,
+  normalizeNullableString,
+  parseJsonObject,
+  stringifyJsonObject
+} from "@jskit-ai/jskit-knex";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
+import { normalizePagination as normalizePaginationBase } from "@jskit-ai/server-runtime-core/pagination";
 
 function normalizePagination(pagination = {}, { defaultPageSize = 20, maxPageSize = 100 } = {}) {
-  const page = Math.max(1, parsePositiveInteger(pagination.page) || 1);
-  const pageSize = Math.max(1, Math.min(maxPageSize, parsePositiveInteger(pagination.pageSize) || defaultPageSize));
+  const { page, pageSize } = normalizePaginationBase(pagination, {
+    defaultPage: 1,
+    defaultPageSize,
+    maxPageSize
+  });
   return {
     page,
     pageSize,

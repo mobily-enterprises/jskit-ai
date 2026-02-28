@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { AppError as SharedAppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
+import { normalizePagination as normalizePaginationBase } from "@jskit-ai/server-runtime-core/pagination";
 import { redactSecrets } from "./redactSecrets.js";
 import {
   TRANSCRIPT_MODE_DISABLED,
@@ -106,12 +107,11 @@ function assertConversationSurfaceMatch(conversation, requestedSurfaceId) {
 }
 
 function normalizePagination(pagination = {}) {
-  const rawPage = parsePositiveInteger(pagination.page);
-  const rawPageSize = parsePositiveInteger(pagination.pageSize);
-  return {
-    page: rawPage || DEFAULT_PAGE,
-    pageSize: Math.max(1, Math.min(MAX_PAGE_SIZE, rawPageSize || DEFAULT_PAGE_SIZE))
-  };
+  return normalizePaginationBase(pagination, {
+    defaultPage: DEFAULT_PAGE,
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    maxPageSize: MAX_PAGE_SIZE
+  });
 }
 
 function normalizeExportLimit(value) {

@@ -1,5 +1,6 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
+import { normalizePagination as normalizePaginationBase } from "@jskit-ai/server-runtime-core/pagination";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/eventTypes.js";
 
 const ALERT_ENTITY_TYPE = "user_alert";
@@ -139,13 +140,11 @@ function normalizePayloadJson(value) {
 }
 
 function normalizePagination(input = {}) {
-  const page = Math.max(1, Number(input?.page) || 1);
-  const pageSize = Math.max(1, Math.min(100, Number(input?.pageSize) || 20));
-
-  return {
-    page,
-    pageSize
-  };
+  return normalizePaginationBase(input, {
+    defaultPage: 1,
+    defaultPageSize: 20,
+    maxPageSize: 100
+  });
 }
 
 function normalizeReadThroughAlertId(value) {
