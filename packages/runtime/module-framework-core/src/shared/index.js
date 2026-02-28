@@ -18,6 +18,7 @@ export {
 } from "./conflicts.js";
 export { composeServerModules } from "./composeServer.js";
 export { composeClientModules } from "./composeClient.js";
+export { normalizeMode, addDiagnosticForMode } from "./compositionMode.js";
 export {
   DIAGNOSTIC_LEVELS,
   createDiagnostic,

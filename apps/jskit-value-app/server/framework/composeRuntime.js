@@ -3,6 +3,7 @@ import {
   MODULE_ENABLEMENT_MODES,
   resolveDependencyGraph,
   resolveCapabilityGraph,
+  addDiagnosticForMode,
   createDiagnosticsCollector,
   throwOnDiagnosticErrors
 } from "@jskit-ai/module-framework-core";
@@ -132,13 +133,6 @@ function resolveServerRegistry(extensionModules) {
   }
 
   return Object.freeze(registry);
-}
-
-function addDiagnosticForMode(diagnostics, mode, input) {
-  diagnostics.add({
-    ...input,
-    level: mode === MODULE_ENABLEMENT_MODES.strict ? "error" : "warn"
-  });
 }
 
 function collectContributionIdSet(modules, contributionKey) {
