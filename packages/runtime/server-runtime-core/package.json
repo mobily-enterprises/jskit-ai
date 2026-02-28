@@ -16,6 +16,7 @@
     "./realtimeEvents": "./src/shared/realtimeEvents.js",
     "./realtimeEventsService": "./src/shared/realtimeEventsService.js",
     "./securityAudit": "./src/shared/securityAudit.js",
+    "./canonicalJson": "./src/shared/canonicalJson.js",
     "./composition": "./src/shared/composition.js",
     "./fastifyBootstrap": "./src/shared/fastifyBootstrap.js",
     "./runtimeKernel": "./src/shared/runtimeKernel.js",
