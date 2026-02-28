@@ -1,0 +1,20 @@
+# Finding 091
+- Severity: Low
+- Pattern type: AI slop; Identical fastify-routes index exports
+- File + line(s): `packages/workspace/console-errors-fastify-routes/src/shared/index.js:1-3`, `packages/workspace/console-fastify-routes/src/shared/index.js:1-3`, `packages/workspace/settings-fastify-routes/src/shared/index.js:1-3`, `packages/workspace/workspace-fastify-routes/src/shared/index.js:1-3`, `packages/auth/auth-fastify-routes/src/shared/index.js:1-3`, `packages/runtime/health-fastify-routes/src/shared/index.js:1-3`, `packages/observability/observability-fastify-routes/src/shared/index.js:1-3`
+- Why it can drift/fail: These packages copy the same re-export boilerplate. Any change to export surface (e.g., adding/removing exports) must be manually applied in every package.
+- Concrete impact: Inconsistent public API surfaces across fastify-routes packages.
+- Exact remediation: Introduce a shared index template or a small generator for route packages to keep exports in sync.
+
+---
+Summary:
+- Added a shared fastify-routes index template and generator script.
+- Regenerated route package index exports to keep them in sync via the template.
+Tests:
+- npm -ws --if-present test (fails: missing jskit-app-scripts, vitest, @jskit-ai/assistant-contracts, vue, @jskit-ai/server-runtime-core, @fastify/type-provider-typebox, @supabase/supabase-js, @fastify/cookie, @jskit-ai/surface-routing, @jskit-ai/cli-entrypoint)
+- npm run test:framework (fails: migration tracker count mismatch; missing @jskit-ai/cli-entrypoint)
+- npm run test:architecture:client (fails: vuetify/@mdi imports in web-shell-host template)
+- npm run test:architecture:shared-ui
+- npm run test:architecture:db
+Commit:
+- dda205d008df6184aa76751827fb09095167bbfe

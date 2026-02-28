@@ -1,0 +1,19 @@
+# Finding 094
+- Severity: Low
+- Pattern type: AI slop; Duplicate placeholder seed across DB pack templates
+- File + line(s): `packages/tooling/jskit/packages/db-postgres/templates/seeds/000_placeholder_seed.cjs:1-8`, `packages/tooling/jskit/packages/db-mysql/templates/seeds/000_placeholder_seed.cjs:1-8`
+- Why it can drift/fail: The same seed file is copy-pasted into both DB pack templates. Any change to the placeholder seed must be applied twice.
+- Concrete impact: Template drift between MySQL and Postgres packs.
+- Exact remediation: Share a common seed template or generate both from a single source.
+
+---
+Summary:
+- Added a shared placeholder seed template + generator and regenerated both DB pack placeholder seeds from it.
+Tests:
+- npm -ws --if-present test (fails: missing jskit-app-scripts)
+- npm run test:framework (fails: missing vitest)
+- npm run test:architecture:client (fails: missing @jskit-ai/assistant-contracts, vue, @jskit-ai/server-runtime-core, @fastify/type-provider-typebox, openai)
+- npm run test:architecture:shared-ui (fails: missing @supabase/supabase-js, @fastify/cookie, @jskit-ai/surface-routing, @jskit-ai/cli-entrypoint)
+- npm run test:architecture:db (fails: client guardrails block vuetify/@mdi imports in packages/tooling/jskit/packages/web-shell-host/templates/src/main.web-shell.js)
+Commit:
+- 00d215a39d83a67f1f773780bce4b2f9840afae6
