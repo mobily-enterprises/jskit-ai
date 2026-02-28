@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { toPosixPath } from "../helpers/pathUtils.mjs";
 
 const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const PACKAGES_DIR = path.join(ROOT_DIR, "packages");
@@ -38,10 +39,6 @@ const MERGED_TARGET_SEGMENTS = Object.freeze([
   "packages/workspace/workspace-console-service-core/",
   "packages/workspace/workspace-service-core/"
 ]);
-
-function toPosixPath(value) {
-  return String(value || "").replace(/\\/g, "/");
-}
 
 function listFilesRecursive(rootDir, predicate = () => true) {
   const files = [];

@@ -3,6 +3,7 @@ import test from "node:test";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { toPosixPath } from "../../../tests/helpers/pathUtils.mjs";
 
 const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const MODULES_DIR = path.join(ROOT_DIR, "server", "modules");
@@ -50,10 +51,6 @@ const MODULE_INDEX_EXPORT_ALLOWLIST = new Set([
   "createService",
   "createRepository"
 ]);
-
-function toPosixPath(value) {
-  return String(value || "").replace(/\\/g, "/");
-}
 
 function listJsFilesRecursive(rootDir) {
   const files = [];
