@@ -1,25 +1,6 @@
-import { normalizeExecutionContext, normalizeLowerText, normalizeText } from "@jskit-ai/action-runtime-core";
-import { safePathnameFromRequest, resolveClientIpAddress } from "@jskit-ai/server-runtime-core/requestUrl";
-import { resolveSurfaceFromPathname } from "../../../shared/surfacePaths.js";
-
-function resolveSurface({ request, explicitSurface }) {
-  const normalizedExplicitSurface = normalizeLowerText(explicitSurface);
-  if (normalizedExplicitSurface) {
-    return normalizedExplicitSurface;
-  }
-
-  const requestSurface = normalizeLowerText(request?.surface);
-  if (requestSurface) {
-    return requestSurface;
-  }
-
-  const headerSurface = normalizeLowerText(request?.headers?.["x-surface-id"]);
-  if (headerSurface) {
-    return headerSurface;
-  }
-
-  return resolveSurfaceFromPathname(safePathnameFromRequest(request));
-}
+import { normalizeExecutionContext, normalizeText } from "@jskit-ai/action-runtime-core";
+import { resolveClientIpAddress } from "@jskit-ai/server-runtime-core/requestUrl";
+import { resolveRequestSurface } from "../../shared/resolveRequestSurface.js";
 
 function resolveActor({ request, actor }) {
   if (actor && typeof actor === "object") {
@@ -70,7 +51,7 @@ function buildExecutionContext({
     workspace: workspace || request?.workspace || null,
     membership: membership || request?.membership || null,
     permissions: normalizedPermissions,
-    surface: resolveSurface({
+    surface: resolveRequestSurface({
       request,
       explicitSurface: surface
     }),
