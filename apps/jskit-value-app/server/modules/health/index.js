@@ -1,5 +1,6 @@
 import { checkDatabase } from "./repository.js";
 import { createService as createHealthService } from "./service.js";
+import { createRepositoryExport } from "../moduleExports.js";
 
 const repository = Object.freeze({
   checkDatabase
@@ -13,9 +14,7 @@ function createService(options = {}) {
 }
 
 function createRepository() {
-  return {
-    repository
-  };
+  return createRepositoryExport(repository);
 }
 
 export { createService, createRepository };

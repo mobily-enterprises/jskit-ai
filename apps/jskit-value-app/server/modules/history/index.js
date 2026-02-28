@@ -1,5 +1,6 @@
 import { insert, countForWorkspaceUser, listForWorkspaceUser, countForWorkspace, listForWorkspace } from "./repository.js";
 import { createService as createHistoryService } from "./service.js";
+import { createRepositoryExport } from "../moduleExports.js";
 
 const repository = Object.freeze({
   insert,
@@ -17,9 +18,7 @@ function createService(options = {}) {
 }
 
 function createRepository() {
-  return {
-    repository
-  };
+  return createRepositoryExport(repository);
 }
 
 export { createController } from "./controller.js";
