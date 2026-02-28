@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { toPosix } from "./_utils.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const APP_ROOT = path.join(REPO_ROOT, "apps", "jskit-value-app");
@@ -44,10 +45,6 @@ function parseArgs(argv) {
   return {
     strict: new Set(argv).has("--strict")
   };
-}
-
-function toPosix(value) {
-  return value.replaceAll(path.sep, "/");
 }
 
 function shouldSkipDirectory(name) {

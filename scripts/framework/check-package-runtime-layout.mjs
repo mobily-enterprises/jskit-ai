@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { toPosix } from "./_utils.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PACKAGES_ROOT = path.join(REPO_ROOT, "packages");
@@ -14,10 +15,6 @@ function parseArgs(argv) {
     strict: args.has("--strict"),
     json: args.has("--json")
   };
-}
-
-function toPosix(value) {
-  return value.replaceAll(path.sep, "/");
 }
 
 function readJson(filePath) {
