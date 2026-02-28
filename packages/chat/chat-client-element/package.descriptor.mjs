@@ -18,12 +18,20 @@ export default Object.freeze({
       "routes": []
     },
     "ui": {
+      "routes": [
+        {
+          "path": "/chat",
+          "surface": "app",
+          "name": "chat",
+          "purpose": "Workspace chat page route contribution."
+        }
+      ],
       "elements": [
         {
           "name": "chat.client-element",
           "capability": "chat.client-element",
-          "purpose": "UI element contribution.",
-          "surface": ""
+          "purpose": "Workspace chat client UI element.",
+          "surface": "app"
         }
       ]
     }
@@ -44,6 +52,21 @@ export default Object.freeze({
       "scripts": {}
     },
     "procfile": {},
-    "files": []
+    "files": [
+      {
+        "from": "templates/src/pages/app/chat/index.vue",
+        "to": "src/pages/app/chat/index.vue",
+        "reason": "Materialize workspace chat page using chat client element.",
+        "category": "ui-page",
+        "id": "chat-page"
+      },
+      {
+        "from": "templates/src/surfaces/app/drawer/chat.entry.js",
+        "to": "src/surfaces/app/drawer/chat.entry.js",
+        "reason": "Add chat entry to app drawer surface.",
+        "category": "ui-shell",
+        "id": "chat-drawer-entry"
+      }
+    ]
   }
 });

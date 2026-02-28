@@ -1,0 +1,2 @@
+Identify abstractions that add complexity without real benefit: wrappers, helper layers, ‘service’ classes, adapter patterns, factories, registries, event buses, plugin systems.
+For each: show call graph usage, what complexity it introduces, and whether it could be replaced by something simpler. Flag anything that looks like it exists because the author wanted a pattern, not because the system needed it.
