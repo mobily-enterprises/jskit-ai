@@ -468,6 +468,6 @@ test("jskit resolves app root when command is run from a nested directory", asyn
       args: ["list", "bundles"]
     });
     assert.equal(listFromNested.status, 0, listFromNested.stderr);
-    assert.match(listFromNested.stdout, /db-mysql \(0\.2\.0\).* \[installed\]/i);
+    assert.match(listFromNested.stdout, /db-mysql \(0\.2\.0\).* \(installed\)/i);
   });
 });
