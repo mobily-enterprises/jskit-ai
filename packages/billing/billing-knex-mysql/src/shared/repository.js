@@ -1,7 +1,7 @@
 import { createEntitlementsKnexRepository } from "@jskit-ai/entitlements-knex-mysql";
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
-import { applyForUpdate, resolveQueryOptions, resolveRepoClient } from "@jskit-ai/jskit-knex";
+import { applyForUpdate, parseJsonValue, resolveQueryOptions, resolveRepoClient } from "@jskit-ai/jskit-knex";
 import {
   BILLING_CHECKOUT_SESSION_STATUS,
   BILLING_DEFAULT_PROVIDER,
@@ -10,15 +10,6 @@ import {
   NON_TERMINAL_CURRENT_SUBSCRIPTION_STATUS_SET,
   TERMINAL_SUBSCRIPTION_STATUS_SET
 } from "./constants.js";
-import { safeParseJson } from "./canonicalJson.js";
-
-function parseJsonValue(value, fallback = null) {
-  const parsed = safeParseJson(value, fallback);
-  if (parsed == null) {
-    return fallback;
-  }
-  return parsed;
-}
 
 function normalizeProvider(value) {
   const normalized = String(value || "")

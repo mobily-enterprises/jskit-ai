@@ -227,7 +227,7 @@ test("workspace settings repository parses JSON and supports find/ensure/update 
   assert.equal(workspaceSettingsTestables.mapWorkspaceSettingsRowNullable(null), null);
   assert.deepEqual(workspaceSettingsTestables.parseJsonValue("", { fallback: true }), { fallback: true });
   assert.deepEqual(workspaceSettingsTestables.parseJsonValue({ a: 1 }), { a: 1 });
-  assert.deepEqual(workspaceSettingsTestables.parseJsonValue("{invalid"), {});
+  assert.deepEqual(workspaceSettingsTestables.parseJsonValue("{invalid", {}), {});
 
   const mapped = workspaceSettingsTestables.mapWorkspaceSettingsRowRequired(
     workspaceSettingsRow({
