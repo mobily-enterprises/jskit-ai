@@ -4,6 +4,7 @@ import {
   requireServiceMethod,
   resolveRequest,
   resolveUser,
+  resolveWorkspace,
   OBJECT_INPUT_SCHEMA
 } from "@jskit-ai/action-runtime-core/actionContributorHelpers";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/action-runtime-core";
@@ -16,11 +17,6 @@ function hasPermission(permissionSet, permission) {
 
   const permissions = Array.isArray(permissionSet) ? permissionSet : [];
   return permissions.includes("*") || permissions.includes(requiredPermission);
-}
-
-function resolveWorkspace(context, input) {
-  const payload = normalizeObject(input);
-  return payload.workspace || resolveRequest(context)?.workspace || context?.workspace || null;
 }
 
 function resolveSurfaceId(context, input) {
