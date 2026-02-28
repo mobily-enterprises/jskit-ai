@@ -1,25 +1,9 @@
-function normalizeObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
-}
-
-function toPositiveInteger(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return 0;
-  }
-
-  return parsed;
-}
-
-function requireServiceMethod(service, methodName, contributorId) {
-  if (!service || typeof service[methodName] !== "function") {
-    throw new Error(`${contributorId} requires authService.${methodName}().`);
-  }
-}
+import {
+  normalizeObject,
+  requireAuthenticated,
+  requireServiceMethod,
+  OBJECT_INPUT_SCHEMA
+} from "@jskit-ai/action-runtime-core/actionContributorHelpers";
 
 function requireRequestContext(context, actionId) {
   const request = context?.requestMeta?.request || null;
@@ -30,33 +14,26 @@ function requireRequestContext(context, actionId) {
   throw new Error(`${actionId} requires request context.`);
 }
 
-const OBJECT_INPUT_SCHEMA = Object.freeze({
-  parse(value) {
-    return normalizeObject(value);
-  }
-});
-
 function allowPublic() {
   return true;
-}
-
-function requireAuthenticated(context) {
-  return toPositiveInteger(context?.actor?.id) > 0;
 }
 
 function createAuthActionContributor({ authService } = {}) {
   const contributorId = "auth.supabase";
 
-  requireServiceMethod(authService, "register", contributorId);
-  requireServiceMethod(authService, "login", contributorId);
-  requireServiceMethod(authService, "requestOtpLogin", contributorId);
-  requireServiceMethod(authService, "verifyOtpLogin", contributorId);
-  requireServiceMethod(authService, "oauthStart", contributorId);
-  requireServiceMethod(authService, "oauthComplete", contributorId);
-  requireServiceMethod(authService, "requestPasswordReset", contributorId);
-  requireServiceMethod(authService, "completePasswordRecovery", contributorId);
-  requireServiceMethod(authService, "resetPassword", contributorId);
-  requireServiceMethod(authService, "authenticateRequest", contributorId);
+  const requireAuthServiceMethod = (methodName) =>
+    requireServiceMethod(authService, methodName, contributorId, { serviceLabel: "authService" });
+
+  requireAuthServiceMethod("register");
+  requireAuthServiceMethod("login");
+  requireAuthServiceMethod("requestOtpLogin");
+  requireAuthServiceMethod("verifyOtpLogin");
+  requireAuthServiceMethod("oauthStart");
+  requireAuthServiceMethod("oauthComplete");
+  requireAuthServiceMethod("requestPasswordReset");
+  requireAuthServiceMethod("completePasswordRecovery");
+  requireAuthServiceMethod("resetPassword");
+  requireAuthServiceMethod("authenticateRequest");
 
   return {
     contributorId,

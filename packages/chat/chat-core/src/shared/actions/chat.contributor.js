@@ -1,34 +1,11 @@
-function normalizeObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
-}
-
-function toPositiveInteger(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return 0;
-  }
-
-  return parsed;
-}
-
-function requireServiceMethod(service, methodName, contributorId) {
-  if (!service || typeof service[methodName] !== "function") {
-    throw new Error(`${contributorId} requires ${methodName}().`);
-  }
-}
-
-function resolveRequest(context) {
-  return context?.requestMeta?.request || null;
-}
-
-function resolveUser(context, input) {
-  const payload = normalizeObject(input);
-  return payload.user || resolveRequest(context)?.user || context?.actor || null;
-}
+import {
+  normalizeObject,
+  requireAuthenticated,
+  requireServiceMethod,
+  resolveRequest,
+  resolveUser,
+  OBJECT_INPUT_SCHEMA
+} from "@jskit-ai/action-runtime-core/actionContributorHelpers";
 
 function resolveSurfaceId(context, input) {
   const payload = normalizeObject(input);
@@ -65,16 +42,6 @@ function buildRequestMeta(context, input) {
     logger: request?.log || null
   };
 }
-
-function requireAuthenticated(context) {
-  return toPositiveInteger(context?.actor?.id) > 0;
-}
-
-const OBJECT_INPUT_SCHEMA = Object.freeze({
-  parse(value) {
-    return normalizeObject(value);
-  }
-});
 
 const CHAT_THREAD_MESSAGE_SEND_TOOL_SCHEMA = Object.freeze({
   type: "object",

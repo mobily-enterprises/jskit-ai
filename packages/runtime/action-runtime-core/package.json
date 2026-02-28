@@ -17,6 +17,7 @@
     "./audit": "./src/shared/audit.js",
     "./observability": "./src/shared/observability.js",
     "./actionIds": "./src/shared/actionIds.js",
-    "./realtimePublish": "./src/shared/realtimePublish.js"
+    "./realtimePublish": "./src/shared/realtimePublish.js",
+    "./actionContributorHelpers": "./src/shared/actionContributorHelpers.js"
   }
 }

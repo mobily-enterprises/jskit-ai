@@ -3,48 +3,14 @@ import {
   CONSOLE_MANAGEMENT_PERMISSIONS
 } from "@jskit-ai/workspace-console-core/consoleRoles";
 import { applyRealtimePublishToCommandAction } from "@jskit-ai/action-runtime-core/realtimePublish";
-
-function normalizeObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
-}
-
-function toPositiveInteger(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return 0;
-  }
-
-  return parsed;
-}
-
-function requireServiceMethod(service, methodName, contributorId) {
-  if (!service || typeof service[methodName] !== "function") {
-    throw new Error(`${contributorId} requires ${methodName}().`);
-  }
-}
-
-function resolveRequest(context) {
-  return context?.requestMeta?.request || null;
-}
-
-function resolveUser(context, input) {
-  const payload = normalizeObject(input);
-  return payload.user || resolveRequest(context)?.user || context?.actor || null;
-}
-
-function requireAuthenticated(context) {
-  return toPositiveInteger(context?.actor?.id) > 0;
-}
-
-const OBJECT_INPUT_SCHEMA = Object.freeze({
-  parse(value) {
-    return normalizeObject(value);
-  }
-});
+import {
+  normalizeObject,
+  toPositiveInteger,
+  requireAuthenticated,
+  requireServiceMethod,
+  resolveUser,
+  OBJECT_INPUT_SCHEMA
+} from "@jskit-ai/action-runtime-core/actionContributorHelpers";
 
 const DEFAULT_REALTIME_TOPICS = Object.freeze({
   CONSOLE_SETTINGS: "console_settings",

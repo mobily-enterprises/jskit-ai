@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@jskit-ai/access-core": "0.1.0",
+    "@jskit-ai/action-runtime-core": "0.1.0",
     "@jskit-ai/server-runtime-core": "0.1.0",
     "jose": "^6.1.0",
     "@supabase/supabase-js": "^2.57.4"
