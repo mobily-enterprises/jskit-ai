@@ -1,4 +1,5 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { createGuardrailRecorder, withLeaseFence } from "@jskit-ai/billing-core";
 
 function createService(options = {}) {
   const {
@@ -28,23 +29,21 @@ function createService(options = {}) {
   const normalizedRetryDelaySeconds = Math.max(1, Number(retryDelaySeconds) || 1);
   const normalizedMaxAttempts = Math.max(1, Number(maxAttempts) || 1);
 
-  function recordGuardrail(code, context = {}) {
-    const payload = {
-      code,
-      ...(context && typeof context === "object" ? context : {})
-    };
+  const recordGuardrail = createGuardrailRecorder(observabilityService);
 
-    if (observabilityService && typeof observabilityService.recordGuardrail === "function") {
-      observabilityService.recordGuardrail(payload);
-      return;
-    }
-
-    if (!observabilityService || typeof observabilityService.recordDbError !== "function") {
-      return;
-    }
-
-    observabilityService.recordDbError({
-      code
+  async function updateOutboxJobOrThrow({ jobId, leaseVersion, patch }) {
+    return withLeaseFence({
+      update: (nextPatch) =>
+        billingRepository.updateOutboxJobByLease({
+          id: jobId,
+          leaseVersion,
+          patch: nextPatch
+        }),
+      patch,
+      guardrailRecorder: recordGuardrail,
+      guardrailCode: "BILLING_OUTBOX_LEASE_FENCED",
+      errorMessage: "Outbox lease fencing mismatch.",
+      errorCode: "BILLING_OUTBOX_LEASE_FENCED"
     });
   }
 
@@ -90,20 +89,11 @@ function createService(options = {}) {
   }
 
   async function executeJob({ jobId, leaseVersion }) {
-    const leasedJob = await billingRepository.updateOutboxJobByLease({
-      id: jobId,
+    const leasedJob = await updateOutboxJobOrThrow({
+      jobId,
       leaseVersion,
       patch: {}
     });
-    if (!leasedJob) {
-      recordGuardrail("BILLING_OUTBOX_LEASE_FENCED", {
-        measure: "count",
-        value: 1
-      });
-      throw new AppError(409, "Outbox lease fencing mismatch.", {
-        code: "BILLING_OUTBOX_LEASE_FENCED"
-      });
-    }
 
     const payload = leasedJob.payloadJson || {};
     const jobType = String(leasedJob.jobType || "").trim();
@@ -120,8 +110,8 @@ function createService(options = {}) {
 
     const nextLeaseVersion = Number(leasedJob.leaseVersion || leaseVersion) + 1;
 
-    const completed = await billingRepository.updateOutboxJobByLease({
-      id: jobId,
+    const completed = await updateOutboxJobOrThrow({
+      jobId,
       leaseVersion: leasedJob.leaseVersion,
       patch: {
         status: "succeeded",
@@ -133,34 +123,15 @@ function createService(options = {}) {
       }
     });
 
-    if (!completed) {
-      recordGuardrail("BILLING_OUTBOX_LEASE_FENCED", {
-        measure: "count",
-        value: 1
-      });
-      throw new AppError(409, "Outbox lease fencing mismatch.", {
-        code: "BILLING_OUTBOX_LEASE_FENCED"
-      });
-    }
-
     return completed;
   }
 
   async function retryOrDeadLetter({ jobId, leaseVersion, error, now = new Date() }) {
-    const fencedJob = await billingRepository.updateOutboxJobByLease({
-      id: jobId,
+    const fencedJob = await updateOutboxJobOrThrow({
+      jobId,
       leaseVersion,
       patch: {}
     });
-    if (!fencedJob) {
-      recordGuardrail("BILLING_OUTBOX_LEASE_FENCED", {
-        measure: "count",
-        value: 1
-      });
-      throw new AppError(409, "Outbox lease fencing mismatch.", {
-        code: "BILLING_OUTBOX_LEASE_FENCED"
-      });
-    }
 
     const jobType = String(fencedJob.jobType || "").trim();
     if (jobType === "expire_checkout_session") {
@@ -181,23 +152,11 @@ function createService(options = {}) {
     };
 
     async function patchLeasedJobOrThrow(patch) {
-      const updated = await billingRepository.updateOutboxJobByLease({
-        id: jobId,
+      return updateOutboxJobOrThrow({
+        jobId,
         leaseVersion: fencedJob.leaseVersion,
         patch
       });
-
-      if (!updated) {
-        recordGuardrail("BILLING_OUTBOX_LEASE_FENCED", {
-          measure: "count",
-          value: 1
-        });
-        throw new AppError(409, "Outbox lease fencing mismatch.", {
-          code: "BILLING_OUTBOX_LEASE_FENCED"
-        });
-      }
-
-      return updated;
     }
 
     if (attemptCount >= normalizedMaxAttempts) {

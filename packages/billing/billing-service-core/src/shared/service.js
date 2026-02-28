@@ -1,6 +1,7 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { normalizePagination } from "@jskit-ai/server-runtime-core/pagination";
 import { createEntitlementsService } from "@jskit-ai/entitlements-core";
+import { createGuardrailRecorder, withLeaseFence } from "@jskit-ai/billing-core";
 import {
   BILLING_ACTIONS,
   BILLING_DEFAULT_PROVIDER,
@@ -566,25 +567,7 @@ function createService(options = {}) {
     }
   );
 
-  function recordGuardrail(code, context = {}) {
-    const payload = {
-      code,
-      ...(context && typeof context === "object" ? context : {})
-    };
-
-    if (observabilityService && typeof observabilityService.recordGuardrail === "function") {
-      observabilityService.recordGuardrail(payload);
-      return;
-    }
-
-    if (!observabilityService || typeof observabilityService.recordDbError !== "function") {
-      return;
-    }
-
-    observabilityService.recordDbError({
-      code
-    });
-  }
+  const recordGuardrail = createGuardrailRecorder(observabilityService);
 
   function resolveAndRecordProviderOutcome(error, { operation, correlation = {} } = {}) {
     const context = correlation && typeof correlation === "object" ? correlation : {};
@@ -657,17 +640,16 @@ function createService(options = {}) {
   async function updateIdempotencyWithLeaseFence({ idempotencyRowId, leaseVersion = null, patch = {} }) {
     const normalizedLeaseVersion = toLeaseVersionOrNull(leaseVersion);
     const options = normalizedLeaseVersion != null ? { expectedLeaseVersion: normalizedLeaseVersion } : {};
-    const updated = await billingRepository.updateIdempotencyById(idempotencyRowId, patch, options);
-    if (normalizedLeaseVersion != null && !updated) {
-      throw new AppError(409, "Billing idempotency lease has changed.", {
-        code: "BILLING_LEASE_FENCED",
-        details: {
-          code: "BILLING_LEASE_FENCED"
-        }
-      });
-    }
-
-    return updated;
+    return withLeaseFence({
+      update: (nextPatch) => billingRepository.updateIdempotencyById(idempotencyRowId, nextPatch, options),
+      patch,
+      shouldFence: normalizedLeaseVersion != null,
+      errorMessage: "Billing idempotency lease has changed.",
+      errorCode: "BILLING_LEASE_FENCED",
+      errorDetails: {
+        code: "BILLING_LEASE_FENCED"
+      }
+    });
   }
 
   async function ensureBillableEntity({ workspaceId, ownerUserId }) {

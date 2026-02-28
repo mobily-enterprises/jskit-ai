@@ -5,3 +5,4 @@ export {
   validateEntitlementValue,
   assertEntitlementValueOrThrow
 } from "./entitlementSchema.js";
+export { createGuardrailRecorder, withLeaseFence } from "./guardrails.js";

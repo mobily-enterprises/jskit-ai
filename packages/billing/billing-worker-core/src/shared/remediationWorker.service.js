@@ -1,4 +1,5 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { createGuardrailRecorder, withLeaseFence } from "@jskit-ai/billing-core";
 
 function createService(options = {}) {
   const {
@@ -25,23 +26,21 @@ function createService(options = {}) {
     .trim()
     .toLowerCase();
 
-  function recordGuardrail(code, context = {}) {
-    const payload = {
-      code,
-      ...(context && typeof context === "object" ? context : {})
-    };
+  const recordGuardrail = createGuardrailRecorder(observabilityService);
 
-    if (observabilityService && typeof observabilityService.recordGuardrail === "function") {
-      observabilityService.recordGuardrail(payload);
-      return;
-    }
-
-    if (!observabilityService || typeof observabilityService.recordDbError !== "function") {
-      return;
-    }
-
-    observabilityService.recordDbError({
-      code
+  async function updateRemediationOrThrow({ remediationId, leaseVersion, patch }) {
+    return withLeaseFence({
+      update: (nextPatch) =>
+        billingRepository.updateRemediationByLease({
+          id: remediationId,
+          leaseVersion,
+          patch: nextPatch
+        }),
+      patch,
+      guardrailRecorder: recordGuardrail,
+      guardrailCode: "BILLING_REMEDIATION_LEASE_FENCED",
+      errorMessage: "Remediation lease fencing mismatch.",
+      errorCode: "BILLING_REMEDIATION_LEASE_FENCED"
     });
   }
 
@@ -91,27 +90,18 @@ function createService(options = {}) {
   }
 
   async function runCancelDuplicateSubscription({ remediationId, leaseVersion }) {
-    const fencedRemediation = await billingRepository.updateRemediationByLease({
-      id: remediationId,
+    const fencedRemediation = await updateRemediationOrThrow({
+      remediationId,
       leaseVersion,
       patch: {}
     });
-    if (!fencedRemediation) {
-      recordGuardrail("BILLING_REMEDIATION_LEASE_FENCED", {
-        measure: "count",
-        value: 1
-      });
-      throw new AppError(409, "Remediation lease fencing mismatch.", {
-        code: "BILLING_REMEDIATION_LEASE_FENCED"
-      });
-    }
 
     await executeCancelDuplicateSubscription(fencedRemediation);
 
     const nextLeaseVersion = Number(fencedRemediation.leaseVersion || leaseVersion) + 1;
 
-    const completed = await billingRepository.updateRemediationByLease({
-      id: remediationId,
+    const completed = await updateRemediationOrThrow({
+      remediationId,
       leaseVersion: fencedRemediation.leaseVersion,
       patch: {
         status: "succeeded",
@@ -125,34 +115,15 @@ function createService(options = {}) {
       }
     });
 
-    if (!completed) {
-      recordGuardrail("BILLING_REMEDIATION_LEASE_FENCED", {
-        measure: "count",
-        value: 1
-      });
-      throw new AppError(409, "Remediation lease fencing mismatch.", {
-        code: "BILLING_REMEDIATION_LEASE_FENCED"
-      });
-    }
-
     return completed;
   }
 
   async function retryOrDeadLetterRemediation({ remediationId, leaseVersion, error, now = new Date() }) {
-    const fencedRemediation = await billingRepository.updateRemediationByLease({
-      id: remediationId,
+    const fencedRemediation = await updateRemediationOrThrow({
+      remediationId,
       leaseVersion,
       patch: {}
     });
-    if (!fencedRemediation) {
-      recordGuardrail("BILLING_REMEDIATION_LEASE_FENCED", {
-        measure: "count",
-        value: 1
-      });
-      throw new AppError(409, "Remediation lease fencing mismatch.", {
-        code: "BILLING_REMEDIATION_LEASE_FENCED"
-      });
-    }
 
     const attemptCount = Number(fencedRemediation.attemptCount || 0) + 1;
     const nextLeaseVersion = Number(fencedRemediation.leaseVersion || leaseVersion) + 1;
@@ -166,23 +137,11 @@ function createService(options = {}) {
     };
 
     async function patchLeasedRemediationOrThrow(patch) {
-      const updated = await billingRepository.updateRemediationByLease({
-        id: remediationId,
+      return updateRemediationOrThrow({
+        remediationId,
         leaseVersion: fencedRemediation.leaseVersion,
         patch
       });
-
-      if (!updated) {
-        recordGuardrail("BILLING_REMEDIATION_LEASE_FENCED", {
-          measure: "count",
-          value: 1
-        });
-        throw new AppError(409, "Remediation lease fencing mismatch.", {
-          code: "BILLING_REMEDIATION_LEASE_FENCED"
-        });
-      }
-
-      return updated;
     }
 
     if (attemptCount >= normalizedMaxAttempts) {
