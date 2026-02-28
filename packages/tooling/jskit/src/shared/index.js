@@ -18,6 +18,7 @@ import { createCliError, normalizeRelativePath } from "./schemas/validationHelpe
 import { ensureUniqueDescriptor } from "./schemas/descriptorRegistry.mjs";
 import { normalizeBundleDescriptor } from "./schemas/bundleDescriptor.mjs";
 import { normalizePackageDescriptor } from "./schemas/packageDescriptor.mjs";
+import { validateCapabilityContracts } from "./capabilityContracts.mjs";
 
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const BUNDLES_ROOT = path.join(PACKAGE_ROOT, "bundles");
@@ -488,10 +489,19 @@ async function discoverAvailablePackages(appRoot) {
 async function lintDescriptors({ appRoot }) {
   const bundles = await discoverAvailableBundles();
   const packages = await discoverAvailablePackages(appRoot);
+  const contractValidation = await validateCapabilityContracts(packages);
+  if (!contractValidation.ok) {
+    throw createConflictError(
+      "capability-contract",
+      "Descriptor lint failed central capability-contract checks.",
+      contractValidation.issues.map((message) => createIssue(message))
+    );
+  }
   return {
     command: "lint-descriptors",
     bundleCount: bundles.size,
-    packageCount: packages.size
+    packageCount: packages.size,
+    capabilityContractCount: contractValidation.contractCount
   };
 }
 
@@ -1863,7 +1873,7 @@ function formatResult(result, { json, stdout }) {
   const showExpanded = result.expanded === true;
 
   function formatBundleLine(entry) {
-    const installedSuffix = entry.installed ? " [installed]" : "";
+    const installedSuffix = entry.installed ? " (installed)" : "";
     const providerRequirementSuffix =
       Array.isArray(entry.providerRequirementHints) && entry.providerRequirementHints.length > 0
         ? ` [${entry.providerRequirementHints.join(", ")}]`
@@ -1934,14 +1944,14 @@ function formatResult(result, { json, stdout }) {
     if (result.availablePackages) {
       stdout.write("Available packages:\n");
       for (const entry of result.availablePackages) {
-        stdout.write(`- ${entry.packageId} (${entry.version})${entry.installed ? " [installed]" : ""}\n`);
+        stdout.write(`- ${entry.packageId} (${entry.version})${entry.installed ? " (installed)" : ""}\n`);
       }
     }
     return;
   }
 
   if (result.command === "show-bundle") {
-    const installedSuffix = result.installed ? " [installed]" : "";
+    const installedSuffix = result.installed ? " (installed)" : "";
     const packageIds = showExpanded ? result.expandedPackages || result.packages : result.packages;
     stdout.write(`Bundle ${result.bundleId} (${result.version})${installedSuffix}\n`);
     if (result.description) {

@@ -6,6 +6,7 @@
   "files": [
     "bin",
     "src",
+    "contracts",
     "bundles",
     "packages",
     "README.md"
