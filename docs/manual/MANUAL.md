@@ -178,3 +178,24 @@ npx jskit add bundle assistant --no-install
 npm install
 npx jskit doctor
 ```
+## Duplication Guardrail (CI)
+
+A duplication guardrail is wired into CI using `jscpd` with a baseline. The baseline allows existing duplication to pass, and CI fails only when new duplicated fragments are introduced.
+
+How it works:
+1. `jscpd` scans the repo using `.jscpd.json`.
+2. The current report is compared to `.jscpd/baseline.json`.
+3. CI fails if new duplicate pairs appear beyond the baseline.
+
+Generate or refresh the baseline:
+
+```bash
+npx jscpd --config .jscpd.json --reporters json --output .jscpd
+cp .jscpd/jscpd-report.json .jscpd/baseline.json
+```
+
+Run locally:
+
+```bash
+npm run lint:duplication
+```

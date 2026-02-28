@@ -10,6 +10,7 @@
     "cloc:actual": "cloc --vcs=git --include-ext=js,cjs,mjs,jsx,ts,tsx,vue,py,go,rs,java,kt,swift,rb,php,cs,cpp,c,h,sql,sh,bash,zsh,ps1,md,mdx,rst,adoc,txt --exclude-dir=node_modules,dist,build,coverage,.next,.nuxt,.turbo,.cache,storybook-static,vendor,tmp,temp,.output,.vercel .",
     "sloc:actual": "npm run cloc:actual",
     "lint:architecture:client": "eslint --config eslint.architecture.client.mjs --no-error-on-unmatched-pattern \"packages/**/src/**/*.js\" \"apps/**/src/**/*.js\"",
+    "lint:duplication": "npx jscpd --config .jscpd.json --reporters json --output .jscpd && node scripts/ci/check-duplication.mjs .jscpd/jscpd-report.json .jscpd/baseline.json",
     "test:architecture:client": "node --test tests/architecture/client-architecture.guardrails.test.mjs",
     "test:architecture:shared-ui": "node --test tests/architecture/client-shared-ui.guardrails.test.mjs",
     "test:framework": "node --test tests/framework/*.test.mjs",
@@ -32,6 +33,7 @@
     "packages/*/*"
   ],
   "devDependencies": {
-    "cloc": "^2.6.0-cloc"
+    "cloc": "^2.6.0-cloc",
+    "jscpd": "^4.0.8"
   }
 }

@@ -1,0 +1,15 @@
+{
+  "languages": ["javascript", "typescript", "vue"],
+  "minLines": 8,
+  "minTokens": 70,
+  "threshold": 0,
+  "ignore": [
+    "**/node_modules/**",
+    "**/.artifacts/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/coverage/**",
+    "**/packages/tooling/**/templates/**",
+    "**/apps/base-app/**"
+  ]
+}
