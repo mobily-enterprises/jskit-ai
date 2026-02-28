@@ -7,6 +7,7 @@ import {
   createDiagnosticsCollector,
   throwOnDiagnosticErrors
 } from "@jskit-ai/module-framework-core";
+import { mergeDisabled, moduleSignature } from "@jskit-ai/module-framework-core/composeUtils";
 
 import { FRAMEWORK_PROFILE_IDS, resolveFrameworkProfile, resolveServerModuleIdsForProfile } from "../../shared/framework/profile.js";
 import { PLATFORM_REPOSITORY_DEFINITIONS } from "../runtime/repositories.js";
@@ -231,34 +232,6 @@ function filterRouteModuleIds(routeModuleIds, includedIds) {
   return routeModuleIds.filter((id) => includedIds.has(id));
 }
 
-function mergeDisabled(disabledById, entries) {
-  for (const entry of entries || []) {
-    if (!entry || !entry.id) {
-      continue;
-    }
-
-    const existing = disabledById.get(entry.id);
-    if (!existing) {
-      disabledById.set(entry.id, { ...entry });
-      continue;
-    }
-
-    const reasons = new Set([existing.reason, entry.reason].filter(Boolean));
-    disabledById.set(entry.id, {
-      ...existing,
-      ...entry,
-      reason: Array.from(reasons).join(", ")
-    });
-  }
-}
-
-function moduleSignature(modules) {
-  return modules
-    .map((module) => module.id)
-    .slice()
-    .sort((left, right) => left.localeCompare(right))
-    .join("|");
-}
 
 function resolveProfileConstrainedModules({
   enabledModuleIds,

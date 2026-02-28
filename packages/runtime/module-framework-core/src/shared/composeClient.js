@@ -3,38 +3,10 @@ import { normalizeMode } from "./compositionMode.js";
 import { resolveDependencyGraph } from "./dependencyGraph.js";
 import { resolveCapabilityGraph } from "./capabilityGraph.js";
 import { resolveMounts } from "./mountResolver.js";
+import { mergeDisabled, moduleSignature } from "./composeUtils.js";
 import { createDiagnosticsCollector, throwOnDiagnosticErrors } from "./diagnostics.js";
 
 const CLIENT_HOOK_PHASES = Object.freeze(["api", "routes", "guards", "nav", "realtime", "featureFlags"]);
-
-function moduleSignature(modules) {
-  return modules
-    .map((module) => module.id)
-    .slice()
-    .sort((left, right) => left.localeCompare(right))
-    .join("|");
-}
-
-function mergeDisabled(disabledById, entries) {
-  for (const entry of entries || []) {
-    if (!entry || !entry.id) {
-      continue;
-    }
-
-    const existing = disabledById.get(entry.id);
-    if (!existing) {
-      disabledById.set(entry.id, { ...entry });
-      continue;
-    }
-
-    const reasons = new Set([existing.reason, entry.reason].filter(Boolean));
-    disabledById.set(entry.id, {
-      ...existing,
-      ...entry,
-      reason: Array.from(reasons).join(", ")
-    });
-  }
-}
 
 function resolveComposedModules({ modules, mode, context, diagnostics }) {
   const disabledById = new Map();

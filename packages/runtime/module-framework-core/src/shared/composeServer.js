@@ -4,6 +4,7 @@ import { resolveDependencyGraph } from "./dependencyGraph.js";
 import { resolveCapabilityGraph } from "./capabilityGraph.js";
 import { resolveMounts } from "./mountResolver.js";
 import { resolveConflicts } from "./conflicts.js";
+import { mergeDisabled, moduleSignature } from "./composeUtils.js";
 import { createDiagnosticsCollector, throwOnDiagnosticErrors } from "./diagnostics.js";
 
 const SERVER_HOOK_PHASES = Object.freeze([
@@ -21,35 +22,6 @@ const SERVER_HOOK_PHASES = Object.freeze([
 ]);
 
 const DIAGNOSTIC_HOOK_PHASES = Object.freeze(["startupChecks", "healthChecks"]);
-
-function moduleSignature(modules) {
-  return modules
-    .map((module) => module.id)
-    .slice()
-    .sort((left, right) => left.localeCompare(right))
-    .join("|");
-}
-
-function mergeDisabled(disabledById, entries) {
-  for (const entry of entries || []) {
-    if (!entry || !entry.id) {
-      continue;
-    }
-
-    const existing = disabledById.get(entry.id);
-    if (!existing) {
-      disabledById.set(entry.id, { ...entry });
-      continue;
-    }
-
-    const reasons = new Set([existing.reason, entry.reason].filter(Boolean));
-    disabledById.set(entry.id, {
-      ...existing,
-      ...entry,
-      reason: Array.from(reasons).join(", ")
-    });
-  }
-}
 
 function resolveComposedModules({ modules, mode, context, diagnostics }) {
   const disabledById = new Map();

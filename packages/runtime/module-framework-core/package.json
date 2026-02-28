@@ -18,6 +18,7 @@
     "./conflicts": "./src/shared/conflicts.js",
     "./composeServer": "./src/shared/composeServer.js",
     "./composeClient": "./src/shared/composeClient.js",
+    "./composeUtils": "./src/shared/composeUtils.js",
     "./compositionMode": "./src/shared/compositionMode.js",
     "./diagnostics": "./src/shared/diagnostics.js",
     "./appDropins": "./src/shared/appDropins.js"
