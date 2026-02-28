@@ -388,6 +388,7 @@ const SERVER_MODULE_REGISTRY = Object.freeze([
   createServerModule({
     id: "deg2rad",
     tier: SERVER_MODULE_TIERS.feature,
+    dependsOnModules: Object.freeze([moduleDependency("history")]),
     contributions: {
       routes: ["deg2rad"],
       appFeatureServices: ["deg2radService"],
