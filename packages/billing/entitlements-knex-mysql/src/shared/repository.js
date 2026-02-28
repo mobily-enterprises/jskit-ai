@@ -1,4 +1,5 @@
 import { normalizeAmountAllowZero, normalizeAmountRequirePositive } from "@jskit-ai/billing-core";
+import { normalizeDateInput } from "@jskit-ai/jskit-knex/dateUtils";
 import { applyForUpdate, parseJsonValue, resolveRepoClient } from "@jskit-ai/jskit-knex";
 import { withTransaction } from "./transactions.js";
 
@@ -43,19 +44,6 @@ function toInteger(value) {
     return null;
   }
   return parsed;
-}
-
-function normalizeDateInput(value) {
-  if (!value) {
-    return null;
-  }
-
-  const candidate = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(candidate.getTime())) {
-    return null;
-  }
-
-  return candidate;
 }
 
 function toIsoString(value) {

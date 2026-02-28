@@ -1,5 +1,5 @@
 import { createEntitlementsKnexRepository } from "@jskit-ai/entitlements-knex-mysql";
-import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
+import { normalizeDateInput, toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 import { applyForUpdate, parseJsonValue, resolveQueryOptions, resolveRepoClient } from "@jskit-ai/jskit-knex";
 import {
@@ -37,19 +37,6 @@ function toNullableIsoString(value) {
   }
 
   return toIsoString(value);
-}
-
-function normalizeDateInput(value) {
-  if (!value) {
-    return null;
-  }
-
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return date;
 }
 
 function toPositiveInteger(value) {

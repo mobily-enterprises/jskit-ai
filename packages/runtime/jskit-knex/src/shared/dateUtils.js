@@ -1,3 +1,16 @@
+function normalizeDateInput(value) {
+  if (!value) {
+    return null;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+}
+
 function toDateOrThrow(value) {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -28,4 +41,4 @@ function toDatabaseDateTimeUtc(value) {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
 }
 
-export { toIsoString, toDatabaseDateTimeUtc };
+export { normalizeDateInput, toIsoString, toDatabaseDateTimeUtc };
