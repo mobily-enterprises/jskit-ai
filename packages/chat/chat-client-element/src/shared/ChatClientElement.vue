@@ -394,6 +394,7 @@
 
 <script setup>
 import { computed, nextTick, ref, watch } from "vue";
+import { useClientElementProps } from "@jskit-ai/web-runtime-core";
 
 const DEFAULT_COPY = Object.freeze({
   loadOlder: "Load older",
@@ -478,55 +479,30 @@ const emit = defineEmits([
 
 const SCROLL_BOTTOM_THRESHOLD_PX = 30;
 
-function toRecord(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-  return value;
-}
-
-function normalizeVariantValue(value, supported, fallback) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
-  if (!supported.includes(normalized)) {
-    return fallback;
-  }
-  return normalized;
-}
-
 const meta = props.meta;
 const state = props.state;
 const helpers = props.helpers;
 const actions = props.actions;
 
-const copyText = computed(() => ({
-  ...DEFAULT_COPY,
-  ...toRecord(props.copy)
-}));
-
-const resolvedVariant = computed(() => {
-  const variant = toRecord(props.variant);
-  return {
-    layout: normalizeVariantValue(variant.layout, ["compact", "comfortable"], "comfortable"),
-    surface: normalizeVariantValue(variant.surface, ["plain", "carded"], "carded"),
-    density: normalizeVariantValue(variant.density, ["compact", "comfortable"], "comfortable"),
-    tone: normalizeVariantValue(variant.tone, ["neutral", "emphasized"], "neutral")
-  };
-});
-
-const resolvedFeatures = computed(() => {
-  const features = toRecord(props.features);
-  return {
-    statusStack: features.statusStack !== false,
-    historyTools: features.historyTools !== false,
-    workspaceBackButton: features.workspaceBackButton !== false,
-    dmButton: features.dmButton !== false,
-    dmDialog: features.dmDialog !== false,
-    typingIndicator: features.typingIndicator !== false,
-    attachmentPicker: features.attachmentPicker !== false,
-    composerMeta: features.composerMeta !== false
-  };
+const { toRecord, copyText, resolvedVariant, resolvedFeatures } = useClientElementProps({
+  props,
+  defaultCopy: DEFAULT_COPY,
+  variantConfig: {
+    layout: { supported: ["compact", "comfortable"], fallback: "comfortable" },
+    surface: { supported: ["plain", "carded"], fallback: "carded" },
+    density: { supported: ["compact", "comfortable"], fallback: "comfortable" },
+    tone: { supported: ["neutral", "emphasized"], fallback: "neutral" }
+  },
+  featureDefaults: {
+    statusStack: true,
+    historyTools: true,
+    workspaceBackButton: true,
+    dmButton: true,
+    dmDialog: true,
+    typingIndicator: true,
+    attachmentPicker: true,
+    composerMeta: true
+  }
 });
 
 const uiClasses = computed(() => {

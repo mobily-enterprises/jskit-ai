@@ -238,6 +238,7 @@
 
 <script setup>
 import { computed } from "vue";
+import { useClientElementProps } from "@jskit-ai/web-runtime-core";
 
 const DEFAULT_COPY = Object.freeze({
   headingTitle: "Workspace billing",
@@ -309,25 +310,6 @@ const emit = defineEmits([
   "checkout:open"
 ]);
 
-function toRecord(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
-}
-
-function normalizeVariantValue(value, supported, fallback) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
-  if (!supported.includes(normalized)) {
-    return fallback;
-  }
-
-  return normalized;
-}
-
 function fallbackFormatDateOnly(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -362,40 +344,31 @@ function fallbackFormatMoneyMinor(amountMinor, currency = "USD") {
   }
 }
 
+const { toRecord, copyText, resolvedVariant, resolvedFeatures } = useClientElementProps({
+  props,
+  defaultCopy: DEFAULT_COPY,
+  variantConfig: {
+    layout: { supported: ["compact", "comfortable"], fallback: "comfortable" },
+    surface: { supported: ["plain", "carded"], fallback: "carded" },
+    density: { supported: ["compact", "comfortable"], fallback: "comfortable" },
+    emphasis: { supported: ["default", "quiet"], fallback: "default" }
+  },
+  featureDefaults: {
+    header: true,
+    alerts: true,
+    currentPlan: true,
+    scheduledChange: true,
+    changeCorePlan: true,
+    checkoutLink: true,
+    paymentPolicy: true,
+    currentPlanCancelAction: true,
+    scheduledChangeCancelAction: true
+  }
+});
+
 const meta = computed(() => toRecord(props.meta));
 const state = computed(() => toRecord(props.state));
 const actions = computed(() => toRecord(props.actions));
-
-const copyText = computed(() => ({
-  ...DEFAULT_COPY,
-  ...toRecord(props.copy)
-}));
-
-const resolvedVariant = computed(() => {
-  const variant = toRecord(props.variant);
-  return {
-    layout: normalizeVariantValue(variant.layout, ["compact", "comfortable"], "comfortable"),
-    surface: normalizeVariantValue(variant.surface, ["plain", "carded"], "carded"),
-    density: normalizeVariantValue(variant.density, ["compact", "comfortable"], "comfortable"),
-    emphasis: normalizeVariantValue(variant.emphasis, ["default", "quiet"], "default")
-  };
-});
-
-const resolvedFeatures = computed(() => {
-  const features = toRecord(props.features);
-
-  return {
-    header: features.header !== false,
-    alerts: features.alerts !== false,
-    currentPlan: features.currentPlan !== false,
-    scheduledChange: features.scheduledChange !== false,
-    changeCorePlan: features.changeCorePlan !== false,
-    checkoutLink: features.checkoutLink !== false,
-    paymentPolicy: features.paymentPolicy !== false,
-    currentPlanCancelAction: features.currentPlanCancelAction !== false,
-    scheduledChangeCancelAction: features.scheduledChangeCancelAction !== false
-  };
-});
 
 const uiClasses = computed(() => {
   const classes = toRecord(toRecord(props.ui).classes);
