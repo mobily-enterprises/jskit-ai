@@ -1,4 +1,5 @@
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
+import { resolveQueryOptions, resolveRepoClient } from "@jskit-ai/jskit-knex";
 import { coerceWorkspaceColor } from "@jskit-ai/workspace-console-core/workspaceColors";
 
 function mapWorkspaceRowRequired(row) {
@@ -26,41 +27,22 @@ function mapWorkspaceRowNullable(row) {
   return mapWorkspaceRowRequired(row);
 }
 
-function resolveQueryOptions(options = {}) {
-  if (!options || typeof options !== "object") {
-    return {
-      trx: null,
-      forUpdate: false
-    };
-  }
-
-  return {
-    trx: options.trx || null,
-    forUpdate: options.forUpdate === true
-  };
-}
-
 function createWorkspacesRepository(dbClient) {
-  function resolveClient(options = {}) {
-    const { trx } = resolveQueryOptions(options);
-    return trx || dbClient;
-  }
-
   async function repoFindById(id, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const row = await client("workspaces").where({ id }).first();
     return mapWorkspaceRowNullable(row);
   }
 
   async function repoFindBySlug(slug, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const row = await client("workspaces").where({ slug }).first();
     return mapWorkspaceRowNullable(row);
   }
 
   async function repoFindPersonalByOwnerUserId(ownerUserId, options = {}) {
     const { forUpdate } = resolveQueryOptions(options);
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     let query = client("workspaces")
       .where({
         owner_user_id: ownerUserId,
@@ -78,7 +60,7 @@ function createWorkspacesRepository(dbClient) {
   }
 
   async function repoInsert(workspace, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const now = workspace.updatedAt ? new Date(workspace.updatedAt) : new Date();
     const [id] = await client("workspaces").insert({
       slug: workspace.slug,
@@ -96,7 +78,7 @@ function createWorkspacesRepository(dbClient) {
   }
 
   async function repoUpdateById(id, patch = {}, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const dbPatch = {};
 
     if (Object.hasOwn(patch, "slug")) {

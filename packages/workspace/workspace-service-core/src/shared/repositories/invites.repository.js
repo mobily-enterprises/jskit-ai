@@ -1,5 +1,6 @@
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
+import { resolveRepoClient } from "@jskit-ai/jskit-knex";
 import {
   deleteRowsOlderThan,
   normalizeBatchSize,
@@ -90,13 +91,8 @@ function createInviteBaseQuery(dbClient, withWorkspace = false) {
 }
 
 function createWorkspaceInvitesRepository(dbClient) {
-  function resolveClient(options = {}) {
-    const trx = options && typeof options === "object" ? options.trx || null : null;
-    return trx || dbClient;
-  }
-
   async function repoInsert(invite, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const now = new Date();
     const [id] = await client("workspace_invites").insert({
       workspace_id: invite.workspaceId,
@@ -115,7 +111,7 @@ function createWorkspaceInvitesRepository(dbClient) {
   }
 
   async function repoListPendingByWorkspaceId(workspaceId, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const rows = await createInviteBaseQuery(client)
       .where({
         "wi.workspace_id": workspaceId,
@@ -129,7 +125,7 @@ function createWorkspaceInvitesRepository(dbClient) {
   }
 
   async function repoListPendingByWorkspaceIdWithWorkspace(workspaceId, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const rows = await createInviteBaseQuery(client, true)
       .where({
         "wi.workspace_id": workspaceId,

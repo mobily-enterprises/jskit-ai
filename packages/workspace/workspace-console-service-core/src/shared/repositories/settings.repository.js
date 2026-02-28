@@ -1,5 +1,6 @@
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
+import { resolveRepoClient } from "@jskit-ai/jskit-knex";
 
 const CONSOLE_SETTINGS_SINGLETON_ID = 1;
 
@@ -49,13 +50,8 @@ function toDbJson(value) {
 }
 
 function createConsoleSettingsRepository(dbClient) {
-  function resolveClient(options = {}) {
-    const trx = options && typeof options === "object" ? options.trx || null : null;
-    return trx || dbClient;
-  }
-
   async function ensureSingleton(options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const now = toDatabaseDateTimeUtc(new Date());
     try {
       await client("console_settings").insert({
@@ -72,7 +68,7 @@ function createConsoleSettingsRepository(dbClient) {
   }
 
   async function repoFind(options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     await ensureSingleton(options);
     const row = await client("console_settings").where({ id: CONSOLE_SETTINGS_SINGLETON_ID }).first();
     return mapConsoleSettingsRowNullable(row);
@@ -88,7 +84,7 @@ function createConsoleSettingsRepository(dbClient) {
   }
 
   async function repoUpdate(patch = {}, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const normalizedPatch = patch && typeof patch === "object" ? patch : {};
 
     const dbPatch = {};
