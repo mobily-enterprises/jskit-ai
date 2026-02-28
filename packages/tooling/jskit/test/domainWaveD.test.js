@@ -29,6 +29,27 @@ const MYSQL_OPTION_ARGS = [
   "--db-password",
   "secret"
 ];
+const OPENAI_OPTION_ARGS = ["--ai-api-key", "sk-test-openai"];
+const BILLING_SHARED_OPTION_ARGS = [
+  "--billing-operation-key-secret",
+  "billing-op-secret",
+  "--billing-provider-idempotency-key-secret",
+  "billing-idempotency-secret"
+];
+const BILLING_STRIPE_OPTION_ARGS = [
+  "--billing-stripe-secret-key",
+  "sk_test_stripe",
+  "--billing-stripe-api-version",
+  "2024-06-20",
+  "--billing-stripe-webhook-endpoint-secret",
+  "whsec_test"
+];
+const BILLING_PADDLE_OPTION_ARGS = [
+  "--billing-paddle-api-key",
+  "paddle_test_key",
+  "--billing-paddle-webhook-endpoint-secret",
+  "paddle_whsec_test"
+];
 
 function runCli({ cwd, args = [] }) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
@@ -81,7 +102,7 @@ for (const bundleId of WAVE_D_BUNDLES) {
       if (bundleId === "assistant") {
         const addAssistantProvider = runCli({
           cwd: appRoot,
-          args: ["add", "bundle", "assistant-openai", "--no-install"]
+          args: ["add", "bundle", "assistant-openai", "--no-install", ...OPENAI_OPTION_ARGS]
         });
         assert.equal(addAssistantProvider.status, 0, addAssistantProvider.stderr);
       }
@@ -89,14 +110,34 @@ for (const bundleId of WAVE_D_BUNDLES) {
       if (REQUIRES_BILLING_PROVIDER.has(bundleId)) {
         const addBillingProvider = runCli({
           cwd: appRoot,
-          args: ["add", "bundle", "billing-stripe", "--no-install"]
+          args: [
+            "add",
+            "bundle",
+            "billing-stripe",
+            "--no-install",
+            ...BILLING_SHARED_OPTION_ARGS,
+            ...BILLING_STRIPE_OPTION_ARGS
+          ]
         });
         assert.equal(addBillingProvider.status, 0, addBillingProvider.stderr);
       }
 
+      const addArgs = ["add", "bundle", bundleId, "--no-install"];
+      if (bundleId === "assistant-openai") {
+        addArgs.push(...OPENAI_OPTION_ARGS);
+      }
+      if (bundleId === "billing-stripe") {
+        addArgs.push(...BILLING_SHARED_OPTION_ARGS, ...BILLING_STRIPE_OPTION_ARGS);
+      }
+      if (bundleId === "billing-paddle") {
+        addArgs.push(...BILLING_SHARED_OPTION_ARGS, ...BILLING_PADDLE_OPTION_ARGS);
+      }
+      if (bundleId === "billing-base" || bundleId === "billing-worker") {
+        addArgs.push(...BILLING_SHARED_OPTION_ARGS);
+      }
       const addBundle = runCli({
         cwd: appRoot,
-        args: ["add", "bundle", bundleId, "--no-install"]
+        args: addArgs
       });
       assert.equal(addBundle.status, 0, addBundle.stderr);
 
@@ -125,7 +166,7 @@ test("assistant enforces transcript db-provider capability", async () => {
   await withTempApp(async (appRoot) => {
     const addAssistantProvider = runCli({
       cwd: appRoot,
-      args: ["add", "bundle", "assistant-openai", "--no-install"]
+      args: ["add", "bundle", "assistant-openai", "--no-install", ...OPENAI_OPTION_ARGS]
     });
     assert.equal(addAssistantProvider.status, 0, addAssistantProvider.stderr);
 
@@ -149,13 +190,27 @@ test("billing bundles enforce a single provider package", async () => {
 
     const addStripe = runCli({
       cwd: appRoot,
-      args: ["add", "bundle", "billing-stripe", "--no-install"]
+      args: [
+        "add",
+        "bundle",
+        "billing-stripe",
+        "--no-install",
+        ...BILLING_SHARED_OPTION_ARGS,
+        ...BILLING_STRIPE_OPTION_ARGS
+      ]
     });
     assert.equal(addStripe.status, 0, addStripe.stderr);
 
     const addPaddle = runCli({
       cwd: appRoot,
-      args: ["add", "bundle", "billing-paddle", "--no-install"]
+      args: [
+        "add",
+        "bundle",
+        "billing-paddle",
+        "--no-install",
+        ...BILLING_SHARED_OPTION_ARGS,
+        ...BILLING_PADDLE_OPTION_ARGS
+      ]
     });
     assert.notEqual(addPaddle.status, 0);
     assert.match(addPaddle.stderr, /\[capability-violation\]/i);
@@ -171,7 +226,7 @@ test("saas-full fails fast without provider intents", async () => {
   await withTempApp(async (appRoot) => {
     const addSaas = runCli({
       cwd: appRoot,
-      args: ["add", "bundle", "saas-full", "--no-install"]
+      args: ["add", "bundle", "saas-full", "--no-install", ...BILLING_SHARED_OPTION_ARGS]
     });
     assert.notEqual(addSaas.status, 0);
     assert.match(addSaas.stderr, /\[capability-violation\]/);

@@ -27,6 +27,12 @@ const MYSQL_OPTION_ARGS = [
   "--db-password",
   "secret"
 ];
+const SUPABASE_OPTION_ARGS = [
+  "--auth-supabase-url",
+  "https://example.supabase.co",
+  "--auth-supabase-publishable-key",
+  "sb_publishable_example"
+];
 
 function runNodeCli({ cwd, scriptPath, args = [] }) {
   return spawnSync(process.execPath, [scriptPath, ...args], {
@@ -377,6 +383,9 @@ async function runScenarioWebShellDbChat({ browser, rootDir }) {
     const args = ["add", "bundle", bundleId, "--no-install"];
     if (bundleId === "db-mysql") {
       args.push(...MYSQL_OPTION_ARGS);
+    }
+    if (bundleId === "auth-supabase") {
+      args.push(...SUPABASE_OPTION_ARGS);
     }
     const addResult = runJskit({
       appRoot,

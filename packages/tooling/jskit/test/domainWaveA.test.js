@@ -21,6 +21,12 @@ const MYSQL_OPTION_ARGS = [
   "--db-password",
   "secret"
 ];
+const SUPABASE_OPTION_ARGS = [
+  "--auth-supabase-url",
+  "https://example.supabase.co",
+  "--auth-supabase-publishable-key",
+  "sb_publishable_example"
+];
 
 function runCli({ cwd, args = [] }) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
@@ -64,14 +70,20 @@ for (const bundleId of WAVE_A_BUNDLES) {
       if (bundleId === "auth-base") {
         const addAuthProvider = runCli({
           cwd: appRoot,
-          args: ["add", "bundle", "auth-supabase", "--no-install"]
+          args: ["add", "bundle", "auth-supabase", "--no-install", ...SUPABASE_OPTION_ARGS]
         });
         assert.equal(addAuthProvider.status, 0, addAuthProvider.stderr);
       }
 
       const addResult = runCli({
         cwd: appRoot,
-        args: ["add", "bundle", bundleId, "--no-install"]
+        args: [
+          "add",
+          "bundle",
+          bundleId,
+          "--no-install",
+          ...(bundleId === "auth-supabase" ? SUPABASE_OPTION_ARGS : [])
+        ]
       });
       assert.equal(addResult.status, 0, addResult.stderr);
 
@@ -94,7 +106,7 @@ test("combined auth + observability + db install passes doctor", async () => {
 
     const addAuthProvider = runCli({
       cwd: appRoot,
-      args: ["add", "bundle", "auth-supabase", "--no-install"]
+      args: ["add", "bundle", "auth-supabase", "--no-install", ...SUPABASE_OPTION_ARGS]
     });
     assert.equal(addAuthProvider.status, 0, addAuthProvider.stderr);
 

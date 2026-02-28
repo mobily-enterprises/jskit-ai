@@ -20,6 +20,33 @@ const MYSQL_OPTION_ARGS = [
   "--db-password",
   "secret"
 ];
+const SUPABASE_OPTION_ARGS = [
+  "--auth-supabase-url",
+  "https://example.supabase.co",
+  "--auth-supabase-publishable-key",
+  "sb_publishable_example"
+];
+const OPENAI_OPTION_ARGS = ["--ai-api-key", "sk-test-openai"];
+const BILLING_SHARED_OPTION_ARGS = [
+  "--billing-operation-key-secret",
+  "billing-op-secret",
+  "--billing-provider-idempotency-key-secret",
+  "billing-idempotency-secret"
+];
+const BILLING_STRIPE_OPTION_ARGS = [
+  "--billing-stripe-secret-key",
+  "sk_test_stripe",
+  "--billing-stripe-api-version",
+  "2024-06-20",
+  "--billing-stripe-webhook-endpoint-secret",
+  "whsec_test"
+];
+const BILLING_PADDLE_OPTION_ARGS = [
+  "--billing-paddle-api-key",
+  "paddle_test_key",
+  "--billing-paddle-webhook-endpoint-secret",
+  "paddle_whsec_test"
+];
 
 const REQUIRES_DB = new Set([
   "security-audit",
@@ -142,7 +169,7 @@ test("every bundle add succeeds with prerequisites and passes doctor", async () 
       if (REQUIRES_AUTH_PROVIDER.has(bundle.bundleId) && bundle.bundleId !== "auth-supabase") {
         const addAuthProvider = runCli({
           cwd: appRoot,
-          args: ["add", "bundle", "auth-supabase", "--no-install"]
+          args: ["add", "bundle", "auth-supabase", "--no-install", ...SUPABASE_OPTION_ARGS]
         });
         assert.equal(addAuthProvider.status, 0, addAuthProvider.stderr);
       }
@@ -158,7 +185,7 @@ test("every bundle add succeeds with prerequisites and passes doctor", async () 
       if (BUNDLES_REQUIRING_ASSISTANT_PROVIDER.has(bundle.bundleId) && bundle.bundleId !== "assistant-openai") {
         const addAssistantProvider = runCli({
           cwd: appRoot,
-          args: ["add", "bundle", "assistant-openai", "--no-install"]
+          args: ["add", "bundle", "assistant-openai", "--no-install", ...OPENAI_OPTION_ARGS]
         });
         assert.equal(addAssistantProvider.status, 0, addAssistantProvider.stderr);
       }
@@ -166,7 +193,14 @@ test("every bundle add succeeds with prerequisites and passes doctor", async () 
       if (BUNDLES_REQUIRING_BILLING_PROVIDER.has(bundle.bundleId)) {
         const addBillingProvider = runCli({
           cwd: appRoot,
-          args: ["add", "bundle", "billing-stripe", "--no-install"]
+          args: [
+            "add",
+            "bundle",
+            "billing-stripe",
+            "--no-install",
+            ...BILLING_SHARED_OPTION_ARGS,
+            ...BILLING_STRIPE_OPTION_ARGS
+          ]
         });
         assert.equal(addBillingProvider.status, 0, addBillingProvider.stderr);
       }
@@ -174,6 +208,21 @@ test("every bundle add succeeds with prerequisites and passes doctor", async () 
       const addArgs = ["add", "bundle", bundle.bundleId, "--no-install"];
       if (bundle.bundleId === "db-mysql") {
         addArgs.push(...MYSQL_OPTION_ARGS);
+      }
+      if (bundle.bundleId === "auth-supabase") {
+        addArgs.push(...SUPABASE_OPTION_ARGS);
+      }
+      if (bundle.bundleId === "assistant-openai") {
+        addArgs.push(...OPENAI_OPTION_ARGS);
+      }
+      if (bundle.bundleId === "billing-stripe") {
+        addArgs.push(...BILLING_SHARED_OPTION_ARGS, ...BILLING_STRIPE_OPTION_ARGS);
+      }
+      if (bundle.bundleId === "billing-paddle") {
+        addArgs.push(...BILLING_SHARED_OPTION_ARGS, ...BILLING_PADDLE_OPTION_ARGS);
+      }
+      if (bundle.bundleId === "billing-base" || bundle.bundleId === "billing-worker") {
+        addArgs.push(...BILLING_SHARED_OPTION_ARGS);
       }
       const addResult = runCli({
         cwd: appRoot,
