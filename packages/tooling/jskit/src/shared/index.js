@@ -66,25 +66,43 @@ async function promptForRequiredOption({
   stdin = process.stdin,
   stdout = process.stdout
 }) {
+  const allowedValues = Array.isArray(optionSchema?.values) ? optionSchema.values : [];
+  const defaultValue = String(optionSchema?.defaultValue || "").trim();
+  const promptLabel = String(optionSchema?.promptLabel || "").trim();
+  const promptHint = String(optionSchema?.promptHint || "").trim();
+  const required = Boolean(optionSchema?.required);
+
   if (!stdin?.isTTY || !stdout?.isTTY) {
-    const valuesSuffix = optionSchema.values.length > 0 ? ` (${optionSchema.values.join(" | ")})` : "";
-    throw createCliError(
-      `${ownerType} ${ownerId} requires option ${optionName}. Non-interactive mode requires --${optionName} <value>${valuesSuffix}.`
-    );
+    if (defaultValue) {
+      return defaultValue;
+    }
+    if (required) {
+      const valuesSuffix = allowedValues.length > 0 ? ` (${allowedValues.join(" | ")})` : "";
+      throw createCliError(
+        `${ownerType} ${ownerId} requires option ${optionName}. Non-interactive mode requires --${optionName} <value>${valuesSuffix}.`
+      );
+    }
+    return "";
   }
 
-  const valuesHint = optionSchema.values.length > 0 ? ` (${optionSchema.values.join(" / ")})` : "";
+  const label = promptLabel || `Select ${optionName} for ${ownerType} ${ownerId}`;
+  const valuesHint = allowedValues.length > 0 ? ` (${allowedValues.join(" / ")})` : "";
+  const defaultHint = defaultValue ? ` [default: ${defaultValue}]` : "";
+  const hintSuffix = promptHint ? ` ${promptHint}` : "";
   const rl = createInterface({
     input: stdin,
     output: stdout
   });
 
   try {
-    const answer = String(await rl.question(`Select ${optionName} for ${ownerType} ${ownerId}${valuesHint}: `)).trim();
-    if (!answer) {
+    const answer = String(await rl.question(`${label}${valuesHint}${defaultHint}${hintSuffix}: `)).trim();
+    if (!answer && defaultValue) {
+      return defaultValue;
+    }
+    if (!answer && required) {
       throw createCliError(`${ownerType} ${ownerId} requires option ${optionName}.`);
     }
-    return answer;
+    return answer || "";
   } finally {
     rl.close();
   }
@@ -845,6 +863,241 @@ function resolveFileMutationEntries({ packageDescriptor, selectedOptions, packag
   });
 }
 
+function interpolateStructuredValue(value, interpolationContext) {
+  if (typeof value === "string") {
+    return interpolateOptionValue(value, interpolationContext);
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => interpolateStructuredValue(entry, interpolationContext));
+  }
+  if (value && typeof value === "object") {
+    const next = {};
+    for (const [key, child] of Object.entries(value)) {
+      next[key] = interpolateStructuredValue(child, interpolationContext);
+    }
+    return next;
+  }
+  return value;
+}
+
+function toShellEntryTargetPath({ surface, slot, id, to }) {
+  const explicit = normalizeRelativePath(String(to || "").trim() || `src/surfaces/${surface}/${slot}.d/${id}.entry.js`);
+  return explicit;
+}
+
+function buildShellEntryModuleSource(entry) {
+  const serializable = {
+    id: entry.id,
+    title: entry.title,
+    route: entry.route,
+    order: Number.isFinite(Number(entry.order)) ? Number(entry.order) : 100
+  };
+  if (entry.icon) {
+    serializable.icon = entry.icon;
+  }
+  if (entry.group) {
+    serializable.group = entry.group;
+  }
+  if (entry.description) {
+    serializable.description = entry.description;
+  }
+  if (entry.guard && typeof entry.guard === "object" && !Array.isArray(entry.guard)) {
+    serializable.guard = entry.guard;
+  }
+  return `export default Object.freeze(${JSON.stringify(serializable, null, 2)});\n`;
+}
+
+function resolveUiElementContributions({ packageDescriptor, selectedOptions, packageId }) {
+  const uiElements = Array.isArray(packageDescriptor?.metadata?.ui?.elements)
+    ? packageDescriptor.metadata.ui.elements
+    : [];
+  const resolvedElements = [];
+  const fileMutations = [];
+  const textMutations = [];
+  const clientRoutes = [];
+
+  for (const uiElement of uiElements) {
+    const elementId = String(uiElement.id || "").trim();
+    const interpolationContext = {
+      selectedOptions,
+      packageId,
+      label: `metadata.ui.elements[${elementId || "element"}]`
+    };
+    const availabilityImport = uiElement?.availability?.import && typeof uiElement.availability.import === "object"
+      ? {
+          module: String(uiElement.availability.import.module || "").trim(),
+          symbols: toSortedUniqueStrings(Array.isArray(uiElement.availability.import.symbols) ? uiElement.availability.import.symbols : [])
+        }
+      : null;
+
+    const resolvedClientRoutes = [];
+    for (const routeEntry of uiElement?.contributions?.clientRoutes || []) {
+      const resolvedRoute = {
+        path: interpolateOptionValue(routeEntry.path, { ...interpolationContext, label: `${interpolationContext.label}.clientRoutes.path` }),
+        surface: interpolateOptionValue(routeEntry.surface, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.clientRoutes.surface`
+        }).trim(),
+        name: interpolateOptionValue(routeEntry.name, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.clientRoutes.name`
+        }).trim(),
+        purpose: interpolateOptionValue(routeEntry.purpose, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.clientRoutes.purpose`
+        }).trim()
+      };
+      resolvedClientRoutes.push(resolvedRoute);
+      clientRoutes.push(resolvedRoute);
+    }
+
+    const resolvedShellEntries = [];
+    for (const shellEntry of uiElement?.contributions?.shellEntries || []) {
+      const resolvedShellEntry = {
+        surface: interpolateOptionValue(shellEntry.surface, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.shellEntries.surface`
+        })
+          .trim()
+          .toLowerCase(),
+        slot: interpolateOptionValue(shellEntry.slot, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.shellEntries.slot`
+        })
+          .trim()
+          .toLowerCase(),
+        id: interpolateOptionValue(shellEntry.id, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.shellEntries.id`
+        }).trim(),
+        title: interpolateOptionValue(shellEntry.title, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.shellEntries.title`
+        }).trim(),
+        route: interpolateOptionValue(shellEntry.route, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.shellEntries.route`
+        }).trim(),
+        icon: interpolateOptionValue(shellEntry.icon, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.shellEntries.icon`
+        }).trim(),
+        group: interpolateOptionValue(shellEntry.group, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.shellEntries.group`
+        }).trim(),
+        description: interpolateOptionValue(shellEntry.description, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.shellEntries.description`
+        }).trim(),
+        order: Number.isFinite(Number(shellEntry.order)) ? Number(shellEntry.order) : 100,
+        to: interpolateOptionValue(shellEntry.to || "", {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.shellEntries.to`
+        }).trim(),
+        guard: interpolateStructuredValue(shellEntry.guard, interpolationContext)
+      };
+      resolvedShellEntries.push(resolvedShellEntry);
+
+      fileMutations.push({
+        from: "",
+        to: toShellEntryTargetPath(resolvedShellEntry),
+        reason: `Materialize shell entry ${resolvedShellEntry.id} from ${packageId} element ${elementId}.`,
+        category: "ui-shell",
+        id: `${elementId || "element"}.shell-entry.${resolvedShellEntry.id}`,
+        content: buildShellEntryModuleSource(resolvedShellEntry)
+      });
+    }
+
+    const resolvedFileMutations = [];
+    for (const fileEntry of uiElement?.contributions?.files || []) {
+      const resolvedFileEntry = {
+        from: interpolateOptionValue(fileEntry.from, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.files.from`
+        }),
+        to: interpolateOptionValue(fileEntry.to, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.files.to`
+        }),
+        reason: interpolateOptionValue(fileEntry.reason, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.files.reason`
+        }).trim(),
+        category: interpolateOptionValue(fileEntry.category, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.files.category`
+        }).trim(),
+        id: interpolateOptionValue(fileEntry.id, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.files.id`
+        }).trim()
+      };
+      resolvedFileMutations.push(resolvedFileEntry);
+      fileMutations.push(resolvedFileEntry);
+    }
+
+    const resolvedTextMutations = [];
+    for (const textEntry of uiElement?.contributions?.text || []) {
+      const resolvedTextEntry = {
+        file: interpolateOptionValue(textEntry.file, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.text.file`
+        }),
+        op: String(textEntry.op || "").trim(),
+        key: interpolateOptionValue(textEntry.key, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.text.key`
+        }).trim(),
+        line: interpolateOptionValue(textEntry.line, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.text.line`
+        }).trim(),
+        value: interpolateOptionValue(textEntry.value, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.text.value`
+        }).trim(),
+        reason: interpolateOptionValue(textEntry.reason, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.text.reason`
+        }).trim(),
+        category: interpolateOptionValue(textEntry.category, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.text.category`
+        }).trim(),
+        id: interpolateOptionValue(textEntry.id, {
+          ...interpolationContext,
+          label: `${interpolationContext.label}.text.id`
+        }).trim()
+      };
+      resolvedTextMutations.push(resolvedTextEntry);
+      textMutations.push(resolvedTextEntry);
+    }
+
+    resolvedElements.push({
+      packageId,
+      elementId,
+      name: String(uiElement.name || "").trim(),
+      capability: String(uiElement.capability || "").trim(),
+      purpose: String(uiElement.purpose || "").trim(),
+      surface: String(uiElement.surface || "").trim(),
+      availabilityImport,
+      pathOptions: Array.isArray(uiElement.pathOptions) ? uiElement.pathOptions : [],
+      clientRoutes: resolvedClientRoutes,
+      shellEntries: resolvedShellEntries,
+      files: resolvedFileMutations,
+      text: resolvedTextMutations
+    });
+  }
+
+  return {
+    elements: resolvedElements,
+    fileMutations,
+    textMutations,
+    clientRoutes
+  };
+}
+
 function buildPackageJsonMutationPlan({ packageJson, packageDescriptor, lock, packageId, availablePackages }) {
   const clonedPackageJson = JSON.parse(JSON.stringify(packageJson));
   if (!clonedPackageJson.dependencies || typeof clonedPackageJson.dependencies !== "object") {
@@ -1159,9 +1412,9 @@ async function buildFileMutationPlan({ appRoot, fileMutations, packageRoot, lock
   for (const fileEntry of fileMutations) {
     const relativeTargetPath = normalizeRelativePath(fileEntry.to);
     const targetPath = path.join(appRoot, relativeTargetPath);
-    const sourcePath = path.join(packageRoot, normalizeRelativePath(fileEntry.from));
-
-    const sourceContent = await readFile(sourcePath, "utf8");
+    const inlineContent = typeof fileEntry.content === "string" ? fileEntry.content : null;
+    const sourcePath = inlineContent === null ? path.join(packageRoot, normalizeRelativePath(fileEntry.from)) : "";
+    const sourceContent = inlineContent === null ? await readFile(sourcePath, "utf8") : inlineContent;
     const sourceHash = hashString(sourceContent);
 
     const exists = await fileExists(targetPath);
@@ -1200,6 +1453,7 @@ async function buildFileMutationPlan({ appRoot, fileMutations, packageRoot, lock
       targetPath,
       relativeTargetPath,
       sourceHash,
+      inlineContent,
       shouldWrite,
       created: createdByPackage,
       reason: String(fileEntry.reason || "").trim(),
@@ -1219,7 +1473,11 @@ async function applyFileMutationPlan({ operations, dryRun, transaction }) {
 
   for (const operation of operations) {
     if (operation.shouldWrite && !dryRun) {
-      await copyFileWithTransaction(transaction, operation.sourcePath, operation.targetPath);
+      if (typeof operation.inlineContent === "string") {
+        await writeTextFileWithTransaction(transaction, operation.targetPath, operation.inlineContent);
+      } else {
+        await copyFileWithTransaction(transaction, operation.sourcePath, operation.targetPath);
+      }
     }
 
     managedFiles.push({
@@ -1613,6 +1871,36 @@ function buildFileContributionDetails(packageIds, availablePackages) {
         id: String(fileEntry.id || "").trim()
       });
     }
+
+    for (const uiElement of packageEntry.descriptor.metadata?.ui?.elements || []) {
+      for (const fileEntry of uiElement?.contributions?.files || []) {
+        contributions.push({
+          packageId,
+          from: fileEntry.from,
+          to: fileEntry.to,
+          reason: String(fileEntry.reason || "").trim(),
+          category: String(fileEntry.category || "").trim() || "ui-element",
+          id: String(fileEntry.id || "").trim(),
+          elementId: String(uiElement.id || "").trim()
+        });
+      }
+      for (const shellEntry of uiElement?.contributions?.shellEntries || []) {
+        contributions.push({
+          packageId,
+          from: "<generated-shell-entry>",
+          to: toShellEntryTargetPath({
+            surface: String(shellEntry.surface || "").trim(),
+            slot: String(shellEntry.slot || "").trim(),
+            id: String(shellEntry.id || "").trim(),
+            to: String(shellEntry.to || "").trim()
+          }),
+          reason: `Materialize shell entry ${String(shellEntry.id || "").trim()} for ${String(uiElement.id || "").trim()}.`,
+          category: "ui-shell",
+          id: `${String(uiElement.id || "").trim()}.shell-entry.${String(shellEntry.id || "").trim()}`,
+          elementId: String(uiElement.id || "").trim()
+        });
+      }
+    }
   }
 
   return contributions.sort((left, right) => {
@@ -1643,6 +1931,23 @@ function buildTextMutationDetails(packageIds, availablePackages) {
         category: String(mutation.category || "").trim(),
         id: String(mutation.id || "").trim()
       });
+    }
+
+    for (const uiElement of packageEntry.descriptor.metadata?.ui?.elements || []) {
+      for (const mutation of uiElement?.contributions?.text || []) {
+        mutations.push({
+          packageId,
+          file: String(mutation.file || "").trim(),
+          op: String(mutation.op || "").trim(),
+          key: String(mutation.key || "").trim(),
+          line: String(mutation.line || "").trim(),
+          value: String(mutation.value || "").trim(),
+          reason: String(mutation.reason || "").trim(),
+          category: String(mutation.category || "").trim() || "ui-element",
+          id: String(mutation.id || "").trim(),
+          elementId: String(uiElement.id || "").trim()
+        });
+      }
     }
   }
 
@@ -1718,10 +2023,18 @@ function buildUiElementDetails(packageIds, availablePackages) {
     for (const uiElement of packageEntry.descriptor.metadata?.ui?.elements || []) {
       elements.push({
         packageId,
+        id: String(uiElement.id || "").trim(),
         capability: String(uiElement.capability || "").trim(),
         name: String(uiElement.name || "").trim(),
         purpose: String(uiElement.purpose || "").trim() || "UI element contribution.",
-        surface: String(uiElement.surface || "").trim()
+        surface: String(uiElement.surface || "").trim(),
+        availabilityImport:
+          uiElement?.availability?.import && typeof uiElement.availability.import === "object"
+            ? {
+                module: String(uiElement.availability.import.module || "").trim(),
+                symbols: toSortedUniqueStrings(Array.isArray(uiElement.availability.import.symbols) ? uiElement.availability.import.symbols : [])
+              }
+            : null
       });
     }
   }
@@ -1751,6 +2064,18 @@ function buildUiRouteDetails(packageIds, availablePackages) {
         purpose: String(route.purpose || "").trim()
       });
     }
+    for (const uiElement of packageEntry.descriptor.metadata?.ui?.elements || []) {
+      for (const route of uiElement?.contributions?.clientRoutes || []) {
+        routes.push({
+          packageId,
+          path: String(route.path || "").trim(),
+          name: String(route.name || "").trim(),
+          surface: String(route.surface || "").trim(),
+          purpose: String(route.purpose || "").trim(),
+          elementId: String(uiElement.id || "").trim()
+        });
+      }
+    }
   }
 
   return routes.sort((left, right) => {
@@ -1759,6 +2084,128 @@ function buildUiRouteDetails(packageIds, availablePackages) {
       return pathDiff;
     }
     return String(left.packageId || "").localeCompare(String(right.packageId || ""));
+  });
+}
+
+function buildShellEntryContributionDetails(packageIds, availablePackages) {
+  const entries = [];
+  for (const packageId of toSortedUniqueStrings(Array.isArray(packageIds) ? packageIds : [])) {
+    const packageEntry = availablePackages.get(packageId);
+    if (!packageEntry) {
+      continue;
+    }
+    for (const uiElement of packageEntry.descriptor.metadata?.ui?.elements || []) {
+      for (const shellEntry of uiElement?.contributions?.shellEntries || []) {
+        entries.push({
+          packageId,
+          elementId: String(uiElement.id || "").trim(),
+          surface: String(shellEntry.surface || "").trim(),
+          slot: String(shellEntry.slot || "").trim(),
+          id: String(shellEntry.id || "").trim(),
+          title: String(shellEntry.title || "").trim(),
+          route: String(shellEntry.route || "").trim(),
+          icon: String(shellEntry.icon || "").trim(),
+          group: String(shellEntry.group || "").trim(),
+          description: String(shellEntry.description || "").trim(),
+          order: Number.isFinite(Number(shellEntry.order)) ? Number(shellEntry.order) : 100
+        });
+      }
+    }
+  }
+
+  return entries.sort((left, right) => {
+    const surfaceDiff = String(left.surface || "").localeCompare(String(right.surface || ""));
+    if (surfaceDiff !== 0) {
+      return surfaceDiff;
+    }
+    const slotDiff = String(left.slot || "").localeCompare(String(right.slot || ""));
+    if (slotDiff !== 0) {
+      return slotDiff;
+    }
+    const orderDiff = Number(left.order || 0) - Number(right.order || 0);
+    if (orderDiff !== 0) {
+      return orderDiff;
+    }
+    return String(left.id || "").localeCompare(String(right.id || ""));
+  });
+}
+
+function buildElementContributionDetails(packageIds, availablePackages) {
+  const elements = [];
+  for (const packageId of toSortedUniqueStrings(Array.isArray(packageIds) ? packageIds : [])) {
+    const packageEntry = availablePackages.get(packageId);
+    if (!packageEntry) {
+      continue;
+    }
+    for (const uiElement of packageEntry.descriptor.metadata?.ui?.elements || []) {
+      elements.push({
+        packageId,
+        id: String(uiElement.id || "").trim(),
+        name: String(uiElement.name || "").trim(),
+        capability: String(uiElement.capability || "").trim(),
+        purpose: String(uiElement.purpose || "").trim(),
+        surface: String(uiElement.surface || "").trim(),
+        availabilityImport:
+          uiElement?.availability?.import && typeof uiElement.availability.import === "object"
+            ? {
+                module: String(uiElement.availability.import.module || "").trim(),
+                symbols: toSortedUniqueStrings(Array.isArray(uiElement.availability.import.symbols) ? uiElement.availability.import.symbols : [])
+              }
+            : null,
+        pathOptions: (Array.isArray(uiElement.pathOptions) ? uiElement.pathOptions : []).map((pathOption) => ({
+          option: String(pathOption.option || "").trim(),
+          required: Boolean(pathOption.required),
+          defaultValue: String(pathOption.defaultValue || "").trim(),
+          promptLabel: String(pathOption.promptLabel || "").trim(),
+          promptHint: String(pathOption.promptHint || "").trim(),
+          values: toSortedUniqueStrings(Array.isArray(pathOption.values) ? pathOption.values : [])
+        })),
+        contributions: {
+          clientRoutes: (uiElement?.contributions?.clientRoutes || []).map((entry) => ({
+            path: String(entry.path || "").trim(),
+            surface: String(entry.surface || "").trim(),
+            name: String(entry.name || "").trim(),
+            purpose: String(entry.purpose || "").trim()
+          })),
+          shellEntries: (uiElement?.contributions?.shellEntries || []).map((entry) => ({
+            surface: String(entry.surface || "").trim(),
+            slot: String(entry.slot || "").trim(),
+            id: String(entry.id || "").trim(),
+            title: String(entry.title || "").trim(),
+            route: String(entry.route || "").trim(),
+            icon: String(entry.icon || "").trim(),
+            group: String(entry.group || "").trim(),
+            description: String(entry.description || "").trim(),
+            order: Number.isFinite(Number(entry.order)) ? Number(entry.order) : 100
+          })),
+          files: (uiElement?.contributions?.files || []).map((entry) => ({
+            from: String(entry.from || "").trim(),
+            to: String(entry.to || "").trim(),
+            reason: String(entry.reason || "").trim(),
+            category: String(entry.category || "").trim(),
+            id: String(entry.id || "").trim()
+          })),
+          text: (uiElement?.contributions?.text || []).map((entry) => ({
+            file: String(entry.file || "").trim(),
+            op: String(entry.op || "").trim(),
+            key: String(entry.key || "").trim(),
+            line: String(entry.line || "").trim(),
+            value: String(entry.value || "").trim(),
+            reason: String(entry.reason || "").trim(),
+            category: String(entry.category || "").trim(),
+            id: String(entry.id || "").trim()
+          }))
+        }
+      });
+    }
+  }
+
+  return elements.sort((left, right) => {
+    const packageDiff = String(left.packageId || "").localeCompare(String(right.packageId || ""));
+    if (packageDiff !== 0) {
+      return packageDiff;
+    }
+    return String(left.id || "").localeCompare(String(right.id || ""));
   });
 }
 
@@ -1839,6 +2286,8 @@ async function buildShowPackageBundleResult({
   const textMutations = buildTextMutationDetails(selectedPackageIds, availablePackages);
   const packageJsonMutations = buildPackageJsonMutationDetails(selectedPackageIds, availablePackages);
   const uiElements = buildUiElementDetails(selectedPackageIds, availablePackages);
+  const shellEntries = buildShellEntryContributionDetails(selectedPackageIds, availablePackages);
+  const elementContributions = buildElementContributionDetails(selectedPackageIds, availablePackages);
 
   return {
     command: "show-package",
@@ -1868,7 +2317,9 @@ async function buildShowPackageBundleResult({
     fileContributions,
     textMutations,
     packageJsonMutations,
-    uiElements
+    uiElements,
+    shellEntries,
+    elementContributions
   };
 }
 
@@ -1888,6 +2339,8 @@ async function buildShowPackagePackageResult({
   const textMutations = buildTextMutationDetails(selectedPackageIds, availablePackages);
   const packageJsonMutations = buildPackageJsonMutationDetails(selectedPackageIds, availablePackages);
   const uiElements = buildUiElementDetails(selectedPackageIds, availablePackages);
+  const shellEntries = buildShellEntryContributionDetails(selectedPackageIds, availablePackages);
+  const elementContributions = buildElementContributionDetails(selectedPackageIds, availablePackages);
 
   return {
     command: "show-package",
@@ -1897,7 +2350,7 @@ async function buildShowPackagePackageResult({
     version: packageEntry.descriptor.version,
     description: packageEntry.descriptor.description,
     installed: installedPackageIds.has(rootPackageId),
-    options: packageEntry.descriptor.options,
+    options: buildPackageOptionSchema(packageEntry.descriptor),
     dependsOn: packageEntry.descriptor.dependsOn,
     declaredPackageIds: [rootPackageId],
     expandedPackageIds,
@@ -1923,7 +2376,9 @@ async function buildShowPackagePackageResult({
     fileContributions,
     textMutations,
     packageJsonMutations,
-    uiElements
+    uiElements,
+    shellEntries,
+    elementContributions
   };
 }
 
@@ -2014,6 +2469,67 @@ function splitBundleEntriesByProviderRole(bundleEntries, providerChoiceContext) 
   };
 }
 
+function normalizeOptionSchemaRecord(schema) {
+  return {
+    required: Boolean(schema?.required),
+    values: toSortedUniqueStrings(Array.isArray(schema?.values) ? schema.values : []),
+    defaultValue: String(schema?.defaultValue || "").trim(),
+    promptLabel: String(schema?.promptLabel || "").trim(),
+    promptHint: String(schema?.promptHint || "").trim(),
+    prompt: Boolean(schema?.prompt)
+  };
+}
+
+function optionSchemasEqual(left, right) {
+  const normalizedLeft = normalizeOptionSchemaRecord(left);
+  const normalizedRight = normalizeOptionSchemaRecord(right);
+  return (
+    normalizedLeft.required === normalizedRight.required &&
+    normalizedLeft.defaultValue === normalizedRight.defaultValue &&
+    normalizedLeft.promptLabel === normalizedRight.promptLabel &&
+    normalizedLeft.promptHint === normalizedRight.promptHint &&
+    normalizedLeft.prompt === normalizedRight.prompt &&
+    normalizedLeft.values.length === normalizedRight.values.length &&
+    normalizedLeft.values.every((value, index) => value === normalizedRight.values[index])
+  );
+}
+
+function buildPackageOptionSchema(packageDescriptor) {
+  const merged = {};
+  const descriptorOptions = ensurePlainObjectRecord(packageDescriptor?.options);
+  for (const [optionName, optionSchema] of Object.entries(descriptorOptions)) {
+    merged[optionName] = normalizeOptionSchemaRecord(optionSchema);
+  }
+
+  const uiElements = Array.isArray(packageDescriptor?.metadata?.ui?.elements)
+    ? packageDescriptor.metadata.ui.elements
+    : [];
+
+  for (const element of uiElements) {
+    for (const pathOption of Array.isArray(element?.pathOptions) ? element.pathOptions : []) {
+      const optionName = String(pathOption?.option || "").trim();
+      if (!optionName) {
+        continue;
+      }
+      const optionSchema = normalizeOptionSchemaRecord({
+        ...pathOption,
+        prompt: pathOption?.prompt === undefined ? true : Boolean(pathOption.prompt)
+      });
+      if (!Object.prototype.hasOwnProperty.call(merged, optionName)) {
+        merged[optionName] = optionSchema;
+        continue;
+      }
+      if (!optionSchemasEqual(merged[optionName], optionSchema)) {
+        throw createCliError(
+          `Package ${packageDescriptor.packageId} has conflicting schemas for option ${optionName} between options and ui.pathOptions.`
+        );
+      }
+    }
+  }
+
+  return merged;
+}
+
 function buildOptionOwnerIndex(packageIds, availablePackages) {
   const owners = new Map();
   for (const packageId of packageIds) {
@@ -2022,7 +2538,7 @@ function buildOptionOwnerIndex(packageIds, availablePackages) {
       continue;
     }
 
-    for (const optionName of Object.keys(ensurePlainObjectRecord(packageEntry.descriptor.options))) {
+    for (const optionName of Object.keys(buildPackageOptionSchema(packageEntry.descriptor))) {
       if (!owners.has(optionName)) {
         owners.set(optionName, []);
       }
@@ -2070,7 +2586,7 @@ async function resolvePackageOptions({
   stdin,
   stdout
 }) {
-  const optionsSchema = ensurePlainObjectRecord(packageDescriptor.options);
+  const optionsSchema = buildPackageOptionSchema(packageDescriptor);
   const selectedOptions = {};
 
   for (const [optionName] of Object.entries(optionsSchema)) {
@@ -2088,7 +2604,28 @@ async function resolvePackageOptions({
   }
 
   for (const [optionName, schema] of Object.entries(optionsSchema)) {
+    const fromInstalled = String(installedPackageState?.options?.[optionName] || "").trim();
+    const fromProvided = String(ensurePlainObjectRecord(providedOptions)[optionName] || "").trim();
     let value = String(selectedOptions[optionName] || "").trim();
+    const shouldPromptForUnset =
+      !value &&
+      Boolean(schema.prompt) &&
+      !fromInstalled &&
+      !fromProvided;
+
+    if (shouldPromptForUnset) {
+      value = await promptForRequiredOption({
+        ownerType: "package",
+        ownerId: packageDescriptor.packageId,
+        optionName,
+        optionSchema: schema,
+        stdin,
+        stdout
+      });
+    }
+    if (!value && schema.defaultValue) {
+      value = String(schema.defaultValue || "").trim();
+    }
     if (!value && schema.required) {
       value = await promptForRequiredOption({
         ownerType: "package",
@@ -2250,9 +2787,15 @@ async function applyPackage({
     selectedOptions,
     packageId
   });
+  const uiContributions = resolveUiElementContributions({
+    packageDescriptor: packageEntry.descriptor,
+    selectedOptions,
+    packageId
+  });
+  const allTextMutations = [...textMutations, ...uiContributions.textMutations];
   const textPlan = await buildTextMutationPlan({
     appRoot,
-    textMutations,
+    textMutations: allTextMutations,
     lock,
     packageId
   });
@@ -2261,10 +2804,11 @@ async function applyPackage({
     selectedOptions,
     packageId
   });
+  const allFileMutations = [...fileMutations, ...uiContributions.fileMutations];
 
   const filesPlan = await buildFileMutationPlan({
     appRoot,
-    fileMutations,
+    fileMutations: allFileMutations,
     packageRoot: packageEntry.packageRoot,
     lock,
     packageId,
@@ -2769,7 +3313,7 @@ function formatResult(result, { json, stdout }) {
               Array.isArray(packageEntry.providerRequirementHints) && packageEntry.providerRequirementHints.length > 0
                 ? ` [${packageEntry.providerRequirementHints.join(", ")}]`
                 : "";
-            const packageId = `${packageEntry.packageId}${packageEntry.provider ? "*" : ""}${providerRequirementSuffix}`;
+            const packageId = `${displayPackageId(packageEntry.packageId)}${packageEntry.provider ? "*" : ""}${providerRequirementSuffix}`;
             const description = String(packageEntry.description || "").trim();
             if (description.length > 0) {
               stdout.write(`  - ${packageId}: ${gray(description)}\n`);
@@ -2792,7 +3336,7 @@ function formatResult(result, { json, stdout }) {
               Array.isArray(packageEntry.providerRequirementHints) && packageEntry.providerRequirementHints.length > 0
                 ? ` [${packageEntry.providerRequirementHints.join(", ")}]`
                 : "";
-            const packageId = `${packageEntry.packageId}${packageEntry.provider ? "*" : ""}${providerRequirementSuffix}`;
+            const packageId = `${displayPackageId(packageEntry.packageId)}${packageEntry.provider ? "*" : ""}${providerRequirementSuffix}`;
             const description = String(packageEntry.description || "").trim();
             if (description.length > 0) {
               stdout.write(`  - ${packageId}: ${gray(description)}\n`);
@@ -2845,7 +3389,11 @@ function formatResult(result, { json, stdout }) {
           const option = result.options[optionName] || {};
           const requiredSuffix = option.required ? ` ${red("(required)")}` : "";
           const values = Array.isArray(option.values) && option.values.length > 0 ? `: ${option.values.join(" | ")}` : "";
-          stdout.write(`- ${yellow(optionName)}${requiredSuffix}${gray(values)}\n`);
+          const defaultSuffix = String(option.defaultValue || "").trim()
+            ? ` ${gray(`default=${String(option.defaultValue || "").trim()}`)}`
+            : "";
+          const promptSuffix = option.prompt ? ` ${gray("(prompt)")}` : "";
+          stdout.write(`- ${yellow(optionName)}${requiredSuffix}${gray(values)}${defaultSuffix}${promptSuffix}\n`);
         }
       }
     }
@@ -2932,6 +3480,110 @@ function formatResult(result, { json, stdout }) {
           continue;
         }
         stdout.write(`- ${brightWhite(route.path)}${nameSuffix}${surfaceSuffix} ${gray(`(${displayPackageId(route.packageId)})`)}\n`);
+      }
+    }
+
+    if (Array.isArray(result.shellEntries) && result.shellEntries.length > 0) {
+      stdout.write(`${bold(blue(`Shell entries (${result.shellEntries.length})`))}:\n`);
+      for (const shellEntry of result.shellEntries) {
+        const surfaceSlot = `${shellEntry.surface || "unknown"}/${shellEntry.slot || "unknown"}`;
+        const iconSuffix = String(shellEntry.icon || "").trim() ? ` ${magenta(`[${shellEntry.icon}]`)}` : "";
+        const groupSuffix = String(shellEntry.group || "").trim() ? ` ${yellow(`(${shellEntry.group})`)}` : "";
+        const elementSuffix = String(shellEntry.elementId || "").trim() ? ` ${gray(`#${shellEntry.elementId}`)}` : "";
+        const description = String(shellEntry.description || "").trim();
+        if (description) {
+          stdout.write(
+            `- ${brightWhite(`${surfaceSlot}:${shellEntry.id}`)} ${gray("->")} ${brightWhite(shellEntry.route)}${iconSuffix}${groupSuffix}${elementSuffix} ${gray(`(${displayPackageId(shellEntry.packageId)})`)}: ${gray(description)}\n`
+          );
+          continue;
+        }
+        stdout.write(
+          `- ${brightWhite(`${surfaceSlot}:${shellEntry.id}`)} ${gray("->")} ${brightWhite(shellEntry.route)}${iconSuffix}${groupSuffix}${elementSuffix} ${gray(`(${displayPackageId(shellEntry.packageId)})`)}\n`
+        );
+      }
+    }
+
+    if (Array.isArray(result.elementContributions) && result.elementContributions.length > 0) {
+      stdout.write(`${bold(blue(`Element contributions (${result.elementContributions.length})`))}:\n`);
+      for (const element of result.elementContributions) {
+        const capabilitySuffix = String(element.capability || "").trim() ? ` ${magenta(`[${element.capability}]`)}` : "";
+        const surfaceSuffix = String(element.surface || "").trim() ? ` ${yellow(`(${element.surface})`)}` : "";
+        const purpose = String(element.purpose || "").trim();
+        const header = `- ${cyan(element.name || element.id || "element")}${capabilitySuffix}${surfaceSuffix} ${gray(
+          `(${displayPackageId(element.packageId)})`
+        )}`;
+        stdout.write(purpose ? `${header}: ${gray(purpose)}\n` : `${header}\n`);
+
+        if (element.availabilityImport && element.availabilityImport.module) {
+          const symbols = Array.isArray(element.availabilityImport.symbols) ? element.availabilityImport.symbols : [];
+          const symbolLabel = symbols.length > 0 ? symbols.join(", ") : "<module>";
+          stdout.write(
+            `  ${gray("availability")}: ${brightWhite(element.availabilityImport.module)} ${gray(`(${symbolLabel})`)}\n`
+          );
+        }
+
+        if (Array.isArray(element.pathOptions) && element.pathOptions.length > 0) {
+          stdout.write(`  ${gray("path options")}:\n`);
+          for (const option of element.pathOptions) {
+            const requiredSuffix = option.required ? ` ${red("(required)")}` : "";
+            const defaultSuffix = option.defaultValue ? ` ${gray(`default=${option.defaultValue}`)}` : "";
+            const valuesSuffix =
+              Array.isArray(option.values) && option.values.length > 0 ? ` ${gray(`values=${option.values.join("|")}`)}` : "";
+            stdout.write(`    - ${yellow(option.option)}${requiredSuffix}${defaultSuffix}${valuesSuffix}\n`);
+          }
+        }
+
+        const contributions = element.contributions || {};
+        if (Array.isArray(contributions.clientRoutes) && contributions.clientRoutes.length > 0) {
+          stdout.write(`  ${gray("client routes")}:\n`);
+          for (const route of contributions.clientRoutes) {
+            const routeName = String(route.name || "").trim() ? ` ${magenta(`[${route.name}]`)}` : "";
+            const routeSurface = String(route.surface || "").trim() ? ` ${yellow(`(${route.surface})`)}` : "";
+            const routePurpose = String(route.purpose || "").trim();
+            if (routePurpose) {
+              stdout.write(`    - ${brightWhite(route.path)}${routeName}${routeSurface}: ${gray(routePurpose)}\n`);
+              continue;
+            }
+            stdout.write(`    - ${brightWhite(route.path)}${routeName}${routeSurface}\n`);
+          }
+        }
+
+        if (Array.isArray(contributions.shellEntries) && contributions.shellEntries.length > 0) {
+          stdout.write(`  ${gray("shell entries")}:\n`);
+          for (const shellEntry of contributions.shellEntries) {
+            const label = `${shellEntry.surface || "unknown"}/${shellEntry.slot || "unknown"}:${shellEntry.id || "entry"}`;
+            const detail = String(shellEntry.title || "").trim() ? ` ${gray(`(${shellEntry.title})`)}` : "";
+            stdout.write(`    - ${brightWhite(label)} ${gray("->")} ${brightWhite(shellEntry.route || "/")}${detail}\n`);
+          }
+        }
+
+        if (Array.isArray(contributions.files) && contributions.files.length > 0) {
+          stdout.write(`  ${gray("files")}:\n`);
+          for (const fileEntry of contributions.files) {
+            const reason = String(fileEntry.reason || "").trim();
+            if (reason) {
+              stdout.write(`    - ${brightWhite(fileEntry.from)} ${gray("->")} ${brightWhite(fileEntry.to)}: ${gray(reason)}\n`);
+              continue;
+            }
+            stdout.write(`    - ${brightWhite(fileEntry.from)} ${gray("->")} ${brightWhite(fileEntry.to)}\n`);
+          }
+        }
+
+        if (Array.isArray(contributions.text) && contributions.text.length > 0) {
+          stdout.write(`  ${gray("text")}:\n`);
+          for (const mutation of contributions.text) {
+            const valueLabel =
+              mutation.op === "upsert-env"
+                ? `${mutation.key}=${mutation.value}`
+                : String(mutation.line || "").trim();
+            const reason = String(mutation.reason || "").trim();
+            if (reason) {
+              stdout.write(`    - ${brightWhite(mutation.file)} ${cyan(mutation.op)}: ${gray(`${valueLabel} | ${reason}`)}\n`);
+              continue;
+            }
+            stdout.write(`    - ${brightWhite(mutation.file)} ${cyan(mutation.op)}: ${gray(valueLabel)}\n`);
+          }
+        }
       }
     }
 

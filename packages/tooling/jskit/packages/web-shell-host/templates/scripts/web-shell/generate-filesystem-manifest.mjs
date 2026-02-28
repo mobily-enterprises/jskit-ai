@@ -189,7 +189,8 @@ async function collectShellEntries() {
     }
 
     const surface = normalizeSurface(segments[0]);
-    const slot = normalizeText(segments[1]).toLowerCase();
+    const rawSlot = normalizeText(segments[1]).toLowerCase();
+    const slot = rawSlot.endsWith(".d") ? rawSlot.slice(0, -2) : rawSlot;
     if (!surface || !KNOWN_SLOTS.has(slot)) {
       continue;
     }

@@ -18,12 +18,70 @@ export default Object.freeze({
       "routes": []
     },
     "ui": {
+      "routes": [],
       "elements": [
         {
+          "id": "users-profile-client",
           "name": "users.profile.client",
           "capability": "users.profile.client",
-          "purpose": "UI element contribution.",
-          "surface": ""
+          "purpose": "Profile settings UI surface.",
+          "surface": "app",
+          "availability": {
+            "import": {
+              "module": "@jskit-ai/profile-client-element",
+              "symbols": [
+                "ProfileClientElement"
+              ]
+            }
+          },
+          "pathOptions": [
+            {
+              "option": "profile-page-path",
+              "defaultValue": "settings/profile",
+              "promptLabel": "Profile page path",
+              "promptHint": "Relative path under src/pages/app"
+            }
+          ],
+          "contributions": {
+            "clientRoutes": [
+              {
+                "path": "/${option:profile-page-path}",
+                "surface": "app",
+                "name": "profile",
+                "purpose": "Profile settings route contribution."
+              }
+            ],
+            "shellEntries": [
+              {
+                "surface": "app",
+                "slot": "top",
+                "id": "app-profile-top",
+                "title": "Profile",
+                "route": "/${option:profile-page-path}",
+                "icon": "$profile",
+                "order": 80
+              },
+              {
+                "surface": "app",
+                "slot": "config",
+                "id": "app-profile-config",
+                "title": "Profile",
+                "route": "/${option:profile-page-path}",
+                "icon": "$profile",
+                "order": 35
+              }
+            ],
+            "files": [
+              {
+                "from": "templates/src/pages/app/profile/index.vue",
+                "to": "src/pages/app/${option:profile-page-path}/index.vue",
+                "reason": "Materialize profile settings placeholder page.",
+                "category": "ui-page",
+                "id": "profile-page"
+              }
+            ],
+            "text": []
+          }
         }
       ]
     }

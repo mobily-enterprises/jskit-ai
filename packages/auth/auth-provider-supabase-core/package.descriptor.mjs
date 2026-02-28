@@ -2,6 +2,20 @@ export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/auth-provider-supabase-core",
   "version": "0.1.0",
+  "options": {
+    "auth-supabase-url": {
+      "required": true,
+      "values": [],
+      "promptLabel": "Supabase URL",
+      "promptHint": "https://YOUR-PROJECT.supabase.co"
+    },
+    "auth-supabase-publishable-key": {
+      "required": true,
+      "values": [],
+      "promptLabel": "Supabase publishable key",
+      "promptHint": "sb_publishable_..."
+    }
+  },
   "dependsOn": [
     "@jskit-ai/access-core",
     "@jskit-ai/server-runtime-core"
@@ -30,6 +44,35 @@ export default Object.freeze({
       "scripts": {}
     },
     "procfile": {},
-    "files": []
+    "files": [],
+    "text": [
+      {
+        "file": ".env",
+        "op": "upsert-env",
+        "key": "AUTH_PROVIDER",
+        "value": "supabase",
+        "reason": "Select Supabase as the auth provider.",
+        "category": "runtime-config",
+        "id": "auth-provider"
+      },
+      {
+        "file": ".env",
+        "op": "upsert-env",
+        "key": "AUTH_SUPABASE_URL",
+        "value": "${option:auth-supabase-url}",
+        "reason": "Configure Supabase project URL for auth.",
+        "category": "runtime-config",
+        "id": "auth-supabase-url"
+      },
+      {
+        "file": ".env",
+        "op": "upsert-env",
+        "key": "AUTH_SUPABASE_PUBLISHABLE_KEY",
+        "value": "${option:auth-supabase-publishable-key}",
+        "reason": "Configure Supabase publishable key for auth.",
+        "category": "runtime-config",
+        "id": "auth-supabase-publishable-key"
+      }
+    ]
   }
 });

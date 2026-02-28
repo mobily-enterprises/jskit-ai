@@ -145,42 +145,42 @@ export default Object.freeze({
       },
       {
         from: "templates/src/surfaces/app/drawer/home.entry.js",
-        to: "src/surfaces/app/drawer/home.entry.js",
+        to: "src/surfaces/app/drawer.d/home.entry.js",
         reason: "Seed app drawer navigation entry.",
         category: "web-shell-surface",
         id: "surface-app-drawer-home"
       },
       {
         from: "templates/src/surfaces/app/top/settings.entry.js",
-        to: "src/surfaces/app/top/settings.entry.js",
+        to: "src/surfaces/app/top.d/settings.entry.js",
         reason: "Seed app top navigation entry.",
         category: "web-shell-surface",
         id: "surface-app-top-settings"
       },
       {
         from: "templates/src/surfaces/admin/drawer/dashboard.entry.js",
-        to: "src/surfaces/admin/drawer/dashboard.entry.js",
+        to: "src/surfaces/admin/drawer.d/dashboard.entry.js",
         reason: "Seed admin drawer navigation entry.",
         category: "web-shell-surface",
         id: "surface-admin-drawer-dashboard"
       },
       {
         from: "templates/src/surfaces/admin/top/settings.entry.js",
-        to: "src/surfaces/admin/top/settings.entry.js",
+        to: "src/surfaces/admin/top.d/settings.entry.js",
         reason: "Seed admin top navigation entry.",
         category: "web-shell-surface",
         id: "surface-admin-top-settings"
       },
       {
         from: "templates/src/surfaces/admin/config/workspace.entry.js",
-        to: "src/surfaces/admin/config/workspace.entry.js",
+        to: "src/surfaces/admin/config.d/workspace.entry.js",
         reason: "Seed admin config-panel entry.",
         category: "web-shell-surface",
         id: "surface-admin-config-workspace"
       },
       {
         from: "templates/src/surfaces/console/drawer/overview.entry.js",
-        to: "src/surfaces/console/drawer/overview.entry.js",
+        to: "src/surfaces/console/drawer.d/overview.entry.js",
         reason: "Seed console drawer navigation entry.",
         category: "web-shell-surface",
         id: "surface-console-drawer-overview"

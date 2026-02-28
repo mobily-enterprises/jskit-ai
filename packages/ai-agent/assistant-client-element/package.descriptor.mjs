@@ -18,12 +18,61 @@ export default Object.freeze({
       "routes": []
     },
     "ui": {
+      "routes": [],
       "elements": [
         {
+          "id": "assistant-client",
           "name": "assistant.client-element",
           "capability": "assistant.client-element",
-          "purpose": "UI element contribution.",
-          "surface": ""
+          "purpose": "Assistant conversation UI surface.",
+          "surface": "app",
+          "availability": {
+            "import": {
+              "module": "@jskit-ai/assistant-client-element",
+              "symbols": [
+                "AssistantClientElement"
+              ]
+            }
+          },
+          "pathOptions": [
+            {
+              "option": "assistant-page-path",
+              "defaultValue": "assistant",
+              "promptLabel": "Assistant page path",
+              "promptHint": "Relative path under src/pages/app"
+            }
+          ],
+          "contributions": {
+            "clientRoutes": [
+              {
+                "path": "/${option:assistant-page-path}",
+                "surface": "app",
+                "name": "assistant",
+                "purpose": "Assistant page route contribution."
+              }
+            ],
+            "shellEntries": [
+              {
+                "surface": "app",
+                "slot": "drawer",
+                "id": "app-assistant",
+                "title": "Assistant",
+                "route": "/${option:assistant-page-path}",
+                "icon": "$assistant",
+                "order": 30
+              }
+            ],
+            "files": [
+              {
+                "from": "templates/src/pages/app/assistant/index.vue",
+                "to": "src/pages/app/${option:assistant-page-path}/index.vue",
+                "reason": "Materialize assistant placeholder page.",
+                "category": "ui-page",
+                "id": "assistant-page"
+              }
+            ],
+            "text": []
+          }
         }
       ]
     }

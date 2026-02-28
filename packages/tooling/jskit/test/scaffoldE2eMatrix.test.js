@@ -209,7 +209,7 @@ function assertInternalDependencySpecsAreLocal(packageJson) {
 async function installShellInjectionPackage(appRoot) {
   const packageRoot = path.join(appRoot, "packages", "shell-e2e-module");
   await mkdir(path.join(packageRoot, "templates", "src", "pages", "admin", "errors"), { recursive: true });
-  await mkdir(path.join(packageRoot, "templates", "src", "surfaces", "admin", "drawer"), { recursive: true });
+  await mkdir(path.join(packageRoot, "templates", "src", "surfaces", "admin", "drawer.d"), { recursive: true });
 
   const descriptorSource = `export default Object.freeze({
   packageVersion: 1,
@@ -237,7 +237,7 @@ async function installShellInjectionPackage(appRoot) {
       },
       {
         from: "templates/src/surfaces/admin/drawer/server-errors.entry.js",
-        to: "src/surfaces/admin/drawer/server-errors.entry.js"
+        to: "src/surfaces/admin/drawer.d/server-errors.entry.js"
       }
     ]
   }
@@ -251,7 +251,7 @@ async function installShellInjectionPackage(appRoot) {
     "utf8"
   );
   await writeFile(
-    path.join(packageRoot, "templates", "src", "surfaces", "admin", "drawer", "server-errors.entry.js"),
+    path.join(packageRoot, "templates", "src", "surfaces", "admin", "drawer.d", "server-errors.entry.js"),
     'export default Object.freeze({ id: "admin-server-errors", title: "Server errors", route: "/errors/server", order: 45 });\n',
     "utf8"
   );

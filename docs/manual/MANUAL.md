@@ -144,7 +144,10 @@ Notes:
 When a package needs to materialize UI/navigation, have it mutate real files into:
 
 - `src/pages/<surface>/**` (path is route)
-- `src/surfaces/<surface>/{drawer|top|config}/*.entry.js` (menu slots)
+- `src/surfaces/<surface>/{drawer|top|config}.d/*.entry.js` (menu slots)
+
+Packages can declare UI element availability and optional materialization in their descriptor metadata.
+Use `npx jskit show <id>` to see the element’s routes, shell entries, file drops, and text mutations before applying.
 
 Then run:
 

@@ -140,10 +140,10 @@ test("jskit list bundles --full prints package ids per bundle", async () => {
     });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /packages \(\d+\):/);
-    assert.match(result.stdout, /@jskit-ai\/db-mysql\*/);
-    assert.match(result.stdout, /@jskit-ai\/db-mysql\*: MySQL db-provider package/i);
-    assert.doesNotMatch(result.stdout, /@jskit-ai\/jskit-knex: Capabilities: db\.core\./i);
-    assert.match(result.stdout, /@jskit-ai\/assistant-core \[openai\]:/i);
+    assert.match(result.stdout, /\bdb-mysql\*/);
+    assert.match(result.stdout, /\bdb-mysql\*: MySQL db-provider package/i);
+    assert.doesNotMatch(result.stdout, /\bjskit-knex: Capabilities: db\.core\./i);
+    assert.match(result.stdout, /\bassistant-core \[openai\]:/i);
     assert.match(result.stdout, /\* provider package/i);
   });
 });
@@ -196,7 +196,7 @@ test("jskit list bundles --full shows declared packages unless --expanded is set
     assert.equal(declared.status, 0, declared.stderr);
     const declaredBillingBase = extractBundleSection(declared.stdout, "billing-base");
     assert.match(declaredBillingBase, /packages \(10\):/i);
-    assert.doesNotMatch(declaredBillingBase, /@jskit-ai\/module-framework-core/i);
+    assert.doesNotMatch(declaredBillingBase, /\bmodule-framework-core\b/i);
 
     const expanded = runCli({
       cwd: appRoot,
@@ -205,7 +205,7 @@ test("jskit list bundles --full shows declared packages unless --expanded is set
     assert.equal(expanded.status, 0, expanded.stderr);
     const expandedBillingBase = extractBundleSection(expanded.stdout, "billing-base");
     assert.match(expandedBillingBase, /packages \((?:1[1-9]|[2-9]\d)\):/i);
-    assert.match(expandedBillingBase, /@jskit-ai\/module-framework-core/i);
+    assert.match(expandedBillingBase, /\bmodule-framework-core\b/i);
   });
 });
 

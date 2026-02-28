@@ -18,12 +18,61 @@ export default Object.freeze({
       "routes": []
     },
     "ui": {
+      "routes": [],
       "elements": [
         {
+          "id": "assistant-transcripts-explorer",
           "name": "assistant.transcripts.explorer.client",
           "capability": "assistant.transcripts.explorer.client",
-          "purpose": "UI element contribution.",
-          "surface": ""
+          "purpose": "Assistant transcript explorer UI surface.",
+          "surface": "admin",
+          "availability": {
+            "import": {
+              "module": "@jskit-ai/assistant-transcript-explorer-client-element",
+              "symbols": [
+                "AssistantTranscriptExplorerClientElement"
+              ]
+            }
+          },
+          "pathOptions": [
+            {
+              "option": "assistant-transcripts-page-path",
+              "defaultValue": "ai/transcripts",
+              "promptLabel": "Assistant transcripts page path",
+              "promptHint": "Relative path under src/pages/admin"
+            }
+          ],
+          "contributions": {
+            "clientRoutes": [
+              {
+                "path": "/${option:assistant-transcripts-page-path}",
+                "surface": "admin",
+                "name": "assistant-transcripts",
+                "purpose": "Assistant transcript explorer route contribution."
+              }
+            ],
+            "shellEntries": [
+              {
+                "surface": "admin",
+                "slot": "drawer",
+                "id": "admin-assistant-transcripts",
+                "title": "AI transcripts",
+                "route": "/${option:assistant-transcripts-page-path}",
+                "icon": "$assistantTranscripts",
+                "order": 55
+              }
+            ],
+            "files": [
+              {
+                "from": "templates/src/pages/admin/assistant-transcripts/index.vue",
+                "to": "src/pages/admin/${option:assistant-transcripts-page-path}/index.vue",
+                "reason": "Materialize assistant transcript explorer placeholder page.",
+                "category": "ui-page",
+                "id": "assistant-transcripts-page"
+              }
+            ],
+            "text": []
+          }
         }
       ]
     }

@@ -26,9 +26,9 @@ Routes:
 
 Shell entry files:
 
-- `src/surfaces/<surface>/drawer/*.entry.js`
-- `src/surfaces/<surface>/top/*.entry.js`
-- `src/surfaces/<surface>/config/*.entry.js`
+- `src/surfaces/<surface>/drawer.d/*.entry.js`
+- `src/surfaces/<surface>/top.d/*.entry.js`
+- `src/surfaces/<surface>/config.d/*.entry.js`
 
 `<surface>` must be one of: `app`, `admin`, `console`.
 
@@ -148,7 +148,7 @@ Route and navigation both consume this same outcome model.
 Packages add shell features by writing files through descriptor mutations:
 
 - route files under `src/pages/<surface>/**`
-- shell entry files under `src/surfaces/<surface>/{drawer|top|config}/*.entry.js`
+- shell entry files under `src/surfaces/<surface>/{drawer|top|config}.d/*.entry.js`
 
 No shell Vue template patching is required; generated manifest picks up these files on next `web-shell:generate`.
 

@@ -124,7 +124,7 @@ test("web-shell bundle materializes host scaffold files and switches client entr
     assert.equal(addResult.status, 0, addResult.stderr);
     assert.match(addResult.stdout, /src\/main\.web-shell\.js/);
     assert.match(addResult.stdout, /src\/shell\/ShellHost\.vue/);
-    assert.match(addResult.stdout, /src\/surfaces\/admin\/config\/workspace\.entry\.js/);
+    assert.match(addResult.stdout, /src\/surfaces\/admin\/config\.d\/workspace\.entry\.js/);
 
     const packageJson = await readJsonFile(path.join(appRoot, "package.json"));
     assert.equal(
@@ -149,9 +149,9 @@ test("web-shell bundle materializes host scaffold files and switches client entr
       "src/pages/app/index.vue",
       "src/pages/admin/index.vue",
       "src/pages/console/index.vue",
-      "src/surfaces/app/drawer/home.entry.js",
-      "src/surfaces/admin/config/workspace.entry.js",
-      "src/surfaces/console/drawer/overview.entry.js"
+      "src/surfaces/app/drawer.d/home.entry.js",
+      "src/surfaces/admin/config.d/workspace.entry.js",
+      "src/surfaces/console/drawer.d/overview.entry.js"
     ];
 
     for (const relativePath of requiredScaffoldPaths) {
@@ -180,7 +180,7 @@ test("web-shell generator picks up package-injected pages and shell entries", as
         },
         {
           from: "templates/src/surfaces/admin/drawer/server-errors.entry.js",
-          to: "src/surfaces/admin/drawer/server-errors.entry.js"
+          to: "src/surfaces/admin/drawer.d/server-errors.entry.js"
         }
       ],
       templates: {
