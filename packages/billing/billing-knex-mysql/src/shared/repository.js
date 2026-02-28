@@ -1,5 +1,5 @@
 import { createEntitlementsKnexRepository } from "@jskit-ai/entitlements-knex-mysql";
-import { normalizeDateInput, toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
+import { toInsertDateTime, toIsoString, toNullableDateTime, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 import {
   applyForUpdate,
@@ -740,20 +740,6 @@ function mapPlanChangeHistoryRowNullable(row) {
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at)
   };
-}
-
-function toInsertDateTime(dateLike, fallback = new Date()) {
-  const normalized = normalizeDateInput(dateLike) || fallback;
-  return toDatabaseDateTimeUtc(normalized);
-}
-
-function toNullableDateTime(dateLike) {
-  const normalized = normalizeDateInput(dateLike);
-  if (!normalized) {
-    return null;
-  }
-
-  return toDatabaseDateTimeUtc(normalized);
 }
 
 async function resolveWorkspaceIdForBillableEntity(client, billableEntityId) {

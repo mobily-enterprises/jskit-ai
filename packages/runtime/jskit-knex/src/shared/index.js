@@ -1,4 +1,4 @@
-export { normalizeDateInput, toIsoString, toDatabaseDateTimeUtc } from "./dateUtils.js";
+export { normalizeDateInput, toIsoString, toInsertDateTime, toNullableDateTime, toDatabaseDateTimeUtc } from "./dateUtils.js";
 export { isDuplicateEntryError } from "./errors.js";
 export { normalizeBatchSize, normalizeCutoffDateOrThrow, normalizeDeletedRowCount, deleteRowsOlderThan, __testables as retentionTestables } from "./retention.js";
 export { normalizePath, jsonTextExpression, whereJsonTextEquals } from "./json.js";

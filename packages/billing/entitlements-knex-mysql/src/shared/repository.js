@@ -1,5 +1,5 @@
 import { normalizeAmountAllowZero, normalizeAmountRequirePositive } from "@jskit-ai/billing-core";
-import { normalizeDateInput } from "@jskit-ai/jskit-knex/dateUtils";
+import { normalizeDateInput, toInsertDateTime, toNullableDateTime } from "@jskit-ai/jskit-knex/dateUtils";
 import { applyForUpdate, normalizeMetadataJsonInput, parseJsonValue, resolveRepoClient } from "@jskit-ai/jskit-knex";
 import { withTransaction } from "./transactions.js";
 
@@ -69,19 +69,6 @@ function toDatabaseDateTimeUtc(value) {
   const mmm = String(normalized.getUTCMilliseconds()).padStart(3, "0");
 
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}.${mmm}`;
-}
-
-function toInsertDateTime(dateLike, fallback = new Date()) {
-  const normalized = normalizeDateInput(dateLike) || normalizeDateInput(fallback) || new Date();
-  return toDatabaseDateTimeUtc(normalized);
-}
-
-function toNullableDateTime(value) {
-  const normalized = normalizeDateInput(value);
-  if (!normalized) {
-    return null;
-  }
-  return toDatabaseDateTimeUtc(normalized);
 }
 
 function toDateTimeQueryValue(value) {

@@ -28,6 +28,19 @@ function toIsoString(value) {
   return toDateOrThrow(value).toISOString();
 }
 
+function toInsertDateTime(dateLike, fallback = new Date()) {
+  const normalized = normalizeDateInput(dateLike) || normalizeDateInput(fallback) || new Date();
+  return toDatabaseDateTimeUtc(normalized);
+}
+
+function toNullableDateTime(value) {
+  const normalized = normalizeDateInput(value);
+  if (!normalized) {
+    return null;
+  }
+  return toDatabaseDateTimeUtc(normalized);
+}
+
 function toDatabaseDateTimeUtc(value) {
   const date = toDateOrThrow(value);
   const year = date.getUTCFullYear();
@@ -41,4 +54,4 @@ function toDatabaseDateTimeUtc(value) {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
 }
 
-export { normalizeDateInput, toIsoString, toDatabaseDateTimeUtc };
+export { normalizeDateInput, toIsoString, toInsertDateTime, toNullableDateTime, toDatabaseDateTimeUtc };
