@@ -2,6 +2,8 @@ import { db } from "../../../db/knex.js";
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 
+const PROJECT_SETTINGS_TABLE = "user_project_settings";
+
 function mapUserSettingsRowRequired(row) {
   if (!row) {
     throw new TypeError("mapUserSettingsRowRequired expected a row object.");
@@ -225,7 +227,83 @@ function createUserSettingsRepository(dbClient) {
   };
 }
 
+function mapProjectsSettingsRowRequired(row) {
+  if (!row) {
+    throw new TypeError("mapProjectsSettingsRowRequired expected a row object.");
+  }
+
+  return {
+    userId: Number(row.user_id),
+    defaultView: row.default_view ?? "",
+    defaultStatusFilter: row.default_status_filter ?? "",
+    defaultPageSize: row.default_page_size == null ? 0 : Number(row.default_page_size),
+    includeArchivedByDefault: Boolean(row.include_archived_by_default),
+    createdAt: toIsoString(row.created_at),
+    updatedAt: toIsoString(row.updated_at)
+  };
+}
+
+function createProjectsSettingsRepository(dbClient) {
+  function resolveClient(options = {}) {
+    const trx = options && typeof options === "object" ? options.trx || null : null;
+    return trx || dbClient;
+  }
+
+  async function repoEnsureProjectsSettingsForUserId(userId, options = {}) {
+    const client = resolveClient(options);
+    try {
+      await client(PROJECT_SETTINGS_TABLE).insert({ user_id: userId });
+    } catch (error) {
+      if (!isDuplicateEntryError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  async function repoReadProjectsSettingsForUserId(userId, options = {}) {
+    const client = resolveClient(options);
+    await repoEnsureProjectsSettingsForUserId(userId, options);
+
+    const row = await client(PROJECT_SETTINGS_TABLE).where({ user_id: userId }).first();
+    return mapProjectsSettingsRowRequired(row);
+  }
+
+  async function repoUpdateProjectsSettingsForUserId(userId, patch, options = {}) {
+    const client = resolveClient(options);
+    const payload = patch && typeof patch === "object" ? patch : {};
+    await repoEnsureProjectsSettingsForUserId(userId, options);
+
+    const dbPatch = {
+      updated_at: toDatabaseDateTimeUtc(new Date())
+    };
+
+    if (Object.hasOwn(payload, "defaultView")) {
+      dbPatch.default_view = payload.defaultView;
+    }
+    if (Object.hasOwn(payload, "defaultStatusFilter")) {
+      dbPatch.default_status_filter = payload.defaultStatusFilter;
+    }
+    if (Object.hasOwn(payload, "defaultPageSize")) {
+      dbPatch.default_page_size = payload.defaultPageSize;
+    }
+    if (Object.hasOwn(payload, "includeArchivedByDefault")) {
+      dbPatch.include_archived_by_default = payload.includeArchivedByDefault;
+    }
+
+    await client(PROJECT_SETTINGS_TABLE).where({ user_id: userId }).update(dbPatch);
+
+    const row = await client(PROJECT_SETTINGS_TABLE).where({ user_id: userId }).first();
+    return mapProjectsSettingsRowRequired(row);
+  }
+
+  return {
+    readProjectsSettingsForUserId: repoReadProjectsSettingsForUserId,
+    updateProjectsSettingsForUserId: repoUpdateProjectsSettingsForUserId
+  };
+}
+
 const repository = createUserSettingsRepository(db);
+const projectsSettingsRepository = createProjectsSettingsRepository(db);
 
 const __testables = {
   isDuplicateEntryError,
@@ -234,7 +312,9 @@ const __testables = {
   buildPreferencesUpdatePatch,
   buildNotificationsUpdatePatch,
   withUpdatedAt,
-  createUserSettingsRepository
+  createUserSettingsRepository,
+  mapProjectsSettingsRowRequired,
+  createProjectsSettingsRepository
 };
 
 export const {
@@ -247,4 +327,5 @@ export const {
   findByUserIdForUpdate,
   updateLastActiveWorkspaceId
 } = repository;
+export const { readProjectsSettingsForUserId, updateProjectsSettingsForUserId } = projectsSettingsRepository;
 export { __testables };
