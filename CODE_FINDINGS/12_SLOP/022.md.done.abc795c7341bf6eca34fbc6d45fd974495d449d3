@@ -1,0 +1,21 @@
+# Finding 022
+- Severity: Low
+- Pattern type: AI slop; String normalization helper duplication
+- File + line(s): `packages/billing/billing-service-core/src/shared/service.js:217-220`, `packages/billing/entitlements-core/src/shared/entities.js:12-15`, `packages/billing/entitlements-knex-mysql/src/shared/repository.js:17-20`
+- Why it can drift/fail: `toNonEmptyString` is re-implemented across billing and entitlements modules with identical behavior. This is shared utility logic that should be centralized.
+- Concrete impact: Divergent behavior if one copy changes; unnecessary maintenance overhead.
+- Exact remediation: Centralize string normalization helpers in a shared billing/entitlements utility module and reuse across packages.
+
+---
+Summary:
+- Added `toNonEmptyString` to billing-core normalizers and exported it.
+- Replaced duplicated toNonEmptyString implementations in billing service, entitlements core, and entitlements knex repository with the shared helper.
+
+Tests:
+- `npm -ws --if-present test` (failed: missing executables/modules across workspace)
+- `npm run test:framework` (failed: migration tracker row mismatch and `jskit` inline options error)
+- `npm run test:architecture:client` (pass)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+Final commit: abc795c7341bf6eca34fbc6d45fd974495d449d3

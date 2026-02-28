@@ -1,0 +1,21 @@
+# Finding 038
+- Severity: Low
+- Pattern type: AI slop; Date helper duplication
+- File + line(s): `packages/billing/billing-service-core/src/shared/checkoutSession.service.js:10-20`, `packages/billing/billing-service-core/src/shared/idempotency.service.js:37-48`, `packages/billing/billing-service-core/src/shared/service.js:235-245`, `packages/billing/entitlements-core/src/shared/entities.js:46-56`
+- Why it can drift/fail: `toDateOrNull` is re-implemented across billing and entitlements modules with identical behavior. This is shared utility logic that should be centralized.
+- Concrete impact: Divergent date parsing behavior if one copy changes and unnecessary maintenance overhead.
+- Exact remediation: Extract `toDateOrNull` into a shared utility module and reuse across billing/entitlements packages.
+
+---
+Resolution summary:
+- Added shared `toDateOrNull` in `@jskit-ai/billing-core` normalizers and exported it.
+- Replaced local `toDateOrNull` implementations in billing-service-core and entitlements-core with shared import/re-export.
+
+Tests:
+- `npm -ws --if-present test` (fails: missing `jskit-app-scripts`/`vitest`, missing packages like `@jskit-ai/assistant-contracts`, `vue`, `@fastify/cookie`, `@supabase/supabase-js`, plus create-app assertions)
+- `npm run test:framework` (fails: migration tracker count mismatch, stage12 cutover inline options)
+- `npm run test:architecture:client`
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`
+
+Commit: 133a2d38d7298bbf4c2f43cfad62ce6e29fc22fa

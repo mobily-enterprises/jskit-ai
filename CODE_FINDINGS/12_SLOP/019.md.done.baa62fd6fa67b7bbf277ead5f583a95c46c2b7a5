@@ -1,0 +1,21 @@
+# Finding 019
+- Severity: Low
+- Pattern type: AI slop; Date normalization helper duplication
+- File + line(s): `packages/billing/billing-knex-mysql/src/shared/repository.js:50-60`, `packages/billing/entitlements-knex-mysql/src/shared/repository.js:46-56`
+- Why it can drift/fail: `normalizeDateInput` is duplicated across billing repositories with identical behavior. This is shared utility logic that should not be copy-pasted.
+- Concrete impact: Divergent date normalization behavior if one copy changes, and extra maintenance overhead.
+- Exact remediation: Move date normalization helpers into a shared billing repository utility module and reuse in both repositories.
+
+---
+Summary:
+- Added `normalizeDateInput` to `@jskit-ai/jskit-knex` date utils and exported it.
+- Replaced duplicated normalizeDateInput implementations in billing and entitlements repositories with the shared helper.
+
+Tests:
+- `npm -ws --if-present test` (failed: missing executables/modules across workspace)
+- `npm run test:framework` (failed: migration tracker row mismatch and `jskit` inline options error)
+- `npm run test:architecture:client` (pass)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+Final commit: baa62fd6fa67b7bbf277ead5f583a95c46c2b7a5

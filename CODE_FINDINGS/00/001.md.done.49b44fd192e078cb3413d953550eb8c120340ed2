@@ -1,0 +1,19 @@
+# Finding 001
+- Severity: High
+- Pattern type: 5 Validation vs execution mismatch; 7 Contract drift risk
+- File + line(s): `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/runtime/actions/idempotencyAdapters.js:3`, `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/runtime/actions/contributors/settings.contributor.js:146`
+- Why it can drift/fail: action definitions declare idempotency semantics, but runtime adapter is effectively a no-op.
+- Concrete impact: retries can execute side effects multiple times and duplicate realtime emissions.
+- Exact remediation: implement real idempotency storage/check adapter or mark actions as `idempotency: "none"` until enforcement exists.
+
+Summary:
+- Updated value app action definitions to declare `idempotency: "none"` wherever the runtime adapter is still noop.
+
+Tests:
+- `npm -ws --if-present test` (fails: module framework dependency graph validation in serverFrameworkRoutes.test.js/serverFrameworkRuntimeParity.test.js; REDIS_NAMESPACE required in serverBootstrapBuildServer.test.js; billing-commerce-client-element vitest render error around paymentMethodItems; create-app tests require --db-host)
+- `npm run test:framework` (fails: migration tracker row count mismatch; stage12 cutover inline options error)
+- `npm run test:architecture:client`
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`
+
+Commit: 49b44fd192e078cb3413d953550eb8c120340ed2

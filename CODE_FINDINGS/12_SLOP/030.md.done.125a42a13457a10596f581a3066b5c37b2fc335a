@@ -1,0 +1,21 @@
+# Finding 030
+- Severity: Low
+- Pattern type: AI slop; AI toolchain helper duplication
+- File + line(s): `apps/jskit-value-app/server/modules/ai/lib/tools/actionTools.js:13-27`, `apps/jskit-value-app/server/runtime/actions/contributors/assistant.contributor.js:13-79`
+- Why it can drift/fail: The AI tooling layer and assistant action contributor both define identical text normalization (`normalizeText`, `normalizeLowerText`) and set-building (`toLowerSet`) helpers. This is copy-paste scaffolding that will drift as rules evolve.
+- Concrete impact: Inconsistent normalization and filtering behavior between AI tool selection and assistant action execution.
+- Exact remediation: Extract shared AI toolchain helpers into a single module and reuse across both action tool logic and action contributors.
+
+---
+Summary:
+- Replaced duplicated normalizeText/normalizeLowerText helpers in action tools and assistant contributor with shared action-runtime-core exports.
+- Fixed shared test helpers to export readFileSync and updated packageCommands test to use it, resolving the helper regression observed during tests.
+
+Tests:
+- `npm -ws --if-present test` (failed: missing executables/modules across workspace)
+- `npm run test:framework` (failed: migration tracker row mismatch and `jskit` inline options error)
+- `npm run test:architecture:client` (pass)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+Final commit: 125a42a13457a10596f581a3066b5c37b2fc335a

@@ -1,0 +1,20 @@
+# Finding 002
+- Severity: High
+- Pattern type: 2 Duplicate rule systems; 7 Contract drift risk
+- File + line(s): `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/framework/composeRuntime.js:157`, `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/framework/composeRealtime.js:35`, `/home/merc/Development/current/jskit-ai/apps/jskit-value-app/server/framework/composeFastifyPlugins.js:32`
+- Why it can drift/fail: contribution resolution silently drops unresolved IDs in multiple composition paths.
+- Concrete impact: typos/refactors can quietly remove routes/services/plugins/topics without startup failure.
+- Exact remediation: enforce strict unresolved-contribution failure in composition and emit explicit diagnostics.
+
+Summary:
+- Added contribution-id validation with diagnostics in runtime composition and centralized fastify plugin definitions.
+- Added extension fixtures/tests to assert strict failures and permissive warnings for unknown contributions.
+
+Tests:
+- `npm -ws --if-present test` (fails: serverFrameworkRoutes.test.js/composeRouteModules dependency graph validation; serverFrameworkRuntimeParity.test.js composeServerRuntimeArtifacts module filtering dependency graph validation; serverBootstrapBuildServer.test.js requires REDIS_NAMESPACE; create-app tests require --db-host)
+- `npm run test:framework` (fails: migration tracker row count mismatch; stage12 cutover inline options error)
+- `npm run test:architecture:client`
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`
+
+Commit: 9c26ffb4b3b0cc5f80925b486d40700b88f87800

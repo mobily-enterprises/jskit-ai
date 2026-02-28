@@ -1,0 +1,12 @@
+# Finding 027
+- Severity: Low
+- Pattern type: AI slop; Repeated router guard logic
+- File + line(s): `apps/jskit-value-app/src/app/router/guards.console.js:165-266`
+- Why it can drift/fail: Multiple `beforeLoad*` guards repeat the same console runtime checks (session availability, authentication, console access, invite handling) with minor variations. This is copy-paste boilerplate that risks divergence when rules change.
+- Concrete impact: Inconsistent guard behavior across console routes and higher maintenance cost when access policy evolves.
+- Exact remediation: Extract shared guard helpers (e.g., `requireConsoleAuth`, `requireConsoleAccess`, `redirectIfInvited`) and compose them per route to make policy changes centralized and explicit.
+
+---
+WONT:
+- Skipping because this is client-side routing/guard code and you asked to avoid client-focused work until you say otherwise.
+- Signal to revisit: when client-side refactors are unblocked or you want guard logic consolidated.

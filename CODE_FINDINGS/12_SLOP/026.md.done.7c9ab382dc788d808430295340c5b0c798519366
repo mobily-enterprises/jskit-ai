@@ -1,0 +1,21 @@
+# Finding 026
+- Severity: Low
+- Pattern type: AI slop; Request meta normalization duplication
+- File + line(s): `packages/runtime/action-runtime-core/src/shared/executionContext.js:50-61`, `packages/chat/chat-core/src/shared/service.js:178-191`
+- Why it can drift/fail: `normalizeRequestMeta` is implemented both in the action runtime core and chat service with overlapping intent. This is shared normalization logic that should be centralized to avoid divergence.
+- Concrete impact: Inconsistent request metadata handling between action runtime and chat domain; extra maintenance effort when fields evolve.
+- Exact remediation: Consolidate request meta normalization in a shared helper (likely in `@jskit-ai/action-runtime-core`) and reuse across services.
+
+---
+Summary:
+- Added a shared request meta normalizer in action-runtime-core and exported it.
+- Replaced chat-core's local normalizeRequestMeta with the shared helper while preserving fields and null behavior.
+
+Tests:
+- `npm -ws --if-present test` (failed: missing executables/modules across workspace)
+- `npm run test:framework` (failed: migration tracker row mismatch and `jskit` inline options error)
+- `npm run test:architecture:client` (pass)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+Final commit: 7c9ab382dc788d808430295340c5b0c798519366

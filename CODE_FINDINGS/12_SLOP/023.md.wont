@@ -1,0 +1,12 @@
+# Finding 023
+- Severity: Low
+- Pattern type: AI slop; Nullable integer helper duplication
+- File + line(s): `packages/chat/chat-core/src/shared/repositories/shared.js:72-74`, `packages/social/social-core/src/shared/repositories/shared.js:49-51`, `apps/jskit-value-app/src/app/state/alertsStore.js:35-38`
+- Why it can drift/fail: `normalizeNullablePositiveInteger` is re-implemented across repositories and app state with the same intent. This is shared utility logic that should not be duplicated.
+- Concrete impact: Divergent numeric normalization behavior across modules and unnecessary maintenance overhead.
+- Exact remediation: Centralize nullable integer normalization in a shared utility and reuse across repos/stores.
+
+---
+WONT:
+- Skipping because one of the duplication sites is client-side (`apps/jskit-value-app/src/app/state/alertsStore.js`), and you asked to avoid client-focused work until you say otherwise.
+- Signal to revisit: when client-side refactors are unblocked or you want to centralize the helper across client and server.

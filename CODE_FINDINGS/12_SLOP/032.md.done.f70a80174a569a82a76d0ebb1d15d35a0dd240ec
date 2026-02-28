@@ -1,0 +1,21 @@
+# Finding 032
+- Severity: Medium
+- Pattern type: AI slop; Realtime publish helper duplication
+- File + line(s): `packages/runtime/action-runtime-core/src/shared/realtimePublish.js:1-48`, `apps/jskit-value-app/server/runtime/actions/contributors/realtimePublishHelpers.js:1-52`
+- Why it can drift/fail: The realtime publish helpers (`normalizeObject`, `normalizeHeaderValue`, `resolveCommandId`, `resolveSourceClientId`, `toPositiveInteger`) are re-implemented in both action-runtime core and app-level contributor helpers. This is copy-paste utility code that will diverge over time.
+- Concrete impact: Inconsistent realtime event metadata between core action runtime and app contributors; higher maintenance cost for changes.
+- Exact remediation: Centralize realtime publish helpers in a shared module (preferably `@jskit-ai/action-runtime-core`) and import them in app contributors.
+
+---
+Summary:
+- Exported realtime publish helper primitives from action-runtime-core and re-used them in app-level realtimePublishHelpers.
+- Preserved app-specific resolveRequest behavior while removing duplicate normalization logic.
+
+Tests:
+- `npm -ws --if-present test` (failed: missing executables/modules across workspace)
+- `npm run test:framework` (failed: migration tracker row mismatch and `jskit` inline options error)
+- `npm run test:architecture:client` (pass)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+Final commit: f70a80174a569a82a76d0ebb1d15d35a0dd240ec

@@ -1,0 +1,21 @@
+# Finding 034
+- Severity: Low
+- Pattern type: AI slop; Header normalization helper duplication
+- File + line(s): `apps/jskit-value-app/server/runtime/actions/contributors/projects.contributor.js:19-22`, `apps/jskit-value-app/server/runtime/actions/contributors/deg2radHistory.contributor.js:13-16`, `apps/jskit-value-app/server/runtime/actions/contributors/realtimePublishHelpers.js:9-12`
+- Why it can drift/fail: `normalizeHeaderValue` is re-implemented across multiple contributors/helpers with identical behavior. This is shared utility logic that should not be copy-pasted.
+- Concrete impact: Divergent header handling if one copy changes and unnecessary maintenance overhead.
+- Exact remediation: Extract header normalization into a shared helper module and reuse across contributors.
+
+---
+Summary:
+- Replaced duplicated normalizeHeaderValue implementations in projects and deg2rad history contributors with the shared action-runtime-core helper.
+- Preserved existing contributor behavior while removing copy-paste normalization.
+
+Tests:
+- `npm -ws --if-present test` (failed: missing executables/modules across workspace)
+- `npm run test:framework` (failed: migration tracker row mismatch and `jskit` inline options error)
+- `npm run test:architecture:client` (pass)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+Final commit: 959b6f0dad9d8a1bc8a7f6c19442fc562ef9662c

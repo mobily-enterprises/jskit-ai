@@ -1,0 +1,21 @@
+# Finding 035
+- Severity: Low
+- Pattern type: AI slop; Script utility duplication
+- File + line(s): `scripts/framework/check-import-boundaries.mjs:28-30`, `scripts/framework/check-package-runtime-layout.mjs:19-21`, `scripts/framework/check-app-ownership.mjs:49-51`
+- Why it can drift/fail: Multiple framework scripts re-implement the same `toPosix` helper. This is trivial copy-paste utility code.
+- Concrete impact: Minor but unnecessary duplication; increases maintenance overhead for even small utility changes.
+- Exact remediation: Extract common script utilities into a shared module (e.g., `scripts/framework/_utils.mjs`) and import `toPosix` from there.
+
+---
+Summary:
+- Added shared `toPosix` utility in `scripts/framework/_utils.mjs`.
+- Updated framework scripts to import the shared helper instead of duplicating it.
+
+Tests:
+- `npm -ws --if-present test` (failed: missing executables/modules across workspace)
+- `npm run test:framework` (failed: migration tracker row mismatch and `jskit` inline options error)
+- `npm run test:architecture:client` (pass)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+Final commit: 8f6ff0a86e659b7258071e5d15f6420e30f39b66

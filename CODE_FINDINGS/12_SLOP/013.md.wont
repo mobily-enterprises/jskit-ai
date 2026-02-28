@@ -1,0 +1,12 @@
+# Finding 013
+- Severity: Low
+- Pattern type: AI slop; Client/server validation duplication
+- File + line(s): `apps/jskit-value-app/src/app/state/alertsStore.js:44-55`, `apps/jskit-value-app/server/modules/alerts/service.js:50-70`
+- Why it can drift/fail: `normalizeTargetUrl` is duplicated in both client store and server service with similar but not identical validation logic. This creates two sources of truth for the same rule.
+- Concrete impact: Client and server can accept/reject different values over time, leading to inconsistent behavior or unexpected failures.
+- Exact remediation: Centralize target URL validation in a shared module (e.g., `apps/jskit-value-app/shared/alerts/validation.js`) and use it on both client and server.
+
+---
+WONT:
+- Skipping for now because this fix requires client-side changes in `apps/jskit-value-app/src/app/state/alertsStore.js`, and you asked to skip client-focused work until you say otherwise.
+- Signal to revisit: once client-side work is unblocked or you want a shared client/server validation module created.
