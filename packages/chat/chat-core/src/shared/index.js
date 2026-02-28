@@ -1,6 +1,7 @@
 export { createService as createChatService, __testables as chatServiceTestables } from "./service.js";
 export { createService as createChatRealtimeService, __testables as chatRealtimeServiceTestables } from "./realtime.service.js";
 export { toCanonicalJson, toSha256Hex, __testables as canonicalJsonTestables } from "./canonicalJson.js";
+export { buildPreviewText } from "./previewText.js";
 export { createChatActionContributor } from "./actions/chat.contributor.js";
 export { createRepository as createThreadsRepository } from "./repositories/threads.repository.js";
 export { createRepository as createParticipantsRepository } from "./repositories/participants.repository.js";

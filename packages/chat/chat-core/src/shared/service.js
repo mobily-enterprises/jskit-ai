@@ -5,6 +5,7 @@ import { AppError as SharedAppError } from "@jskit-ai/server-runtime-core/errors
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 import { toCanonicalJson, toSha256Hex } from "./canonicalJson.js";
+import { buildPreviewText } from "./previewText.js";
 
 const IDEMPOTENCY_VERSION = 1;
 const CHAT_MESSAGE_CLIENT_KEY_UNIQUE_INDEX = "uq_chat_messages_thread_sender_client_id";
@@ -571,19 +572,6 @@ function normalizeReactionPayload(body) {
     messageId,
     reaction
   };
-}
-
-function buildPreviewText(text) {
-  const source = String(text || "").trim();
-  if (!source) {
-    return null;
-  }
-
-  if (source.length <= 280) {
-    return source;
-  }
-
-  return source.slice(0, 277).trimEnd() + "...";
 }
 
 function buildMessageIdempotencyFingerprint({ text, attachmentIds, replyToMessageId, metadata }) {

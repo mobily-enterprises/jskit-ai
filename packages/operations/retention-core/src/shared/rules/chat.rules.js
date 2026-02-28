@@ -1,21 +1,10 @@
+import { buildPreviewText } from "@jskit-ai/chat-core/previewText";
+
 const HOUR_IN_MILLISECONDS = 60 * 60 * 1000;
 const MAX_BATCH_ITERATIONS = 50_000;
 
 function resolveTombstoneExpiryDate(nowDate, retryWindowHours) {
   return new Date(nowDate.getTime() + retryWindowHours * HOUR_IN_MILLISECONDS);
-}
-
-function buildPreviewText(text) {
-  const source = String(text || "").trim();
-  if (!source) {
-    return null;
-  }
-
-  if (source.length <= 280) {
-    return source;
-  }
-
-  return source.slice(0, 277).trimEnd() + "...";
 }
 
 function normalizeThreadIdList(values) {

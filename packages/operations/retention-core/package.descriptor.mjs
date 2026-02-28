@@ -3,6 +3,7 @@ export default Object.freeze({
   "packageId": "@jskit-ai/retention-core",
   "version": "0.1.0",
   "dependsOn": [
+    "@jskit-ai/chat-core",
     "@jskit-ai/redis-ops-core"
   ],
   "capabilities": {
@@ -16,6 +17,7 @@ export default Object.freeze({
   "mutations": {
     "dependencies": {
       "runtime": {
+        "@jskit-ai/chat-core": "0.1.0",
         "@jskit-ai/redis-ops-core": "0.1.0"
       },
       "dev": {}

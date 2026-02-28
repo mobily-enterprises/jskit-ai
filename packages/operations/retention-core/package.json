@@ -13,6 +13,7 @@
     "./rules": "./src/shared/rules/index.js"
   },
   "dependencies": {
+    "@jskit-ai/chat-core": "0.1.0",
     "@jskit-ai/redis-ops-core": "0.1.0"
   }
 }

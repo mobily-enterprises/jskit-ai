@@ -8,6 +8,7 @@
   },
   "exports": {
     ".": "./src/shared/index.js",
+    "./previewText": "./src/shared/previewText.js",
     "./repositories/threads": "./src/shared/repositories/threads.repository.js",
     "./repositories/participants": "./src/shared/repositories/participants.repository.js",
     "./repositories/messages": "./src/shared/repositories/messages.repository.js",
