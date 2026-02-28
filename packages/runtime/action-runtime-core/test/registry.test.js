@@ -231,3 +231,62 @@ test("action registry rejects invalid version requests", async () => {
     }
   );
 });
+
+test("action registry enforces internal visibility for user actors", async () => {
+  const registry = createActionRegistry({
+    contributors: [
+      {
+        contributorId: "tests.internal",
+        domain: "settings",
+        actions: [
+          {
+            id: "settings.internal.ping",
+            version: 1,
+            domain: "settings",
+            kind: "query",
+            channels: ["api", "internal"],
+            surfaces: ["app"],
+            visibility: "internal",
+            inputSchema: createPassThroughSchema(),
+            permission: () => true,
+            idempotency: "none",
+            audit: {
+              actionName: "settings.internal.ping"
+            },
+            observability: {},
+            async execute() {
+              return { ok: true };
+            }
+          }
+        ]
+      }
+    ]
+  });
+
+  await assert.rejects(
+    () =>
+      registry.execute({
+        actionId: "settings.internal.ping",
+        context: {
+          channel: "api",
+          surface: "app",
+          actor: { id: "user-1" },
+          permissions: []
+        }
+      }),
+    (error) => {
+      assert.equal(error.code, "ACTION_VISIBILITY_FORBIDDEN");
+      return true;
+    }
+  );
+
+  const result = await registry.execute({
+    actionId: "settings.internal.ping",
+    context: {
+      channel: "api",
+      surface: "app",
+      permissions: []
+    }
+  });
+  assert.deepEqual(result, { ok: true });
+});
