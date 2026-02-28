@@ -6,14 +6,7 @@ import {
   resolveUser,
   OBJECT_INPUT_SCHEMA
 } from "@jskit-ai/action-runtime-core/actionContributorHelpers";
-
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-function normalizeLowerText(value) {
-  return normalizeText(value).toLowerCase();
-}
+import { normalizeLowerText, normalizeText } from "@jskit-ai/action-runtime-core";
 
 function hasPermission(permissionSet, permission) {
   const requiredPermission = normalizeText(permission);

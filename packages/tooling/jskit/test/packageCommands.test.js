@@ -5,7 +5,7 @@ import path from "node:path";
 import { PassThrough, Writable } from "node:stream";
 import test from "node:test";
 import { runCli as runCliDirect } from "../src/shared/index.js";
-import { readJsonFile, runCli, writeJsonFile } from "./helpers.js";
+import { readFileSync, readJsonFile, runCli, writeJsonFile } from "./helpers.js";
 
 function createPackageDescriptorSource({
   packageId,
@@ -160,7 +160,7 @@ test("add package installs local package descriptor mutations", async () => {
     assert.equal(packageJson.dependencies.nanoid, "^5.1.6");
     assert.equal(packageJson.scripts["feature:run"], "node ./feature.js");
 
-    const featureFile = await readFile(path.join(appRoot, "feature.txt"), "utf8");
+    const featureFile = readFileSync(path.join(appRoot, "feature.txt"), "utf8");
     assert.equal(featureFile, "feature:ok\n");
 
     const lock = await readJsonFile(path.join(appRoot, ".jskit/lock.json"));

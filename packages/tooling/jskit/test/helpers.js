@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -23,4 +24,4 @@ async function readJsonFile(absolutePath) {
   return JSON.parse(source);
 }
 
-export { runCli, writeJsonFile, readJsonFile };
+export { runCli, writeJsonFile, readJsonFile, readFileSync };

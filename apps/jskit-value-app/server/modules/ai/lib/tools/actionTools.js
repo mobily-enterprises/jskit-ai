@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { buildAiToolRegistry, listToolSchemas } from "@jskit-ai/assistant-core";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { normalizeLowerText, normalizeText } from "@jskit-ai/action-runtime-core";
 
 const ASSISTANT_TOOL_CHANNEL = "assistant_tool";
 const TOOL_NAME_MAX_LENGTH = 64;
@@ -9,14 +10,6 @@ const DEFAULT_INPUT_JSON_SCHEMA = Object.freeze({
   additionalProperties: true,
   properties: {}
 });
-
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-function normalizeLowerText(value) {
-  return normalizeText(value).toLowerCase();
-}
 
 function toLowerSet(values) {
   if (!Array.isArray(values)) {
