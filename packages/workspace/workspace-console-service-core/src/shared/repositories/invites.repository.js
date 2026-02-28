@@ -4,6 +4,7 @@ import {
   normalizeBatchSize,
   normalizeCutoffDateOrThrow
 } from "@jskit-ai/jskit-knex/retention";
+import { createRepoTransaction } from "@jskit-ai/jskit-knex";
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
 
 function mapInviteRowRequired(row) {
@@ -199,13 +200,7 @@ function createInvitesRepository(dbClient) {
     });
   }
 
-  async function repoTransaction(callback) {
-    if (typeof dbClient.transaction === "function") {
-      return dbClient.transaction(callback);
-    }
-
-    return callback(dbClient);
-  }
+  const repoTransaction = createRepoTransaction(dbClient);
 
   return {
     insert: repoInsert,

@@ -1,6 +1,7 @@
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { normalizeBatchSize, normalizeCutoffDateOrThrow } from "@jskit-ai/jskit-knex/retention";
+import { createRepoTransaction } from "@jskit-ai/jskit-knex";
 import {
   normalizeCountRow,
   normalizePagination,
@@ -413,13 +414,7 @@ function createThreadsRepository(dbClient) {
     return normalizeCountRow({ total: deleted });
   }
 
-  async function repoTransaction(callback) {
-    if (typeof dbClient.transaction === "function") {
-      return dbClient.transaction(callback);
-    }
-
-    return callback(dbClient);
-  }
+  const repoTransaction = createRepoTransaction(dbClient);
 
   return {
     insert: repoInsert,

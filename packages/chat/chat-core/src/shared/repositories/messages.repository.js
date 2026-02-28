@@ -1,6 +1,7 @@
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
+import { createRepoTransaction } from "@jskit-ai/jskit-knex";
 import {
   deleteRowsOlderThan,
   normalizeBatchSize,
@@ -343,13 +344,7 @@ function createMessagesRepository(dbClient) {
     return mapMessageRowNullable(row);
   }
 
-  async function repoTransaction(callback) {
-    if (typeof dbClient.transaction === "function") {
-      return dbClient.transaction(callback);
-    }
-
-    return callback(dbClient);
-  }
+  const repoTransaction = createRepoTransaction(dbClient);
 
   return {
     insert: repoInsert,
