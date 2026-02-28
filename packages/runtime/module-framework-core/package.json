@@ -6,6 +6,9 @@
   "scripts": {
     "test": "node --test"
   },
+  "dependencies": {
+    "semver": "^7.6.0"
+  },
   "exports": {
     ".": "./src/shared/index.js",
     "./descriptor": "./src/shared/descriptor.js",
