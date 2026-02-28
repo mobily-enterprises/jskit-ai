@@ -1,4 +1,5 @@
 import {
+  allowPublic,
   normalizeObject,
   requireAuthenticated,
   requireServiceMethod,
@@ -12,10 +13,6 @@ function requireRequestContext(context, actionId) {
   }
 
   throw new Error(`${actionId} requires request context.`);
-}
-
-function allowPublic() {
-  return true;
 }
 
 function createAuthActionContributor({ authService } = {}) {

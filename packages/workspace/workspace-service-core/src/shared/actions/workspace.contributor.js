@@ -5,6 +5,7 @@ import {
   resolveRequest,
   resolveUser,
   resolveWorkspace,
+  allowPublic,
   OBJECT_INPUT_SCHEMA
 } from "@jskit-ai/action-runtime-core/actionContributorHelpers";
 
@@ -16,10 +17,6 @@ function hasPermission(permissionSet, permission) {
 
   const permissions = Array.isArray(permissionSet) ? permissionSet : [];
   return permissions.includes("*") || permissions.includes(requiredPermission);
-}
-
-function allowPublic() {
-  return true;
 }
 
 function requireWorkspaceSettingsReadPermission(context) {
