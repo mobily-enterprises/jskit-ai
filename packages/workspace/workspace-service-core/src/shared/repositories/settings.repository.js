@@ -1,20 +1,6 @@
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
-import { resolveRepoClient, toDbJson } from "@jskit-ai/jskit-knex";
-
-function parseJsonValue(value, fallback = {}) {
-  if (!value) {
-    return fallback;
-  }
-  if (typeof value === "object") {
-    return value;
-  }
-  try {
-    return JSON.parse(value);
-  } catch {
-    return fallback;
-  }
-}
+import { parseJsonValue, resolveRepoClient, toDbJson } from "@jskit-ai/jskit-knex";
 
 function mapWorkspaceSettingsRowRequired(row) {
   if (!row) {
@@ -24,8 +10,8 @@ function mapWorkspaceSettingsRowRequired(row) {
   return {
     workspaceId: Number(row.workspace_id),
     invitesEnabled: Boolean(row.invites_enabled),
-    features: parseJsonValue(row.features_json),
-    policy: parseJsonValue(row.policy_json),
+    features: parseJsonValue(row.features_json, {}, { allowNull: true }),
+    policy: parseJsonValue(row.policy_json, {}, { allowNull: true }),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at)
   };

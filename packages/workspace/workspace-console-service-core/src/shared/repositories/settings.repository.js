@@ -1,22 +1,8 @@
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
-import { resolveRepoClient, toDbJson } from "@jskit-ai/jskit-knex";
+import { parseJsonValue, resolveRepoClient, toDbJson } from "@jskit-ai/jskit-knex";
 
 const CONSOLE_SETTINGS_SINGLETON_ID = 1;
-
-function parseJsonValue(value, fallback = {}) {
-  if (!value) {
-    return fallback;
-  }
-  if (typeof value === "object") {
-    return value;
-  }
-  try {
-    return JSON.parse(value);
-  } catch {
-    return fallback;
-  }
-}
 
 function mapConsoleSettingsRowRequired(row) {
   if (!row) {
@@ -25,7 +11,7 @@ function mapConsoleSettingsRowRequired(row) {
 
   return {
     id: Number(row.id),
-    features: parseJsonValue(row.features_json),
+    features: parseJsonValue(row.features_json, {}, { allowNull: true }),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at)
   };

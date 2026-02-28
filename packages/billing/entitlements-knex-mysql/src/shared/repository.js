@@ -1,5 +1,5 @@
 import { normalizeAmountAllowZero, normalizeAmountRequirePositive } from "@jskit-ai/billing-core";
-import { applyForUpdate, resolveRepoClient } from "@jskit-ai/jskit-knex";
+import { applyForUpdate, parseJsonValue, resolveRepoClient } from "@jskit-ai/jskit-knex";
 import { withTransaction } from "./transactions.js";
 
 const DEFAULT_TABLE_NAMES = Object.freeze({
@@ -111,22 +111,6 @@ function toDateTimeQueryValue(value) {
   return toNullableDateTime(value);
 }
 
-function parseJsonValue(value, fallback = null) {
-  if (value == null) {
-    return fallback;
-  }
-
-  if (typeof value === "object") {
-    return value;
-  }
-
-  try {
-    return JSON.parse(String(value || ""));
-  } catch {
-    return fallback;
-  }
-}
-
 function normalizeMetadataJsonInput(value) {
   if (value == null) {
     return null;
@@ -188,7 +172,7 @@ function mapDefinitionRowNullable(row) {
     enforcementMode: String(row.enforcement_mode || "hard_deny"),
     scopeType: String(row.scope_type || "billable_entity"),
     isActive: Boolean(row.is_active),
-    metadataJson: parseJsonValue(row.metadata_json, {}),
+    metadataJson: parseJsonValue(row.metadata_json, {}, { allowNull: true }),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at)
   };
@@ -214,7 +198,7 @@ function mapGrantRowNullable(row) {
     provider: toNullableString(row.provider),
     providerEventId: toNullableString(row.provider_event_id),
     dedupeKey: String(row.dedupe_key || ""),
-    metadataJson: parseJsonValue(row.metadata_json, {}),
+    metadataJson: parseJsonValue(row.metadata_json, {}, { allowNull: true }),
     createdAt: toIsoString(row.created_at)
   };
 }
@@ -237,7 +221,7 @@ function mapConsumptionRowNullable(row) {
     providerEventId: toNullableString(row.provider_event_id),
     requestId: toNullableString(row.request_id),
     dedupeKey: String(row.dedupe_key || ""),
-    metadataJson: parseJsonValue(row.metadata_json, {}),
+    metadataJson: parseJsonValue(row.metadata_json, {}, { allowNull: true }),
     createdAt: toIsoString(row.created_at)
   };
 }
@@ -263,7 +247,7 @@ function mapBalanceRowNullable(row) {
     nextChangeAt: toIsoString(row.next_change_at),
     lastRecomputedAt: toIsoString(row.last_recomputed_at),
     version: Number(row.version || 0),
-    metadataJson: parseJsonValue(row.metadata_json, {}),
+    metadataJson: parseJsonValue(row.metadata_json, {}, { allowNull: true }),
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at)
   };
