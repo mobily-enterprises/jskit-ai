@@ -1,0 +1,19 @@
+# Finding 075
+- Severity: Low
+- Pattern type: AI slop; `defaultMissingHandler` duplicated across route registries
+- File + line(s): `packages/runtime/health-fastify-routes/src/shared/routes.js:4-9`, `packages/observability/observability-fastify-routes/src/shared/routes.js:4-9`, `packages/runtime/server-runtime-core/src/shared/apiRouteRegistration.js:17-22`
+- Why it can drift/fail: The same missing-handler response helper is repeated in multiple route packages. Any change to the default error message or status code must be synchronized manually.
+- Concrete impact: Inconsistent missing-handler behavior across health, observability, and core route registration.
+- Exact remediation: Extract a shared `defaultMissingHandler` from a common routing utility package and reuse it.
+
+---
+Summary:
+- Added shared default missing handler in server-runtime-core and reused it in health, observability, and api route registration.
+- Centralizes fallback missing-handler behavior to avoid divergence.
+Tests:
+- npm -ws --if-present test (fails: missing jskit-app-scripts, vitest, @jskit-ai/assistant-contracts, vue, @jskit-ai/server-runtime-core, @fastify/type-provider-typebox, openai, @supabase/supabase-js, @fastify/cookie, @jskit-ai/surface-routing, @jskit-ai/cli-entrypoint; web-runtime-core guardrail error; workspace-console-core missing module)
+- npm run test:framework (fails: migration tracker count mismatch; stage12 cutover expects legacy-surface but hits missing @jskit-ai/cli-entrypoint)
+- npm run test:architecture:client (fails: vuetify imports in web shell template)
+- npm run test:architecture:shared-ui
+- npm run test:architecture:db
+Commit: 73dff238f9224f6b6e4328b398c96fc424caad65
