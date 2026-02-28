@@ -9,6 +9,7 @@ import {
   transaction
 } from "./repository.js";
 import { createService as createAlertsService } from "./service.js";
+import { createRepositoryExport } from "../moduleExports.js";
 
 const repository = Object.freeze({
   insertAlert,
@@ -29,9 +30,7 @@ function createService(options = {}) {
 }
 
 function createRepository() {
-  return {
-    repository
-  };
+  return createRepositoryExport(repository);
 }
 
 export { createController } from "./controller.js";

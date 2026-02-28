@@ -1,5 +1,4 @@
 import { createService as createSocialService } from "./services/social.service.js";
-import { createRepository as createSocialRepository } from "./repositories/index.js";
 
 function createService(options = {}) {
   const source = options && typeof options === "object" ? options : {};
@@ -15,10 +14,7 @@ function createService(options = {}) {
   };
 }
 
-function createRepository() {
-  return createSocialRepository();
-}
-
 export { createController } from "./controller.js";
 export { buildRoutes } from "./routes.js";
-export { createService, createRepository };
+export { createRepository } from "./repositories/index.js";
+export { createService };

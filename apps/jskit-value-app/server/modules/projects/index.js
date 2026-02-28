@@ -8,6 +8,7 @@ import {
   transaction
 } from "./repository.js";
 import { createService as createProjectsService } from "./service.js";
+import { createRepositoryExport } from "../moduleExports.js";
 
 const repository = Object.freeze({
   insert,
@@ -27,9 +28,7 @@ function createService(options = {}) {
 }
 
 function createRepository() {
-  return {
-    repository
-  };
+  return createRepositoryExport(repository);
 }
 
 export { createController } from "./controller.js";
