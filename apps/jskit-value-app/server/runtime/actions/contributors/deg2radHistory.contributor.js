@@ -1,6 +1,7 @@
 import { createService as createDeg2radModuleService } from "../../../modules/deg2rad/index.js";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../../shared/eventTypes.js";
 import { publishUserScopedRealtimeEvent } from "./realtimePublishHelpers.js";
+import { normalizeHeaderValue } from "@jskit-ai/action-runtime-core";
 
 function normalizeObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -8,11 +9,6 @@ function normalizeObject(value) {
   }
 
   return value;
-}
-
-function normalizeHeaderValue(value) {
-  const normalized = String(value || "").trim();
-  return normalized || null;
 }
 
 function toPositiveInteger(value) {

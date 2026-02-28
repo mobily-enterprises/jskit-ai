@@ -3,6 +3,7 @@ import {
   publishProjectEventSafely,
   resolvePublishProjectEvent
 } from "../../../realtime/publishers/projectPublisher.js";
+import { normalizeHeaderValue } from "@jskit-ai/action-runtime-core";
 
 const PROJECTS_CREATE_CAPABILITY = "projects.create";
 const PROJECTS_UNARCHIVE_CAPABILITY = "projects.unarchive";
@@ -14,11 +15,6 @@ function normalizeObject(value) {
   }
 
   return value;
-}
-
-function normalizeHeaderValue(value) {
-  const normalized = String(value || "").trim();
-  return normalized || null;
 }
 
 function normalizeProjectStatus(value, fallback = "draft") {
