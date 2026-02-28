@@ -1,3 +1,4 @@
+import { normalizeRequestMeta } from "./requestMeta.js";
 import { normalizeLowerText, normalizeText } from "./textNormalization.js";
 
 function normalizePermissions(value) {
@@ -38,19 +39,6 @@ function normalizeMembership(membership) {
   return {
     roleId: normalizeLowerText(membership.roleId),
     status: normalizeLowerText(membership.status)
-  };
-}
-
-function normalizeRequestMeta(requestMeta) {
-  const source = requestMeta && typeof requestMeta === "object" ? requestMeta : {};
-
-  return {
-    requestId: normalizeText(source.requestId),
-    commandId: normalizeText(source.commandId),
-    idempotencyKey: normalizeText(source.idempotencyKey),
-    ip: normalizeText(source.ip),
-    userAgent: normalizeText(source.userAgent),
-    request: source.request || null
   };
 }
 

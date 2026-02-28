@@ -14,6 +14,7 @@ export {
 export { createActionRegistry } from "./registry.js";
 export { normalizeExecutionContext } from "./executionContext.js";
 export { normalizeText, normalizeLowerText } from "./textNormalization.js";
+export { normalizeRequestMeta } from "./requestMeta.js";
 export { executeActionPipeline } from "./pipeline.js";
 export {
   createPermissionEvaluator,

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { normalizeRequestMeta as normalizeActionRequestMeta } from "@jskit-ai/action-runtime-core";
 import { hasPermission, manifestIncludesPermission, resolveRolePermissions } from "@jskit-ai/rbac-core";
 import { AppError as SharedAppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
@@ -176,18 +177,10 @@ function toBoundedMilliseconds(value, { fallback = 1000, min = 1, max = 60_000 }
 }
 
 function normalizeRequestMeta(metaValue) {
-  const source = metaValue && typeof metaValue === "object" ? metaValue : {};
-  const commandId = String(source.commandId || "").trim();
-  const sourceClientId = String(source.sourceClientId || "").trim();
-  const workspaceSlug = String(source.workspaceSlug || "").trim();
-  const logger = source.logger && typeof source.logger.warn === "function" ? source.logger : null;
-
-  return {
-    commandId: commandId || null,
-    sourceClientId: sourceClientId || null,
-    workspaceSlug: workspaceSlug || null,
-    logger
-  };
+  return normalizeActionRequestMeta(metaValue, {
+    fields: ["commandId", "sourceClientId", "workspaceSlug", "logger"],
+    emptyAsNull: true
+  });
 }
 
 function normalizeUserIds(value) {
