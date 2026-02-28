@@ -26,4 +26,14 @@ function applyForUpdate(query, options = {}) {
   return query;
 }
 
-export { resolveQueryOptions, resolveRepoClient, applyForUpdate };
+function toDbJson(value) {
+  if (value == null) {
+    return JSON.stringify({});
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  return JSON.stringify(value);
+}
+
+export { resolveQueryOptions, resolveRepoClient, applyForUpdate, toDbJson };

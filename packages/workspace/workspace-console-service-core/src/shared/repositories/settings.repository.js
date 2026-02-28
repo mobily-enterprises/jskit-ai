@@ -1,6 +1,6 @@
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
-import { resolveRepoClient } from "@jskit-ai/jskit-knex";
+import { resolveRepoClient, toDbJson } from "@jskit-ai/jskit-knex";
 
 const CONSOLE_SETTINGS_SINGLETON_ID = 1;
 
@@ -37,16 +37,6 @@ function mapConsoleSettingsRowNullable(row) {
   }
 
   return mapConsoleSettingsRowRequired(row);
-}
-
-function toDbJson(value) {
-  if (value == null) {
-    return JSON.stringify({});
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  return JSON.stringify(value);
 }
 
 function createConsoleSettingsRepository(dbClient) {

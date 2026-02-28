@@ -1,5 +1,6 @@
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
+import { resolveRepoClient, toDbJson } from "@jskit-ai/jskit-knex";
 
 function parseJsonValue(value, fallback = {}) {
   if (!value) {
@@ -38,24 +39,9 @@ function mapWorkspaceSettingsRowNullable(row) {
   return mapWorkspaceSettingsRowRequired(row);
 }
 
-function toDbJson(value) {
-  if (value == null) {
-    return JSON.stringify({});
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  return JSON.stringify(value);
-}
-
 function createWorkspaceSettingsRepository(dbClient) {
-  function resolveClient(options = {}) {
-    const trx = options && typeof options === "object" ? options.trx || null : null;
-    return trx || dbClient;
-  }
-
   async function repoFindByWorkspaceId(workspaceId, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const row = await client("workspace_settings").where({ workspace_id: workspaceId }).first();
     return mapWorkspaceSettingsRowNullable(row);
   }
@@ -72,13 +58,13 @@ function createWorkspaceSettingsRepository(dbClient) {
       return [];
     }
 
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const rows = await client("workspace_settings").whereIn("workspace_id", normalizedWorkspaceIds);
     return (Array.isArray(rows) ? rows : []).map(mapWorkspaceSettingsRowRequired);
   }
 
   async function repoEnsureForWorkspaceId(workspaceId, defaults = {}, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const existing = await repoFindByWorkspaceId(workspaceId, options);
     if (existing) {
       return existing;
@@ -105,7 +91,7 @@ function createWorkspaceSettingsRepository(dbClient) {
   }
 
   async function repoUpdateByWorkspaceId(workspaceId, patch = {}, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const dbPatch = {};
     if (Object.hasOwn(patch, "invitesEnabled")) {
       dbPatch.invites_enabled = Boolean(patch.invitesEnabled);
