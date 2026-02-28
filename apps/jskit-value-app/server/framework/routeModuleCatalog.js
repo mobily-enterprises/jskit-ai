@@ -14,7 +14,6 @@ import { buildRoutes as buildDeg2radRoutes } from "../modules/deg2rad/index.js";
 import { buildRoutes as buildHealthRoutes } from "@jskit-ai/health-fastify-routes";
 import { buildRoutes as buildObservabilityRoutes } from "@jskit-ai/observability-fastify-routes";
 import { buildRoutes as buildAiRoutes } from "../modules/ai/index.js";
-import { API_PREFIX, toVersionedApiPath } from "../../shared/apiPaths.js";
 
 const ROUTE_MODULE_DEFINITIONS = Object.freeze([
   {
@@ -104,21 +103,6 @@ const ROUTE_MODULE_DEFINITIONS = Object.freeze([
   }
 ]);
 
-function withConsoleRoutePolicy(route) {
-  const pathValue = toVersionedApiPath(route?.path);
-  const consoleApiPath = `${API_PREFIX}/console`;
-  const isConsoleApiPath = pathValue === consoleApiPath || pathValue.startsWith(`${consoleApiPath}/`);
-  if (!isConsoleApiPath) {
-    return route;
-  }
-
-  return {
-    ...route,
-    workspacePolicy: route.workspacePolicy || "optional",
-    workspaceSurface: route.workspaceSurface || "console"
-  };
-}
-
 function createMissingHandler() {
   return async (_request, reply) => {
     reply.code(501).send({
@@ -127,4 +111,4 @@ function createMissingHandler() {
   };
 }
 
-export { ROUTE_MODULE_DEFINITIONS, withConsoleRoutePolicy, createMissingHandler };
+export { ROUTE_MODULE_DEFINITIONS, createMissingHandler };

@@ -207,3 +207,26 @@ test("registerApiRoutes supports custom routes and route defaults", async () => 
 
   await app.close();
 });
+
+test("registerApiRoutes rejects console routes without workspace metadata", async () => {
+  const app = Fastify();
+
+  assert.throws(
+    () =>
+      registerApiRoutes(app, {
+        controllers: noopControllers(),
+        routes: [
+          {
+            path: "/api/console/needs-meta",
+            method: "GET",
+            handler: async (_request, reply) => {
+              reply.code(200).send({ ok: true });
+            }
+          }
+        ]
+      }),
+    /workspacePolicy and workspaceSurface/
+  );
+
+  await app.close();
+});

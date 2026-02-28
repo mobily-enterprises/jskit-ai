@@ -1,8 +1,13 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { schema } from "./schema.js";
 
+const CONSOLE_ROUTE_DEFAULTS = Object.freeze({
+  workspacePolicy: "optional",
+  workspaceSurface: "console"
+});
+
 function buildRoutes(controllers, { missingHandler }) {
-  return [
+  const routes = [
     {
       path: "/api/console/errors/browser",
       method: "GET",
@@ -115,6 +120,11 @@ function buildRoutes(controllers, { missingHandler }) {
       handler: controllers.consoleErrors?.simulateServerError || missingHandler
     }
   ];
+
+  return routes.map((route) => ({
+    ...CONSOLE_ROUTE_DEFAULTS,
+    ...route
+  }));
 }
 
 export { buildRoutes };
