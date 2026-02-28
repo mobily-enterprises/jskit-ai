@@ -26,6 +26,19 @@ function applyForUpdate(query, options = {}) {
   return query;
 }
 
+function mapRowNullable(mapper) {
+  if (typeof mapper !== "function") {
+    throw new TypeError("mapRowNullable requires a mapper function.");
+  }
+
+  return function mapNullableRow(row) {
+    if (!row) {
+      return null;
+    }
+    return mapper(row);
+  };
+}
+
 function parseJsonValue(value, fallback = null, options = {}) {
   const source = options && typeof options === "object" ? options : {};
   const effectiveFallback = Object.hasOwn(source, "fallback") ? source.fallback : fallback;
@@ -71,4 +84,4 @@ function toDbJson(value) {
   return JSON.stringify(value);
 }
 
-export { resolveQueryOptions, resolveRepoClient, applyForUpdate, parseJsonValue, toDbJson };
+export { resolveQueryOptions, resolveRepoClient, applyForUpdate, mapRowNullable, parseJsonValue, toDbJson };

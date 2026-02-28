@@ -1,6 +1,6 @@
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
-import { parseJsonValue, resolveRepoClient, toDbJson } from "@jskit-ai/jskit-knex";
+import { mapRowNullable, parseJsonValue, resolveRepoClient, toDbJson } from "@jskit-ai/jskit-knex";
 
 function mapWorkspaceSettingsRowRequired(row) {
   if (!row) {
@@ -17,13 +17,7 @@ function mapWorkspaceSettingsRowRequired(row) {
   };
 }
 
-function mapWorkspaceSettingsRowNullable(row) {
-  if (!row) {
-    return null;
-  }
-
-  return mapWorkspaceSettingsRowRequired(row);
-}
+const mapWorkspaceSettingsRowNullable = mapRowNullable(mapWorkspaceSettingsRowRequired);
 
 function createWorkspaceSettingsRepository(dbClient) {
   async function repoFindByWorkspaceId(workspaceId, options = {}) {

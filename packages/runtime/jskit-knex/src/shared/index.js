@@ -4,4 +4,4 @@ export { normalizeBatchSize, normalizeCutoffDateOrThrow, normalizeDeletedRowCoun
 export { normalizePath, jsonTextExpression, whereJsonTextEquals } from "./json.js";
 export { normalizeDialect, detectDialectFromClient } from "./dialect.js";
 export { createRepoTransaction } from "./transactions.js";
-export { resolveQueryOptions, resolveRepoClient, applyForUpdate, parseJsonValue, toDbJson } from "./repositoryOptions.js";
+export { resolveQueryOptions, resolveRepoClient, applyForUpdate, mapRowNullable, parseJsonValue, toDbJson } from "./repositoryOptions.js";

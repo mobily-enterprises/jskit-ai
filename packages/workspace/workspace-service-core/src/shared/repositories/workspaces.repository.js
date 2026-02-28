@@ -1,5 +1,5 @@
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
-import { resolveQueryOptions, resolveRepoClient } from "@jskit-ai/jskit-knex";
+import { mapRowNullable, resolveQueryOptions, resolveRepoClient } from "@jskit-ai/jskit-knex";
 import { coerceWorkspaceColor } from "@jskit-ai/workspace-console-core/workspaceColors";
 
 function mapWorkspaceRowRequired(row) {
@@ -20,12 +20,7 @@ function mapWorkspaceRowRequired(row) {
   };
 }
 
-function mapWorkspaceRowNullable(row) {
-  if (!row) {
-    return null;
-  }
-  return mapWorkspaceRowRequired(row);
-}
+const mapWorkspaceRowNullable = mapRowNullable(mapWorkspaceRowRequired);
 
 function createWorkspacesRepository(dbClient) {
   async function repoFindById(id, options = {}) {
