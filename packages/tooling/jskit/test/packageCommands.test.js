@@ -1,32 +1,11 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { access, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import process from "node:process";
 import { PassThrough, Writable } from "node:stream";
 import test from "node:test";
 import { runCli as runCliDirect } from "../src/shared/index.js";
-import { fileURLToPath } from "node:url";
-
-const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
-
-function runCli({ cwd, args = [] }) {
-  return spawnSync(process.execPath, [CLI_PATH, ...args], {
-    cwd,
-    encoding: "utf8"
-  });
-}
-
-async function writeJsonFile(absolutePath, value) {
-  await mkdir(path.dirname(absolutePath), { recursive: true });
-  await writeFile(absolutePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-}
-
-async function readJsonFile(absolutePath) {
-  const source = await readFile(absolutePath, "utf8");
-  return JSON.parse(source);
-}
+import { readJsonFile, runCli, writeJsonFile } from "./helpers.js";
 
 function createPackageDescriptorSource({
   packageId,
