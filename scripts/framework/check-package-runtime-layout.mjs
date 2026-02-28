@@ -3,19 +3,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { toPosix } from "./_utils.mjs";
+import { parseArgs, toPosix } from "./_utils.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PACKAGES_ROOT = path.join(REPO_ROOT, "packages");
 const EXPECTED_RUNTIME_DIRS = Object.freeze(["shared", "client", "server"]);
-
-function parseArgs(argv) {
-  const args = new Set(argv);
-  return {
-    strict: args.has("--strict"),
-    json: args.has("--json")
-  };
-}
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -98,7 +90,7 @@ function getPackageRuntimeStatus(packageRoot) {
 }
 
 function main() {
-  const options = parseArgs(process.argv.slice(2));
+  const options = parseArgs(process.argv.slice(2), { json: true });
   const statuses = discoverPackageRoots(PACKAGES_ROOT)
     .map((packageRoot) => getPackageRuntimeStatus(packageRoot))
     .filter(Boolean);

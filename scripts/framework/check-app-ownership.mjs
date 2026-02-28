@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { toPosix } from "./_utils.mjs";
+import { parseArgs, toPosix } from "./_utils.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const APP_ROOT = path.join(REPO_ROOT, "apps", "jskit-value-app");
@@ -40,12 +40,6 @@ const ALLOWED_PATTERNS = Object.freeze([
   /^src\/views\/projects\//,
   /^src\/views\/deg2rad-calculator\//
 ]);
-
-function parseArgs(argv) {
-  return {
-    strict: new Set(argv).has("--strict")
-  };
-}
 
 function shouldSkipDirectory(name) {
   return (
