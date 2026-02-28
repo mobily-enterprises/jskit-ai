@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { toPosixPath } from "../helpers/pathUtils.mjs";
 
 const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const PACKAGES_DIR = path.join(ROOT_DIR, "packages");
@@ -63,10 +64,6 @@ const RENDERING_ENTRY_API_ALLOWLIST_PREFIXES = Object.freeze([
   "packages/tooling/create-app/templates/",
   "packages/tooling/jskit/packages/web-shell-host/templates/"
 ]);
-
-function toPosixPath(value) {
-  return String(value || "").replace(/\\/g, "/");
-}
 
 function listFilesRecursive(rootDir, predicate = () => true) {
   const files = [];
