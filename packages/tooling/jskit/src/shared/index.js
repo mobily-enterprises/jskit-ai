@@ -2143,6 +2143,15 @@ async function validateDoctor({ appRoot, lock, availableBundles, availablePackag
 
 function formatResult(result, { json, stdout }) {
   const supportsColor = Boolean(stdout?.isTTY) && !process.env.NO_COLOR;
+  const color = (code, text) => (supportsColor ? `\x1b[${code}m${text}\x1b[0m` : text);
+  const bold = (text) => color("1", text);
+  const cyan = (text) => color("36", text);
+  const blue = (text) => color("34", text);
+  const green = (text) => color("32", text);
+  const yellow = (text) => color("33", text);
+  const magenta = (text) => color("35", text);
+  const red = (text) => color("31", text);
+  const brightWhite = (text) => color("97", text);
   const gray = (text) => (supportsColor ? `\x1b[90m${text}\x1b[0m` : text);
   const showExpanded = result.expanded === true;
 
@@ -2158,14 +2167,34 @@ function formatResult(result, { json, stdout }) {
       : `- ${entry.bundleId} (${entry.version})${installedSuffix}${providerRequirementSuffix}\n`;
   }
 
-  function writeCapabilitySection({ title, groupedCapabilities = [] }) {
+  function writeCapabilitySection({ title, groupedCapabilities = [], colorize = (text) => text }) {
     if (!Array.isArray(groupedCapabilities) || groupedCapabilities.length < 1) {
       return;
     }
-    stdout.write(`${title}:\n`);
+    stdout.write(`${bold(blue(title))}:\n`);
     for (const label of groupedCapabilities) {
-      stdout.write(`- ${label}\n`);
+      stdout.write(`- ${colorize(label)}\n`);
     }
+  }
+
+  function colorMethod(method) {
+    const normalized = String(method || "").trim().toUpperCase();
+    if (normalized === "GET") {
+      return green(normalized);
+    }
+    if (normalized === "POST") {
+      return cyan(normalized);
+    }
+    if (normalized === "PUT") {
+      return yellow(normalized);
+    }
+    if (normalized === "PATCH") {
+      return magenta(normalized);
+    }
+    if (normalized === "DELETE") {
+      return red(normalized);
+    }
+    return brightWhite(normalized);
   }
 
   if (json) {
@@ -2237,109 +2266,118 @@ function formatResult(result, { json, stdout }) {
   if (result.command === "show-package") {
     const installedSuffix = result.installed ? " (installed)" : "";
     const targetLabel = result.targetType === "bundle" ? "bundle shortcut" : "package";
-    stdout.write(`Package ${result.packageId} (${result.version})${installedSuffix}\n`);
-    stdout.write(`Type: ${targetLabel}\n`);
+    stdout.write(`${bold(cyan(`Package ${result.packageId} (${result.version})${installedSuffix}`))}\n`);
+    stdout.write(`${bold("Type")}: ${targetLabel}\n`);
     if (result.description) {
-      stdout.write(`Description: ${result.description}\n`);
+      stdout.write(`${bold("Description")}: ${gray(result.description)}\n`);
     }
     if (result.targetType === "bundle") {
-      stdout.write(`Curated: ${result.curated === 1 ? "yes" : "no"}\n`);
-      stdout.write(`Provider bundle: ${result.provider === 1 ? "yes" : "no"}\n`);
+      stdout.write(`${bold("Curated")}: ${result.curated === 1 ? green("yes") : gray("no")}\n`);
+      stdout.write(`${bold("Provider bundle")}: ${result.provider === 1 ? yellow("yes") : gray("no")}\n`);
     }
     if (result.targetType === "package") {
       if (Array.isArray(result.dependsOn) && result.dependsOn.length > 0) {
-        stdout.write("Depends on:\n");
+        stdout.write(`${bold(blue("Depends on"))}:\n`);
         for (const dependencyId of result.dependsOn) {
-          stdout.write(`- ${dependencyId}\n`);
+          stdout.write(`- ${cyan(dependencyId)}\n`);
         }
       }
       const optionNames = Object.keys(result.options || {});
       if (optionNames.length > 0) {
-        stdout.write("Options:\n");
+        stdout.write(`${bold(blue("Options"))}:\n`);
         for (const optionName of optionNames.sort((left, right) => left.localeCompare(right))) {
           const option = result.options[optionName] || {};
-          const requiredSuffix = option.required ? " (required)" : "";
+          const requiredSuffix = option.required ? ` ${red("(required)")}` : "";
           const values = Array.isArray(option.values) && option.values.length > 0 ? `: ${option.values.join(" | ")}` : "";
-          stdout.write(`- ${optionName}${requiredSuffix}${values}\n`);
+          stdout.write(`- ${yellow(optionName)}${requiredSuffix}${gray(values)}\n`);
         }
       }
     }
 
     writeCapabilitySection({
       title: "Requires capabilities",
-      groupedCapabilities: result.requiredCapabilitySummary
+      groupedCapabilities: result.requiredCapabilitySummary,
+      colorize: yellow
     });
     writeCapabilitySection({
       title: "Provides capabilities",
-      groupedCapabilities: result.providedCapabilitySummary
+      groupedCapabilities: result.providedCapabilitySummary,
+      colorize: green
     });
 
     if (Array.isArray(result.capabilityContracts) && result.capabilityContracts.length > 0) {
-      stdout.write("Contracts:\n");
+      stdout.write(`${bold(blue("Contracts"))}:\n`);
       for (const contractEntry of result.capabilityContracts) {
         const roles = Array.isArray(contractEntry.roles) && contractEntry.roles.length > 0
           ? ` [${contractEntry.roles.join(", ")}]`
           : "";
         const kindLabel = String(contractEntry.kind || "").trim();
         const summaryLabel = String(contractEntry.summary || "").trim();
+        const capabilityLabel = cyan(contractEntry.capabilityId);
+        const roleLabel = roles ? ` ${magenta(roles)}` : "";
         if (kindLabel && summaryLabel) {
-          stdout.write(`- ${contractEntry.capabilityId}${roles} (${kindLabel}): ${gray(summaryLabel)}\n`);
+          stdout.write(`- ${capabilityLabel}${roleLabel} (${yellow(kindLabel)}): ${gray(summaryLabel)}\n`);
           continue;
         }
         if (summaryLabel) {
-          stdout.write(`- ${contractEntry.capabilityId}${roles}: ${gray(summaryLabel)}\n`);
+          stdout.write(`- ${capabilityLabel}${roleLabel}: ${gray(summaryLabel)}\n`);
           continue;
         }
-        stdout.write(`- ${contractEntry.capabilityId}${roles}\n`);
+        stdout.write(`- ${capabilityLabel}${roleLabel}\n`);
       }
     }
 
     if (Array.isArray(result.packageEntries) && result.packageEntries.length > 0) {
-      stdout.write(`Packages (${result.packageEntries.length})${showExpanded ? " [expanded]" : ""}:\n`);
+      stdout.write(`${bold(blue(`Packages (${result.packageEntries.length})${showExpanded ? " [expanded]" : ""}`))}:\n`);
       for (const packageEntry of result.packageEntries) {
         const providerRequirementSuffix =
           Array.isArray(packageEntry.providerRequirementHints) && packageEntry.providerRequirementHints.length > 0
-            ? ` [${packageEntry.providerRequirementHints.join(", ")}]`
+            ? ` ${magenta(`[${packageEntry.providerRequirementHints.join(", ")}]`)}`
             : "";
-        const providerSuffix = packageEntry.provider ? "*" : "";
+        const providerSuffix = packageEntry.provider ? magenta("*") : "";
         const description = String(packageEntry.description || "").trim();
+        const packageIdLabel = cyan(packageEntry.packageId);
         if (description) {
-          stdout.write(`- ${packageEntry.packageId}${providerSuffix}${providerRequirementSuffix}: ${gray(description)}\n`);
+          stdout.write(`- ${packageIdLabel}${providerSuffix}${providerRequirementSuffix}: ${gray(description)}\n`);
           continue;
         }
-        stdout.write(`- ${packageEntry.packageId}${providerSuffix}${providerRequirementSuffix}\n`);
+        stdout.write(`- ${packageIdLabel}${providerSuffix}${providerRequirementSuffix}\n`);
       }
     }
 
     if (Array.isArray(result.serverRoutes) && result.serverRoutes.length > 0) {
       const totalRouteCount = result.serverRoutes.reduce((sum, entry) => sum + ((entry.routes || []).length || 0), 0);
-      stdout.write(`Server routes (${totalRouteCount}):\n`);
+      stdout.write(`${bold(blue(`Server routes (${totalRouteCount})`))}:\n`);
       for (const routeGroup of result.serverRoutes) {
-        stdout.write(`- ${routeGroup.packageId}:\n`);
+        stdout.write(`- ${cyan(routeGroup.packageId)}:\n`);
         for (const route of routeGroup.routes || []) {
           const summary = String(route.summary || "").trim();
+          const methodLabel = colorMethod(route.method);
+          const pathLabel = brightWhite(route.path);
           if (summary) {
-            stdout.write(`  ${route.method} ${route.path}: ${gray(summary)}\n`);
+            stdout.write(`  ${methodLabel} ${pathLabel}: ${gray(summary)}\n`);
             continue;
           }
-          stdout.write(`  ${route.method} ${route.path}\n`);
+          stdout.write(`  ${methodLabel} ${pathLabel}\n`);
         }
       }
     }
 
     if (Array.isArray(result.fileContributions) && result.fileContributions.length > 0) {
-      stdout.write(`File contributions (${result.fileContributions.length}):\n`);
+      stdout.write(`${bold(blue(`File contributions (${result.fileContributions.length})`))}:\n`);
       for (const fileEntry of result.fileContributions) {
-        stdout.write(`- ${fileEntry.to} (${fileEntry.packageId})\n`);
+        stdout.write(`- ${brightWhite(fileEntry.to)} ${gray(`(${fileEntry.packageId})`)}\n`);
       }
     }
 
     if (Array.isArray(result.uiElements) && result.uiElements.length > 0) {
-      stdout.write(`UI elements (${result.uiElements.length}):\n`);
+      stdout.write(`${bold(blue(`UI elements (${result.uiElements.length})`))}:\n`);
       for (const element of result.uiElements) {
-        const capabilitySuffix = String(element.capability || "").trim() ? ` [${element.capability}]` : "";
-        const surfaceSuffix = String(element.surface || "").trim() ? ` (${element.surface})` : "";
-        stdout.write(`- ${element.name}${capabilitySuffix}${surfaceSuffix} (${element.packageId}): ${gray(element.purpose)}\n`);
+        const capabilitySuffix = String(element.capability || "").trim() ? ` ${magenta(`[${element.capability}]`)}` : "";
+        const surfaceSuffix = String(element.surface || "").trim() ? ` ${yellow(`(${element.surface})`)}` : "";
+        stdout.write(
+          `- ${cyan(element.name)}${capabilitySuffix}${surfaceSuffix} ${gray(`(${element.packageId})`)}: ${gray(element.purpose)}\n`
+        );
       }
     }
 

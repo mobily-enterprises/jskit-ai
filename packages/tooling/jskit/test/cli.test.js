@@ -199,7 +199,7 @@ test("jskit show <id> defaults to declared packages and supports --expanded", as
       args: ["show", "billing-base", "--expanded"]
     });
     assert.equal(expanded.status, 0, expanded.stderr);
-    assert.match(expanded.stdout, /Packages \((?:1[1-9]|[2-9]\d)\):/i);
+    assert.match(expanded.stdout, /Packages \((?:1[1-9]|[2-9]\d)\) \[expanded\]:/i);
     assert.match(expanded.stdout, /@jskit-ai\/module-framework-core/i);
   });
 });
