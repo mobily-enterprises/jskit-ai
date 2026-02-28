@@ -39,6 +39,46 @@ function mapRowNullable(mapper) {
   };
 }
 
+function parseJsonObject(value, fallback = {}) {
+  const source = String(value || "").trim();
+  if (!source) {
+    return fallback;
+  }
+
+  try {
+    const parsed = JSON.parse(source);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch {
+    return fallback;
+  }
+
+  return fallback;
+}
+
+function stringifyJsonObject(value, fallback = "{}") {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return fallback;
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeCountRow(row) {
+  const values = Object.values(row || {});
+  if (values.length < 1) {
+    return 0;
+  }
+
+  const parsed = Number(values[0]);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
+
 function parseJsonValue(value, fallback = null, options = {}) {
   const source = options && typeof options === "object" ? options : {};
   const effectiveFallback = Object.hasOwn(source, "fallback") ? source.fallback : fallback;
@@ -84,4 +124,14 @@ function toDbJson(value) {
   return JSON.stringify(value);
 }
 
-export { resolveQueryOptions, resolveRepoClient, applyForUpdate, mapRowNullable, parseJsonValue, toDbJson };
+export {
+  resolveQueryOptions,
+  resolveRepoClient,
+  applyForUpdate,
+  mapRowNullable,
+  parseJsonObject,
+  stringifyJsonObject,
+  normalizeCountRow,
+  parseJsonValue,
+  toDbJson
+};

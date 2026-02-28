@@ -1,43 +1,8 @@
+import { normalizeCountRow, parseJsonObject, stringifyJsonObject } from "@jskit-ai/jskit-knex";
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { normalizeBatchSize, normalizeCutoffDateOrThrow } from "@jskit-ai/jskit-knex/retention";
 import { whereJsonTextEquals } from "@jskit-ai/jskit-knex/json";
-
-function parseJsonObject(value) {
-  const source = String(value || "").trim();
-  if (!source) {
-    return {};
-  }
-
-  try {
-    const parsed = JSON.parse(source);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function stringifyJsonObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return "{}";
-  }
-
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return "{}";
-  }
-}
-
-function normalizeCountRow(row) {
-  const values = Object.values(row || {});
-  if (values.length < 1) {
-    return 0;
-  }
-
-  const parsed = Number(values[0]);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-}
 
 function mapConversationRowRequired(row) {
   if (!row) {

@@ -1,40 +1,5 @@
+import { normalizeCountRow, parseJsonObject, stringifyJsonObject } from "@jskit-ai/jskit-knex";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
-
-function parseJsonObject(value) {
-  const source = String(value || "").trim();
-  if (!source) {
-    return {};
-  }
-
-  try {
-    const parsed = JSON.parse(source);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function stringifyJsonObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return "{}";
-  }
-
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return "{}";
-  }
-}
-
-function normalizeCountRow(row) {
-  const values = Object.values(row || {});
-  if (values.length < 1) {
-    return 0;
-  }
-
-  const parsed = Number(values[0]);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-}
 
 function normalizePagination(pagination = {}, { defaultPageSize = 20, maxPageSize = 100 } = {}) {
   const page = Math.max(1, parsePositiveInteger(pagination.page) || 1);
