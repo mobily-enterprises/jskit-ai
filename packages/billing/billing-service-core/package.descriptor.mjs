@@ -23,7 +23,7 @@ export default Object.freeze({
       "billing.entitlements.core",
       "runtime.server",
       "billing.core",
-      "db.driver.knex-mysql",
+      "db.core",
       "workspace.console.core"
     ]
   },

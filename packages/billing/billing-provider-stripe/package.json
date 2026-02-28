@@ -10,6 +10,7 @@
     ".": "./src/shared/index.js",
     "./sdkService": "./src/shared/sdk.service.js",
     "./adapterService": "./src/shared/adapter.service.js",
+    "./catalogPricingService": "./src/shared/catalogPricing.service.js",
     "./webhookTranslationService": "./src/shared/webhookTranslation.service.js",
     "./errorMapping": "./src/shared/errorMapping.js"
   },

@@ -1,4 +1,5 @@
 export {
+  REQUIRED_PROVIDER_ADAPTER_OPERATION_METHODS,
   REQUIRED_PROVIDER_ADAPTER_METHODS,
   normalizeProviderCode,
   validateProviderAdapter,

@@ -6,6 +6,7 @@ export default Object.freeze({
   "packages": [
     "@jskit-ai/social-contracts",
     "@jskit-ai/social-core",
+    "@jskit-ai/social-fastify-routes",
     "@jskit-ai/social-client-runtime"
   ]
 });

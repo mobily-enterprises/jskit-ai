@@ -1,15 +1,54 @@
-import { BILLING_PROVIDER_STRIPE } from "@jskit-ai/billing-provider-core";
-import {
-  REQUIRED_PROVIDER_ADAPTER_METHODS,
-  assertProviderAdapter
-} from "@jskit-ai/billing-provider-core";
+import { BILLING_PROVIDER_STRIPE, assertProviderAdapter } from "@jskit-ai/billing-provider-core";
+import { createService as createStripeCatalogPricingService } from "./catalogPricing.service.js";
+
+const REQUIRED_STRIPE_SDK_METHODS = Object.freeze([
+  "createCheckoutSession",
+  "createPaymentLink",
+  "createPrice",
+  "createBillingPortalSession",
+  "verifyWebhookEvent",
+  "retrieveCheckoutSession",
+  "retrieveSubscription",
+  "retrieveInvoice",
+  "expireCheckoutSession",
+  "cancelSubscription",
+  "updateSubscriptionPlan",
+  "listCustomerPaymentMethods",
+  "setDefaultCustomerPaymentMethod",
+  "detachCustomerPaymentMethod",
+  "removeCustomerPaymentMethod",
+  "refundPurchase",
+  "voidPurchase",
+  "listCheckoutSessionsByOperationKey",
+  "getSdkProvenance"
+]);
+
+const CATALOG_PRICING_METHODS = Object.freeze([
+  "resolveCatalogCorePriceForCreate",
+  "resolveCatalogCorePriceForUpdate",
+  "resolveCatalogProductPriceForCreate",
+  "resolveCatalogProductPriceForUpdate"
+]);
 
 function createService({ stripeSdkService } = {}) {
-  for (const methodName of REQUIRED_PROVIDER_ADAPTER_METHODS) {
+  for (const methodName of REQUIRED_STRIPE_SDK_METHODS) {
     if (typeof stripeSdkService?.[methodName] !== "function") {
       throw new Error(`stripeSdkService.${methodName} is required.`);
     }
   }
+
+  const hasSdkCatalogPricingMethods = CATALOG_PRICING_METHODS.every(
+    (methodName) => typeof stripeSdkService?.[methodName] === "function"
+  );
+  if (!hasSdkCatalogPricingMethods && typeof stripeSdkService?.retrievePrice !== "function") {
+    throw new Error("stripeSdkService.retrievePrice is required.");
+  }
+
+  const catalogPricingService = createStripeCatalogPricingService({
+    retrievePrice(payload) {
+      return stripeSdkService.retrievePrice(payload);
+    }
+  });
 
   const adapter = {
     provider: BILLING_PROVIDER_STRIPE,
@@ -78,6 +117,30 @@ function createService({ stripeSdkService } = {}) {
     },
     async getSdkProvenance(payload) {
       return stripeSdkService.getSdkProvenance(payload);
+    },
+    async resolveCatalogCorePriceForCreate(payload) {
+      if (typeof stripeSdkService.resolveCatalogCorePriceForCreate === "function") {
+        return stripeSdkService.resolveCatalogCorePriceForCreate(payload);
+      }
+      return catalogPricingService.resolveCatalogCorePriceForCreate(payload);
+    },
+    async resolveCatalogCorePriceForUpdate(payload) {
+      if (typeof stripeSdkService.resolveCatalogCorePriceForUpdate === "function") {
+        return stripeSdkService.resolveCatalogCorePriceForUpdate(payload);
+      }
+      return catalogPricingService.resolveCatalogCorePriceForUpdate(payload);
+    },
+    async resolveCatalogProductPriceForCreate(payload) {
+      if (typeof stripeSdkService.resolveCatalogProductPriceForCreate === "function") {
+        return stripeSdkService.resolveCatalogProductPriceForCreate(payload);
+      }
+      return catalogPricingService.resolveCatalogProductPriceForCreate(payload);
+    },
+    async resolveCatalogProductPriceForUpdate(payload) {
+      if (typeof stripeSdkService.resolveCatalogProductPriceForUpdate === "function") {
+        return stripeSdkService.resolveCatalogProductPriceForUpdate(payload);
+      }
+      return catalogPricingService.resolveCatalogProductPriceForUpdate(payload);
     }
   };
 

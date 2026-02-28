@@ -37,10 +37,8 @@ export {
   buildConsoleBillingProductCatalog
 } from "./billingCatalog.service.js";
 export {
-  resolveStripeCatalogPriceSnapshot,
   resolveCatalogCorePriceForCreate,
   resolveCatalogCorePriceForUpdate,
-  resolveStripeCatalogProductPriceSnapshot,
   resolveCatalogProductPriceForCreate,
   resolveCatalogProductPriceForUpdate
 } from "./billingCatalogProviderPricing.service.js";

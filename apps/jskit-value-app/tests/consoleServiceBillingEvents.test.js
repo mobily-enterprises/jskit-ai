@@ -1391,9 +1391,10 @@ test("console billing product create inserts product and provider price mapping"
 test("console billing product create rejects recurring Stripe prices", async () => {
   const service = createConsoleServiceHarness({
     billingProviderAdapter: {
-      async retrievePrice({ priceId }) {
+      async resolveCatalogProductPriceForCreate({ price, createError }) {
+        const priceId = String(price?.providerPriceId || "");
         assert.equal(priceId, "price_monthly_not_allowed");
-        return {
+        const providerPrice = {
           id: "price_monthly_not_allowed",
           provider: "stripe",
           productId: "prod_monthly",
@@ -1405,6 +1406,27 @@ test("console billing product create rejects recurring Stripe prices", async () 
           intervalCount: 1,
           usageType: "licensed",
           active: true
+        };
+
+        if (providerPrice.interval || providerPrice.intervalCount) {
+          throw createError(400, "Validation failed.", {
+            details: {
+              fieldErrors: {
+                "price.providerPriceId":
+                  "Selected provider price is recurring and cannot be used for one-time products."
+              }
+            }
+          });
+        }
+
+        return {
+          provider: providerPrice.provider,
+          providerProductId: providerPrice.productId,
+          providerPriceId: providerPrice.id,
+          interval: providerPrice.interval,
+          intervalCount: providerPrice.intervalCount,
+          currency: providerPrice.currency,
+          unitAmountMinor: providerPrice.unitAmountMinor
         };
       }
     },

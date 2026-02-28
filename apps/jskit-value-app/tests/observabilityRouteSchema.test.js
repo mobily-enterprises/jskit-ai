@@ -3,8 +3,8 @@ import test from "node:test";
 import Fastify from "fastify";
 
 import { registerApiRoutes } from "../server/fastify/registerApiRoutes.js";
-import { buildRoutes as buildObservabilityRoutes } from "@jskit-ai/observability-core";
-import { createController as createObservabilityController } from "@jskit-ai/observability-core";
+import { buildRoutes as buildObservabilityRoutes } from "@jskit-ai/observability-fastify-routes";
+import { createController as createObservabilityController } from "@jskit-ai/observability-fastify-routes";
 import { createMetricsRegistry } from "@jskit-ai/observability-core";
 import { createService as createObservabilityService } from "@jskit-ai/observability-core/service";
 

@@ -109,7 +109,19 @@ const stripeAdapter = assertProviderAdapter({
   async updateSubscriptionPlan() {},
   async listCustomerPaymentMethods() {},
   async listCheckoutSessionsByOperationKey() {},
-  async getSdkProvenance() {}
+  async getSdkProvenance() {},
+  async resolveCatalogCorePriceForCreate({ corePrice }) {
+    return corePrice;
+  },
+  async resolveCatalogCorePriceForUpdate({ corePrice }) {
+    return corePrice;
+  },
+  async resolveCatalogProductPriceForCreate({ price }) {
+    return price;
+  },
+  async resolveCatalogProductPriceForUpdate({ price }) {
+    return price;
+  }
 });
 
 const stripeTranslator = assertWebhookTranslator({

@@ -7,22 +7,18 @@ export default Object.freeze({
     "@jskit-ai/access-core",
     "@jskit-ai/rbac-core",
     "@jskit-ai/server-runtime-core",
-    "@jskit-ai/jskit-knex",
-    "@jskit-ai/http-contracts"
+    "@jskit-ai/jskit-knex"
   ],
   "capabilities": {
     "provides": [
       "workspace.service",
-      "workspace.routes",
       "workspace.store"
     ],
     "requires": [
       "workspace.console.core",
-      "workspace.store",
       "auth.access",
       "auth.rbac",
       "runtime.server",
-      "contracts.http",
       "db.core"
     ]
   },
@@ -35,9 +31,7 @@ export default Object.freeze({
         "@jskit-ai/jskit-knex": "0.1.0",
         "@jskit-ai/rbac-core": "0.1.0",
         "@jskit-ai/server-runtime-core": "0.1.0",
-        "@jskit-ai/workspace-console-core": "0.1.0",
-        "@fastify/type-provider-typebox": "^6.1.0",
-        "@jskit-ai/http-contracts": "0.1.0"
+        "@jskit-ai/workspace-console-core": "0.1.0"
       },
       "dev": {}
     },

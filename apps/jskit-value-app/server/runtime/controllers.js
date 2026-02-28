@@ -1,12 +1,12 @@
 import { createController as createAuthController } from "@jskit-ai/auth-fastify-routes";
 import { createController as createHistoryController } from "../modules/history/index.js";
-import { createController as createCommunicationsController } from "@jskit-ai/communications-core";
+import { createController as createCommunicationsController } from "@jskit-ai/communications-fastify-routes";
 import { createController as createSettingsController } from "../modules/settings/index.js";
 import { createController as createAlertsController } from "../modules/alerts/index.js";
 import { createController as createWorkspaceController } from "../modules/workspace/index.js";
 import { createController as createConsoleController } from "../modules/console/index.js";
 import { createController as createConsoleErrorsController } from "@jskit-ai/console-errors-fastify-routes";
-import { createController as createObservabilityController } from "@jskit-ai/observability-core";
+import { createController as createObservabilityController } from "@jskit-ai/observability-fastify-routes";
 import { createController as createChatController } from "../modules/chat/index.js";
 import { createController as createSocialController } from "../modules/social/index.js";
 import { createController as createHealthController } from "@jskit-ai/health-fastify-routes";

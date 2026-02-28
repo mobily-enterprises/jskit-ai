@@ -8,6 +8,7 @@ export default Object.freeze({
     "@jskit-ai/workspace-console-core",
     "@jskit-ai/workspace-console-service-core",
     "@jskit-ai/workspace-service-core",
+    "@jskit-ai/workspace-fastify-routes",
     "@jskit-ai/console-fastify-routes",
     "@jskit-ai/console-errors-fastify-routes",
     "@jskit-ai/settings-fastify-routes"

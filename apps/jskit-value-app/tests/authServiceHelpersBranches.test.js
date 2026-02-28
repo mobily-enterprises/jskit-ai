@@ -94,6 +94,7 @@ test("oauth redirect helpers validate intent, returnTo, provider, and callback p
     () =>
       buildOAuthRedirectUrl({
         appPublicUrl: "http://localhost:5173",
+        providerIds: ["google"],
         provider: "google",
         callbackPath: "   ",
         returnTo: "/"
@@ -103,6 +104,7 @@ test("oauth redirect helpers validate intent, returnTo, provider, and callback p
 
   const oauthUrl = buildOAuthRedirectUrl({
     appPublicUrl: "http://localhost:5173/app",
+    providerIds: ["google"],
     provider: "google",
     callbackPath: "login",
     returnTo: "/settings"
@@ -113,6 +115,7 @@ test("oauth redirect helpers validate intent, returnTo, provider, and callback p
 
   const oauthLoginUrl = buildOAuthLoginRedirectUrl({
     appPublicUrl: "http://localhost:5173/app",
+    providerIds: ["google"],
     provider: "google",
     returnTo: "/w/acme"
   });
@@ -120,13 +123,14 @@ test("oauth redirect helpers validate intent, returnTo, provider, and callback p
 
   const oauthLinkUrl = buildOAuthLinkRedirectUrl({
     appPublicUrl: "http://localhost:5173/app",
+    providerIds: ["google"],
     provider: "google",
     returnTo: "/account/settings"
   });
   assert.equal(oauthLinkUrl.includes("oauthIntent=link"), true);
 
   assert.throws(
-    () => normalizeOAuthProviderInput("github"),
+    () => normalizeOAuthProviderInput("github", { providerIds: ["google"] }),
     (error) => {
       return error instanceof AppError && error.statusCode === 400;
     }
@@ -134,14 +138,20 @@ test("oauth redirect helpers validate intent, returnTo, provider, and callback p
 });
 
 test("oauth payload parsers cover token limits and mixed token/email branches", () => {
-  const overLimitPayload = parseOAuthCompletePayload({
-    provider: "",
-    code: "c".repeat(AUTH_RECOVERY_TOKEN_MAX_LENGTH + 1),
-    accessToken: "a".repeat(AUTH_ACCESS_TOKEN_MAX_LENGTH + 1),
-    refreshToken: "r".repeat(AUTH_REFRESH_TOKEN_MAX_LENGTH + 1),
-    error: "e".repeat(129),
-    errorDescription: "d".repeat(1025)
-  });
+  const overLimitPayload = parseOAuthCompletePayload(
+    {
+      provider: "",
+      code: "c".repeat(AUTH_RECOVERY_TOKEN_MAX_LENGTH + 1),
+      accessToken: "a".repeat(AUTH_ACCESS_TOKEN_MAX_LENGTH + 1),
+      refreshToken: "r".repeat(AUTH_REFRESH_TOKEN_MAX_LENGTH + 1),
+      error: "e".repeat(129),
+      errorDescription: "d".repeat(1025)
+    },
+    {
+      providerIds: ["google"],
+      defaultProvider: "google"
+    }
+  );
   assert.equal(overLimitPayload.provider, "google");
   assert.equal(overLimitPayload.fieldErrors.code.includes("too long"), true);
   assert.equal(overLimitPayload.fieldErrors.error.includes("too long"), true);
@@ -149,16 +159,26 @@ test("oauth payload parsers cover token limits and mixed token/email branches", 
   assert.equal(overLimitPayload.fieldErrors.accessToken.includes("too long"), true);
   assert.equal(overLimitPayload.fieldErrors.refreshToken.includes("too long"), true);
 
-  const refreshOnly = parseOAuthCompletePayload({
-    provider: "google",
-    refreshToken: "refresh-only"
-  });
+  const refreshOnly = parseOAuthCompletePayload(
+    {
+      provider: "google",
+      refreshToken: "refresh-only"
+    },
+    {
+      providerIds: ["google"]
+    }
+  );
   assert.equal(refreshOnly.fieldErrors.accessToken.includes("required"), true);
 
-  const accessOnly = parseOAuthCompletePayload({
-    provider: "google",
-    accessToken: "access-only"
-  });
+  const accessOnly = parseOAuthCompletePayload(
+    {
+      provider: "google",
+      accessToken: "access-only"
+    },
+    {
+      providerIds: ["google"]
+    }
+  );
   assert.equal(accessOnly.fieldErrors.refreshToken.includes("required"), true);
 
   const otpTokenTooLong = parseOtpLoginVerifyPayload({

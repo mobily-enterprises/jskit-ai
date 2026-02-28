@@ -16,7 +16,6 @@ export default Object.freeze({
     ],
     "requires": [
       "workspace.console.core",
-      "workspace.console.store",
       "auth.access",
       "runtime.server",
       "runtime.actions",

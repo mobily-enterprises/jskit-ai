@@ -9,7 +9,7 @@ Use this package to keep billing catalog rules centralized and testable:
 - validate and normalize create/update payloads for plans and products
 - map entitlement payloads to repository template rows and back
 - map duplicate database errors to user-safe API errors
-- verify provider price snapshots (for Stripe) before catalog writes
+- delegate provider price normalization to the active billing provider adapter
 - assert repository shape before running catalog operations
 
 This package is pure business logic. It is designed to be called from app services.
@@ -45,11 +45,11 @@ Real-life example:
 
 ### `createBillingCatalogProviderPricingCore(dependencies?)`
 
-Factory for provider pricing snapshot validation helpers (currently Stripe-focused), with injectable `createError`.
+Factory for provider pricing normalization helpers, with injectable `createError`.
 
 Real-life example:
 
-- Before accepting a submitted Stripe price id, the app verifies the id exists, is active, and matches expected billing rules.
+- Before accepting a submitted provider price id, the app delegates validation to the active provider adapter.
 
 ### `entitlementSchema`
 
@@ -119,25 +119,15 @@ The object returned by `createBillingCatalogCore` includes:
 ## `providerPricingCore` returned API (function by function)
 
 The object returned by `createBillingCatalogProviderPricingCore` includes:
-
-- `resolveStripeCatalogPriceSnapshot({ billingProviderAdapter, providerPriceId, fallbackProviderProductId, fieldPath })`
-  - Fetches Stripe price details and validates recurring monthly licensed core-plan requirements.
-  - Example: admin enters `price_...` for plan; system verifies it is active monthly recurring.
 - `resolveCatalogCorePriceForCreate({ activeBillingProvider, billingProviderAdapter, corePrice })`
-  - For provider `stripe`, enriches/validates create payload with Stripe snapshot fields.
-  - Example: ensures stored amount/currency comes from provider truth.
+  - Delegates create-time core price normalization to `billingProviderAdapter.resolveCatalogCorePriceForCreate`.
+  - Example: keeps provider-specific checks out of billing core logic.
 - `resolveCatalogCorePriceForUpdate({ activeBillingProvider, billingProviderAdapter, corePrice })`
   - Same as above for update payloads.
-  - Example: when admin changes a plan price id, snapshot fields are re-validated before save.
-- `resolveStripeCatalogProductPriceSnapshot({ billingProviderAdapter, providerPriceId, fallbackProviderProductId, fieldPath })`
-  - Validates Stripe product price is one-time (not recurring).
-  - Example: blocks assigning recurring Stripe prices to one-off catalog products.
 - `resolveCatalogProductPriceForCreate({ activeBillingProvider, billingProviderAdapter, price })`
-  - Provider-aware normalization for product create price payload.
-  - Example: new top-up product uses provider snapshot values instead of untrusted client currency/amount fields.
+  - Delegates product create price normalization to `billingProviderAdapter.resolveCatalogProductPriceForCreate`.
 - `resolveCatalogProductPriceForUpdate({ activeBillingProvider, billingProviderAdapter, price })`
-  - Provider-aware normalization for product update price payload.
-  - Example: editing a product price id re-fetches provider details to keep catalog data accurate.
+  - Delegates product update price normalization to `billingProviderAdapter.resolveCatalogProductPriceForUpdate`.
 
 ## How it is used in apps (real terms, and why)
 
@@ -162,6 +152,6 @@ Practical create-plan flow:
 
 1. API payload hits service.
 2. `normalizeBillingCatalogPlanCreatePayload` validates structure and entitlement rules.
-3. `resolveCatalogCorePriceForCreate` verifies Stripe price and enriches snapshot values.
+3. `resolveCatalogCorePriceForCreate` delegates provider-specific price normalization to the active provider adapter.
 4. `mapPlanEntitlementsToTemplates` converts external codes to repository template rows.
 5. Repository persists rows inside transaction.

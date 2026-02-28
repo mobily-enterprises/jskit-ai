@@ -1,4 +1,4 @@
-import { buildRoutes as buildSocialAdapterRoutes } from "@jskit-ai/social-core";
+import { buildRoutes as buildSocialAdapterRoutes } from "@jskit-ai/social-fastify-routes";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 
 function buildRoutes(controllers, options = {}) {

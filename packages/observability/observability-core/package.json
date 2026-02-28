@@ -8,9 +8,7 @@
   },
   "dependencies": {
     "@jskit-ai/server-runtime-core": "0.1.0",
-    "@jskit-ai/workspace-console-core": "0.1.0",
-    "@jskit-ai/http-contracts": "0.1.0",
-    "@fastify/type-provider-typebox": "^6.1.0"
+    "@jskit-ai/workspace-console-core": "0.1.0"
   },
   "exports": {
     ".": "./src/shared/index.js",
@@ -21,9 +19,6 @@
     "./metricsContracts": "./src/shared/metricsContracts.js",
     "./metricsRegistry": "./src/shared/metricsRegistry.js",
     "./scopeLogger": "./src/shared/scopeLogger.js",
-    "./service": "./src/shared/service.js",
-    "./controller": "./src/shared/fastify/controller.js",
-    "./routes": "./src/shared/fastify/routes.js",
-    "./schema": "./src/shared/fastify/schema.js"
+    "./service": "./src/shared/service.js"
   }
 }

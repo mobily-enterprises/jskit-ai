@@ -7,13 +7,9 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./controller": "./src/shared/fastify/controller.js",
-    "./routes": "./src/shared/fastify/routes.js"
+    ".": "./src/shared/index.js"
   },
   "dependencies": {
-    "@jskit-ai/communications-contracts": "0.1.0",
-    "@jskit-ai/communications-provider-core": "0.1.0",
-    "@jskit-ai/http-contracts": "0.1.0"
+    "@jskit-ai/communications-provider-core": "0.1.0"
   }
 }

@@ -8,9 +8,6 @@
   },
   "exports": {
     ".": "./src/shared/index.js",
-    "./schema": "./src/shared/fastify/schema.js",
-    "./routes": "./src/shared/fastify/routes.js",
-    "./controller": "./src/shared/fastify/controller.js",
     "./repositories/threads": "./src/shared/repositories/threads.repository.js",
     "./repositories/participants": "./src/shared/repositories/participants.repository.js",
     "./repositories/messages": "./src/shared/repositories/messages.repository.js",
@@ -24,8 +21,6 @@
   "dependencies": {
     "@jskit-ai/rbac-core": "0.1.0",
     "@jskit-ai/server-runtime-core": "0.1.0",
-    "@jskit-ai/jskit-knex": "0.1.0",
-    "@jskit-ai/http-contracts": "0.1.0",
-    "@fastify/type-provider-typebox": "^6.1.0"
+    "@jskit-ai/jskit-knex": "0.1.0"
   }
 }

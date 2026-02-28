@@ -13,8 +13,7 @@ export default Object.freeze({
     ],
     "requires": [
       "runtime.server",
-      "db.core",
-      "security.audit.core"
+      "db.core"
     ]
   },
   "mutations": {

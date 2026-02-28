@@ -1,5 +1,5 @@
 import { buildRoutes as buildAuthRoutes } from "@jskit-ai/auth-fastify-routes";
-import { buildRoutes as buildWorkspaceRoutes } from "@jskit-ai/workspace-service-core";
+import { buildRoutes as buildWorkspaceRoutes } from "@jskit-ai/workspace-fastify-routes";
 import { buildRoutes as buildConsoleRoutes } from "@jskit-ai/console-fastify-routes";
 import { buildRoutes as buildConsoleErrorsRoutes } from "@jskit-ai/console-errors-fastify-routes";
 import { buildRoutes as buildCommunicationsRoutes } from "../modules/communications/index.js";
@@ -12,7 +12,7 @@ import { buildRoutes as buildAlertsRoutes } from "../modules/alerts/index.js";
 import { buildRoutes as buildHistoryRoutes } from "../modules/history/index.js";
 import { buildRoutes as buildDeg2radRoutes } from "../modules/deg2rad/index.js";
 import { buildRoutes as buildHealthRoutes } from "@jskit-ai/health-fastify-routes";
-import { buildRoutes as buildObservabilityRoutes } from "@jskit-ai/observability-core";
+import { buildRoutes as buildObservabilityRoutes } from "@jskit-ai/observability-fastify-routes";
 import { buildRoutes as buildAiRoutes } from "../modules/ai/index.js";
 import { API_PREFIX, toVersionedApiPath } from "../../shared/apiPaths.js";
 

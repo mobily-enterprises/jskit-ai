@@ -752,6 +752,16 @@ function createServiceStubs() {
           }
         };
       },
+      async getExtension() {
+        return {
+          extensionId: "example"
+        };
+      },
+      async updateExtension() {
+        return {
+          ok: true
+        };
+      },
       async updateProfile() {
         return {
           ok: true

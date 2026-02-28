@@ -1,6 +1,7 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { normalizePagination } from "@jskit-ai/server-runtime-core/pagination";
+import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 import { CONSOLE_BILLING_PERMISSIONS } from "@jskit-ai/workspace-console-core/consoleRoles";
 import {
   normalizeBillingCatalogPlanCreatePayload,
@@ -142,10 +143,6 @@ function normalizeOptionalDateTime(value) {
     return null;
   }
   return date;
-}
-
-function isDuplicateEntryError(error) {
-  return String(error?.code || "").trim() === "ER_DUP_ENTRY";
 }
 
 function resolveClientIdempotencyKey(payload = {}) {

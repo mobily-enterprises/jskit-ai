@@ -12,6 +12,7 @@ export default Object.freeze({
       "billing.provider.stripe"
     ],
     "requires": [
+      "billing.provider-contract",
       "runtime.server"
     ]
   },

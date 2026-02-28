@@ -3,30 +3,20 @@ export default Object.freeze({
   "packageId": "@jskit-ai/communications-core",
   "version": "0.1.0",
   "dependsOn": [
-    "@jskit-ai/communications-contracts",
-    "@jskit-ai/communications-provider-core",
-    "@jskit-ai/server-runtime-core",
-    "@jskit-ai/http-contracts"
+    "@jskit-ai/communications-provider-core"
   ],
   "capabilities": {
     "provides": [
-      "communications.core",
-      "communications.routes"
+      "communications.core"
     ],
     "requires": [
-      "contracts.communications",
-      "communications.dispatch-contract",
-      "contracts.http",
-      "communications.core",
-      "runtime.server"
+      "communications.provider-contract"
     ]
   },
   "mutations": {
     "dependencies": {
       "runtime": {
-        "@jskit-ai/communications-contracts": "0.1.0",
-        "@jskit-ai/communications-provider-core": "0.1.0",
-        "@jskit-ai/http-contracts": "0.1.0"
+        "@jskit-ai/communications-provider-core": "0.1.0"
       },
       "dev": {}
     },

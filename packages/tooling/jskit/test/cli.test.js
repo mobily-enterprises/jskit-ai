@@ -142,7 +142,8 @@ test("jskit list bundles all marks db-provider requirement hints", async () => {
       args: ["list", "bundles", "all"]
     });
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /chat-base \(0\.1\.0\).* \[[^\]]*db-provider[^\]]*supabase[^\]]*\]:/i);
+    assert.match(result.stdout, /chat-base \(0\.1\.0\).* \[[^\]]*db-provider[^\]]*\]:/i);
+    assert.doesNotMatch(result.stdout, /chat-base \(0\.1\.0\).* \[[^\]]*supabase[^\]]*\]:/i);
   });
 });
 

@@ -17,7 +17,6 @@ export default Object.freeze({
       "runtime.server",
       "assistant.core",
       "workspace.console.core",
-      "assistant.transcripts.core",
       "db.core"
     ]
   },

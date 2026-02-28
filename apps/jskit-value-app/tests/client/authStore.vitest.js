@@ -133,13 +133,19 @@ describe("authStore", () => {
     const store = useAuthStore();
     store.authenticated = true;
     store.username = "charlie";
+    const expectedOauthProviders = [...store.oauthProviders];
+    const expectedOauthDefaultProvider = store.oauthDefaultProvider;
 
     store.setSignedOut();
 
     expect(store.authenticated).toBe(false);
     expect(store.username).toBeNull();
     expect(store.initialized).toBe(true);
-    expect(mocks.setQueryData).toHaveBeenCalledWith(SESSION_QUERY_KEY, { authenticated: false });
+    expect(mocks.setQueryData).toHaveBeenCalledWith(SESSION_QUERY_KEY, {
+      authenticated: false,
+      oauthProviders: expectedOauthProviders,
+      oauthDefaultProvider: expectedOauthDefaultProvider
+    });
   });
 
   it("setUsername normalizes nullable values", () => {

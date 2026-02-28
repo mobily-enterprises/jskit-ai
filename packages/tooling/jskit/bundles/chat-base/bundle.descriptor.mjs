@@ -7,6 +7,7 @@ export default Object.freeze({
     "@jskit-ai/chat-contracts",
     "@jskit-ai/chat-storage-core",
     "@jskit-ai/chat-core",
+    "@jskit-ai/chat-fastify-routes",
     "@jskit-ai/chat-client-runtime",
     "@jskit-ai/chat-client-element"
   ]

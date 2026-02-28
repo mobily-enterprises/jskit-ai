@@ -8,6 +8,7 @@ export default Object.freeze({
     "@jskit-ai/communications-contracts",
     "@jskit-ai/communications-provider-core",
     "@jskit-ai/communications-core",
+    "@jskit-ai/communications-fastify-routes",
     "@jskit-ai/email-core",
     "@jskit-ai/sms-core"
   ]

@@ -5,6 +5,7 @@ export default Object.freeze({
   "description": "Workspace service core, storage, and API routes.",
   "packages": [
     "@jskit-ai/workspace-console-core",
-    "@jskit-ai/workspace-service-core"
+    "@jskit-ai/workspace-service-core",
+    "@jskit-ai/workspace-fastify-routes"
   ]
 });

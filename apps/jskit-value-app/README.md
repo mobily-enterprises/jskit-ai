@@ -606,6 +606,8 @@ Realtime note:
 - `GET /api/v1/settings/security/oauth/:provider/start`
 - `DELETE /api/v1/settings/security/oauth/:provider`
 - `POST /api/v1/settings/security/logout-others`
+- `GET /api/v1/settings/extensions/:extensionId`
+- `PATCH /api/v1/settings/extensions/:extensionId`
 - `GET /api/v1/alerts`
 - `POST /api/v1/alerts/read-all`
 - `GET /api/v1/history`

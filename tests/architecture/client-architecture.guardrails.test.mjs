@@ -54,9 +54,14 @@ const FORBIDDEN_VISUAL_IMPORT_PATTERNS = [
   /^antd(?:\/|$)/
 ];
 const PASS_THROUGH_WRAPPER_ALLOWLIST = Object.freeze({});
+const TEMPLATE_PATH_ALLOWLIST_PREFIXES = Object.freeze([
+  "packages/tooling/create-app/templates/",
+  "packages/tooling/jskit/packages/web-shell-host/templates/"
+]);
 const RENDERING_ENTRY_API_ALLOWLIST_PREFIXES = Object.freeze([
   "packages/tooling/create-app/src/",
-  "packages/tooling/create-app/templates/"
+  "packages/tooling/create-app/templates/",
+  "packages/tooling/jskit/packages/web-shell-host/templates/"
 ]);
 
 function toPosixPath(value) {
@@ -248,6 +253,11 @@ test("client architecture guardrail: only client-element packages may contain Vu
   );
 
   for (const relativePath of vueFiles) {
+    const isTemplateFile = TEMPLATE_PATH_ALLOWLIST_PREFIXES.some((prefix) => relativePath.startsWith(prefix));
+    if (isTemplateFile) {
+      continue;
+    }
+
     const normalizedPath = `${relativePath}/`;
     const isClientElementFile = CLIENT_ELEMENT_PACKAGE_SEGMENTS.some((segment) => normalizedPath.startsWith(segment));
     if (!isClientElementFile) {

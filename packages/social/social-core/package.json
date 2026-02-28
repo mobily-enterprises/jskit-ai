@@ -9,17 +9,12 @@
   "exports": {
     ".": "./src/shared/index.js",
     "./outboxWorkerRuntimeService": "./src/shared/outboxWorkerRuntime.service.js",
-    "./controller": "./src/shared/fastify/controller.js",
-    "./routes": "./src/shared/fastify/routes.js",
-    "./schema": "./src/shared/fastify/schema.js",
     "./repositories/social": "./src/shared/repositories/social.repository.js",
     "./repositories/shared": "./src/shared/repositories/shared.js"
   },
   "dependencies": {
     "@jskit-ai/action-runtime-core": "0.1.0",
     "@jskit-ai/server-runtime-core": "0.1.0",
-    "@jskit-ai/jskit-knex": "0.1.0",
-    "@jskit-ai/http-contracts": "0.1.0",
-    "@fastify/type-provider-typebox": "^6.1.0"
+    "@jskit-ai/jskit-knex": "0.1.0"
   }
 }

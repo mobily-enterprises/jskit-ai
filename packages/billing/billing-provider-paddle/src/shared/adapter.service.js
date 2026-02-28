@@ -1,15 +1,36 @@
-import { BILLING_PROVIDER_PADDLE } from "@jskit-ai/billing-provider-core";
-import {
-  REQUIRED_PROVIDER_ADAPTER_METHODS,
-  assertProviderAdapter
-} from "@jskit-ai/billing-provider-core";
+import { BILLING_PROVIDER_PADDLE, assertProviderAdapter } from "@jskit-ai/billing-provider-core";
+import { createService as createPaddleCatalogPricingService } from "./catalogPricing.service.js";
+
+const REQUIRED_PADDLE_SDK_METHODS = Object.freeze([
+  "createCheckoutSession",
+  "createPaymentLink",
+  "createPrice",
+  "createBillingPortalSession",
+  "verifyWebhookEvent",
+  "retrieveCheckoutSession",
+  "retrieveSubscription",
+  "retrieveInvoice",
+  "expireCheckoutSession",
+  "cancelSubscription",
+  "updateSubscriptionPlan",
+  "listCustomerPaymentMethods",
+  "setDefaultCustomerPaymentMethod",
+  "detachCustomerPaymentMethod",
+  "removeCustomerPaymentMethod",
+  "refundPurchase",
+  "voidPurchase",
+  "listCheckoutSessionsByOperationKey",
+  "getSdkProvenance"
+]);
 
 function createService({ paddleSdkService } = {}) {
-  for (const methodName of REQUIRED_PROVIDER_ADAPTER_METHODS) {
+  for (const methodName of REQUIRED_PADDLE_SDK_METHODS) {
     if (typeof paddleSdkService?.[methodName] !== "function") {
       throw new Error(`paddleSdkService.${methodName} is required.`);
     }
   }
+
+  const catalogPricingService = createPaddleCatalogPricingService();
 
   const adapter = {
     provider: BILLING_PROVIDER_PADDLE,
@@ -69,6 +90,30 @@ function createService({ paddleSdkService } = {}) {
     },
     async getSdkProvenance(payload) {
       return paddleSdkService.getSdkProvenance(payload);
+    },
+    async resolveCatalogCorePriceForCreate(payload) {
+      if (typeof paddleSdkService.resolveCatalogCorePriceForCreate === "function") {
+        return paddleSdkService.resolveCatalogCorePriceForCreate(payload);
+      }
+      return catalogPricingService.resolveCatalogCorePriceForCreate(payload);
+    },
+    async resolveCatalogCorePriceForUpdate(payload) {
+      if (typeof paddleSdkService.resolveCatalogCorePriceForUpdate === "function") {
+        return paddleSdkService.resolveCatalogCorePriceForUpdate(payload);
+      }
+      return catalogPricingService.resolveCatalogCorePriceForUpdate(payload);
+    },
+    async resolveCatalogProductPriceForCreate(payload) {
+      if (typeof paddleSdkService.resolveCatalogProductPriceForCreate === "function") {
+        return paddleSdkService.resolveCatalogProductPriceForCreate(payload);
+      }
+      return catalogPricingService.resolveCatalogProductPriceForCreate(payload);
+    },
+    async resolveCatalogProductPriceForUpdate(payload) {
+      if (typeof paddleSdkService.resolveCatalogProductPriceForUpdate === "function") {
+        return paddleSdkService.resolveCatalogProductPriceForUpdate(payload);
+      }
+      return catalogPricingService.resolveCatalogProductPriceForUpdate(payload);
     }
   };
 

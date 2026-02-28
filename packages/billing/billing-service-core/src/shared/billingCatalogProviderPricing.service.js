@@ -8,19 +8,15 @@ const billingCatalogProviderPricingCore = createBillingCatalogProviderPricingCor
 });
 
 const {
-  resolveStripeCatalogPriceSnapshot,
   resolveCatalogCorePriceForCreate,
   resolveCatalogCorePriceForUpdate,
-  resolveStripeCatalogProductPriceSnapshot,
   resolveCatalogProductPriceForCreate,
   resolveCatalogProductPriceForUpdate
 } = billingCatalogProviderPricingCore;
 
 export {
-  resolveStripeCatalogPriceSnapshot,
   resolveCatalogCorePriceForCreate,
   resolveCatalogCorePriceForUpdate,
-  resolveStripeCatalogProductPriceSnapshot,
   resolveCatalogProductPriceForCreate,
   resolveCatalogProductPriceForUpdate
 };

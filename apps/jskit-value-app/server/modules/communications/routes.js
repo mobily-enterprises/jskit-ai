@@ -1,4 +1,4 @@
-import { buildRoutes as buildCommunicationsAdapterRoutes } from "@jskit-ai/communications-core";
+import { buildRoutes as buildCommunicationsAdapterRoutes } from "@jskit-ai/communications-fastify-routes";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 
 function buildRoutes(controllers, options = {}) {
