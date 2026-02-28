@@ -1,101 +1,33 @@
+import semver from "semver";
+
 import { MODULE_ENABLEMENT_MODES } from "./descriptor.js";
 import { addDiagnosticForMode, normalizeMode } from "./compositionMode.js";
 import { createDiagnosticsCollector, throwOnDiagnosticErrors } from "./diagnostics.js";
 
-function parseSemver(version) {
-  const normalized = String(version || "").trim();
-  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(normalized);
-  if (!match) {
-    return null;
+function evaluateVersionRange(version, range) {
+  const normalizedRange = String(range || "").trim();
+  if (!normalizedRange || normalizedRange === "*") {
+    return { status: "match" };
   }
 
-  return {
-    major: Number.parseInt(match[1], 10),
-    minor: Number.parseInt(match[2], 10),
-    patch: Number.parseInt(match[3], 10)
-  };
-}
-
-function compareSemver(left, right) {
-  if (left.major !== right.major) {
-    return left.major - right.major;
-  }
-  if (left.minor !== right.minor) {
-    return left.minor - right.minor;
-  }
-  return left.patch - right.patch;
-}
-
-function satisfiesComparator(version, comparator) {
-  const normalized = String(comparator || "").trim();
-  if (!normalized || normalized === "*") {
-    return true;
+  const validRange = semver.validRange(normalizedRange, { includePrerelease: true });
+  if (!validRange) {
+    return { status: "invalid-range", range: normalizedRange };
   }
 
-  if (normalized.startsWith("^")) {
-    const base = parseSemver(normalized.slice(1));
-    return Boolean(base) && version.major === base.major && compareSemver(version, base) >= 0;
+  const normalizedVersion = semver.valid(String(version || ""), { includePrerelease: true });
+  if (!normalizedVersion) {
+    return { status: "invalid-version", range: normalizedRange, version: String(version || "") };
   }
 
-  if (normalized.startsWith("~")) {
-    const base = parseSemver(normalized.slice(1));
-    return (
-      Boolean(base) &&
-      version.major === base.major &&
-      version.minor === base.minor &&
-      compareSemver(version, base) >= 0
-    );
-  }
-
-  const match = /^(>=|<=|>|<)?\s*(\d+\.\d+\.\d+)$/.exec(normalized);
-  if (!match) {
-    return false;
-  }
-
-  const operator = match[1] || "=";
-  const base = parseSemver(match[2]);
-  if (!base) {
-    return false;
-  }
-
-  const comparison = compareSemver(version, base);
-
-  if (operator === "=") {
-    return comparison === 0;
-  }
-  if (operator === ">") {
-    return comparison > 0;
-  }
-  if (operator === ">=") {
-    return comparison >= 0;
-  }
-  if (operator === "<") {
-    return comparison < 0;
-  }
-  if (operator === "<=") {
-    return comparison <= 0;
-  }
-
-  return false;
+  const matches = semver.satisfies(normalizedVersion, validRange, { includePrerelease: true });
+  return matches
+    ? { status: "match" }
+    : { status: "mismatch", range: normalizedRange, version: normalizedVersion };
 }
 
 function satisfiesVersion(version, range) {
-  const normalizedRange = String(range || "").trim();
-  if (!normalizedRange || normalizedRange === "*") {
-    return true;
-  }
-
-  if (normalizedRange.includes("||")) {
-    return false;
-  }
-
-  const parsedVersion = parseSemver(version);
-  if (!parsedVersion) {
-    return false;
-  }
-
-  const comparators = normalizedRange.split(/\s+/).filter(Boolean);
-  return comparators.every((comparator) => satisfiesComparator(parsedVersion, comparator));
+  return evaluateVersionRange(version, range).status === "match";
 }
 
 function evaluateEnablement(modules, { context, mode, diagnostics }) {
@@ -160,13 +92,29 @@ function collectDependencyIssues(module, activeById) {
       continue;
     }
 
-    if (dependency.range && !satisfiesVersion(dependencyModule.version, dependency.range)) {
-      issues.push({
-        code: "MODULE_DEPENDENCY_RANGE_MISMATCH",
-        dependencyId: dependency.id,
-        range: dependency.range,
-        actualVersion: dependencyModule.version
-      });
+    if (dependency.range) {
+      const evaluation = evaluateVersionRange(dependencyModule.version, dependency.range);
+      if (evaluation.status === "invalid-range") {
+        issues.push({
+          code: "MODULE_DEPENDENCY_RANGE_INVALID",
+          dependencyId: dependency.id,
+          range: evaluation.range
+        });
+      } else if (evaluation.status === "invalid-version") {
+        issues.push({
+          code: "MODULE_DEPENDENCY_VERSION_INVALID",
+          dependencyId: dependency.id,
+          range: evaluation.range,
+          actualVersion: evaluation.version
+        });
+      } else if (evaluation.status === "mismatch") {
+        issues.push({
+          code: "MODULE_DEPENDENCY_RANGE_MISMATCH",
+          dependencyId: dependency.id,
+          range: evaluation.range,
+          actualVersion: evaluation.version
+        });
+      }
     }
   }
 
@@ -274,10 +222,16 @@ function resolveDependencyGraph({ modules = [], mode = MODULE_ENABLEMENT_MODES.s
       }
 
       for (const issue of issues) {
-        const issueMessage =
-          issue.code === "MODULE_DEPENDENCY_RANGE_MISMATCH"
-            ? `Module \"${module.id}\" requires \"${issue.dependencyId}\" range \"${issue.range}\" but found \"${issue.actualVersion}\".`
-            : `Module \"${module.id}\" requires missing module \"${issue.dependencyId}\".`;
+        let issueMessage;
+        if (issue.code === "MODULE_DEPENDENCY_RANGE_MISMATCH") {
+          issueMessage = `Module \"${module.id}\" requires \"${issue.dependencyId}\" range \"${issue.range}\" but found \"${issue.actualVersion}\".`;
+        } else if (issue.code === "MODULE_DEPENDENCY_RANGE_INVALID") {
+          issueMessage = `Module \"${module.id}\" has invalid dependency range \"${issue.range}\" for \"${issue.dependencyId}\".`;
+        } else if (issue.code === "MODULE_DEPENDENCY_VERSION_INVALID") {
+          issueMessage = `Module \"${module.id}\" dependency \"${issue.dependencyId}\" has invalid version \"${issue.actualVersion}\".`;
+        } else {
+          issueMessage = `Module \"${module.id}\" requires missing module \"${issue.dependencyId}\".`;
+        }
 
         addDiagnosticForMode(collector, normalizedMode, {
           code: issue.code,
@@ -344,8 +298,7 @@ function resolveDependencyGraph({ modules = [], mode = MODULE_ENABLEMENT_MODES.s
 
 const __testables = {
   normalizeMode,
-  parseSemver,
-  compareSemver,
+  evaluateVersionRange,
   topologicalSort
 };
 

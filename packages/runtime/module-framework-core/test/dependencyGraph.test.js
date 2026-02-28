@@ -20,6 +20,8 @@ test("satisfiesVersion supports exact, caret, tilde, and comparator ranges", () 
   assert.equal(satisfiesVersion("1.2.9", "~1.2.3"), true);
   assert.equal(satisfiesVersion("1.3.0", "~1.2.3"), false);
   assert.equal(satisfiesVersion("1.2.3", ">=1.0.0 <2.0.0"), true);
+  assert.equal(satisfiesVersion("1.2.3", ">=1.0.0 <2.0.0 || >=3.0.0"), true);
+  assert.equal(satisfiesVersion("1.2.3", "not-a-range"), false);
 });
 
 test("resolveDependencyGraph orders modules deterministically", () => {
@@ -56,6 +58,38 @@ test("resolveDependencyGraph permissive mode disables modules with missing requi
   assert.deepEqual(result.modules, []);
   assert.deepEqual(result.disabledModules.map((entry) => entry.id), ["chat"]);
   assert.ok(result.diagnostics.toJSON().some((entry) => entry.code === "MODULE_DEPENDENCY_MISSING"));
+});
+
+test("resolveDependencyGraph reports invalid dependency ranges", () => {
+  const result = resolveDependencyGraph({
+    mode: "permissive",
+    modules: [
+      moduleDescriptor({ id: "core", version: "1.2.3" }),
+      moduleDescriptor({
+        id: "chat",
+        dependsOnModules: [{ id: "core", range: "not-a-range" }]
+      })
+    ]
+  });
+
+  assert.deepEqual(result.modules.map((module) => module.id), ["core"]);
+  assert.ok(result.diagnostics.toJSON().some((entry) => entry.code === "MODULE_DEPENDENCY_RANGE_INVALID"));
+});
+
+test("resolveDependencyGraph reports invalid dependency versions", () => {
+  const result = resolveDependencyGraph({
+    mode: "permissive",
+    modules: [
+      moduleDescriptor({ id: "core", version: "1" }),
+      moduleDescriptor({
+        id: "chat",
+        dependsOnModules: [{ id: "core", range: "^1.0.0" }]
+      })
+    ]
+  });
+
+  assert.deepEqual(result.modules.map((module) => module.id), ["core"]);
+  assert.ok(result.diagnostics.toJSON().some((entry) => entry.code === "MODULE_DEPENDENCY_VERSION_INVALID"));
 });
 
 test("resolveDependencyGraph strict mode fails on dependency cycle", () => {
