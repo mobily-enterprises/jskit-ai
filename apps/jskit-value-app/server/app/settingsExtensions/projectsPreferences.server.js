@@ -1,10 +1,6 @@
-import { db } from "../../../db/knex.js";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
-import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
-import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 
-const PROJECT_SETTINGS_TABLE = "user_project_settings";
 const PROJECT_VIEW_MODES = Object.freeze(["list", "board"]);
 const PROJECT_STATUS_FILTERS = Object.freeze(["all", "active", "draft", "archived"]);
 const DEFAULT_PAGE_SIZE_MIN = 5;
@@ -65,22 +61,6 @@ function normalizeStatusFilter(value) {
   return String(value || "")
     .trim()
     .toLowerCase();
-}
-
-function mapProjectsSettingsRowRequired(row) {
-  if (!row) {
-    throw new TypeError("mapProjectsSettingsRowRequired expected a row object.");
-  }
-
-  return {
-    userId: Number(row.user_id),
-    defaultView: normalizeViewMode(row.default_view) || PROJECT_VIEW_MODES[0],
-    defaultStatusFilter: normalizeStatusFilter(row.default_status_filter) || PROJECT_STATUS_FILTERS[0],
-    defaultPageSize: Number(row.default_page_size) || 20,
-    includeArchivedByDefault: Boolean(row.include_archived_by_default),
-    createdAt: toIsoString(row.created_at),
-    updatedAt: toIsoString(row.updated_at)
-  };
 }
 
 function mapToPublicSettings(settings = {}) {
@@ -151,61 +131,17 @@ function parseProjectsSettingsPatch(payload = {}) {
   };
 }
 
-async function ensureProjectsSettingsRow(userId, { trx = null } = {}) {
-  const client = trx || db;
-
-  try {
-    await client(PROJECT_SETTINGS_TABLE).insert({ user_id: userId });
-  } catch (error) {
-    if (!isDuplicateEntryError(error)) {
-      throw error;
-    }
+function requireProjectsSettingsRepository(repository) {
+  if (!repository || typeof repository.readProjectsSettingsForUserId !== "function") {
+    throw new Error("projectsSettingsRepository.readProjectsSettingsForUserId is required.");
+  }
+  if (typeof repository.updateProjectsSettingsForUserId !== "function") {
+    throw new Error("projectsSettingsRepository.updateProjectsSettingsForUserId is required.");
   }
 }
 
-async function readProjectsSettingsForUser(userLike, { trx = null } = {}) {
-  const userId = normalizeUserId(userLike);
-  const client = trx || db;
-  await ensureProjectsSettingsRow(userId, { trx });
-
-  const row = await client(PROJECT_SETTINGS_TABLE).where({ user_id: userId }).first();
-  return mapProjectsSettingsRowRequired(row);
-}
-
-async function writeProjectsSettingsForUser(userLike, payload, { trx = null } = {}) {
-  const userId = normalizeUserId(userLike);
-  const client = trx || db;
-  const parsed = parseProjectsSettingsPatch(payload);
-  if (Object.keys(parsed.fieldErrors).length > 0) {
-    throw validationError(parsed.fieldErrors);
-  }
-
-  await ensureProjectsSettingsRow(userId, { trx });
-
-  const dbPatch = {
-    updated_at: toDatabaseDateTimeUtc(new Date())
-  };
-
-  if (Object.hasOwn(parsed.patch, "defaultView")) {
-    dbPatch.default_view = parsed.patch.defaultView;
-  }
-  if (Object.hasOwn(parsed.patch, "defaultStatusFilter")) {
-    dbPatch.default_status_filter = parsed.patch.defaultStatusFilter;
-  }
-  if (Object.hasOwn(parsed.patch, "defaultPageSize")) {
-    dbPatch.default_page_size = parsed.patch.defaultPageSize;
-  }
-  if (Object.hasOwn(parsed.patch, "includeArchivedByDefault")) {
-    dbPatch.include_archived_by_default = parsed.patch.includeArchivedByDefault;
-  }
-
-  await client(PROJECT_SETTINGS_TABLE).where({ user_id: userId }).update(dbPatch);
-
-  const row = await client(PROJECT_SETTINGS_TABLE).where({ user_id: userId }).first();
-  return mapProjectsSettingsRowRequired(row);
-}
-
-function createProjectsSettingsExtension() {
+function createProjectsSettingsExtension({ projectsSettingsRepository } = {}) {
+  requireProjectsSettingsRepository(projectsSettingsRepository);
   return Object.freeze({
     id: PROJECTS_SETTINGS_EXTENSION_ID,
     order: 20,
@@ -220,11 +156,23 @@ function createProjectsSettingsExtension() {
     ]),
     persistence: Object.freeze({
       async read({ user, trx = null }) {
-        const settings = await readProjectsSettingsForUser(user, { trx });
+        const settings = await projectsSettingsRepository.readProjectsSettingsForUserId(
+          normalizeUserId(user),
+          { trx }
+        );
         return mapToPublicSettings(settings);
       },
       async write({ user, payload, trx = null }) {
-        const updatedSettings = await writeProjectsSettingsForUser(user, payload, { trx });
+        const parsed = parseProjectsSettingsPatch(payload);
+        if (Object.keys(parsed.fieldErrors).length > 0) {
+          throw validationError(parsed.fieldErrors);
+        }
+
+        const updatedSettings = await projectsSettingsRepository.updateProjectsSettingsForUserId(
+          normalizeUserId(user),
+          parsed.patch,
+          { trx }
+        );
         return mapToPublicSettings(updatedSettings);
       }
     }),
@@ -235,13 +183,11 @@ function createProjectsSettingsExtension() {
 }
 
 const __testables = {
-  PROJECT_SETTINGS_TABLE,
   PROJECT_VIEW_MODES,
   PROJECT_STATUS_FILTERS,
   DEFAULT_PAGE_SIZE_MIN,
   DEFAULT_PAGE_SIZE_MAX,
   parseProjectsSettingsPatch,
-  mapProjectsSettingsRowRequired,
   mapToPublicSettings
 };
 

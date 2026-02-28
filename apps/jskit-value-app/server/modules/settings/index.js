@@ -6,7 +6,9 @@ import {
   updatePasswordSignInEnabled,
   updatePasswordSetupRequired,
   findByUserIdForUpdate,
-  updateLastActiveWorkspaceId
+  updateLastActiveWorkspaceId,
+  readProjectsSettingsForUserId,
+  updateProjectsSettingsForUserId
 } from "./repository.js";
 import { createService as createSettingsService } from "./service.js";
 
@@ -18,7 +20,9 @@ const repository = Object.freeze({
   updatePasswordSignInEnabled,
   updatePasswordSetupRequired,
   findByUserIdForUpdate,
-  updateLastActiveWorkspaceId
+  updateLastActiveWorkspaceId,
+  readProjectsSettingsForUserId,
+  updateProjectsSettingsForUserId
 });
 
 function createService(options = {}) {
