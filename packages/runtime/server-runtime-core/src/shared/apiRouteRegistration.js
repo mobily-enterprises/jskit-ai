@@ -1,3 +1,5 @@
+import { defaultMissingHandler } from "./routeUtils.js";
+
 function buildBaseRouteOptions(route) {
   return {
     method: route.method,
@@ -12,12 +14,6 @@ function buildBaseRouteOptions(route) {
 
 function defaultApplyRoutePolicy(routeOptions) {
   return routeOptions;
-}
-
-function defaultMissingHandler(_request, reply) {
-  reply.code(501).send({
-    error: "Endpoint is not available in this server wiring."
-  });
 }
 
 function registerApiRouteDefinitions(

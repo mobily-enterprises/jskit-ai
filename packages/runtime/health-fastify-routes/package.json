@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@fastify/type-provider-typebox": "^6.1.0",
-    "@jskit-ai/http-contracts": "0.1.0"
+    "@jskit-ai/http-contracts": "0.1.0",
+    "@jskit-ai/server-runtime-core": "0.1.0"
   }
 }
