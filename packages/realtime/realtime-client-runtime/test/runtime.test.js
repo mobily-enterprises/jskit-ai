@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "@jskit-ai/realtime-contracts";
+import { delay } from "../../../../tests/helpers/delay.js";
 
 import { createCommandTracker, createRealtimeRuntime, createSocketIoTransport } from "../src/shared/index.js";
 
@@ -87,12 +88,6 @@ class FakeSocket {
 
 function createSocketFactory() {
   return (url, options) => new FakeSocket(url, options);
-}
-
-function delay(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 }
 
 async function waitFor(check, { timeoutMs = 250, intervalMs = 5 } = {}) {
