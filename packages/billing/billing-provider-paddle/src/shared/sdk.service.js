@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+import { toNullableString } from "@jskit-ai/billing-core";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { BILLING_PROVIDER_PADDLE } from "@jskit-ai/billing-provider-core";
 import { isBillingProviderError } from "@jskit-ai/billing-provider-core";
@@ -52,11 +53,6 @@ function toUnixEpochSeconds(value) {
   }
 
   return Math.floor(time / 1000);
-}
-
-function toNullableString(value) {
-  const normalized = String(value || "").trim();
-  return normalized || null;
 }
 
 function normalizeMetadata(value) {

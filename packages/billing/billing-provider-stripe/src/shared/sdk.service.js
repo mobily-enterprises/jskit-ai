@@ -1,3 +1,4 @@
+import { toNullableString } from "@jskit-ai/billing-core";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { BILLING_PROVIDER_STRIPE, resolveProviderSdkName } from "@jskit-ai/billing-provider-core";
 import { mapStripeProviderError } from "./errorMapping.js";
@@ -28,11 +29,6 @@ function toNullableInteger(value, { minimum = null } = {}) {
     return null;
   }
   return parsed;
-}
-
-function toNullableString(value) {
-  const normalized = String(value || "").trim();
-  return normalized || null;
 }
 
 function normalizeMetadata(value) {

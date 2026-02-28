@@ -1,3 +1,4 @@
+import { toNullableString } from "@jskit-ai/billing-core";
 import { createEntitlementsKnexRepository } from "@jskit-ai/entitlements-knex-mysql";
 import { toInsertDateTime, toIsoString, toNullableDateTime, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
@@ -51,15 +52,6 @@ function toPositiveInteger(value) {
     return null;
   }
   return parsed;
-}
-
-function toNullableString(value) {
-  if (value == null) {
-    return null;
-  }
-
-  const normalized = String(value || "").trim();
-  return normalized || null;
 }
 
 const BILLABLE_ENTITY_TYPES = new Set(["workspace", "user", "organization", "external"]);

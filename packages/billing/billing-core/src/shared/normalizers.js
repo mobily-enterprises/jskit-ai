@@ -9,6 +9,11 @@ function toNonEmptyString(value) {
   return normalized || "";
 }
 
+function toNullableString(value) {
+  const normalized = String(value || "").trim();
+  return normalized || null;
+}
+
 function toDateOrNull(value) {
   if (!value) {
     return null;
@@ -54,6 +59,7 @@ function normalizeAmountRequirePositive(value) {
 
 export {
   toNonEmptyString,
+  toNullableString,
   toDateOrNull,
   normalizeCurrency,
   normalizeAmountAllowZero,

@@ -33,6 +33,7 @@ export {
 } from "./constants.js";
 export {
   toNonEmptyString,
+  toNullableString,
   toDateOrNull,
   normalizeCurrency,
   normalizeAmountAllowZero,

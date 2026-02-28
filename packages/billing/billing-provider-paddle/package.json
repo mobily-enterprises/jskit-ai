@@ -15,6 +15,7 @@
     "./errorMapping": "./src/shared/errorMapping.js"
   },
   "dependencies": {
+    "@jskit-ai/billing-core": "0.1.0",
     "@jskit-ai/billing-provider-core": "0.1.0",
     "@jskit-ai/server-runtime-core": "0.1.0"
   }
