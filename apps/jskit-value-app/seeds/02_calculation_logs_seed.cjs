@@ -1,3 +1,3 @@
-exports.seed = async function seed(knex) {
-  void knex;
-};
+const { seed } = require("./_shared/placeholderSeed.cjs");
+
+exports.seed = seed;
