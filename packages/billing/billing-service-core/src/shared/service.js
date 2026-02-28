@@ -1,7 +1,7 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { normalizePagination } from "@jskit-ai/server-runtime-core/pagination";
 import { createEntitlementsService } from "@jskit-ai/entitlements-core";
-import { createGuardrailRecorder, withLeaseFence } from "@jskit-ai/billing-core";
+import { createGuardrailRecorder, withLeaseFence, normalizeCurrency } from "@jskit-ai/billing-core";
 import {
   BILLING_ACTIONS,
   BILLING_DEFAULT_PROVIDER,
@@ -32,12 +32,6 @@ function normalizePortalRequest({ billableEntityId, payload }) {
     billableEntityId: Number(billableEntityId),
     returnPath: String(payload.returnPath || "").trim()
   };
-}
-
-function normalizeCurrency(value) {
-  return String(value || "")
-    .trim()
-    .toUpperCase();
 }
 
 function normalizeOptionalEmail(value) {

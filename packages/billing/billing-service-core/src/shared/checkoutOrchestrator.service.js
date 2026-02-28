@@ -20,6 +20,7 @@ import {
   isIndeterminateProviderOutcome
 } from "./providerOutcomePolicy.js";
 import { normalizeProviderSubscriptionStatus, isSubscriptionStatusCurrent } from "./webhookProjection.utils.js";
+import { normalizeCurrency } from "@jskit-ai/billing-core";
 
 function normalizePlanCode(value) {
   return String(value || "").trim();
@@ -51,12 +52,6 @@ function normalizeCheckoutType(value) {
       }
     }
   });
-}
-
-function normalizeCurrency(value) {
-  return String(value || "")
-    .trim()
-    .toUpperCase();
 }
 
 function normalizeOneOffPayload(oneOffPayload, { defaultCurrency }) {

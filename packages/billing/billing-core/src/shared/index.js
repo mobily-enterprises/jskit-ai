@@ -6,3 +6,9 @@ export {
   assertEntitlementValueOrThrow
 } from "./entitlementSchema.js";
 export { createGuardrailRecorder, withLeaseFence } from "./guardrails.js";
+export {
+  normalizeCurrency,
+  normalizeAmountAllowZero,
+  normalizeAmountRequireNonZero,
+  normalizeAmountRequirePositive
+} from "./normalizers.js";

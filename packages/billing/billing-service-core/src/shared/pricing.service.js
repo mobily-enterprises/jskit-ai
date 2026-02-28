@@ -1,11 +1,6 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { normalizeCurrency } from "@jskit-ai/billing-core";
 import { BILLING_DEFAULT_PROVIDER, BILLING_FAILURE_CODES } from "./constants.js";
-
-function normalizeCurrency(value) {
-  return String(value || "")
-    .trim()
-    .toUpperCase();
-}
 
 function normalizeProvider(value) {
   return String(value || "")

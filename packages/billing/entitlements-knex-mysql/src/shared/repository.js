@@ -1,3 +1,4 @@
+import { normalizeAmountAllowZero, normalizeAmountRequirePositive } from "@jskit-ai/billing-core";
 import { withTransaction } from "./transactions.js";
 
 const DEFAULT_TABLE_NAMES = Object.freeze({
@@ -137,20 +138,6 @@ function normalizeMetadataJsonInput(value) {
 
 function normalizeSubjectType(value) {
   return toNonEmptyString(value).toLowerCase() || "billable_entity";
-}
-
-function normalizeAmount(value, { allowNegative = false, requirePositive = false } = {}) {
-  const parsed = toInteger(value);
-  if (parsed == null) {
-    return null;
-  }
-  if (!allowNegative && parsed < 0) {
-    return null;
-  }
-  if (requirePositive && parsed < 1) {
-    return null;
-  }
-  return parsed;
 }
 
 function isDuplicateEntryError(error) {
@@ -478,7 +465,7 @@ export function createEntitlementsKnexRepository(options = {}) {
       throw new Error("insertEntitlementGrant requires subjectId and entitlementDefinitionId.");
     }
 
-    const amount = normalizeAmount(payload.amount, { allowNegative: true, requirePositive: false });
+    const amount = normalizeAmountAllowZero(payload.amount, { allowNegative: true });
     if (amount == null || amount === 0) {
       throw new Error("insertEntitlementGrant requires payload.amount to be a non-zero integer.");
     }
@@ -542,7 +529,7 @@ export function createEntitlementsKnexRepository(options = {}) {
 
     const subjectId = toPositiveInteger(payload.subjectId ?? payload.subject_id);
     const entitlementDefinitionId = toPositiveInteger(payload.entitlementDefinitionId ?? payload.entitlement_definition_id);
-    const amount = normalizeAmount(payload.amount, { allowNegative: false, requirePositive: true });
+    const amount = normalizeAmountRequirePositive(payload.amount);
     if (!subjectId || !entitlementDefinitionId || amount == null) {
       throw new Error(
         "insertEntitlementConsumption requires subjectId, entitlementDefinitionId, and a positive amount."

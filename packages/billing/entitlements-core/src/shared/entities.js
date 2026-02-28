@@ -1,3 +1,9 @@
+import {
+  normalizeAmountAllowZero,
+  normalizeAmountRequireNonZero,
+  normalizeAmountRequirePositive
+} from "@jskit-ai/billing-core";
+
 export const ENTITLEMENT_TYPES = {
   CAPACITY: "capacity",
   METERED_QUOTA: "metered_quota",
@@ -68,18 +74,14 @@ export function normalizeCodes(value) {
   return [...new Set(normalized)];
 }
 
+export { normalizeAmountAllowZero, normalizeAmountRequireNonZero, normalizeAmountRequirePositive };
+
 export function normalizeAmount(value, { allowNegative = false, requireNonZero = true } = {}) {
-  const parsed = toInteger(value);
-  if (parsed == null) {
-    return null;
+  if (requireNonZero) {
+    return normalizeAmountRequireNonZero(value, { allowNegative });
   }
-  if (!allowNegative && parsed < 0) {
-    return null;
-  }
-  if (requireNonZero && parsed === 0) {
-    return null;
-  }
-  return parsed;
+
+  return normalizeAmountAllowZero(value, { allowNegative });
 }
 
 export function normalizeBalanceRow(row) {

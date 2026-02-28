@@ -1,7 +1,8 @@
 import {
   DEFAULT_SUBJECT_TYPE,
   ENTITLEMENT_TYPES,
-  normalizeAmount,
+  normalizeAmountRequireNonZero,
+  normalizeAmountRequirePositive,
   normalizeBalanceRow,
   normalizeCodes,
   normalizeSubjectType,
@@ -445,7 +446,7 @@ export function createEntitlementsService(deps = {}, options = {}) {
     const normalizedSubjectType = normalizeSubjectType(input.subjectType || input.subject_type || DEFAULT_SUBJECT_TYPE);
     const normalizedSubjectId = toPositiveInteger(input.subjectId ?? input.subject_id ?? input.billableEntityId);
     const normalizedDefinitionId = toPositiveInteger(input.entitlementDefinitionId ?? input.entitlement_definition_id);
-    const amount = normalizeAmount(input.amount, { allowNegative: true, requireNonZero: true });
+    const amount = normalizeAmountRequireNonZero(input.amount, { allowNegative: true });
     const dedupeKey = toNonEmptyString(input.dedupeKey || input.dedupe_key);
 
     if (!normalizedSubjectId || !normalizedDefinitionId) {
@@ -520,7 +521,7 @@ export function createEntitlementsService(deps = {}, options = {}) {
   async function consume(input = {}) {
     const normalizedSubjectType = normalizeSubjectType(input.subjectType || input.subject_type || DEFAULT_SUBJECT_TYPE);
     const normalizedSubjectId = toPositiveInteger(input.subjectId ?? input.subject_id ?? input.billableEntityId);
-    const amount = normalizeAmount(input.amount, { allowNegative: false, requireNonZero: true });
+    const amount = normalizeAmountRequirePositive(input.amount);
 
     if (!normalizedSubjectId) {
       throw new EntitlementsValidationError("consume requires subjectId.");
