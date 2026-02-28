@@ -31,6 +31,11 @@ function resolveUser(context, input) {
   return payload.user || resolveRequest(context)?.user || context?.actor || null;
 }
 
+function resolveWorkspace(context, input) {
+  const payload = normalizeObject(input);
+  return payload.workspace || resolveRequest(context)?.workspace || context?.workspace || null;
+}
+
 function requireAuthenticated(context) {
   return toPositiveInteger(context?.actor?.id) > 0;
 }
@@ -47,6 +52,7 @@ export {
   requireServiceMethod,
   resolveRequest,
   resolveUser,
+  resolveWorkspace,
   requireAuthenticated,
   OBJECT_INPUT_SCHEMA
 };

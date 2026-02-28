@@ -4,6 +4,7 @@ import {
   resolvePublishProjectEvent
 } from "../../../realtime/publishers/projectPublisher.js";
 import { normalizeHeaderValue, resolveCommandId, resolveSourceClientId } from "@jskit-ai/action-runtime-core";
+import { resolveWorkspace } from "@jskit-ai/action-runtime-core/actionContributorHelpers";
 
 const PROJECTS_CREATE_CAPABILITY = "projects.create";
 const PROJECTS_UNARCHIVE_CAPABILITY = "projects.unarchive";
@@ -40,11 +41,6 @@ function resolveRequest(context) {
 function resolveUser(context, input) {
   const payload = normalizeObject(input);
   return payload.user || resolveRequest(context)?.user || context?.actor || null;
-}
-
-function resolveWorkspace(context, input) {
-  const payload = normalizeObject(input);
-  return payload.workspace || resolveRequest(context)?.workspace || context?.workspace || null;
 }
 
 function resolveProjectId(input) {
