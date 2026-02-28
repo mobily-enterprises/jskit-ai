@@ -8,17 +8,11 @@ import { Writable } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runCli as runCreateAppCli } from "../src/shared/index.js";
+import { createCliRunner } from "../../testUtils/runCli.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit-create-app.js", import.meta.url));
 const JSKIT_CLI_PATH = fileURLToPath(new URL("../../jskit/bin/jskit.js", import.meta.url));
-
-function runCli({ cwd, args = [], input = undefined }) {
-  return spawnSync(process.execPath, [CLI_PATH, ...args], {
-    cwd,
-    encoding: "utf8",
-    input
-  });
-}
+const runCli = createCliRunner(CLI_PATH);
 
 function runJskit({ cwd, args = [] }) {
   return spawnSync(process.execPath, [JSKIT_CLI_PATH, ...args], {

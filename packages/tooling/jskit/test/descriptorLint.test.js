@@ -1,25 +1,18 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import process from "node:process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { ensureUniqueDescriptor } from "../src/shared/schemas/descriptorRegistry.mjs";
 import { normalizeBundleDescriptor } from "../src/shared/schemas/bundleDescriptor.mjs";
 import { normalizePackageDescriptor } from "../src/shared/schemas/packageDescriptor.mjs";
+import { createCliRunner } from "../../testUtils/runCli.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
+const runCli = createCliRunner(CLI_PATH);
 const SNAPSHOT_PATH = fileURLToPath(new URL("./fixtures/descriptor-error-snapshots.json", import.meta.url));
 const ERROR_SNAPSHOTS = JSON.parse(await readFile(SNAPSHOT_PATH, "utf8"));
-
-function runCli({ cwd, args = [] }) {
-  return spawnSync(process.execPath, [CLI_PATH, ...args], {
-    cwd,
-    encoding: "utf8"
-  });
-}
 
 function captureErrorMessage(action) {
   try {

@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { mkdtemp, writeFile, rm, mkdir, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { createCliRunner } from "../../testUtils/runCli.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit-app-scripts.js", import.meta.url));
+const runCli = createCliRunner(CLI_PATH);
 
 async function withTempAppDir(configSource, run) {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "jskit-app-scripts-"));
@@ -24,13 +25,6 @@ async function writeTextFile(cwd, relativePath, source) {
   const absolutePath = path.join(cwd, relativePath);
   await mkdir(path.dirname(absolutePath), { recursive: true });
   await writeFile(absolutePath, source, "utf8");
-}
-
-function runCli({ cwd, args = [] }) {
-  return spawnSync(process.execPath, [CLI_PATH, ...args], {
-    cwd,
-    encoding: "utf8"
-  });
 }
 
 test("cli executes object task with task-level env", async () => {
