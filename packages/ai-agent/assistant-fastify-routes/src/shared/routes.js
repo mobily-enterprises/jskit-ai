@@ -1,8 +1,5 @@
+import { passthroughErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { createSchema } from "./schema.js";
-
-function passthroughErrorResponses(successResponses) {
-  return successResponses;
-}
 
 function normalizePermission(value) {
   return String(value || "").trim();
