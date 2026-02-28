@@ -1,4 +1,5 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { toDateOrNull } from "@jskit-ai/billing-core";
 import {
   BILLING_RUNTIME_DEFAULTS,
   BILLING_CHECKOUT_SESSION_STATUS,
@@ -6,19 +7,6 @@ import {
   canTransitionCheckoutStatus,
   isCheckoutTerminalStatus
 } from "./constants.js";
-
-function toDateOrNull(value) {
-  if (!value) {
-    return null;
-  }
-
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return date;
-}
 
 function pickLaterDate(left, right) {
   const leftDate = toDateOrNull(left);

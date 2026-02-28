@@ -1,7 +1,13 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { normalizePagination } from "@jskit-ai/server-runtime-core/pagination";
 import { createEntitlementsService } from "@jskit-ai/entitlements-core";
-import { createGuardrailRecorder, withLeaseFence, normalizeCurrency, toNonEmptyString } from "@jskit-ai/billing-core";
+import {
+  createGuardrailRecorder,
+  withLeaseFence,
+  normalizeCurrency,
+  toNonEmptyString,
+  toDateOrNull
+} from "@jskit-ai/billing-core";
 import {
   BILLING_ACTIONS,
   BILLING_DEFAULT_PROVIDER,
@@ -220,19 +226,6 @@ function toPositiveInteger(value) {
 
 function addUtcDays(date, days) {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
-}
-
-function toDateOrNull(value) {
-  if (!value) {
-    return null;
-  }
-
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return date;
 }
 
 function resolveSubscriptionPeriodEnd(subscription, now = new Date()) {
