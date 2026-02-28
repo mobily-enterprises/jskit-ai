@@ -5,6 +5,7 @@ import Fastify from "fastify";
 import authPlugin from "../server/fastify/auth.plugin.js";
 import { registerApiRoutes } from "../server/fastify/registerApiRoutes.js";
 import { buildRoutes as buildAiRoutes } from "../server/modules/ai/routes.js";
+import { createMissingHandler } from "./helpers/missingHandler.js";
 
 function installErrorHandler(app) {
   app.setErrorHandler((error, _request, reply) => {
@@ -14,14 +15,6 @@ function installErrorHandler(app) {
       statusCode
     });
   });
-}
-
-function createMissingHandler() {
-  return async (_request, reply) => {
-    reply.code(501).send({
-      error: "missing"
-    });
-  };
 }
 
 async function issueCsrfToken(app) {

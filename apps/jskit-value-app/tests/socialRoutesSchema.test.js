@@ -4,6 +4,7 @@ import Fastify from "fastify";
 
 import { registerApiRoutes } from "../server/fastify/registerApiRoutes.js";
 import { buildRoutes as buildSocialRoutes } from "../server/modules/social/routes.js";
+import { createMissingHandler } from "./helpers/missingHandler.js";
 
 function buildControllers() {
   return {
@@ -130,14 +131,6 @@ function buildControllers() {
         });
       }
     }
-  };
-}
-
-function createMissingHandler() {
-  return async (_request, reply) => {
-    reply.code(501).send({
-      error: "missing"
-    });
   };
 }
 
