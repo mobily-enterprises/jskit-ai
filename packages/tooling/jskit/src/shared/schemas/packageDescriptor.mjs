@@ -83,6 +83,13 @@ export function normalizePackageDescriptor(packaged, descriptorPath) {
   const procfile = ensureRecord(mutations.procfile, `Package ${packageId} mutations.procfile`);
   const files = Array.isArray(mutations.files) ? mutations.files : [];
 
+  const metadata = ensureRecord(packaged.metadata, `Package ${packageId} metadata`);
+  const serverMetadata = ensureRecord(metadata.server, `Package ${packageId} metadata.server`);
+  const uiMetadata = ensureRecord(metadata.ui, `Package ${packageId} metadata.ui`);
+
+  const serverRoutes = Array.isArray(serverMetadata.routes) ? serverMetadata.routes : [];
+  const uiElements = Array.isArray(uiMetadata.elements) ? uiMetadata.elements : [];
+
   for (const [dependencyName, range] of Object.entries({ ...runtimeDependencies, ...devDependencies })) {
     if (!String(dependencyName || "").trim()) {
       throw createCliError(`Package ${packageId} has an empty dependency key.`);
@@ -120,6 +127,36 @@ export function normalizePackageDescriptor(packaged, descriptorPath) {
     };
   });
 
+  const normalizedServerRoutes = serverRoutes.map((entry, index) => {
+    ensureObject(entry, `Package ${packageId} metadata.server.routes[${index}]`);
+    const method = String(entry.method || "").trim().toUpperCase();
+    const routePath = String(entry.path || "").trim();
+    if (!method || !routePath) {
+      throw createCliError(
+        `Package ${packageId} metadata.server.routes[${index}] must define method and path.`
+      );
+    }
+    return {
+      method,
+      path: routePath,
+      summary: String(entry.summary || "").trim()
+    };
+  });
+
+  const normalizedUiElements = uiElements.map((entry, index) => {
+    ensureObject(entry, `Package ${packageId} metadata.ui.elements[${index}]`);
+    const name = String(entry.name || "").trim();
+    if (!name) {
+      throw createCliError(`Package ${packageId} metadata.ui.elements[${index}] must define name.`);
+    }
+    return {
+      name,
+      capability: String(entry.capability || "").trim(),
+      purpose: String(entry.purpose || "").trim(),
+      surface: String(entry.surface || "").trim()
+    };
+  });
+
   return {
     packageVersion: 1,
     packageId,
@@ -133,6 +170,14 @@ export function normalizePackageDescriptor(packaged, descriptorPath) {
     },
     contracts: {
       contributes: contractContributions
+    },
+    metadata: {
+      server: {
+        routes: normalizedServerRoutes
+      },
+      ui: {
+        elements: normalizedUiElements
+      }
     },
     mutations: {
       dependencies: {

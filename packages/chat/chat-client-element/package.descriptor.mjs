@@ -13,6 +13,21 @@ export default Object.freeze({
       "chat.client-runtime"
     ]
   },
+  "metadata": {
+    "server": {
+      "routes": []
+    },
+    "ui": {
+      "elements": [
+        {
+          "name": "chat.client-element",
+          "capability": "chat.client-element",
+          "purpose": "UI element contribution.",
+          "surface": ""
+        }
+      ]
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {

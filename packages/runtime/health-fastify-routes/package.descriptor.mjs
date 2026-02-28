@@ -15,6 +15,25 @@ export default Object.freeze({
       "contracts.http"
     ]
   },
+  "metadata": {
+    "server": {
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/health",
+          "summary": "Liveness probe for process health"
+        },
+        {
+          "method": "GET",
+          "path": "/api/ready",
+          "summary": "Readiness probe for dependency health"
+        }
+      ]
+    },
+    "ui": {
+      "elements": []
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {

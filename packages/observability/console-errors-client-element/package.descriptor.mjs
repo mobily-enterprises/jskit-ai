@@ -13,6 +13,21 @@ export default Object.freeze({
       "observability.core"
     ]
   },
+  "metadata": {
+    "server": {
+      "routes": []
+    },
+    "ui": {
+      "elements": [
+        {
+          "name": "observability.console-errors-client",
+          "capability": "observability.console-errors-client",
+          "purpose": "UI element contribution.",
+          "surface": ""
+        }
+      ]
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {

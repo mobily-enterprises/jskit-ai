@@ -13,6 +13,21 @@ export default Object.freeze({
       "assistant.client-runtime"
     ]
   },
+  "metadata": {
+    "server": {
+      "routes": []
+    },
+    "ui": {
+      "elements": [
+        {
+          "name": "assistant.client-element",
+          "capability": "assistant.client-element",
+          "purpose": "UI element contribution.",
+          "surface": ""
+        }
+      ]
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {

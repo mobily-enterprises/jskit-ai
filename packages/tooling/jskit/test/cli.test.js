@@ -147,14 +147,14 @@ test("jskit list bundles all marks db-provider requirement hints", async () => {
   });
 });
 
-test("jskit show bundle prints declared package list by default", async () => {
+test("jskit show <id> resolves bundle ids", async () => {
   await withTempApp(async (appRoot) => {
     const result = runCli({
       cwd: appRoot,
-      args: ["show", "bundle", "db-mysql"]
+      args: ["show", "db-mysql"]
     });
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /Bundle db-mysql \(0\.2\.0\)/);
+    assert.match(result.stdout, /Package db-mysql \(0\.2\.0\)/);
     assert.match(result.stdout, /Packages \(1\):/);
     assert.match(result.stdout, /@jskit-ai\/db-mysql/);
     assert.doesNotMatch(result.stdout, /@jskit-ai\/jskit-knex/);
@@ -184,11 +184,11 @@ test("jskit list bundles --full shows declared packages unless --expanded is set
   });
 });
 
-test("jskit show bundle defaults to declared packages and supports --expanded", async () => {
+test("jskit show <id> defaults to declared packages and supports --expanded", async () => {
   await withTempApp(async (appRoot) => {
     const declared = runCli({
       cwd: appRoot,
-      args: ["show", "bundle", "billing-base"]
+      args: ["show", "billing-base"]
     });
     assert.equal(declared.status, 0, declared.stderr);
     assert.match(declared.stdout, /Packages \(10\):/);
@@ -196,11 +196,57 @@ test("jskit show bundle defaults to declared packages and supports --expanded", 
 
     const expanded = runCli({
       cwd: appRoot,
-      args: ["show", "bundle", "billing-base", "--expanded"]
+      args: ["show", "billing-base", "--expanded"]
     });
     assert.equal(expanded.status, 0, expanded.stderr);
     assert.match(expanded.stdout, /Packages \((?:1[1-9]|[2-9]\d)\):/i);
     assert.match(expanded.stdout, /@jskit-ai\/module-framework-core/i);
+  });
+});
+
+test("jskit show <id> prints grouped capabilities and routes for bundle ids", async () => {
+  await withTempApp(async (appRoot) => {
+    const result = runCli({
+      cwd: appRoot,
+      args: ["show", "social-base"]
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Package social-base \(0\.1\.0\)/);
+    assert.match(result.stdout, /Type: bundle shortcut/);
+    assert.match(result.stdout, /Requires capabilities:/);
+    assert.match(result.stdout, /contracts \(http, social\)/i);
+    assert.match(result.stdout, /db \(core\)/i);
+    assert.match(result.stdout, /Contracts:/);
+    assert.match(result.stdout, /social\.server-routes/i);
+    assert.match(result.stdout, /Server routes \(\d+\):/);
+    assert.match(result.stdout, /GET \/api\/workspace\/social\/feed/);
+  });
+});
+
+test("jskit show <id> resolves package ids", async () => {
+  await withTempApp(async (appRoot) => {
+    const result = runCli({
+      cwd: appRoot,
+      args: ["show", "@jskit-ai/social-fastify-routes"]
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Package @jskit-ai\/social-fastify-routes \(0\.1\.0\)/);
+    assert.match(result.stdout, /Type: package/);
+    assert.match(result.stdout, /Provides capabilities:/);
+    assert.match(result.stdout, /social \(server-routes\)/i);
+    assert.match(result.stdout, /Server routes \(\d+\):/);
+    assert.match(result.stdout, /DELETE \/api\/workspace\/social\/posts\/:postId/);
+  });
+});
+
+test("jskit show rejects legacy scoped syntax", async () => {
+  await withTempApp(async (appRoot) => {
+    const result = runCli({
+      cwd: appRoot,
+      args: ["show", "bundle", "db-mysql"]
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /jskit show usage: show <id>/i);
   });
 });
 

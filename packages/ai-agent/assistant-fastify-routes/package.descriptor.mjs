@@ -19,6 +19,30 @@ export default Object.freeze({
       "runtime.server"
     ]
   },
+  "metadata": {
+    "server": {
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/api/workspace/ai/chat/stream",
+          "summary": "Stream AI assistant chat response for active workspace"
+        },
+        {
+          "method": "GET",
+          "path": "/api/workspace/ai/conversations",
+          "summary": "List assistant conversations for current user in active workspace"
+        },
+        {
+          "method": "GET",
+          "path": "/api/workspace/ai/conversations/:conversationId/messages",
+          "summary": "List messages for one assistant conversation owned by current user"
+        }
+      ]
+    },
+    "ui": {
+      "elements": []
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {

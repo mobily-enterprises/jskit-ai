@@ -17,6 +17,45 @@ export default Object.freeze({
       "observability.core"
     ]
   },
+  "metadata": {
+    "server": {
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/console/errors/browser",
+          "summary": "List browser error logs"
+        },
+        {
+          "method": "POST",
+          "path": "/api/console/errors/browser",
+          "summary": "Record browser-side JavaScript error"
+        },
+        {
+          "method": "GET",
+          "path": "/api/console/errors/browser/:errorId",
+          "summary": "Get browser error log entry by id"
+        },
+        {
+          "method": "GET",
+          "path": "/api/console/errors/server",
+          "summary": "List server error logs"
+        },
+        {
+          "method": "GET",
+          "path": "/api/console/errors/server/:errorId",
+          "summary": "Get server error log entry by id"
+        },
+        {
+          "method": "POST",
+          "path": "/api/console/simulate/server-error",
+          "summary": "Simulate a server error for diagnostics"
+        }
+      ]
+    },
+    "ui": {
+      "elements": []
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {

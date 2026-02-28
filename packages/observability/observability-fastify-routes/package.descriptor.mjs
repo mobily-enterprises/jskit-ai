@@ -18,6 +18,20 @@ export default Object.freeze({
       "runtime.server"
     ]
   },
+  "metadata": {
+    "server": {
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/metrics",
+          "summary": "Prometheus metrics endpoint"
+        }
+      ]
+    },
+    "ui": {
+      "elements": []
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {

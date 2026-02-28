@@ -18,6 +18,70 @@ export default Object.freeze({
       "auth.policy"
     ]
   },
+  "metadata": {
+    "server": {
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/api/login",
+          "summary": "Log in with configured credentials"
+        },
+        {
+          "method": "POST",
+          "path": "/api/login/otp/request",
+          "summary": "Request one-time email login code"
+        },
+        {
+          "method": "POST",
+          "path": "/api/login/otp/verify",
+          "summary": "Verify one-time email login code and create session"
+        },
+        {
+          "method": "POST",
+          "path": "/api/logout",
+          "summary": "Log out and clear session cookies"
+        },
+        {
+          "method": "GET",
+          "path": "/api/oauth/:provider/start",
+          "summary": "Start OAuth login with configured provider"
+        },
+        {
+          "method": "POST",
+          "path": "/api/oauth/complete",
+          "summary": "Complete OAuth code exchange and set session cookies"
+        },
+        {
+          "method": "POST",
+          "path": "/api/password/forgot",
+          "summary": "Request a password reset email"
+        },
+        {
+          "method": "POST",
+          "path": "/api/password/recovery",
+          "summary": "Complete password recovery link exchange"
+        },
+        {
+          "method": "POST",
+          "path": "/api/password/reset",
+          "summary": "Set a new password for authenticated recovery session"
+        },
+        {
+          "method": "POST",
+          "path": "/api/register",
+          "summary": "Register a new user"
+        },
+        {
+          "method": "GET",
+          "path": "/api/session",
+          "summary": "Get current session status and CSRF token"
+        }
+      ]
+    },
+    "ui": {
+      "elements": []
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {

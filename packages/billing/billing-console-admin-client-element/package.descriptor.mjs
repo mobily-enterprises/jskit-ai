@@ -13,6 +13,21 @@ export default Object.freeze({
       "billing.core"
     ]
   },
+  "metadata": {
+    "server": {
+      "routes": []
+    },
+    "ui": {
+      "elements": [
+        {
+          "name": "billing.console.admin.client",
+          "capability": "billing.console.admin.client",
+          "purpose": "UI element contribution.",
+          "surface": ""
+        }
+      ]
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {

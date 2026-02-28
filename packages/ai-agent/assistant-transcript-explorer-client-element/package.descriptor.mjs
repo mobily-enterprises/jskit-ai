@@ -13,6 +13,21 @@ export default Object.freeze({
       "assistant.transcripts.core"
     ]
   },
+  "metadata": {
+    "server": {
+      "routes": []
+    },
+    "ui": {
+      "elements": [
+        {
+          "name": "assistant.transcripts.explorer.client",
+          "capability": "assistant.transcripts.explorer.client",
+          "purpose": "UI element contribution.",
+          "surface": ""
+        }
+      ]
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {

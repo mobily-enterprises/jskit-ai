@@ -21,6 +21,75 @@ export default Object.freeze({
       "workspace.console.core"
     ]
   },
+  "metadata": {
+    "server": {
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/settings",
+          "summary": ""
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/settings/chat",
+          "summary": "Update chat settings"
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/settings/notifications",
+          "summary": "Update notification settings"
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/settings/preferences",
+          "summary": "Update user preferences"
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/settings/profile",
+          "summary": "Update profile settings"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/settings/profile/avatar",
+          "summary": "Delete profile avatar and fallback to gravatar"
+        },
+        {
+          "method": "POST",
+          "path": "/api/settings/profile/avatar",
+          "summary": "Upload profile avatar"
+        },
+        {
+          "method": "POST",
+          "path": "/api/settings/security/change-password",
+          "summary": ""
+        },
+        {
+          "method": "POST",
+          "path": "/api/settings/security/logout-others",
+          "summary": "Sign out from other active sessions"
+        },
+        {
+          "method": "PATCH",
+          "path": "/api/settings/security/methods/password",
+          "summary": "Enable or disable password sign-in method"
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/settings/security/oauth/:provider",
+          "summary": "Unlink an OAuth provider from authenticated account"
+        },
+        {
+          "method": "GET",
+          "path": "/api/settings/security/oauth/:provider/start",
+          "summary": "Start linking an OAuth provider for authenticated user"
+        }
+      ]
+    },
+    "ui": {
+      "elements": []
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {

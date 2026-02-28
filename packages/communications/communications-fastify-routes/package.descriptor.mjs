@@ -18,6 +18,20 @@ export default Object.freeze({
       "runtime.server"
     ]
   },
+  "metadata": {
+    "server": {
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/api/workspace/sms/send",
+          "summary": "Send SMS using configured provider"
+        }
+      ]
+    },
+    "ui": {
+      "elements": []
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {

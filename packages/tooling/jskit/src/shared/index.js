@@ -19,6 +19,7 @@ import { ensureUniqueDescriptor } from "./schemas/descriptorRegistry.mjs";
 import { normalizeBundleDescriptor } from "./schemas/bundleDescriptor.mjs";
 import { normalizePackageDescriptor } from "./schemas/packageDescriptor.mjs";
 import { validateCapabilityContracts } from "./capabilityContracts.mjs";
+import { getCapabilityContract } from "../../contracts/capabilities/index.mjs";
 
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const BUNDLES_ROOT = path.join(PACKAGE_ROOT, "bundles");
@@ -211,7 +212,7 @@ function printUsage(stream = process.stderr) {
   stream.write("  lint-descriptors          Validate bundle/package descriptor files\n");
   stream.write("  add bundle <bundleId>     Add one bundle (bundle is a package shortcut)\n");
   stream.write("  add package <packageId>   Add one package to current app\n");
-  stream.write("  show bundle <bundleId>    Show bundle details (including package list)\n");
+  stream.write("  show <id>                 Show details for bundle id or package id\n");
   stream.write("  update package <packageId> Re-apply one installed package\n");
   stream.write("  remove package <packageId> Remove one installed package\n");
   stream.write("  doctor                    Validate lockfile + managed files\n");
@@ -1172,6 +1173,279 @@ function buildBundleMetadata(bundleDescriptor, availablePackages) {
   };
 }
 
+function summarizeCapabilities(capabilityIds) {
+  const grouped = new Map();
+  for (const capabilityId of toSortedUniqueStrings(Array.isArray(capabilityIds) ? capabilityIds : [])) {
+    const normalized = String(capabilityId || "").trim();
+    if (!normalized) {
+      continue;
+    }
+    const parts = normalized.split(".");
+    const domain = String(parts.shift() || "").trim();
+    if (!domain) {
+      continue;
+    }
+    if (!grouped.has(domain)) {
+      grouped.set(domain, {
+        self: false,
+        leaves: new Set()
+      });
+    }
+    const suffix = parts.join(".").trim();
+    if (!suffix) {
+      grouped.get(domain).self = true;
+      continue;
+    }
+    grouped.get(domain).leaves.add(suffix);
+  }
+
+  const lines = [];
+  for (const domain of [...grouped.keys()].sort((left, right) => left.localeCompare(right))) {
+    const entry = grouped.get(domain);
+    if (!entry) {
+      continue;
+    }
+    if (entry.self) {
+      lines.push(domain);
+    }
+    const leaves = [...entry.leaves].sort((left, right) => left.localeCompare(right));
+    if (leaves.length > 0) {
+      lines.push(`${domain} (${leaves.join(", ")})`);
+    }
+  }
+
+  return lines;
+}
+
+function buildCapabilitySetsForPackages(packageIds, availablePackages) {
+  const requiredCapabilities = new Set();
+  const providedCapabilities = new Set();
+
+  for (const packageId of toSortedUniqueStrings(Array.isArray(packageIds) ? packageIds : [])) {
+    const packageEntry = availablePackages.get(packageId);
+    if (!packageEntry) {
+      continue;
+    }
+    for (const capabilityId of packageEntry.descriptor.capabilities.requires || []) {
+      requiredCapabilities.add(capabilityId);
+    }
+    for (const capabilityId of packageEntry.descriptor.capabilities.provides || []) {
+      providedCapabilities.add(capabilityId);
+    }
+  }
+
+  return {
+    requiredCapabilities: toSortedUniqueStrings([...requiredCapabilities]),
+    providedCapabilities: toSortedUniqueStrings([...providedCapabilities])
+  };
+}
+
+function buildFileContributionDetails(packageIds, availablePackages) {
+  const contributions = [];
+  for (const packageId of toSortedUniqueStrings(Array.isArray(packageIds) ? packageIds : [])) {
+    const packageEntry = availablePackages.get(packageId);
+    if (!packageEntry) {
+      continue;
+    }
+
+    for (const fileEntry of packageEntry.descriptor.mutations.files || []) {
+      contributions.push({
+        packageId,
+        from: fileEntry.from,
+        to: fileEntry.to
+      });
+    }
+  }
+
+  return contributions.sort((left, right) => {
+    const toDiff = String(left.to || "").localeCompare(String(right.to || ""));
+    if (toDiff !== 0) {
+      return toDiff;
+    }
+    return String(left.packageId || "").localeCompare(String(right.packageId || ""));
+  });
+}
+
+function buildUiElementDetails(packageIds, availablePackages) {
+  const elements = [];
+  for (const packageId of toSortedUniqueStrings(Array.isArray(packageIds) ? packageIds : [])) {
+    const packageEntry = availablePackages.get(packageId);
+    if (!packageEntry) {
+      continue;
+    }
+    for (const uiElement of packageEntry.descriptor.metadata?.ui?.elements || []) {
+      elements.push({
+        packageId,
+        capability: String(uiElement.capability || "").trim(),
+        name: String(uiElement.name || "").trim(),
+        purpose: String(uiElement.purpose || "").trim() || "UI element contribution.",
+        surface: String(uiElement.surface || "").trim()
+      });
+    }
+  }
+
+  return elements.sort((left, right) => {
+    const nameDiff = String(left.name || "").localeCompare(String(right.name || ""));
+    if (nameDiff !== 0) {
+      return nameDiff;
+    }
+    return String(left.packageId || "").localeCompare(String(right.packageId || ""));
+  });
+}
+
+async function buildServerRouteDetailsForPackage(packageEntry) {
+  if (!packageEntry) {
+    return [];
+  }
+
+  const routes = (packageEntry.descriptor.metadata?.server?.routes || []).map((route) => ({
+    method: String(route.method || "").trim().toUpperCase(),
+    path: String(route.path || "").trim(),
+    summary: String(route.summary || "").trim()
+  }));
+
+  return routes.sort((left, right) => {
+    const pathDiff = left.path.localeCompare(right.path);
+    if (pathDiff !== 0) {
+      return pathDiff;
+    }
+    return left.method.localeCompare(right.method);
+  });
+}
+
+async function buildServerRouteDetails(packageIds, availablePackages) {
+  const routeGroups = [];
+  for (const packageId of toSortedUniqueStrings(Array.isArray(packageIds) ? packageIds : [])) {
+    const packageEntry = availablePackages.get(packageId);
+    if (!packageEntry) {
+      continue;
+    }
+    const routes = await buildServerRouteDetailsForPackage(packageEntry);
+    if (routes.length < 1) {
+      continue;
+    }
+    routeGroups.push({
+      packageId,
+      routes
+    });
+  }
+  return routeGroups;
+}
+
+function buildCapabilityContractRoleDetails({ requiredCapabilities, providedCapabilities }) {
+  const requiredSet = new Set(Array.isArray(requiredCapabilities) ? requiredCapabilities : []);
+  const providedSet = new Set(Array.isArray(providedCapabilities) ? providedCapabilities : []);
+  const allCapabilityIds = toSortedUniqueStrings([...requiredSet, ...providedSet]);
+
+  return allCapabilityIds.map((capabilityId) => {
+    const contract = getCapabilityContract(capabilityId);
+    const roles = [];
+    if (providedSet.has(capabilityId)) {
+      roles.push("provides");
+    }
+    if (requiredSet.has(capabilityId)) {
+      roles.push("requires");
+    }
+    return {
+      capabilityId,
+      roles,
+      kind: String(contract?.kind || "").trim(),
+      summary: String(contract?.summary || "").trim() || "No central contract registered."
+    };
+  });
+}
+
+async function buildShowPackageBundleResult({
+  bundleEntry,
+  availablePackages,
+  installedPackageIds,
+  expanded = false
+}) {
+  const metadata = buildBundleMetadata(bundleEntry.descriptor, availablePackages);
+  const selectedPackageIds = expanded ? metadata.expandedPackages : metadata.packages;
+  const capabilitySets = buildCapabilitySetsForPackages(selectedPackageIds, availablePackages);
+  const serverRoutes = await buildServerRouteDetails(selectedPackageIds, availablePackages);
+  const fileContributions = buildFileContributionDetails(selectedPackageIds, availablePackages);
+  const uiElements = buildUiElementDetails(selectedPackageIds, availablePackages);
+
+  return {
+    command: "show-package",
+    targetType: "bundle",
+    expanded,
+    packageId: bundleEntry.descriptor.bundleId,
+    bundleId: bundleEntry.descriptor.bundleId,
+    version: bundleEntry.descriptor.version,
+    description: bundleEntry.descriptor.description,
+    curated: bundleEntry.descriptor.curated,
+    provider: bundleEntry.descriptor.provider,
+    installed: metadata.expandedPackages.every((packageId) => installedPackageIds.has(packageId)),
+    declaredPackageIds: metadata.packages,
+    expandedPackageIds: metadata.expandedPackages,
+    packageIds: selectedPackageIds,
+    packageEntries: (expanded ? metadata.expandedPackageEntries : metadata.packageEntries) || [],
+    requiredCapabilities: capabilitySets.requiredCapabilities,
+    requiredCapabilitySummary: summarizeCapabilities(capabilitySets.requiredCapabilities),
+    providedCapabilities: capabilitySets.providedCapabilities,
+    providedCapabilitySummary: summarizeCapabilities(capabilitySets.providedCapabilities),
+    capabilityContracts: buildCapabilityContractRoleDetails({
+      requiredCapabilities: capabilitySets.requiredCapabilities,
+      providedCapabilities: capabilitySets.providedCapabilities
+    }),
+    serverRoutes,
+    fileContributions,
+    uiElements
+  };
+}
+
+async function buildShowPackagePackageResult({
+  packageEntry,
+  availablePackages,
+  installedPackageIds,
+  expanded = false
+}) {
+  const rootPackageId = packageEntry.descriptor.packageId;
+  const expandedPackageIds = toSortedUniqueStrings(resolvePackageInstallOrder([rootPackageId], availablePackages));
+  const selectedPackageIds = expanded ? expandedPackageIds : [rootPackageId];
+  const capabilitySets = buildCapabilitySetsForPackages(selectedPackageIds, availablePackages);
+  const serverRoutes = await buildServerRouteDetails(selectedPackageIds, availablePackages);
+  const fileContributions = buildFileContributionDetails(selectedPackageIds, availablePackages);
+  const uiElements = buildUiElementDetails(selectedPackageIds, availablePackages);
+
+  return {
+    command: "show-package",
+    targetType: "package",
+    expanded,
+    packageId: rootPackageId,
+    version: packageEntry.descriptor.version,
+    description: packageEntry.descriptor.description,
+    installed: installedPackageIds.has(rootPackageId),
+    options: packageEntry.descriptor.options,
+    dependsOn: packageEntry.descriptor.dependsOn,
+    declaredPackageIds: [rootPackageId],
+    expandedPackageIds,
+    packageIds: selectedPackageIds,
+    packageEntries: selectedPackageIds.map((packageId) => ({
+      packageId,
+      provider: (availablePackages.get(packageId)?.descriptor?.capabilities?.provides || []).some((capabilityId) =>
+        capabilityId === "db-provider" || capabilityId.endsWith(".provider") || capabilityId.includes(".provider.")
+      ),
+      providerRequirementHints: [],
+      description: String(availablePackages.get(packageId)?.descriptor?.description || "").trim() || "No package description."
+    })),
+    requiredCapabilities: capabilitySets.requiredCapabilities,
+    requiredCapabilitySummary: summarizeCapabilities(capabilitySets.requiredCapabilities),
+    providedCapabilities: capabilitySets.providedCapabilities,
+    providedCapabilitySummary: summarizeCapabilities(capabilitySets.providedCapabilities),
+    capabilityContracts: buildCapabilityContractRoleDetails({
+      requiredCapabilities: capabilitySets.requiredCapabilities,
+      providedCapabilities: capabilitySets.providedCapabilities
+    }),
+    serverRoutes,
+    fileContributions,
+    uiElements
+  };
+}
+
 function getProviderFamilyFromOptionCapability(capabilityId) {
   const normalized = String(capabilityId || "").trim();
   if (!normalized) {
@@ -1884,6 +2158,16 @@ function formatResult(result, { json, stdout }) {
       : `- ${entry.bundleId} (${entry.version})${installedSuffix}${providerRequirementSuffix}\n`;
   }
 
+  function writeCapabilitySection({ title, groupedCapabilities = [] }) {
+    if (!Array.isArray(groupedCapabilities) || groupedCapabilities.length < 1) {
+      return;
+    }
+    stdout.write(`${title}:\n`);
+    for (const label of groupedCapabilities) {
+      stdout.write(`- ${label}\n`);
+    }
+  }
+
   if (json) {
     stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return;
@@ -1950,31 +2234,115 @@ function formatResult(result, { json, stdout }) {
     return;
   }
 
-  if (result.command === "show-bundle") {
+  if (result.command === "show-package") {
     const installedSuffix = result.installed ? " (installed)" : "";
-    const packageIds = showExpanded ? result.expandedPackages || result.packages : result.packages;
-    stdout.write(`Bundle ${result.bundleId} (${result.version})${installedSuffix}\n`);
+    const targetLabel = result.targetType === "bundle" ? "bundle shortcut" : "package";
+    stdout.write(`Package ${result.packageId} (${result.version})${installedSuffix}\n`);
+    stdout.write(`Type: ${targetLabel}\n`);
     if (result.description) {
       stdout.write(`Description: ${result.description}\n`);
     }
-    stdout.write(`Curated: ${result.curated === 1 ? "yes" : "no"}\n`);
-    stdout.write(`Provider bundle: ${result.provider === 1 ? "yes" : "no"}\n`);
-    if (result.requiredCapabilities.length > 0) {
-      stdout.write("Requires capabilities:\n");
-      for (const capabilityId of result.requiredCapabilities) {
-        stdout.write(`- ${capabilityId}\n`);
+    if (result.targetType === "bundle") {
+      stdout.write(`Curated: ${result.curated === 1 ? "yes" : "no"}\n`);
+      stdout.write(`Provider bundle: ${result.provider === 1 ? "yes" : "no"}\n`);
+    }
+    if (result.targetType === "package") {
+      if (Array.isArray(result.dependsOn) && result.dependsOn.length > 0) {
+        stdout.write("Depends on:\n");
+        for (const dependencyId of result.dependsOn) {
+          stdout.write(`- ${dependencyId}\n`);
+        }
+      }
+      const optionNames = Object.keys(result.options || {});
+      if (optionNames.length > 0) {
+        stdout.write("Options:\n");
+        for (const optionName of optionNames.sort((left, right) => left.localeCompare(right))) {
+          const option = result.options[optionName] || {};
+          const requiredSuffix = option.required ? " (required)" : "";
+          const values = Array.isArray(option.values) && option.values.length > 0 ? `: ${option.values.join(" | ")}` : "";
+          stdout.write(`- ${optionName}${requiredSuffix}${values}\n`);
+        }
       }
     }
-    if (result.providedCapabilities.length > 0) {
-      stdout.write("Provides capabilities:\n");
-      for (const capabilityId of result.providedCapabilities) {
-        stdout.write(`- ${capabilityId}\n`);
+
+    writeCapabilitySection({
+      title: "Requires capabilities",
+      groupedCapabilities: result.requiredCapabilitySummary
+    });
+    writeCapabilitySection({
+      title: "Provides capabilities",
+      groupedCapabilities: result.providedCapabilitySummary
+    });
+
+    if (Array.isArray(result.capabilityContracts) && result.capabilityContracts.length > 0) {
+      stdout.write("Contracts:\n");
+      for (const contractEntry of result.capabilityContracts) {
+        const roles = Array.isArray(contractEntry.roles) && contractEntry.roles.length > 0
+          ? ` [${contractEntry.roles.join(", ")}]`
+          : "";
+        const kindLabel = String(contractEntry.kind || "").trim();
+        const summaryLabel = String(contractEntry.summary || "").trim();
+        if (kindLabel && summaryLabel) {
+          stdout.write(`- ${contractEntry.capabilityId}${roles} (${kindLabel}): ${gray(summaryLabel)}\n`);
+          continue;
+        }
+        if (summaryLabel) {
+          stdout.write(`- ${contractEntry.capabilityId}${roles}: ${gray(summaryLabel)}\n`);
+          continue;
+        }
+        stdout.write(`- ${contractEntry.capabilityId}${roles}\n`);
       }
     }
-    stdout.write(`Packages (${packageIds.length}):\n`);
-    for (const packageId of packageIds) {
-      stdout.write(`- ${packageId}\n`);
+
+    if (Array.isArray(result.packageEntries) && result.packageEntries.length > 0) {
+      stdout.write(`Packages (${result.packageEntries.length})${showExpanded ? " [expanded]" : ""}:\n`);
+      for (const packageEntry of result.packageEntries) {
+        const providerRequirementSuffix =
+          Array.isArray(packageEntry.providerRequirementHints) && packageEntry.providerRequirementHints.length > 0
+            ? ` [${packageEntry.providerRequirementHints.join(", ")}]`
+            : "";
+        const providerSuffix = packageEntry.provider ? "*" : "";
+        const description = String(packageEntry.description || "").trim();
+        if (description) {
+          stdout.write(`- ${packageEntry.packageId}${providerSuffix}${providerRequirementSuffix}: ${gray(description)}\n`);
+          continue;
+        }
+        stdout.write(`- ${packageEntry.packageId}${providerSuffix}${providerRequirementSuffix}\n`);
+      }
     }
+
+    if (Array.isArray(result.serverRoutes) && result.serverRoutes.length > 0) {
+      const totalRouteCount = result.serverRoutes.reduce((sum, entry) => sum + ((entry.routes || []).length || 0), 0);
+      stdout.write(`Server routes (${totalRouteCount}):\n`);
+      for (const routeGroup of result.serverRoutes) {
+        stdout.write(`- ${routeGroup.packageId}:\n`);
+        for (const route of routeGroup.routes || []) {
+          const summary = String(route.summary || "").trim();
+          if (summary) {
+            stdout.write(`  ${route.method} ${route.path}: ${gray(summary)}\n`);
+            continue;
+          }
+          stdout.write(`  ${route.method} ${route.path}\n`);
+        }
+      }
+    }
+
+    if (Array.isArray(result.fileContributions) && result.fileContributions.length > 0) {
+      stdout.write(`File contributions (${result.fileContributions.length}):\n`);
+      for (const fileEntry of result.fileContributions) {
+        stdout.write(`- ${fileEntry.to} (${fileEntry.packageId})\n`);
+      }
+    }
+
+    if (Array.isArray(result.uiElements) && result.uiElements.length > 0) {
+      stdout.write(`UI elements (${result.uiElements.length}):\n`);
+      for (const element of result.uiElements) {
+        const capabilitySuffix = String(element.capability || "").trim() ? ` [${element.capability}]` : "";
+        const surfaceSuffix = String(element.surface || "").trim() ? ` (${element.surface})` : "";
+        stdout.write(`- ${element.name}${capabilitySuffix}${surfaceSuffix} (${element.packageId}): ${gray(element.purpose)}\n`);
+      }
+    }
+
     return;
   }
 
@@ -2495,31 +2863,40 @@ export async function runCli(
     }
 
     if (parsed.command === "show") {
-      if (parsed.positional.length !== 2 || parsed.positional[0] !== "bundle") {
-        throw createCliError("jskit show supports bundle scope only: show bundle <bundleId>.", {
+      if (parsed.positional.length !== 1) {
+        throw createCliError("jskit show usage: show <id>.", {
           showUsage: true
         });
       }
 
-      const bundleId = parsed.positional[1];
-      const bundleEntry = availableBundles.get(bundleId);
-      if (!bundleEntry) {
-        throw createCliError(`Unknown bundle: ${bundleId}`);
+      const installedPackageIds = new Set(Object.keys(ensurePlainObjectRecord(lock.installedPackages)));
+      const targetId = parsed.positional[0];
+      const bundleEntry = availableBundles.get(targetId) || null;
+      const packageEntry = availablePackages.get(targetId) || null;
+
+      if (bundleEntry && packageEntry) {
+        throw createCliError(
+          `Identifier ${targetId} is ambiguous (both bundle and package). Rename one descriptor before using show.`
+        );
       }
 
-      const metadata = buildBundleMetadata(bundleEntry.descriptor, availablePackages);
-      const installedPackageIds = new Set(Object.keys(ensurePlainObjectRecord(lock.installedPackages)));
-      result = {
-        command: "show-bundle",
-        expanded: parsed.options.expanded,
-        bundleId: bundleEntry.descriptor.bundleId,
-        version: bundleEntry.descriptor.version,
-        description: bundleEntry.descriptor.description,
-        curated: bundleEntry.descriptor.curated,
-        provider: bundleEntry.descriptor.provider,
-        installed: metadata.expandedPackages.every((packageId) => installedPackageIds.has(packageId)),
-        ...metadata
-      };
+      if (bundleEntry) {
+        result = await buildShowPackageBundleResult({
+          bundleEntry,
+          availablePackages,
+          installedPackageIds,
+          expanded: parsed.options.expanded
+        });
+      } else if (packageEntry) {
+        result = await buildShowPackagePackageResult({
+          packageEntry,
+          availablePackages,
+          installedPackageIds,
+          expanded: parsed.options.expanded
+        });
+      } else {
+        throw createCliError(`Unknown package or bundle: ${targetId}`);
+      }
 
       formatResult(result, {
         json: parsed.options.json,
