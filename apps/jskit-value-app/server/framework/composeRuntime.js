@@ -12,8 +12,11 @@ import { PLATFORM_REPOSITORY_DEFINITIONS } from "../runtime/repositories.js";
 import { PLATFORM_SERVICE_DEFINITIONS, RUNTIME_SERVICE_EXPORT_IDS } from "../runtime/services.js";
 import { PLATFORM_CONTROLLER_DEFINITIONS } from "../runtime/controllers.js";
 import { APP_FEATURE_SERVICE_DEFINITIONS, APP_FEATURE_CONTROLLER_DEFINITIONS } from "../runtime/appFeatureManifest.js";
+import { ACTION_CONTRIBUTOR_DEFINITIONS } from "./actionContributorFragments.js";
+import { FASTIFY_PLUGIN_DEFINITIONS } from "./fastifyPluginCatalog.js";
 import { ROUTE_MODULE_DEFINITIONS } from "./routeModuleCatalog.js";
 import { resolveServerModuleRegistry } from "./moduleRegistry.js";
+import { listRealtimeTopics } from "../../shared/topicRegistry.js";
 
 const ROUTE_MODULE_ORDER = Object.freeze(ROUTE_MODULE_DEFINITIONS.map((entry) => entry.id));
 const EXTENSION_MODULE_TIER = "extension";
@@ -152,6 +155,62 @@ function collectContributionIdSet(modules, contributionKey) {
   }
 
   return ids;
+}
+
+function collectDefinitionIdSet(definitions) {
+  const ids = new Set();
+
+  for (const definition of definitions || []) {
+    const id = String(definition?.id || "").trim();
+    if (id) {
+      ids.add(id);
+    }
+  }
+
+  return ids;
+}
+
+function collectModuleIdSet(definitions) {
+  const ids = new Set();
+
+  for (const definition of definitions || []) {
+    const id = String(definition?.moduleId || "").trim();
+    if (id) {
+      ids.add(id);
+    }
+  }
+
+  return ids;
+}
+
+function collectStringIdSet(entries) {
+  const ids = new Set();
+
+  for (const entry of entries || []) {
+    const id = String(entry || "").trim();
+    if (id) {
+      ids.add(id);
+    }
+  }
+
+  return ids;
+}
+
+function addMissingContributionDiagnostics({ diagnostics, mode, contributionKey, includedIds, availableIds }) {
+  for (const id of includedIds) {
+    if (availableIds.has(id)) {
+      continue;
+    }
+
+    addDiagnosticForMode(diagnostics, mode, {
+      code: "MODULE_CONTRIBUTION_UNKNOWN",
+      message: `Contribution "${contributionKey}" references unknown id "${id}".`,
+      details: {
+        contributionKey,
+        id
+      }
+    });
+  }
 }
 
 function filterDefinitionsById(definitions, includedIds) {
@@ -411,6 +470,97 @@ function composeServerRuntimeArtifacts(options = {}) {
   const realtimeTopics = collectContributionIdSet(activeModules, "realtimeTopics");
   const fastifyPluginIds = collectContributionIdSet(activeModules, "fastifyPlugins");
   const backgroundRuntimeServiceIds = collectContributionIdSet(activeModules, "backgroundRuntimeServices");
+  const diagnostics = createDiagnosticsCollector(moduleGraph.diagnostics);
+  const repositoryDefinitionIds = collectDefinitionIdSet(PLATFORM_REPOSITORY_DEFINITIONS);
+  const serviceDefinitionIds = collectDefinitionIdSet(PLATFORM_SERVICE_DEFINITIONS);
+  const controllerDefinitionIds = collectDefinitionIdSet(PLATFORM_CONTROLLER_DEFINITIONS);
+  const runtimeServiceDefinitionIds = collectStringIdSet(RUNTIME_SERVICE_EXPORT_IDS);
+  const routeDefinitionIds = collectStringIdSet(ROUTE_MODULE_ORDER);
+  const appFeatureServiceDefinitionIds = collectDefinitionIdSet(APP_FEATURE_SERVICE_DEFINITIONS);
+  const appFeatureControllerDefinitionIds = collectDefinitionIdSet(APP_FEATURE_CONTROLLER_DEFINITIONS);
+  const actionContributorDefinitionIds = collectModuleIdSet(ACTION_CONTRIBUTOR_DEFINITIONS);
+  const realtimeTopicDefinitionIds = collectStringIdSet(listRealtimeTopics());
+  const fastifyPluginDefinitionIds = collectDefinitionIdSet(FASTIFY_PLUGIN_DEFINITIONS);
+
+  addMissingContributionDiagnostics({
+    diagnostics,
+    mode: moduleGraph.mode,
+    contributionKey: "repositories",
+    includedIds: repositoryIds,
+    availableIds: repositoryDefinitionIds
+  });
+  addMissingContributionDiagnostics({
+    diagnostics,
+    mode: moduleGraph.mode,
+    contributionKey: "services",
+    includedIds: serviceIds,
+    availableIds: serviceDefinitionIds
+  });
+  addMissingContributionDiagnostics({
+    diagnostics,
+    mode: moduleGraph.mode,
+    contributionKey: "controllers",
+    includedIds: controllerIds,
+    availableIds: controllerDefinitionIds
+  });
+  addMissingContributionDiagnostics({
+    diagnostics,
+    mode: moduleGraph.mode,
+    contributionKey: "runtimeServices",
+    includedIds: runtimeServiceIds,
+    availableIds: runtimeServiceDefinitionIds
+  });
+  addMissingContributionDiagnostics({
+    diagnostics,
+    mode: moduleGraph.mode,
+    contributionKey: "routes",
+    includedIds: routeModuleIds,
+    availableIds: routeDefinitionIds
+  });
+  addMissingContributionDiagnostics({
+    diagnostics,
+    mode: moduleGraph.mode,
+    contributionKey: "appFeatureServices",
+    includedIds: appFeatureServiceIds,
+    availableIds: appFeatureServiceDefinitionIds
+  });
+  addMissingContributionDiagnostics({
+    diagnostics,
+    mode: moduleGraph.mode,
+    contributionKey: "appFeatureControllers",
+    includedIds: appFeatureControllerIds,
+    availableIds: appFeatureControllerDefinitionIds
+  });
+  addMissingContributionDiagnostics({
+    diagnostics,
+    mode: moduleGraph.mode,
+    contributionKey: "actionContributorModules",
+    includedIds: actionContributorModuleIds,
+    availableIds: actionContributorDefinitionIds
+  });
+  addMissingContributionDiagnostics({
+    diagnostics,
+    mode: moduleGraph.mode,
+    contributionKey: "realtimeTopics",
+    includedIds: realtimeTopics,
+    availableIds: realtimeTopicDefinitionIds
+  });
+  addMissingContributionDiagnostics({
+    diagnostics,
+    mode: moduleGraph.mode,
+    contributionKey: "fastifyPlugins",
+    includedIds: fastifyPluginIds,
+    availableIds: fastifyPluginDefinitionIds
+  });
+  addMissingContributionDiagnostics({
+    diagnostics,
+    mode: moduleGraph.mode,
+    contributionKey: "backgroundRuntimeServices",
+    includedIds: backgroundRuntimeServiceIds,
+    availableIds: runtimeServiceDefinitionIds
+  });
+
+  throwOnDiagnosticErrors(diagnostics, "Server module contribution validation failed.");
 
   return Object.freeze({
     mode: moduleGraph.mode,
@@ -418,7 +568,7 @@ function composeServerRuntimeArtifacts(options = {}) {
     moduleOrder: moduleGraph.moduleOrder,
     disabledModules: moduleGraph.disabledModules,
     capabilityProviders: moduleGraph.capabilityProviders,
-    diagnostics: moduleGraph.diagnostics,
+    diagnostics: Object.freeze(diagnostics.toJSON()),
     repositoryDefinitions: Object.freeze(filterDefinitionsById(PLATFORM_REPOSITORY_DEFINITIONS, repositoryIds)),
     serviceDefinitions: Object.freeze(filterDefinitionsById(PLATFORM_SERVICE_DEFINITIONS, serviceIds)),
     controllerDefinitions: Object.freeze(filterDefinitionsById(PLATFORM_CONTROLLER_DEFINITIONS, controllerIds)),
