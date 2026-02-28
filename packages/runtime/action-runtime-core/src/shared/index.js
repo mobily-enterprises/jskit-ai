@@ -9,7 +9,8 @@ export {
   createActionRuntimeError,
   normalizeActionDefinition,
   normalizeActionContributor,
-  createActionVersionKey
+  createActionVersionKey,
+  isPlainObject
 } from "./contracts.js";
 export { createActionRegistry } from "./registry.js";
 export { normalizeExecutionContext } from "./executionContext.js";

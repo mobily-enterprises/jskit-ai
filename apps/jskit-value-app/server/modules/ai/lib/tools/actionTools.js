@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { buildAiToolRegistry, listToolSchemas } from "@jskit-ai/assistant-core";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { normalizeLowerText, normalizeText } from "@jskit-ai/action-runtime-core";
+import { isPlainObject, normalizeLowerText, normalizeText } from "@jskit-ai/action-runtime-core";
 
 const ASSISTANT_TOOL_CHANNEL = "assistant_tool";
 const TOOL_NAME_MAX_LENGTH = 64;
@@ -17,10 +17,6 @@ function toLowerSet(values) {
   }
 
   return new Set(values.map((entry) => normalizeLowerText(entry)).filter(Boolean));
-}
-
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function normalizeObject(value) {

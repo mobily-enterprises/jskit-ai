@@ -1,8 +1,5 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
+import { isPlainObject } from "@jskit-ai/action-runtime-core";
 
 function normalizeObject(value) {
   return isPlainObject(value) ? value : {};
