@@ -3,14 +3,11 @@ import test from "node:test";
 
 import { createConsoleActionContributor } from "@jskit-ai/workspace-console-service-core";
 import { createConsoleBillingActionContributor } from "@jskit-ai/billing-service-core";
+import { getAction } from "./helpers/getAction.js";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../shared/eventTypes.js";
 import { createSettingsActionContributor } from "../server/runtime/actions/contributors/settings.contributor.js";
 import { createDeg2radHistoryActionContributor } from "../server/runtime/actions/contributors/deg2radHistory.contributor.js";
 import { createConsoleErrorsActionContributor } from "../server/runtime/actions/contributors/consoleErrors.contributor.js";
-
-function getAction(contributor, actionId) {
-  return contributor.actions.find((action) => action.id === actionId);
-}
 
 test("settings action contributor publishes realtime for synced mutation actions", async () => {
   const published = [];

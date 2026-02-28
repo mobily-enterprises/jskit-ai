@@ -1,12 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { getAction } from "./helpers/getAction.js";
 import { ACTION_IDS } from "../shared/actionIds.js";
 import { createProjectsActionContributor } from "../server/runtime/actions/contributors/projects.contributor.js";
-
-function getAction(contributor, actionId) {
-  return contributor.actions.find((action) => action.id === actionId);
-}
 
 function createProjectsServiceDouble() {
   return {
@@ -169,4 +166,3 @@ test("projects command actions publish realtime events across api/assistant_tool
   assert.equal(publishCalls[2].actorUserId, 9);
   assert.equal(Number(publishCalls[2].project?.id), 303);
 });
-

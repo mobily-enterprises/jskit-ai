@@ -1,12 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { getAction } from "./helpers/getAction.js";
 import { ACTION_IDS } from "../shared/actionIds.js";
 import { createAlertsActionContributor } from "../server/runtime/actions/contributors/alerts.contributor.js";
-
-function getAction(contributor, actionId) {
-  return contributor.actions.find((action) => action.id === actionId);
-}
 
 test("alerts list action ignores payload.user and resolves user from request context", async () => {
   const calls = [];
