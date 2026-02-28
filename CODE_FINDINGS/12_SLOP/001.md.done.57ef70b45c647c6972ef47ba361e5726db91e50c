@@ -5,3 +5,18 @@
 - Why it can drift/fail: The same helper set (`normalizeObject`, `toPositiveInteger`, `requireServiceMethod`, `resolveRequest`, `resolveUser`, `requireAuthenticated`, `OBJECT_INPUT_SCHEMA`) is copy-pasted across contributor modules. Several variants already diverge (e.g., `resolveWorkspace` exists in some files, or `resolveUser` reads input vs context differently). Any future change to one copy risks inconsistent behavior across actions and domains.
 - Concrete impact: Subtle and inconsistent auth/permission behavior across action contributors, higher maintenance cost, and hidden bugs when a fix is applied to one copy but not others.
 - Exact remediation: Extract a shared `actionContributorHelpers` module (e.g., `@jskit-ai/action-runtime-core/helpers`) that exports the common helpers and `OBJECT_INPUT_SCHEMA`. Replace local helper copies with imports. Where behavior must differ, make the divergence explicit via helper options instead of forking logic.
+
+---
+Summary:
+- Added shared action contributor helpers in @jskit-ai/action-runtime-core and exported normalize/require/resolve helpers with OBJECT_INPUT_SCHEMA.
+- Replaced duplicated helper definitions in the listed contributors with imports while keeping localized behavior (workspace/surface logic) intact.
+- Updated package dependencies for packages now importing @jskit-ai/action-runtime-core.
+
+Tests:
+- `npm -ws --if-present test` (failed: billing-commerce-client-element tests; create-app tests; web-runtime-core test)
+- `npm run test:framework` (failed: packageInventory; stage12Cutover)
+- `npm run test:architecture:client` (pass)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+Final commit: 57ef70b45c647c6972ef47ba361e5726db91e50c
