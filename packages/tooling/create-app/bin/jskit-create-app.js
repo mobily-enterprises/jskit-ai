@@ -1,8 +1,5 @@
 #!/usr/bin/env node
-import process from "node:process";
+import { runCliEntrypoint } from "@jskit-ai/cli-entrypoint";
 import { runCli } from "../src/shared/index.js";
 
-const exitCode = await runCli(process.argv.slice(2));
-if (exitCode !== 0) {
-  process.exit(exitCode);
-}
+await runCliEntrypoint(runCli);

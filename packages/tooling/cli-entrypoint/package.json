@@ -1,25 +1,17 @@
 {
-  "name": "@jskit-ai/create-app",
-  "version": "0.1.1",
-  "description": "Scaffold minimal JSKIT app shells.",
+  "name": "@jskit-ai/cli-entrypoint",
+  "version": "0.1.0",
+  "description": "Shared CLI entrypoint helper for JSKIT tooling.",
   "type": "module",
   "files": [
-    "bin",
     "src",
-    "templates",
     "README.md"
   ],
   "scripts": {
     "test": "node --test"
   },
-  "bin": {
-    "jskit-create-app": "bin/jskit-create-app.js"
-  },
   "exports": {
     ".": "./src/shared/index.js"
-  },
-  "dependencies": {
-    "@jskit-ai/cli-entrypoint": "0.1.0"
   },
   "engines": {
     "node": "20.x"
@@ -30,16 +22,16 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mobily-enterprises/jskit-ai.git",
-    "directory": "packages/tooling/create-app"
+    "directory": "packages/tooling/cli-entrypoint"
   },
   "bugs": {
     "url": "https://github.com/mobily-enterprises/jskit-ai/issues"
   },
-  "homepage": "https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/tooling/create-app#readme",
+  "homepage": "https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/tooling/cli-entrypoint#readme",
   "keywords": [
     "jskit",
-    "scaffold",
     "cli",
-    "starter"
+    "entrypoint",
+    "tooling"
   ]
 }
