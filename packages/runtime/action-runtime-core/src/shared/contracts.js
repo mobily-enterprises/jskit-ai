@@ -342,5 +342,6 @@ export {
   normalizeActionDefinition,
   normalizeActionContributor,
   createActionVersionKey,
+  isPlainObject,
   __testables
 };
