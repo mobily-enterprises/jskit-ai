@@ -1,7 +1,8 @@
 import {
   normalizeAmountAllowZero,
   normalizeAmountRequireNonZero,
-  normalizeAmountRequirePositive
+  normalizeAmountRequirePositive,
+  toNonEmptyString
 } from "@jskit-ai/billing-core";
 
 export const ENTITLEMENT_TYPES = {
@@ -14,11 +15,6 @@ export const ENTITLEMENT_TYPES = {
 const SUPPORTED_ENTITLEMENT_TYPES = new Set(Object.values(ENTITLEMENT_TYPES));
 
 export const DEFAULT_SUBJECT_TYPE = "billable_entity";
-
-export function toNonEmptyString(value) {
-  const normalized = String(value || "").trim();
-  return normalized || "";
-}
 
 export function toPositiveInteger(value) {
   const parsed = Number(value);
@@ -74,7 +70,7 @@ export function normalizeCodes(value) {
   return [...new Set(normalized)];
 }
 
-export { normalizeAmountAllowZero, normalizeAmountRequireNonZero, normalizeAmountRequirePositive };
+export { normalizeAmountAllowZero, normalizeAmountRequireNonZero, normalizeAmountRequirePositive, toNonEmptyString };
 
 export function normalizeAmount(value, { allowNegative = false, requireNonZero = true } = {}) {
   if (requireNonZero) {

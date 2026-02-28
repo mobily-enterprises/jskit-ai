@@ -7,6 +7,7 @@ export {
 } from "./entitlementSchema.js";
 export { createGuardrailRecorder, withLeaseFence } from "./guardrails.js";
 export {
+  toNonEmptyString,
   normalizeCurrency,
   normalizeAmountAllowZero,
   normalizeAmountRequireNonZero,

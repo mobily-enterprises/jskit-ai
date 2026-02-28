@@ -1,7 +1,7 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { normalizePagination } from "@jskit-ai/server-runtime-core/pagination";
 import { createEntitlementsService } from "@jskit-ai/entitlements-core";
-import { createGuardrailRecorder, withLeaseFence, normalizeCurrency } from "@jskit-ai/billing-core";
+import { createGuardrailRecorder, withLeaseFence, normalizeCurrency, toNonEmptyString } from "@jskit-ai/billing-core";
 import {
   BILLING_ACTIONS,
   BILLING_DEFAULT_PROVIDER,
@@ -208,11 +208,6 @@ const PAID_PLAN_CHANGE_POLICY_REQUIRED_NOW = "required_now";
 const PAID_PLAN_CHANGE_POLICY_ALLOW_WITHOUT_PAYMENT_METHOD = "allow_without_payment_method";
 const PLAN_ASSIGNMENT_DEFAULT_PERIOD_DAYS = 30;
 const SIGNUP_PROMO_PERIOD_DAYS = 7;
-
-function toNonEmptyString(value) {
-  const normalized = String(value || "").trim();
-  return normalized || "";
-}
 
 function toPositiveInteger(value) {
   const parsed = Number(value);

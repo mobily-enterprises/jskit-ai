@@ -4,6 +4,11 @@ function normalizeCurrency(value) {
     .toUpperCase();
 }
 
+function toNonEmptyString(value) {
+  const normalized = String(value || "").trim();
+  return normalized || "";
+}
+
 function normalizeAmountAllowZero(value, { allowNegative = false } = {}) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed)) {
@@ -35,6 +40,7 @@ function normalizeAmountRequirePositive(value) {
 }
 
 export {
+  toNonEmptyString,
   normalizeCurrency,
   normalizeAmountAllowZero,
   normalizeAmountRequireNonZero,
