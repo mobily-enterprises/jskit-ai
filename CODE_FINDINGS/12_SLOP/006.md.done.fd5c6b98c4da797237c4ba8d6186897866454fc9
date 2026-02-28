@@ -5,3 +5,17 @@
 - Why it can drift/fail: The test file repeats near-identical fetch-mock branches for Supabase endpoints (`/auth/v1/user`, `/auth/v1/token`) across many test cases. This is copy-paste scaffolding that makes it easy to update one stub but forget the others, leading to inconsistent test behavior.
 - Concrete impact: Fragile tests and higher maintenance cost when API response shapes change or new fields are needed.
 - Exact remediation: Create a shared test helper that builds a Supabase fetch mock (e.g., `createSupabaseFetchMock({ user, token, error })`) and reuse it across tests to centralize response shapes.
+
+---
+Summary:
+- Added a shared `createSupabaseFetchMock` helper plus user/session builders in `apps/jskit-value-app/tests/authService.test.js`.
+- Replaced duplicated Supabase fetch mock branches in the specified test sections with the shared helper.
+
+Tests:
+- `npm -ws --if-present test` (failed: missing toolchain/deps across workspace, e.g. `jskit-app-scripts`, `vitest`, multiple `ERR_MODULE_NOT_FOUND`)
+- `npm run test:framework` (failed: migration tracker row mismatch and inline options error)
+- `npm run test:architecture:client` (pass)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+Final commit: fd5c6b98c4da797237c4ba8d6186897866454fc9
