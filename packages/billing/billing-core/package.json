@@ -10,7 +10,8 @@
     ".": "./src/shared/index.js",
     "./catalogCore": "./src/shared/catalogCore.js",
     "./providerPricingCore": "./src/shared/providerPricingCore.js",
-    "./entitlementSchema": "./src/shared/entitlementSchema.js"
+    "./entitlementSchema": "./src/shared/entitlementSchema.js",
+    "./constants": "./src/shared/constants.js"
   },
   "dependencies": {
     "@jskit-ai/server-runtime-core": "0.1.0"

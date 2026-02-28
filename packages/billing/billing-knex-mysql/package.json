@@ -11,6 +11,7 @@
     "./repository": "./src/shared/repository.js"
   },
   "dependencies": {
+    "@jskit-ai/billing-core": "0.1.0",
     "@jskit-ai/entitlements-knex-mysql": "0.1.0",
     "@jskit-ai/jskit-knex": "0.1.0",
     "@jskit-ai/server-runtime-core": "0.1.0"
