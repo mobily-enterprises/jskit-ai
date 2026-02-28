@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import sharp from "sharp";
-import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { AppError, createValidationError } from "@jskit-ai/server-runtime-core/errors";
 import { resolveProfileIdentity } from "./profileIdentity.js";
 
 const DEFAULT_AVATAR_POLICY = Object.freeze({
@@ -74,14 +74,6 @@ function resolveAvatarPolicy(policy = {}) {
   };
 }
 
-function validationError(fieldErrors) {
-  return new AppError(400, "Validation failed.", {
-    details: {
-      fieldErrors
-    }
-  });
-}
-
 function normalizeUploadDimension(value, avatarPolicy = DEFAULT_AVATAR_POLICY) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || !avatarPolicy.uploadDimensionOptions.includes(parsed)) {
@@ -133,7 +125,7 @@ async function readAvatarBuffer(stream, { maxBytes = DEFAULT_AVATAR_POLICY.maxUp
     total += bufferChunk.length;
 
     if (total > maxBytes) {
-      throw validationError({
+      throw createValidationError({
         avatar: `Avatar file is too large. Maximum allowed size is ${Math.floor(maxBytes / (1024 * 1024))}MB.`
       });
     }
@@ -142,7 +134,7 @@ async function readAvatarBuffer(stream, { maxBytes = DEFAULT_AVATAR_POLICY.maxUp
   }
 
   if (chunks.length === 0) {
-    throw validationError({
+    throw createValidationError({
       avatar: "Avatar file is empty."
     });
   }

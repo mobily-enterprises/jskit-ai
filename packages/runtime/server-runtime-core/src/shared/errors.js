@@ -13,3 +13,11 @@ export class AppError extends Error {
 export function isAppError(error) {
   return error instanceof AppError;
 }
+
+export function createValidationError(fieldErrors) {
+  return new AppError(400, "Validation failed.", {
+    details: {
+      fieldErrors
+    }
+  });
+}

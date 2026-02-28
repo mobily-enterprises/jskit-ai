@@ -1,4 +1,4 @@
-import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { AppError, createValidationError } from "@jskit-ai/server-runtime-core/errors";
 
 const TRANSIENT_AUTH_MESSAGE_PARTS = [
   "network",
@@ -10,6 +10,8 @@ const TRANSIENT_AUTH_MESSAGE_PARTS = [
   "socket",
   "temporar"
 ];
+
+const validationError = createValidationError;
 
 function isTransientAuthMessage(message) {
   const normalized = String(message || "").toLowerCase();
@@ -101,14 +103,6 @@ function mapAuthError(error, fallbackStatus) {
   return new AppError(status, "Authentication request could not be processed.");
 }
 
-function validationError(fieldErrors) {
-  return new AppError(400, "Validation failed.", {
-    details: {
-      fieldErrors
-    }
-  });
-}
-
 function isUserNotFoundLikeAuthError(error) {
   const message = String(error?.message || "").toLowerCase();
   return (
@@ -140,12 +134,12 @@ function mapPasswordUpdateError(error) {
 
   const message = String(error?.message || "").toLowerCase();
   if (message.includes("same") && message.includes("password")) {
-    return validationError({
+    return createValidationError({
       password: "New password must be different from the current password."
     });
   }
 
-  return validationError({
+  return createValidationError({
     password: "Unable to update password with the provided value."
   });
 }
