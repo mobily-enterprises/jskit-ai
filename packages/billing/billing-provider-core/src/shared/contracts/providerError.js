@@ -1,3 +1,5 @@
+import { toNullableString } from "@jskit-ai/billing-core";
+
 const PROVIDER_ERROR_CATEGORIES = Object.freeze({
   INVALID_REQUEST: "invalid_request",
   RATE_LIMITED: "rate_limited",
@@ -15,11 +17,6 @@ const RETRYABLE_PROVIDER_ERROR_CATEGORIES = new Set([
   PROVIDER_ERROR_CATEGORIES.TRANSIENT_NETWORK,
   PROVIDER_ERROR_CATEGORIES.TRANSIENT_PROVIDER
 ]);
-
-function toNullableString(value) {
-  const normalized = String(value || "").trim();
-  return normalized || null;
-}
 
 function toNullableInteger(value) {
   const parsed = Number(value);

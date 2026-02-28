@@ -1,3 +1,4 @@
+import { toNullableString } from "@jskit-ai/billing-core";
 import { BILLING_PROVIDER_PADDLE } from "@jskit-ai/billing-provider-core";
 import {
   assertWebhookTranslator,
@@ -14,11 +15,6 @@ const PADDLE_EVENT_TYPE_MAP = Object.freeze({
   "subscription.canceled": "customer.subscription.deleted",
   "subscription.cancelled": "customer.subscription.deleted"
 });
-
-function toNullableString(value) {
-  const normalized = String(value || "").trim();
-  return normalized || null;
-}
 
 function toUnixEpochSeconds(value) {
   const parsed = Number(value);

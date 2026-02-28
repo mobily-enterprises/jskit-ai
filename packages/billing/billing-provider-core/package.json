@@ -8,5 +8,8 @@
   },
   "exports": {
     ".": "./src/shared/index.js"
+  },
+  "dependencies": {
+    "@jskit-ai/billing-core": "0.1.0"
   }
 }

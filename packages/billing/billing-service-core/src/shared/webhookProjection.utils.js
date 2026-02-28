@@ -1,3 +1,4 @@
+import { toNullableString } from "@jskit-ai/billing-core";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import {
   BILLING_CHECKOUT_SESSION_STATUS,
@@ -33,11 +34,6 @@ function toSafeMetadata(metadata) {
     next[String(key)] = String(value == null ? "" : value);
   }
   return next;
-}
-
-function toNullableString(value) {
-  const normalized = String(value || "").trim();
-  return normalized || null;
 }
 
 function toPositiveInteger(value) {

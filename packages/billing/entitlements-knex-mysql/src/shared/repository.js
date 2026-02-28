@@ -1,4 +1,9 @@
-import { normalizeAmountAllowZero, normalizeAmountRequirePositive, toNonEmptyString } from "@jskit-ai/billing-core";
+import {
+  normalizeAmountAllowZero,
+  normalizeAmountRequirePositive,
+  toNonEmptyString,
+  toNullableString
+} from "@jskit-ai/billing-core";
 import { normalizeDateInput, toInsertDateTime, toNullableDateTime } from "@jskit-ai/jskit-knex/dateUtils";
 import { applyForUpdate, normalizeMetadataJsonInput, parseJsonValue, resolveRepoClient } from "@jskit-ai/jskit-knex";
 import { withTransaction } from "./transactions.js";
@@ -16,14 +21,6 @@ const DEFAULT_DIALECT_FEATURES = Object.freeze({
 
 const LIFETIME_WINDOW_START = new Date("1970-01-01T00:00:00.000Z");
 const LIFETIME_WINDOW_END = new Date("9999-12-31T23:59:59.999Z");
-
-function toNullableString(value) {
-  if (value == null) {
-    return null;
-  }
-  const normalized = String(value || "").trim();
-  return normalized || null;
-}
 
 function toPositiveInteger(value) {
   const parsed = Number(value);
