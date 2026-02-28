@@ -1,10 +1,4 @@
-function normalizeMetadata(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
-}
+import { normalizeMetadata } from "@jskit-ai/communications-provider-core";
 
 function createService({ provider = "none" } = {}) {
   const normalizedProvider = String(provider || "none")

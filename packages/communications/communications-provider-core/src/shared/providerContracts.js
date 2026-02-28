@@ -18,6 +18,14 @@ function normalizeChannel(value) {
   return normalized || "";
 }
 
+function normalizeMetadata(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value;
+}
+
 function assertDispatchProvider(provider, { name = "dispatchProvider" } = {}) {
   if (!provider || typeof provider !== "object") {
     throw new Error(`${name} is required.`);
@@ -35,5 +43,6 @@ export {
   COMMUNICATION_CHANNELS,
   COMMUNICATION_PROVIDER_RESULT_REASONS,
   normalizeChannel,
+  normalizeMetadata,
   assertDispatchProvider
 };

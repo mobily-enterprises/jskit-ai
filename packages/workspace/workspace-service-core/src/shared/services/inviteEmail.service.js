@@ -1,4 +1,5 @@
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
+import { normalizeMetadata } from "@jskit-ai/communications-provider-core";
 
 function normalizeBaseUrl(value) {
   const raw = String(value || "").trim();
@@ -63,14 +64,6 @@ function buildWorkspaceInviteMessage(payload = {}, { appPublicUrl, createSurface
     subject,
     text: lines.join("\n")
   };
-}
-
-function normalizeMetadata(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
 }
 
 function resolveSendEmail(options = {}) {
