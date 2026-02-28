@@ -1,11 +1,6 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
+import { defaultMissingHandler } from "@jskit-ai/server-runtime-core/routeUtils";
 import { schema } from "./schema.js";
-
-function defaultMissingHandler(_request, reply) {
-  reply.code(501).send({
-    error: "Endpoint is not available in this server wiring."
-  });
-}
 
 function buildRoutes(controllers, { missingHandler } = {}) {
   const fallbackHandler = missingHandler || defaultMissingHandler;

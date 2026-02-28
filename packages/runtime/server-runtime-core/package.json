@@ -21,6 +21,7 @@
     "./fastifyBootstrap": "./src/shared/fastifyBootstrap.js",
     "./runtimeKernel": "./src/shared/runtimeKernel.js",
     "./runtimeAssembly": "./src/shared/runtimeAssembly.js",
-    "./apiRouteRegistration": "./src/shared/apiRouteRegistration.js"
+    "./apiRouteRegistration": "./src/shared/apiRouteRegistration.js",
+    "./routeUtils": "./src/shared/routeUtils.js"
   }
 }
