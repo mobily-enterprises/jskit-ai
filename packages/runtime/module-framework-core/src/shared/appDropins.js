@@ -543,13 +543,9 @@ function mergeClientModuleRegistry({ baseRegistry = [], extensionBundle }) {
 
       const existingIndex = registry.findIndex((entry) => entry.id === moduleId);
       if (existingIndex < 0) {
-        registry.push(
-          Object.freeze({
-            id: moduleId,
-            client: Object.freeze(mergeClientValue({}, contribution.client))
-          })
+        throw new TypeError(
+          `Client extension "${extensionEntry.id}" module "${moduleId}" must reference an existing module.`
         );
-        continue;
       }
 
       const existing = registry[existingIndex];
