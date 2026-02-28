@@ -2693,8 +2693,8 @@ function buildApiEntry({ entry, baseRequireContractTest }) {
   });
 }
 
-function getCapabilityContractApiEntries(capabilityId) {
-  const contract = getCapabilityContract(capabilityId);
+function getCapabilityContractApiEntries(capabilityId, contractsMap = CAPABILITY_CONTRACTS) {
+  const contract = getCapabilityContract(capabilityId, contractsMap);
   if (!contract) {
     return [];
   }
@@ -2736,13 +2736,17 @@ function getCapabilityContractRequiredSymbols(apiEntry) {
   ]);
 }
 
-function getCapabilityContract(capabilityId) {
+function getCapabilityContract(capabilityId, contractsMap = CAPABILITY_CONTRACTS) {
   const normalized = normalizeCapabilityId(capabilityId);
-  return CAPABILITY_CONTRACTS[normalized] || null;
+  if (!normalized || !contractsMap || typeof contractsMap !== "object") {
+    return null;
+  }
+  return contractsMap[normalized] || null;
 }
 
-function listCapabilityContracts() {
-  return CAPABILITY_CONTRACT_IDS.map((capabilityId) => CAPABILITY_CONTRACTS[capabilityId]);
+function listCapabilityContracts(contractsMap = CAPABILITY_CONTRACTS) {
+  const ids = Object.keys(contractsMap || {}).sort((left, right) => left.localeCompare(right));
+  return ids.map((capabilityId) => contractsMap[capabilityId]);
 }
 
 function getCapabilityContractTestRelativePath(capabilityId) {
@@ -2757,6 +2761,7 @@ export {
   CAPABILITY_CONTRACTS,
   CAPABILITY_CONTRACT_IDS,
   IMPLICIT_CONTRACT_SYMBOLS,
+  normalizeContracts,
   normalizeCapabilityId,
   getCapabilityContractApiEntries,
   getCapabilityContractRequiredSymbols,

@@ -59,6 +59,16 @@ export function normalizePackageDescriptor(packaged, descriptorPath) {
     ? capabilitiesSource.requires.map((value) => String(value || "").trim()).filter((value) => value.length > 0)
     : [];
 
+  const contractsSource = ensureRecord(packaged.contracts, `Package ${packageId} contracts`);
+  const contractContributionEntries = Array.isArray(contractsSource.contributes)
+    ? contractsSource.contributes
+    : typeof contractsSource.contributes === "string"
+      ? [contractsSource.contributes]
+      : [];
+  const contractContributions = contractContributionEntries
+    .map((entry) => normalizeRelativePath(entry).replace(/^\.\/+/, ""))
+    .filter((entry, index, all) => all.indexOf(entry) === index);
+
   const mutations = ensureRecord(packaged.mutations, `Package ${packageId} mutations`);
   const dependencies = ensureRecord(mutations.dependencies, `Package ${packageId} mutations.dependencies`);
   const runtimeDependencies = ensureRecord(
@@ -120,6 +130,9 @@ export function normalizePackageDescriptor(packaged, descriptorPath) {
     capabilities: {
       provides,
       requires
+    },
+    contracts: {
+      contributes: contractContributions
     },
     mutations: {
       dependencies: {

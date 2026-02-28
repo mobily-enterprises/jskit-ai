@@ -1,11 +1,12 @@
 import { access, constants as fsConstants, readFile } from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import {
-  CAPABILITY_CONTRACT_IDS,
   CAPABILITY_CONTRACTS,
   getCapabilityContractApiEntries,
   getCapabilityContractRequiredSymbols,
-  getCapabilityContractTestRelativePath
+  getCapabilityContractTestRelativePath,
+  normalizeContracts
 } from "../../contracts/capabilities/index.mjs";
 
 function toSortedUniqueStrings(values) {
@@ -289,8 +290,105 @@ function listCapabilityUsage(availablePackages) {
     }));
 }
 
+function getContractContributionPaths(packageEntry) {
+  return toSortedUniqueStrings(packageEntry?.descriptor?.contracts?.contributes || []);
+}
+
+async function buildCapabilityContractRegistry(availablePackages) {
+  const issues = [];
+  const mergedContracts = {
+    ...CAPABILITY_CONTRACTS
+  };
+  const ownerByCapabilityId = new Map(
+    Object.keys(CAPABILITY_CONTRACTS).map((capabilityId) => [capabilityId, "built-in contracts"])
+  );
+
+  const sortedPackageEntries = [...availablePackages.values()].sort((left, right) =>
+    String(left?.descriptor?.packageId || "").localeCompare(String(right?.descriptor?.packageId || ""))
+  );
+
+  for (const packageEntry of sortedPackageEntries) {
+    const packageId = String(packageEntry?.descriptor?.packageId || "").trim();
+    if (!packageId) {
+      continue;
+    }
+
+    for (const relativeContractsPath of getContractContributionPaths(packageEntry)) {
+      const resolvedContractsPath = path.resolve(packageEntry.packageRoot, relativeContractsPath);
+      if (!isInsidePath(packageEntry.packageRoot, resolvedContractsPath)) {
+        issues.push(
+          `Package ${packageId} contract contribution ${relativeContractsPath} escapes package root.`
+        );
+        continue;
+      }
+
+      if (!(await fileExists(resolvedContractsPath))) {
+        issues.push(
+          `Package ${packageId} contract contribution file not found: ${relativeContractsPath}.`
+        );
+        continue;
+      }
+
+      let contributionModule = null;
+      try {
+        contributionModule = await import(
+          pathToFileURL(resolvedContractsPath).href + `?t=${Date.now()}_${Math.random()}`
+        );
+      } catch (error) {
+        issues.push(
+          `Package ${packageId} failed loading contract contribution ${relativeContractsPath}: ${error?.message || String(error)}`
+        );
+        continue;
+      }
+
+      const rawContribution = contributionModule?.default;
+      if (!rawContribution || typeof rawContribution !== "object" || Array.isArray(rawContribution)) {
+        issues.push(
+          `Package ${packageId} contract contribution ${relativeContractsPath} must default-export an object.`
+        );
+        continue;
+      }
+
+      let normalizedContribution = null;
+      try {
+        normalizedContribution = normalizeContracts(rawContribution, {
+          sourceLabel: `${packageId}:${relativeContractsPath}`
+        });
+      } catch (error) {
+        issues.push(error?.message || String(error));
+        continue;
+      }
+
+      for (const capabilityId of Object.keys(normalizedContribution.byCapabilityId).sort((left, right) =>
+        left.localeCompare(right)
+      )) {
+        if (Object.prototype.hasOwnProperty.call(mergedContracts, capabilityId)) {
+          const owner = ownerByCapabilityId.get(capabilityId) || "unknown source";
+          issues.push(
+            `Package ${packageId} contract contribution ${relativeContractsPath} duplicates capability ${capabilityId} already defined by ${owner}.`
+          );
+          continue;
+        }
+        mergedContracts[capabilityId] = normalizedContribution.byCapabilityId[capabilityId];
+        ownerByCapabilityId.set(capabilityId, `${packageId}:${relativeContractsPath}`);
+      }
+    }
+  }
+
+  const capabilityIds = Object.keys(mergedContracts).sort((left, right) => left.localeCompare(right));
+  return {
+    issues,
+    contracts: Object.freeze(mergedContracts),
+    capabilityIds
+  };
+}
+
 async function validateCapabilityContracts(availablePackages) {
   const issues = [];
+  const registry = await buildCapabilityContractRegistry(availablePackages);
+  issues.push(...registry.issues);
+  const capabilityContracts = registry.contracts;
+  const capabilityContractIds = registry.capabilityIds;
   const usageByCapability = buildCapabilityUsageGraph(availablePackages);
   const requiredCapabilityIds = [...usageByCapability.entries()]
     .filter(([, usage]) => usage && usage.consumers instanceof Set && usage.consumers.size > 0)
@@ -300,7 +398,7 @@ async function validateCapabilityContracts(availablePackages) {
   const moduleCache = new Map();
 
   for (const capabilityId of requiredCapabilityIds) {
-    const contract = CAPABILITY_CONTRACTS[capabilityId];
+    const contract = capabilityContracts[capabilityId];
     if (!contract) {
       issues.push(`Capability ${capabilityId} is referenced in descriptors but missing from central contracts.`);
       continue;
@@ -322,7 +420,7 @@ async function validateCapabilityContracts(availablePackages) {
       );
     }
 
-    const apiEntries = getCapabilityContractApiEntries(capabilityId);
+    const apiEntries = getCapabilityContractApiEntries(capabilityId, capabilityContracts);
     if (apiEntries.length < 1) {
       issues.push(`Capability ${capabilityId} contract must define at least one API entry.`);
     }
@@ -411,7 +509,7 @@ async function validateCapabilityContracts(availablePackages) {
     }
   }
 
-  for (const capabilityId of CAPABILITY_CONTRACT_IDS) {
+  for (const capabilityId of capabilityContractIds) {
     if (!requiredCapabilityIds.includes(capabilityId)) {
       issues.push(`Capability ${capabilityId} exists in central contracts but is unused by descriptor requirements.`);
     }
@@ -420,7 +518,7 @@ async function validateCapabilityContracts(availablePackages) {
   return {
     ok: issues.length < 1,
     issues,
-    contractCount: CAPABILITY_CONTRACT_IDS.length,
+    contractCount: capabilityContractIds.length,
     usedCapabilityCount: requiredCapabilityIds.length
   };
 }

@@ -61,6 +61,9 @@ test("normalizePackageDescriptor accepts valid descriptor shape", () => {
         provides: ["feature-a"],
         requires: ["feature-b"]
       },
+      contracts: {
+        contributes: ["contracts/capabilities.mjs", "./contracts/capabilities.mjs"]
+      },
       mutations: {
         dependencies: {
           runtime: { knex: "^3.0.0" },
@@ -90,6 +93,7 @@ test("normalizePackageDescriptor accepts valid descriptor shape", () => {
   assert.deepEqual(normalized.dependsOn, ["@test/shared"]);
   assert.deepEqual(normalized.capabilities.provides, ["feature-a"]);
   assert.deepEqual(normalized.capabilities.requires, ["feature-b"]);
+  assert.deepEqual(normalized.contracts.contributes, ["contracts/capabilities.mjs"]);
   assert.equal(normalized.mutations.dependencies.runtime.knex, "^3.0.0");
   assert.equal(normalized.mutations.files[0].from, "templates/source.txt");
   assert.equal(normalized.mutations.files[0].to, "config/source.txt");

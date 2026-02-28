@@ -9,7 +9,8 @@ import {
   getCapabilityContractApiEntries,
   getCapabilityContract,
   getCapabilityContractRequiredSymbols,
-  getCapabilityContractTestRelativePath
+  getCapabilityContractTestRelativePath,
+  normalizeContracts
 } from "../contracts/capabilities/index.mjs";
 import { normalizePackageDescriptor } from "../src/shared/schemas/packageDescriptor.mjs";
 import { validateCapabilityContracts } from "../src/shared/capabilityContracts.mjs";
@@ -76,6 +77,49 @@ function buildDescriptorRequiredCapabilityIds(availablePackages) {
   }
   return toSortedUniqueStrings(capabilityIds);
 }
+
+test("normalizeContracts derives capability IDs from domain tree and rejects duplicates", () => {
+  const normalized = normalizeContracts({
+    auth: {
+      custom: {
+        kind: "service-contract",
+        summary: "Custom auth capability.",
+        api: [
+          {
+            entrypoint: ".",
+            functions: ["createService"]
+          }
+        ]
+      }
+    }
+  });
+
+  assert.deepEqual(Object.keys(normalized.byCapabilityId), ["auth.custom"]);
+  assert.equal(normalized.byCapabilityId["auth.custom"].capabilityId, "auth.custom");
+  assert.equal(normalized.byDomain.auth.custom.capabilityId, "auth.custom");
+
+  assert.throws(
+    () =>
+      normalizeContracts({
+        auth: {
+          first: {
+            capabilityId: "auth.duplicate",
+            kind: "service-contract",
+            summary: "first"
+          },
+          second: {
+            capabilityId: "auth.duplicate",
+            kind: "service-contract",
+            summary: "second"
+          }
+        }
+      }),
+    (error) => {
+      assert.match(String(error?.message || error), /Duplicate contract capabilityId auth\.duplicate/);
+      return true;
+    }
+  );
+});
 
 test("central capability contracts cover descriptor required capability IDs", async () => {
   const availablePackages = await loadAvailablePackages();
