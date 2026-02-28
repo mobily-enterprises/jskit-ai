@@ -1,0 +1,21 @@
+# Finding 049
+- Severity: Low
+- Pattern type: AI slop; Duplicate scoped service options resolver
+- File + line(s): `apps/jskit-value-app/server/modules/ai/lib/scopedServiceOptions.js:1-16`, `apps/jskit-value-app/server/modules/chat/lib/scopedServiceOptions.js:1-16`
+- Why it can drift/fail: Two modules ship identical `isPlainObject` + `resolveScopedServiceOptions` helpers with only key names changed (ai vs chat). Any future fix (validation, defaults, behavior) must be manually duplicated or the modules will diverge.
+- Concrete impact: Inconsistent option resolution across modules and subtle configuration bugs when one helper changes but the other does not.
+- Exact remediation: Extract a shared `resolveScopedServiceOptions` helper that accepts key names or a mapping and reuse in both modules.
+
+---
+Resolution summary:
+- Added shared `resolveScopedServiceOptions` in `apps/jskit-value-app/server/shared`.
+- Updated AI and chat modules to use the shared helper with their specific key lists.
+
+Tests:
+- `npm -ws --if-present test` (fails: missing `jskit-app-scripts`/`vitest`, missing packages like `@jskit-ai/assistant-contracts`, `vue`, `@fastify/type-provider-typebox`, `@supabase/supabase-js`, plus create-app assertions)
+- `npm run test:framework` (fails: migration tracker count mismatch, stage12 cutover inline options)
+- `npm run test:architecture:client` (fails: existing vuetify imports in `packages/tooling/jskit/packages/web-shell-host/templates/src/main.web-shell.js`)
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`
+
+Commit: 76885f7ba9ca260b4ad57836447356214d73b21b

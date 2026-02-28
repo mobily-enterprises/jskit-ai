@@ -5,3 +5,11 @@
 - Why it can drift/fail: Both console billing views implement identical `toFieldErrors` helpers. This is repeated UI error-parsing logic that should be centralized.
 - Concrete impact: Inconsistent error extraction if one copy changes; unnecessary maintenance overhead.
 - Exact remediation: Move field-error extraction into a shared UI utility module and reuse across billing views.
+
+---
+WONT FIX
+Reason:
+- This finding is entirely client-side (`apps/jskit-value-app/src/views/...`), and you asked me to avoid client-side work while templates are being rewritten.
+
+Revisit signal:
+- Once client-side work is unblocked, I can consolidate `toFieldErrors` into a shared UI utility for billing views.

@@ -5,3 +5,11 @@
 - Why it can drift/fail: Both console billing views duplicate `formatMoneyMinor` and `formatInterval` helpers with slightly different defaults. This is shared UI formatting logic that should be centralized.
 - Concrete impact: Inconsistent pricing/interval formatting between billing views and higher maintenance overhead for formatting changes.
 - Exact remediation: Extract shared billing UI formatters into a common helper module and reuse across views.
+
+---
+WONT FIX
+Reason:
+- This finding is client-side (`apps/jskit-value-app/src/views/...`), and you asked me to avoid client-side work while templates are being rewritten.
+
+Revisit signal:
+- Once client-side work is unblocked, I can extract shared billing UI formatters and reuse across views.

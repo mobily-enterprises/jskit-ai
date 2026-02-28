@@ -5,3 +5,11 @@
 - Why it can drift/fail: `shortenProviderPriceId` is duplicated across billing console views with identical behavior. This is shared UI helper logic that should be centralized.
 - Concrete impact: Divergent display formatting if one copy changes; unnecessary maintenance overhead.
 - Exact remediation: Extract `shortenProviderPriceId` into a shared billing UI helper module and reuse in both views.
+
+---
+WONT FIX
+Reason:
+- This finding is client-side (`apps/jskit-value-app/src/views/...`), and you asked me to avoid client-side work while templates are being rewritten.
+
+Revisit signal:
+- Once client-side work is unblocked, I can centralize `shortenProviderPriceId` in a shared billing UI helper.

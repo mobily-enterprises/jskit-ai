@@ -5,3 +5,12 @@
 - Why it can drift/fail: `normalizeOptionalString` is re-implemented across billing modules and UI with different return semantics (`""`, `null`, or raw trimmed string). Same-name helpers with different behaviors are a classic drift trap.
 - Concrete impact: Subtle differences in validation and serialization across billing flows, leading to inconsistent persistence or API requests.
 - Exact remediation: Consolidate string normalization in a shared utility and make return semantics explicit (e.g., `normalizeOptionalStringOrNull`, `normalizeOptionalStringOrEmpty`).
+
+---
+WONT FIX
+Reason:
+- This finding spans client-side UI (`apps/jskit-value-app/src/views/console/useConsoleBillingPlansView.js`), and you asked me to avoid client-side work while templates are being rewritten.
+- Server-side normalization could be centralized, but leaving the client-side helper inconsistent would keep the drift risk.
+
+Revisit signal:
+- Once client-side work is unblocked, I can consolidate `normalizeOptionalString` semantics across billing server and UI into explicit helper variants.
