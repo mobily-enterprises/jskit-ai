@@ -12,6 +12,7 @@
     "./services/workspace": "./src/shared/services/workspace.service.js",
     "./services/admin": "./src/shared/services/admin.service.js",
     "./services/inviteEmail": "./src/shared/services/inviteEmail.service.js",
+    "./policies/appSurfacePolicy": "./src/shared/policies/appSurfacePolicy.js",
     "./policies/workspaceNaming": "./src/shared/policies/workspaceNaming.js",
     "./policies/workspacePolicyDefaults": "./src/shared/policies/workspacePolicyDefaults.js",
     "./policies/workspaceSettingsPatch": "./src/shared/policies/workspaceSettingsPatch.js",
