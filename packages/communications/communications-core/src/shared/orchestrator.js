@@ -1,12 +1,9 @@
-import { COMMUNICATION_CHANNELS, assertDispatchProvider, normalizeChannel } from "@jskit-ai/communications-provider-core";
-
-function normalizeMetadata(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
-}
+import {
+  COMMUNICATION_CHANNELS,
+  assertDispatchProvider,
+  normalizeChannel,
+  normalizeMetadata
+} from "@jskit-ai/communications-provider-core";
 
 function createDispatchRegistry({ providers = [] } = {}) {
   const byChannel = new Map();
