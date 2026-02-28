@@ -12,6 +12,7 @@ import {
   getCapabilityContractTestRelativePath,
   normalizeContracts
 } from "../contracts/capabilities/index.mjs";
+import { toSortedUniqueStrings } from "../src/shared/capabilityContractUtils.mjs";
 import { normalizePackageDescriptor } from "../src/shared/schemas/packageDescriptor.mjs";
 import { validateCapabilityContracts } from "../src/shared/capabilityContracts.mjs";
 
@@ -19,11 +20,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "../../../..");
 const PACKAGES_ROOT = path.join(REPO_ROOT, "packages");
-
-function toSortedUniqueStrings(values) {
-  return [...new Set((Array.isArray(values) ? values : []).map((value) => String(value || "").trim()).filter(Boolean))]
-    .sort((left, right) => left.localeCompare(right));
-}
 
 async function listPackageDescriptorPaths() {
   const paths = [];

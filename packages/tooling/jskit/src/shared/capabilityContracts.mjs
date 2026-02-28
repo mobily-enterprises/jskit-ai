@@ -8,11 +8,7 @@ import {
   getCapabilityContractTestRelativePath,
   normalizeContracts
 } from "../../contracts/capabilities/index.mjs";
-
-function toSortedUniqueStrings(values) {
-  return [...new Set((Array.isArray(values) ? values : []).map((value) => String(value || "").trim()).filter(Boolean))]
-    .sort((left, right) => left.localeCompare(right));
-}
+import { toSortedUniqueStrings } from "./capabilityContractUtils.mjs";
 
 function normalizeExportEntryTarget(exportEntry) {
   if (typeof exportEntry === "string") {
