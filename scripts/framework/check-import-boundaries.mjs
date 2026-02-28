@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { toPosix } from "./_utils.mjs";
+import { parseArgs, toPosix } from "./_utils.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const SOURCE_ROOTS = Object.freeze([path.join(REPO_ROOT, "packages"), path.join(REPO_ROOT, "apps")]);
@@ -19,12 +19,6 @@ const SHARED_BANNED_PACKAGE_PREFIXES = Object.freeze([
   "vue",
   "@vue/"
 ]);
-
-function parseArgs(argv) {
-  return {
-    strict: new Set(argv).has("--strict")
-  };
-}
 
 function walkFiles(rootPath, output = []) {
   if (!fs.existsSync(rootPath)) {
