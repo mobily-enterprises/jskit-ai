@@ -1,7 +1,7 @@
 import { buildRoutesFromManifest } from "@jskit-ai/server-runtime-core/runtimeAssembly";
 import { toVersionedApiPath } from "../../shared/apiPaths.js";
 import { composeServerRuntimeArtifacts } from "./composeRuntime.js";
-import { ROUTE_MODULE_DEFINITIONS, withConsoleRoutePolicy, createMissingHandler } from "./routeModuleCatalog.js";
+import { ROUTE_MODULE_DEFINITIONS, createMissingHandler } from "./routeModuleCatalog.js";
 
 function composeRouteModuleDefinitions(options = {}) {
   return composeServerRuntimeArtifacts(options).routeModuleIds;
@@ -38,7 +38,7 @@ function buildRoutesFromComposedModules({
     controllers,
     routeConfig,
     missingHandler: createMissingHandler()
-  }).map(withConsoleRoutePolicy);
+  });
 
   return routes.map((route) => ({
     ...route,
