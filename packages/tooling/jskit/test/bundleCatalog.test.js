@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import process from "node:process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { createCliRunner } from "../../testUtils/runCli.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
+const runCli = createCliRunner(CLI_PATH);
 const MYSQL_OPTION_ARGS = [
   "--db-host",
   "127.0.0.1",
@@ -79,13 +79,6 @@ const REQUIRES_AUTH_PROVIDER = new Set([
 const BUNDLES_REQUIRING_ASSISTANT_PROVIDER = new Set(["assistant", "saas-full"]);
 // Bundle IDs that require a billing provider capability to be installed first.
 const BUNDLES_REQUIRING_BILLING_PROVIDER = new Set(["billing-base", "billing-worker", "saas-full"]);
-
-function runCli({ cwd, args = [] }) {
-  return spawnSync(process.execPath, [CLI_PATH, ...args], {
-    cwd,
-    encoding: "utf8"
-  });
-}
 
 async function writeJsonFile(absolutePath, value) {
   await mkdir(path.dirname(absolutePath), { recursive: true });

@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import process from "node:process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { createCliRunner } from "../../testUtils/runCli.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
+const runCli = createCliRunner(CLI_PATH);
 const WAVE_D_BUNDLES = [
   "assistant",
   "assistant-openai",
@@ -50,13 +50,6 @@ const BILLING_PADDLE_OPTION_ARGS = [
   "--billing-paddle-webhook-endpoint-secret",
   "paddle_whsec_test"
 ];
-
-function runCli({ cwd, args = [] }) {
-  return spawnSync(process.execPath, [CLI_PATH, ...args], {
-    cwd,
-    encoding: "utf8"
-  });
-}
 
 async function writeJsonFile(absolutePath, value) {
   await mkdir(path.dirname(absolutePath), { recursive: true });
