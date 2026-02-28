@@ -1,6 +1,7 @@
 import { createEntitlementsKnexRepository } from "@jskit-ai/entitlements-knex-mysql";
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
+import { applyForUpdate, resolveQueryOptions, resolveRepoClient } from "@jskit-ai/jskit-knex";
 import {
   BILLING_CHECKOUT_SESSION_STATUS,
   BILLING_DEFAULT_PROVIDER,
@@ -795,35 +796,7 @@ async function resolveWorkspaceIdForBillableEntity(client, billableEntityId) {
   return row?.workspace_id == null ? null : Number(row.workspace_id);
 }
 
-function resolveQueryOptions(options = {}) {
-  if (!options || typeof options !== "object") {
-    return {
-      trx: null,
-      forUpdate: false
-    };
-  }
-
-  return {
-    trx: options.trx || null,
-    forUpdate: options.forUpdate === true
-  };
-}
-
 function createBillingRepository(dbClient) {
-  function resolveClient(options = {}) {
-    const { trx } = resolveQueryOptions(options);
-    return trx || dbClient;
-  }
-
-  function applyForUpdate(query, options = {}) {
-    const { forUpdate } = resolveQueryOptions(options);
-    if (forUpdate && typeof query.forUpdate === "function") {
-      return query.forUpdate();
-    }
-
-    return query;
-  }
-
   async function transaction(callback) {
     if (typeof dbClient.transaction === "function") {
       return dbClient.transaction(callback);
@@ -833,14 +806,14 @@ function createBillingRepository(dbClient) {
   }
 
   async function findBillableEntityById(id, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billable_entities").where({ id }).first();
     const row = await applyForUpdate(query, options);
     return mapBillableEntityRowNullable(row);
   }
 
   async function findBillableEntityByWorkspaceId(workspaceId, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billable_entities").where({ workspace_id: workspaceId }).first();
     const row = await applyForUpdate(query, options);
     return mapBillableEntityRowNullable(row);
@@ -852,7 +825,7 @@ function createBillingRepository(dbClient) {
       return null;
     }
 
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billable_entities")
       .where({
         entity_type: normalizeBillableEntityType(entityType),
@@ -865,7 +838,7 @@ function createBillingRepository(dbClient) {
 
   async function ensureBillableEntity({ workspaceId, ownerUserId }, options = {}) {
     const now = new Date();
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const existing = await findBillableEntityByWorkspaceId(workspaceId, {
       ...options,
       trx: client,
@@ -927,7 +900,7 @@ function createBillingRepository(dbClient) {
     }
 
     const now = new Date();
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const existing = await findBillableEntityByTypeRef(
       {
         entityType: normalizedEntityType,
@@ -989,7 +962,7 @@ function createBillingRepository(dbClient) {
       return 0;
     }
 
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const billableEntityRow = await client("billable_entities")
       .where({ id: normalizedSubjectId })
       .select("workspace_id")
@@ -1047,19 +1020,19 @@ function createBillingRepository(dbClient) {
   const leaseDueEntitlementBalances = (...args) => entitlementsRepository.leaseDueEntitlementBalances(...args);
 
   async function listPlans(options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const rows = await client("billing_plans").orderBy("is_active", "desc").orderBy("id", "asc");
     return rows.map(mapPlanRowNullable).filter(Boolean);
   }
 
   async function findPlanByCode(code, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const row = await client("billing_plans").where({ code }).first();
     return mapPlanRowNullable(row);
   }
 
   async function findPlanById(id, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const row = await client("billing_plans").where({ id }).first();
     return mapPlanRowNullable(row);
   }
@@ -1071,7 +1044,7 @@ function createBillingRepository(dbClient) {
       return null;
     }
 
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billing_plans")
       .where({
         checkout_provider: normalizedProvider,
@@ -1088,7 +1061,7 @@ function createBillingRepository(dbClient) {
     if (!normalizedPlanId) {
       return [];
     }
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const rows = await client("billing_plan_entitlement_templates")
       .where({ plan_id: normalizedPlanId })
       .orderBy("id", "asc");
@@ -1102,7 +1075,7 @@ function createBillingRepository(dbClient) {
     }
 
     const now = new Date();
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     await client("billing_plan_entitlement_templates").where({ plan_id: normalizedPlanId }).del();
 
     const source = Array.isArray(templates) ? templates : [];
@@ -1157,7 +1130,7 @@ function createBillingRepository(dbClient) {
     if (!normalizedProductId) {
       return [];
     }
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const rows = await client("billing_product_entitlement_templates")
       .where({ billing_product_id: normalizedProductId })
       .orderBy("id", "asc");
@@ -1171,7 +1144,7 @@ function createBillingRepository(dbClient) {
     }
 
     const now = new Date();
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     await client("billing_product_entitlement_templates").where({ billing_product_id: normalizedProductId }).del();
 
     const source = Array.isArray(templates) ? templates : [];
@@ -1216,7 +1189,7 @@ function createBillingRepository(dbClient) {
 
   async function createPlan(payload, options = {}) {
     const now = new Date();
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const corePrice = payload?.corePrice && typeof payload.corePrice === "object" ? payload.corePrice : null;
     const [id] = await client("billing_plans").insert({
       code: String(payload?.code || "").trim(),
@@ -1254,7 +1227,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function updatePlanById(id, patch = {}, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const dbPatch = {};
 
     if (Object.hasOwn(patch, "code")) {
@@ -1331,26 +1304,26 @@ function createBillingRepository(dbClient) {
   }
 
   async function listProducts(options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const rows = await client("billing_products").orderBy("is_active", "desc").orderBy("id", "asc");
     return rows.map(mapProductRowNullable).filter(Boolean);
   }
 
   async function findProductByCode(code, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const row = await client("billing_products").where({ code }).first();
     return mapProductRowNullable(row);
   }
 
   async function findProductById(id, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const row = await client("billing_products").where({ id }).first();
     return mapProductRowNullable(row);
   }
 
   async function createProduct(payload, options = {}) {
     const now = new Date();
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const price = payload?.price && typeof payload.price === "object" ? payload.price : {};
     const [id] = await client("billing_products").insert({
       code: String(payload?.code || "").trim(),
@@ -1382,7 +1355,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function updateProductById(id, patch = {}, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const dbPatch = {};
 
     if (Object.hasOwn(patch, "code")) {
@@ -1451,7 +1424,7 @@ function createBillingRepository(dbClient) {
       return null;
     }
 
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billable_entities as be")
       .leftJoin("workspaces as w", "w.id", "be.workspace_id")
       .where({ "be.id": normalizedBillableEntityId })
@@ -1470,7 +1443,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function findPlanAssignmentById(id, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billing_plan_assignments")
       .where({ id: Number(id) })
       .first();
@@ -1479,7 +1452,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function findCurrentPlanAssignmentForEntity(billableEntityId, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billing_plan_assignments")
       .where({
         billable_entity_id: Number(billableEntityId),
@@ -1492,7 +1465,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function findUpcomingPlanAssignmentForEntity(billableEntityId, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billing_plan_assignments")
       .where({
         billable_entity_id: Number(billableEntityId),
@@ -1505,7 +1478,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function listPlanAssignmentsForEntity({ billableEntityId, statuses = null, limit = 100 } = {}, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     let query = client("billing_plan_assignments")
       .where({ billable_entity_id: Number(billableEntityId) })
       .orderBy("period_start_at", "desc")
@@ -1521,7 +1494,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function updatePlanAssignmentById(id, patch = {}, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const dbPatch = {};
 
     if (Object.hasOwn(patch, "planId")) {
@@ -1557,7 +1530,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function clearCurrentPlanAssignmentsForEntity(billableEntityId, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     await client("billing_plan_assignments")
       .where({
         billable_entity_id: Number(billableEntityId),
@@ -1573,7 +1546,7 @@ function createBillingRepository(dbClient) {
     { billableEntityId, metadataJson = null, canceledByUserId = null } = {},
     options = {}
   ) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const upcoming = await findUpcomingPlanAssignmentForEntity(billableEntityId, {
       ...options,
       trx: client,
@@ -1606,7 +1579,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function replaceUpcomingPlanAssignmentForEntity(payload, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const now = new Date();
     const normalizedBillableEntityId = Number(payload?.billableEntityId);
 
@@ -1652,7 +1625,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function listDueUpcomingPlanAssignments({ periodStartAtOrBefore, limit = 50 } = {}, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const threshold = periodStartAtOrBefore || new Date();
     const rows = await client("billing_plan_assignments")
       .where({ status: "upcoming" })
@@ -1665,7 +1638,7 @@ function createBillingRepository(dbClient) {
 
   async function insertPlanAssignment(payload, options = {}) {
     const now = new Date();
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
 
     const normalizedBillableEntityId = Number(payload?.billableEntityId);
     const normalizedPlanId = Number(payload?.planId);
@@ -1716,7 +1689,7 @@ function createBillingRepository(dbClient) {
 
   async function insertPlanChangeHistory(payload, options = {}) {
     const now = new Date();
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const normalizedBillableEntityId = toPositiveInteger(payload?.billableEntityId);
     const normalizedEffectiveAt = toInsertDateTime(payload?.effectiveAt, now);
     const [id] = await client("billing_events").insert({
@@ -1746,7 +1719,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function listPlanChangeHistoryForEntity({ billableEntityId, limit = 20 } = {}, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const rows = await client("billing_plan_assignments")
       .where({ billable_entity_id: Number(billableEntityId) })
       .whereIn("status", ["current", "past"])
@@ -1779,13 +1752,13 @@ function createBillingRepository(dbClient) {
   }
 
   async function findCustomerById(id, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const row = await client("billing_customers").where({ id }).first();
     return mapCustomerRowNullable(row);
   }
 
   async function findCustomerByEntityProvider({ billableEntityId, provider }, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const row = await client("billing_customers")
       .where({ billable_entity_id: billableEntityId, provider: normalizeProvider(provider) })
       .first();
@@ -1794,7 +1767,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function findCustomerByProviderCustomerId({ provider, providerCustomerId }, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const row = await client("billing_customers")
       .where({ provider: normalizeProvider(provider), provider_customer_id: providerCustomerId })
       .first();
@@ -1804,7 +1777,7 @@ function createBillingRepository(dbClient) {
 
   async function upsertCustomer(payload, options = {}) {
     const now = new Date();
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const provider = normalizeProvider(payload.provider);
 
     await client("billing_customers")
@@ -1870,7 +1843,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function findPlanAssignmentProviderDetailsByAssignmentId(billingPlanAssignmentId, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billing_plan_assignment_provider_details")
       .where({ billing_plan_assignment_id: Number(billingPlanAssignmentId) })
       .first();
@@ -1880,7 +1853,7 @@ function createBillingRepository(dbClient) {
 
   async function upsertPlanAssignmentProviderDetails(payload, options = {}) {
     const now = new Date();
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const assignmentId = Number(payload?.billingPlanAssignmentId || payload?.planAssignmentId);
     const provider = normalizeProvider(payload?.provider);
     const dbPayload = {
@@ -1916,7 +1889,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function findPlanAssignmentByProviderSubscriptionId({ provider, providerSubscriptionId }, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billing_plan_assignments as bpa")
       .join("billing_plan_assignment_provider_details as bpad", "bpad.billing_plan_assignment_id", "bpa.id")
       .where({
@@ -1930,7 +1903,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function findCurrentSubscriptionForEntity(billableEntityId, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = applySubscriptionProjectionSelect(
       buildSubscriptionProjectionQuery(client)
         .where({
@@ -1947,7 +1920,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function lockSubscriptionsForEntity(billableEntityId, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     let query = applySubscriptionProjectionSelect(
       buildSubscriptionProjectionQuery(client)
         .where({ "bpa.billable_entity_id": Number(billableEntityId) })
@@ -1963,7 +1936,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function findSubscriptionByProviderSubscriptionId({ provider, providerSubscriptionId }, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = applySubscriptionProjectionSelect(
       buildSubscriptionProjectionQuery(client)
         .where({
@@ -1979,7 +1952,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function listCurrentSubscriptions({ provider, limit = 200 }, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const rows = await applySubscriptionProjectionSelect(
       buildSubscriptionProjectionQuery(client)
         .where({
@@ -2003,7 +1976,7 @@ function createBillingRepository(dbClient) {
 
   async function upsertSubscription(payload, options = {}) {
     const now = new Date();
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const provider = normalizeProvider(payload.provider);
     const status = String(payload.status || BILLING_SUBSCRIPTION_STATUS.INCOMPLETE).trim();
     const isCurrentCandidate = Boolean(payload.isCurrent);
@@ -2188,7 +2161,7 @@ function createBillingRepository(dbClient) {
 
   async function upsertBillingPurchase(payload, options = {}) {
     const now = new Date();
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const normalizedBillableEntityId = Number(payload?.billableEntityId);
     const dedupeKey = String(payload?.dedupeKey || "").trim();
     if (!dedupeKey) {
@@ -2234,7 +2207,7 @@ function createBillingRepository(dbClient) {
     { billableEntityId, limit = 50, status = "confirmed" } = {},
     options = {}
   ) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     let query = client("billing_purchases")
       .where({ billable_entity_id: Number(billableEntityId) })
       .orderBy("purchased_at", "desc")
@@ -2255,7 +2228,7 @@ function createBillingRepository(dbClient) {
       return null;
     }
 
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billing_purchases")
       .where({ id: normalizedId })
       .first();
@@ -2279,7 +2252,7 @@ function createBillingRepository(dbClient) {
     } = {},
     options = {}
   ) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const normalizedLimit = Math.max(1, Math.min(500, Number(limit) || 100));
     const normalizedOffset = Math.max(0, Number(offset) || 0);
     const normalizedBillableEntityId = toPositiveInteger(billableEntityId);
@@ -2348,7 +2321,7 @@ function createBillingRepository(dbClient) {
     } = {},
     options = {}
   ) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const normalizedLimit = Math.max(1, Math.min(500, Number(limit) || 100));
     const normalizedOffset = Math.max(0, Number(offset) || 0);
     const normalizedAssignmentId = toPositiveInteger(assignmentId);
@@ -2439,7 +2412,7 @@ function createBillingRepository(dbClient) {
     } = {},
     options = {}
   ) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const normalizedLimit = Math.max(1, Math.min(500, Number(limit) || 100));
     const normalizedOffset = Math.max(0, Number(offset) || 0);
     const normalizedProvider = toNullableString(provider);
@@ -2517,7 +2490,7 @@ function createBillingRepository(dbClient) {
     { billableEntityId, provider, includeInactive = false, limit = 20 },
     options = {}
   ) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     let query = client("billing_payment_methods").where({
       billable_entity_id: billableEntityId,
       provider: normalizeProvider(provider)
@@ -2542,7 +2515,7 @@ function createBillingRepository(dbClient) {
       return null;
     }
 
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billing_payment_methods")
       .where({ id: normalizedId })
       .first();
@@ -2556,7 +2529,7 @@ function createBillingRepository(dbClient) {
       return null;
     }
 
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billing_payment_methods")
       .where({
         provider: normalizeProvider(provider),
@@ -2570,7 +2543,7 @@ function createBillingRepository(dbClient) {
 
   async function upsertPaymentMethod(payload, options = {}) {
     const now = new Date();
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const provider = normalizeProvider(payload.provider);
 
     const insertPatch = {
@@ -2623,7 +2596,7 @@ function createBillingRepository(dbClient) {
     { billableEntityId, provider, keepProviderPaymentMethodIds = [], now = new Date() },
     options = {}
   ) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const normalizedProvider = normalizeProvider(provider);
     const keepIds = [
       ...new Set(
@@ -2664,7 +2637,7 @@ function createBillingRepository(dbClient) {
       return null;
     }
 
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const targetQuery = client("billing_payment_methods")
       .where({
         id: normalizedPaymentMethodId,
@@ -2713,7 +2686,7 @@ function createBillingRepository(dbClient) {
       return null;
     }
 
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const existing = await findPaymentMethodById(normalizedId, {
       ...options,
       trx: client,
@@ -2745,7 +2718,7 @@ function createBillingRepository(dbClient) {
       return null;
     }
 
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const existing = await findPaymentMethodById(normalizedId, {
       ...options,
       trx: client,
@@ -2776,7 +2749,7 @@ function createBillingRepository(dbClient) {
     }
 
     const now = new Date();
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const [id] = await client("billing_purchase_adjustments").insert({
       purchase_id: normalizedPurchaseId,
       action_type: actionType,
@@ -2815,7 +2788,7 @@ function createBillingRepository(dbClient) {
       return null;
     }
 
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billing_purchase_adjustments")
       .where({ request_idempotency_key: normalizedKey })
       .first();
@@ -2829,7 +2802,7 @@ function createBillingRepository(dbClient) {
       return [];
     }
 
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const rows = await client("billing_purchase_adjustments")
       .where({ purchase_id: normalizedPurchaseId })
       .orderBy("created_at", "desc")
@@ -2845,7 +2818,7 @@ function createBillingRepository(dbClient) {
       return null;
     }
 
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const dbPatch = {};
     if (Object.hasOwn(patch, "status")) {
       dbPatch.status = String(patch.status || "").trim() || "confirmed";
@@ -2868,7 +2841,7 @@ function createBillingRepository(dbClient) {
 
   async function insertPaymentMethodSyncEvent(payload, options = {}) {
     const now = new Date();
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const normalizedBillableEntityId = toPositiveInteger(payload?.billableEntityId);
     const normalizedPayloadJson =
       payload?.payloadJson && typeof payload.payloadJson === "object" ? payload.payloadJson : null;
@@ -2904,7 +2877,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function listPaymentMethodSyncEventsForEntity({ billableEntityId, provider, limit = 20 }, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     let query = client("billing_events").where({
       event_type: "payment_method_sync",
       billable_entity_id: Number(billableEntityId)
@@ -2919,7 +2892,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function listBillingActivityEvents(filters = {}, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
 
     const requestedLimit = Number(filters?.limit);
     const normalizedLimit = Number.isFinite(requestedLimit) && requestedLimit > 0 ? Math.floor(requestedLimit) : 100;
@@ -3180,7 +3153,7 @@ function createBillingRepository(dbClient) {
     { billableEntityId, action, clientIdempotencyKey },
     options = {}
   ) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billing_request_idempotency")
       .where({ billable_entity_id: billableEntityId, action, client_idempotency_key: clientIdempotencyKey })
       .first();
@@ -3190,7 +3163,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function findIdempotencyById(id, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billing_request_idempotency").where({ id }).first();
     const row = await applyForUpdate(query, options);
     return mapIdempotencyRowNullable(row);
@@ -3202,7 +3175,7 @@ function createBillingRepository(dbClient) {
       return null;
     }
 
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billing_request_idempotency")
       .where({
         action: "checkout",
@@ -3215,7 +3188,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function findPendingCheckoutIdempotencyForEntity(billableEntityId, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billing_request_idempotency")
       .where({
         billable_entity_id: billableEntityId,
@@ -3230,7 +3203,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function listPendingIdempotencyRows({ action = null, staleBefore = null, limit = 100 } = {}, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     let query = client("billing_request_idempotency").where({ status: BILLING_IDEMPOTENCY_STATUS.PENDING });
     const normalizedAction = String(action || "").trim();
     if (normalizedAction) {
@@ -3257,7 +3230,7 @@ function createBillingRepository(dbClient) {
       return 0;
     }
 
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const cappedBatchSize = Math.max(1, Math.min(10_000, Number(batchSize) || 1000));
     const ids = await client("billing_request_idempotency")
       .whereIn("status", [
@@ -3280,7 +3253,7 @@ function createBillingRepository(dbClient) {
 
   async function insertIdempotency(payload, options = {}) {
     const now = new Date();
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
 
     const [id] = await client("billing_request_idempotency").insert({
       billable_entity_id: payload.billableEntityId,
@@ -3327,7 +3300,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function updateIdempotencyById(id, patch, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const expectedLeaseVersion = Object.hasOwn(options, "expectedLeaseVersion")
       ? Number(options.expectedLeaseVersion)
       : null;
@@ -3421,7 +3394,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function lockCheckoutSessionsForEntity(billableEntityId, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     let query = client("billing_checkout_sessions")
       .where({ billable_entity_id: billableEntityId })
       .orderBy("id", "asc");
@@ -3441,7 +3414,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function findCheckoutSessionByProviderOperationKey({ provider, operationKey }, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billing_checkout_sessions")
       .where({ provider: normalizeProvider(provider), operation_key: operationKey })
       .first();
@@ -3451,7 +3424,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function findCheckoutSessionByProviderSessionId({ provider, providerCheckoutSessionId }, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billing_checkout_sessions")
       .where({ provider: normalizeProvider(provider), provider_checkout_session_id: providerCheckoutSessionId })
       .first();
@@ -3466,7 +3439,7 @@ function createBillingRepository(dbClient) {
       return null;
     }
 
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billing_checkout_sessions")
       .where({
         provider: normalizeProvider(provider),
@@ -3479,7 +3452,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function updateCheckoutSessionById(id, patch, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const dbPatch = {};
 
     function setIfPresent(key, value) {
@@ -3526,7 +3499,7 @@ function createBillingRepository(dbClient) {
 
   async function upsertCheckoutSessionByOperationKey(payload, options = {}) {
     const now = new Date();
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const provider = normalizeProvider(payload.provider);
 
     await client("billing_checkout_sessions")
@@ -3578,7 +3551,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function findWebhookEventByProviderEventId({ provider, providerEventId }, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const query = client("billing_events")
       .where({
         event_type: "webhook",
@@ -3593,7 +3566,7 @@ function createBillingRepository(dbClient) {
 
   async function insertWebhookEvent(payload, options = {}) {
     const now = new Date();
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const normalizedBillableEntityId = toPositiveInteger(payload.billableEntityId);
 
     const [id] = await client("billing_events").insert({
@@ -3632,7 +3605,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function updateWebhookEventById(id, patch, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const dbPatch = {};
 
     if (Object.hasOwn(patch, "status")) {
@@ -3684,7 +3657,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function listFailedWebhookEvents({ olderThan = null, limit = 200 }, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     let query = client("billing_events").where({
       event_type: "webhook",
       status: "failed"
@@ -3702,7 +3675,7 @@ function createBillingRepository(dbClient) {
   }
 
   async function scrubWebhookPayloadsPastRetention({ now = new Date(), batchSize = 1000 } = {}, options = {}) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const nowDate = normalizeDateInput(now) || new Date();
     const cappedBatchSize = Math.max(1, Math.min(10_000, Number(batchSize) || 1000));
 
@@ -3813,7 +3786,7 @@ function createBillingRepository(dbClient) {
     { status, olderThan, olderThanColumn = "updated_at", includeNullOlderThan = false, limit = 100 },
     options = {}
   ) {
-    const client = resolveClient(options);
+    const client = resolveRepoClient(dbClient, options);
     const normalizedStatus = String(status || "").trim();
     let query = client("billing_checkout_sessions").where({ status: normalizedStatus });
 

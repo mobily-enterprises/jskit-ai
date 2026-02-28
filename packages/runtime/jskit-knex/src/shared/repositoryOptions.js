@@ -17,4 +17,13 @@ function resolveRepoClient(dbClient, options = {}) {
   return trx || dbClient;
 }
 
-export { resolveQueryOptions, resolveRepoClient };
+function applyForUpdate(query, options = {}) {
+  const { forUpdate } = resolveQueryOptions(options);
+  if (forUpdate && typeof query?.forUpdate === "function") {
+    return query.forUpdate();
+  }
+
+  return query;
+}
+
+export { resolveQueryOptions, resolveRepoClient, applyForUpdate };

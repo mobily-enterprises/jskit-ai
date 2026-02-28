@@ -1,4 +1,5 @@
 import { normalizeAmountAllowZero, normalizeAmountRequirePositive } from "@jskit-ai/billing-core";
+import { applyForUpdate, resolveRepoClient } from "@jskit-ai/jskit-knex";
 import { withTransaction } from "./transactions.js";
 
 const DEFAULT_TABLE_NAMES = Object.freeze({
@@ -167,33 +168,6 @@ function normalizeDialectFeatures(value = {}) {
     skipLocked:
       source.skipLocked == null ? DEFAULT_DIALECT_FEATURES.skipLocked : source.skipLocked === true || source.skipLocked === 1
   };
-}
-
-function resolveQueryOptions(options = {}) {
-  if (!options || typeof options !== "object") {
-    return {
-      trx: null,
-      forUpdate: false
-    };
-  }
-
-  return {
-    trx: options.trx || null,
-    forUpdate: options.forUpdate === true
-  };
-}
-
-function resolveClient(knex, options = {}) {
-  const { trx } = resolveQueryOptions(options);
-  return trx || knex;
-}
-
-function applyForUpdate(query, options = {}) {
-  const { forUpdate } = resolveQueryOptions(options);
-  if (forUpdate && typeof query?.forUpdate === "function") {
-    return query.forUpdate();
-  }
-  return query;
 }
 
 function mapDefinitionRowNullable(row) {
@@ -409,7 +383,7 @@ export function createEntitlementsKnexRepository(options = {}) {
   }
 
   async function listEntitlementDefinitions({ includeInactive = true, codes = null } = {}, queryOptions = {}) {
-    const client = resolveClient(knex, queryOptions);
+    const client = resolveRepoClient(knex, queryOptions);
     let query = client(tableNames.entitlementDefinitions).orderBy("id", "asc");
     if (!includeInactive) {
       query = query.where({ is_active: 1 });
@@ -432,7 +406,7 @@ export function createEntitlementsKnexRepository(options = {}) {
       return null;
     }
 
-    const client = resolveClient(knex, queryOptions);
+    const client = resolveRepoClient(knex, queryOptions);
     const query = client(tableNames.entitlementDefinitions).where({ code: normalizedCode }).first();
     const row = await applyForUpdate(query, queryOptions);
     return mapDefinitionRowNullable(row);
@@ -444,14 +418,14 @@ export function createEntitlementsKnexRepository(options = {}) {
       return null;
     }
 
-    const client = resolveClient(knex, queryOptions);
+    const client = resolveRepoClient(knex, queryOptions);
     const query = client(tableNames.entitlementDefinitions).where({ id: normalizedId }).first();
     const row = await applyForUpdate(query, queryOptions);
     return mapDefinitionRowNullable(row);
   }
 
   async function insertEntitlementGrant(payload = {}, queryOptions = {}) {
-    const client = resolveClient(knex, queryOptions);
+    const client = resolveRepoClient(knex, queryOptions);
     const now = normalizeNow(payload.createdAt || payload.created_at, clock);
 
     const dedupeKey = toNonEmptyString(payload.dedupeKey || payload.dedupe_key);
@@ -519,7 +493,7 @@ export function createEntitlementsKnexRepository(options = {}) {
   }
 
   async function insertEntitlementConsumption(payload = {}, queryOptions = {}) {
-    const client = resolveClient(knex, queryOptions);
+    const client = resolveRepoClient(knex, queryOptions);
     const now = normalizeNow(payload.createdAt || payload.created_at, clock);
 
     const dedupeKey = toNonEmptyString(payload.dedupeKey || payload.dedupe_key);
@@ -591,7 +565,7 @@ export function createEntitlementsKnexRepository(options = {}) {
       return null;
     }
 
-    const client = resolveClient(knex, queryOptions);
+    const client = resolveRepoClient(knex, queryOptions);
     let query = client(tableNames.entitlementBalances).where({
       subject_type: normalizeSubjectType(subjectType),
       subject_id: normalizedSubjectId,
@@ -613,7 +587,7 @@ export function createEntitlementsKnexRepository(options = {}) {
   }
 
   async function upsertEntitlementBalance(payload = {}, queryOptions = {}) {
-    const client = resolveClient(knex, queryOptions);
+    const client = resolveRepoClient(knex, queryOptions);
     const now = normalizeNow(payload.updatedAt || payload.updated_at, clock);
 
     const subjectId = toPositiveInteger(payload.subjectId ?? payload.subject_id);
@@ -691,7 +665,7 @@ export function createEntitlementsKnexRepository(options = {}) {
       return [];
     }
 
-    const client = resolveClient(knex, queryOptions);
+    const client = resolveRepoClient(knex, queryOptions);
     let query = client(tableNames.entitlementBalances).where({
       subject_type: normalizeSubjectType(subjectType),
       subject_id: normalizedSubjectId
@@ -718,7 +692,7 @@ export function createEntitlementsKnexRepository(options = {}) {
       return [];
     }
 
-    const client = resolveClient(knex, queryOptions);
+    const client = resolveRepoClient(knex, queryOptions);
     const normalizedNow = toInsertDateTime(now, normalizeNow(null, clock));
 
     const nextEffectiveRow = await client(tableNames.entitlementGrants)
@@ -758,7 +732,7 @@ export function createEntitlementsKnexRepository(options = {}) {
     }
 
     const normalizedNow = toInsertDateTime(now, normalizeNow(null, clock));
-    const client = resolveClient(knex, queryOptions);
+    const client = resolveRepoClient(knex, queryOptions);
     const row = await client(tableNames.entitlementGrants)
       .where({
         subject_type: normalizeSubjectType(subjectType),
@@ -791,7 +765,7 @@ export function createEntitlementsKnexRepository(options = {}) {
       return 0;
     }
 
-    const client = resolveClient(knex, queryOptions);
+    const client = resolveRepoClient(knex, queryOptions);
     const row = await client(tableNames.entitlementConsumptions)
       .where({
         subject_type: normalizeSubjectType(subjectType),
@@ -813,7 +787,7 @@ export function createEntitlementsKnexRepository(options = {}) {
       throw new Error("recomputeEntitlementBalance requires subjectId and entitlementDefinitionId.");
     }
 
-    const client = resolveClient(knex, queryOptions);
+    const client = resolveRepoClient(knex, queryOptions);
     const definition = await findEntitlementDefinitionById(normalizedDefinitionId, {
       ...queryOptions,
       trx: client
@@ -964,7 +938,7 @@ export function createEntitlementsKnexRepository(options = {}) {
 
   async function leaseDueEntitlementBalances({ now = normalizeNow(null, clock), limit = 100, workerId = "" } = {}, queryOptions = {}) {
     void workerId;
-    const client = resolveClient(knex, queryOptions);
+    const client = resolveRepoClient(knex, queryOptions);
     const normalizedLimit = Math.max(1, Math.min(500, Number(limit) || 100));
 
     const query = client(tableNames.entitlementBalances)
