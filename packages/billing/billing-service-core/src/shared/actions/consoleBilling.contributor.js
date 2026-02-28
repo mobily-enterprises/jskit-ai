@@ -1,5 +1,6 @@
-import { CONSOLE_BILLING_PERMISSIONS } from "@jskit-ai/workspace-console-core/consoleRoles";
 import { applyRealtimePublishToCommandAction } from "@jskit-ai/action-runtime-core/realtimePublish";
+import { CONSOLE_BILLING_PERMISSIONS } from "@jskit-ai/workspace-console-core/consoleRoles";
+import { buildAssistantInputJsonSchema } from "./assistantInputSchema.js";
 
 function normalizeObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -139,27 +140,6 @@ const DEFAULT_REALTIME_TOPICS = Object.freeze({
 const DEFAULT_REALTIME_EVENT_TYPES = Object.freeze({
   CONSOLE_BILLING_UPDATED: "console.billing.updated"
 });
-
-function buildAssistantInputJsonSchema({ properties = {}, required = [] } = {}) {
-  const normalizedRequired = Array.from(
-    new Set(
-      (Array.isArray(required) ? required : [])
-        .map((entry) => String(entry || "").trim())
-        .filter(Boolean)
-    )
-  );
-
-  return Object.freeze({
-    type: "object",
-    additionalProperties: false,
-    properties,
-    ...(normalizedRequired.length > 0
-      ? {
-          required: normalizedRequired
-        }
-      : {})
-  });
-}
 
 function buildConfirmedCommandInputJsonSchema({ properties = {}, required = [] } = {}) {
   return buildAssistantInputJsonSchema({

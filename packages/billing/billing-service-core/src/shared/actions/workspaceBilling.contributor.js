@@ -1,3 +1,5 @@
+import { buildAssistantInputJsonSchema } from "./assistantInputSchema.js";
+
 function normalizeObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -136,27 +138,6 @@ const WORKSPACE_BILLING_ACTION_IDEMPOTENCY = Object.freeze({
   "workspace.billing.portal.create": "required",
   "workspace.billing.payment_link.create": "required"
 });
-
-function buildAssistantInputJsonSchema({ properties = {}, required = [] } = {}) {
-  const normalizedRequired = Array.from(
-    new Set(
-      (Array.isArray(required) ? required : [])
-        .map((entry) => String(entry || "").trim())
-        .filter(Boolean)
-    )
-  );
-
-  return Object.freeze({
-    type: "object",
-    additionalProperties: false,
-    properties,
-    ...(normalizedRequired.length > 0
-      ? {
-          required: normalizedRequired
-        }
-      : {})
-  });
-}
 
 function buildConfirmedCommandInputJsonSchema({ properties = {}, required = [] } = {}) {
   return buildAssistantInputJsonSchema({
