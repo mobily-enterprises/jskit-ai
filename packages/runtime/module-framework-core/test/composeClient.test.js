@@ -3,15 +3,7 @@ import test from "node:test";
 
 import { MODULE_TIERS } from "../src/shared/descriptor.js";
 import { composeClientModules } from "../src/shared/composeClient.js";
-
-function moduleDescriptor(overrides = {}) {
-  return {
-    id: "module-a",
-    version: "1.0.0",
-    tier: MODULE_TIERS.feature,
-    ...overrides
-  };
-}
+import { moduleDescriptor } from "./helpers/moduleDescriptor.js";
 
 test("composeClientModules composes api/routes/nav/realtime/flags deterministically", () => {
   const result = composeClientModules({
