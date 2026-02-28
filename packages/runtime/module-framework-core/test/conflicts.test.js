@@ -1,22 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { MODULE_TIERS } from "../src/shared/descriptor.js";
 import {
   detectRouteConflicts,
   detectActionConflicts,
   detectTopicConflicts,
   resolveConflicts
 } from "../src/shared/conflicts.js";
-
-function moduleDescriptor(overrides = {}) {
-  return {
-    id: "module-a",
-    version: "1.0.0",
-    tier: MODULE_TIERS.feature,
-    ...overrides
-  };
-}
+import { moduleDescriptor } from "./helpers/moduleDescriptor.js";
 
 test("conflict detectors identify duplicates", () => {
   const routeConflicts = detectRouteConflicts([

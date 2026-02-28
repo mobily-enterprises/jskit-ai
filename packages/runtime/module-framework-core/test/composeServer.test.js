@@ -3,15 +3,7 @@ import test from "node:test";
 
 import { MODULE_TIERS } from "../src/shared/descriptor.js";
 import { composeServerModules } from "../src/shared/composeServer.js";
-
-function moduleDescriptor(overrides = {}) {
-  return {
-    id: "module-a",
-    version: "1.0.0",
-    tier: MODULE_TIERS.feature,
-    ...overrides
-  };
-}
+import { moduleDescriptor } from "./helpers/moduleDescriptor.js";
 
 test("composeServerModules composes hooks in deterministic dependency order", () => {
   const result = composeServerModules({

@@ -1,17 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { MODULE_TIERS } from "../src/shared/descriptor.js";
 import { resolveMounts } from "../src/shared/mountResolver.js";
-
-function moduleDescriptor(overrides = {}) {
-  return {
-    id: "module-a",
-    version: "1.0.0",
-    tier: MODULE_TIERS.feature,
-    ...overrides
-  };
-}
+import { moduleDescriptor } from "./helpers/moduleDescriptor.js";
 
 test("resolveMounts applies overrides and aliases", () => {
   const result = resolveMounts({
