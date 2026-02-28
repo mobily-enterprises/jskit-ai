@@ -56,6 +56,10 @@ const fastifyDefaultErrorResponseSchema = Type.Object(
 
 const STANDARD_ERROR_STATUS_CODES = [400, 401, 403, 404, 409, 422, 429, 500, 503];
 
+function passthroughErrorResponses(successResponses) {
+  return successResponses;
+}
+
 function withStandardErrorResponses(successResponses, { includeValidation400 = false } = {}) {
   const responses = {
     ...successResponses
@@ -92,6 +96,7 @@ export {
   apiValidationErrorResponseSchema,
   fastifyDefaultErrorResponseSchema,
   STANDARD_ERROR_STATUS_CODES,
+  passthroughErrorResponses,
   withStandardErrorResponses,
   enumSchema
 };
