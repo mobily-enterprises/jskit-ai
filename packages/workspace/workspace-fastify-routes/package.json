@@ -10,7 +10,14 @@
     ".": "./src/shared/index.js",
     "./controller": "./src/shared/controller.js",
     "./routes": "./src/shared/routes.js",
-    "./schema": "./src/shared/schema.js"
+    "./schema": "./src/shared/schema.js",
+    "./routes/admin": "./src/shared/routes/admin.route.js",
+    "./routes/bootstrap": "./src/shared/routes/bootstrap.route.js",
+    "./routes/selfService": "./src/shared/routes/selfService.route.js",
+    "./schemas/admin": "./src/shared/schemas/admin.schema.js",
+    "./schemas/bootstrap": "./src/shared/schemas/bootstrap.schema.js",
+    "./schemas/selfService": "./src/shared/schemas/selfService.schema.js",
+    "./schemas/shared": "./src/shared/schemas/shared.schema.js"
   },
   "dependencies": {
     "@fastify/type-provider-typebox": "^6.1.0",
