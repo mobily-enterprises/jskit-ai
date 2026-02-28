@@ -35,6 +35,9 @@ export { ACTION_IDS, ACTION_ID_VALUES } from "./actionIds.js";
 export {
   resolveCommandId,
   resolveSourceClientId,
+  normalizeObject,
+  normalizeHeaderValue,
+  toPositiveInteger,
   publishRealtimeCommandEvent,
   applyRealtimePublishToCommandAction
 } from "./realtimePublish.js";

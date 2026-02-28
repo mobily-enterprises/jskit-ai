@@ -162,6 +162,9 @@ function applyRealtimePublishToCommandAction(action, {
 }
 
 export {
+  normalizeObject,
+  normalizeHeaderValue,
+  toPositiveInteger,
   resolveCommandId,
   resolveSourceClientId,
   publishRealtimeCommandEvent,
