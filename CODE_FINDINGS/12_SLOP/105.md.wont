@@ -5,3 +5,10 @@
 - Why it can drift/fail: The same lookup helper is duplicated in two console billing views. Any change to lookup semantics must be synchronized.
 - Concrete impact: Inconsistent provider price lookup across plans and products views.
 - Exact remediation: Extract `findProviderPriceById` into a shared billing console helper.
+
+---
+Decision: WONT
+Justification:
+- This finding is in client-side console view code, and you requested skipping client-side work while templates are being rewritten.
+Revisit signal:
+- Resume client-side work or after the template rewrite lands.

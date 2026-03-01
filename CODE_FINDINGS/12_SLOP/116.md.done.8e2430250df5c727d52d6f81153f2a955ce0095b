@@ -1,0 +1,20 @@
+# Finding 116
+- Severity: Low
+- Pattern type: AI slop; Duplicate `mapUserSettingsRowNullable` helper
+- File + line(s): `packages/chat/chat-core/src/shared/repositories/userSettings.repository.js:32-38`, `apps/jskit-value-app/server/modules/settings/repository.js:34-40`
+- Why it can drift/fail: User settings row mapping is duplicated in chat core and app settings repository. Any change to mapping rules must be updated in both.
+- Concrete impact: Inconsistent settings mapping between chat domain and app settings module.
+- Exact remediation: Extract `mapUserSettingsRowNullable` into a shared repository mapping helper.
+
+Summary:
+- replaced local nullable mappers with shared `mapRowNullable` in chat-core and app settings repositories
+- keeps settings row mapping aligned across chat and app modules
+
+Tests:
+- `npm -ws --if-present test` (fails: missing `jskit-app-scripts`, `vitest`, `@jskit-ai/assistant-contracts`, `vue`, `@jskit-ai/server-runtime-core`, `@supabase/supabase-js`, `@fastify/cookie`, `@jskit-ai/billing-core`, `@jskit-ai/access-core`)
+- `npm run test:framework` (fails: migration tracker count mismatch, missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails: `vuetify`/`@mdi/js` imports in web-shell-host template)
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`
+
+Commit: 8e2430250df5c727d52d6f81153f2a955ce0095b

@@ -1,0 +1,19 @@
+# Finding 095
+- Severity: Low
+- Pattern type: AI slop; Duplicate empty seed stubs
+- File + line(s): `apps/jskit-value-app/seeds/01_user_profiles_seed.cjs:1-3`, `apps/jskit-value-app/seeds/02_calculation_logs_seed.cjs:1-3`
+- Why it can drift/fail: Multiple seed files are identical no-op stubs. This is copy-paste scaffolding that adds noise without function.
+- Concrete impact: Extra maintenance surface and confusion about which seed is meaningful.
+- Exact remediation: Remove unused seed stubs or consolidate into a single placeholder seed with clear instructions.
+
+---
+Summary:
+- Added a shared placeholder seed helper under `apps/jskit-value-app/seeds/_shared` and reused it from both seed files.
+Tests:
+- npm -ws --if-present test (fails: missing jskit-app-scripts, vitest, @jskit-ai/assistant-contracts, vue, @jskit-ai/server-runtime-core, @supabase/supabase-js, @fastify/cookie)
+- npm run test:framework (fails: migration tracker count mismatch; missing @jskit-ai/cli-entrypoint)
+- npm run test:architecture:client (fails: client guardrails block vuetify/@mdi imports in packages/tooling/jskit/packages/web-shell-host/templates/src/main.web-shell.js)
+- npm run test:architecture:shared-ui
+- npm run test:architecture:db
+Commit:
+- 05cdc55d5bbb5cccd2dbff1850709e4406c1f7bd

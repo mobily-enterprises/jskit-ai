@@ -5,3 +5,10 @@
 - Why it can drift/fail: The same field-error filtering helper is duplicated across console billing views. Any change to error filtering logic must be updated in both places.
 - Concrete impact: Inconsistent field-error display between billing plans and products views.
 - Exact remediation: Extract `collectPrefixedFieldErrors` into a shared billing console helper.
+
+---
+Decision: WONT
+Justification:
+- This finding is in client-side console view code, and you requested skipping client-side changes while templates are being rewritten.
+Revisit signal:
+- Resume client-side work or after the template rewrite lands.

@@ -5,3 +5,15 @@
 - Why it can drift/fail: Assistant input schema construction is copy-pasted between workspace and console billing contributors. If schema defaults change, both files must be updated.
 - Concrete impact: Inconsistent assistant tool schemas across billing contributors.
 - Exact remediation: Extract `buildAssistantInputJsonSchema` into a shared billing action helper and reuse it.
+
+---
+Summary:
+- Added a shared billing assistant input schema helper and reused it in both billing contributors.
+Tests:
+- npm -ws --if-present test (fails: missing jskit-app-scripts, vitest, @jskit-ai/assistant-contracts, vue, @jskit-ai/server-runtime-core, @supabase/supabase-js, @fastify/cookie)
+- npm run test:framework (fails: migration tracker count mismatch; missing @jskit-ai/cli-entrypoint)
+- npm run test:architecture:client (fails: client guardrails block vuetify/@mdi imports in packages/tooling/jskit/packages/web-shell-host/templates/src/main.web-shell.js)
+- npm run test:architecture:shared-ui
+- npm run test:architecture:db
+Commit:
+- f772a5cb33cab73273fc57dac05fb319c31776eb

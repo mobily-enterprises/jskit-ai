@@ -5,3 +5,10 @@
 - Why it can drift/fail: The same member list hydration logic is duplicated in two views. Any change to normalization rules must be applied to both.
 - Concrete impact: Divergent members list behavior between workspace settings and console members screens.
 - Exact remediation: Extract `applyMembersData` into a shared members view helper and reuse it.
+
+---
+Decision: WONT
+Justification:
+- This finding is in app view code (client-side), and you requested skipping client-side changes while templates are being rewritten.
+Revisit signal:
+- Resume client-side work or after the template rewrite lands.

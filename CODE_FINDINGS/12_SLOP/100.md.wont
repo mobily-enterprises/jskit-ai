@@ -5,3 +5,10 @@
 - Why it can drift/fail: Realtime URL construction logic is duplicated in both the runtime package and the app wrapper. Any change to URL resolution rules must be synchronized.
 - Concrete impact: App realtime runtime can diverge from package behavior, causing inconsistent connection targets.
 - Exact remediation: Export `buildRealtimeUrl` from the realtime client runtime and reuse it in the app runtime.
+
+---
+Decision: WONT
+Justification:
+- This change touches app realtime runtime code (client-side), and you requested skipping client-side work while templates are in flux.
+Revisit signal:
+- Resume client-side work or after the template rewrite lands.

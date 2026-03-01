@@ -5,3 +5,16 @@
 - Why it can drift/fail: Message row mapping logic is duplicated across chat and assistant transcripts repositories. Any change to row normalization must be updated in both.
 - Concrete impact: Inconsistent message mapping between chat and transcripts domains.
 - Exact remediation: Extract `mapMessageRowNullable` into a shared repository mapping utility.
+
+Summary:
+- replaced local `mapMessageRowNullable` with shared `mapRowNullable` in assistant transcripts repository
+- keeps mapping behavior aligned with chat core
+
+Tests:
+- `npm -ws --if-present test` (fails: missing `jskit-app-scripts`, `vitest`, `@jskit-ai/assistant-contracts`, `vue`, `@fastify/cookie`, `@jskit-ai/server-runtime-core`)
+- `npm run test:framework` (fails: migration tracker mismatch, missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails: missing `vuetify`, `@mdi/js`)
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`
+
+Commit: a082660c13965bf06744bee3328b590883bf5d2a

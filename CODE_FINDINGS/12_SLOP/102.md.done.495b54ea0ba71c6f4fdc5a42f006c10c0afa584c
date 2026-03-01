@@ -1,0 +1,19 @@
+# Finding 102
+- Severity: Low
+- Pattern type: AI slop; Duplicate `createNoopReply` test helper
+- File + line(s): `apps/jskit-value-app/tests/workspaceProjectsRouteSchema.test.js:6-14`, `apps/jskit-value-app/tests/communicationsRouteSchema.test.js:6-14`
+- Why it can drift/fail: The same reply stub helper is duplicated across tests. Any change to reply simulation must be manually synced.
+- Concrete impact: Inconsistent test reply behavior.
+- Exact remediation: Extract `createNoopReply` into a shared test helper.
+
+---
+Summary:
+- Added a shared noop reply helper for tests and reused it in both route schema tests.
+Tests:
+- npm -ws --if-present test (fails: missing jskit-app-scripts, vitest, @jskit-ai/assistant-contracts, vue, @fastify/cookie, @jskit-ai/server-runtime-core)
+- npm run test:framework (fails: migration tracker count mismatch; missing @jskit-ai/cli-entrypoint)
+- npm run test:architecture:client (fails: client guardrails block vuetify/@mdi imports in packages/tooling/jskit/packages/web-shell-host/templates/src/main.web-shell.js)
+- npm run test:architecture:shared-ui
+- npm run test:architecture:db
+Commit:
+- 495b54ea0ba71c6f4fdc5a42f006c10c0afa584c

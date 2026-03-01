@@ -1,0 +1,19 @@
+# Finding 099
+- Severity: Low
+- Pattern type: AI slop; Duplicate `buildPreviewText` helper
+- File + line(s): `packages/chat/chat-core/src/shared/service.js:583-595`, `packages/operations/retention-core/src/shared/rules/chat.rules.js:8-20`
+- Why it can drift/fail: Preview text truncation is duplicated in chat service and retention rules. Any change to truncation length or ellipsis behavior must be applied twice.
+- Concrete impact: Different preview rendering between chat operations and retention processing.
+- Exact remediation: Move `buildPreviewText` into a shared chat utility module and reuse it.
+
+---
+Summary:
+- Added a shared chat preview text helper and reused it in chat service + retention rules, with retention-core now depending on chat-core.
+Tests:
+- npm -ws --if-present test (fails: missing jskit-app-scripts, vitest, @jskit-ai/assistant-contracts, vue, @fastify/cookie, @jskit-ai/server-runtime-core)
+- npm run test:framework (fails: migration tracker count mismatch; missing @jskit-ai/cli-entrypoint)
+- npm run test:architecture:client (fails: client guardrails block vuetify/@mdi imports in packages/tooling/jskit/packages/web-shell-host/templates/src/main.web-shell.js)
+- npm run test:architecture:shared-ui
+- npm run test:architecture:db
+Commit:
+- f810c1d454f81a0d2cdb1db31f13556bce94dc40

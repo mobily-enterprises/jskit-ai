@@ -1,0 +1,19 @@
+# Finding 101
+- Severity: Low
+- Pattern type: AI slop; Duplicate `createControllerProxy` test helper
+- File + line(s): `apps/jskit-value-app/tests/consoleRoutePolicyDefaults.test.js:5-27`, `apps/jskit-value-app/tests/framework/serverFrameworkRoutes.test.js:11-33`
+- Why it can drift/fail: The same controller proxy helper is duplicated across tests. Any change to fallback behavior must be applied twice.
+- Concrete impact: Inconsistent test behavior when controller proxies evolve.
+- Exact remediation: Extract `createControllerProxy` into a shared test helper.
+
+---
+Summary:
+- Added a shared controller proxy helper for tests and reused it in both route-policy test files.
+Tests:
+- npm -ws --if-present test (fails: missing jskit-app-scripts, vitest, @jskit-ai/assistant-contracts, vue, @fastify/cookie, @jskit-ai/server-runtime-core)
+- npm run test:framework (fails: migration tracker count mismatch; missing @jskit-ai/cli-entrypoint)
+- npm run test:architecture:client (fails: client guardrails block vuetify/@mdi imports in packages/tooling/jskit/packages/web-shell-host/templates/src/main.web-shell.js)
+- npm run test:architecture:shared-ui
+- npm run test:architecture:db
+Commit:
+- a27f393a4e098730fa8934e5d76a6f9faa470453

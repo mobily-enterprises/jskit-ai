@@ -1,0 +1,19 @@
+# Finding 113
+- Severity: Low
+- Pattern type: AI slop; Duplicate `parseImportSpecifiers` helper in architecture tests
+- File + line(s): `tests/architecture/client-architecture.guardrails.test.mjs:161-181`, `tests/architecture/server-db-architecture.guardrails.test.mjs:75-95`
+- Why it can drift/fail: Import parsing logic is copy-pasted across guardrail tests. Any change to import parsing patterns must be applied in both tests.
+- Concrete impact: Inconsistent import scanning between client and server-db guardrails.
+- Exact remediation: Extract `parseImportSpecifiers` into a shared test helper.
+
+---
+Summary:
+- Added a shared parseImportSpecifiers helper and reused it in client/server-db architecture guardrail tests.
+Tests:
+- npm -ws --if-present test (fails: missing jskit-app-scripts, vitest, @jskit-ai/assistant-contracts, vue, @supabase/supabase-js, @fastify/cookie, @jskit-ai/server-runtime-core)
+- npm run test:framework (fails: migration tracker count mismatch; missing @jskit-ai/cli-entrypoint)
+- npm run test:architecture:client (fails: client guardrails block vuetify/@mdi imports in packages/tooling/jskit/packages/web-shell-host/templates/src/main.web-shell.js)
+- npm run test:architecture:shared-ui
+- npm run test:architecture:db
+Commit:
+- 328bc8ce0de51663a77f0a3dab94fbc28a8d9381

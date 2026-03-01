@@ -5,3 +5,10 @@
 - Why it can drift/fail: JSON formatting logic is copy-pasted across error detail views. Any change to formatting rules must be applied in both places.
 - Concrete impact: Different error-detail rendering between browser and server error views.
 - Exact remediation: Move `formatJson` into a shared console error view helper.
+
+---
+Decision: WONT
+Justification:
+- This finding is in client-side console view code, and you requested skipping client-side work while templates are being rewritten.
+Revisit signal:
+- Resume client-side work or after the template rewrite lands.
