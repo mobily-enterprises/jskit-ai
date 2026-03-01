@@ -4,7 +4,8 @@ export default Object.freeze({
   "version": "0.1.0",
   "dependsOn": [
     "@jskit-ai/server-runtime-core",
-    "@jskit-ai/http-contracts"
+    "@jskit-ai/http-contracts",
+    "@jskit-ai/value-app-config-shared"
   ],
   "capabilities": {
     "provides": [

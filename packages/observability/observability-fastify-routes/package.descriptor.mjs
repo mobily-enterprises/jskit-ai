@@ -6,7 +6,8 @@ export default Object.freeze({
   "dependsOn": [
     "@jskit-ai/observability-core",
     "@jskit-ai/http-contracts",
-    "@jskit-ai/server-runtime-core"
+    "@jskit-ai/server-runtime-core",
+    "@jskit-ai/value-app-config-shared"
   ],
   "capabilities": {
     "provides": [

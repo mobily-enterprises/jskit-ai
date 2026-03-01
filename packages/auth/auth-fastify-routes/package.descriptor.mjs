@@ -5,7 +5,8 @@ export default Object.freeze({
   "dependsOn": [
     "@jskit-ai/access-core",
     "@jskit-ai/http-contracts",
-    "@jskit-ai/fastify-auth-policy"
+    "@jskit-ai/fastify-auth-policy",
+    "@jskit-ai/value-app-config-shared"
   ],
   "capabilities": {
     "provides": [

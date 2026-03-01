@@ -6,7 +6,8 @@ export default Object.freeze({
     "@jskit-ai/billing-service-core",
     "@jskit-ai/http-contracts",
     "@jskit-ai/server-runtime-core",
-    "@jskit-ai/billing-core"
+    "@jskit-ai/billing-core",
+    "@jskit-ai/value-app-config-shared"
   ],
   "capabilities": {
     "provides": [

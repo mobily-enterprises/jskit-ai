@@ -7,7 +7,8 @@ export default Object.freeze({
     "@jskit-ai/auth-fastify-routes",
     "@jskit-ai/http-contracts",
     "@jskit-ai/server-runtime-core",
-    "@jskit-ai/workspace-console-core"
+    "@jskit-ai/workspace-console-core",
+    "@jskit-ai/value-app-config-shared"
   ],
   "capabilities": {
     "provides": [

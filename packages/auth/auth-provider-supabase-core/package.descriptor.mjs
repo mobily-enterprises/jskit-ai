@@ -25,7 +25,8 @@ export default Object.freeze({
   },
   "dependsOn": [
     "@jskit-ai/access-core",
-    "@jskit-ai/server-runtime-core"
+    "@jskit-ai/server-runtime-core",
+    "@jskit-ai/value-app-config-shared"
   ],
   "capabilities": {
     "provides": [

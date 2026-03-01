@@ -6,7 +6,8 @@ export default Object.freeze({
     "@jskit-ai/assistant-core",
     "@jskit-ai/assistant-contracts",
     "@jskit-ai/http-contracts",
-    "@jskit-ai/server-runtime-core"
+    "@jskit-ai/server-runtime-core",
+    "@jskit-ai/value-app-config-shared"
   ],
   "capabilities": {
     "provides": [
