@@ -1,7 +1,7 @@
-import path from "node:path";
 import { mkdir } from "node:fs/promises";
 import { createStorage } from "unstorage";
 import fsDriver from "unstorage/drivers/fs";
+import { resolveFsBasePath } from "@jskit-ai/server-runtime-core";
 
 function normalizePublicBasePath(value) {
   const raw = String(value || "").trim();
@@ -31,15 +31,6 @@ function normalizeStorageKey(userId) {
   }
 
   return `avatars/users/${numericUserId}/avatar.webp`;
-}
-
-function resolveFsBasePath(fsBasePath, { rootDir }) {
-  const normalized = String(fsBasePath || "").trim();
-  if (normalized) {
-    return path.resolve(normalized);
-  }
-
-  return path.resolve(rootDir, "data", "storage");
 }
 
 function createService(options = {}) {

@@ -1,23 +1,14 @@
-import path from "node:path";
 import { mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { createStorage } from "unstorage";
 import fsDriver from "unstorage/drivers/fs";
+import { resolveFsBasePath } from "@jskit-ai/server-runtime-core";
 
 function normalizeStorageDriver(value) {
   const normalized = String(value || "")
     .trim()
     .toLowerCase();
   return normalized || "fs";
-}
-
-function resolveFsBasePath(fsBasePath, { rootDir }) {
-  const normalized = String(fsBasePath || "").trim();
-  if (normalized) {
-    return path.resolve(normalized);
-  }
-
-  return path.resolve(rootDir, "data", "storage");
 }
 
 function sanitizeFileName(fileName) {
