@@ -12,6 +12,7 @@ export { normalizeRuntimeBundle, createRuntimeKernel } from "./runtimeKernel.js"
 export { mergeRuntimeBundles, createRuntimeAssembly, buildRoutesFromManifest } from "./runtimeAssembly.js";
 export { registerApiRouteDefinitions } from "./apiRouteRegistration.js";
 export { defaultMissingHandler } from "./routeUtils.js";
+export { resolveFsBasePath } from "./storagePaths.js";
 export {
   toCanonicalJson,
   toSha256Hex,
