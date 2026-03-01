@@ -1,21 +1,8 @@
+import { startOfUtcDay, startOfUtcWeek } from "@jskit-ai/billing-core";
 import { ENTITLEMENT_TYPES, toDateOrNull, toNonEmptyString } from "./entities.js";
 
 export const LIFETIME_WINDOW_START = new Date("1970-01-01T00:00:00.000Z");
 export const LIFETIME_WINDOW_END = new Date("9999-12-31T23:59:59.999Z");
-
-function startOfUtcDay(referenceDate) {
-  return new Date(
-    Date.UTC(referenceDate.getUTCFullYear(), referenceDate.getUTCMonth(), referenceDate.getUTCDate(), 0, 0, 0, 0)
-  );
-}
-
-function startOfUtcWeek(referenceDate) {
-  const start = startOfUtcDay(referenceDate);
-  const weekday = start.getUTCDay();
-  const mondayOffset = weekday === 0 ? -6 : 1 - weekday;
-  start.setUTCDate(start.getUTCDate() + mondayOffset);
-  return start;
-}
 
 function startOfUtcMonth(referenceDate) {
   return new Date(Date.UTC(referenceDate.getUTCFullYear(), referenceDate.getUTCMonth(), 1, 0, 0, 0, 0));

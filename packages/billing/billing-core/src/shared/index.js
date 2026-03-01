@@ -1,5 +1,6 @@
 export { createBillingCatalogCore } from "./catalogCore.js";
 export { createBillingCatalogProviderPricingCore } from "./providerPricingCore.js";
+export { startOfUtcDay, startOfUtcWeek } from "./dateWindows.js";
 export {
   resolveSchemaValidator,
   validateEntitlementValue,
