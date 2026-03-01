@@ -1,4 +1,5 @@
 import { db } from "../../../db/knex.js";
+import { mapRowNullable } from "@jskit-ai/jskit-knex";
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 
@@ -33,13 +34,7 @@ function mapUserSettingsRowRequired(row) {
   };
 }
 
-function mapUserSettingsRowNullable(row) {
-  if (!row) {
-    return null;
-  }
-
-  return mapUserSettingsRowRequired(row);
-}
+const mapUserSettingsRowNullable = mapRowNullable(mapUserSettingsRowRequired);
 
 function buildPreferencesUpdatePatch(patch) {
   const dbPatch = {};

@@ -1,3 +1,4 @@
+import { mapRowNullable } from "@jskit-ai/jskit-knex";
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
@@ -29,12 +30,7 @@ function mapUserSettingsRowRequired(row) {
   };
 }
 
-function mapUserSettingsRowNullable(row) {
-  if (!row) {
-    return null;
-  }
-  return mapUserSettingsRowRequired(row);
-}
+const mapUserSettingsRowNullable = mapRowNullable(mapUserSettingsRowRequired);
 
 function createUserSettingsRepository(dbClient) {
   async function repoFindByUserId(userId, options = {}) {
