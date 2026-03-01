@@ -4,6 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { listFilesRecursive } from "../helpers/listFilesRecursive.mjs";
+import { parseImportSpecifiers } from "../helpers/parseImportSpecifiers.mjs";
 import { toPosixPath } from "../helpers/pathUtils.mjs";
 
 const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -40,22 +41,6 @@ const MERGED_TARGET_SEGMENTS = Object.freeze([
   "packages/workspace/workspace-console-service-core/",
   "packages/workspace/workspace-service-core/"
 ]);
-
-function parseImportSpecifiers(sourceText) {
-  const specifiers = [];
-  const importExportPattern = /(?:import|export)\s[^"']*?from\s+["']([^"']+)["']/g;
-  const dynamicImportPattern = /import\(\s*["']([^"']+)["']\s*\)/g;
-
-  for (const match of sourceText.matchAll(importExportPattern)) {
-    specifiers.push(String(match[1] || ""));
-  }
-
-  for (const match of sourceText.matchAll(dynamicImportPattern)) {
-    specifiers.push(String(match[1] || ""));
-  }
-
-  return specifiers;
-}
 
 function listJsFiles() {
   return [
