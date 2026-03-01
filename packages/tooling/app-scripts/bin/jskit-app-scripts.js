@@ -5,22 +5,12 @@ import { access } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
+import { shellQuote } from "@jskit-ai/cli-entrypoint";
 import { runProcessEnvGuardrail, createViolationReport } from "../src/shared/guardrails/processEnv.js";
 import { runApiContractsGuardrail } from "../src/shared/guardrails/apiContracts.js";
 import { runElementEjectCommand } from "../src/shared/commands/elementEject.js";
 import { runElementDiffCommand } from "../src/shared/commands/elementDiff.js";
 import { RUNTIME_BUILTIN_IDS, runRuntimeBuiltinTask } from "../src/shared/runtimeCommands.js";
-
-function shellQuote(value) {
-  const raw = String(value ?? "");
-  if (!raw) {
-    return "''";
-  }
-  if (/^[A-Za-z0-9_./:=+,-]+$/.test(raw)) {
-    return raw;
-  }
-  return `'${raw.replace(/'/g, "'\\''")}'`;
-}
 
 function printUsageAndExit(message) {
   if (message) {

@@ -3,6 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
+import { shellQuote } from "@jskit-ai/cli-entrypoint";
 
 const DEFAULT_TEMPLATE = "base-shell";
 const DEFAULT_INITIAL_BUNDLES = "none";
@@ -18,17 +19,6 @@ function createCliError(message, { showUsage = false, exitCode = 1 } = {}) {
   error.showUsage = Boolean(showUsage);
   error.exitCode = Number.isInteger(exitCode) ? exitCode : 1;
   return error;
-}
-
-function shellQuote(value) {
-  const raw = String(value ?? "");
-  if (!raw) {
-    return "''";
-  }
-  if (/^[A-Za-z0-9_./:=+,-]+$/.test(raw)) {
-    return raw;
-  }
-  return `'${raw.replace(/'/g, "'\\''")}'`;
 }
 
 function toAppTitle(appName) {
