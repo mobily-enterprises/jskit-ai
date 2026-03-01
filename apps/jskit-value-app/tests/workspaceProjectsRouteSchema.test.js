@@ -2,17 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import Fastify from "fastify";
 import { registerApiRoutes } from "../server/fastify/registerApiRoutes.js";
-
-function createNoopReply() {
-  return {
-    code() {
-      return this;
-    },
-    send() {
-      return this;
-    }
-  };
-}
+import { createNoopReply } from "./helpers/createNoopReply.js";
 
 function buildControllers({ onListProjects } = {}) {
   const noop = async (_request, reply) => {
