@@ -1,51 +1,11 @@
 import { MODULE_ENABLEMENT_MODES, validateModuleDescriptors } from "./descriptor.js";
 import { normalizeMode } from "./compositionMode.js";
-import { resolveDependencyGraph } from "./dependencyGraph.js";
-import { resolveCapabilityGraph } from "./capabilityGraph.js";
 import { resolveMounts } from "./mountResolver.js";
-import { mergeDisabled, moduleSignature } from "./composeUtils.js";
+import { moduleSignature } from "./composeUtils.js";
 import { createDiagnosticsCollector, throwOnDiagnosticErrors } from "./diagnostics.js";
+import { resolveComposedModules } from "./composedModules.js";
 
 const CLIENT_HOOK_PHASES = Object.freeze(["api", "routes", "guards", "nav", "realtime", "featureFlags"]);
-
-function resolveComposedModules({ modules, mode, context, diagnostics }) {
-  const disabledById = new Map();
-  let activeModules = modules.slice();
-  let capabilityProviders = {};
-
-  while (true) {
-    const before = moduleSignature(activeModules);
-
-    const dependencyResult = resolveDependencyGraph({
-      modules: activeModules,
-      mode,
-      context,
-      diagnostics
-    });
-    activeModules = dependencyResult.modules;
-    mergeDisabled(disabledById, dependencyResult.disabledModules);
-
-    const capabilityResult = resolveCapabilityGraph({
-      modules: activeModules,
-      mode,
-      diagnostics
-    });
-    activeModules = capabilityResult.modules;
-    capabilityProviders = capabilityResult.capabilityProviders;
-    mergeDisabled(disabledById, capabilityResult.disabledModules);
-
-    const after = moduleSignature(activeModules);
-    if (before === after) {
-      break;
-    }
-  }
-
-  return {
-    modules: activeModules,
-    capabilityProviders,
-    disabledModules: Array.from(disabledById.values()).sort((left, right) => left.id.localeCompare(right.id))
-  };
-}
 
 function normalizeArrayOutput(output) {
   if (output == null) {
