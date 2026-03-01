@@ -1,6 +1,7 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/vue-query";
 import { toPositiveInteger } from "@jskit-ai/runtime-env-core/integers";
+import { normalizeText } from "@jskit-ai/runtime-env-core/text";
 import {
   defaultUseAuthGuard,
   createDefaultUseWorkspaceStore,
@@ -34,10 +35,6 @@ const DEFAULT_USE_QUERY_ERROR_MESSAGE = createDefaultUseQueryErrorMessage({
 const DEFAULT_USE_WORKSPACE_STORE = createDefaultUseWorkspaceStore({
   activeWorkspaceId: null
 });
-
-function normalizeText(value) {
-  return String(value || "").trim();
-}
 
 function normalizeThreadId(value) {
   const parsed = Number(value);

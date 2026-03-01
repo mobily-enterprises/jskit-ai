@@ -1,5 +1,7 @@
 import { computed, reactive, ref } from "vue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
+import { toPositiveInteger } from "@jskit-ai/runtime-env-core/integers";
+import { normalizeText } from "@jskit-ai/runtime-env-core/text";
 import {
   defaultUseAuthGuard,
   createDefaultUseWorkspaceStore,
@@ -27,19 +29,6 @@ const DEFAULT_USE_WORKSPACE_STORE = createDefaultUseWorkspaceStore({
     return false;
   }
 });
-
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-function toPositiveInteger(value, fallback = 20) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return fallback;
-  }
-
-  return parsed;
-}
 
 function createSocialRuntime({
   api,
