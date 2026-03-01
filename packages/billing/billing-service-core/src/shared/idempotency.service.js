@@ -9,6 +9,7 @@ import {
   BILLING_RUNTIME_DEFAULTS
 } from "./constants.js";
 import { toHmacSha256Hex } from "./canonicalJson.js";
+import { pickLaterDate } from "./dateUtils.js";
 
 function parseMajorVersion(version) {
   const match = String(version || "")
@@ -33,20 +34,6 @@ function isLeaseExpired(idempotencyRow, now = new Date()) {
   }
 
   return expiresAt.getTime() <= now.getTime();
-}
-
-function pickLaterDate(left, right) {
-  const leftDate = toDateOrNull(left);
-  const rightDate = toDateOrNull(right);
-
-  if (!leftDate) {
-    return rightDate;
-  }
-  if (!rightDate) {
-    return leftDate;
-  }
-
-  return leftDate.getTime() >= rightDate.getTime() ? leftDate : rightDate;
 }
 
 function createService({
