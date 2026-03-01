@@ -2,17 +2,18 @@ import { createAdapter as createRedisStreamsAdapter } from "@socket.io/redis-str
 import { createClient as createRedisClient } from "redis";
 import { Server as SocketIoServer } from "socket.io";
 
-import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "@jskit-ai/realtime-contracts";
+import {
+  REALTIME_ERROR_CODES,
+  REALTIME_MESSAGE_TYPES,
+  TOPIC_SCOPES,
+  normalizeTopicScope
+} from "@jskit-ai/realtime-contracts";
 
 const SOCKET_IO_PATH = "/api/v1/realtime";
 const SOCKET_IO_MESSAGE_EVENT = "realtime:message";
 const MAX_INBOUND_MESSAGE_BYTES = 8192;
 const REDIS_QUIT_TIMEOUT_MS = 5000;
 const REDIS_CONNECT_TIMEOUT_MS = 5000;
-const TOPIC_SCOPES = Object.freeze({
-  WORKSPACE: "workspace",
-  USER: "user"
-});
 const TARGETED_EVENT_SCOPES = Object.freeze({
   WORKSPACE: "workspace",
   GLOBAL: "global"
@@ -29,16 +30,6 @@ function normalizeTopics(topicsValue) {
   }
 
   return [...new Set(topicsValue.map((topic) => String(topic || "").trim()).filter(Boolean))];
-}
-
-function normalizeTopicScope(scopeValue) {
-  const normalizedScope = String(scopeValue || "")
-    .trim()
-    .toLowerCase();
-  if (normalizedScope === TOPIC_SCOPES.USER) {
-    return TOPIC_SCOPES.USER;
-  }
-  return TOPIC_SCOPES.WORKSPACE;
 }
 
 function buildWorkspaceSubscriptionKey(workspaceId, topic) {

@@ -1,6 +1,7 @@
 export { REALTIME_MESSAGE_TYPES, REALTIME_ERROR_CODES } from "./protocolTypes.js";
 export {
   TOPIC_SCOPES,
+  normalizeTopicScope,
   createTopicCatalog,
   listTopics,
   getTopicRule,

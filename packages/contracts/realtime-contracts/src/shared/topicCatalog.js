@@ -182,6 +182,7 @@ function hasTopicPermission(catalog, topicValue, permissions, surfaceValue = "")
 
 export {
   TOPIC_SCOPES,
+  normalizeTopicScope,
   createTopicCatalog,
   listTopics,
   getTopicRule,
