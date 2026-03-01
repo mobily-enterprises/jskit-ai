@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/shared/index.js",
     "./client/authApi": "./src/shared/client/authApi.js",
+    "./client/signOutFlow": "./src/shared/client/signOutFlow.js",
     "./authConstraints": "./src/shared/authConstraints.js",
     "./authMethods": "./src/shared/authMethods.js",
     "./oauthProviders": "./src/shared/oauthProviders.js",

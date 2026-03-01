@@ -2,6 +2,7 @@ import { computed, onBeforeUnmount, watch } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useDisplay } from "vuetify";
 import { createSurfacePaths, resolveSurfacePaths } from "../../../../shared/surfacePaths.js";
+import { runAuthSignOutFlow } from "@jskit-ai/access-core/client/signOutFlow";
 import { api } from "../../../platform/http/api/index.js";
 import { useAuthStore } from "../../state/authStore.js";
 import { useAlertsStore } from "../../state/alertsStore.js";
@@ -244,16 +245,17 @@ export function useAppShell() {
 
   async function signOut() {
     const paths = surfacePaths.value;
-    try {
-      await api.auth.logout();
-    } finally {
-      api.clearCsrfTokenCache();
-      authStore.setSignedOut();
-      workspaceStore.clearWorkspaceState();
-      consoleStore.clearConsoleState();
-      await authStore.invalidateSession();
-      await navigate({ to: paths.loginPath, replace: true });
-    }
+    await runAuthSignOutFlow({
+      authApi: api.auth,
+      clearCsrfTokenCache: () => api.clearCsrfTokenCache(),
+      async afterSignOut() {
+        authStore.setSignedOut();
+        workspaceStore.clearWorkspaceState();
+        consoleStore.clearConsoleState();
+        await authStore.invalidateSession();
+        await navigate({ to: paths.loginPath, replace: true });
+      }
+    });
   }
 
   return {

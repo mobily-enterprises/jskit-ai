@@ -3,6 +3,7 @@ export { AUTH_METHOD_PASSWORD_ID, AUTH_METHOD_PASSWORD_PROVIDER, AUTH_METHOD_EMA
 export { OAUTH_PROVIDER_ID_PATTERN, OAUTH_PROVIDER_ID_REGEX, normalizeOAuthProviderId, isValidOAuthProviderId, normalizeOAuthProviderList } from "./oauthProviders.js";
 export { OAUTH_QUERY_PARAM_PROVIDER, OAUTH_QUERY_PARAM_INTENT, OAUTH_QUERY_PARAM_RETURN_TO } from "./oauthCallbackParams.js";
 export { createApi as createAuthApi } from "./client/authApi.js";
+export { runAuthSignOutFlow } from "./client/signOutFlow.js";
 export { normalizeEmail, normalizeOAuthIntent, normalizeReturnToPath } from "./utils.js";
 export { validators, registerPassword, loginPassword, resetPassword, confirmPassword, registerInput, loginInput, forgotPasswordInput, resetPasswordInput } from "./validators.js";
 export { OPAQUE_INVITE_TOKEN_HASH_PREFIX, normalizeInviteToken, isSha256Hex, buildInviteToken, hashInviteToken, encodeInviteTokenHash, resolveInviteTokenHash } from "./inviteTokens.js";

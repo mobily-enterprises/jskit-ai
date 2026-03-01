@@ -306,6 +306,8 @@ This is dependency injection.
 - `dependencies`: shared app/runtime deps (for example `env`, `logger`, utility adapters).
 - `runtimeServices`: optional selected service subset used by some modules; treated as optional input.
 
+At server boot, the composer calls each controller definition `create(...)` with this dependency bag.
+
 This keeps controllers pure and testable, and avoids hidden globals.
 
 ### 7.6 Fastify-specific vs generic layer
@@ -323,11 +325,10 @@ Typical flow:
 
 1. Fastify receives request on a registered route.
 2. Route handler points to a controller method.
-3. Controller may call:
-   - a service method directly, and/or
-   - `actionExecutor.execute(...)` for governed command/query execution.
-4. Action registry resolves action definition and runs action pipeline.
-5. Action implementation usually delegates to service methods.
+3. Controller may call a service method directly.
+4. Controller may call `actionExecutor.execute(...)` for governed command/query execution.
+5. Action registry resolves action definition and runs action pipeline.
+6. Action implementation usually delegates to service methods.
 
 Concrete chain (auth example, simplified):
 
@@ -354,25 +355,52 @@ authService.writeSessionCookies(reply, result.session);
 
 ### 7.8 Common misconceptions clarified
 
-- Does a controller create routes?
-  - No. Route definitions are produced by `buildRoutes(...)`.
-- Does every route call a controller?
-  - No. Common convention is yes, but direct handlers and plugin-owned routes are possible.
-- Is every controller attached to a route?
-  - No. Controllers can exist without exposed routes.
-- Is `src/shared` automatically client+server mixed?
-  - No. It is package shared source location; runtime usage depends on entrypoints/contracts.
+- Does a controller create routes? No. Route definitions are produced by `buildRoutes(...)`.
+- Does every route call a controller? No. Common convention is yes, but direct handlers and plugin-owned routes are possible.
+- Is every controller attached to a route? No. Controllers can exist without exposed routes.
+- Is `src/shared` automatically client+server mixed? No. It is package shared source location; runtime usage depends on entrypoints/contracts.
 
 ### 7.9 Service vs Action (practical difference)
 
 - Service:
-  - direct method call (`services.authService.authenticateRequest(...)`)
-  - business logic reuse
-  - no automatic action policy pipeline
+  - Direct method call (`services.authService.authenticateRequest(...)`).
+  - Business logic reuse.
+  - No automatic action policy pipeline.
 
 - Action:
-  - addressed by `actionId` (+ optional version)
-  - executed through action runtime pipeline
-  - policy/idempotency/audit/observability hooks apply
+  - Addressed by `actionId` (+ optional version).
+  - Executed through action runtime pipeline.
+  - Policy/idempotency/audit/observability hooks apply.
 
 Use services for reusable domain logic, and actions for governed command/query execution contracts.
+
+### 7.10 Why descriptor has `runtime.server.export`
+
+The descriptor field:
+
+```js
+runtime: {
+  server: {
+    entrypoint: "src/shared/server.js",
+    export: "createServerContributions"
+  }
+}
+```
+
+means:
+- `entrypoint`: file to import.
+- `export`: symbol name to call inside that file.
+
+In current practice, most packages use `createServerContributions`.
+The extra `export` key exists for flexibility, but teams can choose a stricter policy and standardize on one canonical symbol.
+
+### 7.11 Shared functions provision (client/server)
+
+Use explicit ownership and scope, not assumptions:
+
+- Package shared code path (`src/shared/**`) means package-internal shared source by convention.
+- It does not automatically mean both app client and app server will import it.
+- For app-level shared functions, declare explicit metadata and mutations so generated/app-owned files are deterministic.
+- Supported conceptual scopes are `package-only`, `client-server`, and `server-only`.
+
+Prefer explicit contracts/metadata for shared functions instead of relying on implicit path conventions.
