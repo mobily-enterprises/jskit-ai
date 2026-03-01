@@ -1,3 +1,7 @@
+import {
+  parseMetadataJson as parseMetadata,
+  stringifyMetadataJson as stringifyMetadata
+} from "@jskit-ai/jskit-knex";
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import {
@@ -18,32 +22,6 @@ function normalizeCount(row) {
   }
 
   return parsed;
-}
-
-function parseMetadata(value) {
-  const source = String(value || "").trim();
-  if (!source) {
-    return {};
-  }
-
-  try {
-    const parsed = JSON.parse(source);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function stringifyMetadata(metadata) {
-  if (!metadata || typeof metadata !== "object") {
-    return "{}";
-  }
-
-  try {
-    return JSON.stringify(metadata);
-  } catch {
-    return "{}";
-  }
 }
 
 function mapAuditEventRowRequired(row) {

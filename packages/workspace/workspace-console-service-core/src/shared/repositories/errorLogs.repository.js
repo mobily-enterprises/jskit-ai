@@ -1,23 +1,13 @@
+import {
+  parseMetadataJson as parseMetadata,
+  stringifyMetadataJson as stringifyMetadata
+} from "@jskit-ai/jskit-knex";
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import {
   deleteRowsOlderThan,
   normalizeBatchSize,
   normalizeCutoffDateOrThrow
 } from "@jskit-ai/jskit-knex/retention";
-
-function parseMetadata(value) {
-  const source = String(value || "").trim();
-  if (!source) {
-    return {};
-  }
-
-  try {
-    const parsed = JSON.parse(source);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
 
 function mapBrowserErrorRowRequired(row) {
   if (!row) {
@@ -73,18 +63,6 @@ function normalizeCount(row) {
 
   const parsed = Number(values[0]);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-}
-
-function stringifyMetadata(metadata) {
-  if (!metadata || typeof metadata !== "object") {
-    return "{}";
-  }
-
-  try {
-    return JSON.stringify(metadata);
-  } catch {
-    return "{}";
-  }
 }
 
 function createErrorLogsRepository(dbClient) {
