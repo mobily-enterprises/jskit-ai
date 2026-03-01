@@ -22,7 +22,12 @@ function resolveLazyRoutes(lazyRoutes) {
   return true;
 }
 
-function createShellRouter({ shellComponent, listFilesystemRouteEntries, redirectFromRootTo = "" } = {}) {
+function createShellRouter({
+  shellComponent,
+  listFilesystemRouteEntries,
+  redirectFromRootTo = "",
+  publicRoutes = []
+} = {}) {
   if (typeof listFilesystemRouteEntries !== "function") {
     throw new Error("createShellRouter requires listFilesystemRouteEntries.");
   }
@@ -60,6 +65,32 @@ function createShellRouter({ shellComponent, listFilesystemRouteEntries, redirec
     });
   });
 
+  const staticPublicRoutes = Array.isArray(publicRoutes) ? publicRoutes : [];
+  const publicRouteEntries = staticPublicRoutes.map((entry, index) => {
+    const path = String(entry?.path || "").trim();
+    if (!path) {
+      throw new Error(`Public route at index ${index} is missing a path.`);
+    }
+    if (claimedPaths.has(path)) {
+      throw new Error(`Duplicate public route path "${path}".`);
+    }
+    claimedPaths.add(path);
+
+    const component = entry?.component;
+    if (!component) {
+      throw new Error(`Public route "${path}" is missing a component.`);
+    }
+
+    const beforeLoad = typeof entry.beforeLoad === "function" ? entry.beforeLoad : undefined;
+
+    return createRoute({
+      getParentRoute: () => rootRoute,
+      path,
+      component,
+      ...(beforeLoad ? { beforeLoad } : {})
+    });
+  });
+
   const redirectTarget = String(redirectFromRootTo || "").trim();
   const rootAlreadyClaimed = claimedPaths.has("/");
   const redirectRoute =
@@ -75,7 +106,7 @@ function createShellRouter({ shellComponent, listFilesystemRouteEntries, redirec
         ]
       : [];
 
-  const routeTree = rootRoute.addChildren([...filesystemRoutes, ...redirectRoute]);
+  const routeTree = rootRoute.addChildren([...filesystemRoutes, ...publicRouteEntries, ...redirectRoute]);
 
   return createRouter({
     routeTree,

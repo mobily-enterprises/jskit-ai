@@ -19,7 +19,9 @@
     "lint": "jskit-app-scripts lint",
     "lint:process-env": "jskit-app-scripts lint:process-env",
     "test": "jskit-app-scripts test",
-    "test:client": "jskit-app-scripts test:client"
+    "test:client": "jskit-app-scripts test:client",
+    "link:jskit-dev": "bash -lc 'if [ -z \"${JSKIT_MONOREPO:-}\" ]; then echo \"Set JSKIT_MONOREPO to your local jskit-ai checkout path.\" >&2; exit 1; fi; mkdir -p node_modules/@jskit-ai; rm -rf node_modules/@jskit-ai/jskit; ln -s \"$JSKIT_MONOREPO\" node_modules/@jskit-ai/jskit'",
+    "unlink:jskit-dev": "bash -lc 'rm -rf node_modules/@jskit-ai/jskit'"
   },
   "dependencies": {
     "@jskit-ai/app-scripts": "0.1.0",

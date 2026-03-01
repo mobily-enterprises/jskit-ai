@@ -1,12 +1,13 @@
 <script setup>
 import { computed } from "vue";
-import { Outlet } from "@tanstack/vue-router";
+import { Outlet, useLocation } from "@tanstack/vue-router";
 import { useDisplay } from "vuetify";
 import { createShellHostRuntime } from "./runtime/useShellHost.js";
 import { listShellEntriesBySlot, resolveSurfaceFromPathname } from "./runtime/filesystemHost.console.js";
 import { evaluateShellGuard } from "./runtime/guardRuntime.js";
 import GlobalNetworkActivityBar from "./runtime/GlobalNetworkActivityBar.vue";
 import { useShellContext } from "./runtime/useShellContext.js";
+import { createSignOutRoute, isPublicAuthPath } from "./runtime/publicAuthPaths.js";
 
 const { mobile } = useDisplay();
 const isMobile = computed(() => Boolean(mobile.value));
@@ -52,11 +53,22 @@ const settingsRoute = computed(() => {
   }
   return `/${surface}/settings`;
 });
+
+const signOutRoute = computed(() => createSignOutRoute(currentSurface.value));
+const location = useLocation();
+const isPublicAuthRoute = computed(() => isPublicAuthPath(location.value?.pathname || ""));
 </script>
 
 <template>
   <v-app class="shell-host bg-background" :style="workspaceThemeStyle">
-    <GlobalNetworkActivityBar />
+    <template v-if="isPublicAuthRoute">
+      <v-main>
+        <Outlet />
+      </v-main>
+    </template>
+
+    <template v-else>
+      <GlobalNetworkActivityBar />
 
     <v-app-bar border density="comfortable" elevation="0" class="shell-app-bar bg-surface">
       <v-app-bar-nav-icon
@@ -162,7 +174,7 @@ const settingsRoute = computed(() => {
             @click="goToEntry({ resolvedRoute: settingsRoute })"
           />
           <v-divider />
-          <v-list-item title="Sign out" @click="goToEntry({ resolvedRoute: '/auth/signout' })" />
+          <v-list-item title="Sign out" @click="goToEntry({ resolvedRoute: signOutRoute })" />
         </v-list>
       </v-menu>
     </v-app-bar>
@@ -186,6 +198,7 @@ const settingsRoute = computed(() => {
         <Outlet />
       </div>
     </v-main>
+    </template>
   </v-app>
 </template>
 

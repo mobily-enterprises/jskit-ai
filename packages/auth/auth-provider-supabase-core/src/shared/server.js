@@ -5,8 +5,100 @@ import {
   createPermissionEvaluator,
   createNoopIdempotencyAdapter,
   createNoopAuditAdapter,
-  createNoopObservabilityAdapter
+  createNoopObservabilityAdapter,
+  normalizeExecutionContext,
+  normalizeText
 } from "@jskit-ai/action-runtime-core";
+import { resolveClientIpAddress } from "@jskit-ai/server-runtime-core/requestUrl";
+
+const DEFAULT_SURFACE = "app";
+const KNOWN_SURFACES = new Set(["app", "admin", "console"]);
+
+function normalizePlainObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value;
+}
+
+function normalizeOptionalObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value;
+}
+
+function normalizeSurfaceId(value) {
+  const candidate = normalizeText(value).toLowerCase();
+  return KNOWN_SURFACES.has(candidate) ? candidate : "";
+}
+
+function resolveRequestSurface({ request = null, explicitSurface = "" } = {}) {
+  const surfaceFromContext = normalizeSurfaceId(explicitSurface);
+  if (surfaceFromContext) {
+    return surfaceFromContext;
+  }
+
+  const headerValue = request?.headers?.["x-surface-id"];
+  const surfaceFromHeader = normalizeSurfaceId(Array.isArray(headerValue) ? headerValue[0] : headerValue);
+  if (surfaceFromHeader) {
+    return surfaceFromHeader;
+  }
+
+  return DEFAULT_SURFACE;
+}
+
+function resolveRequestMeta({ request = null, requestMeta = {} } = {}) {
+  const source = normalizePlainObject(requestMeta);
+
+  const commandHeader = request?.headers?.["x-command-id"];
+  const idempotencyHeader = request?.headers?.["idempotency-key"];
+  const userAgentHeader = request?.headers?.["user-agent"];
+
+  return {
+    requestId: normalizeText(source.requestId || request?.id),
+    commandId: normalizeText(source.commandId || (Array.isArray(commandHeader) ? commandHeader[0] : commandHeader)),
+    idempotencyKey: normalizeText(
+      source.idempotencyKey || (Array.isArray(idempotencyHeader) ? idempotencyHeader[0] : idempotencyHeader)
+    ),
+    ip: normalizeText(source.ip || resolveClientIpAddress(request)),
+    userAgent: normalizeText(source.userAgent || (Array.isArray(userAgentHeader) ? userAgentHeader[0] : userAgentHeader)),
+    request
+  };
+}
+
+function buildExecutionContext(context = {}) {
+  const source = normalizePlainObject(context);
+  const sourceRequestMeta = normalizePlainObject(source.requestMeta);
+  const request = source.request || sourceRequestMeta.request || null;
+
+  const actor = normalizeOptionalObject(source.actor) || normalizeOptionalObject(request?.user);
+  const workspace = normalizeOptionalObject(source.workspace) || normalizeOptionalObject(request?.workspace);
+  const membership = normalizeOptionalObject(source.membership) || normalizeOptionalObject(request?.membership);
+  const permissions = Array.isArray(source.permissions)
+    ? source.permissions
+    : Array.isArray(request?.permissions)
+      ? request.permissions
+      : [];
+
+  return normalizeExecutionContext({
+    actor,
+    workspace,
+    membership,
+    permissions,
+    surface: resolveRequestSurface({
+      request,
+      explicitSurface: source.surface
+    }),
+    channel: normalizeText(source.channel) || "internal",
+    requestMeta: resolveRequestMeta({
+      request,
+      requestMeta: sourceRequestMeta
+    }),
+    assistantMeta: normalizePlainObject(source.assistantMeta),
+    timeMeta: normalizePlainObject(source.timeMeta)
+  });
+}
 
 function splitCsv(value) {
   return String(value || "")
@@ -170,12 +262,27 @@ function createServerContributions() {
           if (!services.actionRegistry) {
             return null;
           }
+
           return {
             execute(payload) {
-              return services.actionRegistry.execute(payload);
+              const source = normalizePlainObject(payload);
+              return services.actionRegistry.execute({
+                actionId: source.actionId,
+                version: source.version == null ? null : source.version,
+                input: normalizePlainObject(source.input),
+                context: buildExecutionContext(source.context),
+                deps: normalizePlainObject(source.deps)
+              });
             },
             executeStream(payload) {
-              return services.actionRegistry.executeStream(payload);
+              const source = normalizePlainObject(payload);
+              return services.actionRegistry.executeStream({
+                actionId: source.actionId,
+                version: source.version == null ? null : source.version,
+                input: normalizePlainObject(source.input),
+                context: buildExecutionContext(source.context),
+                deps: normalizePlainObject(source.deps)
+              });
             },
             listDefinitions() {
               return services.actionRegistry.listDefinitions();

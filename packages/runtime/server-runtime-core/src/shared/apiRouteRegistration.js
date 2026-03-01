@@ -12,8 +12,49 @@ function buildBaseRouteOptions(route) {
   };
 }
 
-function defaultApplyRoutePolicy(routeOptions) {
-  return routeOptions;
+function normalizeRoutePolicyConfig(routeOptions, route) {
+  const sourceRouteOptions = routeOptions && typeof routeOptions === "object" ? routeOptions : {};
+  const sourceConfig =
+    sourceRouteOptions.config && typeof sourceRouteOptions.config === "object" ? sourceRouteOptions.config : {};
+  const sourceRoute = route && typeof route === "object" ? route : {};
+
+  const nextConfig = {
+    ...sourceConfig
+  };
+
+  if (Object.prototype.hasOwnProperty.call(sourceRoute, "auth")) {
+    nextConfig.authPolicy = sourceRoute.auth;
+  }
+  if (Object.prototype.hasOwnProperty.call(sourceRoute, "workspacePolicy")) {
+    nextConfig.workspacePolicy = sourceRoute.workspacePolicy;
+  }
+  if (Object.prototype.hasOwnProperty.call(sourceRoute, "workspaceSurface")) {
+    nextConfig.workspaceSurface = sourceRoute.workspaceSurface;
+  }
+  if (Object.prototype.hasOwnProperty.call(sourceRoute, "permission")) {
+    nextConfig.permission = sourceRoute.permission;
+  }
+  if (Object.prototype.hasOwnProperty.call(sourceRoute, "ownerParam")) {
+    nextConfig.ownerParam = sourceRoute.ownerParam;
+  }
+  if (Object.prototype.hasOwnProperty.call(sourceRoute, "userField")) {
+    nextConfig.userField = sourceRoute.userField;
+  }
+  if (Object.prototype.hasOwnProperty.call(sourceRoute, "ownerResolver")) {
+    nextConfig.ownerResolver = sourceRoute.ownerResolver;
+  }
+  if (Object.prototype.hasOwnProperty.call(sourceRoute, "csrfProtection")) {
+    nextConfig.csrfProtection = sourceRoute.csrfProtection;
+  }
+
+  return nextConfig;
+}
+
+function defaultApplyRoutePolicy(routeOptions, route) {
+  return {
+    ...routeOptions,
+    config: normalizeRoutePolicyConfig(routeOptions, route)
+  };
 }
 
 function registerApiRouteDefinitions(
@@ -44,6 +85,7 @@ function registerApiRouteDefinitions(
 const __testables = {
   buildBaseRouteOptions,
   defaultApplyRoutePolicy,
+  normalizeRoutePolicyConfig,
   defaultMissingHandler
 };
 

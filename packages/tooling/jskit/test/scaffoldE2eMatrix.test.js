@@ -429,6 +429,50 @@ async function runScenarioWebShellInjection({ browser, rootDir }) {
   }
 }
 
+async function runScenarioWebShellAuthLogin({ browser, rootDir }) {
+  const appRoot = await createAppAt({ rootDir, appName: "matrix-web-shell-auth-login" });
+
+  for (const bundleId of ["web-shell", "auth-supabase", "auth-base"]) {
+    const args = ["add", "bundle", bundleId, "--no-install"];
+    if (bundleId === "auth-supabase") {
+      args.push(...SUPABASE_OPTION_ARGS);
+    }
+    const addResult = runJskit({
+      appRoot,
+      args
+    });
+    assert.equal(addResult.status, 0, addResult.stderr || addResult.stdout);
+  }
+
+  const installResult = runNpm({ cwd: appRoot, args: ["install"] });
+  assert.equal(installResult.status, 0, installResult.stderr || installResult.stdout);
+  await linkLocalJskitMonorepo(appRoot);
+
+  const doctorResult = runJskit({ appRoot, args: ["doctor"] });
+  assert.equal(doctorResult.status, 0, doctorResult.stderr || doctorResult.stdout);
+
+  const port = await reservePort();
+  const server = startDevServer({ cwd: appRoot, port });
+  const baseUrl = `http://${DEV_HOST}:${port}`;
+
+  try {
+    await waitForHttpReady({ url: `${baseUrl}/`, server });
+    const page = await browser.newPage();
+    try {
+      await page.goto(`${baseUrl}/app`, { waitUntil: "networkidle" });
+      await assertTextVisible(page, "Welcome back");
+
+      await page.goto(`${baseUrl}/auth/signout?returnTo=%2Fapp`, { waitUntil: "networkidle" });
+      await page.waitForURL(/\/login(?:\?|$)/, { timeout: 20_000 });
+      await assertTextVisible(page, "Welcome back");
+    } finally {
+      await page.close();
+    }
+  } finally {
+    await stopDevServer(server);
+  }
+}
+
 async function runScenarioWebShellDbChat({ browser, rootDir }) {
   const appRoot = await createAppAt({ rootDir, appName: "matrix-web-shell-chat" });
 
@@ -514,6 +558,7 @@ test(
         await runScenarioBaseShell({ browser, rootDir });
         await runScenarioWebShell({ browser, rootDir });
         await runScenarioWebShellInjection({ browser, rootDir });
+        await runScenarioWebShellAuthLogin({ browser, rootDir });
         await runScenarioWebShellDbChat({ browser, rootDir });
       });
     } finally {

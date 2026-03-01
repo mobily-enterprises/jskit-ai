@@ -181,6 +181,20 @@ export default Object.freeze({
         id: "router"
       },
       {
+        from: "templates/src/runtime/optionalAuth.js",
+        to: "src/runtime/optionalAuth.js",
+        reason: "Enable optional auth guard + public auth route integration when auth views are installed.",
+        category: "web-shell",
+        id: "optional-auth-runtime"
+      },
+      {
+        from: "templates/src/runtime/publicAuthPaths.js",
+        to: "src/runtime/publicAuthPaths.js",
+        reason: "Provide shared public auth path helpers for shell layout routing behavior.",
+        category: "web-shell",
+        id: "public-auth-paths"
+      },
+      {
         from: "templates/src/runtime/guardRuntime.js",
         to: "src/runtime/guardRuntime.js",
         reason: "Provide guard policy runtime for shell route composition.",

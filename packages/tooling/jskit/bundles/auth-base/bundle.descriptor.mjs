@@ -5,6 +5,7 @@ export default Object.freeze({
   "description": "Core authentication and policy packages.",
   "packages": [
     "@jskit-ai/access-core",
+    "@jskit-ai/auth-web-login",
     "@jskit-ai/rbac-core",
     "@jskit-ai/fastify-auth-policy",
     "@jskit-ai/auth-fastify-routes"

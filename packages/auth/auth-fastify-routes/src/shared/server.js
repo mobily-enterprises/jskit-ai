@@ -8,15 +8,11 @@ function createServerContributions() {
       {
         id: "auth",
         create({ services = {}, runtimeServices = {}, dependencies = {} } = {}) {
-          try {
           return createController({
             ...dependencies,
             ...services,
             ...runtimeServices
           });
-        } catch {
-          return {};
-        }
         }
       }
     ],

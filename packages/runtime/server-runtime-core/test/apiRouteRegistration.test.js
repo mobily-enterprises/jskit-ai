@@ -33,3 +33,45 @@ test("registerApiRouteDefinitions registers route handlers and request URL resol
   assert.deepEqual(seen, ["/api/ping"]);
   await app.close();
 });
+
+test("registerApiRouteDefinitions maps route policy metadata into route config by default", async () => {
+  const app = Fastify();
+
+  registerApiRouteDefinitions(app, {
+    routes: [
+      {
+        method: "POST",
+        path: "/api/protected",
+        auth: "required",
+        workspacePolicy: "required",
+        workspaceSurface: "app",
+        permission: "workspace.read",
+        csrfProtection: false,
+        handler: async (request, reply) => {
+          reply.code(200).send({
+            authPolicy: request.routeOptions?.config?.authPolicy,
+            workspacePolicy: request.routeOptions?.config?.workspacePolicy,
+            workspaceSurface: request.routeOptions?.config?.workspaceSurface,
+            permission: request.routeOptions?.config?.permission,
+            csrfProtection: request.routeOptions?.config?.csrfProtection
+          });
+        }
+      }
+    ]
+  });
+
+  const response = await app.inject({
+    method: "POST",
+    url: "/api/protected"
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json(), {
+    authPolicy: "required",
+    workspacePolicy: "required",
+    workspaceSurface: "app",
+    permission: "workspace.read",
+    csrfProtection: false
+  });
+  await app.close();
+});
