@@ -12,6 +12,7 @@ import {
   mapPendingInviteSummary
 } from "../mappers/workspaceMappers.js";
 import { resolveRequestSurfaceId, resolveRequestedWorkspaceSlug } from "../lookups/workspaceRequestContext.js";
+import { denyWorkspaceAccess } from "../surfaces/workspaceAccess.js";
 import {
   normalizeMembershipForAccess,
   mapMembershipSummary,
@@ -122,14 +123,6 @@ function canAccessAdminWorkspace(context = {}) {
     allowed: true,
     reason: "allowed",
     permissions
-  };
-}
-
-function denyWorkspaceAccess() {
-  return {
-    allowed: false,
-    reason: "surface_not_supported",
-    permissions: []
   };
 }
 

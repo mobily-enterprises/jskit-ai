@@ -1,14 +1,7 @@
 import { canAccessWorkspace as canAccessAppWorkspace } from "./appSurface.js";
 import { canAccessWorkspace as canAccessAdminWorkspace } from "./adminSurface.js";
 import { DEFAULT_SURFACE_ID, SURFACE_REGISTRY, normalizeSurfaceId } from "../../shared/surfaceRegistry.js";
-
-function denyWorkspaceAccess() {
-  return {
-    allowed: false,
-    reason: "surface_not_supported",
-    permissions: []
-  };
-}
+import { denyWorkspaceAccess } from "@jskit-ai/workspace-service-core/surfaces/workspaceAccess";
 
 const SURFACE_ACCESS_RULES = {
   app: canAccessAppWorkspace,
