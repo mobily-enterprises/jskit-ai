@@ -3,17 +3,9 @@ import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "@jskit-ai/realtime
 import { createReplayPolicy } from "./policies/replay.js";
 import { createReconnectPolicy } from "./policies/reconnect.js";
 import { assertRealtimeTransport, createSocketIoTransport } from "./transportContract.js";
+import { normalizePositiveInteger } from "./numbers.js";
 
 const DEFAULT_MAINTENANCE_INTERVAL_MS = 1_000;
-
-function normalizePositiveInteger(value, fallback) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric < 1) {
-    return fallback;
-  }
-
-  return Math.floor(numeric);
-}
 
 function normalizeSurface(surfaceValue = "") {
   return String(surfaceValue || "")

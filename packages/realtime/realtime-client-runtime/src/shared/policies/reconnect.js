@@ -1,17 +1,10 @@
+import { normalizePositiveInteger } from "../numbers.js";
+
 const DEFAULT_RECONNECT_POLICY = Object.freeze({
   baseDelayMs: 500,
   maxDelayMs: 10_000,
   jitterRatio: 0.2
 });
-
-function normalizePositiveInteger(value, fallback) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric < 1) {
-    return fallback;
-  }
-
-  return Math.floor(numeric);
-}
 
 function normalizeJitterRatio(value, fallback) {
   const numeric = Number(value);
