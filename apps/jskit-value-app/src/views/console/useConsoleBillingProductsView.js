@@ -5,6 +5,7 @@ import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { api } from "../../platform/http/api/index.js";
 import { toFieldErrors } from "./fieldErrors.js";
 import { shortenProviderPriceId } from "./providerPriceId.js";
+import { formatMoneyMinor, formatInterval } from "./billingFormatters.js";
 
 const CONSOLE_BILLING_PRODUCTS_QUERY_KEY = ["console-billing-products"];
 const CONSOLE_BILLING_PROVIDER_PRICES_QUERY_KEY = ["console-billing-provider-prices", "product"];
@@ -26,34 +27,6 @@ function parseEntitlementsJson(value) {
     throw new Error("Entitlements JSON must be an array.");
   }
   return parsed;
-}
-
-function formatMoneyMinor(amountMinor, currency) {
-  const numericAmount = Number(amountMinor || 0);
-  const normalizedCurrency =
-    String(currency || "")
-      .trim()
-      .toUpperCase() || "USD";
-  const major = numericAmount / 100;
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: normalizedCurrency
-    }).format(major);
-  } catch {
-    return `${major.toFixed(2)} ${normalizedCurrency}`;
-  }
-}
-
-function formatInterval(interval, intervalCount) {
-  const normalizedInterval = String(interval || "")
-    .trim()
-    .toLowerCase();
-  const count = Math.max(1, Number(intervalCount) || 1);
-  if (!normalizedInterval) {
-    return "one-time";
-  }
-  return count === 1 ? normalizedInterval : `${count} ${normalizedInterval}s`;
 }
 
 function normalizeOptionalString(value) {
@@ -183,7 +156,7 @@ function buildProductPricePayload({ form, selectedPrice }) {
 function formatProviderPriceOption(price) {
   const id = String(price?.id || "").trim();
   const moneyLabel = formatMoneyMinor(price?.unitAmountMinor, price?.currency);
-  const intervalLabel = formatInterval(price?.interval, price?.intervalCount);
+  const intervalLabel = formatInterval(price?.interval, price?.intervalCount, { emptyLabel: "one-time" });
   const productName = String(price?.productName || "").trim();
   return `${shortenProviderPriceId(id)} | ${moneyLabel}/${intervalLabel}${productName ? ` | ${productName}` : ""}`;
 }
@@ -206,7 +179,7 @@ function formatPriceSummary(price) {
   }
 
   const money = formatMoneyMinor(price.unitAmountMinor, price.currency);
-  const interval = formatInterval(price.interval, price.intervalCount);
+  const interval = formatInterval(price.interval, price.intervalCount, { emptyLabel: "one-time" });
   const providerPriceId = shortenProviderPriceId(price.providerPriceId);
   if (!providerPriceId) {
     return `${money}/${interval}`;

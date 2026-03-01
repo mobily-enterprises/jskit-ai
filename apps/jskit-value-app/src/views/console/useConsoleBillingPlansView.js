@@ -7,6 +7,7 @@ import { api } from "../../platform/http/api/index.js";
 import { resolveBillingPlanProviderProfile } from "./billingPlans/providers/index.js";
 import { toFieldErrors } from "./fieldErrors.js";
 import { shortenProviderPriceId } from "./providerPriceId.js";
+import { formatMoneyMinor, formatInterval } from "./billingFormatters.js";
 
 const CONSOLE_BILLING_PLANS_QUERY_KEY = ["console-billing-plans"];
 const CONSOLE_BILLING_PROVIDER_PRICES_QUERY_KEY = ["console-billing-provider-prices", "plan"];
@@ -361,32 +362,6 @@ function createEntitlementsEditorModel(entries = []) {
 function collectEntitlementsFromEditorModel(value) {
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   return normalizeEntitlementsEntries(source.entitlements);
-}
-
-function formatMoneyMinor(amountMinor, currency) {
-  const numericAmount = Number(amountMinor || 0);
-  const normalizedCurrency =
-    String(currency || "")
-      .trim()
-      .toUpperCase() || "USD";
-  const major = numericAmount / 100;
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: normalizedCurrency
-    }).format(major);
-  } catch {
-    return `${major.toFixed(2)} ${normalizedCurrency}`;
-  }
-}
-
-function formatInterval(interval, intervalCount) {
-  const normalizedInterval =
-    String(interval || "")
-      .trim()
-      .toLowerCase() || "month";
-  const count = Math.max(1, Number(intervalCount) || 1);
-  return count === 1 ? normalizedInterval : `${count} ${normalizedInterval}s`;
 }
 
 function resolveCorePlanPrice(plan) {
