@@ -1,18 +1,14 @@
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 import AssistantTranscriptExplorerClientElement from "../src/shared/AssistantTranscriptExplorerClientElement.vue";
+import { readSource } from "../../../../tests/helpers/readSource.js";
 
 const componentSourcePath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../src/shared/AssistantTranscriptExplorerClientElement.vue"
 );
-
-function readSource() {
-  return readFileSync(componentSourcePath, "utf8");
-}
 
 function mountElement(options) {
   return mount(AssistantTranscriptExplorerClientElement, {
@@ -71,7 +67,7 @@ function createBaseProps(overrides = {}) {
 
 describe("AssistantTranscriptExplorerClientElement", () => {
   it("declares mode-specific filter contract in source", () => {
-    const source = readSource();
+    const source = readSource(componentSourcePath);
 
     expect(source.includes("mode")).toBe(true);
     expect(source.includes("state.workspaceIdFilter")).toBe(true);
@@ -81,7 +77,7 @@ describe("AssistantTranscriptExplorerClientElement", () => {
   });
 
   it("declares emits and slots contract", () => {
-    const source = readSource();
+    const source = readSource(componentSourcePath);
 
     expect(source.includes('"filters:apply"')).toBe(true);
     expect(source.includes('"transcript:select"')).toBe(true);

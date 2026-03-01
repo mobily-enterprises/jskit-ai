@@ -1,14 +1,10 @@
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { readSource } from "../../../../tests/helpers/readSource.js";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const viewPath = path.join(rootDir, "src/views/console/ConsoleAiTranscriptsView.vue");
-
-function readSource(filePath) {
-  return readFileSync(filePath, "utf8");
-}
 
 describe("ConsoleAiTranscriptsView", () => {
   it("imports and renders transcript explorer package element directly in console mode", () => {
