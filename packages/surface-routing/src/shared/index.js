@@ -1,5 +1,6 @@
 export { createSurfaceRegistry, normalizeSurfaceId } from "./registry.js";
 export { createSurfacePathHelpers } from "./paths.js";
+export { escapeRegExp } from "./escapeRegExp.js";
 export {
   API_BASE_PATH,
   API_MAJOR_VERSION,
