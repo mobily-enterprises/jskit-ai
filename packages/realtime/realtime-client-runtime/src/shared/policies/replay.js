@@ -1,16 +1,9 @@
+import { normalizePositiveInteger } from "../numbers.js";
+
 const DEFAULT_REPLAY_POLICY = Object.freeze({
   maxEventsPerCommand: 25,
   maxEventsPerTick: 75
 });
-
-function normalizePositiveInteger(value, fallback) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric < 1) {
-    return fallback;
-  }
-
-  return Math.floor(numeric);
-}
 
 function createReplayPolicy(options = {}) {
   return Object.freeze({

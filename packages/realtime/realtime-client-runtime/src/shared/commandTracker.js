@@ -1,3 +1,5 @@
+import { normalizePositiveInteger } from "./numbers.js";
+
 const DEFAULT_COMMAND_TRACKER_OPTIONS = Object.freeze({
   commandTtlMs: 30_000,
   finalizedTtlMs: 60_000,
@@ -9,15 +11,6 @@ const DEFAULT_COMMAND_TRACKER_OPTIONS = Object.freeze({
   maxDeferredEventsPerCommand: 25,
   maxDeferredEventsTotal: 2000
 });
-
-function normalizePositiveInteger(value, fallback) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric < 1) {
-    return fallback;
-  }
-
-  return Math.floor(numeric);
-}
 
 function normalizeId(value) {
   return String(value || "").trim();
