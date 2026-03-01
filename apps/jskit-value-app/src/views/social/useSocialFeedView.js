@@ -6,6 +6,7 @@ import { api } from "../../platform/http/api/index.js";
 import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 import { useSocialView } from "../../modules/social/runtime.js";
 import { resolveRouteMountPathByKey } from "../../framework/composeRouteMounts.js";
+import { formatDateTime as formatDateTimeWithFallback } from "../lib/dateFormatters.js";
 
 const SOCIAL_VISIBILITY_OPTIONS = Object.freeze([
   { title: "Public", value: "public" },
@@ -28,12 +29,7 @@ function toPositiveInteger(value) {
 }
 
 function formatDateTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return date.toLocaleString();
+  return formatDateTimeWithFallback(value, { invalidLabel: "" });
 }
 
 function resolveActorName(actor = {}) {

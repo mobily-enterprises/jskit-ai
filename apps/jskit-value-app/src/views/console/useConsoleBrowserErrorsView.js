@@ -7,6 +7,7 @@ import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { useStandardListPagination } from "../../modules/pagination/useStandardListPagination.js";
 import { api } from "../../platform/http/api/index.js";
 import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";
+import { formatDateTime } from "../lib/dateFormatters.js";
 
 const CONSOLE_BROWSER_ERRORS_QUERY_KEY_PREFIX = ["console-browser-errors"];
 const BROWSER_ERRORS_PAGE_SIZE_OPTIONS = [20, 50, 100];
@@ -16,14 +17,6 @@ const CLIENT_SIMULATION_SEQUENCE = [
   { kind: "type_error", label: "TypeError" }
 ];
 
-function formatDateTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "unknown";
-  }
-
-  return date.toLocaleString();
-}
 
 function formatLocation(entry) {
   const path = String(entry?.path || "").trim();

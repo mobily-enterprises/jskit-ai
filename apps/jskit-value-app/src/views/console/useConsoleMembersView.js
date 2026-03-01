@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { api } from "../../platform/http/api/index.js";
 import { useConsoleStore } from "../../app/state/consoleStore.js";
+import { formatDateTime } from "../lib/dateFormatters.js";
 
 const CONSOLE_MEMBERS_QUERY_KEY = ["console-members"];
 const CONSOLE_INVITES_QUERY_KEY = ["console-invites"];
@@ -16,14 +17,6 @@ function normalizeRoleCatalog(roleCatalog) {
   };
 }
 
-function formatDateTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "unknown";
-  }
-
-  return date.toLocaleString();
-}
 
 export function useConsoleMembersView() {
   const queryClient = useQueryClient();

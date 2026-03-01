@@ -1,6 +1,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useAlertsStore } from "../../app/state/alertsStore.js";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
+import { formatDateTime } from "../lib/dateFormatters.js";
 
 const PAGE_SIZE_OPTIONS = Object.freeze([20, 50, 100]);
 
@@ -22,14 +23,6 @@ function normalizePageSize(value) {
   return parsed;
 }
 
-function formatDateTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "unknown";
-  }
-
-  return date.toLocaleString();
-}
 
 function toErrorMessage(error, fallback) {
   return String(error?.message || fallback);

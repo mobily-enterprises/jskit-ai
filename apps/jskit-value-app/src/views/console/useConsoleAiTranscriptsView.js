@@ -1,15 +1,8 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { api } from "../../platform/http/api/index.js";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
+import { formatDateTime } from "../lib/dateFormatters.js";
 
-function formatDateTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "unknown";
-  }
-
-  return date.toLocaleString();
-}
 
 function summarizeContent(value) {
   const text = String(value || "");

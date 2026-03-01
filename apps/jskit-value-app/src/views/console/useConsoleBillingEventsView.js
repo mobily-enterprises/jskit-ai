@@ -4,18 +4,11 @@ import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { useStandardListPagination } from "../../modules/pagination/useStandardListPagination.js";
 import { api } from "../../platform/http/api/index.js";
+import { formatDateTime } from "../lib/dateFormatters.js";
 
 const CONSOLE_BILLING_EVENTS_QUERY_KEY_PREFIX = ["console-billing-events"];
 const CONSOLE_BILLING_EVENTS_PAGE_SIZE_OPTIONS = [25, 50, 100];
 
-function formatDateTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "unknown";
-  }
-
-  return date.toLocaleString();
-}
 
 function stringifyDetails(value) {
   if (value == null) {
