@@ -10,6 +10,7 @@
     ".": "./src/shared/index.js",
     "./integers": "./src/shared/integers.js",
     "./text": "./src/shared/text.js",
+    "./objects": "./src/shared/objects.js",
     "./clientRuntimeDefaults": "./src/shared/clientRuntimeDefaults.js",
     "./platformRuntimeEnv": "./src/shared/platformRuntimeEnv.js",
     "./platformRuntimeEnvSpecs": "./src/shared/platformRuntimeEnvSpecs.js",

@@ -1,6 +1,7 @@
 import { computed, ref } from "vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { toPositiveInteger } from "@jskit-ai/runtime-env-core/integers";
+import { normalizeObject } from "@jskit-ai/runtime-env-core/objects";
 import { normalizeText } from "@jskit-ai/runtime-env-core/text";
 import { createDefaultUseWorkspaceStore } from "@jskit-ai/runtime-env-core/clientRuntimeDefaults";
 import {
@@ -54,14 +55,6 @@ function normalizeConversationStatus(value) {
   }
 
   return status;
-}
-
-function normalizeObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
 }
 
 function parseToolResultPayload(value) {
