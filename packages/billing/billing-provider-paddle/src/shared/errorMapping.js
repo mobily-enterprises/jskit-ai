@@ -3,21 +3,14 @@ import { BILLING_PROVIDER_PADDLE } from "@jskit-ai/billing-provider-core";
 import {
   PROVIDER_ERROR_CATEGORIES,
   createBillingProviderError,
-  isBillingProviderError
+  isBillingProviderError,
+  toProviderStatusCode
 } from "@jskit-ai/billing-provider-core";
 
 function toNormalizedString(value) {
   return String(value || "")
     .trim()
     .toLowerCase();
-}
-
-function toStatusCode(error, fallback = null) {
-  const parsed = Number(error?.statusCode || error?.status || fallback || 0);
-  if (!Number.isInteger(parsed) || parsed < 100) {
-    return null;
-  }
-  return parsed;
 }
 
 function resolveCategory({ statusCode, code, message }) {
@@ -72,7 +65,7 @@ function mapPaddleProviderError(
 
   const message = String(error?.message || "Paddle API request failed.");
   const providerCode = String(error?.code || "").trim() || null;
-  const statusCode = toStatusCode(error, fallbackStatusCode);
+  const statusCode = toProviderStatusCode(error, fallbackStatusCode);
 
   return createBillingProviderError({
     provider: BILLING_PROVIDER_PADDLE,

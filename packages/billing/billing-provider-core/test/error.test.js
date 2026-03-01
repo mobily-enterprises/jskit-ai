@@ -5,7 +5,8 @@ import {
   PROVIDER_ERROR_CATEGORIES,
   createBillingProviderError,
   isBillingProviderError,
-  normalizeProviderErrorCategory
+  normalizeProviderErrorCategory,
+  toProviderStatusCode
 } from "../src/shared/index.js";
 
 test("provider error category normalization falls back to unknown", () => {
@@ -46,4 +47,13 @@ test("createBillingProviderError respects explicit retryable override", () => {
 
 test("isBillingProviderError returns false for plain errors", () => {
   assert.equal(isBillingProviderError(new Error("nope")), false);
+});
+
+test("toProviderStatusCode parses valid HTTP status and rejects invalid values", () => {
+  assert.equal(toProviderStatusCode({ statusCode: "429" }), 429);
+  assert.equal(toProviderStatusCode({ status: 503 }), 503);
+  assert.equal(toProviderStatusCode({}, 402), 402);
+  assert.equal(toProviderStatusCode({ statusCode: "foo" }, 200), 200);
+  assert.equal(toProviderStatusCode({ statusCode: 99 }), null);
+  assert.equal(toProviderStatusCode({}), null);
 });
