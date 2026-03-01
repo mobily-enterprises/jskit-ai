@@ -4,6 +4,7 @@ export default Object.freeze({
   "version": "0.1.0",
   "dependsOn": [
     "@jskit-ai/server-runtime-core",
+    "@jskit-ai/runtime-env-core",
     "@jskit-ai/assistant-core",
     "@jskit-ai/workspace-console-core",
     "@jskit-ai/jskit-knex"
@@ -15,6 +16,7 @@ export default Object.freeze({
     ],
     "requires": [
       "runtime.server",
+      "runtime.env",
       "assistant.core",
       "workspace.console.core",
       "db.core"
@@ -24,6 +26,7 @@ export default Object.freeze({
     "dependencies": {
       "runtime": {
         "@jskit-ai/server-runtime-core": "0.1.0",
+        "@jskit-ai/runtime-env-core": "0.1.0",
         "@jskit-ai/workspace-console-core": "0.1.0",
         "@jskit-ai/jskit-knex": "0.1.0"
       },

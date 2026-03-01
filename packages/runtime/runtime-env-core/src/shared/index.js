@@ -3,6 +3,7 @@ export { createPlatformRuntimeEnv, loadDotenvFiles, resolveDotenvPaths } from ".
 export { resolveAppConfig, toBrowserConfig, normalizeWorkspaceProvisioningMode } from "./appRuntimePolicy.js";
 export { toPositiveInteger, normalizeNullablePositiveInteger } from "./integers.js";
 export { normalizeText } from "./text.js";
+export { normalizeObject } from "./objects.js";
 export { defaultUseAuthGuard, createDefaultUseWorkspaceStore, createDefaultUseQueryErrorMessage } from "./clientRuntimeDefaults.js";
 export {
   hasNonEmptyEnvValue,

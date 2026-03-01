@@ -3,6 +3,8 @@ import { defaultHasPermission } from "@jskit-ai/assistant-core";
 import { AppError as SharedAppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { normalizePagination as normalizePaginationBase } from "@jskit-ai/server-runtime-core/pagination";
+import { normalizeObject } from "@jskit-ai/runtime-env-core/objects";
+import { normalizeText } from "@jskit-ai/runtime-env-core/text";
 import { redactSecrets } from "./redactSecrets.js";
 import {
   TRANSCRIPT_MODE_DISABLED,
@@ -33,18 +35,6 @@ function defaultResolveRolePermissions() {
 
 let resolveRolePermissions = defaultResolveRolePermissions;
 let hasPermission = defaultHasPermission;
-
-function normalizeObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value;
-}
-
-function normalizeText(value) {
-  return String(value || "").trim();
-}
 
 function normalizeTranscriptSurfaceId(value, { required = false } = {}) {
   const normalized = normalizeText(value).toLowerCase();
