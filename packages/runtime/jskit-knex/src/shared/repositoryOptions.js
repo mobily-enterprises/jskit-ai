@@ -69,6 +69,32 @@ function stringifyJsonObject(value, fallback = "{}") {
   }
 }
 
+function parseMetadataJson(value, fallback = {}) {
+  const source = String(value || "").trim();
+  if (!source) {
+    return fallback;
+  }
+
+  try {
+    const parsed = JSON.parse(source);
+    return parsed && typeof parsed === "object" ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function stringifyMetadataJson(metadata, fallback = "{}") {
+  if (!metadata || typeof metadata !== "object") {
+    return fallback;
+  }
+
+  try {
+    return JSON.stringify(metadata);
+  } catch {
+    return fallback;
+  }
+}
+
 function normalizeMetadataJsonInput(value, fallback = null) {
   if (value == null) {
     return fallback;
@@ -163,6 +189,8 @@ export {
   mapRowNullable,
   parseJsonObject,
   stringifyJsonObject,
+  parseMetadataJson,
+  stringifyMetadataJson,
   normalizeMetadataJsonInput,
   normalizeNullableString,
   normalizeIdList,

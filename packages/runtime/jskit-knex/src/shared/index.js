@@ -11,6 +11,8 @@ export {
   mapRowNullable,
   parseJsonObject,
   stringifyJsonObject,
+  parseMetadataJson,
+  stringifyMetadataJson,
   normalizeMetadataJsonInput,
   normalizeNullableString,
   normalizeIdList,
