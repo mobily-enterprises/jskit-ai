@@ -13,3 +13,19 @@ Reason:
 
 Revisit signal:
 - Once client-side work is unblocked, I can centralize `shortenProviderPriceId` in a shared billing UI helper.
+
+---
+DONE SUMMARY
+- Extracted `shortenProviderPriceId` into `apps/jskit-value-app/src/views/console/providerPriceId.js`.
+- Updated plans/products billing console views to import the shared formatter.
+- Removed duplicated formatter implementations from both views.
+
+TESTS RUN
+- `npm -ws --if-present test` (fails in environment: missing workspace executables/dependencies and module resolution errors)
+- `npm run test:framework` (fails in environment: migration tracker mismatch + missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails in environment: pre-existing vuetify architecture guardrail violations)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+FINAL COMMIT HASH
+- `0376692f72ed6afaf045de17d98d7f421b5f47ff`

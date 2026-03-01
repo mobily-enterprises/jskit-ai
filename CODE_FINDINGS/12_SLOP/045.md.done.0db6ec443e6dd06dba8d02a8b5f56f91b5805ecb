@@ -13,3 +13,19 @@ Reason:
 
 Revisit signal:
 - Once client-side work is unblocked, I can consolidate `toFieldErrors` into a shared UI utility for billing views.
+
+---
+DONE SUMMARY
+- Extracted duplicated billing console field-error parsing into `apps/jskit-value-app/src/views/console/fieldErrors.js`.
+- Updated plan and product billing views to consume shared `toFieldErrors` utility.
+- Removed duplicated local helper implementations from both files.
+
+TESTS RUN
+- `npm -ws --if-present test` (fails in environment: missing workspace executables/dependencies and module resolution errors)
+- `npm run test:framework` (fails in environment: migration tracker mismatch + missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails in environment: pre-existing vuetify architecture guardrail violations)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+FINAL COMMIT HASH
+- `0db6ec443e6dd06dba8d02a8b5f56f91b5805ecb`

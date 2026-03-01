@@ -13,3 +13,19 @@ Reason:
 
 Revisit signal:
 - Once client-side work is unblocked, I can extract provider profile helpers into a shared module.
+
+---
+DONE SUMMARY
+- Added shared provider profile helper module at `apps/jskit-value-app/src/views/console/billingPlans/providers/providerProfileHelpers.js`.
+- Switched default and Stripe provider profile implementations to import shared helpers.
+- Removed duplicated provider-profile formatting helper definitions.
+
+TESTS RUN
+- `npm -ws --if-present test` (fails in environment: missing workspace executables/dependencies and module resolution errors)
+- `npm run test:framework` (fails in environment: migration tracker mismatch + missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails in environment: pre-existing vuetify architecture guardrail violations)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+FINAL COMMIT HASH
+- `327d42ab5a6c3d280f4be2e529dbf9fa3920ed7e`

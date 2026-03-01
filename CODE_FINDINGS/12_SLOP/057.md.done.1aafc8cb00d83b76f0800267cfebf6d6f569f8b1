@@ -9,3 +9,19 @@
 ## Resolution
 - Justification: This is app-side UI view logic and templates are under active rewrite; per instruction, defer client-side consolidation work.
 - Revisit signal: Once UI templates stabilize and client-side changes are unblocked, factor a shared date formatter helper and update the views.
+
+---
+DONE SUMMARY
+- Added shared date formatter utility at `apps/jskit-value-app/src/views/lib/dateFormatters.js`.
+- Replaced repeated `formatDateTime` helpers in alerts/console/workspace view modules with shared import.
+- Preserved social feed invalid-date behavior via shared helper option (`invalidLabel: ""`).
+
+TESTS RUN
+- `npm -ws --if-present test` (fails in environment: missing workspace executables/dependencies and module resolution errors)
+- `npm run test:framework` (fails in environment: migration tracker mismatch + missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails in environment: pre-existing vuetify architecture guardrail violations)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+FINAL COMMIT HASH
+- `1aafc8cb00d83b76f0800267cfebf6d6f569f8b1`

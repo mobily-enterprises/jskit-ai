@@ -9,3 +9,19 @@
 ## Resolution
 - Justification: This is client-side view/client-element test code, and client templates/tests are being actively rewritten; per instruction, defer client-side work.
 - Revisit signal: Once client test scaffolding stabilizes, consolidate `readSource` into a shared test helper and update the tests.
+
+---
+DONE SUMMARY
+- Added shared test helper `tests/helpers/readSource.js`.
+- Updated listed view and client-element tests to import shared helper and removed duplicate local `readSource` functions.
+- Updated component-source tests that previously used zero-arg helper to pass explicit file path.
+
+TESTS RUN
+- `npm -ws --if-present test` (fails in environment: missing workspace executables/dependencies and module resolution errors)
+- `npm run test:framework` (fails in environment: migration tracker mismatch + missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails in environment: pre-existing vuetify architecture guardrail violations)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+FINAL COMMIT HASH
+- `ce987ca9c17f557deee8104b5e4a0b73d38f98f5`

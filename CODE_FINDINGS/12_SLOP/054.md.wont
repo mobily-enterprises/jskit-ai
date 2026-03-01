@@ -9,3 +9,7 @@
 ## Resolution
 - Justification: Template files are actively being rewritten, and this finding targets create-app template content. Per instruction, avoid template/client-side work to prevent conflicts.
 - Revisit signal: After the template rewrite lands and stabilizes, evaluate consolidating base-shell files to reference the base app or a shared config package.
+
+Additional WONT note:
+- Skipped per direct instruction: "DO NOT FIX THIS".
+- Revisit signal: if you want this resumed, I will pick it up from this file state.

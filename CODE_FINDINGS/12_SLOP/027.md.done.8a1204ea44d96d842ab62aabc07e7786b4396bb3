@@ -10,3 +10,15 @@
 WONT:
 - Skipping because this is client-side routing/guard code and you asked to avoid client-focused work until you say otherwise.
 - Signal to revisit: when client-side refactors are unblocked or you want guard logic consolidated.
+
+---
+DONE:
+- Summary: Consolidated duplicated console router guard checks into shared helper functions and composed them across guarded routes.
+- Tests:
+  - node --check apps/jskit-value-app/src/app/router/guards.console.js (pass)
+  - npm -ws --if-present test (fails: missing workspace deps/tools + pre-existing failures)
+  - npm run test:framework (fails: pre-existing migration tracker mismatch + missing `@jskit-ai/cli-entrypoint`)
+  - npm run test:architecture:client (fails: pre-existing vuetify guardrail failures)
+  - npm run test:architecture:shared-ui (pass)
+  - npm run test:architecture:db (pass)
+- Final commit: 8a1204ea44d96d842ab62aabc07e7786b4396bb3

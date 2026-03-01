@@ -12,3 +12,18 @@ Justification:
 
 Signal to revisit later:
 - revisit once client-side composition code is stabilized and open for cross-cutting dedup refactors
+
+Summary:
+- moved `withModuleId` into shared `composeUtils.js`
+- removed duplicated `withModuleId` implementations from client/server compose paths
+- added focused coverage in `module-framework-core/test/composeUtils.test.js`
+
+Tests:
+- `npm -ws --if-present test` (fails: missing workspace deps/tools like `jskit-app-scripts`, `vitest`, `@jskit-ai/assistant-contracts`, `vue`, `@jskit-ai/server-runtime-core`)
+- `npm run test:framework` (fails: migration tracker count mismatch + missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails: `vuetify`/`@mdi/js` imports in web-shell runtime/template)
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`
+- `node --test packages/runtime/module-framework-core/test/composeUtils.test.js`
+
+Commit: 9b3543d7d9b6b2e4aa81e13f465f6392461c6f69

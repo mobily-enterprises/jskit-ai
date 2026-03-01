@@ -10,3 +10,16 @@
 WONT:
 - Skipping because this is entirely client-runtime scaffolding, and you asked to avoid client-side work until you say otherwise.
 - Signal to revisit: when client-side refactors are unblocked or you want to centralize client runtime defaults.
+
+---
+DONE:
+- Summary: Centralized shared client runtime default hooks into `@jskit-ai/runtime-env-core/clientRuntimeDefaults` and replaced duplicated defaults in chat, social, and assistant runtimes.
+- Tests:
+  - node --test packages/runtime/runtime-env-core/test/integers.test.js packages/runtime/runtime-env-core/test/clientRuntimeDefaults.test.js packages/runtime/runtime-env-core/test/appRuntimePolicy.test.js (pass)
+  - node --test packages/chat/chat-client-runtime/test/useChatRuntime.test.js (fails: missing `vue` in local env)
+  - npm -ws --if-present test (fails: missing workspace deps/tools + pre-existing failures)
+  - npm run test:framework (fails: pre-existing migration tracker mismatch + missing `@jskit-ai/cli-entrypoint`)
+  - npm run test:architecture:client (fails: pre-existing vuetify guardrail failures)
+  - npm run test:architecture:shared-ui (pass)
+  - npm run test:architecture:db (pass)
+- Final commit: a42b5723040a16f877a6c2f5a331381355b866b6

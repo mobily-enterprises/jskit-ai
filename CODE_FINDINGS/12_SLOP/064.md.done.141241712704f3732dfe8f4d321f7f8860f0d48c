@@ -9,3 +9,19 @@
 ## Resolution
 - Justification: This affects the realtime client runtime, which is client-side and currently out of scope per instruction.
 - Revisit signal: Once client-side changes are unblocked, centralize `normalizePositiveInteger` within the realtime client runtime and update call sites.
+
+---
+DONE SUMMARY
+- Added shared helper `packages/realtime/realtime-client-runtime/src/shared/numbers.js` with `normalizePositiveInteger`.
+- Switched runtime, command tracker, reconnect policy, and replay policy modules to import shared helper.
+- Removed duplicate inline integer normalization helper definitions.
+
+TESTS RUN
+- `npm -ws --if-present test` (fails in environment: missing workspace executables/dependencies and module resolution errors)
+- `npm run test:framework` (fails in environment: migration tracker mismatch + missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails in environment: pre-existing vuetify architecture guardrail violations)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+FINAL COMMIT HASH
+- `141241712704f3732dfe8f4d321f7f8860f0d48c`

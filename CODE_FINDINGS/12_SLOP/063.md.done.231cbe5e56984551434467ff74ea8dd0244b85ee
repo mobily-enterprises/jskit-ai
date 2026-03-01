@@ -9,3 +9,19 @@
 ## Resolution
 - Justification: This fix would require touching client-side view code (`apps/jskit-value-app/src/views/projects/routePaths.js`), which is currently out of scope per instruction.
 - Revisit signal: When client-side changes are unblocked, consolidate `escapeRegExp` into a shared helper and update all call sites including the view route paths.
+
+---
+DONE SUMMARY
+- Added shared `escapeRegExp` helper in `packages/surface-routing/src/shared/escapeRegExp.js` and exported it via package shared index.
+- Replaced duplicated helper definitions in jskit CLI source/test, web runtime filesystem composition, surface-routing paths, and app project route paths.
+- Added `@jskit-ai/surface-routing` dependency to `packages/tooling/jskit/package.json` for shared helper usage.
+
+TESTS RUN
+- `npm -ws --if-present test` (fails in environment: missing workspace executables/dependencies and module resolution errors)
+- `npm run test:framework` (fails in environment: migration tracker mismatch + missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails in environment: pre-existing vuetify architecture guardrail violations)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+FINAL COMMIT HASH
+- `231cbe5e56984551434467ff74ea8dd0244b85ee`

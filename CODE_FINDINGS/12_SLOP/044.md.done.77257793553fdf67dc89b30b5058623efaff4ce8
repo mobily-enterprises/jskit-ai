@@ -14,3 +14,19 @@ Reason:
 
 Revisit signal:
 - Once client-side work is unblocked, I can consolidate `normalizeOptionalString` semantics across billing server and UI into explicit helper variants.
+
+---
+DONE SUMMARY
+- Centralized optional-string normalization across the listed billing server files and the console billing plans client view by reusing shared `@jskit-ai/billing-core` normalizers (`toNonEmptyString`, `toNullableString`).
+- Removed duplicate local `normalizeOptionalString` implementations in affected files.
+- Kept pricing testables compatibility by mapping `normalizeOptionalString` to shared `toNullableString`.
+
+TESTS RUN
+- `npm -ws --if-present test` (fails in environment: missing workspace executables/dependencies and module resolution errors)
+- `npm run test:framework` (fails in environment: migration tracker mismatch + missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails in environment: pre-existing vuetify architecture guardrail violations)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+FINAL COMMIT HASH
+- `77257793553fdf67dc89b30b5058623efaff4ce8`

@@ -10,3 +10,15 @@
 WONT:
 - Skipping because one of the duplication sites is client-side (`apps/jskit-value-app/src/app/state/alertsStore.js`), and you asked to avoid client-focused work until you say otherwise.
 - Signal to revisit: when client-side refactors are unblocked or you want to centralize the helper across client and server.
+
+---
+DONE:
+- Summary: Removed duplicated `normalizeNullablePositiveInteger` implementations by reusing shared integer helpers in runtime-env-core/server-runtime-core and alerts store.
+- Tests:
+  - node --test packages/runtime/runtime-env-core/test/integers.test.js packages/runtime/server-runtime-core/test/integers.test.js (pass)
+  - npm -ws --if-present test (fails: missing workspace deps/tools + pre-existing failures)
+  - npm run test:framework (fails: pre-existing migration tracker mismatch + missing `@jskit-ai/cli-entrypoint`)
+  - npm run test:architecture:client (fails: pre-existing vuetify guardrail failures)
+  - npm run test:architecture:shared-ui (pass)
+  - npm run test:architecture:db (pass)
+- Final commit: e9495f5e999a31e7fff25937c06208bddfb3c68e

@@ -14,3 +14,16 @@ Reason:
 
 Revisit signal:
 - Once you lift the client-side skip or want assistant-client-runtime cleanups again, I can consolidate these helpers into a shared assistant module.
+
+---
+DONE:
+- Summary: Consolidated duplicated assistant normalization helpers by sharing `normalizeObject`/`normalizeText` via runtime-env-core across assistant client runtime and assistant transcripts core.
+- Tests:
+  - node --test packages/runtime/runtime-env-core/test/integers.test.js packages/runtime/runtime-env-core/test/clientRuntimeDefaults.test.js packages/runtime/runtime-env-core/test/text.test.js packages/runtime/runtime-env-core/test/objects.test.js packages/runtime/runtime-env-core/test/appRuntimePolicy.test.js (pass)
+  - node --test packages/ai-agent/assistant-transcripts-core/test/service.test.js (fails: local env missing package resolution for `@jskit-ai/assistant-core`)
+  - npm -ws --if-present test (fails: missing workspace deps/tools + pre-existing failures)
+  - npm run test:framework (fails: pre-existing migration tracker mismatch + missing `@jskit-ai/cli-entrypoint`)
+  - npm run test:architecture:client (fails: pre-existing vuetify guardrail failures)
+  - npm run test:architecture:shared-ui (pass)
+  - npm run test:architecture:db (pass)
+- Final commit: 4552029d8af3b707a262154cce7b7a4a0f53a8e3

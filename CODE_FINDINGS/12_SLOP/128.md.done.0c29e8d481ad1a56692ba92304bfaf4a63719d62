@@ -12,3 +12,18 @@ Justification:
 
 Signal to revisit later:
 - revisit once client-side rewrite stabilizes and module-framework client composition files are open for slop cleanup again
+
+Summary:
+- added shared `resolveComposedModules` utility in `module-framework-core/src/shared/composedModules.js`
+- removed duplicated resolution-loop implementations from `composeClient.js` and `composeServer.js`
+- updated both composition paths to consume one shared resolver implementation
+
+Tests:
+- `npm -ws --if-present test` (fails: missing workspace deps/tools like `jskit-app-scripts`, `vitest`, `@jskit-ai/assistant-contracts`, `vue`, `@jskit-ai/server-runtime-core`)
+- `npm run test:framework` (fails: migration tracker count mismatch + missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails: `vuetify`/`@mdi/js` imports in web-shell runtime/template)
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`
+- `node --test packages/runtime/module-framework-core/test/composeClient.test.js packages/runtime/module-framework-core/test/composeServer.test.js` (fails: missing `semver`)
+
+Commit: 0c29e8d481ad1a56692ba92304bfaf4a63719d62

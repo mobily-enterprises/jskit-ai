@@ -1,0 +1,29 @@
+# Finding 131
+- Severity: Low
+- Pattern type: AI slop; Duplicate Vite config helper
+- File + line(s): `packages/tooling/create-app/templates/base-shell/vite.config.mjs:4-10`, `apps/base-app/vite.config.mjs:4-10`
+- Why it can drift/fail: The same Vite config helper (`toPositiveInt`) is copied between the template and base app. Any change to numeric parsing must be updated in both files.
+- Concrete impact: Template and base app can diverge in Vite config behavior.
+- Exact remediation: Share Vite config via a template source of truth or import from a shared config module.
+
+Justification:
+- skipped per active instruction to avoid client-side/template work while frontend templates are being rewritten
+- this finding is explicitly about Vite client config drift between template and base app
+
+Signal to revisit later:
+- revisit after template rewrite lands and Vite config ownership/single-source strategy is settled
+
+Summary:
+- extracted shared `toPositiveInt` helper to `packages/tooling/create-app/templates/base-shell/vite.shared.mjs`
+- updated both template and base-app Vite configs to import the shared helper
+- removed duplicate local implementations so config parsing behavior now has one source of truth
+
+Tests:
+- `npm -ws --if-present test` (fails: missing workspace deps/tools like `jskit-app-scripts`, `vitest`, `@jskit-ai/server-runtime-core`, `@fastify/type-provider-typebox`, `openai`)
+- `npm run test:framework` (fails: migration tracker count mismatch + missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails: `vuetify`/`@mdi/js` imports in web-shell runtime/template)
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`
+- `node --input-type=module -e "import { toPositiveInt } from './packages/tooling/create-app/templates/base-shell/vite.shared.mjs'; if (toPositiveInt('5173', 0) !== 5173 || toPositiveInt('x', 42) !== 42) { throw new Error('toPositiveInt verification failed'); }"`
+
+Commit: 08fc551bdbeb9ae88b27f8fc40f4d5527df324ec

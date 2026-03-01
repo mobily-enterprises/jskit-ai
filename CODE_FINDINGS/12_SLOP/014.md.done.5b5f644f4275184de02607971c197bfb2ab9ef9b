@@ -10,3 +10,16 @@
 WONT:
 - Skipping for now because this helper is duplicated across client runtime/app state and you asked to avoid client-side work until you say otherwise.
 - Signal to revisit: once client-side work is unblocked or you want a shared runtime utility introduced for both client and server.
+
+---
+DONE:
+- Summary: Introduced a shared `toPositiveInteger` helper in `@jskit-ai/runtime-env-core/integers` and replaced duplicated implementations in runtime policy, chat client runtime, and alerts store.
+- Tests:
+  - node --test packages/runtime/runtime-env-core/test/integers.test.js packages/runtime/runtime-env-core/test/appRuntimePolicy.test.js (pass)
+  - node --test packages/chat/chat-client-runtime/test/useChatRuntime.test.js (fails: missing `vue` in local env)
+  - npm -ws --if-present test (fails: missing workspace deps/tools + pre-existing failures)
+  - npm run test:framework (fails: pre-existing migration tracker mismatch + missing `@jskit-ai/cli-entrypoint`)
+  - npm run test:architecture:client (fails: pre-existing vuetify guardrail failures)
+  - npm run test:architecture:shared-ui (pass)
+  - npm run test:architecture:db (pass)
+- Final commit: 5b5f644f4275184de02607971c197bfb2ab9ef9b

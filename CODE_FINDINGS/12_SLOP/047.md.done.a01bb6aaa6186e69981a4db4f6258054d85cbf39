@@ -13,3 +13,19 @@ Reason:
 
 Revisit signal:
 - Once client-side work is unblocked, I can extract shared billing UI formatters and reuse across views.
+
+---
+DONE SUMMARY
+- Extracted `formatMoneyMinor` and `formatInterval` into `apps/jskit-value-app/src/views/console/billingFormatters.js`.
+- Updated billing plans/products views to consume shared formatters.
+- Kept products-specific empty-interval behavior via explicit `emptyLabel: "one-time"` option.
+
+TESTS RUN
+- `npm -ws --if-present test` (fails in environment: missing workspace executables/dependencies and module resolution errors)
+- `npm run test:framework` (fails in environment: migration tracker mismatch + missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails in environment: pre-existing vuetify architecture guardrail violations)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+FINAL COMMIT HASH
+- `a01bb6aaa6186e69981a4db4f6258054d85cbf39`

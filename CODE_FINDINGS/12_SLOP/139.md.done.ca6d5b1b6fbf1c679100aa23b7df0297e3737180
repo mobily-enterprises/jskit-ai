@@ -1,0 +1,22 @@
+# Finding 139
+- Severity: Low
+- Pattern type: AI slop; Duplicate `withAssistantToolChannel` helper
+- File + line(s): `packages/billing/billing-service-core/src/shared/actions/workspaceBilling.contributor.js:181-189`, `packages/billing/billing-service-core/src/shared/actions/consoleBilling.contributor.js:184-192`
+- Why it can drift/fail: Channel enrichment helper is duplicated between billing contributors. Any change to channel handling must be updated in both.
+- Concrete impact: Inconsistent assistant tool channel assignment between workspace and console billing actions.
+- Exact remediation: Extract `withAssistantToolChannel` into shared billing action helpers.
+
+Summary:
+- added shared `withAssistantToolChannel` to `billing-service-core/src/shared/actions/inputHelpers.js`
+- removed duplicated local channel enrichment helper implementations from workspace and console billing contributors
+- extended `inputHelpers` tests to cover assistant tool channel enrichment behavior
+
+Tests:
+- `npm -ws --if-present test` (fails: missing workspace deps/tools like `jskit-app-scripts`, `vitest`, `@jskit-ai/server-runtime-core`, `@fastify/type-provider-typebox`, `openai`)
+- `npm run test:framework` (fails: migration tracker count mismatch + missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails: `vuetify`/`@mdi/js` imports in web-shell-host runtime/template)
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`
+- `node --test packages/billing/billing-service-core/test/inputHelpers.test.js`
+
+Commit: ca6d5b1b6fbf1c679100aa23b7df0297e3737180

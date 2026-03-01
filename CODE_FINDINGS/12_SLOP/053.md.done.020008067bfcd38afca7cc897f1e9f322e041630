@@ -9,3 +9,19 @@
 ## Resolution
 - Justification: Client-side templates are actively being rewritten; per instruction, client-element changes are deferred to avoid conflicts. This is a low-severity duplication and safe to postpone.
 - Revisit signal: Once client templates stabilize and there is a greenlight to touch client-element packages, consolidate the vitest config into a shared base and update the packages accordingly.
+
+---
+DONE SUMMARY
+- Added shared client-element Vitest config at `vitest.client-element.base.mjs`.
+- Replaced nine duplicated client-element `vitest.config.mjs` files with a re-export of the shared base config.
+- Eliminated repeated per-package Vitest boilerplate to prevent config drift.
+
+TESTS RUN
+- `npm -ws --if-present test` (fails in environment: missing workspace executables/dependencies and module resolution errors)
+- `npm run test:framework` (fails in environment: migration tracker mismatch + missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails in environment: pre-existing vuetify architecture guardrail violations)
+- `npm run test:architecture:shared-ui` (pass)
+- `npm run test:architecture:db` (pass)
+
+FINAL COMMIT HASH
+- `020008067bfcd38afca7cc897f1e9f322e041630`
