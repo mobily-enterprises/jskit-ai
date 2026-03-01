@@ -1,4 +1,4 @@
-export { createSurfaceRegistry } from "./registry.js";
+export { createSurfaceRegistry, normalizeSurfaceId } from "./registry.js";
 export { createSurfacePathHelpers } from "./paths.js";
 export {
   API_BASE_PATH,

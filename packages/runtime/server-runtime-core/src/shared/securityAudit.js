@@ -1,11 +1,6 @@
 import { parsePositiveInteger } from "./integers.js";
 import { safePathnameFromRequest, resolveClientIpAddress } from "./requestUrl.js";
-
-function normalizeSurfaceId(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
+import { normalizeSurfaceId } from "@jskit-ai/surface-routing/registry";
 
 function resolveAuditSurface(pathnameValue, explicitSurface = "", resolveSurfaceFromPathname = null) {
   const normalizedExplicit = normalizeSurfaceId(explicitSurface);

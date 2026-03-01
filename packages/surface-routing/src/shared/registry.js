@@ -10,6 +10,12 @@ function normalizePrefix(prefixLike) {
   return withoutTrailingSlash === "/" ? "" : withoutTrailingSlash;
 }
 
+function normalizeSurfaceId(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
 function createSurfaceRegistry(options = {}) {
   const rawSurfaces = options?.surfaces;
   if (!rawSurfaces || typeof rawSurfaces !== "object") {
@@ -18,9 +24,7 @@ function createSurfaceRegistry(options = {}) {
 
   const normalizedEntries = Object.entries(rawSurfaces)
     .map(([key, value]) => {
-      const normalizedId = String(value?.id || key || "")
-        .trim()
-        .toLowerCase();
+      const normalizedId = normalizeSurfaceId(value?.id || key);
       if (!normalizedId) {
         return null;
       }
@@ -42,17 +46,13 @@ function createSurfaceRegistry(options = {}) {
 
   const SURFACE_REGISTRY = Object.freeze(Object.fromEntries(normalizedEntries));
   const fallbackSurfaceId = normalizedEntries[0][0];
-  const requestedDefaultSurfaceId = String(options?.defaultSurfaceId || "")
-    .trim()
-    .toLowerCase();
+  const requestedDefaultSurfaceId = normalizeSurfaceId(options?.defaultSurfaceId);
   const DEFAULT_SURFACE_ID = SURFACE_REGISTRY[requestedDefaultSurfaceId]
     ? requestedDefaultSurfaceId
     : fallbackSurfaceId;
 
-  function normalizeSurfaceId(value) {
-    const normalized = String(value || "")
-      .trim()
-      .toLowerCase();
+  function normalizeRegisteredSurfaceId(value) {
+    const normalized = normalizeSurfaceId(value);
     if (SURFACE_REGISTRY[normalized]) {
       return normalized;
     }
@@ -61,11 +61,11 @@ function createSurfaceRegistry(options = {}) {
   }
 
   function resolveSurfacePrefix(surfaceId) {
-    return SURFACE_REGISTRY[normalizeSurfaceId(surfaceId)]?.prefix || "";
+    return SURFACE_REGISTRY[normalizeRegisteredSurfaceId(surfaceId)]?.prefix || "";
   }
 
   function surfaceRequiresWorkspace(surfaceId) {
-    return Boolean(SURFACE_REGISTRY[normalizeSurfaceId(surfaceId)]?.requiresWorkspace);
+    return Boolean(SURFACE_REGISTRY[normalizeRegisteredSurfaceId(surfaceId)]?.requiresWorkspace);
   }
 
   function listSurfaceDefinitions() {
@@ -75,11 +75,11 @@ function createSurfaceRegistry(options = {}) {
   return Object.freeze({
     SURFACE_REGISTRY,
     DEFAULT_SURFACE_ID,
-    normalizeSurfaceId,
+    normalizeSurfaceId: normalizeRegisteredSurfaceId,
     resolveSurfacePrefix,
     surfaceRequiresWorkspace,
     listSurfaceDefinitions
   });
 }
 
-export { createSurfaceRegistry };
+export { createSurfaceRegistry, normalizeSurfaceId };

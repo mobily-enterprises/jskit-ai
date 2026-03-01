@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { buildAiToolRegistry, listToolSchemas } from "@jskit-ai/assistant-core";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { isPlainObject, normalizeLowerText, normalizeText } from "@jskit-ai/action-runtime-core";
+import { normalizeSurfaceId } from "@jskit-ai/surface-routing/registry";
 
 const ASSISTANT_TOOL_CHANNEL = "assistant_tool";
 const TOOL_NAME_MAX_LENGTH = 64;
@@ -93,13 +94,13 @@ function createToolName(actionId, usedNames = new Map()) {
   return candidate;
 }
 
-function normalizeSurfaceId(value, request) {
-  const explicitSurface = normalizeLowerText(value);
+function resolveSurfaceId(value, request) {
+  const explicitSurface = normalizeSurfaceId(value);
   if (explicitSurface) {
     return explicitSurface;
   }
 
-  const requestSurface = normalizeLowerText(request?.surface || request?.headers?.["x-surface-id"]);
+  const requestSurface = normalizeSurfaceId(request?.surface || request?.headers?.["x-surface-id"]);
   return requestSurface || "app";
 }
 
@@ -257,7 +258,7 @@ function createAssistantActionToolsResolver({
       };
     }
 
-    const normalizedSurfaceId = normalizeSurfaceId(surfaceId, request);
+    const normalizedSurfaceId = resolveSurfaceId(surfaceId, request);
     const definitions = normalizeToolDefinitions(actionExecutor.listDefinitions(), {
       surfaceId: normalizedSurfaceId,
       actionsConfig
