@@ -9,6 +9,7 @@ import { mapProjectsError } from "../../modules/projects/errors.js";
 import { createDefaultProjectForm, projectStatusOptions } from "../../modules/projects/formModel.js";
 import { projectDetailQueryKey, projectsScopeQueryKey } from "../../modules/projects/queryKeys.js";
 import { buildProjectsRouteSuffix, resolveProjectIdFromPath } from "./routePaths.js";
+import { workspacePathForProjects } from "./projectsWorkspacePath.js";
 
 export function useProjectsEdit() {
   const navigate = useNavigate();
@@ -69,12 +70,6 @@ export function useProjectsEdit() {
     mapError: (nextError) => mapProjectsError(nextError, "Unable to load project.")
   });
 
-  function workspacePath(suffix) {
-    return workspaceStore.workspacePath(suffix, {
-      surface: "admin"
-    });
-  }
-
   async function save() {
     error.value = "";
     message.value = "";
@@ -121,12 +116,12 @@ export function useProjectsEdit() {
       goBack: () => {
         if (!projectId.value) {
           return navigate({
-            to: workspacePath(buildProjectsRouteSuffix())
+            to: workspacePathForProjects(workspaceStore, buildProjectsRouteSuffix())
           });
         }
 
         return navigate({
-          to: workspacePath(buildProjectsRouteSuffix(`/${encodeURIComponent(projectId.value)}`))
+          to: workspacePathForProjects(workspaceStore, buildProjectsRouteSuffix(`/${encodeURIComponent(projectId.value)}`))
         });
       }
     }

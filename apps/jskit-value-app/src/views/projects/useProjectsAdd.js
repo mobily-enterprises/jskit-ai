@@ -8,6 +8,7 @@ import { mapProjectsError } from "../../modules/projects/errors.js";
 import { createDefaultProjectForm, projectStatusOptions } from "../../modules/projects/formModel.js";
 import { projectsScopeQueryKey } from "../../modules/projects/queryKeys.js";
 import { buildProjectsRouteSuffix } from "./routePaths.js";
+import { workspacePathForProjects } from "./projectsWorkspacePath.js";
 
 export function useProjectsAdd() {
   const navigate = useNavigate();
@@ -25,12 +26,6 @@ export function useProjectsAdd() {
 
   const saving = computed(() => mutation.isPending.value);
   const workspaceScope = computed(() => workspaceStore.activeWorkspaceSlug || "none");
-
-  function workspacePath(suffix) {
-    return workspaceStore.workspacePath(suffix, {
-      surface: "admin"
-    });
-  }
 
   async function save() {
     error.value = "";
@@ -51,7 +46,7 @@ export function useProjectsAdd() {
 
       if (nextProjectId) {
         await navigate({
-          to: workspacePath(buildProjectsRouteSuffix(`/${encodeURIComponent(nextProjectId)}`))
+          to: workspacePathForProjects(workspaceStore, buildProjectsRouteSuffix(`/${encodeURIComponent(nextProjectId)}`))
         });
         return;
       }
@@ -87,7 +82,7 @@ export function useProjectsAdd() {
       reset,
       goBack: () =>
         navigate({
-          to: workspacePath(buildProjectsRouteSuffix())
+          to: workspacePathForProjects(workspaceStore, buildProjectsRouteSuffix())
         })
     }
   };

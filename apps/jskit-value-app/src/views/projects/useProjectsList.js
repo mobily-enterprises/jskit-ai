@@ -14,6 +14,7 @@ import {
   projectsScopeQueryKey
 } from "../../modules/projects/queryKeys.js";
 import { buildProjectsRouteSuffix } from "./routePaths.js";
+import { workspacePathForProjects } from "./projectsWorkspacePath.js";
 
 export function useProjectsList({ initialPageSize = projectPageSizeOptions[0] } = {}) {
   const navigate = useNavigate();
@@ -53,12 +54,6 @@ export function useProjectsList({ initialPageSize = projectPageSizeOptions[0] } 
     mapError: (nextError) => mapProjectsError(nextError, "Unable to load projects.")
   });
 
-  function workspacePath(suffix) {
-    return workspaceStore.workspacePath(suffix, {
-      surface: "admin"
-    });
-  }
-
   async function onProjectSaved() {
     await queryClient.invalidateQueries({
       queryKey: projectsScopeQueryKey(workspaceScope.value)
@@ -86,15 +81,18 @@ export function useProjectsList({ initialPageSize = projectPageSizeOptions[0] } 
       onPageSizeChange: pagination.onPageSizeChange,
       goToAdd: () =>
         navigate({
-          to: workspacePath(buildProjectsRouteSuffix("/add"))
+          to: workspacePathForProjects(workspaceStore, buildProjectsRouteSuffix("/add"))
         }),
       goToView: (projectId) =>
         navigate({
-          to: workspacePath(buildProjectsRouteSuffix(`/${encodeURIComponent(String(projectId || ""))}`))
+          to: workspacePathForProjects(workspaceStore, buildProjectsRouteSuffix(`/${encodeURIComponent(String(projectId || ""))}`))
         }),
       goToEdit: (projectId) =>
         navigate({
-          to: workspacePath(buildProjectsRouteSuffix(`/${encodeURIComponent(String(projectId || ""))}/edit`))
+          to: workspacePathForProjects(
+            workspaceStore,
+            buildProjectsRouteSuffix(`/${encodeURIComponent(String(projectId || ""))}/edit`)
+          )
         }),
       onProjectSaved
     }
