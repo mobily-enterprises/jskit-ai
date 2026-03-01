@@ -1,3 +1,5 @@
+import { normalizePathname } from "./paths.js";
+
 const API_BASE_PATH = "/api";
 const API_MAJOR_VERSION = 1;
 const API_VERSION_SEGMENT = `v${API_MAJOR_VERSION}`;
@@ -6,22 +8,6 @@ const API_PREFIX_SLASH = `${API_PREFIX}/`;
 const API_DOCS_PATH = `${API_PREFIX}/docs`;
 const API_REALTIME_PATH = `${API_PREFIX}/realtime`;
 const VERSIONED_API_PATH_PATTERN = /^\/api\/v[0-9]+(?:$|\/)/;
-
-function normalizePathname(pathname) {
-  const rawValue = String(pathname || "/").trim();
-  if (!rawValue) {
-    return "/";
-  }
-
-  const withoutQuery = rawValue.split("?")[0].split("#")[0];
-  const withLeadingSlash = withoutQuery.startsWith("/") ? withoutQuery : `/${withoutQuery}`;
-  const squashed = withLeadingSlash.replace(/\/{2,}/g, "/");
-  if (squashed === "/") {
-    return "/";
-  }
-
-  return squashed.replace(/\/+$/, "") || "/";
-}
 
 function matchesPathPrefix(pathname, prefix) {
   const normalizedPathname = normalizePathname(pathname);
