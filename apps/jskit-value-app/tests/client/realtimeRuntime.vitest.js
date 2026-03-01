@@ -144,20 +144,35 @@ describe("realtimeRuntime", () => {
     vi.unstubAllGlobals();
   });
 
-  it("connects and reconciles after subscribe acknowledgement", async () => {
+  function startRealtimeRuntime({ surface = "admin", workspaceSlug = "acme", can = null } = {}) {
     const stores = createStores();
+    stores.workspaceStore.activeWorkspaceSlug = String(workspaceSlug || "");
+    if (typeof can === "function") {
+      stores.workspaceStore.can = can;
+    }
+
     const runtime = createRealtimeRuntime({
       authStore: stores.authStore,
       workspaceStore: stores.workspaceStore,
       queryClient,
-      surface: "admin",
+      surface,
       socketFactory: createSocketFactory()
     });
 
     runtime.start();
     expect(FakeSocket.instances).toHaveLength(1);
 
-    const socket = FakeSocket.instances[0];
+    return {
+      stores,
+      runtime,
+      socket: FakeSocket.instances[0]
+    };
+  }
+
+  it("connects and reconciles after subscribe acknowledgement", async () => {
+    const { runtime, socket } = startRealtimeRuntime({
+      surface: "admin"
+    });
 
     expect(socket.sent[0].type).toBe(REALTIME_MESSAGE_TYPES.SUBSCRIBE);
     expect(socket.sent[0].workspaceSlug).toBe("acme");
@@ -179,20 +194,11 @@ describe("realtimeRuntime", () => {
   });
 
   it("connects on app surface for read-only workspace meta topic", () => {
-    const stores = createStores();
-    stores.workspaceStore.can = vi.fn(() => false);
-    const runtime = createRealtimeRuntime({
-      authStore: stores.authStore,
-      workspaceStore: stores.workspaceStore,
-      queryClient,
+    const { runtime, socket } = startRealtimeRuntime({
       surface: "app",
-      socketFactory: createSocketFactory()
+      can: vi.fn(() => false)
     });
 
-    runtime.start();
-    expect(FakeSocket.instances).toHaveLength(1);
-
-    const socket = FakeSocket.instances[0];
     expect(socket.sent[0].type).toBe(REALTIME_MESSAGE_TYPES.SUBSCRIBE);
     expect(socket.sent[0].topics).toEqual([
       REALTIME_TOPICS.ALERTS,
@@ -206,21 +212,12 @@ describe("realtimeRuntime", () => {
   });
 
   it("connects on console surface without active workspace for user-scoped alerts", () => {
-    const stores = createStores();
-    stores.workspaceStore.activeWorkspaceSlug = "";
-    stores.workspaceStore.can = vi.fn(() => false);
-    const runtime = createRealtimeRuntime({
-      authStore: stores.authStore,
-      workspaceStore: stores.workspaceStore,
-      queryClient,
+    const { runtime, socket } = startRealtimeRuntime({
       surface: "console",
-      socketFactory: createSocketFactory()
+      workspaceSlug: "",
+      can: vi.fn(() => false)
     });
 
-    runtime.start();
-    expect(FakeSocket.instances).toHaveLength(1);
-
-    const socket = FakeSocket.instances[0];
     expect(socket.sent[0].type).toBe(REALTIME_MESSAGE_TYPES.SUBSCRIBE);
     expect(socket.sent[0].workspaceSlug).toBe("");
     expect(socket.sent[0].topics).toEqual([
@@ -237,20 +234,11 @@ describe("realtimeRuntime", () => {
   });
 
   it("subscribes to chat topic on app surface when chat.read permission is available", () => {
-    const stores = createStores();
-    stores.workspaceStore.can = vi.fn((permission) => String(permission || "") === "chat.read");
-    const runtime = createRealtimeRuntime({
-      authStore: stores.authStore,
-      workspaceStore: stores.workspaceStore,
-      queryClient,
+    const { runtime, socket } = startRealtimeRuntime({
       surface: "app",
-      socketFactory: createSocketFactory()
+      can: vi.fn((permission) => String(permission || "") === "chat.read")
     });
 
-    runtime.start();
-    expect(FakeSocket.instances).toHaveLength(1);
-
-    const socket = FakeSocket.instances[0];
     expect(socket.sent[0].type).toBe(REALTIME_MESSAGE_TYPES.SUBSCRIBE);
     expect(socket.sent[0].topics).toEqual([
       REALTIME_TOPICS.ALERTS,
@@ -266,20 +254,11 @@ describe("realtimeRuntime", () => {
   });
 
   it("subscribes to chat topic on admin surface when chat.read permission is available", () => {
-    const stores = createStores();
-    stores.workspaceStore.can = vi.fn((permission) => String(permission || "") === "chat.read");
-    const runtime = createRealtimeRuntime({
-      authStore: stores.authStore,
-      workspaceStore: stores.workspaceStore,
-      queryClient,
+    const { runtime, socket } = startRealtimeRuntime({
       surface: "admin",
-      socketFactory: createSocketFactory()
+      can: vi.fn((permission) => String(permission || "") === "chat.read")
     });
 
-    runtime.start();
-    expect(FakeSocket.instances).toHaveLength(1);
-
-    const socket = FakeSocket.instances[0];
     expect(socket.sent[0].type).toBe(REALTIME_MESSAGE_TYPES.SUBSCRIBE);
     expect(socket.sent[0].topics).toEqual([
       REALTIME_TOPICS.ALERTS,
@@ -292,20 +271,11 @@ describe("realtimeRuntime", () => {
   });
 
   it("subscribes to social topics on app surface when social.read permission is available", () => {
-    const stores = createStores();
-    stores.workspaceStore.can = vi.fn((permission) => String(permission || "") === "social.read");
-    const runtime = createRealtimeRuntime({
-      authStore: stores.authStore,
-      workspaceStore: stores.workspaceStore,
-      queryClient,
+    const { runtime, socket } = startRealtimeRuntime({
       surface: "app",
-      socketFactory: createSocketFactory()
+      can: vi.fn((permission) => String(permission || "") === "social.read")
     });
 
-    runtime.start();
-    expect(FakeSocket.instances).toHaveLength(1);
-
-    const socket = FakeSocket.instances[0];
     expect(socket.sent[0].type).toBe(REALTIME_MESSAGE_TYPES.SUBSCRIBE);
     expect(socket.sent[0].topics).toEqual([
       REALTIME_TOPICS.ALERTS,
