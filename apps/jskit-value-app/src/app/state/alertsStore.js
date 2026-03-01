@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { toPositiveInteger } from "@jskit-ai/runtime-env-core/integers";
+import { normalizeNullablePositiveInteger, toPositiveInteger } from "@jskit-ai/runtime-env-core/integers";
 import { api } from "../../platform/http/api/index.js";
 import { subscribeRealtimeEvents } from "../../platform/realtime/realtimeEventBus.js";
 import { normalizeAlertTargetUrl } from "../../../shared/alerts/targetUrl.js";
@@ -23,11 +23,6 @@ let realtimeAlertsUnsubscribe = null;
 
 function isClientRuntime() {
   return typeof window !== "undefined";
-}
-
-function normalizeNullablePositiveInteger(value) {
-  const parsed = toPositiveInteger(value);
-  return parsed > 0 ? parsed : null;
 }
 
 function normalizeText(value) {
