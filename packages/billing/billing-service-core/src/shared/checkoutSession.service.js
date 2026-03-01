@@ -7,20 +7,7 @@ import {
   canTransitionCheckoutStatus,
   isCheckoutTerminalStatus
 } from "./constants.js";
-
-function pickLaterDate(left, right) {
-  const leftDate = toDateOrNull(left);
-  const rightDate = toDateOrNull(right);
-
-  if (!leftDate) {
-    return rightDate;
-  }
-  if (!rightDate) {
-    return leftDate;
-  }
-
-  return leftDate.getTime() >= rightDate.getTime() ? leftDate : rightDate;
-}
+import { pickLaterDate } from "./dateUtils.js";
 
 function isOpenSessionBlocking(session, now, graceSeconds) {
   if (!session || session.status !== BILLING_CHECKOUT_SESSION_STATUS.OPEN) {
