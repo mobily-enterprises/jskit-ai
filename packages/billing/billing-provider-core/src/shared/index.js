@@ -23,6 +23,7 @@ export {
   createBillingProviderError,
   normalizeProviderErrorCategory
 } from "./contracts/providerError.js";
+export { toProviderStatusCode } from "./errorUtils.js";
 
 export { createProviderRegistry } from "./registry.js";
 export {
