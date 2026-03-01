@@ -5,7 +5,7 @@ import {
   parseJsonObject,
   stringifyJsonObject
 } from "@jskit-ai/jskit-knex";
-import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
+import { normalizeNullablePositiveInteger, parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { normalizePagination as normalizePaginationBase } from "@jskit-ai/server-runtime-core/pagination";
 
 function normalizePagination(pagination = {}, { defaultPageSize = 20, maxPageSize = 100 } = {}) {
@@ -28,10 +28,6 @@ function resolveClient(dbClient, options = {}) {
 
 function normalizeIdList(values) {
   return normalizeIdListBase(values, { parseValue: parsePositiveInteger });
-}
-
-function normalizeNullablePositiveInteger(value) {
-  return parsePositiveInteger(value);
 }
 
 function normalizeNullableDate(value) {

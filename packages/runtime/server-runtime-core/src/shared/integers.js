@@ -7,4 +7,8 @@ function parsePositiveInteger(value) {
   return numeric;
 }
 
-export { parsePositiveInteger };
+function normalizeNullablePositiveInteger(value) {
+  return parsePositiveInteger(value);
+}
+
+export { parsePositiveInteger, normalizeNullablePositiveInteger };
