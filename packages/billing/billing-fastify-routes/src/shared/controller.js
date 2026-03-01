@@ -1,4 +1,8 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import {
+  normalizeIdempotencyKey,
+  requireIdempotencyKey
+} from "@jskit-ai/server-runtime-core/routeUtils";
 
 const BILLING_ACTION_IDS = Object.freeze({
   PLANS_LIST: "workspace.billing.plans.list",
@@ -18,22 +22,6 @@ const BILLING_ACTION_IDS = Object.freeze({
   PORTAL_CREATE: "workspace.billing.portal.create",
   PAYMENT_LINK_CREATE: "workspace.billing.payment_link.create"
 });
-
-function normalizeIdempotencyKey(value) {
-  const normalized = String(value || "").trim();
-  return normalized || "";
-}
-
-function requireIdempotencyKey(request) {
-  const idempotencyKey = normalizeIdempotencyKey(request?.headers?.["idempotency-key"]);
-  if (!idempotencyKey) {
-    throw new AppError(400, "Idempotency-Key header is required.", {
-      code: "IDEMPOTENCY_KEY_REQUIRED"
-    });
-  }
-
-  return idempotencyKey;
-}
 
 async function executeAction(actionExecutor, { actionId, request, input = {} }) {
   return actionExecutor.execute({
