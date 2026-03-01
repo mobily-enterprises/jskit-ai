@@ -1,4 +1,5 @@
 import {
+  normalizeCountRow as normalizeCount,
   parseMetadataJson as parseMetadata,
   stringifyMetadataJson as stringifyMetadata
 } from "@jskit-ai/jskit-knex";
@@ -9,20 +10,6 @@ import {
   normalizeBatchSize,
   normalizeCutoffDateOrThrow
 } from "@jskit-ai/jskit-knex/retention";
-
-function normalizeCount(row) {
-  const values = Object.values(row || {});
-  if (values.length < 1) {
-    return 0;
-  }
-
-  const parsed = Number(values[0]);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return 0;
-  }
-
-  return parsed;
-}
 
 function mapAuditEventRowRequired(row) {
   if (!row) {
