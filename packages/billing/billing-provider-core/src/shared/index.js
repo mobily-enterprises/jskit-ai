@@ -26,6 +26,7 @@ export {
 export { toProviderStatusCode } from "./errorUtils.js";
 
 export { createProviderRegistry } from "./registry.js";
+export { parsePositiveInteger } from "./numberUtils.js";
 export {
   BILLING_PROVIDER_STRIPE,
   BILLING_PROVIDER_PADDLE,

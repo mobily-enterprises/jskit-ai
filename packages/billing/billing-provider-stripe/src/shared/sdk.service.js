@@ -1,16 +1,7 @@
 import { toNullableString } from "@jskit-ai/billing-core";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { BILLING_PROVIDER_STRIPE, resolveProviderSdkName } from "@jskit-ai/billing-provider-core";
+import { BILLING_PROVIDER_STRIPE, parsePositiveInteger, resolveProviderSdkName } from "@jskit-ai/billing-provider-core";
 import { mapStripeProviderError } from "./errorMapping.js";
-
-function parsePositiveInteger(value, fallbackValue) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return fallbackValue;
-  }
-
-  return parsed;
-}
 
 function normalizeApiVersion(value) {
   return String(value || "").trim();
