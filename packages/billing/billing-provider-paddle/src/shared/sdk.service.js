@@ -2,18 +2,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { toNullableString } from "@jskit-ai/billing-core";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { BILLING_PROVIDER_PADDLE } from "@jskit-ai/billing-provider-core";
-import { isBillingProviderError } from "@jskit-ai/billing-provider-core";
+import { BILLING_PROVIDER_PADDLE, isBillingProviderError, parsePositiveInteger } from "@jskit-ai/billing-provider-core";
 import { mapPaddleProviderError } from "./errorMapping.js";
-
-function parsePositiveInteger(value, fallbackValue) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return fallbackValue;
-  }
-
-  return parsed;
-}
 
 function normalizeApiBaseUrl(value) {
   const normalized = String(value || "").trim();
