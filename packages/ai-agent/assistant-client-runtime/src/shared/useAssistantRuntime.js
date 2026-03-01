@@ -1,5 +1,7 @@
 import { computed, ref } from "vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
+import { toPositiveInteger } from "@jskit-ai/runtime-env-core/integers";
+import { normalizeText } from "@jskit-ai/runtime-env-core/text";
 import { createDefaultUseWorkspaceStore } from "@jskit-ai/runtime-env-core/clientRuntimeDefaults";
 import {
   assistantConversationMessagesQueryKey,
@@ -23,22 +25,9 @@ function buildId(prefix = "id") {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
 function normalizeToolName(value) {
   const normalized = normalizeText(value);
   return normalized || "tool";
-}
-
-function toPositiveInteger(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return 0;
-  }
-
-  return parsed;
 }
 
 function normalizeDateTime(value) {

@@ -2,6 +2,7 @@ export { PLATFORM_RUNTIME_DEFAULTS, createCoreRuntimeSpec, createDatabaseRuntime
 export { createPlatformRuntimeEnv, loadDotenvFiles, resolveDotenvPaths } from "./platformRuntimeEnv.js";
 export { resolveAppConfig, toBrowserConfig, normalizeWorkspaceProvisioningMode } from "./appRuntimePolicy.js";
 export { toPositiveInteger, normalizeNullablePositiveInteger } from "./integers.js";
+export { normalizeText } from "./text.js";
 export { defaultUseAuthGuard, createDefaultUseWorkspaceStore, createDefaultUseQueryErrorMessage } from "./clientRuntimeDefaults.js";
 export {
   hasNonEmptyEnvValue,

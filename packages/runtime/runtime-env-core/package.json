@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/shared/index.js",
     "./integers": "./src/shared/integers.js",
+    "./text": "./src/shared/text.js",
     "./clientRuntimeDefaults": "./src/shared/clientRuntimeDefaults.js",
     "./platformRuntimeEnv": "./src/shared/platformRuntimeEnv.js",
     "./platformRuntimeEnvSpecs": "./src/shared/platformRuntimeEnvSpecs.js",
