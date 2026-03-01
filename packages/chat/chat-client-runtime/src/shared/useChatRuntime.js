@@ -2,6 +2,11 @@ import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/vue-query";
 import { toPositiveInteger } from "@jskit-ai/runtime-env-core/integers";
 import {
+  defaultUseAuthGuard,
+  createDefaultUseWorkspaceStore,
+  createDefaultUseQueryErrorMessage
+} from "@jskit-ai/runtime-env-core/clientRuntimeDefaults";
+import {
   chatInboxInfiniteQueryKey,
   chatThreadMessagesInfiniteQueryKey,
   mapChatError
@@ -22,13 +27,11 @@ const DEFAULT_REALTIME_EVENT_TYPES = Object.freeze({
   CHAT_TYPING_STOPPED: "chat.typing.stopped"
 });
 const DEFAULT_SUBSCRIBE_REALTIME_EVENTS = () => () => {};
-const DEFAULT_USE_AUTH_GUARD = () => ({
-  handleUnauthorizedError() {}
+const DEFAULT_USE_AUTH_GUARD = defaultUseAuthGuard;
+const DEFAULT_USE_QUERY_ERROR_MESSAGE = createDefaultUseQueryErrorMessage({
+  computed
 });
-const DEFAULT_USE_QUERY_ERROR_MESSAGE = () => computed(() => "");
-const DEFAULT_USE_WORKSPACE_STORE = () => ({
-  activeWorkspace: null,
-  activeWorkspaceSlug: "",
+const DEFAULT_USE_WORKSPACE_STORE = createDefaultUseWorkspaceStore({
   activeWorkspaceId: null
 });
 

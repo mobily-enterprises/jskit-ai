@@ -1,6 +1,11 @@
 import { computed, reactive, ref } from "vue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import {
+  defaultUseAuthGuard,
+  createDefaultUseWorkspaceStore,
+  createDefaultUseQueryErrorMessage
+} from "@jskit-ai/runtime-env-core/clientRuntimeDefaults";
+import {
   socialActorSearchQueryKey,
   socialFeedQueryKey,
   socialNotificationsQueryKey,
@@ -9,16 +14,15 @@ import {
   mapSocialError
 } from "@jskit-ai/social-contracts";
 
-const DEFAULT_USE_AUTH_GUARD = () => ({
-  handleUnauthorizedError() {}
+const DEFAULT_USE_AUTH_GUARD = defaultUseAuthGuard;
+const DEFAULT_USE_QUERY_ERROR_MESSAGE = createDefaultUseQueryErrorMessage({
+  computed,
+  resolveMessage(error) {
+    return mapSocialError(error).message;
+  },
+  fallbackMessage: "Unable to complete social request."
 });
-
-const DEFAULT_USE_QUERY_ERROR_MESSAGE = ({ error }) =>
-  computed(() => mapSocialError(error?.value || null).message || "Unable to complete social request.");
-
-const DEFAULT_USE_WORKSPACE_STORE = () => ({
-  activeWorkspaceSlug: "",
-  activeWorkspace: null,
+const DEFAULT_USE_WORKSPACE_STORE = createDefaultUseWorkspaceStore({
   can() {
     return false;
   }

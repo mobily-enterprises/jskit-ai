@@ -1,5 +1,6 @@
 import { computed, ref } from "vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
+import { createDefaultUseWorkspaceStore } from "@jskit-ai/runtime-env-core/clientRuntimeDefaults";
 import {
   assistantConversationMessagesQueryKey,
   assistantConversationsListQueryKey,
@@ -11,10 +12,7 @@ import {
 const HISTORY_PAGE = 1;
 const RESTORE_MESSAGES_PAGE = 1;
 const REDACTED_CONTENT_PLACEHOLDER = "No content stored by policy.";
-const DEFAULT_USE_WORKSPACE_STORE = () => ({
-  activeWorkspace: null,
-  activeWorkspaceSlug: ""
-});
+const DEFAULT_USE_WORKSPACE_STORE = createDefaultUseWorkspaceStore();
 const DEFAULT_RESOLVE_SURFACE_FROM_PATHNAME = () => "app";
 
 function buildId(prefix = "id") {
