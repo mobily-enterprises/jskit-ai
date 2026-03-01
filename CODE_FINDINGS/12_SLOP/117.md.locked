@@ -1,7 +1,0 @@
-# Finding 117
-- Severity: Low
-- Pattern type: AI slop; Duplicate `resolveFsBasePath` helper
-- File + line(s): `packages/chat/chat-storage-core/src/shared/attachmentStorage.service.js:14-26`, `packages/users/user-profile-core/src/shared/avatarStorage.service.js:36-48`
-- Why it can drift/fail: Filesystem base path resolution is duplicated across storage services. Any change to resolution semantics must be mirrored.
-- Concrete impact: Inconsistent filesystem path handling between chat attachments and user avatars.
-- Exact remediation: Extract `resolveFsBasePath` into a shared storage utility module.

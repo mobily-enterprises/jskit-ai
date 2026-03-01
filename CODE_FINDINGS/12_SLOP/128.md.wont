@@ -1,0 +1,14 @@
+# Finding 128
+- Severity: Low
+- Pattern type: AI slop; Duplicate `resolveComposedModules` implementation
+- File + line(s): `packages/runtime/module-framework-core/src/shared/composeClient.js:46-66`, `packages/runtime/module-framework-core/src/shared/composeServer.js:61-81`
+- Why it can drift/fail: Core compose logic is duplicated between client and server composition paths. Any change to resolution loop logic must be applied in both places.
+- Concrete impact: Divergent module composition behavior between client and server composition.
+- Exact remediation: Extract `resolveComposedModules` into a shared compose utility and reuse it in both compose implementations.
+
+Justification:
+- skipped per active instruction to avoid client-side-focused changes while templates/client composition work is in progress
+- this finding requires edits to `composeClient.js`, so it is deferred to avoid overlap/conflicts
+
+Signal to revisit later:
+- revisit once client-side rewrite stabilizes and module-framework client composition files are open for slop cleanup again

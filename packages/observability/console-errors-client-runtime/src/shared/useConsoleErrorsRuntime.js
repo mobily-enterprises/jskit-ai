@@ -1,9 +1,8 @@
 import { computed, reactive, ref } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
-import { useQuery } from "@tanstack/vue-query";
 import { createHttpClient } from "@jskit-ai/http-client-runtime";
 import { createConsoleErrorsApi } from "@jskit-ai/observability-core";
-import { useListPagination, useListQueryState, useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
+import { useListRuntime, useListPagination, useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { createDefaultAppSurfacePaths } from "@jskit-ai/surface-routing/appSurfaces";
 
 const SERVER_ERRORS_QUERY_KEY_PREFIX = ["console-server-errors"];
@@ -148,31 +147,11 @@ function createConsoleErrorsRuntime(deps = {}) {
     const simulationMessageType = ref("info");
     const simulationCursor = ref(0);
 
-    const pagination = usePagination({
-      initialPage: 1,
+    const listRuntime = useListRuntime({
+      queryKeyPrefix: SERVER_ERRORS_QUERY_KEY_PREFIX,
+      fetchPage: (page, pageSize) => api.console.listServerErrors(page, pageSize),
+      pageSizeOptions: SERVER_ERRORS_PAGE_SIZE_OPTIONS,
       initialPageSize,
-      defaultPageSize: initialPageSize
-    });
-
-    const query = useQuery({
-      queryKey: computed(() => [
-        ...SERVER_ERRORS_QUERY_KEY_PREFIX,
-        pagination.page.value,
-        pagination.pageSize.value
-      ]),
-      queryFn: () => api.console.listServerErrors(pagination.page.value, pagination.pageSize.value),
-      placeholderData: (previous) => previous
-    });
-
-    const entries = computed(() => {
-      const source = query.data.value?.entries;
-      return Array.isArray(source) ? source : [];
-    });
-
-    const { total, totalPages, loading } = useListQueryState(query);
-
-    const error = useQueryError({
-      query,
       handleUnauthorizedError,
       mapError: (nextError) => String(nextError?.message || "Unable to load server errors.")
     });
@@ -222,7 +201,7 @@ function createConsoleErrorsRuntime(deps = {}) {
       await new Promise((resolve) => {
         setTimeout(resolve, 250);
       });
-      await query.refetch();
+      await listRuntime.actions.refresh();
     }
 
     async function viewEntry(entry) {
@@ -239,29 +218,21 @@ function createConsoleErrorsRuntime(deps = {}) {
 
     return {
       meta: {
-        pageSizeOptions: SERVER_ERRORS_PAGE_SIZE_OPTIONS,
+        ...listRuntime.meta,
         formatDateTime,
         formatRequest,
         summarizeServerMessage,
         nextSimulationLabel
       },
       state: reactive({
-        entries,
-        error,
-        loading,
-        page: pagination.page,
-        pageSize: pagination.pageSize,
-        total,
-        totalPages,
+        ...listRuntime.state,
         simulateErrorBusy,
         simulationMessage,
         simulationMessageType
       }),
       actions: {
-        load: () => query.refetch(),
-        goPrevious: () => pagination.goPrevious({ isLoading: loading.value }),
-        goNext: () => pagination.goNext({ totalPages: totalPages.value, isLoading: loading.value }),
-        onPageSizeChange: pagination.onPageSizeChange,
+        ...listRuntime.actions,
+        load: listRuntime.actions.refresh,
         simulateServerError,
         viewEntry
       }
@@ -279,31 +250,11 @@ function createConsoleErrorsRuntime(deps = {}) {
     const simulationMessage = ref("");
     const simulationMessageType = ref("info");
 
-    const pagination = usePagination({
-      initialPage: 1,
+    const listRuntime = useListRuntime({
+      queryKeyPrefix: BROWSER_ERRORS_QUERY_KEY_PREFIX,
+      fetchPage: (page, pageSize) => api.console.listBrowserErrors(page, pageSize),
+      pageSizeOptions: BROWSER_ERRORS_PAGE_SIZE_OPTIONS,
       initialPageSize,
-      defaultPageSize: initialPageSize
-    });
-
-    const query = useQuery({
-      queryKey: computed(() => [
-        ...BROWSER_ERRORS_QUERY_KEY_PREFIX,
-        pagination.page.value,
-        pagination.pageSize.value
-      ]),
-      queryFn: () => api.console.listBrowserErrors(pagination.page.value, pagination.pageSize.value),
-      placeholderData: (previous) => previous
-    });
-
-    const entries = computed(() => {
-      const source = query.data.value?.entries;
-      return Array.isArray(source) ? source : [];
-    });
-
-    const { total, totalPages, loading } = useListQueryState(query);
-
-    const error = useQueryError({
-      query,
       handleUnauthorizedError,
       mapError: (nextError) => String(nextError?.message || "Unable to load browser errors.")
     });
@@ -364,28 +315,20 @@ function createConsoleErrorsRuntime(deps = {}) {
 
     return {
       meta: {
-        pageSizeOptions: BROWSER_ERRORS_PAGE_SIZE_OPTIONS,
+        ...listRuntime.meta,
         formatDateTime,
         formatLocation,
         summarizeBrowserMessage,
         nextSimulationLabel
       },
       state: reactive({
-        entries,
-        error,
-        loading,
-        page: pagination.page,
-        pageSize: pagination.pageSize,
-        total,
-        totalPages,
+        ...listRuntime.state,
         simulationMessage,
         simulationMessageType
       }),
       actions: {
-        load: () => query.refetch(),
-        goPrevious: () => pagination.goPrevious({ isLoading: loading.value }),
-        goNext: () => pagination.goNext({ totalPages: totalPages.value, isLoading: loading.value }),
-        onPageSizeChange: pagination.onPageSizeChange,
+        ...listRuntime.actions,
+        load: listRuntime.actions.refresh,
         simulateClientError,
         viewEntry
       }

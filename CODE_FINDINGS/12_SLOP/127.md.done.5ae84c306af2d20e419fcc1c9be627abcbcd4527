@@ -1,0 +1,21 @@
+# Finding 127
+- Severity: Low
+- Pattern type: AI slop; Duplicate `normalizePathname` helper
+- File + line(s): `packages/surface-routing/src/shared/apiPaths.js:10-20`, `packages/surface-routing/src/shared/paths.js:1-11`
+- Why it can drift/fail: Path normalization logic is duplicated across routing helpers. Any change to normalization rules must be synchronized.
+- Concrete impact: Inconsistent path normalization between API path helpers and surface routing paths.
+- Exact remediation: Extract `normalizePathname` into a shared routing utility used by both modules.
+
+Summary:
+- removed duplicated `normalizePathname` helper from `apiPaths.js`
+- imported shared `normalizePathname` from `paths.js` so routing normalization has one source of truth
+- kept existing exports/behavior while eliminating duplication drift risk
+
+Tests:
+- `npm -ws --if-present test` (fails: missing workspace deps/tools like `jskit-app-scripts`, `vitest`, `@jskit-ai/assistant-contracts`, `vue`, `@jskit-ai/server-runtime-core`, `@fastify/type-provider-typebox`, `@fastify/cookie`, `@supabase/supabase-js`, `openai`, `@jskit-ai/surface-routing`)
+- `npm run test:framework` (fails: migration tracker count mismatch + missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails: `vuetify`/`@mdi/js` imports in web-shell-host template)
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`
+
+Commit: 5ae84c306af2d20e419fcc1c9be627abcbcd4527

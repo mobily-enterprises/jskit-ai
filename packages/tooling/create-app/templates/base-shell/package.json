@@ -14,6 +14,7 @@
     "server": "jskit-app-scripts server",
     "start": "jskit-app-scripts start",
     "dev": "jskit-app-scripts dev",
+    "postinstall": "bash -lc 'mkdir -p node_modules/@jskit-ai; rm -rf node_modules/@jskit-ai/jskit; ln -s ../../../jskit-ai node_modules/@jskit-ai/jskit'",
     "build": "jskit-app-scripts build",
     "preview": "jskit-app-scripts preview",
     "lint": "jskit-app-scripts lint",

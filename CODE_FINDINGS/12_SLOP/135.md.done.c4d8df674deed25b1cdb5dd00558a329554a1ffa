@@ -1,0 +1,22 @@
+# Finding 135
+- Severity: Low
+- Pattern type: AI slop; Duplicate `startOfUtcWeek` helper
+- File + line(s): `packages/billing/entitlements-knex-mysql/src/shared/repository.js:321-331`, `packages/billing/entitlements-core/src/shared/policies.js:12-22`
+- Why it can drift/fail: Week-boundary calculation is duplicated across entitlements core and storage. Any change to week logic must be synchronized.
+- Concrete impact: Different week boundaries between core policies and repository behavior.
+- Exact remediation: Extract `startOfUtcWeek` into a shared entitlements date utility.
+
+Summary:
+- added shared UTC day/week helpers in `billing-core` (`startOfUtcDay`, `startOfUtcWeek`)
+- removed duplicated week-boundary helper implementations from entitlements core policy and mysql repository modules
+- both entitlements layers now resolve week boundaries from one canonical helper implementation
+
+Tests:
+- `npm -ws --if-present test` (fails: missing workspace deps/tools like `jskit-app-scripts`, `vitest`, `@jskit-ai/server-runtime-core`, `@fastify/type-provider-typebox`, `@supabase/supabase-js`)
+- `npm run test:framework` (fails: migration tracker count mismatch + missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails: `vuetify`/`@mdi/js` imports in web-shell-host template)
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`
+- `node --test packages/billing/billing-core/test/dateWindows.test.js`
+
+Commit: c4d8df674deed25b1cdb5dd00558a329554a1ffa

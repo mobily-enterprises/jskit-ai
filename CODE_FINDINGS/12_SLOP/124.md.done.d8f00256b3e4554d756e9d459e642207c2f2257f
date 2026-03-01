@@ -1,0 +1,21 @@
+# Finding 124
+- Severity: Low
+- Pattern type: AI slop; Duplicate `toSlugPart` helper
+- File + line(s): `packages/workspace/workspace-service-core/src/shared/policies/workspaceNaming.js:1-11`, `apps/jskit-value-app/migrations/baseline-steps/20260217120600_backfill_personal_workspaces_and_workspace_ids.cjs:1-11`
+- Why it can drift/fail: Slug normalization logic is duplicated in runtime policy and a migration script. Any change to slug rules must be applied in both places.
+- Concrete impact: Slug normalization differences between runtime naming policy and migration/backfill logic.
+- Exact remediation: Import `toSlugPart` from workspace naming policy in the migration (or move the helper to a shared utility used by both).
+
+Summary:
+- removed duplicated `toSlugPart` implementation from migration backfill step
+- migration now imports `toSlugPart` from workspace-service-core naming policy and threads it through slug helper functions
+- aligns migration slug normalization rules with runtime workspace naming policy
+
+Tests:
+- `npm -ws --if-present test` (fails: missing `jskit-app-scripts`, `vitest`, `@jskit-ai/assistant-contracts`, `vue`, `@jskit-ai/surface-routing`, `@fastify/type-provider-typebox`, `@jskit-ai/server-runtime-core`, `@supabase/supabase-js`, `@fastify/cookie`, `@jskit-ai/billing-core`, `@jskit-ai/access-core`)
+- `npm run test:framework` (fails: migration tracker count mismatch, missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails: `vuetify`/`@mdi/js` imports in web-shell-host template)
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`
+
+Commit: d8f00256b3e4554d756e9d459e642207c2f2257f

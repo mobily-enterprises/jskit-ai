@@ -1,0 +1,22 @@
+# Finding 123
+- Severity: Low
+- Pattern type: AI slop; Duplicate `normalizeWorkspaceProvisioningMode` helper
+- File + line(s): `packages/workspace/workspace-service-core/src/shared/services/workspace.service.js:38-46`, `packages/runtime/runtime-env-core/src/shared/appRuntimePolicy.js:27-35`
+- Why it can drift/fail: Workspace provisioning mode normalization is duplicated across runtime env and workspace service. Any change to accepted modes must be duplicated manually.
+- Concrete impact: Different provisioning mode handling between runtime policy and workspace service.
+- Exact remediation: Centralize `normalizeWorkspaceProvisioningMode` in a shared workspace/runtime policy helper.
+
+Summary:
+- centralized `normalizeWorkspaceProvisioningMode` in runtime-env-core app runtime policy exports
+- removed duplicated normalization helper from workspace service and imported the shared runtime policy helper
+- aligned workspace-service-core dependency metadata to explicitly include runtime-env-core
+
+Tests:
+- `npm -ws --if-present test` (fails: missing `jskit-app-scripts`, `vitest`, `@jskit-ai/assistant-contracts`, `vue`, `@jskit-ai/surface-routing`, `@fastify/type-provider-typebox`, `@jskit-ai/server-runtime-core`, `@supabase/supabase-js`, `@fastify/cookie`, `@jskit-ai/billing-core`, `@jskit-ai/access-core`)
+- `npm run test:framework` (fails: migration tracker count mismatch, missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails: `vuetify`/`@mdi/js` imports in web-shell-host template)
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`
+- `npm --workspace @jskit-ai/runtime-env-core test` (fails: missing `dotenv`)
+
+Commit: 75c20c40284b2d8a4a244ef6603711d07b610d00

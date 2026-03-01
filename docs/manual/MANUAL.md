@@ -50,13 +50,25 @@ http://localhost:5173
 
 ## Sequence
 
+Authentication:
+
 ```
-  npx jskit add bundle auth-supabase --no-install
-  npx jskit add bundle auth-base --no-install
-  npm install
-  npm run web-shell:generate
-  npm run dev
-  npm run server
+npx jskit add bundle auth-supabase --no-install
+npx jskit add bundle auth-base --no-install
+npm install
+```
+
+Web shell:
+
+```
+npx jskit add bundle web-shell --no-install
+npm install
+npm run web-shell:generate
+```
+
+```
+npm run dev
+npm run server
 ```
 
 

@@ -51,6 +51,7 @@ export default Object.freeze({
   mutations: {
     dependencies: {
       runtime: {
+        "@jskit-ai/web-runtime-core": "0.1.0",
         "@mdi/js": "^7.4.47",
         "@tanstack/vue-query": "^5.90.5",
         "@tanstack/vue-router": "^1.159.10",
@@ -61,55 +62,171 @@ export default Object.freeze({
     packageJson: {
       scripts: {
         "web-shell:generate": "node ./scripts/web-shell/generate-filesystem-manifest.mjs",
-        dev: "npm run web-shell:generate && VITE_CLIENT_ENTRY=main.web-shell.js vite",
-        build: "npm run web-shell:generate && VITE_CLIENT_ENTRY=main.web-shell.js vite build",
-        "build:client:internal":
-          "npm run web-shell:generate && VITE_CLIENT_ENTRY=main.web-shell.js vite build --outDir dist-internal"
+        dev: "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.app.js vite",
+        "dev:admin": "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.admin.js vite",
+        "dev:console": "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.console.js vite",
+        build: "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.app.js vite build --outDir dist/app",
+        "build:admin":
+          "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.admin.js vite build --outDir dist/admin",
+        "build:console":
+          "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.console.js vite build --outDir dist/console"
       }
     },
     procfile: {},
     files: [
       {
-        from: "templates/src/main.web-shell.js",
-        to: "src/main.web-shell.js",
+        from: "templates/src/surface.js",
+        to: "src/surface.js",
         reason: "Bootstrap filesystem-driven shell runtime entrypoint.",
         category: "web-shell",
         id: "main-web-shell"
       },
       {
-        from: "templates/src/shell/filesystemHost.js",
-        to: "src/shell/filesystemHost.js",
+        from: "templates/src/surface.app.js",
+        to: "src/surface.app.js",
+        reason: "Bootstrap app surface web-shell entrypoint.",
+        category: "web-shell",
+        id: "main-web-shell-app"
+      },
+      {
+        from: "templates/src/surface.admin.js",
+        to: "src/surface.admin.js",
+        reason: "Bootstrap admin surface web-shell entrypoint.",
+        category: "web-shell",
+        id: "main-web-shell-admin"
+      },
+      {
+        from: "templates/src/surface.console.js",
+        to: "src/surface.console.js",
+        reason: "Bootstrap console surface web-shell entrypoint.",
+        category: "web-shell",
+        id: "main-web-shell-console"
+      },
+      {
+        from: "templates/src/runtime/filesystemHost.js",
+        to: "src/runtime/filesystemHost.js",
         reason: "Provide host-side composition primitives for shell surfaces.",
         category: "web-shell",
         id: "filesystem-host"
       },
       {
-        from: "templates/src/shell/generated/filesystemManifest.generated.js",
-        to: "src/shell/generated/filesystemManifest.generated.js",
+        from: "templates/src/runtime/surfaces.generated.js",
+        to: "src/runtime/surfaces.generated.js",
+        reason: "Define shared surface registry for entrypoints and route generation.",
+        category: "web-shell",
+        id: "surface-registry"
+      },
+      {
+        from: "templates/src/runtime/filesystemHost.app.js",
+        to: "src/runtime/filesystemHost.app.js",
+        reason: "Provide app surface filesystem host bindings.",
+        category: "web-shell",
+        id: "filesystem-host-app"
+      },
+      {
+        from: "templates/src/runtime/filesystemHost.admin.js",
+        to: "src/runtime/filesystemHost.admin.js",
+        reason: "Provide admin surface filesystem host bindings.",
+        category: "web-shell",
+        id: "filesystem-host-admin"
+      },
+      {
+        from: "templates/src/runtime/filesystemHost.console.js",
+        to: "src/runtime/filesystemHost.console.js",
+        reason: "Provide console surface filesystem host bindings.",
+        category: "web-shell",
+        id: "filesystem-host-console"
+      },
+      {
+        from: "templates/src/runtime/generated/filesystemManifest.generated.js",
+        to: "src/runtime/generated/filesystemManifest.generated.js",
         reason: "Seed generated manifest module for initial build.",
         category: "web-shell",
         id: "filesystem-manifest-generated"
       },
       {
-        from: "templates/src/shell/router.js",
-        to: "src/shell/router.js",
+        from: "templates/src/runtime/generated/filesystemManifest.app.generated.js",
+        to: "src/runtime/generated/filesystemManifest.app.generated.js",
+        reason: "Seed generated app manifest module for initial build.",
+        category: "web-shell",
+        id: "filesystem-manifest-app-generated"
+      },
+      {
+        from: "templates/src/runtime/generated/filesystemManifest.admin.generated.js",
+        to: "src/runtime/generated/filesystemManifest.admin.generated.js",
+        reason: "Seed generated admin manifest module for initial build.",
+        category: "web-shell",
+        id: "filesystem-manifest-admin-generated"
+      },
+      {
+        from: "templates/src/runtime/generated/filesystemManifest.console.generated.js",
+        to: "src/runtime/generated/filesystemManifest.console.generated.js",
+        reason: "Seed generated console manifest module for initial build.",
+        category: "web-shell",
+        id: "filesystem-manifest-console-generated"
+      },
+      {
+        from: "templates/src/runtime/createWebShellApp.js",
+        to: "src/runtime/createWebShellApp.js",
+        reason: "Provide shared app bootstrapping for web shell entrypoints.",
+        category: "web-shell",
+        id: "web-shell-app-bootstrap"
+      },
+      {
+        from: "templates/src/runtime/router.js",
+        to: "src/runtime/router.js",
         reason: "Configure TanStack router from filesystem manifest entries.",
         category: "web-shell",
         id: "router"
       },
       {
-        from: "templates/src/shell/guardRuntime.js",
-        to: "src/shell/guardRuntime.js",
+        from: "templates/src/runtime/guardRuntime.js",
+        to: "src/runtime/guardRuntime.js",
         reason: "Provide guard policy runtime for shell route composition.",
         category: "web-shell",
         id: "guard-runtime"
       },
       {
-        from: "templates/src/shell/ShellHost.vue",
-        to: "src/shell/ShellHost.vue",
-        reason: "Install shell host UI scaffold with drawer/top/config regions.",
+        from: "templates/src/runtime/useShellHost.js",
+        to: "src/runtime/useShellHost.js",
+        reason: "Provide editable shell host composition logic.",
         category: "web-shell",
-        id: "shell-host-vue"
+        id: "shell-host-runtime"
+      },
+      {
+        from: "templates/src/runtime/useShellContext.js",
+        to: "src/runtime/useShellContext.js",
+        reason: "Provide shell context and workspace/user state helpers.",
+        category: "web-shell",
+        id: "shell-context"
+      },
+      {
+        from: "templates/src/runtime/GlobalNetworkActivityBar.vue",
+        to: "src/runtime/GlobalNetworkActivityBar.vue",
+        reason: "Provide global network activity indicator.",
+        category: "web-shell",
+        id: "shell-network-activity"
+      },
+      {
+        from: "templates/src/layout.app.vue",
+        to: "src/layout.app.vue",
+        reason: "Install app surface shell layout scaffold.",
+        category: "web-shell",
+        id: "shell-app"
+      },
+      {
+        from: "templates/src/layout.admin.vue",
+        to: "src/layout.admin.vue",
+        reason: "Install admin surface shell layout scaffold.",
+        category: "web-shell",
+        id: "shell-admin"
+      },
+      {
+        from: "templates/src/layout.console.vue",
+        to: "src/layout.console.vue",
+        reason: "Install console surface shell layout scaffold.",
+        category: "web-shell",
+        id: "shell-console"
       },
       {
         from: "templates/src/pages/app/index.vue",

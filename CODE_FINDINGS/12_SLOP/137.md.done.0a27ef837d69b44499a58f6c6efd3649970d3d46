@@ -1,0 +1,22 @@
+# Finding 137
+- Severity: Low
+- Pattern type: AI slop; Duplicate `hasPermission` helper
+- File + line(s): `packages/billing/billing-service-core/src/shared/actions/workspaceBilling.contributor.js:22-30`, `apps/jskit-value-app/server/runtime/actions/contributors/assistant.contributor.js:26-34`
+- Why it can drift/fail: Permission-check logic is duplicated across contributors. Any change to permission semantics must be applied in both places.
+- Concrete impact: Inconsistent permission checks between billing workspace actions and assistant actions.
+- Exact remediation: Extract `hasPermission` into shared contributor helpers.
+
+Summary:
+- added shared `hasPermission` helper in `action-runtime-core/actionContributorHelpers`
+- replaced duplicated permission-check helpers in workspace billing and assistant action contributors
+- added focused tests for shared permission helper behavior in action-runtime-core
+
+Tests:
+- `npm -ws --if-present test` (fails: missing workspace deps/tools like `jskit-app-scripts`, `vitest`, `@jskit-ai/server-runtime-core`, `@fastify/type-provider-typebox`, `@supabase/supabase-js`)
+- `npm run test:framework` (fails: migration tracker count mismatch + missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails: `vuetify`/`@mdi/js` imports in web-shell-host template)
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`
+- `node --test packages/runtime/action-runtime-core/test/actionContributorHelpers.test.js`
+
+Commit: 0a27ef837d69b44499a58f6c6efd3649970d3d46

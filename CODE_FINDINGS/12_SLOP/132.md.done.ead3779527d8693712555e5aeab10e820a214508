@@ -1,0 +1,22 @@
+# Finding 132
+- Severity: Low
+- Pattern type: AI slop; Duplicate `parsePositiveInteger` helper in billing provider SDKs
+- File + line(s): `packages/billing/billing-provider-paddle/src/shared/sdk.service.js:8-14`, `packages/billing/billing-provider-stripe/src/shared/sdk.service.js:5-11`
+- Why it can drift/fail: Numeric parsing logic is duplicated across provider SDKs. Any change to parsing rules must be synchronized.
+- Concrete impact: Inconsistent numeric parsing between Paddle and Stripe provider SDKs.
+- Exact remediation: Extract `parsePositiveInteger` into a shared billing provider utility.
+
+Summary:
+- added shared `parsePositiveInteger` utility in `billing-provider-core` and exported it from shared index
+- removed duplicated local parsing helpers from Stripe and Paddle SDK services and reused the shared parser
+- added focused parser tests in `billing-provider-core/test/numberUtils.test.js`
+
+Tests:
+- `npm -ws --if-present test` (fails: missing workspace deps/tools like `jskit-app-scripts`, `vitest`, `@jskit-ai/server-runtime-core`, `@fastify/type-provider-typebox`, `@supabase/supabase-js`)
+- `npm run test:framework` (fails: migration tracker count mismatch + missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails: `vuetify`/`@mdi/js` imports in web-shell-host template)
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`
+- `node --test packages/billing/billing-provider-core/test/numberUtils.test.js`
+
+Commit: ead3779527d8693712555e5aeab10e820a214508

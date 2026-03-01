@@ -5,21 +5,83 @@ import { pathToFileURL } from "node:url";
 
 const SUPPORTED_ROUTE_EXTENSIONS = new Set([".vue", ".mjs", ".cjs", ".js", ".ts", ".tsx", ".jsx"]);
 const SUPPORTED_ENTRY_EXTENSIONS = new Set([".mjs", ".cjs", ".js"]);
-const KNOWN_SURFACES = new Set(["app", "admin", "console"]);
 const KNOWN_SLOTS = new Set(["drawer", "top", "config"]);
 
 const APP_ROOT = process.cwd();
 const SRC_ROOT = path.join(APP_ROOT, "src");
 const PAGES_ROOT = path.join(SRC_ROOT, "pages");
 const SURFACES_ROOT = path.join(SRC_ROOT, "surfaces");
-const GENERATED_DIR = path.join(SRC_ROOT, "shell", "generated");
+const GENERATED_DIR = path.join(SRC_ROOT, "runtime", "generated");
 const GENERATED_FILE = path.join(GENERATED_DIR, "filesystemManifest.generated.js");
+const SURFACES_MODULE_FILE = path.join(SRC_ROOT, "runtime", "surfaces.generated.js");
 
-const SURFACE_PREFIX_BY_ID = Object.freeze({
-  app: "",
-  admin: "/admin",
-  console: "/console"
-});
+async function loadSurfaceDefinitions() {
+  const moduleUrl = pathToFileURL(SURFACES_MODULE_FILE).href;
+  const loadedModule = await import(moduleUrl);
+  const sourceDefinitions =
+    typeof loadedModule.listSurfaceDefinitions === "function"
+      ? loadedModule.listSurfaceDefinitions()
+      : loadedModule.SURFACE_DEFINITIONS;
+
+  if (!Array.isArray(sourceDefinitions) || sourceDefinitions.length < 1) {
+    throw new Error("src/runtime/surfaces.generated.js must export at least one surface definition.");
+  }
+
+  const normalizedDefinitions = sourceDefinitions.map((definition, index) => {
+    if (!definition || typeof definition !== "object" || Array.isArray(definition)) {
+      throw new Error(`Surface definition at index ${index} must be an object.`);
+    }
+    const id = String(definition.id || "").trim().toLowerCase();
+    const prefix = normalizePath(definition.prefix);
+    if (!id) {
+      throw new Error(`Surface definition at index ${index} must define id.`);
+    }
+    if (!prefix || prefix === "/") {
+      throw new Error(`Surface definition "${id}" must define a non-root prefix.`);
+    }
+    return Object.freeze({
+      id,
+      prefix
+    });
+  });
+
+  const defaultSurfaceId = String(loadedModule.DEFAULT_SURFACE_ID || normalizedDefinitions[0].id).trim().toLowerCase();
+  if (!normalizedDefinitions.some((definition) => definition.id === defaultSurfaceId)) {
+    throw new Error(`DEFAULT_SURFACE_ID "${defaultSurfaceId}" is not present in surface definitions.`);
+  }
+
+  return {
+    definitions: Object.freeze(normalizedDefinitions),
+    defaultSurfaceId
+  };
+}
+
+const { definitions: SURFACE_DEFINITIONS, defaultSurfaceId: DEFAULT_SURFACE_ID } = await loadSurfaceDefinitions();
+const KNOWN_SURFACES = new Set(SURFACE_DEFINITIONS.map((definition) => definition.id));
+const SURFACE_PREFIX_BY_ID = Object.freeze(
+  Object.fromEntries(SURFACE_DEFINITIONS.map((definition) => [definition.id, definition.prefix]))
+);
+const GENERATED_FILE_BY_SURFACE = Object.freeze(
+  Object.fromEntries(
+    SURFACE_DEFINITIONS.map((definition) => [
+      definition.id,
+      path.join(GENERATED_DIR, `filesystemManifest.${definition.id}.generated.js`)
+    ])
+  )
+);
+
+function resolveLazyRoutesFlag() {
+  const raw = String(process.env.VITE_WEB_SHELL_LAZY || "").trim().toLowerCase();
+  if (!raw) {
+    return true;
+  }
+  if (["0", "false", "off", "no"].includes(raw)) {
+    return false;
+  }
+  return true;
+}
+
+const LAZY_ROUTES = resolveLazyRoutesFlag();
 
 function toPosixPath(value) {
   return String(value || "").replaceAll("\\", "/");
@@ -42,10 +104,10 @@ function normalizePath(pathname) {
   return squashed;
 }
 
-function normalizeSurface(value) {
+function normalizeSurface(value, { fallback = DEFAULT_SURFACE_ID } = {}) {
   const normalized = normalizeText(value).toLowerCase();
   if (!KNOWN_SURFACES.has(normalized)) {
-    return "";
+    return fallback;
   }
   return normalized;
 }
@@ -115,7 +177,7 @@ function toRoutePathFromFile(relativePagePath) {
     .map((segment) => normalizeText(segment))
     .filter(Boolean);
 
-  const surface = normalizeSurface(segments[0]);
+  const surface = normalizeSurface(segments[0], { fallback: "" });
   if (!surface) {
     return null;
   }
@@ -173,11 +235,9 @@ function normalizeGuard(guard) {
 
 async function collectShellEntries() {
   const files = await listFilesRecursive(SURFACES_ROOT);
-  const bySurface = {
-    app: { drawer: [], top: [], config: [] },
-    admin: { drawer: [], top: [], config: [] },
-    console: { drawer: [], top: [], config: [] }
-  };
+  const bySurface = Object.fromEntries(
+    SURFACE_DEFINITIONS.map((definition) => [definition.id, { drawer: [], top: [], config: [] }])
+  );
 
   const guardBySurfaceRoute = new Map();
 
@@ -188,7 +248,7 @@ async function collectShellEntries() {
       continue;
     }
 
-    const surface = normalizeSurface(segments[0]);
+    const surface = normalizeSurface(segments[0], { fallback: "" });
     const rawSlot = normalizeText(segments[1]).toLowerCase();
     const slot = rawSlot.endsWith(".d") ? rawSlot.slice(0, -2) : rawSlot;
     if (!surface || !KNOWN_SLOTS.has(slot)) {
@@ -314,21 +374,36 @@ ${spacing}}`;
   return JSON.stringify(value);
 }
 
-function buildManifestSource({ routes, entriesBySurface }) {
+function buildManifestSource({ routes, entriesBySurface, lazyRoutes }) {
   const lines = [];
   lines.push("// GENERATED FILE. DO NOT EDIT MANUALLY.");
   lines.push("// Run: npm run web-shell:generate");
+  lines.push(`// Route loading mode: ${lazyRoutes ? "lazy" : "eager"}`);
   lines.push("");
+
+  if (!lazyRoutes) {
+    routes.forEach((route, index) => {
+      lines.push(`import RouteComponent${index} from ${JSON.stringify(route.importPath)};`);
+    });
+    if (routes.length > 0) {
+      lines.push("");
+    }
+  }
+
   lines.push("export const filesystemRouteEntries = Object.freeze([");
 
-  for (const route of routes) {
+  for (const [index, route] of routes.entries()) {
     lines.push("  Object.freeze({");
     lines.push(`    id: ${JSON.stringify(route.id)},`);
     lines.push(`    surface: ${JSON.stringify(route.surface)},`);
     lines.push(`    routePath: ${JSON.stringify(route.routePath)},`);
     lines.push(`    fullPath: ${JSON.stringify(route.fullPath)},`);
     lines.push(`    guard: ${route.guard ? `Object.freeze(${serializeObject(route.guard, 2)})` : "null"},`);
-    lines.push(`    loadModule: () => import(${JSON.stringify(route.importPath)})`);
+    if (lazyRoutes) {
+      lines.push(`    loadModule: () => import(${JSON.stringify(route.importPath)})`);
+    } else {
+      lines.push(`    component: RouteComponent${index}`);
+    }
     lines.push("  }),");
   }
 
@@ -336,7 +411,7 @@ function buildManifestSource({ routes, entriesBySurface }) {
   lines.push("");
 
   lines.push("export const shellEntriesBySurface = Object.freeze({");
-  for (const surface of ["app", "admin", "console"]) {
+  for (const surface of SURFACE_DEFINITIONS.map((definition) => definition.id)) {
     const slotEntries = entriesBySurface[surface] || { drawer: [], top: [], config: [] };
     lines.push(`  ${surface}: Object.freeze({`);
     for (const slot of ["drawer", "top", "config"]) {
@@ -356,22 +431,47 @@ function buildManifestSource({ routes, entriesBySurface }) {
   return `${lines.join("\n")}\n`;
 }
 
+function summarizeEntries(entriesBySurface) {
+  return Object.values(entriesBySurface || {})
+    .flatMap((surfaceSlots) => Object.values(surfaceSlots || {}))
+    .reduce((sum, entries) => sum + entries.length, 0);
+}
+
 async function main() {
   const { bySurface, guardBySurfaceRoute } = await collectShellEntries();
   const routes = await collectRouteEntries(guardBySurfaceRoute);
   const manifestSource = buildManifestSource({
     routes,
-    entriesBySurface: bySurface
+    entriesBySurface: bySurface,
+    lazyRoutes: LAZY_ROUTES
   });
 
   await mkdir(GENERATED_DIR, { recursive: true });
   await writeFile(GENERATED_FILE, manifestSource, "utf8");
 
+  const summaryEntries = summarizeEntries(bySurface);
   process.stdout.write(
-    `[web-shell] generated ${path.relative(APP_ROOT, GENERATED_FILE)} (${routes.length} routes, ${Object.values(bySurface)
-      .flatMap((surfaceSlots) => Object.values(surfaceSlots))
-      .reduce((sum, entries) => sum + entries.length, 0)} entries)\n`
+    `[web-shell] generated ${path.relative(APP_ROOT, GENERATED_FILE)} (${routes.length} routes, ${summaryEntries} entries)\n`
   );
+
+  for (const surface of Object.keys(GENERATED_FILE_BY_SURFACE)) {
+    const surfaceRoutes = routes.filter((entry) => entry.surface === surface);
+    const surfaceEntries = { [surface]: bySurface[surface] || { drawer: [], top: [], config: [] } };
+    const surfaceManifest = buildManifestSource({
+      routes: surfaceRoutes,
+      entriesBySurface: surfaceEntries,
+      lazyRoutes: LAZY_ROUTES
+    });
+    const targetFile = GENERATED_FILE_BY_SURFACE[surface];
+    await writeFile(targetFile, surfaceManifest, "utf8");
+    process.stdout.write(
+      `[web-shell] generated ${path.relative(APP_ROOT, targetFile)} (${surfaceRoutes.length} routes, ${summarizeEntries(
+        surfaceEntries
+      )} entries)\n`
+    );
+  }
+
+  process.stdout.write(`[web-shell] route loading mode: ${LAZY_ROUTES ? "lazy" : "eager"}\n`);
 }
 
 main().catch((error) => {

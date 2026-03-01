@@ -1,0 +1,14 @@
+# Finding 129
+- Severity: Low
+- Pattern type: AI slop; Duplicate `withModuleId` helper in compose paths
+- File + line(s): `packages/runtime/module-framework-core/src/shared/composeClient.js:95-106`, `packages/runtime/module-framework-core/src/shared/composeServer.js:110-121`
+- Why it can drift/fail: Module ID tagging logic is duplicated across client and server composition. Any change to tagging rules must be applied in both.
+- Concrete impact: Divergent module metadata behavior between client and server composition.
+- Exact remediation: Extract `withModuleId` into a shared compose utility.
+
+Justification:
+- skipped per active instruction to avoid client-side-focused changes during ongoing template/client rewrite work
+- remediation requires edits in `composeClient.js`, so this is deferred to prevent overlap
+
+Signal to revisit later:
+- revisit once client-side composition code is stabilized and open for cross-cutting dedup refactors

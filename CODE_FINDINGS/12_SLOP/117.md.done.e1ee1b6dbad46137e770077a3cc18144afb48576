@@ -1,0 +1,21 @@
+# Finding 117
+- Severity: Low
+- Pattern type: AI slop; Duplicate `resolveFsBasePath` helper
+- File + line(s): `packages/chat/chat-storage-core/src/shared/attachmentStorage.service.js:14-26`, `packages/users/user-profile-core/src/shared/avatarStorage.service.js:36-48`
+- Why it can drift/fail: Filesystem base path resolution is duplicated across storage services. Any change to resolution semantics must be mirrored.
+- Concrete impact: Inconsistent filesystem path handling between chat attachments and user avatars.
+- Exact remediation: Extract `resolveFsBasePath` into a shared storage utility module.
+
+Summary:
+- added `resolveFsBasePath` helper to `@jskit-ai/server-runtime-core` and exported it
+- updated chat attachment and avatar storage services to reuse the shared helper and removed local duplicates
+- added `@jskit-ai/server-runtime-core` dependency to chat-storage-core
+
+Tests:
+- `npm -ws --if-present test` (fails: missing `jskit-app-scripts`, `vitest`, `@jskit-ai/assistant-contracts`, `vue`, `@supabase/supabase-js`, `@fastify/cookie`, `@jskit-ai/server-runtime-core`, `@jskit-ai/billing-core`, `@jskit-ai/access-core`)
+- `npm run test:framework` (fails: migration tracker count mismatch, missing `@jskit-ai/cli-entrypoint`)
+- `npm run test:architecture:client` (fails: `vuetify`/`@mdi/js` imports in web-shell-host template)
+- `npm run test:architecture:shared-ui`
+- `npm run test:architecture:db`
+
+Commit: e1ee1b6dbad46137e770077a3cc18144afb48576
