@@ -1,13 +1,4 @@
-function toSlugPart(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-");
-}
-
-function buildBaseWorkspaceSlug(userProfile) {
+function buildBaseWorkspaceSlug(userProfile, toSlugPart) {
   const displayPart = toSlugPart(userProfile.display_name);
   if (displayPart) {
     return displayPart.slice(0, 90);
@@ -36,7 +27,7 @@ function buildWorkspaceName(userProfile) {
   return `Workspace ${Number(userProfile.id)}`.slice(0, 160);
 }
 
-function chooseUniqueSlug(baseSlug, usedSlugs) {
+function chooseUniqueSlug(baseSlug, usedSlugs, toSlugPart) {
   const normalizedBase = toSlugPart(baseSlug) || "workspace";
   let candidate = normalizedBase;
   let suffix = 1;
@@ -51,6 +42,7 @@ function chooseUniqueSlug(baseSlug, usedSlugs) {
 }
 
 exports.up = async function up(knex) {
+  const { toSlugPart } = await import("@jskit-ai/workspace-service-core/policies/workspaceNaming");
   const existingSlugsRows = await knex("workspaces").select("slug");
   const usedSlugs = new Set(existingSlugsRows.map((row) => toSlugPart(row.slug)).filter(Boolean));
 
@@ -65,7 +57,7 @@ exports.up = async function up(knex) {
         .first();
 
       if (!workspace) {
-        const slug = chooseUniqueSlug(buildBaseWorkspaceSlug(user), usedSlugs);
+        const slug = chooseUniqueSlug(buildBaseWorkspaceSlug(user, toSlugPart), usedSlugs, toSlugPart);
         const [workspaceId] = await trx("workspaces").insert({
           slug,
           name: buildWorkspaceName(user),
