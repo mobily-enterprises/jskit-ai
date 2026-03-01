@@ -6,6 +6,7 @@ import { toNonEmptyString } from "@jskit-ai/billing-core";
 import { api } from "../../platform/http/api/index.js";
 import { resolveBillingPlanProviderProfile } from "./billingPlans/providers/index.js";
 import { toFieldErrors } from "./fieldErrors.js";
+import { shortenProviderPriceId } from "./providerPriceId.js";
 
 const CONSOLE_BILLING_PLANS_QUERY_KEY = ["console-billing-plans"];
 const CONSOLE_BILLING_PROVIDER_PRICES_QUERY_KEY = ["console-billing-provider-prices", "plan"];
@@ -386,14 +387,6 @@ function formatInterval(interval, intervalCount) {
       .toLowerCase() || "month";
   const count = Math.max(1, Number(intervalCount) || 1);
   return count === 1 ? normalizedInterval : `${count} ${normalizedInterval}s`;
-}
-
-function shortenProviderPriceId(value) {
-  const normalized = String(value || "").trim();
-  if (normalized.length <= 15) {
-    return normalized;
-  }
-  return `${normalized.slice(0, 9)}...${normalized.slice(-3)}`;
 }
 
 function resolveCorePlanPrice(plan) {

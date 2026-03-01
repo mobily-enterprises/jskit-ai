@@ -4,6 +4,7 @@ import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { api } from "../../platform/http/api/index.js";
 import { toFieldErrors } from "./fieldErrors.js";
+import { shortenProviderPriceId } from "./providerPriceId.js";
 
 const CONSOLE_BILLING_PRODUCTS_QUERY_KEY = ["console-billing-products"];
 const CONSOLE_BILLING_PROVIDER_PRICES_QUERY_KEY = ["console-billing-provider-prices", "product"];
@@ -53,14 +54,6 @@ function formatInterval(interval, intervalCount) {
     return "one-time";
   }
   return count === 1 ? normalizedInterval : `${count} ${normalizedInterval}s`;
-}
-
-function shortenProviderPriceId(value) {
-  const normalized = String(value || "").trim();
-  if (normalized.length <= 15) {
-    return normalized;
-  }
-  return `${normalized.slice(0, 9)}...${normalized.slice(-3)}`;
 }
 
 function normalizeOptionalString(value) {
