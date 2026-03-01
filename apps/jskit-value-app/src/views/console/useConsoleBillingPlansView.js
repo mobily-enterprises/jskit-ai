@@ -5,6 +5,7 @@ import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { toNonEmptyString } from "@jskit-ai/billing-core";
 import { api } from "../../platform/http/api/index.js";
 import { resolveBillingPlanProviderProfile } from "./billingPlans/providers/index.js";
+import { toFieldErrors } from "./fieldErrors.js";
 
 const CONSOLE_BILLING_PLANS_QUERY_KEY = ["console-billing-plans"];
 const CONSOLE_BILLING_PROVIDER_PRICES_QUERY_KEY = ["console-billing-provider-prices", "plan"];
@@ -393,20 +394,6 @@ function shortenProviderPriceId(value) {
     return normalized;
   }
   return `${normalized.slice(0, 9)}...${normalized.slice(-3)}`;
-}
-
-function toFieldErrors(value) {
-  if (!value || typeof value !== "object") {
-    return {};
-  }
-  if (value.fieldErrors && typeof value.fieldErrors === "object") {
-    return value.fieldErrors;
-  }
-  const details = value.details && typeof value.details === "object" ? value.details : {};
-  if (details.fieldErrors && typeof details.fieldErrors === "object") {
-    return details.fieldErrors;
-  }
-  return {};
 }
 
 function resolveCorePlanPrice(plan) {

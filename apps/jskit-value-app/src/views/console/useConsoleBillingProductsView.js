@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { api } from "../../platform/http/api/index.js";
+import { toFieldErrors } from "./fieldErrors.js";
 
 const CONSOLE_BILLING_PRODUCTS_QUERY_KEY = ["console-billing-products"];
 const CONSOLE_BILLING_PROVIDER_PRICES_QUERY_KEY = ["console-billing-provider-prices", "product"];
@@ -64,20 +65,6 @@ function shortenProviderPriceId(value) {
 
 function normalizeOptionalString(value) {
   return String(value || "").trim();
-}
-
-function toFieldErrors(value) {
-  if (!value || typeof value !== "object") {
-    return {};
-  }
-  if (value.fieldErrors && typeof value.fieldErrors === "object") {
-    return value.fieldErrors;
-  }
-  const details = value.details && typeof value.details === "object" ? value.details : {};
-  if (details.fieldErrors && typeof details.fieldErrors === "object") {
-    return details.fieldErrors;
-  }
-  return {};
 }
 
 function collectPrefixedFieldErrors(fieldErrors, prefix) {
