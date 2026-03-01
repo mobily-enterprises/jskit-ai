@@ -120,16 +120,13 @@ function createConsoleRouteGuards(stores, options) {
     };
   }
 
-  async function beforeLoadRoot(context) {
-    const state = await resolveConsoleRuntimeState(resolvedStores);
-    if (state.sessionUnavailable) {
-      return;
-    }
-
+  function ensureAuthenticated(state, context) {
     if (!state.authenticated) {
       throw redirect(loginRedirectOptions(context));
     }
+  }
 
+  function ensureConsoleAccess(state) {
     if (state.hasConsoleAccess) {
       return;
     }
@@ -139,6 +136,33 @@ function createConsoleRouteGuards(stores, options) {
     }
 
     throw redirect({ to: fallbackPath });
+  }
+
+  function ensureConsolePermission(permission) {
+    if (!resolvedStores.consoleStore.can(permission)) {
+      throw redirect({ to: rootPath });
+    }
+  }
+
+  async function beforeLoadConsoleProtected(context, permission) {
+    const state = await resolveConsoleRuntimeState(resolvedStores);
+    if (state.sessionUnavailable) {
+      return;
+    }
+
+    ensureAuthenticated(state, context);
+    ensureConsoleAccess(state);
+    ensureConsolePermission(permission);
+  }
+
+  async function beforeLoadRoot(context) {
+    const state = await resolveConsoleRuntimeState(resolvedStores);
+    if (state.sessionUnavailable) {
+      return;
+    }
+
+    ensureAuthenticated(state, context);
+    ensureConsoleAccess(state);
   }
 
   async function beforeLoadPublic() {
@@ -168,9 +192,7 @@ function createConsoleRouteGuards(stores, options) {
       return;
     }
 
-    if (!state.authenticated) {
-      throw redirect(loginRedirectOptions(context));
-    }
+    ensureAuthenticated(state, context);
 
     if (state.hasConsoleAccess) {
       throw redirect({ to: rootPath });
@@ -189,55 +211,15 @@ function createConsoleRouteGuards(stores, options) {
       return;
     }
 
-    if (!state.authenticated) {
-      throw redirect(loginRedirectOptions(context));
-    }
+    ensureAuthenticated(state, context);
   }
 
   async function beforeLoadMembers(context) {
-    const state = await resolveConsoleRuntimeState(resolvedStores);
-    if (state.sessionUnavailable) {
-      return;
-    }
-
-    if (!state.authenticated) {
-      throw redirect(loginRedirectOptions(context));
-    }
-
-    if (!state.hasConsoleAccess) {
-      if (state.hasPendingInvites) {
-        throw redirect({ to: invitationsPath });
-      }
-
-      throw redirect({ to: fallbackPath });
-    }
-
-    if (!resolvedStores.consoleStore.can("console.members.view")) {
-      throw redirect({ to: rootPath });
-    }
+    return beforeLoadConsoleProtected(context, "console.members.view");
   }
 
   async function beforeLoadBrowserErrors(context) {
-    const state = await resolveConsoleRuntimeState(resolvedStores);
-    if (state.sessionUnavailable) {
-      return;
-    }
-
-    if (!state.authenticated) {
-      throw redirect(loginRedirectOptions(context));
-    }
-
-    if (!state.hasConsoleAccess) {
-      if (state.hasPendingInvites) {
-        throw redirect({ to: invitationsPath });
-      }
-
-      throw redirect({ to: fallbackPath });
-    }
-
-    if (!resolvedStores.consoleStore.can("console.errors.browser.read")) {
-      throw redirect({ to: rootPath });
-    }
+    return beforeLoadConsoleProtected(context, "console.errors.browser.read");
   }
 
   async function beforeLoadBrowserErrorDetails(context) {
@@ -245,26 +227,7 @@ function createConsoleRouteGuards(stores, options) {
   }
 
   async function beforeLoadServerErrors(context) {
-    const state = await resolveConsoleRuntimeState(resolvedStores);
-    if (state.sessionUnavailable) {
-      return;
-    }
-
-    if (!state.authenticated) {
-      throw redirect(loginRedirectOptions(context));
-    }
-
-    if (!state.hasConsoleAccess) {
-      if (state.hasPendingInvites) {
-        throw redirect({ to: invitationsPath });
-      }
-
-      throw redirect({ to: fallbackPath });
-    }
-
-    if (!resolvedStores.consoleStore.can("console.errors.server.read")) {
-      throw redirect({ to: rootPath });
-    }
+    return beforeLoadConsoleProtected(context, "console.errors.server.read");
   }
 
   async function beforeLoadServerErrorDetails(context) {
@@ -272,72 +235,15 @@ function createConsoleRouteGuards(stores, options) {
   }
 
   async function beforeLoadAiTranscripts(context) {
-    const state = await resolveConsoleRuntimeState(resolvedStores);
-    if (state.sessionUnavailable) {
-      return;
-    }
-
-    if (!state.authenticated) {
-      throw redirect(loginRedirectOptions(context));
-    }
-
-    if (!state.hasConsoleAccess) {
-      if (state.hasPendingInvites) {
-        throw redirect({ to: invitationsPath });
-      }
-
-      throw redirect({ to: fallbackPath });
-    }
-
-    if (!resolvedStores.consoleStore.can("console.ai.transcripts.read_all")) {
-      throw redirect({ to: rootPath });
-    }
+    return beforeLoadConsoleProtected(context, "console.ai.transcripts.read_all");
   }
 
   async function beforeLoadBillingEvents(context) {
-    const state = await resolveConsoleRuntimeState(resolvedStores);
-    if (state.sessionUnavailable) {
-      return;
-    }
-
-    if (!state.authenticated) {
-      throw redirect(loginRedirectOptions(context));
-    }
-
-    if (!state.hasConsoleAccess) {
-      if (state.hasPendingInvites) {
-        throw redirect({ to: invitationsPath });
-      }
-
-      throw redirect({ to: fallbackPath });
-    }
-
-    if (!resolvedStores.consoleStore.can("console.billing.events.read_all")) {
-      throw redirect({ to: rootPath });
-    }
+    return beforeLoadConsoleProtected(context, "console.billing.events.read_all");
   }
 
   async function beforeLoadBillingPlans(context) {
-    const state = await resolveConsoleRuntimeState(resolvedStores);
-    if (state.sessionUnavailable) {
-      return;
-    }
-
-    if (!state.authenticated) {
-      throw redirect(loginRedirectOptions(context));
-    }
-
-    if (!state.hasConsoleAccess) {
-      if (state.hasPendingInvites) {
-        throw redirect({ to: invitationsPath });
-      }
-
-      throw redirect({ to: fallbackPath });
-    }
-
-    if (!resolvedStores.consoleStore.can("console.billing.catalog.manage")) {
-      throw redirect({ to: rootPath });
-    }
+    return beforeLoadConsoleProtected(context, "console.billing.catalog.manage");
   }
 
   async function beforeLoadBillingEntitlements(context) {
@@ -345,26 +251,7 @@ function createConsoleRouteGuards(stores, options) {
   }
 
   async function beforeLoadBillingPurchases(context) {
-    const state = await resolveConsoleRuntimeState(resolvedStores);
-    if (state.sessionUnavailable) {
-      return;
-    }
-
-    if (!state.authenticated) {
-      throw redirect(loginRedirectOptions(context));
-    }
-
-    if (!state.hasConsoleAccess) {
-      if (state.hasPendingInvites) {
-        throw redirect({ to: invitationsPath });
-      }
-
-      throw redirect({ to: fallbackPath });
-    }
-
-    if (!resolvedStores.consoleStore.can("console.billing.operations.manage")) {
-      throw redirect({ to: rootPath });
-    }
+    return beforeLoadConsoleProtected(context, "console.billing.operations.manage");
   }
 
   async function beforeLoadBillingPlanAssignments(context) {
