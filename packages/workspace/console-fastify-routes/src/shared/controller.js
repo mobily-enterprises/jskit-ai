@@ -1,4 +1,5 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { requireIdempotencyKey } from "@jskit-ai/server-runtime-core/routeUtils";
 
 const CONSOLE_ACTION_IDS = Object.freeze({
   BOOTSTRAP_READ: "console.bootstrap.read",
@@ -40,22 +41,6 @@ const CONSOLE_ACTION_IDS = Object.freeze({
   BILLING_PLAN_UPDATE: "console.billing.plan.update",
   BILLING_PRODUCT_UPDATE: "console.billing.product.update"
 });
-
-function normalizeIdempotencyKey(value) {
-  const normalized = String(value || "").trim();
-  return normalized || "";
-}
-
-function requireIdempotencyKey(request) {
-  const idempotencyKey = normalizeIdempotencyKey(request?.headers?.["idempotency-key"]);
-  if (!idempotencyKey) {
-    throw new AppError(400, "Idempotency-Key header is required.", {
-      code: "IDEMPOTENCY_KEY_REQUIRED"
-    });
-  }
-
-  return idempotencyKey;
-}
 
 async function executeAction(actionExecutor, { actionId, request, input = {} }) {
   return actionExecutor.execute({
