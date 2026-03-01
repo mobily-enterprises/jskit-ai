@@ -1,30 +1,8 @@
 import { readFileSync } from "node:fs";
+import { normalizeTableNames } from "./tableNames.js";
 
 const SCHEMA_SQL_TEMPLATE = readFileSync(new URL("./sql/schema.sql", import.meta.url), "utf8");
 const INDEXES_SQL_TEMPLATE = readFileSync(new URL("./sql/indexes.sql", import.meta.url), "utf8");
-
-const DEFAULT_TABLE_NAMES = Object.freeze({
-  entitlementDefinitions: "billing_entitlement_definitions",
-  entitlementGrants: "billing_entitlement_grants",
-  entitlementConsumptions: "billing_entitlement_consumptions",
-  entitlementBalances: "billing_entitlement_balances"
-});
-
-function toNonEmptyString(value) {
-  const normalized = String(value || "").trim();
-  return normalized || "";
-}
-
-function normalizeTableNames(overrides = {}) {
-  const source = overrides && typeof overrides === "object" ? overrides : {};
-  return {
-    entitlementDefinitions: toNonEmptyString(source.entitlementDefinitions) || DEFAULT_TABLE_NAMES.entitlementDefinitions,
-    entitlementGrants: toNonEmptyString(source.entitlementGrants) || DEFAULT_TABLE_NAMES.entitlementGrants,
-    entitlementConsumptions:
-      toNonEmptyString(source.entitlementConsumptions) || DEFAULT_TABLE_NAMES.entitlementConsumptions,
-    entitlementBalances: toNonEmptyString(source.entitlementBalances) || DEFAULT_TABLE_NAMES.entitlementBalances
-  };
-}
 
 function escapeIdentifier(identifier) {
   return `\`${String(identifier || "").replace(/`/g, "``")}\``;
