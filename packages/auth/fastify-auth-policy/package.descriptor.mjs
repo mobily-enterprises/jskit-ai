@@ -17,6 +17,12 @@ export default Object.freeze({
       "auth.rbac"
     ]
   },
+  "runtime": {
+    "server": {
+      "entrypoint": "src/shared/server.js",
+      "export": "createServerContributions"
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {

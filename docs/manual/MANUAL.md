@@ -224,3 +224,155 @@ Run locally:
 ```bash
 npm run lint:duplication
 ```
+
+## 7) Server Composition Chapter (Route, Controller, Service, Action)
+
+This chapter explains how modules enrich the server at runtime.
+
+### 7.1 What `createServerContributions()` is
+
+`createServerContributions()` is a runtime registration manifest, not the business logic itself.
+
+```js
+function createServerContributions() {
+  return {
+    repositories: [],
+    services: [],
+    controllers: [{ id: "auth", create(...) { ... } }],
+    routes: [{ id: "auth", buildRoutes(controllers, options) { ... } }],
+    actions: [],
+    plugins: [],
+    workers: [],
+    lifecycle: []
+  };
+}
+```
+
+Why it looks generic:
+- The shape is generic on purpose so the composer can merge many packages consistently.
+- The package-specific behavior is inside `createController(...)`, `buildRoutes(...)`, and any service/action implementations they call.
+
+### 7.2 What each key means in practice
+
+- `repositories`: data adapters (db/cache/storage). Instantiated first.
+- `services`: business logic units. Instantiated after repositories.
+- `controllers`: request orchestration handlers. Built after services.
+- `routes`: route definitions built from controllers. Later registered on Fastify.
+- `actions`: action contribution channel for command/query definitions (executed via action runtime).
+- `plugins`: Fastify plugin contributions executed during boot.
+- `workers`: background workers started on boot and stopped on shutdown.
+- `lifecycle`: `onBoot` / `onShutdown` hooks.
+
+### 7.3 Is this a contract?
+
+Yes.
+
+- Contribution IDs are required.
+- IDs must be unique per category across merged packages.
+- Unknown top-level keys are rejected.
+- Invalid shapes are rejected.
+
+Consequence:
+- Two services with the same `id` cannot coexist. Composition fails fast.
+
+### 7.4 Where server composition comes from
+
+Runtime composition is lockfile-driven:
+
+1. Read `.jskit/lock.json`.
+2. Resolve installed package descriptors.
+3. For each package with `runtime.server`, load `entrypoint`.
+4. Call exported contribution function.
+5. Validate and merge contributions.
+6. Build runtime registries and route list.
+7. Register routes/plugins/workers/lifecycle on server boot.
+
+`runtime.server` in descriptor declares where to load the contribution entrypoint:
+
+```js
+runtime: {
+  server: {
+    entrypoint: "src/shared/server.js",
+    export: "createServerContributions"
+  }
+}
+```
+
+### 7.5 Why pass `services`, `dependencies`, and `runtimeServices` into controller `create(...)`?
+
+This is dependency injection.
+
+- `services`: already-instantiated service registry (primary dependency for controllers).
+- `dependencies`: shared app/runtime deps (for example `env`, `logger`, utility adapters).
+- `runtimeServices`: optional selected service subset used by some modules; treated as optional input.
+
+This keeps controllers pure and testable, and avoids hidden globals.
+
+### 7.6 Fastify-specific vs generic layer
+
+Important split:
+
+- Generic layer: `createServerContributions()` and runtime composition.
+- Fastify layer: actual route registration into `fastify.route(...)`.
+
+`routes` definitions are still Fastify-oriented (`method`, `path`, `schema`, handler), but registration is centralized by runtime core.
+
+### 7.7 Route, Controller, Service, Action: who calls whom?
+
+Typical flow:
+
+1. Fastify receives request on a registered route.
+2. Route handler points to a controller method.
+3. Controller may call:
+   - a service method directly, and/or
+   - `actionExecutor.execute(...)` for governed command/query execution.
+4. Action registry resolves action definition and runs action pipeline.
+5. Action implementation usually delegates to service methods.
+
+Concrete chain (auth example, simplified):
+
+```js
+// routes.js
+{ path: "/api/login", method: "POST", handler: controllers.auth.login }
+
+// controller.js
+const result = await actionExecutor.execute({
+  actionId: "auth.login.password",
+  input: request.body,
+  context: { requestMeta: { request }, request, channel: "api" }
+});
+authService.writeSessionCookies(reply, result.session);
+
+// auth.contributor.js
+{
+  id: "auth.login.password",
+  async execute(input) {
+    return authService.login(input);
+  }
+}
+```
+
+### 7.8 Common misconceptions clarified
+
+- Does a controller create routes?
+  - No. Route definitions are produced by `buildRoutes(...)`.
+- Does every route call a controller?
+  - No. Common convention is yes, but direct handlers and plugin-owned routes are possible.
+- Is every controller attached to a route?
+  - No. Controllers can exist without exposed routes.
+- Is `src/shared` automatically client+server mixed?
+  - No. It is package shared source location; runtime usage depends on entrypoints/contracts.
+
+### 7.9 Service vs Action (practical difference)
+
+- Service:
+  - direct method call (`services.authService.authenticateRequest(...)`)
+  - business logic reuse
+  - no automatic action policy pipeline
+
+- Action:
+  - addressed by `actionId` (+ optional version)
+  - executed through action runtime pipeline
+  - policy/idempotency/audit/observability hooks apply
+
+Use services for reusable domain logic, and actions for governed command/query execution contracts.

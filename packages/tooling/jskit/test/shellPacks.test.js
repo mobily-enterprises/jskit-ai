@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { access, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { access, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -102,30 +103,48 @@ test("web-shell bundle materializes host scaffold files and switches client entr
       args: ["add", "bundle", "web-shell", "--no-install"]
     });
     assert.equal(addResult.status, 0, addResult.stderr);
-    assert.match(addResult.stdout, /src\/main\.web-shell\.js/);
-    assert.match(addResult.stdout, /src\/shell\/ShellHost\.vue/);
+    assert.match(addResult.stdout, /src\/surface\.app\.js/);
+    assert.match(addResult.stdout, /src\/layout\.app\.vue/);
     assert.match(addResult.stdout, /src\/surfaces\/admin\/config\.d\/workspace\.entry\.js/);
 
     const packageJson = await readJsonFile(path.join(appRoot, "package.json"));
+    assert.equal(packageJson.scripts.dev, "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.js vite");
+    assert.equal(packageJson.scripts["dev:app"], "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.app.js vite");
     assert.equal(
-      packageJson.scripts.dev,
-      "npm run web-shell:generate && VITE_CLIENT_ENTRY=main.web-shell.js vite"
+      packageJson.scripts["dev:admin"],
+      "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.admin.js vite"
+    );
+    assert.equal(
+      packageJson.scripts["dev:console"],
+      "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.console.js vite"
     );
     assert.equal(
       packageJson.scripts.build,
-      "npm run web-shell:generate && VITE_CLIENT_ENTRY=main.web-shell.js vite build"
+      "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.app.js vite build --outDir dist/app"
     );
     assert.equal(
-      packageJson.scripts["build:client:internal"],
-      "npm run web-shell:generate && VITE_CLIENT_ENTRY=main.web-shell.js vite build --outDir dist-internal"
+      packageJson.scripts["build:admin"],
+      "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.admin.js vite build --outDir dist/admin"
+    );
+    assert.equal(
+      packageJson.scripts["build:console"],
+      "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.console.js vite build --outDir dist/console"
     );
     assert.equal(packageJson.scripts["web-shell:generate"], "node ./scripts/web-shell/generate-filesystem-manifest.mjs");
 
     const requiredScaffoldPaths = [
-      "src/main.web-shell.js",
-      "src/shell/ShellHost.vue",
-      "src/shell/router.js",
-      "src/shell/filesystemHost.js",
+      "src/surface.js",
+      "src/surface.app.js",
+      "src/surface.admin.js",
+      "src/surface.console.js",
+      "src/layout.app.vue",
+      "src/layout.admin.vue",
+      "src/layout.console.vue",
+      "src/runtime/router.js",
+      "src/runtime/filesystemHost.js",
+      "src/runtime/filesystemHost.app.js",
+      "src/runtime/filesystemHost.admin.js",
+      "src/runtime/filesystemHost.console.js",
       "src/pages/app/index.vue",
       "src/pages/admin/index.vue",
       "src/pages/console/index.vue",
@@ -182,7 +201,7 @@ test("web-shell generator picks up package-injected pages and shell entries", as
     });
     assert.equal(generateManifest.status, 0, generateManifest.stderr);
 
-    const generatedManifestPath = path.join(appRoot, "src", "shell", "generated", "filesystemManifest.generated.js");
+    const generatedManifestPath = path.join(appRoot, "src", "runtime", "generated", "filesystemManifest.generated.js");
     const manifestSource = await readFile(generatedManifestPath, "utf8");
     assert.match(manifestSource, /\"\/admin\/errors\/server\"/);
     assert.match(manifestSource, /\"admin-server-errors\"/);

@@ -9,9 +9,11 @@
   "exports": {
     ".": "./src/shared/index.js",
     "./controller": "./src/shared/controller.js",
-    "./routes": "./src/shared/routes.js"
+    "./routes": "./src/shared/routes.js",
+    "./server": "./src/shared/server.js"
   },
   "dependencies": {
-    "@jskit-ai/communications-contracts": "0.1.0"
+    "@jskit-ai/communications-contracts": "0.1.0",
+    "@jskit-ai/http-contracts": "0.1.0"
   }
 }

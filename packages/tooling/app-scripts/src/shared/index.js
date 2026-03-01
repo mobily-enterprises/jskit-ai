@@ -127,11 +127,11 @@ function createNodeVueFastifyScriptsConfig(options = {}) {
     tasks: {
       server: {
         command: "node",
-        args: [config.serverEntry]
+        args: ["--env-file=.env", config.serverEntry]
       },
       start: {
         command: "node",
-        args: [config.serverEntry]
+        args: ["--env-file=.env", config.serverEntry]
       },
       worker: {
         builtin: "runtime:worker"

@@ -15,6 +15,7 @@
     ".": "./src/shared/index.js",
     "./controller": "./src/shared/controller.js",
     "./routes": "./src/shared/routes.js",
-    "./schema": "./src/shared/schema.js"
+    "./schema": "./src/shared/schema.js",
+    "./server": "./src/shared/server.js"
   }
 }

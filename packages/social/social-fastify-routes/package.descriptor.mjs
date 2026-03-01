@@ -18,6 +18,12 @@ export default Object.freeze({
       "runtime.server"
     ]
   },
+  "runtime": {
+    "server": {
+      "entrypoint": "src/shared/server.js",
+      "export": "createServerContributions"
+    }
+  },
   "metadata": {
     "server": {
       "routes": [

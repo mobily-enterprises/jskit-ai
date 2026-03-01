@@ -3,7 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
-import { shellQuote } from "@jskit-ai/cli-entrypoint";
+import { shellQuote } from "./cliEntrypoint.js";
 
 const DEFAULT_TEMPLATE = "base-shell";
 const DEFAULT_INITIAL_BUNDLES = "none";

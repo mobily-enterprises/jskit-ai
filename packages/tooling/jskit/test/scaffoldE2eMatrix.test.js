@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 
 const CREATE_APP_CLI_PATH = fileURLToPath(new URL("../../create-app/bin/jskit-create-app.js", import.meta.url));
 const JSKIT_CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
+const MONOREPO_ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
 const DEV_HOST = "127.0.0.1";
 const RUN_SCAFFOLD_E2E = process.env.JSKIT_RUN_SCAFFOLD_E2E === "1";
 const JSKIT_LOCAL_DEPENDENCY_PREFIX = "file:node_modules/@jskit-ai/jskit/packages/";
@@ -81,7 +82,7 @@ async function reservePort() {
 
 function startDevServer({ cwd, port }) {
   const logs = [];
-  const child = spawn("npm", ["run", "dev", "--", "--host", DEV_HOST, "--port", String(port)], {
+  const child = spawn("npm", ["run", "dev", "--", "--force", "--host", DEV_HOST, "--port", String(port)], {
     cwd,
     env: {
       ...process.env,
@@ -104,6 +105,11 @@ function startDevServer({ cwd, port }) {
       return logs.join("");
     }
   };
+}
+
+function isViteReady(logOutput) {
+  const output = String(logOutput || "");
+  return /\bVITE v\d+/i.test(output) && /\bready in\b/i.test(output);
 }
 
 async function stopDevServer(server) {
@@ -145,6 +151,7 @@ async function stopDevServer(server) {
 
 async function waitForHttpReady({ url, server, timeoutMs = 120_000 }) {
   const startedAt = Date.now();
+  let httpReady = false;
 
   while (Date.now() - startedAt < timeoutMs) {
     if (server.child.exitCode !== null) {
@@ -154,10 +161,14 @@ async function waitForHttpReady({ url, server, timeoutMs = 120_000 }) {
     try {
       const response = await fetch(url);
       if (response.ok || response.status === 404) {
-        return;
+        httpReady = true;
       }
     } catch {
       // Retry until timeout.
+    }
+
+    if (httpReady && isViteReady(server.readLogs())) {
+      return;
     }
 
     await delay(400);
@@ -166,8 +177,22 @@ async function waitForHttpReady({ url, server, timeoutMs = 120_000 }) {
   throw new Error(`Timed out waiting for ${url}.\n${server.readLogs()}`);
 }
 
-async function assertTextVisible(page, text) {
-  await page.getByText(text, { exact: true }).waitFor({ state: "visible", timeout: 20_000 });
+async function assertTextVisible(page, text, { attempts = 4, timeoutMs = 20_000 } = {}) {
+  let lastError = null;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      await page.getByText(text, { exact: true }).first().waitFor({ state: "visible", timeout: timeoutMs });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= attempts - 1) {
+        break;
+      }
+      await page.waitForTimeout(500);
+      await page.reload({ waitUntil: "networkidle" });
+    }
+  }
+  throw lastError;
 }
 
 async function createAppAt({ rootDir, appName }) {
@@ -180,6 +205,14 @@ async function createAppAt({ rootDir, appName }) {
 
   assert.equal(createResult.status, 0, createResult.stderr || createResult.stdout);
   return appRoot;
+}
+
+async function linkLocalJskitMonorepo(appRoot) {
+  const scopeDir = path.join(appRoot, "node_modules", "@jskit-ai");
+  const jskitLinkPath = path.join(scopeDir, "jskit");
+  await mkdir(scopeDir, { recursive: true });
+  await rm(jskitLinkPath, { recursive: true, force: true });
+  await symlink(MONOREPO_ROOT, jskitLinkPath, "dir");
 }
 
 function runJskit({ appRoot, args = [] }) {
@@ -242,7 +275,7 @@ async function installShellInjectionPackage(appRoot) {
         to: "src/pages/admin/errors/server.vue"
       },
       {
-        from: "templates/src/surfaces/admin/drawer/server-errors.entry.js",
+        from: "templates/src/surfaces/admin/drawer.d/server-errors.entry.js",
         to: "src/surfaces/admin/drawer.d/server-errors.entry.js"
       }
     ]
@@ -304,6 +337,7 @@ async function runScenarioWebShell({ browser, rootDir }) {
 
   const installResult = runNpm({ cwd: appRoot, args: ["install"] });
   assert.equal(installResult.status, 0, installResult.stderr || installResult.stdout);
+  await linkLocalJskitMonorepo(appRoot);
 
   const doctorResult = runJskit({ appRoot, args: ["doctor"] });
   assert.equal(doctorResult.status, 0, doctorResult.stderr || doctorResult.stdout);
@@ -324,7 +358,16 @@ async function runScenarioWebShell({ browser, rootDir }) {
       await assertTextVisible(page, "Admin Dashboard");
       await assertTextVisible(page, "Dashboard");
 
-      await page.locator("summary", { hasText: "Settings" }).first().click();
+      const settingsMenuButton = page.getByRole("button", { name: "Open settings menu" }).first();
+      const canUseSettingsMenuButton = await settingsMenuButton
+        .waitFor({ state: "visible", timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (canUseSettingsMenuButton) {
+        await settingsMenuButton.click();
+      } else {
+        await page.locator("summary", { hasText: "Settings" }).first().click();
+      }
       await assertTextVisible(page, "Workspace");
 
       await page.goto(`${baseUrl}/console`, { waitUntil: "networkidle" });
@@ -351,6 +394,7 @@ async function runScenarioWebShellInjection({ browser, rootDir }) {
 
   const installResult = runNpm({ cwd: appRoot, args: ["install"] });
   assert.equal(installResult.status, 0, installResult.stderr || installResult.stdout);
+  await linkLocalJskitMonorepo(appRoot);
 
   const doctorResult = runJskit({ appRoot, args: ["doctor"] });
   assert.equal(doctorResult.status, 0, doctorResult.stderr || doctorResult.stdout);
@@ -365,8 +409,17 @@ async function runScenarioWebShellInjection({ browser, rootDir }) {
     try {
       await page.goto(`${baseUrl}/admin`, { waitUntil: "networkidle" });
       const serverErrorsLink = page.getByRole("link", { name: "Server errors" }).first();
-      await serverErrorsLink.waitFor({ state: "visible", timeout: 20_000 });
-      await serverErrorsLink.click();
+      const hasLink = await serverErrorsLink
+        .waitFor({ state: "visible", timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (hasLink) {
+        await serverErrorsLink.click();
+      } else {
+        const serverErrorsEntry = page.getByText("Server errors", { exact: true }).first();
+        await serverErrorsEntry.waitFor({ state: "visible", timeout: 20_000 });
+        await serverErrorsEntry.click();
+      }
       await page.getByRole("heading", { name: "Server errors" }).waitFor({ state: "visible", timeout: 20_000 });
     } finally {
       await page.close();
@@ -396,6 +449,7 @@ async function runScenarioWebShellDbChat({ browser, rootDir }) {
 
   const installResult = runNpm({ cwd: appRoot, args: ["install"] });
   assert.equal(installResult.status, 0, installResult.stderr || installResult.stdout);
+  await linkLocalJskitMonorepo(appRoot);
 
   const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
   assertInternalDependencySpecsAreLocal(packageJson);

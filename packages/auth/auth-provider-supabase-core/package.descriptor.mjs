@@ -14,6 +14,13 @@ export default Object.freeze({
       "values": [],
       "promptLabel": "Supabase publishable key",
       "promptHint": "sb_publishable_..."
+    },
+    "app-public-url": {
+      "required": true,
+      "values": [],
+      "defaultValue": "http://localhost:5173",
+      "promptLabel": "App public URL",
+      "promptHint": "Browser URL used for auth redirects"
     }
   },
   "dependsOn": [
@@ -29,6 +36,12 @@ export default Object.freeze({
       "auth.access",
       "runtime.server"
     ]
+  },
+  "runtime": {
+    "server": {
+      "entrypoint": "src/shared/server.js",
+      "export": "createServerContributions"
+    }
   },
   "mutations": {
     "dependencies": {
@@ -72,6 +85,15 @@ export default Object.freeze({
         "reason": "Configure Supabase publishable key for auth.",
         "category": "runtime-config",
         "id": "auth-supabase-publishable-key"
+      },
+      {
+        "file": ".env",
+        "op": "upsert-env",
+        "key": "APP_PUBLIC_URL",
+        "value": "${option:app-public-url}",
+        "reason": "Configure application public URL for auth redirect flows.",
+        "category": "runtime-config",
+        "id": "auth-app-public-url"
       }
     ]
   }

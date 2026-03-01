@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from "vue";
+import { Outlet } from "@tanstack/vue-router";
 import { useDisplay } from "vuetify";
 import { createShellHostRuntime } from "./runtime/useShellHost.js";
 import { listShellEntriesBySlot, resolveSurfaceFromPathname } from "./runtime/filesystemHost.console.js";
@@ -182,7 +183,7 @@ const settingsRoute = computed(() => {
 
     <v-main>
       <div class="shell-main pa-6">
-        <router-view />
+        <Outlet />
       </div>
     </v-main>
   </v-app>

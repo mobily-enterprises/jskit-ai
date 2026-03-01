@@ -15,6 +15,12 @@ export default Object.freeze({
       "contracts.http"
     ]
   },
+  "runtime": {
+    "server": {
+      "entrypoint": "src/shared/server.js",
+      "export": "createServerContributions"
+    }
+  },
   "metadata": {
     "server": {
       "routes": [

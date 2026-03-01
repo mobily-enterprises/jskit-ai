@@ -17,6 +17,9 @@ async function executeAction(actionExecutor, { actionId, request, input = {} }) 
     actionId,
     input,
     context: {
+      requestMeta: {
+        request
+      },
       request,
       channel: "api"
     }

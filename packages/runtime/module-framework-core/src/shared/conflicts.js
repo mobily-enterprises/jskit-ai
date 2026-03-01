@@ -100,13 +100,6 @@ function detectTopicConflicts(topics = []) {
   });
 }
 
-const SECURITY_SENSITIVE_CONFLICTS = new Set([
-  "ROUTE_KEY_MISSING",
-  "ROUTE_CONFLICT",
-  "ACTION_ID_MISSING",
-  "ACTION_CONFLICT"
-]);
-
 function resolveConflicts({
   modules = [],
   routes = [],
@@ -130,10 +123,7 @@ function resolveConflicts({
   const allConflicts = [...routeReport.conflicts, ...actionReport.conflicts, ...topicReport.conflicts];
 
   for (const conflict of allConflicts) {
-    const level =
-      normalizedMode === MODULE_ENABLEMENT_MODES.strict || SECURITY_SENSITIVE_CONFLICTS.has(conflict.code)
-        ? "error"
-        : "warn";
+    const level = normalizedMode === MODULE_ENABLEMENT_MODES.strict ? "error" : "warn";
     collector.add({
       code: conflict.code,
       moduleId: conflict.contender?.moduleId,

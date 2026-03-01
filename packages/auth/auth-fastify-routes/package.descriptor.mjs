@@ -18,6 +18,12 @@ export default Object.freeze({
       "auth.policy"
     ]
   },
+  "runtime": {
+    "server": {
+      "entrypoint": "src/shared/server.js",
+      "export": "createServerContributions"
+    }
+  },
   "metadata": {
     "server": {
       "routes": [

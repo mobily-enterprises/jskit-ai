@@ -2,6 +2,7 @@ const DEFAULT_ORDER = 100;
 const SERVER_EXTENSION_FILE_SUFFIX = ".server.js";
 const CLIENT_EXTENSION_FILE_SUFFIX = ".client.js";
 const DEFAULT_CLIENT_EXTENSION_SURFACE = "app";
+const SERVER_DROPIN_CHANNEL_KINDS = Object.freeze(new Set(["server", "settings", "workers"]));
 
 const SERVER_EXTENSION_KEYS = Object.freeze(
   new Set([
@@ -75,6 +76,79 @@ function normalizeList(value, contextLabel) {
     throw new TypeError(`${contextLabel} must be an array.`);
   }
   return value.slice();
+}
+
+function normalizeServerDropinChannel(entry, contextLabel) {
+  if (!isPlainObject(entry)) {
+    throw new TypeError(`${contextLabel} must be an object.`);
+  }
+  const key = String(entry.key || "").trim();
+  const directoryName = String(entry.directoryName || "").trim();
+  const kind = String(entry.kind || "").trim().toLowerCase();
+  if (!/^[a-z][a-z0-9._-]*$/.test(key)) {
+    throw new TypeError(`${contextLabel}.key is invalid.`);
+  }
+  if (!directoryName) {
+    throw new TypeError(`${contextLabel}.directoryName is required.`);
+  }
+  if (!SERVER_DROPIN_CHANNEL_KINDS.has(kind)) {
+    throw new TypeError(
+      `${contextLabel}.kind must be one of ${[...SERVER_DROPIN_CHANNEL_KINDS].join(", ")}.`
+    );
+  }
+  return Object.freeze({
+    key,
+    directoryName,
+    kind
+  });
+}
+
+function resolveServerDropinChannels({
+  extensionDirectory,
+  settingsDirectory,
+  workersDirectory,
+  additionalChannels = []
+} = {}) {
+  const channels = [
+    normalizeServerDropinChannel(
+      {
+        key: "server",
+        directoryName: extensionDirectory,
+        kind: "server"
+      },
+      "server dropin channel"
+    ),
+    normalizeServerDropinChannel(
+      {
+        key: "settings",
+        directoryName: settingsDirectory,
+        kind: "settings"
+      },
+      "settings dropin channel"
+    ),
+    normalizeServerDropinChannel(
+      {
+        key: "workers",
+        directoryName: workersDirectory,
+        kind: "workers"
+      },
+      "workers dropin channel"
+    )
+  ];
+
+  for (const [index, channelEntry] of (Array.isArray(additionalChannels) ? additionalChannels : []).entries()) {
+    channels.push(normalizeServerDropinChannel(channelEntry, `additionalChannels[${index}]`));
+  }
+
+  const seenKeys = new Set();
+  for (const channel of channels) {
+    if (seenKeys.has(channel.key)) {
+      throw new Error(`Server dropin channel key "${channel.key}" is duplicated.`);
+    }
+    seenKeys.add(channel.key);
+  }
+
+  return Object.freeze(channels);
 }
 
 function toPosix(value) {
@@ -369,42 +443,69 @@ async function loadServerAppDropins({
   appDir,
   extensionDirectory = "extensions.d",
   settingsDirectory = "settings.extensions.d",
-  workersDirectory = "workers.extensions.d"
+  workersDirectory = "workers.extensions.d",
+  additionalChannels = []
 } = {}) {
   if (!appDir) {
     throw new TypeError("loadServerAppDropins requires appDir.");
   }
 
   const nodeModules = await loadNodeServerModules();
-
-  const serverExtensions = await loadServerExtensionFamily({
-    appDir,
-    directoryName: extensionDirectory,
-    familyLabel: "server",
-    normalizer: normalizeServerExtension,
-    nodeModules
+  const channels = resolveServerDropinChannels({
+    extensionDirectory,
+    settingsDirectory,
+    workersDirectory,
+    additionalChannels
   });
 
-  const settingsExtensions = await loadServerExtensionFamily({
-    appDir,
-    directoryName: settingsDirectory,
-    familyLabel: "settings",
-    normalizer: normalizeSettingsExtension,
-    nodeModules
+  const normalizerByKind = Object.freeze({
+    server: normalizeServerExtension,
+    settings: normalizeSettingsExtension,
+    workers: normalizeWorkerExtension
   });
 
-  const workerExtensions = await loadServerExtensionFamily({
-    appDir,
-    directoryName: workersDirectory,
-    familyLabel: "worker",
-    normalizer: normalizeWorkerExtension,
-    nodeModules
-  });
+  const loadedByChannel = new Map();
+  const serverExtensions = [];
+  const settingsExtensions = [];
+  const workerExtensions = [];
 
-  return composeServerRuntimeBundle({
+  for (const channel of channels) {
+    const familyEntries = await loadServerExtensionFamily({
+      appDir,
+      directoryName: channel.directoryName,
+      familyLabel: `${channel.kind}:${channel.key}`,
+      normalizer: normalizerByKind[channel.kind],
+      nodeModules
+    });
+
+    loadedByChannel.set(channel.key, familyEntries);
+
+    if (channel.kind === "server") {
+      serverExtensions.push(...familyEntries);
+      continue;
+    }
+    if (channel.kind === "settings") {
+      settingsExtensions.push(...familyEntries);
+      continue;
+    }
+    workerExtensions.push(...familyEntries);
+  }
+
+  const bundle = composeServerRuntimeBundle({
     serverExtensions,
     settingsExtensions,
     workerExtensions
+  });
+  const channelEntries = Object.fromEntries(
+    channels.map((channel) => [channel.key, Object.freeze([...(loadedByChannel.get(channel.key) || [])])])
+  );
+  const channelKinds = Object.fromEntries(channels.map((channel) => [channel.key, channel.kind]));
+
+  return Object.freeze({
+    ...bundle,
+    channels: Object.freeze(channelEntries),
+    channelKinds: Object.freeze(channelKinds),
+    channelOrder: Object.freeze(channels.map((channel) => channel.key))
   });
 }
 
@@ -564,6 +665,8 @@ const __testables = {
   normalizeSettingsExtension,
   normalizeWorkerExtension,
   normalizeClientExtension,
+  normalizeServerDropinChannel,
+  resolveServerDropinChannels,
   sortExtensions,
   composeServerRuntimeBundle,
   mergeClientValue

@@ -3,7 +3,7 @@ import test from "node:test";
 import { createServer } from "../../server.js";
 
 test("GET /api/v1/health returns ok payload", async () => {
-  const app = createServer();
+  const app = await createServer();
   const response = await app.inject({
     method: "GET",
     url: "/api/v1/health"

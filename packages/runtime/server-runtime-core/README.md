@@ -55,6 +55,18 @@ Centralize app-agnostic server runtime helpers used across services, adapters, a
   - `mergeRuntimeBundles`
   - `createRuntimeAssembly`
   - `buildRoutesFromManifest`
+- `@jskit-ai/server-runtime-core/serverContributions`
+  - `normalizeServerContributions`
+  - `mergeServerContributions`
+  - `loadServerContributionsFromApp`
+  - `loadServerContributionsFromLock`
+  - `createServerRuntimeFromContributions`
+  - `createServerRuntimeFromApp`
+  - `createServerRuntimeFromLock`
+  - `initializeContributedPlugins`
+  - `initializeContributedWorkers`
+  - `runLifecyclePhase`
+  - `applyContributedRuntimeLifecycle`
 - `@jskit-ai/server-runtime-core/apiRouteRegistration`
   - `registerApiRouteDefinitions`
 - `@jskit-ai/server-runtime-core/fastifyBootstrap`
@@ -127,6 +139,32 @@ Additional practical examples:
 - `buildRoutesFromManifest(...)`: derive route arrays from declarative module manifest.
 - `registerApiRouteDefinitions(...)`: register route definitions on Fastify without duplicating per-route registration glue.
 - `resolveDatabaseErrorCode(error)`: classify DB failure codes before recording observability metrics.
+
+### Canonical Server Contribution Contract
+
+Each package contribution entrypoint should return this shape:
+
+```js
+export function createServerContributions() {
+  return {
+    repositories: [{ id: "usersRepository", create: () => ({}) }],
+    services: [{ id: "usersService", create: ({ repositories }) => ({}) }],
+    controllers: [{ id: "users", create: ({ services }) => ({}) }],
+    routes: [{ id: "users", buildRoutes: (controllers) => [] }],
+    actions: [],
+    plugins: [],
+    workers: [],
+    lifecycle: [{ id: "users.lifecycle", onBoot: async () => {}, onShutdown: async () => {} }]
+  };
+}
+```
+
+Validation rules:
+
+- unknown top-level keys are rejected
+- ids are required and unique per contribution category
+- route definitions require `buildRoutes` (and optional `resolveOptions`)
+- lifecycle definitions require `onBoot` and/or `onShutdown`
 
 ## Non-goals
 

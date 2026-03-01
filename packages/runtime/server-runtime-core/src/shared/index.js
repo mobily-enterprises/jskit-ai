@@ -14,6 +14,22 @@ export { registerApiRouteDefinitions } from "./apiRouteRegistration.js";
 export { defaultMissingHandler, normalizeIdempotencyKey, requireIdempotencyKey } from "./routeUtils.js";
 export { resolveFsBasePath } from "./storagePaths.js";
 export {
+  SERVER_CONTRIBUTION_KEYS,
+  createEmptyServerContributions,
+  normalizeServerContributions,
+  mergeServerContributions,
+  readLockFromApp,
+  loadServerContributionsFromApp,
+  createServerRuntimeFromApp,
+  loadServerContributionsFromLock,
+  createServerRuntimeFromContributions,
+  createServerRuntimeFromLock,
+  initializeContributedPlugins,
+  initializeContributedWorkers,
+  runLifecyclePhase,
+  applyContributedRuntimeLifecycle
+} from "./serverContributions.js";
+export {
   toCanonicalJson,
   toSha256Hex,
   toHmacSha256Hex,

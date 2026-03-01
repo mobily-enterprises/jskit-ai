@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { mergeClientModuleRegistry } from "../src/shared/appDropins.js";
+import { mergeClientModuleRegistry, __testables } from "../src/shared/appDropins.js";
 
 test("mergeClientModuleRegistry rejects new modules from contributions", () => {
   assert.throws(
@@ -55,4 +55,45 @@ test("mergeClientModuleRegistry merges contributions into existing modules", () 
       }
     }
   ]);
+});
+
+test("resolveServerDropinChannels includes defaults and additional channels", () => {
+  const channels = __testables.resolveServerDropinChannels({
+    extensionDirectory: "extensions.d",
+    settingsDirectory: "settings.extensions.d",
+    workersDirectory: "workers.extensions.d",
+    additionalChannels: [
+      {
+        key: "custom",
+        directoryName: "custom.extensions.d",
+        kind: "server"
+      }
+    ]
+  });
+
+  assert.deepEqual(channels, [
+    { key: "server", directoryName: "extensions.d", kind: "server" },
+    { key: "settings", directoryName: "settings.extensions.d", kind: "settings" },
+    { key: "workers", directoryName: "workers.extensions.d", kind: "workers" },
+    { key: "custom", directoryName: "custom.extensions.d", kind: "server" }
+  ]);
+});
+
+test("resolveServerDropinChannels rejects duplicate channel keys", () => {
+  assert.throws(
+    () =>
+      __testables.resolveServerDropinChannels({
+        extensionDirectory: "extensions.d",
+        settingsDirectory: "settings.extensions.d",
+        workersDirectory: "workers.extensions.d",
+        additionalChannels: [
+          {
+            key: "server",
+            directoryName: "another.extensions.d",
+            kind: "server"
+          }
+        ]
+      }),
+    /duplicated/
+  );
 });

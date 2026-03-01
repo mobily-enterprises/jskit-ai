@@ -10,6 +10,7 @@ const APP_ROOT = path.resolve(__dirname, "../..");
 
 const EXPECTED_RUNTIME_DEPENDENCIES = Object.freeze([
   "@jskit-ai/app-scripts",
+  "@jskit-ai/server-runtime-core",
   "fastify",
   "vue"
 ]);
@@ -33,11 +34,13 @@ const EXPECTED_TOP_LEVEL_ENTRIES = Object.freeze([
   "gitignore",
   "index.html",
   "package.json",
+  "package.json.ACTUAL_CORRECT",
   "server.js",
   "server",
   "src",
   "tests",
-  "vite.config.mjs"
+  "vite.config.mjs",
+  "vite.shared.mjs"
 ]);
 
 async function readPackageJson() {

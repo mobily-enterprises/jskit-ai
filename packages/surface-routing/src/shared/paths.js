@@ -249,4 +249,4 @@ function createSurfacePathHelpers(options = {}) {
   });
 }
 
-export { createSurfacePathHelpers };
+export { createSurfacePathHelpers, normalizePathname };

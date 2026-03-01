@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/shared/index.js",
     "./service": "./src/shared/service.js",
+    "./server": "./src/shared/server.js",
     "./test-utils": "./src/shared/test-utils.js",
     "./accountFlows": "./src/shared/lib/accountFlows.js",
     "./authCookies": "./src/shared/lib/authCookies.js",

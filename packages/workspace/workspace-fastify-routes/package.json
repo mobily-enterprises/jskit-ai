@@ -11,6 +11,7 @@
     "./controller": "./src/shared/controller.js",
     "./routes": "./src/shared/routes.js",
     "./schema": "./src/shared/schema.js",
+    "./server": "./src/shared/server.js",
     "./routes/admin": "./src/shared/routes/admin.route.js",
     "./routes/bootstrap": "./src/shared/routes/bootstrap.route.js",
     "./routes/selfService": "./src/shared/routes/selfService.route.js",

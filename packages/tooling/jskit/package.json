@@ -22,7 +22,7 @@
     ".": "./src/shared/index.js"
   },
   "dependencies": {
-    "@jskit-ai/cli-entrypoint": "0.1.0",
+    "@jskit-ai/server-runtime-core": "0.1.0",
     "@jskit-ai/surface-routing": "0.1.0"
   },
   "engines": {

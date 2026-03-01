@@ -43,6 +43,12 @@ async function writePackageDescriptor(workspaceRoot, relativeDir, descriptorSour
   await writeFile(descriptorPath, descriptorSource, "utf8");
 }
 
+async function writePackageFile(workspaceRoot, relativePath, source) {
+  const absolutePath = path.join(workspaceRoot, "packages", relativePath);
+  await mkdir(path.dirname(absolutePath), { recursive: true });
+  await writeFile(absolutePath, source, "utf8");
+}
+
 test("normalizePackageDescriptor accepts valid descriptor shape", () => {
   const normalized = normalizePackageDescriptor(
     {
@@ -56,6 +62,12 @@ test("normalizePackageDescriptor accepts valid descriptor shape", () => {
       },
       contracts: {
         contributes: ["contracts/capabilities.mjs", "./contracts/capabilities.mjs"]
+      },
+      runtime: {
+        server: {
+          entrypoint: "src/server/contributions.js",
+          export: "createServerContributions"
+        }
       },
       mutations: {
         dependencies: {
@@ -87,6 +99,8 @@ test("normalizePackageDescriptor accepts valid descriptor shape", () => {
   assert.deepEqual(normalized.capabilities.provides, ["feature-a"]);
   assert.deepEqual(normalized.capabilities.requires, ["feature-b"]);
   assert.deepEqual(normalized.contracts.contributes, ["contracts/capabilities.mjs"]);
+  assert.equal(normalized.runtime.server.entrypoint, "src/server/contributions.js");
+  assert.equal(normalized.runtime.server.export, "createServerContributions");
   assert.equal(normalized.mutations.dependencies.runtime.knex, "^3.0.0");
   assert.equal(normalized.mutations.files[0].from, "templates/source.txt");
   assert.equal(normalized.mutations.files[0].to, "config/source.txt");
@@ -198,6 +212,37 @@ test("duplicate descriptor IDs return stable snapshot message", () => {
   assert.equal(message, ERROR_SNAPSHOTS.duplicatePackageId);
 });
 
+test("runtime.server requires entrypoint when declared", () => {
+  const message = captureErrorMessage(() => {
+    normalizePackageDescriptor(
+      {
+        packageVersion: 1,
+        packageId: "@test/runtime-missing-entrypoint",
+        version: "0.1.0",
+        dependsOn: [],
+        capabilities: { provides: [], requires: [] },
+        runtime: {
+          server: {
+            export: "createServerContributions"
+          }
+        },
+        mutations: {
+          dependencies: { runtime: {}, dev: {} },
+          packageJson: { scripts: {} },
+          procfile: {},
+          files: []
+        }
+      },
+      "/fixtures/runtime-missing-entrypoint/package.descriptor.mjs"
+    );
+  });
+
+  assert.equal(
+    message,
+    "Package @test/runtime-missing-entrypoint runtime.server.entrypoint is required when runtime.server is declared."
+  );
+});
+
 test("descriptor version mismatch returns stable snapshot message", () => {
   const message = captureErrorMessage(() => {
     normalizeBundleDescriptor(
@@ -263,5 +308,54 @@ test("jskit lint-descriptors reports duplicate package IDs", async () => {
     assert.match(result.stderr, /Duplicate package discovered: @test\/duplicate/);
     assert.match(result.stderr, /package-a\/package\.descriptor\.mjs/);
     assert.match(result.stderr, /package-b\/package\.descriptor\.mjs/);
+  });
+});
+
+test("jskit lint-descriptors validates runtime.server contribution entrypoint exports", async () => {
+  await withTempWorkspace(async (workspaceRoot) => {
+    const descriptorSource = `export default Object.freeze({
+  packageVersion: 1,
+  packageId: "@test/runtime-export-mismatch",
+  version: "0.0.1",
+  dependsOn: [],
+  capabilities: {
+    provides: ["test.server-routes"],
+    requires: []
+  },
+  runtime: {
+    server: {
+      entrypoint: "src/server/contributions.js",
+      export: "createServerContributions"
+    }
+  },
+  mutations: {
+    dependencies: {
+      runtime: {},
+      dev: {}
+    },
+    packageJson: {
+      scripts: {}
+    },
+    procfile: {},
+    files: []
+  }
+});
+`;
+
+    await writePackageDescriptor(workspaceRoot, "runtime-export-mismatch", descriptorSource);
+    await writePackageFile(
+      workspaceRoot,
+      "runtime-export-mismatch/src/server/contributions.js",
+      `export function wrongExportName() { return { routes: [] }; }\n`
+    );
+
+    const result = runCli({
+      cwd: workspaceRoot,
+      args: ["lint-descriptors"]
+    });
+
+    assert.equal(result.status, 1, result.stdout);
+    assert.match(result.stderr, /server contribution contract checks/);
+    assert.match(result.stderr, /runtime\.server export createServerContributions must be a function/);
   });
 });

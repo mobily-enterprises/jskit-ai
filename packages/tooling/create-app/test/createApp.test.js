@@ -236,7 +236,22 @@ test("generated app supports shell + db progressive installation", async () => {
     const appRoot = path.join(cwd, "shell-db-app");
     const addDbResult = runJskit({
       cwd: appRoot,
-      args: ["add", "bundle", "db-mysql", "--no-install"]
+      args: [
+        "add",
+        "bundle",
+        "db-mysql",
+        "--no-install",
+        "--db-host",
+        "127.0.0.1",
+        "--db-port",
+        "3306",
+        "--db-name",
+        "app",
+        "--db-user",
+        "root",
+        "--db-password",
+        "secret"
+      ]
     });
     assert.equal(addDbResult.status, 0, addDbResult.stderr);
 
@@ -257,13 +272,37 @@ test("generated app supports shell + db + auth progressive installation", async 
     const appRoot = path.join(cwd, "shell-db-auth-app");
     const addDbResult = runJskit({
       cwd: appRoot,
-      args: ["add", "bundle", "db-mysql", "--no-install"]
+      args: [
+        "add",
+        "bundle",
+        "db-mysql",
+        "--no-install",
+        "--db-host",
+        "127.0.0.1",
+        "--db-port",
+        "3306",
+        "--db-name",
+        "app",
+        "--db-user",
+        "root",
+        "--db-password",
+        "secret"
+      ]
     });
     assert.equal(addDbResult.status, 0, addDbResult.stderr);
 
     const addAuthProviderResult = runJskit({
       cwd: appRoot,
-      args: ["add", "bundle", "auth-supabase", "--no-install"]
+      args: [
+        "add",
+        "bundle",
+        "auth-supabase",
+        "--no-install",
+        "--auth-supabase-url",
+        "https://example.supabase.co",
+        "--auth-supabase-publishable-key",
+        "sb_publishable_example"
+      ]
     });
     assert.equal(addAuthProviderResult.status, 0, addAuthProviderResult.stderr);
 

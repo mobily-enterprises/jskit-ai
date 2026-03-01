@@ -49,6 +49,7 @@ const BILLING_PADDLE_OPTION_ARGS = [
 ];
 
 const REQUIRES_DB = new Set([
+  "ops-retention",
   "security-audit",
   "assistant",
   "billing-base",

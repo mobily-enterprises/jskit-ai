@@ -18,6 +18,12 @@ export default Object.freeze({
       "runtime.server"
     ]
   },
+  "runtime": {
+    "server": {
+      "entrypoint": "src/shared/server.js",
+      "export": "createServerContributions"
+    }
+  },
   "metadata": {
     "server": {
       "routes": [
@@ -35,7 +41,8 @@ export default Object.freeze({
   "mutations": {
     "dependencies": {
       "runtime": {
-        "@jskit-ai/communications-contracts": "0.1.0"
+        "@jskit-ai/communications-contracts": "0.1.0",
+        "@jskit-ai/http-contracts": "0.1.0"
       },
       "dev": {}
     },

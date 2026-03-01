@@ -21,6 +21,7 @@ import { normalizeBundleDescriptor } from "./schemas/bundleDescriptor.mjs";
 import { normalizePackageDescriptor } from "./schemas/packageDescriptor.mjs";
 import { validateCapabilityContracts } from "./capabilityContracts.mjs";
 import { getCapabilityContract } from "../../contracts/capabilities/index.mjs";
+import { normalizeServerContributions } from "@jskit-ai/server-runtime-core/serverContributions";
 
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const BUNDLES_ROOT = path.join(PACKAGE_ROOT, "bundles");
@@ -630,12 +631,122 @@ async function lintDescriptors({ appRoot }) {
       contractValidation.issues.map((message) => createIssue(message))
     );
   }
+
+  const serverContributionIssues = await validateServerContributionContracts(packages);
+  if (serverContributionIssues.length > 0) {
+    throw createConflictError(
+      "server-contribution-contract",
+      "Descriptor lint failed server contribution contract checks.",
+      serverContributionIssues.map((message) => createIssue(message))
+    );
+  }
+
   return {
     command: "lint-descriptors",
     bundleCount: bundles.size,
     packageCount: packages.size,
     capabilityContractCount: contractValidation.contractCount
   };
+}
+
+function packageProvidesServerCapabilities(packageDescriptor) {
+  const provided = Array.isArray(packageDescriptor?.capabilities?.provides)
+    ? packageDescriptor.capabilities.provides
+    : [];
+  return provided.some((capabilityId) => {
+    const normalized = String(capabilityId || "").trim();
+    if (!normalized) {
+      return false;
+    }
+    return normalized.includes(".server-routes");
+  });
+}
+
+async function validateServerContributionContracts(availablePackages) {
+  const issues = [];
+  const orderedEntries = [...availablePackages.values()].sort((left, right) =>
+    String(left?.descriptor?.packageId || "").localeCompare(String(right?.descriptor?.packageId || ""))
+  );
+
+  for (const packageEntry of orderedEntries) {
+    const packageId = String(packageEntry?.descriptor?.packageId || "").trim();
+    if (!packageId) {
+      continue;
+    }
+
+    const runtimeServer = packageEntry?.descriptor?.runtime?.server || null;
+    const providesServerCapabilities = packageProvidesServerCapabilities(packageEntry?.descriptor);
+    if (!runtimeServer) {
+      if (providesServerCapabilities) {
+        issues.push(
+          `Package ${packageId} provides server route capabilities but does not declare runtime.server entrypoint.`
+        );
+      }
+      continue;
+    }
+
+    const entrypoint = String(runtimeServer.entrypoint || "").trim();
+    const exportName = String(runtimeServer.export || "createServerContributions").trim() || "createServerContributions";
+    const absoluteEntrypointPath = path.resolve(packageEntry.packageRoot, entrypoint);
+    const relativeToRoot = path.relative(path.resolve(packageEntry.packageRoot), absoluteEntrypointPath);
+    const isInsidePackageRoot =
+      relativeToRoot === "" || (!relativeToRoot.startsWith("..") && !path.isAbsolute(relativeToRoot));
+    if (!isInsidePackageRoot) {
+      issues.push(`Package ${packageId} runtime.server.entrypoint escapes package root (${entrypoint}).`);
+      continue;
+    }
+    if (!(await fileExists(absoluteEntrypointPath))) {
+      issues.push(`Package ${packageId} runtime.server.entrypoint not found: ${entrypoint}.`);
+      continue;
+    }
+
+    let contributionModule = null;
+    try {
+      contributionModule = await import(pathToFileURL(absoluteEntrypointPath).href + `?t=${Date.now()}_${Math.random()}`);
+    } catch (error) {
+      issues.push(
+        `Package ${packageId} failed loading runtime.server.entrypoint ${entrypoint}: ${error?.message || String(error)}`
+      );
+      continue;
+    }
+
+    const contributionFactory = contributionModule?.[exportName];
+    if (typeof contributionFactory !== "function") {
+      issues.push(`Package ${packageId} runtime.server export ${exportName} must be a function.`);
+      continue;
+    }
+
+    let rawContributions = null;
+    try {
+      rawContributions = await contributionFactory({
+        packageId,
+        descriptor: packageEntry.descriptor
+      });
+    } catch (error) {
+      issues.push(
+        `Package ${packageId} runtime.server export ${exportName} failed: ${error?.message || String(error)}`
+      );
+      continue;
+    }
+
+    let normalizedContributions = null;
+    try {
+      normalizedContributions = normalizeServerContributions(rawContributions, {
+        label: `package ${packageId} server contributions`
+      });
+    } catch (error) {
+      issues.push(error?.message || String(error));
+      continue;
+    }
+
+    if (providesServerCapabilities && normalizedContributions.routes.length < 1) {
+      issues.push(
+        `Package ${packageId} provides server capabilities but runtime contributions.routes is empty.`
+      );
+    }
+  }
+
+  return issues;
 }
 
 function ensurePlainObjectRecord(value) {

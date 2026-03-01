@@ -21,6 +21,12 @@ export default Object.freeze({
       "workspace.console.core"
     ]
   },
+  "runtime": {
+    "server": {
+      "entrypoint": "src/shared/server.js",
+      "export": "createServerContributions"
+    }
+  },
   "metadata": {
     "server": {
       "routes": [

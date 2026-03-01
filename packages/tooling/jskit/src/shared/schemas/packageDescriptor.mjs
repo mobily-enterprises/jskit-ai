@@ -160,6 +160,30 @@ function normalizeServerRouteEntry(entry, label) {
   };
 }
 
+function normalizeRuntimeServerConfig(runtimeSource, packageId) {
+  const runtime = ensureRecord(runtimeSource, `Package ${packageId} runtime`);
+  const serverRuntimeSource = runtime.server;
+  if (!serverRuntimeSource) {
+    return null;
+  }
+
+  const serverRuntime = ensureRecord(serverRuntimeSource, `Package ${packageId} runtime.server`);
+  const entrypointRaw = String(serverRuntime.entrypoint || "").trim();
+  const exportNameRaw = String(serverRuntime.export || "createServerContributions").trim() || "createServerContributions";
+
+  if (!entrypointRaw) {
+    throw createCliError(`Package ${packageId} runtime.server.entrypoint is required when runtime.server is declared.`);
+  }
+  if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(exportNameRaw)) {
+    throw createCliError(`Package ${packageId} runtime.server.export is invalid: ${exportNameRaw}`);
+  }
+
+  return {
+    entrypoint: normalizeRelativePath(entrypointRaw),
+    export: exportNameRaw
+  };
+}
+
 function normalizeElementId(value, fallback) {
   const raw = String(value || "").trim() || String(fallback || "").trim();
   const candidate = raw
@@ -317,6 +341,79 @@ function normalizeUiElementEntry(entry, index, packageId) {
   };
 }
 
+function normalizeSharedScope(value, label) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) {
+    return "package-only";
+  }
+  if (!["package-only", "client-server", "server-only"].includes(normalized)) {
+    throw createCliError(`${label} must be one of package-only, client-server, server-only.`);
+  }
+  return normalized;
+}
+
+function normalizeSharedEntry(entry, index, packageId) {
+  ensureObject(entry, `Package ${packageId} metadata.shared.functions[${index}]`);
+
+  const name = String(entry.name || "").trim();
+  if (!name) {
+    throw createCliError(`Package ${packageId} metadata.shared.functions[${index}] must define name.`);
+  }
+
+  const fallbackIdSource = String(entry.id || "").trim() || name || `shared-${index + 1}`;
+  const id =
+    normalizeElementId(fallbackIdSource, fallbackIdSource) ||
+    `shared-${index + 1}`;
+
+  const availability = ensureRecord(
+    entry.availability,
+    `Package ${packageId} metadata.shared.functions[${index}] availability`
+  );
+  const availabilityImport = ensureRecord(
+    availability.import,
+    `Package ${packageId} metadata.shared.functions[${index}] availability.import`
+  );
+  const importModule = String(availabilityImport.module || "").trim();
+  const importSymbols = normalizeOptionValues(availabilityImport.symbols);
+
+  const contributions = ensureRecord(
+    entry.contributions,
+    `Package ${packageId} metadata.shared.functions[${index}] contributions`
+  );
+  const files = Array.isArray(contributions.files) ? contributions.files : [];
+  const text = Array.isArray(contributions.text) ? contributions.text : [];
+
+  return {
+    id,
+    name,
+    scope: normalizeSharedScope(entry.scope, `Package ${packageId} metadata.shared.functions[${index}] scope`),
+    purpose: String(entry.purpose || "").trim(),
+    availability: {
+      import:
+        importModule || importSymbols.length > 0
+          ? {
+              module: importModule,
+              symbols: importSymbols
+            }
+          : null
+    },
+    contributions: {
+      files: files.map((fileEntry, fileIndex) =>
+        normalizeFileMutationEntry(
+          fileEntry,
+          `Package ${packageId} metadata.shared.functions[${index}] contributions.files[${fileIndex}]`
+        )
+      ),
+      text: text.map((textEntry, textIndex) =>
+        normalizeTextMutationEntry(
+          textEntry,
+          `Package ${packageId} metadata.shared.functions[${index}] contributions.text[${textIndex}]`
+        )
+      )
+    }
+  };
+}
+
 export function normalizePackageDescriptor(packaged, descriptorPath) {
   ensureObject(packaged, `Package descriptor at ${descriptorPath}`);
 
@@ -380,10 +477,12 @@ export function normalizePackageDescriptor(packaged, descriptorPath) {
   const metadata = ensureRecord(packaged.metadata, `Package ${packageId} metadata`);
   const serverMetadata = ensureRecord(metadata.server, `Package ${packageId} metadata.server`);
   const uiMetadata = ensureRecord(metadata.ui, `Package ${packageId} metadata.ui`);
+  const sharedMetadata = ensureRecord(metadata.shared, `Package ${packageId} metadata.shared`);
 
   const serverRoutes = Array.isArray(serverMetadata.routes) ? serverMetadata.routes : [];
   const uiElements = Array.isArray(uiMetadata.elements) ? uiMetadata.elements : [];
   const uiRoutes = Array.isArray(uiMetadata.routes) ? uiMetadata.routes : [];
+  const sharedFunctions = Array.isArray(sharedMetadata.functions) ? sharedMetadata.functions : [];
 
   for (const [dependencyName, range] of Object.entries({ ...runtimeDependencies, ...devDependencies })) {
     if (!String(dependencyName || "").trim()) {
@@ -438,6 +537,11 @@ export function normalizePackageDescriptor(packaged, descriptorPath) {
   const normalizedUiRoutes = uiRoutes.map((entry, index) => {
     return normalizeUiRouteEntry(entry, `Package ${packageId} metadata.ui.routes[${index}]`);
   });
+  const normalizedSharedFunctions = sharedFunctions.map((entry, index) =>
+    normalizeSharedEntry(entry, index, packageId)
+  );
+
+  const normalizedRuntimeServer = normalizeRuntimeServerConfig(packaged.runtime, packageId);
 
   return {
     packageVersion: 1,
@@ -453,6 +557,9 @@ export function normalizePackageDescriptor(packaged, descriptorPath) {
     contracts: {
       contributes: contractContributions
     },
+    runtime: {
+      server: normalizedRuntimeServer
+    },
     metadata: {
       server: {
         routes: normalizedServerRoutes
@@ -460,6 +567,9 @@ export function normalizePackageDescriptor(packaged, descriptorPath) {
       ui: {
         elements: normalizedUiElements,
         routes: normalizedUiRoutes
+      },
+      shared: {
+        functions: normalizedSharedFunctions
       }
     },
     mutations: {

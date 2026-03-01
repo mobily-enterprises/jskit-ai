@@ -11,9 +11,7 @@ export default Object.freeze({
   },
   "mutations": {
     "dependencies": {
-      "runtime": {
-        "@jskit-ai/cli-entrypoint": "0.1.0"
-      },
+      "runtime": {},
       "dev": {}
     },
     "packageJson": {
