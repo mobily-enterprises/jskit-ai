@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveBodyInput } from "../src/shared/actions/inputHelpers.js";
+import { resolveBodyInput, withAssistantToolChannel } from "../src/shared/actions/inputHelpers.js";
 
 test("resolveBodyInput returns nested payload object when provided", () => {
   const input = {
@@ -21,4 +21,10 @@ test("resolveBodyInput falls back to normalized top-level object", () => {
 
   assert.deepEqual(resolveBodyInput(input), input);
   assert.deepEqual(resolveBodyInput(null), {});
+});
+
+test("withAssistantToolChannel appends assistant tool channel exactly once", () => {
+  assert.deepEqual(withAssistantToolChannel(["api"]), ["api", "assistant_tool"]);
+  assert.deepEqual(withAssistantToolChannel(["api", "assistant_tool"]), ["api", "assistant_tool"]);
+  assert.deepEqual(withAssistantToolChannel(null), ["assistant_tool"]);
 });

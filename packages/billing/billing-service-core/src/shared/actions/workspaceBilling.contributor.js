@@ -1,6 +1,6 @@
 import { hasPermission } from "@jskit-ai/action-runtime-core/actionContributorHelpers";
 import { buildAssistantInputJsonSchema } from "./assistantInputSchema.js";
-import { resolveBodyInput } from "./inputHelpers.js";
+import { resolveBodyInput, withAssistantToolChannel } from "./inputHelpers.js";
 
 function normalizeObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -140,14 +140,6 @@ function buildConfirmedCommandInputJsonSchema({ properties = {}, required = [] }
     },
     required: [...required, "reason", "confirm"]
   });
-}
-
-function withAssistantToolChannel(channels) {
-  const currentChannels = Array.isArray(channels) ? channels : [];
-  if (currentChannels.includes("assistant_tool")) {
-    return currentChannels;
-  }
-  return [...currentChannels, "assistant_tool"];
 }
 
 const WORKSPACE_BILLING_ASSISTANT_TOOL_CONFIG = Object.freeze({
