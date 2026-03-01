@@ -1,3 +1,4 @@
+import { mapRowNullable } from "@jskit-ai/jskit-knex";
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 
@@ -32,12 +33,7 @@ function mapMembershipRowRequired(row) {
   };
 }
 
-function mapMembershipRowNullable(row) {
-  if (!row) {
-    return null;
-  }
-  return mapMembershipRowRequired(row);
-}
+const mapMembershipRowNullable = mapRowNullable(mapMembershipRowRequired);
 
 function createWorkspaceMembershipsRepository(dbClient) {
   function resolveClient(options = {}) {
