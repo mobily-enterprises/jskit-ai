@@ -1,16 +1,12 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { CONSOLE_BILLING_PERMISSIONS } from "@jskit-ai/workspace-console-core/consoleRoles";
+import { toNonEmptyString } from "@jskit-ai/billing-core";
 
 const PAID_PLAN_CHANGE_POLICY_REQUIRED_NOW = "required_now";
 const PAID_PLAN_CHANGE_POLICY_ALLOW_WITHOUT_PAYMENT_METHOD = "allow_without_payment_method";
 
-function normalizeOptionalString(value) {
-  const normalized = String(value || "").trim();
-  return normalized || "";
-}
-
 function normalizePaidPlanChangePaymentMethodPolicy(value) {
-  const normalized = normalizeOptionalString(value).toLowerCase();
+  const normalized = toNonEmptyString(value).toLowerCase();
   if (normalized === PAID_PLAN_CHANGE_POLICY_ALLOW_WITHOUT_PAYMENT_METHOD) {
     return PAID_PLAN_CHANGE_POLICY_ALLOW_WITHOUT_PAYMENT_METHOD;
   }

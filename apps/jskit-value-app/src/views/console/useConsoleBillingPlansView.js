@@ -2,6 +2,7 @@ import { computed, reactive, ref, watch } from "vue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
+import { toNonEmptyString } from "@jskit-ai/billing-core";
 import { api } from "../../platform/http/api/index.js";
 import { resolveBillingPlanProviderProfile } from "./billingPlans/providers/index.js";
 
@@ -444,10 +445,6 @@ function createDefaultEditForm() {
   };
 }
 
-function normalizeOptionalString(value) {
-  return String(value || "").trim();
-}
-
 function resolvePriceDetails(price) {
   if (!price || typeof price !== "object") {
     return null;
@@ -843,7 +840,7 @@ export function useConsoleBillingPlansView() {
     const payload = {
       code: createForm.code,
       name: createForm.name,
-      description: normalizeOptionalString(createForm.description) || undefined,
+      description: toNonEmptyString(createForm.description) || undefined,
       isActive: Boolean(createForm.isActive),
       corePrice:
         createForm.billingMode === "free"
@@ -896,7 +893,7 @@ export function useConsoleBillingPlansView() {
     editSaving.value = true;
     const payload = {
       name: editForm.name,
-      description: normalizeOptionalString(editForm.description) || null,
+      description: toNonEmptyString(editForm.description) || null,
       isActive: Boolean(editForm.isActive),
       entitlements
     };

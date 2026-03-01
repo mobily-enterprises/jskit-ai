@@ -1,5 +1,5 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { normalizeCurrency } from "@jskit-ai/billing-core";
+import { normalizeCurrency, toNullableString } from "@jskit-ai/billing-core";
 import { BILLING_DEFAULT_PROVIDER, BILLING_FAILURE_CODES } from "./constants.js";
 
 function normalizeProvider(value) {
@@ -20,11 +20,6 @@ function toPositiveInteger(value, fallback = null) {
     return fallback;
   }
   return parsed;
-}
-
-function normalizeOptionalString(value) {
-  const normalized = String(value || "").trim();
-  return normalized || null;
 }
 
 function buildConfigurationInvalidError() {
@@ -72,7 +67,7 @@ function toNormalizedCorePrice(plan, { provider, deploymentCurrency }) {
   return {
     provider: mappedProvider,
     providerPriceId,
-    providerProductId: normalizeOptionalString(corePrice.providerProductId),
+    providerProductId: toNullableString(corePrice.providerProductId),
     interval,
     intervalCount,
     currency,
@@ -137,7 +132,7 @@ const __testables = {
   normalizeProvider,
   normalizeInterval,
   toPositiveInteger,
-  normalizeOptionalString,
+  normalizeOptionalString: toNullableString,
   toNormalizedCorePrice
 };
 

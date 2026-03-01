@@ -20,7 +20,7 @@ import {
   isIndeterminateProviderOutcome
 } from "./providerOutcomePolicy.js";
 import { normalizeProviderSubscriptionStatus, isSubscriptionStatusCurrent } from "./webhookProjection.utils.js";
-import { normalizeCurrency } from "@jskit-ai/billing-core";
+import { normalizeCurrency, toNullableString } from "@jskit-ai/billing-core";
 
 function normalizePlanCode(value) {
   return String(value || "").trim();
@@ -154,22 +154,17 @@ function providerSessionStateToLocalStatus(providerStatus) {
   return BILLING_CHECKOUT_SESSION_STATUS.OPEN;
 }
 
-function normalizeOptionalString(value) {
-  const normalized = String(value || "").trim();
-  return normalized || null;
-}
-
 function normalizeProviderRefId(value) {
   if (!value) {
     return null;
   }
 
   if (typeof value === "string" || typeof value === "number") {
-    return normalizeOptionalString(value);
+    return toNullableString(value);
   }
 
   if (typeof value === "object") {
-    return normalizeOptionalString(value.id);
+    return toNullableString(value.id);
   }
 
   return null;
@@ -422,8 +417,8 @@ function createService(options = {}) {
   }
 
   async function resolveProviderSessionForBlockingSession(blockingSession) {
-    const providerCheckoutSessionId = normalizeOptionalString(blockingSession?.providerCheckoutSessionId);
-    const operationKey = normalizeOptionalString(blockingSession?.operationKey);
+    const providerCheckoutSessionId = toNullableString(blockingSession?.providerCheckoutSessionId);
+    const operationKey = toNullableString(blockingSession?.operationKey);
 
     debugBlockingCheckoutLog("resolve_provider_session.begin", {
       blockingSession: summarizeCheckoutSessionForDebug(blockingSession),
@@ -511,13 +506,13 @@ function createService(options = {}) {
     const items = Array.isArray(providerSubscription?.items?.data) ? providerSubscription.items.data : [];
 
     for (const item of items) {
-      const providerPriceId = normalizeOptionalString(item?.price?.id);
+      const providerPriceId = toNullableString(item?.price?.id);
       if (providerPriceId) {
         uniquePriceIds.add(providerPriceId);
       }
     }
 
-    const fallbackPlanPriceId = normalizeOptionalString(providerSubscription?.plan?.id);
+    const fallbackPlanPriceId = toNullableString(providerSubscription?.plan?.id);
     if (fallbackPlanPriceId) {
       uniquePriceIds.add(fallbackPlanPriceId);
     }
@@ -581,7 +576,7 @@ function createService(options = {}) {
       return null;
     }
 
-    const providerSubscriptionId = normalizeOptionalString(providerSubscription.id);
+    const providerSubscriptionId = toNullableString(providerSubscription.id);
     if (!providerSubscriptionId) {
       return null;
     }
@@ -593,7 +588,7 @@ function createService(options = {}) {
       return null;
     }
 
-    const providerCustomerId = normalizeOptionalString(providerSubscription.customer);
+    const providerCustomerId = toNullableString(providerSubscription.customer);
     let customer = null;
     if (providerCustomerId && typeof billingRepository.findCustomerByProviderCustomerId === "function") {
       customer = await billingRepository.findCustomerByProviderCustomerId(
@@ -665,7 +660,7 @@ function createService(options = {}) {
       };
     }
 
-    const operationKey = normalizeOptionalString(currentBlockingSession.operationKey);
+    const operationKey = toNullableString(currentBlockingSession.operationKey);
     const guardrailContext = {
       billableEntityId,
       operationKey
@@ -679,7 +674,7 @@ function createService(options = {}) {
 
     const { providerSession, providerSessionMissing } =
       await resolveProviderSessionForBlockingSession(currentBlockingSession);
-    const fallbackProviderCheckoutSessionId = normalizeOptionalString(currentBlockingSession.providerCheckoutSessionId);
+    const fallbackProviderCheckoutSessionId = toNullableString(currentBlockingSession.providerCheckoutSessionId);
 
     debugBlockingCheckoutLog("self_heal.provider_session_resolved", {
       guardrailContext,
@@ -722,13 +717,13 @@ function createService(options = {}) {
 
     const metadata =
       providerSession?.metadata && typeof providerSession.metadata === "object" ? providerSession.metadata : {};
-    const providerOperationKey = normalizeOptionalString(metadata.operation_key);
+    const providerOperationKey = toNullableString(metadata.operation_key);
     const effectiveOperationKey = operationKey || providerOperationKey;
-    const providerCheckoutSessionId = normalizeOptionalString(providerSession.id) || fallbackProviderCheckoutSessionId;
+    const providerCheckoutSessionId = toNullableString(providerSession.id) || fallbackProviderCheckoutSessionId;
     const providerCustomerId = normalizeProviderRefId(providerSession.customer);
     const providerSubscriptionId =
       normalizeProviderRefId(providerSession.subscription) ||
-      normalizeOptionalString(currentBlockingSession.providerSubscriptionId);
+      toNullableString(currentBlockingSession.providerSubscriptionId);
     const providerLocalStatus = providerSessionStateToLocalStatus(providerSession.status);
 
     debugBlockingCheckoutLog("self_heal.provider_session_status_mapped", {
@@ -949,7 +944,7 @@ function createService(options = {}) {
         providerCustomerId,
         providerSubscriptionId,
         status: BILLING_CHECKOUT_SESSION_STATUS.OPEN,
-        checkoutUrl: normalizeOptionalString(providerSession?.url),
+        checkoutUrl: toNullableString(providerSession?.url),
         expiresAt: parseUnixEpochSeconds(providerSession?.expires_at),
         metadataJson
       },
@@ -1787,7 +1782,7 @@ function createService(options = {}) {
               });
               recordGuardrail("BILLING_CHECKOUT_BLOCKING_SELF_HEAL_FAILED", {
                 billableEntityId: billableEntity.id,
-                operationKey: normalizeOptionalString(blockingSession.operationKey),
+                operationKey: toNullableString(blockingSession.operationKey),
                 measure: "count",
                 value: 1
               });
@@ -1813,7 +1808,7 @@ function createService(options = {}) {
             const failureMessage = "Checkout is blocked by another checkout session.";
             const failureDetailsBase = {
               blockingSessionStatus: String(blockingSession.status || ""),
-              blockingOperationKey: normalizeOptionalString(blockingSession.operationKey)
+              blockingOperationKey: toNullableString(blockingSession.operationKey)
             };
             const failureDetails =
               failureCode === BILLING_FAILURE_CODES.CHECKOUT_SESSION_OPEN
@@ -1825,7 +1820,7 @@ function createService(options = {}) {
                 : failureDetailsBase;
             recordGuardrail("BILLING_CHECKOUT_BLOCKING_SESSION_PERSISTED", {
               billableEntityId: billableEntity.id,
-              operationKey: normalizeOptionalString(blockingSession.operationKey),
+              operationKey: toNullableString(blockingSession.operationKey),
               measure: "count",
               value: 1
             });
