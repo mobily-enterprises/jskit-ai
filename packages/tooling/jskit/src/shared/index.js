@@ -14,6 +14,7 @@ import path from "node:path";
 import process from "node:process";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { escapeRegExp } from "@jskit-ai/surface-routing";
 import { createCliError, normalizeRelativePath } from "./schemas/validationHelpers.mjs";
 import { ensureUniqueDescriptor } from "./schemas/descriptorRegistry.mjs";
 import { normalizeBundleDescriptor } from "./schemas/bundleDescriptor.mjs";
@@ -339,10 +340,6 @@ function parseTextLines(source) {
 
 function ensureTextWithTrailingNewline(lines) {
   return lines.length > 0 ? `${lines.join("\n")}\n` : "";
-}
-
-function escapeRegExp(value) {
-  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function findLineByKey(source, key) {

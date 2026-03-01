@@ -1,3 +1,4 @@
+import { escapeRegExp } from "@jskit-ai/surface-routing";
 import { resolveRouteMountPathByKey } from "../../framework/composeRouteMounts.js";
 
 const DEFAULT_PROJECTS_MOUNT_PATH = "/projects";
@@ -5,10 +6,6 @@ const PROJECTS_MOUNT_PATH = resolveRouteMountPathByKey("admin", "projects.worksp
   required: false,
   fallbackPath: DEFAULT_PROJECTS_MOUNT_PATH
 });
-
-function escapeRegExp(value) {
-  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 function normalizeRelativeSuffix(suffix = "") {
   const normalizedSuffix = String(suffix || "").trim();

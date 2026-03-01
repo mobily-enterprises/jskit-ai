@@ -1,3 +1,5 @@
+import { escapeRegExp } from "@jskit-ai/surface-routing";
+
 const SUPPORTED_ROUTE_FILE_EXTENSIONS = Object.freeze([".vue", ".mjs", ".cjs", ".js", ".tsx", ".jsx", ".ts"]);
 const SUPPORTED_ENTRY_FILE_EXTENSIONS = Object.freeze([".mjs", ".cjs", ".js", ".ts"]);
 const KNOWN_SURFACES = Object.freeze(new Set(["app", "admin", "console"]));
@@ -17,10 +19,6 @@ function ensureRecord(value, contextLabel) {
     throw new TypeError(`${contextLabel} must be an object.`);
   }
   return value;
-}
-
-function escapeRegExp(value) {
-  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function normalizeRoutePath(pathname) {

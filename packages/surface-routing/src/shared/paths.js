@@ -1,3 +1,5 @@
+import { escapeRegExp } from "./escapeRegExp.js";
+
 function normalizePathname(pathname) {
   const rawValue = String(pathname || "/").trim();
   if (!rawValue) {
@@ -27,10 +29,6 @@ function normalizeWorkspaceSuffix(suffix) {
   }
 
   return rawSuffix.startsWith("/") ? rawSuffix : `/${rawSuffix}`;
-}
-
-function escapeRegExp(value) {
-  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function createSurfacePathHelpers(options = {}) {
