@@ -1,6 +1,7 @@
 import { applyRealtimePublishToCommandAction } from "@jskit-ai/action-runtime-core/realtimePublish";
 import { CONSOLE_BILLING_PERMISSIONS } from "@jskit-ai/workspace-console-core/consoleRoles";
 import { buildAssistantInputJsonSchema } from "./assistantInputSchema.js";
+import { resolveBodyInput } from "./inputHelpers.js";
 
 function normalizeObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -43,15 +44,6 @@ const OBJECT_INPUT_SCHEMA = Object.freeze({
 function resolveParamFromInput(input, idField) {
   const payload = normalizeObject(input);
   return payload[idField] || payload.params?.[idField];
-}
-
-function resolveBodyInput(input) {
-  const payload = normalizeObject(input);
-  if (payload.payload && typeof payload.payload === "object" && !Array.isArray(payload.payload)) {
-    return payload.payload;
-  }
-
-  return payload;
 }
 
 function resolveIdempotencyKey(context, input) {
