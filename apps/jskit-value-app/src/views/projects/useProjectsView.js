@@ -8,6 +8,7 @@ import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 import { mapProjectsError } from "../../modules/projects/errors.js";
 import { projectDetailQueryKey } from "../../modules/projects/queryKeys.js";
 import { buildProjectsRouteSuffix, resolveProjectIdFromPath } from "./routePaths.js";
+import { workspacePathForProjects } from "./projectsWorkspacePath.js";
 
 export function useProjectsView() {
   const navigate = useNavigate();
@@ -43,12 +44,6 @@ export function useProjectsView() {
     mapError: (nextError) => mapProjectsError(nextError, "Unable to load project.")
   });
 
-  function workspacePath(suffix) {
-    return workspaceStore.workspacePath(suffix, {
-      surface: "admin"
-    });
-  }
-
   return {
     state: reactive({
       projectId,
@@ -60,7 +55,7 @@ export function useProjectsView() {
       refresh: () => query.refetch(),
       goBack: () =>
         navigate({
-          to: workspacePath(buildProjectsRouteSuffix())
+          to: workspacePathForProjects(workspaceStore, buildProjectsRouteSuffix())
         }),
       goToEdit: () => {
         if (!projectId.value) {
@@ -68,7 +63,7 @@ export function useProjectsView() {
         }
 
         return navigate({
-          to: workspacePath(buildProjectsRouteSuffix(`/${encodeURIComponent(projectId.value)}/edit`))
+          to: workspacePathForProjects(workspaceStore, buildProjectsRouteSuffix(`/${encodeURIComponent(projectId.value)}/edit`))
         });
       }
     }
