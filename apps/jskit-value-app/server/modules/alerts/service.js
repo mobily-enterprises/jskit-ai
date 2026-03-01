@@ -2,6 +2,7 @@ import { AppError, createValidationError } from "@jskit-ai/server-runtime-core/e
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { normalizePagination as normalizePaginationBase } from "@jskit-ai/server-runtime-core/pagination";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../../../shared/eventTypes.js";
+import { evaluateAlertTargetUrl } from "../../../shared/alerts/targetUrl.js";
 
 const ALERT_ENTITY_TYPE = "user_alert";
 
@@ -12,6 +13,10 @@ function normalizeText(value) {
 function normalizeNullableText(value) {
   const normalized = normalizeText(value);
   return normalized || null;
+}
+
+function validationError(fieldErrors) {
+  return createValidationError(fieldErrors);
 }
 
 function normalizeRequiredPositiveInteger(value, fieldName) {
@@ -41,23 +46,11 @@ function normalizeOptionalPositiveInteger(value, fieldName) {
 }
 
 function normalizeTargetUrl(value) {
-  const targetUrl = normalizeText(value);
-  const fieldErrors = {};
-
-  if (!targetUrl) {
-    fieldErrors.targetUrl = "targetUrl is required.";
-  } else {
-    const lower = targetUrl.toLowerCase();
-
-    if (!targetUrl.startsWith("/")) {
-      fieldErrors.targetUrl = "targetUrl must start with /.";
-    } else if (lower.startsWith("http://") || lower.startsWith("https://") || lower.startsWith("//")) {
-      fieldErrors.targetUrl = "targetUrl must be an in-app path.";
-    }
-  }
-
-  if (Object.keys(fieldErrors).length > 0) {
-    throw createValidationError(fieldErrors);
+  const { targetUrl, error } = evaluateAlertTargetUrl(value, { required: true });
+  if (error) {
+    throw validationError({
+      targetUrl: error
+    });
   }
 
   return targetUrl;
@@ -308,20 +301,11 @@ function createService({ alertsRepository, realtimeEventsService = null, resolve
       fieldErrors.message = "message must be at most 1000 characters.";
     }
 
-    const targetUrl = normalizeText(source.targetUrl);
-    if (!targetUrl) {
-      fieldErrors.targetUrl = "targetUrl is required.";
-    } else {
-      const lowerTargetUrl = targetUrl.toLowerCase();
-      if (!targetUrl.startsWith("/")) {
-        fieldErrors.targetUrl = "targetUrl must start with /.";
-      } else if (
-        lowerTargetUrl.startsWith("http://") ||
-        lowerTargetUrl.startsWith("https://") ||
-        lowerTargetUrl.startsWith("//")
-      ) {
-        fieldErrors.targetUrl = "targetUrl must be an in-app path.";
-      }
+    const { targetUrl, error: targetUrlError } = evaluateAlertTargetUrl(source.targetUrl, {
+      required: true
+    });
+    if (targetUrlError) {
+      fieldErrors.targetUrl = targetUrlError;
     }
 
     const actorUserId =

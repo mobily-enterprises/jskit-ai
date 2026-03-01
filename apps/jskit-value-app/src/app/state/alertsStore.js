@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { api } from "../../platform/http/api/index.js";
 import { subscribeRealtimeEvents } from "../../platform/realtime/realtimeEventBus.js";
+import { normalizeAlertTargetUrl } from "../../../shared/alerts/targetUrl.js";
 
 const PREVIEW_PAGE = 1;
 const PREVIEW_PAGE_SIZE = 20;
@@ -41,20 +42,6 @@ function normalizeText(value) {
   return String(value || "").trim();
 }
 
-function normalizeTargetUrl(value) {
-  const targetUrl = normalizeText(value);
-  if (!targetUrl.startsWith("/")) {
-    return "";
-  }
-
-  const lower = targetUrl.toLowerCase();
-  if (lower.startsWith("http://") || lower.startsWith("https://") || lower.startsWith("//")) {
-    return "";
-  }
-
-  return targetUrl;
-}
-
 function normalizeCreatedAt(value) {
   const normalized = normalizeText(value);
   if (!normalized) {
@@ -76,7 +63,7 @@ function normalizeEntry(entry) {
 
   const id = toPositiveInteger(entry.id);
   const userId = toPositiveInteger(entry.userId);
-  const targetUrl = normalizeTargetUrl(entry.targetUrl);
+  const targetUrl = normalizeAlertTargetUrl(entry.targetUrl);
   const createdAt = normalizeCreatedAt(entry.createdAt);
   if (!id || !userId || !targetUrl || !createdAt) {
     return null;
