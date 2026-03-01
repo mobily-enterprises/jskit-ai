@@ -24,11 +24,12 @@
   "dependencies": {
     "@jskit-ai/app-scripts": "0.1.0",
     "@jskit-ai/server-runtime-core": "file:node_modules/@jskit-ai/jskit/packages/runtime/server-runtime-core",
+    "@jskit-ai/surface-routing": "file:node_modules/@jskit-ai/jskit/packages/surface-routing",  
     "fastify": "^5.7.4",
     "vue": "^3.5.13"
   },
   "devDependencies": {
-    "@jskit-ai/config-eslint": "0.1.0",
+    "@jskit-ai/config-eslint": "file://node_modiles/@jskit-ai/jskit/packages/tooling/config-eslint",
     "@jskit-ai/jskit": "github:mobily-enterprises/jskit-ai",
     "@vitejs/plugin-vue": "^5.2.1",
     "eslint": "^9.39.1",

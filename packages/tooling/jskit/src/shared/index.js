@@ -30,9 +30,9 @@ const MONOREPO_PACKAGES_ROOT = path.resolve(PACKAGE_ROOT, "..", "..", "..", "pac
 const MONOREPO_ROOT = path.resolve(PACKAGE_ROOT, "..", "..", "..");
 const JSKIT_LOCAL_PACKAGE_PREFIX = "file:node_modules/@jskit-ai/jskit/";
 const EXTERNAL_JSKIT_DEPENDENCY_IDS = new Set([
-  "@jskit-ai/app-scripts",
-  "@jskit-ai/config-eslint",
-  "@jskit-ai/create-app",
+  // "@jskit-ai/app-scripts",
+  // "@jskit-ai/config-eslint",
+  // "@jskit-ai/create-app",
   "@jskit-ai/jskit"
 ]);
 const LOCK_RELATIVE_PATH = ".jskit/lock.json";
