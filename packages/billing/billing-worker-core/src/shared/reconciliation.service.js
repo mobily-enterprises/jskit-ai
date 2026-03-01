@@ -10,7 +10,12 @@ import {
   NON_TERMINAL_CURRENT_SUBSCRIPTION_STATUS_SET
 } from "@jskit-ai/billing-service-core/constants";
 import { createService as createWebhookProjectionService } from "@jskit-ai/billing-service-core/webhookProjectionService";
-import { normalizeProviderSubscriptionStatus, toNullableString, toSafeMetadata } from "@jskit-ai/billing-service-core/webhookProjectionUtils";
+import {
+  normalizeProviderSubscriptionStatus,
+  parseUnixEpochSeconds,
+  toNullableString,
+  toSafeMetadata
+} from "@jskit-ai/billing-service-core/webhookProjectionUtils";
 
 function providerSessionStatusToLocalStatus(providerStatus) {
   const normalized = String(providerStatus || "")
@@ -52,22 +57,6 @@ function pickLaterDate(left, right) {
   }
 
   return leftDate.getTime() >= rightDate.getTime() ? leftDate : rightDate;
-}
-
-function parseUnixEpochSeconds(value) {
-  if (value == null) {
-    return null;
-  }
-  if (typeof value === "string" && String(value).trim() === "") {
-    return null;
-  }
-
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return null;
-  }
-
-  return new Date(parsed * 1000);
 }
 
 function hasCurrentStatus(status) {
