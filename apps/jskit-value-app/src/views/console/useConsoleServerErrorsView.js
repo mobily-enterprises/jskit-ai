@@ -7,6 +7,7 @@ import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { useStandardListPagination } from "../../modules/pagination/useStandardListPagination.js";
 import { api } from "../../platform/http/api/index.js";
 import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";
+import { formatDateTime } from "../lib/dateFormatters.js";
 
 const CONSOLE_SERVER_ERRORS_QUERY_KEY_PREFIX = ["console-server-errors"];
 const SERVER_ERRORS_PAGE_SIZE_OPTIONS = [20, 50, 100];
@@ -17,14 +18,6 @@ const SERVER_SIMULATION_SEQUENCE = [
   { kind: "async_rejection", label: "Async rejection 500" }
 ];
 
-function formatDateTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "unknown";
-  }
-
-  return date.toLocaleString();
-}
 
 function summarizeServerMessage(entry) {
   const errorName = String(entry?.errorName || "").trim();

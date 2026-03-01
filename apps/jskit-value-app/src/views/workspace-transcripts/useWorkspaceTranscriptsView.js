@@ -3,18 +3,11 @@ import { useQuery } from "@tanstack/vue-query";
 import { api } from "../../platform/http/api/index.js";
 import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 import {
+import { formatDateTime } from "../lib/dateFormatters.js";
   workspaceAiTranscriptMessagesQueryKey,
   workspaceAiTranscriptsListQueryKey
 } from "@jskit-ai/assistant-contracts";
 
-function formatDateTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "unknown";
-  }
-
-  return date.toLocaleString();
-}
 
 function formatTranscriptMode(value) {
   const mode = String(value || "standard")

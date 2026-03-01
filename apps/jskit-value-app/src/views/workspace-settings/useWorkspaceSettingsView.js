@@ -4,6 +4,7 @@ import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { api } from "../../platform/http/api/index.js";
 import {
+import { formatDateTime } from "../lib/dateFormatters.js";
   workspaceInvitesQueryKey,
   workspaceMembersQueryKey,
   workspaceSettingsQueryKey
@@ -25,14 +26,6 @@ function normalizeRoleCatalog(roleCatalog) {
   };
 }
 
-function formatDateTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "unknown";
-  }
-
-  return date.toLocaleString();
-}
 
 function parseDenyEmailsInput(value) {
   if (value == null) {

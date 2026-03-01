@@ -5,6 +5,7 @@ import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
 import { api } from "../../platform/http/api/index.js";
+import { formatDateTime } from "../lib/dateFormatters.js";
 
 function resolveErrorIdFromPath(pathname) {
   const match = String(pathname || "").match(/\/errors\/server\/([0-9]+)/i);
@@ -15,14 +16,6 @@ function resolveErrorIdFromPath(pathname) {
   return String(match[1] || "").trim();
 }
 
-function formatDateTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "unknown";
-  }
-
-  return date.toLocaleString();
-}
 
 function summarizeServerMessage(entry) {
   const errorName = String(entry?.errorName || "").trim();
