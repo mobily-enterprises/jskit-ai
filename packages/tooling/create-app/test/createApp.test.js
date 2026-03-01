@@ -1,25 +1,16 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { access, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import process from "node:process";
 import { Writable } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runCli as runCreateAppCli } from "../src/shared/index.js";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { runJskit } from "../../testUtils/runJskit.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit-create-app.js", import.meta.url));
-const JSKIT_CLI_PATH = fileURLToPath(new URL("../../jskit/bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
-
-function runJskit({ cwd, args = [] }) {
-  return spawnSync(process.execPath, [JSKIT_CLI_PATH, ...args], {
-    cwd,
-    encoding: "utf8"
-  });
-}
 
 function createCaptureWritable() {
   let body = "";

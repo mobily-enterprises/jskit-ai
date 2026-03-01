@@ -1,20 +1,9 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import process from "node:process";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
-
-const JSKIT_CLI_PATH = fileURLToPath(new URL("../../packages/tooling/jskit/bin/jskit.js", import.meta.url));
-
-function runJskit({ cwd, args = [] }) {
-  return spawnSync(process.execPath, [JSKIT_CLI_PATH, ...args], {
-    cwd,
-    encoding: "utf8"
-  });
-}
+import { runJskit } from "../../packages/tooling/testUtils/runJskit.mjs";
 
 async function writeJsonFile(absolutePath, value) {
   await mkdir(path.dirname(absolutePath), { recursive: true });
