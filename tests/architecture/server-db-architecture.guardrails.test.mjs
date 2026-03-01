@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { listFilesRecursive } from "../helpers/listFilesRecursive.mjs";
 import { toPosixPath } from "../helpers/pathUtils.mjs";
 
 const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -39,35 +40,6 @@ const MERGED_TARGET_SEGMENTS = Object.freeze([
   "packages/workspace/workspace-console-service-core/",
   "packages/workspace/workspace-service-core/"
 ]);
-
-function listFilesRecursive(rootDir, predicate = () => true) {
-  const files = [];
-
-  function walk(currentDir) {
-    const entries = readdirSync(currentDir, { withFileTypes: true });
-    for (const entry of entries) {
-      const absolutePath = path.join(currentDir, entry.name);
-      if (entry.isDirectory()) {
-        walk(absolutePath);
-        continue;
-      }
-
-      if (!entry.isFile()) {
-        continue;
-      }
-
-      if (predicate(absolutePath)) {
-        files.push(absolutePath);
-      }
-    }
-  }
-
-  if (existsSync(rootDir)) {
-    walk(rootDir);
-  }
-
-  return files.sort((left, right) => left.localeCompare(right));
-}
 
 function parseImportSpecifiers(sourceText) {
   const specifiers = [];
