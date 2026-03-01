@@ -62,7 +62,8 @@ export default Object.freeze({
     packageJson: {
       scripts: {
         "web-shell:generate": "node ./scripts/web-shell/generate-filesystem-manifest.mjs",
-        dev: "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.app.js vite",
+        dev: "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.js vite",
+        "dev:app": "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.app.js vite",
         "dev:admin": "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.admin.js vite",
         "dev:console": "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.console.js vite",
         build: "npm run web-shell:generate && VITE_CLIENT_ENTRY=surface.app.js vite build --outDir dist/app",
@@ -110,8 +111,8 @@ export default Object.freeze({
         id: "filesystem-host"
       },
       {
-        from: "templates/src/runtime/surfaces.generated.js",
-        to: "src/runtime/surfaces.generated.js",
+        from: "templates/src/runtime/surfaces.js",
+        to: "src/runtime/surfaces.js",
         reason: "Define shared surface registry for entrypoints and route generation.",
         category: "web-shell",
         id: "surface-registry"

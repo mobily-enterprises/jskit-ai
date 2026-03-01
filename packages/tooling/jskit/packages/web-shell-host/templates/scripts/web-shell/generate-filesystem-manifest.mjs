@@ -13,7 +13,7 @@ const PAGES_ROOT = path.join(SRC_ROOT, "pages");
 const SURFACES_ROOT = path.join(SRC_ROOT, "surfaces");
 const GENERATED_DIR = path.join(SRC_ROOT, "runtime", "generated");
 const GENERATED_FILE = path.join(GENERATED_DIR, "filesystemManifest.generated.js");
-const SURFACES_MODULE_FILE = path.join(SRC_ROOT, "runtime", "surfaces.generated.js");
+const SURFACES_MODULE_FILE = path.join(SRC_ROOT, "runtime", "surfaces.js");
 
 async function loadSurfaceDefinitions() {
   const moduleUrl = pathToFileURL(SURFACES_MODULE_FILE).href;
@@ -24,7 +24,7 @@ async function loadSurfaceDefinitions() {
       : loadedModule.SURFACE_DEFINITIONS;
 
   if (!Array.isArray(sourceDefinitions) || sourceDefinitions.length < 1) {
-    throw new Error("src/runtime/surfaces.generated.js must export at least one surface definition.");
+    throw new Error("src/runtime/surfaces.js must export at least one surface definition.");
   }
 
   const normalizedDefinitions = sourceDefinitions.map((definition, index) => {

@@ -1,4 +1,4 @@
-import { DEFAULT_SURFACE_ID, SURFACE_PREFIX_BY_ID, listSurfaceDefinitions } from "./surfaces.generated.js";
+import { DEFAULT_SURFACE_ID, SURFACE_PREFIX_BY_ID, listSurfaceDefinitions } from "./surfaces.js";
 
 const KNOWN_SURFACE_IDS = new Set(listSurfaceDefinitions().map((definition) => definition.id));
 const SURFACE_MATCHERS = listSurfaceDefinitions()
