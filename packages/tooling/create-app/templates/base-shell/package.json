@@ -22,7 +22,7 @@
     "test:client": "jskit-app-scripts test:client"
   },
   "dependencies": {
-    "@jskit-ai/app-scripts": "0.1.0",
+    "@jskit-ai/app-scripts": "file://node_modiles/@jskit-ai/jskit/packages/tooling/app-scripts",
     "@jskit-ai/server-runtime-core": "file:node_modules/@jskit-ai/jskit/packages/runtime/server-runtime-core",
     "@jskit-ai/surface-routing": "file:node_modules/@jskit-ai/jskit/packages/surface-routing",  
     "fastify": "^5.7.4",
