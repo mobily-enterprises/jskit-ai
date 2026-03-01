@@ -1,19 +1,6 @@
 import { db } from "../../../db/knex.js";
+import { normalizeCountRow as normalizeCount } from "@jskit-ai/jskit-knex";
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
-
-function normalizeCount(row) {
-  const values = Object.values(row || {});
-  if (values.length < 1) {
-    return 0;
-  }
-
-  const parsed = Number(values[0]);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return 0;
-  }
-
-  return parsed;
-}
 
 function normalizePositiveInteger(value) {
   const parsed = Number(value);
