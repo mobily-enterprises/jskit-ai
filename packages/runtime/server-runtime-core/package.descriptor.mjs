@@ -4,7 +4,8 @@ export default Object.freeze({
   "version": "0.1.0",
   "dependsOn": [
     "@jskit-ai/module-framework-core",
-    "@jskit-ai/runtime-env-core"
+    "@jskit-ai/runtime-env-core",
+    "@jskit-ai/surface-routing"
   ],
   "capabilities": {
     "provides": [
@@ -12,12 +13,15 @@ export default Object.freeze({
     ],
     "requires": [
       "runtime.module-framework",
-      "runtime.env"
+      "runtime.env",
+      "runtime.surface-routing"
     ]
   },
   "mutations": {
     "dependencies": {
-      "runtime": {},
+      "runtime": {
+        "@jskit-ai/surface-routing": "0.1.0"
+      },
       "dev": {}
     },
     "packageJson": {

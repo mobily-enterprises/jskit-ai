@@ -24,5 +24,8 @@
     "./runtimeAssembly": "./src/shared/runtimeAssembly.js",
     "./apiRouteRegistration": "./src/shared/apiRouteRegistration.js",
     "./routeUtils": "./src/shared/routeUtils.js"
+  },
+  "dependencies": {
+    "@jskit-ai/surface-routing": "0.1.0"
   }
 }

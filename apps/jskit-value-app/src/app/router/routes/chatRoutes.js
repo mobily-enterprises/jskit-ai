@@ -1,4 +1,5 @@
 import { createRoute, lazyRouteComponent, redirect } from "@tanstack/vue-router";
+import { normalizeSurfaceId } from "@jskit-ai/surface-routing/registry";
 import { createSurfacePaths } from "../../../../shared/surfacePaths.js";
 
 /* c8 ignore start -- lazy Vue SFC loaders require full Vite CSS handling and are exercised in browser/E2E paths. */
@@ -6,12 +7,6 @@ import { createSurfacePaths } from "../../../../shared/surfacePaths.js";
 const ChatView = lazyRouteComponent(() => import("../../../views/chat/ChatView.vue"));
 /* v8 ignore stop */
 /* c8 ignore stop */
-
-function normalizeSurfaceId(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
 
 function normalizeMountPath(pathValue, fallbackPath = "/chat") {
   const normalized = String(pathValue || "").trim();
