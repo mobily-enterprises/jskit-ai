@@ -15,4 +15,12 @@ function resolveBodyInput(input) {
   return payload;
 }
 
-export { resolveBodyInput };
+function withAssistantToolChannel(channels) {
+  const currentChannels = Array.isArray(channels) ? channels : [];
+  if (currentChannels.includes("assistant_tool")) {
+    return currentChannels;
+  }
+  return [...currentChannels, "assistant_tool"];
+}
+
+export { resolveBodyInput, withAssistantToolChannel };
