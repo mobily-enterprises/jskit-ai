@@ -1,3 +1,4 @@
+import { hasPermission } from "@jskit-ai/action-runtime-core/actionContributorHelpers";
 import { buildAssistantInputJsonSchema } from "./assistantInputSchema.js";
 
 function normalizeObject(value) {
@@ -19,16 +20,6 @@ function toPositiveInteger(value) {
   }
 
   return parsed;
-}
-
-function hasPermission(permissionSet, permission) {
-  const requiredPermission = normalizeText(permission);
-  if (!requiredPermission) {
-    return true;
-  }
-
-  const permissions = Array.isArray(permissionSet) ? permissionSet : [];
-  return permissions.includes("*") || permissions.includes(requiredPermission);
 }
 
 function requireServiceMethod(service, methodName, contributorId) {

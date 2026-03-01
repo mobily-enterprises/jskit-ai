@@ -1,3 +1,5 @@
+import { normalizeText } from "./textNormalization.js";
+
 function normalizeObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -44,6 +46,16 @@ function requireAuthenticated(context) {
   return toPositiveInteger(context?.actor?.id) > 0;
 }
 
+function hasPermission(permissionSet, permission) {
+  const requiredPermission = normalizeText(permission);
+  if (!requiredPermission) {
+    return true;
+  }
+
+  const permissions = Array.isArray(permissionSet) ? permissionSet : [];
+  return permissions.includes("*") || permissions.includes(requiredPermission);
+}
+
 const OBJECT_INPUT_SCHEMA = Object.freeze({
   parse(value) {
     return normalizeObject(value);
@@ -59,5 +71,6 @@ export {
   resolveWorkspace,
   allowPublic,
   requireAuthenticated,
+  hasPermission,
   OBJECT_INPUT_SCHEMA
 };
