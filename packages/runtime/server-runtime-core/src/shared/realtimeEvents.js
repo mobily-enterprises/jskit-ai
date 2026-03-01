@@ -1,13 +1,5 @@
 import { randomUUID } from "node:crypto";
-
-function normalizePositiveIntegerOrNull(value) {
-  const normalized = Number(value);
-  if (!Number.isInteger(normalized) || normalized < 1) {
-    return null;
-  }
-
-  return normalized;
-}
+import { normalizePositiveIntegerOrNull, normalizeScopeKind } from "./realtimeNormalization.js";
 
 function normalizeStringOrNull(value) {
   const normalized = String(value || "").trim();
@@ -37,13 +29,6 @@ function normalizePositiveIntegerArray(value) {
   }
 
   return normalized;
-}
-
-function normalizeScopeKind(value) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
-  return normalized === "workspace" ? "workspace" : "global";
 }
 
 function normalizeStringifiedPositiveIntegerOrNull(value) {

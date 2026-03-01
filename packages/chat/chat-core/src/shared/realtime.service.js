@@ -1,3 +1,5 @@
+import { normalizePositiveIntegerOrNull, normalizeScopeKind } from "@jskit-ai/server-runtime-core/realtimeNormalization";
+
 const DEFAULT_REALTIME_EVENT_TYPES = Object.freeze({
   CHAT_MESSAGE_CREATED: "chat.message.created",
   CHAT_THREAD_READ_UPDATED: "chat.thread.read.updated",
@@ -6,22 +8,6 @@ const DEFAULT_REALTIME_EVENT_TYPES = Object.freeze({
   CHAT_TYPING_STARTED: "chat.typing.started",
   CHAT_TYPING_STOPPED: "chat.typing.stopped"
 });
-
-function normalizePositiveIntegerOrNull(value) {
-  const normalized = Number(value);
-  if (!Number.isInteger(normalized) || normalized < 1) {
-    return null;
-  }
-
-  return normalized;
-}
-
-function normalizeScopeKind(value) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
-  return normalized === "workspace" ? "workspace" : "global";
-}
 
 function normalizeTargetUserIds(value, { excludeUserId = null } = {}) {
   if (!Array.isArray(value)) {

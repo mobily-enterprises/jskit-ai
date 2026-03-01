@@ -14,6 +14,7 @@
     "./pagination": "./src/shared/pagination.js",
     "./realtimePublish": "./src/shared/realtimePublish.js",
     "./realtimeEvents": "./src/shared/realtimeEvents.js",
+    "./realtimeNormalization": "./src/shared/realtimeNormalization.js",
     "./realtimeEventsService": "./src/shared/realtimeEventsService.js",
     "./securityAudit": "./src/shared/securityAudit.js",
     "./canonicalJson": "./src/shared/canonicalJson.js",
