@@ -1,5 +1,6 @@
 import { hasPermission } from "@jskit-ai/action-runtime-core/actionContributorHelpers";
 import { buildAssistantInputJsonSchema } from "./assistantInputSchema.js";
+import { resolveBodyInput } from "./inputHelpers.js";
 
 function normalizeObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -99,15 +100,6 @@ const OBJECT_INPUT_SCHEMA = Object.freeze({
 function resolveParamFromInput(input, idField) {
   const payload = normalizeObject(input);
   return payload[idField] || payload.params?.[idField];
-}
-
-function resolveBodyInput(input) {
-  const payload = normalizeObject(input);
-  if (payload.payload && typeof payload.payload === "object" && !Array.isArray(payload.payload)) {
-    return payload.payload;
-  }
-
-  return payload;
 }
 
 // Keep this explicit so contract drift is visible in code review.
