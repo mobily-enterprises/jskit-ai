@@ -9,7 +9,7 @@ import {
   resolveAssistantSystemPromptAppFromWorkspaceSettings,
   resolveAssistantSystemPromptWorkspaceFromConsoleSettings,
   resolveAssistantSystemPromptsFromWorkspaceSettings
-} from "../src/shared/systemPrompt.js";
+} from "../src/server/systemPrompt.js";
 
 test("normalizePromptValue trims and enforces max length", () => {
   assert.equal(normalizePromptValue("  hello  "), "hello");

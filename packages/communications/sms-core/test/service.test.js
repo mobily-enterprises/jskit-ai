@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createService } from "../src/shared/index.js";
+import { createService } from "../src/lib/index.js";
 
 test("sms core validates recipient and message", async () => {
   const service = createService({ driver: "none" });

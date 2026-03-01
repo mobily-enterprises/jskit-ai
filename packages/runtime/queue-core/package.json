@@ -7,13 +7,12 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./shared": "./src/shared/index.js",
+    ".": "./src/lib/index.js",
     "./client": "./src/client/index.js",
     "./server": "./src/server/index.js",
-    "./errors": "./src/shared/errors.js",
-    "./jobRegistry": "./src/shared/jobRegistry.js",
-    "./workerKernel": "./src/shared/workerKernel.js"
+    "./errors": "./src/lib/errors.js",
+    "./jobRegistry": "./src/lib/jobRegistry.js",
+    "./workerKernel": "./src/lib/workerKernel.js"
   },
   "dependencies": {
     "@jskit-ai/support-core": "0.1.0"

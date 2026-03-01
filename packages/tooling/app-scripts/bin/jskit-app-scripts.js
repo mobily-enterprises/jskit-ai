@@ -5,12 +5,12 @@ import { access } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
-import { shellQuote } from "../src/shared/shellQuote.js";
-import { runProcessEnvGuardrail, createViolationReport } from "../src/shared/guardrails/processEnv.js";
-import { runApiContractsGuardrail } from "../src/shared/guardrails/apiContracts.js";
-import { runElementEjectCommand } from "../src/shared/commands/elementEject.js";
-import { runElementDiffCommand } from "../src/shared/commands/elementDiff.js";
-import { RUNTIME_BUILTIN_IDS, runRuntimeBuiltinTask } from "../src/shared/runtimeCommands.js";
+import { shellQuote } from "../src/server/shellQuote.js";
+import { runProcessEnvGuardrail, createViolationReport } from "../src/server/guardrails/processEnv.js";
+import { runApiContractsGuardrail } from "../src/server/guardrails/apiContracts.js";
+import { runElementEjectCommand } from "../src/server/commands/elementEject.js";
+import { runElementDiffCommand } from "../src/server/commands/elementDiff.js";
+import { RUNTIME_BUILTIN_IDS, runRuntimeBuiltinTask } from "../src/server/runtimeCommands.js";
 
 function printUsageAndExit(message) {
   if (message) {

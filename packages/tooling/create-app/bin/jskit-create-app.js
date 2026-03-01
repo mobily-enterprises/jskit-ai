@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runCliEntrypoint } from "../src/shared/cliEntrypoint.js";
-import { runCli } from "../src/shared/index.js";
+import { runCliEntrypoint } from "../src/server/cliEntrypoint.js";
+import { runCli } from "../src/server/index.js";
 
 await runCliEntrypoint(runCli);

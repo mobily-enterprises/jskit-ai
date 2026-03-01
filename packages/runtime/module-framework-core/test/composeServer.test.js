@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { MODULE_TIERS } from "../src/shared/descriptor.js";
-import { composeServerModules } from "../src/shared/composeServer.js";
+import { MODULE_TIERS } from "../src/lib/descriptor.js";
+import { composeServerModules } from "../src/lib/composeServer.js";
 import { moduleDescriptor } from "./helpers/moduleDescriptor.js";
 
 test("composeServerModules composes hooks in deterministic dependency order", () => {

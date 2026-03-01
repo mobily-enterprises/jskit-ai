@@ -7,15 +7,17 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./integers": "./src/shared/integers.js",
-    "./text": "./src/shared/text.js",
-    "./objects": "./src/shared/objects.js",
-    "./clientRuntimeDefaults": "./src/shared/clientRuntimeDefaults.js",
-    "./platformRuntimeEnv": "./src/shared/platformRuntimeEnv.js",
-    "./platformRuntimeEnvSpecs": "./src/shared/platformRuntimeEnvSpecs.js",
-    "./appRuntimePolicy": "./src/shared/appRuntimePolicy.js",
-    "./startupPreflight": "./src/shared/startupPreflight.js"
+    ".": "./src/server/index.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js",
+    "./integers": "./src/lib/integers.js",
+    "./text": "./src/lib/text.js",
+    "./objects": "./src/lib/objects.js",
+    "./clientRuntimeDefaults": "./src/lib/clientRuntimeDefaults.js",
+    "./platformRuntimeEnv": "./src/server/platformRuntimeEnv.js",
+    "./platformRuntimeEnvSpecs": "./src/lib/platformRuntimeEnvSpecs.js",
+    "./appRuntimePolicy": "./src/server/appRuntimePolicy.js",
+    "./startupPreflight": "./src/lib/startupPreflight.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

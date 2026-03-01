@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createService, __testables } from "../src/shared/service.js";
+import { createService, __testables } from "../src/server/service.js";
 
 function buildService({
   transcriptMode = "disabled",

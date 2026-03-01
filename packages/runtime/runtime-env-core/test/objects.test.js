@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeObject } from "../src/shared/objects.js";
+import { normalizeObject } from "../src/lib/objects.js";
 
 test("normalizeObject returns plain objects and coerces non-object values to empty object", () => {
   const payload = {

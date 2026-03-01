@@ -26,19 +26,20 @@ test("buildRoutesFromComposedModules preserves API route outputs", () => {
 });
 
 test("composeRouteModules supports module filtering", () => {
+  const enabledModuleIds = ["health", "auth", "workspace", "actionRuntime", "history", "deg2rad"];
   const routeModules = composeRouteModules({
-    enabledModuleIds: ["health", "auth", "deg2rad"]
+    enabledModuleIds
   });
 
   assert.deepEqual(
     routeModules.map((entry) => entry.id),
-    ["health", "auth", "deg2rad"]
+    ["health", "auth", "workspace", "history", "deg2rad"]
   );
 
   const controllers = createControllerProxy();
   const routes = buildRoutesFromComposedModules({
     controllers,
-    enabledModuleIds: ["health", "auth", "deg2rad"]
+    enabledModuleIds
   });
   const routeSignatures = routes.map((route) => `${route.method} ${route.path}`);
 

@@ -23,8 +23,8 @@ export default Object.freeze({
   },
   "runtime": {
     "server": {
-      "entrypoint": "src/shared/server.js",
-      "export": "createServerContributions"
+      "providerEntrypoint": "src/server/index.js",
+      "providerExport": "ConsoleRouteServiceProvider"
     }
   },
   "metadata": {

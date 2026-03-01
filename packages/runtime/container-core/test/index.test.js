@@ -5,7 +5,7 @@ import {
   DuplicateBindingError,
   UnresolvedTokenError,
   createContainer
-} from "../src/shared/index.js";
+} from "../src/lib/index.js";
 
 test("bind resolves transient factory on every make", () => {
   const container = createContainer();

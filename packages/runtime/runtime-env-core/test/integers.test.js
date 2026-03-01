@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeNullablePositiveInteger, toPositiveInteger } from "../src/shared/integers.js";
+import { normalizeNullablePositiveInteger, toPositiveInteger } from "../src/lib/integers.js";
 
 test("toPositiveInteger returns parsed positive integers and fallback for invalid values", () => {
   assert.equal(toPositiveInteger(7), 7);

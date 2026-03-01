@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveDependencyGraph, satisfiesVersion } from "../src/shared/dependencyGraph.js";
+import { resolveDependencyGraph, satisfiesVersion } from "../src/lib/dependencyGraph.js";
 import { moduleDescriptor } from "./helpers/moduleDescriptor.js";
 
 test("satisfiesVersion supports exact, caret, tilde, and comparator ranges", () => {

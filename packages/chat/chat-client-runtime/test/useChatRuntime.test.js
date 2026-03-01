@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createChatRuntime, chatRuntimeTestables } from "../src/shared/useChatRuntime.js";
+import { createChatRuntime, chatRuntimeTestables } from "../src/lib/useChatRuntime.js";
 
 function createPolicy(seed = 0) {
   return {

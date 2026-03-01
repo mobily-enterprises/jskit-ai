@@ -16,6 +16,10 @@ function createFakeFastify() {
         plugin,
         options
       });
+      // Emulate Fastify behavior for the provider-registered plugin only.
+      if (state.registeredPlugins.length === 1 && typeof plugin === "function") {
+        await plugin(fastify, options);
+      }
     },
     decorateRequest(name) {
       state.requestDecorators.add(name);

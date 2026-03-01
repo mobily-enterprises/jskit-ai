@@ -7,12 +7,11 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./shared": "./src/shared/index.js",
+    ".": "./src/lib/index.js",
     "./client": "./src/client/index.js",
     "./server": "./src/server/index.js",
-    "./tokens": "./src/shared/tokens.js",
-    "./normalize": "./src/shared/normalize.js",
-    "./sorting": "./src/shared/sorting.js"
+    "./tokens": "./src/lib/tokens.js",
+    "./normalize": "./src/lib/normalize.js",
+    "./sorting": "./src/lib/sorting.js"
   }
 }

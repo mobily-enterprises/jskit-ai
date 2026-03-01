@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { AppError } from "../src/shared/errors.js";
-import { normalizeIdempotencyKey, requireIdempotencyKey } from "../src/shared/routeUtils.js";
+import { AppError } from "../src/server/errors.js";
+import { normalizeIdempotencyKey, requireIdempotencyKey } from "../src/server/routeUtils.js";
 
 test("normalizeIdempotencyKey trims and normalizes empty values", () => {
   assert.equal(normalizeIdempotencyKey("  abc123  "), "abc123");

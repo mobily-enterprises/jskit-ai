@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { withModuleId } from "../src/shared/composeUtils.js";
+import { withModuleId } from "../src/lib/composeUtils.js";
 
 test("withModuleId adds moduleId when missing", () => {
   const result = withModuleId({ id: "chat" }, { path: "/chat" });

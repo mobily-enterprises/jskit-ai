@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { registerTypeBoxFormats, __testables } from "../src/shared/typeboxFormats.js";
+import { registerTypeBoxFormats, __testables } from "../src/lib/typeboxFormats.js";
 
 test("strict uuid validator accepts canonical lowercase v4/v5 values", () => {
   assert.equal(__testables.isStrictUuid("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"), true);

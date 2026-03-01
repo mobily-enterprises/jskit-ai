@@ -68,7 +68,7 @@ Quick start (smallest useful flow):
 ```js
 import { loadRbacManifest, resolveRolePermissions, hasPermission } from "@jskit-ai/rbac-core";
 
-const manifest = await loadRbacManifest("./shared/auth/rbac.manifest.json");
+const manifest = await loadRbacManifest("./server/auth/rbac.manifest.json");
 const permissions = resolveRolePermissions(manifest, "member");
 const canManageMembers = hasPermission(permissions, "workspace.members.manage");
 ```
@@ -562,7 +562,7 @@ import {
   listManifestPermissions
 } from "@jskit-ai/rbac-core";
 
-const manifest = await loadRbacManifest("./shared/auth/rbac.manifest.json");
+const manifest = await loadRbacManifest("./server/auth/rbac.manifest.json");
 
 const aiRequiredPermission = "workspace.ai.use";
 if (!manifestIncludesPermission(manifest, aiRequiredPermission, { includeOwner: false })) {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createRouter, joinPath } from "../src/shared/router.js";
+import { createRouter, joinPath } from "../src/lib/router.js";
 
 function noop() {}
 

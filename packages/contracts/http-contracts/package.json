@@ -7,10 +7,12 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./paginationQuery": "./src/shared/paginationQuery.js",
-    "./typeboxFormats": "./src/shared/typeboxFormats.js",
-    "./errorResponses": "./src/shared/errorResponses.js"
+    ".": "./src/server/index.js",
+    "./paginationQuery": "./src/lib/paginationQuery.js",
+    "./typeboxFormats": "./src/lib/typeboxFormats.js",
+    "./errorResponses": "./src/lib/errorResponses.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   },
   "dependencies": {
     "@fastify/type-provider-typebox": "^6.1.0",

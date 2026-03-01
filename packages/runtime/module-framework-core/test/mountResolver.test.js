@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveMounts } from "../src/shared/mountResolver.js";
+import { resolveMounts } from "../src/lib/mountResolver.js";
 import { moduleDescriptor } from "./helpers/moduleDescriptor.js";
 
 test("resolveMounts applies overrides and aliases", () => {

@@ -10,17 +10,19 @@
     "semver": "^7.6.0"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./descriptor": "./src/shared/descriptor.js",
-    "./dependencyGraph": "./src/shared/dependencyGraph.js",
-    "./capabilityGraph": "./src/shared/capabilityGraph.js",
-    "./mountResolver": "./src/shared/mountResolver.js",
-    "./conflicts": "./src/shared/conflicts.js",
-    "./composeServer": "./src/shared/composeServer.js",
-    "./composeClient": "./src/shared/composeClient.js",
-    "./composeUtils": "./src/shared/composeUtils.js",
-    "./compositionMode": "./src/shared/compositionMode.js",
-    "./diagnostics": "./src/shared/diagnostics.js",
-    "./appDropins": "./src/shared/appDropins.js"
+    ".": "./src/server/index.js",
+    "./descriptor": "./src/lib/descriptor.js",
+    "./dependencyGraph": "./src/lib/dependencyGraph.js",
+    "./capabilityGraph": "./src/lib/capabilityGraph.js",
+    "./mountResolver": "./src/lib/mountResolver.js",
+    "./conflicts": "./src/lib/conflicts.js",
+    "./composeServer": "./src/lib/composeServer.js",
+    "./composeClient": "./src/lib/composeClient.js",
+    "./composeUtils": "./src/lib/composeUtils.js",
+    "./compositionMode": "./src/lib/compositionMode.js",
+    "./diagnostics": "./src/lib/diagnostics.js",
+    "./appDropins": "./src/lib/appDropins.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   }
 }

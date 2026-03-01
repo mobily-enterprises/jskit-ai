@@ -1,14 +1,32 @@
 import { TOKENS } from "@jskit-ai/support-core/tokens";
-import { createServerContributions } from "../../shared/server.js";
+import { authPolicyPlugin } from "../lib/plugin.js";
 
-function resolvePolicyPluginDefinition() {
-  const contributions = createServerContributions();
-  const plugins = Array.isArray(contributions?.plugins) ? contributions.plugins : [];
-  const definition = plugins.find((entry) => entry?.id === "auth-policy");
-  if (!definition || typeof definition.create !== "function") {
-    throw new Error("FastifyAuthPolicyServiceProvider could not resolve auth-policy plugin definition.");
+function parseBoolean(value, fallback = false) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) {
+    return fallback;
   }
-  return definition;
+  if (["1", "true", "yes", "on"].includes(raw)) {
+    return true;
+  }
+  if (["0", "false", "no", "off"].includes(raw)) {
+    return false;
+  }
+  return fallback;
+}
+
+function parseList(value) {
+  return String(value || "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function defaultHasPermission({ permission, permissions = [] } = {}) {
+  if (!permission) {
+    return true;
+  }
+  return Array.isArray(permissions) ? permissions.includes(permission) : false;
 }
 
 class FastifyAuthPolicyServiceProvider {
@@ -30,33 +48,35 @@ class FastifyAuthPolicyServiceProvider {
       throw new Error("FastifyAuthPolicyServiceProvider requires authService binding.");
     }
 
-    const policyPluginDefinition = resolvePolicyPluginDefinition();
     const env = app.has(TOKENS.Env) ? app.make(TOKENS.Env) : {};
-    const logger = app.has(TOKENS.Logger) ? app.make(TOKENS.Logger) : console;
     const fastify = app.make(TOKENS.Fastify);
+    const authService = app.make("authService");
 
-    const plugin = await policyPluginDefinition.create({
-      services: {
-        authService: app.make("authService")
+    const plugin = authPolicyPlugin(
+      {
+        resolveActor: async (request) => {
+          if (authService && typeof authService.authenticateRequest === "function") {
+            return authService.authenticateRequest(request);
+          }
+          return {
+            authenticated: false,
+            actor: null,
+            transientFailure: false
+          };
+        },
+        hasPermission: defaultHasPermission
       },
-      dependencies: {
-        env,
-        logger
+      {
+        nodeEnv: String(env.NODE_ENV || "development").trim() || "development",
+        apiPrefix: String(env.AUTH_API_PREFIX || "/api/").trim() || "/api/",
+        unsafeMethods: parseList(env.AUTH_CSRF_UNSAFE_METHODS),
+        csrfCookieOpts: {
+          secure: parseBoolean(env.AUTH_CSRF_COOKIE_SECURE, false)
+        }
       }
-    });
+    );
 
-    if (typeof plugin === "function") {
-      await fastify.register(plugin);
-      return;
-    }
-    if (plugin && typeof plugin.register === "function") {
-      await plugin.register(fastify, {
-        app
-      });
-      return;
-    }
-
-    throw new Error("FastifyAuthPolicyServiceProvider plugin definition returned an unsupported registration shape.");
+    await fastify.register(plugin);
   }
 }
 

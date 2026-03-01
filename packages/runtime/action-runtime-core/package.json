@@ -7,17 +7,19 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./contracts": "./src/shared/contracts.js",
-    "./registry": "./src/shared/registry.js",
-    "./executionContext": "./src/shared/executionContext.js",
-    "./pipeline": "./src/shared/pipeline.js",
-    "./policies": "./src/shared/policies.js",
-    "./idempotency": "./src/shared/idempotency.js",
-    "./audit": "./src/shared/audit.js",
-    "./observability": "./src/shared/observability.js",
-    "./actionIds": "./src/shared/actionIds.js",
-    "./realtimePublish": "./src/shared/realtimePublish.js",
-    "./actionContributorHelpers": "./src/shared/actionContributorHelpers.js"
+    ".": "./src/lib/index.js",
+    "./contracts": "./src/lib/contracts.js",
+    "./registry": "./src/lib/registry.js",
+    "./executionContext": "./src/lib/executionContext.js",
+    "./pipeline": "./src/lib/pipeline.js",
+    "./policies": "./src/lib/policies.js",
+    "./idempotency": "./src/lib/idempotency.js",
+    "./audit": "./src/lib/audit.js",
+    "./observability": "./src/lib/observability.js",
+    "./actionIds": "./src/lib/actionIds.js",
+    "./realtimePublish": "./src/lib/realtimePublish.js",
+    "./actionContributorHelpers": "./src/lib/actionContributorHelpers.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   }
 }

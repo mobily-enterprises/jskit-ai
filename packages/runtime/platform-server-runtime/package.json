@@ -7,8 +7,10 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./providerRuntime": "./src/shared/providerRuntime.js"
+    ".": "./src/server/index.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js",
+    "./providerRuntime": "./src/server/providerRuntime.js"
   },
   "dependencies": {
     "@jskit-ai/http-fastify-core": "0.1.0",

@@ -6,7 +6,7 @@ import {
   defineModule,
   validateModuleDescriptor,
   validateModuleDescriptors
-} from "../src/shared/descriptor.js";
+} from "../src/lib/descriptor.js";
 
 test("validateModuleDescriptor returns normalized descriptor", () => {
   const descriptor = validateModuleDescriptor({

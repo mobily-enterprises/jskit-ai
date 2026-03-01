@@ -1,7 +1,7 @@
 // Central capability contracts (WHAT).
 // Provider/consumer graph (WHO) is derived from descriptors at lint/doc time.
 
-import { toSortedUniqueStrings } from "../../src/shared/capabilityContractUtils.mjs";
+import { toSortedUniqueStrings } from "../../src/server/capabilityContractUtils.mjs";
 
 function deepFreeze(value) {
   if (!value || typeof value !== "object") {

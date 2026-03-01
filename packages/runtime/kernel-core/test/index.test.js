@@ -5,7 +5,7 @@ import {
   ProviderDependencyError,
   createApplication,
   createProviderClass
-} from "../src/shared/index.js";
+} from "../src/lib/index.js";
 
 test("providers register and boot in dependency order", async () => {
   const order = [];

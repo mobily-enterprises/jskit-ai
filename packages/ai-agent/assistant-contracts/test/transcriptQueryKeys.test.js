@@ -6,7 +6,7 @@ import {
   workspaceAiTranscriptsListQueryKey,
   workspaceAiTranscriptsRootQueryKey,
   workspaceAiTranscriptsScopeQueryKey
-} from "../src/shared/transcriptQueryKeys.js";
+} from "../src/lib/transcriptQueryKeys.js";
 
 test("transcript query keys normalize workspace, status, actor filter, and paging", () => {
   assert.deepEqual(WORKSPACE_AI_TRANSCRIPTS_QUERY_KEY_PREFIX, ["workspace-ai-transcripts"]);

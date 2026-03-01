@@ -7,9 +7,11 @@
     "test": "vitest run --config vitest.config.mjs"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./source/ConsoleBillingPlansClientElement.vue": "./src/shared/ConsoleBillingPlansClientElement.vue",
-    "./source/ConsoleBillingProductsClientElement.vue": "./src/shared/ConsoleBillingProductsClientElement.vue"
+    ".": "./src/server/index.js",
+    "./source/ConsoleBillingPlansClientElement.vue": "./src/lib/ConsoleBillingPlansClientElement.vue",
+    "./source/ConsoleBillingProductsClientElement.vue": "./src/lib/ConsoleBillingProductsClientElement.vue",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   },
   "dependencies": {
     "@koumoul/vjsf": "^3.26.1",

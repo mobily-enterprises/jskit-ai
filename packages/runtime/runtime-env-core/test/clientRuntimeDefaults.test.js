@@ -5,7 +5,7 @@ import {
   createDefaultUseQueryErrorMessage,
   createDefaultUseWorkspaceStore,
   defaultUseAuthGuard
-} from "../src/shared/clientRuntimeDefaults.js";
+} from "../src/lib/clientRuntimeDefaults.js";
 
 function createComputedStub(getter) {
   return {

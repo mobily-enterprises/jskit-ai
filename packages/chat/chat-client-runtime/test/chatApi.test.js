@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createApi } from "../src/shared/chatApi.js";
+import { createApi } from "../src/lib/chatApi.js";
 
 test("chatApi listInbox appends query params", async () => {
   const requestCalls = [];

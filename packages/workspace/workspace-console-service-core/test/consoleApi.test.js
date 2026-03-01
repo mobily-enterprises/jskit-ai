@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createApi } from "../src/shared/client/consoleApi.js";
+import { createApi } from "../src/lib/client/consoleApi.js";
 
 test("consoleApi exposes console core methods only", async () => {
   const calls = [];

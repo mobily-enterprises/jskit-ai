@@ -13,7 +13,7 @@ import {
   manifestIncludesPermission,
   normalizeManifest,
   resolveRolePermissions
-} from "../src/shared/index.js";
+} from "../src/server/index.js";
 
 test("normalizeManifest validates and normalizes role catalog", () => {
   assert.throws(() => normalizeManifest(null), /must be a JSON object/);

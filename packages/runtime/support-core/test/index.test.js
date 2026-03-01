@@ -9,7 +9,7 @@ import {
   normalizeText,
   sortById,
   sortStrings
-} from "../src/shared/index.js";
+} from "../src/lib/index.js";
 
 test("tokens are stable symbols", () => {
   assert.equal(typeof TOKENS.Logger, "symbol");

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { shouldRetryForCsrfFailure } from "../src/shared/retry.js";
+import { shouldRetryForCsrfFailure } from "../src/lib/retry.js";
 
 test("shouldRetryForCsrfFailure returns true only for unsafe csrf 403 before retry", () => {
   const unsafeMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);

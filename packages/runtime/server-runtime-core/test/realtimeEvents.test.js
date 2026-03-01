@@ -4,7 +4,7 @@ import {
   createRealtimeEventEnvelope,
   createRealtimeEventsBus,
   createTargetedChatEventEnvelope
-} from "../src/shared/realtimeEvents.js";
+} from "../src/server/realtimeEvents.js";
 
 test("realtime events bus supports subscribe/unsubscribe happy path", () => {
   const bus = createRealtimeEventsBus();

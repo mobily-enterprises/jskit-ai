@@ -4,9 +4,9 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { ensureUniqueDescriptor } from "../src/shared/schemas/descriptorRegistry.mjs";
-import { normalizeBundleDescriptor } from "../src/shared/schemas/bundleDescriptor.mjs";
-import { normalizePackageDescriptor } from "../src/shared/schemas/packageDescriptor.mjs";
+import { ensureUniqueDescriptor } from "../src/server/schemas/descriptorRegistry.mjs";
+import { normalizeBundleDescriptor } from "../src/server/schemas/bundleDescriptor.mjs";
+import { normalizePackageDescriptor } from "../src/server/schemas/packageDescriptor.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
@@ -65,8 +65,8 @@ test("normalizePackageDescriptor accepts valid descriptor shape", () => {
       },
       runtime: {
         server: {
-          entrypoint: "src/server/contributions.js",
-          export: "createServerContributions"
+          providerEntrypoint: "src/server/index.js",
+          providerExport: "ValidPackageServiceProvider"
         }
       },
       mutations: {
@@ -99,8 +99,8 @@ test("normalizePackageDescriptor accepts valid descriptor shape", () => {
   assert.deepEqual(normalized.capabilities.provides, ["feature-a"]);
   assert.deepEqual(normalized.capabilities.requires, ["feature-b"]);
   assert.deepEqual(normalized.contracts.contributes, ["contracts/capabilities.mjs"]);
-  assert.equal(normalized.runtime.server.entrypoint, "src/server/contributions.js");
-  assert.equal(normalized.runtime.server.export, "createServerContributions");
+  assert.equal(normalized.runtime.server.providerEntrypoint, "src/server/index.js");
+  assert.equal(normalized.runtime.server.providerExport, "ValidPackageServiceProvider");
   assert.equal(normalized.mutations.dependencies.runtime.knex, "^3.0.0");
   assert.equal(normalized.mutations.files[0].from, "templates/source.txt");
   assert.equal(normalized.mutations.files[0].to, "config/source.txt");
@@ -212,7 +212,7 @@ test("duplicate descriptor IDs return stable snapshot message", () => {
   assert.equal(message, ERROR_SNAPSHOTS.duplicatePackageId);
 });
 
-test("runtime.server requires entrypoint when declared", () => {
+test("runtime.server requires providerEntrypoint when declared", () => {
   const message = captureErrorMessage(() => {
     normalizePackageDescriptor(
       {
@@ -223,7 +223,7 @@ test("runtime.server requires entrypoint when declared", () => {
         capabilities: { provides: [], requires: [] },
         runtime: {
           server: {
-            export: "createServerContributions"
+            providerExport: "MissingEntrypointServiceProvider"
           }
         },
         mutations: {
@@ -239,7 +239,7 @@ test("runtime.server requires entrypoint when declared", () => {
 
   assert.equal(
     message,
-    "Package @test/runtime-missing-entrypoint runtime.server.entrypoint is required when runtime.server is declared."
+    "Package @test/runtime-missing-entrypoint runtime.server.providerEntrypoint is required when runtime.server is declared."
   );
 });
 
@@ -311,7 +311,7 @@ test("jskit lint-descriptors reports duplicate package IDs", async () => {
   });
 });
 
-test("jskit lint-descriptors validates runtime.server contribution entrypoint exports", async () => {
+test("jskit lint-descriptors validates runtime.server provider exports", async () => {
   await withTempWorkspace(async (workspaceRoot) => {
     const descriptorSource = `export default Object.freeze({
   packageVersion: 1,
@@ -324,8 +324,8 @@ test("jskit lint-descriptors validates runtime.server contribution entrypoint ex
   },
   runtime: {
     server: {
-      entrypoint: "src/server/contributions.js",
-      export: "createServerContributions"
+      providerEntrypoint: "src/server/index.js",
+      providerExport: "RuntimeExportMismatchServiceProvider"
     }
   },
   mutations: {
@@ -345,8 +345,8 @@ test("jskit lint-descriptors validates runtime.server contribution entrypoint ex
     await writePackageDescriptor(workspaceRoot, "runtime-export-mismatch", descriptorSource);
     await writePackageFile(
       workspaceRoot,
-      "runtime-export-mismatch/src/server/contributions.js",
-      `export function wrongExportName() { return { routes: [] }; }\n`
+      "runtime-export-mismatch/src/server/index.js",
+      `export const RuntimeExportMismatchServiceProvider = {};\n`
     );
 
     const result = runCli({
@@ -355,7 +355,10 @@ test("jskit lint-descriptors validates runtime.server contribution entrypoint ex
     });
 
     assert.equal(result.status, 1, result.stdout);
-    assert.match(result.stderr, /server contribution contract checks/);
-    assert.match(result.stderr, /runtime\.server export createServerContributions must be a function/);
+    assert.match(result.stderr, /server provider contract checks/);
+    assert.match(
+      result.stderr,
+      /runtime\.server\.providerExport RuntimeExportMismatchServiceProvider must be a provider class\/function/
+    );
   });
 });

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { REDACTION_VERSION, redactSecrets } from "../src/shared/redactSecrets.js";
+import { REDACTION_VERSION, redactSecrets } from "../src/server/redactSecrets.js";
 
 test("redactSecrets masks known sensitive payload patterns", () => {
   const source = "Bearer sk-12345678901234567890 password=secret";

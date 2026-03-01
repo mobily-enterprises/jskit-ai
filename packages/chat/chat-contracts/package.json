@@ -7,6 +7,8 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js"
+    ".": "./src/server/index.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   }
 }

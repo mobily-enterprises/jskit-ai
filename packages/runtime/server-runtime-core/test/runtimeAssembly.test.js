@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildRoutesFromManifest, createRuntimeAssembly, mergeRuntimeBundles } from "../src/shared/runtimeAssembly.js";
+import { buildRoutesFromManifest, createRuntimeAssembly, mergeRuntimeBundles } from "../src/server/runtimeAssembly.js";
 
 test("mergeRuntimeBundles concatenates runtime bundle definitions in order", () => {
   const merged = mergeRuntimeBundles([

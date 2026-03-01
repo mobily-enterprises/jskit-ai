@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createService } from "../src/shared/index.js";
+import { createService } from "../src/lib/index.js";
 
 test("communications core dispatches sms/email through configured services", async () => {
   const calls = [];

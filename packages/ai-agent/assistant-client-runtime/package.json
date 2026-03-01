@@ -7,9 +7,11 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./workspaceTranscriptsApi": "./src/shared/workspaceTranscriptsApi.js",
-    "./consoleTranscriptsApi": "./src/shared/consoleTranscriptsApi.js"
+    ".": "./src/server/index.js",
+    "./workspaceTranscriptsApi": "./src/lib/workspaceTranscriptsApi.js",
+    "./consoleTranscriptsApi": "./src/lib/consoleTranscriptsApi.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   },
   "dependencies": {
     "@jskit-ai/assistant-contracts": "0.1.0",

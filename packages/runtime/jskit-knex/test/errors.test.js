@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isDuplicateEntryError } from "../src/shared/errors.js";
+import { isDuplicateEntryError } from "../src/lib/errors.js";
 
 test("isDuplicateEntryError matches mysql and postgres duplicate signatures", () => {
   assert.equal(isDuplicateEntryError({ code: "ER_DUP_ENTRY" }), true);

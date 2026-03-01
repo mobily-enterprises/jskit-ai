@@ -7,12 +7,14 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./sdkService": "./src/shared/sdk.service.js",
-    "./adapterService": "./src/shared/adapter.service.js",
-    "./catalogPricingService": "./src/shared/catalogPricing.service.js",
-    "./webhookTranslationService": "./src/shared/webhookTranslation.service.js",
-    "./errorMapping": "./src/shared/errorMapping.js"
+    ".": "./src/server/index.js",
+    "./sdkService": "./src/server/sdk.service.js",
+    "./adapterService": "./src/server/adapter.service.js",
+    "./catalogPricingService": "./src/server/catalogPricing.service.js",
+    "./webhookTranslationService": "./src/server/webhookTranslation.service.js",
+    "./errorMapping": "./src/server/errorMapping.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   },
   "dependencies": {
     "@jskit-ai/billing-core": "0.1.0",

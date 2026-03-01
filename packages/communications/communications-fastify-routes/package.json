@@ -7,10 +7,10 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./controller": "./src/shared/controller.js",
-    "./routes": "./src/shared/routes.js",
-    "./server": "./src/shared/server.js"
+    ".": "./src/server/lib/index.js",
+    "./controller": "./src/server/lib/controller.js",
+    "./routes": "./src/server/lib/routes.js",
+    "./server": "./src/server/index.js"
   },
   "dependencies": {
     "@jskit-ai/communications-contracts": "0.1.0",

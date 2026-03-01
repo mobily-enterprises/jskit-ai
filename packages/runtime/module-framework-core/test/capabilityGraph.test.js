@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveCapabilityGraph } from "../src/shared/capabilityGraph.js";
+import { resolveCapabilityGraph } from "../src/lib/capabilityGraph.js";
 import { moduleDescriptor } from "./helpers/moduleDescriptor.js";
 
 test("resolveCapabilityGraph keeps modules when required capabilities are satisfied", () => {

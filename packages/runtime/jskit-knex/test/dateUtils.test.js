@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toIsoString, toDatabaseDateTimeUtc } from "../src/shared/dateUtils.js";
+import { toIsoString, toDatabaseDateTimeUtc } from "../src/lib/dateUtils.js";
 
 test("toIsoString normalizes valid date input", () => {
   assert.equal(toIsoString("2024-01-01T00:00:00.000Z"), "2024-01-01T00:00:00.000Z");

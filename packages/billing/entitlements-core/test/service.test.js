@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createEntitlementsService } from "../src/shared/index.js";
+import { createEntitlementsService } from "../src/lib/index.js";
 
 function createInMemoryRepository({ definitions = [] } = {}) {
   const grants = [];

@@ -14,79 +14,33 @@ function registerFallbackHealthRoute(app) {
 async function registerRuntime(app, { appRoot, runtimeEnv }) {
   try {
     const platformRuntimeModule = await import("@jskit-ai/platform-server-runtime");
-    if (typeof platformRuntimeModule?.createProviderRuntimeFromApp === "function") {
-      const runtime = await platformRuntimeModule.createProviderRuntimeFromApp({
-        appRoot,
-        strict: false,
-        profile: "app",
-        env: runtimeEnv,
-        logger: app.log,
-        fastify: app
-      });
-
-      app.log.info(
-        {
-          routeCount: runtime.routeCount,
-          providerPackages: runtime.providerPackageOrder,
-          legacyPackages: runtime.legacyPackageOrder,
-          legacyRuntime: runtime.legacyRuntime,
-          packageOrder: runtime.packageOrder
-        },
-        "Registered JSKIT provider server runtime."
+    if (typeof platformRuntimeModule?.createProviderRuntimeFromApp !== "function") {
+      throw new Error(
+        "Installed @jskit-ai/platform-server-runtime does not export createProviderRuntimeFromApp()."
       );
-
-      return {
-        enabled: true,
-        routeCount: runtime.routeCount
-      };
     }
 
-    const [{ createServerRuntimeFromApp, applyContributedRuntimeLifecycle }, { registerApiRouteDefinitions }] =
-      await Promise.all([
-        import("@jskit-ai/server-runtime-core/serverContributions"),
-        import("@jskit-ai/server-runtime-core/apiRouteRegistration")
-      ]);
-
-    const legacyRuntime = await createServerRuntimeFromApp({
+    const runtime = await platformRuntimeModule.createProviderRuntimeFromApp({
       appRoot,
       strict: false,
-      dependencies: {
-        env: runtimeEnv,
-        logger: app.log,
-        fastify: app,
-        app
-      }
-    });
-
-    const routes = Array.isArray(legacyRuntime?.routes) ? legacyRuntime.routes : [];
-    if (routes.length > 0) {
-      registerApiRouteDefinitions(app, {
-        routes
-      });
-    }
-
-    await applyContributedRuntimeLifecycle({
-      app,
-      runtimeResult: legacyRuntime,
-      dependencies: {
-        env: runtimeEnv,
-        logger: app.log,
-        fastify: app,
-        app
-      }
+      profile: "app",
+      env: runtimeEnv,
+      logger: app.log,
+      fastify: app
     });
 
     app.log.info(
       {
-        routeCount: routes.length,
-        packageOrder: legacyRuntime?.packageOrder || []
+        routeCount: runtime.routeCount,
+        providerPackages: runtime.providerPackageOrder,
+        packageOrder: runtime.packageOrder
       },
-      "Registered JSKIT legacy server runtime."
+      "Registered JSKIT provider server runtime."
     );
 
     return {
       enabled: true,
-      routeCount: routes.length
+      routeCount: runtime.routeCount
     };
   } catch (error) {
     const message = String(error?.message || "");

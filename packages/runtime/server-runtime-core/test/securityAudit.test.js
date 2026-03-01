@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { withAuditEvent } from "../src/shared/securityAudit.js";
+import { withAuditEvent } from "../src/server/securityAudit.js";
 
 function resolveSurfaceFromPathname(pathnameValue) {
   const pathname = String(pathnameValue || "").trim().toLowerCase();

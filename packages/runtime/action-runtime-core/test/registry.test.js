@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createActionRegistry } from "../src/shared/registry.js";
-import { createPermissionEvaluator } from "../src/shared/policies.js";
+import { createActionRegistry } from "../src/lib/registry.js";
+import { createPermissionEvaluator } from "../src/lib/policies.js";
 
 function createPassThroughSchema() {
   return {

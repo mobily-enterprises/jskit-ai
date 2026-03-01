@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { pickLaterDate } from "../src/shared/dateUtils.js";
+import { pickLaterDate } from "../src/lib/dateUtils.js";
 
 test("pickLaterDate returns null when both values are invalid", () => {
   assert.equal(pickLaterDate(null, undefined), null);

@@ -1,4 +1,4 @@
-import { MODULE_TIERS } from "../../src/shared/descriptor.js";
+import { MODULE_TIERS } from "../../src/lib/descriptor.js";
 
 function moduleDescriptor(overrides = {}) {
   return {

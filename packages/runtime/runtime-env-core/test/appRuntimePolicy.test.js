@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 
-import { resolveAppConfig, toBrowserConfig } from "../src/shared/appRuntimePolicy.js";
+import { resolveAppConfig, toBrowserConfig } from "../src/server/appRuntimePolicy.js";
 
 test("resolveAppConfig normalizes tenancy, limits, feature gates, and manifest path", () => {
   const personal = resolveAppConfig({

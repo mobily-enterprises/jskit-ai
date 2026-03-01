@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createApplication } from "@jskit-ai/kernel-core";
 import { TOKENS } from "@jskit-ai/support-core/tokens";
-import { createHttpRuntime, registerRoutes } from "../src/shared/kernel.js";
+import { createHttpRuntime, registerRoutes } from "../src/lib/kernel.js";
 
 function createFastifyStub() {
   const routes = [];

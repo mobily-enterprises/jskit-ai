@@ -9,7 +9,7 @@ import {
   createProviderRuntimeFromApp,
   createServerRuntime,
   createServerRuntimeWithPlatformBundle
-} from "../src/shared/index.js";
+} from "../src/server/index.js";
 import { TOKENS } from "@jskit-ai/support-core/tokens";
 
 test("platform server runtime creates bundle and assembly", () => {
@@ -73,8 +73,6 @@ async function withTempAppFixture(run) {
 
 function descriptorSource({
   packageId,
-  entrypoint = "src/shared/server.js",
-  exportName = "createServerContributions",
   providerEntrypoint = "",
   providerExport = ""
 }) {
@@ -87,6 +85,11 @@ function descriptorSource({
   }
   const providerRuntimeFragment = providerFields.length > 0 ? `, ${providerFields.join(", ")}` : "";
 
+  const runtimeBlock =
+    providerFields.length > 0
+      ? `,\n  runtime: {\n    server: {\n      ${providerFields.join(", ")}\n    }\n  }`
+      : "";
+
   return `export default Object.freeze({
   packageVersion: 1,
   packageId: ${JSON.stringify(packageId)},
@@ -95,13 +98,7 @@ function descriptorSource({
   capabilities: {
     provides: ["runtime.server"],
     requires: []
-  },
-  runtime: {
-    server: {
-      entrypoint: ${JSON.stringify(entrypoint)},
-      export: ${JSON.stringify(exportName)}${providerRuntimeFragment}
-    }
-  },
+  }${runtimeBlock},
   mutations: {
     dependencies: { runtime: {}, dev: {} },
     packageJson: { scripts: {} },
@@ -109,24 +106,6 @@ function descriptorSource({
     files: []
   }
 });\n`;
-}
-
-function contributionSource({ routeId = "", routePath = "" }) {
-  const routesBlock = routeId
-    ? `routes: [{ id: ${JSON.stringify(routeId)}, buildRoutes: () => [{ method: "GET", path: ${JSON.stringify(routePath)}, handler: async () => ({ ok: true }) }] }],`
-    : "routes: [],";
-  return `export function createServerContributions() {
-  return {
-    repositories: [],
-    services: [],
-    controllers: [],
-    ${routesBlock}
-    actions: [],
-    plugins: [],
-    workers: [],
-    lifecycle: []
-  };
-}\n`;
 }
 
 function providerSource({ providerClassName, providerId }) {
@@ -145,8 +124,6 @@ async function writePackageFixture({
   packageId,
   descriptorRelativePath,
   descriptor,
-  contributionEntrypointRelativePath = "",
-  contributionSourceCode = "",
   providerEntrypointRelativePath = "",
   providerSourceCode = ""
 }) {
@@ -157,12 +134,6 @@ async function writePackageFixture({
   await mkdir(path.dirname(descriptorPath), { recursive: true });
   await writeFile(descriptorPath, descriptor, "utf8");
 
-  if (contributionEntrypointRelativePath) {
-    const contributionPath = path.join(packageRoot, contributionEntrypointRelativePath);
-    await mkdir(path.dirname(contributionPath), { recursive: true });
-    await writeFile(contributionPath, contributionSourceCode, "utf8");
-  }
-
   if (providerEntrypointRelativePath) {
     const providerPath = path.join(packageRoot, providerEntrypointRelativePath);
     await mkdir(path.dirname(providerPath), { recursive: true });
@@ -170,7 +141,7 @@ async function writePackageFixture({
   }
 }
 
-test("createProviderRuntimeFromApp loads providers and bridges legacy contributions deterministically", async () => {
+test("createProviderRuntimeFromApp loads provider packages only", async () => {
   await withTempAppFixture(async (appRoot) => {
     await writePackageFixture({
       appRoot,
@@ -181,8 +152,6 @@ test("createProviderRuntimeFromApp loads providers and bridges legacy contributi
         providerEntrypoint: "src/server/index.js",
         providerExport: "ProviderPackageServiceProvider"
       }),
-      contributionEntrypointRelativePath: "src/shared/server.js",
-      contributionSourceCode: contributionSource({}),
       providerEntrypointRelativePath: "src/server/index.js",
       providerSourceCode: providerSource({
         providerClassName: "ProviderPackageServiceProvider",
@@ -196,11 +165,6 @@ test("createProviderRuntimeFromApp loads providers and bridges legacy contributi
       descriptorRelativePath: "packages/test/legacy-package/package.descriptor.mjs",
       descriptor: descriptorSource({
         packageId: "@test/legacy-package"
-      }),
-      contributionEntrypointRelativePath: "src/shared/server.js",
-      contributionSourceCode: contributionSource({
-        routeId: "legacy.health",
-        routePath: "/legacy/health"
       })
     });
 
@@ -252,10 +216,7 @@ test("createProviderRuntimeFromApp loads providers and bridges legacy contributi
     assert.equal(runtime.app.make("provider.loaded"), true);
     assert.equal(runtime.providerPackageOrder.length, 1);
     assert.deepEqual(runtime.providerPackageOrder, ["@test/provider-package"]);
-    assert.deepEqual(runtime.legacyPackageOrder, ["@test/legacy-package"]);
-    assert.equal(runtime.legacyRuntime.routeCount, 1);
-    assert.equal(runtime.routeCount, 1);
-    assert.equal(fastify.routes.length, 1);
-    assert.equal(fastify.routes[0].url, "/legacy/health");
+    assert.equal(runtime.routeCount, 0);
+    assert.equal(fastify.routes.length, 0);
   });
 });

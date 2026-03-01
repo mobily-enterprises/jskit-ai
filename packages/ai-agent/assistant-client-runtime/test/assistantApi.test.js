@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildStreamEventError, createApi } from "../src/shared/assistantApi.js";
+import { buildStreamEventError, createApi } from "../src/lib/assistantApi.js";
 
 test("assistantApi streamChat rejects on error event by default", async () => {
   const api = createApi({

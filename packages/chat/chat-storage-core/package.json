@@ -7,8 +7,10 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./attachmentStorageService": "./src/shared/attachmentStorage.service.js"
+    ".": "./src/server/index.js",
+    "./attachmentStorageService": "./src/server/attachmentStorage.service.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   },
   "dependencies": {
     "@jskit-ai/server-runtime-core": "0.1.0",

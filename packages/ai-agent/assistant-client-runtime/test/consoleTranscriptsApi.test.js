@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createApi } from "../src/shared/consoleTranscriptsApi.js";
+import { createApi } from "../src/lib/consoleTranscriptsApi.js";
 
 test("consoleTranscriptsApi uses console transcript routes", async () => {
   const calls = [];

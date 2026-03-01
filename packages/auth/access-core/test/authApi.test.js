@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createApi } from "../src/shared/client/authApi.js";
+import { createApi } from "../src/server/client/authApi.js";
 
 test("authApi exposes the expected methods and request routes", async () => {
   const calls = [];

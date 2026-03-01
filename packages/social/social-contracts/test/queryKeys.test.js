@@ -7,7 +7,7 @@ import {
   socialNotificationsQueryKey,
   socialPostQueryKey,
   socialScopeQueryKey
-} from "../src/shared/queryKeys.js";
+} from "../src/lib/queryKeys.js";
 
 test("social query keys normalize workspace scope and primitives", () => {
   assert.deepEqual(socialScopeQueryKey("acme"), ["social", "acme"]);

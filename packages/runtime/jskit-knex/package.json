@@ -7,11 +7,13 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./dateUtils": "./src/shared/dateUtils.js",
-    "./errors": "./src/shared/errors.js",
-    "./retention": "./src/shared/retention.js",
-    "./json": "./src/shared/json.js",
-    "./dialect": "./src/shared/dialect.js"
+    ".": "./src/server/index.js",
+    "./dateUtils": "./src/lib/dateUtils.js",
+    "./errors": "./src/lib/errors.js",
+    "./retention": "./src/lib/retention.js",
+    "./json": "./src/lib/json.js",
+    "./dialect": "./src/lib/dialect.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   }
 }

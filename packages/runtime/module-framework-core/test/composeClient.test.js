@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { MODULE_TIERS } from "../src/shared/descriptor.js";
-import { composeClientModules } from "../src/shared/composeClient.js";
+import { MODULE_TIERS } from "../src/lib/descriptor.js";
+import { composeClientModules } from "../src/lib/composeClient.js";
 import { moduleDescriptor } from "./helpers/moduleDescriptor.js";
 
 test("composeClientModules composes api/routes/nav/realtime/flags deterministically", () => {

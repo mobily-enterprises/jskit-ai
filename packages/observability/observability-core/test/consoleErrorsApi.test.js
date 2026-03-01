@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createApi } from "../src/shared/client/consoleErrorsApi.js";
+import { createApi } from "../src/client/consoleErrorsApi.js";
 
 test("consoleErrorsApi routes error endpoints", async () => {
   const calls = [];

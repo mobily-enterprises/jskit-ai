@@ -7,12 +7,14 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./catalogCore": "./src/shared/catalogCore.js",
-    "./providerPricingCore": "./src/shared/providerPricingCore.js",
-    "./pricingErrors": "./src/shared/pricingErrors.js",
-    "./entitlementSchema": "./src/shared/entitlementSchema.js",
-    "./constants": "./src/shared/constants.js"
+    ".": "./src/server/index.js",
+    "./catalogCore": "./src/lib/catalogCore.js",
+    "./providerPricingCore": "./src/lib/providerPricingCore.js",
+    "./pricingErrors": "./src/lib/pricingErrors.js",
+    "./entitlementSchema": "./src/lib/entitlementSchema.js",
+    "./constants": "./src/lib/constants.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   },
   "dependencies": {
     "@jskit-ai/server-runtime-core": "0.1.0"

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveBodyInput, withAssistantToolChannel } from "../src/shared/actions/inputHelpers.js";
+import { resolveBodyInput, withAssistantToolChannel } from "../src/lib/actions/inputHelpers.js";
 
 test("resolveBodyInput returns nested payload object when provided", () => {
   const input = {

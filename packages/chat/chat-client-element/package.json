@@ -7,8 +7,10 @@
     "test": "vitest run --config vitest.config.mjs"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./source/ChatClientElement.vue": "./src/shared/ChatClientElement.vue"
+    ".": "./src/server/index.js",
+    "./source/ChatClientElement.vue": "./src/lib/ChatClientElement.vue",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   },
   "dependencies": {
     "@jskit-ai/web-runtime-core": "0.1.0",

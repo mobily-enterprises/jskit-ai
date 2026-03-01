@@ -5,7 +5,7 @@ import {
   assertEntitlementValueOrThrow,
   resolveSchemaValidator,
   validateEntitlementValue
-} from "../src/shared/entitlementSchema.js";
+} from "../src/lib/entitlementSchema.js";
 
 test("resolveSchemaValidator returns known validators and null for unknown schema ids", () => {
   assert.equal(typeof resolveSchemaValidator("entitlement.boolean.v1"), "function");

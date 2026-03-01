@@ -7,18 +7,20 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./workspaceAccess": "./src/shared/workspaceAccess.js",
-    "./workspaceRoleCatalog": "./src/shared/workspaceRoleCatalog.js",
-    "./workspaceSettingsPatch": "./src/shared/workspaceSettingsPatch.js",
-    "./workspaceColors": "./src/shared/workspaceColors.js",
-    "./consoleRoles": "./src/shared/consoleRoles.js",
-    "./settingsInfra": "./src/shared/settingsInfra.js",
-    "./settingsValidation": "./src/shared/settingsValidation.js",
-    "./settingsModel": "./src/shared/settingsModel.js",
-    "./settingsPatchBuilder": "./src/shared/settingsPatchBuilder.js",
-    "./settingsSchemaBuilder": "./src/shared/settingsSchemaBuilder.js",
-    "./avatarValidation": "./src/shared/avatarValidation.js"
+    ".": "./src/server/index.js",
+    "./workspaceAccess": "./src/lib/workspaceAccess.js",
+    "./workspaceRoleCatalog": "./src/lib/workspaceRoleCatalog.js",
+    "./workspaceSettingsPatch": "./src/lib/workspaceSettingsPatch.js",
+    "./workspaceColors": "./src/lib/workspaceColors.js",
+    "./consoleRoles": "./src/lib/consoleRoles.js",
+    "./settingsInfra": "./src/lib/settingsInfra.js",
+    "./settingsValidation": "./src/lib/settingsValidation.js",
+    "./settingsModel": "./src/lib/settingsModel.js",
+    "./settingsPatchBuilder": "./src/lib/settingsPatchBuilder.js",
+    "./settingsSchemaBuilder": "./src/lib/settingsSchemaBuilder.js",
+    "./avatarValidation": "./src/lib/avatarValidation.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   },
   "dependencies": {
     "@jskit-ai/access-core": "0.1.0",

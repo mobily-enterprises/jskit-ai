@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { mergeClientModuleRegistry, __testables } from "../src/shared/appDropins.js";
+import { mergeClientModuleRegistry, __testables } from "../src/lib/appDropins.js";
 
 test("mergeClientModuleRegistry rejects new modules from contributions", () => {
   assert.throws(

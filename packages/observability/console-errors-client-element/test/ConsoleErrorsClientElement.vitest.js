@@ -2,13 +2,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
-import ConsoleErrorListClientElement from "../src/shared/ConsoleErrorListClientElement.vue";
-import ConsoleErrorDetailClientElement from "../src/shared/ConsoleErrorDetailClientElement.vue";
+import ConsoleErrorListClientElement from "../src/lib/ConsoleErrorListClientElement.vue";
+import ConsoleErrorDetailClientElement from "../src/lib/ConsoleErrorDetailClientElement.vue";
 import { readSource } from "../../../../tests/helpers/readSource.js";
 
 const baseDir = path.dirname(fileURLToPath(import.meta.url));
-const listSourcePath = path.resolve(baseDir, "../src/shared/ConsoleErrorListClientElement.vue");
-const detailSourcePath = path.resolve(baseDir, "../src/shared/ConsoleErrorDetailClientElement.vue");
+const listSourcePath = path.resolve(baseDir, "../src/lib/ConsoleErrorListClientElement.vue");
+const detailSourcePath = path.resolve(baseDir, "../src/lib/ConsoleErrorDetailClientElement.vue");
 
 function mountWithWarningsSuppressed(component, options) {
   return mount(component, {

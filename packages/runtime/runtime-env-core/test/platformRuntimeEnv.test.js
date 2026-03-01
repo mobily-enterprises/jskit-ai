@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createPlatformRuntimeEnv, __testables } from "../src/shared/platformRuntimeEnv.js";
+import { createPlatformRuntimeEnv, __testables } from "../src/server/platformRuntimeEnv.js";
 
 test("createPlatformRuntimeEnv uses platform defaults with neutral db names", () => {
   const runtimeEnv = createPlatformRuntimeEnv({

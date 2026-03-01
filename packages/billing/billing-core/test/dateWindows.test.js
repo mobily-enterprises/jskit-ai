@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { startOfUtcDay, startOfUtcWeek } from "../src/shared/dateWindows.js";
+import { startOfUtcDay, startOfUtcWeek } from "../src/lib/dateWindows.js";
 
 test("startOfUtcDay resets time to UTC midnight", () => {
   const reference = new Date("2025-01-08T15:42:11.555Z");

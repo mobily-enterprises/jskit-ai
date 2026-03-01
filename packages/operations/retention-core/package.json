@@ -7,10 +7,12 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./service": "./src/shared/service.js",
-    "./policy": "./src/shared/policy.js",
-    "./rules": "./src/shared/rules/index.js"
+    ".": "./src/server/index.js",
+    "./service": "./src/lib/service.js",
+    "./policy": "./src/lib/policy.js",
+    "./rules": "./src/lib/rules/index.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   },
   "dependencies": {
     "@jskit-ai/chat-core": "0.1.0",

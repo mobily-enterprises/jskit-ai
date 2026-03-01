@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { PassThrough, Writable } from "node:stream";
 import test from "node:test";
-import { runCli as runCliDirect } from "../src/shared/index.js";
+import { runCli as runCliDirect } from "../src/server/index.js";
 import { readFileSync, readJsonFile, runCli, writeJsonFile } from "./helpers.js";
 
 function createPackageDescriptorSource({

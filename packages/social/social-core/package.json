@@ -7,10 +7,12 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./outboxWorkerRuntimeService": "./src/shared/outboxWorkerRuntime.service.js",
-    "./repositories/social": "./src/shared/repositories/social.repository.js",
-    "./repositories/shared": "./src/shared/repositories/shared.js"
+    ".": "./src/server/index.js",
+    "./outboxWorkerRuntimeService": "./src/server/outboxWorkerRuntime.service.js",
+    "./repositories/social": "./src/server/repositories/social.repository.js",
+    "./repositories/shared": "./src/server/repositories/shared.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   },
   "dependencies": {
     "@jskit-ai/action-runtime-core": "0.1.0",

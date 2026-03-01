@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const baseDir = path.dirname(fileURLToPath(import.meta.url));
-const plansPath = path.resolve(baseDir, "../src/shared/ConsoleBillingPlansClientElement.vue");
-const productsPath = path.resolve(baseDir, "../src/shared/ConsoleBillingProductsClientElement.vue");
+const plansPath = path.resolve(baseDir, "../src/lib/ConsoleBillingPlansClientElement.vue");
+const productsPath = path.resolve(baseDir, "../src/lib/ConsoleBillingProductsClientElement.vue");
 
 describe("Billing console admin client elements", () => {
   it("contains plans table/dialog contract markers", () => {

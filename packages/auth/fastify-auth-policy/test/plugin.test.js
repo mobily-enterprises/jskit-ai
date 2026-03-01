@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { authPolicyPlugin } from "../src/shared/index.js";
+import { authPolicyPlugin } from "../src/server/lib/index.js";
 
 function createFakeFastify({ csrfHandler } = {}) {
   const state = {

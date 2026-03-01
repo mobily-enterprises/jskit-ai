@@ -4,10 +4,12 @@
   "type": "module",
   "publishConfig": { "access": "public" },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./apiPaths": "./src/shared/apiPaths.js",
-    "./appSurfaces": "./src/shared/appSurfaces.js",
-    "./paths": "./src/shared/paths.js",
-    "./registry": "./src/shared/registry.js"
+    ".": "./src/lib/index.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js",
+    "./apiPaths": "./src/lib/apiPaths.js",
+    "./appSurfaces": "./src/lib/appSurfaces.js",
+    "./paths": "./src/lib/paths.js",
+    "./registry": "./src/lib/registry.js"
   }
 }

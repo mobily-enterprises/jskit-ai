@@ -91,26 +91,44 @@ test("createComposedRuntimeBundles emits platform and app-feature bundles", () =
 });
 
 test("composeServerRuntimeArtifacts supports module filtering while preserving definition order", () => {
+  const enabledModuleIds = ["auth", "health", "workspace", "actionRuntime", "history", "deg2rad"];
   const artifacts = composeServerRuntimeArtifacts({
-    enabledModuleIds: ["auth", "health", "actionRuntime", "deg2rad"]
+    enabledModuleIds
   });
 
   assert.deepEqual(artifacts.repositoryDefinitions.map((entry) => entry.id), [
     "userProfilesRepository",
+    "calculationLogsRepository",
+    "workspacesRepository",
+    "workspaceMembershipsRepository",
+    "workspaceSettingsRepository",
+    "workspaceInvitesRepository",
     "healthRepository"
   ]);
 
   assert.deepEqual(artifacts.serviceDefinitions.map((entry) => entry.id), [
     "authService",
+    "deg2radHistoryService",
+    "workspaceInviteEmailService",
+    "workspaceService",
+    "workspaceAdminService",
+    "auditService",
+    "realtimeEventsService",
     "healthService",
     "actionRuntimeServices",
     "actionRegistry",
     "actionExecutor"
   ]);
 
-  assert.deepEqual(artifacts.controllerDefinitions.map((entry) => entry.id), ["auth", "health"]);
-  assert.deepEqual(artifacts.runtimeServiceIds, ["authService", "actionRegistry", "actionExecutor"]);
-  assert.deepEqual(artifacts.routeModuleIds, ["health", "auth", "deg2rad"]);
+  assert.deepEqual(artifacts.controllerDefinitions.map((entry) => entry.id), ["auth", "history", "health", "workspace"]);
+  assert.deepEqual(artifacts.runtimeServiceIds, [
+    "authService",
+    "workspaceService",
+    "realtimeEventsService",
+    "actionRegistry",
+    "actionExecutor"
+  ]);
+  assert.deepEqual(artifacts.routeModuleIds, ["health", "auth", "workspace", "history", "deg2rad"]);
   assert.deepEqual(artifacts.appFeatureServiceDefinitions.map((entry) => entry.id), ["deg2radService"]);
   assert.deepEqual(artifacts.appFeatureControllerDefinitions.map((entry) => entry.id), ["deg2rad"]);
 });

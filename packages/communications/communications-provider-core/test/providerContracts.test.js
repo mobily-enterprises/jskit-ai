@@ -5,7 +5,7 @@ import {
   COMMUNICATION_PROVIDER_RESULT_REASONS,
   normalizeChannel,
   assertDispatchProvider
-} from "../src/shared/index.js";
+} from "../src/lib/index.js";
 
 test("communications provider core normalizes channels and validates providers", async () => {
   assert.equal(COMMUNICATION_CHANNELS.SMS, "sms");

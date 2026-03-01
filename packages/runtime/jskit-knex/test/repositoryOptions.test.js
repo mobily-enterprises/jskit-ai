@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseMetadataJson, stringifyMetadataJson } from "../src/shared/repositoryOptions.js";
+import { parseMetadataJson, stringifyMetadataJson } from "../src/lib/repositoryOptions.js";
 
 test("parseMetadataJson parses object-like metadata payloads", () => {
   assert.deepEqual(parseMetadataJson(""), {});

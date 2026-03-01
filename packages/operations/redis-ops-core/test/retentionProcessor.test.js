@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRetentionSweepLockKey } from "../src/shared/workerConstants.js";
+import { createRetentionSweepLockKey } from "../src/server/workerConstants.js";
 import {
   __testables,
   createRetentionSweepProcessor,
   isRetentionLockHeldError
-} from "../src/shared/retentionProcessor.js";
+} from "../src/server/retentionProcessor.js";
 
 const REDIS_NAMESPACE = "jskit:ops:test";
 

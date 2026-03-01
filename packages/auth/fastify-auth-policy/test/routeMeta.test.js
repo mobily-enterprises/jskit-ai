@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { mergeAuthPolicy, withAuthPolicy } from "../src/shared/index.js";
+import { mergeAuthPolicy, withAuthPolicy } from "../src/server/lib/index.js";
 
 test("withAuthPolicy applies stable defaults", () => {
   const wrapped = withAuthPolicy();

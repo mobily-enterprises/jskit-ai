@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createApi } from "../src/shared/client/consoleBillingApi.js";
+import { createApi } from "../src/lib/client/consoleBillingApi.js";
 
 test("consoleBillingApi preserves console billing method contract", async () => {
   const calls = [];

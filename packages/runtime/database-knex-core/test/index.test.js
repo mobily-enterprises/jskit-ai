@@ -7,7 +7,7 @@ import {
   buildPaginationMeta,
   createTransactionManager,
   registerDatabaseRuntime
-} from "../src/shared/index.js";
+} from "../src/lib/index.js";
 
 function createKnexStub() {
   return {

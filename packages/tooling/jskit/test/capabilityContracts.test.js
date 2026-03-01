@@ -12,9 +12,9 @@ import {
   getCapabilityContractTestRelativePath,
   normalizeContracts
 } from "../contracts/capabilities/index.mjs";
-import { toSortedUniqueStrings } from "../src/shared/capabilityContractUtils.mjs";
-import { normalizePackageDescriptor } from "../src/shared/schemas/packageDescriptor.mjs";
-import { validateCapabilityContracts } from "../src/shared/capabilityContracts.mjs";
+import { toSortedUniqueStrings } from "../src/server/capabilityContractUtils.mjs";
+import { normalizePackageDescriptor } from "../src/server/schemas/packageDescriptor.mjs";
+import { validateCapabilityContracts } from "../src/server/capabilityContracts.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

@@ -7,17 +7,19 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./previewText": "./src/shared/previewText.js",
-    "./repositories/threads": "./src/shared/repositories/threads.repository.js",
-    "./repositories/participants": "./src/shared/repositories/participants.repository.js",
-    "./repositories/messages": "./src/shared/repositories/messages.repository.js",
-    "./repositories/idempotencyTombstones": "./src/shared/repositories/idempotencyTombstones.repository.js",
-    "./repositories/attachments": "./src/shared/repositories/attachments.repository.js",
-    "./repositories/reactions": "./src/shared/repositories/reactions.repository.js",
-    "./repositories/userSettings": "./src/shared/repositories/userSettings.repository.js",
-    "./repositories/blocks": "./src/shared/repositories/blocks.repository.js",
-    "./repositories/shared": "./src/shared/repositories/shared.js"
+    ".": "./src/server/index.js",
+    "./previewText": "./src/server/previewText.js",
+    "./repositories/threads": "./src/server/repositories/threads.repository.js",
+    "./repositories/participants": "./src/server/repositories/participants.repository.js",
+    "./repositories/messages": "./src/server/repositories/messages.repository.js",
+    "./repositories/idempotencyTombstones": "./src/server/repositories/idempotencyTombstones.repository.js",
+    "./repositories/attachments": "./src/server/repositories/attachments.repository.js",
+    "./repositories/reactions": "./src/server/repositories/reactions.repository.js",
+    "./repositories/userSettings": "./src/server/repositories/userSettings.repository.js",
+    "./repositories/blocks": "./src/server/repositories/blocks.repository.js",
+    "./repositories/shared": "./src/server/repositories/shared.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   },
   "dependencies": {
     "@jskit-ai/action-runtime-core": "0.1.0",

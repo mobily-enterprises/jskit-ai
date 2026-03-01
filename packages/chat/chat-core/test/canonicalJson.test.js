@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toCanonicalJson, toSha256Hex } from "../src/shared/canonicalJson.js";
+import { toCanonicalJson, toSha256Hex } from "../src/server/canonicalJson.js";
 
 test("canonical json helper sorts object keys recursively", () => {
   const value = {

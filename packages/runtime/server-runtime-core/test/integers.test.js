@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeNullablePositiveInteger, parsePositiveInteger } from "../src/shared/integers.js";
+import { normalizeNullablePositiveInteger, parsePositiveInteger } from "../src/server/integers.js";
 
 test("parsePositiveInteger returns positive integers only", () => {
   assert.equal(parsePositiveInteger(1), 1);

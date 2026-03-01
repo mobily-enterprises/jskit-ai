@@ -7,7 +7,7 @@ import {
   resolveSupabaseAuthUrl,
   resolveAuthJwtAudience,
   assertEnabledSubsystemStartupPreflight
-} from "../src/shared/startupPreflight.js";
+} from "../src/lib/startupPreflight.js";
 
 test("startupPreflight helpers normalize auth env values", () => {
   assert.equal(hasNonEmptyEnvValue(" x "), true);

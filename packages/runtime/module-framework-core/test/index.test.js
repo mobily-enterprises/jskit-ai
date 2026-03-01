@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import * as framework from "../src/shared/index.js";
+import * as framework from "../src/lib/index.js";
 
 test("index exports expected top-level APIs", () => {
   assert.equal(typeof framework.defineModule, "function");

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeText } from "../src/shared/text.js";
+import { normalizeText } from "../src/lib/text.js";
 
 test("normalizeText trims string-like input and normalizes nullish to empty", () => {
   assert.equal(normalizeText("  hello  "), "hello");

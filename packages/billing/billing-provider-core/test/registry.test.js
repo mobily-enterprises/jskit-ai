@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createProviderRegistry, REQUIRED_PROVIDER_ADAPTER_METHODS, assertProviderAdapter } from "../src/shared/index.js";
+import { createProviderRegistry, REQUIRED_PROVIDER_ADAPTER_METHODS, assertProviderAdapter } from "../src/lib/index.js";
 
 function createStubAdapter(provider = "stub") {
   const adapter = {

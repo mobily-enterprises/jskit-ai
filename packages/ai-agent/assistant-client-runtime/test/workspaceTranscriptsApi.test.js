@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createApi } from "../src/shared/workspaceTranscriptsApi.js";
+import { createApi } from "../src/lib/workspaceTranscriptsApi.js";
 
 test("workspaceTranscriptsApi uses workspace transcript routes", async () => {
   const calls = [];

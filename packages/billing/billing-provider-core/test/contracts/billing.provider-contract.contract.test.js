@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as billingProviderCore from "../../src/shared/index.js";
+import * as billingProviderCore from "../../src/lib/index.js";
 
 test("billing.provider-contract contract exports required symbols", () => {
   assert.equal(typeof billingProviderCore.assertProviderAdapter, "function");

@@ -7,7 +7,7 @@ import {
   applyTranscriptModeToWorkspaceFeatures,
   normalizeTranscriptMode,
   resolveTranscriptModeFromWorkspaceSettings
-} from "../src/shared/mode.js";
+} from "../src/server/mode.js";
 
 test("mode helpers normalize and resolve transcript mode values", () => {
   assert.equal(normalizeTranscriptMode("STANDARD"), TRANSCRIPT_MODE_STANDARD);

@@ -6,7 +6,7 @@ import {
   detectActionConflicts,
   detectTopicConflicts,
   resolveConflicts
-} from "../src/shared/conflicts.js";
+} from "../src/lib/conflicts.js";
 import { moduleDescriptor } from "./helpers/moduleDescriptor.js";
 
 test("conflict detectors identify duplicates", () => {

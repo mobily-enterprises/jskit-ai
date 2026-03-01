@@ -8,7 +8,7 @@ import {
   fastifyDefaultErrorResponseSchema,
   enumSchema,
   withStandardErrorResponses
-} from "../src/shared/errorResponses.js";
+} from "../src/lib/errorResponses.js";
 
 test("withStandardErrorResponses includes standard statuses", () => {
   const success = {

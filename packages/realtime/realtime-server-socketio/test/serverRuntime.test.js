@@ -6,7 +6,7 @@ import {
   __testables,
   registerRealtimeServerSocketio,
   SOCKET_IO_PATH
-} from "../src/shared/index.js";
+} from "../src/lib/index.js";
 
 function createFastifyStub() {
   const hooks = {

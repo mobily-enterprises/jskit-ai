@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { shellQuote } from "../src/shared/index.js";
+import { shellQuote } from "../src/server/index.js";
 
 test("shellQuote passes through safe shell tokens", () => {
   assert.equal(shellQuote("npm"), "npm");

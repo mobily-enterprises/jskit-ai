@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { runAuthSignOutFlow } from "../src/shared/client/signOutFlow.js";
+import { runAuthSignOutFlow } from "../src/server/client/signOutFlow.js";
 
 test("runAuthSignOutFlow executes logout then cleanup hooks", async () => {
   const calls = [];

@@ -5,7 +5,7 @@ import {
   SETTINGS_DEFAULTS,
   SETTINGS_LIMITS,
   SETTINGS_CHAT_DEFAULTS
-} from "../src/shared/settingsModel.js";
+} from "../src/lib/settingsModel.js";
 
 test("createSettingsModel builds a reusable base model from avatar constraints", () => {
   const model = createSettingsModel({

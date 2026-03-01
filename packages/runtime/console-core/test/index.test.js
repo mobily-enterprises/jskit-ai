@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createConsoleKernel } from "../src/shared/index.js";
+import { createConsoleKernel } from "../src/lib/index.js";
 
 test("console kernel runs registered commands", async () => {
   const kernel = createConsoleKernel();

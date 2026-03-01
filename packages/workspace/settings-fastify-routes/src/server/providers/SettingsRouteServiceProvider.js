@@ -1,5 +1,5 @@
 import { TOKENS } from "@jskit-ai/support-core/tokens";
-import { buildRoutes, createController } from "../../shared/index.js";
+import { buildRoutes, createController } from "../lib/index.js";
 
 class SettingsRouteServiceProvider {
   static id = "workspace.settings.routes";

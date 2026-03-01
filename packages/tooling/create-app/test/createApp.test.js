@@ -5,7 +5,7 @@ import path from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { runCli as runCreateAppCli } from "../src/shared/index.js";
+import { runCli as runCreateAppCli } from "../src/server/index.js";
 import { createCliRunner } from "../../testUtils/runCli.js";
 import { runJskit } from "../../testUtils/runJskit.mjs";
 

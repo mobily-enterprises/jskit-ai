@@ -7,12 +7,12 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./controller": "./src/shared/controller.js",
-    "./routes": "./src/shared/routes.js",
-    "./schema": "./src/shared/schema.js",
-    "./avatarPolicy": "./src/shared/avatarPolicy.js",
-    "./server": "./src/shared/server.js",
+    ".": "./src/server/lib/index.js",
+    "./controller": "./src/server/lib/controller.js",
+    "./routes": "./src/server/lib/routes.js",
+    "./schema": "./src/server/lib/schema.js",
+    "./avatarPolicy": "./src/server/lib/avatarPolicy.js",
+    "./server": "./src/server/index.js",
     "./serverProvider": "./src/server/providers/SettingsRouteServiceProvider.js",
     "./serverProviders": "./src/server/index.js"
   },

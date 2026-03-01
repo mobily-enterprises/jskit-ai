@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createWorkerKernel } from "../src/shared/index.js";
+import { createWorkerKernel } from "../src/lib/index.js";
 
 test("worker kernel dispatches and drains jobs", async () => {
   const events = [];

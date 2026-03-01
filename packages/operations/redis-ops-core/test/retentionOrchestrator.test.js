@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRetentionSweepOrchestrator } from "../src/shared/retentionOrchestrator.js";
+import { createRetentionSweepOrchestrator } from "../src/server/retentionOrchestrator.js";
 
 test("retention orchestrator executes rules in order and aggregates summary totals", async () => {
   const calls = [];

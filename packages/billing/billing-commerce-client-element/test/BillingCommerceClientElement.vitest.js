@@ -1,6 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import BillingCommerceClientElement from "../src/shared/BillingCommerceClientElement.vue";
+import BillingCommerceClientElement from "../src/lib/BillingCommerceClientElement.vue";
 
 function mountElement(options) {
   return mount(BillingCommerceClientElement, {
@@ -38,6 +38,12 @@ function createBaseProps(overrides = {}) {
         currency: "USD"
       }
     ],
+    paymentMethodsError: "",
+    paymentMethodsLoading: false,
+    paymentMethodItems: [],
+    paymentMethodMutationLoading: false,
+    mutatingPaymentMethodId: "",
+    paymentMethodMutationKind: "",
     limitationsError: "",
     limitationsLoading: false,
     limitationItems: [
@@ -59,7 +65,10 @@ function createBaseProps(overrides = {}) {
   };
 
   const actions = {
-    buyCatalogItem: vi.fn(async () => {})
+    buyCatalogItem: vi.fn(async () => {}),
+    setDefaultPaymentMethod: vi.fn(async () => {}),
+    detachPaymentMethod: vi.fn(async () => {}),
+    removePaymentMethod: vi.fn(async () => {})
   };
 
   return {

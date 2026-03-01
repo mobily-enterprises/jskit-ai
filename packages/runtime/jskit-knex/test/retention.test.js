@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeBatchSize, normalizeCutoffDateOrThrow, normalizeDeletedRowCount } from "../src/shared/retention.js";
+import { normalizeBatchSize, normalizeCutoffDateOrThrow, normalizeDeletedRowCount } from "../src/lib/retention.js";
 
 test("normalizeBatchSize clamps to configured max", () => {
   assert.equal(normalizeBatchSize(undefined, { fallback: 100, max: 500 }), 100);

@@ -7,7 +7,9 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js"
+    ".": "./src/server/index.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   },
   "dependencies": {
     "@jskit-ai/realtime-contracts": "0.1.0",

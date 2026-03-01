@@ -6,7 +6,7 @@ import {
   normalizeAssistantStreamEventType,
   isAssistantStreamEventType,
   normalizeAssistantStreamEvent
-} from "../src/shared/streamEvents.js";
+} from "../src/lib/streamEvents.js";
 
 test("assistant stream event constants include expected values", () => {
   assert.equal(ASSISTANT_STREAM_EVENT_TYPES.META, "meta");

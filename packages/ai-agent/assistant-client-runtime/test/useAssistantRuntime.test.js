@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createAssistantRuntime, assistantRuntimeTestables } from "../src/shared/useAssistantRuntime.js";
+import { createAssistantRuntime, assistantRuntimeTestables } from "../src/lib/useAssistantRuntime.js";
 
 function createPolicy(seed = 0) {
   return {

@@ -11,15 +11,15 @@
     "@jskit-ai/workspace-console-core": "0.1.0"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./client/consoleErrorsApi": "./src/shared/client/consoleErrorsApi.js",
-    "./services/consoleErrors": "./src/shared/consoleErrors.service.js",
-    "./browserPayload": "./src/shared/browserPayload.js",
-    "./serverPayload": "./src/shared/serverPayload.js",
-    "./metricsContracts": "./src/shared/metricsContracts.js",
-    "./metricsRegistry": "./src/shared/metricsRegistry.js",
-    "./scopeLogger": "./src/shared/scopeLogger.js",
-    "./service": "./src/shared/service.js",
-    "./server": "./src/shared/server.js"
+    ".": "./src/server/lib/index.js",
+    "./client/consoleErrorsApi": "./src/client/consoleErrorsApi.js",
+    "./services/consoleErrors": "./src/server/lib/consoleErrors.service.js",
+    "./browserPayload": "./src/server/lib/browserPayload.js",
+    "./serverPayload": "./src/server/lib/serverPayload.js",
+    "./metricsContracts": "./src/server/lib/metricsContracts.js",
+    "./metricsRegistry": "./src/server/lib/metricsRegistry.js",
+    "./scopeLogger": "./src/server/lib/scopeLogger.js",
+    "./service": "./src/server/lib/service.js",
+    "./server": "./src/server/index.js"
   }
 }

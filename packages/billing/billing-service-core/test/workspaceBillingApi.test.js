@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createApi } from "../src/shared/client/workspaceBillingApi.js";
+import { createApi } from "../src/lib/client/workspaceBillingApi.js";
 
 test("workspaceBillingApi preserves workspace billing method contract", async () => {
   const calls = [];

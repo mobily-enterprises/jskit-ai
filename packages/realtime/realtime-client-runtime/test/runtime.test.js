@@ -4,7 +4,7 @@ import test from "node:test";
 import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "@jskit-ai/realtime-contracts";
 import { delay } from "../../../../tests/helpers/delay.js";
 
-import { createCommandTracker, createRealtimeRuntime, createSocketIoTransport } from "../src/shared/index.js";
+import { createCommandTracker, createRealtimeRuntime, createSocketIoTransport } from "../src/lib/index.js";
 
 class FakeSocket {
   static instances = [];

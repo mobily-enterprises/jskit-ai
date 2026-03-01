@@ -7,8 +7,10 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js",
-    "./repository": "./src/shared/repository.js"
+    ".": "./src/server/index.js",
+    "./repository": "./src/lib/repository.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   },
   "dependencies": {
     "@jskit-ai/billing-core": "0.1.0",

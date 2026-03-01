@@ -1,7 +1,7 @@
 import { ref } from "vue";
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import AssistantClientElement from "../src/shared/AssistantClientElement.vue";
+import AssistantClientElement from "../src/lib/AssistantClientElement.vue";
 
 function mountElement(options) {
   return mount(AssistantClientElement, {

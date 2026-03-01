@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as paddleProvider from "../src/shared/index.js";
+import * as paddleProvider from "../src/server/index.js";
 
 test("billing paddle provider exports sdk/adapter/translation contracts", () => {
   assert.equal(typeof paddleProvider.createPaddleSdkService, "function");

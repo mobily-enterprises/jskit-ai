@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isAllowedAvatarMimeType, normalizeAvatarSize, validateAvatarUpload } from "../src/shared/avatarValidation.js";
+import { isAllowedAvatarMimeType, normalizeAvatarSize, validateAvatarUpload } from "../src/lib/avatarValidation.js";
 
 test("avatar validation normalizes size and mime types", () => {
   assert.equal(normalizeAvatarSize("64", { min: 32, max: 128, fallback: 64 }), 64);

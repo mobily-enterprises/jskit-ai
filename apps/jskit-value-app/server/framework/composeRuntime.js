@@ -9,7 +9,7 @@ import {
 } from "@jskit-ai/module-framework-core";
 import { mergeDisabled, moduleSignature } from "@jskit-ai/module-framework-core/composeUtils";
 
-import { resolveFrameworkProfile, resolveServerModuleIdsForProfile } from "../../shared/framework/profile.js";
+import { FRAMEWORK_PROFILE_IDS, resolveFrameworkProfile, resolveServerModuleIdsForProfile } from "../../shared/framework/profile.js";
 import { PLATFORM_REPOSITORY_DEFINITIONS } from "../runtime/repositories.js";
 import { PLATFORM_SERVICE_DEFINITIONS, RUNTIME_SERVICE_EXPORT_IDS } from "../runtime/services.js";
 import { PLATFORM_CONTROLLER_DEFINITIONS } from "../runtime/controllers.js";

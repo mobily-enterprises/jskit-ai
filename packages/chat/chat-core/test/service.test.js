@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { __testables, createService } from "../src/shared/service.js";
+import { __testables, createService } from "../src/server/service.js";
 
 function createNoopDeps() {
   return {
