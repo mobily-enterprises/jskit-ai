@@ -77,6 +77,15 @@ Returned methods:
 
 Exports internal helpers used by tests.
 
+## Provider runtime (new path)
+
+- `AuthSupabaseServiceProvider` is exported for provider/kernel runtime boot.
+- In `register()`, it binds:
+  - `authService`
+  - `actionRegistry`
+  - `actionExecutor`
+- It reads environment inputs from `TOKENS.Env` when present.
+
 ## How apps use this package
 
 Typical flow:

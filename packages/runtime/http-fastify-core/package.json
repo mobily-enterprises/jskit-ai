@@ -1,0 +1,21 @@
+{
+  "name": "@jskit-ai/http-fastify-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/shared/index.js",
+    "./shared": "./src/shared/index.js",
+    "./client": "./src/client/index.js",
+    "./server": "./src/server/index.js",
+    "./router": "./src/shared/router.js",
+    "./kernel": "./src/shared/kernel.js",
+    "./errors": "./src/shared/errors.js"
+  },
+  "dependencies": {
+    "@jskit-ai/support-core": "0.1.0"
+  }
+}

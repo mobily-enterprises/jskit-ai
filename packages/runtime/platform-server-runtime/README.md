@@ -25,6 +25,12 @@ A runtime container is the assembled set of repositories, services, and controll
 - `createServerRuntimeWithPlatformBundle({ platformBundle, appFeatureBundle, dependencies })`
   - Convenience helper for the common case: always include platform bundle and optionally one app bundle.
   - Real example: product app adds custom features on top of standard platform runtime.
+- `createProviderRuntimeApp({ profile, providers, env, logger, fastify })`
+  - Boots the provider-first application runtime and registers collected routes when Fastify is present.
+  - Real example: app startup boots `ServiceProvider` classes directly instead of contribution registries.
+- `createProviderRuntimeFromApp({ appRoot, lockPath, strict, profile, env, logger, fastify })`
+  - Reads `.jskit/lock.json`, loads provider entrypoints from package descriptors, and bridges remaining legacy contributions.
+  - Real example: generated apps boot through provider kernels while older contribution packages keep working during migration.
 
 ## How apps use this package (and why)
 

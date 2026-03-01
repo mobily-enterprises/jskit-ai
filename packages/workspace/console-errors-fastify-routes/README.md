@@ -63,3 +63,9 @@ Why apps use it:
 
 - reusable incident/debug API surface
 - consistent payload validation for frontend error ingestion
+
+## Provider runtime (new path)
+
+- `ConsoleErrorsRouteServiceProvider` is exported for provider/kernel runtime boot.
+- Required container binding:
+  - `actionExecutor`

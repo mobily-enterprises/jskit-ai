@@ -126,3 +126,11 @@ Why apps use it:
 
 - shared admin API contract
 - keeps controller logic thin and consistent
+
+## Provider runtime (new path)
+
+- `ConsoleRouteServiceProvider` is exported for provider/kernel runtime boot.
+- Required container binding:
+  - `actionExecutor`
+- Optional binding:
+  - `aiTranscriptsService`

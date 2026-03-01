@@ -11,11 +11,14 @@
     "./controller": "./src/shared/controller.js",
     "./routes": "./src/shared/routes.js",
     "./schema": "./src/shared/schema.js",
-    "./server": "./src/shared/server.js"
+    "./server": "./src/shared/server.js",
+    "./serverProvider": "./src/server/providers/HealthRouteServiceProvider.js",
+    "./serverProviders": "./src/server/index.js"
   },
   "dependencies": {
     "@fastify/type-provider-typebox": "^6.1.0",
     "@jskit-ai/http-contracts": "0.1.0",
-    "@jskit-ai/server-runtime-core": "0.1.0"
+    "@jskit-ai/server-runtime-core": "0.1.0",
+    "@jskit-ai/support-core": "0.1.0"
   }
 }

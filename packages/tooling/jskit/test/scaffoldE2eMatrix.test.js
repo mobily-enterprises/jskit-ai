@@ -460,7 +460,7 @@ async function runScenarioWebShellAuthLogin({ browser, rootDir }) {
     const page = await browser.newPage();
     try {
       await page.goto(`${baseUrl}/app`, { waitUntil: "networkidle" });
-      await assertTextVisible(page, "Welcome back");
+      await assertTextVisible(page, "App Home");
 
       await page.goto(`${baseUrl}/auth/signout?returnTo=%2Fapp`, { waitUntil: "networkidle" });
       await page.waitForURL(/\/login(?:\?|$)/, { timeout: 20_000 });

@@ -6,6 +6,7 @@ export default Object.freeze({
     "@jskit-ai/access-core",
     "@jskit-ai/http-contracts",
     "@jskit-ai/server-runtime-core",
+    "@jskit-ai/support-core",
     "@jskit-ai/workspace-console-core",
     "@jskit-ai/value-app-config-shared"
   ],
@@ -231,7 +232,8 @@ export default Object.freeze({
         "@fastify/type-provider-typebox": "^6.1.0",
         "@jskit-ai/access-core": "0.1.0",
         "@jskit-ai/http-contracts": "0.1.0",
-        "@jskit-ai/server-runtime-core": "0.1.0"
+        "@jskit-ai/server-runtime-core": "0.1.0",
+        "@jskit-ai/support-core": "0.1.0"
       },
       "dev": {}
     },

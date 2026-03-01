@@ -8,9 +8,12 @@
   },
   "exports": {
     ".": "./src/shared/index.js",
-    "./server": "./src/shared/server.js"
+    "./server": "./src/shared/server.js",
+    "./serverProvider": "./src/server/providers/FastifyAuthPolicyServiceProvider.js",
+    "./serverProviders": "./src/server/index.js"
   },
   "dependencies": {
+    "@jskit-ai/support-core": "0.1.0",
     "@jskit-ai/server-runtime-core": "0.1.0",
     "@fastify/cookie": "^11.0.2",
     "@fastify/csrf-protection": "^7.1.0",

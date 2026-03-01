@@ -6,6 +6,7 @@ export default Object.freeze({
     "@jskit-ai/server-runtime-core",
     "@jskit-ai/access-core",
     "@jskit-ai/rbac-core",
+    "@jskit-ai/support-core",
     "@jskit-ai/value-app-config-shared"
   ],
   "capabilities": {
@@ -21,7 +22,9 @@ export default Object.freeze({
   "runtime": {
     "server": {
       "entrypoint": "src/shared/server.js",
-      "export": "createServerContributions"
+      "export": "createServerContributions",
+      "providerEntrypoint": "src/server/index.js",
+      "providerExport": "FastifyAuthPolicyServiceProvider"
     }
   },
   "mutations": {
@@ -30,6 +33,7 @@ export default Object.freeze({
         "@fastify/cookie": "^11.0.2",
         "@fastify/csrf-protection": "^7.1.0",
         "@fastify/rate-limit": "^10.3.0",
+        "@jskit-ai/support-core": "0.1.0",
         "@jskit-ai/server-runtime-core": "0.1.0"
       },
       "dev": {}

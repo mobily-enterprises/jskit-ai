@@ -12,6 +12,8 @@
     "./routes": "./src/shared/routes.js",
     "./schema": "./src/shared/schema.js",
     "./server": "./src/shared/server.js",
+    "./serverProvider": "./src/server/providers/WorkspaceRouteServiceProvider.js",
+    "./serverProviders": "./src/server/index.js",
     "./routes/admin": "./src/shared/routes/admin.route.js",
     "./routes/bootstrap": "./src/shared/routes/bootstrap.route.js",
     "./routes/selfService": "./src/shared/routes/selfService.route.js",
@@ -24,6 +26,7 @@
     "@fastify/type-provider-typebox": "^6.1.0",
     "@jskit-ai/access-core": "0.1.0",
     "@jskit-ai/http-contracts": "0.1.0",
-    "@jskit-ai/server-runtime-core": "0.1.0"
+    "@jskit-ai/server-runtime-core": "0.1.0",
+    "@jskit-ai/support-core": "0.1.0"
   }
 }

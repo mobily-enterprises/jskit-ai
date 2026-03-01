@@ -26,6 +26,7 @@ export default Object.freeze({
   "dependsOn": [
     "@jskit-ai/access-core",
     "@jskit-ai/server-runtime-core",
+    "@jskit-ai/support-core",
     "@jskit-ai/value-app-config-shared"
   ],
   "capabilities": {
@@ -41,7 +42,9 @@ export default Object.freeze({
   "runtime": {
     "server": {
       "entrypoint": "src/shared/server.js",
-      "export": "createServerContributions"
+      "export": "createServerContributions",
+      "providerEntrypoint": "src/server/index.js",
+      "providerExport": "AuthSupabaseServiceProvider"
     }
   },
   "mutations": {
@@ -49,6 +52,7 @@ export default Object.freeze({
       "runtime": {
         "@jskit-ai/access-core": "0.1.0",
         "@jskit-ai/server-runtime-core": "0.1.0",
+        "@jskit-ai/support-core": "0.1.0",
         "@supabase/supabase-js": "^2.57.4",
         "jose": "^6.1.0"
       },

@@ -1,7 +1,5 @@
 import Fastify from "fastify";
 import { resolveRuntimeEnv } from "./server/lib/runtimeEnv.js";
-import { registerApiRouteDefinitions } from "@jskit-ai/server-runtime-core/apiRouteRegistration";
-import { createServerRuntimeFromApp, applyContributedRuntimeLifecycle } from "@jskit-ai/server-runtime-core/serverContributions";
 import path from "node:path";
 
 function registerFallbackHealthRoute(app) {
@@ -13,51 +11,82 @@ function registerFallbackHealthRoute(app) {
   });
 }
 
-async function registerContributedRuntime(app, { appRoot, runtimeEnv }) {
+async function registerRuntime(app, { appRoot, runtimeEnv }) {
   try {
-    const composed = await createServerRuntimeFromApp({
+    const platformRuntimeModule = await import("@jskit-ai/platform-server-runtime");
+    if (typeof platformRuntimeModule?.createProviderRuntimeFromApp === "function") {
+      const runtime = await platformRuntimeModule.createProviderRuntimeFromApp({
+        appRoot,
+        strict: false,
+        profile: "app",
+        env: runtimeEnv,
+        logger: app.log,
+        fastify: app
+      });
+
+      app.log.info(
+        {
+          routeCount: runtime.routeCount,
+          providerPackages: runtime.providerPackageOrder,
+          legacyPackages: runtime.legacyPackageOrder,
+          legacyRuntime: runtime.legacyRuntime,
+          packageOrder: runtime.packageOrder
+        },
+        "Registered JSKIT provider server runtime."
+      );
+
+      return {
+        enabled: true,
+        routeCount: runtime.routeCount
+      };
+    }
+
+    const [{ createServerRuntimeFromApp, applyContributedRuntimeLifecycle }, { registerApiRouteDefinitions }] =
+      await Promise.all([
+        import("@jskit-ai/server-runtime-core/serverContributions"),
+        import("@jskit-ai/server-runtime-core/apiRouteRegistration")
+      ]);
+
+    const legacyRuntime = await createServerRuntimeFromApp({
       appRoot,
       strict: false,
       dependencies: {
         env: runtimeEnv,
-        logger: app.log
-      },
-      routeConfig: {}
+        logger: app.log,
+        fastify: app,
+        app
+      }
     });
 
-    const routeCount = Array.isArray(composed.routes) ? composed.routes.length : 0;
-    if (routeCount > 0) {
+    const routes = Array.isArray(legacyRuntime?.routes) ? legacyRuntime.routes : [];
+    if (routes.length > 0) {
       registerApiRouteDefinitions(app, {
-        routes: composed.routes
+        routes
       });
     }
 
-    const lifecycleResult = await applyContributedRuntimeLifecycle({
+    await applyContributedRuntimeLifecycle({
       app,
-      runtimeResult: composed,
+      runtimeResult: legacyRuntime,
       dependencies: {
         env: runtimeEnv,
-        logger: app.log
+        logger: app.log,
+        fastify: app,
+        app
       }
     });
 
     app.log.info(
       {
-        routeCount,
-        pluginCount: lifecycleResult.pluginCount,
-        workerCount: lifecycleResult.workerCount,
-        onBootCount: lifecycleResult.onBootCount,
-        packageOrder: composed.packageOrder
+        routeCount: routes.length,
+        packageOrder: legacyRuntime?.packageOrder || []
       },
-      "Registered JSKIT contributed server runtime."
+      "Registered JSKIT legacy server runtime."
     );
 
     return {
       enabled: true,
-      routeCount,
-      pluginCount: lifecycleResult.pluginCount,
-      workerCount: lifecycleResult.workerCount,
-      onBootCount: lifecycleResult.onBootCount
+      routeCount: routes.length
     };
   } catch (error) {
     const message = String(error?.message || "");
@@ -75,11 +104,11 @@ async function createServer() {
   const app = Fastify({ logger: true });
   const runtimeEnv = resolveRuntimeEnv();
   const appRoot = path.resolve(process.cwd());
-  const contributed = await registerContributedRuntime(app, {
+  const runtime = await registerRuntime(app, {
     appRoot,
     runtimeEnv
   });
-  if (!contributed.enabled || contributed.routeCount < 1) {
+  if (!runtime.enabled || runtime.routeCount < 1) {
     registerFallbackHealthRoute(app);
   }
 

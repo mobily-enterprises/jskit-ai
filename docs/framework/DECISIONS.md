@@ -16,7 +16,7 @@ This document freezes the guardrails defined in A_FRAMEWORK_ALRIGHT.md sections 
 
 ## Scope Snapshot
 
-- Monorepo package count: `83`.
+- Monorepo package count: `87`.
 - Domains and current package counts:
   - `ai-agent`: 9
   - `auth`: 5
@@ -27,7 +27,7 @@ This document freezes the guardrails defined in A_FRAMEWORK_ALRIGHT.md sections 
   - `observability`: 3
   - `operations`: 2
   - `realtime`: 2
-  - `runtime`: 7
+  - `runtime`: 16
   - `security`: 2
   - `social`: 5
   - `surface-routing`: 1

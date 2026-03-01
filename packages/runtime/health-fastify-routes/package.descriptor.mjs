@@ -5,6 +5,7 @@ export default Object.freeze({
   "dependsOn": [
     "@jskit-ai/server-runtime-core",
     "@jskit-ai/http-contracts",
+    "@jskit-ai/support-core",
     "@jskit-ai/value-app-config-shared"
   ],
   "capabilities": {
@@ -19,7 +20,9 @@ export default Object.freeze({
   "runtime": {
     "server": {
       "entrypoint": "src/shared/server.js",
-      "export": "createServerContributions"
+      "export": "createServerContributions",
+      "providerEntrypoint": "src/server/index.js",
+      "providerExport": "HealthRouteServiceProvider"
     }
   },
   "metadata": {
@@ -45,7 +48,8 @@ export default Object.freeze({
     "dependencies": {
       "runtime": {
         "@fastify/type-provider-typebox": "^6.1.0",
-        "@jskit-ai/http-contracts": "0.1.0"
+        "@jskit-ai/http-contracts": "0.1.0",
+        "@jskit-ai/support-core": "0.1.0"
       },
       "dev": {}
     },

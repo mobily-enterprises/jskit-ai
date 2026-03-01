@@ -67,6 +67,12 @@ Why apps use it:
 - one shared route contract across apps
 - consistent endpoint names and policies
 
+## Provider runtime (new path)
+
+- `AuthRouteServiceProvider` is exported for provider/kernel runtime boot.
+- It expects `authService` and `actionExecutor` container bindings to exist.
+- In `boot()`, it builds controller + routes and registers them into the shared HTTP router token.
+
 ## `schema`
 
 Exports request/response schemas used by the routes.

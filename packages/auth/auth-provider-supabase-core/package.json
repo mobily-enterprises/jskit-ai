@@ -10,6 +10,8 @@
     ".": "./src/shared/index.js",
     "./service": "./src/shared/service.js",
     "./server": "./src/shared/server.js",
+    "./serverProvider": "./src/server/providers/AuthSupabaseServiceProvider.js",
+    "./serverProviders": "./src/server/index.js",
     "./test-utils": "./src/shared/test-utils.js",
     "./accountFlows": "./src/shared/lib/accountFlows.js",
     "./authCookies": "./src/shared/lib/authCookies.js",
@@ -28,6 +30,7 @@
     "@jskit-ai/access-core": "0.1.0",
     "@jskit-ai/action-runtime-core": "0.1.0",
     "@jskit-ai/server-runtime-core": "0.1.0",
+    "@jskit-ai/support-core": "0.1.0",
     "jose": "^6.1.0",
     "@supabase/supabase-js": "^2.57.4"
   }

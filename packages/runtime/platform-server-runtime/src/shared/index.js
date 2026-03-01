@@ -1,4 +1,5 @@
 import { createRuntimeAssembly } from "@jskit-ai/server-runtime-core/runtimeAssembly";
+import { createProviderRuntimeApp, createProviderRuntimeFromApp } from "./providerRuntime.js";
 
 function createPlatformRuntimeBundle({
   repositoryDefinitions = [],
@@ -38,3 +39,4 @@ function createServerRuntimeWithPlatformBundle({
 }
 
 export { createPlatformRuntimeBundle, createServerRuntime, createServerRuntimeWithPlatformBundle };
+export { createProviderRuntimeApp, createProviderRuntimeFromApp };

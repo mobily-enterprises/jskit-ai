@@ -25,7 +25,13 @@
   },
   "dependencies": {
     "@jskit-ai/app-scripts": "0.1.0",
+    "@jskit-ai/container-core": "file:node_modules/@jskit-ai/jskit/packages/runtime/container-core",
+    "@jskit-ai/http-fastify-core": "file:node_modules/@jskit-ai/jskit/packages/runtime/http-fastify-core",
+    "@jskit-ai/kernel-core": "file:node_modules/@jskit-ai/jskit/packages/runtime/kernel-core",
+    "@jskit-ai/platform-server-runtime": "file:node_modules/@jskit-ai/jskit/packages/runtime/platform-server-runtime",
     "@jskit-ai/server-runtime-core": "file:node_modules/@jskit-ai/jskit/packages/runtime/server-runtime-core",
+    "@jskit-ai/surface-routing": "file:node_modules/@jskit-ai/jskit/packages/surface-routing",
+    "@jskit-ai/support-core": "file:node_modules/@jskit-ai/jskit/packages/runtime/support-core",
     "fastify": "^5.7.4",
     "vue": "^3.5.13"
   },

@@ -93,3 +93,10 @@ Why apps use it:
 
 - complete self-service account API without per-app duplication
 - consistent security-sensitive behavior (password/provider/session actions)
+
+## Provider runtime (new path)
+
+- `SettingsRouteServiceProvider` is exported for provider/kernel runtime boot.
+- Required container bindings:
+  - `authService`
+  - `actionExecutor`

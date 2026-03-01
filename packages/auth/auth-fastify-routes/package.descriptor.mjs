@@ -6,6 +6,7 @@ export default Object.freeze({
     "@jskit-ai/access-core",
     "@jskit-ai/http-contracts",
     "@jskit-ai/fastify-auth-policy",
+    "@jskit-ai/support-core",
     "@jskit-ai/value-app-config-shared"
   ],
   "capabilities": {
@@ -22,7 +23,9 @@ export default Object.freeze({
   "runtime": {
     "server": {
       "entrypoint": "src/shared/server.js",
-      "export": "createServerContributions"
+      "export": "createServerContributions",
+      "providerEntrypoint": "src/server/index.js",
+      "providerExport": "AuthRouteServiceProvider"
     }
   },
   "metadata": {
@@ -94,7 +97,8 @@ export default Object.freeze({
       "runtime": {
         "@fastify/type-provider-typebox": "^6.1.0",
         "@jskit-ai/access-core": "0.1.0",
-        "@jskit-ai/http-contracts": "0.1.0"
+        "@jskit-ai/http-contracts": "0.1.0",
+        "@jskit-ai/support-core": "0.1.0"
       },
       "dev": {}
     },

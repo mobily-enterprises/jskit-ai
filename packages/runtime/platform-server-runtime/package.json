@@ -7,9 +7,13 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/shared/index.js"
+    ".": "./src/shared/index.js",
+    "./providerRuntime": "./src/shared/providerRuntime.js"
   },
   "dependencies": {
-    "@jskit-ai/server-runtime-core": "0.1.0"
+    "@jskit-ai/http-fastify-core": "0.1.0",
+    "@jskit-ai/kernel-core": "0.1.0",
+    "@jskit-ai/server-runtime-core": "0.1.0",
+    "@jskit-ai/support-core": "0.1.0"
   }
 }

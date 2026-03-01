@@ -12,7 +12,9 @@
     "./routes": "./src/shared/routes.js",
     "./schema": "./src/shared/schema.js",
     "./avatarPolicy": "./src/shared/avatarPolicy.js",
-    "./server": "./src/shared/server.js"
+    "./server": "./src/shared/server.js",
+    "./serverProvider": "./src/server/providers/SettingsRouteServiceProvider.js",
+    "./serverProviders": "./src/server/index.js"
   },
   "dependencies": {
     "@jskit-ai/access-core": "0.1.0",
@@ -20,6 +22,7 @@
     "@jskit-ai/http-contracts": "0.1.0",
     "@jskit-ai/server-runtime-core": "0.1.0",
     "@jskit-ai/workspace-console-core": "0.1.0",
-    "@fastify/type-provider-typebox": "^6.1.0"
+    "@fastify/type-provider-typebox": "^6.1.0",
+    "@jskit-ai/support-core": "0.1.0"
   }
 }

@@ -1,0 +1,18 @@
+{
+  "name": "@jskit-ai/support-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/shared/index.js",
+    "./shared": "./src/shared/index.js",
+    "./client": "./src/client/index.js",
+    "./server": "./src/server/index.js",
+    "./tokens": "./src/shared/tokens.js",
+    "./normalize": "./src/shared/normalize.js",
+    "./sorting": "./src/shared/sorting.js"
+  }
+}
