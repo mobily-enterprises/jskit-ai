@@ -1,4 +1,4 @@
-import { normalizeCountRow, parseJsonObject, stringifyJsonObject } from "@jskit-ai/jskit-knex";
+import { mapRowNullable, normalizeCountRow, parseJsonObject, stringifyJsonObject } from "@jskit-ai/jskit-knex";
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import {
@@ -31,13 +31,7 @@ function mapMessageRowRequired(row) {
   };
 }
 
-function mapMessageRowNullable(row) {
-  if (!row) {
-    return null;
-  }
-
-  return mapMessageRowRequired(row);
-}
+const mapMessageRowNullable = mapRowNullable(mapMessageRowRequired);
 
 async function resolveNextSequence(client, conversationId) {
   const row = await client("ai_messages").where({ conversation_id: conversationId }).max({ maxSeq: "seq" }).first();
