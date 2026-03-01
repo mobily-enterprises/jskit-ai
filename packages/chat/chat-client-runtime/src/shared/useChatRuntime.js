@@ -1,5 +1,6 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/vue-query";
+import { toPositiveInteger } from "@jskit-ai/runtime-env-core/integers";
 import {
   chatInboxInfiniteQueryKey,
   chatThreadMessagesInfiniteQueryKey,
@@ -33,14 +34,6 @@ const DEFAULT_USE_WORKSPACE_STORE = () => ({
 
 function normalizeText(value) {
   return String(value || "").trim();
-}
-
-function toPositiveInteger(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return 0;
-  }
-  return parsed;
 }
 
 function normalizeThreadId(value) {

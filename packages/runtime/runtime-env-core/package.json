@@ -8,6 +8,7 @@
   },
   "exports": {
     ".": "./src/shared/index.js",
+    "./integers": "./src/shared/integers.js",
     "./platformRuntimeEnv": "./src/shared/platformRuntimeEnv.js",
     "./platformRuntimeEnvSpecs": "./src/shared/platformRuntimeEnvSpecs.js",
     "./appRuntimePolicy": "./src/shared/appRuntimePolicy.js",

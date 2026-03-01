@@ -1,15 +1,8 @@
 import path from "node:path";
+import { toPositiveInteger } from "./integers.js";
 
 const TENANCY_MODES = new Set(["personal", "team-single", "multi-workspace"]);
 const WORKSPACE_PROVISIONING_MODES = new Set(["self-serve", "governed"]);
-
-function toPositiveInteger(value, fallback) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return fallback;
-  }
-  return parsed;
-}
 
 function resolveManifestPath(manifestPath, rootDir) {
   const raw = String(manifestPath || "").trim();
