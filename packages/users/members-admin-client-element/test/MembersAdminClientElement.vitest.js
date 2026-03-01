@@ -1,16 +1,12 @@
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mount } from "@vue/test-utils";
 import { h } from "vue";
 import { describe, expect, it, vi } from "vitest";
 import MembersAdminClientElement from "../src/shared/MembersAdminClientElement.vue";
+import { readSource } from "../../../../tests/helpers/readSource.js";
 
 const componentSourcePath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../src/shared/MembersAdminClientElement.vue");
-
-function readSource() {
-  return readFileSync(componentSourcePath, "utf8");
-}
 
 function mountElement(options) {
   return mount(MembersAdminClientElement, {
@@ -73,7 +69,7 @@ function createBaseProps(overrides = {}) {
 
 describe("MembersAdminClientElement", () => {
   it("declares mode-aware contract, emits, and slots", () => {
-    const source = readSource();
+    const source = readSource(componentSourcePath);
 
     expect(source.includes("mode")).toBe(true);
     expect(source.includes('"invite:submit"')).toBe(true);

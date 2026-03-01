@@ -1,15 +1,11 @@
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { readSource } from "../../../../tests/helpers/readSource.js";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const viewPath = path.join(rootDir, "src/views/workspace-transcripts/WorkspaceTranscriptsView.vue");
 const logicPath = path.join(rootDir, "src/views/workspace-transcripts/useWorkspaceTranscriptsView.js");
-
-function readSource(filePath) {
-  return readFileSync(filePath, "utf8");
-}
 
 describe("WorkspaceTranscriptsView", () => {
   it("imports and renders transcript explorer package element directly", () => {
