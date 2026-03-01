@@ -109,4 +109,4 @@ const __testables = {
   normalizeWorkspaceProvisioningMode
 };
 
-export { resolveAppConfig, toBrowserConfig, __testables };
+export { resolveAppConfig, toBrowserConfig, normalizeWorkspaceProvisioningMode, __testables };

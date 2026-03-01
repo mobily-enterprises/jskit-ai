@@ -2,6 +2,7 @@ import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { OWNER_ROLE_ID, resolveRolePermissions } from "@jskit-ai/rbac-core";
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
+import { normalizeWorkspaceProvisioningMode } from "@jskit-ai/runtime-env-core/appRuntimePolicy";
 import { toSlugPart, buildWorkspaceName, buildWorkspaceBaseSlug } from "../policies/workspaceNaming.js";
 import { extractAppSurfacePolicy } from "../policies/appSurfacePolicy.js";
 import {
@@ -25,7 +26,6 @@ import { listInviteMembershipsByWorkspaceId } from "../lookups/workspaceMembersh
 
 const DEFAULT_SURFACE_ID = "app";
 const SUPPORTED_SURFACE_IDS = new Set(["app", "admin", "console"]);
-const WORKSPACE_PROVISIONING_MODES = new Set(["self-serve", "governed"]);
 
 function normalizeSupportedSurfaceId(value) {
   const normalized = String(value || "")
@@ -35,16 +35,6 @@ function normalizeSupportedSurfaceId(value) {
     return normalized;
   }
   return DEFAULT_SURFACE_ID;
-}
-
-function normalizeWorkspaceProvisioningMode(value) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
-  if (WORKSPACE_PROVISIONING_MODES.has(normalized)) {
-    return normalized;
-  }
-  return "self-serve";
 }
 
 function canAccessAppWorkspace(context = {}) {
