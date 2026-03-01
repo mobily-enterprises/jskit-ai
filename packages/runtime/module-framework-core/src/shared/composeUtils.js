@@ -27,4 +27,19 @@ function mergeDisabled(disabledById, entries) {
   }
 }
 
-export { moduleSignature, mergeDisabled };
+function withModuleId(module, entry) {
+  if (!entry || typeof entry !== "object") {
+    return entry;
+  }
+
+  if (Object.hasOwn(entry, "moduleId")) {
+    return entry;
+  }
+
+  return {
+    ...entry,
+    moduleId: module.id
+  };
+}
+
+export { moduleSignature, mergeDisabled, withModuleId };

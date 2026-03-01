@@ -1,7 +1,7 @@
 import { MODULE_ENABLEMENT_MODES, validateModuleDescriptors } from "./descriptor.js";
 import { normalizeMode } from "./compositionMode.js";
 import { resolveMounts } from "./mountResolver.js";
-import { moduleSignature } from "./composeUtils.js";
+import { moduleSignature, withModuleId } from "./composeUtils.js";
 import { createDiagnosticsCollector, throwOnDiagnosticErrors } from "./diagnostics.js";
 import { resolveComposedModules } from "./composedModules.js";
 
@@ -15,21 +15,6 @@ function normalizeArrayOutput(output) {
     return output.filter((entry) => entry != null);
   }
   return [output];
-}
-
-function withModuleId(module, entry) {
-  if (!entry || typeof entry !== "object") {
-    return entry;
-  }
-
-  if (Object.hasOwn(entry, "moduleId")) {
-    return entry;
-  }
-
-  return {
-    ...entry,
-    moduleId: module.id
-  };
 }
 
 function normalizeObjectOutput(output) {
