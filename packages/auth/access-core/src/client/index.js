@@ -1,2 +1,3 @@
-export { createApi as createAuthApi } from "../lib/authApi.js";
-export { runAuthSignOutFlow } from "../lib/signOutFlow.js";
+export { AccessCoreClientProvider } from "./providers/AccessCoreClientProvider.js";
+export { createApi as createAuthApi } from "./authApi.js";
+export { runAuthSignOutFlow } from "./signOutFlow.js";

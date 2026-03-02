@@ -390,7 +390,7 @@ Goal:
 Packages:
 
 1. `@jskit-ai/access-core`
-2. `@jskit-ai/auth-fastify-routes`
+2. `@jskit-ai/auth-web`
 3. `@jskit-ai/auth-provider-supabase-core`
 4. `@jskit-ai/fastify-auth-policy`
 5. `@jskit-ai/rbac-core`
@@ -674,7 +674,7 @@ Use this as the first concrete bundle set to implement and validate.
    - `@jskit-ai/access-core`
    - `@jskit-ai/rbac-core`
    - `@jskit-ai/fastify-auth-policy`
-   - `@jskit-ai/auth-fastify-routes`
+   - `@jskit-ai/auth-web`
 
 6. `auth-supabase`
    - `auth-base` packages
@@ -801,7 +801,7 @@ Status legend:
 ### auth (5)
 
 1. `@jskit-ai/access-core` - P0
-2. `@jskit-ai/auth-fastify-routes` - P0
+2. `@jskit-ai/auth-web` - P0
 3. `@jskit-ai/auth-provider-supabase-core` - P0
 4. `@jskit-ai/fastify-auth-policy` - P0
 5. `@jskit-ai/rbac-core` - P0

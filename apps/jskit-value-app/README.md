@@ -69,7 +69,7 @@ Package/module READMEs:
 - [`ai-agent/assistant-transcripts-core/README.md`](../../packages/ai-agent/assistant-transcripts-core/README.md)
 - [`ai-agent/assistant-transcripts-knex-mysql/README.md`](../../packages/ai-agent/assistant-transcripts-knex-mysql/README.md)
 - [`auth/access-core/README.md`](../../packages/auth/access-core/README.md)
-- [`auth/auth-fastify-routes/README.md`](../../packages/auth/auth-fastify-routes/README.md)
+- [`auth/auth-web/README.md`](../../packages/auth/auth-web/README.md)
 - [`auth/auth-provider-supabase-core/README.md`](../../packages/auth/auth-provider-supabase-core/README.md)
 - [`auth/fastify-auth-policy/README.md`](../../packages/auth/fastify-auth-policy/README.md)
 - [`auth/rbac-core/README.md`](../../packages/auth/rbac-core/README.md)

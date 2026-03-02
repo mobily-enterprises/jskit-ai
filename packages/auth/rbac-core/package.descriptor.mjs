@@ -13,6 +13,25 @@ export default Object.freeze({
       "auth.access"
     ]
   },
+  "runtime": {
+    "server": {
+      "providerEntrypoint": "src/server/index.js",
+      "providers": [
+        {
+          "entrypoint": "src/server/providers/RbacServiceProvider.js",
+          "export": "RbacServiceProvider"
+        }
+      ]
+    },
+    "client": {
+      "providers": [
+        {
+          "entrypoint": "src/client/providers/RbacClientProvider.js",
+          "export": "RbacClientProvider"
+        }
+      ]
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {},

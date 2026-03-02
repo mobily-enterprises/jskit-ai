@@ -7,7 +7,7 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
+    ".": "./src/server/index.js",
     "./server": "./src/server/index.js",
     "./serverProvider": "./src/server/providers/FastifyAuthPolicyServiceProvider.js",
     "./serverProviders": "./src/server/index.js",

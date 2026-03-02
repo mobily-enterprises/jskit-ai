@@ -18,7 +18,7 @@ Total packages tracked: 83
 | `@jskit-ai/assistant-transcript-explorer-client-element` | `packages/ai-agent/assistant-transcript-explorer-client-element` | 11 | pending |  |
 | `@jskit-ai/assistant-transcripts-core` | `packages/ai-agent/assistant-transcripts-core` | 11 | pending |  |
 | `@jskit-ai/assistant-transcripts-knex-mysql` | `packages/ai-agent/assistant-transcripts-knex-mysql` | 11 | pending |  |
-| `@jskit-ai/auth-fastify-routes` | `packages/auth/auth-fastify-routes` | 10 | pending |  |
+| `@jskit-ai/auth-web` | `packages/auth/auth-web` | 10 | pending |  |
 | `@jskit-ai/auth-provider-supabase-core` | `packages/auth/auth-provider-supabase-core` | 10 | pending |  |
 | `@jskit-ai/billing-commerce-client-element` | `packages/billing/billing-commerce-client-element` | 12 | pending |  |
 | `@jskit-ai/billing-console-admin-client-element` | `packages/billing/billing-console-admin-client-element` | 12 | pending |  |

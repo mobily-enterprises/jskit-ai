@@ -25,7 +25,10 @@
     "framework:check-explicit-subpath-imports": "node ./scripts/framework/check-import-boundaries.mjs --strict",
     "framework:check-app-ownership": "node ./scripts/framework/check-app-ownership.mjs",
     "framework:check-app-ownership:strict": "node ./scripts/framework/check-app-ownership.mjs --strict",
+    "framework:stage1-checks:fast": "npm run framework:check-runtime-layout:strict && npm run framework:check-import-boundaries:strict && npm run framework:check-app-ownership",
     "framework:stage1-checks": "npm run framework:check-runtime-layout:strict && npm run framework:check-import-boundaries:strict && npm run framework:check-app-ownership",
+    "verify:auth-pilot": "node ./scripts/framework/check-app-ownership.mjs && npm test --workspace @jskit-ai/auth-web && node --test packages/tooling/jskit/test/capabilityContracts.test.js packages/tooling/jskit/test/domainWaveA.test.js packages/tooling/jskit/test/scaffoldE2eMatrix.test.js && npm test --workspace @jskit-ai/create-app",
+    "verify:major": "npm run framework:stage1-checks && npm test --workspace @jskit-ai/jskit && npm run test:e2e:scaffold --workspace @jskit-ai/jskit",
     "test:architecture:db": "node --test tests/architecture/server-db-architecture.guardrails.test.mjs"
   },
   "workspaces": [

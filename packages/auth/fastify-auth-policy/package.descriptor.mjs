@@ -22,7 +22,20 @@ export default Object.freeze({
   "runtime": {
     "server": {
       "providerEntrypoint": "src/server/index.js",
-      "providerExport": "FastifyAuthPolicyServiceProvider"
+      "providers": [
+        {
+          "entrypoint": "src/server/providers/FastifyAuthPolicyServiceProvider.js",
+          "export": "FastifyAuthPolicyServiceProvider"
+        }
+      ]
+    },
+    "client": {
+      "providers": [
+        {
+          "entrypoint": "src/client/providers/FastifyAuthPolicyClientProvider.js",
+          "export": "FastifyAuthPolicyClientProvider"
+        }
+      ]
     }
   },
   "mutations": {

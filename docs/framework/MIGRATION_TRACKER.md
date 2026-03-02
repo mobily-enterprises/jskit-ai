@@ -13,7 +13,7 @@ Track each of the 87 JSKit packages that must keep descriptor/runtime metadata a
 | ai-agent | @jskit-ai/assistant-transcript-explorer-client-element | S9 | Descriptor + domain bundle mapping added |
 | ai-agent | @jskit-ai/assistant-transcripts-core | S9 | Descriptor + domain bundle mapping added |
 | auth | @jskit-ai/access-core | S6 | Descriptor + domain bundle mapping added |
-| auth | @jskit-ai/auth-fastify-routes | S6 | Descriptor + domain bundle mapping added |
+| auth | @jskit-ai/auth-web | S6 | Descriptor + domain bundle mapping added |
 | auth | @jskit-ai/auth-provider-supabase-core | S6 | Descriptor + domain bundle mapping added |
 | auth | @jskit-ai/fastify-auth-policy | S6 | Descriptor + domain bundle mapping added |
 | auth | @jskit-ai/rbac-core | S6 | Descriptor + domain bundle mapping added |

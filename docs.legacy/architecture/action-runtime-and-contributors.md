@@ -113,7 +113,7 @@ Contributors are domain-owned and exported from domain packages/modules.
 
 HTTP and assistant routes call actions via controller/adapters:
 
-- auth adapter/controller: `packages/auth/auth-fastify-routes/src/controller.js`
+- auth adapter/controller: `packages/auth/auth-web/src/controller.js`
 - workspace adapter/controller: `packages/workspace/workspace-fastify-adapter/src/controller.js`
 - settings adapter/controller: `packages/workspace/settings-fastify-routes/src/controller.js`
 - console adapter/controller: `packages/workspace/console-fastify-routes/src/controller.js`

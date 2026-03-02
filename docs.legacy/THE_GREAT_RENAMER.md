@@ -983,7 +983,7 @@ Suggested commit naming:
 - `@jskit-ai/access-core`
 - `@jskit-ai/action-runtime-core`
 - `@jskit-ai/app-scripts`
-- `@jskit-ai/auth-fastify-routes`
+- `@jskit-ai/auth-web`
 - `@jskit-ai/auth-provider-supabase-core`
 - `@jskit-ai/fastify-auth-policy`
 - `@jskit-ai/rbac-core`

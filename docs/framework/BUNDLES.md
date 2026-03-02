@@ -84,7 +84,7 @@ This catalog documents each bundle in `packages/tooling/jskit/bundles` with purp
 - Purpose: Core authentication and policy packages.
 - Included packages:
   - `@jskit-ai/access-core`
-  - `@jskit-ai/auth-fastify-routes`
+  - `@jskit-ai/auth-web`
   - `@jskit-ai/fastify-auth-policy`
   - `@jskit-ai/http-contracts`
   - `@jskit-ai/module-framework-core`
@@ -397,7 +397,7 @@ This catalog documents each bundle in `packages/tooling/jskit/bundles` with purp
   - `@jskit-ai/assistant-transcript-explorer-client-element`
   - `@jskit-ai/assistant-transcripts-core`
   - `@jskit-ai/assistant-transcripts-knex-mysql`
-  - `@jskit-ai/auth-fastify-routes`
+  - `@jskit-ai/auth-web`
   - `@jskit-ai/billing-commerce-client-element`
   - `@jskit-ai/billing-console-admin-client-element`
   - `@jskit-ai/billing-core`

@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@jskit-ai/access-core": "0.1.0",
-    "@jskit-ai/auth-fastify-routes": "0.1.0",
+    "@jskit-ai/auth-web": "0.1.0",
     "@jskit-ai/http-contracts": "0.1.0",
     "@jskit-ai/server-runtime-core": "0.1.0",
     "@jskit-ai/workspace-console-core": "0.1.0",

@@ -83,8 +83,49 @@ function isAllowed(relativePath) {
   return ALLOWED_PATTERNS.some((pattern) => pattern.test(relativePath));
 }
 
+function toIntegerOrFallback(value, fallback) {
+  const parsed = Number.parseInt(String(value || "").trim(), 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+  return parsed;
+}
+
+function parseOutputOptions(argv) {
+  let maxViolations = 40;
+  let showAllViolations = false;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = String(argv[index] || "");
+    if (token === "--all-violations") {
+      showAllViolations = true;
+      continue;
+    }
+
+    if (token === "--max-violations") {
+      maxViolations = toIntegerOrFallback(argv[index + 1], maxViolations);
+      index += 1;
+      continue;
+    }
+
+    if (token.startsWith("--max-violations=")) {
+      maxViolations = toIntegerOrFallback(token.slice("--max-violations=".length), maxViolations);
+    }
+  }
+
+  if (showAllViolations) {
+    maxViolations = Number.POSITIVE_INFINITY;
+  }
+
+  return {
+    maxViolations
+  };
+}
+
 function main() {
-  const options = parseArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  const options = parseArgs(argv);
+  const outputOptions = parseOutputOptions(argv);
   const files = walkFiles(APP_ROOT);
   const runtimeFiles = files
     .map((filePath) => toPosix(path.relative(APP_ROOT, filePath)))
@@ -94,8 +135,15 @@ function main() {
 
   process.stdout.write(`app-ownership: scanned ${runtimeFiles.length} runtime files\n`);
   process.stdout.write(`app-ownership: violations ${violations.length}\n`);
-  for (const violation of violations) {
+  const listedViolations = violations.slice(0, outputOptions.maxViolations);
+  for (const violation of listedViolations) {
     process.stdout.write(`- ${violation}\n`);
+  }
+  if (violations.length > listedViolations.length) {
+    process.stdout.write(
+      `... ${violations.length - listedViolations.length} more violations omitted ` +
+        `(use --all-violations to print everything)\n`
+    );
   }
 
   if (options.strict && violations.length > 0) {

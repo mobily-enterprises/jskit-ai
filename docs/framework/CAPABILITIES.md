@@ -34,10 +34,10 @@ Capability declarations are enforced by `jskit` during add/update/remove operati
 
 | Capability | Providers | Common Consumers |
 | --- | --- | --- |
-| `auth.access` | `@jskit-ai/access-core` | `@jskit-ai/rbac-core`, `@jskit-ai/auth-fastify-routes`, `@jskit-ai/auth-provider-supabase-core` |
+| `auth.access` | `@jskit-ai/access-core` | `@jskit-ai/rbac-core`, `@jskit-ai/auth-web`, `@jskit-ai/auth-provider-supabase-core` |
 | `auth.rbac` | `@jskit-ai/rbac-core` | `@jskit-ai/fastify-auth-policy` |
-| `auth.policy` | `@jskit-ai/fastify-auth-policy` | `@jskit-ai/auth-fastify-routes` |
-| `auth.server-routes` | `@jskit-ai/auth-fastify-routes` | Auth bundle consumers |
+| `auth.policy` | `@jskit-ai/fastify-auth-policy` | `@jskit-ai/auth-web` |
+| `auth.server-routes` | `@jskit-ai/auth-web` | Auth bundle consumers |
 | `auth.provider` | `@jskit-ai/auth-provider-supabase-core` | Auth provider bundles |
 | `contracts.communications` | `@jskit-ai/communications-contracts` | `@jskit-ai/communications-core`, `@jskit-ai/communications-fastify-adapter` |
 | `communications.dispatch-contract` | `@jskit-ai/communications-provider-core` | `@jskit-ai/communications-core` |

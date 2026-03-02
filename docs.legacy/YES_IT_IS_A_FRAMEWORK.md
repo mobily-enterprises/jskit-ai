@@ -763,7 +763,7 @@ Legend:
 | Package | Tier | Target Module | Hooks | Depends On | Migration Work |
 | --- | --- | --- | --- | --- | --- |
 | `@jskit-ai/access-core` | F | `access-core` | contracts/util only | none | Expose capability `cap.auth.identity` helpers; no direct app imports. |
-| `@jskit-ai/auth-fastify-routes` | F | `auth-api` | `server.controllers`, `server.routes` | `auth-provider-*`, `http-contracts` | Register auth routes via module hook and mount-safe path resolver. |
+| `@jskit-ai/auth-web` | F | `auth-api` | `server.controllers`, `server.routes` | `auth-provider-*`, `http-contracts` | Register auth routes via module hook and mount-safe path resolver. |
 | `@jskit-ai/auth-provider-supabase-core` | F | `auth-provider-supabase` | `server.services`, `server.actions` | env/runtime policy | Provide provider capability contract and startup checks. |
 | `@jskit-ai/fastify-auth-policy` | F | `auth-policy` | `server.fastifyPlugins` | route policy capability | Become policy plugin contributor; remove app-coupled assumptions. |
 | `@jskit-ai/rbac-core` | F | `rbac` | `server.services`, `diagnostics.startupChecks` | runtime-env-core | Expose manifest validation as startup diagnostics hook. |
@@ -1838,7 +1838,7 @@ Each checklist includes concrete actions for that package.
 - No runtime hooks except contract metadata.
 - Add compatibility tests for path/return-to normalization behavior.
 
-#### 11) `@jskit-ai/auth-fastify-routes`
+#### 11) `@jskit-ai/auth-web`
 
 - Export auth route fragments via `server.routes`.
 - Export controller hook.

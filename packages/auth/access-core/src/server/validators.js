@@ -166,3 +166,14 @@ export const validators = {
   forgotPasswordInput,
   resetPasswordInput
 };
+
+export {
+  confirmPassword,
+  forgotPasswordInput,
+  loginInput,
+  loginPassword,
+  registerInput,
+  registerPassword,
+  resetPassword,
+  resetPasswordInput
+};

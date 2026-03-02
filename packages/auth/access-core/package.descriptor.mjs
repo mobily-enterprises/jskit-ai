@@ -13,6 +13,25 @@ export default Object.freeze({
       "runtime.surface-routing"
     ]
   },
+  "runtime": {
+    "server": {
+      "providerEntrypoint": "src/server/index.js",
+      "providers": [
+        {
+          "entrypoint": "src/server/providers/AccessCoreServiceProvider.js",
+          "export": "AccessCoreServiceProvider"
+        }
+      ]
+    },
+    "client": {
+      "providers": [
+        {
+          "entrypoint": "src/client/providers/AccessCoreClientProvider.js",
+          "export": "AccessCoreClientProvider"
+        }
+      ]
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {

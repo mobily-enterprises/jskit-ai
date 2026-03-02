@@ -1,4 +1,4 @@
-import { buildRoutes as buildAuthRoutes } from "@jskit-ai/auth-fastify-routes/server";
+import { buildRoutes as buildAuthRoutes } from "@jskit-ai/auth-web/server";
 import { buildRoutes as buildWorkspaceRoutes } from "@jskit-ai/workspace-fastify-routes/server";
 import { buildRoutes as buildConsoleRoutes } from "@jskit-ai/console-fastify-routes/server";
 import { buildRoutes as buildConsoleErrorsRoutes } from "@jskit-ai/console-errors-fastify-routes/server";

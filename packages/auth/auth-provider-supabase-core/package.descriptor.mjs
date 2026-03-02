@@ -42,7 +42,12 @@ export default Object.freeze({
   "runtime": {
     "server": {
       "providerEntrypoint": "src/server/index.js",
-      "providerExport": "AuthSupabaseServiceProvider"
+      "providers": [
+        {
+          "entrypoint": "src/server/providers/AuthSupabaseServiceProvider.js",
+          "export": "AuthSupabaseServiceProvider"
+        }
+      ]
     }
   },
   "mutations": {

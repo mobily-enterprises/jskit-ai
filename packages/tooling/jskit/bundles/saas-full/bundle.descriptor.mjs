@@ -8,7 +8,7 @@ export default Object.freeze({
     "@jskit-ai/access-core",
     "@jskit-ai/rbac-core",
     "@jskit-ai/fastify-auth-policy",
-    "@jskit-ai/auth-fastify-routes",
+    "@jskit-ai/auth-web",
     "@jskit-ai/observability-core",
     "@jskit-ai/observability-fastify-routes",
     "@jskit-ai/console-errors-client-element",

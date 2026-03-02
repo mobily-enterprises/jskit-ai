@@ -55,7 +55,7 @@
     "@jskit-ai/assistant-fastify-routes": "0.1.0",
     "@jskit-ai/assistant-provider-openai": "0.1.0",
     "@jskit-ai/assistant-transcripts-core": "0.1.0",
-    "@jskit-ai/auth-fastify-routes": "0.1.0",
+    "@jskit-ai/auth-web": "0.1.0",
     "@jskit-ai/auth-provider-supabase-core": "0.1.0",
     "@jskit-ai/billing-core": "0.1.0",
     "@jskit-ai/billing-commerce-client-element": "0.1.0",

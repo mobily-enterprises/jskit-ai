@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { createController as createAuthController } from "@jskit-ai/auth-fastify-routes/server";
+import { createController as createAuthController } from "@jskit-ai/auth-web/server";
 import { createController as createSettingsController } from "../server/modules/settings/controller.js";
 import { createReplyDouble } from "./helpers/replyDouble.js";
 

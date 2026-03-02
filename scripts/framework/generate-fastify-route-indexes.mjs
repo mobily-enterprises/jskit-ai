@@ -12,7 +12,6 @@ const targets = [
   "packages/workspace/console-fastify-routes/src/shared/index.js",
   "packages/workspace/settings-fastify-routes/src/shared/index.js",
   "packages/workspace/workspace-fastify-routes/src/shared/index.js",
-  "packages/auth/auth-fastify-routes/src/shared/index.js",
   "packages/runtime/health-fastify-routes/src/shared/index.js",
   "packages/observability/observability-fastify-routes/src/shared/index.js"
 ];
