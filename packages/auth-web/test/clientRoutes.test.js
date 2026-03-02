@@ -13,12 +13,25 @@ test("auth-web registers global login and signout client routes", () => {
 
   assert.equal(routes.length, 2);
   assert.deepEqual(
-    routes.map((route) => ({ id: route.id, path: route.path, scope: route.scope })),
+    routes.map((route) => ({
+      id: route.id,
+      path: route.path,
+      scope: route.scope,
+      componentPath: route.componentPath
+    })),
     [
-      { id: "auth.login", path: "/auth/login", scope: "global" },
-      { id: "auth.signout", path: "/auth/signout", scope: "global" }
+      {
+        id: "auth.login",
+        path: "/auth/login",
+        scope: "global",
+        componentPath: "/src/views/auth/LoginView.vue"
+      },
+      {
+        id: "auth.signout",
+        path: "/auth/signout",
+        scope: "global",
+        componentPath: "/src/views/auth/SignOutView.vue"
+      }
     ]
   );
-  assert.equal(typeof routes[0].component, "function");
-  assert.equal(typeof routes[1].component, "function");
 });

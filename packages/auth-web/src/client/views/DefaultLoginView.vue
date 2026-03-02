@@ -23,6 +23,7 @@
               Sign in
             </v-btn>
             <v-btn
+              v-if="!showRememberedAccount"
               data-testid="auth-mode-register"
               class="text-none"
               :variant="isRegister ? 'flat' : 'text'"
@@ -33,24 +34,20 @@
             </v-btn>
           </div>
 
-          <v-alert
-            v-if="showRememberedAccount"
-            type="info"
-            variant="tonal"
-            class="mb-4 remembered-account-alert"
-          >
-            <div class="d-flex align-center justify-space-between ga-3">
-              <div>
-                <p class="mb-1 font-weight-medium">{{ rememberedAccountDisplayName }}</p>
-                <p class="mb-0 text-caption text-medium-emphasis">{{ rememberedAccountMaskedEmail }}</p>
+          <v-form @submit.prevent="submitAuth" novalidate>
+            <div
+              v-if="showRememberedAccount"
+              class="remembered-account d-flex align-center justify-space-between ga-3 mb-4"
+            >
+              <div class="remembered-copy flex-grow-1">
+                <p class="remembered-title">Welcome back, {{ rememberedAccountDisplayName }}</p>
+                <p class="remembered-email">{{ rememberedAccountMaskedEmail }}</p>
               </div>
               <v-btn variant="text" color="secondary" class="text-none" @click="switchAccount">
                 {{ rememberedAccountSwitchLabel }}
               </v-btn>
             </div>
-          </v-alert>
 
-          <v-form @submit.prevent="submitAuth" novalidate>
             <v-text-field
               v-model="email"
               label="Email"
@@ -263,6 +260,30 @@ const {
 .mode-switch {
   border-radius: 12px;
   background-color: rgba(57, 84, 71, 0.08);
+}
+
+.remembered-account {
+  border-radius: 12px;
+  border: 1px solid rgba(57, 84, 71, 0.2);
+  background: rgba(57, 84, 71, 0.07);
+  padding: 12px 14px;
+}
+
+.remembered-copy {
+  min-width: 0;
+}
+
+.remembered-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d2c24;
+}
+
+.remembered-email {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: rgba(29, 44, 36, 0.72);
 }
 
 .oauth-provider-button {

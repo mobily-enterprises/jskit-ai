@@ -102,7 +102,14 @@ function createSurfaceRuntime(options = {}) {
 }
 
 
-function normalizeClientModuleRoute(route, { packageId, index }) {
+function isValidRouteComponent(value) {
+  if (typeof value === "function") {
+    return true;
+  }
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function normalizeClientModuleRoute(route, { packageId, index, resolveComponent }) {
   const candidate = route && typeof route === "object" && !Array.isArray(route) ? route : null;
   if (!candidate) {
     throw new Error(`Client route #${index} from ${packageId} must be an object.`);
@@ -116,8 +123,12 @@ function normalizeClientModuleRoute(route, { packageId, index }) {
   if (!path || !path.startsWith("/") || path.startsWith("//")) {
     throw new Error(`Client route "${id}" from ${packageId} must have an absolute path starting with "/".`);
   }
-  if (!candidate.component) {
-    throw new Error(`Client route "${id}" from ${packageId} requires component.`);
+  let routeComponent = candidate.component;
+  if (!routeComponent && typeof resolveComponent === "function") {
+    routeComponent = resolveComponent(candidate, Object.freeze({ packageId, index }));
+  }
+  if (!isValidRouteComponent(routeComponent)) {
+    throw new Error(`Client route "${id}" from ${packageId} requires component (or resolvable componentPath).`);
   }
 
   const normalizedScope = String(
@@ -163,6 +174,7 @@ function normalizeClientModuleRoute(route, { packageId, index }) {
     ...candidate,
     id,
     path,
+    component: routeComponent,
     scope: normalizedScope,
     ...(normalizedSurface ? { surface: normalizedSurface } : {}),
     meta: {
@@ -172,7 +184,7 @@ function normalizeClientModuleRoute(route, { packageId, index }) {
   });
 }
 
-function collectClientModuleRoutes({ clientModules = [] } = {}) {
+function collectClientModuleRoutes({ clientModules = [], resolveComponent } = {}) {
   const entries = Array.isArray(clientModules) ? clientModules : [];
   const routes = [];
   const seenIds = new Set();
@@ -195,7 +207,7 @@ function collectClientModuleRoutes({ clientModules = [] } = {}) {
     let index = 0;
     const registerRoute = (route) => {
       index += 1;
-      const normalizedRoute = normalizeClientModuleRoute(route, { packageId, index });
+      const normalizedRoute = normalizeClientModuleRoute(route, { packageId, index, resolveComponent });
       if (seenIds.has(normalizedRoute.id)) {
         throw new Error(`Client route id "${normalizedRoute.id}" is duplicated.`);
       }

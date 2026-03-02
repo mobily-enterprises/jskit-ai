@@ -122,3 +122,32 @@ test("collectClientModuleRoutes normalizes scope metadata", () => {
   assert.equal(routes[0].meta.jskit.scope, "global");
   assert.equal(routes[0].meta.jskit.packageId, "@jskit-ai/test-auth");
 });
+
+test("collectClientModuleRoutes resolves component via resolveComponent when componentPath is declared", () => {
+  const routes = collectClientModuleRoutes({
+    clientModules: [
+      {
+        packageId: "@jskit-ai/test-auth",
+        module: {
+          registerClientRoutes({ registerRoute }) {
+            registerRoute({
+              id: "auth.login",
+              path: "/auth/login",
+              scope: "global",
+              componentPath: "/src/views/auth/LoginView.vue"
+            });
+          }
+        }
+      }
+    ],
+    resolveComponent(route) {
+      if (route.componentPath === "/src/views/auth/LoginView.vue") {
+        return () => null;
+      }
+      return null;
+    }
+  });
+
+  assert.equal(routes.length, 1);
+  assert.equal(typeof routes[0].component, "function");
+});

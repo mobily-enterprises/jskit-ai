@@ -70,6 +70,8 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(mainJs, /import NotFoundView from "\.\/views\/NotFound\.vue";/);
     assert.match(mainJs, /import \{ clientModules \} from "virtual:jskit-client-modules";/);
     assert.match(mainJs, /collectClientModuleRoutes/);
+    assert.match(mainJs, /import\.meta\.glob\("\.\/views\/\*\*\/\*\.vue"\)/);
+    assert.match(mainJs, /resolveComponent: resolveModuleRouteComponent/);
     assert.match(mainJs, /createRouter, createWebHistory/);
     assert.match(mainJs, /path: "\/:pathMatch\(\.\*\)\*"/);
     assert.match(mainJs, /\.use\(router\)\.use\(vuetify\)\.mount\("#app"\)/);

@@ -23,8 +23,46 @@ const surfaceRuntime = createSurfaceRuntime({
   defaultSurfaceId: "app"
 });
 
+const appViewModules = import.meta.glob("./views/**/*.vue");
+
+function resolveViewModuleComponent(modulePayload, componentPath) {
+  if (!modulePayload || typeof modulePayload !== "object" || !modulePayload.default) {
+    throw new Error(`Route view module did not export default component: ${componentPath}`);
+  }
+  return modulePayload.default;
+}
+
+function resolveModuleRouteComponent(route, { packageId } = {}) {
+  const componentPath = String(route?.componentPath || "").trim();
+  if (!componentPath) {
+    return route?.component;
+  }
+
+  if (!componentPath.startsWith("/src/")) {
+    throw new Error(
+      `Package ${packageId || "<unknown>"} route "${String(route?.id || "").trim()}" has invalid componentPath "${componentPath}".`
+    );
+  }
+
+  const localViewPath = `.${componentPath.slice("/src".length)}`;
+  const loader = appViewModules[localViewPath];
+  if (typeof loader !== "function") {
+    throw new Error(
+      `Package ${packageId || "<unknown>"} route "${String(route?.id || "").trim()}" references missing app view "${componentPath}".`
+    );
+  }
+
+  return async () => {
+    const modulePayload = await loader();
+    return resolveViewModuleComponent(modulePayload, componentPath);
+  };
+}
+
 const surfaceMode = surfaceRuntime.normalizeSurfaceMode(import.meta.env.VITE_SURFACE);
-const moduleRoutes = collectClientModuleRoutes({ clientModules });
+const moduleRoutes = collectClientModuleRoutes({
+  clientModules,
+  resolveComponent: resolveModuleRouteComponent
+});
 const fallbackRoute = Object.freeze({
   path: "/:pathMatch(.*)*",
   name: "not-found",

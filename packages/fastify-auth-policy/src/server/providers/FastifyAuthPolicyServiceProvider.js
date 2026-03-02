@@ -76,7 +76,7 @@ class FastifyAuthPolicyServiceProvider {
       }
     );
 
-    await fastify.register(plugin);
+    await plugin(fastify);
   }
 }
 
