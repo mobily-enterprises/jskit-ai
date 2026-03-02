@@ -1,4 +1,4 @@
-import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { AppError } from "@jskit-ai/framework-core/server/errors";
 
 function createOauthFlows(deps) {
   const {

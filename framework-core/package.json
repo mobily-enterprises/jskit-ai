@@ -1,0 +1,30 @@
+{
+  "name": "@jskit-ai/framework-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    "./container/server": "./src/container/server/index.js",
+    "./container/*": "./src/container/lib/*.js",
+    "./kernel/server": "./src/kernel/server/index.js",
+    "./kernel/*": "./src/kernel/lib/*.js",
+    "./http/kernel": "./src/http/lib/kernel.js",
+    "./http/*": "./src/http/lib/*.js",
+    "./server/*": "./src/server/*.js",
+    "./support/tokens": "./src/support/lib/tokens.js",
+    "./support/normalize": "./src/support/lib/normalize.js",
+    "./support/sorting": "./src/support/lib/sorting.js",
+    "./surface/apiPaths": "./src/surface/lib/apiPaths.js",
+    "./surface/appSurfaces": "./src/surface/lib/appSurfaces.js",
+    "./surface/paths": "./src/surface/lib/paths.js",
+    "./surface/registry": "./src/surface/lib/registry.js",
+    "./surface/escapeRegExp": "./src/surface/lib/escapeRegExp.js",
+    "./surface/index": "./src/surface/lib/index.js",
+    "./platform/server": "./src/platform/server/index.js",
+    "./platform/providerRuntime": "./src/platform/server/providerRuntime.js",
+    "./platform/lib/runtime": "./src/platform/server/lib/runtime.js"
+  }
+}

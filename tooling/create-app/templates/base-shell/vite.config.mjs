@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
+import VueRouter from "unplugin-vue-router/vite";
 import { toPositiveInt } from "./vite.shared.mjs";
 
 const devPort = toPositiveInt(process.env.VITE_DEV_PORT, 5173);
@@ -20,11 +21,17 @@ const clientEntry = (() => {
 
 export default defineConfig({
   plugins: [
+    VueRouter({
+      routesFolder: "src/pages",
+      dts: "src/typed-router.d.ts"
+    }),
     vue(),
     {
       name: "jskit-client-entry",
       transformIndexHtml(source) {
-        return String(source || "").replace(/\/src\/main\.js/g, clientEntry);
+        return String(source || "")
+          .replace(/\/src\/%VITE_CLIENT_ENTRY%/g, clientEntry)
+          .replace(/\/src\/main\.js/g, clientEntry);
       }
     }
   ],

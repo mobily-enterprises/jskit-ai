@@ -10,6 +10,7 @@
     "sloc:actual": "npm run cloc:actual"
   },
   "workspaces": [
+    "framework-core",
     "packages/*",
     "packages/*/*",
     "tooling/*"

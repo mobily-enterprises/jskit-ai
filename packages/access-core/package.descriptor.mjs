@@ -2,16 +2,12 @@ export default Object.freeze({
   "packageVersion": 1,
   "packageId": "@jskit-ai/access-core",
   "version": "0.1.0",
-  "dependsOn": [
-    "@jskit-ai/surface-routing"
-  ],
+  "dependsOn": [],
   "capabilities": {
     "provides": [
       "auth.access"
     ],
-    "requires": [
-      "runtime.surface-routing"
-    ]
+    "requires": []
   },
   "runtime": {
     "server": {
@@ -35,7 +31,7 @@ export default Object.freeze({
   "mutations": {
     "dependencies": {
       "runtime": {
-        "@jskit-ai/surface-routing": "0.1.0"
+        "@jskit-ai/framework-core": "0.1.0"
       },
       "dev": {}
     },

@@ -8,7 +8,6 @@ export default Object.freeze({
     "@jskit-ai/http-client-runtime",
     "@jskit-ai/http-contracts",
     "@jskit-ai/fastify-auth-policy",
-    "@jskit-ai/support-core",
     "@jskit-ai/value-app-config-shared"
   ],
   "capabilities": {
@@ -139,7 +138,7 @@ export default Object.freeze({
         "@jskit-ai/access-core": "0.1.0",
         "@jskit-ai/http-client-runtime": "0.1.0",
         "@jskit-ai/http-contracts": "0.1.0",
-        "@jskit-ai/support-core": "0.1.0"
+        "@jskit-ai/framework-core": "0.1.0"
       },
       "dev": {}
     },

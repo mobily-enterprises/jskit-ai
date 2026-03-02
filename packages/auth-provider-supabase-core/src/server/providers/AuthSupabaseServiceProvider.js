@@ -1,4 +1,4 @@
-import { TOKENS } from "@jskit-ai/support-core/tokens";
+import { TOKENS } from "@jskit-ai/framework-core/support/tokens";
 import { createService } from "../lib/service.js";
 import { createAuthActionContributor } from "../lib/actions/auth.contributor.js";
 import {
@@ -10,7 +10,7 @@ import {
   normalizeExecutionContext,
   normalizeText
 } from "@jskit-ai/action-runtime-core/server";
-import { resolveClientIpAddress } from "@jskit-ai/server-runtime-core/requestUrl";
+import { resolveClientIpAddress } from "@jskit-ai/framework-core/server/requestUrl";
 
 const DEFAULT_SURFACE = "app";
 const KNOWN_SURFACES = new Set(["app", "admin", "console"]);

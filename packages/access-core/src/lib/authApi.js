@@ -1,4 +1,4 @@
-import { buildVersionedApiPath } from "@jskit-ai/surface-routing/apiPaths";
+import { buildVersionedApiPath } from "@jskit-ai/framework-core/surface/apiPaths";
 
 function createApi({ request }) {
   return {

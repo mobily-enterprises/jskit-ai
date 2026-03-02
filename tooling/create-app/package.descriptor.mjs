@@ -72,6 +72,10 @@ export default Object.freeze({
         "to": "base-shell/src/App.vue"
       },
       {
+        "from": "templates/base-shell/src/pages/index.vue",
+        "to": "base-shell/src/pages/index.vue"
+      },
+      {
         "from": "templates/base-shell/tests/client/smoke.vitest.js",
         "to": "base-shell/tests/client/smoke.vitest.js"
       },

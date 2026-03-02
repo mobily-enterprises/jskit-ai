@@ -11,34 +11,28 @@
     "jskit": "node_modules/@jskit-ai/jskit/tooling/jskit/bin/jskit.js"
   },
   "scripts": {
-    "server": "jskit-app-scripts server",
-    "start": "jskit-app-scripts start",
-    "dev": "jskit-app-scripts dev",
-    "build": "jskit-app-scripts build",
-    "preview": "jskit-app-scripts preview",
-    "lint": "jskit-app-scripts lint",
-    "lint:process-env": "jskit-app-scripts lint:process-env",
-    "test": "jskit-app-scripts test",
-    "test:client": "jskit-app-scripts test:client",
+    "server": "node ./bin/server.js",
+    "start": "node ./bin/server.js",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "test": "node --test",
+    "test:client": "vitest run tests/client",
     "postinstall": "bash -lc 'rm -rf node_modules/@jskit-ai/jskit; ln -s ../../../jskit-ai node_modules/@jskit-ai/jskit'"
   },
   "dependencies": {
-    "@jskit-ai/app-scripts": "0.1.0",
-    "@jskit-ai/container-core": "file:node_modules/@jskit-ai/jskit/packages/runtime/container-core",
-    "@jskit-ai/http-fastify-core": "file:node_modules/@jskit-ai/jskit/packages/runtime/http-fastify-core",
-    "@jskit-ai/kernel-core": "file:node_modules/@jskit-ai/jskit/packages/runtime/kernel-core",
-    "@jskit-ai/platform-server-runtime": "file:node_modules/@jskit-ai/jskit/packages/runtime/platform-server-runtime",
-    "@jskit-ai/server-runtime-core": "file:node_modules/@jskit-ai/jskit/packages/runtime/server-runtime-core",
-    "@jskit-ai/surface-routing": "file:node_modules/@jskit-ai/jskit/packages/surface-routing",
-    "@jskit-ai/support-core": "file:node_modules/@jskit-ai/jskit/packages/runtime/support-core",
+    "@jskit-ai/framework-core": "file:node_modules/@jskit-ai/jskit/framework-core",
     "fastify": "^5.7.4",
-    "vue": "^3.5.13"
+    "vue": "^3.5.13",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
     "@jskit-ai/config-eslint": "0.1.0",
     "@jskit-ai/jskit": "github:mobily-enterprises/jskit-ai",
     "@vitejs/plugin-vue": "^5.2.1",
     "eslint": "^9.39.1",
+    "unplugin-vue-router": "^0.19.2",
     "vite": "^6.1.0",
     "vitest": "^4.0.18"
   }

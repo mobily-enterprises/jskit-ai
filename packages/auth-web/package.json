@@ -25,6 +25,6 @@
     "@jskit-ai/http-contracts": "0.1.0",
     "@jskit-ai/http-client-runtime": "0.1.0",
     "@fastify/type-provider-typebox": "^6.1.0",
-    "@jskit-ai/support-core": "0.1.0"
+    "@jskit-ai/framework-core": "0.1.0"
   }
 }

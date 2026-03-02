@@ -23,6 +23,6 @@
     "./lib/signOutFlow": "./src/lib/signOutFlow.js"
   },
   "dependencies": {
-    "@jskit-ai/surface-routing": "0.1.0"
+    "@jskit-ai/framework-core": "0.1.0"
   }
 }

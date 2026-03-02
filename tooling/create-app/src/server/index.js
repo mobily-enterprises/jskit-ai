@@ -7,9 +7,7 @@ import { shellQuote } from "./cliEntrypoint.js";
 
 const DEFAULT_TEMPLATE = "base-shell";
 const DEFAULT_INITIAL_BUNDLES = "none";
-const DEFAULT_DB_PROVIDER = "mysql";
-const INITIAL_BUNDLE_PRESETS = new Set(["none", "db", "db-auth"]);
-const DB_PROVIDERS = new Set(["mysql", "postgres"]);
+const INITIAL_BUNDLE_PRESETS = new Set(["none", "auth"]);
 const ALLOWED_EXISTING_TARGET_ENTRIES = new Set([".git"]);
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const TEMPLATES_ROOT = path.join(PACKAGE_ROOT, "templates");
@@ -38,44 +36,24 @@ function normalizeInitialBundlesPreset(value, { showUsage = true } = {}) {
   }
 
   throw createCliError(
-    `Invalid --initial-bundles value "${value}". Expected one of: none, db, db-auth.`,
+    `Invalid --initial-bundles value "${value}". Expected one of: none, auth.`,
     { showUsage }
   );
 }
 
-function normalizeDbProvider(value, { showUsage = true } = {}) {
-  const normalized = String(value || DEFAULT_DB_PROVIDER).trim().toLowerCase();
-  if (DB_PROVIDERS.has(normalized)) {
-    return normalized;
-  }
-
-  throw createCliError(
-    `Invalid --db-provider value "${value}". Expected one of: mysql, postgres.`,
-    { showUsage }
-  );
-}
-
-function buildInitialBundleCommands(initialBundles, dbProvider) {
+function buildInitialBundleCommands(initialBundles) {
   const normalizedPreset = normalizeInitialBundlesPreset(initialBundles, { showUsage: false });
-  const normalizedProvider = normalizeDbProvider(dbProvider, { showUsage: false });
 
   const commands = [];
-  if (normalizedPreset === "db" || normalizedPreset === "db-auth") {
-    commands.push(`npx jskit add db --provider ${normalizedProvider} --no-install`);
-  }
-  if (normalizedPreset === "db-auth") {
+  if (normalizedPreset === "auth") {
     commands.push("npx jskit add auth-base --no-install");
   }
 
   return commands;
 }
 
-function buildProgressiveBundleCommands(dbProvider) {
-  const normalizedProvider = normalizeDbProvider(dbProvider, { showUsage: false });
-  return [
-    `npx jskit add db --provider ${normalizedProvider} --no-install`,
-    "npx jskit add auth-base --no-install"
-  ];
+function buildProgressiveBundleCommands() {
+  return ["npx jskit add auth-base --no-install"];
 }
 
 function validateAppName(appName, { showUsage = true } = {}) {
@@ -112,7 +90,6 @@ function parseCliArgs(argv) {
     template: DEFAULT_TEMPLATE,
     target: null,
     initialBundles: DEFAULT_INITIAL_BUNDLES,
-    dbProvider: DEFAULT_DB_PROVIDER,
     force: false,
     dryRun: false,
     help: false,
@@ -192,18 +169,6 @@ function parseCliArgs(argv) {
       continue;
     }
 
-    if (arg === "--db-provider") {
-      const { value, nextIndex } = parseOptionWithValue(args, index, "--db-provider");
-      options.dbProvider = value;
-      index = nextIndex;
-      continue;
-    }
-
-    if (arg.startsWith("--db-provider=")) {
-      options.dbProvider = arg.slice("--db-provider=".length);
-      continue;
-    }
-
     if (arg.startsWith("-")) {
       throw createCliError(`Unknown option: ${arg}`, {
         showUsage: true
@@ -239,8 +204,7 @@ function printUsage(stream = process.stderr) {
   stream.write(`  --template <name>  Template folder under templates/ (default: ${DEFAULT_TEMPLATE})\n`);
   stream.write("  --title <text>     App title used for template replacements\n");
   stream.write("  --target <path>    Target directory (default: ./<app-name>)\n");
-  stream.write("  --initial-bundles <preset>  Optional bundle preset: none | db | db-auth (default: none)\n");
-  stream.write("  --db-provider <provider>    Database provider for db presets: mysql | postgres (default: mysql)\n");
+  stream.write("  --initial-bundles <preset>  Optional bundle preset: none | auth (default: none)\n");
   stream.write("  --force            Allow writing into a non-empty target directory\n");
   stream.write("  --dry-run          Print planned writes without changing the filesystem\n");
   stream.write("  --interactive      Prompt for app values instead of passing all flags\n");
@@ -456,7 +420,7 @@ async function collectInteractiveOptions({
     while (true) {
       const candidate = await askQuestion(
         readline,
-        "Initial bundle preset (none|db|db-auth)",
+        "Initial bundle preset (none|auth)",
         initialBundles
       );
       try {
@@ -467,27 +431,13 @@ async function collectInteractiveOptions({
       }
     }
 
-    let dbProvider = normalizeDbProvider(parsed.dbProvider, { showUsage: false });
-    if (initialBundles === "db" || initialBundles === "db-auth") {
-      while (true) {
-        const candidate = await askQuestion(readline, "DB provider (mysql|postgres)", dbProvider);
-        try {
-          dbProvider = normalizeDbProvider(candidate, { showUsage: false });
-          break;
-        } catch (error) {
-          stderr.write(`Error: ${error?.message || String(error)}\n`);
-        }
-      }
-    }
-
     return {
       appName,
       appTitle,
       target,
       template,
       force,
-      initialBundles,
-      dbProvider
+      initialBundles
     };
   } finally {
     readline.close();
@@ -500,7 +450,6 @@ export async function createApp({
   template = DEFAULT_TEMPLATE,
   target = null,
   initialBundles = DEFAULT_INITIAL_BUNDLES,
-  dbProvider = DEFAULT_DB_PROVIDER,
   force = false,
   dryRun = false,
   cwd = process.cwd()
@@ -510,7 +459,6 @@ export async function createApp({
 
   const resolvedAppTitle = String(appTitle || "").trim() || toAppTitle(resolvedAppName);
   const resolvedInitialBundles = normalizeInitialBundlesPreset(initialBundles);
-  const resolvedDbProvider = normalizeDbProvider(dbProvider);
 
   const resolvedCwd = path.resolve(cwd);
   const targetDirectory = path.resolve(resolvedCwd, target ? String(target) : resolvedAppName);
@@ -538,9 +486,8 @@ export async function createApp({
     appTitle: resolvedAppTitle,
     template: String(template),
     initialBundles: resolvedInitialBundles,
-    dbProvider: resolvedDbProvider,
-    selectedBundleCommands: buildInitialBundleCommands(resolvedInitialBundles, resolvedDbProvider),
-    progressiveBundleCommands: buildProgressiveBundleCommands(resolvedDbProvider),
+    selectedBundleCommands: buildInitialBundleCommands(resolvedInitialBundles),
+    progressiveBundleCommands: buildProgressiveBundleCommands(),
     targetDirectory,
     dryRun,
     touchedFiles
@@ -584,7 +531,6 @@ export async function runCli(
       template: resolvedOptions.template,
       target: resolvedOptions.target,
       initialBundles: resolvedOptions.initialBundles,
-      dbProvider: resolvedOptions.dbProvider,
       force: resolvedOptions.force,
       dryRun: resolvedOptions.dryRun,
       cwd

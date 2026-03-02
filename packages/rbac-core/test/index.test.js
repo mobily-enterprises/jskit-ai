@@ -4,7 +4,9 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import {
+import { __testable__ } from "../src/server/index.js";
+
+const {
   OWNER_ROLE_ID,
   createOwnerOnlyManifest,
   hasPermission,
@@ -13,7 +15,7 @@ import {
   manifestIncludesPermission,
   normalizeManifest,
   resolveRolePermissions
-} from "../src/server/index.js";
+} = __testable__;
 
 test("normalizeManifest validates and normalizes role catalog", () => {
   assert.throws(() => normalizeManifest(null), /must be a JSON object/);

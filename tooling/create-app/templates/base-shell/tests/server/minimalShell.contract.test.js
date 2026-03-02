@@ -9,16 +9,10 @@ const __dirname = path.dirname(__filename);
 const APP_ROOT = path.resolve(__dirname, "../..");
 
 const EXPECTED_RUNTIME_DEPENDENCIES = Object.freeze([
-  "@jskit-ai/app-scripts",
-  "@jskit-ai/container-core",
-  "@jskit-ai/http-fastify-core",
-  "@jskit-ai/kernel-core",
-  "@jskit-ai/platform-server-runtime",
-  "@jskit-ai/server-runtime-core",
-  "@jskit-ai/surface-routing",
-  "@jskit-ai/support-core",
+  "@jskit-ai/framework-core",
   "fastify",
-  "vue"
+  "vue",
+  "vue-router"
 ]);
 
 const EXPECTED_DEV_DEPENDENCIES = Object.freeze([
@@ -26,6 +20,7 @@ const EXPECTED_DEV_DEPENDENCIES = Object.freeze([
   "@jskit-ai/jskit",
   "@vitejs/plugin-vue",
   "eslint",
+  "unplugin-vue-router",
   "vite",
   "vitest"
 ]);

@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { AppError } from "@jskit-ai/server-runtime-core/errors";
+import { AppError } from "@jskit-ai/framework-core/server/errors";
 import {
   AUTH_METHOD_PASSWORD_ID,
   AUTH_METHOD_PASSWORD_PROVIDER,

@@ -25,8 +25,7 @@ export default Object.freeze({
   },
   "dependsOn": [
     "@jskit-ai/access-core",
-    "@jskit-ai/server-runtime-core",
-    "@jskit-ai/support-core",
+    "@jskit-ai/action-runtime-core",
     "@jskit-ai/value-app-config-shared"
   ],
   "capabilities": {
@@ -35,8 +34,7 @@ export default Object.freeze({
       "auth.provider"
     ],
     "requires": [
-      "auth.access",
-      "runtime.server"
+      "auth.access"
     ]
   },
   "runtime": {
@@ -54,8 +52,8 @@ export default Object.freeze({
     "dependencies": {
       "runtime": {
         "@jskit-ai/access-core": "0.1.0",
-        "@jskit-ai/server-runtime-core": "0.1.0",
-        "@jskit-ai/support-core": "0.1.0",
+        "@jskit-ai/action-runtime-core": "0.1.0",
+        "@jskit-ai/framework-core": "0.1.0",
         "@supabase/supabase-js": "^2.57.4",
         "jose": "^6.1.0"
       },

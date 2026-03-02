@@ -1,45 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createFakeFastifyPolicyRuntime } from "../../../tooling/testUtils/fakeFastify.mjs";
 
 import { authPolicyPlugin } from "../src/server/lib/index.js";
-
-function createFakeFastify({ csrfHandler } = {}) {
-  const state = {
-    csrfOptions: null,
-    preHandler: null,
-    registeredPlugins: []
-  };
-
-  const fastify = {
-    async register(plugin, options) {
-      state.registeredPlugins.push({
-        plugin,
-        options
-      });
-      if (options && typeof options.getToken === "function") {
-        state.csrfOptions = options;
-      }
-    },
-    decorateRequest() {},
-    addHook(name, handler) {
-      if (name === "preHandler") {
-        state.preHandler = handler;
-      }
-    },
-    csrfProtection(request, reply, done) {
-      if (typeof csrfHandler === "function") {
-        csrfHandler(request, reply, done);
-        return;
-      }
-      done();
-    }
-  };
-
-  return {
-    fastify,
-    state
-  };
-}
 
 test("requires resolveActor and hasPermission dependencies", () => {
   assert.throws(() => authPolicyPlugin(), /resolveActor is required/);
@@ -48,7 +11,7 @@ test("requires resolveActor and hasPermission dependencies", () => {
 
 test("resolves csrf token headers and skips auth for non-api/public routes", async () => {
   let actorCalls = 0;
-  const { fastify, state } = createFakeFastify();
+  const { fastify, state } = createFakeFastifyPolicyRuntime();
   const registerPlugin = authPolicyPlugin(
     {
       async resolveActor() {
@@ -94,7 +57,7 @@ test("resolves csrf token headers and skips auth for non-api/public routes", asy
 });
 
 test("propagates csrf callback error", async () => {
-  const { fastify, state } = createFakeFastify({
+  const { fastify, state } = createFakeFastifyPolicyRuntime({
     csrfHandler(_request, _reply, done) {
       done(new Error("csrf callback failed"));
     }
@@ -135,7 +98,7 @@ test("propagates csrf callback error", async () => {
 
 test("enforces own policy owner checks and invalid policy guard", async () => {
   const denyEvents = [];
-  const { fastify, state } = createFakeFastify();
+  const { fastify, state } = createFakeFastifyPolicyRuntime();
   const registerPlugin = authPolicyPlugin({
     async resolveActor(request) {
       if (request.headers?.["x-profile"] === "null") {
@@ -233,7 +196,7 @@ test("enforces own policy owner checks and invalid policy guard", async () => {
 
 test("enforces permission checks and resolves workspace context when requested", async () => {
   const denyEvents = [];
-  const { fastify, state } = createFakeFastify();
+  const { fastify, state } = createFakeFastifyPolicyRuntime();
   const registerPlugin = authPolicyPlugin({
     async resolveActor() {
       return {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createApplication } from "@jskit-ai/kernel-core/server";
-import { TOKENS } from "@jskit-ai/support-core/tokens";
+import { createApplication } from "@jskit-ai/framework-core/kernel/server";
+import { TOKENS } from "@jskit-ai/framework-core/support/tokens";
 import { AuthSupabaseServiceProvider } from "../src/server/providers/AuthSupabaseServiceProvider.js";
 
 test("auth supabase provider registers authService + actionExecutor bindings", async () => {

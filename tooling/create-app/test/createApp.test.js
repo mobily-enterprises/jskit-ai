@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
-import { access, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
@@ -8,9 +7,11 @@ import { fileURLToPath } from "node:url";
 import { runCli as runCreateAppCli } from "../src/server/index.js";
 import { createCliRunner } from "../../testUtils/runCli.js";
 import { runJskit } from "../../testUtils/runJskit.mjs";
+import { withTempDir } from "../../testUtils/tempDir.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit-create-app.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
+const withCreateAppTempDir = (run) => withTempDir(run, { prefix: "jskit-create-app-" });
 
 function createCaptureWritable() {
   let body = "";
@@ -27,17 +28,8 @@ function createCaptureWritable() {
   };
 }
 
-async function withTempDir(run) {
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), "jskit-create-app-"));
-  try {
-    await run(tempDir);
-  } finally {
-    await rm(tempDir, { recursive: true, force: true });
-  }
-}
-
 test("create-app scaffolds the base shell with placeholder replacements", async () => {
-  await withTempDir(async (cwd) => {
+  await withCreateAppTempDir(async (cwd) => {
     const result = runCli({ cwd, args: ["sample-app"] });
 
     assert.equal(result.status, 0, result.stderr);
@@ -69,18 +61,22 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
 
     const mainJs = await readFile(path.join(appRoot, "src/main.js"), "utf8");
     assert.match(mainJs, /import App from "\.\/App\.vue";/);
+    assert.match(mainJs, /createRouter, createWebHistory/);
+    assert.match(mainJs, /\.use\(router\)\.mount\("#app"\)/);
 
     const appVue = await readFile(path.join(appRoot, "src/App.vue"), "utf8");
-    assert.match(appVue, /<script setup>/);
-    assert.match(appVue, /const appTitle = "Sample App";/);
+    assert.match(appVue, /<RouterView \/>/);
 
-    assert.match(result.stdout, /npx jskit add db --provider mysql --no-install/);
+    const indexView = await readFile(path.join(appRoot, "src/pages/index.vue"), "utf8");
+    assert.match(indexView, /const title = "It worked!";/);
+    assert.match(indexView, /const appTitle = "Sample App";/);
+
     assert.match(result.stdout, /npx jskit add auth-base --no-install/);
   });
 });
 
 test("create-app interactive flow captures initial bundle selection in guidance", async () => {
-  await withTempDir(async (cwd) => {
+  await withCreateAppTempDir(async (cwd) => {
     const stdoutCapture = createCaptureWritable();
     const stderrCapture = createCaptureWritable();
     const answers = [
@@ -89,8 +85,7 @@ test("create-app interactive flow captures initial bundle selection in guidance"
       "",
       "",
       "",
-      "db-auth",
-      "postgres"
+      "auth"
     ];
     const askedPrompts = [];
     const readlineFactory = () => ({
@@ -116,15 +111,14 @@ test("create-app interactive flow captures initial bundle selection in guidance"
     const stderr = stderrCapture.read();
     assert.equal(exitCode, 0, stderr);
     assert.deepEqual(answers, []);
-    assert.ok(askedPrompts.length >= 7);
-    assert.match(stdout, /Initial framework bundle commands \(db-auth\):/);
-    assert.match(stdout, /npx jskit add db --provider postgres --no-install/);
+    assert.ok(askedPrompts.length >= 6);
+    assert.match(stdout, /Initial framework bundle commands \(auth\):/);
     assert.match(stdout, /npx jskit add auth-base --no-install/);
   });
 });
 
 test("create-app refuses non-empty target directory without --force", async () => {
-  await withTempDir(async (cwd) => {
+  await withCreateAppTempDir(async (cwd) => {
     const targetDirectory = path.join(cwd, "existing-app");
     await mkdir(targetDirectory, { recursive: true });
     await writeFile(path.join(targetDirectory, "keep.txt"), "keep\n", "utf8");
@@ -143,7 +137,7 @@ test("create-app refuses non-empty target directory without --force", async () =
 });
 
 test("create-app allows target directory that only contains .git", async () => {
-  await withTempDir(async (cwd) => {
+  await withCreateAppTempDir(async (cwd) => {
     const targetDirectory = path.join(cwd, "existing-app");
     await mkdir(path.join(targetDirectory, ".git"), { recursive: true });
 
@@ -160,7 +154,7 @@ test("create-app allows target directory that only contains .git", async () => {
 });
 
 test("create-app dry-run prints plan and does not write files", async () => {
-  await withTempDir(async (cwd) => {
+  await withCreateAppTempDir(async (cwd) => {
     const result = runCli({ cwd, args: ["dry-run-app", "--dry-run"] });
 
     assert.equal(result.status, 0, result.stderr);
@@ -171,7 +165,7 @@ test("create-app dry-run prints plan and does not write files", async () => {
 });
 
 test("create-app allows non-empty target when --force is passed", async () => {
-  await withTempDir(async (cwd) => {
+  await withCreateAppTempDir(async (cwd) => {
     const targetDirectory = path.join(cwd, "existing-app");
     await mkdir(targetDirectory, { recursive: true });
     await writeFile(path.join(targetDirectory, "notes.txt"), "preserve\n", "utf8");
@@ -192,7 +186,7 @@ test("create-app allows non-empty target when --force is passed", async () => {
 });
 
 test("create-app applies explicit app title when --title is provided", async () => {
-  await withTempDir(async (cwd) => {
+  await withCreateAppTempDir(async (cwd) => {
     const result = runCli({
       cwd,
       args: ["title-app", "--title", "Acme Starter"]
@@ -208,13 +202,13 @@ test("create-app applies explicit app title when --title is provided", async () 
     const indexHtml = await readFile(path.join(appRoot, "index.html"), "utf8");
     assert.match(indexHtml, /<title>Acme Starter<\/title>/);
 
-    const appVue = await readFile(path.join(appRoot, "src/App.vue"), "utf8");
-    assert.match(appVue, /const appTitle = "Acme Starter";/);
+    const indexView = await readFile(path.join(appRoot, "src/pages/index.vue"), "utf8");
+    assert.match(indexView, /const appTitle = "Acme Starter";/);
   });
 });
 
 test("generated shell-only app passes jskit doctor and keeps minimal Procfile", async () => {
-  await withTempDir(async (cwd) => {
+  await withCreateAppTempDir(async (cwd) => {
     const createResult = runCli({ cwd, args: ["shell-only-app"] });
     assert.equal(createResult.status, 0, createResult.stderr);
 
@@ -228,84 +222,12 @@ test("generated shell-only app passes jskit doctor and keeps minimal Procfile", 
   });
 });
 
-test("generated app supports shell + db progressive installation", async () => {
-  await withTempDir(async (cwd) => {
-    const createResult = runCli({ cwd, args: ["shell-db-app"] });
+test("generated app supports shell + auth progressive installation", async () => {
+  await withCreateAppTempDir(async (cwd) => {
+    const createResult = runCli({ cwd, args: ["shell-auth-app"] });
     assert.equal(createResult.status, 0, createResult.stderr);
 
-    const appRoot = path.join(cwd, "shell-db-app");
-    const addDbResult = runJskit({
-      cwd: appRoot,
-      args: [
-        "add",
-        "bundle",
-        "db-mysql",
-        "--no-install",
-        "--db-host",
-        "127.0.0.1",
-        "--db-port",
-        "3306",
-        "--db-name",
-        "app",
-        "--db-user",
-        "root",
-        "--db-password",
-        "secret"
-      ]
-    });
-    assert.equal(addDbResult.status, 0, addDbResult.stderr);
-
-    const doctorResult = runJskit({ cwd: appRoot, args: ["doctor"] });
-    assert.equal(doctorResult.status, 0, doctorResult.stderr);
-
-    const procfile = await readFile(path.join(appRoot, "Procfile"), "utf8");
-    assert.match(procfile, /^release: npm run db:migrate$/m);
-    assert.match(procfile, /^web: npm run start$/m);
-  });
-});
-
-test("generated app supports shell + db + auth progressive installation", async () => {
-  await withTempDir(async (cwd) => {
-    const createResult = runCli({ cwd, args: ["shell-db-auth-app"] });
-    assert.equal(createResult.status, 0, createResult.stderr);
-
-    const appRoot = path.join(cwd, "shell-db-auth-app");
-    const addDbResult = runJskit({
-      cwd: appRoot,
-      args: [
-        "add",
-        "bundle",
-        "db-mysql",
-        "--no-install",
-        "--db-host",
-        "127.0.0.1",
-        "--db-port",
-        "3306",
-        "--db-name",
-        "app",
-        "--db-user",
-        "root",
-        "--db-password",
-        "secret"
-      ]
-    });
-    assert.equal(addDbResult.status, 0, addDbResult.stderr);
-
-    const addAuthProviderResult = runJskit({
-      cwd: appRoot,
-      args: [
-        "add",
-        "bundle",
-        "auth-supabase",
-        "--no-install",
-        "--auth-supabase-url",
-        "https://example.supabase.co",
-        "--auth-supabase-publishable-key",
-        "sb_publishable_example"
-      ]
-    });
-    assert.equal(addAuthProviderResult.status, 0, addAuthProviderResult.stderr);
-
+    const appRoot = path.join(cwd, "shell-auth-app");
     const addAuthResult = runJskit({
       cwd: appRoot,
       args: ["add", "bundle", "auth-base", "--no-install"]
@@ -317,6 +239,5 @@ test("generated app supports shell + db + auth progressive installation", async 
 
     const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
     assert.ok(lockfile.installedPackages["@jskit-ai/auth-web"]);
-    assert.ok(lockfile.installedPackages["@jskit-ai/auth-provider-supabase-core"]);
   });
 });

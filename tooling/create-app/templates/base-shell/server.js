@@ -13,10 +13,10 @@ function registerFallbackHealthRoute(app) {
 
 async function registerRuntime(app, { appRoot, runtimeEnv }) {
   try {
-    const platformRuntimeModule = await import("@jskit-ai/platform-server-runtime/server");
+    const platformRuntimeModule = await import("@jskit-ai/framework-core/platform/server");
     if (typeof platformRuntimeModule?.createProviderRuntimeFromApp !== "function") {
       throw new Error(
-        "Installed @jskit-ai/platform-server-runtime does not export createProviderRuntimeFromApp()."
+        "Installed @jskit-ai/framework-core does not export createProviderRuntimeFromApp()."
       );
     }
 

@@ -1,4 +1,4 @@
-import { AppError, createValidationError } from "@jskit-ai/server-runtime-core/errors";
+import { AppError, createValidationError } from "@jskit-ai/framework-core/server/errors";
 
 const TRANSIENT_AUTH_MESSAGE_PARTS = [
   "network",
