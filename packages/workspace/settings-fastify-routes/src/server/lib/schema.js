@@ -6,8 +6,8 @@ import {
   AUTH_LOGIN_PASSWORD_MAX_LENGTH,
   AUTH_PASSWORD_MAX_LENGTH,
   AUTH_PASSWORD_MIN_LENGTH
-} from "@jskit-ai/access-core/authConstraints";
-import { OAUTH_PROVIDER_ID_PATTERN } from "@jskit-ai/access-core/oauthProviders";
+} from "@jskit-ai/access-core/server/authConstraints";
+import { OAUTH_PROVIDER_ID_PATTERN } from "@jskit-ai/access-core/server/oauthProviders";
 import {
   PLATFORM_AVATAR_SETTINGS,
   SETTINGS_CURRENCY_CODE_PATTERN,
@@ -17,7 +17,7 @@ import {
   SETTINGS_NUMBER_FORMAT_OPTIONS,
   SETTINGS_THEME_OPTIONS
 } from "@jskit-ai/workspace-console-core/settingsModel";
-import { schema as authSchema } from "@jskit-ai/auth-web/server";
+import { schema as authSchema } from "@jskit-ai/auth-web/server/schema/index";
 import { enumSchema } from "@jskit-ai/http-contracts/errorResponses";
 import { buildSchema } from "@jskit-ai/workspace-console-core/settingsSchemaBuilder";
 

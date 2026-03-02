@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { normalizeEmail } from "@jskit-ai/access-core/utils";
+import { normalizeEmail } from "@jskit-ai/access-core/server/utils";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import {
   normalizeWorkspaceColor,

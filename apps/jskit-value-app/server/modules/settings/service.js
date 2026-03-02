@@ -1,6 +1,6 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
-import { validators as authValidators } from "@jskit-ai/access-core/validators";
+import { validators as authValidators } from "@jskit-ai/access-core/server/validators";
 import { SETTINGS_FIELD_SPECS } from "@jskit-ai/workspace-console-core/settingsModel";
 import { buildPatch } from "@jskit-ai/workspace-console-core/settingsPatchBuilder";
 import { resolveProfileIdentity } from "@jskit-ai/user-profile-core/profileIdentity";

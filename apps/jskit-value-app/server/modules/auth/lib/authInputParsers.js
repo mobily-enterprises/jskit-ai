@@ -1,1 +1,1 @@
-export * from "@jskit-ai/auth-provider-supabase-core/authInputParsers";
+export * from "@jskit-ai/auth-provider-supabase-core/server/lib/authInputParsers";

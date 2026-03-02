@@ -7,19 +7,20 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
+    "./server": "./src/server/index.js",
+    "./server/authConstraints": "./src/server/authConstraints.js",
+    "./server/authMethods": "./src/server/authMethods.js",
+    "./server/oauthProviders": "./src/server/oauthProviders.js",
+    "./server/oauthCallbackParams": "./src/server/oauthCallbackParams.js",
+    "./server/utils": "./src/server/utils.js",
+    "./server/validators": "./src/server/validators.js",
+    "./server/inviteTokens": "./src/server/inviteTokens.js",
+    "./server/membershipAccess": "./src/server/membershipAccess.js",
+    "./client": "./src/client/index.js",
     "./client/authApi": "./src/client/authApi.js",
     "./client/signOutFlow": "./src/client/signOutFlow.js",
-    "./authConstraints": "./src/server/authConstraints.js",
-    "./authMethods": "./src/server/authMethods.js",
-    "./oauthProviders": "./src/server/oauthProviders.js",
-    "./oauthCallbackParams": "./src/server/oauthCallbackParams.js",
-    "./utils": "./src/server/utils.js",
-    "./validators": "./src/server/validators.js",
-    "./inviteTokens": "./src/server/inviteTokens.js",
-    "./membershipAccess": "./src/server/membershipAccess.js",
-    "./server": "./src/server/index.js",
-    "./client": "./src/client/index.js"
+    "./lib/authApi": "./src/lib/authApi.js",
+    "./lib/signOutFlow": "./src/lib/signOutFlow.js"
   },
   "dependencies": {
     "@jskit-ai/surface-routing": "0.1.0"

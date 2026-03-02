@@ -1,4 +1,4 @@
-import { normalizeEmail } from "@jskit-ai/access-core/utils";
+import { normalizeEmail } from "@jskit-ai/access-core/server/utils";
 import { extractAppSurfacePolicy } from "@jskit-ai/workspace-service-core/policies/appSurfacePolicy";
 
 function canAccessWorkspace(context = {}) {

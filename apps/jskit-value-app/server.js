@@ -12,7 +12,7 @@ import { registerTypeBoxFormats } from "@jskit-ai/http-contracts/typeboxFormats"
 import { resolveRepositoryConfigForRuntime } from "./config/index.js";
 import { createPlatformRuntimeEnv } from "@jskit-ai/runtime-env-core/platformRuntimeEnv";
 import { resolveAppConfig, toBrowserConfig } from "@jskit-ai/runtime-env-core/appRuntimePolicy";
-import { listManifestPermissions, loadRbacManifest, manifestIncludesPermission } from "@jskit-ai/rbac-core/server";
+import { listManifestPermissions, loadRbacManifest, manifestIncludesPermission } from "@jskit-ai/rbac-core/server/lib/rbac";
 import { initDatabase, closeDatabase } from "./db/knex.js";
 import { isAppError } from "@jskit-ai/server-runtime-core/errors";
 import {
@@ -35,7 +35,7 @@ import { MODULE_ENABLEMENT_MODES } from "@jskit-ai/module-framework-core/server"
 import { FRAMEWORK_PROFILE_IDS } from "./shared/framework/profile.js";
 import { registerSocketIoRealtime } from "./server/realtime/registerSocketIoRealtime.js";
 import { buildLoginRedirectPathFromRequest, safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
-import { normalizeReturnToPath } from "@jskit-ai/access-core/utils";
+import { normalizeReturnToPath } from "@jskit-ai/access-core/server/utils";
 import { AVATAR_MAX_UPLOAD_BYTES } from "./shared/avatar.js";
 import { createSurfacePaths, resolveSurfaceFromPathname, resolveSurfacePaths } from "./shared/surfacePaths.js";
 import { surfaceRequiresWorkspace } from "./shared/surfaceRegistry.js";

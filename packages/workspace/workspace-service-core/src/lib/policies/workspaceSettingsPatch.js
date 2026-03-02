@@ -1,6 +1,6 @@
 import { createWorkspaceSettingsPatchPolicy } from "@jskit-ai/workspace-console-core/workspaceSettingsPatch";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { normalizeEmail } from "@jskit-ai/access-core/utils";
+import { normalizeEmail } from "@jskit-ai/access-core/server/utils";
 import { isWorkspaceColor } from "@jskit-ai/workspace-console-core/workspaceColors";
 import { TRANSCRIPT_MODE_VALUES } from "@jskit-ai/assistant-transcripts-core/server";
 import { AI_ASSISTANT_SYSTEM_PROMPT_MAX_LENGTH } from "@jskit-ai/assistant-core/systemPrompt";

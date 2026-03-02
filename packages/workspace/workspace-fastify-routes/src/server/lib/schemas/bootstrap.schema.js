@@ -3,8 +3,8 @@ import {
   AUTH_EMAIL_MAX_LENGTH,
   AUTH_EMAIL_MIN_LENGTH,
   AUTH_EMAIL_PATTERN
-} from "@jskit-ai/access-core/authConstraints";
-import { OAUTH_PROVIDER_ID_PATTERN } from "@jskit-ai/access-core/oauthProviders";
+} from "@jskit-ai/access-core/server/authConstraints";
+import { OAUTH_PROVIDER_ID_PATTERN } from "@jskit-ai/access-core/server/oauthProviders";
 import {
   PLATFORM_AVATAR_SETTINGS,
   SETTINGS_CURRENCY_CODE_PATTERN,

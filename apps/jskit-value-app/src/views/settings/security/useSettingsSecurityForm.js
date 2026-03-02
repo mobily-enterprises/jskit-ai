@@ -14,7 +14,7 @@ import {
   AUTH_METHOD_KIND_OAUTH,
   AUTH_METHOD_KIND_OTP,
   AUTH_METHOD_KIND_PASSWORD
-} from "@jskit-ai/access-core/authMethods";
+} from "@jskit-ai/access-core/server/authMethods";
 
 export function useSettingsSecurityForm(options) {
   if (!options) {

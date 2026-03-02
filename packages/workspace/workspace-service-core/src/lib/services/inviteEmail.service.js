@@ -1,4 +1,4 @@
-import { normalizeEmail } from "@jskit-ai/access-core/utils";
+import { normalizeEmail } from "@jskit-ai/access-core/server/utils";
 import { normalizeMetadata } from "@jskit-ai/communications-provider-core/server";
 
 function normalizeBaseUrl(value) {

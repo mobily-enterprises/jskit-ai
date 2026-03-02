@@ -1,4 +1,4 @@
-import { normalizeReturnToPath } from "@jskit-ai/access-core/utils";
+import { normalizeReturnToPath } from "@jskit-ai/access-core/server/utils";
 
 function splitPathname(pathValue) {
   const [withoutHash] = String(pathValue || "").split("#");

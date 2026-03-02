@@ -177,7 +177,7 @@ import { mdiGoogle } from "@mdi/js";
 import {
   OAUTH_QUERY_PARAM_PROVIDER,
   OAUTH_QUERY_PARAM_RETURN_TO
-} from "@jskit-ai/access-core/oauthCallbackParams";
+} from "@jskit-ai/access-core/server/oauthCallbackParams";
 import { authHttpRequest } from "../../runtime/authHttpClient.js";
 
 const mode = ref("login");

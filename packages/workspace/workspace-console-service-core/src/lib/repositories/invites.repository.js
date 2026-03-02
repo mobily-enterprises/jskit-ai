@@ -5,7 +5,7 @@ import {
   normalizeCutoffDateOrThrow
 } from "@jskit-ai/jskit-knex/retention";
 import { createRepoTransaction } from "@jskit-ai/jskit-knex/server";
-import { normalizeEmail } from "@jskit-ai/access-core/utils";
+import { normalizeEmail } from "@jskit-ai/access-core/server/utils";
 
 function mapInviteRowRequired(row) {
   if (!row) {

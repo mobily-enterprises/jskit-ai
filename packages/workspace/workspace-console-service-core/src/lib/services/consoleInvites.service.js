@@ -1,7 +1,7 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
-import { normalizeEmail } from "@jskit-ai/access-core/utils";
+import { normalizeEmail } from "@jskit-ai/access-core/server/utils";
 import { mapInvite, mapPendingInvite } from "../mappers/consoleMappers.js";
 import { resolveInviteExpiresAt } from "../policies/invitePolicy.js";
 import {
@@ -10,7 +10,7 @@ import {
   hashInviteToken,
   normalizeInviteToken,
   resolveInviteTokenHash
-} from "@jskit-ai/access-core/inviteTokens";
+} from "@jskit-ai/access-core/server/inviteTokens";
 import { CONSOLE_MANAGEMENT_PERMISSIONS } from "@jskit-ai/workspace-console-core/consoleRoles";
 
 function createConsoleInvitesService({

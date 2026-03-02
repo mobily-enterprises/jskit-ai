@@ -1,1 +1,1 @@
-export * from "@jskit-ai/auth-provider-supabase-core/authCookies";
+export * from "@jskit-ai/auth-provider-supabase-core/server/lib/authCookies";

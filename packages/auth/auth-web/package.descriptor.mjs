@@ -127,7 +127,7 @@ export default Object.freeze({
         {
           "id": "loginComponent",
           "description": "Hosts can override the login experience by pointing this prop at their own component (the copied login view simply re-exports the default module component).",
-          "default": "@jskit-ai/auth-web/client#DefaultLoginView"
+          "default": "@jskit-ai/auth-web/client/views/login/DefaultLoginView"
         }
       ]
     }

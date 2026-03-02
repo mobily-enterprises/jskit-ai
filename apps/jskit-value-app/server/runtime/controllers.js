@@ -1,4 +1,4 @@
-import { createController as createAuthController } from "@jskit-ai/auth-web/server";
+import { createController as createAuthController } from "@jskit-ai/auth-web/server/controllers/AuthController";
 import { createController as createHistoryController } from "../modules/history/index.js";
 import { createController as createCommunicationsController } from "@jskit-ai/communications-fastify-routes/server";
 import { createController as createSettingsController } from "../modules/settings/index.js";

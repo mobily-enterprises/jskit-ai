@@ -1,6 +1,6 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { OWNER_ROLE_ID } from "@jskit-ai/rbac-core/server";
-import { normalizeEmail } from "@jskit-ai/access-core/utils";
+import { OWNER_ROLE_ID } from "@jskit-ai/rbac-core/server/lib/rbac";
+import { normalizeEmail } from "@jskit-ai/access-core/server/utils";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 import {
@@ -9,7 +9,7 @@ import {
   hashInviteToken,
   normalizeInviteToken,
   resolveInviteTokenHash
-} from "@jskit-ai/access-core/inviteTokens";
+} from "@jskit-ai/access-core/server/inviteTokens";
 import { listRoleDescriptors, resolveAssignableRoleIds } from "@jskit-ai/workspace-console-core/workspaceRoleCatalog";
 import { createWorkspaceSettingsDefaults } from "../policies/workspacePolicyDefaults.js";
 import { parseWorkspaceSettingsPatch } from "../policies/workspaceSettingsPatch.js";

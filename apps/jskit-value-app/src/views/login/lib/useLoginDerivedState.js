@@ -1,5 +1,5 @@
 import { computed } from "vue";
-import { validators } from "@jskit-ai/access-core/validators";
+import { validators } from "@jskit-ai/access-core/server/validators";
 
 export function useLoginDerivedState({
   mode,

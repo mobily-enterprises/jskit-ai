@@ -1,8 +1,8 @@
 import fp from "fastify-plugin";
-import { authPolicyPlugin } from "@jskit-ai/fastify-auth-policy/server";
+import { authPolicyPlugin } from "@jskit-ai/fastify-auth-policy/server/lib/plugin";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { hasPermission } from "@jskit-ai/rbac-core/server";
+import { hasPermission } from "@jskit-ai/rbac-core/server/lib/rbac";
 import { API_PREFIX_SLASH } from "../../shared/apiPaths.js";
 import { resolveRequestSurface } from "../shared/resolveRequestSurface.js";
 

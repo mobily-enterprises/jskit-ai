@@ -7,7 +7,7 @@ import {
   AUTH_METHOD_KIND_PASSWORD,
   AUTH_METHOD_PASSWORD_ID,
   buildOAuthMethodId
-} from "@jskit-ai/access-core/authMethods";
+} from "@jskit-ai/access-core/server/authMethods";
 import {
   normalizeOAuthProviderCatalog,
   normalizeAppOAuthProvider

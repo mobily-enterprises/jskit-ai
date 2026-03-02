@@ -1,5 +1,5 @@
 import { redirect } from "@tanstack/vue-router";
-import { normalizeReturnToPath } from "@jskit-ai/access-core/utils";
+import { normalizeReturnToPath } from "@jskit-ai/access-core/server/utils";
 import { api } from "../../platform/http/api/index.js";
 import { composeGuardPolicies } from "../../framework/composeGuards.js";
 

@@ -1,1 +1,1 @@
-export * from "@jskit-ai/auth-provider-supabase-core/authRedirectUrls";
+export * from "@jskit-ai/auth-provider-supabase-core/server/lib/authRedirectUrls";

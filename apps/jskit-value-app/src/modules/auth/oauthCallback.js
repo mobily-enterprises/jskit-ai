@@ -8,8 +8,8 @@ import {
   OAUTH_QUERY_PARAM_INTENT,
   OAUTH_QUERY_PARAM_PROVIDER,
   OAUTH_QUERY_PARAM_RETURN_TO
-} from "@jskit-ai/access-core/oauthCallbackParams";
-import { normalizeOAuthIntent, normalizeReturnToPath } from "@jskit-ai/access-core/utils";
+} from "@jskit-ai/access-core/server/oauthCallbackParams";
+import { normalizeOAuthIntent, normalizeReturnToPath } from "@jskit-ai/access-core/server/utils";
 
 const OAUTH_PENDING_CONTEXT_STORAGE_KEY = "auth.oauth.pendingContext";
 

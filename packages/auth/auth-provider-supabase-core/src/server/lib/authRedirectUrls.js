@@ -2,10 +2,10 @@ import {
   OAUTH_QUERY_PARAM_INTENT,
   OAUTH_QUERY_PARAM_PROVIDER,
   OAUTH_QUERY_PARAM_RETURN_TO
-} from "@jskit-ai/access-core/oauthCallbackParams";
-import { normalizeOAuthProviderList } from "@jskit-ai/access-core/oauthProviders";
+} from "@jskit-ai/access-core/server/oauthCallbackParams";
+import { normalizeOAuthProviderList } from "@jskit-ai/access-core/server/oauthProviders";
 import { normalizeOAuthProviderFromCatalog } from "./oauthProviderCatalog.js";
-import { normalizeOAuthIntent, normalizeReturnToPath } from "@jskit-ai/access-core/utils";
+import { normalizeOAuthIntent, normalizeReturnToPath } from "@jskit-ai/access-core/server/utils";
 
 const PASSWORD_RESET_PATH = "reset-password";
 const OAUTH_LOGIN_PATH = "login";

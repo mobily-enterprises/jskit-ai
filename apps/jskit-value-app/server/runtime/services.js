@@ -1,4 +1,4 @@
-import { createService as createAuthService } from "@jskit-ai/auth-provider-supabase-core/server";
+import { createService as createAuthService } from "@jskit-ai/auth-provider-supabase-core/server/lib/service";
 import { createService as createHistoryModuleService } from "../modules/history/index.js";
 import { createService as createSmsService } from "@jskit-ai/sms-core/server";
 import { createService as createEmailService } from "@jskit-ai/email-core/server";

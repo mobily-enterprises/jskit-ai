@@ -1,4 +1,4 @@
-import { createApi } from "../authApi.js";
+import { createApi as createAuthApi } from "../authApi.js";
 import { runAuthSignOutFlow } from "../signOutFlow.js";
 
 const CLIENT_API = Object.freeze({

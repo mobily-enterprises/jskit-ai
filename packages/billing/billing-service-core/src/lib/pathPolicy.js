@@ -1,4 +1,4 @@
-import { normalizeReturnToPath } from "@jskit-ai/access-core/utils";
+import { normalizeReturnToPath } from "@jskit-ai/access-core/server/utils";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 
 function normalizeBillingPath(value, { fieldName }) {

@@ -9,9 +9,9 @@ import {
   AUTH_PASSWORD_MIN_LENGTH,
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,
   AUTH_REFRESH_TOKEN_MAX_LENGTH
-} from "@jskit-ai/access-core/authConstraints";
-import { AUTH_METHOD_IDS, AUTH_METHOD_KINDS } from "@jskit-ai/access-core/authMethods";
-import { OAUTH_PROVIDER_ID_PATTERN } from "@jskit-ai/access-core/oauthProviders";
+} from "@jskit-ai/access-core/server/authConstraints";
+import { AUTH_METHOD_IDS, AUTH_METHOD_KINDS } from "@jskit-ai/access-core/server/authMethods";
+import { OAUTH_PROVIDER_ID_PATTERN } from "@jskit-ai/access-core/server/oauthProviders";
 import { enumSchema } from "@jskit-ai/http-contracts/errorResponses";
 
 const registerCredentials = Type.Object(

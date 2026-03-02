@@ -19,12 +19,12 @@ import {
   findAuthMethodById,
   findLinkedIdentityByProvider,
   buildSecurityStatusFromAuthMethodsStatus
-} from "@jskit-ai/auth-provider-supabase-core/test-utils";
+} from "@jskit-ai/auth-provider-supabase-core/server/lib/test-utils";
 import {
   AUTH_ACCESS_TOKEN_MAX_LENGTH,
   AUTH_RECOVERY_TOKEN_MAX_LENGTH,
   AUTH_REFRESH_TOKEN_MAX_LENGTH
-} from "@jskit-ai/access-core/authConstraints";
+} from "@jskit-ai/access-core/server/authConstraints";
 
 test("auth helper error mapping covers provider-linking edge cases", () => {
   const alreadyLinked = mapAuthError(

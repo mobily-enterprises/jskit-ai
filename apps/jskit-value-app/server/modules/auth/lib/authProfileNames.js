@@ -1,1 +1,1 @@
-export * from "@jskit-ai/auth-provider-supabase-core/authProfileNames";
+export * from "@jskit-ai/auth-provider-supabase-core/server/lib/authProfileNames";

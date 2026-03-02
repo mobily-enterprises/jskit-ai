@@ -6,7 +6,7 @@ import {
   normalizeBatchSize,
   normalizeCutoffDateOrThrow
 } from "@jskit-ai/jskit-knex/retention";
-import { normalizeEmail } from "@jskit-ai/access-core/utils";
+import { normalizeEmail } from "@jskit-ai/access-core/server/utils";
 import { coerceWorkspaceColor } from "@jskit-ai/workspace-console-core/workspaceColors";
 
 function mapWorkspaceInviteRowRequired(row) {

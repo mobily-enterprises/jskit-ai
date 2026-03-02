@@ -23,12 +23,12 @@ test("auth helper tests import package test seam instead of app-local auth lib c
     assert.equal(
       FORBIDDEN_IMPORT_PATTERN.test(source),
       false,
-      `${fileName} imports app-local auth lib files; use @jskit-ai/auth-provider-supabase-core/test-utils instead.`
+      `${fileName} imports app-local auth lib files; use @jskit-ai/auth-provider-supabase-core/server/lib/test-utils instead.`
     );
     assert.equal(
       REQUIRED_IMPORT_PATTERN.test(source),
       true,
-      `${fileName} must import auth helpers from @jskit-ai/auth-provider-supabase-core/test-utils.`
+      `${fileName} must import auth helpers from @jskit-ai/auth-provider-supabase-core/server/lib/test-utils.`
     );
   }
 });

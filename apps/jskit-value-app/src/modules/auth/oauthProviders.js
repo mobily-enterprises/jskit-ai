@@ -1,4 +1,4 @@
-import { normalizeOAuthProviderId } from "@jskit-ai/access-core/oauthProviders";
+import { normalizeOAuthProviderId } from "@jskit-ai/access-core/server/oauthProviders";
 
 const APP_DEFAULT_OAUTH_PROVIDERS = Object.freeze([
   Object.freeze({

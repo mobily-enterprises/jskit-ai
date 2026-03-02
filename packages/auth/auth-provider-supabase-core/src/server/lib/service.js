@@ -4,9 +4,9 @@ import {
   AUTH_METHOD_PASSWORD_ID,
   AUTH_METHOD_PASSWORD_PROVIDER,
   buildOAuthMethodId
-} from "@jskit-ai/access-core/authMethods";
-import { normalizeEmail } from "@jskit-ai/access-core/utils";
-import { validators } from "@jskit-ai/access-core/validators";
+} from "@jskit-ai/access-core/server/authMethods";
+import { normalizeEmail } from "@jskit-ai/access-core/server/utils";
+import { validators } from "@jskit-ai/access-core/server/validators";
 import {
   isTransientAuthMessage,
   isTransientSupabaseError,

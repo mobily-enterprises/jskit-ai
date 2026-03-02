@@ -1,5 +1,5 @@
 import { redirect } from "@tanstack/vue-router";
-import { normalizeReturnToPath } from "@jskit-ai/access-core/utils";
+import { normalizeReturnToPath } from "@jskit-ai/access-core/server/utils";
 
 function resolveConsoleStore(consoleStore) {
   if (consoleStore && typeof consoleStore === "object") {

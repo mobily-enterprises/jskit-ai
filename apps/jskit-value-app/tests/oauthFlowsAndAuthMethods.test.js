@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { createOauthFlows } from "@jskit-ai/auth-provider-supabase-core/test-utils";
+import { createOauthFlows } from "@jskit-ai/auth-provider-supabase-core/server/lib/test-utils";
 import {
   AUTH_METHOD_DEFINITIONS,
   AUTH_METHOD_EMAIL_OTP_ID,
@@ -12,7 +12,7 @@ import {
   buildOAuthMethodId,
   findAuthMethodDefinition,
   parseAuthMethodId
-} from "@jskit-ai/access-core/authMethods";
+} from "@jskit-ai/access-core/server/authMethods";
 
 function createOauthFixture(overrides = {}) {
   const calls = {

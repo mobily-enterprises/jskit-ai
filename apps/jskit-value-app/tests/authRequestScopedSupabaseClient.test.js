@@ -5,7 +5,7 @@ import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import {
   createAccountFlows,
   createPasswordSecurityFlows
-} from "@jskit-ai/auth-provider-supabase-core/test-utils";
+} from "@jskit-ai/auth-provider-supabase-core/server/lib/test-utils";
 
 function createValidationError(fieldErrors) {
   return new AppError(400, "Validation failed.", {

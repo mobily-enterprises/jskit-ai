@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/vue-query";
 import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";
 import { api } from "../../platform/http/api/index.js";
 import { useAuthStore } from "../../app/state/authStore.js";
-import { validators } from "@jskit-ai/access-core/validators";
+import { validators } from "@jskit-ai/access-core/server/validators";
 
 function toSingleMessage(error, fallback) {
   if (error?.fieldErrors && typeof error.fieldErrors === "object") {

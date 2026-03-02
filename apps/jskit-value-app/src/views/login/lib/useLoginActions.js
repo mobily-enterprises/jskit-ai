@@ -1,6 +1,6 @@
 import { normalizeAppOAuthProvider } from "../../../modules/auth/oauthProviders.js";
-import { validators } from "@jskit-ai/access-core/validators";
-import { normalizeEmail } from "@jskit-ai/access-core/utils";
+import { validators } from "@jskit-ai/access-core/server/validators";
+import { normalizeEmail } from "@jskit-ai/access-core/server/utils";
 import { api } from "../../../platform/http/api/index.js";
 import {
   clearPendingOAuthContext,

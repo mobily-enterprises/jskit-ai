@@ -7,8 +7,8 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
     "./server": "./src/server/index.js",
+    "./server/lib/rbac": "./src/server/lib/rbac.js",
     "./client": "./src/client/index.js"
   }
 }

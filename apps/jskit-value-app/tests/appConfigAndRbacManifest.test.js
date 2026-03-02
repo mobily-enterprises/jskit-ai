@@ -13,7 +13,7 @@ import {
   manifestIncludesPermission,
   normalizeManifest,
   resolveRolePermissions
-} from "@jskit-ai/rbac-core/server";
+} from "@jskit-ai/rbac-core/server/lib/rbac";
 
 test("resolveAppConfig normalizes tenancy, limits, feature gates, and manifest path", () => {
   const personal = resolveAppConfig({

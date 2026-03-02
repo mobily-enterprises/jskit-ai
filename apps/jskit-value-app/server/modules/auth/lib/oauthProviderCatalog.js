@@ -1,1 +1,1 @@
-export * from "@jskit-ai/auth-provider-supabase-core/oauthProviderCatalog";
+export * from "@jskit-ai/auth-provider-supabase-core/server/lib/oauthProviderCatalog";

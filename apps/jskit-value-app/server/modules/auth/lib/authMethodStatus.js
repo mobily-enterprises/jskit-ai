@@ -1,1 +1,1 @@
-export * from "@jskit-ai/auth-provider-supabase-core/authMethodStatus";
+export * from "@jskit-ai/auth-provider-supabase-core/server/lib/authMethodStatus";

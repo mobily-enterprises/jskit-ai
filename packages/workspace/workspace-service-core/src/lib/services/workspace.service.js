@@ -1,6 +1,6 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { OWNER_ROLE_ID, resolveRolePermissions } from "@jskit-ai/rbac-core/server";
-import { normalizeEmail } from "@jskit-ai/access-core/utils";
+import { OWNER_ROLE_ID, resolveRolePermissions } from "@jskit-ai/rbac-core/server/lib/rbac";
+import { normalizeEmail } from "@jskit-ai/access-core/server/utils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 import { normalizeWorkspaceProvisioningMode } from "@jskit-ai/runtime-env-core/appRuntimePolicy";
 import { toSlugPart, buildWorkspaceName, buildWorkspaceBaseSlug } from "../policies/workspaceNaming.js";
@@ -21,7 +21,7 @@ import {
   createMembershipIndexes
 } from "@jskit-ai/workspace-console-core/workspaceAccess";
 import { createWorkspaceSettingsDefaults } from "../policies/workspacePolicyDefaults.js";
-import { encodeInviteTokenHash } from "@jskit-ai/access-core/inviteTokens";
+import { encodeInviteTokenHash } from "@jskit-ai/access-core/server/inviteTokens";
 import { listInviteMembershipsByWorkspaceId } from "../lookups/workspaceMembershipLookup.js";
 
 const DEFAULT_SURFACE_ID = "app";

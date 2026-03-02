@@ -1,1 +1,1 @@
-export * from "@jskit-ai/auth-provider-supabase-core/passwordSecurityFlows";
+export * from "@jskit-ai/auth-provider-supabase-core/server/lib/passwordSecurityFlows";

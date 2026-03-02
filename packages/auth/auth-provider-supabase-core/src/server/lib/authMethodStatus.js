@@ -9,7 +9,7 @@ import {
   AUTH_METHOD_PASSWORD_PROVIDER,
   buildAuthMethodDefinitions,
   buildOAuthMethodId
-} from "@jskit-ai/access-core/authMethods";
+} from "@jskit-ai/access-core/server/authMethods";
 
 function normalizeIdentityProviderId(value) {
   return String(value || "")

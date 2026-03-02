@@ -1,4 +1,4 @@
-import { normalizeEmail } from "@jskit-ai/access-core/utils";
+import { normalizeEmail } from "@jskit-ai/access-core/server/utils";
 
 function normalizeDenyUserIds(rawUserIds) {
   if (!Array.isArray(rawUserIds)) {

@@ -7,9 +7,18 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/server/index.js",
     "./server": "./src/server/index.js",
-    "./client": "./src/client/index.js"
+    "./server/controllers/AuthController": "./src/server/controllers/AuthController.js",
+    "./server/services/AuthWebService": "./src/server/services/AuthWebService.js",
+    "./server/schema/index": "./src/server/schema/index.js",
+    "./server/routes/authRoutes": "./src/server/routes/authRoutes.js",
+    "./client": "./src/client/index.js",
+    "./client/views/login/DefaultLoginView": "./src/client/views/login/DefaultLoginView.vue",
+    "./client/views/auth/SignOutView": "./src/client/views/auth/SignOutView.vue",
+    "./client/runtime/authGuardRuntime": "./src/client/runtime/authGuardRuntime.js",
+    "./client/runtime/authHttpClient": "./src/client/runtime/authHttpClient.js",
+    "./client/runtime/useLoginView": "./src/client/runtime/useLoginView.js",
+    "./client/runtime/useSignOut": "./src/client/runtime/useSignOut.js"
   },
   "dependencies": {
     "@jskit-ai/access-core": "0.1.0",

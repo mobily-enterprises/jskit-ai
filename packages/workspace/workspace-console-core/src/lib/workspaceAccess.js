@@ -1,4 +1,4 @@
-import * as membershipAccess from "@jskit-ai/access-core/membershipAccess";
+import * as membershipAccess from "@jskit-ai/access-core/server/membershipAccess";
 
 export const resolveMembershipRoleId = membershipAccess.resolveMembershipRoleId;
 export const resolveMembershipStatus = membershipAccess.resolveMembershipStatus;

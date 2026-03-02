@@ -1,4 +1,4 @@
-import { createAuthActionContributor } from "@jskit-ai/auth-provider-supabase-core/server";
+import { createAuthActionContributor } from "@jskit-ai/auth-provider-supabase-core/server/lib/actions/auth.contributor";
 import { createWorkspaceActionContributor } from "@jskit-ai/workspace-service-core/server";
 import { createConsoleActionContributor } from "@jskit-ai/workspace-console-service-core/server";
 import { createConsoleBillingActionContributor } from "@jskit-ai/billing-service-core/actions/consoleBilling";
