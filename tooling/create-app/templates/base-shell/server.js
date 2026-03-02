@@ -18,6 +18,12 @@ const surfaceRuntime = createSurfaceRuntime({
 
 async function createServer() {
   const app = Fastify({ logger: true });
+  app.get("/api/v1/health", async () => {
+    return {
+      ok: true,
+      app: "__APP_NAME__"
+    };
+  });
   const runtimeEnv = resolveRuntimeEnv();
   registerSurfaceRequestConstraint({
     fastify: app,

@@ -1,5 +1,5 @@
 <script setup>
-import DefaultLoginView from "@jskit-ai/auth-web/client/views/login/DefaultLoginView";
+import DefaultLoginView from "@jskit-ai/auth-web/client/views/DefaultLoginView";
 
 const props = defineProps({
   loginComponent: {

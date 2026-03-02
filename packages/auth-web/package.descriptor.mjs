@@ -120,13 +120,12 @@ export default Object.freeze({
           "purpose": "Public sign-out route that clears session then returns to login."
         }
       ],
-      "elements": []
-      ,
+      "elements": [],
       "overrides": [
         {
           "id": "loginComponent",
           "description": "Hosts can override the login experience by pointing this prop at their own component (the copied login view simply re-exports the default module component).",
-          "default": "@jskit-ai/auth-web/client/views/login/DefaultLoginView"
+          "default": "@jskit-ai/auth-web/client/views/DefaultLoginView"
         }
       ]
     }
@@ -157,7 +156,7 @@ export default Object.freeze({
       {
         "from": "templates/src/views/auth/SignOutView.vue",
         "to": "src/views/auth/SignOutView.vue",
-        "reason": "Install app-owned sign-out route view scaffold.",
+        "reason": "Install minimal sign-out container that renders the module-provided SignOutView by default (edit the scaffolded file to customize).",
         "category": "auth-web",
         "id": "auth-view-signout"
       },
