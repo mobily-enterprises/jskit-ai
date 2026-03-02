@@ -7,7 +7,6 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/index.js",
     "./contracts": "./src/lib/contracts.js",
     "./registry": "./src/lib/registry.js",
     "./executionContext": "./src/lib/executionContext.js",
@@ -20,9 +19,8 @@
     "./realtimePublish": "./src/lib/realtimePublish.js",
     "./actionContributorHelpers": "./src/lib/actionContributorHelpers.js",
     "./server": "./src/server/index.js",
-    "./client": "./src/client/index.js"
-  },
-  "dependencies": {
-    "dotenv": "^17.3.1"
+    "./server/providers/ActionRuntimeCoreServiceProvider": "./src/server/providers/ActionRuntimeCoreServiceProvider.js",
+    "./client": "./src/client/index.js",
+    "./client/providers/ActionRuntimeCoreClientProvider": "./src/client/providers/ActionRuntimeCoreClientProvider.js"
   }
 }

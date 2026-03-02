@@ -6,12 +6,16 @@ export default Object.freeze({
     "auth-supabase-url": {
       "required": true,
       "values": [],
+      "pattern": "^https://[^\\s]+\\.supabase\\.co/?$",
+      "patternHint": "Expected format: https://YOUR-PROJECT.supabase.co",
       "promptLabel": "Supabase URL",
       "promptHint": "https://YOUR-PROJECT.supabase.co"
     },
     "auth-supabase-publishable-key": {
       "required": true,
       "values": [],
+      "pattern": "^sb_publishable_[^\\s]+$",
+      "patternHint": "Expected format: sb_publishable_...",
       "promptLabel": "Supabase publishable key",
       "promptHint": "sb_publishable_..."
     },
@@ -19,6 +23,8 @@ export default Object.freeze({
       "required": true,
       "values": [],
       "defaultValue": "http://localhost:5173",
+      "pattern": "^https?://[^\\s]+$",
+      "patternHint": "Expected format: http://localhost:5173",
       "promptLabel": "App public URL",
       "promptHint": "Browser URL used for auth redirects"
     }
@@ -54,6 +60,7 @@ export default Object.freeze({
         "@jskit-ai/access-core": "0.1.0",
         "@jskit-ai/action-runtime-core": "0.1.0",
         "@jskit-ai/framework-core": "0.1.0",
+        "dotenv": "^16.6.1",
         "@supabase/supabase-js": "^2.57.4",
         "jose": "^6.1.0"
       },

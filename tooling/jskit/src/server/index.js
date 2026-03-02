@@ -418,6 +418,56 @@ function interpolateOptionValue(rawValue, options, ownerId, key) {
   });
 }
 
+function readOptionAllowedValues(optionSchema) {
+  return ensureArray(optionSchema?.values)
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+}
+
+function validateResolvedOptionValue({
+  ownerType,
+  ownerId,
+  optionName,
+  optionSchema,
+  value
+}) {
+  const required = Boolean(optionSchema?.required);
+  const resolvedValue = String(value || "").trim();
+
+  if (required && !resolvedValue) {
+    throw createCliError(`${ownerType} ${ownerId} requires option ${optionName}.`);
+  }
+
+  const allowedValues = readOptionAllowedValues(optionSchema);
+  if (allowedValues.length > 0 && resolvedValue && !allowedValues.includes(resolvedValue)) {
+    throw createCliError(
+      `Invalid value for option ${optionName} in ${ownerType} ${ownerId}. Expected one of: ${allowedValues.join(", ")}`
+    );
+  }
+
+  const patternSource = String(optionSchema?.pattern || "").trim();
+  if (!patternSource || !resolvedValue) {
+    return resolvedValue;
+  }
+
+  let pattern;
+  try {
+    pattern = new RegExp(patternSource);
+  } catch {
+    throw createCliError(`Invalid option pattern for ${ownerType} ${ownerId} option ${optionName}: ${patternSource}`);
+  }
+
+  if (!pattern.test(resolvedValue)) {
+    const hint = String(optionSchema?.patternHint || "").trim();
+    const hintSuffix = hint ? ` ${hint}` : "";
+    throw createCliError(
+      `Invalid value for option ${optionName} in ${ownerType} ${ownerId}.${hintSuffix}`.trim()
+    );
+  }
+
+  return resolvedValue;
+}
+
 function escapeRegExp(value) {
   return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -490,6 +540,28 @@ function validatePackageDescriptorShape(descriptor, descriptorPath) {
     throw createCliError(
       `Invalid package descriptor at ${descriptorPath}: runtime.server.providers or runtime.client.providers must be declared.`
     );
+  }
+
+  const optionSchemas = ensureObject(normalized.options);
+  for (const [optionName, rawSchema] of Object.entries(optionSchemas)) {
+    const schema = ensureObject(rawSchema);
+
+    if (schema.values != null && !Array.isArray(schema.values)) {
+      throw createCliError(
+        `Invalid package descriptor at ${descriptorPath}: option ${optionName} "values" must be an array when provided.`
+      );
+    }
+
+    const patternSource = String(schema.pattern || "").trim();
+    if (patternSource) {
+      try {
+        new RegExp(patternSource);
+      } catch {
+        throw createCliError(
+          `Invalid package descriptor at ${descriptorPath}: option ${optionName} has invalid pattern ${patternSource}.`
+        );
+      }
+    }
   }
 
   return normalized;
@@ -609,6 +681,117 @@ function createLocalPackageSpecifier(packageEntry) {
   return `file:node_modules/@jskit-ai/jskit/${packageEntry.relativeDir}`;
 }
 
+function resolvePackageIdInput(rawPackageId, { packageRegistry, installedPackageIds = [] } = {}) {
+  const packageIdInput = String(rawPackageId || "").trim();
+  if (!packageIdInput) {
+    return "";
+  }
+
+  const availablePackageIds = new Set([
+    ...sortStrings([...packageRegistry.keys()]),
+    ...sortStrings(ensureArray(installedPackageIds).map((value) => String(value)))
+  ]);
+
+  if (availablePackageIds.has(packageIdInput)) {
+    return packageIdInput;
+  }
+
+  const candidateIds = new Set();
+  if (!packageIdInput.startsWith("@")) {
+    const scopedCandidate = `@jskit-ai/${packageIdInput}`;
+    if (availablePackageIds.has(scopedCandidate)) {
+      candidateIds.add(scopedCandidate);
+    }
+  }
+
+  for (const packageId of availablePackageIds) {
+    if (packageId.endsWith(`/${packageIdInput}`)) {
+      candidateIds.add(packageId);
+    }
+  }
+
+  const matches = sortStrings([...candidateIds]);
+  if (matches.length === 1) {
+    return matches[0];
+  }
+  if (matches.length > 1) {
+    throw createCliError(`Ambiguous package id "${packageIdInput}". Matches: ${matches.join(", ")}`);
+  }
+
+  return "";
+}
+
+function getDeclaredCapabilities(descriptor, fieldName) {
+  return ensureArray(ensureObject(descriptor.capabilities)[fieldName])
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+}
+
+function validateCapabilityRequirementsForPackageSet({
+  packageIds,
+  packageRegistry,
+  operationLabel = "install"
+} = {}) {
+  const plannedPackageIds = sortStrings([...new Set(ensureArray(packageIds).map((value) => String(value || "").trim()).filter(Boolean))]);
+  const plannedEntries = plannedPackageIds
+    .filter((packageId) => packageRegistry.has(packageId))
+    .map((packageId) => packageRegistry.get(packageId));
+
+  const providersByCapability = new Map();
+  for (const packageEntry of plannedEntries) {
+    for (const capabilityId of getDeclaredCapabilities(packageEntry.descriptor, "provides")) {
+      if (!providersByCapability.has(capabilityId)) {
+        providersByCapability.set(capabilityId, new Set());
+      }
+      providersByCapability.get(capabilityId).add(packageEntry.packageId);
+    }
+  }
+
+  const missingByCapability = new Map();
+  for (const packageEntry of plannedEntries) {
+    for (const capabilityId of getDeclaredCapabilities(packageEntry.descriptor, "requires")) {
+      const providers = providersByCapability.get(capabilityId);
+      if (providers && providers.size > 0) {
+        continue;
+      }
+
+      if (!missingByCapability.has(capabilityId)) {
+        missingByCapability.set(capabilityId, new Set());
+      }
+      missingByCapability.get(capabilityId).add(packageEntry.packageId);
+    }
+  }
+
+  if (missingByCapability.size < 1) {
+    return;
+  }
+
+  const knownProviderPackagesByCapability = new Map();
+  for (const packageEntry of packageRegistry.values()) {
+    for (const capabilityId of getDeclaredCapabilities(packageEntry.descriptor, "provides")) {
+      if (!knownProviderPackagesByCapability.has(capabilityId)) {
+        knownProviderPackagesByCapability.set(capabilityId, new Set());
+      }
+      knownProviderPackagesByCapability.get(capabilityId).add(packageEntry.packageId);
+    }
+  }
+
+  const lines = [`Cannot ${operationLabel}; capability requirements would be unmet:`];
+  for (const capabilityId of sortStrings([...missingByCapability.keys()])) {
+    const requiredBy = sortStrings([...missingByCapability.get(capabilityId)]);
+    lines.push(`- ${capabilityId} (required by: ${requiredBy.join(", ")})`);
+
+    const knownProviders = sortStrings([...(knownProviderPackagesByCapability.get(capabilityId) || new Set())]);
+    if (knownProviders.length > 0) {
+      lines.push(`  available providers: ${knownProviders.join(", ")}`);
+    } else {
+      lines.push("  available providers: none in current packages/");
+    }
+  }
+
+  throw createCliError(lines.join("\n"));
+}
+
 function resolveLocalDependencyOrder(initialPackageIds, packageRegistry) {
   const ordered = [];
   const visited = new Set();
@@ -661,17 +844,29 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io) {
     const schema = ensureObject(optionSchemas[optionName]);
     const inlineValue = inlineOptions[optionName];
     if (typeof inlineValue === "string" && inlineValue.trim()) {
-      resolved[optionName] = inlineValue.trim();
+      resolved[optionName] = validateResolvedOptionValue({
+        ownerType: "package",
+        ownerId: packageEntry.packageId,
+        optionName,
+        optionSchema: schema,
+        value: inlineValue
+      });
       continue;
     }
 
     if (typeof schema.defaultValue === "string" && schema.defaultValue.trim()) {
-      resolved[optionName] = schema.defaultValue.trim();
+      resolved[optionName] = validateResolvedOptionValue({
+        ownerType: "package",
+        ownerId: packageEntry.packageId,
+        optionName,
+        optionSchema: schema,
+        value: schema.defaultValue
+      });
       continue;
     }
 
     if (schema.required) {
-      resolved[optionName] = await promptForRequiredOption({
+      const promptedValue = await promptForRequiredOption({
         ownerType: "package",
         ownerId: packageEntry.packageId,
         optionName,
@@ -679,10 +874,23 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io) {
         stdin: io.stdin,
         stdout: io.stdout
       });
+      resolved[optionName] = validateResolvedOptionValue({
+        ownerType: "package",
+        ownerId: packageEntry.packageId,
+        optionName,
+        optionSchema: schema,
+        value: promptedValue
+      });
       continue;
     }
 
-    resolved[optionName] = "";
+    resolved[optionName] = validateResolvedOptionValue({
+      ownerType: "package",
+      ownerId: packageEntry.packageId,
+      optionName,
+      optionSchema: schema,
+      value: ""
+    });
   }
 
   return resolved;
@@ -1011,8 +1219,7 @@ async function commandShow({ positional, options, stdout }) {
   const packageRegistry = await loadPackageRegistry();
   const bundleRegistry = await loadBundleRegistry();
 
-  if (packageRegistry.has(id)) {
-    const packageEntry = packageRegistry.get(id);
+  function writePackagePayload(packageEntry) {
     const descriptor = packageEntry.descriptor;
     const payload = {
       kind: "package",
@@ -1048,6 +1255,10 @@ async function commandShow({ positional, options, stdout }) {
         stdout.write(`- ${optionName} [${required}]${defaultSuffix}\n`);
       }
     }
+  }
+
+  if (packageRegistry.has(id)) {
+    writePackagePayload(packageRegistry.get(id));
     return 0;
   }
 
@@ -1078,14 +1289,20 @@ async function commandShow({ positional, options, stdout }) {
     return 0;
   }
 
+  const resolvedPackageId = resolvePackageIdInput(id, { packageRegistry });
+  if (resolvedPackageId && packageRegistry.has(resolvedPackageId)) {
+    writePackagePayload(packageRegistry.get(resolvedPackageId));
+    return 0;
+  }
+
   throw createCliError(`Unknown package or bundle: ${id}`);
 }
 
 async function commandAdd({ positional, options, cwd, io }) {
   const targetType = String(positional[0] || "").trim();
-  const targetId = String(positional[1] || "").trim();
+  const rawTargetId = String(positional[1] || "").trim();
 
-  if (!targetType || !targetId) {
+  if (!targetType || !rawTargetId) {
     throw createCliError("add requires target type and id (add bundle <id> | add package <id>).", {
       showUsage: true
     });
@@ -1099,6 +1316,12 @@ async function commandAdd({ positional, options, cwd, io }) {
   const appRoot = await resolveAppRootFromCwd(cwd);
   const { packageJsonPath, packageJson } = await loadAppPackageJson(appRoot);
   const { lockPath, lock } = await loadLockFile(appRoot);
+  const targetId = targetType === "package"
+    ? resolvePackageIdInput(rawTargetId, {
+      packageRegistry,
+      installedPackageIds: Object.keys(ensureObject(lock.installedPackages))
+    })
+    : rawTargetId;
 
   const targetPackageIds = targetType === "bundle"
     ? ensureArray(bundleRegistry.get(targetId)?.packages).map((value) => String(value))
@@ -1114,6 +1337,11 @@ async function commandAdd({ positional, options, cwd, io }) {
     targetPackageIds,
     packageRegistry
   );
+  validateCapabilityRequirementsForPackageSet({
+    packageIds: [...Object.keys(ensureObject(lock.installedPackages)), ...resolvedPackageIds],
+    packageRegistry,
+    operationLabel: `${targetType} ${targetId}`
+  });
 
   const resolvedOptionsByPackage = {};
   for (const packageId of resolvedPackageIds) {
@@ -1190,15 +1418,21 @@ async function commandAdd({ positional, options, cwd, io }) {
 
 async function commandUpdate({ positional, options, cwd, io }) {
   const targetType = String(positional[0] || "").trim();
-  const targetId = String(positional[1] || "").trim();
-  if (targetType !== "package" || !targetId) {
+  const targetIdInput = String(positional[1] || "").trim();
+  if (targetType !== "package" || !targetIdInput) {
     throw createCliError("update requires: update package <packageId>", { showUsage: true });
   }
 
+  const packageRegistry = await loadPackageRegistry();
   const appRoot = await resolveAppRootFromCwd(cwd);
   const { lock } = await loadLockFile(appRoot);
+  const installedPackageIds = Object.keys(ensureObject(lock.installedPackages));
+  const targetId = resolvePackageIdInput(targetIdInput, {
+    packageRegistry,
+    installedPackageIds
+  });
   if (!Object.prototype.hasOwnProperty.call(ensureObject(lock.installedPackages), targetId)) {
-    throw createCliError(`Package is not installed: ${targetId}`);
+    throw createCliError(`Package is not installed: ${targetIdInput}`);
   }
 
   return commandAdd({
@@ -1211,8 +1445,8 @@ async function commandUpdate({ positional, options, cwd, io }) {
 
 async function commandRemove({ positional, options, cwd, io }) {
   const targetType = String(positional[0] || "").trim();
-  const targetId = String(positional[1] || "").trim();
-  if (targetType !== "package" || !targetId) {
+  const targetIdInput = String(positional[1] || "").trim();
+  if (targetType !== "package" || !targetIdInput) {
     throw createCliError("remove requires: remove package <packageId>", { showUsage: true });
   }
 
@@ -1221,9 +1455,13 @@ async function commandRemove({ positional, options, cwd, io }) {
   const { packageJsonPath, packageJson } = await loadAppPackageJson(appRoot);
   const { lockPath, lock } = await loadLockFile(appRoot);
   const installed = ensureObject(lock.installedPackages);
+  const targetId = resolvePackageIdInput(targetIdInput, {
+    packageRegistry,
+    installedPackageIds: Object.keys(installed)
+  });
 
   if (!Object.prototype.hasOwnProperty.call(installed, targetId)) {
-    throw createCliError(`Package is not installed: ${targetId}`);
+    throw createCliError(`Package is not installed: ${targetIdInput}`);
   }
 
   const dependents = getInstalledDependents(lock, targetId, packageRegistry);
