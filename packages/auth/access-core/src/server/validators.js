@@ -30,7 +30,7 @@ function validateEmail(rawEmail) {
   };
 }
 
-function validateRegisterPassword(rawPassword) {
+function registerPassword(rawPassword) {
   const password = String(rawPassword || "");
   if (!password) {
     return {
@@ -52,7 +52,7 @@ function validateRegisterPassword(rawPassword) {
   };
 }
 
-function validateLoginPassword(rawPassword) {
+function loginPassword(rawPassword) {
   const password = String(rawPassword || "");
   if (!password) {
     return {
@@ -74,7 +74,7 @@ function validateLoginPassword(rawPassword) {
   };
 }
 
-function validateConfirmPassword(rawPassword, rawConfirmPassword) {
+function confirmPassword(rawPassword, rawConfirmPassword) {
   const password = String(rawPassword || "");
   const confirmPassword = String(rawConfirmPassword || "");
 
@@ -89,9 +89,13 @@ function validateConfirmPassword(rawPassword, rawConfirmPassword) {
   return "";
 }
 
+function resetPassword(rawPassword) {
+  return registerPassword(rawPassword);
+}
+
 function registerInput(payload = {}) {
   const emailCheck = validateEmail(payload.email);
-  const passwordCheck = validateRegisterPassword(payload.password);
+  const passwordCheck = registerPassword(payload.password);
   const fieldErrors = {};
 
   if (emailCheck.error) {
@@ -110,7 +114,7 @@ function registerInput(payload = {}) {
 
 function loginInput(payload = {}) {
   const emailCheck = validateEmail(payload.email);
-  const passwordCheck = validateLoginPassword(payload.password);
+  const passwordCheck = loginPassword(payload.password);
   const fieldErrors = {};
 
   if (emailCheck.error) {
@@ -142,7 +146,7 @@ function forgotPasswordInput(payload = {}) {
 }
 
 function resetPasswordInput(payload = {}) {
-  const passwordCheck = validateRegisterPassword(payload.password);
+  const passwordCheck = resetPassword(payload.password);
   const fieldErrors = {};
 
   if (passwordCheck.error) {
@@ -157,10 +161,10 @@ function resetPasswordInput(payload = {}) {
 
 export const validators = {
   email: (rawEmail) => validateEmail(rawEmail).error,
-  registerPassword: (rawPassword) => validateRegisterPassword(rawPassword).error,
-  loginPassword: (rawPassword) => validateLoginPassword(rawPassword).error,
-  resetPassword: (rawPassword) => validateRegisterPassword(rawPassword).error,
-  confirmPassword: ({ password, confirmPassword }) => validateConfirmPassword(password, confirmPassword),
+  registerPassword: (rawPassword) => registerPassword(rawPassword).error,
+  loginPassword: (rawPassword) => loginPassword(rawPassword).error,
+  resetPassword: (rawPassword) => resetPassword(rawPassword).error,
+  confirmPassword: ({ password, confirmPassword: confirmPasswordValue }) => confirmPassword(password, confirmPasswordValue),
   registerInput,
   loginInput,
   forgotPasswordInput,

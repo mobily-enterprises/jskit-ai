@@ -671,8 +671,9 @@ function isProviderDefinition(value) {
       (prototype && typeof prototype.boot === "function") ||
       (prototype && typeof prototype.shutdown === "function")
   );
-  const hasProviderId = value.id !== undefined;
-  return hasLifecycleMethods || hasProviderId;
+  const rawId = value.id;
+  const hasProviderId = rawId !== undefined && rawId !== null && String(rawId).trim().length > 0;
+  return hasLifecycleMethods && hasProviderId;
 }
 
 async function validateServerProviderContracts(availablePackages) {
