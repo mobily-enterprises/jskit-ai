@@ -1,9 +1,6 @@
 import { createSurfacePathHelpers } from "./paths.js";
 import { createSurfaceRegistry, normalizeSurfaceId } from "./registry.js";
 
-const ROUTE_SCOPE_GLOBAL = "global";
-const ROUTE_SCOPE_SURFACE = "surface";
-
 function uniqueSurfaceIds(ids) {
   const seen = new Set();
   const ordered = [];
@@ -104,72 +101,35 @@ function createSurfaceRuntime(options = {}) {
   };
 }
 
-function normalizeRoutePath(pathValue) {
-  const rawPath = String(pathValue || "").trim();
-  if (!rawPath) {
-    throw new Error("Client route path is required.");
-  }
-  if (!rawPath.startsWith("/") || rawPath.startsWith("//")) {
-    throw new Error(`Client route path must start with \"/\": ${rawPath}`);
-  }
-  return rawPath;
-}
 
-function normalizeRouteScope(scopeValue) {
-  const normalized = String(scopeValue || ROUTE_SCOPE_SURFACE)
-    .trim()
-    .toLowerCase();
-  if (normalized === ROUTE_SCOPE_GLOBAL || normalized === ROUTE_SCOPE_SURFACE) {
-    return normalized;
-  }
-  throw new Error(`Client route scope must be \"${ROUTE_SCOPE_GLOBAL}\" or \"${ROUTE_SCOPE_SURFACE}\".`);
-}
-
-function normalizeRouteMeta(metaValue) {
-  return metaValue && typeof metaValue === "object" && !Array.isArray(metaValue) ? { ...metaValue } : {};
-}
-
-function normalizeClientModuleRouteDefinition(routeDefinition, { packageId, routeIndex } = {}) {
-  const route =
-    routeDefinition && typeof routeDefinition === "object" && !Array.isArray(routeDefinition) ? routeDefinition : null;
-  if (!route) {
-    throw new Error(`Client route #${routeIndex} from ${packageId} must be an object.`);
+function normalizeClientModuleRoute(route, { packageId, index }) {
+  const candidate = route && typeof route === "object" && !Array.isArray(route) ? route : null;
+  if (!candidate) {
+    throw new Error(`Client route #${index} from ${packageId} must be an object.`);
   }
 
-  const routeId = String(route.id || "").trim();
-  if (!routeId) {
-    throw new Error(`Client route #${routeIndex} from ${packageId} requires id.`);
+  const id = String(candidate.id || "").trim();
+  const path = String(candidate.path || "").trim();
+  if (!id) {
+    throw new Error(`Client route #${index} from ${packageId} requires id.`);
   }
-
-  const path = normalizeRoutePath(route.path);
-  const scope = normalizeRouteScope(route.scope);
-  const component = route.component;
-  if (!component) {
-    throw new Error(`Client route \"${routeId}\" from ${packageId} requires component.`);
+  if (!path || !path.startsWith("/") || path.startsWith("//")) {
+    throw new Error(`Client route "${id}" from ${packageId} must have an absolute path starting with "/".`);
   }
-
-  const surface = scope === ROUTE_SCOPE_SURFACE ? normalizeSurfaceId(route.surface) : "";
-  if (scope === ROUTE_SCOPE_SURFACE && !surface) {
-    throw new Error(`Client route \"${routeId}\" from ${packageId} with scope \"surface\" requires surface.`);
+  if (!candidate.component) {
+    throw new Error(`Client route "${id}" from ${packageId} requires component.`);
   }
-
-  const existingMeta = normalizeRouteMeta(route.meta);
-  const existingJskitMeta = normalizeRouteMeta(existingMeta.jskit);
 
   return Object.freeze({
-    ...route,
-    id: routeId,
+    ...candidate,
+    id,
     path,
-    scope,
-    surface,
     meta: {
-      ...existingMeta,
+      ...(candidate.meta && typeof candidate.meta === "object" && !Array.isArray(candidate.meta) ? candidate.meta : {}),
       jskit: {
-        ...existingJskitMeta,
+        ...((candidate.meta && candidate.meta.jskit && typeof candidate.meta.jskit === "object" && !Array.isArray(candidate.meta.jskit)) ? candidate.meta.jskit : {}),
         packageId,
-        routeId,
-        scope,
-        surface: surface || undefined
+        routeId: id
       }
     }
   });
@@ -177,9 +137,9 @@ function normalizeClientModuleRouteDefinition(routeDefinition, { packageId, rout
 
 function collectClientModuleRoutes({ clientModules = [] } = {}) {
   const entries = Array.isArray(clientModules) ? clientModules : [];
-  const collectedRoutes = [];
-  const seenRouteIds = new Set();
-  const seenRoutePaths = new Set();
+  const routes = [];
+  const seenIds = new Set();
+  const seenPaths = new Set();
 
   for (const entry of entries) {
     const packageId = String(entry?.packageId || "").trim();
@@ -187,8 +147,7 @@ function collectClientModuleRoutes({ clientModules = [] } = {}) {
       throw new Error("collectClientModuleRoutes requires entry.packageId.");
     }
 
-    const clientModule = entry?.module && typeof entry.module === "object" ? entry.module : {};
-    const registerClientRoutes = clientModule.registerClientRoutes;
+    const registerClientRoutes = entry?.module?.registerClientRoutes;
     if (typeof registerClientRoutes === "undefined") {
       continue;
     }
@@ -196,56 +155,32 @@ function collectClientModuleRoutes({ clientModules = [] } = {}) {
       throw new Error(`Package ${packageId} exports registerClientRoutes but it is not a function.`);
     }
 
-    let routeCounter = 0;
-    const registerRoute = (routeDefinition) => {
-      routeCounter += 1;
-      const route = normalizeClientModuleRouteDefinition(routeDefinition, {
-        packageId,
-        routeIndex: routeCounter
-      });
-
-      if (seenRouteIds.has(route.id)) {
-        throw new Error(`Client route id \"${route.id}\" is duplicated.`);
+    let index = 0;
+    const registerRoute = (route) => {
+      index += 1;
+      const normalizedRoute = normalizeClientModuleRoute(route, { packageId, index });
+      if (seenIds.has(normalizedRoute.id)) {
+        throw new Error(`Client route id "${normalizedRoute.id}" is duplicated.`);
       }
-      if (seenRoutePaths.has(route.path)) {
-        throw new Error(`Client route path \"${route.path}\" is duplicated.`);
+      if (seenPaths.has(normalizedRoute.path)) {
+        throw new Error(`Client route path "${normalizedRoute.path}" is duplicated.`);
       }
-
-      seenRouteIds.add(route.id);
-      seenRoutePaths.add(route.path);
-      collectedRoutes.push(route);
+      seenIds.add(normalizedRoute.id);
+      seenPaths.add(normalizedRoute.path);
+      routes.push(normalizedRoute);
     };
 
-    const registerRoutes = (routeDefinitions) => {
-      const definitions = Array.isArray(routeDefinitions) ? routeDefinitions : [];
-      for (const routeDefinition of definitions) {
-        registerRoute(routeDefinition);
+    const registerRoutes = (routeList) => {
+      const items = Array.isArray(routeList) ? routeList : [];
+      for (const route of items) {
+        registerRoute(route);
       }
     };
 
-    registerClientRoutes(
-      Object.freeze({
-        packageId,
-        registerRoute,
-        registerRoutes
-      })
-    );
+    registerClientRoutes(Object.freeze({ packageId, registerRoute, registerRoutes }));
   }
 
-  return Object.freeze([...collectedRoutes]);
-}
-
-function toRouteScopeMetadata(route) {
-  const routeMeta = normalizeRouteMeta(route?.meta);
-  const jskitMeta = normalizeRouteMeta(routeMeta.jskit);
-  const scope = String(jskitMeta.scope || "")
-    .trim()
-    .toLowerCase();
-  const surface = normalizeSurfaceId(jskitMeta.surface);
-  return Object.freeze({
-    scope,
-    surface
-  });
+  return Object.freeze([...routes]);
 }
 
 function filterRoutesBySurface(routeList, { surfaceRuntime, surfaceMode } = {}) {
@@ -268,15 +203,7 @@ function filterRoutesBySurface(routeList, { surfaceRuntime, surfaceMode } = {}) 
   const enabledSurfaces = new Set(surfaceRuntime.listEnabledSurfaceIds());
 
   return normalizedRoutes.filter((route) => {
-    const scopeMetadata = toRouteScopeMetadata(route);
-    if (scopeMetadata.scope === ROUTE_SCOPE_GLOBAL) {
-      return true;
-    }
-
-    const routeSurface =
-      scopeMetadata.scope === ROUTE_SCOPE_SURFACE && scopeMetadata.surface
-        ? scopeMetadata.surface
-        : surfaceRuntime.resolveSurfaceFromPathname(route?.path || "/");
+    const routeSurface = surfaceRuntime.resolveSurfaceFromPathname(route?.path || "/");
     if (!enabledSurfaces.has(routeSurface)) {
       return false;
     }

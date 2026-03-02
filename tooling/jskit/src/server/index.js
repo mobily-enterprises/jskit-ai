@@ -693,6 +693,97 @@ function resolveLocalDependencyOrder(initialPackageIds, packageRegistry) {
   };
 }
 
+function listDeclaredCapabilities(capabilitiesSection, fieldName) {
+  const section = ensureObject(capabilitiesSection);
+  const source = ensureArray(section[fieldName]);
+  const normalized = [];
+  const seen = new Set();
+  for (const value of source) {
+    const capabilityId = String(value || "").trim();
+    if (!capabilityId || seen.has(capabilityId)) {
+      continue;
+    }
+    seen.add(capabilityId);
+    normalized.push(capabilityId);
+  }
+  return normalized;
+}
+
+function collectPlannedCapabilityIssues(plannedPackageIds, packageRegistry) {
+  const selectedPackageIds = sortStrings(
+    [...new Set(ensureArray(plannedPackageIds).map((value) => String(value || "").trim()).filter(Boolean))]
+  );
+  const selectedPackageSet = new Set(selectedPackageIds);
+  const providersByCapability = new Map();
+
+  for (const packageId of selectedPackageIds) {
+    const packageEntry = packageRegistry.get(packageId);
+    if (!packageEntry) {
+      continue;
+    }
+    const provides = listDeclaredCapabilities(packageEntry.descriptor.capabilities, "provides");
+    for (const capabilityId of provides) {
+      if (!providersByCapability.has(capabilityId)) {
+        providersByCapability.set(capabilityId, new Set());
+      }
+      providersByCapability.get(capabilityId).add(packageId);
+    }
+  }
+
+  const issues = [];
+  for (const packageId of selectedPackageIds) {
+    const packageEntry = packageRegistry.get(packageId);
+    if (!packageEntry) {
+      continue;
+    }
+    const requires = listDeclaredCapabilities(packageEntry.descriptor.capabilities, "requires");
+    for (const capabilityId of requires) {
+      const selectedProviders = providersByCapability.get(capabilityId);
+      if (selectedProviders && selectedProviders.size > 0) {
+        continue;
+      }
+
+      const availableProviders = [];
+      for (const [candidatePackageId, candidatePackageEntry] of packageRegistry.entries()) {
+        if (selectedPackageSet.has(candidatePackageId)) {
+          continue;
+        }
+        const candidateProvides = listDeclaredCapabilities(candidatePackageEntry.descriptor.capabilities, "provides");
+        if (candidateProvides.includes(capabilityId)) {
+          availableProviders.push(candidatePackageId);
+        }
+      }
+
+      issues.push({
+        packageId,
+        capabilityId,
+        availableProviders: sortStrings(availableProviders)
+      });
+    }
+  }
+
+  return issues;
+}
+
+function validatePlannedCapabilityClosure(plannedPackageIds, packageRegistry, actionLabel) {
+  const issues = collectPlannedCapabilityIssues(plannedPackageIds, packageRegistry);
+  if (issues.length === 0) {
+    return;
+  }
+
+  const lines = [`Cannot ${actionLabel}: capability requirements are not satisfied.`];
+  for (const issue of issues) {
+    const providersHint = issue.availableProviders.length > 0
+      ? ` Available providers: ${issue.availableProviders.join(", ")}.`
+      : "";
+    lines.push(
+      `- ${issue.packageId} requires capability ${issue.capabilityId}, but no selected package provides it.${providersHint}`
+    );
+  }
+
+  throw createCliError(lines.join("\n"));
+}
+
 async function resolvePackageOptions(packageEntry, inlineOptions, io) {
   const optionSchemas = ensureObject(packageEntry.descriptor.options);
   const optionNames = sortStrings(Object.keys(optionSchemas));
@@ -1157,6 +1248,17 @@ async function commandAdd({ positional, options, cwd, io }) {
     targetPackageIds,
     packageRegistry
   );
+  const plannedInstalledPackageIds = sortStrings([
+    ...new Set([
+      ...Object.keys(ensureObject(lock.installedPackages)).map((value) => String(value || "").trim()).filter(Boolean),
+      ...resolvedPackageIds
+    ])
+  ]);
+  validatePlannedCapabilityClosure(
+    plannedInstalledPackageIds,
+    packageRegistry,
+    `add ${targetType} ${targetId}`
+  );
 
   const resolvedOptionsByPackage = {};
   for (const packageId of resolvedPackageIds) {
@@ -1477,13 +1579,13 @@ async function runCli(argv = process.argv.slice(2), io = {}) {
     }
 
     if (command === "list") {
-      return commandList({ positional, options, cwd, stdout });
+      return await commandList({ positional, options, cwd, stdout });
     }
     if (command === "show") {
-      return commandShow({ positional, options, stdout });
+      return await commandShow({ positional, options, stdout });
     }
     if (command === "add") {
-      return commandAdd({
+      return await commandAdd({
         positional,
         options,
         cwd,
@@ -1491,7 +1593,7 @@ async function runCli(argv = process.argv.slice(2), io = {}) {
       });
     }
     if (command === "update") {
-      return commandUpdate({
+      return await commandUpdate({
         positional,
         options,
         cwd,
@@ -1499,7 +1601,7 @@ async function runCli(argv = process.argv.slice(2), io = {}) {
       });
     }
     if (command === "remove") {
-      return commandRemove({
+      return await commandRemove({
         positional,
         options,
         cwd,
@@ -1507,10 +1609,10 @@ async function runCli(argv = process.argv.slice(2), io = {}) {
       });
     }
     if (command === "doctor") {
-      return commandDoctor({ cwd, options, stdout });
+      return await commandDoctor({ cwd, options, stdout });
     }
     if (command === "lint-descriptors") {
-      return commandLintDescriptors({ options, stdout });
+      return await commandLintDescriptors({ options, stdout });
     }
 
     throw createCliError(`Unhandled command: ${command}`, { showUsage: true });

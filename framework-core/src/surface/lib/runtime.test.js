@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { collectClientModuleRoutes, createSurfaceRuntime, filterRoutesBySurface } from "./runtime.js";
+import { createSurfaceRuntime, filterRoutesBySurface } from "./runtime.js";
 
 test("createSurfaceRuntime normalizes mode and resolves enabled surfaces", () => {
   const runtime = createSurfaceRuntime({
@@ -69,71 +69,4 @@ test("filterRoutesBySurface keeps enabled routes for chosen mode", () => {
     filteredAdmin.map((route) => route.path),
     ["/admin/users"]
   );
-});
-
-test("filterRoutesBySurface always keeps routes with global scope metadata", () => {
-  const runtime = createSurfaceRuntime({
-    defaultSurfaceId: "app",
-    surfaces: {
-      app: { id: "app", prefix: "", enabled: true },
-      admin: { id: "admin", prefix: "/admin", enabled: true },
-      console: { id: "console", prefix: "/console", enabled: true }
-    }
-  });
-
-  const filteredAdmin = filterRoutesBySurface(
-    [
-      { path: "/admin/dashboard" },
-      {
-        path: "/auth/login",
-        meta: {
-          jskit: {
-            scope: "global"
-          }
-        }
-      }
-    ],
-    {
-      surfaceRuntime: runtime,
-      surfaceMode: "admin"
-    }
-  );
-
-  assert.deepEqual(
-    filteredAdmin.map((route) => route.path),
-    ["/admin/dashboard", "/auth/login"]
-  );
-});
-
-test("collectClientModuleRoutes normalizes and validates route definitions", () => {
-  const routeList = collectClientModuleRoutes({
-    clientModules: [
-      {
-        packageId: "@jskit-ai/auth-web",
-        module: {
-          registerClientRoutes({ registerRoutes }) {
-            registerRoutes([
-              {
-                id: "auth.login",
-                path: "/auth/login",
-                scope: "global",
-                component: () => null
-              },
-              {
-                id: "auth.signout",
-                path: "/auth/signout",
-                scope: "global",
-                component: () => null
-              }
-            ]);
-          }
-        }
-      }
-    ]
-  });
-
-  assert.equal(routeList.length, 2);
-  assert.equal(routeList[0].id, "auth.login");
-  assert.equal(routeList[0].meta.jskit.scope, "global");
-  assert.equal(routeList[0].meta.jskit.packageId, "@jskit-ai/auth-web");
 });

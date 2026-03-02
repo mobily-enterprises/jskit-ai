@@ -42,7 +42,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
-import { performSignOutRequest } from "../../runtime/useSignOut.js";
+import { performSignOutRequest } from "../runtime/useSignOut.js";
 
 const status = ref("pending");
 const errorMessage = ref("");

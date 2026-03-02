@@ -37,6 +37,12 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const appRoot = path.join(cwd, "sample-app");
     const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
     assert.equal(packageJson.name, "sample-app");
+    assert.equal(packageJson.scripts.preinstall, "node ./scripts/link-jskit-packages.mjs");
+    assert.equal(packageJson.scripts.postinstall, "node ./scripts/link-jskit-packages.mjs");
+
+    const linkScript = await readFile(path.join(appRoot, "scripts/link-jskit-packages.mjs"), "utf8");
+    assert.match(linkScript, /LOCAL_SPEC_PREFIX/);
+    assert.match(linkScript, /Unable to locate local jskit-ai repository/);
 
     const readme = await readFile(path.join(appRoot, "README.md"), "utf8");
     assert.match(readme, /^# Sample App$/m);
@@ -64,7 +70,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(mainJs, /import NotFoundView from "\.\/views\/NotFound\.vue";/);
     assert.match(mainJs, /createRouter, createWebHistory/);
     assert.match(mainJs, /path: "\/:pathMatch\(\.\*\)\*"/);
-    assert.match(mainJs, /\.use\(router\)\.use\(vuetify\)\.mount\("#app"\)/);
+    assert.match(mainJs, /\.use\(router\)\.mount\("#app"\)/);
 
     const appVue = await readFile(path.join(appRoot, "src/App.vue"), "utf8");
     assert.match(appVue, /<RouterView \/>/);
@@ -233,6 +239,23 @@ test("generated app supports shell + auth progressive installation", async () =>
     assert.equal(createResult.status, 0, createResult.stderr);
 
     const appRoot = path.join(cwd, "shell-auth-app");
+    const addProviderResult = runJskit({
+      cwd: appRoot,
+      args: [
+        "add",
+        "package",
+        "auth-provider-supabase-core",
+        "--auth-supabase-url",
+        "https://example.supabase.co",
+        "--auth-supabase-publishable-key",
+        "sb_publishable_example",
+        "--app-public-url",
+        "http://localhost:5173",
+        "--no-install"
+      ]
+    });
+    assert.equal(addProviderResult.status, 0, addProviderResult.stderr);
+
     const addAuthResult = runJskit({
       cwd: appRoot,
       args: ["add", "bundle", "auth-base", "--no-install"]
@@ -243,6 +266,7 @@ test("generated app supports shell + auth progressive installation", async () =>
     assert.equal(doctorResult.status, 0, doctorResult.stderr);
 
     const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
+    assert.ok(lockfile.installedPackages["@jskit-ai/auth-provider-supabase-core"]);
     assert.ok(lockfile.installedPackages["@jskit-ai/auth-web"]);
   });
 });

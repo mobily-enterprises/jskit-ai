@@ -1,4 +1,4 @@
-import { DefaultLoginView } from "../views/DefaultLoginView.vue";
+import DefaultLoginView from "../views/DefaultLoginView.vue";
 import { initializeAuthGuardRuntime } from "../runtime/authGuardRuntime.js";
 import { useLoginView } from "../runtime/useLoginView.js";
 
