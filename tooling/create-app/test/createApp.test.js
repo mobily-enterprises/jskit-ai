@@ -54,7 +54,7 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(favicon, /<svg/);
 
     const serverSmoke = await readFile(path.join(appRoot, "tests/server/smoke.test.js"), "utf8");
-    assert.match(serverSmoke, /app: "sample-app"/);
+    assert.match(serverSmoke, /GET \/api\/v1\/health returns not found/);
 
     const clientSmoke = await readFile(path.join(appRoot, "tests/client/smoke.vitest.js"), "utf8");
     assert.match(clientSmoke, /sample-app client smoke/);

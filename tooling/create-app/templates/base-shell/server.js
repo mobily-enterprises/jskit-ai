@@ -1,69 +1,53 @@
 import Fastify from "fastify";
 import { resolveRuntimeEnv } from "./server/lib/runtimeEnv.js";
 import path from "node:path";
+import {
+  registerSurfaceRequestConstraint,
+  resolveRuntimeProfileFromSurface,
+  tryCreateProviderRuntimeFromApp
+} from "@jskit-ai/framework-core/platform/server";
+import { createSurfaceRuntime } from "@jskit-ai/framework-core/surface/runtime";
+import { SURFACE_DEFINITIONS, SURFACE_IDS, SURFACE_MODE_ALL } from "./config/surfaces.js";
 
-function registerFallbackHealthRoute(app) {
-  app.get("/api/v1/health", async () => {
-    return {
-      ok: true,
-      app: "__APP_NAME__"
-    };
+const surfaceRuntime = createSurfaceRuntime({
+  allMode: SURFACE_MODE_ALL,
+  surfaceIds: SURFACE_IDS,
+  surfaces: SURFACE_DEFINITIONS,
+  defaultSurfaceId: "app"
+});
+
+async function createServer() {
+  const app = Fastify({ logger: true });
+  const runtimeEnv = resolveRuntimeEnv();
+  registerSurfaceRequestConstraint({
+    fastify: app,
+    surfaceRuntime,
+    serverSurface: runtimeEnv.SERVER_SURFACE
   });
-}
+  const appRoot = path.resolve(process.cwd());
+  const runtime = await tryCreateProviderRuntimeFromApp({
+    appRoot,
+    strict: false,
+    profile: resolveRuntimeProfileFromSurface({
+      surfaceRuntime,
+      serverSurface: runtimeEnv.SERVER_SURFACE,
+      defaultProfile: "app"
+    }),
+    env: runtimeEnv,
+    logger: app.log,
+    fastify: app
+  });
 
-async function registerRuntime(app, { appRoot, runtimeEnv }) {
-  try {
-    const platformRuntimeModule = await import("@jskit-ai/framework-core/platform/server");
-    if (typeof platformRuntimeModule?.createProviderRuntimeFromApp !== "function") {
-      throw new Error(
-        "Installed @jskit-ai/framework-core does not export createProviderRuntimeFromApp()."
-      );
-    }
-
-    const runtime = await platformRuntimeModule.createProviderRuntimeFromApp({
-      appRoot,
-      strict: false,
-      profile: "app",
-      env: runtimeEnv,
-      logger: app.log,
-      fastify: app
-    });
-
+  if (runtime) {
     app.log.info(
       {
         routeCount: runtime.routeCount,
+        surface: surfaceRuntime.normalizeSurfaceMode(runtimeEnv.SERVER_SURFACE),
         providerPackages: runtime.providerPackageOrder,
         packageOrder: runtime.packageOrder
       },
       "Registered JSKIT provider server runtime."
     );
-
-    return {
-      enabled: true,
-      routeCount: runtime.routeCount
-    };
-  } catch (error) {
-    const message = String(error?.message || "");
-    if (message.includes("Lock file not found:")) {
-      return {
-        enabled: false,
-        routeCount: 0
-      };
-    }
-    throw error;
-  }
-}
-
-async function createServer() {
-  const app = Fastify({ logger: true });
-  const runtimeEnv = resolveRuntimeEnv();
-  const appRoot = path.resolve(process.cwd());
-  const runtime = await registerRuntime(app, {
-    appRoot,
-    runtimeEnv
-  });
-  if (!runtime.enabled || runtime.routeCount < 1) {
-    registerFallbackHealthRoute(app);
   }
 
   return app;

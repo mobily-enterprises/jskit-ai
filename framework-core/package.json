@@ -20,6 +20,7 @@
     "./surface/apiPaths": "./src/surface/lib/apiPaths.js",
     "./surface/appSurfaces": "./src/surface/lib/appSurfaces.js",
     "./surface/paths": "./src/surface/lib/paths.js",
+    "./surface/runtime": "./src/surface/lib/runtime.js",
     "./surface/registry": "./src/surface/lib/registry.js",
     "./surface/escapeRegExp": "./src/surface/lib/escapeRegExp.js",
     "./surface/index": "./src/surface/lib/index.js",
