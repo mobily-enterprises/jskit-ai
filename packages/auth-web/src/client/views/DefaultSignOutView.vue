@@ -41,79 +41,9 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
-import { performSignOutRequest } from "../runtime/useSignOut.js";
+import { useDefaultSignOutView } from "../composables/useDefaultSignOutView.js";
 
-const status = ref("pending");
-const errorMessage = ref("");
-const returnToPath = ref("/app");
-
-function normalizeReturnToPath(rawValue, fallback = "/app") {
-  const normalized = String(rawValue || "").trim();
-  if (!normalized || !normalized.startsWith("/") || normalized.startsWith("//")) {
-    return fallback;
-  }
-  if (normalized === "/login" || normalized.startsWith("/login?")) {
-    return fallback;
-  }
-  if (normalized === "/auth/signout" || normalized.startsWith("/auth/signout?")) {
-    return fallback;
-  }
-  return normalized;
-}
-
-function readReturnToPathFromLocation() {
-  if (typeof window !== "object" || !window.location) {
-    return "/app";
-  }
-  const params = new URLSearchParams(window.location.search || "");
-  return normalizeReturnToPath(params.get("returnTo"), "/app");
-}
-
-const loginRoute = computed(() => {
-  const params = new URLSearchParams({
-    returnTo: returnToPath.value
-  });
-  return `/login?${params.toString()}`;
-});
-
-function navigateToLogin({ replace = true } = {}) {
-  if (typeof window !== "object" || !window.location) {
-    return;
-  }
-  if (replace) {
-    window.location.replace(loginRoute.value);
-    return;
-  }
-  window.location.assign(loginRoute.value);
-}
-
-async function executeSignOut() {
-  status.value = "pending";
-  errorMessage.value = "";
-
-  try {
-    await performSignOutRequest();
-    status.value = "success";
-    navigateToLogin({ replace: true });
-  } catch (error) {
-    status.value = "error";
-    errorMessage.value = String(error?.message || "Sign out failed.");
-  }
-}
-
-function retrySignOut() {
-  void executeSignOut();
-}
-
-function goToLogin() {
-  navigateToLogin({ replace: false });
-}
-
-onMounted(() => {
-  returnToPath.value = readReturnToPathFromLocation();
-  void executeSignOut();
-});
+const { status, errorMessage, retrySignOut, goToLogin } = useDefaultSignOutView();
 </script>
 
 <style scoped>

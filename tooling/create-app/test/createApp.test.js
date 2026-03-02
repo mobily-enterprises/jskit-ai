@@ -37,12 +37,12 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const appRoot = path.join(cwd, "sample-app");
     const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
     assert.equal(packageJson.name, "sample-app");
-    assert.equal(packageJson.scripts.preinstall, "node ./scripts/link-jskit-packages.mjs");
-    assert.equal(packageJson.scripts.postinstall, "node ./scripts/link-jskit-packages.mjs");
+    assert.equal(packageJson.scripts.preinstall, "bash ./scripts/copy-local-packages.sh");
+    assert.equal(packageJson.scripts.postinstall, "bash ./scripts/copy-local-packages.sh");
 
-    const linkScript = await readFile(path.join(appRoot, "scripts/link-jskit-packages.mjs"), "utf8");
-    assert.match(linkScript, /LOCAL_SPEC_PREFIX/);
-    assert.match(linkScript, /Unable to locate local jskit-ai repository/);
+    const copyScript = await readFile(path.join(appRoot, "scripts/copy-local-packages.sh"), "utf8");
+    assert.match(copyScript, /SRC_PACKAGES_ROOT/);
+    assert.match(copyScript, /Copied: framework-core/);
 
     const readme = await readFile(path.join(appRoot, "README.md"), "utf8");
     assert.match(readme, /^# Sample App$/m);
@@ -68,9 +68,11 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const mainJs = await readFile(path.join(appRoot, "src/main.js"), "utf8");
     assert.match(mainJs, /import App from "\.\/App\.vue";/);
     assert.match(mainJs, /import NotFoundView from "\.\/views\/NotFound\.vue";/);
+    assert.match(mainJs, /import \{ clientModules \} from "virtual:jskit-client-modules";/);
+    assert.match(mainJs, /collectClientModuleRoutes/);
     assert.match(mainJs, /createRouter, createWebHistory/);
     assert.match(mainJs, /path: "\/:pathMatch\(\.\*\)\*"/);
-    assert.match(mainJs, /\.use\(router\)\.mount\("#app"\)/);
+    assert.match(mainJs, /\.use\(router\)\.use\(vuetify\)\.mount\("#app"\)/);
 
     const appVue = await readFile(path.join(appRoot, "src/App.vue"), "utf8");
     assert.match(appVue, /<RouterView \/>/);

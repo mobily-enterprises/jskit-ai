@@ -120,17 +120,54 @@ function normalizeClientModuleRoute(route, { packageId, index }) {
     throw new Error(`Client route "${id}" from ${packageId} requires component.`);
   }
 
+  const normalizedScope = String(
+    candidate.scope ||
+      (candidate.meta && candidate.meta.jskit && typeof candidate.meta.jskit === "object"
+        ? candidate.meta.jskit.scope
+        : "") ||
+      "surface"
+  )
+    .trim()
+    .toLowerCase();
+  if (normalizedScope !== "global" && normalizedScope !== "surface") {
+    throw new Error(`Client route "${id}" from ${packageId} has invalid scope "${normalizedScope}".`);
+  }
+
+  const normalizedSurface =
+    normalizedScope === "surface"
+      ? normalizeSurfaceId(
+          candidate.surface ||
+            (candidate.meta && candidate.meta.jskit && typeof candidate.meta.jskit === "object"
+              ? candidate.meta.jskit.surface
+              : "")
+        ) || ""
+      : "";
+
+  const metaRecord =
+    candidate.meta && typeof candidate.meta === "object" && !Array.isArray(candidate.meta) ? candidate.meta : {};
+  const metaJskitRecord =
+    metaRecord.jskit && typeof metaRecord.jskit === "object" && !Array.isArray(metaRecord.jskit)
+      ? metaRecord.jskit
+      : {};
+  const normalizedMetaJskit = {
+    ...metaJskitRecord,
+    packageId,
+    routeId: id,
+    scope: normalizedScope
+  };
+  if (normalizedSurface) {
+    normalizedMetaJskit.surface = normalizedSurface;
+  }
+
   return Object.freeze({
     ...candidate,
     id,
     path,
+    scope: normalizedScope,
+    ...(normalizedSurface ? { surface: normalizedSurface } : {}),
     meta: {
-      ...(candidate.meta && typeof candidate.meta === "object" && !Array.isArray(candidate.meta) ? candidate.meta : {}),
-      jskit: {
-        ...((candidate.meta && candidate.meta.jskit && typeof candidate.meta.jskit === "object" && !Array.isArray(candidate.meta.jskit)) ? candidate.meta.jskit : {}),
-        packageId,
-        routeId: id
-      }
+      ...metaRecord,
+      jskit: normalizedMetaJskit
     }
   });
 }
@@ -202,8 +239,38 @@ function filterRoutesBySurface(routeList, { surfaceRuntime, surfaceMode } = {}) 
   const normalizedMode = surfaceRuntime.normalizeSurfaceMode(surfaceMode);
   const enabledSurfaces = new Set(surfaceRuntime.listEnabledSurfaceIds());
 
+  function resolveRouteScope(route) {
+    const metaScope =
+      route && route.meta && route.meta.jskit && typeof route.meta.jskit === "object"
+        ? route.meta.jskit.scope
+        : "";
+    const normalizedScope = String(route?.scope || metaScope || "surface")
+      .trim()
+      .toLowerCase();
+    if (normalizedScope === "global") {
+      return "global";
+    }
+    return "surface";
+  }
+
+  function resolveRouteSurface(route) {
+    const metaSurface =
+      route && route.meta && route.meta.jskit && typeof route.meta.jskit === "object"
+        ? route.meta.jskit.surface
+        : "";
+    const normalizedSurface = normalizeSurfaceId(route?.surface || metaSurface);
+    if (normalizedSurface) {
+      return normalizedSurface;
+    }
+    return surfaceRuntime.resolveSurfaceFromPathname(route?.path || "/");
+  }
+
   return normalizedRoutes.filter((route) => {
-    const routeSurface = surfaceRuntime.resolveSurfaceFromPathname(route?.path || "/");
+    if (resolveRouteScope(route) === "global") {
+      return true;
+    }
+
+    const routeSurface = resolveRouteSurface(route);
     if (!enabledSurfaces.has(routeSurface)) {
       return false;
     }

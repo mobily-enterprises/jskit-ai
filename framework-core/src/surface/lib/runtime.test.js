@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createSurfaceRuntime, filterRoutesBySurface } from "./runtime.js";
+import { createSurfaceRuntime, filterRoutesBySurface, collectClientModuleRoutes } from "./runtime.js";
 
 test("createSurfaceRuntime normalizes mode and resolves enabled surfaces", () => {
   const runtime = createSurfaceRuntime({
@@ -69,4 +69,56 @@ test("filterRoutesBySurface keeps enabled routes for chosen mode", () => {
     filteredAdmin.map((route) => route.path),
     ["/admin/users"]
   );
+});
+
+test("filterRoutesBySurface always keeps global routes", () => {
+  const runtime = createSurfaceRuntime({
+    defaultSurfaceId: "app",
+    surfaces: {
+      app: { id: "app", prefix: "", enabled: true },
+      admin: { id: "admin", prefix: "/admin", enabled: true }
+    }
+  });
+
+  const filteredAdmin = filterRoutesBySurface(
+    [
+      { path: "/auth/login", scope: "global" },
+      { path: "/admin/users" },
+      { path: "/app-only", surface: "app" }
+    ],
+    {
+      surfaceRuntime: runtime,
+      surfaceMode: "admin"
+    }
+  );
+
+  assert.deepEqual(
+    filteredAdmin.map((route) => route.path),
+    ["/auth/login", "/admin/users"]
+  );
+});
+
+test("collectClientModuleRoutes normalizes scope metadata", () => {
+  const routes = collectClientModuleRoutes({
+    clientModules: [
+      {
+        packageId: "@jskit-ai/test-auth",
+        module: {
+          registerClientRoutes({ registerRoute }) {
+            registerRoute({
+              id: "auth.login",
+              path: "/auth/login",
+              scope: "global",
+              component: () => null
+            });
+          }
+        }
+      }
+    ]
+  });
+
+  assert.equal(routes.length, 1);
+  assert.equal(routes[0].scope, "global");
+  assert.equal(routes[0].meta.jskit.scope, "global");
+  assert.equal(routes[0].meta.jskit.packageId, "@jskit-ai/test-auth");
 });

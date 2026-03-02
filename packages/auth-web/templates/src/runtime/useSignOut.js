@@ -119,7 +119,7 @@ function createSignOutAction({ currentSurface, goToEntry } = {}) {
     const redirectParams = new URLSearchParams({
       returnTo: `/${sourceSurfaceId}`
     });
-    const redirectRoute = `/login?${redirectParams.toString()}`;
+    const redirectRoute = `/auth/login?${redirectParams.toString()}`;
 
     try {
       await performSignOutRequest();

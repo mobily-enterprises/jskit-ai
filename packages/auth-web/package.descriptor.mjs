@@ -108,9 +108,9 @@ export default Object.freeze({
     "ui": {
       "routes": [
         {
-          "path": "/login",
+          "path": "/auth/login",
           "surface": "app",
-          "name": "login",
+          "name": "auth-login",
           "purpose": "Public login route for authentication flows."
         },
         {
@@ -121,23 +121,19 @@ export default Object.freeze({
         }
       ],
       "elements": [],
-      "overrides": [
-        {
-          "id": "loginComponent",
-          "description": "Hosts can override the login experience by pointing this prop at their own component (the copied login view simply re-exports the default module component).",
-          "default": "@jskit-ai/auth-web/client/views/DefaultLoginView"
-        }
-      ]
+      "overrides": []
     }
   },
   "mutations": {
     "dependencies": {
       "runtime": {
+        "@mdi/js": "^7.4.47",
         "@fastify/type-provider-typebox": "^6.1.0",
         "@jskit-ai/access-core": "0.1.0",
         "@jskit-ai/http-client-runtime": "0.1.0",
         "@jskit-ai/http-contracts": "0.1.0",
-        "@jskit-ai/framework-core": "0.1.0"
+        "@jskit-ai/framework-core": "0.1.0",
+        "vuetify": "^4.0.0"
       },
       "dev": {}
     },
@@ -147,9 +143,9 @@ export default Object.freeze({
     "procfile": {},
     "files": [
       {
-        "from": "templates/src/views/login/LoginView.vue",
-        "to": "src/views/login/LoginView.vue",
-        "reason": "Install minimal login container that renders the module-provided DefaultLoginView by default (override the loginComponent prop to customize).",
+        "from": "templates/src/views/auth/LoginView.vue",
+        "to": "src/views/auth/LoginView.vue",
+        "reason": "Install minimal login container that renders the module-provided DefaultLoginView by default.",
         "category": "auth-web",
         "id": "auth-view-login"
       },

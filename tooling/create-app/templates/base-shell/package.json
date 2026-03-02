@@ -23,14 +23,24 @@
     "lint": "eslint .",
     "test": "node --test",
     "test:client": "vitest run tests/client",
-    "preinstall": "node ./scripts/link-jskit-packages.mjs",
-    "postinstall": "node ./scripts/link-jskit-packages.mjs"
+    "preinstall": "bash ./scripts/copy-local-packages.sh",
+    "postinstall": "bash ./scripts/copy-local-packages.sh"
   },
   "dependencies": {
-    "@jskit-ai/framework-core": "file:node_modules/@jskit-ai/jskit/framework-core",
+    "@jskit-ai/access-core": "file:../jskit-ai/packages/access-core",
+    "@jskit-ai/action-runtime-core": "file:../jskit-ai/packages/action-runtime-core",
+    "@jskit-ai/auth-provider-supabase-core": "file:../jskit-ai/packages/auth-provider-supabase-core",
+    "@jskit-ai/auth-web": "file:../jskit-ai/packages/auth-web",
+    "@jskit-ai/fastify-auth-policy": "file:../jskit-ai/packages/fastify-auth-policy",
+    "@jskit-ai/framework-core": "file:../jskit-ai/framework-core",
+    "@jskit-ai/http-client-runtime": "file:../jskit-ai/packages/http-client-runtime",
+    "@jskit-ai/http-contracts": "file:../jskit-ai/packages/http-contracts",
+    "@jskit-ai/rbac-core": "file:../jskit-ai/packages/rbac-core",
+    "@mdi/js": "^7.4.47",
     "fastify": "^5.7.4",
     "vue": "^3.5.13",
-    "vue-router": "^4.6.4"
+    "vue-router": "^4.6.4",
+    "vuetify": "^4.0.0"
   },
   "devDependencies": {
     "@jskit-ai/config-eslint": "0.1.0",
