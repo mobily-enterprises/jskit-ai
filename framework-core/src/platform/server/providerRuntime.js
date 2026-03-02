@@ -34,12 +34,11 @@ async function resolveDescriptorPathForInstalledPackage({ appRoot, installedPack
   const descriptorPathFromSource = String(installedPackageState?.source?.descriptorPath || "").trim();
   const jskitRoot = path.join(appRoot, "node_modules", "@jskit-ai", "jskit");
 
-  const candidatePaths = [];
+  const candidatePaths = [path.resolve(appRoot, "node_modules", packageId, "package.descriptor.mjs")];
   if (descriptorPathFromSource) {
     candidatePaths.push(path.resolve(appRoot, descriptorPathFromSource));
     candidatePaths.push(path.resolve(jskitRoot, descriptorPathFromSource));
   }
-  candidatePaths.push(path.resolve(appRoot, "node_modules", packageId, "package.descriptor.mjs"));
 
   for (const candidatePath of candidatePaths) {
     if (await fileExists(candidatePath)) {

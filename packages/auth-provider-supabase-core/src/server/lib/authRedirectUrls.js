@@ -8,7 +8,7 @@ import { normalizeOAuthProviderFromCatalog } from "./oauthProviderCatalog.js";
 import { normalizeOAuthIntent, normalizeReturnToPath } from "@jskit-ai/access-core/server/utils";
 
 const PASSWORD_RESET_PATH = "reset-password";
-const OAUTH_LOGIN_PATH = "login";
+const OAUTH_LOGIN_PATH = "auth/login";
 const OAUTH_LOGIN_INTENT = "login";
 const OAUTH_LINK_INTENT = "link";
 
