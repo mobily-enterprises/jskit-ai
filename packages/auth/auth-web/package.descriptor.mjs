@@ -122,6 +122,14 @@ export default Object.freeze({
         }
       ],
       "elements": []
+      ,
+      "overrides": [
+        {
+          "id": "loginComponent",
+          "description": "Hosts can override the login experience by pointing this prop at their own component (the copied login view simply re-exports the default module component).",
+          "default": "@jskit-ai/auth-web/client#DefaultLoginView"
+        }
+      ]
     }
   },
   "mutations": {
@@ -143,7 +151,7 @@ export default Object.freeze({
       {
         "from": "templates/src/views/login/LoginView.vue",
         "to": "src/views/login/LoginView.vue",
-        "reason": "Install app-owned login view scaffold for auth flows.",
+        "reason": "Install minimal login container that renders the module-provided DefaultLoginView by default (override the loginComponent prop to customize).",
         "category": "auth-web",
         "id": "auth-view-login"
       },
