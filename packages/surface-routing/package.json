@@ -1,0 +1,20 @@
+{
+  "name": "@jskit-ai/surface-routing",
+  "version": "0.1.0",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    "./server": "./src/server/index.js",
+    "./server/providers/SurfaceRoutingServiceProvider": "./src/server/providers/SurfaceRoutingServiceProvider.js",
+    "./client": "./src/client/index.js",
+    "./client/providers/SurfaceRoutingClientProvider": "./src/client/providers/SurfaceRoutingClientProvider.js",
+    "./apiPaths": "./src/lib/apiPaths.js",
+    "./appSurfaces": "./src/lib/appSurfaces.js",
+    "./paths": "./src/lib/paths.js",
+    "./registry": "./src/lib/registry.js",
+    "./escapeRegExp": "./src/lib/escapeRegExp.js",
+    "./lib/index": "./src/lib/index.js"
+  }
+}

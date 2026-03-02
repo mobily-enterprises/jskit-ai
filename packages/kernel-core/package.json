@@ -1,0 +1,22 @@
+{
+  "name": "@jskit-ai/kernel-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    "./client": "./src/client/index.js",
+    "./client/providers/KernelCoreClientProvider": "./src/client/providers/KernelCoreClientProvider.js",
+    "./server": "./src/server/index.js",
+    "./server/providers/KernelCoreServiceProvider": "./src/server/providers/KernelCoreServiceProvider.js",
+    "./application": "./src/lib/application.js",
+    "./serviceProvider": "./src/lib/serviceProvider.js",
+    "./errors": "./src/lib/errors.js",
+    "./lib/index": "./src/lib/index.js"
+  },
+  "dependencies": {
+    "@jskit-ai/container-core": "0.1.0"
+  }
+}

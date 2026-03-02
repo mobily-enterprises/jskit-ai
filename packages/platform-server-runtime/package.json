@@ -1,0 +1,21 @@
+{
+  "name": "@jskit-ai/platform-server-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js",
+    "./providerRuntime": "./src/server/providerRuntime.js"
+  },
+  "dependencies": {
+    "@jskit-ai/http-fastify-core": "0.1.0",
+    "@jskit-ai/kernel-core": "0.1.0",
+    "@jskit-ai/server-runtime-core": "0.1.0",
+    "@jskit-ai/support-core": "0.1.0"
+  }
+}

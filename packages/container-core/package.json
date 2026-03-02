@@ -1,0 +1,18 @@
+{
+  "name": "@jskit-ai/container-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    "./client": "./src/client/index.js",
+    "./client/providers/ContainerCoreClientProvider": "./src/client/providers/ContainerCoreClientProvider.js",
+    "./server": "./src/server/index.js",
+    "./server/providers/ContainerCoreServiceProvider": "./src/server/providers/ContainerCoreServiceProvider.js",
+    "./container": "./src/lib/container.js",
+    "./errors": "./src/lib/errors.js",
+    "./lib/index": "./src/lib/index.js"
+  }
+}

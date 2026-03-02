@@ -1,0 +1,34 @@
+{
+  "name": "@jskit-ai/server-runtime-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./errors": "./src/server/errors.js",
+    "./integers": "./src/server/integers.js",
+    "./requestUrl": "./src/server/requestUrl.js",
+    "./pagination": "./src/server/pagination.js",
+    "./realtimePublish": "./src/server/realtimePublish.js",
+    "./realtimeEvents": "./src/server/realtimeEvents.js",
+    "./realtimeNormalization": "./src/server/realtimeNormalization.js",
+    "./realtimeEventsService": "./src/server/realtimeEventsService.js",
+    "./securityAudit": "./src/server/securityAudit.js",
+    "./canonicalJson": "./src/server/canonicalJson.js",
+    "./composition": "./src/server/composition.js",
+    "./fastifyBootstrap": "./src/server/fastifyBootstrap.js",
+    "./runtimeKernel": "./src/server/runtimeKernel.js",
+    "./runtimeAssembly": "./src/server/runtimeAssembly.js",
+    "./apiRouteRegistration": "./src/server/apiRouteRegistration.js",
+    "./routeUtils": "./src/server/routeUtils.js",
+    "./lockfile": "./src/server/lib/lockfile.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
+  },
+  "dependencies": {
+    "@jskit-ai/surface-routing": "0.1.0"
+  }
+}
