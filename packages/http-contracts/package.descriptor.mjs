@@ -9,6 +9,25 @@ export default Object.freeze({
     ],
     "requires": []
   },
+  "runtime": {
+    "server": {
+      "providerEntrypoint": "src/server/index.js",
+      "providers": [
+        {
+          "entrypoint": "src/server/providers/HttpContractsServiceProvider.js",
+          "export": "HttpContractsServiceProvider"
+        }
+      ]
+    },
+    "client": {
+      "providers": [
+        {
+          "entrypoint": "src/client/providers/HttpContractsClientProvider.js",
+          "export": "HttpContractsClientProvider"
+        }
+      ]
+    }
+  },
   "mutations": {
     "dependencies": {
       "runtime": {
