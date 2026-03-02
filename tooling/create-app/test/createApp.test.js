@@ -61,11 +61,16 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
 
     const mainJs = await readFile(path.join(appRoot, "src/main.js"), "utf8");
     assert.match(mainJs, /import App from "\.\/App\.vue";/);
+    assert.match(mainJs, /import NotFoundView from "\.\/views\/NotFound\.vue";/);
     assert.match(mainJs, /createRouter, createWebHistory/);
-    assert.match(mainJs, /\.use\(router\)\.mount\("#app"\)/);
+    assert.match(mainJs, /path: "\/:pathMatch\(\.\*\)\*"/);
+    assert.match(mainJs, /\.use\(router\)\.use\(vuetify\)\.mount\("#app"\)/);
 
     const appVue = await readFile(path.join(appRoot, "src/App.vue"), "utf8");
     assert.match(appVue, /<RouterView \/>/);
+
+    const notFoundView = await readFile(path.join(appRoot, "src/views/NotFound.vue"), "utf8");
+    assert.match(notFoundView, /The page you requested does not exist\./);
 
     const indexView = await readFile(path.join(appRoot, "src/pages/index.vue"), "utf8");
     assert.match(indexView, /const title = "It worked!";/);

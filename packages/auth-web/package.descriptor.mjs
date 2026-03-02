@@ -108,13 +108,13 @@ export default Object.freeze({
     "ui": {
       "routes": [
         {
-          "path": "/app/login",
+          "path": "/login",
           "surface": "app",
           "name": "login",
           "purpose": "Public login route for authentication flows."
         },
         {
-          "path": "/app/auth/signout",
+          "path": "/auth/signout",
           "surface": "app",
           "name": "auth-signout",
           "purpose": "Public sign-out route that clears session then returns to login."
@@ -147,18 +147,18 @@ export default Object.freeze({
     "procfile": {},
     "files": [
       {
-        "from": "templates/src/pages/app/login.vue",
-        "to": "src/pages/app/login.vue",
-        "reason": "Install app-surface login route wrapper that renders the auth login view.",
+        "from": "templates/src/views/login/LoginView.vue",
+        "to": "src/views/login/LoginView.vue",
+        "reason": "Install minimal login container that renders the module-provided DefaultLoginView by default (override the loginComponent prop to customize).",
         "category": "auth-web",
-        "id": "auth-page-login"
+        "id": "auth-view-login"
       },
       {
-        "from": "templates/src/pages/app/auth/signout.vue",
-        "to": "src/pages/app/auth/signout.vue",
-        "reason": "Install app-surface sign-out route wrapper that renders the auth sign-out view.",
+        "from": "templates/src/views/auth/SignOutView.vue",
+        "to": "src/views/auth/SignOutView.vue",
+        "reason": "Install minimal sign-out container that renders the module-provided SignOutView by default (edit the scaffolded file to customize).",
         "category": "auth-web",
-        "id": "auth-page-signout"
+        "id": "auth-view-signout"
       },
       {
         "from": "templates/src/runtime/authHttpClient.js",

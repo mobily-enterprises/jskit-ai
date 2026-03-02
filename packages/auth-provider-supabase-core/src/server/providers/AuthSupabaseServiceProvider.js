@@ -122,42 +122,6 @@ function resolveAuthProviderConfig(env) {
   };
 }
 
-function isSupabaseUrl(value) {
-  return /^https:\/\/[^\s]+\.supabase\.co\/?$/i.test(String(value || "").trim());
-}
-
-function isSupabasePublishableKey(value) {
-  return /^sb_publishable_[^\s]+$/i.test(String(value || "").trim());
-}
-
-function validateAuthProviderConfig(authProvider) {
-  const source = authProvider && typeof authProvider === "object" ? authProvider : {};
-  const missing = [];
-
-  if (!String(source.supabaseUrl || "").trim()) {
-    missing.push("AUTH_SUPABASE_URL");
-  }
-  if (!String(source.supabasePublishableKey || "").trim()) {
-    missing.push("AUTH_SUPABASE_PUBLISHABLE_KEY");
-  }
-  if (missing.length > 0) {
-    throw new Error(
-      `Missing required Supabase auth configuration: ${missing.join(", ")}. Re-run installation with explicit options or set these environment variables.`
-    );
-  }
-
-  if (!isSupabaseUrl(source.supabaseUrl)) {
-    throw new Error(
-      `Invalid AUTH_SUPABASE_URL value "${String(source.supabaseUrl || "")}". Expected format: https://YOUR-PROJECT.supabase.co`
-    );
-  }
-  if (!isSupabasePublishableKey(source.supabasePublishableKey)) {
-    throw new Error(
-      `Invalid AUTH_SUPABASE_PUBLISHABLE_KEY value "${String(source.supabasePublishableKey || "")}". Expected format: sb_publishable_...`
-    );
-  }
-}
-
 function createInMemoryUserProfilesRepository() {
   const profileByKey = new Map();
   const providerKeyByEmail = new Map();
@@ -309,10 +273,12 @@ class AuthSupabaseServiceProvider {
           ...envFromDependencies
         };
         const authProvider = resolveAuthProviderConfig(env);
-        validateAuthProviderConfig(authProvider);
         const repositories = resolveOptionalRepositories(scope);
         const userProfilesRepository = repositories.userProfilesRepository || fallbackProfilesRepository;
         const userSettingsRepository = repositories.userSettingsRepository || fallbackUserSettingsRepository;
+        if (!authProvider.supabaseUrl || !authProvider.supabasePublishableKey) {
+          return null;
+        }
 
         return createService({
           authProvider,

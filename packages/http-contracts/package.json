@@ -7,6 +7,7 @@
     "test": "node --test"
   },
   "exports": {
+    ".": "./src/index.js",
     "./paginationQuery": "./src/lib/paginationQuery.js",
     "./typeboxFormats": "./src/lib/typeboxFormats.js",
     "./errorResponses": "./src/lib/errorResponses.js",

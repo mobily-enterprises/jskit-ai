@@ -1,6 +1,9 @@
 import { createSurfacePathHelpers } from "./paths.js";
 import { createSurfaceRegistry, normalizeSurfaceId } from "./registry.js";
 
+const ROUTE_SCOPE_GLOBAL = "global";
+const ROUTE_SCOPE_SURFACE = "surface";
+
 function uniqueSurfaceIds(ids) {
   const seen = new Set();
   const ordered = [];
@@ -101,6 +104,150 @@ function createSurfaceRuntime(options = {}) {
   };
 }
 
+function normalizeRoutePath(pathValue) {
+  const rawPath = String(pathValue || "").trim();
+  if (!rawPath) {
+    throw new Error("Client route path is required.");
+  }
+  if (!rawPath.startsWith("/") || rawPath.startsWith("//")) {
+    throw new Error(`Client route path must start with \"/\": ${rawPath}`);
+  }
+  return rawPath;
+}
+
+function normalizeRouteScope(scopeValue) {
+  const normalized = String(scopeValue || ROUTE_SCOPE_SURFACE)
+    .trim()
+    .toLowerCase();
+  if (normalized === ROUTE_SCOPE_GLOBAL || normalized === ROUTE_SCOPE_SURFACE) {
+    return normalized;
+  }
+  throw new Error(`Client route scope must be \"${ROUTE_SCOPE_GLOBAL}\" or \"${ROUTE_SCOPE_SURFACE}\".`);
+}
+
+function normalizeRouteMeta(metaValue) {
+  return metaValue && typeof metaValue === "object" && !Array.isArray(metaValue) ? { ...metaValue } : {};
+}
+
+function normalizeClientModuleRouteDefinition(routeDefinition, { packageId, routeIndex } = {}) {
+  const route =
+    routeDefinition && typeof routeDefinition === "object" && !Array.isArray(routeDefinition) ? routeDefinition : null;
+  if (!route) {
+    throw new Error(`Client route #${routeIndex} from ${packageId} must be an object.`);
+  }
+
+  const routeId = String(route.id || "").trim();
+  if (!routeId) {
+    throw new Error(`Client route #${routeIndex} from ${packageId} requires id.`);
+  }
+
+  const path = normalizeRoutePath(route.path);
+  const scope = normalizeRouteScope(route.scope);
+  const component = route.component;
+  if (!component) {
+    throw new Error(`Client route \"${routeId}\" from ${packageId} requires component.`);
+  }
+
+  const surface = scope === ROUTE_SCOPE_SURFACE ? normalizeSurfaceId(route.surface) : "";
+  if (scope === ROUTE_SCOPE_SURFACE && !surface) {
+    throw new Error(`Client route \"${routeId}\" from ${packageId} with scope \"surface\" requires surface.`);
+  }
+
+  const existingMeta = normalizeRouteMeta(route.meta);
+  const existingJskitMeta = normalizeRouteMeta(existingMeta.jskit);
+
+  return Object.freeze({
+    ...route,
+    id: routeId,
+    path,
+    scope,
+    surface,
+    meta: {
+      ...existingMeta,
+      jskit: {
+        ...existingJskitMeta,
+        packageId,
+        routeId,
+        scope,
+        surface: surface || undefined
+      }
+    }
+  });
+}
+
+function collectClientModuleRoutes({ clientModules = [] } = {}) {
+  const entries = Array.isArray(clientModules) ? clientModules : [];
+  const collectedRoutes = [];
+  const seenRouteIds = new Set();
+  const seenRoutePaths = new Set();
+
+  for (const entry of entries) {
+    const packageId = String(entry?.packageId || "").trim();
+    if (!packageId) {
+      throw new Error("collectClientModuleRoutes requires entry.packageId.");
+    }
+
+    const clientModule = entry?.module && typeof entry.module === "object" ? entry.module : {};
+    const registerClientRoutes = clientModule.registerClientRoutes;
+    if (typeof registerClientRoutes === "undefined") {
+      continue;
+    }
+    if (typeof registerClientRoutes !== "function") {
+      throw new Error(`Package ${packageId} exports registerClientRoutes but it is not a function.`);
+    }
+
+    let routeCounter = 0;
+    const registerRoute = (routeDefinition) => {
+      routeCounter += 1;
+      const route = normalizeClientModuleRouteDefinition(routeDefinition, {
+        packageId,
+        routeIndex: routeCounter
+      });
+
+      if (seenRouteIds.has(route.id)) {
+        throw new Error(`Client route id \"${route.id}\" is duplicated.`);
+      }
+      if (seenRoutePaths.has(route.path)) {
+        throw new Error(`Client route path \"${route.path}\" is duplicated.`);
+      }
+
+      seenRouteIds.add(route.id);
+      seenRoutePaths.add(route.path);
+      collectedRoutes.push(route);
+    };
+
+    const registerRoutes = (routeDefinitions) => {
+      const definitions = Array.isArray(routeDefinitions) ? routeDefinitions : [];
+      for (const routeDefinition of definitions) {
+        registerRoute(routeDefinition);
+      }
+    };
+
+    registerClientRoutes(
+      Object.freeze({
+        packageId,
+        registerRoute,
+        registerRoutes
+      })
+    );
+  }
+
+  return Object.freeze([...collectedRoutes]);
+}
+
+function toRouteScopeMetadata(route) {
+  const routeMeta = normalizeRouteMeta(route?.meta);
+  const jskitMeta = normalizeRouteMeta(routeMeta.jskit);
+  const scope = String(jskitMeta.scope || "")
+    .trim()
+    .toLowerCase();
+  const surface = normalizeSurfaceId(jskitMeta.surface);
+  return Object.freeze({
+    scope,
+    surface
+  });
+}
+
 function filterRoutesBySurface(routeList, { surfaceRuntime, surfaceMode } = {}) {
   if (!surfaceRuntime || typeof surfaceRuntime !== "object") {
     throw new Error("filterRoutesBySurface requires surfaceRuntime.");
@@ -121,7 +268,15 @@ function filterRoutesBySurface(routeList, { surfaceRuntime, surfaceMode } = {}) 
   const enabledSurfaces = new Set(surfaceRuntime.listEnabledSurfaceIds());
 
   return normalizedRoutes.filter((route) => {
-    const routeSurface = surfaceRuntime.resolveSurfaceFromPathname(route?.path || "/");
+    const scopeMetadata = toRouteScopeMetadata(route);
+    if (scopeMetadata.scope === ROUTE_SCOPE_GLOBAL) {
+      return true;
+    }
+
+    const routeSurface =
+      scopeMetadata.scope === ROUTE_SCOPE_SURFACE && scopeMetadata.surface
+        ? scopeMetadata.surface
+        : surfaceRuntime.resolveSurfaceFromPathname(route?.path || "/");
     if (!enabledSurfaces.has(routeSurface)) {
       return false;
     }
@@ -134,4 +289,4 @@ function filterRoutesBySurface(routeList, { surfaceRuntime, surfaceMode } = {}) 
   });
 }
 
-export { createSurfaceRuntime, filterRoutesBySurface };
+export { createSurfaceRuntime, filterRoutesBySurface, collectClientModuleRoutes };

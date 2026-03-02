@@ -21,8 +21,5 @@
     "./actionContributorHelpers": "./src/lib/actionContributorHelpers.js",
     "./server": "./src/server/index.js",
     "./client": "./src/client/index.js"
-  },
-  "dependencies": {
-    "dotenv": "^17.3.1"
   }
 }

@@ -19,7 +19,7 @@ class AuthWebClientProvider {
       throw new Error("AuthWebClientProvider requires application make().");
     }
 
-    await initializeAuthGuardRuntime({ loginRoute: "/app/login" });
+    await initializeAuthGuardRuntime({ loginRoute: "/login" });
   }
 }
 

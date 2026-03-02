@@ -1,0 +1,24 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { registerClientRoutes } from "../src/client/routes/registerClientRoutes.js";
+
+test("auth-web registers global login and signout client routes", () => {
+  const routes = [];
+
+  registerClientRoutes({
+    registerRoutes(nextRoutes) {
+      routes.push(...nextRoutes);
+    }
+  });
+
+  assert.equal(routes.length, 2);
+  assert.deepEqual(
+    routes.map((route) => ({ id: route.id, path: route.path, scope: route.scope })),
+    [
+      { id: "auth.login", path: "/auth/login", scope: "global" },
+      { id: "auth.signout", path: "/auth/signout", scope: "global" }
+    ]
+  );
+  assert.equal(typeof routes[0].component, "function");
+  assert.equal(typeof routes[1].component, "function");
+});

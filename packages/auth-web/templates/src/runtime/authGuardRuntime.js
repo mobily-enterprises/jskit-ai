@@ -2,7 +2,7 @@ const GLOBAL_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 const GLOBAL_SHELL_CONTEXT_KEY = "__JSKIT_WEB_SHELL_CONTEXT__";
 const AUTH_POLICY_AUTHENTICATED = "authenticated";
 const DEFAULT_SESSION_PATH = "/api/session";
-const DEFAULT_LOGIN_ROUTE = "/app/login";
+const DEFAULT_LOGIN_ROUTE = "/login";
 const DEFAULT_AUTH_STATE = Object.freeze({
   authenticated: false,
   username: "",

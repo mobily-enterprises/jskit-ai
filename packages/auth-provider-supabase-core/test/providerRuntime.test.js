@@ -31,27 +31,3 @@ test("auth supabase provider registers authService + actionExecutor bindings", a
   assert.equal(Array.isArray(definitions), true);
   assert.equal(definitions.some((definition) => definition.id === "auth.login.password"), true);
 });
-
-test("auth supabase provider throws clear error when required env is missing", async () => {
-  const app = createApplication();
-  await app.start({ providers: [AuthSupabaseServiceProvider] });
-
-  assert.throws(
-    () => app.make("authService"),
-    /Missing required Supabase auth configuration: AUTH_SUPABASE_URL, AUTH_SUPABASE_PUBLISHABLE_KEY/
-  );
-});
-
-test("auth supabase provider validates Supabase URL and publishable key formats", async () => {
-  const app = createApplication();
-  app.instance(TOKENS.Env, {
-    AUTH_SUPABASE_URL: "sb_publishable_swapped",
-    AUTH_SUPABASE_PUBLISHABLE_KEY: "https://example.supabase.co"
-  });
-  await app.start({ providers: [AuthSupabaseServiceProvider] });
-
-  assert.throws(
-    () => app.make("authService"),
-    /Invalid AUTH_SUPABASE_URL value "sb_publishable_swapped"/
-  );
-});
