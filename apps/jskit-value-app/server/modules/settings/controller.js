@@ -1,4 +1,4 @@
-import { createController as createSettingsAdapterController } from "@jskit-ai/settings-fastify-routes";
+import { createController as createSettingsAdapterController } from "@jskit-ai/settings-fastify-routes/server";
 import { resolveSurfaceFromPathname } from "../../../shared/surfacePaths.js";
 
 const SETTINGS_ACTION_IDS = Object.freeze({

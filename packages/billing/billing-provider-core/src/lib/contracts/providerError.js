@@ -1,4 +1,4 @@
-import { toNullableString } from "@jskit-ai/billing-core";
+import { toNullableString } from "@jskit-ai/billing-core/server";
 
 const PROVIDER_ERROR_CATEGORIES = Object.freeze({
   INVALID_REQUEST: "invalid_request",

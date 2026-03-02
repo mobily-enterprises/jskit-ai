@@ -7,7 +7,7 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/server/index.js",
+    ".": "./src/index.js",
     "./workspaceAccess": "./src/lib/workspaceAccess.js",
     "./workspaceRoleCatalog": "./src/lib/workspaceRoleCatalog.js",
     "./workspaceSettingsPatch": "./src/lib/workspaceSettingsPatch.js",

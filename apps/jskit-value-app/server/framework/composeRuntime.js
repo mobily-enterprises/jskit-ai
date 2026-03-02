@@ -1,4 +1,4 @@
-import { createPlatformRuntimeBundle } from "@jskit-ai/platform-server-runtime";
+import { createPlatformRuntimeBundle } from "@jskit-ai/platform-server-runtime/server";
 import {
   MODULE_ENABLEMENT_MODES,
   resolveDependencyGraph,
@@ -6,7 +6,7 @@ import {
   addDiagnosticForMode,
   createDiagnosticsCollector,
   throwOnDiagnosticErrors
-} from "@jskit-ai/module-framework-core";
+} from "@jskit-ai/module-framework-core/server";
 import { mergeDisabled, moduleSignature } from "@jskit-ai/module-framework-core/composeUtils";
 
 import { FRAMEWORK_PROFILE_IDS, resolveFrameworkProfile, resolveServerModuleIdsForProfile } from "../../shared/framework/profile.js";

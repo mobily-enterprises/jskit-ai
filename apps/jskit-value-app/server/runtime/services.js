@@ -1,7 +1,7 @@
-import { createService as createAuthService } from "@jskit-ai/auth-provider-supabase-core";
+import { createService as createAuthService } from "@jskit-ai/auth-provider-supabase-core/server";
 import { createService as createHistoryModuleService } from "../modules/history/index.js";
-import { createService as createSmsService } from "@jskit-ai/sms-core";
-import { createService as createEmailService } from "@jskit-ai/email-core";
+import { createService as createSmsService } from "@jskit-ai/sms-core/server";
+import { createService as createEmailService } from "@jskit-ai/email-core/server";
 import { createService as createCommunicationsModuleService } from "../modules/communications/index.js";
 import { createService as createSettingsModuleService } from "../modules/settings/index.js";
 import { createService as createAlertsModuleService } from "../modules/alerts/index.js";
@@ -10,10 +10,10 @@ import { createService as createUserAvatarService } from "@jskit-ai/user-profile
 import { createService as createWorkspaceService } from "@jskit-ai/workspace-service-core/services/workspace";
 import { createService as createWorkspaceAdminService } from "@jskit-ai/workspace-service-core/services/admin";
 import { createService as createWorkspaceInviteEmailService } from "@jskit-ai/workspace-service-core/services/inviteEmail";
-import { createService as createChatAttachmentStorageService } from "@jskit-ai/chat-storage-core";
+import { createService as createChatAttachmentStorageService } from "@jskit-ai/chat-storage-core/server";
 import { createService as createConsoleService } from "@jskit-ai/workspace-console-service-core/services/console";
 import { createService as createConsoleErrorsService } from "@jskit-ai/observability-core/services/consoleErrors";
-import { createService as createAuditService } from "@jskit-ai/security-audit-core";
+import { createService as createAuditService } from "@jskit-ai/security-audit-core/server";
 import { createService as createChatModuleService } from "../modules/chat/index.js";
 import { createService as createSocialModuleService } from "../modules/social/index.js";
 import { createSocialOutboxWorkerRuntimeService } from "@jskit-ai/social-core/outboxWorkerRuntimeService";
@@ -22,7 +22,7 @@ import { createService as createAiModuleService } from "../modules/ai/index.js";
 import {
   createConsoleBillingService,
   resolveBillingProvider
-} from "@jskit-ai/billing-service-core";
+} from "@jskit-ai/billing-service-core/server";
 import { createBillingSubsystem, BILLING_SUBSYSTEM_EXPORT_IDS } from "@jskit-ai/billing-worker-core/runtimeSubsystemFactory";
 import { createService as createBillingModuleService } from "../modules/billing/index.js";
 import { createActionRuntimeServices } from "./actions/index.js";

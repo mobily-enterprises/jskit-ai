@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   createService as createRetentionService,
   __testables
-} from "@jskit-ai/retention-core";
+} from "@jskit-ai/retention-core/server";
 
 function createDeque(values) {
   const queue = Array.isArray(values) ? [...values] : [];

@@ -7,7 +7,7 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/server/lib/index.js",
+    ".": "./src/index.js",
     "./controller": "./src/server/lib/controller.js",
     "./routes": "./src/server/lib/routes.js",
     "./schema": "./src/server/lib/schema.js",
@@ -20,7 +20,8 @@
     "./schemas/admin": "./src/server/lib/schemas/admin.schema.js",
     "./schemas/bootstrap": "./src/server/lib/schemas/bootstrap.schema.js",
     "./schemas/selfService": "./src/server/lib/schemas/selfService.schema.js",
-    "./schemas/shared": "./src/server/lib/schemas/shared.schema.js"
+    "./schemas/shared": "./src/server/lib/schemas/shared.schema.js",
+    "./client": "./src/client/index.js"
   },
   "dependencies": {
     "@fastify/type-provider-typebox": "^6.1.0",

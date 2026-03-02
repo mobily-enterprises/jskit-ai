@@ -1,4 +1,4 @@
-import { buildRoutes as buildAssistantAdapterRoutes } from "@jskit-ai/assistant-fastify-routes";
+import { buildRoutes as buildAssistantAdapterRoutes } from "@jskit-ai/assistant-fastify-routes/server";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 
 function buildRoutes(controllers, options = {}) {

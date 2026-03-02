@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { buildStreamEventError, createApi } from "@jskit-ai/assistant-client-runtime";
+import { buildStreamEventError, createApi } from "@jskit-ai/assistant-client-runtime/client";
 import { __testables } from "../../src/platform/http/api/transport.js";
 
 function createNdjsonResponse(chunks, { status = 200, contentType = "application/x-ndjson; charset=utf-8" } = {}) {

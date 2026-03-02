@@ -1,13 +1,13 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { normalizePagination } from "@jskit-ai/server-runtime-core/pagination";
-import { createEntitlementsService } from "@jskit-ai/entitlements-core";
+import { createEntitlementsService } from "@jskit-ai/entitlements-core/server";
 import {
   createGuardrailRecorder,
   withLeaseFence,
   normalizeCurrency,
   toNonEmptyString,
   toDateOrNull
-} from "@jskit-ai/billing-core";
+} from "@jskit-ai/billing-core/server";
 import {
   BILLING_ACTIONS,
   BILLING_DEFAULT_PROVIDER,
@@ -19,7 +19,7 @@ import { toCanonicalJson, toSha256Hex } from "./canonicalJson.js";
 import { normalizeBillingPath, normalizePortalPath } from "./pathPolicy.js";
 import { resolveCapabilityLimitConfig } from "./appCapabilityLimits.js";
 import { PROVIDER_OUTCOME_ACTIONS, resolveProviderErrorOutcome } from "./providerOutcomePolicy.js";
-import { isBillingProviderError } from "@jskit-ai/billing-provider-core";
+import { isBillingProviderError } from "@jskit-ai/billing-provider-core/server";
 import { normalizeProviderSubscriptionStatus, parseUnixEpochSeconds } from "./webhookProjection.utils.js";
 
 function mapFailureCodeToError(failureCode, fallbackMessage) {

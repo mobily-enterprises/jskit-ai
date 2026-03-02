@@ -1,5 +1,5 @@
 import { db } from "../../../db/knex.js";
-import { normalizeCountRow as normalizeCount } from "@jskit-ai/jskit-knex";
+import { normalizeCountRow as normalizeCount } from "@jskit-ai/jskit-knex/server";
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 
 function normalizePositiveInteger(value) {

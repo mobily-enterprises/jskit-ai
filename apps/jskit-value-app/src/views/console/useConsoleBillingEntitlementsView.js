@@ -1,7 +1,7 @@
 import { computed } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
-import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
+import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core/server";
 import { api } from "../../platform/http/api/index.js";
 
 export function useConsoleBillingEntitlementsView() {

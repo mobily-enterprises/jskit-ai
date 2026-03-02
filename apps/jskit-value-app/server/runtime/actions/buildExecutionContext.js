@@ -1,4 +1,4 @@
-import { normalizeExecutionContext, normalizeText } from "@jskit-ai/action-runtime-core";
+import { normalizeExecutionContext, normalizeText } from "@jskit-ai/action-runtime-core/server";
 import { resolveClientIpAddress } from "@jskit-ai/server-runtime-core/requestUrl";
 import { resolveRequestSurface } from "../../shared/resolveRequestSurface.js";
 

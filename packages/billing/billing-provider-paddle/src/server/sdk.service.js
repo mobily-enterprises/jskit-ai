@@ -1,8 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { toNullableString } from "@jskit-ai/billing-core";
+import { toNullableString } from "@jskit-ai/billing-core/server";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { BILLING_PROVIDER_PADDLE, isBillingProviderError, parsePositiveInteger } from "@jskit-ai/billing-provider-core";
+import { BILLING_PROVIDER_PADDLE, isBillingProviderError, parsePositiveInteger } from "@jskit-ai/billing-provider-core/server";
 import { mapPaddleProviderError } from "./errorMapping.js";
 
 function normalizeApiBaseUrl(value) {

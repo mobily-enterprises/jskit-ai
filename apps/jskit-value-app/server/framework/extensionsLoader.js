@@ -1,6 +1,6 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { defineModule } from "@jskit-ai/module-framework-core";
+import { defineModule } from "@jskit-ai/module-framework-core/server";
 
 const CONTRIBUTION_KEYS = Object.freeze([
   "repositories",

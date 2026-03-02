@@ -8,7 +8,7 @@ import {
   hasPermission,
   OBJECT_INPUT_SCHEMA
 } from "@jskit-ai/action-runtime-core/actionContributorHelpers";
-import { normalizeLowerText, normalizeText } from "@jskit-ai/action-runtime-core";
+import { normalizeLowerText, normalizeText } from "@jskit-ai/action-runtime-core/server";
 
 function resolveSurfaceId(context, input) {
   const payload = normalizeObject(input);

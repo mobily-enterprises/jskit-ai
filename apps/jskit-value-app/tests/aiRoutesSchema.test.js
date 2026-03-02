@@ -4,7 +4,7 @@ import Fastify from "fastify";
 
 import { registerApiRoutes } from "../server/fastify/registerApiRoutes.js";
 import { buildRoutes as buildAiRoutes } from "../server/modules/ai/routes.js";
-import { createSchema } from "@jskit-ai/assistant-fastify-routes";
+import { createSchema } from "@jskit-ai/assistant-fastify-routes/server";
 import { createMissingHandler } from "./helpers/missingHandler.js";
 
 test("ai route rejects malformed request body and accepts valid payload", async () => {

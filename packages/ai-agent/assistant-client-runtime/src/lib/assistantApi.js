@@ -1,4 +1,4 @@
-import { ASSISTANT_STREAM_EVENT_TYPES, normalizeAssistantStreamEventType } from "@jskit-ai/assistant-contracts";
+import { ASSISTANT_STREAM_EVENT_TYPES, normalizeAssistantStreamEventType } from "@jskit-ai/assistant-contracts/server";
 
 function buildStreamEventError(event) {
   const message = String(event?.message || "Assistant request failed.");

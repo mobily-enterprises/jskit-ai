@@ -1,9 +1,9 @@
-import { toNullableString } from "@jskit-ai/billing-core";
-import { BILLING_PROVIDER_PADDLE } from "@jskit-ai/billing-provider-core";
+import { toNullableString } from "@jskit-ai/billing-core/server";
+import { BILLING_PROVIDER_PADDLE } from "@jskit-ai/billing-provider-core/server";
 import {
   assertWebhookTranslator,
   shouldProcessCanonicalWebhookEvent
-} from "@jskit-ai/billing-provider-core";
+} from "@jskit-ai/billing-provider-core/server";
 
 const PADDLE_EVENT_TYPE_MAP = Object.freeze({
   "transaction.completed": "invoice.paid",

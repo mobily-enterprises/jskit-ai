@@ -1,5 +1,5 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { OWNER_ROLE_ID, resolveRolePermissions } from "@jskit-ai/rbac-core";
+import { OWNER_ROLE_ID, resolveRolePermissions } from "@jskit-ai/rbac-core/server";
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 import { normalizeWorkspaceProvisioningMode } from "@jskit-ai/runtime-env-core/appRuntimePolicy";

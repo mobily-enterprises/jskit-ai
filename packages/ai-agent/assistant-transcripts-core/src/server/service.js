@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { defaultHasPermission } from "@jskit-ai/assistant-core";
+import { defaultHasPermission } from "@jskit-ai/assistant-core/server";
 import { AppError as SharedAppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { normalizePagination as normalizePaginationBase } from "@jskit-ai/server-runtime-core/pagination";

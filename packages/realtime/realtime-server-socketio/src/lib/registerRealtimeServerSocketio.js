@@ -7,7 +7,7 @@ import {
   REALTIME_MESSAGE_TYPES,
   TOPIC_SCOPES,
   normalizeTopicScope
-} from "@jskit-ai/realtime-contracts";
+} from "@jskit-ai/realtime-contracts/server";
 
 const SOCKET_IO_PATH = "/api/v1/realtime";
 const SOCKET_IO_MESSAGE_EVENT = "realtime:message";

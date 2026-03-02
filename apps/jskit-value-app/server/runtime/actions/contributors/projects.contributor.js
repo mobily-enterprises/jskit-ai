@@ -3,7 +3,7 @@ import {
   publishProjectEventSafely,
   resolvePublishProjectEvent
 } from "../../../realtime/publishers/projectPublisher.js";
-import { normalizeHeaderValue, resolveCommandId, resolveSourceClientId } from "@jskit-ai/action-runtime-core";
+import { normalizeHeaderValue, resolveCommandId, resolveSourceClientId } from "@jskit-ai/action-runtime-core/server";
 import { resolveWorkspace } from "@jskit-ai/action-runtime-core/actionContributorHelpers";
 
 const PROJECTS_CREATE_CAPABILITY = "projects.create";

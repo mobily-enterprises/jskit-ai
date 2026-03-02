@@ -20,7 +20,7 @@ import {
   isIndeterminateProviderOutcome
 } from "./providerOutcomePolicy.js";
 import { normalizeProviderSubscriptionStatus, isSubscriptionStatusCurrent } from "./webhookProjection.utils.js";
-import { normalizeCurrency, toNullableString } from "@jskit-ai/billing-core";
+import { normalizeCurrency, toNullableString } from "@jskit-ai/billing-core/server";
 
 function normalizePlanCode(value) {
   return String(value || "").trim();

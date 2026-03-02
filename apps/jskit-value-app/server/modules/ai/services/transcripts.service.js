@@ -1,7 +1,7 @@
 import {
   createAssistantTranscriptsService as createAssistantTranscriptsCoreService,
   assistantTranscriptsServiceTestables as assistantTranscriptsCoreTestables
-} from "@jskit-ai/assistant-transcripts-core";
+} from "@jskit-ai/assistant-transcripts-core/server";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import {
   CONSOLE_AI_TRANSCRIPTS_PERMISSIONS,

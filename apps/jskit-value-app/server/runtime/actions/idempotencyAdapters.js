@@ -1,4 +1,4 @@
-import { createNoopIdempotencyAdapter } from "@jskit-ai/action-runtime-core";
+import { createNoopIdempotencyAdapter } from "@jskit-ai/action-runtime-core/server";
 
 function createActionIdempotencyAdapter() {
   // Billing idempotency is enforced inside billing service methods where request

@@ -2,9 +2,11 @@
   "name": "@jskit-ai/surface-routing",
   "version": "0.1.0",
   "type": "module",
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
-    ".": "./src/lib/index.js",
+    ".": "./src/index.js",
     "./server": "./src/server/index.js",
     "./client": "./src/client/index.js",
     "./apiPaths": "./src/lib/apiPaths.js",

@@ -1,4 +1,4 @@
-import { toNonEmptyString } from "@jskit-ai/billing-core";
+import { toNonEmptyString } from "@jskit-ai/billing-core/server";
 
 const DEFAULT_TABLE_NAMES = Object.freeze({
   entitlementDefinitions: "billing_entitlement_definitions",

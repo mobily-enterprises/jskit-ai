@@ -3,9 +3,9 @@ import {
   createReconnectPolicy,
   createReplayPolicy,
   createSocketIoTransport
-} from "@jskit-ai/realtime-client-runtime";
+} from "@jskit-ai/realtime-client-runtime/client";
 
-import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES, TOPIC_SCOPES } from "@jskit-ai/realtime-contracts";
+import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES, TOPIC_SCOPES } from "@jskit-ai/realtime-contracts/client";
 import { getTopicRule, getTopicScope, isTopicAllowedForSurface } from "../../../shared/topicRegistry.js";
 import { API_REALTIME_PATH } from "../../../shared/apiPaths.js";
 import { projectsScopeQueryKey } from "../../modules/projects/queryKeys.js";

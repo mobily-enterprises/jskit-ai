@@ -1,4 +1,4 @@
-import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "@jskit-ai/realtime-contracts";
+import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "@jskit-ai/realtime-contracts/server";
 
 import { createReplayPolicy } from "./policies/replay.js";
 import { createReconnectPolicy } from "./policies/reconnect.js";

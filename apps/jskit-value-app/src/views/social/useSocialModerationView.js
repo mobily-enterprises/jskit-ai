@@ -1,6 +1,6 @@
 import { computed, reactive, ref } from "vue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
-import { mapSocialError, socialScopeQueryKey } from "@jskit-ai/social-contracts";
+import { mapSocialError, socialScopeQueryKey } from "@jskit-ai/social-contracts/client";
 import { api } from "../../platform/http/api/index.js";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useWorkspaceStore } from "../../app/state/workspaceStore.js";

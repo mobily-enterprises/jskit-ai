@@ -1,4 +1,4 @@
-import { toDateOrNull } from "@jskit-ai/billing-core";
+import { toDateOrNull } from "@jskit-ai/billing-core/server";
 
 function pickLaterDate(left, right) {
   const leftDate = toDateOrNull(left);

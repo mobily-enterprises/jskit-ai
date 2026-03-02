@@ -1,6 +1,6 @@
-import { createSocialRuntime, socialRuntimeTestables } from "@jskit-ai/social-client-runtime";
+import { createSocialRuntime, socialRuntimeTestables } from "@jskit-ai/social-client-runtime/client";
 import { useAuthGuard } from "../auth/useAuthGuard.js";
-import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
+import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core/server";
 import { api } from "../../platform/http/api/index.js";
 import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 

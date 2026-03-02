@@ -10,7 +10,7 @@ describe("WorkspaceMembersView", () => {
   it("imports and renders members admin package element in workspace mode", () => {
     const source = readSource(viewPath);
 
-    expect(source.includes('from "@jskit-ai/members-admin-client-element"')).toBe(true);
+    expect(source.includes('from "@jskit-ai/members-admin-client-element/client"')).toBe(true);
     expect(source.includes('<MembersAdminClientElement')).toBe(true);
     expect(source.includes('mode="workspace"')).toBe(true);
   });

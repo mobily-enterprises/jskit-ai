@@ -9,7 +9,7 @@ import {
   createNoopObservabilityAdapter,
   normalizeExecutionContext,
   normalizeText
-} from "@jskit-ai/action-runtime-core";
+} from "@jskit-ai/action-runtime-core/server";
 import { resolveClientIpAddress } from "@jskit-ai/server-runtime-core/requestUrl";
 
 const DEFAULT_SURFACE = "app";

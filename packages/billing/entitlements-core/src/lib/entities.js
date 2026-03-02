@@ -4,7 +4,7 @@ import {
   normalizeAmountRequirePositive,
   toDateOrNull,
   toNonEmptyString
-} from "@jskit-ai/billing-core";
+} from "@jskit-ai/billing-core/server";
 
 export const ENTITLEMENT_TYPES = {
   CAPACITY: "capacity",

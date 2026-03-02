@@ -10,7 +10,7 @@ import {
   assistantWorkspaceScopeQueryKey,
   ASSISTANT_STREAM_EVENT_TYPES,
   normalizeAssistantStreamEventType
-} from "@jskit-ai/assistant-contracts";
+} from "@jskit-ai/assistant-contracts/server";
 
 const HISTORY_PAGE = 1;
 const RESTORE_MESSAGES_PAGE = 1;

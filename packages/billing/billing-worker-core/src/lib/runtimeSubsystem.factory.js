@@ -7,7 +7,7 @@ import {
   createBillingCheckoutOrchestratorService,
   createBillingWebhookService,
   createBillingRealtimePublishService
-} from "@jskit-ai/billing-service-core";
+} from "@jskit-ai/billing-service-core/server";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 
 import { createService as createBillingOutboxWorkerService } from "./outboxWorker.service.js";

@@ -6,7 +6,7 @@ import {
 import { formatDateTime } from "../lib/dateFormatters.js";
   workspaceAiTranscriptMessagesQueryKey,
   workspaceAiTranscriptsListQueryKey
-} from "@jskit-ai/assistant-contracts";
+} from "@jskit-ai/assistant-contracts/client";
 
 
 function formatTranscriptMode(value) {

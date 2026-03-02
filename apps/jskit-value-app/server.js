@@ -12,7 +12,7 @@ import { registerTypeBoxFormats } from "@jskit-ai/http-contracts/typeboxFormats"
 import { resolveRepositoryConfigForRuntime } from "./config/index.js";
 import { createPlatformRuntimeEnv } from "@jskit-ai/runtime-env-core/platformRuntimeEnv";
 import { resolveAppConfig, toBrowserConfig } from "@jskit-ai/runtime-env-core/appRuntimePolicy";
-import { listManifestPermissions, loadRbacManifest, manifestIncludesPermission } from "@jskit-ai/rbac-core";
+import { listManifestPermissions, loadRbacManifest, manifestIncludesPermission } from "@jskit-ai/rbac-core/server";
 import { initDatabase, closeDatabase } from "./db/knex.js";
 import { isAppError } from "@jskit-ai/server-runtime-core/errors";
 import {
@@ -31,7 +31,7 @@ import {
   stopComposedBackgroundRuntimes
 } from "./server/framework/composeBackgroundRuntimes.js";
 import { loadServerAppExtensions } from "./server/app/loadExtensions.server.js";
-import { MODULE_ENABLEMENT_MODES } from "@jskit-ai/module-framework-core";
+import { MODULE_ENABLEMENT_MODES } from "@jskit-ai/module-framework-core/server";
 import { FRAMEWORK_PROFILE_IDS } from "./shared/framework/profile.js";
 import { registerSocketIoRealtime } from "./server/realtime/registerSocketIoRealtime.js";
 import { buildLoginRedirectPathFromRequest, safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
@@ -44,7 +44,7 @@ import {
   resolveRateLimitStartupError,
   resolveRateLimitStartupWarning
 } from "@jskit-ai/redis-ops-core/rateLimit";
-import { createMetricsRegistry } from "@jskit-ai/observability-core";
+import { createMetricsRegistry } from "@jskit-ai/observability-core/server";
 import { createServerRuntime } from "./server/runtime/index.js";
 import {
   API_DOCS_PATH,

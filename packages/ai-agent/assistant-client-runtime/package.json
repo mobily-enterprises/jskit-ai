@@ -7,7 +7,7 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/server/index.js",
+    ".": "./src/index.js",
     "./workspaceTranscriptsApi": "./src/lib/workspaceTranscriptsApi.js",
     "./consoleTranscriptsApi": "./src/lib/consoleTranscriptsApi.js",
     "./server": "./src/server/index.js",

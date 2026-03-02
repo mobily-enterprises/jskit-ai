@@ -7,7 +7,7 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/server/index.js",
+    ".": "./src/index.js",
     "./runtimeSubsystemFactory": "./src/lib/runtimeSubsystem.factory.js",
     "./outboxWorkerService": "./src/lib/outboxWorker.service.js",
     "./remediationWorkerService": "./src/lib/remediationWorker.service.js",

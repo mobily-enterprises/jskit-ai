@@ -1,8 +1,8 @@
 import { computed, reactive, ref, watch } from "vue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
-import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
-import { toNonEmptyString } from "@jskit-ai/billing-core";
+import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core/server";
+import { toNonEmptyString } from "@jskit-ai/billing-core/client";
 import { api } from "../../platform/http/api/index.js";
 import { resolveBillingPlanProviderProfile } from "./billingPlans/providers/index.js";
 import { toFieldErrors } from "./fieldErrors.js";

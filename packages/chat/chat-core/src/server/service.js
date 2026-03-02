@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { normalizeRequestMeta as normalizeActionRequestMeta } from "@jskit-ai/action-runtime-core";
-import { hasPermission, manifestIncludesPermission, resolveRolePermissions } from "@jskit-ai/rbac-core";
+import { normalizeRequestMeta as normalizeActionRequestMeta } from "@jskit-ai/action-runtime-core/server";
+import { hasPermission, manifestIncludesPermission, resolveRolePermissions } from "@jskit-ai/rbac-core/server";
 import { AppError as SharedAppError } from "@jskit-ai/server-runtime-core/errors";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";

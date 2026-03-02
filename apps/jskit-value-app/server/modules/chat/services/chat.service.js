@@ -1,4 +1,4 @@
-import { createChatService as createChatCoreService, chatServiceTestables as chatCoreTestables } from "@jskit-ai/chat-core";
+import { createChatService as createChatCoreService, chatServiceTestables as chatCoreTestables } from "@jskit-ai/chat-core/server";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { REALTIME_EVENT_TYPES } from "../../../../shared/eventTypes.js";
 

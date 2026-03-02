@@ -6,18 +6,21 @@ import { fileURLToPath } from "node:url";
 import { parseArgs, toPosix } from "./_utils.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const SOURCE_ROOTS = Object.freeze([path.join(REPO_ROOT, "packages"), path.join(REPO_ROOT, "apps")]);
-const JS_EXTENSIONS = new Set([".js", ".mjs", ".cjs"]);
-const IMPORT_RE = /(?:import|export)\s+(?:[^"']*?\s+from\s+)?["']([^"']+)["']/g;
+const SOURCE_ROOTS = Object.freeze([
+  path.join(REPO_ROOT, "packages"),
+  path.join(REPO_ROOT, "apps"),
+  path.join(REPO_ROOT, "scripts"),
+  path.join(REPO_ROOT, "tests")
+]);
+const JS_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".vue"]);
+const IMPORT_EXPORT_RE = /(?:import|export)\s+(?:[^"']*?\s+from\s+)?["']([^"']+)["']/g;
+const DYNAMIC_IMPORT_RE = /import\(\s*["']([^"']+)["']\s*\)/g;
+const REQUIRE_RE = /require\(\s*["']([^"']+)["']\s*\)/g;
 
-const SHARED_BANNED_PACKAGE_PREFIXES = Object.freeze([
+const LIB_BANNED_PACKAGE_PREFIXES = Object.freeze([
   "node:",
-  "fastify",
-  "@fastify/",
   "knex",
-  "mysql2",
-  "vue",
-  "@vue/"
+  "mysql2"
 ]);
 
 function walkFiles(rootPath, output = []) {
@@ -43,6 +46,9 @@ function walkFiles(rootPath, output = []) {
     if (!JS_EXTENSIONS.has(path.extname(entry.name))) {
       continue;
     }
+    if (entry.name.includes(".test.") || entry.name.includes(".spec.")) {
+      continue;
+    }
     output.push(absolutePath);
   }
 
@@ -51,8 +57,8 @@ function walkFiles(rootPath, output = []) {
 
 function getRuntimeType(filePath) {
   const normalized = toPosix(path.relative(REPO_ROOT, filePath));
-  if (normalized.includes("/src/shared/")) {
-    return "shared";
+  if (normalized.includes("/src/lib/")) {
+    return "lib";
   }
   if (normalized.includes("/src/client/")) {
     return "client";
@@ -65,11 +71,17 @@ function getRuntimeType(filePath) {
 
 function listImports(filePath) {
   const source = fs.readFileSync(filePath, "utf8");
-  const imports = [];
-  for (const match of source.matchAll(IMPORT_RE)) {
-    imports.push(String(match[1] || "").trim());
+  const imports = new Set();
+  for (const match of source.matchAll(IMPORT_EXPORT_RE)) {
+    imports.add(String(match[1] || "").trim());
   }
-  return imports;
+  for (const match of source.matchAll(DYNAMIC_IMPORT_RE)) {
+    imports.add(String(match[1] || "").trim());
+  }
+  for (const match of source.matchAll(REQUIRE_RE)) {
+    imports.add(String(match[1] || "").trim());
+  }
+  return [...imports];
 }
 
 function isRelativeInto(importPath, runtimeSegment) {
@@ -80,28 +92,32 @@ function isRelativeInto(importPath, runtimeSegment) {
 }
 
 function checkFile(filePath) {
-  const runtimeType = getRuntimeType(filePath);
-  if (!runtimeType) {
-    return [];
-  }
-
   const violations = [];
+  const runtimeType = getRuntimeType(filePath);
   const imports = listImports(filePath);
   const relativePath = toPosix(path.relative(REPO_ROOT, filePath));
 
   for (const importPath of imports) {
-    if (runtimeType === "shared") {
-      if (SHARED_BANNED_PACKAGE_PREFIXES.some((prefix) => importPath.startsWith(prefix))) {
+    if (/^@jskit-ai\/[^/]+$/.test(importPath)) {
+      violations.push({
+        file: relativePath,
+        rule: "jskit-bare-package-import",
+        importPath
+      });
+    }
+
+    if (runtimeType === "lib") {
+      if (LIB_BANNED_PACKAGE_PREFIXES.some((prefix) => importPath.startsWith(prefix))) {
         violations.push({
           file: relativePath,
-          rule: "shared-banned-runtime-import",
+          rule: "lib-banned-runtime-import",
           importPath
         });
       }
       if (isRelativeInto(importPath, "server") || isRelativeInto(importPath, "client")) {
         violations.push({
           file: relativePath,
-          rule: "shared-cross-runtime-relative-import",
+          rule: "lib-cross-runtime-relative-import",
           importPath
         });
       }

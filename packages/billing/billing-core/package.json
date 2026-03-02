@@ -7,7 +7,7 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/server/index.js",
+    ".": "./src/index.js",
     "./catalogCore": "./src/lib/catalogCore.js",
     "./providerPricingCore": "./src/lib/providerPricingCore.js",
     "./pricingErrors": "./src/lib/pricingErrors.js",

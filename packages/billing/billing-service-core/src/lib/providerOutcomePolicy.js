@@ -2,7 +2,7 @@ import { BILLING_FAILURE_CODES } from "./constants.js";
 import {
   PROVIDER_ERROR_CATEGORIES,
   isBillingProviderError
-} from "@jskit-ai/billing-provider-core";
+} from "@jskit-ai/billing-provider-core/server";
 
 const PROVIDER_OUTCOME_ACTIONS = Object.freeze({
   MARK_FAILED: "mark_failed",

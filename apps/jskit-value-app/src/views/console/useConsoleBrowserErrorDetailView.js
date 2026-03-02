@@ -3,7 +3,7 @@ import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useQuery } from "@tanstack/vue-query";
 import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
-import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
+import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core/server";
 import { api } from "../../platform/http/api/index.js";
 import { formatDateTime } from "../lib/dateFormatters.js";
 

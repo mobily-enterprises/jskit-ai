@@ -3,8 +3,8 @@ import {
   assistantWorkspaceScopeQueryKey,
   workspaceAiTranscriptsRootQueryKey,
   workspaceAiTranscriptsScopeQueryKey
-} from "@jskit-ai/assistant-contracts";
-import { chatRootQueryKey, chatScopeQueryKey } from "@jskit-ai/chat-contracts";
+} from "@jskit-ai/assistant-contracts/client";
+import { chatRootQueryKey, chatScopeQueryKey } from "@jskit-ai/chat-contracts/client";
 import { projectDetailQueryKey, projectsScopeQueryKey } from "../../modules/projects/queryKeys.js";
 import {
   workspaceAdminRootQueryKey,
@@ -12,7 +12,7 @@ import {
   workspaceBillingPlanStateQueryKey,
   workspaceBillingPurchasesQueryKey
 } from "../../modules/workspaceAdmin/queryKeys.js";
-import { socialRootQueryKey, socialScopeQueryKey } from "@jskit-ai/social-contracts";
+import { socialRootQueryKey, socialScopeQueryKey } from "@jskit-ai/social-contracts/client";
 import { publishRealtimeEvent } from "./realtimeEventBus.js";
 import { composeRealtimeInvalidationDefinitions } from "../../framework/composeRealtimeClient.js";
 

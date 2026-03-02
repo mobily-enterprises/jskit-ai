@@ -1,7 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { createStorage } from "unstorage";
 import fsDriver from "unstorage/drivers/fs";
-import { resolveFsBasePath } from "@jskit-ai/server-runtime-core";
+import { resolveFsBasePath } from "@jskit-ai/server-runtime-core/server";
 
 function normalizePublicBasePath(value) {
   const raw = String(value || "").trim();

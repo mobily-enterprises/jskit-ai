@@ -1,5 +1,5 @@
-import { toNullableString } from "@jskit-ai/billing-core";
-import { createEntitlementsKnexRepository } from "@jskit-ai/entitlements-knex-mysql";
+import { toNullableString } from "@jskit-ai/billing-core/server";
+import { createEntitlementsKnexRepository } from "@jskit-ai/entitlements-knex-mysql/server";
 import { toInsertDateTime, toIsoString, toNullableDateTime, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 import {
@@ -8,7 +8,7 @@ import {
   parseJsonValue,
   resolveQueryOptions,
   resolveRepoClient
-} from "@jskit-ai/jskit-knex";
+} from "@jskit-ai/jskit-knex/server";
 import {
   BILLING_CHECKOUT_SESSION_STATUS,
   BILLING_DEFAULT_PROVIDER,

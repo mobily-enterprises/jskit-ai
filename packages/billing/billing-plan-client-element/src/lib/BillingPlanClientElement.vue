@@ -238,7 +238,7 @@
 
 <script setup>
 import { computed } from "vue";
-import { useClientElementProps } from "@jskit-ai/web-runtime-core";
+import { useClientElementProps } from "@jskit-ai/web-runtime-core/server";
 
 const DEFAULT_COPY = Object.freeze({
   headingTitle: "Workspace billing",

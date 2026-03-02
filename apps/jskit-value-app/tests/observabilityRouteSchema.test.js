@@ -3,9 +3,9 @@ import test from "node:test";
 import Fastify from "fastify";
 
 import { registerApiRoutes } from "../server/fastify/registerApiRoutes.js";
-import { buildRoutes as buildObservabilityRoutes } from "@jskit-ai/observability-fastify-routes";
-import { createController as createObservabilityController } from "@jskit-ai/observability-fastify-routes";
-import { createMetricsRegistry } from "@jskit-ai/observability-core";
+import { buildRoutes as buildObservabilityRoutes } from "@jskit-ai/observability-fastify-routes/server";
+import { createController as createObservabilityController } from "@jskit-ai/observability-fastify-routes/server";
+import { createMetricsRegistry } from "@jskit-ai/observability-core/server";
 import { createService as createObservabilityService } from "@jskit-ai/observability-core/service";
 
 function installErrorHandler(app) {

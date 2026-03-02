@@ -10,7 +10,7 @@ describe("ConsoleServerErrorDetailView", () => {
   it("renders console error detail package component in server mode", () => {
     const source = readFileSync(viewPath, "utf8");
 
-    expect(source.includes('from "@jskit-ai/console-errors-client-element"')).toBe(true);
+    expect(source.includes('from "@jskit-ai/console-errors-client-element/client"')).toBe(true);
     expect(source.includes('<ConsoleErrorDetailClientElement mode="server" :meta="meta" :state="state" :actions="actions" />')).toBe(true);
   });
 });

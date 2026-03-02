@@ -10,7 +10,7 @@ describe("ConsoleBillingPlansView", () => {
   it("renders console billing plans package component directly", () => {
     const source = readFileSync(viewPath, "utf8");
 
-    expect(source.includes('from "@jskit-ai/billing-console-admin-client-element"')).toBe(true);
+    expect(source.includes('from "@jskit-ai/billing-console-admin-client-element/client"')).toBe(true);
     expect(source.includes('<ConsoleBillingPlansClientElement :meta="meta" :state="state" :actions="actions" />')).toBe(true);
   });
 });

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createServerRuntimeWithPlatformBundle } from "@jskit-ai/platform-server-runtime";
+import { createServerRuntimeWithPlatformBundle } from "@jskit-ai/platform-server-runtime/server";
 import { createComposedRuntimeBundles } from "../../server/framework/composeRuntime.js";
 import { buildRoutesFromComposedModules } from "../../server/framework/composeRoutes.js";
 import {

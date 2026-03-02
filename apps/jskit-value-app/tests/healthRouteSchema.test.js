@@ -3,7 +3,7 @@ import test from "node:test";
 import Fastify from "fastify";
 
 import { registerApiRoutes } from "../server/fastify/registerApiRoutes.js";
-import { buildRoutes as buildHealthRoutes } from "@jskit-ai/health-fastify-routes";
+import { buildRoutes as buildHealthRoutes } from "@jskit-ai/health-fastify-routes/server";
 
 function buildControllers({ readinessOk = true } = {}) {
   return {

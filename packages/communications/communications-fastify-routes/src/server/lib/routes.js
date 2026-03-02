@@ -1,4 +1,4 @@
-import { schema as communicationsSchema } from "@jskit-ai/communications-contracts";
+import { schema as communicationsSchema } from "@jskit-ai/communications-contracts/server";
 
 function buildRoutes(controllers, { missingHandler, withStandardErrorResponses } = {}) {
   if (typeof withStandardErrorResponses !== "function") {

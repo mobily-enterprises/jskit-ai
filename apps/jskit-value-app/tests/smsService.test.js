@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   createService as createSmsService,
   __testables
-} from "@jskit-ai/sms-core";
+} from "@jskit-ai/sms-core/server";
 
 test("sms service validates supported drivers", () => {
   assert.throws(() => createSmsService({ driver: "twilio" }), /Unsupported SMS_DRIVER/);

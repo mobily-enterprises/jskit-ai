@@ -1,5 +1,5 @@
 import { Type } from "@fastify/type-provider-typebox";
-import { schema as defaultAuthSchema } from "@jskit-ai/auth-fastify-routes";
+import { schema as defaultAuthSchema } from "@jskit-ai/auth-fastify-routes/server";
 import { schema } from "./schema.js";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 import { normalizeAvatarUploadPolicy } from "./avatarPolicy.js";

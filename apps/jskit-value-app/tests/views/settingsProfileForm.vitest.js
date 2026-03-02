@@ -14,7 +14,7 @@ describe("SettingsProfileForm wrapper", () => {
   it("imports and renders ProfileClientElement directly", () => {
     const source = readProfileFormSource();
 
-    expect(source.includes('from "@jskit-ai/profile-client-element"')).toBe(true);
+    expect(source.includes('from "@jskit-ai/profile-client-element/client"')).toBe(true);
     expect(source.includes("<ProfileClientElement :state=\"state\" :actions=\"actions\" />")).toBe(true);
   });
 

@@ -1,4 +1,4 @@
-import { createHttpClient } from "@jskit-ai/http-client-runtime";
+import { createHttpClient } from "@jskit-ai/http-client-runtime/server";
 
 const DEFAULT_API_PATH_PREFIX = "/api/v1/";
 const DEFAULT_AI_STREAM_URL = "/api/v1/workspace/ai/chat/stream";

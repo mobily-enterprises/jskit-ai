@@ -12,10 +12,11 @@
     "@jskit-ai/server-runtime-core": "0.1.0"
   },
   "exports": {
-    ".": "./src/server/lib/index.js",
+    ".": "./src/index.js",
     "./controller": "./src/server/lib/controller.js",
     "./routes": "./src/server/lib/routes.js",
     "./schema": "./src/server/lib/schema.js",
-    "./server": "./src/server/index.js"
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   }
 }

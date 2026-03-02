@@ -1,4 +1,4 @@
-import { BILLING_PROVIDER_STRIPE, assertProviderAdapter } from "@jskit-ai/billing-provider-core";
+import { BILLING_PROVIDER_STRIPE, assertProviderAdapter } from "@jskit-ai/billing-provider-core/server";
 import { createService as createStripeCatalogPricingService } from "./catalogPricing.service.js";
 
 const REQUIRED_STRIPE_SDK_METHODS = Object.freeze([

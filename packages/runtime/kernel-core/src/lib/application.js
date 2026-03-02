@@ -1,4 +1,4 @@
-import { createContainer } from "@jskit-ai/container-core";
+import { createContainer } from "@jskit-ai/container-core/server";
 import {
   DuplicateProviderError,
   ProviderDependencyError,

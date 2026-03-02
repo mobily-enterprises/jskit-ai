@@ -1,4 +1,4 @@
-import { baseConfig, nodeConfig, webConfig } from "@jskit-ai/config-eslint";
+import { baseConfig, nodeConfig, webConfig } from "@jskit-ai/config-eslint/server";
 
 export default [
   {

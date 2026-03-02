@@ -1,4 +1,4 @@
-import { COMMUNICATION_CHANNELS } from "@jskit-ai/communications-provider-core";
+import { COMMUNICATION_CHANNELS } from "@jskit-ai/communications-provider-core/server";
 import { createOrchestrator, normalizeMetadata } from "./orchestrator.js";
 
 function createService({ smsService, emailService = null, providers = [], onDispatch = null } = {}) {

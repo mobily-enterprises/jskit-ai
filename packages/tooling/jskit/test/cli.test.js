@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { escapeRegExp } from "@jskit-ai/surface-routing";
+import { escapeRegExp } from "@jskit-ai/surface-routing/server";
 import { createCliRunner } from "../../testUtils/runCli.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));

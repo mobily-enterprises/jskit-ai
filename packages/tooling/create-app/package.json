@@ -16,7 +16,7 @@
     "jskit-create-app": "bin/jskit-create-app.js"
   },
   "exports": {
-    ".": "./src/server/index.js",
+    ".": "./src/index.js",
     "./server": "./src/server/index.js",
     "./client": "./src/client/index.js"
   },

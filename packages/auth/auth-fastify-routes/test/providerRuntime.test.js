@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createApplication } from "@jskit-ai/kernel-core";
+import { createApplication } from "@jskit-ai/kernel-core/server";
 import { createHttpRuntime } from "@jskit-ai/http-fastify-core/kernel";
 import { AuthRouteServiceProvider } from "../src/server/providers/AuthRouteServiceProvider.js";
 

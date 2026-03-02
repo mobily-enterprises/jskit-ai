@@ -1,8 +1,8 @@
-import { createChatRuntime } from "@jskit-ai/chat-client-runtime";
+import { createChatRuntime } from "@jskit-ai/chat-client-runtime/client";
 import { REALTIME_EVENT_TYPES } from "../../../shared/eventTypes.js";
 import { chatConfig } from "../../../config/chat.js";
 import { useAuthGuard } from "../auth/useAuthGuard.js";
-import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
+import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core/server";
 import { api } from "../../platform/http/api/index.js";
 import { subscribeRealtimeEvents } from "../../platform/realtime/realtimeEventBus.js";
 import { useWorkspaceStore } from "../../app/state/workspaceStore.js";

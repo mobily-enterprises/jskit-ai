@@ -1,6 +1,6 @@
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
-import { parseJsonValue, resolveRepoClient, toDbJson } from "@jskit-ai/jskit-knex";
+import { parseJsonValue, resolveRepoClient, toDbJson } from "@jskit-ai/jskit-knex/server";
 
 const CONSOLE_SETTINGS_SINGLETON_ID = 1;
 

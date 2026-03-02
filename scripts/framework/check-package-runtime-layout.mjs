@@ -7,7 +7,14 @@ import { parseArgs, toPosix } from "./_utils.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PACKAGES_ROOT = path.join(REPO_ROOT, "packages");
-const EXPECTED_RUNTIME_DIRS = Object.freeze(["shared", "client", "server"]);
+const REQUIRED_RUNTIME_DIRS = Object.freeze(["server", "client"]);
+const OPTIONAL_RUNTIME_DIRS = new Set(["lib"]);
+const EXPECTED_SRC_ROOT_ENTRIES = new Set(["server", "client", "lib", "index.js"]);
+const REQUIRED_EXPORTS = Object.freeze({
+  ".": "./src/index.js",
+  "./server": "./src/server/index.js",
+  "./client": "./src/client/index.js"
+});
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -55,6 +62,13 @@ function normalizeExportKeys(exportsField) {
   return new Set(Object.keys(exportsField));
 }
 
+function normalizeExportMap(exportsField) {
+  if (!exportsField || typeof exportsField !== "object" || Array.isArray(exportsField)) {
+    return {};
+  }
+  return exportsField;
+}
+
 function getPackageRuntimeStatus(packageRoot) {
   const packageJsonPath = path.join(packageRoot, "package.json");
   const packageJson = readJson(packageJsonPath);
@@ -64,20 +78,40 @@ function getPackageRuntimeStatus(packageRoot) {
   }
 
   const missingRuntimeDirs = [];
-  for (const runtimeDir of EXPECTED_RUNTIME_DIRS) {
+  for (const runtimeDir of REQUIRED_RUNTIME_DIRS) {
     const runtimeDirPath = path.join(packageRoot, "src", runtimeDir);
     if (!fileExists(runtimeDirPath)) {
       missingRuntimeDirs.push(`src/${runtimeDir}`);
     }
   }
 
+  const exportMap = normalizeExportMap(packageJson.exports);
   const exportKeys = normalizeExportKeys(packageJson.exports);
   const missingRuntimeExports = [];
-  for (const runtimeDir of EXPECTED_RUNTIME_DIRS) {
-    const wildcardKey = `./${runtimeDir}/*`;
-    const flatKey = `./${runtimeDir}`;
-    if (!exportKeys.has(wildcardKey) && !exportKeys.has(flatKey)) {
-      missingRuntimeExports.push(wildcardKey);
+  const invalidRuntimeExports = [];
+  for (const [exportKey, expectedTarget] of Object.entries(REQUIRED_EXPORTS)) {
+    if (!exportKeys.has(exportKey)) {
+      missingRuntimeExports.push(exportKey);
+      continue;
+    }
+    const actualTarget = exportMap[exportKey];
+    if (actualTarget !== expectedTarget) {
+      invalidRuntimeExports.push(`${exportKey} => ${JSON.stringify(actualTarget)}`);
+    }
+  }
+
+  const sourceRoot = path.join(packageRoot, "src");
+  const invalidSrcRootEntries = [];
+  if (fileExists(sourceRoot)) {
+    const srcEntries = fs.readdirSync(sourceRoot, { withFileTypes: true });
+    for (const srcEntry of srcEntries) {
+      if (!EXPECTED_SRC_ROOT_ENTRIES.has(srcEntry.name)) {
+        invalidSrcRootEntries.push(`src/${srcEntry.name}`);
+        continue;
+      }
+      if (srcEntry.isDirectory() && !REQUIRED_RUNTIME_DIRS.includes(srcEntry.name) && !OPTIONAL_RUNTIME_DIRS.has(srcEntry.name)) {
+        invalidSrcRootEntries.push(`src/${srcEntry.name}`);
+      }
     }
   }
 
@@ -85,7 +119,9 @@ function getPackageRuntimeStatus(packageRoot) {
     packageName,
     packageRoot: toPosix(path.relative(REPO_ROOT, packageRoot)),
     missingRuntimeDirs,
-    missingRuntimeExports
+    missingRuntimeExports,
+    invalidRuntimeExports,
+    invalidSrcRootEntries
   };
 }
 
@@ -96,7 +132,11 @@ function main() {
     .filter(Boolean);
 
   const failing = statuses.filter(
-    (status) => status.missingRuntimeDirs.length > 0 || status.missingRuntimeExports.length > 0
+    (status) =>
+      status.missingRuntimeDirs.length > 0 ||
+      status.missingRuntimeExports.length > 0 ||
+      status.invalidRuntimeExports.length > 0 ||
+      status.invalidSrcRootEntries.length > 0
   );
 
   if (options.json) {
@@ -122,6 +162,12 @@ function main() {
       }
       if (status.missingRuntimeExports.length > 0) {
         details.push(`missing exports: ${status.missingRuntimeExports.join(", ")}`);
+      }
+      if (status.invalidRuntimeExports.length > 0) {
+        details.push(`invalid exports: ${status.invalidRuntimeExports.join(", ")}`);
+      }
+      if (status.invalidSrcRootEntries.length > 0) {
+        details.push(`invalid src entries: ${status.invalidSrcRootEntries.join(", ")}`);
       }
       process.stdout.write(`- ${status.packageName} (${status.packageRoot}) -> ${details.join(" | ")}\n`);
     }

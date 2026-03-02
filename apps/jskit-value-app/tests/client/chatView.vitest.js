@@ -2,7 +2,7 @@ import { defineComponent, nextTick, ref } from "vue";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { REALTIME_TOPICS } from "../../shared/eventTypes.js";
-import { chatInboxInfiniteQueryKey, chatThreadMessagesInfiniteQueryKey } from "@jskit-ai/chat-contracts";
+import { chatInboxInfiniteQueryKey, chatThreadMessagesInfiniteQueryKey } from "@jskit-ai/chat-contracts/client";
 import {
   publishRealtimeEvent,
   __testables as realtimeEventBusTestables

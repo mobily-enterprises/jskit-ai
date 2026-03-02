@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { buildAiToolRegistry, listToolSchemas } from "@jskit-ai/assistant-core";
+import { buildAiToolRegistry, listToolSchemas } from "@jskit-ai/assistant-core/server";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { isPlainObject, normalizeLowerText, normalizeText } from "@jskit-ai/action-runtime-core";
+import { isPlainObject, normalizeLowerText, normalizeText } from "@jskit-ai/action-runtime-core/server";
 import { normalizeSurfaceId } from "@jskit-ai/surface-routing/registry";
 
 const ASSISTANT_TOOL_CHANNEL = "assistant_tool";

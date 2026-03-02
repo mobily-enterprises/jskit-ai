@@ -4,7 +4,7 @@ import { api } from "../../platform/http/api/index.js";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useListQueryState } from "@jskit-ai/web-runtime-core/useListQueryState";
 import { useStandardListPagination } from "../../modules/pagination/useStandardListPagination.js";
-import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
+import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core/server";
 import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 import { mapHistoryError } from "../../modules/deg2rad/errors.js";
 import { pageSizeOptions } from "../../modules/deg2rad/formModel.js";

@@ -7,7 +7,7 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/server/lib/index.js",
+    ".": "./src/index.js",
     "./service": "./src/server/lib/service.js",
     "./server": "./src/server/index.js",
     "./serverProvider": "./src/server/providers/AuthSupabaseServiceProvider.js",
@@ -24,7 +24,8 @@
     "./authSecrets": "./src/server/lib/authSecrets.js",
     "./oauthFlows": "./src/server/lib/oauthFlows.js",
     "./oauthProviderCatalog": "./src/server/lib/oauthProviderCatalog.js",
-    "./passwordSecurityFlows": "./src/server/lib/passwordSecurityFlows.js"
+    "./passwordSecurityFlows": "./src/server/lib/passwordSecurityFlows.js",
+    "./client": "./src/client/index.js"
   },
   "dependencies": {
     "@jskit-ai/access-core": "0.1.0",

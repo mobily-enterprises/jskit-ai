@@ -5,9 +5,9 @@ import {
   assistantWorkspaceScopeQueryKey,
   workspaceAiTranscriptsRootQueryKey,
   workspaceAiTranscriptsScopeQueryKey
-} from "@jskit-ai/assistant-contracts";
-import { chatRootQueryKey, chatScopeQueryKey } from "@jskit-ai/chat-contracts";
-import { socialRootQueryKey, socialScopeQueryKey } from "@jskit-ai/social-contracts";
+} from "@jskit-ai/assistant-contracts/client";
+import { chatRootQueryKey, chatScopeQueryKey } from "@jskit-ai/chat-contracts/client";
+import { socialRootQueryKey, socialScopeQueryKey } from "@jskit-ai/social-contracts/client";
 import { projectDetailQueryKey, projectsScopeQueryKey } from "../../src/modules/projects/queryKeys.js";
 import {
   workspaceAdminRootQueryKey,

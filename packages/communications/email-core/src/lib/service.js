@@ -1,4 +1,4 @@
-import { normalizeMetadata } from "@jskit-ai/communications-provider-core";
+import { normalizeMetadata } from "@jskit-ai/communications-provider-core/server";
 
 function createService({ provider = "none" } = {}) {
   const normalizedProvider = String(provider || "none")

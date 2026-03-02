@@ -14,7 +14,7 @@
 </template>
 
 <script setup>
-import { MembersAdminClientElement } from "@jskit-ai/members-admin-client-element";
+import { MembersAdminClientElement } from "@jskit-ai/members-admin-client-element/client";
 import { useConsoleMembersView } from "./useConsoleMembersView.js";
 
 const { forms, options, collections, permissions, feedback, status, actions } = useConsoleMembersView();

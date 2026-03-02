@@ -1,6 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadServerAppDropins } from "@jskit-ai/module-framework-core/appDropins";
+import { loadServerAppDropins } from "@jskit-ai/module-framework-core/server";
 
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
 

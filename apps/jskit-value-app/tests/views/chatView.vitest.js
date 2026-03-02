@@ -14,7 +14,7 @@ describe("ChatView wrapper", () => {
   it("imports and renders ChatClientElement directly", () => {
     const source = readChatViewSource();
 
-    expect(source.includes('from "@jskit-ai/chat-client-element"')).toBe(true);
+    expect(source.includes('from "@jskit-ai/chat-client-element/client"')).toBe(true);
     expect(source.includes("<ChatClientElement :meta=\"meta\" :state=\"state\" :helpers=\"helpers\" :actions=\"actions\" />")).toBe(
       true
     );

@@ -1,8 +1,8 @@
-import { BILLING_PROVIDER_STRIPE } from "@jskit-ai/billing-provider-core";
+import { BILLING_PROVIDER_STRIPE } from "@jskit-ai/billing-provider-core/server";
 import {
   assertWebhookTranslator,
   shouldProcessCanonicalWebhookEvent
-} from "@jskit-ai/billing-provider-core";
+} from "@jskit-ai/billing-provider-core/server";
 
 function createService() {
   const translator = {

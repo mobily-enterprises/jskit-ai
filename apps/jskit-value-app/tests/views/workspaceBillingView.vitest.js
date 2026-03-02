@@ -14,8 +14,8 @@ describe("WorkspaceBillingView template", () => {
   it("imports and renders package billing elements directly", () => {
     const source = readBillingViewSource();
 
-    expect(source.includes('from "@jskit-ai/billing-plan-client-element"')).toBe(true);
-    expect(source.includes('from "@jskit-ai/billing-commerce-client-element"')).toBe(true);
+    expect(source.includes('from "@jskit-ai/billing-plan-client-element/client"')).toBe(true);
+    expect(source.includes('from "@jskit-ai/billing-commerce-client-element/client"')).toBe(true);
     expect(source.includes("<BillingPlanClientElement :meta=\"meta\" :state=\"state\" :actions=\"actions\" />")).toBe(true);
     expect(source.includes("<BillingCommerceClientElement :meta=\"meta\" :state=\"state\" :actions=\"actions\" />")).toBe(
       true

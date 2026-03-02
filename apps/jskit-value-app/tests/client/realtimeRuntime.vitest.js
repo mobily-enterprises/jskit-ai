@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { REALTIME_TOPICS } from "../../shared/eventTypes.js";
-import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "@jskit-ai/realtime-contracts";
+import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "@jskit-ai/realtime-contracts/client";
 import { projectsScopeQueryKey } from "../../src/modules/projects/queryKeys.js";
 import { workspaceAdminRootQueryKey } from "../../src/modules/workspaceAdmin/queryKeys.js";
 import { commandTracker, __testables as trackerTestables } from "../../src/platform/realtime/commandTracker.js";

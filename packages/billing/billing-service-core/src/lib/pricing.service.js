@@ -1,5 +1,5 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { normalizeCurrency, toNullableString } from "@jskit-ai/billing-core";
+import { normalizeCurrency, toNullableString } from "@jskit-ai/billing-core/server";
 import { BILLING_DEFAULT_PROVIDER, BILLING_FAILURE_CODES } from "./constants.js";
 
 function normalizeProvider(value) {

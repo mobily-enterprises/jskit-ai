@@ -1,4 +1,4 @@
-import { createAssistantRuntime } from "@jskit-ai/assistant-client-runtime";
+import { createAssistantRuntime } from "@jskit-ai/assistant-client-runtime/client";
 import { aiConfig } from "../../../config/ai.js";
 import { resolveSurfaceFromPathname } from "../../../shared/surfacePaths.js";
 import { api } from "../../platform/http/api/index.js";

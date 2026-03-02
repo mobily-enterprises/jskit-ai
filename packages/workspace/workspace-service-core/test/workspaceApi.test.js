@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createApi } from "../src/lib/client/workspaceApi.js";
+import { createApi } from "../src/client/workspaceApi.js";
 
 test("workspaceApi exposes workspace core methods only", async () => {
   const calls = [];

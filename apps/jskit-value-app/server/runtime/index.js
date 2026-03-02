@@ -1,4 +1,4 @@
-import { createServerRuntimeWithPlatformBundle } from "@jskit-ai/platform-server-runtime";
+import { createServerRuntimeWithPlatformBundle } from "@jskit-ai/platform-server-runtime/server";
 import { createComposedRuntimeBundles } from "../framework/composeRuntime.js";
 
 function createServerRuntime({

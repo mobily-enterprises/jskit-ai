@@ -1,4 +1,4 @@
-import { MODULE_ENABLEMENT_MODES } from "@jskit-ai/module-framework-core";
+import { MODULE_ENABLEMENT_MODES } from "@jskit-ai/module-framework-core/server";
 import { normalizeOptionalModulePacks } from "../../shared/framework/profile.js";
 import { composeServerRuntimeArtifacts } from "./composeRuntime.js";
 import { normalizeProfileId } from "./profileUtils.js";

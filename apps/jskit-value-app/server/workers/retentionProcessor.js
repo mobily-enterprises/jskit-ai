@@ -5,7 +5,7 @@ import {
   isRetentionLockHeldError,
   __testables as coreTestables
 } from "@jskit-ai/redis-ops-core/retentionProcessor";
-import { createService as createRetentionService, resolveRetentionPolicyConfig } from "@jskit-ai/retention-core";
+import { createService as createRetentionService, resolveRetentionPolicyConfig } from "@jskit-ai/retention-core/server";
 import { PLATFORM_REPOSITORY_DEFINITIONS } from "../runtime/repositories.js";
 
 function createDefaultRepositories() {

@@ -1,4 +1,3 @@
-export { createApi as createConsoleApi } from "./client/consoleApi.js";
 export { createConsoleAccessService } from "./services/consoleAccess.service.js";
 export { createConsoleMembersService } from "./services/consoleMembers.service.js";
 export { createConsoleInvitesService } from "./services/consoleInvites.service.js";

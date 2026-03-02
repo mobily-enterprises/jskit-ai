@@ -1,4 +1,4 @@
-import { createCommandTracker } from "@jskit-ai/realtime-client-runtime";
+import { createCommandTracker } from "@jskit-ai/realtime-client-runtime/client";
 
 const COMMAND_TRACKER_OPTIONS = Object.freeze({
   commandTtlMs: 60_000,

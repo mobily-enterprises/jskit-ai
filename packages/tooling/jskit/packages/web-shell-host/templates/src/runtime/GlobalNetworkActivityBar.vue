@@ -7,7 +7,7 @@
 </template>
 
 <script setup>
-import { useGlobalNetworkActivity } from "@jskit-ai/web-runtime-core";
+import { useGlobalNetworkActivity } from "@jskit-ai/web-runtime-core/server";
 
 const { isVisible } = useGlobalNetworkActivity({
   delayMs: 120,

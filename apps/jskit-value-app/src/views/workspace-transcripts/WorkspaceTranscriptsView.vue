@@ -5,7 +5,7 @@
 </template>
 
 <script setup>
-import { AssistantTranscriptExplorerClientElement } from "@jskit-ai/assistant-transcript-explorer-client-element";
+import { AssistantTranscriptExplorerClientElement } from "@jskit-ai/assistant-transcript-explorer-client-element/client";
 import { useWorkspaceTranscriptsView } from "./useWorkspaceTranscriptsView.js";
 
 const { meta, state, actions } = useWorkspaceTranscriptsView();

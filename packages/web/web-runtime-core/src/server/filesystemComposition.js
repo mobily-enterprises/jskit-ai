@@ -1,4 +1,4 @@
-import { escapeRegExp } from "@jskit-ai/surface-routing";
+import { escapeRegExp } from "@jskit-ai/surface-routing/server";
 
 const SUPPORTED_ROUTE_FILE_EXTENSIONS = Object.freeze([".vue", ".mjs", ".cjs", ".js", ".tsx", ".jsx", ".ts"]);
 const SUPPORTED_ENTRY_FILE_EXTENSIONS = Object.freeze([".mjs", ".cjs", ".js", ".ts"]);

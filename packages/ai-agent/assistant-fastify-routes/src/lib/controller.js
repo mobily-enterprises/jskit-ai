@@ -1,4 +1,4 @@
-import { defaultHasPermission } from "@jskit-ai/assistant-core";
+import { defaultHasPermission } from "@jskit-ai/assistant-core/server";
 import { endNdjson, safeStreamError, setNdjsonHeaders, writeNdjson } from "./ndjson.js";
 
 const ASSISTANT_ACTION_IDS = Object.freeze({

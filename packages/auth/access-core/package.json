@@ -7,9 +7,9 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/server/index.js",
-    "./client/authApi": "./src/server/client/authApi.js",
-    "./client/signOutFlow": "./src/server/client/signOutFlow.js",
+    ".": "./src/index.js",
+    "./client/authApi": "./src/client/authApi.js",
+    "./client/signOutFlow": "./src/client/signOutFlow.js",
     "./authConstraints": "./src/server/authConstraints.js",
     "./authMethods": "./src/server/authMethods.js",
     "./oauthProviders": "./src/server/oauthProviders.js",

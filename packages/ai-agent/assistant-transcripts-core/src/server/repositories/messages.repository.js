@@ -1,4 +1,4 @@
-import { mapRowNullable, normalizeCountRow, parseJsonObject, stringifyJsonObject } from "@jskit-ai/jskit-knex";
+import { mapRowNullable, normalizeCountRow, parseJsonObject, stringifyJsonObject } from "@jskit-ai/jskit-knex/server";
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import {

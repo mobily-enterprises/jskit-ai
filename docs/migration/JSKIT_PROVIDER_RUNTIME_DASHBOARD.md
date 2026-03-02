@@ -32,3 +32,9 @@ Move JSKIT server runtime to a provider/kernel architecture with explicit lifecy
 1. Deterministic provider ordering in tests.
 2. No silent fallback behavior in core runtime.
 3. Auth/workspace parity tests remain green during migration.
+
+## Deferred (Post-Reorganization Only)
+
+1. Contract scoping model and runtime contract-definition model are explicitly deferred.
+2. Do not start this work until the reorganization is complete and the full runtime/tooling test matrix is green.
+3. After that checkpoint, ask the product owner for explicit approval to begin contract scoping/runtime-definition implementation.

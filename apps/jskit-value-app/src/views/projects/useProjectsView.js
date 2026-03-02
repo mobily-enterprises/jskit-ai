@@ -3,7 +3,7 @@ import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useQuery } from "@tanstack/vue-query";
 import { api } from "../../platform/http/api/index.js";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
-import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
+import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core/server";
 import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 import { mapProjectsError } from "../../modules/projects/errors.js";
 import { projectDetailQueryKey } from "../../modules/projects/queryKeys.js";

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
 
-import { createService as createAuthService } from "@jskit-ai/auth-provider-supabase-core";
+import { createService as createAuthService } from "@jskit-ai/auth-provider-supabase-core/server";
 
 const SUPABASE_URL = "http://supabase.local";
 const SUPABASE_PUBLISHABLE_KEY = "pk_test_123";

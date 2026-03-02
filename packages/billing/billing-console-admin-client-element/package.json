@@ -7,7 +7,7 @@
     "test": "vitest run --config vitest.config.mjs"
   },
   "exports": {
-    ".": "./src/server/index.js",
+    ".": "./src/index.js",
     "./source/ConsoleBillingPlansClientElement.vue": "./src/lib/ConsoleBillingPlansClientElement.vue",
     "./source/ConsoleBillingProductsClientElement.vue": "./src/lib/ConsoleBillingProductsClientElement.vue",
     "./server": "./src/server/index.js",

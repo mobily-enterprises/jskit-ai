@@ -7,11 +7,12 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/server/lib/index.js",
+    ".": "./src/index.js",
     "./controller": "./src/server/lib/controller.js",
     "./routes": "./src/server/lib/routes.js",
     "./schema": "./src/server/lib/schema.js",
-    "./server": "./src/server/index.js"
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   },
   "dependencies": {
     "@fastify/type-provider-typebox": "^6.1.0",

@@ -5,7 +5,7 @@
 </template>
 
 <script setup>
-import { ConsoleErrorListClientElement } from "@jskit-ai/console-errors-client-element";
+import { ConsoleErrorListClientElement } from "@jskit-ai/console-errors-client-element/client";
 import { useConsoleServerErrorsView } from "./useConsoleServerErrorsView.js";
 
 const { meta, state, actions } = useConsoleServerErrorsView();

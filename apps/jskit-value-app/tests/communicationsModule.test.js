@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createService as createCommunicationsService, __testables } from "../server/modules/communications/service.js";
-import { createController as createCommunicationsController } from "@jskit-ai/communications-fastify-routes";
+import { createController as createCommunicationsController } from "@jskit-ai/communications-fastify-routes/server";
 
 test("communications service validates dependencies", () => {
   assert.throws(() => createCommunicationsService({}), /smsService is required/);

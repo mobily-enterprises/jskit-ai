@@ -394,7 +394,7 @@
 
 <script setup>
 import { computed, nextTick, ref, watch } from "vue";
-import { useClientElementProps } from "@jskit-ai/web-runtime-core";
+import { useClientElementProps } from "@jskit-ai/web-runtime-core/server";
 
 const DEFAULT_COPY = Object.freeze({
   loadOlder: "Load older",

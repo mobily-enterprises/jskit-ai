@@ -1,4 +1,4 @@
-import { toNullableString } from "@jskit-ai/billing-core";
+import { toNullableString } from "@jskit-ai/billing-core/server";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import {
   BILLING_CHECKOUT_SESSION_STATUS,

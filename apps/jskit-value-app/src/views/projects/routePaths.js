@@ -1,4 +1,4 @@
-import { escapeRegExp } from "@jskit-ai/surface-routing";
+import { escapeRegExp } from "@jskit-ai/surface-routing/client";
 import { resolveRouteMountPathByKey } from "../../framework/composeRouteMounts.js";
 
 const DEFAULT_PROJECTS_MOUNT_PATH = "/projects";

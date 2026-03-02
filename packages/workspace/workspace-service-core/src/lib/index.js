@@ -1,5 +1,4 @@
 export { __testables } from "./services/inviteEmail.service.js";
-export { createApi as createWorkspaceApi } from "./client/workspaceApi.js";
 export { toSlugPart, buildWorkspaceName, buildWorkspaceBaseSlug } from "./policies/workspaceNaming.js";
 export { createWorkspaceSettingsDefaults } from "./policies/workspacePolicyDefaults.js";
 export { parseWorkspaceSettingsPatch } from "./policies/workspaceSettingsPatch.js";

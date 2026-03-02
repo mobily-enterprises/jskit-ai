@@ -1,5 +1,5 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { createGuardrailRecorder, withLeaseFence } from "@jskit-ai/billing-core";
+import { createGuardrailRecorder, withLeaseFence } from "@jskit-ai/billing-core/server";
 
 function createService(options = {}) {
   const {

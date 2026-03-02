@@ -1,6 +1,6 @@
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
-import { mapRowNullable, parseJsonValue, resolveRepoClient, toDbJson } from "@jskit-ai/jskit-knex";
+import { mapRowNullable, parseJsonValue, resolveRepoClient, toDbJson } from "@jskit-ai/jskit-knex/server";
 
 function mapWorkspaceSettingsRowRequired(row) {
   if (!row) {

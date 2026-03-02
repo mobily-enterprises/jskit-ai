@@ -4,7 +4,7 @@ import {
   normalizeBatchSize,
   normalizeCutoffDateOrThrow
 } from "@jskit-ai/jskit-knex/retention";
-import { createRepoTransaction } from "@jskit-ai/jskit-knex";
+import { createRepoTransaction } from "@jskit-ai/jskit-knex/server";
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
 
 function mapInviteRowRequired(row) {

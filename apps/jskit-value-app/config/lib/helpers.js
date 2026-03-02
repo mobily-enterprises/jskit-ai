@@ -1,4 +1,4 @@
-import { isPlainObject } from "@jskit-ai/action-runtime-core";
+import { isPlainObject } from "@jskit-ai/action-runtime-core/server";
 
 function deepFreeze(value) {
   if (!value || typeof value !== "object" || Object.isFrozen(value)) {

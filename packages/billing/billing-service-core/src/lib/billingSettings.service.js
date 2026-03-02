@@ -1,6 +1,6 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { CONSOLE_BILLING_PERMISSIONS } from "@jskit-ai/workspace-console-core/consoleRoles";
-import { toNonEmptyString } from "@jskit-ai/billing-core";
+import { toNonEmptyString } from "@jskit-ai/billing-core/server";
 
 const PAID_PLAN_CHANGE_POLICY_REQUIRED_NOW = "required_now";
 const PAID_PLAN_CHANGE_POLICY_ALLOW_WITHOUT_PAYMENT_METHOD = "allow_without_payment_method";

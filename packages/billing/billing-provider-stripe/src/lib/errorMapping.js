@@ -1,11 +1,11 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { BILLING_PROVIDER_STRIPE } from "@jskit-ai/billing-provider-core";
+import { BILLING_PROVIDER_STRIPE } from "@jskit-ai/billing-provider-core/server";
 import {
   PROVIDER_ERROR_CATEGORIES,
   createBillingProviderError,
   isBillingProviderError,
   toProviderStatusCode
-} from "@jskit-ai/billing-provider-core";
+} from "@jskit-ai/billing-provider-core/server";
 
 function toNormalizedString(value) {
   return String(value || "")

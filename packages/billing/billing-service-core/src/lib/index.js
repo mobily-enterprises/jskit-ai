@@ -7,8 +7,6 @@ export { createService as createBillingRealtimePublishService, __testables as bi
 export { createService as createBillingService } from "./service.js";
 export { createService as createBillingWebhookService } from "./webhook.service.js";
 export { createService as createWebhookProjectionService, __testables as webhookProjectionServiceTestables } from "./webhookProjection.service.js";
-export { createApi as createWorkspaceBillingApi } from "./client/workspaceBillingApi.js";
-export { createApi as createConsoleBillingApi } from "./client/consoleBillingApi.js";
 export { createConsoleBillingService } from "./consoleBilling.service.js";
 export {
   PAID_PLAN_CHANGE_POLICY_REQUIRED_NOW,

@@ -1,5 +1,5 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { OWNER_ROLE_ID } from "@jskit-ai/rbac-core";
+import { OWNER_ROLE_ID } from "@jskit-ai/rbac-core/server";
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
@@ -22,7 +22,7 @@ import {
 } from "../mappers/workspaceAdminMappers.js";
 import { resolveInviteExpiresAt } from "../policies/workspaceInvitePolicy.js";
 import { listInviteMembershipsByWorkspaceId } from "../lookups/workspaceMembershipLookup.js";
-import { applyTranscriptModeToWorkspaceFeatures } from "@jskit-ai/assistant-transcripts-core";
+import { applyTranscriptModeToWorkspaceFeatures } from "@jskit-ai/assistant-transcripts-core/server";
 import { applyAssistantSystemPromptAppToWorkspaceFeatures } from "@jskit-ai/assistant-core/systemPrompt";
 
 function createService({

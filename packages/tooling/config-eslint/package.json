@@ -4,6 +4,7 @@
   "description": "Shared flat ESLint presets for JSKIT projects.",
   "type": "module",
   "files": [
+    "src",
     "base.js",
     "index.js",
     "node.js",
@@ -15,11 +16,13 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./index.js",
+    ".": "./src/index.js",
     "./base": "./base.js",
     "./node": "./node.js",
     "./web": "./web.js",
-    "./vue": "./vue.js"
+    "./vue": "./vue.js",
+    "./server": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   },
   "dependencies": {
     "@eslint/js": "^9.39.1",

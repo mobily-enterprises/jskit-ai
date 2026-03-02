@@ -3,4 +3,4 @@ export {
   writeNdjson,
   endNdjson,
   safeStreamError
-} from "@jskit-ai/assistant-fastify-routes";
+} from "@jskit-ai/assistant-fastify-routes/server";

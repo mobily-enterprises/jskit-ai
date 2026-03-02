@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createConsoleActionContributor } from "@jskit-ai/workspace-console-service-core";
-import { createConsoleBillingActionContributor } from "@jskit-ai/billing-service-core";
+import { createConsoleActionContributor } from "@jskit-ai/workspace-console-service-core/server";
+import { createConsoleBillingActionContributor } from "@jskit-ai/billing-service-core/server";
 import { getAction } from "./helpers/getAction.js";
 import { REALTIME_EVENT_TYPES, REALTIME_TOPICS } from "../shared/eventTypes.js";
 import { createSettingsActionContributor } from "../server/runtime/actions/contributors/settings.contributor.js";

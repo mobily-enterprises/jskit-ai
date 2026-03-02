@@ -1,4 +1,4 @@
-import { createHttpClient } from "@jskit-ai/http-client-runtime";
+import { createHttpClient } from "@jskit-ai/http-client-runtime/server";
 
 const authHttpClient = createHttpClient({
   credentials: "include",

@@ -23,7 +23,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Headless client runtime contract for assistant.client-runtime.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "assistantRuntimeTestables",
             "buildStreamEventError",
@@ -54,7 +54,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Canonical capability contract for assistant.core.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "applyAssistantSystemPromptAppToWorkspaceFeatures",
             "applyAssistantSystemPromptsToWorkspaceFeatures",
@@ -97,7 +97,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Provider selection contract for assistant.provider.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "assistantProviderOpenAiTestables",
             "createOpenAiClient"
@@ -112,7 +112,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
         "summary": "Canonical capability contract for assistant.transcripts.core.",
         "api": [
           {
-            "entrypoint": ".",
+            "entrypoint": "./server",
             "functions": [
               "applyTranscriptModeToWorkspaceFeatures",
               "assistantTranscriptsServiceTestables",
@@ -164,7 +164,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Canonical capability contract for auth.access.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "buildAuthMethodDefinitions",
             "buildAuthMethodIds",
@@ -172,7 +172,6 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
             "buildOAuthMethodDefinitions",
             "buildOAuthMethodId",
             "confirmPassword",
-            "createAuthApi",
             "createMembershipIndexes",
             "encodeInviteTokenHash",
             "findAuthMethodDefinition",
@@ -332,7 +331,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Canonical capability contract for auth.policy.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "authPolicyPlugin",
             "mergeAuthPolicy",
@@ -347,7 +346,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Provider selection contract for auth.provider.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "createAuthActionContributor",
             "createService"
@@ -404,7 +403,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Canonical capability contract for auth.rbac.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "createOwnerOnlyManifest",
             "hasPermission",
@@ -426,7 +425,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Transport route-wiring contract for auth.server-routes.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "buildRoutes",
             "createController",
@@ -443,7 +442,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Canonical capability contract for billing.core.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "assertEntitlementValueOrThrow",
             "createBillingCatalogCore",
@@ -481,7 +480,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
         "summary": "Canonical capability contract for billing.entitlements.core.",
         "api": [
           {
-            "entrypoint": ".",
+            "entrypoint": "./server",
             "functions": [
               "assertClock",
               "assertEntitlementsRepository",
@@ -528,7 +527,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
           "summary": "Persistence contract for billing.entitlements.store.mysql.",
           "api": [
             {
-              "entrypoint": ".",
+              "entrypoint": "./server",
               "functions": [
                 "createEntitlementMigrations",
                 "createEntitlementsKnexRepository",
@@ -558,7 +557,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Provider interface contract for billing.provider-contract.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "assertProviderAdapter",
             "assertWebhookTranslator",
@@ -597,7 +596,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Canonical capability contract for billing.service.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "billingCheckoutOrchestratorServiceTestables",
             "billingCheckoutSessionServiceTestables",
@@ -619,11 +618,9 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
             "createBillingSettingsService",
             "createBillingWebhookService",
             "createConsoleBillingActionContributor",
-            "createConsoleBillingApi",
             "createConsoleBillingService",
             "createWebhookProjectionService",
             "createWorkspaceBillingActionContributor",
-            "createWorkspaceBillingApi",
             "ensureBillingCatalogRepository",
             "ensureBillingProductCatalogRepository",
             "isBlockingCheckoutStatus",
@@ -864,7 +861,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Headless client runtime contract for chat.client-runtime.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "chatRuntimeTestables",
             "createApi",
@@ -880,7 +877,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Canonical capability contract for chat.core.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "canonicalJsonTestables",
             "chatRealtimeServiceTestables",
@@ -979,7 +976,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Persistence contract for chat.storage.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "createService"
           ]
@@ -994,7 +991,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Canonical capability contract for communications.core.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "createDispatchRegistry",
             "createOrchestrator",
@@ -1009,7 +1006,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Provider interface contract for communications.provider-contract.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "assertDispatchProvider",
             "normalizeChannel"
@@ -1031,7 +1028,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Shared schema contract for contracts.assistant.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "assistantConversationMessagesQueryKey",
             "assistantConversationsListQueryKey",
@@ -1060,7 +1057,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Shared schema contract for contracts.chat.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "chatErrorTestables",
             "chatInboxInfiniteQueryKey",
@@ -1082,7 +1079,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Shared schema contract for contracts.communications.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "schema"
           ]
@@ -1095,7 +1092,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Shared schema contract for contracts.http.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "apiErrorDetailsSchema",
             "apiErrorResponseSchema",
@@ -1146,7 +1143,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Shared schema contract for contracts.realtime.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "createTopicCatalog",
             "getAppTopicRule",
@@ -1203,7 +1200,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Shared schema contract for contracts.social.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "mapSocialError",
             "socialActorSearchQueryKey",
@@ -1228,7 +1225,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Database contract for db.core.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "deleteRowsOlderThan",
             "detectDialectFromClient",
@@ -1300,11 +1297,10 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Canonical capability contract for observability.core.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "createBrowserErrorPayloadTools",
             "createConsoleErrorPayloadNormalizer",
-            "createConsoleErrorsApi",
             "createConsoleErrorsService",
             "createMetricsRegistry",
             "createScopeDebugMatcher",
@@ -1383,7 +1379,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Worker/operations contract for ops.redis.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "acquireDistributedLock",
             "buildRedisScopedKey",
@@ -1520,7 +1516,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Runtime infrastructure contract for runtime.actions.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "applyRealtimePublishToCommandAction",
             "createActionRegistry",
@@ -1581,7 +1577,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Runtime infrastructure contract for runtime.env.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "assertEnabledSubsystemStartupPreflight",
             "createAiRuntimeSpec",
@@ -1644,7 +1640,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Runtime infrastructure contract for runtime.http-client.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "createHttpClient",
             "createHttpError",
@@ -1666,7 +1662,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Runtime infrastructure contract for runtime.module-framework.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "assertUniqueModuleIds",
             "composeClientModules",
@@ -1699,7 +1695,6 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
           "entrypoint": "./appDropins",
           "functions": [
             "loadClientAppDropinsFromModules",
-            "loadServerAppDropins",
             "mergeClientModuleRegistry"
           ]
         }
@@ -1711,7 +1706,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Runtime infrastructure contract for runtime.server.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "buildAuditError",
             "buildAuditEventBase",
@@ -1875,7 +1870,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Runtime infrastructure contract for runtime.surface-routing.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "buildVersionedApiPath",
             "createDefaultAppSurfacePaths",
@@ -1953,7 +1948,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Runtime infrastructure contract for runtime.web.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "composeClientApiFromModules",
             "composeFilesystemRoutesFromModules",
@@ -2081,7 +2076,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Canonical capability contract for social.core.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "createRepository",
             "createSocialActionContributor",
@@ -2108,7 +2103,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
         "summary": "Canonical capability contract for users.profile.core.",
         "api": [
           {
-            "entrypoint": ".",
+            "entrypoint": "./server",
             "functions": [
               "createRepository",
               "resolveProfileIdentity"
@@ -2144,7 +2139,7 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
         "summary": "Canonical capability contract for workspace.console.core.",
         "api": [
           {
-            "entrypoint": ".",
+            "entrypoint": "./server",
             "functions": [
               "addFieldError",
               "buildFieldSchema",
@@ -2320,13 +2315,12 @@ const CAPABILITY_CONTRACTS_BY_DOMAIN = deepFreeze({
       "summary": "Canonical capability contract for workspace.service.",
       "api": [
         {
-          "entrypoint": ".",
+          "entrypoint": "./server",
           "functions": [
             "buildWorkspaceBaseSlug",
             "buildWorkspaceName",
             "collectInviteWorkspaceIds",
             "createWorkspaceActionContributor",
-            "createWorkspaceApi",
             "createWorkspaceInvitesRepository",
             "createWorkspaceMembershipsRepository",
             "createWorkspaceSettingsDefaults",
@@ -2494,12 +2488,9 @@ function normalizeContracts(contractsByDomain, { sourceLabel = "contracts" } = {
         );
       }
 
-      const entrypoint = String(rawEntry.entrypoint || "").trim();
-      if (!entrypoint) {
-        throw new Error(
-          `Capability ${capabilityId} api[${entryIndex}] in ${sourceLabel} must define entrypoint.`
-        );
-      }
+      const entrypoint = normalizeEntrypoint(rawEntry.entrypoint, {
+        sourceLabel: `Capability ${capabilityId} api[${entryIndex}] in ${sourceLabel}`
+      });
 
       const functions = toSortedUniqueStrings(rawEntry.functions || []);
       const constants = toSortedUniqueStrings(rawEntry.constants || []);
@@ -2620,18 +2611,26 @@ function normalizeCapabilityId(capabilityId) {
   return String(capabilityId || "").trim();
 }
 
-function normalizeEntrypoint(entrypoint) {
+function normalizeEntrypoint(entrypoint, { sourceLabel = "Capability contract entrypoint" } = {}) {
   const normalized = String(entrypoint || "").trim();
   if (!normalized) {
-    return "";
+    throw new Error(`${sourceLabel} must be defined.`);
+  }
+  if (normalized === ".") {
+    throw new Error(`${sourceLabel} cannot be '.'. Use './server' or './client'.`);
   }
   if (normalized.startsWith("descriptor:")) {
     return normalized;
   }
-  if (normalized === ".") {
-    return ".";
+  if (!normalized.startsWith("./")) {
+    throw new Error(
+      `${sourceLabel} must be explicit ('./server' or './client'); received ${JSON.stringify(normalized)}.`
+    );
   }
-  return normalized.startsWith("./") ? normalized : `./${normalized}`;
+  if (normalized === "./") {
+    throw new Error(`${sourceLabel} cannot be './'.`);
+  }
+  return normalized;
 }
 
 function toNormalizedContractSymbolList(values) {

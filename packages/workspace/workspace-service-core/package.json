@@ -7,8 +7,8 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/server/index.js",
-    "./client/workspaceApi": "./src/lib/client/workspaceApi.js",
+    ".": "./src/index.js",
+    "./client/workspaceApi": "./src/client/workspaceApi.js",
     "./services/workspace": "./src/lib/services/workspace.service.js",
     "./services/admin": "./src/lib/services/admin.service.js",
     "./services/inviteEmail": "./src/lib/services/inviteEmail.service.js",

@@ -4,7 +4,7 @@ import {
   resolveCommandId,
   resolveSourceClientId,
   toPositiveInteger
-} from "@jskit-ai/action-runtime-core";
+} from "@jskit-ai/action-runtime-core/server";
 
 function resolveRequest(context) {
   return context?.requestMeta?.request || null;

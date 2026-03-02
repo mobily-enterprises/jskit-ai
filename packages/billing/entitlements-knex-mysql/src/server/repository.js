@@ -5,9 +5,9 @@ import {
   normalizeAmountRequirePositive,
   toNonEmptyString,
   toNullableString
-} from "@jskit-ai/billing-core";
+} from "@jskit-ai/billing-core/server";
 import { normalizeDateInput, toInsertDateTime, toNullableDateTime } from "@jskit-ai/jskit-knex/dateUtils";
-import { applyForUpdate, normalizeMetadataJsonInput, parseJsonValue, resolveRepoClient } from "@jskit-ai/jskit-knex";
+import { applyForUpdate, normalizeMetadataJsonInput, parseJsonValue, resolveRepoClient } from "@jskit-ai/jskit-knex/server";
 import { normalizeTableNames } from "./tableNames.js";
 import { withTransaction } from "./transactions.js";
 

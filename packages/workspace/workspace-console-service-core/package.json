@@ -7,8 +7,8 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/server/index.js",
-    "./client/consoleApi": "./src/lib/client/consoleApi.js",
+    ".": "./src/index.js",
+    "./client/consoleApi": "./src/client/consoleApi.js",
     "./actions/consoleCore": "./src/lib/actions/consoleCore.contributor.js",
     "./services/console": "./src/lib/services/console.service.js",
     "./services/consoleAccess": "./src/lib/services/consoleAccess.service.js",

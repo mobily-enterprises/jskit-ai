@@ -1,6 +1,6 @@
-import { toNullableString } from "@jskit-ai/billing-core";
+import { toNullableString } from "@jskit-ai/billing-core/server";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { BILLING_PROVIDER_STRIPE, parsePositiveInteger, resolveProviderSdkName } from "@jskit-ai/billing-provider-core";
+import { BILLING_PROVIDER_STRIPE, parsePositiveInteger, resolveProviderSdkName } from "@jskit-ai/billing-provider-core/server";
 import { mapStripeProviderError } from "./errorMapping.js";
 
 function normalizeApiVersion(value) {

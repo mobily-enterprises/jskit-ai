@@ -17,7 +17,7 @@ import {
   SETTINGS_NUMBER_FORMAT_OPTIONS,
   SETTINGS_THEME_OPTIONS
 } from "@jskit-ai/workspace-console-core/settingsModel";
-import { schema as authSchema } from "@jskit-ai/auth-fastify-routes";
+import { schema as authSchema } from "@jskit-ai/auth-fastify-routes/server";
 import { enumSchema } from "@jskit-ai/http-contracts/errorResponses";
 import { buildSchema } from "@jskit-ai/workspace-console-core/settingsSchemaBuilder";
 

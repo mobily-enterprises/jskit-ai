@@ -1,7 +1,7 @@
 import { access, constants as fsConstants } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { createApplication } from "@jskit-ai/kernel-core";
+import { createApplication } from "@jskit-ai/kernel-core/server";
 import { createHttpRuntime } from "@jskit-ai/http-fastify-core/kernel";
 import { TOKENS } from "@jskit-ai/support-core/tokens";
 import { readLockFromApp } from "@jskit-ai/server-runtime-core/lockfile";

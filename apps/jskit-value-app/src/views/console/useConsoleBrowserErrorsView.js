@@ -3,7 +3,7 @@ import { useNavigate, useRouterState } from "@tanstack/vue-router";
 import { useQuery } from "@tanstack/vue-query";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
 import { useListQueryState } from "@jskit-ai/web-runtime-core/useListQueryState";
-import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
+import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core/server";
 import { useStandardListPagination } from "../../modules/pagination/useStandardListPagination.js";
 import { api } from "../../platform/http/api/index.js";
 import { resolveSurfacePaths } from "../../../shared/surfacePaths.js";

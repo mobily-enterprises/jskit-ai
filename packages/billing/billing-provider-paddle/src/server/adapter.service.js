@@ -1,4 +1,4 @@
-import { BILLING_PROVIDER_PADDLE, assertProviderAdapter } from "@jskit-ai/billing-provider-core";
+import { BILLING_PROVIDER_PADDLE, assertProviderAdapter } from "@jskit-ai/billing-provider-core/server";
 import { createService as createPaddleCatalogPricingService } from "./catalogPricing.service.js";
 
 const REQUIRED_PADDLE_SDK_METHODS = Object.freeze([

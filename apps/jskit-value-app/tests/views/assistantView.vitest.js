@@ -14,7 +14,7 @@ describe("AssistantView wrapper", () => {
   it("imports and renders AssistantClientElement directly", () => {
     const source = readAssistantViewSource();
 
-    expect(source.includes('from "@jskit-ai/assistant-client-element"')).toBe(true);
+    expect(source.includes('from "@jskit-ai/assistant-client-element/client"')).toBe(true);
     expect(source.includes("<AssistantClientElement :meta=\"meta\" :state=\"state\" :actions=\"actions\" :viewer=\"viewer\" />")).toBe(
       true
     );

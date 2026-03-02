@@ -3,7 +3,7 @@ import {
   assertDispatchProvider,
   normalizeChannel,
   normalizeMetadata
-} from "@jskit-ai/communications-provider-core";
+} from "@jskit-ai/communications-provider-core/server";
 
 function createDispatchRegistry({ providers = [] } = {}) {
   const byChannel = new Map();

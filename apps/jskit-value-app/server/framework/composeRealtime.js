@@ -9,7 +9,7 @@ import {
   isTopicAllowedForSurface as topicCatalogAllowsSurface,
   listTopics,
   resolveTopicScope as resolveCatalogTopicScope
-} from "@jskit-ai/realtime-contracts";
+} from "@jskit-ai/realtime-contracts/server";
 
 function collectRealtimeTopics(options = {}) {
   const topics = new Set();

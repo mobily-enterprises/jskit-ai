@@ -5,7 +5,7 @@
 </template>
 
 <script setup>
-import { ConsoleBillingPlansClientElement } from "@jskit-ai/billing-console-admin-client-element";
+import { ConsoleBillingPlansClientElement } from "@jskit-ai/billing-console-admin-client-element/client";
 import { useConsoleBillingPlansView } from "./useConsoleBillingPlansView.js";
 
 const { meta, state, actions } = useConsoleBillingPlansView();

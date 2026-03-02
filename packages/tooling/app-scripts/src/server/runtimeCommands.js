@@ -250,7 +250,7 @@ async function runFrameworkExtensionsValidation({ appRoot, modulesConfig, extraA
 
 async function runWorkerRuntime({ appRoot, modulesConfig }) {
   const runtimeEnv = await createRuntimeEnvForApp(appRoot);
-  const { buildRetentionPolicyFromRepositoryConfig } = await import("@jskit-ai/retention-core");
+  const { buildRetentionPolicyFromRepositoryConfig } = await import("@jskit-ai/retention-core/server");
   const configModule = await importModuleFromApp(appRoot, modulesConfig.repositoryConfigModulePath);
   const workerRuntimeModule = await importModuleFromApp(appRoot, modulesConfig.workerRuntimeModulePath);
 
@@ -356,7 +356,7 @@ async function runRetentionSweep({ appRoot, modulesConfig, extraArgs }) {
   const runtimeEnv = await createRuntimeEnvForApp(appRoot);
   const { createRepositoryRegistry } = await import("@jskit-ai/server-runtime-core/composition");
   const { createService: createRetentionService, buildRetentionPolicyFromRepositoryConfig } = await import(
-    "@jskit-ai/retention-core"
+    "@jskit-ai/retention-core/server"
   );
   const configModule = await importModuleFromApp(appRoot, modulesConfig.repositoryConfigModulePath);
   const dbModule = await importModuleFromApp(appRoot, modulesConfig.dbModulePath);

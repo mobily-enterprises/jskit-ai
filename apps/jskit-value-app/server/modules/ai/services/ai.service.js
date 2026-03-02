@@ -1,9 +1,9 @@
 import {
   createAssistantService as createAssistantCoreService,
   assistantServiceTestables as assistantCoreTestables
-} from "@jskit-ai/assistant-core";
+} from "@jskit-ai/assistant-core/server";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { hasPermission } from "@jskit-ai/rbac-core";
+import { hasPermission } from "@jskit-ai/rbac-core/server";
 import { safePathnameFromRequest } from "@jskit-ai/server-runtime-core/requestUrl";
 import {
   publishWorkspaceEventSafely,

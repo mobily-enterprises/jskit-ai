@@ -10,7 +10,7 @@
     "semver": "^7.6.0"
   },
   "exports": {
-    ".": "./src/server/index.js",
+    ".": "./src/index.js",
     "./descriptor": "./src/lib/descriptor.js",
     "./dependencyGraph": "./src/lib/dependencyGraph.js",
     "./capabilityGraph": "./src/lib/capabilityGraph.js",

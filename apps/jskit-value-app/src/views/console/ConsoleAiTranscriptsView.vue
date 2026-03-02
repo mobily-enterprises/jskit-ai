@@ -5,7 +5,7 @@
 </template>
 
 <script setup>
-import { AssistantTranscriptExplorerClientElement } from "@jskit-ai/assistant-transcript-explorer-client-element";
+import { AssistantTranscriptExplorerClientElement } from "@jskit-ai/assistant-transcript-explorer-client-element/client";
 import { useConsoleAiTranscriptsView } from "./useConsoleAiTranscriptsView.js";
 
 const { meta, state, actions } = useConsoleAiTranscriptsView();

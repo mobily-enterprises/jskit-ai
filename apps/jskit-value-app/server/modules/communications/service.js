@@ -1,7 +1,7 @@
 import {
   createService as createCommunicationsCoreService,
   __testables as communicationsCoreTestables
-} from "@jskit-ai/communications-core";
+} from "@jskit-ai/communications-core/server";
 
 function createService(options = {}) {
   return createCommunicationsCoreService(options || {});

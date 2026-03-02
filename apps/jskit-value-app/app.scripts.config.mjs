@@ -1,4 +1,4 @@
-import { createNodeVueFastifyScriptsConfig } from "@jskit-ai/app-scripts";
+import { createNodeVueFastifyScriptsConfig } from "@jskit-ai/app-scripts/server";
 
 const ARTIFACTS_DIR = ".artifacts";
 

@@ -4,7 +4,7 @@ import {
   SOCKET_IO_PATH,
   __testables,
   registerRealtimeServerSocketio
-} from "@jskit-ai/realtime-server-socketio";
+} from "@jskit-ai/realtime-server-socketio/server";
 import { API_REALTIME_PATH } from "../../shared/apiPaths.js";
 import { composeRealtimePolicy } from "../framework/composeRealtime.js";
 import {

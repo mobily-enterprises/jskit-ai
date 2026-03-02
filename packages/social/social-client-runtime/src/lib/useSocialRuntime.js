@@ -14,7 +14,7 @@ import {
   socialRootQueryKey,
   socialScopeQueryKey,
   mapSocialError
-} from "@jskit-ai/social-contracts";
+} from "@jskit-ai/social-contracts/server";
 
 const DEFAULT_USE_AUTH_GUARD = defaultUseAuthGuard;
 const DEFAULT_USE_QUERY_ERROR_MESSAGE = createDefaultUseQueryErrorMessage({

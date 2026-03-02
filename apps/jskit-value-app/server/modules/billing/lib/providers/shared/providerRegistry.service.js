@@ -2,7 +2,7 @@ import {
   createProviderRegistry,
   assertProviderAdapter,
   normalizeProviderCode
-} from "@jskit-ai/billing-provider-core";
+} from "@jskit-ai/billing-provider-core/server";
 
 function createService({ adapters = [], defaultProvider = "" } = {}) {
   const providerRegistry = createProviderRegistry({

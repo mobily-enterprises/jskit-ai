@@ -9,6 +9,19 @@ const baseConfig = Object.freeze([
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module"
+    },
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@jskit-ai/*"],
+              message: "Use explicit JSKIT subpath imports: @jskit-ai/<package>/server or /client."
+            }
+          ]
+        }
+      ]
     }
   }
 ]);

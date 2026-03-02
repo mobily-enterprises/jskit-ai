@@ -1,6 +1,6 @@
 import { computed, reactive, ref } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
-import { mapSocialError } from "@jskit-ai/social-contracts";
+import { mapSocialError } from "@jskit-ai/social-contracts/client";
 import { createSurfacePaths, resolveSurfacePaths } from "../../../shared/surfacePaths.js";
 import { api } from "../../platform/http/api/index.js";
 import { useWorkspaceStore } from "../../app/state/workspaceStore.js";

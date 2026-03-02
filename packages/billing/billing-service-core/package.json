@@ -7,9 +7,9 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/server/index.js",
-    "./client/workspaceBillingApi": "./src/lib/client/workspaceBillingApi.js",
-    "./client/consoleBillingApi": "./src/lib/client/consoleBillingApi.js",
+    ".": "./src/index.js",
+    "./client/workspaceBillingApi": "./src/client/workspaceBillingApi.js",
+    "./client/consoleBillingApi": "./src/client/consoleBillingApi.js",
     "./services/consoleBilling": "./src/lib/consoleBilling.service.js",
     "./services/billingSettings": "./src/lib/billingSettings.service.js",
     "./services/billingCatalog": "./src/lib/billingCatalog.service.js",

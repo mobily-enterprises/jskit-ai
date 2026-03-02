@@ -5,7 +5,7 @@ import {
   buildOptionalIdempotencyHeaders,
   generateIdempotencyKey,
   resolveIdempotencyKey
-} from "../src/lib/client/idempotencyHeaders.js";
+} from "../src/client/idempotencyHeaders.js";
 
 test("idempotency helpers honor provided keys and required mode", () => {
   const generated = generateIdempotencyKey();

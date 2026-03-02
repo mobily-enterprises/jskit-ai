@@ -1,4 +1,4 @@
-import { mergeAuthPolicy } from "@jskit-ai/fastify-auth-policy";
+import { mergeAuthPolicy } from "@jskit-ai/fastify-auth-policy/server";
 
 import { safeRequestUrl } from "@jskit-ai/server-runtime-core/requestUrl";
 import { registerApiRouteDefinitions } from "@jskit-ai/server-runtime-core/apiRouteRegistration";

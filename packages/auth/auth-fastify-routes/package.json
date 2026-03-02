@@ -7,10 +7,11 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/server/lib/index.js",
+    ".": "./src/index.js",
     "./server": "./src/server/index.js",
     "./serverProvider": "./src/server/providers/AuthRouteServiceProvider.js",
-    "./serverProviders": "./src/server/index.js"
+    "./serverProviders": "./src/server/index.js",
+    "./client": "./src/client/index.js"
   },
   "dependencies": {
     "@jskit-ai/access-core": "0.1.0",

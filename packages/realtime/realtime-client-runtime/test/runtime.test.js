@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "@jskit-ai/realtime-contracts";
+import { REALTIME_ERROR_CODES, REALTIME_MESSAGE_TYPES } from "@jskit-ai/realtime-contracts/server";
 import { delay } from "../../../../tests/helpers/delay.js";
 
 import { createCommandTracker, createRealtimeRuntime, createSocketIoTransport } from "../src/lib/index.js";

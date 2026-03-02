@@ -4,7 +4,7 @@
 
 <script setup>
 import { computed } from "vue";
-import { AssistantClientElement } from "@jskit-ai/assistant-client-element";
+import { AssistantClientElement } from "@jskit-ai/assistant-client-element/client";
 import { useAssistantView } from "../../modules/assistant/runtime.js";
 import { useWorkspaceStore } from "../../app/state/workspaceStore.js";
 

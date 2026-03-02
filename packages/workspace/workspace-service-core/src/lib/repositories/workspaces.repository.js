@@ -1,5 +1,5 @@
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
-import { mapRowNullable, resolveQueryOptions, resolveRepoClient } from "@jskit-ai/jskit-knex";
+import { mapRowNullable, resolveQueryOptions, resolveRepoClient } from "@jskit-ai/jskit-knex/server";
 import { coerceWorkspaceColor } from "@jskit-ai/workspace-console-core/workspaceColors";
 
 function mapWorkspaceRowRequired(row) {

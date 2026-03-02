@@ -3,4 +3,4 @@ export {
   normalizeProviderCode,
   validateProviderAdapter,
   assertProviderAdapter
-} from "@jskit-ai/billing-provider-core";
+} from "@jskit-ai/billing-provider-core/server";

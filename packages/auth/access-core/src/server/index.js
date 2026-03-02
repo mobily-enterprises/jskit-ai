@@ -2,8 +2,8 @@ export { AUTH_EMAIL_PATTERN, AUTH_EMAIL_REGEX, AUTH_EMAIL_MIN_LENGTH, AUTH_EMAIL
 export { AUTH_METHOD_PASSWORD_ID, AUTH_METHOD_PASSWORD_PROVIDER, AUTH_METHOD_EMAIL_OTP_ID, AUTH_METHOD_EMAIL_OTP_PROVIDER, AUTH_METHOD_KIND_PASSWORD, AUTH_METHOD_KIND_OTP, AUTH_METHOD_KIND_OAUTH, AUTH_METHOD_KINDS, AUTH_METHOD_MINIMUM_ENABLED, AUTH_METHOD_DEFINITIONS, AUTH_METHOD_IDS, buildOAuthMethodId, parseAuthMethodId, buildOAuthMethodDefinitions, buildAuthMethodDefinitions, buildAuthMethodIds, findAuthMethodDefinition } from "./authMethods.js";
 export { OAUTH_PROVIDER_ID_PATTERN, OAUTH_PROVIDER_ID_REGEX, normalizeOAuthProviderId, isValidOAuthProviderId, normalizeOAuthProviderList } from "./oauthProviders.js";
 export { OAUTH_QUERY_PARAM_PROVIDER, OAUTH_QUERY_PARAM_INTENT, OAUTH_QUERY_PARAM_RETURN_TO } from "./oauthCallbackParams.js";
-export { createApi as createAuthApi } from "./client/authApi.js";
-export { runAuthSignOutFlow } from "./client/signOutFlow.js";
+export { createApi as createAuthApi } from "../lib/authApi.js";
+export { runAuthSignOutFlow } from "../lib/signOutFlow.js";
 export { normalizeEmail, normalizeOAuthIntent, normalizeReturnToPath } from "./utils.js";
 export { validators, registerPassword, loginPassword, resetPassword, confirmPassword, registerInput, loginInput, forgotPasswordInput, resetPasswordInput } from "./validators.js";
 export { OPAQUE_INVITE_TOKEN_HASH_PREFIX, normalizeInviteToken, isSha256Hex, buildInviteToken, hashInviteToken, encodeInviteTokenHash, resolveInviteTokenHash } from "./inviteTokens.js";

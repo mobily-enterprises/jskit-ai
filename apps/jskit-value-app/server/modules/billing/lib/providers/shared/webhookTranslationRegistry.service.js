@@ -2,7 +2,7 @@ import {
   createProviderRegistry,
   assertWebhookTranslator,
   normalizeWebhookProvider
-} from "@jskit-ai/billing-provider-core";
+} from "@jskit-ai/billing-provider-core/server";
 
 function createService({ translators = [], defaultProvider = "" } = {}) {
   const translatorRegistry = createProviderRegistry({

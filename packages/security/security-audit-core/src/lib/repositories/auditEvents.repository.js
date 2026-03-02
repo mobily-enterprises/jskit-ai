@@ -2,7 +2,7 @@ import {
   normalizeCountRow as normalizeCount,
   parseMetadataJson as parseMetadata,
   stringifyMetadataJson as stringifyMetadata
-} from "@jskit-ai/jskit-knex";
+} from "@jskit-ai/jskit-knex/server";
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import {

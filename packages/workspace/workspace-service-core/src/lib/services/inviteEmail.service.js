@@ -1,5 +1,5 @@
 import { normalizeEmail } from "@jskit-ai/access-core/utils";
-import { normalizeMetadata } from "@jskit-ai/communications-provider-core";
+import { normalizeMetadata } from "@jskit-ai/communications-provider-core/server";
 
 function normalizeBaseUrl(value) {
   const raw = String(value || "").trim();

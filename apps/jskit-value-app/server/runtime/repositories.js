@@ -8,7 +8,7 @@ import { createRepository as createAiRepository } from "../modules/ai/index.js";
 import { createRepository as createBillingRepository } from "../modules/billing/index.js";
 import { createRepository as createChatRepository } from "../modules/chat/index.js";
 import { createRepository as createSocialRepository } from "../modules/social/index.js";
-import { createRepository as createUserProfilesRepository } from "@jskit-ai/user-profile-core";
+import { createRepository as createUserProfilesRepository } from "@jskit-ai/user-profile-core/server";
 import { createRepository as createWorkspacesRepository } from "@jskit-ai/workspace-service-core/repositories/workspaces";
 import { createRepository as createWorkspaceMembershipsRepository } from "@jskit-ai/workspace-service-core/repositories/memberships";
 import { createRepository as createWorkspaceSettingsRepository } from "@jskit-ai/workspace-service-core/repositories/settings";

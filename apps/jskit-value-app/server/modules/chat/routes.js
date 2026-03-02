@@ -1,4 +1,4 @@
-import { buildRoutes as buildChatAdapterRoutes } from "@jskit-ai/chat-fastify-routes";
+import { buildRoutes as buildChatAdapterRoutes } from "@jskit-ai/chat-fastify-routes/server";
 import { withStandardErrorResponses } from "@jskit-ai/http-contracts/errorResponses";
 
 function buildRoutes(controllers, options = {}) {

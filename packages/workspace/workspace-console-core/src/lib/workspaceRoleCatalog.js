@@ -1,4 +1,4 @@
-import { OWNER_ROLE_ID } from "@jskit-ai/rbac-core";
+import { OWNER_ROLE_ID } from "@jskit-ai/rbac-core/server";
 
 function toRoleDescriptor(roleId, role) {
   const normalizedRole = role && typeof role === "object" ? role : {};

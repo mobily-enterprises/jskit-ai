@@ -7,7 +7,7 @@
     "test": "node --test"
   },
   "exports": {
-    ".": "./src/server/index.js",
+    ".": "./src/index.js",
     "./outboxWorkerRuntimeService": "./src/server/outboxWorkerRuntime.service.js",
     "./repositories/social": "./src/server/repositories/social.repository.js",
     "./repositories/shared": "./src/server/repositories/shared.js",

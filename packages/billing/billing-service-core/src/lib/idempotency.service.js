@@ -1,5 +1,5 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { toDateOrNull } from "@jskit-ai/billing-core";
+import { toDateOrNull } from "@jskit-ai/billing-core/server";
 import {
   BILLING_ACTIONS,
   BILLING_CHECKOUT_SESSION_STATUS,

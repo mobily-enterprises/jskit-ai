@@ -1,7 +1,7 @@
 import { computed, reactive, ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
-import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
+import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core/server";
 import { useStandardListPagination } from "../../modules/pagination/useStandardListPagination.js";
 import { api } from "../../platform/http/api/index.js";
 import { formatDateTime } from "../lib/dateFormatters.js";

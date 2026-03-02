@@ -4,7 +4,7 @@ import {
   normalizeNullableString,
   parseJsonObject,
   stringifyJsonObject
-} from "@jskit-ai/jskit-knex";
+} from "@jskit-ai/jskit-knex/server";
 import { normalizeNullablePositiveInteger, parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { normalizePagination as normalizePaginationBase } from "@jskit-ai/server-runtime-core/pagination";
 

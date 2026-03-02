@@ -11,7 +11,7 @@ import {
   chatInboxInfiniteQueryKey,
   chatThreadMessagesInfiniteQueryKey,
   mapChatError
-} from "@jskit-ai/chat-contracts";
+} from "@jskit-ai/chat-contracts/server";
 
 const INBOX_PAGE_SIZE = 20;
 const THREAD_MESSAGES_PAGE_SIZE = 50;

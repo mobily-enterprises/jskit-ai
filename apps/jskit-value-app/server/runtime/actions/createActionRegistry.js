@@ -1,4 +1,4 @@
-import { createActionRegistry, createPermissionEvaluator } from "@jskit-ai/action-runtime-core";
+import { createActionRegistry, createPermissionEvaluator } from "@jskit-ai/action-runtime-core/server";
 import { createActionIdempotencyAdapter } from "./idempotencyAdapters.js";
 import { createActionAuditAdapter } from "./auditAdapters.js";
 import { createActionObservabilityAdapter } from "./observabilityAdapters.js";

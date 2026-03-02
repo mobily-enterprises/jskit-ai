@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/server/index.js",
+    ".": "./src/index.js",
     "./appTopics": "./src/lib/appTopics.js",
     "./server": "./src/server/index.js",
     "./client": "./src/client/index.js"

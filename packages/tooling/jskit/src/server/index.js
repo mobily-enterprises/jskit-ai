@@ -14,7 +14,7 @@ import path from "node:path";
 import process from "node:process";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { escapeRegExp } from "@jskit-ai/surface-routing";
+import { escapeRegExp } from "@jskit-ai/surface-routing/server";
 import { createCliError, normalizeRelativePath } from "./schemas/validationHelpers.mjs";
 import { ensureUniqueDescriptor } from "./schemas/descriptorRegistry.mjs";
 import { normalizeBundleDescriptor } from "./schemas/bundleDescriptor.mjs";

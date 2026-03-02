@@ -14,7 +14,7 @@
 </template>
 
 <script setup>
-import { MembersAdminClientElement } from "@jskit-ai/members-admin-client-element";
+import { MembersAdminClientElement } from "@jskit-ai/members-admin-client-element/client";
 import { useWorkspaceSettingsView } from "../workspace-settings/useWorkspaceSettingsView.js";
 
 const { forms, options, feedback, members, permissions, status, actions } = useWorkspaceSettingsView();

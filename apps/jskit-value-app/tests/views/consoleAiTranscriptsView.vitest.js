@@ -10,7 +10,7 @@ describe("ConsoleAiTranscriptsView", () => {
   it("imports and renders transcript explorer package element directly in console mode", () => {
     const source = readSource(viewPath);
 
-    expect(source.includes('from "@jskit-ai/assistant-transcript-explorer-client-element"')).toBe(true);
+    expect(source.includes('from "@jskit-ai/assistant-transcript-explorer-client-element/client"')).toBe(true);
     expect(source.includes("<AssistantTranscriptExplorerClientElement mode=\"console\" :meta=\"meta\" :state=\"state\" :actions=\"actions\" />")).toBe(true);
   });
 

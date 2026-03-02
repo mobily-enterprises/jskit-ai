@@ -1,9 +1,9 @@
-import { toNullableString } from "@jskit-ai/billing-core";
+import { toNullableString } from "@jskit-ai/billing-core/server";
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
 import { BILLING_DEFAULT_PROVIDER, BILLING_PROVIDER_PADDLE, BILLING_PROVIDER_STRIPE } from "./constants.js";
 import { createService as createWebhookProjectionService, parseUnixEpochSeconds } from "./webhookProjection.service.js";
-import { normalizeWebhookProvider } from "@jskit-ai/billing-provider-core";
+import { normalizeWebhookProvider } from "@jskit-ai/billing-provider-core/server";
 
 function toPositiveInteger(value) {
   const parsed = Number(value);

@@ -1,7 +1,7 @@
 import { computed, reactive, ref, watch } from "vue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useAuthGuard } from "../../modules/auth/useAuthGuard.js";
-import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
+import { useQueryErrorMessage } from "@jskit-ai/web-runtime-core/server";
 import { api } from "../../platform/http/api/index.js";
 import { toFieldErrors } from "./fieldErrors.js";
 import { shortenProviderPriceId } from "./providerPriceId.js";

@@ -82,7 +82,7 @@ test("normalizeContracts derives capability IDs from domain tree and rejects dup
         summary: "Custom auth capability.",
         api: [
           {
-            entrypoint: ".",
+            entrypoint: "./server",
             functions: ["createService"]
           }
         ]

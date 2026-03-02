@@ -1,4 +1,4 @@
-import { buildRoutes } from "@jskit-ai/console-fastify-routes";
+import { buildRoutes } from "@jskit-ai/console-fastify-routes/server";
 import { toVersionedApiPath } from "../../shared/apiPaths.js";
 
 function createNoopControllers() {

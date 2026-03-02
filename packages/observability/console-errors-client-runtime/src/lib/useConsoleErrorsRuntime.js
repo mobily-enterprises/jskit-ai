@@ -1,8 +1,8 @@
 import { computed, reactive, ref } from "vue";
 import { useNavigate, useRouterState } from "@tanstack/vue-router";
-import { createHttpClient } from "@jskit-ai/http-client-runtime";
-import { createConsoleErrorsApi } from "@jskit-ai/observability-core";
-import { useListRuntime, useListPagination, useQueryErrorMessage } from "@jskit-ai/web-runtime-core";
+import { createHttpClient } from "@jskit-ai/http-client-runtime/server";
+import { createConsoleErrorsApi } from "@jskit-ai/observability-core/server";
+import { useListRuntime, useListPagination, useQueryErrorMessage } from "@jskit-ai/web-runtime-core/server";
 import { createDefaultAppSurfacePaths } from "@jskit-ai/surface-routing/appSurfaces";
 
 const SERVER_ERRORS_QUERY_KEY_PREFIX = ["console-server-errors"];

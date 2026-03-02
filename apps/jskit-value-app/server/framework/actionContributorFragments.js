@@ -1,10 +1,10 @@
-import { createAuthActionContributor } from "@jskit-ai/auth-provider-supabase-core";
-import { createWorkspaceActionContributor } from "@jskit-ai/workspace-service-core";
-import { createConsoleActionContributor } from "@jskit-ai/workspace-console-service-core";
+import { createAuthActionContributor } from "@jskit-ai/auth-provider-supabase-core/server";
+import { createWorkspaceActionContributor } from "@jskit-ai/workspace-service-core/server";
+import { createConsoleActionContributor } from "@jskit-ai/workspace-console-service-core/server";
 import { createConsoleBillingActionContributor } from "@jskit-ai/billing-service-core/actions/consoleBilling";
-import { createChatActionContributor } from "@jskit-ai/chat-core";
-import { createSocialActionContributor } from "@jskit-ai/social-core";
-import { createWorkspaceBillingActionContributor } from "@jskit-ai/billing-service-core";
+import { createChatActionContributor } from "@jskit-ai/chat-core/server";
+import { createSocialActionContributor } from "@jskit-ai/social-core/server";
+import { createWorkspaceBillingActionContributor } from "@jskit-ai/billing-service-core/server";
 import { createConsoleTranscriptsActionContributor } from "@jskit-ai/assistant-transcripts-core/actions/consoleTranscripts";
 import { createSettingsActionContributor } from "../runtime/actions/contributors/settings.contributor.js";
 import { createAlertsActionContributor } from "../runtime/actions/contributors/alerts.contributor.js";

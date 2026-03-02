@@ -1,7 +1,7 @@
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { parsePositiveInteger } from "@jskit-ai/server-runtime-core/integers";
 import { normalizeBatchSize, normalizeCutoffDateOrThrow } from "@jskit-ai/jskit-knex/retention";
-import { createRepoTransaction } from "@jskit-ai/jskit-knex";
+import { createRepoTransaction } from "@jskit-ai/jskit-knex/server";
 import {
   normalizeCountRow,
   normalizePagination,

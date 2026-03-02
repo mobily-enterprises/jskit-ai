@@ -1,5 +1,5 @@
 import { AppError } from "@jskit-ai/server-runtime-core/errors";
-import { isPlainObject } from "@jskit-ai/action-runtime-core";
+import { isPlainObject } from "@jskit-ai/action-runtime-core/server";
 
 function normalizeObject(value) {
   return isPlainObject(value) ? value : {};

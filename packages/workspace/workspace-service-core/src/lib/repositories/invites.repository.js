@@ -1,6 +1,6 @@
 import { toIsoString, toDatabaseDateTimeUtc } from "@jskit-ai/jskit-knex/dateUtils";
 import { isDuplicateEntryError } from "@jskit-ai/jskit-knex/errors";
-import { resolveRepoClient } from "@jskit-ai/jskit-knex";
+import { resolveRepoClient } from "@jskit-ai/jskit-knex/server";
 import {
   deleteRowsOlderThan,
   normalizeBatchSize,
