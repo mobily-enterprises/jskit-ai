@@ -8,7 +8,7 @@
     "node": "20.x"
   },
   "bin": {
-    "jskit": "node_modules/@jskit-ai/jskit/packages/tooling/jskit/bin/jskit.js"
+    "jskit": "node_modules/@jskit-ai/jskit/tooling/jskit/bin/jskit.js"
   },
   "scripts": {
     "server": "jskit-app-scripts server",
@@ -23,7 +23,7 @@
     "postinstall": "bash -lc 'rm -rf node_modules/@jskit-ai/jskit; ln -s ../../../jskit-ai node_modules/@jskit-ai/jskit'"
   },
   "dependencies": {
-    "@jskit-ai/app-scripts": "file:node_modules/@jskit-ai/jskit/packages/tooling/app-scripts",
+    "@jskit-ai/app-scripts": "0.1.0",
     "@jskit-ai/container-core": "file:node_modules/@jskit-ai/jskit/packages/runtime/container-core",
     "@jskit-ai/http-fastify-core": "file:node_modules/@jskit-ai/jskit/packages/runtime/http-fastify-core",
     "@jskit-ai/kernel-core": "file:node_modules/@jskit-ai/jskit/packages/runtime/kernel-core",

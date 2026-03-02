@@ -16,7 +16,7 @@ import { createInterface } from "node:readline/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const CLI_PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const REPO_ROOT = path.resolve(CLI_PACKAGE_ROOT, "../../..");
+const REPO_ROOT = path.resolve(CLI_PACKAGE_ROOT, "../..");
 const MODULES_ROOT = path.join(REPO_ROOT, "packages");
 const BUNDLES_ROOT = path.join(CLI_PACKAGE_ROOT, "bundles");
 const LOCK_RELATIVE_PATH = ".jskit/lock.json";

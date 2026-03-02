@@ -30,12 +30,12 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mobily-enterprises/jskit-ai.git",
-    "directory": "packages/tooling/create-app"
+    "directory": "tooling/create-app"
   },
   "bugs": {
     "url": "https://github.com/mobily-enterprises/jskit-ai/issues"
   },
-  "homepage": "https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/tooling/create-app#readme",
+  "homepage": "https://github.com/mobily-enterprises/jskit-ai/tree/main/tooling/create-app#readme",
   "keywords": [
     "jskit",
     "scaffold",

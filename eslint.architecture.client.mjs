@@ -4,7 +4,7 @@ export default [
   },
   {
     files: ["packages/**/src/**/*.js"],
-    ignores: ["packages/**/templates/**", "packages/tooling/create-app/src/**/*.js"],
+    ignores: ["packages/**/templates/**", "tooling/create-app/src/**/*.js"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module"
@@ -66,7 +66,7 @@ export default [
     }
   },
   {
-    files: ["packages/tooling/create-app/src/**/*.js"],
+    files: ["tooling/create-app/src/**/*.js"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module"

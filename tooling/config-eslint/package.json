@@ -41,12 +41,12 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mobily-enterprises/jskit-ai.git",
-    "directory": "packages/tooling/config-eslint"
+    "directory": "tooling/config-eslint"
   },
   "bugs": {
     "url": "https://github.com/mobily-enterprises/jskit-ai/issues"
   },
-  "homepage": "https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/tooling/config-eslint#readme",
+  "homepage": "https://github.com/mobily-enterprises/jskit-ai/tree/main/tooling/config-eslint#readme",
   "keywords": [
     "jskit",
     "eslint",
