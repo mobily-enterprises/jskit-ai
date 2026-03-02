@@ -5,17 +5,20 @@ const SURFACE_DEFINITIONS = {
   app: {
     id: "app",
     prefix: "/app",
-    enabled: true
+    enabled: true,
+    requiresAuth: false
   },
   admin: {
     id: "admin",
     prefix: "/admin",
-    enabled: true
+    enabled: true,
+    requiresAuth: false
   },
   console: {
     id: "console",
     prefix: "/console",
-    enabled: true
+    enabled: true,
+    requiresAuth: false
   }
 };
 

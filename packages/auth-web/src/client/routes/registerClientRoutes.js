@@ -9,14 +9,24 @@ function registerClientRoutes({ registerRoutes } = {}) {
       name: "auth-login",
       path: "/auth/login",
       scope: "global",
-      componentPath: "/src/views/auth/LoginView.vue"
+      componentPath: "/src/views/auth/LoginView.vue",
+      meta: {
+        guard: {
+          policy: "public"
+        }
+      }
     },
     {
       id: "auth.signout",
       name: "auth-signout",
       path: "/auth/signout",
       scope: "global",
-      componentPath: "/src/views/auth/SignOutView.vue"
+      componentPath: "/src/views/auth/SignOutView.vue",
+      meta: {
+        guard: {
+          policy: "public"
+        }
+      }
     }
   ]);
 }

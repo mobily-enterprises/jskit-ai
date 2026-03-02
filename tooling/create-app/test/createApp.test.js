@@ -73,8 +73,13 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.match(mainJs, /import\.meta\.glob\("\.\/views\/\*\*\/\*\.vue"\)/);
     assert.match(mainJs, /resolveComponent: resolveModuleRouteComponent/);
     assert.match(mainJs, /createRouter, createWebHistory/);
+    assert.match(mainJs, /router\.beforeEach\(/);
+    assert.match(mainJs, /requiresAuth/);
     assert.match(mainJs, /path: "\/:pathMatch\(\.\*\)\*"/);
     assert.match(mainJs, /\.use\(router\)\.use\(vuetify\)\.mount\("#app"\)/);
+
+    const surfacesConfig = await readFile(path.join(appRoot, "config/surfaces.js"), "utf8");
+    assert.match(surfacesConfig, /requiresAuth:\s*false/);
 
     const appVue = await readFile(path.join(appRoot, "src/App.vue"), "utf8");
     assert.match(appVue, /<RouterView \/>/);
