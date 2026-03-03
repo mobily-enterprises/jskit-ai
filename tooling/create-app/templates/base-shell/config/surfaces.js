@@ -1,5 +1,7 @@
 const SURFACE_MODE_ALL = "all";
 const SURFACE_IDS = ["app", "admin", "console"];
+const SURFACE_DEFAULT_ID = "app";
+const WEB_ROOT_ALLOWED = "yes";
 
 const SURFACE_DEFINITIONS = {
   app: {
@@ -22,4 +24,4 @@ const SURFACE_DEFINITIONS = {
   }
 };
 
-export { SURFACE_MODE_ALL, SURFACE_IDS, SURFACE_DEFINITIONS };
+export { SURFACE_MODE_ALL, SURFACE_IDS, SURFACE_DEFAULT_ID, SURFACE_DEFINITIONS, WEB_ROOT_ALLOWED };

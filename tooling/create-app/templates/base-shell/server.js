@@ -7,13 +7,13 @@ import {
   tryCreateProviderRuntimeFromApp
 } from "@jskit-ai/framework-core/platform/server";
 import { createSurfaceRuntime } from "@jskit-ai/framework-core/surface/runtime";
-import { SURFACE_DEFINITIONS, SURFACE_IDS, SURFACE_MODE_ALL } from "./config/surfaces.js";
+import { SURFACE_DEFAULT_ID, SURFACE_DEFINITIONS, SURFACE_IDS, SURFACE_MODE_ALL } from "./config/surfaces.js";
 
 const surfaceRuntime = createSurfaceRuntime({
   allMode: SURFACE_MODE_ALL,
   surfaceIds: SURFACE_IDS,
   surfaces: SURFACE_DEFINITIONS,
-  defaultSurfaceId: "app"
+  defaultSurfaceId: SURFACE_DEFAULT_ID
 });
 
 async function createServer() {

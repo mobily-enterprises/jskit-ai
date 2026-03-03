@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# Starts a local Verdaccio registry for JSKIT package publish/install testing.
+# - Default: runs in background (nohup) and prints PID/log file locations.
+# - --fg: runs Verdaccio in foreground for interactive debugging.
+#
+# Env overrides:
+# - VERDACCIO_LISTEN (default: 127.0.0.1:4873)
+# - VERDACCIO_CONFIG (default: ~/.config/verdaccio/config.yaml)
+# - VERDACCIO_LOG_FILE (default: /tmp/verdaccio.log)
+# - VERDACCIO_PID_FILE (default: /tmp/verdaccio.pid)
 set -euo pipefail
 
 VERDACCIO_LISTEN="${VERDACCIO_LISTEN:-127.0.0.1:4873}"

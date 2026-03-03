@@ -128,11 +128,160 @@ const KNOWN_COMMANDS = new Set([
   "lint-descriptors"
 ]);
 
+const ANSI_RESET = "\u001b[0m";
+const ANSI_BOLD = "\u001b[1m";
+const ANSI_DIM = "\u001b[2m";
+const ANSI_CYAN = "\u001b[36m";
+const ANSI_GREEN = "\u001b[32m";
+const ANSI_YELLOW = "\u001b[33m";
+const ANSI_WHITE = "\u001b[97m";
+
 function createCliError(message, { showUsage = false } = {}) {
   const error = new Error(String(message || "Unknown CLI error"));
   error.name = "CliError";
   error.showUsage = Boolean(showUsage);
   return error;
+}
+
+function createColorFormatter(stream) {
+  const noColor = Object.prototype.hasOwnProperty.call(process.env, "NO_COLOR");
+  const term = String(process.env.TERM || "").toLowerCase();
+  const forceColor = String(process.env.FORCE_COLOR || "").trim();
+  const enableColor = (() => {
+    if (forceColor === "0") {
+      return false;
+    }
+    if (forceColor) {
+      return true;
+    }
+    if (noColor || term === "dumb") {
+      return false;
+    }
+    return Boolean(stream && stream.isTTY);
+  })();
+
+  const paint = (text, sequence) => {
+    const value = String(text);
+    if (!enableColor) {
+      return value;
+    }
+    return `${sequence}${value}${ANSI_RESET}`;
+  };
+
+  return Object.freeze({
+    heading: (text) => paint(text, `${ANSI_BOLD}${ANSI_WHITE}`),
+    item: (text) => paint(text, ANSI_CYAN),
+    version: (text) => paint(text, ANSI_DIM),
+    installed: (text) => paint(text, ANSI_GREEN),
+    provider: (text) => paint(text, ANSI_YELLOW),
+    dim: (text) => paint(text, ANSI_DIM)
+  });
+}
+
+function resolveWrapWidth(stream, fallbackWidth = 80) {
+  const parsedFallback = Number(fallbackWidth);
+  const fallback = Number.isFinite(parsedFallback) ? Math.max(20, Math.floor(parsedFallback)) : 80;
+  const columns = Number(stream?.columns);
+  if (!Number.isFinite(columns) || columns < 20) {
+    return fallback;
+  }
+  return Math.floor(columns);
+}
+
+function writeWrappedItems({ stdout, heading, items, lineIndent = "  ", wrapWidth = 80 }) {
+  const records = ensureArray(items)
+    .map((entry) => {
+      const normalized = ensureObject(entry);
+      const text = String(normalized.text || "").trim();
+      const rendered = String(normalized.rendered || text);
+      if (!text) {
+        return null;
+      }
+      return { text, rendered };
+    })
+    .filter(Boolean);
+
+  if (records.length === 0) {
+    return;
+  }
+
+  stdout.write(`${heading}\n`);
+  const width = Math.max(20, Number(wrapWidth) || 80);
+  let line = lineIndent;
+  let lineLength = lineIndent.length;
+
+  for (const record of records) {
+    const separator = lineLength > lineIndent.length ? " " : "";
+    const addedLength = separator.length + record.text.length;
+    if (lineLength > lineIndent.length && lineLength + addedLength > width) {
+      stdout.write(`${line}\n`);
+      line = `${lineIndent}${record.rendered}`;
+      lineLength = lineIndent.length + record.text.length;
+      continue;
+    }
+
+    line = `${line}${separator}${record.rendered}`;
+    lineLength += addedLength;
+  }
+
+  if (lineLength > lineIndent.length) {
+    stdout.write(`${line}\n`);
+  }
+}
+
+function normalizeFileMutationRecord(value) {
+  const record = ensureObject(value);
+  return {
+    from: String(record.from || "").trim(),
+    to: String(record.to || "").trim(),
+    id: String(record.id || "").trim(),
+    category: String(record.category || "").trim(),
+    reason: String(record.reason || "").trim()
+  };
+}
+
+function buildFileWriteGroups(fileMutations) {
+  const groups = [];
+  const groupsByKey = new Map();
+
+  for (const mutation of ensureArray(fileMutations)) {
+    const normalized = normalizeFileMutationRecord(mutation);
+    if (!normalized.from || !normalized.to) {
+      continue;
+    }
+
+    const key = normalized.id
+      ? `id:${normalized.id}`
+      : normalized.category || normalized.reason
+        ? `meta:${normalized.category}::${normalized.reason}`
+        : `path:${normalized.to}`;
+
+    let group = groupsByKey.get(key);
+    if (!group) {
+      group = {
+        id: normalized.id,
+        category: normalized.category,
+        reason: normalized.reason,
+        files: []
+      };
+      groupsByKey.set(key, group);
+      groups.push(group);
+    } else {
+      if (!group.category && normalized.category) {
+        group.category = normalized.category;
+      }
+      if (!group.reason && normalized.reason) {
+        group.reason = normalized.reason;
+      }
+    }
+
+    group.files.push({
+      from: normalized.from,
+      to: normalized.to
+    });
+  }
+
+  return groups;
 }
 
 function ensureArray(value) {
@@ -241,6 +390,7 @@ function parseArgs(argv) {
         noInstall: false,
         full: false,
         expanded: false,
+        details: false,
         json: false,
         all: false,
         help: true,
@@ -262,6 +412,7 @@ function parseArgs(argv) {
     noInstall: false,
     full: false,
     expanded: false,
+    details: false,
     json: false,
     all: false,
     help: false,
@@ -286,6 +437,10 @@ function parseArgs(argv) {
     }
     if (token === "--expanded") {
       options.expanded = true;
+      continue;
+    }
+    if (token === "--details") {
+      options.details = true;
       continue;
     }
     if (token === "--json") {
@@ -352,6 +507,7 @@ function printUsage(stream = process.stderr) {
   stream.write("  --no-install                 Skip npm install during add/update/remove\n");
   stream.write("  --full                       Show bundle package ids (declared packages)\n");
   stream.write("  --expanded                   Show expanded/transitive package ids\n");
+  stream.write("  --details                    Show extra capability detail in show output\n");
   stream.write("  --<option> <value>           Package option (for packages requiring input)\n");
   stream.write("  --json                       Print structured output\n");
   stream.write("  -h, --help                   Show help\n");
@@ -882,6 +1038,77 @@ function listDeclaredCapabilities(capabilitiesSection, fieldName) {
   return normalized;
 }
 
+function buildCapabilityGraph(packageRegistry) {
+  const graph = new Map();
+  const ensureNode = (capabilityId) => {
+    if (!graph.has(capabilityId)) {
+      graph.set(capabilityId, {
+        providers: new Set(),
+        requirers: new Set()
+      });
+    }
+    return graph.get(capabilityId);
+  };
+
+  for (const [packageId, packageEntry] of packageRegistry.entries()) {
+    const capabilities = ensureObject(packageEntry?.descriptor?.capabilities);
+    for (const capabilityId of listDeclaredCapabilities(capabilities, "provides")) {
+      ensureNode(capabilityId).providers.add(packageId);
+    }
+    for (const capabilityId of listDeclaredCapabilities(capabilities, "requires")) {
+      ensureNode(capabilityId).requirers.add(packageId);
+    }
+  }
+
+  const normalizedGraph = new Map();
+  for (const [capabilityId, node] of graph.entries()) {
+    normalizedGraph.set(capabilityId, {
+      providers: sortStrings([...node.providers]),
+      requirers: sortStrings([...node.requirers])
+    });
+  }
+  return normalizedGraph;
+}
+
+function createCapabilityPackageDetail(packageId, packageRegistry) {
+  const packageEntry = packageRegistry.get(packageId);
+  return {
+    packageId,
+    version: String(packageEntry?.version || packageEntry?.descriptor?.version || "").trim(),
+    descriptorPath: String(packageEntry?.descriptorRelativePath || "").trim()
+  };
+}
+
+function buildCapabilityDetailsForPackage({ packageRegistry, packageId, dependsOn = [], provides = [], requires = [] }) {
+  const graph = buildCapabilityGraph(packageRegistry);
+  const dependsOnSet = new Set(ensureArray(dependsOn).map((value) => String(value || "").trim()).filter(Boolean));
+
+  function buildCapabilityRecord(capabilityId) {
+    const node = graph.get(capabilityId) || {
+      providers: [],
+      requirers: []
+    };
+    const providers = sortStrings(ensureArray(node.providers));
+    const requirers = sortStrings(ensureArray(node.requirers));
+    const providersInDependsOn = providers.filter((providerId) => dependsOnSet.has(providerId));
+    return {
+      capabilityId,
+      providers,
+      requirers,
+      providersInDependsOn,
+      providerDetails: providers.map((providerId) => createCapabilityPackageDetail(providerId, packageRegistry)),
+      requirerDetails: requirers.map((requirerId) => createCapabilityPackageDetail(requirerId, packageRegistry)),
+      isProvidedByCurrentPackage: providers.includes(packageId),
+      isRequiredByCurrentPackage: requirers.includes(packageId)
+    };
+  }
+
+  return {
+    provides: ensureArray(provides).map((capabilityId) => buildCapabilityRecord(capabilityId)),
+    requires: ensureArray(requires).map((capabilityId) => buildCapabilityRecord(capabilityId))
+  };
+}
+
 function collectPlannedCapabilityIssues(plannedPackageIds, packageRegistry) {
   const selectedPackageIds = sortStrings(
     [...new Set(ensureArray(plannedPackageIds).map((value) => String(value || "").trim()).filter(Boolean))]
@@ -1339,9 +1566,10 @@ async function commandList({ positional, options, cwd, stdout }) {
     throw createCliError(`Unknown list mode: ${mode}`, { showUsage: true });
   }
 
+  const color = createColorFormatter(stdout);
   const lines = [];
   if (shouldListBundles) {
-    lines.push("Available bundles:");
+    lines.push(color.heading("Available bundles:"));
     const bundleIds = sortStrings([...bundleRegistry.keys()]);
     for (const bundleId of bundleIds) {
       const bundle = bundleRegistry.get(bundleId);
@@ -1350,11 +1578,11 @@ async function commandList({ positional, options, cwd, stdout }) {
       const providerLabel = Number(bundle.provider) === 1 ? " [provider]" : "";
       const installedLabel = isInstalled ? " (installed)" : "";
       lines.push(
-        `- ${bundle.bundleId} (${bundle.version})${installedLabel}${providerLabel}: ${String(bundle.description || "")}`
+        `- ${color.item(bundle.bundleId)} ${color.version(`(${bundle.version})`)}${isInstalled ? color.installed(installedLabel) : installedLabel}${providerLabel ? color.provider(providerLabel) : providerLabel}: ${String(bundle.description || "")}`
       );
       if (options.full || options.expanded) {
         for (const packageId of packageIds) {
-          lines.push(`  - ${packageId}`);
+          lines.push(`  - ${color.dim(packageId)}`);
         }
       }
     }
@@ -1364,12 +1592,14 @@ async function commandList({ positional, options, cwd, stdout }) {
     if (lines.length > 0) {
       lines.push("");
     }
-    lines.push("Available packages:");
+    lines.push(color.heading("Available packages:"));
     const packageIds = sortStrings([...packageRegistry.keys()]);
     for (const packageId of packageIds) {
       const packageEntry = packageRegistry.get(packageId);
       const installedLabel = installedPackages.has(packageId) ? " (installed)" : "";
-      lines.push(`- ${packageId} (${packageEntry.version})${installedLabel}`);
+      lines.push(
+        `- ${color.item(packageId)} ${color.version(`(${packageEntry.version})`)}${installedLabel ? color.installed(installedLabel) : ""}`
+      );
     }
   }
 
@@ -1416,43 +1646,308 @@ async function commandShow({ positional, options, stdout }) {
 
   const packageRegistry = await loadPackageRegistry();
   const bundleRegistry = await loadBundleRegistry();
+  const color = createColorFormatter(stdout);
+  const writeField = (label, value, formatValue = (raw) => raw) => {
+    stdout.write(`${color.dim(`${label}:`)} ${formatValue(String(value || ""))}\n`);
+  };
   const resolvedPackageId = resolvePackageIdInput(id, packageRegistry);
 
   if (resolvedPackageId) {
     const packageEntry = packageRegistry.get(resolvedPackageId);
     const descriptor = packageEntry.descriptor;
+    const fileWriteGroups = buildFileWriteGroups(ensureArray(ensureObject(descriptor.mutations).files));
+    const fileWriteCount = fileWriteGroups.reduce((total, group) => total + ensureArray(group.files).length, 0);
+    const capabilities = ensureObject(descriptor.capabilities);
+    const runtime = ensureObject(descriptor.runtime);
+    const metadata = ensureObject(descriptor.metadata);
+    const mutations = ensureObject(descriptor.mutations);
+    const runtimeMutations = ensureObject(ensureObject(mutations.dependencies).runtime);
+    const devMutations = ensureObject(ensureObject(mutations.dependencies).dev);
+    const scriptMutations = ensureObject(ensureObject(mutations.packageJson).scripts);
+    const textMutations = ensureArray(mutations.text);
     const payload = {
       kind: "package",
       packageId: descriptor.packageId,
       version: descriptor.version,
       description: String(descriptor.description || ""),
       dependsOn: ensureArray(descriptor.dependsOn).map((value) => String(value)),
-      capabilities: ensureObject(descriptor.capabilities),
+      capabilities,
       options: ensureObject(descriptor.options),
-      runtime: ensureObject(descriptor.runtime),
-      metadata: ensureObject(descriptor.metadata),
+      runtime,
+      metadata,
+      mutations,
+      fileWritePlan: {
+        groupCount: fileWriteGroups.length,
+        fileCount: fileWriteCount,
+        groups: fileWriteGroups
+      },
       descriptorPath: packageEntry.descriptorRelativePath
     };
+    const provides = listDeclaredCapabilities(payload.capabilities, "provides");
+    const requires = listDeclaredCapabilities(payload.capabilities, "requires");
+    const capabilityDetails = options.details
+      ? buildCapabilityDetailsForPackage({
+          packageRegistry,
+          packageId: payload.packageId,
+          dependsOn: payload.dependsOn,
+          provides,
+          requires
+        })
+      : null;
+    if (capabilityDetails) {
+      payload.capabilityDetails = capabilityDetails;
+    }
     if (options.json) {
       stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
     } else {
-      stdout.write(`Package: ${payload.packageId}\n`);
-      stdout.write(`Version: ${payload.version}\n`);
+      const runtimeMutationEntries = Object.entries(runtimeMutations);
+      const devMutationEntries = Object.entries(devMutations);
+      const scriptMutationEntries = Object.entries(scriptMutations);
+      const wrapWidth = resolveWrapWidth(stdout, 80);
+      stdout.write(`${color.heading("Information")}\n`);
+      writeField("Package", payload.packageId, color.item);
+      writeField("Version", payload.version, color.installed);
       if (payload.description) {
-        stdout.write(`Description: ${payload.description}\n`);
+        writeField("Description", payload.description);
       }
-      stdout.write(`Descriptor: ${payload.descriptorPath}\n`);
-      stdout.write(`Depends on (${payload.dependsOn.length}):\n`);
-      for (const dependencyId of payload.dependsOn) {
-        stdout.write(`- ${dependencyId}\n`);
+      writeField("Descriptor", payload.descriptorPath, color.dim);
+      if (payload.dependsOn.length > 0) {
+        writeWrappedItems({
+          stdout,
+          heading: `${color.heading("Depends on")} ${color.installed(`(${payload.dependsOn.length})`)}:`,
+          wrapWidth,
+          items: payload.dependsOn.map((dependencyId) => {
+            const text = String(dependencyId);
+            return {
+              text,
+              rendered: color.item(text)
+            };
+          })
+        });
       }
+      if (runtimeMutationEntries.length > 0) {
+        writeWrappedItems({
+          stdout,
+          heading: color.heading(`Dependency mutations runtime (${runtimeMutationEntries.length}):`),
+          wrapWidth,
+          items: runtimeMutationEntries.map(([dependencyId, versionSpec]) => {
+            const dependencyText = String(dependencyId);
+            const versionText = String(versionSpec);
+            return {
+              text: `${dependencyText} ${versionText}`,
+              rendered: `${color.item(dependencyText)} ${color.installed(versionText)}`
+            };
+          })
+        });
+      }
+
+      if (provides.length > 0 || requires.length > 0) {
+        stdout.write(`${color.heading("Capabilities:")}\n`);
+        if (provides.length > 0) {
+          const providesText = provides.map((capabilityId) => color.item(capabilityId)).join(" ");
+          stdout.write(`${color.installed("Provides:")} ${providesText}\n`);
+        }
+        if (requires.length > 0) {
+          const requiresText = requires.map((capabilityId) => color.item(capabilityId)).join(" ");
+          stdout.write(`${color.installed("Requires:")} ${requiresText}\n`);
+        }
+      }
+      if (capabilityDetails && (capabilityDetails.provides.length > 0 || capabilityDetails.requires.length > 0)) {
+        const formatPackageSummary = (detail) => {
+          const packageId = String(detail?.packageId || "").trim();
+          const version = String(detail?.version || "").trim();
+          const descriptorPath = String(detail?.descriptorPath || "").trim();
+          const versionSuffix = version ? `@${version}` : "";
+          const pathSuffix = descriptorPath ? ` [${descriptorPath}]` : "";
+          return `${packageId}${versionSuffix}${pathSuffix}`;
+        };
+
+        const writeCapabilityRecord = ({ heading, records, includeDependsOnProviders = false }) => {
+          if (records.length < 1) {
+            return;
+          }
+          stdout.write(`${color.heading(heading)}\n`);
+          for (const record of records) {
+            const capabilityId = String(record.capabilityId || "").trim();
+            stdout.write(`- ${color.item(capabilityId)}\n`);
+
+            const providerItems = ensureArray(record.providerDetails).map((detail) => ({
+              text: formatPackageSummary(detail),
+              rendered: color.item(formatPackageSummary(detail))
+            }));
+            if (providerItems.length > 0) {
+              writeWrappedItems({
+                stdout,
+                heading: `  ${color.installed(`providers (${providerItems.length}):`)}`,
+                lineIndent: "    ",
+                wrapWidth,
+                items: providerItems
+              });
+            }
+
+            if (includeDependsOnProviders) {
+              const providersInDependsOn = ensureArray(record.providersInDependsOn).map((packageId) => ({
+                text: String(packageId),
+                rendered: color.item(String(packageId))
+              }));
+              if (providersInDependsOn.length > 0) {
+                writeWrappedItems({
+                  stdout,
+                  heading: `  ${color.installed(`providers in dependsOn (${providersInDependsOn.length}):`)}`,
+                  lineIndent: "    ",
+                  wrapWidth,
+                  items: providersInDependsOn
+                });
+              }
+            }
+
+            const requirerItems = ensureArray(record.requirerDetails).map((detail) => ({
+              text: formatPackageSummary(detail),
+              rendered: color.item(formatPackageSummary(detail))
+            }));
+            if (requirerItems.length > 0) {
+              writeWrappedItems({
+                stdout,
+                heading: `  ${color.installed(`required by (${requirerItems.length}):`)}`,
+                lineIndent: "    ",
+                wrapWidth,
+                items: requirerItems
+              });
+            }
+          }
+        };
+
+        stdout.write(`${color.heading("Capability details:")}\n`);
+        writeCapabilityRecord({
+          heading: `Provides detail (${capabilityDetails.provides.length}):`,
+          records: capabilityDetails.provides,
+          includeDependsOnProviders: false
+        });
+        writeCapabilityRecord({
+          heading: `Requires detail (${capabilityDetails.requires.length}):`,
+          records: capabilityDetails.requires,
+          includeDependsOnProviders: true
+        });
+      }
+
+      const uiRoutes = ensureArray(ensureObject(payload.metadata.ui).routes);
+      if (uiRoutes.length > 0) {
+        stdout.write(`${color.heading(`UI routes (${uiRoutes.length}):`)}\n`);
+        for (const route of uiRoutes) {
+          const record = ensureObject(route);
+          const routePath = String(record.path || "").trim();
+          const scope = String(record.scope || "").trim();
+          const name = String(record.name || "").trim();
+          const purpose = String(record.purpose || "").trim();
+          const scopeLabel = scope ? ` (${scope})` : "";
+          const purposePart = purpose ? ` ${purpose}` : "";
+          const idPart = name ? ` ${color.installed(`(id:${name})`)}` : "";
+          stdout.write(`- ${color.item(routePath)}${color.installed(scopeLabel)}${purposePart}${idPart}\n`);
+        }
+      }
+
+      const serverRoutes = ensureArray(ensureObject(payload.metadata.server).routes);
+      if (serverRoutes.length > 0) {
+        stdout.write(`${color.heading(`Server routes (${serverRoutes.length}):`)}\n`);
+        for (const route of serverRoutes) {
+          const record = ensureObject(route);
+          const method = String(record.method || "").trim().toUpperCase();
+          const routePath = String(record.path || "").trim();
+          const summary = String(record.summary || "").trim();
+          const routeLabel = `${method} ${routePath}`.trim();
+          const summarySuffix = summary ? `: ${summary}` : "";
+          stdout.write(`- ${color.item(routeLabel)}${summarySuffix}\n`);
+        }
+      }
+
       const optionNames = Object.keys(payload.options);
-      stdout.write(`Options (${optionNames.length}):\n`);
-      for (const optionName of optionNames) {
-        const schema = ensureObject(payload.options[optionName]);
-        const required = schema.required ? "required" : "optional";
-        const defaultSuffix = schema.defaultValue ? ` (default: ${schema.defaultValue})` : "";
-        stdout.write(`- ${optionName} [${required}]${defaultSuffix}\n`);
+      if (optionNames.length > 0) {
+        stdout.write(`${color.heading(`Options (${optionNames.length}):`)}\n`);
+        for (const optionName of optionNames) {
+          const schema = ensureObject(payload.options[optionName]);
+          const required = schema.required ? "required" : "optional";
+          const defaultSuffix = schema.defaultValue ? ` (default: ${schema.defaultValue})` : "";
+          stdout.write(`- ${color.item(optionName)} ${color.installed(`[${required}]`)}${color.dim(defaultSuffix)}\n`);
+        }
+      }
+
+      if (devMutationEntries.length > 0) {
+        writeWrappedItems({
+          stdout,
+          heading: color.heading(`Dependency mutations dev (${devMutationEntries.length}):`),
+          wrapWidth,
+          items: devMutationEntries.map(([dependencyId, versionSpec]) => {
+            const dependencyText = String(dependencyId);
+            const versionText = String(versionSpec);
+            return {
+              text: `${dependencyText} ${versionText}`,
+              rendered: `${color.item(dependencyText)} ${color.installed(versionText)}`
+            };
+          })
+        });
+      }
+      if (scriptMutationEntries.length > 0) {
+        stdout.write(`${color.heading(`Script mutations (${scriptMutationEntries.length}):`)}\n`);
+        for (const [scriptName, scriptValue] of scriptMutationEntries) {
+          stdout.write(`- ${color.item(scriptName)}: ${String(scriptValue)}\n`);
+        }
+      }
+      if (textMutations.length > 0) {
+        stdout.write(`${color.heading(`Text mutations (${textMutations.length}):`)}\n`);
+        for (const mutation of textMutations) {
+          const record = ensureObject(mutation);
+          const op = String(record.op || "").trim();
+          const file = String(record.file || "").trim();
+          const key = String(record.key || "").trim();
+          const reason = String(record.reason || "").trim();
+          const reasonSuffix = reason ? `: ${reason}` : "";
+          stdout.write(`- ${color.item(`${op} ${file} ${key}`.trim())}${reasonSuffix}\n`);
+        }
+      }
+
+      if (payload.fileWritePlan.fileCount > 0) {
+        stdout.write(`${color.heading(`File writes (${payload.fileWritePlan.fileCount}):`)}\n`);
+        for (const group of payload.fileWritePlan.groups) {
+          const groupId = String(group.id || "").trim();
+          const category = String(group.category || "").trim();
+          const reason = String(group.reason || "").trim();
+          const files = ensureArray(group.files);
+          const marker = groupId ? `id:${groupId}` : category ? `category:${category}` : "";
+          const markerSuffix = marker ? ` (${marker})` : "";
+          for (const file of files) {
+            const targetPath = String(ensureObject(file).to || "").trim();
+            if (!targetPath) {
+              continue;
+            }
+            stdout.write(`- ${color.item(targetPath)}${color.installed(markerSuffix)}:\n`);
+            if (reason) {
+              stdout.write(`  ${reason}\n`);
+            }
+          }
+        }
+      }
+
+      const serverProviders = ensureArray(ensureObject(payload.runtime.server).providers);
+      const clientProviders = ensureArray(ensureObject(payload.runtime.client).providers);
+      if (serverProviders.length > 0) {
+        stdout.write(`${color.heading(`Runtime server providers (${serverProviders.length}):`)}\n`);
+        for (const provider of serverProviders) {
+          const record = ensureObject(provider);
+          const entrypoint = String(record.entrypoint || "").trim();
+          const exportName = String(record.export || "").trim();
+          const label = exportName ? `${entrypoint}#${exportName}` : entrypoint;
+          stdout.write(`- ${color.item(label)}\n`);
+        }
+      }
+      if (clientProviders.length > 0) {
+        stdout.write(`${color.heading(`Runtime client providers (${clientProviders.length}):`)}\n`);
+        for (const provider of clientProviders) {
+          const record = ensureObject(provider);
+          const entrypoint = String(record.entrypoint || "").trim();
+          const exportName = String(record.export || "").trim();
+          const label = exportName ? `${entrypoint}#${exportName}` : entrypoint;
+          stdout.write(`- ${color.item(label)}\n`);
+        }
       }
     }
     return 0;
@@ -1472,14 +1967,15 @@ async function commandShow({ positional, options, stdout }) {
     if (options.json) {
       stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
     } else {
-      stdout.write(`Bundle: ${payload.bundleId}\n`);
-      stdout.write(`Version: ${payload.version}\n`);
+      stdout.write(`${color.heading("Information")}\n`);
+      writeField("Bundle", payload.bundleId, color.item);
+      writeField("Version", payload.version, color.installed);
       if (payload.description) {
-        stdout.write(`Description: ${payload.description}\n`);
+        writeField("Description", payload.description);
       }
-      stdout.write(`Packages (${payload.packages.length}):\n`);
+      stdout.write(`${color.heading(`Packages (${payload.packages.length}):`)}\n`);
       for (const packageId of payload.packages) {
-        stdout.write(`- ${packageId}\n`);
+        stdout.write(`- ${color.item(packageId)}\n`);
       }
     }
     return 0;

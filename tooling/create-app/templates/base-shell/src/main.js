@@ -14,17 +14,25 @@ import {
   createSurfaceRuntime,
   filterRoutesBySurface
 } from "@jskit-ai/framework-core/surface/runtime";
-import { SURFACE_DEFINITIONS, SURFACE_IDS, SURFACE_MODE_ALL } from "../config/surfaces.js";
+import {
+  SURFACE_DEFAULT_ID,
+  SURFACE_DEFINITIONS,
+  SURFACE_IDS,
+  SURFACE_MODE_ALL,
+  WEB_ROOT_ALLOWED
+} from "../config/surfaces.js";
 
 const GLOBAL_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 const AUTH_POLICY_AUTHENTICATED = "authenticated";
 const AUTH_POLICY_PUBLIC = "public";
+const WEB_ROOT_ALLOW_YES = "yes";
+const WEB_ROOT_ALLOW_NO = "no";
 
 const surfaceRuntime = createSurfaceRuntime({
   allMode: SURFACE_MODE_ALL,
   surfaceIds: SURFACE_IDS,
   surfaces: SURFACE_DEFINITIONS,
-  defaultSurfaceId: "app"
+  defaultSurfaceId: SURFACE_DEFAULT_ID
 });
 
 const appViewModules = import.meta.glob("./views/**/*.vue");
@@ -131,6 +139,30 @@ function resolveSurfaceDefinition(surfaceId) {
     return null;
   }
   return definition;
+}
+
+function normalizeWebRootAllowed(value) {
+  const normalizedValue = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (normalizedValue === WEB_ROOT_ALLOW_YES || normalizedValue === WEB_ROOT_ALLOW_NO) {
+    return normalizedValue;
+  }
+  return WEB_ROOT_ALLOW_YES;
+}
+
+function normalizeSurfacePrefix(prefix) {
+  const rawPrefix = String(prefix || "").trim();
+  if (!rawPrefix || rawPrefix === "/") {
+    return "/";
+  }
+  const withLeadingSlash = rawPrefix.startsWith("/") ? rawPrefix : `/${rawPrefix}`;
+  return withLeadingSlash.replace(/\/+$/, "") || "/";
+}
+
+function resolveDefaultSurfaceRootPath() {
+  const defaultSurface = resolveSurfaceDefinition(SURFACE_DEFAULT_ID);
+  return normalizeSurfacePrefix(defaultSurface?.prefix);
 }
 
 function resolveSurfaceRequiresAuth(pathname) {
@@ -258,6 +290,14 @@ const router = createRouter({
 });
 
 router.beforeEach((to) => {
+  const webRootAllowed = normalizeWebRootAllowed(WEB_ROOT_ALLOWED);
+  const defaultSurfaceRootPath = resolveDefaultSurfaceRootPath();
+  if (webRootAllowed === WEB_ROOT_ALLOW_NO && String(to?.path || "/").trim() === "/" && defaultSurfaceRootPath !== "/") {
+    const search = resolveSearchFromFullPath(to?.fullPath || "");
+    const hash = String(to?.hash || "").trim();
+    return `${defaultSurfaceRootPath}${search}${hash}`;
+  }
+
   const guard = resolveEffectiveRouteGuard(to);
   if (guard.policy !== AUTH_POLICY_AUTHENTICATED) {
     return true;
