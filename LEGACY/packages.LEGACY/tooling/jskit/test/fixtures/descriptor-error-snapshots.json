@@ -1,7 +1,0 @@
-{
-  "badPackageId": "Package descriptor /fixtures/bad-package-id/package.descriptor.mjs packageId is invalid: Not A Valid ID",
-  "conditionalPackagesNotSupported": "Bundle db packages[0] must be a package id string. Conditional mappings are not supported.",
-  "invalidRelativePath": "Invalid relative path in descriptor: ../escape-template.cjs",
-  "duplicatePackageId": "Duplicate package discovered: @test/duplicate\n- /fixtures/duplicate-a/package.descriptor.mjs\n- /fixtures/duplicate-b/package.descriptor.mjs",
-  "descriptorVersionMismatch": "Bundle descriptor /fixtures/version-mismatch/bundle.descriptor.mjs must set bundleVersion to 1."
-}
