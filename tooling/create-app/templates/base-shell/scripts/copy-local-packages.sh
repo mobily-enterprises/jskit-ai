@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SRC_PACKAGES_ROOT="${1:-../jskit-ai/packages}"
-SRC_FRAMEWORK_CORE="${2:-../jskit-ai/framework-core}"
+SRC_PACKAGES_ROOT="${1:-../../jskit-ai/packages}"
+SRC_FRAMEWORK_CORE="${2:-../../jskit-ai/framework-core}"
 DST_ROOT="${3:-node_modules/@jskit-ai}"
-SRC_JSKIT_ROOT="${4:-../jskit-ai}"
+SRC_JSKIT_ROOT="${4:-../../jskit-ai}"
 
 if [[ ! -d "$SRC_PACKAGES_ROOT" ]]; then
   echo "Source directory not found: $SRC_PACKAGES_ROOT" >&2
