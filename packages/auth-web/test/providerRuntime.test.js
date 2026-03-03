@@ -70,7 +70,7 @@ test("auth route provider registers routes and executes login/logout handlers", 
   });
 
   class MockAuthProvider {
-    static id = "auth.provider.supabase";
+    static id = "auth.provider";
   }
 
   await app.start({ providers: [MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });

@@ -378,8 +378,6 @@ async function createProviderRuntimeFromApp({
   env = {},
   logger = console,
   fastify = null,
-  dependencies = {},
-  routeConfig = {},
   missingHandler = null
 } = {}) {
   if (!appRoot || typeof appRoot !== "string") {

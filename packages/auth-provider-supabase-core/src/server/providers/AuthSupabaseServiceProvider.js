@@ -1,7 +1,7 @@
 import { TOKENS } from "@jskit-ai/framework-core/support/tokens";
 import { createService } from "../lib/service.js";
 import { createAuthActionContributor } from "../lib/actions/auth.contributor.js";
-import { ACTION_RUNTIME_CONTRIBUTOR_TAG } from "@jskit-ai/action-runtime-core/server";
+import { registerActionContributor } from "@jskit-ai/action-runtime-core/server";
 
 function splitCsv(value) {
   return String(value || "")
@@ -163,7 +163,7 @@ class AuthSupabaseServiceProvider {
 
     const contributorToken = "auth.provider.supabase.actionContributor";
     if (!app.has(contributorToken)) {
-      app.singleton(contributorToken, (scope) => {
+      registerActionContributor(app, contributorToken, (scope) => {
         const authService = scope.make("authService");
         if (!authService) {
           return null;
@@ -178,7 +178,6 @@ class AuthSupabaseServiceProvider {
         }
       });
     }
-    app.tag(contributorToken, ACTION_RUNTIME_CONTRIBUTOR_TAG);
   }
 }
 

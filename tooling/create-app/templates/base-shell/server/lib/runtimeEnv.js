@@ -1,14 +1,7 @@
 import { createRequire } from "node:module";
-import { createSurfaceRuntime } from "@jskit-ai/framework-core/surface/runtime";
-import { SURFACE_DEFAULT_ID, SURFACE_DEFINITIONS, SURFACE_IDS, SURFACE_MODE_ALL } from "../../config/surfaces.js";
+import { surfaceRuntime } from "./surfaceRuntime.js";
 
 const require = createRequire(import.meta.url);
-const surfaceRuntime = createSurfaceRuntime({
-  allMode: SURFACE_MODE_ALL,
-  surfaceIds: SURFACE_IDS,
-  surfaces: SURFACE_DEFINITIONS,
-  defaultSurfaceId: SURFACE_DEFAULT_ID
-});
 
 function toPort(value, fallback = 3000) {
   const parsed = Number.parseInt(String(value || "").trim(), 10);

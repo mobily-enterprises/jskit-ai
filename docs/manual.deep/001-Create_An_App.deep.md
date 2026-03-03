@@ -65,7 +65,6 @@ Role:
 Example:
 
 ```js
-const SURFACE_IDS = ["app", "admin", "console"];
 const SURFACE_DEFINITIONS = {
   app: { id: "app", prefix: "/app", enabled: true },
   admin: { id: "admin", prefix: "/admin", enabled: true },

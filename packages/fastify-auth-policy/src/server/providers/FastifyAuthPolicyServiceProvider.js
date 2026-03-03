@@ -32,7 +32,7 @@ function defaultHasPermission({ permission, permissions = [] } = {}) {
 class FastifyAuthPolicyServiceProvider {
   static id = "auth.policy.fastify";
 
-  static dependsOn = ["auth.provider.supabase"];
+  static dependsOn = ["auth.provider"];
 
   register(app) {
     if (!app || typeof app.has !== "function") {

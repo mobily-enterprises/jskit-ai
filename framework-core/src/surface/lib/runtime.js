@@ -15,13 +15,13 @@ function uniqueSurfaceIds(ids) {
   return ordered;
 }
 
-function resolveSurfaceIds({ surfaceIds = [], surfaces = {} } = {}) {
-  const fromOption = Array.isArray(surfaceIds) ? uniqueSurfaceIds(surfaceIds) : [];
-  if (fromOption.length > 0) {
-    return fromOption;
-  }
-
-  const fromSurfaces = uniqueSurfaceIds(Object.keys(surfaces || {}));
+function resolveSurfaceIds({ surfaces = {} } = {}) {
+  const fromSurfaces = uniqueSurfaceIds(
+    Object.entries(surfaces || {}).map(([key, value]) => {
+      const record = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+      return record.id || key;
+    })
+  );
   if (fromSurfaces.length > 0) {
     return fromSurfaces;
   }
@@ -33,7 +33,6 @@ function createSurfaceRuntime(options = {}) {
   const allMode = normalizeSurfaceId(options?.allMode || "all") || "all";
   const sourceSurfaces = options?.surfaces && typeof options.surfaces === "object" ? options.surfaces : {};
   const surfaceIds = resolveSurfaceIds({
-    surfaceIds: options?.surfaceIds,
     surfaces: sourceSurfaces
   });
 

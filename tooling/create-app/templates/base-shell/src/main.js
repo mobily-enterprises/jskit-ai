@@ -17,7 +17,6 @@ import {
 import {
   SURFACE_DEFAULT_ID,
   SURFACE_DEFINITIONS,
-  SURFACE_IDS,
   SURFACE_MODE_ALL,
   WEB_ROOT_ALLOWED
 } from "../config/surfaces.js";
@@ -30,7 +29,6 @@ const WEB_ROOT_ALLOW_NO = "no";
 
 const surfaceRuntime = createSurfaceRuntime({
   allMode: SURFACE_MODE_ALL,
-  surfaceIds: SURFACE_IDS,
   surfaces: SURFACE_DEFINITIONS,
   defaultSurfaceId: SURFACE_DEFAULT_ID
 });

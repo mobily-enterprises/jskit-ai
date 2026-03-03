@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   ACTION_RUNTIME_CONTRIBUTOR_TAG,
+  resolveActionContributors,
+  registerActionContributor,
   ActionRuntimeCoreServiceProvider
 } from "../src/server/providers/ActionRuntimeCoreServiceProvider.js";
 import { ActionRuntimeCoreClientProvider } from "../src/client/providers/ActionRuntimeCoreClientProvider.js";
@@ -106,6 +108,19 @@ test("ActionRuntimeCoreServiceProvider builds actionExecutor from tagged contrib
     input: { value: "ok" }
   });
   assert.deepEqual(result, { echoed: { value: "ok" } });
+});
+
+test("registerActionContributor + resolveActionContributors provide canonical contributor wiring", () => {
+  const app = createSingletonApp();
+
+  registerActionContributor(app, "test.actionContributor.alpha", () => ({ contributorId: "alpha", actions: [] }));
+  registerActionContributor(app, "test.actionContributor.beta", () => [{ contributorId: "beta", actions: [] }]);
+
+  const contributors = resolveActionContributors(app);
+  assert.deepEqual(
+    contributors.map((entry) => entry.contributorId).sort(),
+    ["alpha", "beta"]
+  );
 });
 
 test("ActionRuntimeCoreClientProvider registers runtime actions client api", () => {

@@ -6,15 +6,7 @@ import {
   resolveRuntimeProfileFromSurface,
   tryCreateProviderRuntimeFromApp
 } from "@jskit-ai/framework-core/platform/server";
-import { createSurfaceRuntime } from "@jskit-ai/framework-core/surface/runtime";
-import { SURFACE_DEFAULT_ID, SURFACE_DEFINITIONS, SURFACE_IDS, SURFACE_MODE_ALL } from "./config/surfaces.js";
-
-const surfaceRuntime = createSurfaceRuntime({
-  allMode: SURFACE_MODE_ALL,
-  surfaceIds: SURFACE_IDS,
-  surfaces: SURFACE_DEFINITIONS,
-  defaultSurfaceId: SURFACE_DEFAULT_ID
-});
+import { surfaceRuntime } from "./server/lib/surfaceRuntime.js";
 
 async function createServer() {
   const app = Fastify({ logger: true });

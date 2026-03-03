@@ -44,6 +44,10 @@ export default Object.freeze({
         {
           "entrypoint": "src/server/providers/AuthSupabaseServiceProvider.js",
           "export": "AuthSupabaseServiceProvider"
+        },
+        {
+          "entrypoint": "src/server/providers/AuthProviderServiceProvider.js",
+          "export": "AuthProviderServiceProvider"
         }
       ]
     }

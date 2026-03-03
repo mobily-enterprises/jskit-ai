@@ -3,7 +3,7 @@ import { AuthWebService } from "../services/AuthWebService.js";
 class AuthWebServiceProvider {
   static id = "auth.web";
 
-  static dependsOn = ["auth.provider.supabase"];
+  static dependsOn = ["auth.provider"];
 
   register(app) {
     if (!app || typeof app.singleton !== "function") {

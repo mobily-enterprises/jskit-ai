@@ -3,7 +3,7 @@ import * as actionRuntimeCore from "../../lib/index.js";
 const ACTION_RUNTIME_CORE_API = Object.freeze({
   ...actionRuntimeCore
 });
-const ACTION_RUNTIME_CONTRIBUTOR_TAG = "runtime.actions.contributors";
+const ACTION_RUNTIME_CONTRIBUTOR_TAG = Symbol.for("jskit.runtime.actions.contributors");
 const LOGGER_TOKEN = Symbol.for("jskit.logger");
 
 function normalizePlainObject(value) {
@@ -67,6 +67,15 @@ function createActionExecutor(actionRegistry) {
   });
 }
 
+function registerActionContributor(app, token, factory) {
+  if (!app || typeof app.singleton !== "function" || typeof app.tag !== "function") {
+    throw new Error("registerActionContributor requires application singleton/tag.");
+  }
+
+  app.singleton(token, factory);
+  app.tag(token, ACTION_RUNTIME_CONTRIBUTOR_TAG);
+}
+
 class ActionRuntimeCoreServiceProvider {
   static id = "runtime.actions";
 
@@ -109,4 +118,9 @@ class ActionRuntimeCoreServiceProvider {
   boot() {}
 }
 
-export { ACTION_RUNTIME_CONTRIBUTOR_TAG, ActionRuntimeCoreServiceProvider };
+export {
+  ACTION_RUNTIME_CONTRIBUTOR_TAG,
+  resolveActionContributors,
+  registerActionContributor,
+  ActionRuntimeCoreServiceProvider
+};
