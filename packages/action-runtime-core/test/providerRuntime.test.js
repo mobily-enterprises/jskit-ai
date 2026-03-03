@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  ACTION_RUNTIME_CONTRIBUTOR_TAG,
   resolveActionContributors,
   registerActionContributor,
   ActionRuntimeCoreServiceProvider
@@ -70,12 +69,12 @@ test("ActionRuntimeCoreServiceProvider registers runtime actions api", () => {
   assert.equal(typeof api.createActionRegistry, "function");
 });
 
-test("ActionRuntimeCoreServiceProvider builds actionExecutor from tagged contributors", async () => {
+test("ActionRuntimeCoreServiceProvider builds actionExecutor from registered contributors", async () => {
   const app = createSingletonApp();
   const provider = new ActionRuntimeCoreServiceProvider();
   provider.register(app);
 
-  app.singleton("test.actionContributor", () => ({
+  registerActionContributor(app, "test.actionContributor", () => ({
     contributorId: "test.actions",
     domain: "auth",
     actions: [
@@ -97,7 +96,6 @@ test("ActionRuntimeCoreServiceProvider builds actionExecutor from tagged contrib
       }
     ]
   }));
-  app.tag("test.actionContributor", ACTION_RUNTIME_CONTRIBUTOR_TAG);
 
   const actionExecutor = app.make("actionExecutor");
   assert.equal(typeof actionExecutor?.execute, "function");
