@@ -1,2 +1,5 @@
 export * from "../lib/index.js";
-export { ActionRuntimeCoreServiceProvider } from "./providers/ActionRuntimeCoreServiceProvider.js";
+export {
+  ACTION_RUNTIME_CONTRIBUTOR_TAG,
+  ActionRuntimeCoreServiceProvider
+} from "./providers/ActionRuntimeCoreServiceProvider.js";

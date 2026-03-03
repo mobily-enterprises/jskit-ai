@@ -1,105 +1,7 @@
 import { TOKENS } from "@jskit-ai/framework-core/support/tokens";
 import { createService } from "../lib/service.js";
 import { createAuthActionContributor } from "../lib/actions/auth.contributor.js";
-import {
-  createActionRegistry,
-  createPermissionEvaluator,
-  createNoopIdempotencyAdapter,
-  createNoopAuditAdapter,
-  createNoopObservabilityAdapter,
-  normalizeExecutionContext,
-  normalizeText
-} from "@jskit-ai/action-runtime-core/server";
-import { resolveClientIpAddress } from "@jskit-ai/framework-core/server/requestUrl";
-
-const DEFAULT_SURFACE = "app";
-const KNOWN_SURFACES = new Set(["app", "admin", "console"]);
-
-function normalizePlainObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-  return value;
-}
-
-function normalizeOptionalObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-  return value;
-}
-
-function normalizeSurfaceId(value) {
-  const candidate = normalizeText(value).toLowerCase();
-  return KNOWN_SURFACES.has(candidate) ? candidate : "";
-}
-
-function resolveRequestSurface({ request = null, explicitSurface = "" } = {}) {
-  const surfaceFromContext = normalizeSurfaceId(explicitSurface);
-  if (surfaceFromContext) {
-    return surfaceFromContext;
-  }
-
-  const headerValue = request?.headers?.["x-surface-id"];
-  const surfaceFromHeader = normalizeSurfaceId(Array.isArray(headerValue) ? headerValue[0] : headerValue);
-  if (surfaceFromHeader) {
-    return surfaceFromHeader;
-  }
-
-  return DEFAULT_SURFACE;
-}
-
-function resolveRequestMeta({ request = null, requestMeta = {} } = {}) {
-  const source = normalizePlainObject(requestMeta);
-
-  const commandHeader = request?.headers?.["x-command-id"];
-  const idempotencyHeader = request?.headers?.["idempotency-key"];
-  const userAgentHeader = request?.headers?.["user-agent"];
-
-  return {
-    requestId: normalizeText(source.requestId || request?.id),
-    commandId: normalizeText(source.commandId || (Array.isArray(commandHeader) ? commandHeader[0] : commandHeader)),
-    idempotencyKey: normalizeText(
-      source.idempotencyKey || (Array.isArray(idempotencyHeader) ? idempotencyHeader[0] : idempotencyHeader)
-    ),
-    ip: normalizeText(source.ip || resolveClientIpAddress(request)),
-    userAgent: normalizeText(source.userAgent || (Array.isArray(userAgentHeader) ? userAgentHeader[0] : userAgentHeader)),
-    request
-  };
-}
-
-function buildExecutionContext(context = {}) {
-  const source = normalizePlainObject(context);
-  const sourceRequestMeta = normalizePlainObject(source.requestMeta);
-  const request = source.request || sourceRequestMeta.request || null;
-
-  const actor = normalizeOptionalObject(source.actor) || normalizeOptionalObject(request?.user);
-  const workspace = normalizeOptionalObject(source.workspace) || normalizeOptionalObject(request?.workspace);
-  const membership = normalizeOptionalObject(source.membership) || normalizeOptionalObject(request?.membership);
-  const permissions = Array.isArray(source.permissions)
-    ? source.permissions
-    : Array.isArray(request?.permissions)
-      ? request.permissions
-      : [];
-
-  return normalizeExecutionContext({
-    actor,
-    workspace,
-    membership,
-    permissions,
-    surface: resolveRequestSurface({
-      request,
-      explicitSurface: source.surface
-    }),
-    channel: normalizeText(source.channel) || "internal",
-    requestMeta: resolveRequestMeta({
-      request,
-      requestMeta: sourceRequestMeta
-    }),
-    assistantMeta: normalizePlainObject(source.assistantMeta),
-    timeMeta: normalizePlainObject(source.timeMeta)
-  });
-}
+import { ACTION_RUNTIME_CONTRIBUTOR_TAG } from "@jskit-ai/action-runtime-core/server";
 
 function splitCsv(value) {
   return String(value || "")
@@ -222,45 +124,14 @@ function resolveOptionalRepositories(scope) {
   return repositories;
 }
 
-function createActionExecutor(actionRegistry) {
-  return {
-    execute(payload) {
-      const source = normalizePlainObject(payload);
-      return actionRegistry.execute({
-        actionId: source.actionId,
-        version: source.version == null ? null : source.version,
-        input: normalizePlainObject(source.input),
-        context: buildExecutionContext(source.context),
-        deps: normalizePlainObject(source.deps)
-      });
-    },
-    executeStream(payload) {
-      const source = normalizePlainObject(payload);
-      return actionRegistry.executeStream({
-        actionId: source.actionId,
-        version: source.version == null ? null : source.version,
-        input: normalizePlainObject(source.input),
-        context: buildExecutionContext(source.context),
-        deps: normalizePlainObject(source.deps)
-      });
-    },
-    listDefinitions() {
-      return actionRegistry.listDefinitions();
-    },
-    getDefinition(actionId, version = null) {
-      return actionRegistry.getDefinition(actionId, version);
-    }
-  };
-}
-
 class AuthSupabaseServiceProvider {
   static id = "auth.provider.supabase";
 
-  static dependsOn = [];
+  static dependsOn = ["runtime.actions"];
 
   register(app) {
-    if (!app || typeof app.singleton !== "function" || typeof app.has !== "function") {
-      throw new Error("AuthSupabaseServiceProvider requires application singleton()/has().");
+    if (!app || typeof app.singleton !== "function" || typeof app.has !== "function" || typeof app.tag !== "function") {
+      throw new Error("AuthSupabaseServiceProvider requires application singleton()/has()/tag().");
     }
 
     if (!app.has("authService")) {
@@ -290,44 +161,24 @@ class AuthSupabaseServiceProvider {
       });
     }
 
-    if (!app.has("actionRegistry")) {
-      app.singleton("actionRegistry", (scope) => {
+    const contributorToken = "auth.provider.supabase.actionContributor";
+    if (!app.has(contributorToken)) {
+      app.singleton(contributorToken, (scope) => {
         const authService = scope.make("authService");
         if (!authService) {
           return null;
         }
 
-        const contributors = [];
         try {
-          contributors.push(
-            createAuthActionContributor({
-              authService
-            })
-          );
+          return createAuthActionContributor({
+            authService
+          });
         } catch {
           return null;
         }
-
-        return createActionRegistry({
-          contributors,
-          permissionEvaluator: createPermissionEvaluator(),
-          idempotencyAdapter: createNoopIdempotencyAdapter(),
-          auditAdapter: createNoopAuditAdapter(),
-          observabilityAdapter: createNoopObservabilityAdapter(),
-          logger: scope.has(TOKENS.Logger) ? scope.make(TOKENS.Logger) : console
-        });
       });
     }
-
-    if (!app.has("actionExecutor")) {
-      app.singleton("actionExecutor", (scope) => {
-        const actionRegistry = scope.make("actionRegistry");
-        if (!actionRegistry) {
-          return null;
-        }
-        return createActionExecutor(actionRegistry);
-      });
-    }
+    app.tag(contributorToken, ACTION_RUNTIME_CONTRIBUTOR_TAG);
   }
 }
 

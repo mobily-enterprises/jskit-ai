@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createApplication } from "@jskit-ai/framework-core/kernel/server";
 import { TOKENS } from "@jskit-ai/framework-core/support/tokens";
+import { ActionRuntimeCoreServiceProvider } from "@jskit-ai/action-runtime-core/server";
 import { AuthSupabaseServiceProvider } from "../src/server/providers/AuthSupabaseServiceProvider.js";
 
-test("auth supabase provider registers authService + actionExecutor bindings", async () => {
+test("auth supabase provider registers authService and contributes auth actions", async () => {
   const app = createApplication();
   app.instance(TOKENS.Env, {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
@@ -19,7 +20,9 @@ test("auth supabase provider registers authService + actionExecutor bindings", a
     debug() {}
   });
 
-  await app.start({ providers: [AuthSupabaseServiceProvider] });
+  await app.start({
+    providers: [ActionRuntimeCoreServiceProvider, AuthSupabaseServiceProvider]
+  });
 
   const authService = app.make("authService");
   assert.equal(typeof authService?.login, "function");
