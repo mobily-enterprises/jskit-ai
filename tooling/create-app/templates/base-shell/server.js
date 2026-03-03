@@ -25,11 +25,6 @@ async function createServer() {
     };
   });
   const runtimeEnv = resolveRuntimeEnv();
-  registerSurfaceRequestConstraint({
-    fastify: app,
-    surfaceRuntime,
-    serverSurface: runtimeEnv.SERVER_SURFACE
-  });
   const appRoot = path.resolve(process.cwd());
   const runtime = await tryCreateProviderRuntimeFromApp({
     appRoot,
@@ -42,6 +37,13 @@ async function createServer() {
     env: runtimeEnv,
     logger: app.log,
     fastify: app
+  });
+
+  registerSurfaceRequestConstraint({
+    fastify: app,
+    surfaceRuntime,
+    serverSurface: runtimeEnv.SERVER_SURFACE,
+    globalUiPaths: runtime?.globalUiPaths || []
   });
 
   if (runtime) {

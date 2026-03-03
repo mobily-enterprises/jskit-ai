@@ -1,5 +1,5 @@
 {
-  "name": "manual-app",
+  "name": "__APP_NAME__",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -23,7 +23,7 @@
     "lint": "eslint .",
     "test": "node --test",
     "test:client": "vitest run tests/client",
-    "prestart": "bash ./scripts/copy-local-packages.sh",
+    "preinstall": "bash ./scripts/copy-local-packages.sh",
     "postinstall": "bash ./scripts/copy-local-packages.sh"
   },
   "dependencies": {

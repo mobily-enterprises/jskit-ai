@@ -81,6 +81,9 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const surfacesConfig = await readFile(path.join(appRoot, "config/surfaces.js"), "utf8");
     assert.match(surfacesConfig, /requiresAuth:\s*false/);
 
+    const serverJs = await readFile(path.join(appRoot, "server.js"), "utf8");
+    assert.match(serverJs, /globalUiPaths:\s*runtime\?\.globalUiPaths\s*\|\|\s*\[\]/);
+
     const appVue = await readFile(path.join(appRoot, "src/App.vue"), "utf8");
     assert.match(appVue, /<RouterView \/>/);
 

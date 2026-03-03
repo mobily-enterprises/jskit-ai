@@ -20,11 +20,27 @@ function toRequestPathname(urlValue) {
   }
 }
 
+function matchesGlobalUiPath(pathname, globalUiPaths = []) {
+  const normalizedPathname = normalizePathname(pathname);
+  const normalizedGlobalUiPaths = [...new Set((Array.isArray(globalUiPaths) ? globalUiPaths : []).map(normalizePathname))]
+    .filter(Boolean)
+    .sort((left, right) => right.length - left.length);
+
+  for (const globalUiPath of normalizedGlobalUiPaths) {
+    if (normalizedPathname === globalUiPath || normalizedPathname.startsWith(`${globalUiPath}/`)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function shouldServePathForSurface({
   surfaceRuntime,
   pathname,
   serverSurface,
-  apiPathPrefix = "/api/"
+  apiPathPrefix = "/api/",
+  globalUiPaths = []
 } = {}) {
   if (!surfaceRuntime || typeof surfaceRuntime.normalizeSurfaceMode !== "function") {
     throw new TypeError("shouldServePathForSurface requires surfaceRuntime.normalizeSurfaceMode().");
@@ -45,6 +61,10 @@ function shouldServePathForSurface({
     return true;
   }
 
+  if (matchesGlobalUiPath(normalizedPathname, globalUiPaths)) {
+    return true;
+  }
+
   const routeSurface = surfaceRuntime.resolveSurfaceFromPathname(normalizedPathname);
   if (!surfaceRuntime.isSurfaceEnabled(routeSurface)) {
     return false;
@@ -61,7 +81,8 @@ function registerSurfaceRequestConstraint({
   fastify,
   surfaceRuntime,
   serverSurface,
-  apiPathPrefix = "/api/"
+  apiPathPrefix = "/api/",
+  globalUiPaths = []
 } = {}) {
   if (!fastify || typeof fastify.addHook !== "function") {
     throw new TypeError("registerSurfaceRequestConstraint requires fastify.addHook().");
@@ -75,7 +96,8 @@ function registerSurfaceRequestConstraint({
         surfaceRuntime,
         pathname,
         serverSurface: normalizedSurface,
-        apiPathPrefix
+        apiPathPrefix,
+        globalUiPaths
       })
     ) {
       return;

@@ -30,6 +30,53 @@ function toSortedUniqueStrings(values) {
   );
 }
 
+function normalizeUiRoutePath(pathValue) {
+  const rawPath = String(pathValue || "").trim();
+  if (!rawPath || !rawPath.startsWith("/") || rawPath.startsWith("//")) {
+    return "";
+  }
+
+  const normalizedPath = rawPath.replace(/\/{2,}/g, "/");
+  if (normalizedPath === "/") {
+    return "/";
+  }
+
+  return normalizedPath.replace(/\/+$/, "") || "/";
+}
+
+function collectGlobalUiPaths(descriptorEntries) {
+  const globalUiPaths = [];
+  const entries = Array.isArray(descriptorEntries) ? descriptorEntries : [];
+
+  for (const descriptorEntry of entries) {
+    const uiRoutes = Array.isArray(descriptorEntry?.descriptor?.metadata?.ui?.routes)
+      ? descriptorEntry.descriptor.metadata.ui.routes
+      : [];
+
+    for (const routeEntry of uiRoutes) {
+      const routeRecord = routeEntry && typeof routeEntry === "object" && !Array.isArray(routeEntry) ? routeEntry : null;
+      if (!routeRecord) {
+        continue;
+      }
+
+      const scope = String(routeRecord.scope || "")
+        .trim()
+        .toLowerCase();
+      if (scope !== "global") {
+        continue;
+      }
+
+      const routePath = normalizeUiRoutePath(routeRecord.path);
+      if (!routePath) {
+        continue;
+      }
+      globalUiPaths.push(routePath);
+    }
+  }
+
+  return Object.freeze(toSortedUniqueStrings(globalUiPaths));
+}
+
 async function resolveDescriptorPathForInstalledPackage({ appRoot, installedPackageState, packageId }) {
   const descriptorPathFromSource = String(installedPackageState?.source?.descriptorPath || "").trim();
   const jskitRoot = path.join(appRoot, "node_modules", "@jskit-ai", "jskit");
@@ -351,6 +398,7 @@ async function createProviderRuntimeFromApp({
   const orderedDescriptors = resolveDescriptorLoadOrder(descriptors);
   const catalog = Object.freeze({
     packageOrder: Object.freeze(orderedDescriptors.map((entry) => entry.packageId)),
+    globalUiPaths: collectGlobalUiPaths(orderedDescriptors),
     descriptors: Object.freeze(orderedDescriptors)
   });
 
@@ -393,6 +441,7 @@ async function createProviderRuntimeFromApp({
     ...providerRuntime,
     routeCount: providerRuntime.routeCount,
     packageOrder: catalog.packageOrder,
+    globalUiPaths: catalog.globalUiPaths,
     providerPackageOrder: Object.freeze(providerPackageIds)
   });
 }

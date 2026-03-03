@@ -68,6 +68,28 @@ test("shouldServePathForSurface allows api and matching enabled surfaces", () =>
   );
 });
 
+test("shouldServePathForSurface allows descriptor-declared global ui paths", () => {
+  const surfaceRuntime = createFakeSurfaceRuntime();
+  assert.equal(
+    shouldServePathForSurface({
+      surfaceRuntime,
+      pathname: "/auth/login",
+      serverSurface: "admin",
+      globalUiPaths: ["/auth/login", "/auth/signout"]
+    }),
+    true
+  );
+  assert.equal(
+    shouldServePathForSurface({
+      surfaceRuntime,
+      pathname: "/auth/signout/complete",
+      serverSurface: "admin",
+      globalUiPaths: ["/auth/login", "/auth/signout"]
+    }),
+    true
+  );
+});
+
 test("resolveRuntimeProfileFromSurface maps all mode to default profile", () => {
   const surfaceRuntime = createFakeSurfaceRuntime();
   assert.equal(

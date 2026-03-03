@@ -15,6 +15,8 @@
     "./client": "./src/client/index.js",
     "./client/views/DefaultLoginView": "./src/client/views/DefaultLoginView.vue",
     "./client/views/DefaultSignOutView": "./src/client/views/DefaultSignOutView.vue",
+    "./client/composables/useDefaultLoginView": "./src/client/composables/useDefaultLoginView.js",
+    "./client/composables/useDefaultSignOutView": "./src/client/composables/useDefaultSignOutView.js",
     "./client/runtime/authGuardRuntime": "./src/client/runtime/authGuardRuntime.js",
     "./client/runtime/authHttpClient": "./src/client/runtime/authHttpClient.js",
     "./client/runtime/useLoginView": "./src/client/runtime/useLoginView.js",

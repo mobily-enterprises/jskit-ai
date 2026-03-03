@@ -109,13 +109,13 @@ export default Object.freeze({
       "routes": [
         {
           "path": "/auth/login",
-          "surface": "app",
+          "scope": "global",
           "name": "auth-login",
           "purpose": "Public login route for authentication flows."
         },
         {
           "path": "/auth/signout",
-          "surface": "app",
+          "scope": "global",
           "name": "auth-signout",
           "purpose": "Public sign-out route that clears session then returns to login."
         }

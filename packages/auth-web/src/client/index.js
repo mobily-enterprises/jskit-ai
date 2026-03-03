@@ -3,6 +3,8 @@ export { default as DefaultLoginView } from "./views/DefaultLoginView.vue";
 export { default as LoginView } from "./views/DefaultLoginView.vue";
 export { default as DefaultSignOutView } from "./views/DefaultSignOutView.vue";
 export { default as SignOutView } from "./views/DefaultSignOutView.vue";
+export { useDefaultLoginView } from "./composables/useDefaultLoginView.js";
+export { useDefaultSignOutView } from "./composables/useDefaultSignOutView.js";
 export { authHttpRequest, clearAuthCsrfTokenCache } from "./api/AuthHttpClient.js";
 export { createSignOutAction, performSignOutRequest } from "./composables/useSignOut.js";
 export { registerClientRoutes } from "./routes/registerClientRoutes.js";
