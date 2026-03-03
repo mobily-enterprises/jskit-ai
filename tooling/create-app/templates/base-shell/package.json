@@ -10,6 +10,7 @@
   "scripts": {
     "server": "node ./bin/server.js",
     "start": "node ./bin/server.js",
+    "preinstall": "bash ./scripts/dev-bootstrap-jskit.sh",
     "dev": "vite",
     "dev:all": "vite",
     "dev:app": "VITE_SURFACE=app vite",
@@ -19,23 +20,10 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "node --test",
-    "test:client": "vitest run tests/client",
-    "preinstall": "bash ./scripts/copy-local-packages.sh",
-    "postinstall": "bash ./scripts/copy-local-packages.sh"
+    "test:client": "vitest run tests/client"
   },
   "dependencies": {
-    "@jskit-ai/framework-core": "file:../../jskit-ai/framework-core",
-    "@jskit-ai/access-core": "file:../../jskit-ai/packages/access-core",
-    "@jskit-ai/action-runtime-core": "file:../../jskit-ai/packages/action-runtime-core",
-    "@jskit-ai/auth-provider-supabase-core": "file:../../jskit-ai/packages/auth-provider-supabase-core",
-    "@jskit-ai/auth-web": "file:../../jskit-ai/packages/auth-web",
-    "@jskit-ai/fastify-auth-policy": "file:../../jskit-ai/packages/fastify-auth-policy",
-    "@jskit-ai/http-client-runtime": "file:../../jskit-ai/packages/http-client-runtime",
-    "@jskit-ai/http-contracts": "file:../../jskit-ai/packages/http-contracts",
-    "@jskit-ai/rbac-core": "file:../../jskit-ai/packages/rbac-core",
-    "@jskit-ai/jskit": "0.2.0",
-    "@mdi/js": "^7.4.47",
-    "dotenv": "^17.3.1",
+    "@jskit-ai/framework-core": "0.1.0",
     "fastify": "^5.7.4",
     "vue": "^3.5.13",
     "vue-router": "^4.6.4",
@@ -43,7 +31,7 @@
   },
   "devDependencies": {
     "@jskit-ai/config-eslint": "0.1.0",
-    "@jskit-ai/jskit": "0.2.0",
+    "@jskit-ai/jskit-cli": "0.2.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "eslint": "^9.39.1",
     "unplugin-vue-router": "^0.19.2",

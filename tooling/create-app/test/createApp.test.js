@@ -37,12 +37,13 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     const appRoot = path.join(cwd, "sample-app");
     const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
     assert.equal(packageJson.name, "sample-app");
-    assert.equal(packageJson.scripts.preinstall, "bash ./scripts/copy-local-packages.sh");
-    assert.equal(packageJson.scripts.postinstall, "bash ./scripts/copy-local-packages.sh");
-
-    const copyScript = await readFile(path.join(appRoot, "scripts/copy-local-packages.sh"), "utf8");
-    assert.match(copyScript, /SRC_PACKAGES_ROOT/);
-    assert.match(copyScript, /Copied: framework-core/);
+    assert.equal(packageJson.scripts.preinstall, "bash ./scripts/dev-bootstrap-jskit.sh");
+    assert.equal(packageJson.scripts.postinstall, undefined);
+    await assert.rejects(access(path.join(appRoot, "scripts/copy-local-packages.sh")), /ENOENT/);
+    const devBootstrapScript = await readFile(path.join(appRoot, "scripts/dev-bootstrap-jskit.sh"), "utf8");
+    assert.match(devBootstrapScript, /JSKIT_DEV_BOOTSTRAP/);
+    assert.match(devBootstrapScript, /JSKIT_GITHUB_TARBALL_URL/);
+    assert.match(devBootstrapScript, /curl -fsSL/);
 
     const readme = await readFile(path.join(appRoot, "README.md"), "utf8");
     assert.match(readme, /^# Sample App$/m);

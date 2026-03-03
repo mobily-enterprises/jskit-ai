@@ -1,5 +1,5 @@
 {
-  "name": "@jskit-ai/jskit",
+  "name": "@jskit-ai/jskit-cli",
   "version": "0.2.0",
   "description": "Bundle and package orchestration CLI for JSKIT apps.",
   "type": "module",
@@ -18,6 +18,9 @@
   },
   "scripts": {
     "test": "node --test"
+  },
+  "dependencies": {
+    "@jskit-ai/jskit-catalog": "0.1.0"
   },
   "engines": {
     "node": "20.x"

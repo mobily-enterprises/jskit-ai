@@ -17,7 +17,7 @@ const EXPECTED_RUNTIME_DEPENDENCIES = Object.freeze([
 
 const EXPECTED_DEV_DEPENDENCIES = Object.freeze([
   "@jskit-ai/config-eslint",
-  "@jskit-ai/jskit",
+  "@jskit-ai/jskit-cli",
   "@vitejs/plugin-vue",
   "eslint",
   "unplugin-vue-router",

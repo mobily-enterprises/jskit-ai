@@ -1,27 +1,121 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import {
   access,
   constants as fsConstants,
   copyFile,
+  mkdtemp,
   mkdir,
   readFile,
   readdir,
   rm,
   writeFile
 } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const CLI_PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const REPO_ROOT = path.resolve(CLI_PACKAGE_ROOT, "../..");
-const MODULES_ROOT = path.join(REPO_ROOT, "packages");
+
+function isWorkspaceRoot(candidateRoot) {
+  if (!candidateRoot) {
+    return false;
+  }
+  return (
+    existsSync(path.join(candidateRoot, "packages")) &&
+    existsSync(path.join(candidateRoot, "framework-core")) &&
+    existsSync(path.join(candidateRoot, "tooling", "jskit-cli"))
+  );
+}
+
+function collectAncestorDirectories(startDirectory) {
+  const ancestors = [];
+  let current = path.resolve(startDirectory);
+  while (true) {
+    ancestors.push(current);
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+  return ancestors;
+}
+
+function resolveWorkspaceRoot() {
+  const candidates = [];
+  const seen = new Set();
+  const appendCandidate = (candidatePath) => {
+    const raw = String(candidatePath || "").trim();
+    if (!raw) {
+      return;
+    }
+    const absolute = path.resolve(raw);
+    if (seen.has(absolute)) {
+      return;
+    }
+    seen.add(absolute);
+    candidates.push(absolute);
+  };
+
+  appendCandidate(process.env.JSKIT_REPO_ROOT);
+  appendCandidate(path.resolve(CLI_PACKAGE_ROOT, "../.."));
+  appendCandidate(CLI_PACKAGE_ROOT);
+
+  const cwdAncestors = collectAncestorDirectories(process.cwd());
+  for (const ancestor of cwdAncestors) {
+    appendCandidate(ancestor);
+    appendCandidate(path.join(ancestor, "jskit-ai"));
+  }
+
+  for (const candidate of candidates) {
+    if (isWorkspaceRoot(candidate)) {
+      return candidate;
+    }
+  }
+
+  return "";
+}
+
+const WORKSPACE_ROOT = resolveWorkspaceRoot();
+const MODULES_ROOT = WORKSPACE_ROOT ? path.join(WORKSPACE_ROOT, "packages") : "";
 const BUNDLES_ROOT = path.join(CLI_PACKAGE_ROOT, "bundles");
+const require = createRequire(import.meta.url);
+
+function resolveCatalogPackagesPath() {
+  const explicitPath = String(process.env.JSKIT_CATALOG_PACKAGES_PATH || "").trim();
+  if (explicitPath) {
+    return path.resolve(explicitPath);
+  }
+
+  let catalogPackageJsonPath = "";
+  try {
+    catalogPackageJsonPath = require.resolve("@jskit-ai/jskit-catalog/package.json");
+  } catch {}
+  if (catalogPackageJsonPath) {
+    return path.join(path.dirname(catalogPackageJsonPath), "catalog", "packages.json");
+  }
+
+  const workspaceCatalogPath = path.resolve(CLI_PACKAGE_ROOT, "../jskit-catalog/catalog/packages.json");
+  if (existsSync(workspaceCatalogPath)) {
+    return workspaceCatalogPath;
+  }
+
+  throw createCliError(
+    "Unable to resolve @jskit-ai/jskit-catalog. Install it alongside @jskit-ai/jskit-cli or set JSKIT_CATALOG_PACKAGES_PATH."
+  );
+}
+
+const CATALOG_PACKAGES_PATH = resolveCatalogPackagesPath();
 const LOCK_RELATIVE_PATH = ".jskit/lock.json";
 const LOCK_VERSION = 1;
 const OPTION_INTERPOLATION_PATTERN = /\$\{(?:option:)?([a-z][a-z0-9-]*)\}/gi;
+const MATERIALIZED_PACKAGE_ROOTS = new Map();
+const MATERIALIZED_PACKAGE_TEMP_DIRECTORIES = new Set();
 const KNOWN_COMMANDS = new Set([
   "help",
   "list",
@@ -555,7 +649,11 @@ function validateBundleDescriptorShape(descriptor, descriptorPath) {
   return normalized;
 }
 
-async function loadPackageRegistry() {
+async function loadWorkspacePackageRegistry() {
+  if (!MODULES_ROOT || !(await fileExists(MODULES_ROOT))) {
+    return new Map();
+  }
+
   const directories = [];
   const levelOne = await readdir(MODULES_ROOT, { withFileTypes: true });
 
@@ -612,13 +710,80 @@ async function loadPackageRegistry() {
       version: descriptor.version,
       descriptor,
       rootDir: packageRoot,
-      relativeDir: normalizeRelativePath(REPO_ROOT, packageRoot),
-      descriptorRelativePath: normalizeRelativePath(REPO_ROOT, descriptorPath),
-      packageJson
+      relativeDir: normalizeRelativePath(WORKSPACE_ROOT || MODULES_ROOT, packageRoot),
+      descriptorRelativePath: normalizeRelativePath(WORKSPACE_ROOT || MODULES_ROOT, descriptorPath),
+      packageJson,
+      sourceType: "packages-directory"
     });
   }
 
   return registry;
+}
+
+async function loadCatalogPackageRegistry() {
+  if (!(await fileExists(CATALOG_PACKAGES_PATH))) {
+    return new Map();
+  }
+
+  const catalog = await readJsonFile(CATALOG_PACKAGES_PATH);
+  const packageRecords = ensureArray(catalog?.packages);
+  const registry = new Map();
+
+  for (const packageRecord of packageRecords) {
+    const record = ensureObject(packageRecord);
+    const packageId = String(record.packageId || "").trim();
+    const descriptorPath = `${normalizeRelativePath(CLI_PACKAGE_ROOT, CATALOG_PACKAGES_PATH)}#${packageId || "unknown"}`;
+    const descriptor = validatePackageDescriptorShape(record.descriptor, descriptorPath);
+    if (!packageId) {
+      throw createCliError(`Invalid catalog package entry at ${descriptorPath}: missing packageId.`);
+    }
+    if (descriptor.packageId !== packageId) {
+      throw createCliError(
+        `Invalid catalog package entry at ${descriptorPath}: descriptor packageId ${descriptor.packageId} does not match catalog packageId ${packageId}.`
+      );
+    }
+
+    const version = String(record.version || descriptor.version || "").trim();
+    if (!version) {
+      throw createCliError(`Invalid catalog package entry at ${descriptorPath}: missing version.`);
+    }
+
+    registry.set(packageId, {
+      packageId,
+      version,
+      descriptor: {
+        ...descriptor,
+        version
+      },
+      rootDir: "",
+      relativeDir: "",
+      descriptorRelativePath: descriptorPath,
+      packageJson: {
+        name: packageId,
+        version
+      },
+      sourceType: "catalog"
+    });
+  }
+
+  return registry;
+}
+
+async function loadPackageRegistry() {
+  const workspaceRegistry = await loadWorkspacePackageRegistry();
+  const catalogRegistry = await loadCatalogPackageRegistry();
+  const merged = new Map(catalogRegistry);
+  for (const [packageId, packageEntry] of workspaceRegistry.entries()) {
+    merged.set(packageId, packageEntry);
+  }
+
+  if (merged.size === 0) {
+    throw createCliError(
+      "Unable to load package registry. Provide JSKIT_REPO_ROOT for workspace mode or ensure @jskit-ai/jskit-catalog is installed (or set JSKIT_CATALOG_PACKAGES_PATH)."
+    );
+  }
+
+  return merged;
 }
 
 async function loadBundleRegistry() {
@@ -833,7 +998,7 @@ function createManagedRecordBase(packageEntry, options) {
     packageId: packageEntry.packageId,
     version: packageEntry.version,
     source: {
-      type: "packages-directory",
+      type: String(packageEntry?.sourceType || "packages-directory"),
       descriptorPath: packageEntry.descriptorRelativePath
     },
     managed: {
@@ -848,6 +1013,99 @@ function createManagedRecordBase(packageEntry, options) {
     options,
     installedAt: new Date().toISOString()
   };
+}
+
+async function runCommandCapture(command, args, { cwd } = {}) {
+  return await new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString("utf8");
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString("utf8");
+    });
+
+    child.on("error", reject);
+    child.on("exit", (code) => {
+      if (code === 0) {
+        resolve({
+          stdout,
+          stderr
+        });
+        return;
+      }
+      const details = String(stderr || stdout || "").trim();
+      reject(createCliError(`${command} ${args.join(" ")} failed with exit code ${code}.${details ? ` ${details}` : ""}`));
+    });
+  });
+}
+
+function extractPackTarballName(packStdout) {
+  const lines = String(packStdout || "")
+    .split(/\r?\n/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return lines.length > 0 ? lines[lines.length - 1] : "";
+}
+
+async function materializePackageRootFromRegistry({ packageEntry, appRoot }) {
+  const cacheKey = `${packageEntry.packageId}@${packageEntry.version}`;
+  if (MATERIALIZED_PACKAGE_ROOTS.has(cacheKey)) {
+    return MATERIALIZED_PACKAGE_ROOTS.get(cacheKey);
+  }
+
+  const tempRoot = await mkdtemp(path.join(tmpdir(), "jskit-cli-pack-"));
+  MATERIALIZED_PACKAGE_TEMP_DIRECTORIES.add(tempRoot);
+  const packageSpec = `${packageEntry.packageId}@${packageEntry.version}`;
+  const packResult = await runCommandCapture(
+    "npm",
+    ["pack", packageSpec, "--silent", "--pack-destination", tempRoot],
+    { cwd: appRoot }
+  );
+  const tarballName = extractPackTarballName(packResult.stdout);
+  if (!tarballName) {
+    throw createCliError(`Unable to materialize ${packageSpec}: npm pack produced no tarball name.`);
+  }
+
+  const tarballPath = path.join(tempRoot, tarballName);
+  if (!(await fileExists(tarballPath))) {
+    throw createCliError(`Unable to materialize ${packageSpec}: tarball missing at ${tarballPath}.`);
+  }
+
+  const extractedRoot = path.join(tempRoot, "extracted");
+  await mkdir(extractedRoot, { recursive: true });
+  await runCommandCapture("tar", ["-xzf", tarballPath, "-C", extractedRoot], { cwd: appRoot });
+  const packageRoot = path.join(extractedRoot, "package");
+  const descriptorPath = path.join(packageRoot, "package.descriptor.mjs");
+  if (!(await fileExists(descriptorPath))) {
+    throw createCliError(`Materialized package ${packageSpec} does not contain package.descriptor.mjs.`);
+  }
+
+  MATERIALIZED_PACKAGE_ROOTS.set(cacheKey, packageRoot);
+  return packageRoot;
+}
+
+async function resolvePackageTemplateRoot({ packageEntry, appRoot }) {
+  const packageRoot = String(packageEntry?.rootDir || "").trim();
+  if (packageRoot) {
+    return packageRoot;
+  }
+  return await materializePackageRootFromRegistry({ packageEntry, appRoot });
+}
+
+async function cleanupMaterializedPackageRoots() {
+  for (const tempDirectory of MATERIALIZED_PACKAGE_TEMP_DIRECTORIES) {
+    await rm(tempDirectory, { recursive: true, force: true }).catch(() => {});
+  }
+  MATERIALIZED_PACKAGE_TEMP_DIRECTORIES.clear();
+  MATERIALIZED_PACKAGE_ROOTS.clear();
 }
 
 async function applyFileMutations(packageEntry, appRoot, fileMutations, managedFiles, touchedFiles) {
@@ -931,6 +1189,14 @@ async function applyPackageInstall({
 }) {
   const managedRecord = createManagedRecordBase(packageEntry, packageOptions);
   const mutations = ensureObject(packageEntry.descriptor.mutations);
+  const templateRoot = await resolvePackageTemplateRoot({ packageEntry, appRoot });
+  const packageEntryForMutations =
+    templateRoot === packageEntry.rootDir
+      ? packageEntry
+      : {
+          ...packageEntry,
+          rootDir: templateRoot
+        };
   const mutationDependencies = ensureObject(mutations.dependencies);
   const runtimeDependencies = ensureObject(mutationDependencies.runtime);
   const devDependencies = ensureObject(mutationDependencies.dev);
@@ -972,7 +1238,7 @@ async function applyPackageInstall({
   }
 
   await applyFileMutations(
-    packageEntry,
+    packageEntryForMutations,
     appRoot,
     ensureArray(mutations.files),
     managedRecord.managed.files,
@@ -980,7 +1246,7 @@ async function applyPackageInstall({
   );
 
   await applyTextMutations(
-    packageEntry,
+    packageEntryForMutations,
     appRoot,
     ensureArray(mutations.text),
     packageOptions,
@@ -1507,7 +1773,7 @@ async function commandDoctor({ cwd, options, stdout }) {
   for (const [packageId, lockEntryValue] of Object.entries(installed)) {
     const lockEntry = ensureObject(lockEntryValue);
     if (!packageRegistry.has(packageId)) {
-      issues.push(`Installed package not found in packages/: ${packageId}`);
+      issues.push(`Installed package not found in package registry: ${packageId}`);
       continue;
     }
 
@@ -1630,6 +1896,8 @@ async function runCli(argv = process.argv.slice(2), io = {}) {
       printUsage(stderr);
     }
     return 1;
+  } finally {
+    await cleanupMaterializedPackageRoots();
   }
 }
 

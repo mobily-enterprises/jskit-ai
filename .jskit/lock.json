@@ -18,7 +18,7 @@
         "files": []
       },
       "options": {},
-      "installedAt": "2026-03-02T16:55:44.512Z"
+      "installedAt": "2026-03-03T04:55:22.299Z"
     },
     "@jskit-ai/action-runtime-core": {
       "packageId": "@jskit-ai/action-runtime-core",
@@ -33,7 +33,7 @@
             "@jskit-ai/action-runtime-core": {
               "hadPrevious": false,
               "previousValue": "",
-              "value": "file:node_modules/@jskit-ai/jskit/packages/action-runtime-core"
+              "value": "0.1.0"
             }
           },
           "devDependencies": {},
@@ -43,7 +43,7 @@
         "files": []
       },
       "options": {},
-      "installedAt": "2026-03-02T16:55:26.892Z"
+      "installedAt": "2026-03-03T04:55:22.231Z"
     },
     "@jskit-ai/auth-provider-supabase-core": {
       "packageId": "@jskit-ai/auth-provider-supabase-core",
@@ -55,6 +55,11 @@
       "managed": {
         "packageJson": {
           "dependencies": {
+            "dotenv": {
+              "hadPrevious": false,
+              "previousValue": "",
+              "value": "^16.4.5"
+            },
             "@supabase/supabase-js": {
               "hadPrevious": false,
               "previousValue": "",
@@ -68,7 +73,7 @@
             "@jskit-ai/auth-provider-supabase-core": {
               "hadPrevious": false,
               "previousValue": "",
-              "value": "file:node_modules/@jskit-ai/jskit/packages/auth-provider-supabase-core"
+              "value": "0.1.0"
             }
           },
           "devDependencies": {},
@@ -80,8 +85,8 @@
             "op": "upsert-env",
             "key": "AUTH_PROVIDER",
             "value": "supabase",
-            "hadPrevious": false,
-            "previousValue": "",
+            "hadPrevious": true,
+            "previousValue": "supabase",
             "reason": "Select Supabase as the auth provider.",
             "category": "runtime-config",
             "id": "auth-provider"
@@ -90,9 +95,9 @@
             "file": ".env",
             "op": "upsert-env",
             "key": "AUTH_SUPABASE_URL",
-            "value": "dfdsf",
-            "hadPrevious": false,
-            "previousValue": "",
+            "value": "https://example.supabase.co",
+            "hadPrevious": true,
+            "previousValue": "dfdsf",
             "reason": "Configure Supabase project URL for auth.",
             "category": "runtime-config",
             "id": "auth-supabase-url"
@@ -101,9 +106,9 @@
             "file": ".env",
             "op": "upsert-env",
             "key": "AUTH_SUPABASE_PUBLISHABLE_KEY",
-            "value": "dsfs",
-            "hadPrevious": false,
-            "previousValue": "",
+            "value": "sb_publishable_example",
+            "hadPrevious": true,
+            "previousValue": "dsfs",
             "reason": "Configure Supabase publishable key for auth.",
             "category": "runtime-config",
             "id": "auth-supabase-publishable-key"
@@ -113,8 +118,8 @@
             "op": "upsert-env",
             "key": "APP_PUBLIC_URL",
             "value": "http://localhost:5173",
-            "hadPrevious": false,
-            "previousValue": "",
+            "hadPrevious": true,
+            "previousValue": "http://localhost:5173",
             "reason": "Configure application public URL for auth redirect flows.",
             "category": "runtime-config",
             "id": "auth-app-public-url"
@@ -124,10 +129,10 @@
       },
       "options": {
         "app-public-url": "http://localhost:5173",
-        "auth-supabase-publishable-key": "dsfs",
-        "auth-supabase-url": "dfdsf"
+        "auth-supabase-publishable-key": "sb_publishable_example",
+        "auth-supabase-url": "https://example.supabase.co"
       },
-      "installedAt": "2026-03-02T16:55:26.892Z"
+      "installedAt": "2026-03-03T04:55:22.231Z"
     },
     "@jskit-ai/rbac-core": {
       "packageId": "@jskit-ai/rbac-core",
@@ -142,7 +147,7 @@
             "@jskit-ai/rbac-core": {
               "hadPrevious": false,
               "previousValue": "",
-              "value": "file:node_modules/@jskit-ai/jskit/packages/rbac-core"
+              "value": "0.1.0"
             }
           },
           "devDependencies": {},
@@ -152,7 +157,7 @@
         "files": []
       },
       "options": {},
-      "installedAt": "2026-03-02T16:55:44.513Z"
+      "installedAt": "2026-03-03T04:55:22.299Z"
     },
     "@jskit-ai/fastify-auth-policy": {
       "packageId": "@jskit-ai/fastify-auth-policy",
@@ -182,7 +187,7 @@
             "@jskit-ai/fastify-auth-policy": {
               "hadPrevious": false,
               "previousValue": "",
-              "value": "file:node_modules/@jskit-ai/jskit/packages/fastify-auth-policy"
+              "value": "0.1.0"
             }
           },
           "devDependencies": {},
@@ -192,7 +197,7 @@
         "files": []
       },
       "options": {},
-      "installedAt": "2026-03-02T16:55:44.513Z"
+      "installedAt": "2026-03-03T04:55:22.300Z"
     },
     "@jskit-ai/http-client-runtime": {
       "packageId": "@jskit-ai/http-client-runtime",
@@ -207,7 +212,7 @@
             "@jskit-ai/http-client-runtime": {
               "hadPrevious": false,
               "previousValue": "",
-              "value": "file:node_modules/@jskit-ai/jskit/packages/http-client-runtime"
+              "value": "0.1.0"
             }
           },
           "devDependencies": {},
@@ -217,7 +222,7 @@
         "files": []
       },
       "options": {},
-      "installedAt": "2026-03-02T16:55:44.513Z"
+      "installedAt": "2026-03-03T04:55:22.299Z"
     },
     "@jskit-ai/http-contracts": {
       "packageId": "@jskit-ai/http-contracts",
@@ -242,7 +247,7 @@
             "@jskit-ai/http-contracts": {
               "hadPrevious": false,
               "previousValue": "",
-              "value": "file:node_modules/@jskit-ai/jskit/packages/http-contracts"
+              "value": "0.1.0"
             }
           },
           "devDependencies": {},
@@ -252,7 +257,7 @@
         "files": []
       },
       "options": {},
-      "installedAt": "2026-03-02T16:55:44.513Z"
+      "installedAt": "2026-03-03T04:55:22.299Z"
     },
     "@jskit-ai/auth-web": {
       "packageId": "@jskit-ai/auth-web",
@@ -264,10 +269,25 @@
       "managed": {
         "packageJson": {
           "dependencies": {
+            "@mdi/js": {
+              "hadPrevious": false,
+              "previousValue": "",
+              "value": "^7.4.47"
+            },
+            "dotenv": {
+              "hadPrevious": true,
+              "previousValue": "^16.4.5",
+              "value": "^17.3.1"
+            },
+            "vuetify": {
+              "hadPrevious": false,
+              "previousValue": "",
+              "value": "^4.0.0"
+            },
             "@jskit-ai/auth-web": {
               "hadPrevious": false,
               "previousValue": "",
-              "value": "file:node_modules/@jskit-ai/jskit/packages/auth-web"
+              "value": "0.1.0"
             }
           },
           "devDependencies": {},
@@ -276,54 +296,27 @@
         "text": {},
         "files": [
           {
-            "path": "src/views/login/LoginView.vue",
-            "hash": "e1c29eeef63a8a7f47602a847cbd92537cb47630716521aea957cd72f0760f91",
+            "path": "src/views/auth/LoginView.vue",
+            "hash": "e73adefd3e6e9c4188ec94c9797eb7af161da5f6d1ba3dd5502dd4cdaca1eca4",
             "hadPrevious": false,
             "previousContentBase64": "",
-            "reason": "Install minimal login container that renders the module-provided DefaultLoginView by default (override the loginComponent prop to customize).",
+            "reason": "Install minimal login container that renders the module-provided DefaultLoginView by default.",
             "category": "auth-web",
             "id": "auth-view-login"
           },
           {
             "path": "src/views/auth/SignOutView.vue",
             "hash": "7fa51245e90a862b25926d306fdd80849dc663c6cac1fb71f42fd54cc4d83780",
-            "hadPrevious": false,
-            "previousContentBase64": "",
+            "hadPrevious": true,
+            "previousContentBase64": "PHNjcmlwdCBzZXR1cD4KaW1wb3J0IERlZmF1bHRTaWduT3V0VmlldyBmcm9tICJAanNraXQtYWkvYXV0aC13ZWIvY2xpZW50L3ZpZXdzL0RlZmF1bHRTaWduT3V0VmlldyI7Cjwvc2NyaXB0PgoKPHRlbXBsYXRlPgogIDxEZWZhdWx0U2lnbk91dFZpZXcgLz4KPC90ZW1wbGF0ZT4K",
             "reason": "Install minimal sign-out container that renders the module-provided SignOutView by default (edit the scaffolded file to customize).",
             "category": "auth-web",
             "id": "auth-view-signout"
-          },
-          {
-            "path": "src/runtime/authHttpClient.js",
-            "hash": "8452d8a4e90621fb6bcbfbc27d95fdb352d88fda2d5798069141dd69e62889b1",
-            "hadPrevious": false,
-            "previousContentBase64": "",
-            "reason": "Provide shared auth HTTP client with CSRF token support.",
-            "category": "auth-web",
-            "id": "auth-runtime-http-client"
-          },
-          {
-            "path": "src/runtime/authGuardRuntime.js",
-            "hash": "bd7b821b2445d0eca9d34b152af3e7281c5ef5bddb63d91d6d090170b5f525ff",
-            "hadPrevious": false,
-            "previousContentBase64": "",
-            "reason": "Provide auth guard runtime integration for protected shell routes.",
-            "category": "auth-web",
-            "id": "auth-runtime-guard"
-          },
-          {
-            "path": "src/runtime/useSignOut.js",
-            "hash": "645989e728991440be74628944d20708d39a42d6c66ea6e07f08bfc04005db42",
-            "hadPrevious": false,
-            "previousContentBase64": "",
-            "reason": "Provide reusable sign-out flow helper for layouts and auth views.",
-            "category": "auth-web",
-            "id": "auth-runtime-signout"
           }
         ]
       },
       "options": {},
-      "installedAt": "2026-03-02T16:55:44.513Z"
+      "installedAt": "2026-03-03T04:55:22.300Z"
     }
   }
 }

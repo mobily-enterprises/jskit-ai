@@ -1,0 +1,581 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "kind": "packages-directory"
+  },
+  "packages": [
+    {
+      "packageId": "@jskit-ai/access-core",
+      "version": "0.1.0",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/access-core",
+        "version": "0.1.0",
+        "dependsOn": [],
+        "capabilities": {
+          "provides": [
+            "auth.access"
+          ],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providerEntrypoint": "src/server/index.js",
+            "providers": [
+              {
+                "entrypoint": "src/server/providers/AccessCoreServiceProvider.js",
+                "export": "AccessCoreServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": [
+              {
+                "entrypoint": "src/client/providers/AccessCoreClientProvider.js",
+                "export": "AccessCoreClientProvider"
+              }
+            ]
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@jskit-ai/framework-core": "0.1.0"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": []
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/action-runtime-core",
+      "version": "0.1.0",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/action-runtime-core",
+        "version": "0.1.0",
+        "dependsOn": [],
+        "capabilities": {
+          "provides": [
+            "runtime.actions"
+          ],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providerEntrypoint": "src/server/index.js",
+            "providers": [
+              {
+                "entrypoint": "src/server/providers/ActionRuntimeCoreServiceProvider.js",
+                "export": "ActionRuntimeCoreServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": [
+              {
+                "entrypoint": "src/client/providers/ActionRuntimeCoreClientProvider.js",
+                "export": "ActionRuntimeCoreClientProvider"
+              }
+            ]
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {},
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": []
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/auth-provider-supabase-core",
+      "version": "0.1.0",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/auth-provider-supabase-core",
+        "version": "0.1.0",
+        "options": {
+          "auth-supabase-url": {
+            "required": true,
+            "values": [],
+            "promptLabel": "Supabase URL",
+            "promptHint": "https://YOUR-PROJECT.supabase.co"
+          },
+          "auth-supabase-publishable-key": {
+            "required": true,
+            "values": [],
+            "promptLabel": "Supabase publishable key",
+            "promptHint": "sb_publishable_..."
+          },
+          "app-public-url": {
+            "required": true,
+            "values": [],
+            "defaultValue": "http://localhost:5173",
+            "promptLabel": "App public URL",
+            "promptHint": "Browser URL used for auth redirects"
+          }
+        },
+        "dependsOn": [
+          "@jskit-ai/access-core",
+          "@jskit-ai/action-runtime-core",
+          "@jskit-ai/value-app-config-shared"
+        ],
+        "capabilities": {
+          "provides": [
+            "auth.provider.supabase",
+            "auth.provider"
+          ],
+          "requires": [
+            "auth.access"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providerEntrypoint": "src/server/index.js",
+            "providers": [
+              {
+                "entrypoint": "src/server/providers/AuthSupabaseServiceProvider.js",
+                "export": "AuthSupabaseServiceProvider"
+              }
+            ]
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@jskit-ai/access-core": "0.1.0",
+              "@jskit-ai/action-runtime-core": "0.1.0",
+              "@jskit-ai/framework-core": "0.1.0",
+              "dotenv": "^16.4.5",
+              "@supabase/supabase-js": "^2.57.4",
+              "jose": "^6.1.0"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": [],
+          "text": [
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "AUTH_PROVIDER",
+              "value": "supabase",
+              "reason": "Select Supabase as the auth provider.",
+              "category": "runtime-config",
+              "id": "auth-provider"
+            },
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "AUTH_SUPABASE_URL",
+              "value": "${option:auth-supabase-url}",
+              "reason": "Configure Supabase project URL for auth.",
+              "category": "runtime-config",
+              "id": "auth-supabase-url"
+            },
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "AUTH_SUPABASE_PUBLISHABLE_KEY",
+              "value": "${option:auth-supabase-publishable-key}",
+              "reason": "Configure Supabase publishable key for auth.",
+              "category": "runtime-config",
+              "id": "auth-supabase-publishable-key"
+            },
+            {
+              "file": ".env",
+              "op": "upsert-env",
+              "key": "APP_PUBLIC_URL",
+              "value": "${option:app-public-url}",
+              "reason": "Configure application public URL for auth redirect flows.",
+              "category": "runtime-config",
+              "id": "auth-app-public-url"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/auth-web",
+      "version": "0.1.0",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/auth-web",
+        "version": "0.1.0",
+        "description": "Auth web module: Fastify auth routes plus web login/sign-out scaffolds.",
+        "dependsOn": [
+          "@jskit-ai/access-core",
+          "@jskit-ai/http-client-runtime",
+          "@jskit-ai/http-contracts",
+          "@jskit-ai/fastify-auth-policy",
+          "@jskit-ai/value-app-config-shared"
+        ],
+        "capabilities": {
+          "provides": [
+            "auth.server-routes",
+            "auth.web-login"
+          ],
+          "requires": [
+            "auth.access",
+            "auth.provider",
+            "contracts.http",
+            "auth.policy"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providerEntrypoint": "src/server/index.js",
+            "providers": [
+              {
+                "entrypoint": "src/server/providers/AuthWebServiceProvider.js",
+                "export": "AuthWebServiceProvider"
+              },
+              {
+                "entrypoint": "src/server/providers/AuthRouteServiceProvider.js",
+                "export": "AuthRouteServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": [
+              {
+                "entrypoint": "src/client/providers/AuthWebClientProvider.js",
+                "export": "AuthWebClientProvider"
+              }
+            ]
+          }
+        },
+        "metadata": {
+          "server": {
+            "routes": [
+              {
+                "method": "POST",
+                "path": "/api/login",
+                "summary": "Log in with configured credentials"
+              },
+              {
+                "method": "POST",
+                "path": "/api/login/otp/request",
+                "summary": "Request one-time email login code"
+              },
+              {
+                "method": "POST",
+                "path": "/api/login/otp/verify",
+                "summary": "Verify one-time email login code and create session"
+              },
+              {
+                "method": "POST",
+                "path": "/api/logout",
+                "summary": "Log out and clear session cookies"
+              },
+              {
+                "method": "GET",
+                "path": "/api/oauth/:provider/start",
+                "summary": "Start OAuth login with configured provider"
+              },
+              {
+                "method": "POST",
+                "path": "/api/oauth/complete",
+                "summary": "Complete OAuth code exchange and set session cookies"
+              },
+              {
+                "method": "POST",
+                "path": "/api/password/forgot",
+                "summary": "Request a password reset email"
+              },
+              {
+                "method": "POST",
+                "path": "/api/password/recovery",
+                "summary": "Complete password recovery link exchange"
+              },
+              {
+                "method": "POST",
+                "path": "/api/password/reset",
+                "summary": "Set a new password for authenticated recovery session"
+              },
+              {
+                "method": "POST",
+                "path": "/api/register",
+                "summary": "Register a new user"
+              },
+              {
+                "method": "GET",
+                "path": "/api/session",
+                "summary": "Get current session status and CSRF token"
+              }
+            ]
+          },
+          "ui": {
+            "routes": [
+              {
+                "path": "/auth/login",
+                "scope": "global",
+                "name": "auth-login",
+                "purpose": "Public login route for authentication flows."
+              },
+              {
+                "path": "/auth/signout",
+                "scope": "global",
+                "name": "auth-signout",
+                "purpose": "Public sign-out route that clears session then returns to login."
+              }
+            ],
+            "elements": [],
+            "overrides": []
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@mdi/js": "^7.4.47",
+              "@fastify/type-provider-typebox": "^6.1.0",
+              "@jskit-ai/access-core": "0.1.0",
+              "@jskit-ai/http-client-runtime": "0.1.0",
+              "@jskit-ai/http-contracts": "0.1.0",
+              "@jskit-ai/framework-core": "0.1.0",
+              "vuetify": "^4.0.0"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": [
+            {
+              "from": "templates/src/views/auth/LoginView.vue",
+              "to": "src/views/auth/LoginView.vue",
+              "reason": "Install minimal login container that renders the module-provided DefaultLoginView by default.",
+              "category": "auth-web",
+              "id": "auth-view-login"
+            },
+            {
+              "from": "templates/src/views/auth/SignOutView.vue",
+              "to": "src/views/auth/SignOutView.vue",
+              "reason": "Install minimal sign-out container that renders the module-provided SignOutView by default (edit the scaffolded file to customize).",
+              "category": "auth-web",
+              "id": "auth-view-signout"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/fastify-auth-policy",
+      "version": "0.1.0",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/fastify-auth-policy",
+        "version": "0.1.0",
+        "dependsOn": [
+          "@jskit-ai/access-core",
+          "@jskit-ai/rbac-core",
+          "@jskit-ai/value-app-config-shared"
+        ],
+        "capabilities": {
+          "provides": [
+            "auth.policy"
+          ],
+          "requires": [
+            "auth.access",
+            "auth.rbac"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providerEntrypoint": "src/server/index.js",
+            "providers": [
+              {
+                "entrypoint": "src/server/providers/FastifyAuthPolicyServiceProvider.js",
+                "export": "FastifyAuthPolicyServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": [
+              {
+                "entrypoint": "src/client/providers/FastifyAuthPolicyClientProvider.js",
+                "export": "FastifyAuthPolicyClientProvider"
+              }
+            ]
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@fastify/cookie": "^11.0.2",
+              "@fastify/csrf-protection": "^7.1.0",
+              "@fastify/rate-limit": "^10.3.0",
+              "@jskit-ai/framework-core": "0.1.0"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": []
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/http-client-runtime",
+      "version": "0.1.0",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/http-client-runtime",
+        "version": "0.1.0",
+        "dependsOn": [],
+        "capabilities": {
+          "provides": [
+            "runtime.http-client"
+          ],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providerEntrypoint": "src/server/index.js",
+            "providers": [
+              {
+                "entrypoint": "src/server/providers/HttpClientRuntimeServiceProvider.js",
+                "export": "HttpClientRuntimeServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": [
+              {
+                "entrypoint": "src/client/providers/HttpClientRuntimeClientProvider.js",
+                "export": "HttpClientRuntimeClientProvider"
+              }
+            ]
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {},
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": []
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/http-contracts",
+      "version": "0.1.0",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/http-contracts",
+        "version": "0.1.0",
+        "dependsOn": [],
+        "capabilities": {
+          "provides": [
+            "contracts.http"
+          ],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providerEntrypoint": "src/server/index.js",
+            "providers": [
+              {
+                "entrypoint": "src/server/providers/HttpContractsServiceProvider.js",
+                "export": "HttpContractsServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": [
+              {
+                "entrypoint": "src/client/providers/HttpContractsClientProvider.js",
+                "export": "HttpContractsClientProvider"
+              }
+            ]
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {
+              "@fastify/type-provider-typebox": "^6.1.0",
+              "typebox": "^1.0.81"
+            },
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": []
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/rbac-core",
+      "version": "0.1.0",
+      "descriptor": {
+        "packageVersion": 1,
+        "packageId": "@jskit-ai/rbac-core",
+        "version": "0.1.0",
+        "dependsOn": [
+          "@jskit-ai/access-core"
+        ],
+        "capabilities": {
+          "provides": [
+            "auth.rbac"
+          ],
+          "requires": [
+            "auth.access"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providerEntrypoint": "src/server/index.js",
+            "providers": [
+              {
+                "entrypoint": "src/server/providers/RbacServiceProvider.js",
+                "export": "RbacServiceProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": [
+              {
+                "entrypoint": "src/client/providers/RbacClientProvider.js",
+                "export": "RbacClientProvider"
+              }
+            ]
+          }
+        },
+        "mutations": {
+          "dependencies": {
+            "runtime": {},
+            "dev": {}
+          },
+          "packageJson": {
+            "scripts": {}
+          },
+          "procfile": {},
+          "files": []
+        }
+      }
+    }
+  ]
+}

@@ -79,7 +79,7 @@ function collectGlobalUiPaths(descriptorEntries) {
 
 async function resolveDescriptorPathForInstalledPackage({ appRoot, installedPackageState, packageId }) {
   const descriptorPathFromSource = String(installedPackageState?.source?.descriptorPath || "").trim();
-  const jskitRoot = path.join(appRoot, "node_modules", "@jskit-ai", "jskit");
+  const jskitRoot = path.join(appRoot, "node_modules", "@jskit-ai", "jskit-cli");
 
   const candidatePaths = [path.resolve(appRoot, "node_modules", packageId, "package.descriptor.mjs")];
   if (descriptorPathFromSource) {
