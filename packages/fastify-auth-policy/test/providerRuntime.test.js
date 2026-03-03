@@ -5,12 +5,7 @@ import { FastifyAuthPolicyServiceProvider } from "../src/server/providers/Fastif
 import { createFakeFastifyPolicyRuntime } from "../../../tooling/testUtils/fakeFastify.mjs";
 
 test("FastifyAuthPolicyServiceProvider registers auth policy plugin through provider boot", async () => {
-  const { fastify, state } = createFakeFastifyPolicyRuntime({
-    autoRunPlugin({ state: runtimeState }) {
-      // Execute only the top-level provider plugin registration.
-      return runtimeState.pluginRunCount < 1;
-    }
-  });
+  const { fastify, state } = createFakeFastifyPolicyRuntime();
   const bag = new Map([
     [TOKENS.Fastify, fastify],
     [TOKENS.Env, { NODE_ENV: "test" }],
