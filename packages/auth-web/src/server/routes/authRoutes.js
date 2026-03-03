@@ -204,7 +204,7 @@ function buildRoutes(controller) {
     {
       path: "/api/logout",
       method: "POST",
-      auth: "required",
+      auth: "public",
       schema: {
         tags: ["auth"],
         summary: "Log out and clear session cookies",

@@ -155,27 +155,6 @@ export default Object.freeze({
         "reason": "Install minimal sign-out container that renders the module-provided SignOutView by default (edit the scaffolded file to customize).",
         "category": "auth-web",
         "id": "auth-view-signout"
-      },
-      {
-        "from": "templates/src/runtime/authHttpClient.js",
-        "to": "src/runtime/authHttpClient.js",
-        "reason": "Provide shared auth HTTP client with CSRF token support.",
-        "category": "auth-web",
-        "id": "auth-runtime-http-client"
-      },
-      {
-        "from": "templates/src/runtime/authGuardRuntime.js",
-        "to": "src/runtime/authGuardRuntime.js",
-        "reason": "Provide auth guard runtime integration for protected shell routes.",
-        "category": "auth-web",
-        "id": "auth-runtime-guard"
-      },
-      {
-        "from": "templates/src/runtime/useSignOut.js",
-        "to": "src/runtime/useSignOut.js",
-        "reason": "Provide reusable sign-out flow helper for layouts and auth views.",
-        "category": "auth-web",
-        "id": "auth-runtime-signout"
       }
     ]
   }
