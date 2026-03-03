@@ -132,4 +132,10 @@ function createSignOutAction({ currentSurface, goToEntry } = {}) {
   };
 }
 
-export { createSignOutAction, performSignOutRequest };
+function useSignOut(options = {}) {
+  return Object.freeze({
+    signOut: createSignOutAction(options)
+  });
+}
+
+export { useSignOut, createSignOutAction, performSignOutRequest };

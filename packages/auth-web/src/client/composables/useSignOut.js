@@ -1,1 +1,1 @@
-export { createSignOutAction, performSignOutRequest } from "../runtime/useSignOut.js";
+export { useSignOut, createSignOutAction, performSignOutRequest } from "../runtime/useSignOut.js";
