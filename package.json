@@ -18,23 +18,5 @@
   "devDependencies": {
     "cloc": "^2.6.0-cloc",
     "jscpd": "^4.0.8"
-  },
-  "dependencies": {
-    "@jskit-ai/framework-core": "0.1.0",
-    "@jskit-ai/access-core": "file:node_modules/@jskit-ai/jskit/packages/access-core",
-    "@jskit-ai/action-runtime-core": "file:node_modules/@jskit-ai/jskit/packages/action-runtime-core",
-    "@supabase/supabase-js": "^2.57.4",
-    "jose": "^6.1.0",
-    "@jskit-ai/auth-provider-supabase-core": "file:node_modules/@jskit-ai/jskit/packages/auth-provider-supabase-core",
-    "@jskit-ai/rbac-core": "file:node_modules/@jskit-ai/jskit/packages/rbac-core",
-    "@fastify/cookie": "^11.0.2",
-    "@fastify/csrf-protection": "^7.1.0",
-    "@fastify/rate-limit": "^10.3.0",
-    "@jskit-ai/fastify-auth-policy": "file:node_modules/@jskit-ai/jskit/packages/fastify-auth-policy",
-    "@jskit-ai/http-client-runtime": "file:node_modules/@jskit-ai/jskit/packages/http-client-runtime",
-    "@fastify/type-provider-typebox": "^6.1.0",
-    "typebox": "^1.0.81",
-    "@jskit-ai/http-contracts": "file:node_modules/@jskit-ai/jskit/packages/http-contracts",
-    "@jskit-ai/auth-web": "file:node_modules/@jskit-ai/jskit/packages/auth-web"
   }
 }

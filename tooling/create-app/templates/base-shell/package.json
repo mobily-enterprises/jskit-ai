@@ -7,9 +7,6 @@
   "engines": {
     "node": "20.x"
   },
-  "bin": {
-    "jskit": "node_modules/@jskit-ai/jskit/tooling/jskit/bin/jskit.js"
-  },
   "scripts": {
     "server": "node ./bin/server.js",
     "start": "node ./bin/server.js",
@@ -36,7 +33,7 @@
     "@jskit-ai/http-client-runtime": "file:../../jskit-ai/packages/http-client-runtime",
     "@jskit-ai/http-contracts": "file:../../jskit-ai/packages/http-contracts",
     "@jskit-ai/rbac-core": "file:../../jskit-ai/packages/rbac-core",
-    "@jskit-ai/jskit": "github:mobily-enterprises/jskit-ai",
+    "@jskit-ai/jskit": "0.2.0",
     "@mdi/js": "^7.4.47",
     "dotenv": "^17.3.1",
     "fastify": "^5.7.4",
@@ -46,7 +43,7 @@
   },
   "devDependencies": {
     "@jskit-ai/config-eslint": "0.1.0",
-    "@jskit-ai/jskit": "github:mobily-enterprises/jskit-ai",
+    "@jskit-ai/jskit": "0.2.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "eslint": "^9.39.1",
     "unplugin-vue-router": "^0.19.2",

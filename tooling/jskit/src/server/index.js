@@ -647,7 +647,15 @@ async function loadBundleRegistry() {
 }
 
 function createLocalPackageSpecifier(packageEntry) {
-  return `file:node_modules/@jskit-ai/jskit/${packageEntry.relativeDir}`;
+  const descriptorVersion = String(packageEntry?.version || "").trim();
+  if (descriptorVersion) {
+    return descriptorVersion;
+  }
+  const packageJsonVersion = String(packageEntry?.packageJson?.version || "").trim();
+  if (packageJsonVersion) {
+    return packageJsonVersion;
+  }
+  throw createCliError(`Unable to resolve version for ${String(packageEntry?.packageId || "unknown package")}.`);
 }
 
 function resolveLocalDependencyOrder(initialPackageIds, packageRegistry) {
