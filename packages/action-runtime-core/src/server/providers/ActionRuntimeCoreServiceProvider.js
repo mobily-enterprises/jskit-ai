@@ -119,7 +119,6 @@ class ActionRuntimeCoreServiceProvider {
 }
 
 export {
-  ACTION_RUNTIME_CONTRIBUTOR_TAG,
   resolveActionContributors,
   registerActionContributor,
   ActionRuntimeCoreServiceProvider
